@@ -279,7 +279,6 @@ static uint64_t pb_pos;
 static uint64_t last_rtptime;
 
 /* Output devices */
-static int dev_autoselect; //TODO [player] Is this still necessary?
 static struct output_device *dev_list;
 
 /* Output status */
@@ -343,9 +342,6 @@ status_update(enum play_status status)
   player_state = status;
 
   listener_notify(LISTENER_PLAYER);
-
-  if (status == PLAY_PLAYING)
-    dev_autoselect = 0;
 }
 
 
@@ -1641,16 +1637,16 @@ device_remove(struct output_device *remove)
   if (!device)
     return;
 
+  /* Save device volume */
+  ret = db_speaker_save(remove->id, remove->selected, remove->volume, remove->name);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
+
   DPRINTF(E_DBG, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
 
   /* Make sure device isn't selected anymore */
-  if (device->selected)
+  if (remove->selected)
     speaker_deselect_output(remove);
-
-  /* Save device volume */
-  ret = db_speaker_save(remove->id, 0, remove->volume, remove->name);
-  if (ret < 0)
-    DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
   if (!prev)
     dev_list = remove->next;
@@ -1702,7 +1698,7 @@ device_add(struct player_command *cmd)
 	  device->volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
 	}
 
-      if (dev_autoselect && selected)
+      if (selected && (player_state != PLAY_PLAYING))
 	speaker_select_output(device);
 
       device->next = dev_list;
@@ -4335,7 +4331,6 @@ player_init(void)
 
   clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
 
-  dev_autoselect = 1;
   dev_list = NULL;
 
   master_volume = -1;
