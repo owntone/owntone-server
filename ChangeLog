@@ -1,6 +1,26 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 24.0:
+	- support for Chromecast audio
+	- support more idv3 tags (eg. date released)
+	- support more DAAP tags (eg. datereleased, hasbeenplayed)
+	- fix problem with playlists not shown in correct order in Remote
+	- autoselect devices based on priorities + keep devices selected
+	- fix multiple FreeBSD filescanner bugs (like too many open files)
+	- ALSA audio refurbished (prevent underrun/overrun, better AirPlay sync)
+	- improved mpd command support (eg. lsinfo, move, queue autoplay start)
+	- better mpd performance
+	- timing changes to keep input and output in sync with player timer
+	- prevent cache bloat (unscaled artwork or artwork for deleted tracks)
+	- more intelligent Spotify artwork retrieval
+	- artwork handling refactored
+	- add generic output interface
+	- add systemd service file
+	- support for OSS4 dropped
+	- support for old ffmpeg dropped
+	- misc minor bugfixing
+
 version 23.4:
 	- fix freeze problem on network stream disconnects
 	- support for mp3 streaming
