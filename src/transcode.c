@@ -1559,7 +1559,7 @@ transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx)
       // data pointer is adjusted with an offset
       if (used < packet.size)
 	{
-	  DPRINTF(E_DBG, L_XCODE, "Decoder did not finish packet, packet will be resumed\n");
+	  DPRINTF(E_SPAM, L_XCODE, "Decoder did not finish packet, packet will be resumed\n");
 
 	  ctx->resume_offset += used;
 	  ctx->resume = 1;
@@ -1568,8 +1568,6 @@ transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx)
   while (!got_frame);
 
   // Return the decoded frame and stream index
-  frame->pts = av_frame_get_best_effort_timestamp(frame);
-
   *decoded = malloc(sizeof(struct decoded_frame));
   if (!*decoded)
     {
@@ -1582,7 +1580,7 @@ transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx)
   (*decoded)->frame = frame;
   (*decoded)->stream_index = stream_index;
 
-  return used;
+  return got_frame;
 }
 
 // Filters and encodes

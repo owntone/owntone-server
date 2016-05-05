@@ -62,7 +62,7 @@ transcode_decoded_free(struct decoded_frame *decoded);
  * @out decoded   A newly allocated struct with a pointer to the frame and the
  *                stream. Must be freed with transcode_decoded_free().
  * @in  ctx       Decode context
- * @return        Bytes read if OK, negative if error, 0 if EOF
+ * @return        Positive if OK, negative if error, 0 if EOF
  */
 int
 transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx);
