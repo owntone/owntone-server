@@ -2,6 +2,8 @@
 #ifndef __OUTPUTS_H__
 #define __OUTPUTS_H__
 
+#include <time.h>
+
 /* Outputs is a generic interface between the player and a media output method,
  * like for instance AirPlay (raop) or ALSA. The purpose of the interface is to
  * make it easier to add new outputs without messing too much with the player or
