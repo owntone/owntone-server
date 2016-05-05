@@ -30,7 +30,7 @@
 #include <time.h>
 #include <string.h>
 #include <pthread.h>
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#ifdef HAVE_PTHREAD_NP_H
 # include <pthread_np.h>
 #endif
 
@@ -1859,9 +1859,9 @@ cache_init(void)
       goto thread_fail;
     }
 
-#if defined(__linux__)
+#if defined(HAVE_PTHREAD_SETNAME_NP)
   pthread_setname_np(tid_cache, "cache");
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
   pthread_set_name_np(tid_cache, "cache");
 #endif
 

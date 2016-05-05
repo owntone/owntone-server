@@ -41,6 +41,7 @@ AC_CHECK_HEADERS([sys/param.h])
 AC_CHECK_HEADERS([sys/select.h])
 AC_CHECK_HEADERS([dirent.h])
 AC_CHECK_HEADERS([regex.h])
+AC_CHECK_HEADERS([pthread_np.h])
 AC_CHECK_FUNCS(posix_fadvise)
 AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
@@ -48,6 +49,10 @@ AC_CHECK_FUNCS(timegm)
 AC_CHECK_FUNCS(euidaccess)
 AC_CHECK_FUNCS(pipe2)
 
+AC_SEARCH_LIBS([pthread_setname_np], [pthread],
+	AC_DEFINE(HAVE_PTHREAD_SETNAME_NP, 1, [Define to 1 if you have pthread_setname_np]),
+	AC_SEARCH_LIBS([pthread_set_name_np], [pthread], AC_DEFINE(HAVE_PTHREAD_SET_NAME_NP, 1, [Define to 1 if you have pthread_set_name_np]))
+)
 AC_SEARCH_LIBS([inotify_add_watch], [inotify], [], AC_MSG_ERROR([inotify not found]))
 
 dnl Large File Support (LFS)

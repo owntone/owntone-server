@@ -38,16 +38,15 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <pthread.h>
+#ifdef HAVE_PTHREAD_NP_H
+# include <pthread_np.h>
+#endif
 
 #include <unistr.h>
 #include <unictype.h>
 #include <uninorm.h>
 
 #include <event2/event.h>
-
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-# include <pthread_np.h>
-#endif
 
 #ifdef HAVE_REGEX_H
 # include <regex.h>
@@ -2165,9 +2164,9 @@ filescanner_init(void)
       goto thread_fail;
     }
 
-#if defined(__linux__)
+#if defined(HAVE_PTHREAD_SETNAME_NP)
   pthread_setname_np(tid_scan, "filescanner");
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
   pthread_set_name_np(tid_scan, "filescanner");
 #endif
 

@@ -28,17 +28,20 @@
 #include <limits.h>
 #include <errno.h>
 #include <pthread.h>
+#ifdef HAVE_PTHREAD_NP_H
+# include <pthread_np.h>
+#endif
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include <inttypes.h>
 
-# include <event2/event.h>
-# include <event2/buffer.h>
-# include <event2/bufferevent.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include <event2/bufferevent.h>
 #include <event2/http.h>
-# include <event2/listener.h>
+#include <event2/listener.h>
 
 #if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
 # define USE_EVENTFD
@@ -47,7 +50,6 @@
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <netinet/in.h>
-# include <pthread_np.h>
 #endif
 
 #include "logger.h"
@@ -4896,9 +4898,9 @@ int mpd_init(void)
       goto thread_fail;
     }
 
-#if defined(__linux__)
+#if defined(HAVE_PTHREAD_SETNAME_NP)
   pthread_setname_np(tid_mpd, "mpd");
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
   pthread_set_name_np(tid_mpd, "mpd");
 #endif
 
