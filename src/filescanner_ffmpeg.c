@@ -629,6 +629,17 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	break;
 
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_APE:
+#else
+      case CODEC_ID_APE:
+#endif
+	DPRINTF(E_DBG, L_SCAN, "APE\n");
+	mfi->type = strdup("ape");
+	mfi->codectype = strdup("ape");
+	mfi->description = strdup("Monkey's audio");
+	break;
+
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
       case AV_CODEC_ID_MUSEPACK7:
       case AV_CODEC_ID_MUSEPACK8:
 #else
