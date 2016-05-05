@@ -197,7 +197,7 @@ streaming_write(uint8_t *buf, uint64_t rtptime)
 
   ret = write(streaming_pipe[1], buf, STREAMING_RAWBUF_SIZE);
   if (ret < 0)
-    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe\n");
+    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
 }
 
 int
