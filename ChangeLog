@@ -1,6 +1,10 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 24.1:
+	- support for Monkey's audio
+	- fix build problems on some platforms (e.g. OpenWrt)
+
 version 24.0:
 	- support for Chromecast audio
 	- support more idv3 tags (eg. date released)
