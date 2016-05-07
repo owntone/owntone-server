@@ -62,6 +62,7 @@
 #include "player.h"
 #include "queue.h"
 #include "filescanner.h"
+#include "commands.h"
 
 
 static pthread_t tid_mpd;
@@ -70,29 +71,12 @@ static struct event_base *evbase_mpd;
 static int g_exit_pipe[2];
 static struct event *g_exitev;
 
-static int g_cmd_pipe[2];
-static struct event *g_cmdev;
+static struct commands_base *cmdbase;
 
 static struct evhttp *evhttpd;
 
 struct evconnlistener *listener;
 
-struct mpd_command;
-
-typedef int (*cmd_func)(struct mpd_command *cmd);
-
-struct mpd_command
-{
-  pthread_mutex_t lck;
-  pthread_cond_t cond;
-
-  cmd_func func;
-
-  enum listener_event_type arg_evtype;
-  int nonblock;
-
-  int ret;
-};
 
 #define COMMAND_ARGV_MAX 37
 
@@ -207,40 +191,6 @@ struct idle_client
 
 struct idle_client *idle_clients;
 
-/* ---------------------------- COMMAND EXECUTION -------------------------- */
-
-static int
-send_command(struct mpd_command *cmd)
-{
-  int ret;
-
-  if (!cmd->func)
-    {
-      DPRINTF(E_LOG, L_MPD, "BUG: cmd->func is NULL!\n");
-      return -1;
-    }
-
-  ret = write(g_cmd_pipe[1], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not send command: %s\n", strerror(errno));
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-nonblock_command(struct mpd_command *cmd)
-{
-  int ret;
-
-  ret = send_command(cmd);
-  if (ret < 0)
-    return -1;
-
-  return 0;
-}
 
 static void
 thread_exit(void)
@@ -3699,7 +3649,7 @@ mpd_command_decoders(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
-struct command
+struct mpd_command
 {
   /* The command name */
   const char *mpdcommand;
@@ -3716,7 +3666,7 @@ struct command
   int (*handler)(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
 };
 
-static struct command mpd_handlers[] =
+static struct mpd_command mpd_handlers[] =
   {
     /*
      * Commands for querying status
@@ -4192,7 +4142,7 @@ static struct command mpd_handlers[] =
  * @param name the name of the command
  * @return the command or NULL if it is an unknown/unsupported command
  */
-static struct command*
+static struct mpd_command*
 mpd_find_command(const char *name)
 {
   int i;
@@ -4240,7 +4190,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   int ncmd;
   char *line;
   char *errmsg;
-  struct command *command;
+  struct mpd_command *command;
   enum command_list_type listtype;
   int idle_cmd;
   int close_cmd;
@@ -4525,16 +4475,18 @@ mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type
   return 0;
 }
 
-static int
-mpd_notify_idle(struct mpd_command *cmd)
+static enum command_state
+mpd_notify_idle(void *arg, int *retval)
 {
+  enum listener_event_type type;
   struct idle_client *client;
   struct idle_client *prev;
   struct idle_client *next;
   int i;
   int ret;
 
-  DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle results: %d\n", cmd->arg_evtype);
+  type = *(enum listener_event_type *)arg;
+  DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle results: %d\n", type);
 
   prev = NULL;
   next = NULL;
@@ -4546,7 +4498,7 @@ mpd_notify_idle(struct mpd_command *cmd)
 
       next = client->next;
 
-      ret = mpd_notify_idle_client(client, cmd->arg_evtype);
+      ret = mpd_notify_idle_client(client, type);
 
       if (ret == 0)
 	{
@@ -4566,63 +4518,20 @@ mpd_notify_idle(struct mpd_command *cmd)
       i++;
     }
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
 static void
 mpd_listener_cb(enum listener_event_type type)
 {
+  enum listener_event_type *ptr;
+
+  ptr = (enum listener_event_type *)malloc(sizeof(enum listener_event_type));
+  *ptr = type;
+
   DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", type);
-  struct mpd_command *cmd;
-
-  cmd = (struct mpd_command *)malloc(sizeof(struct mpd_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not allocate cache_command\n");
-      return;
-    }
-
-  memset(cmd, 0, sizeof(struct mpd_command));
-
-  cmd->nonblock = 1;
-
-  cmd->func = mpd_notify_idle;
-  cmd->arg_evtype = type;
-
-  nonblock_command(cmd);
-}
-
-static void
-command_cb(int fd, short what, void *arg)
-{
-  struct mpd_command *cmd;
-  int ret;
-
-  ret = read(g_cmd_pipe[0], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
-      goto readd;
-    }
-
-  if (cmd->nonblock)
-    {
-      cmd->func(cmd);
-
-      free(cmd);
-      goto readd;
-    }
-
-  pthread_mutex_lock(&cmd->lck);
-
-  ret = cmd->func(cmd);
-  cmd->ret = ret;
-
-  pthread_cond_signal(&cmd->cond);
-  pthread_mutex_unlock(&cmd->lck);
-
- readd:
-  event_add(g_cmdev, NULL);
+  commands_exec_async(cmdbase, mpd_notify_idle, ptr);
 }
 
 /*
@@ -4772,17 +4681,6 @@ int mpd_init(void)
       goto exit_fail;
     }
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(g_cmd_pipe, O_CLOEXEC);
-#else
-  ret = pipe(g_cmd_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not create command pipe: %s\n", strerror(errno));
-      goto cmd_fail;
-    }
-
   evbase_mpd = event_base_new();
   if (!evbase_mpd)
     {
@@ -4799,15 +4697,7 @@ int mpd_init(void)
 
   event_add(g_exitev, NULL);
 
-
-  g_cmdev = event_new(evbase_mpd, g_cmd_pipe[0], EV_READ, command_cb, NULL);
-  if (!g_cmdev)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-
-  event_add(g_cmdev, NULL);
+  cmdbase = commands_base_new(evbase_mpd);
 
   if (v6enabled)
     {
@@ -4917,15 +4807,12 @@ int mpd_init(void)
  evhttp_fail:
   evconnlistener_free(listener);
  connew_fail:
+  commands_base_free(cmdbase);
  evnew_fail:
   event_base_free(evbase_mpd);
   evbase_mpd = NULL;
 
  evbase_fail:
-  close(g_cmd_pipe[0]);
-  close(g_cmd_pipe[1]);
-
- cmd_fail:
   close(g_exit_pipe[0]);
   close(g_exit_pipe[1]);
 
@@ -4966,6 +4853,8 @@ void mpd_deinit(void)
       free(temp);
     }
 
+  commands_base_free(cmdbase);
+
   http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
   if (http_port > 0)
     evhttp_free(evhttpd);
@@ -4978,6 +4867,4 @@ void mpd_deinit(void)
   // Close pipes
   close(g_exit_pipe[0]);
   close(g_exit_pipe[1]);
-  close(g_cmd_pipe[0]);
-  close(g_cmd_pipe[1]);
 }
