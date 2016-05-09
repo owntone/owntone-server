@@ -260,6 +260,7 @@ added. Currently supported:
  - WMA: wma (WMA Pro), wmal (WMA Lossless), wmav (WMA video)
  - AIFF: aif
  - WAV: wav
+ - Monkey's audio: ape
 
 
 ## Playlists and internet radio
