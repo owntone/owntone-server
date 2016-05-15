@@ -53,6 +53,7 @@
 #include "player.h"
 #include "worker.h"
 #include "listener.h"
+#include "commands.h"
 
 /* Audio outputs */
 #include "outputs.h"
@@ -135,9 +136,6 @@ struct volume_param {
   uint64_t spk_id;
 };
 
-struct player_command;
-typedef int (*cmd_func)(struct player_command *cmd);
-
 struct spk_enum
 {
   spk_enum_cb cb;
@@ -198,50 +196,41 @@ struct player_metadata
   struct output_metadata *omd;
 };
 
-struct player_command
+struct speaker_set_param
 {
-  pthread_mutex_t lck;
-  pthread_cond_t cond;
+  uint64_t *device_ids;
+  int intval;
+};
 
-  cmd_func func;
-  cmd_func func_bh;
-
-  int nonblock;
-
-  union {
-    struct volume_param vol_param;
-    void *noarg;
-    struct spk_enum *spk_enum;
-    struct output_device *device;
-    struct player_status *status;
-    struct player_source *ps;
-    struct player_metadata *pmd;
-    uint32_t *id_ptr;
-    uint64_t *device_ids;
-    enum repeat_mode mode;
-    uint32_t id;
-    int intval;
-    struct icy_artwork icy;
-    struct playback_start_param playback_start_param;
-    struct playerqueue_get_param queue_get_param;
-    struct playerqueue_add_param queue_add_param;
-    struct playerqueue_move_param queue_move_param;
-    struct playerqueue_remove_param queue_remove_param;
-  } arg;
-
-  int ret;
-
-  int output_requests_pending;
+union player_arg
+{
+  struct volume_param vol_param;
+  void *noarg;
+  struct spk_enum *spk_enum;
+  struct output_device *device;
+  struct player_status *status;
+  struct player_source *ps;
+  struct player_metadata *pmd;
+  uint32_t *id_ptr;
+  struct speaker_set_param speaker_set_param;
+  enum repeat_mode mode;
+  uint32_t id;
+  int intval;
+  struct icy_artwork icy;
+  struct playback_start_param playback_start_param;
+  struct playerqueue_get_param queue_get_param;
+  struct playerqueue_add_param queue_add_param;
+  struct playerqueue_move_param queue_move_param;
+  struct playerqueue_remove_param queue_remove_param;
 };
 
 struct event_base *evbase_player;
 
 static int exit_pipe[2];
-static int cmd_pipe[2];
 static int player_exit;
 static struct event *exitev;
-static struct event *cmdev;
 static pthread_t tid_player;
+static struct commands_base *cmdbase;
 
 /* Config values */
 static int clear_queue_on_stop_disabled;
@@ -286,9 +275,6 @@ static struct output_device *dev_list;
 /* Output status */
 static int output_sessions;
 
-/* Commands */
-static struct player_command *cur_cmd;
-
 /* Last commanded volume */
 static int master_volume;
 
@@ -307,35 +293,6 @@ static struct queue *queue;
 
 /* Play history */
 static struct player_history *history;
-
-/* Command helpers */
-static void
-command_async_end(struct player_command *cmd)
-{
-  cur_cmd = NULL;
-
-  pthread_cond_signal(&cmd->cond);
-  pthread_mutex_unlock(&cmd->lck);
-
-  /* Process commands again */
-  event_add(cmdev, NULL);
-}
-
-static void
-command_init(struct player_command *cmd)
-{
-  memset(cmd, 0, sizeof(struct player_command));
-
-  pthread_mutex_init(&cmd->lck, NULL);
-  pthread_cond_init(&cmd->cond, NULL);
-}
-
-static void
-command_deinit(struct player_command *cmd)
-{
-  pthread_cond_destroy(&cmd->cond);
-  pthread_mutex_destroy(&cmd->lck);
-}
 
 
 static void
@@ -543,8 +500,8 @@ pb_timer_stop(void)
 static void
 playback_abort(void);
 
-static int
-playerqueue_clear(struct player_command *cmd);
+static enum command_state
+playerqueue_clear(void *arg, int *retval);
 
 static void
 player_metadata_send(struct player_metadata *pmd);
@@ -1672,15 +1629,17 @@ device_check(struct output_device *check)
   return (device) ? 0 : -1;
 }
 
-static int
-device_add(struct player_command *cmd)
+static enum command_state
+device_add(void *arg, int *retval)
 {
+  union player_arg *cmdarg;
   struct output_device *add;
   struct output_device *device;
   int selected;
   int ret;
 
-  add = cmd->arg.device;
+  cmdarg = arg;
+  add = cmdarg->device;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -1748,16 +1707,19 @@ device_add(struct player_command *cmd)
 
   device_list_sort();
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-device_remove_family(struct player_command *cmd)
+static enum command_state
+device_remove_family(void *arg, int *retval)
 {
+  union player_arg *cmdarg;
   struct output_device *remove;
   struct output_device *device;
 
-  remove = cmd->arg.device;
+  cmdarg = arg;
+  remove = cmdarg->device;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -1770,7 +1732,8 @@ device_remove_family(struct player_command *cmd)
       DPRINTF(E_WARN, L_PLAYER, "The %s device '%s' stopped advertising, but not in our list\n", remove->type_name, remove->name);
 
       outputs_device_free(remove);
-      return 0;
+      *retval = 0;
+      return COMMAND_END;
     }
 
   /* v{4,6}_port non-zero indicates the address family stopped advertising */
@@ -1798,15 +1761,18 @@ device_remove_family(struct player_command *cmd)
 
   outputs_device_free(remove);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-metadata_send(struct player_command *cmd)
+static enum command_state
+metadata_send(void *arg, int *retval)
 {
+  union player_arg *cmdarg;
   struct player_metadata *pmd;
 
-  pmd = cmd->arg.pmd;
+  cmdarg = arg;
+  pmd = cmdarg->pmd;
 
   /* Do the setting of rtptime which was deferred in metadata_trigger because we
    * wanted to wait until we had the actual last_rtptime
@@ -1816,7 +1782,8 @@ metadata_send(struct player_command *cmd)
 
   outputs_metadata_send(pmd->omd, pmd->rtptime, pmd->offset, pmd->startup);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
 /* Output device callbacks executed in the player thread */
@@ -1873,43 +1840,33 @@ device_command_cb(struct output_device *device, struct output_session *session, 
 {
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_command_cb\n", outputs_name(device->type));
 
-  cur_cmd->output_requests_pending--;
-
   outputs_status_cb(session, device_streaming_cb);
 
   if (status == OUTPUT_STATE_FAILED)
     device_streaming_cb(device, session, status);
 
-  if (cur_cmd->output_requests_pending == 0)
-    {
-      if (cur_cmd->func_bh)
-	cur_cmd->ret = cur_cmd->func_bh(cur_cmd);
-      else
-	cur_cmd->ret = 0;
-
-      command_async_end(cur_cmd);
-    }
+  commands_exec_end(cmdbase, 0);
 }
 
 static void
 device_shutdown_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  int retval;
   int ret;
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_shutdown_cb\n", outputs_name(device->type));
 
-  cur_cmd->output_requests_pending--;
-
   if (output_sessions)
     output_sessions--;
 
+  retval = commands_exec_returnvalue(cmdbase);
   ret = device_check(device);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_PLAYER, "Output device disappeared before shutdown completion!\n");
 
-      if (cur_cmd->ret != -2)
-	cur_cmd->ret = -1;
+      if (retval != -2)
+	retval = -1;
       goto out;
     }
 
@@ -1919,14 +1876,11 @@ device_shutdown_cb(struct output_device *device, struct output_session *session,
     device_remove(device);
 
  out:
-  if (cur_cmd->output_requests_pending == 0)
-    {
-      /* cur_cmd->ret already set
-       *  - to 0 (or -2 if password issue) in speaker_set()
-       *  - to -1 above on error
-       */
-      command_async_end(cur_cmd);
-    }
+  /* cur_cmd->ret already set
+   *  - to 0 (or -2 if password issue) in speaker_set()
+   *  - to -1 above on error
+   */
+  commands_exec_end(cmdbase, retval);
 }
 
 static void
@@ -1945,12 +1899,12 @@ static void
 device_activate_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   struct timespec ts;
+  int retval;
   int ret;
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_activate_cb\n", outputs_name(device->type));
 
-  cur_cmd->output_requests_pending--;
-
+  retval = commands_exec_returnvalue(cmdbase);
   ret = device_check(device);
   if (ret < 0)
     {
@@ -1959,15 +1913,15 @@ device_activate_cb(struct output_device *device, struct output_session *session,
       outputs_status_cb(session, device_lost_cb);
       outputs_device_stop(session);
 
-      if (cur_cmd->ret != -2)
-	cur_cmd->ret = -1;
+      if (retval != -2)
+	retval = -1;
       goto out;
     }
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
       status = OUTPUT_STATE_FAILED;
-      cur_cmd->ret = -2;
+      retval = -2;
     }
 
   if (status == OUTPUT_STATE_FAILED)
@@ -1977,8 +1931,8 @@ device_activate_cb(struct output_device *device, struct output_session *session,
       if (!device->advertised)
 	device_remove(device);
 
-      if (cur_cmd->ret != -2)
-	cur_cmd->ret = -1;
+      if (retval != -2)
+	retval = -1;
       goto out;
     }
 
@@ -2004,40 +1958,37 @@ device_activate_cb(struct output_device *device, struct output_session *session,
   outputs_status_cb(session, device_streaming_cb);
 
  out:
-  if (cur_cmd->output_requests_pending == 0)
-    {
-      /* cur_cmd->ret already set
-       *  - to 0 in speaker_set() (default)
-       *  - to -2 above if password issue
-       *  - to -1 above on error
-       */
-      command_async_end(cur_cmd);
-    }
+  /* cur_cmd->ret already set
+   *  - to 0 in speaker_set() (default)
+   *  - to -2 above if password issue
+   *  - to -1 above on error
+   */
+  commands_exec_end(cmdbase, retval);
 }
 
 static void
 device_probe_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  int retval;
   int ret;
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_probe_cb\n", outputs_name(device->type));
 
-  cur_cmd->output_requests_pending--;
-
+  retval = commands_exec_returnvalue(cmdbase);
   ret = device_check(device);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during probe!\n");
 
-      if (cur_cmd->ret != -2)
-	cur_cmd->ret = -1;
+      if (retval != -2)
+	retval = -1;
       goto out;
     }
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
       status = OUTPUT_STATE_FAILED;
-      cur_cmd->ret = -2;
+      retval = -2;
     }
 
   if (status == OUTPUT_STATE_FAILED)
@@ -2047,21 +1998,18 @@ device_probe_cb(struct output_device *device, struct output_session *session, en
       if (!device->advertised)
 	device_remove(device);
 
-      if (cur_cmd->ret != -2)
-	cur_cmd->ret = -1;
+      if (retval != -2)
+	retval = -1;
       goto out;
     }
 
  out:
-  if (cur_cmd->output_requests_pending == 0)
-    {
-      /* cur_cmd->ret already set
-       *  - to 0 in speaker_set() (default)
-       *  - to -2 above if password issue
-       *  - to -1 above on error
-       */
-      command_async_end(cur_cmd);
-    }
+  /* cur_cmd->ret already set
+   *  - to 0 in speaker_set() (default)
+   *  - to -2 above if password issue
+   *  - to -1 above on error
+   */
+  commands_exec_end(cmdbase, retval);
 }
 
 static void
@@ -2070,8 +2018,6 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
   int ret;
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_restart_cb\n", outputs_name(device->type));
-
-  cur_cmd->output_requests_pending--;
 
   ret = device_check(device);
   if (ret < 0)
@@ -2100,18 +2046,15 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
   outputs_status_cb(session, device_streaming_cb);
 
  out:
-  if (cur_cmd->output_requests_pending == 0)
-    {
-      cur_cmd->ret = cur_cmd->func_bh(cur_cmd);
-
-      command_async_end(cur_cmd);
-    }
+  commands_exec_end(cmdbase, 0);
 }
 
 /* Internal abort routine */
 static void
 playback_abort(void)
 {
+  int ret;
+
   outputs_playback_stop();
 
   pb_timer_stop();
@@ -2121,7 +2064,7 @@ playback_abort(void)
   evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
   if (!clear_queue_on_stop_disabled)
-    playerqueue_clear(NULL);
+    playerqueue_clear(NULL, &ret);
 
   status_update(PLAY_STOPPED);
 
@@ -2129,9 +2072,10 @@ playback_abort(void)
 }
 
 /* Actual commands, executed in the player thread */
-static int
-get_status(struct player_command *cmd)
+static enum command_state
+get_status(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct timespec ts;
   struct player_source *ps;
   struct player_status *status;
@@ -2139,7 +2083,7 @@ get_status(struct player_command *cmd)
   uint64_t pos;
   int ret;
 
-  status = cmd->arg.status;
+  status = cmdarg->status;
 
   memset(status, 0, sizeof(struct player_status));
 
@@ -2231,52 +2175,66 @@ get_status(struct player_command *cmd)
 	break;
     }
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-now_playing(struct player_command *cmd)
+static enum command_state
+now_playing(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   uint32_t *id;
   struct player_source *ps_playing;
 
-  id = cmd->arg.id_ptr;
+  id = cmdarg->id_ptr;
 
   ps_playing = source_now_playing();
 
   if (ps_playing)
     *id = ps_playing->id;
   else
-    return -1;
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-artwork_url_get(struct player_command *cmd)
+static enum command_state
+artwork_url_get(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct player_source *ps;
 
-  cmd->arg.icy.artwork_url = NULL;
+  cmdarg->icy.artwork_url = NULL;
 
   if (cur_playing)
     ps = cur_playing;
   else if (cur_streaming)
     ps = cur_streaming;
   else
-    return -1;
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
 
   /* Check that we are playing a viable stream, and that it has the requested id */
-  if (!ps->xcode || ps->data_kind != DATA_KIND_HTTP || ps->id != cmd->arg.icy.id)
-    return -1;
+  if (!ps->xcode || ps->data_kind != DATA_KIND_HTTP || ps->id != cmdarg->icy.id)
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
 
-  cmd->arg.icy.artwork_url = transcode_metadata_artwork_url(ps->xcode);
+  cmdarg->icy.artwork_url = transcode_metadata_artwork_url(ps->xcode);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_stop(struct player_command *cmd)
+static enum command_state
+playback_stop(void *arg, int *retval)
 {
   struct player_source *ps_playing;
 
@@ -2284,7 +2242,7 @@ playback_stop(struct player_command *cmd)
    * full stop just yet; this saves time when restarting, which is nicer
    * for the user.
    */
-  cmd->output_requests_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  *retval = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   pb_timer_stop();
 
@@ -2303,15 +2261,15 @@ playback_stop(struct player_command *cmd)
   metadata_purge();
 
   /* We're async if we need to flush devices */
-  if (cmd->output_requests_pending > 0)
-    return 1; /* async */
+  if (*retval > 0)
+    return COMMAND_PENDING; /* async */
 
-  return 0;
+  return COMMAND_END;
 }
 
 /* Playback startup bottom half */
-static int
-playback_start_bh(struct player_command *cmd)
+static enum command_state
+playback_start_bh(void *arg, int *retval)
 {
   int ret;
 
@@ -2351,16 +2309,18 @@ playback_start_bh(struct player_command *cmd)
 
   status_update(PLAY_PLAYING);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 
  out_fail:
   playback_abort();
 
-  return -1;
+  *retval = -1;
+  return COMMAND_END;
 }
 
-static int
-playback_start_item(struct player_command *cmd, struct queue_item *qii)
+static enum command_state
+playback_start_item(union player_arg *cmdarg, int *retval, struct queue_item *qii)
 {
   uint32_t *dbmfi_id;
   struct output_device *device;
@@ -2368,7 +2328,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
   struct queue_item *item;
   int ret;
 
-  dbmfi_id = cmd->arg.playback_start_param.id_ptr;
+  dbmfi_id = cmdarg->playback_start_param.id_ptr;
 
   ps_playing = source_now_playing();
 
@@ -2386,7 +2346,8 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 
       status_update(player_state);
 
-      return 0;
+      *retval = 0;
+      return COMMAND_END;
     }
 
   // Update global playback position
@@ -2419,7 +2380,8 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
   if (ret < 0)
     {
       playback_abort();
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
 
@@ -2429,7 +2391,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
   metadata_trigger(1);
 
   /* Start sessions on selected devices */
-  cmd->output_requests_pending = 0;
+  *retval = 0;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -2443,12 +2405,12 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 	    }
 
 	  DPRINTF(E_INFO, L_PLAYER, "Using selected %s device '%s'\n", device->type_name, device->name);
-	  cmd->output_requests_pending++;
+	  (*retval)++;
 	}
     }
 
   /* Try to autoselect a non-selected device if the above failed */
-  if ((cmd->output_requests_pending == 0) && (output_sessions == 0))
+  if ((*retval == 0) && (output_sessions == 0))
     for (device = dev_list; device; device = device->next)
       {
 	if ((outputs_priority(device) == 0) || device->session)
@@ -2464,67 +2426,72 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 	  }
 
 	DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
-	cmd->output_requests_pending++;
+	(*retval)++;
 	break;
       }
 
   /* No luck finding valid output */
-  if ((cmd->output_requests_pending == 0) && (output_sessions == 0))
+  if ((*retval == 0) && (output_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
       playback_abort();
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   /* We're async if we need to start devices */
-  if (cmd->output_requests_pending > 0)
-    return 1; /* async */
+  if (*retval > 0)
+    return COMMAND_PENDING; /* async */
 
   /* Otherwise, just run the bottom half */
-  return playback_start_bh(cmd);
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_start(struct player_command *cmd)
+static enum command_state
+playback_start(void *arg, int *retval)
 {
-  return playback_start_item(cmd, NULL);
+  return playback_start_item(arg, retval, NULL);
 }
 
-static int
-playback_start_byitemid(struct player_command *cmd)
+static enum command_state
+playback_start_byitemid(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int item_id;
   struct queue_item *qii;
 
-  item_id = cmd->arg.playback_start_param.id;
+  item_id = cmdarg->playback_start_param.id;
 
   qii = queue_get_byitemid(queue, item_id);
 
-  return playback_start_item(cmd, qii);
+  return playback_start_item(cmdarg, retval, qii);
 }
 
-static int
-playback_start_byindex(struct player_command *cmd)
+static enum command_state
+playback_start_byindex(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int pos;
   struct queue_item *qii;
 
-  pos = cmd->arg.playback_start_param.pos;
+  pos = cmdarg->playback_start_param.pos;
 
   qii = queue_get_byindex(queue, pos, 0);
 
-  return playback_start_item(cmd, qii);
+  return playback_start_item(cmdarg, retval, qii);
 }
 
-static int
-playback_start_bypos(struct player_command *cmd)
+static enum command_state
+playback_start_bypos(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int offset;
   struct player_source *ps_playing;
   struct queue_item *qii;
 
-  offset = cmd->arg.playback_start_param.pos;
+  offset = cmdarg->playback_start_param.pos;
 
   ps_playing = source_now_playing();
 
@@ -2537,11 +2504,11 @@ playback_start_bypos(struct player_command *cmd)
       qii = queue_get_byindex(queue, offset, shuffle);
     }
 
-  return playback_start_item(cmd, qii);
+  return playback_start_item(cmdarg, retval, qii);
 }
 
-static int
-playback_prev_bh(struct player_command *cmd)
+static enum command_state
+playback_prev_bh(void *arg, int *retval)
 {
   int ret;
   int pos_sec;
@@ -2554,7 +2521,8 @@ playback_prev_bh(struct player_command *cmd)
   if (!cur_streaming)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   /* Only add to history if playback started. */
@@ -2576,7 +2544,8 @@ playback_prev_bh(struct player_command *cmd)
       if (!item)
         {
           playback_abort();
-          return -1;
+          *retval = -1;
+          return COMMAND_END;
         }
 
       source_stop();
@@ -2596,24 +2565,29 @@ playback_prev_bh(struct player_command *cmd)
 	{
 	  playback_abort();
 
-	  return -1;
+          *retval = -1;
+          return COMMAND_END;
 	}
     }
 
   if (player_state == PLAY_STOPPED)
-    return -1;
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
 
   /* Silent status change - playback_start() sends the real status update */
   player_state = PLAY_PAUSED;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
 /*
  * The bottom half of the next command
  */
-static int
-playback_next_bh(struct player_command *cmd)
+static enum command_state
+playback_next_bh(void *arg, int *retval)
 {
   int ret;
   struct queue_item *item;
@@ -2625,7 +2599,8 @@ playback_next_bh(struct player_command *cmd)
   if (!cur_streaming)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   /* Only add to history if playback started. */
@@ -2636,7 +2611,8 @@ playback_next_bh(struct player_command *cmd)
   if (!item)
     {
       playback_abort();
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   source_stop();
@@ -2645,25 +2621,31 @@ playback_next_bh(struct player_command *cmd)
   if (ret < 0)
     {
       playback_abort();
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   if (player_state == PLAY_STOPPED)
-    return -1;
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
 
   /* Silent status change - playback_start() sends the real status update */
   player_state = PLAY_PAUSED;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_seek_bh(struct player_command *cmd)
+static enum command_state
+playback_seek_bh(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int ms;
   int ret;
 
-  ms = cmd->arg.intval;
+  ms = cmdarg->intval;
 
   ret = source_seek(ms);
 
@@ -2671,17 +2653,19 @@ playback_seek_bh(struct player_command *cmd)
     {
       playback_abort();
 
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   /* Silent status change - playback_start() sends the real status update */
   player_state = PLAY_PAUSED;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_pause_bh(struct player_command *cmd)
+static enum command_state
+playback_pause_bh(void *arg, int *retval)
 {
   int ret;
 
@@ -2691,7 +2675,8 @@ playback_pause_bh(struct player_command *cmd)
       DPRINTF(E_DBG, L_PLAYER, "Source is not pausable, abort playback\n");
 
       playback_abort();
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
   status_update(PLAY_PAUSED);
 
@@ -2701,11 +2686,12 @@ playback_pause_bh(struct player_command *cmd)
       db_file_save_seek(cur_streaming->id, ret);
     }
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_pause(struct player_command *cmd)
+static enum command_state
+playback_pause(void *arg, int *retval)
 {
   uint64_t pos;
 
@@ -2720,9 +2706,12 @@ playback_pause(struct player_command *cmd)
 
   /* Make sure playback is still running after source_check() */
   if (player_state == PLAY_STOPPED)
-    return -1;
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
 
-  cmd->output_requests_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  *retval = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   pb_timer_stop();
 
@@ -2733,21 +2722,22 @@ playback_pause(struct player_command *cmd)
   metadata_purge();
 
   /* We're async if we need to flush devices */
-  if (cmd->output_requests_pending > 0)
-    return 1; /* async */
+  if (*retval > 0)
+    return COMMAND_PENDING; /* async */
 
   /* Otherwise, just run the bottom half */
-  return cmd->func_bh(cmd);
+  return COMMAND_END;
 }
 
-static int
-speaker_enumerate(struct player_command *cmd)
+static enum command_state
+speaker_enumerate(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct output_device *device;
   struct spk_enum *spk_enum;
   struct spk_flags flags;
 
-  spk_enum = cmd->arg.spk_enum;
+  spk_enum = cmdarg->spk_enum;
 
 #ifdef DEBUG_RELVOL
   DPRINTF(E_DBG, L_PLAYER, "*** master: %d\n", master_volume);
@@ -2769,7 +2759,8 @@ speaker_enumerate(struct player_command *cmd)
 	}
     }
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
 static int
@@ -2820,16 +2811,18 @@ speaker_deactivate(struct output_device *device)
   return 0;
 }
 
-static int
-speaker_set(struct player_command *cmd)
+static enum command_state
+speaker_set(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct output_device *device;
   uint64_t *ids;
   int nspk;
   int i;
   int ret;
 
-  ids = cmd->arg.device_ids;
+  *retval = 0;
+  ids = cmdarg->speaker_set_param.device_ids;
 
   if (ids)
     nspk = ids[0];
@@ -2838,8 +2831,7 @@ speaker_set(struct player_command *cmd)
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker set: %d speakers\n", nspk);
 
-  cmd->output_requests_pending = 0;
-  cmd->ret = 0;
+  *retval = 0;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -2857,7 +2849,7 @@ speaker_set(struct player_command *cmd)
 	    {
 	      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' is password-protected, but we don't have it\n", device->type_name, device->name);
 
-	      cmd->ret = -2;
+	      cmdarg->speaker_set_param.intval = -2;
 	      continue;
 	    }
 
@@ -2875,11 +2867,11 @@ speaker_set(struct player_command *cmd)
 
 		  speaker_deselect_output(device);
 
-		  if (cmd->ret != -2)
-		    cmd->ret = -1;
+		  if (cmdarg->speaker_set_param.intval != -2)
+		    cmdarg->speaker_set_param.intval = -1;
 		}
 	      else
-		cmd->output_requests_pending++;
+		(*retval)++;
 	    }
 	}
       else
@@ -2896,37 +2888,38 @@ speaker_set(struct player_command *cmd)
 		{
 		  DPRINTF(E_LOG, L_PLAYER, "Could not deactivate %s device '%s'\n", device->type_name, device->name);
 
-		  if (cmd->ret != -2)
-		    cmd->ret = -1;
+		  if (cmdarg->speaker_set_param.intval != -2)
+		    cmdarg->speaker_set_param.intval = -1;
 		}
 	      else
-		cmd->output_requests_pending++;
+		(*retval)++;
 	    }
 	}
     }
 
   listener_notify(LISTENER_SPEAKER);
 
-  if (cmd->output_requests_pending > 0)
-    return 1; /* async */
+  if (*retval > 0)
+    return COMMAND_PENDING; /* async */
 
-  return cmd->ret;
+  *retval = cmdarg->speaker_set_param.intval;
+  return COMMAND_END;
 }
 
-static int
-volume_set(struct player_command *cmd)
+static enum command_state
+volume_set(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct output_device *device;
   int volume;
 
-  volume = cmd->arg.intval;
+  *retval = 0;
+  volume = cmdarg->intval;
 
   if (master_volume == volume)
-    return 0;
+    return COMMAND_END;
 
   master_volume = volume;
-
-  cmd->output_requests_pending = 0;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -2940,26 +2933,28 @@ volume_set(struct player_command *cmd)
 #endif
 
       if (device->session)
-	cmd->output_requests_pending += outputs_device_volume_set(device, device_command_cb);
+	*retval += outputs_device_volume_set(device, device_command_cb);
     }
 
   listener_notify(LISTENER_VOLUME);
 
-  if (cmd->output_requests_pending > 0)
-    return 1; /* async */
+  if (*retval > 0)
+    return COMMAND_PENDING; /* async */
 
-  return 0;
+  return COMMAND_END;
 }
 
-static int
-volume_setrel_speaker(struct player_command *cmd)
+static enum command_state
+volume_setrel_speaker(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct output_device *device;
   uint64_t id;
   int relvol;
 
-  id = cmd->arg.vol_param.spk_id;
-  relvol = cmd->arg.vol_param.volume;
+  *retval = 0;
+  id = cmdarg->vol_param.spk_id;
+  relvol = cmdarg->vol_param.volume;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -2977,28 +2972,30 @@ volume_setrel_speaker(struct player_command *cmd)
 #endif
 
       if (device->session)
-	cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
+	*retval = outputs_device_volume_set(device, device_command_cb);
 
       break;
     }
 
   listener_notify(LISTENER_VOLUME);
 
-  if (cmd->output_requests_pending > 0)
-    return 1; /* async */
+  if (*retval > 0)
+    return COMMAND_PENDING; /* async */
 
-  return 0;
+  return COMMAND_END;
 }
 
-static int
-volume_setabs_speaker(struct player_command *cmd)
+static enum command_state
+volume_setabs_speaker(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct output_device *device;
   uint64_t id;
   int volume;
 
-  id = cmd->arg.vol_param.spk_id;
-  volume = cmd->arg.vol_param.volume;
+  *retval = 0;
+  id = cmdarg->vol_param.spk_id;
+  volume = cmdarg->vol_param.volume;
 
   master_volume = volume;
 
@@ -3026,48 +3023,53 @@ volume_setabs_speaker(struct player_command *cmd)
 #endif
 
 	  if (device->session)
-	    cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
+	    *retval = outputs_device_volume_set(device, device_command_cb);//FIXME Does this need to be += ?
 	}
     }
 
   listener_notify(LISTENER_VOLUME);
 
-  if (cmd->output_requests_pending > 0)
-    return 1; /* async */
+  if (*retval > 0)
+    return COMMAND_PENDING; /* async */
 
-  return 0;
+  return COMMAND_END;
 }
 
-static int
-repeat_set(struct player_command *cmd)
+static enum command_state
+repeat_set(void *arg, int *retval)
 {
-  if (cmd->arg.mode == repeat)
+  union player_arg *cmdarg = arg;
+
+  if (cmdarg->mode == repeat)
     return 0;
 
-  switch (cmd->arg.mode)
+  switch (cmdarg->mode)
     {
       case REPEAT_OFF:
       case REPEAT_SONG:
       case REPEAT_ALL:
-	repeat = cmd->arg.mode;
+	repeat = cmdarg->mode;
 	break;
 
       default:
-	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", cmd->arg.mode);
-	return -1;
+	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", cmdarg->mode);
+	*retval = -1;
+	return COMMAND_END;
     }
 
   listener_notify(LISTENER_OPTIONS);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-shuffle_set(struct player_command *cmd)
+static enum command_state
+shuffle_set(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   uint32_t cur_id;
 
-  switch (cmd->arg.intval)
+  switch (cmdarg->intval)
     {
       case 1:
 	if (!shuffle)
@@ -3077,28 +3079,31 @@ shuffle_set(struct player_command *cmd)
 	  }
 	/* FALLTHROUGH*/
       case 0:
-	shuffle = cmd->arg.intval;
+	shuffle = cmdarg->intval;
 	break;
 
       default:
-	DPRINTF(E_LOG, L_PLAYER, "Invalid shuffle mode: %d\n", cmd->arg.intval);
-	return -1;
+	DPRINTF(E_LOG, L_PLAYER, "Invalid shuffle mode: %d\n", cmdarg->intval);
+	*retval = -1;
+	return COMMAND_END;
     }
 
   listener_notify(LISTENER_OPTIONS);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_get_bypos(struct player_command *cmd)
+static enum command_state
+playerqueue_get_bypos(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int count;
   struct queue *qi;
   struct player_source *ps;
   int item_id;
 
-  count = cmd->arg.queue_get_param.count;
+  count = cmdarg->queue_get_param.count;
 
   ps = source_now_playing();
 
@@ -3110,36 +3115,40 @@ playerqueue_get_bypos(struct player_command *cmd)
 
   qi = queue_new_bypos(queue, item_id, count, shuffle);
 
-  cmd->arg.queue_get_param.queue = qi;
+  cmdarg->queue_get_param.queue = qi;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_get_byindex(struct player_command *cmd)
+static enum command_state
+playerqueue_get_byindex(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int pos;
   int count;
   struct queue *qi;
 
-  pos = cmd->arg.queue_get_param.pos;
-  count = cmd->arg.queue_get_param.count;
+  pos = cmdarg->queue_get_param.pos;
+  count = cmdarg->queue_get_param.count;
 
   qi = queue_new_byindex(queue, pos, count, 0);
-  cmd->arg.queue_get_param.queue = qi;
+  cmdarg->queue_get_param.queue = qi;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_add(struct player_command *cmd)
+static enum command_state
+playerqueue_add(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct queue_item *items;
   uint32_t cur_id;
   uint32_t *item_id;
 
-  items = cmd->arg.queue_add_param.items;
-  item_id = cmd->arg.queue_add_param.item_id_ptr;
+  items = cmdarg->queue_add_param.items;
+  item_id = cmdarg->queue_add_param.item_id_ptr;
 
   queue_add(queue, items);
 
@@ -3157,16 +3166,18 @@ playerqueue_add(struct player_command *cmd)
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_add_next(struct player_command *cmd)
+static enum command_state
+playerqueue_add_next(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct queue_item *items;
   uint32_t cur_id;
 
-  items = cmd->arg.queue_add_param.items;
+  items = cmdarg->queue_add_param.items;
 
   cur_id = cur_streaming ? cur_streaming->item_id : 0;
 
@@ -3180,17 +3191,19 @@ playerqueue_add_next(struct player_command *cmd)
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_move_bypos(struct player_command *cmd)
+static enum command_state
+playerqueue_move_bypos(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   struct player_source *ps_playing;
   uint32_t item_id;
 
   DPRINTF(E_DBG, L_PLAYER, "Moving song from position %d to be the next song after %d\n",
-      cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos);
+      cmdarg->queue_move_param.from_pos, cmdarg->queue_move_param.to_pos);
 
   ps_playing = source_now_playing();
 
@@ -3202,57 +3215,66 @@ playerqueue_move_bypos(struct player_command *cmd)
   else
     item_id = ps_playing->item_id;
 
-  queue_move_bypos(queue, item_id, cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos, shuffle);
+  queue_move_bypos(queue, item_id, cmdarg->queue_move_param.from_pos, cmdarg->queue_move_param.to_pos, shuffle);
 
   cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_move_byindex(struct player_command *cmd)
+static enum command_state
+playerqueue_move_byindex(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
+
   DPRINTF(E_DBG, L_PLAYER, "Moving song from index %d to be the next song after %d\n",
-      cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos);
+      cmdarg->queue_move_param.from_pos, cmdarg->queue_move_param.to_pos);
 
-  queue_move_byindex(queue, cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos, 0);
+  queue_move_byindex(queue, cmdarg->queue_move_param.from_pos, cmdarg->queue_move_param.to_pos, 0);
 
   cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_move_byitemid(struct player_command *cmd)
+static enum command_state
+playerqueue_move_byitemid(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
+
   DPRINTF(E_DBG, L_PLAYER, "Moving song with item-id %d to be the next song after index %d\n",
-      cmd->arg.queue_move_param.item_id, cmd->arg.queue_move_param.to_pos);
+      cmdarg->queue_move_param.item_id, cmdarg->queue_move_param.to_pos);
 
-  queue_move_byitemid(queue, cmd->arg.queue_move_param.item_id, cmd->arg.queue_move_param.to_pos, 0);
+  queue_move_byitemid(queue, cmdarg->queue_move_param.item_id, cmdarg->queue_move_param.to_pos, 0);
 
   cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_remove_bypos(struct player_command *cmd)
+static enum command_state
+playerqueue_remove_bypos(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int pos;
   struct player_source *ps_playing;
   uint32_t item_id;
 
-  pos = cmd->arg.intval;
+  pos = cmdarg->intval;
   if (pos < 1)
     {
       DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid position %d\n", pos);
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   ps_playing = source_now_playing();
@@ -3272,18 +3294,20 @@ playerqueue_remove_bypos(struct player_command *cmd)
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_remove_byindex(struct player_command *cmd)
+static enum command_state
+playerqueue_remove_byindex(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   int pos;
   int count;
   int i;
 
-  pos = cmd->arg.queue_remove_param.from_pos;
-  count = cmd->arg.queue_remove_param.count;
+  pos = cmdarg->queue_remove_param.from_pos;
+  count = cmdarg->queue_remove_param.count;
 
   DPRINTF(E_DBG, L_PLAYER, "Removing %d items starting from position %d\n", count, pos);
 
@@ -3294,19 +3318,22 @@ playerqueue_remove_byindex(struct player_command *cmd)
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_remove_byitemid(struct player_command *cmd)
+static enum command_state
+playerqueue_remove_byitemid(void *arg, int *retval)
 {
+  union player_arg *cmdarg = arg;
   uint32_t id;
 
-  id = cmd->arg.id;
+  id = cmdarg->id;
   if (id < 1)
     {
       DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid id %d\n", id);
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
@@ -3316,14 +3343,15 @@ playerqueue_remove_byitemid(struct player_command *cmd)
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
 /*
  * Removes all media items from the queue
  */
-static int
-playerqueue_clear(struct player_command *cmd)
+static enum command_state
+playerqueue_clear(void *arg, int *retval)
 {
   queue_clear(queue);
 
@@ -3332,14 +3360,15 @@ playerqueue_clear(struct player_command *cmd)
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
 /*
  * Removes all items from the history
  */
-static int
-playerqueue_clear_history(struct player_command *cmd)
+static enum command_state
+playerqueue_clear_history(void *arg, int *retval)
 {
   memset(history, 0, sizeof(struct player_history));
 
@@ -3347,149 +3376,31 @@ playerqueue_clear_history(struct player_command *cmd)
 
   listener_notify(LISTENER_PLAYLIST);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playerqueue_plid(struct player_command *cmd)
+static enum command_state
+playerqueue_plid(void *arg, int *retval)
 {
-  cur_plid = cmd->arg.id;
+  union player_arg *cmdarg = arg;
+  cur_plid = cmdarg->id;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-/* Command processing */
-/* Thread: player */
-static void
-command_cb(int fd, short what, void *arg)
-{
-  struct player_command *cmd;
-  int ret;
-
-  ret = read(cmd_pipe[0], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
-
-      goto readd;
-    }
-
-  if (cmd->nonblock)
-    {
-      cmd->func(cmd);
-
-      free(cmd);
-      goto readd;
-    }
-
-  pthread_mutex_lock(&cmd->lck);
-
-  cur_cmd = cmd;
-
-  ret = cmd->func(cmd);
-
-  if (ret <= 0)
-    {
-      cmd->ret = ret;
-
-      cur_cmd = NULL;
-
-      pthread_cond_signal(&cmd->cond);
-      pthread_mutex_unlock(&cmd->lck);
-    }
-  else
-    {
-      /* Command is asynchronous, we don't want to process another command
-       * before we're done with this one. See command_async_end().
-       */
-
-      return;
-    }
-
- readd:
-  event_add(cmdev, NULL);
-}
-
-
-/* Thread: httpd (DACP) - mDNS */
-static int
-send_command(struct player_command *cmd)
-{
-  int ret;
-
-  if (!cmd->func)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "BUG: cmd->func is NULL!\n");
-
-      return -1;
-    }
-
-  ret = write(cmd_pipe[1], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not send command: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  return 0;
-}
-
-/* Thread: mDNS */
-static int
-nonblock_command(struct player_command *cmd)
-{
-  int ret;
-
-  ret = send_command(cmd);
-  if (ret < 0)
-    return -1;
-
-  return 0;
-}
-
-/* Thread: httpd (DACP) */
-static int
-sync_command(struct player_command *cmd)
-{
-  int ret;
-
-  pthread_mutex_lock(&cmd->lck);
-
-  ret = send_command(cmd);
-  if (ret < 0)
-    {
-      pthread_mutex_unlock(&cmd->lck);
-
-      return -1;
-    }
-
-  pthread_cond_wait(&cmd->cond, &cmd->lck);
-
-  pthread_mutex_unlock(&cmd->lck);
-
-  ret = cmd->ret;
-
-  return ret;
-}
 
 /* Player API executed in the httpd (DACP) thread */
 int
 player_get_status(struct player_status *status)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.status = status;
 
-  cmd.func = get_status;
-  cmd.func_bh = NULL;
-  cmd.arg.status = status;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, get_status, NULL, &cmdarg);
   return ret;
 }
 
@@ -3502,45 +3413,32 @@ player_get_status(struct player_status *status)
 int
 player_now_playing(uint32_t *id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.id_ptr = id;
 
-  cmd.func = now_playing;
-  cmd.func_bh = NULL;
-  cmd.arg.id_ptr = id;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, now_playing, NULL, &cmdarg);
   return ret;
 }
 
 char *
 player_get_icy_artwork_url(uint32_t id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
-
-  cmd.func = artwork_url_get;
-  cmd.func_bh = NULL;
-  cmd.arg.icy.id = id;
+  cmdarg.icy.id = id;
 
   if (pthread_self() != tid_player)
-    ret = sync_command(&cmd);
+    ret = commands_exec_sync(cmdbase, artwork_url_get, NULL, &cmdarg);
   else
-    ret = artwork_url_get(&cmd);
-
-  command_deinit(&cmd);
+    artwork_url_get(&cmdarg, &ret);
 
   if (ret < 0)
     return NULL;
   else
-    return cmd.arg.icy.artwork_url;
+    return cmdarg.icy.artwork_url;
 }
 
 /*
@@ -3559,19 +3457,12 @@ player_get_icy_artwork_url(uint32_t id)
 int
 player_playback_start(uint32_t *id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.playback_start_param.id_ptr = id;
 
-  cmd.func = playback_start;
-  cmd.func_bh = playback_start_bh;
-  cmd.arg.playback_start_param.id_ptr = id;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_start, playback_start_bh, &cmdarg);
   return ret;
 }
 
@@ -3589,19 +3480,13 @@ player_playback_start(uint32_t *id)
 int
 player_playback_start_byindex(int index, uint32_t *id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.playback_start_param.pos = index;
+  cmdarg.playback_start_param.id_ptr = id;
 
-  cmd.func = playback_start_byindex;
-  cmd.func_bh = playback_start_bh;
-  cmd.arg.playback_start_param.pos = index;
-  cmd.arg.playback_start_param.id_ptr = id;
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_start_byindex, playback_start_bh, &cmdarg);
   return ret;
 }
 
@@ -3621,19 +3506,13 @@ player_playback_start_byindex(int index, uint32_t *id)
 int
 player_playback_start_bypos(int pos, uint32_t *id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.playback_start_param.pos = pos;
+  cmdarg.playback_start_param.id_ptr = id;
 
-  cmd.func = playback_start_bypos;
-  cmd.func_bh = playback_start_bh;
-  cmd.arg.playback_start_param.pos = pos;
-  cmd.arg.playback_start_param.id_ptr = id;
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_start_bypos, playback_start_bh, &cmdarg);
   return ret;
 }
 
@@ -3651,18 +3530,13 @@ player_playback_start_bypos(int pos, uint32_t *id)
 int
 player_playback_start_byitemid(uint32_t item_id, uint32_t *id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
-
-  cmd.func = playback_start_byitemid;
-  cmd.func_bh = playback_start_bh;
-  cmd.arg.playback_start_param.id = item_id;
-  cmd.arg.playback_start_param.id_ptr = id;
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
+  cmdarg.playback_start_param.id = item_id;
+  cmdarg.playback_start_param.id_ptr = id;
+  ret = commands_exec_sync(cmdbase, playback_start_byitemid, playback_start_bh, &cmdarg);
+  return ret;
 
   return ret;
 }
@@ -3670,94 +3544,48 @@ player_playback_start_byitemid(uint32_t item_id, uint32_t *id)
 int
 player_playback_stop(void)
 {
-  struct player_command cmd;
   int ret;
 
-  command_init(&cmd);
-
-  cmd.func = playback_stop;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_stop, NULL, NULL);
   return ret;
 }
 
 int
 player_playback_pause(void)
 {
-  struct player_command cmd;
   int ret;
 
-  command_init(&cmd);
-
-  cmd.func = playback_pause;
-  cmd.func_bh = playback_pause_bh;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_pause, playback_pause_bh, NULL);
   return ret;
 }
 
 int
 player_playback_seek(int ms)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.intval = ms;
 
-  cmd.func = playback_pause;
-  cmd.func_bh = playback_seek_bh;
-  cmd.arg.intval = ms;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_pause, playback_seek_bh, &cmdarg);
   return ret;
 }
 
 int
 player_playback_next(void)
 {
-  struct player_command cmd;
   int ret;
 
-  command_init(&cmd);
-
-  cmd.func = playback_pause;
-  cmd.func_bh = playback_next_bh;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_pause, playback_next_bh, NULL);
   return ret;
 }
 
 int
 player_playback_prev(void)
 {
-  struct player_command cmd;
   int ret;
 
-  command_init(&cmd);
-
-  cmd.func = playback_pause;
-  cmd.func_bh = playback_prev_bh;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playback_pause, playback_prev_bh, NULL);
   return ret;
 }
 
@@ -3765,136 +3593,89 @@ player_playback_prev(void)
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   struct spk_enum spk_enum;
-
-  command_init(&cmd);
 
   spk_enum.cb = cb;
   spk_enum.arg = arg;
 
-  cmd.func = speaker_enumerate;
-  cmd.func_bh = NULL;
-  cmd.arg.spk_enum = &spk_enum;
+  cmdarg.spk_enum = &spk_enum;
 
-  sync_command(&cmd);
-
-  command_deinit(&cmd);
+  commands_exec_sync(cmdbase, speaker_enumerate, NULL, &cmdarg);
 }
 
 int
 player_speaker_set(uint64_t *ids)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.speaker_set_param.device_ids = ids;
+  cmdarg.speaker_set_param.intval = 0;
 
-  cmd.func = speaker_set;
-  cmd.func_bh = NULL;
-  cmd.arg.device_ids = ids;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, speaker_set, NULL, &cmdarg);
   return ret;
 }
 
 int
 player_volume_set(int vol)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.intval = vol;
 
-  cmd.func = volume_set;
-  cmd.func_bh = NULL;
-  cmd.arg.intval = vol;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, volume_set, NULL, &cmdarg);
   return ret;
 }
 
 int
 player_volume_setrel_speaker(uint64_t id, int relvol)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.vol_param.spk_id = id;
+  cmdarg.vol_param.volume = relvol;
 
-  cmd.func = volume_setrel_speaker;
-  cmd.func_bh = NULL;
-  cmd.arg.vol_param.spk_id = id;
-  cmd.arg.vol_param.volume = relvol;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, volume_setrel_speaker, NULL, &cmdarg);
   return ret;
 }
 
 int
 player_volume_setabs_speaker(uint64_t id, int vol)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.vol_param.spk_id = id;
+  cmdarg.vol_param.volume = vol;
 
-  cmd.func = volume_setabs_speaker;
-  cmd.func_bh = NULL;
-  cmd.arg.vol_param.spk_id = id;
-  cmd.arg.vol_param.volume = vol;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, volume_setabs_speaker, NULL, &cmdarg);
   return ret;
 }
 
 int
 player_repeat_set(enum repeat_mode mode)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.mode = mode;
 
-  cmd.func = repeat_set;
-  cmd.func_bh = NULL;
-  cmd.arg.mode = mode;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, repeat_set, NULL, &cmdarg);
   return ret;
 }
 
 int
 player_shuffle_set(int enable)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.intval = enable;
 
-  cmd.func = shuffle_set;
-  cmd.func_bh = NULL;
-  cmd.arg.intval = enable;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, shuffle_set, NULL, &cmdarg);
   return ret;
 }
 
@@ -3910,25 +3691,19 @@ player_shuffle_set(int enable)
 struct queue *
 player_queue_get_bypos(int count)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_get_param.pos = -1;
+  cmdarg.queue_get_param.count = count;
+  cmdarg.queue_get_param.queue = NULL;
 
-  cmd.func = playerqueue_get_bypos;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_get_param.pos = -1;
-  cmd.arg.queue_get_param.count = count;
-  cmd.arg.queue_get_param.queue = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
+  ret = commands_exec_sync(cmdbase, playerqueue_get_bypos, NULL, &cmdarg);
 
   if (ret != 0)
     return NULL;
 
-  return cmd.arg.queue_get_param.queue;
+  return cmdarg.queue_get_param.queue;
 }
 
 /*
@@ -3942,25 +3717,19 @@ player_queue_get_bypos(int count)
 struct queue *
 player_queue_get_byindex(int index, int count)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_get_param.pos = index;
+  cmdarg.queue_get_param.count = count;
+  cmdarg.queue_get_param.queue = NULL;
 
-  cmd.func = playerqueue_get_byindex;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_get_param.pos = index;
-  cmd.arg.queue_get_param.count = count;
-  cmd.arg.queue_get_param.queue = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
+  ret = commands_exec_sync(cmdbase, playerqueue_get_byindex, NULL, &cmdarg);
 
   if (ret != 0)
     return NULL;
 
-  return cmd.arg.queue_get_param.queue;
+  return cmdarg.queue_get_param.queue;
 }
 
 /*
@@ -3969,20 +3738,13 @@ player_queue_get_byindex(int index, int count)
 int
 player_queue_add(struct queue_item *items, uint32_t *item_id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_add_param.items = items;
+  cmdarg.queue_add_param.item_id_ptr = item_id;
 
-  cmd.func = playerqueue_add;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_add_param.items = items;
-  cmd.arg.queue_add_param.item_id_ptr = item_id;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_add, NULL, &cmdarg);
   return ret;
 }
 
@@ -3992,19 +3754,12 @@ player_queue_add(struct queue_item *items, uint32_t *item_id)
 int
 player_queue_add_next(struct queue_item *items)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_add_param.items = items;
 
-  cmd.func = playerqueue_add_next;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_add_param.items = items;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_add_next, NULL, &cmdarg);
   return ret;
 }
 
@@ -4017,60 +3772,39 @@ player_queue_add_next(struct queue_item *items)
 int
 player_queue_move_bypos(int pos_from, int pos_to)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_move_param.from_pos = pos_from;
+  cmdarg.queue_move_param.to_pos = pos_to;
 
-  cmd.func = playerqueue_move_bypos;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_move_param.from_pos = pos_from;
-  cmd.arg.queue_move_param.to_pos = pos_to;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_move_bypos, NULL, &cmdarg);
   return ret;
 }
 
 int
 player_queue_move_byindex(int pos_from, int pos_to)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_move_param.from_pos = pos_from;
+  cmdarg.queue_move_param.to_pos = pos_to;
 
-  cmd.func = playerqueue_move_byindex;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_move_param.from_pos = pos_from;
-  cmd.arg.queue_move_param.to_pos = pos_to;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_move_byindex, NULL, &cmdarg);
   return ret;
 }
 
 int
 player_queue_move_byitemid(uint32_t item_id, int pos_to)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_move_param.item_id = item_id;
+  cmdarg.queue_move_param.to_pos = pos_to;
 
-  cmd.func = playerqueue_move_byitemid;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_move_param.item_id = item_id;
-  cmd.arg.queue_move_param.to_pos = pos_to;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_move_byitemid, NULL, &cmdarg);
   return ret;
 }
 
@@ -4086,19 +3820,12 @@ player_queue_move_byitemid(uint32_t item_id, int pos_to)
 int
 player_queue_remove_bypos(int pos)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.intval = pos;
 
-  cmd.func = playerqueue_remove_bypos;
-  cmd.func_bh = NULL;
-  cmd.arg.intval = pos;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_remove_bypos, NULL, &cmdarg);
   return ret;
 }
 
@@ -4114,20 +3841,13 @@ player_queue_remove_bypos(int pos)
 int
 player_queue_remove_byindex(int pos, int count)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.queue_remove_param.from_pos = pos;
+  cmdarg.queue_remove_param.count = count;
 
-  cmd.func = playerqueue_remove_byindex;
-  cmd.func_bh = NULL;
-  cmd.arg.queue_remove_param.from_pos = pos;
-  cmd.arg.queue_remove_param.count = count;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_remove_byindex, NULL, &cmdarg);
   return ret;
 }
 
@@ -4140,141 +3860,85 @@ player_queue_remove_byindex(int pos, int count)
 int
 player_queue_remove_byitemid(uint32_t id)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
   int ret;
 
-  command_init(&cmd);
+  cmdarg.id = id;
 
-  cmd.func = playerqueue_remove_byitemid;
-  cmd.func_bh = NULL;
-  cmd.arg.id = id;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
+  ret = commands_exec_sync(cmdbase, playerqueue_remove_byitemid, NULL, &cmdarg);
   return ret;
 }
 
 void
 player_queue_clear(void)
 {
-  struct player_command cmd;
-
-  command_init(&cmd);
-
-  cmd.func = playerqueue_clear;
-  cmd.func_bh = NULL;
-  cmd.arg.noarg = NULL;
-
-  sync_command(&cmd);
-
-  command_deinit(&cmd);
+  commands_exec_sync(cmdbase, playerqueue_clear, NULL, NULL);
 }
 
 void
 player_queue_clear_history()
 {
-  struct player_command cmd;
-
-  command_init(&cmd);
-
-  cmd.func = playerqueue_clear_history;
-  cmd.func_bh = NULL;
-
-  sync_command(&cmd);
-
-  command_deinit(&cmd);
+  commands_exec_sync(cmdbase, playerqueue_clear_history, NULL, NULL);
 }
 
 void
 player_queue_plid(uint32_t plid)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
 
-  command_init(&cmd);
+  cmdarg.id = plid;
 
-  cmd.func = playerqueue_plid;
-  cmd.func_bh = NULL;
-  cmd.arg.id = plid;
-
-  sync_command(&cmd);
-
-  command_deinit(&cmd);
+  commands_exec_sync(cmdbase, playerqueue_plid, NULL, &cmdarg);
 }
 
 /* Non-blocking commands used by mDNS */
 int
 player_device_add(void *device)
 {
-  struct player_command *cmd;
+  union player_arg *cmdarg;
   int ret;
 
-  cmd = calloc(1, sizeof(struct player_command));
-  if (!cmd)
+  cmdarg = calloc(1, sizeof(union player_arg));
+  if (!cmdarg)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
       return -1;
     }
 
-  cmd->nonblock = 1;
+  cmdarg->device = device;
 
-  cmd->func = device_add;
-  cmd->arg.device = device;
-
-  ret = nonblock_command(cmd);
-  if (ret < 0)
-    {
-      free(cmd);
-      return -1;
-    }
-
-  return 0;
+  ret = commands_exec_async(cmdbase, device_add, cmdarg);
+  return ret;
 }
 
 int
 player_device_remove(void *device)
 {
-  struct player_command *cmd;
+  union player_arg *cmdarg;
   int ret;
 
-  cmd = calloc(1, sizeof(struct player_command));
-  if (!cmd)
+  cmdarg = calloc(1, sizeof(union player_arg));
+  if (!cmdarg)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
       return -1;
     }
 
-  cmd->nonblock = 1;
+  cmdarg->device = device;
 
-  cmd->func = device_remove_family;
-  cmd->arg.device = device;
-
-  ret = nonblock_command(cmd);
-  if (ret < 0)
-    {
-      free(cmd);
-      return -1;
-    }
-
-  return 0;
+  ret = commands_exec_async(cmdbase, device_remove_family, cmdarg);
+  return ret;
 }
 
 /* Thread: worker */
 static void
 player_metadata_send(struct player_metadata *pmd)
 {
-  struct player_command cmd;
+  union player_arg cmdarg;
 
-  command_init(&cmd);
+  cmdarg.pmd = pmd;
 
-  cmd.func = metadata_send;
-  cmd.func_bh = NULL;
-  cmd.arg.pmd = pmd;
-
-  sync_command(&cmd);
-
-  command_deinit(&cmd);
+  commands_exec_sync(cmdbase, metadata_send, NULL, &cmdarg);
 }
 
 /* Thread: player */
@@ -4338,8 +4002,6 @@ player_init(void)
   master_volume = -1;
 
   output_sessions = 0;
-
-  cur_cmd = NULL;
 
   cur_playing = NULL;
   cur_streaming = NULL;
@@ -4415,18 +4077,6 @@ player_init(void)
       goto exit_fail;
     }
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(cmd_pipe, O_CLOEXEC);
-#else
-  ret = pipe(cmd_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create command pipe: %s\n", strerror(errno));
-
-      goto cmd_fail;
-    }
-
   evbase_player = event_base_new();
   if (!evbase_player)
     {
@@ -4442,13 +4092,6 @@ player_init(void)
       goto evnew_fail;
     }
 
-  cmdev = event_new(evbase_player, cmd_pipe[0], EV_READ, command_cb, NULL);
-  if (!cmdev)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-
 #if defined(__linux__)
   pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, player_playback_cb, NULL);
 #else
@@ -4461,8 +4104,9 @@ player_init(void)
     }
 
   event_add(exitev, NULL);
-  event_add(cmdev, NULL);
   event_add(pb_timer_ev, NULL);
+
+  cmdbase = commands_base_new(evbase_player);
 
   ret = outputs_init();
   if (ret < 0)
@@ -4488,12 +4132,10 @@ player_init(void)
  thread_fail:
   outputs_deinit();
  outputs_fail:
+  commands_base_free(cmdbase);
  evnew_fail:
   event_base_free(evbase_player);
  evbase_fail:
-  close(cmd_pipe[0]);
-  close(cmd_pipe[1]);
- cmd_fail:
   close(exit_pipe[0]);
   close(exit_pipe[1]);
  exit_fail:
@@ -4541,15 +4183,12 @@ player_deinit(void)
   timer_delete(pb_timer);
 #endif
 
+  commands_base_free(cmdbase);
   evbuffer_free(audio_buf);
 
   outputs_deinit();
 
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-  close(cmd_pipe[0]);
-  close(cmd_pipe[1]);
-  cmd_pipe[0] = -1;
-  cmd_pipe[1] = -1;
   event_base_free(evbase_player);
 }
