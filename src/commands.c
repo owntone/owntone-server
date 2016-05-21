@@ -131,7 +131,7 @@ commands_base_new(struct event_base *evbase)
   struct commands_base *cmdbase;
   int ret;
 
-  cmdbase = (struct commands_base*) calloc(1, sizeof(struct commands_base));
+  cmdbase = calloc(1, sizeof(struct commands_base));
   if (!cmdbase)
     {
       DPRINTF(E_LOG, L_MAIN, "Out of memory for cmdbase\n");
@@ -225,32 +225,29 @@ commands_exec_end(struct commands_base *cmdbase, int retvalue)
 int
 commands_exec_sync(struct commands_base *cmdbase, command_function func, command_function func_bh, void *arg)
 {
-  struct command *cmd;
+  struct command cmd;
   int ret;
 
-  cmd = (struct command*) calloc(1, sizeof(struct command));
-  cmd->func = func;
-  cmd->func_bh = func_bh;
-  cmd->arg = arg;
-  cmd->nonblock = 0;
+  memset(&cmd, 0, sizeof(struct command));
+  cmd.func = func;
+  cmd.func_bh = func_bh;
+  cmd.arg = arg;
+  cmd.nonblock = 0;
 
-  pthread_mutex_lock(&cmd->lck);
+  pthread_mutex_lock(&cmd.lck);
 
-  ret = send_command(cmdbase, cmd);
+  ret = send_command(cmdbase, &cmd);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MAIN, "Error sending command\n");
-      pthread_mutex_unlock(&cmd->lck);
+      pthread_mutex_unlock(&cmd.lck);
       return -1;
     }
 
-  pthread_cond_wait(&cmd->cond, &cmd->lck);
-  pthread_mutex_unlock(&cmd->lck);
+  pthread_cond_wait(&cmd.cond, &cmd.lck);
+  pthread_mutex_unlock(&cmd.lck);
 
-  ret = cmd->ret;
-  free(cmd);
-
-  return ret;
+  return cmd.ret;
 }
 
 int
@@ -259,7 +256,7 @@ commands_exec_async(struct commands_base *cmdbase, command_function func, void *
   struct command *cmd;
   int ret;
 
-  cmd = (struct command*) calloc(1, sizeof(struct command));
+  cmd = calloc(1, sizeof(struct command));
   cmd->func = func;
   cmd->func_bh = NULL;
   cmd->arg = arg;
