@@ -51,34 +51,34 @@ struct commands_base
   struct command *current_cmd;
 };
 
+/*
+ * Asynchronous execution of the command function
+ */
 static void
-command_cb(int fd, short what, void *arg)
+command_cb_async(struct commands_base *cmdbase, struct command *cmd)
 {
-  struct commands_base *cmdbase;
-  struct command *cmd;
   enum command_state cmdstate;
-  int ret;
 
-  cmdbase = (struct commands_base *) arg;
+  // Command is executed asynchronously
+  cmdstate = cmd->func(cmd->arg, &cmd->ret);
 
-  ret = read(cmdbase->command_pipe[0], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      goto readd;
-    }
+  // Only free arg if there are no pending events (used in worker.c)
+  if (cmdstate == COMMAND_END && cmd->arg)
+    free(cmd->arg);
 
-  if (cmd->nonblock)
-    {
-      // Command is executed asynchronously
-      cmdstate = cmd->func(cmd->arg, &cmd->ret);
+  free(cmd);
 
-      if (cmdstate == COMMAND_END && cmd->arg)
-	free(cmd->arg);
-      free(cmd);
-      goto readd;
-    }
+  event_add(cmdbase->command_event, NULL);
+}
 
-  // Command is executed synchronously, caller is waiting until signaled that the execution finished
+/*
+ * Synchronous execution of the command function
+ */
+static void
+command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
+{
+  enum command_state cmdstate;
+
   pthread_mutex_lock(&cmd->lck);
 
   cmdstate = cmd->func(cmd->arg, &cmd->ret);
@@ -86,26 +86,65 @@ command_cb(int fd, short what, void *arg)
     {
       // Command execution finished, execute the bottom half function
       if (cmd->ret == 0 && cmd->func_bh)
-	{
-	  cmdstate = cmd->func_bh(cmd->arg, &cmd->ret);
-	}
+      {
+	cmdstate = cmd->func_bh(cmd->arg, &cmd->ret);
+      }
 
+      // Signal the calling thread that the command execution finished
       pthread_cond_signal(&cmd->cond);
       pthread_mutex_unlock(&cmd->lck);
+
+      event_add(cmdbase->command_event, NULL);
     }
   else
     {
-      // Command execution waiting for pending events before returning to the caller
+      // Command execution is waiting for pending events before returning to the caller
       cmdbase->current_cmd = cmd;
       cmd->pending = cmd->ret;
+    }
+}
 
+/*
+ * Event callback function
+ *
+ * Function is triggered by libevent if there is data to read on the command pipe (writing to the command pipe happens through
+ * the send_command function).
+ */
+static void
+command_cb(int fd, short what, void *arg)
+{
+  struct commands_base *cmdbase;
+  struct command *cmd;
+  int ret;
+
+  cmdbase = arg;
+
+  // Get the command to execute from the pipe
+  ret = read(cmdbase->command_pipe[0], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_MAIN, "Error reading command from command pipe: expected %zu bytes, read %d bytes\n", sizeof(cmd), ret);
+
+      event_add(cmdbase->command_event, NULL);
       return;
     }
 
- readd:
-  event_add(cmdbase->command_event, NULL);
+  // Execute the command function
+  if (cmd->nonblock)
+    {
+      // Command is executed asynchronously
+      command_cb_async(cmdbase, cmd);
+    }
+  else
+    {
+      // Command is executed synchronously, caller is waiting until signaled that the execution finished
+      command_cb_sync(cmdbase, cmd);
+    }
 }
 
+/*
+ * Writes the given command to the command pipe
+ */
 static int
 send_command(struct commands_base *cmdbase, struct command *cmd)
 {
@@ -113,6 +152,7 @@ send_command(struct commands_base *cmdbase, struct command *cmd)
 
   if (!cmd->func)
     {
+      DPRINTF(E_LOG, L_MAIN, "Programming error: send_command called with command->func NULL!\n");
       return -1;
     }
 
@@ -125,6 +165,9 @@ send_command(struct commands_base *cmdbase, struct command *cmd)
   return 0;
 }
 
+/*
+ * Creates a new command base, needs to be freed by commands_base_free.
+ */
 struct commands_base *
 commands_base_new(struct event_base *evbase)
 {
@@ -173,6 +216,9 @@ commands_base_new(struct event_base *evbase)
   return cmdbase;
 }
 
+/*
+ * Frees the command base and closes the (internally used) pipes
+ */
 int
 commands_base_free(struct commands_base *cmdbase)
 {
@@ -183,6 +229,15 @@ commands_base_free(struct commands_base *cmdbase)
   return 0;
 }
 
+/*
+ * Gets the current return value for the current pending command.
+ *
+ * If a command has more than one pending event, each event can access the previous set return value
+ * if it depends on it.
+ *
+ * @param cmdbase The command base
+ * @return The current return value
+ */
 int
 commands_exec_returnvalue(struct commands_base *cmdbase)
 {
@@ -192,6 +247,17 @@ commands_exec_returnvalue(struct commands_base *cmdbase)
   return cmdbase->current_cmd->ret;
 }
 
+/*
+ * If a command function returned COMMAND_PENDING, each event triggered by this command needs to
+ * call command_exec_end, passing it the return value of the event execution.
+ *
+ * If a command function is waiting for multiple events, each event needs to call command_exec_end.
+ * The command base keeps track of the number of still pending events and only returns to the caller
+ * if there are no pending events left.
+ *
+ * @param cmdbase The command base (holds the current pending command)
+ * @param retvalue The return value for the calling thread
+ */
 void
 commands_exec_end(struct commands_base *cmdbase, int retvalue)
 {
@@ -208,7 +274,7 @@ commands_exec_end(struct commands_base *cmdbase, int retvalue)
   if (cmdbase->current_cmd->pending > 0)
     return;
 
-  // All pending events have finished, execute the bottom half and signal the caller that the command finished execution
+  // All pending events have finished, execute the bottom half and signal the caller that the command execution finished
   if (cmdbase->current_cmd->func_bh)
     {
       cmdbase->current_cmd->func_bh(cmdbase->current_cmd->arg, &cmdbase->current_cmd->ret);
@@ -222,6 +288,19 @@ commands_exec_end(struct commands_base *cmdbase, int retvalue)
   event_add(cmdbase->command_event, NULL);
 }
 
+/*
+ * Execute the function 'func' with the given argument 'arg' in the event loop thread.
+ * Blocks the caller (thread) until the function returned.
+ *
+ * If a function 'func_bh' ("bottom half") is given, it is executed after 'func' has successfully
+ * finished.
+ *
+ * @param cmdbase The command base
+ * @param func The function to be executed
+ * @param func_bh The bottom half function to be executed after all pending events from func are processed
+ * @param arg Argument passed to func (and func_bh)
+ * @return Return value of func (or func_bh if func_bh is not NULL)
+ */
 int
 commands_exec_sync(struct commands_base *cmdbase, command_function func, command_function func_bh, void *arg)
 {
@@ -250,6 +329,17 @@ commands_exec_sync(struct commands_base *cmdbase, command_function func, command
   return cmd.ret;
 }
 
+/*
+ * Execute the function 'func' with the given argument 'arg' in the event loop thread.
+ * Triggers the function execution and immediately returns (does not wait for func to finish).
+ *
+ * The pointer passed as argument is freed in the event loop thread after func returned.
+ *
+ * @param cmdbase The command base
+ * @param func The function to be executed
+ * @param arg Argument passed to func
+ * @return 0 if triggering the function execution succeeded, -1 on failure.
+ */
 int
 commands_exec_async(struct commands_base *cmdbase, command_function func, void *arg)
 {

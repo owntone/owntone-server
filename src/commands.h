@@ -42,68 +42,21 @@ typedef enum command_state (*command_function)(void *arg, int *ret);
 struct commands_base;
 
 
-/*
- * Creates a new command base, needs to be freed by commands_base_free.
- */
 struct commands_base *
 commands_base_new(struct event_base *evbase);
 
-/*
- * Frees the command base and closes the (internally used) pipes
- */
 int
 commands_base_free(struct commands_base *cmdbase);
 
-/*
- * Gets the current return value for the current pending command.
- *
- * @param cmdbase The command base
- * @return The current return value
- */
 int
 commands_exec_returnvalue(struct commands_base *cmdbase);
 
-/*
- * If a command function returned COMMAND_PENDING, each event triggered by this command needs to
- * call command_exec_end, passing it the return value of the event execution.
- *
- * If a command function is waiting for multiple events the, each event needs to call command_exec_end.
- * The command base keeps track of the number of still pending events and only returns to the caller
- * if there are no pending events left.
- *
- * @param cmdbase The command base (holds the current pending command)
- * @param retvalue The return value for the calling thread
- */
 void
 commands_exec_end(struct commands_base *cmdbase, int retvalue);
 
-/*
- * Execute the function 'func' with the given argument 'arg' in the event loop thread.
- * Blocks the caller (thread) until the function returned.
- *
- * If a function 'func_bh' ("bottom half") is given, it is executed after 'func' has successfully
- * finished.
- *
- * @param cmdbase The command base
- * @param func The function to be executed
- * @param func_bh The bottom half function to be executed after all pending events from func are processed
- * @param arg Argument passed to func (and func_bh)
- * @return Return value of func (or func_bh if func_bh is not NULL)
- */
 int
 commands_exec_sync(struct commands_base *cmdbase, command_function func, command_function func_bh, void *arg);
 
-/*
- * Execute the function 'func' with the given argument 'arg' in the event loop thread.
- * Triggers the function execution and immediately returns (does not wait for func to finish).
- *
- * The pointer passed as argument is freed in the event loop thread after func returned.
- *
- * @param cmdbase The command base
- * @param func The function to be executed
- * @param arg Argument passed to func
- * @return 0 if triggering the function execution succeeded, -1 on failure.
- */
 int
 commands_exec_async(struct commands_base *cmdbase, command_function func, void *arg);
 
