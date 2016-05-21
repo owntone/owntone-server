@@ -4183,12 +4183,13 @@ player_deinit(void)
   timer_delete(pb_timer);
 #endif
 
-  commands_base_free(cmdbase);
   evbuffer_free(audio_buf);
 
   outputs_deinit();
 
+  event_base_free(evbase_player);
+
+  commands_base_free(cmdbase);
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-  event_base_free(evbase_player);
 }

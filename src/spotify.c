@@ -2154,9 +2154,9 @@ spotify_deinit(void)
 
   /* Free event base (should free events too) */
   event_base_free(evbase_spotify);
-  commands_base_free(cmdbase);
 
-  /* Close pipes */
+  /* Close pipes and free command base */
+  commands_base_free(cmdbase);
   close(g_notify_pipe[0]);
   close(g_notify_pipe[1]);
   close(g_exit_pipe[0]);

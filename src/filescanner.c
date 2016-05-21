@@ -2085,8 +2085,8 @@ filescanner_deinit(void)
 
   inofd_event_unset();
 
+  event_base_free(evbase_scan);
+  commands_base_free(cmdbase);
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-  commands_base_free(cmdbase);
-  event_base_free(evbase_scan);
 }
