@@ -226,9 +226,7 @@ union player_arg
 
 struct event_base *evbase_player;
 
-static int exit_pipe[2];
 static int player_exit;
-static struct event *exitev;
 static pthread_t tid_player;
 static struct commands_base *cmdbase;
 
@@ -3976,14 +3974,6 @@ player(void *arg)
   pthread_exit(NULL);
 }
 
-/* Thread: player */
-static void
-exit_cb(int fd, short what, void *arg)
-{
-  event_base_loopbreak(evbase_player);
-
-  player_exit = 1;
-}
 
 /* Thread: main */
 int
@@ -4065,31 +4055,12 @@ player_init(void)
       goto audio_fail;
     }
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(exit_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create pipe: %s\n", strerror(errno));
-
-      goto exit_fail;
-    }
-
   evbase_player = event_base_new();
   if (!evbase_player)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create an event base\n");
 
       goto evbase_fail;
-    }
-
-  exitev = event_new(evbase_player, exit_pipe[0], EV_READ, exit_cb, NULL);
-  if (!exitev)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create exit event\n");
-      goto evnew_fail;
     }
 
 #if defined(__linux__)
@@ -4103,10 +4074,9 @@ player_init(void)
       goto evnew_fail;
     }
 
-  event_add(exitev, NULL);
   event_add(pb_timer_ev, NULL);
 
-  cmdbase = commands_base_new(evbase_player);
+  cmdbase = commands_base_new(evbase_player, NULL);
 
   ret = outputs_init();
   if (ret < 0)
@@ -4136,9 +4106,6 @@ player_init(void)
  evnew_fail:
   event_base_free(evbase_player);
  evbase_fail:
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
- exit_fail:
   evbuffer_free(audio_buf);
  audio_fail:
 #if defined(__linux__)
@@ -4155,20 +4122,14 @@ void
 player_deinit(void)
 {
   int ret;
-  int dummy = 42;
 
-  ret = write(exit_pipe[1], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not write to exit pipe: %s\n", strerror(errno));
-
-      return;
-    }
+  commands_cmdloop_exit(cmdbase);
+  player_exit = 1;
 
   ret = pthread_join(tid_player, NULL);
   if (ret != 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not join HTTPd thread: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_PLAYER, "Could not join player thread: %s\n", strerror(errno));
 
       return;
     }
@@ -4190,6 +4151,4 @@ player_deinit(void)
   event_base_free(evbase_player);
 
   commands_base_free(cmdbase);
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
 }

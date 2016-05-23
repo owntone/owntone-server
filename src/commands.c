@@ -46,6 +46,8 @@ struct command
 
 struct commands_base
 {
+  struct event_base *evbase;
+  command_exit_cb exit_cb;
   int command_pipe[2];
   struct event *command_event;
   struct command *current_cmd;
@@ -169,7 +171,7 @@ send_command(struct commands_base *cmdbase, struct command *cmd)
  * Creates a new command base, needs to be freed by commands_base_free.
  */
 struct commands_base *
-commands_base_new(struct event_base *evbase)
+commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
 {
   struct commands_base *cmdbase;
   int ret;
@@ -212,6 +214,9 @@ commands_base_new(struct event_base *evbase)
       free(cmdbase);
       return NULL;
     }
+
+  cmdbase->evbase = evbase;
+  cmdbase->exit_cb = exit_cb;
 
   return cmdbase;
 }
@@ -357,5 +362,25 @@ commands_exec_async(struct commands_base *cmdbase, command_function func, void *
     return -1;
 
   return 0;
+}
+
+static enum command_state
+cmdloop_exit(void *arg, int *retval)
+{
+  struct commands_base *cmdbase = arg;
+  *retval = 0;
+
+  if (cmdbase->exit_cb)
+    cmdbase->exit_cb();
+
+  event_base_loopbreak(cmdbase->evbase);
+
+  return COMMAND_END;
+}
+
+void
+commands_cmdloop_exit(struct commands_base *cmdbase)
+{
+  commands_exec_sync(cmdbase, cmdloop_exit, NULL, cmdbase);
 }
 

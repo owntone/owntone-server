@@ -72,8 +72,6 @@ static pthread_t tid_cache;
 
 // Event base, pipes and events
 struct event_base *evbase_cache;
-static int g_exit_pipe[2];
-static struct event *g_exitev;
 static struct event *g_cacheev;
 static struct commands_base *cmdbase;
 
@@ -120,18 +118,6 @@ remove_tag(char *in, const char *tag)
     memmove(s, (e + 1), strlen(e + 1) + 1);
   else if (s > in)
     *(s - 1) = '\0';
-}
-
-
-static void
-thread_exit(void)
-{
-  int dummy = 42;
-
-  DPRINTF(E_DBG, L_CACHE, "Killing cache thread\n");
-
-  if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
-    DPRINTF(E_LOG, L_CACHE, "Could not write to exit fd: %s\n", strerror(errno));
 }
 
 
@@ -1316,23 +1302,6 @@ cache(void *arg)
   pthread_exit(NULL);
 }
 
-static void
-exit_cb(int fd, short what, void *arg)
-{
-  int dummy;
-  int ret;
-
-  ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_CACHE, "Error reading from exit pipe\n");
-
-  event_base_loopbreak(evbase_cache);
-
-  g_initialized = 0;
-
-  event_add(g_exitev, NULL);
-}
-
 
 /* ---------------------------- DAAP cache API  --------------------------- */
 
@@ -1637,29 +1606,11 @@ cache_init(void)
       return 0;
     }
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(g_exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(g_exit_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create exit pipe: %s\n", strerror(errno));
-      goto exit_fail;
-    }
-
   evbase_cache = event_base_new();
   if (!evbase_cache)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not create an event base\n");
       goto evbase_fail;
-    }
-
-  g_exitev = event_new(evbase_cache, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create exit event\n");
-      goto evnew_fail;
     }
 
   g_cacheev = evtimer_new(evbase_cache, cache_daap_update_cb, NULL);
@@ -1669,9 +1620,7 @@ cache_init(void)
       goto evnew_fail;
     }
 
-  event_add(g_exitev, NULL);
-
-  cmdbase = commands_base_new(evbase_cache);
+  cmdbase = commands_base_new(evbase_cache, NULL);
 
   DPRINTF(E_INFO, L_CACHE, "cache thread init\n");
 
@@ -1698,10 +1647,6 @@ cache_init(void)
   evbase_cache = NULL;
 
  evbase_fail:
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
-
- exit_fail:
   return -1;
 }
 
@@ -1713,7 +1658,8 @@ cache_deinit(void)
   if (!g_initialized)
     return;
 
-  thread_exit();
+  commands_cmdloop_exit(cmdbase);
+  g_initialized = 0;
 
   ret = pthread_join(tid_cache, NULL);
   if (ret != 0)
@@ -1727,6 +1673,4 @@ cache_deinit(void)
 
   // Close pipes and free command base
   commands_base_free(cmdbase);
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
 }
