@@ -109,7 +109,8 @@ forked_daapd_SOURCES = main.c \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
 	$(MPD_SRC) \
-	listener.c listener.h
+	listener.c listener.h \
+	commands.c commands.h
 
 nodist_forked_daapd_SOURCES = \
 	$(ANTLR_SOURCES)

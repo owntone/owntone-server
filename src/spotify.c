@@ -49,6 +49,7 @@
 #include "conffile.h"
 #include "filescanner.h"
 #include "cache.h"
+#include "commands.h"
 
 
 /* How long to wait for audio (in sec) before giving up */
@@ -102,30 +103,6 @@ struct artwork_get_param
   int is_loaded;
 };
 
-struct spotify_command;
-
-typedef int (*cmd_func)(struct spotify_command *cmd);
-
-struct spotify_command
-{
-  pthread_mutex_t lck;
-  pthread_cond_t cond;
-
-  cmd_func func;
-  cmd_func func_bh;
-
-  int nonblock;
-
-  union {
-    void *noarg;
-    sp_link *link;
-    int seek_ms;
-    struct audio_get_param audio;
-    struct artwork_get_param artwork;
-  } arg;
-
-  int ret;
-};
 
 /* --- Globals --- */
 // Spotify thread
@@ -138,11 +115,11 @@ static pthread_cond_t login_cond;
 // Event base, pipes and events
 struct event_base *evbase_spotify;
 static int g_exit_pipe[2];
-static int g_cmd_pipe[2];
 static int g_notify_pipe[2];
 static struct event *g_exitev;
-static struct event *g_cmdev;
 static struct event *g_notifyev;
+
+static struct commands_base *cmdbase;
 
 // The global session handle
 static sp_session *g_sess;
@@ -150,8 +127,6 @@ static sp_session *g_sess;
 static void *g_libhandle;
 // The global state telling us what the thread is currently doing
 static enum spotify_state g_state;
-/* (not used) Tells which commmand is currently being processed */
-static struct spotify_command *g_cmd;
 // The global base playlist id (parent of all Spotify playlists in the db)
 static int g_base_plid;
 
@@ -410,77 +385,6 @@ fptr_assign_all()
 
 
 /* ---------------------------- COMMAND EXECUTION -------------------------- */
-
-static void
-command_init(struct spotify_command *cmd)
-{
-  memset(cmd, 0, sizeof(struct spotify_command));
-
-  pthread_mutex_init(&cmd->lck, NULL);
-  pthread_cond_init(&cmd->cond, NULL);
-}
-
-static void
-command_deinit(struct spotify_command *cmd)
-{
-  pthread_cond_destroy(&cmd->cond);
-  pthread_mutex_destroy(&cmd->lck);
-}
-
-static int
-send_command(struct spotify_command *cmd)
-{
-  int ret;
-
-  if (!cmd->func)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "BUG: cmd->func is NULL!\n");
-      return -1;
-    }
-
-  ret = write(g_cmd_pipe[1], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not send command: %s\n", strerror(errno));
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-sync_command(struct spotify_command *cmd)
-{
-  int ret;
-
-  pthread_mutex_lock(&cmd->lck);
-
-  ret = send_command(cmd);
-  if (ret < 0)
-    {
-      pthread_mutex_unlock(&cmd->lck);
-      return -1;
-    }
-
-  pthread_cond_wait(&cmd->cond, &cmd->lck);
-  pthread_mutex_unlock(&cmd->lck);
-
-  ret = cmd->ret;
-
-  return ret;
-}
-
-static int
-nonblock_command(struct spotify_command *cmd)
-{
-  int ret;
-
-  ret = send_command(cmd);
-  if (ret < 0)
-    return -1;
-
-  return 0;
-}
 
 /* Thread: main and filescanner */
 static void
@@ -1033,47 +937,55 @@ audio_fifo_flush(void)
     pthread_mutex_unlock(&g_audio_fifo->mutex);
 }
 
-static int
-playback_setup(struct spotify_command *cmd)
+static enum command_state
+playback_setup(void *arg, int *retval)
 {
+  sp_link *link;
   sp_track *track;
   sp_error err;
 
   DPRINTF(E_DBG, L_SPOTIFY, "Setting up for playback\n");
 
+  link = (sp_link *) arg;
+
   if (SP_CONNECTION_STATE_LOGGED_IN != fptr_sp_session_connectionstate(g_sess))
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Can't play music, not connected and logged in to Spotify\n");
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
-  if (!cmd->arg.link)
+  if (!link)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, no Spotify link\n");
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
-  track = fptr_sp_link_as_track(cmd->arg.link);
+  track = fptr_sp_link_as_track(link);
   if (!track)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, invalid Spotify track\n");
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
   
   err = fptr_sp_session_player_load(g_sess, track);
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed: %s\n", fptr_sp_error_message(err));
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   audio_fifo_flush();
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_play(struct spotify_command *cmd)
+static enum command_state
+playback_play(void *arg, int *retval)
 {
   sp_error err;
 
@@ -1083,16 +995,18 @@ playback_play(struct spotify_command *cmd)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback failed: %s\n", fptr_sp_error_message(err));
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   g_state = SPOTIFY_STATE_PLAYING;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_pause(struct spotify_command *cmd)
+static enum command_state
+playback_pause(void *arg, int *retval)
 {
   sp_error err;
 
@@ -1104,16 +1018,18 @@ playback_pause(struct spotify_command *cmd)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback pause failed: %s\n", fptr_sp_error_message(err));
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   g_state = SPOTIFY_STATE_PAUSED;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_stop(struct spotify_command *cmd)
+static enum command_state
+playback_stop(void *arg, int *retval)
 {
   sp_error err;
 
@@ -1123,35 +1039,43 @@ playback_stop(struct spotify_command *cmd)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback stop failed: %s\n", fptr_sp_error_message(err));
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   g_state = SPOTIFY_STATE_STOPPED;
 
-  return 0;
+
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_seek(struct spotify_command *cmd)
+static enum command_state
+playback_seek(void *arg, int *retval)
 {
+  int seek_ms;
   sp_error err;
 
   DPRINTF(E_DBG, L_SPOTIFY, "Playback seek\n");
 
-  err = fptr_sp_session_player_seek(g_sess, cmd->arg.seek_ms);
+  seek_ms = *((int *) arg);
+
+  err = fptr_sp_session_player_seek(g_sess, seek_ms);
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not seek: %s\n", fptr_sp_error_message(err));
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   audio_fifo_flush();
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-playback_eot(struct spotify_command *cmd)
+static enum command_state
+playback_eot(void *arg, int *retval)
 {
   sp_error err;
 
@@ -1166,12 +1090,14 @@ playback_eot(struct spotify_command *cmd)
 
   g_state = SPOTIFY_STATE_STOPPING;
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-audio_get(struct spotify_command *cmd)
+static enum command_state
+audio_get(void *arg, int *retval)
 {
+  struct audio_get_param *audio;
   struct timespec ts;
   audio_fifo_data_t *afd;
   int processed;
@@ -1179,16 +1105,17 @@ audio_get(struct spotify_command *cmd)
   int ret;
   int s;
 
+  audio = (struct audio_get_param *) arg;
   afd = NULL;
   processed = 0;
 
   // If spotify was paused begin by resuming playback
   if (g_state == SPOTIFY_STATE_PAUSED)
-    playback_play(NULL);
+    playback_play(NULL, retval);
 
   pthread_mutex_lock(&g_audio_fifo->mutex);
 
-  while ((processed < cmd->arg.audio.wanted) && (g_state != SPOTIFY_STATE_STOPPED))
+  while ((processed < audio->wanted) && (g_state != SPOTIFY_STATE_STOPPED))
     {
       // If track has ended and buffer is empty
       if ((g_state == SPOTIFY_STATE_STOPPING) && (g_audio_fifo->qlen <= 0))
@@ -1227,14 +1154,15 @@ audio_get(struct spotify_command *cmd)
 
       s = afd->nsamples * sizeof(int16_t) * 2;
   
-      ret = evbuffer_add(cmd->arg.audio.evbuf, afd->samples, s);
+      ret = evbuffer_add(audio->evbuf, afd->samples, s);
       free(afd);
       afd = NULL;
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
 	  pthread_mutex_unlock(&g_audio_fifo->mutex);
-	  return -1;
+	  *retval = -1;
+	  return COMMAND_END;
 	}
 
       processed += s;
@@ -1242,41 +1170,39 @@ audio_get(struct spotify_command *cmd)
 
   pthread_mutex_unlock(&g_audio_fifo->mutex);
 
-  return processed;
+
+  *retval = processed;
+  return COMMAND_END;
 }
 
 static void
 artwork_loaded_cb(sp_image *image, void *userdata)
 {
-  struct spotify_command *cmd = userdata;
+  struct artwork_get_param *artwork;
+  
+  artwork = userdata;
+  
+  pthread_mutex_lock(&artwork->mutex);
 
-  pthread_mutex_lock(&cmd->arg.artwork.mutex);
+  artwork->is_loaded = 1;
 
-  cmd->arg.artwork.is_loaded = 1;
-
-  pthread_cond_signal(&cmd->arg.artwork.cond);
-  pthread_mutex_unlock(&cmd->arg.artwork.mutex);
+  pthread_cond_signal(&artwork->cond);
+  pthread_mutex_unlock(&artwork->mutex);
 }
 
-static int
-artwork_get_bh(struct spotify_command *cmd)
+static enum command_state
+artwork_get_bh(void *arg, int *retval)
 {
+  struct artwork_get_param *artwork;
   sp_imageformat imageformat;
   sp_error err;
   const void *data;
   size_t data_size;
   int ret;
 
-  sp_image *image = cmd->arg.artwork.image;
-  char *path = cmd->arg.artwork.path;
-
-  if (!cmd->arg.artwork.is_loaded)
-    {
-      DPRINTF(E_DBG, L_SPOTIFY, "Request for artwork timed out: %s\n", path);
-
-      fptr_sp_image_remove_load_callback(image, artwork_loaded_cb, cmd);
-      goto fail;
-    }
+  artwork = arg;
+  sp_image *image = artwork->image;
+  char *path = artwork->path;
 
   err = fptr_sp_image_error(image);
   if (err != SP_ERROR_OK)
@@ -1305,14 +1231,14 @@ artwork_get_bh(struct spotify_command *cmd)
       goto fail;
     }
 
-  ret = evbuffer_expand(cmd->arg.artwork.evbuf, data_size);
+  ret = evbuffer_expand(artwork->evbuf, data_size);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for artwork\n");
       goto fail;
     }
 
-  ret = evbuffer_add(cmd->arg.artwork.evbuf, data, data_size);
+  ret = evbuffer_add(artwork->evbuf, data, data_size);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not add Spotify image to event buffer\n");
@@ -1323,17 +1249,20 @@ artwork_get_bh(struct spotify_command *cmd)
 
   fptr_sp_image_release(image);
 
-  return data_size;
+  *retval = 0;
+  return COMMAND_END;
 
  fail:
   fptr_sp_image_release(image);
 
-  return -1;
+  *retval = -1;
+  return COMMAND_END;
 }
 
-static int
-artwork_get(struct spotify_command *cmd)
+static enum command_state
+artwork_get(void *arg, int *retval)
 {
+  struct artwork_get_param *artwork;
   char *path;
   sp_link *link;
   sp_track *track;
@@ -1343,7 +1272,8 @@ artwork_get(struct spotify_command *cmd)
   sp_image_size image_size;
   sp_error err;
 
-  path = cmd->arg.artwork.path;
+  artwork = arg;
+  path = artwork->path;
 
   // Now begins: path -> link -> track -> album -> image_id -> image -> format -> data
   link = fptr_sp_link_create_from_string(path);
@@ -1369,9 +1299,9 @@ artwork_get(struct spotify_command *cmd)
 
   // Get an image at least the same size as requested
   image_size = SP_IMAGE_SIZE_SMALL; // 64x64
-  if ((cmd->arg.artwork.max_w > 64) || (cmd->arg.artwork.max_h > 64))
+  if ((artwork->max_w > 64) || (artwork->max_h > 64))
     image_size = SP_IMAGE_SIZE_NORMAL; // 300x300
-  if ((cmd->arg.artwork.max_w > 300) || (cmd->arg.artwork.max_h > 300))
+  if ((artwork->max_w > 300) || (artwork->max_h > 300))
     image_size = SP_IMAGE_SIZE_LARGE; // 640x640
 
   image_id = fptr_sp_album_cover(album, image_size);
@@ -1390,31 +1320,35 @@ artwork_get(struct spotify_command *cmd)
 
   fptr_sp_link_release(link);
 
-  cmd->arg.artwork.image = image;
+  artwork->image = image;
+  artwork->is_loaded = fptr_sp_image_is_loaded(image);
 
   /* If the image is ready we can return it straight away, otherwise we will
    * let the calling thread wait, since the Spotify thread should not wait
    */
-  if ( (cmd->arg.artwork.is_loaded = fptr_sp_image_is_loaded(image)) )
-    return artwork_get_bh(cmd);
+  if (artwork->is_loaded)
+    return artwork_get_bh(artwork, retval);
 
   DPRINTF(E_SPAM, L_SPOTIFY, "Will wait for Spotify to call artwork_loaded_cb\n");
 
   /* Async - we will return to spotify_artwork_get which will wait for callback */
-  err = fptr_sp_image_add_load_callback(image, artwork_loaded_cb, cmd);
+  err = fptr_sp_image_add_load_callback(image, artwork_loaded_cb, artwork);
   if (err != SP_ERROR_OK)
     {
       DPRINTF(E_WARN, L_SPOTIFY, "Adding artwork cb failed, Spotify error: %s\n", fptr_sp_error_message(err));
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 
  level2_exit:
   fptr_sp_link_release(link);
 
  level1_exit:
-  return -1;
+  *retval = -1;
+  return COMMAND_END;
 }
 
 
@@ -1615,24 +1549,9 @@ static void connectionstate_updated(sp_session *session)
  */
 static void end_of_track(sp_session *sess)
 {
-  struct spotify_command *cmd;
-
   DPRINTF(E_DBG, L_SPOTIFY, "End of track\n");
 
-  cmd = (struct spotify_command *)malloc(sizeof(struct spotify_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not allocate spotify_command\n");
-      return;
-    }
-  memset(cmd, 0, sizeof(struct spotify_command));
-
-  cmd->nonblock = 1;
-
-  cmd->func = playback_eot;
-  cmd->arg.noarg = NULL;
-
-  nonblock_command(cmd);
+  commands_exec_async(cmdbase, playback_eot, NULL);
 }
 
 /**
@@ -1719,41 +1638,6 @@ exit_cb(int fd, short what, void *arg)
   event_add(g_exitev, NULL);
 }
 
-static void
-command_cb(int fd, short what, void *arg)
-{
-  struct spotify_command *cmd;
-  int ret;
-
-  ret = read(g_cmd_pipe[0], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
-      goto readd;
-    }
-
-  if (cmd->nonblock)
-    {
-      cmd->func(cmd);
-
-      free(cmd);
-      goto readd;
-    }
-
-  pthread_mutex_lock(&cmd->lck);
-
-  g_cmd = cmd;
-  ret = cmd->func(cmd);
-  cmd->ret = ret;
-  g_cmd = NULL;
-
-  pthread_cond_signal(&cmd->cond);
-  pthread_mutex_unlock(&cmd->lck);
-
- readd:
-  event_add(g_cmdev, NULL);
-}
-
 /* Process events when timeout expires or triggered by libspotify's notify_main_thread */
 static void
 notify_cb(int fd, short what, void *arg)
@@ -1789,9 +1673,7 @@ notify_cb(int fd, short what, void *arg)
 int
 spotify_playback_setup(struct media_file_info *mfi)
 {
-  struct spotify_command cmd;
   sp_link *link;
-  int ret;
 
   DPRINTF(E_DBG, L_SPOTIFY, "Playback setup request\n");
 
@@ -1802,144 +1684,59 @@ spotify_playback_setup(struct media_file_info *mfi)
       return -1;
     }
 
-  command_init(&cmd);
-
-  cmd.func = playback_setup;
-  cmd.arg.link = link;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
-  return ret;
+  return commands_exec_sync(cmdbase, playback_setup, NULL, link);
 }
 
 int
 spotify_playback_play()
 {
-  struct spotify_command cmd;
-  int ret;
-
   DPRINTF(E_DBG, L_SPOTIFY, "Playback request\n");
 
-  command_init(&cmd);
-
-  cmd.func = playback_play;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
-  return ret;
+  return commands_exec_sync(cmdbase, playback_play, NULL, NULL);
 }
 
 int
 spotify_playback_pause()
 {
-  struct spotify_command cmd;
-  int ret;
-
   DPRINTF(E_DBG, L_SPOTIFY, "Pause request\n");
 
-  command_init(&cmd);
-
-  cmd.func = playback_pause;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
-  return ret;
+  return commands_exec_sync(cmdbase, playback_pause, NULL, NULL);
 }
 
 /* Thread: libspotify */
 void
 spotify_playback_pause_nonblock(void)
 {
-  struct spotify_command *cmd;
-
   DPRINTF(E_DBG, L_SPOTIFY, "Nonblock pause request\n");
 
-  cmd = (struct spotify_command *)malloc(sizeof(struct spotify_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not allocate spotify_command\n");
-      return;
-    }
-
-  memset(cmd, 0, sizeof(struct spotify_command));
-
-  cmd->nonblock = 1;
-
-  cmd->func = playback_pause;
-  cmd->arg.noarg = NULL;
-
-  nonblock_command(cmd);
+  commands_exec_async(cmdbase, playback_pause, NULL);
 }
 
 /* Thread: player and libspotify */
 int
 spotify_playback_stop(void)
 {
-  struct spotify_command cmd;
-  int ret;
-
   DPRINTF(E_DBG, L_SPOTIFY, "Stop request\n");
 
-  command_init(&cmd);
-
-  cmd.func = playback_stop;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
-  return ret;
+  return commands_exec_sync(cmdbase, playback_stop, NULL, NULL);
 }
 
 /* Thread: player and libspotify */
 void
 spotify_playback_stop_nonblock(void)
 {
-  struct spotify_command *cmd;
-
   DPRINTF(E_DBG, L_SPOTIFY, "Nonblock stop request\n");
 
-  cmd = (struct spotify_command *)malloc(sizeof(struct spotify_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not allocate spotify_command\n");
-      return;
-    }
-
-  memset(cmd, 0, sizeof(struct spotify_command));
-
-  cmd->nonblock = 1;
-
-  cmd->func = playback_stop;
-  cmd->arg.noarg = NULL;
-
-  nonblock_command(cmd);
+  commands_exec_async(cmdbase, playback_stop, NULL);
 }
 
 /* Thread: player */
 int
 spotify_playback_seek(int ms)
 {
-  struct spotify_command cmd;
   int ret;
 
-  command_init(&cmd);
-
-  cmd.func = playback_seek;
-  cmd.arg.seek_ms = ms;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
+  ret = commands_exec_sync(cmdbase, playback_seek, NULL, &ms);
 
   if (ret == 0)
     return ms;
@@ -1951,58 +1748,44 @@ spotify_playback_seek(int ms)
 int
 spotify_audio_get(struct evbuffer *evbuf, int wanted)
 {
-  struct spotify_command cmd;
-  int ret;
+  struct audio_get_param audio;
 
-  command_init(&cmd);
+  audio.evbuf  = evbuf;
+  audio.wanted = wanted;
 
-  cmd.func = audio_get;
-  cmd.arg.audio.evbuf  = evbuf;
-  cmd.arg.audio.wanted = wanted;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
-  return ret;
+  return commands_exec_sync(cmdbase, audio_get, NULL, &audio);
 }
 
 /* Thread: httpd (artwork) and worker */
 int
 spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 {
-  struct spotify_command cmd;
+  struct artwork_get_param artwork;
   struct timespec ts;
   int ret;
 
-  command_init(&cmd);
+  artwork.evbuf  = evbuf;
+  artwork.path = path;
+  artwork.max_w = max_w;
+  artwork.max_h = max_h;
 
-  cmd.func = artwork_get;
-  cmd.arg.artwork.evbuf  = evbuf;
-  cmd.arg.artwork.path = path;
-  cmd.arg.artwork.max_w = max_w;
-  cmd.arg.artwork.max_h = max_h;
+  pthread_mutex_init(&artwork.mutex, NULL);
+  pthread_cond_init(&artwork.cond, NULL);
 
-  pthread_mutex_init(&cmd.arg.artwork.mutex, NULL);
-  pthread_cond_init(&cmd.arg.artwork.cond, NULL);
-
-  ret = sync_command(&cmd);
-
+  ret = commands_exec_sync(cmdbase, artwork_get, NULL, &artwork);
+  
   // Artwork was not ready, wait for callback from libspotify
   if (ret == 0)
     {
-      pthread_mutex_lock(&cmd.arg.artwork.mutex);
+      pthread_mutex_lock(&artwork.mutex);
       mk_reltime(&ts, SPOTIFY_ARTWORK_TIMEOUT);
-      if (!cmd.arg.artwork.is_loaded)
-	pthread_cond_timedwait(&cmd.arg.artwork.cond, &cmd.arg.artwork.mutex, &ts);
-      pthread_mutex_unlock(&cmd.arg.artwork.mutex);
+      if (!artwork.is_loaded)
+	pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts);
+      pthread_mutex_unlock(&artwork.mutex);
 
-      cmd.func = artwork_get_bh;
-      ret = sync_command(&cmd);
+      ret = commands_exec_sync(cmdbase, artwork_get_bh, NULL, &artwork);
     }
-
-  command_deinit(&cmd);
-
+    
   return ret;
 }
 
@@ -2205,17 +1988,6 @@ spotify_init(void)
     }
 
 #ifdef HAVE_PIPE2
-  ret = pipe2(g_cmd_pipe, O_CLOEXEC);
-#else
-  ret = pipe(g_cmd_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create command pipe: %s\n", strerror(errno));
-      goto cmd_fail;
-    }
-
-#ifdef HAVE_PIPE2
   ret = pipe2(g_notify_pipe, O_CLOEXEC);
 #else
   ret = pipe(g_notify_pipe);
@@ -2240,13 +2012,6 @@ spotify_init(void)
       goto evnew_fail;
     }
 
-  g_cmdev = event_new(evbase_spotify, g_cmd_pipe[0], EV_READ, command_cb, NULL);
-  if (!g_cmdev)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-
   g_notifyev = event_new(evbase_spotify, g_notify_pipe[0], EV_READ | EV_TIMEOUT, notify_cb, NULL);
   if (!g_notifyev)
     {
@@ -2255,8 +2020,15 @@ spotify_init(void)
     }
 
   event_add(g_exitev, NULL);
-  event_add(g_cmdev, NULL);
   event_add(g_notifyev, NULL);
+
+
+  cmdbase = commands_base_new(evbase_spotify);
+  if (!cmdbase)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create command base\n");
+      goto cmd_fail;
+    }
 
   DPRINTF(E_INFO, L_SPOTIFY, "Spotify session init\n");
 
@@ -2333,7 +2105,9 @@ spotify_init(void)
   g_sess = NULL;
   
  session_fail:
+ cmd_fail:
  evnew_fail:
+  commands_base_free(cmdbase);
   event_base_free(evbase_spotify);
   evbase_spotify = NULL;
 
@@ -2342,10 +2116,6 @@ spotify_init(void)
   close(g_notify_pipe[1]);
 
  notify_fail:
-  close(g_cmd_pipe[0]);
-  close(g_cmd_pipe[1]);
-
- cmd_fail:
   close(g_exit_pipe[0]);
   close(g_exit_pipe[1]);
 
@@ -2385,11 +2155,10 @@ spotify_deinit(void)
   /* Free event base (should free events too) */
   event_base_free(evbase_spotify);
 
-  /* Close pipes */
+  /* Close pipes and free command base */
+  commands_base_free(cmdbase);
   close(g_notify_pipe[0]);
   close(g_notify_pipe[1]);
-  close(g_cmd_pipe[0]);
-  close(g_cmd_pipe[1]);
   close(g_exit_pipe[0]);
   close(g_exit_pipe[1]);
 

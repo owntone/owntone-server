@@ -61,6 +61,7 @@
 #include "player.h"
 #include "cache.h"
 #include "artwork.h"
+#include "commands.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -69,21 +70,6 @@
 # include "spotify.h"
 #endif
 
-struct filescanner_command;
-
-typedef int (*cmd_func)(struct filescanner_command *cmd);
-
-struct filescanner_command
-{
-  pthread_mutex_t lck;
-  pthread_cond_t cond;
-
-  cmd_func func;
-
-  int nonblock;
-
-  int ret;
-};
 
 #define F_SCAN_BULK    (1 << 0)
 #define F_SCAN_RESCAN  (1 << 1)
@@ -118,17 +104,16 @@ struct stacked_dir {
   struct stacked_dir *next;
 };
 
-static int cmd_pipe[2];
 static int exit_pipe[2];
 static int scan_exit;
 static int inofd;
 static struct event_base *evbase_scan;
 static struct event *inoev;
 static struct event *exitev;
-static struct event *cmdev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
+static struct commands_base *cmdbase;
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 struct deferred_file
@@ -167,46 +152,11 @@ static int
 inofd_event_set(void);
 static void
 inofd_event_unset(void);
-static int
-filescanner_initscan(struct filescanner_command *cmd);
-static int
-filescanner_fullrescan(struct filescanner_command *cmd);
+static enum command_state
+filescanner_initscan(void *arg, int *retval);
+static enum command_state
+filescanner_fullrescan(void *arg, int *retval);
 
-
-/* ---------------------------- COMMAND EXECUTION -------------------------- */
-
-static int
-send_command(struct filescanner_command *cmd)
-{
-  int ret;
-
-  if (!cmd->func)
-    {
-      DPRINTF(E_LOG, L_SCAN, "BUG: cmd->func is NULL!\n");
-      return -1;
-    }
-
-  ret = write(cmd_pipe[1], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not send command: %s\n", strerror(errno));
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-nonblock_command(struct filescanner_command *cmd)
-{
-  int ret;
-
-  ret = send_command(cmd);
-  if (ret < 0)
-    return -1;
-
-  return 0;
-}
 
 static int
 push_dir(struct stacked_dir **s, char *path, int parent_id)
@@ -855,6 +805,7 @@ static void
 process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_id)
 {
   int is_bulkscan;
+  int ret;
 
   is_bulkscan = (flags & F_SCAN_BULK);
 
@@ -924,7 +875,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 
 	DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered, found init-rescan file: %s\n", file);
 
-	filescanner_initscan(NULL);
+	filescanner_initscan(NULL, &ret);
 	break;
 
       case FILE_CTRL_FULLSCAN:
@@ -933,7 +884,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 
 	DPRINTF(E_LOG, L_SCAN, "Full rescan triggered, found full-rescan file: %s\n", file);
 
-	filescanner_fullrescan(NULL);
+	filescanner_fullrescan(NULL, &ret);
 	break;
 
       default:
@@ -1968,41 +1919,8 @@ exit_cb(int fd, short event, void *arg)
   scan_exit = 1;
 }
 
-static void
-command_cb(int fd, short what, void *arg)
-{
-  struct filescanner_command *cmd;
-  int ret;
-
-  ret = read(cmd_pipe[0], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
-      goto readd;
-    }
-
-  if (cmd->nonblock)
-    {
-      cmd->func(cmd);
-
-      free(cmd);
-      goto readd;
-    }
-
-  pthread_mutex_lock(&cmd->lck);
-
-  ret = cmd->func(cmd);
-  cmd->ret = ret;
-
-  pthread_cond_signal(&cmd->cond);
-  pthread_mutex_unlock(&cmd->lck);
-
- readd:
-  event_add(cmdev, NULL);
-}
-
-static int
-filescanner_initscan(struct filescanner_command *cmd)
+static enum command_state
+filescanner_initscan(void *arg, int *retval)
 {
   DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered\n");
 
@@ -2012,11 +1930,12 @@ filescanner_initscan(struct filescanner_command *cmd)
   inofd_event_set();
   bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
-static int
-filescanner_fullrescan(struct filescanner_command *cmd)
+static enum command_state
+filescanner_fullrescan(void *arg, int *retval)
 {
   DPRINTF(E_LOG, L_SCAN, "Full rescan triggered\n");
 
@@ -2028,62 +1947,32 @@ filescanner_fullrescan(struct filescanner_command *cmd)
   inofd_event_set();
   bulk_scan(F_SCAN_BULK);
 
-  return 0;
+  *retval = 0;
+  return COMMAND_END;
 }
 
 void
 filescanner_trigger_initscan(void)
 {
-  struct filescanner_command *cmd;
-
   if (scanning)
     {
       DPRINTF(E_INFO, L_SCAN, "Scan already running, ignoring request to trigger a new init scan\n");
       return;
     }
 
-
-  cmd = (struct filescanner_command *)malloc(sizeof(struct filescanner_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not allocate cache_command\n");
-      return;
-    }
-
-  memset(cmd, 0, sizeof(struct filescanner_command));
-
-  cmd->nonblock = 1;
-
-  cmd->func = filescanner_initscan;
-
-  nonblock_command(cmd);
+ commands_exec_async(cmdbase, filescanner_initscan, NULL);
 }
 
 void
 filescanner_trigger_fullrescan(void)
 {
-  struct filescanner_command *cmd;
-
   if (scanning)
     {
       DPRINTF(E_INFO, L_SCAN, "Scan already running, ignoring request to trigger a new init scan\n");
       return;
     }
 
-  cmd = (struct filescanner_command *)malloc(sizeof(struct filescanner_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not allocate cache_command\n");
-      return;
-    }
-
-  memset(cmd, 0, sizeof(struct filescanner_command));
-
-  cmd->nonblock = 1;
-
-  cmd->func = filescanner_fullrescan;
-
-  nonblock_command(cmd);
+  commands_exec_async(cmdbase, filescanner_fullrescan, NULL);
 }
 
 /*
@@ -2138,23 +2027,7 @@ filescanner_init(void)
       goto ino_fail;
     }
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(cmd_pipe, O_CLOEXEC);
-#else
-  ret = pipe(cmd_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not create command pipe: %s\n", strerror(errno));
-      goto cmd_fail;
-    }
-
-  cmdev = event_new(evbase_scan, cmd_pipe[0], EV_READ, command_cb, NULL);
-  if (!cmdev || (event_add(cmdev, NULL) < 0))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not create/add command event\n");
-      goto cmd_fail;
-    }
+  cmdbase = commands_base_new(evbase_scan);
 
   ret = pthread_create(&tid_scan, NULL, filescanner, NULL);
   if (ret != 0)
@@ -2173,9 +2046,7 @@ filescanner_init(void)
   return 0;
 
  thread_fail:
- cmd_fail:
-  close(cmd_pipe[0]);
-  close(cmd_pipe[1]);
+  commands_base_free(cmdbase);
   close(inofd);
  exitev_fail:
  ino_fail:
@@ -2214,9 +2085,8 @@ filescanner_deinit(void)
 
   inofd_event_unset();
 
+  event_base_free(evbase_scan);
+  commands_base_free(cmdbase);
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-  close(cmd_pipe[0]);
-  close(cmd_pipe[1]);
-  event_base_free(evbase_scan);
 }
