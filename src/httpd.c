@@ -678,6 +678,7 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   int flush;
   int zret;
   int ret;
+  char *origin;
 
   if (!req)
     return;
@@ -773,6 +774,10 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   deflateEnd(&strm);
 
   headers = evhttp_request_get_output_headers(req);
+
+  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (origin && strlen(origin))
+      evhttp_add_header(headers, "Access-Control-Allow-Origin", origin);
 
   evhttp_add_header(headers, "Content-Encoding", "gzip");
   evhttp_send_reply(req, code, reason, gzbuf);
