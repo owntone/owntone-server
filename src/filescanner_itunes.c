@@ -668,9 +668,9 @@ ignore_pl(plist_t pl, char *name)
   /* Special (builtin) playlists */
   get_dictval_int_from_key(pl, "Distinguished Kind", &kind);
 
-  /* If only we could recover the smart playlists ... */
-  if (plist_dict_get_item(pl, "Smart Info")
-      || plist_dict_get_item(pl, "Smart Criteria"))
+  /* Import smart playlists (optional) */
+  if (!cfg_getbool(cfg_getsec(cfg, "library"), "itunes_smartpl")
+      && (plist_dict_get_item(pl, "Smart Info") || plist_dict_get_item(pl, "Smart Criteria")))
     smart = 1;
 
   /* Not interested in the Master playlist */
