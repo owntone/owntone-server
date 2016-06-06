@@ -797,6 +797,21 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   evhttp_send_reply(req, code, reason, evbuf);
 }
 
+void
+httpd_send_error(struct evhttp_request* req, int error, const char* reason)
+{
+  char *origin;
+  struct evkeyvalq *headers;
+
+  headers = evhttp_request_get_output_headers(req);
+
+  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (origin && strlen(origin))
+      evhttp_add_header(headers, "Access-Control-Allow-Origin", origin);
+
+  evhttp_send_error(req, error, reason);
+}
+
 /* Thread: httpd */
 static int
 path_is_legal(char *path)
