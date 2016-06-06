@@ -421,13 +421,13 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       DPRINTF(E_LOG, L_HTTPD, "Item %d not found\n", id);
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
   if (mfi->data_kind != DATA_KIND_FILE)
     {
-      evhttp_send_error(req, 500, "Cannot stream radio station");
+      httpd_send_error(req, 500, "Cannot stream radio station");
 
       goto out_free_mfi;
     }
@@ -437,7 +437,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       DPRINTF(E_LOG, L_HTTPD, "Out of memory for struct stream_ctx\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_free_mfi;
     }
@@ -462,7 +462,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");
 
-	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	  httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
 	  goto out_free_st;
 	}
@@ -480,7 +480,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Out of memory for raw streaming buffer\n");
 
-	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	  httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
 	  goto out_free_st;
 	}
@@ -492,7 +492,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", mfi->path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  goto out_cleanup;
 	}
@@ -502,7 +502,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", mfi->path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  goto out_cleanup;
 	}
@@ -513,7 +513,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not seek into %s: %s\n", mfi->path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
 	  goto out_cleanup;
 	}
@@ -556,7 +556,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_LOG, L_HTTPD, "Could not allocate an evbuffer for streaming\n");
 
       evhttp_clear_headers(output_headers);
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
     }
@@ -567,7 +567,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_LOG, L_HTTPD, "Could not expand evbuffer for streaming\n");
 
       evhttp_clear_headers(output_headers);
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
     }
@@ -579,7 +579,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_LOG, L_HTTPD, "Could not add one-shot event for streaming\n");
 
       evhttp_clear_headers(output_headers);
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
     }
@@ -835,7 +835,7 @@ redirect_to_index(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Redirection URL exceeds buffer length\n");
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
@@ -882,7 +882,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
 
-	  evhttp_send_error(req, 403, "Forbidden");
+	  httpd_send_error(req, 403, "Forbidden");
 	  return;
 	}
     }
@@ -892,7 +892,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", uri);
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
       return;
     }
@@ -902,7 +902,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not lstat() %s: %s\n", path, strerror(errno));
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
       return;
     }
@@ -920,7 +920,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  return;
 	}
@@ -929,7 +929,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Dereferenced path exceeds PATH_MAX: %s\n", path);
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  free(deref);
 	  return;
@@ -943,7 +943,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  return;
 	}
@@ -958,7 +958,7 @@ serve_file(struct evhttp_request *req, char *uri)
 
   if (path_is_legal(path) != 0)
     {
-      evhttp_send_error(req, 403, "Forbidden");
+      httpd_send_error(req, 403, "Forbidden");
 
       return;
     }
@@ -968,7 +968,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not create evbuffer\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
       return;
     }
 
@@ -977,7 +977,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", path, strerror(errno));
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
@@ -990,7 +990,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not read file into evbuffer\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
       return;
     }
 
@@ -1274,21 +1274,21 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
   header = (char *)malloc(len);
   if (!header)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
   ret = snprintf(header, len, "Basic realm=\"%s\"", realm);
   if ((ret < 0) || (ret >= len))
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
   evbuf = evbuffer_new();
   if (!evbuf)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
