@@ -83,6 +83,12 @@
 #define STREAM_CHUNK_SIZE (64 * 1024)
 #define WEBFACE_ROOT   DATADIR "/webface/"
 
+#define ERR_PAGE "<html>\n<head>\n" \
+  "<title>%d %s</title>\n" \
+  "</head>\n<body>\n" \
+  "<h1>%s</h1>\n" \
+  "</body>\n</html>\n"
+
 struct content_type_map {
   char *ext;
   char *ctype;
@@ -800,16 +806,52 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
 void
 httpd_send_error(struct evhttp_request* req, int error, const char* reason)
 {
-  char *origin;
-  struct evkeyvalq *headers;
+  /* Allow for own error handling to add CORS headers in error responses. If no
+   * CORS header should be added evhttp_send_error is called directly.
+   *
+   * When using the evhttp_send_error function from libenvent directly it is not
+   * possible to set any additional header for the error response. Calling
+   * evhttp_send_error always results in cleaning all previously set headers.
+   * Therefore it is not possible to add the Access-Control-Allow-Origin CORS
+   * header in the error responses in conjunction with libevents
+   * evhttp_send_error.
+   *
+   * For details about evhttp_send_error please take a look at libevent/http.c.
+   */
 
-  headers = evhttp_request_get_output_headers(req);
+  char *origin;
+  struct evkeyvalq *out_headers;
+  struct evkeyvalq *in_headers = evhttp_request_get_input_headers(req);
+  struct evbuffer *buf;
 
   origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (origin && strlen(origin))
-      evhttp_add_header(headers, "Access-Control-Allow-Origin", origin);
+  if (evhttp_find_header(in_headers, "Origin") == NULL || !origin ||
+        strlen(origin) == 0)
+    return evhttp_send_error(req, error, reason);
 
-  evhttp_send_error(req, error, reason);
+  out_headers = evhttp_request_get_output_headers(req);
+
+  evhttp_clear_headers(out_headers);
+
+  evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
+
+  evhttp_add_header(out_headers, "Content-Type", "text/html");
+  evhttp_add_header(out_headers, "Connection", "close");
+
+  buf = evbuffer_new();
+  if (buf == NULL)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for error page\n");
+    }
+  else
+    {
+      evbuffer_add_printf(buf, ERR_PAGE, error, reason, reason);
+    }
+
+  evhttp_send_reply(req, error, reason, buf);
+
+  if (buf)
+    evbuffer_free(buf);
 }
 
 /* Thread: httpd */
