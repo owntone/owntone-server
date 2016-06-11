@@ -104,12 +104,10 @@ struct stacked_dir {
   struct stacked_dir *next;
 };
 
-static int exit_pipe[2];
 static int scan_exit;
 static int inofd;
 static struct event_base *evbase_scan;
 static struct event *inoev;
-static struct event *exitev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
@@ -1911,13 +1909,6 @@ inofd_event_unset(void)
 }
 
 /* Thread: scan */
-static void
-exit_cb(int fd, short event, void *arg)
-{
-  event_base_loopbreak(evbase_scan);
-
-  scan_exit = 1;
-}
 
 static enum command_state
 filescanner_initscan(void *arg, int *retval)
@@ -2002,32 +1993,13 @@ filescanner_init(void)
       return -1;
     }
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(exit_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create pipe: %s\n", strerror(errno));
-
-      goto pipe_fail;
-    }
-
-  exitev = event_new(evbase_scan, exit_pipe[0], EV_READ, exit_cb, NULL);
-  if (!exitev || (event_add(exitev, NULL) < 0))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not create/add command event\n");
-      goto exitev_fail;
-    }
-
   ret = inofd_event_set();
   if (ret < 0)
     {
       goto ino_fail;
     }
 
-  cmdbase = commands_base_new(evbase_scan);
+  cmdbase = commands_base_new(evbase_scan, NULL);
 
   ret = pthread_create(&tid_scan, NULL, filescanner, NULL);
   if (ret != 0)
@@ -2048,11 +2020,7 @@ filescanner_init(void)
  thread_fail:
   commands_base_free(cmdbase);
   close(inofd);
- exitev_fail:
  ino_fail:
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
- pipe_fail:
   event_base_free(evbase_scan);
 
   return -1;
@@ -2063,17 +2031,9 @@ void
 filescanner_deinit(void)
 {
   int ret;
-  int dummy = 42;
-
-  ret = write(exit_pipe[1], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not write to exit fd: %s\n", strerror(errno));
-
-      return;
-    }
 
   scan_exit = 1;
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_scan, NULL);
   if (ret != 0)
@@ -2086,7 +2046,4 @@ filescanner_deinit(void)
   inofd_event_unset();
 
   event_base_free(evbase_scan);
-  commands_base_free(cmdbase);
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
 }

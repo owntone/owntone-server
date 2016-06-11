@@ -39,11 +39,14 @@ enum command_state {
  */
 typedef enum command_state (*command_function)(void *arg, int *ret);
 
+typedef void (*command_exit_cb)(void);
+
+
 struct commands_base;
 
 
 struct commands_base *
-commands_base_new(struct event_base *evbase);
+commands_base_new(struct event_base *evbase, command_exit_cb exit_cb);
 
 int
 commands_base_free(struct commands_base *cmdbase);
@@ -60,5 +63,7 @@ commands_exec_sync(struct commands_base *cmdbase, command_function func, command
 int
 commands_exec_async(struct commands_base *cmdbase, command_function func, void *arg);
 
+void
+commands_base_destroy(struct commands_base *cmdbase);
 
 #endif /* SRC_COMMANDS_H_ */

@@ -58,8 +58,6 @@ static pthread_t tid_worker;
 // Event base, pipes and events
 struct event_base *evbase_worker;
 static int g_initialized;
-static int g_exit_pipe[2];
-static struct event *g_exitev;
 static struct commands_base *cmdbase;
 
 
@@ -102,20 +100,6 @@ execute(void *arg, int *retval)
 }
 
 
-/* Thread: main */
-static void
-thread_exit(void)
-{
-  int dummy = 42;
-
-  DPRINTF(E_DBG, L_MAIN, "Killing worker thread\n");
-
-  if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
-    DPRINTF(E_LOG, L_MAIN, "Could not write to exit fd: %s\n", strerror(errno));
-}
-
-
-
 /* --------------------------------- MAIN --------------------------------- */
 /*                              Thread: worker                              */
 
@@ -144,23 +128,6 @@ worker(void *arg)
   db_perthread_deinit();
 
   pthread_exit(NULL);
-}
-
-static void
-exit_cb(int fd, short what, void *arg)
-{
-  int dummy;
-  int ret;
-
-  ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_MAIN, "Error reading from exit pipe\n");
-
-  event_base_loopbreak(evbase_worker);
-
-  g_initialized = 0;
-
-  event_add(g_exitev, NULL);
 }
 
 
@@ -205,17 +172,6 @@ worker_init(void)
 {
   int ret;
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(g_exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(g_exit_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Could not create pipe: %s\n", strerror(errno));
-      goto exit_fail;
-    }
-
   evbase_worker = event_base_new();
   if (!evbase_worker)
     {
@@ -223,16 +179,7 @@ worker_init(void)
       goto evbase_fail;
     }
 
-  g_exitev = event_new(evbase_worker, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-
-  cmdbase = commands_base_new(evbase_worker);
-
-  event_add(g_exitev, NULL);
+  cmdbase = commands_base_new(evbase_worker, NULL);
 
   ret = pthread_create(&tid_worker, NULL, worker, NULL);
   if (ret < 0)
@@ -252,15 +199,10 @@ worker_init(void)
   
  thread_fail:
   commands_base_free(cmdbase);
- evnew_fail:
   event_base_free(evbase_worker);
   evbase_worker = NULL;
 
  evbase_fail:
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
-
- exit_fail:
   return -1;
 }
 
@@ -269,7 +211,8 @@ worker_deinit(void)
 {
   int ret;
 
-  thread_exit();
+  g_initialized = 0;
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_worker, NULL);
   if (ret != 0)
@@ -280,9 +223,4 @@ worker_deinit(void)
 
   // Free event base (should free events too)
   event_base_free(evbase_worker);
-
-  // Close pipes and free command base
-  commands_base_free(cmdbase);
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
 }

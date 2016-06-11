@@ -68,8 +68,6 @@
 static pthread_t tid_mpd;
 
 static struct event_base *evbase_mpd;
-static int g_exit_pipe[2];
-static struct event *g_exitev;
 
 static struct commands_base *cmdbase;
 
@@ -192,17 +190,6 @@ struct idle_client
 struct idle_client *idle_clients;
 
 
-static void
-thread_exit(void)
-{
-  int dummy = 42;
-
-  DPRINTF(E_DBG, L_MPD, "Killing mpd thread\n");
-
-  if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
-    DPRINTF(E_LOG, L_MPD, "Could not write to exit fd: %s\n", strerror(errno));
-}
-
 
 /* Thread: mpd */
 static void *
@@ -223,21 +210,6 @@ mpd(void *arg)
   db_perthread_deinit();
 
   pthread_exit(NULL);
-}
-
-static void
-exit_cb(int fd, short what, void *arg)
-{
-  int dummy;
-  int ret;
-
-  ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_MPD, "Error reading from exit pipe\n");
-
-  event_base_loopbreak(evbase_mpd);
-
-  event_add(g_exitev, NULL);
 }
 
 static void
@@ -4670,17 +4642,6 @@ int mpd_init(void)
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
 
-#ifdef HAVE_PIPE2
-  ret = pipe2(g_exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(g_exit_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not create pipe: %s\n", strerror(errno));
-      goto exit_fail;
-    }
-
   evbase_mpd = event_base_new();
   if (!evbase_mpd)
     {
@@ -4688,16 +4649,7 @@ int mpd_init(void)
       goto evbase_fail;
     }
 
-  g_exitev = event_new(evbase_mpd, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-
-  event_add(g_exitev, NULL);
-
-  cmdbase = commands_base_new(evbase_mpd);
+  cmdbase = commands_base_new(evbase_mpd, NULL);
 
   if (v6enabled)
     {
@@ -4808,15 +4760,10 @@ int mpd_init(void)
   evconnlistener_free(listener);
  connew_fail:
   commands_base_free(cmdbase);
- evnew_fail:
   event_base_free(evbase_mpd);
   evbase_mpd = NULL;
 
  evbase_fail:
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
-
- exit_fail:
   return -1;
 }
 
@@ -4835,7 +4782,7 @@ void mpd_deinit(void)
       return;
     }
 
-  thread_exit();
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_mpd, NULL);
   if (ret != 0)
@@ -4861,9 +4808,4 @@ void mpd_deinit(void)
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);
-
-  // Close pipes and free command base
-  commands_base_free(cmdbase);
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
 }

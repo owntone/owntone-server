@@ -114,9 +114,7 @@ static pthread_cond_t login_cond;
 
 // Event base, pipes and events
 struct event_base *evbase_spotify;
-static int g_exit_pipe[2];
 static int g_notify_pipe[2];
-static struct event *g_exitev;
 static struct event *g_notifyev;
 
 static struct commands_base *cmdbase;
@@ -382,21 +380,6 @@ fptr_assign_all()
   return -1;
 }
 // End of ugly part
-
-
-/* ---------------------------- COMMAND EXECUTION -------------------------- */
-
-/* Thread: main and filescanner */
-static void
-thread_exit(void)
-{
-  int dummy = 42;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Killing Spotify thread\n");
-
-  if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
-    DPRINTF(E_LOG, L_SPOTIFY, "Could not write to exit fd: %s\n", strerror(errno));
-}
 
 
 /* --------------------------  PLAYLIST HELPERS    ------------------------- */
@@ -1619,23 +1602,11 @@ spotify(void *arg)
 }
 
 static void
-exit_cb(int fd, short what, void *arg)
+exit_cb()
 {
-  int dummy;
-  int ret;
-
-  ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_SPOTIFY, "Error reading from exit pipe\n");
-
   fptr_sp_session_player_unload(g_sess);
   fptr_sp_session_logout(g_sess);
-
-  event_base_loopbreak(evbase_spotify);
-
   g_state = SPOTIFY_STATE_INACTIVE;
-
-  event_add(g_exitev, NULL);
 }
 
 /* Process events when timeout expires or triggered by libspotify's notify_main_thread */
@@ -1977,17 +1948,6 @@ spotify_init(void)
     goto assign_fail;
 
 #ifdef HAVE_PIPE2
-  ret = pipe2(g_exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(g_exit_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create pipe: %s\n", strerror(errno));
-      goto exit_fail;
-    }
-
-#ifdef HAVE_PIPE2
   ret = pipe2(g_notify_pipe, O_CLOEXEC);
 #else
   ret = pipe(g_notify_pipe);
@@ -2005,13 +1965,6 @@ spotify_init(void)
       goto evbase_fail;
     }
 
-  g_exitev = event_new(evbase_spotify, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-
   g_notifyev = event_new(evbase_spotify, g_notify_pipe[0], EV_READ | EV_TIMEOUT, notify_cb, NULL);
   if (!g_notifyev)
     {
@@ -2019,11 +1972,10 @@ spotify_init(void)
       goto evnew_fail;
     }
 
-  event_add(g_exitev, NULL);
   event_add(g_notifyev, NULL);
 
 
-  cmdbase = commands_base_new(evbase_spotify);
+  cmdbase = commands_base_new(evbase_spotify, exit_cb);
   if (!cmdbase)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not create command base\n");
@@ -2116,10 +2068,6 @@ spotify_init(void)
   close(g_notify_pipe[1]);
 
  notify_fail:
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
-
- exit_fail:
  assign_fail:
   dlclose(g_libhandle);
   g_libhandle = NULL;
@@ -2139,7 +2087,8 @@ spotify_deinit(void)
   /* Send exit signal to thread (if active) */
   if (g_state != SPOTIFY_STATE_INACTIVE)
     {
-      thread_exit();
+      commands_base_destroy(cmdbase);
+      g_state = SPOTIFY_STATE_INACTIVE;
 
       ret = pthread_join(tid_spotify, NULL);
       if (ret != 0)
@@ -2155,12 +2104,9 @@ spotify_deinit(void)
   /* Free event base (should free events too) */
   event_base_free(evbase_spotify);
 
-  /* Close pipes and free command base */
-  commands_base_free(cmdbase);
+  /* Close pipes */
   close(g_notify_pipe[0]);
   close(g_notify_pipe[1]);
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
 
   /* Destroy locks */
   pthread_cond_destroy(&login_cond);
