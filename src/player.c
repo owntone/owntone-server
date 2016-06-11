@@ -125,12 +125,6 @@ struct player_source
   struct player_source *play_next;
 };
 
-enum player_sync_source
-  {
-    PLAYER_SYNC_CLOCK,
-    PLAYER_SYNC_LAUDIO,
-  };
-
 struct volume_param {
   int volume;
   uint64_t spk_id;
@@ -258,9 +252,6 @@ static struct timespec timer_res;
 static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
 // Will be positive if we need to skip some source reads (see below)
 static int ticks_skip;
-
-/* Sync source */
-static enum player_sync_source pb_sync_source;
 
 /* Sync values */
 static struct timespec pb_pos_stamp;
@@ -391,8 +382,8 @@ speaker_deselect_output(struct output_device *device)
 }
 
 
-static int
-player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
+int
+player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 {
   uint64_t delta;
   int ret;
@@ -432,21 +423,6 @@ player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
     }
 
   return 0;
-}
-
-int
-player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
-{
-  switch (pb_sync_source)
-    {
-      case PLAYER_SYNC_CLOCK:
-	return player_get_current_pos_clock(pos, ts, commit);
-
-      default:
-	DPRINTF(E_LOG, L_PLAYER, "Bug! player_get_current_pos called with unknown source\n");
-    }
-
-  return -1;
 }
 
 static int
