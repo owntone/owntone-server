@@ -4782,7 +4782,7 @@ void mpd_deinit(void)
       return;
     }
 
-  commands_cmdloop_exit(cmdbase);
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_mpd, NULL);
   if (ret != 0)
@@ -4808,7 +4808,4 @@ void mpd_deinit(void)
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);
-
-  // Close pipes and free command base
-  commands_base_free(cmdbase);
 }

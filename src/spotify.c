@@ -1606,6 +1606,7 @@ exit_cb()
 {
   fptr_sp_session_player_unload(g_sess);
   fptr_sp_session_logout(g_sess);
+  g_state = SPOTIFY_STATE_INACTIVE;
 }
 
 /* Process events when timeout expires or triggered by libspotify's notify_main_thread */
@@ -2086,7 +2087,7 @@ spotify_deinit(void)
   /* Send exit signal to thread (if active) */
   if (g_state != SPOTIFY_STATE_INACTIVE)
     {
-      commands_cmdloop_exit(cmdbase);
+      commands_base_destroy(cmdbase);
       g_state = SPOTIFY_STATE_INACTIVE;
 
       ret = pthread_join(tid_spotify, NULL);
@@ -2103,8 +2104,7 @@ spotify_deinit(void)
   /* Free event base (should free events too) */
   event_base_free(evbase_spotify);
 
-  /* Close pipes and free command base */
-  commands_base_free(cmdbase);
+  /* Close pipes */
   close(g_notify_pipe[0]);
   close(g_notify_pipe[1]);
 

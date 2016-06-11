@@ -4123,8 +4123,8 @@ player_deinit(void)
 {
   int ret;
 
-  commands_cmdloop_exit(cmdbase);
   player_exit = 1;
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_player, NULL);
   if (ret != 0)
@@ -4149,6 +4149,4 @@ player_deinit(void)
   outputs_deinit();
 
   event_base_free(evbase_player);
-
-  commands_base_free(cmdbase);
 }

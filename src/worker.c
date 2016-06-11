@@ -199,7 +199,6 @@ worker_init(void)
   
  thread_fail:
   commands_base_free(cmdbase);
- evnew_fail:
   event_base_free(evbase_worker);
   evbase_worker = NULL;
 
@@ -212,8 +211,8 @@ worker_deinit(void)
 {
   int ret;
 
-  commands_cmdloop_exit(cmdbase);
   g_initialized = 0;
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_worker, NULL);
   if (ret != 0)
@@ -224,7 +223,4 @@ worker_deinit(void)
 
   // Free event base (should free events too)
   event_base_free(evbase_worker);
-
-  // Close pipes and free command base
-  commands_base_free(cmdbase);
 }

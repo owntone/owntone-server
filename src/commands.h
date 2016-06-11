@@ -64,6 +64,6 @@ int
 commands_exec_async(struct commands_base *cmdbase, command_function func, void *arg);
 
 void
-commands_cmdloop_exit(struct commands_base *cmdbase);
+commands_base_destroy(struct commands_base *cmdbase);
 
 #endif /* SRC_COMMANDS_H_ */

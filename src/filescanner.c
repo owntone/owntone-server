@@ -2032,8 +2032,8 @@ filescanner_deinit(void)
 {
   int ret;
 
-  commands_cmdloop_exit(cmdbase);
   scan_exit = 1;
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_scan, NULL);
   if (ret != 0)
@@ -2046,5 +2046,4 @@ filescanner_deinit(void)
   inofd_event_unset();
 
   event_base_free(evbase_scan);
-  commands_base_free(cmdbase);
 }

@@ -379,8 +379,9 @@ cmdloop_exit(void *arg, int *retval)
 }
 
 void
-commands_cmdloop_exit(struct commands_base *cmdbase)
+commands_base_destroy(struct commands_base *cmdbase)
 {
   commands_exec_sync(cmdbase, cmdloop_exit, NULL, cmdbase);
+  commands_base_free(cmdbase);
 }
 

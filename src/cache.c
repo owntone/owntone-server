@@ -1658,8 +1658,8 @@ cache_deinit(void)
   if (!g_initialized)
     return;
 
-  commands_cmdloop_exit(cmdbase);
   g_initialized = 0;
+  commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_cache, NULL);
   if (ret != 0)
@@ -1670,7 +1670,4 @@ cache_deinit(void)
 
   // Free event base (should free events too)
   event_base_free(evbase_cache);
-
-  // Close pipes and free command base
-  commands_base_free(cmdbase);
 }
