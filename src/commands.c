@@ -168,7 +168,10 @@ send_command(struct commands_base *cmdbase, struct command *cmd)
 }
 
 /*
- * Creates a new command base, needs to be freed by commands_base_free.
+ * Creates a new command base, needs to be freed by commands_base_destroy or commands_base_free.
+ *
+ * @param evbase The libevent base to use for command handling
+ * @param exit_cb Callback function to be called during commands_base_destroy
  */
 struct commands_base *
 commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
@@ -364,6 +367,15 @@ commands_exec_async(struct commands_base *cmdbase, command_function func, void *
   return 0;
 }
 
+/*
+ * Command to break the libevent loop
+ *
+ * If the command base was created with an exit_cb function, exit_cb is called before breaking the
+ * libevent loop.
+ *
+ * @param arg The command base
+ * @param retval Always set to COMMAND_END
+ */
 static enum command_state
 cmdloop_exit(void *arg, int *retval)
 {
@@ -378,6 +390,12 @@ cmdloop_exit(void *arg, int *retval)
   return COMMAND_END;
 }
 
+/*
+ * Break the libevent loop for the given command base, closes the internally used pipes
+ * and frees the command base.
+ *
+ * @param cmdbase The command base
+ */
 void
 commands_base_destroy(struct commands_base *cmdbase)
 {
