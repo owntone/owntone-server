@@ -492,7 +492,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
 
   ri->pi.guid = strdup(guid);
 
-  DPRINTF(E_INFO, L_REMOTE, "Pairing succeeded with Remote '%s' (id %s), GUID: %s\n", ri->pi.name, ri->pi.remote_id, guid);
+  DPRINTF(E_LOG, L_REMOTE, "Pairing succeeded with Remote '%s' (id %s), GUID: %s\n", ri->pi.name, ri->pi.remote_id, guid);
 
   ret = db_pairing_add(&ri->pi);
   if (ret < 0)
