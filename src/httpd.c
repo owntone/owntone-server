@@ -684,7 +684,6 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   int flush;
   int zret;
   int ret;
-  char *origin;
 
   if (!req)
     return;
@@ -779,11 +778,9 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
 
   deflateEnd(&strm);
 
-  headers = evhttp_request_get_output_headers(req);
+  httpd_handle_cors_simple(req);
 
-  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (origin && strlen(origin))
-      evhttp_add_header(headers, "Access-Control-Allow-Origin", origin);
+  headers = evhttp_request_get_output_headers(req);
 
   evhttp_add_header(headers, "Content-Encoding", "gzip");
   evhttp_send_reply(req, code, reason, gzbuf);
@@ -1541,4 +1538,17 @@ httpd_deinit(void)
 #endif
   evhttp_free(evhttpd);
   event_base_free(evbase_httpd);
+}
+
+void
+httpd_handle_cors_simple(struct evhttp_request *req)
+{
+  char *origin;
+  struct evkeyvalq *in_headers = evhttp_request_get_input_headers(req);
+  struct evkeyvalq *out_headers = evhttp_request_get_output_headers(req);
+
+  /* do we use cors? */
+  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (origin && strlen(origin))
+      evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
 }
