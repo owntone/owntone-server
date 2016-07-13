@@ -377,6 +377,8 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
   dmap_add_int(evbuf, "mstt", 500);
   dmap_add_string(evbuf, "msts", errmsg);
 
+  httpd_handle_cors_simple(req);
+
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
