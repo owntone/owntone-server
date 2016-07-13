@@ -1331,6 +1331,8 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
       return -1;
     }
 
+  httpd_handle_cors_simple(req);
+
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "WWW-Authenticate", header);
   evbuffer_add(evbuf, http_reply_401, strlen(http_reply_401));
