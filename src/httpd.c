@@ -1549,6 +1549,7 @@ httpd_handle_cors_simple(struct evhttp_request *req)
 
   /* do we use cors? */
   origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (origin && strlen(origin))
+  if (evhttp_find_header(in_headers, "Origin") != NULL &&
+        origin && strlen(origin))
       evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
 }
