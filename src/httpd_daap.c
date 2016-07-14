@@ -2776,6 +2776,7 @@ daap_request(struct evhttp_request *req)
   /* No authentication for these URIs */
   if ((strcmp(uri, "/server-info") == 0)
       || (strcmp(uri, "/logout") == 0)
+      || (strcmp(uri, "/content-codes") == 0)
       || (strncmp(uri, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
     passwd = NULL;
 
