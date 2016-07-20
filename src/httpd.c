@@ -1351,6 +1351,9 @@ httpd_init(void)
   int v6enabled;
   unsigned short port;
   int ret;
+  char *origin;
+  /* FIXME add all allowed methods for forked-daapd */
+  ev_uint16_t allowed_methods = EVHTTP_REQ_GET;
 
   httpd_exit = 0;
 
@@ -1451,6 +1454,12 @@ httpd_init(void)
 	  goto bind_fail;
 	}
     }
+
+  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (origin && strlen(origin))
+      allowed_methods = allowed_methods | EVHTTP_REQ_OPTIONS;
+
+  evhttp_set_allowed_methods(evhttpd, allowed_methods);
 
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
 
