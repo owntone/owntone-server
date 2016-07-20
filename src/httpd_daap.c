@@ -2769,6 +2769,14 @@ daap_request(struct evhttp_request *req)
       return;
     }
 
+  /* check for CORS preflight OPTIONS request */
+  if (httpd_handle_cors_preflight(req))
+    {
+      free(uri);
+      free(full_uri);
+      return;
+    }
+
   /* Check authentication */
   lib = cfg_getsec(cfg, "library");
   passwd = cfg_getstr(lib, "password");
