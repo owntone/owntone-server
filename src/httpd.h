@@ -17,6 +17,9 @@ httpd_send_error(struct evhttp_request* req, int error, const char* reason);
 void
 httpd_handle_cors_simple(struct evhttp_request *req);
 
+int
+httpd_handle_cors_preflight(struct evhttp_request *req);
+
 char *
 httpd_fixup_uri(struct evhttp_request *req);
 

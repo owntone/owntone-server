@@ -1555,3 +1555,43 @@ httpd_handle_cors_simple(struct evhttp_request *req)
         origin && strlen(origin))
       evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
 }
+
+int
+httpd_handle_cors_preflight(struct evhttp_request *req)
+{
+  char *origin;
+  struct evbuffer *evbuf;
+  struct evkeyvalq *in_headers = evhttp_request_get_input_headers(req);
+  struct evkeyvalq *out_headers = evhttp_request_get_output_headers(req);
+
+  /* check if the request has the method OPTIONS and Origin header is set */
+  if (evhttp_request_get_command(req) == EVHTTP_REQ_OPTIONS &&
+        evhttp_find_header(in_headers, "Origin") != NULL)
+    {
+      /* do we use cors? */
+      origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+      if (origin && strlen(origin))
+	{
+	  evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
+	  /* allow only get method in cross origin requests */
+	  evhttp_add_header(out_headers, "Access-Control-Allow-Method", "GET");
+	  /* allow authorization header in cross origin requests */
+	  evhttp_add_header(out_headers, "Access-Control-Allow-Headers", "authorization");
+	}
+
+    evbuf = evbuffer_new();
+    if (!evbuf)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not allocate evbuffer for reply\n");
+
+	  httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	  return 1;
+	}
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+
+      return 1;
+    }
+
+  /* it is not a preflight request */
+  return 0;
+}
