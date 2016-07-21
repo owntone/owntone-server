@@ -37,6 +37,9 @@ extern struct output_definition output_dummy;
 #ifdef ALSA
 extern struct output_definition output_alsa;
 #endif
+#ifdef PULSEAUDIO
+extern struct output_definition output_pulse;
+#endif
 #ifdef CHROMECAST
 extern struct output_definition output_cast;
 #endif
@@ -48,6 +51,9 @@ static struct output_definition *outputs[] = {
     &output_dummy,
 #ifdef ALSA
     &output_alsa,
+#endif
+#ifdef PULSEAUDIO
+    &output_pulse,
 #endif
 #ifdef CHROMECAST
     &output_cast,

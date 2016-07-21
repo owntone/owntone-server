@@ -214,29 +214,23 @@ AS_IF([test "x$enable_mpd" != "xno"], [
 	CPPFLAGS="${CPPFLAGS} -DMPD"
 ])
 AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
-dnl --- End options ---
 
-dnl Selection of local audio sound system
-dnl TODO exchange oss4 with Pulseaudio
-case "$host" in
-	*-*-linux-*)
-		use_alsa=true
-		use_oss4=false
-		;;
-	*-*-kfreebsd*-*|*-*-freebsd*)
-		use_alsa=true
-		use_oss4=false
-		;;
-esac
-
-AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default yes)]), [
-	AS_IF([test "x$with_alsa" = "xyes"], [use_alsa=true], [use_alsa=false])
-])
-if test x$use_alsa = xtrue; then
+dnl ALSA
+AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default yes)]))
+AS_IF([test "x$with_alsa" = "xyes"], [
 	CPPFLAGS="${CPPFLAGS} -DALSA"
 	PKG_CHECK_MODULES(ALSA, [ alsa ])
-fi
+])
 AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
+
+dnl PULSEAUDIO
+AC_ARG_WITH(pulseaudio, AS_HELP_STRING([--with-pulseaudio], [use Pulseaudio (default no)]))
+AS_IF([test "x$with_pulseaudio" = "xyes"], [
+	CPPFLAGS="${CPPFLAGS} -DPULSEAUDIO"
+	PKG_CHECK_MODULES(LIBPULSE, [ libpulse ])
+])
+AM_CONDITIONAL(COND_PULSEAUDIO, [test "x$with_pulseaudio" = "xyes"])
+dnl --- End options ---
 
 dnl Checks for header files.
 AC_HEADER_STDC

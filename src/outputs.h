@@ -55,6 +55,9 @@ enum output_types
 #ifdef ALSA
   OUTPUT_TYPE_ALSA,
 #endif
+#ifdef PULSEAUDIO
+  OUTPUT_TYPE_PULSE,
+#endif
 #ifdef CHROMECAST
   OUTPUT_TYPE_CAST,
 #endif
