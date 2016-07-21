@@ -264,19 +264,12 @@ static void
 sinklist_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata)
 {
   struct output_device *device;
-  uint32_t id;
+  const char *name;
 
   if (eol > 0)
     return;
 
-  id = djb_hash(i->name, strlen(i->name));
-  if (!id)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not hash Pulseaudio sink name (%s)\n", i->name);
-      return;
-    }
-
-  DPRINTF(E_DBG, L_LAUDIO, "Event for Pulseaudio sink '%s' (id %" PRIu32 ")\n", i->name, id);
+  DPRINTF(E_DBG, L_LAUDIO, "Event for Pulseaudio sink '%s' (id %" PRIu32 ")\n", i->name, i->index);
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
@@ -285,13 +278,24 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata)
       return;
     }
 
-  device->id = id;
-  device->name = strdup(i->name);
+  if (i->index == 0)
+    {
+      name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
+
+      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s) with name '%s'\n", i->description, i->name, name);
+    }
+  else
+    {
+      name = i->description;
+
+      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s)\n", i->description, i->name);
+    }
+
+  device->id = i->index;
+  device->name = strdup(name);
   device->type = OUTPUT_TYPE_PULSE;
   device->type_name = outputs_name(device->type);
   device->advertised = 1;
-
-  DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s)\n", i->description, i->name);
 
   player_device_add(device);
 }
@@ -632,14 +636,11 @@ static int
 pulse_init(void)
 {
   struct pulse *p = &pulse;
-  cfg_t *cfg_audio;
   char *type;
   int state;
   int ret;
 
-  cfg_audio = cfg_getsec(cfg, "audio");
-  type = cfg_getstr(cfg_audio, "type");
-
+  type = cfg_getstr(cfg_getsec(cfg, "audio"), "type");
   if (type && (strcasecmp(type, "pulseaudio") != 0))
     return -1;
 
