@@ -354,9 +354,31 @@ pulse_free(struct pulse *p)
 }
 
 static int
-stream_open(struct pulse_session *ps)
+context_check(pa_context *context)
 {
-  struct pulse *p = &pulse;
+  pa_context_state_t state;
+  int errno;
+
+  state = pa_context_get_state(context);
+  if (!PA_CONTEXT_IS_GOOD(state))
+    {
+      if (state == PA_CONTEXT_FAILED)
+	{
+	  errno = pa_context_errno(context);
+          DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio context failed with error: %s\n", pa_strerror(errno));
+	}
+      else
+        DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio context invalid state\n");
+
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+stream_open(struct pulse *p, struct pulse_session *ps)
+{
   pa_stream_flags_t flags;
   pa_sample_spec ss;
   int ret;
@@ -412,10 +434,8 @@ stream_open(struct pulse_session *ps)
 }
 
 static void
-stream_close(struct pulse_session *ps)
+stream_close(struct pulse *p, struct pulse_session *ps)
 {
-  struct pulse *p = &pulse;
-
   pa_threaded_mainloop_lock(p->mainloop);
 
   pa_stream_disconnect(ps->stream);
@@ -435,30 +455,7 @@ stream_close(struct pulse_session *ps)
 }
 
 static int
-check_state_context(struct pulse *p)
-{
-  pa_context_state_t state;
-  int errno;
-
-  state = pa_context_get_state(p->context);
-  if (!PA_CONTEXT_IS_GOOD(state))
-    {
-      if (state == PA_CONTEXT_FAILED)
-	{
-	  errno = pa_context_errno(p->context);
-          DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio context failed with error: %s\n", pa_strerror(errno));
-	}
-      else
-        DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio context invalid state\n");
-
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-check_state_stream(struct pulse *p, struct pulse_session *ps)
+stream_check(struct pulse *p, struct pulse_session *ps)
 {
   pa_stream_state_t state;
   int errno;
@@ -493,7 +490,7 @@ pulse_device_start(struct output_device *device, output_status_cb cb, uint64_t r
   if (!ps)
     return -1;
 
-  ret = stream_open(ps);
+  ret = stream_open(&pulse, ps);
   if (ret < 0)
     return -1;
 
@@ -507,7 +504,7 @@ pulse_device_stop(struct output_session *session)
 {
   struct pulse_session *ps = session->session;
 
-  stream_close(ps);
+  stream_close(&pulse, ps);
 
   pulse_status(ps);
 }
@@ -522,14 +519,14 @@ pulse_device_probe(struct output_device *device, output_status_cb cb)
   if (!ps)
     return -1;
 
-  ret = stream_open(ps);
+  ret = stream_open(&pulse, ps);
   if (ret < 0)
     {
       pulse_session_cleanup(ps);
       return -1;
     }
 
-  stream_close(ps);
+  stream_close(&pulse, ps);
 
   pulse_status(ps);
 
@@ -572,7 +569,7 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
 
   pa_threaded_mainloop_lock(p->mainloop);
 
-  if (check_state_context(p) < 0)
+  if (context_check(p->context) < 0)
     {
       // TODO Not a good situation... we should kill all sessions
       pa_threaded_mainloop_unlock(p->mainloop);
@@ -583,7 +580,7 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
     {
       next = ps->next;
 
-      if (check_state_stream(p, ps) < 0)
+      if (stream_check(p, ps) < 0)
 	{
 	  pulse_status(ps); // Note: This will nuke the session (deferred)
 	  continue;
@@ -634,7 +631,7 @@ pulse_set_status_cb(struct output_session *session, output_status_cb cb)
 static int
 pulse_init(void)
 {
-  struct pulse *p;
+  struct pulse *p = &pulse;
   cfg_t *cfg_audio;
   char *type;
   int state;
@@ -646,7 +643,6 @@ pulse_init(void)
   if (type && (strcasecmp(type, "pulseaudio") != 0))
     return -1;
 
-  p = &pulse;
   ret = 0;
 
   if (!(p->mainloop = pa_threaded_mainloop_new()))
