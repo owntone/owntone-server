@@ -668,7 +668,7 @@ b64_decode(const char *b64)
 static const char b64_encode_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static void
-b64_encode_block(uint8_t *in, char *out, int len)
+b64_encode_block(const uint8_t *in, char *out, int len)
 {
   out[0] = b64_encode_table[in[0] >> 2];
 
@@ -691,7 +691,7 @@ b64_encode_block(uint8_t *in, char *out, int len)
 }
 
 static void
-b64_encode_full_block(uint8_t *in, char *out)
+b64_encode_full_block(const uint8_t *in, char *out)
 {
   out[0] = b64_encode_table[in[0] >> 2];
   out[1] = b64_encode_table[((in[0] & 0x03) << 4) | ((in[1] & 0xf0) >> 4)];
@@ -700,7 +700,7 @@ b64_encode_full_block(uint8_t *in, char *out)
 }
 
 char *
-b64_encode(uint8_t *in, size_t len)
+b64_encode(const uint8_t *in, size_t len)
 {
   char *encoded;
   char *out;

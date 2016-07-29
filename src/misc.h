@@ -77,7 +77,7 @@ char *
 b64_decode(const char *b64);
 
 char *
-b64_encode(uint8_t *in, size_t len);
+b64_encode(const uint8_t *in, size_t len);
 
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
