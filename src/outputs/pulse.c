@@ -38,11 +38,14 @@
 #include "logger.h"
 #include "player.h"
 #include "outputs.h"
+#include "commands.h"
 
 struct pulse
 {
   pa_threaded_mainloop *mainloop;
   pa_context *context;
+
+  struct commands_base *cmdbase;
 
   int operation_success;
 };
@@ -64,6 +67,11 @@ struct pulse_session
   output_status_cb status_cb;
 
   struct pulse_session *next;
+};
+
+union pulse_arg
+{
+  struct pulse_session *ps;
 };
 
 // From player.c
@@ -150,7 +158,7 @@ pulse_session_make(struct output_device *device, output_status_cb cb)
   ps->device = device;
   ps->status_cb = cb;
   ps->volume = device->volume;
-  ps->devname = strdup(device->name);
+  ps->devname = strdup(device->extra_device_info);
 
   ps->next = sessions;
   sessions = ps;
@@ -204,6 +212,18 @@ pulse_status(struct pulse_session *ps)
   ps->status_cb = NULL;
 }
 
+// Callbacks from the Pulseaudio thread will invoke commands_async_exec(),
+// which will trigger a status update in the player thread
+static enum command_state
+pulse_status_cmd_wrapper(void *arg, int *ret)
+{
+  union pulse_arg *cmdarg = arg;
+
+  pulse_status(cmdarg->ps);
+
+  return COMMAND_END;
+}
+
 
 /* --------------------- CALLBACKS FROM PULSEAUDIO THREAD ------------------- */
 
@@ -212,6 +232,7 @@ stream_state_cb(pa_stream *s, void * userdata)
 {
   struct pulse *p = &pulse;
   struct pulse_session *ps = userdata;
+  union pulse_arg *cmdarg;
 
   DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio stream state CB\n");
 
@@ -222,7 +243,9 @@ stream_state_cb(pa_stream *s, void * userdata)
       case PA_STREAM_READY:
       case PA_STREAM_FAILED:
       case PA_STREAM_TERMINATED:
-//	pulse_status(ps); // TODO Not thread safe
+	cmdarg = calloc(1, sizeof(union pulse_arg));
+	cmdarg->ps = ps;
+	commands_exec_async(p->cmdbase, pulse_status_cmd_wrapper, cmdarg);
 	pa_threaded_mainloop_signal(p->mainloop, 0);
 	break;
 
@@ -258,8 +281,6 @@ success_cb(pa_stream *s, int success, void *userdata)
 }
 */
 
-// TODO Remove devices?
-// TODO Will this get called multiple times?
 static void
 sinklist_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata)
 {
@@ -269,7 +290,7 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata)
   if (eol > 0)
     return;
 
-  DPRINTF(E_DBG, L_LAUDIO, "Event for Pulseaudio sink '%s' (id %" PRIu32 ")\n", i->name, i->index);
+  DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio sink '%s' (id %" PRIu32 ")\n", i->name, i->index);
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
@@ -296,8 +317,49 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata)
   device->type = OUTPUT_TYPE_PULSE;
   device->type_name = outputs_name(device->type);
   device->advertised = 1;
+  device->extra_device_info = strdup(i->name);
 
   player_device_add(device);
+}
+
+static void
+subscribe_cb(pa_context *c, pa_subscription_event_type_t t, uint32_t index, void *userdata)
+{
+  struct output_device *device;
+  pa_operation *o;
+
+  DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio subscribe (id %" PRIu32 ", event %d)\n", index, t);
+
+  if ((t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK) != PA_SUBSCRIPTION_EVENT_SINK)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio subscribe called back with unknown event\n");
+      return;
+    }
+
+  if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_REMOVE)
+    {
+      device = calloc(1, sizeof(struct output_device));
+      if (!device)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Out of memory for temp Pulseaudio device\n");
+	  return;
+	}
+
+      device->id = index;
+
+      DPRINTF(E_LOG, L_LAUDIO, "Removing Pulseaudio sink with id %" PRIu32 "\n", index);
+
+      player_device_remove(device);
+      return;
+    }
+
+  o = pa_context_get_sink_info_by_index(c, index, sinklist_cb, NULL);
+  if (!o)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio error getting sink info for id %" PRIu32 "\n", index);
+      return;
+    }
+  pa_operation_unref(o);
 }
 
 static void
@@ -312,13 +374,23 @@ context_state_cb(pa_context *c, void *userdata)
     {
       case PA_CONTEXT_READY:
   DPRINTF(E_DBG, L_LAUDIO, "CTX READY\n");
-	o = pa_context_get_sink_info_list(c, sinklist_cb, p);
+	o = pa_context_get_sink_info_list(c, sinklist_cb, NULL);
+	if (!o)
+	  {
+	    DPRINTF(E_LOG, L_LAUDIO, "Could not list Pulseaudio sink info\n");
+	    return;
+	  }
+	pa_operation_unref(o);
+
+	pa_context_set_subscribe_callback(c, subscribe_cb, NULL);
+	o = pa_context_subscribe(c, PA_SUBSCRIPTION_MASK_SINK, NULL, NULL);
 	if (!o)
 	  {
 	    DPRINTF(E_LOG, L_LAUDIO, "Could not subscribe to Pulseaudio sink info\n");
 	    return;
 	  }
 	pa_operation_unref(o);
+
 	pa_threaded_mainloop_signal(p->mainloop, 0);
 	break;
 
@@ -352,6 +424,9 @@ pulse_free(struct pulse *p)
       pa_context_disconnect(p->context);
       pa_context_unref(p->context);
     }
+
+  if (p->cmdbase)
+    commands_base_free(p->cmdbase);
 
   if (p->mainloop)
     pa_threaded_mainloop_free(p->mainloop);
@@ -498,7 +573,7 @@ pulse_device_start(struct output_device *device, output_status_cb cb, uint64_t r
   if (ret < 0)
     return -1;
 
-  pulse_status(ps);
+//  pulse_status(ps);
 
   return 0;
 }
@@ -510,7 +585,7 @@ pulse_device_stop(struct output_session *session)
 
   stream_close(&pulse, ps);
 
-  pulse_status(ps);
+//  pulse_status(ps);
 }
 
 static int
@@ -535,6 +610,12 @@ pulse_device_probe(struct output_device *device, output_status_cb cb)
   pulse_status(ps);
 
   return 0;
+}
+
+static void
+pulse_device_free_extra(struct output_device *device)
+{
+  free(device->extra_device_info);
 }
 
 static int
@@ -649,6 +730,9 @@ pulse_init(void)
   if (!(p->mainloop = pa_threaded_mainloop_new()))
     goto fail;
 
+  if (!(p->cmdbase = commands_base_new(evbase_player, NULL)))
+    goto fail;
+
 // TODO
 #ifdef HAVE_PULSE_MAINLOOP_SET_NAME
   pa_threaded_mainloop_set_name(p->mainloop, "pulseaudio");
@@ -719,6 +803,7 @@ struct output_definition output_pulse =
   .device_start = pulse_device_start,
   .device_stop = pulse_device_stop,
   .device_probe = pulse_device_probe,
+  .device_free_extra = pulse_device_free_extra,
   .device_volume_set = pulse_volume_set,
   .playback_start = pulse_playback_start,
   .playback_stop = pulse_playback_stop,
