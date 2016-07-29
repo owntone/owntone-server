@@ -3224,9 +3224,6 @@ outputs_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flag
 
   outputs = (struct outputs *)arg;
 
-  DPRINTF(E_DBG, L_MPD, "outputid: %" PRIu64 ", outputname: %s, outputenabled: %d\n",
-      id, name, flags.selected);
-
   output = (struct output*)malloc(sizeof(struct output));
 
   output->id = id;
@@ -3239,6 +3236,9 @@ outputs_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flag
   outputs->count++;
   if (flags.selected)
     outputs->active++;
+
+  DPRINTF(E_DBG, L_MPD, "Output enum: shortid %d, id %" PRIu64 ", name '%s', selected %d\n",
+      output->shortid, output->id, output->name, output->selected);
 }
 
 /*
