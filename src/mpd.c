@@ -3349,7 +3349,7 @@ mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'disableoutput'");
+      ret = asprintf(errmsg, "Missing argument for command 'enableoutput'");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
@@ -3440,7 +3440,7 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'disableoutput'");
+      ret = asprintf(errmsg, "Missing argument for command 'toggleoutput'");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
