@@ -2031,7 +2031,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'load'");
+      ret = asprintf(errmsg, "Missing argument for command 'listplaylist'");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
@@ -2103,7 +2103,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'load'");
+      ret = asprintf(errmsg, "Missing argument for command 'listplaylistinfo'");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
