@@ -1146,16 +1146,6 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   player_get_status(&status);
 
-  //TODO verfiy handling of play with parameter if already playing
-  if (status.status == PLAY_PLAYING)
-    {
-      ret = player_playback_pause();
-      if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_MPD, "Error pausing playback\n");
-      }
-    }
-
   songpos = 0;
   if (argc > 1)
     {
@@ -1167,6 +1157,18 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	  return ACK_ERROR_ARG;
 	}
+    }
+
+  if (status.status == PLAY_PLAYING && songpos < 0)
+    {
+      DPRINTF(E_DBG, L_MPD, "Ignoring play command with parameter '%s', player is already playing.\n", argv[1]);
+      return 0;
+    }
+
+  if (status.status == PLAY_PLAYING)
+    {
+      // Stop playback, if player is already playing and a valid song position is given (it will be restarted for the given song position)
+      player_playback_stop();
     }
 
   if (songpos > 0)
@@ -1199,19 +1201,10 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   player_get_status(&status);
 
-  //TODO verfiy handling of play with parameter if already playing
-  if (status.status == PLAY_PLAYING)
-    {
-      ret = player_playback_pause();
-      if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_MPD, "Error pausing playback\n");
-      }
-    }
-
   id = 0;
   if (argc > 1)
     {
+      //TODO [mpd] mpd allows passing "-1" as argument and simply ignores it, forked-daapd fails to convert "-1" to an unsigned int
       ret = safe_atou32(argv[1], &id);
       if (ret < 0)
 	{
@@ -1220,6 +1213,12 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	  return ACK_ERROR_ARG;
 	}
+    }
+
+  if (status.status == PLAY_PLAYING)
+    {
+      // Stop playback, if player is already playing and a valid item id is given (it will be restarted for the given song)
+      player_playback_stop();
     }
 
   if (id > 0)
@@ -2032,7 +2031,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'load'");
+      ret = asprintf(errmsg, "Missing argument for command 'listplaylist'");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
@@ -2104,7 +2103,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'load'");
+      ret = asprintf(errmsg, "Missing argument for command 'listplaylistinfo'");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
