@@ -1201,19 +1201,10 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   player_get_status(&status);
 
-  //TODO verfiy handling of play with parameter if already playing
-  if (status.status == PLAY_PLAYING)
-    {
-      ret = player_playback_pause();
-      if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_MPD, "Error pausing playback\n");
-      }
-    }
-
   id = 0;
   if (argc > 1)
     {
+      //TODO [mpd] mpd allows passing "-1" as argument and simply ignores it, forked-daapd fails to convert "-1" to an unsigned int
       ret = safe_atou32(argv[1], &id);
       if (ret < 0)
 	{
@@ -1222,6 +1213,12 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	  return ACK_ERROR_ARG;
 	}
+    }
+
+  if (status.status == PLAY_PLAYING)
+    {
+      // Stop playback, if player is already playing and a valid item id is given (it will be restarted for the given song)
+      player_playback_stop();
     }
 
   if (id > 0)
