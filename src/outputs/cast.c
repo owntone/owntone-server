@@ -1104,28 +1104,25 @@ cast_listen_cb(int fd, short what, void *arg)
   DPRINTF(E_DBG, L_CAST, "New data from '%s'\n", cs->devname);
 #endif
 
+  // We should get a 4 byte header and then the actual message. The header will
+  // be the length of the message. Sometimes gnutls first reads the header,
+  // other times the header + message are read together.
   received = 0;
   while ((ret = gnutls_record_recv(cs->tls_session, buffer + received, MAX_BUF - received)) > 0)
     {
 #ifdef DEBUG_CONNECTION
       DPRINTF(E_DBG, L_CAST, "Received %d bytes\n", ret);
-#endif
-
       if (ret == 4)
 	{
-#ifdef DEBUG_CONNECTION
 	  uint32_t be;
 	  size_t len;
 	  memcpy(&be, buffer, 4);
 	  len = be32toh(be);
 	  DPRINTF(E_DBG, L_CAST, "Incoming %d bytes\n", len);
+	}
 #endif
-	}
-      else
-	{
-	  received += ret;
-	}
 
+      received += ret;
       if (received >= MAX_BUF)
 	{
 	  DPRINTF(E_LOG, L_CAST, "Receive buffer exhausted!\n");
@@ -1145,8 +1142,9 @@ cast_listen_cb(int fd, short what, void *arg)
       return;
     }
 
-  if (received)
-    cast_msg_process(cs, buffer, received);
+  // Ignore the first 4 bytes, they are just the length of the message
+  if (received > 4)
+    cast_msg_process(cs, buffer + 4, received - 4);
 }
 
 static void
