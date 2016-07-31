@@ -1092,6 +1092,12 @@ process_parent_directories(char *path)
   ptr = path + 1;
   while (ptr && (ptr = strchr(ptr, '/')))
     {
+      if ((ptr - path) > 0)
+	{
+	  // Do not process trailing '/'
+	  break;
+	}
+
       strncpy(buf, path, (ptr - path));
       buf[(ptr - path)] = '\0';
 
