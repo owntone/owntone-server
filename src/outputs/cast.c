@@ -728,6 +728,15 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
   int unknown_session_id;
   int i;
 
+#ifdef DEBUG_CONNECTION
+  char *b64 = b64_encode(data, len);
+  if (b64)
+    {
+      DPRINTF(E_DBG, L_CAST, "Reply dump (len %d): %s\n", len, b64);
+      free(b64);
+    }
+#endif
+
   reply = extensions__core_api__cast_channel__cast_message__unpack(NULL, len, data);
   if (!reply)
     {
