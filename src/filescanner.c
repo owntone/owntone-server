@@ -1092,7 +1092,7 @@ process_parent_directories(char *path)
   ptr = path + 1;
   while (ptr && (ptr = strchr(ptr, '/')))
     {
-      if ((ptr - path) > 0)
+      if (strlen(ptr) <= 1)
 	{
 	  // Do not process trailing '/'
 	  break;
