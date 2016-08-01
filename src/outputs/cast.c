@@ -162,6 +162,11 @@ struct cast_session
   cast_reply_cb callback_register[CALLBACK_REGISTER_SIZE];
   struct event *reply_timeout;
 
+  // This is used to work around a bug where no response is given by the device.
+  // For certain requests, we will then retry, e.g. by checking status. We
+  // register our retry so that we on only retry once.
+  int retry;
+
   // Session info from the ChromeCast
   char *transport_id;
   char *session_id;
@@ -934,17 +939,34 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
 {
   int ret;
 
+  // Sometimes the response to a LAUNCH is just a broadcast RECEIVER_STATUS
+  // without our requestId. That won't be registered by our response handler,
+  // and we get an empty callback due to timeout. In this case we send a
+  // GET_STATUS to see if we are good to go anyway.
+  if (!payload && !cs->retry)
+    {
+      DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our LAUNCH - trying GET_STATUS instead\n");
+      cs->retry++;
+      ret = cast_msg_send(cs, GET_STATUS, cast_cb_startup_launch);
+      if (ret != 0)
+	goto error;
+
+      return;
+    }
+
   if (!payload)
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our LAUNCH - aborting\n");
       goto error;
     }
-  else if (payload->type != RECEIVER_STATUS)
+
+  if (payload->type != RECEIVER_STATUS)
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our LAUNCH (got type: %d) - aborting\n", payload->type);
       goto error;
     }
-  else if (!payload->transport_id || !payload->session_id)
+
+  if (!payload->transport_id || !payload->session_id)
     {
       DPRINTF(E_LOG, L_CAST, "Missing session id or transport id in RECEIVER_STATUS - aborting\n");
       goto error;
@@ -955,6 +977,8 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
 
   cs->session_id = strdup(payload->session_id);
   cs->transport_id = strdup(payload->transport_id);
+
+  cs->retry = 0;
 
   ret = cast_msg_send(cs, MEDIA_CONNECT, NULL);
   if (ret == 0)
