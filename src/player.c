@@ -2346,7 +2346,8 @@ playback_start_item(union player_arg *cmdarg, int *retval, struct queue_item *qi
       if (ret < 0)
 	{
 	  playback_abort();
-	  return -1;
+	  *retval = -1;
+	  return COMMAND_END;
 	}
     }
 
