@@ -2938,7 +2938,10 @@ volume_setrel_speaker(void *arg, int *retval)
 	continue;
 
       if (!device->selected)
-	return 0;
+	{
+	  *retval = 0;
+	  return COMMAND_END;
+	}
 
       device->relvol = relvol;
       device->volume = rel_to_vol(relvol);
