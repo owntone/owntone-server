@@ -2346,7 +2346,8 @@ playback_start_item(union player_arg *cmdarg, int *retval, struct queue_item *qi
       if (ret < 0)
 	{
 	  playback_abort();
-	  return -1;
+	  *retval = -1;
+	  return COMMAND_END;
 	}
     }
 
@@ -2529,7 +2530,8 @@ playback_prev_bh(void *arg, int *retval)
 	{
 	  playback_abort();
 
-	  return -1;
+          *retval = -1;
+          return COMMAND_END;
 	}
     }
   else
@@ -2936,7 +2938,10 @@ volume_setrel_speaker(void *arg, int *retval)
 	continue;
 
       if (!device->selected)
-	return 0;
+	{
+	  *retval = 0;
+	  return COMMAND_END;
+	}
 
       device->relvol = relvol;
       device->volume = rel_to_vol(relvol);
@@ -3015,7 +3020,10 @@ repeat_set(void *arg, int *retval)
   union player_arg *cmdarg = arg;
 
   if (cmdarg->mode == repeat)
-    return 0;
+    {
+      *retval = 0;
+      return COMMAND_END;
+    }
 
   switch (cmdarg->mode)
     {
