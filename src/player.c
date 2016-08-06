@@ -3020,7 +3020,10 @@ repeat_set(void *arg, int *retval)
   union player_arg *cmdarg = arg;
 
   if (cmdarg->mode == repeat)
-    return 0;
+    {
+      *retval = 0;
+      return COMMAND_END;
+    }
 
   switch (cmdarg->mode)
     {
