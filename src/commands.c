@@ -65,7 +65,7 @@ command_cb_async(struct commands_base *cmdbase, struct command *cmd)
   cmdstate = cmd->func(cmd->arg, &cmd->ret);
 
   // Only free arg if there are no pending events (used in worker.c)
-  if (cmdstate == COMMAND_END && cmd->arg)
+  if (cmdstate != COMMAND_PENDING && cmd->arg)
     free(cmd->arg);
 
   free(cmd);
@@ -84,7 +84,13 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
   pthread_mutex_lock(&cmd->lck);
 
   cmdstate = cmd->func(cmd->arg, &cmd->ret);
-  if (cmdstate == COMMAND_END)
+  if (cmdstate == COMMAND_PENDING)
+    {
+      // Command execution is waiting for pending events before returning to the caller
+      cmdbase->current_cmd = cmd;
+      cmd->pending = cmd->ret;
+    }
+  else
     {
       // Command execution finished, execute the bottom half function
       if (cmd->ret == 0 && cmd->func_bh)
@@ -97,12 +103,6 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
       pthread_mutex_unlock(&cmd->lck);
 
       event_add(cmdbase->command_event, NULL);
-    }
-  else
-    {
-      // Command execution is waiting for pending events before returning to the caller
-      cmdbase->current_cmd = cmd;
-      cmd->pending = cmd->ret;
     }
 }
 
