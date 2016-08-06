@@ -2530,7 +2530,8 @@ playback_prev_bh(void *arg, int *retval)
 	{
 	  playback_abort();
 
-	  return -1;
+          *retval = -1;
+          return COMMAND_END;
 	}
     }
   else
