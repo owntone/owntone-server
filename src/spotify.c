@@ -1068,7 +1068,8 @@ playback_eot(void *arg, int *retval)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback end of track failed: %s\n", fptr_sp_error_message(err));
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   g_state = SPOTIFY_STATE_STOPPING;
