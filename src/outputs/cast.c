@@ -1205,15 +1205,15 @@ cast_reply_timeout_cb(int fd, short what, void *arg)
   int i;
 
   cs = (struct cast_session *)arg;
+  i = cs->request_id % CALLBACK_REGISTER_SIZE;
 
-  DPRINTF(E_WARN, L_CAST, "Request timeout, will run empty callbacks\n");
+  DPRINTF(E_LOG, L_CAST, "Request %d timed out, will run empty callback\n", i);
 
-  for (i = 0; i < CALLBACK_REGISTER_SIZE; i++)
-    if (cs->callback_register[i])
-      {
-	cs->callback_register[i](cs, NULL);
-	cs->callback_register[i] = NULL;
-      }
+  if (cs->callback_register[i])
+    {
+      cs->callback_register[i](cs, NULL);
+      cs->callback_register[i] = NULL;
+    }
 }
 
 static void
