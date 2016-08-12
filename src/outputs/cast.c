@@ -110,9 +110,9 @@ typedef void (*cast_reply_cb)(struct cast_session *cs, struct cast_msg_payload *
 enum cast_state
 {
   // Something bad happened during a session
-  CAST_STATE_FAILED          = -1,
+  CAST_STATE_FAILED          = 0,
   // No session allocated
-  CAST_STATE_NULL            = 0,
+  CAST_STATE_NONE            = 1,
   // Session allocated, but no connection
   CAST_STATE_DISCONNECTED    = CAST_STATE_F_STARTUP | 0x01,
   // TCP connect, TLS handshake, CONNECT and GET_STATUS request
@@ -809,7 +809,7 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 
 /*	  cs->state = CAST_STATE_MEDIA_CONNECTED;
 	  // Kill the session, the player will need to restart it
-	  cast_session_shutdown(cs, CAST_STATE_NULL);
+	  cast_session_shutdown(cs, CAST_STATE_NONE);
 	  goto out_free_parsed;
 */	}
     }
@@ -837,7 +837,7 @@ cast_status(struct cast_session *cs)
       case CAST_STATE_FAILED:
 	state = OUTPUT_STATE_FAILED;
 	break;
-      case CAST_STATE_NULL:
+      case CAST_STATE_NONE:
 	state = OUTPUT_STATE_STOPPED;
 	break;
       case CAST_STATE_DISCONNECTED ... CAST_STATE_MEDIA_LAUNCHED:
@@ -1042,7 +1042,7 @@ cast_cb_probe(struct cast_session *cs, struct cast_msg_payload *payload)
 
   cast_status(cs);
 
-  cast_session_shutdown(cs, CAST_STATE_NULL);
+  cast_session_shutdown(cs, CAST_STATE_NONE);
 
   return;
 
@@ -1111,64 +1111,91 @@ cast_listen_cb(int fd, short what, void *arg)
 {
   struct cast_session *cs;
   uint8_t buffer[MAX_BUF + 1]; // Not sure about the +1, but is copied from gnutls examples
+  uint32_t be;
+  size_t len;
   int received;
   int ret;
 
-  cs = (struct cast_session *)arg;
+  for (cs = sessions; cs; cs = cs->next)
+    {
+      if (cs == (struct cast_session *)arg)
+	break;
+    }
+
+  if (!cs)
+    {
+      DPRINTF(E_INFO, L_CAST, "Callback on dead session, ignoring\n");
+      return;
+    }
 
   if (what == EV_TIMEOUT)
     {
       DPRINTF(E_LOG, L_CAST, "No heartbeat from '%s', shutting down\n", cs->devname);
-      cs->state = CAST_STATE_CONNECTED;
-      cast_session_shutdown(cs, CAST_STATE_FAILED);
-      return;
+      goto fail;
     }
 
 #ifdef DEBUG_CONNECTION
   DPRINTF(E_DBG, L_CAST, "New data from '%s'\n", cs->devname);
 #endif
 
-  // We should get a 4 byte header and then the actual message. The header will
-  // be the length of the message. Sometimes gnutls first reads the header,
-  // other times the header + message are read together.
-  received = 0;
-  while ((ret = gnutls_record_recv(cs->tls_session, buffer + received, MAX_BUF - received)) > 0)
-    {
-#ifdef DEBUG_CONNECTION
-      DPRINTF(E_DBG, L_CAST, "Received %d bytes\n", ret);
-      if (ret == 4)
-	{
-	  uint32_t be;
-	  size_t len;
-	  memcpy(&be, buffer, 4);
-	  len = be32toh(be);
-	  DPRINTF(E_DBG, L_CAST, "Incoming %d bytes\n", len);
-	}
-#endif
+  // We first read the 4 byte header and then the actual message. The header
+  // will be the length of the message.
+  ret = gnutls_record_recv(cs->tls_session, buffer, 4);
+  if (ret != 4)
+    goto no_read;
 
-      received += ret;
-      if (received >= MAX_BUF)
-	{
-	  DPRINTF(E_LOG, L_CAST, "Receive buffer exhausted!\n");
-	  cast_session_shutdown(cs, CAST_STATE_FAILED);
-	  return;
-	}
+  memcpy(&be, buffer, 4);
+  len = be32toh(be);
+  if ((len == 0) || (len > MAX_BUF))
+    {
+      DPRINTF(E_LOG, L_CAST, "Bad length of incoming message, aborting (len=%d, size=%d)\n", len, MAX_BUF);
+      goto fail;
     }
 
+  received = 0;
+  while (received < len)
+    {
+      ret = gnutls_record_recv(cs->tls_session, buffer + received, len - received);
+      if (ret <= 0)
+	goto no_read;
+
+      received += ret;
+
+#ifdef DEBUG_CONNECTION
+      DPRINTF(E_DBG, L_CAST, "Received %d bytes out of expected %d bytes\n", received, len);
+#endif
+    }
+
+  ret = gnutls_record_check_pending(cs->tls_session);
+
+  // Process the message - note that this may result in cs being invalidated
+  cast_msg_process(cs, buffer, len);
+
+  // In the event there was more data waiting for us we go again
+  if (ret > 0)
+    {
+      DPRINTF(E_INFO, L_CAST, "More data pending from device (%d bytes)\n", ret);
+      cast_listen_cb(fd, what, arg);
+    }
+
+  return;
+
+ no_read:
   if ((ret != GNUTLS_E_INTERRUPTED) && (ret != GNUTLS_E_AGAIN))
     {
       DPRINTF(E_LOG, L_CAST, "Session error: %s\n", gnutls_strerror(ret));
-
-      // Downgrade state to make cast_session_shutdown perform an exit which is
-      // quick and won't require a reponse from the device
-      cs->state = CAST_STATE_CONNECTED;
-      cast_session_shutdown(cs, CAST_STATE_FAILED);
-      return;
+      goto fail;
     }
 
-  // Ignore the first 4 bytes, they are just the length of the message
-  if (received > 4)
-    cast_msg_process(cs, buffer + 4, received - 4);
+  DPRINTF(E_DBG, L_CAST, "Return value from tls is %d (GNUTLS_E_AGAIN is %d)\n", ret, GNUTLS_E_AGAIN);
+
+  return;
+
+ fail:
+  // Downgrade state to make cast_session_shutdown perform an exit which is
+  // quick and won't require a reponse from the device
+  cs->state = CAST_STATE_CONNECTED;
+  cast_session_shutdown(cs, CAST_STATE_FAILED);
 }
 
 static void
@@ -1389,7 +1416,7 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
 }
 
 // Attempts to "nicely" bring down a session to wanted_state, and then issues
-// the callback. If wanted_state is CAST_STATE_NULL/FAILED then the session is purged.
+// the callback. If wanted_state is CAST_STATE_NONE/FAILED then the session is purged.
 static void
 cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
 {
@@ -1403,7 +1430,7 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
     }
   else if (cs->state < wanted_state)
     {
-      DPRINTF(E_LOG, L_CAST, "Bug! Shutdown request got wanted_state that is higher than current state\n");
+      DPRINTF(E_LOG, L_CAST, "Bug! Shutdown request got wanted_state (%d) that is higher than current state (%d)\n", wanted_state, cs->state);
       return;
     }
 
@@ -1460,7 +1487,7 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
     return;
 
   // Asked to destroy the session
-  if (wanted_state == CAST_STATE_NULL || wanted_state == CAST_STATE_FAILED)
+  if (wanted_state == CAST_STATE_NONE || wanted_state == CAST_STATE_FAILED)
     {
       cs->state = wanted_state;
       cast_status(cs);
@@ -1519,7 +1546,7 @@ cast_device_stop(struct output_session *session)
 {
   struct cast_session *cs = session->session;
 
-  cast_session_shutdown(cs, CAST_STATE_NULL);
+  cast_session_shutdown(cs, CAST_STATE_NONE);
 }
 
 static int
@@ -1611,9 +1638,14 @@ static void
 cast_playback_stop(void)
 {
   struct cast_session *cs;
+  struct cast_session *next;
 
-  for (cs = sessions; cs; cs = cs->next)
-    cast_session_shutdown(cs, CAST_STATE_NULL);
+  for (cs = sessions; cs; cs = next)
+    {
+      next = cs->next;
+      if (cs->state & CAST_STATE_F_MEDIA_CONNECTED)
+	cast_session_shutdown(cs, CAST_STATE_NONE);
+    }
 }
 
 static void
