@@ -60,11 +60,10 @@ static int offset;
 
 enum alsa_state
 {
-  ALSA_STATE_STOPPED   = 0,
+  ALSA_STATE_FAILED    = 0,
+  ALSA_STATE_STOPPED   = 1,
   ALSA_STATE_STARTED   = ALSA_F_STARTED,
   ALSA_STATE_STREAMING = ALSA_F_STARTED | 0x01,
-
-  ALSA_STATE_FAILED    = -1,
 };
 
 enum alsa_sync_state
