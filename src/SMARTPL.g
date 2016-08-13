@@ -71,6 +71,7 @@ INTTAG		:	'play_count'
 			;
 
 DATETAG		:	'time_added'
+			|	'time_modified'
 			|	'time_played'
 			;
 

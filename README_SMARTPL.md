@@ -40,6 +40,7 @@ Where valid field-names (with there types) are:
 * year (integer)
 * compilation (integer)
 * time_added (date)
+* time_modified (date)
 * time_played (date)
 
 Valid operators include:
