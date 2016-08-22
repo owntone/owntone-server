@@ -1162,7 +1162,7 @@ cast_listen_cb(int fd, short what, void *arg)
       received += ret;
 
 #ifdef DEBUG_CONNECTION
-      DPRINTF(E_DBG, L_CAST, "Received %zu bytes out of expected %d bytes\n", received, len);
+      DPRINTF(E_DBG, L_CAST, "Received %d bytes out of expected %zu bytes\n", received, len);
 #endif
     }
 
