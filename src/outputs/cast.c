@@ -609,7 +609,7 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   len = extensions__core_api__cast_channel__cast_message__get_packed_size(&msg);
   if (len <= 0)
     {
-      DPRINTF(E_LOG, L_CAST, "Could not send message (type %d), invalid length: %d\n", type, len);
+      DPRINTF(E_LOG, L_CAST, "Could not send message (type %d), invalid length: %zu\n", type, len);
       return -1;
     }
 
@@ -633,7 +633,7 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
     }
 
   if (type != PONG)
-    DPRINTF(E_DBG, L_CAST, "TX %d %s %s %s %s\n", len, msg.source_id, msg.destination_id, msg.namespace_, msg.payload_utf8);
+    DPRINTF(E_DBG, L_CAST, "TX %zu %s %s %s %s\n", len, msg.source_id, msg.destination_id, msg.namespace_, msg.payload_utf8);
 
   return 0;
 }
@@ -737,7 +737,7 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
   char *b64 = b64_encode(data, len);
   if (b64)
     {
-      DPRINTF(E_DBG, L_CAST, "Reply dump (len %d): %s\n", len, b64);
+      DPRINTF(E_DBG, L_CAST, "Reply dump (len %zu): %s\n", len, b64);
       free(b64);
     }
 #endif
@@ -762,7 +762,7 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
       goto out_free_parsed;
     }
 
-  DPRINTF(E_DBG, L_CAST, "RX %d %s %s %s %s\n", len, reply->source_id, reply->destination_id, reply->namespace_, reply->payload_utf8);
+  DPRINTF(E_DBG, L_CAST, "RX %zu %s %s %s %s\n", len, reply->source_id, reply->destination_id, reply->namespace_, reply->payload_utf8);
 
   if (payload.type == UNKNOWN)
     goto out_free_parsed;
@@ -1148,7 +1148,7 @@ cast_listen_cb(int fd, short what, void *arg)
   len = be32toh(be);
   if ((len == 0) || (len > MAX_BUF))
     {
-      DPRINTF(E_LOG, L_CAST, "Bad length of incoming message, aborting (len=%d, size=%d)\n", len, MAX_BUF);
+      DPRINTF(E_LOG, L_CAST, "Bad length of incoming message, aborting (len=%zu, size=%d)\n", len, MAX_BUF);
       goto fail;
     }
 
@@ -1162,7 +1162,7 @@ cast_listen_cb(int fd, short what, void *arg)
       received += ret;
 
 #ifdef DEBUG_CONNECTION
-      DPRINTF(E_DBG, L_CAST, "Received %d bytes out of expected %d bytes\n", received, len);
+      DPRINTF(E_DBG, L_CAST, "Received %zu bytes out of expected %d bytes\n", received, len);
 #endif
     }
 
