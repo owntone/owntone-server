@@ -40,6 +40,8 @@
 #include "outputs.h"
 #include "commands.h"
 
+#define PULSE_MAX_DEVICES 64
+
 struct pulse
 {
   pa_threaded_mainloop *mainloop;
@@ -69,17 +71,15 @@ struct pulse_session
   struct pulse_session *next;
 };
 
-union pulse_arg
-{
-  struct pulse_session *ps;
-};
-
 // From player.c
 extern struct event_base *evbase_player;
 
 // Globals
 static struct pulse pulse;
 static struct pulse_session *sessions;
+
+// Internal list with indeces of the Pulseaudio devices (sinks) we have registered
+static uint32_t pulse_known_devices[PULSE_MAX_DEVICES];
 
 /* Forwards */
 static void
@@ -212,18 +212,6 @@ pulse_status(struct pulse_session *ps)
   ps->status_cb = NULL;
 }
 
-// Callbacks from the Pulseaudio thread will invoke commands_async_exec(),
-// which will trigger a status update in the player thread
-static enum command_state
-pulse_status_cmd_wrapper(void *arg, int *ret)
-{
-  union pulse_arg *cmdarg = arg;
-
-  pulse_status(cmdarg->ps);
-
-  return COMMAND_END;
-}
-
 
 /* --------------------- CALLBACKS FROM PULSEAUDIO THREAD ------------------- */
 
@@ -232,15 +220,10 @@ stream_state_cb(pa_stream *s, void * userdata)
 {
   struct pulse *p = &pulse;
   struct pulse_session *ps = userdata;
-  union pulse_arg *cmdarg;
 
   DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio stream state CB\n");
 
   ps->state = pa_stream_get_state(s);
-
-	cmdarg = calloc(1, sizeof(union pulse_arg));
-	cmdarg->ps = ps;
-	commands_exec_async(p->cmdbase, pulse_status_cmd_wrapper, cmdarg);
 
   switch (ps->state)
     {
@@ -283,15 +266,33 @@ success_cb(pa_stream *s, int success, void *userdata)
 */
 
 static void
-sinklist_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata)
+sinklist_cb(pa_context *ctx, const pa_sink_info *info, int eol, void *userdata)
 {
   struct output_device *device;
   const char *name;
+  int i;
+  int pos;
 
   if (eol > 0)
     return;
 
-  DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio sink '%s' (id %" PRIu32 ")\n", i->name, i->index);
+  DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio sink '%s' (id %" PRIu32 ")\n", info->name, info->index);
+
+  pos = -1;
+  for (i = 0; i < PULSE_MAX_DEVICES; i++)
+    {
+      if (pulse_known_devices[i] == (info->index + 1))
+	return;
+
+      if (pulse_known_devices[i] == 0)
+	pos = i;
+    }
+
+  if (pos == -1)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Maximum number of Pulseaudio devices reached (%d), cannot add '%s'\n", PULSE_MAX_DEVICES, info->name);
+      return;
+    }
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
@@ -300,25 +301,27 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata)
       return;
     }
 
-  if (i->index == 0)
+  if (info->index == 0)
     {
       name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
 
-      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s) with name '%s'\n", i->description, i->name, name);
+      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s) with name '%s'\n", info->description, info->name, name);
     }
   else
     {
-      name = i->description;
+      name = info->description;
 
-      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s)\n", i->description, i->name);
+      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s)\n", info->description, info->name);
     }
 
-  device->id = i->index;
+  pulse_known_devices[pos] = info->index + 1; // Array values of 0 mean no device, so we add 1 to make sure the value is > 0
+
+  device->id = info->index;
   device->name = strdup(name);
   device->type = OUTPUT_TYPE_PULSE;
   device->type_name = outputs_name(device->type);
   device->advertised = 1;
-  device->extra_device_info = strdup(i->name);
+  device->extra_device_info = strdup(info->name);
 
   player_device_add(device);
 }
@@ -328,6 +331,7 @@ subscribe_cb(pa_context *c, pa_subscription_event_type_t t, uint32_t index, void
 {
   struct output_device *device;
   pa_operation *o;
+  int i;
 
   DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio subscribe (id %" PRIu32 ", event %d)\n", index, t);
 
@@ -349,6 +353,12 @@ subscribe_cb(pa_context *c, pa_subscription_event_type_t t, uint32_t index, void
       device->id = index;
 
       DPRINTF(E_LOG, L_LAUDIO, "Removing Pulseaudio sink with id %" PRIu32 "\n", index);
+
+      for (i = 0; i < PULSE_MAX_DEVICES; i++)
+	{
+	  if (pulse_known_devices[i] == index)
+	    pulse_known_devices[i] = 0;
+	}
 
       player_device_remove(device);
       return;
@@ -566,6 +576,8 @@ pulse_device_start(struct output_device *device, output_status_cb cb, uint64_t r
   struct pulse_session *ps;
   int ret;
 
+  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio start\n");
+
   ps = pulse_session_make(device, cb);
   if (!ps)
     return -1;
@@ -584,6 +596,8 @@ pulse_device_stop(struct output_session *session)
 {
   struct pulse_session *ps = session->session;
 
+  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio stop\n");
+
   stream_close(&pulse, ps);
 
   pulse_status(ps);
@@ -594,6 +608,8 @@ pulse_device_probe(struct output_device *device, output_status_cb cb)
 {
   struct pulse_session *ps;
   int ret;
+
+  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio probe\n");
 
   ps = pulse_session_make(device, cb);
   if (!ps)
@@ -661,20 +677,6 @@ pulse_device_volume_set(struct output_device *device, output_status_cb cb)
 }
 
 static void
-pulse_playback_start(uint64_t next_pkt, struct timespec *ts)
-{
-  if (!sessions)
-    return;
-
-  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio playback start called\n");
-}
-
-static void
-pulse_playback_stop(void)
-{
-}
-
-static void
 pulse_write(uint8_t *buf, uint64_t rtptime)
 {
   struct pulse *p = &pulse;
@@ -736,9 +738,31 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
 static int
 pulse_flush(output_status_cb cb, uint64_t rtptime)
 {
-  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio flush called\n");
+  struct pulse *p = &pulse;
+  struct pulse_session *ps;
+  pa_operation* o;
+  int i;
 
-  return 0;
+  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio flush\n");
+
+  pa_threaded_mainloop_lock(p->mainloop);
+
+  i = 0;
+  for (ps = sessions; ps; ps = ps->next)
+    {
+      i++;
+
+      o = pa_stream_flush(ps->stream, NULL, NULL);
+      if (o)
+	{
+	  ps->status_cb = cb;
+	  pulse_status(ps);
+	}
+    }
+
+  pa_threaded_mainloop_unlock(p->mainloop);
+
+  return i;
 }
 
 static void
@@ -841,8 +865,6 @@ struct output_definition output_pulse =
   .device_probe = pulse_device_probe,
   .device_free_extra = pulse_device_free_extra,
   .device_volume_set = pulse_device_volume_set,
-  .playback_start = pulse_playback_start,
-  .playback_stop = pulse_playback_stop,
   .write = pulse_write,
   .flush = pulse_flush,
   .status_cb = pulse_set_status_cb,
