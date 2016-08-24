@@ -238,14 +238,15 @@ stream_state_cb(pa_stream *s, void * userdata)
 
   ps->state = pa_stream_get_state(s);
 
+	cmdarg = calloc(1, sizeof(union pulse_arg));
+	cmdarg->ps = ps;
+	commands_exec_async(p->cmdbase, pulse_status_cmd_wrapper, cmdarg);
+
   switch (ps->state)
     {
       case PA_STREAM_READY:
       case PA_STREAM_FAILED:
       case PA_STREAM_TERMINATED:
-	cmdarg = calloc(1, sizeof(union pulse_arg));
-	cmdarg->ps = ps;
-	commands_exec_async(p->cmdbase, pulse_status_cmd_wrapper, cmdarg);
 	pa_threaded_mainloop_signal(p->mainloop, 0);
 	break;
 
@@ -573,7 +574,7 @@ pulse_device_start(struct output_device *device, output_status_cb cb, uint64_t r
   if (ret < 0)
     return -1;
 
-//  pulse_status(ps);
+  pulse_status(ps);
 
   return 0;
 }
@@ -585,7 +586,7 @@ pulse_device_stop(struct output_session *session)
 
   stream_close(&pulse, ps);
 
-//  pulse_status(ps);
+  pulse_status(ps);
 }
 
 static int
@@ -619,8 +620,43 @@ pulse_device_free_extra(struct output_device *device)
 }
 
 static int
-pulse_volume_set(struct output_device *device, output_status_cb cb)
+pulse_device_volume_set(struct output_device *device, output_status_cb cb)
 {
+  struct pulse *p = &pulse;
+  struct pulse_session *ps;
+  uint32_t idx;
+  pa_operation* o;
+  pa_cvolume cvol;
+  pa_volume_t vol;
+
+  if (!sessions || !device->session || !device->session->session)
+    return 0;
+
+  ps = device->session->session;
+
+  vol = PA_VOLUME_MUTED + (device->volume * (PA_VOLUME_NORM - PA_VOLUME_MUTED)) / 100;
+  pa_cvolume_set(&cvol, 2, vol);
+
+  idx = pa_stream_get_index(ps->stream);
+
+  DPRINTF(E_DBG, L_LAUDIO, "Setting Pulseaudio volume for stream %" PRIu32 " to %d (%d)\n", idx, (int)vol, device->volume);
+
+  pa_threaded_mainloop_lock(p->mainloop);
+
+  o = pa_context_set_sink_input_volume(p->context, idx, &cvol, NULL, NULL);
+  if (!o)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not set volume: %s\n", pa_strerror(pa_context_errno(p->context)));
+      pa_threaded_mainloop_unlock(p->mainloop);
+      return 0;
+    }
+  pa_operation_unref(o);
+
+  pa_threaded_mainloop_unlock(p->mainloop);
+
+  ps->status_cb = cb;
+  pulse_status(ps);
+
   return 1;
 }
 
@@ -804,7 +840,7 @@ struct output_definition output_pulse =
   .device_stop = pulse_device_stop,
   .device_probe = pulse_device_probe,
   .device_free_extra = pulse_device_free_extra,
-  .device_volume_set = pulse_volume_set,
+  .device_volume_set = pulse_device_volume_set,
   .playback_start = pulse_playback_start,
   .playback_stop = pulse_playback_stop,
   .write = pulse_write,
