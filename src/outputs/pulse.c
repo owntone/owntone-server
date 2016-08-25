@@ -42,6 +42,11 @@
 
 #define PULSE_MAX_DEVICES 64
 
+/* TODO for Pulseaudio
+   - Get volume from Pulseaudio on startup and on callbacks
+   - Add sync with AirPlay with pa_buffer_attr
+*/
+
 struct pulse
 {
   pa_threaded_mainloop *mainloop;
@@ -488,9 +493,9 @@ stream_open(struct pulse *p, struct pulse_session *ps)
   pa_stream_set_write_callback(ps->stream, stream_request_cb, ps);
   pa_stream_set_latency_update_callback(ps->stream, stream_latency_update_cb, ps);
 
+  // TODO should we use PA_STREAM_ADJUST_LATENCY?
   flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_ADJUST_LATENCY | PA_STREAM_AUTO_TIMING_UPDATE;
 
-  // TODO sync stream
   ret = pa_stream_connect_playback(ps->stream, ps->devname, NULL, flags, NULL, NULL);
   if (ret < 0)
     goto unlock_and_fail;
@@ -683,6 +688,7 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
   struct pulse_session *ps;
   struct pulse_session *next;
   size_t length;
+  int invalid_context;
   int ret;
 
   if (!sessions)
@@ -692,18 +698,13 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
 
   pa_threaded_mainloop_lock(p->mainloop);
 
-  if (context_check(p->context) < 0)
-    {
-      // TODO Not a good situation... we should kill all sessions
-      pa_threaded_mainloop_unlock(p->mainloop);
-      return;
-    }
+  invalid_context = (context_check(p->context) < 0);
 
   for (ps = sessions; ps; ps = next)
     {
       next = ps->next;
 
-      if (stream_check(p, ps) < 0)
+      if (invalid_context || (stream_check(p, ps) < 0))
 	{
 	  pulse_status(ps); // Note: This will nuke the session (deferred)
 	  continue;
@@ -793,7 +794,6 @@ pulse_init(void)
   if (!(p->cmdbase = commands_base_new(evbase_player, NULL)))
     goto fail;
 
-// TODO
 #ifdef HAVE_PULSE_MAINLOOP_SET_NAME
   pa_threaded_mainloop_set_name(p->mainloop, "pulseaudio");
 #endif
