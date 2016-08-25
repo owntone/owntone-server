@@ -11,7 +11,7 @@ fi
 
 DEPS="gmake autoconf automake libtool gettext gperf glib pkgconf wget git \
      ffmpeg libconfuse libevent2 mxml libgcrypt libunistring libiconv \
-     libplist libinotify avahi sqlite3"
+     libplist libinotify avahi sqlite3 alsa-lib"
 echo "The script can install the following dependency packages for you:"
 echo $DEPS
 read -p "Should the script install these packages? [y/N] " yn
