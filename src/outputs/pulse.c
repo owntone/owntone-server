@@ -655,6 +655,9 @@ pulse_device_volume_set(struct output_device *device, output_status_cb cb)
 
   ps = device->session->session;
 
+  if ((context_check(p->context) < 0) || (stream_check(p, ps) < 0))
+    return 0;
+
   vol = PA_VOLUME_MUTED + (device->volume * (PA_VOLUME_NORM - PA_VOLUME_MUTED)) / 100;
   pa_cvolume_set(&cvol, 2, vol);
 
