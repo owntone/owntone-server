@@ -171,7 +171,7 @@ send_command(struct commands_base *cmdbase, struct command *cmd)
  * Creates a new command base, needs to be freed by commands_base_destroy or commands_base_free.
  *
  * @param evbase The libevent base to use for command handling
- * @param exit_cb Callback function to be called during commands_base_destroy
+ * @param exit_cb Optional callback function to be called during commands_base_destroy
  */
 struct commands_base *
 commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)

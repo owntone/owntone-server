@@ -159,7 +159,7 @@ AC_CHECK_HEADERS(stdint.h,,)
 
 dnl --- Begin configuring the options ---
 dnl iTunes playlists with libplist
-AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes library support (default=no)]))
+AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes Music Library XML support (default=no)]))
 AS_IF([test "x$enable_itunes" = "xyes"], [
 	CPPFLAGS="${CPPFLAGS} -DITUNES"
 	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
@@ -167,7 +167,7 @@ AS_IF([test "x$enable_itunes" = "xyes"], [
 AM_CONDITIONAL(COND_ITUNES, [test "x$enable_itunes" = "xyes"])
 
 dnl Spotify with dynamic linking to libspotify
-AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify library support (default=no)]))
+AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify support (default=no)]))
 AS_IF([test "x$enable_spotify" = "xyes"], [
 	CPPFLAGS="${CPPFLAGS} -DSPOTIFY"
 	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
@@ -214,29 +214,26 @@ AS_IF([test "x$enable_mpd" != "xno"], [
 	CPPFLAGS="${CPPFLAGS} -DMPD"
 ])
 AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
-dnl --- End options ---
 
-dnl Selection of local audio sound system
-dnl TODO exchange oss4 with Pulseaudio
-case "$host" in
-	*-*-linux-*)
-		use_alsa=true
-		use_oss4=false
-		;;
-	*-*-kfreebsd*-*|*-*-freebsd*)
-		use_alsa=true
-		use_oss4=false
-		;;
-esac
-
-AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default yes)]), [
-	AS_IF([test "x$with_alsa" = "xyes"], [use_alsa=true], [use_alsa=false])
-])
-if test x$use_alsa = xtrue; then
+dnl ALSA
+AC_ARG_WITH(alsa, AS_HELP_STRING([--without-alsa], [without ALSA support (default=no)]))
+AS_IF([test "x$with_alsa" != "xno"], [
 	CPPFLAGS="${CPPFLAGS} -DALSA"
 	PKG_CHECK_MODULES(ALSA, [ alsa ])
-fi
-AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
+])
+AM_CONDITIONAL(COND_ALSA, [test "x$with_alsa" != "xno"])
+
+dnl PULSEAUDIO
+AC_ARG_WITH(pulseaudio, AS_HELP_STRING([--with-pulseaudio], [with Pulseaudio support (default=no)]))
+AS_IF([test "x$with_pulseaudio" = "xyes"], [
+	CPPFLAGS="${CPPFLAGS} -DPULSEAUDIO"
+	PKG_CHECK_MODULES(LIBPULSE, [ libpulse ])
+	AC_SEARCH_LIBS([pa_threaded_mainloop_set_name], [pulse],
+		AC_DEFINE(HAVE_PULSE_MAINLOOP_SET_NAME, 1, [Define to 1 if you have Pulseaudio with pa_threaded_mainloop_set_name])
+	)
+])
+AM_CONDITIONAL(COND_PULSEAUDIO, [test "x$with_pulseaudio" = "xyes"])
+dnl --- End options ---
 
 dnl Checks for header files.
 AC_HEADER_STDC

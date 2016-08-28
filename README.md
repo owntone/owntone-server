@@ -219,9 +219,15 @@ by your ffmpeg/libav. See [MP3 network streaming](#MP3-network-streaming-(stream
 
 ## Local audio output
 
-forked-daapd supports local audio output through ALSA. The server will try to
-syncronize playback with AirPlay. You can adjust the syncronization in the
-config file.
+forked-daapd supports local audio output through ALSA or Pulseaudio. You can
+set your preference in the config file.
+
+If you select ALSA, the server will try to syncronize playback with AirPlay.
+You can adjust the syncronization in the config file.
+
+If you select Pulseaudio, the "card" setting in the config file has no effect.
+Instead all soundcards detected by Pulseaudio will be listed as speakers by
+forked-daapd.
 
 
 ## MP3 network streaming (streaming to iOS)

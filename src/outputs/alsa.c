@@ -1011,7 +1011,7 @@ alsa_init(void)
   device->advertised = 1;
   device->has_video = 0;
 
-  DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' using friendly name '%s'\n", card_name, nickname);
+  DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' with name '%s'\n", card_name, nickname);
 
   player_device_add(device);
 
