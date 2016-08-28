@@ -33,23 +33,20 @@ libraries:
   libasound2-dev libmxml-dev libgcrypt11-dev libavahi-client-dev zlib1g-dev \
   libevent-dev
 
-Chromecast support (--enable-chromecast) also requires:
+Optional packages:
 
- sudo apt-get install libjson-c-dev libgnutls-dev libprotobuf-c-dev
-
-LastFM support (--enable-lastfm) also requires:
-
- sudo apt-get install libcurl4-gnutls-dev (or libcurl4-openssl-dev)
-
-Support for iTunes Music Library XML (--enable-itunes) also requires:
-
- sudo apt-get install libplist-dev
+ Feature    | Configure argument  | Packages
+ -----------|---------------------|---------------------------------------------
+ Chromecast | --enable-chromecast | libjson-c-dev libgnutls-dev libprotobuf-c-dev
+ LastFM     | --enable-lastfm     | libcurl4-gnutls-dev OR libcurl4-openssl-dev
+ iTunes XML | --enable-itunes     | libplist-dev
+ Pulseaudio | --with-pulseaudio   | libpulse-dev
 
 Note that while forked-daapd will work with versions of libevent between 2.0.0
 and 2.1.3, it is recommended to use 2.1.4+. Otherwise you may not have support
 for Shoutcast metadata and simultaneous streaming to multiple clients.
 
-Then run the following:
+Then run the following (adding configure arguments for optional features):
 
  git clone https://github.com/ejurgensen/forked-daapd.git
  cd forked-daapd
@@ -146,8 +143,10 @@ Libraries:
         from <http://zlib.net/>
  - libunistring 0.9.3+
         from <http://www.gnu.org/software/libunistring/#downloading>
- - libasound (optional - local audio)
+ - libasound (optional - ALSA local audio)
 	often already installed as part of your distro
+ - libpulse (optional - Pulseaudio local audio)
+        from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
  - libplist 0.16+ (optional - iTunes XML support)
         from <http://github.com/JonathanBeck/libplist/downloads>
  - libspotify (optional - Spotify support)
@@ -215,6 +214,8 @@ feature.
 
 Support for Chromecast devices is optional. Use --enable-chromecast to enable
 this feature.
+
+Building with Pulseaudio is optional. Use --with-pulseaudio to enable.
 
 Recommended build settings:
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
