@@ -224,15 +224,15 @@ AS_IF([test "x$with_alsa" != "xno"], [
 AM_CONDITIONAL(COND_ALSA, [test "x$with_alsa" != "xno"])
 
 dnl PULSEAUDIO
-AC_ARG_WITH(pulseaudio, AS_HELP_STRING([--without-pulseaudio], [without Pulseaudio support (default=no)]))
-AS_IF([test "x$with_pulseaudio" != "xno"], [
+AC_ARG_WITH(pulseaudio, AS_HELP_STRING([--with-pulseaudio], [with Pulseaudio support (default=no)]))
+AS_IF([test "x$with_pulseaudio" = "xyes"], [
 	CPPFLAGS="${CPPFLAGS} -DPULSEAUDIO"
 	PKG_CHECK_MODULES(LIBPULSE, [ libpulse ])
 	AC_SEARCH_LIBS([pa_threaded_mainloop_set_name], [pulse],
 		AC_DEFINE(HAVE_PULSE_MAINLOOP_SET_NAME, 1, [Define to 1 if you have Pulseaudio with pa_threaded_mainloop_set_name])
 	)
 ])
-AM_CONDITIONAL(COND_PULSEAUDIO, [test "x$with_pulseaudio" != "xno"])
+AM_CONDITIONAL(COND_PULSEAUDIO, [test "x$with_pulseaudio" = "xyes"])
 dnl --- End options ---
 
 dnl Checks for header files.
