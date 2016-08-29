@@ -389,7 +389,6 @@ context_state_cb(pa_context *c, void *userdata)
   switch (pa_context_get_state(c))
     {
       case PA_CONTEXT_READY:
-  DPRINTF(E_DBG, L_LAUDIO, "CTX READY\n");
 	o = pa_context_get_sink_info_list(c, sinklist_cb, NULL);
 	if (!o)
 	  {
@@ -412,7 +411,6 @@ context_state_cb(pa_context *c, void *userdata)
 
       case PA_CONTEXT_TERMINATED:
       case PA_CONTEXT_FAILED:
-  DPRINTF(E_DBG, L_LAUDIO, "CTX FAIL\n");
 	pa_threaded_mainloop_signal(p->mainloop, 0);
 	break;
 
@@ -420,7 +418,6 @@ context_state_cb(pa_context *c, void *userdata)
       case PA_CONTEXT_CONNECTING:
       case PA_CONTEXT_AUTHORIZING:
       case PA_CONTEXT_SETTING_NAME:
-  DPRINTF(E_DBG, L_LAUDIO, "CTX START\n");
 	break;
     }
 }
