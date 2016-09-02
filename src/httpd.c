@@ -54,12 +54,16 @@
 #include "db.h"
 #include "conffile.h"
 #include "misc.h"
+#include "worker.h"
 #include "httpd.h"
 #include "httpd_rsp.h"
 #include "httpd_daap.h"
 #include "httpd_dacp.h"
 #include "httpd_streaming.h"
 #include "transcode.h"
+#ifdef LASTFM
+# include "lastfm.h"
+#endif
 
 /*
  * HTTP client quirks by User-Agent, from mt-daapd
@@ -167,15 +171,38 @@ stream_end(struct stream_ctx *st, int failed)
   free(st);
 }
 
+/* Callback from the worker thread (async operation as it may block) */
 static void
-stream_up_playcount(struct stream_ctx *st)
+playcount_inc_cb(void *arg)
+{
+  int *id = arg;
+
+  db_file_inc_playcount(*id);
+}
+
+#ifdef LASTFM
+/* Callback from the worker thread (async operation as it may block) */
+static void
+scrobble_cb(void *arg)
+{
+  int *id = arg;
+
+  lastfm_scrobble(*id);
+}
+#endif
+
+static void
+stream_end_register(struct stream_ctx *st)
 {
   if (!st->marked
       && (st->stream_size > ((st->size * 50) / 100))
       && (st->offset > ((st->size * 80) / 100)))
     {
       st->marked = 1;
-      db_file_inc_playcount(st->id);
+      worker_execute(playcount_inc_cb, &st->id, sizeof(int), 0);
+#ifdef LASTFM
+      worker_execute(scrobble_cb, &st->id, sizeof(int), 1);
+#endif
     }
 }
 
@@ -269,7 +296,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 
   st->offset += ret;
 
-  stream_up_playcount(st);
+  stream_end_register(st);
 
   return;
 
@@ -335,7 +362,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   st->offset += ret;
 
-  stream_up_playcount(st);
+  stream_end_register(st);
 }
 
 static void
