@@ -1,6 +1,6 @@
 [Unit]
 Description=DAAP/DACP (iTunes), RSP and MPD server, supports AirPlay and Remote
-After=network.target
+After=network.target sound.target
 
 [Service]
 ExecStart=/usr/sbin/forked-daapd -f
