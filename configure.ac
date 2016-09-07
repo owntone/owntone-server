@@ -161,7 +161,7 @@ dnl --- Begin configuring the options ---
 dnl iTunes playlists with libplist
 AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes Music Library XML support (default=no)]))
 AS_IF([test "x$enable_itunes" = "xyes"], [
-	CPPFLAGS="${CPPFLAGS} -DITUNES"
+	AC_DEFINE(ITUNES, 1, [Define to 1 to enable iTunes XML support])
 	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
 ])
 AM_CONDITIONAL(COND_ITUNES, [test "x$enable_itunes" = "xyes"])
@@ -169,7 +169,7 @@ AM_CONDITIONAL(COND_ITUNES, [test "x$enable_itunes" = "xyes"])
 dnl Spotify with dynamic linking to libspotify
 AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify support (default=no)]))
 AS_IF([test "x$enable_spotify" = "xyes"], [
-	CPPFLAGS="${CPPFLAGS} -DSPOTIFY"
+	AC_DEFINE(SPOTIFY, 1, [Define to 1 to enable Spotify support])
 	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
 	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
 
@@ -184,7 +184,7 @@ AM_CONDITIONAL(COND_SPOTIFY, [test "x$enable_spotify" = "xyes"])
 dnl LastFM support with libcurl
 AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
 AS_IF([test "x$enable_lastfm" = "xyes"], [
-	CPPFLAGS="${CPPFLAGS} -DLASTFM"
+	AC_DEFINE(LASTFM, 1, [Define to 1 to enable LastFM support])
 	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
 	AC_CHECK_LIB([mxml], [mxmlGetOpaque], AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
 ])
@@ -211,14 +211,14 @@ AM_CONDITIONAL(COND_PROTOBUF_OLD, [test "x$protobuf_old" = "xyes"])
 dnl MPD support
 AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))
 AS_IF([test "x$enable_mpd" != "xno"], [
-	CPPFLAGS="${CPPFLAGS} -DMPD"
+	AC_DEFINE(MPD, 1, [Define to 1 to enable MPD support])
 ])
 AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
 
 dnl ALSA
 AC_ARG_WITH(alsa, AS_HELP_STRING([--without-alsa], [without ALSA support (default=no)]))
 AS_IF([test "x$with_alsa" != "xno"], [
-	CPPFLAGS="${CPPFLAGS} -DALSA"
+	AC_DEFINE(ALSA, 1, [Define to 1 to build with ALSA support])
 	PKG_CHECK_MODULES(ALSA, [ alsa ])
 ])
 AM_CONDITIONAL(COND_ALSA, [test "x$with_alsa" != "xno"])
@@ -226,7 +226,7 @@ AM_CONDITIONAL(COND_ALSA, [test "x$with_alsa" != "xno"])
 dnl PULSEAUDIO
 AC_ARG_WITH(pulseaudio, AS_HELP_STRING([--with-pulseaudio], [with Pulseaudio support (default=no)]))
 AS_IF([test "x$with_pulseaudio" = "xyes"], [
-	CPPFLAGS="${CPPFLAGS} -DPULSEAUDIO"
+	AC_DEFINE(PULSEAUDIO, 1, [Define to 1 to build with Pulseaudio support])
 	PKG_CHECK_MODULES(LIBPULSE, [ libpulse ])
 	AC_SEARCH_LIBS([pa_threaded_mainloop_set_name], [pulse],
 		AC_DEFINE(HAVE_PULSE_MAINLOOP_SET_NAME, 1, [Define to 1 if you have Pulseaudio with pa_threaded_mainloop_set_name])
