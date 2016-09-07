@@ -464,6 +464,7 @@ main(int argc, char **argv)
   char *logfile;
   char *ffid;
   char *pidfile;
+  char buildopts[256];
   const char *gcry_version;
   sigset_t sigs;
   int sigfd;
@@ -589,6 +590,32 @@ main(int argc, char **argv)
   event_set_log_callback(logger_libevent);
 
   DPRINTF(E_LOG, L_MAIN, "Forked Media Server Version %s taking off\n", VERSION);
+
+  /* Remember to check the size of buildopts when adding new opts */
+  strcpy(buildopts, "");
+#ifdef ITUNES
+  strcat(buildopts, " --enable-itunes");
+#endif
+#ifdef SPOTIFY
+  strcat(buildopts, " --enable-spotify");
+#endif
+#ifdef LASTFM
+  strcat(buildopts, " --enable-lastfm");
+#endif
+#ifdef CHROMECAST
+  strcat(buildopts, " --enable-chromecast");
+#endif
+#ifdef MPD
+  strcat(buildopts, " --enable-mpd");
+#endif
+#ifdef ALSA
+  strcat(buildopts, " --with-alsa");
+#endif
+#ifdef PULSEAUDIO
+  strcat(buildopts, " --with-pulseaudio");
+#endif
+
+  DPRINTF(E_LOG, L_MAIN, "Built %s with:%s\n", BUILDDATE, buildopts);
 
   ret = av_lockmgr_register(ffmpeg_lockmgr);
   if (ret < 0)

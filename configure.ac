@@ -4,6 +4,7 @@ AC_INIT([forked-daapd], [24.1])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
+AC_DEFINE_UNQUOTED([BUILDDATE], ["`date -Idate`"], [Build date])
 AM_INIT_AUTOMAKE([foreign -Wno-portability subdir-objects])
 
 AC_USE_SYSTEM_EXTENSIONS
