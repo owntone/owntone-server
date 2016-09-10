@@ -225,6 +225,7 @@ static pthread_t tid_player;
 static struct commands_base *cmdbase;
 
 /* Config values */
+static int speaker_autoselect;
 static int clear_queue_on_stop_disabled;
 
 /* Player status */
@@ -2384,8 +2385,8 @@ playback_start_item(union player_arg *cmdarg, int *retval, struct queue_item *qi
 	}
     }
 
-  /* Try to autoselect a non-selected device if the above failed */
-  if ((*retval == 0) && (output_sessions == 0))
+  /* If autoselecting is enabled, try to autoselect a non-selected device if the above failed */
+  if (speaker_autoselect && (*retval == 0) && (output_sessions == 0))
     for (device = dev_list; device; device = device->next)
       {
 	if ((outputs_priority(device) == 0) || device->session)
@@ -3969,6 +3970,7 @@ player_init(void)
 
   player_exit = 0;
 
+  speaker_autoselect = cfg_getbool(cfg_getsec(cfg, "general"), "speaker_autoselect");
   clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
 
   dev_list = NULL;
