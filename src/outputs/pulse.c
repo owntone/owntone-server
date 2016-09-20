@@ -806,7 +806,26 @@ pulse_init(void)
   if (pa_context_connect(p->context, NULL, 0, NULL) < 0)
     {
       ret = pa_context_errno(p->context);
-      goto fail;
+      if (ret == PA_ERR_CONNECTIONREFUSED)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Connection to Pulseaudio refused, trying to start daemon for our user\n");
+
+	  ret = system("pulseaudio --start");
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_LAUDIO, "Could not start Pulseaudio\n");
+	      return -1;
+	    }
+	}
+
+      // Try connecting again
+      if (pa_context_connect(p->context, NULL, 0, NULL) < 0)
+	{
+	  ret = pa_context_errno(p->context);
+	  goto fail;
+	}
+
+      DPRINTF(E_LOG, L_LAUDIO, "Connection to Pulseaudio established\n");
     }
 
   pa_threaded_mainloop_lock(p->mainloop);
