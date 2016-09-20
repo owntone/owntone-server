@@ -346,9 +346,9 @@ signal_signalfd_cb(int fd, short event, void *arg)
       switch (info.ssi_signo)
 	{
 	  case SIGCHLD:
-	    DPRINTF(E_LOG, L_MAIN, "Got SIGCHLD, reaping children\n");
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGCHLD\n");
 
-	    while (wait3(&status, WNOHANG, NULL) > 0)
+	    while (waitpid(-1, &status, WNOHANG) > 0)
 	      /* Nothing. */ ;
 	    break;
 
@@ -391,9 +391,9 @@ signal_kqueue_cb(int fd, short event, void *arg)
       switch (ke.ident)
 	{
 	  case SIGCHLD:
-	    DPRINTF(E_LOG, L_MAIN, "Got SIGCHLD, reaping children\n");
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGCHLD\n");
 
-	    while (wait3(&status, WNOHANG, NULL) > 0)
+	    while (waitpid(-1, &status, WNOHANG) > 0)
 	      /* Nothing. */ ;
 	    break;
 
