@@ -49,6 +49,7 @@
 // TODO Unglobalise these and add support for multiple sound cards
 static char *card_name;
 static char *mixer_name;
+static char *mixer_device_name;
 static snd_pcm_t *hdl;
 static snd_mixer_t *mixer_hdl;
 static snd_mixer_elem_t *vol_elem;
@@ -316,7 +317,7 @@ mixer_open(void)
       return -1;
     }
 
-  ret = snd_mixer_attach(mixer_hdl, card_name);
+  ret = snd_mixer_attach(mixer_hdl, mixer_device_name);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Failed to attach mixer: %s\n", snd_strerror(ret));
@@ -989,6 +990,9 @@ alsa_init(void)
 
   card_name = cfg_getstr(cfg_audio, "card");
   mixer_name = cfg_getstr(cfg_audio, "mixer");
+  mixer_device_name = cfg_getstr(cfg_audio, "mixer_device");
+  if (mixer_device_name == NULL || strlen(mixer_device_name) == 0)
+    mixer_device_name = card_name;
   nickname = cfg_getstr(cfg_audio, "nickname");
   offset = cfg_getint(cfg_audio, "offset");
   if (abs(offset) > 44100)
