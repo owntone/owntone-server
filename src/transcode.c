@@ -54,9 +54,12 @@
 // How long to wait (in microsec) before interrupting av_read_frame
 #define READ_TIMEOUT 15000000
 
-static char *default_codecs = "mpeg,wav";
-static char *roku_codecs = "mpeg,mp4a,wma,wav";
-static char *itunes_codecs = "mpeg,mp4a,mp4v,alac,wav";
+static const char *default_codecs = "mpeg,wav";
+static const char *roku_codecs = "mpeg,mp4a,wma,wav";
+static const char *itunes_codecs = "mpeg,mp4a,mp4v,alac,wav";
+
+// Used for passing errors to DPRINTF (can't count on av_err2str being present)
+static char errbuf[64];
 
 struct filter_ctx {
   AVFilterContext *buffersink_ctx;
@@ -193,6 +196,13 @@ init_profile(struct encode_ctx *ctx, enum transcode_profile profile)
 
 /* -------------------------------- HELPERS -------------------------------- */
 
+static inline char *
+err2str(errnum)
+{
+  av_strerror(errnum, errbuf, sizeof(errbuf));
+  return errbuf;
+}
+
 static inline void
 add_le16(uint8_t *dst, uint16_t val)
 {
@@ -296,7 +306,6 @@ static int
 read_packet(AVPacket *packet, AVStream **stream, unsigned int *stream_index, struct decode_ctx *ctx)
 {
   AVStream *in_stream;
-  char *errmsg;
   int ret;
 
   do
@@ -322,10 +331,7 @@ read_packet(AVPacket *packet, AVStream **stream, unsigned int *stream_index, str
 	  ret = av_read_frame(ctx->ifmt_ctx, &ctx->packet);
 	  if (ret < 0)
 	    {
-	      errmsg = malloc(128);
-	      av_strerror(ret, errmsg, 128);
-	      DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", errmsg);
-	      free(errmsg);
+	      DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", err2str(ret));
               return ret;
 	    }
 
@@ -409,7 +415,7 @@ filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int s
       ret = av_buffersrc_add_frame_flags(ctx->filter_ctx[stream_index].buffersrc_ctx, frame, 0);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
+	  DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph: %s\n", err2str(ret));
 	  return -1;
 	}
     }
@@ -463,7 +469,7 @@ filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int s
       ret = av_buffersrc_write_frame(ctx->filter_ctx[stream_index].buffersrc_ctx, frame);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
+	  DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph: %s\n", err2str(ret));
 	  return -1;
 	}
     }
@@ -609,14 +615,14 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Cannot open input path\n");
+      DPRINTF(E_LOG, L_XCODE, "Cannot open '%s': %s\n", mfi->path, err2str(ret));
       return -1;
     }
 
   ret = avformat_find_stream_info(ctx->ifmt_ctx, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Cannot find stream information\n");
+      DPRINTF(E_LOG, L_XCODE, "Cannot find stream information: %s\n", err2str(ret));
       goto out_fail;
     }
 
@@ -644,7 +650,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d\n", stream_index);
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d: %s\n", stream_index, err2str(ret));
       goto out_fail;
     }
 
@@ -658,14 +664,14 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   stream_index = av_find_best_stream(ctx->ifmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, 0);
   if ((stream_index < 0) || (!decoder))
     {
-      DPRINTF(E_LOG, L_XCODE, "Did not find video stream or suitable decoder for %s\n", mfi->path);
+      DPRINTF(E_LOG, L_XCODE, "Did not find video stream or suitable decoder for '%s': %s\n", mfi->path, err2str(ret));
       return 0;
     }
 
   ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d\n", stream_index);
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d: %s\n", stream_index, err2str(ret));
       return 0;
     }
 
@@ -799,7 +805,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       ret = avcodec_open2(enc_ctx, encoder, NULL);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot open encoder (%s) for input stream #%u\n", codec_desc->name, i);
+	  DPRINTF(E_LOG, L_XCODE, "Cannot open encoder (%s) for input stream #%u: %s\n", codec_desc->name, i, err2str(ret));
 	  goto out_fail_codec;
 	}
 
@@ -811,7 +817,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
   ret = avformat_write_header(ctx->ofmt_ctx, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Error occurred when writing header to output buffer\n");
+      DPRINTF(E_LOG, L_XCODE, "Error writing header to output buffer: %s\n", err2str(ret));
       goto out_fail_write;
     }
 
@@ -891,21 +897,21 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
       ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer source\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer source: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
       ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer sink\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer sink: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
       ret = av_opt_set_bin(buffersink_ctx, "pix_fmts", (uint8_t*)&enc_ctx->pix_fmt, sizeof(enc_ctx->pix_fmt), AV_OPT_SEARCH_CHILDREN);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot set output pixel format\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot set output pixel format: %s\n", err2str(ret));
 	  goto out_fail;
 	}
     }
@@ -932,14 +938,14 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
       ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer source\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer source: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
       ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer sink\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer sink: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
@@ -947,7 +953,7 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
                            (uint8_t*)&enc_ctx->sample_fmt, sizeof(enc_ctx->sample_fmt), AV_OPT_SEARCH_CHILDREN);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot set output sample format\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot set output sample format: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
@@ -955,7 +961,7 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
                            (uint8_t*)&enc_ctx->channel_layout, sizeof(enc_ctx->channel_layout), AV_OPT_SEARCH_CHILDREN);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot set output channel layout\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot set output channel layout: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
@@ -963,7 +969,7 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
                            (uint8_t*)&enc_ctx->sample_rate, sizeof(enc_ctx->sample_rate), AV_OPT_SEARCH_CHILDREN);
       if (ret < 0)
 	{
-          DPRINTF(E_LOG, L_XCODE, "Cannot set output sample rate\n");
+          DPRINTF(E_LOG, L_XCODE, "Cannot set output sample rate: %s\n", err2str(ret));
 	  goto out_fail;
 	}
     }
@@ -1055,7 +1061,7 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
       ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer source\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer source: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
@@ -1066,14 +1072,14 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
       ret = avfilter_graph_create_filter(&format_ctx, format, "format", args, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create format filter\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create format filter: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
       ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer sink\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer sink: %s\n", err2str(ret));
 	  goto out_fail;
 	}
     }
@@ -1101,7 +1107,7 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
       ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer source\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer source: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
@@ -1113,14 +1119,14 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
       ret = avfilter_graph_create_filter(&format_ctx, format, "format", args, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio format filter\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio format filter: %s\n", err2str(ret));
 	  goto out_fail;
 	}
 
       ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer sink\n");
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer sink: %s\n", err2str(ret));
 	  goto out_fail;
 	}
     }
@@ -1134,7 +1140,7 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
   if (ret >= 0)
     ret = avfilter_link(format_ctx, 0, buffersink_ctx, 0);
   if (ret < 0)
-    DPRINTF(E_LOG, L_XCODE, "Error connecting filters\n");
+    DPRINTF(E_LOG, L_XCODE, "Error connecting filters: %s\n", err2str(ret));
 
   ret = avfilter_graph_config(filter_graph, NULL);
   if (ret < 0)
@@ -1587,7 +1593,6 @@ transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx)
 int
 transcode_encode(struct evbuffer *evbuf, struct decoded_frame *decoded, struct encode_ctx *ctx)
 {
-  char *errmsg;
   int stream_index;
   int encoded_length;
   int ret;
@@ -1608,10 +1613,7 @@ transcode_encode(struct evbuffer *evbuf, struct decoded_frame *decoded, struct e
   ret = filter_encode_write_frame(ctx, decoded->frame, stream_index);
   if (ret < 0)
     {
-      errmsg = malloc(128);
-      av_strerror(ret, errmsg, 128);
-      DPRINTF(E_LOG, L_XCODE, "Error occurred: %s\n", errmsg);
-      free(errmsg);
+      DPRINTF(E_LOG, L_XCODE, "Error occurred: %s\n", err2str(ret));
       return ret;
     }
 
@@ -1654,6 +1656,7 @@ transcode_raw2frame(uint8_t *data, size_t size)
 {
   struct decoded_frame *decoded;
   AVFrame *frame;
+  int ret;
 
   decoded = malloc(sizeof(struct decoded_frame));
   frame = av_frame_alloc();
@@ -1675,9 +1678,10 @@ transcode_raw2frame(uint8_t *data, size_t size)
   frame->pts            = AV_NOPTS_VALUE;
   frame->sample_rate    = 44100;
 
-  if (avcodec_fill_audio_frame(frame, 2, frame->format, data, size, 0) < 0)
+  ret = avcodec_fill_audio_frame(frame, 2, frame->format, data, size, 0);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Error filling frame with rawbuf\n");
+      DPRINTF(E_LOG, L_XCODE, "Error filling frame with rawbuf: %s\n", err2str(ret));
       return NULL;
     }
 
@@ -1721,7 +1725,7 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   ret = av_seek_frame(decode_ctx->ifmt_ctx, in_stream->index, target_pts, AVSEEK_FLAG_BACKWARD);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_XCODE, "Could not seek into stream: %s\n", strerror(AVUNERROR(ret)));
+      DPRINTF(E_WARN, L_XCODE, "Could not seek into stream: %s\n", err2str(ret));
       return -1;
     }
 
@@ -1743,7 +1747,7 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
       ret = av_read_frame(decode_ctx->ifmt_ctx, &decode_ctx->packet);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not read more data while seeking\n");
+	  DPRINTF(E_WARN, L_XCODE, "Could not read more data while seeking: %s\n", err2str(ret));
 	  in_stream->codec->skip_frame = AVDISCARD_DEFAULT;
 	  return -1;
 	}

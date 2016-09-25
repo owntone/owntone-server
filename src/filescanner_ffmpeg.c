@@ -25,8 +25,6 @@
 #include <string.h>
 #include <time.h>
 
-#include <errno.h>
-
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -48,6 +46,16 @@ struct metadata_map {
   size_t offset;
   int (*handler_function)(struct media_file_info *, char *);
 };
+
+// Used for passing errors to DPRINTF (can't count on av_err2str being present)
+static char errbuf[64];
+
+static inline char *
+err2str(errnum)
+{
+  av_strerror(errnum, errbuf, sizeof(errbuf));
+  return errbuf;
+}
 
 static int
 parse_slash_separated_ints(char *string, uint32_t *firstval, uint32_t *secondval)
@@ -401,7 +409,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 #endif
   if (ret != 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", path, strerror(AVUNERROR(ret)));
+      DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", path, err2str(ret));
 
       free(path);
       return -1;
@@ -416,7 +424,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 #endif
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
+      DPRINTF(E_WARN, L_SCAN, "Cannot get stream info of '%s': %s\n", path, err2str(ret));
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
       avformat_close_input(&ctx);

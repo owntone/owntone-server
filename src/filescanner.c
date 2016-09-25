@@ -662,7 +662,7 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
       ret = scan_metadata_ffmpeg(path, mfi);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist URL is unavailable for probe/metadata, assuming MP3 encoding\n");
+	  DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
 	  mfi->type = strdup("mp3");
 	  mfi->codectype = strdup("mpeg");
 	  mfi->description = strdup("MPEG audio file");
@@ -684,13 +684,13 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
     }
   else
     {
-      DPRINTF(E_LOG, L_SCAN, "Unknown scan type for %s, this error should not occur\n", path);
+      DPRINTF(E_LOG, L_SCAN, "Unknown scan type for '%s', this error should not occur\n", path);
       ret = -1;
     }
 
   if (ret < 0)
     {
-      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", path);
+      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for '%s'\n", path);
       goto out;
     }
 
