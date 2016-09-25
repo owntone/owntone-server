@@ -1452,14 +1452,6 @@ player_playback_cb(int fd, short what, void *arg)
     overrun = ret;
 #endif /* __linux__ */
 
-/*debug_counter++;
-if (debug_counter % 2000 == 0)
-{
-  DPRINTF(E_LOG, L_PLAYER, "Sleep a bit!!\n");
-  usleep(5 * AIRTUNES_V2_STREAM_PERIOD / 1000);
-  DPRINTF(E_LOG, L_PLAYER, "Wake again\n");
-}*/
-
   // The reason we get behind the playback timer may be that we are playing a 
   // network stream OR that the source is slow to open OR some interruption.
   // For streams, we might be consuming faster than the stream delivers, so
@@ -1478,11 +1470,14 @@ if (debug_counter % 2000 == 0)
   skip_first = 0;
   if (overrun > PLAYER_TICKS_MAX_OVERRUN)
     {
-      DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", overrun);
+      DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks\n", overrun);
 
-      if (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE)
+      if (cur_streaming && (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE))
 	{
           ticks_skip = 3 * overrun;
+
+	  DPRINTF(E_WARN, L_PLAYER, "Will skip reading for a total of %d ticks to catch up\n", ticks_skip);
+
 	  // We always skip after a timer overrun, since another read will
 	  // probably just give another time overrun
 	  skip_first = 1;
