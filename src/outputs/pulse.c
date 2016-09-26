@@ -786,6 +786,16 @@ pulse_init(void)
   if (type && (strcasecmp(type, "pulseaudio") != 0))
     return -1;
 
+  // In some situations Pulseaudio won't autospawn, and we don't want to trouble
+  // the user with setting up system mode (which isn't recommended anyway), so
+  // we use this sledgehammer approach
+  ret = system("pulseaudio --start");
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Could not start Pulseaudio\n");
+      return -1;
+    }
+
   ret = 0;
 
   if (!(p->mainloop = pa_threaded_mainloop_new()))
@@ -806,26 +816,7 @@ pulse_init(void)
   if (pa_context_connect(p->context, NULL, 0, NULL) < 0)
     {
       ret = pa_context_errno(p->context);
-      if (ret == PA_ERR_CONNECTIONREFUSED)
-	{
-	  DPRINTF(E_LOG, L_LAUDIO, "Connection to Pulseaudio refused, trying to start daemon for our user\n");
-
-	  ret = system("pulseaudio --start");
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_LAUDIO, "Could not start Pulseaudio\n");
-	      return -1;
-	    }
-	}
-
-      // Try connecting again
-      if (pa_context_connect(p->context, NULL, 0, NULL) < 0)
-	{
-	  ret = pa_context_errno(p->context);
-	  goto fail;
-	}
-
-      DPRINTF(E_LOG, L_LAUDIO, "Connection to Pulseaudio established\n");
+      goto fail;
     }
 
   pa_threaded_mainloop_lock(p->mainloop);
