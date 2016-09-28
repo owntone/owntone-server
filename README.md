@@ -25,7 +25,6 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Local audio, Bluetooth and more through Pulseaudio](#local-audio-bluetooth-and-more-through-pulseaudio)
 - [MP3 network streaming (streaming to iOS)](#mp3-network-streaming-streaming-to-ios)
 - [Supported formats](#supported-formats)
-- [Streaming MPEG4](#streaming-mpeg4)
 - [Playlists and internet radio](#playlists-and-internet-radio)
 - [Artwork](#artwork)
 - [Library](#library)
