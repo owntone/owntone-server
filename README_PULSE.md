@@ -10,17 +10,30 @@ How to start Pulseaudio depends on your distribution, but in many cases you will
 need to add a pulseaudio.service file to /etc/systemd/system with the following
 content:
 
-[TBD]
+```
+# systemd service file for Pulseaudio running in system mode
+[Unit]
+Description=Pulseaudio sound server
+Before=sound.target
 
-After you have added the file you can check it is running with "systemctl
-pulseaudio status".
+[Service]
+ExecStart=/usr/bin/pulseaudio --system --disallow-exit
+
+[Install]
+WantedBy=multi-user.target
+```
+
+After you have added the file you can start it with "systemctl start pulseaudio"
+and enable it on boot with "systemctl enable pulseaudio".
 
 
 ## Setting up forked-daapd:
 
 Add the forked-daapd user to the pulse-access group:
 
-`adduser daapd pulse-access`
+```
+adduser daapd pulse-access
+```
 
 
 ## Bluetooth
