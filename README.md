@@ -21,8 +21,9 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Using Remote](#using-remote)
 - [AirPlay devices/speakers](#airplay-devicesspeakers)
 - [Chromecast](#chromecast)
-- [Local audio output](#local-audio-output)
-- [MP3 network streaming (streaming to iOS)](#MP3-network-streaming-(streaming-to-iOS))
+- [Local audio through ALSA](#local-audio-through-alsa)
+- [Local audio, Bluetooth and more through Pulseaudio](#local-audio,-bluetooth-and-more-through-pulseaudio)
+- [MP3 network streaming (streaming to iOS)](#mp3-network-streaming-(streaming-to-ios))
 - [Supported formats](#supported-formats)
 - [Streaming MPEG4](#streaming-mpeg4)
 - [Playlists and internet radio](#playlists-and-internet-radio)
@@ -208,30 +209,34 @@ for the syntax.
 
 ## Chromecast
 
-Chromecast support is currently experimental. It requires that forked-daapd was
-built with "--enable-chromecast".
-
 forked-daapd will discover Chromecast devices available on your network. There
 is no configuration to be done. This feature relies on streaming the audio in
 mp3 to your Chromecast device, which means that mp3 encoding must be supported
 by your ffmpeg/libav. See [MP3 network streaming](#MP3-network-streaming-(streaming-to-iOS)).
 
+It is also required that forked-daapd is built with "--enable-chromecast".
 
-## Local audio output
 
-forked-daapd supports local audio output through ALSA or Pulseaudio. You can
-set your preference in the config file.
+## Local audio through ALSA
 
-If you select ALSA, the server will try to syncronize playback with AirPlay.
-You can adjust the syncronization in the config file.
+In the config file, you can select ALSA for local audio. This is the default.
 
-If you select Pulseaudio, the "card" setting in the config file has no effect.
-Instead all soundcards detected by Pulseaudio will be listed as speakers by
-forked-daapd.
+When using ALSA, the server will try to syncronize playback with AirPlay. You
+can adjust the syncronization in the config file.
 
-There is some one-time setup required to use Pulseaudio: You must start
-Pulseaudio in system mode ("sudo pulseaudio --system") and add the forked-daapd
-user (probably "daapd") to the "pulse-access" group.
+
+## Local audio, Bluetooth and more through Pulseaudio
+
+In the config file, you can select Pulseaudio for local audio. In addition to
+local audio, Pulseaudio also supports an array of other targets, e.g. Bluetooth
+or DLNA. However, Pulseaudio does require some setup, so here is a separate page
+with some help on that:
+
+[README_PULSE.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_PULSE.md).
+
+Note that if you select Pulseaudio the "card" setting in the config file has
+no effect. Instead all soundcards detected by Pulseaudio will be listed as
+speakers by forked-daapd.
 
 
 ## MP3 network streaming (streaming to iOS)
