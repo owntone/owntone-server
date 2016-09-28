@@ -22,8 +22,8 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [AirPlay devices/speakers](#airplay-devicesspeakers)
 - [Chromecast](#chromecast)
 - [Local audio through ALSA](#local-audio-through-alsa)
-- [Local audio, Bluetooth and more through Pulseaudio](#local-audio,-bluetooth-and-more-through-pulseaudio)
-- [MP3 network streaming (streaming to iOS)](#mp3-network-streaming-(streaming-to-ios))
+- [Local audio, Bluetooth and more through Pulseaudio](#local-audio-bluetooth-and-more-through-pulseaudio)
+- [MP3 network streaming (streaming to iOS)](#mp3-network-streaming-streaming-to-ios)
 - [Supported formats](#supported-formats)
 - [Streaming MPEG4](#streaming-mpeg4)
 - [Playlists and internet radio](#playlists-and-internet-radio)
@@ -230,9 +230,7 @@ can adjust the syncronization in the config file.
 In the config file, you can select Pulseaudio for local audio. In addition to
 local audio, Pulseaudio also supports an array of other targets, e.g. Bluetooth
 or DLNA. However, Pulseaudio does require some setup, so here is a separate page
-with some help on that:
-
-[README_PULSE.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_PULSE.md).
+with some help on that: [README_PULSE.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_PULSE.md)
 
 Note that if you select Pulseaudio the "card" setting in the config file has
 no effect. Instead all soundcards detected by Pulseaudio will be listed as
