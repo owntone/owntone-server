@@ -211,7 +211,7 @@ for the syntax.
 forked-daapd will discover Chromecast devices available on your network. There
 is no configuration to be done. This feature relies on streaming the audio in
 mp3 to your Chromecast device, which means that mp3 encoding must be supported
-by your ffmpeg/libav. See [MP3 network streaming](#MP3-network-streaming-(streaming-to-iOS)).
+by your ffmpeg/libav. See [MP3 network streaming](#mp3-network-streaming-streaming-to-ios).
 
 It is also required that forked-daapd is built with "--enable-chromecast".
 
