@@ -786,16 +786,6 @@ pulse_init(void)
   if (type && (strcasecmp(type, "pulseaudio") != 0))
     return -1;
 
-  // In some situations Pulseaudio won't autospawn, and we don't want to trouble
-  // the user with setting up system mode (which isn't recommended anyway), so
-  // we use this sledgehammer approach
-  ret = system("pulseaudio --start");
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not start Pulseaudio\n");
-      return -1;
-    }
-
   ret = 0;
 
   if (!(p->mainloop = pa_threaded_mainloop_new()))

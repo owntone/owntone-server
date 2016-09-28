@@ -229,7 +229,8 @@ If you select Pulseaudio, the "card" setting in the config file has no effect.
 Instead all soundcards detected by Pulseaudio will be listed as speakers by
 forked-daapd.
 
-There is some one-time setup required to use Pulseaudio: Add the forked-daapd
+There is some one-time setup required to use Pulseaudio: You must start
+Pulseaudio in system mode ("sudo pulseaudio --system") and add the forked-daapd
 user (probably "daapd") to the "pulse-access" group.
 
 
