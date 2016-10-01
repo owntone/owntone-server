@@ -1,6 +1,9 @@
 # forked-daapd and Pulseaudio
 Credit: [Rob Pope](http://robpope.co.uk/blog/post/setting-up-forked-daapd-with-bluetooth)
 
+This guide was written based on headless Debian Jessie platforms. Most of the
+instructions will require that you are root.
+
 
 ## Step 1: Setting up Pulseaudio in system mode with Bluetooth support
 
@@ -27,7 +30,9 @@ WantedBy=multi-user.target
 ```
 
 If you want Bluetooth support, you must also configure Pulseaudio to load the
-Bluetooth module. Do this by adding the following to /etc/pulse/system.pa:
+Bluetooth module. First install it (Debian: 
+`apt install pulseaudio-module-bluetooth`) and then add the following to
+/etc/pulse/system.pa:
 
 ```
 ### Enable Bluetooth
@@ -36,10 +41,18 @@ load-module module-bluetooth-discover
 .endif
 ```
 
-Now you can:
-- (re)start Pulseaudio with `systemctl restart pulseaudio`
-- enable system mode on boot with `systemctl enable pulseaudio`
-- check that the Bluetooth module is loaded with `pactl list modules short`
+Now you need to make sure that Pulseaudio can communicate with the Bluetooth
+daemon through D-Bus. On Raspbian this is already enabled, and you can skip this
+step. Otherwise do one of the following:
+
+1. Add the pulse user to the bluetooth group: `adduser pulse bluetooth`
+2. Edit /etc/dbus-1/system.d/bluetooth.conf and change the policy for
+<policy context="default"> to "allow"
+
+Phew, almost done with Pulseaudio! Now you should:
+1. enable system mode on boot with `systemctl enable pulseaudio`
+2. reboot (or at least restart dbus and pulseaudio)
+3. check that the Bluetooth module is loaded with `pactl list modules short`
 
 
 ## Step 2: Setting up forked-daapd
