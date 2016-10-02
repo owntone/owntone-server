@@ -714,12 +714,12 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
       if (ret < 0)
         {
 	  ret = pa_context_errno(p->context);
-	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio error determining writable size: %s\n", pa_strerror(ret));
+	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio device '%s', returned error instead of writable size: %s\n", ps->devname, pa_strerror(ret));
 	  continue;
         }
       else if (ret < length)
         {
-	  DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio buffer overrun detected, skipping packet\n");
+	  DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio device '%s' not writable or overrun (%d/%zu), skipping packet\n", ps->devname, ret, length);
 	  continue;
         }
 
@@ -727,7 +727,7 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
       if (ret < 0)
 	{
 	  ret = pa_context_errno(p->context);
-	  DPRINTF(E_LOG, L_LAUDIO, "Error writing Pulseaudio stream data: %s\n", pa_strerror(ret));
+	  DPRINTF(E_LOG, L_LAUDIO, "Error writing Pulseaudio stream data to '%s': %s\n", ps->devname, pa_strerror(ret));
 	  continue;
 	}
     }
