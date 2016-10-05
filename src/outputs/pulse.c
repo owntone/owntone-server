@@ -43,7 +43,6 @@
 /* TODO for Pulseaudio
    - Get volume from Pulseaudio on startup and on callbacks
    - Add sync with AirPlay with pa_buffer_attr
-   - Underrun, suspend and overrun monitoring
 */
 
 struct pulse
@@ -60,6 +59,8 @@ struct pulse_session
 {
   pa_stream_state_t state;
   pa_stream *stream;
+
+  pa_buffer_attr attr;
 
   char *devname;
   int volume;
@@ -90,6 +91,8 @@ pulse_session_free(struct pulse_session *ps)
     {
       pa_threaded_mainloop_lock(pulse.mainloop);
 
+      pa_stream_set_underflow_callback(ps->stream, NULL, NULL);
+      pa_stream_set_overflow_callback(ps->stream, NULL, NULL);
       pa_stream_set_state_callback(ps->stream, NULL, NULL);
       pa_stream_disconnect(ps->stream);
       pa_stream_unref(ps->stream);
@@ -249,6 +252,22 @@ stream_state_cb(pa_stream *s, void *userdata)
     }
 }
 
+static void
+underrun_cb(pa_stream *s, void *userdata)
+{
+  struct pulse_session *ps = userdata;
+
+  DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer underrun on '%s'\n", ps->devname);
+}
+
+static void
+overrun_cb(pa_stream *s, void *userdata)
+{
+  struct pulse_session *ps = userdata;
+
+  DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer overrun on '%s'\n", ps->devname);
+}
+
 // This will be called our request to open the stream has completed
 static void
 start_cb(pa_stream *s, void *userdata)
@@ -266,6 +285,8 @@ start_cb(pa_stream *s, void *userdata)
       return;
     }
 
+  pa_stream_set_underflow_callback(ps->stream, underrun_cb, ps);
+  pa_stream_set_overflow_callback(ps->stream, overrun_cb, ps);
   pa_stream_set_state_callback(ps->stream, stream_state_cb, ps);
 
   pulse_status(ps);
@@ -493,6 +514,7 @@ pulse_free(struct pulse *p)
     pa_threaded_mainloop_free(pulse.mainloop);
 }
 
+// TODO delete this and use context_cb to deal with bad states
 static int
 context_check(pa_context *context)
 {
@@ -539,7 +561,13 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
   // TODO should we use PA_STREAM_ADJUST_LATENCY?
   flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_ADJUST_LATENCY | PA_STREAM_AUTO_TIMING_UPDATE;
 
-  ret = pa_stream_connect_playback(ps->stream, ps->devname, NULL, flags, NULL, NULL);
+  ps->attr.maxlength = (uint32_t)-1;
+  ps->attr.tlength   = STOB(2 * ss.rate); // 2 seconds latency
+  ps->attr.prebuf    = (uint32_t)-1;
+  ps->attr.minreq    = (uint32_t)-1;
+  ps->attr.fragsize  = (uint32_t)-1;
+
+  ret = pa_stream_connect_playback(ps->stream, ps->devname, &ps->attr, flags, NULL, NULL);
   if (ret < 0)
     goto unlock_and_fail;
 
@@ -566,6 +594,8 @@ stream_close(struct pulse_session *ps, pa_stream_notify_cb_t cb)
 {
   pa_threaded_mainloop_lock(pulse.mainloop);
 
+  pa_stream_set_underflow_callback(ps->stream, NULL, NULL);
+  pa_stream_set_overflow_callback(ps->stream, NULL, NULL);
   pa_stream_set_state_callback(ps->stream, cb, ps);
   pa_stream_disconnect(ps->stream);
   pa_stream_unref(ps->stream);
