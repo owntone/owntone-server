@@ -39,6 +39,7 @@
 #include "commands.h"
 
 #define PULSE_MAX_DEVICES 64
+#define PULSE_LOG_MAX 10
 
 /* TODO for Pulseaudio
    - Get volume from Pulseaudio on startup and on callbacks
@@ -61,6 +62,8 @@ struct pulse_session
   pa_stream *stream;
 
   pa_buffer_attr attr;
+
+  int logcount;
 
   char *devname;
   int volume;
@@ -225,6 +228,22 @@ pulse_session_shutdown(struct pulse_session *ps)
   commands_exec_async(pulse.cmdbase, session_shutdown, ps);
 }
 
+/* ------------------------ EXECUTED IN BOTH THREADS ------------------------ */
+
+static void
+pulse_session_shutdown_all(pa_stream_state_t state)
+{
+  struct pulse_session *ps;
+  struct pulse_session *next;
+
+  for (ps = sessions; ps; ps = next)
+    {
+      next = ps->next;
+      ps->state = state;
+      pulse_session_shutdown(ps);
+    }
+}
+
 /* --------------------- CALLBACKS FROM PULSEAUDIO THREAD ------------------- */
 
 
@@ -257,7 +276,15 @@ underrun_cb(pa_stream *s, void *userdata)
 {
   struct pulse_session *ps = userdata;
 
-  DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer underrun on '%s'\n", ps->devname);
+  if (ps->logcount > PULSE_LOG_MAX)
+    return;
+
+  ps->logcount++;
+
+  if (ps->logcount < PULSE_LOG_MAX)
+    DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer underrun on '%s'\n", ps->devname);
+  else if (ps->logcount == PULSE_LOG_MAX)
+    DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer underrun on '%s' (no further logging)\n", ps->devname);
 }
 
 static void
@@ -265,7 +292,15 @@ overrun_cb(pa_stream *s, void *userdata)
 {
   struct pulse_session *ps = userdata;
 
-  DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer overrun on '%s'\n", ps->devname);
+  if (ps->logcount > PULSE_LOG_MAX)
+    return;
+
+  ps->logcount++;
+
+  if (ps->logcount < PULSE_LOG_MAX)
+    DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer overrun on '%s'\n", ps->devname);
+  else if (ps->logcount == PULSE_LOG_MAX)
+    DPRINTF(E_WARN, L_LAUDIO, "Pulseaudio reports buffer overrun on '%s' (no further logging)\n", ps->devname);
 }
 
 // This will be called our request to open the stream has completed
@@ -453,11 +488,11 @@ context_state_cb(pa_context *c, void *userdata)
 
   state = pa_context_get_state(c);
 
-  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio context state changed to %d (ready is %d)\n", state, PA_CONTEXT_READY);
-
   switch (state)
     {
       case PA_CONTEXT_READY:
+	DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio context state changed to ready\n");
+
 	o = pa_context_get_sink_info_list(c, sinklist_cb, NULL);
 	if (!o)
 	  {
@@ -478,8 +513,15 @@ context_state_cb(pa_context *c, void *userdata)
 	pa_threaded_mainloop_signal(pulse.mainloop, 0);
 	break;
 
-      case PA_CONTEXT_TERMINATED:
       case PA_CONTEXT_FAILED:
+      case PA_CONTEXT_TERMINATED:
+	if (state == PA_CONTEXT_FAILED)
+	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio failed with error: %s\n", pa_strerror(pa_context_errno(c)));
+	else
+	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio terminated\n");
+
+	pulse_session_shutdown_all(PA_STREAM_FAILED);
+
 	pa_threaded_mainloop_signal(pulse.mainloop, 0);
 	break;
 
@@ -496,7 +538,7 @@ context_state_cb(pa_context *c, void *userdata)
 
 // Used by init and deinit to stop main thread
 static void
-pulse_free(struct pulse *p)
+pulse_free(void)
 {
   if (pulse.mainloop)
     pa_threaded_mainloop_stop(pulse.mainloop);
@@ -507,35 +549,11 @@ pulse_free(struct pulse *p)
       pa_context_unref(pulse.context);
     }
 
-  if (p->cmdbase)
-    commands_base_free(p->cmdbase);
+  if (pulse.cmdbase)
+    commands_base_free(pulse.cmdbase);
 
   if (pulse.mainloop)
     pa_threaded_mainloop_free(pulse.mainloop);
-}
-
-// TODO delete this and use context_cb to deal with bad states
-static int
-context_check(pa_context *context)
-{
-  pa_context_state_t state;
-  int errno;
-
-  state = pa_context_get_state(context);
-  if (!PA_CONTEXT_IS_GOOD(state))
-    {
-      if (state == PA_CONTEXT_FAILED)
-	{
-	  errno = pa_context_errno(context);
-          DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio context failed with error: %s\n", pa_strerror(errno));
-	}
-      else
-        DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio context invalid state\n");
-
-      return -1;
-    }
-
-  return 0;
 }
 
 static int
@@ -543,6 +561,7 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
 {
   pa_stream_flags_t flags;
   pa_sample_spec ss;
+  int offset;
   int ret;
 
   DPRINTF(E_DBG, L_LAUDIO, "Opening Pulseaudio stream to '%s'\n", ps->devname);
@@ -551,6 +570,13 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
   ss.channels = 2;
   ss.rate = 44100;
 
+  offset = cfg_getint(cfg_getsec(cfg, "audio"), "offset");
+  if (abs(offset) > 44100)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "The audio offset (%d) set in the configuration is out of bounds\n", offset);
+      offset = 44100 * (offset/abs(offset));
+    }
+
   pa_threaded_mainloop_lock(pulse.mainloop);
 
   if (!(ps->stream = pa_stream_new(pulse.context, "forked-daapd audio", &ss, NULL)))
@@ -558,11 +584,10 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
 
   pa_stream_set_state_callback(ps->stream, cb, ps);
 
-  // TODO should we use PA_STREAM_ADJUST_LATENCY?
   flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_ADJUST_LATENCY | PA_STREAM_AUTO_TIMING_UPDATE;
 
-  ps->attr.maxlength = (uint32_t)-1;
-  ps->attr.tlength   = STOB(2 * ss.rate); // 2 seconds latency
+  ps->attr.tlength   = STOB(2 * ss.rate - offset); // 2 second latency
+  ps->attr.maxlength = 2 * ps->attr.tlength;
   ps->attr.prebuf    = (uint32_t)-1;
   ps->attr.minreq    = (uint32_t)-1;
   ps->attr.fragsize  = (uint32_t)-1;
@@ -734,8 +759,64 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
 	{
 	  ret = pa_context_errno(pulse.context);
 	  DPRINTF(E_LOG, L_LAUDIO, "Error writing Pulseaudio stream data to '%s': %s\n", ps->devname, pa_strerror(ret));
+
+	  ps->state = PA_STREAM_FAILED;
+	  pulse_session_shutdown(ps);
+
 	  continue;
 	}
+    }
+
+  pa_threaded_mainloop_unlock(pulse.mainloop);
+}
+
+static void
+pulse_playback_start(uint64_t next_pkt, struct timespec *ts)
+{
+  struct pulse_session *ps;
+  pa_operation* o;
+
+  pa_threaded_mainloop_lock(pulse.mainloop);
+
+  for (ps = sessions; ps; ps = ps->next)
+    {
+      o = pa_stream_cork(ps->stream, 0, NULL, NULL);
+      if (!o)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not resume '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
+	  continue;
+	}
+      pa_operation_unref(o);
+    }
+
+  pa_threaded_mainloop_unlock(pulse.mainloop);
+}
+
+static void
+pulse_playback_stop(void)
+{
+  struct pulse_session *ps;
+  pa_operation* o;
+
+  pa_threaded_mainloop_lock(pulse.mainloop);
+
+  for (ps = sessions; ps; ps = ps->next)
+    {
+      o = pa_stream_cork(ps->stream, 1, NULL, NULL);
+      if (!o)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not pause '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
+	  continue;
+	}
+      pa_operation_unref(o);
+
+      o = pa_stream_flush(ps->stream, NULL, NULL);
+      if (!o)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not flush '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
+	  continue;
+	}
+      pa_operation_unref(o);
     }
 
   pa_threaded_mainloop_unlock(pulse.mainloop);
@@ -758,13 +839,21 @@ pulse_flush(output_status_cb cb, uint64_t rtptime)
       i++;
 
       ps->status_cb = cb;
+
+      o = pa_stream_cork(ps->stream, 1, NULL, NULL);
+      if (!o)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not pause '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
+	  continue;
+	}
+      pa_operation_unref(o);
+
       o = pa_stream_flush(ps->stream, flush_cb, ps);
       if (!o)
 	{
 	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not flush '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
 	  continue;
 	}
-
       pa_operation_unref(o);
     }
 
@@ -784,7 +873,6 @@ pulse_set_status_cb(struct output_session *session, output_status_cb cb)
 static int
 pulse_init(void)
 {
-  struct pulse *p = &pulse;
   char *type;
   int state;
   int ret;
@@ -798,7 +886,7 @@ pulse_init(void)
   if (!(pulse.mainloop = pa_threaded_mainloop_new()))
     goto fail;
 
-  if (!(p->cmdbase = commands_base_new(evbase_player, NULL)))
+  if (!(pulse.cmdbase = commands_base_new(evbase_player, NULL)))
     goto fail;
 
 #ifdef HAVE_PULSE_MAINLOOP_SET_NAME
@@ -808,7 +896,7 @@ pulse_init(void)
   if (!(pulse.context = pa_context_new(pa_threaded_mainloop_get_api(pulse.mainloop), "forked-daapd")))
     goto fail;
 
-  pa_context_set_state_callback(pulse.context, context_state_cb, p);
+  pa_context_set_state_callback(pulse.context, context_state_cb, NULL);
 
   if (pa_context_connect(pulse.context, NULL, 0, NULL) < 0)
     {
@@ -849,14 +937,16 @@ pulse_init(void)
   if (ret)
     DPRINTF(E_LOG, L_LAUDIO, "Error initializing Pulseaudio: %s\n", pa_strerror(ret));
 
-  pulse_free(p);
+  pulse_free();
   return -1;
 }
 
 static void
 pulse_deinit(void)
 {
-  pulse_free(&pulse);
+  pulse_session_shutdown_all(PA_STREAM_UNCONNECTED); // TODO Required?
+
+  pulse_free();
 }
 
 struct output_definition output_pulse =
@@ -872,6 +962,8 @@ struct output_definition output_pulse =
   .device_probe = pulse_device_probe,
   .device_free_extra = pulse_device_free_extra,
   .device_volume_set = pulse_device_volume_set,
+  .playback_start = pulse_playback_start,
+  .playback_stop = pulse_playback_stop,
   .write = pulse_write,
   .flush = pulse_flush,
   .status_cb = pulse_set_status_cb,
