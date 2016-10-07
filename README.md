@@ -235,6 +235,8 @@ Note that if you select Pulseaudio the "card" setting in the config file has
 no effect. Instead all soundcards detected by Pulseaudio will be listed as
 speakers by forked-daapd.
 
+You can adjust the latency of Pulseaudio playback in the config file.
+
 
 ## MP3 network streaming (streaming to iOS)
 

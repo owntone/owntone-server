@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2016- Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,8 +42,8 @@
 #define PULSE_LOG_MAX 10
 
 /* TODO for Pulseaudio
-   - Get volume from Pulseaudio on startup and on callbacks
-   - Add sync with AirPlay with pa_buffer_attr
+   - Add real sync with AirPlay
+   - Allow per-sink latency config
 */
 
 struct pulse
@@ -62,11 +62,11 @@ struct pulse_session
   pa_stream *stream;
 
   pa_buffer_attr attr;
+  pa_volume_t volume;
 
   int logcount;
 
   char *devname;
-  int volume;
 
   /* Do not dereference - only passed to the status cb */
   struct output_device *device;
@@ -84,6 +84,13 @@ static struct pulse_session *sessions;
 
 // Internal list with indeces of the Pulseaudio devices (sinks) we have registered
 static uint32_t pulse_known_devices[PULSE_MAX_DEVICES];
+
+// Converts from 0 - 100 to Pulseaudio's scale
+static inline pa_volume_t
+pulse_from_device_volume(int device_volume)
+{
+  return (PA_VOLUME_MUTED + (device_volume * (PA_VOLUME_NORM - PA_VOLUME_MUTED)) / 100);
+}
 
 /* ---------------------------- SESSION HANDLING ---------------------------- */
 
@@ -153,7 +160,7 @@ pulse_session_make(struct output_device *device, output_status_cb cb)
   ps->state = PA_STREAM_UNCONNECTED;
   ps->device = device;
   ps->status_cb = cb;
-  ps->volume = device->volume;
+  ps->volume = pulse_from_device_volume(device->volume);
   ps->devname = strdup(device->extra_device_info);
 
   ps->next = sessions;
@@ -227,8 +234,6 @@ pulse_session_shutdown(struct pulse_session *ps)
   // async to avoid risk of deadlock if the player should make calls back to Pulseaudio
   commands_exec_async(pulse.cmdbase, session_shutdown, ps);
 }
-
-/* ------------------------ EXECUTED IN BOTH THREADS ------------------------ */
 
 static void
 pulse_session_shutdown_all(pa_stream_state_t state)
@@ -514,14 +519,14 @@ context_state_cb(pa_context *c, void *userdata)
 	break;
 
       case PA_CONTEXT_FAILED:
-      case PA_CONTEXT_TERMINATED:
-	if (state == PA_CONTEXT_FAILED)
-	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio failed with error: %s\n", pa_strerror(pa_context_errno(c)));
-	else
-	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio terminated\n");
-
+	DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio failed with error: %s\n", pa_strerror(pa_context_errno(c)));
 	pulse_session_shutdown_all(PA_STREAM_FAILED);
+	pa_threaded_mainloop_signal(pulse.mainloop, 0);
+	break;
 
+      case PA_CONTEXT_TERMINATED:
+	DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio terminated\n");
+	pulse_session_shutdown_all(PA_STREAM_UNCONNECTED);
 	pa_threaded_mainloop_signal(pulse.mainloop, 0);
 	break;
 
@@ -561,6 +566,7 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
 {
   pa_stream_flags_t flags;
   pa_sample_spec ss;
+  pa_cvolume cvol;
   int offset;
   int ret;
 
@@ -592,7 +598,9 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
   ps->attr.minreq    = (uint32_t)-1;
   ps->attr.fragsize  = (uint32_t)-1;
 
-  ret = pa_stream_connect_playback(ps->stream, ps->devname, &ps->attr, flags, NULL, NULL);
+  pa_cvolume_set(&cvol, 2, ps->volume);
+
+  ret = pa_stream_connect_playback(ps->stream, ps->devname, &ps->attr, flags, &cvol, NULL);
   if (ret < 0)
     goto unlock_and_fail;
 
@@ -701,7 +709,6 @@ pulse_device_volume_set(struct output_device *device, output_status_cb cb)
   uint32_t idx;
   pa_operation* o;
   pa_cvolume cvol;
-  pa_volume_t vol;
 
   if (!sessions || !device->session || !device->session->session)
     return 0;
@@ -709,10 +716,10 @@ pulse_device_volume_set(struct output_device *device, output_status_cb cb)
   ps = device->session->session;
   idx = pa_stream_get_index(ps->stream);
 
-  vol = PA_VOLUME_MUTED + (device->volume * (PA_VOLUME_NORM - PA_VOLUME_MUTED)) / 100;
-  pa_cvolume_set(&cvol, 2, vol);
+  ps->volume = pulse_from_device_volume(device->volume);
+  pa_cvolume_set(&cvol, 2, ps->volume);
 
-  DPRINTF(E_DBG, L_LAUDIO, "Setting Pulseaudio volume for stream %" PRIu32 " to %d (%d)\n", idx, (int)vol, device->volume);
+  DPRINTF(E_DBG, L_LAUDIO, "Setting Pulseaudio volume for stream %" PRIu32 " to %d (%d)\n", idx, (int)ps->volume, device->volume);
 
   pa_threaded_mainloop_lock(pulse.mainloop);
 
@@ -944,8 +951,6 @@ pulse_init(void)
 static void
 pulse_deinit(void)
 {
-  pulse_session_shutdown_all(PA_STREAM_UNCONNECTED); // TODO Required?
-
   pulse_free();
 }
 
