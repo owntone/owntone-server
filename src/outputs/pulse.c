@@ -590,9 +590,9 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
 
   pa_stream_set_state_callback(ps->stream, cb, ps);
 
-  flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_ADJUST_LATENCY | PA_STREAM_AUTO_TIMING_UPDATE;
+  flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_AUTO_TIMING_UPDATE;
 
-  ps->attr.tlength   = STOB(2 * ss.rate - offset); // 2 second latency
+  ps->attr.tlength   = STOB(2 * ss.rate + AIRTUNES_V2_PACKET_SAMPLES - offset); // 2 second latency
   ps->attr.maxlength = 2 * ps->attr.tlength;
   ps->attr.prebuf    = (uint32_t)-1;
   ps->attr.minreq    = (uint32_t)-1;
