@@ -114,6 +114,7 @@ enum raop_devtype {
   RAOP_DEV_APEX2_80211N,
   RAOP_DEV_APEX3_80211N,
   RAOP_DEV_APPLETV,
+  RAOP_DEV_APPLETV4,
   RAOP_DEV_OTHER,
 };
 
@@ -161,6 +162,7 @@ struct raop_session
   unsigned encrypt:1;
   unsigned auth_quirk_itunes:1;
   unsigned wants_metadata:1;
+  unsigned keep_alive:1;
 
   struct event *deferredev;
 
@@ -263,6 +265,7 @@ static const char *raop_devtype[] =
   "AirPort Express 2 - 802.11n",
   "AirPort Express 3 - 802.11n",
   "AppleTV",
+  "AppleTV4",
   "Other",
 };
 
@@ -302,6 +305,10 @@ static struct raop_metadata *metadata_tail;
 
 /* FLUSH timer */
 static struct event *flush_timer;
+
+/* Keep-alive timer - hack for ATV's with tvOS 10 */
+static struct event *keep_alive_timer;
+static struct timeval keep_alive_tv = { 60, 0 };
 
 /* Sessions */
 static struct raop_session *sessions;
@@ -1905,26 +1912,37 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
       case RAOP_DEV_APEX1_80211G:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 1;
+	rs->keep_alive = 0;
 	break;
 
       case RAOP_DEV_APEX2_80211N:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 0;
+	rs->keep_alive = 0;
 	break;
 
       case RAOP_DEV_APEX3_80211N:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
+	rs->keep_alive = 0;
 	break;
 
       case RAOP_DEV_APPLETV:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
+	rs->keep_alive = 0;
+	break;
+
+      case RAOP_DEV_APPLETV4:
+	rs->encrypt = 0;
+	rs->auth_quirk_itunes = 0;
+	rs->keep_alive = 1;
 	break;
 
       case RAOP_DEV_OTHER:
 	rs->encrypt = re->encrypt;
 	rs->auth_quirk_itunes = 0;
+	rs->keep_alive = 0;
 	break;
     }
 
@@ -2335,8 +2353,6 @@ raop_volume_convert(int volume, char *name)
       max_volume = RAOP_CONFIG_MAX_VOLUME;
     }
 
-  DPRINTF(E_DBG, L_RAOP, "Setting max_volume for device %s to %d\n", name, max_volume);
-
   /* RAOP volume
    *  -144.0 is off
    *  0 - 100 maps to -30.0 - 0
@@ -2488,6 +2504,31 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
   raop_session_failure(rs);
 }
 
+static void
+raop_cb_keep_alive(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+
+  rs->reqs_in_flight--;
+
+  if (!req)
+    goto error;
+
+  if (req->response_code != RTSP_OK)
+    {
+      DPRINTF(E_LOG, L_RAOP, "SET_PARAMETER request failed for keep alive: %d %s\n", req->response_code, req->response_code_line);
+      goto error;
+    }
+
+  if (!rs->reqs_in_flight)
+    evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
+
+  return;
+
+ error:
+  raop_session_failure(rs);
+}
+
 // Forward
 static void
 raop_device_stop(struct output_session *session);
@@ -2506,6 +2547,25 @@ raop_flush_timer_cb(int fd, short what, void *arg)
 
       raop_device_stop(rs->output_session);
     }
+}
+
+static void
+raop_keep_alive_timer_cb(int fd, short what, void *arg)
+{
+  struct raop_session *rs;
+
+  for (rs = sessions; rs; rs = rs->next)
+    {
+      if (!rs->keep_alive)
+	continue;
+
+      if (!(rs->state & RAOP_STATE_F_CONNECTED))
+	continue;
+
+      raop_set_volume_internal(rs, rs->volume, raop_cb_keep_alive);
+    }
+
+  evtimer_add(keep_alive_timer, &keep_alive_tv);
 }
 
 static int
@@ -3900,6 +3960,8 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
      ["sf=0x4" "am=AppleTV2,1" "vs=105.5" "md=0,1,2" "tp=TCP,UDP" "vn=65537" "pw=false" "ss=16" "sr=44100" "da=true" "sv=false" "et=0,3" "cn=0,1" "ch=2" "txtvers=1"]
  * Apple TV 3:
      ["vv=2" "vs=200.54" "vn=65537" "tp=UDP" "sf=0x44" "pk=8...f" "am=AppleTV3,1" "md=0,1,2" "ft=0x5A7FFFF7,0xE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
+ * Apple TV 4:
+     ["vv=2" "vs=301.44.3" "vn=65537" "tp=UDP" "pk=9...f" "am=AppleTV5,3" "md=0,1,2" "sf=0x44" "ft=0x5A7FFFF7,0x4DE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
  * Sony STR-DN1040:
      ["fv=s9327.1090.0" "am=STR-DN1040" "vs=141.9" "vn=65537" "tp=UDP" "ss=16" "sr=44100" "sv=false" "pw=false" "md=0,2" "ft=0x44F0A00" "et=0,4" "da=true" "cn=0,1" "ch=2" "txtvers=1"]
  * AirFoil:
@@ -4050,6 +4112,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     re->devtype = RAOP_DEV_APEX2_80211N; // Second generation
   else if (strncmp(p, "AirPort", strlen("AirPort")) == 0)
     re->devtype = RAOP_DEV_APEX3_80211N; // Third generation and newer
+  else if (strncmp(p, "AppleTV5,3", strlen("AppleTV5,3")) == 0)
+    re->devtype = RAOP_DEV_APPLETV4; // Stream to ATV with tvOS 10 needs to be kept alive
   else if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
     re->devtype = RAOP_DEV_APPLETV;
   else if (*p == '\0')
@@ -4069,8 +4133,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else
     re->wants_metadata = 0;
 
-  DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s\n", 
-    name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype]);
+  DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s, address [%s]:%d\n", 
+    name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
 
   rd->advertised = 1;
 
@@ -4206,6 +4270,7 @@ raop_playback_start(uint64_t next_pkt, struct timespec *ts)
   struct raop_session *rs;
 
   event_del(flush_timer);
+  evtimer_add(keep_alive_timer, &keep_alive_tv);
 
   sync_counter = 0;
 
@@ -4224,6 +4289,8 @@ raop_playback_stop(void)
 {
   struct raop_session *rs;
   int ret;
+
+  evtimer_del(keep_alive_timer);
 
   for (rs = sessions; rs; rs = rs->next)
     {
@@ -4331,9 +4398,10 @@ raop_init(void)
     *ptr = '\0';
 
   flush_timer = evtimer_new(evbase_player, raop_flush_timer_cb, NULL);
-  if (!flush_timer)
+  keep_alive_timer = evtimer_new(evbase_player, raop_keep_alive_timer_cb, NULL);
+  if (!flush_timer || !keep_alive_timer)
     {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for flush timer\n");
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for flush timer or keep alive timer\n");
 
       goto out_free_b64_iv;
     }
@@ -4345,13 +4413,13 @@ raop_init(void)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay time synchronization failed to start\n");
 
-      goto out_free_flush_timer;
+      goto out_free_timers;
     }
 
   ret = raop_v2_control_start(v6enabled);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay playback synchronization failed to start\n");
+      DPRINTF(E_LOG, L_RAOP, "AirPlay playback control failed to start\n");
 
       goto out_stop_timing;
     }
@@ -4379,8 +4447,9 @@ raop_init(void)
   raop_v2_control_stop();
  out_stop_timing:
   raop_v2_timing_stop();
- out_free_flush_timer:
+ out_free_timers:
   event_free(flush_timer);
+  event_free(keep_alive_timer);
  out_free_b64_iv:
   free(raop_aes_iv_b64);
  out_free_b64_key:
@@ -4407,6 +4476,7 @@ raop_deinit(void)
   raop_v2_timing_stop();
 
   event_free(flush_timer);
+  event_free(keep_alive_timer);
 
   gcry_cipher_close(raop_aes_ctx);
 
