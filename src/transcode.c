@@ -197,7 +197,7 @@ init_profile(struct encode_ctx *ctx, enum transcode_profile profile)
 /* -------------------------------- HELPERS -------------------------------- */
 
 static inline char *
-err2str(errnum)
+err2str(int errnum)
 {
   av_strerror(errnum, errbuf, sizeof(errbuf));
   return errbuf;

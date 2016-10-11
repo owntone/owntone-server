@@ -51,7 +51,7 @@ struct metadata_map {
 static char errbuf[64];
 
 static inline char *
-err2str(errnum)
+err2str(int errnum)
 {
   av_strerror(errnum, errbuf, sizeof(errbuf));
   return errbuf;
