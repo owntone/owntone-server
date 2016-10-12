@@ -1700,7 +1700,7 @@ cast_set_status_cb(struct output_session *session, output_status_cb cb)
 static int
 cast_init(void)
 {
-  int mdns_flags;
+  int family;
   int i;
   int ret;
 
@@ -1731,9 +1731,12 @@ cast_init(void)
       goto out_tls_deinit;
     }
 
-  mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
+    family = AF_UNSPEC;
+  else
+    family = AF_INET;
 
-  ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
+  ret = mdns_browse("_googlecast._tcp", family, cast_device_cb);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CAST, "Could not add mDNS browser for Chromecast devices\n");

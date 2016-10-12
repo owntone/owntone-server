@@ -46,6 +46,7 @@
 #include "logger.h"
 #include "mdns.h"
 
+#define MDNSERR avahi_strerror(avahi_client_errno(mdns_client))
 
 /* Main event base, from main.c */
 extern struct event_base *evbase_main;
@@ -140,11 +141,9 @@ ev_watch_new(const AvahiPoll *api, int fd, AvahiWatchEvent a_events, AvahiWatchC
   AvahiWatch *w;
   int ret;
 
-  w = (AvahiWatch *)malloc(sizeof(AvahiWatch));
+  w = calloc(1, sizeof(AvahiWatch));
   if (!w)
     return NULL;
-
-  memset(w, 0, sizeof(AvahiWatch));
 
   w->cb = cb;
   w->userdata = userdata;
@@ -255,11 +254,9 @@ ev_timeout_new(const AvahiPoll *api, const struct timeval *tv, AvahiTimeoutCallb
   AvahiTimeout *t;
   int ret;
 
-  t = (AvahiTimeout *)malloc(sizeof(AvahiTimeout));
+  t = calloc(1, sizeof(AvahiTimeout));
   if (!t)
     return NULL;
-
-  memset(t, 0, sizeof(AvahiTimeout));
 
   t->cb = cb;
   t->userdata = userdata;
@@ -338,21 +335,10 @@ static struct AvahiPoll ev_poll_api =
 struct mdns_browser
 {
   char *type;
+  AvahiProtocol protocol;
   mdns_browse_cb cb;
 
-  int flags;
-
   struct mdns_browser *next;
-};
-
-struct mdns_record_browser {
-  struct mdns_browser *mb;
-
-  char *name;
-  char *domain;
-  struct keyval txt_kv;
-
-  unsigned short port;
 };
 
 struct mdns_group_entry
@@ -368,358 +354,68 @@ struct mdns_group_entry
 static struct mdns_browser *browser_list;
 static struct mdns_group_entry *group_entries;
 
-
-#define IPV4LL_NETWORK 0xA9FE0000
-#define IPV4LL_NETMASK 0xFFFF0000
-#define IPV6LL_NETWORK 0xFE80
-#define IPV6LL_NETMASK 0xFFC0
-
-static int
-is_v4ll(struct in_addr *addr)
-{
-  return ((ntohl(addr->s_addr) & IPV4LL_NETMASK) == IPV4LL_NETWORK);
-}
-
-static int
-is_v6ll(struct in6_addr *addr)
-{
-  return ((((addr->s6_addr[0] << 8) | addr->s6_addr[1]) & IPV6LL_NETMASK) == IPV6LL_NETWORK);
-}
-
-static void
-browse_record_callback_v4(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol proto,
-			  AvahiBrowserEvent event, const char *hostname, uint16_t clazz, uint16_t type,
-			  const void *rdata, size_t size, AvahiLookupResultFlags flags, void *userdata)
-{
-  char address[INET_ADDRSTRLEN];
-  struct in_addr addr;
-  struct mdns_record_browser *rb_data;
-  int ll;
-
-  rb_data = (struct mdns_record_browser *)userdata;
-
-  switch (event)
-    {
-      case AVAHI_BROWSER_NEW:
-	if (size != sizeof(addr.s_addr))
-	  {
-	    DPRINTF(E_WARN, L_MDNS, "Got RR type A size %ld (should be %ld)\n", (long)size, (long)sizeof(addr.s_addr));
-
-	    return;
-	  }
-
-	memcpy(&addr.s_addr, rdata, sizeof(addr.s_addr));
-
-	ll = is_v4ll(&addr);
-	if (ll && !(rb_data->mb->flags & MDNS_WANT_V4LL))
-	  {
-	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv4 LL, not interested (service %s)\n", rb_data->name);
-	    return;
-	  }
-	else if (!ll && !(rb_data->mb->flags & MDNS_WANT_V4))
-	  {
-	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv4, not interested (service %s)\n", rb_data->name);
-	    return;
-	  }
-
-	if (!inet_ntop(AF_INET, &addr.s_addr, address, sizeof(address)))
-	  {
-	    DPRINTF(E_LOG, L_MDNS, "Could not print IPv4 address: %s\n", strerror(errno));
-
-	    return;
-	  }
-
-	DPRINTF(E_DBG, L_MDNS, "Service %s, hostname %s resolved to %s\n", rb_data->name, hostname, address);
-
-	/* Execute callback (mb->cb) with all the data */
-	rb_data->mb->cb(rb_data->name, rb_data->mb->type, rb_data->domain, hostname, AF_INET, address, rb_data->port, &rb_data->txt_kv);
-	/* Got a suitable address, stop record browser */
-	break;
-
-      case AVAHI_BROWSER_REMOVE:
-	/* Not handled - record browser lifetime too short for this to happen */
-	return;
-
-      case AVAHI_BROWSER_CACHE_EXHAUSTED:
-      case AVAHI_BROWSER_ALL_FOR_NOW:
-	DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s v4): no more results (%s)\n", hostname,
-		(event == AVAHI_BROWSER_CACHE_EXHAUSTED) ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");	
-
-	break;
-
-      case AVAHI_BROWSER_FAILURE:
-	DPRINTF(E_LOG, L_MDNS, "Avahi Record Browser (%s v4) failure: %s\n", hostname,
-		avahi_strerror(avahi_client_errno(avahi_record_browser_get_client(b))));
-
-	break;
-    }
-
-  keyval_clear(&rb_data->txt_kv);      
-  free(rb_data->name);
-  free(rb_data->domain);
-  free(rb_data);
-
-  avahi_record_browser_free(b);
-}
-
-static void
-browse_record_callback_v6(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol proto,
-			  AvahiBrowserEvent event, const char *hostname, uint16_t clazz, uint16_t type,
-			  const void *rdata, size_t size, AvahiLookupResultFlags flags, void *userdata)
-{
-  char address[INET6_ADDRSTRLEN + IF_NAMESIZE + 1];
-  char ifname[IF_NAMESIZE];
-  struct in6_addr addr;
-  struct mdns_record_browser *rb_data;
-  int ll;
-  int len;
-  int ret;
-
-  rb_data = (struct mdns_record_browser *)userdata;
-
-  switch (event)
-    {
-      case AVAHI_BROWSER_NEW:
-	if (size != sizeof(addr.s6_addr))
-	  {
-	    DPRINTF(E_WARN, L_MDNS, "Got RR type AAAA size %ld (should be %ld)\n", (long)size, (long)sizeof(addr.s6_addr));
-
-	    return;
-	  }
-
-	memcpy(&addr.s6_addr, rdata, sizeof(addr.s6_addr));
-
-	ll = is_v6ll(&addr);
-	if (ll && !(rb_data->mb->flags & MDNS_WANT_V6LL))
-	  {
-	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv6 LL, not interested (service %s)\n", rb_data->name);
-	    return;
-	  }
-	else if (!ll && !(rb_data->mb->flags & MDNS_WANT_V6))
-	  {
-	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv6, not interested (service %s)\n", rb_data->name);
-	    return;
-	  }
-
-	if (!inet_ntop(AF_INET6, &addr.s6_addr, address, sizeof(address)))
-	  {
-	    DPRINTF(E_LOG, L_MDNS, "Could not print IPv6 address: %s\n", strerror(errno));
-
-	    return;
-	  }
-
-	if (ll)
-	  {
-	    if (!if_indextoname(intf, ifname))
-	      {
-		DPRINTF(E_LOG, L_MDNS, "Could not map interface index %d to a name\n", intf);
-
-		return;
-	      }
-
-	    len = strlen(address);
-	    ret = snprintf(address + len, sizeof(address) - len, "%%%s", ifname);
-	    if ((ret < 0) || (ret > sizeof(address) - len))
-	      {
-		DPRINTF(E_LOG, L_MDNS, "Buffer too short for scoped IPv6 LL\n");
-
-		return;
-	      }
-	  }
-
-	DPRINTF(E_DBG, L_MDNS, "Service %s, hostname %s resolved to %s\n", rb_data->name, hostname, address);
-
-	/* Execute callback (mb->cb) with all the data */
-	rb_data->mb->cb(rb_data->name, rb_data->mb->type, rb_data->domain, hostname, AF_INET6, address, rb_data->port, &rb_data->txt_kv);
-	/* Got a suitable address, stop record browser */
-	break;
-
-      case AVAHI_BROWSER_REMOVE:
-	/* Not handled - record browser lifetime too short for this to happen */
-	return;
-
-      case AVAHI_BROWSER_CACHE_EXHAUSTED:
-      case AVAHI_BROWSER_ALL_FOR_NOW:
-	DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s v6): no more results (%s)\n", hostname,
-		(event == AVAHI_BROWSER_CACHE_EXHAUSTED) ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");	
-
-	break;
-
-      case AVAHI_BROWSER_FAILURE:
-	DPRINTF(E_LOG, L_MDNS, "Avahi Record Browser (%s v6) failure: %s\n", hostname,
-		avahi_strerror(avahi_client_errno(avahi_record_browser_get_client(b))));
-
-	break;
-    }
-
-  /* Cleanup when done/error */
-  keyval_clear(&rb_data->txt_kv);      
-  free(rb_data->name);
-  free(rb_data->domain);
-  free(rb_data);
-
-  avahi_record_browser_free(b);
-}
-
-static int
-spawn_record_browser(AvahiClient *c, AvahiIfIndex intf, AvahiProtocol proto, const char *hostname, const char *domain,
-		     uint16_t type, struct mdns_browser *mb, const char *name, uint16_t port, AvahiStringList *txt)
-{
-  AvahiRecordBrowser *rb;
-  struct mdns_record_browser *rb_data;
-  char *key;
-  char *value;
-  char *ptr;
-  size_t len;
-  int ret;
-
-  rb_data = (struct mdns_record_browser *)malloc(sizeof(struct mdns_record_browser));
-  if (!rb_data)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory for record browser data\n");
-
-      return -1;
-    }
-
-  memset(rb_data, 0, sizeof(struct mdns_record_browser));
-
-  rb_data->mb = mb;
-  rb_data->port = port;
-
-  rb_data->name = strdup(name);
-  if (!rb_data->name)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory for service name\n");
-
-      goto out_free_rb;
-    }
-
-  rb_data->domain = strdup(domain);
-  if (!rb_data->domain)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory for service domain\n");
-
-      goto out_free_name;
-    }
-
-  while (txt)
-    {
-      len = avahi_string_list_get_size(txt);
-      key = (char *)avahi_string_list_get_text(txt);
-
-      ptr = memchr(key, '=', len);
-      if (!ptr)
-	{
-	  value = "";
-	  len = 0;
-	}
-      else
-	{
-	  *ptr = '\0';
-	  value = ptr + 1;
-
-	  len -= strlen(key) + 1;
-	}
-
-      ret = keyval_add_size(&rb_data->txt_kv, key, value, len);
-
-      if (ptr)
-	*ptr = '=';
-
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_MDNS, "Could not build TXT record keyval\n");
-
-	  goto out_free_keyval;
-	}
-
-      txt = avahi_string_list_get_next(txt);
-    }
-
-  rb = NULL;
-  switch (type)
-    {
-      case AVAHI_DNS_TYPE_A:
-	rb = avahi_record_browser_new(c, intf, proto, hostname,
-				      AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_A, 0,
-				      browse_record_callback_v4, rb_data);
-	if (!rb)
-	  DPRINTF(E_LOG, L_MDNS, "Could not create v4 record browser for host %s: %s\n",
-		  hostname, avahi_strerror(avahi_client_errno(c)));
-	break;
-
-      case AVAHI_DNS_TYPE_AAAA:
-	rb = avahi_record_browser_new(c, intf, proto, hostname,
-				      AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_AAAA, 0,
-				      browse_record_callback_v6, rb_data);
-	if (!rb)
-	  DPRINTF(E_LOG, L_MDNS, "Could not create v4 record browser for host %s: %s\n",
-		  hostname, avahi_strerror(avahi_client_errno(c)));
-	break;
-    }
-
-  if (!rb)
-    goto out_free_keyval;
-
-  return 0;
-
- out_free_keyval:
-  keyval_clear(&rb_data->txt_kv);
-  free(rb_data->domain);
- out_free_name:
-  free(rb_data->name);
- out_free_rb:
-  free(rb_data);
-
-  return -1;
-}
-
+// Note: This will only return the first DNS record. Should be enough, but
+// should more be needed, then a record browser needs to be added.
 static void
 browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtocol proto, AvahiResolverEvent event,
 			const char *name, const char *type, const char *domain, const char *hostname, const AvahiAddress *addr,
 			uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags flags, void *userdata)
 {
-  AvahiClient *c;
   struct mdns_browser *mb;
+  struct keyval txt_kv;
+  char address[AVAHI_ADDRESS_STR_MAX];
+  char *key;
+  char *value;
+  int family;
   int ret;
+
+  if (event == AVAHI_RESOLVER_FAILURE)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Avahi Resolver failure: service '%s' type '%s': %s\n", name, type, MDNSERR);
+      goto out_free_resolver;
+    }
+  else if (event != AVAHI_RESOLVER_FOUND)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Avahi Resolver empty callback\n");
+      goto out_free_resolver;
+    }
+
+  DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d\n", name, type, proto);
+
+  memset(&txt_kv, 0, sizeof(struct keyval));
+
+  while (txt)
+    {
+      ret = avahi_string_list_get_pair(txt, &key, &value, NULL);
+      txt = avahi_string_list_get_next(txt);
+
+      if (ret < 0)
+	continue;
+
+      if (value)
+	{
+	  keyval_add(&txt_kv, key, value);
+	  avahi_free(value);
+	}
+
+      avahi_free(key);
+    }
+
+  avahi_address_snprint(address, sizeof(address), addr);
+
+  // For some reason, the proto returned by the callback will not always be the
+  // protocol of the address - so we use addr->proto instead
+  family = avahi_proto_to_af(addr->proto);
 
   mb = (struct mdns_browser *)userdata;
 
-  switch (event)
-    {
-      case AVAHI_RESOLVER_FAILURE:
-	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver failure: service '%s' type '%s': %s\n", name, type,
-		avahi_strerror(avahi_client_errno(mdns_client)));
-	break;
+  if (family != AF_UNSPEC)
+    mb->cb(name, type, domain, hostname, family, address, port, &txt_kv);
 
-      case AVAHI_RESOLVER_FOUND:
-	DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d\n", name, type, proto);
+  keyval_clear(&txt_kv);
 
-	c = avahi_service_resolver_get_client(r);
-
-	if (mb->flags & (MDNS_WANT_V4 | MDNS_WANT_V4LL))
-	  {
-	    ret = spawn_record_browser(c, intf, proto, hostname, domain,
-				       AVAHI_DNS_TYPE_A, mb, name, port, txt);
-	    if (ret < 0)
-	      DPRINTF(E_LOG, L_MDNS, "Failed to create record browser for type A\n");
-	  }
-
-	if (mb->flags & (MDNS_WANT_V6 | MDNS_WANT_V6LL))
-	  {
-	    ret = spawn_record_browser(c, intf, proto, hostname, domain,
-				       AVAHI_DNS_TYPE_AAAA, mb, name, port, txt);
-	    if (ret < 0)
-	      DPRINTF(E_LOG, L_MDNS, "Failed to create record browser for type A\n");
-	  }
-
-
-	break;
-    }
-
+ out_free_resolver:
   avahi_service_resolver_free(r);
-
-  return;
 }
 
 static void
@@ -735,17 +431,14 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
   switch (event)
     {
       case AVAHI_BROWSER_FAILURE:
-	DPRINTF(E_LOG, L_MDNS, "Avahi Browser failure: %s\n",
-		avahi_strerror(avahi_client_errno(mdns_client)));
+	DPRINTF(E_LOG, L_MDNS, "Avahi Browser failure: %s\n", MDNSERR);
 
 	avahi_service_browser_free(b);
 
-	b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, mb->type, NULL, 0, browse_callback, mb);
+	b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
 	if (!b)
-	  {
-	    DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type,
-		    avahi_strerror(avahi_client_errno(mdns_client)));
-	  }
+	  DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type, MDNSERR);
+
 	return;
 
       case AVAHI_BROWSER_NEW:
@@ -753,30 +446,14 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 
 	res = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, proto, 0, browse_resolve_callback, mb);
 	if (!res)
-	  DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n",
-		  avahi_strerror(avahi_client_errno(mdns_client)));
+	  DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n", MDNSERR);
+
 	break;
 
       case AVAHI_BROWSER_REMOVE:
 	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: REMOVE service '%s' type '%s' proto %d\n", name, type, proto);
 
-	switch (proto)
-	  {
-	    case AVAHI_PROTO_INET:
-	      family = AF_INET;
-	      break;
-
-	    case AVAHI_PROTO_INET6:
-	      family = AF_INET6;
-	      break;
-
-	    default:
-	      DPRINTF(E_INFO, L_MDNS, "Avahi Browser: unknown protocol %d\n", proto);
-
-	      family = AF_UNSPEC;
-	      break;
-	  }
-
+	family = avahi_proto_to_af(proto);
 	if (family != AF_UNSPEC)
 	  mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
 	break;
@@ -831,7 +508,6 @@ _create_services(void)
   if (!group_entries)
     {
       DPRINTF(E_DBG, L_MDNS, "No entries yet... skipping service create\n");
-
       return;
     }
 
@@ -840,9 +516,7 @@ _create_services(void)
         mdns_group = avahi_entry_group_new(mdns_client, entry_group_callback, NULL);
 	if (!mdns_group)
 	  {
-            DPRINTF(E_WARN, L_MDNS, "Could not create Avahi EntryGroup: %s\n",
-                    avahi_strerror(avahi_client_errno(mdns_client)));
-
+            DPRINTF(E_WARN, L_MDNS, "Could not create Avahi EntryGroup: %s\n", MDNSERR);
             return;
 	  }
       }
@@ -858,7 +532,6 @@ _create_services(void)
 	if (ret < 0)
 	  {
 	    DPRINTF(E_WARN, L_MDNS, "Could not add mDNS services: %s\n", avahi_strerror(ret));
-
 	    return;
 	  }
 
@@ -867,10 +540,7 @@ _create_services(void)
 
     ret = avahi_entry_group_commit(mdns_group);
     if (ret < 0)
-      {
-	DPRINTF(E_WARN, L_MDNS, "Could not commit mDNS services: %s\n",
-		avahi_strerror(avahi_client_errno(mdns_client)));
-      }
+      DPRINTF(E_WARN, L_MDNS, "Could not commit mDNS services: %s\n", MDNSERR);
 }
 
 static void
@@ -889,12 +559,9 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
 
 	for (mb = browser_list; mb; mb = mb->next)
 	  {
-	    b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, mb->type, NULL, 0, browse_callback, mb);
+	    b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
 	    if (!b)
-	      {
-		DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type,
-			avahi_strerror(avahi_client_errno(mdns_client)));
-	      }
+	      DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type, MDNSERR);
 	  }
         break;
 
@@ -915,13 +582,9 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
 	    avahi_client_free(mdns_client);
 	    mdns_group = NULL;
 
-	    mdns_client = avahi_client_new(&ev_poll_api, AVAHI_CLIENT_NO_FAIL,
-					   client_callback, NULL, &error);
+	    mdns_client = avahi_client_new(&ev_poll_api, AVAHI_CLIENT_NO_FAIL, client_callback, NULL, &error);
 	    if (!mdns_client)
-	      {
-		DPRINTF(E_LOG, L_MDNS, "Failed to create new Avahi client: %s\n",
-			avahi_strerror(error));
-	      }
+	      DPRINTF(E_LOG, L_MDNS, "Failed to create new Avahi client: %s\n", avahi_strerror(error));
 	  }
 	else
 	  {
@@ -960,8 +623,7 @@ mdns_init(void)
 				 client_callback, NULL, &error);
   if (!mdns_client)
     {
-      DPRINTF(E_WARN, L_MDNS, "mdns_init: Could not create Avahi client: %s\n",
-	      avahi_strerror(avahi_client_errno(mdns_client)));
+      DPRINTF(E_WARN, L_MDNS, "mdns_init: Could not create Avahi client: %s\n", MDNSERR);
 
       return -1;
     }
@@ -1023,9 +685,12 @@ mdns_register(char *name, char *type, int port, char **txt)
 
   DPRINTF(E_DBG, L_MDNS, "Adding mDNS service %s/%s\n", name, type);
 
-  ge = (struct mdns_group_entry *)malloc(sizeof(struct mdns_group_entry));
+  ge = calloc(1, sizeof(struct mdns_group_entry));
   if (!ge)
-    return -1;
+    {
+      DPRINTF(E_LOG, L_MDNS, "Out of memory for mdns register\n");
+      return -1;
+    }
 
   ge->name = strdup(name);
   ge->type = strdup(type);
@@ -1060,30 +725,31 @@ mdns_register(char *name, char *type, int port, char **txt)
 }
 
 int
-mdns_browse(char *type, int flags, mdns_browse_cb cb)
+mdns_browse(char *type, int family, mdns_browse_cb cb)
 {
   struct mdns_browser *mb;
   AvahiServiceBrowser *b;
 
   DPRINTF(E_DBG, L_MDNS, "Adding service browser for type %s\n", type);
 
-  mb = (struct mdns_browser *)malloc(sizeof(struct mdns_browser));
+  mb = calloc(1, sizeof(struct mdns_browser));
   if (!mb)
-    return -1;
+    {
+      DPRINTF(E_LOG, L_MDNS, "Out of memory for new mdns browser\n");
+      return -1;
+    }
 
+  mb->protocol = avahi_af_to_proto(family);
   mb->type = strdup(type);
   mb->cb = cb;
-
-  mb->flags = (flags) ? flags : MDNS_WANT_DEFAULT;
 
   mb->next = browser_list;
   browser_list = mb;
 
-  b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, type, NULL, 0, browse_callback, mb);
+  b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
   if (!b)
     {
-      DPRINTF(E_LOG, L_MDNS, "Failed to create service browser: %s\n",
-	      avahi_strerror(avahi_client_errno(mdns_client)));
+      DPRINTF(E_LOG, L_MDNS, "Failed to create service browser: %s\n", MDNSERR);
 
       browser_list = mb->next;
       free(mb->type);

@@ -935,7 +935,8 @@ remote_pairing_init(void)
     }
 #endif /* USE_EVENTFD */
 
-  ret = mdns_browse("_touch-remote._tcp", MDNS_WANT_V4, touch_remote_cb);
+  // No ipv6 for remote at the moment
+  ret = mdns_browse("_touch-remote._tcp", AF_INET, touch_remote_cb);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_REMOTE, "Could not browse for Remote services\n");

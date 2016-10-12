@@ -4,27 +4,50 @@
 
 #include "misc.h"
 
-#define MDNS_WANT_V4    (1 << 0)
-#define MDNS_WANT_V4LL  (1 << 1)
-#define MDNS_WANT_V6    (1 << 2)
-#define MDNS_WANT_V6LL  (1 << 3)
-
-#define MDNS_WANT_DEFAULT (MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL)
-
 typedef void (* mdns_browse_cb)(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt);
 
-/* mDNS interface functions */
-/* Call only from the main thread */
+/*
+ * Start a mDNS client
+ * Call only from the main thread!
+ *
+ * @return       0 on success, -1 on error
+ */
 int
 mdns_init(void);
 
+/*
+ * Removes registered services, stops service browsers and stop the mDNS client 
+ * Call only from the main thread!
+ *
+ */
 void
 mdns_deinit(void);
 
+/*
+ * Register (announce) a service with mDNS
+ * Call only from the main thread!
+ *
+ * @in  name     Name of service, e.g. "My Music on Debian"
+ * @in  type     Type of service to announce, e.g. "_daap._tcp"
+ * @in  port     Port of the service
+ * @in  txt      Pointer to array of strings with txt key/values ("Version=1")
+ *               for DNS-SD TXT. The array must be terminated by a NULL pointer.
+ * @return       0 on success, -1 on error
+ */
 int
 mdns_register(char *name, char *type, int port, char **txt);
 
+/*
+ * Start a service browser, a callback will be made when the service changes state
+ * Call only from the main thread!
+ *
+ * @in  type     Type of service to look for, e.g. "_raop._tcp"
+ * @in  family   AF_INET to browse for ipv4 services, AF_INET6 for ipv6, 
+                 AF_UNSPEC for both
+ * @in  cb       Callback when service state changes (e.g. appears/disappears)
+ * @return       0 on success, -1 on error
+ */
 int
-mdns_browse(char *type, int flags, mdns_browse_cb cb);
+mdns_browse(char *type, int family, mdns_browse_cb cb);
 
 #endif /* !__MDNS_H__ */

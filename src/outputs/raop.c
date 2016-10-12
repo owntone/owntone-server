@@ -971,7 +971,7 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *m
 
   if (!rs->password)
     {
-      DPRINTF(E_LOG, L_RAOP, "Authentication required but no password found for device %s\n", rs->devname);
+      DPRINTF(E_LOG, L_RAOP, "Authentication required but no password found for device '%s'\n", rs->devname);
 
       return -2;
     }
@@ -1187,7 +1187,7 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
 
   method = evrtsp_method(req_method);
 
-  DPRINTF(E_DBG, L_RAOP, "Building %s for %s\n", method, rs->devname);
+  DPRINTF(E_DBG, L_RAOP, "Building %s for '%s'\n", method, rs->devname);
 
   snprintf(buf, sizeof(buf), "%d", rs->cseq);
   evrtsp_add_header(req->output_headers, "CSeq", buf);
@@ -1827,7 +1827,7 @@ raop_deferredev_cb(int fd, short what, void *arg)
 
   rs = (struct raop_session *)arg;
 
-  DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device %s\n", rs->devname);
+  DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device '%s'\n", rs->devname);
 
   raop_session_failure(rs);
 }
@@ -1840,7 +1840,7 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 
   rs = (struct raop_session *)arg;
 
-  DPRINTF(E_LOG, L_RAOP, "ApEx %s closed RTSP connection\n", rs->devname);
+  DPRINTF(E_LOG, L_RAOP, "Device '%s' closed RTSP connection\n", rs->devname);
 
   rs->state = RAOP_STATE_FAILED;
 
@@ -1957,7 +1957,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
   rs->ctrl = evrtsp_connection_new(address, port);
   if (!rs->ctrl)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not create control connection to %s\n", address);
+      DPRINTF(E_LOG, L_RAOP, "Could not create control connection to '%s' (%s)\n", rd->name, address);
 
       goto out_free_event;
     }
@@ -2009,7 +2009,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
 
   if (ret <= 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Device address not valid (%s)\n", address);
+      DPRINTF(E_LOG, L_RAOP, "Device '%s' has invalid address (%s) for %s\n", rd->name, address, (family == AF_INET) ? "ipv4" : "ipv6");
 
       goto out_free_evcon;
     }
@@ -2212,7 +2212,7 @@ raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, 
   ret = raop_metadata_send_metadata(rs, evbuf, rmd, rtptime);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not send metadata to %s\n", rs->devname);
+      DPRINTF(E_LOG, L_RAOP, "Could not send metadata to '%s'\n", rs->devname);
 
       ret = -1;
       goto out;
@@ -2224,7 +2224,7 @@ raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, 
   ret = raop_metadata_send_artwork(rs, evbuf, rmd, rtptime);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not send artwork to %s\n", rs->devname);
+      DPRINTF(E_LOG, L_RAOP, "Could not send artwork to '%s'\n", rs->devname);
 
       ret = -1;
       goto out;
@@ -2234,7 +2234,7 @@ raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, 
   ret = raop_metadata_send_progress(rs, evbuf, rmd, offset, delay);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not send progress to %s\n", rs->devname);
+      DPRINTF(E_LOG, L_RAOP, "Could not send progress to '%s'\n", rs->devname);
 
       ret = -1;
       goto out;
@@ -2925,7 +2925,7 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
 
       ret = sendto(rs->control_svc->fd, msg, sizeof(msg), 0, &rs->sa.sa, len);
       if (ret < 0)
-	DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device %s: %s\n", rs->devname, strerror(errno));
+	DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
     }
 }
 
@@ -3323,14 +3323,14 @@ raop_v2_send_packet(struct raop_session *rs, struct raop_v2_packet *pkt)
   ret = send(rs->server_fd, data, AIRTUNES_V2_PKT_LEN, 0);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Send error for %s: %s\n", rs->devname, strerror(errno));
+      DPRINTF(E_LOG, L_RAOP, "Send error for '%s': %s\n", rs->devname, strerror(errno));
 
       raop_session_failure(rs);
       return -1;
     }
   else if (ret != AIRTUNES_V2_PKT_LEN)
     {
-      DPRINTF(E_WARN, L_RAOP, "Partial send (%d) for %s\n", ret, rs->devname);
+      DPRINTF(E_WARN, L_RAOP, "Partial send (%d) for '%s'\n", ret, rs->devname);
       return -1;
     }
 
@@ -3389,7 +3389,7 @@ raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len)
   /* Check that seqnum is in the retransmit buffer */
   if ((seqnum > pktbuf_head->seqnum) || (seqnum < pktbuf_tail->seqnum))
     {
-      DPRINTF(E_WARN, L_RAOP, "RAOP device %s asking for seqnum %u; not in buffer (h %u t %u)\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
+      DPRINTF(E_WARN, L_RAOP, "Device '%s' asking for seqnum %u; not in buffer (h %u t %u)\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
       return;
     }
 
@@ -3586,7 +3586,7 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
   /* Audio latency */
   param = evrtsp_find_header(req->input_headers, "Audio-Latency");
   if (!param)
-    DPRINTF(E_INFO, L_RAOP, "RECORD reply from %s did not have an Audio-Latency header\n", rs->devname);
+    DPRINTF(E_INFO, L_RAOP, "RECORD reply from '%s' did not have an Audio-Latency header\n", rs->devname);
   else
     DPRINTF(E_DBG, L_RAOP, "RAOP audio latency is %s\n", param);
 
@@ -3798,12 +3798,16 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 
   rs->reqs_in_flight--;
 
-  if (!req)
-    goto cleanup;
+  if (!req || !req->response_code)
+    {
+      DPRINTF(E_LOG, L_RAOP, "No response from '%s' (%s) to OPTIONS request\n", rs->devname, rs->address);
+
+      goto cleanup;
+    }
 
   if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
     {
-      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed in session startup: %d %s\n", req->response_code, req->response_code_line);
+      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed starting '%s': %d %s\n", rs->devname, req->response_code, req->response_code_line);
 
       goto cleanup;
     }
@@ -3816,7 +3820,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
     {
       if (rs->req_has_auth)
 	{
-	  DPRINTF(E_LOG, L_RAOP, "Bad password for device %s\n", rs->devname);
+	  DPRINTF(E_LOG, L_RAOP, "Bad password for device '%s'\n", rs->devname);
 
 	  rs->state = RAOP_STATE_PASSWORD;
 	  goto cleanup;
@@ -3898,12 +3902,16 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
 
   rs->reqs_in_flight--;
 
-  if (!req)
-    goto cleanup;
+  if (!req || !req->response_code)
+    {
+      DPRINTF(E_LOG, L_RAOP, "No response from '%s' (%s) to OPTIONS request\n", rs->devname, rs->address);
+
+      goto cleanup;
+    }
 
   if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
     {
-      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed in device probe: %d %s\n", req->response_code, req->response_code_line);
+      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed probing '%s': %d %s\n", rs->devname, req->response_code, req->response_code_line);
 
       goto cleanup;
     }
@@ -3916,7 +3924,7 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
     {
       if (rs->req_has_auth)
 	{
-	  DPRINTF(E_LOG, L_RAOP, "Bad password for device %s\n", rs->devname);
+	  DPRINTF(E_LOG, L_RAOP, "Bad password for device '%s'\n", rs->devname);
 
 	  rs->state = RAOP_STATE_PASSWORD;
 	  goto cleanup;
@@ -4133,9 +4141,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else
     re->wants_metadata = 0;
 
-  DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s, address [%s]:%d\n", 
-    name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
-
   rd->advertised = 1;
 
   switch (family)
@@ -4143,12 +4148,20 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       case AF_INET:
 	rd->v4_address = strdup(address);
 	rd->v4_port = port;
+	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s, address %s:%d\n", 
+	  name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       case AF_INET6:
 	rd->v6_address = strdup(address);
 	rd->v6_port = port;
+	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s, address [%s]:%d\n", 
+	  name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
 	break;
+
+      default:
+	DPRINTF(E_LOG, L_RAOP, "Error: AirPlay device %s has neither ipv4 og ipv6 address\n", name);
+	goto free_rd;
     }
 
   ret = player_device_add(rd);
@@ -4316,7 +4329,7 @@ raop_init(void)
   char *libname;
   gpg_error_t gc_err;
   int v6enabled;
-  int mdns_flags;
+  int family;
   int ret;
 
   timing_4svc.fd = -1;
@@ -4428,11 +4441,11 @@ raop_init(void)
     v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
 
   if (v6enabled)
-    mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
+    family = AF_UNSPEC;
   else
-    mdns_flags = MDNS_WANT_V4;
+    family = AF_INET;
 
-  ret = mdns_browse("_raop._tcp", mdns_flags, raop_device_cb);
+  ret = mdns_browse("_raop._tcp", family, raop_device_cb);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices\n");
