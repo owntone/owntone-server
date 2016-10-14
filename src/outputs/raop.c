@@ -3802,6 +3802,14 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
     {
       DPRINTF(E_LOG, L_RAOP, "No response from '%s' (%s) to OPTIONS request\n", rs->devname, rs->address);
 
+      if (rs->device->v4_address && (rs->sa.ss.ss_family == AF_INET6))
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Falling back to ipv4, the ipv6 address is not responding\n");
+
+	  free(rs->device->v6_address);
+	  rs->device->v6_address = NULL;
+	}
+
       goto cleanup;
     }
 
@@ -3905,6 +3913,14 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
   if (!req || !req->response_code)
     {
       DPRINTF(E_LOG, L_RAOP, "No response from '%s' (%s) to OPTIONS request\n", rs->devname, rs->address);
+
+      if (rs->device->v4_address && (rs->sa.ss.ss_family == AF_INET6))
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Falling back to ipv4, the ipv6 address is not responding\n");
+
+	  free(rs->device->v6_address);
+	  rs->device->v6_address = NULL;
+	}
 
       goto cleanup;
     }
