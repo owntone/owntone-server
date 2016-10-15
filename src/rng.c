@@ -144,3 +144,22 @@ shuffle_ptr(struct rng_ctx *ctx, void **values, int len)
     }
 }
 
+/* Fisher-Yates shuffling algorithm
+ * Durstenfeld in-place shuffling variant
+ */
+void
+shuffle_int(struct rng_ctx *ctx, int *values, int len)
+{
+  int i;
+  int32_t j;
+  int tmp;
+
+  for (i = len - 1; i > 0; i--)
+    {
+      j = rng_rand_range(ctx, 0, i + 1);
+
+      tmp = values[i];
+      values[i] = values[j];
+      values[j] = tmp;
+    }
+}
