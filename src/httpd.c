@@ -139,6 +139,68 @@ struct stream_ctx *g_st;
 #endif
 
 
+static struct evbuffer *
+gzip(struct evbuffer *in)
+{
+  struct evbuffer *out;
+  struct evbuffer_iovec iovec[1];
+  z_stream strm;
+  int ret;
+
+  strm.zalloc = Z_NULL;
+  strm.zfree = Z_NULL;
+  strm.opaque = Z_NULL;
+
+  // Set up a gzip stream (the "+ 16" in 15 + 16), instead of a zlib stream (default)
+  ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+  if (ret != Z_OK)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "zlib setup failed: %s\n", zError(ret));
+      return NULL;
+    }
+
+  strm.next_in = evbuffer_pullup(in, -1);
+  strm.avail_in = evbuffer_get_length(in);
+
+  out = evbuffer_new();
+  if (!out)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for gzipped reply\n");
+      goto out_deflate_end;
+    }
+
+  // For avoiding memcpy. We only reserve length of input buffer, since we don't
+  // want to gzip if the result is larger than raw
+  ret = evbuffer_reserve_space(out, strm.avail_in, iovec, 1);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not reserve memory for gzipped reply\n");
+      goto out_evbuf_free;
+    }
+
+  strm.next_out = iovec[0].iov_base;
+  strm.avail_out = iovec[0].iov_len;
+
+  ret = deflate(&strm, Z_FINISH);
+  if (ret != Z_STREAM_END)
+    goto out_evbuf_free;
+
+  iovec[0].iov_len -= strm.avail_out;
+
+  evbuffer_commit_space(out, iovec, 1);
+  deflateEnd(&strm);
+
+  return out;
+
+ out_evbuf_free:
+  evbuffer_free(out);
+
+ out_deflate_end:
+  deflateEnd(&strm);
+
+  return NULL;
+}
+
 static void
 stream_end(struct stream_ctx *st, int failed)
 {
@@ -697,131 +759,42 @@ httpd_stream_file(struct evhttp_request *req, int id)
 void
 httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf)
 {
-  unsigned char outbuf[128 * 1024];
-  z_stream strm;
   struct evbuffer *gzbuf;
-  struct evkeyvalq *headers;
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
   const char *param;
-  int flush;
-  int zret;
-  int ret;
+  int do_gzip;
   char *origin;
 
   if (!req)
     return;
 
-  if (!evbuf || (evbuffer_get_length(evbuf) == 0))
-    {
-      DPRINTF(E_DBG, L_HTTPD, "Not gzipping body-less reply\n");
+  input_headers = evhttp_request_get_input_headers(req);
+  output_headers = evhttp_request_get_output_headers(req);
 
-      goto no_gzip;
-    }
-
-  headers = evhttp_request_get_input_headers(req);
-
-  param = evhttp_find_header(headers, "Accept-Encoding");
-  if (!param)
-    {
-      DPRINTF(E_DBG, L_HTTPD, "Not gzipping; no Accept-Encoding header\n");
-
-      goto no_gzip;
-    }
-  else if (!strstr(param, "gzip") && !strstr(param, "*"))
-    {
-      DPRINTF(E_DBG, L_HTTPD, "Not gzipping; gzip not in Accept-Encoding (%s)\n", param);
-
-      goto no_gzip;
-    }
-
-  gzbuf = evbuffer_new();
-  if (!gzbuf)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for gzipped reply\n");
-
-      goto no_gzip;
-    }
-
-  strm.zalloc = Z_NULL;
-  strm.zfree = Z_NULL;
-  strm.opaque = Z_NULL;
-
-  /* Set up a gzip stream (the "+ 16" in 15 + 16), instead of a zlib stream (default) */
-  zret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
-  if (zret != Z_OK)
-    {
-      DPRINTF(E_DBG, L_HTTPD, "zlib setup failed: %s\n", zError(zret));
-
-      goto out_fail_init;
-    }
-
-  strm.next_in = evbuffer_pullup(evbuf, -1);
-  strm.avail_in = evbuffer_get_length(evbuf);
-
-  flush = Z_NO_FLUSH;
-
-  /* 2 iterations: Z_NO_FLUSH until input is consumed, then Z_FINISH */
-  for (;;)
-    {
-      do
-	{
-	  strm.next_out = outbuf;
-	  strm.avail_out = sizeof(outbuf);
-
-	  zret = deflate(&strm, flush);
-	  if (zret == Z_STREAM_ERROR)
-	    {
-	      DPRINTF(E_LOG, L_HTTPD, "Could not deflate data: %s\n", strm.msg);
-
-	      goto out_fail_gz;
-	    }
-
-	  ret = evbuffer_add(gzbuf, outbuf, sizeof(outbuf) - strm.avail_out);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_HTTPD, "Out of memory adding gzipped data to evbuffer\n");
-
-	      goto out_fail_gz;
-	    }
-	}
-      while (strm.avail_out == 0);
-
-      if (flush == Z_FINISH)
-	break;
-
-      flush = Z_FINISH;
-    }
-
-  if (zret != Z_STREAM_END)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Compressed data not finalized!\n");
-
-      goto out_fail_gz;
-    }
-
-  deflateEnd(&strm);
-
-  headers = evhttp_request_get_output_headers(req);
+  do_gzip = ( evbuf && (evbuffer_get_length(evbuf) > 0) &&
+              (param = evhttp_find_header(input_headers, "Accept-Encoding")) &&
+              (strstr(param, "gzip") || strstr(param, "*"))
+            );
 
   origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
   if (origin && strlen(origin))
-      evhttp_add_header(headers, "Access-Control-Allow-Origin", origin);
+      evhttp_add_header(output_headers, "Access-Control-Allow-Origin", origin);
 
-  evhttp_add_header(headers, "Content-Encoding", "gzip");
-  evhttp_send_reply(req, code, reason, gzbuf);
+  if (do_gzip && (gzbuf = gzip(evbuf)))
+    {
+      evhttp_add_header(output_headers, "Content-Encoding", "gzip");
+      evhttp_send_reply(req, code, reason, gzbuf);
+      evbuffer_free(gzbuf);
 
-  evbuffer_free(gzbuf);
-
-  /* Drain original buffer, as would be after evhttp_send_reply() */
-  evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
-
-  return;
-
- out_fail_gz:
-  deflateEnd(&strm);
- out_fail_init:
-  evbuffer_free(gzbuf);
- no_gzip:
-  evhttp_send_reply(req, code, reason, evbuf);
+      // Drain original buffer, as would be after evhttp_send_reply()
+      evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
+    }
+  else
+    {
+      DPRINTF(E_DBG, L_HTTPD, "Not gzipping response\n");
+      evhttp_send_reply(req, code, reason, evbuf);
+    }
 }
 
 /* Thread: httpd */
