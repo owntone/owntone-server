@@ -282,7 +282,7 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   return s;
 
  invalid:
-  evhttp_send_error(req, 403, "Forbidden");
+  httpd_send_error(req, 403, "Forbidden");
   return NULL;
 }
 
@@ -954,7 +954,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Login attempt with U-A: Remote and no pairing-guid\n");
 
-	  evhttp_send_error(req, 403, "Forbidden");
+	  httpd_send_error(req, 403, "Forbidden");
 	  return -1;
 	}
 
@@ -967,7 +967,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 	  DPRINTF(E_LOG, L_DAAP, "Login attempt with invalid pairing-guid\n");
 
 	  free_pi(&pi, 1);
-	  evhttp_send_error(req, 403, "Forbidden");
+	  httpd_send_error(req, 403, "Forbidden");
 	  return -1;
 	}
 
@@ -2378,7 +2378,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   ret = safe_atoi32(uri[3], &id);
   if (ret < 0)
     {
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return -1;
     }
 
@@ -2390,7 +2390,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Could not convert mw parameter to integer\n");
 
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 	  return -1;
 	}
 
@@ -2400,7 +2400,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Could not convert mh parameter to integer\n");
 
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 	  return -1;
 	}
     }
@@ -2459,7 +2459,7 @@ daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, stru
 
   ret = safe_atoi32(uri[3], &id);
   if (ret < 0)
-    evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+    httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
   else
     httpd_stream_file(req, id);
 
@@ -2711,7 +2711,7 @@ daap_request(struct evhttp_request *req)
   full_uri = httpd_fixup_uri(req);
   if (!full_uri)
     {
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2719,7 +2719,7 @@ daap_request(struct evhttp_request *req)
   if (!ptr)
     {
       free(full_uri);
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2730,7 +2730,7 @@ daap_request(struct evhttp_request *req)
 
       if (!uri)
 	{
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 	  return;
 	}
 
@@ -2741,7 +2741,7 @@ daap_request(struct evhttp_request *req)
   if (!uri)
     {
       free(full_uri);
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2762,8 +2762,16 @@ daap_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DAAP, "Unrecognized DAAP request\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
+      free(uri);
+      free(full_uri);
+      return;
+    }
+
+  /* check for CORS preflight OPTIONS request */
+  if (httpd_handle_cors_preflight(req))
+    {
       free(uri);
       free(full_uri);
       return;
@@ -2820,7 +2828,7 @@ daap_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DAAP, "DAAP URI has too many/few components (%d)\n", (uri_parts[0]) ? i : 0);
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
       free(uri);
       free(full_uri);
@@ -2842,7 +2850,7 @@ daap_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not allocate evbuffer for DAAP reply\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       free(uri);
       free(full_uri);

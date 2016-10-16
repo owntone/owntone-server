@@ -87,6 +87,12 @@
 #define STREAM_CHUNK_SIZE (64 * 1024)
 #define WEBFACE_ROOT   DATADIR "/webface/"
 
+#define ERR_PAGE "<html>\n<head>\n" \
+  "<title>%d %s</title>\n" \
+  "</head>\n<body>\n" \
+  "<h1>%s</h1>\n" \
+  "</body>\n</html>\n"
+
 struct content_type_map {
   char *ext;
   char *ctype;
@@ -448,13 +454,13 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       DPRINTF(E_LOG, L_HTTPD, "Item %d not found\n", id);
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
   if (mfi->data_kind != DATA_KIND_FILE)
     {
-      evhttp_send_error(req, 500, "Cannot stream radio station");
+      httpd_send_error(req, 500, "Cannot stream radio station");
 
       goto out_free_mfi;
     }
@@ -464,7 +470,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       DPRINTF(E_LOG, L_HTTPD, "Out of memory for struct stream_ctx\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_free_mfi;
     }
@@ -489,7 +495,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");
 
-	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	  httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
 	  goto out_free_st;
 	}
@@ -507,7 +513,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Out of memory for raw streaming buffer\n");
 
-	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	  httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
 	  goto out_free_st;
 	}
@@ -519,7 +525,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", mfi->path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  goto out_cleanup;
 	}
@@ -529,7 +535,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", mfi->path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  goto out_cleanup;
 	}
@@ -540,7 +546,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not seek into %s: %s\n", mfi->path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
 	  goto out_cleanup;
 	}
@@ -583,7 +589,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_LOG, L_HTTPD, "Could not allocate an evbuffer for streaming\n");
 
       evhttp_clear_headers(output_headers);
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
     }
@@ -594,7 +600,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_LOG, L_HTTPD, "Could not expand evbuffer for streaming\n");
 
       evhttp_clear_headers(output_headers);
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
     }
@@ -606,7 +612,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_LOG, L_HTTPD, "Could not add one-shot event for streaming\n");
 
       evhttp_clear_headers(output_headers);
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
     }
@@ -705,7 +711,6 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   int flush;
   int zret;
   int ret;
-  char *origin;
 
   if (!req)
     return;
@@ -800,11 +805,9 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
 
   deflateEnd(&strm);
 
-  headers = evhttp_request_get_output_headers(req);
+  httpd_handle_cors_simple(req);
 
-  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (origin && strlen(origin))
-      evhttp_add_header(headers, "Access-Control-Allow-Origin", origin);
+  headers = evhttp_request_get_output_headers(req);
 
   evhttp_add_header(headers, "Content-Encoding", "gzip");
   evhttp_send_reply(req, code, reason, gzbuf);
@@ -822,6 +825,57 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   evbuffer_free(gzbuf);
  no_gzip:
   evhttp_send_reply(req, code, reason, evbuf);
+}
+
+void
+httpd_send_error(struct evhttp_request* req, int error, const char* reason)
+{
+  /* Allow for own error handling to add CORS headers in error responses. If no
+   * CORS header should be added evhttp_send_error is called directly.
+   *
+   * When using the evhttp_send_error function from libenvent directly it is not
+   * possible to set any additional header for the error response. Calling
+   * evhttp_send_error always results in cleaning all previously set headers.
+   * Therefore it is not possible to add the Access-Control-Allow-Origin CORS
+   * header in the error responses in conjunction with libevents
+   * evhttp_send_error.
+   *
+   * For details about evhttp_send_error please take a look at libevent/http.c.
+   */
+
+  char *origin;
+  struct evkeyvalq *out_headers;
+  struct evkeyvalq *in_headers = evhttp_request_get_input_headers(req);
+  struct evbuffer *buf;
+
+  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (evhttp_find_header(in_headers, "Origin") == NULL || !origin ||
+        strlen(origin) == 0)
+    return evhttp_send_error(req, error, reason);
+
+  out_headers = evhttp_request_get_output_headers(req);
+
+  evhttp_clear_headers(out_headers);
+
+  evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
+
+  evhttp_add_header(out_headers, "Content-Type", "text/html");
+  evhttp_add_header(out_headers, "Connection", "close");
+
+  buf = evbuffer_new();
+  if (buf == NULL)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for error page\n");
+    }
+  else
+    {
+      evbuffer_add_printf(buf, ERR_PAGE, error, reason, reason);
+    }
+
+  evhttp_send_reply(req, error, reason, buf);
+
+  if (buf)
+    evbuffer_free(buf);
 }
 
 /* Thread: httpd */
@@ -847,7 +901,7 @@ redirect_to_index(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Redirection URL exceeds buffer length\n");
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
@@ -894,7 +948,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
 
-	  evhttp_send_error(req, 403, "Forbidden");
+	  httpd_send_error(req, 403, "Forbidden");
 	  return;
 	}
     }
@@ -904,7 +958,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", uri);
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
       return;
     }
@@ -914,7 +968,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not lstat() %s: %s\n", path, strerror(errno));
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
       return;
     }
@@ -932,7 +986,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  return;
 	}
@@ -941,7 +995,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Dereferenced path exceeds PATH_MAX: %s\n", path);
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  free(deref);
 	  return;
@@ -955,7 +1009,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  return;
 	}
@@ -970,7 +1024,7 @@ serve_file(struct evhttp_request *req, char *uri)
 
   if (path_is_legal(path) != 0)
     {
-      evhttp_send_error(req, 403, "Forbidden");
+      httpd_send_error(req, 403, "Forbidden");
 
       return;
     }
@@ -980,7 +1034,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not create evbuffer\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
       return;
     }
 
@@ -989,7 +1043,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", path, strerror(errno));
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
@@ -1002,7 +1056,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not read file into evbuffer\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
       return;
     }
 
@@ -1286,23 +1340,25 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
   header = (char *)malloc(len);
   if (!header)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
   ret = snprintf(header, len, "Basic realm=\"%s\"", realm);
   if ((ret < 0) || (ret >= len))
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
   evbuf = evbuffer_new();
   if (!evbuf)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
+
+  httpd_handle_cors_simple(req);
 
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "WWW-Authenticate", header);
@@ -1322,6 +1378,9 @@ httpd_init(void)
   int v6enabled;
   unsigned short port;
   int ret;
+  char *origin;
+  /* FIXME add all allowed methods for forked-daapd */
+  ev_uint16_t allowed_methods = EVHTTP_REQ_GET;
 
   httpd_exit = 0;
 
@@ -1423,6 +1482,12 @@ httpd_init(void)
 	}
     }
 
+  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (origin && strlen(origin))
+      allowed_methods = allowed_methods | EVHTTP_REQ_OPTIONS;
+
+  evhttp_set_allowed_methods(evhttpd, allowed_methods);
+
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
 
   ret = pthread_create(&tid_httpd, NULL, httpd, NULL);
@@ -1511,4 +1576,58 @@ httpd_deinit(void)
 #endif
   evhttp_free(evhttpd);
   event_base_free(evbase_httpd);
+}
+
+void
+httpd_handle_cors_simple(struct evhttp_request *req)
+{
+  char *origin;
+  struct evkeyvalq *in_headers = evhttp_request_get_input_headers(req);
+  struct evkeyvalq *out_headers = evhttp_request_get_output_headers(req);
+
+  /* do we use cors? */
+  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (evhttp_find_header(in_headers, "Origin") != NULL &&
+        origin && strlen(origin))
+      evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
+}
+
+int
+httpd_handle_cors_preflight(struct evhttp_request *req)
+{
+  char *origin;
+  struct evbuffer *evbuf;
+  struct evkeyvalq *in_headers = evhttp_request_get_input_headers(req);
+  struct evkeyvalq *out_headers = evhttp_request_get_output_headers(req);
+
+  /* check if the request has the method OPTIONS and Origin header is set */
+  if (evhttp_request_get_command(req) == EVHTTP_REQ_OPTIONS &&
+        evhttp_find_header(in_headers, "Origin") != NULL)
+    {
+      /* do we use cors? */
+      origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+      if (origin && strlen(origin))
+	{
+	  evhttp_add_header(out_headers, "Access-Control-Allow-Origin", origin);
+	  /* allow only get method in cross origin requests */
+	  evhttp_add_header(out_headers, "Access-Control-Allow-Method", "GET");
+	  /* allow authorization header in cross origin requests */
+	  evhttp_add_header(out_headers, "Access-Control-Allow-Headers", "authorization");
+	}
+
+    evbuf = evbuffer_new();
+    if (!evbuf)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not allocate evbuffer for reply\n");
+
+	  httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	  return 1;
+	}
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+
+      return 1;
+    }
+
+  /* it is not a preflight request */
+  return 0;
 }
