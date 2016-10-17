@@ -55,6 +55,7 @@
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
+#include "httpd.h"
 #include "misc.h"
 #include "listener.h"
 #include "artwork.h"
@@ -4610,7 +4611,8 @@ artwork_cb(struct evhttp_request *req, void *arg)
 	    evhttp_add_header(evhttp_request_get_output_headers(req), "Content-Type", "image/jpeg");
 	    break;
 	}
-      evhttp_send_reply(req, HTTP_OK, "OK", evbuffer);
+
+      httpd_send_reply(req, HTTP_OK, "OK", evbuffer, HTTPD_SEND_NO_GZIP);
     }
 
   evbuffer_free(evbuffer);

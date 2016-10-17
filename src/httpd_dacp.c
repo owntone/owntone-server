@@ -1282,7 +1282,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
   return;
 
  out_fail:
@@ -1301,7 +1301,7 @@ dacp_reply_pause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   player_playback_pause();
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1334,7 +1334,7 @@ dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1366,7 +1366,7 @@ dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1398,7 +1398,7 @@ dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1413,7 +1413,7 @@ dacp_reply_beginff(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1428,7 +1428,7 @@ dacp_reply_beginrew(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1443,7 +1443,7 @@ dacp_reply_playresume(struct evhttp_request *req, struct evbuffer *evbuf, char *
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static int
@@ -1826,7 +1826,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1871,7 +1871,7 @@ dacp_reply_playqueueedit_move(struct evhttp_request *req, struct evbuffer *evbuf
   }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1903,7 +1903,7 @@ dacp_reply_playqueueedit_remove(struct evhttp_request *req, struct evbuffer *evb
   }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -2137,8 +2137,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   snprintf(clen, sizeof(clen), "%ld", (long)len);
   evhttp_add_header(headers, "Content-Length", clen);
 
-  /* No gzip compression for artwork */
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
   return;
 
  no_artwork:
@@ -2291,7 +2290,7 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -2445,7 +2444,7 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 

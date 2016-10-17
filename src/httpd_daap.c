@@ -1122,7 +1122,7 @@ static int
 daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   /* That's so nice, thanks for letting us know */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2442,12 +2442,11 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   snprintf(clen, sizeof(clen), "%ld", (long)len);
   evhttp_add_header(headers, "Content-Length", clen);
 
-  /* No gzip compression for artwork */
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
   return 0;
 
  no_artwork:
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
   return -1;
 }
 
@@ -2602,7 +2601,7 @@ daap_reply_dmap_test(struct evhttp_request *req, struct evbuffer *evbuf, char **
       return -1;      
     }
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }

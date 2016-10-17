@@ -259,7 +259,8 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(headers, "Connection", "close");
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   evbuffer_free(evbuf);
 }
@@ -283,6 +284,7 @@ rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(headers, "Connection", "close");
+
   httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   evbuffer_free(evbuf);
