@@ -86,6 +86,11 @@
 
 #define STREAM_CHUNK_SIZE (64 * 1024)
 #define WEBFACE_ROOT   DATADIR "/webface/"
+#define ERR_PAGE "<html>\n<head>\n" \
+  "<title>%d %s</title>\n" \
+  "</head>\n<body>\n" \
+  "<h1>%s</h1>\n" \
+  "</body>\n</html>\n"
 
 struct content_type_map {
   char *ext;
@@ -758,7 +763,6 @@ httpd_gzip_deflate(struct evbuffer *in)
   return NULL;
 }
 
-/* Thread: httpd */
 void
 httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags)
 {
@@ -798,6 +802,39 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
     {
       evhttp_send_reply(req, code, reason, evbuf);
     }
+}
+
+// This is a modified version of evhttp_send_error (credit libevent)
+void
+httpd_send_error(struct evhttp_request* req, int error, const char* reason)
+{
+  struct evkeyvalq *output_headers;
+  struct evbuffer *evbuf;
+
+  if (!allow_origin)
+    {
+      evhttp_send_error(req, error, reason);
+      return;
+    }
+   
+  output_headers = evhttp_request_get_output_headers(req);
+
+  evhttp_clear_headers(output_headers);
+
+  evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
+  evhttp_add_header(output_headers, "Content-Type", "text/html");
+  evhttp_add_header(output_headers, "Connection", "close");
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for error page\n");
+  else
+    evbuffer_add_printf(evbuf, ERR_PAGE, error, reason, reason);
+
+  evhttp_send_reply(req, error, reason, evbuf);
+
+  if (evbuf)
+    evbuffer_free(evbuf);
 }
 
 /* Thread: httpd */
