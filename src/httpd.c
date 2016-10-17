@@ -828,9 +828,9 @@ redirect_to_index(struct evhttp_request *req, char *uri)
     }
 
   headers = evhttp_request_get_output_headers(req);
-
   evhttp_add_header(headers, "Location", buf);
-  evhttp_send_reply(req, HTTP_MOVETEMP, "Moved", NULL);
+
+  httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
 /* Thread: httpd */
@@ -997,9 +997,9 @@ serve_file(struct evhttp_request *req, char *uri)
     }
 
   headers = evhttp_request_get_output_headers(req);
-
   evhttp_add_header(headers, "Content-Type", ctype);
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   evbuffer_free(evbuf);
 }
@@ -1282,8 +1282,10 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
 
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "WWW-Authenticate", header);
+
   evbuffer_add(evbuf, http_reply_401, strlen(http_reply_401));
-  evhttp_send_reply(req, 401, "Unauthorized", evbuf);
+
+  httpd_send_reply(req, 401, "Unauthorized", evbuf, HTTPD_SEND_NO_GZIP);
 
   free(header);
   evbuffer_free(evbuf);
