@@ -134,6 +134,8 @@ static struct event *exitev;
 static struct evhttp *evhttpd;
 static pthread_t tid_httpd;
 
+static char *allow_origin;
+
 #ifdef HAVE_LIBEVENT2_OLD
 struct stream_ctx *g_st;
 #endif
@@ -765,7 +767,6 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   struct evkeyvalq *output_headers;
   const char *param;
   int do_gzip;
-  char *origin;
 
   if (!req)
     return;
@@ -779,9 +780,8 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
               (strstr(param, "gzip") || strstr(param, "*"))
             );
 
-  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (origin && strlen(origin))
-      evhttp_add_header(output_headers, "Access-Control-Allow-Origin", origin);
+  if (allow_origin)
+    evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
 
   if (do_gzip && (gzbuf = httpd_gzip_deflate(evbuf)))
     {
@@ -1378,6 +1378,11 @@ httpd_init(void)
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
   port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+
+  // For CORS headers
+  allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (allow_origin && (strlen(allow_origin) == 0))
+    allow_origin = NULL;
 
   if (v6enabled)
     {
