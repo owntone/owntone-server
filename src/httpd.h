@@ -13,6 +13,10 @@ enum httpd_send_flags
 void
 httpd_stream_file(struct evhttp_request *req, int id);
 
+// Returns a pointer to an evbuffer with gzipped. Must be freed by caller.
+struct evbuffer *
+httpd_gzip_deflate(struct evbuffer *in);
+
 void
 httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags);
 

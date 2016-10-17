@@ -38,6 +38,7 @@
 
 #include "conffile.h"
 #include "logger.h"
+#include "httpd.h"
 #include "httpd_daap.h"
 #include "db.h"
 #include "cache.h"
@@ -680,7 +681,8 @@ cache_daap_query_add(void *arg, int *retval)
 #undef Q_TMPL
 }
 
-/* Gets a reply from the cache */
+// Gets a reply from the cache.
+// cmdarg->evbuf will be filled with the reply (gzipped)
 static enum command_state
 cache_daap_query_get(void *arg, int *retval)
 {
@@ -783,6 +785,7 @@ cache_daap_update_cb(int fd, short what, void *arg)
 {
   sqlite3_stmt *stmt;
   struct evbuffer *evbuf;
+  struct evbuffer *gzbuf;
   char *errmsg;
   char *query;
   int ret;
@@ -818,10 +821,23 @@ cache_daap_update_cb(int fd, short what, void *arg)
 	  continue;
 	}
 
-      cache_daap_reply_add(query, evbuf);
+      gzbuf = httpd_gzip_deflate(evbuf);
+      if (!gzbuf)
+	{
+	  DPRINTF(E_LOG, L_CACHE, "Error gzipping DAAP reply for query: %s\n", query);
+	  cache_daap_query_delete(sqlite3_column_int(stmt, 0));
+	  free(query);
+	  evbuffer_free(evbuf);
+
+	  continue;
+	}
+
+      evbuffer_free(evbuf);
+
+      cache_daap_reply_add(query, gzbuf);
 
       free(query);
-      evbuffer_free(evbuf);
+      evbuffer_free(gzbuf);
     }
 
   if (ret != SQLITE_DONE)

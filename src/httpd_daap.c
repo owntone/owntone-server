@@ -2853,7 +2853,9 @@ daap_request(struct evhttp_request *req)
   ret = cache_daap_get(full_uri, evbuf);
   if (ret == 0)
     {
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0); // TODO not all want this reply
+      // The cache will return the data gzipped, so httpd_send_reply won't need to do it
+      evhttp_add_header(headers, "Content-Encoding", "gzip");
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
 
       evbuffer_free(evbuf);
       free(uri);

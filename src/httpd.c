@@ -139,68 +139,6 @@ struct stream_ctx *g_st;
 #endif
 
 
-static struct evbuffer *
-gzip(struct evbuffer *in)
-{
-  struct evbuffer *out;
-  struct evbuffer_iovec iovec[1];
-  z_stream strm;
-  int ret;
-
-  strm.zalloc = Z_NULL;
-  strm.zfree = Z_NULL;
-  strm.opaque = Z_NULL;
-
-  // Set up a gzip stream (the "+ 16" in 15 + 16), instead of a zlib stream (default)
-  ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
-  if (ret != Z_OK)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "zlib setup failed: %s\n", zError(ret));
-      return NULL;
-    }
-
-  strm.next_in = evbuffer_pullup(in, -1);
-  strm.avail_in = evbuffer_get_length(in);
-
-  out = evbuffer_new();
-  if (!out)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for gzipped reply\n");
-      goto out_deflate_end;
-    }
-
-  // For avoiding memcpy. We only reserve length of input buffer, since we don't
-  // want to gzip if the result is larger than raw
-  ret = evbuffer_reserve_space(out, strm.avail_in, iovec, 1);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not reserve memory for gzipped reply\n");
-      goto out_evbuf_free;
-    }
-
-  strm.next_out = iovec[0].iov_base;
-  strm.avail_out = iovec[0].iov_len;
-
-  ret = deflate(&strm, Z_FINISH);
-  if (ret != Z_STREAM_END)
-    goto out_evbuf_free;
-
-  iovec[0].iov_len -= strm.avail_out;
-
-  evbuffer_commit_space(out, iovec, 1);
-  deflateEnd(&strm);
-
-  return out;
-
- out_evbuf_free:
-  evbuffer_free(out);
-
- out_deflate_end:
-  deflateEnd(&strm);
-
-  return NULL;
-}
-
 static void
 stream_end(struct stream_ctx *st, int failed)
 {
@@ -755,6 +693,69 @@ httpd_stream_file(struct evhttp_request *req, int id)
   free_mfi(mfi, 0);
 }
 
+struct evbuffer *
+httpd_gzip_deflate(struct evbuffer *in)
+{
+  struct evbuffer *out;
+  struct evbuffer_iovec iovec[1];
+  z_stream strm;
+  int ret;
+
+  strm.zalloc = Z_NULL;
+  strm.zfree = Z_NULL;
+  strm.opaque = Z_NULL;
+
+  // Set up a gzip stream (the "+ 16" in 15 + 16), instead of a zlib stream (default)
+  ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+  if (ret != Z_OK)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "zlib setup failed: %s\n", zError(ret));
+      return NULL;
+    }
+
+  strm.next_in = evbuffer_pullup(in, -1);
+  strm.avail_in = evbuffer_get_length(in);
+
+  out = evbuffer_new();
+  if (!out)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for gzipped reply\n");
+      goto out_deflate_end;
+    }
+
+  // We use this to avoid a memcpy. The 512 is an arbitrary padding to make sure
+  // there is enough space, even if the compressed output should be slightly
+  // larger than input (could happen with small inputs).
+  ret = evbuffer_reserve_space(out, strm.avail_in + 512, iovec, 1);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not reserve memory for gzipped reply\n");
+      goto out_evbuf_free;
+    }
+
+  strm.next_out = iovec[0].iov_base;
+  strm.avail_out = iovec[0].iov_len;
+
+  ret = deflate(&strm, Z_FINISH);
+  if (ret != Z_STREAM_END)
+    goto out_evbuf_free;
+
+  iovec[0].iov_len -= strm.avail_out;
+
+  evbuffer_commit_space(out, iovec, 1);
+  deflateEnd(&strm);
+
+  return out;
+
+ out_evbuf_free:
+  evbuffer_free(out);
+
+ out_deflate_end:
+  deflateEnd(&strm);
+
+  return NULL;
+}
+
 /* Thread: httpd */
 void
 httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags)
@@ -782,8 +783,10 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   if (origin && strlen(origin))
       evhttp_add_header(output_headers, "Access-Control-Allow-Origin", origin);
 
-  if (do_gzip && (gzbuf = gzip(evbuf)))
+  if (do_gzip && (gzbuf = httpd_gzip_deflate(evbuf)))
     {
+      DPRINTF(E_DBG, L_HTTPD, "Gzipping response\n");
+
       evhttp_add_header(output_headers, "Content-Encoding", "gzip");
       evhttp_send_reply(req, code, reason, gzbuf);
       evbuffer_free(gzbuf);
@@ -793,7 +796,6 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
     }
   else
     {
-      DPRINTF(E_DBG, L_HTTPD, "Not gzipping response\n");
       evhttp_send_reply(req, code, reason, evbuf);
     }
 }
