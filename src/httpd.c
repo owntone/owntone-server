@@ -772,7 +772,7 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   input_headers = evhttp_request_get_input_headers(req);
   output_headers = evhttp_request_get_output_headers(req);
 
-  do_gzip = ( evbuf && (evbuffer_get_length(evbuf) > 0) &&
+  do_gzip = ( evbuf && (evbuffer_get_length(evbuf) > 512) &&
               (param = evhttp_find_header(input_headers, "Accept-Encoding")) &&
               (strstr(param, "gzip") || strstr(param, "*"))
             );
