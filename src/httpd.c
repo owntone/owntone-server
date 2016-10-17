@@ -757,7 +757,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 /* Thread: httpd */
 void
-httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf)
+httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags)
 {
   struct evbuffer *gzbuf;
   struct evkeyvalq *input_headers;
@@ -772,7 +772,8 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   input_headers = evhttp_request_get_input_headers(req);
   output_headers = evhttp_request_get_output_headers(req);
 
-  do_gzip = ( evbuf && (evbuffer_get_length(evbuf) > 512) &&
+  do_gzip = ( (!(flags & HTTPD_SEND_NO_GZIP)) &&
+              evbuf && (evbuffer_get_length(evbuf) > 512) &&
               (param = evhttp_find_header(input_headers, "Accept-Encoding")) &&
               (strstr(param, "gzip") || strstr(param, "*"))
             );

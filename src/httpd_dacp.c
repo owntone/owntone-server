@@ -368,10 +368,10 @@ playstatusupdate_cb(int fd, short what, void *arg)
 	{
 	  buf = evbuffer_pullup(update, -1);
 	  evbuffer_add(evbuf, buf, len);
-	  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+	  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf, 0);
 	}
       else
-	httpd_send_reply(ur->req, HTTP_OK, "OK", update);
+	httpd_send_reply(ur->req, HTTP_OK, "OK", update, 0);
 
       free(ur);
     }
@@ -774,7 +774,7 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
   dmap_add_char(evbuf, "cmrl", 1);        /*  9, unknown */
   dmap_add_long(evbuf, "ceSX", (1 << 1 | 1));  /* 16, unknown dacp - lowest bit announces support for playqueue-contents/-edit */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static int
@@ -1103,7 +1103,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", id);       /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -1119,7 +1119,7 @@ dacp_reply_cue_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", 0);        /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -1673,7 +1673,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   dmap_add_char(evbuf, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
   dmap_add_char(evbuf, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -1697,7 +1697,7 @@ dacp_reply_playqueueedit_clear(struct evhttp_request *req, struct evbuffer *evbu
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", 0);        /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -2025,7 +2025,7 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
       if (ret < 0)
 	evhttp_send_error(req, 500, "Internal Server Error");
       else
-	httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+	httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
       return;
     }
@@ -2243,7 +2243,7 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
       return;
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return;
 
@@ -2354,7 +2354,7 @@ dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
   evbuffer_free(spklist);
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void

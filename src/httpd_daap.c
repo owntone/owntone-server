@@ -355,7 +355,7 @@ update_refresh_cb(int fd, short event, void *arg)
   evcon = evhttp_request_get_connection(ur->req);
   evhttp_connection_set_closecb(evcon, NULL, NULL);
 
-  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf, 0);
 
   update_remove(ur);
 }
@@ -882,7 +882,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -924,7 +924,7 @@ daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, cha
       dmap_add_short(evbuf, "mcty", dmap_fields[i].type);  /* 10 */
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -999,7 +999,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   dmap_add_int(evbuf, "mstt", 200);        /* 12 */
   dmap_add_int(evbuf, "mlid", s->id); /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -1015,7 +1015,7 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   daap_session_remove(s);
 
-  httpd_send_reply(req, 204, "Logout Successful", evbuf);
+  httpd_send_reply(req, 204, "Logout Successful", evbuf, 0);
 
   return 0;
 }
@@ -1068,7 +1068,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       dmap_add_int(evbuf, "mstt", 200);         /* 12 */
       dmap_add_int(evbuf, "musr", current_rev); /* 12 */
 
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
       return 0;
     }
@@ -1222,7 +1222,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -1510,7 +1510,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	}
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 
@@ -1821,7 +1821,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       return -1;
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 
@@ -2132,7 +2132,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	}
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 
@@ -2338,7 +2338,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	}
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   ret = 0;
 
@@ -2853,7 +2853,7 @@ daap_request(struct evhttp_request *req)
   ret = cache_daap_get(full_uri, evbuf);
   if (ret == 0)
     {
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf); // TODO not all want this reply
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0); // TODO not all want this reply
 
       evbuffer_free(evbuf);
       free(uri);
