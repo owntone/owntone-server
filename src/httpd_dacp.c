@@ -1286,7 +1286,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   return;
 
  out_fail:
-  evhttp_send_error(req, 500, "Internal Server Error");
+  httpd_send_error(req, 500, "Internal Server Error");
 }
 
 static void
@@ -1328,7 +1328,7 @@ dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	{
 	  DPRINTF(E_LOG, L_DACP, "Player returned an error for start after pause\n");
 
-	  evhttp_send_error(req, 500, "Internal Server Error");
+	  httpd_send_error(req, 500, "Internal Server Error");
 	  return;
         }
     }
@@ -1352,7 +1352,7 @@ dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for nextitem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
@@ -1361,7 +1361,7 @@ dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after nextitem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
@@ -1384,7 +1384,7 @@ dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for previtem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
@@ -1393,7 +1393,7 @@ dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after previtem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
@@ -2023,7 +2023,7 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       ret = make_playstatusupdate(evbuf);
       if (ret < 0)
-	evhttp_send_error(req, 500, "Internal Server Error");
+	httpd_send_error(req, 500, "Internal Server Error");
       else
 	httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
@@ -2076,7 +2076,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Request for artwork without mw parameter\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2085,7 +2085,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Could not convert mw parameter to integer\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2094,7 +2094,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Request for artwork without mh parameter\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2103,7 +2103,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Could not convert mh parameter to integer\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2141,7 +2141,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   return;
 
  no_artwork:
-  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 }
 
 static void
@@ -2376,7 +2376,7 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
     {
       DPRINTF(E_LOG, L_DACP, "Missing speaker-id parameter in DACP setspeakers request\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2396,7 +2396,7 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
     {
       DPRINTF(E_LOG, L_DACP, "Out of memory for speaker ids\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return;
     }
 
@@ -2436,9 +2436,9 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
       /* Password problem */
       if (ret == -2)
-	evhttp_send_error(req, 902, "");
+	httpd_send_error(req, 902, "");
       else
-	evhttp_send_error(req, 500, "Internal Server Error");
+	httpd_send_error(req, 500, "Internal Server Error");
 
       return;
     }
@@ -2547,7 +2547,7 @@ dacp_request(struct evhttp_request *req)
   full_uri = httpd_fixup_uri(req);
   if (!full_uri)
     {
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2559,7 +2559,7 @@ dacp_request(struct evhttp_request *req)
   if (!uri)
     {
       free(full_uri);
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2587,7 +2587,7 @@ dacp_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DACP, "Unrecognized DACP request\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
       free(uri);
       free(full_uri);
@@ -2608,7 +2608,7 @@ dacp_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DACP, "DACP URI has too many/few components (%d)\n", (uri_parts[0]) ? i : 0);
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
       free(uri);
       free(full_uri);
@@ -2620,7 +2620,7 @@ dacp_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for DACP reply\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       free(uri);
       free(full_uri);

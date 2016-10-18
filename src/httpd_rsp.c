@@ -251,7 +251,7 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
 
   if (!evbuf)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       return;
     }
@@ -747,7 +747,7 @@ rsp_stream(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 
   ret = safe_atoi32(uri[2], &id);
   if (ret < 0)
-    evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+    httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
   else
     httpd_stream_file(req, id);
 }

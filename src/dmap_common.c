@@ -356,7 +356,7 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
     {
       DPRINTF(E_LOG, L_DMAP, "Could not allocate evbuffer for DMAP error\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return;
     }
 
@@ -367,7 +367,7 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
     {
       DPRINTF(E_LOG, L_DMAP, "Could not expand evbuffer for DMAP error\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       evbuffer_free(evbuf);
       return;
