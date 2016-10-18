@@ -1045,9 +1045,28 @@ serve_file(struct evhttp_request *req, char *uri)
 static void
 httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
   const char *req_uri;
   char *uri;
   char *ptr;
+
+  // Did we get a CORS preflight request?
+  input_headers = evhttp_request_get_input_headers(req);
+  if (allow_origin && (evhttp_request_get_command(req) == EVHTTP_REQ_OPTIONS) && evhttp_find_header(input_headers, "Origin"))
+    {
+      output_headers = evhttp_request_get_output_headers(req);
+
+      evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
+
+      // Allow only GET method and authorization header in cross origin requests
+      evhttp_add_header(output_headers, "Access-Control-Allow-Method", "GET");
+      evhttp_add_header(output_headers, "Access-Control-Allow-Headers", "authorization");
+
+      // In this case there is no reason to go through httpd_send_reply
+      evhttp_send_reply(req, HTTP_OK, "OK", NULL);
+      return;
+    }
 
   req_uri = evhttp_request_get_uri(req);
   if (!req_uri)
