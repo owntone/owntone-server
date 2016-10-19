@@ -1442,8 +1442,13 @@ httpd_init(void)
 
   // For CORS headers
   allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (allow_origin && (strlen(allow_origin) == 0))
-    allow_origin = NULL;
+  if (allow_origin)
+    { 
+      if (strlen(allow_origin) != 0)
+	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_OPTIONS);
+      else
+	allow_origin = NULL;
+    }
 
   if (v6enabled)
     {
