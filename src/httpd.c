@@ -816,7 +816,7 @@ httpd_send_error(struct evhttp_request* req, int error, const char* reason)
       evhttp_send_error(req, error, reason);
       return;
     }
-   
+
   output_headers = evhttp_request_get_output_headers(req);
 
   evhttp_clear_headers(output_headers);
@@ -1443,9 +1443,9 @@ httpd_init(void)
   // For CORS headers
   allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
   if (allow_origin)
-    { 
+    {
       if (strlen(allow_origin) != 0)
-	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_OPTIONS);
+	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
       else
 	allow_origin = NULL;
     }
