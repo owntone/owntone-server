@@ -1053,7 +1053,10 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 
   // Did we get a CORS preflight request?
   input_headers = evhttp_request_get_input_headers(req);
-  if (allow_origin && (evhttp_request_get_command(req) == EVHTTP_REQ_OPTIONS) && evhttp_find_header(input_headers, "Origin"))
+  if ( input_headers && allow_origin &&
+       (evhttp_request_get_command(req) == EVHTTP_REQ_OPTIONS) &&
+       evhttp_find_header(input_headers, "Origin") &&
+       evhttp_find_header(input_headers, "Access-Control-Request-Method") )
     {
       output_headers = evhttp_request_get_output_headers(req);
 
