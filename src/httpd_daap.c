@@ -282,7 +282,7 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   return s;
 
  invalid:
-  evhttp_send_error(req, 403, "Forbidden");
+  httpd_send_error(req, 403, "Forbidden");
   return NULL;
 }
 
@@ -355,7 +355,7 @@ update_refresh_cb(int fd, short event, void *arg)
   evcon = evhttp_request_get_connection(ur->req);
   evhttp_connection_set_closecb(evcon, NULL, NULL);
 
-  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf, 0);
 
   update_remove(ur);
 }
@@ -882,7 +882,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -924,7 +924,7 @@ daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, cha
       dmap_add_short(evbuf, "mcty", dmap_fields[i].type);  /* 10 */
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -954,7 +954,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Login attempt with U-A: Remote and no pairing-guid\n");
 
-	  evhttp_send_error(req, 403, "Forbidden");
+	  httpd_send_error(req, 403, "Forbidden");
 	  return -1;
 	}
 
@@ -967,7 +967,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 	  DPRINTF(E_LOG, L_DAAP, "Login attempt with invalid pairing-guid\n");
 
 	  free_pi(&pi, 1);
-	  evhttp_send_error(req, 403, "Forbidden");
+	  httpd_send_error(req, 403, "Forbidden");
 	  return -1;
 	}
 
@@ -999,7 +999,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   dmap_add_int(evbuf, "mstt", 200);        /* 12 */
   dmap_add_int(evbuf, "mlid", s->id); /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -1015,7 +1015,7 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   daap_session_remove(s);
 
-  httpd_send_reply(req, 204, "Logout Successful", evbuf);
+  httpd_send_reply(req, 204, "Logout Successful", evbuf, 0);
 
   return 0;
 }
@@ -1068,7 +1068,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       dmap_add_int(evbuf, "mstt", 200);         /* 12 */
       dmap_add_int(evbuf, "musr", current_rev); /* 12 */
 
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
       return 0;
     }
@@ -1122,7 +1122,7 @@ static int
 daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   /* That's so nice, thanks for letting us know */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1222,7 +1222,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 }
@@ -1510,7 +1510,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	}
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 
@@ -1821,7 +1821,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       return -1;
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 
@@ -2132,7 +2132,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	}
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return 0;
 
@@ -2338,7 +2338,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	}
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   ret = 0;
 
@@ -2378,7 +2378,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   ret = safe_atoi32(uri[3], &id);
   if (ret < 0)
     {
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return -1;
     }
 
@@ -2390,7 +2390,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Could not convert mw parameter to integer\n");
 
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 	  return -1;
 	}
 
@@ -2400,7 +2400,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Could not convert mh parameter to integer\n");
 
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 	  return -1;
 	}
     }
@@ -2442,12 +2442,11 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   snprintf(clen, sizeof(clen), "%ld", (long)len);
   evhttp_add_header(headers, "Content-Length", clen);
 
-  /* No gzip compression for artwork */
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
   return 0;
 
  no_artwork:
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
   return -1;
 }
 
@@ -2459,7 +2458,7 @@ daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, stru
 
   ret = safe_atoi32(uri[3], &id);
   if (ret < 0)
-    evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+    httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
   else
     httpd_stream_file(req, id);
 
@@ -2602,7 +2601,7 @@ daap_reply_dmap_test(struct evhttp_request *req, struct evbuffer *evbuf, char **
       return -1;      
     }
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2711,7 +2710,7 @@ daap_request(struct evhttp_request *req)
   full_uri = httpd_fixup_uri(req);
   if (!full_uri)
     {
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2719,7 +2718,7 @@ daap_request(struct evhttp_request *req)
   if (!ptr)
     {
       free(full_uri);
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2730,7 +2729,7 @@ daap_request(struct evhttp_request *req)
 
       if (!uri)
 	{
-	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 	  return;
 	}
 
@@ -2741,7 +2740,7 @@ daap_request(struct evhttp_request *req)
   if (!uri)
     {
       free(full_uri);
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2762,7 +2761,7 @@ daap_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DAAP, "Unrecognized DAAP request\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
       free(uri);
       free(full_uri);
@@ -2820,7 +2819,7 @@ daap_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DAAP, "DAAP URI has too many/few components (%d)\n", (uri_parts[0]) ? i : 0);
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
       free(uri);
       free(full_uri);
@@ -2842,7 +2841,7 @@ daap_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not allocate evbuffer for DAAP reply\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       free(uri);
       free(full_uri);
@@ -2853,7 +2852,9 @@ daap_request(struct evhttp_request *req)
   ret = cache_daap_get(full_uri, evbuf);
   if (ret == 0)
     {
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf); // TODO not all want this reply
+      // The cache will return the data gzipped, so httpd_send_reply won't need to do it
+      evhttp_add_header(headers, "Content-Encoding", "gzip");
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
 
       evbuffer_free(evbuf);
       free(uri);

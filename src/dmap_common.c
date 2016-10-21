@@ -25,6 +25,7 @@
 
 #include "db.h"
 #include "misc.h"
+#include "httpd.h"
 #include "logger.h"
 #include "dmap_common.h"
 
@@ -355,7 +356,7 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
     {
       DPRINTF(E_LOG, L_DMAP, "Could not allocate evbuffer for DMAP error\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return;
     }
 
@@ -366,7 +367,7 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
     {
       DPRINTF(E_LOG, L_DMAP, "Could not expand evbuffer for DMAP error\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       evbuffer_free(evbuf);
       return;
@@ -376,7 +377,7 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
   dmap_add_int(evbuf, "mstt", 500);
   dmap_add_string(evbuf, "msts", errmsg);
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   evbuffer_free(evbuf);
 }

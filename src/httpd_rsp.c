@@ -251,7 +251,7 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
 
   if (!evbuf)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       return;
     }
@@ -259,7 +259,8 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(headers, "Connection", "close");
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   evbuffer_free(evbuf);
 }
@@ -283,7 +284,8 @@ rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(headers, "Connection", "close");
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   evbuffer_free(evbuf);
 }
@@ -745,7 +747,7 @@ rsp_stream(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 
   ret = safe_atoi32(uri[2], &id);
   if (ret < 0)
-    evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+    httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
   else
     httpd_stream_file(req, id);
 }

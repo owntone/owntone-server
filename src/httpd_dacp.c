@@ -368,10 +368,10 @@ playstatusupdate_cb(int fd, short what, void *arg)
 	{
 	  buf = evbuffer_pullup(update, -1);
 	  evbuffer_add(evbuf, buf, len);
-	  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+	  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf, 0);
 	}
       else
-	httpd_send_reply(ur->req, HTTP_OK, "OK", update);
+	httpd_send_reply(ur->req, HTTP_OK, "OK", update, 0);
 
       free(ur);
     }
@@ -774,7 +774,7 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
   dmap_add_char(evbuf, "cmrl", 1);        /*  9, unknown */
   dmap_add_long(evbuf, "ceSX", (1 << 1 | 1));  /* 16, unknown dacp - lowest bit announces support for playqueue-contents/-edit */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static int
@@ -1103,7 +1103,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", id);       /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -1119,7 +1119,7 @@ dacp_reply_cue_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", 0);        /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -1282,11 +1282,11 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
   return;
 
  out_fail:
-  evhttp_send_error(req, 500, "Internal Server Error");
+  httpd_send_error(req, 500, "Internal Server Error");
 }
 
 static void
@@ -1301,7 +1301,7 @@ dacp_reply_pause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   player_playback_pause();
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1328,13 +1328,13 @@ dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	{
 	  DPRINTF(E_LOG, L_DACP, "Player returned an error for start after pause\n");
 
-	  evhttp_send_error(req, 500, "Internal Server Error");
+	  httpd_send_error(req, 500, "Internal Server Error");
 	  return;
         }
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1352,7 +1352,7 @@ dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for nextitem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
@@ -1361,12 +1361,12 @@ dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after nextitem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1384,7 +1384,7 @@ dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for previtem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
@@ -1393,12 +1393,12 @@ dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after previtem\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
+      httpd_send_error(req, 500, "Internal Server Error");
       return;
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1413,7 +1413,7 @@ dacp_reply_beginff(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1428,7 +1428,7 @@ dacp_reply_beginrew(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1443,7 +1443,7 @@ dacp_reply_playresume(struct evhttp_request *req, struct evbuffer *evbuf, char *
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static int
@@ -1673,7 +1673,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   dmap_add_char(evbuf, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
   dmap_add_char(evbuf, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -1697,7 +1697,7 @@ dacp_reply_playqueueedit_clear(struct evhttp_request *req, struct evbuffer *evbu
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", 0);        /* 12 */
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -1826,7 +1826,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1871,7 +1871,7 @@ dacp_reply_playqueueedit_move(struct evhttp_request *req, struct evbuffer *evbuf
   }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -1903,7 +1903,7 @@ dacp_reply_playqueueedit_remove(struct evhttp_request *req, struct evbuffer *evb
   }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -2023,9 +2023,9 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       ret = make_playstatusupdate(evbuf);
       if (ret < 0)
-	evhttp_send_error(req, 500, "Internal Server Error");
+	httpd_send_error(req, 500, "Internal Server Error");
       else
-	httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+	httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
       return;
     }
@@ -2076,7 +2076,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Request for artwork without mw parameter\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2085,7 +2085,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Could not convert mw parameter to integer\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2094,7 +2094,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Request for artwork without mh parameter\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2103,7 +2103,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Could not convert mh parameter to integer\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2137,12 +2137,11 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   snprintf(clen, sizeof(clen), "%ld", (long)len);
   evhttp_add_header(headers, "Content-Length", clen);
 
-  /* No gzip compression for artwork */
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
   return;
 
  no_artwork:
-  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 }
 
 static void
@@ -2243,7 +2242,7 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
       return;
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 
   return;
 
@@ -2291,7 +2290,7 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -2354,7 +2353,7 @@ dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
   evbuffer_free(spklist);
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
 }
 
 static void
@@ -2377,7 +2376,7 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
     {
       DPRINTF(E_LOG, L_DACP, "Missing speaker-id parameter in DACP setspeakers request\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2397,7 +2396,7 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
     {
       DPRINTF(E_LOG, L_DACP, "Out of memory for speaker ids\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return;
     }
 
@@ -2437,15 +2436,15 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
       /* Password problem */
       if (ret == -2)
-	evhttp_send_error(req, 902, "");
+	httpd_send_error(req, 902, "");
       else
-	evhttp_send_error(req, 500, "Internal Server Error");
+	httpd_send_error(req, 500, "Internal Server Error");
 
       return;
     }
 
   /* 204 No Content is the canonical reply */
-  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  httpd_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf, HTTPD_SEND_NO_GZIP);
 }
 
 
@@ -2548,7 +2547,7 @@ dacp_request(struct evhttp_request *req)
   full_uri = httpd_fixup_uri(req);
   if (!full_uri)
     {
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2560,7 +2559,7 @@ dacp_request(struct evhttp_request *req)
   if (!uri)
     {
       free(full_uri);
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2588,7 +2587,7 @@ dacp_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DACP, "Unrecognized DACP request\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
       free(uri);
       free(full_uri);
@@ -2609,7 +2608,7 @@ dacp_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DACP, "DACP URI has too many/few components (%d)\n", (uri_parts[0]) ? i : 0);
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
       free(uri);
       free(full_uri);
@@ -2621,7 +2620,7 @@ dacp_request(struct evhttp_request *req)
     {
       DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for DACP reply\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       free(uri);
       free(full_uri);

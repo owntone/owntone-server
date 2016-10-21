@@ -86,6 +86,11 @@
 
 #define STREAM_CHUNK_SIZE (64 * 1024)
 #define WEBFACE_ROOT   DATADIR "/webface/"
+#define ERR_PAGE "<html>\n<head>\n" \
+  "<title>%d %s</title>\n" \
+  "</head>\n<body>\n" \
+  "<h1>%s</h1>\n" \
+  "</body>\n</html>\n"
 
 struct content_type_map {
   char *ext;
@@ -133,6 +138,8 @@ static int httpd_exit;
 static struct event *exitev;
 static struct evhttp *evhttpd;
 static pthread_t tid_httpd;
+
+static char *allow_origin;
 
 #ifdef HAVE_LIBEVENT2_OLD
 struct stream_ctx *g_st;
@@ -693,135 +700,141 @@ httpd_stream_file(struct evhttp_request *req, int id)
   free_mfi(mfi, 0);
 }
 
-/* Thread: httpd */
-void
-httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf)
+struct evbuffer *
+httpd_gzip_deflate(struct evbuffer *in)
 {
-  unsigned char outbuf[128 * 1024];
+  struct evbuffer *out;
+  struct evbuffer_iovec iovec[1];
   z_stream strm;
-  struct evbuffer *gzbuf;
-  struct evkeyvalq *headers;
-  const char *param;
-  int flush;
-  int zret;
   int ret;
-  char *origin;
-
-  if (!req)
-    return;
-
-  if (!evbuf || (evbuffer_get_length(evbuf) == 0))
-    {
-      DPRINTF(E_DBG, L_HTTPD, "Not gzipping body-less reply\n");
-
-      goto no_gzip;
-    }
-
-  headers = evhttp_request_get_input_headers(req);
-
-  param = evhttp_find_header(headers, "Accept-Encoding");
-  if (!param)
-    {
-      DPRINTF(E_DBG, L_HTTPD, "Not gzipping; no Accept-Encoding header\n");
-
-      goto no_gzip;
-    }
-  else if (!strstr(param, "gzip") && !strstr(param, "*"))
-    {
-      DPRINTF(E_DBG, L_HTTPD, "Not gzipping; gzip not in Accept-Encoding (%s)\n", param);
-
-      goto no_gzip;
-    }
-
-  gzbuf = evbuffer_new();
-  if (!gzbuf)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for gzipped reply\n");
-
-      goto no_gzip;
-    }
 
   strm.zalloc = Z_NULL;
   strm.zfree = Z_NULL;
   strm.opaque = Z_NULL;
 
-  /* Set up a gzip stream (the "+ 16" in 15 + 16), instead of a zlib stream (default) */
-  zret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
-  if (zret != Z_OK)
+  // Set up a gzip stream (the "+ 16" in 15 + 16), instead of a zlib stream (default)
+  ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+  if (ret != Z_OK)
     {
-      DPRINTF(E_DBG, L_HTTPD, "zlib setup failed: %s\n", zError(zret));
-
-      goto out_fail_init;
+      DPRINTF(E_LOG, L_HTTPD, "zlib setup failed: %s\n", zError(ret));
+      return NULL;
     }
 
-  strm.next_in = evbuffer_pullup(evbuf, -1);
-  strm.avail_in = evbuffer_get_length(evbuf);
+  strm.next_in = evbuffer_pullup(in, -1);
+  strm.avail_in = evbuffer_get_length(in);
 
-  flush = Z_NO_FLUSH;
-
-  /* 2 iterations: Z_NO_FLUSH until input is consumed, then Z_FINISH */
-  for (;;)
+  out = evbuffer_new();
+  if (!out)
     {
-      do
-	{
-	  strm.next_out = outbuf;
-	  strm.avail_out = sizeof(outbuf);
-
-	  zret = deflate(&strm, flush);
-	  if (zret == Z_STREAM_ERROR)
-	    {
-	      DPRINTF(E_LOG, L_HTTPD, "Could not deflate data: %s\n", strm.msg);
-
-	      goto out_fail_gz;
-	    }
-
-	  ret = evbuffer_add(gzbuf, outbuf, sizeof(outbuf) - strm.avail_out);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_HTTPD, "Out of memory adding gzipped data to evbuffer\n");
-
-	      goto out_fail_gz;
-	    }
-	}
-      while (strm.avail_out == 0);
-
-      if (flush == Z_FINISH)
-	break;
-
-      flush = Z_FINISH;
+      DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for gzipped reply\n");
+      goto out_deflate_end;
     }
 
-  if (zret != Z_STREAM_END)
+  // We use this to avoid a memcpy. The 512 is an arbitrary padding to make sure
+  // there is enough space, even if the compressed output should be slightly
+  // larger than input (could happen with small inputs).
+  ret = evbuffer_reserve_space(out, strm.avail_in + 512, iovec, 1);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Compressed data not finalized!\n");
-
-      goto out_fail_gz;
+      DPRINTF(E_LOG, L_HTTPD, "Could not reserve memory for gzipped reply\n");
+      goto out_evbuf_free;
     }
 
+  strm.next_out = iovec[0].iov_base;
+  strm.avail_out = iovec[0].iov_len;
+
+  ret = deflate(&strm, Z_FINISH);
+  if (ret != Z_STREAM_END)
+    goto out_evbuf_free;
+
+  iovec[0].iov_len -= strm.avail_out;
+
+  evbuffer_commit_space(out, iovec, 1);
   deflateEnd(&strm);
 
-  headers = evhttp_request_get_output_headers(req);
+  return out;
 
-  origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (origin && strlen(origin))
-      evhttp_add_header(headers, "Access-Control-Allow-Origin", origin);
+ out_evbuf_free:
+  evbuffer_free(out);
 
-  evhttp_add_header(headers, "Content-Encoding", "gzip");
-  evhttp_send_reply(req, code, reason, gzbuf);
-
-  evbuffer_free(gzbuf);
-
-  /* Drain original buffer, as would be after evhttp_send_reply() */
-  evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
-
-  return;
-
- out_fail_gz:
+ out_deflate_end:
   deflateEnd(&strm);
- out_fail_init:
-  evbuffer_free(gzbuf);
- no_gzip:
-  evhttp_send_reply(req, code, reason, evbuf);
+
+  return NULL;
+}
+
+void
+httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags)
+{
+  struct evbuffer *gzbuf;
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
+  const char *param;
+  int do_gzip;
+
+  if (!req)
+    return;
+
+  input_headers = evhttp_request_get_input_headers(req);
+  output_headers = evhttp_request_get_output_headers(req);
+
+  do_gzip = ( (!(flags & HTTPD_SEND_NO_GZIP)) &&
+              evbuf && (evbuffer_get_length(evbuf) > 512) &&
+              (param = evhttp_find_header(input_headers, "Accept-Encoding")) &&
+              (strstr(param, "gzip") || strstr(param, "*"))
+            );
+
+  if (allow_origin)
+    evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
+
+  if (do_gzip && (gzbuf = httpd_gzip_deflate(evbuf)))
+    {
+      DPRINTF(E_DBG, L_HTTPD, "Gzipping response\n");
+
+      evhttp_add_header(output_headers, "Content-Encoding", "gzip");
+      evhttp_send_reply(req, code, reason, gzbuf);
+      evbuffer_free(gzbuf);
+
+      // Drain original buffer, as would be after evhttp_send_reply()
+      evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
+    }
+  else
+    {
+      evhttp_send_reply(req, code, reason, evbuf);
+    }
+}
+
+// This is a modified version of evhttp_send_error (credit libevent)
+void
+httpd_send_error(struct evhttp_request* req, int error, const char* reason)
+{
+  struct evkeyvalq *output_headers;
+  struct evbuffer *evbuf;
+
+  if (!allow_origin)
+    {
+      evhttp_send_error(req, error, reason);
+      return;
+    }
+
+  output_headers = evhttp_request_get_output_headers(req);
+
+  evhttp_clear_headers(output_headers);
+
+  evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
+  evhttp_add_header(output_headers, "Content-Type", "text/html");
+  evhttp_add_header(output_headers, "Connection", "close");
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    DPRINTF(E_LOG, L_HTTPD, "Could not allocate evbuffer for error page\n");
+  else
+    evbuffer_add_printf(evbuf, ERR_PAGE, error, reason, reason);
+
+  evhttp_send_reply(req, error, reason, evbuf);
+
+  if (evbuf)
+    evbuffer_free(evbuf);
 }
 
 /* Thread: httpd */
@@ -847,14 +860,14 @@ redirect_to_index(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Redirection URL exceeds buffer length\n");
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
   headers = evhttp_request_get_output_headers(req);
-
   evhttp_add_header(headers, "Location", buf);
-  evhttp_send_reply(req, HTTP_MOVETEMP, "Moved", NULL);
+
+  httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
 /* Thread: httpd */
@@ -894,7 +907,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
 
-	  evhttp_send_error(req, 403, "Forbidden");
+	  httpd_send_error(req, 403, "Forbidden");
 	  return;
 	}
     }
@@ -904,7 +917,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", uri);
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
       return;
     }
@@ -914,7 +927,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not lstat() %s: %s\n", path, strerror(errno));
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
       return;
     }
@@ -932,7 +945,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  return;
 	}
@@ -941,7 +954,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Dereferenced path exceeds PATH_MAX: %s\n", path);
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  free(deref);
 	  return;
@@ -955,7 +968,7 @@ serve_file(struct evhttp_request *req, char *uri)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
 
-	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  return;
 	}
@@ -970,7 +983,7 @@ serve_file(struct evhttp_request *req, char *uri)
 
   if (path_is_legal(path) != 0)
     {
-      evhttp_send_error(req, 403, "Forbidden");
+      httpd_send_error(req, 403, "Forbidden");
 
       return;
     }
@@ -980,7 +993,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not create evbuffer\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
       return;
     }
 
@@ -989,7 +1002,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", path, strerror(errno));
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
@@ -1002,7 +1015,7 @@ serve_file(struct evhttp_request *req, char *uri)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not read file into evbuffer\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
       return;
     }
 
@@ -1021,9 +1034,9 @@ serve_file(struct evhttp_request *req, char *uri)
     }
 
   headers = evhttp_request_get_output_headers(req);
-
   evhttp_add_header(headers, "Content-Type", ctype);
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   evbuffer_free(evbuf);
 }
@@ -1032,9 +1045,31 @@ serve_file(struct evhttp_request *req, char *uri)
 static void
 httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
   const char *req_uri;
   char *uri;
   char *ptr;
+
+  // Did we get a CORS preflight request?
+  input_headers = evhttp_request_get_input_headers(req);
+  if ( input_headers && allow_origin &&
+       (evhttp_request_get_command(req) == EVHTTP_REQ_OPTIONS) &&
+       evhttp_find_header(input_headers, "Origin") &&
+       evhttp_find_header(input_headers, "Access-Control-Request-Method") )
+    {
+      output_headers = evhttp_request_get_output_headers(req);
+
+      evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
+
+      // Allow only GET method and authorization header in cross origin requests
+      evhttp_add_header(output_headers, "Access-Control-Allow-Method", "GET");
+      evhttp_add_header(output_headers, "Access-Control-Allow-Headers", "authorization");
+
+      // In this case there is no reason to go through httpd_send_reply
+      evhttp_send_reply(req, HTTP_OK, "OK", NULL);
+      return;
+    }
 
   req_uri = evhttp_request_get_uri(req);
   if (!req_uri)
@@ -1286,28 +1321,30 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
   header = (char *)malloc(len);
   if (!header)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
   ret = snprintf(header, len, "Basic realm=\"%s\"", realm);
   if ((ret < 0) || (ret >= len))
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
   evbuf = evbuffer_new();
   if (!evbuf)
     {
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
 
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "WWW-Authenticate", header);
+
   evbuffer_add(evbuf, http_reply_401, strlen(http_reply_401));
-  evhttp_send_reply(req, 401, "Unauthorized", evbuf);
+
+  httpd_send_reply(req, 401, "Unauthorized", evbuf, HTTPD_SEND_NO_GZIP);
 
   free(header);
   evbuffer_free(evbuf);
@@ -1402,6 +1439,16 @@ httpd_init(void)
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
   port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+
+  // For CORS headers
+  allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (allow_origin)
+    {
+      if (strlen(allow_origin) != 0)
+	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
+      else
+	allow_origin = NULL;
+    }
 
   if (v6enabled)
     {
