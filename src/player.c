@@ -2316,7 +2316,7 @@ playback_start_item(union player_arg *cmdarg, int *retval, struct queue_item *qi
 
       status_update(player_state);
 
-      *retval = 0;
+      *retval = 1; // Value greater 0 will prevent execution of the bottom half function
       return COMMAND_END;
     }
 
@@ -2673,7 +2673,8 @@ playback_pause(void *arg, int *retval)
       DPRINTF(E_LOG, L_PLAYER, "Could not retrieve current position for pause\n");
 
       playback_abort();
-      return -1;
+      *retval = -1;
+      return COMMAND_END;
     }
 
   /* Make sure playback is still running after source_check() */
