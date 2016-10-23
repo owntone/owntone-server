@@ -69,7 +69,7 @@ struct player_status {
   int next_pos_pl;
 };
 
-typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
+typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg);
 
 struct player_history
 {

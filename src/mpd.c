@@ -3218,7 +3218,7 @@ mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Adds a new struct output to the given struct outputs in *arg for the given speaker (id, name, etc.).
  */
 static void
-outputs_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg)
+outputs_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg)
 {
   struct outputs *outputs;
   struct output *output;
@@ -3528,21 +3528,24 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  *   outputid: 0
  *   outputname: Computer
  *   outputenabled: 1
+ *   outputvolume: 50
  */
 static void
-speaker_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg)
 {
   struct evbuffer *evbuf;
 
   evbuf = (struct evbuffer *)arg;
 
   evbuffer_add_printf(evbuf,
-    "outputid: %d\n"
-    "outputname: %s\n"
-    "outputenabled: %d\n",
-    (unsigned short) id,
-    name,
-    flags.selected);
+		      "outputid: %d\n"
+		      "outputname: %s\n"
+		      "outputenabled: %d\n"
+		      "outputvolume: %d\n",
+		      (unsigned short) id,
+		      name,
+		      flags.selected,
+		      absvol);
 }
 
 /*
