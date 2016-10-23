@@ -15,6 +15,10 @@ enum command_state {
  * If the function has pending events to complete, it needs to return 
  * COMMAND_PENDING with 'ret' set to the number of pending events to wait for.
  *
+ * If the function returns with  COMMAND_END, command execution will proceed
+ * with the "bottem half" function (if passed to the command_exec function) only
+ * if 'ret' is 0.
+ *
  * @param arg Opaque pointer passed by command_exec_sync or command_exec_async
  * @param ret Pointer to the return value for the caller of the command
  * @return    COMMAND_END if there are no pending events (function execution is 

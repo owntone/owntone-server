@@ -1122,7 +1122,7 @@ mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   else
     ret = player_playback_start(NULL);
 
-  if (ret != 0)
+  if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to pause playback");
       if (ret < 0)
@@ -1177,7 +1177,7 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   else
     ret = player_playback_start(NULL);
 
-  if (ret != 0)
+  if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to start playback");
       if (ret < 0)
@@ -1227,7 +1227,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   else
     ret = player_playback_start(NULL);
 
-  if (ret != 0)
+  if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to start playback");
       if (ret < 0)
