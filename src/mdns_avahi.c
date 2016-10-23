@@ -354,6 +354,15 @@ struct mdns_group_entry
 static struct mdns_browser *browser_list;
 static struct mdns_group_entry *group_entries;
 
+#define IPV6LL_NETWORK 0xFE80
+#define IPV6LL_NETMASK 0xFFC0
+
+static int
+is_v6ll(const AvahiIPv6Address *addr)
+{
+  return ((((addr->address[0] << 8) | addr->address[1]) & IPV6LL_NETMASK) == IPV6LL_NETWORK);
+}
+
 // Note: This will only return the first DNS record. Should be enough, but
 // should more be needed, then a record browser needs to be added.
 static void
@@ -380,7 +389,18 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       goto out_free_resolver;
     }
 
-  DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d\n", name, type, proto);
+  DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d, host %s\n", name, type, proto, hostname);
+
+  // For some reason, the proto returned by the callback will not always be the
+  // protocol of the address - so we use addr->proto instead
+  family = avahi_proto_to_af(addr->proto);
+  avahi_address_snprint(address, sizeof(address), addr);
+
+  if (family == AF_INET6 && is_v6ll(&addr->data.ipv6))
+    {
+      DPRINTF(E_DBG, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address);
+      goto out_free_resolver;
+    }
 
   memset(&txt_kv, 0, sizeof(struct keyval));
 
@@ -400,12 +420,6 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
       avahi_free(key);
     }
-
-  avahi_address_snprint(address, sizeof(address), addr);
-
-  // For some reason, the proto returned by the callback will not always be the
-  // protocol of the address - so we use addr->proto instead
-  family = avahi_proto_to_af(addr->proto);
 
   mb = (struct mdns_browser *)userdata;
 
