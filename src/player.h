@@ -44,6 +44,7 @@ struct player_status {
   enum play_status status;
   enum repeat_mode repeat;
   char shuffle;
+  char consume;
 
   int volume;
 
@@ -129,6 +130,9 @@ player_repeat_set(enum repeat_mode mode);
 
 int
 player_shuffle_set(int enable);
+
+int
+player_consume_set(int enable);
 
 
 void

@@ -190,6 +190,7 @@ static int clear_queue_on_stop_disabled;
 static enum play_status player_state;
 static enum repeat_mode repeat;
 static char shuffle;
+static char consume;
 
 /* Playback timer */
 #if defined(__linux__)
@@ -1221,6 +1222,9 @@ source_check(void)
 #endif
       history_add(cur_playing->id, cur_playing->item_id);
 
+      if (consume)
+	db_queue_delete_byitemid(cur_playing->item_id);
+
       /* Stop playback */
       if (!cur_playing->play_next)
 	{
@@ -2064,6 +2068,7 @@ get_status(void *arg, int *retval)
   memset(status, 0, sizeof(struct player_status));
 
   status->shuffle = shuffle;
+  status->consume = consume;
   status->repeat = repeat;
 
   status->volume = master_volume;
@@ -2519,6 +2524,7 @@ playback_next_bh(void *arg, int *retval)
 {
   struct player_source *ps;
   int ret;
+  uint32_t item_id;
 
   /*
    * The upper half is playback_pause, therefor the current playing item is
@@ -2534,6 +2540,8 @@ playback_next_bh(void *arg, int *retval)
   /* Only add to history if playback started. */
   if (cur_streaming->output_start > cur_streaming->stream_start)
     history_add(cur_streaming->id, cur_streaming->item_id);
+
+  item_id = cur_streaming->item_id;
 
   ps = source_next();
   if (!ps)
@@ -2558,6 +2566,9 @@ playback_next_bh(void *arg, int *retval)
       *retval = -1;
       return COMMAND_END;
     }
+
+  if (consume)
+    db_queue_delete_byitemid(item_id);
 
   /* Silent status change - playback_start() sends the real status update */
   player_state = PLAY_PAUSED;
@@ -3029,6 +3040,18 @@ shuffle_set(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static enum command_state
+consume_set(void *arg, int *retval)
+{
+  union player_arg *cmdarg = arg;
+
+  consume = cmdarg->intval;
+
+  listener_notify(LISTENER_OPTIONS);
+
+  *retval = 0;
+  return COMMAND_END;
+}
 /*
  * Removes all items from the history
  */
@@ -3286,6 +3309,18 @@ player_shuffle_set(int enable)
   return ret;
 }
 
+int
+player_consume_set(int enable)
+{
+  union player_arg cmdarg;
+  int ret;
+
+  cmdarg.intval = enable;
+
+  ret = commands_exec_sync(cmdbase, consume_set, NULL, &cmdarg);
+  return ret;
+}
+
 void
 player_queue_clear_history()
 {
@@ -3415,6 +3450,7 @@ player_init(void)
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;
   shuffle = 0;
+  consume = 0;
 
   history = (struct player_history *)calloc(1, sizeof(struct player_history));
 
