@@ -731,7 +731,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       (status.repeat == REPEAT_OFF ? 0 : 1),
       status.shuffle,
       (status.repeat == REPEAT_SONG ? 1 : 0),
-      0 /* consume: not supported by forked-daapd, always return 'off' */,
+      status.consume,
       queue_version,
       queue_length,
       state);
@@ -837,6 +837,39 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
         6,
         7);
 
+  return 0;
+}
+
+/*
+ * Command handler function for 'consume'
+ * Sets the consume mode, expects argument argv[1] to be an integer with
+ *   0 = disable consume
+ *   1 = enable consume
+ */
+static int
+mpd_command_consume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int enable;
+  int ret;
+
+  if (argc < 2)
+    {
+      ret = asprintf(errmsg, "Missing argument for command 'consume'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atoi32(argv[1], &enable);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  player_consume_set(enable);
   return 0;
 }
 
@@ -3759,7 +3792,7 @@ static struct mpd_command mpd_handlers[] =
      */
     {
       .mpdcommand = "consume",
-      .handler = mpd_command_ignore
+      .handler = mpd_command_consume
     },
     {
       .mpdcommand = "crossfade",
