@@ -107,7 +107,7 @@ forked_daapd_SOURCES = main.c \
 	queue.c queue.h \
 	worker.c worker.h \
 	outputs.h outputs.c \
-	outputs/raop.c outputs/streaming.c outputs/dummy.c \
+	outputs/raop.c outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \

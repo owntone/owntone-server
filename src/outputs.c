@@ -34,6 +34,7 @@
 extern struct output_definition output_raop;
 extern struct output_definition output_streaming;
 extern struct output_definition output_dummy;
+extern struct output_definition output_fifo;
 #ifdef ALSA
 extern struct output_definition output_alsa;
 #endif
@@ -49,6 +50,7 @@ static struct output_definition *outputs[] = {
     &output_raop,
     &output_streaming,
     &output_dummy,
+    &output_fifo,
 #ifdef ALSA
     &output_alsa,
 #endif
