@@ -274,6 +274,9 @@ file_type_get(const char *path) {
   if (!ext || (strlen(ext) == 1))
     return FILE_REGULAR;
 
+  if (file_type_ignore(ext))
+    return FILE_IGNORE;
+
   if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
     return FILE_PLAYLIST;
 
@@ -311,9 +314,6 @@ file_type_get(const char *path) {
       DPRINTF(E_INFO, L_SCAN, "No support for .url, use .m3u or .pls\n");
       return FILE_IGNORE;
     }
-
-  if (file_type_ignore(ext))
-    return FILE_IGNORE;
 
   if ((filename[0] == '_') || (filename[0] == '.'))
     return FILE_IGNORE;
