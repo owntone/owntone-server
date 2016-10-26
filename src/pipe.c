@@ -41,36 +41,36 @@ static int g_fd = -1;
 static uint16_t *g_buf = NULL;
 
 int
-pipe_setup(struct media_file_info *mfi)
+pipe_setup(const char *path)
 {
   struct stat sb;
 
-  if (!mfi->path)
+  if (!path)
     {
       DPRINTF(E_LOG, L_PLAYER, "Path to pipe is NULL\n");
       return -1;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Setting up pipe: %s\n", mfi->path);
+  DPRINTF(E_DBG, L_PLAYER, "Setting up pipe: %s\n", path);
 
-  if (lstat(mfi->path, &sb) < 0)
+  if (lstat(path, &sb) < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not lstat() '%s': %s\n", mfi->path, strerror(errno));
+      DPRINTF(E_LOG, L_PLAYER, "Could not lstat() '%s': %s\n", path, strerror(errno));
       return -1;
     }
 
   if (!S_ISFIFO(sb.st_mode))
     {
-      DPRINTF(E_LOG, L_PLAYER, "Source type is pipe, but path is not a fifo: %s\n", mfi->path);
+      DPRINTF(E_LOG, L_PLAYER, "Source type is pipe, but path is not a fifo: %s\n", path);
       return -1;
     }
 
   pipe_cleanup();
 
-  g_fd = open(mfi->path, O_RDONLY | O_NONBLOCK);
+  g_fd = open(path, O_RDONLY | O_NONBLOCK);
   if (g_fd < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not open pipe for reading '%s': %s\n", mfi->path, strerror(errno));
+      DPRINTF(E_LOG, L_PLAYER, "Could not open pipe for reading '%s': %s\n", path, strerror(errno));
       return -1;
     }
 
