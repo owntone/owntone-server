@@ -2,12 +2,11 @@
 #ifndef __SPOTIFY_H__
 #define __SPOTIFY_H__
 
-#include "db.h"
 #include <event2/event.h>
 #include <event2/buffer.h>
 
 int
-spotify_playback_setup(struct media_file_info *mfi);
+spotify_playback_setup(const char *path);
 
 int
 spotify_playback_play();

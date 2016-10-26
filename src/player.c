@@ -684,7 +684,7 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 
       case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
-	ret = spotify_playback_setup(mfi);
+	ret = spotify_playback_setup(mfi->path);
 #else
 	DPRINTF(E_LOG, L_PLAYER, "Player source has data kind 'spotify' (%d), but forked-daapd is compiled without spotify support - cannot setup source '%s' (%s)\n",
 		    ps->data_kind, mfi->title, mfi->path);
