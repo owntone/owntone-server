@@ -666,7 +666,7 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
   switch (ps->data_kind)
     {
       case DATA_KIND_FILE:
-	ps->xcode = transcode_setup(mfi, XCODE_PCM16_NOHEADER, NULL);
+	ps->xcode = transcode_setup(mfi->data_kind, mfi->path, mfi->song_length, XCODE_PCM16_NOHEADER, NULL);
 	ret = ps->xcode ? 0 : -1;
 	break;
 
@@ -678,7 +678,7 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 	free(mfi->path);
 	mfi->path = url;
 
-	ps->xcode = transcode_setup(mfi, XCODE_PCM16_NOHEADER, NULL);
+	ps->xcode = transcode_setup(mfi->data_kind, mfi->path, mfi->song_length, XCODE_PCM16_NOHEADER, NULL);
 	ret = ps->xcode ? 0 : -1;
 	break;
 

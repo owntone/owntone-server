@@ -580,7 +580,7 @@ flush_encoder(struct encode_ctx *ctx, unsigned int stream_index)
 /* --------------------------- INPUT/OUTPUT INIT --------------------------- */
 
 static int
-open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video)
+open_input(struct decode_ctx *ctx, enum data_kind data_kind, const char *path, int decode_video)
 {
   AVDictionary *options;
   AVCodec *decoder;
@@ -597,10 +597,10 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
 
 # ifndef HAVE_FFMPEG
   // Without this, libav is slow to probe some internet streams, which leads to RAOP timeouts
-  if (mfi->data_kind == DATA_KIND_HTTP)
+  if (data_kind == DATA_KIND_HTTP)
     ctx->ifmt_ctx->probesize = 64000;
 # endif
-  if (mfi->data_kind == DATA_KIND_HTTP)
+  if (data_kind == DATA_KIND_HTTP)
     av_dict_set(&options, "icy", "1", 0);
 
   // TODO Newest versions of ffmpeg have timeout and reconnect options we should use
@@ -608,14 +608,14 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   ctx->ifmt_ctx->interrupt_callback.opaque = ctx;
   ctx->timestamp = av_gettime();
 
-  ret = avformat_open_input(&ctx->ifmt_ctx, mfi->path, NULL, &options);
+  ret = avformat_open_input(&ctx->ifmt_ctx, path, NULL, &options);
 
   if (options)
     av_dict_free(&options);
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Cannot open '%s': %s\n", mfi->path, err2str(ret));
+      DPRINTF(E_LOG, L_XCODE, "Cannot open '%s': %s\n", path, err2str(ret));
       return -1;
     }
 
@@ -628,7 +628,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
 
   if (ctx->ifmt_ctx->nb_streams > MAX_STREAMS)
     {
-      DPRINTF(E_LOG, L_XCODE, "File '%s' has too many streams (%u)\n", mfi->path, ctx->ifmt_ctx->nb_streams);
+      DPRINTF(E_LOG, L_XCODE, "File '%s' has too many streams (%u)\n", path, ctx->ifmt_ctx->nb_streams);
       goto out_fail;
     }
 
@@ -636,7 +636,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   stream_index = av_find_best_stream(ctx->ifmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
   if ((stream_index < 0) || (!decoder))
     {
-      DPRINTF(E_LOG, L_XCODE, "Did not find audio stream or suitable decoder for %s\n", mfi->path);
+      DPRINTF(E_LOG, L_XCODE, "Did not find audio stream or suitable decoder for %s\n", path);
       goto out_fail;
     }
 
@@ -664,7 +664,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   stream_index = av_find_best_stream(ctx->ifmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, 0);
   if ((stream_index < 0) || (!decoder))
     {
-      DPRINTF(E_LOG, L_XCODE, "Did not find video stream or suitable decoder for '%s': %s\n", mfi->path, err2str(ret));
+      DPRINTF(E_LOG, L_XCODE, "Did not find video stream or suitable decoder for '%s': %s\n", path, err2str(ret));
       return 0;
     }
 
@@ -1232,7 +1232,7 @@ close_filters(struct encode_ctx *ctx)
 /*                                  Setup                                    */
 
 struct decode_ctx *
-transcode_decode_setup(struct media_file_info *mfi, int decode_video)
+transcode_decode_setup(enum data_kind data_kind, const char *path, uint32_t song_length, int decode_video)
 {
   struct decode_ctx *ctx;
 
@@ -1243,13 +1243,13 @@ transcode_decode_setup(struct media_file_info *mfi, int decode_video)
       return NULL;
     }
 
-  if (open_input(ctx, mfi, decode_video) < 0)
+  if (open_input(ctx, data_kind, path, decode_video) < 0)
     {
       free(ctx);
       return NULL;
     }
 
-  ctx->duration = mfi->song_length;
+  ctx->duration = song_length;
 
   av_init_packet(&ctx->packet);
 
@@ -1293,7 +1293,7 @@ transcode_encode_setup(struct decode_ctx *src_ctx, enum transcode_profile profil
 }
 
 struct transcode_ctx *
-transcode_setup(struct media_file_info *mfi, enum transcode_profile profile, off_t *est_size)
+transcode_setup(enum data_kind data_kind, const char *path, uint32_t song_length, enum transcode_profile profile, off_t *est_size)
 {
   struct transcode_ctx *ctx;
 
@@ -1304,7 +1304,7 @@ transcode_setup(struct media_file_info *mfi, enum transcode_profile profile, off
       return NULL;
     }
 
-  ctx->decode_ctx = transcode_decode_setup(mfi, profile & XCODE_HAS_VIDEO);
+  ctx->decode_ctx = transcode_decode_setup(data_kind, path, song_length, profile & XCODE_HAS_VIDEO);
   if (!ctx->decode_ctx)
     {
       free(ctx);

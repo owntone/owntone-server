@@ -491,7 +491,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
       stream_cb = stream_chunk_xcode_cb;
 
-      st->xcode = transcode_setup(mfi, XCODE_PCM16_HEADER, &st->size);
+      st->xcode = transcode_setup(mfi->data_kind, mfi->path, mfi->song_length, XCODE_PCM16_HEADER, &st->size);
       if (!st->xcode)
 	{
 	  DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");

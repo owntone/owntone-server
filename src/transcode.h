@@ -28,13 +28,13 @@ struct decoded_frame;
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(struct media_file_info *mfi, int decode_video);
+transcode_decode_setup(enum data_kind data_kind, const char *path, uint32_t song_length, int decode_video);
 
 struct encode_ctx *
 transcode_encode_setup(struct decode_ctx *src_ctx, enum transcode_profile profile, off_t *est_size);
 
 struct transcode_ctx *
-transcode_setup(struct media_file_info *mfi, enum transcode_profile profile, off_t *est_size);
+transcode_setup(enum data_kind data_kind, const char *path, uint32_t song_length, enum transcode_profile profile, off_t *est_size);
 
 struct decode_ctx *
 transcode_decode_setup_raw(void);
