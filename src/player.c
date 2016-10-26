@@ -1026,7 +1026,6 @@ source_pause(uint64_t pos)
   struct player_source *ps_playing;
   struct player_source *ps_playnext;
   struct player_source *ps_temp;
-  struct media_file_info *mfi;
   uint64_t seek_frames;
   int seek_ms;
   int ret;
@@ -1070,33 +1069,14 @@ source_pause(uint64_t pos)
 
   if (!cur_streaming->setup_done)
     {
-      mfi = db_file_fetch_byid(cur_streaming->id);
-      if (!mfi)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Couldn't fetch file id %d\n", cur_streaming->id);
-
-	  return -1;
-	}
-
-      if (mfi->disabled)
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "File id %d is disabled, skipping\n", cur_streaming->id);
-
-	  free_mfi(mfi, 0);
-	  return -1;
-	}
-
-      DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
+      DPRINTF(E_INFO, L_PLAYER, "Opening '%s'\n", cur_streaming->path);
 
       ret = stream_setup(cur_streaming, mfi);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (%s)\n", mfi->title, mfi->path);
-	  free_mfi(mfi, 0);
+	  DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s'\n", cur_streaming->path);
 	  return -1;
 	}
-
-      free_mfi(mfi, 0);
     }
 
   /* Seek back to the pause position */
