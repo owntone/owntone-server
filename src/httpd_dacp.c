@@ -2294,7 +2294,7 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 }
 
 static void
-speaker_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg)
 {
   struct evbuffer *evbuf;
   int len;
