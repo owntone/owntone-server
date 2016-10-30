@@ -354,14 +354,23 @@ struct mdns_group_entry
 static struct mdns_browser *browser_list;
 static struct mdns_group_entry *group_entries;
 
+#define IPV4LL_NETWORK 0xA9FE0000
+#define IPV4LL_NETMASK 0xFFFF0000
 #define IPV6LL_NETWORK 0xFE80
 #define IPV6LL_NETMASK 0xFFC0
+
+static int
+is_v4ll(const AvahiIPv4Address *addr)
+{
+  return ((ntohl(addr->address) & IPV4LL_NETMASK) == IPV4LL_NETWORK);
+}
 
 static int
 is_v6ll(const AvahiIPv6Address *addr)
 {
   return ((((addr->address[0] << 8) | addr->address[1]) & IPV6LL_NETMASK) == IPV6LL_NETWORK);
 }
+
 
 // Note: This will only return the first DNS record. Should be enough, but
 // should more be needed, then a record browser needs to be added.
@@ -396,9 +405,12 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
   family = avahi_proto_to_af(addr->proto);
   avahi_address_snprint(address, sizeof(address), addr);
 
-  if (family == AF_INET6 && is_v6ll(&addr->data.ipv6))
+  // Avahi will sometimes give us link-local addresses in 169.254.0.0/16 or
+  // fe80::/10, which (most of the time) are useless
+  // - see also https://lists.freedesktop.org/archives/avahi/2012-September/002183.html
+  if ( (family == AF_INET && is_v4ll(&addr->data.ipv4)) || (family == AF_INET6 && is_v6ll(&addr->data.ipv6)) )
     {
-      DPRINTF(E_DBG, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address);
+      DPRINTF(E_INFO, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address);
       goto out_free_resolver;
     }
 
