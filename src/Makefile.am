@@ -79,6 +79,7 @@ forked_daapd_LDADD = -lrt \
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
+	db_init.c db_init.h \
 	db_upgrade.c db_upgrade.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
