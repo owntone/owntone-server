@@ -25,7 +25,7 @@
  * version of the database? If yes, then it is a minor upgrade, if no, then it
  * is a major upgrade. In other words minor version upgrades permit downgrading
  * forked-daapd after the database was upgraded. */
-#define SCHEMA_VERSION_MAJOR 19
+#define SCHEMA_VERSION_MAJOR 20
 #define SCHEMA_VERSION_MINOR 00
 
 int

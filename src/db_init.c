@@ -158,6 +158,32 @@
   "   parent_id           INTEGER DEFAULT 0"			\
   ");"
 
+#define T_QUEUE								\
+  "CREATE TABLE IF NOT EXISTS queue ("					\
+  "   id                  INTEGER PRIMARY KEY NOT NULL,"		\
+  "   file_id             INTEGER NOT NULL,"				\
+  "   pos                 INTEGER NOT NULL,"				\
+  "   shuffle_pos         INTEGER NOT NULL,"				\
+  "   data_kind           INTEGER NOT NULL,"				\
+  "   media_kind          INTEGER NOT NULL,"				\
+  "   song_length         INTEGER NOT NULL,"				\
+  "   path                VARCHAR(4096) NOT NULL,"			\
+  "   virtual_path        VARCHAR(4096) NOT NULL,"			\
+  "   title               VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist        VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   album               VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   genre               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   songalbumid         INTEGER NOT NULL,"				\
+  "   time_modified       INTEGER DEFAULT 0,"				\
+  "   artist_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_sort          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist_sort   VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   year                INTEGER DEFAULT 0,"				\
+  "   track               INTEGER DEFAULT 0,"				\
+  "   disc                INTEGER DEFAULT 0"				\
+  ");"
+
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
   " BEGIN"								\
@@ -237,6 +263,7 @@ static const struct db_init_query db_init_table_queries[] =
     { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
     { T_DIRECTORIES, "create table directories" },
+    { T_QUEUE,     "create table queue" },
 
     { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
     { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
@@ -327,6 +354,12 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_DIR_PARENT				\
   "CREATE INDEX IF NOT EXISTS idx_dir_parentid ON directories(parent_id);"
 
+#define I_QUEUE_POS				\
+  "CREATE INDEX IF NOT EXISTS idx_queue_pos ON queue(pos);"
+
+#define I_QUEUE_SHUFFLEPOS				\
+  "CREATE INDEX IF NOT EXISTS idx_queue_shufflepos ON queue(shuffle_pos);"
+
 static const struct db_init_query db_init_index_queries[] =
   {
     { I_RESCAN,    "create rescan index" },
@@ -357,6 +390,9 @@ static const struct db_init_query db_init_index_queries[] =
 
     { I_DIR_VPATH,   "create directories disabled_virtualpath index" },
     { I_DIR_PARENT,  "create directories parentid index" },
+
+    { I_QUEUE_POS,  "create queue pos index" },
+    { I_QUEUE_SHUFFLEPOS,  "create queue shuffle pos index" },
   };
 
 int

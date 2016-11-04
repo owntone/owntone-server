@@ -1441,6 +1441,54 @@ db_upgrade_v19(sqlite3 *hdl)
   return 0;
 }
 
+/* Upgrade from schema v19.00 to v20.00 */
+/* Create new table queue for persistent playqueue
+ */
+
+#define U_V2000_CREATE_TABLE_QUEUE					\
+  "CREATE TABLE IF NOT EXISTS queue ("					\
+  "   id                  INTEGER PRIMARY KEY NOT NULL,"		\
+  "   file_id             INTEGER NOT NULL,"				\
+  "   pos                 INTEGER NOT NULL,"				\
+  "   shuffle_pos         INTEGER NOT NULL,"				\
+  "   data_kind           INTEGER NOT NULL,"				\
+  "   media_kind          INTEGER NOT NULL,"				\
+  "   song_length         INTEGER NOT NULL,"				\
+  "   path                VARCHAR(4096) NOT NULL,"			\
+  "   virtual_path        VARCHAR(4096) NOT NULL,"			\
+  "   title               VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist        VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   album               VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   genre               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   songalbumid         INTEGER NOT NULL,"				\
+  "   time_modified       INTEGER DEFAULT 0,"				\
+  "   artist_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_sort          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist_sort   VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   year                INTEGER DEFAULT 0,"				\
+  "   track               INTEGER DEFAULT 0,"				\
+  "   disc                INTEGER DEFAULT 0"				\
+  ");"
+
+#define U_V2000_PLVERSION			\
+  "INSERT INTO admin (key, value) VALUES ('plversion', '0');"
+
+#define U_V2000_SCVER_MAJOR			\
+  "UPDATE admin SET value = '20' WHERE key = 'schema_version_major';"
+#define U_V2000_SCVER_MINOR			\
+  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2000_queries[] =
+  {
+    { U_V2000_CREATE_TABLE_QUEUE,    "create table directories" },
+    { U_V2000_PLVERSION,             "insert plversion" },
+
+    { U_V2000_SCVER_MAJOR,    "set schema_version_major to 20" },
+    { U_V2000_SCVER_MINOR,    "set schema_version_minor to 00" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1548,6 +1596,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 	return -1;
 
       ret = db_upgrade_v19(hdl);
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1900:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2000_queries, sizeof(db_upgrade_v2000_queries) / sizeof(db_upgrade_v2000_queries[0]));
       if (ret < 0)
 	return -1;
 
