@@ -796,7 +796,7 @@ find_first_song_id(const char *query)
   qp.filter = daap_query_parse_sql(query);
   if (!qp.filter)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Improper DAAP query!\n");
+      DPRINTF(E_LOG, L_DACP, "Improper DAAP query!\n");
 
       return -1;
     }
@@ -804,7 +804,7 @@ find_first_song_id(const char *query)
   ret = db_query_start(&qp);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not start query\n");
+      DPRINTF(E_LOG, L_DACP, "Could not start query\n");
 
       goto no_query_start;
     }
@@ -814,17 +814,17 @@ find_first_song_id(const char *query)
       ret = safe_atoi32(dbmfi.id, &id);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
+	  DPRINTF(E_LOG, L_DACP, "Invalid song id in query result!\n");
 
 	  goto no_result;
 	}
 
-      DPRINTF(E_DBG, L_PLAYER, "Found index song (id %d)\n", id);
+      DPRINTF(E_DBG, L_DACP, "Found index song (id %d)\n", id);
       ret = 1;
     }
   else
     {
-      DPRINTF(E_LOG, L_PLAYER, "No song matches query (results %d): %s\n", qp.results, qp.filter);
+      DPRINTF(E_LOG, L_DACP, "No song matches query (results %d): %s\n", qp.results, qp.filter);
 
       goto no_result;
     }
@@ -895,7 +895,7 @@ dacp_queueitem_make(struct queue_item **head, const char *query, const char *que
 	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &albumid);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Invalid album id in queuefilter: %s\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid album id in queuefilter: %s\n", queuefilter);
 
 	      return -1;
 	    }
@@ -908,7 +908,7 @@ dacp_queueitem_make(struct queue_item **head, const char *query, const char *que
 	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &artistid);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Invalid artist id in queuefilter: %s\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid artist id in queuefilter: %s\n", queuefilter);
 
 	      return -1;
 	    }
@@ -921,7 +921,7 @@ dacp_queueitem_make(struct queue_item **head, const char *query, const char *que
 	  ret = safe_atoi32(strchr(queuefilter, ':') + 1, &plid);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Invalid playlist id in queuefilter: %s\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid playlist id in queuefilter: %s\n", queuefilter);
 
 	      return -1;
 	    }
@@ -939,7 +939,7 @@ dacp_queueitem_make(struct queue_item **head, const char *query, const char *que
 	}
       else
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter %s\n", queuefilter);
+	  DPRINTF(E_LOG, L_DACP, "Unknown queuefilter %s\n", queuefilter);
 
 	  // If the queuefilter is unkown, ignore it and use the query parameter instead to build the sql query
 	  id = 0;
