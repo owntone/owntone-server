@@ -217,9 +217,9 @@
   " VALUES (4, '/spotify:', 0, 4294967296, 1);"
 
 #define Q_SCVER_MAJOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '19');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '%d');"
 #define Q_SCVER_MINOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '00');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '%02d');"
 
 struct db_init_query {
   char *query;
@@ -251,9 +251,6 @@ static const struct db_init_query db_init_table_queries[] =
     { Q_DIR2,      "create default base directory '/file:'" },
     { Q_DIR3,      "create default base directory '/http:'" },
     { Q_DIR4,      "create default base directory '/spotify:'" },
-
-    { Q_SCVER_MAJOR, "set schema version major" },
-    { Q_SCVER_MINOR, "set schema version minor" },
   };
 
 
@@ -389,6 +386,7 @@ db_init_indices(sqlite3 *hdl)
 int
 db_init_tables(sqlite3 *hdl)
 {
+  char *query;
   char *errmsg;
   int i;
   int ret;
@@ -405,6 +403,30 @@ db_init_tables(sqlite3 *hdl)
 	  sqlite3_free(errmsg);
 	  return -1;
 	}
+    }
+
+  query = sqlite3_mprintf(Q_SCVER_MAJOR, SCHEMA_VERSION_MAJOR);
+  DPRINTF(E_DBG, L_DB, "DB init table query: %s\n", query);
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  query = sqlite3_mprintf(Q_SCVER_MINOR, SCHEMA_VERSION_MINOR);
+  DPRINTF(E_DBG, L_DB, "DB init table query: %s\n", query);
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
+      sqlite3_free(errmsg);
+      return -1;
     }
 
   ret = db_init_indices(hdl);
