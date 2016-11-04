@@ -42,10 +42,12 @@
 #include "conffile.h"
 #include "logger.h"
 #include "cache.h"
+#include "listener.h"
 #include "misc.h"
 #include "db.h"
 #include "db_init.h"
 #include "db_upgrade.h"
+#include "rng.h"
 
 
 #define STR(x) ((x) ? (x) : "")
@@ -298,6 +300,9 @@ static const char *sort_clause[] =
     "ORDER BY f.track ASC",
     "ORDER BY f.virtual_path ASC",
   };
+
+/* Shuffle RNG state */
+struct rng_ctx shuffle_rng;
 
 static char *db_path;
 static __thread sqlite3 *hdl;
@@ -873,6 +878,24 @@ void
 db_transaction_end(void)
 {
   char *query = "END TRANSACTION;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "SQL error running '%s': %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+}
+
+void
+db_transaction_rollback(void)
+{
+  char *query = "ROLLBACK TRANSACTION;";
   char *errmsg;
   int ret;
 
@@ -4138,6 +4161,1464 @@ db_speaker_clear_all(void)
   db_query_run("UPDATE speakers SET selected = 0;", 0, 0);
 }
 
+/* Queue */
+
+static int
+queue_fetch_byitemid(struct db_queue_enum *queue_enum, uint32_t item_id, struct db_queue_item *queue_item, int keep_item);
+
+
+void
+free_queue_item(struct db_queue_item *queue_item, int content_only)
+{
+  if (queue_item->path)
+    free(queue_item->path);
+  if (queue_item->virtual_path)
+    free(queue_item->virtual_path);
+  if (queue_item->title)
+    free(queue_item->title);
+  if (queue_item->artist)
+    free(queue_item->artist);
+  if (queue_item->album_artist)
+    free(queue_item->album_artist);
+  if (queue_item->album)
+    free(queue_item->album);
+  if (queue_item->genre)
+    free(queue_item->genre);
+  if (queue_item->artist_sort)
+    free(queue_item->artist_sort);
+  if (queue_item->album_sort)
+    free(queue_item->album_sort);
+  if (queue_item->album_artist_sort)
+    free(queue_item->album_artist_sort);
+
+  if (!content_only && queue_item)
+    free(queue_item);
+}
+
+/*
+ * Returns the queue version from the admin table
+ *
+ * @return queue version
+ */
+int
+db_queue_get_version()
+{
+  char *version;
+  int32_t plversion;
+  int ret;
+
+  plversion = 0;
+  version = db_admin_get("plversion");
+  if (version)
+    {
+      ret = safe_atoi32(version, &plversion);
+      free(version);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not get playlist version\n");
+	  return -1;
+	}
+    }
+
+  return plversion;
+}
+
+/*
+ * Increments the version of the queue in the admin table and notifies listener of LISTENER_PLAYLIST
+ * about the change.
+ *
+ * This function must be called after successfully modifying the queue table in order to send
+ * notification messages to the clients (e. g. dacp or mpd clients).
+ */
+static void
+queue_inc_version_and_notify()
+{
+  int plversion;
+  char version[10];
+  int ret;
+
+  db_transaction_begin();
+
+  plversion = db_queue_get_version();
+  if (plversion < 0)
+    plversion = 0;
+
+  plversion++;
+  ret = snprintf(version, sizeof(version), "%d", plversion);
+  if (ret >= sizeof(version))
+    {
+      DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not convert version to string: %d\n", plversion);
+      db_transaction_rollback();
+      return;
+    }
+
+  ret = db_admin_update("plversion", version);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not update version in admin table: %d\n", plversion);
+      db_transaction_rollback();
+      return;
+    }
+
+  db_transaction_end();
+
+  listener_notify(LISTENER_PLAYLIST);
+}
+
+static int
+queue_add_mediafileinfo(struct db_media_file_info *dbmfi, int pos, int shuffle_pos)
+{
+#define Q_TMPL "INSERT INTO queue "							\
+		    "(id, file_id, song_length, data_kind, media_kind, "		\
+		    "pos, shuffle_pos, path, virtual_path, title, "			\
+		    "artist, album_artist, album, genre, songalbumid, "			\
+		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
+		    "track, disc)" 							\
+		"VALUES"                                           			\
+		    "(NULL, %s, %s, %s, %s, "						\
+		    "%d, %d, %Q, %Q, %Q, "						\
+		    "%Q, %Q, %Q, %Q, %s, "						\
+		    "%s, %Q, %Q, %Q, %s, "						\
+		    "%s, %s);"
+
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL,
+			  dbmfi->id, dbmfi->song_length, dbmfi->data_kind, dbmfi->media_kind,
+			  pos, pos, dbmfi->path, dbmfi->virtual_path, dbmfi->title,
+			  dbmfi->artist, dbmfi->album_artist, dbmfi->album, dbmfi->genre, dbmfi->songalbumid,
+			  dbmfi->time_modified, dbmfi->artist_sort, dbmfi->album_sort, dbmfi->album_artist_sort, dbmfi->year,
+			  dbmfi->track, dbmfi->disc);
+  ret = db_query_run(query, 1, 0);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+/*
+ * Adds the files matching the given query to the queue after the item with the given item id
+ *
+ * The files table is queried with the given parameters and all found files are added after the
+ * item with the given item id to the "normal" queue. They are appended to end of the shuffled queue
+ * (assuming that the shuffled queue will get reshuffled after adding new items).
+ *
+ * The function returns -1 on failure (e. g. error reading from database) and if the given item id
+ * does not exist. It wraps all database access in a transaction and performs a rollback if an error
+ * occurs, leaving the queue in a consistent state.
+ *
+ * @param qp Query parameters for the files table
+ * @param item_id Files are added after item with this id
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
+{
+  struct db_media_file_info dbmfi;
+  char *query;
+  int shuffle_pos;
+  int pos;
+  int ret;
+
+  db_transaction_begin();
+
+  // Position of the first new item
+  pos = db_queue_get_pos(item_id, 0);
+  if (pos < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not fetch queue item for item-id %d\n", item_id);
+      db_transaction_rollback();
+      return -1;
+    }
+  pos++;
+
+  // Shuffle position of the first new item
+  shuffle_pos = db_queue_get_count();
+  if (shuffle_pos < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not get count from queue\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Start query for new items from files table
+  ret = db_query_start(qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not start query\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Player queue query returned %d items\n", qp->results);
+
+  // Update pos for all items after the item with item_id
+  query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d WHERE pos > %d;", qp->results, (pos - 1));
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Iterate over new items from files table and insert into queue
+  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      ret = queue_add_mediafileinfo(&dbmfi, pos, shuffle_pos);
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_DBG, L_DB, "Failed to add song  with id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
+	  break;
+	}
+
+      DPRINTF(E_DBG, L_DB, "Added song with id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
+      shuffle_pos++;
+      pos++;
+    }
+
+  db_query_end(qp);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error fetching results\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  db_transaction_end();
+
+  queue_inc_version_and_notify();
+
+  return 0;
+}
+
+/*
+ * Adds the files matching the given query to the queue
+ *
+ * The files table is queried with the given parameters and all found files are added to the end of the
+ * "normal" queue and the shuffled queue.
+ *
+ * The function returns -1 on failure (e. g. error reading from database). It wraps all database access
+ * in a transaction and performs a rollback if an error occurs, leaving the queue in a consistent state.
+ *
+ * @param qp Query parameters for the files table
+ * @param reshuffle If 1 queue will be reshuffled after adding new items
+ * @param item_id The base item id, all items after this will be reshuffled
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
+{
+  struct db_media_file_info dbmfi;
+  int pos;
+  int ret;
+
+  db_transaction_begin();
+
+  pos = db_queue_get_count();
+  if (pos < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not get count from queue\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  ret = db_query_start(qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not start query\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Player queue query returned %d items\n", qp->results);
+
+  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      ret = queue_add_mediafileinfo(&dbmfi, pos, pos);
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_DBG, L_DB, "Failed to add song id %s (%s)\n", dbmfi.id, dbmfi.title);
+	  break;
+	}
+
+      DPRINTF(E_DBG, L_DB, "Added song id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
+      pos++;
+    }
+
+  db_query_end(qp);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error fetching results\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  ret = (int) sqlite3_last_insert_rowid(hdl);
+
+  db_transaction_end();
+
+  // Reshuffle after adding new items
+  if (reshuffle)
+    {
+      db_queue_reshuffle(item_id);
+    }
+  else
+    {
+      queue_inc_version_and_notify();
+    }
+
+  return ret;
+}
+
+/*
+ * Adds the items of the stored playlist with the given id to the end of the queue
+ *
+ * @param plid Id of the stored playlist
+ * @param reshuffle If 1 queue will be reshuffled after adding new items
+ * @param item_id The base item id, all items after this will be reshuffled
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
+{
+  struct query_params qp;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.id = plid;
+  qp.type = Q_PLITEMS;
+  qp.offset = 0;
+  qp.limit = 0;
+  qp.sort = S_NONE;
+  qp.idx_type = I_NONE;
+
+  ret = db_queue_add_by_query(&qp, reshuffle, item_id);
+
+  return ret;
+}
+
+/*
+ * Adds the file with the given id to the queue
+ *
+ * @param id Id of the file
+ * @param reshuffle If 1 queue will be reshuffled after adding new items
+ * @param item_id The base item id, all items after this will be reshuffled
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
+{
+  struct query_params qp;
+  char buf[124];
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.id = 0;
+  qp.type = Q_ITEMS;
+  qp.offset = 0;
+  qp.limit = 0;
+  qp.sort = S_NONE;
+  snprintf(buf, sizeof(buf), "f.id = %" PRIu32, id);
+  qp.filter = buf;
+
+  ret = db_queue_add_by_query(&qp, reshuffle, item_id);
+
+  return ret;
+}
+
+static int
+queue_enum_start(struct db_queue_enum *queue_enum)
+{
+#define Q_TMPL "SELECT * FROM queue WHERE %s ORDER BY %s;"
+  char *query;
+  char *orderby;
+  int ret;
+
+  queue_enum->stmt = NULL;
+
+  if (queue_enum->orderby_shufflepos)
+    orderby = "shuffle_pos";
+  else
+    orderby = "pos";
+
+  if (queue_enum->filter)
+     query = sqlite3_mprintf(Q_TMPL, queue_enum->filter, orderby);
+  else
+    query = sqlite3_mprintf(Q_TMPL, "1=1", orderby);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &queue_enum->stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+static void
+queue_enum_end(struct db_queue_enum *queue_enum)
+{
+  if (!queue_enum->stmt)
+    return;
+
+  sqlite3_finalize(queue_enum->stmt);
+  sqlite3_free(queue_enum->filter);
+  queue_enum->filter = NULL;
+  queue_enum->stmt = NULL;
+}
+
+static inline char *
+strdup_if(char *str, int cond)
+{
+  if (str == NULL)
+    return NULL;
+
+  if (cond)
+    return strdup(str);
+
+  return str;
+}
+
+static int
+queue_enum_fetch(struct db_queue_enum *queue_enum, struct db_queue_item *queue_item, int keep_item)
+{
+  int ret;
+
+  memset(queue_item, 0, sizeof(struct db_queue_item));
+
+  if (!queue_enum->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Queue enum not started!\n");
+      return -1;
+    }
+
+  ret = db_blocking_step(queue_enum->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of queue enum results\n");
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  queue_item->item_id = (uint32_t)sqlite3_column_int(queue_enum->stmt, 0);
+  queue_item->file_id = (uint32_t)sqlite3_column_int(queue_enum->stmt, 1);
+  queue_item->pos = (uint32_t)sqlite3_column_int(queue_enum->stmt, 2);
+  queue_item->shuffle_pos = (uint32_t)sqlite3_column_int(queue_enum->stmt, 3);
+  queue_item->data_kind = sqlite3_column_int(queue_enum->stmt, 4);
+  queue_item->media_kind = sqlite3_column_int(queue_enum->stmt, 5);
+  queue_item->song_length = (uint32_t)sqlite3_column_int(queue_enum->stmt, 6);
+  queue_item->path = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 7), keep_item);
+  queue_item->virtual_path = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 8), keep_item);
+  queue_item->title = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 9), keep_item);
+  queue_item->artist = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 10), keep_item);
+  queue_item->album_artist = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 11), keep_item);
+  queue_item->album = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 12), keep_item);
+  queue_item->genre = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 13), keep_item);
+  queue_item->songalbumid = sqlite3_column_int64(queue_enum->stmt, 14);
+  queue_item->time_modified = sqlite3_column_int(queue_enum->stmt, 15);
+  queue_item->artist_sort = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 16), keep_item);
+  queue_item->album_sort = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 17), keep_item);
+  queue_item->album_artist_sort = strdup_if((char *)sqlite3_column_text(queue_enum->stmt, 18), keep_item);
+  queue_item->year = sqlite3_column_int(queue_enum->stmt, 19);
+  queue_item->track = sqlite3_column_int(queue_enum->stmt, 20);
+  queue_item->disc = sqlite3_column_int(queue_enum->stmt, 21);
+
+  return 0;
+}
+
+int
+db_queue_enum_start(struct db_queue_enum *queue_enum)
+{
+  int ret;
+
+  db_transaction_begin();
+
+  ret = queue_enum_start(queue_enum);
+
+  if (ret < 0)
+    db_transaction_rollback();
+
+  return ret;
+}
+
+void
+db_queue_enum_end(struct db_queue_enum *queue_enum)
+{
+  if (!queue_enum->stmt)
+    return;
+
+  queue_enum_end(queue_enum);
+  db_transaction_end();
+}
+
+int
+db_queue_enum_fetch(struct db_queue_enum *queue_enum, struct db_queue_item *queue_item)
+{
+  return queue_enum_fetch(queue_enum, queue_item, 0);
+}
+
+int
+db_queue_get_pos(uint32_t item_id, char shuffle)
+{
+#define Q_TMPL "SELECT pos FROM queue WHERE id = %d;"
+#define Q_TMPL_SHUFFLE "SELECT shuffle_pos FROM queue WHERE id = %d;"
+
+  char *query;
+  int pos;
+
+  if (shuffle)
+    query = sqlite3_mprintf(Q_TMPL_SHUFFLE, item_id);
+  else
+    query = sqlite3_mprintf(Q_TMPL, item_id);
+
+  pos = db_get_count(query);
+
+  sqlite3_free(query);
+
+  return pos;
+
+#undef Q_TMPL
+#undef Q_TMPL_SHUFFLE
+}
+
+int
+db_queue_get_pos_byfileid(uint32_t file_id, char shuffle)
+{
+#define Q_TMPL "SELECT pos FROM queue WHERE file_id = %d LIMIT 1;"
+#define Q_TMPL_SHUFFLE "SELECT shuffle_pos FROM queue WHERE file_id = %d LIMIT 1;"
+
+  char *query;
+  int pos;
+
+  if (shuffle)
+    query = sqlite3_mprintf(Q_TMPL_SHUFFLE, file_id);
+  else
+    query = sqlite3_mprintf(Q_TMPL, file_id);
+
+  pos = db_get_count(query);
+
+  sqlite3_free(query);
+
+  return pos;
+
+#undef Q_TMPL
+#undef Q_TMPL_SHUFFLE
+}
+
+static int
+queue_fetch_byitemid(struct db_queue_enum *queue_enum, uint32_t item_id, struct db_queue_item *queue_item, int keep_item)
+{
+  int ret;
+
+  memset(queue_enum, 0, sizeof(struct db_queue_enum));
+  queue_enum->filter = sqlite3_mprintf("id = %d", item_id);
+
+  ret = queue_enum_start(queue_enum);
+  if (ret < 0)
+    {
+      sqlite3_free(queue_enum->filter);
+      return -1;
+    }
+
+  ret = queue_enum_fetch(queue_enum, queue_item, keep_item);
+
+  return ret;
+}
+
+struct db_queue_item *
+db_queue_fetch_byitemid(uint32_t item_id)
+{
+  struct db_queue_item *queue_item;
+  struct db_queue_enum queue_enum;
+  int ret;
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  queue_item = calloc(1, sizeof(struct db_queue_item));
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for queue_item\n");
+      return NULL;
+    }
+
+  db_transaction_begin();
+  ret = queue_fetch_byitemid(&queue_enum, item_id, queue_item, 1);
+  queue_enum_end(&queue_enum);
+  db_transaction_end();
+
+  if (ret < 0)
+    {
+      free_queue_item(queue_item, 0);
+      DPRINTF(E_LOG, L_DB, "Error fetching queue item by item id\n");
+      return NULL;
+    }
+
+  return queue_item;
+}
+
+struct db_queue_item *
+db_queue_fetch_byfileid(uint32_t file_id)
+{
+  struct db_queue_item *queue_item;
+  struct db_queue_enum queue_enum;
+  int ret;
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  queue_item = calloc(1, sizeof(struct db_queue_item));
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for queue_item\n");
+      return NULL;
+    }
+
+  db_transaction_begin();
+
+  queue_enum.filter = sqlite3_mprintf("file_id = %d", file_id);
+
+  ret = queue_enum_start(&queue_enum);
+  if (ret < 0)
+    {
+      sqlite3_free(queue_enum.filter);
+      db_transaction_end();
+      free_queue_item(queue_item, 0);
+      DPRINTF(E_LOG, L_DB, "Error fetching queue item by file id\n");
+      return NULL;
+    }
+
+  ret = queue_enum_fetch(&queue_enum, queue_item, 1);
+  queue_enum_end(&queue_enum);
+  sqlite3_free(queue_enum.filter);
+  db_transaction_end();
+
+  if (ret < 0)
+    {
+      free_queue_item(queue_item, 0);
+      DPRINTF(E_LOG, L_DB, "Error fetching queue item by file id\n");
+      return NULL;
+    }
+
+  return queue_item;
+}
+
+static int
+queue_fetch_bypos(struct db_queue_enum *queue_enum, uint32_t pos, char shuffle, struct db_queue_item *queue_item, int keep_item)
+{
+  int ret;
+
+  memset(queue_enum, 0, sizeof(struct db_queue_enum));
+  if (shuffle)
+    queue_enum->filter = sqlite3_mprintf("shuffle_pos = %d", pos);
+  else
+    queue_enum->filter = sqlite3_mprintf("pos = %d", pos);
+
+  ret = queue_enum_start(queue_enum);
+  if (ret < 0)
+    {
+      sqlite3_free(queue_enum->filter);
+      return -1;
+    }
+
+  ret = queue_enum_fetch(queue_enum, queue_item, keep_item);
+
+  return ret;
+}
+
+struct db_queue_item *
+db_queue_fetch_bypos(uint32_t pos, char shuffle)
+{
+  struct db_queue_item *queue_item;
+  struct db_queue_enum queue_enum;
+  int ret;
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  queue_item = calloc(1, sizeof(struct db_queue_item));
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Out of memory for queue_item\n");
+      return NULL;
+    }
+
+  db_transaction_begin();
+  ret = queue_fetch_bypos(&queue_enum, pos, shuffle, queue_item, 1);
+  queue_enum_end(&queue_enum);
+  db_transaction_end();
+
+  if (ret < 0)
+    {
+      free_queue_item(queue_item, 0);
+      DPRINTF(E_LOG, L_DB, "Error fetching queue item by pos id\n");
+      return NULL;
+    }
+
+  return queue_item;
+}
+
+static int
+queue_fetch_byposrelativetoitem(struct db_queue_enum *queue_enum, int pos, uint32_t item_id, char shuffle, struct db_queue_item *queue_item, int keep_item)
+{
+  int pos_absolute;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Fetch by pos: pos (%d) relative to item with id (%d)\n", pos, item_id);
+
+  pos_absolute = db_queue_get_pos(item_id, shuffle);
+  if (pos_absolute < 0)
+    {
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Fetch by pos: item (%d) has absolute pos %d\n", item_id, pos_absolute);
+
+  pos_absolute += pos;
+
+  ret = queue_fetch_bypos(queue_enum, pos_absolute, shuffle, queue_item, keep_item);
+
+  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->item_id, queue_item->pos, queue_item->file_id);
+
+  return ret;
+}
+
+struct db_queue_item *
+db_queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle)
+{
+  struct db_queue_item *queue_item;
+  struct db_queue_enum queue_enum;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Fetch by pos: pos (%d) relative to item with id (%d)\n", pos, item_id);
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  queue_item = calloc(1, sizeof(struct db_queue_item));
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Out of memory for queue_item\n");
+      return NULL;
+    }
+
+  db_transaction_begin();
+
+  ret = queue_fetch_byposrelativetoitem(&queue_enum, pos, item_id, shuffle, queue_item, 1);
+  queue_enum_end(&queue_enum);
+
+  db_transaction_end();
+
+  if (ret < 0)
+    {
+      free_queue_item(queue_item, 0);
+      DPRINTF(E_LOG, L_DB, "Error fetching queue item by pos relative to item id\n");
+      return NULL;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->item_id, queue_item->pos, queue_item->file_id);
+
+  return queue_item;
+}
+
+struct db_queue_item *
+db_queue_fetch_next(uint32_t item_id, char shuffle)
+{
+  return db_queue_fetch_byposrelativetoitem(1, item_id, shuffle);
+}
+
+struct db_queue_item *
+db_queue_fetch_prev(uint32_t item_id, char shuffle)
+{
+  return db_queue_fetch_byposrelativetoitem(-1, item_id, shuffle);
+}
+
+/*
+ * Remove files that are disabled or non existant in the library and repair ordering of
+ * the queue (shuffle and normal)
+ */
+int
+db_queue_cleanup()
+{
+#define Q_TMPL "DELETE FROM queue WHERE NOT file_id IN (SELECT id from files WHERE disabled = 0);"
+#define Q_TMPL_UPDATE "UPDATE queue SET pos = %d WHERE id = %d;"
+#define Q_TMPL_UPDATE_SHUFFLE "UPDATE queue SET shuffle_pos = %d WHERE id = %d;"
+
+  struct db_queue_enum queue_enum;
+  struct db_queue_item queue_item;
+  char *query;
+  int pos;
+  int deleted;
+  int ret;
+
+  db_transaction_begin();
+
+  ret = db_query_run(Q_TMPL, 0, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  deleted = sqlite3_changes(hdl);
+  if (deleted <= 0)
+    {
+      // Nothing to do
+      db_transaction_end();
+      return 0;
+    }
+
+  // Update position of normal queue
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+
+  ret = queue_enum_start(&queue_enum);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  pos = 0;
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0))
+    {
+      if (queue_item.pos != pos)
+	{
+	  query = sqlite3_mprintf(Q_TMPL_UPDATE, pos, queue_item.item_id);
+	  ret = db_query_run(query, 1, 0);
+	  if (ret < 0)
+	  {
+	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.item_id);
+	    break;
+	  }
+	}
+
+      pos++;
+    }
+
+  queue_enum_end(&queue_enum);
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update position of shuffle queue
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  queue_enum.orderby_shufflepos = 1;
+
+  ret = queue_enum_start(&queue_enum);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  pos = 0;
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0))
+    {
+      if (queue_item.shuffle_pos != pos)
+	{
+	  query = sqlite3_mprintf(Q_TMPL_UPDATE_SHUFFLE, pos, queue_item.item_id);
+	  ret = db_query_run(query, 1, 0);
+	  if (ret < 0)
+	  {
+	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.item_id);
+	    break;
+	  }
+	}
+
+      pos++;
+    }
+
+  queue_enum_end(&queue_enum);
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  db_transaction_end();
+  queue_inc_version_and_notify();
+
+  return 0;
+
+#undef Q_TMPL_UPDATE_SHUFFLE
+#undef Q_TMPL_UPDATE
+#undef Q_TMPL
+}
+
+int
+db_queue_clear()
+{
+  int ret;
+
+  db_transaction_begin();
+  ret = db_query_run("DELETE FROM queue;", 0, 0);
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+    }
+  else
+    {
+      db_transaction_end();
+      queue_inc_version_and_notify();
+    }
+  return ret;
+}
+
+static int
+queue_delete_item(struct db_queue_item *queue_item)
+{
+  char *query;
+  int ret;
+
+  // Remove item with the given item_id
+  query = sqlite3_mprintf("DELETE FROM queue where id = %d;", queue_item->item_id);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  // Update pos for all items after the item with given item_id
+  query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1 WHERE pos > %d;", queue_item->pos);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  // Update shuffle_pos for all items after the item with given item_id
+  query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos - 1 WHERE shuffle_pos > %d;", queue_item->shuffle_pos);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  return 0;
+}
+
+int
+db_queue_delete_byitemid(uint32_t item_id)
+{
+  struct db_queue_enum queue_enum;
+  struct db_queue_item queue_item;
+  int ret;
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+
+  db_transaction_begin();
+
+  ret = queue_fetch_byitemid(&queue_enum, item_id, &queue_item, 0);
+
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  if (queue_item.item_id == 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_end();
+      return 0;
+    }
+
+  ret = queue_delete_item(&queue_item);
+
+  queue_enum_end(&queue_enum);
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+    }
+  else
+    {
+      db_transaction_end();
+      queue_inc_version_and_notify();
+    }
+
+  return ret;
+}
+
+int
+db_queue_delete_bypos(uint32_t pos, int count)
+{
+  struct db_queue_enum queue_enum;
+  struct db_queue_item queue_item;
+  int to_pos;
+  int ret;
+
+  // Find items with the given position
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+
+  to_pos = pos + count;
+  queue_enum.filter = sqlite3_mprintf("pos => %d AND pos < %d", pos, to_pos);
+
+  db_transaction_begin();
+
+  ret = queue_enum_start(&queue_enum);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0))
+    {
+      ret = queue_delete_item(&queue_item);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.item_id);
+	  break;
+	}
+    }
+
+  queue_enum_end(&queue_enum);
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+    }
+  else
+    {
+      db_transaction_end();
+      queue_inc_version_and_notify();
+    }
+
+  return ret;
+}
+
+int
+db_queue_delete_byposrelativetoitem(uint32_t pos, uint32_t item_id, char shuffle)
+{
+  struct db_queue_enum queue_enum;
+  struct db_queue_item queue_item;
+  int ret;
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+
+  db_transaction_begin();
+
+  ret = queue_fetch_byposrelativetoitem(&queue_enum, pos, item_id, shuffle, &queue_item, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  ret = queue_delete_item(&queue_item);
+
+  queue_enum_end(&queue_enum);
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+    }
+  else
+    {
+      db_transaction_end();
+      queue_inc_version_and_notify();
+    }
+
+  return ret;
+}
+
+/*
+ * Moves the queue item with the given id to the given position (zero-based).
+ *
+ * @param item_id Queue item id
+ * @param pos_to target position in the queue (zero-based)
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_move_byitemid(uint32_t item_id, int pos_to)
+{
+  char *query;
+  int pos_from;
+  int ret;
+
+  db_transaction_begin();
+
+  // Find item with the given item_id
+  pos_from = db_queue_get_pos(item_id, 0);
+  if (pos_from < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update pos for all items after the item with given item_id
+  query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1 WHERE pos > %d;", pos_from);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update pos for all items from the given pos_to
+  query = sqlite3_mprintf("UPDATE queue SET pos = pos + 1 WHERE pos >= %d;", pos_to);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update item with the given item_id
+  query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_to, item_id);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  db_transaction_end();
+  queue_inc_version_and_notify();
+
+  return 0;
+}
+
+/*
+ * Moves the queue item at the given position to the given position (zero-based).
+ *
+ * @param pos_from Position of the queue item to move
+ * @param pos_to target position in the queue (zero-based)
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_move_bypos(int pos_from, int pos_to)
+{
+  struct db_queue_item queue_item;
+  struct db_queue_enum queue_enum;
+  char *query;
+  int ret;
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+
+  db_transaction_begin();
+
+  // Find item to move
+  ret = queue_fetch_bypos(&queue_enum, pos_from, 0, &queue_item, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  if (queue_item.item_id == 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_end();
+      return 0;
+    }
+
+  // Update pos for all items after the item with given position
+  query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1 WHERE pos > %d;", queue_item.pos);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update pos for all items from the given pos_to
+  query = sqlite3_mprintf("UPDATE queue SET pos = pos + 1 WHERE pos >= %d;", pos_to);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update item with the given item_id
+  query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_to, queue_item.item_id);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  queue_enum_end(&queue_enum);
+  db_transaction_end();
+  queue_inc_version_and_notify();
+
+  return 0;
+}
+
+/*
+ * Moves the queue item at the given position to the given target position. The positions
+ * are relavtive to the given base item (item id).
+ *
+ * @param from_pos Relative position of the queue item to the base item
+ * @param to_offset Target position relative to the base item
+ * @param item_id The base item id (normaly the now playing item)
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_t item_id, char shuffle)
+{
+  struct db_queue_enum queue_enum;
+  struct db_queue_item queue_item;
+  char *query;
+  int pos_move_from;
+  int pos_move_to;
+  int ret;
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+
+  db_transaction_begin();
+
+  DPRINTF(E_DBG, L_DB, "Move by pos: from %d offset %d relative to item (%d)\n", from_pos, to_offset, item_id);
+
+  // Find item with the given item_id
+  ret = queue_fetch_byitemid(&queue_enum, item_id, &queue_item, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Move by pos: base item (id=%d, pos=%d, file-id=%d)\n", queue_item.item_id, queue_item.pos, queue_item.file_id);
+
+  if (queue_item.item_id == 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_end();
+      return 0;
+    }
+
+  // Calculate the position of the item to move
+  if (shuffle)
+    pos_move_from = queue_item.shuffle_pos + from_pos;
+  else
+    pos_move_from = queue_item.pos + from_pos;
+
+  // Calculate the position where to move the item to
+  if (shuffle)
+    pos_move_to = queue_item.shuffle_pos + to_offset;
+  else
+    pos_move_to = queue_item.pos + to_offset;
+
+  if (pos_move_to < pos_move_from)
+    {
+      /*
+       * Moving an item to a previous position seems to send an offset incremented by one
+       */
+      pos_move_to++;
+    }
+
+  queue_enum_end(&queue_enum);
+
+  DPRINTF(E_DBG, L_DB, "Move by pos: absolute pos: move from %d to %d\n", pos_move_from, pos_move_to);
+
+  // Find item to move
+  ret = queue_fetch_bypos(&queue_enum, pos_move_from, shuffle, &queue_item, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Move by pos: move item (id=%d, pos=%d, file-id=%d)\n", queue_item.item_id, queue_item.pos, queue_item.file_id);
+
+  if (queue_item.item_id == 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_end();
+      return 0;
+    }
+
+  // Update pos for all items after the item with given position
+  if (shuffle)
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos - 1 WHERE shuffle_pos > %d;", queue_item.shuffle_pos);
+  else
+    query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1 WHERE pos > %d;", queue_item.pos);
+
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update pos for all items from the given pos_to
+  if (shuffle)
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos + 1 WHERE shuffle_pos >= %d;", pos_move_to);
+  else
+    query = sqlite3_mprintf("UPDATE queue SET pos = pos + 1 WHERE pos >= %d;", pos_move_to);
+
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  // Update item with the given item_id
+  if (shuffle)
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", pos_move_to, queue_item.item_id);
+  else
+    query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_move_to, queue_item.item_id);
+
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      queue_enum_end(&queue_enum);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  queue_enum_end(&queue_enum);
+  db_transaction_end();
+  queue_inc_version_and_notify();
+
+  return 0;
+}
+
+/*
+ * Reshuffles the shuffle queue
+ *
+ * If the given item_id is 0, the whole shuffle queue is reshuffled, otherwise the
+ * queue is reshuffled after the item with the given id (excluding this item).
+ *
+ * @param item_id The base item, after this item the queue is reshuffled
+ * @return 0 on success, -1 on failure
+ */
+int
+db_queue_reshuffle(uint32_t item_id)
+{
+  char *query;
+  int pos;
+  int count;
+  struct db_queue_item queue_item;
+  int *shuffle_pos;
+  int len;
+  int i;
+  struct db_queue_enum queue_enum;
+  int ret;
+
+  db_transaction_begin();
+
+  DPRINTF(E_DBG, L_DB, "Reshuffle queue after item with item-id: %d\n", item_id);
+
+  // Reset the shuffled order
+  ret = db_query_run("UPDATE queue SET shuffle_pos = pos;", 0, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  pos = 0;
+  if (item_id > 0)
+    {
+      pos = db_queue_get_pos(item_id, 0);
+      if (pos < 0)
+	{
+	  db_transaction_rollback();
+	  return -1;
+	}
+
+      pos++; // Do not reshuffle the base item
+    }
+
+  count = db_queue_get_count();
+
+  len = count - pos;
+
+  DPRINTF(E_DBG, L_DB, "Reshuffle %d items off %d total items, starting from pos %d\n", len, count, pos);
+
+  shuffle_pos = malloc(len * sizeof(int));
+  for (i = 0; i < len; i++)
+    {
+      shuffle_pos[i] = i + pos;
+    }
+
+  shuffle_int(&shuffle_rng, shuffle_pos, len);
+
+
+
+  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  queue_enum.filter = sqlite3_mprintf("pos >= %d", pos);
+
+  ret = queue_enum_start(&queue_enum);
+  if (ret < 0)
+    {
+      sqlite3_free(queue_enum.filter);
+      db_transaction_rollback();
+      return -1;
+    }
+
+  i = 0;
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0) && (i < len))
+    {
+      query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", shuffle_pos[i], queue_item.item_id);
+      ret = db_query_run(query, 1, 0);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.item_id);
+	  break;
+	}
+
+      i++;
+    }
+
+  queue_enum_end(&queue_enum);
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  db_transaction_end();
+  queue_inc_version_and_notify();
+
+  return 0;
+}
+
+int
+db_queue_get_count()
+{
+  return db_get_count("SELECT COUNT(*) FROM queue;");
+}
+
 
 /* Inotify */
 int
@@ -5011,6 +6492,8 @@ db_init(void)
   db_perthread_deinit();
 
   DPRINTF(E_LOG, L_DB, "Database OK with %d active files and %d active playlists\n", files, pls);
+
+  rng_init(&shuffle_rng);
 
   return 0;
 }
