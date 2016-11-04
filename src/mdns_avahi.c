@@ -392,7 +392,7 @@ avahi_address_make(AvahiAddress *addr, AvahiProtocol proto, const void *rdata, s
     {
       if (size != sizeof(AvahiIPv4Address))
 	{
-	  DPRINTF(E_LOG, L_MDNS, "Got RR type A size %d (should be %d)\n", size, sizeof(AvahiIPv4Address));
+	  DPRINTF(E_LOG, L_MDNS, "Got RR type A size %zu (should be %zu)\n", size, sizeof(AvahiIPv4Address));
 	  return -1;
 	}
 
@@ -404,7 +404,7 @@ avahi_address_make(AvahiAddress *addr, AvahiProtocol proto, const void *rdata, s
     {
       if (size != sizeof(AvahiIPv6Address))
 	{
-	  DPRINTF(E_LOG, L_MDNS, "Got RR type AAAA size %d (should be %d)\n", size, sizeof(AvahiIPv6Address));
+	  DPRINTF(E_LOG, L_MDNS, "Got RR type AAAA size %zu (should be %zu)\n", size, sizeof(AvahiIPv6Address));
 	  return -1;
 	}
 
