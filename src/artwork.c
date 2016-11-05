@@ -1129,8 +1129,8 @@ source_item_stream_get(struct artwork_ctx *ctx)
 
   memset(&client, 0, sizeof(struct http_client_ctx));
   client.url = url;
-  client.headers = kv;
-  client.body = ctx->evbuf;
+  client.input_headers = kv;
+  client.input_body = ctx->evbuf;
 
   if (http_client_request(&client) < 0)
     goto out_kv;
