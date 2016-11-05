@@ -159,63 +159,6 @@ AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(stdint.h,,)
 
 dnl --- Begin configuring the options ---
-dnl iTunes playlists with libplist
-AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes Music Library XML support (default=no)]))
-AS_IF([test "x$enable_itunes" = "xyes"], [
-	AC_DEFINE(ITUNES, 1, [Define to 1 to enable iTunes XML support])
-	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
-])
-AM_CONDITIONAL(COND_ITUNES, [test "x$enable_itunes" = "xyes"])
-
-dnl Spotify with dynamic linking to libspotify
-AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify support (default=no)]))
-AS_IF([test "x$enable_spotify" = "xyes"], [
-	AC_DEFINE(SPOTIFY, 1, [Define to 1 to enable Spotify support])
-	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
-	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
-
-	dnl Don't link to libspotify, but instead enable dynamic linking
-	SPOTIFY_CFLAGS="-rdynamic"
-	SPOTIFY_LIBS="-ldl"
-	AC_SUBST(SPOTIFY_CFLAGS)
-	AC_SUBST(SPOTIFY_LIBS)
-])
-AM_CONDITIONAL(COND_SPOTIFY, [test "x$enable_spotify" = "xyes"])
-
-dnl LastFM support with libcurl
-AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
-AS_IF([test "x$enable_lastfm" = "xyes"], [
-	AC_DEFINE(LASTFM, 1, [Define to 1 to enable LastFM support])
-	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
-	AC_CHECK_LIB([mxml], [mxmlGetOpaque], AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
-])
-AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
-
-dnl ChromeCast support with libprotobuf-c
-AC_ARG_ENABLE(chromecast, AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)]))
-AS_IF([test "x$enable_chromecast" = "xyes"], [
-	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
-	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], , [ protobuf_old="yes" ])
-	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
-	PKG_CHECK_EXISTS([ json-c >= 0.11 ],
-		[ PKG_CHECK_MODULES(JSON_C, [ json-c ]) ],
-		[ PKG_CHECK_MODULES(JSON_C, [ json ], AC_DEFINE(HAVE_JSON_C_OLD, 1, [Define 1 to if you have json-c < 0.11])) ]
-	)
-])
-AS_IF([test "x$protobuf_old" = "xyes"], [
-	AC_DEFINE(HAVE_PROTOBUF_OLD, 1, [Define to 1 if you have libprotobuf < 1.0.0])
-	LDFLAGS="${LDFLAGS} -lprotobuf-c"
-])
-AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
-AM_CONDITIONAL(COND_PROTOBUF_OLD, [test "x$protobuf_old" = "xyes"])
-
-dnl MPD support
-AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))
-AS_IF([test "x$enable_mpd" != "xno"], [
-	AC_DEFINE(MPD, 1, [Define to 1 to enable MPD support])
-])
-AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
-
 dnl ALSA
 AC_ARG_WITH(alsa, AS_HELP_STRING([--without-alsa], [without ALSA support (default=no)]))
 AS_IF([test "x$with_alsa" != "xno"], [
@@ -234,6 +177,78 @@ AS_IF([test "x$with_pulseaudio" = "xyes"], [
 	)
 ])
 AM_CONDITIONAL(COND_PULSEAUDIO, [test "x$with_pulseaudio" = "xyes"])
+
+dnl Build with libcurl
+AC_ARG_WITH([libcurl], AS_HELP_STRING([--without-libcurl], [without libcurl (default=no)]))
+AS_IF([test "x$with_libcurl" != "xno"], [
+	AC_DEFINE(HAVE_LIBCURL, 1, [Define to 1 to build with libcurl])
+	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
+])
+
+dnl Build with json-c
+AC_ARG_WITH([json], AS_HELP_STRING([--without-json-c], [without json-c (default=no)]))
+AS_IF([test "x$with_json" != "xno"], [
+	AC_DEFINE(HAVE_JSON, 1, [Define to 1 to build with json-c])
+	PKG_CHECK_EXISTS([ json-c >= 0.11 ],
+		[ PKG_CHECK_MODULES(JSON_C, [ json-c ]) ],
+		[ PKG_CHECK_MODULES(JSON_C, [ json ], AC_DEFINE(HAVE_JSON_C_OLD, 1, [Define 1 to if you have json-c < 0.11])) ]
+	)
+])
+
+dnl iTunes playlists with libplist
+AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes Music Library XML support (default=no)]))
+AS_IF([test "x$enable_itunes" = "xyes"], [
+	AC_DEFINE(ITUNES, 1, [Define to 1 to enable iTunes XML support])
+	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
+])
+AM_CONDITIONAL(COND_ITUNES, [test "x$enable_itunes" = "xyes"])
+
+dnl Spotify with dynamic linking to libspotify
+AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify support (default=no)]))
+AS_IF([test "x$enable_spotify" = "xyes"], [
+	AC_DEFINE(SPOTIFY, 1, [Define to 1 to enable Spotify support])
+	AS_IF([test "x$with_json" = "xno"], AC_MSG_ERROR([Spotify support requires json-c]))
+	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
+	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
+
+	dnl Don't link to libspotify, but instead enable dynamic linking
+	SPOTIFY_CFLAGS="-rdynamic"
+	SPOTIFY_LIBS="-ldl"
+	AC_SUBST(SPOTIFY_CFLAGS)
+	AC_SUBST(SPOTIFY_LIBS)
+])
+AM_CONDITIONAL(COND_SPOTIFY, [test "x$enable_spotify" = "xyes"])
+
+dnl LastFM support with libcurl
+AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
+AS_IF([test "x$enable_lastfm" = "xyes"], [
+	AC_DEFINE(LASTFM, 1, [Define to 1 to enable LastFM support])
+	AS_IF([test "x$with_libcurl" = "xno"], AC_MSG_ERROR([LastFM support requires libcurl]))
+	AC_CHECK_LIB([mxml], [mxmlGetOpaque], AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
+])
+AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
+
+dnl ChromeCast support with libprotobuf-c
+AC_ARG_ENABLE(chromecast, AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)]))
+AS_IF([test "x$enable_chromecast" = "xyes"], [
+	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
+	AS_IF([test "x$with_json" = "xno"], AC_MSG_ERROR([Chromecast support requires json-c]))
+	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], , [ protobuf_old="yes" ])
+	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
+])
+AS_IF([test "x$protobuf_old" = "xyes"], [
+	AC_DEFINE(HAVE_PROTOBUF_OLD, 1, [Define to 1 if you have libprotobuf < 1.0.0])
+	LDFLAGS="${LDFLAGS} -lprotobuf-c"
+])
+AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
+AM_CONDITIONAL(COND_PROTOBUF_OLD, [test "x$protobuf_old" = "xyes"])
+
+dnl MPD support
+AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))
+AS_IF([test "x$enable_mpd" != "xno"], [
+	AC_DEFINE(MPD, 1, [Define to 1 to enable MPD support])
+])
+AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
 dnl --- End options ---
 
 dnl Checks for header files.
