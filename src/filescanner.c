@@ -1227,6 +1227,7 @@ bulk_scan(int flags)
 
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
+      db_queue_cleanup();
       cache_artwork_purge_cruft(start);
 
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
@@ -1244,6 +1245,7 @@ bulk_scan(int flags)
 static void *
 filescanner(void *arg)
 {
+  int clear_queue_on_stop_disabled;
   int ret;
 #if defined(__linux__)
   struct sched_param param;
@@ -1282,6 +1284,19 @@ filescanner(void *arg)
       DPRINTF(E_LOG, L_SCAN, "Error: could not clear old groups from DB\n");
 
       pthread_exit(NULL);
+    }
+
+  // Only clear the queue if enabled (default) in config
+  clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
+  if (!clear_queue_on_stop_disabled)
+    {
+      ret = db_queue_clear();
+      if (ret < 0)
+        {
+          DPRINTF(E_LOG, L_SCAN, "Error: could not clear queue from DB\n");
+
+          pthread_exit(NULL);
+        }
     }
 
   /* Recompute all songartistids and songalbumids, in case the SQLite DB got transferred
@@ -1937,7 +1952,7 @@ filescanner_fullrescan(void *arg, int *retval)
   DPRINTF(E_LOG, L_SCAN, "Full rescan triggered\n");
 
   player_playback_stop();
-  player_queue_clear();
+  db_queue_clear();
   inofd_event_unset(); // Clears all inotify watches
   db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
 

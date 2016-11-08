@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "db.h"
-#include "queue.h"
 
 /* AirTunes v2 packet interval in ns */
 /* (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet */
@@ -28,6 +27,12 @@ enum play_status {
   PLAY_PLAYING = 4,
 };
 
+enum repeat_mode {
+  REPEAT_OFF  = 0,
+  REPEAT_SONG = 1,
+  REPEAT_ALL  = 2,
+};
+
 struct spk_flags {
   unsigned selected:1;
   unsigned has_password:1;
@@ -44,13 +49,6 @@ struct player_status {
 
   /* Playlist id */
   uint32_t plid;
-  /* Playlist version
-     After startup plversion is 0 and gets incremented after each change of the playlist
-     (e. g. after adding/moving/removing items). It is used by mpd clients to recognize if
-     they need to update the current playlist. */
-  uint32_t plversion;
-  /* Playlist length */
-  uint32_t playlistlength;
   /* Id of the playing file/item in the files database */
   uint32_t id;
   /* Item-Id of the playing file/item in the queue */
@@ -59,14 +57,6 @@ struct player_status {
   uint32_t pos_ms;
   /* Length in ms of playing item */
   uint32_t len_ms;
-  /* Playlist position of playing item*/
-  int pos_pl;
-  /* Item id of next item in playlist */
-  uint32_t next_id;
-  /* Item-Id of the next file/item in the queue */
-  uint32_t next_item_id;
-  /* Playlist position of next item */
-  int next_pos_pl;
 };
 
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg);
@@ -107,13 +97,7 @@ int
 player_playback_start(uint32_t *id);
 
 int
-player_playback_start_byindex(int pos, uint32_t *id);
-
-int
-player_playback_start_bypos(int pos, uint32_t *id);
-
-int
-player_playback_start_byitemid(uint32_t item_id, uint32_t *id);
+player_playback_start_byitem(struct db_queue_item *queue_item);
 
 int
 player_playback_stop(void);
@@ -146,39 +130,6 @@ player_repeat_set(enum repeat_mode mode);
 int
 player_shuffle_set(int enable);
 
-
-struct queue *
-player_queue_get_bypos(int count);
-
-struct queue *
-player_queue_get_byindex(int pos, int count);
-
-int
-player_queue_add(struct queue_item *items, uint32_t *item_id);
-
-int
-player_queue_add_next(struct queue_item *items);
-
-int
-player_queue_move_bypos(int ps_pos_from, int ps_pos_to);
-
-int
-player_queue_move_byindex(int pos_from, int pos_to);
-
-int
-player_queue_move_byitemid(uint32_t item_id, int pos_to);
-
-int
-player_queue_remove_bypos(int pos);
-
-int
-player_queue_remove_byindex(int pos, int count);
-
-int
-player_queue_remove_byitemid(uint32_t id);
-
-void
-player_queue_clear(void);
 
 void
 player_queue_clear_history(void);

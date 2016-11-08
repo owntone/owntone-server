@@ -2022,6 +2022,31 @@ db_files_get_count_bymatch(char *path)
 #undef Q_TMPL
 }
 
+int
+db_file_get_seekpos(uint32_t id)
+{
+#define Q_TMPL "SELECT seek FROM files f WHERE f.id = %d;"
+  char *query;
+  int seek_ms;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory making seekpos query string.\n");
+
+      return -1;
+    }
+
+  seek_ms = db_get_count(query);
+  sqlite3_free(query);
+
+  if (seek_ms < 0)
+    seek_ms = 0;
+
+  return seek_ms;
+#undef Q_TMPL
+}
+
 void
 db_files_update_songartistid(void)
 {
