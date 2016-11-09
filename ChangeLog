@@ -1,6 +1,21 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 24.2:
+	- Pulseaudio support (can be used for Bluetooth speakers)
+	- new pipe/"fifo" audio output
+	- fix misc Chromecast audio bugs
+	- fix for Apple tvOS10 disconnecting after some minutes
+	- enable CORS headers
+	- LastFM scrobbling during regular DAAP streaming
+	- smart playlist support for file modification time
+	- misc MPD improvements, e.g. new outputsvolume command
+	- ignore ipv6 link-local addresses (announced by e.g. ATV4)
+	- better inter-thread command handling
+	- improved cache performance and use of gzip
+	- fix possible segfault on http timeouts
+	- fix possible segfault when adding items during playback
+
 version 24.1:
 	- support for Monkey's audio
 	- fix build problems on some platforms (e.g. OpenWrt)
