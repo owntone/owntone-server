@@ -189,7 +189,7 @@ struct media_file_info {
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
 
-/* PL_SPECIAL value must be in sync with type value in Q_PL* in db.c */
+/* PL_SPECIAL value must be in sync with type value in Q_PL* in db_init.c */
 enum pl_type {
   PL_SPECIAL = 0,
   PL_FOLDER = 1,
@@ -350,12 +350,13 @@ struct filecount_info {
   uint32_t length;
 };
 
-/* Directory ids must be in sync with the ids in Q_DIR* in db.c */
+/* Directory ids must be in sync with the ids in Q_DIR* in db_init.c */
 enum directory_ids {
   DIR_ROOT = 1,
   DIR_FILE = 2,
   DIR_HTTP = 3,
   DIR_SPOTIFY = 4,
+  DIR_MAX
 };
 
 struct directory_info {

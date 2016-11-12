@@ -316,6 +316,9 @@ db_pl_fetch_byid(int id);
 static enum group_type
 db_group_type_bypersistentid(int64_t persistentid);
 
+static int
+db_query_run(char *query, int free, int cache_update);
+
 
 char *
 db_escape_string(const char *str)
@@ -713,55 +716,47 @@ db_hook_post_scan(void)
 void
 db_purge_cruft(time_t ref)
 {
-  char *errmsg;
+#define Q_TMPL "DELETE FROM directories WHERE id >= %d AND db_timestamp < %" PRIi64 ";"
   int i;
   int ret;
-  char *queries[4] = { NULL, NULL, NULL, NULL };
-  char *queries_tmpl[4] =
+  char *query;
+  char *queries_tmpl[3] =
     {
       "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> %d AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> %d AND db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 ";",
-      "DELETE FROM directories WHERE id > 4 AND -1 <> %d AND db_timestamp < %" PRIi64 ";"
     };
-
-  if (sizeof(queries) != sizeof(queries_tmpl))
-    {
-      DPRINTF(E_LOG, L_DB, "db_purge_cruft(): queries out of sync with queries_tmpl\n");
-      return;
-    }
 
   for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
     {
-      queries[i] = sqlite3_mprintf(queries_tmpl[i], PL_SPECIAL, (int64_t)ref);
-      if (!queries[i])
+      query = sqlite3_mprintf(queries_tmpl[i], PL_SPECIAL, (int64_t)ref);
+      if (!query)
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-	  goto purge_fail;
+	  return;
 	}
-    }
 
-  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
-    {
-      DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", queries[i]);
+      DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
 
-      ret = db_exec(queries[i], &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
-
-	  sqlite3_free(errmsg);
-	}
-      else
+      ret = db_query_run(query, 1, 0);
+      if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
 
- purge_fail:
-  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
+  query = sqlite3_mprintf(Q_TMPL, DIR_MAX, (int64_t)ref);
+  if (!query)
     {
-      sqlite3_free(queries[i]);
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return;
     }
 
+  DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
+
+  ret = db_query_run(query, 1, 0);
+  if (ret == 0)
+    DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+
+#undef Q_TMPL
 }
 
 void
@@ -3894,14 +3889,15 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 void
 db_spotify_purge(void)
 {
-  char *queries[5] =
+#define Q_TMPL "UPDATE directories SET disabled = %" PRIi64 " WHERE virtual_path = '/spotify:';"
+  char *queries[4] =
     {
       "DELETE FROM files WHERE path LIKE 'spotify:%%';",
       "DELETE FROM playlistitems WHERE filepath LIKE 'spotify:%%';",
       "DELETE FROM playlists WHERE path LIKE 'spotify:%%';",
       "DELETE FROM directories WHERE virtual_path LIKE '/spotify:/%%';",
-      "UPDATE directories SET disabled = 4294967296 WHERE virtual_path = '/spotify:';",
     };
+  char *query;
   int i;
   int ret;
 
@@ -3912,6 +3908,20 @@ db_spotify_purge(void)
       if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
+
+  // Disable the spotify directory by setting 'disabled' to INOTIFY_FAKE_COOKIE value
+  query = sqlite3_mprintf(Q_TMPL, INOTIFY_FAKE_COOKIE);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return;
+    }
+  ret = db_query_run(query, 1, 1);
+
+  if (ret == 0)
+    DPRINTF(E_DBG, L_DB, "Disabled spotify directory\n");
+
+#undef Q_TMPL
 }
 
 /* Spotify */
