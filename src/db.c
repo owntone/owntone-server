@@ -2735,27 +2735,6 @@ db_file_update(struct media_file_info *mfi)
 }
 
 void
-db_file_update_icy(int id, char *artist, char *album)
-{
-#define Q_TMPL "UPDATE files SET artist = TRIM(%Q), album = TRIM(%Q) WHERE id = %d;"
-  char *query;
-
-  if (id == 0)
-    return;
-
-  query = sqlite3_mprintf(Q_TMPL, artist, album, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return;
-    }
-
-  db_query_run(query, 1, 0);
-#undef Q_TMPL
-}
-
-void
 db_file_save_seek(int id, uint32_t seek)
 {
 #define Q_TMPL "UPDATE files SET seek = %d WHERE id = %d;"
@@ -4288,6 +4267,29 @@ queue_inc_version_and_notify()
   db_transaction_end();
 
   listener_notify(LISTENER_PLAYLIST);
+}
+
+void
+db_queue_update_icymetadata(int id, char *artist, char *album)
+{
+#define Q_TMPL "UPDATE queue SET artist = TRIM(%Q), album = TRIM(%Q) WHERE id = %d;"
+  char *query;
+
+  if (id == 0)
+    return;
+
+  query = sqlite3_mprintf(Q_TMPL, artist, album, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  db_query_run(query, 1, 0);
+  queue_inc_version_and_notify();
+
+#undef Q_TMPL
 }
 
 static int

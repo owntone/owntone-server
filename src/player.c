@@ -520,7 +520,7 @@ update_icy_cb(void *arg)
 {
   struct http_icy_metadata *metadata = arg;
 
-  db_file_update_icy(metadata->id, metadata->artist, metadata->title);
+  db_queue_update_icymetadata(metadata->id, metadata->artist, metadata->title);
 
   http_icy_metadata_free(metadata, 1);
 }
@@ -579,7 +579,7 @@ metadata_check_icy(void)
   if (metadata->title[0] == '\0')
     goto no_update;
 
-  metadata->id = cur_streaming->id;
+  metadata->id = cur_streaming->item_id;
 
   /* Defer the database update to the worker thread */
   worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);

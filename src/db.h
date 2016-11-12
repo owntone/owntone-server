@@ -562,9 +562,6 @@ int
 db_file_update(struct media_file_info *mfi);
 
 void
-db_file_update_icy(int id, char *artist, char *album);
-
-void
 db_file_save_seek(int id, uint32_t seek);
 
 void
@@ -712,6 +709,9 @@ db_speaker_clear_all(void);
 /* Queue */
 int
 db_queue_get_version();
+
+void
+db_queue_update_icymetadata(int id, char *artist, char *album);
 
 int
 db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id);
