@@ -4805,6 +4805,12 @@ db_queue_fetch_byitemid(uint32_t item_id)
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by item id\n");
       return NULL;
     }
+  else if (queue_item->item_id == 0)
+    {
+      // No item found
+      free_queue_item(queue_item, 0);
+      return NULL;
+    }
 
   return queue_item;
 }
@@ -4847,6 +4853,12 @@ db_queue_fetch_byfileid(uint32_t file_id)
     {
       free_queue_item(queue_item, 0);
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by file id\n");
+      return NULL;
+    }
+  else if (queue_item->item_id == 0)
+    {
+      // No item found
+      free_queue_item(queue_item, 0);
       return NULL;
     }
 
@@ -4900,6 +4912,12 @@ db_queue_fetch_bypos(uint32_t pos, char shuffle)
     {
       free_queue_item(queue_item, 0);
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by pos id\n");
+      return NULL;
+    }
+  else if (queue_item->item_id == 0)
+    {
+      // No item found
+      free_queue_item(queue_item, 0);
       return NULL;
     }
 
@@ -4959,6 +4977,12 @@ db_queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle)
     {
       free_queue_item(queue_item, 0);
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by pos relative to item id\n");
+      return NULL;
+    }
+  else if (queue_item->item_id == 0)
+    {
+      // No item found
+      free_queue_item(queue_item, 0);
       return NULL;
     }
 
@@ -5256,6 +5280,13 @@ db_queue_delete_byposrelativetoitem(uint32_t pos, uint32_t item_id, char shuffle
       queue_enum_end(&queue_enum);
       db_transaction_rollback();
       return -1;
+    }
+  else if (queue_item.item_id == 0)
+    {
+      // No item found
+      queue_enum_end(&queue_enum);
+      db_transaction_end();
+      return 0;
     }
 
   ret = queue_delete_item(&queue_item);

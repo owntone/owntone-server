@@ -1321,9 +1321,8 @@ source_next()
   else
     {
       queue_item = db_queue_fetch_next(cur_streaming->item_id, shuffle);
-      if (!!queue_item && repeat == REPEAT_ALL)
+      if (!queue_item && repeat == REPEAT_ALL)
 	{
-	  free_queue_item(queue_item, 0);
 	  if (shuffle)
 	    {
 	      db_queue_reshuffle(0);
@@ -1336,11 +1335,16 @@ source_next()
 	      return NULL;
 	    }
 	}
-
-      ps = source_new(queue_item);
-      free_queue_item(queue_item, 0);
     }
 
+  if (!queue_item)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Reached end of queue\n");
+      return NULL;
+    }
+
+  ps = source_new(queue_item);
+  free_queue_item(queue_item, 0);
   return ps;
 }
 
@@ -1412,11 +1416,6 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	      DPRINTF(E_DBG, L_PLAYER, "New file\n");
 
 	      ps = source_next();
-	      if (!ps)
-		{
-		  DPRINTF(E_LOG, L_PLAYER, "Error fetching next item from queue %d\n", cur_streaming->id);
-		  return -1;
-		}
 
 	      if (ret < 0)
 		{
