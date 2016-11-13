@@ -94,7 +94,7 @@ int
 player_speaker_set(uint64_t *ids);
 
 int
-player_playback_start(uint32_t *id);
+player_playback_start();
 
 int
 player_playback_start_byitem(struct db_queue_item *queue_item);

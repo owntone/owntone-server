@@ -137,44 +137,6 @@ struct spk_enum
   void *arg;
 };
 
-struct playback_start_param
-{
-  uint32_t id;
-  int pos;
-
-  uint32_t *id_ptr;
-};
-
-struct playerqueue_get_param
-{
-  int pos;
-  int count;
-
-  struct queue *queue;
-};
-
-struct playerqueue_add_param
-{
-  struct queue_item *items;
-  int pos;
-
-  uint32_t *item_id_ptr;
-};
-
-struct playerqueue_move_param
-{
-  uint32_t item_id;
-  int from_pos;
-  int to_pos;
-  int count;
-};
-
-struct playerqueue_remove_param
-{
-  int from_pos;
-  int count;
-};
-
 struct icy_artwork
 {
   uint32_t id;
@@ -212,11 +174,6 @@ union player_arg
   uint32_t id;
   int intval;
   struct icy_artwork icy;
-  struct playback_start_param playback_start_param;
-  struct playerqueue_get_param queue_get_param;
-  struct playerqueue_add_param queue_add_param;
-  struct playerqueue_move_param queue_move_param;
-  struct playerqueue_remove_param queue_remove_param;
 };
 
 struct event_base *evbase_player;
@@ -3156,14 +3113,11 @@ player_get_icy_artwork_url(uint32_t id)
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_start(uint32_t *id)
+player_playback_start()
 {
-  union player_arg cmdarg;
   int ret;
 
-  cmdarg.playback_start_param.id_ptr = id;
-
-  ret = commands_exec_sync(cmdbase, playback_start, playback_start_bh, &cmdarg);
+  ret = commands_exec_sync(cmdbase, playback_start, playback_start_bh, NULL);
   return ret;
 }
 

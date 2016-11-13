@@ -622,7 +622,7 @@ seek_timer_cb(int fd, short what, void *arg)
       return;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     DPRINTF(E_LOG, L_DACP, "Player returned an error for start after seek\n");
 }
@@ -1287,7 +1287,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       free_queue_item(queue_item, 0);
     }
   else
-    ret = player_playback_start(NULL);
+    ret = player_playback_start();
 
   if (ret < 0)
     {
@@ -1338,7 +1338,7 @@ dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **
     }
   else
     {
-      ret = player_playback_start(NULL);
+      ret = player_playback_start();
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Player returned an error for start after pause\n");
@@ -1371,7 +1371,7 @@ dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       return;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after nextitem\n");
@@ -1403,7 +1403,7 @@ dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       return;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after previtem\n");
@@ -1875,7 +1875,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
     }
   else
     {
-      ret = player_playback_start(NULL);
+      ret = player_playback_start();
     }
 
   if (ret < 0)

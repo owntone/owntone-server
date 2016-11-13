@@ -1063,7 +1063,7 @@ mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after nextitem");
@@ -1111,7 +1111,7 @@ mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (pause == 1)
     ret = player_playback_pause();
   else
-    ret = player_playback_start(NULL);
+    ret = player_playback_start();
 
   if (ret < 0)
     {
@@ -1179,7 +1179,7 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       free_queue_item(queue_item, 0);
     }
   else
-    ret = player_playback_start(NULL);
+    ret = player_playback_start();
 
   if (ret < 0)
     {
@@ -1242,7 +1242,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       free_queue_item(queue_item, 0);
     }
   else
-    ret = player_playback_start(NULL);
+    ret = player_playback_start();
 
   if (ret < 0)
     {
@@ -1274,7 +1274,7 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after previtem");
@@ -1331,7 +1331,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
     if (ret < 0)
       {
         ret = asprintf(errmsg, "Player returned an error for start after seekcur");
@@ -1397,7 +1397,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after seekcur");
@@ -1442,7 +1442,7 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after seekcur");
