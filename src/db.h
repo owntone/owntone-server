@@ -703,6 +703,9 @@ int
 db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id);
 
 int
+db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t item_id);
+
+int
 db_queue_enum_start(struct query_params *query_params);
 
 void

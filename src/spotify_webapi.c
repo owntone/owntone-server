@@ -46,6 +46,7 @@ static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
 static const char *spotify_playlist_uri	 = "https://api.spotify.com/v1/users/%s/playlists/%s";
+static const char *spotify_track_uri     = "https://api.spotify.com/v1/tracks/%s";
 
 
 /*--------------------- HELPERS FOR SPOTIFY WEB API -------------------------*/
@@ -752,6 +753,40 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
 
   free(owner);
   free(id);
+  return 0;
+}
+
+int
+spotifywebapi_track_start(struct spotify_request *request, const char *path, struct spotify_track *track)
+{
+  char uri[1024];
+  char *id;
+  int ret;
+
+  id = strrchr(path, ':');
+  if (!id)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from track uri '%s'\n", path);
+      return -1;
+    }
+  id++;
+
+  ret = snprintf(uri, sizeof(uri), spotify_track_uri, id);
+  if (ret < 0 || ret >= sizeof(uri))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error creating playlist endpoint uri for playlist '%s'\n", path);
+      return -1;
+    }
+
+  ret = request_uri(request, uri);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  request->haystack = json_tokener_parse(request->response_body);
+  parse_metadata_track(request->haystack, track);
+
   return 0;
 }
 

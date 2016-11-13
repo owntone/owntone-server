@@ -61,7 +61,6 @@ struct library_source
    * Run a full rescan (purge library entries and rescan) (called from the library thread)
    */
   int (*fullrescan)(void);
-
 };
 
 
@@ -70,6 +69,12 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
 
 int
 library_add_playlist_info(const char *path, const char *title, const char *virtual_path, enum pl_type type, int parent_pl_id, int dir_id);
+
+struct media_file_info *
+library_scan_media(const char *path);
+
+int
+library_add_queue_item(struct media_file_info* mfi);
 
 void
 library_rescan();
