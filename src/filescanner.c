@@ -1219,11 +1219,8 @@ bulk_scan(int flags)
   else
     {
       /* Protect spotify from the imminent purge if rescanning */
-      if (flags & F_SCAN_RESCAN)
-	{
-	  db_file_ping_bymatch("spotify:", 0);
-	  db_pl_ping_bymatch("spotify:", 0);
-	}
+      db_file_ping_bymatch("spotify:", 0);
+      db_pl_ping_bymatch("spotify:", 0);
 
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);

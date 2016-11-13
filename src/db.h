@@ -619,7 +619,7 @@ void
 db_spotify_pl_delete(int id);
 
 void
-db_spotify_files_delete();
+db_spotify_files_delete(void);
 #endif
 
 /* Admin */

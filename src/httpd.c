@@ -223,6 +223,8 @@ oauth_interface(struct evhttp_request *req, const char *uri)
 
   evbuffer_add_printf(evbuf, "<H1>forked-daapd oauth</H1>\n\n");
 
+  memset(&query, 0, sizeof(struct evkeyvalq));
+
   ptr = strchr(req_uri, '?');
   if (ptr)
     {

@@ -3910,7 +3910,7 @@ db_spotify_purge(void)
       ret = db_query_run(queries[i], 0, 1);
 
       if (ret == 0)
-	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+	DPRINTF(E_DBG, L_DB, "Processed %d rows\n", sqlite3_changes(hdl));
     }
 }
 
@@ -3940,7 +3940,7 @@ db_spotify_pl_delete(int id)
 
 /* Spotify */
 void
-db_spotify_files_delete()
+db_spotify_files_delete(void)
 {
 #define Q_TMPL "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems);"
   char *query;
