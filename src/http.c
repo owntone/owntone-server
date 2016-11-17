@@ -282,7 +282,7 @@ http_stream_setup(char **stream, const char *url)
   *stream = NULL;
 
   ext = strrchr(url, '.');
-  if (strcasecmp(ext, ".m3u") != 0)
+  if (!ext || (strcasecmp(ext, ".m3u") != 0))
     {
       *stream = strdup(url);
       return 0;
