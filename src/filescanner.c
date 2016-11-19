@@ -929,7 +929,6 @@ static void
 process_directory(char *path, int parent_id, int flags)
 {
   DIR *dirp;
-  struct dirent buf;
   struct dirent *de;
   char entry[PATH_MAX];
   char *deref;
@@ -976,24 +975,25 @@ process_directory(char *path, int parent_id, int flags)
       if (scan_exit)
 	break;
 
-      ret = readdir_r(dirp, &buf, &de);
-      if (ret != 0)
+      errno = 0;
+      de = readdir(dirp);
+      if (errno)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "readdir_r error in %s: %s\n", path, strerror(errno));
+	  DPRINTF(E_LOG, L_SCAN, "readdir error in %s: %s\n", path, strerror(errno));
 
 	  break;
 	}
 
-      if (de == NULL)
+      if (!de)
 	break;
 
-      if (buf.d_name[0] == '.')
+      if (de->d_name[0] == '.')
 	continue;
 
-      ret = snprintf(entry, sizeof(entry), "%s/%s", path, buf.d_name);
+      ret = snprintf(entry, sizeof(entry), "%s/%s", path, de->d_name);
       if ((ret < 0) || (ret >= sizeof(entry)))
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Skipping %s/%s, PATH_MAX exceeded\n", path, buf.d_name);
+	  DPRINTF(E_LOG, L_SCAN, "Skipping %s/%s, PATH_MAX exceeded\n", path, de->d_name);
 
 	  continue;
 	}
