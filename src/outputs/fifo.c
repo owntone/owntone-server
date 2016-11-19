@@ -40,6 +40,45 @@
 
 #define FIFO_BUFFER_SIZE 65536 /* pipe capacity on Linux >= 2.6.11 */
 
+
+struct fifo_packet
+{
+  /* pcm data */
+  uint8_t samples[1408]; // STOB(AIRTUNES_V2_PACKET_SAMPLES)
+
+  /* RTP-time of the first sample*/
+  uint64_t rtptime;
+
+  struct fifo_packet *next;
+  struct fifo_packet *prev;
+};
+
+struct fifo_buffer
+{
+  struct fifo_packet *head;
+  struct fifo_packet *tail;
+};
+static struct fifo_buffer buffer;
+
+
+static void
+free_buffer()
+{
+  struct fifo_packet *packet;
+  struct fifo_packet *tmp;
+
+  packet = buffer.tail;
+  while (packet)
+    {
+      tmp = packet;
+      packet = packet->next;
+      free(tmp);
+    }
+
+  buffer.tail = NULL;
+  buffer.head = NULL;
+}
+
 struct fifo_session
 {
   enum output_device_state state;
@@ -201,7 +240,7 @@ fifo_session_free(struct fifo_session *fifo_session)
 
   free(fifo_session->output_session);
   free(fifo_session);
-
+  free_buffer();
   fifo_session = NULL;
 }
 
@@ -315,6 +354,7 @@ fifo_device_stop(struct output_session *output_session)
   struct fifo_session *fifo_session = output_session->session;
 
   fifo_close(fifo_session);
+  free_buffer();
 
   fifo_session->state = OUTPUT_STATE_STOPPED;
   fifo_status(fifo_session);
@@ -383,6 +423,8 @@ fifo_playback_stop(void)
   if (!fifo_session)
     return;
 
+  free_buffer();
+
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_status(fifo_session);
 }
@@ -396,6 +438,7 @@ fifo_flush(output_status_cb cb, uint64_t rtptime)
     return 0;
 
   fifo_empty(fifo_session);
+  free_buffer();
 
   fifo_session->status_cb = cb;
   fifo_session->state = OUTPUT_STATE_CONNECTED;
@@ -409,15 +452,43 @@ fifo_write(uint8_t *buf, uint64_t rtptime)
   struct fifo_session *fifo_session = sessions;
   size_t length = STOB(AIRTUNES_V2_PACKET_SAMPLES);
   ssize_t bytes;
+  struct fifo_packet *packet;
+  uint64_t cur_pos;
+  struct timespec now;
+  int ret;
 
   if (!fifo_session || !fifo_session->device->selected)
     return;
 
-  while (1)
+  packet = (struct fifo_packet *) calloc(1, sizeof(struct fifo_packet));
+  memcpy(packet->samples, buf, sizeof(packet->samples));
+  packet->rtptime = rtptime;
+  if (buffer.head)
     {
-      bytes = write(fifo_session->output_fd, buf, length);
+      buffer.head->next = packet;
+      packet->prev = buffer.head;
+    }
+  buffer.head = packet;
+  if (!buffer.tail)
+    buffer.tail = packet;
+
+  ret = player_get_current_pos(&cur_pos, &now, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_FIFO, "Could not get playback position\n");
+      return;
+    }
+
+  while (buffer.tail && buffer.tail->rtptime <= cur_pos)
+    {
+      bytes = write(fifo_session->output_fd, buffer.tail->samples, length);
       if (bytes > 0)
-	return;
+	{
+	  packet = buffer.tail;
+	  buffer.tail = buffer.tail->next;
+	  free(packet);
+	  return;
+	}
 
       if (bytes < 0)
 	{
@@ -462,6 +533,8 @@ fifo_init(void)
     return -1;
 
   nickname = cfg_getstr(cfg_fifo, "nickname");
+
+  memset(&buffer, 0, sizeof(struct fifo_buffer));
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
