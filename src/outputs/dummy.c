@@ -91,10 +91,17 @@ dummy_session_make(struct output_device *device, output_status_cb cb)
   struct dummy_session *ds;
 
   os = calloc(1, sizeof(struct output_session));
-  ds = calloc(1, sizeof(struct dummy_session));
-  if (!os || !ds)
+  if (!os)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy session\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy session (os)\n");
+      return NULL;
+    }
+
+  ds = calloc(1, sizeof(struct dummy_session));
+  if (!ds)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy session (as)\n");
+      free(os);
       return NULL;
     }
 

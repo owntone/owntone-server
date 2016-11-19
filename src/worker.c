@@ -142,19 +142,18 @@ worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
 
   DPRINTF(E_DBG, L_MAIN, "Got worker execute request\n");
 
-  cmdarg = (struct worker_arg *)malloc(sizeof(struct worker_arg));
+  cmdarg = calloc(1, sizeof(struct worker_arg));
   if (!cmdarg)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not allocate worker_arg\n");
       return;
     }
 
-  memset(cmdarg, 0, sizeof(struct worker_arg));
-
   argcpy = malloc(arg_size);
   if (!argcpy)
     {
       DPRINTF(E_LOG, L_MAIN, "Out of memory\n");
+      free(cmdarg);
       return;
     }
 

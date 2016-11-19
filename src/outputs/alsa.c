@@ -170,10 +170,17 @@ alsa_session_make(struct output_device *device, output_status_cb cb)
   struct alsa_session *as;
 
   os = calloc(1, sizeof(struct output_session));
-  as = calloc(1, sizeof(struct alsa_session));
-  if (!os || !as)
+  if (!os)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (os)\n");
+      return NULL;
+    }
+
+  as = calloc(1, sizeof(struct alsa_session));
+  if (!as)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (as)\n");
+      free(os);
       return NULL;
     }
 

@@ -97,6 +97,13 @@ streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
       prev = session;
     }
 
+  if (!session)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream\n");
+      free(this);
+      return;
+    }
+
   if (!prev)
     streaming_sessions = session->next;
   else

@@ -377,7 +377,7 @@ db_upgrade_v11(sqlite3 *hdl)
   else if (count < 0)
     return -1;
 
-  spkids = (uint64_t *)malloc(count * sizeof(uint64_t));
+  spkids = calloc(count, sizeof(uint64_t));
   if (!spkids)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for speaker IDs\n");
@@ -1073,7 +1073,6 @@ db_upgrade_v16(sqlite3 *hdl)
 	}
     }
 
-  sqlite3_free(errmsg);
   sqlite3_finalize(stmt);
 
   return 0;

@@ -575,23 +575,28 @@ lastfm_login(char *path)
   kv = keyval_alloc();
   if (!kv)
     {
-      free(username);
-      free(password);
-      return -1;
+      ret = -1;
+      goto out_free_credentials;
     }
 
   ret = ( (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
           (keyval_add(kv, "username", username) == 0) &&
           (keyval_add(kv, "password", password) == 0) );
-
-  free(username);
-  free(password);
+  if (!ret)
+    {
+      ret = -1;
+      goto out_free_kv;
+    }
 
   // Send the login request
   ret = request_post("auth.getMobileSession", kv, 1);
 
+ out_free_kv:
   keyval_clear(kv);
   free(kv);
+ out_free_credentials:
+  free(username);
+  free(password);
 
   return ret;
 }

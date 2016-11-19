@@ -967,7 +967,12 @@ source_new(struct queue_item *item)
 {
   struct player_source *ps;
 
-  ps = (struct player_source *)calloc(1, sizeof(struct player_source));
+  ps = calloc(1, sizeof(struct player_source));
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Out of memory (ps)\n");
+      return NULL;
+    }
 
   ps->id = queueitem_id(item);
   ps->item_id = queueitem_item_id(item);
@@ -1027,6 +1032,8 @@ source_pause(uint64_t pos)
   int ret;
 
   ps_playing = source_now_playing();
+  if (!ps_playing)
+    return -1;
 
   if (cur_streaming)
     {
@@ -1187,11 +1194,14 @@ source_open(struct queue_item *qii, uint64_t start_pos, int seek)
   DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
 
   ps = source_new(qii);
+  if (!ps)
+    return -1;
 
   ret = stream_setup(ps, mfi);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (%s)\n", mfi->title, mfi->path);
+      free(ps);
       free_mfi(mfi, 0);
       return -1;
     }

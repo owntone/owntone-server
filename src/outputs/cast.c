@@ -1323,10 +1323,17 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
     }
 
   os = calloc(1, sizeof(struct output_session));
-  cs = calloc(1, sizeof(struct cast_session));
-  if (!os || !cs)
+  if (!os)
     {
-      DPRINTF(E_LOG, L_CAST, "Out of memory for TLS session\n");
+      DPRINTF(E_LOG, L_CAST, "Out of memory (os)\n");
+      return NULL;
+    }
+
+  cs = calloc(1, sizeof(struct cast_session));
+  if (!cs)
+    {
+      DPRINTF(E_LOG, L_CAST, "Out of memory (cs)\n");
+      free(os);
       return NULL;
     }
 

@@ -221,10 +221,17 @@ fifo_session_make(struct output_device *device, output_status_cb cb)
   struct fifo_session *fifo_session;
 
   output_session = calloc(1, sizeof(struct output_session));
-  fifo_session = calloc(1, sizeof(struct fifo_session));
-  if (!output_session || !fifo_session)
+  if (!output_session)
     {
-      DPRINTF(E_LOG, L_FIFO, "Out of memory for fifo session\n");
+      DPRINTF(E_LOG, L_FIFO, "Out of memory (os)\n");
+      return NULL;
+    }
+
+  fifo_session = calloc(1, sizeof(struct fifo_session));
+  if (!fifo_session)
+    {
+      DPRINTF(E_LOG, L_FIFO, "Out of memory (fs)\n");
+      free(output_session);
       return NULL;
     }
 

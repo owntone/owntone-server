@@ -430,7 +430,7 @@ keyval_sort(struct keyval *kv)
   struct onekeyval *okv;
   struct onekeyval *sokv;
 
-  if (!kv)
+  if (!kv || !kv->head)
     return;
 
   head = kv->head;

@@ -4268,6 +4268,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 
   listtype = COMMAND_LIST_NONE;
   ncmd = 0;
+  ret = -1;
 
   while ((line = evbuffer_readln(input, NULL, EVBUFFER_EOL_ANY)))
     {

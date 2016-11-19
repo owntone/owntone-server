@@ -1885,10 +1885,17 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
     }
 
   os = calloc(1, sizeof(struct output_session));
-  rs = calloc(1, sizeof(struct raop_session));
-  if (!os || !rs)
+  if (!os)
     {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for RAOP session\n");
+      DPRINTF(E_LOG, L_RAOP, "Out of memory (os)\n");
+      return NULL;
+    }
+
+  rs = calloc(1, sizeof(struct raop_session));
+  if (!rs)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory (rs)\n");
+      free(os);
       return NULL;
     }
 
@@ -4034,10 +4041,18 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device %s (port %d, id %" PRIx64 ")\n", at_name, port, id);
 
   rd = calloc(1, sizeof(struct output_device));
-  re = calloc(1, sizeof(struct raop_extra));
-  if (!rd || !re)
+  if (!rd)
     {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for new AirPlay device\n");
+      DPRINTF(E_LOG, L_RAOP, "Out of memory (rd)\n");
+
+      return;
+    }
+
+  re = calloc(1, sizeof(struct raop_extra));
+  if (!re)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory (re)\n");
+      free(rd);
 
       return;
     }

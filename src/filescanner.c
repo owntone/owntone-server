@@ -161,7 +161,7 @@ push_dir(struct stacked_dir **s, char *path, int parent_id)
 {
   struct stacked_dir *d;
 
-  d = (struct stacked_dir *)malloc(sizeof(struct stacked_dir));
+  d = malloc(sizeof(struct stacked_dir));
   if (!d)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not stack directory %s; out of memory\n", path);
@@ -172,6 +172,7 @@ push_dir(struct stacked_dir **s, char *path, int parent_id)
   if (!d->path)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not stack directory %s; out of memory for path\n", path);
+      free(d);
       return -1;
     }
 
@@ -1025,13 +1026,15 @@ process_directory(char *path, int parent_id, int flags)
 	    }
 
 	  ret = snprintf(entry, sizeof(entry), "%s", deref);
-	  free(deref);
 	  if ((ret < 0) || (ret >= sizeof(entry)))
 	    {
-	      DPRINTF(E_LOG, L_SCAN, "Skipping %s, PATH_MAX exceeded\n", deref);
+	      DPRINTF(E_LOG, L_SCAN, "Skipping %s, PATH_MAX exceeded\n", entry);
 
+	      free(deref);
 	      continue;
 	    }
+
+	  free(deref);
 	}
 
       if (S_ISREG(sb.st_mode))

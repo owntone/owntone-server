@@ -498,7 +498,6 @@ main(int argc, char **argv)
   ffid = NULL;
   mdns_no_rsp = 0;
   mdns_no_daap = 0;
-  mdns_no_mpd = 1; // only announce if mpd protocol support is activated
 
   while ((option = getopt_long(argc, argv, "D:d:c:P:fb:v", option_map, NULL)) != -1)
     {
@@ -789,6 +788,8 @@ main(int argc, char **argv)
       goto mpd_fail;
     }
   mdns_no_mpd = 0;
+#else
+  mdns_no_mpd = 1;
 #endif
 
   /* Start Remote pairing service */

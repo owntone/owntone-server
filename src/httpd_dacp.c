@@ -785,6 +785,7 @@ find_first_song_id(const char *query)
   int id;
   int ret;
 
+  id = 0;
   memset(&qp, 0, sizeof(struct query_params));
 
   /* We only want the id of the first song */
@@ -1012,6 +1013,8 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	}
     }
 
+  player_get_status(&status);
+
   cuequery = evhttp_find_header(query, "query");
   if (cuequery)
     {
@@ -1030,8 +1033,6 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     }
   else
     {
-      player_get_status(&status);
-
       if (status.status != PLAY_STOPPED)
 	player_playback_stop();
     }
@@ -1537,7 +1538,6 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
     }
 
-  i = 0;
   n = 0; // count of songs in songlist
   songlist = evbuffer_new();
   if (!songlist)
@@ -1547,6 +1547,8 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
       dmap_send_error(req, "ceQR", "Out of memory");
       return;
     }
+
+  player_get_status(&status);
 
   /*
    * If the span parameter is negativ make song list for Previously Played,
@@ -1577,8 +1579,6 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     }
   else
     {
-      player_get_status(&status);
-
       queue = player_queue_get_bypos(abs(span));
       if (queue)
 	{

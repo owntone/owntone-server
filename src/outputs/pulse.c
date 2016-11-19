@@ -146,10 +146,17 @@ pulse_session_make(struct output_device *device, output_status_cb cb)
   struct pulse_session *ps;
 
   os = calloc(1, sizeof(struct output_session));
-  ps = calloc(1, sizeof(struct pulse_session));
-  if (!os || !ps)
+  if (!os)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for Pulseaudio session\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Out of memory (os)\n");
+      return NULL;
+    }
+
+  ps = calloc(1, sizeof(struct pulse_session));
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Out of memory (ps)\n");
+      free(os);
       return NULL;
     }
 

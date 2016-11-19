@@ -1248,11 +1248,10 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
 {
   struct evbuffer *evbuf;
   struct evkeyvalq *headers;
-  char *header;
+  char header[256];
   const char *auth;
   char *authuser;
   char *authpwd;
-  int len;
   int ret;
 
   headers = evhttp_request_get_input_headers(req);
@@ -1317,16 +1316,8 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
   return 0;
 
  need_auth:
-  len = strlen(realm) + strlen("Basic realm=") + 3;
-  header = (char *)malloc(len);
-  if (!header)
-    {
-      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-      return -1;
-    }
-
-  ret = snprintf(header, len, "Basic realm=\"%s\"", realm);
-  if ((ret < 0) || (ret >= len))
+  ret = snprintf(header, sizeof(header), "Basic realm=\"%s\"", realm);
+  if ((ret < 0) || (ret >= sizeof(header)))
     {
       httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
@@ -1346,7 +1337,6 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
 
   httpd_send_reply(req, 401, "Unauthorized", evbuf, HTTPD_SEND_NO_GZIP);
 
-  free(header);
   evbuffer_free(evbuf);
 
   return -1;

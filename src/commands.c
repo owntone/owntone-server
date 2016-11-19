@@ -92,9 +92,7 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
     {
       // Command execution finished, execute the bottom half function
       if (cmd->ret == 0 && cmd->func_bh)
-      {
-	cmdstate = cmd->func_bh(cmd->arg, &cmd->ret);
-      }
+	cmd->func_bh(cmd->arg, &cmd->ret);
 
       // Signal the calling thread that the command execution finished
       pthread_cond_signal(&cmd->cond);
@@ -159,6 +157,7 @@ send_command(struct commands_base *cmdbase, struct command *cmd)
   ret = write(cmdbase->command_pipe[1], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
+      DPRINTF(E_LOG, L_MAIN, "Bad write to command pipe (write incomplete)\n");
       return -1;
     }
 
@@ -360,7 +359,10 @@ commands_exec_async(struct commands_base *cmdbase, command_function func, void *
 
   ret = send_command(cmdbase, cmd);
   if (ret < 0)
-    return -1;
+    {
+      free(cmd);
+      return -1;
+    }
 
   return 0;
 }

@@ -498,12 +498,14 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
   DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d, host %s\n", name, type, proto, hostname);
 
   rb_data = calloc(1, sizeof(struct mdns_record_browser));
-  if (! (rb_data && (rb_data->name = strdup(name)) && (rb_data->domain = strdup(domain))) )
+  if (!rb_data)
     {
       DPRINTF(E_LOG, L_MDNS, "Out of memory\n");
       goto out_free_resolver;
     }
 
+  rb_data->name = strdup(name);
+  rb_data->domain = strdup(domain);
   rb_data->mb = (struct mdns_browser *)userdata;
   rb_data->port = port;
 

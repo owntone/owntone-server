@@ -183,14 +183,12 @@ scan_smartpl(char *file, time_t mtime, int dir_id)
   pli = db_pl_fetch_bypath(file);
   if (!pli)
     {
-      pli = (struct playlist_info *) malloc(sizeof(struct playlist_info));
+      pli = calloc(1, sizeof(struct playlist_info));
       if (!pli)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
 	  return;
 	}
-
-      memset(pli, 0, sizeof(struct playlist_info));
 
       pli->path = strdup(file);
       snprintf(virtual_path, PATH_MAX, "/file:%s", file);
@@ -200,8 +198,6 @@ scan_smartpl(char *file, time_t mtime, int dir_id)
       pli->virtual_path = strdup(virtual_path);
       pli->type = PL_SMART;
     }
-  else
-    pl_id = pli->id;
 
   pli->directory_id = dir_id;
 
@@ -216,6 +212,7 @@ scan_smartpl(char *file, time_t mtime, int dir_id)
 
   if (pli->id)
     {
+      pl_id = pli->id;
       ret = db_pl_update(pli);
     }
   else
@@ -230,7 +227,7 @@ scan_smartpl(char *file, time_t mtime, int dir_id)
       return;
     }
 
-  DPRINTF(E_INFO, L_SCAN, "Added smart playlist as id %d\n", pl_id);
+  DPRINTF(E_INFO, L_SCAN, "Added or updated smart playlist as id %d\n", pl_id);
 
   free_pli(pli, 0);
 
