@@ -400,7 +400,7 @@ fifo_flush(output_status_cb cb, uint64_t rtptime)
   fifo_session->status_cb = cb;
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_status(fifo_session);
-  return 0;
+  return 1;
 }
 
 static void
