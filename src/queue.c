@@ -117,7 +117,7 @@ queue_new()
 }
 
 /*
- * Frees the given item and all linked items
+ * Frees the given item and all linked (next) items
  */
 static void
 queue_items_free(struct queue_item *item)
@@ -125,7 +125,12 @@ queue_items_free(struct queue_item *item)
   struct queue_item *temp;
   struct queue_item *next;
 
-  item->prev->next = NULL;
+  if (!item)
+    return;
+
+  // Make the queue non-circular
+  if (item->prev)
+    item->prev->next = NULL;
 
   next = item;
   while (next)
@@ -1194,6 +1199,7 @@ queueitem_make_byquery(struct query_params *qp)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Error fetching results\n");
+      queue_items_free(item_tail);
       return NULL;
     }
 
