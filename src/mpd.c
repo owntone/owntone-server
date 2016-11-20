@@ -437,17 +437,19 @@ mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, unsigned 
     mfi->genre,
     mfi->disc);
 
-  if (pos_pl >= 0)
+  if (ret >= 0 && pos_pl >= 0)
     {
       ret = evbuffer_add_printf(evbuf,
 	"Pos: %d\n",
 	pos_pl);
 
-      ret = evbuffer_add_printf(evbuf,
-	"Id: %d\n",
-	item_id);
+      if (ret >= 0)
+	{
+	  ret = evbuffer_add_printf(evbuf,
+	    "Id: %d\n",
+	    item_id);
+	}
     }
-
 
   return ret;
 }
@@ -2039,12 +2041,16 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
     }
 
   if (strncmp(argv[1], "/", 1) == 0)
-    {
-      ret = snprintf(path, sizeof(path), "%s", argv[1]);
-    }
+    ret = snprintf(path, sizeof(path), "%s", argv[1]);
   else
+    ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+
+  if (ret >= sizeof(path))
     {
-      ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+      ret = asprintf(errmsg, "Length of path exceeds the PATH_MAX value '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
@@ -2111,12 +2117,16 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
     }
 
   if (strncmp(argv[1], "/", 1) == 0)
-    {
-      ret = snprintf(path, sizeof(path), "%s", argv[1]);
-    }
+    ret = snprintf(path, sizeof(path), "%s", argv[1]);
   else
+    ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+
+  if (ret >= sizeof(path))
     {
-      ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+      ret = asprintf(errmsg, "Length of path exceeds the PATH_MAX value '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
@@ -2241,12 +2251,16 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   if (strncmp(argv[1], "/", 1) == 0)
-    {
-      ret = snprintf(path, sizeof(path), "%s", argv[1]);
-    }
+    ret = snprintf(path, sizeof(path), "%s", argv[1]);
   else
+    ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+
+  if (ret >= sizeof(path))
     {
-      ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+      ret = asprintf(errmsg, "Length of path exceeds the PATH_MAX value '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
@@ -4276,7 +4290,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 
       // Split the read line into command name and arguments
       ret = mpd_parse_args(line, &argc, argv);
-      if (ret != 0)
+      if (ret != 0 || argc <= 0)
 	{
 	  // Error handling for argument parsing error
 	  DPRINTF(E_LOG, L_MPD, "Error parsing arguments for MPD message: %s\n", line);

@@ -112,7 +112,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 		}
 	|	^(NOT c = strcrit)
 		{
-			if (!$c.valid)
+			if (!$c.valid || !$c.result)
 			{
 				$valid = 0;
 			}
@@ -131,7 +131,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 		}
 	|	^(NOT i = intcrit)
 		{
-			if (!$i.valid)
+			if (!$i.valid || !$i.result)
 			{
 				$valid = 0;
 			}
