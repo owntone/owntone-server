@@ -1643,16 +1643,16 @@ notify_cb(int fd, short what, void *arg)
 
 /* Thread: player */
 int
-spotify_playback_setup(struct media_file_info *mfi)
+spotify_playback_setup(const char *path)
 {
   sp_link *link;
 
   DPRINTF(E_DBG, L_SPOTIFY, "Playback setup request\n");
 
-  link = fptr_sp_link_create_from_string(mfi->path);
+  link = fptr_sp_link_create_from_string(path);
   if (!link)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, invalid Spotify link: %s\n", mfi->path);
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, invalid Spotify link: %s\n", path);
       return -1;
     }
 

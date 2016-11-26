@@ -666,7 +666,7 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
   switch (ps->data_kind)
     {
       case DATA_KIND_FILE:
-	ps->xcode = transcode_setup(mfi, XCODE_PCM16_NOHEADER, NULL);
+	ps->xcode = transcode_setup(mfi->data_kind, mfi->path, mfi->song_length, XCODE_PCM16_NOHEADER, NULL);
 	ret = ps->xcode ? 0 : -1;
 	break;
 
@@ -678,13 +678,13 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 	free(mfi->path);
 	mfi->path = url;
 
-	ps->xcode = transcode_setup(mfi, XCODE_PCM16_NOHEADER, NULL);
+	ps->xcode = transcode_setup(mfi->data_kind, mfi->path, mfi->song_length, XCODE_PCM16_NOHEADER, NULL);
 	ret = ps->xcode ? 0 : -1;
 	break;
 
       case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
-	ret = spotify_playback_setup(mfi);
+	ret = spotify_playback_setup(mfi->path);
 #else
 	DPRINTF(E_LOG, L_PLAYER, "Player source has data kind 'spotify' (%d), but forked-daapd is compiled without spotify support - cannot setup source '%s' (%s)\n",
 		    ps->data_kind, mfi->title, mfi->path);
@@ -693,7 +693,7 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 	break;
 
       case DATA_KIND_PIPE:
-	ret = pipe_setup(mfi);
+	ret = pipe_setup(mfi->path);
 	break;
 
       default:

@@ -3,10 +3,9 @@
 #define __PIPE_H__
 
 #include <event2/buffer.h>
-#include "db.h"
 
 int
-pipe_setup(struct media_file_info *mfi);
+pipe_setup(const char *path);
 
 void
 pipe_cleanup(void);
