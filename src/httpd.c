@@ -248,6 +248,8 @@ oauth_interface(struct evhttp_request *req, const char *uri)
     spotify_oauth_interface(evbuf, redirect_uri);
 #endif
 
+  evbuffer_add_printf(evbuf, "<p><i>(sorry about this ugly interface)</i></p>\n");
+
   evhttp_clear_headers(&query);
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
