@@ -39,14 +39,7 @@
 #include "lastfm.h"
 #include "logger.h"
 #include "misc.h"
-
-
-struct https_client_ctx
-{
-  const char *url;
-  const char *body;
-  struct evbuffer *data;
-};
+#include "http.h"
 
 // LastFM becomes disabled if we get a scrobble, try initialising session,
 // but can't (probably no session key in db because user does not use LastFM)
@@ -172,51 +165,6 @@ credentials_read(char *path, char **username, char **password)
   return 0;
 }
 
-/* Converts parameters to a string in application/x-www-form-urlencoded format */
-static int
-body_print(char **body, struct keyval *kv)
-{
-  struct evbuffer *evbuf;
-  struct onekeyval *okv;
-  char *k;
-  char *v;
-
-  evbuf = evbuffer_new();
-
-  for (okv = kv->head; okv; okv = okv->next)
-    {
-      k = evhttp_encode_uri(okv->name);
-      if (!k)
-        continue;
-
-      v = evhttp_encode_uri(okv->value);
-      if (!v)
-	{
-	  free(k);
-	  continue;
-	}
-
-      evbuffer_add(evbuf, k, strlen(k));
-      evbuffer_add(evbuf, "=", 1);
-      evbuffer_add(evbuf, v, strlen(v));
-      if (okv->next)
-	evbuffer_add(evbuf, "&", 1);
-
-      free(k);
-      free(v);
-    }
-
-  evbuffer_add(evbuf, "\n", 1);
-
-  *body = evbuffer_readln(evbuf, NULL, EVBUFFER_EOL_ANY);
-
-  evbuffer_free(evbuf);
-
-  DPRINTF(E_DBG, L_LASTFM, "Parameters in request are: %s\n", *body);
-
-  return 0;
-}
-
 /* Creates an md5 signature of the concatenated parameters and adds it to keyval */
 static int
 param_sign(struct keyval *kv)
@@ -288,28 +236,8 @@ mxmlGetOpaque(mxml_node_t *node)	/* I - Node to get */
 
 /* --------------------------------- MAIN --------------------------------- */
 
-static size_t
-request_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
-{
-  size_t realsize;
-  struct https_client_ctx *ctx;
-  int ret;
-
-  realsize = size * nmemb;
-  ctx = (struct https_client_ctx *)userdata;
-
-  ret = evbuffer_add(ctx->data, ptr, realsize);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Error adding reply from LastFM to data buffer\n");
-      return 0;
-    }
-
-  return realsize;
-}
-
 static void
-response_proces(struct https_client_ctx *ctx)
+response_proces(struct http_client_ctx *ctx)
 {
   mxml_node_t *tree;
   mxml_node_t *s_node;
@@ -319,9 +247,9 @@ response_proces(struct https_client_ctx *ctx)
   char *sk;
 
   // NULL-terminate the buffer
-  evbuffer_add(ctx->data, "", 1);
+  evbuffer_add(ctx->input_body, "", 1);
 
-  body = (char *)evbuffer_pullup(ctx->data, -1);
+  body = (char *)evbuffer_pullup(ctx->input_body, -1);
   if (!body || (strlen(body) == 0))
     {
       DPRINTF(E_LOG, L_LASTFM, "Empty response\n");
@@ -380,59 +308,10 @@ response_proces(struct https_client_ctx *ctx)
   mxmlDelete(tree);
 }
 
-// We use libcurl to make the request. We could use libevent and avoid the
-// dependency, but for SSL, libevent needs to be v2.1 or better, which is still
-// a bit too new to be in the major distros
-static int
-https_client_request(struct https_client_ctx *ctx)
-{
-  CURL *curl;
-  CURLcode res;
- 
-  curl = curl_easy_init();
-  if (!curl)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Error: Could not get curl handle\n");
-      return -1;
-    }
-
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ctx->body);
-  curl_easy_setopt(curl, CURLOPT_URL, ctx->url);
-
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, request_cb);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, ctx);
-
-  ctx->data = evbuffer_new();
-  if (!ctx->data)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create evbuffer for LastFM response\n");
-      curl_easy_cleanup(curl);
-      return -1;
-    }
-
-  res = curl_easy_perform(curl);
-  if (res != CURLE_OK)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
-      curl_easy_cleanup(curl);
-      return -1;
-    }
-
-  response_proces(ctx);
-
-  evbuffer_free(ctx->data);
- 
-  curl_easy_cleanup(curl);
-
-  return 0;
-}
-
 static int
 request_post(char *method, struct keyval *kv, int auth)
 {
-  struct https_client_ctx ctx;
-  char *body;
+  struct http_client_ctx ctx;
   int ret;
 
   ret = keyval_add(kv, "method", method);
@@ -453,18 +332,27 @@ request_post(char *method, struct keyval *kv, int auth)
       return -1;
     }
 
-  ret = body_print(&body, kv);
+  memset(&ctx, 0, sizeof(struct http_client_ctx));
+
+  ctx.output_body = http_form_urlencode(kv);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_LASTFM, "Aborting request, body_print failed\n");
+      DPRINTF(E_LOG, L_LASTFM, "Aborting request, http_form_urlencode failed\n");
       return -1;
     }
 
-  memset(&ctx, 0, sizeof(struct https_client_ctx));
   ctx.url = auth ? auth_url : api_url;
-  ctx.body = body;
+  ctx.input_body = evbuffer_new();
 
-  ret = https_client_request(&ctx);
+  ret = http_client_request(&ctx);
+  if (ret < 0)
+    goto out_free_ctx;
+
+  response_proces(&ctx);
+
+ out_free_ctx:
+  free(ctx.output_body);
+  evbuffer_free(ctx.input_body);
 
   return ret;
 }

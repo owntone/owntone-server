@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2016 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,6 +35,10 @@
 #include <libavutil/opt.h>
 
 #include <event2/event.h>
+
+#ifdef HAVE_LIBCURL
+#include <curl/curl.h>
+#endif
 
 #include "http.h"
 #include "logger.h"
@@ -128,10 +132,10 @@ request_cb(struct evhttp_request *req, void *arg)
 
   ctx->ret = 0;
 
-  if (ctx->headers)
-    headers_save(ctx->headers, evhttp_request_get_input_headers(req));
-  if (ctx->body)
-    evbuffer_add_buffer(ctx->body, evhttp_request_get_input_buffer(req));
+  if (ctx->input_headers)
+    headers_save(ctx->input_headers, evhttp_request_get_input_headers(req));
+  if (ctx->input_body)
+    evbuffer_add_buffer(ctx->input_body, evhttp_request_get_input_buffer(req));
       
   event_base_loopbreak(ctx->evbase);
 
@@ -171,8 +175,8 @@ request_header_cb(struct evhttp_request *req, void *arg)
 }
 #endif
 
-int
-http_client_request(struct http_client_ctx *ctx)
+static int
+http_client_request_impl(struct http_client_ctx *ctx)
 {
   struct evhttp_connection *evcon;
   struct evhttp_request *req;
@@ -269,6 +273,144 @@ http_client_request(struct http_client_ctx *ctx)
   return ctx->ret;
 }
 
+#ifdef HAVE_LIBCURL
+static size_t
+curl_request_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+  size_t realsize;
+  struct http_client_ctx *ctx;
+  int ret;
+
+  realsize = size * nmemb;
+  ctx = (struct http_client_ctx *)userdata;
+
+  if (!ctx->input_body)
+    return realsize;
+
+  ret = evbuffer_add(ctx->input_body, ptr, realsize);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTP, "Error adding reply from %s to input buffer\n", ctx->url);
+      return 0;
+    }
+
+  return realsize;
+}
+
+static int
+https_client_request_impl(struct http_client_ctx *ctx)
+{
+  CURL *curl;
+  CURLcode res;
+  struct curl_slist *headers;
+  struct onekeyval *okv;
+  char header[1024];
+
+  curl = curl_easy_init();
+  if (!curl)
+    {
+      DPRINTF(E_LOG, L_HTTP, "Error: Could not get curl handle\n");
+      return -1;
+    }
+
+  curl_easy_setopt(curl, CURLOPT_URL, ctx->url);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "forked-daapd/" VERSION);
+
+  if (ctx->output_headers)
+    {
+      headers = NULL;
+      for (okv = ctx->output_headers->head; okv; okv = okv->next)
+	{
+	  snprintf(header, sizeof(header), "%s: %s", okv->name, okv->value);
+	  headers = curl_slist_append(headers, header);
+        }
+
+      curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    }
+
+  if (ctx->output_body)
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ctx->output_body);
+
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_CLIENT_TIMEOUT);
+
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_request_cb);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, ctx);
+
+  /* Make request */
+  DPRINTF(E_INFO, L_HTTP, "Making request for %s\n", ctx->url);
+
+  res = curl_easy_perform(curl);
+  if (res != CURLE_OK)
+    {
+      DPRINTF(E_LOG, L_HTTP, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
+      curl_easy_cleanup(curl);
+      return -1;
+    }
+
+  curl_easy_cleanup(curl);
+
+  return 0;
+}
+#endif /* HAVE_LIBCURL */
+
+int
+http_client_request(struct http_client_ctx *ctx)
+{
+  if (strncmp(ctx->url, "http:", strlen("http:")) == 0)
+    return http_client_request_impl(ctx);
+
+#ifdef HAVE_LIBCURL
+  if (strncmp(ctx->url, "https:", strlen("https:")) == 0)
+    return https_client_request_impl(ctx);
+#endif
+
+  DPRINTF(E_LOG, L_HTTP, "Request for %s is not supported (not built with libcurl?)\n", ctx->url);
+  return -1;
+}
+
+char *
+http_form_urlencode(struct keyval *kv)
+{
+  struct evbuffer *evbuf;
+  struct onekeyval *okv;
+  char *body;
+  char *k;
+  char *v;
+
+  evbuf = evbuffer_new();
+
+  for (okv = kv->head; okv; okv = okv->next)
+    {
+      k = evhttp_encode_uri(okv->name);
+      if (!k)
+        continue;
+
+      v = evhttp_encode_uri(okv->value);
+      if (!v)
+	{
+	  free(k);
+	  continue;
+	}
+
+      evbuffer_add_printf(evbuf, "%s=%s", k, v);
+      if (okv->next)
+	evbuffer_add_printf(evbuf, "&");
+
+      free(k);
+      free(v);
+    }
+
+  evbuffer_add(evbuf, "\n", 1);
+
+  body = evbuffer_readln(evbuf, NULL, EVBUFFER_EOL_ANY);
+
+  evbuffer_free(evbuf);
+
+  DPRINTF(E_DBG, L_HTTP, "Parameters in request are: %s\n", body);
+
+  return body;
+}
+
 int
 http_stream_setup(char **stream, const char *url)
 {
@@ -296,7 +438,7 @@ http_stream_setup(char **stream, const char *url)
     return -1;
 
   ctx.url = url;
-  ctx.body = evbuf;
+  ctx.input_body = evbuf;
 
   ret = http_client_request(&ctx);
   if (ret < 0)
@@ -308,13 +450,13 @@ http_stream_setup(char **stream, const char *url)
     }
 
   // Pad with CRLF because evbuffer_readln() might not read the last line otherwise
-  evbuffer_add(ctx.body, "\r\n", 2);
+  evbuffer_add(ctx.input_body, "\r\n", 2);
 
   /* Read the playlist until the first stream link is found, but give up if
    * nothing is found in the first 10 lines
    */
   n = 0;
-  while ((line = evbuffer_readln(ctx.body, NULL, EVBUFFER_EOL_ANY)) && (n < 10))
+  while ((line = evbuffer_readln(ctx.input_body, NULL, EVBUFFER_EOL_ANY)) && (n < 10))
     {
       n++;
       if (strncasecmp(line, "http://", strlen("http://")) == 0)
@@ -328,7 +470,7 @@ http_stream_setup(char **stream, const char *url)
       free(line);
     }
 
-  evbuffer_free(ctx.body);
+  evbuffer_free(ctx.input_body);
 
   if (n != -1)
     {

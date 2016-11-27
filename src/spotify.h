@@ -4,6 +4,7 @@
 
 #include <event2/event.h>
 #include <event2/buffer.h>
+#include <event2/http.h>
 
 int
 spotify_playback_setup(const char *path);
@@ -31,6 +32,12 @@ spotify_audio_get(struct evbuffer *evbuf, int wanted);
 
 int
 spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h);
+
+void
+spotify_oauth_interface(struct evbuffer *evbuf, const char *redirect_uri);
+
+void
+spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const char *redirect_uri);
 
 void
 spotify_login(char *path);

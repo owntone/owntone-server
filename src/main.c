@@ -68,7 +68,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "player.h"
 #include "worker.h"
 
-#ifdef LASTFM
+#ifdef HAVE_LIBCURL
 # include <curl/curl.h>
 #endif
 #ifdef HAVE_SPOTIFY_H
@@ -632,7 +632,7 @@ main(int argc, char **argv)
 #endif
   av_log_set_callback(logger_ffmpeg);
 
-#ifdef LASTFM
+#ifdef HAVE_LIBCURL
   /* Initialize libcurl */
   curl_global_init(CURL_GLOBAL_DEFAULT);
 #endif
@@ -810,6 +810,9 @@ main(int argc, char **argv)
       goto mdns_reg_fail;
     }
 
+  /* Register this CNAME with mDNS for OAuth */
+  mdns_cname("forked-daapd.local");
+
 #if defined(__linux__)
   /* Set up signal fd */
   sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
@@ -936,7 +939,7 @@ main(int argc, char **argv)
 
  signal_block_fail:
  gcrypt_init_fail:
-#ifdef LASTFM
+#ifdef HAVE_LIBCURL
   curl_global_cleanup();
 #endif
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 13)

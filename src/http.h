@@ -10,13 +10,18 @@
 
 struct http_client_ctx
 {
+  /* Destination URL, header and body of outgoing request body (headers and
+   * body is currently only supported for https)
+   */
   const char *url;
+  struct keyval *output_headers;
+  char *output_body;
 
   /* A keyval/evbuf to store response headers and body.
    * Can be set to NULL to ignore that part of the response.
    */
-  struct keyval *headers;
-  struct evbuffer *body;
+  struct keyval *input_headers;
+  struct evbuffer *input_body;
 
   /* Cut the connection after the headers have been received
    * Used for getting Shoutcast/ICY headers for old versions of libav/ffmpeg
@@ -47,13 +52,25 @@ struct http_icy_metadata
 };
 
 
-/* Generic HTTP client. No support for https.
+/* Make a http(s) request. We use libcurl to make https requests. We could use
+ * libevent and avoid the dependency, but for SSL, libevent needs to be v2.1
+ * or better, which is still a bit too new to be in the major distros.
  *
  * @param ctx HTTP request params, see above
- * @return 0 if successful, -1 if an error occurred
+ * @return 0 if successful, -1 if an error occurred (e.g. no libcurl)
  */
 int
 http_client_request(struct http_client_ctx *ctx);
+
+
+/* Converts the keyval dictionary to a application/x-www-form-urlencoded string.
+ * The values will be uri_encoded. Example output: "key1=foo%20bar&key2=123".
+ *
+ * @param kv is the struct containing the parameters
+ * @return encoded string if succesful, NULL if an error occurred
+ */
+char *
+http_form_urlencode(struct keyval *kv);
 
 
 /* Returns a newly allocated string with the first stream in the m3u given in

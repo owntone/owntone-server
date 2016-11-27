@@ -64,6 +64,9 @@
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 /*
  * HTTP client quirks by User-Agent, from mt-daapd
@@ -140,6 +143,7 @@ static struct evhttp *evhttpd;
 static pthread_t tid_httpd;
 
 static char *allow_origin;
+static int httpd_port;
 
 #ifdef HAVE_LIBEVENT2_OLD
 struct stream_ctx *g_st;
@@ -197,6 +201,61 @@ scrobble_cb(void *arg)
   lastfm_scrobble(*id);
 }
 #endif
+
+static void
+oauth_interface(struct evhttp_request *req, const char *uri)
+{
+  struct evbuffer *evbuf;
+  struct evkeyvalq query;
+  const char *req_uri;
+  const char *ptr;
+  char redirect_uri[256];
+  int ret;
+
+  req_uri = evhttp_request_get_uri(req);
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not alloc evbuf for oauth\n");
+      return;
+    }
+
+  evbuffer_add_printf(evbuf, "<H1>forked-daapd oauth</H1>\n\n");
+
+  memset(&query, 0, sizeof(struct evkeyvalq));
+
+  ptr = strchr(req_uri, '?');
+  if (ptr)
+    {
+      ret = evhttp_parse_query_str(ptr + 1, &query);
+      if (ret < 0)
+	{
+	  evbuffer_add_printf(evbuf, "OAuth error: Could not parse parameters in callback (%s)\n", req_uri);
+
+	  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
+	  evbuffer_free(evbuf);
+	  return;
+	}
+    }
+
+#ifdef HAVE_SPOTIFY_H
+  snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
+
+  if (strncmp(uri, "/oauth/spotify", strlen("/oauth/spotify")) == 0)
+    spotify_oauth_callback(evbuf, &query, redirect_uri);
+  else
+    spotify_oauth_interface(evbuf, redirect_uri);
+#endif
+
+  evbuffer_add_printf(evbuf, "<p><i>(sorry about this ugly interface)</i></p>\n");
+
+  evhttp_clear_headers(&query);
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
+
+  evbuffer_free(evbuf);
+}
 
 static void
 stream_end_register(struct stream_ctx *st)
@@ -912,6 +971,12 @@ serve_file(struct evhttp_request *req, char *uri)
 	}
     }
 
+  if (strncmp(uri, "/oauth", strlen("/oauth")) == 0)
+    {
+      oauth_interface(req, uri);
+      return;
+    }
+
   ret = snprintf(path, sizeof(path), "%s%s", WEBFACE_ROOT, uri + 1); /* skip starting '/' */
   if ((ret < 0) || (ret >= sizeof(path)))
     {
@@ -1347,7 +1412,6 @@ int
 httpd_init(void)
 {
   int v6enabled;
-  unsigned short port;
   int ret;
 
   httpd_exit = 0;
@@ -1428,7 +1492,7 @@ httpd_init(void)
     }
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
-  port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
   // For CORS headers
   allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
@@ -1442,20 +1506,20 @@ httpd_init(void)
 
   if (v6enabled)
     {
-      ret = evhttp_bind_socket(evhttpd, "::", port);
+      ret = evhttp_bind_socket(evhttpd, "::", httpd_port);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", port);
+	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
 	  v6enabled = 0;
 	}
     }
 
   if (!v6enabled)
     {
-      ret = evhttp_bind_socket(evhttpd, "0.0.0.0", port);
+      ret = evhttp_bind_socket(evhttpd, "0.0.0.0", httpd_port);
       if (ret < 0)
 	{
-	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", port);
+	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
 	  goto bind_fail;
 	}
     }

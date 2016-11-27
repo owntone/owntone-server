@@ -33,6 +33,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <unistd.h>
 
 #include <event2/event.h>
 
@@ -351,8 +352,15 @@ struct mdns_record_browser {
   int port;
 };
 
+enum publish
+{
+  MDNS_PUBLISH_SERVICE,
+  MDNS_PUBLISH_CNAME,
+};
+
 struct mdns_group_entry
 {
+  enum publish publish;
   char *name;
   char *type;
   int port;
@@ -622,13 +630,100 @@ entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_U
     }
 }
 
-static void
-_create_services(void)
+static int
+create_group_entry(struct mdns_group_entry *ge, int commit)
 {
-  struct mdns_group_entry *pentry;
+  char hostname[HOST_NAME_MAX + 1];
+  char rdata[HOST_NAME_MAX + 6 + 1]; // Includes room for ".local" and 0-terminator
+  int count;
+  int i;
   int ret;
 
-  DPRINTF(E_DBG, L_MDNS, "Creating service group\n");
+  if (!mdns_group)
+    {
+      mdns_group = avahi_entry_group_new(mdns_client, entry_group_callback, NULL);
+      if (!mdns_group)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Could not create Avahi EntryGroup: %s\n", MDNSERR);
+	  return -1;
+	}
+    }
+
+  if (ge->publish == MDNS_PUBLISH_SERVICE)
+    {
+      DPRINTF(E_DBG, L_MDNS, "Adding service %s/%s\n", ge->name, ge->type);
+
+      ret = avahi_entry_group_add_service_strlst(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0,
+						 ge->name, ge->type,
+						 NULL, NULL, ge->port, ge->txt);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_MDNS, "Could not add mDNS service %s/%s: %s\n", ge->name, ge->type, avahi_strerror(ret));
+	  return -1;
+	}
+    }
+  else if (ge->publish == MDNS_PUBLISH_CNAME)
+    {
+      DPRINTF(E_DBG, L_MDNS, "Adding CNAME record %s\n", ge->name);
+
+      ret = gethostname(hostname, HOST_NAME_MAX);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_MDNS, "Could not add CNAME %s, gethostname failed\n", ge->name);
+	  return -1;
+	}
+
+      // Note, gethostname does not guarantee 0-termination
+      ret = snprintf(rdata, sizeof(rdata), ".%s.local", hostname);
+      if (!(ret > 0 && ret < sizeof(rdata)))
+        {
+	  DPRINTF(E_LOG, L_MDNS, "Could not add CNAME %s, hostname is invalid\n", ge->name);
+	  return -1;
+        }
+
+      // Convert to dns string: .forked-daapd.local -> \12forked-daapd\6local
+      count = 0;
+      for (i = ret - 1; i >= 0; i--)
+        {
+	  if (rdata[i] == '.')
+	    {
+	      rdata[i] = count;
+	      count = 0;
+	    }
+	  else
+	    count++;
+        }
+
+      // ret + 1 should be the string length of rdata incl. 0-terminator
+      ret = avahi_entry_group_add_record(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+                                         AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_ALLOW_MULTIPLE,
+                                         ge->name, AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_CNAME,
+                                         AVAHI_DEFAULT_TTL, rdata, ret + 1);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_MDNS, "Could not add CNAME record %s: %s\n", ge->name, avahi_strerror(ret));
+	  return -1;
+	}
+    }
+
+  if (!commit)
+    return 0;
+
+  ret = avahi_entry_group_commit(mdns_group);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Could not commit mDNS services: %s\n", MDNSERR);
+      return -1;
+    }
+
+  return 0;
+}
+
+static void
+create_all_group_entries(void)
+{
+  struct mdns_group_entry *ge;
+  int ret;
 
   if (!group_entries)
     {
@@ -636,36 +731,21 @@ _create_services(void)
       return;
     }
 
-    if (mdns_group == NULL)
-      {
-        mdns_group = avahi_entry_group_new(mdns_client, entry_group_callback, NULL);
-	if (!mdns_group)
-	  {
-            DPRINTF(E_WARN, L_MDNS, "Could not create Avahi EntryGroup: %s\n", MDNSERR);
-            return;
-	  }
-      }
+  if (mdns_group)
+    avahi_entry_group_reset(mdns_group);
 
-    pentry = group_entries;
-    while (pentry)
-      {
-        DPRINTF(E_DBG, L_MDNS, "Re-registering %s/%s\n", pentry->name, pentry->type);
+  DPRINTF(E_INFO, L_MDNS, "Re-registering mDNS groups (services and records)\n");
 
-        ret = avahi_entry_group_add_service_strlst(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0,
-						   pentry->name, pentry->type,
-						   NULL, NULL, pentry->port, pentry->txt);
-	if (ret < 0)
-	  {
-	    DPRINTF(E_WARN, L_MDNS, "Could not add mDNS services: %s\n", avahi_strerror(ret));
-	    return;
-	  }
+  for (ge = group_entries; ge; ge = ge->next)
+    {
+      create_group_entry(ge, 0);
+      if (!mdns_group)
+	return;
+    }
 
-	pentry = pentry->next;
-      }
-
-    ret = avahi_entry_group_commit(mdns_group);
-    if (ret < 0)
-      DPRINTF(E_WARN, L_MDNS, "Could not commit mDNS services: %s\n", MDNSERR);
+  ret = avahi_entry_group_commit(mdns_group);
+  if (ret < 0)
+    DPRINTF(E_WARN, L_MDNS, "Could not commit mDNS services: %s\n", MDNSERR);
 }
 
 static void
@@ -680,7 +760,7 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
       case AVAHI_CLIENT_S_RUNNING:
         DPRINTF(E_LOG, L_MDNS, "Avahi state change: Client running\n");
         if (!mdns_group)
-	  _create_services();
+	  create_all_group_entries();
 
 	for (mb = browser_list; mb; mb = mb->next)
 	  {
@@ -808,8 +888,6 @@ mdns_register(char *name, char *type, int port, char **txt)
   AvahiStringList *txt_sl;
   int i;
 
-  DPRINTF(E_DBG, L_MDNS, "Adding mDNS service %s/%s\n", name, type);
-
   ge = calloc(1, sizeof(struct mdns_group_entry));
   if (!ge)
     {
@@ -817,6 +895,7 @@ mdns_register(char *name, char *type, int port, char **txt)
       return -1;
     }
 
+  ge->publish = MDNS_PUBLISH_SERVICE;
   ge->name = strdup(name);
   ge->type = strdup(type);
   ge->port = port;
@@ -837,14 +916,30 @@ mdns_register(char *name, char *type, int port, char **txt)
   ge->next = group_entries;
   group_entries = ge;
 
-  if (mdns_group)
+  create_all_group_entries(); // TODO why is this required?
+
+  return 0;
+}
+
+int
+mdns_cname(char *name)
+{
+  struct mdns_group_entry *ge;
+
+  ge = calloc(1, sizeof(struct mdns_group_entry));
+  if (!ge)
     {
-      DPRINTF(E_DBG, L_MDNS, "Resetting mDNS group\n");
-      avahi_entry_group_reset(mdns_group);
+      DPRINTF(E_LOG, L_MDNS, "Out of memory for mDNS CNAME\n");
+      return -1;
     }
 
-  DPRINTF(E_DBG, L_MDNS, "Creating service group\n");
-  _create_services();
+  ge->publish = MDNS_PUBLISH_CNAME;
+  ge->name = strdup(name);
+
+  ge->next = group_entries;
+  group_entries = ge;
+
+  create_all_group_entries();
 
   return 0;
 }
