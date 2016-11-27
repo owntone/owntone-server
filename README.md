@@ -435,40 +435,46 @@ curl "http://localhost:3689/logout?session-id=50"
 
 ## Spotify
 
-forked-daapd has *some* support for Spotify. It must be compiled with the
-`--enable-spotify option` (see
+forked-daapd has support for playback of the tracks in your Spotify library. It
+must have been compiled with the `--enable-spotify` option (see
 [INSTALL](https://github.com/ejurgensen/forked-daapd/blob/master/INSTALL)).
-You must have also have libspotify installed, otherwise the Spotify integration
-will not be available. You can get libspotify here:
+You must also have libspotify installed, otherwise Spotify integration will not
+be available. Unfortunately the library is no longer available from Spotify, and
+at the time of writing they have not provided an alternative. You can, however,
+still get libspotify here:
 
-  - Original (binary) tar.gz, see https://developer.spotify.com
-  - Debian package (libspotify-dev), see https://apt.mopidy.com
+- Debian package (libspotify-dev), see https://apt.mopidy.com
   
 You must also have a Spotify premium account. If you normally log into Spotify
 with your Facebook account you must first go to Spotify's web site where you can
 get the Spotify username and password that matches your account. With
 forked-daapd you cannot login into Spotify with your Facebook username/password.
 
-The procedure for logging in to Spotify is very much like the Remote pairing
-procedure. You must prepare a file, which should have the ending ".spotify".
-The file must have two lines: The first is your Spotify user name, and the
-second is your password. Move the file to your forked-daapd library.
-Forked-daapd will then log in and add all the music in your Spotify playlists
-to its database.
+The procedure for logging in to Spotify is a two-step procedure due to the
+current state of libspotify:
+
+1. Put a file in your forked-daapd library containing two lines, the first being
+   your Spotify user name, and the second your password. The filename must have
+   the ending ".spotify"
+2. Delete the file again - forked-daapd will have read it.
+3. forked-daapd will log in and add all music in your Spotify playlists to its
+   database. Wait until completed (follow progress in the log file).
+4. In a browser, go to http://forked-daapd.local:3689/oauth and click the link
+   to authorize forked-daapd with Spotify.
 
 Spotify will automatically notify forked-daapd about playlist updates, so you
-should not need to restart forked-daapd to syncronize with Spotify.
+should not need to restart forked-daapd to syncronize with Spotify. However,
+Spotify only notifies about playlist updates, not new saved tracks/albums, so
+you need to repeat step 4 above to load those.
 
-For safety you should delete the ".spotify" file after first login. Forked-daapd
-will not store your password, but will still be able to log you in automatically
-afterwards, because libspotify saves a login token. You can configure the
-location of your Spotify user data in the configuration file.
+Forked-daapd will not store your password, but will still be able to log you in
+automatically afterwards, because libspotify saves a login token. You can
+configure the location of your Spotify user data in the configuration file.
 
 To permanently logout and remove credentials, delete the contents of
 `/var/cache/forked-daapd/libspotify` (while forked-daapd is stopped).
 
-Limitations: You will only be able to play tracks from your Spotify playlists,
-so you can't search and listen to music from the rest of the Spotify catalogue.
+Limitations:
 You will not be able to do any playlist management through forked-daapd - use
 a Spotify client for that. You also can only listen to your music by letting
 forked-daapd do the playback - so that means you can't stream from forked-daapd
