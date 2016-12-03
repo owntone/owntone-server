@@ -4167,10 +4167,6 @@ db_speaker_clear_all(void)
 
 /* Queue */
 
-static int
-queue_fetch_byitemid(struct db_queue_enum *queue_enum, uint32_t item_id, struct db_queue_item *queue_item, int keep_item);
-
-
 void
 free_queue_item(struct db_queue_item *queue_item, int content_only)
 {
