@@ -943,6 +943,7 @@ spotify_uri_register(void *arg, int *retval)
       pli.title = "Spotify Saved";
       pli.type = PL_PLAIN;
       pli.path = "spotify:savedtracks";
+      pli.virtual_path = "/spotify:/Spotify Saved";
 
       ret = db_pl_add(&pli, &spotify_saved_plid);
       if (ret < 0)
