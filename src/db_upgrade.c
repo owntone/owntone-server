@@ -1471,8 +1471,8 @@ db_upgrade_v19(sqlite3 *hdl)
   "   disc                INTEGER DEFAULT 0"				\
   ");"
 
-#define U_V2000_PLVERSION			\
-  "INSERT INTO admin (key, value) VALUES ('plversion', '0');"
+#define U_V2000_QUEUE_VERSION			\
+  "INSERT INTO admin (key, value) VALUES ('queue_version', '0');"
 
 #define U_V2000_SCVER_MAJOR			\
   "UPDATE admin SET value = '20' WHERE key = 'schema_version_major';"
@@ -1482,7 +1482,7 @@ db_upgrade_v19(sqlite3 *hdl)
 static const struct db_upgrade_query db_upgrade_v2000_queries[] =
   {
     { U_V2000_CREATE_TABLE_QUEUE,    "create table directories" },
-    { U_V2000_PLVERSION,             "insert plversion" },
+    { U_V2000_QUEUE_VERSION,             "insert plversion" },
 
     { U_V2000_SCVER_MAJOR,    "set schema_version_major to 20" },
     { U_V2000_SCVER_MINOR,    "set schema_version_minor to 00" },

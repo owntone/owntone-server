@@ -4204,14 +4204,14 @@ int
 db_queue_get_version()
 {
   char *version;
-  int32_t plversion;
+  int32_t queue_version;
   int ret;
 
-  plversion = 0;
-  version = db_admin_get("plversion");
+  queue_version = 0;
+  version = db_admin_get("queue_version");
   if (version)
     {
-      ret = safe_atoi32(version, &plversion);
+      ret = safe_atoi32(version, &queue_version);
       free(version);
       if (ret < 0)
 	{
@@ -4220,7 +4220,7 @@ db_queue_get_version()
 	}
     }
 
-  return plversion;
+  return queue_version;
 }
 
 /*
@@ -4233,29 +4233,29 @@ db_queue_get_version()
 static void
 queue_inc_version_and_notify()
 {
-  int plversion;
+  int queue_version;
   char version[10];
   int ret;
 
   db_transaction_begin();
 
-  plversion = db_queue_get_version();
-  if (plversion < 0)
-    plversion = 0;
+  queue_version = db_queue_get_version();
+  if (queue_version < 0)
+    queue_version = 0;
 
-  plversion++;
-  ret = snprintf(version, sizeof(version), "%d", plversion);
+  queue_version++;
+  ret = snprintf(version, sizeof(version), "%d", queue_version);
   if (ret >= sizeof(version))
     {
-      DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not convert version to string: %d\n", plversion);
+      DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not convert version to string: %d\n", queue_version);
       db_transaction_rollback();
       return;
     }
 
-  ret = db_admin_update("plversion", version);
+  ret = db_admin_update("queue_version", version);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not update version in admin table: %d\n", plversion);
+      DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not update version in admin table: %d\n", queue_version);
       db_transaction_rollback();
       return;
     }

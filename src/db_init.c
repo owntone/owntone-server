@@ -242,6 +242,9 @@
   "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
   " VALUES (4, '/spotify:', 0, 4294967296, 1);"
 
+#define Q_QUEUE_VERSION			\
+  "INSERT INTO admin (key, value) VALUES ('queue_version', '0');"
+
 #define Q_SCVER_MAJOR					\
   "INSERT INTO admin (key, value) VALUES ('schema_version_major', '%d');"
 #define Q_SCVER_MINOR					\
@@ -278,6 +281,7 @@ static const struct db_init_query db_init_table_queries[] =
     { Q_DIR2,      "create default base directory '/file:'" },
     { Q_DIR3,      "create default base directory '/http:'" },
     { Q_DIR4,      "create default base directory '/spotify:'" },
+    { Q_QUEUE_VERSION, "initialize queue version" },
   };
 
 
