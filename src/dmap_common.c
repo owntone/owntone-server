@@ -559,3 +559,78 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
 
   return 0;
 }
+
+int
+dmap_encode_queue_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_queue_item *queue_item)
+{
+  int32_t val;
+  int want_mikd;
+  int want_asdk;
+  int want_ased;
+  int ret;
+
+  dmap_add_int(song, "miid", queue_item->file_id);
+  dmap_add_string(song, "minm", queue_item->title);
+  dmap_add_long(song, "mper", queue_item->file_id);
+  dmap_add_int(song, "mcti", queue_item->file_id);
+  dmap_add_string(song, "asal", queue_item->album);
+  dmap_add_long(song, "asai", queue_item->songalbumid);
+  dmap_add_string(song, "asaa", queue_item->album_artist);
+  dmap_add_string(song, "asar", queue_item->artist);
+  dmap_add_int(song, "asdm", queue_item->time_modified);
+  dmap_add_short(song, "asdn", queue_item->disc);
+  dmap_add_string(song, "asgn", queue_item->genre);
+  dmap_add_int(song, "astm", queue_item->song_length);
+  dmap_add_short(song, "astn", queue_item->track);
+  dmap_add_short(song, "asyr", queue_item->year);
+  dmap_add_int(song, "aeMK", queue_item->media_kind);
+  dmap_add_char(song, "aeMk", queue_item->media_kind);
+
+  dmap_add_string(song, "asfm", "wav");
+  dmap_add_short(song, "asbr", 1411);
+  dmap_add_string(song, "asdt", "wav audio file");
+
+  want_mikd = 1;/* Will be prepended to the list *//* item kind */
+  want_asdk = 1;/* Will be prepended to the list *//* data kind */
+  want_ased = 1;/* Extradata not in media_file_info but flag for reply */
+
+  /* Required for artwork in iTunes, set songartworkcount (asac) = 1 */
+  if (want_ased)
+    {
+      dmap_add_short(song, "ased", 1);
+      dmap_add_short(song, "asac", 1);
+    }
+
+  val = 0;
+  if (want_mikd)
+    val += 9;
+  if (want_asdk)
+    val += 9;
+
+  dmap_add_container(songlist, "mlit", evbuffer_get_length(song) + val);
+
+  /* Prepend mikd & asdk if needed */
+  if (want_mikd)
+    {
+      /* dmap.itemkind must come first */
+      val = 2; /* music by default */
+      dmap_add_char(songlist, "mikd", val);
+    }
+  if (want_asdk)
+    {
+      ret = queue_item->data_kind;
+      if (ret < 0)
+	val = 0;
+      dmap_add_char(songlist, "asdk", val);
+    }
+
+  ret = evbuffer_add_buffer(songlist, song);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not add song to song list\n");
+
+      return -1;
+    }
+
+  return 0;
+}

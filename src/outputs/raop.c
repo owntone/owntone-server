@@ -821,12 +821,9 @@ raop_metadata_prune(uint64_t rtptime)
 static void *
 raop_metadata_prepare(int id)
 {
-  struct query_params qp;
-  struct db_media_file_info dbmfi;
-  char filter[32];
+  struct db_queue_item *queue_item;
   struct raop_metadata *rmd;
   struct evbuffer *tmp;
-  uint64_t duration;
   int ret;
 
   rmd = (struct raop_metadata *)malloc(sizeof(struct raop_metadata));
@@ -839,6 +836,14 @@ raop_metadata_prepare(int id)
 
   memset(rmd, 0, sizeof(struct raop_metadata));
 
+  queue_item = db_queue_fetch_byitemid(id);
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for queue item\n");
+
+      goto out_rmd;
+    }
+
   /* Get artwork */
   rmd->artwork = evbuffer_new();
   if (!rmd->artwork)
@@ -848,7 +853,7 @@ raop_metadata_prepare(int id)
       goto skip_artwork;
     }
 
-  ret = artwork_get_item(rmd->artwork, id, 600, 600);
+  ret = artwork_get_item(rmd->artwork, queue_item->file_id, 600, 600);
   if (ret < 0)
     {
       DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file id %d; no artwork will be sent\n", id);
@@ -861,44 +866,13 @@ raop_metadata_prepare(int id)
 
  skip_artwork:
 
-  /* Get dbmfi */
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_ITEMS;
-  qp.idx_type = I_NONE;
-  qp.sort = S_NONE;
-  qp.filter = filter;
-
-  ret = snprintf(filter, sizeof(filter), "id = %d", id);
-  if ((ret < 0) || (ret >= sizeof(filter)))
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not build filter for file id %d; metadata will not be sent\n", id);
-
-      goto out_rmd;
-    }
-
-  ret = db_query_start(&qp);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't start query; no metadata will be sent\n");
-
-      goto out_rmd;
-    }
-
-  ret = db_query_fetch_file(&qp, &dbmfi);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't fetch file id %d; metadata will not be sent\n", id);
-
-      goto out_query;
-    }
-
   /* Turn it into DAAP metadata */
   tmp = evbuffer_new();
   if (!tmp)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for temporary metadata evbuffer; metadata will not be sent\n");
 
-      goto out_query;
+      goto out_qi;
     }
 
   rmd->metadata = evbuffer_new();
@@ -907,10 +881,10 @@ raop_metadata_prepare(int id)
       DPRINTF(E_LOG, L_RAOP, "Out of memory for metadata evbuffer; metadata will not be sent\n");
 
       evbuffer_free(tmp);
-      goto out_query;
+      goto out_qi;
     }
 
-  ret = dmap_encode_file_metadata(rmd->metadata, tmp, &dbmfi, NULL, 0, 0, 1);
+  ret = dmap_encode_queue_metadata(rmd->metadata, tmp, queue_item);
   evbuffer_free(tmp);
   if (ret < 0)
     {
@@ -919,27 +893,18 @@ raop_metadata_prepare(int id)
       goto out_metadata;
     }
 
-  /* Progress */
-  ret = safe_atou64(dbmfi.song_length, &duration);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Failed to convert song_length to integer; no metadata will be sent\n");
-
-      goto out_metadata;
-    }
-
-  db_query_end(&qp);
-
-  /* raop_metadata_send() will add rtptime to these */
+  /* Progress - raop_metadata_send() will add rtptime to these */
   rmd->start = 0;
-  rmd->end = (duration * 44100UL) / 1000UL;
+  rmd->end = (queue_item->song_length * 44100UL) / 1000UL;
+
+  free_queue_item(queue_item, 0);
 
   return rmd;
 
  out_metadata:
   evbuffer_free(rmd->metadata);
- out_query:
-  db_query_end(&qp);
+ out_qi:
+  free_queue_item(queue_item, 0);
  out_rmd:
   free(rmd);
 

@@ -502,7 +502,7 @@ metadata_trigger(int startup)
 
   memset(&pmd, 0, sizeof(struct player_metadata));
 
-  pmd.id = cur_streaming->id;
+  pmd.id = cur_streaming->item_id;
   pmd.startup = startup;
 
   if (cur_streaming->stream_start && cur_streaming->output_start)
