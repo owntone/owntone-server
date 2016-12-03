@@ -4289,7 +4289,7 @@ db_queue_update_icymetadata(int id, char *artist, char *album)
 }
 
 static int
-queue_add_mediafileinfo(struct db_media_file_info *dbmfi, int pos, int shuffle_pos)
+queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos)
 {
 #define Q_TMPL "INSERT INTO queue "							\
 		    "(id, file_id, song_length, data_kind, media_kind, "		\
@@ -4388,7 +4388,7 @@ db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
   // Iterate over new items from files table and insert into queue
   while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      ret = queue_add_mediafileinfo(&dbmfi, pos, shuffle_pos);
+      ret = queue_add_file(&dbmfi, pos, shuffle_pos);
 
       if (ret < 0)
 	{
@@ -4460,7 +4460,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
 
   while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      ret = queue_add_mediafileinfo(&dbmfi, pos, pos);
+      ret = queue_add_file(&dbmfi, pos, pos);
 
       if (ret < 0)
 	{
