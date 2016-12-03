@@ -4392,7 +4392,7 @@ db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
 
       if (ret < 0)
 	{
-	  DPRINTF(E_DBG, L_DB, "Failed to add song  with id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
+	  DPRINTF(E_LOG, L_DB, "Failed to add song with id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
 	  break;
 	}
 
