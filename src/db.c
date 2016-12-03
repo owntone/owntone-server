@@ -4650,7 +4650,7 @@ queue_enum_fetch(struct db_queue_enum *queue_enum, struct db_queue_item *queue_i
       return -1;
     }
 
-  queue_item->item_id = (uint32_t)sqlite3_column_int(queue_enum->stmt, 0);
+  queue_item->id = (uint32_t)sqlite3_column_int(queue_enum->stmt, 0);
   queue_item->file_id = (uint32_t)sqlite3_column_int(queue_enum->stmt, 1);
   queue_item->pos = (uint32_t)sqlite3_column_int(queue_enum->stmt, 2);
   queue_item->shuffle_pos = (uint32_t)sqlite3_column_int(queue_enum->stmt, 3);
@@ -4801,7 +4801,7 @@ db_queue_fetch_byitemid(uint32_t item_id)
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by item id\n");
       return NULL;
     }
-  else if (queue_item->item_id == 0)
+  else if (queue_item->id == 0)
     {
       // No item found
       free_queue_item(queue_item, 0);
@@ -4851,7 +4851,7 @@ db_queue_fetch_byfileid(uint32_t file_id)
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by file id\n");
       return NULL;
     }
-  else if (queue_item->item_id == 0)
+  else if (queue_item->id == 0)
     {
       // No item found
       free_queue_item(queue_item, 0);
@@ -4910,7 +4910,7 @@ db_queue_fetch_bypos(uint32_t pos, char shuffle)
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by pos id\n");
       return NULL;
     }
-  else if (queue_item->item_id == 0)
+  else if (queue_item->id == 0)
     {
       // No item found
       free_queue_item(queue_item, 0);
@@ -4940,7 +4940,7 @@ queue_fetch_byposrelativetoitem(struct db_queue_enum *queue_enum, int pos, uint3
 
   ret = queue_fetch_bypos(queue_enum, pos_absolute, shuffle, queue_item, keep_item);
 
-  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->item_id, queue_item->pos, queue_item->file_id);
+  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->id, queue_item->pos, queue_item->file_id);
 
   return ret;
 }
@@ -4975,14 +4975,14 @@ db_queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle)
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by pos relative to item id\n");
       return NULL;
     }
-  else if (queue_item->item_id == 0)
+  else if (queue_item->id == 0)
     {
       // No item found
       free_queue_item(queue_item, 0);
       return NULL;
     }
 
-  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->item_id, queue_item->pos, queue_item->file_id);
+  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->id, queue_item->pos, queue_item->file_id);
 
   return queue_item;
 }
@@ -5045,15 +5045,15 @@ db_queue_cleanup()
     }
 
   pos = 0;
-  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0))
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.id > 0))
     {
       if (queue_item.pos != pos)
 	{
-	  query = sqlite3_mprintf(Q_TMPL_UPDATE, pos, queue_item.item_id);
+	  query = sqlite3_mprintf(Q_TMPL_UPDATE, pos, queue_item.id);
 	  ret = db_query_run(query, 1, 0);
 	  if (ret < 0)
 	  {
-	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.item_id);
+	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
 	    break;
 	  }
 	}
@@ -5081,15 +5081,15 @@ db_queue_cleanup()
     }
 
   pos = 0;
-  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0))
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.id > 0))
     {
       if (queue_item.shuffle_pos != pos)
 	{
-	  query = sqlite3_mprintf(Q_TMPL_UPDATE_SHUFFLE, pos, queue_item.item_id);
+	  query = sqlite3_mprintf(Q_TMPL_UPDATE_SHUFFLE, pos, queue_item.id);
 	  ret = db_query_run(query, 1, 0);
 	  if (ret < 0)
 	  {
-	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.item_id);
+	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
 	    break;
 	  }
 	}
@@ -5142,7 +5142,7 @@ queue_delete_item(struct db_queue_item *queue_item)
   int ret;
 
   // Remove item with the given item_id
-  query = sqlite3_mprintf("DELETE FROM queue where id = %d;", queue_item->item_id);
+  query = sqlite3_mprintf("DELETE FROM queue where id = %d;", queue_item->id);
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
@@ -5188,7 +5188,7 @@ db_queue_delete_byitemid(uint32_t item_id)
       return -1;
     }
 
-  if (queue_item.item_id == 0)
+  if (queue_item.id == 0)
     {
       queue_enum_end(&queue_enum);
       db_transaction_end();
@@ -5234,12 +5234,12 @@ db_queue_delete_bypos(uint32_t pos, int count)
       return -1;
     }
 
-  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0))
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.id > 0))
     {
       ret = queue_delete_item(&queue_item);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.item_id);
+	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.id);
 	  break;
 	}
     }
@@ -5277,7 +5277,7 @@ db_queue_delete_byposrelativetoitem(uint32_t pos, uint32_t item_id, char shuffle
       db_transaction_rollback();
       return -1;
     }
-  else if (queue_item.item_id == 0)
+  else if (queue_item.id == 0)
     {
       // No item found
       queue_enum_end(&queue_enum);
@@ -5387,7 +5387,7 @@ db_queue_move_bypos(int pos_from, int pos_to)
       return -1;
     }
 
-  if (queue_item.item_id == 0)
+  if (queue_item.id == 0)
     {
       queue_enum_end(&queue_enum);
       db_transaction_end();
@@ -5415,7 +5415,7 @@ db_queue_move_bypos(int pos_from, int pos_to)
     }
 
   // Update item with the given item_id
-  query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_to, queue_item.item_id);
+  query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_to, queue_item.id);
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
@@ -5465,9 +5465,9 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Move by pos: base item (id=%d, pos=%d, file-id=%d)\n", queue_item.item_id, queue_item.pos, queue_item.file_id);
+  DPRINTF(E_DBG, L_DB, "Move by pos: base item (id=%d, pos=%d, file-id=%d)\n", queue_item.id, queue_item.pos, queue_item.file_id);
 
-  if (queue_item.item_id == 0)
+  if (queue_item.id == 0)
     {
       queue_enum_end(&queue_enum);
       db_transaction_end();
@@ -5507,9 +5507,9 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Move by pos: move item (id=%d, pos=%d, file-id=%d)\n", queue_item.item_id, queue_item.pos, queue_item.file_id);
+  DPRINTF(E_DBG, L_DB, "Move by pos: move item (id=%d, pos=%d, file-id=%d)\n", queue_item.id, queue_item.pos, queue_item.file_id);
 
-  if (queue_item.item_id == 0)
+  if (queue_item.id == 0)
     {
       queue_enum_end(&queue_enum);
       db_transaction_end();
@@ -5546,9 +5546,9 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
 
   // Update item with the given item_id
   if (shuffle)
-    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", pos_move_to, queue_item.item_id);
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", pos_move_to, queue_item.id);
   else
-    query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_move_to, queue_item.item_id);
+    query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_move_to, queue_item.id);
 
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
@@ -5640,13 +5640,13 @@ db_queue_reshuffle(uint32_t item_id)
     }
 
   i = 0;
-  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.item_id > 0) && (i < len))
+  while ((ret = queue_enum_fetch(&queue_enum, &queue_item, 0)) == 0 && (queue_item.id > 0) && (i < len))
     {
-      query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", shuffle_pos[i], queue_item.item_id);
+      query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", shuffle_pos[i], queue_item.id);
       ret = db_query_run(query, 1, 0);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.item_id);
+	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.id);
 	  break;
 	}
 

@@ -927,7 +927,7 @@ source_new(struct db_queue_item *queue_item)
     }
 
   ps->id = queue_item->file_id;
-  ps->item_id = queue_item->item_id;
+  ps->item_id = queue_item->id;
   ps->data_kind = queue_item->data_kind;
   ps->media_kind = queue_item->media_kind;
   ps->len_ms = queue_item->song_length;
@@ -2311,7 +2311,7 @@ playback_start_item(void *arg, int *retval)
   else
     {
       // Start playback for given queue item
-      DPRINTF(E_DBG, L_PLAYER, "Start playback of '%s' (id=%d, item-id=%d)\n", queue_item->path, queue_item->file_id, queue_item->item_id);
+      DPRINTF(E_DBG, L_PLAYER, "Start playback of '%s' (id=%d, item-id=%d)\n", queue_item->path, queue_item->file_id, queue_item->id);
       source_stop();
 
       ps = source_new(queue_item);

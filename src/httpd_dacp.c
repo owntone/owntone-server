@@ -1635,9 +1635,9 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
       ret = db_queue_enum_start(&queue_enum);
 
       count = 0; //FIXME [queue] Check count value
-      while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.item_id > 0)
+      while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
 	{
-	  if (status.item_id == 0 || status.item_id == queue_item.item_id)
+	  if (status.item_id == 0 || status.item_id == queue_item.id)
 	    count = 1;
 	  else if (count > 0)
 	    {

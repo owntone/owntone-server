@@ -376,9 +376,9 @@ struct directory_enum {
 
 struct db_queue_item
 {
-  /* Item-Id is a unique id for this queue item. If the same item appears multiple
+  /* A unique id for this queue item. If the same item appears multiple
      times in the queue each corresponding queue item has its own id. */
-  uint32_t item_id;
+  uint32_t id;
 
   /* Id of the file/item in the files database */
   uint32_t file_id;

@@ -436,7 +436,7 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
       queue_item->genre,
       queue_item->disc,
       queue_item->pos,
-      queue_item->item_id);
+      queue_item->id);
 
   return ret;
 }
@@ -766,7 +766,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       evbuffer_add_printf(evbuf,
 	  "nextsong: %d\n"
 	  "nextsongid: %d\n",
-	      next_item->item_id,
+	      next_item->id,
 	      next_item->pos);
 
 	  free_queue_item(next_item, 0);
@@ -1828,7 +1828,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.item_id > 0)
+  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
 	  if (ret < 0)
@@ -1897,7 +1897,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.item_id > 0)
+  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
@@ -1945,7 +1945,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.item_id > 0)
+  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
@@ -1991,13 +1991,13 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.item_id > 0)
+  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
     {
       evbuffer_add_printf(evbuf,
       	  "cpos: %d\n"
       	  "Id: %d\n",
       	  queue_item.pos,
-	  queue_item.item_id);
+	  queue_item.id);
     }
 
   db_queue_enum_end(&queue_enum);
