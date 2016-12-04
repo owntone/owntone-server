@@ -4516,10 +4516,6 @@ db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
 
   qp.id = plid;
   qp.type = Q_PLITEMS;
-  qp.offset = 0;
-  qp.limit = 0;
-  qp.sort = S_NONE;
-  qp.idx_type = I_NONE;
 
   ret = db_queue_add_by_query(&qp, reshuffle, item_id);
 
@@ -4543,11 +4539,7 @@ db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  qp.id = 0;
   qp.type = Q_ITEMS;
-  qp.offset = 0;
-  qp.limit = 0;
-  qp.sort = S_NONE;
   snprintf(buf, sizeof(buf), "f.id = %" PRIu32, id);
   qp.filter = buf;
 
