@@ -4553,14 +4553,14 @@ db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
 static int
 queue_enum_start(struct query_params *query_params)
 {
-#define Q_TMPL "SELECT * FROM queue WHERE %s ORDER BY %s;"
+#define Q_TMPL "SELECT * FROM queue WHERE %s %s;"
   char *query;
   const char *orderby;
   int ret;
 
   query_params->stmt = NULL;
 
-  if (query_params)
+  if (query_params->sort)
     orderby = sort_clause[query_params->sort];
   else
     orderby = sort_clause[S_POS];
