@@ -1479,13 +1479,13 @@ db_upgrade_v19(sqlite3 *hdl)
 #define U_V2000_SCVER_MINOR			\
   "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
 
-static const struct db_upgrade_query db_upgrade_v2000_queries[] =
+static const struct db_upgrade_query db_upgrade_v1901_queries[] =
   {
     { U_V2000_CREATE_TABLE_QUEUE,    "create table directories" },
-    { U_V2000_QUEUE_VERSION,             "insert plversion" },
+    { U_V2000_QUEUE_VERSION,         "insert queue version" },
 
-    { U_V2000_SCVER_MAJOR,    "set schema_version_major to 20" },
-    { U_V2000_SCVER_MINOR,    "set schema_version_minor to 00" },
+    { U_V2000_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V2000_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
 
@@ -1602,7 +1602,7 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       /* FALLTHROUGH */
 
     case 1900:
-      ret = db_generic_upgrade(hdl, db_upgrade_v2000_queries, sizeof(db_upgrade_v2000_queries) / sizeof(db_upgrade_v2000_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1901_queries, sizeof(db_upgrade_v1901_queries) / sizeof(db_upgrade_v1901_queries[0]));
       if (ret < 0)
 	return -1;
 
