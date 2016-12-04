@@ -2280,6 +2280,7 @@ static enum command_state
 playback_start_item(void *arg, int *retval)
 {
   struct db_queue_item *queue_item = arg;
+  struct media_file_info *mfi;
   struct output_device *device;
   struct player_source *ps;
   int seek_ms;
@@ -2316,16 +2317,22 @@ playback_start_item(void *arg, int *retval)
 
       ps = source_new(queue_item);
       if (!ps)
-    {
+	{
 	  playback_abort();
 	  *retval = -1;
 	  return COMMAND_END;
 	}
 
+      seek_ms = 0;
       if (queue_item->file_id > 0)
-	seek_ms = db_file_get_seekpos(queue_item->file_id);
-      else
-	seek_ms = 0;
+	{
+	  mfi = db_file_fetch_byid(queue_item->file_id);
+	  if (mfi)
+	    {
+	      seek_ms = mfi->seek;
+	      free_mfi(mfi, 0);
+	    }
+	}
 
       ret = source_open(ps, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, seek_ms);
       if (ret < 0)

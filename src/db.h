@@ -498,9 +498,6 @@ db_files_get_album_count(void);
 int
 db_files_get_count_bymatch(char *path);
 
-int
-db_file_get_seekpos(uint32_t id);
-
 void
 db_files_update_songartistid(void);
 
