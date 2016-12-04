@@ -4735,22 +4735,24 @@ db_queue_get_pos_byfileid(uint32_t file_id, char shuffle)
 }
 
 static int
-queue_fetch_byitemid(struct query_params *query_params, uint32_t item_id, struct db_queue_item *queue_item, int keep_item)
+queue_fetch_byitemid(uint32_t item_id, struct db_queue_item *queue_item, int with_metadata)
 {
+  struct query_params query_params;
   int ret;
 
-  memset(query_params, 0, sizeof(struct query_params));
-  query_params->filter = sqlite3_mprintf("id = %d", item_id);
+  memset(&query_params, 0, sizeof(struct query_params));
+  query_params.filter = sqlite3_mprintf("id = %d", item_id);
 
-  ret = queue_enum_start(query_params);
+  ret = queue_enum_start(&query_params);
   if (ret < 0)
     {
-      sqlite3_free(query_params->filter);
+      sqlite3_free(query_params.filter);
       return -1;
     }
 
-  ret = queue_enum_fetch(query_params, queue_item, keep_item);
-  sqlite3_free(query_params->filter);
+  ret = queue_enum_fetch(&query_params, queue_item, with_metadata);
+  db_query_end(&query_params);
+  sqlite3_free(query_params.filter);
   return ret;
 }
 
@@ -4758,10 +4760,8 @@ struct db_queue_item *
 db_queue_fetch_byitemid(uint32_t item_id)
 {
   struct db_queue_item *queue_item;
-  struct query_params query_params;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
   queue_item = calloc(1, sizeof(struct db_queue_item));
   if (!queue_item)
     {
@@ -4770,8 +4770,7 @@ db_queue_fetch_byitemid(uint32_t item_id)
     }
 
   db_transaction_begin();
-  ret = queue_fetch_byitemid(&query_params, item_id, queue_item, 1);
-  db_query_end(&query_params);
+  ret = queue_fetch_byitemid(item_id, queue_item, 1);
   db_transaction_end();
 
   if (ret < 0)
@@ -4841,25 +4840,27 @@ db_queue_fetch_byfileid(uint32_t file_id)
 }
 
 static int
-queue_fetch_bypos(struct query_params *query_params, uint32_t pos, char shuffle, struct db_queue_item *queue_item, int keep_item)
+queue_fetch_bypos(uint32_t pos, char shuffle, struct db_queue_item *queue_item, int with_metadata)
 {
+  struct query_params query_params;
   int ret;
 
-  memset(query_params, 0, sizeof(struct query_params));
+  memset(&query_params, 0, sizeof(struct query_params));
   if (shuffle)
-    query_params->filter = sqlite3_mprintf("shuffle_pos = %d", pos);
+    query_params.filter = sqlite3_mprintf("shuffle_pos = %d", pos);
   else
-    query_params->filter = sqlite3_mprintf("pos = %d", pos);
+    query_params.filter = sqlite3_mprintf("pos = %d", pos);
 
-  ret = queue_enum_start(query_params);
+  ret = queue_enum_start(&query_params);
   if (ret < 0)
     {
-      sqlite3_free(query_params->filter);
+      sqlite3_free(query_params.filter);
       return -1;
     }
 
-  ret = queue_enum_fetch(query_params, queue_item, keep_item);
-  sqlite3_free(query_params->filter);
+  ret = queue_enum_fetch(&query_params, queue_item, with_metadata);
+  db_query_end(&query_params);
+  sqlite3_free(query_params.filter);
   return ret;
 }
 
@@ -4867,10 +4868,8 @@ struct db_queue_item *
 db_queue_fetch_bypos(uint32_t pos, char shuffle)
 {
   struct db_queue_item *queue_item;
-  struct query_params query_params;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
   queue_item = calloc(1, sizeof(struct db_queue_item));
   if (!queue_item)
     {
@@ -4879,8 +4878,7 @@ db_queue_fetch_bypos(uint32_t pos, char shuffle)
     }
 
   db_transaction_begin();
-  ret = queue_fetch_bypos(&query_params, pos, shuffle, queue_item, 1);
-  db_query_end(&query_params);
+  ret = queue_fetch_bypos(pos, shuffle, queue_item, 1);
   db_transaction_end();
 
   if (ret < 0)
@@ -4900,7 +4898,7 @@ db_queue_fetch_bypos(uint32_t pos, char shuffle)
 }
 
 static int
-queue_fetch_byposrelativetoitem(struct query_params *query_params, int pos, uint32_t item_id, char shuffle, struct db_queue_item *queue_item, int keep_item)
+queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle, struct db_queue_item *queue_item, int with_metadata)
 {
   int pos_absolute;
   int ret;
@@ -4917,7 +4915,7 @@ queue_fetch_byposrelativetoitem(struct query_params *query_params, int pos, uint
 
   pos_absolute += pos;
 
-  ret = queue_fetch_bypos(query_params, pos_absolute, shuffle, queue_item, keep_item);
+  ret = queue_fetch_bypos(pos_absolute, shuffle, queue_item, with_metadata);
 
   DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->id, queue_item->pos, queue_item->file_id);
 
@@ -4928,12 +4926,10 @@ struct db_queue_item *
 db_queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle)
 {
   struct db_queue_item *queue_item;
-  struct query_params query_params;
   int ret;
 
   DPRINTF(E_DBG, L_DB, "Fetch by pos: pos (%d) relative to item with id (%d)\n", pos, item_id);
 
-  memset(&query_params, 0, sizeof(struct query_params));
   queue_item = calloc(1, sizeof(struct db_queue_item));
   if (!queue_item)
     {
@@ -4943,8 +4939,7 @@ db_queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle)
 
   db_transaction_begin();
 
-  ret = queue_fetch_byposrelativetoitem(&query_params, pos, item_id, shuffle, queue_item, 1);
-  db_query_end(&query_params);
+  ret = queue_fetch_byposrelativetoitem(pos, item_id, shuffle, queue_item, 1);
 
   db_transaction_end();
 
@@ -5150,33 +5145,26 @@ queue_delete_item(struct db_queue_item *queue_item)
 int
 db_queue_delete_byitemid(uint32_t item_id)
 {
-  struct query_params query_params;
   struct db_queue_item queue_item;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
-
   db_transaction_begin();
 
-  ret = queue_fetch_byitemid(&query_params, item_id, &queue_item, 0);
+  ret = queue_fetch_byitemid(item_id, &queue_item, 0);
 
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
 
   if (queue_item.id == 0)
     {
-      db_query_end(&query_params);
       db_transaction_end();
       return 0;
     }
 
   ret = queue_delete_item(&queue_item);
-
-  db_query_end(&query_params);
 
   if (ret < 0)
     {
@@ -5242,32 +5230,25 @@ db_queue_delete_bypos(uint32_t pos, int count)
 int
 db_queue_delete_byposrelativetoitem(uint32_t pos, uint32_t item_id, char shuffle)
 {
-  struct query_params query_params;
   struct db_queue_item queue_item;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
-
   db_transaction_begin();
 
-  ret = queue_fetch_byposrelativetoitem(&query_params, pos, item_id, shuffle, &queue_item, 0);
+  ret = queue_fetch_byposrelativetoitem(pos, item_id, shuffle, &queue_item, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
   else if (queue_item.id == 0)
     {
       // No item found
-      db_query_end(&query_params);
       db_transaction_end();
       return 0;
     }
 
   ret = queue_delete_item(&queue_item);
-
-  db_query_end(&query_params);
 
   if (ret < 0)
     {
@@ -5350,26 +5331,21 @@ int
 db_queue_move_bypos(int pos_from, int pos_to)
 {
   struct db_queue_item queue_item;
-  struct query_params query_params;
   char *query;
   int ret;
-
-  memset(&query_params, 0, sizeof(struct query_params));
 
   db_transaction_begin();
 
   // Find item to move
-  ret = queue_fetch_bypos(&query_params, pos_from, 0, &queue_item, 0);
+  ret = queue_fetch_bypos(pos_from, 0, &queue_item, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
 
   if (queue_item.id == 0)
     {
-      db_query_end(&query_params);
       db_transaction_end();
       return 0;
     }
@@ -5379,7 +5355,6 @@ db_queue_move_bypos(int pos_from, int pos_to)
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
@@ -5389,7 +5364,6 @@ db_queue_move_bypos(int pos_from, int pos_to)
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
@@ -5399,12 +5373,10 @@ db_queue_move_bypos(int pos_from, int pos_to)
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
 
-  db_query_end(&query_params);
   db_transaction_end();
   queue_inc_version_and_notify();
 
@@ -5423,24 +5395,20 @@ db_queue_move_bypos(int pos_from, int pos_to)
 int
 db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_t item_id, char shuffle)
 {
-  struct query_params query_params;
   struct db_queue_item queue_item;
   char *query;
   int pos_move_from;
   int pos_move_to;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
-
   db_transaction_begin();
 
   DPRINTF(E_DBG, L_DB, "Move by pos: from %d offset %d relative to item (%d)\n", from_pos, to_offset, item_id);
 
   // Find item with the given item_id
-  ret = queue_fetch_byitemid(&query_params, item_id, &queue_item, 0);
+  ret = queue_fetch_byitemid(item_id, &queue_item, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
@@ -5449,7 +5417,6 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
 
   if (queue_item.id == 0)
     {
-      db_query_end(&query_params);
       db_transaction_end();
       return 0;
     }
@@ -5474,15 +5441,12 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
       pos_move_to++;
     }
 
-  db_query_end(&query_params);
-
   DPRINTF(E_DBG, L_DB, "Move by pos: absolute pos: move from %d to %d\n", pos_move_from, pos_move_to);
 
   // Find item to move
-  ret = queue_fetch_bypos(&query_params, pos_move_from, shuffle, &queue_item, 0);
+  ret = queue_fetch_bypos(pos_move_from, shuffle, &queue_item, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
@@ -5491,7 +5455,6 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
 
   if (queue_item.id == 0)
     {
-      db_query_end(&query_params);
       db_transaction_end();
       return 0;
     }
@@ -5505,7 +5468,6 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
@@ -5519,7 +5481,6 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
@@ -5533,12 +5494,10 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
-      db_query_end(&query_params);
       db_transaction_rollback();
       return -1;
     }
 
-  db_query_end(&query_params);
   db_transaction_end();
   queue_inc_version_and_notify();
 
