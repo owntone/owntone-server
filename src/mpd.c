@@ -1794,7 +1794,7 @@ mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct db_queue_enum queue_enum;
+  struct query_params query_params;
   struct db_queue_item queue_item;
   uint32_t songid;
   int ret;
@@ -1813,22 +1813,22 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 	}
     }
 
-  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  memset(&query_params, 0, sizeof(struct query_params));
 
   if (songid > 0)
-    queue_enum.filter = sqlite3_mprintf("id = %d", songid);
+    query_params.filter = sqlite3_mprintf("id = %d", songid);
 
-  ret = db_queue_enum_start(&queue_enum);
+  ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
-      sqlite3_free(queue_enum.filter);
+      sqlite3_free(query_params.filter);
       ret = asprintf(errmsg, "Failed to start queue enum for command playlistid: '%s'", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
 	  if (ret < 0)
@@ -1837,14 +1837,14 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 	      if (ret < 0)
 		DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 
-	      db_queue_enum_end(&queue_enum);
-	      sqlite3_free(queue_enum.filter);
+	      db_queue_enum_end(&query_params);
+	      sqlite3_free(query_params.filter);
 	      return ACK_ERROR_UNKNOWN;
 	    }
 	}
 
-  db_queue_enum_end(&queue_enum);
-  sqlite3_free(queue_enum.filter);
+  db_queue_enum_end(&query_params);
+  sqlite3_free(query_params.filter);
 
   return 0;
 }
@@ -1860,7 +1860,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 static int
 mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct db_queue_enum queue_enum;
+  struct query_params query_params;
   struct db_queue_item queue_item;
   int start_pos;
   int end_pos;
@@ -1868,7 +1868,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   start_pos = 0;
   end_pos = 0;
-  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  memset(&query_params, 0, sizeof(struct query_params));
 
   if (argc > 1)
     {
@@ -1884,20 +1884,20 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   if (start_pos < 0)
       DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
       else
-	queue_enum.filter = sqlite3_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
+	query_params.filter = sqlite3_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
     }
 
-  ret = db_queue_enum_start(&queue_enum);
+  ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
-      sqlite3_free(queue_enum.filter);
+      sqlite3_free(query_params.filter);
       ret = asprintf(errmsg, "Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
@@ -1907,14 +1907,14 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 
-	  db_queue_enum_end(&queue_enum);
-	  sqlite3_free(queue_enum.filter);
+	  db_queue_enum_end(&query_params);
+	  sqlite3_free(query_params.filter);
 	  return ACK_ERROR_UNKNOWN;
 	}
     }
 
-  db_queue_enum_end(&queue_enum);
-  sqlite3_free(queue_enum.filter);
+  db_queue_enum_end(&query_params);
+  sqlite3_free(query_params.filter);
 
   return 0;
 }
@@ -1926,7 +1926,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 static int
 mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct db_queue_enum queue_enum;
+  struct query_params query_params;
   struct db_queue_item queue_item;
   int ret;
 
@@ -1934,9 +1934,9 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
    * forked-daapd does not keep track of changes in the queue based on the playlist version,
    * therefor plchanges returns all songs in the queue as changed ignoring the given version.
    */
-  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  memset(&query_params, 0, sizeof(struct query_params));
 
-  ret = db_queue_enum_start(&queue_enum);
+  ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to start queue enum for command plchanges");
@@ -1945,7 +1945,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
@@ -1955,12 +1955,12 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 
-	  db_queue_enum_end(&queue_enum);
+	  db_queue_enum_end(&query_params);
 	  return ACK_ERROR_UNKNOWN;
 	}
     }
 
-  db_queue_enum_end(&queue_enum);
+  db_queue_enum_end(&query_params);
 
   return 0;
 }
@@ -1972,7 +1972,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
 static int
 mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct db_queue_enum queue_enum;
+  struct query_params query_params;
   struct db_queue_item queue_item;
   int ret;
 
@@ -1980,9 +1980,9 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
    * forked-daapd does not keep track of changes in the queue based on the playlist version,
    * therefor plchangesposid returns all songs in the queue as changed ignoring the given version.
    */
-  memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+  memset(&query_params, 0, sizeof(struct query_params));
 
-  ret = db_queue_enum_start(&queue_enum);
+  ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to start queue enum for command plchangesposid");
@@ -1991,7 +1991,7 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       evbuffer_add_printf(evbuf,
       	  "cpos: %d\n"
@@ -2000,7 +2000,7 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
 	  queue_item.id);
     }
 
-  db_queue_enum_end(&queue_enum);
+  db_queue_enum_end(&query_params);
 
   return 0;
 }

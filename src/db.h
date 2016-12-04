@@ -28,6 +28,8 @@ enum sort_type {
   S_DISC,
   S_TRACK,
   S_VPATH,
+  S_POS,
+  S_SHUFFLE_POS,
 };
 
 #define Q_F_BROWSE (1 << 15)
@@ -417,17 +419,6 @@ struct db_queue_item
   uint32_t disc;
 };
 
-struct db_queue_enum
-{
-  /* 0 = ordered by position, 1 = ordered by position in shuffle queue */
-  int orderby_shufflepos;
-
-  char *filter;
-
-  /* Private enum context, keep out */
-  sqlite3_stmt *stmt;
-};
-
 char *
 db_escape_string(const char *str);
 
@@ -726,13 +717,13 @@ int
 db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id);
 
 int
-db_queue_enum_start(struct db_queue_enum *queue_enum);
+db_queue_enum_start(struct query_params *query_params);
 
 void
-db_queue_enum_end(struct db_queue_enum *queue_enum);
+db_queue_enum_end(struct query_params *query_params);
 
 int
-db_queue_enum_fetch(struct db_queue_enum *queue_enum, struct db_queue_item *queue_item);
+db_queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_item);
 
 struct db_queue_item *
 db_queue_fetch_byitemid(uint32_t item_id);

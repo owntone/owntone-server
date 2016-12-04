@@ -1568,7 +1568,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   int count;
   int ret;
   int start_index;
-  struct db_queue_enum queue_enum;
+  struct query_params query_params;
   struct db_queue_item queue_item;
 
   /* /ctrl-int/1/playqueue-contents?span=50&session-id=... */
@@ -1629,13 +1629,13 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       player_get_status(&status);
 
-      memset(&queue_enum, 0, sizeof(struct db_queue_enum));
+      memset(&query_params, 0, sizeof(struct query_params));
       if (status.shuffle)
-	queue_enum.orderby_shufflepos = 1;
-      ret = db_queue_enum_start(&queue_enum);
+	query_params.sort = S_SHUFFLE_POS;
+      ret = db_queue_enum_start(&query_params);
 
       count = 0; //FIXME [queue] Check count value
-      while ((ret = db_queue_enum_fetch(&queue_enum, &queue_item)) == 0 && queue_item.id > 0)
+      while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
 	{
 	  if (status.item_id == 0 || status.item_id == queue_item.id)
 	    count = 1;
@@ -1654,8 +1654,8 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	    }
 	}
 
-      db_queue_enum_end(&queue_enum);
-      sqlite3_free(queue_enum.filter);
+      db_queue_enum_end(&query_params);
+      sqlite3_free(query_params.filter);
     }
 
   /* Playlists are hist, curr and main. */
