@@ -4750,7 +4750,7 @@ queue_fetch_byitemid(struct query_params *query_params, uint32_t item_id, struct
     }
 
   ret = queue_enum_fetch(query_params, queue_item, keep_item);
-
+  sqlite3_free(query_params->filter);
   return ret;
 }
 
@@ -4859,7 +4859,7 @@ queue_fetch_bypos(struct query_params *query_params, uint32_t pos, char shuffle,
     }
 
   ret = queue_enum_fetch(query_params, queue_item, keep_item);
-
+  sqlite3_free(query_params->filter);
   return ret;
 }
 
@@ -5224,6 +5224,7 @@ db_queue_delete_bypos(uint32_t pos, int count)
     }
 
   db_query_end(&query_params);
+  sqlite3_free(query_params.filter);
 
   if (ret < 0)
     {
@@ -5633,6 +5634,7 @@ db_queue_reshuffle(uint32_t item_id)
     }
 
   db_query_end(&query_params);
+  sqlite3_free(query_params.filter);
 
   if (ret < 0)
     {
