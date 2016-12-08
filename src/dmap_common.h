@@ -84,4 +84,7 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
 int
 dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int sort_tags, int force_wav);
 
+int
+dmap_encode_queue_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_queue_item *queue_item);
+
 #endif /* !__DMAP_HELPERS_H__ */

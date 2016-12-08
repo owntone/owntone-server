@@ -105,7 +105,6 @@ forked_daapd_SOURCES = main.c \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
 	player.c player.h \
-	queue.c queue.h \
 	worker.c worker.h \
 	outputs.h outputs.c \
 	outputs/raop.c outputs/streaming.c outputs/dummy.c outputs/fifo.c \

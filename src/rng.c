@@ -128,11 +128,11 @@ rng_rand_range(struct rng_ctx *ctx, int32_t min, int32_t max)
  * Durstenfeld in-place shuffling variant
  */
 void
-shuffle_ptr(struct rng_ctx *ctx, void **values, int len)
+shuffle_int(struct rng_ctx *ctx, int *values, int len)
 {
   int i;
   int32_t j;
-  void *tmp;
+  int tmp;
 
   for (i = len - 1; i > 0; i--)
     {
@@ -143,4 +143,3 @@ shuffle_ptr(struct rng_ctx *ctx, void **values, int len)
       values[j] = tmp;
     }
 }
-

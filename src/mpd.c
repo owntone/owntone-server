@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2016 Christian Meffert <christian.meffert@googlemail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,7 +61,6 @@
 #include "artwork.h"
 
 #include "player.h"
-#include "queue.h"
 #include "filescanner.h"
 #include "commands.h"
 
@@ -396,18 +395,16 @@ mpd_parse_args(char *args, int *argc, char **argv)
  *   Id: 1
  *
  * @param evbuf the response event buffer
- * @param mfi media information
- * @param item_id queue-item id
- * @param pos_pl position in the playqueue, if -1 the position is ignored
+ * @param queue_item queue item information
  * @return the number of bytes added if successful, or -1 if an error occurred.
  */
 static int
-mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, unsigned int item_id, int pos_pl)
+mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
 {
   char modified[32];
   int ret;
 
-  mpd_time(modified, sizeof(modified), mfi->time_modified);
+  mpd_time(modified, sizeof(modified), queue_item->time_modified);
 
   ret = evbuffer_add_printf(evbuf,
     "file: %s\n"
@@ -422,63 +419,26 @@ mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, unsigned 
     "Track: %d\n"
     "Date: %d\n"
     "Genre: %s\n"
-    "Disc: %d\n",
-    (mfi->virtual_path + 1),
+      "Disc: %d\n"
+      "Pos: %d\n"
+      "Id: %d\n",
+      (queue_item->virtual_path + 1),
     modified,
-    (mfi->song_length / 1000),
-    mfi->artist,
-    mfi->album_artist,
-    mfi->artist_sort,
-    mfi->album_artist_sort,
-    mfi->album,
-    mfi->title,
-    mfi->track,
-    mfi->year,
-    mfi->genre,
-    mfi->disc);
-
-  if (ret >= 0 && pos_pl >= 0)
-    {
-      ret = evbuffer_add_printf(evbuf,
-	"Pos: %d\n",
-	pos_pl);
-
-      if (ret >= 0)
-	{
-	  ret = evbuffer_add_printf(evbuf,
-	    "Id: %d\n",
-	    item_id);
-	}
-    }
+      (queue_item->song_length / 1000),
+      queue_item->artist,
+      queue_item->album_artist,
+      queue_item->artist_sort,
+      queue_item->album_artist_sort,
+      queue_item->album,
+      queue_item->title,
+      queue_item->track,
+      queue_item->year,
+      queue_item->genre,
+      queue_item->disc,
+      queue_item->pos,
+      queue_item->id);
 
   return ret;
-}
-
-static int
-mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, unsigned int item_id, int pos_pl)
-{
-  struct media_file_info *mfi;
-  int ret;
-
-  mfi = db_file_fetch_byid(id);
-  if (!mfi)
-    {
-      DPRINTF(E_LOG, L_MPD, "Error fetching file by id: %d\n", id);
-      return -1;
-    }
-
-  ret = mpd_add_mediainfo(evbuf, mfi, item_id, pos_pl);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", id);
-
-      free_mfi(mfi, 0);
-
-      return -1;
-    }
-
-  free_mfi(mfi, 0);
-  return 0;
 }
 
 /*
@@ -568,6 +528,7 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
 {
 
   struct player_status status;
+  struct db_queue_item *queue_item;
   int ret;
 
   player_get_status(&status);
@@ -578,7 +539,20 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
       return 0;
     }
 
-  ret = mpd_add_mediainfo_byid(evbuf, status.id, status.item_id, status.pos_pl);
+  queue_item = db_queue_fetch_byitemid(status.item_id);
+  if (!queue_item)
+    {
+      ret = asprintf(errmsg, "Error adding queue item info for file with id: %d", status.item_id);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  ret = mpd_add_db_queue_item(evbuf, queue_item);
+
+  free_queue_item(queue_item, 0);
+
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Error adding media info for file with id: %d", status.id);
@@ -717,7 +691,11 @@ static int
 mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct player_status status;
+  int queue_length;
+  int queue_version;
   char *state;
+  int pos_pl;
+  struct db_queue_item *next_item;
 
   player_get_status(&status);
 
@@ -736,6 +714,9 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	break;
     }
 
+  queue_version = db_queue_get_version();
+  queue_length = db_queue_get_count();
+
   evbuffer_add_printf(evbuf,
       "volume: %d\n"
       "repeat: %d\n"
@@ -751,12 +732,14 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       status.shuffle,
       (status.repeat == REPEAT_SONG ? 1 : 0),
       0 /* consume: not supported by forked-daapd, always return 'off' */,
-      status.plversion,
-      status.playlistlength,
+      queue_version,
+      queue_length,
       state);
 
   if (status.status != PLAY_STOPPED)
     {
+      pos_pl = db_queue_get_pos(status.item_id, 0);
+
       evbuffer_add_printf(evbuf,
 	  "song: %d\n"
 	  "songid: %d\n"
@@ -764,7 +747,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  "elapsed: %#.3f\n"
 	  "bitrate: 128\n"
 	  "audio: 44100:16:2\n",
-	  status.pos_pl,
+	  pos_pl,
 	  status.item_id,
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
 	  (status.pos_ms / 1000.0));
@@ -777,11 +760,17 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (status.status != PLAY_STOPPED)
     {
+      next_item = db_queue_fetch_next(status.item_id, status.shuffle);
+      if (next_item)
+	{
       evbuffer_add_printf(evbuf,
 	  "nextsong: %d\n"
 	  "nextsongid: %d\n",
-	  status.next_pos_pl,
-	  status.next_item_id);
+	      next_item->id,
+	      next_item->pos);
+
+	  free_queue_item(next_item, 0);
+	}
     }
 
   return 0;
@@ -1074,7 +1063,7 @@ mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after nextitem");
@@ -1122,7 +1111,7 @@ mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (pause == 1)
     ret = player_playback_pause();
   else
-    ret = player_playback_start(NULL);
+    ret = player_playback_start();
 
   if (ret < 0)
     {
@@ -1145,9 +1134,8 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   int songpos;
   struct player_status status;
+  struct db_queue_item *queue_item;
   int ret;
-
-  player_get_status(&status);
 
   songpos = 0;
   if (argc > 1)
@@ -1162,6 +1150,8 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	}
     }
 
+  player_get_status(&status);
+
   if (status.status == PLAY_PLAYING && songpos < 0)
     {
       DPRINTF(E_DBG, L_MPD, "Ignoring play command with parameter '%s', player is already playing.\n", argv[1]);
@@ -1175,9 +1165,21 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   if (songpos > 0)
-    ret = player_playback_start_byindex(songpos, NULL);
+    {
+      queue_item = db_queue_fetch_bypos(songpos, 0);
+      if (!queue_item)
+	{
+	  ret = asprintf(errmsg, "Failed to start playback");
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_UNKNOWN;
+	}
+
+      ret = player_playback_start_byitem(queue_item);
+      free_queue_item(queue_item, 0);
+    }
   else
-    ret = player_playback_start(NULL);
+    ret = player_playback_start();
 
   if (ret < 0)
     {
@@ -1200,6 +1202,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   uint32_t id;
   struct player_status status;
+  struct db_queue_item *queue_item;
   int ret;
 
   player_get_status(&status);
@@ -1225,9 +1228,21 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   if (id > 0)
-    ret = player_playback_start_byitemid(id, NULL);
+    {
+      queue_item = db_queue_fetch_byitemid(id);
+      if (!queue_item)
+	{
+	  ret = asprintf(errmsg, "Failed to start playback");
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_UNKNOWN;
+	}
+
+      ret = player_playback_start_byitem(queue_item);
+      free_queue_item(queue_item, 0);
+    }
   else
-    ret = player_playback_start(NULL);
+    ret = player_playback_start();
 
   if (ret < 0)
     {
@@ -1259,7 +1274,7 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after previtem");
@@ -1279,7 +1294,6 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
 static int
 mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct player_status status;
   uint32_t songpos;
   float seek_target_sec;
   int seek_target_msec;
@@ -1303,14 +1317,6 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   //TODO Allow seeking in songs not currently playing
-  player_get_status(&status);
-  if (status.pos_pl != songpos)
-    {
-      ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_UNKNOWN;
-    }
 
   seek_target_sec = strtof(argv[2], NULL);
   seek_target_msec = seek_target_sec * 1000;
@@ -1325,7 +1331,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
     if (ret < 0)
       {
         ret = asprintf(errmsg, "Player returned an error for start after seekcur");
@@ -1391,7 +1397,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after seekcur");
@@ -1436,7 +1442,7 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = player_playback_start(NULL);
+  ret = player_playback_start();
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Player returned an error for start after seekcur");
@@ -1470,11 +1476,12 @@ mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
-static struct queue_item *
-mpd_queueitem_make(char *path, int recursive)
+static int
+mpd_queue_add(char *path, int recursive)
 {
   struct query_params qp;
-  struct queue_item *items;
+  struct player_status status;
+  int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
 
@@ -1495,10 +1502,12 @@ mpd_queueitem_make(char *path, int recursive)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
 
-  items = queueitem_make_byquery(&qp);
+  player_get_status(&status);
+
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
 
   sqlite3_free(qp.filter);
-  return items;
+  return ret;
 }
 
 /*
@@ -1509,7 +1518,6 @@ mpd_queueitem_make(char *path, int recursive)
 static int
 mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue_item *items;
   int ret;
 
   if (argc < 2)
@@ -1520,17 +1528,15 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  items = mpd_queueitem_make(argv[1], 1);
+  ret = mpd_queue_add(argv[1], 1);
 
-  if (!items)
+  if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
     }
-
-  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -1544,8 +1550,6 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue_item *items;
-  uint32_t item_id;
   int ret;
 
   if (argc < 2)
@@ -1562,9 +1566,9 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       DPRINTF(E_LOG, L_MPD, "Adding at a specified position not supported for 'addid', adding songs at end of queue.\n");
     }
 
-  items = mpd_queueitem_make(argv[1], 0);
+  ret = mpd_queue_add(argv[1], 0);
 
-  if (!items)
+  if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
       if (ret < 0)
@@ -1572,12 +1576,9 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-
-  player_queue_add(items, &item_id);
-
   evbuffer_add_printf(evbuf,
       "Id: %d\n",
-      item_id);
+      ret); // mpd_queue_add returns the item_id of the last inserted queue item
 
   return 0;
 }
@@ -1597,7 +1598,7 @@ mpd_command_clear(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       DPRINTF(E_DBG, L_MPD, "Failed to stop playback\n");
     }
 
-  player_queue_clear();
+  db_queue_clear();
 
   return 0;
 }
@@ -1616,10 +1617,10 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   int count;
   int ret;
 
-  // If argv[1] is ommited clear the whole queue except the current playing one
+  // If argv[1] is ommited clear the whole queue
   if (argc < 2)
     {
-      player_queue_clear();
+      db_queue_clear();
       return 0;
     }
 
@@ -1635,7 +1636,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   count = end_pos - start_pos;
 
-  ret = player_queue_remove_byindex(start_pos, count);
+  ret = db_queue_delete_bypos(start_pos, count);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to remove %d songs starting at position %d", count, start_pos);
@@ -1674,7 +1675,7 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
       return ACK_ERROR_ARG;
     }
 
-  ret = player_queue_remove_byitemid(songid);
+  ret = db_queue_delete_byitemid(songid);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to remove song with id '%s'", argv[1]);
@@ -1726,7 +1727,7 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  ret = player_queue_move_byindex(start_pos, to_pos);
+  ret = db_queue_move_bypos(start_pos, to_pos);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to move song at position %d to %d", start_pos, to_pos);
@@ -1771,7 +1772,7 @@ mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  ret = player_queue_move_byitemid(songid, to_pos);
+  ret = db_queue_move_byitemid(songid, to_pos);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to move song with id '%s' to index '%s'", argv[1], argv[2]);
@@ -1793,12 +1794,9 @@ mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue *queue;
-  struct queue_item *item;
+  struct query_params query_params;
+  struct db_queue_item queue_item;
   uint32_t songid;
-  int pos_pl;
-  int count;
-  int i;
   int ret;
 
   songid = 0;
@@ -1815,39 +1813,38 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 	}
     }
 
-  // Get the whole queue (start_pos = 0, end_pos = -1)
-  queue = player_queue_get_byindex(0, 0);
+  memset(&query_params, 0, sizeof(struct query_params));
 
-  if (!queue)
+  if (songid > 0)
+    query_params.filter = sqlite3_mprintf("id = %d", songid);
+
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
     {
-      // Queue is emtpy
-      return 0;
+      sqlite3_free(query_params.filter);
+      ret = asprintf(errmsg, "Failed to start queue enum for command playlistid: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
     }
 
-  pos_pl = 0;
-  count = queue_count(queue);
-  for (i = 0; i < count; i++)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
-      item = queue_get_byindex(queue, i, 0);
-      if (songid == 0 || songid == queueitem_item_id(item))
-	{
-	  ret = mpd_add_mediainfo_byid(evbuf, queueitem_id(item), queueitem_item_id(item), pos_pl);
+      ret = mpd_add_db_queue_item(evbuf, &queue_item);
 	  if (ret < 0)
 	    {
-	      ret = asprintf(errmsg, "Error adding media info for file with id: %d", queueitem_id(item));
-
-	      queue_free(queue);
-
+	      ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue_item.file_id);
 	      if (ret < 0)
 		DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+
+	      db_queue_enum_end(&query_params);
+	      sqlite3_free(query_params.filter);
 	      return ACK_ERROR_UNKNOWN;
 	    }
 	}
 
-      pos_pl++;
-    }
-
-  queue_free(queue);
+  db_queue_enum_end(&query_params);
+  sqlite3_free(query_params.filter);
 
   return 0;
 }
@@ -1863,17 +1860,15 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 static int
 mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue *queue;
-  struct queue_item *item;
+  struct query_params query_params;
+  struct db_queue_item queue_item;
   int start_pos;
   int end_pos;
-  int count;
-  int pos_pl;
-  int i;
   int ret;
 
   start_pos = 0;
   end_pos = 0;
+  memset(&query_params, 0, sizeof(struct query_params));
 
   if (argc > 1)
     {
@@ -1885,46 +1880,41 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	  return ACK_ERROR_ARG;
 	}
-    }
-
-  count = end_pos - start_pos;
 
   if (start_pos < 0)
-    {
       DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
-      start_pos = 0;
-      count = 0;
+      else
+	query_params.filter = sqlite3_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
     }
 
-  queue = player_queue_get_byindex(start_pos, count);
-
-  if (!queue)
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
     {
-      // Queue is emtpy
-      return 0;
+      sqlite3_free(query_params.filter);
+      ret = asprintf(errmsg, "Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
     }
 
-  pos_pl = start_pos;
-  count = queue_count(queue);
-  for (i = 0; i < count; i++)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
-      item = queue_get_byindex(queue, i, 0);
-      ret = mpd_add_mediainfo_byid(evbuf, queueitem_id(item), queueitem_item_id(item), pos_pl);
+      ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queueitem_id(item));
-
-	  queue_free(queue);
+	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue_item.file_id);
 
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+
+	  db_queue_enum_end(&query_params);
+	  sqlite3_free(query_params.filter);
 	  return ACK_ERROR_UNKNOWN;
 	}
-
-      pos_pl++;
     }
 
-  queue_free(queue);
+  db_queue_enum_end(&query_params);
+  sqlite3_free(query_params.filter);
 
   return 0;
 }
@@ -1936,46 +1926,42 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 static int
 mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue *queue;
-  struct queue_item *item;
-  int pos_pl;
-  int count;
-  int i;
+  struct query_params query_params;
+  struct db_queue_item queue_item;
   int ret;
 
   /*
    * forked-daapd does not keep track of changes in the queue based on the playlist version,
    * therefor plchanges returns all songs in the queue as changed ignoring the given version.
    */
-  queue = player_queue_get_byindex(0, 0);
+  memset(&query_params, 0, sizeof(struct query_params));
 
-  if (!queue)
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
     {
-      // Queue is emtpy
-      return 0;
+      ret = asprintf(errmsg, "Failed to start queue enum for command plchanges");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
     }
 
-  pos_pl = 0;
-  count = queue_count(queue);
-  for (i = 0; i < count; i++)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
-      item = queue_get_byindex(queue, i, 0);
-      ret = mpd_add_mediainfo_byid(evbuf, queueitem_id(item), queueitem_item_id(item), pos_pl);
+      ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queueitem_id(item));
-
-	  queue_free(queue);
+	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue_item.file_id);
 
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+
+	  db_queue_enum_end(&query_params);
 	  return ACK_ERROR_UNKNOWN;
 	}
-
-      pos_pl++;
     }
 
-  queue_free(queue);
+  db_queue_enum_end(&query_params);
+
   return 0;
 }
 
@@ -1986,36 +1972,36 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
 static int
 mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue *queue;
-  struct queue_item *item;
-  int count;
-  int i;
+  struct query_params query_params;
+  struct db_queue_item queue_item;
+  int ret;
 
   /*
    * forked-daapd does not keep track of changes in the queue based on the playlist version,
    * therefor plchangesposid returns all songs in the queue as changed ignoring the given version.
    */
-  queue = player_queue_get_byindex(0, 0);
+  memset(&query_params, 0, sizeof(struct query_params));
 
-  if (!queue)
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
     {
-      // Queue is emtpy
-      return 0;
+      ret = asprintf(errmsg, "Failed to start queue enum for command plchangesposid");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
     }
 
-  count = queue_count(queue);
-  for (i = 0; i < count; i++)
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
-      item = queue_get_byindex(queue, i, 0);
-
       evbuffer_add_printf(evbuf,
       	  "cpos: %d\n"
       	  "Id: %d\n",
-      	  i,
-	  queueitem_item_id(item));
+      	  queue_item.pos,
+	  queue_item.id);
     }
 
-  queue_free(queue);
+  db_queue_enum_end(&query_params);
+
   return 0;
 }
 
@@ -2239,7 +2225,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   char path[PATH_MAX];
   struct playlist_info *pli;
-  struct queue_item *items;
+  struct player_status status;
   int ret;
 
   if (argc < 2)
@@ -2274,19 +2260,17 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   //TODO If a second parameter is given only add the specified range of songs to the playqueue
 
-  items = queueitem_make_byplid(pli->id);
+  player_get_status(&status);
 
-  if (!items)
+  ret = db_queue_add_by_playlistid(pli->id, status.shuffle, status.item_id);
+  free_pli(pli, 0);
+  if (ret < 0)
     {
-      free_pli(pli, 0);
-
       ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
     }
-
-  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -2436,6 +2420,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
+      sqlite3_free(qp.filter);
 
       ret = asprintf(errmsg, "Could not start query");
       if (ret < 0)
@@ -2447,6 +2432,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
+      sqlite3_free(qp.filter);
 
       ret = asprintf(errmsg, "Could not fetch query count");
       if (ret < 0)
@@ -2461,6 +2447,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
         (fci.length / 1000));
 
   db_query_end(&qp);
+  sqlite3_free(qp.filter);
 
   return 0;
 }
@@ -2492,6 +2479,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
+      sqlite3_free(qp.filter);
 
       ret = asprintf(errmsg, "Could not start query");
       if (ret < 0)
@@ -2509,6 +2497,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   db_query_end(&qp);
+  sqlite3_free(qp.filter);
 
   return 0;
 }
@@ -2517,7 +2506,7 @@ static int
 mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct query_params qp;
-  struct queue_item *items;
+  struct player_status status;
   int ret;
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
@@ -2536,17 +2525,17 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   mpd_get_query_params_find(argc - 1, argv + 1, &qp);
 
-  items = queueitem_make_byquery(&qp);
+  player_get_status(&status);
 
-  if (!items)
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
+  sqlite3_free(qp.filter);
+  if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to add songs to playlist");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
     }
-
-  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -2639,6 +2628,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
+      sqlite3_free(qp.filter);
 
       ret = asprintf(errmsg, "Could not start query");
       if (ret < 0)
@@ -2682,6 +2672,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   db_query_end(&qp);
+  sqlite3_free(qp.filter);
 
   return 0;
 }
@@ -3121,6 +3112,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
+      sqlite3_free(qp.filter);
 
       ret = asprintf(errmsg, "Could not start query");
       if (ret < 0)
@@ -3138,6 +3130,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   db_query_end(&qp);
+  sqlite3_free(qp.filter);
 
   return 0;
 }
@@ -3146,7 +3139,7 @@ static int
 mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct query_params qp;
-  struct queue_item *items;
+  struct player_status status;
   int ret;
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
@@ -3165,17 +3158,17 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
 
   mpd_get_query_params_search(argc - 1, argv + 1, &qp);
 
-  items = queueitem_make_byquery(&qp);
+  player_get_status(&status);
 
-  if (!items)
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
+  sqlite3_free(qp.filter);
+  if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to add songs to playlist");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
     }
-
-  player_queue_add(items, NULL);
 
   return 0;
 }

@@ -28,6 +28,8 @@ enum sort_type {
   S_DISC,
   S_TRACK,
   S_VPATH,
+  S_POS,
+  S_SHUFFLE_POS,
 };
 
 #define Q_F_BROWSE (1 << 15)
@@ -374,6 +376,49 @@ struct directory_enum {
   sqlite3_stmt *stmt;
 };
 
+struct db_queue_item
+{
+  /* A unique id for this queue item. If the same item appears multiple
+     times in the queue each corresponding queue item has its own id. */
+  uint32_t id;
+
+  /* Id of the file/item in the files database */
+  uint32_t file_id;
+
+  /* Length of the item in ms */
+  uint32_t song_length;
+
+  /* Data type of the item */
+  enum data_kind data_kind;
+  /* Media type of the item */
+  enum media_kind media_kind;
+
+  uint32_t seek;
+
+  uint32_t pos;
+  uint32_t shuffle_pos;
+
+  char *path;
+  char *virtual_path;
+
+  char *title;
+  char *artist;
+  char *album_artist;
+  char *album;
+  char *genre;
+
+  int64_t songalbumid;
+  uint32_t time_modified;
+
+  char *artist_sort;
+  char *album_sort;
+  char *album_artist_sort;
+
+  uint32_t year;
+  uint32_t track;
+  uint32_t disc;
+};
+
 char *
 db_escape_string(const char *str);
 
@@ -392,6 +437,9 @@ free_pli(struct playlist_info *pli, int content_only);
 void
 free_di(struct directory_info *di, int content_only);
 
+void
+free_queue_item(struct db_queue_item *queue_item, int content_only);
+
 /* Maintenance and DB hygiene */
 void
 db_hook_post_scan(void);
@@ -408,6 +456,9 @@ db_transaction_begin(void);
 
 void
 db_transaction_end(void);
+
+void
+db_transaction_rollback(void);
 
 /* Queries */
 int
@@ -497,9 +548,6 @@ db_file_add(struct media_file_info *mfi);
 
 int
 db_file_update(struct media_file_info *mfi);
-
-void
-db_file_update_icy(int id, char *artist, char *album);
 
 void
 db_file_save_seek(int id, uint32_t seek);
@@ -645,6 +693,88 @@ db_speaker_get(uint64_t id, int *selected, int *volume);
 
 void
 db_speaker_clear_all(void);
+
+/* Queue */
+int
+db_queue_get_version();
+
+void
+db_queue_update_icymetadata(int id, char *artist, char *album);
+
+int
+db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id);
+
+int
+db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id);
+
+int
+db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id);
+
+int
+db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id);
+
+int
+db_queue_enum_start(struct query_params *query_params);
+
+void
+db_queue_enum_end(struct query_params *query_params);
+
+int
+db_queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_item);
+
+struct db_queue_item *
+db_queue_fetch_byitemid(uint32_t item_id);
+
+struct db_queue_item *
+db_queue_fetch_byfileid(uint32_t file_id);
+
+struct db_queue_item *
+db_queue_fetch_bypos(uint32_t pos, char shuffle);
+
+struct db_queue_item *
+db_queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle);
+
+struct db_queue_item *
+db_queue_fetch_next(uint32_t item_id, char shuffle);
+
+struct db_queue_item *
+db_queue_fetch_prev(uint32_t item_id, char shuffle);
+
+int
+db_queue_cleanup();
+
+int
+db_queue_clear();
+
+int
+db_queue_delete_byitemid(uint32_t item_id);
+
+int
+db_queue_delete_bypos(uint32_t pos, int count);
+
+int
+db_queue_delete_byposrelativetoitem(uint32_t pos, uint32_t item_id, char shuffle);
+
+int
+db_queue_move_byitemid(uint32_t item_id, int pos_to);
+
+int
+db_queue_move_bypos(int pos_from, int pos_to);
+
+int
+db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_t item_id, char shuffle);
+
+int
+db_queue_reshuffle(uint32_t item_id);
+
+int
+db_queue_get_count();
+
+int
+db_queue_get_pos(uint32_t item_id, char shuffle);
+
+int
+db_queue_get_pos_byfileid(uint32_t file_id, char shuffle);
 
 /* Inotify */
 int
