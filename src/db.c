@@ -2232,31 +2232,6 @@ db_file_id_bymatch(char *path)
 #undef Q_TMPL
 }
 
-//TODO [cleanup] unused function(?)
-int
-db_file_id_byfilebase(char *filename, char *base)
-{
-#define Q_TMPL "SELECT f.id FROM files f WHERE f.path LIKE '%q/%%/%q';"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, base, filename);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return 0;
-    }
-
-  ret = db_file_id_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
-#undef Q_TMPL
-}
-
 int
 db_file_id_byfile(char *filename)
 {

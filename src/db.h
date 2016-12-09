@@ -523,9 +523,6 @@ int
 db_file_id_bymatch(char *path);
 
 int
-db_file_id_byfilebase(char *filename, char *base);
-
-int
 db_file_id_byfile(char *filename);
 
 int
