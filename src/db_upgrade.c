@@ -1445,7 +1445,7 @@ db_upgrade_v19(sqlite3 *hdl)
 /* Create new table queue for persistent playqueue
  */
 
-#define U_V2000_CREATE_TABLE_QUEUE					\
+#define U_V1901_CREATE_TABLE_QUEUE					\
   "CREATE TABLE IF NOT EXISTS queue ("					\
   "   id                  INTEGER PRIMARY KEY NOT NULL,"		\
   "   file_id             INTEGER NOT NULL,"				\
@@ -1471,21 +1471,21 @@ db_upgrade_v19(sqlite3 *hdl)
   "   disc                INTEGER DEFAULT 0"				\
   ");"
 
-#define U_V2000_QUEUE_VERSION			\
+#define U_V1901_QUEUE_VERSION			\
   "INSERT INTO admin (key, value) VALUES ('queue_version', '0');"
 
-#define U_V2000_SCVER_MAJOR			\
-  "UPDATE admin SET value = '20' WHERE key = 'schema_version_major';"
-#define U_V2000_SCVER_MINOR			\
-  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
+#define U_V1901_SCVER_MAJOR			\
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_V1901_SCVER_MINOR			\
+  "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
 
 static const struct db_upgrade_query db_upgrade_v1901_queries[] =
   {
-    { U_V2000_CREATE_TABLE_QUEUE,    "create table directories" },
-    { U_V2000_QUEUE_VERSION,         "insert queue version" },
+    { U_V1901_CREATE_TABLE_QUEUE,    "create table directories" },
+    { U_V1901_QUEUE_VERSION,         "insert queue version" },
 
-    { U_V2000_SCVER_MAJOR,    "set schema_version_major to 19" },
-    { U_V2000_SCVER_MINOR,    "set schema_version_minor to 01" },
+    { U_V1901_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V1901_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
 
