@@ -297,7 +297,7 @@ response_proces(struct http_client_ctx *ctx)
   if (sk)
     {
       DPRINTF(E_LOG, L_LASTFM, "Got session key from LastFM: %s\n", sk);
-      db_admin_add("lastfm_sk", sk);
+      db_admin_set("lastfm_sk", sk);
 
       if (lastfm_session_key)
 	free(lastfm_session_key);
