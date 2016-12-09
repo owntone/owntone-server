@@ -209,7 +209,7 @@ oauth_interface(struct evhttp_request *req, const char *uri)
   struct evkeyvalq query;
   const char *req_uri;
   const char *ptr;
-  char redirect_uri[256];
+  char __attribute__((unused)) redirect_uri[256];
   int ret;
 
   req_uri = evhttp_request_get_uri(req);
@@ -246,6 +246,8 @@ oauth_interface(struct evhttp_request *req, const char *uri)
     spotify_oauth_callback(evbuf, &query, redirect_uri);
   else
     spotify_oauth_interface(evbuf, redirect_uri);
+#else
+  evbuffer_add_printf(evbuf, "<p>This version was built without modules requiring OAuth support</p>\n");
 #endif
 
   evbuffer_add_printf(evbuf, "<p><i>(sorry about this ugly interface)</i></p>\n");
