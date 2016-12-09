@@ -821,7 +821,7 @@ db_purge_all(void)
 }
 
 static int
-db_get_count(char *query)
+db_get_one_int(char *query)
 {
   sqlite3_stmt *stmt;
   int ret;
@@ -975,7 +975,7 @@ db_build_query_items(struct query_params *qp, char **q)
       return -1;
     }
 
-  qp->results = db_get_count(count);
+  qp->results = db_get_one_int(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -1019,7 +1019,7 @@ db_build_query_pls(struct query_params *qp, char **q)
   const char *sort;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
+  qp->results = db_get_one_int("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -1075,7 +1075,7 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
       return -1;
     }
 
-  qp->results = db_get_count(count);
+  qp->results = db_get_one_int(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -1139,7 +1139,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
       return -1;
     }
 
-  qp->results = db_get_count(count);
+  qp->results = db_get_one_int(count);
 
   sqlite3_free(count);
 
@@ -1219,7 +1219,7 @@ db_build_query_group_albums(struct query_params *qp, char **q)
   const char *sort;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(DISTINCT f.songalbumid) FROM files f WHERE f.disabled = 0;");
+  qp->results = db_get_one_int("SELECT COUNT(DISTINCT f.songalbumid) FROM files f WHERE f.disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -1261,7 +1261,7 @@ db_build_query_group_artists(struct query_params *qp, char **q)
   const char *sort;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(DISTINCT f.songartistid) FROM files f WHERE f.disabled = 0;");
+  qp->results = db_get_one_int("SELECT COUNT(DISTINCT f.songartistid) FROM files f WHERE f.disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -1328,7 +1328,7 @@ db_build_query_group_items(struct query_params *qp, char **q)
       return -1;
     }
 
-  qp->results = db_get_count(count);
+  qp->results = db_get_one_int(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -1396,7 +1396,7 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
       return -1;
     }
 
-  qp->results = db_get_count(count);
+  qp->results = db_get_one_int(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -1454,7 +1454,7 @@ db_build_query_browse(struct query_params *qp, const char *field, const char *gr
       return -1;
     }
 
-  qp->results = db_get_count(count);
+  qp->results = db_get_one_int(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -1987,19 +1987,19 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 int
 db_files_get_count(void)
 {
-  return db_get_count("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
+  return db_get_one_int("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
 }
 
 int
 db_files_get_artist_count(void)
 {
-  return db_get_count("SELECT COUNT(DISTINCT songartistid) FROM files f WHERE f.disabled = 0;");
+  return db_get_one_int("SELECT COUNT(DISTINCT songartistid) FROM files f WHERE f.disabled = 0;");
 }
 
 int
 db_files_get_album_count(void)
 {
-  return db_get_count("SELECT COUNT(DISTINCT songalbumid) FROM files f WHERE f.disabled = 0;");
+  return db_get_one_int("SELECT COUNT(DISTINCT songalbumid) FROM files f WHERE f.disabled = 0;");
 }
 
 int
@@ -2017,7 +2017,7 @@ db_files_get_count_bymatch(char *path)
       return -1;
     }
 
-  count = db_get_count(query);
+  count = db_get_one_int(query);
   sqlite3_free(query);
 
   return count;
@@ -2823,7 +2823,7 @@ db_file_update_directoryid(char *path, int dir_id)
 int
 db_pl_get_count(void)
 {
-  return db_get_count("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
+  return db_get_one_int("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
 }
 
 static int
@@ -2847,7 +2847,7 @@ db_pl_count_items(int id, int streams_only)
       return 0;
     }
 
-  ret = db_get_count(query);
+  ret = db_get_one_int(query);
 
   sqlite3_free(query);
 
@@ -2872,7 +2872,7 @@ db_smartpl_count_items(const char *smartpl_query)
       return 0;
     }
 
-  ret = db_get_count(query);
+  ret = db_get_one_int(query);
 
   sqlite3_free(query);
 
@@ -3205,7 +3205,7 @@ db_pl_add(struct playlist_info *pli, int *id)
       return -1;
     }
 
-  ret = db_get_count(query);
+  ret = db_get_one_int(query);
 
   sqlite3_free(query);
 
@@ -4675,7 +4675,7 @@ db_queue_get_pos(uint32_t item_id, char shuffle)
   else
     query = sqlite3_mprintf(Q_TMPL, item_id);
 
-  pos = db_get_count(query);
+  pos = db_get_one_int(query);
 
   sqlite3_free(query);
 
@@ -4699,7 +4699,7 @@ db_queue_get_pos_byfileid(uint32_t file_id, char shuffle)
   else
     query = sqlite3_mprintf(Q_TMPL, file_id);
 
-  pos = db_get_count(query);
+  pos = db_get_one_int(query);
 
   sqlite3_free(query);
 
@@ -5585,7 +5585,7 @@ db_queue_reshuffle(uint32_t item_id)
 int
 db_queue_get_count()
 {
-  return db_get_count("SELECT COUNT(*) FROM queue;");
+  return db_get_one_int("SELECT COUNT(*) FROM queue;");
 }
 
 
@@ -5845,7 +5845,7 @@ db_watch_cookie_known(uint32_t cookie)
       return 0;
     }
 
-  ret = db_get_count(query);
+  ret = db_get_one_int(query);
 
   sqlite3_free(query);
 
