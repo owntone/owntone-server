@@ -3947,7 +3947,7 @@ db_spotify_files_delete(void)
 
 /* Admin */
 int
-db_admin_add(const char *key, const char *value)
+db_admin_set(const char *key, const char *value)
 {
 #define Q_TMPL "INSERT OR REPLACE INTO admin (key, value) VALUES ('%q', '%q');"
   char *query;
@@ -4013,18 +4013,6 @@ db_admin_get(const char *key)
 
   return res;
 
-#undef Q_TMPL
-}
-
-int
-db_admin_update(const char *key, const char *value)
-{
-#define Q_TMPL "UPDATE admin SET value='%q' WHERE key='%q';"
-  char *query;
-
-  query = sqlite3_mprintf(Q_TMPL, value, key);
-
-  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -4204,7 +4192,7 @@ queue_inc_version_and_notify()
       return;
     }
 
-  ret = db_admin_update("queue_version", version);
+  ret = db_admin_set("queue_version", version);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not update version in admin table: %d\n", queue_version);

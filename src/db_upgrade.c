@@ -1441,7 +1441,7 @@ db_upgrade_v19(sqlite3 *hdl)
   return 0;
 }
 
-/* Upgrade from schema v19.00 to v20.00 */
+/* Upgrade from schema v19.00 to v19.01 */
 /* Create new table queue for persistent playqueue
  */
 
@@ -1488,6 +1488,46 @@ static const struct db_upgrade_query db_upgrade_v1901_queries[] =
     { U_V1901_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
+/* Upgrade from schema v19.01 to v19.02 */
+/* Set key column as primary key in the admin table
+ */
+
+#define U_V1902_CREATE_TABLE_ADMINTMP 			\
+  "CREATE TEMPORARY TABLE IF NOT EXISTS admin_tmp("	\
+  "   key   VARCHAR(32) NOT NULL,"		\
+  "   value VARCHAR(32) NOT NULL"			\
+  ");"
+#define U_V1902_INSERT_ADMINTMP \
+  "INSERT INTO admin_tmp SELECT * FROM admin;"
+#define U_V1902_DROP_TABLE_ADMIN \
+  "DROP TABLE admin;"
+#define U_V1902_CREATE_TABLE_ADMIN 			\
+  "CREATE TABLE IF NOT EXISTS admin("			\
+  "   key   VARCHAR(32) PRIMARY KEY NOT NULL,"		\
+  "   value VARCHAR(32) NOT NULL"			\
+  ");"
+#define U_V1902_INSERT_ADMIN \
+  "INSERT OR IGNORE INTO admin SELECT * FROM admin_tmp;"
+#define U_V1902_DROP_TABLE_ADMINTMP \
+  "DROP TABLE admin_tmp;"
+
+#define U_V1902_SCVER_MAJOR			\
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_V1902_SCVER_MINOR			\
+  "UPDATE admin SET value = '02' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1902_queries[] =
+  {
+    { U_V1902_CREATE_TABLE_ADMINTMP,    "create temporary table admin_tmp" },
+    { U_V1902_INSERT_ADMINTMP,          "insert admin_tmp" },
+    { U_V1902_DROP_TABLE_ADMIN,         "drop table admin" },
+    { U_V1902_CREATE_TABLE_ADMIN,       "create table admin" },
+    { U_V1902_INSERT_ADMIN,             "insert admin" },
+    { U_V1902_DROP_TABLE_ADMINTMP,      "drop table admin_tmp" },
+
+    { U_V1902_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V1902_SCVER_MINOR,    "set schema_version_minor to 02" },
+  };
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1603,6 +1643,11 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1900:
       ret = db_generic_upgrade(hdl, db_upgrade_v1901_queries, sizeof(db_upgrade_v1901_queries) / sizeof(db_upgrade_v1901_queries[0]));
+      if (ret < 0)
+	return -1;
+
+    case 1901:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1902_queries, sizeof(db_upgrade_v1902_queries) / sizeof(db_upgrade_v1902_queries[0]));
       if (ret < 0)
 	return -1;
 

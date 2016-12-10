@@ -25,10 +25,10 @@
 #include "logger.h"
 
 
-#define T_ADMIN					\
-  "CREATE TABLE IF NOT EXISTS admin("		\
-  "   key   VARCHAR(32) NOT NULL,"		\
-  "   value VARCHAR(32) NOT NULL"		\
+#define T_ADMIN						\
+  "CREATE TABLE IF NOT EXISTS admin("			\
+  "   key   VARCHAR(32) PRIMARY KEY NOT NULL,"		\
+  "   value VARCHAR(32) NOT NULL"			\
   ");"
 
 #define T_FILES						\
