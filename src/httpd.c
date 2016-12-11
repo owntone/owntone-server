@@ -44,6 +44,7 @@
 # include <sys/eventfd.h>
 #endif
 #include <event2/event.h>
+#include <event2/keyvalq_struct.h>
 #ifdef HAVE_LIBEVENT2_OLD
 # include <event2/bufferevent.h>
 # include <event2/bufferevent_struct.h>
