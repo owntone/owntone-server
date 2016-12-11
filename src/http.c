@@ -163,13 +163,13 @@ request_header_cb(struct evhttp_request *req, void *arg)
 
   ctx = (struct http_client_ctx *)arg;
 
-  if (!ctx->headers)
+  if (!ctx->input_headers)
     {
       DPRINTF(E_LOG, L_HTTP, "BUG: Header callback invoked but caller did not say where to save the headers\n");
       return -1;
     }
 
-  headers_save(ctx->headers, evhttp_request_get_input_headers(req));
+  headers_save(ctx->input_headers, evhttp_request_get_input_headers(req));
 
   return -1;
 }
@@ -671,9 +671,9 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 
   memset(&ctx, 0, sizeof(struct http_client_ctx));
   ctx.url = fmtctx->filename;
-  ctx.headers = kv;
+  ctx.input_headers = kv;
   ctx.headers_only = 1;
-  ctx.body = NULL;
+  ctx.input_body = NULL;
 
   ret = http_client_request(&ctx);
   if (ret < 0)
@@ -690,17 +690,17 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
   memset(metadata, 0, sizeof(struct http_icy_metadata));
 
   got_header = 0;
-  if ( (value = keyval_get(ctx.headers, "icy-name")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-name")) )
     {
       metadata->name = strdup(value);
       got_header = 1;
     }
-  if ( (value = keyval_get(ctx.headers, "icy-description")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-description")) )
     {
       metadata->description = strdup(value);
       got_header = 1;
     }
-  if ( (value = keyval_get(ctx.headers, "icy-genre")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-genre")) )
     {
       metadata->genre = strdup(value);
       got_header = 1;
