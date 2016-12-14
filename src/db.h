@@ -618,6 +618,9 @@ int
 db_groups_clear(void);
 
 int
+db_groups_cleanup();
+
+int
 db_group_persistentid_byid(int id, int64_t *persistentid);
 
 

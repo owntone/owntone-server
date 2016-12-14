@@ -3385,6 +3385,44 @@ db_groups_clear(void)
   return db_query_run("DELETE FROM groups;", 0, 1);
 }
 
+/*
+ * Remove album and artist entries in the groups table that are not longer referenced from the files table
+ */
+int
+db_groups_cleanup()
+{
+#define Q_TMPL_ALBUM "DELETE FROM groups WHERE type = 1 AND NOT persistentid IN (SELECT songalbumid from files WHERE disabled = 0);"
+#define Q_TMPL_ARTIST "DELETE FROM groups WHERE type = 2 AND NOT persistentid IN (SELECT songartistid from files WHERE disabled = 0);"
+
+  int ret;
+
+  db_transaction_begin();
+
+  ret = db_query_run(Q_TMPL_ALBUM, 0, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Removed album group-entries: %d\n", sqlite3_changes(hdl));
+
+  ret = db_query_run(Q_TMPL_ARTIST, 0, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Removed artist group-entries: %d\n", sqlite3_changes(hdl));
+  db_transaction_end();
+
+  return 0;
+
+#undef Q_TMPL_ALBUM
+#undef Q_TMPL_ARTIST
+}
+
 static enum group_type
 db_group_type_bypersistentid(int64_t persistentid)
 {
