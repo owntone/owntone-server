@@ -626,7 +626,7 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
     mfi = external_mfi;
 
   if (stamp)
-    mfi->id = db_file_id_bypath(path);
+    mfi->id = id;
 
   mfi->fname = strdup(filename);
   if (!mfi->fname)
