@@ -2312,6 +2312,7 @@ db_file_stamp_bypath(char *path, time_t *stamp, int *id)
   sqlite3_stmt *stmt;
   int ret;
 
+  *id = 0;
   *stamp = 0;
 
   query = sqlite3_mprintf(Q_TMPL, path);
