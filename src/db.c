@@ -2025,18 +2025,6 @@ db_files_get_count_bymatch(char *path)
 }
 
 void
-db_files_update_songartistid(void)
-{
-  db_query_run("UPDATE files SET songartistid = daap_songalbumid(LOWER(album_artist), '');", 0, 1);
-}
-
-void
-db_files_update_songalbumid(void)
-{
-  db_query_run("UPDATE files SET songalbumid = daap_songalbumid(LOWER(album_artist), LOWER(album));", 0, 1);
-}
-
-void
 db_file_inc_playcount(int id)
 {
 #define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0 WHERE id = %d;"
