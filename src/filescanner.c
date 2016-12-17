@@ -1221,13 +1221,18 @@ bulk_scan(int flags)
     }
   else
     {
+      db_transaction_begin();
       /* Protect spotify from the imminent purge if rescanning */
       db_file_ping_bymatch("spotify:", 0);
       db_pl_ping_bymatch("spotify:", 0);
 
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
+      db_groups_cleanup();
       db_queue_cleanup();
+
+      db_transaction_end();
+
       cache_artwork_purge_cruft(start);
 
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
@@ -1278,14 +1283,6 @@ filescanner(void *arg)
       pthread_exit(NULL);
     }
 
-  ret = db_groups_clear();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Error: could not clear old groups from DB\n");
-
-      pthread_exit(NULL);
-    }
-
   // Only clear the queue if enabled (default) in config
   clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
   if (!clear_queue_on_stop_disabled)
@@ -1298,13 +1295,6 @@ filescanner(void *arg)
           pthread_exit(NULL);
         }
     }
-
-  /* Recompute all songartistids and songalbumids, in case the SQLite DB got transferred
-   * to a different host; the hash is not portable.
-   * It will also rebuild the groups we just cleared.
-   */
-  db_files_update_songartistid();
-  db_files_update_songalbumid();
 
   if (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable"))
     bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
