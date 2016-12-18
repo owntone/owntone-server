@@ -759,7 +759,7 @@ db_purge_cruft(time_t ref)
 
   DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
 
-  ret = db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, 1);
   if (ret == 0)
     DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
 
@@ -2050,7 +2050,7 @@ db_file_ping(int id)
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
 
-  db_query_run(query, 1, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -2066,7 +2066,7 @@ db_file_ping_bymatch(char *path, int isdir)
   else
     query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
 
-  db_query_run(query, 1, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL_DIR
 #undef Q_TMPL_NODIR
 }
@@ -3368,26 +3368,18 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 
 
 /* Groups */
-int
-db_groups_clear(void)
-{
-  return db_query_run("DELETE FROM groups;", 0, 1);
-}
 
-/*
- * Remove album and artist entries in the groups table that are not longer referenced from the files table
- */
+// Remove album and artist entries in the groups table that are not longer referenced from the files table
 int
 db_groups_cleanup()
 {
 #define Q_TMPL_ALBUM "DELETE FROM groups WHERE type = 1 AND NOT persistentid IN (SELECT songalbumid from files WHERE disabled = 0);"
 #define Q_TMPL_ARTIST "DELETE FROM groups WHERE type = 2 AND NOT persistentid IN (SELECT songartistid from files WHERE disabled = 0);"
-
   int ret;
 
   db_transaction_begin();
 
-  ret = db_query_run(Q_TMPL_ALBUM, 0, 0);
+  ret = db_query_run(Q_TMPL_ALBUM, 0, 1);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -3396,7 +3388,7 @@ db_groups_cleanup()
 
   DPRINTF(E_DBG, L_DB, "Removed album group-entries: %d\n", sqlite3_changes(hdl));
 
-  ret = db_query_run(Q_TMPL_ARTIST, 0, 0);
+  ret = db_query_run(Q_TMPL_ARTIST, 0, 1);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -3752,7 +3744,7 @@ db_directory_ping_bymatch(char *path)
 
   query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path, path);
 
-  db_query_run(query, 1, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL_DIR
 }
 
@@ -3785,7 +3777,7 @@ db_directory_enable_bycookie(uint32_t cookie, char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
 
-  ret = db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, 1);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
@@ -3800,7 +3792,7 @@ db_directory_enable_bypath(char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path);
 
-  ret = db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, 1);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL

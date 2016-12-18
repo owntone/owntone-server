@@ -609,9 +609,6 @@ db_pl_enable_bycookie(uint32_t cookie, char *path);
 
 /* Groups */
 int
-db_groups_clear(void);
-
-int
 db_groups_cleanup();
 
 int
