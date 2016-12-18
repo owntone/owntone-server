@@ -499,12 +499,6 @@ int
 db_files_get_count_bymatch(char *path);
 
 void
-db_files_update_songartistid(void);
-
-void
-db_files_update_songalbumid(void);
-
-void
 db_file_inc_playcount(int id);
 
 void
@@ -616,6 +610,9 @@ db_pl_enable_bycookie(uint32_t cookie, char *path);
 /* Groups */
 int
 db_groups_clear(void);
+
+int
+db_groups_cleanup();
 
 int
 db_group_persistentid_byid(int id, int64_t *persistentid);
