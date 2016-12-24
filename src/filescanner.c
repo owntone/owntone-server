@@ -1229,9 +1229,10 @@ bulk_scan(int flags)
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
       db_groups_cleanup();
-      db_queue_cleanup();
 
       db_transaction_end();
+
+      db_queue_cleanup();
 
       cache_artwork_purge_cruft(start);
 
