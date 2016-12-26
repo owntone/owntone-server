@@ -13,11 +13,6 @@
 /* AirTunes v2 number of samples per packet */
 #define AIRTUNES_V2_PACKET_SAMPLES  352
 
-
-/* Samples to bytes, bytes to samples */
-#define STOB(s) ((s) * 4)
-#define BTOS(b) ((b) / 4)
-
 /* Maximum number of previously played songs that are remembered */
 #define MAX_HISTORY_COUNT 20
 
@@ -114,7 +109,6 @@ player_playback_next(void);
 
 int
 player_playback_prev(void);
-
 
 int
 player_volume_set(int vol);

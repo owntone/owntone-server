@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
- * Copyright (C) 2016 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2016-2017 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,22 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+
+ * About player.c
+ * --------------
+ * The main tasks of the player are the following:
+ * - handle playback commands, status checks and events from other threads
+ * - receive audio from the input thread and to own the playback buffer
+ * - feed the outputs at the appropriate rate (controlled by the playback timer)
+ * - output device handling (partly outsourced to outputs.c)
+ * - notify about playback status changes
+ * - maintain the playback queue
+ * 
+ * The player thread should *never* be making operations that may block, since
+ * that could block callers requesting status (effectively making forked-daapd
+ * unresponsive) and it could also starve the outputs.
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -55,18 +71,13 @@
 #include "listener.h"
 #include "commands.h"
 
-/* Audio outputs */
+/* Audio and metadata outputs */
 #include "outputs.h"
 
-/* Audio inputs */
-#include "transcode.h"
-#include "pipe.h"
-#ifdef HAVE_SPOTIFY_H
-# include "spotify.h"
-#endif
+/* Audio and metadata input */
+#include "input.h"
 
-/* Metadata input/output */
-#include "http.h"
+/* Scrobbling */
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
@@ -83,48 +94,6 @@
 #define PLAYER_DEFAULT_VOLUME 50
 // Used to keep the player from getting ahead of a rate limited source (see below)
 #define PLAYER_TICKS_MAX_OVERRUN 2
-
-struct player_source
-{
-  /* Id of the file/item in the files database */
-  uint32_t id;
-
-  /* Item-Id of the file/item in the queue */
-  uint32_t item_id;
-
-  /* Length of the file/item in milliseconds */
-  uint32_t len_ms;
-
-  enum data_kind data_kind;
-  enum media_kind media_kind;
-  char *path;
-
-  /* Start time of the media item as rtp-time
-     The stream-start is the rtp-time the media item did or would have
-     started playing (after seek or pause), therefor the elapsed time of the
-     media item is always:
-     elapsed time = current rtptime - stream-start */
-  uint64_t stream_start;
-
-  /* Output start time of the media item as rtp-time
-     The output start time is the rtp-time of the first audio packet send
-     to the audio outputs.
-     It differs from stream-start especially after a seek, where the first audio
-     packet has the next rtp-time as output start and stream start becomes the
-     rtp-time the media item would have been started playing if the seek did
-     not happen. */
-  uint64_t output_start;
-
-  /* End time of media item as rtp-time
-     The end time is set if the reading (source_read) of the media item reached
-     end of file, until then it is 0. */
-  uint64_t end;
-
-  struct transcode_ctx *xcode;
-  int setup_done;
-
-  struct player_source *play_next;
-};
 
 struct volume_param {
   int volume;
@@ -595,124 +564,10 @@ history_add(uint32_t id, uint32_t item_id)
 /* Audio sources */
 
 /*
- * Initializes the given player source for playback
- */
-static int
-stream_setup(struct player_source *ps)
-{
-  char *url;
-  int ret;
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "No player source given to stream_setup\n");
-      return -1;
-    }
-
-  if (ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source already setup (id = %d)\n", ps->id);
-      return -1;
-    }
-
-  // Setup depending on data kind
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_FILE:
-	ps->xcode = transcode_setup(ps->data_kind, ps->path, ps->len_ms, XCODE_PCM16_NOHEADER, NULL);
-	ret = ps->xcode ? 0 : -1;
-	break;
-
-      case DATA_KIND_HTTP:
-	ret = http_stream_setup(&url, ps->path);
-	if (ret < 0)
-	  break;
-
-	free(ps->path);
-	ps->path = url;
-
-	ps->xcode = transcode_setup(ps->data_kind, ps->path, ps->len_ms, XCODE_PCM16_NOHEADER, NULL);
-	ret = ps->xcode ? 0 : -1;
-	break;
-
-      case DATA_KIND_SPOTIFY:
-#ifdef HAVE_SPOTIFY_H
-	ret = spotify_playback_setup(ps->path);
-#else
-	DPRINTF(E_LOG, L_PLAYER, "Player source has data kind 'spotify' (%d), but forked-daapd is compiled without spotify support - cannot setup source '%s'\n",
-		    ps->data_kind, ps->path);
-	ret = -1;
-#endif
-	break;
-
-      case DATA_KIND_PIPE:
-	ret = pipe_setup(ps->path);
-	break;
-
-      default:
-	DPRINTF(E_LOG, L_PLAYER, "Unknown data kind (%d) for player source - cannot setup source '%s'\n",
-	    ps->data_kind, ps->path);
-	ret = -1;
-    }
-
-  if (ret == 0)
-      ps->setup_done = 1;
-  else
-      DPRINTF(E_LOG, L_PLAYER, "Failed to setup player source (id = %d)\n", ps->id);
-
-  return ret;
-}
-
-/*
- * Starts or resumes plaback for the given player source
- */
-static int
-stream_play(struct player_source *ps)
-{
-  int ret;
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Stream play called with no active streaming player source\n");
-      return -1;
-    }
-
-  if (!ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, play not possible\n");
-      return -1;
-    }
-
-  // Start/resume playback depending on data kind
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_HTTP:
-      case DATA_KIND_FILE:
-	ret = 0;
-	break;
-
-#ifdef HAVE_SPOTIFY_H
-      case DATA_KIND_SPOTIFY:
-	ret = spotify_playback_play();
-	break;
-#endif
-
-      case DATA_KIND_PIPE:
-	ret = 0;
-	break;
-
-      default:
-	ret = -1;
-    }
-
-  return ret;
-}
-
-/*
  * Read up to "len" data from the given player source and returns
  * the actual amount of data read.
  */
-static int
+/*static int
 stream_read(struct player_source *ps, int len)
 {
   int icy_timer;
@@ -759,149 +614,7 @@ stream_read(struct player_source *ps, int len)
     }
 
   return ret;
-}
-
-/*
- * Pauses playback of the given player source
- */
-static int
-stream_pause(struct player_source *ps)
-{
-  int ret;
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Stream pause called with no active streaming player source\n");
-      return -1;
-    }
-
-  if (!ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, pause not possible\n");
-      return -1;
-    }
-
-  // Pause playback depending on data kind
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_HTTP:
-	ret = 0;
-	break;
-
-      case DATA_KIND_FILE:
-	ret = 0;
-	break;
-
-#ifdef HAVE_SPOTIFY_H
-      case DATA_KIND_SPOTIFY:
-	ret = spotify_playback_pause();
-	break;
-#endif
-
-      case DATA_KIND_PIPE:
-	ret = 0;
-	break;
-
-      default:
-	ret = -1;
-    }
-
-  return ret;
-}
-
-/*
- * Seeks to the given position in milliseconds of the given player source
- */
-static int
-stream_seek(struct player_source *ps, int seek_ms)
-{
-  int ret;
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Stream seek called with no active streaming player source\n");
-      return -1;
-    }
-
-  if (!ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, seek not possible\n");
-      return -1;
-    }
-
-  // Seek depending on data kind
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_HTTP:
-	ret = 0;
-	break;
-
-      case DATA_KIND_FILE:
-	ret = transcode_seek(ps->xcode, seek_ms);
-	break;
-
-#ifdef HAVE_SPOTIFY_H
-      case DATA_KIND_SPOTIFY:
-	ret = spotify_playback_seek(seek_ms);
-	break;
-#endif
-
-      case DATA_KIND_PIPE:
-	ret = 0;
-	break;
-
-      default:
-	ret = -1;
-    }
-
-  return ret;
-}
-
-/*
- * Stops playback and cleanup for the given player source
- */
-static int
-stream_stop(struct player_source *ps)
-{
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Stream cleanup called with no active streaming player source\n");
-      return -1;
-    }
-
-  if (!ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, cleanup not possible\n");
-      return -1;
-    }
-
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_FILE:
-      case DATA_KIND_HTTP:
-	if (ps->xcode)
-	  {
-	    transcode_cleanup(ps->xcode);
-	    ps->xcode = NULL;
-	  }
-	break;
-
-      case DATA_KIND_SPOTIFY:
-#ifdef HAVE_SPOTIFY_H
-	spotify_playback_stop();
-#endif
-	break;
-
-      case DATA_KIND_PIPE:
-	pipe_cleanup();
-	break;
-    }
-
-  ps->setup_done = 0;
-
-  return 0;
-}
-
+}*/
 
 static struct player_source *
 source_now_playing()
@@ -959,7 +672,7 @@ source_stop()
   struct player_source *ps_temp;
 
   if (cur_streaming)
-    stream_stop(cur_streaming);
+    input_stop(cur_streaming);
 
   ps_playing = source_now_playing();
 
@@ -997,20 +710,20 @@ source_pause(uint64_t pos)
   if (!ps_playing)
     return -1;
 
-  if (cur_streaming)
+  if (cur_streaming && (cur_streaming == ps_playing))
     {
       if (ps_playing != cur_streaming)
 	{
 	  DPRINTF(E_DBG, L_PLAYER,
 	      "Pause called on playing source (id=%d) and streaming source already "
 	      "switched to the next item (id=%d)\n", ps_playing->id, cur_streaming->id);
-	  ret = stream_stop(cur_streaming);
+	  ret = input_stop(cur_streaming);
 	  if (ret < 0)
 	    return -1;
 	}
       else
 	{
-	  ret = stream_pause(cur_streaming);
+	  ret = input_pause(cur_streaming);
 	  if (ret < 0)
 	    return -1;
 	}
@@ -1034,7 +747,7 @@ source_pause(uint64_t pos)
     {
       DPRINTF(E_INFO, L_PLAYER, "Opening '%s'\n", cur_streaming->path);
 
-      ret = stream_setup(cur_streaming);
+      ret = input_setup(cur_streaming);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s'\n", cur_streaming->path);
@@ -1045,7 +758,9 @@ source_pause(uint64_t pos)
   /* Seek back to the pause position */
   seek_frames = (pos - cur_streaming->stream_start);
   seek_ms = (int)((seek_frames * 1000) / 44100);
-  ret = stream_seek(cur_streaming, seek_ms);
+  ret = input_seek(cur_streaming, seek_ms);
+
+// TODO what if ret < 0?
 
   /* Adjust start_pos to take into account the pause and seek back */
   cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
@@ -1067,7 +782,7 @@ source_seek(int seek_ms)
 {
   int ret;
 
-  ret = stream_seek(cur_streaming, seek_ms);
+  ret = input_seek(cur_streaming, seek_ms);
   if (ret < 0)
     return -1;
 
@@ -1086,7 +801,7 @@ source_play()
 {
   int ret;
 
-  ret = stream_play(cur_streaming);
+  ret = input_start(cur_streaming);
 
   ticks_skip = 0;
   memset(rawbuf, 0, sizeof(rawbuf));
@@ -1116,7 +831,7 @@ source_open(struct player_source *ps, uint64_t start_pos, int seek_ms)
       return -1;
     }
 
-  ret = stream_setup(ps);
+  ret = input_setup(ps);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (id=%d, item-id=%d)\n", ps->path, ps->id, ps->item_id);
@@ -1151,7 +866,7 @@ source_open(struct player_source *ps, uint64_t start_pos, int seek_ms)
 static int
 source_close(uint64_t end_pos)
 {
-  stream_stop(cur_streaming);
+  input_stop(cur_streaming);
 
   cur_streaming->end = end_pos;
 
@@ -1339,6 +1054,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 {
   int ret;
   int nbytes;
+  short flags;
   char *silence_buf;
   struct player_source *ps;
 
@@ -1350,9 +1066,10 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
     {
       if (evbuffer_get_length(audio_buf) == 0)
 	{
+	  flags = 0;
 	  if (cur_streaming)
 	    {
-	      ret = stream_read(cur_streaming, len - nbytes);
+	      ret = input_read(audio_buf, len - nbytes, &flags);
 	    }
 	  else if (cur_playing)
 	    {
@@ -1369,9 +1086,10 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	      return -1;
 	    }
 
-	  if (ret <= 0)
+//	  if (ret == 0)
+//TODO Underrun -> pause
+	  if ((ret < 0) || (flags & INPUT_FLAG_EOF))
 	    {
-	      /* EOF or error */
 	      source_close(rtptime + BTOS(nbytes) - 1);
 
 	      DPRINTF(E_DBG, L_PLAYER, "New file\n");
@@ -3224,7 +2942,6 @@ player_playback_prev(void)
   return ret;
 }
 
-
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg)
 {
@@ -3539,6 +3256,13 @@ player_init(void)
       goto outputs_fail;
     }
 
+  ret = input_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_PLAYER, "Input initiation failed\n");
+      goto input_fail;
+    }
+
   ret = pthread_create(&tid_player, NULL, player, NULL);
   if (ret < 0)
     {
@@ -3554,6 +3278,8 @@ player_init(void)
   return 0;
 
  thread_fail:
+  input_deinit();
+ input_fail:
   outputs_deinit();
  outputs_fail:
   commands_base_free(cmdbase);
@@ -3599,6 +3325,7 @@ player_deinit(void)
 
   evbuffer_free(audio_buf);
 
+  input_deinit();
   outputs_deinit();
 
   event_base_free(evbase_player);

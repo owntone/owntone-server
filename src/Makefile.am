@@ -108,6 +108,8 @@ forked_daapd_SOURCES = main.c \
 	daap_query.c daap_query.h \
 	player.c player.h \
 	worker.c worker.h \
+	input.h input.c \
+	inputs/file_http.c \
 	outputs.h outputs.c \
 	outputs/raop.c outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
