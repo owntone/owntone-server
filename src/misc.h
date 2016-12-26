@@ -10,6 +10,11 @@
 #include <time.h>
 #include <pthread.h>
 
+/* Samples to bytes, bytes to samples */
+#define STOB(s) ((s) * 4)
+#define BTOS(b) ((b) / 4)
+
+
 struct onekeyval {
   char *name;
   char *value;
