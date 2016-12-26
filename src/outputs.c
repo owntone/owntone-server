@@ -342,7 +342,10 @@ outputs_init(void)
 	}
 
       if (!outputs[i]->init)
-	continue;
+	{
+	  no_output = 0;
+	  continue;
+	}
 
       ret = outputs[i]->init();
       if (ret < 0)
