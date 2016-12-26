@@ -1788,6 +1788,10 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   got_pts = av_rescale_q(got_pts, in_stream->time_base, AV_TIME_BASE_Q);
   got_ms = got_pts / (AV_TIME_BASE / 1000);
 
+  // Since negative return would mean error, we disallow it here
+  if (got_ms < 0)
+    got_ms = 0;
+
   DPRINTF(E_DBG, L_XCODE, "Seek wanted %d ms, got %d ms\n", ms, got_ms);
 
   return got_ms;
