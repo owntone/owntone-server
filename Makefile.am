@@ -1,6 +1,11 @@
 ACLOCAL_AMFLAGS = -I m4
 
-sysconf_DATA = forked-daapd.conf
+CONF_FILE = forked-daapd.conf
+SYSTEMD_SERVICE_FILE = forked-daapd.service
+
+sysconf_DATA = $(CONF_FILE)
+
+BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE)
 
 SUBDIRS = sqlext src
 
@@ -17,8 +22,25 @@ nobase_dist_doc_DATA = \
 	scripts/pairinghelper.sh
 
 EXTRA_DIST = \
-	forked-daapd.conf
+	$(CONF_FILE).in \
+	$(SYSTEMD_SERVICE_FILE).in
 
 install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)/libspotify"
 
+CLEANFILES = $(BUILT_SOURCES)
+
+do_subst = sed -e 's|@sbindir[@]|$(sbindir)|g' \
+             -e 's|@localstatedir[@]|$(localstatedir)|g' \
+             -e 's|@PACKAGE[@]|$(PACKAGE)|g' \
+             -e 's|@DAAPD_USER[@]|$(DAAPD_USER)|g'
+
+# these files use $prefix, which is determined at build (not configure) time
+$(CONF_FILE) $(SYSTEMD_SERVICE_FILE): Makefile
+	$(AM_V_at)rm -f $@ $@-t
+	$(AM_V_GEN)$(do_subst) "$(srcdir)/$@.in" > $@-t
+	$(AM_V_at)mv $@-t $@
+
+$(CONF_FILE): $(srcdir)/$(CONF_FILE).in
+
+$(SYSTEMD_SERVICE_FILE): $(srcdir)/$(SYSTEMD_SERVICE_FILE).in

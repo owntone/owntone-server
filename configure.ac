@@ -279,6 +279,23 @@ AS_IF([test "x$enable_mpd" != "xno"], [
 	AC_DEFINE(MPD, 1, [Define to 1 to enable MPD support])
 ])
 AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
+
+#
+# Defining users and groups
+#
+AC_ARG_WITH([daapd_user],
+	[AS_HELP_STRING([--with-daapd-user=USER],
+		[User for running forked-daapd (default=daapd)])],
+	[test x"$withval" = xyes && withval=], [withval=])
+DAAPD_USER=${withval:-daapd}
+AC_SUBST(DAAPD_USER)
+
+AC_ARG_WITH([daapd_group],
+	[AS_HELP_STRING([--with-daapd-group=GROUP],
+		[Group for daapd user (default=USER)])],
+	[test x"$withval" = xyes && withval=], [withval=])
+DAAPD_GROUP=${withval:-$DAAPD_USER}
+AC_SUBST(DAAPD_GROUP)
 dnl --- End options ---
 
 dnl Checks for header files.
