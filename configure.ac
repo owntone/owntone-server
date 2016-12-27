@@ -16,25 +16,26 @@ AM_PROG_CC_C_O
 LT_INIT([disable-static])
 
 AC_CHECK_PROG(GPERF, [gperf], [gperf])
-if test "x$GPERF" = x; then
-	AC_MSG_ERROR([GNU gperf not found, please install it])
-fi
-AC_SUBST(GPERF)
+AS_IF([test -z "$GPERF"],
+	[AS_IF([test -f "$srcdir/src/dmap_fields_hash.h"],
+		[AM_MISSING_PROG([GPERF], [gperf])
+		AC_MSG_NOTICE([
+
+GNU gperf not found, but it's output appears to be present.
+If you modify any gperf or ANTLR grammer files, you will need to install it.
+])],
+		[AC_MSG_ERROR([GNU gperf required and not found, please install it.])])])
 
 AC_CHECK_PROG(ANTLR, [antlr3], [antlr3])
-if test "x$ANTLR" = x; then
-	if test -d $srcdir/src/pregen; then
-		for f in $srcdir/src/pregen/*; do
-			bf=`basename $f`
-			ln -sf pregen/$bf $srcdir/src/$bf
-		done
-		AC_MSG_NOTICE([antlr3 wrapper not found, using pre-generated files])
-	else
-		AC_MSG_ERROR([antlr3 wrapper not found and pre-generated files not available])
-	fi
-fi
-AC_SUBST(ANTLR)
-AM_CONDITIONAL(COND_ANTLR, test "x$ANTLR" != x)
+AS_IF([test -z "$ANTLR"],
+	[AS_IF([test -f "$srcdir/src/SMARTPLLexer.h"],
+		[AM_MISSING_PROG([ANTLR], [antlr3])
+		AC_MSG_NOTICE([
+
+antlr3 not found, but it's output appears to be present.
+If you modify any ANTLR grammer files (.g), you will need to install it.
+])],
+		[AC_MSG_ERROR([antlr3 wrapper required and not found, please install it.])])])
 
 AM_CPPFLAGS="-D_LARGEFILE_SOURCE -Wall"
 AC_SUBST([AM_CPPFLAGS])

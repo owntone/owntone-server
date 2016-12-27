@@ -39,22 +39,24 @@ GPERF_FILES = \
 	dacp_prop.gperf \
 	dmap_fields.gperf
 
-GPERF_PRODUCTS = $(GPERF_FILES:.gperf=_hash.h)
+GPERF_SRC = $(GPERF_FILES:.gperf=_hash.h)
 
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \
 	DAAP.g DAAP2SQL.g \
 	SMARTPL.g SMARTPL2SQL.g 
 
-ANTLR_SOURCES = \
+ANTLR_TOKENS = $(ANTLR_GRAMMARS:.g=.tokens)
+
+ANTLR_DEPS = $(ANTLR_GRAMMARS:%.g=$(srcdir)/%.u)
+
+ANTLR_SRC = \
 	RSPLexer.c RSPLexer.h RSPParser.c RSPParser.h \
 	RSP2SQL.c RSP2SQL.h \
 	DAAPLexer.c DAAPLexer.h DAAPParser.c DAAPParser.h \
 	DAAP2SQL.c DAAP2SQL.h \
 	SMARTPLLexer.c SMARTPLLexer.h SMARTPLParser.c SMARTPLParser.h  \
 	SMARTPL2SQL.c SMARTPL2SQL.h
-
-ANTLR_PRODUCTS =
 
 AM_CPPFLAGS += \
 	$(ZLIB_CFLAGS) \
@@ -138,58 +140,37 @@ forked_daapd_SOURCES = main.c \
 	$(LASTFM_SRC) \
 	$(MPD_SRC) \
 	listener.c listener.h \
-	commands.c commands.h
+	commands.c commands.h \
+	ffmpeg-compat.h \
+	$(GPERF_SRC) \
+	$(ANTLR_SRC)
 
-nodist_forked_daapd_SOURCES = \
-	$(ANTLR_SOURCES)
-
+# built by maintainers, and distributed. Clean with maintainer-clean
 BUILT_SOURCES = \
-	$(GPERF_PRODUCTS)
+	$(GPERF_SRC) \
+	$(ANTLR_SRC) \
+	$(ANTLR_TOKENS) \
+	$(ANTLR_DEPS)
 
 EXTRA_DIST = \
-	$(ANTLR_GRAMMARS)
-
-CLEANFILES = \
-	$(GPERF_PRODUCTS)
-
+	$(GPERF_FILES) \
+	$(ANTLR_GRAMMARS) \
+	$(ANTLR_TOKENS) \
+	$(ANTLR_DEPS)
 
 # gperf construction rules
 %_hash.h: %.gperf
-	if $(GPERF) $< > $@.tmp; then \
-		mv $@.tmp $@; \
-	elif $(GPERF) --version >/dev/null 2>&1; then \
-		rm $@.tmp; \
-		exit 1; \
-	else \
-		rm $@.tmp; \
-		touch $@; \
-	fi
+	$(AM_V_GEN)$(GPERF) --output-file=$@ $<
 
-# Support for building the parsers when ANTLR3 is available
-if COND_ANTLR
-SUFFIXES = .g .u
-
+# ANTLR grammar products
 %.tokens %.c %Lexer.c %Parser.c %Lexer.h %Parser.h %.h: %.g
-	$(ANTLR) -Xconversiontimeout 30000 $(ANTLR_OPTIONS) $<
+	@$(AM_V_P) || echo "  GEN     " $< "products"
+	$(AM_V_at)$(ANTLR) -Xconversiontimeout 30000 $(ANTLR_OPTIONS) -fo . $<
 
+# ANTLR dependency files (bypass circular dependency of .g on .tokens)
 %.u: %.g
-	$(ANTLR) -depend $< > $@
-	@echo -n "ANTLR_PRODUCTS += " > $@.tmp
-	@grep : $@ | cut -d : -f 1 | tr -d ' ' | { while read f; do test "$$f" != "$<" && echo -n "$$f "; done } >> $@.tmp
-	@cat $@.tmp >> $@
-	@rm $@.tmp
+	$(AM_V_GEN)$(ANTLR) -depend -fo . $< > $@
+	$(AM_V_at)sed -n -e '/^.*\.g[ ]*:\(.*\)/ { s//\1/;h;d }' -e '/\.tokens.*:/ { p;d }' -e '/:/ { G;s/\n/ /;p }' $@ > $@-t
+	$(AM_V_at)mv $@-t $@
 
-BUILT_SOURCES += $(ANTLR_SOURCES)
-
-CLEANFILES += \
-	$(ANTLR_PRODUCTS) \
-	$(ANTLR_GRAMMARS:.g=.u)
-
-else !COND_ANTLR
-DISTCLEANFILES = \
-	$(ANTLR_PRODUCTS) \
-	$(ANTLR_GRAMMARS:.g=.u)
-
-endif
-
--include $(ANTLR_GRAMMARS:.g=.u)
+-include $(ANTLR_DEPS)
