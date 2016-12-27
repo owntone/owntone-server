@@ -734,12 +734,15 @@ db_purge_cruft(time_t ref)
       "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 ";",
     };
 
+  db_transaction_begin();
+
   for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
     {
       query = sqlite3_mprintf(queries_tmpl[i], PL_SPECIAL, (int64_t)ref);
       if (!query)
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+	  db_transaction_end();
 	  return;
 	}
 
@@ -754,6 +757,7 @@ db_purge_cruft(time_t ref)
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      db_transaction_end();
       return;
     }
 
@@ -762,6 +766,8 @@ db_purge_cruft(time_t ref)
   ret = db_query_run(query, 1, 1);
   if (ret == 0)
     DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+
+  db_transaction_end();
 
 #undef Q_TMPL
 }
