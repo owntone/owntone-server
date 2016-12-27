@@ -1221,17 +1221,15 @@ bulk_scan(int flags)
     }
   else
     {
-      db_transaction_begin();
       /* Protect spotify from the imminent purge if rescanning */
+      db_transaction_begin();
       db_file_ping_bymatch("spotify:", 0);
       db_pl_ping_bymatch("spotify:", 0);
+      db_transaction_end();
 
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
       db_groups_cleanup();
-
-      db_transaction_end();
-
       db_queue_cleanup();
 
       cache_artwork_purge_cruft(start);
