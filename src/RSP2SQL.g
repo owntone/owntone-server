@@ -50,7 +50,7 @@ options {
 	};
 
 	/* gperf static hash, rsp_query.gperf */
-	#include "rsp_query_hash.c"
+	#include "rsp_query_hash.h"
 }
 
 query	returns [ pANTLR3_STRING result ]

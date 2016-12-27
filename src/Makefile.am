@@ -39,11 +39,7 @@ GPERF_FILES = \
 	dacp_prop.gperf \
 	dmap_fields.gperf
 
-GPERF_PRODUCTS = \
-	daap_query_hash.c \
-	rsp_query_hash.c \
-	dacp_prop_hash.c \
-	dmap_fields_hash.c
+GPERF_PRODUCTS = $(GPERF_FILES:.gperf=_hash.h)
 
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \
@@ -158,7 +154,7 @@ CLEANFILES = \
 
 
 # gperf construction rules
-%_hash.c: %.gperf
+%_hash.h: %.gperf
 	if $(GPERF) $< > $@.tmp; then \
 		mv $@.tmp $@; \
 	elif $(GPERF) --version >/dev/null 2>&1; then \

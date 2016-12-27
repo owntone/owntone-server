@@ -136,7 +136,7 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query);
 
 
 /* gperf static hash, dacp_prop.gperf */
-#include "dacp_prop_hash.c"
+#include "dacp_prop_hash.h"
 
 
 /* Play status update */

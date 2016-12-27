@@ -44,7 +44,7 @@ options {
 	};
 
 	/* gperf static hash, daap_query.gperf */
-	#include "daap_query_hash.c"
+	#include "daap_query_hash.h"
 }
 
 query	returns [ pANTLR3_STRING result ]
