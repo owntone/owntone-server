@@ -65,9 +65,8 @@ AC_TYPE_OFF_T
 dnl Checks for libraries.
 gl_LIBUNISTRING
 
-if test x$HAVE_LIBUNISTRING != xyes; then
-   AC_MSG_ERROR([GNU libunistring is required])
-fi
+AS_IF([test x$HAVE_LIBUNISTRING != xyes],
+	[AC_MSG_ERROR([GNU libunistring is required])])
 
 PKG_CHECK_MODULES(ZLIB, [ zlib ])
 PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
@@ -143,7 +142,7 @@ AC_SUBST(ANTLR3C_LIBS)
 AM_PATH_LIBGCRYPT([1:1.2.0], , AC_MSG_ERROR([libgcrypt not found]))
 AM_PATH_GPG_ERROR([1.6], , AC_MSG_ERROR([libgpg-error not found]))
 
-case "$host" in
+case $host in
   *-*-linux-*)
 	AC_CHECK_HEADERS([sys/eventfd.h])
 	AC_CHECK_FUNC(eventfd_write, AC_DEFINE(HAVE_EVENTFD, 1, [Define to 1 if you have eventfd]))
@@ -162,39 +161,57 @@ AC_CHECK_HEADERS(stdint.h,,)
 
 dnl --- Begin configuring the options ---
 dnl ALSA
-AC_ARG_WITH(alsa, AS_HELP_STRING([--without-alsa], [without ALSA support (default=no)]))
-AS_IF([test "x$with_alsa" != "xno"], [
-	AC_DEFINE(ALSA, 1, [Define to 1 to build with ALSA support])
-	PKG_CHECK_MODULES(ALSA, [ alsa ])
+AC_ARG_WITH([alsa], [AS_HELP_STRING([--with-alsa], [with ALSA support (default=check)])], [], [with_alsa=check])
+AS_IF([test "x$with_alsa" != "xno"], 
+	[PKG_CHECK_MODULES([ALSA], [alsa],
+		[with_alsa=yes
+		AC_DEFINE([ALSA], 1, [Define to 1 to build with ALSA support])],
+		[AS_IF([test "x$with_alsa" != "xcheck"],
+			[AC_MSG_FAILURE([--with-alsa was given, but test for ALSA failed])])
+		with_alsa=no])
 ])
-AM_CONDITIONAL(COND_ALSA, [test "x$with_alsa" != "xno"])
+AM_CONDITIONAL([COND_ALSA], [test "x$with_alsa" = "xyes"])
 
 dnl PULSEAUDIO
-AC_ARG_WITH(pulseaudio, AS_HELP_STRING([--with-pulseaudio], [with Pulseaudio support (default=no)]))
-AS_IF([test "x$with_pulseaudio" = "xyes"], [
-	AC_DEFINE(PULSEAUDIO, 1, [Define to 1 to build with Pulseaudio support])
-	PKG_CHECK_MODULES(LIBPULSE, [ libpulse ])
-	AC_SEARCH_LIBS([pa_threaded_mainloop_set_name], [pulse],
-		AC_DEFINE(HAVE_PULSE_MAINLOOP_SET_NAME, 1, [Define to 1 if you have Pulseaudio with pa_threaded_mainloop_set_name])
-	)
+AC_ARG_WITH([pulseaudio], [AS_HELP_STRING([--with-pulseaudio], [with Pulseaudio support (default=check)])], [], [with_pulseaudio=check])
+AS_IF([test "x$with_pulseaudio" != "xno"], 
+	[PKG_CHECK_MODULES([LIBPULSE], [libpulse],
+		[with_pulseaudio=yes
+		AC_DEFINE([PULSEAUDIO], 1, [Define to 1 to build with Pulseaudio support])
+		AC_SEARCH_LIBS([pa_threaded_mainloop_set_name], [pulse],
+			[AC_DEFINE(HAVE_PULSE_MAINLOOP_SET_NAME, 1, [Define to 1 if you have Pulseaudio with pa_threaded_mainloop_set_name])])],
+		[AS_IF([test "x$with_pulseaudio" != "xcheck"],
+			[AC_MSG_FAILURE([--with-pulseaudio was given, but test for Pulseaudio failed])])
+		with_pulseaudio=no])
 ])
-AM_CONDITIONAL(COND_PULSEAUDIO, [test "x$with_pulseaudio" = "xyes"])
+AM_CONDITIONAL([COND_PULSEAUDIO], [test "x$with_pulseaudio" = "xyes"])
 
 dnl Build with libcurl
-AC_ARG_WITH([libcurl], AS_HELP_STRING([--without-libcurl], [without libcurl (default=no)]))
-AS_IF([test "x$with_libcurl" != "xno"], [
-	AC_DEFINE(HAVE_LIBCURL, 1, [Define to 1 to build with libcurl])
-	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
+AC_ARG_WITH([libcurl], [AS_HELP_STRING([--with-libcurl], [with libcurl (default=check)])], [], [with_libcurl=check])
+AS_IF([test "x$with_libcurl" != "xno"], 
+	[PKG_CHECK_MODULES([LIBCURL], [libcurl],
+		[with_libcurl=yes
+		AC_DEFINE([HAVE_LIBCURL], 1, [Define to 1 to build with libcurl])],
+		[AS_IF([test "x$with_libcurl" != "xcheck"],
+			[AC_MSG_FAILURE([--with-libcurl was given, but test for libcurl failed])])
+		with_libcurl=no])
 ])
 
 dnl Build with json-c
-AC_ARG_WITH([json], AS_HELP_STRING([--without-json-c], [without json-c (default=no)]))
-AS_IF([test "x$with_json" != "xno"], [
-	AC_DEFINE(HAVE_JSON, 1, [Define to 1 to build with json-c])
+AC_ARG_WITH([json], [AS_HELP_STRING([--with-json], [with json-c (default=check)])], [], [with_json=check])
+AS_IF([test "x$with_json" != "xno"], 
+	[with_json_c=no
 	PKG_CHECK_EXISTS([ json-c >= 0.11 ],
-		[ PKG_CHECK_MODULES(JSON_C, [ json-c ]) ],
-		[ PKG_CHECK_MODULES(JSON_C, [ json ], AC_DEFINE(HAVE_JSON_C_OLD, 1, [Define 1 to if you have json-c < 0.11])) ]
-	)
+		[PKG_CHECK_MODULES([JSON_C], [json-c], [with_json_c=yes], [:])],
+		[PKG_CHECK_MODULES([JSON_C], [json],
+			[with_json_c=yes
+			AC_DEFINE(HAVE_JSON_C_OLD, 1, [Define 1 to if you have json-c < 0.11])], [:])])
+	AS_IF([test "$with_json_c" = "yes"],
+		[with_json=yes
+		AC_DEFINE([HAVE_JSON], 1, [Define to 1 to build with json-c])],
+		[AS_IF([test "x$with_json" != "xcheck"],
+			[AC_MSG_FAILURE([--with-json was given, but test for json-c failed])])
+		with_json=no])
 ])
 
 dnl iTunes playlists with libplist
@@ -231,16 +248,26 @@ AS_IF([test "x$enable_lastfm" = "xyes"], [
 AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
 
 dnl ChromeCast support with libprotobuf-c
-AC_ARG_ENABLE(chromecast, AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)]))
-AS_IF([test "x$enable_chromecast" = "xyes"], [
-	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
-	AS_IF([test "x$with_json" = "xno"], AC_MSG_ERROR([Chromecast support requires json-c]))
-	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], , [ protobuf_old="yes" ])
-	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
-])
-AS_IF([test "x$protobuf_old" = "xyes"], [
-	AC_DEFINE(HAVE_PROTOBUF_OLD, 1, [Define to 1 if you have libprotobuf < 1.0.0])
-	LDFLAGS="${LDFLAGS} -lprotobuf-c"
+AC_ARG_ENABLE([chromecast], [AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)])])
+AS_IF([test "x$enable_chromecast" = "xyes"],
+	[AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
+	AS_IF([test "x$with_json" = xno], AC_MSG_ERROR([Chromecast support requires json-c]))
+	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], [], [
+		AC_MSG_CHECKING([for v0 libprotobuf-c])
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <google/protobuf-c/protobuf-c.h>
+#if PROTOBUF_C_MAJOR > 0
+#error "protobuf version not < 1.0.0"
+#endif
+]])],
+			[AC_MSG_RESULT([yes])
+			AC_DEFINE(HAVE_PROTOBUF_OLD, 1, [Define to 1 if you have libprotobuf < 1.0.0])
+			protobuf_old=yes],
+			[AC_MSG_RESULT([no])
+			AC_MSG_ERROR([Chromecast support requires protobuf-c])])
+		AC_CHECK_LIB([protobuf-c], [protobuf_c_message_pack], [], [AC_MSG_ERROR([Chromecast support requires protobuf-c])])
+	])
+	PKG_CHECK_MODULES(GNUTLS, [gnutls])
 ])
 AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
 AM_CONDITIONAL(COND_PROTOBUF_OLD, [test "x$protobuf_old" = "xyes"])
