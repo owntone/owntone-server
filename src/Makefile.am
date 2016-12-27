@@ -60,22 +60,50 @@ ANTLR_SOURCES = \
 
 ANTLR_PRODUCTS =
 
-forked_daapd_CPPFLAGS = -D_GNU_SOURCE \
-	-DDATADIR="\"$(pkgdatadir)\"" -DCONFDIR="\"$(sysconfdir)\"" \
-	-DSTATEDIR="\"$(localstatedir)\"" -DPKGLIBDIR="\"$(pkglibdir)\""
-
-forked_daapd_CFLAGS = \
-	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @LIBAV_CFLAGS@ \
-	@CONFUSE_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ @SPOTIFY_CFLAGS@ \
-	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@ @LIBPULSE_CFLAGS@ \
-	@LIBCURL_CFLAGS@ @LIBPROTOBUF_C_CFLAGS@ @GNUTLS_CFLAGS@ @JSON_C_CFLAGS@
+AM_CPPFLAGS += \
+	$(ZLIB_CFLAGS) \
+	$(AVAHI_CFLAGS) \
+	$(SQLITE3_CFLAGS) \
+	$(LIBAV_CFLAGS) \
+	$(CONFUSE_CFLAGS) \
+	$(MINIXML_CFLAGS) \
+	$(LIBPLIST_CFLAGS) \
+	$(SPOTIFY_CFLAGS) \
+	$(LIBGCRYPT_CFLAGS) \
+	$(GPG_ERROR_CFLAGS) \
+	$(ALSA_CFLAGS) \
+	$(LIBPULSE_CFLAGS) \
+	$(LIBCURL_CFLAGS) \
+	$(LIBPROTOBUF_C_CFLAGS) \
+	$(GNUTLS_CFLAGS) \
+	$(JSON_C_CFLAGS) \
+	\
+	-D_GNU_SOURCE \
+	-DDATADIR=\"$(pkgdatadir)\" \
+	-DCONFDIR=\"$(sysconfdir)\" \
+	-DSTATEDIR=\"$(localstatedir)\" \
+	-DPKGLIBDIR=\"$(pkglibdir)\"
 
 forked_daapd_LDADD = -lrt \
-	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @LIBAV_LIBS@ \
-	@CONFUSE_LIBS@ @LIBEVENT_LIBS@ @LIBUNISTRING@ \
-	@MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ @SPOTIFY_LIBS@ \
-	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBPULSE_LIBS@ \
-	@LIBCURL_LIBS@ @LIBPROTOBUF_C_LIBS@ @GNUTLS_LIBS@ @JSON_C_LIBS@
+	$(ZLIB_LIBS) \
+	$(AVAHI_LIBS) \
+	$(SQLITE3_LIBS) \
+	$(LIBAV_LIBS) \
+	$(CONFUSE_LIBS) \
+	$(LIBEVENT_LIBS) \
+	$(LIBUNISTRING) \
+	$(MINIXML_LIBS) \
+	$(ANTLR3C_LIBS) \
+	$(LIBPLIST_LIBS) \
+	$(SPOTIFY_LIBS) \
+	$(LIBGCRYPT_LIBS) \
+	$(GPG_ERROR_LIBS) \
+	$(ALSA_LIBS) \
+	$(LIBPULSE_LIBS) \
+	$(LIBCURL_LIBS) \
+	$(LIBPROTOBUF_C_LIBS) \
+	$(GNUTLS_LIBS) \
+	$(JSON_C_LIBS)
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
@@ -109,7 +137,7 @@ forked_daapd_SOURCES = main.c \
 	outputs.h outputs.c \
 	outputs/raop.c outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
-	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
+	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
 	$(MPD_SRC) \

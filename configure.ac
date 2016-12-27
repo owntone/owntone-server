@@ -3,9 +3,10 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT([forked-daapd], [24.2])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AC_DEFINE_UNQUOTED([BUILDDATE], ["`date -Idate`"], [Build date])
-AM_INIT_AUTOMAKE([foreign -Wno-portability subdir-objects])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 AC_USE_SYSTEM_EXTENSIONS
 
@@ -35,7 +36,8 @@ fi
 AC_SUBST(ANTLR)
 AM_CONDITIONAL(COND_ANTLR, test "x$ANTLR" != x)
 
-CFLAGS="$CFLAGS -Wall -D_LARGEFILE_SOURCE"
+AM_CPPFLAGS="-D_LARGEFILE_SOURCE -Wall"
+AC_SUBST([AM_CPPFLAGS])
 
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
@@ -255,4 +257,9 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_OUTPUT(src/Makefile sqlext/Makefile Makefile)
+AC_CONFIG_FILES([
+	src/Makefile
+	sqlext/Makefile
+	Makefile
+])
+AC_OUTPUT
