@@ -355,6 +355,15 @@ pb_timer_start(void)
   struct itimerspec tick;
   int ret;
 
+  ret = event_add(pb_timer_ev, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not add playback timer\n");
+
+      return -1;
+    }
+
+
   tick.it_interval = tick_interval;
   tick.it_value = tick_interval;
 
@@ -378,6 +387,8 @@ pb_timer_stop(void)
 {
   struct itimerspec tick;
   int ret;
+
+  event_del(pb_timer_ev);
 
   memset(&tick, 0, sizeof(struct itimerspec));
 
@@ -3244,8 +3255,6 @@ player_init(void)
       DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer event\n");
       goto evnew_fail;
     }
-
-  event_add(pb_timer_ev, NULL);
 
   cmdbase = commands_base_new(evbase_player, NULL);
 

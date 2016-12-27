@@ -236,6 +236,12 @@ input_read(struct evbuffer *evbuf, size_t want, short *flags)
 
   *flags = 0;
 
+  if (!tid_input)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! Read called, but playback not running\n");
+      return -1;
+    }
+
   pthread_mutex_lock(&input_buffer.mutex);
 
 #ifdef DEBUG
