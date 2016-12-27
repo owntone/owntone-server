@@ -1,0 +1,174 @@
+# -*- Mode:rpm-spec -*-
+# @configure_input@
+%global username @DAAPD_USER@
+%global groupname @DAAPD_GROUP@
+
+%bcond_without alsa
+%bcond_with pulseaudio
+%bcond_without libcurl
+%bcond_without json
+%bcond_with itunes
+%bcond_with spotify
+%bcond_with lastfm
+%bcond_with chromecast
+%bcond_without mpd
+
+%global _hardened_build 1
+
+Summary: iTunes-compatible DAAP server with MPD and RSP support
+Name: @PACKAGE_NAME@
+Version: @PACKAGE_VERSION@
+Release: @RPM_RELEASE@%{?dist}
+License: GPLv2+
+Group: Applications/Multimedia
+Url: https://github.com/ejurgensen/forked-daapd
+Source: https://github.com/ejurgensen/%{name}/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+%{?systemd_ordering}
+BuildRequires: systemd
+BuildRequires: pkgconfig
+BuildRequires: pkgconfig(sqlite3) >= 3.5.0
+BuildRequires: pkgconfig(libconfuse)
+BuildRequires: libunistring-devel
+BuildRequires: pkgconfig(mxml)
+BuildRequires: pkgconfig(libevent) >= 2.0.0
+BuildRequires: pkgconfig(avahi-client) >= 0.6.24
+BuildRequires: libgcrypt-devel >= 1.2.0
+BuildRequires: libgpg-error-devel >= 1.6
+BuildRequires: pkgconfig(zlib)
+BuildRequires: antlr3-C-devel
+BuildRequires: pkgconfig(libavformat)
+BuildRequires: pkgconfig(libavcodec)
+BuildRequires: pkgconfig(libswscale)
+BuildRequires: pkgconfig(libavutil)
+BuildRequires: pkgconfig(libavfilter)
+Requires(pre): shadow-utils
+Requires: systemd-units
+%if %{with alsa}
+BuildRequires: pkgconfig(alsa)
+%endif
+%if %{with pulseaudio}
+BuildRequires: pkgconfig(libpulse)
+%endif
+%if %{with libcurl}
+BuildRequires: pkgconfig(libcurl)
+%endif
+%if %{with json}
+BuildRequires: pkgconfig(json-c)
+%endif
+%if %{with itunes}
+BuildRequires: pkgconfig(libplist) >= 0.16
+%endif
+%if %{with spotify}
+BuildRequires: libspotify-devel
+%endif
+%if %{with chromecast}
+BuildRequires: pkgconfig(gnutls)
+BuildRequires: pkgconfig(libprotobuf-c)
+%endif
+
+%global homedir %{_localstatedir}/lib/%{name}
+%global gecos %{name} User
+%{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
+
+%description
+forked-daapd is a DAAP/DACP (iTunes), MPD (Music Player Daemon)
+and RSP (Roku) media server.
+
+It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
+MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
+
+It does not support streaming video by AirPlay nor Chromecast.
+
+DAAP stands for Digital Audio Access Protocol, and is the protocol used
+by iTunes and friends to share/stream media libraries over the network.
+
+forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
+
+%prep
+%if %{with spotify} && %{without json}
+echo "ERROR: Option '-with spotify' cannot be used with '-without json'" >&2 && exit 1
+%endif
+%if %{with lastfm} && %{without libcurl}
+echo "ERROR: Option '-with lastfm' cannot be used with '-without libcurl'" >&2 && exit 1
+%endif
+%if %{with chromecast} && %{without json}
+echo "ERROR: Option '-with chromecast' cannot be used with '-without json'" >&2 && exit 1
+%endif
+
+%setup -q
+
+%build
+%configure \
+%if %{without alsa}
+  --without-alsa \
+%endif
+%if %{without pulseaudio}
+  --without-pulseaudio \
+%endif
+%if %{without libcurl}
+  --without-libcurl \
+%endif
+%if %{without json}
+  --without-json \
+%endif
+%if %{with itunes}
+  --enable-itunes \
+%endif
+%if %{with spotify}
+  --enable-spotify \
+%endif
+%if %{with lastfm}
+  --enable-lastfm \
+%endif
+%if %{with chromecast}
+  --enable-chromecast \
+%endif
+%if %{with mpd}
+  --enable-mpd \
+%endif
+  --with-daapd-user=%{username} \
+  --with-daapd-group=%{groupname}
+make %{?_smp_mflags}
+
+%install
+make install DESTDIR=%{buildroot} docdir=%{_pkgdocdir}
+rm -f %{buildroot}%{_pkgdocdir}/INSTALL
+mkdir -p %{buildroot}%{homedir}
+mkdir -p %{buildroot}%{_localstatedir}/log
+touch %{buildroot}%{_localstatedir}/log/%{name}.log
+mkdir -p %{buildroot}%{_unitdir}
+install -m 0644 forked-daapd.service %{buildroot}%{_unitdir}/%{name}.service
+rm -f %{buildroot}%{_libdir}/%{name}/*.la
+
+%pre
+getent group %{groupname} >/dev/null || groupadd -r %{groupname}
+getent passwd %{username} >/dev/null || \
+    useradd -r -g %{groupname} -d %{homedir} -s /sbin/nologin \
+    -c '%{gecos}' %{username}
+exit 0
+
+%post
+%systemd_post %{name}.service
+
+%preun
+%systemd_preun %{name}.service
+
+%postun
+%systemd_postun_with_restart %{name}.service
+
+%files
+%{!?_licensedir:%global license %%doc}
+%license COPYING
+%{_pkgdocdir}
+%config(noreplace) %{_sysconfdir}/forked-daapd.conf
+%{_sbindir}/forked-daapd
+%{_libdir}/*
+%{_unitdir}/%{name}.service
+%attr(0750,%{username},%{groupname}) %{_localstatedir}/cache/%{name}
+%attr(0750,%{username},%{groupname}) %{homedir}
+%ghost %{_localstatedir}/log/%{name}.log
+%{_mandir}/man?/*
+
+%changelog
+* Tue Dec 20 2016 Scott Shambarger <devel@shambarger.net> - 24.2-1
+   - Initial RPM release candidate.

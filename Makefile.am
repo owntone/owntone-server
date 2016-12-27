@@ -1,5 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
+RPM_SPEC_FILE = forked-daapd.spec
 CONF_FILE = forked-daapd.conf
 SYSTEMD_SERVICE_FILE = forked-daapd.service
 
@@ -23,7 +24,8 @@ nobase_dist_doc_DATA = \
 
 EXTRA_DIST = \
 	$(CONF_FILE).in \
-	$(SYSTEMD_SERVICE_FILE).in
+	$(SYSTEMD_SERVICE_FILE).in \
+	$(RPM_SPEC_FILE)
 
 install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)/libspotify"
