@@ -1097,9 +1097,9 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	      return -1;
 	    }
 
-//	  if (ret == 0)
-//TODO Underrun -> pause
-	  if ((ret < 0) || (flags & INPUT_FLAG_EOF))
+	  if (ret == 0)
+	    sleep(1); // TODO Underrun -> proper pause
+	  else if ((ret < 0) || (flags & INPUT_FLAG_EOF))
 	    {
 	      source_close(rtptime + BTOS(nbytes) - 1);
 

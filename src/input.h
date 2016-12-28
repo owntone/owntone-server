@@ -2,6 +2,9 @@
 #ifndef __INPUT_H__
 #define __INPUT_H__
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
 #include <event2/buffer.h>
 #include "transcode.h"
 
@@ -10,6 +13,9 @@ enum input_types
 {
   INPUT_TYPE_FILE,
   INPUT_TYPE_HTTP,
+#ifdef HAVE_SPOTIFY_H
+  INPUT_TYPE_SPOTIFY,
+#endif
 };
 
 enum input_flags
@@ -96,7 +102,7 @@ struct input_definition
 };
 
 /*
- * Input modules use this to test if playback should be stopped or seeked
+ * Input modules should use this to test if playback should end
  */
 int input_loop_break;
 
@@ -113,6 +119,13 @@ int input_loop_break;
  */
 int
 input_write(struct evbuffer *evbuf, short flags);
+
+/*
+ * Input modules can use this to wait in the playback loop (like input_write()
+ * would have done)
+ */
+void
+input_wait(void);
 
 /*
  * Move a chunk of stream data from the player's input buffer to an output

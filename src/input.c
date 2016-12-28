@@ -46,11 +46,17 @@
 
 extern struct input_definition input_file;
 extern struct input_definition input_http;
+#ifdef HAVE_SPOTIFY_H
+extern struct input_definition input_spotify;
+#endif
 
 // Must be in sync with enum input_types
 static struct input_definition *inputs[] = {
     &input_file,
     &input_http,
+#ifdef HAVE_SPOTIFY_H
+    &input_spotify,
+#endif
     NULL
 };
 
@@ -124,6 +130,11 @@ map_data_kind(int data_kind)
       case DATA_KIND_HTTP:
 	return INPUT_TYPE_HTTP;
 
+#ifdef HAVE_SPOTIFY_H
+      case DATA_KIND_SPOTIFY:
+	return INPUT_TYPE_SPOTIFY;
+#endif
+
       default:
 	return -1;
     }
@@ -183,6 +194,15 @@ playback(void *arg)
 
  thread_exit:
   pthread_exit(NULL);
+}
+
+void
+input_wait(void)
+{
+  pthread_mutex_lock(&input_buffer.mutex);
+  pthread_cond_wait(&input_buffer.cond, &input_buffer.mutex);
+
+  pthread_mutex_unlock(&input_buffer.mutex);
 }
 
 // Called by input modules from within the playback loop
@@ -333,6 +353,7 @@ input_pause(struct player_source *ps)
   pthread_cond_signal(&input_buffer.cond);
   pthread_mutex_unlock(&input_buffer.mutex);
 
+  // TODO What if input thread is hanging waiting for source? Kill thread?
   ret = pthread_join(tid_input, NULL);
   if (ret != 0)
     {
