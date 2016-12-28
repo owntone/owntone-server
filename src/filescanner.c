@@ -849,22 +849,31 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 	break;
 
       case FILE_CTRL_REMOTE:
-	remote_pairing_read_pin(file);
+	if (flags & F_SCAN_BULK)
+	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
+	else
+	  remote_pairing_read_pin(file);
 	break;
 
       case FILE_CTRL_LASTFM:
 #ifdef LASTFM
-	lastfm_login(file);
+	if (flags & F_SCAN_BULK)
+	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
+	else
+	  lastfm_login(file);
 #else
-	DPRINTF(E_LOG, L_SCAN, "Detected LastFM file, but this version was built without LastFM support\n");
+	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without LastFM support\n", file);
 #endif
 	break;
 
       case FILE_CTRL_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
-	spotify_login(file);
+	if (flags & F_SCAN_BULK)
+	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
+	else
+	  spotify_login(file);
 #else
-	DPRINTF(E_LOG, L_SCAN, "Detected Spotify file, but this version was built without Spotify support\n");
+	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without Spotify support\n", file);
 #endif
 	break;
 
