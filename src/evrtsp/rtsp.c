@@ -286,7 +286,7 @@ void
 evrtsp_write_buffer(struct evrtsp_connection *evcon,
     void (*cb)(struct evrtsp_connection *, void *), void *arg)
 {
-	event_debug(("%s: preparing to write buffer\n", __func__));
+	event_debug(("%s: preparing to write buffer", __func__));
 
 	/* Set call back */
 	evcon->cb = cb;
@@ -457,19 +457,20 @@ evrtsp_write(int fd, short what, void *arg)
 	int n;
 
 	if (what == EV_TIMEOUT) {
+		event_warn("%s: write timeout", __func__);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_TIMEOUT);
 		return;
 	}
 
 	n = evbuffer_write(evcon->output_buffer, fd);
 	if (n == -1) {
-		event_debug(("%s: evbuffer_write", __func__));
+		event_warn("%s: evbuffer_write", __func__);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_EOF);
 		return;
 	}
 
 	if (n == 0) {
-		event_debug(("%s: write nothing", __func__));
+		event_warn("%s: write nothing", __func__);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_EOF);
 		return;
 	}
@@ -531,6 +532,7 @@ evrtsp_read_trailer(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 
 	switch (evrtsp_parse_headers(req, buf)) {
 	case DATA_CORRUPTED:
+		event_warn("%s: invalid header", __func__);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_INVALID_HEADER);
 		break;
 	case ALL_DATA_READ:
@@ -583,15 +585,16 @@ evrtsp_read(int fd, short what, void *arg)
 	int n;
 
 	if (what == EV_TIMEOUT) {
+		event_warn("%s: read timeout", __func__);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_TIMEOUT);
 		return;
 	}
 	n = evbuffer_read(buf, fd, -1);
-	event_debug(("%s: got %d on %d\n", __func__, n, fd));
+	event_debug(("%s: got %d on %d", __func__, n, fd));
 	
 	if (n == -1) {
 		if (errno != EINTR && errno != EAGAIN) {
-			event_debug(("%s: evbuffer_read", __func__));
+			event_warn("%s: evbuffer_read", __func__);
 			evrtsp_connection_fail(evcon, EVCON_RTSP_EOF);
 		} else {
 			evrtsp_add_event(&evcon->ev, evcon->timeout,
@@ -775,28 +778,28 @@ evrtsp_connectioncb(int fd, short what, void *arg)
   socklen_t errsz = sizeof(error);
 
   if (what == EV_TIMEOUT) {
-    event_debug(("%s: connection timeout for \"%s:%d\" on %d",
-		 __func__, evcon->address, evcon->port, evcon->fd));
+    event_warnx("%s: connection timeout for \"%s:%d\" on %d",
+		 __func__, evcon->address, evcon->port, evcon->fd);
     goto cleanup;
   }
 
   /* Check if the connection completed */
   if (getsockopt(evcon->fd, SOL_SOCKET, SO_ERROR, (void*)&error,
 		 &errsz) == -1) {
-    event_debug(("%s: getsockopt for \"%s:%d\" on %d",
-		 __func__, evcon->address, evcon->port, evcon->fd));
+    event_warnx("%s: getsockopt for \"%s:%d\" on %d",
+		 __func__, evcon->address, evcon->port, evcon->fd);
     goto cleanup;
   }
 
   if (error) {
-    event_debug(("%s: connect failed for \"%s:%d\" on %d: %s",
+    event_warnx("%s: connect failed for \"%s:%d\" on %d: %s",
 		 __func__, evcon->address, evcon->port, evcon->fd,
-		 strerror(error)));
+		 strerror(error));
     goto cleanup;
   }
 
   /* We are connected to the server now */
-  event_debug(("%s: connected to \"%s:%d\" on %d\n",
+  event_debug(("%s: connected to \"%s:%d\" on %d",
 	       __func__, evcon->address, evcon->port, evcon->fd));
 
   evcon->state = EVCON_IDLE;
@@ -856,15 +859,15 @@ evrtsp_parse_response_line(struct evrtsp_request *req, char *line)
 		req->major = 1;
 		req->minor = 1;
 	} else {
-		event_debug(("%s: bad protocol \"%s\"",
-			__func__, protocol));
+		event_warnx("%s: bad protocol \"%s\"",
+			__func__, protocol);
 		return (-1);
 	}
 
 	req->response_code = atoi(number);
 	if (!evrtsp_valid_response_code(req->response_code)) {
-		event_debug(("%s: bad response code \"%s\"",
-			__func__, number));
+		event_warnx("%s: bad response code \"%s\"",
+			__func__, number);
 		return (-1);
 	}
 
@@ -948,16 +951,16 @@ int
 evrtsp_add_header(struct evkeyvalq *headers,
     const char *key, const char *value)
 {
-	event_debug(("%s: key: %s val: %s\n", __func__, key, value));
+	event_debug(("%s: key: %s val: %s", __func__, key, value));
 
 	if (strchr(key, '\r') != NULL || strchr(key, '\n') != NULL) {
 		/* drop illegal headers */
-		event_debug(("%s: dropping illegal header key\n", __func__));
+		event_warn("%s: dropping illegal header key", __func__);
 		return (-1);
 	}
 	
 	if (!evrtsp_header_is_valid_value(value)) {
-		event_debug(("%s: dropping illegal header value\n", __func__));
+		event_warn("%s: dropping illegal header value", __func__);
 		return (-1);
 	}
 
@@ -1108,14 +1111,14 @@ evrtsp_get_body_length(struct evrtsp_request *req)
 		char *endp;
 		ev_int64_t ntoread = evutil_strtoll(content_length, &endp, 10);
 		if (*content_length == '\0' || *endp != '\0' || ntoread < 0) {
-			event_debug(("%s: illegal content length: %s",
-				__func__, content_length));
+			event_warnx("%s: illegal content length: %s",
+				__func__, content_length);
 			return (-1);
 		}
 		req->ntoread = ntoread;
 	}
 		
-	event_debug(("%s: bytes to read: %lld (in buffer %ld)\n",
+	event_debug(("%s: bytes to read: %lld (in buffer %zu)",
 		__func__, req->ntoread,
 		evbuffer_get_length(req->evcon->input_buffer)));
 
@@ -1127,8 +1130,9 @@ evrtsp_get_body(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 {
 	evcon->state = EVCON_READING_BODY;
 	if (evrtsp_get_body_length(req) == -1) {
-	  evrtsp_connection_fail(evcon, EVCON_RTSP_INVALID_HEADER);
-	  return;
+		event_warn("%s: invalid body", __func__);
+		evrtsp_connection_fail(evcon, EVCON_RTSP_INVALID_HEADER);
+		return;
 	}
 
 	evrtsp_read_body(evcon, req);
@@ -1143,8 +1147,8 @@ evrtsp_read_firstline(struct evrtsp_connection *evcon,
 	res = evrtsp_parse_firstline(req, evcon->input_buffer);
 	if (res == DATA_CORRUPTED) {
 		/* Error while reading, terminate */
-		event_debug(("%s: bad header lines on %d\n",
-			__func__, evcon->fd));
+		event_warnx("%s: bad header lines on %d",
+			__func__, evcon->fd);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_INVALID_HEADER);
 		return;
 	} else if (res == MORE_DATA_EXPECTED) {
@@ -1167,7 +1171,7 @@ evrtsp_read_header(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 	res = evrtsp_parse_headers(req, evcon->input_buffer);
 	if (res == DATA_CORRUPTED) {
 		/* Error while reading, terminate */
-		event_debug(("%s: bad header lines on %d\n", __func__, fd));
+		event_warnx("%s: bad header lines on %d", __func__, fd);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_INVALID_HEADER);
 		return;
 	} else if (res == MORE_DATA_EXPECTED) {
@@ -1180,7 +1184,7 @@ evrtsp_read_header(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 	/* Done reading headers, do the real work */
 	switch (req->kind) {
 	case EVRTSP_RESPONSE:
-	  event_debug(("%s: start of read body on %d\n",
+	  event_debug(("%s: start of read body on %d",
 		       __func__, fd));
 	  evrtsp_get_body(evcon, req);
 	  break;
@@ -1233,7 +1237,7 @@ evrtsp_connection_new(const char *address, unsigned short port)
 	if (intf)
 	  *intf = '%';
 
-	event_debug(("Attempting connection to %s:%d\n", address, port));
+	event_debug(("Attempting connection to %s:%d", address, port));
 
 	if ((evcon = calloc(1, sizeof(struct evrtsp_connection))) == NULL) {
 		free(addr);
@@ -1364,8 +1368,8 @@ evrtsp_connection_connect(struct evrtsp_connection *evcon)
 	evcon->fd = bind_socket(evcon->family,
 		evcon->bind_address, evcon->bind_port, 0 /*reuse*/);
 	if (evcon->fd == -1) {
-		event_debug(("%s: failed to bind to \"%s\"",
-			__func__, evcon->bind_address));
+		event_warnx("%s: failed to bind to \"%s\"",
+			__func__, evcon->bind_address);
 		return (-1);
 	}
 
@@ -1394,6 +1398,8 @@ evrtsp_make_request(struct evrtsp_connection *evcon,
     struct evrtsp_request *req,
     enum evrtsp_cmd_type type, const char *uri)
 {
+event_debug(("%s: TEST", __func__));
+
 	/* We are making a request */
 	req->kind = EVRTSP_REQUEST;
 	req->type = type;
@@ -1563,7 +1569,7 @@ evrtsp_request_free(struct evrtsp_request *req)
 const char *
 evrtsp_request_uri(struct evrtsp_request *req) {
 	if (req->uri == NULL)
-		event_debug(("%s: request %p has no uri\n", __func__, req));
+		event_warn("%s: request has no uri", __func__);
 	return (req->uri);
 }
 
@@ -1754,8 +1760,8 @@ socket_connect(int fd, const char *address, unsigned short port)
 	int res = -1;
 
 	if (ai == NULL) {
-		event_debug(("%s: make_addrinfo: \"%s:%d\"",
-			__func__, address, port));
+		event_warnx("%s: make_addrinfo: \"%s:%d\"",
+			__func__, address, port);
 		return (-1);
 	}
 
