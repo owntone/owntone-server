@@ -44,6 +44,12 @@
 #include <avahi-client/publish.h>
 #include <avahi-client/lookup.h>
 
+// Hack for FreeBSD, don't want to bother with sysconf()
+#ifndef HOST_NAME_MAX
+# include <limits.h>
+# define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+#endif
+
 #include "logger.h"
 #include "mdns.h"
 
