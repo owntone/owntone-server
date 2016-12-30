@@ -35,7 +35,7 @@
 # include <pthread_np.h>
 #endif
 
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
 # include <sys/timerfd.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <signal.h>
@@ -193,7 +193,7 @@ static char shuffle;
 static char consume;
 
 /* Playback timer */
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
 static int pb_timer_fd;
 #else
 timer_t pb_timer;
@@ -389,7 +389,7 @@ pb_timer_start(void)
   tick.it_interval = tick_interval;
   tick.it_value = tick_interval;
 
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
   ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
 #else
   ret = timer_settime(pb_timer, 0, &tick, NULL);
@@ -412,7 +412,7 @@ pb_timer_stop(void)
 
   memset(&tick, 0, sizeof(struct itimerspec));
 
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
   ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
 #else
   ret = timer_settime(pb_timer, 0, &tick, NULL);
@@ -1451,7 +1451,7 @@ player_playback_cb(int fd, short what, void *arg)
 
   // Check if we missed any timer expirations
   overrun = 0;
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
   ret = read(fd, &overrun, sizeof(overrun));
   if (ret <= 0)
     DPRINTF(E_LOG, L_PLAYER, "Error reading timer\n");
@@ -1463,7 +1463,7 @@ player_playback_cb(int fd, short what, void *arg)
     DPRINTF(E_LOG, L_PLAYER, "Error getting timer overrun\n");
   else
     overrun = ret;
-#endif /* __linux__ */
+#endif /* HAVE_TIMERFD */
 
   // The reason we get behind the playback timer may be that we are playing a 
   // network stream OR that the source is slow to open OR some interruption.
@@ -3479,7 +3479,7 @@ player_init(void)
   tick_interval.tv_nsec = interval;
 
   // Create the playback timer
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
   pb_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
   ret = pb_timer_fd;
 #else
@@ -3512,7 +3512,7 @@ player_init(void)
       goto evbase_fail;
     }
 
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
   pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, player_playback_cb, NULL);
 #else
   pb_timer_ev = event_new(evbase_player, SIGALRM, EV_SIGNAL | EV_PERSIST, player_playback_cb, NULL);
@@ -3557,7 +3557,7 @@ player_init(void)
  evbase_fail:
   evbuffer_free(audio_buf);
  audio_fail:
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
   close(pb_timer_fd);
 #else
   timer_delete(pb_timer);
@@ -3586,7 +3586,7 @@ player_deinit(void)
   free(history);
 
   pb_timer_stop();
-#if defined(__linux__)
+#ifdef HAVE_TIMERFD
   close(pb_timer_fd);
 #else
   timer_delete(pb_timer);

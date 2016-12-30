@@ -37,7 +37,7 @@
 #include <grp.h>
 #include <stdint.h>
 
-#if defined(__linux__)
+#ifdef HAVE_SIGNALFD
 # include <sys/signalfd.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <sys/time.h>
@@ -334,7 +334,7 @@ register_services(char *ffid, int no_rsp, int no_daap, int mdns_no_mpd)
 }
 
 
-#if defined(__linux__)
+#ifdef HAVE_SIGNALFD
 static void
 signal_signalfd_cb(int fd, short event, void *arg)
 {
@@ -813,7 +813,7 @@ main(int argc, char **argv)
   /* Register this CNAME with mDNS for OAuth */
   mdns_cname("forked-daapd.local");
 
-#if defined(__linux__)
+#ifdef HAVE_SIGNALFD
   /* Set up signal fd */
   sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
   if (sigfd < 0)

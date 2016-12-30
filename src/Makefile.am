@@ -170,7 +170,7 @@ EXTRA_DIST = \
 # ANTLR dependency files (bypass circular dependency of .g on .tokens)
 %.u: %.g
 	$(AM_V_GEN)$(ANTLR) -depend -fo . $< > $@
-	$(AM_V_at)sed -n -e '/^.*\.g[ ]*:\(.*\)/ { s//\1/;h;d }' -e '/\.tokens.*:/ { p;d }' -e '/:/ { G;s/\n/ /;p }' $@ > $@-t
+	$(AM_V_at)sed -n -e '/^.*\.g[ ]*:\(.*\)/ { s//\1/;h;d; }' -e '/\.tokens.*:/ { p;d; }' -e '/:/ { G;s/\n/ /;p; }' $@ > $@-t
 	$(AM_V_at)mv $@-t $@
 
 -include $(ANTLR_DEPS)

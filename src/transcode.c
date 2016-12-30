@@ -32,6 +32,7 @@
 #include <libavutil/opt.h>
 #include <libavutil/time.h>
 #include <libavutil/pixdesc.h>
+#include <libavutil/channel_layout.h>
 
 #ifdef HAVE_LIBAVFILTER
 # include <libavfilter/avcodec.h>

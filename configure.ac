@@ -8,9 +8,8 @@ AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
-AC_DEFINE_UNQUOTED([BUILDDATE], ["`date -Idate`"], [Build date])
+AC_DEFINE_UNQUOTED([BUILDDATE], ["`date +%F`"], [Build date])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
-
 AC_USE_SYSTEM_EXTENSIONS
 
 dnl Checks for programs.
@@ -43,32 +42,26 @@ If you modify any ANTLR grammer files (.g), you will need to install it.
 AM_CPPFLAGS="-D_LARGEFILE_SOURCE -Wall"
 AC_SUBST([AM_CPPFLAGS])
 
-AC_CHECK_HEADERS([sys/wait.h])
-AC_CHECK_HEADERS([sys/param.h])
-AC_CHECK_HEADERS([sys/select.h])
-AC_CHECK_HEADERS([dirent.h])
-AC_CHECK_HEADERS([regex.h])
-AC_CHECK_HEADERS([pthread_np.h])
-AC_CHECK_FUNCS(posix_fadvise)
-AC_CHECK_FUNCS(strptime)
-AC_CHECK_FUNCS(strtok_r)
-AC_CHECK_FUNCS(timegm)
-AC_CHECK_FUNCS(euidaccess)
-AC_CHECK_FUNCS(pipe2)
+dnl Checks for header files.
+AC_CHECK_HEADERS_ONCE([regex.h pthread_np.h])
+AC_CHECK_HEADERS([sys/wait.h sys/param.h dirent.h getopt.h stdint.h], [],
+	[AC_MSG_ERROR([Missing header required to build forked-daapd])])
+AC_CHECK_FUNCS_ONCE([posix_fadvise euidaccess pipe2])
+AC_CHECK_FUNCS([strptime strtok_r], [],
+	[AC_MSG_ERROR([Missing function required to build forked-daapd])])
 
 AC_SEARCH_LIBS([pthread_setname_np], [pthread],
-	AC_DEFINE(HAVE_PTHREAD_SETNAME_NP, 1, [Define to 1 if you have pthread_setname_np]),
-	AC_SEARCH_LIBS([pthread_set_name_np], [pthread], AC_DEFINE(HAVE_PTHREAD_SET_NAME_NP, 1, [Define to 1 if you have pthread_set_name_np]))
-)
-AC_SEARCH_LIBS([inotify_add_watch], [inotify], [], AC_MSG_ERROR([inotify not found]))
+	[AC_DEFINE(HAVE_PTHREAD_SETNAME_NP, 1, [Define to 1 if you have pthread_setname_np])],
+	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread], AC_DEFINE(HAVE_PTHREAD_SET_NAME_NP, 1, [Define to 1 if you have pthread_set_name_np]))])
 
 dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
 
 dnl Checks for libraries.
-gl_LIBUNISTRING
 
+dnl uses macros from gettext-devel
+gl_LIBUNISTRING
 AS_IF([test x$HAVE_LIBUNISTRING != xyes],
 	[AC_MSG_ERROR([GNU libunistring is required])])
 
@@ -77,10 +70,11 @@ PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 >= 3.5.0 ])
 
-save_LIBS="$LIBS"
-LIBS="$SQLITE3_LIBS"
+save_LIBS=$LIBS
+LIBS="$SQLITE3_LIBS $LIBS"
 dnl Check that SQLite3 has the unlock notify API built-in
-AC_CHECK_LIB([sqlite3], [sqlite3_unlock_notify], [], AC_MSG_ERROR([SQLite3 was built without unlock notify support]))
+AC_CHECK_LIB([sqlite3], [sqlite3_unlock_notify], [],
+	[AC_MSG_ERROR([SQLite3 was built without unlock notify support])])
 dnl Check that SQLite3 has been built with threadsafe operations
 AC_MSG_CHECKING([if SQLite3 was built with threadsafe operations support])
 AC_LANG_PUSH([C])
@@ -95,73 +89,72 @@ AC_RUN_IFELSE(
   [AC_MSG_RESULT([yes])], [AC_MSG_ERROR([SQLite3 was not built with threadsafe operations support])],
   [AC_MSG_RESULT([runtime will tell])])
 AC_LANG_POP([C])
-LIBS="$save_LIBS"
+LIBS=$save_LIBS
 
 PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil libavfilter ])
 
 dnl Checks for misc libav and ffmpeg API differences
-save_LIBS="$LIBS"
+save_LIBS=$LIBS
+LIBS="$LIBAV_LIBS $LIBS"
 AC_CHECK_LIB([avcodec], [avcodec_find_best_pix_fmt_of_list],
-	AC_DEFINE(HAVE_FFMPEG, 1, [Define to 1 if you have ffmpeg/libav with avcodec_find_best_pix_fmt_of_list]),,[-lavutil])
-
+	[AC_DEFINE(HAVE_FFMPEG, 1, [Define to 1 if you have ffmpeg/libav with avcodec_find_best_pix_fmt_of_list])])
 AC_CHECK_LIB([avfilter], [av_buffersrc_add_frame_flags],
-	AC_DEFINE(HAVE_LIBAV_BUFFERSRC_ADD_FRAME_FLAGS, 1, [Define to 1 if you have ffmpeg/libav with av_buffersrc_add_frame_flags]))
+	[AC_DEFINE(HAVE_LIBAV_BUFFERSRC_ADD_FRAME_FLAGS, 1, [Define to 1 if you have ffmpeg/libav with av_buffersrc_add_frame_flags])])
 AC_CHECK_LIB([avfilter], [av_buffersink_get_frame],
-	AC_DEFINE(HAVE_LIBAV_BUFFERSINK_GET_FRAME, 1, [Define to 1 if you have ffmpeg/libav with av_buffersink_get_frame]))
+	[AC_DEFINE(HAVE_LIBAV_BUFFERSINK_GET_FRAME, 1, [Define to 1 if you have ffmpeg/libav with av_buffersink_get_frame])])
 AC_CHECK_LIB([avfilter], [avfilter_graph_parse_ptr],
-	AC_DEFINE(HAVE_LIBAV_GRAPH_PARSE_PTR, 1, [Define to 1 if you have ffmpeg/libav with avfilter_graph_parse_ptr]))
+	[AC_DEFINE(HAVE_LIBAV_GRAPH_PARSE_PTR, 1, [Define to 1 if you have ffmpeg/libav with avfilter_graph_parse_ptr])])
 AC_CHECK_LIB([avcodec], [av_packet_unref],
-	AC_DEFINE(HAVE_LIBAV_PACKET_UNREF, 1, [Define to 1 if you have ffmpeg/libav with av_packet_unref]),,[-lavutil])
+	[AC_DEFINE(HAVE_LIBAV_PACKET_UNREF, 1, [Define to 1 if you have ffmpeg/libav with av_packet_unref])])
 AC_CHECK_LIB([avcodec], [av_packet_rescale_ts],
-	AC_DEFINE(HAVE_LIBAV_PACKET_RESCALE_TS, 1, [Define to 1 if you have ffmpeg/libav with av_packet_rescale_ts]),,[-lavutil])
+	[AC_DEFINE(HAVE_LIBAV_PACKET_RESCALE_TS, 1, [Define to 1 if you have ffmpeg/libav with av_packet_rescale_ts])])
 AC_CHECK_LIB([avformat], [avformat_alloc_output_context2],
-	AC_DEFINE(HAVE_LIBAV_ALLOC_OUTPUT_CONTEXT2, 1, [Define to 1 if you have ffmpeg/libav with avformat_alloc_output_context2]))
+	[AC_DEFINE(HAVE_LIBAV_ALLOC_OUTPUT_CONTEXT2, 1, [Define to 1 if you have ffmpeg/libav with avformat_alloc_output_context2])])
 AC_CHECK_LIB([avutil], [av_frame_alloc],
-	AC_DEFINE(HAVE_LIBAV_FRAME_ALLOC, 1, [Define to 1 if you have ffmpeg/libav with av_frame_alloc]))
+	[AC_DEFINE(HAVE_LIBAV_FRAME_ALLOC, 1, [Define to 1 if you have ffmpeg/libav with av_frame_alloc])])
 AC_CHECK_LIB([avutil], [av_frame_get_best_effort_timestamp],
-	AC_DEFINE(HAVE_LIBAV_BEST_EFFORT_TIMESTAMP, 1, [Define to 1 if you have ffmpeg/libav with av_frame_get_best_effort_timestamp]))
+	[AC_DEFINE(HAVE_LIBAV_BEST_EFFORT_TIMESTAMP, 1, [Define to 1 if you have ffmpeg/libav with av_frame_get_best_effort_timestamp])])
 AC_CHECK_LIB([avutil], [av_image_fill_arrays],
-	AC_DEFINE(HAVE_LIBAV_IMAGE_FILL_ARRAYS, 1, [Define to 1 if you have ffmpeg/libav with av_image_fill_arrays]))
+	[AC_DEFINE(HAVE_LIBAV_IMAGE_FILL_ARRAYS, 1, [Define to 1 if you have ffmpeg/libav with av_image_fill_arrays])])
 AC_CHECK_LIB([avutil], [av_image_get_buffer_size],
-	AC_DEFINE(HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE, 1, [Define to 1 if you have ffmpeg/libav with av_image_get_buffer_size]))
+	[AC_DEFINE(HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE, 1, [Define to 1 if you have ffmpeg/libav with av_image_get_buffer_size])])
+LIBS=$save_LIBS
 
-AC_CHECK_HEADERS([libavutil/channel_layout.h])
-AC_CHECK_HEADERS([libavutil/mathematics.h])
-LIBS="$save_LIBS"
+save_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$LIBAV_CFLAGS $CPPFLAGS"
+AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
+CPPFLAGS=$save_CPPFLAGS
 
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
 PKG_CHECK_MODULES(LIBEVENT, [ libevent >= 2 ])
-PKG_CHECK_EXISTS([ libevent >= 2.1.4 ], ,
-	AC_DEFINE(HAVE_LIBEVENT2_OLD, 1, [Define to 1 if you have libevent 2 (<2.1.4)])
-)
+PKG_CHECK_EXISTS([ libevent >= 2.1.4 ], [],
+	[AC_DEFINE(HAVE_LIBEVENT2_OLD, 1, [Define to 1 if you have libevent 2 (<2.1.4)])])
 
-AC_CHECK_HEADER(antlr3.h, , AC_MSG_ERROR([antlr3.h not found]))
+AC_CHECK_HEADER([antlr3.h], [], [AC_MSG_ERROR([antlr3.h not found])])
 AC_CHECK_LIB([antlr3c], [antlr3BaseRecognizerNew], [ANTLR3C_LIBS="-lantlr3c"], AC_MSG_ERROR([ANTLR3 C runtime (libantlr3c) not found]))
 AC_CHECK_LIB([antlr3c], [antlr3NewAsciiStringInPlaceStream],
-	AC_DEFINE(ANTLR3C_NEW_INPUT, 0, [define if antlr3 C runtime uses new input routines]),
-	AC_DEFINE(ANTLR3C_NEW_INPUT, 1, [define if antlr3 C runtime uses new input routines]))
-AC_SUBST(ANTLR3C_LIBS)
+	[AC_DEFINE([ANTLR3C_NEW_INPUT], 0, [define if antlr3 C runtime uses new input routines])],
+	[AC_DEFINE([ANTLR3C_NEW_INPUT], 1, [define if antlr3 C runtime uses new input routines])])
+AC_SUBST([ANTLR3C_LIBS])
 
-AM_PATH_LIBGCRYPT([1:1.2.0], , AC_MSG_ERROR([libgcrypt not found]))
-AM_PATH_GPG_ERROR([1.6], , AC_MSG_ERROR([libgpg-error not found]))
+AM_PATH_LIBGCRYPT([1:1.2.0], [], [AC_MSG_ERROR([libgcrypt not found])])
+AM_PATH_GPG_ERROR([1.6], [], [AC_MSG_ERROR([libgpg-error not found])])
 
-case $host in
-  *-*-linux-*)
-	AC_CHECK_HEADERS([sys/eventfd.h])
-	AC_CHECK_FUNC(eventfd_write, AC_DEFINE(HAVE_EVENTFD, 1, [Define to 1 if you have eventfd]))
+AC_CHECK_HEADER([sys/eventfd.h], [AC_CHECK_FUNC([eventfd_write],
+	[AC_DEFINE(HAVE_EVENTFD, 1, [Define to 1 if you have eventfd])])])
 
-	AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
+AC_CHECK_HEADER([sys/signalfd.h], [AC_CHECK_FUNC([signalfd],
+	[AC_DEFINE(HAVE_SIGNALFD, 1, [Define to 1 if you have signalfd])])])
 
-	AC_CHECK_HEADER(sys/timerfd.h, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
-	AC_CHECK_FUNC(timerfd_create, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
-	;;
-esac
+AC_CHECK_HEADER([sys/timerfd.h], [AC_CHECK_FUNC([timerfd_create],
+	[AC_DEFINE(HAVE_TIMERFD, 1, [Define to 1 if you have timerfd])])])
+
+AC_SEARCH_LIBS([inotify_add_watch], [inotify],
+	[AC_DEFINE([HAVE_INOTIFY], [1], [Whether kernel has inotify support])],
+	[AC_MSG_ERROR([inotify not found])])
 
 AC_CHECK_SIZEOF(void *)
-
-AC_CHECK_HEADERS(getopt.h,,)
-AC_CHECK_HEADERS(stdint.h,,)
 
 dnl --- Begin configuring the options ---
 dnl ALSA
@@ -231,7 +224,8 @@ AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify suppor
 AS_IF([test "x$enable_spotify" = "xyes"], [
 	AC_DEFINE(SPOTIFY, 1, [Define to 1 to enable Spotify support])
 	AS_IF([test "x$with_json" = "xno"], AC_MSG_ERROR([Spotify support requires json-c]))
-	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
+	AC_CHECK_HEADER([libspotify/api.h], [],
+		[AC_MSG_ERROR([libspotify/api.h not found])])
 	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
 
 	dnl Don't link to libspotify, but instead enable dynamic linking
@@ -246,8 +240,8 @@ dnl LastFM support with libcurl
 AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
 AS_IF([test "x$enable_lastfm" = "xyes"], [
 	AC_DEFINE(LASTFM, 1, [Define to 1 to enable LastFM support])
-	AS_IF([test "x$with_libcurl" = "xno"], AC_MSG_ERROR([LastFM support requires libcurl]))
-	AC_CHECK_LIB([mxml], [mxmlGetOpaque], AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
+	AS_IF([test "x$with_libcurl" = "xno"], [AC_MSG_ERROR([LastFM support requires libcurl])])
+	AC_CHECK_LIB([mxml], [mxmlGetOpaque], [AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.])], [], [$MINIXML_LIBS])
 ])
 AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
 
@@ -255,7 +249,7 @@ dnl ChromeCast support with libprotobuf-c
 AC_ARG_ENABLE([chromecast], [AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)])])
 AS_IF([test "x$enable_chromecast" = "xyes"],
 	[AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
-	AS_IF([test "x$with_json" = xno], AC_MSG_ERROR([Chromecast support requires json-c]))
+	AS_IF([test "x$with_json" = xno], [AC_MSG_ERROR([Chromecast support requires json-c])])
 	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], [], [
 		AC_MSG_CHECKING([for v0 libprotobuf-c])
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -300,10 +294,6 @@ AC_ARG_WITH([daapd_group],
 DAAPD_GROUP=${withval:-$DAAPD_USER}
 AC_SUBST(DAAPD_GROUP)
 dnl --- End options ---
-
-dnl Checks for header files.
-AC_HEADER_STDC
-AC_HEADER_SYS_WAIT
 
 AC_CONFIG_FILES([
 	src/Makefile
