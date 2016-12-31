@@ -623,6 +623,48 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *p
   return 0;
 }
 
+/*
+ * Returns the directory id for /spotify:/<artist>/<album>, if the directory (or the parent
+ * directories) does not yet exist, they will be created.
+ * If an error occured the return value is -1.
+ *
+ * @return directory id for the given artist/album directory
+ */
+static int
+prepare_directories(const char *artist, const char *album)
+{
+  int dir_id;
+  char virtual_path[PATH_MAX];
+  int ret;
+
+  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s", artist);
+  if ((ret < 0) || (ret >= sizeof(virtual_path)))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s)\n", artist);
+      return -1;
+    }
+  dir_id = db_directory_addorupdate(virtual_path, 0, DIR_SPOTIFY);
+  if (dir_id <= 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
+      return -1;
+    }
+  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s/%s", artist, album);
+  if ((ret < 0) || (ret >= sizeof(virtual_path)))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s/%s)\n", artist, album);
+      return -1;
+    }
+  dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
+  if (dir_id <= 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
+      return -1;
+    }
+
+  return dir_id;
+}
+
 static int
 spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_added)
 {
@@ -631,7 +673,6 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
   char url[1024];
   int ret;
   int dir_id;
-  char virtual_path[PATH_MAX];
 
 
   if (!fptr_sp_track_is_loaded(track))
@@ -681,31 +722,10 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       return -1;
     }
 
-  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s", mfi.artist);
-  if ((ret < 0) || (ret >= sizeof(virtual_path)))
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s)\n", mfi.artist);
-      free_mfi(&mfi, 1);
-      return -1;
-    }
-  dir_id = db_directory_addorupdate(virtual_path, 0, DIR_SPOTIFY);
+  dir_id = prepare_directories(mfi.artist, mfi.album);
   if (dir_id <= 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
-      free_mfi(&mfi, 1);
-      return -1;
-    }
-  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s/%s", mfi.artist, mfi.album);
-  if ((ret < 0) || (ret >= sizeof(virtual_path)))
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s/%s)\n", mfi.artist, mfi.album);
-      free_mfi(&mfi, 1);
-      return -1;
-    }
-  dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
-  if (dir_id <= 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory for item: '%s'\n", url);
       free_mfi(&mfi, 1);
       return -1;
     }
