@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -50,9 +51,9 @@
 #include "misc.h"
 #include "http.h"
 #include "conffile.h"
-#include "filescanner.h"
 #include "cache.h"
 #include "commands.h"
+#include "library.h"
 
 /* TODO for the web api:
  * - UI should be prettier
@@ -711,7 +712,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
 
 //  DPRINTF(E_DBG, L_SPOTIFY, "Saving track '%s': '%s' by %s (%s)\n", url, mfi.title, mfi.artist, mfi.album);
 
-  filescanner_process_media(url, time(NULL), 0, F_SCAN_TYPE_SPOTIFY, &mfi, dir_id);
+  library_process_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, 0, &mfi, dir_id);
 
   free_mfi(&mfi, 1);
 
@@ -2554,6 +2555,28 @@ spotify_login(char *path)
     }
 }
 
+/* Thread: library */
+static int
+spotify_initscan()
+{
+  spotify_login(NULL);
+  return 0;
+}
+
+/* Thread: library */
+static int
+spotify_rescan()
+{
+  return 0;
+}
+
+/* Thread: library */
+static int
+spotify_fullrescan()
+{
+  return 0;
+}
+
 /* Thread: main */
 int
 spotify_init(void)
@@ -2748,3 +2771,14 @@ spotify_deinit(void)
   /* Release libspotify handle */
   dlclose(g_libhandle);
 }
+
+struct library_source spotifyscanner =
+{
+  .name = "spotifyscanner",
+  .disabled = 0,
+  .init = spotify_init,
+  .deinit = spotify_deinit,
+  .rescan = spotify_rescan,
+  .initscan = spotify_initscan,
+  .fullrescan = spotify_fullrescan,
+};

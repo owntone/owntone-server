@@ -38,6 +38,7 @@
 #include "db.h"
 #include "filescanner.h"
 #include "misc.h"
+#include "library.h"
 
 /* Formats we can read so far */
 #define PLAYLIST_PLS 1
@@ -238,7 +239,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  if (extinf)
 	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi.artist, mfi.title);
 
-	  filescanner_process_media(filename, mtime, 0, F_SCAN_TYPE_URL, &mfi, DIR_HTTP);
+	  library_process_media(filename, mtime, 0, DATA_KIND_HTTP, 0, false, &mfi, DIR_HTTP);
 	}
       /* Regular file, should already be in library */
       else

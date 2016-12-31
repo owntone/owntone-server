@@ -12,19 +12,8 @@
 #define F_SCAN_TYPE_SPOTIFY      (1 << 5)
 #define F_SCAN_TYPE_PIPE         (1 << 6)
 
-int
-filescanner_init(void);
-
-void
-filescanner_deinit(void);
-
-void
-filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi, int dir_id);
 
 /* Actual scanners */
-int
-scan_metadata_ffmpeg(char *file, struct media_file_info *mfi);
-
 int
 scan_metadata_icy(char *url, struct media_file_info *mfi);
 
@@ -38,14 +27,5 @@ scan_smartpl(char *file, time_t mtime, int dir_id);
 void
 scan_itunes_itml(char *file);
 #endif
-
-void
-filescanner_trigger_initscan(void);
-
-void
-filescanner_trigger_fullrescan(void);
-
-int
-filescanner_scanning(void);
 
 #endif /* !__FILESCANNER_H__ */

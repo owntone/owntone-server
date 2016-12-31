@@ -2084,7 +2084,7 @@ db_file_id_by_virtualpath_match(char *path)
 }
 
 void
-db_file_stamp_bypath(char *path, time_t *stamp, int *id)
+db_file_stamp_bypath(const char *path, time_t *stamp, int *id)
 {
 #define Q_TMPL "SELECT f.id, f.db_timestamp FROM files f WHERE f.path = '%q';"
   char *query;
@@ -2847,7 +2847,7 @@ db_pl_fetch_byquery(char *query)
 }
 
 struct playlist_info *
-db_pl_fetch_bypath(char *path)
+db_pl_fetch_bypath(const char *path)
 {
 #define Q_TMPL "SELECT p.* FROM playlists p WHERE p.path = '%q';"
   struct playlist_info *pli;
@@ -3011,7 +3011,7 @@ db_pl_add(struct playlist_info *pli, int *id)
 }
 
 int
-db_pl_add_item_bypath(int plid, char *path)
+db_pl_add_item_bypath(int plid, const char *path)
 {
 #define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, '%q');"
   char *query;

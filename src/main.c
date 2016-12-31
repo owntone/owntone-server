@@ -60,19 +60,16 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "logger.h"
 #include "misc.h"
 #include "cache.h"
-#include "filescanner.h"
 #include "httpd.h"
 #include "mpd.h"
 #include "mdns.h"
 #include "remote_pairing.h"
 #include "player.h"
 #include "worker.h"
+#include "library.h"
 
 #ifdef HAVE_LIBCURL
 # include <curl/curl.h>
-#endif
-#ifdef HAVE_SPOTIFY_H
-# include "spotify.h"
 #endif
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
@@ -738,24 +735,15 @@ main(int argc, char **argv)
       goto cache_fail;
     }
 
-  /* Spawn file scanner thread */
-  ret = filescanner_init();
+  /* Spawn library scan thread */
+  ret = library_init();
   if (ret != 0)
     {
-      DPRINTF(E_FATAL, L_MAIN, "File scanner thread failed to start\n");
+      DPRINTF(E_FATAL, L_MAIN, "Library thread failed to start\n");
 
       ret = EXIT_FAILURE;
-      goto filescanner_fail;
+      goto library_fail;
     }
-
-#ifdef HAVE_SPOTIFY_H
-  /* Spawn Spotify thread */
-  ret = spotify_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_INFO, L_MAIN, "Spotify thread not started\n");;
-    }
-#endif
 
   /* Spawn player thread */
   ret = player_init();
@@ -895,14 +883,10 @@ main(int argc, char **argv)
   player_deinit();
 
  player_fail:
-#ifdef HAVE_SPOTIFY_H
-  DPRINTF(E_LOG, L_MAIN, "Spotify deinit\n");
-  spotify_deinit();
-#endif
-  DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
-  filescanner_deinit();
+  DPRINTF(E_LOG, L_MAIN, "Library scaner deinit\n");
+  library_deinit();
 
- filescanner_fail:
+ library_fail:
   DPRINTF(E_LOG, L_MAIN, "Cache deinit\n");
   cache_deinit();
 

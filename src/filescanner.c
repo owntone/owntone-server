@@ -62,6 +62,7 @@
 #include "cache.h"
 #include "artwork.h"
 #include "commands.h"
+#include "library.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -104,14 +105,14 @@ struct stacked_dir {
   struct stacked_dir *next;
 };
 
-static int scan_exit;
 static int inofd;
-static struct event_base *evbase_scan;
 static struct event *inoev;
-static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
-static struct commands_base *cmdbase;
+
+/* From library.c */
+extern struct event_base *evbase_lib;
+
 
 #ifndef __linux__
 struct deferred_file
@@ -131,9 +132,6 @@ static struct event *deferred_inoev;
 /* Count of files scanned during a bulk scan */
 static int counter;
 
-/* Flag for scan in progress */
-static int scanning;
-
 /* When copying into the lib (eg. if a file is moved to the lib by copying into
  * a Samba network share) inotify might give us IN_CREATE -> n x IN_ATTRIB ->
  * IN_CLOSE_WRITE, but we don't want to do any scanning before the
@@ -151,10 +149,12 @@ static int
 inofd_event_set(void);
 static void
 inofd_event_unset(void);
-static enum command_state
-filescanner_initscan(void *arg, int *retval);
-static enum command_state
-filescanner_fullrescan(void *arg, int *retval);
+static int
+filescanner_initscan();
+static int
+filescanner_rescan();
+static int
+filescanner_fullrescan();
 
 
 static int
@@ -324,416 +324,6 @@ file_type_get(const char *path) {
 }
 
 static void
-sort_tag_create(char **sort_tag, char *src_tag)
-{
-  const uint8_t *i_ptr;
-  const uint8_t *n_ptr;
-  const uint8_t *number;
-  uint8_t out[1024];
-  uint8_t *o_ptr;
-  int append_number;
-  ucs4_t puc;
-  int numlen;
-  size_t len;
-  int charlen;
-
-  /* Note: include terminating NUL in string length for u8_normalize */
-
-  if (*sort_tag)
-    {
-      DPRINTF(E_DBG, L_SCAN, "Existing sort tag will be normalized: %s\n", *sort_tag);
-      o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
-      free(*sort_tag);
-      *sort_tag = (char *)o_ptr;
-      return;
-    }
-
-  if (!src_tag || ((len = strlen(src_tag)) == 0))
-    {
-      *sort_tag = NULL;
-      return;
-    }
-
-  // Set input pointer past article if present
-  if ((strncasecmp(src_tag, "a ", 2) == 0) && (len > 2))
-    i_ptr = (uint8_t *)(src_tag + 2);
-  else if ((strncasecmp(src_tag, "an ", 3) == 0) && (len > 3))
-    i_ptr = (uint8_t *)(src_tag + 3);
-  else if ((strncasecmp(src_tag, "the ", 4) == 0) && (len > 4))
-    i_ptr = (uint8_t *)(src_tag + 4);
-  else
-    i_ptr = (uint8_t *)src_tag;
-
-  // Poor man's natural sort. Makes sure we sort like this: a1, a2, a10, a11, a21, a111
-  // We do this by padding zeroes to (short) numbers. As an alternative we could have
-  // made a proper natural sort algorithm in sqlext.c, but we don't, since we don't
-  // want any risk of hurting response times
-  memset(&out, 0, sizeof(out));
-  o_ptr = (uint8_t *)&out;
-  number = NULL;
-  append_number = 0;
-
-  do
-    {
-      n_ptr = u8_next(&puc, i_ptr);
-
-      if (uc_is_digit(puc))
-	{
-	  if (!number) // We have encountered the beginning of a number
-	    number = i_ptr;
-	  append_number = (n_ptr == NULL); // If last char in string append number now
-	}
-      else
-	{
-	  if (number)
-	    append_number = 1; // A number has ended so time to append it
-	  else
-	    {
-              charlen = u8_strmblen(i_ptr);
-              if (charlen >= 0)
-	    	o_ptr = u8_stpncpy(o_ptr, i_ptr, charlen); // No numbers in sight, just append char
-	    }
-	}
-
-      // Break if less than 100 bytes remain (prevent buffer overflow)
-      if (sizeof(out) - u8_strlen(out) < 100)
-	break;
-
-      // Break if number is very large (prevent buffer overflow)
-      if (number && (i_ptr - number > 50))
-	break;
-
-      if (append_number)
-	{
-	  numlen = i_ptr - number;
-	  if (numlen < 5) // Max pad width
-	    {
-	      u8_strcpy(o_ptr, (uint8_t *)"00000");
-	      o_ptr += (5 - numlen);
-	    }
-	  o_ptr = u8_stpncpy(o_ptr, number, numlen + u8_strmblen(i_ptr));
-
-	  number = NULL;
-	  append_number = 0;
-	}
-
-      i_ptr = n_ptr;
-    }
-  while (n_ptr);
-
-  *sort_tag = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)&out, u8_strlen(out) + 1, NULL, &len);
-}
-
-static void
-fixup_tags(struct media_file_info *mfi)
-{
-  cfg_t *lib;
-  size_t len;
-  char *tag;
-  char *sep = " - ";
-  char *ca;
-
-  if (mfi->genre && (strlen(mfi->genre) == 0))
-    {
-      free(mfi->genre);
-      mfi->genre = NULL;
-    }
-
-  if (mfi->artist && (strlen(mfi->artist) == 0))
-    {
-      free(mfi->artist);
-      mfi->artist = NULL;
-    }
-
-  if (mfi->title && (strlen(mfi->title) == 0))
-    {
-      free(mfi->title);
-      mfi->title = NULL;
-    }
-
-  /*
-   * Default to mpeg4 video/audio for unknown file types
-   * in an attempt to allow streaming of DRM-afflicted files
-   */
-  if (mfi->codectype && strcmp(mfi->codectype, "unkn") == 0)
-    {
-      if (mfi->has_video)
-	{
-	  strcpy(mfi->codectype, "mp4v");
-	  strcpy(mfi->type, "m4v");
-	}
-      else
-	{
-	  strcpy(mfi->codectype, "mp4a");
-	  strcpy(mfi->type, "m4a");
-	}
-    }
-
-  if (!mfi->artist)
-    {
-      if (mfi->orchestra && mfi->conductor)
-	{
-	  len = strlen(mfi->orchestra) + strlen(sep) + strlen(mfi->conductor);
-	  tag = (char *)malloc(len + 1);
-	  if (tag)
-	    {
-	      sprintf(tag,"%s%s%s", mfi->orchestra, sep, mfi->conductor);
-	      mfi->artist = tag;
-            }
-        }
-      else if (mfi->orchestra)
-	{
-	  mfi->artist = strdup(mfi->orchestra);
-        }
-      else if (mfi->conductor)
-	{
-	  mfi->artist = strdup(mfi->conductor);
-        }
-    }
-
-  /* Handle TV shows, try to present prettier metadata */
-  if (mfi->tv_series_name && strlen(mfi->tv_series_name) != 0)
-    {
-      mfi->media_kind = MEDIA_KIND_TVSHOW;  /* tv show */
-
-      /* Default to artist = series_name */
-      if (mfi->artist && strlen(mfi->artist) == 0)
-	{
-	  free(mfi->artist);
-	  mfi->artist = NULL;
-	}
-
-      if (!mfi->artist)
-	mfi->artist = strdup(mfi->tv_series_name);
-
-      /* Default to album = "<series_name>, Season <season_num>" */
-      if (mfi->album && strlen(mfi->album) == 0)
-	{
-	  free(mfi->album);
-	  mfi->album = NULL;
-	}
-
-      if (!mfi->album)
-	{
-	  len = snprintf(NULL, 0, "%s, Season %d", mfi->tv_series_name, mfi->tv_season_num);
-
-	  mfi->album = (char *)malloc(len + 1);
-	  if (mfi->album)
-	    sprintf(mfi->album, "%s, Season %d", mfi->tv_series_name, mfi->tv_season_num);
-	}
-    }
-
-  /* Check the 4 top-tags are filled */
-  if (!mfi->artist)
-    mfi->artist = strdup("Unknown artist");
-  if (!mfi->album)
-    mfi->album = strdup("Unknown album");
-  if (!mfi->genre)
-    mfi->genre = strdup("Unknown genre");
-  if (!mfi->title)
-    {
-      /* fname is left untouched by unicode_fixup_mfi() for
-       * obvious reasons, so ensure it is proper UTF-8
-       */
-      mfi->title = unicode_fixup_string(mfi->fname, "ascii");
-      if (mfi->title == mfi->fname)
-	mfi->title = strdup(mfi->fname);
-    }
-
-  /* Ensure sort tags are filled, manipulated and normalized */
-  sort_tag_create(&mfi->artist_sort, mfi->artist);
-  sort_tag_create(&mfi->album_sort, mfi->album);
-  sort_tag_create(&mfi->title_sort, mfi->title);
-
-  /* We need to set album_artist according to media type and config */
-  if (mfi->compilation)          /* Compilation */
-    {
-      lib = cfg_getsec(cfg, "library");
-      ca = cfg_getstr(lib, "compilation_artist");
-      if (ca && mfi->album_artist)
-	{
-	  free(mfi->album_artist);
-	  mfi->album_artist = strdup(ca);
-	}
-      else if (ca && !mfi->album_artist)
-	{
-	  mfi->album_artist = strdup(ca);
-	}
-      else if (!ca && !mfi->album_artist)
-	{
-	  mfi->album_artist = strdup("");
-	  mfi->album_artist_sort = strdup("");
-	}
-    }
-  else if (mfi->media_kind == MEDIA_KIND_PODCAST) /* Podcast */
-    {
-      if (mfi->album_artist)
-	free(mfi->album_artist);
-      mfi->album_artist = strdup("");
-      mfi->album_artist_sort = strdup("");
-    }
-  else if (!mfi->album_artist)   /* Regular media without album_artist */
-    {
-      mfi->album_artist = strdup(mfi->artist);
-    }
-
-  if (!mfi->album_artist_sort && (strcmp(mfi->album_artist, mfi->artist) == 0))
-    mfi->album_artist_sort = strdup(mfi->artist_sort);
-  else
-    sort_tag_create(&mfi->album_artist_sort, mfi->album_artist);
-
-  /* Composer is not one of our mandatory tags, so take extra care */
-  if (mfi->composer_sort || mfi->composer)
-    sort_tag_create(&mfi->composer_sort, mfi->composer);
-}
-
-
-void
-filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi, int dir_id)
-{
-  struct media_file_info *mfi;
-  char *filename;
-  time_t stamp;
-  int id;
-  char virtual_path[PATH_MAX];
-  int ret;
-
-  filename = strrchr(path, '/');
-  if ((!filename) || (strlen(filename) == 1))
-    filename = path;
-  else
-    filename++;
-
-  db_file_stamp_bypath(path, &stamp, &id);
-
-  if (stamp && (stamp >= mtime))
-    {
-      db_file_ping(id);
-      return;
-    }
-
-  if (!external_mfi)
-    {
-      mfi = (struct media_file_info*)malloc(sizeof(struct media_file_info));
-      if (!mfi)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Out of memory for mfi\n");
-	  return;
-	}
-
-      memset(mfi, 0, sizeof(struct media_file_info));
-    }
-  else
-    mfi = external_mfi;
-
-  if (stamp)
-    mfi->id = id;
-
-  mfi->fname = strdup(filename);
-  if (!mfi->fname)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Out of memory for fname\n");
-      goto out;
-    }
-
-  mfi->path = strdup(path);
-  if (!mfi->path)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Out of memory for path\n");
-      goto out;
-    }
-
-  mfi->time_modified = mtime;
-  mfi->file_size = size;
-
-  if (type & F_SCAN_TYPE_COMPILATION)
-    mfi->compilation = 1;
-  if (type & F_SCAN_TYPE_PODCAST)
-    mfi->media_kind = MEDIA_KIND_PODCAST; /* podcast */
-  if (type & F_SCAN_TYPE_AUDIOBOOK)
-    mfi->media_kind = MEDIA_KIND_AUDIOBOOK; /* audiobook */
-
-  if (type & F_SCAN_TYPE_FILE)
-    {
-      mfi->data_kind = DATA_KIND_FILE;
-      ret = scan_metadata_ffmpeg(path, mfi);
-    }
-  else if (type & F_SCAN_TYPE_URL)
-    {
-      mfi->data_kind = DATA_KIND_HTTP;
-      ret = scan_metadata_ffmpeg(path, mfi);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
-	  mfi->type = strdup("mp3");
-	  mfi->codectype = strdup("mpeg");
-	  mfi->description = strdup("MPEG audio file");
-	  ret = 1;
-	}
-    }
-  else if (type & F_SCAN_TYPE_SPOTIFY)
-    {
-      mfi->data_kind = DATA_KIND_SPOTIFY;
-      ret = mfi->artist && mfi->album && mfi->title;
-    }
-  else if (type & F_SCAN_TYPE_PIPE)
-    {
-      mfi->data_kind = DATA_KIND_PIPE;
-      mfi->type = strdup("wav");
-      mfi->codectype = strdup("wav");
-      mfi->description = strdup("PCM16 pipe");
-      ret = 1;
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_SCAN, "Unknown scan type for '%s', this error should not occur\n", path);
-      ret = -1;
-    }
-
-  if (ret < 0)
-    {
-      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for '%s'\n", path);
-      goto out;
-    }
-
-  if (!mfi->item_kind)
-    mfi->item_kind = 2; /* music */
-  if (!mfi->media_kind)
-    mfi->media_kind = MEDIA_KIND_MUSIC; /* music */
-
-  unicode_fixup_mfi(mfi);
-
-  fixup_tags(mfi);
-
-  if (type & F_SCAN_TYPE_URL)
-    {
-      snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi->title);
-      mfi->virtual_path = strdup(virtual_path);
-    }
-  else if (type & F_SCAN_TYPE_SPOTIFY)
-    {
-      snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi->album_artist, mfi->album, mfi->title);
-      mfi->virtual_path = strdup(virtual_path);
-    }
-  else
-    {
-      snprintf(virtual_path, PATH_MAX, "/file:%s", mfi->path);
-      mfi->virtual_path = strdup(virtual_path);
-    }
-
-  mfi->directory_id = dir_id;
-
-  if (mfi->id == 0)
-    db_file_add(mfi);
-  else
-    db_file_update(mfi);
-
- out:
-  if (!external_mfi)
-    free_mfi(mfi, 0);
-}
-
-static void
 process_playlist(char *file, time_t mtime, int dir_id)
 {
   enum file_type ft;
@@ -795,7 +385,7 @@ process_deferred_playlists(void)
       free(pl->path);
       free(pl);
 
-      if (scan_exit)
+      if (library_is_exiting())
 	return;
     }
 }
@@ -804,15 +394,24 @@ process_deferred_playlists(void)
 static void
 process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_id)
 {
-  int is_bulkscan;
-  int ret;
+  bool is_bulkscan;
+  bool is_type_compilation;
+  enum media_kind media_kind;
 
   is_bulkscan = (flags & F_SCAN_BULK);
 
   switch (file_type_get(file))
     {
       case FILE_REGULAR:
-	filescanner_process_media(file, mtime, size, type, NULL, dir_id);
+	is_type_compilation = type & F_SCAN_TYPE_COMPILATION;
+	if (type & F_SCAN_TYPE_AUDIOBOOK)
+	  media_kind = MEDIA_KIND_AUDIOBOOK;
+	else if (type & F_SCAN_TYPE_PODCAST)
+	  media_kind = MEDIA_KIND_PODCAST;
+	else
+	  media_kind = 0;
+
+	library_process_media(file, mtime, size, DATA_KIND_FILE, media_kind, is_type_compilation, NULL, dir_id);
 
 	cache_artwork_ping(file, mtime, !is_bulkscan);
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
@@ -884,7 +483,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 
 	DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered, found init-rescan file: %s\n", file);
 
-	filescanner_initscan(NULL, &ret);
+	filescanner_rescan();
 	break;
 
       case FILE_CTRL_FULLSCAN:
@@ -893,7 +492,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 
 	DPRINTF(E_LOG, L_SCAN, "Full rescan triggered, found full-rescan file: %s\n", file);
 
-	filescanner_fullrescan(NULL, &ret);
+	filescanner_fullrescan();
 	break;
 
       default:
@@ -982,7 +581,7 @@ process_directory(char *path, int parent_id, int flags)
 
   for (;;)
     {
-      if (scan_exit)
+      if (library_is_exiting())
 	break;
 
       errno = 0;
@@ -1139,7 +738,7 @@ process_directories(char *root, int parent_id, int flags)
 
   process_directory(root, parent_id, flags);
 
-  if (scan_exit)
+  if (library_is_exiting())
     return;
 
   while ((dir = pop_dir(&dirstack)))
@@ -1149,7 +748,7 @@ process_directories(char *root, int parent_id, int flags)
       free(dir->path);
       free(dir);
 
-      if (scan_exit)
+      if (library_is_exiting())
 	return;
     }
 }
@@ -1167,9 +766,6 @@ bulk_scan(int flags)
   time_t end;
   int parent_id;
   int i;
-
-  // Set global flag to avoid queued scan requests
-  scanning = 1;
 
   start = time(NULL);
 
@@ -1210,14 +806,14 @@ bulk_scan(int flags)
 
       free(deref);
 
-      if (scan_exit)
+      if (library_is_exiting())
 	return;
     }
 
   if (!(flags & F_SCAN_FAST) && playlists)
     process_deferred_playlists();
 
-  if (scan_exit)
+  if (library_is_exiting())
     return;
 
   if (dirstack)
@@ -1249,85 +845,6 @@ bulk_scan(int flags)
       DPRINTF(E_DBG, L_SCAN, "Running post library scan jobs\n");
       db_hook_post_scan();
     }
-
-  // Set scan in progress flag to FALSE
-  scanning = 0;
-}
-
-
-/* Thread: scan */
-static void *
-filescanner(void *arg)
-{
-  int clear_queue_on_stop_disabled;
-  int ret;
-#ifdef __linux__
-  struct sched_param param;
-
-  /* Lower the priority of the thread so forked-daapd may still respond
-   * during file scan on low power devices. Param must be 0 for the SCHED_BATCH
-   * policy.
-   */
-  memset(&param, 0, sizeof(struct sched_param));
-  ret = pthread_setschedparam(pthread_self(), SCHED_BATCH, &param);
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Warning: Could not set thread priority to SCHED_BATCH\n");
-    }
-#endif
-
-  ret = db_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Error: DB init failed\n");
-
-      pthread_exit(NULL);
-    }
-
-  ret = db_watch_clear();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Error: could not clear old watches from DB\n");
-
-      pthread_exit(NULL);
-    }
-
-  // Only clear the queue if enabled (default) in config
-  clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
-  if (!clear_queue_on_stop_disabled)
-    {
-      ret = db_queue_clear();
-      if (ret < 0)
-        {
-          DPRINTF(E_LOG, L_SCAN, "Error: could not clear queue from DB\n");
-
-          pthread_exit(NULL);
-        }
-    }
-
-  if (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable"))
-    bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
-  else
-    bulk_scan(F_SCAN_BULK);
-
-  if (!scan_exit)
-    {
-#ifdef HAVE_SPOTIFY_H
-      spotify_login(NULL);
-#endif
-
-      /* Enable inotify */
-      event_add(inoev, NULL);
-
-      event_base_dispatch(evbase_scan);
-    }
-
-  if (!scan_exit)
-    DPRINTF(E_FATAL, L_SCAN, "Scan event loop terminated ahead of time!\n");
-
-  db_perthread_deinit();
-
-  pthread_exit(NULL);
 }
 
 static int
@@ -1904,10 +1421,10 @@ inofd_event_set(void)
       return -1;
     }
 
-  inoev = event_new(evbase_scan, inofd, EV_READ, inotify_cb, NULL);
+  inoev = event_new(evbase_lib, inofd, EV_READ, inotify_cb, NULL);
 
 #ifndef __linux__
-  deferred_inoev = evtimer_new(evbase_scan, inotify_deferred_cb, NULL);
+  deferred_inoev = evtimer_new(evbase_lib, inotify_deferred_cb, NULL);
   if (!deferred_inoev)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create deferred inotify event\n");
@@ -1931,9 +1448,33 @@ inofd_event_unset(void)
 }
 
 /* Thread: scan */
+static int
+filescanner_initscan()
+{
+  int ret;
 
-static enum command_state
-filescanner_initscan(void *arg, int *retval)
+  ret = db_watch_clear();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error: could not clear old watches from DB\n");
+      return -1;
+    }
+
+  if (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable"))
+    bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
+  else
+    bulk_scan(F_SCAN_BULK);
+
+  if (!library_is_exiting())
+    {
+      /* Enable inotify */
+      event_add(inoev, NULL);
+    }
+  return 0;
+}
+
+static int
+filescanner_rescan()
 {
   DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered\n");
 
@@ -1943,12 +1484,11 @@ filescanner_initscan(void *arg, int *retval)
   inofd_event_set();
   bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
 
-  *retval = 0;
-  return COMMAND_END;
+  return 0;
 }
 
-static enum command_state
-filescanner_fullrescan(void *arg, int *retval)
+static int
+filescanner_fullrescan()
 {
   DPRINTF(E_LOG, L_SCAN, "Full rescan triggered\n");
 
@@ -1960,112 +1500,35 @@ filescanner_fullrescan(void *arg, int *retval)
   inofd_event_set();
   bulk_scan(F_SCAN_BULK);
 
-  *retval = 0;
-  return COMMAND_END;
-}
-
-void
-filescanner_trigger_initscan(void)
-{
-  if (scanning)
-    {
-      DPRINTF(E_INFO, L_SCAN, "Scan already running, ignoring request to trigger a new init scan\n");
-      return;
-    }
-
- commands_exec_async(cmdbase, filescanner_initscan, NULL);
-}
-
-void
-filescanner_trigger_fullrescan(void)
-{
-  if (scanning)
-    {
-      DPRINTF(E_INFO, L_SCAN, "Scan already running, ignoring request to trigger a new init scan\n");
-      return;
-    }
-
-  commands_exec_async(cmdbase, filescanner_fullrescan, NULL);
-}
-
-/*
- * Query the status of the filescanner
- * @return 1 if scan is running, otherwise 0
- */
-int
-filescanner_scanning(void)
-{
-  return scanning;
+  return 0;
 }
 
 /* Thread: main */
-int
+static int
 filescanner_init(void)
 {
   int ret;
 
-  scan_exit = 0;
-  scanning = 0;
-
-  evbase_scan = event_base_new();
-  if (!evbase_scan)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create an event base\n");
-
-      return -1;
-    }
-
   ret = inofd_event_set();
-  if (ret < 0)
-    {
-      goto ino_fail;
-    }
 
-  cmdbase = commands_base_new(evbase_scan, NULL);
-
-  ret = pthread_create(&tid_scan, NULL, filescanner, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not spawn filescanner thread: %s\n", strerror(errno));
-
-      goto thread_fail;
-    }
-
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_scan, "filescanner");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_scan, "filescanner");
-#endif
-
-  return 0;
-
- thread_fail:
-  commands_base_free(cmdbase);
-  close(inofd);
- ino_fail:
-  event_base_free(evbase_scan);
-
-  return -1;
+  return ret;
 }
 
 /* Thread: main */
-void
+static void
 filescanner_deinit(void)
 {
-  int ret;
-
-  scan_exit = 1;
-  commands_base_destroy(cmdbase);
-
-  ret = pthread_join(tid_scan, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not join filescanner thread: %s\n", strerror(errno));
-
-      return;
-    }
-
   inofd_event_unset();
-
-  event_base_free(evbase_scan);
 }
+
+
+struct library_source filescanner =
+{
+  .name = "filescanner",
+  .disabled = 0,
+  .init = filescanner_init,
+  .deinit = filescanner_deinit,
+  .initscan = filescanner_initscan,
+  .rescan = filescanner_rescan,
+  .fullrescan = filescanner_fullrescan,
+};

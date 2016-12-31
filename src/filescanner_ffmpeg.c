@@ -351,7 +351,7 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
 }
 
 int
-scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
+scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
   AVDictionary *options;
