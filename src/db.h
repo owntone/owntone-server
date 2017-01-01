@@ -633,7 +633,7 @@ int
 db_directory_addorupdate(char *virtual_path, int disabled, int parent_id);
 
 void
-db_directory_ping_bymatch(char *path);
+db_directory_ping_bymatch(char *virtual_path);
 
 void
 db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie);

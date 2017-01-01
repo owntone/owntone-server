@@ -766,6 +766,8 @@ bulk_scan(int flags)
   time_t end;
   int parent_id;
   int i;
+  char virtual_path[PATH_MAX];
+  int ret;
 
   start = time(NULL);
 
@@ -793,7 +795,11 @@ bulk_scan(int flags)
 
 	  db_file_ping_bymatch(path, 1);
 	  db_pl_ping_bymatch(path, 1);
-	  db_directory_ping_bymatch(path);
+	  ret = snprintf(virtual_path, sizeof(virtual_path), "/file:%s", path);
+	  if ((ret < 0) || (ret >= sizeof(virtual_path)))
+	    DPRINTF(E_LOG, L_SCAN, "Virtual path exceeds PATH_MAX (/file:%s)\n", path);
+	  else
+	    db_directory_ping_bymatch(virtual_path);
 
 	  continue;
 	}

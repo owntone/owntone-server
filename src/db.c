@@ -3528,12 +3528,12 @@ db_directory_addorupdate(char *virtual_path, int disabled, int parent_id)
 }
 
 void
-db_directory_ping_bymatch(char *path)
+db_directory_ping_bymatch(char *virtual_path)
 {
-#define Q_TMPL_DIR "UPDATE directories SET db_timestamp = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
+#define Q_TMPL_DIR "UPDATE directories SET db_timestamp = %" PRIi64 " WHERE virtual_path = '%q' OR virtual_path LIKE '%q/%%';"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path, path);
+  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), virtual_path, virtual_path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL_DIR

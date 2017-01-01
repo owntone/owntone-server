@@ -572,6 +572,8 @@ rescan(void *arg, int *ret)
 	sources[i]->rescan();
     }
 
+  purge_cruft(starttime);
+
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec\n", difftime(endtime, starttime));
 
@@ -646,10 +648,13 @@ initscan()
 	sources[i]->initscan();
     }
 
-  purge_cruft(starttime);
+  if (! (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable")))
+    {
+      purge_cruft(starttime);
 
-  DPRINTF(E_DBG, L_LIB, "Running post library scan jobs\n");
-  db_hook_post_scan();
+      DPRINTF(E_DBG, L_LIB, "Running post library scan jobs\n");
+      db_hook_post_scan();
+    }
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec\n", difftime(endtime, starttime));

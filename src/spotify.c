@@ -2233,7 +2233,7 @@ scan_playlists()
 
 /* Thread: library */
 static int
-spotify_initscan()
+initscan()
 {
   cfg_t *spotify_cfg;
   int ret;
@@ -2283,14 +2283,31 @@ spotify_initscan()
 
 /* Thread: library */
 static int
-spotify_rescan()
+rescan()
 {
+  /*
+   * Scan saved tracks from the web api
+   */
+  if (spotify_access_token_valid)
+    {
+      scan_saved_albums();
+      scan_playlists();
+    }
+  else
+    {
+      db_transaction_begin();
+      db_file_ping_bymatch("spotify:", 0);
+      db_pl_ping_bymatch("spotify:", 0);
+      db_directory_ping_bymatch("/spotify:");
+      db_transaction_end();
+    }
+
   return 0;
 }
 
 /* Thread: library */
 static int
-spotify_fullrescan()
+fullrescan()
 {
   return 0;
 }
@@ -2498,7 +2515,7 @@ struct library_source spotifyscanner =
   .disabled = 0,
   .init = spotify_init,
   .deinit = spotify_deinit,
-  .rescan = spotify_rescan,
-  .initscan = spotify_initscan,
-  .fullrescan = spotify_fullrescan,
+  .rescan = rescan,
+  .initscan = initscan,
+  .fullrescan = fullrescan,
 };
