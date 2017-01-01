@@ -47,6 +47,7 @@
 #include <json.h>
 
 #include "spotify.h"
+#include "spotify_webapi.h"
 #include "logger.h"
 #include "misc.h"
 #include "http.h"
@@ -132,19 +133,6 @@ struct artwork_get_param
   int is_loaded;
 };
 
-struct pending_metadata
-{
-  sp_link *link;
-  sp_track *track;
-  struct pending_metadata *next;
-};
-
-struct reload_list
-{
-  char *uri;
-  struct reload_list *next;
-};
-
 /* --- Globals --- */
 // Spotify thread
 static pthread_t tid_spotify;
@@ -170,10 +158,6 @@ static enum spotify_state g_state;
 static int spotify_base_plid;
 // The base playlist id for Spotify saved tracks in the db
 static int spotify_saved_plid;
-// Linked list of tracks where we are waiting for metadata
-static struct pending_metadata *spotify_pending_metadata;
-// Linked list of saved tracks which we want to reload at startup
-static struct reload_list *spotify_reload_list;
 
 // Audio fifo
 static audio_fifo_t *g_audio_fifo;
@@ -205,15 +189,6 @@ const uint8_t g_appkey[] = {
 	0x03, 0xD4, 0xF9, 0xAE, 0x41, 0xE3, 0xBD, 0x35, 0x4B, 0x94, 0x27, 0xE0, 0x12, 0x21, 0x46, 0xE9,
 	0x09,
 };
-
-// Endpoints and credentials for the web api
-static char *spotify_access_token;
-static char *spotify_refresh_token;
-static const char *spotify_client_id     = "0e684a5422384114a8ae7ac020f01789";
-static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
-static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
-static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
-static const char *spotify_tracks_uri    = "https://api.spotify.com/v1/me/tracks?limit=50";
 
 // This section defines and assigns function pointers to the libspotify functions
 // The arguments and return values must be in sync with the spotify api
@@ -937,43 +912,14 @@ spotify_playlist_save(sp_playlist *pl)
 static enum command_state
 spotify_uri_register(void *arg, int *retval)
 {
-  struct playlist_info pli;
-  struct pending_metadata *pm;
   sp_link *link;
   sp_track *track;
-  int ret;
 
   char *uri = arg;
 
   if (SP_CONNECTION_STATE_LOGGED_IN != fptr_sp_session_connectionstate(g_sess))
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Can't register music, not connected and logged in to Spotify\n");
-      *retval = -1;
-      return COMMAND_END;
-    }
-
-  // Must have playlist for these items, otherwise spotify_cleanup_files will delete them again
-  if (!spotify_saved_plid)
-    {
-      memset(&pli, 0, sizeof(struct playlist_info));
-      pli.title = "Spotify Saved";
-      pli.type = PL_PLAIN;
-      pli.path = "spotify:savedtracks";
-      pli.virtual_path = "/spotify:/Spotify Saved";
-
-      ret = db_pl_add(&pli, &spotify_saved_plid);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist for saved tracks\n");
-	  *retval = -1;
-	  return COMMAND_END;
-	}
-    }
-
-  ret = db_pl_add_item_bypath(spotify_saved_plid, uri);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not add '%s' to spotify:savedtracks\n", uri);
       *retval = -1;
       return COMMAND_END;
     }
@@ -994,356 +940,8 @@ spotify_uri_register(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  // Maybe we already had the track
-  if (fptr_sp_track_is_loaded(track))
-    {
-      db_file_ping_bymatch(uri, 0);
-      fptr_sp_link_release(link);
-      *retval = 0;
-      return COMMAND_END;
-    }
-
-  pm = malloc(sizeof(struct pending_metadata));
-  if (!pm)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory\n");
-      *retval = -1;
-      return COMMAND_END;
-    }
-
-  pm->link  = link;
-  pm->track = track;
-  pm->next  = spotify_pending_metadata;
-  spotify_pending_metadata = pm;
-
   *retval = 0;
   return COMMAND_END;
-}
-
-// TODO Maybe use the commands bh instead?
-static enum command_state
-spotify_pending_process(void *arg, int *retval)
-{
-  struct pending_metadata *pm;
-  int i;
-
-  *retval = 0;
-  if (!spotify_pending_metadata)
-    return COMMAND_END;
-
-  // Too early
-  i = 0;
-  for (pm = spotify_pending_metadata; pm; pm = pm->next)
-    {
-      i++;
-
-      if (!fptr_sp_track_is_loaded(pm->track))
-	return COMMAND_END;
-    }
-
-  DPRINTF(E_DBG, L_SPOTIFY, "All %d tracks loaded, now saving\n", i);
-
-  while ((pm = spotify_pending_metadata))
-    {
-      spotify_track_save(0, pm->track, NULL, time(NULL));
-
-      // Not sure if we should release link here? We are done with it, but maybe
-      // libspotify will unload the track if we release, and we don't want that
-      //fptr_sp_link_release(pm->link);
-
-      spotify_pending_metadata = pm->next;
-      free(pm);
-    }
-
-  return COMMAND_END;
-}
-
-static enum command_state
-spotify_saved_pl_clear_items(void *arg, int *retval)
-{
-  if (spotify_saved_plid)
-    db_pl_clear_items(spotify_saved_plid);
-
-
-  *retval = 0;
-
-  return COMMAND_END;
-}
-
-static enum command_state
-spotify_cleanup_wrapper(void *arg, int *retval)
-{
-  *retval = spotify_cleanup_files();
-
-  return COMMAND_END;
-}
-
-/*--------------------- HELPERS FOR SPOTIFY WEB API -------------------------*/
-/*                 All the below is in the httpd thread                      */
-
-static char *
-jparse_str_from_obj(json_object *haystack, const char *key)
-{
-  json_object *needle;
-
-  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_string)
-    return strdup(json_object_get_string(needle));
-  else
-    return NULL;
-}
-
-static char *
-jparse_str_from_str(const char *s, const char *key)
-{
-  json_object *haystack;
-  char *val;
-
-  haystack = json_tokener_parse(s);
-  if (!haystack)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "JSON parser returned an error\n");
-      return NULL;
-    }
-
-  val = jparse_str_from_obj(haystack, key);
-
-#ifdef HAVE_JSON_C_OLD
-  json_object_put(haystack);
-#else
-  if (json_object_put(haystack) != 1)
-    DPRINTF(E_LOG, L_SPOTIFY, "Memleak: JSON parser did not free object\n");
-#endif
-
-  return val;
-}
-
-// Will find all track Spotify uri's and register them with libspotify.
-// Returns the number of tracks found in the json input. "total" will be the
-// total reported by Spotify in the response, and "next" will be an allocated
-// string with the url of the next page, as reported by Spotify
-static int
-jparse_and_register_tracks(int *total, char **next, const char *s)
-{
-  json_object *haystack;
-  json_object *needle;
-  json_object *items;
-  json_object *item;
-  json_object *track;
-  char *uri;
-  int ret;
-  int len;
-  int i;
-
-  haystack = json_tokener_parse(s);
-  if (!haystack)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "JSON parser returned an error\n");
-      return -1;
-    }
-
-  if (json_object_object_get_ex(haystack, "total", &needle) && json_object_get_type(needle) == json_type_int)
-    *total = json_object_get_int(needle);
-  else
-    *total = -1;
-
-  *next = jparse_str_from_obj(haystack, "next");
-
-  if (! (json_object_object_get_ex(haystack, "items", &items) && json_object_get_type(items) == json_type_array) )
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "No items in reply from Spotify. See:\n%s\n", s);
-      ret = -1;
-      goto out_free_json;
-    }
-
-  len = json_object_array_length(items);
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Got %d saved tracks\n", len);
-
-  for (i = 0; i < len; i++)
-    {
-      item = json_object_array_get_idx(items, i);
-      if (! (item && json_object_object_get_ex(item, "track", &track)
-                  && (uri = jparse_str_from_obj(track, "uri")) ))
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: Item %d did not have 'track'->'uri'\n", i);
-	  len--;
-	  continue;
-        }
-
-      commands_exec_sync(cmdbase, spotify_uri_register, NULL, uri);
-
-      free(uri);
-    }
-
-  ret = len;
-
- out_free_json:
-#ifdef HAVE_JSON_C_OLD
-  json_object_put(haystack);
-#else
-  if (json_object_put(haystack) != 1)
-    DPRINTF(E_LOG, L_SPOTIFY, "Memleak: JSON parser did not free object\n");
-#endif
-
-  return ret;
-}
-
-static int
-tokens_get(const char *code, const char *redirect_uri, const char **err)
-{
-  struct http_client_ctx ctx;
-  struct keyval kv;
-  char *param;
-  char *body;
-  int ret;
-
-  memset(&kv, 0, sizeof(struct keyval));
-  ret = ( (keyval_add(&kv, "grant_type", "authorization_code") == 0) &&
-          (keyval_add(&kv, "code", code) == 0) &&
-          (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
-          (keyval_add(&kv, "client_secret", spotify_client_secret) == 0) &&
-          (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) );
-  if (!ret)
-    {
-      *err = "Add parameters to keyval failed";
-      ret = -1;
-      goto out_clear_kv;
-    }
-
-  param = http_form_urlencode(&kv);
-  if (!param)
-    {
-      *err = "http_form_uriencode() failed";
-      ret = -1;
-      goto out_clear_kv;
-    }
-
-  memset(&ctx, 0, sizeof(struct http_client_ctx));
-  ctx.url = (char *)spotify_token_uri;
-  ctx.output_body = param;
-  ctx.input_body = evbuffer_new();
-
-  ret = http_client_request(&ctx);
-  if (ret < 0)
-    {
-      *err = "Did not get a reply from Spotify";
-      goto out_free_input_body;
-    }
-
-  // 0-terminate for safety
-  evbuffer_add(ctx.input_body, "", 1);
-
-  body = (char *)evbuffer_pullup(ctx.input_body, -1);
-  if (!body || (strlen(body) == 0))
-    {
-      *err = "The reply from Spotify is empty or invalid";
-      ret = -1;
-      goto out_free_input_body;
-    }
-
-  spotify_access_token  = jparse_str_from_str(body, "access_token");
-  spotify_refresh_token = jparse_str_from_str(body, "refresh_token");
-
-  if (!spotify_access_token || !spotify_refresh_token)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not find token in reply: %s\n", body);
-
-      *err = "Could not find token in Spotify reply (see log)";
-      ret = -1;
-      goto out_free_input_body;
-    }
-
-  ret = 0;
-
- out_free_input_body:
-  evbuffer_free(ctx.input_body);
-  free(param);
- out_clear_kv:
-  keyval_clear(&kv);
-
-  return ret;
-}
-
-static int
-saved_tracks_get(int *total, const char **err, const char *uri)
-{
-  struct http_client_ctx ctx;
-  struct keyval kv;
-  char bearer_token[1024];
-  char *body;
-  char *next;
-  int ret;
-  int i;
-
-  *total = -1;
-
-  snprintf(bearer_token, sizeof(bearer_token), "Bearer %s", spotify_access_token);
-
-  memset(&kv, 0, sizeof(struct keyval));
-  if (keyval_add(&kv, "Authorization", bearer_token) < 0)
-    {
-      *err = "Add bearer_token to keyval failed";
-      return -1;
-    }
-
-  memset(&ctx, 0, sizeof(struct http_client_ctx));
-  ctx.output_headers = &kv;
-  ctx.input_body = evbuffer_new();
-  ctx.url = uri;
-
-  next = NULL;
-  for (i = 0; i < SPOTIFY_WEB_REQUESTS_MAX; i++)
-    {
-      ret = http_client_request(&ctx);
-      if (ret < 0)
-	{
-	  *err = "Request for saved tracks/albums failed";
-	  break;
-	}
-
-      // 0-terminate for safety
-      evbuffer_add(ctx.input_body, "", 1);
-
-      body = (char *)evbuffer_pullup(ctx.input_body, -1);
-      if (!body || (strlen(body) == 0))
-	{
-	  *err = "Request for saved tracks/albums failed, response was empty";
-	  ret = -1;
-	  break;
-	}
-
-      if (next)
-	free(next);
-      next = NULL;
-
-      if (uri == spotify_tracks_uri)
-	ret = jparse_and_register_tracks(total, &next, body);
-      else
-	ret = -1;
-
-      if (ret < 0)
-	{
-	  *err = "Could not parse track/album response from Spotify";
-	  break;
-	}
-
-      ret += 50 * i; // Equals total number of tracks/albums registered
-
-      if (!next || (strncmp(next, "null", 4) == 0))
-	break;
-
-      ctx.url = next;
-
-      evbuffer_drain(ctx.input_body, evbuffer_get_length(ctx.input_body));
-    }
-
-  if (next)
-    free(next);
-
-  evbuffer_free(ctx.input_body);
-  keyval_clear(&kv);
-
-  return ret;
 }
 
 
@@ -2105,8 +1703,6 @@ notify_main_thread(sp_session *sess)
 static void metadata_updated(sp_session *session)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Session metadata updated\n");
-
-  commands_exec_async(cmdbase, spotify_pending_process, NULL);
 }
 
 /* Misc connection error callbacks */
@@ -2119,20 +1715,9 @@ static void play_token_lost(sp_session *sess)
 
 static void connectionstate_updated(sp_session *session)
 {
-  struct reload_list *reload;
-  int ret;
-
   if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(session))
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Connection to Spotify (re)established, reloading saved tracks\n");
-
-      while ((reload = spotify_reload_list))
-	{
-	  spotify_uri_register(reload->uri, &ret);
-	  spotify_reload_list = reload->next;
-	  free(reload->uri);
-	  free(reload);
-	}
     }
   else if (g_state == SPOTIFY_STATE_PLAYING)
     {
@@ -2185,42 +1770,6 @@ static sp_session_config spconfig = {
 
 /* ------------------------------- MAIN LOOP ------------------------------- */
 /*                              Thread: spotify                              */
-
-static struct reload_list *
-reload_list_create(int plid)
-{
-  struct query_params qp;
-  struct db_media_file_info dbmfi;
-  struct reload_list *head;
-  struct reload_list *reload;
-  int ret;
-
-  memset(&qp, 0, sizeof(struct query_params));
-
-  qp.type = Q_PLITEMS;
-  qp.sort = S_NONE;
-  qp.id = plid;
-
-  ret = db_query_start(&qp);
-  if (ret < 0)
-    {
-      db_query_end(&qp);
-      return NULL;
-    }
-
-  head = NULL;
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.path))
-    {
-      reload = malloc(sizeof(struct reload_list));
-      reload->uri = strdup(dbmfi.path);
-      reload->next = head;
-      head = reload;
-    }
-
-  db_query_end(&qp);
-
-  return head;
-}
 
 static void *
 spotify(void *arg)
@@ -2416,35 +1965,18 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 void
 spotify_oauth_interface(struct evbuffer *evbuf, const char *redirect_uri)
 {
-  struct keyval kv;
-  char *param;
-  int ret;
+  char *uri;
 
-  memset(&kv, 0, sizeof(struct keyval));
-  ret = ( (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
-          (keyval_add(&kv, "response_type", "code") == 0) &&
-          (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) &&
-          (keyval_add(&kv, "scope", "playlist-read-private user-library-read") == 0) &&
-          (keyval_add(&kv, "show_dialog", "false") == 0) );
-  if (!ret)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Cannot display Spotify oath interface (error adding parameters to keyval)\n");
-      goto out_clear_kv;
-    }
-
-  param = http_form_urlencode(&kv);
-  if (!param)
+  uri = spotifywebapi_oauth_uri_get(redirect_uri);
+  if (!uri)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Cannot display Spotify oath interface (http_form_uriencode() failed)\n");
-      goto out_clear_kv;
+      return;
     }
 
-  evbuffer_add_printf(evbuf, "<a href=\"%s/?%s\">Click here to authorize forked-daapd with Spotify</a>\n", spotify_auth_uri, param);
+  evbuffer_add_printf(evbuf, "<a href=\"%s\">Click here to authorize forked-daapd with Spotify</a>\n", uri);
 
-  free(param);
-
- out_clear_kv:
-  keyval_clear(&kv);
+  free(uri);
 }
 
 /* Thread: httpd */
@@ -2453,7 +1985,6 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
 {
   const char *code;
   const char *err;
-  int total;
   int ret;
 
   code = evhttp_find_header(param, "code");
@@ -2467,42 +1998,24 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
 
   evbuffer_add_printf(evbuf, "<p>Requesting access token from Spotify...\n");
 
-  ret = tokens_get(code, redirect_uri, &err);
+  ret = spotifywebapi_token_get(code, redirect_uri, &err);
   if (ret < 0)
     {
       evbuffer_add_printf(evbuf, "failed</p>\n<p>Error: %s</p>\n", err);
       return;
     }
 
-  commands_exec_sync(cmdbase, spotify_saved_pl_clear_items, NULL, NULL);
-
-  evbuffer_add_printf(evbuf, "ok</p>\n<p>Retrieving saved tracks...\n");
-
-  ret = saved_tracks_get(&total, &err, spotify_tracks_uri);
-  if (ret < 0)
-    {
-      evbuffer_add_printf(evbuf, "failed</p>\n<p>Error: %s</p>\n", err);
-      return;
-    }
-
-  evbuffer_add_printf(evbuf, "ok, got %d out of %d tracks</p>\n", ret, total);
-
-  evbuffer_add_printf(evbuf, "<p>Purging removed tracks/albums...\n");
-
-  // TODO release links to the items we are going to clean up
-
-  commands_exec_sync(cmdbase, spotify_cleanup_wrapper, NULL, NULL);
+  // TODO Trigger init-scan after successful access to spotifywebapi
 
   evbuffer_add_printf(evbuf, "ok, all done</p>\n");
 
   return;
 }
 
-/* Thread: filescanner */
+/* Thread: library */
 void
 spotify_login(char *path)
 {
-  struct playlist_info *pli;
   sp_error err;
   char *username;
   char *password;
@@ -2555,13 +2068,6 @@ spotify_login(char *path)
     }
   else
     {
-      pli = db_pl_fetch_bypath("spotify:savedtracks");
-      if (pli)
-	{
-	  spotify_reload_list = reload_list_create(pli->id);
-	  free_pli(pli, 0);
-	}
-
       db_spotify_purge();
       spotify_saved_plid = 0;
 
