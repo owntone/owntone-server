@@ -37,6 +37,7 @@
 #include <uninorm.h>
 #include <unistr.h>
 
+#include "cache.h"
 #include "commands.h"
 #include "conffile.h"
 #include "db.h"
@@ -87,7 +88,7 @@ sort_tag_create(char **sort_tag, char *src_tag)
 
   if (*sort_tag)
     {
-      DPRINTF(E_DBG, L_SCAN, "Existing sort tag will be normalized: %s\n", *sort_tag);
+      DPRINTF(E_DBG, L_LIB, "Existing sort tag will be normalized: %s\n", *sort_tag);
       o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
       free(*sort_tag);
       *sort_tag = (char *)o_ptr;
@@ -362,7 +363,7 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
       mfi = (struct media_file_info*)malloc(sizeof(struct media_file_info));
       if (!mfi)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Out of memory for mfi\n");
+	  DPRINTF(E_LOG, L_LIB, "Out of memory for mfi\n");
 	  return;
 	}
 
@@ -377,14 +378,14 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
   mfi->fname = strdup(filename);
   if (!mfi->fname)
     {
-      DPRINTF(E_LOG, L_SCAN, "Out of memory for fname\n");
+      DPRINTF(E_LOG, L_LIB, "Out of memory for fname\n");
       goto out;
     }
 
   mfi->path = strdup(path);
   if (!mfi->path)
     {
-      DPRINTF(E_LOG, L_SCAN, "Out of memory for path\n");
+      DPRINTF(E_LOG, L_LIB, "Out of memory for path\n");
       goto out;
     }
 
@@ -407,7 +408,7 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
       ret = scan_metadata_ffmpeg(path, mfi);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
+	  DPRINTF(E_LOG, L_LIB, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
 	  mfi->type = strdup("mp3");
 	  mfi->codectype = strdup("mpeg");
 	  mfi->description = strdup("MPEG audio file");
@@ -429,13 +430,13 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
     }
   else
     {
-      DPRINTF(E_LOG, L_SCAN, "Unknown scan type for '%s', this error should not occur\n", path);
+      DPRINTF(E_LOG, L_LIB, "Unknown scan type for '%s', this error should not occur\n", path);
       ret = -1;
     }
 
   if (ret < 0)
     {
-      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for '%s'\n", path);
+      DPRINTF(E_INFO, L_LIB, "Could not extract metadata for '%s'\n", path);
       goto out;
     }
 
@@ -544,6 +545,18 @@ library_add_playlist_info(const char *path, const char *title, const char *virtu
   return plid;
 }
 
+static void
+purge_cruft(time_t start)
+{
+  DPRINTF(E_DBG, L_LIB, "Purging old library content\n");
+  db_purge_cruft(start);
+  db_groups_cleanup();
+  db_queue_cleanup();
+
+  DPRINTF(E_DBG, L_LIB, "Purging old artwork content\n");
+  cache_artwork_purge_cruft(start);
+}
+
 static enum command_state
 rescan(void *arg, int *ret)
 {
@@ -632,6 +645,11 @@ initscan()
       if (!sources[i]->disabled && sources[i]->initscan)
 	sources[i]->initscan();
     }
+
+  purge_cruft(starttime);
+
+  DPRINTF(E_DBG, L_LIB, "Running post library scan jobs\n");
+  db_hook_post_scan();
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec\n", difftime(endtime, starttime));

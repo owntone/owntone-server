@@ -827,23 +827,7 @@ bulk_scan(int flags)
     }
   else
     {
-      /* Protect spotify from the imminent purge if rescanning */
-      db_transaction_begin();
-      db_file_ping_bymatch("spotify:", 0);
-      db_pl_ping_bymatch("spotify:", 0);
-      db_transaction_end();
-
-      DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
-      db_purge_cruft(start);
-      db_groups_cleanup();
-      db_queue_cleanup();
-
-      cache_artwork_purge_cruft(start);
-
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
-
-      DPRINTF(E_DBG, L_SCAN, "Running post library scan jobs\n");
-      db_hook_post_scan();
     }
 }
 
