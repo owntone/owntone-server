@@ -156,8 +156,8 @@ static void *g_libhandle;
 static enum spotify_state g_state;
 // The base playlist id for all Spotify playlists in the db
 static int spotify_base_plid;
-// The base playlist id for Spotify saved tracks in the db
-static int spotify_saved_plid;
+// Flag telling us if access to the web api was granted
+static bool spotify_access_token_valid;
 
 // Audio fifo
 static audio_fifo_t *g_audio_fifo;
@@ -707,7 +707,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
 
 //  DPRINTF(E_DBG, L_SPOTIFY, "Saving track '%s': '%s' by %s (%s)\n", url, mfi.title, mfi.artist, mfi.album);
 
-  library_process_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, 0, &mfi, dir_id);
+  library_process_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, false, &mfi, dir_id);
 
   free_mfi(&mfi, 1);
 
@@ -910,7 +910,7 @@ spotify_playlist_save(sp_playlist *pl)
 // told which track it was...). Note that this function will result in a ref
 // count on the sp_link, which the caller must decrease with sp_link_release.
 static enum command_state
-spotify_uri_register(void *arg, int *retval)
+uri_register(void *arg, int *retval)
 {
   sp_link *link;
   sp_track *track;
@@ -963,7 +963,8 @@ static void playlist_update_in_progress(sp_playlist *pl, bool done, void *userda
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Playlist update (status %d): %s\n", done, fptr_sp_playlist_name(pl));
 
-      spotify_playlist_save(pl);
+      if (!spotify_access_token_valid) // TODO Trigger update of library on pl change
+	spotify_playlist_save(pl);
     }
 }
 
@@ -971,7 +972,8 @@ static void playlist_metadata_updated(sp_playlist *pl, void *userdata)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Playlist metadata updated: %s\n", fptr_sp_playlist_name(pl));
 
-  spotify_playlist_save(pl);
+  if (!spotify_access_token_valid) // TODO Trigger update of library on pl change
+    spotify_playlist_save(pl);
 }
 
 /**
@@ -1001,7 +1003,8 @@ static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
 
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
-  spotify_playlist_save(pl);
+  if (!spotify_access_token_valid) // TODO Trigger update of library on pl change
+    spotify_playlist_save(pl);
 }
 
 /**
@@ -1026,6 +1029,9 @@ playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl, int position, void *
   DPRINTF(E_INFO, L_SPOTIFY, "Playlist removed: %s\n", fptr_sp_playlist_name(pl));
 
   fptr_sp_playlist_remove_callbacks(pl, &pl_callbacks, NULL);
+
+  if (spotify_access_token_valid) // TODO Trigger update of library on pl change
+    return;
 
   link = fptr_sp_link_create_from_playlist(pl);
   if (!link)
@@ -1545,11 +1551,8 @@ artwork_get(void *arg, int *retval)
 static void
 logged_in(sp_session *sess, sp_error error)
 {
-  cfg_t *spotify_cfg;
   sp_playlist *pl;
   sp_playlistcontainer *pc;
-  struct playlist_info pli;
-  int ret;
   int i;
 
   if (SP_ERROR_OK != error)
@@ -1564,24 +1567,6 @@ logged_in(sp_session *sess, sp_error error)
 
   pl = fptr_sp_session_starred_create(sess);
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
-
-  spotify_cfg = cfg_getsec(cfg, "spotify");
-  if (! cfg_getbool(spotify_cfg, "base_playlist_disable"))
-    {
-      memset(&pli, 0, sizeof(struct playlist_info));
-      pli.title = "Spotify";
-      pli.type = PL_FOLDER;
-      pli.path = "spotify:playlistfolder";
-
-      ret = db_pl_add(&pli, &spotify_base_plid);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
-	  return;
-	}
-    }
-  else
-    spotify_base_plid = 0;
 
   pc = fptr_sp_session_playlistcontainer(sess);
 
@@ -2005,11 +1990,23 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
       return;
     }
 
+  // Received a valid access token
+  spotify_access_token_valid = true;
+
   // TODO Trigger init-scan after successful access to spotifywebapi
 
   evbuffer_add_printf(evbuf, "ok, all done</p>\n");
 
   return;
+}
+
+static void
+spotify_uri_register(const char *uri)
+{
+  char *tmp;
+
+  tmp = strdup(uri);
+  commands_exec_async(cmdbase, uri_register, tmp);
 }
 
 /* Thread: library */
@@ -2055,9 +2052,6 @@ spotify_login(char *path)
 
   if (path)
     {
-      db_spotify_purge();
-      spotify_saved_plid = 0;
-
       ret = spotify_file_read(path, &username, &password);
       if (ret < 0)
 	return;
@@ -2068,9 +2062,6 @@ spotify_login(char *path)
     }
   else
     {
-      db_spotify_purge();
-      spotify_saved_plid = 0;
-
       err = fptr_sp_session_relogin(g_sess);
     }
 
@@ -2081,11 +2072,212 @@ spotify_login(char *path)
     }
 }
 
+static void
+map_track_to_mfi(const struct spotify_track *track, struct media_file_info* mfi)
+{
+  mfi->title = safe_strdup(track->name);
+  mfi->album = safe_strdup(track->album);
+  mfi->artist = safe_strdup(track->artist);
+  mfi->album_artist = safe_strdup(track->album_artist);
+  mfi->disc = track->disc_number;
+  mfi->song_length = track->duration_ms;
+  mfi->track = track->track_number;
+  mfi->compilation = track->is_compilation;
+}
+
+static void
+map_album_to_mfi(const struct spotify_album *album, struct media_file_info* mfi)
+{
+  mfi->album = safe_strdup(album->name);
+  mfi->album_artist = safe_strdup(album->artist);
+  mfi->genre = safe_strdup(album->genre);
+  mfi->compilation = album->is_compilation;
+}
+
+/* Thread: library */
+static int
+scan_saved_albums()
+{
+  struct spotify_request request;
+  json_object *jsontracks;
+  int track_count;
+  struct spotify_album album;
+  struct spotify_track track;
+  struct media_file_info mfi;
+  int dir_id;
+  int i;
+  int ret;
+
+  db_transaction_begin();
+
+  memset(&request, 0, sizeof(struct spotify_request));
+
+  while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_ALBUMS))
+    {
+      while (0 == spotifywebapi_saved_albums_fetch(&request, &jsontracks, &track_count, &album))
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "Got saved album: '%s' - '%s' (%s) - track-count: %d\n",
+		  album.artist, album.name, album.uri, track_count);
+
+	  dir_id = prepare_directories(album.artist, album.name);
+	  ret = 0;
+	  for (i = 0; i < track_count && ret == 0; i++)
+	    {
+	      ret = spotifywebapi_album_track_fetch(jsontracks, i, &track);
+	      if (ret == 0 && track.uri)
+		{
+		  memset(&mfi, 0, sizeof(struct media_file_info));
+		  map_track_to_mfi(&track, &mfi);
+		  map_album_to_mfi(&album, &mfi);
+
+		  library_process_media(track.uri, album.mtime, 0, DATA_KIND_SPOTIFY, 0, album.is_compilation, &mfi, dir_id);
+		  spotify_uri_register(track.uri);
+
+		  cache_artwork_ping(track.uri, album.mtime, 0);
+
+		  free_mfi(&mfi, 1);
+		}
+	    }
+	}
+    }
+
+  spotifywebapi_request_end(&request);
+
+  db_transaction_end();
+
+  return 0;
+}
+
+/* Thread: library */
+static int
+scan_playlisttracks(struct spotify_playlist *playlist, int plid)
+{
+  struct spotify_request request;
+  struct spotify_track track;
+  struct media_file_info mfi;
+  int dir_id;
+
+  memset(&request, 0, sizeof(struct spotify_request));
+
+  while (0 == spotifywebapi_request_next(&request, playlist->tracks_href))
+    {
+//      DPRINTF(E_DBG, L_SPOTIFY, "Playlist tracks\n%s\n", request.response_body);
+      while (0 == spotifywebapi_playlisttracks_fetch(&request, &track))
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist track: '%s' (%s) \n", track.name, track.uri);
+
+	  if (track.uri)
+	    {
+	      dir_id = prepare_directories(track.album_artist, track.album);
+
+	      memset(&mfi, 0, sizeof(struct media_file_info));
+	      map_track_to_mfi(&track, &mfi);
+
+	      library_process_media(track.uri, 1 /* TODO passing one prevents overwriting existing entries */, 0, DATA_KIND_SPOTIFY, 0, track.is_compilation, &mfi, dir_id);
+	      spotify_uri_register(track.uri);
+
+	      cache_artwork_ping(track.uri, 1, 0);
+
+	      free_mfi(&mfi, 1);
+
+	      db_pl_add_item_bypath(plid, track.uri);
+	    }
+	}
+    }
+
+  spotifywebapi_request_end(&request);
+
+  return 0;
+}
+
+/* Thread: library */
+static int
+scan_playlists()
+{
+  struct spotify_request request;
+  struct spotify_playlist playlist;
+  char virtual_path[PATH_MAX];
+  int plid;
+
+  db_transaction_begin();
+
+  memset(&request, 0, sizeof(struct spotify_request));
+
+  while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_PLAYLISTS))
+    {
+      while (0 == spotifywebapi_playlists_fetch(&request, &playlist))
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+	  if (playlist.owner)
+	    {
+	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", playlist.name, playlist.owner);
+	    }
+	  else
+	    {
+	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s", playlist.name);
+	    }
+
+	  plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
+
+	  if (plid)
+	    scan_playlisttracks(&playlist, plid);
+	}
+    }
+
+  spotifywebapi_request_end(&request);
+  db_transaction_end();
+
+  return 0;
+}
+
 /* Thread: library */
 static int
 spotify_initscan()
 {
+  cfg_t *spotify_cfg;
+  int ret;
+
+  /* Refresh access token for the spotify webapi */
+  spotify_access_token_valid = (0 == spotifywebapi_token_refresh());
+  if (!spotify_access_token_valid)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
+	  "In order to use the web api, authorize forked-daapd to access "
+	  "your saved tracks by visiting http://forked-daapd.local:3689/oauth\n");
+
+      db_spotify_purge();
+    }
+
+  /*
+   * Add playlist folder for all spotify playlists
+   */
+  spotify_base_plid = 0;
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  if (! cfg_getbool(spotify_cfg, "base_playlist_disable"))
+    {
+      ret = library_add_playlist_info("spotify:playlistfolder", "Spotify", NULL, PL_FOLDER, 0, 0);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
+      else
+	spotify_base_plid = ret;
+    }
+
+  /*
+   * Login to spotify needs to be done before scanning tracks from the web api.
+   * (Scanned tracks need to be registered with libspotify for playback)
+   */
   spotify_login(NULL);
+
+  /*
+   * Scan saved tracks from the web api
+   */
+  if (spotify_access_token_valid)
+    {
+      scan_saved_albums();
+      scan_playlists();
+    }
+
   return 0;
 }
 
@@ -2111,6 +2303,8 @@ spotify_init(void)
   sp_session *sp;
   sp_error err;
   int ret;
+
+  spotify_access_token_valid = false;
 
   /* Initialize libspotify */
   g_libhandle = dlopen("libspotify.so", RTLD_LAZY);

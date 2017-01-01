@@ -22,15 +22,14 @@
 
 
 #include <event2/event.h>
-
-#include "http.h"
-
 #ifdef HAVE_JSON_C_OLD
 # include <json/json.h>
 #else
 # include <json-c/json.h>
 #endif
+#include <stdbool.h>
 
+#include "http.h"
 
 #define SPOTIFY_WEBAPI_SAVED_TRACKS "https://api.spotify.com/v1/me/tracks?limit=50"
 #define SPOTIFY_WEBAPI_TRACKS "https://api.spotify.com/v1/tracks/"
@@ -43,6 +42,7 @@ struct spotify_album
   time_t mtime;
 
   const char *album_type;
+  bool is_compilation;
   const char *artist;
   const char *genre;
   const char *id;
@@ -61,6 +61,8 @@ struct spotify_track
   const char *album_artist;
   const char *artist;
   int disc_number;
+  const char *album_type;
+  bool is_compilation;
   int duration_ms;
   const char *id;
   const char *name;

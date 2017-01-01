@@ -392,14 +392,14 @@ spotifywebapi_request_uri(struct spotify_request *request, const char *uri)
   snprintf(bearer_token, sizeof(bearer_token), "Bearer %s", spotify_access_token);
   if (keyval_add(request->ctx->output_headers, "Authorization", bearer_token) < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Add bearer_token to keyval failed");
+      DPRINTF(E_LOG, L_SPOTIFY, "Add bearer_token to keyval failed\n");
       return -1;
     }
 
   ret = http_client_request(request->ctx);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Request for saved tracks/albums failed");
+      DPRINTF(E_LOG, L_SPOTIFY, "Request for saved tracks/albums failed\n");
       return -1;
     }
 
@@ -409,9 +409,11 @@ spotifywebapi_request_uri(struct spotify_request *request, const char *uri)
   request->response_body = (char *) evbuffer_pullup(request->ctx->input_body, -1);
   if (!request->response_body || (strlen(request->response_body) == 0))
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Request for saved tracks/albums failed, response was empty");
+      DPRINTF(E_LOG, L_SPOTIFY, "Request for saved tracks/albums failed, response was empty\n");
       return -1;
     }
+
+  //DPRINTF(E_DBG, L_SPOTIFY, "Wep api response for '%s'\n%s\n", uri, request->response_body);
 
   request->haystack = json_tokener_parse(request->response_body);
   if (!request->haystack)
@@ -498,6 +500,8 @@ track_metadata(json_object* jsontrack, struct spotify_track* track)
       track->artist = jparse_artist_from_obj(jsonartists);
     }
   track->disc_number = jparse_int_from_obj(jsontrack, "disc_number");
+  track->album_type = jparse_str_from_obj(jsonalbum, "album_type");
+  track->is_compilation = (track->album_type && 0 == strcmp(track->album_type, "compilation"));
   track->duration_ms = jparse_int_from_obj(jsontrack, "duration_ms");
   track->name = jparse_str_from_obj(jsontrack, "name");
   track->track_number = jparse_int_from_obj(jsontrack, "track_number");
@@ -586,9 +590,13 @@ album_metadata(json_object *jsonalbum, struct spotify_album *album)
   album->id = jparse_str_from_obj(jsonalbum, "id");
 
   album->album_type = jparse_str_from_obj(jsonalbum, "album_type");
-  album->genre = jparse_str_from_obj(jsonalbum, "genre"); // FIXME Genre is an array of strings ('genres'), but it seems to be always empty
+  album->is_compilation = (album->album_type && 0 == strcmp(album->album_type, "compilation"));
+
   album->label = jparse_str_from_obj(jsonalbum, "label");
   album->release_date = jparse_str_from_obj(jsonalbum, "release_date");
+
+  // TODO Genre is an array of strings ('genres'), but it is always empty (https://github.com/spotify/web-api/issues/157)
+  //album->genre = jparse_str_from_obj(jsonalbum, "genre");
 }
 
 int
