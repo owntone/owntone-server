@@ -1046,6 +1046,32 @@ db_build_query_pls(struct query_params *qp)
 }
 
 static char *
+db_build_query_find_pls(struct query_params *qp)
+{
+  struct query_clause *qc;
+  char *count;
+  char *query;
+
+  if (!qp->filter)
+    {
+      DPRINTF(E_LOG, L_DB, "Bug! Playlist find called without search criteria\n");
+      return NULL;
+    }
+
+  qc = db_build_query_clause(qp);
+  if (!qc)
+    return NULL;
+
+  // Use qp->filter because qc->where has a f.disabled which is not a column in playlistitems
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM playlists f WHERE f.id IN (SELECT playlistid FROM playlistitems WHERE %s);", qp->filter);
+  query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.id IN (SELECT playlistid FROM playlistitems WHERE %s) %s %s;", qp->filter, qc->order, qc->index);
+
+  db_free_query_clause(qc);
+
+  return db_build_query_check(qp, count, query);
+}
+
+static char *
 db_build_query_plitems_plain(struct query_params *qp)
 {
   struct query_clause *qc;
@@ -1294,6 +1320,10 @@ db_query_start(struct query_params *qp)
 
       case Q_PL:
 	query = db_build_query_pls(qp);
+	break;
+
+      case Q_FIND_PL:
+	query = db_build_query_find_pls(qp);
 	break;
 
       case Q_PLITEMS:

@@ -145,6 +145,7 @@ static int source_item_embedded_get(struct artwork_ctx *ctx);
 static int source_item_own_get(struct artwork_ctx *ctx);
 static int source_item_stream_get(struct artwork_ctx *ctx);
 static int source_item_spotify_get(struct artwork_ctx *ctx);
+static int source_item_ownpl_get(struct artwork_ctx *ctx);
 
 /* List of sources that can provide artwork for a group (i.e. usually an album
  * identified by a persistentid). The source handlers will be called in the
@@ -205,6 +206,12 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_spotify_get,
       .data_kinds = (1 << DATA_KIND_SPOTIFY),
       .cache = ON_SUCCESS,
+    },
+    {
+      .name = "playlist own",
+      .handler = source_item_ownpl_get,
+      .data_kinds = (1 << DATA_KIND_HTTP),
+      .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = NULL,
@@ -1284,6 +1291,60 @@ source_item_spotify_get(struct artwork_ctx *ctx)
   return ART_E_ERROR;
 }
 #endif
+
+/* First looks of the mfi->path is in any playlist, and if so looks in the dir
+ * of the playlist file (m3u et al) to see if there is any artwork. So if the
+ * playlist is /foo/bar.m3u it will look for /foo/bar.png and /foo/bar.jpg.
+ */
+static int
+source_item_ownpl_get(struct artwork_ctx *ctx)
+{
+  struct query_params qp;
+  struct db_playlist_info dbpli;
+  char filter[PATH_MAX + 64];
+  char *mfi_path;
+  int format;
+  int ret;
+
+  ret = snprintf(filter, sizeof(filter), "(filepath = '%s')", ctx->dbmfi->path);
+  if ((ret < 0) || (ret >= sizeof(filter)))
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", ctx->dbmfi->path);
+      return ART_E_ERROR;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_FIND_PL;
+  qp.filter = filter;
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not start ownpl query\n");
+      return ART_E_ERROR;
+    }
+
+  mfi_path = ctx->dbmfi->path;
+
+  format = ART_E_NONE;
+  while (((ret = db_query_fetch_pl(&qp, &dbpli, 1)) == 0) && (dbpli.id) && (format == ART_E_NONE))
+    {
+      if (!dbpli.path)
+	continue;
+
+      ctx->dbmfi->path = dbpli.path;
+      format = source_item_own_get(ctx);
+    }
+
+  ctx->dbmfi->path = mfi_path;
+
+  if ((ret < 0) || (format < 0))
+    format = ART_E_ERROR;
+
+  db_query_end(&qp);
+
+  return format;
+}
 
 
 /* --------------------------- SOURCE PROCESSING --------------------------- */
