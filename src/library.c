@@ -689,6 +689,21 @@ library_is_exiting()
   return scan_exit;
 }
 
+/*
+ * Execute the function 'func' with the given argument 'arg' in the library thread.
+ *
+ * The pointer passed as argument is freed in the library thread after func returned.
+ *
+ * @param func The function to be executed
+ * @param arg Argument passed to func
+ * @return 0 if triggering the function execution succeeded, -1 on failure.
+ */
+int
+library_exec_async(command_function func, void *arg)
+{
+  return commands_exec_async(cmdbase, func, arg);
+}
+
 static void *
 library(void *arg)
 {

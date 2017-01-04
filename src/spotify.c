@@ -413,6 +413,9 @@ fptr_assign_all()
 // End of ugly part
 
 
+static enum command_state
+scan_webapi(void *arg, int *ret);
+
 /* ------------------------------- MISC HELPERS ---------------------------- */
 
 static int
@@ -1993,7 +1996,8 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
   // Received a valid access token
   spotify_access_token_valid = true;
 
-  // TODO Trigger init-scan after successful access to spotifywebapi
+  // Trigger scan after successful access to spotifywebapi
+  library_exec_async(scan_webapi, NULL);
 
   evbuffer_add_printf(evbuf, "ok, all done</p>\n");
 
@@ -2310,6 +2314,14 @@ static int
 fullrescan()
 {
   return 0;
+}
+
+/* Thread: httpd */
+static enum command_state
+scan_webapi(void *arg, int *ret)
+{
+  *ret = rescan();
+  return COMMAND_END;
 }
 
 /* Thread: main */

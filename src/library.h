@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "commands.h"
 #include "db.h"
 
 /*
@@ -87,6 +88,9 @@ library_set_scanning(bool is_scanning);
 
 bool
 library_is_exiting();
+
+int
+library_exec_async(command_function func, void *arg);
 
 int
 library_init();
