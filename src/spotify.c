@@ -158,6 +158,11 @@ static enum spotify_state g_state;
 static int spotify_base_plid;
 // Flag telling us if access to the web api was granted
 static bool spotify_access_token_valid;
+// The base playlist id for Spotify saved tracks in the db
+static int spotify_saved_plid;
+
+// Flag to avoid triggering playlist change events while the (re)scan is running
+static bool scanning;
 
 // Audio fifo
 static audio_fifo_t *g_audio_fifo;
@@ -414,7 +419,11 @@ fptr_assign_all()
 
 
 static enum command_state
-scan_webapi(void *arg, int *ret);
+webapi_scan(void *arg, int *ret);
+static enum command_state
+webapi_pl_save(void *arg, int *ret);
+static enum command_state
+webapi_pl_remove(void *arg, int *ret);
 
 /* ------------------------------- MISC HELPERS ---------------------------- */
 
@@ -947,6 +956,33 @@ uri_register(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static void
+webapi_playlist_updated(sp_playlist *pl)
+{
+  sp_link *link;
+  char url[1024];
+  int ret;
+
+  if (!scanning)
+    {
+      // Run playlist save in the library thread
+      link = fptr_sp_link_create_from_playlist(pl);
+      if (!link)
+        {
+	  DPRINTF(E_LOG, L_SPOTIFY, "Could not create link for playlist: '%s'\n", fptr_sp_playlist_name(pl));
+	  return;
+	}
+
+      ret = fptr_sp_link_as_string(link, url, sizeof(url));
+      if (ret == sizeof(url))
+        {
+	  DPRINTF(E_DBG, L_SPOTIFY, "Spotify link truncated: %s\n", url);
+	}
+      fptr_sp_link_release(link);
+
+      library_exec_async(webapi_pl_save, strdup(url));
+    }
+}
 
 /* --------------------------  PLAYLIST CALLBACKS  ------------------------- */
 /**
@@ -966,8 +1002,14 @@ static void playlist_update_in_progress(sp_playlist *pl, bool done, void *userda
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Playlist update (status %d): %s\n", done, fptr_sp_playlist_name(pl));
 
-      if (!spotify_access_token_valid) // TODO Trigger update of library on pl change
-	spotify_playlist_save(pl);
+      if (spotify_access_token_valid)
+        {
+	  webapi_playlist_updated(pl);
+	}
+      else
+        {
+	  spotify_playlist_save(pl);
+	}
     }
 }
 
@@ -975,8 +1017,15 @@ static void playlist_metadata_updated(sp_playlist *pl, void *userdata)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Playlist metadata updated: %s\n", fptr_sp_playlist_name(pl));
 
-  if (!spotify_access_token_valid) // TODO Trigger update of library on pl change
-    spotify_playlist_save(pl);
+  if (spotify_access_token_valid)
+    {
+      //TODO Update disabled to prevent multiple triggering of updates e. g. on adding a playlist
+      //webapi_playlist_updated(pl);
+    }
+  else
+    {
+      spotify_playlist_save(pl);
+    }
 }
 
 /**
@@ -1006,8 +1055,37 @@ static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
 
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
-  if (!spotify_access_token_valid) // TODO Trigger update of library on pl change
-    spotify_playlist_save(pl);
+  if (spotify_access_token_valid)
+    {
+      webapi_playlist_updated(pl);
+    }
+  else
+    {
+      spotify_playlist_save(pl);
+    }
+}
+
+static int
+playlist_remove(const char *uri)
+{
+  struct playlist_info *pli;
+  int plid;
+
+  pli = db_pl_fetch_bypath(uri);
+
+  if (!pli)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Playlist %s not found, can't delete\n", uri);
+      return -1;
+    }
+
+  plid = pli->id;
+
+  free_pli(pli, 0);
+
+  db_spotify_pl_delete(plid);
+  spotify_cleanup_files();
+  return 0;
 }
 
 /**
@@ -1023,18 +1101,13 @@ static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
 static void
 playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl, int position, void *userdata)
 {
-  struct playlist_info *pli;
   sp_link *link;
   char url[1024];
-  int plid;
   int ret;
 
   DPRINTF(E_INFO, L_SPOTIFY, "Playlist removed: %s\n", fptr_sp_playlist_name(pl));
 
   fptr_sp_playlist_remove_callbacks(pl, &pl_callbacks, NULL);
-
-  if (spotify_access_token_valid) // TODO Trigger update of library on pl change
-    return;
 
   link = fptr_sp_link_create_from_playlist(pl);
   if (!link)
@@ -1050,21 +1123,16 @@ playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl, int position, void *
     }
   fptr_sp_link_release(link);
 
-  pli = db_pl_fetch_bypath(url);
-
-  if (!pli)
+  if (spotify_access_token_valid)
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Playlist %s not found, can't delete\n", url);
-      return;
+      // Run playlist remove in the library thread
+      if (!scanning)
+	library_exec_async(webapi_pl_remove, strdup(url));
     }
-
-  plid = pli->id;
-
-  free_pli(pli, 0);
-
-  db_spotify_pl_delete(plid);
-
-  spotify_cleanup_files();
+  else
+    {
+      playlist_remove(url);
+    }
 }
 
 /**
@@ -1997,7 +2065,7 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
   spotify_access_token_valid = true;
 
   // Trigger scan after successful access to spotifywebapi
-  library_exec_async(scan_webapi, NULL);
+  library_exec_async(webapi_scan, NULL);
 
   evbuffer_add_printf(evbuf, "ok, all done</p>\n");
 
@@ -2140,6 +2208,9 @@ scan_saved_albums()
 		  cache_artwork_ping(track.uri, album.mtime, 0);
 
 		  free_mfi(&mfi, 1);
+
+		  if (spotify_saved_plid)
+		    db_pl_add_item_bypath(spotify_saved_plid, track.uri);
 		}
 	    }
 	}
@@ -2224,8 +2295,10 @@ scan_playlists()
 
 	  plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
 
-	  if (plid)
+	  if (plid > 0)
 	    scan_playlisttracks(&playlist, plid);
+	  else
+	    DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
 	}
     }
 
@@ -2237,10 +2310,64 @@ scan_playlists()
 
 /* Thread: library */
 static int
+scan_playlist(const char *uri)
+{
+  struct spotify_request request;
+  struct spotify_playlist playlist;
+  char virtual_path[PATH_MAX];
+  int plid;
+
+  db_transaction_begin();
+
+  memset(&request, 0, sizeof(struct spotify_request));
+
+  if (0 == spotifywebapi_playlist_start(&request, uri, &playlist))
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+      if (playlist.owner)
+	{
+	  snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", playlist.name, playlist.owner);
+	}
+      else
+	{
+	  snprintf(virtual_path, PATH_MAX, "/spotify:/%s", playlist.name);
+	}
+
+      plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
+
+      if (plid > 0)
+	scan_playlisttracks(&playlist, plid);
+      else
+	DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+    }
+
+  spotifywebapi_request_end(&request);
+  db_transaction_end();
+
+  return 0;
+}
+
+static void
+create_saved_tracks_playlist()
+{
+  spotify_saved_plid = library_add_playlist_info("spotify:savedtracks", "Spotify Saved", "/spotify:/Spotify Saved", PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
+
+  if (spotify_saved_plid <= 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist for saved tracks\n");
+      spotify_saved_plid = 0;
+    }
+}
+
+/* Thread: library */
+static int
 initscan()
 {
   cfg_t *spotify_cfg;
   int ret;
+
+  scanning = true;
 
   /* Refresh access token for the spotify webapi */
   spotify_access_token_valid = (0 == spotifywebapi_token_refresh());
@@ -2257,6 +2384,7 @@ initscan()
    * Add playlist folder for all spotify playlists
    */
   spotify_base_plid = 0;
+  spotify_saved_plid = 0;
   spotify_cfg = cfg_getsec(cfg, "spotify");
   if (! cfg_getbool(spotify_cfg, "base_playlist_disable"))
     {
@@ -2278,9 +2406,12 @@ initscan()
    */
   if (spotify_access_token_valid)
     {
+      create_saved_tracks_playlist();
       scan_saved_albums();
       scan_playlists();
     }
+
+  scanning = false;
 
   return 0;
 }
@@ -2289,11 +2420,14 @@ initscan()
 static int
 rescan()
 {
+  scanning = true;
+
   /*
    * Scan saved tracks from the web api
    */
   if (spotify_access_token_valid)
     {
+      create_saved_tracks_playlist();
       scan_saved_albums();
       scan_playlists();
     }
@@ -2306,6 +2440,8 @@ rescan()
       db_transaction_end();
     }
 
+  scanning = false;
+
   return 0;
 }
 
@@ -2316,11 +2452,31 @@ fullrescan()
   return 0;
 }
 
-/* Thread: httpd */
+/* Thread: library */
 static enum command_state
-scan_webapi(void *arg, int *ret)
+webapi_scan(void *arg, int *ret)
 {
   *ret = rescan();
+  return COMMAND_END;
+}
+
+/* Thread: library */
+static enum command_state
+webapi_pl_save(void *arg, int *ret)
+{
+  const char *uri = arg;
+
+  *ret = scan_playlist(uri);
+  return COMMAND_END;
+}
+
+/* Thread: library */
+static enum command_state
+webapi_pl_remove(void *arg, int *ret)
+{
+  const char *uri = arg;
+
+  *ret = playlist_remove(uri);
   return COMMAND_END;
 }
 
@@ -2334,6 +2490,7 @@ spotify_init(void)
   int ret;
 
   spotify_access_token_valid = false;
+  scanning = false;
 
   /* Initialize libspotify */
   g_libhandle = dlopen("libspotify.so", RTLD_LAZY);

@@ -121,6 +121,7 @@ int
 spotifywebapi_playlists_fetch(struct spotify_request *request, struct spotify_playlist* playlist);
 int
 spotifywebapi_playlisttracks_fetch(struct spotify_request *request, struct spotify_track *track);
-
+int
+spotifywebapi_playlist_start(struct spotify_request *request, const char *path, struct spotify_playlist *playlist);
 
 #endif /* SRC_SPOTIFY_WEBAPI_H_ */

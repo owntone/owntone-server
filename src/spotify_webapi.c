@@ -50,6 +50,7 @@ static const char *spotify_client_id     = "0e684a5422384114a8ae7ac020f01789";
 static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
+static const char *spotify_playlist_uri	 = "https://api.spotify.com/v1/users/%s/playlists/%s";
 
 
 /*--------------------- HELPERS FOR SPOTIFY WEB API -------------------------*/
@@ -690,14 +691,63 @@ spotifywebapi_playlists_fetch(struct spotify_request *request, struct spotify_pl
 
   if (request->index >= request->count)
     {
+      DPRINTF(E_DBG, L_SPOTIFY, "All playlists processed\n");
       return -1;
     }
 
   jsonplaylist = json_object_array_get_idx(request->items, request->index);
+  if (!jsonplaylist)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error fetching playlist at index '%d'\n", request->index);
+      return -1;
+    }
 
   playlist_metadata(jsonplaylist, playlist);
-
   request->index++;
+
+  return 0;
+}
+
+/*
+ * Extracts the owner and the id from a spotify playlist uri
+ *
+ * Playlist-uri has the following format: spotify:user:[owner]:playlist:[id]
+ * Owner and plid must be freed by the caller.
+ */
+static int
+get_owner_plid_from_uri(const char *uri, char **owner, char **plid)
+{
+  char *ptr1;
+  char *ptr2;
+  char *tmp;
+  size_t len;
+
+  ptr1 = strchr(uri, ':');
+  if (!ptr1)
+    return -1;
+  ptr1++;
+  ptr1 = strchr(ptr1, ':');
+  if (!ptr1)
+    return -1;
+  ptr1++;
+  ptr2 = strchr(ptr1, ':');
+
+  len = ptr2 - ptr1;
+
+  tmp = malloc(sizeof(char) * (len + 1));
+  strncpy(tmp, ptr1, len);
+  tmp[len] = '\0';
+  *owner = tmp;
+
+  ptr2++;
+  ptr1 = strchr(ptr2, ':');
+  if (!ptr1)
+    {
+      free(tmp);
+      return -1;
+    }
+  ptr1++;
+  *plid = strdup(ptr1);
 
   return 0;
 }
@@ -731,3 +781,44 @@ spotifywebapi_playlisttracks_fetch(struct spotify_request *request, struct spoti
 
   return 0;
 }
+
+int
+spotifywebapi_playlist_start(struct spotify_request *request, const char *path, struct spotify_playlist *playlist)
+{
+  char uri[1024];
+  char *owner;
+  char *id;
+  int ret;
+
+  ret = get_owner_plid_from_uri(path, &owner, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting owner and id from playlist uri '%s'\n", path);
+      return -1;
+    }
+
+  ret = snprintf(uri, sizeof(uri), spotify_playlist_uri, owner, id);
+  if (ret < 0 || ret >= sizeof(uri))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error creating playlist endpoint uri for playlist '%s'\n", path);
+      free(owner);
+      free(id);
+      return -1;
+    }
+
+  ret = spotifywebapi_request_uri(request, uri);
+  if (ret < 0)
+    {
+      free(owner);
+      free(id);
+      return -1;
+    }
+
+  request->haystack = json_tokener_parse(request->response_body);
+  playlist_metadata(request->haystack, playlist);
+
+  free(owner);
+  free(id);
+  return 0;
+}
+
