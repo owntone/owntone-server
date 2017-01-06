@@ -372,7 +372,7 @@ spotifywebapi_token_refresh()
   return ret;
 }
 
-int
+static int
 spotifywebapi_request_uri(struct spotify_request *request, const char *uri)
 {
   char bearer_token[1024];
@@ -508,73 +508,6 @@ track_metadata(json_object* jsontrack, struct spotify_track* track)
   track->track_number = jparse_int_from_obj(jsontrack, "track_number");
   track->uri = jparse_str_from_obj(jsontrack, "uri");
   track->id = jparse_str_from_obj(jsontrack, "id");
-}
-
-int
-spotifywebapi_saved_tracks_fetch(struct spotify_request *request, struct spotify_track *track)
-{
-  json_object *item;
-  json_object *jsontrack;
-
-  memset(track, 0, sizeof(struct spotify_track));
-
-  if (request->index >= request->count)
-    {
-      return -1;
-    }
-
-  item = json_object_array_get_idx(request->items, request->index);
-  if (!(item && json_object_object_get_ex(item, "track", &jsontrack)))
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: Item %d did not have 'track'->'uri'\n", request->index);
-      request->index++;
-      return -1;
-    }
-
-  track_metadata(jsontrack, track);
-  track->added_at = jparse_str_from_obj(item, "added_at");
-//  if (track->added_at)
-//    strptime("%Y-%m-%dT%H:%M:%SZ");
-
-  request->index++;
-
-  return 0;
-}
-
-int
-spotifywebapi_track(const char *path, struct spotify_track *track)
-{
-//  char uri[1024];
-//  struct http_client_ctx *ctx;
-//  char *response_body;
-//  json_object *haystack;
-//
-//  memset(track, 0, sizeof(struct spotify_track));
-//
-//  if (strlen(path) < 15) // spotify:track:3RZwWEcQHD0Sy1hN1xNYeh
-//    return -1;
-//
-//  snprintf(uri, sizeof(uri), "%s%s", spotify_track_uri, (path + 14));
-//  ctx = request_uri(uri);
-//
-//  if (!ctx)
-//    return -1;
-//
-//  response_body = (char *) evbuffer_pullup(ctx->input_body, -1);
-//  if (!response_body || (strlen(response_body) == 0))
-//    {
-//      DPRINTF(E_LOG, L_SPOTIFY, "Request for track failed, response was empty");
-//      http_client_ctx_free(ctx);
-//      return -1;
-//    }
-//
-//  haystack = json_tokener_parse(response_body);
-//  track_metadata(haystack, track);
-//
-//  http_client_ctx_free(ctx);
-//  jparse_free(haystack);
-
-  return 0;
 }
 
 void

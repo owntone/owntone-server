@@ -31,8 +31,6 @@
 
 #include "http.h"
 
-#define SPOTIFY_WEBAPI_SAVED_TRACKS "https://api.spotify.com/v1/me/tracks?limit=50"
-#define SPOTIFY_WEBAPI_TRACKS "https://api.spotify.com/v1/tracks/"
 #define SPOTIFY_WEBAPI_SAVED_ALBUMS "https://api.spotify.com/v1/me/albums?limit=50"
 #define SPOTIFY_WEBAPI_SAVED_PLAYLISTS "https://api.spotify.com/v1/me/playlists?limit=50"
 
@@ -103,16 +101,10 @@ spotifywebapi_token_get(const char *code, const char *redirect_uri, const char *
 int
 spotifywebapi_token_refresh();
 
-int
-spotifywebapi_request_uri(struct spotify_request *request, const char *uri);
 void
 spotifywebapi_request_end(struct spotify_request *request);
 int
 spotifywebapi_request_next(struct spotify_request *request, const char *uri);
-int
-spotifywebapi_saved_tracks_fetch(struct spotify_request *request, struct spotify_track *track);
-int
-spotifywebapi_track(const char *path, struct spotify_track *track);
 int
 spotifywebapi_saved_albums_fetch(struct spotify_request *request, json_object **jsontracks, int *track_count, struct spotify_album *album);
 int
