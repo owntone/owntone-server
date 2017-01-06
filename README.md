@@ -323,6 +323,9 @@ configuration file. Here you can also enable/disable support for individual
 file artwork (instead of using the same artwork for all tracks in an entire
 album).
 
+For playlists in your library, say /foo/bar.m3u, then for any http streams in
+the list, forked-daapd will look for /foo/bar.{jpg,png}.
+
 You can use symlinks for the artwork files.
 
 forked-daapd caches artwork in a separate cache file. The default path is 
