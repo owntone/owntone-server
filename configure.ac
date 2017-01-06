@@ -65,15 +65,17 @@ AC_SEARCH_LIBS([timer_settime], [rt], [],
 
 AC_SEARCH_LIBS([pthread_exit], [pthread], [],
 	[AC_MSG_ERROR([[pthreads library is required]])])
-dnl Validate pthread_setname_np with 2 args (some have 1)
-AC_MSG_CHECKING([[for pthread_setname_np]])
-AC_TRY_LINK([@%:@include <pthread.h>],
-	[pthread_setname_np(pthread_self(), "name");],
-	[AC_MSG_RESULT([yes])
-	AC_DEFINE([HAVE_PTHREAD_SETNAME_NP], 1,
-		[Define to 1 if you have pthread_setname_np])],
-	[AC_MSG_RESULT([[no]])])
-AC_CHECK_FUNCS([pthread_set_name_np])
+AC_SEARCH_LIBS([pthread_setname_np], [pthread],
+	[dnl Validate pthread_setname_np with 2 args (some have 1)
+	 AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
+	 AC_TRY_LINK([@%:@include <pthread.h>],
+		[pthread_setname_np(pthread_self(), "name");],
+		[AC_MSG_RESULT([yes])
+		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP], 1,
+			[Define to 1 if you have pthread_setname_np])],
+		[AC_MSG_RESULT([[no]])])],
+	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
+		[AC_CHECK_FUNCS([pthread_set_name_np])])])
 
 dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
