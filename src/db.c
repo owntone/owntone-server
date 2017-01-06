@@ -781,7 +781,8 @@ db_purge_cruft(time_t ref)
 void
 db_purge_all(void)
 {
-#define Q_TMPL "DELETE FROM playlists WHERE type <> %d;"
+#define Q_TMPL_PL "DELETE FROM playlists WHERE type <> %d;"
+#define Q_TMPL_DIR "DELETE FROM directories WHERE id >= %d;"
   char *queries[4] =
     {
       "DELETE FROM inotify;",
@@ -809,7 +810,8 @@ db_purge_all(void)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
 
-  query = sqlite3_mprintf(Q_TMPL, PL_SPECIAL);
+  // Purge playlists
+  query = sqlite3_mprintf(Q_TMPL_PL, PL_SPECIAL);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -829,7 +831,31 @@ db_purge_all(void)
     DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
 
   sqlite3_free(query);
-#undef Q_TMPL
+
+  // Purge directories
+  query = sqlite3_mprintf(Q_TMPL_DIR, DIR_MAX);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Purge query '%s' error: %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+  else
+    DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+
+  sqlite3_free(query);
+
+#undef Q_TMPL_PL
+#undef Q_TMPL_DIR
 }
 
 static int
