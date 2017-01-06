@@ -31,7 +31,7 @@ dnl with working CPPFLAGS/LIBS for additional checks.  DESCRIPTION used as
 dnl friendly name in error messages to help user identify software.
 dnl Restores original CPPFLAGS and LIBS when done. Expands
 dnl ACTION-IF-NOT-FOUND if ENV_* not set, and FUNCTION in LIBRARY not
-dnl found overriding default error. (NOTE: default must be empty to get error)
+dnl found overriding default error.
 AC_DEFUN([FORK_LIB_REQUIRE],
 [AS_VAR_PUSHDEF([FORK_MSG], [fork_msg_$3])
  AC_ARG_VAR([$3_CFLAGS], [C compiler flags for $2, overriding search])
@@ -55,7 +55,8 @@ and $3_LIBS."]])
 			 $1_LIBS="-l$4 $][$1_LIBS"]
 			 AC_TRY_LINK_FUNC([[$5]], [AC_MSG_RESULT([[-l$4]])],
 				[AC_MSG_RESULT([[no]])
-				 m4_default([$8], [AC_MSG_FAILURE([[Function $5 in lib$4 not found.$]FORK_MSG])])])
+				 m4_default_nblank([$8],
+				 	[AC_MSG_FAILURE([[Function $5 in lib$4 not found.$]FORK_MSG])])])
 			])
 		])
 	])
@@ -74,8 +75,7 @@ dnl FUNCTION and include HEADER.  Appends working package values to
 dnl TARGET_CPPFLAGS and TARGET_LIBS. Expands optional ACTION-IF-FOUND with
 dnl working CPPFLAGS/LIBS for additional checks.  Expands
 dnl ACTION-IF-NOT-FOUND only if package not found (not link/include failures)
-dnl overriding default error. (NOTE: default must be empty to get error!)
-dnl Restores original CPPFLAGS and LIBS when done.
+dnl overriding default error.  Restores original CPPFLAGS and LIBS when done.
 AC_DEFUN([FORK_MODULES_CHECK],
 [PKG_CHECK_MODULES([$2], [[$3]],
 	[[save_$2_LIBS=$LIBS; save_$2_CPPFLAGS=$CPPFLAGS]
@@ -85,7 +85,8 @@ AC_DEFUN([FORK_MODULES_CHECK],
 	 m4_ifval([$5], [AC_CHECK_HEADER([[$5]], [],
 		[AC_MSG_ERROR([[Unable to find header $5]])])])
 	 $6
-	 [LIBS=$save_$2_LIBS; CPPFLAGS=$save_$2_CPPFLAGS]], [$7])
+	 [LIBS=$save_$2_LIBS; CPPFLAGS=$save_$2_CPPFLAGS]],
+	 m4_default_nblank_quoted([$7]))
 ])
 
 dnl FORK_ARG_WITH_CHECK(TARGET, DESCRIPTION, OPTION, ENV, MODULES, [FUNCTION],
@@ -96,9 +97,9 @@ dnl if they are available).  Expands FORK_MODULES_CHECK with remaining
 dnl arguments.  Defines HAVE_ENV to 1 if package found.  DESCRIPTION is used
 dnl in option help.  Shell variable with_OPTION set to yes before
 dnl ACTION-IF-FOUND.  Default ACTION-IF-NOT-FOUND will fail
-dnl if --with-OPTION given, and MODULES not found, or sets shell var
-dnl with_OPTION to no (setting NOT-FOUND overrides this behavior to allow
-dnl alternate checks).
+dnl if --with-OPTION given and MODULES not found, or sets shell var
+dnl with_OPTION to no if option was check.  A non-empty ACTION-IF-NOT-FOUND
+dnl overrides this behavior to allow alternate checks.
 AC_DEFUN([FORK_ARG_WITH_CHECK],
 [AC_ARG_WITH([[$3]], [AS_HELP_STRING([--with-$3],
 	[with $2 (default=check)])], [],
@@ -109,9 +110,10 @@ AC_DEFUN([FORK_ARG_WITH_CHECK],
 		 AC_DEFINE([HAVE_$4], 1,
 			[Define to 1 to build with $2])
 		 $8],
-		[m4_default([$9], [AS_IF([[test "x$with_$3" != "xcheck"]],
+		[m4_default_nblank([$9], [AS_IF([[test "x$with_$3" != "xcheck"]],
 			[AC_MSG_FAILURE([[--with-$3 was given, but test for $5 failed]])])
-			 [with_$3=no]])])dnl keep default empty!
+			 [with_$3=no]])
+		])
 	])
 ])
 

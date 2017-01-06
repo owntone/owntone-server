@@ -18,10 +18,10 @@ AC_PROG_SED
 AC_PROG_MKDIR_P
 LT_INIT([disable-static])
 
-AC_PATH_PROG([GPERF], [gperf])
+AC_PATH_PROG([GPERF], [[gperf]])
 AS_IF([[test -z "$GPERF"]],
 	[AS_IF([[test -f "$srcdir/src/dmap_fields_hash.h"]],
-		[AM_MISSING_PROG([GPERF], [gperf])
+		[AM_MISSING_PROG([GPERF], [[gperf]])
 		AC_MSG_NOTICE([[
 
 GNU gperf not found, but it's output appears to be present.
@@ -30,11 +30,10 @@ to install it.]])],
 		[AC_MSG_ERROR([[GNU gperf required, please install it.]])])
 	])
 
-AC_DEFUN([antlr3], [FAIL_TEST])
-AC_PATH_PROG([ANTLR], [antlr3])
+AC_PATH_PROG([ANTLR], [[antlr3]])
 AS_IF([[test -z "$ANTLR"]],
 	[AS_IF([[test -f "$srcdir/src/SMARTPLLexer.h"]],
-		[AM_MISSING_PROG([ANTLR], [antlr3])
+		[AM_MISSING_PROG([ANTLR], [[antlr3]])
 		AC_MSG_NOTICE([[
 
 antlr3 not found, but it's output appears to be present.
@@ -250,7 +249,7 @@ FORK_ARG_ENABLE([LastFM support], [lastfm], [LASTFM],
 AM_CONDITIONAL([COND_LASTFM], [[test "x$enable_lastfm" = "xyes"]])
 
 dnl ChromeCast support with libprotobuf-c
-FORK_ARG_ENABLE([ChromeCast support], [chromecast], [CHROMECAST],
+FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 	[AS_IF([[test "x$with_json" = "xno"]],
 		[AC_MSG_ERROR([[Chromecast support requires json-c]])])
 	 FORK_MODULES_CHECK([FORKED], [LIBPROTOBUF_C],
