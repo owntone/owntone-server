@@ -1530,7 +1530,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int w
       return -1;
     }
 
-  if (qp->type != Q_PL)
+  if ((qp->type != Q_PL) && (qp->type != Q_FIND_PL))
     {
       DPRINTF(E_LOG, L_DB, "Not a playlist query!\n");
       return -1;
