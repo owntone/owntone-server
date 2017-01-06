@@ -216,7 +216,7 @@ param_sign(struct keyval *kv)
 }
 
 /* For compability with mxml 2.6 */
-#ifndef HAVE_MXML_GETOPAQUE
+#ifndef HAVE_MXMLGETOPAQUE
 const char *				/* O - Opaque string or NULL */
 mxmlGetOpaque(mxml_node_t *node)	/* I - Node to get */
 {

@@ -39,7 +39,7 @@
 
 #ifdef HAVE_SIGNALFD
 # include <sys/signalfd.h>
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#else
 # include <sys/time.h>
 # include <sys/event.h>
 #endif
@@ -374,7 +374,7 @@ signal_signalfd_cb(int fd, short event, void *arg)
     event_add(sig_event, NULL);
 }
 
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#else
 
 static void
 signal_kqueue_cb(int fd, short event, void *arg)
@@ -468,7 +468,7 @@ main(int argc, char **argv)
   const char *gcry_version;
   sigset_t sigs;
   int sigfd;
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#ifdef HAVE_KQUEUE
   struct kevent ke_sigs[4];
 #endif
   int ret;
@@ -607,14 +607,14 @@ main(int argc, char **argv)
 #ifdef MPD
   strcat(buildopts, " --enable-mpd");
 #endif
-#ifdef ALSA
+#ifdef HAVE_ALSA
   strcat(buildopts, " --with-alsa");
 #endif
-#ifdef PULSEAUDIO
+#ifdef HAVE_LIBPULSE
   strcat(buildopts, " --with-pulseaudio");
 #endif
 
-  DPRINTF(E_LOG, L_MAIN, "Built %s with:%s\n", BUILDDATE, buildopts);
+  DPRINTF(E_LOG, L_MAIN, "Built %s with:%s\n", __DATE__, buildopts);
 
   ret = av_lockmgr_register(ffmpeg_lockmgr);
   if (ret < 0)
@@ -825,7 +825,7 @@ main(int argc, char **argv)
     }
 
   sig_event = event_new(evbase_main, sigfd, EV_READ, signal_signalfd_cb, NULL);
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#else
   sigfd = kqueue();
   if (sigfd < 0)
     {

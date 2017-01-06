@@ -59,22 +59,8 @@ ANTLR_SRC = \
 	SMARTPL2SQL.c SMARTPL2SQL.h
 
 AM_CPPFLAGS += \
-	$(ZLIB_CFLAGS) \
-	$(AVAHI_CFLAGS) \
-	$(SQLITE3_CFLAGS) \
-	$(LIBAV_CFLAGS) \
-	$(CONFUSE_CFLAGS) \
-	$(MINIXML_CFLAGS) \
-	$(LIBPLIST_CFLAGS) \
-	$(SPOTIFY_CFLAGS) \
-	$(LIBGCRYPT_CFLAGS) \
-	$(GPG_ERROR_CFLAGS) \
-	$(ALSA_CFLAGS) \
-	$(LIBPULSE_CFLAGS) \
-	$(LIBCURL_CFLAGS) \
-	$(LIBPROTOBUF_C_CFLAGS) \
-	$(GNUTLS_CFLAGS) \
-	$(JSON_C_CFLAGS) \
+	$(FORKED_CPPFLAGS) \
+	$(COMMON_CPPFLAGS) \
 	\
 	-D_GNU_SOURCE \
 	-DDATADIR=\"$(pkgdatadir)\" \
@@ -82,26 +68,9 @@ AM_CPPFLAGS += \
 	-DSTATEDIR=\"$(localstatedir)\" \
 	-DPKGLIBDIR=\"$(pkglibdir)\"
 
-forked_daapd_LDADD = -lrt \
-	$(ZLIB_LIBS) \
-	$(AVAHI_LIBS) \
-	$(SQLITE3_LIBS) \
-	$(LIBAV_LIBS) \
-	$(CONFUSE_LIBS) \
-	$(LIBEVENT_LIBS) \
-	$(LIBUNISTRING) \
-	$(MINIXML_LIBS) \
-	$(ANTLR3C_LIBS) \
-	$(LIBPLIST_LIBS) \
-	$(SPOTIFY_LIBS) \
-	$(LIBGCRYPT_LIBS) \
-	$(GPG_ERROR_LIBS) \
-	$(ALSA_LIBS) \
-	$(LIBPULSE_LIBS) \
-	$(LIBCURL_LIBS) \
-	$(LIBPROTOBUF_C_LIBS) \
-	$(GNUTLS_LIBS) \
-	$(JSON_C_LIBS)
+forked_daapd_LDADD = \
+	$(FORKED_LIBS) \
+	$(COMMON_LIBS)
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
@@ -170,7 +139,7 @@ EXTRA_DIST = \
 # ANTLR dependency files (bypass circular dependency of .g on .tokens)
 %.u: %.g
 	$(AM_V_GEN)$(ANTLR) -depend -fo . $< > $@
-	$(AM_V_at)sed -n -e '/^.*\.g[ ]*:\(.*\)/ { s//\1/;h;d; }' -e '/\.tokens.*:/ { p;d; }' -e '/:/ { G;s/\n/ /;p; }' $@ > $@-t
+	$(AM_V_at)$(SED) -n -e '/^.*\.g[ ]*:\(.*\)/ { s//\1/;h;d; }' -e '/\.tokens.*:/ { p;d; }' -e '/:/ { G;s/\n/ /;p; }' $@ > $@-t
 	$(AM_V_at)mv $@-t $@
 
 -include $(ANTLR_DEPS)

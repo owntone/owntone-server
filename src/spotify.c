@@ -43,12 +43,7 @@
 
 #include <dlfcn.h>
 #include <libspotify/api.h>
-
-#ifdef HAVE_JSON_C_OLD
-# include <json/json.h>
-#else
-# include <json-c/json.h>
-#endif
+#include <json.h>
 
 #include "spotify.h"
 #include "logger.h"

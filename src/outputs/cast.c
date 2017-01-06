@@ -30,18 +30,19 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <net/if.h>
+#include <netinet/in.h>
 #include <ifaddrs.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <endian.h>
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif defined(HAVE_SYS_ENDIAN_H)
+# include <sys/endian.h>
+#endif
 #include <gnutls/gnutls.h>
 #include <event2/event.h>
-
-#ifdef HAVE_JSON_C_OLD
-# include <json/json.h>
-#else
-# include <json-c/json.h>
-#endif
+#include <json.h>
 
 #include "conffile.h"
 #include "mdns.h"
@@ -368,7 +369,11 @@ tcp_connect(const char *address, unsigned int port, int family)
 
   // TODO Open non-block right away so we don't block the player while connecting
   // and during TLS handshake (we would probably need to introduce a deferredev)
+#ifdef SOCK_CLOEXEC
   fd = socket(family, SOCK_STREAM | SOCK_CLOEXEC, 0);
+#else
+  fd = socket(family, SOCK_STREAM, 0);
+#endif
   if (fd < 0)
     {
       DPRINTF(E_LOG, L_CAST, "Could not create socket: %s\n", strerror(errno));

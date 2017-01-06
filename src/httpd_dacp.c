@@ -32,8 +32,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
-# define USE_EVENTFD
+#ifdef HAVE_EVENTFD
 # include <sys/eventfd.h>
 #endif
 
@@ -140,7 +139,7 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query);
 
 
 /* Play status update */
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
 static int update_efd;
 #else
 static int update_pipe[2];
@@ -322,7 +321,7 @@ playstatusupdate_cb(int fd, short what, void *arg)
   size_t len;
   int ret;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   eventfd_t count;
 
   ret = eventfd_read(update_efd, &count);
@@ -406,7 +405,7 @@ dacp_playstatus_update_handler(enum listener_event_type type)
   if (type != LISTENER_PLAYER)
     return;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   ret = eventfd_write(update_efd, 1);
   if (ret < 0)
     DPRINTF(E_LOG, L_DACP, "Could not send status update event: %s\n", strerror(errno));
@@ -2728,7 +2727,7 @@ dacp_init(void)
   current_rev = 2;
   update_requests = NULL;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   update_efd = eventfd(0, EFD_CLOEXEC);
   if (update_efd < 0)
     {
@@ -2748,7 +2747,7 @@ dacp_init(void)
 
       return -1;
     }
-#endif /* USE_EVENTFD */
+#endif /* HAVE_EVENTFD */
 
   for (i = 0; dacp_handlers[i].handler; i++)
     {
@@ -2762,7 +2761,7 @@ dacp_init(void)
         }
     }
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   updateev = event_new(evbase_httpd, update_efd, EV_READ, playstatusupdate_cb, NULL);
 #else
   updateev = event_new(evbase_httpd, update_pipe[0], EV_READ, playstatusupdate_cb, NULL);
@@ -2788,7 +2787,7 @@ dacp_init(void)
   return 0;
 
  regexp_fail:
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   close(update_efd);
 #else
   close(update_pipe[0]);
@@ -2827,7 +2826,7 @@ dacp_deinit(void)
 
   event_free(updateev);
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   close(update_efd);
 #else
   close(update_pipe[0]);

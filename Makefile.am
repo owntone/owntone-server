@@ -32,7 +32,7 @@ install-data-hook:
 
 CLEANFILES = $(BUILT_SOURCES)
 
-do_subst = sed -e 's|@sbindir[@]|$(sbindir)|g' \
+do_subst = $(SED) -e 's|@sbindir[@]|$(sbindir)|g' \
              -e 's|@localstatedir[@]|$(localstatedir)|g' \
              -e 's|@PACKAGE[@]|$(PACKAGE)|g' \
              -e 's|@DAAPD_USER[@]|$(DAAPD_USER)|g'

@@ -18,7 +18,7 @@
 Summary: iTunes-compatible DAAP server with MPD and RSP support
 Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
-Release: @RPM_RELEASE@%{?dist}
+Release: 1%{?dist}
 License: GPLv2+
 Group: Applications/Multimedia
 Url: https://github.com/ejurgensen/forked-daapd

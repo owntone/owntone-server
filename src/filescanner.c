@@ -113,14 +113,15 @@ static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
 static struct commands_base *cmdbase;
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#ifndef __linux__
 struct deferred_file
 {
   struct watch_info wi;
-  struct inotify_event ie;
   char path[PATH_MAX];
 
   struct deferred_file *next;
+  /* variable sized, must be at the end */
+  struct inotify_event ie;
 };
 
 static struct deferred_file *filestack;
@@ -1059,9 +1060,9 @@ process_directory(char *path, int parent_id, int flags)
 
   // Add inotify watch (for FreeBSD we limit the flags so only dirs will be
   // opened, otherwise we will be opening way too many files)
-#if defined(__linux__)
+#ifdef __linux__
   wi.wd = inotify_add_watch(inofd, path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#else
   wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MOVE);
 #endif
   if (wi.wd < 0)
@@ -1252,7 +1253,7 @@ filescanner(void *arg)
 {
   int clear_queue_on_stop_disabled;
   int ret;
-#if defined(__linux__)
+#ifdef __linux__
   struct sched_param param;
 
   /* Lower the priority of the thread so forked-daapd may still respond
@@ -1716,9 +1717,10 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
     }
 }
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-/* Since FreeBSD doesn't really have inotify we only get a IN_CREATE. That is
- * a bit too soon to start scanning the file, so we defer it for 10 seconds.
+#ifndef __linux__
+/* Since kexec based inotify doesn't really have inotify we only get
+ * a IN_CREATE. That is a bit too soon to start scanning the file,
+ * so we defer it for 10 seconds.
  */
 static void
 inotify_deferred_cb(int fd, short what, void *arg)
@@ -1757,6 +1759,7 @@ process_inotify_file_defer(struct watch_info *wi, char *path, struct inotify_eve
   f = calloc(1, sizeof(struct deferred_file));
   f->wi = *wi;
   f->wi.path = strdup(wi->path);
+  /* ie->name not copied here, so don't use in process_inotify_* */
   f->ie = *ie;
   strcpy(f->path, path);
 
@@ -1868,9 +1871,9 @@ inotify_cb(int fd, short event, void *arg)
       if ((ie->mask & IN_ISDIR) || (ie->len == 0))
 	process_inotify_dir(&wi, path, ie);
       else
-#if defined(__linux__)
+#ifdef __linux__
 	process_inotify_file(&wi, path, ie);
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#else
 	process_inotify_file_defer(&wi, path, ie);
 #endif
       free(wi.path);
@@ -1895,7 +1898,7 @@ inofd_event_set(void)
 
   inoev = event_new(evbase_scan, inofd, EV_READ, inotify_cb, NULL);
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#ifndef __linux__
   deferred_inoev = evtimer_new(evbase_scan, inotify_deferred_cb, NULL);
   if (!deferred_inoev)
     {
@@ -1912,7 +1915,7 @@ inofd_event_set(void)
 static void
 inofd_event_unset(void)
 {
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#ifndef __linux__
   event_free(deferred_inoev);
 #endif
   event_free(inoev);
