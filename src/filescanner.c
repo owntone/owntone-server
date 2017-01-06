@@ -483,7 +483,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 
 	DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered, found init-rescan file: %s\n", file);
 
-	filescanner_rescan();
+	library_rescan();
 	break;
 
       case FILE_CTRL_FULLSCAN:
@@ -492,7 +492,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 
 	DPRINTF(E_LOG, L_SCAN, "Full rescan triggered, found full-rescan file: %s\n", file);
 
-	filescanner_fullrescan();
+	library_fullrescan();
 	break;
 
       default:
@@ -1470,7 +1470,6 @@ filescanner_rescan()
 
   inofd_event_unset(); // Clears all inotify watches
   db_watch_clear();
-
   inofd_event_set();
   bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
 
@@ -1483,8 +1482,8 @@ filescanner_fullrescan()
   DPRINTF(E_LOG, L_SCAN, "Full rescan triggered\n");
 
   inofd_event_unset(); // Clears all inotify watches
-  bulk_scan(F_SCAN_BULK);
   inofd_event_set();
+  bulk_scan(F_SCAN_BULK);
 
   return 0;
 }
