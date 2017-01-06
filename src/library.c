@@ -43,6 +43,7 @@
 #include "db.h"
 #include "logger.h"
 #include "misc.h"
+#include "player.h"
 
 
 static struct commands_base *cmdbase;
@@ -564,12 +565,21 @@ rescan(void *arg, int *ret)
   time_t endtime;
   int i;
 
+  DPRINTF(E_LOG, L_LIB, "Library rescan triggered\n");
+
   starttime = time(NULL);
 
   for (i = 0; sources[i]; i++)
     {
       if (!sources[i]->disabled && sources[i]->rescan)
-	sources[i]->rescan();
+	{
+	  DPRINTF(E_INFO, L_LIB, "Rescan library source '%s'\n", sources[i]->name);
+	  sources[i]->rescan();
+	}
+      else
+	{
+	  DPRINTF(E_INFO, L_LIB, "Library source '%s' is disabled\n", sources[i]->name);
+	}
     }
 
   purge_cruft(starttime);
@@ -585,13 +595,33 @@ rescan(void *arg, int *ret)
 static enum command_state
 fullrescan(void *arg, int *ret)
 {
+  time_t starttime;
+  time_t endtime;
   int i;
+
+  DPRINTF(E_LOG, L_LIB, "Library full-rescan triggered\n");
+
+  starttime = time(NULL);
+
+  player_playback_stop();
+  db_queue_clear();
+  db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
 
   for (i = 0; sources[i]; i++)
     {
       if (!sources[i]->disabled && sources[i]->fullrescan)
-	sources[i]->fullrescan();
+	{
+	  DPRINTF(E_INFO, L_LIB, "Full-rescan library source '%s'\n", sources[i]->name);
+	  sources[i]->fullrescan();
+	}
+      else
+	{
+	  DPRINTF(E_INFO, L_LIB, "Library source '%s' is disabled\n", sources[i]->name);
+	}
     }
+
+  endtime = time(NULL);
+  DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec\n", difftime(endtime, starttime));
 
   scanning = false;
   *ret = 0;

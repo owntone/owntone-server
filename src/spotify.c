@@ -2180,8 +2180,6 @@ scan_saved_albums()
   int i;
   int ret;
 
-  db_transaction_begin();
-
   memset(&request, 0, sizeof(struct spotify_request));
 
   while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_ALBUMS))
@@ -2190,6 +2188,8 @@ scan_saved_albums()
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Got saved album: '%s' - '%s' (%s) - track-count: %d\n",
 		  album.artist, album.name, album.uri, track_count);
+
+	  db_transaction_begin();
 
 	  dir_id = prepare_directories(album.artist, album.name);
 	  ret = 0;
@@ -2213,12 +2213,12 @@ scan_saved_albums()
 		    db_pl_add_item_bypath(spotify_saved_plid, track.uri);
 		}
 	    }
+
+	  db_transaction_end();
 	}
     }
 
   spotifywebapi_request_end(&request);
-
-  db_transaction_end();
 
   return 0;
 }
@@ -2274,8 +2274,6 @@ scan_playlists()
   char virtual_path[PATH_MAX];
   int plid;
 
-  db_transaction_begin();
-
   memset(&request, 0, sizeof(struct spotify_request));
 
   while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_PLAYLISTS))
@@ -2283,6 +2281,8 @@ scan_playlists()
       while (0 == spotifywebapi_playlists_fetch(&request, &playlist))
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+	  db_transaction_begin();
 
 	  if (playlist.owner)
 	    {
@@ -2299,11 +2299,12 @@ scan_playlists()
 	    scan_playlisttracks(&playlist, plid);
 	  else
 	    DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+	  db_transaction_end();
 	}
     }
 
   spotifywebapi_request_end(&request);
-  db_transaction_end();
 
   return 0;
 }
@@ -2317,13 +2318,13 @@ scan_playlist(const char *uri)
   char virtual_path[PATH_MAX];
   int plid;
 
-  db_transaction_begin();
-
   memset(&request, 0, sizeof(struct spotify_request));
 
   if (0 == spotifywebapi_playlist_start(&request, uri, &playlist))
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+      db_transaction_begin();
 
       if (playlist.owner)
 	{
@@ -2340,10 +2341,11 @@ scan_playlist(const char *uri)
 	scan_playlisttracks(&playlist, plid);
       else
 	DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+      db_transaction_end();
     }
 
   spotifywebapi_request_end(&request);
-  db_transaction_end();
 
   return 0;
 }
@@ -2360,13 +2362,28 @@ create_saved_tracks_playlist()
     }
 }
 
-/* Thread: library */
-static int
-initscan()
+static void
+create_base_playlist()
 {
   cfg_t *spotify_cfg;
   int ret;
 
+  spotify_base_plid = 0;
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  if (!cfg_getbool(spotify_cfg, "base_playlist_disable"))
+    {
+      ret = library_add_playlist_info("spotify:playlistfolder", "Spotify", NULL, PL_FOLDER, 0, 0);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
+      else
+	spotify_base_plid = ret;
+    }
+}
+
+/* Thread: library */
+static int
+initscan()
+{
   scanning = true;
 
   /* Refresh access token for the spotify webapi */
@@ -2383,17 +2400,9 @@ initscan()
   /*
    * Add playlist folder for all spotify playlists
    */
-  spotify_base_plid = 0;
+  create_base_playlist();
+
   spotify_saved_plid = 0;
-  spotify_cfg = cfg_getsec(cfg, "spotify");
-  if (! cfg_getbool(spotify_cfg, "base_playlist_disable"))
-    {
-      ret = library_add_playlist_info("spotify:playlistfolder", "Spotify", NULL, PL_FOLDER, 0, 0);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
-      else
-	spotify_base_plid = ret;
-    }
 
   /*
    * Login to spotify needs to be done before scanning tracks from the web api.
@@ -2422,6 +2431,8 @@ rescan()
 {
   scanning = true;
 
+  create_base_playlist();
+
   /*
    * Scan saved tracks from the web api
    */
@@ -2449,6 +2460,26 @@ rescan()
 static int
 fullrescan()
 {
+  scanning = true;
+
+  create_base_playlist();
+
+  /*
+   * Scan saved tracks from the web api
+   */
+  if (spotify_access_token_valid)
+    {
+      create_saved_tracks_playlist();
+      scan_saved_albums();
+      scan_playlists();
+    }
+  else
+    {
+      spotify_login(NULL);
+    }
+
+  scanning = false;
+
   return 0;
 }
 

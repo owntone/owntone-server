@@ -1482,13 +1482,9 @@ filescanner_fullrescan()
 {
   DPRINTF(E_LOG, L_SCAN, "Full rescan triggered\n");
 
-  player_playback_stop();
-  db_queue_clear();
   inofd_event_unset(); // Clears all inotify watches
-  db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
-
-  inofd_event_set();
   bulk_scan(F_SCAN_BULK);
+  inofd_event_set();
 
   return 0;
 }
