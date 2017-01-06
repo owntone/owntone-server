@@ -2322,27 +2322,34 @@ scan_playlist(const char *uri)
 
   if (0 == spotifywebapi_playlist_start(&request, uri, &playlist))
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
-
-      db_transaction_begin();
-
-      if (playlist.owner)
+      if (!playlist.uri)
 	{
-	  snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", playlist.name, playlist.owner);
+	  DPRINTF(E_LOG, L_SPOTIFY, "Got playlist with missing uri for path:: '%s'\n", uri);
 	}
       else
 	{
-	  snprintf(virtual_path, PATH_MAX, "/spotify:/%s", playlist.name);
+	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+	  db_transaction_begin();
+
+	  if (playlist.owner)
+	    {
+	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", playlist.name, playlist.owner);
+	    }
+	  else
+	    {
+	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s", playlist.name);
+	    }
+
+	  plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
+
+	  if (plid > 0)
+	    scan_playlisttracks(&playlist, plid);
+	  else
+	    DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+	  db_transaction_end();
 	}
-
-      plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
-
-      if (plid > 0)
-	scan_playlisttracks(&playlist, plid);
-      else
-	DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
-
-      db_transaction_end();
     }
 
   spotifywebapi_request_end(&request);
