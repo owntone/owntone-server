@@ -42,6 +42,7 @@
 #include "httpd_daap.h"
 #include "db.h"
 #include "cache.h"
+#include "listener.h"
 #include "commands.h"
 
 
@@ -73,8 +74,8 @@ static pthread_t tid_cache;
 
 // Event base, pipes and events
 struct event_base *evbase_cache;
-static struct event *g_cacheev;
 static struct commands_base *cmdbase;
+static struct event *cache_daap_updateev;
 
 static int g_initialized;
 
@@ -91,8 +92,6 @@ struct stash
   uint8_t *data;
 } g_stash;
 
-// After being triggered wait 60 seconds before rebuilding cache
-static struct timeval g_wait = { 60, 0 };
 static int g_suspended;
 
 // The user may configure a threshold (in msec), and queries slower than
@@ -608,6 +607,7 @@ cache_daap_query_add(void *arg, int *retval)
 #define Q_TMPL "INSERT OR REPLACE INTO queries (user_agent, query, msec, timestamp) VALUES ('%q', '%q', %d, %" PRIi64 ");"
 #define Q_CLEANUP "DELETE FROM queries WHERE id NOT IN (SELECT id FROM queries ORDER BY timestamp DESC LIMIT 20);"
   struct cache_arg *cmdarg;
+  struct timeval delay = { 60, 0 };
   char *query;
   char *errmsg;
   int ret;
@@ -663,7 +663,9 @@ cache_daap_query_add(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  cache_daap_trigger();
+  // Will set of cache regeneration after waiting a bit (so there is less risk
+  // of disturbing the user)
+  evtimer_add(cache_daap_updateev, &delay);
 
   *retval = 0;
   return COMMAND_END;
@@ -790,7 +792,13 @@ cache_daap_update_cb(int fd, short what, void *arg)
   char *query;
   int ret;
 
-  DPRINTF(E_INFO, L_CACHE, "Timeout reached, time to update DAAP cache\n");
+  if (g_suspended)
+    {
+      DPRINTF(E_DBG, L_CACHE, "Got a request to update DAAP cache while suspended\n");
+      return;
+    }
+
+  DPRINTF(E_LOG, L_CACHE, "Beginning DAAP cache update\n");
 
   ret = sqlite3_exec(g_db_hdl, "DELETE FROM replies;", NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
@@ -845,63 +853,28 @@ cache_daap_update_cb(int fd, short what, void *arg)
 
   sqlite3_finalize(stmt);
 
-  DPRINTF(E_INFO, L_CACHE, "DAAP cache updated\n");
+  DPRINTF(E_LOG, L_CACHE, "DAAP cache updated\n");
 }
 
-/* This function will just set a timer, which when it times out will trigger
- * the actual cache update. The purpose is to avoid avoid cache updates when
- * the database is busy, eg during a library scan.
+/* Sets off an update by activating the event. The delay is because we are low
+ * priority compared to other listeners of database updates.
  */
 static enum command_state
-cache_daap_update_timer(void *arg, int *ret)
+cache_daap_update(void *arg, int *retval)
 {
-  if (!g_cacheev)
-    {
-      *ret = -1;
-      return COMMAND_END;
-    }
+  struct timeval delay = { 10, 0 };
 
-  evtimer_add(g_cacheev, &g_wait);
-
-  *ret = 0;
-
+  *retval = event_add(cache_daap_updateev, &delay);
   return COMMAND_END;
 }
 
-static enum command_state
-cache_daap_suspend_timer(void *arg, int *ret)
+/* Callback from filescanner thread */
+static void
+cache_daap_listener_cb(enum listener_event_type type)
 {
-  if (!g_cacheev)
-    {
-      *ret = -1;
-      return COMMAND_END;
-    }
-
-  g_suspended = evtimer_pending(g_cacheev, NULL);
-  if (g_suspended)
-    evtimer_del(g_cacheev);
-
-  *ret = 0;
-
-  return COMMAND_END;
+  commands_exec_async(cmdbase, cache_daap_update, NULL);
 }
 
-static enum command_state
-cache_daap_resume_timer(void *arg, int *ret)
-{
-  if (!g_cacheev)
-    {
-      *ret = -1;
-      return COMMAND_END;
-    }
-
-  if (g_suspended)
-    evtimer_add(g_cacheev, &g_wait);
-
-  *ret = 0;
-
-  return COMMAND_END;
-}
 
 /*
  * Updates cached timestamps to current time for all cache entries for the given path, if the file was not modfied
@@ -1329,30 +1302,15 @@ cache(void *arg)
  */
 
 void
-cache_daap_trigger(void)
-{
-  if (!g_initialized)
-    return;
-
-  commands_exec_async(cmdbase, cache_daap_update_timer, NULL);
-}
-
-void
 cache_daap_suspend(void)
 {
-  if (!g_initialized)
-    return;
-
-  commands_exec_async(cmdbase, cache_daap_suspend_timer, NULL);
+  g_suspended = 1;
 }
 
 void
 cache_daap_resume(void)
 {
-  if (!g_initialized)
-    return;
-
-  commands_exec_async(cmdbase, cache_daap_resume_timer, NULL);
+  g_suspended = 0;
 }
 
 int
@@ -1377,14 +1335,12 @@ cache_daap_add(const char *query, const char *ua, int msec)
   if (!g_initialized)
     return;
 
-  cmdarg = (struct cache_arg *)malloc(sizeof(struct cache_arg));
+  cmdarg = calloc(1, sizeof(struct cache_arg));
   if (!cmdarg)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_arg\n");
       return;
     }
-
-  memset(cmdarg, 0, sizeof(struct cache_arg));
 
   cmdarg->query = strdup(query);
   cmdarg->ua = strdup(ua);
@@ -1422,14 +1378,12 @@ cache_artwork_ping(const char *path, time_t mtime, int del)
   if (!g_initialized)
     return;
 
-  cmdarg = (struct cache_arg *)malloc(sizeof(struct cache_arg));
+  cmdarg = calloc(1, sizeof(struct cache_arg));
   if (!cmdarg)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_arg\n");
       return;
     }
-
-  memset(cmdarg, 0, sizeof(struct cache_arg));
 
   cmdarg->path = strdup(path);
   cmdarg->mtime = mtime;
@@ -1629,14 +1583,21 @@ cache_init(void)
       goto evbase_fail;
     }
 
-  g_cacheev = evtimer_new(evbase_cache, cache_daap_update_cb, NULL);
-  if (!g_cacheev)
+  cache_daap_updateev = evtimer_new(evbase_cache, cache_daap_update_cb, NULL);
+  if (!cache_daap_updateev)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not create cache event\n");
       goto evnew_fail;
     }
 
   cmdbase = commands_base_new(evbase_cache, NULL);
+
+  ret = listener_add(cache_daap_listener_cb, LISTENER_DATABASE);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not create listener event\n");
+      goto listener_fail;
+    }
 
   DPRINTF(E_INFO, L_CACHE, "cache thread init\n");
 
@@ -1657,6 +1618,8 @@ cache_init(void)
   return 0;
   
  thread_fail:
+  listener_remove(cache_daap_listener_cb);
+ listener_fail:
   commands_base_free(cmdbase);
  evnew_fail:
   event_base_free(evbase_cache);
@@ -1675,6 +1638,9 @@ cache_deinit(void)
     return;
 
   g_initialized = 0;
+
+  listener_remove(cache_daap_listener_cb);
+
   commands_base_destroy(cmdbase);
 
   ret = pthread_join(tid_cache, NULL);

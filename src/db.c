@@ -41,6 +41,7 @@
 #include "logger.h"
 #include "cache.h"
 #include "listener.h"
+#include "filescanner.h"
 #include "misc.h"
 #include "db.h"
 #include "db_init.h"
@@ -1446,8 +1447,15 @@ db_query_end(struct query_params *qp)
   qp->stmt = NULL;
 }
 
+/*
+ * Utility function for running write queries (INSERT, UPDATE, DELETE). If you
+ * set free to non-zero, the function will free the query. If you set
+ * library_update to non-zero it means that the update was not just of some
+ * internal value (like a timestamp), but of something that requires clients
+ * to update their cache of the library (and of course also of our own cache).
+ */
 static int
-db_query_run(char *query, int free, int cache_update)
+db_query_run(char *query, int free, int library_update)
 {
   char *errmsg;
   int ret;
@@ -1473,10 +1481,10 @@ db_query_run(char *query, int free, int cache_update)
   if (free)
     sqlite3_free(query);
 
-  if (cache_update)
-    cache_daap_trigger();
-  else
-    cache_daap_resume();
+  cache_daap_resume();
+
+  if (library_update)
+    library_update_trigger();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
 }
@@ -2404,7 +2412,7 @@ db_file_add(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  cache_daap_trigger();
+  library_update_trigger();
 
   return 0;
 
@@ -2483,7 +2491,7 @@ db_file_update(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  cache_daap_trigger();
+  library_update_trigger();
 
   return 0;
 
