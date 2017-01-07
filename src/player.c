@@ -27,10 +27,25 @@
  * - notify about playback status changes
  * - maintain the playback queue
  * 
- * The player thread should *never* be making operations that may block, since
+ * The player thread should never be making operations that may block, since
  * that could block callers requesting status (effectively making forked-daapd
- * unresponsive) and it could also starve the outputs.
+ * unresponsive) and it could also starve the outputs. In practice this rule is
+ * not always obeyed, for instance some outputs do their setup in ways that
+ * could block.
  *
+ *
+ * About metadata
+ * --------------
+ * The player gets metadata from library + inputs and passes it to the outputs
+ * and other clients (e.g. Remotes). Text metadata is handled differently than
+ * artwork. Here's how text works:
+ *
+ *  1. On playback start, the player will TODO
+ *  2. During playback, the input may signal new metadata by making a
+ *     input_write() with the INPUT_FLAG_METADATA flag. When the player read
+ *     reaches that data, the player will request the metadata from the input
+ *     with input_metadata_get().
+ *  3. If the new metadata is different than the TODO
  */
 
 #ifdef HAVE_CONFIG_H
@@ -2796,7 +2811,7 @@ playerqueue_clear_history(void *arg, int *retval)
 
   cur_plversion++; // TODO [db_queue] need to update db queue version
 
-  listener_notify(LISTENER_PLAYLIST);
+  listener_notify(LISTENER_QUEUE);
 
   *retval = 0;
   return COMMAND_END;

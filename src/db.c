@@ -4006,7 +4006,7 @@ db_queue_get_version()
 }
 
 /*
- * Increments the version of the queue in the admin table and notifies listener of LISTENER_PLAYLIST
+ * Increments the version of the queue in the admin table and notifies listener of LISTENER_QUEUE
  * about the change.
  *
  * This function must be called after successfully modifying the queue table in order to send
@@ -4044,7 +4044,7 @@ queue_inc_version_and_notify()
 
   db_transaction_end();
 
-  listener_notify(LISTENER_PLAYLIST);
+  listener_notify(LISTENER_QUEUE);
 }
 
 void
