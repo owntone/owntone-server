@@ -414,7 +414,7 @@ spotifywebapi_request_uri(struct spotify_request *request, const char *uri)
       return -1;
     }
 
-  //DPRINTF(E_DBG, L_SPOTIFY, "Wep api response for '%s'\n%s\n", uri, request->response_body);
+//  DPRINTF(E_DBG, L_SPOTIFY, "Wep api response for '%s'\n%s\n", uri, request->response_body);
 
   request->haystack = json_tokener_parse(request->response_body);
   if (!request->haystack)
@@ -510,6 +510,22 @@ track_metadata(json_object* jsontrack, struct spotify_track* track)
   track->id = jparse_str_from_obj(jsontrack, "id");
 }
 
+static int
+get_year_from_releasdate(const char *release_date)
+{
+  char tmp[5];
+  uint32_t year = 0;
+
+  if (release_date && strlen(release_date) >= 4)
+    {
+      strncpy(tmp, release_date, sizeof(tmp));
+      tmp[4] = '\0';
+      safe_atou32(tmp, &year);
+    }
+
+  return year;
+}
+
 void
 album_metadata(json_object *jsonalbum, struct spotify_album *album)
 {
@@ -527,7 +543,10 @@ album_metadata(json_object *jsonalbum, struct spotify_album *album)
   album->is_compilation = (album->album_type && 0 == strcmp(album->album_type, "compilation"));
 
   album->label = jparse_str_from_obj(jsonalbum, "label");
+
   album->release_date = jparse_str_from_obj(jsonalbum, "release_date");
+  album->release_date_precision = jparse_str_from_obj(jsonalbum, "release_date_precision");
+  album->release_year = get_year_from_releasdate(album->release_date);
 
   // TODO Genre is an array of strings ('genres'), but it is always empty (https://github.com/spotify/web-api/issues/157)
   //album->genre = jparse_str_from_obj(jsonalbum, "genre");

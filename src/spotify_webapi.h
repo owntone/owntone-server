@@ -47,6 +47,8 @@ struct spotify_album
   const char *label;
   const char *name;
   const char *release_date;
+  const char *release_date_precision;
+  int release_year;
   const char *uri;
 };
 

@@ -2155,6 +2155,11 @@ map_track_to_mfi(const struct spotify_track *track, struct media_file_info* mfi)
   mfi->song_length = track->duration_ms;
   mfi->track = track->track_number;
   mfi->compilation = track->is_compilation;
+
+  mfi->artwork     = ARTWORK_SPOTIFY;
+  mfi->type        = strdup("spotify");
+  mfi->codectype   = strdup("wav");
+  mfi->description = strdup("Spotify audio");
 }
 
 static void
@@ -2164,6 +2169,7 @@ map_album_to_mfi(const struct spotify_album *album, struct media_file_info* mfi)
   mfi->album_artist = safe_strdup(album->artist);
   mfi->genre = safe_strdup(album->genre);
   mfi->compilation = album->is_compilation;
+  mfi->year = album->release_year;
 }
 
 /* Thread: library */
@@ -2178,8 +2184,10 @@ scan_saved_albums()
   struct media_file_info mfi;
   int dir_id;
   int i;
+  int count;
   int ret;
 
+  count = 0;
   memset(&request, 0, sizeof(struct spotify_request));
 
   while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_ALBUMS))
@@ -2215,6 +2223,10 @@ scan_saved_albums()
 	    }
 
 	  db_transaction_end();
+
+	  count++;
+	  if (count >= request.total || (count % 10 == 0))
+	    DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved albums\n", count, request.total);
 	}
     }
 
@@ -2273,14 +2285,16 @@ scan_playlists()
   struct spotify_playlist playlist;
   char virtual_path[PATH_MAX];
   int plid;
+  int count;
 
+  count = 0;
   memset(&request, 0, sizeof(struct spotify_request));
 
   while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_PLAYLISTS))
     {
       while (0 == spotifywebapi_playlists_fetch(&request, &playlist))
 	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
 
 	  db_transaction_begin();
 
@@ -2301,6 +2315,10 @@ scan_playlists()
 	    DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
 
 	  db_transaction_end();
+
+	  count++;
+	  if (count >= request.total || (count % 10 == 0))
+	    DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved playlists\n", count, request.total);
 	}
     }
 
@@ -2328,7 +2346,7 @@ scan_playlist(const char *uri)
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
 
 	  db_transaction_begin();
 
