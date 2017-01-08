@@ -2248,6 +2248,8 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 
   while (0 == spotifywebapi_request_next(&request, playlist->tracks_href))
     {
+      db_transaction_begin();
+
 //      DPRINTF(E_DBG, L_SPOTIFY, "Playlist tracks\n%s\n", request.response_body);
       while (0 == spotifywebapi_playlisttracks_fetch(&request, &track))
 	{
@@ -2270,6 +2272,8 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 	      db_pl_add_item_bypath(plid, track.uri);
 	    }
 	}
+
+      db_transaction_end();
     }
 
   spotifywebapi_request_end(&request);
@@ -2286,8 +2290,10 @@ scan_playlists()
   char virtual_path[PATH_MAX];
   int plid;
   int count;
+  int trackcount;
 
   count = 0;
+  trackcount = 0;
   memset(&request, 0, sizeof(struct spotify_request));
 
   while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_PLAYLISTS))
@@ -2295,8 +2301,6 @@ scan_playlists()
       while (0 == spotifywebapi_playlists_fetch(&request, &playlist))
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
-
-	  db_transaction_begin();
 
 	  if (playlist.owner)
 	    {
@@ -2307,18 +2311,18 @@ scan_playlists()
 	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s", playlist.name);
 	    }
 
+	  db_transaction_begin();
 	  plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
+	  db_transaction_end();
 
 	  if (plid > 0)
 	    scan_playlisttracks(&playlist, plid);
 	  else
 	    DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
 
-	  db_transaction_end();
-
 	  count++;
-	  if (count >= request.total || (count % 10 == 0))
-	    DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved playlists\n", count, request.total);
+	  trackcount += playlist.tracks_count;
+	  DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved playlists (%d tracks)\n", count, request.total, trackcount);
 	}
     }
 
@@ -2348,8 +2352,6 @@ scan_playlist(const char *uri)
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
 
-	  db_transaction_begin();
-
 	  if (playlist.owner)
 	    {
 	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", playlist.name, playlist.owner);
@@ -2359,14 +2361,14 @@ scan_playlist(const char *uri)
 	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s", playlist.name);
 	    }
 
+	  db_transaction_begin();
 	  plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
+	  db_transaction_end();
 
 	  if (plid > 0)
 	    scan_playlisttracks(&playlist, plid);
 	  else
 	    DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
-
-	  db_transaction_end();
 	}
     }
 
