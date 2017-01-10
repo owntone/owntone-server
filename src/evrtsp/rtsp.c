@@ -1108,9 +1108,8 @@ evrtsp_get_body_length(struct evrtsp_request *req)
 	  /* If there is no Content-Length: header, a value of 0 is assumed, per spec. */
 		req->ntoread = 0;
 	} else {
-		char *endp;
-		ev_int64_t ntoread = evutil_strtoll(content_length, &endp, 10);
-		if (*content_length == '\0' || *endp != '\0' || ntoread < 0) {
+		ev_int64_t ntoread = evutil_strtoll(content_length, NULL, 10);
+		if (*content_length == '\0' || ntoread < 0) {
 			event_warnx("%s: illegal content length: %s",
 				__func__, content_length);
 			return (-1);
