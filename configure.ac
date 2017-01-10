@@ -90,8 +90,12 @@ AC_SUBST([FORKED_CPPFLAGS])
 
 AM_ICONV
 dnl All FORK_ macros defined in m4/fork_checks.m4
-FORK_LIB_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
-	[u8_strconv_from_locale], [uniconv.h])
+FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
+        [u8_strconv_from_locale], [uniconv.h], [],
+        [dnl Retry test with iconv library
+         FORK_VARS_APPEND([COMMON], [LIBICONV], [INCICONV])
+         FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING],
+                [unistring], [u8_strconv_from_locale], [uniconv.h])])
 
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
 FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse], [cfg_init], [confuse.h])
@@ -151,7 +155,7 @@ FORK_MODULES_CHECK([FORKED], [LIBEVENT], [libevent >= 2],
 	])
 
 dnl antlr version checks
-FORK_LIB_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
+FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	[antlr3BaseRecognizerNew], [antlr3.h],
 	[AC_CHECK_FUNC([[antlr3NewAsciiStringInPlaceStream]],
 		[AC_DEFINE([ANTLR3C_NEW_INPUT], 0,
@@ -161,10 +165,10 @@ FORK_LIB_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	])
 
 AM_PATH_LIBGCRYPT([1:1.2.0])
-FORK_LIB_REQUIRE([FORKED], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
+FORK_FUNC_REQUIRE([FORKED], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
 	[gcry_control], [gcrypt.h])
 AM_PATH_GPG_ERROR([1.6])
-FORK_LIB_REQUIRE([FORKED], [GNUPG Error Values], [GPG_ERROR_MT], [gpg-error],
+FORK_FUNC_REQUIRE([FORKED], [GNUPG Error Values], [GPG_ERROR_MT], [gpg-error],
 	[gpg_err_init], [gpg-error.h])
 
 AC_CHECK_HEADER([sys/eventfd.h], [AC_CHECK_FUNCS([eventfd])])
@@ -172,7 +176,7 @@ AC_CHECK_HEADER([sys/eventfd.h], [AC_CHECK_FUNCS([eventfd])])
 AC_CHECK_HEADER([sys/timerfd.h], [AC_CHECK_FUNC([timerfd_create],
 	[AC_DEFINE([HAVE_TIMERFD], 1, [Define to 1 if you have timerfd])])])
 
-FORK_LIB_REQUIRE([FORKED], [inotify], [INOTIFY], [inotify],
+FORK_FUNC_REQUIRE([FORKED], [inotify], [INOTIFY], [inotify],
 	[inotify_add_watch], [sys/inotify.h])
 
 have_signal=no
@@ -257,7 +261,7 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 	 FORK_MODULES_CHECK([FORKED], [LIBPROTOBUF_C],
 		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
 		[protobuf-c/protobuf-c.h], [],
-		[FORK_LIB_REQUIRE([FORKED], [v0 libprotobuf-c],
+		[FORK_FUNC_REQUIRE([FORKED], [v0 libprotobuf-c],
 			[LIBPROTOBUF_OLD], [protobuf-c],
 			[protobuf_c_message_pack],
 			[google/protobuf-c/protobuf-c.h],

@@ -6,64 +6,110 @@ dnl permitted in any medium without royalty provided the copyright notice
 dnl and this notice are preserved. This file is offered as-is, without any
 dnl warranty.
 
-dnl _FORK_VARS_SET(TARGET, VAR)
-dnl --------------------------
-dnl Convenience function to set CPPFLAGS/LIBS and TARGET_{CPPFLAGS/LIBS}
-dnl from VAR_{CFLAGS/LIBS}
-m4_define([_FORK_VARS_SET],
+dnl _FORK_CFLAGS_APPEND(TARGET, SOURCE)
+dnl -----------------------------------
+dnl Internal use only.  Shamelessly copied from AC_LIB_APPENDTOVAR,
+dnl but without prefix expansion that breaks nesting.
+m4_define([_FORK_CFLAGS_APPEND],
 [[
-  LIBS="$][$2_LIBS $LIBS"
-  CPPFLAGS="$][$2_CFLAGS $CPPFLAGS"
-  ][$1_LIBS="$][$2_LIBS $][$1_LIBS"]
- AC_LIB_APPENDTOVAR([$1_CPPFLAGS], [$][$2_CFLAGS])
+  for element in $2; do
+    haveit=
+    for x in $$1; do
+      if test "X$x" = "X$element"; then
+	haveit=yes
+	break
+      fi
+    done
+    if test -z "$haveit"; then
+      $1="${$1}${$1:+ }$element"
+    fi
+  done
+]])
+
+dnl FORK_VARS_APPEND(TARGET, LIBS_ENV, CFLAGS_ENV)
+dnl ----------------------------------------------
+dnl Prepend LIBS_ENV to LIBS and TARGET_LIBS
+dnl Append CFLAGS_ENV to CPPFLAGS and TARGET_CPPFLAGS.
+AC_DEFUN([FORK_VARS_APPEND],
+[[
+  LIBS="$$2 $LIBS"
+  $1_LIBS="$$2 $$1_LIBS"]
+ _FORK_CFLAGS_APPEND([CPPFLAGS], [$$3])
+ _FORK_CFLAGS_APPEND([$1_CPPFLAGS], [$$3])
 ])
 
-dnl FORK_LIB_REQUIRE(TARGET, DESCRIPTION, ENV, LIBRARY, [FUNCTION], [HEADER],
+dnl _FORK_VARS_ADD_PREFIX(TARGET)
+dnl -----------------------------
+dnl Internal use only. Add libdir prefix to {TARGET_}LIBS and
+dnl includedir prefix to {TARGET_}CPPFLAGS as fallback search paths
+dnl expanding all variables.
+AC_DEFUN([_FORK_VARS_ADD_PREFIX],
+[AC_REQUIRE([AC_LIB_PREPARE_PREFIX])
+ AC_LIB_WITH_FINAL_PREFIX([[
+  eval LIBS=\"-L$libdir $LIBS\"
+  eval $1_LIBS=\"-L$libdir $$1_LIBS\"
+  eval fork_tmp_cppflags=\"-I$includedir\"]
+ _FORK_CFLAGS_APPEND([CPPFLAGS], [$fork_tmp_cppflags])
+ _FORK_CFLAGS_APPEND([$1_CPPFLAGS], [$fork_tmp_cppflags])
+ ])
+])
+
+dnl FORK_FUNC_REQUIRE(TARGET, DESCRIPTION, ENV, LIBRARY, FUNCTION, [HEADER],
 dnl   [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
-dnl -------------------------------------------------------------------------
-dnl Check for software which lacks pkg-config support, failing if not found.
-dnl When ENV_CFLAGS and ENV_LIBS are set (ENV is prefix), tries to link
-dnl FUNCTION/include HEADER with them, and adds them to TARGET_CPPFLAGS and
-dnl TARGET_LIBS.  With unset environment, expands like AC_SEARCH_LIBS on
-dnl FUNCTION/LIBRARY and checks HEADER with default CPPFLAGS/LIBS, and suggests
-dnl providing ENV variables on failure.  Expands optional ACTION-IF-FOUND
-dnl with working CPPFLAGS/LIBS for additional checks.  DESCRIPTION used as
-dnl friendly name in error messages to help user identify software.
-dnl Restores original CPPFLAGS and LIBS when done. Expands
-dnl ACTION-IF-NOT-FOUND if ENV_* not set, and FUNCTION in LIBRARY not
-dnl found overriding default error.
-AC_DEFUN([FORK_LIB_REQUIRE],
+dnl ------------------------------------------------------------------------
+dnl Check for software which lacks pkg-config support, setting TARGET_CPPFLAGS
+dnl and TARGET_LIBS with working values if FUNCTION found, or failing if
+dnl it's not.  If ENV_CFLAGS and ENV_LIBS overrides are set (ENV is prefix),
+dnl tries to link FUNCTION/include HEADER with them.  Without overrides,
+dnl expands like AC_SEARCH_LIBS on FUNCTION (trying without and with LIBRARY),
+dnl adding $prefix paths if necessary.  If FUNCTION found, verifies optional
+dnl HEADER can be included (or fails with error), and expands optional
+dnl ACTION-IF-FOUND with working CPPFLAGS/LIBS for additional checks.
+dnl DESCRIPTION used as friendly name in error messages to help user
+dnl identify software to install.  If FUNCTION not found, either displays
+dnl error suggested use of ENV_* overrides, or if ENV_* were not set
+dnl expands optional ACTION-IF-NOT-FOUND in place of error.
+dnl Restores original CPPFLAGS and LIBS when done.
+AC_DEFUN([FORK_FUNC_REQUIRE],
 [AS_VAR_PUSHDEF([FORK_MSG], [fork_msg_$3])
  AC_ARG_VAR([$3_CFLAGS], [C compiler flags for $2, overriding search])
  AC_ARG_VAR([$3_LIBS], [linker flags for $2, overriding search])
- [save_$3_LIBS=$LIBS; save_$3_CPPFLAGS=$CPPFLAGS]
- AS_IF([[test -n "$][$3_CFLAGS" && test -n "$][$3_LIBS"]],
-	[AS_VAR_SET([FORK_MSG], [["
+ [fork_save_$3_LIBS=$LIBS; fork_save_$3_CPPFLAGS=$CPPFLAGS
+  fork_found_$3=yes]
+ AS_IF([[test -n "$$3_CFLAGS" && test -n "$$3_LIBS"]],
+	[dnl ENV variables provided, just verify they work
+	 AS_VAR_SET([FORK_MSG], [["
 Library specific environment variables $3_LIBS and
 $3_CFLAGS were used, verify they are correct..."]])
-	 _FORK_VARS_SET([$1], [$3])
-	 m4_ifval([$5], [AC_CHECK_FUNC([[$5]], [],
-		[AC_MSG_FAILURE([[Unable to link function $5 with $2.$]FORK_MSG])])])],
-	[AS_VAR_SET([FORK_MSG], [["
+	 FORK_VARS_APPEND([$1], [$3_LIBS], [$3_CFLAGS])
+	 AC_CHECK_FUNC([[$5]], [],
+		[AC_MSG_FAILURE([[Unable to link function $5 with $2.$]FORK_MSG])])],
+	[dnl Search w/o LIBRARY, w/ LIBRARY, and finally adding $prefix path
+	 AS_VAR_SET([FORK_MSG], [["
 Install $2 in the default include path, or alternatively set
 library specific environment variables $3_CFLAGS
 and $3_LIBS."]])
-	 m4_ifval([$5],
-		[AC_MSG_CHECKING([[for library containing $5...]])
-		 AC_TRY_LINK_FUNC([[$5]], [AC_MSG_RESULT([[none required]])],
-			[[LIBS="-l$4 $LIBS"
-			 $1_LIBS="-l$4 $][$1_LIBS"]
-			 AC_TRY_LINK_FUNC([[$5]], [AC_MSG_RESULT([[-l$4]])],
+	 AC_MSG_CHECKING([[for library containing $5...]])
+	 AC_TRY_LINK_FUNC([[$5]], [AC_MSG_RESULT([[none required]])],
+		[[LIBS="-l$4 $LIBS"
+		 $1_LIBS="-l$4 $$1_LIBS"]
+		 AC_TRY_LINK_FUNC([[$5]], [AC_MSG_RESULT([[-l$4]])],
+			 [_FORK_VARS_ADD_PREFIX([$1])
+			  AC_TRY_LINK_FUNC([[$5]], [AC_MSG_RESULT([[-l$4]])],
 				[AC_MSG_RESULT([[no]])
-				 m4_default_nblank([$8],
-				 	[AC_MSG_FAILURE([[Function $5 in lib$4 not found.$]FORK_MSG])])])
-			])
+				 fork_found_$3=no])])
 		])
 	])
- m4_ifval([$6], [AC_CHECK_HEADER([[$6]], [],
-	[AC_MSG_FAILURE([[Unable to find header $6 for $2.$]FORK_MSG])])])
- $7
- [LIBS=$save_$3_LIBS; CPPFLAGS=$save_$3_CPPFLAGS]
+ AS_IF([[test "$fork_found_$3" != "no"]],
+	[dnl check HEADER, then expand FOUND
+	 m4_ifval([$6], [AC_CHECK_HEADER([[$6]], [],
+		[AC_MSG_FAILURE([[Unable to find header $6 for $2.$]FORK_MSG])])])
+	 $7])
+ [LIBS=$fork_save_$3_LIBS; CPPFLAGS=$fork_save_$3_CPPFLAGS]
+ dnl Expand NOT-FOUND after restoring saved flags to allow recursive expansion
+ AS_IF([[test "$fork_found_$3" = "no"]],
+	[m4_default_nblank([$8],
+		[AC_MSG_FAILURE([[Function $5 in lib$4 not found.$]FORK_MSG])])])
  AS_VAR_POPDEF([FORK_MSG])
 ])
 
@@ -78,14 +124,14 @@ dnl ACTION-IF-NOT-FOUND only if package not found (not link/include failures)
 dnl overriding default error.  Restores original CPPFLAGS and LIBS when done.
 AC_DEFUN([FORK_MODULES_CHECK],
 [PKG_CHECK_MODULES([$2], [[$3]],
-	[[save_$2_LIBS=$LIBS; save_$2_CPPFLAGS=$CPPFLAGS]
-	 _FORK_VARS_SET([$1], [$2])
+	[[fork_save_$2_LIBS=$LIBS; fork_save_$2_CPPFLAGS=$CPPFLAGS]
+	 FORK_VARS_APPEND([$1], [$2_LIBS], [$2_CFLAGS])
 	 m4_ifval([$4], [AC_CHECK_FUNC([[$4]], [],
 		[AC_MSG_ERROR([[Unable to link function $4]])])])
 	 m4_ifval([$5], [AC_CHECK_HEADER([[$5]], [],
 		[AC_MSG_ERROR([[Unable to find header $5]])])])
 	 $6
-	 [LIBS=$save_$2_LIBS; CPPFLAGS=$save_$2_CPPFLAGS]],
+	 [LIBS=$fork_save_$2_LIBS; CPPFLAGS=$fork_save_$2_CPPFLAGS]],
 	 m4_default_nblank_quoted([$7]))
 ])
 
@@ -107,11 +153,11 @@ AC_DEFUN([FORK_ARG_WITH_CHECK],
  AS_IF([[test "x$with_$3" != "xno"]],
 	[FORK_MODULES_CHECK([$1], [$4], [$5], [$6], [$7],
 		[[with_$3=yes]
-		 AC_DEFINE([HAVE_$4], 1,
-			[Define to 1 to build with $2])
+		 AC_DEFINE([HAVE_$4], 1, [Define to 1 to build with $2])
 		 $8],
-		[m4_default_nblank([$9], [AS_IF([[test "x$with_$3" != "xcheck"]],
-			[AC_MSG_FAILURE([[--with-$3 was given, but test for $5 failed]])])
+		[m4_default_nblank([$9],
+			[AS_IF([[test "x$with_$3" != "xcheck"]],
+				[AC_MSG_FAILURE([[--with-$3 was given, but test for $5 failed]])])
 			 [with_$3=no]])
 		])
 	])
