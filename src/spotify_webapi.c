@@ -123,38 +123,21 @@ jparse_time_from_obj(json_object *haystack, const char *key)
   return parsed_time;
 }
 
-static char *
-jparse_artist_from_obj(json_object *artists)
+static const char *
+jparse_str_from_array(json_object *array, int index, const char *key)
 {
-  char artistnames[1024];
-  json_object *artist;
+  json_object *item;
   int count;
-  int i;
-  const char *tmp;
 
-  count = json_object_array_length(artists);
-  if (count == 0)
-    {
-      return NULL;
-    }
+  if (json_object_get_type(array) != json_type_array)
+    return NULL;
 
-  for (i = 0; i < count; i++)
-    {
-      artist = json_object_array_get_idx(artists, i);
-      tmp = jparse_str_from_obj(artist, "name");
+  count = json_object_array_length(array);
+  if (count <= 0 || count <= index)
+    return NULL;
 
-      if (i == 0)
-        {
-	  strcpy(artistnames, tmp);
-	}
-      else
-        {
-	  strncat(artistnames, ", ", sizeof(artistnames) - 2);
-	  strncat(artistnames, tmp, sizeof(artistnames) - strlen(artistnames));
-	}
-    }
-
-  return strdup(artistnames);
+  item = json_object_array_get_idx(array, index);
+  return jparse_str_from_obj(item, key);
 }
 
 static void
@@ -491,14 +474,14 @@ track_metadata(json_object* jsontrack, struct spotify_track* track)
   if (json_object_object_get_ex(jsontrack, "album", &jsonalbum))
     {
       track->album = jparse_str_from_obj(jsonalbum, "name");
-      if (json_object_object_get_ex(jsonalbum, "artists", &jsonartists) && json_object_get_type(jsonartists) == json_type_array)
+      if (json_object_object_get_ex(jsonalbum, "artists", &jsonartists))
 	{
-	  track->album_artist = jparse_artist_from_obj(jsonartists);
+	  track->album_artist = jparse_str_from_array(jsonartists, 0, "name");
 	}
     }
-  if (json_object_object_get_ex(jsontrack, "artists", &jsonartists) && json_object_get_type(jsonartists) == json_type_array)
+  if (json_object_object_get_ex(jsontrack, "artists", &jsonartists))
     {
-      track->artist = jparse_artist_from_obj(jsonartists);
+      track->artist = jparse_str_from_array(jsonartists, 0, "name");
     }
   track->disc_number = jparse_int_from_obj(jsontrack, "disc_number");
   track->album_type = jparse_str_from_obj(jsonalbum, "album_type");
@@ -531,9 +514,9 @@ album_metadata(json_object *jsonalbum, struct spotify_album *album)
 {
   json_object* jsonartists;
 
-  if (json_object_object_get_ex(jsonalbum, "artists", &jsonartists) && json_object_get_type(jsonartists) == json_type_array)
+  if (json_object_object_get_ex(jsonalbum, "artists", &jsonartists))
     {
-      album->artist = jparse_artist_from_obj(jsonartists);
+      album->artist = jparse_str_from_array(jsonartists, 0, "name");
     }
   album->name = jparse_str_from_obj(jsonalbum, "name");
   album->uri = jparse_str_from_obj(jsonalbum, "uri");
