@@ -64,9 +64,6 @@ struct library_source
 
 };
 
-int
-scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi);
-
 
 void
 library_process_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi, int dir_id);
