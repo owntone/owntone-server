@@ -36,7 +36,7 @@
 
 #include "logger.h"
 #include "db.h"
-#include "filescanner.h"
+#include "library/filescanner.h"
 #include "misc.h"
 #include "library.h"
 

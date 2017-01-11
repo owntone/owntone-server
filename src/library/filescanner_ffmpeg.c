@@ -31,8 +31,8 @@
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
 
+#include "db.h"
 #include "logger.h"
-#include "filescanner.h"
 #include "misc.h"
 #include "http.h"
 

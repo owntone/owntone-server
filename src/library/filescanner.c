@@ -54,7 +54,7 @@
 
 #include "logger.h"
 #include "db.h"
-#include "filescanner.h"
+#include "library/filescanner.h"
 #include "conffile.h"
 #include "misc.h"
 #include "remote_pairing.h"

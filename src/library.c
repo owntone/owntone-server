@@ -41,7 +41,7 @@
 #include "commands.h"
 #include "conffile.h"
 #include "db.h"
-#include "filescanner.h"
+#include "library/filescanner.h"
 #include "logger.h"
 #include "misc.h"
 #include "player.h"
