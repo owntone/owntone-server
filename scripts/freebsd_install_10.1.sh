@@ -82,9 +82,9 @@ if [ "$yn" = "y" ]; then
 #These should no longer be required, but if you run into trouble you can try enabling them
 #export CC=cc
 #export LIBUNISTRING_CFLAGS=-I/usr/include
-#export LIBUNISTRING_LIBS=-L/usr/lib
+#export LIBUNISTRING_LIBS="-L/usr/lib -lunistring"
 #export ZLIB_CFLAGS=-I/usr/include
-#export ZLIB_LIBS=-L/usr/lib
+#export ZLIB_LIBS="-L/usr/lib -lz"
 
 	export CFLAGS="-march=native -g -I/usr/local/include -I/usr/include"
 	export LDFLAGS="-L/usr/local/lib -L/usr/lib"
