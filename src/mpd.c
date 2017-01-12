@@ -43,11 +43,6 @@
 #include <event2/http.h>
 #include <event2/listener.h>
 
-#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
-# define USE_EVENTFD
-# include <sys/eventfd.h>
-#endif
-
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <netinet/in.h>
 #endif

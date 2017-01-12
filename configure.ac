@@ -1,258 +1,305 @@
 dnl Process this file with autoconf to produce a configure script.
 
+AC_PREREQ([2.60])
 AC_INIT([forked-daapd], [24.2])
+
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
-AC_DEFINE_UNQUOTED([BUILDDATE], ["`date -Idate`"], [Build date])
-AM_INIT_AUTOMAKE([foreign -Wno-portability subdir-objects])
-
+AM_INIT_AUTOMAKE([foreign subdir-objects])
+dnl Requires autoconf 2.60
 AC_USE_SYSTEM_EXTENSIONS
 
 dnl Checks for programs.
 AC_PROG_CC
-AM_PROG_CC_C_O
+AC_PROG_CC_C_O
+AC_PROG_SED
+AC_PROG_MKDIR_P
 LT_INIT([disable-static])
 
-AC_CHECK_PROG(GPERF, [gperf], [gperf])
-if test "x$GPERF" = x; then
-	AC_MSG_ERROR([GNU gperf not found, please install it])
-fi
-AC_SUBST(GPERF)
+AC_PATH_PROG([GPERF], [[gperf]])
+AS_IF([[test -z "$GPERF"]],
+	[AS_IF([[test -f "$srcdir/src/dmap_fields_hash.h"]],
+		[AM_MISSING_PROG([GPERF], [[gperf]])
+		AC_MSG_NOTICE([[
 
-AC_CHECK_PROG(ANTLR, [antlr3], [antlr3])
-if test "x$ANTLR" = x; then
-	if test -d $srcdir/src/pregen; then
-		for f in $srcdir/src/pregen/*; do
-			bf=`basename $f`
-			ln -sf pregen/$bf $srcdir/src/$bf
-		done
-		AC_MSG_NOTICE([antlr3 wrapper not found, using pre-generated files])
-	else
-		AC_MSG_ERROR([antlr3 wrapper not found and pre-generated files not available])
-	fi
-fi
-AC_SUBST(ANTLR)
-AM_CONDITIONAL(COND_ANTLR, test "x$ANTLR" != x)
+GNU gperf not found, but it's output appears to be present.
+If you modify any gperf or ANTLR grammar files (.g), you will need
+to install it.]])],
+		[AC_MSG_ERROR([[GNU gperf required, please install it.]])])
+	])
 
-CFLAGS="$CFLAGS -Wall -D_LARGEFILE_SOURCE"
+AC_PATH_PROG([ANTLR], [[antlr3]])
+AS_IF([[test -z "$ANTLR"]],
+	[AS_IF([[test -f "$srcdir/src/SMARTPLLexer.h"]],
+		[AM_MISSING_PROG([ANTLR], [[antlr3]])
+		AC_MSG_NOTICE([[
 
-AC_CHECK_HEADERS([sys/wait.h])
-AC_CHECK_HEADERS([sys/param.h])
-AC_CHECK_HEADERS([sys/select.h])
-AC_CHECK_HEADERS([dirent.h])
-AC_CHECK_HEADERS([regex.h])
-AC_CHECK_HEADERS([pthread_np.h])
-AC_CHECK_FUNCS(posix_fadvise)
-AC_CHECK_FUNCS(strptime)
-AC_CHECK_FUNCS(strtok_r)
-AC_CHECK_FUNCS(timegm)
-AC_CHECK_FUNCS(euidaccess)
-AC_CHECK_FUNCS(pipe2)
+antlr3 not found, but it's output appears to be present.
+If you modify any ANTLR grammar files (.g), you will need to install it.]])],
+		[AC_MSG_ERROR([[antlr3 wrapper required, please install it.]])])
+	])
 
+dnl Enable all warnings by default.
+AM_CPPFLAGS="-Wall"
+AC_SUBST([AM_CPPFLAGS])
+
+dnl Checks for header files.
+AC_CHECK_HEADERS_ONCE([regex.h pthread_np.h])
+AC_CHECK_HEADERS([sys/wait.h sys/param.h dirent.h getopt.h stdint.h], [],
+	[AC_MSG_ERROR([[Missing header required to build forked-daapd]])])
+AC_CHECK_HEADERS([time.h], [],
+	[AC_MSG_ERROR([[Missing header required to build forked-daapd]])])
+AC_CHECK_FUNCS_ONCE([posix_fadvise euidaccess pipe2])
+AC_CHECK_FUNCS([strptime strtok_r], [],
+	[AC_MSG_ERROR([[Missing function required to build forked-daapd]])])
+
+dnl check for clock_gettime
+AC_SEARCH_LIBS([clock_gettime], [rt], [],
+	[AC_MSG_ERROR([[Missing clock_gettime]])])
+
+dnl check for timer_settime
+AC_SEARCH_LIBS([timer_settime], [rt], [],
+	[AC_MSG_ERROR([[Missing timer_settime]])])
+
+AC_SEARCH_LIBS([pthread_exit], [pthread], [],
+	[AC_MSG_ERROR([[pthreads library is required]])])
 AC_SEARCH_LIBS([pthread_setname_np], [pthread],
-	AC_DEFINE(HAVE_PTHREAD_SETNAME_NP, 1, [Define to 1 if you have pthread_setname_np]),
-	AC_SEARCH_LIBS([pthread_set_name_np], [pthread], AC_DEFINE(HAVE_PTHREAD_SET_NAME_NP, 1, [Define to 1 if you have pthread_set_name_np]))
-)
-AC_SEARCH_LIBS([inotify_add_watch], [inotify], [], AC_MSG_ERROR([inotify not found]))
+	[dnl Validate pthread_setname_np with 2 args (some have 1)
+	 AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
+	 AC_TRY_LINK([@%:@include <pthread.h>],
+		[pthread_setname_np(pthread_self(), "name");],
+		[AC_MSG_RESULT([yes])
+		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP], 1,
+			[Define to 1 if you have pthread_setname_np])],
+		[AC_MSG_RESULT([[no]])])],
+	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
+		[AC_CHECK_FUNCS([pthread_set_name_np])])])
 
 dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
 
 dnl Checks for libraries.
-gl_LIBUNISTRING
 
-if test x$HAVE_LIBUNISTRING != xyes; then
-   AC_MSG_ERROR([GNU libunistring is required])
-fi
+AC_SUBST([COMMON_LIBS])
+AC_SUBST([COMMON_CPPFLAGS])
+AC_SUBST([FORKED_LIBS])
+AC_SUBST([FORKED_CPPFLAGS])
 
-PKG_CHECK_MODULES(ZLIB, [ zlib ])
-PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
-PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
-PKG_CHECK_MODULES(SQLITE3, [ sqlite3 >= 3.5.0 ])
+AM_ICONV
+dnl All FORK_ macros defined in m4/fork_checks.m4
+FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
+        [u8_strconv_from_locale], [uniconv.h], [],
+        [dnl Retry test with iconv library
+         FORK_VARS_APPEND([COMMON], [LIBICONV], [INCICONV])
+         FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING],
+                [unistring], [u8_strconv_from_locale], [uniconv.h])])
 
-save_LIBS="$LIBS"
-LIBS="$SQLITE3_LIBS"
-dnl Check that SQLite3 has the unlock notify API built-in
-AC_CHECK_LIB([sqlite3], [sqlite3_unlock_notify], [], AC_MSG_ERROR([SQLite3 was built without unlock notify support]))
-dnl Check that SQLite3 has been built with threadsafe operations
-AC_MSG_CHECKING([if SQLite3 was built with threadsafe operations support])
-AC_LANG_PUSH([C])
-AC_RUN_IFELSE(
-  [AC_LANG_PROGRAM([dnl
-    #include <sqlite3.h>
-    ], [dnl
-    int ret = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
-    if (ret != SQLITE_OK)
-      return 1;
-    return 0;])],
-  [AC_MSG_RESULT([yes])], [AC_MSG_ERROR([SQLite3 was not built with threadsafe operations support])],
-  [AC_MSG_RESULT([runtime will tell])])
-AC_LANG_POP([C])
-LIBS="$save_LIBS"
+FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
+FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse], [cfg_init], [confuse.h])
+FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml], [mxmlNewElement], [mxml.h],
+	[AC_CHECK_FUNCS([mxmlGetOpaque])])
 
-PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil libavfilter ])
+FORK_MODULES_CHECK([FORKED], [AVAHI], [avahi-client >= 0.6.24],
+	[avahi_client_new], [avahi-client/client.h])
 
-dnl Checks for misc libav and ffmpeg API differences
-save_LIBS="$LIBS"
-AC_CHECK_LIB([avcodec], [avcodec_find_best_pix_fmt_of_list],
-	AC_DEFINE(HAVE_FFMPEG, 1, [Define to 1 if you have ffmpeg/libav with avcodec_find_best_pix_fmt_of_list]),,[-lavutil])
+dnl SQLite3 requires extra checks
+FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
+	[sqlite3_initialize], [sqlite3.h],
+	[dnl Check that SQLite3 has the unlock notify API built-in
+	 AC_CHECK_FUNC([[sqlite3_unlock_notify]], [],
+		[AC_MSG_ERROR([[SQLite3 was built without unlock notify support]])])
+	 dnl Check that SQLite3 has been built with threadsafe operations
+	 AC_MSG_CHECKING([[if SQLite3 was built with threadsafe operations support]])
+	 AC_RUN_IFELSE([AC_LANG_PROGRAM([[#include <sqlite3.h>
+		]], [[
+		int ret = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
+		if (ret != SQLITE_OK)
+		  return 1;]])],
+		[AC_MSG_RESULT([[yes]])],
+		[AC_MSG_RESULT([[no]])
+		 AC_MSG_ERROR([[SQLite3 was not built with threadsafe operations support]])],
+		[AC_MSG_RESULT([[runtime will tell]])])
+	])
 
-AC_CHECK_LIB([avfilter], [av_buffersrc_add_frame_flags],
-	AC_DEFINE(HAVE_LIBAV_BUFFERSRC_ADD_FRAME_FLAGS, 1, [Define to 1 if you have ffmpeg/libav with av_buffersrc_add_frame_flags]))
-AC_CHECK_LIB([avfilter], [av_buffersink_get_frame],
-	AC_DEFINE(HAVE_LIBAV_BUFFERSINK_GET_FRAME, 1, [Define to 1 if you have ffmpeg/libav with av_buffersink_get_frame]))
-AC_CHECK_LIB([avfilter], [avfilter_graph_parse_ptr],
-	AC_DEFINE(HAVE_LIBAV_GRAPH_PARSE_PTR, 1, [Define to 1 if you have ffmpeg/libav with avfilter_graph_parse_ptr]))
-AC_CHECK_LIB([avcodec], [av_packet_unref],
-	AC_DEFINE(HAVE_LIBAV_PACKET_UNREF, 1, [Define to 1 if you have ffmpeg/libav with av_packet_unref]),,[-lavutil])
-AC_CHECK_LIB([avcodec], [av_packet_rescale_ts],
-	AC_DEFINE(HAVE_LIBAV_PACKET_RESCALE_TS, 1, [Define to 1 if you have ffmpeg/libav with av_packet_rescale_ts]),,[-lavutil])
-AC_CHECK_LIB([avformat], [avformat_alloc_output_context2],
-	AC_DEFINE(HAVE_LIBAV_ALLOC_OUTPUT_CONTEXT2, 1, [Define to 1 if you have ffmpeg/libav with avformat_alloc_output_context2]))
-AC_CHECK_LIB([avutil], [av_frame_alloc],
-	AC_DEFINE(HAVE_LIBAV_FRAME_ALLOC, 1, [Define to 1 if you have ffmpeg/libav with av_frame_alloc]))
-AC_CHECK_LIB([avutil], [av_frame_get_best_effort_timestamp],
-	AC_DEFINE(HAVE_LIBAV_BEST_EFFORT_TIMESTAMP, 1, [Define to 1 if you have ffmpeg/libav with av_frame_get_best_effort_timestamp]))
-AC_CHECK_LIB([avutil], [av_image_fill_arrays],
-	AC_DEFINE(HAVE_LIBAV_IMAGE_FILL_ARRAYS, 1, [Define to 1 if you have ffmpeg/libav with av_image_fill_arrays]))
-AC_CHECK_LIB([avutil], [av_image_get_buffer_size],
-	AC_DEFINE(HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE, 1, [Define to 1 if you have ffmpeg/libav with av_image_get_buffer_size]))
+dnl libav/ffmpeg requires many feature checks
+FORK_MODULES_CHECK([FORKED], [LIBAV],
+	[libavformat libavcodec libswscale libavutil libavfilter],
+	[av_init_packet], [libavcodec/avcodec.h],
+	[dnl Checks for misc libav and ffmpeg API differences
+	 AC_CHECK_FUNCS([avcodec_find_best_pix_fmt_of_list],
+		[AC_DEFINE([HAVE_FFMPEG], 1,
+			[Define to 1 if you have ffmpeg (not libav)])])
+	 AC_CHECK_FUNCS([av_buffersrc_add_frame_flags])
+	 AC_CHECK_FUNCS([av_buffersink_get_frame])
+	 AC_CHECK_FUNCS([avfilter_graph_parse_ptr])
+	 AC_CHECK_FUNCS([av_packet_unref])
+	 AC_CHECK_FUNCS([av_packet_rescale_ts])
+	 AC_CHECK_FUNCS([avformat_alloc_output_context2])
+	 AC_CHECK_FUNCS([av_frame_alloc])
+	 AC_CHECK_FUNCS([av_frame_get_best_effort_timestamp])
+	 AC_CHECK_FUNCS([av_image_fill_arrays])
+	 AC_CHECK_FUNCS([av_image_get_buffer_size])
+	 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
+	])
 
-AC_CHECK_HEADERS([libavutil/channel_layout.h])
-AC_CHECK_HEADERS([libavutil/mathematics.h])
-LIBS="$save_LIBS"
+dnl libevent2 requires version checks
+FORK_MODULES_CHECK([FORKED], [LIBEVENT], [libevent >= 2],
+	[event_base_new], [event2/event.h],
+	[dnl check for old version
+	 PKG_CHECK_EXISTS([libevent >= 2.1.4], [],
+		[AC_DEFINE([HAVE_LIBEVENT2_OLD], 1,
+			[Define to 1 if you have libevent 2 (<2.1.4)])])
+	])
 
-PKG_CHECK_MODULES(MINIXML, [ mxml ])
+dnl antlr version checks
+FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
+	[antlr3BaseRecognizerNew], [antlr3.h],
+	[AC_CHECK_FUNC([[antlr3NewAsciiStringInPlaceStream]],
+		[AC_DEFINE([ANTLR3C_NEW_INPUT], 0,
+			[define if antlr3 C runtime uses new input routines])],
+		[AC_DEFINE([ANTLR3C_NEW_INPUT], 1,
+			[define if antlr3 C runtime uses new input routines])])
+	])
 
-PKG_CHECK_MODULES(LIBEVENT, [ libevent >= 2 ])
-PKG_CHECK_EXISTS([ libevent >= 2.1.4 ], ,
-	AC_DEFINE(HAVE_LIBEVENT2_OLD, 1, [Define to 1 if you have libevent 2 (<2.1.4)])
-)
+AM_PATH_LIBGCRYPT([1:1.2.0])
+FORK_FUNC_REQUIRE([FORKED], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
+	[gcry_control], [gcrypt.h])
+AM_PATH_GPG_ERROR([1.6])
+FORK_FUNC_REQUIRE([FORKED], [GNUPG Error Values], [GPG_ERROR_MT], [gpg-error],
+	[gpg_err_init], [gpg-error.h])
 
-AC_CHECK_HEADER(antlr3.h, , AC_MSG_ERROR([antlr3.h not found]))
-AC_CHECK_LIB([antlr3c], [antlr3BaseRecognizerNew], [ANTLR3C_LIBS="-lantlr3c"], AC_MSG_ERROR([ANTLR3 C runtime (libantlr3c) not found]))
-AC_CHECK_LIB([antlr3c], [antlr3NewAsciiStringInPlaceStream],
-	AC_DEFINE(ANTLR3C_NEW_INPUT, 0, [define if antlr3 C runtime uses new input routines]),
-	AC_DEFINE(ANTLR3C_NEW_INPUT, 1, [define if antlr3 C runtime uses new input routines]))
-AC_SUBST(ANTLR3C_LIBS)
+AC_CHECK_HEADER([sys/eventfd.h], [AC_CHECK_FUNCS([eventfd])])
 
-AM_PATH_LIBGCRYPT([1:1.2.0], , AC_MSG_ERROR([libgcrypt not found]))
-AM_PATH_GPG_ERROR([1.6], , AC_MSG_ERROR([libgpg-error not found]))
+AC_CHECK_HEADER([sys/timerfd.h], [AC_CHECK_FUNC([timerfd_create],
+	[AC_DEFINE([HAVE_TIMERFD], 1, [Define to 1 if you have timerfd])])])
 
-case "$host" in
-  *-*-linux-*)
-	AC_CHECK_HEADERS([sys/eventfd.h])
-	AC_CHECK_FUNC(eventfd_write, AC_DEFINE(HAVE_EVENTFD, 1, [Define to 1 if you have eventfd]))
+FORK_FUNC_REQUIRE([FORKED], [inotify], [INOTIFY], [inotify],
+	[inotify_add_watch], [sys/inotify.h])
 
-	AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
+have_signal=no
+AC_CHECK_HEADER([sys/signalfd.h], [AC_CHECK_FUNCS([signalfd], [have_signal=yes])])
+AC_CHECK_HEADER([sys/event.h], [AC_CHECK_FUNCS([kqueue], [have_signal=yes])])
+AS_IF([[test "$have_signal" = "no"]],
+	[AC_MSG_ERROR([[Either signalfd or kqueue are required]])])
 
-	AC_CHECK_HEADER(sys/timerfd.h, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
-	AC_CHECK_FUNC(timerfd_create, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
-	;;
-esac
+AC_CHECK_HEADERS_ONCE([endian.h sys/endian.h])
+AC_CHECK_DECL([htobe16], [],
+	[AC_MSG_FAILURE([[Missing functions to swap byte order]])],
+	[AC_INCLUDES_DEFAULT[
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif defined(HAVE_SYS_ENDIAN_H)
+# include <sys/endian.h>
+#endif
+	]])
 
-AC_CHECK_SIZEOF(void *)
-
-AC_CHECK_HEADERS(getopt.h,,)
-AC_CHECK_HEADERS(stdint.h,,)
+AC_CHECK_SIZEOF([void *])
 
 dnl --- Begin configuring the options ---
 dnl ALSA
-AC_ARG_WITH(alsa, AS_HELP_STRING([--without-alsa], [without ALSA support (default=no)]))
-AS_IF([test "x$with_alsa" != "xno"], [
-	AC_DEFINE(ALSA, 1, [Define to 1 to build with ALSA support])
-	PKG_CHECK_MODULES(ALSA, [ alsa ])
-])
-AM_CONDITIONAL(COND_ALSA, [test "x$with_alsa" != "xno"])
+FORK_ARG_WITH_CHECK([FORKED], [ALSA support], [alsa], [ALSA],
+	[alsa], [snd_mixer_open], [asoundlib.h])
+AM_CONDITIONAL([COND_ALSA], [[test "x$with_alsa" = "xyes"]])
 
 dnl PULSEAUDIO
-AC_ARG_WITH(pulseaudio, AS_HELP_STRING([--with-pulseaudio], [with Pulseaudio support (default=no)]))
-AS_IF([test "x$with_pulseaudio" = "xyes"], [
-	AC_DEFINE(PULSEAUDIO, 1, [Define to 1 to build with Pulseaudio support])
-	PKG_CHECK_MODULES(LIBPULSE, [ libpulse ])
-	AC_SEARCH_LIBS([pa_threaded_mainloop_set_name], [pulse],
-		AC_DEFINE(HAVE_PULSE_MAINLOOP_SET_NAME, 1, [Define to 1 if you have Pulseaudio with pa_threaded_mainloop_set_name])
-	)
-])
-AM_CONDITIONAL(COND_PULSEAUDIO, [test "x$with_pulseaudio" = "xyes"])
+FORK_ARG_WITH_CHECK([FORKED], [Pulseaudio support], [pulseaudio], [LIBPULSE],
+	[libpulse], [pa_stream_get_state], [pulse/pulseaudio.h],
+	[AC_CHECK_FUNCS([pa_threaded_mainloop_set_name])])
+AM_CONDITIONAL([COND_PULSEAUDIO], [[test "x$with_pulseaudio" = "xyes"]])
 
 dnl Build with libcurl
-AC_ARG_WITH([libcurl], AS_HELP_STRING([--without-libcurl], [without libcurl (default=no)]))
-AS_IF([test "x$with_libcurl" != "xno"], [
-	AC_DEFINE(HAVE_LIBCURL, 1, [Define to 1 to build with libcurl])
-	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
-])
+FORK_ARG_WITH_CHECK([FORKED], [libcurl support], [libcurl], [LIBCURL],
+	[libcurl], [curl_global_init], [curl/curl.h])
 
 dnl Build with json-c
-AC_ARG_WITH([json], AS_HELP_STRING([--without-json-c], [without json-c (default=no)]))
-AS_IF([test "x$with_json" != "xno"], [
-	AC_DEFINE(HAVE_JSON, 1, [Define to 1 to build with json-c])
-	PKG_CHECK_EXISTS([ json-c >= 0.11 ],
-		[ PKG_CHECK_MODULES(JSON_C, [ json-c ]) ],
-		[ PKG_CHECK_MODULES(JSON_C, [ json ], AC_DEFINE(HAVE_JSON_C_OLD, 1, [Define 1 to if you have json-c < 0.11])) ]
-	)
-])
+FORK_ARG_WITH_CHECK([FORKED], [json-c support], [json], [JSON_C],
+	[json-c >= 0.11], [json_tokener_parse], [json.h], [],
+	[FORK_MODULES_CHECK([FORKED], [JSON_C], [json],
+		[json_tokener_parse], [json.h],
+		[[with_json=yes]
+		 AC_DEFINE([HAVE_JSON_C_OLD], 1,
+			[Define to 1 if you have json-c < 0.11])],
+		[AS_IF([[test "x$with_json" != "xcheck"]],
+			[AC_MSG_FAILURE([[--with-json was given, but test for json-c failed]])])
+		 [with_json=no]]
+	)])
 
 dnl iTunes playlists with libplist
-AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes Music Library XML support (default=no)]))
-AS_IF([test "x$enable_itunes" = "xyes"], [
-	AC_DEFINE(ITUNES, 1, [Define to 1 to enable iTunes XML support])
-	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
-])
-AM_CONDITIONAL(COND_ITUNES, [test "x$enable_itunes" = "xyes"])
+FORK_ARG_ENABLE([iTunes Music Library XML support], [itunes], [ITUNES],
+	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist >= 0.16],
+		[plist_dict_get_item], [plist/plist.h])])
+AM_CONDITIONAL([COND_ITUNES], [[test "x$enable_itunes" = "xyes"]])
 
 dnl Spotify with dynamic linking to libspotify
-AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify support (default=no)]))
-AS_IF([test "x$enable_spotify" = "xyes"], [
-	AC_DEFINE(SPOTIFY, 1, [Define to 1 to enable Spotify support])
-	AS_IF([test "x$with_json" = "xno"], AC_MSG_ERROR([Spotify support requires json-c]))
-	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
-	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
-
-	dnl Don't link to libspotify, but instead enable dynamic linking
-	SPOTIFY_CFLAGS="-rdynamic"
-	SPOTIFY_LIBS="-ldl"
-	AC_SUBST(SPOTIFY_CFLAGS)
-	AC_SUBST(SPOTIFY_LIBS)
-])
-AM_CONDITIONAL(COND_SPOTIFY, [test "x$enable_spotify" = "xyes"])
+FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
+	[AS_IF([[test "x$with_json" = "xno"]],
+		[AC_MSG_ERROR([[Spotify support requires json-c]])])
+	 AC_CHECK_HEADER([[libspotify/api.h]], [],
+		[AC_MSG_ERROR([[libspotify/api.h not found]])])
+	 AC_DEFINE([HAVE_SPOTIFY_H], 1,
+		[Define to 1 if you have the <libspotify/api.h> header file.])
+	 dnl Don't link to libspotify, but instead enable dynamic linking
+	 AC_SEARCH_LIBS([dlopen], [dl], [],
+	 	[AC_MSG_ERROR([[Spotify support requires dlopen]])])
+	 AC_LIB_APPENDTOVAR([FORKED_CPPFLAGS], [-rdynamic])
+	])
+AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
 
 dnl LastFM support with libcurl
-AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
-AS_IF([test "x$enable_lastfm" = "xyes"], [
-	AC_DEFINE(LASTFM, 1, [Define to 1 to enable LastFM support])
-	AS_IF([test "x$with_libcurl" = "xno"], AC_MSG_ERROR([LastFM support requires libcurl]))
-	AC_CHECK_LIB([mxml], [mxmlGetOpaque], AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
-])
-AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
+FORK_ARG_ENABLE([LastFM support], [lastfm], [LASTFM],
+	[AS_IF([[test "x$with_libcurl" = "xno"]],
+		[AC_MSG_ERROR([[LastFM support requires libcurl]])])])
+AM_CONDITIONAL([COND_LASTFM], [[test "x$enable_lastfm" = "xyes"]])
 
 dnl ChromeCast support with libprotobuf-c
-AC_ARG_ENABLE(chromecast, AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)]))
-AS_IF([test "x$enable_chromecast" = "xyes"], [
-	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
-	AS_IF([test "x$with_json" = "xno"], AC_MSG_ERROR([Chromecast support requires json-c]))
-	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], , [ protobuf_old="yes" ])
-	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
-])
-AS_IF([test "x$protobuf_old" = "xyes"], [
-	AC_DEFINE(HAVE_PROTOBUF_OLD, 1, [Define to 1 if you have libprotobuf < 1.0.0])
-	LDFLAGS="${LDFLAGS} -lprotobuf-c"
-])
-AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
-AM_CONDITIONAL(COND_PROTOBUF_OLD, [test "x$protobuf_old" = "xyes"])
+FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
+	[AS_IF([[test "x$with_json" = "xno"]],
+		[AC_MSG_ERROR([[Chromecast support requires json-c]])])
+	 FORK_MODULES_CHECK([FORKED], [LIBPROTOBUF_C],
+		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
+		[protobuf-c/protobuf-c.h], [],
+		[FORK_FUNC_REQUIRE([FORKED], [v0 libprotobuf-c],
+			[LIBPROTOBUF_OLD], [protobuf-c],
+			[protobuf_c_message_pack],
+			[google/protobuf-c/protobuf-c.h],
+			[AC_DEFINE([HAVE_PROTOBUF_OLD], 1,
+				[Define to 1 if you have libprotobuf < 1.0.0])
+			 [protobuf_old=yes]],
+			[AC_MSG_ERROR([[Chromecast support requires protobuf-c]])])
+		])
+	 FORK_MODULES_CHECK([FORKED], [GNUTLS], [gnutls], [gnutls_init],
+		[gnutls/gnutls.h])
+	])
+AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
+AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
 dnl MPD support
-AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))
-AS_IF([test "x$enable_mpd" != "xno"], [
-	AC_DEFINE(MPD, 1, [Define to 1 to enable MPD support])
-])
-AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
+FORK_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
+AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
+
+dnl Defining users and groups
+AC_ARG_WITH([daapd_user],
+	[AS_HELP_STRING([--with-daapd-user=USER],
+		[User for running forked-daapd (default=daapd)])],
+	[[test x"$withval" = xyes && withval=]], [[withval=]])
+DAAPD_USER=${withval:-daapd}
+AC_SUBST([DAAPD_USER])
+
+AC_ARG_WITH([daapd_group],
+	[AS_HELP_STRING([--with-daapd-group=GROUP],
+		[Group for daapd user (default=USER)])],
+	[[test x"$withval" = xyes && withval=]], [[withval=]])
+DAAPD_GROUP=${withval:-$DAAPD_USER}
+AC_SUBST([DAAPD_GROUP])
 dnl --- End options ---
 
-dnl Checks for header files.
-AC_HEADER_STDC
-AC_HEADER_SYS_WAIT
-
-AC_OUTPUT(src/Makefile sqlext/Makefile Makefile)
+AC_CONFIG_FILES([
+	src/Makefile
+	sqlext/Makefile
+	Makefile
+	forked-daapd.spec
+])
+AC_OUTPUT

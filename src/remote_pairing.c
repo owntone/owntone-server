@@ -41,8 +41,7 @@
 #include <errno.h>
 #include <pthread.h>
 
-#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
-# define USE_EVENTFD
+#ifdef HAVE_EVENTFD
 # include <sys/eventfd.h>
 #endif
 
@@ -80,7 +79,7 @@ struct remote_info {
 /* Main event base, from main.c */
 extern struct event_base *evbase_main;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
 static int pairing_efd;
 #else
 static int pairing_pipe[2];
@@ -389,7 +388,7 @@ add_remote_pin_data(char *devname, char *pin)
 static void
 kickoff_pairing(void)
 {
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   int ret;
 
   ret = eventfd_write(pairing_efd, 1);
@@ -642,7 +641,7 @@ pairing_cb(int fd, short event, void *arg)
 {
   struct remote_info *ri;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   eventfd_t count;
   int ret;
 
@@ -908,7 +907,7 @@ remote_pairing_init(void)
 
   remote_list = NULL;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   pairing_efd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
   if (pairing_efd < 0)
     {
@@ -933,7 +932,7 @@ remote_pairing_init(void)
 
       return -1;
     }
-#endif /* USE_EVENTFD */
+#endif /* HAVE_EVENTFD */
 
   // No ipv6 for remote at the moment
   ret = mdns_browse("_touch-remote._tcp", AF_INET, touch_remote_cb);
@@ -944,7 +943,7 @@ remote_pairing_init(void)
       goto mdns_browse_fail;
     }
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   pairingev = event_new(evbase_main, pairing_efd, EV_READ, pairing_cb, NULL);
 #else
   pairingev = event_new(evbase_main, pairing_pipe[0], EV_READ, pairing_cb, NULL);
@@ -962,7 +961,7 @@ remote_pairing_init(void)
 
  pairingev_fail:
  mdns_browse_fail:
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   close(pairing_efd);
 #else
   close(pairing_pipe[0]);
@@ -985,7 +984,7 @@ remote_pairing_deinit(void)
       free_remote(ri);
     }
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   close(pairing_efd);
 #else
   close(pairing_pipe[0]);

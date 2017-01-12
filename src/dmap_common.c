@@ -31,7 +31,7 @@
 
 
 /* gperf static hash, dmap_fields.gperf */
-#include "dmap_fields_hash.c"
+#include "dmap_fields_hash.h"
 
 
 const struct dmap_field *

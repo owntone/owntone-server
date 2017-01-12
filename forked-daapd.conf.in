@@ -11,14 +11,14 @@ general {
 	# Username
 	# Make sure the user has read access to the library directories you set
  	# below, and full access to the databases, log and local audio
-	uid = "daapd"
+	uid = "@DAAPD_USER@"
 
 	# Database location
-#	db_path = "/var/cache/forked-daapd/songs3.db"
+#	db_path = "@localstatedir@/cache/@PACKAGE@/songs3.db"
 
 	# Log file and level
 	# Available levels: fatal, log, warning, info, debug, spam
-	logfile = "/var/log/forked-daapd.log"
+	logfile = "@localstatedir@/log/@PACKAGE@.log"
 	loglevel = log
 
 	# Admin password for the non-existent web interface
@@ -28,7 +28,7 @@ general {
 	ipv6 = yes
 
 	# Location of cache database
-#	cache_path = "/var/cache/forked-daapd/cache.db"
+#	cache_path = "@localstatedir@/cache/@PACKAGE@/cache.db"
 
 	# DAAP requests that take longer than this threshold (in msec) get their
 	# replies cached for next time. Set to 0 to disable caching.
@@ -203,7 +203,7 @@ audio {
 # Spotify settings (only have effect if Spotify enabled - see README/INSTALL)
 spotify {
 	# Directory where user settings should be stored (credentials)
-#	settings_dir = "/var/cache/forked-daapd/libspotify"
+#	settings_dir = "@localstatedir@/cache/@PACKAGE@/libspotify"
 
 	# Cache directory
 #	cache_dir = "/tmp"

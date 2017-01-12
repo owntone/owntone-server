@@ -47,10 +47,9 @@
 #include <fcntl.h>
 #include <time.h>
 
-#if defined(__linux__) || defined(__GLIBC__)
+#ifdef HAVE_ENDIAN_H
 # include <endian.h>
-# include <byteswap.h>
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#elif defined(HAVE_SYS_ENDIAN_H)
 # include <sys/endian.h>
 #endif
 
@@ -2688,7 +2687,7 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
   int len;
   int ret;
 
-#ifdef __linux__
+#ifdef SOCK_CLOEXEC
   svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
   svc->fd = socket(family, SOCK_DGRAM, 0);
@@ -3020,7 +3019,7 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
   int len;
   int ret;
 
-#ifdef __linux__
+#ifdef SOCK_CLOEXEC
   svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
   svc->fd = socket(family, SOCK_DGRAM, 0);
@@ -3418,7 +3417,7 @@ raop_v2_stream_open(struct raop_session *rs)
   int len;
   int ret;
 
-#ifdef __linux__
+#ifdef SOCK_CLOEXEC
   rs->server_fd = socket(rs->sa.ss.ss_family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
   rs->server_fd = socket(rs->sa.ss.ss_family, SOCK_DGRAM, 0);

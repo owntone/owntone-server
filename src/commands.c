@@ -183,11 +183,11 @@ commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
       return NULL;
     }
 
-# if defined(__linux__)
+#ifdef HAVE_PIPE2
   ret = pipe2(cmdbase->command_pipe, O_CLOEXEC);
-# else
+#else
   ret = pipe(cmdbase->command_pipe);
-# endif
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not create command pipe: %s\n", strerror(errno));

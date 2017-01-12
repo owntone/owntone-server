@@ -34,6 +34,9 @@
 #include <libavutil/pixdesc.h>
 
 #ifdef HAVE_LIBAVFILTER
+# ifdef HAVE_LIBAVUTIL_CHANNEL_LAYOUT_H
+#  include <libavutil/channel_layout.h>
+# endif
 # include <libavfilter/avcodec.h>
 #else
 # include "ffmpeg-compat.h"
@@ -402,7 +405,7 @@ encode_write_frame(struct encode_ctx *ctx, AVFrame *filt_frame, unsigned int str
   return ret;
 }
 
-#if defined(HAVE_LIBAV_BUFFERSRC_ADD_FRAME_FLAGS) && defined(HAVE_LIBAV_BUFFERSINK_GET_FRAME)
+#if defined(HAVE_AV_BUFFERSRC_ADD_FRAME_FLAGS) && defined(HAVE_AV_BUFFERSINK_GET_FRAME)
 static int
 filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int stream_index)
 {
@@ -857,7 +860,7 @@ close_output(struct encode_ctx *ctx)
   avformat_free_context(ctx->ofmt_ctx);
 }
 
-#ifdef HAVE_LIBAV_GRAPH_PARSE_PTR
+#ifdef HAVE_AVFILTER_GRAPH_PARSE_PTR
 static int
 open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecContext *enc_ctx, const char *filter_spec)
 {

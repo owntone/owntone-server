@@ -39,8 +39,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
-# define USE_EVENTFD
+#ifdef HAVE_EVENTFD
 # include <sys/eventfd.h>
 #endif
 #include <event2/event.h>
@@ -133,7 +132,7 @@ static const struct content_type_map ext2ctype[] =
 
 struct event_base *evbase_httpd;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
 static int exit_efd;
 #else
 static int exit_pipe[2];
@@ -1453,7 +1452,7 @@ httpd_init(void)
 
   streaming_init();
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   exit_efd = eventfd(0, EFD_CLOEXEC);
   if (exit_efd < 0)
     {
@@ -1477,7 +1476,7 @@ httpd_init(void)
     }
 
   exitev = event_new(evbase_httpd, exit_pipe[0], EV_READ, exit_cb, NULL);
-#endif /* USE_EVENTFD */
+#endif /* HAVE_EVENTFD */
   if (!exitev)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create exit event\n");
@@ -1549,7 +1548,7 @@ httpd_init(void)
  bind_fail:
   evhttp_free(evhttpd);
  event_fail:
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   close(exit_efd);
 #else
   close(exit_pipe[0]);
@@ -1574,7 +1573,7 @@ httpd_deinit(void)
 {
   int ret;
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   ret = eventfd_write(exit_efd, 1);
   if (ret < 0)
     {
@@ -1607,7 +1606,7 @@ httpd_deinit(void)
   dacp_deinit();
   daap_deinit();
 
-#ifdef USE_EVENTFD
+#ifdef HAVE_EVENTFD
   close(exit_efd);
 #else
   close(exit_pipe[0]);

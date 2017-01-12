@@ -13,24 +13,24 @@
 # define avcodec_find_best_pix_fmt_of_list(a, b, c, d) avcodec_find_best_pix_fmt2((enum AVPixelFormat *)(a), (b), (c), (d))
 #endif
 
-#ifndef HAVE_LIBAV_FRAME_ALLOC
+#ifndef HAVE_AV_FRAME_ALLOC
 # define av_frame_alloc() avcodec_alloc_frame()
 # define av_frame_free(x) avcodec_free_frame((x))
 #endif
 
-#ifndef HAVE_LIBAV_BEST_EFFORT_TIMESTAMP
+#ifndef HAVE_AV_FRAME_GET_BEST_EFFORT_TIMESTAMP
 # define av_frame_get_best_effort_timestamp(x) (x)->pts
 #endif
 
-#ifndef HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE
+#ifndef HAVE_AV_IMAGE_GET_BUFFER_SIZE
 # define av_image_get_buffer_size(a, b, c, d) avpicture_get_size((a), (b), (c))
 #endif
 
-#ifndef HAVE_LIBAV_PACKET_UNREF
+#ifndef HAVE_AV_PACKET_UNREF
 # define av_packet_unref(a) av_free_packet((a))
 #endif
 
-#ifndef HAVE_LIBAV_PACKET_RESCALE_TS
+#ifndef HAVE_AV_PACKET_RESCALE_TS
 static void
 av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
 {
@@ -45,7 +45,7 @@ av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
 }
 #endif
 
-#ifndef HAVE_LIBAV_ALLOC_OUTPUT_CONTEXT2
+#ifndef HAVE_AVFORMAT_ALLOC_OUTPUT_CONTEXT2
 # include <libavutil/opt.h>
 
 static int

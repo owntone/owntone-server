@@ -903,7 +903,7 @@ pulse_init(void)
   if (!(pulse.cmdbase = commands_base_new(evbase_player, NULL)))
     goto fail;
 
-#ifdef HAVE_PULSE_MAINLOOP_SET_NAME
+#ifdef HAVE_PA_THREADED_MAINLOOP_SET_NAME
   pa_threaded_mainloop_set_name(pulse.mainloop, "pulseaudio");
 #endif
 
