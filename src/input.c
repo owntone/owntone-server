@@ -250,7 +250,7 @@ input_write(struct evbuffer *evbuf, short flags)
 /*                               Thread: player                             */
 
 int
-input_read(struct evbuffer *evbuf, size_t want, short *flags)
+input_read(void *data, size_t size, short *flags)
 {
   int len;
 
@@ -265,7 +265,7 @@ input_read(struct evbuffer *evbuf, size_t want, short *flags)
   pthread_mutex_lock(&input_buffer.mutex);
 
 #ifdef DEBUG
-  debug_elapsed += want;
+  debug_elapsed += size;
   if (debug_elapsed > STOB(441000)) // 10 sec
     {
       DPRINTF(E_DBG, L_PLAYER, "Input buffer has %zu bytes\n", evbuffer_get_length(input_buffer.evbuf));
@@ -273,7 +273,7 @@ input_read(struct evbuffer *evbuf, size_t want, short *flags)
     }
 #endif
 
-  len = evbuffer_remove_buffer(input_buffer.evbuf, evbuf, want);
+  len = evbuffer_remove(input_buffer.evbuf, data, size);
   if (len < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Error reading stream data from input buffer\n");
@@ -491,6 +491,9 @@ input_deinit(void)
       if (inputs[i]->deinit)
         inputs[i]->deinit();
     }
+
+  pthread_cond_destroy(&input_buffer.cond);
+  pthread_mutex_destroy(&input_buffer.mutex);
 
   evbuffer_free(input_buffer.evbuf);
 }

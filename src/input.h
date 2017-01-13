@@ -131,13 +131,13 @@ input_wait(void);
  * Move a chunk of stream data from the player's input buffer to an output
  * buffer. Should only be called by the player thread. Will not block.
  *
- * @in  evbuf    Output buffer
- * @in  want     How much data to move to the output buffer
+ * @in  data     Output buffer
+ * @in  size     How much data to move to the output buffer
  * @out flags    Flags INPUT_FLAG_EOF or INPUT_FLAG_METADATA
- * @return       Number of bytes moved
+ * @return       Number of bytes moved, -1 on error
  */
 int
-input_read(struct evbuffer *evbuf, size_t want, short *flags);
+input_read(void *data, size_t size, short *flags);
 
 /*
  * Initializes the given player source for playback
@@ -180,9 +180,15 @@ input_seek(struct player_source *ps, int seek_ms);
 void
 input_flush(short *flags);
 
+/*
+ * Called by player_init (so will run in main thread)
+ */
 int
 input_init(void);
 
+/*
+ * Called by player_deinit (so will run in main thread)
+ */
 void
 input_deinit(void);
 
