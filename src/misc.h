@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <pthread.h>
 
 struct onekeyval {
   char *name;
@@ -95,5 +96,28 @@ timespec_add(struct timespec time1, struct timespec time2);
 
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
+
+/* mutex wrappers with checks */
+void
+fork_mutex_init(pthread_mutex_t *mutex);
+void
+fork_mutex_lock(pthread_mutex_t *mutex);
+void
+fork_mutex_unlock(pthread_mutex_t *mutex);
+void
+fork_mutex_destroy(pthread_mutex_t *mutex);
+
+/* condition wrappers with checks */
+void
+fork_cond_init(pthread_cond_t *cond);
+void
+fork_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
+int
+fork_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+                    const struct timespec *ts);
+void
+fork_cond_signal(pthread_cond_t *cond);
+void
+fork_cond_destroy(pthread_cond_t *cond);
 
 #endif /* !__MISC_H__ */

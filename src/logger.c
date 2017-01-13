@@ -20,6 +20,8 @@
 # include <config.h>
 #endif
 
+#include "logger.h"
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -27,15 +29,13 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
-#include <pthread.h>
 
 #include <event2/event.h>
 
 #include <libavutil/log.h>
 
 #include "conffile.h"
-#include "logger.h"
-
+#include "misc.h"
 
 static pthread_mutex_t logger_lck = PTHREAD_MUTEX_INITIALIZER;
 static int logdomains;
@@ -90,11 +90,11 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
   if (!((1 << domain) & logdomains) || (severity > threshold))
     return;
 
-  pthread_mutex_lock(&logger_lck);
+  fork_mutex_lock(&logger_lck);
 
   if (!logfile && !console)
     {
-      pthread_mutex_unlock(&logger_lck);
+      fork_mutex_unlock(&logger_lck);
       return;
     }
 
@@ -123,7 +123,7 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
       va_end(ap);
     }
 
-  pthread_mutex_unlock(&logger_lck);
+  fork_mutex_unlock(&logger_lck);
 }
 
 void
@@ -204,7 +204,7 @@ logger_reinit(void)
   if (!logfile)
     return;
 
-  pthread_mutex_lock(&logger_lck);
+  fork_mutex_lock(&logger_lck);
 
   fp = fopen(logfilename, "a");
   if (!fp)
@@ -218,7 +218,7 @@ logger_reinit(void)
   logfile = fp;
 
  out:
-  pthread_mutex_unlock(&logger_lck);
+  fork_mutex_unlock(&logger_lck);
 }
 
 

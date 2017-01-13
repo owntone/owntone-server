@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <sys/param.h>
+#include <assert.h>
 
 #include <unistr.h>
 #include <uniconv.h>
@@ -917,4 +918,89 @@ timespec_cmp(struct timespec time1, struct timespec time2)
   /* Equal. */
   else
     return 0;
+}
+
+void
+fork_mutex_init(pthread_mutex_t *mutex)
+{
+  pthread_mutexattr_t mattr;
+  int err;
+
+  err = pthread_mutexattr_init(&mattr);
+  assert(err == 0);
+  err = pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_ERRORCHECK);
+  assert(err == 0);
+  err = pthread_mutex_init(mutex, &mattr);
+  assert(err == 0);
+  err = pthread_mutexattr_destroy(&mattr);
+  assert(err == 0);
+}
+
+void
+fork_mutex_lock(pthread_mutex_t *mutex)
+{
+  int err;
+  err = pthread_mutex_lock(mutex);
+  assert(err == 0);
+}
+
+void
+fork_mutex_unlock(pthread_mutex_t *mutex)
+{
+  int err;
+  err = pthread_mutex_unlock(mutex);
+  assert(err == 0);
+}
+
+void
+fork_mutex_destroy(pthread_mutex_t *mutex)
+{
+  int err;
+  err = pthread_mutex_destroy(mutex);
+  assert(err == 0);
+}
+
+/* condition wrappers with checks */
+void
+fork_cond_init(pthread_cond_t *cond)
+{
+  int err;
+  err = pthread_cond_init(cond, NULL);
+  assert(err == 0);
+}
+
+void
+fork_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
+{
+  int err;
+  err = pthread_cond_wait(cond, mutex);
+  assert(err == 0);
+}
+
+int
+fork_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+                    const struct timespec *ts)
+{
+  int err;
+  err = pthread_cond_timedwait(cond, mutex, ts);
+  if(err == ETIMEDOUT)
+    return err;
+  assert(err == 0);
+  return err;
+}
+
+void
+fork_cond_signal(pthread_cond_t *cond)
+{
+  int err;
+  err = pthread_cond_signal(cond);
+  assert(err == 0);
+}
+
+void
+fork_cond_destroy(pthread_cond_t *cond)
+{
+  int err;
+  err = pthread_cond_destroy(cond);
+  assert(err == 0);
 }

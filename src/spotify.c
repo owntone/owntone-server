@@ -1489,7 +1489,7 @@ audio_fifo_flush(void)
 
     DPRINTF(E_DBG, L_SPOTIFY, "Flushing audio fifo\n");
 
-    pthread_mutex_lock(&g_audio_fifo->mutex);
+    fork_mutex_lock(&g_audio_fifo->mutex);
 
     while((afd = TAILQ_FIRST(&g_audio_fifo->q))) {
 	TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
@@ -1498,7 +1498,7 @@ audio_fifo_flush(void)
 
     g_audio_fifo->qlen = 0;
     g_audio_fifo->fullcount = 0;
-    pthread_mutex_unlock(&g_audio_fifo->mutex);
+    fork_mutex_unlock(&g_audio_fifo->mutex);
 }
 
 static enum command_state
@@ -1678,7 +1678,7 @@ audio_get(void *arg, int *retval)
   if (g_state == SPOTIFY_STATE_PAUSED)
     playback_play(NULL, retval);
 
-  pthread_mutex_lock(&g_audio_fifo->mutex);
+  fork_mutex_lock(&g_audio_fifo->mutex);
 
   while ((processed < audio->wanted) && (g_state != SPOTIFY_STATE_STOPPED))
     {
@@ -1701,7 +1701,7 @@ audio_get(void *arg, int *retval)
 	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
 	  timeout += 5;
 	  mk_reltime(&ts, 5);
-	  pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
+	  fork_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
 	}
 
       if ((!afd) && (timeout >= SPOTIFY_TIMEOUT))
@@ -1725,7 +1725,7 @@ audio_get(void *arg, int *retval)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
-	  pthread_mutex_unlock(&g_audio_fifo->mutex);
+	  fork_mutex_unlock(&g_audio_fifo->mutex);
 	  *retval = -1;
 	  return COMMAND_END;
 	}
@@ -1733,7 +1733,7 @@ audio_get(void *arg, int *retval)
       processed += s;
     }
 
-  pthread_mutex_unlock(&g_audio_fifo->mutex);
+  fork_mutex_unlock(&g_audio_fifo->mutex);
 
 
   *retval = processed;
@@ -1744,15 +1744,15 @@ static void
 artwork_loaded_cb(sp_image *image, void *userdata)
 {
   struct artwork_get_param *artwork;
-  
+
   artwork = userdata;
-  
-  pthread_mutex_lock(&artwork->mutex);
+
+  fork_mutex_lock(&artwork->mutex);
 
   artwork->is_loaded = 1;
 
-  pthread_cond_signal(&artwork->cond);
-  pthread_mutex_unlock(&artwork->mutex);
+  fork_cond_signal(&artwork->cond);
+  fork_mutex_unlock(&artwork->mutex);
 }
 
 static enum command_state
@@ -1989,10 +1989,10 @@ logged_out(sp_session *sess)
 {
   DPRINTF(E_INFO, L_SPOTIFY, "Logout complete\n");
 
-  pthread_mutex_lock(&login_lck);
+  fork_mutex_lock(&login_lck);
 
-  pthread_cond_signal(&login_cond);
-  pthread_mutex_unlock(&login_lck);
+  fork_cond_signal(&login_cond);
+  fork_mutex_unlock(&login_lck);
 }
 
 /**
@@ -2017,7 +2017,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   if (num_frames == 0)
     return 0; // Audio discontinuity, do nothing
 
-  pthread_mutex_lock(&g_audio_fifo->mutex);
+  fork_mutex_lock(&g_audio_fifo->mutex);
 
   /* Buffer three seconds of audio */
   if (g_audio_fifo->qlen > (3 * format->sample_rate))
@@ -2033,7 +2033,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
 	  g_audio_fifo->fullcount = 0;
 	}
 
-      pthread_mutex_unlock(&g_audio_fifo->mutex);
+      fork_mutex_unlock(&g_audio_fifo->mutex);
 
       return 0;
     }
@@ -2050,8 +2050,8 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   TAILQ_INSERT_TAIL(&g_audio_fifo->q, afd, link);
   g_audio_fifo->qlen += num_frames;
 
-  pthread_cond_signal(&g_audio_fifo->cond);
-  pthread_mutex_unlock(&g_audio_fifo->mutex);
+  fork_cond_signal(&g_audio_fifo->cond);
+  fork_mutex_unlock(&g_audio_fifo->mutex);
 
   return num_frames;
 }
@@ -2371,23 +2371,23 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   artwork.max_w = max_w;
   artwork.max_h = max_h;
 
-  pthread_mutex_init(&artwork.mutex, NULL);
-  pthread_cond_init(&artwork.cond, NULL);
+  fork_mutex_init(&artwork.mutex);
+  fork_cond_init(&artwork.cond);
 
   ret = commands_exec_sync(cmdbase, artwork_get, NULL, &artwork);
-  
+
   // Artwork was not ready, wait for callback from libspotify
   if (ret == 0)
     {
-      pthread_mutex_lock(&artwork.mutex);
+      fork_mutex_lock(&artwork.mutex);
       mk_reltime(&ts, SPOTIFY_ARTWORK_TIMEOUT);
       if (!artwork.is_loaded)
-	pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts);
-      pthread_mutex_unlock(&artwork.mutex);
+	fork_cond_timedwait(&artwork.cond, &artwork.mutex, &ts);
+      fork_mutex_unlock(&artwork.mutex);
 
       ret = commands_exec_sync(cmdbase, artwork_get_bh, NULL, &artwork);
     }
-    
+
   return ret;
 }
 
@@ -2499,7 +2499,7 @@ spotify_login(char *path)
 
   if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(g_sess))
     {
-      pthread_mutex_lock(&login_lck);
+      fork_mutex_lock(&login_lck);
 
       DPRINTF(E_LOG, L_SPOTIFY, "Logging out of Spotify (current state is %d)\n", g_state);
 
@@ -2509,12 +2509,12 @@ spotify_login(char *path)
       if (SP_ERROR_OK != err)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Could not logout of Spotify: %s\n", fptr_sp_error_message(err));
-	  pthread_mutex_unlock(&login_lck);
+	  fork_mutex_unlock(&login_lck);
 	  return;
 	}
 
-      pthread_cond_wait(&login_cond, &login_lck);
-      pthread_mutex_unlock(&login_lck);
+      fork_cond_wait(&login_cond, &login_lck);
+      fork_mutex_unlock(&login_lck);
     }
 
   DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
@@ -2649,11 +2649,11 @@ spotify_init(void)
     }
   TAILQ_INIT(&g_audio_fifo->q);
   g_audio_fifo->qlen = 0;
-  pthread_mutex_init(&g_audio_fifo->mutex, NULL);
-  pthread_cond_init(&g_audio_fifo->cond, NULL);
+  fork_mutex_init(&g_audio_fifo->mutex);
+  fork_cond_init(&g_audio_fifo->cond);
 
-  pthread_mutex_init(&login_lck, NULL);
-  pthread_cond_init(&login_cond, NULL);
+  fork_mutex_init(&login_lck);
+  fork_cond_init(&login_cond);
 
   /* Spawn thread */
   ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
@@ -2673,11 +2673,11 @@ spotify_init(void)
   return 0;
 
  thread_fail:
-  pthread_cond_destroy(&login_cond);
-  pthread_mutex_destroy(&login_lck);
+  fork_cond_destroy(&login_cond);
+  fork_mutex_destroy(&login_lck);
 
-  pthread_cond_destroy(&g_audio_fifo->cond);
-  pthread_mutex_destroy(&g_audio_fifo->mutex);
+  fork_cond_destroy(&g_audio_fifo->cond);
+  fork_mutex_destroy(&g_audio_fifo->mutex);
   free(g_audio_fifo);  
 
  audio_fifo_fail:
@@ -2737,12 +2737,12 @@ spotify_deinit(void)
   close(g_notify_pipe[1]);
 
   /* Destroy locks */
-  pthread_cond_destroy(&login_cond);
-  pthread_mutex_destroy(&login_lck);
+  fork_cond_destroy(&login_cond);
+  fork_mutex_destroy(&login_lck);
 
   /* Clear audio fifo */
-  pthread_cond_destroy(&g_audio_fifo->cond);
-  pthread_mutex_destroy(&g_audio_fifo->mutex);
+  fork_cond_destroy(&g_audio_fifo->cond);
+  fork_mutex_destroy(&g_audio_fifo->mutex);
   free(g_audio_fifo);
 
   /* Release libspotify handle */

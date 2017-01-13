@@ -20,14 +20,13 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "logger.h"
-
+#include "misc.h"
 
 struct command
 {
@@ -79,7 +78,7 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
 {
   enum command_state cmdstate;
 
-  pthread_mutex_lock(&cmd->lck);
+  fork_mutex_lock(&cmd->lck);
 
   cmdstate = cmd->func(cmd->arg, &cmd->ret);
   if (cmdstate == COMMAND_PENDING)
@@ -95,8 +94,8 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
 	cmd->func_bh(cmd->arg, &cmd->ret);
 
       // Signal the calling thread that the command execution finished
-      pthread_cond_signal(&cmd->cond);
-      pthread_mutex_unlock(&cmd->lck);
+      fork_cond_signal(&cmd->cond);
+      fork_mutex_unlock(&cmd->lck);
 
       event_add(cmdbase->command_event, NULL);
     }
@@ -284,8 +283,8 @@ commands_exec_end(struct commands_base *cmdbase, int retvalue)
     {
       cmdbase->current_cmd->func_bh(cmdbase->current_cmd->arg, &cmdbase->current_cmd->ret);
     }
-  pthread_cond_signal(&cmdbase->current_cmd->cond);
-  pthread_mutex_unlock(&cmdbase->current_cmd->lck);
+  fork_cond_signal(&cmdbase->current_cmd->cond);
+  fork_mutex_unlock(&cmdbase->current_cmd->lck);
 
   cmdbase->current_cmd = NULL;
 
@@ -318,18 +317,25 @@ commands_exec_sync(struct commands_base *cmdbase, command_function func, command
   cmd.arg = arg;
   cmd.nonblock = 0;
 
-  pthread_mutex_lock(&cmd.lck);
+  fork_mutex_init(&cmd.lck);
+  fork_cond_init(&cmd.cond);
+
+  fork_mutex_lock(&cmd.lck);
 
   ret = send_command(cmdbase, &cmd);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MAIN, "Error sending command\n");
-      pthread_mutex_unlock(&cmd.lck);
-      return -1;
+      cmd.ret = -1;
     }
+  else
+    {
+      fork_cond_wait(&cmd.cond, &cmd.lck);
+    }
+  fork_mutex_unlock(&cmd.lck);
 
-  pthread_cond_wait(&cmd.cond, &cmd.lck);
-  pthread_mutex_unlock(&cmd.lck);
+  fork_cond_destroy(&cmd.cond);
+  fork_mutex_destroy(&cmd.lck);
 
   return cmd.ret;
 }
