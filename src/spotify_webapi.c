@@ -20,16 +20,11 @@
 #include "spotify_webapi.h"
 
 #include <event2/event.h>
+#include <json.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-
-#ifdef HAVE_JSON_C_OLD
-# include <json/json.h>
-#else
-# include <json-c/json.h>
-#endif
 
 #include "db.h"
 #include "http.h"
@@ -321,7 +316,7 @@ spotifywebapi_token_refresh()
   const char *err;
   int ret;
 
-  if (token_requested && difftime(token_requested, time(NULL)) < expires_in)
+  if (token_requested && difftime(time(NULL), token_requested) < expires_in)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Spotify token still valid\n");
       return 0;
@@ -356,7 +351,7 @@ spotifywebapi_token_refresh()
 }
 
 static int
-spotifywebapi_request_uri(struct spotify_request *request, const char *uri)
+request_uri(struct spotify_request *request, const char *uri)
 {
   char bearer_token[1024];
   int ret;
@@ -442,7 +437,7 @@ spotifywebapi_request_next(struct spotify_request *request, const char *uri)
       spotifywebapi_request_end(request);
     }
 
-  ret = spotifywebapi_request_uri(request, next_uri);
+  ret = request_uri(request, next_uri);
   free(next_uri);
 
   if (ret < 0)
@@ -465,8 +460,8 @@ spotifywebapi_request_next(struct spotify_request *request, const char *uri)
   return 0;
 }
 
-void
-track_metadata(json_object* jsontrack, struct spotify_track* track)
+static void
+parse_metadata_track(json_object* jsontrack, struct spotify_track* track)
 {
   json_object* jsonalbum;
   json_object* jsonartists;
@@ -494,14 +489,14 @@ track_metadata(json_object* jsontrack, struct spotify_track* track)
 }
 
 static int
-get_year_from_releasdate(const char *release_date)
+get_year_from_date(const char *date)
 {
   char tmp[5];
   uint32_t year = 0;
 
-  if (release_date && strlen(release_date) >= 4)
+  if (date && strlen(date) >= 4)
     {
-      strncpy(tmp, release_date, sizeof(tmp));
+      strncpy(tmp, date, sizeof(tmp));
       tmp[4] = '\0';
       safe_atou32(tmp, &year);
     }
@@ -509,8 +504,8 @@ get_year_from_releasdate(const char *release_date)
   return year;
 }
 
-void
-album_metadata(json_object *jsonalbum, struct spotify_album *album)
+static void
+parse_metadata_album(json_object *jsonalbum, struct spotify_album *album)
 {
   json_object* jsonartists;
 
@@ -529,7 +524,7 @@ album_metadata(json_object *jsonalbum, struct spotify_album *album)
 
   album->release_date = jparse_str_from_obj(jsonalbum, "release_date");
   album->release_date_precision = jparse_str_from_obj(jsonalbum, "release_date_precision");
-  album->release_year = get_year_from_releasdate(album->release_date);
+  album->release_year = get_year_from_date(album->release_date);
 
   // TODO Genre is an array of strings ('genres'), but it is always empty (https://github.com/spotify/web-api/issues/157)
   //album->genre = jparse_str_from_obj(jsonalbum, "genre");
@@ -558,7 +553,7 @@ spotifywebapi_saved_albums_fetch(struct spotify_request *request, json_object **
       return -1;
     }
 
-  album_metadata(jsonalbum, album);
+  parse_metadata_album(jsonalbum, album);
 
   album->added_at = jparse_str_from_obj(item, "added_at");
   album->mtime = jparse_time_from_obj(item, "added_at");
@@ -590,13 +585,13 @@ spotifywebapi_album_track_fetch(json_object *jsontracks, int index, struct spoti
       return -1;
     }
 
-  track_metadata(jsontrack, track);
+  parse_metadata_track(jsontrack, track);
 
   return 0;
 }
 
-void
-playlist_metadata(json_object *jsonplaylist, struct spotify_playlist *playlist)
+static void
+parse_metadata_playlist(json_object *jsonplaylist, struct spotify_playlist *playlist)
 {
   json_object *needle;
 
@@ -637,7 +632,7 @@ spotifywebapi_playlists_fetch(struct spotify_request *request, struct spotify_pl
       return -1;
     }
 
-  playlist_metadata(jsonplaylist, playlist);
+  parse_metadata_playlist(jsonplaylist, playlist);
   request->index++;
 
   return 0;
@@ -708,7 +703,7 @@ spotifywebapi_playlisttracks_fetch(struct spotify_request *request, struct spoti
       return -1;
     }
 
-  track_metadata(jsontrack, track);
+  parse_metadata_track(jsontrack, track);
   track->added_at = jparse_str_from_obj(item, "added_at");
   track->mtime = jparse_time_from_obj(item, "added_at");
 
@@ -741,7 +736,7 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
       return -1;
     }
 
-  ret = spotifywebapi_request_uri(request, uri);
+  ret = request_uri(request, uri);
   if (ret < 0)
     {
       free(owner);
@@ -750,7 +745,7 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
     }
 
   request->haystack = json_tokener_parse(request->response_body);
-  playlist_metadata(request->haystack, playlist);
+  parse_metadata_playlist(request->haystack, playlist);
 
   free(owner);
   free(id);

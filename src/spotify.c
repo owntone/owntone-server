@@ -1075,9 +1075,11 @@ playlist_remove(const char *uri)
 
   if (!pli)
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Playlist %s not found, can't delete\n", uri);
+      DPRINTF(E_LOG, L_SPOTIFY, "Playlist '%s' not found, can't delete\n", uri);
       return -1;
     }
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Removing playlist '%s' (%s)\n", pli->title, uri);
 
   plid = pli->id;
 
@@ -2302,6 +2304,12 @@ scan_playlists()
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
 
+	  if (!playlist.uri || !playlist.name || playlist.tracks_count == 0)
+	    {
+	      DPRINTF(E_DBG, L_SPOTIFY, "Ignoring playlist '%s' with %d tracks (%s)\n", playlist.name, playlist.tracks_count, playlist.uri);
+	      continue;
+	    }
+
 	  if (playlist.owner)
 	    {
 	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", playlist.name, playlist.owner);
@@ -2350,7 +2358,7 @@ scan_playlist(const char *uri)
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
+	  DPRINTF(E_LOG, L_SPOTIFY, "Saving playlist '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
 
 	  if (playlist.owner)
 	    {
