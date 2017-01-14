@@ -13,6 +13,7 @@ enum input_types
 {
   INPUT_TYPE_FILE,
   INPUT_TYPE_HTTP,
+  INPUT_TYPE_PIPE,
 #ifdef HAVE_SPOTIFY_H
   INPUT_TYPE_SPOTIFY,
 #endif

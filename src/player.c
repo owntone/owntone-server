@@ -1116,15 +1116,21 @@ playback_write(void)
 	  pb_buffer_offset = 0;
 	  pb_writes_pending--;
 	}
-      else if ((got < 0) || (pb_writes_pending > PLAYER_WRITES_PENDING_MAX))
+      else if (got < 0)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source, aborting playback (%d)\n", pb_writes_pending);
+	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source, aborting playback\n");
 	  playback_abort();
+	  return;
+	}
+      else if (pb_writes_pending > PLAYER_WRITES_PENDING_MAX)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily pausing playback\n");
+	  playback_abort(); // TODO Actually pause input + implement a resume event
 	  return;
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Partial read (offset=%zu, pending=%d)\n", pb_buffer_offset, pb_writes_pending);
+	  DPRINTF(E_SPAM, L_PLAYER, "Partial read (offset=%zu, pending=%d)\n", pb_buffer_offset, pb_writes_pending);
 	  pb_buffer_offset += got;
 	  return;
 	}

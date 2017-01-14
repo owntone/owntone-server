@@ -46,6 +46,7 @@
 
 extern struct input_definition input_file;
 extern struct input_definition input_http;
+extern struct input_definition input_pipe;
 #ifdef HAVE_SPOTIFY_H
 extern struct input_definition input_spotify;
 #endif
@@ -54,6 +55,7 @@ extern struct input_definition input_spotify;
 static struct input_definition *inputs[] = {
     &input_file,
     &input_http,
+    &input_pipe,
 #ifdef HAVE_SPOTIFY_H
     &input_spotify,
 #endif
@@ -129,6 +131,9 @@ map_data_kind(int data_kind)
 
       case DATA_KIND_HTTP:
 	return INPUT_TYPE_HTTP;
+
+      case DATA_KIND_PIPE:
+	return INPUT_TYPE_PIPE;
 
 #ifdef HAVE_SPOTIFY_H
       case DATA_KIND_SPOTIFY:

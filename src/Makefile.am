@@ -100,7 +100,6 @@ forked_daapd_SOURCES = main.c \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
-	pipe.c pipe.h \
 	artwork.c artwork.h \
 	misc.c misc.h \
 	rng.c rng.h \
@@ -109,7 +108,7 @@ forked_daapd_SOURCES = main.c \
 	player.c player.h \
 	worker.c worker.h \
 	input.h input.c \
-	inputs/file_http.c \
+	inputs/file_http.c inputs/pipe.c \
 	outputs.h outputs.c \
 	outputs/raop.c outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
