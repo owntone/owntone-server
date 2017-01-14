@@ -87,6 +87,47 @@ b64_encode(const uint8_t *in, size_t len);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
+#ifndef HAVE_CLOCK_GETTIME
+
+#ifndef CLOCK_REALTIME
+#  define CLOCK_REALTIME 0
+#endif
+#ifndef CLOCK_MONOTONIC
+#  define CLOCK_MONOTONIC 1
+#endif
+
+typedef int clockid_t;
+
+int
+clock_gettime(clockid_t clock_id, struct timespec *tp);
+
+int
+clock_getres(clockid_t clock_id, struct timespec *res);
+#endif
+
+#ifndef HAVE_TIMER_SETTIME
+
+struct itimerspec {
+  struct timespec it_interval;
+  struct timespec it_value;
+};
+typedef uint64_t timer_t;
+
+int
+timer_create(clockid_t clock_id, void *sevp, timer_t *timer_id);
+
+int
+timer_delete(timer_t timer_id);
+
+int
+timer_settime(timer_t timer_id, int flags, const struct itimerspec *tp,
+              struct itimerspec *old);
+
+int
+timer_getoverrun(timer_t timer_id);
+
+#endif
+
 /* Timer function for platforms without hi-res timers */
 int
 clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res);

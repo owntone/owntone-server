@@ -33,6 +33,12 @@ if COND_PULSEAUDIO
 PULSEAUDIO_SRC=outputs/pulse.c
 endif
 
+if COND_AVAHI
+MDNS_SRC=mdns_avahi.c
+else
+MDNS_SRC=mdns_dnssd.c
+endif
+
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -82,7 +88,7 @@ forked_daapd_SOURCES = main.c \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_playlist.c \
 	filescanner_smartpl.c $(ITUNES_SRC) \
-	mdns_avahi.c mdns.h \
+	$(MDNS_SRC) mdns.h \
 	remote_pairing.c remote_pairing.h \
 	avio_evbuffer.c avio_evbuffer.h \
 	httpd.c httpd.h \

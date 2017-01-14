@@ -636,11 +636,6 @@ entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_U
     }
 }
 
-#ifndef HOST_NAME_MAX
-/* some systems want programs to query this, just define a reasonable limit */
-#define HOST_NAME_MAX 64
-#endif
-
 static int
 create_group_entry(struct mdns_group_entry *ge, int commit)
 {
@@ -683,8 +678,9 @@ create_group_entry(struct mdns_group_entry *ge, int commit)
 	  DPRINTF(E_LOG, L_MDNS, "Could not add CNAME %s, gethostname failed\n", ge->name);
 	  return -1;
 	}
-
       // Note, gethostname does not guarantee 0-termination
+      hostname[HOST_NAME_MAX] = 0;
+
       ret = snprintf(rdata, sizeof(rdata), ".%s.local", hostname);
       if (!(ret > 0 && ret < sizeof(rdata)))
         {
