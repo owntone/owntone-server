@@ -397,6 +397,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
   bool is_bulkscan;
   bool is_type_compilation;
   enum media_kind media_kind;
+  enum data_kind data_kind;
 
   is_bulkscan = (flags & F_SCAN_BULK);
 
@@ -411,7 +412,12 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 	else
 	  media_kind = 0;
 
-	library_process_media(file, mtime, size, DATA_KIND_FILE, media_kind, is_type_compilation, NULL, dir_id);
+	if (F_SCAN_TYPE_PIPE & type)
+	  data_kind = DATA_KIND_PIPE;
+	else
+	  data_kind = DATA_KIND_FILE;
+
+	library_process_media(file, mtime, size, data_kind, media_kind, is_type_compilation, NULL, dir_id);
 
 	cache_artwork_ping(file, mtime, !is_bulkscan);
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
