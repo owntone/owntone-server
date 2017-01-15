@@ -36,7 +36,6 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/queue.h>
-#include <time.h>
 #include <pthread.h>
 #ifdef HAVE_PTHREAD_NP_H
 # include <pthread_np.h>
@@ -80,8 +79,6 @@
  *      then use our normal cleanup of stray files to tidy db and cache.
  */
 
-// How long to wait for audio (in sec) before giving up
-#define SPOTIFY_TIMEOUT 20
 // How long to wait for artwork (in sec) before giving up
 #define SPOTIFY_ARTWORK_TIMEOUT 3
 // An upper limit on sequential requests to Spotify's web api
@@ -142,6 +139,9 @@ static int spotify_saved_plid;
 
 // Flag to avoid triggering playlist change events while the (re)scan is running
 static bool scanning;
+
+// Timeout timespec
+static struct timespec spotify_artwork_timeout = { SPOTIFY_ARTWORK_TIMEOUT, 0 };
 
 // Audio buffer
 static struct evbuffer *spotify_audio_buffer;
@@ -1146,19 +1146,6 @@ static sp_playlistcontainer_callbacks pc_callbacks = {
 /* --------------------- INTERNAL PLAYBACK AND AUDIO ----------------------- */
 /*            Should only be called from within the spotify thread           */
 
-static void
-mk_reltime(struct timespec *ts, time_t sec)
-{
-#if _POSIX_TIMERS > 0
-  clock_gettime(CLOCK_REALTIME, ts);
-#else
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  TIMEVAL_TO_TIMESPEC(&tv, ts);
-#endif
-  ts->tv_sec += sec;
-}
-
 static enum command_state
 playback_setup(void *arg, int *retval)
 {
@@ -1858,7 +1845,7 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   if (ret == 0)
     {
       CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&artwork.mutex));
-      mk_reltime(&ts, SPOTIFY_ARTWORK_TIMEOUT);
+      ts = timespec_reltoabs(spotify_artwork_timeout);
       if (!artwork.is_loaded)
 	CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts), err, ETIMEDOUT);
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&artwork.mutex));
