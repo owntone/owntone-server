@@ -145,6 +145,9 @@ timespec_add(struct timespec time1, struct timespec time2);
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
 
+struct timespec
+timespec_reltoabs(struct timespec relative);
+
 /* initialize mutex with error checking (not default on all platforms) */
 int
 mutex_init(pthread_mutex_t *mutex);

@@ -27,6 +27,7 @@
 #endif
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
@@ -926,6 +927,21 @@ timespec_cmp(struct timespec time1, struct timespec time2)
   /* Equal. */
   else
     return 0;
+}
+
+struct timespec
+timespec_reltoabs(struct timespec relative)
+{
+  struct timespec absolute;
+
+#if _POSIX_TIMERS > 0
+  clock_gettime(CLOCK_REALTIME, &absolute);
+#else
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  TIMEVAL_TO_TIMESPEC(&tv, &absolute);
+#endif
+  return timespec_add(absolute, relative);
 }
 
 #if defined(HAVE_MACH_CLOCK) || defined(HAVE_MACH_TIMER)
