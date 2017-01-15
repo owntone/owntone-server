@@ -41,6 +41,8 @@
 
 // Disallow further writes to the buffer when its size is larger than this threshold
 #define INPUT_BUFFER_THRESHOLD STOB(44100)
+// How long (in sec) to wait for player read before looping in playback thread
+#define INPUT_LOOP_TIMEOUT 1
 
 #define DEBUG 1 //TODO disable
 
@@ -72,6 +74,9 @@ struct input_buffer
   // If non-zero, remaining length of buffer until (possible) new metadata
   size_t metadata;
 
+  // Optional callback to player if buffer is full
+  input_cb full_cb;
+
   // Locks for sharing the buffer between input and player thread
   pthread_mutex_t mutex;
   pthread_cond_t cond;
@@ -83,6 +88,9 @@ static pthread_t tid_input;
 
 // Input buffer
 static struct input_buffer input_buffer;
+
+// Timeout waiting in playback loop
+static struct timespec input_loop_timeout = { INPUT_LOOP_TIMEOUT, 0 };
 
 #ifdef DEBUG
 static size_t debug_elapsed;
@@ -204,8 +212,12 @@ playback(void *arg)
 void
 input_wait(void)
 {
+  struct timespec ts;
+
   pthread_mutex_lock(&input_buffer.mutex);
-  pthread_cond_wait(&input_buffer.cond, &input_buffer.mutex);
+
+  ts = timespec_reltoabs(input_loop_timeout);
+  pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
 
   pthread_mutex_unlock(&input_buffer.mutex);
 }
@@ -214,21 +226,27 @@ input_wait(void)
 int
 input_write(struct evbuffer *evbuf, short flags)
 {
+  struct timespec ts;
   int ret;
 
   pthread_mutex_lock(&input_buffer.mutex);
 
   while ( (!input_loop_break) && (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD) )
     {
+      if (input_buffer.full_cb)
+	{
+	  input_buffer.full_cb();
+	  input_buffer.full_cb = NULL;
+	}
+
       if (flags & INPUT_FLAG_NONBLOCK)
 	{
 	  pthread_mutex_unlock(&input_buffer.mutex);
 	  return EAGAIN;
 	}
 
-      pthread_cond_wait(&input_buffer.cond, &input_buffer.mutex);
-
-      // TODO protect against infinite looping and waiting?
+      ts = timespec_reltoabs(input_loop_timeout);
+      pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
     }
 
   if (!input_loop_break)
@@ -294,6 +312,15 @@ input_read(void *data, size_t size, short *flags)
   return len;
 }
 
+void
+input_buffer_full_cb(input_cb cb)
+{
+  pthread_mutex_lock(&input_buffer.mutex);
+  input_buffer.full_cb = cb;
+
+  pthread_mutex_unlock(&input_buffer.mutex);
+}
+
 int
 input_setup(struct player_source *ps)
 {
@@ -316,8 +343,8 @@ input_start(struct player_source *ps)
 
   if (tid_input)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! Input start called, but playback already running\n");
-      input_pause(ps);
+      DPRINTF(E_WARN, L_PLAYER, "Input start called, but playback already running\n");
+      return 0;
     }
 
   input_loop_break = 0;
@@ -427,6 +454,7 @@ input_flush(short *flags)
 
   input_buffer.eof = 0;
   input_buffer.metadata = 0;
+  input_buffer.full_cb = NULL;
 
   pthread_mutex_unlock(&input_buffer.mutex);
 

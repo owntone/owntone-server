@@ -71,6 +71,8 @@ struct player_source
   struct player_source *play_next;
 };
 
+typedef int (*input_cb)(void);
+
 struct input_definition
 {
   // Name of the input
@@ -139,6 +141,15 @@ input_wait(void);
  */
 int
 input_read(void *data, size_t size, short *flags);
+
+/*
+ * Player can set this to get a callback from the input when the input buffer
+ * is full. The player may use this to resume playback after an underrun.
+ *
+ * @in  cb       The callback
+ */
+void
+input_buffer_full_cb(input_cb cb);
 
 /*
  * Initializes the given player source for playback
