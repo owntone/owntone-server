@@ -998,9 +998,6 @@ clock_getres(clockid_t clock_id, struct timespec *res) {
 
 #include <sys/time.h> /* ITIMER_REAL */
 
-static uint64_t timer_interval;
-static struct timespec timer_expire;
-
 int
 timer_create(clockid_t clock_id, void *sevp, timer_t *timer_id) {
 
@@ -1011,8 +1008,6 @@ timer_create(clockid_t clock_id, void *sevp, timer_t *timer_id) {
 
   /* setitimer only supports one timer */
   *timer_id = 0;
-  timer_expire.tv_sec = 0;
-  timer_expire.tv_nsec = 0;
 
   return 0;
 }
@@ -1027,9 +1022,6 @@ timer_delete(timer_t timer_id) {
 
   memset(&timerval, 0, sizeof(struct itimerval));
 
-  timer_expire.tv_sec = 0;
-  timer_expire.tv_nsec = 0;
-
   return setitimer(ITIMER_REAL, &timerval, NULL);
 }
 
@@ -1042,25 +1034,6 @@ timer_settime(timer_t timer_id, int flags, const struct itimerspec *tp,
   if (timer_id != 0 || ! tp || old)
     return -1;
 
-  if (tp->it_value.tv_sec || tp->it_value.tv_nsec) {
-    /* calc expire */
-    if (clock_gettime(CLOCK_MONOTONIC, &timer_expire))
-      return -1;
-    timer_expire.tv_sec += tp->it_value.tv_sec;
-    timer_expire.tv_nsec += tp->it_value.tv_nsec;
-    if (timer_expire.tv_nsec >= 1e9) {
-      timer_expire.tv_sec++;
-      timer_expire.tv_nsec -= 1e9;
-    }
-    /* record the interval */
-    timer_interval = tp->it_interval.tv_sec * 1e9;
-    timer_interval += tp->it_interval.tv_nsec;
-  }
-  else {
-    timer_expire.tv_sec = 0;
-    timer_expire.tv_nsec = 0;
-  }
-
   TIMESPEC_TO_TIMEVAL(&(tv.it_value), &(tp->it_value));
   TIMESPEC_TO_TIMEVAL(&(tv.it_interval), &(tp->it_interval));
 
@@ -1070,27 +1043,9 @@ timer_settime(timer_t timer_id, int flags, const struct itimerspec *tp,
 int
 timer_getoverrun(timer_t timer_id) {
 
-  struct timespec now;
-  int64_t diff;
-
-  if (timer_id != 0)
-    return -1;
-
-  if (timer_expire.tv_sec == 0 && timer_expire.tv_nsec == 0)
-    return 0;
-
-  if (timer_interval == 0)
-    return 0;
-
-  /* calc how much time has elapsed since expiration */
-  if (clock_gettime(CLOCK_MONOTONIC, &now))
-    return -1;
-  diff = (now.tv_sec - timer_expire.tv_sec) * 1e9;
-  diff += now.tv_nsec - now.tv_nsec;
-  if (diff < 0)
-    return 0;
-
-  return (int)(diff / timer_interval);
+  /* since we don't know if there have been signals that weren't delivered,
+     assume none */
+  return 0;
 }
 
 #endif /* HAVE_TIMER_SETTIME */
