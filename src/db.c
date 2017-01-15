@@ -2499,7 +2499,7 @@ db_file_update(struct media_file_info *mfi)
 }
 
 void
-db_file_save_seek(int id, uint32_t seek)
+db_file_seek_update(int id, uint32_t seek)
 {
 #define Q_TMPL "UPDATE files SET seek = %d WHERE id = %d;"
   char *query;
