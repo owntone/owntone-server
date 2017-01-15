@@ -90,7 +90,7 @@ int
 player_speaker_set(uint64_t *ids);
 
 int
-player_playback_start();
+player_playback_start(void);
 
 int
 player_playback_start_byitem(struct db_queue_item *queue_item);

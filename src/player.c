@@ -323,6 +323,20 @@ speaker_deselect_output(struct output_device *device)
     volume_master_find();
 }
 
+static void
+seek_save(void)
+{
+  int seek;
+
+  if (!cur_streaming)
+    return;
+
+  if (cur_streaming->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
+    {
+      seek = (cur_streaming->output_start - cur_streaming->stream_start) / 44100 * 1000;
+      db_file_seek_update(cur_streaming->id, seek);
+    }
+}
 
 int
 player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
@@ -428,6 +442,9 @@ pb_timer_stop(void)
 /* Forward */
 static void
 playback_abort(void);
+
+static void
+playback_suspend(void);
 
 static void
 player_metadata_send(struct player_metadata *pmd);
@@ -1124,8 +1141,8 @@ playback_write(void)
 	}
       else if (pb_writes_pending > PLAYER_WRITES_PENDING_MAX)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily pausing playback\n");
-	  playback_abort(); // TODO Actually pause input + implement a resume event
+	  DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback\n");
+	  playback_suspend();
 	  return;
 	}
       else
@@ -1706,6 +1723,21 @@ playback_abort(void)
   metadata_purge();
 }
 
+/* Internal routine for waiting when input buffer underruns */
+static void
+playback_suspend(void)
+{
+  outputs_playback_stop();
+
+  pb_timer_stop();
+
+  status_update(PLAY_PAUSED);
+
+  seek_save();
+
+  input_buffer_full_cb(player_playback_start);
+}
+
 /* Actual commands, executed in the player thread */
 static enum command_state
 get_status(void *arg, int *retval)
@@ -2011,7 +2043,6 @@ playback_start_item(void *arg, int *retval)
       return COMMAND_END;
     }
 
-
   metadata_trigger(1);
 
   /* Start sessions on selected devices */
@@ -2080,14 +2111,14 @@ playback_start(void *arg, int *retval)
   enum command_state cmd_state;
 
   if (player_state == PLAY_STOPPED)
-{
+    {
       // Start playback of first item in queue
       queue_item = db_queue_fetch_bypos(0, shuffle);
       if (!queue_item)
-{
+	{
 	  *retval = -1;
 	  return COMMAND_END;
-}
+	}
     }
 
   cmd_state = playback_start_item(queue_item, retval);
@@ -2263,8 +2294,6 @@ playback_seek_bh(void *arg, int *retval)
 static enum command_state
 playback_pause_bh(void *arg, int *retval)
 {
-  int ret;
-
   if (cur_streaming->data_kind == DATA_KIND_HTTP
       || cur_streaming->data_kind == DATA_KIND_PIPE)
     {
@@ -2276,11 +2305,7 @@ playback_pause_bh(void *arg, int *retval)
     }
   status_update(PLAY_PAUSED);
 
-  if (cur_streaming->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
-    {
-      ret = (cur_streaming->output_start - cur_streaming->stream_start) / 44100 * 1000;
-      db_file_save_seek(cur_streaming->id, ret);
-    }
+  seek_save();
 
   *retval = 0;
   return COMMAND_END;
@@ -2787,18 +2812,15 @@ player_get_icy_artwork_url(uint32_t id)
 /*
  * Starts/resumes playback
  *
- * Depending on the player state, this will either resume playing the current item (player is paused)
- * or begin playing the queue from the beginning.
+ * Depending on the player state, this will either resume playing the current
+ * item (player is paused) or begin playing the queue from the beginning.
  *
  * If shuffle is set, the queue is reshuffled prior to starting playback.
  *
- * If a pointer is given as argument "itemid", its value will be set to the playing item dbmfi-id.
- *
- * @param *id if not NULL, will be set to the playing item dbmfi-id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_start()
+player_playback_start(void)
 {
   int ret;
 
@@ -2807,14 +2829,13 @@ player_playback_start()
 }
 
 /*
- * Starts playback with the media item at the given index of the play-queue.
+ * Starts/resumes playback of the given queue_item
  *
  * If shuffle is set, the queue is reshuffled prior to starting playback.
  *
  * If a pointer is given as argument "itemid", its value will be set to the playing item id.
  *
- * @param index the index of the item in the play-queue
- * @param *id if not NULL, will be set to the playing item id
+ * @param queue_item to start playing
  * @return 0 if successful, -1 if an error occurred
  */
 int
