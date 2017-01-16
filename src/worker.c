@@ -149,15 +149,20 @@ worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
       return;
     }
 
-  argcpy = malloc(arg_size);
-  if (!argcpy)
+  if (arg_size > 0)
     {
-      DPRINTF(E_LOG, L_MAIN, "Out of memory\n");
-      free(cmdarg);
-      return;
-    }
+      argcpy = malloc(arg_size);
+      if (!argcpy)
+	{
+	  DPRINTF(E_LOG, L_MAIN, "Out of memory\n");
+	  free(cmdarg);
+	  return;
+	}
 
-  memcpy(argcpy, cb_arg, arg_size);
+      memcpy(argcpy, cb_arg, arg_size);
+    }
+  else
+    argcpy = NULL;
 
   cmdarg->cb = cb;
   cmdarg->cb_arg = argcpy;
