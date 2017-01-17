@@ -1,5 +1,5 @@
 /*
- * Avahi mDNS backend, with libevent polling
+ * Bonjour mDNS backend, with libevent polling
  *
  * Copyright (c) Scott Shambarger <devel@shambarger.net>
  * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
@@ -20,13 +20,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/*
- * NOTE: dns_sd.h indicates that MoreComing is unified on shared
- * connecdtions; this means that the triggers to free structs when
- * MoreComing is not set may not be called if another operation has
- * pending data... we probably need a way to prevent leaks (how do you
- * know if it's safe to free a context, after timeout with cancel??)
- */
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -47,6 +40,9 @@
 
 #include <dns_sd.h>
 
+/* timeout for service resolves */
+#define MDNS_RESOLVE_TIMEOUT_SECS 5
+
 // Hack for FreeBSD, don't want to bother with sysconf()
 #ifndef HOST_NAME_MAX
 # include <limits.h>
@@ -61,61 +57,71 @@ extern struct event_base *evbase_main;
 static DNSServiceRef mdns_sdref_main;
 static struct event *mdns_ev_main;
 
+/* registered services last the life of the program */
 struct mdns_service {
-  DNSServiceRef sdref;
-  char *name;
-  char *regtype;
-  TXTRecordRef txtRecord;
-  struct event *ev;
   struct mdns_service *next;
+  /* allocated */
+  DNSServiceRef sdref;
+  TXTRecordRef txtRecord;
 };
 
 static struct mdns_service *mdns_services = NULL;
 
+/* we keep records forever to display names in logs when
+   registered or renamed */
 struct mdns_record {
+  struct mdns_record *next;
+  /* allocated */
+  char *name;
+  /* references */
   DNSRecordRef recRef;
   uint16_t rrtype;
-  char *name;
-  struct mdns_record *next;
 };
 
 static struct mdns_record *mdns_records = NULL;
 
-/* Avahi client callbacks & helpers */
+struct mdns_addr_lookup {
+  struct mdns_addr_lookup *next;
+  /* allocated */
+  DNSServiceRef sdref;
+  struct keyval txt_kv;
+  /* references */
+  u_int16_t port;
+  struct mdns_resolver *rs;
+};
 
+/* resolvers and address lookups clean themselves up */
+struct mdns_resolver
+{
+  struct mdns_resolver *next;
+  /* allocated */
+  DNSServiceRef sdref;
+  char *service;
+  char *regtype;
+  char *domain;
+  struct event *timer;
+  struct mdns_addr_lookup *lookups;
+  /* references */
+  void *uuid;
+  uint32_t interface;
+  struct mdns_browser *mb;
+};
+
+/* browsers keep running for the life of the program */
 struct mdns_browser
 {
+  struct mdns_browser *next;
+  /* allocated */
   DNSServiceRef sdref;
+  struct mdns_resolver *resolvers;
   char *regtype;
+  /* references */
   mdns_browse_cb cb;
   DNSServiceProtocol protocol;
-  struct event *ev;
-  struct mdns_browser *next;
+  void *res_uuid;
 };
 
 static struct mdns_browser *mdns_browsers = NULL;
-
-struct mdns_resolver
-{
-  DNSServiceRef sdref;
-  char *name;
-  char *regtype;
-  char *domain;
-  struct mdns_browser *mb;
-  struct event *ev;
-  struct mdns_resolver *next;
-};
-
-struct mdns_addr_lookup {
-  DNSServiceRef sdref;
-  char *name;
-  char *regtype;
-  char *domain;
-  u_int16_t port;
-  struct keyval txt_kv;
-  struct mdns_browser *mb;
-  struct event *ev;
-};
 
 #define IPV4LL_NETWORK 0xA9FE0000
 #define IPV4LL_NETMASK 0xFFFF0000
@@ -143,13 +149,52 @@ mdns_service_free(struct mdns_service *s)
   if(! s)
     return -1;
 
-  /* free event, then sdref, then everything else */
-  event_free(s->ev);
-  DNSServiceRefDeallocate(s->sdref);
+  /* free sdref, then everything else */
+  if(s->sdref)
+    DNSServiceRefDeallocate(s->sdref);
   TXTRecordDeallocate(&(s->txtRecord));
-  free(s->name);
-  free(s->regtype);
   free(s);
+
+  return -1;
+}
+
+static int
+mdns_addr_lookup_free(struct mdns_addr_lookup *lu)
+{
+  if (! lu)
+    return -1;
+
+  if(lu->sdref)
+    DNSServiceRefDeallocate(lu->sdref);
+  keyval_clear(&lu->txt_kv);
+  free(lu);
+
+  return -1;
+}
+
+static int
+mdns_resolver_free(struct mdns_resolver *rs) {
+
+  struct mdns_addr_lookup *lu;
+
+  if (! rs)
+    return -1;
+
+  /* free/cancel all lookups */
+  for(lu = rs->lookups; lu; lu = rs->lookups)
+    {
+      rs->lookups = lu->next;
+      mdns_addr_lookup_free(lu);
+    }
+
+  if(rs->timer)
+    event_free(rs->timer);
+  if(rs->sdref)
+    DNSServiceRefDeallocate(rs->sdref);
+  free(rs->service);
+  free(rs->regtype);
+  free(rs->domain);
+  free(rs);
 
   return -1;
 }
@@ -157,12 +202,20 @@ mdns_service_free(struct mdns_service *s)
 static int
 mdns_browser_free(struct mdns_browser *mb)
 {
+  struct mdns_resolver *rs;
+
   if(! mb)
     return -1;
 
-  /* free event, then sdref, then everything else */
-  event_free(mb->ev);
-  DNSServiceRefDeallocate(mb->sdref);
+  /* free all resolvers */
+  for(rs = mb->resolvers; rs; rs = mb->resolvers)
+    {
+      mb->resolvers = rs->next;
+      mdns_resolver_free(rs);
+    }
+  /* free sdref, then everything else */
+  if(mb->sdref)
+    DNSServiceRefDeallocate(mb->sdref);
   free(mb->regtype);
   free(mb);
 
@@ -206,9 +259,11 @@ mdns_main_free(void)
       mdns_record_free(r);
     }
 
-  event_free(mdns_ev_main);
+  if(mdns_ev_main)
+    event_free(mdns_ev_main);
   mdns_ev_main = NULL;
-  DNSServiceRefDeallocate(mdns_sdref_main);
+  if(mdns_sdref_main)
+    DNSServiceRefDeallocate(mdns_sdref_main);
   mdns_sdref_main = NULL;
 
   return -1;
@@ -222,30 +277,21 @@ mdns_deinit(void)
 
 static void
 mdns_event_cb(evutil_socket_t fd, short flags, void *data) {
-  DNSServiceProcessResult(*(DNSServiceRef *)data);
-}
 
-static int
-mdns_event_add(DNSServiceRef *psdref, struct event **pev)
-{
-  int fd;
+  DNSServiceErrorType err;
 
-  fd = DNSServiceRefSockFD(*psdref);
-  *pev = event_new(evbase_main, fd, EV_PERSIST | EV_READ, mdns_event_cb,
-                   psdref);
-  if (!*pev)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Could not make new event in mdns\n");
-      return -1;
-    }
+  err = DNSServiceProcessResult(mdns_sdref_main);
 
-  return event_add(*pev, NULL);
+  if (err != kDNSServiceErr_NoError)
+    DPRINTF(E_LOG, L_MDNS, "DNSServiceProcessResult error %d\n", err);
 }
 
 int
 mdns_init(void)
 {
   DNSServiceErrorType err;
+  int fd;
+  int ret;
 
   DPRINTF(E_DBG, L_MDNS, "Initializing DNS_SD mDNS\n");
 
@@ -262,8 +308,25 @@ mdns_init(void)
       return -1;
     }
 
-  if (mdns_event_add(&mdns_sdref_main, &mdns_ev_main) < 0)
-    return mdns_main_free();
+  fd = DNSServiceRefSockFD(mdns_sdref_main);
+  if (fd == -1) {
+      DPRINTF(E_LOG, L_MDNS, "DNSServiceRefSockFD failed\n");
+      return mdns_main_free();
+  }
+  mdns_ev_main = event_new(evbase_main, fd, EV_PERSIST | EV_READ,
+                           mdns_event_cb, NULL);
+  if (! mdns_ev_main)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Could not make new event in mdns\n");
+      return mdns_main_free();
+    }
+
+  ret = event_add(mdns_ev_main, NULL);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Could not add new event in mdns\n");
+      return mdns_main_free();
+    }
 
   return 0;
 }
@@ -276,11 +339,14 @@ mdns_register_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
 
   switch (errorCode) {
     case kDNSServiceErr_NoError:
-      DPRINTF(E_DBG, L_MDNS, "Successfully added mDNS services\n");
+      DPRINTF(E_DBG, L_MDNS, "Successfully added mDNS service '%s.%s'\n",
+              name, regtype);
       break;
 
     case kDNSServiceErr_NameConflict:
-      DPRINTF(E_DBG, L_MDNS, "Name collision - automatically assigning new name\n");
+      DPRINTF(E_DBG, L_MDNS,
+              "Name collision for service '%s.%s' - automatically assigning new name\n",
+              name, regtype);
       break;
 
     case kDNSServiceErr_NoMemory:
@@ -301,26 +367,13 @@ mdns_register(char *name, char *regtype, int port, char **txt)
   int i;
   char *eq;
 
-  DPRINTF(E_DBG, L_MDNS, "Adding mDNS service %s/%s\n", name, regtype);
+  DPRINTF(E_DBG, L_MDNS, "Adding mDNS service '%s.%s'\n", name, regtype);
 
   s = calloc(1, sizeof(*s));
   if (!s)
     {
       DPRINTF(E_LOG, L_MDNS, "Out of memory registering service.\n");
       return -1;
-    }
-  s->name = strdup(name);
-  if (!(s->name))
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory registering service.\n");
-      return mdns_service_free(s);
-    }
-
-  s->regtype = strdup(regtype);
-  if (!(s->regtype))
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory registering service.\n");
-      return mdns_service_free(s);
     }
   TXTRecordCreate(&(s->txtRecord), 0, NULL);
 
@@ -342,20 +395,18 @@ mdns_register(char *name, char *regtype, int port, char **txt)
 
   s->sdref = mdns_sdref_main;
   err = DNSServiceRegister(&(s->sdref), kDNSServiceFlagsShareConnection, 0,
-                           s->name, s->regtype, NULL, NULL, htons(port),
+                           name, regtype, NULL, NULL, htons(port),
                            TXTRecordGetLength(&(s->txtRecord)),
                            TXTRecordGetBytesPtr(&(s->txtRecord)),
                            mdns_register_callback, NULL);
 
   if (err != kDNSServiceErr_NoError)
     {
-      DPRINTF(E_LOG, L_MDNS, "Error registering service %s\n", name);
+      DPRINTF(E_LOG, L_MDNS, "Error registering service '%s.%s'\n",
+              name, regtype);
       s->sdref = NULL;
       return mdns_service_free(s);
     }
-
-  if (mdns_event_add(&s->sdref, &s->ev) < 0)
-    return mdns_service_free(s);
 
   s->next = mdns_services;
   mdns_services = s;
@@ -428,6 +479,7 @@ mdns_register_record(uint16_t rrtype, const char *name, uint16_t rdlen,
       return mdns_record_free(r);
     }
 
+  /* keep these around so we can display r->name in the callback */
   r->next = mdns_records;
   mdns_records = r;
 
@@ -479,24 +531,6 @@ mdns_cname(char *name)
                               rdata);
 }
 
-static int
-mdns_addr_lookup_free(struct mdns_addr_lookup *lu)
-{
-  if (! lu)
-    return -1;
-
-  /* free event, then sdref, then everything else */
-  event_free(lu->ev);
-  DNSServiceRefDeallocate(lu->sdref);
-  keyval_clear(&lu->txt_kv);
-  free(lu->domain);
-  free(lu->regtype);
-  free(lu->name);
-  free(lu);
-
-  return -1;
-}
-
 static void
 mdns_browse_call_cb(struct mdns_addr_lookup *lu, const char *hostname,
                     const struct sockaddr *address)
@@ -514,15 +548,17 @@ mdns_browse_call_cb(struct mdns_addr_lookup *lu, const char *hostname,
           return;
         }
 
-      if (!(lu->mb->protocol & kDNSServiceProtocol_IPv4))
+      if (!(lu->rs->mb->protocol & kDNSServiceProtocol_IPv4))
         {
-          DPRINTF(E_DBG, L_MDNS, "Discarding IPv4, not interested (service %s)\n",
-                  lu->name);
+          DPRINTF(E_DBG, L_MDNS,
+                  "Discarding IPv4, not interested (service %s)\n",
+                  lu->rs->service);
           return;
         }
       else if (is_v4ll(&addr->sin_addr))
         {
-          DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n",
+          DPRINTF(E_WARN, L_MDNS,
+                  "Ignoring announcement from %s, address %s is link-local\n",
                   hostname, addr_str);
           return;
         }
@@ -539,26 +575,28 @@ mdns_browse_call_cb(struct mdns_addr_lookup *lu, const char *hostname,
           return;
         }
 
-      if (!(lu->mb->protocol & kDNSServiceProtocol_IPv6))
+      if (!(lu->rs->mb->protocol & kDNSServiceProtocol_IPv6))
         {
-          DPRINTF(E_DBG, L_MDNS, "Discarding IPv6, not interested (service %s)\n",
-                  lu->name);
+          DPRINTF(E_DBG, L_MDNS,
+                  "Discarding IPv6, not interested (service %s)\n",
+                  lu->rs->service);
           return;
         }
       else if (is_v6ll(&addr6->sin6_addr))
         {
-          DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n",
+          DPRINTF(E_WARN, L_MDNS,
+                  "Ignoring announcement from %s, address %s is link-local\n",
                   hostname, addr_str);
           return;
         }
     }
 
   DPRINTF(E_DBG, L_MDNS, "Service %s, hostname %s resolved to %s\n",
-          lu->name, hostname, addr_str);
+          lu->rs->service, hostname, addr_str);
 
   /* Execute callback (mb->cb) with all the data */
-  lu->mb->cb(lu->name, lu->mb->regtype, lu->domain, hostname,
-             address->sa_family, addr_str, lu->port, &lu->txt_kv);
+  lu->rs->mb->cb(lu->rs->service, lu->rs->regtype, lu->rs->domain, hostname,
+                 address->sa_family, addr_str, lu->port, &lu->txt_kv);
 }
 
 static void
@@ -569,22 +607,17 @@ mdns_lookup_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
 {
   struct mdns_addr_lookup *lu;
 
+  lu = context;
+
   if (errorCode != kDNSServiceErr_NoError )
     {
-      DPRINTF(E_LOG, L_MDNS, "Error resolving service address, error %d\n",
-              errorCode);
+      DPRINTF(E_LOG, L_MDNS, "Error resolving hostname '%s', error %d\n",
+              hostname, errorCode);
       return;
     }
 
-  lu = context;
-
   if (flags & kDNSServiceFlagsAdd)
-    mdns_browse_call_cb(lu, hostname, address);
-
-  /* If we are done with address lookups for this resolve,
-     terminate the address lookup */
-  if (!(flags & kDNSServiceFlagsMoreComing))
-    mdns_addr_lookup_free(lu);
+        mdns_browse_call_cb(lu, hostname, address);
 }
 
 static int
@@ -606,26 +639,8 @@ mdns_addr_lookup_start(struct mdns_resolver *rs, uint32_t interfaceIndex,
       DPRINTF(E_LOG, L_MDNS, "Out of memory creating address lookup.\n");
       return -1;
     }
-  lu->name = strdup(rs->name);
-  if (!lu->name)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory creating address lookup.\n");
-      return mdns_addr_lookup_free(lu);
-    }
-  lu->regtype = strdup(rs->regtype);
-  if (!lu->regtype)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory creating address lookup.\n");
-      return mdns_addr_lookup_free(lu);
-    }
-  lu->domain = strdup(rs->domain);
-  if (!lu->domain)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory creating address lookup.\n");
-      return mdns_addr_lookup_free(lu);
-    }
   lu->port = port;
-  lu->mb = rs->mb;
+  lu->rs = rs;
 
   for (i=0; TXTRecordGetItemAtIndex(txtLen, txtRecord, i, sizeof(key),
                                     key, &valueLen, (const void **)&value)
@@ -650,26 +665,51 @@ mdns_addr_lookup_start(struct mdns_resolver *rs, uint32_t interfaceIndex,
       return mdns_addr_lookup_free(lu);
     }
 
-  if (mdns_event_add(&lu->sdref, &lu->ev) < 0)
-    return mdns_addr_lookup_free(lu);
+  /* resolver now owns the lookup */
+  lu->next = rs->lookups;
+  rs->lookups = lu;
 
   return 0;
 }
 
-static int
-mdns_resolver_free(struct mdns_resolver *rs) {
+static void
+mdns_resolver_remove(struct mdns_resolver *rs)
+{
+  struct mdns_resolver *cur;
 
-  if (! rs)
-    return -1;
+  /* remove from browser's resolver list */
+  if(rs->mb->resolvers == rs)
+    rs->mb->resolvers = rs->next;
+  else
+    {
+      for(cur = rs->mb->resolvers; cur; cur = cur->next)
+        if (cur->next == rs)
+          {
+            cur->next = rs->next;
+            break;
+          }
+    }
 
-  event_free(rs->ev);
-  DNSServiceRefDeallocate(rs->sdref);
-  free(rs->name);
-  free(rs->regtype);
-  free(rs->domain);
-  free(rs);
+  /* free resolver (which cancels resolve) */
+  mdns_resolver_free(rs);
+}
 
-  return -1;
+static void
+mdns_resolve_timeout_cb(evutil_socket_t fd, short flags, void *uuid) {
+
+  struct mdns_browser *mb;
+  struct mdns_resolver *rs = NULL;
+
+  for(mb = mdns_browsers; mb && !rs; mb = mb->next)
+    for(rs = mb->resolvers; rs; rs = rs->next)
+      if(rs->uuid == uuid)
+        {
+          DPRINTF(E_DBG, L_MDNS,
+                  "Resolve finished for '%s' type '%s' interface %d\n",
+                  rs->service, rs->regtype, rs->interface);
+          mdns_resolver_remove(rs);
+          break;
+        }
 }
 
 static void
@@ -677,26 +717,28 @@ mdns_resolve_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
                       uint32_t interfaceIndex, DNSServiceErrorType errorCode,
                       const char *fullname, const char *hosttarget,
                       uint16_t port, uint16_t txtLen,
-                      const unsigned char *txtRecord, void *context )
+                      const unsigned char *txtRecord, void *context)
 {
   struct mdns_resolver *rs;
 
-  if (errorCode != kDNSServiceErr_NoError )
-    {
-      DPRINTF(E_LOG, L_MDNS, "Error resolving mdns service, error %d\n",
-              errorCode);
-      return;
-    }
-
   rs = context;
 
-  mdns_addr_lookup_start(rs, interfaceIndex, hosttarget, port,
-                         txtLen, txtRecord);
+  /* convert port to host order */
+  port = ntohs(port);
 
-  /* If we are done resolving this service, terminate the resolve
-     and free the resolver resources */
-  if (!(flags & kDNSServiceFlagsMoreComing))
-    mdns_resolver_free(rs);
+  if (errorCode != kDNSServiceErr_NoError)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Error resolving service '%s', error %d\n",
+              rs->service, errorCode);
+    }
+  else
+    {
+      DPRINTF(E_DBG, L_MDNS, "Bonjour resolved '%s' as '%s:%u' on interface %d\n",
+              fullname, hosttarget, port, interfaceIndex);
+
+      mdns_addr_lookup_start(rs, interfaceIndex, hosttarget, port,
+                             txtLen, txtRecord);
+    }
 }
 
 static int
@@ -706,6 +748,7 @@ mdns_resolve_start(struct mdns_browser *mb, uint32_t interfaceIndex,
 {
   DNSServiceErrorType err;
   struct mdns_resolver *rs;
+  struct timeval tv;
 
   rs = calloc(1, sizeof(*rs));
   if (!rs)
@@ -714,8 +757,8 @@ mdns_resolve_start(struct mdns_browser *mb, uint32_t interfaceIndex,
       return -1;
     }
 
-  rs->name = strdup(serviceName);
-  if (!rs->name)
+  rs->service = strdup(serviceName);
+  if (!rs->service)
     {
       DPRINTF(E_LOG, L_MDNS, "Out of memory creating service resolver.\n");
       return mdns_resolver_free(rs);
@@ -727,12 +770,22 @@ mdns_resolve_start(struct mdns_browser *mb, uint32_t interfaceIndex,
       return mdns_resolver_free(rs);
     }
   rs->domain = strdup(replyDomain);
-  if (!rs->name)
+  if (!rs->domain)
     {
       DPRINTF(E_LOG, L_MDNS, "Out of memory creating service resolver.\n");
       return mdns_resolver_free(rs);
     }
   rs->mb = mb;
+  rs->interface = interfaceIndex;
+  /* create a timer with a uuid, so we can search for resolver without
+     leaking */
+  rs->uuid = ++(mb->res_uuid);
+  rs->timer = evtimer_new(evbase_main, mdns_resolve_timeout_cb, rs->uuid);
+  if(! rs->timer)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Out of memory creating service resolver timer.\n");
+      return mdns_resolver_free(rs);
+    }
 
   rs->sdref = mdns_sdref_main;
   err = DNSServiceResolve(&(rs->sdref), kDNSServiceFlagsShareConnection,
@@ -745,23 +798,54 @@ mdns_resolve_start(struct mdns_browser *mb, uint32_t interfaceIndex,
       return mdns_resolver_free(rs);
     }
 
-  if (mdns_event_add(&rs->sdref, &rs->ev) < 0)
-    return mdns_resolver_free(rs);
+  /* add to browser's resolvers */
+  rs->next = mb->resolvers;
+  mb->resolvers = rs;
+
+  /* setup a timeout to cancel the resolve */
+  tv.tv_sec = MDNS_RESOLVE_TIMEOUT_SECS;
+  tv.tv_usec = 0;
+  evtimer_add(rs->timer, &tv);
 
   return 0;
+}
+
+static void
+mdns_resolve_cancel(const struct mdns_browser *mb, uint32_t interfaceIndex,
+                    const char *serviceName, const char *regtype,
+                    const char *replyDomain) {
+
+  struct mdns_resolver *rs;
+
+  for(rs = mb->resolvers; rs; rs = rs->next)
+    {
+      if ((rs->interface == interfaceIndex)
+          && (! strcasecmp(rs->service, serviceName))
+          && (! strcmp(rs->regtype, regtype))
+          && (! strcasecmp(rs->domain, replyDomain)))
+        {
+          /* remove from resolvers, and free (which cancels resolve) */
+          DPRINTF(E_DBG, L_MDNS, "Cancelling resolve for '%s'\n", rs->service);
+          mdns_resolver_remove(rs);
+          break;
+        }
+    }
+
+  return;
 }
 
 static void
 mdns_browse_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
                      uint32_t interfaceIndex, DNSServiceErrorType errorCode,
                      const char *serviceName, const char *regtype,
-                     const char *replyDomain, void *context )
+                     const char *replyDomain, void *context)
 {
   struct mdns_browser *mb;
 
   if (errorCode != kDNSServiceErr_NoError)
     {
-      DPRINTF(E_LOG, L_MDNS, "DNS-SD browsing error %d\n", errorCode);
+      // FIXME: if d/c, we sould recreate the browser?
+      DPRINTF(E_LOG, L_MDNS, "Bonjour browsing error %d\n", errorCode);
       return;
     }
 
@@ -770,7 +854,7 @@ mdns_browse_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
   if (flags & kDNSServiceFlagsAdd)
     {
       DPRINTF(E_DBG, L_MDNS,
-              "DNS-SD Browser: NEW service '%s' type '%s' interface %d\n",
+              "Bonjour Browser: NEW service '%s' type '%s' interface %d\n",
               serviceName, regtype, interfaceIndex);
       mdns_resolve_start(mb, interfaceIndex, serviceName, regtype,
                          replyDomain);
@@ -778,8 +862,10 @@ mdns_browse_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
   else
     {
       DPRINTF(E_DBG, L_MDNS,
-              "Avahi Browser: REMOVE service '%s' type '%s' interface %d\n",
+              "Bonjour Browser: REMOVE service '%s' type '%s' interface %d\n",
               serviceName, regtype, interfaceIndex);
+      mdns_resolve_cancel(mb, interfaceIndex, serviceName, regtype,
+                          replyDomain);
       mb->cb(serviceName, regtype, replyDomain, NULL, 0, NULL, -1, NULL);
     }
 }
@@ -832,9 +918,6 @@ mdns_browse(char *regtype, int family, mdns_browse_cb cb)
       mb->sdref = NULL;
       return mdns_browser_free(mb);
     }
-
-  if (mdns_event_add(&mb->sdref, &mb->ev) < 0)
-    return mdns_browser_free(mb);
 
   mb->next = mdns_browsers;
   mdns_browsers = mb;
