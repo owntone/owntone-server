@@ -2306,7 +2306,7 @@ scan_playlists()
 
 	  if (!playlist.uri || !playlist.name || playlist.tracks_count == 0)
 	    {
-	      DPRINTF(E_DBG, L_SPOTIFY, "Ignoring playlist '%s' with %d tracks (%s)\n", playlist.name, playlist.tracks_count, playlist.uri);
+	      DPRINTF(E_LOG, L_SPOTIFY, "Ignoring playlist '%s' with %d tracks (%s)\n", playlist.name, playlist.tracks_count, playlist.uri);
 	      continue;
 	    }
 
