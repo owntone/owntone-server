@@ -261,6 +261,15 @@ safe_hextou64(const char *str, uint64_t *val)
   return 0;
 }
 
+char *
+safe_strdup(const char *str)
+{
+  if (str == NULL)
+    return NULL;
+
+  return strdup(str);
+}
+
 
 /* Key/value functions */
 struct keyval *

@@ -1415,7 +1415,7 @@ cache_daap_threshold(void)
  * @return 0 if successful, -1 if an error occurred
  */
 void
-cache_artwork_ping(char *path, time_t mtime, int del)
+cache_artwork_ping(const char *path, time_t mtime, int del)
 {
   struct cache_arg *cmdarg;
 
