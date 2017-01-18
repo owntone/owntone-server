@@ -31,6 +31,7 @@
 #ifdef HAVE_PTHREAD_NP_H
 # include <pthread_np.h>
 #endif
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unictype.h>
@@ -795,6 +796,9 @@ library_init(void)
 
   for (i = 0; sources[i]; i++)
     {
+      if (!sources[i]->init)
+	continue;
+
       ret = sources[i]->init();
       if (ret < 0)
 	sources[i]->disabled = 1;
@@ -844,6 +848,7 @@ library_deinit()
 
   for (i = 0; sources[i]; i++)
     {
+      if (sources[i]->deinit && !sources[i]->disabled)
       sources[i]->deinit();
     }
 
