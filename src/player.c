@@ -1077,8 +1077,12 @@ source_read(uint8_t *buf, int len)
   int ret;
   short flags;
 
+  // Nothing to read, stream silence until source_check() stops playback
   if (!cur_streaming)
-    return -1;
+    {
+      memset(buf, 0, len);
+      return len;
+    }
 
   nbytes = input_read(buf, len, &flags);
   if (nbytes < 0)
