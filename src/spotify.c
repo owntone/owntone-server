@@ -1003,11 +1003,11 @@ static void playlist_update_in_progress(sp_playlist *pl, bool done, void *userda
       DPRINTF(E_DBG, L_SPOTIFY, "Playlist update (status %d): %s\n", done, fptr_sp_playlist_name(pl));
 
       if (spotify_access_token_valid)
-        {
+	{
 	  webapi_playlist_updated(pl);
 	}
       else
-        {
+	{
 	  spotify_playlist_save(pl);
 	}
     }
