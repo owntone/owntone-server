@@ -1074,7 +1074,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
 		  dmap_send_error(req, "cacr", "Playback failed to start");
 		  return;
-	    }
+		}
 	    }
 	  else
 	    {
@@ -1097,8 +1097,8 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
 	      dmap_send_error(req, "cacr", "Playback failed to start");
 	      return;
+	    }
 	}
-    }
     }
 
   ret = player_playback_start_byitem(queue_item);
