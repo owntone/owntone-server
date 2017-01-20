@@ -4691,7 +4691,10 @@ queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle, struct 
 
   ret = queue_fetch_bypos(pos_absolute, shuffle, queue_item, with_metadata);
 
-  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->id, queue_item->pos, queue_item->file_id);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DB, "Error fetching item by pos: pos (%d) relative to item with id (%d)\n", pos, item_id);
+  else
+    DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->id, queue_item->pos, queue_item->file_id);
 
   return ret;
 }
