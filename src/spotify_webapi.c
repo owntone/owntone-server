@@ -136,7 +136,7 @@ jparse_str_from_array(json_object *array, int index, const char *key)
 }
 
 static void
-http_client_ctx_free(struct http_client_ctx *ctx)
+free_http_client_ctx(struct http_client_ctx *ctx)
 {
   if (!ctx)
     return;
@@ -240,13 +240,19 @@ tokens_get(struct keyval *kv, const char **err)
       goto out_free_input_body;
     }
 
+  free(spotify_access_token);
+  spotify_access_token = NULL;
+
   tmp = jparse_str_from_obj(haystack, "access_token");
   if (tmp)
-    spotify_access_token  = strdup(tmp);
+    spotify_access_token = strdup(tmp);
 
   tmp = jparse_str_from_obj(haystack, "refresh_token");
   if (tmp)
-    spotify_refresh_token = strdup(tmp);
+    {
+      free(spotify_refresh_token);
+      spotify_refresh_token = strdup(tmp);
+    }
 
   expires_in = jparse_int_from_obj(haystack, "expires_in");
   if (expires_in == 0)
@@ -408,7 +414,7 @@ request_uri(struct spotify_request *request, const char *uri)
 void
 spotifywebapi_request_end(struct spotify_request *request)
 {
-  http_client_ctx_free(request->ctx);
+  free_http_client_ctx(request->ctx);
   jparse_free(request->haystack);
 }
 
@@ -416,7 +422,6 @@ int
 spotifywebapi_request_next(struct spotify_request *request, const char *uri)
 {
   char *next_uri;
-  const char *tmp;
   int ret;
 
   if (request->ctx && !request->next_uri)
@@ -444,9 +449,7 @@ spotifywebapi_request_next(struct spotify_request *request, const char *uri)
     return ret;
 
   request->total = jparse_int_from_obj(request->haystack, "total");
-  tmp = jparse_str_from_obj(request->haystack, "next");
-  if (tmp)
-    request->next_uri = strdup(tmp);
+  request->next_uri = jparse_str_from_obj(request->haystack, "next");
 
   if (jparse_array_from_obj(request->haystack, "items", &request->items) < 0)
     {

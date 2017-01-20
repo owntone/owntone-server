@@ -1388,7 +1388,10 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 		{
 		  ret = source_open(ps, cur_streaming->end + 1, 0);
 		  if (ret < 0)
-		    return -1;
+		    {
+		      source_free(ps);
+		      return -1;
+		    }
 
 		  ret = source_play();
 		  if (ret < 0)
@@ -2485,6 +2488,7 @@ playback_prev_bh(void *arg, int *retval)
       ret = source_open(ps, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, 0);
       if (ret < 0)
 	{
+	  source_free(ps);
 	  playback_abort();
 
           *retval = -1;
@@ -2556,6 +2560,7 @@ playback_next_bh(void *arg, int *retval)
   ret = source_open(ps, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, 0);
   if (ret < 0)
     {
+      source_free(ps);
       playback_abort();
       *retval = -1;
       return COMMAND_END;

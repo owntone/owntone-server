@@ -91,7 +91,7 @@ struct spotify_request
   json_object *items;
   int count;
   int total;
-  char *next_uri;
+  const char *next_uri;
 
   int index;
 };
