@@ -462,7 +462,7 @@ scan_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind,
 }
 
 void
-library_process_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi, int dir_id)
+library_add_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi, int dir_id)
 {
   struct media_file_info *mfi;
   time_t stamp;

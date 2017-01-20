@@ -417,7 +417,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 	else
 	  data_kind = DATA_KIND_FILE;
 
-	library_process_media(file, mtime, size, data_kind, media_kind, is_type_compilation, NULL, dir_id);
+	library_add_media(file, mtime, size, data_kind, media_kind, is_type_compilation, NULL, dir_id);
 
 	cache_artwork_ping(file, mtime, !is_bulkscan);
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork

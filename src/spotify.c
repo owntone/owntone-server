@@ -719,7 +719,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
 
 //  DPRINTF(E_DBG, L_SPOTIFY, "Saving track '%s': '%s' by %s (%s)\n", url, mfi.title, mfi.artist, mfi.album);
 
-  library_process_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, false, &mfi, dir_id);
+  library_add_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, false, &mfi, dir_id);
 
   free_mfi(&mfi, 1);
 
@@ -2212,7 +2212,7 @@ scan_saved_albums()
 		  map_track_to_mfi(&track, &mfi);
 		  map_album_to_mfi(&album, &mfi);
 
-		  library_process_media(track.uri, album.mtime, 0, DATA_KIND_SPOTIFY, 0, album.is_compilation, &mfi, dir_id);
+		  library_add_media(track.uri, album.mtime, 0, DATA_KIND_SPOTIFY, 0, album.is_compilation, &mfi, dir_id);
 		  spotify_uri_register(track.uri);
 
 		  cache_artwork_ping(track.uri, album.mtime, 0);
@@ -2278,7 +2278,7 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 		  mfi.album = strdup(playlist->name);
 		}
 
-	      library_process_media(track.uri, 1 /* TODO passing one prevents overwriting existing entries */, 0, DATA_KIND_SPOTIFY, 0, track.is_compilation, &mfi, dir_id);
+	      library_add_media(track.uri, 1 /* TODO passing one prevents overwriting existing entries */, 0, DATA_KIND_SPOTIFY, 0, track.is_compilation, &mfi, dir_id);
 	      spotify_uri_register(track.uri);
 
 	      cache_artwork_ping(track.uri, 1, 0);
