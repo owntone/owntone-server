@@ -33,7 +33,6 @@
 #include <stdint.h>
 #include <limits.h>
 #include <sys/param.h>
-#include <assert.h>
 
 #include <unistr.h>
 #include <uniconv.h>
