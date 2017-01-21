@@ -1017,6 +1017,8 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	}
     }
 
+  player_get_status(&status);
+
   cuequery = evhttp_find_header(query, "query");
   if (cuequery)
     {
@@ -1031,12 +1033,9 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	  return;
 	}
     }
-  else
+  else if (status.status != PLAY_STOPPED)
     {
-      player_get_status(&status);
-
-      if (status.status != PLAY_STOPPED)
-	player_playback_stop();
+      player_playback_stop();
     }
 
   param = evhttp_find_header(query, "dacp.shufflestate");
@@ -1074,7 +1073,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
 		  dmap_send_error(req, "cacr", "Playback failed to start");
 		  return;
-	    }
+		}
 	    }
 	  else
 	    {
@@ -1097,8 +1096,8 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
 	      dmap_send_error(req, "cacr", "Playback failed to start");
 	      return;
+	    }
 	}
-    }
     }
 
   ret = player_playback_start_byitem(queue_item);
@@ -1597,6 +1596,8 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
       return;
     }
 
+  player_get_status(&status);
+
   /*
    * If the span parameter is negativ make song list for Previously Played,
    * otherwise make song list for Up Next and begin with first song after playlist position.
@@ -1626,8 +1627,6 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     }
   else
     {
-      player_get_status(&status);
-
       memset(&query_params, 0, sizeof(struct query_params));
       if (status.shuffle)
 	query_params.sort = S_SHUFFLE_POS;

@@ -31,7 +31,7 @@ cache_daap_threshold(void);
 #define CACHE_ARTWORK_INDIVIDUAL 1
 
 void
-cache_artwork_ping(char *path, time_t mtime, int del);
+cache_artwork_ping(const char *path, time_t mtime, int del);
 
 int
 cache_artwork_delete_by_path(char *path);

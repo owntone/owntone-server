@@ -779,7 +779,8 @@ db_purge_cruft(time_t ref)
 void
 db_purge_all(void)
 {
-#define Q_TMPL "DELETE FROM playlists WHERE type <> %d;"
+#define Q_TMPL_PL "DELETE FROM playlists WHERE type <> %d;"
+#define Q_TMPL_DIR "DELETE FROM directories WHERE id >= %d;"
   char *queries[4] =
     {
       "DELETE FROM inotify;",
@@ -807,7 +808,8 @@ db_purge_all(void)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
 
-  query = sqlite3_mprintf(Q_TMPL, PL_SPECIAL);
+  // Purge playlists
+  query = sqlite3_mprintf(Q_TMPL_PL, PL_SPECIAL);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -827,7 +829,31 @@ db_purge_all(void)
     DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
 
   sqlite3_free(query);
-#undef Q_TMPL
+
+  // Purge directories
+  query = sqlite3_mprintf(Q_TMPL_DIR, DIR_MAX);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Purge query '%s' error: %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+  else
+    DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+
+  sqlite3_free(query);
+
+#undef Q_TMPL_PL
+#undef Q_TMPL_DIR
 }
 
 static int
@@ -2082,7 +2108,7 @@ db_file_id_by_virtualpath_match(char *path)
 }
 
 void
-db_file_stamp_bypath(char *path, time_t *stamp, int *id)
+db_file_stamp_bypath(const char *path, time_t *stamp, int *id)
 {
 #define Q_TMPL "SELECT f.id, f.db_timestamp FROM files f WHERE f.path = '%q';"
   char *query;
@@ -2845,7 +2871,7 @@ db_pl_fetch_byquery(char *query)
 }
 
 struct playlist_info *
-db_pl_fetch_bypath(char *path)
+db_pl_fetch_bypath(const char *path)
 {
 #define Q_TMPL "SELECT p.* FROM playlists p WHERE p.path = '%q';"
   struct playlist_info *pli;
@@ -3009,7 +3035,7 @@ db_pl_add(struct playlist_info *pli, int *id)
 }
 
 int
-db_pl_add_item_bypath(int plid, char *path)
+db_pl_add_item_bypath(int plid, const char *path)
 {
 #define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, '%q');"
   char *query;
@@ -3526,12 +3552,12 @@ db_directory_addorupdate(char *virtual_path, int disabled, int parent_id)
 }
 
 void
-db_directory_ping_bymatch(char *path)
+db_directory_ping_bymatch(char *virtual_path)
 {
-#define Q_TMPL_DIR "UPDATE directories SET db_timestamp = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
+#define Q_TMPL_DIR "UPDATE directories SET db_timestamp = %" PRIi64 " WHERE virtual_path = '%q' OR virtual_path LIKE '%q/%%';"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path, path);
+  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), virtual_path, virtual_path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL_DIR
@@ -4663,7 +4689,10 @@ queue_fetch_byposrelativetoitem(int pos, uint32_t item_id, char shuffle, struct 
 
   ret = queue_fetch_bypos(pos_absolute, shuffle, queue_item, with_metadata);
 
-  DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->id, queue_item->pos, queue_item->file_id);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DB, "Error fetching item by pos: pos (%d) relative to item with id (%d)\n", pos, item_id);
+  else
+    DPRINTF(E_DBG, L_DB, "Fetch by pos: fetched item (id=%d, pos=%d, file-id=%d)\n", queue_item->id, queue_item->pos, queue_item->file_id);
 
   return ret;
 }

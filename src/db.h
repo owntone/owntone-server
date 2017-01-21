@@ -527,7 +527,7 @@ int
 db_file_id_by_virtualpath_match(char *path);
 
 void
-db_file_stamp_bypath(char *path, time_t *stamp, int *id);
+db_file_stamp_bypath(const char *path, time_t *stamp, int *id);
 
 struct media_file_info *
 db_file_fetch_byid(int id);
@@ -570,7 +570,7 @@ void
 db_pl_ping_bymatch(char *path, int isdir);
 
 struct playlist_info *
-db_pl_fetch_bypath(char *path);
+db_pl_fetch_bypath(const char *path);
 
 struct playlist_info *
 db_pl_fetch_byvirtualpath(char *virtual_path);
@@ -582,7 +582,7 @@ int
 db_pl_add(struct playlist_info *pli, int *id);
 
 int
-db_pl_add_item_bypath(int plid, char *path);
+db_pl_add_item_bypath(int plid, const char *path);
 
 int
 db_pl_add_item_byid(int plid, int fileid);
@@ -633,7 +633,7 @@ int
 db_directory_addorupdate(char *virtual_path, int disabled, int parent_id);
 
 void
-db_directory_ping_bymatch(char *path);
+db_directory_ping_bymatch(char *virtual_path);
 
 void
 db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie);

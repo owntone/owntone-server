@@ -44,7 +44,7 @@ static int threshold;
 static int console = 1;
 static char *logfilename;
 static FILE *logfile;
-static char *labels[] = { "config", "daap", "db", "httpd", "http", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache", "mpd", "stream", "cast", "fifo" };
+static char *labels[] = { "config", "daap", "db", "httpd", "http", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache", "mpd", "stream", "cast", "fifo", "lib" };
 static char *severities[] = { "FATAL", "LOG", "WARN", "INFO", "DEBUG", "SPAM" };
 
 /* We need our own check to avoid nested locking or recursive calls */

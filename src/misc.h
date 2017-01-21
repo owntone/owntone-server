@@ -42,6 +42,8 @@ safe_atou64(const char *str, uint64_t *val);
 int
 safe_hextou64(const char *str, uint64_t *val);
 
+char *
+safe_strdup(const char *str);
 
 /* Key/value functions */
 struct keyval *
