@@ -428,19 +428,19 @@ ffmpeg_lockmgr(void **pmutex, enum AVLockOp op)
 	*pmutex = malloc(sizeof(pthread_mutex_t));
 	if (!*pmutex)
 	  return 1;
-        fork_mutex_init(*pmutex);
+        CHECK_ERR(L_MAIN, mutex_init(*pmutex));
 	return 0;
 
       case AV_LOCK_OBTAIN:
-        fork_mutex_lock(*pmutex);
+        CHECK_ERR(L_MAIN, pthread_mutex_lock(*pmutex));
 	return 0;
 
       case AV_LOCK_RELEASE:
-        fork_mutex_unlock(*pmutex);
+        CHECK_ERR(L_MAIN, pthread_mutex_unlock(*pmutex));
 	return 0;
 
       case AV_LOCK_DESTROY:
-	fork_mutex_destroy(*pmutex);
+	CHECK_ERR(L_MAIN, pthread_mutex_destroy(*pmutex));
 	free(*pmutex);
         *pmutex = NULL;
 
@@ -449,7 +449,6 @@ ffmpeg_lockmgr(void **pmutex, enum AVLockOp op)
 
   return 1;
 }
-
 
 int
 main(int argc, char **argv)

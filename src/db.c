@@ -530,12 +530,12 @@ unlock_notify_cb(void **args, int nargs)
     {
       u = (struct db_unlock *)args[i];
 
-      fork_mutex_lock(&u->lck);
+      CHECK_ERR(L_DB, pthread_mutex_lock(&u->lck));
 
       u->proceed = 1;
-      fork_cond_signal(&u->cond);
+      CHECK_ERR(L_DB, pthread_cond_signal(&u->cond));
 
-      fork_mutex_unlock(&u->lck);
+      CHECK_ERR(L_DB, pthread_mutex_unlock(&u->lck));
     }
 }
 
@@ -546,25 +546,25 @@ db_wait_unlock(void)
   int ret;
 
   u.proceed = 0;
-  fork_mutex_init(&u.lck);
-  fork_cond_init(&u.cond);
+  CHECK_ERR(L_DB, mutex_init(&u.lck));
+  CHECK_ERR(L_DB, pthread_cond_init(&u.cond, NULL));
 
   ret = sqlite3_unlock_notify(hdl, unlock_notify_cb, &u);
   if (ret == SQLITE_OK)
     {
-      fork_mutex_lock(&u.lck);
+      CHECK_ERR(L_DB, pthread_mutex_lock(&u.lck));
 
       if (!u.proceed)
 	{
 	  DPRINTF(E_INFO, L_DB, "Waiting for database unlock\n");
-	  fork_cond_wait(&u.cond, &u.lck);
+	  CHECK_ERR(L_DB, pthread_cond_wait(&u.cond, &u.lck));
 	}
 
-      fork_mutex_unlock(&u.lck);
+      CHECK_ERR(L_DB, pthread_mutex_unlock(&u.lck));
     }
 
-  fork_cond_destroy(&u.cond);
-  fork_mutex_destroy(&u.lck);
+  CHECK_ERR(L_DB, pthread_cond_destroy(&u.cond));
+  CHECK_ERR(L_DB, pthread_mutex_destroy(&u.lck));
 
   return ret;
 }

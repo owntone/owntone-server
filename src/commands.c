@@ -78,7 +78,7 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
 {
   enum command_state cmdstate;
 
-  fork_mutex_lock(&cmd->lck);
+  CHECK_ERR(L_MAIN, pthread_mutex_lock(&cmd->lck));
 
   cmdstate = cmd->func(cmd->arg, &cmd->ret);
   if (cmdstate == COMMAND_PENDING)
@@ -94,8 +94,8 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
 	cmd->func_bh(cmd->arg, &cmd->ret);
 
       // Signal the calling thread that the command execution finished
-      fork_cond_signal(&cmd->cond);
-      fork_mutex_unlock(&cmd->lck);
+      CHECK_ERR(L_MAIN, pthread_cond_signal(&cmd->cond));
+      CHECK_ERR(L_MAIN, pthread_mutex_unlock(&cmd->lck));
 
       event_add(cmdbase->command_event, NULL);
     }
@@ -283,8 +283,8 @@ commands_exec_end(struct commands_base *cmdbase, int retvalue)
     {
       cmdbase->current_cmd->func_bh(cmdbase->current_cmd->arg, &cmdbase->current_cmd->ret);
     }
-  fork_cond_signal(&cmdbase->current_cmd->cond);
-  fork_mutex_unlock(&cmdbase->current_cmd->lck);
+  CHECK_ERR(L_MAIN, pthread_cond_signal(&cmdbase->current_cmd->cond));
+  CHECK_ERR(L_MAIN, pthread_mutex_unlock(&cmdbase->current_cmd->lck));
 
   cmdbase->current_cmd = NULL;
 
@@ -317,10 +317,10 @@ commands_exec_sync(struct commands_base *cmdbase, command_function func, command
   cmd.arg = arg;
   cmd.nonblock = 0;
 
-  fork_mutex_init(&cmd.lck);
-  fork_cond_init(&cmd.cond);
+  CHECK_ERR(L_MAIN, mutex_init(&cmd.lck));
+  CHECK_ERR(L_MAIN, pthread_cond_init(&cmd.cond, NULL));
 
-  fork_mutex_lock(&cmd.lck);
+  CHECK_ERR(L_MAIN, pthread_mutex_lock(&cmd.lck));
 
   ret = send_command(cmdbase, &cmd);
   if (ret < 0)
@@ -330,12 +330,12 @@ commands_exec_sync(struct commands_base *cmdbase, command_function func, command
     }
   else
     {
-      fork_cond_wait(&cmd.cond, &cmd.lck);
+      CHECK_ERR(L_MAIN, pthread_cond_wait(&cmd.cond, &cmd.lck));
     }
-  fork_mutex_unlock(&cmd.lck);
+  CHECK_ERR(L_MAIN, pthread_mutex_unlock(&cmd.lck));
 
-  fork_cond_destroy(&cmd.cond);
-  fork_mutex_destroy(&cmd.lck);
+  CHECK_ERR(L_MAIN, pthread_cond_destroy(&cmd.cond));
+  CHECK_ERR(L_MAIN, pthread_mutex_destroy(&cmd.lck));
 
   return cmd.ret;
 }

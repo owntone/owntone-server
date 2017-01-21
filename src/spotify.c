@@ -1489,7 +1489,7 @@ audio_fifo_flush(void)
 
     DPRINTF(E_DBG, L_SPOTIFY, "Flushing audio fifo\n");
 
-    fork_mutex_lock(&g_audio_fifo->mutex);
+    CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&g_audio_fifo->mutex));
 
     while((afd = TAILQ_FIRST(&g_audio_fifo->q))) {
 	TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
@@ -1498,7 +1498,7 @@ audio_fifo_flush(void)
 
     g_audio_fifo->qlen = 0;
     g_audio_fifo->fullcount = 0;
-    fork_mutex_unlock(&g_audio_fifo->mutex);
+    CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
 }
 
 static enum command_state
@@ -1668,6 +1668,7 @@ audio_get(void *arg, int *retval)
   int processed;
   int timeout;
   int ret;
+  int err;
   int s;
 
   audio = (struct audio_get_param *) arg;
@@ -1678,7 +1679,7 @@ audio_get(void *arg, int *retval)
   if (g_state == SPOTIFY_STATE_PAUSED)
     playback_play(NULL, retval);
 
-  fork_mutex_lock(&g_audio_fifo->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&g_audio_fifo->mutex));
 
   while ((processed < audio->wanted) && (g_state != SPOTIFY_STATE_STOPPED))
     {
@@ -1701,7 +1702,7 @@ audio_get(void *arg, int *retval)
 	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
 	  timeout += 5;
 	  mk_reltime(&ts, 5);
-	  fork_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
+	  CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts), err, ETIMEDOUT);
 	}
 
       if ((!afd) && (timeout >= SPOTIFY_TIMEOUT))
@@ -1725,7 +1726,7 @@ audio_get(void *arg, int *retval)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
-	  fork_mutex_unlock(&g_audio_fifo->mutex);
+	  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
 	  *retval = -1;
 	  return COMMAND_END;
 	}
@@ -1733,7 +1734,7 @@ audio_get(void *arg, int *retval)
       processed += s;
     }
 
-  fork_mutex_unlock(&g_audio_fifo->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
 
 
   *retval = processed;
@@ -1747,12 +1748,12 @@ artwork_loaded_cb(sp_image *image, void *userdata)
 
   artwork = userdata;
 
-  fork_mutex_lock(&artwork->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&artwork->mutex));
 
   artwork->is_loaded = 1;
 
-  fork_cond_signal(&artwork->cond);
-  fork_mutex_unlock(&artwork->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&artwork->cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&artwork->mutex));
 }
 
 static enum command_state
@@ -1989,10 +1990,10 @@ logged_out(sp_session *sess)
 {
   DPRINTF(E_INFO, L_SPOTIFY, "Logout complete\n");
 
-  fork_mutex_lock(&login_lck);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
 
-  fork_cond_signal(&login_cond);
-  fork_mutex_unlock(&login_lck);
+  CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&login_cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
 }
 
 /**
@@ -2017,7 +2018,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   if (num_frames == 0)
     return 0; // Audio discontinuity, do nothing
 
-  fork_mutex_lock(&g_audio_fifo->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&g_audio_fifo->mutex));
 
   /* Buffer three seconds of audio */
   if (g_audio_fifo->qlen > (3 * format->sample_rate))
@@ -2033,7 +2034,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
 	  g_audio_fifo->fullcount = 0;
 	}
 
-      fork_mutex_unlock(&g_audio_fifo->mutex);
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
 
       return 0;
     }
@@ -2050,8 +2051,8 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   TAILQ_INSERT_TAIL(&g_audio_fifo->q, afd, link);
   g_audio_fifo->qlen += num_frames;
 
-  fork_cond_signal(&g_audio_fifo->cond);
-  fork_mutex_unlock(&g_audio_fifo->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&g_audio_fifo->cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
 
   return num_frames;
 }
@@ -2365,25 +2366,26 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   struct artwork_get_param artwork;
   struct timespec ts;
   int ret;
+  int err;
 
   artwork.evbuf  = evbuf;
   artwork.path = path;
   artwork.max_w = max_w;
   artwork.max_h = max_h;
 
-  fork_mutex_init(&artwork.mutex);
-  fork_cond_init(&artwork.cond);
+  CHECK_ERR(L_SPOTIFY, mutex_init(&artwork.mutex));
+  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&artwork.cond, NULL));
 
   ret = commands_exec_sync(cmdbase, artwork_get, NULL, &artwork);
 
   // Artwork was not ready, wait for callback from libspotify
   if (ret == 0)
     {
-      fork_mutex_lock(&artwork.mutex);
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&artwork.mutex));
       mk_reltime(&ts, SPOTIFY_ARTWORK_TIMEOUT);
       if (!artwork.is_loaded)
-	fork_cond_timedwait(&artwork.cond, &artwork.mutex, &ts);
-      fork_mutex_unlock(&artwork.mutex);
+	CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts), err, ETIMEDOUT);
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&artwork.mutex));
 
       ret = commands_exec_sync(cmdbase, artwork_get_bh, NULL, &artwork);
     }
@@ -2431,7 +2433,7 @@ void
 spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const char *redirect_uri)
 {
   const char *code;
-  const char *err;
+  const char *err = "";
   int total;
   int ret;
 
@@ -2499,7 +2501,7 @@ spotify_login(char *path)
 
   if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(g_sess))
     {
-      fork_mutex_lock(&login_lck);
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
 
       DPRINTF(E_LOG, L_SPOTIFY, "Logging out of Spotify (current state is %d)\n", g_state);
 
@@ -2509,12 +2511,12 @@ spotify_login(char *path)
       if (SP_ERROR_OK != err)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Could not logout of Spotify: %s\n", fptr_sp_error_message(err));
-	  fork_mutex_unlock(&login_lck);
+	  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
 	  return;
 	}
 
-      fork_cond_wait(&login_cond, &login_lck);
-      fork_mutex_unlock(&login_lck);
+      CHECK_ERR(L_SPOTIFY, pthread_cond_wait(&login_cond, &login_lck));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
     }
 
   DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
@@ -2649,11 +2651,11 @@ spotify_init(void)
     }
   TAILQ_INIT(&g_audio_fifo->q);
   g_audio_fifo->qlen = 0;
-  fork_mutex_init(&g_audio_fifo->mutex);
-  fork_cond_init(&g_audio_fifo->cond);
+  CHECK_ERR(L_SPOTIFY, mutex_init(&g_audio_fifo->mutex));
+  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&g_audio_fifo->cond, NULL));
 
-  fork_mutex_init(&login_lck);
-  fork_cond_init(&login_cond);
+  CHECK_ERR(L_SPOTIFY, mutex_init(&login_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&login_cond, NULL));
 
   /* Spawn thread */
   ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
@@ -2673,11 +2675,11 @@ spotify_init(void)
   return 0;
 
  thread_fail:
-  fork_cond_destroy(&login_cond);
-  fork_mutex_destroy(&login_lck);
+  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
 
-  fork_cond_destroy(&g_audio_fifo->cond);
-  fork_mutex_destroy(&g_audio_fifo->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&g_audio_fifo->cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&g_audio_fifo->mutex));
   free(g_audio_fifo);  
 
  audio_fifo_fail:
@@ -2737,12 +2739,12 @@ spotify_deinit(void)
   close(g_notify_pipe[1]);
 
   /* Destroy locks */
-  fork_cond_destroy(&login_cond);
-  fork_mutex_destroy(&login_lck);
+  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
 
   /* Clear audio fifo */
-  fork_cond_destroy(&g_audio_fifo->cond);
-  fork_mutex_destroy(&g_audio_fifo->mutex);
+  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&g_audio_fifo->cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&g_audio_fifo->mutex));
   free(g_audio_fifo);
 
   /* Release libspotify handle */
