@@ -4,29 +4,32 @@
 conf_path="/etc/forked-daapd.conf"
 
 usage() {
+  echo
   echo "Interactive script pair Remote with forked-daapd"
   echo
-  echo "Usage: ${0##*/} [ <config-file> ]"
+  echo "Usage: ${0##*/} -h | [ <config-file> ]"
   echo
   echo "Parameters:"
   echo "  -h           Show this help"
-  echo " <config-file> Config file (default=$conf_path)"
+  echo " <config-file> Config file (default: $conf_path)"
   echo
-  echo "Note: forked-daapd needs to be running..."
-  exit $1
+  echo "NOTE: forked-daapd needs to be running..."
+  exit 0
 }
 
 case $1 in
-  -h) usage 0;;
-  -*) usage 1;;
+  -h|--help) usage;;
+  -*)
+    echo "Unrecognized option $1 (try -h for usage)"
+    exit 1
+    ;;
 esac
 
-[ -n "$1" ] && conf_path="$1"
+[ -n "$1" ] && conf_path=$1
 
 if [ ! -f "$conf_path" ]; then
-  echo "Error: Couldn't find config file '$conf_path'"
-  echo
-  usage 1
+  echo "Couldn't find config file '$conf_path' (try -h for usage)"
+  exit 1
 fi
 
 logfile=`awk '$1=="logfile"{print $3}' $conf_path`
