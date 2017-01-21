@@ -2241,12 +2241,19 @@ scan_saved_albums()
 static int
 scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 {
+  cfg_t *spotify_cfg;
+  bool artist_override;
+  bool album_override;
   struct spotify_request request;
   struct spotify_track track;
   struct media_file_info mfi;
   int dir_id;
 
   memset(&request, 0, sizeof(struct spotify_request));
+
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  artist_override = cfg_getbool(spotify_cfg, "artist_override");
+  album_override = cfg_getbool(spotify_cfg, "album_override");
 
   while (0 == spotifywebapi_request_next(&request, playlist->tracks_href))
     {
@@ -2263,6 +2270,13 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 
 	      memset(&mfi, 0, sizeof(struct media_file_info));
 	      map_track_to_mfi(&track, &mfi);
+
+	      track.is_compilation = (track.is_compilation || artist_override);
+	      if (album_override)
+		{
+		  free(mfi.album);
+		  mfi.album = strdup(playlist->name);
+		}
 
 	      library_process_media(track.uri, 1 /* TODO passing one prevents overwriting existing entries */, 0, DATA_KIND_SPOTIFY, 0, track.is_compilation, &mfi, dir_id);
 	      spotify_uri_register(track.uri);
