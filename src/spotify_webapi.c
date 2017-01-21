@@ -294,6 +294,7 @@ spotifywebapi_token_get(const char *code, const char *redirect_uri, const char *
   struct keyval kv;
   int ret;
 
+  *err = "";
   memset(&kv, 0, sizeof(struct keyval));
   ret = ( (keyval_add(&kv, "grant_type", "authorization_code") == 0) &&
           (keyval_add(&kv, "code", code) == 0) &&

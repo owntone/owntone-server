@@ -927,3 +927,35 @@ timespec_cmp(struct timespec time1, struct timespec time2)
   else
     return 0;
 }
+
+int
+mutex_init(pthread_mutex_t *mutex)
+{
+  pthread_mutexattr_t mattr;
+  int err;
+
+  CHECK_ERR(L_MISC, pthread_mutexattr_init(&mattr));
+  CHECK_ERR(L_MISC, pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_ERRORCHECK));
+  err = pthread_mutex_init(mutex, &mattr);
+  CHECK_ERR(L_MISC, pthread_mutexattr_destroy(&mattr));
+
+  return err;
+}
+
+void log_fatal_err(int domain, const char *func, int line, int err) {
+  DPRINTF(E_FATAL, domain, "%s failed at line %d, error %d (%s)\n", func,
+          line, err, strerror(err));
+  abort();
+}
+
+void log_fatal_errno(int domain, const char *func, int line) {
+  DPRINTF(E_FATAL, domain, "%s failed at line %d, error %d (%s)\n", func,
+          line, errno, strerror(errno));
+  abort();
+}
+
+void log_fatal_null(int domain, const char *func, int line) {
+  DPRINTF(E_FATAL, domain, "%s returned NULL at line %d\n", func, line);
+  abort();
+}
+

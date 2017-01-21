@@ -39,7 +39,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <errno.h>
-#include <pthread.h>
 
 #ifdef HAVE_EVENTFD
 # include <sys/eventfd.h>
@@ -85,7 +84,7 @@ static int pairing_efd;
 static int pairing_pipe[2];
 #endif
 static struct event *pairingev;
-static pthread_mutex_t remote_lck = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t remote_lck;
 static struct remote_info *remote_list;
 
 
@@ -661,7 +660,7 @@ pairing_cb(int fd, short event, void *arg)
 
   for (;;)
     {
-      pthread_mutex_lock(&remote_lck);
+      CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
 
       for (ri = remote_list; ri; ri = ri->next)
 	{
@@ -673,7 +672,7 @@ pairing_cb(int fd, short event, void *arg)
 	    }
 	}
 
-      pthread_mutex_unlock(&remote_lck);
+      CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
 
       if (!ri)
 	break;
@@ -700,11 +699,11 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
        * failed; any subsequent attempt will need a new pairing pin, so
        * we can just forget everything we know about the remote.
        */
-      pthread_mutex_lock(&remote_lck);
+      CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
 
       remove_remote_address_byid(name, family);
 
-      pthread_mutex_unlock(&remote_lck);
+      CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
     }
   else
     {
@@ -762,7 +761,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
       DPRINTF(E_LOG, L_REMOTE, "Discovered remote '%s' (id %s) at %s:%d, paircode %s\n", devname, name, address, port, paircode);
 
       /* Add the data to the list, adding the remote to the list if needed */
-      pthread_mutex_lock(&remote_lck);
+      CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
 
       ret = add_remote_mdns_data(name, family, address, port, devname, paircode);
 
@@ -776,7 +775,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
       else if (ret == 1)
 	kickoff_pairing();
 
-      pthread_mutex_unlock(&remote_lck);
+      CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
     }
 }
 
@@ -886,7 +885,7 @@ remote_pairing_read_pin(char *path)
 
   DPRINTF(E_LOG, L_REMOTE, "Read Remote pairing data (name '%s', pin '%s') from %s\n", devname, pin, path);
 
-  pthread_mutex_lock(&remote_lck);
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
 
   ret = add_remote_pin_data(devname, pin);
   free(devname);
@@ -895,7 +894,7 @@ remote_pairing_read_pin(char *path)
   else
     kickoff_pairing();
 
-  pthread_mutex_unlock(&remote_lck);
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
 }
 
 
@@ -906,6 +905,8 @@ remote_pairing_init(void)
   int ret;
 
   remote_list = NULL;
+
+  CHECK_ERR(L_REMOTE, mutex_init(&remote_lck));
 
 #ifdef HAVE_EVENTFD
   pairing_efd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
@@ -990,4 +991,6 @@ remote_pairing_deinit(void)
   close(pairing_pipe[0]);
   close(pairing_pipe[1]);
 #endif
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_destroy(&remote_lck));
 }

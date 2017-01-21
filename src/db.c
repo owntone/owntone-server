@@ -35,8 +35,6 @@
 #include <sys/mman.h>
 #include <limits.h>
 
-#include <pthread.h>
-
 #include <sqlite3.h>
 
 #include "conffile.h"
@@ -532,12 +530,12 @@ unlock_notify_cb(void **args, int nargs)
     {
       u = (struct db_unlock *)args[i];
 
-      pthread_mutex_lock(&u->lck);
+      CHECK_ERR(L_DB, pthread_mutex_lock(&u->lck));
 
       u->proceed = 1;
-      pthread_cond_signal(&u->cond);
+      CHECK_ERR(L_DB, pthread_cond_signal(&u->cond));
 
-      pthread_mutex_unlock(&u->lck);
+      CHECK_ERR(L_DB, pthread_mutex_unlock(&u->lck));
     }
 }
 
@@ -548,25 +546,25 @@ db_wait_unlock(void)
   int ret;
 
   u.proceed = 0;
-  pthread_mutex_init(&u.lck, NULL);
-  pthread_cond_init(&u.cond, NULL);
+  CHECK_ERR(L_DB, mutex_init(&u.lck));
+  CHECK_ERR(L_DB, pthread_cond_init(&u.cond, NULL));
 
   ret = sqlite3_unlock_notify(hdl, unlock_notify_cb, &u);
   if (ret == SQLITE_OK)
     {
-      pthread_mutex_lock(&u.lck);
+      CHECK_ERR(L_DB, pthread_mutex_lock(&u.lck));
 
       if (!u.proceed)
 	{
 	  DPRINTF(E_INFO, L_DB, "Waiting for database unlock\n");
-	  pthread_cond_wait(&u.cond, &u.lck);
+	  CHECK_ERR(L_DB, pthread_cond_wait(&u.cond, &u.lck));
 	}
 
-      pthread_mutex_unlock(&u.lck);
+      CHECK_ERR(L_DB, pthread_mutex_unlock(&u.lck));
     }
 
-  pthread_cond_destroy(&u.cond);
-  pthread_mutex_destroy(&u.lck);
+  CHECK_ERR(L_DB, pthread_cond_destroy(&u.cond));
+  CHECK_ERR(L_DB, pthread_mutex_destroy(&u.lck));
 
   return ret;
 }

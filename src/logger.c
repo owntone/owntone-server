@@ -20,6 +20,8 @@
 # include <config.h>
 #endif
 
+#include "logger.h"
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -27,25 +29,31 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
-#include <pthread.h>
 
 #include <event2/event.h>
 
 #include <libavutil/log.h>
 
 #include "conffile.h"
-#include "logger.h"
+#include "misc.h"
 
-
-static pthread_mutex_t logger_lck = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t logger_lck;
+static int logger_initialized;
 static int logdomains;
 static int threshold;
-static int console;
+static int console = 1;
 static char *logfilename;
 static FILE *logfile;
 static char *labels[] = { "config", "daap", "db", "httpd", "http", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache", "mpd", "stream", "cast", "fifo", "lib" };
 static char *severities[] = { "FATAL", "LOG", "WARN", "INFO", "DEBUG", "SPAM" };
 
+/* We need our own check to avoid nested locking or recursive calls */
+#define LOGGER_CHECK_ERR(f) \
+  do { int lerr; lerr = f; if (lerr != 0) { \
+      vlogger_fatal("%s failed at line %d, err %d (%s)\n", #f, __LINE__, \
+                    lerr, strerror(lerr)); \
+      abort(); \
+    } } while(0)
 
 static int
 set_logdomains(char *domains)
@@ -80,23 +88,12 @@ set_logdomains(char *domains)
 }
 
 static void
-vlogger(int severity, int domain, const char *fmt, va_list args)
+vlogger_writer(int severity, int domain, const char *fmt, va_list args)
 {
   va_list ap;
   char stamp[32];
   time_t t;
   int ret;
-
-  if (!((1 << domain) & logdomains) || (severity > threshold))
-    return;
-
-  pthread_mutex_lock(&logger_lck);
-
-  if (!logfile && !console)
-    {
-      pthread_mutex_unlock(&logger_lck);
-      return;
-    }
 
   if (logfile)
     {
@@ -122,8 +119,43 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
       vfprintf(stderr, fmt, ap);
       va_end(ap);
     }
+}
 
-  pthread_mutex_unlock(&logger_lck);
+static void
+vlogger_fatal(const char *fmt, ...)
+{
+  va_list ap;
+
+  va_start(ap, fmt);
+  vlogger_writer(E_FATAL, L_MISC, fmt, ap);
+  va_end(ap);
+}
+
+static void
+vlogger(int severity, int domain, const char *fmt, va_list args)
+{
+
+  if(! logger_initialized)
+    {
+      /* lock not initialized, use stderr */
+      vlogger_writer(severity, domain, fmt, args);
+      return;
+    }
+
+  if (!((1 << domain) & logdomains) || (severity > threshold))
+    return;
+
+  LOGGER_CHECK_ERR(pthread_mutex_lock(&logger_lck));
+
+  if (!logfile && !console)
+    {
+      LOGGER_CHECK_ERR(pthread_mutex_unlock(&logger_lck));
+      return;
+    }
+
+  vlogger_writer(severity, domain, fmt, args);
+
+  LOGGER_CHECK_ERR(pthread_mutex_unlock(&logger_lck));
 }
 
 void
@@ -204,7 +236,7 @@ logger_reinit(void)
   if (!logfile)
     return;
 
-  pthread_mutex_lock(&logger_lck);
+  LOGGER_CHECK_ERR(pthread_mutex_lock(&logger_lck));
 
   fp = fopen(logfilename, "a");
   if (!fp)
@@ -218,7 +250,7 @@ logger_reinit(void)
   logfile = fp;
 
  out:
-  pthread_mutex_unlock(&logger_lck);
+  LOGGER_CHECK_ERR(pthread_mutex_unlock(&logger_lck));
 }
 
 
@@ -287,6 +319,11 @@ logger_init(char *file, char *domains, int severity)
 
   logfilename = file;
 
+  /* logging w/o locks before initialized complete */
+  CHECK_ERR(L_MISC, mutex_init(&logger_lck));
+
+  logger_initialized = 1;
+
   return 0;
 }
 
@@ -294,5 +331,16 @@ void
 logger_deinit(void)
 {
   if (logfile)
-    fclose(logfile);
+    {
+      fclose(logfile);
+      logfile = NULL;
+    }
+
+  if(logger_initialized)
+    {
+      /* logging w/o locks to stderr now */
+      logger_initialized = 0;
+      console = 1;
+      CHECK_ERR(L_MISC, pthread_mutex_destroy(&logger_lck));
+    }
 }

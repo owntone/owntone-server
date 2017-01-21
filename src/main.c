@@ -44,8 +44,6 @@
 # include <sys/event.h>
 #endif
 
-#include <pthread.h>
-
 #include <getopt.h>
 #include <event2/event.h>
 #include <libavutil/log.h>
@@ -419,33 +417,35 @@ signal_kqueue_cb(int fd, short event, void *arg)
 
 
 static int
-ffmpeg_lockmgr(void **mutex, enum AVLockOp op)
+ffmpeg_lockmgr(void **pmutex, enum AVLockOp op)
 {
   switch (op)
     {
       case AV_LOCK_CREATE:
-	*mutex = malloc(sizeof(pthread_mutex_t));
-	if (!*mutex)
+	*pmutex = malloc(sizeof(pthread_mutex_t));
+	if (!*pmutex)
 	  return 1;
-
-	return !!pthread_mutex_init(*mutex, NULL);
+        CHECK_ERR(L_MAIN, mutex_init(*pmutex));
+	return 0;
 
       case AV_LOCK_OBTAIN:
-	return !!pthread_mutex_lock(*mutex);
+        CHECK_ERR(L_MAIN, pthread_mutex_lock(*pmutex));
+	return 0;
 
       case AV_LOCK_RELEASE:
-	return !!pthread_mutex_unlock(*mutex);
+        CHECK_ERR(L_MAIN, pthread_mutex_unlock(*pmutex));
+	return 0;
 
       case AV_LOCK_DESTROY:
-	pthread_mutex_destroy(*mutex);
-	free(*mutex);
+	CHECK_ERR(L_MAIN, pthread_mutex_destroy(*pmutex));
+	free(*pmutex);
+        *pmutex = NULL;
 
 	return 0;
     }
 
   return 1;
 }
-
 
 int
 main(int argc, char **argv)
