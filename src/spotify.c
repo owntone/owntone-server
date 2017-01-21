@@ -2044,7 +2044,7 @@ void
 spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const char *redirect_uri)
 {
   const char *code;
-  const char *err = "";
+  const char *err;
   int ret;
 
   code = evhttp_find_header(param, "code");
