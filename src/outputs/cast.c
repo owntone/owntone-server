@@ -39,6 +39,10 @@
 # include <endian.h>
 #elif defined(HAVE_SYS_ENDIAN_H)
 # include <sys/endian.h>
+#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
+#include <libkern/OSByteOrder.h>
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
 #endif
 #include <gnutls/gnutls.h>
 #include <event2/event.h>

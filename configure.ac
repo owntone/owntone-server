@@ -55,13 +55,23 @@ AC_CHECK_FUNCS_ONCE([posix_fadvise euidaccess pipe2])
 AC_CHECK_FUNCS([strptime strtok_r], [],
 	[AC_MSG_ERROR([[Missing function required to build forked-daapd]])])
 
-dnl check for clock_gettime
-AC_SEARCH_LIBS([clock_gettime], [rt], [],
-	[AC_MSG_ERROR([[Missing clock_gettime]])])
+dnl check for clock_gettime or replace it
+AC_SEARCH_LIBS([clock_gettime], [rt],
+	[AC_DEFINE([HAVE_CLOCK_GETTIME], 1,
+		[Define to 1 if have clock_gettime function])],
+	[AC_CHECK_HEADER([mach/mach_time.h],
+	[AC_DEFINE([HAVE_MACH_CLOCK], 1,
+		[Define to 1 if mach kernel clock replacement available])],
+	[AC_MSG_ERROR([[Missing clock_gettime and any replacement]])])])
 
-dnl check for timer_settime
-AC_SEARCH_LIBS([timer_settime], [rt], [],
-	[AC_MSG_ERROR([[Missing timer_settime]])])
+dnl check for timer_settime or replace it
+AC_SEARCH_LIBS([timer_settime], [rt],
+	[AC_DEFINE([HAVE_TIMER_SETTIME], 1,
+		[Define to 1 if have timer_settime function])],
+	[AC_CHECK_HEADER([mach/mach_time.h],
+	[AC_DEFINE([HAVE_MACH_TIMER], 1,
+		[Define to 1 if mach kernel clock replacement available])],
+	[AC_MSG_ERROR([[Missing timer_settime and any replacement]])])])
 
 AC_SEARCH_LIBS([pthread_exit], [pthread], [],
 	[AC_MSG_ERROR([[pthreads library is required]])])
@@ -91,19 +101,16 @@ AC_SUBST([FORKED_CPPFLAGS])
 AM_ICONV
 dnl All FORK_ macros defined in m4/fork_checks.m4
 FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
-        [u8_strconv_from_locale], [uniconv.h], [],
-        [dnl Retry test with iconv library
-         FORK_VARS_APPEND([COMMON], [LIBICONV], [INCICONV])
-         FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING],
-                [unistring], [u8_strconv_from_locale], [uniconv.h])])
+	[u8_strconv_from_locale], [uniconv.h], [],
+	[dnl Retry test with iconv library
+	 FORK_VARS_APPEND([COMMON], [LIBICONV], [INCICONV])
+	 FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING],
+		[unistring], [u8_strconv_from_locale], [uniconv.h])])
 
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
 FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse], [cfg_init], [confuse.h])
 FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml], [mxmlNewElement], [mxml.h],
 	[AC_CHECK_FUNCS([mxmlGetOpaque])])
-
-FORK_MODULES_CHECK([FORKED], [AVAHI], [avahi-client >= 0.6.24],
-	[avahi_client_new], [avahi-client/client.h])
 
 dnl SQLite3 requires extra checks
 FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
@@ -187,7 +194,8 @@ AS_IF([[test "$have_signal" = "no"]],
 
 AC_CHECK_HEADERS_ONCE([endian.h sys/endian.h])
 AC_CHECK_DECL([htobe16], [],
-	[AC_MSG_FAILURE([[Missing functions to swap byte order]])],
+	[AC_CHECK_HEADERS([libkern/OSByteOrder.h], [],
+		[AC_MSG_ERROR([[Missing functions to swap byte order]])])],
 	[AC_INCLUDES_DEFAULT[
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
@@ -226,6 +234,15 @@ FORK_ARG_WITH_CHECK([FORKED], [json-c support], [json], [JSON_C],
 			[AC_MSG_FAILURE([[--with-json was given, but test for json-c failed]])])
 		 [with_json=no]]
 	)])
+
+dnl Build with Avahi (or Bonjour if not)
+FORK_ARG_WITH_CHECK([FORKED], [Avahi mDNS], [avahi], [AVAHI],
+	[avahi-client >= 0.6.24], [avahi_client_new], [avahi-client/client.h])
+AS_IF([[test "x$with_avahi" = "xno"]],
+	[FORK_FUNC_REQUIRE([FORKED], [Bonjour DNS_SD], [DNSSD], [dns_sd],
+		[DNSServiceGetAddrInfo], [dns_sd.h], [],
+		[AC_MSG_ERROR([[Avahi client or Bonjour DNS_SD required, please install one.]])])])
+AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
 dnl iTunes playlists with libplist
 FORK_ARG_ENABLE([iTunes Music Library XML support], [itunes], [ITUNES],
