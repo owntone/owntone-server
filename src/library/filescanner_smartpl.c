@@ -33,7 +33,6 @@
 
 #include "logger.h"
 #include "db.h"
-#include "filescanner.h"
 #include "misc.h"
 
 #include "SMARTPLLexer.h"

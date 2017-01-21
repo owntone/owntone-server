@@ -34,8 +34,9 @@
 #define L_STREAMING   25
 #define L_CAST        26
 #define L_FIFO        27
+#define L_LIB         28
 
-#define N_LOGDOMAINS  28
+#define N_LOGDOMAINS  29
 
 /* Severities */
 #define E_FATAL   0

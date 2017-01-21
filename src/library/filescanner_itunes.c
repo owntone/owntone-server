@@ -41,7 +41,6 @@
 
 #include "logger.h"
 #include "db.h"
-#include "filescanner.h"
 #include "conffile.h"
 #include "misc.h"
 

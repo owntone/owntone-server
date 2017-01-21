@@ -42,6 +42,8 @@ safe_atou64(const char *str, uint64_t *val);
 int
 safe_hextou64(const char *str, uint64_t *val);
 
+char *
+safe_strdup(const char *str);
 
 /* Key/value functions */
 struct keyval *
@@ -138,27 +140,49 @@ timespec_add(struct timespec time1, struct timespec time2);
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
 
-/* mutex wrappers with checks */
-void
-fork_mutex_init(pthread_mutex_t *mutex);
-void
-fork_mutex_lock(pthread_mutex_t *mutex);
-void
-fork_mutex_unlock(pthread_mutex_t *mutex);
-void
-fork_mutex_destroy(pthread_mutex_t *mutex);
-
-/* condition wrappers with checks */
-void
-fork_cond_init(pthread_cond_t *cond);
-void
-fork_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
+/* initialize mutex with error checking (not default on all platforms) */
 int
-fork_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
-                    const struct timespec *ts);
-void
-fork_cond_signal(pthread_cond_t *cond);
-void
-fork_cond_destroy(pthread_cond_t *cond);
+mutex_init(pthread_mutex_t *mutex);
+
+/* Check that the function returns 0, logging a fatal error referencing
+   returned error (type errno) if it fails, and aborts the process.
+   Example: CHECK_ERR(L_MAIN, my_function()); */
+#define CHECK_ERR(d, f) \
+  do { int chk_err; \
+    if ( (chk_err = (f)) != 0) \
+      log_fatal_err(d, #f, __LINE__, chk_err); \
+  } while(0)
+
+/* Check that the function returns 0 or okval, logging a fatal
+   error referencing returned erro (type errno) if not, and aborts the process.
+   Example: int err; CHECK_ERR_EXCEPT(L_MAIN, my_wait(), err, ETIMEDOUT); */
+#define CHECK_ERR_EXCEPT(d, f, var, okval) \
+  do { (var) = (f);                             \
+    if (! (((var) == (okval)) || ((var) == 0))) \
+      log_fatal_err(d, #f, __LINE__, (var)); \
+  } while(0)
+
+/* Check that the function returns value >= 0, logging a fatal error
+   referencing errno if it not, and aborts the process.
+   Example: int ret; CHECK_ERRNO(L_MAIN, ret = my_function()); */
+#define CHECK_ERRNO(d, f) \
+  do { \
+    if ( (f) < 0 ) \
+      log_fatal_errno(d, #f, __LINE__); \
+  } while(0)
+
+/* Check that the function returns non-NULL, logging a fatal error if not,
+   and aborts the process.
+   Example: void *ptr; CHECK_NULL(L_MAIN, ptr = my_create()); */
+#define CHECK_NULL(d, f) \
+  do { \
+    if ( (f) == NULL ) \
+      log_fatal_null(d, #f, __LINE__); \
+  } while(0)
+
+/* Used by CHECK_*() macros */
+void log_fatal_err(int domain, const char *func, int line, int err);
+void log_fatal_errno(int domain, const char *func, int line);
+void log_fatal_null(int domain, const char *func, int line);
 
 #endif /* !__MISC_H__ */

@@ -2,11 +2,11 @@
 sbin_PROGRAMS = forked-daapd
 
 if COND_ITUNES
-ITUNES_SRC=filescanner_itunes.c
+ITUNES_SRC=library/filescanner_itunes.c
 endif
 
 if COND_SPOTIFY
-SPOTIFY_SRC=spotify.c spotify.h
+SPOTIFY_SRC=spotify.c spotify.h spotify_webapi.c spotify_webapi.h
 endif
 
 if COND_LASTFM
@@ -85,9 +85,10 @@ forked_daapd_SOURCES = main.c \
 	logger.c logger.h \
 	conffile.c conffile.h \
 	cache.c cache.h \
-	filescanner.c filescanner.h \
-	filescanner_ffmpeg.c filescanner_playlist.c \
-	filescanner_smartpl.c $(ITUNES_SRC) \
+	library/filescanner.c library/filescanner.h \
+	library/filescanner_ffmpeg.c library/filescanner_playlist.c \
+	library/filescanner_smartpl.c $(ITUNES_SRC) \
+	library.c library.h \
 	$(MDNS_SRC) mdns.h \
 	remote_pairing.c remote_pairing.h \
 	avio_evbuffer.c avio_evbuffer.h \

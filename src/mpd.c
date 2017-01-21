@@ -56,8 +56,8 @@
 #include "artwork.h"
 
 #include "player.h"
-#include "filescanner.h"
 #include "commands.h"
+#include "library.h"
 
 
 static pthread_t tid_mpd;
@@ -748,7 +748,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  (status.pos_ms / 1000.0));
     }
 
-  if (filescanner_scanning())
+  if (library_is_scanning())
     {
       evbuffer_add(evbuf, "updating_db: 1\n", 15);
     }
@@ -3218,7 +3218,7 @@ mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  filescanner_trigger_initscan();
+  library_rescan();
 
   evbuffer_add(evbuf, "updating_db: 1\n", 15);
 
