@@ -40,7 +40,7 @@ setup(struct player_source *ps)
 }
 
 static int
-http_setup(struct player_source *ps)
+setup_http(struct player_source *ps)
 {
   char *url;
 
@@ -103,6 +103,38 @@ seek(struct player_source *ps, int seek_ms)
   return transcode_seek(ps->xcode, seek_ms);
 }
 
+static int
+metadata_get_http(struct input_metadata *metadata, struct player_source *ps)
+{
+  struct http_icy_metadata *m;
+  int changed;
+
+  m = transcode_metadata(ps->xcode, &changed);
+  if (!m)
+    return -1;
+
+  if (!changed)
+    {
+      http_icy_metadata_free(m, 0);
+      return -1; // TODO Perhaps a problem since this prohibits the player updating metadata
+    }
+
+  if (m->artist)
+    metadata->artist = m->artist;
+  // Note we map title to album, because clients should show stream name as titel
+  if (m->title)
+    metadata->album = m->title;
+  if (m->artwork_url)
+    metadata->artwork_url = m->artwork_url;
+
+  m->artist = NULL;
+  m->title = NULL;
+  m->artwork_url = NULL;
+
+  http_icy_metadata_free(m, 0);
+  return 0;
+}
+
 struct input_definition input_file =
 {
   .name = "file",
@@ -119,7 +151,8 @@ struct input_definition input_http =
   .name = "http",
   .type = INPUT_TYPE_HTTP,
   .disabled = 0,
-  .setup = http_setup,
+  .setup = setup_http,
   .start = start,
   .stop = stop,
+  .metadata_get = metadata_get_http,
 };

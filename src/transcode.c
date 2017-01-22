@@ -82,6 +82,9 @@ struct decode_ctx {
   // Duration (used to make wav header)
   uint32_t duration;
 
+  // Data kind (used to determine if ICY metadata is relevant to look for)
+  enum data_kind data_kind;
+
   // Contains the most recent packet from av_read_frame
   // Used for resuming after seek and for freeing correctly
   // in transcode_decode()
@@ -583,7 +586,7 @@ flush_encoder(struct encode_ctx *ctx, unsigned int stream_index)
 /* --------------------------- INPUT/OUTPUT INIT --------------------------- */
 
 static int
-open_input(struct decode_ctx *ctx, enum data_kind data_kind, const char *path, int decode_video)
+open_input(struct decode_ctx *ctx, const char *path, int decode_video)
 {
   AVDictionary *options;
   AVCodec *decoder;
@@ -600,10 +603,10 @@ open_input(struct decode_ctx *ctx, enum data_kind data_kind, const char *path, i
 
 # ifndef HAVE_FFMPEG
   // Without this, libav is slow to probe some internet streams, which leads to RAOP timeouts
-  if (data_kind == DATA_KIND_HTTP)
+  if (ctx->data_kind == DATA_KIND_HTTP)
     ctx->ifmt_ctx->probesize = 64000;
 # endif
-  if (data_kind == DATA_KIND_HTTP)
+  if (ctx->data_kind == DATA_KIND_HTTP)
     av_dict_set(&options, "icy", "1", 0);
 
   // TODO Newest versions of ffmpeg have timeout and reconnect options we should use
@@ -1245,13 +1248,14 @@ transcode_decode_setup(enum data_kind data_kind, const char *path, uint32_t song
       return NULL;
     }
 
-  if (open_input(ctx, data_kind, path, decode_video) < 0)
+  ctx->duration = song_length;
+  ctx->data_kind = data_kind;
+
+  if (open_input(ctx, path, decode_video) < 0)
     {
       free(ctx);
       return NULL;
     }
-
-  ctx->duration = song_length;
 
   av_init_packet(&ctx->packet);
 
@@ -1283,7 +1287,8 @@ transcode_encode_setup(struct decode_ctx *src_ctx, enum transcode_profile profil
       return NULL;
     }
 
-  ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->channels * ctx->byte_depth * ctx->sample_rate;
+  if (src_ctx->data_kind == DATA_KIND_HTTP)
+    ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->channels * ctx->byte_depth * ctx->sample_rate;
 
   if (profile == XCODE_PCM16_HEADER)
     {
@@ -1637,6 +1642,8 @@ transcode(struct evbuffer *evbuf, int wanted, struct transcode_ctx *ctx, int *ic
   int processed;
   int ret;
 
+  *icy_timer = 0;
+
   processed = 0;
   while (processed < wanted)
     {
@@ -1653,7 +1660,8 @@ transcode(struct evbuffer *evbuf, int wanted, struct transcode_ctx *ctx, int *ic
     }
 
   ctx->encode_ctx->total_bytes += processed;
-  *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
+  if (ctx->encode_ctx->icy_interval)
+    *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
 
   return processed;
 }
@@ -1820,26 +1828,5 @@ transcode_metadata(struct transcode_ctx *ctx, int *changed)
   ctx->encode_ctx->icy_hash = m->hash;
 
   return m;
-}
-
-char *
-transcode_metadata_artwork_url(struct transcode_ctx *ctx)
-{
-  struct http_icy_metadata *m;
-  char *artwork_url;
-
-  if (!ctx->decode_ctx->ifmt_ctx || !ctx->decode_ctx->ifmt_ctx->filename)
-    return NULL;
-
-  artwork_url = NULL;
-
-  m = http_icy_metadata_get(ctx->decode_ctx->ifmt_ctx, 1);
-  if (m && m->artwork_url)
-    artwork_url = strdup(m->artwork_url);
-
-  if (m)
-    http_icy_metadata_free(m, 0);
-
-  return artwork_url;
 }
 

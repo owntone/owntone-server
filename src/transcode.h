@@ -100,7 +100,4 @@ transcode_seek(struct transcode_ctx *ctx, int ms);
 struct http_icy_metadata *
 transcode_metadata(struct transcode_ctx *ctx, int *changed);
 
-char *
-transcode_metadata_artwork_url(struct transcode_ctx *ctx);
-
 #endif /* !__TRANSCODE_H__ */
