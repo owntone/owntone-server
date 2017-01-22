@@ -123,26 +123,16 @@ struct spk_enum
   void *arg;
 };
 
-struct icy_artwork
-{
-  uint32_t id;
-  char *artwork_url;
-};
-
-struct player_metadata
-{
-  int id;
-  uint64_t rtptime;
-  uint64_t offset;
-  int startup;
-
-  struct output_metadata *omd;
-};
-
 struct speaker_set_param
 {
   uint64_t *device_ids;
   int intval;
+};
+
+struct metadata_param
+{
+  struct input_metadata *input;
+  struct output_metadata *output;
 };
 
 union player_arg
@@ -153,13 +143,12 @@ union player_arg
   struct output_device *device;
   struct player_status *status;
   struct player_source *ps;
-  struct player_metadata *pmd;
+  struct metadata_param metadata_param;
   uint32_t *id_ptr;
   struct speaker_set_param speaker_set_param;
   enum repeat_mode mode;
   uint32_t id;
   int intval;
-  struct icy_artwork icy;
 };
 
 struct event_base *evbase_player;
@@ -447,9 +436,10 @@ static void
 playback_suspend(void);
 
 static void
-player_metadata_send(struct player_metadata *pmd);
+player_metadata_send(struct input_metadata *imd, struct output_metadata *omd);
 
-/* Callback from the worker thread (async operation as it may block) */
+
+// Callback from the worker thread (async operation as it may block)
 static void
 playcount_inc_cb(void *arg)
 {
@@ -459,7 +449,7 @@ playcount_inc_cb(void *arg)
 }
 
 #ifdef LASTFM
-/* Callback from the worker thread (async operation as it may block) */
+// Callback from the worker thread (async operation as it may block)
 static void
 scrobble_cb(void *arg)
 {
@@ -469,107 +459,71 @@ scrobble_cb(void *arg)
 }
 #endif
 
-/* Callback from the worker thread
- * This prepares metadata in the worker thread, since especially the artwork
- * retrieval may take some time. outputs_metadata_prepare() must be thread safe.
- * The sending must be done in the player thread.
- */
+// Callback from the worker thread. Here the heavy lifting is done: updating the
+// db_queue_item, retrieving artwork (through outputs_metadata_prepare) and
+// when done, telling the player to send the metadata to the clients
 static void
-metadata_prepare_cb(void *arg)
+metadata_update_cb(void *arg)
 {
-  struct player_metadata *pmd = arg;
+  struct input_metadata *metadata = arg;
+  struct output_metadata *o_metadata;
+  struct db_queue_item *queue_item;
+  int ret;
 
-  pmd->omd = outputs_metadata_prepare(pmd->id);
+  queue_item = db_queue_fetch_byitemid(metadata->item_id);
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! Input metadata item_id does not match anything in queue\n");
+      goto out_free_metadata;
+    }
 
-  if (pmd->omd)
-    player_metadata_send(pmd);
+  // Since we won't be using the metadata struct values for anything else than
+  // this we just swap pointers
+  if (metadata->artist)
+    swap_pointers(&queue_item->artist, &metadata->artist);
+  if (metadata->title)
+    swap_pointers(&queue_item->title, &metadata->title);
+  if (metadata->album)
+    swap_pointers(&queue_item->album, &metadata->album);
+  if (metadata->artwork_url)
+    swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
 
-  outputs_metadata_free(pmd->omd);
+  ret = db_queue_update_item(queue_item);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
+      goto out_free_queueitem;
+    }
+
+  o_metadata = outputs_metadata_prepare(metadata->item_id);
+
+  // Actual sending must be done by player, since the worker does not own the outputs
+  player_metadata_send(metadata, o_metadata);
+
+  outputs_metadata_free(o_metadata);
+
+ out_free_queueitem:
+  free_queue_item(queue_item, 0);
+
+ out_free_metadata:
+  input_metadata_free(metadata, 1);
 }
 
-/* Callback from the worker thread (async operation as it may block) */
-static void
-update_icy_cb(void *arg)
-{
-  struct http_icy_metadata *metadata = arg;
-
-  db_queue_update_icymetadata(metadata->id, metadata->artist, metadata->title);
-
-  http_icy_metadata_free(metadata, 1);
-}
-
-/* Metadata */
-static void
-metadata_prune(uint64_t pos)
-{
-  outputs_metadata_prune(pos);
-}
-
-static void
-metadata_purge(void)
-{
-  outputs_metadata_purge();
-}
-
-static void
+// Gets the metadata, but since the actual update requires db writes and
+// possibly retrieving artwork we let the worker do the next step
+void
 metadata_trigger(int startup)
 {
-  struct player_metadata pmd;
+  struct input_metadata metadata;
+  int ret;
 
-  memset(&pmd, 0, sizeof(struct player_metadata));
-
-  pmd.id = cur_streaming->item_id;
-  pmd.startup = startup;
-
-  if (cur_streaming->stream_start && cur_streaming->output_start)
-    {
-      pmd.offset = cur_streaming->output_start - cur_streaming->stream_start;
-      pmd.rtptime = cur_streaming->stream_start;
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_trigger()\n");
-    }
-
-  /* Defer the actual work of preparing the metadata to the worker thread */
-  worker_execute(metadata_prepare_cb, &pmd, sizeof(struct player_metadata), 0);
-}
-
-/* Checks if there is new HTTP ICY metadata, and if so sends updates to clients */
-void
-metadata_check_icy(void)
-{
-  struct http_icy_metadata *metadata;
-  int changed;
-
-  metadata = transcode_metadata(cur_streaming->xcode, &changed);
-  if (!metadata)
+  ret = input_metadata_get(&metadata, cur_streaming, startup);
+  if (ret < 0)
     return;
 
-  if (!changed || !metadata->title)
-    goto no_update;
-
-  if (metadata->title[0] == '\0')
-    goto no_update;
-
-  metadata->id = cur_streaming->item_id;
-
-  /* Defer the database update to the worker thread */
-  worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
-
-  /* Triggers preparing and sending output metadata */
-  metadata_trigger(0);
-
-  /* Only free the struct, the content must be preserved for update_icy_cb */
-  free(metadata);
-
-  status_update(player_state);
-
-  return;
-
- no_update:
-  http_icy_metadata_free(metadata, 0);
+  worker_execute(metadata_update_cb, &metadata, sizeof(metadata), 0);
 }
+
 
 struct player_history *
 player_history_get(void)
@@ -950,7 +904,7 @@ source_check(void)
 
       status_update(PLAY_PLAYING);
 
-      metadata_prune(pos);
+      outputs_metadata_prune(pos);
     }
 
   return pos;
@@ -1100,6 +1054,10 @@ source_read(uint8_t *buf, int len)
       ret = source_switch(nbytes);
       if (ret < 0)
 	return -1;
+    }
+  else if (flags & INPUT_FLAG_METADATA)
+    {
+      metadata_trigger(0);
     }
 
   // We pad the output buffer with silence if we don't have enough data for a
@@ -1429,18 +1387,16 @@ static enum command_state
 metadata_send(void *arg, int *retval)
 {
   union player_arg *cmdarg;
-  struct player_metadata *pmd;
+  struct input_metadata *imd;
+  struct output_metadata *omd;
 
   cmdarg = arg;
-  pmd = cmdarg->pmd;
+  imd = cmdarg->metadata_param.input;
+  omd = cmdarg->metadata_param.output;
 
-  /* Do the setting of rtptime which was deferred in metadata_trigger because we
-   * wanted to wait until we had the actual last_rtptime
-   */
-  if ((pmd->rtptime == 0) && (pmd->startup))
-    pmd->rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+  outputs_metadata_send(omd, imd->rtptime, imd->offset, imd->startup);
 
-  outputs_metadata_send(pmd->omd, pmd->rtptime, pmd->offset, pmd->startup);
+  status_update(player_state);
 
   *retval = 0;
   return COMMAND_END;
@@ -1724,7 +1680,7 @@ playback_abort(void)
 
   status_update(PLAY_STOPPED);
 
-  metadata_purge();
+  outputs_metadata_purge();
 }
 
 /* Internal routine for waiting when input buffer underruns */
@@ -1855,37 +1811,6 @@ now_playing(void *arg, int *retval)
 }
 
 static enum command_state
-artwork_url_get(void *arg, int *retval)
-{
-  union player_arg *cmdarg = arg;
-  struct player_source *ps;
-
-  cmdarg->icy.artwork_url = NULL;
-
-  if (cur_playing)
-    ps = cur_playing;
-  else if (cur_streaming)
-    ps = cur_streaming;
-  else
-    {
-      *retval = -1;
-      return COMMAND_END;
-    }
-
-  /* Check that we are playing a viable stream, and that it has the requested id */
-  if (!ps->xcode || ps->data_kind != DATA_KIND_HTTP || ps->id != cmdarg->icy.id)
-    {
-      *retval = -1;
-      return COMMAND_END;
-    }
-
-  cmdarg->icy.artwork_url = transcode_metadata_artwork_url(ps->xcode);
-
-  *retval = 0;
-  return COMMAND_END;
-}
-
-static enum command_state
 playback_stop(void *arg, int *retval)
 {
   struct player_source *ps_playing;
@@ -1908,7 +1833,7 @@ playback_stop(void *arg, int *retval)
 
   status_update(PLAY_STOPPED);
 
-  metadata_purge();
+  outputs_metadata_purge();
 
   /* We're async if we need to flush devices */
   if (*retval > 0)
@@ -2343,7 +2268,7 @@ playback_pause(void *arg, int *retval)
 
   source_pause(pos);
 
-  metadata_purge();
+  outputs_metadata_purge();
 
   /* We're async if we need to flush devices */
   if (*retval > 0)
@@ -2794,25 +2719,6 @@ player_now_playing(uint32_t *id)
   return ret;
 }
 
-char *
-player_get_icy_artwork_url(uint32_t id)
-{
-  union player_arg cmdarg;
-  int ret;
-
-  cmdarg.icy.id = id;
-
-  if (pthread_self() != tid_player)
-    ret = commands_exec_sync(cmdbase, artwork_url_get, NULL, &cmdarg);
-  else
-    artwork_url_get(&cmdarg, &ret);
-
-  if (ret < 0)
-    return NULL;
-  else
-    return cmdarg.icy.artwork_url;
-}
-
 /*
  * Starts/resumes playback
  *
@@ -3057,11 +2963,12 @@ player_device_remove(void *device)
 
 /* Thread: worker */
 static void
-player_metadata_send(struct player_metadata *pmd)
+player_metadata_send(struct input_metadata *imd, struct output_metadata *omd)
 {
   union player_arg cmdarg;
 
-  cmdarg.pmd = pmd;
+  cmdarg.metadata_param.input = imd;
+  cmdarg.metadata_param.output = omd;
 
   commands_exec_sync(cmdbase, metadata_send, NULL, &cmdarg);
 }

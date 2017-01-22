@@ -80,9 +80,6 @@ player_get_status(struct player_status *status);
 int
 player_now_playing(uint32_t *id);
 
-char *
-player_get_icy_artwork_url(uint32_t id);
-
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg);
 
