@@ -82,6 +82,9 @@ unicode_fixup_string(char *str, const char *fromcode);
 char *
 trimwhitespace(const char *str);
 
+void
+swap_pointers(char **a, char **b);
+
 uint32_t
 djb_hash(const void *data, size_t len);
 

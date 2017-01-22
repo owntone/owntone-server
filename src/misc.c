@@ -569,6 +569,14 @@ trimwhitespace(const char *str)
   return out;
 }
 
+void
+swap_pointers(char **a, char **b)
+{
+  char *t = *a;
+  *a = *b;
+  *b = t;
+}
+
 uint32_t
 djb_hash(const void *data, size_t len)
 {
