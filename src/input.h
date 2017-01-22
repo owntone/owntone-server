@@ -73,6 +73,21 @@ struct player_source
 
 typedef int (*input_cb)(void);
 
+struct input_metadata
+{
+  uint32_t item_id;
+
+  int startup;
+
+  uint64_t rtptime;
+  uint64_t offset;
+
+  char *artist;
+  char *title;
+  char *album;
+  char *artwork_url;
+};
+
 struct input_definition
 {
   // Name of the input
@@ -95,6 +110,9 @@ struct input_definition
 
   // Changes the playback position
   int (*seek)(struct player_source *ps, int seek_ms);
+
+  // Return metadata
+  int (*metadata_get)(struct input_metadata *metadata, struct player_source *ps);
 
   // Initialization function called during startup
   int (*init)(void);
@@ -191,6 +209,18 @@ input_seek(struct player_source *ps, int seek_ms);
  */
 void
 input_flush(short *flags);
+
+/*
+ * Gets metadata from the input, returns 0 if metadata is set, otherwise -1
+ */
+int
+input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup);
+
+/*
+ * Free the entire struct
+ */
+void
+input_metadata_free(struct input_metadata *metadata, int content_only);
 
 /*
  * Called by player_init (so will run in main thread)

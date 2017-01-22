@@ -464,6 +464,48 @@ input_flush(short *flags)
 }
 
 int
+input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup)
+{
+  int type;
+
+  if (!metadata || !ps || !ps->stream_start || !ps->output_start)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! Unhandled case in input_metadata_get()\n");
+      return -1;
+    }
+
+  memset(metadata, 0, sizeof(struct input_metadata));
+
+  metadata->item_id = ps->item_id;
+
+  metadata->startup = startup;
+  metadata->offset = ps->output_start - ps->stream_start;
+  metadata->rtptime = ps->stream_start;
+
+  // Note that the source may overwrite the above progress metadata
+  type = source_check_and_map(ps, "metadata_get", 1);
+  if ((type < 0) || (inputs[type]->disabled))
+    return -1;
+
+  if (!inputs[type]->metadata_get)
+    return 0;
+
+  return inputs[type]->metadata_get(metadata, ps);
+}
+
+void
+input_metadata_free(struct input_metadata *metadata, int content_only)
+{
+  free(metadata->artist);
+  free(metadata->title);
+  free(metadata->album);
+  free(metadata->artwork_url);
+
+  if (!content_only)
+    free(metadata);
+}
+
+int
 input_init(void)
 {
   int no_input;
