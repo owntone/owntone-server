@@ -940,8 +940,8 @@ extern mach_port_t clock_port;
 #ifndef HAVE_CLOCK_GETTIME
 
 int
-clock_gettime(clockid_t clock_id, struct timespec *tp) {
-
+clock_gettime(clockid_t clock_id, struct timespec *tp)
+{
   static int clock_init = 0;
   static clock_serv_t clock;
 
@@ -988,8 +988,8 @@ clock_gettime(clockid_t clock_id, struct timespec *tp) {
 }
 
 int
-clock_getres(clockid_t clock_id, struct timespec *res) {
-
+clock_getres(clockid_t clock_id, struct timespec *res)
+{
   if (! res)
     return -1;
 
@@ -1007,8 +1007,8 @@ clock_getres(clockid_t clock_id, struct timespec *res) {
 #include <sys/time.h> /* ITIMER_REAL */
 
 int
-timer_create(clockid_t clock_id, void *sevp, timer_t *timer_id) {
-
+timer_create(clockid_t clock_id, void *sevp, timer_t *timer_id)
+{
   if (clock_id != CLOCK_MONOTONIC)
     return -1;
   if (sevp)
@@ -1021,8 +1021,8 @@ timer_create(clockid_t clock_id, void *sevp, timer_t *timer_id) {
 }
 
 int
-timer_delete(timer_t timer_id) {
-
+timer_delete(timer_t timer_id)
+{
   struct itimerval timerval;
 
   if (timer_id != 0)
@@ -1034,9 +1034,8 @@ timer_delete(timer_t timer_id) {
 }
 
 int
-timer_settime(timer_t timer_id, int flags, const struct itimerspec *tp,
-              struct itimerspec *old) {
-
+timer_settime(timer_t timer_id, int flags, const struct itimerspec *tp, struct itimerspec *old)
+{
   struct itimerval tv;
 
   if (timer_id != 0 || ! tp || old)
@@ -1049,8 +1048,8 @@ timer_settime(timer_t timer_id, int flags, const struct itimerspec *tp,
 }
 
 int
-timer_getoverrun(timer_t timer_id) {
-
+timer_getoverrun(timer_t timer_id)
+{
   /* since we don't know if there have been signals that weren't delivered,
      assume none */
   return 0;
@@ -1074,20 +1073,23 @@ mutex_init(pthread_mutex_t *mutex)
   return err;
 }
 
-void log_fatal_err(int domain, const char *func, int line, int err) {
-  DPRINTF(E_FATAL, domain, "%s failed at line %d, error %d (%s)\n", func,
-          line, err, strerror(err));
+void
+log_fatal_err(int domain, const char *func, int line, int err)
+{
+  DPRINTF(E_FATAL, domain, "%s failed at line %d, error %d (%s)\n", func, line, err, strerror(err));
   abort();
 }
 
-void log_fatal_errno(int domain, const char *func, int line) {
-  DPRINTF(E_FATAL, domain, "%s failed at line %d, error %d (%s)\n", func,
-          line, errno, strerror(errno));
+void
+log_fatal_errno(int domain, const char *func, int line)
+{
+  DPRINTF(E_FATAL, domain, "%s failed at line %d, error %d (%s)\n", func, line, errno, strerror(errno));
   abort();
 }
 
-void log_fatal_null(int domain, const char *func, int line) {
+void
+log_fatal_null(int domain, const char *func, int line)
+{
   DPRINTF(E_FATAL, domain, "%s returned NULL at line %d\n", func, line);
   abort();
 }
-
