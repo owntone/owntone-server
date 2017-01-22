@@ -50,6 +50,7 @@
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
 
+#include <pthread.h>
 #include <gcrypt.h>
 GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
