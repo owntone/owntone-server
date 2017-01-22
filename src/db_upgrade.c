@@ -1529,6 +1529,24 @@ static const struct db_upgrade_query db_upgrade_v1902_queries[] =
     { U_V1902_SCVER_MINOR,    "set schema_version_minor to 02" },
   };
 
+
+#define U_V1903_ALTER_QUEUE_ADD_ARTWORKURL \
+  "ALTER TABLE queue ADD COLUMN artwork_url VARCHAR(4096) DEFAULT NULL;"
+
+#define U_V1903_SCVER_MAJOR \
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_V1903_SCVER_MINOR \
+  "UPDATE admin SET value = '03' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1903_queries[] =
+  {
+    { U_V1903_ALTER_QUEUE_ADD_ARTWORKURL,    "alter table queue add column artwork_url" },
+
+    { U_V1903_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V1903_SCVER_MINOR,    "set schema_version_minor to 03" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1648,6 +1666,11 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1901:
       ret = db_generic_upgrade(hdl, db_upgrade_v1902_queries, sizeof(db_upgrade_v1902_queries) / sizeof(db_upgrade_v1902_queries[0]));
+      if (ret < 0)
+	return -1;
+
+    case 1902:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1903_queries, sizeof(db_upgrade_v1903_queries) / sizeof(db_upgrade_v1903_queries[0]));
       if (ret < 0)
 	return -1;
 
