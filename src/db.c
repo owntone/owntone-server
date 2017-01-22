@@ -356,14 +356,12 @@ db_escape_string(const char *str)
 void
 free_pi(struct pairing_info *pi, int content_only)
 {
-  if (pi->remote_id)
-    free(pi->remote_id);
+  if (!pi)
+    return;
 
-  if (pi->name)
-    free(pi->name);
-
-  if (pi->guid)
-    free(pi->guid);
+  free(pi->remote_id);
+  free(pi->name);
+  free(pi->guid);
 
   if (!content_only)
     free(pi);
@@ -374,77 +372,33 @@ free_pi(struct pairing_info *pi, int content_only)
 void
 free_mfi(struct media_file_info *mfi, int content_only)
 {
-  if (mfi->path)
-    free(mfi->path);
+  if (!mfi)
+    return;
 
-  if (mfi->fname)
-    free(mfi->fname);
-
-  if (mfi->title)
-    free(mfi->title);
-
-  if (mfi->artist)
-    free(mfi->artist);
-
-  if (mfi->album)
-    free(mfi->album);
-
-  if (mfi->genre)
-    free(mfi->genre);
-
-  if (mfi->comment)
-    free(mfi->comment);
-
-  if (mfi->type)
-    free(mfi->type);
-
-  if (mfi->composer)
-    free(mfi->composer);
-
-  if (mfi->orchestra)
-    free(mfi->orchestra);
-
-  if (mfi->conductor)
-    free(mfi->conductor);
-
-  if (mfi->grouping)
-    free(mfi->grouping);
-
-  if (mfi->description)
-    free(mfi->description);
-
-  if (mfi->codectype)
-    free(mfi->codectype);
-
-  if (mfi->album_artist)
-    free(mfi->album_artist);
-
-  if (mfi->tv_series_name)
-    free(mfi->tv_series_name);
-
-  if (mfi->tv_episode_num_str)
-    free(mfi->tv_episode_num_str);
-
-  if (mfi->tv_network_name)
-    free(mfi->tv_network_name);
-
-  if (mfi->title_sort)
-    free(mfi->title_sort);
-
-  if (mfi->artist_sort)
-    free(mfi->artist_sort);
-
-  if (mfi->album_sort)
-    free(mfi->album_sort);
-
-  if (mfi->composer_sort)
-    free(mfi->composer_sort);
-
-  if (mfi->album_artist_sort)
-    free(mfi->album_artist_sort);
-
-  if (mfi->virtual_path)
-    free(mfi->virtual_path);
+  free(mfi->path);
+  free(mfi->fname);
+  free(mfi->title);
+  free(mfi->artist);
+  free(mfi->album);
+  free(mfi->genre);
+  free(mfi->comment);
+  free(mfi->type);
+  free(mfi->composer);
+  free(mfi->orchestra);
+  free(mfi->conductor);
+  free(mfi->grouping);
+  free(mfi->description);
+  free(mfi->codectype);
+  free(mfi->album_artist);
+  free(mfi->tv_series_name);
+  free(mfi->tv_episode_num_str);
+  free(mfi->tv_network_name);
+  free(mfi->title_sort);
+  free(mfi->artist_sort);
+  free(mfi->album_sort);
+  free(mfi->composer_sort);
+  free(mfi->album_artist_sort);
+  free(mfi->virtual_path);
 
   if (!content_only)
     free(mfi);
@@ -489,17 +443,13 @@ unicode_fixup_mfi(struct media_file_info *mfi)
 void
 free_pli(struct playlist_info *pli, int content_only)
 {
-  if (pli->title)
-    free(pli->title);
+  if (!pli)
+    return;
 
-  if (pli->query)
-    free(pli->query);
-
-  if (pli->path)
-    free(pli->path);
-
-  if (pli->virtual_path)
-    free(pli->virtual_path);
+  free(pli->title);
+  free(pli->query);
+  free(pli->path);
+  free(pli->virtual_path);
 
   if (!content_only)
     free(pli);
@@ -510,8 +460,10 @@ free_pli(struct playlist_info *pli, int content_only)
 void
 free_di(struct directory_info *di, int content_only)
 {
-  if (di->virtual_path)
-    free(di->virtual_path);
+  if (!di)
+    return;
+
+  free(di->virtual_path);
 
   if (!content_only)
     free(di);
@@ -3952,29 +3904,25 @@ db_speaker_clear_all(void)
 void
 free_queue_item(struct db_queue_item *queue_item, int content_only)
 {
-  if (queue_item->path)
-    free(queue_item->path);
-  if (queue_item->virtual_path)
-    free(queue_item->virtual_path);
-  if (queue_item->title)
-    free(queue_item->title);
-  if (queue_item->artist)
-    free(queue_item->artist);
-  if (queue_item->album_artist)
-    free(queue_item->album_artist);
-  if (queue_item->album)
-    free(queue_item->album);
-  if (queue_item->genre)
-    free(queue_item->genre);
-  if (queue_item->artist_sort)
-    free(queue_item->artist_sort);
-  if (queue_item->album_sort)
-    free(queue_item->album_sort);
-  if (queue_item->album_artist_sort)
-    free(queue_item->album_artist_sort);
+  if (!queue_item)
+    return;
 
-  if (!content_only && queue_item)
+  free(queue_item->path);
+  free(queue_item->virtual_path);
+  free(queue_item->title);
+  free(queue_item->artist);
+  free(queue_item->album_artist);
+  free(queue_item->album);
+  free(queue_item->genre);
+  free(queue_item->artist_sort);
+  free(queue_item->album_sort);
+  free(queue_item->album_artist_sort);
+  free(queue_item->artwork_url);
+
+  if (!content_only)
     free(queue_item);
+  else
+    memset(queue_item, 0, sizeof(struct db_queue_item));
 }
 
 /*
@@ -4047,29 +3995,6 @@ queue_inc_version_and_notify()
   listener_notify(LISTENER_QUEUE);
 }
 
-void
-db_queue_update_icymetadata(int id, char *artist, char *album)
-{
-#define Q_TMPL "UPDATE queue SET artist = TRIM(%Q), album = TRIM(%Q) WHERE id = %d;"
-  char *query;
-
-  if (id == 0)
-    return;
-
-  query = sqlite3_mprintf(Q_TMPL, artist, album, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return;
-    }
-
-  db_query_run(query, 1, 0);
-  queue_inc_version_and_notify();
-
-#undef Q_TMPL
-}
-
 static int
 queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos)
 {
@@ -4099,6 +4024,35 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos)
 
   return ret;
 
+#undef Q_TMPL
+}
+
+int
+db_queue_update_item(struct db_queue_item *qi)
+{
+#define Q_TMPL "UPDATE queue SET "							\
+		    "file_id = %d, song_length = %d, data_kind = %d, media_kind = %d, "	\
+		    "pos = %d, shuffle_pos = %d, path = '%q', virtual_path = %Q, "	\
+		    "title = %Q, artist = %Q, album_artist = %Q, album = %Q, "		\
+		    "genre = %Q, songalbumid = %" PRIi64 ", time_modified = %d, "	\
+		    "artist_sort = %Q, album_sort = %Q, album_artist_sort = %Q, "	\
+		    "year = %d, track = %d, disc = %d, artwork_url = %Q "		\
+		"WHERE id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL,
+			  qi->file_id, qi->song_length, qi->data_kind, qi->media_kind,
+			  qi->pos, qi->shuffle_pos, qi->path, qi->virtual_path,
+			  qi->title, qi->artist, qi->album_artist, qi->album,
+			  qi->genre, qi->songalbumid, qi->time_modified,
+			  qi->artist_sort, qi->album_sort, qi->album_artist_sort,
+			  qi->year, qi->track, qi->disc, qi->artwork_url,
+			  qi->id);
+
+  ret = db_query_run(query, 1, 0);
+
+  return ret;
 #undef Q_TMPL
 }
 
@@ -4434,6 +4388,7 @@ queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_
   queue_item->year = sqlite3_column_int(query_params->stmt, 19);
   queue_item->track = sqlite3_column_int(query_params->stmt, 20);
   queue_item->disc = sqlite3_column_int(query_params->stmt, 21);
+  queue_item->artwork_url = strdup_if((char *)sqlite3_column_text(query_params->stmt, 22), keep_item);
 
   return 0;
 }

@@ -418,6 +418,8 @@ struct db_queue_item
   uint32_t year;
   uint32_t track;
   uint32_t disc;
+
+  char *artwork_url;
 };
 
 char *
@@ -687,8 +689,8 @@ db_speaker_clear_all(void);
 int
 db_queue_get_version();
 
-void
-db_queue_update_icymetadata(int id, char *artist, char *album);
+int
+db_queue_update_item(struct db_queue_item *queue_item);
 
 int
 db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id);
