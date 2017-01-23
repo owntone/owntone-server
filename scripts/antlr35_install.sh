@@ -104,6 +104,7 @@ prog_install() {
   $SUDO mkdir -p "$PREFIX_JAVA" || err "Unable to create $PREFIX_JAVA"
   $SUDO install "$ANTLR3_JAR" "$PREFIX_JAVA" || \
     err "Failed to install antlr3 jar to $PREFIX_JAVA"
+  $SUDO mkdir -p "$PREFIX/bin" || err "Unable to create $PREFIX/bin"
   $SUDO install -m 755 antlr3 "$PREFIX/bin" || \
     err "Failed to install antlr3 to $PREFIX/bin"
   echo "Install complete (build remains in $WORKDIR)"

@@ -101,6 +101,78 @@ the work for you. And should the script not work for you, you can still look
 through it and use it as an installation guide.
 
 
+"Quick" version for macOS (using macports)
+------------------------------------------
+
+Caution: macports requires many downloads and lots of time to install
+(and sometimes build) ports... you'll want a decent network connection
+and some patience!
+
+Install macports (which requires Xcode):
+  https://www.macports.org/install.php
+
+Install Apple's Java (this enables java command on OSX 10.7+):
+  https://support.apple.com/kb/DL1572?locale=en_US
+
+Afterwards, you can optionally install Oracle's newer version, and then
+  choose it using the Java pref in the System Preferences:
+  http://www.oracle.com/technetwork/java/javase/downloads/index.html
+
+sudo port install \
+  autoconf automake libtool pkgconfig git gperf libgcrypt \
+  libunistring libconfuse ffmpeg libevent
+
+Download, configure, build and install the Mini-XML library:
+  http://www.msweet.org/projects.php/Mini-XML
+
+Download, configure, build and install the libinotify library:
+  https://github.com/libinotify-kqueue/libinotify-kqueue
+
+Add the following to .bashrc:
+  # add /usr/local to pkg-config path
+  export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/local/lib/pkgconfig
+  # libunistring doesn't support pkg-config, set overrides
+  export LIBUNISTRING_CFLAGS=-I/opt/local/include
+  export LIBUNISTRING_LIBS="-L/opt/local/lib -lunistring"
+
+Optional features require the following additional ports:
+
+ Feature    | Configure argument  | Ports
+ -----------|---------------------|--------------------------------------------
+ Chromecast | --enable-chromecast | json-c gnutls protobuf-c
+ LastFM     | --enable-lastfm     | curl
+ iTunes XML | --enable-itunes     | libplist
+ Pulseaudio | --with-pulseaudio   | pulseaudio
+
+Clone the forked-daapd repo:
+  git clone https://github.com/ejurgensen/forked-daapd.git
+  cd forked-daapd
+
+Install antlr3 and library using the included script:
+  scripts/antlr35_install.sh -p /usr/local
+
+Finally, configure, build and install, adding configure arguments for
+  optional features:
+
+ autoreconf -i
+ ./configure
+ make
+ sudo make install
+
+Note: if for some reason you've installed the avahi port, you need to
+  add '--without-avahi' to configure above.
+
+Edit /usr/local/etc/forked-daapd.conf and change the 'uid' to a nice
+system daemon (eg: unknown), and run the following:
+  sudo mkdir -p /usr/local/var/run
+  sudo mkdir -p /usr/local/var/log # or change logfile in conf
+  sudo chown unknown /usr/local/var/cache/forked-daapd # or change conf
+
+Run forked-daapd:
+  sudo /usr/local/sbin/forked-daapd
+
+Verify it's running (you need to Ctrl-C to stop dns-sd):
+  dns-sd -B _daap._tcp
 
 Long version - requirements
 ---------------------------
