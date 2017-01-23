@@ -899,7 +899,7 @@ raop_metadata_prepare(int id)
 
   /* Progress - raop_metadata_send() will add rtptime to these */
   rmd->start = 0;
-  rmd->end = (queue_item->song_length * 44100UL) / 1000UL;
+  rmd->end = ((uint64_t)queue_item->song_length * 44100UL) / 1000UL;
 
   free_queue_item(queue_item, 0);
 
