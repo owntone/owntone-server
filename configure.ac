@@ -97,13 +97,15 @@ AC_SUBST([COMMON_LIBS])
 AC_SUBST([COMMON_CPPFLAGS])
 AC_SUBST([FORKED_LIBS])
 AC_SUBST([FORKED_CPPFLAGS])
+AC_SUBST([FORKED_OPTS_LIBS])
+AC_SUBST([FORKED_OPTS_CPPFLAGS])
 
 AM_ICONV
 dnl All FORK_ macros defined in m4/fork_checks.m4
 FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 	[u8_strconv_from_locale], [uniconv.h], [],
 	[dnl Retry test with iconv library
-	 FORK_VARS_APPEND([COMMON], [LIBICONV], [INCICONV])
+	 FORK_VARS_PREPEND([COMMON], [LIBICONV], [INCICONV])
 	 FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING],
 		[unistring], [u8_strconv_from_locale], [uniconv.h])])
 
@@ -129,27 +131,6 @@ FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 		[AC_MSG_RESULT([[no]])
 		 AC_MSG_ERROR([[SQLite3 was not built with threadsafe operations support]])],
 		[AC_MSG_RESULT([[runtime will tell]])])
-	])
-
-dnl libav/ffmpeg requires many feature checks
-FORK_MODULES_CHECK([FORKED], [LIBAV],
-	[libavformat libavcodec libswscale libavutil libavfilter],
-	[av_init_packet], [libavcodec/avcodec.h],
-	[dnl Checks for misc libav and ffmpeg API differences
-	 AC_CHECK_FUNCS([avcodec_find_best_pix_fmt_of_list],
-		[AC_DEFINE([HAVE_FFMPEG], 1,
-			[Define to 1 if you have ffmpeg (not libav)])])
-	 AC_CHECK_FUNCS([av_buffersrc_add_frame_flags])
-	 AC_CHECK_FUNCS([av_buffersink_get_frame])
-	 AC_CHECK_FUNCS([avfilter_graph_parse_ptr])
-	 AC_CHECK_FUNCS([av_packet_unref])
-	 AC_CHECK_FUNCS([av_packet_rescale_ts])
-	 AC_CHECK_FUNCS([avformat_alloc_output_context2])
-	 AC_CHECK_FUNCS([av_frame_alloc])
-	 AC_CHECK_FUNCS([av_frame_get_best_effort_timestamp])
-	 AC_CHECK_FUNCS([av_image_fill_arrays])
-	 AC_CHECK_FUNCS([av_image_get_buffer_size])
-	 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
 	])
 
 dnl libevent2 requires version checks
@@ -204,28 +185,71 @@ AC_CHECK_DECL([htobe16], [],
 #endif
 	]])
 
+dnl libav checks should be last, as they are sometimes both installed
+dnl and the CPPFLAGS/LIBS needs to be at the front of the search list.
+dnl Handle alternative package names for libav
+PKG_CHECK_EXISTS([libavcodec-libav], [LIBAV=-libav], [LIBAV=])
+dnl Preference for ffmpeg if we have both (this could be an option...)
+PKG_CHECK_EXISTS([libavcodec], [LIBAV=])
+dnl libav/ffmpeg requires many feature checks
+FORK_MODULES_CHECK([FORKED], [LIBAV],
+	[libavformat$LIBAV libavcodec$LIBAV libswscale$LIBAV libavutil$LIBAV libavfilter$LIBAV],
+	[av_init_packet], [libavcodec/avcodec.h],
+	[dnl Checks for misc libav and ffmpeg API differences
+	 AC_MSG_CHECKING([whether libav libraries are ffmpeg])
+	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <libavcodec/avcodec.h>
+	 ]], [[
+#if LIBAVCODEC_VERSION_MICRO >= 100
+  /* ffmpeg uses 100+ as its micro version */
+#else
+#error libav provider is not ffmpeg
+#endif
+	 ]])], [
+	  [is_ffmpeg=yes]
+	  AC_DEFINE([HAVE_FFMPEG], 1,
+		[Define to 1 if you have ffmpeg (not libav)])],
+	 [[is_ffmpeg=no]])
+	 AC_MSG_RESULT([$is_ffmpeg])
+	 FORK_CHECK_DECLS([av_buffersrc_add_frame_flags],
+		[libavfilter/buffersrc.h])
+	 FORK_CHECK_DECLS([av_buffersink_get_frame],
+		[libavfilter/buffersink.h])
+	 FORK_CHECK_DECLS([avfilter_graph_parse_ptr],
+		[libavfilter/avfilter.h])
+	 FORK_CHECK_DECLS([av_packet_unref], [libavcodec/avcodec.h])
+	 FORK_CHECK_DECLS([av_packet_rescale_ts], [libavcodec/avcodec.h])
+	 FORK_CHECK_DECLS([avformat_alloc_output_context2],
+		[libavformat/avformat.h])
+	 FORK_CHECK_DECLS([av_frame_alloc], [libavutil/frame.h])
+	 FORK_CHECK_DECLS([av_frame_get_best_effort_timestamp],
+		[libavutil/frame.h])
+	 FORK_CHECK_DECLS([av_image_fill_arrays], [libavutil/imgutils.h])
+	 FORK_CHECK_DECLS([av_image_get_buffer_size], [libavutil/imgutils.h])
+	 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
+	])
+
 AC_CHECK_SIZEOF([void *])
 
 dnl --- Begin configuring the options ---
 dnl ALSA
-FORK_ARG_WITH_CHECK([FORKED], [ALSA support], [alsa], [ALSA],
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [ALSA support], [alsa], [ALSA],
 	[alsa], [snd_mixer_open], [asoundlib.h])
 AM_CONDITIONAL([COND_ALSA], [[test "x$with_alsa" = "xyes"]])
 
 dnl PULSEAUDIO
-FORK_ARG_WITH_CHECK([FORKED], [Pulseaudio support], [pulseaudio], [LIBPULSE],
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [Pulseaudio support], [pulseaudio], [LIBPULSE],
 	[libpulse], [pa_stream_get_state], [pulse/pulseaudio.h],
 	[AC_CHECK_FUNCS([pa_threaded_mainloop_set_name])])
 AM_CONDITIONAL([COND_PULSEAUDIO], [[test "x$with_pulseaudio" = "xyes"]])
 
 dnl Build with libcurl
-FORK_ARG_WITH_CHECK([FORKED], [libcurl support], [libcurl], [LIBCURL],
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [libcurl support], [libcurl], [LIBCURL],
 	[libcurl], [curl_global_init], [curl/curl.h])
 
 dnl Build with json-c
-FORK_ARG_WITH_CHECK([FORKED], [json-c support], [json], [JSON_C],
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [json-c support], [json], [JSON_C],
 	[json-c >= 0.11], [json_tokener_parse], [json.h], [],
-	[FORK_MODULES_CHECK([FORKED], [JSON_C], [json],
+	[FORK_MODULES_CHECK([FORKED_OPTS], [JSON_C], [json],
 		[json_tokener_parse], [json.h],
 		[[with_json=yes]
 		 AC_DEFINE([HAVE_JSON_C_OLD], 1,
@@ -236,17 +260,17 @@ FORK_ARG_WITH_CHECK([FORKED], [json-c support], [json], [JSON_C],
 	)])
 
 dnl Build with Avahi (or Bonjour if not)
-FORK_ARG_WITH_CHECK([FORKED], [Avahi mDNS], [avahi], [AVAHI],
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [Avahi mDNS], [avahi], [AVAHI],
 	[avahi-client >= 0.6.24], [avahi_client_new], [avahi-client/client.h])
 AS_IF([[test "x$with_avahi" = "xno"]],
-	[FORK_FUNC_REQUIRE([FORKED], [Bonjour DNS_SD], [DNSSD], [dns_sd],
+	[FORK_FUNC_REQUIRE([FORKED_OPTS], [Bonjour DNS_SD], [DNSSD], [dns_sd],
 		[DNSServiceGetAddrInfo], [dns_sd.h], [],
 		[AC_MSG_ERROR([[Avahi client or Bonjour DNS_SD required, please install one.]])])])
 AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
 dnl iTunes playlists with libplist
 FORK_ARG_ENABLE([iTunes Music Library XML support], [itunes], [ITUNES],
-	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist >= 0.16],
+	[FORK_MODULES_CHECK([FORKED_OPTS], [LIBPLIST], [libplist >= 0.16],
 		[plist_dict_get_item], [plist/plist.h])])
 AM_CONDITIONAL([COND_ITUNES], [[test "x$enable_itunes" = "xyes"]])
 
@@ -254,14 +278,15 @@ dnl Spotify with dynamic linking to libspotify
 FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
 	[AS_IF([[test "x$with_json" = "xno"]],
 		[AC_MSG_ERROR([[Spotify support requires json-c]])])
-	 AC_CHECK_HEADER([[libspotify/api.h]], [],
-		[AC_MSG_ERROR([[libspotify/api.h not found]])])
+	 FORK_MODULES_CHECK([SPOTIFY], [LIBSPOTIFY], [libspotify],
+		[], [libspotify/api.h])
 	 AC_DEFINE([HAVE_SPOTIFY_H], 1,
 		[Define to 1 if you have the <libspotify/api.h> header file.])
-	 dnl Don't link to libspotify, but instead enable dynamic linking
+	 dnl Don't link with libspotify, use dynamic linking
 	 AC_SEARCH_LIBS([dlopen], [dl], [],
-	 	[AC_MSG_ERROR([[Spotify support requires dlopen]])])
-	 AC_LIB_APPENDTOVAR([FORKED_CPPFLAGS], [-rdynamic])
+		[AC_MSG_ERROR([[Spotify support requires dlopen]])])
+	 FORK_VAR_PREPEND([FORKED_OPTS_CPPFLAGS], [$SPOTIFY_CPPFLAGS])
+	 FORK_VAR_PREPEND([FORKED_OPTS_LIBS], [-rdynamic])
 	])
 AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
 
@@ -275,10 +300,10 @@ dnl ChromeCast support with libprotobuf-c
 FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 	[AS_IF([[test "x$with_json" = "xno"]],
 		[AC_MSG_ERROR([[Chromecast support requires json-c]])])
-	 FORK_MODULES_CHECK([FORKED], [LIBPROTOBUF_C],
+	 FORK_MODULES_CHECK([FORKED_OPTS], [LIBPROTOBUF_C],
 		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
 		[protobuf-c/protobuf-c.h], [],
-		[FORK_FUNC_REQUIRE([FORKED], [v0 libprotobuf-c],
+		[FORK_FUNC_REQUIRE([FORKED_OPTS], [v0 libprotobuf-c],
 			[LIBPROTOBUF_OLD], [protobuf-c],
 			[protobuf_c_message_pack],
 			[google/protobuf-c/protobuf-c.h],
@@ -287,7 +312,7 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 			 [protobuf_old=yes]],
 			[AC_MSG_ERROR([[Chromecast support requires protobuf-c]])])
 		])
-	 FORK_MODULES_CHECK([FORKED], [GNUTLS], [gnutls], [gnutls_init],
+	 FORK_MODULES_CHECK([FORKED_OPTS], [GNUTLS], [gnutls], [gnutls_init],
 		[gnutls/gnutls.h])
 	])
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])

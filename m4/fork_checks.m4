@@ -1,4 +1,4 @@
-# fork_checks.m4 serial 1
+# fork_checks.m4 serial 2
 dnl Copyright (c) Scott Shambarger <devel@shambarger.net>
 dnl
 dnl Copying and distribution of this file, with or without modification, are
@@ -6,36 +6,49 @@ dnl permitted in any medium without royalty provided the copyright notice
 dnl and this notice are preserved. This file is offered as-is, without any
 dnl warranty.
 
-dnl _FORK_CFLAGS_APPEND(TARGET, SOURCE)
-dnl -----------------------------------
-dnl Internal use only.  Shamelessly copied from AC_LIB_APPENDTOVAR,
-dnl but without prefix expansion that breaks nesting.
-m4_define([_FORK_CFLAGS_APPEND],
-[[
-  for element in $2; do
-    haveit=
-    for x in $$1; do
+dnl _FORK_FUNC_MERGE
+dnl ----------------
+dnl Internal only.  Defines function used by FORK_VAR_PREPEND
+AC_DEFUN([_FORK_FUNC_MERGE], [[
+# fork_fn_merge(before, after)
+# create wordlist removing duplicates
+fork_fn_merge() {
+  fork_fn_var_result=$][1
+  for element in $][2; do
+    fork_fn_var_haveit=
+    for x in $fork_fn_var_result; do
       if test "X$x" = "X$element"; then
-	haveit=yes
+        fork_fn_var_haveit=1
 	break
       fi
     done
-    if test -z "$haveit"; then
-      $1="${$1}${$1:+ }$element"
+    if test -z "$fork_fn_var_haveit"; then
+      fork_fn_var_result="${fork_fn_var_result}${fork_fn_var_result:+ }$element"
     fi
   done
-]])
+  echo "$fork_fn_var_result"
+  unset fork_fn_var_haveit
+  unset fork_fn_var_result
+}]])
 
-dnl FORK_VARS_APPEND(TARGET, LIBS_ENV, CFLAGS_ENV)
-dnl ----------------------------------------------
+dnl FORK_VAR_PREPEND(VARNAME, BEFORE)
+dnl ---------------------------------
+dnl Prepends words in BEFORE to the contents of VARNAME, skipping any
+dnl duplicate words.
+AC_DEFUN([FORK_VAR_PREPEND],
+[AC_REQUIRE([_FORK_FUNC_MERGE])dnl
+[ $1=$(fork_fn_merge "$2" "$$1")]])
+
+dnl FORK_VARS_PREPEND(TARGET, LIBS_ENV, CFLAGS_ENV)
+dnl -----------------------------------------------
 dnl Prepend LIBS_ENV to LIBS and TARGET_LIBS
 dnl Append CFLAGS_ENV to CPPFLAGS and TARGET_CPPFLAGS.
-AC_DEFUN([FORK_VARS_APPEND],
+AC_DEFUN([FORK_VARS_PREPEND],
 [[
   LIBS="$$2 $LIBS"
   $1_LIBS="$$2 $$1_LIBS"]
- _FORK_CFLAGS_APPEND([CPPFLAGS], [$$3])
- _FORK_CFLAGS_APPEND([$1_CPPFLAGS], [$$3])
+ FORK_VAR_PREPEND([CPPFLAGS], [$$3])
+ FORK_VAR_PREPEND([$1_CPPFLAGS], [$$3])
 ])
 
 dnl _FORK_VARS_ADD_PREFIX(TARGET)
@@ -49,9 +62,21 @@ AC_DEFUN([_FORK_VARS_ADD_PREFIX],
   eval LIBS=\"-L$libdir $LIBS\"
   eval $1_LIBS=\"-L$libdir $$1_LIBS\"
   eval fork_tmp_cppflags=\"-I$includedir\"]
- _FORK_CFLAGS_APPEND([CPPFLAGS], [$fork_tmp_cppflags])
- _FORK_CFLAGS_APPEND([$1_CPPFLAGS], [$fork_tmp_cppflags])
+ FORK_VAR_PREPEND([CPPFLAGS], [$fork_tmp_cppflags])
+ FORK_VAR_PREPEND([$1_CPPFLAGS], [$fork_tmp_cppflags])
  ])
+])
+
+dnl FORK_CHECK_DECLS(SYMBOLS, INCLUDE, [ACTION-IF-FOUND],
+dnl   [ACTION-IF-NOT-FOUND])
+dnl -----------------------------------------------------
+dnl Expands AC_CHECK_DECLS with SYMBOLS and INCLUDE appended to
+dnl AC_INCLUDES_DEFAULT.
+dnl NOTE: Remember that AC_CHECK_DECLS defines HAVE_* to 1 or 0
+dnl (not 1 or undefined!)
+AC_DEFUN([FORK_CHECK_DECLS],
+[AC_CHECK_DECLS([$1], [$3], [$4], [AC_INCLUDES_DEFAULT
+[@%:@include <$2>]])
 ])
 
 dnl FORK_FUNC_REQUIRE(TARGET, DESCRIPTION, ENV, LIBRARY, FUNCTION, [HEADER],
@@ -81,7 +106,7 @@ AC_DEFUN([FORK_FUNC_REQUIRE],
 	 AS_VAR_SET([FORK_MSG], [["
 Library specific environment variables $3_LIBS and
 $3_CFLAGS were used, verify they are correct..."]])
-	 FORK_VARS_APPEND([$1], [$3_LIBS], [$3_CFLAGS])
+	 FORK_VARS_PREPEND([$1], [$3_LIBS], [$3_CFLAGS])
 	 AC_CHECK_FUNC([[$5]], [],
 		[AC_MSG_FAILURE([[Unable to link function $5 with $2.$]FORK_MSG])])],
 	[dnl Search w/o LIBRARY, w/ LIBRARY, and finally adding $prefix path
@@ -125,7 +150,7 @@ dnl overriding default error.  Restores original CPPFLAGS and LIBS when done.
 AC_DEFUN([FORK_MODULES_CHECK],
 [PKG_CHECK_MODULES([$2], [[$3]],
 	[[fork_save_$2_LIBS=$LIBS; fork_save_$2_CPPFLAGS=$CPPFLAGS]
-	 FORK_VARS_APPEND([$1], [$2_LIBS], [$2_CFLAGS])
+	 FORK_VARS_PREPEND([$1], [$2_LIBS], [$2_CFLAGS])
 	 m4_ifval([$4], [AC_CHECK_FUNC([[$4]], [],
 		[AC_MSG_ERROR([[Unable to link function $4]])])])
 	 m4_ifval([$5], [AC_CHECK_HEADER([[$5]], [],

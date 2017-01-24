@@ -66,6 +66,7 @@ ANTLR_SRC = \
 
 AM_CPPFLAGS += \
 	$(FORKED_CPPFLAGS) \
+	$(FORKED_OPTS_CPPFLAGS) \
 	$(COMMON_CPPFLAGS) \
 	\
 	-D_GNU_SOURCE \
@@ -76,6 +77,7 @@ AM_CPPFLAGS += \
 
 forked_daapd_LDADD = \
 	$(FORKED_LIBS) \
+	$(FORKED_OPTS_LIBS) \
 	$(COMMON_LIBS)
 
 forked_daapd_SOURCES = main.c \

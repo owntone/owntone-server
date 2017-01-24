@@ -505,7 +505,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
       goto out_free_frames;
     }
 
-#ifdef HAVE_AV_IMAGE_FILL_ARRAYS
+#if HAVE_DECL_AV_IMAGE_FILL_ARRAYS
   av_image_fill_arrays(o_frame->data, o_frame->linesize, buf, dst->pix_fmt, src->width, src->height, 1);
 #else
   avpicture_fill((AVPicture *)o_frame, buf, dst->pix_fmt, src->width, src->height);
