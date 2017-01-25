@@ -181,16 +181,20 @@ http_client_request_impl(struct http_client_ctx *ctx)
   struct evhttp_connection *evcon;
   struct evhttp_request *req;
   struct evkeyvalq *headers;
-  char hostname[PATH_MAX];
-  char path[PATH_MAX];
-  char s[PATH_MAX];
+  struct evbuffer *output_buffer;
+  struct onekeyval *okv;
+  enum evhttp_cmd_type method;
+  char host[512];
+  char host_port[1024];
+  char path[2048];
+  char tmp[128];
   int port;
   int ret;
 
   ctx->ret = -1;
 
-  av_url_split(NULL, 0, NULL, 0, hostname, sizeof(hostname), &port, path, sizeof(path), ctx->url);
-  if (strlen(hostname) == 0)
+  av_url_split(NULL, 0, NULL, 0, host, sizeof(host), &port, path, sizeof(path), ctx->url);
+  if (strlen(host) == 0)
     {
       DPRINTF(E_LOG, L_HTTP, "Error extracting hostname from URL: %s\n", ctx->url);
 
@@ -198,9 +202,9 @@ http_client_request_impl(struct http_client_ctx *ctx)
     }
 
   if (port <= 0)
-    snprintf(s, PATH_MAX, "%s", hostname);
+    snprintf(host_port, sizeof(host_port), "%s", host);
   else
-    snprintf(s, PATH_MAX, "%s:%d", hostname, port);
+    snprintf(host_port, sizeof(host_port), "%s:%d", host, port);
 
   if (port <= 0)
     port = 80;
@@ -219,10 +223,10 @@ http_client_request_impl(struct http_client_ctx *ctx)
       return ctx->ret;
     }
 
-  evcon = evhttp_connection_base_new(ctx->evbase, NULL, hostname, (unsigned short)port);
+  evcon = evhttp_connection_base_new(ctx->evbase, NULL, host, (unsigned short)port);
   if (!evcon)
     {
-      DPRINTF(E_LOG, L_HTTP, "Could not create connection to %s\n", hostname);
+      DPRINTF(E_LOG, L_HTTP, "Could not create connection to %s\n", host_port);
 
       event_base_free(ctx->evbase);
       return ctx->ret;
@@ -234,7 +238,7 @@ http_client_request_impl(struct http_client_ctx *ctx)
   req = evhttp_request_new(request_cb, ctx);
   if (!req)
     {
-      DPRINTF(E_LOG, L_HTTP, "Could not create request to %s\n", hostname);
+      DPRINTF(E_LOG, L_HTTP, "Could not create request to %s\n", host_port);
 
       evhttp_connection_free(evcon);
       event_base_free(ctx->evbase);
@@ -247,18 +251,38 @@ http_client_request_impl(struct http_client_ctx *ctx)
 #endif
 
   headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "Host", s);
-  evhttp_add_header(headers, "Content-Length", "0");
+  evhttp_add_header(headers, "Host", host_port);
   evhttp_add_header(headers, "User-Agent", "forked-daapd/" VERSION);
   evhttp_add_header(headers, "Icy-MetaData", "1");
 
-  /* Make request */
-  DPRINTF(E_INFO, L_HTTP, "Making request for http://%s%s\n", s, path);
+  if (ctx->output_headers)
+    {
+      for (okv = ctx->output_headers->head; okv; okv = okv->next)
+	evhttp_add_header(headers, okv->name, okv->value);
+    }
 
-  ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, path);
+  if (ctx->output_body)
+    {
+      output_buffer = evhttp_request_get_output_buffer(req);
+      evbuffer_add(output_buffer, ctx->output_body, strlen(ctx->output_body));
+      evbuffer_add_printf(output_buffer, "\n");
+      snprintf(tmp, sizeof(tmp), "%zu", evbuffer_get_length(output_buffer));
+      evhttp_add_header(headers, "Content-Length", tmp);
+      method = EVHTTP_REQ_POST;
+    }
+  else
+    {
+      evhttp_add_header(headers, "Content-Length", "0");
+      method = EVHTTP_REQ_GET;
+    }
+
+  /* Make request */
+  DPRINTF(E_INFO, L_HTTP, "Making %s request for http://%s%s\n", ((method==EVHTTP_REQ_GET) ? "GET" : "POST"), host_port, path);
+
+  ret = evhttp_make_request(evcon, req, method, path);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTP, "Error making request for http://%s%s\n", s, path);
+      DPRINTF(E_LOG, L_HTTP, "Error making request for http://%s%s\n", host_port, path);
 
       evhttp_connection_free(evcon);
       event_base_free(ctx->evbase);
