@@ -37,15 +37,18 @@
  * About metadata
  * --------------
  * The player gets metadata from library + inputs and passes it to the outputs
- * and other clients (e.g. Remotes). Text metadata is handled differently than
- * artwork. Here's how text works:
+ * and other clients (e.g. Remotes).
  *
- *  1. On playback start, the player will TODO
+ *  1. On playback start, metadata from the library is loaded into the queue
+ *     items, and these items are then the source of metadata for clients.
  *  2. During playback, the input may signal new metadata by making a
  *     input_write() with the INPUT_FLAG_METADATA flag. When the player read
  *     reaches that data, the player will request the metadata from the input
- *     with input_metadata_get().
- *  3. If the new metadata is different than the TODO
+ *     with input_metadata_get(). This metadata is then saved to the currently
+ *     playing queue item, and the clients are told to update metadata.
+ *  3. Artwork works differently than textual metadata. The artwork module will
+ *     look for artwork in the library, and addition also check the artwork_url
+ *     of the queue_item.
  */
 
 #ifdef HAVE_CONFIG_H
