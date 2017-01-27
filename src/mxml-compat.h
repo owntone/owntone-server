@@ -3,7 +3,7 @@
 
 /* For compability with mxml 2.6 */
 #ifndef HAVE_MXMLGETTEXT
-static const char *			/* O - Text string or NULL */
+__attribute__((unused)) static const char *			/* O - Text string or NULL */
 mxmlGetText(mxml_node_t *node,		/* I - Node to get */
             int         *whitespace)	/* O - 1 if string is preceded by whitespace, 0 otherwise */
 {
@@ -19,7 +19,7 @@ mxmlGetText(mxml_node_t *node,		/* I - Node to get */
 #endif
 
 #ifndef HAVE_MXMLGETOPAQUE
-const char *				/* O - Opaque string or NULL */
+__attribute__((unused)) static const char *			/* O - Opaque string or NULL */
 mxmlGetOpaque(mxml_node_t *node)	/* I - Node to get */
 {
   if (!node)
@@ -37,7 +37,7 @@ mxmlGetOpaque(mxml_node_t *node)	/* I - Node to get */
 #endif
 
 #ifndef HAVE_MXMLGETFIRSTCHILD
-static mxml_node_t *			/* O - First child or NULL */
+__attribute__((unused)) static mxml_node_t *			/* O - First child or NULL */
 mxmlGetFirstChild(mxml_node_t *node)	/* I - Node to get */
 {
   if (!node || node->type != MXML_ELEMENT)
@@ -48,7 +48,7 @@ mxmlGetFirstChild(mxml_node_t *node)	/* I - Node to get */
 #endif
 
 #ifndef HAVE_MXMLGETTYPE
-static mxml_type_t			/* O - Type of node */
+__attribute__((unused)) static mxml_type_t			/* O - Type of node */
 mxmlGetType(mxml_node_t *node)		/* I - Node to get */
 {
   return (node->type);
