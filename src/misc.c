@@ -48,6 +48,8 @@ safe_atoi32(const char *str, int32_t *val)
   char *end;
   long intval;
 
+  *val = 0;
+
   errno = 0;
   intval = strtol(str, &end, 10);
 
@@ -84,6 +86,8 @@ safe_atou32(const char *str, uint32_t *val)
   char *end;
   unsigned long intval;
 
+  *val = 0;
+
   errno = 0;
   intval = strtoul(str, &end, 10);
 
@@ -119,6 +123,8 @@ safe_hextou32(const char *str, uint32_t *val)
 {
   char *end;
   unsigned long intval;
+
+  *val = 0;
 
   /* A hex shall begin with 0x */
   if (strncmp(str, "0x", 2) != 0)
@@ -160,6 +166,8 @@ safe_atoi64(const char *str, int64_t *val)
   char *end;
   long long intval;
 
+  *val = 0;
+
   errno = 0;
   intval = strtoll(str, &end, 10);
 
@@ -196,6 +204,8 @@ safe_atou64(const char *str, uint64_t *val)
   char *end;
   unsigned long long intval;
 
+  *val = 0;
+
   errno = 0;
   intval = strtoull(str, &end, 10);
 
@@ -231,6 +241,8 @@ safe_hextou64(const char *str, uint64_t *val)
 {
   char *end;
   unsigned long long intval;
+
+  *val = 0;
 
   errno = 0;
   intval = strtoull(str, &end, 16);
