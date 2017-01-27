@@ -45,6 +45,7 @@
 
 #include <event2/event.h>
 #include <event2/buffer.h>
+#include <mxml.h>
 
 #include "misc.h"
 #include "logger.h"
@@ -103,6 +104,8 @@ static struct pipe *pipelist;
 static struct pipe *pipe_metadata;
 // We read metadata into this evbuffer
 static struct evbuffer *pipe_metadata_buf;
+// Parsed metadata goes here
+static struct input_metadata pipe_metadata_parsed;
 // True if there is new metadata to push to the player
 static bool pipe_metadata_is_new;
 
@@ -183,22 +186,143 @@ pipe_find(int id)
   return NULL;
 }
 
-static int
-pipe_metadata_parse(struct evbuffer *evbuf)
+// Convert to macro?
+static inline uint32_t
+dmapval(const char s[4])
 {
-  char *line;
-  size_t size;
+  return ((s[0] << 24) | (s[1] << 16) | (s[2] << 8) | (s[3] << 0));
+}
 
-  while ( (line = evbuffer_readln(evbuf, &size, EVBUFFER_EOL_CRLF)) )
+static void
+parse_progress(struct input_metadata *m, char *progress)
+{
+  char *s;
+  char *ptr;
+  uint64_t start;
+  uint64_t pos;
+  uint64_t end;
+
+  if (!(s = strtok_r(progress, "/", &ptr)))
+    return;
+  safe_atou64(s, &start);
+
+  if (!(s = strtok_r(NULL, "/", &ptr)))
+    return;
+  safe_atou64(s, &pos);
+
+  if (!(s = strtok_r(NULL, "/", &ptr)))
+    return;
+  safe_atou64(s, &end);
+
+  if (!start || !pos || !end)
+    return;
+
+  m->rtptime = start; // Not actually used - we have our own rtptime
+  m->offset = (pos > start) ? (pos - start) : 0;
+  m->song_length = (end - start) * 10 / 441; // Convert to ms based on 44100
+}
+
+// returns 0 on metadata found, otherwise -1
+static int
+parse_item(struct input_metadata *m, mxml_node_t *item)
+{
+  mxml_node_t *needle;
+  const char *s;
+  uint32_t type;
+  uint32_t code;
+  char *progress;
+  char **data;
+
+  type = 0;
+  if ( (needle = mxmlFindElement(item, item, "type", NULL, NULL, MXML_DESCEND)) &&
+       (s = mxmlGetText(needle, NULL)) )
+    sscanf(s, "%8x", &type);
+
+  code = 0;
+  if ( (needle = mxmlFindElement(item, item, "code", NULL, NULL, MXML_DESCEND)) &&
+       (s = mxmlGetText(needle, NULL)) )
+    sscanf(s, "%8x", &code);
+
+  if (!type || !code)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Parsing %s\n", line);
+      DPRINTF(E_WARN, L_PLAYER, "No type (%d) or code (%d) in pipe metadata\n", type, code);
+      return -1;
+    }
 
-      free(line);
+  if (code == dmapval("asal"))
+    data = &m->album;
+  else if (code == dmapval("asar"))
+    data = &m->artist;
+  else if (code == dmapval("minm"))
+    data = &m->title;
+  else if (code == dmapval("asgn"))
+    data = &m->genre;
+  else if (code == dmapval("prgr"))
+    data = &progress;
+  else
+    return -1;
+
+  if ( (needle = mxmlFindElement(item, item, "data", NULL, NULL, MXML_DESCEND)) &&
+       (s = mxmlGetText(needle, NULL)) )
+    {
+      if (data != &progress)
+	free(*data);
+
+      *data = b64_decode(s);
+
+      DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x): '%s'\n", type, code, *data);
+
+      if (data == &progress)
+	{
+	  parse_progress(m, progress);
+	  free(*data);
+	}
+
+      return 0;
+    }
+
+  return -1;
+}
+
+static int
+pipe_metadata_parse(struct input_metadata *m, struct evbuffer *evbuf)
+{
+  mxml_node_t *xml;
+  mxml_node_t *haystack;
+  mxml_node_t *item;
+  const char *s;
+  int found;
+
+  xml = mxmlNewXML("1.0");
+  if (!xml)
+    return -1;
+
+  s = (char *)evbuffer_pullup(evbuf, -1);
+  haystack = mxmlLoadString(xml, s, MXML_NO_CALLBACK);
+  if (!haystack)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not parse pipe metadata\n");
+      mxmlDelete(xml);
+      evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
+      return -1;
     }
 
   evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
 
-  return 0;
+//  DPRINTF(E_DBG, L_PLAYER, "Parsing %s\n", s);
+
+  found = 0;
+  for (item = mxmlGetFirstChild(haystack); item; item = mxmlWalkNext(item, haystack, MXML_NO_DESCEND))
+    {
+      if (mxmlGetType(item) != 0)
+        continue;
+
+      if (parse_item(m, item) == 0)
+	found = 1;
+    }
+
+  mxmlDelete(xml);
+  return found;
 }
 
 /* ---------------------------- GENERAL PIPE I/O -------------------------- */
@@ -416,8 +540,6 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
   struct evbuffer_ptr evptr;
   int ret;
 
-  DPRINTF(E_DBG, L_PLAYER, "BANG\n");
-
   ret = evbuffer_read(pipe_metadata_buf, pipe_metadata->fd, PIPE_READ_MAX);
   if (ret < 0)
     {
@@ -442,22 +564,23 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
   evptr = evbuffer_search(pipe_metadata_buf, "</item>", strlen("</item>"), NULL);
   if (evptr.pos < 0)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Incomplete\n");
       goto readd;
     }
 
   // NULL-terminate the buffer
   evbuffer_add(pipe_metadata_buf, "", 1);
 
-  ret = pipe_metadata_parse(pipe_metadata_buf);
+  ret = pipe_metadata_parse(&pipe_metadata_parsed, pipe_metadata_buf);
   if (ret < 0)
     {
       pipe_metadata_watch_del(NULL);
       return;
     }
-
-  // Trigger notification in playback loop
-  pipe_metadata_is_new = 1;
+  else if (ret > 0)
+    {
+      // Trigger notification in playback loop
+      pipe_metadata_is_new = 1;
+    }
 
  readd:
   if (pipe_metadata && pipe_metadata->ev)
@@ -629,6 +752,34 @@ stop(struct player_source *ps)
   return 0;
 }
 
+// FIXME Thread safety of pipe_metadata_parsed
+static int
+metadata_get(struct input_metadata *metadata, struct player_source *ps, uint64_t rtptime)
+{
+  if (pipe_metadata_parsed.artist)
+    swap_pointers(&metadata->artist, &pipe_metadata_parsed.artist);
+  if (pipe_metadata_parsed.title)
+    swap_pointers(&metadata->title, &pipe_metadata_parsed.title);
+  if (pipe_metadata_parsed.album)
+    swap_pointers(&metadata->album, &pipe_metadata_parsed.album);
+  if (pipe_metadata_parsed.genre)
+    swap_pointers(&metadata->genre, &pipe_metadata_parsed.genre);
+  if (pipe_metadata_parsed.artwork_url)
+    swap_pointers(&metadata->artwork_url, &pipe_metadata_parsed.artwork_url);
+
+  if (pipe_metadata_parsed.song_length)
+    {
+      if (rtptime > ps->stream_start)
+	metadata->rtptime = rtptime - pipe_metadata_parsed.offset;
+      metadata->offset = pipe_metadata_parsed.offset;
+      metadata->song_length = pipe_metadata_parsed.song_length;
+    }
+
+  input_metadata_free(&pipe_metadata_parsed, 1);
+
+  return 0;
+}
+
 // Thread: main
 static int
 init(void)
@@ -665,6 +816,7 @@ struct input_definition input_pipe =
   .setup = setup,
   .start = start,
   .stop = stop,
+  .metadata_get = metadata_get,
   .init = init,
   .deinit = deinit,
 };

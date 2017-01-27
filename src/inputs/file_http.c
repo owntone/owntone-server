@@ -105,7 +105,7 @@ seek(struct player_source *ps, int seek_ms)
 }
 
 static int
-metadata_get_http(struct input_metadata *metadata, struct player_source *ps)
+metadata_get_http(struct input_metadata *metadata, struct player_source *ps, uint64_t rtptime)
 {
   struct http_icy_metadata *m;
   int changed;

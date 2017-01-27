@@ -464,7 +464,7 @@ input_flush(short *flags)
 }
 
 int
-input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup)
+input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup, uint64_t rtptime)
 {
   int type;
 
@@ -490,7 +490,7 @@ input_metadata_get(struct input_metadata *metadata, struct player_source *ps, in
   if (!inputs[type]->metadata_get)
     return 0;
 
-  return inputs[type]->metadata_get(metadata, ps);
+  return inputs[type]->metadata_get(metadata, ps, rtptime);
 }
 
 void
@@ -499,6 +499,7 @@ input_metadata_free(struct input_metadata *metadata, int content_only)
   free(metadata->artist);
   free(metadata->title);
   free(metadata->album);
+  free(metadata->genre);
   free(metadata->artwork_url);
 
   if (!content_only)

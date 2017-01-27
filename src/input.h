@@ -82,9 +82,13 @@ struct input_metadata
   uint64_t rtptime;
   uint64_t offset;
 
+  // The player will update queue_item with the below
+  uint32_t song_length;
+
   char *artist;
   char *title;
   char *album;
+  char *genre;
   char *artwork_url;
 };
 
@@ -112,7 +116,7 @@ struct input_definition
   int (*seek)(struct player_source *ps, int seek_ms);
 
   // Return metadata
-  int (*metadata_get)(struct input_metadata *metadata, struct player_source *ps);
+  int (*metadata_get)(struct input_metadata *metadata, struct player_source *ps, uint64_t rtptime);
 
   // Initialization function called during startup
   int (*init)(void);
@@ -214,7 +218,7 @@ input_flush(short *flags);
  * Gets metadata from the input, returns 0 if metadata is set, otherwise -1
  */
 int
-input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup);
+input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup, uint64_t rtptime);
 
 /*
  * Free the entire struct

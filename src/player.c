@@ -488,8 +488,12 @@ metadata_update_cb(void *arg)
     swap_pointers(&queue_item->title, &metadata->title);
   if (metadata->album)
     swap_pointers(&queue_item->album, &metadata->album);
+  if (metadata->genre)
+    swap_pointers(&queue_item->genre, &metadata->genre);
   if (metadata->artwork_url)
     swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
+  if (metadata->song_length)
+    queue_item->song_length = metadata->song_length;
 
   ret = db_queue_update_item(queue_item);
   if (ret < 0)
@@ -520,7 +524,7 @@ metadata_trigger(int startup)
   struct input_metadata metadata;
   int ret;
 
-  ret = input_metadata_get(&metadata, cur_streaming, startup);
+  ret = input_metadata_get(&metadata, cur_streaming, startup, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
   if (ret < 0)
     return;
 
