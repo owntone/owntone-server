@@ -25,6 +25,7 @@
 
 #include "transcode.h"
 #include "http.h"
+#include "misc.h"
 #include "input.h"
 
 static int
@@ -120,16 +121,12 @@ metadata_get_http(struct input_metadata *metadata, struct player_source *ps)
     }
 
   if (m->artist)
-    metadata->artist = m->artist;
+    swap_pointers(&metadata->artist, &m->artist);
   // Note we map title to album, because clients should show stream name as titel
   if (m->title)
-    metadata->album = m->title;
+    swap_pointers(&metadata->album, &m->title);
   if (m->artwork_url)
-    metadata->artwork_url = m->artwork_url;
-
-  m->artist = NULL;
-  m->title = NULL;
-  m->artwork_url = NULL;
+    swap_pointers(&metadata->artwork_url, &m->artwork_url);
 
   http_icy_metadata_free(m, 0);
   return 0;
