@@ -110,7 +110,7 @@ FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
 FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse], [cfg_init], [confuse.h])
 FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml], [mxmlNewElement], [mxml.h],
-	[AC_CHECK_FUNCS([mxmlGetOpaque])])
+	[AC_CHECK_FUNCS([mxmlGetOpaque] [mxmlGetText] [mxmlGetType] [mxmlGetFirstChild])])
 
 dnl SQLite3 requires extra checks
 FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],

@@ -47,6 +47,7 @@
 #include <event2/buffer.h>
 #include <mxml.h>
 
+#include "input.h"
 #include "misc.h"
 #include "logger.h"
 #include "db.h"
@@ -54,7 +55,7 @@
 #include "listener.h"
 #include "player.h"
 #include "worker.h"
-#include "input.h"
+#include "mxml-compat.h"
 
 // Maximum number of pipes to watch for data
 #define PIPE_MAX_WATCH 4

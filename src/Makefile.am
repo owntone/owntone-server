@@ -118,7 +118,7 @@ forked_daapd_SOURCES = main.c \
 	$(MPD_SRC) \
 	listener.c listener.h \
 	commands.c commands.h \
-	ffmpeg-compat.h \
+	ffmpeg-compat.h mxml-compat.h \
 	$(GPERF_SRC) \
 	$(ANTLR_SRC)
 
