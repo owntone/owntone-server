@@ -21,10 +21,7 @@
 # include <config.h>
 #endif
 
-#include "library.h"
-
 #include <errno.h>
-#include <event2/event.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
@@ -38,6 +35,9 @@
 #include <uninorm.h>
 #include <unistr.h>
 
+#include <event2/event.h>
+
+#include "library.h"
 #include "cache.h"
 #include "commands.h"
 #include "conffile.h"
@@ -45,19 +45,13 @@
 #include "library/filescanner.h"
 #include "logger.h"
 #include "misc.h"
+#include "listener.h"
 #include "player.h"
-
 
 static struct commands_base *cmdbase;
 static pthread_t tid_library;
 
 struct event_base *evbase_lib;
-
-/* Flag for aborting scan on exit */
-static bool scan_exit;
-
-/* Flag for scan in progress */
-static bool scanning;
 
 extern struct library_source filescanner;
 #ifdef HAVE_SPOTIFY_H
@@ -71,6 +65,19 @@ static struct library_source *sources[] = {
 #endif
     NULL
 };
+
+/* Flag for aborting scan on exit */
+static bool scan_exit;
+
+/* Flag for scan in progress */
+static bool scanning;
+
+// After being told by db that the library was updated through update_trigger(),
+// wait 60 seconds before notifying listeners of LISTENER_DATABASE. This is to
+// avoid bombarding the listeners while there are many db updates, and to make
+// sure they only get a single update (useful for the cache).
+static struct timeval library_update_wait = { 60, 0 };
+static struct event *updateev;
 
 
 static void
@@ -630,6 +637,24 @@ fullrescan(void *arg, int *ret)
   return COMMAND_END;
 }
 
+static void
+update_trigger_cb(int fd, short what, void *arg)
+{
+  listener_notify(LISTENER_DATABASE);
+}
+
+static enum command_state
+update_trigger(void *arg, int *retval)
+{
+  evtimer_add(updateev, &library_update_wait);
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
+
+/* --------------------------- LIBRARY INTERFACE -------------------------- */
+
 void
 library_rescan()
 {
@@ -692,6 +717,8 @@ initscan()
   DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec\n", difftime(endtime, starttime));
 
   scanning = false;
+
+  listener_notify(LISTENER_DATABASE);
 }
 
 /*
@@ -719,6 +746,15 @@ bool
 library_is_exiting()
 {
   return scan_exit;
+}
+
+void
+library_update_trigger(void)
+{
+  if (scanning)
+    return;
+
+  commands_exec_async(cmdbase, update_trigger, NULL);
 }
 
 /*
@@ -786,13 +822,8 @@ library_init(void)
   scan_exit = false;
   scanning = false;
 
-  evbase_lib = event_base_new();
-  if (!evbase_lib)
-    {
-      DPRINTF(E_FATAL, L_LIB, "Could not create an event base\n");
-
-      return -1;
-    }
+  CHECK_NULL(L_LIB, evbase_lib = event_base_new());
+  CHECK_NULL(L_LIB, updateev = evtimer_new(evbase_lib, update_trigger_cb, NULL));
 
   for (i = 0; sources[i]; i++)
     {
@@ -804,15 +835,9 @@ library_init(void)
 	sources[i]->disabled = 1;
     }
 
-  cmdbase = commands_base_new(evbase_lib, NULL);
+  CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
 
-  ret = pthread_create(&tid_library, NULL, library, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_LIB, "Could not spawn library thread: %s\n", strerror(errno));
-
-      goto thread_fail;
-    }
+  CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 
 #if defined(HAVE_PTHREAD_SETNAME_NP)
   pthread_setname_np(tid_library, "library");
@@ -821,11 +846,6 @@ library_init(void)
 #endif
 
   return 0;
-
- thread_fail:
-  event_base_free(evbase_lib);
-
-  return -1;
 }
 
 /* Thread: main */

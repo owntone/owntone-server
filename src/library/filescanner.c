@@ -61,7 +61,6 @@
 #include "player.h"
 #include "cache.h"
 #include "artwork.h"
-#include "listener.h"
 #include "commands.h"
 #include "library.h"
 
@@ -108,15 +107,8 @@ struct stacked_dir {
 
 static int inofd;
 static struct event *inoev;
-static struct event *updateev;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
-
-// After being told by db that the library was updated through update_trigger(),
-// wait 60 seconds before notifying listeners of LISTENER_DATABASE. This is to
-// avoid bombarding the listeners while there are many db updates, and to make
-// sure they only get a single update (useful for the cache).
-static struct timeval library_update_wait = { 60, 0 };
 
 /* From library.c */
 extern struct event_base *evbase_lib;
@@ -848,8 +840,6 @@ bulk_scan(int flags)
     {
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
     }
-
-  listener_notify(LISTENER_DATABASE); // TODO Move to library.c
 }
 
 static int
@@ -1478,21 +1468,6 @@ filescanner_initscan()
   return 0;
 }
 
-static void
-update_trigger_cb(int fd, short what, void *arg)
-{
-  listener_notify(LISTENER_DATABASE);
-}
-
-static enum command_state
-update_trigger(void *arg, int *retval)
-{
-  evtimer_add(updateev, &library_update_wait);
-
-  *retval = 0;
-  return COMMAND_END;
-}
-
 static int
 filescanner_rescan()
 {
@@ -1518,16 +1493,6 @@ filescanner_fullrescan()
   return 0;
 }
 
-// TODO Move to abstraction
-void
-library_update_trigger(void)
-{
-  if (scanning)
-    return;
-
-  commands_exec_async(cmdbase, update_trigger, NULL);
-}
-
 /* Thread: main */
 static int
 filescanner_init(void)
@@ -1537,14 +1502,6 @@ filescanner_init(void)
   ret = inofd_event_set();
   if (ret < 0)
     {
-      return -1;
-    }
-
-  updateev = evtimer_new(evbase_lib, update_trigger_cb, NULL);
-  if (!updateev)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create library update event\n");
-      close(inofd);
       return -1;
     }
 

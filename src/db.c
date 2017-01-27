@@ -41,7 +41,7 @@
 #include "logger.h"
 #include "cache.h"
 #include "listener.h"
-#include "filescanner.h"
+#include "library.h"
 #include "misc.h"
 #include "db.h"
 #include "db_init.h"

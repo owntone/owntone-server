@@ -31,7 +31,4 @@ void
 scan_itunes_itml(char *file);
 #endif
 
-void
-library_update_trigger(void); // TODO Move to library abstraction
-
 #endif /* !__FILESCANNER_H__ */
