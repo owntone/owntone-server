@@ -503,6 +503,8 @@ input_metadata_free(struct input_metadata *metadata, int content_only)
 
   if (!content_only)
     free(metadata);
+  else
+    memset(metadata, 0, sizeof(struct input_metadata));
 }
 
 int
