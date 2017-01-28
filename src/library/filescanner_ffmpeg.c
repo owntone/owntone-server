@@ -350,6 +350,16 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
   return mdcount;
 }
 
+/*
+ * Fills metadata read with ffmpeg/libav from the given path into the given mfi
+ *
+ * Following attributes from the given mfi are read to control how to read metadata:
+ * - data_kind: if data_kind is http, icy metadata is used, if the path points to a playlist the first stream-uri in that playlist is used
+ * - media_kind: if media_kind is podcast or audiobook, video streams in the file are ignored
+ * - compilation: like podcast/audiobook video streams are ignored for compilations
+ * - file_size: if bitrate could not be read through ffmpeg/libav, file_size is used to estimate the bitrate
+ * - fname: (filename) used as fallback for artist
+ */
 int
 scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
 {
