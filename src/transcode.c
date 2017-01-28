@@ -1096,7 +1096,6 @@ open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecConte
       if (!buffersrc || !format || !buffersink)
 	{
 	  DPRINTF(E_LOG, L_XCODE, "Filtering source, format or sink element not found\n");
-	  ret = AVERROR_UNKNOWN;
 	  goto out_fail;
 	}
 

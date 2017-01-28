@@ -439,7 +439,7 @@ pipe_enum(void)
 	  continue;
 	}
 
-      pipe = pipe_new(dbmfi.path, id, PIPE_PCM, pipe_read_cb);
+      pipe_new(dbmfi.path, id, PIPE_PCM, pipe_read_cb);
     }
 
   db_query_end(&qp);

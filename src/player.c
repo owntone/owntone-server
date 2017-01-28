@@ -1035,6 +1035,7 @@ static int
 source_read(uint8_t *buf, int len)
 {
   int nbytes;
+  uint32_t item_id;
   int ret;
   short flags;
 
@@ -1051,8 +1052,9 @@ source_read(uint8_t *buf, int len)
       DPRINTF(E_LOG, L_PLAYER, "Error reading source %d\n", cur_streaming->id);
 
       nbytes = 0;
+      item_id = cur_streaming->item_id;
       ret = source_switch(0);
-      db_queue_delete_byitemid(cur_streaming->item_id);
+      db_queue_delete_byitemid(item_id);
       if (ret < 0)
 	return -1;
     }
