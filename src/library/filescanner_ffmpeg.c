@@ -378,17 +378,14 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
   path = strdup(file);
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
-# ifndef HAVE_FFMPEG
-  // Without this, libav is slow to probe some internet streams
   if (mfi->data_kind == DATA_KIND_HTTP)
     {
+# ifndef HAVE_FFMPEG
+      // Without this, libav is slow to probe some internet streams
       ctx = avformat_alloc_context();
       ctx->probesize = 64000;
-    }
 # endif
 
-  if (mfi->data_kind == DATA_KIND_HTTP)
-    {
       free(path);
       ret = http_stream_setup(&path, file);
       if (ret < 0)
