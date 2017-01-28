@@ -17,9 +17,6 @@
 int
 scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi);
 
-int
-scan_metadata_icy(char *url, struct media_file_info *mfi);
-
 void
 scan_playlist(char *file, time_t mtime, int dir_id);
 
