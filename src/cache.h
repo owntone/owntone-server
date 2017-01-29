@@ -7,9 +7,6 @@
 /* ---------------------------- DAAP cache API  --------------------------- */
 
 void
-cache_daap_trigger(void);
-
-void
 cache_daap_suspend(void);
 
 void

@@ -35,6 +35,8 @@
 #include <event2/http.h>
 #include <curl/curl.h>
 
+#include "mxml-compat.h"
+
 #include "db.h"
 #include "lastfm.h"
 #include "logger.h"
@@ -215,24 +217,6 @@ param_sign(struct keyval *kv)
   return ret;
 }
 
-/* For compability with mxml 2.6 */
-#ifndef HAVE_MXMLGETOPAQUE
-const char *				/* O - Opaque string or NULL */
-mxmlGetOpaque(mxml_node_t *node)	/* I - Node to get */
-{
-  if (!node)
-    return (NULL);
-
-  if (node->type == MXML_OPAQUE)
-    return (node->value.opaque);
-  else if (node->type == MXML_ELEMENT &&
-           node->child &&
-	   node->child->type == MXML_OPAQUE)
-    return (node->child->value.opaque);
-  else
-    return (NULL);
-}
-#endif
 
 /* --------------------------------- MAIN --------------------------------- */
 

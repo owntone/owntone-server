@@ -36,7 +36,6 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/queue.h>
-#include <time.h>
 #include <pthread.h>
 #ifdef HAVE_PTHREAD_NP_H
 # include <pthread_np.h>
@@ -55,6 +54,7 @@
 #include "cache.h"
 #include "commands.h"
 #include "library.h"
+#include "input.h"
 
 /* TODO for the web api:
  * - UI should be prettier
@@ -79,8 +79,6 @@
  *      then use our normal cleanup of stray files to tidy db and cache.
  */
 
-// How long to wait for audio (in sec) before giving up
-#define SPOTIFY_TIMEOUT 20
 // How long to wait for artwork (in sec) before giving up
 #define SPOTIFY_ARTWORK_TIMEOUT 3
 // An upper limit on sequential requests to Spotify's web api
@@ -88,22 +86,6 @@
 #define SPOTIFY_WEB_REQUESTS_MAX 20
 
 /* --- Types --- */
-typedef struct audio_fifo_data
-{
-  TAILQ_ENTRY(audio_fifo_data) link;
-  int nsamples;
-  int16_t samples[0];
-} audio_fifo_data_t;
-
-typedef struct audio_fifo
-{
-  TAILQ_HEAD(, audio_fifo_data) q;
-  int qlen;
-  int fullcount;
-  pthread_mutex_t mutex;
-  pthread_cond_t cond;
-} audio_fifo_t;
-
 enum spotify_state
 {
   SPOTIFY_STATE_INACTIVE,
@@ -112,12 +94,6 @@ enum spotify_state
   SPOTIFY_STATE_PAUSED,
   SPOTIFY_STATE_STOPPING,
   SPOTIFY_STATE_STOPPED,
-};
-
-struct audio_get_param
-{
-  struct evbuffer *evbuf;
-  int wanted;
 };
 
 struct artwork_get_param
@@ -164,8 +140,11 @@ static int spotify_saved_plid;
 // Flag to avoid triggering playlist change events while the (re)scan is running
 static bool scanning;
 
-// Audio fifo
-static audio_fifo_t *g_audio_fifo;
+// Timeout timespec
+static struct timespec spotify_artwork_timeout = { SPOTIFY_ARTWORK_TIMEOUT, 0 };
+
+// Audio buffer
+static struct evbuffer *spotify_audio_buffer;
 
 /**
  * The application key is specific to forked-daapd, and allows Spotify
@@ -1167,38 +1146,6 @@ static sp_playlistcontainer_callbacks pc_callbacks = {
 /* --------------------- INTERNAL PLAYBACK AND AUDIO ----------------------- */
 /*            Should only be called from within the spotify thread           */
 
-static void
-mk_reltime(struct timespec *ts, time_t sec)
-{
-#if _POSIX_TIMERS > 0
-  clock_gettime(CLOCK_REALTIME, ts);
-#else
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  TIMEVAL_TO_TIMESPEC(&tv, ts);
-#endif
-  ts->tv_sec += sec;
-}
-
-static void
-audio_fifo_flush(void)
-{
-    audio_fifo_data_t *afd;
-
-    DPRINTF(E_DBG, L_SPOTIFY, "Flushing audio fifo\n");
-
-    CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&g_audio_fifo->mutex));
-
-    while((afd = TAILQ_FIRST(&g_audio_fifo->q))) {
-	TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
-	free(afd);
-    }
-
-    g_audio_fifo->qlen = 0;
-    g_audio_fifo->fullcount = 0;
-    CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
-}
-
 static enum command_state
 playback_setup(void *arg, int *retval)
 {
@@ -1239,8 +1186,6 @@ playback_setup(void *arg, int *retval)
       *retval = -1;
       return COMMAND_END;
     }
-
-  audio_fifo_flush();
 
   *retval = 0;
   return COMMAND_END;
@@ -1330,8 +1275,6 @@ playback_seek(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  audio_fifo_flush();
-
   *retval = 0;
   return COMMAND_END;
 }
@@ -1353,89 +1296,11 @@ playback_eot(void *arg, int *retval)
 
   g_state = SPOTIFY_STATE_STOPPING;
 
+  // TODO 1) This will block for a while, but perhaps ok?
+  //      2) spotify_audio_buffer not entirely thread safe here (but unlikely risk...)
+  input_write(spotify_audio_buffer, INPUT_FLAG_EOF);
+
   *retval = 0;
-  return COMMAND_END;
-}
-
-static enum command_state
-audio_get(void *arg, int *retval)
-{
-  struct audio_get_param *audio;
-  struct timespec ts;
-  audio_fifo_data_t *afd;
-  int processed;
-  int timeout;
-  int ret;
-  int err;
-  int s;
-
-  audio = (struct audio_get_param *) arg;
-  afd = NULL;
-  processed = 0;
-
-  // If spotify was paused begin by resuming playback
-  if (g_state == SPOTIFY_STATE_PAUSED)
-    playback_play(NULL, retval);
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&g_audio_fifo->mutex));
-
-  while ((processed < audio->wanted) && (g_state != SPOTIFY_STATE_STOPPED))
-    {
-      // If track has ended and buffer is empty
-      if ((g_state == SPOTIFY_STATE_STOPPING) && (g_audio_fifo->qlen <= 0))
-	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Track finished\n");
-	  g_state = SPOTIFY_STATE_STOPPED;
-	  break;
-	}
-
-      // If buffer is empty, wait for audio, but use timed wait so we don't
-      // risk waiting forever (maybe the player stopped while we were waiting)
-      timeout = 0;
-      while ( !(afd = TAILQ_FIRST(&g_audio_fifo->q)) && 
-	       (g_state != SPOTIFY_STATE_STOPPED) &&
-	       (g_state != SPOTIFY_STATE_STOPPING) &&
-	       (timeout < SPOTIFY_TIMEOUT) )
-	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
-	  timeout += 5;
-	  mk_reltime(&ts, 5);
-	  CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts), err, ETIMEDOUT);
-	}
-
-      if ((!afd) && (timeout >= SPOTIFY_TIMEOUT))
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Timeout waiting for audio (waited %d sec)\n", timeout);
-
-	  spotify_playback_stop_nonblock();
-	}
-
-      if (!afd)
-	break;
-
-      TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
-      g_audio_fifo->qlen -= afd->nsamples;
-
-      s = afd->nsamples * sizeof(int16_t) * 2;
-  
-      ret = evbuffer_add(audio->evbuf, afd->samples, s);
-      free(afd);
-      afd = NULL;
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
-	  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
-	  *retval = -1;
-	  return COMMAND_END;
-	}
-
-      processed += s;
-    }
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
-
-
-  *retval = processed;
   return COMMAND_END;
 }
 
@@ -1681,8 +1546,8 @@ logged_out(sp_session *sess)
 static int music_delivery(sp_session *sess, const sp_audioformat *format,
                           const void *frames, int num_frames)
 {
-  audio_fifo_data_t *afd;
-  size_t s;
+  size_t size;
+  int ret;
 
   /* No support for resampling right now */
   if ((format->sample_rate != 44100) || (format->channels != 2))
@@ -1692,44 +1557,26 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
       return num_frames;
     }
 
+  // Audio discontinuity, e.g. seek
   if (num_frames == 0)
-    return 0; // Audio discontinuity, do nothing
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&g_audio_fifo->mutex));
-
-  /* Buffer three seconds of audio */
-  if (g_audio_fifo->qlen > (3 * format->sample_rate))
     {
-      // If the buffer has been full the last 300 times (~about a minute) we
-      // assume the player thread paused/died without telling us, so we signal pause
-      if (g_audio_fifo->fullcount < 300)
-	g_audio_fifo->fullcount++;
-      else
-	{
-	  DPRINTF(E_WARN, L_SPOTIFY, "Buffer full more than 300 times, pausing\n");
-	  spotify_playback_pause_nonblock();
-	  g_audio_fifo->fullcount = 0;
-	}
-
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
-
+      evbuffer_drain(spotify_audio_buffer, evbuffer_get_length(spotify_audio_buffer));
       return 0;
     }
-  else
-    g_audio_fifo->fullcount = 0;
 
-  s = num_frames * sizeof(int16_t) * format->channels;
+  size = num_frames * sizeof(int16_t) * format->channels;
 
-  afd = malloc(sizeof(*afd) + s);
-  memcpy(afd->samples, frames, s);
+  ret = evbuffer_add(spotify_audio_buffer, frames, size);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory adding audio to buffer\n");
+      return num_frames;
+    }
 
-  afd->nsamples = num_frames;
-
-  TAILQ_INSERT_TAIL(&g_audio_fifo->q, afd, link);
-  g_audio_fifo->qlen += num_frames;
-
-  CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&g_audio_fifo->cond));
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&g_audio_fifo->mutex));
+  // The input buffer only accepts writing when it is approaching depletion, and
+  // because we use NONBLOCK it will just return if this is not the case. So in
+  // most cases no actual write is made and spotify_audio_buffer will just grow.
+  input_write(spotify_audio_buffer, INPUT_FLAG_NONBLOCK);
 
   return num_frames;
 }
@@ -1975,18 +1822,6 @@ spotify_playback_seek(int ms)
     return -1;
 }
 
-/* Thread: player */
-int
-spotify_audio_get(struct evbuffer *evbuf, int wanted)
-{
-  struct audio_get_param audio;
-
-  audio.evbuf  = evbuf;
-  audio.wanted = wanted;
-
-  return commands_exec_sync(cmdbase, audio_get, NULL, &audio);
-}
-
 /* Thread: httpd (artwork) and worker */
 int
 spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
@@ -2010,7 +1845,7 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   if (ret == 0)
     {
       CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&artwork.mutex));
-      mk_reltime(&ts, SPOTIFY_ARTWORK_TIMEOUT);
+      ts = timespec_reltoabs(spotify_artwork_timeout);
       if (!artwork.is_loaded)
 	CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts), err, ETIMEDOUT);
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&artwork.mutex));
@@ -2613,7 +2448,6 @@ spotify_init(void)
 
   event_add(g_notifyev, NULL);
 
-
   cmdbase = commands_base_new(evbase_spotify, exit_cb);
   if (!cmdbase)
     {
@@ -2651,17 +2485,7 @@ spotify_init(void)
 	break;
     }
 
-  /* Prepare audio buffer */
-  g_audio_fifo = (audio_fifo_t *)malloc(sizeof(audio_fifo_t));
-  if (!g_audio_fifo)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for audio buffer\n");
-      goto audio_fifo_fail;
-    }
-  TAILQ_INIT(&g_audio_fifo->q);
-  g_audio_fifo->qlen = 0;
-  CHECK_ERR(L_SPOTIFY, mutex_init(&g_audio_fifo->mutex));
-  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&g_audio_fifo->cond, NULL));
+  spotify_audio_buffer = evbuffer_new();
 
   CHECK_ERR(L_SPOTIFY, mutex_init(&login_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_init(&login_cond, NULL));
@@ -2687,11 +2511,8 @@ spotify_init(void)
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
 
-  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&g_audio_fifo->cond));
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&g_audio_fifo->mutex));
-  free(g_audio_fifo);  
+  evbuffer_free(spotify_audio_buffer);
 
- audio_fifo_fail:
   fptr_sp_session_release(g_sess);
   g_sess = NULL;
   
@@ -2751,10 +2572,8 @@ spotify_deinit(void)
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
 
-  /* Clear audio fifo */
-  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&g_audio_fifo->cond));
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&g_audio_fifo->mutex));
-  free(g_audio_fifo);
+  /* Free audio buffer */
+  evbuffer_free(spotify_audio_buffer);
 
   /* Release libspotify handle */
   dlclose(g_libhandle);

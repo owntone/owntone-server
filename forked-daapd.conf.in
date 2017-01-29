@@ -116,8 +116,9 @@ library {
 	# File types the scanner should ignore
 	# Non-audio files will never be added to the database, but here you
 	# can prevent the scanner from even probing them. This might improve
-	# scan time. By default .db, .ini, .db-journal and .pdf are ignored.
-#	filetypes_ignore = { ".db", ".ini", ".db-journal", ".pdf" }
+	# scan time. By default .db, .ini, .db-journal, .pdf and .metadata are
+	# ignored.
+#	filetypes_ignore = { ".db", ".ini", ".db-journal", ".pdf", ".metadata" }
 
 	# File paths the scanner should ignore
 	# If you want to exclude files on a more advanced basis you can enter
@@ -153,6 +154,11 @@ library {
 #	no_decode = { "format", "format" }
 	# Formats that should always be decoded
 #	force_decode = { "format", "format" }
+
+	# Watch named pipes in the library for data and autostart playback when
+	# there is data to be read. To exclude specific pipes from watching,
+	# consider using the above _ignore options.
+#	pipe_autostart = true
 }
 
 # Local audio output

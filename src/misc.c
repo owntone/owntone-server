@@ -27,6 +27,7 @@
 #endif
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
@@ -46,6 +47,8 @@ safe_atoi32(const char *str, int32_t *val)
 {
   char *end;
   long intval;
+
+  *val = 0;
 
   errno = 0;
   intval = strtol(str, &end, 10);
@@ -83,6 +86,8 @@ safe_atou32(const char *str, uint32_t *val)
   char *end;
   unsigned long intval;
 
+  *val = 0;
+
   errno = 0;
   intval = strtoul(str, &end, 10);
 
@@ -118,6 +123,8 @@ safe_hextou32(const char *str, uint32_t *val)
 {
   char *end;
   unsigned long intval;
+
+  *val = 0;
 
   /* A hex shall begin with 0x */
   if (strncmp(str, "0x", 2) != 0)
@@ -159,6 +166,8 @@ safe_atoi64(const char *str, int64_t *val)
   char *end;
   long long intval;
 
+  *val = 0;
+
   errno = 0;
   intval = strtoll(str, &end, 10);
 
@@ -195,6 +204,8 @@ safe_atou64(const char *str, uint64_t *val)
   char *end;
   unsigned long long intval;
 
+  *val = 0;
+
   errno = 0;
   intval = strtoull(str, &end, 10);
 
@@ -230,6 +241,8 @@ safe_hextou64(const char *str, uint64_t *val)
 {
   char *end;
   unsigned long long intval;
+
+  *val = 0;
 
   errno = 0;
   intval = strtoull(str, &end, 16);
@@ -566,6 +579,14 @@ trimwhitespace(const char *str)
   free(start);
 
   return out;
+}
+
+void
+swap_pointers(char **a, char **b)
+{
+  char *t = *a;
+  *a = *b;
+  *b = t;
 }
 
 uint32_t
@@ -926,6 +947,21 @@ timespec_cmp(struct timespec time1, struct timespec time2)
   /* Equal. */
   else
     return 0;
+}
+
+struct timespec
+timespec_reltoabs(struct timespec relative)
+{
+  struct timespec absolute;
+
+#if _POSIX_TIMERS > 0
+  clock_gettime(CLOCK_REALTIME, &absolute);
+#else
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  TIMEVAL_TO_TIMESPEC(&tv, &absolute);
+#endif
+  return timespec_add(absolute, relative);
 }
 
 #if defined(HAVE_MACH_CLOCK) || defined(HAVE_MACH_TIMER)

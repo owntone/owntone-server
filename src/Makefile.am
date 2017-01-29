@@ -6,7 +6,7 @@ ITUNES_SRC=library/filescanner_itunes.c
 endif
 
 if COND_SPOTIFY
-SPOTIFY_SRC=spotify.c spotify.h spotify_webapi.c spotify_webapi.h
+SPOTIFY_SRC=spotify.c spotify.h spotify_webapi.c spotify_webapi.h inputs/spotify.c
 endif
 
 if COND_LASTFM
@@ -100,7 +100,6 @@ forked_daapd_SOURCES = main.c \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
-	pipe.c pipe.h \
 	artwork.c artwork.h \
 	misc.c misc.h \
 	rng.c rng.h \
@@ -108,6 +107,8 @@ forked_daapd_SOURCES = main.c \
 	daap_query.c daap_query.h \
 	player.c player.h \
 	worker.c worker.h \
+	input.h input.c \
+	inputs/file_http.c inputs/pipe.c \
 	outputs.h outputs.c \
 	outputs/raop.c outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
@@ -117,7 +118,7 @@ forked_daapd_SOURCES = main.c \
 	$(MPD_SRC) \
 	listener.c listener.h \
 	commands.c commands.h \
-	ffmpeg-compat.h \
+	ffmpeg-compat.h mxml-compat.h \
 	$(GPERF_SRC) \
 	$(ANTLR_SRC)
 

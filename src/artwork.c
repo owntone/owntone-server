@@ -40,7 +40,6 @@
 #include "logger.h"
 #include "conffile.h"
 #include "cache.h"
-#include "player.h"
 #include "http.h"
 
 #include "avio_evbuffer.h"
@@ -1105,6 +1104,7 @@ static int
 source_item_stream_get(struct artwork_ctx *ctx)
 {
   struct http_client_ctx client;
+  struct db_queue_item *queue_item;
   struct keyval *kv;
   const char *content_type;
   char *url;
@@ -1116,9 +1116,15 @@ source_item_stream_get(struct artwork_ctx *ctx)
 
   ret = ART_E_NONE;
 
-  url = player_get_icy_artwork_url(ctx->id);
-  if (!url)
-    return ART_E_NONE;
+  queue_item = db_queue_fetch_byfileid(ctx->id);
+  if (!queue_item || !queue_item->artwork_url)
+    {
+      free_queue_item(queue_item, 0);
+      return ART_E_NONE;
+    }
+
+  url = strdup(queue_item->artwork_url);
+  free_queue_item(queue_item, 0);
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg

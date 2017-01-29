@@ -32,6 +32,7 @@
 #include <event2/event.h>
 #include <asoundlib.h>
 
+#include "misc.h"
 #include "conffile.h"
 #include "logger.h"
 #include "player.h"

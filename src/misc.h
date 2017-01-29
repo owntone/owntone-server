@@ -10,6 +10,11 @@
 #include <time.h>
 #include <pthread.h>
 
+/* Samples to bytes, bytes to samples */
+#define STOB(s) ((s) * 4)
+#define BTOS(b) ((b) / 4)
+
+
 struct onekeyval {
   char *name;
   char *value;
@@ -77,6 +82,9 @@ unicode_fixup_string(char *str, const char *fromcode);
 char *
 trimwhitespace(const char *str);
 
+void
+swap_pointers(char **a, char **b);
+
 uint32_t
 djb_hash(const void *data, size_t len);
 
@@ -139,6 +147,9 @@ timespec_add(struct timespec time1, struct timespec time2);
 
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
+
+struct timespec
+timespec_reltoabs(struct timespec relative);
 
 /* initialize mutex with error checking (not default on all platforms) */
 int

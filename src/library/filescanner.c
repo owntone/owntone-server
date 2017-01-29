@@ -113,7 +113,6 @@ static struct stacked_dir *dirstack;
 /* From library.c */
 extern struct event_base *evbase_lib;
 
-
 #ifndef __linux__
 struct deferred_file
 {
@@ -1501,8 +1500,12 @@ filescanner_init(void)
   int ret;
 
   ret = inofd_event_set();
+  if (ret < 0)
+    {
+      return -1;
+    }
 
-  return ret;
+  return 0;
 }
 
 /* Thread: main */

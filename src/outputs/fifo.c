@@ -33,6 +33,7 @@
 
 #include <event2/event.h>
 
+#include "misc.h"
 #include "conffile.h"
 #include "logger.h"
 #include "player.h"

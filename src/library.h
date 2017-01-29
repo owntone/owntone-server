@@ -86,6 +86,9 @@ library_set_scanning(bool is_scanning);
 bool
 library_is_exiting();
 
+void
+library_update_trigger(void);
+
 int
 library_exec_async(command_function func, void *arg);
 
