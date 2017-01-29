@@ -1010,20 +1010,31 @@ source_switch(int nbytes)
 
   source_close(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES + BTOS(nbytes) - 1);
 
-  ps = source_next();
-  if (!ps)
+  while ((ps = source_next()))
     {
-      cur_streaming = NULL;
-      return 0; // End of queue
+      ret = source_open(ps, cur_streaming->end + 1, 0);
+      if (ret < 0)
+	{
+	  db_queue_delete_byitemid(ps->item_id);
+	  continue;
+	}
+
+      ret = source_play();
+      if (ret < 0)
+	{
+	  db_queue_delete_byitemid(ps->item_id);
+	  source_close(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES + BTOS(nbytes) - 1);
+	  continue;
+	}
+
+      break;
     }
 
-  ret = source_open(ps, cur_streaming->end + 1, 0);
-  if (ret < 0)
-    return -1;
-
-  ret = source_play();
-  if (ret < 0)
-    return -1;
+  if (!ps) // End of queue
+    {
+      cur_streaming = NULL;
+      return 0;
+    }
 
   metadata_trigger(0);
 
