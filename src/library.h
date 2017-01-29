@@ -66,7 +66,7 @@ struct library_source
 
 
 void
-library_process_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi, int dir_id);
+library_process_media(struct media_file_info *mfi);
 
 int
 library_add_playlist_info(const char *path, const char *title, const char *virtual_path, enum pl_type type, int parent_pl_id, int dir_id);

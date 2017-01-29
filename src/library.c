@@ -42,7 +42,6 @@
 #include "commands.h"
 #include "conffile.h"
 #include "db.h"
-#include "library/filescanner.h"
 #include "logger.h"
 #include "misc.h"
 #include "listener.h"
@@ -345,109 +344,20 @@ fixup_tags(struct media_file_info *mfi)
 }
 
 void
-library_process_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi, int dir_id)
+library_process_media(struct media_file_info *mfi)
 {
-  struct media_file_info *mfi;
-  const char *filename;
-  time_t stamp;
-  int id;
-  char virtual_path[PATH_MAX];
-  int ret;
-
-  filename = strrchr(path, '/');
-  if ((!filename) || (strlen(filename) == 1))
-    filename = path;
-  else
-    filename++;
-
-  db_file_stamp_bypath(path, &stamp, &id);
-
-  if (stamp && (stamp >= mtime))
+  if (!mfi->path || !mfi->fname || !mfi->data_kind)
     {
-      db_file_ping(id);
+      DPRINTF(E_LOG, L_LIB, "Ignoring media file with missing values (path='%s', fname='%s', data_kind='%d')\n",
+	      mfi->path, mfi->fname, mfi->data_kind);
       return;
     }
 
-  if (!external_mfi)
+  if (!mfi->directory_id || mfi->virtual_path)
     {
-      mfi = (struct media_file_info*)malloc(sizeof(struct media_file_info));
-      if (!mfi)
-	{
-	  DPRINTF(E_LOG, L_LIB, "Out of memory for mfi\n");
-	  return;
-	}
-
-      memset(mfi, 0, sizeof(struct media_file_info));
-    }
-  else
-    mfi = external_mfi;
-
-  if (stamp)
-    mfi->id = id;
-
-  mfi->fname = strdup(filename);
-  if (!mfi->fname)
-    {
-      DPRINTF(E_LOG, L_LIB, "Out of memory for fname\n");
-      goto out;
-    }
-
-  mfi->path = strdup(path);
-  if (!mfi->path)
-    {
-      DPRINTF(E_LOG, L_LIB, "Out of memory for path\n");
-      goto out;
-    }
-
-  mfi->time_modified = mtime;
-  mfi->file_size = size;
-
-  if (force_compilation)
-    mfi->compilation = 1;
-  if (force_media_kind)
-    mfi->media_kind = force_media_kind;
-
-  if (data_kind == DATA_KIND_FILE)
-    {
-      mfi->data_kind = DATA_KIND_FILE;
-      ret = scan_metadata_ffmpeg(path, mfi);
-    }
-  else if (data_kind == DATA_KIND_HTTP)
-    {
-      mfi->data_kind = DATA_KIND_HTTP;
-      ret = scan_metadata_ffmpeg(path, mfi);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_LIB, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
-	  mfi->type = strdup("mp3");
-	  mfi->codectype = strdup("mpeg");
-	  mfi->description = strdup("MPEG audio file");
-	  ret = 1;
-	}
-    }
-  else if (data_kind == DATA_KIND_SPOTIFY)
-    {
-      mfi->data_kind = DATA_KIND_SPOTIFY;
-      ret = mfi->artist && mfi->album && mfi->title;
-    }
-  else if (data_kind == DATA_KIND_PIPE)
-    {
-      mfi->data_kind = DATA_KIND_PIPE;
-      mfi->type = strdup("wav");
-      mfi->codectype = strdup("wav");
-      mfi->description = strdup("PCM16 pipe");
-      ret = 1;
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_LIB, "Unknown scan type for '%s', this error should not occur\n", path);
-      ret = -1;
-    }
-
-  if (ret < 0)
-    {
-      DPRINTF(E_INFO, L_LIB, "Could not extract metadata for '%s'\n", path);
-      goto out;
+      // Missing informations for virtual_path and directory_id (may) lead to misplaced appearance in mpd clients
+      DPRINTF(E_WARN, L_LIB, "Media file with missing values (path='%s', directory='%d', virtual_path='%s')\n",
+	      mfi->path, mfi->directory_id, mfi->virtual_path);
     }
 
   if (!mfi->item_kind)
@@ -459,32 +369,10 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
 
   fixup_tags(mfi);
 
-  if (data_kind == DATA_KIND_HTTP)
-    {
-      snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi->title);
-      mfi->virtual_path = strdup(virtual_path);
-    }
-  else if (data_kind == DATA_KIND_SPOTIFY)
-    {
-      snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi->album_artist, mfi->album, mfi->title);
-      mfi->virtual_path = strdup(virtual_path);
-    }
-  else
-    {
-      snprintf(virtual_path, PATH_MAX, "/file:%s", mfi->path);
-      mfi->virtual_path = strdup(virtual_path);
-    }
-
-  mfi->directory_id = dir_id;
-
   if (mfi->id == 0)
     db_file_add(mfi);
   else
     db_file_update(mfi);
-
- out:
-  if (!external_mfi)
-    free_mfi(mfi, 0);
 }
 
 int

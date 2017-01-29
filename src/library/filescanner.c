@@ -77,6 +77,12 @@
 #define F_SCAN_FAST    (1 << 2)
 #define F_SCAN_MOVED   (1 << 3)
 
+#define F_SCAN_TYPE_FILE         (1 << 0)
+#define F_SCAN_TYPE_PODCAST      (1 << 1)
+#define F_SCAN_TYPE_AUDIOBOOK    (1 << 2)
+#define F_SCAN_TYPE_COMPILATION  (1 << 3)
+
+
 enum file_type {
   FILE_UNKNOWN = 0,
   FILE_IGNORE,
@@ -389,37 +395,83 @@ process_deferred_playlists(void)
     }
 }
 
+static void
+process_regular_file(char *file, struct stat *sb, int type, int flags, int dir_id)
+{
+  time_t stamp;
+  int id;
+  bool is_bulkscan = (flags & F_SCAN_BULK);
+  struct media_file_info mfi;
+  char virtual_path[PATH_MAX];
+  int ret;
+
+  // Do not rescan metadata if file did not change since last scan
+  db_file_stamp_bypath(file, &stamp, &id);
+  if (stamp && (stamp >= sb->st_mtime))
+    {
+      db_file_ping(id);
+      return;
+    }
+
+  // File is new or modified - (re)scan metadata and update file in library
+  memset(&mfi, 0, sizeof(struct media_file_info));
+
+  mfi.id = id;
+  mfi.fname = strdup(basename(file));
+  mfi.path = strdup(file);
+
+  mfi.time_modified = sb->st_mtime;
+  mfi.file_size = sb->st_size;
+
+  snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+  mfi.virtual_path = strdup(virtual_path);
+
+  mfi.directory_id = dir_id;
+
+  if (S_ISFIFO(sb->st_mode))
+    {
+      mfi.data_kind = DATA_KIND_PIPE;
+      mfi.type = strdup("wav");
+      mfi.codectype = strdup("wav");
+      mfi.description = strdup("PCM16 pipe");
+      mfi.media_kind = MEDIA_KIND_MUSIC;
+    }
+  else
+    {
+      mfi.data_kind = DATA_KIND_FILE;
+
+      if (type & F_SCAN_TYPE_AUDIOBOOK)
+	mfi.media_kind = MEDIA_KIND_AUDIOBOOK;
+      else if (type & F_SCAN_TYPE_PODCAST)
+	mfi.media_kind = MEDIA_KIND_PODCAST;
+
+      mfi.compilation = (type & F_SCAN_TYPE_COMPILATION);
+      mfi.file_size = sb->st_size;
+
+      ret = scan_metadata_ffmpeg(file, &mfi);
+      if (ret < 0)
+	{
+	  free_mfi(&mfi, 1);
+	  return;
+	}
+    }
+
+  library_process_media(&mfi);
+
+  cache_artwork_ping(file, sb->st_mtime, !is_bulkscan);
+  // TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
+
+  free_mfi(&mfi, 1);
+}
+
 /* Thread: scan */
 static void
-process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_id)
+process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 {
-  bool is_bulkscan;
-  bool is_type_compilation;
-  enum media_kind media_kind;
-  enum data_kind data_kind;
-
-  is_bulkscan = (flags & F_SCAN_BULK);
-
   switch (file_type_get(file))
     {
       case FILE_REGULAR:
-	is_type_compilation = type & F_SCAN_TYPE_COMPILATION;
-	if (type & F_SCAN_TYPE_AUDIOBOOK)
-	  media_kind = MEDIA_KIND_AUDIOBOOK;
-	else if (type & F_SCAN_TYPE_PODCAST)
-	  media_kind = MEDIA_KIND_PODCAST;
-	else
-	  media_kind = 0;
-
-	if (F_SCAN_TYPE_PIPE & type)
-	  data_kind = DATA_KIND_PIPE;
-	else
-	  data_kind = DATA_KIND_FILE;
-
-	library_process_media(file, mtime, size, data_kind, media_kind, is_type_compilation, NULL, dir_id);
-
-	cache_artwork_ping(file, mtime, !is_bulkscan);
-	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
+	process_regular_file(file, sb, type, flags, dir_id);
 
 	counter++;
 
@@ -435,19 +487,19 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
       case FILE_PLAYLIST:
       case FILE_ITUNES:
 	if (flags & F_SCAN_BULK)
-	  defer_playlist(file, mtime, dir_id);
+	  defer_playlist(file, sb->st_mtime, dir_id);
 	else
-	  process_playlist(file, mtime, dir_id);
+	  process_playlist(file, sb->st_mtime, dir_id);
 	break;
 
       case FILE_SMARTPL:
 	DPRINTF(E_DBG, L_SCAN, "Smart playlist file: %s\n", file);
-	scan_smartpl(file, mtime, dir_id);
+	scan_smartpl(file, sb->st_mtime, dir_id);
 	break;
 
       case FILE_ARTWORK:
 	DPRINTF(E_DBG, L_SCAN, "Artwork file: %s\n", file);
-	cache_artwork_ping(file, mtime, !is_bulkscan);
+	cache_artwork_ping(file, sb->st_mtime, !(flags & F_SCAN_BULK));
 
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
 
@@ -539,13 +591,58 @@ create_virtual_path(char *path, char *virtual_path, int virtual_path_len)
   return 0;
 }
 
+/*
+ * Returns informations about the attributes of the file at the given 'path' in the structure
+ * pointed to by 'sb'.
+ *
+ * If path is a symbolic link, the attributes in sb describe the file that the link points to
+ * and resolved_path contains the resolved path (resolved_path must be of length PATH_MAX).
+ * If path is not a symbolic link, resolved_path holds the same value as path.
+ *
+ * The return value is 0 if the operation is successful, or -1 on failure. In addition
+ */
+static int
+read_attributes(const char *path, struct stat *sb, char *resolved_path)
+{
+  int ret;
+
+  ret = lstat(path, sb);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Skipping %s, lstat() failed: %s\n", path, strerror(errno));
+      return -1;
+    }
+
+  if (S_ISLNK(sb->st_mode))
+    {
+      if (!realpath(path, resolved_path))
+        {
+	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, could not dereference symlink: %s\n", path, strerror(errno));
+	  return -1;
+	}
+
+      ret = stat(resolved_path, sb);
+      if (ret < 0)
+        {
+	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, stat() failed: %s\n", resolved_path, strerror(errno));
+	  return -1;
+	}
+    }
+  else
+    {
+      strcpy(resolved_path, path);
+    }
+
+  return 0;
+}
+
 static void
 process_directory(char *path, int parent_id, int flags)
 {
   DIR *dirp;
   struct dirent *de;
   char entry[PATH_MAX];
-  char *deref;
+  char resolved_path[PATH_MAX];
   struct stat sb;
   struct watch_info wi;
   int type;
@@ -612,59 +709,25 @@ process_directory(char *path, int parent_id, int flags)
 	  continue;
 	}
 
-      ret = lstat(entry, &sb);
+      ret = read_attributes(entry, &sb, resolved_path);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, lstat() failed: %s\n", entry, strerror(errno));
+	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, read_attributes() failed\n", entry);
 
 	  continue;
 	}
 
-      if (S_ISLNK(sb.st_mode))
+      if (S_ISDIR(sb.st_mode))
 	{
-	  deref = m_realpath(entry);
-	  if (!deref)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Skipping %s, could not dereference symlink: %s\n", entry, strerror(errno));
-
-	      continue;
-	    }
-
-	  ret = stat(deref, &sb);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Skipping %s, stat() failed: %s\n", deref, strerror(errno));
-
-	      free(deref);
-	      continue;
-	    }
-
-	  ret = snprintf(entry, sizeof(entry), "%s", deref);
-	  if ((ret < 0) || (ret >= sizeof(entry)))
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Skipping %s, PATH_MAX exceeded\n", entry);
-
-	      free(deref);
-	      continue;
-	    }
-
-	  free(deref);
+	  push_dir(&dirstack, resolved_path, dir_id);
 	}
-
-      if (S_ISREG(sb.st_mode))
+      else if (!(flags & F_SCAN_FAST))
 	{
-	  if (!(flags & F_SCAN_FAST))
-	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, flags, dir_id);
+	  if (S_ISREG(sb.st_mode) || S_ISFIFO(sb.st_mode))
+	    process_file(resolved_path, &sb, type, flags, dir_id);
+	  else
+	    DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", entry);
 	}
-      else if (S_ISFIFO(sb.st_mode))
-	{
-	  if (!(flags & F_SCAN_FAST))
-	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, flags, dir_id);
-	}
-      else if (S_ISDIR(sb.st_mode))
-	push_dir(&dirstack, entry, dir_id);
-      else
-	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", entry);
     }
 
   closedir(dirp);
@@ -1040,8 +1103,8 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 {
   struct stat sb;
   uint32_t path_hash;
-  char *deref = NULL;
   char *file = path;
+  char resolved_path[PATH_MAX];
   char *dir;
   char dir_vpath[PATH_MAX];
   int type;
@@ -1177,42 +1240,12 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    incomingfiles_buffer[i] = 0;
 	  }
 
-      ret = lstat(path, &sb);
+      ret = read_attributes(path, &sb, resolved_path);
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Could not lstat() '%s': %s\n", path, strerror(errno));
+        {
+	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, read_attributes() failed\n", path);
 
 	  return;
-	}
-
-      if (S_ISLNK(sb.st_mode))
-	{
-	  deref = m_realpath(path);
-	  if (!deref)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Could not dereference symlink '%s': %s\n", path, strerror(errno));
-
-	      return;
-	    }
-
-	  file = deref;
-
-	  ret = stat(deref, &sb);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
-
-	      free(deref);
-	      return;
-	    }
-
-	  if (S_ISDIR(sb.st_mode))
-	    {
-	      process_inotify_dir(wi, deref, ie);
-
-	      free(deref);
-	      return;
-	    }
 	}
 
       type = 0;
@@ -1225,15 +1258,18 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
       dir_id = get_parent_dir_id(file);
 
-      if (S_ISREG(sb.st_mode))
-	{
-	  process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, 0, dir_id);
-	}
-      else if (S_ISFIFO(sb.st_mode))
-	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, 0, dir_id);
+      if (S_ISDIR(sb.st_mode))
+        {
+	  process_inotify_dir(wi, resolved_path, ie);
 
-      if (deref)
-	free(deref);
+	  return;
+	}
+      else if (S_ISREG(sb.st_mode) || S_ISFIFO(sb.st_mode))
+	{
+	  process_file(resolved_path, &sb, type, 0, dir_id);
+	}
+      else
+	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", resolved_path);
     }
 }
 
