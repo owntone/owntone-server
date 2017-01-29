@@ -640,7 +640,10 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
   sp_link *link;
   char url[1024];
   int ret;
+  char virtual_path[PATH_MAX];
   int dir_id;
+  time_t stamp;
+  int id;
 
   memset(&mfi, 0, sizeof(struct media_file_info));
 
@@ -697,7 +700,18 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
 
 //  DPRINTF(E_DBG, L_SPOTIFY, "Saving track '%s': '%s' by %s (%s)\n", url, mfi.title, mfi.artist, mfi.album);
 
-  library_process_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, false, &mfi, dir_id);
+  db_file_stamp_bypath(url, &stamp, &id);
+
+  mfi.id = id;
+  mfi.path = strdup(url);
+  mfi.fname = strdup(url);
+  mfi.time_modified = time(NULL);
+  mfi.data_kind = DATA_KIND_SPOTIFY;
+  snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi.album_artist, mfi.album, mfi.title);
+  mfi.virtual_path = strdup(virtual_path);
+  mfi.directory_id = dir_id;
+
+  library_process_media(&mfi);
 
   free_mfi(&mfi, 1);
 
@@ -2008,6 +2022,9 @@ map_track_to_mfi(const struct spotify_track *track, struct media_file_info* mfi)
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
   mfi->description = strdup("Spotify audio");
+
+  mfi->path = strdup(track->uri);
+  mfi->fname = strdup(track->uri);
 }
 
 static void
@@ -2018,6 +2035,7 @@ map_album_to_mfi(const struct spotify_album *album, struct media_file_info* mfi)
   mfi->genre = safe_strdup(album->genre);
   mfi->compilation = album->is_compilation;
   mfi->year = album->release_year;
+  mfi->time_modified = album->mtime;
 }
 
 /* Thread: library */
@@ -2030,7 +2048,10 @@ scan_saved_albums()
   struct spotify_album album;
   struct spotify_track track;
   struct media_file_info mfi;
+  char virtual_path[PATH_MAX];
   int dir_id;
+  time_t stamp;
+  int id;
   int i;
   int count;
   int ret;
@@ -2054,16 +2075,33 @@ scan_saved_albums()
 	      ret = spotifywebapi_album_track_fetch(jsontracks, i, &track);
 	      if (ret == 0 && track.uri)
 		{
-		  memset(&mfi, 0, sizeof(struct media_file_info));
-		  map_track_to_mfi(&track, &mfi);
-		  map_album_to_mfi(&album, &mfi);
+		  db_file_stamp_bypath(track.uri, &stamp, &id);
+		  if (stamp && (stamp >= track.mtime))
+		    {
+		      db_file_ping(id);
+		    }
+		  else
+		    {
+		      memset(&mfi, 0, sizeof(struct media_file_info));
 
-		  library_process_media(track.uri, album.mtime, 0, DATA_KIND_SPOTIFY, 0, album.is_compilation, &mfi, dir_id);
+		      mfi.id = id;
+
+		      map_track_to_mfi(&track, &mfi);
+		      map_album_to_mfi(&album, &mfi);
+
+		      mfi.data_kind = DATA_KIND_SPOTIFY;
+		      snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi.album_artist, mfi.album, mfi.title);
+		      mfi.virtual_path = strdup(virtual_path);
+		      mfi.directory_id = dir_id;
+
+		      library_process_media(&mfi);
+
+		      free_mfi(&mfi, 1);
+		    }
+
 		  spotify_uri_register(track.uri);
 
 		  cache_artwork_ping(track.uri, album.mtime, 0);
-
-		  free_mfi(&mfi, 1);
 
 		  if (spotify_saved_plid)
 		    db_pl_add_item_bypath(spotify_saved_plid, track.uri);
@@ -2093,7 +2131,10 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
   struct spotify_request request;
   struct spotify_track track;
   struct media_file_info mfi;
+  char virtual_path[PATH_MAX];
   int dir_id;
+  time_t stamp;
+  int id;
 
   memset(&request, 0, sizeof(struct spotify_request));
 
@@ -2121,9 +2162,19 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 	      if (track.linked_from_uri)
 		DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) linked from %s\n", track.name, track.uri, track.linked_from_uri);
 
-	      dir_id = prepare_directories(track.album_artist, track.album);
+	      db_file_stamp_bypath(track.uri, &stamp, &id);
+	      if (stamp)
+		{
+		  db_file_ping(id);
+		  continue;
+		}
 
 	      memset(&mfi, 0, sizeof(struct media_file_info));
+
+	      mfi.id = id;
+
+	      dir_id = prepare_directories(track.album_artist, track.album);
+
 	      map_track_to_mfi(&track, &mfi);
 
 	      mfi.compilation = (track.is_compilation || artist_override);
@@ -2133,7 +2184,14 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 		  mfi.album = strdup(playlist->name);
 		}
 
-	      library_process_media(track.uri, 1 /* TODO passing one prevents overwriting existing entries */, 0, DATA_KIND_SPOTIFY, 0, track.is_compilation, &mfi, dir_id);
+	      mfi.time_modified = time(NULL);
+	      mfi.data_kind = DATA_KIND_SPOTIFY;
+	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi.album_artist, mfi.album, mfi.title);
+	      mfi.virtual_path = strdup(virtual_path);
+	      mfi.directory_id = dir_id;
+
+	      library_process_media(&mfi);
+
 	      spotify_uri_register(track.uri);
 
 	      cache_artwork_ping(track.uri, 1, 0);

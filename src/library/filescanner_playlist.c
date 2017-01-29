@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <libgen.h>
 
 #include "logger.h"
 #include "db.h"
@@ -94,6 +95,8 @@ scan_playlist(char *file, time_t mtime, int dir_id)
   int ret;
   char virtual_path[PATH_MAX];
   int i;
+  time_t stamp;
+  int id;
 
   DPRINTF(E_LOG, L_SCAN, "Processing static playlist: %s\n", file);
 
@@ -226,7 +229,14 @@ scan_playlist(char *file, time_t mtime, int dir_id)
       /* Check if line is an URL, will be added to library */
       if (strncasecmp(path, "http://", strlen("http://")) == 0)
 	{
-	  DPRINTF(E_DBG, L_SCAN, "Playlist contains URL entry\n");
+	  DPRINTF(E_DBG, L_SCAN, "Playlist contains URL entry: '%s'\n", path);
+
+	  db_file_stamp_bypath(path, &stamp, &id);
+	  if (stamp && (stamp >= sb.st_mtime))
+	    {
+	      db_file_ping(id);
+	      continue;
+	    }
 
 	  filename = strdup(path);
 	  if (!filename)
@@ -239,7 +249,25 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  if (extinf)
 	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi.artist, mfi.title);
 
-	  library_process_media(filename, mtime, 0, DATA_KIND_HTTP, 0, false, &mfi, DIR_HTTP);
+	  mfi.id = id;
+	  mfi.fname = strdup(basename(filename));
+	  mfi.path = strdup(filename);
+	  mfi.data_kind = DATA_KIND_HTTP;
+	  mfi.time_modified = mtime;
+	  mfi.directory_id = DIR_HTTP;
+
+	  ret = scan_metadata_ffmpeg(path, &mfi);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
+	      mfi.type = strdup("mp3");
+	      mfi.codectype = strdup("mpeg");
+	      mfi.description = strdup("MPEG audio file");
+	    }
+
+	  snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi.title); //TODO can title be null at this point?
+	  mfi.virtual_path = strdup(virtual_path);
+	  library_process_media(&mfi);
 	}
       /* Regular file, should already be in library */
       else
