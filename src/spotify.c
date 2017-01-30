@@ -1252,6 +1252,7 @@ playback_stop(void *arg, int *retval)
 
   g_state = SPOTIFY_STATE_STOPPED;
 
+  evbuffer_drain(spotify_audio_buffer, evbuffer_get_length(spotify_audio_buffer));
 
   *retval = 0;
   return COMMAND_END;
@@ -1297,7 +1298,6 @@ playback_eot(void *arg, int *retval)
   g_state = SPOTIFY_STATE_STOPPING;
 
   // TODO 1) This will block for a while, but perhaps ok?
-  //      2) spotify_audio_buffer not entirely thread safe here (but unlikely risk...)
   input_write(spotify_audio_buffer, INPUT_FLAG_EOF);
 
   *retval = 0;
@@ -2486,6 +2486,8 @@ spotify_init(void)
     }
 
   spotify_audio_buffer = evbuffer_new();
+
+  CHECK_ERR(L_SPOTIFY, evbuffer_enable_locking(spotify_audio_buffer, NULL));
 
   CHECK_ERR(L_SPOTIFY, mutex_init(&login_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_init(&login_cond, NULL));

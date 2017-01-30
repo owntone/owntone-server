@@ -222,6 +222,11 @@ dnl Build with libcurl
 FORK_ARG_WITH_CHECK([FORKED], [libcurl support], [libcurl], [LIBCURL],
 	[libcurl], [curl_global_init], [curl/curl.h])
 
+dnl Build with libevent_pthreads
+FORK_ARG_WITH_CHECK([FORKED], [libevent_pthreads support], [libevent_pthreads],
+	[LIBEVENT_PTHREADS], [libevent_pthreads], [evthread_use_pthreads],
+	[event2/thread.h])
+
 dnl Build with json-c
 FORK_ARG_WITH_CHECK([FORKED], [json-c support], [json], [JSON_C],
 	[json-c >= 0.11], [json_tokener_parse], [json.h], [],
@@ -254,6 +259,8 @@ dnl Spotify with dynamic linking to libspotify
 FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
 	[AS_IF([[test "x$with_json" = "xno"]],
 		[AC_MSG_ERROR([[Spotify support requires json-c]])])
+	 AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
+		[AC_MSG_ERROR([[Spotify support requires libevent_pthreads]])])
 	 AC_CHECK_HEADER([[libspotify/api.h]], [],
 		[AC_MSG_ERROR([[libspotify/api.h not found]])])
 	 AC_DEFINE([HAVE_SPOTIFY_H], 1,
