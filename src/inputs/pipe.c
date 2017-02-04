@@ -667,7 +667,7 @@ setup(struct player_source *ps)
       DPRINTF(E_LOG, L_PLAYER, "Unknown pipe '%s'\n", ps->path);
       return -1;
     }
-// TODO pipe mutex here
+
   if (pipe->state != PIPE_OPEN)
     {
       pipe->fd = pipe_open(pipe->path, 0);
@@ -675,9 +675,6 @@ setup(struct player_source *ps)
 	return -1;
       pipe->state = PIPE_OPEN;
     }
-
-  if (pipe->ev)
-    event_del(pipe->ev); // Avoids autostarting pipe if manually started by user
 
   worker_execute(pipe_metadata_watch_add, pipe->path, strlen(pipe->path) + 1, 0);
 
