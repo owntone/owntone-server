@@ -47,6 +47,9 @@
 #include "misc.h"
 #include "listener.h"
 #include "player.h"
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 static struct commands_base *cmdbase;
 static pthread_t tid_library;
@@ -344,46 +347,31 @@ fixup_tags(struct media_file_info *mfi)
     sort_tag_create(&mfi->composer_sort, mfi->composer);
 }
 
-void
-library_process_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi, int dir_id)
+static struct media_file_info *
+scan_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi)
 {
   struct media_file_info *mfi;
   const char *filename;
-  time_t stamp;
-  int id;
-  char virtual_path[PATH_MAX];
   int ret;
+
+  if (!external_mfi)
+    {
+      mfi = calloc(1, sizeof(struct media_file_info));
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_LIB, "Out of memory for mfi\n");
+	  return NULL;
+	}
+    }
+  else
+    mfi = external_mfi;
+
 
   filename = strrchr(path, '/');
   if ((!filename) || (strlen(filename) == 1))
     filename = path;
   else
     filename++;
-
-  db_file_stamp_bypath(path, &stamp, &id);
-
-  if (stamp && (stamp >= mtime))
-    {
-      db_file_ping(id);
-      return;
-    }
-
-  if (!external_mfi)
-    {
-      mfi = (struct media_file_info*)malloc(sizeof(struct media_file_info));
-      if (!mfi)
-	{
-	  DPRINTF(E_LOG, L_LIB, "Out of memory for mfi\n");
-	  return;
-	}
-
-      memset(mfi, 0, sizeof(struct media_file_info));
-    }
-  else
-    mfi = external_mfi;
-
-  if (stamp)
-    mfi->id = id;
 
   mfi->fname = strdup(filename);
   if (!mfi->fname)
@@ -428,7 +416,20 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
   else if (data_kind == DATA_KIND_SPOTIFY)
     {
       mfi->data_kind = DATA_KIND_SPOTIFY;
-      ret = mfi->artist && mfi->album && mfi->title;
+      if (!external_mfi)
+	{
+	  // Only retrieve metadata if external_mfi is NULL
+#ifdef HAVE_SPOTIFY_H
+	  ret = scan_metadata_spotify(path, mfi);
+#else
+	  ret = -1;
+#endif
+	}
+      else
+	{
+	  // If an external_mfi is given, we assume that metadata has already been fully loaded
+	  ret = mfi->artist && mfi->album && mfi->title;
+	}
     }
   else if (data_kind == DATA_KIND_PIPE)
     {
@@ -459,6 +460,40 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
 
   fixup_tags(mfi);
 
+  return mfi;
+
+ out:
+  if (!external_mfi)
+    free_mfi(mfi, 0);
+  return NULL;
+}
+
+void
+library_add_media(const char *path, time_t mtime, off_t size, enum data_kind data_kind, enum media_kind force_media_kind, bool force_compilation, struct media_file_info *external_mfi, int dir_id)
+{
+  struct media_file_info *mfi;
+  time_t stamp;
+  int id;
+  char virtual_path[PATH_MAX];
+
+  db_file_stamp_bypath(path, &stamp, &id);
+
+  if (stamp && (stamp >= mtime))
+    {
+      db_file_ping(id);
+      return;
+    }
+
+  mfi = scan_media(path, mtime, size, data_kind, force_media_kind, force_compilation, external_mfi);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_LIB, "Error scanning metadata for '%s'\n", path);
+      return;
+    }
+
+  if (stamp)
+    mfi->id = id;
+
   if (data_kind == DATA_KIND_HTTP)
     {
       snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi->title);
@@ -481,10 +516,50 @@ library_process_media(const char *path, time_t mtime, off_t size, enum data_kind
     db_file_add(mfi);
   else
     db_file_update(mfi);
+}
 
- out:
-  if (!external_mfi)
-    free_mfi(mfi, 0);
+static enum data_kind
+parse_data_kind(const char *path)
+{
+  if (strncmp(path, "http:", strlen("http:")) == 0)
+    {
+      return DATA_KIND_HTTP;
+    }
+  else if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
+    {
+      return DATA_KIND_SPOTIFY;
+    }
+  else if (strncmp(path, "/", strlen("/")) == 0)
+    {
+      return DATA_KIND_FILE;
+    }
+
+  return 0;
+}
+
+struct media_file_info *
+library_scan_media(const char *path)
+{
+  struct media_file_info *mfi;
+  enum data_kind data_kind;
+
+  data_kind = parse_data_kind(path);
+  if (!data_kind)
+    {
+      DPRINTF(E_LOG, L_LIB, "Could not determine data kind for path '%s'\n", path);
+      return NULL;
+    }
+
+  mfi = scan_media(path, 0, 0, data_kind, 0, false, NULL);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_LIB, "Unable to scan metadata for path '%s'\n", path);
+      return NULL;
+    }
+
+  mfi->virtual_path = strdup(path);
+
+  return mfi;
 }
 
 int
@@ -553,6 +628,38 @@ library_add_playlist_info(const char *path, const char *title, const char *virtu
 
   free_pli(pli, 0);
   return plid;
+}
+
+int
+library_add_queue_item(struct media_file_info* mfi)
+{
+  struct db_queue_item queue_item;
+
+  memset(&queue_item, 0, sizeof(struct db_queue_item));
+
+  if (mfi->id)
+    queue_item.file_id = mfi->id;
+  else
+    queue_item.file_id = 9999999;
+
+  queue_item.title = mfi->title;
+  queue_item.artist = mfi->artist;
+  queue_item.album_artist = mfi->album_artist;
+  queue_item.album = mfi->album;
+  queue_item.genre = mfi->genre;
+  queue_item.artist_sort = mfi->artist_sort;
+  queue_item.album_artist_sort = mfi->album_artist_sort;
+  queue_item.album_sort = mfi->album_sort;
+  queue_item.path = mfi->path;
+  queue_item.virtual_path = mfi->virtual_path;
+  queue_item.data_kind = mfi->data_kind;
+  queue_item.media_kind = mfi->media_kind;
+
+#ifdef HAVE_SPOTIFY_H
+  if (mfi->data_kind == DATA_KIND_SPOTIFY && !mfi->id)
+    spotify_uri_register(mfi->path);
+#endif
+  return db_queue_add_item(&queue_item, 0, 0);
 }
 
 static void

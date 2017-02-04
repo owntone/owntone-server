@@ -1546,6 +1546,7 @@ mpd_queue_add(char *path, int recursive)
 static int
 mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  struct media_file_info *mfi;
   int ret;
 
   if (argc < 2)
@@ -1566,6 +1567,22 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
+  if (ret == 0)
+    {
+      // Given path is not in the library, directly add it as a new queue item
+      mfi = library_scan_media(argv[1]);
+      if (!mfi)
+	{
+	  ret = asprintf(errmsg, "Failed to add song '%s' to playlist (unkown path)", argv[1]);
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_UNKNOWN;
+	}
+
+      library_add_queue_item(mfi);
+      free_mfi(mfi, 0);
+    }
+
   return 0;
 }
 
@@ -1578,6 +1595,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  struct media_file_info *mfi;
   int ret;
 
   if (argc < 2)
@@ -1595,6 +1613,22 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   ret = mpd_queue_add(argv[1], 0);
+
+  if (ret == 0)
+    {
+      // Given path is not in the library, directly add it as a new queue item
+      mfi = library_scan_media(argv[1]);
+      if (!mfi)
+	{
+	  ret = asprintf(errmsg, "Failed to add song '%s' to playlist (unkown path)", argv[1]);
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_UNKNOWN;
+	}
+
+      ret = library_add_queue_item(mfi);
+      free_mfi(mfi, 0);
+    }
 
   if (ret < 0)
     {

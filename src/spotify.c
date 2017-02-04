@@ -698,7 +698,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
 
 //  DPRINTF(E_DBG, L_SPOTIFY, "Saving track '%s': '%s' by %s (%s)\n", url, mfi.title, mfi.artist, mfi.album);
 
-  library_process_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, false, &mfi, dir_id);
+  library_add_media(url, time(NULL), 0, DATA_KIND_SPOTIFY, 0, false, &mfi, dir_id);
 
   free_mfi(&mfi, 1);
 
@@ -1911,7 +1911,7 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
   return;
 }
 
-static void
+void
 spotify_uri_register(const char *uri)
 {
   char *tmp;
@@ -2049,7 +2049,7 @@ scan_saved_albums()
 		  map_track_to_mfi(&track, &mfi);
 		  map_album_to_mfi(&album, &mfi);
 
-		  library_process_media(track.uri, album.mtime, 0, DATA_KIND_SPOTIFY, 0, album.is_compilation, &mfi, dir_id);
+		  library_add_media(track.uri, album.mtime, 0, DATA_KIND_SPOTIFY, 0, album.is_compilation, &mfi, dir_id);
 		  spotify_uri_register(track.uri);
 
 		  cache_artwork_ping(track.uri, album.mtime, 0);
@@ -2115,7 +2115,7 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 		  mfi.album = strdup(playlist->name);
 		}
 
-	      library_process_media(track.uri, 1 /* TODO passing one prevents overwriting existing entries */, 0, DATA_KIND_SPOTIFY, 0, track.is_compilation, &mfi, dir_id);
+	      library_add_media(track.uri, 1 /* TODO passing one prevents overwriting existing entries */, 0, DATA_KIND_SPOTIFY, 0, track.is_compilation, &mfi, dir_id);
 	      spotify_uri_register(track.uri);
 
 	      cache_artwork_ping(track.uri, 1, 0);
@@ -2234,6 +2234,30 @@ scan_playlist(const char *uri)
   spotifywebapi_request_end(&request);
 
   return 0;
+}
+
+int
+scan_metadata_spotify(const char *uri, struct media_file_info *mfi)
+{
+  struct spotify_request request;
+  struct spotify_track track;
+  int ret;
+
+  memset(&request, 0, sizeof(struct spotify_request));
+
+  ret = spotifywebapi_track_start(&request, uri, &track);
+  if (ret == 0)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Got track: '%s' (%s) \n", track.name, track.uri);
+
+      map_track_to_mfi(&track, mfi);
+
+      spotify_uri_register(uri);
+    }
+
+  spotifywebapi_request_end(&request);
+
+  return ret;
 }
 
 static void
