@@ -1099,6 +1099,17 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	    }
 	}
     }
+  else
+    {
+      queue_item = db_queue_fetch_bypos(pos, status.shuffle);
+      if (!queue_item)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Could not fetch item from queue: pos=%d\n", pos);
+
+	  dmap_send_error(req, "cacr", "Playback failed to start");
+	  return;
+	}
+    }
 
   ret = player_playback_start_byitem(queue_item);
   free_queue_item(queue_item, 0);
