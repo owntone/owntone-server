@@ -4904,47 +4904,38 @@ db_queue_delete_byitemid(uint32_t item_id)
 int
 db_queue_delete_bypos(uint32_t pos, int count)
 {
-  struct query_params query_params;
-  struct db_queue_item queue_item;
+  char *query;
   int to_pos;
   int ret;
 
-  // Find items with the given position
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  to_pos = pos + count;
-  query_params.filter = sqlite3_mprintf("pos >= %d AND pos < %d", pos, to_pos);
-
   db_transaction_begin();
 
-  ret = queue_enum_start(&query_params);
-  if (ret < 0)
-    {
-      return -1;
-    }
-
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
-    {
-      ret = queue_delete_item(&queue_item);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.id);
-	  break;
-	}
-    }
-
-  db_query_end(&query_params);
-  sqlite3_free(query_params.filter);
-
+  // Remove item with the given item_id
+  to_pos = pos + count;
+  query = sqlite3_mprintf("DELETE FROM queue where pos >= %d AND pos < %d;", pos, to_pos);
+  ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
       db_transaction_rollback();
+      return -1;
     }
-  else
+
+  ret = queue_fix_pos(S_POS);
+  if (ret < 0)
     {
-      db_transaction_end();
-      queue_inc_version_and_notify();
+      db_transaction_rollback();
+      return -1;
     }
+
+  ret = queue_fix_pos(S_SHUFFLE_POS);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  db_transaction_end();
+  queue_inc_version_and_notify();
 
   return ret;
 }
