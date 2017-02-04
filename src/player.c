@@ -1929,6 +1929,8 @@ playback_start_item(void *arg, int *retval)
 
   if (player_state == PLAY_PLAYING)
     {
+      DPRINTF(E_DBG, L_PLAYER, "Player is already playing, ignoring call to playback start\n");
+
       status_update(player_state);
 
       *retval = 1; // Value greater 0 will prevent execution of the bottom half function
@@ -1940,6 +1942,8 @@ playback_start_item(void *arg, int *retval)
 
   if (player_state == PLAY_STOPPED && !queue_item)
     {
+      DPRINTF(E_LOG, L_PLAYER, "Failed to start/resume playback, no queue item given\n");
+
       *retval = -1;
       return COMMAND_END;
     }
