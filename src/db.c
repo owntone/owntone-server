@@ -4711,6 +4711,53 @@ db_queue_fetch_prev(uint32_t item_id, char shuffle)
   return db_queue_fetch_byposrelativetoitem(-1, item_id, shuffle);
 }
 
+static int
+queue_fix_pos(enum sort_type sort)
+{
+#define Q_TMPL "UPDATE queue SET %q = %d WHERE id = %d;"
+
+  struct query_params query_params;
+  struct db_queue_item queue_item;
+  char *query;
+  int pos;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+  query_params.sort = sort;
+
+  ret = queue_enum_start(&query_params);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  pos = 0;
+  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
+    {
+      if (queue_item.pos != pos)
+        {
+	  if (sort == S_SHUFFLE_POS)
+	    query = sqlite3_mprintf(Q_TMPL, "shuffle_pos", pos, queue_item.id);
+	  else
+	    query = sqlite3_mprintf(Q_TMPL, "pos", pos, queue_item.id);
+
+	  ret = db_query_run(query, 1, 0);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
+	      break;
+	    }
+	}
+
+      pos++;
+    }
+
+  db_query_end(&query_params);
+  return ret;
+
+#undef Q_TMPL
+}
+
 /*
  * Remove files that are disabled or non existant in the library and repair ordering of
  * the queue (shuffle and normal)
@@ -4719,13 +4766,7 @@ int
 db_queue_cleanup()
 {
 #define Q_TMPL "DELETE FROM queue WHERE NOT file_id IN (SELECT id from files WHERE disabled = 0);"
-#define Q_TMPL_UPDATE "UPDATE queue SET pos = %d WHERE id = %d;"
-#define Q_TMPL_UPDATE_SHUFFLE "UPDATE queue SET shuffle_pos = %d WHERE id = %d;"
 
-  struct query_params query_params;
-  struct db_queue_item queue_item;
-  char *query;
-  int pos;
   int deleted;
   int ret;
 
@@ -4747,34 +4788,7 @@ db_queue_cleanup()
     }
 
   // Update position of normal queue
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  ret = queue_enum_start(&query_params);
-  if (ret < 0)
-    {
-      db_transaction_rollback();
-      return -1;
-    }
-
-  pos = 0;
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
-    {
-      if (queue_item.pos != pos)
-	{
-	  query = sqlite3_mprintf(Q_TMPL_UPDATE, pos, queue_item.id);
-	  ret = db_query_run(query, 1, 0);
-	  if (ret < 0)
-	  {
-	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
-	    break;
-	  }
-	}
-
-      pos++;
-    }
-
-  db_query_end(&query_params);
-
+  ret = queue_fix_pos(S_POS);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -4782,35 +4796,7 @@ db_queue_cleanup()
     }
 
   // Update position of shuffle queue
-  memset(&query_params, 0, sizeof(struct query_params));
-  query_params.sort = S_SHUFFLE_POS;
-
-  ret = queue_enum_start(&query_params);
-  if (ret < 0)
-    {
-      db_transaction_rollback();
-      return -1;
-    }
-
-  pos = 0;
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
-    {
-      if (queue_item.shuffle_pos != pos)
-	{
-	  query = sqlite3_mprintf(Q_TMPL_UPDATE_SHUFFLE, pos, queue_item.id);
-	  ret = db_query_run(query, 1, 0);
-	  if (ret < 0)
-	  {
-	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
-	    break;
-	  }
-	}
-
-      pos++;
-    }
-
-  db_query_end(&query_params);
-
+  ret = queue_fix_pos(S_SHUFFLE_POS);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -4822,8 +4808,6 @@ db_queue_cleanup()
 
   return 0;
 
-#undef Q_TMPL_UPDATE_SHUFFLE
-#undef Q_TMPL_UPDATE
 #undef Q_TMPL
 }
 
