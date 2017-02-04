@@ -4929,7 +4929,7 @@ db_queue_delete_bypos(uint32_t pos, int count)
   memset(&query_params, 0, sizeof(struct query_params));
 
   to_pos = pos + count;
-  query_params.filter = sqlite3_mprintf("pos => %d AND pos < %d", pos, to_pos);
+  query_params.filter = sqlite3_mprintf("pos >= %d AND pos < %d", pos, to_pos);
 
   db_transaction_begin();
 
