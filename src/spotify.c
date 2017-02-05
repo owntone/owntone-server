@@ -2029,7 +2029,7 @@ scan_saved_albums()
   count = 0;
   memset(&request, 0, sizeof(struct spotify_request));
 
-  while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_ALBUMS))
+  while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_ALBUMS, false))
     {
       while (0 == spotifywebapi_saved_albums_fetch(&request, &jsontracks, &track_count, &album))
 	{
@@ -2092,7 +2092,7 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
   artist_override = cfg_getbool(spotify_cfg, "artist_override");
   album_override = cfg_getbool(spotify_cfg, "album_override");
 
-  while (0 == spotifywebapi_request_next(&request, playlist->tracks_href))
+  while (0 == spotifywebapi_request_next(&request, playlist->tracks_href, true))
     {
       db_transaction_begin();
 
@@ -2101,8 +2101,17 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist track: '%s' (%s) \n", track.name, track.uri);
 
+	  if (!track.is_playable)
+	    {
+	      DPRINTF(E_LOG, L_SPOTIFY, "Track not available for playback: '%s' - '%s' (%s) (restrictions: %s)\n", track.artist, track.name, track.uri, track.restrictions);
+	      continue;
+	    }
+
 	  if (track.uri)
 	    {
+	      if (track.linked_from_uri)
+		DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) linked from %s\n", track.name, track.uri, track.linked_from_uri);
+
 	      dir_id = prepare_directories(track.album_artist, track.album);
 
 	      memset(&mfi, 0, sizeof(struct media_file_info));
@@ -2149,7 +2158,7 @@ scan_playlists()
   trackcount = 0;
   memset(&request, 0, sizeof(struct spotify_request));
 
-  while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_PLAYLISTS))
+  while (0 == spotifywebapi_request_next(&request, SPOTIFY_WEBAPI_SAVED_PLAYLISTS, false))
     {
       while (0 == spotifywebapi_playlists_fetch(&request, &playlist))
 	{
