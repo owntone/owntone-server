@@ -1868,13 +1868,6 @@ playback_start_bh(void *arg, int *retval)
 {
   int ret;
 
-  if (output_sessions == 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Cannot start playback: no output started\n");
-
-      goto out_fail;
-    }
-
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, &pb_pos_stamp, &timer_res);
   if (ret < 0)
     {
@@ -2037,16 +2030,6 @@ playback_start_item(void *arg, int *retval)
 	(*retval)++;
 	break;
       }
-
-  /* No luck finding valid output */
-  if ((*retval == 0) && (output_sessions == 0))
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
-
-      playback_abort();
-      *retval = -1;
-      return COMMAND_END;
-    }
 
   /* We're async if we need to start devices */
   if (*retval > 0)
