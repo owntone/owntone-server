@@ -640,6 +640,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
   int ret;
   int dir_id;
 
+  memset(&mfi, 0, sizeof(struct media_file_info));
 
   if (!fptr_sp_track_is_loaded(track))
     {
@@ -674,26 +675,22 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Could not save playlist item: '%s'\n", url);
-	  return -1;
+	  goto fail;
 	}
     }
-
-  memset(&mfi, 0, sizeof(struct media_file_info));
 
   ret = spotify_metadata_get(track, &mfi, pltitle, time_added);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Metadata missing (but track should be loaded?): '%s'\n", fptr_sp_track_name(track));
-      free_mfi(&mfi, 1);
-      return -1;
+      goto fail;
     }
 
   dir_id = prepare_directories(mfi.artist, mfi.album);
   if (dir_id <= 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory for item: '%s'\n", url);
-      free_mfi(&mfi, 1);
-      return -1;
+      goto fail;
     }
 
 //  DPRINTF(E_DBG, L_SPOTIFY, "Saving track '%s': '%s' by %s (%s)\n", url, mfi.title, mfi.artist, mfi.album);
@@ -703,6 +700,10 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
   free_mfi(&mfi, 1);
 
   return 0;
+
+ fail:
+  free_mfi(&mfi, 1);
+  return -1;
 }
 
 static int
@@ -1333,6 +1334,8 @@ artwork_get_bh(void *arg, int *retval)
   sp_image *image = artwork->image;
   char *path = artwork->path;
 
+  fptr_sp_image_remove_load_callback(image, artwork_loaded_cb, artwork);
+
   err = fptr_sp_image_error(image);
   if (err != SP_ERROR_OK)
     {
@@ -1829,7 +1832,6 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   struct artwork_get_param artwork;
   struct timespec ts;
   int ret;
-  int err;
 
   artwork.evbuf  = evbuf;
   artwork.path = path;
@@ -1846,8 +1848,10 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
     {
       CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&artwork.mutex));
       ts = timespec_reltoabs(spotify_artwork_timeout);
-      if (!artwork.is_loaded)
-	CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts), err, ETIMEDOUT);
+      while ((!artwork.is_loaded) && (ret != ETIMEDOUT))
+	CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts), ret, ETIMEDOUT);
+      if (ret == ETIMEDOUT)
+	DPRINTF(E_LOG, L_SPOTIFY, "Timeout waiting for artwork from Spotify\n");
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&artwork.mutex));
 
       ret = commands_exec_sync(cmdbase, artwork_get_bh, NULL, &artwork);
