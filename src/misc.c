@@ -34,6 +34,9 @@
 #include <stdint.h>
 #include <limits.h>
 #include <sys/param.h>
+#ifndef CLOCK_REALTIME
+#include <sys/time.h>
+#endif
 
 #include <unistr.h>
 #include <uniconv.h>
@@ -954,7 +957,7 @@ timespec_reltoabs(struct timespec relative)
 {
   struct timespec absolute;
 
-#if _POSIX_TIMERS > 0
+#ifdef CLOCK_REALTIME
   clock_gettime(CLOCK_REALTIME, &absolute);
 #else
   struct timeval tv;
