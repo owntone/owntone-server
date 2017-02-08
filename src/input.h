@@ -65,7 +65,13 @@ struct player_source
      end of file, until then it is 0. */
   uint64_t end;
 
-  struct transcode_ctx *xcode;
+  /* Opaque pointer to data that the input sets up when called with setup(), and
+   * which is cleaned up by the input with stop()
+   */
+  void *input_ctx;
+
+  /* Input has completed setup of the source
+   */
   int setup_done;
 
   struct player_source *play_next;

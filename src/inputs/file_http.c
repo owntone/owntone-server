@@ -31,8 +31,8 @@
 static int
 setup(struct player_source *ps)
 {
-  ps->xcode = transcode_setup(ps->data_kind, ps->path, ps->len_ms, XCODE_PCM16_NOHEADER, NULL);
-  if (!ps->xcode)
+  ps->input_ctx = transcode_setup(ps->data_kind, ps->path, ps->len_ms, XCODE_PCM16_NOHEADER, NULL);
+  if (!ps->input_ctx)
     return -1;
 
   ps->setup_done = 1;
@@ -70,7 +70,7 @@ start(struct player_source *ps)
     {
       // We set "wanted" to 1 because the read size doesn't matter to us
       // TODO optimize?
-      ret = transcode(evbuf, 1, ps->xcode, &icy_timer);
+      ret = transcode(evbuf, 1, ps->input_ctx, &icy_timer);
       if (ret < 0)
 	break;
 
@@ -90,9 +90,9 @@ start(struct player_source *ps)
 static int
 stop(struct player_source *ps)
 {
-  transcode_cleanup(ps->xcode);
+  transcode_cleanup(ps->input_ctx);
 
-  ps->xcode = NULL;
+  ps->input_ctx = NULL;
   ps->setup_done = 0;
 
   return 0;
@@ -101,7 +101,7 @@ stop(struct player_source *ps)
 static int
 seek(struct player_source *ps, int seek_ms)
 {
-  return transcode_seek(ps->xcode, seek_ms);
+  return transcode_seek(ps->input_ctx, seek_ms);
 }
 
 static int
@@ -110,7 +110,7 @@ metadata_get_http(struct input_metadata *metadata, struct player_source *ps, uin
   struct http_icy_metadata *m;
   int changed;
 
-  m = transcode_metadata(ps->xcode, &changed);
+  m = transcode_metadata(ps->input_ctx, &changed);
   if (!m)
     return -1;
 
