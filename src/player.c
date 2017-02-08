@@ -2058,20 +2058,46 @@ playback_start_item(void *arg, int *retval)
 }
 
 static enum command_state
+playback_start_id(void *arg, int *retval)
+{
+  struct db_queue_item *queue_item = NULL;
+  union player_arg *cmdarg = arg;
+  enum command_state cmd_state;
+  int ret;
+
+  *retval = -1;
+
+  if (player_state == PLAY_STOPPED)
+    {
+      db_queue_clear();
+
+      ret = db_queue_add_by_fileid(cmdarg->id, 0, 0);
+      if (ret < 0)
+	return COMMAND_END;
+
+      queue_item = db_queue_fetch_byfileid(cmdarg->id);
+      if (!queue_item)
+	return COMMAND_END;
+    }
+
+  cmd_state = playback_start_item(queue_item, retval);
+  return cmd_state;
+}
+
+static enum command_state
 playback_start(void *arg, int *retval)
 {
   struct db_queue_item *queue_item = NULL;
   enum command_state cmd_state;
+
+  *retval = -1;
 
   if (player_state == PLAY_STOPPED)
     {
       // Start playback of first item in queue
       queue_item = db_queue_fetch_bypos(0, shuffle);
       if (!queue_item)
-	{
-	  *retval = -1;
-	  return COMMAND_END;
-	}
+	return COMMAND_END;
     }
 
   cmd_state = playback_start_item(queue_item, retval);
@@ -2778,6 +2804,18 @@ player_playback_start_byitem(struct db_queue_item *queue_item)
   int ret;
 
   ret = commands_exec_sync(cmdbase, playback_start_item, playback_start_bh, queue_item);
+  return ret;
+}
+
+int
+player_playback_start_byid(uint32_t id)
+{
+  union player_arg cmdarg;
+  int ret;
+
+  cmdarg.id = id;
+
+  ret = commands_exec_sync(cmdbase, playback_start_id, playback_start_bh, &cmdarg);
   return ret;
 }
 

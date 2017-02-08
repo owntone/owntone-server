@@ -93,6 +93,9 @@ int
 player_playback_start_byitem(struct db_queue_item *queue_item);
 
 int
+player_playback_start_byid(uint32_t id);
+
+int
 player_playback_stop(void);
 
 int
