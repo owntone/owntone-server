@@ -1229,6 +1229,7 @@ static void
 cast_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
   struct output_device *device;
+  const char *friendly_name;
   uint32_t id;
 
   id = djb_hash(name, strlen(name));
@@ -1237,6 +1238,10 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
       DPRINTF(E_LOG, L_CAST, "Could not hash ChromeCast device name (%s)\n", name);
       return;
     }
+
+  friendly_name = keyval_get(txt, "fn");
+  if (friendly_name)
+    name = friendly_name;
 
   DPRINTF(E_DBG, L_CAST, "Event for Chromecast device '%s' (port %d, id %" PRIu32 ")\n", name, port, id);
 
