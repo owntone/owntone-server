@@ -84,6 +84,12 @@ struct pipe
   struct pipe *next;
 };
 
+union pipe_arg
+{
+  uint32_t id;
+  struct pipe *pipelist;
+};
+
 // The usual thread stuff
 static pthread_t tid_pipe;
 static struct event_base *evbase_pipe;
@@ -472,12 +478,12 @@ pipe_read_cb(evutil_socket_t fd, short event, void *arg)
 static enum command_state
 pipe_watch_reset(void *arg, int *retval)
 {
-  int *id = arg;
+  union pipe_arg *cmdarg = arg;
   struct pipe *pipe;
 
   pipe_autostart_id = 0;
 
-  pipe = pipelist_find(pipe_watch_list, *id);
+  pipe = pipelist_find(pipe_watch_list, cmdarg->id);
 
   *retval = watch_reset(pipe);
 
@@ -487,10 +493,14 @@ pipe_watch_reset(void *arg, int *retval)
 static enum command_state
 pipe_watch_update(void *arg, int *retval)
 {
-  struct pipe *pipelist = arg;
+  union pipe_arg *cmdarg = arg;
+  struct pipe *pipelist = NULL;
   struct pipe *pipe;
   struct pipe *next;
   int count;
+
+  if (cmdarg)
+    pipelist = cmdarg->pipelist;
 
   count = 0;
   for (pipe = pipe_watch_list; pipe; pipe = next)
@@ -499,7 +509,7 @@ pipe_watch_update(void *arg, int *retval)
 
       if (!pipelist_find(pipelist, pipe->id))
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Pipe deleted: '%s'\n", pipe->path);
+	  DPRINTF(E_DBG, L_PLAYER, "Pipe watch deleted: '%s'\n", pipe->path);
 	  watch_del(pipe);
 	  pipelist_remove(&pipe_watch_list, pipe); // Will free pipe
 	  continue;
@@ -518,13 +528,13 @@ pipe_watch_update(void *arg, int *retval)
 	  break;
 	}
 
-      DPRINTF(E_DBG, L_PLAYER, "Pipe added: '%s'\n", pipe->path);
+      DPRINTF(E_DBG, L_PLAYER, "Pipe watch added: '%s'\n", pipe->path);
       watch_add(pipe);
       pipelist_add(&pipe_watch_list, pipe);
     }
 
   *retval = 0;
-  return COMMAND_PENDING; // Stops commands.c from freeing any of the pipes
+  return COMMAND_END;
 }
 
 static void *
@@ -700,6 +710,7 @@ pipelist_create(void)
 static void
 pipe_listener_cb(enum listener_event_type type)
 {
+  union pipe_arg *cmdarg;
   struct pipe *pipelist;
 
   pipelist = pipelist_create();
@@ -712,7 +723,10 @@ pipe_listener_cb(enum listener_event_type type)
   if (!tid_pipe)
     pipe_thread_start();
 
-  commands_exec_async(cmdbase, pipe_watch_update, pipelist);
+  CHECK_NULL(L_PLAYER, cmdarg = malloc(sizeof(union pipe_arg)));
+
+  cmdarg->pipelist = pipelist;
+  commands_exec_async(cmdbase, pipe_watch_update, cmdarg);
 }
 
 
@@ -793,7 +807,7 @@ static int
 stop(struct player_source *ps)
 {
   struct pipe *pipe = ps->input_ctx;
-  int *id;
+  union pipe_arg *cmdarg;
 
   DPRINTF(E_DBG, L_PLAYER, "Stopping pipe\n");
 
@@ -803,9 +817,9 @@ stop(struct player_source *ps)
   // we will deadlock from the stop in pipe_read_cb().
   if (pipe_autostart)
     {
-      id = malloc(sizeof(int));
-      *id = pipe->id;
-      commands_exec_async(cmdbase, pipe_watch_reset, id);
+      CHECK_NULL(L_PLAYER, cmdarg = malloc(sizeof(union pipe_arg)));
+      cmdarg->id = pipe->id;
+      commands_exec_async(cmdbase, pipe_watch_reset, cmdarg);
     }
 
   if (pipe_metadata)
