@@ -711,21 +711,22 @@ static void
 pipe_listener_cb(enum listener_event_type type)
 {
   union pipe_arg *cmdarg;
-  struct pipe *pipelist;
 
-  pipelist = pipelist_create();
-  if (!pipelist)
+  cmdarg = malloc(sizeof(union pipe_arg));
+  if (!cmdarg)
+    return;
+
+  cmdarg->pipelist = pipelist_create();
+  if (!cmdarg->pipelist)
     {
       pipe_thread_stop();
+      free(cmdarg);
       return;
     }
 
   if (!tid_pipe)
     pipe_thread_start();
 
-  CHECK_NULL(L_PLAYER, cmdarg = malloc(sizeof(union pipe_arg)));
-
-  cmdarg->pipelist = pipelist;
   commands_exec_async(cmdbase, pipe_watch_update, cmdarg);
 }
 
@@ -815,9 +816,8 @@ stop(struct player_source *ps)
 
   // Reset the pipe and start watching it again for new data. Must be async or
   // we will deadlock from the stop in pipe_read_cb().
-  if (pipe_autostart)
+  if (pipe_autostart && (cmdarg = malloc(sizeof(union pipe_arg))))
     {
-      CHECK_NULL(L_PLAYER, cmdarg = malloc(sizeof(union pipe_arg)));
       cmdarg->id = pipe->id;
       commands_exec_async(cmdbase, pipe_watch_reset, cmdarg);
     }
