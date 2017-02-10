@@ -801,10 +801,12 @@ stop(struct player_source *ps)
 
   // Reset the pipe and start watching it again for new data. Must be async or
   // we will deadlock from the stop in pipe_read_cb().
-  id = malloc(sizeof(int));
-  *id = pipe->id;
   if (pipe_autostart)
-    commands_exec_async(cmdbase, pipe_watch_reset, id);
+    {
+      id = malloc(sizeof(int));
+      *id = pipe->id;
+      commands_exec_async(cmdbase, pipe_watch_reset, id);
+    }
 
   if (pipe_metadata)
     worker_execute(pipe_metadata_watch_del, NULL, 0, 0);
