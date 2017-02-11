@@ -1626,7 +1626,7 @@ mpd_command_clear(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       DPRINTF(E_DBG, L_MPD, "Failed to stop playback\n");
     }
 
-  db_queue_clear();
+  db_queue_clear(0);
 
   return 0;
 }
@@ -1648,7 +1648,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   // If argv[1] is ommited clear the whole queue
   if (argc < 2)
     {
-      db_queue_clear();
+      db_queue_clear(0);
       return 0;
     }
 

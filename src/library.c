@@ -613,7 +613,7 @@ fullrescan(void *arg, int *ret)
   starttime = time(NULL);
 
   player_playback_stop();
-  db_queue_clear();
+  db_queue_clear(0);
   db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
 
   for (i = 0; sources[i]; i++)
@@ -696,7 +696,7 @@ initscan()
   clear_queue_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
   if (!clear_queue_disabled)
     {
-      db_queue_clear();
+      db_queue_clear(0);
     }
 
   for (i = 0; sources[i]; i++)

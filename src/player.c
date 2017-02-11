@@ -1696,7 +1696,7 @@ playback_abort(void)
   source_stop();
 
   if (!clear_queue_on_stop_disabled)
-    db_queue_clear();
+    db_queue_clear(0);
 
   status_update(PLAY_STOPPED);
 
@@ -2052,7 +2052,7 @@ playback_start_id(void *arg, int *retval)
 
   if (player_state == PLAY_STOPPED)
     {
-      db_queue_clear();
+      db_queue_clear(0);
 
       ret = db_queue_add_by_fileid(cmdarg->id, 0, 0);
       if (ret < 0)
