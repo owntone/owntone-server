@@ -4811,23 +4811,42 @@ db_queue_cleanup()
 #undef Q_TMPL
 }
 
+/*
+ * Removes all items from the queue except the item give by 'keep_item_id' (if 'keep_item_id' > 0).
+ *
+ * @param keep_item_id item-id (e. g. the now playing item) to be left in the queue
+ */
 int
-db_queue_clear()
+db_queue_clear(uint32_t keep_item_id)
 {
+  char *query;
   int ret;
 
+  query = sqlite3_mprintf("DELETE FROM queue where id <> %d;", keep_item_id);
+
   db_transaction_begin();
-  ret = db_query_run("DELETE FROM queue;", 0, 0);
+  ret = db_query_run(query, 1, 0);
 
   if (ret < 0)
     {
       db_transaction_rollback();
+      return ret;
     }
-  else
+
+  if (keep_item_id)
     {
-      db_transaction_end();
-      queue_inc_version_and_notify();
+      query = sqlite3_mprintf("UPDATE queue SET pos = 0 AND shuffle_pos = 0 where id = %d;", keep_item_id);
+      ret = db_query_run(query, 1, 0);
     }
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return ret;
+    }
+
+  db_transaction_end();
+  queue_inc_version_and_notify();
   return ret;
 }
 

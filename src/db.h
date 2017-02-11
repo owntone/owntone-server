@@ -735,7 +735,7 @@ int
 db_queue_cleanup();
 
 int
-db_queue_clear();
+db_queue_clear(uint32_t keep_item_id);
 
 int
 db_queue_delete_byitemid(uint32_t item_id);
