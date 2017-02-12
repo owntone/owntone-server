@@ -519,18 +519,21 @@ pipe_watch_update(void *arg, int *retval)
       pipelist_remove(&pipelist, pipe);
     }
 
-  for (pipe = pipelist; pipe; pipe = pipe->next)
+  for (pipe = pipelist; pipe; pipe = next)
     {
+      next = pipe->next;
+
       count++;
       if (count > PIPE_MAX_WATCH)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Max open pipes reached, will not watch %s\n", pipe->path);
-	  break;
+	  DPRINTF(E_LOG, L_PLAYER, "Max open pipes reached (%d), will not watch '%s'\n", PIPE_MAX_WATCH, pipe->path);
+	  pipelist_remove(&pipelist, pipe);
+	  continue;
 	}
 
       DPRINTF(E_DBG, L_PLAYER, "Pipe watch added: '%s'\n", pipe->path);
       watch_add(pipe);
-      pipelist_add(&pipe_watch_list, pipe);
+      pipelist_add(&pipe_watch_list, pipe); // Changes pipe->next
     }
 
   *retval = 0;

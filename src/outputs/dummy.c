@@ -266,7 +266,7 @@ dummy_init(void)
     }
 
   device->id = 0;
-  device->name = nickname;
+  device->name = strdup(nickname);
   device->type = OUTPUT_TYPE_DUMMY;
   device->type_name = outputs_name(device->type);
   device->advertised = 1;

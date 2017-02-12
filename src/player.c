@@ -2064,6 +2064,9 @@ playback_start_id(void *arg, int *retval)
     }
 
   cmd_state = playback_start_item(queue_item, retval);
+
+  free_queue_item(queue_item, 0);
+
   return cmd_state;
 }
 
@@ -2084,6 +2087,9 @@ playback_start(void *arg, int *retval)
     }
 
   cmd_state = playback_start_item(queue_item, retval);
+
+  free_queue_item(queue_item, 0);
+
   return cmd_state;
 }
 
@@ -3208,6 +3214,10 @@ player_deinit(void)
   timer_delete(pb_timer);
 #endif
 
+  input_deinit();
+
+  outputs_deinit();
+
   player_exit = 1;
   commands_base_destroy(cmdbase);
 
@@ -3218,10 +3228,6 @@ player_deinit(void)
 
       return;
     }
-
-  input_deinit();
-
-  outputs_deinit();
 
   free(history);
 

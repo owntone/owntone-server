@@ -56,7 +56,7 @@ char *
 httpd_fixup_uri(struct evhttp_request *req);
 
 int
-httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *realm);
+httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);
 
 int
 httpd_init(void);
