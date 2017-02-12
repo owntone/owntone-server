@@ -711,7 +711,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
   mfi.virtual_path = strdup(virtual_path);
   mfi.directory_id = dir_id;
 
-  library_process_media(&mfi);
+  library_add_media(&mfi);
 
   free_mfi(&mfi, 1);
 
@@ -2094,7 +2094,7 @@ scan_saved_albums()
 		      mfi.virtual_path = strdup(virtual_path);
 		      mfi.directory_id = dir_id;
 
-		      library_process_media(&mfi);
+		      library_add_media(&mfi);
 
 		      free_mfi(&mfi, 1);
 		    }
@@ -2190,7 +2190,7 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 	      mfi.virtual_path = strdup(virtual_path);
 	      mfi.directory_id = dir_id;
 
-	      library_process_media(&mfi);
+	      library_add_media(&mfi);
 
 	      spotify_uri_register(track.uri);
 

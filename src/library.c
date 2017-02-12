@@ -344,7 +344,7 @@ fixup_tags(struct media_file_info *mfi)
 }
 
 void
-library_process_media(struct media_file_info *mfi)
+library_add_media(struct media_file_info *mfi)
 {
   if (!mfi->path || !mfi->fname || !mfi->data_kind)
     {

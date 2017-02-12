@@ -456,7 +456,7 @@ process_regular_file(char *file, struct stat *sb, int type, int flags, int dir_i
 	}
     }
 
-  library_process_media(&mfi);
+  library_add_media(&mfi);
 
   cache_artwork_ping(file, sb->st_mtime, !is_bulkscan);
   // TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
