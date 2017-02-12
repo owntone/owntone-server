@@ -267,7 +267,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 
 	  snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi.title); //TODO can title be null at this point?
 	  mfi.virtual_path = strdup(virtual_path);
-	  library_process_media(&mfi);
+	  library_add_media(&mfi);
 	}
       /* Regular file, should already be in library */
       else
