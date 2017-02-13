@@ -1471,6 +1471,8 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
 	if ((ret < 0) || (wanted_state >= CAST_STATE_MEDIA_LAUNCHED))
 	  break;
 
+	/* FALLTHROUGH */
+
       case CAST_STATE_MEDIA_LAUNCHED:
 	ret = cast_msg_send(cs, STOP, cast_cb_stop);
 	pending = 1;

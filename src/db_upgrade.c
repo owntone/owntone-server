@@ -1664,10 +1664,14 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       if (ret < 0)
 	return -1;
 
+      /* FALLTHROUGH */
+
     case 1901:
       ret = db_generic_upgrade(hdl, db_upgrade_v1902_queries, sizeof(db_upgrade_v1902_queries) / sizeof(db_upgrade_v1902_queries[0]));
       if (ret < 0)
 	return -1;
+
+      /* FALLTHROUGH */
 
     case 1902:
       ret = db_generic_upgrade(hdl, db_upgrade_v1903_queries, sizeof(db_upgrade_v1903_queries) / sizeof(db_upgrade_v1903_queries[0]));

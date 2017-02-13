@@ -808,17 +808,17 @@ murmur_hash64(const void *key, int len, uint32_t seed)
   switch (len & 7)
     {
       case 7:
-	h ^= (uint64_t)(data_tail[6]) << 48;
+	h ^= (uint64_t)(data_tail[6]) << 48; /* FALLTHROUGH */
       case 6:
-	h ^= (uint64_t)(data_tail[5]) << 40;
+	h ^= (uint64_t)(data_tail[5]) << 40; /* FALLTHROUGH */
       case 5:
-	h ^= (uint64_t)(data_tail[4]) << 32;
+	h ^= (uint64_t)(data_tail[4]) << 32; /* FALLTHROUGH */
       case 4:
-	h ^= (uint64_t)(data_tail[3]) << 24;
+	h ^= (uint64_t)(data_tail[3]) << 24; /* FALLTHROUGH */
       case 3:
-	h ^= (uint64_t)(data_tail[2]) << 16;
+	h ^= (uint64_t)(data_tail[2]) << 16; /* FALLTHROUGH */
       case 2:
-	h ^= (uint64_t)(data_tail[1]) << 8;
+	h ^= (uint64_t)(data_tail[1]) << 8; /* FALLTHROUGH */
       case 1:
 	h ^= (uint64_t)(data_tail[0]);
 	h *= m;
