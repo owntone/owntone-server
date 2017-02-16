@@ -139,10 +139,14 @@ EXTRA_DIST = \
 %_hash.h: %.gperf
 	$(AM_V_GEN)$(GPERF) --output-file=$@ $<
 
+# silent rules for antlr
+antlr_verbose = $(antlr_verbose_@AM_V@)
+antlr_verbose_ = $(antlr_verbose_@AM_DEFAULT_V@)
+antlr_verbose_0 = @echo "  GEN     " $< "products";
+
 # ANTLR grammar products
 %.tokens %.c %Lexer.c %Parser.c %Lexer.h %Parser.h %.h: %.g
-	@$(AM_V_P) || echo "  GEN     " $< "products"
-	$(AM_V_at)$(ANTLR) -Xconversiontimeout 30000 $(ANTLR_OPTIONS) -fo . $<
+	$(antlr_verbose)$(ANTLR) -Xconversiontimeout 30000 $(ANTLR_OPTIONS) -fo . $<
 
 # ANTLR dependency files (bypass circular dependency of .g on .tokens)
 %.u: %.g
