@@ -20,13 +20,8 @@
 #ifndef SRC_SPOTIFY_WEBAPI_H_
 #define SRC_SPOTIFY_WEBAPI_H_
 
-
 #include <event2/event.h>
-#ifdef HAVE_JSON_C_OLD
-# include <json/json.h>
-#else
-# include <json-c/json.h>
-#endif
+#include <json.h>
 #include <stdbool.h>
 
 #include "http.h"
