@@ -354,26 +354,32 @@ configuration file a rescan is required before the new setting will take effect.
 Currently, this will not be done automatically, so you need to trigger the
 rescan as described below.
 
+Symlinks are supported and dereferenced, but it is best to use them for
+directories only.
 
-### Symlinks and pipes
 
-Symlinks are supported and dereferenced. This does interact in tricky ways
-with the above monitoring and rescanning, so you've been warned. Changes to
-symlinks themselves won't be taken into account, or not the way you'd expect.
+### Pipes (for e.g. multiroom with Shairport-sync)
 
-If you use symlinks, do not move around the target of the symlink. Avoid
-linking files, as files themselves aren't monitored for changes individually,
-so changes won't be noticed unless the file happens to be in a directory that
-is monitored.
+Some programs, like for instance Shairport-sync, can be configured to output
+audio to a named pipe. If this pipe is placed in the library, forked-daapd will
+automatically detect that it is there, and when there is audio being written to
+it, playback of the audio will be autostarted (and stopped).
 
-Bottom line: symlinks are for directories only.
+Using this feature, forked-daapd can act as an AirPlay multiroom "router": You
+can have an AirPlay source (e.g. your iPhone) send audio Shairport-sync, which
+forwards it to forked-daapd through the pipe, which then plays it on whatever
+speakers you have selected (through Remote).
 
-Pipes made with mkfifo are also supported. This feature can be useful if you
-have a program that can stream PCM16 audio to a pipe. Forked-daapd can then
-forward the audio to one or more AirPlay speakers.
+The format of the audio being written to the pipe must be PCM16.
 
-Pipes have no metadata, so they will be added with "Unknown artist" and "Unknown
-album". The name of the pipe will be used as the track title.
+You can also start playback of pipes manually. You will find them in remotes 
+listed under "Unknown artist" and "Unknown album". The track title will be the
+name of the pipe.
+
+Shairport-sync can write metadata to a pipe, and forked-daapd can read this.
+This requires that the metadata pipe has the same filename as the audio pipe
+plus a ".metadata" suffix. Say Shairport-sync is configured to write audio to
+"/foo/bar/pipe", then the metadata pipe should be "/foo/bar/pipe.metadata".
 
 
 ### Libraries on network mounts

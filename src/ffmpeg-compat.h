@@ -31,7 +31,7 @@
 #endif
 
 #if !HAVE_DECL_AV_PACKET_RESCALE_TS
-static void
+__attribute__((unused)) static void
 av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
 {
     if (pkt->pts != AV_NOPTS_VALUE)
@@ -48,7 +48,7 @@ av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
 #if !HAVE_DECL_AVFORMAT_ALLOC_OUTPUT_CONTEXT2
 # include <libavutil/opt.h>
 
-static int
+__attribute__((unused)) static int
 avformat_alloc_output_context2(AVFormatContext **avctx, AVOutputFormat *oformat, const char *format, const char *filename)
 {
     AVFormatContext *s = avformat_alloc_context();

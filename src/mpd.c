@@ -596,7 +596,7 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	    }
 	  else if (0 == strcmp(argv[i], "playlist"))
 	    {
-	      client->events |= LISTENER_PLAYLIST;
+	      client->events |= LISTENER_QUEUE;
 	    }
 	  else if (0 == strcmp(argv[i], "mixer"))
 	    {
@@ -617,7 +617,7 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	}
     }
   else
-    client->events = LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS;
+    client->events = LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS;
 
   idle_clients = client;
 
@@ -1626,7 +1626,7 @@ mpd_command_clear(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       DPRINTF(E_DBG, L_MPD, "Failed to stop playback\n");
     }
 
-  db_queue_clear();
+  db_queue_clear(0);
 
   return 0;
 }
@@ -1648,7 +1648,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   // If argv[1] is ommited clear the whole queue
   if (argc < 2)
     {
-      db_queue_clear();
+      db_queue_clear(0);
       return 0;
     }
 
@@ -4544,7 +4544,7 @@ mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type
 	evbuffer_add(client->evbuffer, "changed: player\n", 16);
 	break;
 
-      case LISTENER_PLAYLIST:
+      case LISTENER_QUEUE:
 	evbuffer_add(client->evbuffer, "changed: playlist\n", 18);
 	break;
 
@@ -4871,7 +4871,7 @@ int mpd_init(void)
 #endif
 
   idle_clients = NULL;
-  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS);
+  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS);
 
   return 0;
 

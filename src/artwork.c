@@ -40,7 +40,6 @@
 #include "logger.h"
 #include "conffile.h"
 #include "cache.h"
-#include "player.h"
 #include "http.h"
 
 #include "avio_evbuffer.h"
@@ -457,7 +456,11 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
   dst->codec_id = dst_fmt->video_codec;
   dst->codec_type = AVMEDIA_TYPE_VIDEO;
 
-  dst->pix_fmt = avcodec_find_best_pix_fmt_of_list((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
+  if (dst_fmt->video_codec == AV_CODEC_ID_PNG)
+    dst->pix_fmt = AV_PIX_FMT_RGB24;
+  else
+    dst->pix_fmt = avcodec_find_best_pix_fmt_of_list((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
+
   if (dst->pix_fmt < 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not determine best pixel format\n");
@@ -1101,6 +1104,7 @@ static int
 source_item_stream_get(struct artwork_ctx *ctx)
 {
   struct http_client_ctx client;
+  struct db_queue_item *queue_item;
   struct keyval *kv;
   const char *content_type;
   char *url;
@@ -1112,9 +1116,15 @@ source_item_stream_get(struct artwork_ctx *ctx)
 
   ret = ART_E_NONE;
 
-  url = player_get_icy_artwork_url(ctx->id);
-  if (!url)
-    return ART_E_NONE;
+  queue_item = db_queue_fetch_byfileid(ctx->id);
+  if (!queue_item || !queue_item->artwork_url)
+    {
+      free_queue_item(queue_item, 0);
+      return ART_E_NONE;
+    }
+
+  url = strdup(queue_item->artwork_url);
+  free_queue_item(queue_item, 0);
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg

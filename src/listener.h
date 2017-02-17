@@ -6,8 +6,8 @@ enum listener_event_type
 {
   /* The player has been started, stopped or seeked */
   LISTENER_PLAYER    = (1 << 0),
-  /* The current playlist has been modified */
-  LISTENER_PLAYLIST  = (1 << 1),
+  /* The current playback queue has been modified */
+  LISTENER_QUEUE     = (1 << 1),
   /* The volume has been changed */
   LISTENER_VOLUME    = (1 << 2),
   /* A speaker has been enabled or disabled */

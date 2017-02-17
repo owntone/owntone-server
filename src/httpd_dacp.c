@@ -1013,7 +1013,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	{
 	  player_playback_stop();
 
-	  db_queue_clear();
+	  db_queue_clear(0);
 	}
     }
 
@@ -1099,6 +1099,17 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	    }
 	}
     }
+  else
+    {
+      queue_item = db_queue_fetch_bypos(pos, status.shuffle);
+      if (!queue_item)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Could not fetch item from queue: pos=%d\n", pos);
+
+	  dmap_send_error(req, "cacr", "Playback failed to start");
+	  return;
+	}
+    }
 
   ret = player_playback_start_byitem(queue_item);
   free_queue_item(queue_item, 0);
@@ -1126,7 +1137,7 @@ dacp_reply_cue_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
   player_playback_stop();
 
-  db_queue_clear();
+  db_queue_clear(0);
 
   dmap_add_container(evbuf, "cacr", 24); /* 8 + len */
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
@@ -1257,7 +1268,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   if (status.status != PLAY_STOPPED)
     player_playback_stop();
 
-  db_queue_clear();
+  db_queue_clear(0);
 
   if (plid > 0)
     ret = db_queue_add_by_playlistid(plid, status.shuffle, status.item_id);
@@ -1736,6 +1747,7 @@ static void
 dacp_reply_playqueueedit_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   const char *param;
+  struct player_status status;
 
   param = evhttp_find_header(query, "mode");
 
@@ -1747,7 +1759,10 @@ dacp_reply_playqueueedit_clear(struct evhttp_request *req, struct evbuffer *evbu
   if (strcmp(param,"0x68697374") == 0)
     player_queue_clear_history();
   else
-    db_queue_clear();
+    {
+      player_get_status(&status);
+      db_queue_clear(status.item_id);
+    }
 
   dmap_add_container(evbuf, "cacr", 24); /* 8 + len */
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
@@ -1799,7 +1814,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   if ((mode == 1) || (mode == 2))
     {
       player_playback_stop();
-      db_queue_clear();
+      db_queue_clear(0);
     }
 
   editquery = evhttp_find_header(query, "query");

@@ -41,6 +41,7 @@
 #include "logger.h"
 #include "cache.h"
 #include "listener.h"
+#include "library.h"
 #include "misc.h"
 #include "db.h"
 #include "db_init.h"
@@ -355,14 +356,12 @@ db_escape_string(const char *str)
 void
 free_pi(struct pairing_info *pi, int content_only)
 {
-  if (pi->remote_id)
-    free(pi->remote_id);
+  if (!pi)
+    return;
 
-  if (pi->name)
-    free(pi->name);
-
-  if (pi->guid)
-    free(pi->guid);
+  free(pi->remote_id);
+  free(pi->name);
+  free(pi->guid);
 
   if (!content_only)
     free(pi);
@@ -373,77 +372,33 @@ free_pi(struct pairing_info *pi, int content_only)
 void
 free_mfi(struct media_file_info *mfi, int content_only)
 {
-  if (mfi->path)
-    free(mfi->path);
+  if (!mfi)
+    return;
 
-  if (mfi->fname)
-    free(mfi->fname);
-
-  if (mfi->title)
-    free(mfi->title);
-
-  if (mfi->artist)
-    free(mfi->artist);
-
-  if (mfi->album)
-    free(mfi->album);
-
-  if (mfi->genre)
-    free(mfi->genre);
-
-  if (mfi->comment)
-    free(mfi->comment);
-
-  if (mfi->type)
-    free(mfi->type);
-
-  if (mfi->composer)
-    free(mfi->composer);
-
-  if (mfi->orchestra)
-    free(mfi->orchestra);
-
-  if (mfi->conductor)
-    free(mfi->conductor);
-
-  if (mfi->grouping)
-    free(mfi->grouping);
-
-  if (mfi->description)
-    free(mfi->description);
-
-  if (mfi->codectype)
-    free(mfi->codectype);
-
-  if (mfi->album_artist)
-    free(mfi->album_artist);
-
-  if (mfi->tv_series_name)
-    free(mfi->tv_series_name);
-
-  if (mfi->tv_episode_num_str)
-    free(mfi->tv_episode_num_str);
-
-  if (mfi->tv_network_name)
-    free(mfi->tv_network_name);
-
-  if (mfi->title_sort)
-    free(mfi->title_sort);
-
-  if (mfi->artist_sort)
-    free(mfi->artist_sort);
-
-  if (mfi->album_sort)
-    free(mfi->album_sort);
-
-  if (mfi->composer_sort)
-    free(mfi->composer_sort);
-
-  if (mfi->album_artist_sort)
-    free(mfi->album_artist_sort);
-
-  if (mfi->virtual_path)
-    free(mfi->virtual_path);
+  free(mfi->path);
+  free(mfi->fname);
+  free(mfi->title);
+  free(mfi->artist);
+  free(mfi->album);
+  free(mfi->genre);
+  free(mfi->comment);
+  free(mfi->type);
+  free(mfi->composer);
+  free(mfi->orchestra);
+  free(mfi->conductor);
+  free(mfi->grouping);
+  free(mfi->description);
+  free(mfi->codectype);
+  free(mfi->album_artist);
+  free(mfi->tv_series_name);
+  free(mfi->tv_episode_num_str);
+  free(mfi->tv_network_name);
+  free(mfi->title_sort);
+  free(mfi->artist_sort);
+  free(mfi->album_sort);
+  free(mfi->composer_sort);
+  free(mfi->album_artist_sort);
+  free(mfi->virtual_path);
 
   if (!content_only)
     free(mfi);
@@ -488,17 +443,13 @@ unicode_fixup_mfi(struct media_file_info *mfi)
 void
 free_pli(struct playlist_info *pli, int content_only)
 {
-  if (pli->title)
-    free(pli->title);
+  if (!pli)
+    return;
 
-  if (pli->query)
-    free(pli->query);
-
-  if (pli->path)
-    free(pli->path);
-
-  if (pli->virtual_path)
-    free(pli->virtual_path);
+  free(pli->title);
+  free(pli->query);
+  free(pli->path);
+  free(pli->virtual_path);
 
   if (!content_only)
     free(pli);
@@ -509,8 +460,10 @@ free_pli(struct playlist_info *pli, int content_only)
 void
 free_di(struct directory_info *di, int content_only)
 {
-  if (di->virtual_path)
-    free(di->virtual_path);
+  if (!di)
+    return;
+
+  free(di->virtual_path);
 
   if (!content_only)
     free(di);
@@ -1446,8 +1399,15 @@ db_query_end(struct query_params *qp)
   qp->stmt = NULL;
 }
 
+/*
+ * Utility function for running write queries (INSERT, UPDATE, DELETE). If you
+ * set free to non-zero, the function will free the query. If you set
+ * library_update to non-zero it means that the update was not just of some
+ * internal value (like a timestamp), but of something that requires clients
+ * to update their cache of the library (and of course also of our own cache).
+ */
 static int
-db_query_run(char *query, int free, int cache_update)
+db_query_run(char *query, int free, int library_update)
 {
   char *errmsg;
   int ret;
@@ -1473,10 +1433,10 @@ db_query_run(char *query, int free, int cache_update)
   if (free)
     sqlite3_free(query);
 
-  if (cache_update)
-    cache_daap_trigger();
-  else
-    cache_daap_resume();
+  cache_daap_resume();
+
+  if (library_update)
+    library_update_trigger();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
 }
@@ -2404,7 +2364,7 @@ db_file_add(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  cache_daap_trigger();
+  library_update_trigger();
 
   return 0;
 
@@ -2483,7 +2443,7 @@ db_file_update(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  cache_daap_trigger();
+  library_update_trigger();
 
   return 0;
 
@@ -2491,7 +2451,7 @@ db_file_update(struct media_file_info *mfi)
 }
 
 void
-db_file_save_seek(int id, uint32_t seek)
+db_file_seek_update(int id, uint32_t seek)
 {
 #define Q_TMPL "UPDATE files SET seek = %d WHERE id = %d;"
   char *query;
@@ -3944,29 +3904,25 @@ db_speaker_clear_all(void)
 void
 free_queue_item(struct db_queue_item *queue_item, int content_only)
 {
-  if (queue_item->path)
-    free(queue_item->path);
-  if (queue_item->virtual_path)
-    free(queue_item->virtual_path);
-  if (queue_item->title)
-    free(queue_item->title);
-  if (queue_item->artist)
-    free(queue_item->artist);
-  if (queue_item->album_artist)
-    free(queue_item->album_artist);
-  if (queue_item->album)
-    free(queue_item->album);
-  if (queue_item->genre)
-    free(queue_item->genre);
-  if (queue_item->artist_sort)
-    free(queue_item->artist_sort);
-  if (queue_item->album_sort)
-    free(queue_item->album_sort);
-  if (queue_item->album_artist_sort)
-    free(queue_item->album_artist_sort);
+  if (!queue_item)
+    return;
 
-  if (!content_only && queue_item)
+  free(queue_item->path);
+  free(queue_item->virtual_path);
+  free(queue_item->title);
+  free(queue_item->artist);
+  free(queue_item->album_artist);
+  free(queue_item->album);
+  free(queue_item->genre);
+  free(queue_item->artist_sort);
+  free(queue_item->album_sort);
+  free(queue_item->album_artist_sort);
+  free(queue_item->artwork_url);
+
+  if (!content_only)
     free(queue_item);
+  else
+    memset(queue_item, 0, sizeof(struct db_queue_item));
 }
 
 /*
@@ -3998,7 +3954,7 @@ db_queue_get_version()
 }
 
 /*
- * Increments the version of the queue in the admin table and notifies listener of LISTENER_PLAYLIST
+ * Increments the version of the queue in the admin table and notifies listener of LISTENER_QUEUE
  * about the change.
  *
  * This function must be called after successfully modifying the queue table in order to send
@@ -4036,30 +3992,7 @@ queue_inc_version_and_notify()
 
   db_transaction_end();
 
-  listener_notify(LISTENER_PLAYLIST);
-}
-
-void
-db_queue_update_icymetadata(int id, char *artist, char *album)
-{
-#define Q_TMPL "UPDATE queue SET artist = TRIM(%Q), album = TRIM(%Q) WHERE id = %d;"
-  char *query;
-
-  if (id == 0)
-    return;
-
-  query = sqlite3_mprintf(Q_TMPL, artist, album, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return;
-    }
-
-  db_query_run(query, 1, 0);
-  queue_inc_version_and_notify();
-
-#undef Q_TMPL
+  listener_notify(LISTENER_QUEUE);
 }
 
 static int
@@ -4091,6 +4024,35 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos)
 
   return ret;
 
+#undef Q_TMPL
+}
+
+int
+db_queue_update_item(struct db_queue_item *qi)
+{
+#define Q_TMPL "UPDATE queue SET "							\
+		    "file_id = %d, song_length = %d, data_kind = %d, media_kind = %d, "	\
+		    "pos = %d, shuffle_pos = %d, path = '%q', virtual_path = %Q, "	\
+		    "title = %Q, artist = %Q, album_artist = %Q, album = %Q, "		\
+		    "genre = %Q, songalbumid = %" PRIi64 ", time_modified = %d, "	\
+		    "artist_sort = %Q, album_sort = %Q, album_artist_sort = %Q, "	\
+		    "year = %d, track = %d, disc = %d, artwork_url = %Q "		\
+		"WHERE id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL,
+			  qi->file_id, qi->song_length, qi->data_kind, qi->media_kind,
+			  qi->pos, qi->shuffle_pos, qi->path, qi->virtual_path,
+			  qi->title, qi->artist, qi->album_artist, qi->album,
+			  qi->genre, qi->songalbumid, qi->time_modified,
+			  qi->artist_sort, qi->album_sort, qi->album_artist_sort,
+			  qi->year, qi->track, qi->disc, qi->artwork_url,
+			  qi->id);
+
+  ret = db_query_run(query, 1, 0);
+
+  return ret;
 #undef Q_TMPL
 }
 
@@ -4426,6 +4388,7 @@ queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_
   queue_item->year = sqlite3_column_int(query_params->stmt, 19);
   queue_item->track = sqlite3_column_int(query_params->stmt, 20);
   queue_item->disc = sqlite3_column_int(query_params->stmt, 21);
+  queue_item->artwork_url = strdup_if((char *)sqlite3_column_text(query_params->stmt, 22), keep_item);
 
   return 0;
 }
@@ -4748,6 +4711,53 @@ db_queue_fetch_prev(uint32_t item_id, char shuffle)
   return db_queue_fetch_byposrelativetoitem(-1, item_id, shuffle);
 }
 
+static int
+queue_fix_pos(enum sort_type sort)
+{
+#define Q_TMPL "UPDATE queue SET %q = %d WHERE id = %d;"
+
+  struct query_params query_params;
+  struct db_queue_item queue_item;
+  char *query;
+  int pos;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+  query_params.sort = sort;
+
+  ret = queue_enum_start(&query_params);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  pos = 0;
+  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
+    {
+      if (queue_item.pos != pos)
+        {
+	  if (sort == S_SHUFFLE_POS)
+	    query = sqlite3_mprintf(Q_TMPL, "shuffle_pos", pos, queue_item.id);
+	  else
+	    query = sqlite3_mprintf(Q_TMPL, "pos", pos, queue_item.id);
+
+	  ret = db_query_run(query, 1, 0);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
+	      break;
+	    }
+	}
+
+      pos++;
+    }
+
+  db_query_end(&query_params);
+  return ret;
+
+#undef Q_TMPL
+}
+
 /*
  * Remove files that are disabled or non existant in the library and repair ordering of
  * the queue (shuffle and normal)
@@ -4756,13 +4766,7 @@ int
 db_queue_cleanup()
 {
 #define Q_TMPL "DELETE FROM queue WHERE NOT file_id IN (SELECT id from files WHERE disabled = 0);"
-#define Q_TMPL_UPDATE "UPDATE queue SET pos = %d WHERE id = %d;"
-#define Q_TMPL_UPDATE_SHUFFLE "UPDATE queue SET shuffle_pos = %d WHERE id = %d;"
 
-  struct query_params query_params;
-  struct db_queue_item queue_item;
-  char *query;
-  int pos;
   int deleted;
   int ret;
 
@@ -4784,34 +4788,7 @@ db_queue_cleanup()
     }
 
   // Update position of normal queue
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  ret = queue_enum_start(&query_params);
-  if (ret < 0)
-    {
-      db_transaction_rollback();
-      return -1;
-    }
-
-  pos = 0;
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
-    {
-      if (queue_item.pos != pos)
-	{
-	  query = sqlite3_mprintf(Q_TMPL_UPDATE, pos, queue_item.id);
-	  ret = db_query_run(query, 1, 0);
-	  if (ret < 0)
-	  {
-	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
-	    break;
-	  }
-	}
-
-      pos++;
-    }
-
-  db_query_end(&query_params);
-
+  ret = queue_fix_pos(S_POS);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -4819,35 +4796,7 @@ db_queue_cleanup()
     }
 
   // Update position of shuffle queue
-  memset(&query_params, 0, sizeof(struct query_params));
-  query_params.sort = S_SHUFFLE_POS;
-
-  ret = queue_enum_start(&query_params);
-  if (ret < 0)
-    {
-      db_transaction_rollback();
-      return -1;
-    }
-
-  pos = 0;
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
-    {
-      if (queue_item.shuffle_pos != pos)
-	{
-	  query = sqlite3_mprintf(Q_TMPL_UPDATE_SHUFFLE, pos, queue_item.id);
-	  ret = db_query_run(query, 1, 0);
-	  if (ret < 0)
-	  {
-	    DPRINTF(E_LOG, L_DB, "Failed to update item with item-id: %d\n", queue_item.id);
-	    break;
-	  }
-	}
-
-      pos++;
-    }
-
-  db_query_end(&query_params);
-
+  ret = queue_fix_pos(S_SHUFFLE_POS);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -4859,28 +4808,45 @@ db_queue_cleanup()
 
   return 0;
 
-#undef Q_TMPL_UPDATE_SHUFFLE
-#undef Q_TMPL_UPDATE
 #undef Q_TMPL
 }
 
+/*
+ * Removes all items from the queue except the item give by 'keep_item_id' (if 'keep_item_id' > 0).
+ *
+ * @param keep_item_id item-id (e. g. the now playing item) to be left in the queue
+ */
 int
-db_queue_clear()
+db_queue_clear(uint32_t keep_item_id)
 {
+  char *query;
   int ret;
 
+  query = sqlite3_mprintf("DELETE FROM queue where id <> %d;", keep_item_id);
+
   db_transaction_begin();
-  ret = db_query_run("DELETE FROM queue;", 0, 0);
+  ret = db_query_run(query, 1, 0);
 
   if (ret < 0)
     {
       db_transaction_rollback();
+      return ret;
     }
-  else
+
+  if (keep_item_id)
     {
-      db_transaction_end();
-      queue_inc_version_and_notify();
+      query = sqlite3_mprintf("UPDATE queue SET pos = 0 AND shuffle_pos = 0 where id = %d;", keep_item_id);
+      ret = db_query_run(query, 1, 0);
     }
+
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return ret;
+    }
+
+  db_transaction_end();
+  queue_inc_version_and_notify();
   return ret;
 }
 
@@ -4957,47 +4923,38 @@ db_queue_delete_byitemid(uint32_t item_id)
 int
 db_queue_delete_bypos(uint32_t pos, int count)
 {
-  struct query_params query_params;
-  struct db_queue_item queue_item;
+  char *query;
   int to_pos;
   int ret;
 
-  // Find items with the given position
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  to_pos = pos + count;
-  query_params.filter = sqlite3_mprintf("pos => %d AND pos < %d", pos, to_pos);
-
   db_transaction_begin();
 
-  ret = queue_enum_start(&query_params);
-  if (ret < 0)
-    {
-      return -1;
-    }
-
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
-    {
-      ret = queue_delete_item(&queue_item);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Failed to delete item with item-id: %d\n", queue_item.id);
-	  break;
-	}
-    }
-
-  db_query_end(&query_params);
-  sqlite3_free(query_params.filter);
-
+  // Remove item with the given item_id
+  to_pos = pos + count;
+  query = sqlite3_mprintf("DELETE FROM queue where pos >= %d AND pos < %d;", pos, to_pos);
+  ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
       db_transaction_rollback();
+      return -1;
     }
-  else
+
+  ret = queue_fix_pos(S_POS);
+  if (ret < 0)
     {
-      db_transaction_end();
-      queue_inc_version_and_notify();
+      db_transaction_rollback();
+      return -1;
     }
+
+  ret = queue_fix_pos(S_SHUFFLE_POS);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  db_transaction_end();
+  queue_inc_version_and_notify();
 
   return ret;
 }

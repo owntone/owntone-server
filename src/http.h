@@ -10,8 +10,8 @@
 
 struct http_client_ctx
 {
-  /* Destination URL, header and body of outgoing request body (headers and
-   * body is currently only supported for https)
+  /* Destination URL, header and body of outgoing request body. If output_body
+   * is set, the request will be POST, otherwise it will be GET
    */
   const char *url;
   struct keyval *output_headers;

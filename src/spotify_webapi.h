@@ -68,6 +68,10 @@ struct spotify_track
   const char *name;
   int track_number;
   const char *uri;
+
+  bool is_playable;
+  const char *restrictions;
+  const char *linked_from_uri;
 };
 
 struct spotify_playlist
@@ -106,7 +110,7 @@ spotifywebapi_token_refresh();
 void
 spotifywebapi_request_end(struct spotify_request *request);
 int
-spotifywebapi_request_next(struct spotify_request *request, const char *uri);
+spotifywebapi_request_next(struct spotify_request *request, const char *uri, bool append_market);
 int
 spotifywebapi_saved_albums_fetch(struct spotify_request *request, json_object **jsontracks, int *track_count, struct spotify_album *album);
 int

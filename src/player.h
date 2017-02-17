@@ -13,11 +13,6 @@
 /* AirTunes v2 number of samples per packet */
 #define AIRTUNES_V2_PACKET_SAMPLES  352
 
-
-/* Samples to bytes, bytes to samples */
-#define STOB(s) ((s) * 4)
-#define BTOS(b) ((b) / 4)
-
 /* Maximum number of previously played songs that are remembered */
 #define MAX_HISTORY_COUNT 20
 
@@ -85,9 +80,6 @@ player_get_status(struct player_status *status);
 int
 player_now_playing(uint32_t *id);
 
-char *
-player_get_icy_artwork_url(uint32_t id);
-
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg);
 
@@ -95,10 +87,13 @@ int
 player_speaker_set(uint64_t *ids);
 
 int
-player_playback_start();
+player_playback_start(void);
 
 int
 player_playback_start_byitem(struct db_queue_item *queue_item);
+
+int
+player_playback_start_byid(uint32_t id);
 
 int
 player_playback_stop(void);
@@ -114,7 +109,6 @@ player_playback_next(void);
 
 int
 player_playback_prev(void);
-
 
 int
 player_volume_set(int vol);

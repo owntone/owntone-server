@@ -36,6 +36,7 @@
 // Credentials for the web api
 static char *spotify_access_token;
 static char *spotify_refresh_token;
+static char *spotify_user_country;
 
 static int32_t expires_in = 3600;
 static time_t token_requested = 0;
@@ -46,6 +47,7 @@ static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
 static const char *spotify_playlist_uri	 = "https://api.spotify.com/v1/users/%s/playlists/%s";
+static const char *spotify_me_uri        = "https://api.spotify.com/v1/me";
 
 
 /*--------------------- HELPERS FOR SPOTIFY WEB API -------------------------*/
@@ -95,6 +97,17 @@ jparse_int_from_obj(json_object *haystack, const char *key)
     return json_object_get_int(needle);
   else
     return 0;
+}
+
+static int
+jparse_bool_from_obj(json_object *haystack, const char *key)
+{
+  json_object *needle;
+
+  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_boolean)
+    return json_object_get_boolean(needle);
+  else
+    return false;
 }
 
 static time_t
@@ -149,212 +162,6 @@ free_http_client_ctx(struct http_client_ctx *ctx)
       free(ctx->output_headers);
     }
   free(ctx);
-}
-
-char *
-spotifywebapi_oauth_uri_get(const char *redirect_uri)
-{
-  struct keyval kv;
-  char *param;
-  char *uri;
-  int uri_len;
-  int ret;
-
-  uri = NULL;
-  memset(&kv, 0, sizeof(struct keyval));
-  ret = ( (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
-	  (keyval_add(&kv, "response_type", "code") == 0) &&
-	  (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) &&
-	  (keyval_add(&kv, "scope", "playlist-read-private user-library-read") == 0) &&
-	  (keyval_add(&kv, "show_dialog", "false") == 0) );
-  if (!ret)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Cannot display Spotify oath interface (error adding parameters to keyval)\n");
-      goto out_clear_kv;
-    }
-
-  param = http_form_urlencode(&kv);
-  if (param)
-    {
-      uri_len = strlen(spotify_auth_uri) + strlen(param) + 3;
-      uri = calloc(uri_len, sizeof(char));
-      snprintf(uri, uri_len, "%s/?%s", spotify_auth_uri, param);
-
-      free(param);
-    }
-
- out_clear_kv:
-  keyval_clear(&kv);
-
-  return uri;
-}
-
-static int
-tokens_get(struct keyval *kv, const char **err)
-{
-  struct http_client_ctx ctx;
-  char *param;
-  char *body;
-  json_object *haystack;
-  const char *tmp;
-  int ret;
-
-  param = http_form_urlencode(kv);
-  if (!param)
-    {
-      *err = "http_form_uriencode() failed";
-      ret = -1;
-      goto out_clear_kv;
-    }
-
-  memset(&ctx, 0, sizeof(struct http_client_ctx));
-  ctx.url = (char *)spotify_token_uri;
-  ctx.output_body = param;
-  ctx.input_body = evbuffer_new();
-
-  ret = http_client_request(&ctx);
-  if (ret < 0)
-    {
-      *err = "Did not get a reply from Spotify";
-      goto out_free_input_body;
-    }
-
-  // 0-terminate for safety
-  evbuffer_add(ctx.input_body, "", 1);
-
-  body = (char *)evbuffer_pullup(ctx.input_body, -1);
-  if (!body || (strlen(body) == 0))
-    {
-      *err = "The reply from Spotify is empty or invalid";
-      ret = -1;
-      goto out_free_input_body;
-    }
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Token reply: %s\n", body);
-
-  haystack = json_tokener_parse(body);
-  if (!haystack)
-    {
-      *err = "JSON parser returned an error";
-      ret = -1;
-      goto out_free_input_body;
-    }
-
-  free(spotify_access_token);
-  spotify_access_token = NULL;
-
-  tmp = jparse_str_from_obj(haystack, "access_token");
-  if (tmp)
-    spotify_access_token = strdup(tmp);
-
-  tmp = jparse_str_from_obj(haystack, "refresh_token");
-  if (tmp)
-    {
-      free(spotify_refresh_token);
-      spotify_refresh_token = strdup(tmp);
-    }
-
-  expires_in = jparse_int_from_obj(haystack, "expires_in");
-  if (expires_in == 0)
-    expires_in = 3600;
-
-  jparse_free(haystack);
-
-  if (!spotify_access_token)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not find access token in reply: %s\n", body);
-
-      *err = "Could not find access token in Spotify reply (see log)";
-      ret = -1;
-      goto out_free_input_body;
-    }
-
-  token_requested = time(NULL);
-
-  DPRINTF(E_LOG, L_SPOTIFY, "token: '%s'\n", spotify_access_token);
-  DPRINTF(E_LOG, L_SPOTIFY, "refresh-token: '%s'\n", spotify_refresh_token);
-  DPRINTF(E_LOG, L_SPOTIFY, "expires in: %d\n", expires_in);
-
-  if (spotify_refresh_token)
-    db_admin_set("spotify_refresh_token", spotify_refresh_token);
-
-  ret = 0;
-
- out_free_input_body:
-  evbuffer_free(ctx.input_body);
-  free(param);
- out_clear_kv:
-
-  return ret;
-}
-
-int
-spotifywebapi_token_get(const char *code, const char *redirect_uri, const char **err)
-{
-  struct keyval kv;
-  int ret;
-
-  *err = "";
-  memset(&kv, 0, sizeof(struct keyval));
-  ret = ( (keyval_add(&kv, "grant_type", "authorization_code") == 0) &&
-          (keyval_add(&kv, "code", code) == 0) &&
-          (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
-          (keyval_add(&kv, "client_secret", spotify_client_secret) == 0) &&
-          (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) );
-
-  if (!ret)
-    {
-      *err = "Add parameters to keyval failed";
-      ret = -1;
-    }
-  else
-    ret = tokens_get(&kv, err);
-
-  keyval_clear(&kv);
-
-  return ret;
-}
-
-int
-spotifywebapi_token_refresh()
-{
-  struct keyval kv;
-  char *refresh_token;
-  const char *err;
-  int ret;
-
-  if (token_requested && difftime(time(NULL), token_requested) < expires_in)
-    {
-      DPRINTF(E_DBG, L_SPOTIFY, "Spotify token still valid\n");
-      return 0;
-    }
-
-  refresh_token = db_admin_get("spotify_refresh_token");
-  if (!refresh_token)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "No spotify refresh token found\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Spotify refresh-token: '%s'\n", refresh_token);
-
-  memset(&kv, 0, sizeof(struct keyval));
-  ret = ( (keyval_add(&kv, "grant_type", "refresh_token") == 0) &&
-	  (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
-	  (keyval_add(&kv, "client_secret", spotify_client_secret) == 0) &&
-          (keyval_add(&kv, "refresh_token", refresh_token) == 0) );
-  if (!ret)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Add parameters to keyval failed");
-      ret = -1;
-    }
-  else
-    ret = tokens_get(&kv, &err);
-
-  free(refresh_token);
-  keyval_clear(&kv);
-
-  return ret;
 }
 
 static int
@@ -420,7 +227,7 @@ spotifywebapi_request_end(struct spotify_request *request)
 }
 
 int
-spotifywebapi_request_next(struct spotify_request *request, const char *uri)
+spotifywebapi_request_next(struct spotify_request *request, const char *uri, bool append_market)
 {
   char *next_uri;
   int ret;
@@ -434,7 +241,15 @@ spotifywebapi_request_next(struct spotify_request *request, const char *uri)
   if (!request->ctx)
     {
       // First paging request
-      next_uri = strdup (uri);
+      if (append_market && spotify_user_country)
+	{
+	  if (strchr(uri, '?'))
+	    asprintf(&next_uri, "%s&market=%s", uri, spotify_user_country);
+	  else
+	    asprintf(&next_uri, "%s?market=%s", uri, spotify_user_country);
+	}
+      else
+	next_uri = strdup(uri);
     }
   else
     {
@@ -469,6 +284,7 @@ parse_metadata_track(json_object* jsontrack, struct spotify_track* track)
 {
   json_object* jsonalbum;
   json_object* jsonartists;
+  json_object* needle;
 
   if (json_object_object_get_ex(jsontrack, "album", &jsonalbum))
     {
@@ -490,6 +306,18 @@ parse_metadata_track(json_object* jsontrack, struct spotify_track* track)
   track->track_number = jparse_int_from_obj(jsontrack, "track_number");
   track->uri = jparse_str_from_obj(jsontrack, "uri");
   track->id = jparse_str_from_obj(jsontrack, "id");
+
+  // "is_playable" is only returned for a request with a market parameter, default to true if it is not in the response
+  if (json_object_object_get_ex(jsontrack, "is_playable", NULL))
+    {
+      track->is_playable = jparse_bool_from_obj(jsontrack, "is_playable");
+      if (json_object_object_get_ex(jsontrack, "restrictions", &needle))
+	track->restrictions = json_object_to_json_string(needle);
+      if (json_object_object_get_ex(jsontrack, "linked_from", &needle))
+	track->linked_from_uri = jparse_str_from_obj(needle, "uri");
+    }
+  else
+    track->is_playable = true;
 }
 
 static int
@@ -754,5 +582,239 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
   free(owner);
   free(id);
   return 0;
+}
+
+static int
+request_user_country()
+{
+  struct spotify_request request;
+  int ret;
+
+  free(spotify_user_country);
+  spotify_user_country = NULL;
+
+  ret = request_uri(&request, spotify_me_uri);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Failed to read user country\n");
+    }
+  else
+    {
+      spotify_user_country = safe_strdup(jparse_str_from_obj(request.haystack, "country"));
+      DPRINTF(E_DBG, L_SPOTIFY, "User country: '%s'\n", spotify_user_country);
+    }
+
+  spotifywebapi_request_end(&request);
+
+  return 0;
+}
+
+char *
+spotifywebapi_oauth_uri_get(const char *redirect_uri)
+{
+  struct keyval kv;
+  char *param;
+  char *uri;
+  int uri_len;
+  int ret;
+
+  uri = NULL;
+  memset(&kv, 0, sizeof(struct keyval));
+  ret = ( (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
+	  (keyval_add(&kv, "response_type", "code") == 0) &&
+	  (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) &&
+	  (keyval_add(&kv, "scope", "user-read-private playlist-read-private user-library-read") == 0) &&
+	  (keyval_add(&kv, "show_dialog", "false") == 0) );
+  if (!ret)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Cannot display Spotify oath interface (error adding parameters to keyval)\n");
+      goto out_clear_kv;
+    }
+
+  param = http_form_urlencode(&kv);
+  if (param)
+    {
+      uri_len = strlen(spotify_auth_uri) + strlen(param) + 3;
+      uri = calloc(uri_len, sizeof(char));
+      snprintf(uri, uri_len, "%s/?%s", spotify_auth_uri, param);
+
+      free(param);
+    }
+
+ out_clear_kv:
+  keyval_clear(&kv);
+
+  return uri;
+}
+
+static int
+tokens_get(struct keyval *kv, const char **err)
+{
+  struct http_client_ctx ctx;
+  char *param;
+  char *body;
+  json_object *haystack;
+  const char *tmp;
+  int ret;
+
+  param = http_form_urlencode(kv);
+  if (!param)
+    {
+      *err = "http_form_uriencode() failed";
+      ret = -1;
+      goto out_clear_kv;
+    }
+
+  memset(&ctx, 0, sizeof(struct http_client_ctx));
+  ctx.url = (char *)spotify_token_uri;
+  ctx.output_body = param;
+  ctx.input_body = evbuffer_new();
+
+  ret = http_client_request(&ctx);
+  if (ret < 0)
+    {
+      *err = "Did not get a reply from Spotify";
+      goto out_free_input_body;
+    }
+
+  // 0-terminate for safety
+  evbuffer_add(ctx.input_body, "", 1);
+
+  body = (char *)evbuffer_pullup(ctx.input_body, -1);
+  if (!body || (strlen(body) == 0))
+    {
+      *err = "The reply from Spotify is empty or invalid";
+      ret = -1;
+      goto out_free_input_body;
+    }
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Token reply: %s\n", body);
+
+  haystack = json_tokener_parse(body);
+  if (!haystack)
+    {
+      *err = "JSON parser returned an error";
+      ret = -1;
+      goto out_free_input_body;
+    }
+
+  free(spotify_access_token);
+  spotify_access_token = NULL;
+
+  tmp = jparse_str_from_obj(haystack, "access_token");
+  if (tmp)
+    spotify_access_token = strdup(tmp);
+
+  tmp = jparse_str_from_obj(haystack, "refresh_token");
+  if (tmp)
+    {
+      free(spotify_refresh_token);
+      spotify_refresh_token = strdup(tmp);
+    }
+
+  expires_in = jparse_int_from_obj(haystack, "expires_in");
+  if (expires_in == 0)
+    expires_in = 3600;
+
+  jparse_free(haystack);
+
+  if (!spotify_access_token)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not find access token in reply: %s\n", body);
+
+      *err = "Could not find access token in Spotify reply (see log)";
+      ret = -1;
+      goto out_free_input_body;
+    }
+
+  token_requested = time(NULL);
+
+  DPRINTF(E_LOG, L_SPOTIFY, "token: '%s'\n", spotify_access_token);
+  DPRINTF(E_LOG, L_SPOTIFY, "refresh-token: '%s'\n", spotify_refresh_token);
+  DPRINTF(E_LOG, L_SPOTIFY, "expires in: %d\n", expires_in);
+
+  if (spotify_refresh_token)
+    db_admin_set("spotify_refresh_token", spotify_refresh_token);
+
+  request_user_country();
+
+  ret = 0;
+
+ out_free_input_body:
+  evbuffer_free(ctx.input_body);
+  free(param);
+ out_clear_kv:
+
+  return ret;
+}
+
+int
+spotifywebapi_token_get(const char *code, const char *redirect_uri, const char **err)
+{
+  struct keyval kv;
+  int ret;
+
+  *err = "";
+  memset(&kv, 0, sizeof(struct keyval));
+  ret = ( (keyval_add(&kv, "grant_type", "authorization_code") == 0) &&
+          (keyval_add(&kv, "code", code) == 0) &&
+          (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
+          (keyval_add(&kv, "client_secret", spotify_client_secret) == 0) &&
+          (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) );
+
+  if (!ret)
+    {
+      *err = "Add parameters to keyval failed";
+      ret = -1;
+    }
+  else
+    ret = tokens_get(&kv, err);
+
+  keyval_clear(&kv);
+
+  return ret;
+}
+
+int
+spotifywebapi_token_refresh()
+{
+  struct keyval kv;
+  char *refresh_token;
+  const char *err;
+  int ret;
+
+  if (token_requested && difftime(time(NULL), token_requested) < expires_in)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Spotify token still valid\n");
+      return 0;
+    }
+
+  refresh_token = db_admin_get("spotify_refresh_token");
+  if (!refresh_token)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "No spotify refresh token found\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Spotify refresh-token: '%s'\n", refresh_token);
+
+  memset(&kv, 0, sizeof(struct keyval));
+  ret = ( (keyval_add(&kv, "grant_type", "refresh_token") == 0) &&
+	  (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
+	  (keyval_add(&kv, "client_secret", spotify_client_secret) == 0) &&
+          (keyval_add(&kv, "refresh_token", refresh_token) == 0) );
+  if (!ret)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Add parameters to keyval failed");
+      ret = -1;
+    }
+  else
+    ret = tokens_get(&kv, &err);
+
+  free(refresh_token);
+  keyval_clear(&kv);
+
+  return ret;
 }
 

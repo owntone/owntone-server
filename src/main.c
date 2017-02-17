@@ -46,6 +46,7 @@
 
 #include <getopt.h>
 #include <event2/event.h>
+#include <event2/thread.h>
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
@@ -683,7 +684,11 @@ main(int argc, char **argv)
     }
 
   /* Initialize event base (after forking) */
-  evbase_main = event_base_new();
+  CHECK_NULL(L_MAIN, evbase_main = event_base_new());
+
+#ifdef SPOTIFY
+  CHECK_ERR(L_MAIN, evthread_use_pthreads());
+#endif
 
   DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
   ret = mdns_init();

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  * Copyright (C) 2010 Kai Elwert <elwertk@googlemail.com>
@@ -181,7 +182,8 @@
   "   album_artist_sort   VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   year                INTEGER DEFAULT 0,"				\
   "   track               INTEGER DEFAULT 0,"				\
-  "   disc                INTEGER DEFAULT 0"				\
+  "   disc                INTEGER DEFAULT 0,"				\
+  "   artwork_url         VARCHAR(4096) DEFAULT NULL"			\
   ");"
 
 #define TRG_GROUPS_INSERT_FILES						\

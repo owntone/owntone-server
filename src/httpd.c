@@ -142,7 +142,7 @@ static struct event *exitev;
 static struct evhttp *evhttpd;
 static pthread_t tid_httpd;
 
-static char *allow_origin;
+static const char *allow_origin;
 static int httpd_port;
 
 #ifdef HAVE_LIBEVENT2_OLD
@@ -936,11 +936,11 @@ static void
 serve_file(struct evhttp_request *req, char *uri)
 {
   const char *host;
+  const char *passwd;
   char *ext;
   char path[PATH_MAX];
   char *deref;
   char *ctype;
-  char *passwd;
   struct evbuffer *evbuf;
   struct evkeyvalq *headers;
   struct stat sb;
@@ -1311,7 +1311,7 @@ httpd_fixup_uri(struct evhttp_request *req)
 static const char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
 
 int
-httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *realm)
+httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm)
 {
   struct evbuffer *evbuf;
   struct evkeyvalq *headers;

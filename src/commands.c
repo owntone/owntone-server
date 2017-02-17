@@ -226,6 +226,7 @@ commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
 int
 commands_base_free(struct commands_base *cmdbase)
 {
+  event_free(cmdbase->command_event);
   close(cmdbase->command_pipe[0]);
   close(cmdbase->command_pipe[1]);
   free(cmdbase);

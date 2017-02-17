@@ -418,6 +418,8 @@ struct db_queue_item
   uint32_t year;
   uint32_t track;
   uint32_t disc;
+
+  char *artwork_url;
 };
 
 char *
@@ -542,7 +544,7 @@ int
 db_file_update(struct media_file_info *mfi);
 
 void
-db_file_save_seek(int id, uint32_t seek);
+db_file_seek_update(int id, uint32_t seek);
 
 void
 db_file_delete_bypath(char *path);
@@ -687,8 +689,8 @@ db_speaker_clear_all(void);
 int
 db_queue_get_version();
 
-void
-db_queue_update_icymetadata(int id, char *artist, char *album);
+int
+db_queue_update_item(struct db_queue_item *queue_item);
 
 int
 db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id);
@@ -733,7 +735,7 @@ int
 db_queue_cleanup();
 
 int
-db_queue_clear();
+db_queue_clear(uint32_t keep_item_id);
 
 int
 db_queue_delete_byitemid(uint32_t item_id);
