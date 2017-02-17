@@ -191,6 +191,10 @@ dnl Handle alternative package names for libav
 PKG_CHECK_EXISTS([libavcodec-libav], [LIBAV=-libav], [LIBAV=])
 dnl Preference for ffmpeg if we have both (this could be an option...)
 PKG_CHECK_EXISTS([libavcodec], [LIBAV=])
+dnl Option to choose libav even if ffmpeg is detected first
+AC_ARG_WITH([libav], [AS_HELP_STRING([--with-libav],
+	[choose libav even if ffmpeg present (default=no)])],
+	[[LIBAV=-libav]], [[LIBAV=]])
 dnl libav/ffmpeg requires many feature checks
 FORK_MODULES_CHECK([FORKED], [LIBAV],
 	[libavformat$LIBAV libavcodec$LIBAV libswscale$LIBAV libavutil$LIBAV libavfilter$LIBAV],
