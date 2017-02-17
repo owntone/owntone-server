@@ -247,9 +247,9 @@ FORK_ARG_WITH_CHECK([FORKED_OPTS], [libcurl support], [libcurl], [LIBCURL],
 	[libcurl], [curl_global_init], [curl/curl.h])
 
 dnl Build with libevent_pthreads
-FORK_ARG_WITH_CHECK([FORKED], [libevent_pthreads support], [libevent_pthreads],
-	[LIBEVENT_PTHREADS], [libevent_pthreads], [evthread_use_pthreads],
-	[event2/thread.h])
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [libevent_pthreads support],
+	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
+	[evthread_use_pthreads], [event2/thread.h])
 
 dnl Build with json-c
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [json-c support], [json], [JSON_C],
