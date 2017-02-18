@@ -4165,7 +4165,7 @@ db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
  * @param qp Query parameters for the files table
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return 0 on success, -1 on failure
+ * @return Item id of the last inserted item on success, -1 on failure
  */
 int
 db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
@@ -4217,7 +4217,8 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
       return -1;
     }
 
-  ret = (int) sqlite3_last_insert_rowid(hdl);
+  if (pos > 0)
+    ret = (int) sqlite3_last_insert_rowid(hdl);
 
   db_transaction_end();
 
