@@ -346,14 +346,14 @@ fixup_tags(struct media_file_info *mfi)
 void
 library_add_media(struct media_file_info *mfi)
 {
-  if (!mfi->path || !mfi->fname || !mfi->data_kind)
+  if (!mfi->path || !mfi->fname)
     {
       DPRINTF(E_LOG, L_LIB, "Ignoring media file with missing values (path='%s', fname='%s', data_kind='%d')\n",
 	      mfi->path, mfi->fname, mfi->data_kind);
       return;
     }
 
-  if (!mfi->directory_id || mfi->virtual_path)
+  if (!mfi->directory_id || !mfi->virtual_path)
     {
       // Missing informations for virtual_path and directory_id (may) lead to misplaced appearance in mpd clients
       DPRINTF(E_WARN, L_LIB, "Media file with missing values (path='%s', directory='%d', virtual_path='%s')\n",
@@ -373,6 +373,50 @@ library_add_media(struct media_file_info *mfi)
     db_file_add(mfi);
   else
     db_file_update(mfi);
+}
+
+int
+library_scan_media(const char *path, struct media_file_info *mfi)
+{
+  int i;
+  int ret;
+
+  DPRINTF(E_DBG, L_LIB, "Scan metadata for path '%s'\n", path);
+
+  ret = METADATA_PATH_INVALID;
+  for (i = 0; sources[i] && ret == METADATA_PATH_INVALID; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->scan_metadata)
+        {
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support scan_metadata\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->scan_metadata(path, mfi);
+
+      if (ret == METADATA_OK)
+	DPRINTF(E_DBG, L_LIB, "Got metadata for path '%s' from library source '%s'\n", path, sources[i]->name);
+    }
+
+  if (ret == METADATA_OK)
+    {
+      if (!mfi->virtual_path)
+	mfi->virtual_path = strdup(mfi->path);
+      if (!mfi->item_kind)
+	mfi->item_kind = 2; /* music */
+      if (!mfi->media_kind)
+	mfi->media_kind = MEDIA_KIND_MUSIC; /* music */
+
+      unicode_fixup_mfi(mfi);
+
+      fixup_tags(mfi);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_LIB, "Failed to read metadata for path '%s' (ret=%d)\n", path, ret);
+    }
+
+  return ret;
 }
 
 int
@@ -441,6 +485,34 @@ library_add_playlist_info(const char *path, const char *title, const char *virtu
 
   free_pli(pli, 0);
   return plid;
+}
+
+int
+library_add_queue_item(struct media_file_info *mfi)
+{
+  struct db_queue_item queue_item;
+
+  memset(&queue_item, 0, sizeof(struct db_queue_item));
+
+  if (mfi->id)
+    queue_item.file_id = mfi->id;
+  else
+    queue_item.file_id = 9999999;
+
+  queue_item.title = mfi->title;
+  queue_item.artist = mfi->artist;
+  queue_item.album_artist = mfi->album_artist;
+  queue_item.album = mfi->album;
+  queue_item.genre = mfi->genre;
+  queue_item.artist_sort = mfi->artist_sort;
+  queue_item.album_artist_sort = mfi->album_artist_sort;
+  queue_item.album_sort = mfi->album_sort;
+  queue_item.path = mfi->path;
+  queue_item.virtual_path = mfi->virtual_path;
+  queue_item.data_kind = mfi->data_kind;
+  queue_item.media_kind = mfi->media_kind;
+
+  return db_queue_add_item(&queue_item, 0, 0);
 }
 
 static void
