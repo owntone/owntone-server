@@ -4285,6 +4285,68 @@ db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
   return ret;
 }
 
+int
+db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t item_id)
+{
+#define Q_TMPL "INSERT INTO queue "							\
+		    "(id, file_id, song_length, data_kind, media_kind, "		\
+		    "pos, shuffle_pos, path, virtual_path, title, "			\
+		    "artist, album_artist, album, genre, songalbumid, "			\
+		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
+		    "track, disc)" 							\
+		"VALUES"                                           			\
+		    "(NULL, %d, %d, %d, %d, "						\
+		    "%d, %d, %Q, %Q, %Q, "						\
+		    "%Q, %Q, %Q, %Q, %d, "						\
+		    "%d, %Q, %Q, %Q, %d, "						\
+		    "%d, %d);"
+
+  char *query;
+  int pos;
+  int ret;
+
+  db_transaction_begin();
+
+  pos = db_queue_get_count();
+  if (pos < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not get count from queue\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  query = sqlite3_mprintf(Q_TMPL,
+			  queue_item->file_id, queue_item->song_length, queue_item->data_kind, queue_item->media_kind,
+			  pos, pos, queue_item->path, queue_item->virtual_path, queue_item->title,
+			  queue_item->artist, queue_item->album_artist, queue_item->album, queue_item->genre, queue_item->songalbumid,
+			  queue_item->time_modified, queue_item->artist_sort, queue_item->album_sort, queue_item->album_artist_sort, queue_item->year,
+			  queue_item->track, queue_item->disc);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error adding queue item\n");
+      db_transaction_rollback();
+      return -1;
+    }
+
+  ret = (int) sqlite3_last_insert_rowid(hdl);
+
+  db_transaction_end();
+
+  // Reshuffle after adding new items
+  if (reshuffle)
+    {
+      db_queue_reshuffle(item_id);
+    }
+  else
+    {
+      queue_inc_version_and_notify();
+    }
+  return ret;
+
+#undef Q_TMPL
+}
+
 static int
 queue_enum_start(struct query_params *query_params)
 {
