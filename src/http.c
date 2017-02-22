@@ -681,7 +681,9 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
   struct http_icy_metadata *metadata;
   struct http_client_ctx ctx;
   struct keyval *kv;
+  char *ptr;
   const char *value;
+  const char *headerenc = "ISO−8859−1";
   int got_header;
   int ret;
 
@@ -716,17 +718,23 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
   got_header = 0;
   if ( (value = keyval_get(ctx.input_headers, "icy-name")) )
     {
-      metadata->name = strdup(value);
+	  ptr = strdup(value);
+      metadata->name = strdup(unicode_fixup_string(ptr, headerenc));
+      free(ptr);
       got_header = 1;
     }
   if ( (value = keyval_get(ctx.input_headers, "icy-description")) )
     {
-      metadata->description = strdup(value);
+	  ptr = strdup(value);
+      metadata->description = strdup(unicode_fixup_string(ptr, headerenc));
+      free(ptr);
       got_header = 1;
     }
   if ( (value = keyval_get(ctx.input_headers, "icy-genre")) )
     {
-      metadata->genre = strdup(value);
+	  ptr = strdup(value);
+      metadata->genre = strdup(unicode_fixup_string(ptr, headerenc));
+      free(ptr);
       got_header = 1;
     }
 
