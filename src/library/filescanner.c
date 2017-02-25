@@ -1529,6 +1529,34 @@ filescanner_fullrescan()
   return 0;
 }
 
+static int
+scan_metadata(const char *path, struct media_file_info *mfi)
+{
+  int ret;
+
+  if (strncasecmp(path, "http://", strlen("http://")) == 0)
+    {
+      memset(mfi, 0, sizeof(struct media_file_info));
+      mfi->path = strdup(path);
+      mfi->fname = strdup(basename(mfi->path));
+      mfi->data_kind = DATA_KIND_HTTP;
+      mfi->directory_id = DIR_HTTP;
+
+      ret = scan_metadata_ffmpeg(path, mfi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
+	  mfi->type = strdup("mp3");
+	  mfi->codectype = strdup("mpeg");
+	  mfi->description = strdup("MPEG audio file");
+	}
+
+      return METADATA_OK;
+    }
+
+  return METADATA_PATH_INVALID;
+}
+
 /* Thread: main */
 static int
 filescanner_init(void)
@@ -1561,4 +1589,5 @@ struct library_source filescanner =
   .initscan = filescanner_initscan,
   .rescan = filescanner_rescan,
   .fullrescan = filescanner_fullrescan,
+  .scan_metadata = scan_metadata,
 };
