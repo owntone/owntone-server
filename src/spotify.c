@@ -2121,7 +2121,7 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 	      memset(&mfi, 0, sizeof(struct media_file_info));
 	      map_track_to_mfi(&track, &mfi);
 
-	      track.is_compilation = (track.is_compilation || artist_override);
+	      mfi.compilation = (track.is_compilation || artist_override);
 	      if (album_override)
 		{
 		  free(mfi.album);
