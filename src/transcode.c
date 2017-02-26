@@ -870,7 +870,7 @@ close_output(struct encode_ctx *ctx)
 }
 
 static int
-open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *filter_spec)
+open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 {
   AVFilter *buffersrc;
   AVFilter *format;
@@ -1029,16 +1029,14 @@ open_filters(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
 
   if (ctx->settings.encode_audio)
     {
-      // anull is a passthrough (dummy) filter for audio
-      ret = open_filter(&ctx->audio_stream, &src_ctx->audio_stream, "anull");
+      ret = open_filter(&ctx->audio_stream, &src_ctx->audio_stream);
       if (ret < 0)
 	goto out_fail;
     }
 
   if (ctx->settings.encode_video)
     {
-      // null is a passthrough (dummy) filter for video
-      ret = open_filter(&ctx->video_stream, &src_ctx->video_stream, "null");
+      ret = open_filter(&ctx->video_stream, &src_ctx->video_stream);
       if (ret < 0)
 	goto out_fail;
     }
