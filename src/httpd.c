@@ -167,7 +167,7 @@ stream_end(struct stream_ctx *st, int failed)
   event_free(st->ev);
 
   if (st->xcode)
-    transcode_cleanup(st->xcode);
+    transcode_cleanup(&st->xcode);
   else
     {
       free(st->buf);
@@ -750,7 +750,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
   if (st->evbuf)
     evbuffer_free(st->evbuf);
   if (st->xcode)
-    transcode_cleanup(st->xcode);
+    transcode_cleanup(&st->xcode);
   if (st->buf)
     free(st->buf);
   if (st->fd > 0)
