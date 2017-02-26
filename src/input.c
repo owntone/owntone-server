@@ -459,7 +459,7 @@ input_flush(short *flags)
   pthread_mutex_unlock(&input_buffer.mutex);
 
 #ifdef DEBUG
-  DPRINTF(E_DBG, L_PLAYER, "Flush with flags %d\n", *flags);
+  DPRINTF(E_DBG, L_PLAYER, "Flushing %zu bytes with flags %d\n", len, *flags);
 #endif
 }
 

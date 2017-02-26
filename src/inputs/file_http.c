@@ -90,7 +90,9 @@ start(struct player_source *ps)
 static int
 stop(struct player_source *ps)
 {
-  transcode_cleanup(ps->input_ctx);
+  struct transcode_ctx *ctx = ps->input_ctx;
+
+  transcode_cleanup(&ctx);
 
   ps->input_ctx = NULL;
   ps->setup_done = 0;

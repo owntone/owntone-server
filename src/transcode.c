@@ -117,12 +117,14 @@ struct decode_ctx
   // Data kind (used to determine if ICY metadata is relevant to look for)
   enum data_kind data_kind;
 
-  // Contains the most recent packet from av_read_frame
-  // Used for resuming after seek and for freeing correctly
-  // in transcode_decode()
-  AVPacket packet;
-  int resume;
-  int resume_offset;
+  // Set to true if we just seeked
+  bool resume;
+
+  // Contains the most recent packet from av_read_frame()
+  AVPacket *packet;
+
+  // Contains the most recent frame from avcodec_receive_frame()
+  AVFrame *decoded_frame;
 
   // Used to measure if av_read_frame is taking too long
   int64_t timestamp;
@@ -164,6 +166,8 @@ struct transcode_ctx
 {
   struct decode_ctx *decode_ctx;
   struct encode_ctx *encode_ctx;
+
+  bool eof;
 };
 
 struct decoded_frame
@@ -407,56 +411,42 @@ static int decode_interrupt_cb(void *arg)
   return 0;
 }
 
-/* Will read the next packet from the source, unless we are in resume mode, in
- * which case the most recent packet will be returned, but with an adjusted data
- * pointer. Use ctx->resume and ctx->resume_offset to make the function resume
- * from the most recent packet.
+/* Will read the next packet from the source, unless we are resuming after a
+ * seek in which case the most recent packet found by transcode_seek() will be
+ * returned. The packet will be put in ctx->packet.
  *
- * @out packet    Pointer to an already allocated AVPacket. The content of the
- *                packet will be updated, and packet->data is pointed to the data
- *                returned by av_read_frame(). The packet struct is owned by the
- *                caller, but *not* packet->data, so don't free the packet with
- *                av_free_packet()/av_packet_unref()
  * @out type      Media type of packet
  * @in  ctx       Decode context
  * @return        0 if OK, < 0 on error or end of file
  */
 static int
-read_packet(AVPacket *packet, enum AVMediaType *type, struct decode_ctx *ctx)
+read_packet(enum AVMediaType *type, struct decode_ctx *dec_ctx)
 {
   int ret;
 
+  // We just seeked, so transcode_seek() will have found a new ctx->packet and
+  // we should just use start with that (if the stream is one are ok with)
+  if (dec_ctx->resume)
+    {
+      dec_ctx->resume = 0;
+      *type = stream_find(dec_ctx, dec_ctx->packet->stream_index);
+      if (*type != AVMEDIA_TYPE_UNKNOWN)
+	return 0;
+    }
+
   do
     {
-      if (ctx->resume)
+      dec_ctx->timestamp = av_gettime();
+
+      av_packet_unref(dec_ctx->packet);
+      ret = av_read_frame(dec_ctx->ifmt_ctx, dec_ctx->packet);
+      if (ret < 0)
 	{
-	  // Copies packet struct, but not actual packet payload, and adjusts
-	  // data pointer to somewhere inside the payload if resume_offset is set
-	  *packet = ctx->packet;
-	  packet->data += ctx->resume_offset;
-	  packet->size -= ctx->resume_offset;
-	  ctx->resume = 0;
-        }
-      else
-	{
-	  // We are going to read a new packet from source, so now it is safe to
-	  // discard the previous packet and reset resume_offset
-	  av_packet_unref(&ctx->packet);
-
-	  ctx->resume_offset = 0;
-	  ctx->timestamp = av_gettime();
-
-	  ret = av_read_frame(ctx->ifmt_ctx, &ctx->packet);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", err2str(ret));
-              return ret;
-	    }
-
-	  *packet = ctx->packet;
+	  DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", err2str(ret));
+	  return ret;
 	}
 
-      *type = stream_find(ctx, packet->stream_index);
+      *type = stream_find(dec_ctx, dec_ctx->packet->stream_index);
     }
   while (*type == AVMEDIA_TYPE_UNKNOWN);
 
@@ -484,6 +474,10 @@ packet_prepare(AVPacket *pkt, struct stream_ctx *s)
   av_packet_rescale_ts(pkt, s->codec->time_base, s->stream->time_base);
 }
 
+/*
+ * Part 4 of the conversion chain: read -> decode -> filter -> encode -> write
+ *
+ */
 static int
 encode_write(struct encode_ctx *ctx, struct stream_ctx *s, AVFrame *filt_frame)
 {
@@ -515,6 +509,12 @@ encode_write(struct encode_ctx *ctx, struct stream_ctx *s, AVFrame *filt_frame)
   return ret;
 }
 
+/*
+ * Part 3 of the conversion chain: read -> decode -> filter -> encode -> write
+ *
+ * transcode_encode() starts here since the caller already has a frame
+ *
+ */
 static int
 filter_encode_write(struct encode_ctx *ctx, struct stream_ctx *s, AVFrame *frame)
 {
@@ -554,34 +554,92 @@ filter_encode_write(struct encode_ctx *ctx, struct stream_ctx *s, AVFrame *frame
   return ret;
 }
 
-/* Will step through each stream and feed the stream decoder with empty packets
- * to see if the decoder has more frames lined up. Will return non-zero if a
- * frame is found. Should be called until it stops returning anything.
+/*
+ * Part 2 of the conversion chain: read -> decode -> filter -> encode -> write
  *
- * @out frame     AVFrame if there was anything to flush, otherwise undefined
- * @out stream    Set to the AVStream where a decoder returned a frame
- * @in  ctx       Decode context
- * @return        Non-zero (true) if frame found, otherwise 0 (false)
+ * If there is no encode_ctx the chain will aborted here
+ *
  */
 static int
-flush_decoder(AVFrame *frame, enum AVMediaType *type, struct decode_ctx *ctx)
+decode_filter_encode_write(struct transcode_ctx *ctx, struct stream_ctx *s, AVPacket *pkt, enum AVMediaType type)
 {
-  AVPacket dummypacket = { 0 };
-  int got_frame = 0;
+  struct decode_ctx *dec_ctx = ctx->decode_ctx;
+  struct stream_ctx *out_stream = NULL;
+  int ret;
 
-  if (ctx->audio_stream.codec)
+  ret = avcodec_send_packet(s->codec, pkt);
+  if (ret < 0)
+    return ret;
+
+  if (ctx->encode_ctx)
     {
-      *type = AVMEDIA_TYPE_AUDIO;
-      avcodec_decode_audio4(ctx->audio_stream.codec, frame, &got_frame, &dummypacket);
+      if (type == AVMEDIA_TYPE_AUDIO)
+	out_stream = &ctx->encode_ctx->audio_stream;
+      else if (type == AVMEDIA_TYPE_VIDEO)
+	out_stream = &ctx->encode_ctx->video_stream;
+      else
+	return -1;
     }
 
-  if (!got_frame && ctx->video_stream.codec)
+  while (1)
     {
-      *type = AVMEDIA_TYPE_VIDEO;
-      avcodec_decode_video2(ctx->video_stream.codec, frame, &got_frame, &dummypacket);
+      ret = avcodec_receive_frame(s->codec, dec_ctx->decoded_frame);
+      if (ret < 0)
+	{
+	  if (ret == AVERROR(EAGAIN))
+	    ret = 0;
+	  else if (out_stream)
+	    ret = filter_encode_write(ctx->encode_ctx, out_stream, NULL); // Flush
+
+	  break;
+	}
+
+      if (!out_stream)
+	break;
+
+      ret = filter_encode_write(ctx->encode_ctx, out_stream, dec_ctx->decoded_frame);
+      if (ret < 0)
+	break;
     }
 
-  return got_frame;
+  return ret;
+}
+
+/*
+ * Part 1 of the conversion chain: read -> decode -> filter -> encode -> write
+ *
+ * Will read exactly one packet from the input and put it in the chain. You
+ * cannot count on anything coming out of the other end from just one packet,
+ * so you probably should loop when calling this and check the contents of
+ * enc_ctx->obuf.
+ *
+ */
+static int
+read_decode_filter_encode_write(struct transcode_ctx *ctx)
+{
+  struct decode_ctx *dec_ctx = ctx->decode_ctx;
+  enum AVMediaType type;
+  int ret;
+
+  ret = read_packet(&type, dec_ctx);
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_XCODE, "No more input, flushing codecs\n");
+
+      if (dec_ctx->audio_stream.stream)
+	decode_filter_encode_write(ctx, &dec_ctx->audio_stream, NULL, AVMEDIA_TYPE_AUDIO);
+      if (dec_ctx->video_stream.stream)
+	decode_filter_encode_write(ctx, &dec_ctx->video_stream, NULL, AVMEDIA_TYPE_VIDEO);
+
+      return ret;
+    }
+
+  if (type == AVMEDIA_TYPE_AUDIO)
+    ret = decode_filter_encode_write(ctx, &dec_ctx->audio_stream, dec_ctx->packet, type);
+  else if (type == AVMEDIA_TYPE_VIDEO)
+    ret = decode_filter_encode_write(ctx, &dec_ctx->video_stream, dec_ctx->packet, type);
+
+  return ret;
 }
 
 
@@ -760,6 +818,11 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
     {
       DPRINTF(E_LOG, L_XCODE, "Error writing header to output buffer: %s\n", err2str(ret));
       goto out_free_streams;
+    }
+
+  if (ctx->settings.wavheader)
+    {
+      evbuffer_add(ctx->obuf, ctx->header, sizeof(ctx->header));
     }
 
   return 0;
@@ -987,19 +1050,22 @@ transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind,
   struct decode_ctx *ctx;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct decode_ctx)));
-
-  av_init_packet(&ctx->packet);
+  CHECK_NULL(L_XCODE, ctx->decoded_frame = av_frame_alloc());
+  CHECK_NULL(L_XCODE, ctx->packet = av_packet_alloc());
 
   ctx->duration = song_length;
   ctx->data_kind = data_kind;
 
   if ((init_settings(&ctx->settings, profile) < 0) || (open_input(ctx, path) < 0))
-    {
-      free(ctx);
-      return NULL;
-    }
+    goto fail_free;
 
   return ctx;
+
+ fail_free:
+  av_packet_free(&ctx->packet);
+  av_frame_free(&ctx->decoded_frame);
+  free(ctx);
+  return NULL;
 }
 
 struct encode_ctx *
@@ -1011,26 +1077,30 @@ transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ct
   CHECK_NULL(L_XCODE, ctx->filt_frame = av_frame_alloc());
   CHECK_NULL(L_XCODE, ctx->encoded_pkt = av_packet_alloc());
 
-  if ((init_settings(&ctx->settings, profile) < 0) || (open_output(ctx, src_ctx) < 0))
-    {
-      free(ctx);
-      return NULL;
-    }
-
-  if (open_filters(ctx, src_ctx) < 0)
-    {
-      close_output(ctx);
-      free(ctx);
-      return NULL;
-    }
-
-  if (src_ctx->data_kind == DATA_KIND_HTTP)
-    ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.channels * ctx->settings.byte_depth * ctx->settings.sample_rate;
+  if (init_settings(&ctx->settings, profile) < 0)
+    goto fail_free;
 
   if (ctx->settings.wavheader)
     make_wav_header(ctx, src_ctx, est_size);
 
+  if (open_output(ctx, src_ctx) < 0)
+    goto fail_free;
+
+  if (open_filters(ctx, src_ctx) < 0)
+    goto fail_close;
+
+  if (src_ctx->data_kind == DATA_KIND_HTTP)
+    ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.channels * ctx->settings.byte_depth * ctx->settings.sample_rate;
+
   return ctx;
+
+ fail_close:
+  close_output(ctx);
+ fail_free:
+  av_packet_free(&ctx->encoded_pkt);
+  av_frame_free(&ctx->filt_frame);
+  free(ctx);
+  return NULL;
 }
 
 struct transcode_ctx *
@@ -1038,7 +1108,7 @@ transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const 
 {
   struct transcode_ctx *ctx;
 
-  CHECK_NULL(L_XCODE, ctx = malloc(sizeof(struct transcode_ctx)));
+  CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct transcode_ctx)));
 
   ctx->decode_ctx = transcode_decode_setup(profile, data_kind, path, song_length);
   if (!ctx->decode_ctx)
@@ -1050,7 +1120,7 @@ transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const 
   ctx->encode_ctx = transcode_encode_setup(profile, ctx->decode_ctx, est_size);
   if (!ctx->encode_ctx)
     {
-      transcode_decode_cleanup(ctx->decode_ctx);
+      transcode_decode_cleanup(&ctx->decode_ctx);
       free(ctx);
       return NULL;
     }
@@ -1192,43 +1262,54 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 /*                                  Cleanup                                  */
 
 void
-transcode_decode_cleanup(struct decode_ctx *ctx)
+transcode_decode_cleanup(struct decode_ctx **ctx)
 {
-  av_packet_unref(&ctx->packet);
-  close_input(ctx);
-  free(ctx);
+  if (!(*ctx))
+    return;
+
+  close_input(*ctx);
+
+  av_packet_free(&(*ctx)->packet);
+  av_frame_free(&(*ctx)->decoded_frame);
+  free(*ctx);
+  *ctx = NULL;
 }
 
 void
-transcode_encode_cleanup(struct encode_ctx *ctx)
+transcode_encode_cleanup(struct encode_ctx **ctx)
 {
+  if (!*ctx)
+    return;
+
   // Flush audio encoder
-  if (ctx->audio_stream.stream)
-    filter_encode_write(ctx, &ctx->audio_stream, NULL);
+  if ((*ctx)->audio_stream.stream)
+    filter_encode_write(*ctx, &(*ctx)->audio_stream, NULL);
 
   // Flush video encoder
-  if (ctx->video_stream.stream)
-    filter_encode_write(ctx, &ctx->video_stream, NULL);
+  if ((*ctx)->video_stream.stream)
+    filter_encode_write(*ctx, &(*ctx)->video_stream, NULL);
 
   // Flush muxer
-  av_interleaved_write_frame(ctx->ofmt_ctx, NULL);
+  av_interleaved_write_frame((*ctx)->ofmt_ctx, NULL);
 
-  av_write_trailer(ctx->ofmt_ctx);
+  av_write_trailer((*ctx)->ofmt_ctx);
 
-  close_filters(ctx);
-  close_output(ctx);
+  close_filters(*ctx);
+  close_output(*ctx);
 
-  av_packet_free(&ctx->encoded_pkt);
-  av_frame_free(&ctx->filt_frame);
-  free(ctx);
+  av_packet_free(&(*ctx)->encoded_pkt);
+  av_frame_free(&(*ctx)->filt_frame);
+  free(*ctx);
+  *ctx = NULL;
 }
 
 void
-transcode_cleanup(struct transcode_ctx *ctx)
+transcode_cleanup(struct transcode_ctx **ctx)
 {
-  transcode_encode_cleanup(ctx->encode_ctx);
-  transcode_decode_cleanup(ctx->decode_ctx);
-  free(ctx);
+  transcode_encode_cleanup(&(*ctx)->encode_ctx);
+  transcode_decode_cleanup(&(*ctx)->decode_ctx);
+  free(*ctx);
+  *ctx = NULL;
 }
 
 void
@@ -1241,103 +1322,11 @@ transcode_decoded_free(struct decoded_frame *decoded)
 
 /*                       Encoding, decoding and transcoding                  */
 
-
 int
-transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx)
+transcode_decode(struct decoded_frame **decoded, struct decode_ctx *dec_ctx)
 {
-  AVPacket packet;
-  AVFrame *frame;
-  enum AVMediaType type;
-  int got_frame;
-  int retry;
-  int ret;
-  int used;
-
-  // Alloc the frame we will return on success
-  frame = av_frame_alloc();
-  if (!frame)
-    {
-      DPRINTF(E_LOG, L_XCODE, "Out of memory for decode frame\n");
-
-      return -1;
-    }
-
-  // Loop until we either fail or get a frame
-  retry = 0;
-  do
-    {
-      ret = read_packet(&packet, &type, ctx);
-      if (ret < 0)
-	{
-	  // Some decoders need to be flushed, meaning the decoder is to be called
-	  // with empty input until no more frames are returned
-	  DPRINTF(E_DBG, L_XCODE, "Could not read packet, will flush decoders\n");
-
-	  got_frame = flush_decoder(frame, &type, ctx);
-	  if (got_frame)
-	    break;
-
-	  av_frame_free(&frame);
-	  if (ret == AVERROR_EOF)
-	    return 0;
-	  else
-	    return -1;
-	}
-
-      // "used" will tell us how much of the packet was decoded. We may
-      // not get a frame because of insufficient input, in which case we loop to
-      // read another packet.
-      if (type == AVMEDIA_TYPE_AUDIO)
-	used = avcodec_decode_audio4(ctx->audio_stream.codec, frame, &got_frame, &packet);
-      else
-	used = avcodec_decode_video2(ctx->video_stream.codec, frame, &got_frame, &packet);
-
-      // decoder returned an error, but maybe the packet was just a bad apple,
-      // so let's try MAX_BAD_PACKETS times before giving up
-      if (used < 0)
-	{
-	  DPRINTF(E_DBG, L_XCODE, "Couldn't decode packet: %s\n", err2str(used));
-
-	  retry += 1;
-	  if (retry < MAX_BAD_PACKETS)
-	    continue;
-
-	  DPRINTF(E_LOG, L_XCODE, "Couldn't decode packet after %i retries: %s\n", MAX_BAD_PACKETS, err2str(used));
-
-	  av_frame_free(&frame);
-	  return -1;
-	}
-
-      // decoder didn't process the entire packet, so flag a resume, meaning
-      // that the next read_packet() will return this same packet, but where the
-      // data pointer is adjusted with an offset
-      if (used < packet.size)
-	{
-	  DPRINTF(E_SPAM, L_XCODE, "Decoder did not finish packet, packet will be resumed\n");
-
-	  ctx->resume_offset += used;
-	  ctx->resume = 1;
-	}
-    }
-  while (!got_frame);
-
-  if (got_frame > 0)
-    {
-      // Return the decoded frame and stream index
-      *decoded = malloc(sizeof(struct decoded_frame));
-      if (!(*decoded))
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded result\n");
-
-	  av_frame_free(&frame);
-	  return -1;
-	}
-
-      (*decoded)->frame = frame;
-      (*decoded)->type = type;
-    }
-
-  return got_frame;
+  DPRINTF(E_LOG, L_XCODE, "Bug! Call to transcode_decode(), but the lazy programmer didn't implement it\n");
+  return -1;
 }
 
 // Filters and encodes
@@ -1345,10 +1334,10 @@ int
 transcode_encode(struct evbuffer *evbuf, struct decoded_frame *decoded, struct encode_ctx *ctx)
 {
   struct stream_ctx *s;
-  int encoded_length;
+  size_t start_length;
   int ret;
 
-  encoded_length = 0;
+  start_length = evbuffer_get_length(ctx->obuf);
 
   if (decoded->type == AVMEDIA_TYPE_AUDIO)
     s = &ctx->audio_stream;
@@ -1357,53 +1346,54 @@ transcode_encode(struct evbuffer *evbuf, struct decoded_frame *decoded, struct e
   else
     return -1;
 
-  if (ctx->settings.wavheader)
-    {
-      encoded_length += sizeof(ctx->header);
-      evbuffer_add(evbuf, ctx->header, sizeof(ctx->header));
-      ctx->settings.wavheader = 0;
-    }
-
   ret = filter_encode_write(ctx, s, decoded->frame);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Error occurred: %s\n", err2str(ret));
+      DPRINTF(E_LOG, L_XCODE, "Error occurred while encoding: %s\n", err2str(ret));
       return ret;
     }
 
-  encoded_length += evbuffer_get_length(ctx->obuf);
+  ret = evbuffer_get_length(ctx->obuf) - start_length;
+
   evbuffer_add_buffer(evbuf, ctx->obuf);
 
-  return encoded_length;
+  return ret;
 }
 
 int
-transcode(struct evbuffer *evbuf, int wanted, struct transcode_ctx *ctx, int *icy_timer)
+transcode(struct evbuffer *evbuf, int want_bytes, struct transcode_ctx *ctx, int *icy_timer)
 {
-  struct decoded_frame *decoded;
-  int processed;
+  size_t start_length;
+  int processed = 0;
   int ret;
 
   *icy_timer = 0;
 
-  processed = 0;
-  while (processed < wanted)
+  if (ctx->eof)
+    return 0;
+
+  start_length = evbuffer_get_length(ctx->encode_ctx->obuf);
+
+  do
     {
-      ret = transcode_decode(&decoded, ctx->decode_ctx);
-      if (ret <= 0)
-	return ret;
-
-      ret = transcode_encode(evbuf, decoded, ctx->encode_ctx);
-      transcode_decoded_free(decoded);
-      if (ret < 0)
-	return -1;
-
-      processed += ret;
+      ret = read_decode_filter_encode_write(ctx);
+      processed = evbuffer_get_length(ctx->encode_ctx->obuf) - start_length;
     }
+  while ((ret == 0) && (!want_bytes || (processed < want_bytes)));
+
+  evbuffer_add_buffer(evbuf, ctx->encode_ctx->obuf);
 
   ctx->encode_ctx->total_bytes += processed;
   if (ctx->encode_ctx->icy_interval)
     *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
+
+  if (ret == AVERROR_EOF)
+    {
+      ctx->eof = 1;
+      ret = 0;
+    }
+  else if (ret < 0)
+    return ret;
 
   return processed;
 }
@@ -1496,11 +1486,10 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   s->codec->skip_frame = AVDISCARD_NONREF;
   while (1)
     {
-      av_packet_unref(&dec_ctx->packet);
-
       dec_ctx->timestamp = av_gettime();
 
-      ret = av_read_frame(dec_ctx->ifmt_ctx, &dec_ctx->packet);
+      av_packet_unref(dec_ctx->packet);
+      ret = av_read_frame(dec_ctx->ifmt_ctx, dec_ctx->packet);
       if (ret < 0)
 	{
 	  DPRINTF(E_WARN, L_XCODE, "Could not read more data while seeking: %s\n", err2str(ret));
@@ -1508,23 +1497,22 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
 	  return -1;
 	}
 
-      if (stream_find(dec_ctx, dec_ctx->packet.stream_index) == AVMEDIA_TYPE_UNKNOWN)
+      if (stream_find(dec_ctx, dec_ctx->packet->stream_index) == AVMEDIA_TYPE_UNKNOWN)
 	continue;
 
       // Need a pts to return the real position
-      if (dec_ctx->packet.pts == AV_NOPTS_VALUE)
+      if (dec_ctx->packet->pts == AV_NOPTS_VALUE)
 	continue;
 
       break;
     }
   s->codec->skip_frame = AVDISCARD_DEFAULT;
 
-  // Tell transcode_decode() to resume with ctx->packet
+  // Tell read_packet() to resume with dec_ctx->packet
   dec_ctx->resume = 1;
-  dec_ctx->resume_offset = 0;
 
   // Compute position in ms from pts
-  got_pts = dec_ctx->packet.pts;
+  got_pts = dec_ctx->packet->pts;
 
   if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
     got_pts -= start_time;

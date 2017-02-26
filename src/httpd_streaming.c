@@ -300,7 +300,7 @@ streaming_init(void)
     }
 
   streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, decode_ctx, NULL);
-  transcode_decode_cleanup(decode_ctx);
+  transcode_decode_cleanup(&decode_ctx);
   if (!streaming_encode_ctx)
     {
       DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream mp3, libav does not support mp3 encoding\n");
@@ -399,7 +399,7 @@ streaming_init(void)
   close(streaming_pipe[0]);
   close(streaming_pipe[1]);
  pipe_fail:
-  transcode_encode_cleanup(streaming_encode_ctx);
+  transcode_encode_cleanup(&streaming_encode_ctx);
 
   return -1;
 }
@@ -432,7 +432,7 @@ streaming_deinit(void)
   close(streaming_pipe[0]);
   close(streaming_pipe[1]);
 
-  transcode_encode_cleanup(streaming_encode_ctx);
+  transcode_encode_cleanup(&streaming_encode_ctx);
   evbuffer_free(streaming_encoded_data);
   free(streaming_silence_data);
 }
