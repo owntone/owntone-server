@@ -6,19 +6,17 @@
 #include "db.h"
 #include "http.h"
 
-#define XCODE_WAVHEADER (1 << 14)
-#define XCODE_HAS_VIDEO (1 << 15)
-
 enum transcode_profile
 {
-  // Transcodes the best available audio stream into PCM16 (does not add wav header)
-  XCODE_PCM16_NOHEADER = 1,
-  // Transcodes the best available audio stream into PCM16 (with wav header)
-  XCODE_PCM16_HEADER   = XCODE_WAVHEADER | 2,
-  // Transcodes the best available audio stream into MP3
-  XCODE_MP3            = 3,
-  // Transcodes video + audio + subtitle streams (not tested - for future use)
-  XCODE_H264_AAC       = XCODE_HAS_VIDEO | 4,
+  // Transcodes the best audio stream into PCM16 (does not add wav header)
+  XCODE_PCM16_NOHEADER,
+  // Transcodes the best audio stream into PCM16 (with wav header)
+  XCODE_PCM16_HEADER,
+  // Transcodes the best audio stream into MP3
+  XCODE_MP3,
+  // Transcodes the best video stream into JPEG/PNG
+  XCODE_JPEG,
+  XCODE_PNG,
 };
 
 struct decode_ctx;
@@ -28,13 +26,13 @@ struct decoded_frame;
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum data_kind data_kind, const char *path, uint32_t song_length, int decode_video);
+transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length);
 
 struct encode_ctx *
-transcode_encode_setup(struct decode_ctx *src_ctx, enum transcode_profile profile, off_t *est_size);
+transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ctx, off_t *est_size);
 
 struct transcode_ctx *
-transcode_setup(enum data_kind data_kind, const char *path, uint32_t song_length, enum transcode_profile profile, off_t *est_size);
+transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size);
 
 struct decode_ctx *
 transcode_decode_setup_raw(void);

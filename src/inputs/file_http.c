@@ -31,7 +31,7 @@
 static int
 setup(struct player_source *ps)
 {
-  ps->input_ctx = transcode_setup(ps->data_kind, ps->path, ps->len_ms, XCODE_PCM16_NOHEADER, NULL);
+  ps->input_ctx = transcode_setup(XCODE_PCM16_NOHEADER, ps->data_kind, ps->path, ps->len_ms, NULL);
   if (!ps->input_ctx)
     return -1;
 

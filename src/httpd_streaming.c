@@ -299,7 +299,7 @@ streaming_init(void)
       return -1;
     }
 
-  streaming_encode_ctx = transcode_encode_setup(decode_ctx, XCODE_MP3, NULL);
+  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, decode_ctx, NULL);
   transcode_decode_cleanup(decode_ctx);
   if (!streaming_encode_ctx)
     {
