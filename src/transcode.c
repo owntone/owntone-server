@@ -120,6 +120,9 @@ struct decode_ctx
   // Set to true if we just seeked
   bool resume;
 
+  // Set to true if we have reached eof
+  bool eof;
+
   // Contains the most recent packet from av_read_frame()
   AVPacket *packet;
 
@@ -166,8 +169,6 @@ struct transcode_ctx
 {
   struct decode_ctx *decode_ctx;
   struct encode_ctx *encode_ctx;
-
-  bool eof;
 };
 
 struct decoded_frame
@@ -475,7 +476,7 @@ packet_prepare(AVPacket *pkt, struct stream_ctx *s)
 }
 
 /*
- * Part 4 of the conversion chain: read -> decode -> filter -> encode -> write
+ * Part 4+5 of the conversion chain: read -> decode -> filter -> encode -> write
  *
  */
 static int
@@ -624,12 +625,20 @@ read_decode_filter_encode_write(struct transcode_ctx *ctx)
   ret = read_packet(&type, dec_ctx);
   if (ret < 0)
     {
-      DPRINTF(E_DBG, L_XCODE, "No more input, flushing codecs\n");
+      if (ret == AVERROR_EOF)
+	dec_ctx->eof = 1;
 
       if (dec_ctx->audio_stream.stream)
 	decode_filter_encode_write(ctx, &dec_ctx->audio_stream, NULL, AVMEDIA_TYPE_AUDIO);
       if (dec_ctx->video_stream.stream)
 	decode_filter_encode_write(ctx, &dec_ctx->video_stream, NULL, AVMEDIA_TYPE_VIDEO);
+
+      // Flush muxer
+      if (ctx->encode_ctx)
+	{
+	  av_interleaved_write_frame(ctx->encode_ctx->ofmt_ctx, NULL);
+	  av_write_trailer(ctx->encode_ctx->ofmt_ctx);
+	}
 
       return ret;
     }
@@ -848,6 +857,7 @@ close_output(struct encode_ctx *ctx)
 
   avio_evbuffer_close(ctx->ofmt_ctx->pb);
   evbuffer_free(ctx->obuf);
+
   avformat_free_context(ctx->ofmt_ctx);
 }
 
@@ -1281,19 +1291,6 @@ transcode_encode_cleanup(struct encode_ctx **ctx)
   if (!*ctx)
     return;
 
-  // Flush audio encoder
-  if ((*ctx)->audio_stream.stream)
-    filter_encode_write(*ctx, &(*ctx)->audio_stream, NULL);
-
-  // Flush video encoder
-  if ((*ctx)->video_stream.stream)
-    filter_encode_write(*ctx, &(*ctx)->video_stream, NULL);
-
-  // Flush muxer
-  av_interleaved_write_frame((*ctx)->ofmt_ctx, NULL);
-
-  av_write_trailer((*ctx)->ofmt_ctx);
-
   close_filters(*ctx);
   close_output(*ctx);
 
@@ -1369,7 +1366,7 @@ transcode(struct evbuffer *evbuf, int want_bytes, struct transcode_ctx *ctx, int
 
   *icy_timer = 0;
 
-  if (ctx->eof)
+  if (ctx->decode_ctx->eof)
     return 0;
 
   start_length = evbuffer_get_length(ctx->encode_ctx->obuf);
@@ -1388,10 +1385,7 @@ transcode(struct evbuffer *evbuf, int want_bytes, struct transcode_ctx *ctx, int
     *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
 
   if (ret == AVERROR_EOF)
-    {
-      ctx->eof = 1;
-      ret = 0;
-    }
+    ret = 0;
   else if (ret < 0)
     return ret;
 
