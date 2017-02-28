@@ -123,7 +123,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 {
   struct streaming_session *session;
   struct evbuffer *evbuf;
-  struct decoded_frame *decoded;
+  void *frame;
   uint8_t *buf;
   int len;
   int ret;
@@ -138,15 +138,15 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
       if (!streaming_sessions)
 	return;
 
-      decoded = transcode_raw2frame(streaming_rawbuf, STREAMING_RAWBUF_SIZE);
-      if (!decoded)
+      frame = transcode_frame_new(XCODE_MP3, streaming_rawbuf, STREAMING_RAWBUF_SIZE);
+      if (!frame)
 	{
 	  DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
 	  return;
 	}
 
-      ret = transcode_encode(streaming_encoded_data, decoded, streaming_encode_ctx);
-      transcode_decoded_free(decoded);
+      ret = transcode_encode(streaming_encoded_data, streaming_encode_ctx, frame, 0);
+      transcode_frame_free(frame);
       if (ret < 0)
 	return;
     }
@@ -288,7 +288,7 @@ int
 streaming_init(void)
 {
   struct decode_ctx *decode_ctx;
-  struct decoded_frame *decoded;
+  void *frame;
   int remaining;
   int ret;
 
@@ -299,7 +299,7 @@ streaming_init(void)
       return -1;
     }
 
-  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, decode_ctx, NULL);
+  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, decode_ctx, NULL, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
   if (!streaming_encode_ctx)
     {
@@ -345,15 +345,15 @@ streaming_init(void)
   remaining = STREAMING_SILENCE_INTERVAL * STOB(44100);
   while (remaining > STREAMING_RAWBUF_SIZE)
     {
-      decoded = transcode_raw2frame(streaming_rawbuf, STREAMING_RAWBUF_SIZE);
-      if (!decoded)
+      frame = transcode_frame_new(XCODE_MP3, streaming_rawbuf, STREAMING_RAWBUF_SIZE);
+      if (!frame)
 	{
 	  DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
 	  goto silence_fail;
 	}
 
-      ret = transcode_encode(streaming_encoded_data, decoded, streaming_encode_ctx);
-      transcode_decoded_free(decoded);
+      ret = transcode_encode(streaming_encoded_data, streaming_encode_ctx, frame, 0);
+      transcode_frame_free(frame);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_STREAMING, "Could not encode silence buffer\n");

@@ -70,7 +70,7 @@ start(struct player_source *ps)
     {
       // We set "wanted" to 1 because the read size doesn't matter to us
       // TODO optimize?
-      ret = transcode(evbuf, 1, ps->input_ctx, &icy_timer);
+      ret = transcode(evbuf, &icy_timer, ps->input_ctx, 1);
       if (ret < 0)
 	break;
 
