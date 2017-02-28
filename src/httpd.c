@@ -309,11 +309,10 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   struct timeval tv;
   int xcoded;
   int ret;
-  int dummy;
 
   st = (struct stream_ctx *)arg;
 
-  xcoded = transcode(st->evbuf, STREAM_CHUNK_SIZE, st->xcode, &dummy);
+  xcoded = transcode(st->evbuf, NULL, st->xcode, STREAM_CHUNK_SIZE);
   if (xcoded <= 0)
     {
       if (xcoded == 0)
