@@ -991,8 +991,8 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	}
 
       snprintf(args, sizeof(args),
-               "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-               in_stream->codec->width, in_stream->codec->height, in_stream->codec->pix_fmt,
+               "width=%d:height=%d:pix_fmt=%s:time_base=%d/%d:sar=%d/%d",
+               in_stream->codec->width, in_stream->codec->height, av_get_pix_fmt_name(in_stream->codec->pix_fmt),
                in_stream->stream->time_base.num, in_stream->stream->time_base.den,
                in_stream->codec->sample_aspect_ratio.num, in_stream->codec->sample_aspect_ratio.den);
 
@@ -1014,7 +1014,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	}
 
       snprintf(args, sizeof(args),
-               "width=%d:height=%d", out_stream->codec->width, out_stream->codec->height);
+               "w=%d:h=%d", out_stream->codec->width, out_stream->codec->height);
 
       ret = avfilter_graph_create_filter(&scale_ctx, scale, "scale", args, NULL, filter_graph);
       if (ret < 0)
