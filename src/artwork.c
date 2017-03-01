@@ -324,13 +324,14 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
 /* Get an artwork file from the filesystem. Will rescale if needed.
  *
  * @out evbuf     Image data
- * @in  path      Path to the artwork
+ * @in  path      Path to the artwork (alternative to inbuf)
+ * @in  inbuf     Buffer with the artwork (alternative to path)
  * @in  max_w     Requested width
  * @in  max_h     Requested height
  * @return        ART_FMT_* on success, ART_E_ERROR on error
  */
 static int
-artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
+artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_w, int max_h)
 {
   struct decode_ctx *xcode_decode;
   struct encode_ctx *xcode_encode;
@@ -344,7 +345,7 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 
   DPRINTF(E_SPAM, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
 
-  xcode_decode = transcode_decode_setup(XCODE_PNG, DATA_KIND_FILE, path, 0); // Good for XCODE_JPEG too
+  xcode_decode = transcode_decode_setup(XCODE_JPEG, DATA_KIND_FILE, path, inbuf, 0); // Covers XCODE_PNG too
   if (!xcode_decode)
     {
       DPRINTF(E_DBG, L_ART, "No artwork found in '%s'\n", path);
@@ -368,7 +369,7 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   if (ret < 0)
     {
       // No rescaling required, just read the raw file into the evbuf
-      if (artwork_read(evbuf, path) != 0)
+      if (!path || artwork_read(evbuf, path) != 0)
 	goto fail_free_decode;
 
       transcode_decode_cleanup(&xcode_decode);
@@ -518,7 +519,7 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
 
   snprintf(out_path, PATH_MAX, "%s", path);
 
-  return artwork_get(evbuf, path, max_w, max_h);
+  return artwork_get(evbuf, path, NULL, max_w, max_h);
 }
 
 
@@ -631,7 +632,7 @@ source_item_embedded_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
 
-  return artwork_get(ctx->evbuf, ctx->path, ctx->max_w, ctx->max_h);
+  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h);
 }
 
 /* Looks for basename(in_path).{png,jpg}, so if in_path is /foo/bar.mp3 it
@@ -685,7 +686,7 @@ source_item_own_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
-  return artwork_get(ctx->evbuf, path, ctx->max_w, ctx->max_h);
+  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h);
 }
 
 /*
@@ -774,13 +775,8 @@ source_item_stream_get(struct artwork_ctx *ctx)
 static int
 source_item_spotify_get(struct artwork_ctx *ctx)
 {
-  AVFormatContext *src_ctx;
-  AVIOContext *avio;
-  AVInputFormat *ifmt;
   struct evbuffer *raw;
   struct evbuffer *evbuf;
-  int target_w;
-  int target_h;
   int ret;
 
   raw = evbuffer_new();
@@ -820,75 +816,29 @@ source_item_spotify_get(struct artwork_ctx *ctx)
       goto out_free_evbuf;
     }
 
-  // Now evbuf will be processed by ffmpeg, since it probably needs to be rescaled
-  src_ctx = avformat_alloc_context();
-  if (!src_ctx)
+  // For non-file input, artwork_get() will also fail if no rescaling is required
+  ret = artwork_get(ctx->evbuf, NULL, evbuf, ctx->max_w, ctx->max_h);
+  if (ret == ART_E_ERROR)
     {
-      DPRINTF(E_LOG, L_ART, "Out of memory for source context\n");
-      goto out_free_evbuf;
+      DPRINTF(E_DBG, L_ART, "Not rescaling Spotify image\n");
+      ret = evbuffer_add_buffer(ctx->evbuf, raw);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
+	  goto out_free_evbuf;
+	}
     }
 
-  avio = avio_input_evbuffer_open(evbuf);
-  if (!avio)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not alloc input evbuffer\n");
-      goto out_free_ctx;
-    }
-
-  src_ctx->pb = avio;
-
-  ifmt = av_find_input_format("mjpeg");
-  if (!ifmt)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not find mjpeg input format\n");
-      goto out_close_avio;
-    }
-
-  ret = avformat_open_input(&src_ctx, NULL, ifmt, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not open input\n");
-      goto out_close_avio;
-    }
-
-  ret = avformat_find_stream_info(src_ctx, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not find stream info\n");
-      goto out_close_input;
-    }
-
-  ret = rescale_needed(src_ctx->streams[0]->codec, ctx->max_w, ctx->max_h, &target_w, &target_h);
-  if (!ret)
-    ret = evbuffer_add_buffer(ctx->evbuf, raw);
-  else
-    ret = artwork_rescale(ctx->evbuf, src_ctx, 0, target_w, target_h);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
-      goto out_close_input;
-    }
-
-  avformat_close_input(&src_ctx);
-  avio_evbuffer_close(avio);
   evbuffer_free(evbuf);
   evbuffer_free(raw);
 
   return ART_FMT_JPEG;
 
- out_close_input:
-  avformat_close_input(&src_ctx);
- out_close_avio:
-  avio_evbuffer_close(avio);
- out_free_ctx:
-  if (src_ctx)
-    avformat_free_context(src_ctx);
  out_free_evbuf:
   evbuffer_free(evbuf);
   evbuffer_free(raw);
 
   return ART_E_ERROR;
-
 }
 #else
 static int

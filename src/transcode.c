@@ -70,6 +70,9 @@ struct settings_ctx
   // Output format (for the muxer)
   const char *format;
 
+  // Input format (for the demuxer)
+  const char *in_format;
+
   // Audio settings
   enum AVCodecID audio_codec;
   const char *audio_codec_name;
@@ -110,6 +113,9 @@ struct decode_ctx
 
   // Input format context
   AVFormatContext *ifmt_ctx;
+
+  // IO Context for non-file input
+  AVIOContext *avio;
 
   // Stream and decoder data
   struct stream_ctx audio_stream;
@@ -219,6 +225,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile)
 	settings->encode_video = 1;
 	settings->silent = 1;
 	settings->format = "image2";
+	settings->in_format = "mjpeg";
 	settings->video_codec = AV_CODEC_ID_MJPEG;
 	break;
 
@@ -712,10 +719,11 @@ open_decoder(unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaTyp
 }
 
 static int
-open_input(struct decode_ctx *ctx, const char *path)
+open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
 {
   AVDictionary *options = NULL;
   AVCodecContext *dec_ctx;
+  AVInputFormat *ifmt;
   unsigned int stream_index;
   int ret;
 
@@ -735,7 +743,24 @@ open_input(struct decode_ctx *ctx, const char *path)
   ctx->ifmt_ctx->interrupt_callback.opaque = ctx;
   ctx->timestamp = av_gettime();
 
-  ret = avformat_open_input(&ctx->ifmt_ctx, path, NULL, &options);
+  if (evbuf)
+    {
+      ifmt = av_find_input_format(ctx->settings.in_format);
+      if (!ifmt)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Could not find input format: '%s'\n", ctx->settings.in_format);
+	  return -1;
+	}
+
+      CHECK_NULL(L_XCODE, ctx->avio = avio_input_evbuffer_open(evbuf));
+
+      ctx->ifmt_ctx->pb = ctx->avio;
+      ret = avformat_open_input(&ctx->ifmt_ctx, NULL, ifmt, &options);
+    }
+  else
+    {
+      ret = avformat_open_input(&ctx->ifmt_ctx, path, NULL, &options);
+    }
 
   if (options)
     av_dict_free(&options);
@@ -782,6 +807,7 @@ open_input(struct decode_ctx *ctx, const char *path)
   return 0;
 
  out_fail:
+  avio_evbuffer_close(ctx->avio);
   avcodec_free_context(&ctx->audio_stream.codec);
   avcodec_free_context(&ctx->video_stream.codec);
   avformat_close_input(&ctx->ifmt_ctx);
@@ -792,6 +818,7 @@ open_input(struct decode_ctx *ctx, const char *path)
 static void
 close_input(struct decode_ctx *ctx)
 {
+  avio_evbuffer_close(ctx->avio);
   avcodec_free_context(&ctx->audio_stream.codec);
   avcodec_free_context(&ctx->video_stream.codec);
   avformat_close_input(&ctx->ifmt_ctx);
@@ -1075,7 +1102,7 @@ close_filters(struct encode_ctx *ctx)
 /*                                  Setup                                    */
 
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length)
+transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length)
 {
   struct decode_ctx *ctx;
 
@@ -1086,7 +1113,7 @@ transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind,
   ctx->duration = song_length;
   ctx->data_kind = data_kind;
 
-  if ((init_settings(&ctx->settings, profile) < 0) || (open_input(ctx, path) < 0))
+  if ((init_settings(&ctx->settings, profile) < 0) || (open_input(ctx, path, evbuf) < 0))
     goto fail_free;
 
   return ctx;
@@ -1143,7 +1170,7 @@ transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const 
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct transcode_ctx)));
 
-  ctx->decode_ctx = transcode_decode_setup(profile, data_kind, path, song_length);
+  ctx->decode_ctx = transcode_decode_setup(profile, data_kind, path, NULL, song_length);
   if (!ctx->decode_ctx)
     {
       free(ctx);
@@ -1402,8 +1429,6 @@ transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, void *frame, in
     }
 
   ret = evbuffer_get_length(ctx->obuf) - start_length;
-
-  // TODO Shouldn't we flush and let the muxer write the trailer now?
 
   evbuffer_add_buffer(evbuf, ctx->obuf);
 
