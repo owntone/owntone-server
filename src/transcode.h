@@ -25,7 +25,7 @@ struct transcode_ctx;
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length);
+transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length);
 
 struct encode_ctx *
 transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ctx, off_t *est_size, int width, int height);
