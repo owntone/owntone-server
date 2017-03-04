@@ -1467,9 +1467,7 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
   if (icy_timer && ctx->encode_ctx->icy_interval)
     *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
 
-  if (ret == AVERROR_EOF)
-    ret = 0;
-  else if (ret < 0)
+  if ((ret < 0) && (ret != AVERROR_EOF))
     return ret;
 
   return processed;
