@@ -821,7 +821,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       "albums: %d\n"
       "songs: %d\n"
       "uptime: %d\n" //in seceonds
-      "db_playtime: %d\n"
+      "db_playtime: %" PRIu64 "\n"
       "db_update: %d\n"
       "playtime: %d\n",
         artists,
@@ -2470,7 +2470,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   evbuffer_add_printf(evbuf,
       "songs: %d\n"
-      "playtime: %d\n",
+      "playtime: %" PRIu64 "\n",
         fci.count,
         (fci.length / 1000));
 
