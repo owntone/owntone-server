@@ -192,8 +192,13 @@ mutex_init(pthread_mutex_t *mutex);
   } while(0)
 
 /* Used by CHECK_*() macros */
-void log_fatal_err(int domain, const char *func, int line, int err);
-void log_fatal_errno(int domain, const char *func, int line);
-void log_fatal_null(int domain, const char *func, int line);
+void
+log_fatal_err(int domain, const char *func, int line, int err) __attribute__((__noreturn__));
+
+void
+log_fatal_errno(int domain, const char *func, int line)        __attribute__((__noreturn__));
+
+void
+log_fatal_null(int domain, const char *func, int line)         __attribute__((__noreturn__));
 
 #endif /* !__MISC_H__ */
