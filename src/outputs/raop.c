@@ -1271,6 +1271,8 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
       return -1;
     }
 
+  DPRINTF(E_INFO, L_RAOP, "Setting up AirPlay session %u (%s -> %s)\n", session_id, address, rs->address);
+
   return 0;
 
 #undef SDP_PLD_FMT
