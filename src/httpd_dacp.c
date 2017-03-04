@@ -984,6 +984,9 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
   if (ret < 0)
     return -1;
 
+  if (status.shuffle)
+    return 0;
+
   return id;
 }
 
@@ -1789,7 +1792,6 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   const char *sort;
   const char *param;
   char modifiedquery[32];
-  uint32_t idx;
   int mode;
   int plid;
   int ret;
@@ -1816,6 +1818,9 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       player_playback_stop();
       db_queue_clear(0);
     }
+
+  if (mode == 2)
+    player_shuffle_set(1);
 
   editquery = evhttp_find_header(query, "query");
   if (!editquery)
@@ -1867,27 +1872,20 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       return;
     }
 
-  if (mode == 2)
-    {
-      player_shuffle_set(1);
-      ret = 0;
-    }
-
-  idx = 0;
-  queue_item = NULL;
   if (ret > 0)
-    {
-      queue_item = db_queue_fetch_byfileid(ret);
-    }
+    queue_item = db_queue_fetch_byfileid(ret);
+  else
+    queue_item = NULL;
 
-  DPRINTF(E_DBG, L_DACP, "Song queue built, playback starting at index %" PRIu32 "\n", idx);
   if (queue_item)
     {
+      DPRINTF(E_DBG, L_DACP, "Song queue built, starting playback at index %d\n", queue_item->pos);
       ret = player_playback_start_byitem(queue_item);
       free_queue_item(queue_item, 0);
     }
   else
     {
+      DPRINTF(E_DBG, L_DACP, "Song queue built, starting playback\n");
       ret = player_playback_start();
     }
 
