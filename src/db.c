@@ -1677,7 +1677,7 @@ db_query_fetch_count(struct query_params *qp, struct filecount_info *fci)
     }
 
   fci->count = sqlite3_column_int(qp->stmt, 0);
-  fci->length = sqlite3_column_int(qp->stmt, 1);
+  fci->length = sqlite3_column_int64(qp->stmt, 1);
 
   return 0;
 }
