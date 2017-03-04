@@ -39,6 +39,12 @@ else
 MDNS_SRC=mdns_dnssd.c
 endif
 
+if COND_FFMPEG_LEGACY
+FFMPEG_SRC=transcode_legacy.c artwork_legacy.c ffmpeg-compat.h
+else
+FFMPEG_SRC=transcode.c artwork.c
+endif
+
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -101,8 +107,7 @@ forked_daapd_SOURCES = main.c \
 	httpd_streaming.c httpd_streaming.h \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
-	transcode.c transcode.h \
-	artwork.c artwork.h \
+	$(FFMPEG_SRC) \
 	misc.c misc.h \
 	rng.c rng.h \
 	rsp_query.c rsp_query.h \
@@ -120,7 +125,7 @@ forked_daapd_SOURCES = main.c \
 	$(MPD_SRC) \
 	listener.c listener.h \
 	commands.c commands.h \
-	ffmpeg-compat.h mxml-compat.h \
+	mxml-compat.h \
 	$(GPERF_SRC) \
 	$(ANTLR_SRC)
 

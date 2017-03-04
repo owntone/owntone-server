@@ -235,6 +235,9 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 	 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
 	])
 
+dnl TODO Actually test for this
+AM_CONDITIONAL([COND_FFMPEG_LEGACY], [[test "yes" = "no"]])
+
 AC_CHECK_SIZEOF([void *])
 
 dnl --- Begin configuring the options ---
