@@ -33,8 +33,8 @@
 #include <libavutil/opt.h>
 #include <libavutil/time.h>
 #include <libavutil/pixdesc.h>
-
-#include "ffmpeg-compat.h"
+#include <libavutil/channel_layout.h>
+#include <libavutil/mathematics.h>
 
 #include "logger.h"
 #include "conffile.h"
@@ -827,18 +827,22 @@ close_input(struct decode_ctx *ctx)
 static int
 open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
 {
+  AVOutputFormat *oformat;
   int ret;
 
-  ctx->ofmt_ctx = NULL;
-  avformat_alloc_output_context2(&ctx->ofmt_ctx, NULL, ctx->settings.format, NULL);
-  if (!ctx->ofmt_ctx)
+  oformat = av_guess_format(ctx->settings.format, NULL, NULL);
+  if (!oformat)
     {
-      DPRINTF(E_LOG, L_XCODE, "Could not create output context\n");
+      DPRINTF(E_LOG, L_XCODE, "ffmpeg/libav could not find the '%s' output format\n", ctx->settings.format);
       return -1;
     }
 
   // Clear AVFMT_NOFILE bit, it is not allowed as we will set our own AVIOContext
-  ctx->ofmt_ctx->oformat->flags = ~AVFMT_NOFILE;
+  oformat->flags = ~AVFMT_NOFILE;
+
+  CHECK_NULL(L_XCODE, ctx->ofmt_ctx = avformat_alloc_context());
+
+  ctx->ofmt_ctx->oformat = oformat;
 
   ctx->obuf = evbuffer_new();
   if (!ctx->obuf)
