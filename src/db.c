@@ -4194,6 +4194,13 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
 
   DPRINTF(E_DBG, L_DB, "Player queue query returned %d items\n", qp->results);
 
+  if (qp->results == 0)
+    {
+      db_query_end(qp);
+      db_transaction_end();
+      return 0;
+    }
+
   while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
     {
       ret = queue_add_file(&dbmfi, pos, pos);
@@ -4217,8 +4224,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
       return -1;
     }
 
-  if (pos > 0)
-    ret = (int) sqlite3_last_insert_rowid(hdl);
+  ret = (int) sqlite3_last_insert_rowid(hdl);
 
   db_transaction_end();
 
