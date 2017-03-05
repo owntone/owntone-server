@@ -216,27 +216,32 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 		[Define to 1 if you have ffmpeg (not libav)])],
 	 [[is_ffmpeg=no]])
 	 AC_MSG_RESULT([$is_ffmpeg])
-	 FORK_CHECK_DECLS([av_buffersrc_add_frame_flags],
-		[libavfilter/buffersrc.h])
-	 FORK_CHECK_DECLS([av_buffersink_get_frame],
-		[libavfilter/buffersink.h])
-	 FORK_CHECK_DECLS([avfilter_graph_parse_ptr],
-		[libavfilter/avfilter.h])
-	 FORK_CHECK_DECLS([av_packet_unref], [libavcodec/avcodec.h])
-	 FORK_CHECK_DECLS([av_packet_rescale_ts], [libavcodec/avcodec.h])
-	 FORK_CHECK_DECLS([avcodec_parameters_alloc], [libavcodec/avcodec.h])
-	 FORK_CHECK_DECLS([avformat_alloc_output_context2],
-		[libavformat/avformat.h])
-	 FORK_CHECK_DECLS([av_frame_alloc], [libavutil/frame.h])
-	 FORK_CHECK_DECLS([av_frame_get_best_effort_timestamp],
-		[libavutil/frame.h])
-	 FORK_CHECK_DECLS([av_image_fill_arrays], [libavutil/imgutils.h])
-	 FORK_CHECK_DECLS([av_image_get_buffer_size], [libavutil/imgutils.h])
-	 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
+	 dnl Check if we have modern or legacy AV apis
+	 FORK_CHECK_DECLS([avcodec_send_packet, avcodec_parameters_from_context],
+	 	[libavcodec/avcodec.h],
+		[[modern_av_apis=yes]],
+		[[modern_av_apis=no]
+		 FORK_CHECK_DECLS([av_buffersrc_add_frame_flags],
+			[libavfilter/buffersrc.h])
+		 FORK_CHECK_DECLS([av_buffersink_get_frame],
+			[libavfilter/buffersink.h])
+		 FORK_CHECK_DECLS([avfilter_graph_parse_ptr],
+			[libavfilter/avfilter.h])
+		 FORK_CHECK_DECLS([av_packet_unref], [libavcodec/avcodec.h])
+		 FORK_CHECK_DECLS([av_packet_rescale_ts], [libavcodec/avcodec.h])
+		 FORK_CHECK_DECLS([avcodec_parameters_alloc], [libavcodec/avcodec.h])
+		 FORK_CHECK_DECLS([avformat_alloc_output_context2],
+			[libavformat/avformat.h])
+		 FORK_CHECK_DECLS([av_frame_alloc], [libavutil/frame.h])
+		 FORK_CHECK_DECLS([av_frame_get_best_effort_timestamp],
+			[libavutil/frame.h])
+		 FORK_CHECK_DECLS([av_image_fill_arrays], [libavutil/imgutils.h])
+		 FORK_CHECK_DECLS([av_image_get_buffer_size], [libavutil/imgutils.h])
+		 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
+		])
 	])
 
-dnl TODO Actually test for this
-AM_CONDITIONAL([COND_FFMPEG_LEGACY], [[test "yes" = "no"]])
+AM_CONDITIONAL([COND_FFMPEG_LEGACY], [[test "x$modern_av_apis" = "xno"]])
 
 AC_CHECK_SIZEOF([void *])
 
