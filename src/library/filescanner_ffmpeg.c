@@ -370,11 +370,11 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
 
   if (mfi->data_kind == DATA_KIND_HTTP)
     {
-# ifndef HAVE_FFMPEG
+#ifndef HAVE_FFMPEG
       // Without this, libav is slow to probe some internet streams
       ctx = avformat_alloc_context();
       ctx->probesize = 64000;
-# endif
+#endif
 
       free(path);
       ret = http_stream_setup(&path, file);
@@ -425,7 +425,7 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
 
   for (i = 0; i < ctx->nb_streams; i++)
     {
-#if HAVE_DECL_AVCODEC_PARAMETERS_ALLOC
+#if HAVE_DECL_AVCODEC_PARAMETERS_FROM_CONTEXT
       codec_type = ctx->streams[i]->codecpar->codec_type;
       codec_id = ctx->streams[i]->codecpar->codec_id;
       sample_rate = ctx->streams[i]->codecpar->sample_rate;
