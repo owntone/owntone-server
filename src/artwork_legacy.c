@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2015-2016 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,19 +30,26 @@
 #include <fcntl.h>
 #include <limits.h>
 
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
+
 #include "db.h"
 #include "misc.h"
 #include "logger.h"
 #include "conffile.h"
 #include "cache.h"
 #include "http.h"
-#include "transcode.h"
 
+#include "avio_evbuffer.h"
 #include "artwork.h"
 
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
+
+#include "ffmpeg-compat.h"
 
 /* This artwork module will look for artwork by consulting a set of sources one
  * at a time. A source is for instance the local library, the cache or a cover
@@ -271,41 +278,42 @@ artwork_read(struct evbuffer *evbuf, char *path)
 /* Will the source image fit inside requested size. If not, what size should it
  * be rescaled to to maintain aspect ratio.
  *
- * @out target_w  Rescaled width
- * @out target_h  Rescaled height
- * @in  width     Actual width
- * @in  height    Actual height
+ * @in  src       Image source
  * @in  max_w     Requested width
  * @in  max_h     Requested height
- * @return        -1 no rescaling needed, otherwise 0
+ * @out target_w  Rescaled width
+ * @out target_h  Rescaled height
+ * @return        0 no rescaling needed, 1 rescaling needed
  */
 static int
-rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w, int max_h)
+rescale_needed(AVCodecContext *src, int max_w, int max_h, int *target_w, int *target_h)
 {
-  DPRINTF(E_DBG, L_ART, "Original image dimensions: w %d h %d\n", width, height);
+  DPRINTF(E_DBG, L_ART, "Original image dimensions: w %d h %d\n", src->width, src->height);
 
-  *target_w = width;
-  *target_h = height;
+  *target_w = src->width;
+  *target_h = src->height;
 
-  if ((width == 0) || (height == 0))                   /* Unknown source size, can't rescale */
-    return -1;
+  if ((src->width == 0) || (src->height == 0))         /* Unknown source size, can't rescale */
+    return 0;
 
   if ((max_w <= 0) || (max_h <= 0))                    /* No valid target dimensions, use original */
-    return -1;
+    return 0;
 
-  if ((width <= max_w) && (height <= max_h))           /* Smaller than target */
-    return -1;
+  if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
+    return 0;
 
-  if (width * max_h > height * max_w)                  /* Wider aspect ratio than target */
+  if (src->width * max_h > src->height * max_w)        /* Wider aspect ratio than target */
     {
       *target_w = max_w;
-      *target_h = (double)max_w * ((double)height / (double)width);
+      *target_h = (double)max_w * ((double)src->height / (double)src->width);
     }
   else                                                 /* Taller or equal aspect ratio */
     {
-      *target_w = (double)max_h * ((double)width / (double)height);
+      *target_w = (double)max_h * ((double)src->width / (double)src->height);
       *target_h = max_h;
     }
+
+  DPRINTF(E_DBG, L_ART, "Raw destination width %d height %d\n", *target_w, *target_h);
 
   if ((*target_h > max_h) && (max_h > 0))
     *target_h = max_h;
@@ -316,28 +324,342 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
   if ((*target_w > max_w) && (max_w > 0))
     *target_w = max_w - (max_w % 2);
 
-  DPRINTF(E_DBG, L_ART, "Rescale required, destination width %d height %d\n", *target_w, *target_h);
+  DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", *target_w, *target_h);
 
-  return 0;
+  return 1;
+}
+
+/* Rescale an image
+ *
+ * @out evbuf     Rescaled image data
+ * @in  src_ctx   Image source
+ * @in  s         Index of stream containing image
+ * @in  out_w     Rescaled width
+ * @in  out_h     Rescaled height
+ * @return        ART_FMT_* on success, -1 on error
+ */
+static int
+artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out_w, int out_h)
+{
+  uint8_t *buf;
+
+  AVCodecContext *src;
+
+  AVFormatContext *dst_ctx;
+  AVCodecContext *dst;
+  AVOutputFormat *dst_fmt;
+  AVStream *dst_st;
+
+  AVCodec *img_decoder;
+  AVCodec *img_encoder;
+
+  AVFrame *i_frame;
+  AVFrame *o_frame;
+
+  struct SwsContext *swsctx;
+
+  AVPacket pkt;
+  int have_frame;
+  int ret;
+
+  src = src_ctx->streams[s]->codec;
+
+  // Avoids threading issue in both ffmpeg and libav that prevents decoding embedded png's
+  src->thread_count = 1;
+
+  img_decoder = avcodec_find_decoder(src->codec_id);
+  if (!img_decoder)
+    {
+      DPRINTF(E_LOG, L_ART, "No suitable decoder found for artwork %s\n", src_ctx->filename);
+
+      return -1;
+    }
+
+  ret = avcodec_open2(src, img_decoder, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not open codec for decoding: %s\n", strerror(AVUNERROR(ret)));
+
+      return -1;
+    }
+
+  if (src->pix_fmt < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Unknown pixel format for artwork %s\n", src_ctx->filename);
+
+      ret = -1;
+      goto out_close_src;
+    }
+
+  /* Set up output */
+  dst_fmt = av_guess_format("image2", NULL, NULL);
+  if (!dst_fmt)
+    {
+      DPRINTF(E_LOG, L_ART, "ffmpeg image2 muxer not available\n");
+
+      ret = -1;
+      goto out_close_src;
+    }
+
+  dst_fmt->video_codec = AV_CODEC_ID_NONE;
+
+  /* Try to keep same codec if possible */
+  if (src->codec_id == AV_CODEC_ID_PNG)
+    dst_fmt->video_codec = AV_CODEC_ID_PNG;
+  else if (src->codec_id == AV_CODEC_ID_MJPEG)
+    dst_fmt->video_codec = AV_CODEC_ID_MJPEG;
+
+  /* If not possible, select new codec */
+  if (dst_fmt->video_codec == AV_CODEC_ID_NONE)
+    {
+      dst_fmt->video_codec = AV_CODEC_ID_PNG;
+    }
+
+  img_encoder = avcodec_find_encoder(dst_fmt->video_codec);
+  if (!img_encoder)
+    {
+      DPRINTF(E_LOG, L_ART, "No suitable encoder found for codec ID %d\n", dst_fmt->video_codec);
+
+      ret = -1;
+      goto out_close_src;
+    }
+
+  dst_ctx = avformat_alloc_context();
+  if (!dst_ctx)
+    {
+      DPRINTF(E_LOG, L_ART, "Out of memory for format context\n");
+
+      ret = -1;
+      goto out_close_src;
+    }
+
+  dst_ctx->oformat = dst_fmt;
+
+  dst_fmt->flags &= ~AVFMT_NOFILE;
+
+  dst_st = avformat_new_stream(dst_ctx, NULL);
+  if (!dst_st)
+    {
+      DPRINTF(E_LOG, L_ART, "Out of memory for new output stream\n");
+
+      ret = -1;
+      goto out_free_dst_ctx;
+    }
+
+  dst = dst_st->codec;
+
+  avcodec_get_context_defaults3(dst, NULL);
+
+  if (dst_fmt->flags & AVFMT_GLOBALHEADER)
+    dst->flags |= CODEC_FLAG_GLOBAL_HEADER;
+
+  dst->codec_id = dst_fmt->video_codec;
+  dst->codec_type = AVMEDIA_TYPE_VIDEO;
+
+  if (dst_fmt->video_codec == AV_CODEC_ID_PNG)
+    dst->pix_fmt = AV_PIX_FMT_RGB24;
+  else
+    dst->pix_fmt = avcodec_find_best_pix_fmt_of_list((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
+
+  if (dst->pix_fmt < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not determine best pixel format\n");
+
+      ret = -1;
+      goto out_free_dst_ctx;
+    }
+
+  dst->time_base.num = 1;
+  dst->time_base.den = 25;
+
+  dst->width = out_w;
+  dst->height = out_h;
+
+  /* Open encoder */
+  ret = avcodec_open2(dst, img_encoder, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not open codec for encoding: %s\n", strerror(AVUNERROR(ret)));
+
+      ret = -1;
+      goto out_free_dst_ctx;
+    }
+
+  i_frame = av_frame_alloc();
+  o_frame = av_frame_alloc();
+  if (!i_frame || !o_frame)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not allocate input/output frame\n");
+
+      ret = -1;
+      goto out_free_frames;
+    }
+
+  ret = av_image_get_buffer_size(dst->pix_fmt, src->width, src->height, 1);
+
+  DPRINTF(E_DBG, L_ART, "Artwork buffer size: %d\n", ret);
+
+  buf = (uint8_t *)av_malloc(ret);
+  if (!buf)
+    {
+      DPRINTF(E_LOG, L_ART, "Out of memory for artwork buffer\n");
+
+      ret = -1;
+      goto out_free_frames;
+    }
+
+#if HAVE_DECL_AV_IMAGE_FILL_ARRAYS
+  av_image_fill_arrays(o_frame->data, o_frame->linesize, buf, dst->pix_fmt, src->width, src->height, 1);
+#else
+  avpicture_fill((AVPicture *)o_frame, buf, dst->pix_fmt, src->width, src->height);
+#endif
+
+  swsctx = sws_getContext(src->width, src->height, src->pix_fmt,
+			  dst->width, dst->height, dst->pix_fmt,
+			  SWS_BICUBIC, NULL, NULL, NULL);
+  if (!swsctx)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not get SWS context\n");
+
+      ret = -1;
+      goto out_free_buf;
+    }
+
+  /* Get frame */
+  have_frame = 0;
+  while (av_read_frame(src_ctx, &pkt) == 0)
+    {
+      if (pkt.stream_index != s)
+	{
+	  av_packet_unref(&pkt);
+	  continue;
+	}
+
+      avcodec_decode_video2(src, i_frame, &have_frame, &pkt);
+      break;
+    }
+
+  if (!have_frame)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not decode artwork\n");
+
+      av_packet_unref(&pkt);
+      sws_freeContext(swsctx);
+
+      ret = -1;
+      goto out_free_buf;
+    }
+
+  /* Scale */
+  sws_scale(swsctx, (const uint8_t * const *)i_frame->data, i_frame->linesize, 0, src->height, o_frame->data, o_frame->linesize);
+
+  sws_freeContext(swsctx);
+  av_packet_unref(&pkt);
+
+  /* Open output file */
+  dst_ctx->pb = avio_output_evbuffer_open(evbuf);
+  if (!dst_ctx->pb)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not open artwork destination buffer\n");
+
+      ret = -1;
+      goto out_free_buf;
+    }
+
+  /* Encode frame */
+  av_init_packet(&pkt);
+  pkt.data = NULL;
+  pkt.size = 0;
+
+  ret = avcodec_encode_video2(dst, &pkt, o_frame, &have_frame);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not encode artwork\n");
+
+      ret = -1;
+      goto out_fclose_dst;
+    }
+
+  ret = avformat_write_header(dst_ctx, NULL);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not write artwork header: %s\n", strerror(AVUNERROR(ret)));
+
+      ret = -1;
+      goto out_fclose_dst;
+    }
+
+  ret = av_interleaved_write_frame(dst_ctx, &pkt);
+
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Error writing artwork\n");
+
+      ret = -1;
+      goto out_fclose_dst;
+    }
+
+  ret = av_write_trailer(dst_ctx);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not write artwork trailer: %s\n", strerror(AVUNERROR(ret)));
+
+      ret = -1;
+      goto out_fclose_dst;
+    }
+
+  switch (dst_fmt->video_codec)
+    {
+      case AV_CODEC_ID_PNG:
+	ret = ART_FMT_PNG;
+	break;
+
+      case AV_CODEC_ID_MJPEG:
+	ret = ART_FMT_JPEG;
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_ART, "Unhandled rescale output format\n");
+	ret = -1;
+	break;
+    }
+
+ out_fclose_dst:
+  avio_evbuffer_close(dst_ctx->pb);
+  av_packet_unref(&pkt);
+
+ out_free_buf:
+  av_free(buf);
+
+ out_free_frames:
+  if (i_frame)
+    av_frame_free(&i_frame);
+  if (o_frame)
+    av_frame_free(&o_frame);
+  avcodec_close(dst);
+
+ out_free_dst_ctx:
+  avformat_free_context(dst_ctx);
+
+ out_close_src:
+  avcodec_close(src);
+
+  return ret;
 }
 
 /* Get an artwork file from the filesystem. Will rescale if needed.
  *
  * @out evbuf     Image data
- * @in  path      Path to the artwork (alternative to inbuf)
- * @in  inbuf     Buffer with the artwork (alternative to path)
+ * @in  path      Path to the artwork
  * @in  max_w     Requested width
  * @in  max_h     Requested height
  * @return        ART_FMT_* on success, ART_E_ERROR on error
  */
 static int
-artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_w, int max_h)
+artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 {
-  struct decode_ctx *xcode_decode;
-  struct encode_ctx *xcode_encode;
-  void *frame;
-  int width;
-  int height;
+  AVFormatContext *src_ctx;
+  int s;
   int target_w;
   int target_h;
   int format_ok;
@@ -345,71 +667,71 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
 
   DPRINTF(E_SPAM, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
 
-  xcode_decode = transcode_decode_setup(XCODE_JPEG, DATA_KIND_FILE, path, inbuf, 0); // Covers XCODE_PNG too
-  if (!xcode_decode)
-    {
-      DPRINTF(E_DBG, L_ART, "No artwork found in '%s'\n", path);
-      return ART_E_NONE;
-    }
+  src_ctx = NULL;
 
-  if (transcode_decode_query(xcode_decode, "is_jpeg"))
-    format_ok = ART_FMT_JPEG;
-  else if (transcode_decode_query(xcode_decode, "is_png"))
-    format_ok = ART_FMT_PNG;
-  else
-    {
-      DPRINTF(E_LOG, L_ART, "Artwork file '%s' not a PNG or JPEG file\n", path);
-      goto fail_free_decode;
-    }
-
-  width = transcode_decode_query(xcode_decode, "width");
-  height = transcode_decode_query(xcode_decode, "height");
-
-  ret = rescale_calculate(&target_w, &target_h, width, height, max_w, max_h);
+  ret = avformat_open_input(&src_ctx, path, NULL, NULL);
   if (ret < 0)
     {
-      // No rescaling required, just read the raw file into the evbuf
-      if (!path || artwork_read(evbuf, path) != 0)
-	goto fail_free_decode;
+      DPRINTF(E_WARN, L_ART, "Cannot open artwork file '%s': %s\n", path, strerror(AVUNERROR(ret)));
 
-      transcode_decode_cleanup(&xcode_decode);
-      return format_ok;
-    }
-
-  if (format_ok == ART_FMT_JPEG)
-    xcode_encode = transcode_encode_setup(XCODE_JPEG, xcode_decode, NULL, target_w, target_h);
-  else
-    xcode_encode = transcode_encode_setup(XCODE_PNG, xcode_decode, NULL, target_w, target_h);
-
-  if (!xcode_encode)
-    {
-      DPRINTF(E_WARN, L_ART, "Cannot open artwork file for rescaling '%s'\n", path);
-      goto fail_free_decode;
-    }
-
-  // We don't use transcode() because we just want to process one frame
-  ret = transcode_decode(&frame, xcode_decode);
-  if (ret < 0)
-    goto fail_free_encode;
-
-  ret = transcode_encode(evbuf, xcode_encode, frame, 1);
-
-  transcode_encode_cleanup(&xcode_encode);
-  transcode_decode_cleanup(&xcode_decode);
-
-  if (ret < 0)
-    {
-      evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
       return ART_E_ERROR;
     }
 
-  return format_ok;
+  ret = avformat_find_stream_info(src_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
 
- fail_free_encode:
-  transcode_encode_cleanup(&xcode_encode);
- fail_free_decode:
-  transcode_decode_cleanup(&xcode_decode);
-  return ART_E_ERROR;
+      avformat_close_input(&src_ctx);
+      return ART_E_ERROR;
+    }
+
+  format_ok = 0;
+  for (s = 0; s < src_ctx->nb_streams; s++)
+    {
+      if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
+	{
+	  format_ok = ART_FMT_PNG;
+	  break;
+	}
+      else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
+	{
+	  format_ok = ART_FMT_JPEG;
+	  break;
+	}
+    }
+
+  if (s == src_ctx->nb_streams)
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork file '%s' not a PNG or JPEG file\n", path);
+
+      avformat_close_input(&src_ctx);
+      return ART_E_ERROR;
+    }
+
+  ret = rescale_needed(src_ctx->streams[s]->codec, max_w, max_h, &target_w, &target_h);
+
+  /* Fastpath */
+  if (!ret && format_ok)
+    {
+      ret = artwork_read(evbuf, path);
+      if (ret == 0)
+	ret = format_ok;
+    }
+  else
+    ret = artwork_rescale(evbuf, src_ctx, s, target_w, target_h);
+
+  avformat_close_input(&src_ctx);
+
+  if (ret < 0)
+    {
+      if (evbuffer_get_length(evbuf) > 0)
+	evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
+
+      ret = ART_E_ERROR;
+    }
+
+  return ret;
 }
 
 /* Looks for an artwork file in a directory. Will rescale if needed.
@@ -519,7 +841,7 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
 
   snprintf(out_path, PATH_MAX, "%s", path);
 
-  return artwork_get(evbuf, path, NULL, max_w, max_h);
+  return artwork_get(evbuf, path, max_w, max_h);
 }
 
 
@@ -628,11 +950,92 @@ source_item_cache_get(struct artwork_ctx *ctx)
 static int
 source_item_embedded_get(struct artwork_ctx *ctx)
 {
+  AVFormatContext *src_ctx;
+  AVStream *src_st;
+  int s;
+  int target_w;
+  int target_h;
+  int format;
+  int ret;
+
   DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", ctx->dbmfi->path);
 
-  snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
+  src_ctx = NULL;
 
-  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h);
+  ret = avformat_open_input(&src_ctx, ctx->dbmfi->path, NULL, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot open media file '%s': %s\n", ctx->dbmfi->path, strerror(AVUNERROR(ret)));
+      return ART_E_ERROR;
+    }
+
+  ret = avformat_find_stream_info(src_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
+      avformat_close_input(&src_ctx);
+      return ART_E_ERROR;
+    }
+
+  format = 0;
+  for (s = 0; s < src_ctx->nb_streams; s++)
+    {
+      if (src_ctx->streams[s]->disposition & AV_DISPOSITION_ATTACHED_PIC)
+	{
+	  if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
+	    {
+	      format = ART_FMT_PNG;
+	      break;
+	    }
+	  else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
+	    {
+	      format = ART_FMT_JPEG;
+	      break;
+	    }
+	}
+    }
+
+  if (s == src_ctx->nb_streams)
+    {
+      avformat_close_input(&src_ctx);
+      return ART_E_NONE;
+    }
+
+  src_st = src_ctx->streams[s];
+
+  ret = rescale_needed(src_st->codec, ctx->max_w, ctx->max_h, &target_w, &target_h);
+
+  /* Fastpath */
+  if (!ret && format)
+    {
+      DPRINTF(E_SPAM, L_ART, "Artwork not too large, using original image\n");
+
+      ret = evbuffer_add(ctx->evbuf, src_st->attached_pic.data, src_st->attached_pic.size);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_ART, "Could not add embedded image to event buffer\n");
+      else
+        ret = format;
+    }
+  else
+    {
+      DPRINTF(E_SPAM, L_ART, "Artwork too large, rescaling image\n");
+
+      ret = artwork_rescale(ctx->evbuf, src_ctx, s, target_w, target_h);
+    }
+
+  avformat_close_input(&src_ctx);
+
+  if (ret < 0)
+    {
+      if (evbuffer_get_length(ctx->evbuf) > 0)
+	evbuffer_drain(ctx->evbuf, evbuffer_get_length(ctx->evbuf));
+
+      ret = ART_E_ERROR;
+    }
+  else
+    snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
+
+  return ret;
 }
 
 /* Looks for basename(in_path).{png,jpg}, so if in_path is /foo/bar.mp3 it
@@ -686,7 +1089,7 @@ source_item_own_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
-  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h);
+  return artwork_get(ctx->evbuf, path, ctx->max_w, ctx->max_h);
 }
 
 /*
@@ -775,8 +1178,13 @@ source_item_stream_get(struct artwork_ctx *ctx)
 static int
 source_item_spotify_get(struct artwork_ctx *ctx)
 {
+  AVFormatContext *src_ctx;
+  AVIOContext *avio;
+  AVInputFormat *ifmt;
   struct evbuffer *raw;
   struct evbuffer *evbuf;
+  int target_w;
+  int target_h;
   int ret;
 
   raw = evbuffer_new();
@@ -816,29 +1224,75 @@ source_item_spotify_get(struct artwork_ctx *ctx)
       goto out_free_evbuf;
     }
 
-  // For non-file input, artwork_get() will also fail if no rescaling is required
-  ret = artwork_get(ctx->evbuf, NULL, evbuf, ctx->max_w, ctx->max_h);
-  if (ret == ART_E_ERROR)
+  // Now evbuf will be processed by ffmpeg, since it probably needs to be rescaled
+  src_ctx = avformat_alloc_context();
+  if (!src_ctx)
     {
-      DPRINTF(E_DBG, L_ART, "Not rescaling Spotify image\n");
-      ret = evbuffer_add_buffer(ctx->evbuf, raw);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
-	  goto out_free_evbuf;
-	}
+      DPRINTF(E_LOG, L_ART, "Out of memory for source context\n");
+      goto out_free_evbuf;
     }
 
+  avio = avio_input_evbuffer_open(evbuf);
+  if (!avio)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not alloc input evbuffer\n");
+      goto out_free_ctx;
+    }
+
+  src_ctx->pb = avio;
+
+  ifmt = av_find_input_format("mjpeg");
+  if (!ifmt)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not find mjpeg input format\n");
+      goto out_close_avio;
+    }
+
+  ret = avformat_open_input(&src_ctx, NULL, ifmt, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not open input\n");
+      goto out_close_avio;
+    }
+
+  ret = avformat_find_stream_info(src_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not find stream info\n");
+      goto out_close_input;
+    }
+
+  ret = rescale_needed(src_ctx->streams[0]->codec, ctx->max_w, ctx->max_h, &target_w, &target_h);
+  if (!ret)
+    ret = evbuffer_add_buffer(ctx->evbuf, raw);
+  else
+    ret = artwork_rescale(ctx->evbuf, src_ctx, 0, target_w, target_h);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
+      goto out_close_input;
+    }
+
+  avformat_close_input(&src_ctx);
+  avio_evbuffer_close(avio);
   evbuffer_free(evbuf);
   evbuffer_free(raw);
 
   return ART_FMT_JPEG;
 
+ out_close_input:
+  avformat_close_input(&src_ctx);
+ out_close_avio:
+  avio_evbuffer_close(avio);
+ out_free_ctx:
+  if (src_ctx)
+    avformat_free_context(src_ctx);
  out_free_evbuf:
   evbuffer_free(evbuf);
   evbuffer_free(raw);
 
   return ART_E_ERROR;
+
 }
 #else
 static int

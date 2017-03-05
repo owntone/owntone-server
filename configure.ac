@@ -224,6 +224,7 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 		[libavfilter/avfilter.h])
 	 FORK_CHECK_DECLS([av_packet_unref], [libavcodec/avcodec.h])
 	 FORK_CHECK_DECLS([av_packet_rescale_ts], [libavcodec/avcodec.h])
+	 FORK_CHECK_DECLS([avcodec_parameters_alloc], [libavcodec/avcodec.h])
 	 FORK_CHECK_DECLS([avformat_alloc_output_context2],
 		[libavformat/avformat.h])
 	 FORK_CHECK_DECLS([av_frame_alloc], [libavutil/frame.h])
@@ -233,6 +234,9 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 	 FORK_CHECK_DECLS([av_image_get_buffer_size], [libavutil/imgutils.h])
 	 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
 	])
+
+dnl TODO Actually test for this
+AM_CONDITIONAL([COND_FFMPEG_LEGACY], [[test "yes" = "no"]])
 
 AC_CHECK_SIZEOF([void *])
 

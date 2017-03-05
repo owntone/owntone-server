@@ -125,6 +125,9 @@ avio_evbuffer_close(AVIOContext *s)
 {
   struct avio_evbuffer *ae;
 
+  if (!s)
+    return;
+
   ae = (struct avio_evbuffer *)s->opaque;
 
   avio_flush(s);

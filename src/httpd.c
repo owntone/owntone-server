@@ -167,7 +167,7 @@ stream_end(struct stream_ctx *st, int failed)
   event_free(st->ev);
 
   if (st->xcode)
-    transcode_cleanup(st->xcode);
+    transcode_cleanup(&st->xcode);
   else
     {
       free(st->buf);
@@ -309,11 +309,10 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   struct timeval tv;
   int xcoded;
   int ret;
-  int dummy;
 
   st = (struct stream_ctx *)arg;
 
-  xcoded = transcode(st->evbuf, STREAM_CHUNK_SIZE, st->xcode, &dummy);
+  xcoded = transcode(st->evbuf, NULL, st->xcode, STREAM_CHUNK_SIZE);
   if (xcoded <= 0)
     {
       if (xcoded == 0)
@@ -552,7 +551,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
       stream_cb = stream_chunk_xcode_cb;
 
-      st->xcode = transcode_setup(mfi->data_kind, mfi->path, mfi->song_length, XCODE_PCM16_HEADER, &st->size);
+      st->xcode = transcode_setup(XCODE_PCM16_HEADER, mfi->data_kind, mfi->path, mfi->song_length, &st->size);
       if (!st->xcode)
 	{
 	  DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");
@@ -750,7 +749,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
   if (st->evbuf)
     evbuffer_free(st->evbuf);
   if (st->xcode)
-    transcode_cleanup(st->xcode);
+    transcode_cleanup(&st->xcode);
   if (st->buf)
     free(st->buf);
   if (st->fd > 0)

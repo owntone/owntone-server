@@ -31,7 +31,7 @@
 static int
 setup(struct player_source *ps)
 {
-  ps->input_ctx = transcode_setup(ps->data_kind, ps->path, ps->len_ms, XCODE_PCM16_NOHEADER, NULL);
+  ps->input_ctx = transcode_setup(XCODE_PCM16_NOHEADER, ps->data_kind, ps->path, ps->len_ms, NULL);
   if (!ps->input_ctx)
     return -1;
 
@@ -70,7 +70,7 @@ start(struct player_source *ps)
     {
       // We set "wanted" to 1 because the read size doesn't matter to us
       // TODO optimize?
-      ret = transcode(evbuf, 1, ps->input_ctx, &icy_timer);
+      ret = transcode(evbuf, &icy_timer, ps->input_ctx, 1);
       if (ret < 0)
 	break;
 
@@ -90,7 +90,9 @@ start(struct player_source *ps)
 static int
 stop(struct player_source *ps)
 {
-  transcode_cleanup(ps->input_ctx);
+  struct transcode_ctx *ctx = ps->input_ctx;
+
+  transcode_cleanup(&ctx);
 
   ps->input_ctx = NULL;
   ps->setup_done = 0;
