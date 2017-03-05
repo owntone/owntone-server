@@ -350,7 +350,7 @@ struct watch_enum {
 
 struct filecount_info {
   uint32_t count;
-  uint32_t length;
+  uint64_t length;
 };
 
 /* Directory ids must be in sync with the ids in Q_DIR* in db_init.c */

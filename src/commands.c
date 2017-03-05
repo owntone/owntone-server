@@ -93,11 +93,14 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
       if (cmd->ret == 0 && cmd->func_bh)
 	cmd->func_bh(cmd->arg, &cmd->ret);
 
+      event_add(cmdbase->command_event, NULL);
+
       // Signal the calling thread that the command execution finished
       CHECK_ERR(L_MAIN, pthread_cond_signal(&cmd->cond));
       CHECK_ERR(L_MAIN, pthread_mutex_unlock(&cmd->lck));
 
-      event_add(cmdbase->command_event, NULL);
+      // Note if cmd->func was cmdloop_exit then cmdbase may be invalid now,
+      // because commands_base_destroy() may have freed it
     }
 }
 
@@ -266,31 +269,32 @@ commands_exec_returnvalue(struct commands_base *cmdbase)
 void
 commands_exec_end(struct commands_base *cmdbase, int retvalue)
 {
-  if (cmdbase->current_cmd == NULL)
+  struct command *current_cmd = cmdbase->current_cmd;
+
+  if (!current_cmd)
     return;
 
   // A pending event finished, decrease the number of pending events and update the return value
-  cmdbase->current_cmd->pending--;
-  cmdbase->current_cmd->ret = retvalue;
+  current_cmd->pending--;
+  current_cmd->ret = retvalue;
 
-  DPRINTF(E_DBG, L_MAIN, "Command has %d pending events\n", cmdbase->current_cmd->pending);
+  DPRINTF(E_DBG, L_MAIN, "Command has %d pending events\n", current_cmd->pending);
 
   // If there are still pending events return
-  if (cmdbase->current_cmd->pending > 0)
+  if (current_cmd->pending > 0)
     return;
 
   // All pending events have finished, execute the bottom half and signal the caller that the command execution finished
-  if (cmdbase->current_cmd->func_bh)
-    {
-      cmdbase->current_cmd->func_bh(cmdbase->current_cmd->arg, &cmdbase->current_cmd->ret);
-    }
-  CHECK_ERR(L_MAIN, pthread_cond_signal(&cmdbase->current_cmd->cond));
-  CHECK_ERR(L_MAIN, pthread_mutex_unlock(&cmdbase->current_cmd->lck));
+  if (current_cmd->func_bh)
+    current_cmd->func_bh(current_cmd->arg, &current_cmd->ret);
 
   cmdbase->current_cmd = NULL;
 
   /* Process commands again */
   event_add(cmdbase->command_event, NULL);
+
+  CHECK_ERR(L_MAIN, pthread_cond_signal(&current_cmd->cond));
+  CHECK_ERR(L_MAIN, pthread_mutex_unlock(&current_cmd->lck));
 }
 
 /*

@@ -2386,6 +2386,8 @@ fullrescan()
 static enum command_state
 webapi_scan(void *arg, int *ret)
 {
+  db_spotify_purge();
+
   *ret = rescan();
   return COMMAND_END;
 }
