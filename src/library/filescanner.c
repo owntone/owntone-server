@@ -162,6 +162,20 @@ static int
 filescanner_fullrescan();
 
 
+const char *
+filename_from_path(const char *path)
+{
+  const char *filename;
+
+  filename = strrchr(path, '/');
+  if ((!filename) || (strlen(filename) == 1))
+    filename = path;
+  else
+    filename++;
+
+  return filename;
+}
+
 static int
 push_dir(struct stacked_dir **s, char *path, int parent_id)
 {
@@ -417,7 +431,7 @@ process_regular_file(char *file, struct stat *sb, int type, int flags, int dir_i
   memset(&mfi, 0, sizeof(struct media_file_info));
 
   mfi.id = id;
-  mfi.fname = strdup(basename(file));
+  mfi.fname = strdup(filename_from_path(file));
   mfi.path = strdup(file);
 
   mfi.time_modified = sb->st_mtime;
@@ -1538,7 +1552,7 @@ scan_metadata(const char *path, struct media_file_info *mfi)
     {
       memset(mfi, 0, sizeof(struct media_file_info));
       mfi->path = strdup(path);
-      mfi->fname = strdup(basename(mfi->path));
+      mfi->fname = strdup(filename_from_path(mfi->path));
       mfi->data_kind = DATA_KIND_HTTP;
       mfi->directory_id = DIR_HTTP;
 
