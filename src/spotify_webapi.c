@@ -730,10 +730,6 @@ tokens_get(struct keyval *kv, const char **err)
 
   token_requested = time(NULL);
 
-  DPRINTF(E_LOG, L_SPOTIFY, "token: '%s'\n", spotify_access_token);
-  DPRINTF(E_LOG, L_SPOTIFY, "refresh-token: '%s'\n", spotify_refresh_token);
-  DPRINTF(E_LOG, L_SPOTIFY, "expires in: %d\n", expires_in);
-
   if (spotify_refresh_token)
     db_admin_set("spotify_refresh_token", spotify_refresh_token);
 
