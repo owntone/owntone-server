@@ -403,6 +403,8 @@ static enum command_state
 webapi_pl_save(void *arg, int *ret);
 static enum command_state
 webapi_pl_remove(void *arg, int *ret);
+static void
+create_base_playlist();
 
 /* ------------------------------- MISC HELPERS ---------------------------- */
 
@@ -1505,6 +1507,9 @@ logged_in(sp_session *sess, sp_error error)
 
   DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded, reloading playlists\n");
 
+  if (!spotify_access_token_valid)
+    create_base_playlist();
+
   db_directory_enable_bypath("/spotify:");
 
   pl = fptr_sp_session_starred_create(sess);
@@ -2261,6 +2266,9 @@ create_saved_tracks_playlist()
     }
 }
 
+/*
+ * Add or update playlist folder for all spotify playlists (if enabled in config)
+ */
 static void
 create_base_playlist()
 {
@@ -2296,11 +2304,6 @@ initscan()
       db_spotify_purge();
     }
 
-  /*
-   * Add playlist folder for all spotify playlists
-   */
-  create_base_playlist();
-
   spotify_saved_plid = 0;
 
   /*
@@ -2314,6 +2317,7 @@ initscan()
    */
   if (spotify_access_token_valid)
     {
+      create_base_playlist();
       create_saved_tracks_playlist();
       scan_saved_albums();
       scan_playlists();
