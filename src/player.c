@@ -1058,7 +1058,7 @@ source_read(uint8_t *buf, int len)
     }
 
   nbytes = input_read(buf, len, &flags);
-  if (nbytes < 0)
+  if ((nbytes < 0) || (flags & INPUT_FLAG_ERROR))
     {
       DPRINTF(E_LOG, L_PLAYER, "Error reading source %d\n", cur_streaming->id);
 

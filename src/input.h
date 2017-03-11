@@ -25,8 +25,10 @@ enum input_flags
   INPUT_FLAG_NONBLOCK = (1 << 0),
   // Flags end of file
   INPUT_FLAG_EOF      = (1 << 1),
+  // Flags error reading file
+  INPUT_FLAG_ERROR    = (1 << 2),
   // Flags possible new stream metadata
-  INPUT_FLAG_METADATA = (1 << 2),
+  INPUT_FLAG_METADATA = (1 << 3),
 };
 
 struct player_source
@@ -164,7 +166,7 @@ input_wait(void);
  *
  * @in  data     Output buffer
  * @in  size     How much data to move to the output buffer
- * @out flags    Flags INPUT_FLAG_EOF or INPUT_FLAG_METADATA
+ * @out flags    Flags INPUT_FLAG_*
  * @return       Number of bytes moved, -1 on error
  */
 int

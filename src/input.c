@@ -71,6 +71,8 @@ struct input_buffer
 
   // If non-zero, remaining length of buffer until EOF
   size_t eof;
+  // If non-zero, remaining length of buffer until read error occurred
+  size_t error;
   // If non-zero, remaining length of buffer until (possible) new metadata
   size_t metadata;
 
@@ -103,6 +105,17 @@ static short
 flags_set(size_t len)
 {
   short flags = 0;
+
+  if (input_buffer.error)
+    {
+      if (len >= input_buffer.error)
+	{
+	  flags |= INPUT_FLAG_ERROR;
+	  input_buffer.error = 0;
+	}
+      else
+	input_buffer.error -= len;
+    }
 
   if (input_buffer.eof)
     {
@@ -187,22 +200,25 @@ source_check_and_map(struct player_source *ps, const char *action, char check_se
 /* ----------------------------- PLAYBACK LOOP ---------------------------- */
 /*                               Thread: input                              */
 
-// TODO Thread safety of ps? Do we need the return of the loop?
+// TODO Thread safety of ps?
 static void *
 playback(void *arg)
 {
   struct player_source *ps = arg;
   int type;
+  int ret;
 
   type = source_check_and_map(ps, "start", 1);
   if ((type < 0) || (inputs[type]->disabled))
     goto thread_exit;
 
   // Loops until input_loop_break is set or no more input, e.g. EOF
-  inputs[type]->start(ps);
+  ret = inputs[type]->start(ps);
+  if (ret < 0)
+    input_write(NULL, INPUT_FLAG_ERROR);
 
 #ifdef DEBUG
-  DPRINTF(E_DBG, L_PLAYER, "Playback loop stopped (break is %d)\n", input_loop_break);
+  DPRINTF(E_DBG, L_PLAYER, "Playback loop stopped (break is %d, ret %d)\n", input_loop_break, ret);
 #endif
 
  thread_exit:
@@ -231,7 +247,7 @@ input_write(struct evbuffer *evbuf, short flags)
 
   pthread_mutex_lock(&input_buffer.mutex);
 
-  while ( (!input_loop_break) && (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD) )
+  while ( (!input_loop_break) && (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD) && evbuf )
     {
       if (input_buffer.full_cb)
 	{
@@ -249,19 +265,26 @@ input_write(struct evbuffer *evbuf, short flags)
       pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
     }
 
-  if (!input_loop_break)
+  if (input_loop_break)
     {
-      ret = evbuffer_add_buffer(input_buffer.evbuf, evbuf);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_PLAYER, "Error adding stream data to input buffer\n");
-
-      if (!input_buffer.eof && (flags & INPUT_FLAG_EOF))
-	input_buffer.eof = evbuffer_get_length(input_buffer.evbuf);
-      if (!input_buffer.metadata && (flags & INPUT_FLAG_METADATA))
-	input_buffer.metadata = evbuffer_get_length(input_buffer.evbuf);
+      pthread_mutex_unlock(&input_buffer.mutex);
+      return 0;
     }
+
+  if (evbuf)
+    ret = evbuffer_add_buffer(input_buffer.evbuf, evbuf);
   else
     ret = 0;
+
+  if (ret < 0)
+    DPRINTF(E_LOG, L_PLAYER, "Error adding stream data to input buffer\n");
+
+  if (!input_buffer.error && (flags & INPUT_FLAG_ERROR))
+    input_buffer.error = evbuffer_get_length(input_buffer.evbuf);
+  if (!input_buffer.eof && (flags & INPUT_FLAG_EOF))
+    input_buffer.eof = evbuffer_get_length(input_buffer.evbuf);
+  if (!input_buffer.metadata && (flags & INPUT_FLAG_METADATA))
+    input_buffer.metadata = evbuffer_get_length(input_buffer.evbuf);
 
   pthread_mutex_unlock(&input_buffer.mutex);
 
@@ -452,6 +475,7 @@ input_flush(short *flags)
 
   *flags = flags_set(len);
 
+  input_buffer.error = 0;
   input_buffer.eof = 0;
   input_buffer.metadata = 0;
   input_buffer.full_cb = NULL;
