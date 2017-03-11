@@ -20,4 +20,7 @@ void
 scan_itunes_itml(char *file);
 #endif
 
+const char *
+filename_from_path(const char *path);
+
 #endif /* !__FILESCANNER_H__ */
