@@ -4009,6 +4009,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device %s (port %d, id %" PRIx64 ")\n", at_name, port, id);
 
+  airplay = cfg_gettsec(cfg, "airplay", at_name);
+  if (airplay && cfg_getbool(airplay, "exclude"))
+    {
+      DPRINTF(E_LOG, L_RAOP, "Excluding AirPlay device '%s' as set in config\n", at_name);
+
+      return;
+    }
+
   rd = calloc(1, sizeof(struct output_device));
   if (!rd)
     {

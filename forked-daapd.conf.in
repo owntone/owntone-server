@@ -202,6 +202,10 @@ audio {
 	# you can set a lower value here
 #	max_volume = 11
 
+	# Enable this option to exclude a particular AirPlay device from the
+	# speaker list
+#	exclude = false
+
 	# AirPlay password
 #	password = "s1kr3t"
 #}
