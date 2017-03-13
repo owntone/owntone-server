@@ -511,6 +511,14 @@ library_add_queue_item(struct media_file_info *mfi)
   queue_item.virtual_path = mfi->virtual_path;
   queue_item.data_kind = mfi->data_kind;
   queue_item.media_kind = mfi->media_kind;
+  queue_item.song_length = mfi->song_length;
+  queue_item.seek = mfi->seek;
+  queue_item.songalbumid = mfi->songalbumid;
+  queue_item.time_modified = mfi->time_modified;
+  queue_item.year = mfi->year;
+  queue_item.track = mfi->track;
+  queue_item.disc = mfi->disc;
+  //queue_item.artwork_url
 
   return db_queue_add_item(&queue_item, 0, 0);
 }
