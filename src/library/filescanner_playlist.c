@@ -33,7 +33,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include <libgen.h>
 
 #include "logger.h"
 #include "db.h"
@@ -122,7 +121,7 @@ process_url(const char *path, time_t mtime, int extinf, struct media_file_info *
   return 0;
 }
 
-int
+static int
 process_regular_file(char *path, char **filename)
 {
   int i;
