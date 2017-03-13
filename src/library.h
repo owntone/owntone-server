@@ -26,9 +26,9 @@
 #include "commands.h"
 #include "db.h"
 
-#define METADATA_OK 0
-#define METADATA_ERROR -1
-#define METADATA_PATH_INVALID -2
+#define LIBRARY_OK 0
+#define LIBRARY_ERROR -1
+#define LIBRARY_PATH_INVALID -2
 
 /*
  * Definition of a library source
