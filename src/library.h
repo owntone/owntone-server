@@ -83,7 +83,7 @@ int
 library_scan_media(const char *path, struct media_file_info *mfi);
 
 int
-library_add_queue_item(struct media_file_info* mfi);
+library_add_queue_item(struct media_file_info *mfi);
 
 void
 library_rescan();
