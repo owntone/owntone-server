@@ -383,8 +383,8 @@ library_scan_media(const char *path, struct media_file_info *mfi)
 
   DPRINTF(E_DBG, L_LIB, "Scan metadata for path '%s'\n", path);
 
-  ret = METADATA_PATH_INVALID;
-  for (i = 0; sources[i] && ret == METADATA_PATH_INVALID; i++)
+  ret = LIBRARY_PATH_INVALID;
+  for (i = 0; sources[i] && ret == LIBRARY_PATH_INVALID; i++)
     {
       if (sources[i]->disabled || !sources[i]->scan_metadata)
         {
@@ -394,11 +394,11 @@ library_scan_media(const char *path, struct media_file_info *mfi)
 
       ret = sources[i]->scan_metadata(path, mfi);
 
-      if (ret == METADATA_OK)
+      if (ret == LIBRARY_OK)
 	DPRINTF(E_DBG, L_LIB, "Got metadata for path '%s' from library source '%s'\n", path, sources[i]->name);
     }
 
-  if (ret == METADATA_OK)
+  if (ret == LIBRARY_OK)
     {
       if (!mfi->virtual_path)
 	mfi->virtual_path = strdup(mfi->path);

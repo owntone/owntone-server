@@ -1565,10 +1565,10 @@ scan_metadata(const char *path, struct media_file_info *mfi)
 	  mfi->description = strdup("MPEG audio file");
 	}
 
-      return METADATA_OK;
+      return LIBRARY_OK;
     }
 
-  return METADATA_PATH_INVALID;
+  return LIBRARY_PATH_INVALID;
 }
 
 /* Thread: main */
