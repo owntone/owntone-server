@@ -166,7 +166,7 @@ audio {
 	# Name - used in the speaker list in Remote
 	nickname = "Computer"
 	
-	# Type of the output (alsa, pulseaudio or dummy)
+	# Type of the output (alsa, pulseaudio, dummy or disabled)
 #	type = "alsa"
 
 	# Audio PCM device name for local audio output - ALSA only
