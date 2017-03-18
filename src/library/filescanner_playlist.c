@@ -122,7 +122,7 @@ process_url(const char *path, time_t mtime, int extinf, struct media_file_info *
 }
 
 static int
-process_regular_file(char *path, char **filename)
+process_regular_file(char **filename, char *path)
 {
   int i;
   int mfi_id;
@@ -333,7 +333,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
       /* Regular file, should already be in library */
       else
 	{
-	  ret = process_regular_file(path, &plitem_path);
+	  ret = process_regular_file(&plitem_path, path);
 	}
 
       if (ret == 0)
