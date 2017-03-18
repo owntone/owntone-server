@@ -613,10 +613,10 @@ create_virtual_path(char *path, char *virtual_path, int virtual_path_len)
  * and resolved_path contains the resolved path (resolved_path must be of length PATH_MAX).
  * If path is not a symbolic link, resolved_path holds the same value as path.
  *
- * The return value is 0 if the operation is successful, or -1 on failure. In addition
+ * The return value is 0 if the operation is successful, or -1 on failure
  */
 static int
-read_attributes(const char *path, struct stat *sb, char *resolved_path)
+read_attributes(char *resolved_path, const char *path, struct stat *sb)
 {
   int ret;
 
@@ -723,7 +723,7 @@ process_directory(char *path, int parent_id, int flags)
 	  continue;
 	}
 
-      ret = read_attributes(entry, &sb, resolved_path);
+      ret = read_attributes(resolved_path, entry, &sb);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, read_attributes() failed\n", entry);
@@ -1254,7 +1254,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    incomingfiles_buffer[i] = 0;
 	  }
 
-      ret = read_attributes(path, &sb, resolved_path);
+      ret = read_attributes(resolved_path, path, &sb);
       if (ret < 0)
         {
 	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, read_attributes() failed\n", path);
