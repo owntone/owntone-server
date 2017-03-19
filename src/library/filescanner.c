@@ -457,7 +457,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
 	else
-	  remote_pairing_read_pin(file);
+	  remote_pairing_kickoff_byfile(file);
 	break;
 
       case FILE_CTRL_LASTFM:
