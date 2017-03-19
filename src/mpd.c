@@ -3703,7 +3703,7 @@ mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **e
     {
       ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
       if (ret < 0)
-      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
     }
 
@@ -3719,6 +3719,47 @@ mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **e
   ret = outputvolume_set(shortid, volume, errmsg);
 
   return ret;
+}
+
+static void
+channel_outputvolume(const char *message)
+{
+  uint32_t shortid;
+  int volume;
+  char *tmp;
+  char *ptr;
+  char *errmsg = NULL;
+  int ret;
+
+  tmp = strdup(message);
+  ptr = strrchr(tmp, ':');
+  if (!ptr)
+    {
+      DPRINTF(E_LOG, L_MPD, "Failed to parse output id and volume from message '%s' (expected format: \"output-id:volume\"\n", message);
+      return;
+    }
+
+  *ptr = '\0';
+
+  ret = safe_atou32(tmp, &shortid);
+  if (ret < 0)
+    {
+      free(tmp);
+      DPRINTF(E_LOG, L_MPD, "Failed to parse output id from message: '%s'\n", message);
+      return;
+    }
+
+  ret = safe_atoi32((ptr + 1), &volume);
+  if (ret < 0)
+    {
+      free(tmp);
+      DPRINTF(E_LOG, L_MPD, "Failed to parse volume from message: '%s'\n", message);
+      return;
+    }
+
+  outputvolume_set(shortid, volume, &errmsg);
+  if (errmsg)
+    DPRINTF(E_LOG, L_MPD, "Failed to set output volume from message: '%s' (error='%s')\n", message, errmsg);
 }
 
 static void
@@ -3742,6 +3783,10 @@ struct mpd_channel
 
 static struct mpd_channel mpd_channels[] =
   {
+    {
+      .channel = "outputvolume",
+      .handler = channel_outputvolume
+    },
     {
       .channel = "pairing",
       .handler = channel_pairing
