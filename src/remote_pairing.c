@@ -781,7 +781,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 
 /* Thread: filescanner */
 void
-remote_pairing_read_pin(char *path)
+remote_pairing_kickoff_byfile(char *path)
 {
   char buf[256];
   FILE *fp;
