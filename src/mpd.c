@@ -3636,6 +3636,91 @@ mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   return 0;
 }
 
+static int
+outputvolume_set(uint32_t shortid, int volume, char **errmsg)
+{
+  struct outputs outputs;
+  struct output *output;
+  int ret;
+
+  outputs.count = 0;
+  outputs.active = 0;
+  outputs.outputs = NULL;
+
+  player_speaker_enumerate(outputs_enum_cb, &outputs);
+
+  output = outputs.outputs;
+  while (output)
+    {
+      if (output->shortid == shortid)
+	{
+	  break;
+	}
+      output = output->next;
+    }
+
+  if (!output)
+    {
+      free_outputs(outputs.outputs);
+      ret = asprintf(errmsg, "No speaker found for short id: %d", shortid);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  ret = player_volume_setabs_speaker(output->id, volume);
+
+  free_outputs(outputs.outputs);
+
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Setting volume to %d for speaker with short-id %d failed", volume, shortid);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  return 0;
+}
+
+static int
+mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  uint32_t shortid;
+  int volume;
+  int ret;
+
+  if (argc < 3)
+    {
+      ret = asprintf(errmsg, "Missing argument for command 'outputvolume'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[1], &shortid);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      if (ret < 0)
+      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atoi32(argv[2], &volume);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = outputvolume_set(shortid, volume, errmsg);
+
+  return ret;
+}
+
 static void
 channel_pairing(const char *message)
 {
@@ -3717,82 +3802,6 @@ mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **er
     }
 
   channel->handler(message);
-  return 0;
-}
-
-static int
-mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
-{
-  uint32_t shortid;
-  int volume;
-  struct outputs outputs;
-  struct output *output;
-  int ret;
-
-  if (argc < 3)
-    {
-      ret = asprintf(errmsg, "Missing argument for command 'outputvolume'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_ARG;
-    }
-
-  ret = safe_atou32(argv[1], &shortid);
-  if (ret < 0)
-    {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_ARG;
-    }
-
-  ret = safe_atoi32(argv[2], &volume);
-  if (ret < 0)
-    {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_ARG;
-    }
-
-  outputs.count = 0;
-  outputs.active = 0;
-  outputs.outputs = NULL;
-
-  player_speaker_enumerate(outputs_enum_cb, &outputs);
-
-  output = outputs.outputs;
-  while (output)
-    {
-      if (output->shortid == shortid)
-	{
-	  break;
-	}
-      output = output->next;
-    }
-
-  if (!output)
-    {
-      free_outputs(outputs.outputs);
-      ret = asprintf(errmsg, "No speaker found for short id: %d", shortid);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_UNKNOWN;
-    }
-
-  ret = player_volume_setabs_speaker(output->id, volume);
-
-  if (ret < 0)
-    {
-      free_outputs(outputs.outputs);
-      ret = asprintf(errmsg, "Setting volume to %d for speaker with short-id %d failed", volume, shortid);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_UNKNOWN;
-    }
-
-  free_outputs(outputs.outputs);
-
   return 0;
 }
 
