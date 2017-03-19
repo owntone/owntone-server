@@ -47,17 +47,17 @@
 # include <netinet/in.h>
 #endif
 
-#include "logger.h"
-#include "db.h"
-#include "conffile.h"
-#include "httpd.h"
-#include "misc.h"
-#include "listener.h"
 #include "artwork.h"
-
-#include "player.h"
 #include "commands.h"
+#include "conffile.h"
+#include "db.h"
+#include "httpd.h"
 #include "library.h"
+#include "listener.h"
+#include "logger.h"
+#include "misc.h"
+#include "player.h"
+#include "remote_pairing.h"
 
 
 static pthread_t tid_mpd;
@@ -3595,6 +3595,108 @@ mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   return 0;
 }
 
+static void
+channel_pairing(const char *message)
+{
+  char *device;
+  char *pin;
+  char *ptr;
+
+  ptr = strrchr(message, ':');
+  if (!ptr)
+    {
+      DPRINTF(E_LOG, L_MPD, "Failed to parse devicename and pin from message '%s' (expected format: \"devicename:pin\"\n", message);
+      return;
+    }
+
+  pin = ptr + 1;
+
+  device = strdup(message);
+  ptr = strrchr(device, ':');
+  *ptr = '\0';
+
+  remote_pairing_kickoff_bydevicepin(device, pin);
+  free(device);
+}
+
+struct mpd_channel
+{
+  /* The channel name */
+  const char *channel;
+
+  /*
+   * The function to execute the sendmessage command for a specific channel
+   *
+   * @param message message received on this channel
+   */
+  void (*handler)(const char *message);
+};
+
+static struct mpd_channel mpd_channels[] =
+  {
+    {
+      .channel = "pairing",
+      .handler = channel_pairing
+    },
+    {
+      .channel = NULL,
+      .handler = NULL
+    },
+  };
+
+/*
+ * Finds the channel handler for the given channel name
+ *
+ * @param name channel name from sendmessage command
+ * @return the channel or NULL if it is an unknown/unsupported channel
+ */
+static struct mpd_channel *
+mpd_find_channel(const char *name)
+{
+  int i;
+
+  for (i = 0; mpd_channels[i].handler; i++)
+    {
+      if (0 == strcmp(name, mpd_channels[i].channel))
+	{
+	  return &mpd_channels[i];
+	}
+    }
+
+  return NULL;
+}
+
+static int
+mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  const char *channelname;
+  const char *message;
+  struct mpd_channel *channel;
+  int ret;
+
+  if (argc < 3)
+    {
+      ret = asprintf(errmsg, "Missing argument for command 'sendmessage'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  channelname = argv[1];
+  message = argv[2];
+
+  channel = mpd_find_channel(channelname);
+  if (!channel)
+    {
+      // Just ignore the message, only log an error message
+      DPRINTF(E_LOG, L_MPD, "Unsupported channel '%s'\n", channelname);
+      return 0;
+    }
+
+  channel->handler(message);
+  return 0;
+}
+
 static int
 mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
@@ -4210,7 +4312,7 @@ static struct mpd_command mpd_handlers[] =
     },
     {
       .mpdcommand = "sendmessage",
-      .handler = mpd_command_ignore
+      .handler = mpd_command_sendmessage
     },
 
     /*
