@@ -357,7 +357,7 @@ add_remote_mdns_data(const char *id, int family, const char *address, int port, 
 }
 
 static int
-add_remote_pin_data(char *devname, char *pin)
+add_remote_pin_data(const char *devname, const char *pin)
 {
   struct remote_info *ri;
 
@@ -379,7 +379,7 @@ add_remote_pin_data(char *devname, char *pin)
   if (ri->pin)
     free(ri->pin);
 
-  ri->pin = pin;
+  ri->pin = strdup(pin);
 
   return 0;
 }
@@ -779,6 +779,23 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
     }
 }
 
+/* Thread: filescanner, mpd */
+void
+remote_pairing_kickoff_bydevicepin(const char *devname, const char *pin)
+{
+  int ret;
+
+  DPRINTF(E_INFO, L_REMOTE, "Kickoff pairing data for device '%s' with pin '%s'\n", devname, pin);
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
+
+  ret = add_remote_pin_data(devname, pin);
+  if (ret == 0)
+    kickoff_pairing();
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
+}
+
 /* Thread: filescanner */
 void
 remote_pairing_kickoff_byfile(char *path)
@@ -788,7 +805,6 @@ remote_pairing_kickoff_byfile(char *path)
   char *devname;
   char *pin;
   int len;
-  int ret;
 
   fp = fopen(path, "rb");
   if (!fp)
@@ -885,16 +901,9 @@ remote_pairing_kickoff_byfile(char *path)
 
   DPRINTF(E_LOG, L_REMOTE, "Read Remote pairing data (name '%s', pin '%s') from %s\n", devname, pin, path);
 
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
-
-  ret = add_remote_pin_data(devname, pin);
+  remote_pairing_kickoff_bydevicepin(devname, pin);
   free(devname);
-  if (ret < 0)
-    free(pin);
-  else
-    kickoff_pairing();
-
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
+  free(pin);
 }
 
 
