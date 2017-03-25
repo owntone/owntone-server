@@ -3820,6 +3820,21 @@ mpd_find_channel(const char *name)
 }
 
 static int
+mpd_command_channels(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int i;
+
+  for (i = 0; mpd_channels[i].handler; i++)
+    {
+      evbuffer_add_printf(evbuf,
+      		      "channel: %s\n",
+      		      mpd_channels[i].channel);
+    }
+
+  return 0;
+}
+
+static int
 mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   const char *channelname;
@@ -4381,7 +4396,7 @@ static struct mpd_command mpd_handlers[] =
     },
     {
       .mpdcommand = "channels",
-      .handler = mpd_command_ignore
+      .handler = mpd_command_channels
     },
     {
       .mpdcommand = "readmessages",
