@@ -3639,25 +3639,7 @@ mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 static void
 channel_pairing(const char *message)
 {
-  char *device;
-  char *pin;
-  char *ptr;
-
-  ptr = strrchr(message, ':');
-  if (!ptr)
-    {
-      DPRINTF(E_LOG, L_MPD, "Failed to parse devicename and pin from message '%s' (expected format: \"devicename:pin\"\n", message);
-      return;
-    }
-
-  pin = ptr + 1;
-
-  device = strdup(message);
-  ptr = strrchr(device, ':');
-  *ptr = '\0';
-
-  remote_pairing_kickoff_bydevicepin(device, pin);
-  free(device);
+  remote_pairing_kickoff_bypin(message);
 }
 
 struct mpd_channel

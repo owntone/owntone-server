@@ -3,7 +3,7 @@
 #define __REMOTE_PAIRING_H__
 
 void
-remote_pairing_kickoff_bydevicepin(const char *devname, const char *pin);
+remote_pairing_kickoff_bypin(const char *pin);
 
 void
 remote_pairing_kickoff_byfile(char *path);
