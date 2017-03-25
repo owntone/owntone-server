@@ -311,26 +311,19 @@ add_remote_mdns_data(const char *id, int family, const char *address, int port, 
 }
 
 static int
-add_remote_pin_data(const char *devname, const char *pin)
+add_remote_pin_data(const char *pin)
 {
-  struct remote_info *ri;
-
-  if (remote_info && strcmp(remote_info->pi.name, devname) == 0)
-    ri = remote_info;
-
-  if (!ri)
+  if (!remote_info)
     {
-      DPRINTF(E_LOG, L_REMOTE, "Remote '%s' not known from mDNS, ignoring\n", devname);
+      DPRINTF(E_LOG, L_REMOTE, "No remote known from mDNS, ignoring\n");
 
       return -1;
     }
 
-  DPRINTF(E_DBG, L_REMOTE, "Remote '%s' found\n", devname);
+  DPRINTF(E_DBG, L_REMOTE, "Adding pin to remote '%s'\n", remote_info->pi.name);
 
-  if (ri->pin)
-    free(ri->pin);
-
-  ri->pin = strdup(pin);
+  free(remote_info->pin);
+  remote_info->pin = strdup(pin);
 
   return 0;
 }
@@ -721,15 +714,15 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 
 /* Thread: filescanner, mpd */
 void
-remote_pairing_kickoff_bydevicepin(const char *devname, const char *pin)
+remote_pairing_kickoff_bypin(const char *pin)
 {
   int ret;
 
-  DPRINTF(E_INFO, L_REMOTE, "Kickoff pairing data for device '%s' with pin '%s'\n", devname, pin);
+  DPRINTF(E_INFO, L_REMOTE, "Kickoff pairing with pin '%s'\n", pin);
 
   CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
 
-  ret = add_remote_pin_data(devname, pin);
+  ret = add_remote_pin_data(pin);
   if (ret == 0)
     kickoff_pairing();
 
@@ -841,7 +834,7 @@ remote_pairing_kickoff_byfile(char *path)
 
   DPRINTF(E_LOG, L_REMOTE, "Read Remote pairing data (name '%s', pin '%s') from %s\n", devname, pin, path);
 
-  remote_pairing_kickoff_bydevicepin(devname, pin);
+  remote_pairing_kickoff_bypin(pin);
   free(devname);
   free(pin);
 }
