@@ -104,6 +104,10 @@ The Quick Way:
 
  1. Download and run the helper script from [here](https://raw.githubusercontent.com/ejurgensen/forked-daapd/master/scripts/pairinghelper.sh)
 
+Another option is to use mpc (MPD command line client):
+
+ 1. `mpc sendmessage pairing 5387` (where 5387 is the 4-digit pairing code displayed by Remote)
+
 Or, if that doesn't work:
 
  1. Start forked-daapd
