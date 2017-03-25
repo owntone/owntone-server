@@ -85,7 +85,7 @@ static int pairing_pipe[2];
 #endif
 static struct event *pairingev;
 static pthread_mutex_t remote_lck;
-static struct remote_info *remote_list;
+static struct remote_info *remote_info;
 
 
 /* iTunes - Remote pairing hash */
@@ -154,21 +154,16 @@ itunes_pairing_hash(char *paircode, char *pin)
  * with the list lock held by the caller
  */
 static struct remote_info *
-add_remote(void)
+create_remote(void)
 {
   struct remote_info *ri;
 
-  ri = (struct remote_info *)malloc(sizeof(struct remote_info));
+  ri = calloc(1, sizeof(struct remote_info));
   if (!ri)
     {
       DPRINTF(E_WARN, L_REMOTE, "Out of memory for struct remote_info\n");
       return NULL;
     }
-
-  memset(ri, 0, sizeof(struct remote_info));
-
-  ri->next = remote_list;
-  remote_list = ri;
 
   return ri;
 }
@@ -176,23 +171,10 @@ add_remote(void)
 static void
 unlink_remote(struct remote_info *ri)
 {
-  struct remote_info *p;
-
-  if (ri == remote_list)
-    remote_list = ri->next;
+  if (ri == remote_info)
+    remote_info = NULL;
   else
-    {
-      for (p = remote_list; p && (p->next != ri); p = p->next)
-	; /* EMPTY */
-
-      if (!p)
-	{
-	  DPRINTF(E_LOG, L_REMOTE, "WARNING: struct remote_info not found in list; BUG!\n");
-	  return;
-	}
-
-      p->next = ri->next;
-    }
+    DPRINTF(E_LOG, L_REMOTE, "WARNING: struct remote_info not found in list; BUG!\n");
 }
 
 static void
@@ -226,16 +208,10 @@ remove_remote(struct remote_info *ri)
 static void
 remove_remote_address_byid(const char *id, int family)
 {
-  struct remote_info *ri;
+  struct remote_info *ri = NULL;
 
-  for (ri = remote_list; ri; ri = ri->next)
-    {
-      if (!ri->pi.remote_id)
-	continue;
-
-      if (strcmp(ri->pi.remote_id, id) == 0)
-	break;
-    }
+  if (remote_info && strcmp(remote_info->pi.remote_id, id) == 0)
+    ri = remote_info;
 
   if (!ri)
     {
@@ -269,70 +245,48 @@ remove_remote_address_byid(const char *id, int family)
 static int
 add_remote_mdns_data(const char *id, int family, const char *address, int port, char *name, char *paircode)
 {
-  struct remote_info *ri;
   char *check_addr;
   int ret;
 
-  for (ri = remote_list; ri; ri = ri->next)
+  if (remote_info && strcmp(remote_info->pi.remote_id, id) == 0)
     {
-      if (!ri->pi.remote_id)
-	continue;
-
-      if (strcmp(ri->pi.remote_id, id) == 0)
-	break;
-    }
-
-  if (!ri)
-    {
-      DPRINTF(E_DBG, L_REMOTE, "Remote id %s not known, adding\n", id);
-
-      ri = add_remote();
-      if (!ri)
-	return -1;
-
-      ret = 0;
+      DPRINTF(E_DBG, L_REMOTE, "Remote id %s found\n", id);
+      free_pi(&remote_info->pi, 1);
+      ret = 1;
     }
   else
     {
-      DPRINTF(E_DBG, L_REMOTE, "Remote id %s found\n", id);
-
-      free_pi(&ri->pi, 1);
-
-      switch (family)
+      DPRINTF(E_DBG, L_REMOTE, "Remote id %s not known, adding\n", id);
+      if (remote_info)
 	{
-	  case AF_INET:
-	    if (ri->v4_address)
-	      free(ri->v4_address);
-	    break;
-
-	  case AF_INET6:
-	    if (ri->v6_address)
-	      free(ri->v6_address);
-	    break;
+	  DPRINTF(E_DBG, L_REMOTE, "Removing existing remote with id %s\n", remote_info->pi.remote_id);
+	  remove_remote(remote_info);
 	}
 
-      if (ri->paircode)
-	free(ri->paircode);
-
-      ret = 1;
+      remote_info = create_remote();
+      ret = 0;
     }
 
-  ri->pi.remote_id = strdup(id);
+  free(remote_info->paircode);
+  free(remote_info->pi.remote_id);
+  remote_info->pi.remote_id = strdup(id);
 
   switch (family)
     {
       case AF_INET:
-	ri->v4_address = strdup(address);
-	ri->v4_port = port;
+	free(remote_info->v4_address);
+	remote_info->v4_address = strdup(address);
+	remote_info->v4_port = port;
 
-	check_addr = ri->v4_address;
+	check_addr = remote_info->v4_address;
 	break;
 
       case AF_INET6:
-	ri->v6_address = strdup(address);
-	ri->v6_port = port;
+	free(remote_info->v6_address);
+	remote_info->v6_address = strdup(address);
+	remote_info->v6_port = port;
 
-	check_addr = ri->v6_address;
+	check_addr = remote_info->v6_address;
 	break;
 
       default:
@@ -342,16 +296,16 @@ add_remote_mdns_data(const char *id, int family, const char *address, int port, 
 	break;
     }
 
-  if (!ri->pi.remote_id || !check_addr)
+  if (!remote_info->pi.remote_id || !check_addr)
     {
       DPRINTF(E_LOG, L_REMOTE, "Out of memory for remote pairing data\n");
 
-      remove_remote(ri);
+      remove_remote(remote_info);
       return -1;
     }
 
-  ri->pi.name = name;
-  ri->paircode = paircode;
+  remote_info->pi.name = name;
+  remote_info->paircode = paircode;
 
   return ret;
 }
@@ -361,11 +315,8 @@ add_remote_pin_data(const char *devname, const char *pin)
 {
   struct remote_info *ri;
 
-  for (ri = remote_list; ri; ri = ri->next)
-    {
-      if (strcmp(ri->pi.name, devname) == 0)
-	break;
-    }
+  if (remote_info && strcmp(remote_info->pi.name, devname) == 0)
+    ri = remote_info;
 
   if (!ri)
     {
@@ -658,27 +609,16 @@ pairing_cb(int fd, short event, void *arg)
     ; /* EMPTY */
 #endif
 
-  for (;;)
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
+
+  if (remote_info && remote_info->paircode && remote_info->pin)
     {
-      CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
-
-      for (ri = remote_list; ri; ri = ri->next)
-	{
-	  /* We've got both the mDNS data and the pin */
-	  if (ri->paircode && ri->pin)
-	    {
-	      unlink_remote(ri);
-	      break;
-	    }
-	}
-
-      CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
-
-      if (!ri)
-	break;
-
+      ri = remote_info;
+      unlink_remote(ri);
       do_pairing(ri);
     }
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
 
   event_add(pairingev, NULL);
 }
@@ -913,7 +853,7 @@ remote_pairing_init(void)
 {
   int ret;
 
-  remote_list = NULL;
+  remote_info = NULL;
 
   CHECK_ERR(L_REMOTE, mutex_init(&remote_lck));
 
@@ -985,14 +925,8 @@ remote_pairing_init(void)
 void
 remote_pairing_deinit(void)
 {
-  struct remote_info *ri;
-
-  for (ri = remote_list; remote_list; ri = remote_list)
-    {
-      remote_list = ri->next;
-
-      free_remote(ri);
-    }
+  if (remote_info)
+    free_remote(remote_info);
 
 #ifdef HAVE_EVENTFD
   close(pairing_efd);
