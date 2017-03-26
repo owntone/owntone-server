@@ -2166,38 +2166,36 @@ scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 	      if (stamp)
 		{
 		  db_file_ping(id);
-		  continue;
 		}
-
-	      memset(&mfi, 0, sizeof(struct media_file_info));
-
-	      mfi.id = id;
-
-	      dir_id = prepare_directories(track.album_artist, track.album);
-
-	      map_track_to_mfi(&track, &mfi);
-
-	      mfi.compilation = (track.is_compilation || artist_override);
-	      if (album_override)
+	      else
 		{
-		  free(mfi.album);
-		  mfi.album = strdup(playlist->name);
+		  memset(&mfi, 0, sizeof(struct media_file_info));
+
+		  mfi.id = id;
+
+		  dir_id = prepare_directories(track.album_artist, track.album);
+
+		  map_track_to_mfi(&track, &mfi);
+
+		  mfi.compilation = (track.is_compilation || artist_override);
+		  if (album_override)
+		    {
+		      free(mfi.album);
+		      mfi.album = strdup(playlist->name);
+		    }
+
+		  mfi.time_modified = time(NULL);
+		  mfi.data_kind = DATA_KIND_SPOTIFY;
+		  snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi.album_artist, mfi.album, mfi.title);
+		  mfi.virtual_path = strdup(virtual_path);
+		  mfi.directory_id = dir_id;
+
+		  library_add_media(&mfi);
+		  free_mfi(&mfi, 1);
 		}
-
-	      mfi.time_modified = time(NULL);
-	      mfi.data_kind = DATA_KIND_SPOTIFY;
-	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi.album_artist, mfi.album, mfi.title);
-	      mfi.virtual_path = strdup(virtual_path);
-	      mfi.directory_id = dir_id;
-
-	      library_add_media(&mfi);
 
 	      spotify_uri_register(track.uri);
-
 	      cache_artwork_ping(track.uri, 1, 0);
-
-	      free_mfi(&mfi, 1);
-
 	      db_pl_add_item_bypath(plid, track.uri);
 	    }
 	}
