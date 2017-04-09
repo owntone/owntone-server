@@ -32,6 +32,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <limits.h>
 #include <sys/param.h>
 #ifndef CLOCK_REALTIME
@@ -1132,3 +1133,25 @@ log_fatal_null(int domain, const char *func, int line)
   DPRINTF(E_FATAL, domain, "%s returned NULL at line %d\n", func, line);
   abort();
 }
+
+/*
+ * Wrapper function for vasprintf by Intel Corporation
+ * Published under the L-GPL 2.1 licence as part of clr-boot-manager
+ *
+ * https://github.com/clearlinux/clr-boot-manager
+ */
+char *string_printf(const char *fmt, ...)
+{
+  char *ret = NULL;
+  va_list va;
+  va_start(va, fmt);
+  if (vasprintf(&ret, fmt, va) < 0)
+    {
+      DPRINTF(E_FATAL, L_MISC, "Out of memory for string_printf\n");
+      abort();
+    }
+  va_end(va);
+  return ret;
+}
+
+

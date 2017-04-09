@@ -196,4 +196,6 @@ void log_fatal_err(int domain, const char *func, int line, int err);
 void log_fatal_errno(int domain, const char *func, int line);
 void log_fatal_null(int domain, const char *func, int line);
 
+char *string_printf(const char *fmt, ...);
+
 #endif /* !__MISC_H__ */
