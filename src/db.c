@@ -4354,22 +4354,22 @@ db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t ite
 }
 
 static int
-queue_enum_start(struct query_params *query_params)
+queue_enum_start(struct query_params *qp)
 {
 #define Q_TMPL "SELECT * FROM queue WHERE %s %s;"
   char *query;
   const char *orderby;
   int ret;
 
-  query_params->stmt = NULL;
+  qp->stmt = NULL;
 
-  if (query_params->sort)
-    orderby = sort_clause[query_params->sort];
+  if (qp->sort)
+    orderby = sort_clause[qp->sort];
   else
     orderby = sort_clause[S_POS];
 
-  if (query_params->filter)
-     query = sqlite3_mprintf(Q_TMPL, query_params->filter, orderby);
+  if (qp->filter)
+     query = sqlite3_mprintf(Q_TMPL, qp->filter, orderby);
   else
     query = sqlite3_mprintf(Q_TMPL, "1=1", orderby);
 
@@ -4382,7 +4382,7 @@ queue_enum_start(struct query_params *query_params)
 
   DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &query_params->stmt, NULL);
+  ret = db_blocking_prepare_v2(query, -1, &qp->stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -4411,19 +4411,19 @@ strdup_if(char *str, int cond)
 }
 
 static int
-queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_item, int keep_item)
+queue_enum_fetch(struct query_params *qp, struct db_queue_item *queue_item, int keep_item)
 {
   int ret;
 
   memset(queue_item, 0, sizeof(struct db_queue_item));
 
-  if (!query_params->stmt)
+  if (!qp->stmt)
     {
       DPRINTF(E_LOG, L_DB, "Queue enum not started!\n");
       return -1;
     }
 
-  ret = db_blocking_step(query_params->stmt);
+  ret = db_blocking_step(qp->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of queue enum results\n");
@@ -4435,41 +4435,41 @@ queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_
       return -1;
     }
 
-  queue_item->id = (uint32_t)sqlite3_column_int(query_params->stmt, 0);
-  queue_item->file_id = (uint32_t)sqlite3_column_int(query_params->stmt, 1);
-  queue_item->pos = (uint32_t)sqlite3_column_int(query_params->stmt, 2);
-  queue_item->shuffle_pos = (uint32_t)sqlite3_column_int(query_params->stmt, 3);
-  queue_item->data_kind = sqlite3_column_int(query_params->stmt, 4);
-  queue_item->media_kind = sqlite3_column_int(query_params->stmt, 5);
-  queue_item->song_length = (uint32_t)sqlite3_column_int(query_params->stmt, 6);
-  queue_item->path = strdup_if((char *)sqlite3_column_text(query_params->stmt, 7), keep_item);
-  queue_item->virtual_path = strdup_if((char *)sqlite3_column_text(query_params->stmt, 8), keep_item);
-  queue_item->title = strdup_if((char *)sqlite3_column_text(query_params->stmt, 9), keep_item);
-  queue_item->artist = strdup_if((char *)sqlite3_column_text(query_params->stmt, 10), keep_item);
-  queue_item->album_artist = strdup_if((char *)sqlite3_column_text(query_params->stmt, 11), keep_item);
-  queue_item->album = strdup_if((char *)sqlite3_column_text(query_params->stmt, 12), keep_item);
-  queue_item->genre = strdup_if((char *)sqlite3_column_text(query_params->stmt, 13), keep_item);
-  queue_item->songalbumid = sqlite3_column_int64(query_params->stmt, 14);
-  queue_item->time_modified = sqlite3_column_int(query_params->stmt, 15);
-  queue_item->artist_sort = strdup_if((char *)sqlite3_column_text(query_params->stmt, 16), keep_item);
-  queue_item->album_sort = strdup_if((char *)sqlite3_column_text(query_params->stmt, 17), keep_item);
-  queue_item->album_artist_sort = strdup_if((char *)sqlite3_column_text(query_params->stmt, 18), keep_item);
-  queue_item->year = sqlite3_column_int(query_params->stmt, 19);
-  queue_item->track = sqlite3_column_int(query_params->stmt, 20);
-  queue_item->disc = sqlite3_column_int(query_params->stmt, 21);
-  queue_item->artwork_url = strdup_if((char *)sqlite3_column_text(query_params->stmt, 22), keep_item);
+  queue_item->id = (uint32_t)sqlite3_column_int(qp->stmt, 0);
+  queue_item->file_id = (uint32_t)sqlite3_column_int(qp->stmt, 1);
+  queue_item->pos = (uint32_t)sqlite3_column_int(qp->stmt, 2);
+  queue_item->shuffle_pos = (uint32_t)sqlite3_column_int(qp->stmt, 3);
+  queue_item->data_kind = sqlite3_column_int(qp->stmt, 4);
+  queue_item->media_kind = sqlite3_column_int(qp->stmt, 5);
+  queue_item->song_length = (uint32_t)sqlite3_column_int(qp->stmt, 6);
+  queue_item->path = strdup_if((char *)sqlite3_column_text(qp->stmt, 7), keep_item);
+  queue_item->virtual_path = strdup_if((char *)sqlite3_column_text(qp->stmt, 8), keep_item);
+  queue_item->title = strdup_if((char *)sqlite3_column_text(qp->stmt, 9), keep_item);
+  queue_item->artist = strdup_if((char *)sqlite3_column_text(qp->stmt, 10), keep_item);
+  queue_item->album_artist = strdup_if((char *)sqlite3_column_text(qp->stmt, 11), keep_item);
+  queue_item->album = strdup_if((char *)sqlite3_column_text(qp->stmt, 12), keep_item);
+  queue_item->genre = strdup_if((char *)sqlite3_column_text(qp->stmt, 13), keep_item);
+  queue_item->songalbumid = sqlite3_column_int64(qp->stmt, 14);
+  queue_item->time_modified = sqlite3_column_int(qp->stmt, 15);
+  queue_item->artist_sort = strdup_if((char *)sqlite3_column_text(qp->stmt, 16), keep_item);
+  queue_item->album_sort = strdup_if((char *)sqlite3_column_text(qp->stmt, 17), keep_item);
+  queue_item->album_artist_sort = strdup_if((char *)sqlite3_column_text(qp->stmt, 18), keep_item);
+  queue_item->year = sqlite3_column_int(qp->stmt, 19);
+  queue_item->track = sqlite3_column_int(qp->stmt, 20);
+  queue_item->disc = sqlite3_column_int(qp->stmt, 21);
+  queue_item->artwork_url = strdup_if((char *)sqlite3_column_text(qp->stmt, 22), keep_item);
 
   return 0;
 }
 
 int
-db_queue_enum_start(struct query_params *query_params)
+db_queue_enum_start(struct query_params *qp)
 {
   int ret;
 
   db_transaction_begin();
 
-  ret = queue_enum_start(query_params);
+  ret = queue_enum_start(qp);
 
   if (ret < 0)
     db_transaction_rollback();
@@ -4478,16 +4478,16 @@ db_queue_enum_start(struct query_params *query_params)
 }
 
 void
-db_queue_enum_end(struct query_params *query_params)
+db_queue_enum_end(struct query_params *qp)
 {
-  db_query_end(query_params);
+  db_query_end(qp);
   db_transaction_end();
 }
 
 int
-db_queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_item)
+db_queue_enum_fetch(struct query_params *qp, struct db_queue_item *queue_item)
 {
-  return queue_enum_fetch(query_params, queue_item, 0);
+  return queue_enum_fetch(qp, queue_item, 0);
 }
 
 int
@@ -4541,22 +4541,22 @@ db_queue_get_pos_byfileid(uint32_t file_id, char shuffle)
 static int
 queue_fetch_byitemid(uint32_t item_id, struct db_queue_item *queue_item, int with_metadata)
 {
-  struct query_params query_params;
+  struct query_params qp;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
-  query_params.filter = sqlite3_mprintf("id = %d", item_id);
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.filter = sqlite3_mprintf("id = %d", item_id);
 
-  ret = queue_enum_start(&query_params);
+  ret = queue_enum_start(&qp);
   if (ret < 0)
     {
-      sqlite3_free(query_params.filter);
+      sqlite3_free(qp.filter);
       return -1;
     }
 
-  ret = queue_enum_fetch(&query_params, queue_item, with_metadata);
-  db_query_end(&query_params);
-  sqlite3_free(query_params.filter);
+  ret = queue_enum_fetch(&qp, queue_item, with_metadata);
+  db_query_end(&qp);
+  sqlite3_free(qp.filter);
   return ret;
 }
 
@@ -4597,10 +4597,10 @@ struct db_queue_item *
 db_queue_fetch_byfileid(uint32_t file_id)
 {
   struct db_queue_item *queue_item;
-  struct query_params query_params;
+  struct query_params qp;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
+  memset(&qp, 0, sizeof(struct query_params));
   queue_item = calloc(1, sizeof(struct db_queue_item));
   if (!queue_item)
     {
@@ -4610,21 +4610,21 @@ db_queue_fetch_byfileid(uint32_t file_id)
 
   db_transaction_begin();
 
-  query_params.filter = sqlite3_mprintf("file_id = %d", file_id);
+  qp.filter = sqlite3_mprintf("file_id = %d", file_id);
 
-  ret = queue_enum_start(&query_params);
+  ret = queue_enum_start(&qp);
   if (ret < 0)
     {
-      sqlite3_free(query_params.filter);
+      sqlite3_free(qp.filter);
       db_transaction_end();
       free_queue_item(queue_item, 0);
       DPRINTF(E_LOG, L_DB, "Error fetching queue item by file id\n");
       return NULL;
     }
 
-  ret = queue_enum_fetch(&query_params, queue_item, 1);
-  db_query_end(&query_params);
-  sqlite3_free(query_params.filter);
+  ret = queue_enum_fetch(&qp, queue_item, 1);
+  db_query_end(&qp);
+  sqlite3_free(qp.filter);
   db_transaction_end();
 
   if (ret < 0)
@@ -4646,25 +4646,25 @@ db_queue_fetch_byfileid(uint32_t file_id)
 static int
 queue_fetch_bypos(uint32_t pos, char shuffle, struct db_queue_item *queue_item, int with_metadata)
 {
-  struct query_params query_params;
+  struct query_params qp;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
+  memset(&qp, 0, sizeof(struct query_params));
   if (shuffle)
-    query_params.filter = sqlite3_mprintf("shuffle_pos = %d", pos);
+    qp.filter = sqlite3_mprintf("shuffle_pos = %d", pos);
   else
-    query_params.filter = sqlite3_mprintf("pos = %d", pos);
+    qp.filter = sqlite3_mprintf("pos = %d", pos);
 
-  ret = queue_enum_start(&query_params);
+  ret = queue_enum_start(&qp);
   if (ret < 0)
     {
-      sqlite3_free(query_params.filter);
+      sqlite3_free(qp.filter);
       return -1;
     }
 
-  ret = queue_enum_fetch(&query_params, queue_item, with_metadata);
-  db_query_end(&query_params);
-  sqlite3_free(query_params.filter);
+  ret = queue_enum_fetch(&qp, queue_item, with_metadata);
+  db_query_end(&qp);
+  sqlite3_free(qp.filter);
   return ret;
 }
 
@@ -4785,23 +4785,23 @@ queue_fix_pos(enum sort_type sort)
 {
 #define Q_TMPL "UPDATE queue SET %q = %d WHERE id = %d;"
 
-  struct query_params query_params;
+  struct query_params qp;
   struct db_queue_item queue_item;
   char *query;
   int pos;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
-  query_params.sort = sort;
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.sort = sort;
 
-  ret = queue_enum_start(&query_params);
+  ret = queue_enum_start(&qp);
   if (ret < 0)
     {
       return -1;
     }
 
   pos = 0;
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0))
+  while ((ret = queue_enum_fetch(&qp, &queue_item, 0)) == 0 && (queue_item.id > 0))
     {
       if (queue_item.pos != pos)
         {
@@ -4821,7 +4821,7 @@ queue_fix_pos(enum sort_type sort)
       pos++;
     }
 
-  db_query_end(&query_params);
+  db_query_end(&qp);
   return ret;
 
 #undef Q_TMPL
@@ -5324,7 +5324,7 @@ db_queue_reshuffle(uint32_t item_id)
   int *shuffle_pos;
   int len;
   int i;
-  struct query_params query_params;
+  struct query_params qp;
   int ret;
 
   db_transaction_begin();
@@ -5366,21 +5366,19 @@ db_queue_reshuffle(uint32_t item_id)
 
   shuffle_int(&shuffle_rng, shuffle_pos, len);
 
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.filter = sqlite3_mprintf("pos >= %d", pos);
 
-
-  memset(&query_params, 0, sizeof(struct query_params));
-  query_params.filter = sqlite3_mprintf("pos >= %d", pos);
-
-  ret = queue_enum_start(&query_params);
+  ret = queue_enum_start(&qp);
   if (ret < 0)
     {
-      sqlite3_free(query_params.filter);
+      sqlite3_free(qp.filter);
       db_transaction_rollback();
       return -1;
     }
 
   i = 0;
-  while ((ret = queue_enum_fetch(&query_params, &queue_item, 0)) == 0 && (queue_item.id > 0) && (i < len))
+  while ((ret = queue_enum_fetch(&qp, &queue_item, 0)) == 0 && (queue_item.id > 0) && (i < len))
     {
       query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", shuffle_pos[i], queue_item.id);
       ret = db_query_run(query, 1, 0);
@@ -5393,8 +5391,8 @@ db_queue_reshuffle(uint32_t item_id)
       i++;
     }
 
-  db_query_end(&query_params);
-  sqlite3_free(query_params.filter);
+  db_query_end(&qp);
+  sqlite3_free(qp.filter);
 
   if (ret < 0)
     {

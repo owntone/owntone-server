@@ -708,13 +708,13 @@ int
 db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t item_id);
 
 int
-db_queue_enum_start(struct query_params *query_params);
+db_queue_enum_start(struct query_params *qp);
 
 void
-db_queue_enum_end(struct query_params *query_params);
+db_queue_enum_end(struct query_params *qp);
 
 int
-db_queue_enum_fetch(struct query_params *query_params, struct db_queue_item *queue_item);
+db_queue_enum_fetch(struct query_params *qp, struct db_queue_item *queue_item);
 
 struct db_queue_item *
 db_queue_fetch_byitemid(uint32_t item_id);
