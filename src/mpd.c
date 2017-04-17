@@ -1841,7 +1841,7 @@ mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  ret = db_queue_move_byitemid(songid, to_pos);
+  ret = db_queue_move_byitemid(songid, to_pos, 0);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to move song with id '%s' to index '%s'", argv[1], argv[2]);
