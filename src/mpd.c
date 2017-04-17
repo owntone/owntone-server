@@ -3735,6 +3735,7 @@ channel_outputvolume(const char *message)
   ptr = strrchr(tmp, ':');
   if (!ptr)
     {
+      free(tmp);
       DPRINTF(E_LOG, L_MPD, "Failed to parse output id and volume from message '%s' (expected format: \"output-id:volume\"\n", message);
       return;
     }
@@ -3760,6 +3761,8 @@ channel_outputvolume(const char *message)
   outputvolume_set(shortid, volume, &errmsg);
   if (errmsg)
     DPRINTF(E_LOG, L_MPD, "Failed to set output volume from message: '%s' (error='%s')\n", message, errmsg);
+
+  free(tmp);
 }
 
 static void
