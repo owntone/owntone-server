@@ -5069,10 +5069,11 @@ db_queue_delete_byposrelativetoitem(uint32_t pos, uint32_t item_id, char shuffle
  *
  * @param item_id Queue item id
  * @param pos_to target position in the queue (zero-based)
+ * @þaram shuffle If 1 move item in the shuffle queue
  * @return 0 on success, -1 on failure
  */
 int
-db_queue_move_byitemid(uint32_t item_id, int pos_to)
+db_queue_move_byitemid(uint32_t item_id, int pos_to, char shuffle)
 {
   char *query;
   int pos_from;
@@ -5081,7 +5082,7 @@ db_queue_move_byitemid(uint32_t item_id, int pos_to)
   db_transaction_begin();
 
   // Find item with the given item_id
-  pos_from = db_queue_get_pos(item_id, 0);
+  pos_from = db_queue_get_pos(item_id, shuffle);
   if (pos_from < 0)
     {
       db_transaction_rollback();
@@ -5089,7 +5090,11 @@ db_queue_move_byitemid(uint32_t item_id, int pos_to)
     }
 
   // Update pos for all items after the item with given item_id
-  query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1 WHERE pos > %d;", pos_from);
+  if (shuffle)
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos - 1 WHERE shuffle_pos > %d;", pos_from);
+  else
+    query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1 WHERE pos > %d;", pos_from);
+
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
@@ -5098,7 +5103,11 @@ db_queue_move_byitemid(uint32_t item_id, int pos_to)
     }
 
   // Update pos for all items from the given pos_to
-  query = sqlite3_mprintf("UPDATE queue SET pos = pos + 1 WHERE pos >= %d;", pos_to);
+  if (shuffle)
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos + 1 WHERE shuffle_pos >= %d;", pos_to);
+  else
+    query = sqlite3_mprintf("UPDATE queue SET pos = pos + 1 WHERE pos >= %d;", pos_to);
+
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {
@@ -5107,7 +5116,11 @@ db_queue_move_byitemid(uint32_t item_id, int pos_to)
     }
 
   // Update item with the given item_id
-  query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_to, item_id);
+  if (shuffle)
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", pos_to, item_id);
+  else
+    query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_to, item_id);
+
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     {

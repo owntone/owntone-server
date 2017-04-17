@@ -984,7 +984,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
   if (ret < 0)
     return -1;
 
-  if (status.shuffle)
+  if (status.shuffle && mode != 1)
     return 0;
 
   return id;
@@ -1797,6 +1797,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   int ret;
   int quirkyquery;
   struct db_queue_item *queue_item;
+  struct player_status status;
 
   mode = 1;
 
@@ -1879,6 +1880,14 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 
   if (queue_item)
     {
+      player_get_status(&status);
+
+      if (status.shuffle)
+	{
+	  DPRINTF(E_DBG, L_DACP, "Start shuffle queue with item %d\n", queue_item->id);
+	  db_queue_move_byitemid(queue_item->id, 0, status.shuffle);
+	}
+
       DPRINTF(E_DBG, L_DACP, "Song queue built, starting playback at index %d\n", queue_item->pos);
       ret = player_playback_start_byitem(queue_item);
       free_queue_item(queue_item, 0);

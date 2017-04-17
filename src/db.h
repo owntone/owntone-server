@@ -750,7 +750,7 @@ int
 db_queue_delete_byposrelativetoitem(uint32_t pos, uint32_t item_id, char shuffle);
 
 int
-db_queue_move_byitemid(uint32_t item_id, int pos_to);
+db_queue_move_byitemid(uint32_t item_id, int pos_to, char shuffle);
 
 int
 db_queue_move_bypos(int pos_from, int pos_to);
