@@ -162,10 +162,14 @@ If you see an error in the log with either:
  - a HTTP response code that is 0
  - "Empty pairing request callback"
 it means that forked-daapd could not establish a connection to Remote. This 
-might be a network issue.
-Solution: Sometimes it resolves the issue if you force Remote to quit, restart
+might be a network issue, your router may not be allowing multicast between the
+Remote device and the host forked-daapd is running on.
+Solution 1: Sometimes it resolves the issue if you force Remote to quit, restart
 it and do the pairing proces again. Another trick is to establish some other
 connection (eg SSH) from the iPod/iPhone/iPad to the host.
+Solution 2: Check your router settings if you can whitelist multicast addresses
+under IGMP settings. For Apple Bonjour, setting a multicast address of
+224.0.0.251 and a netmask of 255.255.255.255 should work.
 
 Otherwise try using avahi-browse for troubleshooting:
  - in a terminal, run `avahi-browse -r -k _touch-remote._tcp`
