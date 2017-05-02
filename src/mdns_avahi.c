@@ -362,6 +362,7 @@ struct mdns_resolver
 {
   char *name;
   AvahiServiceResolver *resolver;
+  AvahiProtocol proto;
 
   struct mdns_resolver *next;
 };
@@ -441,7 +442,7 @@ avahi_address_make(AvahiAddress *addr, AvahiProtocol proto, const void *rdata, s
 
 // Frees all resolvers for a given service name
 static void
-resolvers_cleanup(const char *name)
+resolvers_cleanup(const char *name, AvahiProtocol proto)
 {
   struct mdns_resolver *r;
   struct mdns_resolver *prev;
@@ -452,7 +453,7 @@ resolvers_cleanup(const char *name)
     {
       next = r->next;
 
-      if (strcmp(name, r->name) != 0)
+      if ((strcmp(name, r->name) != 0) || (proto != r->proto))
 	{
 	  prev = r;
 	  continue;
@@ -462,8 +463,6 @@ resolvers_cleanup(const char *name)
 	resolver_list = r->next;
       else
 	prev->next = r->next;
-
- DPRINTF(E_DBG, L_MDNS, "Freeing resolver for service '%s'\n", r->name);
 
       avahi_service_resolver_free(r->resolver);
       free(r->name);
@@ -533,20 +532,30 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 			uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags flags, void *userdata)
 {
   AvahiRecordBrowser *rb;
+  struct mdns_browser *mb;
   struct mdns_record_browser *rb_data;
   char *key;
   char *value;
   uint16_t dns_type;
+  int family;
   int ret;
+
+  mb = (struct mdns_browser *)userdata;
 
   if (event != AVAHI_RESOLVER_FOUND)
     {
       if (event == AVAHI_RESOLVER_FAILURE)
-	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver failure: service '%s' type '%s': %s\n", name, type, MDNSERR);
+	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver failure: service '%s' type '%s' proto %d: %s\n", name, type, proto, MDNSERR);
       else
 	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver empty callback\n");
 
-      resolvers_cleanup(name);
+      family = avahi_proto_to_af(proto);
+      if (family != AF_UNSPEC)
+	mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
+
+      // We don't clean up resolvers because we want a notification from them if
+      // the service reappears (e.g. if device was switched off and then on)
+
       return;
     }
 
@@ -556,7 +565,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
   rb_data->name = strdup(name);
   rb_data->domain = strdup(domain);
-  rb_data->mb = (struct mdns_browser *)userdata;
+  rb_data->mb = mb;
   rb_data->port = port;
 
   while (txt)
@@ -630,6 +639,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 	  }
 
 	r->name = strdup(name);
+	r->proto = proto;
 	r->next = resolver_list;
 	resolver_list = r;
 
@@ -638,11 +648,12 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
       case AVAHI_BROWSER_REMOVE:
 	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: REMOVE service '%s' type '%s' proto %d\n", name, type, proto);
 
-	resolvers_cleanup(name);
-
 	family = avahi_proto_to_af(proto);
 	if (family != AF_UNSPEC)
 	  mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
+
+	resolvers_cleanup(name, proto);
+
 	break;
 
       case AVAHI_BROWSER_ALL_FOR_NOW:

@@ -1239,7 +1239,7 @@ device_remove(struct output_device *remove)
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
-  DPRINTF(E_DBG, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
+  DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
 
   /* Make sure device isn't selected anymore */
   if (remove->selected)
