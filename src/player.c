@@ -2240,15 +2240,17 @@ playback_seek_bh(void *arg, int *retval)
   int ms;
   int ret;
 
+  *retval = -1;
+
+  if (!cur_streaming)
+    return COMMAND_END;
+
   ms = cmdarg->intval;
 
   ret = source_seek(ms);
-
   if (ret < 0)
     {
       playback_abort();
-
-      *retval = -1;
       return COMMAND_END;
     }
 
@@ -2262,13 +2264,19 @@ playback_seek_bh(void *arg, int *retval)
 static enum command_state
 playback_pause_bh(void *arg, int *retval)
 {
-  if (cur_streaming->data_kind == DATA_KIND_HTTP
-      || cur_streaming->data_kind == DATA_KIND_PIPE)
+  *retval = -1;
+
+  // outputs_flush() in playback_pause() may have a caused a failure callback
+  // from the output, which in streaming_cb() can cause playback_abort() ->
+  // cur_streaming is NULL
+  if (!cur_streaming)
+    return COMMAND_END;
+
+  if (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE)
     {
       DPRINTF(E_DBG, L_PLAYER, "Source is not pausable, abort playback\n");
 
       playback_abort();
-      *retval = -1;
       return COMMAND_END;
     }
   status_update(PLAY_PAUSED);
