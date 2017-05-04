@@ -1300,7 +1300,7 @@ evrtsp_connection_set_closecb(struct evrtsp_connection *evcon,
 
 void
 evrtsp_connection_get_local_address(struct evrtsp_connection *evcon,
-    char **address, u_short *port)
+    char **address, u_short *port, int *family)
 {
   union {
     struct sockaddr_storage ss;
@@ -1327,7 +1327,9 @@ evrtsp_connection_get_local_address(struct evrtsp_connection *evcon,
   if (!*address)
     return;
 
-  switch (addr.ss.ss_family)
+  *family = addr.ss.ss_family;
+
+  switch (*family)
     {
       case AF_INET:
 	*port = ntohs(addr.sin.sin_port);

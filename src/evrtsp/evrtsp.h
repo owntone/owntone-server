@@ -142,10 +142,10 @@ void evrtsp_connection_set_base(struct evrtsp_connection *evcon,
 void evrtsp_connection_get_peer(struct evrtsp_connection *evcon,
     char **address, u_short *port);
 
-/** Get the local address and port associated with this connection. */
+/** Get the local address, port and family associated with this connection. */
 void
 evrtsp_connection_get_local_address(struct evrtsp_connection *evcon,
-    char **address, u_short *port);
+    char **address, u_short *port, int *family);
 
 /** The connection gets ownership of the request */
 int evrtsp_make_request(struct evrtsp_connection *evcon,

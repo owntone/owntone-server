@@ -181,6 +181,7 @@ struct raop_session
 
   char *devname;
   char *address;
+  int family;
 
   int volume;
   uint64_t start_rtptime;
@@ -1203,13 +1204,13 @@ raop_check_cseq(struct raop_session *rs, struct evrtsp_request *req)
 }
 
 static int
-raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address, uint32_t session_id)
+raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address, int family, uint32_t session_id)
 {
 #define SDP_PLD_FMT							\
   "v=0\r\n"								\
-    "o=iTunes %u 0 IN IP4 %s\r\n"					\
+    "o=iTunes %u 0 IN %s %s\r\n"					\
     "s=iTunes\r\n"							\
-    "c=IN IP4 %s\r\n"							\
+    "c=IN %s %s\r\n"							\
     "t=0 0\r\n"								\
     "m=audio 0 RTP/AVP 96\r\n"						\
     "a=rtpmap:96 AppleLossless\r\n"					\
@@ -1218,16 +1219,21 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
     "a=aesiv:%s\r\n"
 #define SDP_PLD_FMT_NO_ENC						\
   "v=0\r\n"								\
-    "o=iTunes %u 0 IN IP4 %s\r\n"					\
+    "o=iTunes %u 0 IN %s %s\r\n"					\
     "s=iTunes\r\n"							\
-    "c=IN IP4 %s\r\n"							\
+    "c=IN %s %s\r\n"							\
     "t=0 0\r\n"								\
     "m=audio 0 RTP/AVP 96\r\n"						\
     "a=rtpmap:96 AppleLossless\r\n"					\
     "a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n"
 
+  const char *af;
+  const char *rs_af;
   char *p;
   int ret;
+
+  af = (family == AF_INET) ? "IP4" : "IP6";
+  rs_af = (rs->family == AF_INET) ? "IP4" : "IP6";
 
   p = strchr(rs->address, '%');
   if (p)
@@ -1236,11 +1242,11 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
   /* Add SDP payload - but don't add RSA/AES key/iv if no encryption - important for ATV3 update 6.0 */
   if (rs->encrypt)
     ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT,
-			      session_id, address, rs->address, AIRTUNES_V2_PACKET_SAMPLES,
+			      session_id, af, address, rs_af, rs->address, AIRTUNES_V2_PACKET_SAMPLES,
 			      raop_aes_key_b64, raop_aes_iv_b64);
   else
     ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT_NO_ENC,
-			      session_id, address, rs->address, AIRTUNES_V2_PACKET_SAMPLES);
+			      session_id, af, address, rs_af, rs->address, AIRTUNES_V2_PACKET_SAMPLES);
 
   if (p)
     *p = '%';
@@ -1248,7 +1254,6 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for SDP payload\n");
-
       return -1;
     }
 
@@ -1528,11 +1533,12 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
   char *address;
   char *intf;
   unsigned short port;
+  int family;
   uint32_t session_id;
   int ret;
 
   /* Determine local address, needed for SDP and session URL */
-  evrtsp_connection_get_local_address(rs->ctrl, &address, &port);
+  evrtsp_connection_get_local_address(rs->ctrl, &address, &port, &family);
   if (!address || (port == 0))
     {
       DPRINTF(E_LOG, L_RAOP, "Could not determine local address\n");
@@ -1574,7 +1580,7 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
     }
 
   /* SDP payload */
-  ret = raop_make_sdp(rs, req, address, session_id);
+  ret = raop_make_sdp(rs, req, address, family, session_id);
   free(address);
   if (ret < 0)
     {
@@ -1992,6 +1998,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
 
   rs->devname = strdup(rd->name);
   rs->address = strdup(address);
+  rs->family = family;
 
   rs->volume = rd->volume;
 
