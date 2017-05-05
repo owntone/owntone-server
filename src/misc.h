@@ -50,6 +50,10 @@ safe_hextou64(const char *str, uint64_t *val);
 char *
 safe_strdup(const char *str);
 
+char *
+safe_asprintf(const char *fmt, ...);
+
+
 /* Key/value functions */
 struct keyval *
 keyval_alloc(void);

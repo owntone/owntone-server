@@ -244,9 +244,9 @@ spotifywebapi_request_next(struct spotify_request *request, const char *uri, boo
       if (append_market && spotify_user_country)
 	{
 	  if (strchr(uri, '?'))
-	    asprintf(&next_uri, "%s&market=%s", uri, spotify_user_country);
+	    next_uri = safe_asprintf("%s&market=%s", uri, spotify_user_country);
 	  else
-	    asprintf(&next_uri, "%s?market=%s", uri, spotify_user_country);
+	    next_uri = safe_asprintf("%s?market=%s", uri, spotify_user_country);
 	}
       else
 	next_uri = strdup(uri);
