@@ -50,6 +50,10 @@ safe_hextou64(const char *str, uint64_t *val);
 char *
 safe_strdup(const char *str);
 
+char *
+safe_asprintf(const char *fmt, ...);
+
+
 /* Key/value functions */
 struct keyval *
 keyval_alloc(void);
@@ -200,7 +204,5 @@ log_fatal_errno(int domain, const char *func, int line)        __attribute__((__
 
 void
 log_fatal_null(int domain, const char *func, int line)         __attribute__((__noreturn__));
-
-char *string_printf(const char *fmt, ...);
 
 #endif /* !__MISC_H__ */
