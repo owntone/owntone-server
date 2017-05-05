@@ -201,4 +201,6 @@ log_fatal_errno(int domain, const char *func, int line)        __attribute__((__
 void
 log_fatal_null(int domain, const char *func, int line)         __attribute__((__noreturn__));
 
+char *string_printf(const char *fmt, ...);
+
 #endif /* !__MISC_H__ */

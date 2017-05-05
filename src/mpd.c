@@ -537,10 +537,7 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
   queue_item = db_queue_fetch_byitemid(status.item_id);
   if (!queue_item)
     {
-      ret = asprintf(errmsg, "Error adding queue item info for file with id: %d", status.item_id);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-
+      *errmsg = string_printf("Error adding queue item info for file with id: %d", status.item_id);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -550,10 +547,7 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Error adding media info for file with id: %d", status.id);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-
+      *errmsg = string_printf("Error adding media info for file with id: %d", status.id);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -791,10 +785,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     {
       db_query_end(&qp);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -803,10 +794,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     {
       db_query_end(&qp);
 
-      ret = asprintf(errmsg, "Could not fetch query count");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-
+      *errmsg = string_printf("Could not fetch query count");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -849,18 +837,14 @@ mpd_command_consume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'consume'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'consume'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -882,18 +866,14 @@ mpd_command_random(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'random'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'random'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -915,18 +895,14 @@ mpd_command_repeat(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'repeat'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'repeat'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -950,18 +926,14 @@ mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'setvol'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'setvol'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atoi32(argv[1], &volume);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -994,18 +966,14 @@ mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'single'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'single'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1048,18 +1016,14 @@ mpd_command_volume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'volume'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'volume'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atoi32(argv[1], &volume);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1085,18 +1049,14 @@ mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to skip to next song");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to skip to next song");
       return ACK_ERROR_UNKNOWN;
     }
 
   ret = player_playback_start();
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Player returned an error for start after nextitem");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Player returned an error for start after nextitem");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1122,9 +1082,7 @@ mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       ret = safe_atoi32(argv[1], &pause);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
 	  return ACK_ERROR_ARG;
 	}
     }
@@ -1143,9 +1101,7 @@ mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to pause playback");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to pause playback");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1171,9 +1127,7 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       ret = safe_atoi32(argv[1], &songpos);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
 	  return ACK_ERROR_ARG;
 	}
     }
@@ -1197,9 +1151,7 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       queue_item = db_queue_fetch_bypos(songpos, 0);
       if (!queue_item)
 	{
-	  ret = asprintf(errmsg, "Failed to start playback");
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Failed to start playback");
 	  return ACK_ERROR_UNKNOWN;
 	}
 
@@ -1211,9 +1163,7 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to start playback");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to start playback");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1242,9 +1192,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       ret = safe_atou32(argv[1], &id);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
 	  return ACK_ERROR_ARG;
 	}
     }
@@ -1260,9 +1208,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       queue_item = db_queue_fetch_byitemid(id);
       if (!queue_item)
 	{
-	  ret = asprintf(errmsg, "Failed to start playback");
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Failed to start playback");
 	  return ACK_ERROR_UNKNOWN;
 	}
 
@@ -1274,9 +1220,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to start playback");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to start playback");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1296,18 +1240,14 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to skip to previous song");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to skip to previous song");
       return ACK_ERROR_UNKNOWN;
     }
 
   ret = player_playback_start();
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Player returned an error for start after previtem");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Player returned an error for start after previtem");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1329,18 +1269,14 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'seek'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'seek'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &songpos);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1353,18 +1289,14 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to seek current song to time %d msec", seek_target_msec);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to seek current song to time %d msec", seek_target_msec);
       return ACK_ERROR_UNKNOWN;
     }
 
   ret = player_playback_start();
     if (ret < 0)
       {
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
-	if (ret < 0)
-	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	*errmsg = string_printf("Player returned an error for start after seekcur");
 	return ACK_ERROR_UNKNOWN;
       }
 
@@ -1387,18 +1319,14 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'seekcur'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'seekcur'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &id);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1406,9 +1334,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   player_get_status(&status);
   if (status.item_id != id)
     {
-      ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Given song is not the current playing one, seeking is not supported");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1419,18 +1345,14 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to seek current song to time %d msec", seek_target_msec);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to seek current song to time %d msec", seek_target_msec);
       return ACK_ERROR_UNKNOWN;
     }
 
   ret = player_playback_start();
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Player returned an error for start after seekcur");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Player returned an error for start after seekcur");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1450,9 +1372,7 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'seekcur'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'seekcur'");
       return ACK_ERROR_ARG;
     }
 
@@ -1464,18 +1384,14 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to seek current song to time %d msec", seek_target_msec);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to seek current song to time %d msec", seek_target_msec);
       return ACK_ERROR_UNKNOWN;
     }
 
   ret = player_playback_start();
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Player returned an error for start after seekcur");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Player returned an error for start after seekcur");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1495,9 +1411,7 @@ mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret != 0)
     {
-      ret = asprintf(errmsg, "Failed to stop playback");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to stop playback");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1558,9 +1472,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'add'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'add'");
       return ACK_ERROR_ARG;
     }
 
@@ -1568,9 +1480,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to add song '%s' to playlist", argv[1]);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1580,9 +1490,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       ret = library_scan_media(argv[1], &mfi);
       if (ret != LIBRARY_OK)
 	{
-	  ret = asprintf(errmsg, "Failed to add song '%s' to playlist (unkown path)", argv[1]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Failed to add song '%s' to playlist (unkown path)", argv[1]);
 	  return ACK_ERROR_UNKNOWN;
 	}
 
@@ -1607,9 +1515,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'addid'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'addid'");
       return ACK_ERROR_ARG;
     }
 
@@ -1627,9 +1533,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       ret = library_scan_media(argv[1], &mfi);
       if (ret != LIBRARY_OK)
 	{
-	  ret = asprintf(errmsg, "Failed to add song '%s' to playlist (unkown path)", argv[1]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Failed to add song '%s' to playlist (unkown path)", argv[1]);
 	  return ACK_ERROR_UNKNOWN;
 	}
 
@@ -1639,9 +1543,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to add song '%s' to playlist", argv[1]);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1697,9 +1599,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   ret = mpd_pars_range_arg(argv[1], &start_pos, &end_pos);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer or range: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer or range: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1708,9 +1608,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   ret = db_queue_delete_bypos(start_pos, count);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to remove %d songs starting at position %d", count, start_pos);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to remove %d songs starting at position %d", count, start_pos);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1729,27 +1627,21 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'deleteid'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'deleteid'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &songid);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
   ret = db_queue_delete_byitemid(songid);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to remove song with id '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to remove song with id '%s'", argv[1]);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1768,18 +1660,14 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'move'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'move'");
       return ACK_ERROR_ARG;
     }
 
   ret = mpd_pars_range_arg(argv[1], &start_pos, &end_pos);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer or range: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer or range: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1790,18 +1678,14 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   ret = safe_atou32(argv[2], &to_pos);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[2]);
       return ACK_ERROR_ARG;
     }
 
   ret = db_queue_move_bypos(start_pos, to_pos);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to move song at position %d to %d", start_pos, to_pos);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to move song at position %d to %d", start_pos, to_pos);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1817,36 +1701,28 @@ mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'moveid'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'moveid'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &songid);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[2], &to_pos);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[2]);
       return ACK_ERROR_ARG;
     }
 
   ret = db_queue_move_byitemid(songid, to_pos, 0);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to move song with id '%s' to index '%s'", argv[1], argv[2]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to move song with id '%s' to index '%s'", argv[1], argv[2]);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -1875,9 +1751,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
       ret = safe_atou32(argv[1], &songid);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
 	  return ACK_ERROR_ARG;
 	}
     }
@@ -1891,9 +1765,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
   if (ret < 0)
     {
       sqlite3_free(query_params.filter);
-      ret = asprintf(errmsg, "Failed to start queue enum for command playlistid: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to start queue enum for command playlistid: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1902,9 +1774,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
 	  if (ret < 0)
 	    {
-	      ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue_item.file_id);
-	      if (ret < 0)
-		DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	      *errmsg = string_printf("Error adding media info for file with id: %d", queue_item.file_id);
 
 	      db_queue_enum_end(&query_params);
 	      sqlite3_free(query_params.filter);
@@ -1944,9 +1814,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
       ret = mpd_pars_range_arg(argv[1], &start_pos, &end_pos);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Argument doesn't convert to integer or range: '%s'", argv[1]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Argument doesn't convert to integer or range: '%s'", argv[1]);
 	  return ACK_ERROR_ARG;
 	}
 
@@ -1960,9 +1828,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   if (ret < 0)
     {
       sqlite3_free(query_params.filter);
-      ret = asprintf(errmsg, "Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -1971,10 +1837,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue_item.file_id);
-
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Error adding media info for file with id: %d", queue_item.file_id);
 
 	  db_queue_enum_end(&query_params);
 	  sqlite3_free(query_params.filter);
@@ -2008,9 +1871,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to start queue enum for command plchanges");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to start queue enum for command plchanges");
       return ACK_ERROR_ARG;
     }
 
@@ -2019,10 +1880,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue_item.file_id);
-
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Error adding media info for file with id: %d", queue_item.file_id);
 
 	  db_queue_enum_end(&query_params);
 	  return ACK_ERROR_UNKNOWN;
@@ -2054,9 +1912,7 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to start queue enum for command plchangesposid");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to start queue enum for command plchangesposid");
       return ACK_ERROR_ARG;
     }
 
@@ -2089,9 +1945,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'listplaylist'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'listplaylist'");
       return ACK_ERROR_ARG;
     }
 
@@ -2102,18 +1956,14 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (ret >= sizeof(path))
     {
-      ret = asprintf(errmsg, "Length of path exceeds the PATH_MAX value '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Length of path exceeds the PATH_MAX value '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
   if (!pli)
     {
-      ret = asprintf(errmsg, "Playlist not found for path '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Playlist not found for path '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -2130,9 +1980,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
 
       free_pli(pli, 0);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2165,9 +2013,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'listplaylistinfo'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'listplaylistinfo'");
       return ACK_ERROR_ARG;
     }
 
@@ -2178,18 +2024,14 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
 
   if (ret >= sizeof(path))
     {
-      ret = asprintf(errmsg, "Length of path exceeds the PATH_MAX value '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Length of path exceeds the PATH_MAX value '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
   if (!pli)
     {
-      ret = asprintf(errmsg, "Playlist not found for path '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Playlist not found for path '%s'", argv[1]);
       return ACK_ERROR_NO_EXIST;
     }
 
@@ -2206,9 +2048,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
 
       free_pli(pli, 0);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2253,9 +2093,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
     {
       db_query_end(&qp);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2263,9 +2101,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
         {
-          ret = asprintf(errmsg, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
-          if (ret < 0)
-            DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+          *errmsg = string_printf("Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
           return ACK_ERROR_UNKNOWN;
         }
 
@@ -2299,9 +2135,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'load'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'load'");
       return ACK_ERROR_ARG;
     }
 
@@ -2312,18 +2146,14 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (ret >= sizeof(path))
     {
-      ret = asprintf(errmsg, "Length of path exceeds the PATH_MAX value '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Length of path exceeds the PATH_MAX value '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
   if (!pli)
     {
-      ret = asprintf(errmsg, "Playlist not found for path '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Playlist not found for path '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -2335,9 +2165,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   free_pli(pli, 0);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to add song '%s' to playlist", argv[1]);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2473,9 +2301,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
-      ret = asprintf(errmsg, "Missing argument(s) for command 'find'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument(s) for command 'find'");
       return ACK_ERROR_ARG;
     }
 
@@ -2491,9 +2317,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       db_query_end(&qp);
       sqlite3_free(qp.filter);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2503,9 +2327,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       db_query_end(&qp);
       sqlite3_free(qp.filter);
 
-      ret = asprintf(errmsg, "Could not fetch query count");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not fetch query count");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2530,9 +2352,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
-      ret = asprintf(errmsg, "Missing argument(s) for command 'find'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument(s) for command 'find'");
       return ACK_ERROR_ARG;
     }
 
@@ -2550,9 +2370,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       db_query_end(&qp);
       sqlite3_free(qp.filter);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2580,9 +2398,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
-      ret = asprintf(errmsg, "Missing argument(s) for command 'findadd'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument(s) for command 'findadd'");
       return ACK_ERROR_ARG;
     }
 
@@ -2600,9 +2416,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   sqlite3_free(qp.filter);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to add songs to playlist");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to add songs to playlist");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2623,9 +2437,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     {
       if (argc != 3 || (0 != strcasecmp(argv[1], "album")))
 	{
-	  ret = asprintf(errmsg, "Missing argument(s) for command 'list'");
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  *errmsg = string_printf("Missing argument(s) for command 'list'");
 	  return ACK_ERROR_ARG;
 	}
     }
@@ -2699,9 +2511,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       db_query_end(&qp);
       sqlite3_free(qp.filter);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2768,9 +2578,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   if (ret < 0)
     {
       db_query_end(&qp);
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
   while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
@@ -2843,9 +2651,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   if (ret < 0)
     {
       db_query_end(&qp);
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
@@ -2893,9 +2699,7 @@ mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Parent path exceeds PATH_MAX");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2903,9 +2707,7 @@ mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   dir_id = db_directory_id_byvirtualpath(parent);
   if (dir_id == 0)
     {
-      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
-      if (ret < 0)
-      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Directory info not found for virtual-path '%s'", parent);
       return ACK_ERROR_NO_EXIST;
     }
 
@@ -2937,9 +2739,7 @@ mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **er
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Parent path exceeds PATH_MAX");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -2947,9 +2747,7 @@ mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **er
   dir_id = db_directory_id_byvirtualpath(parent);
   if (dir_id == 0)
     {
-      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
-      if (ret < 0)
-      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Directory info not found for virtual-path '%s'", parent);
       return ACK_ERROR_NO_EXIST;
     }
 
@@ -2986,9 +2784,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
-      if (ret < 0)
-      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Parent path exceeds PATH_MAX");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3008,9 +2804,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   dir_id = db_directory_id_byvirtualpath(parent);
   if (dir_id == 0)
     {
-      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
-      if (ret < 0)
-      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Directory info not found for virtual-path '%s'", parent);
       return ACK_ERROR_NO_EXIST;
     }
 
@@ -3163,9 +2957,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
-      ret = asprintf(errmsg, "Missing argument(s) for command 'search'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument(s) for command 'search'");
       return ACK_ERROR_ARG;
     }
 
@@ -3183,9 +2975,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       db_query_end(&qp);
       sqlite3_free(qp.filter);
 
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3213,9 +3003,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
-      ret = asprintf(errmsg, "Missing argument(s) for command 'search'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument(s) for command 'search'");
       return ACK_ERROR_ARG;
     }
 
@@ -3233,9 +3021,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
   sqlite3_free(qp.filter);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to add songs to playlist");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Failed to add songs to playlist");
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3249,13 +3035,9 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
 static int
 mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  int ret;
-
   if (argc > 1 && strlen(argv[1]) > 0)
     {
-      ret = asprintf(errmsg, "Update for specific uri not supported for command 'update'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Update for specific uri not supported for command 'update'");
       return ACK_ERROR_ARG;
     }
 
@@ -3275,9 +3057,7 @@ mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (argc > 1)
     {
       DPRINTF(E_LOG, L_MPD, "Rescan for specific uri not supported for command 'rescan'\n");
-      ret = asprintf(errmsg, "Rescan for specific uri not supported for command 'rescan'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Rescan for specific uri not supported for command 'rescan'");
       return ACK_ERROR_ARG;
     }
 
@@ -3335,18 +3115,14 @@ mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'disableoutput'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'disableoutput'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &num);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -3399,9 +3175,7 @@ mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Speakers deactivation failed: %d", num);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Speakers deactivation failed: %d", num);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3425,18 +3199,14 @@ mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'enableoutput'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'enableoutput'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &num);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -3490,9 +3260,7 @@ mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Speakers activation failed: %d", num);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Speakers activation failed: %d", num);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3516,18 +3284,14 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 2)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'toggleoutput'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'toggleoutput'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &num);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
@@ -3587,9 +3351,7 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Speakers de/activation failed: %d", num);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Speakers de/activation failed: %d", num);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3662,9 +3424,7 @@ outputvolume_set(uint32_t shortid, int volume, char **errmsg)
   if (!output)
     {
       free_outputs(outputs.outputs);
-      ret = asprintf(errmsg, "No speaker found for short id: %d", shortid);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("No speaker found for short id: %d", shortid);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3674,9 +3434,7 @@ outputvolume_set(uint32_t shortid, int volume, char **errmsg)
 
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Setting volume to %d for speaker with short-id %d failed", volume, shortid);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Setting volume to %d for speaker with short-id %d failed", volume, shortid);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3692,27 +3450,21 @@ mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **e
 
   if (argc < 3)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'outputvolume'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'outputvolume'");
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atou32(argv[1], &shortid);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
   ret = safe_atoi32(argv[2], &volume);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Argument doesn't convert to integer: '%s'", argv[2]);
       return ACK_ERROR_ARG;
     }
 
@@ -3843,13 +3595,10 @@ mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **er
   const char *channelname;
   const char *message;
   struct mpd_channel *channel;
-  int ret;
 
   if (argc < 3)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'sendmessage'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      *errmsg = string_printf("Missing argument for command 'sendmessage'");
       return ACK_ERROR_ARG;
     }
 
@@ -4512,9 +4261,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	{
 	  // Error handling for argument parsing error
 	  DPRINTF(E_LOG, L_MPD, "Error parsing arguments for MPD message: %s\n", line);
-	  ret = asprintf(&errmsg, "Error parsing arguments");
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  errmsg = string_printf("Error parsing arguments");
 	  ret = ACK_ERROR_ARG;
 	  evbuffer_add_printf(output, "ACK [%d@%d] {%s} %s\n", ret, ncmd, "unkown", errmsg);
 	  free(errmsg);
@@ -4556,9 +4303,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 
       if (command == NULL)
 	{
-	  ret = asprintf(&errmsg, "Unsupported command '%s'", argv[0]);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  errmsg = string_printf("Unsupported command '%s'", argv[0]);
 	  ret = ACK_ERROR_UNKNOWN;
 	}
       else
