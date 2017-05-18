@@ -33,7 +33,6 @@
 #include <mxml.h>
 #include <event2/buffer.h>
 #include <event2/http.h>
-#include <curl/curl.h>
 
 #include "mxml-compat.h"
 
