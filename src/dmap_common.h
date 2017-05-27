@@ -2,6 +2,7 @@
 #ifndef __DMAP_HELPERS_H__
 #define __DMAP_HELPERS_H__
 
+#include "config.h"
 #include <event2/buffer.h>
 #include <event2/http.h>
 
@@ -46,7 +47,7 @@ dmap_get_fields_table(int *nfields);
 
 /* From dmap_fields.gperf - keep in sync, don't alter */
 const struct dmap_field *
-dmap_find_field (register const char *str, register unsigned int len);
+dmap_find_field (register const char *str, register GPERF_LEN_TYPE len);
 
 
 void
