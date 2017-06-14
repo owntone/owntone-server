@@ -3520,7 +3520,7 @@ channel_outputvolume(const char *message)
 static void
 channel_pairing(const char *message)
 {
-  remote_pairing_kickoff_bypin(message);
+  remote_pairing_kickoff((char **)&message);
 }
 
 struct mpd_channel
