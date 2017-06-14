@@ -714,129 +714,26 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 
 /* Thread: filescanner, mpd */
 void
-remote_pairing_kickoff_bypin(const char *pin)
+remote_pairing_kickoff(char **arglist)
 {
   int ret;
 
-  DPRINTF(E_INFO, L_REMOTE, "Kickoff pairing with pin '%s'\n", pin);
+  ret = strlen(arglist[0]);
+  if (ret != 4)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing failed, unexpected pin length (got %d, expected 4)\n", ret);
+      return;
+    }
+
+  DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing with pin '%s'\n", arglist[0]);
 
   CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
 
-  ret = add_remote_pin_data(pin);
+  ret = add_remote_pin_data(arglist[0]);
   if (ret == 0)
     kickoff_pairing();
 
   CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
-}
-
-/* Thread: filescanner */
-void
-remote_pairing_kickoff_byfile(char *path)
-{
-  char buf[256];
-  FILE *fp;
-  char *devname;
-  char *pin;
-  int len;
-
-  fp = fopen(path, "rb");
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Could not open Remote pairing file %s: %s\n", path, strerror(errno));
-      return;
-    }
-
-  devname = fgets(buf, sizeof(buf), fp);
-  if (!devname)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Empty Remote pairing file %s\n", path);
-
-      fclose(fp);
-      return;
-    }
-
-  len = strlen(devname);
-  if (buf[len - 1] != '\n')
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: device name too long or missing pin\n", path);
-
-      fclose(fp);
-      return;
-    }
-
-  while (len)
-    {
-      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
-	{
-	  buf[len - 1] = '\0';
-	  len--;
-	}
-      else
-	break;
-    }
-
-  if (!len)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: empty line where device name expected\n", path);
-
-      fclose(fp);
-      return;
-    }
-
-  devname = strdup(buf);
-  if (!devname)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Out of memory for device name while reading %s\n", path);
-
-      fclose(fp);
-      return;
-    }
-
-  pin = fgets(buf, sizeof(buf), fp);
-  fclose(fp);
-  if (!pin)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: no pin\n", path);
-
-      free(devname);
-      return;
-    }
-
-  len = strlen(pin);
-
-  while (len)
-    {
-      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
-	{
-	  buf[len - 1] = '\0';
-	  len--;
-	}
-      else
-	break;
-    }
-
-  if (len != 4)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid pin in Remote pairing file %s: pin length should be 4, got %d\n", path, len);
-
-      free(devname);
-      return;
-    }
-
-  pin = strdup(buf);
-  if (!pin)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Out of memory for device pin while reading %s\n", path);
-
-      free(devname);
-      return;
-    }
-
-  DPRINTF(E_LOG, L_REMOTE, "Read Remote pairing data (name '%s', pin '%s') from %s\n", devname, pin, path);
-
-  remote_pairing_kickoff_bypin(pin);
-  free(devname);
-  free(pin);
 }
 
 

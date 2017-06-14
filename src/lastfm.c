@@ -63,108 +63,6 @@ static char *lastfm_session_key = NULL;
 
 /* --------------------------------- HELPERS ------------------------------- */
 
-/* Reads a LastFM credentials file (1st line username, 2nd line password) */
-static int
-credentials_read(char *path, char **username, char **password)
-{
-  FILE *fp;
-  char *u;
-  char *p;
-  char buf[256];
-  int len;
-
-  fp = fopen(path, "rb");
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not open lastfm credentials file %s: %s\n", path, strerror(errno));
-      return -1;
-    }
-
-  u = fgets(buf, sizeof(buf), fp);
-  if (!u)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Empty lastfm credentials file %s\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  len = strlen(u);
-  if (buf[len - 1] != '\n')
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Invalid lastfm credentials file %s: username name too long or missing password\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  while (len)
-    {
-      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
-	{
-	  buf[len - 1] = '\0';
-	  len--;
-	}
-      else
-	break;
-    }
-
-  if (!len)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Invalid lastfm credentials file %s: empty line where username expected\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  u = strdup(buf);
-  if (!u)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Out of memory for username while reading %s\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  p = fgets(buf, sizeof(buf), fp);
-  fclose(fp);
-  if (!p)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Invalid lastfm credentials file %s: no password\n", path);
-
-      free(u);
-      return -1;
-    }
-
-  len = strlen(p);
-
-  while (len)
-    {
-      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
-	{
-	  buf[len - 1] = '\0';
-	  len--;
-	}
-      else
-	break;
-    }
-
-  p = strdup(buf);
-  if (!p)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Out of memory for password while reading %s\n", path);
-
-      free(u);
-      return -1;
-    }
-
-  DPRINTF(E_LOG, L_LASTFM, "lastfm credentials file OK, logging in with username %s\n", u);
-
-  *username = u;
-  *password = p;
-
-  return 0;
-}
 
 /* Creates an md5 signature of the concatenated parameters and adds it to keyval */
 static int
@@ -417,59 +315,39 @@ scrobble(int id)
 /* ---------------------------- Our lastfm API  --------------------------- */
 
 /* Thread: filescanner */
-int
-lastfm_login(char *path)
+void
+lastfm_login(char **arglist)
 {
   struct keyval *kv;
-  char *username;
-  char *password;
   int ret;
 
-  DPRINTF(E_DBG, L_LASTFM, "Got LastFM login request\n");
+  DPRINTF(E_LOG, L_LASTFM, "LastFM credentials file OK, logging in with username %s\n", arglist[0]);
 
   // Delete any existing session key
-  if (lastfm_session_key)
-    free(lastfm_session_key);
-
+  free(lastfm_session_key);
   lastfm_session_key = NULL;
 
   db_admin_delete("lastfm_sk");
-
-  // Read the credentials file
-  ret = credentials_read(path, &username, &password);
-  if (ret < 0)
-    return -1;
 
   // Enable LastFM now that we got a login attempt
   lastfm_disabled = 0;
 
   kv = keyval_alloc();
   if (!kv)
-    {
-      ret = -1;
-      goto out_free_credentials;
-    }
+    return;
 
   ret = ( (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
-          (keyval_add(kv, "username", username) == 0) &&
-          (keyval_add(kv, "password", password) == 0) );
+          (keyval_add(kv, "username", arglist[0]) == 0) &&
+          (keyval_add(kv, "password", arglist[1]) == 0) );
   if (!ret)
-    {
-      ret = -1;
-      goto out_free_kv;
-    }
+    goto out_free_kv;
 
   // Send the login request
-  ret = request_post("auth.getMobileSession", kv, 1);
+  request_post("auth.getMobileSession", kv, 1);
 
  out_free_kv:
   keyval_clear(kv);
   free(kv);
- out_free_credentials:
-  free(username);
-  free(password);
-
-  return ret;
 }
 
 /* Thread: worker */
