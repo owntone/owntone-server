@@ -1547,6 +1547,23 @@ static const struct db_upgrade_query db_upgrade_v1903_queries[] =
   };
 
 
+#define U_V1904_ALTER_SPEAKERS_ADD_AUTHKEY \
+  "ALTER TABLE speakers ADD COLUMN authkey VARCHAR(2048) DEFAULT NULL;"
+
+#define U_V1904_SCVER_MAJOR \
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_V1904_SCVER_MINOR \
+  "UPDATE admin SET value = '04' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1904_queries[] =
+  {
+    { U_V1904_ALTER_SPEAKERS_ADD_AUTHKEY,    "alter table speakers add column authkey" },
+
+    { U_V1904_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V1904_SCVER_MINOR,    "set schema_version_minor to 04" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1675,6 +1692,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1902:
       ret = db_generic_upgrade(hdl, db_upgrade_v1903_queries, sizeof(db_upgrade_v1903_queries) / sizeof(db_upgrade_v1903_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1903:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1904_queries, sizeof(db_upgrade_v1904_queries) / sizeof(db_upgrade_v1904_queries[0]));
       if (ret < 0)
 	return -1;
 

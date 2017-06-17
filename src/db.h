@@ -682,6 +682,12 @@ db_speaker_save(uint64_t id, int selected, int volume, const char *name);
 int
 db_speaker_get(uint64_t id, int *selected, int *volume);
 
+int
+db_speaker_auth_save(uint64_t id, const char *authkey);
+
+char *
+db_speaker_auth_get(uint64_t id);
+
 void
 db_speaker_clear_all(void);
 

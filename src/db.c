@@ -3893,6 +3893,73 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
 #undef Q_TMPL
 }
 
+int
+db_speaker_auth_save(uint64_t id, const char *authkey)
+{
+#define Q_TMPL "UPDATE speakers SET authkey = '%q' WHERE id = %" PRIi64 ";"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, authkey, id);
+
+  return db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
+char *
+db_speaker_auth_get(uint64_t id)
+{
+#define Q_TMPL "SELECT authkey FROM speakers WHERE id = %" PRIi64 ";"
+  sqlite3_stmt *stmt;
+  char *query;
+  char *out;
+  int ret;
+
+  out = NULL;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return NULL;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      goto out;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret != SQLITE_DONE)
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      goto out;
+    }
+
+  out = (char *)sqlite3_column_text(stmt, 0);
+  if (out)
+    out = strdup(out);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
+  sqlite3_finalize(stmt);
+
+ out:
+  sqlite3_free(query);
+  return out;
+
+#undef Q_TMPL
+}
+
 void
 db_speaker_clear_all(void)
 {
