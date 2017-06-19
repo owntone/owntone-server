@@ -8,9 +8,6 @@ MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
 
 It does not support streaming video by AirPlay nor Chromecast.
 
-**Note: Airplay to Apple TV's that are updated to tvOS 10.2 is currently broken,
-because these Apple TV's require device verification.**
-
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
 
