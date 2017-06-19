@@ -207,6 +207,14 @@ devices that are password-protected, the device's AirPlay name and password
 must be given in the configuration file. See the sample configuration file
 for the syntax.
 
+If your Apple TV requires device verification (always required by Apple TV4 with
+tvOS 10.2) then you must select the device for playback, whereafter a PIN will
+be displayed by the Apple TV. Create a file ending with .verification in your
+music library, input the PIN, and save the file. Forked-daapd will now pair with
+the device, and if you select the device again, playback should start.
+
+For troubleshooting, see [using Remote](#using-remote).
+
 
 ## Chromecast
 
