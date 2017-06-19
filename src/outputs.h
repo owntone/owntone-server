@@ -102,9 +102,11 @@ struct output_device
   unsigned advertised:1;
   unsigned has_password:1;
   unsigned has_video:1;
+  unsigned requires_auth:1;
 
-  // Password if relevant
+  // Credentials if relevant
   const char *password;
+  char *auth_key;
 
   // Device volume
   int volume;
@@ -187,6 +189,9 @@ struct output_definition
   // Flush all sessions, the return must be number of sessions pending the flush
   int (*flush)(output_status_cb cb, uint64_t rtptime);
 
+  // Authorize an output with a pin-code (probably coming from the filescanner)
+  void (*authorize)(const char *pin);
+
   // Change the call back associated with a session
   void (*status_cb)(struct output_session *session, output_status_cb cb);
 
@@ -241,6 +246,9 @@ outputs_metadata_prune(uint64_t rtptime);
 
 void
 outputs_metadata_free(struct output_metadata *omd);
+
+void
+outputs_authorize(enum output_types type, const char *pin);
 
 int
 outputs_priority(struct output_device *device);

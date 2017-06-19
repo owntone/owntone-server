@@ -100,23 +100,22 @@ outputs_device_probe(struct output_device *device, output_status_cb cb)
 void
 outputs_device_free(struct output_device *device)
 {
+  if (!device)
+    return;
+
   if (outputs[device->type]->disabled)
     DPRINTF(E_LOG, L_PLAYER, "BUG! Freeing device from a disabled output?\n");
+
+  if (device->session)
+    DPRINTF(E_LOG, L_PLAYER, "BUG! Freeing device with active session?\n");
 
   if (outputs[device->type]->device_free_extra)
     outputs[device->type]->device_free_extra(device);
 
-  if (device->name)
-    free(device->name);
-
-  if (device->v4_address)
-    free(device->v4_address);
-
-  if (device->v6_address)
-    free(device->v6_address);
-
-  if (device->session)
-    DPRINTF(E_LOG, L_PLAYER, "BUG! Freeing device with active session?\n");
+  free(device->name);
+  free(device->auth_key);
+  free(device->v4_address);
+  free(device->v6_address);
 
   free(device);
 }
@@ -311,6 +310,16 @@ outputs_metadata_free(struct output_metadata *omd)
       omd = ptr->next;
       free(ptr);
     }
+}
+
+void
+outputs_authorize(enum output_types type, const char *pin)
+{
+  if (outputs[type]->disabled)
+    return;
+
+  if (outputs[type]->authorize)
+    outputs[type]->authorize(pin);
 }
 
 int

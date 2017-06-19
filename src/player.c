@@ -138,6 +138,12 @@ struct metadata_param
   struct output_metadata *output;
 };
 
+struct speaker_auth_param
+{
+  enum output_types type;
+  char pin[5];
+};
+
 union player_arg
 {
   struct volume_param vol_param;
@@ -150,6 +156,7 @@ union player_arg
   uint32_t *id_ptr;
   struct speaker_set_param speaker_set_param;
   enum repeat_mode mode;
+  struct speaker_auth_param auth;
   uint32_t id;
   int intval;
 };
@@ -1235,7 +1242,7 @@ device_remove(struct output_device *remove)
     return;
 
   /* Save device volume */
-  ret = db_speaker_save(remove->id, remove->selected, remove->volume, remove->name);
+  ret = db_speaker_save(remove);
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
@@ -1273,7 +1280,7 @@ device_add(void *arg, int *retval)
   union player_arg *cmdarg;
   struct output_device *add;
   struct output_device *device;
-  int selected;
+  char *keep_name;
   int ret;
 
   cmdarg = arg;
@@ -1290,15 +1297,21 @@ device_add(void *arg, int *retval)
     {
       device = add;
 
-      ret = db_speaker_get(device->id, &selected, &device->volume);
+      keep_name = strdup(device->name);
+      ret = db_speaker_get(device, device->id);
       if (ret < 0)
 	{
-	  selected = 0;
+	  device->selected = 0;
 	  device->volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
 	}
 
-      if (selected && (player_state != PLAY_PLAYING))
+      free(device->name);
+      device->name = keep_name;
+
+      if (device->selected && (player_state != PLAY_PLAYING))
 	speaker_select_output(device);
+      else
+	device->selected = 0;
 
       device->next = dev_list;
       dev_list = device;
@@ -1402,6 +1415,18 @@ device_remove_family(void *arg, int *retval)
   *retval = 0;
   return COMMAND_END;
 }
+
+static enum command_state
+device_auth_kickoff(void *arg, int *retval)
+{
+  union player_arg *cmdarg = arg;
+
+  outputs_authorize(cmdarg->auth.type, cmdarg->auth.pin);
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
 
 static enum command_state
 metadata_send(void *arg, int *retval)
@@ -3020,6 +3045,31 @@ player_device_remove(void *device)
   return ret;
 }
 
+static void
+player_device_auth_kickoff(enum output_types type, char **arglist)
+{
+  union player_arg *cmdarg;
+
+  cmdarg = calloc(1, sizeof(union player_arg));
+  if (!cmdarg)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
+      return;
+    }
+
+  cmdarg->auth.type = type;
+  memcpy(cmdarg->auth.pin, arglist[0], 4);
+
+  commands_exec_async(cmdbase, device_auth_kickoff, cmdarg);
+}
+
+/* Thread: filescanner */
+void
+player_raop_verification_kickoff(char **arglist)
+{
+  player_device_auth_kickoff(OUTPUT_TYPE_RAOP, arglist);
+}
+
 /* Thread: worker */
 static void
 player_metadata_send(struct input_metadata *imd, struct output_metadata *omd)
@@ -3057,7 +3107,7 @@ player(void *arg)
 
   for (device = dev_list; device; device = device->next)
     {
-      ret = db_speaker_save(device->id, device->selected, device->volume, device->name);
+      ret = db_speaker_save(device);
       if (ret < 0)
 	DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", device->type_name, device->name);
     }

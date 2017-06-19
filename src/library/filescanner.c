@@ -551,8 +551,8 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
       case FILE_CTRL_RAOP_VERIFICATION:
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
-//	else
-//	  kickoff(player_raop_verification_kickoff, file, 1);
+	else
+	  kickoff(player_raop_verification_kickoff, file, 1);
 	break;
 
       case FILE_CTRL_LASTFM:

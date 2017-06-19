@@ -606,6 +606,9 @@ main(int argc, char **argv)
 #ifdef MPD
   strcat(buildopts, " --enable-mpd");
 #endif
+#ifdef RAOP_VERIFICATION
+  strcat(buildopts, " --enable-verification");
+#endif
 #ifdef HAVE_ALSA
   strcat(buildopts, " --with-alsa");
 #endif

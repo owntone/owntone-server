@@ -25,6 +25,10 @@ if COND_MPD
 MPD_SRC=mpd.c mpd.h
 endif
 
+if COND_RAOP_VERIFICATION
+RAOP_VERIFICATION_SRC=outputs/raop_verification.c outputs/raop_verification.h
+endif
+
 if COND_ALSA
 ALSA_SRC=outputs/alsa.c
 endif
@@ -112,7 +116,8 @@ forked_daapd_SOURCES = main.c \
 	input.h input.c \
 	inputs/file_http.c inputs/pipe.c \
 	outputs.h outputs.c \
-	outputs/raop.c outputs/streaming.c outputs/dummy.c outputs/fifo.c \
+	outputs/raop.c $(RAOP_VERIFICATION_SRC) \
+	outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \

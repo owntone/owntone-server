@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2012-2017 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * RAOP AirTunes v2
@@ -27,15 +28,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* TODO:
- * - Support RTSP authentication in all requests (only OPTIONS so far)
- */
-
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -76,6 +74,10 @@
 #include "artwork.h"
 #include "dmap_common.h"
 #include "outputs.h"
+
+#ifdef RAOP_VERIFICATION
+#include "raop_verification.h"
+#endif
 
 #ifndef MIN
 # define MIN(a, b) ((a < b) ? a : b)
@@ -146,6 +148,8 @@ enum raop_state {
   RAOP_STATE_FAILED    = -1,
   // Password issue: unknown password or bad password
   RAOP_STATE_PASSWORD  = -2,
+  // Device requires verification, pending PIN from user
+  RAOP_STATE_UNVERIFIED= -3,
 };
 
 // Info about the device, which is not required by the player, only internally
@@ -153,8 +157,8 @@ struct raop_extra
 {
   enum raop_devtype devtype;
 
-  unsigned encrypt:1;
-  unsigned wants_metadata:1;
+  bool encrypt;
+  bool wants_metadata;
 };
 
 struct raop_session
@@ -162,11 +166,13 @@ struct raop_session
   struct evrtsp_connection *ctrl;
 
   enum raop_state state;
-  unsigned req_has_auth:1;
-  unsigned encrypt:1;
-  unsigned auth_quirk_itunes:1;
-  unsigned wants_metadata:1;
-  unsigned keep_alive:1;
+  bool req_has_auth;
+  bool encrypt;
+  bool auth_quirk_itunes;
+  bool wants_metadata;
+  bool keep_alive;
+
+  bool only_probe;
 
   struct event *deferredev;
 
@@ -195,6 +201,12 @@ struct raop_session
   unsigned short server_port;
   unsigned short control_port;
   unsigned short timing_port;
+
+#ifdef RAOP_VERIFICATION
+  /* Device verification, see raop_verification.h */
+  struct verification_verify_context *verification_verify_ctx;
+  struct verification_setup_context *verification_setup_ctx;
+#endif
 
   int server_fd;
 
@@ -1648,7 +1660,6 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
   if (!req)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not create RTSP request for OPTIONS\n");
-
       return -1;
     }
 
@@ -1663,6 +1674,44 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make OPTIONS request\n");
+      return -1;
+    }
+
+  rs->reqs_in_flight++;
+
+  evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
+
+  return 0;
+}
+
+#ifdef RAOP_VERIFICATION
+static int
+raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb)
+{
+  struct evrtsp_request *req;
+  int ret;
+
+  req = evrtsp_request_new(cb, rs);
+  if (!req)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not create RTSP request for pair-pin-start\n");
+
+      return -1;
+    }
+
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_POST);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
+
+  DPRINTF(E_LOG, L_RAOP, "Starting device verification for '%s', please submit PIN via a *.verification file\n", rs->devname);
+
+  ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_POST, "/pair-pin-start");
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not make pair-pin-start request\n");
 
       return -1;
     }
@@ -1673,6 +1722,15 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
 
   return 0;
 }
+#else
+static int
+raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb)
+{
+  DPRINTF(E_LOG, L_RAOP, "Device '%s' requires verification, but forked-daapd was built with --disable-verification\n", rs->devname);
+
+  return -1;
+}
+#endif
 
 /* Maps our internal state to the generic output state and then makes a callback
  * to the player to tell that state
@@ -1685,7 +1743,7 @@ raop_status(struct raop_session *rs)
 
   switch (rs->state)
     {
-      case RAOP_STATE_PASSWORD:
+      case RAOP_STATE_UNVERIFIED ... RAOP_STATE_PASSWORD:
 	state = OUTPUT_STATE_PASSWORD;
 	break;
       case RAOP_STATE_FAILED:
@@ -1798,9 +1856,7 @@ raop_session_failure(struct raop_session *rs)
 static void
 raop_deferredev_cb(int fd, short what, void *arg)
 {
-  struct raop_session *rs;
-
-  rs = (struct raop_session *)arg;
+  struct raop_session *rs = arg;
 
   DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device '%s'\n", rs->devname);
 
@@ -1810,10 +1866,8 @@ raop_deferredev_cb(int fd, short what, void *arg)
 static void
 raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 {
+  struct raop_session *rs = arg;
   struct timeval tv;
-  struct raop_session *rs;
-
-  rs = (struct raop_session *)arg;
 
   DPRINTF(E_LOG, L_RAOP, "Device '%s' closed RTSP connection\n", rs->devname);
 
@@ -1824,7 +1878,7 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 }
 
 static struct raop_session *
-raop_session_make(struct output_device *rd, int family, output_status_cb cb)
+raop_session_make(struct output_device *rd, int family, output_status_cb cb, bool only_probe)
 {
   struct output_session *os;
   struct raop_session *rs;
@@ -1879,6 +1933,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
 
   rs->output_session = os;
   rs->state = RAOP_STATE_STOPPED;
+  rs->only_probe = only_probe;
   rs->reqs_in_flight = 0;
   rs->cseq = 1;
 
@@ -1887,6 +1942,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
   rs->server_fd = -1;
 
   rs->password = rd->password;
+
   rs->wants_metadata = re->wants_metadata;
 
   switch (re->devtype)
@@ -2020,9 +2076,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
 static void
 raop_session_failure_cb(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
-
-  rs = (struct raop_session *)arg;
+  struct raop_session *rs = arg;
 
   raop_session_failure(rs);
 }
@@ -2032,10 +2086,8 @@ raop_session_failure_cb(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_metadata(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -2388,10 +2440,8 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
 static void
 raop_cb_set_volume(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -2452,10 +2502,8 @@ raop_set_volume_one(struct output_device *rd, output_status_cb cb)
 static void
 raop_cb_flush(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -2511,6 +2559,41 @@ raop_cb_keep_alive(struct evrtsp_request *req, void *arg)
  error:
   raop_session_failure(rs);
 }
+
+static void
+raop_cb_pin_start(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  int ret;
+
+  rs->reqs_in_flight--;
+
+  if (!req)
+    goto error;
+
+  if (req->response_code != RTSP_OK)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Request for starting PIN verification failed: %d %s\n", req->response_code, req->response_code_line);
+
+      goto error;
+    }
+
+  ret = raop_check_cseq(rs, req);
+  if (ret < 0)
+    goto error;
+
+  rs->state = RAOP_STATE_UNVERIFIED;
+
+  raop_status(rs);
+
+  // TODO If the user never verifies the session will remain stale
+
+  return;
+
+ error:
+  raop_session_failure(rs);
+}
+
 
 // Forward
 static void
@@ -3498,10 +3581,8 @@ raop_startup_cancel(struct raop_session *rs)
 static void
 raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -3544,11 +3625,9 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_startup_record(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   const char *param;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -3587,15 +3666,13 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   const char *param;
   char *transport;
   char *token;
   char *ptr;
   int tmp;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -3737,10 +3814,8 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_startup_announce(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -3774,10 +3849,8 @@ raop_cb_startup_announce(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -3796,9 +3869,9 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       goto cleanup;
     }
 
-  if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
+  if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED) && (req->response_code != RTSP_FORBIDDEN))
     {
-      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed starting '%s': %d %s\n", rs->devname, req->response_code, req->response_code_line);
+      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed '%s': %d %s\n", rs->devname, req->response_code, req->response_code_line);
 
       goto cleanup;
     }
@@ -3825,7 +3898,18 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Could not re-run OPTIONS request with authentication\n");
+	  goto cleanup;
+	}
 
+      return;
+    }
+
+  if (req->response_code == RTSP_FORBIDDEN)
+    {
+      ret = raop_send_req_pin_start(rs, raop_cb_pin_start);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Could not request PIN for device verification\n");
 	  goto cleanup;
 	}
 
@@ -3834,25 +3918,36 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 
   rs->state = RAOP_STATE_OPTIONS;
 
-  /* Send ANNOUNCE */
-  ret = raop_send_req_announce(rs, raop_cb_startup_announce);
-  if (ret < 0)
-    goto cleanup;
+  if (rs->only_probe)
+    {
+      /* Device probed successfully, tell our user */
+      raop_status(rs);
+
+      /* We're not going further with this session */
+      raop_session_cleanup(rs);
+    }
+  else
+    {
+      /* Send ANNOUNCE */
+      ret = raop_send_req_announce(rs, raop_cb_startup_announce);
+      if (ret < 0)
+	goto cleanup;
+    }
 
   return;
 
  cleanup:
-  raop_startup_cancel(rs);
+  if (rs->only_probe)
+    raop_session_failure(rs);
+  else
+    raop_startup_cancel(rs);
 }
-
 
 static void
 raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = arg;
   int ret;
-
-  rs = (struct raop_session *)arg;
 
   rs->reqs_in_flight--;
 
@@ -3883,81 +3978,352 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
   raop_session_failure(rs);
 }
 
+
+/* tvOS device verification - e.g. for the ATV4 (read it from the bottom and up) */
+
+#ifdef RAOP_VERIFICATION
+static int
+raop_verification_response_process(int step, struct evrtsp_request *req, struct raop_session *rs)
+{
+  uint8_t *response;
+  const char *errmsg;
+  size_t len;
+  int ret;
+
+  rs->reqs_in_flight--;
+
+  if (!req)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Verification step %d to '%s' failed, empty callback\n", step, rs->devname);
+      return -1;
+    }
+
+  if (req->response_code != RTSP_OK)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Verification step %d to '%s' failed with error code %d: %s\n", step, rs->devname, req->response_code, req->response_code_line);
+      return -1;
+    }
+
+  response = evbuffer_pullup(req->input_buffer, -1);
+  len = evbuffer_get_length(req->input_buffer);
+
+  switch (step)
+    {
+      case 1:
+	ret = verification_setup_response1(rs->verification_setup_ctx, response, len);
+	errmsg = verification_setup_errmsg(rs->verification_setup_ctx);
+	break;
+      case 2:
+	ret = verification_setup_response2(rs->verification_setup_ctx, response, len);
+	errmsg = verification_setup_errmsg(rs->verification_setup_ctx);
+	break;
+      case 3:
+	ret = verification_setup_response3(rs->verification_setup_ctx, response, len);
+	errmsg = verification_setup_errmsg(rs->verification_setup_ctx);
+	break;
+      case 4:
+	ret = verification_verify_response1(rs->verification_verify_ctx, response, len);
+	errmsg = verification_verify_errmsg(rs->verification_verify_ctx);
+	break;
+      case 5:
+	ret = 0;
+	break;
+      default:
+	ret = -1;
+	errmsg = "Bug! Bad step number";
+    }
+
+  if (ret < 0)
+    DPRINTF(E_LOG, L_RAOP, "Verification step %d response from '%s' error: %s\n", step, rs->devname, errmsg);
+
+  return ret;
+}
+
+static int
+raop_verification_request_send(int step, struct raop_session *rs, void (*cb)(struct evrtsp_request *, void *))
+{
+  struct evrtsp_request *req;
+  uint8_t *body;
+  uint32_t len;
+  const char *errmsg;
+  const char *url;
+  const char *ctype;
+  int ret;
+
+  switch (step)
+    {
+      case 1:
+	body    = verification_setup_request1(&len, rs->verification_setup_ctx);
+	errmsg  = verification_setup_errmsg(rs->verification_setup_ctx);
+	url     = "/pair-setup-pin";
+	ctype   = "application/x-apple-binary-plist";
+	break;
+      case 2:
+	body    = verification_setup_request2(&len, rs->verification_setup_ctx);
+	errmsg  = verification_setup_errmsg(rs->verification_setup_ctx);
+	url     = "/pair-setup-pin";
+	ctype   = "application/x-apple-binary-plist";
+	break;
+      case 3:
+	body    = verification_setup_request3(&len, rs->verification_setup_ctx);
+	errmsg  = verification_setup_errmsg(rs->verification_setup_ctx);
+	url     = "/pair-setup-pin";
+	ctype   = "application/x-apple-binary-plist";
+	break;
+      case 4:
+	body    = verification_verify_request1(&len, rs->verification_verify_ctx);
+	errmsg  = verification_verify_errmsg(rs->verification_verify_ctx);
+	url     = "/pair-verify";
+	ctype   = "application/octet-stream";
+	break;
+      case 5:
+	body    = verification_verify_request2(&len, rs->verification_verify_ctx);
+	errmsg  = verification_verify_errmsg(rs->verification_verify_ctx);
+	url     = "/pair-verify";
+	ctype   = "application/octet-stream";
+	break;
+      default:
+	body    = NULL;
+	errmsg  = "Bug! Bad step number";
+    }
+
+  if (!body)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Verification step %d request error: %s\n", step, errmsg);
+      return -1;
+    }
+
+  req = evrtsp_request_new(cb, rs);
+  if (!req)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not create RTSP request for verification step %d\n", step);
+      return -1;
+    }
+
+  evbuffer_add(req->output_buffer, body, len);
+  free(body);
+
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_POST);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
+
+  evrtsp_add_header(req->output_headers, "Content-Type", ctype);
+
+  DPRINTF(E_INFO, L_RAOP, "Making verification request step %d to '%s'\n", step, rs->devname);
+
+  ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_POST, url);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Verification request step %d to '%s' failed\n", step, rs->devname);
+      return -1;
+    }
+
+  rs->reqs_in_flight++;
+
+  evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
+
+  return 0;
+}
+
 static void
-raop_cb_probe_options(struct evrtsp_request *req, void *arg)
+raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  int ret;
+
+  verification_verify_free(rs->verification_verify_ctx);
+
+  ret = raop_verification_response_process(5, req, rs);
+  if (ret < 0)
+    goto error;
+
+  DPRINTF(E_LOG, L_RAOP, "Verification of '%s' completed succesfully\n", rs->devname);
+
+  rs->state = RAOP_STATE_STARTUP;
+
+  raop_send_req_options(rs, raop_cb_startup_options);
+
+  return;
+
+ error:
+  rs->state = RAOP_STATE_UNVERIFIED;
+  raop_status(rs);
+}
+
+static void
+raop_cb_verification_verify_step1(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  int ret;
+
+  ret = raop_verification_response_process(4, req, rs);
+  if (ret < 0)
+    goto error;
+
+  ret = raop_verification_request_send(5, rs, raop_cb_verification_verify_step2);
+  if (ret < 0)
+    goto error;
+
+  return;
+
+ error:
+  rs->state = RAOP_STATE_UNVERIFIED;
+  raop_status(rs);
+
+  verification_verify_free(rs->verification_verify_ctx);
+  rs->verification_verify_ctx = NULL;
+}
+
+static int
+raop_verification_verify(struct raop_session *rs)
+{
+  int ret;
+
+  rs->verification_verify_ctx = verification_verify_new(rs->device->auth_key); // Naughty boy is dereferencing device
+  if (!rs->verification_verify_ctx)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for verification verify context\n");
+      return -1;
+    }
+
+  ret = raop_verification_request_send(4, rs, raop_cb_verification_verify_step1);
+  if (ret < 0)
+    goto error;
+
+  return 0;
+
+ error:
+  rs->state = RAOP_STATE_UNVERIFIED;
+  raop_status(rs);
+
+  verification_verify_free(rs->verification_verify_ctx);
+  rs->verification_verify_ctx = NULL;
+  return -1;
+}
+
+
+static void
+raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  const char *authorization_key;
+  int ret;
+
+  ret = raop_verification_response_process(3, req, rs);
+  if (ret < 0)
+    goto error;
+
+  ret = verification_setup_result(&authorization_key, rs->verification_setup_ctx);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Verification setup result error: %s\n", verification_setup_errmsg(rs->verification_setup_ctx));
+      goto error;
+    }
+
+  DPRINTF(E_INFO, L_RAOP, "Verification setup stage complete, saving authorization key\n");
+
+  free(rs->device->auth_key);
+  rs->device->auth_key = strdup(authorization_key);
+
+  // The player considers this session failed, so we don't need it any more
+  raop_session_cleanup(rs);
+
+  /* Fallthrough */
+
+ error:
+  verification_setup_free(rs->verification_setup_ctx);
+  rs->verification_setup_ctx = NULL;
+}
+
+static void
+raop_cb_verification_setup_step2(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  int ret;
+
+  ret = raop_verification_response_process(2, req, rs);
+  if (ret < 0)
+    goto error;
+
+  ret = raop_verification_request_send(3, rs, raop_cb_verification_setup_step3);
+  if (ret < 0)
+    goto error;
+
+  return;
+
+ error:
+  verification_setup_free(rs->verification_setup_ctx);
+  rs->verification_setup_ctx = NULL;
+}
+
+static void
+raop_cb_verification_setup_step1(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  int ret;
+
+  ret = raop_verification_response_process(1, req, rs);
+  if (ret < 0)
+    goto error;
+
+  ret = raop_verification_request_send(2, rs, raop_cb_verification_setup_step2);
+  if (ret < 0)
+    goto error;
+
+  return;
+
+ error:
+  verification_setup_free(rs->verification_setup_ctx);
+  rs->verification_setup_ctx = NULL;
+}
+
+static void
+raop_verification_setup(const char *pin)
 {
   struct raop_session *rs;
   int ret;
 
-  rs = (struct raop_session *)arg;
-
-  rs->reqs_in_flight--;
-
-  if (!req || !req->response_code)
+  for (rs = sessions; rs; rs = rs->next)
     {
-      DPRINTF(E_LOG, L_RAOP, "No response from '%s' (%s) to OPTIONS request\n", rs->devname, rs->address);
-
-      if (rs->device->v4_address && (rs->sa.ss.ss_family == AF_INET6))
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Falling back to ipv4, the ipv6 address is not responding\n");
-
-	  free(rs->device->v6_address);
-	  rs->device->v6_address = NULL;
-	}
-
-      goto cleanup;
+      if (rs->state == RAOP_STATE_UNVERIFIED)
+	break;
     }
 
-  if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
+  if (!rs)
     {
-      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed probing '%s': %d %s\n", rs->devname, req->response_code, req->response_code_line);
-
-      goto cleanup;
-    }
-
-  ret = raop_check_cseq(rs, req);
-  if (ret < 0)
-    goto cleanup;
-
-  if (req->response_code == RTSP_UNAUTHORIZED)
-    {
-      if (rs->req_has_auth)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Bad password for device '%s'\n", rs->devname);
-
-	  rs->state = RAOP_STATE_PASSWORD;
-	  goto cleanup;
-	}
-
-      ret = raop_parse_auth(rs, req);
-      if (ret < 0)
-	goto cleanup;
-
-      ret = raop_send_req_options(rs, raop_cb_probe_options);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Could not re-run OPTIONS request with authentication\n");
-
-	  goto cleanup;
-	}
-
+      DPRINTF(E_LOG, L_RAOP, "Got a PIN for device verification, but no device is awaiting verification\n");
       return;
     }
 
-  rs->state = RAOP_STATE_OPTIONS;
+  rs->verification_setup_ctx = verification_setup_new(pin);
+  if (!rs->verification_setup_ctx)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for verification setup context\n");
+      return;
+    }
 
-  /* Device probed successfully, tell our user */
-  raop_status(rs);
-
-  /* We're not going further with this session */
-  raop_session_cleanup(rs);
+  ret = raop_verification_request_send(1, rs, raop_cb_verification_setup_step1);
+  if (ret < 0)
+    goto error;
 
   return;
 
- cleanup:
-  raop_session_failure(rs);
+ error:
+  verification_setup_free(rs->verification_setup_ctx);
+  rs->verification_setup_ctx = NULL;
 }
+#else
+static int
+raop_verification_verify(struct raop_session *rs)
+{
+  DPRINTF(E_LOG, L_RAOP, "Device '%s' requires verification, but forked-daapd was built with --disable-verification\n", rs->devname);
 
+  return -1;
+}
+#endif /* RAOP_VERIFICATION */
 
 /* RAOP devices discovery - mDNS callback */
 /* Thread: main (mdns) */
@@ -3995,6 +4361,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   char *at_name;
   char *password;
   uint64_t id;
+  uint64_t sf;
   int ret;
 
   ret = safe_hextou64(name, &id);
@@ -4125,6 +4492,16 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   rd->password = password;
 
+  /* Device verification */
+  p = keyval_get(txt, "sf");
+  if (p && (safe_hextou64(p, &sf) == 0))
+    {
+      if (sf & (1 << 9))
+	rd->requires_auth = 1;
+
+      // Note: device_add() in player.c will get the auth key from the db if available
+    }
+
   /* Device type */
   re->devtype = RAOP_DEV_OTHER;
   p = keyval_get(txt, "am");
@@ -4163,15 +4540,15 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       case AF_INET:
 	rd->v4_address = strdup(address);
 	rd->v4_port = port;
-	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s, address %s:%d\n", 
-	  name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
+	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, verification: %u, encrypt: %u, metadata: %u, type %s, address %s:%d\n", 
+	  name, rd->has_password, rd->requires_auth, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       case AF_INET6:
 	rd->v6_address = strdup(address);
 	rd->v6_port = port;
-	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s, address [%s]:%d\n", 
-	  name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
+	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, verification: %u, encrypt: %u, metadata: %u, type %s, address [%s]:%d\n", 
+	  name, rd->has_password, rd->requires_auth, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       default:
@@ -4190,38 +4567,53 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 }
 
 static int
-raop_device_probe(struct output_device *rd, output_status_cb cb)
+raop_device_start_generic(struct output_device *rd, output_status_cb cb, uint64_t rtptime, bool only_probe)
 {
   struct raop_session *rs;
   int ret;
 
-  /* Send an OPTIONS request to test our ability to connect to the device,
-   * including the need for and/or validity of the password
+  /* Send an OPTIONS request to establish the connection. If device verification
+   * is required we start with that. After that, we can determine our local
+   * address and build our session URL for all subsequent requests.
    */
 
-  rs = raop_session_make(rd, AF_INET6, cb);
+  rs = raop_session_make(rd, AF_INET6, cb, only_probe);
   if (rs)
     {
-      ret = raop_send_req_options(rs, raop_cb_probe_options);
+      rs->start_rtptime = rtptime;
+
+      if (rd->auth_key)
+	ret = raop_verification_verify(rs);
+      else if (rd->requires_auth)
+	ret = raop_send_req_pin_start(rs, raop_cb_pin_start);
+      else
+	ret = raop_send_req_options(rs, raop_cb_startup_options);
+
       if (ret == 0)
 	return 0;
       else
 	{
-	  DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv6 (probe)\n");
-
+	  DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv6\n");
 	  raop_session_cleanup(rs);
 	}
     }
 
-  rs = raop_session_make(rd, AF_INET, cb);
+  rs = raop_session_make(rd, AF_INET, cb, only_probe);
   if (!rs)
     return -1;
 
-  ret = raop_send_req_options(rs, raop_cb_probe_options);
+  rs->start_rtptime = rtptime;
+
+  if (rd->auth_key)
+    ret = raop_verification_verify(rs);
+  else if (rd->requires_auth)
+    ret = raop_send_req_pin_start(rs, raop_cb_pin_start);
+  else
+    ret = raop_send_req_options(rs, raop_cb_startup_options);
+
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv4 (probe)\n");
-
+      DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv4\n");
       raop_session_cleanup(rs);
       return -1;
     }
@@ -4230,48 +4622,15 @@ raop_device_probe(struct output_device *rd, output_status_cb cb)
 }
 
 static int
+raop_device_probe(struct output_device *rd, output_status_cb cb)
+{
+  return raop_device_start_generic(rd, cb, 0, 1);
+}
+
+static int
 raop_device_start(struct output_device *rd, output_status_cb cb, uint64_t rtptime)
 {
-  struct raop_session *rs;
-  int ret;
-
-  /* Send an OPTIONS request to establish the connection
-   * After that, we can determine our local address and build our session URL
-   * for all subsequent requests.
-   */
-
-  rs = raop_session_make(rd, AF_INET6, cb);
-  if (rs)
-    {
-      rs->start_rtptime = rtptime;
-
-      ret = raop_send_req_options(rs, raop_cb_startup_options);
-      if (ret == 0)
-	return 0;
-      else
-	{
-	  DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv6 (start)\n");
-
-	  raop_session_cleanup(rs);
-	}
-    }
-
-  rs = raop_session_make(rd, AF_INET, cb);
-  if (!rs)
-    return -1;
-
-  rs->start_rtptime = rtptime;
-
-  ret = raop_send_req_options(rs, raop_cb_startup_options);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv4 (start)\n");
-
-      raop_session_cleanup(rs);
-      return -1;
-    }
-
-  return 0;
+  return raop_device_start_generic(rd, cb, rtptime, 0);
 }
 
 static void
@@ -4289,7 +4648,9 @@ raop_device_stop(struct output_session *session)
 static void
 raop_device_free_extra(struct output_device *device)
 {
-  free(device->extra_device_info);
+  struct raop_extra *re = device->extra_device_info;
+
+  free(re);
 }
 
 static void
@@ -4534,4 +4895,7 @@ struct output_definition output_raop =
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,
   .metadata_prune = raop_metadata_prune,
+#ifdef RAOP_VERIFICATION
+  .authorize = raop_verification_setup,
+#endif
 };
