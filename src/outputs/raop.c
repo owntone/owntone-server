@@ -4225,7 +4225,7 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
       goto error;
     }
 
-  DPRINTF(E_INFO, L_RAOP, "Verification setup stage complete, saving authorization key\n");
+  DPRINTF(E_LOG, L_RAOP, "Verification setup stage complete, saving authorization key\n");
 
   free(rs->device->auth_key);
   rs->device->auth_key = strdup(authorization_key);
