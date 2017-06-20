@@ -1676,10 +1676,12 @@ device_probe_cb(struct output_device *device, struct output_session *session, en
 static void
 device_restart_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  int retval;
   int ret;
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_restart_cb\n", outputs_name(device->type));
 
+  retval = commands_exec_returnvalue(cmdbase);
   ret = device_check(device);
   if (ret < 0)
     {
@@ -1688,7 +1690,15 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
       outputs_status_cb(session, device_lost_cb);
       outputs_device_stop(session);
 
+      if (retval != -2)
+	retval = -1;
       goto out;
+    }
+
+  if (status == OUTPUT_STATE_PASSWORD)
+    {
+      status = OUTPUT_STATE_FAILED;
+      retval = -2;
     }
 
   if (status == OUTPUT_STATE_FAILED)
@@ -1698,6 +1708,8 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
       if (!device->advertised)
 	device_remove(device);
 
+      if (retval != -2)
+	retval = -1;
       goto out;
     }
 
@@ -1707,7 +1719,7 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
   outputs_status_cb(session, device_streaming_cb);
 
  out:
-  commands_exec_end(cmdbase, 0);
+  commands_exec_end(cmdbase, retval);
 }
 
 /* Internal abort routine */
