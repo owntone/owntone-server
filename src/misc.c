@@ -565,7 +565,7 @@ m_readfile(const char *path, int num_lines)
 	}
 
       lines[i] = trimwhitespace(line);
-      if (strlen(lines[i]) == 0)
+      if (!lines[i] || (strlen(lines[i]) == 0))
 	{
 	  DPRINTF(E_LOG, L_MISC, "Line %d in '%s' is invalid\n", i+1, path);
 	  goto error;

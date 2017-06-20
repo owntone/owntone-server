@@ -257,8 +257,6 @@ static NGConstant *
 new_ng(SRP_NGType ng_type, const char *n_hex, const char *g_hex)
 {
   NGConstant *ng = calloc(1, sizeof(NGConstant));
-  if(!ng)
-    return NULL;
 
   if ( ng_type != SRP_NG_CUSTOM )
     {
@@ -411,8 +409,6 @@ H_nn_pad(enum hash_alg alg, const bnum n1, const bnum n2)
     return 0;
 
   bin = calloc( 1, nbytes );
-  if (!bin)
-    return 0;
 
   bnum_bn2bin(n1, bin, len_n1);
   bnum_bn2bin(n2, bin + nbytes - len_n2, len_n2);
@@ -430,8 +426,6 @@ H_ns(enum hash_alg alg, const bnum n, const unsigned char *bytes, int len_bytes)
   int           len_n  = bnum_num_bytes(n);
   int           nbytes = len_n + len_bytes;
   unsigned char *bin   = malloc(nbytes);
-  if (!bin)
-    return 0;
 
   bnum_bn2bin(n, bin, len_n);
   memcpy( bin + len_n, bytes, len_bytes );
@@ -461,8 +455,6 @@ update_hash_n(enum hash_alg alg, HashCTX *ctx, const bnum n)
 {
   unsigned long len = bnum_num_bytes(n);
   unsigned char *n_bytes = malloc(len);
-  if (!n_bytes)
-     return;
   bnum_bn2bin(n, n_bytes, len);
   hash_update(alg, ctx, n_bytes, len);
   free(n_bytes);
@@ -473,8 +465,6 @@ hash_num(enum hash_alg alg, const bnum n, unsigned char *dest)
 {
   int           nbytes = bnum_num_bytes(n);
   unsigned char *bin   = malloc(nbytes);
-  if(!bin)
-     return;
   bnum_bn2bin(n, bin, nbytes);
   hash( alg, bin, nbytes, dest );
   free(bin);
@@ -486,8 +476,7 @@ hash_session_key(enum hash_alg alg, const bnum n, unsigned char *dest)
   int           nbytes = bnum_num_bytes(n);
   unsigned char *bin   = malloc(nbytes);
   unsigned char fourbytes[4] = { 0 }; // Only God knows the reason for this, and perhaps some poor soul at Apple
-  if(!bin)
-     return 0;
+
   bnum_bn2bin(n, bin, nbytes);
 
   hash_ab(alg, dest, bin, nbytes, fourbytes, sizeof(fourbytes));
@@ -518,7 +507,7 @@ calculate_M(enum hash_alg alg, NGConstant *ng, unsigned char *dest, const char *
     
   hash(alg, (const unsigned char *)I, strlen(I), H_I);
     
-  for (i=0; i < hash_len; i++ )
+  for (i = 0; i < hash_len; i++)
     H_xor[i] = H_N[i] ^ H_g[i];
     
   hash_init( alg, &ctx );
@@ -1189,11 +1178,14 @@ verification_verify_new(const char *authorisation_key)
   if (sodium_init() == -1)
     return NULL;
 
-  vctx = calloc(1, sizeof(struct verification_verify_context));
-  if (!vctx)
+  if (!authorisation_key)
     return NULL;
 
   if (strlen(authorisation_key) != 2 * (sizeof(vctx->client_public_key) + sizeof(vctx->client_private_key)))
+    return NULL;
+
+  vctx = calloc(1, sizeof(struct verification_verify_context));
+  if (!vctx)
     return NULL;
 
   ptr = authorisation_key;
