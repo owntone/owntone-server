@@ -125,31 +125,33 @@ enum raop_devtype {
 };
 
 // Session is starting up
-#define RAOP_STATE_F_STARTUP    (1 << 14)
+#define RAOP_STATE_F_STARTUP    (1 << 13)
 // Streaming is up (connection established)
-#define RAOP_STATE_F_CONNECTED  (1 << 15)
+#define RAOP_STATE_F_CONNECTED  (1 << 14)
+// Couldn't start device
+#define RAOP_STATE_F_FAILED     (1 << 15)
 
 enum raop_state {
   // Device is stopped (no session)
   RAOP_STATE_STOPPED   = 0,
   // Session startup
-  RAOP_STATE_STARTUP   = RAOP_STATE_F_STARTUP,
-  RAOP_STATE_OPTIONS   = RAOP_STATE_F_STARTUP | 0x01,
-  RAOP_STATE_ANNOUNCE  = RAOP_STATE_F_STARTUP | 0x02,
-  RAOP_STATE_SETUP     = RAOP_STATE_F_STARTUP | 0x03,
-  RAOP_STATE_RECORD    = RAOP_STATE_F_STARTUP | 0x04,
+  RAOP_STATE_STARTUP   = RAOP_STATE_F_STARTUP | 0x01,
+  RAOP_STATE_OPTIONS   = RAOP_STATE_F_STARTUP | 0x02,
+  RAOP_STATE_ANNOUNCE  = RAOP_STATE_F_STARTUP | 0x03,
+  RAOP_STATE_SETUP     = RAOP_STATE_F_STARTUP | 0x04,
+  RAOP_STATE_RECORD    = RAOP_STATE_F_STARTUP | 0x05,
   // Session established
   // - streaming ready (RECORD sent and acked, connection established)
   // - commands (SET_PARAMETER) are possible
-  RAOP_STATE_CONNECTED = RAOP_STATE_F_CONNECTED,
+  RAOP_STATE_CONNECTED = RAOP_STATE_F_CONNECTED | 0x01,
   // Media data is being sent
-  RAOP_STATE_STREAMING = RAOP_STATE_F_CONNECTED | 0x01,
+  RAOP_STATE_STREAMING = RAOP_STATE_F_CONNECTED | 0x02,
   // Session is failed, couldn't startup or error occurred
-  RAOP_STATE_FAILED    = -1,
+  RAOP_STATE_FAILED    = RAOP_STATE_F_FAILED | 0x01,
   // Password issue: unknown password or bad password
-  RAOP_STATE_PASSWORD  = -2,
+  RAOP_STATE_PASSWORD  = RAOP_STATE_F_FAILED | 0x02,
   // Device requires verification, pending PIN from user
-  RAOP_STATE_UNVERIFIED= -3,
+  RAOP_STATE_UNVERIFIED= RAOP_STATE_F_FAILED | 0x03,
 };
 
 // Info about the device, which is not required by the player, only internally
@@ -1743,7 +1745,7 @@ raop_status(struct raop_session *rs)
 
   switch (rs->state)
     {
-      case RAOP_STATE_UNVERIFIED ... RAOP_STATE_PASSWORD:
+      case RAOP_STATE_PASSWORD ... RAOP_STATE_UNVERIFIED:
 	state = OUTPUT_STATE_PASSWORD;
 	break;
       case RAOP_STATE_FAILED:
