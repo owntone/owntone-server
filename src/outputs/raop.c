@@ -4142,7 +4142,7 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto error;
 
-  DPRINTF(E_LOG, L_RAOP, "Verification of '%s' completed succesfully\n", rs->devname);
+  DPRINTF(E_INFO, L_RAOP, "Verification of '%s' completed succesfully\n", rs->devname);
 
   rs->state = RAOP_STATE_STARTUP;
 
