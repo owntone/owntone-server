@@ -206,9 +206,13 @@ for the syntax.
 
 If your Apple TV requires device verification (always required by Apple TV4 with
 tvOS 10.2) then you must select the device for playback, whereafter a PIN will
-be displayed by the Apple TV. Create a file ending with .verification in your
-music library, input the PIN, and save the file. Forked-daapd will now pair with
-the device, and if you select the device again, playback should start.
+be displayed by the Apple TV. The do either of the following:
+
+Alternative 1: Create a file ending with .verification in your music library,
+input the PIN, and save the file. Forked-daapd will now pair with the device,
+and if you select the device again, playback should start.
+Alternative 2: Run "mpc sendmessage verification [PIN]" (requires the mpc tool),
+and then select the device again. Playback should start.
 
 For troubleshooting, see [using Remote](#using-remote).
 
