@@ -31,16 +31,17 @@ libraries:
   antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt11-dev libavahi-client-dev zlib1g-dev \
-  libevent-dev
+  libevent-dev libplist-dev libsodium-dev
 
 Optional packages:
 
- Feature    | Configure argument  | Packages
- -----------|---------------------|---------------------------------------------
- Chromecast | --enable-chromecast | libjson-c-dev libgnutls-dev libprotobuf-c-dev
- LastFM     | --enable-lastfm     | libcurl4-gnutls-dev OR libcurl4-openssl-dev
- iTunes XML | --enable-itunes     | libplist-dev
- Pulseaudio | --with-pulseaudio   | libpulse-dev
+ Feature             | Configure argument     | Packages
+ --------------------|------------------------|---------------------------------------------
+ Chromecast          | --enable-chromecast    | libjson-c-dev libgnutls-dev libprotobuf-c-dev
+ LastFM              | --enable-lastfm        | libcurl4-gnutls-dev OR libcurl4-openssl-dev
+ iTunes XML          | --disable-itunes       | libplist-dev
+ Device verification | --disable-verification | libplist-dev libsodium-dev
+ Pulseaudio          | --with-pulseaudio      | libpulse-dev
 
 Note that while forked-daapd will work with versions of libevent between 2.0.0
 and 2.1.3, it is recommended to use 2.1.4+. Otherwise you may not have support
@@ -68,7 +69,8 @@ will need ffmpeg. You can google how to do that. Then run:
 sudo yum install \
  git automake autoconf gettext-devel gperf gawk libtool \
  sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
- avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel
+ avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
+ libplist-devel libsodium-devel
 
 Clone the forked-daapd repo:
 
@@ -137,12 +139,13 @@ Add the following to .bashrc:
 
 Optional features require the following additional ports:
 
- Feature    | Configure argument  | Ports
- -----------|---------------------|--------------------------------------------
- Chromecast | --enable-chromecast | json-c gnutls protobuf-c
- LastFM     | --enable-lastfm     | curl
- iTunes XML | --enable-itunes     | libplist
- Pulseaudio | --with-pulseaudio   | pulseaudio
+ Feature             | Configure argument     | Ports
+ --------------------|------------------------|--------------------------------------------
+ Chromecast          | --enable-chromecast    | json-c gnutls protobuf-c
+ LastFM              | --enable-lastfm        | curl
+ iTunes XML          | --disable-itunes       | libplist
+ Device verification | --disable-verification | libplist libsodium
+ Pulseaudio          | --with-pulseaudio      | pulseaudio
 
 Clone the forked-daapd repo:
   git clone https://github.com/ejurgensen/forked-daapd.git
@@ -219,8 +222,10 @@ Libraries:
 	often already installed as part of your distro
  - libpulse (optional - Pulseaudio local audio)
         from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
- - libplist 0.16+ (optional - iTunes XML support)
+ - libplist 0.16+ (optional - iTunes XML support and Apple TV device verification)
         from <http://github.com/JonathanBeck/libplist/downloads>
+ - libsodium (optional - Apple TV device verification)
+        from <https://download.libsodium.org/doc/>
  - libspotify (optional - Spotify support)
         from <https://developer.spotify.com>
  - libcurl (optional - LastFM support)
@@ -278,11 +283,14 @@ disabled).
 Support for LastFM scrobbling is optional. Use --enable-lastfm to enable this
 feature.
 
-Support for iTunes Music Library XML format is optional. Use --enable-itunes
-to enable this feature.
+Support for iTunes Music Library XML format is optional. Use --disable-itunes
+to disable this feature.
 
 Support for the MPD protocol is optional. Use --disable-mpd to disable this
 feature.
+
+Support for Apple TV device verification is optional. Use --disable-verification
+to disable this feature.
 
 Support for Chromecast devices is optional. Use --enable-chromecast to enable
 this feature.

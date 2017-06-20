@@ -3824,21 +3824,21 @@ db_admin_delete(const char *key)
 
 /* Speakers */
 int
-db_speaker_save(uint64_t id, int selected, int volume, const char *name)
+db_speaker_save(struct output_device *device)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name) VALUES (%" PRIi64 ", %d, %d, '%q');"
+#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name, auth_key) VALUES (%" PRIi64 ", %d, %d, %Q, %Q);"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, id, selected, volume, name);
+  query = sqlite3_mprintf(Q_TMPL, device->id, device->selected, device->volume, device->name, device->auth_key);
 
   return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
 int
-db_speaker_get(uint64_t id, int *selected, int *volume)
+db_speaker_get(struct output_device *device, uint64_t id)
 {
-#define Q_TMPL "SELECT s.selected, s.volume FROM speakers s WHERE s.id = %" PRIi64 ";"
+#define Q_TMPL "SELECT s.selected, s.volume, s.name, s.auth_key FROM speakers s WHERE s.id = %" PRIi64 ";"
   sqlite3_stmt *stmt;
   char *query;
   int ret;
@@ -3847,7 +3847,6 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
       return -1;
     }
 
@@ -3857,7 +3856,6 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
       ret = -1;
       goto out;
     }
@@ -3867,15 +3865,20 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
     {
       if (ret != SQLITE_DONE)
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
       sqlite3_finalize(stmt);
-
       ret = -1;
       goto out;
     }
 
-  *selected = sqlite3_column_int(stmt, 0);
-  *volume = sqlite3_column_int(stmt, 1);
+  device->id = id;
+  device->selected = sqlite3_column_int(stmt, 0);
+  device->volume = sqlite3_column_int(stmt, 1);
+
+  free(device->name);
+  device->name = safe_strdup((char *)sqlite3_column_text(stmt, 2));
+
+  free(device->auth_key);
+  device->auth_key = safe_strdup((char *)sqlite3_column_text(stmt, 3));
 
 #ifdef DB_PROFILE
   while (db_blocking_step(stmt) == SQLITE_ROW)

@@ -95,7 +95,7 @@ if [ -z "$pin" ]; then
 fi
 
 echo "Writing pair.remote to $library_path..."
-printf "$remote\n$pin" > "$rf"
+printf "$pin" > "$rf"
 if [ ! -f "$rf" ]; then
   echo "Unable to create '$rf' - check directory permissions"
   exit 1
@@ -106,7 +106,7 @@ n=20
 echo "Waiting for pairing to complete (up to $n secs)..."
 while [ $n -gt 0 ]; do
   n=`expr $n - 1`
-  result=`tail -1000 "$logfile" | sed -n "/.*remote:/ s,.*remote: ,,p" | awk '/^Discovered remote/{ f="" } /^Read Remote pairing data/ { f=$0; } END { print f }'`
+  result=`tail -1000 "$logfile" | sed -n "/.*remote:/ s,.*remote: ,,p" | awk '/^Discovered remote/{ f="" } /^Kickoff pairing with pin/ { f=$0; } END { print f }'`
   [ -n "$result" ] && break
   sleep 1
 done

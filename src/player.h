@@ -141,6 +141,9 @@ player_device_add(void *device);
 int
 player_device_remove(void *device);
 
+void
+player_raop_verification_kickoff(char **arglist);
+
 struct player_history *
 player_history_get(void);
 

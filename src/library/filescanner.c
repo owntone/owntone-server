@@ -92,6 +92,7 @@ enum file_type {
   FILE_ITUNES,
   FILE_ARTWORK,
   FILE_CTRL_REMOTE,
+  FILE_CTRL_RAOP_VERIFICATION,
   FILE_CTRL_LASTFM,
   FILE_CTRL_SPOTIFY,
   FILE_CTRL_INITSCAN,
@@ -318,6 +319,9 @@ file_type_get(const char *path) {
   if (strcasecmp(ext, ".remote") == 0)
     return FILE_CTRL_REMOTE;
 
+  if (strcasecmp(ext, ".verification") == 0)
+    return FILE_CTRL_RAOP_VERIFICATION;
+
   if (strcasecmp(ext, ".lastfm") == 0)
     return FILE_CTRL_LASTFM;
 
@@ -354,6 +358,25 @@ process_playlist(char *file, time_t mtime, int dir_id)
   else if (ft == FILE_ITUNES)
     scan_itunes_itml(file);
 #endif
+}
+
+/* If we found a control file we want to kickoff some action */
+static void
+kickoff(void (*kickoff_func)(char **arg), const char *file, int lines)
+{
+  char **file_content;
+  int i;
+
+  file_content = m_readfile(file, lines);
+  if (!file_content)
+    return;
+
+  kickoff_func(file_content);
+
+  for (i = 0; i < lines; i++)
+    free(file_content[i]);
+
+  free(file_content);
 }
 
 /* Thread: scan */
@@ -523,7 +546,13 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
 	else
-	  remote_pairing_kickoff_byfile(file);
+	  kickoff(remote_pairing_kickoff, file, 1);
+
+      case FILE_CTRL_RAOP_VERIFICATION:
+	if (flags & F_SCAN_BULK)
+	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
+	else
+	  kickoff(player_raop_verification_kickoff, file, 1);
 	break;
 
       case FILE_CTRL_LASTFM:
@@ -531,7 +560,7 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
 	else
-	  lastfm_login(file);
+	  kickoff(lastfm_login, file, 2);
 #else
 	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without LastFM support\n", file);
 #endif
@@ -542,7 +571,7 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
 	else
-	  spotify_login(file);
+	  kickoff(spotify_login, file, 2);
 #else
 	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without Spotify support\n", file);
 #endif

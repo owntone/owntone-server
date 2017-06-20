@@ -3520,7 +3520,13 @@ channel_outputvolume(const char *message)
 static void
 channel_pairing(const char *message)
 {
-  remote_pairing_kickoff_bypin(message);
+  remote_pairing_kickoff((char **)&message);
+}
+
+static void
+channel_verification(const char *message)
+{
+  player_raop_verification_kickoff((char **)&message);
 }
 
 struct mpd_channel
@@ -3545,6 +3551,10 @@ static struct mpd_channel mpd_channels[] =
     {
       .channel = "pairing",
       .handler = channel_pairing
+    },
+    {
+      .channel = "verification",
+      .handler = channel_verification
     },
     {
       .channel = NULL,

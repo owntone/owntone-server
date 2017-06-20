@@ -46,6 +46,7 @@ extern "C" {
 /* Response codes */
 #define RTSP_OK			200
 #define RTSP_UNAUTHORIZED       401
+#define RTSP_FORBIDDEN          403
 
 struct evrtsp_connection;
 
@@ -62,6 +63,7 @@ enum evrtsp_cmd_type {
   EVRTSP_REQ_SET_PARAMETER,
   EVRTSP_REQ_FLUSH,
   EVRTSP_REQ_TEARDOWN,
+  EVRTSP_REQ_POST,
 };
 
 enum evrtsp_request_kind { EVRTSP_REQUEST, EVRTSP_RESPONSE };

@@ -37,7 +37,7 @@ void
 spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const char *redirect_uri);
 
 void
-spotify_login(char *path);
+spotify_login(char **arglist);
 
 int
 spotify_init(void);

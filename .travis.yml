@@ -3,12 +3,11 @@ sudo: required
 dist: trusty
 env:
   matrix:
-    - CFG=""
-    - CFG="--enable-lastfm"
-    - CFG="--enable-itunes"
-    - CFG="--enable-spotify"
-    - CFG="--enable-chromecast"
-    - CFG="--with-pulseaudio"
+    - CFG="--disable-verification"
+    - CFG="--enable-lastfm --disable-verification"
+    - CFG="--enable-spotify --disable-verification"
+    - CFG="--enable-chromecast --disable-verification"
+    - CFG="--with-pulseaudio --disable-verification"
 
 script:
   - autoreconf -fi

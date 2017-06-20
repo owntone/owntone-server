@@ -260,6 +260,10 @@ evrtsp_method(enum evrtsp_cmd_type type)
 	  method = "TEARDOWN";
 	  break;
 
+	case EVRTSP_REQ_POST:
+	  method = "POST";
+	  break;
+
 	default:
 	  method = NULL;
 	  break;

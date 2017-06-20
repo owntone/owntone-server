@@ -406,110 +406,6 @@ webapi_pl_remove(void *arg, int *ret);
 static void
 create_base_playlist();
 
-/* ------------------------------- MISC HELPERS ---------------------------- */
-
-static int
-spotify_file_read(char *path, char **username, char **password)
-{
-  FILE *fp;
-  char *u;
-  char *p;
-  char buf[256];
-  int len;
-
-  fp = fopen(path, "rb");
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not open Spotify credentials file %s: %s\n", path, strerror(errno));
-      return -1;
-    }
-
-  u = fgets(buf, sizeof(buf), fp);
-  if (!u)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Empty Spotify credentials file %s\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  len = strlen(u);
-  if (buf[len - 1] != '\n')
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify credentials file %s: username name too long or missing password\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  while (len)
-    {
-      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
-	{
-	  buf[len - 1] = '\0';
-	  len--;
-	}
-      else
-	break;
-    }
-
-  if (!len)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify credentials file %s: empty line where username expected\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  u = strdup(buf);
-  if (!u)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for username while reading %s\n", path);
-
-      fclose(fp);
-      return -1;
-    }
-
-  p = fgets(buf, sizeof(buf), fp);
-  fclose(fp);
-  if (!p)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify credentials file %s: no password\n", path);
-
-      free(u);
-      return -1;
-    }
-
-  len = strlen(p);
-
-  while (len)
-    {
-      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
-	{
-	  buf[len - 1] = '\0';
-	  len--;
-	}
-      else
-	break;
-    }
-
-  p = strdup(buf);
-  if (!p)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for password while reading %s\n", path);
-
-      free(u);
-      return -1;
-    }
-
-  DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", u);
-
-  *username = u;
-  *password = p;
-
-  return 0;
-}
-
 
 /* --------------------------  PLAYLIST HELPERS    ------------------------- */
 /*            Should only be called from within the spotify thread           */
@@ -1945,12 +1841,9 @@ spotify_uri_register(const char *uri)
 
 /* Thread: library */
 void
-spotify_login(char *path)
+spotify_login(char **arglist)
 {
   sp_error err;
-  char *username;
-  char *password;
-  int ret;
 
   if (!g_sess)
     {
@@ -1982,20 +1875,14 @@ spotify_login(char *path)
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
     }
 
-  DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
-
-  if (path)
+  if (arglist)
     {
-      ret = spotify_file_read(path, &username, &password);
-      if (ret < 0)
-	return;
-
-      err = fptr_sp_session_login(g_sess, username, password, 1, NULL);
-      free(username);
-      free(password);
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", arglist[0]);
+      err = fptr_sp_session_login(g_sess, arglist[0], arglist[1], 1, NULL);
     }
   else
     {
+      DPRINTF(E_INFO, L_SPOTIFY, "Relogin to Spotify\n");
       err = fptr_sp_session_relogin(g_sess);
     }
 

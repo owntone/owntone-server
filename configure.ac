@@ -273,6 +273,14 @@ dnl Build with libcurl
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libcurl support], [libcurl], [LIBCURL],
 	[libcurl], [curl_global_init], [curl/curl.h])
 
+dnl Build with libsodium
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [libsodium support], [libsodium], [LIBSODIUM],
+	[libsodium], [sodium_init], [sodium.h])
+
+dnl Build with libplist
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [libplist support], [libplist], [LIBPLIST],
+	[libplist >= 0.16], [plist_dict_get_item], [plist/plist.h])
+
 dnl Build with libevent_pthreads
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libevent_pthreads support],
 	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
@@ -299,12 +307,6 @@ AS_IF([[test "x$with_avahi" = "xno"]],
 		[DNSServiceGetAddrInfo], [dns_sd.h], [],
 		[AC_MSG_ERROR([[Avahi client or Bonjour DNS_SD required, please install one.]])])])
 AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
-
-dnl iTunes playlists with libplist
-FORK_ARG_ENABLE([iTunes Music Library XML support], [itunes], [ITUNES],
-	[FORK_MODULES_CHECK([FORKED_OPTS], [LIBPLIST], [libplist >= 0.16],
-		[plist_dict_get_item], [plist/plist.h])])
-AM_CONDITIONAL([COND_ITUNES], [[test "x$enable_itunes" = "xyes"]])
 
 dnl Spotify with dynamic linking to libspotify
 FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
@@ -352,9 +354,26 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
+dnl iTunes playlists with libplist
+FORK_ARG_DISABLE([iTunes Music Library XML support], [itunes], [ITUNES],
+	[AS_IF([[test "x$with_libplist" = "xno"]],
+		[AC_MSG_ERROR([[iTunes Music Library XML support requires libplist]])])
+	])
+AM_CONDITIONAL([COND_ITUNES], [[test "x$enable_itunes" = "xyes"]])
+
 dnl MPD support
 FORK_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
 AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
+
+dnl Apple device verification
+FORK_ARG_DISABLE([Apple TV device verification], [verification], [RAOP_VERIFICATION],
+	[
+	 AS_IF([[test "x$with_libsodium" = "xno"]],
+		[AC_MSG_ERROR([[Apple TV device verification requires libsodium]])])
+	 AS_IF([[test "x$with_libplist" = "xno"]],
+		[AC_MSG_ERROR([[Apple TV device verification requires libplist]])])
+	])
+AM_CONDITIONAL([COND_RAOP_VERIFICATION], [[test "x$enable_verification" = "xyes"]])
 
 dnl Defining users and groups
 AC_ARG_WITH([daapd_user],

@@ -3,10 +3,7 @@
 #define __REMOTE_PAIRING_H__
 
 void
-remote_pairing_kickoff_bypin(const char *pin);
-
-void
-remote_pairing_kickoff_byfile(char *path);
+remote_pairing_kickoff(char **arglist);
 
 int
 remote_pairing_init(void);

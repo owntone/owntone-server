@@ -8,6 +8,7 @@
 
 #include <sqlite3.h>
 
+#include "outputs.h"
 
 enum index_type {
   I_NONE,
@@ -675,12 +676,12 @@ db_admin_get(const char *key);
 int
 db_admin_delete(const char *key);
 
-/* Speakers */
+/* Speakers/outputs */
 int
-db_speaker_save(uint64_t id, int selected, int volume, const char *name);
+db_speaker_save(struct output_device *device);
 
 int
-db_speaker_get(uint64_t id, int *selected, int *volume);
+db_speaker_get(struct output_device *device, uint64_t id);
 
 void
 db_speaker_clear_all(void);

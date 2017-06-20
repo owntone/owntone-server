@@ -8,9 +8,6 @@ MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
 
 It does not support streaming video by AirPlay nor Chromecast.
 
-**Note: Airplay to Apple TV's that are updated to tvOS 10.2 is currently broken,
-because these Apple TV's require device verification.**
-
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
 
@@ -128,16 +125,8 @@ Or, if that doesn't work:
     doesn't work properly on your network.
     
  4. Prepare a text file with a filename ending with .remote; the filename
-    doesn't matter, only the .remote ending does. This file must contain
-    two lines: the first line is the name of your iPod/iPhone/iPad, the second
-    is the 4-digit pairing code displayed by Remote.
-    
-    If your iPod/iPhone/iPad is named "Foobar" and Remote gives you the pairing
-    code 5387, the file content must be:
-    ```
-    Foobar
-    5387 
-    ```
+    doesn't matter, only the .remote ending does. This first line in the file
+    must contain the 4-digit pairing code displayed by Remote.
     
  5. Move this file somewhere in your library
 
@@ -154,12 +143,11 @@ forked-daapd does not get notified about new files on network mounts, so the
 Solution: Set two library paths in the config, and add the .remote file to the
 local path. See [Libraries on network mounts](#libraries-on-network-mounts).
 
-#### You did not enter the correct name or pairing code
+#### You did not enter the correct pairing code
 You will see an error in the log about pairing failure with a HTTP response code
 that is *not* 0.
-Solution: Copy-paste the name to be sure to get specials characters right. You
-can also try the pairinghelper script located in the scripts-folder of the
-source.
+Solution: Try again. You can also try the pairinghelper script located in the
+scripts-folder of the source or the mpc method described above.
 
 #### No response from Remote, possibly a network issue
 If you see an error in the log with either:
@@ -191,9 +179,8 @@ Otherwise try using avahi-browse for troubleshooting:
 
 Hit Ctrl-C to terminate avahi-browse.
 
-The name of your iPod/iPhone/iPad is the value of the DvNm field above. In this
-example, the correct value is Foobar. To check for network issues you can try to
-connect to address and port with telnet.
+To check for network issues you can try to connect to address and port with
+telnet.
 
 ### Selecting output devices
 
@@ -216,6 +203,18 @@ forked-daapd will discover the AirPlay devices available on your network. For
 devices that are password-protected, the device's AirPlay name and password
 must be given in the configuration file. See the sample configuration file
 for the syntax.
+
+If your Apple TV requires device verification (always required by Apple TV4 with
+tvOS 10.2) then you must select the device for playback, whereafter a PIN will
+be displayed by the Apple TV. The do either of the following:
+
+Alternative 1: Create a file ending with .verification in your music library,
+input the PIN, and save the file. Forked-daapd will now pair with the device,
+and if you select the device again, playback should start.
+Alternative 2: Run "mpc sendmessage verification [PIN]" (requires the mpc tool),
+and then select the device again. Playback should start.
+
+For troubleshooting, see [using Remote](#using-remote).
 
 
 ## Chromecast
