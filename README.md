@@ -532,7 +532,7 @@ are supported by forked-daapd.
 Due to some differences between forked-daapd and MPD not all commands will act
 the same way they would running MPD:
 
-- consume, crossfade, mixrampdb, mixrampdelay and replaygain will have no effect
+- crossfade, mixrampdb, mixrampdelay and replaygain will have no effect
 - single, repeat: unlike MPD forked-daapd does not support setting single and repeat separately 
   on/off, instead repeat off, repeat all and repeat single are supported. Thus setting single on 
   will result in repeat single, repeat on results in repeat all.
