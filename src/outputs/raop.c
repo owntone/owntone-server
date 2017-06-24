@@ -4227,8 +4227,11 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
 
   DPRINTF(E_LOG, L_RAOP, "Verification setup stage complete, saving authorization key\n");
 
+  // Dereferencing output_device and a blocking db call... :-~
   free(rs->device->auth_key);
   rs->device->auth_key = strdup(authorization_key);
+
+  db_speaker_save(rs->device);
 
   // The player considers this session failed, so we don't need it any more
   raop_session_cleanup(rs);
