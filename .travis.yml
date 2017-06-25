@@ -12,6 +12,8 @@ env:
 script:
   - autoreconf -fi
   - ./configure $CFG
+  - make
+  - make clean
   - scan-build --status-bugs -disable-checker deadcode.DeadStores make
 
 before_install:
