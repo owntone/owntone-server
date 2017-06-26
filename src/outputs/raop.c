@@ -2436,6 +2436,8 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
 
   evbuffer_free(evbuf);
 
+  rs->volume = volume;
+
   return ret;
 }
 
