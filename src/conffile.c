@@ -56,6 +56,11 @@ static cfg_opt_t sec_general[] =
     CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
     CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
     CFG_BOOL("speaker_autoselect", cfg_true, CFGF_NONE),
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+    CFG_BOOL("high_resolution_clock", cfg_false, CFGF_NONE),
+#else
+    CFG_BOOL("high_resolution_clock", cfg_true, CFGF_NONE),
+#endif
     CFG_STR("allow_origin", "*", CFGF_NONE),
     CFG_END()
   };

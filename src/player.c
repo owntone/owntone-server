@@ -3173,13 +3173,12 @@ player_init(void)
       return -1;
     }
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-  /* FreeBSD will report a resolution of 1, but actually has a resolution
-   * larger than an audio packet
-   */
-  if (timer_res.tv_nsec == 1)
-    timer_res.tv_nsec = 2 * AIRTUNES_V2_STREAM_PERIOD;
-#endif
+  if (!cfg_getbool(cfg_getsec(cfg, "general"), "high_resolution_clock"))
+    {
+      DPRINTF(E_INFO, L_PLAYER, "High resolution clock not enabled on this system (res is %ld)\n", timer_res.tv_nsec);
+
+      timer_res.tv_nsec = 2 * AIRTUNES_V2_STREAM_PERIOD;
+    }
 
   // Set the tick interval for the playback timer
   interval = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);

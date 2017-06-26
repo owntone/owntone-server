@@ -37,6 +37,11 @@ general {
 	# When starting playback, autoselect speaker (if none of the previously
 	# selected speakers/outputs are available)
 #	speaker_autoselect = yes
+
+	# Most modern systems have a high-resolution clock, but if you are on an
+	# unusual platform and experience audio drop-outs, you can try changing
+	# this option
+#	high_resolution_clock = yes
 }
 
 # Library configuration
