@@ -767,7 +767,9 @@ static void
 evrtsp_connection_stop_detectclose(struct evrtsp_connection *evcon)
 {
 	evcon->flags &= ~EVRTSP_CON_CLOSEDETECT;
-	event_del(&evcon->close_ev);
+
+	if (event_initialized(&evcon->close_ev))
+		event_del(&evcon->close_ev);
 }
 
 /*
