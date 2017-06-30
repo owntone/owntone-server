@@ -721,7 +721,7 @@ remote_pairing_kickoff(char **arglist)
   ret = strlen(arglist[0]);
   if (ret != 4)
     {
-      DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing failed, unexpected pin length (got %d, expected 4)\n", ret);
+      DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing failed, first line did not contain a 4-digit pin (got %d)\n", ret);
       return;
     }
 
