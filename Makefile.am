@@ -17,9 +17,6 @@ nobase_dist_doc_DATA = \
 	README.md \
 	README_PULSE.md \
 	README_SMARTPL.md \
-	scripts/antlr35_install.sh \
-	scripts/freebsd_install_10.1.sh \
-	scripts/freebsd_start_10.1.sh \
 	scripts/pairinghelper.sh
 
 EXTRA_DIST = \
