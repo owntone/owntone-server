@@ -4142,7 +4142,12 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
 
   ret = raop_verification_response_process(5, req, rs);
   if (ret < 0)
-    goto error;
+    {
+      // Clear auth_key, the device did not accept it
+      free(rs->device->auth_key);
+      rs->device->auth_key = NULL;
+      goto error;
+    }
 
   DPRINTF(E_INFO, L_RAOP, "Verification of '%s' completed succesfully\n", rs->devname);
 
@@ -4165,7 +4170,12 @@ raop_cb_verification_verify_step1(struct evrtsp_request *req, void *arg)
 
   ret = raop_verification_response_process(4, req, rs);
   if (ret < 0)
-    goto error;
+    {
+      // Clear auth_key, the device did not accept it
+      free(rs->device->auth_key);
+      rs->device->auth_key = NULL;
+      goto error;
+    }
 
   ret = raop_verification_request_send(5, rs, raop_cb_verification_verify_step2);
   if (ret < 0)
