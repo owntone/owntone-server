@@ -494,15 +494,17 @@ static enum command_state
 pipe_watch_update(void *arg, int *retval)
 {
   union pipe_arg *cmdarg = arg;
-  struct pipe *pipelist = NULL;
+  struct pipe *pipelist;
   struct pipe *pipe;
   struct pipe *next;
   int count;
 
   if (cmdarg)
     pipelist = cmdarg->pipelist;
+  else
+    pipelist = NULL;
 
-  count = 0;
+  // Removes pipes that are gone from the watchlist
   for (pipe = pipe_watch_list; pipe; pipe = next)
     {
       next = pipe->next;
@@ -512,28 +514,32 @@ pipe_watch_update(void *arg, int *retval)
 	  DPRINTF(E_DBG, L_PLAYER, "Pipe watch deleted: '%s'\n", pipe->path);
 	  watch_del(pipe);
 	  pipelist_remove(&pipe_watch_list, pipe); // Will free pipe
-	  continue;
 	}
-
-      count++;
-      pipelist_remove(&pipelist, pipe);
     }
 
-  for (pipe = pipelist; pipe; pipe = next)
+  // Looks for new pipes and adds them to the watchlist
+  for (pipe = pipelist, count = 0; pipe; pipe = next, count++)
     {
       next = pipe->next;
 
-      count++;
       if (count > PIPE_MAX_WATCH)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Max open pipes reached (%d), will not watch '%s'\n", PIPE_MAX_WATCH, pipe->path);
-	  pipelist_remove(&pipelist, pipe);
+	  pipe_free(pipe);
 	  continue;
 	}
 
-      DPRINTF(E_DBG, L_PLAYER, "Pipe watch added: '%s'\n", pipe->path);
-      watch_add(pipe);
-      pipelist_add(&pipe_watch_list, pipe); // Changes pipe->next
+      if (!pipelist_find(pipe_watch_list, pipe->id))
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Pipe watch added: '%s'\n", pipe->path);
+	  watch_add(pipe);
+	  pipelist_add(&pipe_watch_list, pipe); // Changes pipe->next
+	}
+      else
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Pipe watch exists: '%s'\n", pipe->path);
+	  pipe_free(pipe);
+	}
     }
 
   *retval = 0;
