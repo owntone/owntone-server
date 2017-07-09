@@ -1092,7 +1092,7 @@ playback_cb(int fd, short what, void *arg)
 	}
 
       DPRINTF(E_LOG, L_PLAYER, "Output delay detected (behind=%" PRIu64 ", max=%d), resetting all outputs\n", overrun, pb_write_deficit_max);
-      pb_write_recovery = 1;
+      pb_write_recovery = true;
       playback_suspend();
       return;
     }
@@ -1101,7 +1101,7 @@ playback_cb(int fd, short what, void *arg)
       if (overrun > 0)
 	DPRINTF(E_WARN, L_PLAYER, "Output delay detected: player is %" PRIu64 " ticks behind, catching up\n", overrun);
 
-      pb_write_recovery = 0;
+      pb_write_recovery = false;
     }
 
   // If there was an overrun, we will try to read/write a corresponding number
