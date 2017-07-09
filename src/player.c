@@ -1097,7 +1097,12 @@ playback_cb(int fd, short what, void *arg)
       return;
     }
   else
-    pb_write_recovery = 0;
+    {
+      if (overrun > 0)
+	DPRINTF(E_WARN, L_PLAYER, "Output delay detected: player is %" PRIu64 " ticks behind, catching up\n", overrun);
+
+      pb_write_recovery = 0;
+    }
 
   // If there was an overrun, we will try to read/write a corresponding number
   // of times so we catch up. The read from the input is non-blocking, so it
