@@ -3096,7 +3096,7 @@ raop_v2_control_cb(int fd, short what, void *arg)
   seq_start = be16toh(seq_start);
   seq_len = be16toh(seq_len);
 
-  DPRINTF(E_DBG, L_RAOP, "Got retransmit request, seq_start %u len %u\n", seq_start, seq_len);
+  DPRINTF(E_DBG, L_RAOP, "Got retransmit request from '%s', seq_start %u len %u\n", rs->devname, seq_start, seq_len);
 
   raop_v2_resend_range(rs, seq_start, seq_len);
 
