@@ -56,6 +56,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -89,13 +90,13 @@
 #include "listener.h"
 #include "commands.h"
 
-/* Audio and metadata outputs */
+// Audio and metadata outputs
 #include "outputs.h"
 
-/* Audio and metadata input */
+// Audio and metadata input
 #include "input.h"
 
-/* Scrobbling */
+// Scrobbling
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
@@ -110,10 +111,18 @@
 
 // Default volume (must be from 0 - 100)
 #define PLAYER_DEFAULT_VOLUME 50
-// For every tick, we will read a packet from the input buffer and write it to
-// the outputs. If the input is empty, we will try to catch up next tick. We
-// will continue trying that up to this max, after which we abort playback.
-#define PLAYER_WRITES_PENDING_MAX 126
+// For every tick_interval, we will read a packet from the input buffer and
+// write it to the outputs. If the input is empty, we will try to catch up next
+// tick. However, at some point we will owe the outputs so much data that we
+// have to suspend playback and wait for the input to get its act together.
+// (value is in milliseconds and should be low enough to avoid output underrun)
+#define PLAYER_READ_BEHIND_MAX 1500
+// Generally, an output must not block (for long) when outputs_write() is
+// called. If an output does that anyway, the next tick event will be late, and
+// by extension playback_cb(). We will try to catch up, but if the delay
+// gets above this value, we will suspend playback and reset the output.
+// (value is in milliseconds)
+#define PLAYER_WRITE_BEHIND_MAX 1500
 
 struct volume_param {
   int volume;
@@ -167,17 +176,21 @@ static int player_exit;
 static pthread_t tid_player;
 static struct commands_base *cmdbase;
 
-/* Config values */
+// Keep track of how many outputs need to call back when flushing internally
+// from the player thread (where we can't use player_playback_pause)
+static int player_flush_pending;
+
+// Config values
 static int speaker_autoselect;
 static int clear_queue_on_stop_disabled;
 
-/* Player status */
+// Player status
 static enum play_status player_state;
 static enum repeat_mode repeat;
 static char shuffle;
 static char consume;
 
-/* Playback timer */
+// Playback timer
 #ifdef HAVE_TIMERFD
 static int pb_timer_fd;
 #else
@@ -187,7 +200,7 @@ static struct event *pb_timer_ev;
 static struct timespec pb_timer_last;
 static struct timespec packet_timer_last;
 
-// How often the playback timer triggers player_playback_cb
+// How often the playback timer triggers playback_cb()
 static struct timespec tick_interval;
 // Timer resolution
 static struct timespec timer_res;
@@ -195,48 +208,56 @@ static struct timespec timer_res;
 static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
 
 // How many writes we owe the output (when the input is underrunning)
-static int pb_writes_pending;
+static int pb_read_deficit;
 
-/* Sync values */
+// PLAYER_READ_BEHIND_MAX and PLAYER_WRITE_BEHIND_MAX converted to clock ticks
+static int pb_read_deficit_max;
+static int pb_write_deficit_max;
+
+// True if we are trying to recover from a major playback timer overrun (write problems)
+static bool pb_write_recovery;
+
+// Sync values
 static struct timespec pb_pos_stamp;
 static uint64_t pb_pos;
 
-/* Stream position (packets) */
+// Stream position (packets)
 static uint64_t last_rtptime;
 
-/* Output devices */
+// Output devices
 static struct output_device *dev_list;
 
-/* Output status */
+// Output status
 static int output_sessions;
 
-/* Last commanded volume */
+// Last commanded volume
 static int master_volume;
 
-/* Audio source */
+// Audio source
 static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static uint32_t cur_plversion;
 
-/* Player buffer (holds one packet) */
+// Player buffer (holds one packet)
 static uint8_t pb_buffer[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
 static size_t pb_buffer_offset;
 
-/* Play history */
+// Play history
 static struct player_history *history;
 
 
+/* -------------------------------- Forwards -------------------------------- */
+
 static void
-status_update(enum play_status status)
-{
-  player_state = status;
+playback_abort(void);
 
-  listener_notify(LISTENER_PLAYER);
-}
+static void
+playback_suspend(void);
 
 
-/* Volume helpers */
+/* ----------------------------- Volume helpers ----------------------------- */
+
 static int
 rel_to_vol(int relvol)
 {
@@ -263,7 +284,7 @@ vol_to_rel(int volume)
   return (int)rel;
 }
 
-/* Master volume helpers */
+// Master volume helpers
 static void
 volume_master_update(int newvol)
 {
@@ -296,7 +317,8 @@ volume_master_find(void)
 }
 
 
-/* Device select/deselect hooks */
+/* ---------------------- Device select/deselect hooks ---------------------- */
+
 static void
 speaker_select_output(struct output_device *device)
 {
@@ -322,132 +344,8 @@ speaker_deselect_output(struct output_device *device)
     volume_master_find();
 }
 
-static void
-seek_save(void)
-{
-  int seek;
 
-  if (!cur_streaming)
-    return;
-
-  if (cur_streaming->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
-    {
-      seek = (cur_streaming->output_start - cur_streaming->stream_start) / 44100 * 1000;
-      db_file_seek_update(cur_streaming->id, seek);
-    }
-}
-
-int
-player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
-{
-  uint64_t delta;
-  int ret;
-
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  delta = (ts->tv_sec - pb_pos_stamp.tv_sec) * 1000000 + (ts->tv_nsec - pb_pos_stamp.tv_nsec) / 1000;
-
-#ifdef DEBUG_SYNC
-  DPRINTF(E_DBG, L_PLAYER, "Delta is %" PRIu64 " usec\n", delta);
-#endif
-
-  delta = (delta * 44100) / 1000000;
-
-#ifdef DEBUG_SYNC
-  DPRINTF(E_DBG, L_PLAYER, "Delta is %" PRIu64 " samples\n", delta);
-#endif
-
-  *pos = pb_pos + delta;
-
-  if (commit)
-    {
-      pb_pos = *pos;
-
-      pb_pos_stamp.tv_sec = ts->tv_sec;
-      pb_pos_stamp.tv_nsec = ts->tv_nsec;
-
-#ifdef DEBUG_SYNC
-      DPRINTF(E_DBG, L_PLAYER, "Pos: %" PRIu64 " (clock)\n", *pos);
-#endif
-    }
-
-  return 0;
-}
-
-static int
-pb_timer_start(void)
-{
-  struct itimerspec tick;
-  int ret;
-
-  ret = event_add(pb_timer_ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not add playback timer\n");
-
-      return -1;
-    }
-
-
-  tick.it_interval = tick_interval;
-  tick.it_value = tick_interval;
-
-#ifdef HAVE_TIMERFD
-  ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
-#else
-  ret = timer_settime(pb_timer, 0, &tick, NULL);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not arm playback timer: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-pb_timer_stop(void)
-{
-  struct itimerspec tick;
-  int ret;
-
-  event_del(pb_timer_ev);
-
-  memset(&tick, 0, sizeof(struct itimerspec));
-
-#ifdef HAVE_TIMERFD
-  ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
-#else
-  ret = timer_settime(pb_timer, 0, &tick, NULL);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not disarm playback timer: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  return 0;
-}
-
-/* Forward */
-static void
-playback_abort(void);
-
-static void
-playback_suspend(void);
-
-static void
-player_metadata_send(struct input_metadata *imd, struct output_metadata *omd);
-
+/* ----------------------- Misc helpers and callbacks ----------------------- */
 
 // Callback from the worker thread (async operation as it may block)
 static void
@@ -525,7 +423,7 @@ metadata_update_cb(void *arg)
 
 // Gets the metadata, but since the actual update requires db writes and
 // possibly retrieving artwork we let the worker do the next step
-void
+static void
 metadata_trigger(int startup)
 {
   struct input_metadata metadata;
@@ -538,13 +436,6 @@ metadata_trigger(int startup)
   worker_execute(metadata_update_cb, &metadata, sizeof(metadata), 0);
 }
 
-
-struct player_history *
-player_history_get(void)
-{
-  return history;
-}
-
 /*
  * Add the song with the given id to the list of previously played songs
  */
@@ -554,7 +445,7 @@ history_add(uint32_t id, uint32_t item_id)
   unsigned int cur_index;
   unsigned int next_index;
 
-  /* Check if the current song is already the last in the history to avoid duplicates */
+  // Check if the current song is already the last in the history to avoid duplicates
   cur_index = (history->start_index + history->count - 1) % MAX_HISTORY_COUNT;
   if (id == history->id[cur_index])
     {
@@ -562,7 +453,7 @@ history_add(uint32_t id, uint32_t item_id)
       return;
     }
 
-  /* Calculate the next index and update the start-index and count for the id-buffer */
+  // Calculate the next index and update the start-index and count for the id-buffer
   next_index = (history->start_index + history->count) % MAX_HISTORY_COUNT;
   if (next_index == history->start_index && history->count > 0)
     history->start_index = (history->start_index + 1) % MAX_HISTORY_COUNT;
@@ -574,8 +465,31 @@ history_add(uint32_t id, uint32_t item_id)
     history->count++;
 }
 
+static void
+seek_save(void)
+{
+  int seek;
 
-/* Audio sources */
+  if (!cur_streaming)
+    return;
+
+  if (cur_streaming->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
+    {
+      seek = (cur_streaming->output_start - cur_streaming->stream_start) / 44100 * 1000;
+      db_file_seek_update(cur_streaming->id, seek);
+    }
+}
+
+static void
+status_update(enum play_status status)
+{
+  player_state = status;
+
+  listener_notify(LISTENER_PLAYER);
+}
+
+
+/* ----------- Audio source handling (interfaces with input module) --------- */
 
 static struct player_source *
 source_now_playing()
@@ -716,14 +630,14 @@ source_pause(uint64_t pos)
 	}
     }
 
-  /* Seek back to the pause position */
+  // Seek back to the pause position
   seek_frames = (pos - cur_streaming->stream_start);
   seek_ms = (int)((seek_frames * 1000) / 44100);
   ret = input_seek(cur_streaming, seek_ms);
 
 // TODO what if ret < 0?
 
-  /* Adjust start_pos to take into account the pause and seek back */
+  // Adjust start_pos to take into account the pause and seek back
   cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
   cur_streaming->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
   cur_streaming->end = 0;
@@ -747,7 +661,7 @@ source_seek(int seek_ms)
   if (ret < 0)
     return -1;
 
-  /* Adjust start_pos to take into account the pause and seek back */
+  // Adjust start_pos to take into account the pause and seek back
   cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
   cur_streaming->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
 
@@ -796,8 +710,8 @@ source_open(struct player_source *ps, uint64_t start_pos, int seek_ms)
       return -1;
     }
 
-  /* If a streaming source exists, append the new source as play-next and set it
-     as the new streaming source */
+  // If a streaming source exists, append the new source as play-next and set it
+  // as the new streaming source
   if (cur_streaming)
       cur_streaming->play_next = ps;
 
@@ -862,7 +776,7 @@ source_check(void)
       return pos;
     }
 
-  /* If cur_playing is NULL, we are still in the first two seconds after starting the stream */
+  // If cur_playing is NULL, we are still in the first two seconds after starting the stream
   if (!cur_playing)
     {
       if (pos >= cur_streaming->output_start)
@@ -870,18 +784,18 @@ source_check(void)
 	  cur_playing = cur_streaming;
 	  status_update(PLAY_PLAYING);
 
-	  /* Start of streaming, no metadata to prune yet */
+	  // Start of streaming, no metadata to prune yet
 	}
 
       return pos;
     }
 
-  /* Check if we are still in the middle of the current playing song */
+  // Check if we are still in the middle of the current playing song
   if ((cur_playing->end == 0) || (pos < cur_playing->end))
     return pos;
 
-  /* We have reached the end of the current playing song, update cur_playing to the next song in the queue
-     and initialize stream_start and output_start values. */
+  // We have reached the end of the current playing song, update cur_playing to 
+  // the next song in the queue and initialize stream_start and output_start values.
 
   i = 0;
   while (cur_playing && (cur_playing->end != 0) && (pos > cur_playing->end))
@@ -898,11 +812,9 @@ source_check(void)
       if (consume)
 	db_queue_delete_byitemid(cur_playing->item_id);
 
-      /* Stop playback */
       if (!cur_playing->play_next)
 	{
 	  playback_abort();
-
 	  return pos;
         }
 
@@ -1048,6 +960,9 @@ source_switch(int nbytes)
   return 0;
 }
 
+
+/* ----------------- Main read, write and playback timer event -------------- */
+
 // Returns -1 on error (caller should abort playback), or bytes read (possibly 0)
 static int
 source_read(uint8_t *buf, int len)
@@ -1106,21 +1021,21 @@ playback_write(void)
 
   source_check();
 
-  /* Make sure playback is still running after source_check() */
+  // Make sure playback is still running after source_check()
   if (player_state == PLAY_STOPPED)
     return;
 
-  pb_writes_pending++;
-  while (pb_writes_pending)
+  pb_read_deficit++;
+  while (pb_read_deficit)
     {
       want = sizeof(pb_buffer) - pb_buffer_offset;
       got = source_read(pb_buffer + pb_buffer_offset, want);
       if (got == want)
 	{
+	  pb_read_deficit--;
 	  last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
 	  outputs_write(pb_buffer, last_rtptime);
 	  pb_buffer_offset = 0;
-	  pb_writes_pending--;
 	}
       else if (got < 0)
 	{
@@ -1128,15 +1043,15 @@ playback_write(void)
 	  playback_abort();
 	  return;
 	}
-      else if (pb_writes_pending > PLAYER_WRITES_PENDING_MAX)
+      else if (pb_read_deficit > pb_read_deficit_max)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback\n");
+	  DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback (deficit=%d)\n", pb_read_deficit);
 	  playback_suspend();
 	  return;
 	}
       else
 	{
-	  DPRINTF(E_SPAM, L_PLAYER, "Partial read (offset=%zu, pending=%d)\n", pb_buffer_offset, pb_writes_pending);
+	  DPRINTF(E_SPAM, L_PLAYER, "Partial read (offset=%zu, deficit=%d)\n", pb_buffer_offset, pb_read_deficit);
 	  pb_buffer_offset += got;
 	  return;
 	}
@@ -1144,7 +1059,7 @@ playback_write(void)
 }
 
 static void
-player_playback_cb(int fd, short what, void *arg)
+playback_cb(int fd, short what, void *arg)
 {
   struct timespec next_tick;
   uint64_t overrun;
@@ -1166,6 +1081,29 @@ player_playback_cb(int fd, short what, void *arg)
     overrun = ret;
 #endif /* HAVE_TIMERFD */
 
+  // We are too delayed, probably some output blocked: reset if first overrun or abort if second overrun
+  if (overrun > pb_write_deficit_max)
+    {
+      if (pb_write_recovery)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Permanent output delay detected (behind=%" PRIu64 ", max=%d), aborting\n", overrun, pb_write_deficit_max);
+	  playback_abort();
+	  return;
+	}
+
+      DPRINTF(E_LOG, L_PLAYER, "Output delay detected (behind=%" PRIu64 ", max=%d), resetting all outputs\n", overrun, pb_write_deficit_max);
+      pb_write_recovery = true;
+      playback_suspend();
+      return;
+    }
+  else
+    {
+      if (overrun > 0)
+	DPRINTF(E_WARN, L_PLAYER, "Output delay detected: player is %" PRIu64 " ticks behind, catching up\n", overrun);
+
+      pb_write_recovery = false;
+    }
+
   // If there was an overrun, we will try to read/write a corresponding number
   // of times so we catch up. The read from the input is non-blocking, so it
   // should not bring us further behind, even if there is no data.
@@ -1180,14 +1118,16 @@ player_playback_cb(int fd, short what, void *arg)
     }
   while ((timespec_cmp(packet_timer_last, next_tick) < 0) && (player_state == PLAY_PLAYING));
 
-  /* Make sure playback is still running */
+  // Make sure playback is still running
   if (player_state == PLAY_STOPPED)
     return;
 
   pb_timer_last = next_tick;
 }
 
-/* Helpers */
+
+/* ----------------- Output device handling (add/remove etc) ---------------- */
+
 static void
 device_list_sort(void)
 {
@@ -1241,14 +1181,14 @@ device_remove(struct output_device *remove)
   if (!device)
     return;
 
-  /* Save device volume */
+  // Save device volume
   ret = db_speaker_save(remove);
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
   DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
 
-  /* Make sure device isn't selected anymore */
+  // Make sure device isn't selected anymore
   if (remove->selected)
     speaker_deselect_output(remove);
 
@@ -1292,7 +1232,7 @@ device_add(void *arg, int *retval)
 	break;
     }
 
-  /* New device */
+  // New device
   if (!device)
     {
       device = add;
@@ -1329,7 +1269,7 @@ device_add(void *arg, int *retval)
 	  device->v4_address = add->v4_address;
 	  device->v4_port = add->v4_port;
 
-	  /* Address is ours now */
+	  // Address is ours now
 	  add->v4_address = NULL;
 	}
 
@@ -1341,7 +1281,7 @@ device_add(void *arg, int *retval)
 	  device->v6_address = add->v6_address;
 	  device->v6_port = add->v6_port;
 
-	  /* Address is ours now */
+	  // Address is ours now
 	  add->v6_address = NULL;
 	}
 
@@ -1387,7 +1327,7 @@ device_remove_family(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  /* v{4,6}_port non-zero indicates the address family stopped advertising */
+  // v{4,6}_port non-zero indicates the address family stopped advertising
   if (remove->v4_port && device->v4_address)
     {
       free(device->v4_address);
@@ -1429,7 +1369,7 @@ device_auth_kickoff(void *arg, int *retval)
 
 
 static enum command_state
-metadata_send(void *arg, int *retval)
+device_metadata_send(void *arg, int *retval)
 {
   union player_arg *cmdarg;
   struct input_metadata *imd;
@@ -1447,7 +1387,9 @@ metadata_send(void *arg, int *retval)
   return COMMAND_END;
 }
 
-/* Output device callbacks executed in the player thread */
+
+/* -------- Output device callbacks executed in the player thread ----------- */
+
 static void
 device_streaming_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
@@ -1506,6 +1448,14 @@ device_command_cb(struct output_device *device, struct output_session *session, 
   if (status == OUTPUT_STATE_FAILED)
     device_streaming_cb(device, session, status);
 
+  // Used by playback_suspend - is basically the bottom half
+  if (player_flush_pending > 0)
+    {
+      player_flush_pending--;
+      if (player_flush_pending == 0)
+	input_buffer_full_cb(player_playback_start);
+    }
+
   commands_exec_end(cmdbase, 0);
 }
 
@@ -1549,7 +1499,7 @@ device_lost_cb(struct output_device *device, struct output_session *session, enu
 {
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_lost_cb\n", outputs_name(device->type));
 
-  /* We lost that device during startup for some reason, not much we can do here */
+  // We lost that device during startup for some reason, not much we can do here
   if (status == OUTPUT_STATE_FAILED)
     DPRINTF(E_WARN, L_PLAYER, "Failed to stop lost device\n");
   else
@@ -1608,7 +1558,7 @@ device_activate_cb(struct output_device *device, struct output_session *session,
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
 
-	  /* Fallback to nearest timer expiration time */
+	  // Fallback to nearest timer expiration time
 	  ts.tv_sec = pb_timer_last.tv_sec;
 	  ts.tv_nsec = pb_timer_last.tv_nsec;
 	}
@@ -1722,13 +1672,72 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
   commands_exec_end(cmdbase, retval);
 }
 
-/* Internal abort routine */
+
+/* ------------------------- Internal playback routines --------------------- */
+
+static int
+playback_timer_start(void)
+{
+  struct itimerspec tick;
+  int ret;
+
+  ret = event_add(pb_timer_ev, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not add playback timer\n");
+
+      return -1;
+    }
+
+  tick.it_interval = tick_interval;
+  tick.it_value = tick_interval;
+
+#ifdef HAVE_TIMERFD
+  ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
+#else
+  ret = timer_settime(pb_timer, 0, &tick, NULL);
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not arm playback timer: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+playback_timer_stop(void)
+{
+  struct itimerspec tick;
+  int ret;
+
+  event_del(pb_timer_ev);
+
+  memset(&tick, 0, sizeof(struct itimerspec));
+
+#ifdef HAVE_TIMERFD
+  ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
+#else
+  ret = timer_settime(pb_timer, 0, &tick, NULL);
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not disarm playback timer: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  return 0;
+}
+
 static void
 playback_abort(void)
 {
   outputs_playback_stop();
 
-  pb_timer_stop();
+  playback_timer_stop();
 
   source_stop();
 
@@ -1740,22 +1749,27 @@ playback_abort(void)
   outputs_metadata_purge();
 }
 
-/* Internal routine for waiting when input buffer underruns */
+// Temporarily suspends/resets playback, used when input buffer underruns or in
+// case of problems writing to the outputs
 static void
 playback_suspend(void)
 {
-  outputs_playback_stop();
+  player_flush_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
-  pb_timer_stop();
+  playback_timer_stop();
 
   status_update(PLAY_PAUSED);
 
   seek_save();
 
-  input_buffer_full_cb(player_playback_start);
+  // No devices to wait for, just set the restart cb right away
+  if (player_flush_pending == 0)
+    input_buffer_full_cb(player_playback_start);
 }
 
-/* Actual commands, executed in the player thread */
+
+/* --------------- Actual commands, executed in the player thread ----------- */
+
 static enum command_state
 get_status(void *arg, int *retval)
 {
@@ -1807,7 +1821,7 @@ get_status(void *arg, int *retval)
 	    status->status = PLAY_PAUSED;
 	    ps = cur_streaming;
 
-	    /* Avoid a visible 2-second jump backward for the client */
+	    // Avoid a visible 2-second jump backward for the client
 	    pos = ps->output_start - ps->stream_start;
 	  }
 	else
@@ -1872,13 +1886,11 @@ playback_stop(void *arg, int *retval)
 {
   struct player_source *ps_playing;
 
-  /* We may be restarting very soon, so we don't bring the devices to a
-   * full stop just yet; this saves time when restarting, which is nicer
-   * for the user.
-   */
+  // We may be restarting very soon, so we don't bring the devices to a full
+  // stop just yet; this saves time when restarting, which is nicer for the user
   *retval = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
-  pb_timer_stop();
+  playback_timer_stop();
 
   ps_playing = source_now_playing();
   if (ps_playing)
@@ -1892,14 +1904,13 @@ playback_stop(void *arg, int *retval)
 
   outputs_metadata_purge();
 
-  /* We're async if we need to flush devices */
+  // We're async if we need to flush devices
   if (*retval > 0)
-    return COMMAND_PENDING; /* async */
+    return COMMAND_PENDING;
 
   return COMMAND_END;
 }
 
-/* Playback startup bottom half */
 static enum command_state
 playback_start_bh(void *arg, int *retval)
 {
@@ -1913,12 +1924,10 @@ playback_start_bh(void *arg, int *retval)
       goto out_fail;
     }
 
-  pb_timer_stop();
+  playback_timer_stop();
 
-  /*
-   * initialize the packet timer to the same relative time that we have 
-   * for the playback timer.
-   */
+  // initialize the packet timer to the same relative time that we have 
+  // for the playback timer.
   packet_timer_last.tv_sec = pb_pos_stamp.tv_sec;
   packet_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
@@ -1926,13 +1935,13 @@ playback_start_bh(void *arg, int *retval)
   pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
   pb_buffer_offset = 0;
-  pb_writes_pending = 0;
+  pb_read_deficit = 0;
 
-  ret = pb_timer_start();
+  ret = playback_timer_start();
   if (ret < 0)
     goto out_fail;
 
-  /* Everything OK, start outputs */
+  // Everything OK, start outputs
   outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
 
   status_update(PLAY_PLAYING);
@@ -2028,7 +2037,7 @@ playback_start_item(void *arg, int *retval)
 
   metadata_trigger(1);
 
-  /* Start sessions on selected devices */
+  // Start sessions on selected devices
   *retval = 0;
 
   for (device = dev_list; device; device = device->next)
@@ -2047,7 +2056,7 @@ playback_start_item(void *arg, int *retval)
 	}
     }
 
-  /* If autoselecting is enabled, try to autoselect a non-selected device if the above failed */
+  // If autoselecting is enabled, try to autoselect a non-selected device if the above failed
   if (speaker_autoselect && (*retval == 0) && (output_sessions == 0))
     for (device = dev_list; device; device = device->next)
       {
@@ -2068,11 +2077,11 @@ playback_start_item(void *arg, int *retval)
 	break;
       }
 
-  /* We're async if we need to start devices */
+  // We're async if we need to start devices
   if (*retval > 0)
-    return COMMAND_PENDING; /* async */
+    return COMMAND_PENDING; // async
 
-  /* Otherwise, just run the bottom half */
+  // Otherwise, just run the bottom half
   *retval = 0;
   return COMMAND_END;
 }
@@ -2137,10 +2146,8 @@ playback_prev_bh(void *arg, int *retval)
   int pos_sec;
   struct player_source *ps;
 
-  /*
-   * The upper half is playback_pause, therefor the current playing item is
-   * already set as the cur_streaming (cur_playing is NULL).
-   */
+  // The upper half is playback_pause, therefor the current playing item is
+  // already set as the cur_streaming (cur_playing is NULL).
   if (!cur_streaming)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
@@ -2148,18 +2155,18 @@ playback_prev_bh(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  /* Only add to history if playback started. */
+  // Only add to history if playback started
   if (cur_streaming->output_start > cur_streaming->stream_start)
     history_add(cur_streaming->id, cur_streaming->item_id);
 
-  /* Compute the playing time in seconds for the current song. */
+  // Compute the playing time in seconds for the current song
   if (cur_streaming->output_start > cur_streaming->stream_start)
     pos_sec = (cur_streaming->output_start - cur_streaming->stream_start) / 44100;
   else
     pos_sec = 0;
 
-  /* Only skip to the previous song if the playing time is less than 3 seconds,
-   otherwise restart the current song. */
+  // Only skip to the previous song if the playing time is less than 3 seconds,
+  // otherwise restart the current song.
   DPRINTF(E_DBG, L_PLAYER, "Skipping song played %d sec\n", pos_sec);
   if (pos_sec < 3)
     {
@@ -2201,16 +2208,13 @@ playback_prev_bh(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  /* Silent status change - playback_start() sends the real status update */
+  // Silent status change - playback_start() sends the real status update
   player_state = PLAY_PAUSED;
 
   *retval = 0;
   return COMMAND_END;
 }
 
-/*
- * The bottom half of the next command
- */
 static enum command_state
 playback_next_bh(void *arg, int *retval)
 {
@@ -2218,10 +2222,8 @@ playback_next_bh(void *arg, int *retval)
   int ret;
   uint32_t item_id;
 
-  /*
-   * The upper half is playback_pause, therefor the current playing item is
-   * already set as the cur_streaming (cur_playing is NULL).
-   */
+  // The upper half is playback_pause, therefor the current playing item is
+  // already set as the cur_streaming (cur_playing is NULL).
   if (!cur_streaming)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
@@ -2229,7 +2231,7 @@ playback_next_bh(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  /* Only add to history if playback started. */
+  // Only add to history if playback started
   if (cur_streaming->output_start > cur_streaming->stream_start)
     history_add(cur_streaming->id, cur_streaming->item_id);
 
@@ -2263,7 +2265,7 @@ playback_next_bh(void *arg, int *retval)
   if (consume)
     db_queue_delete_byitemid(item_id);
 
-  /* Silent status change - playback_start() sends the real status update */
+  // Silent status change - playback_start() sends the real status update
   player_state = PLAY_PAUSED;
 
   *retval = 0;
@@ -2291,7 +2293,7 @@ playback_seek_bh(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  /* Silent status change - playback_start() sends the real status update */
+  // Silent status change - playback_start() sends the real status update
   player_state = PLAY_PAUSED;
 
   *retval = 0;
@@ -2339,7 +2341,7 @@ playback_pause(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  /* Make sure playback is still running after source_check() */
+  // Make sure playback is still running after source_check()
   if (player_state == PLAY_STOPPED)
     {
       *retval = -1;
@@ -2348,17 +2350,17 @@ playback_pause(void *arg, int *retval)
 
   *retval = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
-  pb_timer_stop();
+  playback_timer_stop();
 
   source_pause(pos);
 
   outputs_metadata_purge();
 
-  /* We're async if we need to flush devices */
+  // We're async if we need to flush devices
   if (*retval > 0)
-    return COMMAND_PENDING; /* async */
+    return COMMAND_PENDING; // async
 
-  /* Otherwise, just run the bottom half */
+  // Otherwise, just run the bottom half
   return COMMAND_END;
 }
 
@@ -2533,7 +2535,7 @@ speaker_set(void *arg, int *retval)
   listener_notify(LISTENER_SPEAKER);
 
   if (*retval > 0)
-    return COMMAND_PENDING; /* async */
+    return COMMAND_PENDING; // async
 
   *retval = cmdarg->speaker_set_param.intval;
   return COMMAND_END;
@@ -2572,7 +2574,7 @@ volume_set(void *arg, int *retval)
   listener_notify(LISTENER_VOLUME);
 
   if (*retval > 0)
-    return COMMAND_PENDING; /* async */
+    return COMMAND_PENDING; // async
 
   return COMMAND_END;
 }
@@ -2616,7 +2618,7 @@ volume_setrel_speaker(void *arg, int *retval)
   listener_notify(LISTENER_VOLUME);
 
   if (*retval > 0)
-    return COMMAND_PENDING; /* async */
+    return COMMAND_PENDING; // async
 
   return COMMAND_END;
 }
@@ -2666,7 +2668,7 @@ volume_setabs_speaker(void *arg, int *retval)
   listener_notify(LISTENER_VOLUME);
 
   if (*retval > 0)
-    return COMMAND_PENDING; /* async */
+    return COMMAND_PENDING; // async
 
   return COMMAND_END;
 }
@@ -2716,7 +2718,7 @@ shuffle_set(void *arg, int *retval)
 	    cur_id = cur_streaming ? cur_streaming->item_id : 0;
 	    db_queue_reshuffle(cur_id);
 	  }
-	/* FALLTHROUGH*/
+	/* FALLTHROUGH */
       case 0:
 	shuffle = cmdarg->intval;
 	break;
@@ -2745,6 +2747,7 @@ consume_set(void *arg, int *retval)
   *retval = 0;
   return COMMAND_END;
 }
+
 /*
  * Removes all items from the history
  */
@@ -2772,7 +2775,51 @@ playerqueue_plid(void *arg, int *retval)
 }
 
 
-/* Player API executed in the httpd (DACP) thread */
+/* ------------------------------- Player API ------------------------------- */
+
+int
+player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
+{
+  uint64_t delta;
+  int ret;
+
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  delta = (ts->tv_sec - pb_pos_stamp.tv_sec) * 1000000 + (ts->tv_nsec - pb_pos_stamp.tv_nsec) / 1000;
+
+#ifdef DEBUG_SYNC
+  DPRINTF(E_DBG, L_PLAYER, "Delta is %" PRIu64 " usec\n", delta);
+#endif
+
+  delta = (delta * 44100) / 1000000;
+
+#ifdef DEBUG_SYNC
+  DPRINTF(E_DBG, L_PLAYER, "Delta is %" PRIu64 " samples\n", delta);
+#endif
+
+  *pos = pb_pos + delta;
+
+  if (commit)
+    {
+      pb_pos = *pos;
+
+      pb_pos_stamp.tv_sec = ts->tv_sec;
+      pb_pos_stamp.tv_nsec = ts->tv_nsec;
+
+#ifdef DEBUG_SYNC
+      DPRINTF(E_DBG, L_PLAYER, "Pos: %" PRIu64 " (clock)\n", *pos);
+#endif
+    }
+
+  return 0;
+}
+
 int
 player_get_status(struct player_status *status)
 {
@@ -2784,6 +2831,9 @@ player_get_status(struct player_status *status)
   ret = commands_exec_sync(cmdbase, get_status, NULL, &cmdarg);
   return ret;
 }
+
+
+/* --------------------------- Thread: httpd (DACP) ------------------------- */
 
 /*
  * Stores the now playing media item dbmfi-id in the given id pointer.
@@ -3018,7 +3068,15 @@ player_queue_plid(uint32_t plid)
   commands_exec_sync(cmdbase, playerqueue_plid, NULL, &cmdarg);
 }
 
-/* Non-blocking commands used by mDNS */
+struct player_history *
+player_history_get(void)
+{
+  return history;
+}
+
+
+/* ------------------- Non-blocking commands used by mDNS ------------------- */
+
 int
 player_device_add(void *device)
 {
@@ -3075,26 +3133,32 @@ player_device_auth_kickoff(enum output_types type, char **arglist)
   commands_exec_async(cmdbase, device_auth_kickoff, cmdarg);
 }
 
-/* Thread: filescanner */
+
+/* --------------------------- Thread: filescanner -------------------------- */
+
 void
 player_raop_verification_kickoff(char **arglist)
 {
   player_device_auth_kickoff(OUTPUT_TYPE_RAOP, arglist);
 }
 
-/* Thread: worker */
-static void
-player_metadata_send(struct input_metadata *imd, struct output_metadata *omd)
+
+/* ---------------------------- Thread: worker ------------------------------ */
+
+void
+player_metadata_send(void *imd, void *omd)
 {
   union player_arg cmdarg;
 
   cmdarg.metadata_param.input = imd;
   cmdarg.metadata_param.output = omd;
 
-  commands_exec_sync(cmdbase, metadata_send, NULL, &cmdarg);
+  commands_exec_sync(cmdbase, device_metadata_send, NULL, &cmdarg);
 }
 
-/* Thread: player */
+
+/* ---------------------------- Thread: player ------------------------------ */
+
 static void *
 player(void *arg)
 {
@@ -3114,7 +3178,6 @@ player(void *arg)
   if (!player_exit)
     DPRINTF(E_LOG, L_PLAYER, "Player event loop terminated ahead of time!\n");
 
-  /* Save selected devices */
   db_speaker_clear_all();
 
   for (device = dev_list; device; device = device->next)
@@ -3130,7 +3193,8 @@ player(void *arg)
 }
 
 
-/* Thread: main */
+/* ----------------------------- Thread: main ------------------------------- */
+
 int
 player_init(void)
 {
@@ -3161,11 +3225,9 @@ player_init(void)
 
   history = (struct player_history *)calloc(1, sizeof(struct player_history));
 
-  /*
-   * Determine if the resolution of the system timer is > or < the size
-   * of an audio packet. NOTE: this assumes the system clock resolution
-   * is less than one second.
-   */
+  // Determine if the resolution of the system timer is > or < the size
+  // of an audio packet. NOTE: this assumes the system clock resolution
+  // is less than one second.
   if (clock_getres(CLOCK_MONOTONIC, &timer_res) < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get the system timer resolution.\n");
@@ -3183,6 +3245,9 @@ player_init(void)
   // Set the tick interval for the playback timer
   interval = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
   tick_interval.tv_nsec = interval;
+
+  pb_write_deficit_max = (PLAYER_WRITE_BEHIND_MAX * 1000000 / interval);
+  pb_read_deficit_max  = (PLAYER_READ_BEHIND_MAX * 1000000 / interval);
 
   // Create the playback timer
 #ifdef HAVE_TIMERFD
@@ -3211,9 +3276,9 @@ player_init(void)
     }
 
 #ifdef HAVE_TIMERFD
-  pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, player_playback_cb, NULL);
+  pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, playback_cb, NULL);
 #else
-  pb_timer_ev = event_new(evbase_player, SIGALRM, EV_SIGNAL | EV_PERSIST, player_playback_cb, NULL);
+  pb_timer_ev = event_new(evbase_player, SIGALRM, EV_SIGNAL | EV_PERSIST, playback_cb, NULL);
 #endif
   if (!pb_timer_ev)
     {
@@ -3269,7 +3334,6 @@ player_init(void)
   return -1;
 }
 
-/* Thread: main */
 void
 player_deinit(void)
 {

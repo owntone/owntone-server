@@ -40,7 +40,7 @@
 #include "input.h"
 
 // Disallow further writes to the buffer when its size is larger than this threshold
-#define INPUT_BUFFER_THRESHOLD STOB(44100)
+#define INPUT_BUFFER_THRESHOLD STOB(88200)
 // How long (in sec) to wait for player read before looping in playback thread
 #define INPUT_LOOP_TIMEOUT 1
 

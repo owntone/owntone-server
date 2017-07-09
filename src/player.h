@@ -135,6 +135,9 @@ player_queue_clear_history(void);
 void
 player_queue_plid(uint32_t plid);
 
+struct player_history *
+player_history_get(void);
+
 int
 player_device_add(void *device);
 
@@ -144,8 +147,8 @@ player_device_remove(void *device);
 void
 player_raop_verification_kickoff(char **arglist);
 
-struct player_history *
-player_history_get(void);
+void
+player_metadata_send(void *imd, void *omd);
 
 int
 player_init(void);
