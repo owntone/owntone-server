@@ -56,8 +56,9 @@ Then run the following (adding configure arguments for optional features):
  make
  sudo make install
 
-Finally, read the bit in the bottom of this document about init scripts, read
-the README, edit the configuration file and restart the server.
+Finally, read the section 'Long version - after installation' in the bottom of
+this document, which describes configuration, setting up init scripts and adding
+a system user. Also see the README for usage information.
 
 
 Quick version for Fedora
@@ -90,8 +91,9 @@ Then run the following:
  make
  sudo make install
 
-Finally, read the bit in the bottom of this document about init scripts, read
-the README, edit the configuration file and start the server.
+Finally, read the section 'Long version - after installation' in the bottom of
+this document, which describes configuration, setting up init scripts and adding
+a system user. Also see the README for usage information.
 
 
 Quick version for FreeBSD
@@ -300,14 +302,16 @@ Building with Pulseaudio is optional. Use --with-pulseaudio to enable.
 Recommended build settings:
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
 
-After configure run the usual make, and if that went well, sudo make install
+After configure run the usual make, and if that went well, 'sudo make install'
 
 
 Long version - after installation
 ---------------------------------
 
-After installation, edit the configuration file, /etc/forked-daapd.conf and
-adjust the values at your convenience.
+After installation, edit the configuration file, /etc/forked-daapd.conf.
+
+Note that 'sudo make install' will not install any system files to start the
+service after boot, and it will not setup a system user.
 
 forked-daapd will drop privileges to any user you'll specify in the
 configuration file if it's started as root.
