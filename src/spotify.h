@@ -39,9 +39,6 @@ spotify_playback_stop_nonblock(void);
 int
 spotify_playback_seek(int ms);
 
-int
-spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h);
-
 void
 spotify_oauth_interface(struct evbuffer *evbuf, const char *redirect_uri);
 

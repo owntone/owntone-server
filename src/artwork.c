@@ -42,7 +42,7 @@
 #include "artwork.h"
 
 #ifdef HAVE_SPOTIFY_H
-# include "spotify.h"
+# include "spotify_webapi.h"
 #endif
 
 /* This artwork module will look for artwork by consulting a set of sources one
@@ -217,6 +217,57 @@ static struct artwork_source artwork_item_source[] =
 
 
 /* -------------------------------- HELPERS -------------------------------- */
+
+/* Reads an artwork file from the given url straight into an evbuf
+ *
+ * @out evbuf     Image data
+ * @in  url       URL for the image
+ * @return        0 on success, -1 on error
+ */
+static int
+artwork_url_read(struct evbuffer *evbuf, const char *url)
+{
+  struct http_client_ctx client;
+  struct keyval *kv;
+  const char *content_type;
+  int len;
+  int ret;
+
+  DPRINTF(E_SPAM, L_ART, "Trying internet artwork in %s\n", url);
+
+  ret = ART_E_NONE;
+
+  len = strlen(url);
+  if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
+    goto out_url;
+
+  kv = keyval_alloc();
+  if (!kv)
+    goto out_url;
+
+  memset(&client, 0, sizeof(struct http_client_ctx));
+  client.url = url;
+  client.input_headers = kv;
+  client.input_body = evbuf;
+
+  if (http_client_request(&client) < 0)
+    goto out_kv;
+
+  content_type = keyval_get(kv, "Content-Type");
+  if (content_type && (strcmp(content_type, "image/jpeg") == 0))
+    ret = ART_FMT_JPEG;
+  else if (content_type && (strcmp(content_type, "image/png") == 0))
+    ret = ART_FMT_PNG;
+  else
+    ret = ART_FMT_JPEG;
+
+ out_kv:
+  keyval_clear(kv);
+  free(kv);
+
+ out_url:
+  return ret;
+}
 
 /* Reads an artwork file from the filesystem straight into an evbuf
  * TODO Use evbuffer_add_file or evbuffer_read?
@@ -727,10 +778,7 @@ source_item_own_get(struct artwork_ctx *ctx)
 static int
 source_item_stream_get(struct artwork_ctx *ctx)
 {
-  struct http_client_ctx client;
   struct db_queue_item *queue_item;
-  struct keyval *kv;
-  const char *content_type;
   char *url;
   char *ext;
   int len;
@@ -764,33 +812,13 @@ source_item_stream_get(struct artwork_ctx *ctx)
   if (ret > 0)
     goto out_url;
 
-  kv = keyval_alloc();
-  if (!kv)
-    goto out_url;
-
-  memset(&client, 0, sizeof(struct http_client_ctx));
-  client.url = url;
-  client.input_headers = kv;
-  client.input_body = ctx->evbuf;
-
-  if (http_client_request(&client) < 0)
-    goto out_kv;
-
-  content_type = keyval_get(kv, "Content-Type");
-  if (content_type && (strcmp(content_type, "image/jpeg") == 0))
-    ret = ART_FMT_JPEG;
-  else if (content_type && (strcmp(content_type, "image/png") == 0))
-    ret = ART_FMT_PNG;
+  ret = artwork_url_read(ctx->evbuf, url);
 
   if (ret > 0)
     {
-      DPRINTF(E_SPAM, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
+      DPRINTF(E_SPAM, L_ART, "Found internet stream artwork in %s (%d)\n", url, ret);
       cache_artwork_stash(ctx->evbuf, url, ret);
     }
-
- out_kv:
-  keyval_clear(kv);
-  free(kv);
 
  out_url:
   free(url);
@@ -804,8 +832,11 @@ source_item_spotify_get(struct artwork_ctx *ctx)
 {
   struct evbuffer *raw;
   struct evbuffer *evbuf;
+  char *artwork_url;
+  int content_type;
   int ret;
 
+  artwork_url = NULL;
   raw = evbuffer_new();
   evbuf = evbuffer_new();
   if (!raw || !evbuf)
@@ -814,14 +845,18 @@ source_item_spotify_get(struct artwork_ctx *ctx)
       return ART_E_ERROR;
     }
 
-  ret = spotify_artwork_get(raw, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
-  if (ret < 0)
+  artwork_url = spotifywebapi_artwork_get(ctx->dbmfi->path, ctx->max_w, ctx->max_h);
+  if (!artwork_url)
     {
       DPRINTF(E_WARN, L_ART, "No artwork from Spotify for %s\n", ctx->dbmfi->path);
-      evbuffer_free(raw);
-      evbuffer_free(evbuf);
       return ART_E_NONE;
     }
+
+  ret = artwork_url_read(raw, artwork_url);
+  if (ret <= 0)
+    goto out_free_evbuf;
+
+  content_type = ret;
 
   // Make a refbuf of raw for ffmpeg image size probing and possibly rescaling.
   // We keep raw around in case rescaling is not necessary.
@@ -858,12 +893,14 @@ source_item_spotify_get(struct artwork_ctx *ctx)
 
   evbuffer_free(evbuf);
   evbuffer_free(raw);
+  free(artwork_url);
 
-  return ART_FMT_JPEG;
+  return content_type;
 
  out_free_evbuf:
   evbuffer_free(evbuf);
   evbuffer_free(raw);
+  free(artwork_url);
 
   return ART_E_ERROR;
 }

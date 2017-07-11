@@ -49,6 +49,7 @@ static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
 static const char *spotify_playlist_uri	 = "https://api.spotify.com/v1/users/%s/playlists/%s";
+static const char *spotify_track_uri     = "https://api.spotify.com/v1/tracks/%s";
 static const char *spotify_me_uri        = "https://api.spotify.com/v1/me";
 
 
@@ -421,6 +422,28 @@ get_owner_plid_from_uri(const char *uri, char **owner, char **plid)
   return 0;
 }
 
+/*
+ * Extracts the id from a spotify album/artist/track uri
+ *
+ * E. g. album-uri has the following format: spotify:album:[id]
+ * The id must be freed by the caller.
+ */
+static int
+get_id_from_uri(const char *uri, char **id)
+{
+  char *tmp;
+  tmp = strrchr(uri, ':');
+  if (!tmp)
+    {
+      return -1;
+    }
+  tmp++;
+
+  *id = strdup(tmp);
+
+  return 0;
+}
+
 int
 spotifywebapi_playlisttracks_fetch(struct spotify_request *request, struct spotify_track *track)
 {
@@ -489,6 +512,118 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
   free(owner);
   free(id);
   return 0;
+}
+
+
+static int
+spotifywebapi_track_start(struct spotify_request *request, const char *path, struct spotify_track *track, json_object **jsonimages, int *image_count)
+{
+  char uri[1024];
+  char *id;
+  json_object *jsonalbum;
+  int ret;
+
+  memset(track, 0, sizeof(struct spotify_track));
+
+  ret = get_id_from_uri(path, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from track uri '%s'\n", path);
+      return -1;
+    }
+
+  ret = snprintf(uri, sizeof(uri), spotify_track_uri, id);
+  free(id);
+  if (ret < 0 || ret >= sizeof(uri))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error creating playlist endpoint uri for playlist '%s'\n", path);
+      return -1;
+    }
+
+  ret = request_uri(request, uri);
+  if (ret < 0)
+    {
+      return -1;
+    }
+
+  request->haystack = json_tokener_parse(request->response_body);
+  parse_metadata_track(request->haystack, track);
+
+  if (jsonimages && image_count)
+    {
+      if (json_object_object_get_ex(request->haystack, "album", &jsonalbum))
+        {
+	  if (json_object_object_get_ex(jsonalbum, "images", jsonimages))
+	    {
+	      *image_count = json_object_array_length(*jsonimages);
+	    }
+	}
+    }
+
+  return 0;
+}
+
+static int
+spotifywebapi_image_fetch(json_object *jsonimages, int index, struct spotify_image *image)
+{
+  json_object *jsonimage;
+
+  memset(image, 0, sizeof(struct spotify_image));
+
+  jsonimage = json_object_array_get_idx(jsonimages, index);
+
+  if (!jsonimage)
+    {
+      return -1;
+    }
+
+  image->url = jparse_str_from_obj(jsonimage, "url");
+  image->width = jparse_int_from_obj(jsonimage, "width");
+  image->height = jparse_int_from_obj(jsonimage, "height");
+
+  return 0;
+}
+
+char *
+spotifywebapi_artwork_get(const char *path, int max_w, int max_h)
+{
+  struct spotify_request request;
+  struct spotify_track track;
+  json_object *jsonimages;
+  struct spotify_image image;
+  int image_count;
+  int i;
+  char *artwork_url;
+  int ret;
+
+  artwork_url = NULL;
+  image_count = 0;
+
+  memset(&request, 0, sizeof(struct spotify_request));
+  ret = spotifywebapi_track_start(&request, path, &track, &jsonimages, &image_count);
+  if (ret == 0)
+  {
+    DPRINTF(E_DBG, L_SPOTIFY, "Got track: '%s' (%s) \n", track.name, track.uri);
+
+    // Get an image at least the same size as requested, images are returned with decreasing size
+    for (i = (image_count - 1); i >= 0 && ret == 0; i--)
+      {
+	ret = spotifywebapi_image_fetch(jsonimages, i, &image);
+	if (ret < 0 || !image.url)
+	  continue;
+
+	free(artwork_url);
+
+	DPRINTF(E_DBG, L_SPOTIFY, "Got image for album '%s' - '%s': '%s' (%dx%d)\n", track.album_artist, track.album, image.url, image.height, image.width);
+	artwork_url = strdup(image.url);
+
+	if ((max_w < image.width) || (max_h < image.height))
+	  break;
+      }
+  }
+  spotifywebapi_request_end(&request);
+
+  return artwork_url;
 }
 
 static int
