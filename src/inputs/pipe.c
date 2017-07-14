@@ -303,44 +303,42 @@ parse_progress(struct input_metadata *m, char *progress)
 }
 
 static void
-parse_volume(char *volume)
+parse_volume(const char *volume)
 {
   char *volume_next;
   float airplay_volume;
-  float local_volume;
+  int local_volume;
 
   errno = 0;
   airplay_volume = strtof(volume, &volume_next);
 
   if ((errno == ERANGE) || (volume == volume_next))
     {
-      DPRINTF(E_LOG, L_PLAYER, "Invalid airplay volume in string (%s): %s\n", volume,
+      DPRINTF(E_LOG, L_PLAYER, "Invalid Shairport airplay volume in string (%s): %s\n", volume,
 	      (errno == ERANGE ? strerror(errno) : "First token is not a number."));
       return;
     }
 
   if (strcmp(volume_next, ",0.00,0.00,0.00") != 0)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Not applying airplay volume while software volume control is enabled (%s)\n", volume);
+      DPRINTF(E_DBG, L_PLAYER, "Not applying Shairport airplay volume while software volume control is enabled (%s)\n", volume);
       return;
     }
 
   if (((int) airplay_volume) == -144)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Applying airplay volume ('mute', value: %.2f)\n", airplay_volume);
+      DPRINTF(E_DBG, L_PLAYER, "Applying Shairport airplay volume ('mute', value: %.2f)\n", airplay_volume);
       player_volume_set(0);
     }
   else if (airplay_volume >= -30.0 && airplay_volume <= 0.0)
     {
-      local_volume = 100.0 + (airplay_volume / 30.0 * 100.0);
-      if (local_volume < 0 || local_volume > 100)
-	return;
+      local_volume = (int)(100.0 + (airplay_volume / 30.0 * 100.0));
 
-      DPRINTF(E_DBG, L_PLAYER, "Applying airplay volume (percent: %.0f, value: %.2f)\n", local_volume, airplay_volume);
-      player_volume_set((int) local_volume);
+      DPRINTF(E_DBG, L_PLAYER, "Applying Shairport airplay volume (percent: %d, value: %.2f)\n", local_volume, airplay_volume);
+      player_volume_set(local_volume);
     }
   else
-    DPRINTF(E_LOG, L_PLAYER, "Airplay volume out of range (-144.0, [-30.0 - 0.0]): %.2f\n", airplay_volume);
+    DPRINTF(E_LOG, L_PLAYER, "Shairport airplay volume out of range (-144.0, [-30.0 - 0.0]): %.2f\n", airplay_volume);
 }
 
 // returns 1 on metadata found, 0 on nothing, -1 on error

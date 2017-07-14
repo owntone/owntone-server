@@ -2984,6 +2984,12 @@ player_volume_set(int vol)
   union player_arg cmdarg;
   int ret;
 
+  if (vol < 0 || vol > 100)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Volume (%d) for player_volume_set is out of range\n", vol);
+      return -1;
+    }
+
   cmdarg.intval = vol;
 
   ret = commands_exec_sync(cmdbase, volume_set, NULL, &cmdarg);
@@ -2995,6 +3001,12 @@ player_volume_setrel_speaker(uint64_t id, int relvol)
 {
   union player_arg cmdarg;
   int ret;
+
+  if (relvol < 0 || relvol > 100)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Volume (%d) for player_volume_setrel_speaker is out of range\n", relvol);
+      return -1;
+    }
 
   cmdarg.vol_param.spk_id = id;
   cmdarg.vol_param.volume = relvol;
@@ -3008,6 +3020,12 @@ player_volume_setabs_speaker(uint64_t id, int vol)
 {
   union player_arg cmdarg;
   int ret;
+
+  if (vol < 0 || vol > 100)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Volume (%d) for player_volume_setabs_speaker is out of range\n", vol);
+      return -1;
+    }
 
   cmdarg.vol_param.spk_id = id;
   cmdarg.vol_param.volume = vol;
