@@ -811,7 +811,10 @@ alsa_device_start(struct output_device *device, output_status_cb cb, uint64_t rt
 
   ret = device_open(as);
   if (ret < 0)
-    return -1;
+    {
+      alsa_session_cleanup(as);
+      return -1;
+    }
 
   as->state = ALSA_STATE_STARTED;
   alsa_status(as);
