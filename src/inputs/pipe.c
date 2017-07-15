@@ -100,6 +100,9 @@ static int pipe_autostart;
 // The mfi id of the pipe autostarted by the pipe thread
 static int pipe_autostart_id;
 
+// The mfi id of a pipe that has remaining content that must be consumed on stop
+static int pipe_has_remaining_id;
+
 // Global list of pipes we are watching (if watching/autostart is enabled)
 static struct pipe *pipe_watch_list;
 
@@ -176,6 +179,45 @@ pipe_close(int fd)
     close(fd);
 }
 
+static void
+pipe_consume_remaining(struct pipe *pipe)
+{
+  char *skip_buffer;
+  ssize_t read_count;
+  size_t skip_count;
+  struct player_status status;
+
+  if (!pipe
+      || pipe->fd < 0
+      || pipe->type != PIPE_PCM
+      || pipe_has_remaining_id != pipe->id)
+    return;
+
+  DPRINTF(E_DBG, L_PLAYER, "Consuming pipe '%s' (fd %d) to avoid autostart on buffered content\n", pipe->path, pipe->fd);
+
+  read_count = -1;
+  skip_count = 0;
+
+  if ((skip_buffer = (char*) malloc(PIPE_READ_MAX)))
+    {
+      // pipe->fd is opened with 'O_NONBLOCK' thus the following loop is reading
+      // already available content without blocking (limitted to 5 seconds)
+      while (skip_count < (44100 * 2 * 2 * 5)
+	&& player_get_status(&status) >= 0
+	&& status.status == PLAY_STOPPED
+	&& (read_count = read(pipe->fd, skip_buffer, PIPE_READ_MAX)) > 0)
+	{
+	  skip_count += read_count;
+	}
+
+      free(skip_buffer);
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Consumed %lu kb\n", (skip_count / 1024));
+
+  pipe_has_remaining_id = -1;
+}
+
 static int
 watch_add(struct pipe *pipe)
 {
@@ -205,6 +247,9 @@ watch_del(struct pipe *pipe)
   if (pipe->ev)
     event_free(pipe->ev);
 
+  // Consuming any buffered content (if pipe was closed via a metadata command).
+  pipe_consume_remaining(pipe);
+
   pipe_close(pipe->fd);
 
   pipe->fd = -1;
@@ -215,6 +260,9 @@ watch_del(struct pipe *pipe)
 static int
 watch_reset(struct pipe *pipe)
 {
+  if (!pipe)
+    return -1;
+
   watch_del(pipe);
 
   return watch_add(pipe);
@@ -341,6 +389,27 @@ parse_volume(const char *volume)
     DPRINTF(E_LOG, L_PLAYER, "Shairport airplay volume out of range (-144.0, [-30.0 - 0.0]): %.2f\n", airplay_volume);
 }
 
+static int
+pipe_stop_autostarted(void)
+{
+  uint32_t playing_id;
+
+  if (player_now_playing(&playing_id) < 0)
+    return 0;
+
+  if (pipe_autostart_id == playing_id)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Shairport stop: Stopping autostarted pipe.\n");
+      player_playback_stop();
+      return 1;
+    }
+  else
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Shairport stop: Ignoring as pipe was not autostarted.\n");
+      return 0;
+    }
+}
+
 // returns 1 on metadata found, 0 on nothing, -1 on error
 static int
 parse_item(struct input_metadata *m, const char *item)
@@ -398,6 +467,22 @@ parse_item(struct input_metadata *m, const char *item)
     data = &progress;
   else if (code == dmapval("pvol"))
     data = &volume;
+  else if (code == dmapval("pend") || code == dmapval("pfls"))
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Stop/flush received in pipe metadata (type=%8x, code=%8x)\n", type, code);
+
+      // Setting "ret=-1" to instruct the caller to stop processing metadata.
+      // Accessing the buffers is a segfault after playback has stopped.
+
+      pipe_has_remaining_id = pipe_autostart_id;
+
+      if (pipe_stop_autostarted())
+	ret = -1;
+	  else
+	pipe_has_remaining_id = -1;
+
+      goto out_nothing;
+    }
   else
     goto out_nothing;
 
@@ -508,7 +593,7 @@ pipe_read_cb(evutil_socket_t fd, short event, void *arg)
       return;
     }
 
-  DPRINTF(E_INFO, L_PLAYER, "Autostarting pipe '%s' (fd %d)\n", pipe->path, fd);
+  DPRINTF(E_LOG, L_PLAYER, "Autostarting pipe '%s' (fd %d)\n", pipe->path, fd);
 
   player_playback_stop();
 
@@ -929,6 +1014,8 @@ init(void)
   pipe_autostart = cfg_getbool(cfg_getsec(cfg, "library"), "pipe_autostart");
   if (pipe_autostart)
     CHECK_ERR(L_PLAYER, listener_add(pipe_listener_cb, LISTENER_DATABASE));
+
+  pipe_has_remaining_id = -1;
 
   return 0;
 }
