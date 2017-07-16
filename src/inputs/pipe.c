@@ -112,6 +112,7 @@ static struct pipe *pipe_metadata;
 static struct evbuffer *pipe_metadata_buf;
 // Parsed metadata goes here
 static struct input_metadata pipe_metadata_parsed;
+static struct input_metadata pipe_metadata_retained;
 // Mutex to share the parsed metadata
 static pthread_mutex_t pipe_metadata_lock;
 // True if there is new metadata to push to the player
@@ -389,8 +390,29 @@ parse_volume(const char *volume)
     DPRINTF(E_LOG, L_PLAYER, "Shairport airplay volume out of range (-144.0, [-30.0 - 0.0]): %.2f\n", airplay_volume);
 }
 
+static void
+populate_metadata_from_retained()
+{
+    pthread_mutex_lock(&pipe_metadata_lock);
+
+    input_metadata_free(&pipe_metadata_parsed, 1);
+
+    if (pipe_metadata_retained.album)
+      pipe_metadata_parsed.album = strdup(pipe_metadata_retained.album);
+    if (pipe_metadata_retained.artist)
+      pipe_metadata_parsed.artist = strdup(pipe_metadata_retained.artist);
+    if (pipe_metadata_retained.title)
+      pipe_metadata_parsed.title = strdup(pipe_metadata_retained.title);
+    if (pipe_metadata_retained.genre)
+      pipe_metadata_parsed.genre = strdup(pipe_metadata_retained.genre);
+    if (pipe_metadata_retained.artwork_url)
+      pipe_metadata_parsed.artwork_url = strdup(pipe_metadata_retained.artwork_url);
+
+    pthread_mutex_unlock(&pipe_metadata_lock);
+}
+
 static int
-pipe_stop_autostarted(void)
+process_stop_autostarted(void)
 {
   uint32_t playing_id;
 
@@ -399,15 +421,37 @@ pipe_stop_autostarted(void)
 
   if (pipe_autostart_id == playing_id)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Shairport stop: Stopping autostarted pipe.\n");
+      DPRINTF(E_DBG, L_PLAYER, "Shairport stop: Stopping autostarted pipe\n");
       player_playback_stop();
       return 1;
     }
   else
     {
-      DPRINTF(E_DBG, L_PLAYER, "Shairport stop: Ignoring as pipe was not autostarted.\n");
+      DPRINTF(E_DBG, L_PLAYER, "Shairport stop: Ignoring as pipe was not autostarted\n");
       return 0;
     }
+}
+
+static void
+process_stop_request(int flush_only, int *retval)
+{
+  DPRINTF(E_DBG, L_PLAYER, "Shairport %s received in pipe metadata\n", (flush_only ? "flush" : "stop"));
+
+  pipe_has_remaining_id = pipe_autostart_id;
+
+  if (process_stop_autostarted())
+    {
+      // Setting "ret=-1" to instruct the caller to stop processing metadata.
+      // Accessing the buffers is a segfault after playback has stopped.
+      *retval = -1;
+
+      // Restoring metadata from retained metadata on a flush as Shairport will
+      // not resend it on seek/rewind within the same title.
+      if (flush_only)
+	populate_metadata_from_retained();
+    }
+  else
+    pipe_has_remaining_id = -1;
 }
 
 // returns 1 on metadata found, 0 on nothing, -1 on error
@@ -423,6 +467,8 @@ parse_item(struct input_metadata *m, const char *item)
   char *progress;
   char *volume;
   char **data;
+  char **retained_data;
+  bool capture_retained_data;
   int ret;
 
   ret = 0;
@@ -455,36 +501,49 @@ parse_item(struct input_metadata *m, const char *item)
       goto out_error;
     }
 
+  capture_retained_data = false;
+
   if (code == dmapval("asal"))
-    data = &m->album;
+    {
+      data = &m->album;
+      retained_data = &pipe_metadata_retained.album;
+      capture_retained_data = true;
+    }
   else if (code == dmapval("asar"))
-    data = &m->artist;
+    {
+      data = &m->artist;
+      retained_data = &pipe_metadata_retained.artist;
+      capture_retained_data = true;
+    }
   else if (code == dmapval("minm"))
-    data = &m->title;
+    {
+      data = &m->title;
+      retained_data = &pipe_metadata_retained.title;
+      capture_retained_data = true;
+    }
   else if (code == dmapval("asgn"))
-    data = &m->genre;
+    {
+      data = &m->genre;
+      retained_data = &pipe_metadata_retained.genre;
+      capture_retained_data = true;
+    }
   else if (code == dmapval("prgr"))
     data = &progress;
   else if (code == dmapval("pvol"))
     data = &volume;
-  else if (code == dmapval("pend") || code == dmapval("pfls"))
+  else if (code == dmapval("pfls"))
     {
-      DPRINTF(E_DBG, L_PLAYER, "Stop/flush received in pipe metadata (type=%8x, code=%8x)\n", type, code);
-
-      // Setting "ret=-1" to instruct the caller to stop processing metadata.
-      // Accessing the buffers is a segfault after playback has stopped.
-
-      pipe_has_remaining_id = pipe_autostart_id;
-
-      if (pipe_stop_autostarted())
-	ret = -1;
-	  else
-	pipe_has_remaining_id = -1;
-
+      process_stop_request(1, &ret);
+      goto out_nothing;
+    }
+  else if (code == dmapval("pend"))
+    {
+      process_stop_request(0, &ret);
       goto out_nothing;
     }
   else
     goto out_nothing;
+
 
   if ( (needle = mxmlFindElement(haystack, haystack, "data", NULL, NULL, MXML_DESCEND)) &&
        (s = mxmlGetText(needle, NULL)) )
@@ -495,6 +554,12 @@ parse_item(struct input_metadata *m, const char *item)
 	free(*data);
 
       *data = b64_decode(s);
+
+      if (capture_retained_data)
+	{
+	  free(*retained_data);
+	  *retained_data = strdup(*data);
+	}
 
       DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x): '%s'\n", type, code, *data);
 
@@ -593,7 +658,7 @@ pipe_read_cb(evutil_socket_t fd, short event, void *arg)
       return;
     }
 
-  DPRINTF(E_LOG, L_PLAYER, "Autostarting pipe '%s' (fd %d)\n", pipe->path, fd);
+  DPRINTF(E_INFO, L_PLAYER, "Autostarting pipe '%s' (fd %d)\n", pipe->path, fd);
 
   player_playback_stop();
 
@@ -1017,6 +1082,8 @@ init(void)
 
   pipe_has_remaining_id = -1;
 
+  input_metadata_free(&pipe_metadata_retained, 1);
+
   return 0;
 }
 
@@ -1028,6 +1095,8 @@ deinit(void)
       listener_remove(pipe_listener_cb);
       pipe_thread_stop();
     }
+
+  input_metadata_free(&pipe_metadata_retained, 1);
 
   CHECK_ERR(L_PLAYER, pthread_mutex_destroy(&pipe_metadata_lock));
 }
