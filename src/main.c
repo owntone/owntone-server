@@ -46,7 +46,9 @@
 
 #include <getopt.h>
 #include <event2/event.h>
-#include <event2/thread.h>
+#ifdef HAVE_LIBEVENT_PTHREADS
+# include <event2/thread.h>
+#endif
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
@@ -689,7 +691,7 @@ main(int argc, char **argv)
   /* Initialize event base (after forking) */
   CHECK_NULL(L_MAIN, evbase_main = event_base_new());
 
-#ifdef SPOTIFY
+#ifdef HAVE_LIBEVENT_PTHREADS
   CHECK_ERR(L_MAIN, evthread_use_pthreads());
 #endif
 
