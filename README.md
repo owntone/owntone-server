@@ -96,6 +96,9 @@ controllers/remotes (e.g. Retune), but some do not require pairing.
 
 ### Pairing with Remote on iPod/iPhone
 
+NOTE: These are the instructions for the current version of forked-daapd - for
+versions 24.2 and earlier see [here](https://github.com/ejurgensen/forked-daapd/blob/24.2/README.md#using-remote)
+
 If you just started forked-daapd for the first time, then wait til the library
 scan completes before pairing with Remote (see [library](#library)). Otherwise
 you risk timeouts. Then do the following.
