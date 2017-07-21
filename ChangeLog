@@ -1,6 +1,27 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 25.0:
+	- improved playback resilience
+	- substitute packet skipping (producing audio "clicks") with start/stop
+	- support for MacOSX with macports and Bonjour mDNS
+	- Airplay device verification for Apple TV 4 w/tvOS 10.2 (uses libsodium)
+	- support for Spotify web api (saved tracks/albums + Discover Weekly)
+	- automatic playback of pipes + support for Shairport metadata pipes
+	- added pipe audio output (fifo)
+	- persistent queues (queue remains across server restart)
+	- support for browser based clients
+	- mpd sendmessage: set individual speaker volume, remote pairing
+	- mpd add http://path-to-radiostream (i.e. add non-library items)
+	- new options, e.g. exclude speakers from list
+	- fix for shuffle mode
+	- fix broken PNG artwork rescaling
+	- use friendly Chromecast name in speaker list
+	- support for libav/ffmpeg dual installs
+	- refactoring - added the input and library interface
+	- performance improvements
+	- and other fixing up...
+
 version 24.2:
 	- Pulseaudio support (can be used for Bluetooth speakers)
 	- new pipe/"fifo" audio output
