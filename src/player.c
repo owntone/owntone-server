@@ -1098,7 +1098,7 @@ playback_cb(int fd, short what, void *arg)
     }
   else
     {
-      if (overrun > 0)
+      if (overrun > 1) // An overrun of 1 is no big deal
 	DPRINTF(E_WARN, L_PLAYER, "Output delay detected: player is %" PRIu64 " ticks behind, catching up\n", overrun);
 
       pb_write_recovery = false;
