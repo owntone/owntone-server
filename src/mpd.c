@@ -607,6 +607,10 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	    {
 	      client->events |= LISTENER_DATABASE;
 	    }
+	  else if (0 == strcmp(argv[i], "update"))
+	    {
+	      client->events |= LISTENER_UPDATE;
+	    }
 	  else if (0 == strcmp(argv[i], "player"))
 	    {
 	      client->events |= LISTENER_PLAYER;
@@ -638,7 +642,7 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	}
     }
   else
-    client->events = LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS;
+    client->events = LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST;
 
   idle_clients = client;
 
