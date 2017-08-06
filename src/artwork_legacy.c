@@ -456,11 +456,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
   dst->codec_id = dst_fmt->video_codec;
   dst->codec_type = AVMEDIA_TYPE_VIDEO;
 
-  if (dst_fmt->video_codec == AV_CODEC_ID_PNG)
-    dst->pix_fmt = AV_PIX_FMT_RGB24;
-  else
-    dst->pix_fmt = avcodec_find_best_pix_fmt_of_list((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
-
+  dst->pix_fmt = avcodec_default_get_format(dst, img_encoder->pix_fmts);
   if (dst->pix_fmt < 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not determine best pixel format\n");
@@ -513,6 +509,10 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
 #else
   avpicture_fill((AVPicture *)o_frame, buf, dst->pix_fmt, src->width, src->height);
 #endif
+
+  o_frame->height = dst->height;
+  o_frame->width  = dst->width;
+  o_frame->format = dst->pix_fmt;
 
   swsctx = sws_getContext(src->width, src->height, src->pix_fmt,
 			  dst->width, dst->height, dst->pix_fmt,
