@@ -179,9 +179,9 @@ logger_ffmpeg(void *ptr, int level, const char *fmt, va_list ap)
   else if (level <= AV_LOG_WARNING)
     severity = E_WARN;
   else if (level <= AV_LOG_VERBOSE)
-    severity = E_INFO;
-  else if (level <= AV_LOG_DEBUG)
     severity = E_DBG;
+  else if (level <= AV_LOG_DEBUG)
+    severity = E_SPAM;
   else
     severity = E_SPAM;
 
