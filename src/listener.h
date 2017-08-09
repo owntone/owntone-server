@@ -16,6 +16,8 @@ enum listener_event_type
   LISTENER_OPTIONS   = (1 << 4),
   /* The library has been modified */
   LISTENER_DATABASE  = (1 << 5),
+  /* A stored playlist has been modified (create, delete, add, rename) */
+  LISTENER_STORED_PLAYLIST = (1 << 6),
 };
 
 typedef void (*notify)(enum listener_event_type type);

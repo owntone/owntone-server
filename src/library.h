@@ -70,6 +70,21 @@ struct library_source
    * Scans metadata for the media file with the given path into the given mfi
    */
   int (*scan_metadata)(const char *path, struct media_file_info *mfi);
+
+  /*
+   * Save queue as a new playlist under the given virtual path
+   */
+  int (*playlist_add)(const char *vp_playlist, const char *vp_item);
+
+  /*
+   * Removes the playlist under the given virtual path
+   */
+  int (*playlist_remove)(const char *virtual_path);
+
+  /*
+   * Save queue as a new playlist under the given virtual path
+   */
+  int (*queue_save)(const char *virtual_path);
 };
 
 
@@ -102,6 +117,15 @@ library_is_exiting();
 
 void
 library_update_trigger(void);
+
+int
+library_playlist_add(const char *vp_playlist, const char *vp_item);
+
+int
+library_playlist_remove(char *virtual_path);
+
+int
+library_queue_save(char *path);
 
 int
 library_exec_async(command_function func, void *arg);

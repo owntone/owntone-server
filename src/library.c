@@ -47,6 +47,12 @@
 #include "listener.h"
 #include "player.h"
 
+struct playlist_add_param
+{
+  const char *vp_playlist;
+  const char *vp_item;
+};
+
 static struct commands_base *cmdbase;
 static pthread_t tid_library;
 
@@ -723,6 +729,134 @@ library_update_trigger(void)
     return;
 
   commands_exec_async(cmdbase, update_trigger, NULL);
+}
+
+static enum command_state
+playlist_add(void *arg, int *retval)
+{
+  struct playlist_add_param *param = arg;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  DPRINTF(E_DBG, L_LIB, "Adding item '%s' to playlist '%s'\n", param->vp_item, param->vp_playlist);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->playlist_add)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support playlist_add\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->playlist_add(param->vp_playlist, param->vp_item);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Adding item '%s' to playlist '%s' with library source '%s'\n", param->vp_item, param->vp_playlist, sources[i]->name);
+	  listener_notify(LISTENER_STORED_PLAYLIST);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+int
+library_playlist_add(const char *vp_playlist, const char *vp_item)
+{
+  struct playlist_add_param param;
+
+  if (library_is_scanning())
+    return -1;
+
+  param.vp_playlist = vp_playlist;
+  param.vp_item = vp_item;
+  return commands_exec_sync(cmdbase, playlist_add, NULL, &param);
+}
+
+static enum command_state
+playlist_remove(void *arg, int *retval)
+{
+  const char *virtual_path;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  virtual_path = arg;
+
+  DPRINTF(E_DBG, L_LIB, "Removing playlist at path '%s'\n", virtual_path);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->playlist_remove)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support playlist_remove\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->playlist_remove(virtual_path);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Removing playlist '%s' with library source '%s'\n", virtual_path, sources[i]->name);
+	  listener_notify(LISTENER_STORED_PLAYLIST);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+int
+library_playlist_remove(char *virtual_path)
+{
+  if (library_is_scanning())
+    return -1;
+
+  return commands_exec_sync(cmdbase, playlist_remove, NULL, virtual_path);
+}
+
+static enum command_state
+queue_save(void *arg, int *retval)
+{
+  const char *virtual_path;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  virtual_path = arg;
+
+  DPRINTF(E_DBG, L_LIB, "Saving queue to path '%s'\n", virtual_path);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->queue_save)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support queue_save\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->queue_save(virtual_path);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Saving queue to path '%s' with library source '%s'\n", virtual_path, sources[i]->name);
+	  listener_notify(LISTENER_STORED_PLAYLIST);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+int
+library_queue_save(char *path)
+{
+  if (library_is_scanning())
+    return -1;
+
+  return commands_exec_sync(cmdbase, queue_save, NULL, path);
 }
 
 /*
