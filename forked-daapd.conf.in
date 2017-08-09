@@ -264,6 +264,11 @@ mpd {
 	# the playlist like MPD does. Note that some dacp clients do not show
 	# the playqueue if playback is stopped.
 #	clear_queue_on_stop_disable = false
+
+	# A directory in one of the library directories that will be used as the default
+	# playlist directory. forked-dapd creates new playlists in this directory if only
+	# a playlist name is provided by the mpd client.
+#	default_playlist_directory = ""
 }
 
 # SQLite configuration (allows to modify the operation of the SQLite databases)
