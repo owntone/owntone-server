@@ -177,6 +177,20 @@ filename_from_path(const char *path)
   return filename;
 }
 
+char *
+strip_extension(const char *path)
+{
+  char *ptr;
+  char *result;
+
+  result = strdup(path);
+  ptr = strrchr(result, '.');
+  if (ptr)
+    *ptr = '\0';
+
+  return result;
+}
+
 static int
 push_dir(struct stacked_dir **s, char *path, int parent_id)
 {
@@ -1601,6 +1615,325 @@ scan_metadata(const char *path, struct media_file_info *mfi)
   return LIBRARY_PATH_INVALID;
 }
 
+static const char *
+virtual_path_to_path(const char *virtual_path)
+{
+  if (strstr(virtual_path, "/../"))
+    return NULL;
+
+  if (strncmp(virtual_path, "/file:", strlen("/file:")) == 0)
+    return virtual_path + strlen("/file:");
+
+  if (strncmp(virtual_path, "file:", strlen("file:")) == 0)
+    return virtual_path + strlen("file:");
+
+  return NULL;
+}
+
+static bool
+check_path_in_directories(const char *path)
+{
+  cfg_t *lib;
+  int ndirs;
+  int i;
+  const char *dir_path;
+
+  lib = cfg_getsec(cfg, "library");
+  ndirs = cfg_size(lib, "directories");
+  for (i = 0; i < ndirs; i++)
+    {
+      dir_path = cfg_getnstr(lib, "directories", i);
+      if (strncmp(path, dir_path, strlen(dir_path)) == 0)
+	return true;
+    }
+
+  return false;
+}
+
+/*
+ * Checks if the given virtual path for a playlist is a valid path for an m3u playlist file in one
+ * of the configured library directories and translates it to real path.
+ *
+ * Returns NULL on error and a new allocated path on success.
+ */
+static char *
+get_playlist_path(const char *vp_playlist)
+{
+  const char *path;
+  char *pl_path;
+  struct playlist_info *pli;
+
+  path = virtual_path_to_path(vp_playlist);
+  if (!path)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Unsupported virtual path '%s'\n", vp_playlist);
+      return NULL;
+    }
+
+  if (!check_path_in_directories(path))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Path '%s' is not a virtual path for a configured (local) library directory.\n", vp_playlist);
+      return NULL;
+    }
+
+  pli = db_pl_fetch_byvirtualpath(vp_playlist);
+  if (pli && pli->type != PL_PLAIN)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Playlist with virtual path '%s' already exists and is not a plain playlist.\n", vp_playlist);
+      free_pli(pli, 0);
+      return NULL;
+    }
+  free_pli(pli, 0);
+
+  pl_path = safe_asprintf("%s.m3u", path);
+
+  return pl_path;
+}
+
+static int
+get_playlist_id(const char *pl_path, const char *vp_playlist)
+{
+  const char *filename;
+  char *title;
+  int dir_id;
+  int pl_id;
+
+  pl_id = db_pl_id_bypath(pl_path);
+  if (pl_id < 0)
+    {
+      dir_id = get_parent_dir_id(pl_path);
+      filename = filename_from_path(pl_path);
+      title = strip_extension(filename);
+      pl_id = library_add_playlist_info(pl_path, title, vp_playlist, PL_PLAIN, 0, dir_id);
+      free(title);
+    }
+
+  return pl_id;
+}
+
+static int
+playlist_add_path(FILE *fp, int pl_id, const char *path)
+{
+  int ret;
+
+  ret = fprintf(fp, "%s\n", path);
+  if (ret >= 0)
+    {
+      ret = db_pl_add_item_bypath(pl_id, path);
+    }
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Failed to add path '%s' to playlist (id = %d)\n", path, pl_id);
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
+{
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
+  uint32_t data_kind;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_ITEMS;
+  qp.sort = S_ARTIST;
+  qp.idx_type = I_NONE;
+  qp.filter = sqlite3_mprintf("(f.virtual_path = %Q OR f.virtual_path LIKE '%q/%%')", virtual_path, virtual_path);
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      return -1;
+    }
+
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      if ((safe_atou32(dbmfi.data_kind, &data_kind) < 0)
+	  || (data_kind == DATA_KIND_PIPE))
+	{
+	  DPRINTF(E_WARN, L_SCAN, "Item '%s' not added to playlist (id = %d), unsupported data kind\n", dbmfi.path, pl_id);
+	  continue;
+	}
+
+      ret = playlist_add_path(fp, pl_id, dbmfi.path);
+      if (ret < 0)
+	break;
+
+      DPRINTF(E_DBG, L_SCAN, "Item '%s' added to playlist (id = %d)\n", dbmfi.path, pl_id);
+    }
+
+  db_query_end(&qp);
+
+  return ret;
+}
+
+static int
+playlist_add(const char *vp_playlist, const char *vp_item)
+{
+  char *pl_path;
+  FILE *fp;
+  int pl_id;
+  int ret;
+
+  pl_path = get_playlist_path(vp_playlist);
+  if (!pl_path)
+    return LIBRARY_PATH_INVALID;
+
+  fp = fopen(pl_path, "a");
+  if (!fp)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error opening file '%s' for writing: %d\n", pl_path, errno);
+      free(pl_path);
+      return LIBRARY_ERROR;
+    }
+
+  pl_id = get_playlist_id(pl_path, vp_playlist);
+  free(pl_path);
+  if (pl_id < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not get playlist id for %s\n", vp_playlist);
+      fclose(fp);
+      return LIBRARY_ERROR;
+    }
+
+  ret = playlist_add_files(fp, pl_id, vp_item);
+  fclose(fp);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not add %s to playlist\n", vp_item);
+      return LIBRARY_ERROR;
+    }
+
+  db_pl_ping(pl_id);
+
+  return LIBRARY_OK;
+}
+
+static int
+playlist_remove(const char *vp_playlist)
+{
+  const char *path;
+  char *pl_path;
+  struct playlist_info *pli;
+  int pl_id;
+  int ret;
+
+  path = virtual_path_to_path(vp_playlist);
+  if (!path)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Unsupported virtual path '%s'\n", vp_playlist);
+      return LIBRARY_PATH_INVALID;
+    }
+
+  if (!check_path_in_directories(path))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Path '%s' is not a virtual path for a configured (local) library directory.\n", vp_playlist);
+      return LIBRARY_ERROR;
+    }
+
+  pli = db_pl_fetch_byvirtualpath(vp_playlist);
+  if (!pli || pli->type != PL_PLAIN)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Playlist with virtual path '%s' does not exist or is not a plain playlist.\n", vp_playlist);
+      free_pli(pli, 0);
+      return LIBRARY_ERROR;
+    }
+  pl_id = pli->id;
+  free_pli(pli, 0);
+
+  pl_path = safe_asprintf("%s.m3u", path);
+  ret = unlink(pl_path);
+  free(pl_path);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not remove playlist \"%s\": %d\n", vp_playlist, errno);
+      return LIBRARY_ERROR;
+    }
+
+  db_pl_delete(pl_id);
+  return LIBRARY_OK;
+}
+
+static int
+queue_save(const char *virtual_path)
+{
+  char *pl_path;
+  FILE *fp;
+  struct query_params query_params;
+  struct db_queue_item queue_item;
+  int pl_id;
+  int ret;
+
+  pl_path = get_playlist_path(virtual_path);
+  if (!pl_path)
+    return LIBRARY_PATH_INVALID;
+
+  fp = fopen(pl_path, "a");
+  if (!fp)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error opening file '%s' for writing: %d\n", pl_path, errno);
+      free(pl_path);
+      return LIBRARY_ERROR;
+    }
+
+  pl_id = get_playlist_id(pl_path, virtual_path);
+  free(pl_path);
+  if (pl_id < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not get playlist id for %s\n", virtual_path);
+      fclose(fp);
+      return LIBRARY_ERROR;
+    }
+
+  memset(&query_params, 0, sizeof(struct query_params));
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Failed to start queue enum\n");
+      fclose(fp);
+      return LIBRARY_ERROR;
+    }
+
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+    {
+      if (queue_item.data_kind == DATA_KIND_PIPE)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Unsupported data kind for playlist file '%s' ignoring item '%s'\n", virtual_path, queue_item.path);
+	  continue;
+	}
+
+      ret = fprintf(fp, "%s\n", queue_item.path);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Failed to write path '%s' to file '%s'\n", queue_item.path, virtual_path);
+	  break;
+	}
+
+      ret = db_pl_add_item_bypath(pl_id, queue_item.path);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", queue_item.path);
+      else
+	DPRINTF(E_DBG, L_SCAN, "Item '%s' added to playlist (id = %d)\n", queue_item.path, pl_id);
+    }
+
+  db_queue_enum_end(&query_params);
+  fclose(fp);
+
+  db_pl_ping(pl_id);
+
+  if (ret < 0)
+    return LIBRARY_ERROR;
+
+  return LIBRARY_OK;
+}
+
 /* Thread: main */
 static int
 filescanner_init(void)
@@ -1634,4 +1967,7 @@ struct library_source filescanner =
   .rescan = filescanner_rescan,
   .fullrescan = filescanner_fullrescan,
   .scan_metadata = scan_metadata,
+  .playlist_add = playlist_add,
+  .playlist_remove = playlist_remove,
+  .queue_save = queue_save,
 };

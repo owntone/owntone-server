@@ -256,22 +256,11 @@ scan_playlist(char *file, time_t mtime, int dir_id)
       pli->type = PL_PLAIN;
 
       /* Get only the basename, to be used as the playlist title */
-      ptr = strrchr(filename, '.');
-      if (ptr)
-	*ptr = '\0';
-
-      pli->title = strdup(filename);
-
-      /* Restore the full filename */
-      if (ptr)
-	*ptr = '.';
+      pli->title = strip_extension(filename);
 
       pli->path = strdup(file);
       snprintf(virtual_path, PATH_MAX, "/file:%s", file);
-      ptr = strrchr(virtual_path, '.');
-      if (ptr)
-	*ptr = '\0';
-      pli->virtual_path = strdup(virtual_path);
+      pli->virtual_path = strip_extension(virtual_path);
 
       pli->directory_id = dir_id;
 
