@@ -1618,9 +1618,6 @@ scan_metadata(const char *path, struct media_file_info *mfi)
 static const char *
 virtual_path_to_path(const char *virtual_path)
 {
-  if (strstr(virtual_path, "/../"))
-    return NULL;
-
   if (strncmp(virtual_path, "/file:", strlen("/file:")) == 0)
     return virtual_path + strlen("/file:");
 
@@ -1636,18 +1633,43 @@ check_path_in_directories(const char *path)
   cfg_t *lib;
   int ndirs;
   int i;
-  const char *dir_path;
+  char *tmp_path;
+  char *dir;
+  const char *lib_dir;
+  bool ret;
 
+  if (strstr(path, "/../"))
+    return NULL;
+
+  tmp_path = strdup(path);
+  dir = dirname(tmp_path);
+  if (!dir)
+    {
+      free(tmp_path);
+      return false;
+    }
+
+  ret = false;
   lib = cfg_getsec(cfg, "library");
   ndirs = cfg_size(lib, "directories");
   for (i = 0; i < ndirs; i++)
     {
-      dir_path = cfg_getnstr(lib, "directories", i);
-      if (strncmp(path, dir_path, strlen(dir_path)) == 0)
-	return true;
+      lib_dir = cfg_getnstr(lib, "directories", i);
+      if (strncmp(dir, lib_dir, strlen(lib_dir)) == 0)
+	{
+	  ret = true;
+	  break;
+	}
     }
 
-  return false;
+  free(tmp_path);
+  return ret;
+}
+
+static bool
+has_suffix(const char *file, const char *suffix)
+{
+  return (strlen(file) > 4 && !strcmp(file + strlen(file) - 4, suffix));
 }
 
 /*
@@ -1670,22 +1692,24 @@ get_playlist_path(const char *vp_playlist)
       return NULL;
     }
 
-  if (!check_path_in_directories(path))
+  pl_path = safe_asprintf("%s.m3u", path);
+
+  if (!check_path_in_directories(pl_path))
     {
-      DPRINTF(E_LOG, L_SCAN, "Path '%s' is not a virtual path for a configured (local) library directory.\n", vp_playlist);
+      DPRINTF(E_LOG, L_SCAN, "Path '%s' is not a virtual path for a configured (local) library directory.\n", pl_path);
+      free(pl_path);
       return NULL;
     }
 
   pli = db_pl_fetch_byvirtualpath(vp_playlist);
-  if (pli && pli->type != PL_PLAIN)
+  if (pli && (pli->type != PL_PLAIN || !has_suffix(pli->path, ".m3u")))
     {
-      DPRINTF(E_LOG, L_SCAN, "Playlist with virtual path '%s' already exists and is not a plain playlist.\n", vp_playlist);
+      DPRINTF(E_LOG, L_SCAN, "Playlist with virtual path '%s' already exists and is not a m3u playlist.\n", vp_playlist);
       free_pli(pli, 0);
+      free(pl_path);
       return NULL;
     }
   free_pli(pli, 0);
-
-  pl_path = safe_asprintf("%s.m3u", path);
 
   return pl_path;
 }
@@ -1819,23 +1843,16 @@ playlist_add(const char *vp_playlist, const char *vp_item)
 static int
 playlist_remove(const char *vp_playlist)
 {
-  const char *path;
   char *pl_path;
   struct playlist_info *pli;
   int pl_id;
   int ret;
 
-  path = virtual_path_to_path(vp_playlist);
-  if (!path)
+  pl_path = get_playlist_path(vp_playlist);
+  if (!pl_path)
     {
       DPRINTF(E_LOG, L_SCAN, "Unsupported virtual path '%s'\n", vp_playlist);
       return LIBRARY_PATH_INVALID;
-    }
-
-  if (!check_path_in_directories(path))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Path '%s' is not a virtual path for a configured (local) library directory.\n", vp_playlist);
-      return LIBRARY_ERROR;
     }
 
   pli = db_pl_fetch_byvirtualpath(vp_playlist);
@@ -1843,12 +1860,12 @@ playlist_remove(const char *vp_playlist)
     {
       DPRINTF(E_LOG, L_SCAN, "Playlist with virtual path '%s' does not exist or is not a plain playlist.\n", vp_playlist);
       free_pli(pli, 0);
+      free(pl_path);
       return LIBRARY_ERROR;
     }
   pl_id = pli->id;
   free_pli(pli, 0);
 
-  pl_path = safe_asprintf("%s.m3u", path);
   ret = unlink(pl_path);
   free(pl_path);
   if (ret < 0)
