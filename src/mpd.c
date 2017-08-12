@@ -807,25 +807,12 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   memset(&qp, 0, sizeof(struct query_params));
   qp.type = Q_COUNT_ITEMS;
 
-  ret = db_query_start(&qp);
+  ret = db_filecount_get(&fci, &qp);
   if (ret < 0)
     {
-      db_query_end(&qp);
-
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
-
-  ret = db_query_fetch_count(&qp, &fci);
-  if (ret < 0)
-    {
-      db_query_end(&qp);
-
-      *errmsg = safe_asprintf("Could not fetch query count");
-      return ACK_ERROR_UNKNOWN;
-    }
-
-  db_query_end(&qp);
 
   artists = db_files_get_artist_count();
   albums = db_files_get_album_count();
@@ -2457,28 +2444,15 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   memset(&qp, 0, sizeof(struct query_params));
-
   qp.type = Q_COUNT_ITEMS;
-
   mpd_get_query_params_find(argc - 1, argv + 1, &qp);
 
-  ret = db_query_start(&qp);
+  ret = db_filecount_get(&fci, &qp);
   if (ret < 0)
     {
-      db_query_end(&qp);
       sqlite3_free(qp.filter);
 
       *errmsg = safe_asprintf("Could not start query");
-      return ACK_ERROR_UNKNOWN;
-    }
-
-  ret = db_query_fetch_count(&qp, &fci);
-  if (ret < 0)
-    {
-      db_query_end(&qp);
-      sqlite3_free(qp.filter);
-
-      *errmsg = safe_asprintf("Could not fetch query count");
       return ACK_ERROR_UNKNOWN;
     }
 

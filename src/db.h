@@ -562,6 +562,9 @@ db_file_enable_bycookie(uint32_t cookie, char *path);
 int
 db_file_update_directoryid(char *path, int dir_id);
 
+int
+db_filecount_get(struct filecount_info *fci, struct query_params *qp);
+
 /* Playlists */
 int
 db_pl_get_count(void);
