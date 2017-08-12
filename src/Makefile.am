@@ -43,6 +43,10 @@ else
 MDNS_SRC=mdns_dnssd.c
 endif
 
+if COND_WEBSOCKET
+WEBSOCKET_SRC=websocket.c websocket.h
+endif
+
 if COND_FFMPEG_LEGACY
 FFMPEG_SRC=transcode_legacy.c artwork_legacy.c ffmpeg-compat.h
 else
@@ -133,8 +137,9 @@ forked_daapd_SOURCES = main.c \
 	listener.c listener.h \
 	commands.c commands.h \
 	mxml-compat.h \
+	$(WEBSOCKET_SRC) \
 	$(GPERF_SRC) \
-	$(ANTLR_SRC)
+	$(ANTLR_SRC) 
 
 # built by maintainers, and distributed. Clean with maintainer-clean
 BUILT_SOURCES = \
