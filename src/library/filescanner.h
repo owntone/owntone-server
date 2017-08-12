@@ -23,4 +23,7 @@ scan_itunes_itml(char *file);
 const char *
 filename_from_path(const char *path);
 
+char *
+strip_extension(const char *path);
+
 #endif /* !__FILESCANNER_H__ */

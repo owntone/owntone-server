@@ -536,7 +536,7 @@ struct media_file_info *
 db_file_fetch_byid(int id);
 
 struct media_file_info *
-db_file_fetch_byvirtualpath(char *path);
+db_file_fetch_byvirtualpath(const char *path);
 
 int
 db_file_add(struct media_file_info *mfi);
@@ -572,11 +572,14 @@ db_pl_ping(int id);
 void
 db_pl_ping_bymatch(char *path, int isdir);
 
+int
+db_pl_id_bypath(const char *path);
+
 struct playlist_info *
 db_pl_fetch_bypath(const char *path);
 
 struct playlist_info *
-db_pl_fetch_byvirtualpath(char *virtual_path);
+db_pl_fetch_byvirtualpath(const char *virtual_path);
 
 struct playlist_info *
 db_pl_fetch_bytitlepath(char *title, char *path);

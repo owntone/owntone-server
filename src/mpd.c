@@ -70,6 +70,9 @@ static struct evhttp *evhttpd;
 
 struct evconnlistener *listener;
 
+// Virtual path to the default playlist directory
+static char *default_pl_dir;
+static bool allow_modifying_stored_playlists;
 
 #define COMMAND_ARGV_MAX 37
 
@@ -184,6 +187,26 @@ struct idle_client
 
 struct idle_client *idle_clients;
 
+
+/*
+ * Creates a new string for the given path that starts with a '/'.
+ * If 'path' already starts with a '/' the returned string is a duplicate
+ * of 'path'.
+ *
+ * The returned string needs to be freed by the caller.
+ */
+static char *
+prepend_slash(const char *path)
+{
+  char *result;
+
+  if (path[0] == '/')
+    result = strdup(path);
+  else
+    result = safe_asprintf("/%s", path);
+
+  return result;
+}
 
 
 /* Thread: mpd */
@@ -603,6 +626,10 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  else if (0 == strcmp(argv[i], "options"))
 	    {
 	      client->events |= LISTENER_OPTIONS;
+	    }
+	  else if (0 == strcmp(argv[i], "stored_playlist"))
+	    {
+	      client->events |= LISTENER_STORED_PLAYLIST;
 	    }
 	  else
 	    {
@@ -2167,6 +2194,130 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     {
       *errmsg = safe_asprintf("Failed to add song '%s' to playlist", argv[1]);
       return ACK_ERROR_UNKNOWN;
+    }
+
+  return 0;
+}
+
+static int
+mpd_command_playlistadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  char *vp_playlist;
+  char *vp_item;
+  int ret;
+
+  if (!allow_modifying_stored_playlists)
+    {
+      *errmsg = safe_asprintf("Modifying stored playlists is not enabled");
+      return ACK_ERROR_PERMISSION;
+    }
+
+  if (argc < 3)
+    {
+      *errmsg = safe_asprintf("Missing argument for command 'playlistadd'");
+      return ACK_ERROR_ARG;
+    }
+
+  if (!default_pl_dir || strstr(argv[1], ":/"))
+    {
+      // Argument is a virtual path, make sure it starts with a '/'
+      vp_playlist = prepend_slash(argv[1]);
+    }
+  else
+    {
+      // Argument is a playlist name, prepend default playlist directory
+      vp_playlist = safe_asprintf("%s/%s", default_pl_dir, argv[1]);
+    }
+
+  vp_item = prepend_slash(argv[2]);
+
+  ret = library_playlist_add(vp_playlist, vp_item);
+  free(vp_playlist);
+  free(vp_item);
+  if (ret < 0)
+    {
+      *errmsg = safe_asprintf("Error saving queue to file '%s'", argv[1]);
+      return ACK_ERROR_ARG;
+    }
+
+  return 0;
+}
+
+static int
+mpd_command_rm(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  char *virtual_path;
+  int ret;
+
+  if (!allow_modifying_stored_playlists)
+    {
+      *errmsg = safe_asprintf("Modifying stored playlists is not enabled");
+      return ACK_ERROR_PERMISSION;
+    }
+
+  if (argc < 2)
+    {
+      *errmsg = safe_asprintf("Missing argument for command 'rm'");
+      return ACK_ERROR_ARG;
+    }
+
+  if (!default_pl_dir || strstr(argv[1], ":/"))
+    {
+      // Argument is a virtual path, make sure it starts with a '/'
+      virtual_path = prepend_slash(argv[1]);
+    }
+  else
+    {
+      // Argument is a playlist name, prepend default playlist directory
+      virtual_path = safe_asprintf("%s/%s", default_pl_dir, argv[1]);
+    }
+
+  ret = library_playlist_remove(virtual_path);
+  free(virtual_path);
+  if (ret < 0)
+    {
+      *errmsg = safe_asprintf("Error removing playlist '%s'", argv[1]);
+      return ACK_ERROR_ARG;
+    }
+
+  return 0;
+}
+
+static int
+mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  char *virtual_path;
+  int ret;
+
+  if (!allow_modifying_stored_playlists)
+    {
+      *errmsg = safe_asprintf("Modifying stored playlists is not enabled");
+      return ACK_ERROR_PERMISSION;
+    }
+
+  if (argc < 2)
+    {
+      *errmsg = safe_asprintf("Missing argument for command 'save'");
+      return ACK_ERROR_ARG;
+    }
+
+  if (!default_pl_dir || strstr(argv[1], ":/"))
+    {
+      // Argument is a virtual path, make sure it starts with a '/'
+      virtual_path = prepend_slash(argv[1]);
+    }
+  else
+    {
+      // Argument is a playlist name, prepend default playlist directory
+      virtual_path = safe_asprintf("%s/%s", default_pl_dir, argv[1]);
+    }
+
+  ret = library_queue_save(virtual_path);
+  free(virtual_path);
+  if (ret < 0)
+    {
+      *errmsg = safe_asprintf("Error saving queue to file '%s'", argv[1]);
+      return ACK_ERROR_ARG;
     }
 
   return 0;
@@ -3944,11 +4095,11 @@ static struct mpd_command mpd_handlers[] =
       .mpdcommand = "load",
       .handler = mpd_command_load
     },
-    /*
     {
       .mpdcommand = "playlistadd",
       .handler = mpd_command_playlistadd
     },
+    /*
     {
       .mpdcommand = "playlistclear",
       .handler = mpd_command_playlistclear
@@ -3965,6 +4116,7 @@ static struct mpd_command mpd_handlers[] =
       .mpdcommand = "rename",
       .handler = mpd_command_rename
     },
+     */
     {
       .mpdcommand = "rm",
       .handler = mpd_command_rm
@@ -3973,7 +4125,6 @@ static struct mpd_command mpd_handlers[] =
       .mpdcommand = "save",
       .handler = mpd_command_save
     },
-     */
 
     /*
      * The music database
@@ -4512,6 +4663,10 @@ mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type
 	evbuffer_add(client->evbuffer, "changed: options\n", 17);
 	break;
 
+      case LISTENER_STORED_PLAYLIST:
+	evbuffer_add(client->evbuffer, "changed: stored_playlist\n", 25);
+	break;
+
       default:
 	DPRINTF(E_WARN, L_MPD, "Unsupported event type (%d) in notify idle clients.\n", type);
 	return -1;
@@ -4706,6 +4861,7 @@ int mpd_init(void)
   unsigned short http_port;
   const char *http_addr;
   int v6enabled;
+  const char *pl_dir;
   int ret;
 
 
@@ -4806,6 +4962,11 @@ int mpd_init(void)
 	}
     }
 
+  allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "mpd"), "allow_modifying_stored_playlists");
+  pl_dir = cfg_getstr(cfg_getsec(cfg, "mpd"), "default_playlist_directory");
+  if (pl_dir)
+    default_pl_dir = safe_asprintf("/file:%s", pl_dir);
+
   DPRINTF(E_INFO, L_MPD, "mpd thread init\n");
 
   ret = pthread_create(&tid_mpd, NULL, mpd, NULL);
@@ -4884,4 +5045,6 @@ void mpd_deinit(void)
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);
+
+  free(default_pl_dir);
 }

@@ -827,7 +827,10 @@ db_get_one_int(const char *query)
   ret = db_blocking_step(stmt);
   if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_INFO, L_DB, "No matching row found for query: %s\n", query);
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s (%s)\n", sqlite3_errmsg(hdl), query);
 
       sqlite3_finalize(stmt);
       return -1;
@@ -2265,7 +2268,7 @@ db_file_fetch_byid(int id)
 }
 
 struct media_file_info *
-db_file_fetch_byvirtualpath(char *virtual_path)
+db_file_fetch_byvirtualpath(const char *virtual_path)
 {
 #define Q_TMPL "SELECT f.* FROM files f WHERE f.virtual_path = %Q;"
   struct media_file_info *mfi;
@@ -2649,12 +2652,11 @@ db_pl_ping_bymatch(char *path, int isdir)
 #undef Q_TMPL_NODIR
 }
 
-static int
-db_pl_id_bypath(char *path, int *id)
+int
+db_pl_id_bypath(const char *path)
 {
 #define Q_TMPL "SELECT p.id FROM playlists p WHERE p.path = '%q';"
   char *query;
-  sqlite3_stmt *stmt;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL, path);
@@ -2665,41 +2667,11 @@ db_pl_id_bypath(char *path, int *id)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+  ret = db_get_one_int(query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return -1;
-    }
-
-  ret = db_blocking_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      if (ret == SQLITE_DONE)
-	DPRINTF(E_DBG, L_DB, "No results\n");
-      else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
-
-      sqlite3_finalize(stmt);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  *id = sqlite3_column_int(stmt, 0);
-
-#ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
-    ; /* EMPTY */
-#endif
-
-  sqlite3_finalize(stmt);
   sqlite3_free(query);
 
-  return 0;
+  return ret;
 
 #undef Q_TMPL
 }
@@ -2855,7 +2827,7 @@ db_pl_fetch_bypath(const char *path)
 }
 
 struct playlist_info *
-db_pl_fetch_byvirtualpath(char *virtual_path)
+db_pl_fetch_byvirtualpath(const char *virtual_path)
 {
 #define Q_TMPL "SELECT p.* FROM playlists p WHERE p.virtual_path = '%q';"
   struct playlist_info *pli;
@@ -3072,10 +3044,9 @@ void
 db_pl_delete_bypath(char *path)
 {
   int id;
-  int ret;
 
-  ret = db_pl_id_bypath(path, &id);
-  if (ret < 0)
+  id = db_pl_id_bypath(path);
+  if (id < 0)
     return;
 
   db_pl_delete(id);
