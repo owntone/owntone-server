@@ -1006,7 +1006,7 @@ serve_file(struct evhttp_request *req, char *uri)
     }
   else if (S_ISLNK(sb.st_mode))
     {
-      deref = m_realpath(path);
+      deref = realpath(path, NULL);
       if (!deref)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));

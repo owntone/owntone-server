@@ -909,7 +909,7 @@ bulk_scan(int flags)
 
       parent_id = process_parent_directories(path);
 
-      deref = m_realpath(path);
+      deref = realpath(path, NULL);
       if (!deref)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));

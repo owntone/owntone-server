@@ -512,27 +512,6 @@ keyval_sort(struct keyval *kv)
 }
 
 
-char *
-m_realpath(const char *pathname)
-{
-  char buf[PATH_MAX];
-  char *ret;
-
-  ret = realpath(pathname, buf);
-  if (!ret)
-    return NULL;
-
-  ret = strdup(buf);
-  if (!ret)
-    {
-      DPRINTF(E_LOG, L_MISC, "Out of memory for realpath\n");
-
-      return NULL;
-    }
-
-  return ret;
-}
-
 char **
 m_readfile(const char *path, int num_lines)
 {
