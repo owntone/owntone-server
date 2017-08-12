@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>forked-daapd</title>
+  <link rel="stylesheet" href="/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/css/bulma.min.css">
+  <link rel="stylesheet" href="/css/forked-daapd.css">
+</head>
+
+<body>
+<div id="root" v-cloak>
+
+
+<!--
+  ############# Navbar #############
+-->
+<nav class="navbar">
+  <div class="navbar-brand">
+    <b class="navbar-item">forked-daapd</b>
+    <a class="navbar-item" href="https://github.com/ejurgensen/forked-daapd" title="GitHub"><i class="fa fa-github"></i></a>
+  </div>
+</nav>
+
+
+<!--
+  ############# Hero section #############
+-->
+<section class="hero is-dark is-bold">
+  <div class="hero-body">
+    <div class="container">
+      <div class="columns">
+
+        <div class="column">
+          <nav class="level is-mobile">
+            <div class="level-item has-text-centered">
+              <div>
+                <p class="heading">Artists</p>
+                <p class="title">{{ library.artists }}</p>
+              </div>
+            </div>
+            <div class="level-item has-text-centered">
+              <div>
+                <p class="heading">Albums</p>
+                <p class="title">{{ library.albums }}</p>
+              </div>
+            </div>
+            <div class="level-item has-text-centered">
+              <div>
+                <p class="heading">Songs</p>
+                <p class="title">{{ library.songs }}</p>
+              </div>
+            </div>
+            <div class="level-item has-text-centered">
+              <div>
+                <p class="heading">Total playtime</p>
+                <p class="title">{{ library.db_playtime | duration }}</p>
+              </div>
+            </div>
+          </nav>
+        </div>
+
+      </div> <!-- columns -->
+    </div><!-- container -->
+  </div><!-- hero -->
+</section>
+
+
+<!--
+  ############# Content section #############
+-->
+<section class="section">
+  <div class="container">
+    <div class="columns">
+
+      <div class="column">
+        <div class="card">
+          <header class="card-header">
+            <p class="card-header-title">
+              <span class="icon" v-show="library.updating"><i class="fa fa-refresh fa-spin"></i></span>
+              <span class="icon" v-show="!library.updating"><i class="fa fa-refresh"></i></span>
+               Update library
+            </p>
+          </header>
+          <div class="card-content">
+            <div class="content">
+              Scan new and modified items into your library.
+            </div>
+          </div>
+          <footer class="card-footer">
+            <a class="card-footer-item is-primary" v-on:click="update" v-show="!library.updating">Update</a>
+            <span class="card-footer-item" v-show="library.updating">Update in progress ...</span>
+          </footer>
+        </div> <!-- card update library -->
+      </div> <!-- column -->
+
+
+      <div class="column">
+        <div class="card">
+          <header class="card-header">
+            <p class="card-header-title">
+              <span class="icon"><i class="fa fa-mobile"></i></span> Remote pairing
+            </p>
+          </header>
+          <div class="card-content">
+            <div class="content" v-show="pairing.active">
+              <p>Remote pairing request from <b>{{pairing.remote}}</b></p>
+              <form v-on:submit.prevent="kickoffPairing">
+                <div class="field has-addons">
+                  <div class="control">
+                    <input class="input" type="text" placeholder="Enter pairing code" v-model="pairing_req.pin">
+                  </div>
+                  <div class="control">
+                    <button class="button is-primary" type="submit">Send</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div class="content" v-show="!pairing.active">
+              <p>No active pairing request.</p>
+              <a class="button"  v-on:click="loadPairing" v-show="!config.websocket_port">Refresh</a>
+            </div>
+          </div>
+        </div> <!-- card remote pairing -->
+      </div> <!-- column -->
+
+
+      <div class="column">
+        <div class="card" v-show="spotify.enabled">
+          <header class="card-header">
+            <p class="card-header-title">
+              <span class="icon"><i class="fa fa-spotify"></i></span> Spotify
+            </p>
+          </header>
+          <div class="card-content">
+            <div class="content" v-show="!spotify.libspotify_installed">
+              <p><b>libspotify</b> is not installed (required for playing spotify tracks)</p>
+            </div>
+            <div class="content" v-show="spotify.libspotify_installed">
+              <div v-show="!spotify.libspotify_logged_in"><p><b>libspotify</b> (requires Spotify premium account, enables playback of Spotify songs):</p>
+                <form v-on:submit.prevent="loginLibspotify">
+                  <div class="field has-addons">
+                    <div class="control">
+                      <input class="input" type="text" placeholder="Username" v-model="libspotify.user">
+                      <p class="help is-danger">{{ libspotify.errors.user }}</p>
+                    </div>
+                    <div class="control">
+                      <input class="input" type="password" placeholder="Password" v-model="libspotify.password">
+                      <p class="help is-danger">{{ libspotify.errors.password }}</p>
+                    </div>
+                    <div class="control">
+                      <button class="button" type="submit">Login</button>
+                    </div>
+                  </div>
+                  <p class="help is-danger">{{ libspotify.errors.error }}</p>
+                </form>
+              </div>
+              <p v-show="spotify.libspotify_logged_in"><b>libspotify</b> (requires Spotify premium account, enables playback of Spotify songs): logged in as <b>{{ spotify.libspotify_user }}</b></p>
+              <hr>
+              <div v-show="!spotify.webapi_token_valid">
+                <p><b>Spotify Web API</b> access is required to add saved albums and playlists to your library.</p>
+                <a class="button" v-bind:href="spotify.oauth_uri">Authorize Web API access</a>
+              </div>
+              <div v-show="spotify.webapi_token_valid">
+                <p><b>Spotify Web API</b>: access authorized for <b>{{ spotify.webapi_user }}</b></p>
+                <a class="button" v-bind:href="spotify.oauth_uri">Reauthorize Web API access</a>
+              </div>
+            </div>
+          </div>
+        </div> <!-- card spotify -->
+      </div> <!-- column -->
+
+    </div> <!-- columns -->
+  </div> <!-- container -->
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        <strong>forked-daapd</strong> - version {{ config.version }}
+      </p>
+      <p class="is-size-7">Compiled with support for {{ config.buildoptions | join }}.</p>
+      <p class="is-size-7">Web interface built with <a href="http://bulma.io">Bulma</a>, <a href="http://fontawesome.io/">Font Awesome</a>, <a href="https://vuejs.org/">Vue.js</a>, <a href="https://github.com/mzabriskie/axios">axios</a>.</p>
+    </div>
+  </div>
+</footer>
+
+
+</div> <!-- #root -->
+
+<script src="/js/vue.min.js"></script>
+<script src="/js/axios.min.js"></script>
+<script src="/js/forked-daapd.js"></script>
+
+</body>
+</html>
