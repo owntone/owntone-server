@@ -72,6 +72,7 @@ struct evconnlistener *listener;
 
 // Virtual path to the default playlist directory
 static char *default_pl_dir;
+static bool allow_modifying_stored_playlists;
 
 #define COMMAND_ARGV_MAX 37
 
@@ -2205,6 +2206,12 @@ mpd_command_playlistadd(struct evbuffer *evbuf, int argc, char **argv, char **er
   char *vp_item;
   int ret;
 
+  if (!allow_modifying_stored_playlists)
+    {
+      *errmsg = safe_asprintf("Modifying stored playlists is not enabled");
+      return ACK_ERROR_PERMISSION;
+    }
+
   if (argc < 3)
     {
       *errmsg = safe_asprintf("Missing argument for command 'playlistadd'");
@@ -2242,6 +2249,12 @@ mpd_command_rm(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   char *virtual_path;
   int ret;
 
+  if (!allow_modifying_stored_playlists)
+    {
+      *errmsg = safe_asprintf("Modifying stored playlists is not enabled");
+      return ACK_ERROR_PERMISSION;
+    }
+
   if (argc < 2)
     {
       *errmsg = safe_asprintf("Missing argument for command 'rm'");
@@ -2275,6 +2288,12 @@ mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   char *virtual_path;
   int ret;
+
+  if (!allow_modifying_stored_playlists)
+    {
+      *errmsg = safe_asprintf("Modifying stored playlists is not enabled");
+      return ACK_ERROR_PERMISSION;
+    }
 
   if (argc < 2)
     {
@@ -4943,6 +4962,7 @@ int mpd_init(void)
 	}
     }
 
+  allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "mpd"), "allow_modifying_stored_playlists");
   pl_dir = cfg_getstr(cfg_getsec(cfg, "mpd"), "default_playlist_directory");
   if (pl_dir)
     default_pl_dir = safe_asprintf("/file:%s", pl_dir);
