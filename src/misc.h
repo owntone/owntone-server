@@ -77,9 +77,6 @@ void
 keyval_sort(struct keyval *kv);
 
 
-char *
-m_realpath(const char *pathname);
-
 char **
 m_readfile(const char *path, int num_lines);
 
