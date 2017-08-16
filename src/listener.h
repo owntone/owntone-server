@@ -20,6 +20,8 @@ enum listener_event_type
   LISTENER_STORED_PLAYLIST = (1 << 6),
   /* A library update has started or finished */
   LISTENER_UPDATE = (1 << 7),
+  /* A pairing request has started or finished */
+  LISTENER_PAIRING = (1 << 8),
 };
 
 typedef void (*notify)(enum listener_event_type type);

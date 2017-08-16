@@ -56,6 +56,7 @@
 #include "misc.h"
 #include "db.h"
 #include "remote_pairing.h"
+#include "listener.h"
 
 
 struct remote_info {
@@ -70,8 +71,6 @@ struct remote_info {
   char *v6_address;
 
   struct evhttp_connection *evcon;
-
-  struct remote_info *next;
 };
 
 
@@ -613,6 +612,7 @@ pairing_cb(int fd, short event, void *arg)
 
   CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
 
+  listener_notify(LISTENER_PAIRING);
   event_add(pairingev, NULL);
 }
 
@@ -710,6 +710,8 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 
       CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
     }
+
+  listener_notify(LISTENER_PAIRING);
 }
 
 /* Thread: filescanner, mpd */
@@ -734,6 +736,31 @@ remote_pairing_kickoff(char **arglist)
     kickoff_pairing();
 
   CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
+}
+
+/*
+ * Returns the remote name of the current active pairing request as an allocated string (needs to be freed by the caller)
+ * or NULL in case there is no active pairing request.
+ *
+ * Thread: httpd
+ */
+char *
+remote_pairing_get_name(void)
+{
+  char *remote_name;
+
+  DPRINTF(E_DBG, L_REMOTE, "Get pairing remote name\n");
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
+
+  if (remote_info)
+    remote_name = strdup(remote_info->pi.name);
+  else
+    remote_name = NULL;
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
+
+  return remote_name;
 }
 
 

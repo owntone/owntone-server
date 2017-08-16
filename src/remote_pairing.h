@@ -5,6 +5,9 @@
 void
 remote_pairing_kickoff(char **arglist);
 
+char *
+remote_pairing_get_name(void);
+
 int
 remote_pairing_init(void);
 
