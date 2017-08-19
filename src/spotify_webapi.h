@@ -98,9 +98,9 @@ struct spotify_request
 char *
 spotifywebapi_oauth_uri_get(const char *redirect_uri);
 int
-spotifywebapi_token_get(const char *code, const char *redirect_uri, const char **err);
+spotifywebapi_token_get(const char *code, const char *redirect_uri, char **user, const char **err);
 int
-spotifywebapi_token_refresh();
+spotifywebapi_token_refresh(char **user);
 
 void
 spotifywebapi_request_end(struct spotify_request *request);

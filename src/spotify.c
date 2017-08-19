@@ -55,6 +55,7 @@
 #include "commands.h"
 #include "library.h"
 #include "input.h"
+#include "listener.h"
 
 /* TODO for the web api:
  * - UI should be prettier
@@ -139,6 +140,9 @@ static int spotify_saved_plid;
 
 // Flag to avoid triggering playlist change events while the (re)scan is running
 static bool scanning;
+
+static pthread_mutex_t status_lck;
+static struct spotify_status_info spotify_status_info;
 
 // Timeout timespec
 static struct timespec spotify_artwork_timeout = { SPOTIFY_ARTWORK_TIMEOUT, 0 };
@@ -1415,6 +1419,14 @@ logged_in(sp_session *sess, sp_error error)
   if (SP_ERROR_OK != error)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Login failed: %s\n",	fptr_sp_error_message(error));
+
+      CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+      spotify_status_info.libspotify_logged_in = false;
+      spotify_status_info.libspotify_user[0] = '\0';
+      CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+
+      listener_notify(LISTENER_SPOTIFY);
+
       return;
     }
 
@@ -1439,6 +1451,14 @@ logged_in(sp_session *sess, sp_error error)
       pl = fptr_sp_playlistcontainer_playlist(pc, i);
       fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
     }
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  spotify_status_info.libspotify_logged_in = true;
+  snprintf(spotify_status_info.libspotify_user, sizeof(spotify_status_info.libspotify_user), "%s", fptr_sp_session_user_name(sess));
+  spotify_status_info.libspotify_user[sizeof(spotify_status_info.libspotify_user) - 1] = '\0';
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+
+  listener_notify(LISTENER_SPOTIFY);
 }
 
 /**
@@ -1453,10 +1473,17 @@ logged_out(sp_session *sess)
 {
   DPRINTF(E_INFO, L_SPOTIFY, "Logout complete\n");
 
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  spotify_status_info.libspotify_logged_in = false;
+  spotify_status_info.libspotify_user[0] = '\0';
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
 
   CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
+
+  listener_notify(LISTENER_SPOTIFY);
 }
 
 /**
@@ -1802,6 +1829,7 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
 {
   const char *code;
   const char *err;
+  char *user = NULL;
   int ret;
 
   code = evhttp_find_header(param, "code");
@@ -1815,7 +1843,7 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
 
   evbuffer_add_printf(evbuf, "<p>Requesting access token from Spotify...\n");
 
-  ret = spotifywebapi_token_get(code, redirect_uri, &err);
+  ret = spotifywebapi_token_get(code, redirect_uri, &user, &err);
   if (ret < 0)
     {
       evbuffer_add_printf(evbuf, "failed</p>\n<p>Error: %s</p>\n", err);
@@ -1825,10 +1853,22 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
   // Received a valid access token
   spotify_access_token_valid = true;
 
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  spotify_status_info.webapi_token_valid = spotify_access_token_valid;
+  if (user)
+    {
+      snprintf(spotify_status_info.webapi_user, sizeof(spotify_status_info.webapi_user), "%s", user);
+      spotify_status_info.webapi_user[sizeof(spotify_status_info.webapi_user) - 1] = '\0';
+      free(user);
+    }
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+
   // Trigger scan after successful access to spotifywebapi
   library_exec_async(webapi_scan, NULL);
 
   evbuffer_add_printf(evbuf, "ok, all done</p>\n");
+
+  listener_notify(LISTENER_SPOTIFY);
 
   return;
 }
@@ -1840,6 +1880,14 @@ spotify_uri_register(const char *uri)
 
   tmp = strdup(uri);
   commands_exec_async(cmdbase, uri_register, tmp);
+}
+
+void
+spotify_status_info_get(struct spotify_status_info *info)
+{
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  memcpy(info, &spotify_status_info, sizeof(struct spotify_status_info));
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
 }
 
 /* Thread: library */
@@ -2237,10 +2285,12 @@ create_base_playlist()
 static int
 initscan()
 {
+  char *user = NULL;
+
   scanning = true;
 
   /* Refresh access token for the spotify webapi */
-  spotify_access_token_valid = (0 == spotifywebapi_token_refresh());
+  spotify_access_token_valid = (0 == spotifywebapi_token_refresh(&user));
   if (!spotify_access_token_valid)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
@@ -2249,6 +2299,15 @@ initscan()
 
       db_spotify_purge();
     }
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  spotify_status_info.webapi_token_valid = spotify_access_token_valid;
+  if (user)
+    {
+      snprintf(spotify_status_info.webapi_user, sizeof(spotify_status_info.webapi_user), "%s", user);
+      spotify_status_info.webapi_user[sizeof(spotify_status_info.webapi_user) - 1] = '\0';
+      free(user);
+    }
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
 
   spotify_saved_plid = 0;
 
@@ -2449,6 +2508,10 @@ spotify_init(void)
 	fptr_sp_session_preferred_bitrate(g_sess, SP_BITRATE_320k);
 	break;
     }
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  spotify_status_info.libspotify_installed = true;
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
 
   spotify_audio_buffer = evbuffer_new();
 

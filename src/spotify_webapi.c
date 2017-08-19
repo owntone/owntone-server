@@ -37,6 +37,7 @@
 static char *spotify_access_token;
 static char *spotify_refresh_token;
 static char *spotify_user_country;
+static char *spotify_user;
 
 static int32_t expires_in = 3600;
 static time_t token_requested = 0;
@@ -172,7 +173,7 @@ request_uri(struct spotify_request *request, const char *uri)
 
   memset(request, 0, sizeof(struct spotify_request));
 
-  if (0 > spotifywebapi_token_refresh())
+  if (0 > spotifywebapi_token_refresh(NULL))
     {
       return -1;
     }
@@ -585,13 +586,15 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
 }
 
 static int
-request_user_country()
+request_user_info()
 {
   struct spotify_request request;
   int ret;
 
   free(spotify_user_country);
   spotify_user_country = NULL;
+  free(spotify_user);
+  spotify_user = NULL;
 
   ret = request_uri(&request, spotify_me_uri);
 
@@ -601,8 +604,10 @@ request_user_country()
     }
   else
     {
+      spotify_user = safe_strdup(jparse_str_from_obj(request.haystack, "id"));
       spotify_user_country = safe_strdup(jparse_str_from_obj(request.haystack, "country"));
-      DPRINTF(E_DBG, L_SPOTIFY, "User country: '%s'\n", spotify_user_country);
+
+      DPRINTF(E_DBG, L_SPOTIFY, "User '%s', country '%s'\n", spotify_user, spotify_user_country);
     }
 
   spotifywebapi_request_end(&request);
@@ -733,7 +738,7 @@ tokens_get(struct keyval *kv, const char **err)
   if (spotify_refresh_token)
     db_admin_set("spotify_refresh_token", spotify_refresh_token);
 
-  request_user_country();
+  request_user_info();
 
   ret = 0;
 
@@ -746,7 +751,7 @@ tokens_get(struct keyval *kv, const char **err)
 }
 
 int
-spotifywebapi_token_get(const char *code, const char *redirect_uri, const char **err)
+spotifywebapi_token_get(const char *code, const char *redirect_uri, char **user, const char **err)
 {
   struct keyval kv;
   int ret;
@@ -767,13 +772,17 @@ spotifywebapi_token_get(const char *code, const char *redirect_uri, const char *
   else
     ret = tokens_get(&kv, err);
 
+  if (user && ret == 0)
+    {
+      *user = safe_strdup(spotify_user);
+    }
   keyval_clear(&kv);
 
   return ret;
 }
 
 int
-spotifywebapi_token_refresh()
+spotifywebapi_token_refresh(char **user)
 {
   struct keyval kv;
   char *refresh_token;
@@ -808,6 +817,10 @@ spotifywebapi_token_refresh()
   else
     ret = tokens_get(&kv, &err);
 
+  if (user && ret == 0)
+    {
+      *user = safe_strdup(spotify_user);
+    }
   free(refresh_token);
   keyval_clear(&kv);
 
