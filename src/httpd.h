@@ -4,6 +4,7 @@
 
 #include <event2/http.h>
 #include <event2/buffer.h>
+#include <stdbool.h>
 
 enum httpd_send_flags
 {
@@ -57,6 +58,9 @@ httpd_fixup_uri(struct evhttp_request *req);
 
 int
 httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);
+
+bool
+httpd_admin_check_auth(struct evhttp_request *req);
 
 int
 httpd_init(void);

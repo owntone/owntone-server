@@ -930,12 +930,44 @@ redirect_to_index(struct evhttp_request *req, char *uri)
   httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
+bool
+httpd_admin_check_auth(struct evhttp_request *req)
+{
+  const char *host;
+  const char *passwd;
+  int ret;
+
+  passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");
+  if (passwd)
+    {
+      DPRINTF(E_DBG, L_HTTPD, "Checking web interface authentication\n");
+
+      ret = httpd_basic_auth(req, "admin", passwd, PACKAGE " web interface");
+      if (ret != 0)
+	return false;
+
+      DPRINTF(E_DBG, L_HTTPD, "Authentication successful\n");
+    }
+  else
+    {
+      host = evhttp_request_get_host(req);
+      if ((strcmp(host, "::1") != 0)
+	  && (strcmp(host, "127.0.0.1") != 0))
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
+
+	  httpd_send_error(req, 403, "Forbidden");
+	  return false;
+	}
+    }
+
+  return true;
+}
+
 /* Thread: httpd */
 static void
 serve_file(struct evhttp_request *req, char *uri)
 {
-  const char *host;
-  const char *passwd;
   char *ext;
   char path[PATH_MAX];
   char *deref;
@@ -949,28 +981,10 @@ serve_file(struct evhttp_request *req, char *uri)
   int ret;
 
   /* Check authentication */
-  passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");
-  if (passwd)
+  if (!httpd_admin_check_auth(req))
     {
-      DPRINTF(E_DBG, L_HTTPD, "Checking web interface authentication\n");
-
-      ret = httpd_basic_auth(req, "admin", passwd, PACKAGE " web interface");
-      if (ret != 0)
-	return;
-
-      DPRINTF(E_DBG, L_HTTPD, "Authentication successful\n");
-    }
-  else
-    {
-      host = evhttp_request_get_host(req);
-      if ((strcmp(host, "::1") != 0)
-	  && (strcmp(host, "127.0.0.1") != 0))
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
-
-	  httpd_send_error(req, 403, "Forbidden");
-	  return;
-	}
+      DPRINTF(E_DBG, L_HTTPD, "Remote web interface request denied;\n");
+      return;
     }
 
   if (strncmp(uri, "/oauth", strlen("/oauth")) == 0)
