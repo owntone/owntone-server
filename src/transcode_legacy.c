@@ -1490,7 +1490,8 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
   int processed;
   int ret;
 
-  *icy_timer = 0;
+  if (icy_timer)
+    *icy_timer = 0;
 
   processed = 0;
   while (processed < want_bytes)
@@ -1508,7 +1509,7 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
     }
 
   ctx->encode_ctx->total_bytes += processed;
-  if (ctx->encode_ctx->icy_interval)
+  if (icy_timer && ctx->encode_ctx->icy_interval)
     *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
 
   return processed;
