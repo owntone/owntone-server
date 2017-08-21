@@ -194,6 +194,7 @@ typedef sp_error     (*fptr_sp_session_player_play_t)(sp_session *session, bool 
 typedef sp_error     (*fptr_sp_session_player_seek_t)(sp_session *session, int offset);
 typedef sp_connectionstate (*fptr_sp_session_connectionstate_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_preferred_bitrate_t)(sp_session *session, sp_bitrate bitrate);
+typedef const char*  (*fptr_sp_session_user_name_t)(sp_session *session);
 
 typedef sp_error     (*fptr_sp_playlistcontainer_add_callbacks_t)(sp_playlistcontainer *pc, sp_playlistcontainer_callbacks *callbacks, void *userdata);
 typedef int          (*fptr_sp_playlistcontainer_num_playlists_t)(sp_playlistcontainer *pc);
@@ -262,6 +263,7 @@ fptr_sp_session_player_play_t fptr_sp_session_player_play;
 fptr_sp_session_player_seek_t fptr_sp_session_player_seek;
 fptr_sp_session_connectionstate_t fptr_sp_session_connectionstate;
 fptr_sp_session_preferred_bitrate_t fptr_sp_session_preferred_bitrate;
+fptr_sp_session_user_name_t fptr_sp_session_user_name;
 
 fptr_sp_playlistcontainer_add_callbacks_t fptr_sp_playlistcontainer_add_callbacks;
 fptr_sp_playlistcontainer_num_playlists_t fptr_sp_playlistcontainer_num_playlists;
@@ -338,6 +340,7 @@ fptr_assign_all()
    && (fptr_sp_session_player_seek = dlsym(h, "sp_session_player_seek"))
    && (fptr_sp_session_connectionstate = dlsym(h, "sp_session_connectionstate"))
    && (fptr_sp_session_preferred_bitrate = dlsym(h, "sp_session_preferred_bitrate"))
+   && (fptr_sp_session_user_name = dlsym(h, "sp_session_user_name"))
    && (fptr_sp_playlistcontainer_add_callbacks = dlsym(h, "sp_playlistcontainer_add_callbacks"))
    && (fptr_sp_playlistcontainer_num_playlists = dlsym(h, "sp_playlistcontainer_num_playlists"))
    && (fptr_sp_session_starred_create = dlsym(h, "sp_session_starred_create"))
