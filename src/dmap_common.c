@@ -42,6 +42,12 @@ dmap_get_fields_table(int *nfields)
   return dmap_fields;
 }
 
+// This wrapper is so callers don't need to include dmap_fields_hash.h
+const struct dmap_field *
+dmap_find_field_wrapper(const char *str, int len)
+{
+  return dmap_find_field(str, len);
+}
 
 void
 dmap_add_container(struct evbuffer *evbuf, const char *tag, int len)

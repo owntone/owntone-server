@@ -738,7 +738,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, const struc
 
       if (n == i)
 	{
-	  meta[i] = dmap_find_field(field, strlen(field));
+	  meta[i] = dmap_find_field_wrapper(field, strlen(field));
 
 	  if (!meta[i])
 	    {
