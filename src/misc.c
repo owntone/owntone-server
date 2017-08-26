@@ -130,10 +130,6 @@ safe_hextou32(const char *str, uint32_t *val)
 
   *val = 0;
 
-  /* A hex shall begin with 0x */
-  if (strncmp(str, "0x", 2) != 0)
-    return safe_atou32(str, val);
-
   errno = 0;
   intval = strtoul(str, &end, 16);
 

@@ -716,7 +716,12 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
     }
 
   param++;
-  ret = safe_hextou32(param, &itemid);
+
+  if (strncmp(param, "0x", 2) == 0)
+    ret = safe_hextou32(param, &itemid);
+  else
+    ret = safe_atou32(param, &itemid);
+
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Couldn't convert item-spec/song-spec to an integer in dacp.userrating (%s)\n", param);
@@ -1224,7 +1229,11 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     }
   param++;
 
-  ret = safe_hextou32(param, &plid);
+  if (strncmp(param, "0x", 2) == 0)
+    ret = safe_hextou32(param, &plid);
+  else
+    ret = safe_atou32(param, &plid);
+
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Couldn't convert container-spec to an integer in playspec (%s)\n", param);
@@ -1253,7 +1262,11 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	}
       param++;
 
-      ret = safe_hextou32(param, &id);
+      if (strncmp(param, "0x", 2) == 0)
+	ret = safe_hextou32(param, &id);
+      else
+	ret = safe_atou32(param, &id);
+
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec/item-spec to an integer in playspec (%s)\n", param);
@@ -2490,7 +2503,12 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
     {
       param++;
 
-      ret = safe_hextou64(param, &ids[i]);
+      // Some like Remote will give us hex, others will give us decimal (e.g. Hyperfine)
+      if (strncmp(param, "0x", 2) == 0)
+	ret = safe_hextou64(param, &ids[i]);
+      else
+	ret = safe_atou64(param, &ids[i]);
+
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
