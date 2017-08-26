@@ -481,8 +481,9 @@ current state of libspotify:
 2. Delete the file again - forked-daapd will have read it.
 3. forked-daapd will log in and add all music in your Spotify playlists to its
    database. Wait until completed (follow progress in the log file).
-4. In a browser, go to http://forked-daapd.local:3689/oauth and click the link
-   to authorize forked-daapd with Spotify.
+4. In a browser, go to [http://forked-daapd.local:3689/oauth](http://forked-daapd.local:3689/oauth)
+   (the default credentials are "admin"/"unused") and click the link to
+   authorize forked-daapd with Spotify.
 
 Spotify will automatically notify forked-daapd about playlist updates, so you
 should not need to restart forked-daapd to syncronize with Spotify. However,
