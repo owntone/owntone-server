@@ -374,6 +374,20 @@ process_playlist(char *file, time_t mtime, int dir_id)
 #endif
 }
 
+#ifdef HAVE_SPOTIFY_H
+static void
+kickoff_spotify_login(char **arg)
+{
+  spotify_login(arg[0], arg[1]);
+}
+#endif
+
+static void
+kickoff_paring(char **arg)
+{
+  remote_pairing_kickoff(arg[0]);
+}
+
 /* If we found a control file we want to kickoff some action */
 static void
 kickoff(void (*kickoff_func)(char **arg), const char *file, int lines)
@@ -560,7 +574,7 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
 	else
-	  kickoff(remote_pairing_kickoff, file, 1);
+	  kickoff(kickoff_paring, file, 1);
 	break;
 
       case FILE_CTRL_RAOP_VERIFICATION:
@@ -586,7 +600,7 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
 	else
-	  kickoff(spotify_login, file, 2);
+	  kickoff(kickoff_spotify_login, file, 2);
 #else
 	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without Spotify support\n", file);
 #endif
