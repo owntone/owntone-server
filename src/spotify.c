@@ -1841,7 +1841,7 @@ spotify_uri_register(const char *uri)
 
 /* Thread: library */
 void
-spotify_login(char **arglist)
+spotify_login(const char *user, const char *password)
 {
   sp_error err;
 
@@ -1875,10 +1875,10 @@ spotify_login(char **arglist)
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
     }
 
-  if (arglist)
+  if (user && password)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", arglist[0]);
-      err = fptr_sp_session_login(g_sess, arglist[0], arglist[1], 1, NULL);
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", user);
+      err = fptr_sp_session_login(g_sess, user, password, 1, NULL);
     }
   else
     {
@@ -2253,7 +2253,7 @@ initscan()
    * Login to spotify needs to be done before scanning tracks from the web api.
    * (Scanned tracks need to be registered with libspotify for playback)
    */
-  spotify_login(NULL);
+  spotify_login(NULL, NULL);
 
   /*
    * Scan saved tracks from the web api
@@ -2321,7 +2321,7 @@ fullrescan()
     }
   else
     {
-      spotify_login(NULL);
+      spotify_login(NULL, NULL);
     }
 
   scanning = false;
