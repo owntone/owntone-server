@@ -714,22 +714,22 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 
 /* Thread: filescanner, mpd */
 void
-remote_pairing_kickoff(char **arglist)
+remote_pairing_kickoff(const char *pin)
 {
   int ret;
 
-  ret = strlen(arglist[0]);
+  ret = strlen(pin);
   if (ret != 4)
     {
       DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing failed, first line did not contain a 4-digit pin (got %d)\n", ret);
       return;
     }
 
-  DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing with pin '%s'\n", arglist[0]);
+  DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing with pin '%s'\n", pin);
 
   CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
 
-  ret = add_remote_pin_data(arglist[0]);
+  ret = add_remote_pin_data(pin);
   if (ret == 0)
     kickoff_pairing();
 

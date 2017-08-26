@@ -3671,7 +3671,7 @@ channel_outputvolume(const char *message)
 static void
 channel_pairing(const char *message)
 {
-  remote_pairing_kickoff((char **)&message);
+  remote_pairing_kickoff(message);
 }
 
 static void
