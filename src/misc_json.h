@@ -27,6 +27,7 @@
 #define SRC_MISC_JSON_H_
 
 
+#include <event2/event.h>
 #include <json.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -53,5 +54,7 @@ jparse_time_from_obj(json_object *haystack, const char *key);
 const char *
 jparse_str_from_array(json_object *array, int index, const char *key);
 
+json_object *
+jparse_obj_from_evbuffer(struct evbuffer *evbuf);
 
 #endif /* SRC_MISC_JSON_H_ */

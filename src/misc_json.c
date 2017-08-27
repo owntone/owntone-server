@@ -22,6 +22,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <event2/buffer.h>
+#include <event2/event.h>
 #include <json.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -122,4 +124,22 @@ jparse_str_from_array(json_object *array, int index, const char *key)
 
   item = json_object_array_get_idx(array, index);
   return jparse_str_from_obj(item, key);
+}
+
+json_object *
+jparse_obj_from_evbuffer(struct evbuffer *evbuf)
+{
+  char *json_str;
+
+  // 0-terminate for safety
+  evbuffer_add(evbuf, "", 1);
+
+  json_str = (char *) evbuffer_pullup(evbuf, -1);
+  if (!json_str || (strlen(json_str) == 0))
+    {
+      DPRINTF(E_LOG, L_MISC, "Failed to parse JSON from input buffer\n");
+      return NULL;
+    }
+
+  return json_tokener_parse(json_str);
 }
