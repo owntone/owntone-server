@@ -113,6 +113,7 @@ forked_daapd_SOURCES = main.c \
 	dmap_common.c dmap_common.h \
 	$(FFMPEG_SRC) \
 	misc.c misc.h \
+	misc_json.c misc_json.h \
 	rng.c rng.h \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \

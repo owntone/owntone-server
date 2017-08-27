@@ -30,6 +30,7 @@
 #include "http.h"
 #include "library.h"
 #include "logger.h"
+#include "misc_json.h"
 
 
 
@@ -53,101 +54,6 @@ static const char *spotify_me_uri        = "https://api.spotify.com/v1/me";
 
 /*--------------------- HELPERS FOR SPOTIFY WEB API -------------------------*/
 /*                 All the below is in the httpd thread                      */
-
-
-static void
-jparse_free(json_object* haystack)
-{
-  if (haystack)
-    {
-#ifdef HAVE_JSON_C_OLD
-      json_object_put(haystack);
-#else
-      if (json_object_put(haystack) != 1)
-        DPRINTF(E_LOG, L_SPOTIFY, "Memleak: JSON parser did not free object\n");
-#endif
-    }
-}
-
-static int
-jparse_array_from_obj(json_object *haystack, const char *key, json_object **needle)
-{
-  if (! (json_object_object_get_ex(haystack, key, needle) && json_object_get_type(*needle) == json_type_array) )
-    return -1;
-  else
-    return 0;
-}
-
-static const char *
-jparse_str_from_obj(json_object *haystack, const char *key)
-{
-  json_object *needle;
-
-  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_string)
-    return json_object_get_string(needle);
-  else
-    return NULL;
-}
-
-static int
-jparse_int_from_obj(json_object *haystack, const char *key)
-{
-  json_object *needle;
-
-  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_int)
-    return json_object_get_int(needle);
-  else
-    return 0;
-}
-
-static int
-jparse_bool_from_obj(json_object *haystack, const char *key)
-{
-  json_object *needle;
-
-  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_boolean)
-    return json_object_get_boolean(needle);
-  else
-    return false;
-}
-
-static time_t
-jparse_time_from_obj(json_object *haystack, const char *key)
-{
-  const char *tmp;
-  struct tm tp;
-  time_t parsed_time;
-
-  memset(&tp, 0, sizeof(struct tm));
-
-  tmp = jparse_str_from_obj(haystack, key);
-  if (!tmp)
-    return 0;
-
-  strptime(tmp, "%Y-%m-%dT%H:%M:%SZ", &tp);
-  parsed_time = mktime(&tp);
-  if (parsed_time < 0)
-    return 0;
-
-  return parsed_time;
-}
-
-static const char *
-jparse_str_from_array(json_object *array, int index, const char *key)
-{
-  json_object *item;
-  int count;
-
-  if (json_object_get_type(array) != json_type_array)
-    return NULL;
-
-  count = json_object_array_length(array);
-  if (count <= 0 || count <= index)
-    return NULL;
-
-  item = json_object_array_get_idx(array, index);
-  return jparse_str_from_obj(item, key);
-}
 
 static void
 free_http_client_ctx(struct http_client_ctx *ctx)
