@@ -1890,20 +1890,28 @@ spotify_status_info_get(struct spotify_status_info *info)
   CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
 }
 
-/* Thread: library */
-void
-spotify_login(char **arglist)
+/* Thread: library, httpd */
+int
+spotify_login_user(const char *user, const char *password, char **errmsg)
 {
   sp_error err;
 
   if (!g_sess)
     {
       if (!g_libhandle)
-	DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - could not find libspotify\n");
+	{
+	  DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - could not find libspotify\n");
+	  if (errmsg)
+	    *errmsg = safe_asprintf("Could not find libspotify");
+	}
       else
-	DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - no valid Spotify session\n");
+	{
+	  DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - no valid Spotify session\n");
+	  if (errmsg)
+	    *errmsg = safe_asprintf("No valid Spotify session");
+	}
 
-      return;
+      return -1;
     }
 
   if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(g_sess))
@@ -1918,18 +1926,21 @@ spotify_login(char **arglist)
       if (SP_ERROR_OK != err)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Could not logout of Spotify: %s\n", fptr_sp_error_message(err));
+	  if (errmsg)
+	    *errmsg = safe_asprintf("Could not logout of Spotify: %s", fptr_sp_error_message(err));
+
 	  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
-	  return;
+	  return -1;
 	}
 
       CHECK_ERR(L_SPOTIFY, pthread_cond_wait(&login_cond, &login_lck));
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
     }
 
-  if (arglist)
+  if (user && password)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", arglist[0]);
-      err = fptr_sp_session_login(g_sess, arglist[0], arglist[1], 1, NULL);
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", user);
+      err = fptr_sp_session_login(g_sess, user, password, 1, NULL);
     }
   else
     {
@@ -1940,8 +1951,22 @@ spotify_login(char **arglist)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not login into Spotify: %s\n", fptr_sp_error_message(err));
-      return;
+      if (errmsg)
+	*errmsg = safe_asprintf("Could not login into Spotify: %s", fptr_sp_error_message(err));
+      return -1;
     }
+
+  return 0;
+}
+
+/* Thread: library */
+void
+spotify_login(char **arglist)
+{
+  if (arglist)
+    spotify_login_user(arglist[0], arglist[1], NULL);
+  else
+    spotify_login_user(NULL, NULL, NULL);
 }
 
 static void

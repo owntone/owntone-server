@@ -48,6 +48,9 @@ spotify_oauth_interface(struct evbuffer *evbuf, const char *redirect_uri);
 void
 spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const char *redirect_uri);
 
+int
+spotify_login_user(const char *user, const char *password, char **errmsg);
+
 void
 spotify_login(char **arglist);
 
