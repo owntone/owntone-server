@@ -1824,30 +1824,30 @@ spotify_oauth_interface(struct evbuffer *evbuf, const char *redirect_uri)
 }
 
 /* Thread: httpd */
-void
-spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const char *redirect_uri)
+int
+spotify_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, char **errmsg)
 {
   const char *code;
   const char *err;
   char *user = NULL;
   int ret;
 
+  *errmsg = NULL;
+
   code = evhttp_find_header(param, "code");
   if (!code)
     {
-      evbuffer_add_printf(evbuf, "Error: Didn't receive a code from Spotify\n");
-      return;
+      *errmsg = safe_asprintf("Error: Didn't receive a code from Spotify");
+      return -1;
     }
 
   DPRINTF(E_DBG, L_SPOTIFY, "Received OAuth code: %s\n", code);
 
-  evbuffer_add_printf(evbuf, "<p>Requesting access token from Spotify...\n");
-
   ret = spotifywebapi_token_get(code, redirect_uri, &user, &err);
   if (ret < 0)
     {
-      evbuffer_add_printf(evbuf, "failed</p>\n<p>Error: %s</p>\n", err);
-      return;
+      *errmsg = safe_asprintf("Error: %s", err);
+      return -1;
     }
 
   // Received a valid access token
@@ -1866,11 +1866,9 @@ spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const ch
   // Trigger scan after successful access to spotifywebapi
   library_exec_async(webapi_scan, NULL);
 
-  evbuffer_add_printf(evbuf, "ok, all done</p>\n");
-
   listener_notify(LISTENER_SPOTIFY);
 
-  return;
+  return 0;
 }
 
 static void

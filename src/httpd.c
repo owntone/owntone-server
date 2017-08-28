@@ -154,6 +154,8 @@ static int httpd_port;
 struct stream_ctx *g_st;
 #endif
 
+static void
+redirect_to_admin(struct evhttp_request *req);
 
 static void
 stream_end(struct stream_ctx *st, int failed)
@@ -210,23 +212,15 @@ scrobble_cb(void *arg)
 static void
 oauth_interface(struct evhttp_request *req, const char *uri)
 {
-  struct evbuffer *evbuf;
   struct evkeyvalq query;
   const char *req_uri;
   const char *ptr;
   char __attribute__((unused)) redirect_uri[256];
+  char *errmsg;
   int ret;
 
+#ifdef HAVE_SPOTIFY_H
   req_uri = evhttp_request_get_uri(req);
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not alloc evbuf for oauth\n");
-      return;
-    }
-
-  evbuffer_add_printf(evbuf, "<H1>forked-daapd oauth</H1>\n\n");
 
   memset(&query, 0, sizeof(struct evkeyvalq));
 
@@ -236,32 +230,38 @@ oauth_interface(struct evhttp_request *req, const char *uri)
       ret = evhttp_parse_query_str(ptr + 1, &query);
       if (ret < 0)
 	{
-	  evbuffer_add_printf(evbuf, "OAuth error: Could not parse parameters in callback (%s)\n", req_uri);
-
-	  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
-	  evbuffer_free(evbuf);
+	  DPRINTF(E_LOG, L_HTTPD, "OAuth error: Could not parse parameters in callback (%s)\n", req_uri);
+	  httpd_send_error(req, HTTP_BADREQUEST, "Could not parse parameters in callback");
 	  return;
 	}
     }
 
-#ifdef HAVE_SPOTIFY_H
-  snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
 
   if (strncmp(uri, "/oauth/spotify", strlen("/oauth/spotify")) == 0)
-    spotify_oauth_callback(evbuf, &query, redirect_uri);
+    {
+      snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
+      ret = spotify_oauth_callback(&query, redirect_uri, &errmsg);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "OAuth error: Could not parse parameters in callback (%s)\n", req_uri);
+	  httpd_send_error(req, HTTP_INTERNAL, errmsg);
+	}
+      else
+	{
+	  redirect_to_admin(req);
+	}
+      evhttp_clear_headers(&query);
+      free(errmsg);
+    }
   else
-    spotify_oauth_interface(evbuf, redirect_uri);
+    {
+      httpd_send_error(req, HTTP_NOTFOUND, NULL);
+    }
+
 #else
-  evbuffer_add_printf(evbuf, "<p>This version was built without modules requiring OAuth support</p>\n");
+  DPRINTF(E_LOG, L_HTTPD, "This version was built without modules requiring OAuth support\n");
+  httpd_send_error(req, HTTP_NOTFOUND, "No modules with OAuth support");
 #endif
-
-  evbuffer_add_printf(evbuf, "<p><i>(sorry about this ugly interface)</i></p>\n");
-
-  evhttp_clear_headers(&query);
-
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
-
-  evbuffer_free(evbuf);
 }
 
 static void
@@ -911,6 +911,18 @@ path_is_legal(char *path)
 
 /* Thread: httpd */
 static void
+redirect_to_admin(struct evhttp_request *req)
+{
+  struct evkeyvalq *headers;
+
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "Location", "/admin.html");
+
+  httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
+}
+
+/* Thread: httpd */
+static void
 redirect_to_index(struct evhttp_request *req, char *uri)
 {
   struct evkeyvalq *headers;
@@ -1189,9 +1201,9 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     }
 
   req_uri = evhttp_request_get_uri(req);
-  if (!req_uri)
+  if (!req_uri || strcmp(req_uri, "/") == 0)
     {
-      redirect_to_index(req, "/");
+      redirect_to_admin(req);
 
       return;
     }

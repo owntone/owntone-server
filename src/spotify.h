@@ -45,8 +45,8 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h);
 void
 spotify_oauth_interface(struct evbuffer *evbuf, const char *redirect_uri);
 
-void
-spotify_oauth_callback(struct evbuffer *evbuf, struct evkeyvalq *param, const char *redirect_uri);
+int
+spotify_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, char **errmsg);
 
 int
 spotify_login_user(const char *user, const char *password, char **errmsg);
