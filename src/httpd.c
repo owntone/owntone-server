@@ -973,11 +973,15 @@ serve_file(struct evhttp_request *req, char *uri)
   char *deref;
   char *ctype;
   struct evbuffer *evbuf;
-  struct evkeyvalq *headers;
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
   struct stat sb;
   int fd;
   int i;
   uint8_t buf[4096];
+  const char *modified_since;
+  char last_modified[1000];
+  struct tm *tm_modified;
   int ret;
 
   /* Check authentication */
@@ -1069,6 +1073,18 @@ serve_file(struct evhttp_request *req, char *uri)
       return;
     }
 
+  tm_modified = gmtime(&sb.st_mtime);
+  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", tm_modified);
+
+  input_headers = evhttp_request_get_input_headers(req);
+  modified_since = evhttp_find_header(input_headers, "If-Modified-Since");
+
+  if (modified_since && strcasecmp(last_modified, modified_since) == 0)
+    {
+      httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
+      return;
+    }
+
   evbuf = evbuffer_new();
   if (!evbuf)
     {
@@ -1118,8 +1134,12 @@ serve_file(struct evhttp_request *req, char *uri)
 	}
     }
 
-  headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "Content-Type", ctype);
+  output_headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(output_headers, "Content-Type", ctype);
+
+  // Allow browsers to cache the file
+  evhttp_add_header(output_headers, "Cache-Control", "private");
+  evhttp_add_header(output_headers, "Last-Modified", last_modified);
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
