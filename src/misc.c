@@ -46,6 +46,41 @@
 #include "misc.h"
 
 
+static char *buildopts[] =
+  {
+#ifdef ITUNES
+    "iTunes XML",
+#endif
+#ifdef SPOTIFY
+    "Spotify",
+#endif
+#ifdef LASTFM
+    "LastFM",
+#endif
+#ifdef CHROMECAST
+    "Chromecast",
+#endif
+#ifdef MPD
+    "MPD",
+#endif
+#ifdef RAOP_VERIFICATION
+    "Device verification",
+#endif
+#ifdef HAVE_ALSA
+    "ALSA",
+#endif
+#ifdef HAVE_LIBPULSE
+    "Pulseaudio",
+#endif
+    NULL
+  };
+
+char **
+buildopts_get()
+{
+  return buildopts;
+}
+
 int
 safe_atoi32(const char *str, int32_t *val)
 {
