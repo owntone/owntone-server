@@ -1515,14 +1515,19 @@ httpd_init(void)
 	}
     }
 
-  if (!v6enabled)
+  ret = evhttp_bind_socket(evhttpd, "0.0.0.0", httpd_port);
+  if (ret < 0)
     {
-      ret = evhttp_bind_socket(evhttpd, "0.0.0.0", httpd_port);
-      if (ret < 0)
+      if (!v6enabled)
 	{
 	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
 	  goto bind_fail;
 	}
+
+#ifndef __linux__
+      // Linux will listen on both ipv6 and ipv4, but FreeBSD won't
+      DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv4, listening on IPv6 only\n", httpd_port);
+#endif
     }
 
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);

@@ -68,7 +68,8 @@ static struct commands_base *cmdbase;
 
 static struct evhttp *evhttpd;
 
-struct evconnlistener *listener;
+struct evconnlistener *mpd_listener6;
+struct evconnlistener *mpd_listener;
 
 // Virtual path to the default playlist directory
 static char *default_pl_dir;
@@ -4859,7 +4860,6 @@ int mpd_init(void)
   struct sockaddr_in6 sin6;
   unsigned short port;
   unsigned short http_port;
-  const char *http_addr;
   int v6enabled;
   const char *pl_dir;
   int ret;
@@ -4891,7 +4891,7 @@ int mpd_init(void)
       sin6.sin6_port = htons(port);
       saddr = (struct sockaddr *)&sin6;
 
-      listener = evconnlistener_new_bind(
+      mpd_listener6 = evconnlistener_new_bind(
 	  evbase_mpd,
 	  mpd_accept_conn_cb,
 	  NULL,
@@ -4900,40 +4900,46 @@ int mpd_init(void)
 	  saddr,
 	  saddr_length);
 
-      if (!listener)
-      	{
-      	  DPRINTF(E_LOG, L_MPD, "Could not bind to port %d, falling back to IPv4\n", port);
-      	  v6enabled = 0;
-      	}
+      if (!mpd_listener6)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Could not bind to port %d, falling back to IPv4\n", port);
+	  v6enabled = 0;
+	}
+      else
+	evconnlistener_set_error_cb(mpd_listener6, mpd_accept_error_cb);
     }
 
-  if (!v6enabled)
+  saddr_length = sizeof(struct sockaddr_in);
+  memset(&sin, 0, saddr_length);
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = htonl(0);
+  sin.sin_port = htons(port);
+  saddr = (struct sockaddr *)&sin;
+
+  mpd_listener = evconnlistener_new_bind(
+      evbase_mpd,
+      mpd_accept_conn_cb,
+      NULL,
+      LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+      -1,
+      saddr,
+      saddr_length);
+
+  if (!mpd_listener)
     {
-      saddr_length = sizeof(struct sockaddr_in);
-      memset(&sin, 0, saddr_length);
-      sin.sin_family = AF_INET;
-      sin.sin_addr.s_addr = htonl(0);
-      sin.sin_port = htons(port);
-      saddr = (struct sockaddr *)&sin;
+      if (!v6enabled)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
+	  goto connew_fail;
+	}
 
-      listener = evconnlistener_new_bind(
-          evbase_mpd,
-          mpd_accept_conn_cb,
-          NULL,
-          LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
-          -1,
-          saddr,
-          saddr_length);
-
-      if (!listener)
-        {
-          DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
-
-          goto connew_fail;
-        }
+#ifndef __linux__
+      // Linux will listen on both ipv6 and ipv4, but FreeBSD won't
+      DPRINTF(E_LOG, L_MPD, "Could not bind to port %d with IPv4, listening on IPv6 only\n", port);
+#endif
     }
-
-  evconnlistener_set_error_cb(listener, mpd_accept_error_cb);
+  else
+    evconnlistener_set_error_cb(mpd_listener, mpd_accept_error_cb);
 
   http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
   if (http_port > 0)
@@ -4949,16 +4955,28 @@ int mpd_init(void)
       evhttp_set_gencb(evhttpd, artwork_cb, NULL);
 
       if (v6enabled)
-          http_addr = "::";
-        else
-          http_addr = "0.0.0.0";
+	{
+	  ret = evhttp_bind_socket(evhttpd, "::", http_port);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Could not bind HTTP artwork server to port %d with IPv6, falling back to IPv4\n", http_port);
+	      v6enabled = 0;
+	    }
+	}
 
-      ret = evhttp_bind_socket(evhttpd, http_addr, http_port);
+      ret = evhttp_bind_socket(evhttpd, "0.0.0.0", http_port);
       if (ret < 0)
 	{
-	  DPRINTF(E_FATAL, L_MPD, "Could not bind HTTP artwork server at %s:%d\n", http_addr, http_port);
+	  if (!v6enabled)
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Could not bind HTTP artwork server to port %d with IPv4\n", http_port);
+	      goto bind_fail;
+	    }
 
-	  goto bind_fail;
+#ifndef __linux__
+	  // Linux will listen on both ipv6 and ipv4, but FreeBSD won't
+	  DPRINTF(E_LOG, L_MPD, "Could not bind HTTP artwork server to port %d with IPv4, listening on IPv6 only\n", http_port);
+#endif
 	}
     }
 
@@ -4994,7 +5012,8 @@ int mpd_init(void)
   if (http_port > 0)
     evhttp_free(evhttpd);
  evhttp_fail:
-  evconnlistener_free(listener);
+  evconnlistener_free(mpd_listener);
+  evconnlistener_free(mpd_listener6);
  connew_fail:
   commands_base_free(cmdbase);
   event_base_free(evbase_mpd);
@@ -5041,7 +5060,8 @@ void mpd_deinit(void)
   if (http_port > 0)
     evhttp_free(evhttpd);
 
-  evconnlistener_free(listener);
+  evconnlistener_free(mpd_listener);
+  evconnlistener_free(mpd_listener6);
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);
