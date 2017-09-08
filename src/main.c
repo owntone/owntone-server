@@ -894,7 +894,7 @@ main(int argc, char **argv)
   player_deinit();
 
  player_fail:
-  DPRINTF(E_LOG, L_MAIN, "Library scaner deinit\n");
+  DPRINTF(E_LOG, L_MAIN, "Library scanner deinit\n");
   library_deinit();
 
  library_fail:
