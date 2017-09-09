@@ -129,7 +129,9 @@ Or, if that doesn't work:
     
  4. Prepare a text file with a filename ending with .remote; the filename
     doesn't matter, only the .remote ending does. This first line in the file
-    must contain the 4-digit pairing code displayed by Remote.
+    must contain the 4-digit pairing code displayed by Remote. (note: previous
+    versions required the first line to be the device name - see the
+    instructions linked above).
     
  5. Move this file somewhere in your library
 
