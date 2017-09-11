@@ -31,16 +31,17 @@ libraries:
   antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt11-dev libavahi-client-dev zlib1g-dev \
-  libevent-dev libplist-dev libsodium-dev
+  libevent-dev libplist-dev libsodium-dev libjson-c-dev
 
 Optional packages:
 
  Feature             | Configure argument     | Packages
  --------------------|------------------------|---------------------------------------------
- Chromecast          | --enable-chromecast    | libjson-c-dev libgnutls-dev libprotobuf-c-dev
+ Chromecast          | --enable-chromecast    | libgnutls-dev libprotobuf-c-dev
  LastFM              | --enable-lastfm        | libcurl4-gnutls-dev OR libcurl4-openssl-dev
  iTunes XML          | --disable-itunes       | libplist-dev
  Device verification | --disable-verification | libplist-dev libsodium-dev
+ Websocket           | --disable-websocket    | libwebsockets-dev
  Pulseaudio          | --with-pulseaudio      | libpulse-dev
 
 Note that while forked-daapd will work with versions of libevent between 2.0.0
@@ -220,6 +221,8 @@ Libraries:
         from <http://zlib.net/>
  - libunistring 0.9.3+
         from <http://www.gnu.org/software/libunistring/#downloading>
+ - libjson-c
+        from <https://github.com/json-c/json-c/wiki>
  - libasound (optional - ALSA local audio)
 	often already installed as part of your distro
  - libpulse (optional - Pulseaudio local audio)
@@ -232,12 +235,12 @@ Libraries:
         from <https://developer.spotify.com>
  - libcurl (optional - LastFM support)
         from <http://curl.haxx.se/libcurl/>
- - libjson-c (optional - Chromecast support)
-        from <https://github.com/json-c/json-c/wiki>
  - libgnutls (optional - Chromecast support)
         from <http://www.gnutls.org/>
  - libprotobuf-c (optional - Chromecast support)
         from <https://github.com/protobuf-c/protobuf-c/wiki>
+ - libwebsockets (optional - websocket support)
+        from <https://libwebsockets.org/>
 
 If using binary packages, remember that you need the development packages to
 build forked-daapd (usually named -dev or -devel).
@@ -293,6 +296,8 @@ feature.
 
 Support for Apple TV device verification is optional. Use --disable-verification
 to disable this feature.
+
+Support for websocket is optional. Use --disable-websocket to disable this feature.
 
 Support for Chromecast devices is optional. Use --enable-chromecast to enable
 this feature.
