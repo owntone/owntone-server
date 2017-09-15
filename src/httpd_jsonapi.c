@@ -43,6 +43,7 @@
 #include "httpd.h"
 #include "library.h"
 #include "logger.h"
+#include "misc.h"
 #include "misc_json.h"
 #include "remote_pairing.h"
 #ifdef HAVE_SPOTIFY_H
