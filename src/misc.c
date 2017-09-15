@@ -66,6 +66,9 @@ static char *buildopts[] =
 #ifdef RAOP_VERIFICATION
     "Device verification",
 #endif
+#ifdef WEBSOCKET
+    "Websocket",
+#endif
 #ifdef HAVE_ALSA
     "ALSA",
 #endif
