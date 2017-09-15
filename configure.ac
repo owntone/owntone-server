@@ -259,6 +259,10 @@ dnl Build with libcurl
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libcurl support], [libcurl], [LIBCURL],
 	[libcurl], [curl_global_init], [curl/curl.h])
 
+dnl Build with libwebsockets
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
+	[libwebsockets >= 2.0.2])
+
 dnl Build with libsodium
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libsodium support], [libsodium], [LIBSODIUM],
 	[libsodium], [sodium_init], [sodium.h])
@@ -340,6 +344,12 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
+dnl Websocket support with libwebsockets
+FORK_ARG_DISABLE([Websocket support], [websocket], [WEBSOCKET],
+	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
+		[AC_MSG_ERROR([[Websocket support requires libwebsockets]])])])
+AM_CONDITIONAL([COND_WEBSOCKET], [[test "x$enable_websocket" = "xyes"]])
+
 dnl iTunes playlists with libplist
 FORK_ARG_DISABLE([iTunes Music Library XML support], [itunes], [ITUNES],
 	[AS_IF([[test "x$with_libplist" = "xno"]],
@@ -380,6 +390,7 @@ dnl --- End options ---
 AC_CONFIG_FILES([
 	src/Makefile
 	sqlext/Makefile
+	htdocs/Makefile
 	Makefile
 	forked-daapd.spec
 ])

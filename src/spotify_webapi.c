@@ -30,6 +30,7 @@
 #include "http.h"
 #include "library.h"
 #include "logger.h"
+#include "misc_json.h"
 
 
 
@@ -37,6 +38,7 @@
 static char *spotify_access_token;
 static char *spotify_refresh_token;
 static char *spotify_user_country;
+static char *spotify_user;
 
 static int32_t expires_in = 3600;
 static time_t token_requested = 0;
@@ -52,101 +54,6 @@ static const char *spotify_me_uri        = "https://api.spotify.com/v1/me";
 
 /*--------------------- HELPERS FOR SPOTIFY WEB API -------------------------*/
 /*                 All the below is in the httpd thread                      */
-
-
-static void
-jparse_free(json_object* haystack)
-{
-  if (haystack)
-    {
-#ifdef HAVE_JSON_C_OLD
-      json_object_put(haystack);
-#else
-      if (json_object_put(haystack) != 1)
-        DPRINTF(E_LOG, L_SPOTIFY, "Memleak: JSON parser did not free object\n");
-#endif
-    }
-}
-
-static int
-jparse_array_from_obj(json_object *haystack, const char *key, json_object **needle)
-{
-  if (! (json_object_object_get_ex(haystack, key, needle) && json_object_get_type(*needle) == json_type_array) )
-    return -1;
-  else
-    return 0;
-}
-
-static const char *
-jparse_str_from_obj(json_object *haystack, const char *key)
-{
-  json_object *needle;
-
-  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_string)
-    return json_object_get_string(needle);
-  else
-    return NULL;
-}
-
-static int
-jparse_int_from_obj(json_object *haystack, const char *key)
-{
-  json_object *needle;
-
-  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_int)
-    return json_object_get_int(needle);
-  else
-    return 0;
-}
-
-static int
-jparse_bool_from_obj(json_object *haystack, const char *key)
-{
-  json_object *needle;
-
-  if (json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == json_type_boolean)
-    return json_object_get_boolean(needle);
-  else
-    return false;
-}
-
-static time_t
-jparse_time_from_obj(json_object *haystack, const char *key)
-{
-  const char *tmp;
-  struct tm tp;
-  time_t parsed_time;
-
-  memset(&tp, 0, sizeof(struct tm));
-
-  tmp = jparse_str_from_obj(haystack, key);
-  if (!tmp)
-    return 0;
-
-  strptime(tmp, "%Y-%m-%dT%H:%M:%SZ", &tp);
-  parsed_time = mktime(&tp);
-  if (parsed_time < 0)
-    return 0;
-
-  return parsed_time;
-}
-
-static const char *
-jparse_str_from_array(json_object *array, int index, const char *key)
-{
-  json_object *item;
-  int count;
-
-  if (json_object_get_type(array) != json_type_array)
-    return NULL;
-
-  count = json_object_array_length(array);
-  if (count <= 0 || count <= index)
-    return NULL;
-
-  item = json_object_array_get_idx(array, index);
-  return jparse_str_from_obj(item, key);
-}
 
 static void
 free_http_client_ctx(struct http_client_ctx *ctx)
@@ -172,7 +79,7 @@ request_uri(struct spotify_request *request, const char *uri)
 
   memset(request, 0, sizeof(struct spotify_request));
 
-  if (0 > spotifywebapi_token_refresh())
+  if (0 > spotifywebapi_token_refresh(NULL))
     {
       return -1;
     }
@@ -585,13 +492,15 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
 }
 
 static int
-request_user_country()
+request_user_info()
 {
   struct spotify_request request;
   int ret;
 
   free(spotify_user_country);
   spotify_user_country = NULL;
+  free(spotify_user);
+  spotify_user = NULL;
 
   ret = request_uri(&request, spotify_me_uri);
 
@@ -601,8 +510,10 @@ request_user_country()
     }
   else
     {
+      spotify_user = safe_strdup(jparse_str_from_obj(request.haystack, "id"));
       spotify_user_country = safe_strdup(jparse_str_from_obj(request.haystack, "country"));
-      DPRINTF(E_DBG, L_SPOTIFY, "User country: '%s'\n", spotify_user_country);
+
+      DPRINTF(E_DBG, L_SPOTIFY, "User '%s', country '%s'\n", spotify_user, spotify_user_country);
     }
 
   spotifywebapi_request_end(&request);
@@ -733,7 +644,7 @@ tokens_get(struct keyval *kv, const char **err)
   if (spotify_refresh_token)
     db_admin_set("spotify_refresh_token", spotify_refresh_token);
 
-  request_user_country();
+  request_user_info();
 
   ret = 0;
 
@@ -746,7 +657,7 @@ tokens_get(struct keyval *kv, const char **err)
 }
 
 int
-spotifywebapi_token_get(const char *code, const char *redirect_uri, const char **err)
+spotifywebapi_token_get(const char *code, const char *redirect_uri, char **user, const char **err)
 {
   struct keyval kv;
   int ret;
@@ -767,13 +678,17 @@ spotifywebapi_token_get(const char *code, const char *redirect_uri, const char *
   else
     ret = tokens_get(&kv, err);
 
+  if (user && ret == 0)
+    {
+      *user = safe_strdup(spotify_user);
+    }
   keyval_clear(&kv);
 
   return ret;
 }
 
 int
-spotifywebapi_token_refresh()
+spotifywebapi_token_refresh(char **user)
 {
   struct keyval kv;
   char *refresh_token;
@@ -808,6 +723,10 @@ spotifywebapi_token_refresh()
   else
     ret = tokens_get(&kv, &err);
 
+  if (user && ret == 0)
+    {
+      *user = safe_strdup(spotify_user);
+    }
   free(refresh_token);
   keyval_clear(&kv);
 

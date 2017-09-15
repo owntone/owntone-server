@@ -29,6 +29,9 @@ struct keyval {
 };
 
 
+char **
+buildopts_get(void);
+
 int
 safe_atoi32(const char *str, int32_t *val);
 

@@ -1,0 +1,327 @@
+/*
+ * Copyright (C) 2017 Christian Meffert <christian.meffert@googlemail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+#include <json.h>
+#include <libwebsockets.h>
+#include <pthread.h>
+#ifdef HAVE_PTHREAD_NP_H
+# include <pthread_np.h>
+#endif
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+
+#include "conffile.h"
+#include "listener.h"
+#include "logger.h"
+
+
+static struct lws_context *context;
+static pthread_t tid_websocket;
+
+static int websocket_port;
+static bool ws_exit = false;
+
+// Event mask of events to notify websocket clients
+static short events;
+// Event mask of events processed by the writeable callback
+static short write_events;
+
+
+
+/* Thread: library (the thread the event occurred) */
+static void
+listener_cb(enum listener_event_type type)
+{
+  // Add event to the event mask, clients will be notified at the next break of the libwebsockets service loop
+  events |= type;
+}
+
+/*
+ * Libwebsocket requires the HTTP protocol to be the first supported protocol
+ *
+ * This adds an empty implementation, because we are serving HTTP over libevent in httpd.h.
+ */
+static int
+callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
+{
+   return 0;
+}
+
+/*
+ * Each session of the "notify" protocol holds this event mask
+ *
+ * The client sends the events it wants to be notified of and the event mask is
+ * set accordingly translating them to the LISTENER enum (see listener.h)
+ */
+struct ws_session_data_notify
+{
+  short events;
+};
+
+/*
+ * Processes client requests to the notify-protocol
+ *
+ * Expects the message in "in" to be a JSON string of the form:
+ *
+ * {
+ *   "notify": [ "update" ]
+ * }
+ */
+static int
+process_notify_request(struct ws_session_data_notify *session_data, void *in, size_t len)
+{
+  json_tokener *tokener;
+  json_object *request;
+  json_object *item;
+  int count, i;
+  enum json_tokener_error jerr;
+  json_object *needle;
+  const char *event_type;
+
+  memset(session_data, 0, sizeof(struct ws_session_data_notify));
+
+  tokener = json_tokener_new();
+  request = json_tokener_parse_ex(tokener, in, len);
+  jerr = json_tokener_get_error(tokener);
+
+  if (jerr != json_tokener_success)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request: %s\n", json_tokener_error_desc(jerr));
+      json_tokener_free(tokener);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_WEB, "notify callback request: %s\n", json_object_to_json_string(request));
+
+  if (json_object_object_get_ex(request, "notify", &needle) && json_object_get_type(needle) == json_type_array)
+    {
+      count = json_object_array_length(needle);
+      for (i = 0; i < count; i++)
+	{
+	  item = json_object_array_get_idx(needle, i);
+
+	  if (json_object_get_type(item) == json_type_string)
+	    {
+	      event_type = json_object_get_string(item);
+	      DPRINTF(E_DBG, L_WEB, "notify callback event received: %s\n", event_type);
+
+	      if (0 == strcmp(event_type, "update"))
+		{
+		  session_data->events |= LISTENER_UPDATE;
+		}
+	      else if (0 == strcmp(event_type, "pairing"))
+		{
+		  session_data->events |= LISTENER_PAIRING;
+		}
+	      else if (0 == strcmp(event_type, "spotify"))
+		{
+		  session_data->events |= LISTENER_SPOTIFY;
+		}
+	    }
+	}
+    }
+
+  json_tokener_free(tokener);
+  json_object_put(request);
+
+  return 0;
+}
+
+/*
+ * Notify clients of the notify-protocol about occurred events
+ *
+ * Sends a JSON message of the form:
+ *
+ * {
+ *   "notify": [ "update" ]
+ * }
+ */
+static void
+send_notify_reply(short events, struct lws* wsi)
+{
+  unsigned char* buf;
+  const char* json_response;
+  json_object* reply;
+  json_object* notify;
+
+  notify = json_object_new_array();
+  if (events & LISTENER_UPDATE)
+    {
+      json_object_array_add(notify, json_object_new_string("update"));
+    }
+  if (events & LISTENER_PAIRING)
+    {
+      json_object_array_add(notify, json_object_new_string("pairing"));
+    }
+  if (events & LISTENER_SPOTIFY)
+    {
+      json_object_array_add(notify, json_object_new_string("spotify"));
+    }
+
+  reply = json_object_new_object();
+  json_object_object_add(reply, "notify", notify);
+
+  json_response = json_object_to_json_string(reply);
+
+  buf = malloc(LWS_PRE + strlen(json_response));
+  memcpy(&buf[LWS_PRE], json_response, strlen(json_response));
+  lws_write(wsi, &buf[LWS_PRE], strlen(json_response), LWS_WRITE_TEXT);
+
+  free(buf);
+  json_object_put(reply);
+}
+
+/*
+ * Callback for the "notify" protocol
+ */
+static int
+callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
+{
+  struct ws_session_data_notify *session_data = user;
+  int ret = 0;
+
+  DPRINTF(E_DBG, L_WEB, "notify callback reason: %d\n", reason);
+  switch (reason)
+    {
+      case LWS_CALLBACK_ESTABLISHED:
+	// Initialize session data for new connections
+	memset(session_data, 0, sizeof(struct ws_session_data_notify));
+	break;
+
+      case LWS_CALLBACK_RECEIVE:
+	ret = process_notify_request(session_data, in, len);
+	break;
+
+      case LWS_CALLBACK_SERVER_WRITEABLE:
+	if (write_events)
+	  {
+	    send_notify_reply(write_events, wsi);
+	  }
+	break;
+
+      default:
+	break;
+    }
+
+  return ret;
+}
+
+/*
+ * Supported protocols of the websocket, needs to be in line with the protocols array
+ */
+enum ws_protocols
+{
+  WS_PROTOCOL_HTTP = 0,
+  WS_PROTOCOL_NOTIFY,
+};
+
+static struct lws_protocols protocols[] =
+{
+  // The first protocol must always be the HTTP handler
+  {
+    "http-only",	// Protocol name
+    callback_http,	// Callback function
+    0,			// Size of per session data
+    0,			// Frame size / rx buffer (0 = max frame size)
+  },
+  {
+    "notify",
+    callback_notify,
+    sizeof(struct ws_session_data_notify),
+    0,
+  },
+  { NULL, NULL, 0, 0 } // terminator
+};
+
+
+/* Thread: websocket */
+static void *
+websocket(void *arg)
+{
+  listener_add(listener_cb, LISTENER_UPDATE | LISTENER_PAIRING | LISTENER_SPOTIFY);
+
+  while(!ws_exit)
+    {
+      lws_service(context, 1000);
+      if (events)
+	{
+	  write_events = events;
+	  events = 0;
+	  lws_callback_on_writable_all_protocol(context, &protocols[WS_PROTOCOL_NOTIFY]);
+	}
+    }
+
+  lws_context_destroy(context);
+  pthread_exit(NULL);
+}
+
+int
+websocket_init(void)
+{
+  struct lws_context_creation_info info;
+  int ret;
+
+  websocket_port = cfg_getint(cfg_getsec(cfg, "general"), "websocket_port");
+
+  if (websocket_port <= 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Websocket disabled. To enable it, set websocket_port in config to a valid port number.\n");
+      return 0;
+    }
+
+  memset(&info, 0, sizeof(info));
+  info.port = websocket_port;
+  info.protocols = protocols;
+  info.gid = -1;
+  info.uid = -1;
+
+
+  context = lws_create_context(&info);
+  if (context == NULL)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to create websocket context\n");
+      return -1;
+    }
+
+
+  ret = pthread_create(&tid_websocket, NULL, websocket, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Could not spawn websocket thread: %s\n", strerror(errno));
+
+      lws_context_destroy(context);
+      return -1;
+    }
+
+  return 0;
+}
+
+void
+websocket_deinit(void)
+{
+  if (websocket_port > 0)
+    {
+      ws_exit = true;
+      pthread_join(tid_websocket, NULL);
+    }
+}

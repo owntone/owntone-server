@@ -549,7 +549,7 @@ rescan(void *arg, int *ret)
   int i;
 
   DPRINTF(E_LOG, L_LIB, "Library rescan triggered\n");
-
+  listener_notify(LISTENER_UPDATE);
   starttime = time(NULL);
 
   for (i = 0; sources[i]; i++)
@@ -569,8 +569,9 @@ rescan(void *arg, int *ret)
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec\n", difftime(endtime, starttime));
-
   scanning = false;
+  listener_notify(LISTENER_UPDATE);
+
   *ret = 0;
   return COMMAND_END;
 }
@@ -583,7 +584,7 @@ fullrescan(void *arg, int *ret)
   int i;
 
   DPRINTF(E_LOG, L_LIB, "Library full-rescan triggered\n");
-
+  listener_notify(LISTENER_UPDATE);
   starttime = time(NULL);
 
   player_playback_stop();
@@ -605,8 +606,9 @@ fullrescan(void *arg, int *ret)
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec\n", difftime(endtime, starttime));
-
   scanning = false;
+  listener_notify(LISTENER_UPDATE);
+
   *ret = 0;
   return COMMAND_END;
 }
@@ -665,6 +667,7 @@ initscan()
 
   scanning = true;
   starttime = time(NULL);
+  listener_notify(LISTENER_UPDATE);
 
   // Only clear the queue if enabled (default) in config
   clear_queue_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
@@ -691,7 +694,7 @@ initscan()
   DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec\n", difftime(endtime, starttime));
 
   scanning = false;
-
+  listener_notify(LISTENER_UPDATE);
   listener_notify(LISTENER_DATABASE);
 }
 

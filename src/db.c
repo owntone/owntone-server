@@ -1686,6 +1686,31 @@ db_query_fetch_count(struct query_params *qp, struct filecount_info *fci)
 }
 
 int
+db_filecount_get(struct filecount_info *fci, struct query_params *qp)
+{
+  int ret;
+
+  ret = db_query_start(qp);
+  if (ret < 0)
+    {
+      db_query_end(qp);
+
+      return -1;
+    }
+
+  ret = db_query_fetch_count(qp, fci);
+  if (ret < 0)
+    {
+      db_query_end(qp);
+
+      return -1;
+    }
+
+  db_query_end(qp);
+  return 0;
+}
+
+int
 db_query_fetch_string(struct query_params *qp, char **string)
 {
   int ret;

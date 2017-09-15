@@ -59,6 +59,7 @@
 #include "httpd_rsp.h"
 #include "httpd_daap.h"
 #include "httpd_dacp.h"
+#include "httpd_jsonapi.h"
 #include "httpd_streaming.h"
 #include "transcode.h"
 #ifdef LASTFM
@@ -67,6 +68,10 @@
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
+#ifdef WEBSOCKET
+# include "websocket.h"
+#endif
+
 
 /*
  * HTTP client quirks by User-Agent, from mt-daapd
@@ -86,9 +91,9 @@
  *   + Does not encode space as + in query string
  */
 
+#define WEB_ROOT DATADIR "/htdocs"
 
 #define STREAM_CHUNK_SIZE (64 * 1024)
-#define WEBFACE_ROOT   DATADIR "/webface/"
 #define ERR_PAGE "<html>\n<head>\n" \
   "<title>%d %s</title>\n" \
   "</head>\n<body>\n" \
@@ -149,6 +154,8 @@ static int httpd_port;
 struct stream_ctx *g_st;
 #endif
 
+static void
+redirect_to_admin(struct evhttp_request *req);
 
 static void
 stream_end(struct stream_ctx *st, int failed)
@@ -205,23 +212,15 @@ scrobble_cb(void *arg)
 static void
 oauth_interface(struct evhttp_request *req, const char *uri)
 {
-  struct evbuffer *evbuf;
   struct evkeyvalq query;
   const char *req_uri;
   const char *ptr;
   char __attribute__((unused)) redirect_uri[256];
+  char *errmsg;
   int ret;
 
+#ifdef HAVE_SPOTIFY_H
   req_uri = evhttp_request_get_uri(req);
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not alloc evbuf for oauth\n");
-      return;
-    }
-
-  evbuffer_add_printf(evbuf, "<H1>forked-daapd oauth</H1>\n\n");
 
   memset(&query, 0, sizeof(struct evkeyvalq));
 
@@ -231,32 +230,38 @@ oauth_interface(struct evhttp_request *req, const char *uri)
       ret = evhttp_parse_query_str(ptr + 1, &query);
       if (ret < 0)
 	{
-	  evbuffer_add_printf(evbuf, "OAuth error: Could not parse parameters in callback (%s)\n", req_uri);
-
-	  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
-	  evbuffer_free(evbuf);
+	  DPRINTF(E_LOG, L_HTTPD, "OAuth error: Could not parse parameters in callback (%s)\n", req_uri);
+	  httpd_send_error(req, HTTP_BADREQUEST, "Could not parse parameters in callback");
 	  return;
 	}
     }
 
-#ifdef HAVE_SPOTIFY_H
-  snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
 
   if (strncmp(uri, "/oauth/spotify", strlen("/oauth/spotify")) == 0)
-    spotify_oauth_callback(evbuf, &query, redirect_uri);
+    {
+      snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
+      ret = spotify_oauth_callback(&query, redirect_uri, &errmsg);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "OAuth error: Could not parse parameters in callback (%s)\n", req_uri);
+	  httpd_send_error(req, HTTP_INTERNAL, errmsg);
+	}
+      else
+	{
+	  redirect_to_admin(req);
+	}
+      evhttp_clear_headers(&query);
+      free(errmsg);
+    }
   else
-    spotify_oauth_interface(evbuf, redirect_uri);
+    {
+      httpd_send_error(req, HTTP_NOTFOUND, NULL);
+    }
+
 #else
-  evbuffer_add_printf(evbuf, "<p>This version was built without modules requiring OAuth support</p>\n");
+  DPRINTF(E_LOG, L_HTTPD, "This version was built without modules requiring OAuth support\n");
+  httpd_send_error(req, HTTP_NOTFOUND, "No modules with OAuth support");
 #endif
-
-  evbuffer_add_printf(evbuf, "<p><i>(sorry about this ugly interface)</i></p>\n");
-
-  evhttp_clear_headers(&query);
-
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
-
-  evbuffer_free(evbuf);
 }
 
 static void
@@ -901,7 +906,19 @@ httpd_send_error(struct evhttp_request* req, int error, const char* reason)
 static int
 path_is_legal(char *path)
 {
-  return strncmp(WEBFACE_ROOT, path, strlen(WEBFACE_ROOT));
+  return strncmp(WEB_ROOT, path, strlen(WEB_ROOT));
+}
+
+/* Thread: httpd */
+static void
+redirect_to_admin(struct evhttp_request *req)
+{
+  struct evkeyvalq *headers;
+
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "Location", "/admin.html");
+
+  httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
 /* Thread: httpd */
@@ -930,24 +947,13 @@ redirect_to_index(struct evhttp_request *req, char *uri)
   httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
-/* Thread: httpd */
-static void
-serve_file(struct evhttp_request *req, char *uri)
+bool
+httpd_admin_check_auth(struct evhttp_request *req)
 {
   const char *host;
   const char *passwd;
-  char *ext;
-  char path[PATH_MAX];
-  char *deref;
-  char *ctype;
-  struct evbuffer *evbuf;
-  struct evkeyvalq *headers;
-  struct stat sb;
-  int fd;
-  int i;
   int ret;
 
-  /* Check authentication */
   passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");
   if (passwd)
     {
@@ -955,7 +961,7 @@ serve_file(struct evhttp_request *req, char *uri)
 
       ret = httpd_basic_auth(req, "admin", passwd, PACKAGE " web interface");
       if (ret != 0)
-	return;
+	return false;
 
       DPRINTF(E_DBG, L_HTTPD, "Authentication successful\n");
     }
@@ -968,8 +974,38 @@ serve_file(struct evhttp_request *req, char *uri)
 	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
 
 	  httpd_send_error(req, 403, "Forbidden");
-	  return;
+	  return false;
 	}
+    }
+
+  return true;
+}
+
+/* Thread: httpd */
+static void
+serve_file(struct evhttp_request *req, char *uri)
+{
+  char *ext;
+  char path[PATH_MAX];
+  char *deref;
+  char *ctype;
+  struct evbuffer *evbuf;
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
+  struct stat sb;
+  int fd;
+  int i;
+  uint8_t buf[4096];
+  const char *modified_since;
+  char last_modified[1000];
+  struct tm *tm_modified;
+  int ret;
+
+  /* Check authentication */
+  if (!httpd_admin_check_auth(req))
+    {
+      DPRINTF(E_DBG, L_HTTPD, "Remote web interface request denied;\n");
+      return;
     }
 
   if (strncmp(uri, "/oauth", strlen("/oauth")) == 0)
@@ -978,7 +1014,7 @@ serve_file(struct evhttp_request *req, char *uri)
       return;
     }
 
-  ret = snprintf(path, sizeof(path), "%s%s", WEBFACE_ROOT, uri + 1); /* skip starting '/' */
+  ret = snprintf(path, sizeof(path), "%s%s", WEB_ROOT, uri);
   if ((ret < 0) || (ret >= sizeof(path)))
     {
       DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", uri);
@@ -1054,6 +1090,18 @@ serve_file(struct evhttp_request *req, char *uri)
       return;
     }
 
+  tm_modified = gmtime(&sb.st_mtime);
+  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", tm_modified);
+
+  input_headers = evhttp_request_get_input_headers(req);
+  modified_since = evhttp_find_header(input_headers, "If-Modified-Since");
+
+  if (modified_since && strcasecmp(last_modified, modified_since) == 0)
+    {
+      httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
+      return;
+    }
+
   evbuf = evbuffer_new();
   if (!evbuf)
     {
@@ -1069,20 +1117,24 @@ serve_file(struct evhttp_request *req, char *uri)
       DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", path, strerror(errno));
 
       httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
+      evbuffer_free(evbuf);
       return;
     }
 
-  /* FIXME: this is broken, if we ever need to serve files here,
-   * this must be fixed.
-   */
-  ret = evbuffer_read(evbuf, fd, sb.st_size);
-  close(fd);
+  ret = evbuffer_expand(evbuf, sb.st_size);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Out of memory for htdocs-file\n");
+      goto out_fail;
+    }
+
+  while ((ret = read(fd, buf, sizeof(buf))) > 0)
+    evbuffer_add(evbuf, buf, ret);
+
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not read file into evbuffer\n");
-
-      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
-      return;
+      goto out_fail;
     }
 
   ctype = "application/octet-stream";
@@ -1099,12 +1151,23 @@ serve_file(struct evhttp_request *req, char *uri)
 	}
     }
 
-  headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "Content-Type", ctype);
+  output_headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(output_headers, "Content-Type", ctype);
+
+  // Allow browsers to cache the file
+  evhttp_add_header(output_headers, "Cache-Control", "private");
+  evhttp_add_header(output_headers, "Last-Modified", last_modified);
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   evbuffer_free(evbuf);
+  close(fd);
+  return;
+
+ out_fail:
+  httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal error");
+  evbuffer_free(evbuf);
+  close(fd);
 }
 
 /* Thread: httpd */
@@ -1138,9 +1201,9 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     }
 
   req_uri = evhttp_request_get_uri(req);
-  if (!req_uri)
+  if (!req_uri || strcmp(req_uri, "/") == 0)
     {
-      redirect_to_index(req, "/");
+      redirect_to_admin(req);
 
       return;
     }
@@ -1174,6 +1237,12 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   else if (dacp_is_request(req, uri))
     {
       dacp_request(req);
+
+      goto out;
+    }
+  else if (jsonapi_is_request(req, uri))
+    {
+      jsonapi_request(req);
 
       goto out;
     }
@@ -1449,6 +1518,24 @@ httpd_init(void)
       goto dacp_fail;
     }
 
+  ret = jsonapi_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "JSON api init failed\n");
+
+      goto jsonapi_fail;
+    }
+
+#ifdef WEBSOCKET
+  ret = websocket_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Websocket init failed\n");
+
+      goto websocket_fail;
+    }
+#endif
+
   streaming_init();
 
 #ifdef HAVE_EVENTFD
@@ -1560,6 +1647,12 @@ httpd_init(void)
 #endif
  pipe_fail:
   streaming_deinit();
+#ifdef WEBSOCKET
+  websocket_deinit();
+#endif
+ websocket_fail:
+  jsonapi_deinit();
+ jsonapi_fail:
   dacp_deinit();
  dacp_fail:
   daap_deinit();
@@ -1606,6 +1699,10 @@ httpd_deinit(void)
     }
 
   streaming_deinit();
+#ifdef WEBSOCKET
+  websocket_deinit();
+#endif
+  jsonapi_deinit();
   rsp_deinit();
   dacp_deinit();
   daap_deinit();

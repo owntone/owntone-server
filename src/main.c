@@ -465,13 +465,14 @@ main(int argc, char **argv)
   char *logfile;
   char *ffid;
   char *pidfile;
-  char buildopts[256];
+  char **buildopts;
   const char *gcry_version;
   sigset_t sigs;
   int sigfd;
 #ifdef HAVE_KQUEUE
   struct kevent ke_sigs[4];
 #endif
+  int i;
   int ret;
 
   struct option option_map[] =
@@ -591,34 +592,12 @@ main(int argc, char **argv)
 
   DPRINTF(E_LOG, L_MAIN, "Forked Media Server Version %s taking off\n", VERSION);
 
-  /* Remember to check the size of buildopts when adding new opts */
-  strcpy(buildopts, "");
-#ifdef ITUNES
-  strcat(buildopts, " --enable-itunes");
-#endif
-#ifdef SPOTIFY
-  strcat(buildopts, " --enable-spotify");
-#endif
-#ifdef LASTFM
-  strcat(buildopts, " --enable-lastfm");
-#endif
-#ifdef CHROMECAST
-  strcat(buildopts, " --enable-chromecast");
-#endif
-#ifdef MPD
-  strcat(buildopts, " --enable-mpd");
-#endif
-#ifdef RAOP_VERIFICATION
-  strcat(buildopts, " --enable-verification");
-#endif
-#ifdef HAVE_ALSA
-  strcat(buildopts, " --with-alsa");
-#endif
-#ifdef HAVE_LIBPULSE
-  strcat(buildopts, " --with-pulseaudio");
-#endif
-
-  DPRINTF(E_LOG, L_MAIN, "Built %s with:%s\n", __DATE__, buildopts);
+  DPRINTF(E_LOG, L_MAIN, "Built %s with:\n", __DATE__);
+  buildopts = buildopts_get();
+  for (i = 0; buildopts[i]; i++)
+    {
+      DPRINTF(E_LOG, L_MAIN, "- %s\n", buildopts[i]);
+    }
 
   ret = av_lockmgr_register(ffmpeg_lockmgr);
   if (ret < 0)

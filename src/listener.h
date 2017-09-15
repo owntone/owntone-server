@@ -18,6 +18,12 @@ enum listener_event_type
   LISTENER_DATABASE  = (1 << 5),
   /* A stored playlist has been modified (create, delete, add, rename) */
   LISTENER_STORED_PLAYLIST = (1 << 6),
+  /* A library update has started or finished */
+  LISTENER_UPDATE = (1 << 7),
+  /* A pairing request has started or finished */
+  LISTENER_PAIRING = (1 << 8),
+  /* Spotify status changes (login, logout) */
+  LISTENER_SPOTIFY = (1 << 9),
 };
 
 typedef void (*notify)(enum listener_event_type type);
