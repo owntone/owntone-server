@@ -43,8 +43,8 @@ else
 MDNS_SRC=mdns_dnssd.c
 endif
 
-if COND_WEBSOCKET
-WEBSOCKET_SRC=websocket.c websocket.h
+if COND_LIBWEBSOCKETS
+LIBWEBSOCKETS_SRC=websocket.c websocket.h
 endif
 
 if COND_FFMPEG_LEGACY
@@ -137,7 +137,7 @@ forked_daapd_SOURCES = main.c \
 	listener.c listener.h \
 	commands.c commands.h \
 	mxml-compat.h \
-	$(WEBSOCKET_SRC) \
+	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
 	$(ANTLR_SRC) 
 

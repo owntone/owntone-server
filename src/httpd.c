@@ -68,7 +68,7 @@
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
-#ifdef WEBSOCKET
+#ifdef HAVE_LIBWEBSOCKETS
 # include "websocket.h"
 #endif
 
@@ -1526,7 +1526,7 @@ httpd_init(void)
       goto jsonapi_fail;
     }
 
-#ifdef WEBSOCKET
+#ifdef HAVE_LIBWEBSOCKETS
   ret = websocket_init();
   if (ret < 0)
     {
@@ -1647,7 +1647,7 @@ httpd_init(void)
 #endif
  pipe_fail:
   streaming_deinit();
-#ifdef WEBSOCKET
+#ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
 #endif
  websocket_fail:
@@ -1699,7 +1699,7 @@ httpd_deinit(void)
     }
 
   streaming_deinit();
-#ifdef WEBSOCKET
+#ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
 #endif
   jsonapi_deinit();

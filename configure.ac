@@ -262,6 +262,7 @@ FORK_ARG_WITH_CHECK([FORKED_OPTS], [libcurl support], [libcurl], [LIBCURL],
 dnl Build with libwebsockets
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
 	[libwebsockets >= 2.0.2])
+AM_CONDITIONAL([COND_LIBWEBSOCKETS], [[test "x$with_libwebsockets" = "xyes"]])
 
 dnl Build with libsodium
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libsodium support], [libsodium], [LIBSODIUM],
@@ -319,7 +320,8 @@ AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
 dnl LastFM support with libcurl
 FORK_ARG_ENABLE([LastFM support], [lastfm], [LASTFM],
 	[AS_IF([[test "x$with_libcurl" = "xno"]],
-		[AC_MSG_ERROR([[LastFM support requires libcurl]])])])
+		[AC_MSG_ERROR([[LastFM support requires libcurl]])])
+	])
 AM_CONDITIONAL([COND_LASTFM], [[test "x$enable_lastfm" = "xyes"]])
 
 dnl ChromeCast support with libprotobuf-c
@@ -343,12 +345,6 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 	])
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
-
-dnl Websocket support with libwebsockets
-FORK_ARG_DISABLE([Websocket support], [websocket], [WEBSOCKET],
-	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
-		[AC_MSG_ERROR([[Websocket support requires libwebsockets]])])])
-AM_CONDITIONAL([COND_WEBSOCKET], [[test "x$enable_websocket" = "xyes"]])
 
 dnl iTunes playlists with libplist
 FORK_ARG_DISABLE([iTunes Music Library XML support], [itunes], [ITUNES],
