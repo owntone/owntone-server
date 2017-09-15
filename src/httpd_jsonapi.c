@@ -83,7 +83,7 @@ jsonapi_reply_config(struct evhttp_request *req, struct evbuffer *evbuf, char *u
   reply = json_object_new_object();
 
   // Websocket port
-#ifdef WEBSOCKET
+#ifdef HAVE_LIBWEBSOCKETS
   websocket_port = cfg_getint(cfg_getsec(cfg, "general"), "websocket_port");
 #else
   websocket_port = 0;
