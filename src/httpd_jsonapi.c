@@ -198,15 +198,15 @@ jsonapi_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char *u
 static int
 jsonapi_reply_spotify(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
 {
-  int httpd_port;
-  char __attribute__((unused)) redirect_uri[256];
-  char *oauth_uri;
   json_object *reply;
   int ret;
 
   reply = json_object_new_object();
 
 #ifdef HAVE_SPOTIFY_H
+  int httpd_port;
+  char redirect_uri[256];
+  char *oauth_uri;
   struct spotify_status_info info;
 
   json_object_object_add(reply, "enabled", json_object_new_boolean(true));
@@ -250,6 +250,7 @@ jsonapi_reply_spotify(struct evhttp_request *req, struct evbuffer *evbuf, char *
 static int
 jsonapi_reply_spotify_login(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
 {
+#ifdef HAVE_SPOTIFY_H
   struct evbuffer *in_evbuf;
   json_object* request;
   const char *user;
@@ -261,7 +262,6 @@ jsonapi_reply_spotify_login(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   DPRINTF(E_DBG, L_WEB, "Received spotify login request\n");
 
-#ifdef HAVE_SPOTIFY_H
   in_evbuf = evhttp_request_get_input_buffer(req);
   request = jparse_obj_from_evbuffer(in_evbuf);
   if (!request)
