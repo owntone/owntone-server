@@ -227,15 +227,24 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 			[libavfilter/buffersink.h])
 		 FORK_CHECK_DECLS([avfilter_graph_parse_ptr],
 			[libavfilter/avfilter.h])
-		 FORK_CHECK_DECLS([av_packet_unref], [libavcodec/avcodec.h])
-		 FORK_CHECK_DECLS([av_packet_rescale_ts], [libavcodec/avcodec.h])
+		 FORK_CHECK_DECLS([av_packet_unref],
+			[libavcodec/avcodec.h])
+		 FORK_CHECK_DECLS([av_packet_rescale_ts],
+			[libavcodec/avcodec.h])
 		 FORK_CHECK_DECLS([avformat_alloc_output_context2],
 			[libavformat/avformat.h])
-		 FORK_CHECK_DECLS([av_frame_alloc], [libavutil/frame.h])
+		 FORK_CHECK_DECLS([avformat_network_init],
+			[libavformat/avformat.h])
+		 FORK_CHECK_DECLS([av_version_info],
+			[libavutil/avutil.h])
+		 FORK_CHECK_DECLS([av_frame_alloc],
+			[libavutil/frame.h])
 		 FORK_CHECK_DECLS([av_frame_get_best_effort_timestamp],
 			[libavutil/frame.h])
-		 FORK_CHECK_DECLS([av_image_fill_arrays], [libavutil/imgutils.h])
-		 FORK_CHECK_DECLS([av_image_get_buffer_size], [libavutil/imgutils.h])
+		 FORK_CHECK_DECLS([av_image_fill_arrays],
+			[libavutil/imgutils.h])
+		 FORK_CHECK_DECLS([av_image_get_buffer_size],
+			[libavutil/imgutils.h])
 		 AC_CHECK_HEADERS([libavutil/channel_layout.h libavutil/mathematics.h])
 		])
 	])

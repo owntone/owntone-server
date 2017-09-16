@@ -49,6 +49,7 @@
 #ifdef HAVE_LIBEVENT_PTHREADS
 # include <event2/thread.h>
 #endif
+#include <libavutil/avutil.h>
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
@@ -466,6 +467,7 @@ main(int argc, char **argv)
   char *ffid;
   char *pidfile;
   char **buildopts;
+  const char *av_version;
   const char *gcry_version;
   sigset_t sigs;
   int sigfd;
@@ -599,6 +601,18 @@ main(int argc, char **argv)
       DPRINTF(E_LOG, L_MAIN, "- %s\n", buildopts[i]);
     }
 
+#if HAVE_DECL_AV_VERSION_INFO
+  av_version = av_version_info();
+#else
+  av_version = "(unknown version)";
+#endif
+
+#ifdef HAVE_FFMPEG
+  DPRINTF(E_INFO, L_MAIN, "Initialized with ffmpeg %s\n", av_version);
+#else
+  DPRINTF(E_INFO, L_MAIN, "Initialized with libav %s\n", av_version);
+#endif
+
   ret = av_lockmgr_register(ffmpeg_lockmgr);
   if (ret < 0)
     {
@@ -610,7 +624,7 @@ main(int argc, char **argv)
 
   av_register_all();
   avfilter_register_all();
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 13)
+#if HAVE_DECL_AVFORMAT_NETWORK_INIT
   avformat_network_init();
 #endif
   av_log_set_callback(logger_ffmpeg);
@@ -916,7 +930,7 @@ main(int argc, char **argv)
 #ifdef HAVE_LIBCURL
   curl_global_cleanup();
 #endif
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 13)
+#if HAVE_DECL_AVFORMAT_NETWORK_INIT
   avformat_network_deinit();
 #endif
   av_lockmgr_register(NULL);

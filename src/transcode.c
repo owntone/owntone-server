@@ -27,7 +27,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavfilter/avfiltergraph.h>
+#include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
 #include <libavutil/opt.h>
@@ -384,7 +384,7 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
     }
 
   if (ctx->ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-    s->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    s->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
   ret = avcodec_open2(s->codec, NULL, NULL);
   if (ret < 0)

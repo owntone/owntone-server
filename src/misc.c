@@ -48,6 +48,11 @@
 
 static char *buildopts[] =
   {
+#ifdef HAVE_FFMPEG
+    "ffmpeg",
+#else
+    "libav",
+#endif
 #ifdef ITUNES
     "iTunes XML",
 #endif
