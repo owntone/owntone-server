@@ -216,6 +216,10 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 		[Define to 1 if you have ffmpeg (not libav)])],
 	 [[is_ffmpeg=no]])
 	 AC_MSG_RESULT([$is_ffmpeg])
+	 FORK_CHECK_DECLS([av_version_info],
+		[libavutil/avutil.h])
+	 FORK_CHECK_DECLS([avformat_network_init],
+		[libavformat/avformat.h])
 	 dnl Check if we have modern or legacy AV apis
 	 FORK_CHECK_DECLS([avcodec_send_packet, avcodec_parameters_from_context],
 	 	[libavcodec/avcodec.h],
@@ -233,10 +237,6 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 			[libavcodec/avcodec.h])
 		 FORK_CHECK_DECLS([avformat_alloc_output_context2],
 			[libavformat/avformat.h])
-		 FORK_CHECK_DECLS([avformat_network_init],
-			[libavformat/avformat.h])
-		 FORK_CHECK_DECLS([av_version_info],
-			[libavutil/avutil.h])
 		 FORK_CHECK_DECLS([av_frame_alloc],
 			[libavutil/frame.h])
 		 FORK_CHECK_DECLS([av_frame_get_best_effort_timestamp],
