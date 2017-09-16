@@ -1649,8 +1649,8 @@ httpd_init(void)
   streaming_deinit();
 #ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
-#endif
  websocket_fail:
+#endif
   jsonapi_deinit();
  jsonapi_fail:
   dacp_deinit();
