@@ -380,7 +380,7 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   if (!s->codec->pix_fmt)
     {
       s->codec->pix_fmt = avcodec_default_get_format(s->codec, encoder->pix_fmts);
-      DPRINTF(E_DBG, L_XCODE, "Pixel format set to %d (encoder is %s)\n", s->codec->pix_fmt, codec_name);
+      DPRINTF(E_DBG, L_XCODE, "Pixel format set to %s (encoder is %s)\n", av_get_pix_fmt_name(s->codec->pix_fmt), codec_name);
     }
 
   if (ctx->ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
