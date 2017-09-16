@@ -212,14 +212,14 @@ scrobble_cb(void *arg)
 static void
 oauth_interface(struct evhttp_request *req, const char *uri)
 {
+#ifdef HAVE_SPOTIFY_H
   struct evkeyvalq query;
   const char *req_uri;
   const char *ptr;
-  char __attribute__((unused)) redirect_uri[256];
+  char redirect_uri[256];
   char *errmsg;
   int ret;
 
-#ifdef HAVE_SPOTIFY_H
   req_uri = evhttp_request_get_uri(req);
 
   memset(&query, 0, sizeof(struct evkeyvalq));
