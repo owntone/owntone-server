@@ -70,6 +70,9 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "player.h"
 #include "worker.h"
 #include "library.h"
+#ifdef LASTFM
+# include "lastfm.h"
+#endif
 
 #ifdef HAVE_LIBCURL
 # include <curl/curl.h>
@@ -782,6 +785,10 @@ main(int argc, char **argv)
   mdns_no_mpd = 0;
 #else
   mdns_no_mpd = 1;
+#endif
+
+#ifdef LASTFM
+  lastfm_init();
 #endif
 
   /* Start Remote pairing service */
