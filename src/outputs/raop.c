@@ -202,7 +202,7 @@ struct raop_session
   /* AirTunes v2 */
   unsigned short server_port;
   unsigned short control_port;
-  unsigned short timing_port;
+  unsigned short timing_port; // ATV4 has this set to 0, but it is not used by forked-daapd anyway
 
 #ifdef RAOP_VERIFICATION
   /* Device verification, see raop_verification.h */
@@ -3794,7 +3794,7 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
 
   free(transport);
 
-  if ((rs->server_port == 0) || (rs->control_port == 0) || (rs->timing_port == 0))
+  if ((rs->server_port == 0) || (rs->control_port == 0))
     {
       DPRINTF(E_LOG, L_RAOP, "Transport header lacked some port numbers in SETUP reply\n");
       DPRINTF(E_LOG, L_RAOP, "Transport header was: %s\n", param);
