@@ -1,8 +1,6 @@
 /*
+ * Copyright (C) 2015-2017 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
- *
- * Rewritten from mt-daapd code:
- * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -84,6 +82,7 @@ process_url(const char *path, time_t mtime, int extinf, struct media_file_info *
 
   *filename = strdup(path);
 
+  // Playlist hasn't changed since last probe of this item, so we wont't probe again
   db_file_stamp_bypath(path, &stamp, &id);
   if (stamp && (stamp >= mtime))
     {
@@ -163,7 +162,9 @@ process_regular_file(char **filename, char *path)
   if (ret > 0)
     {
       mfi_id = db_file_id_bymatch(entry);
+
       DPRINTF(E_DBG, L_SCAN, "Found playlist entry match, id is %d, entry is %s\n", mfi_id, entry);
+
       *filename = db_file_path_byid(mfi_id);
       if (!(*filename))
 	{
@@ -195,11 +196,12 @@ scan_playlist(char *file, time_t mtime, int dir_id)
   int extinf;
   int pl_id;
   int pl_format;
+  int counter;
   int ret;
   char virtual_path[PATH_MAX];
   char *plitem_path;
 
-  DPRINTF(E_LOG, L_SCAN, "Processing static playlist: %s\n", file);
+  DPRINTF(E_LOG, L_SCAN, "Processing static playlist: '%s'\n", file);
 
   ptr = strrchr(file, '.');
   if (!ptr)
@@ -214,44 +216,28 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 
   filename = filename_from_path(file);
 
-  ret = stat(file, &sb);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
-
-      return;
-    }
-
-  fp = fopen(file, "r");
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
-
-      return;
-    }
-
   /* Fetch or create playlist */
   pli = db_pl_fetch_bypath(file);
   if (pli)
     {
-      DPRINTF(E_DBG, L_SCAN, "Found playlist '%s', updating\n", file);
+      db_pl_ping(pli->id);
+
+      if (mtime && (pli->db_timestamp >= mtime))
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Playlist not modified since last processing, skipping\n");
+
+	  free_pli(pli, 0);
+	  return;
+	}
+
+      DPRINTF(E_INFO, L_SCAN, "Updating playlist\n");
 
       pl_id = pli->id;
-
-      db_pl_ping(pl_id);
       db_pl_clear_items(pl_id);
     }
   else
     {
-      pli = (struct playlist_info *)malloc(sizeof(struct playlist_info));
-      if (!pli)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
-
-	  goto out_close;
-	}
-
-      memset(pli, 0, sizeof(struct playlist_info));
+      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
 
       pli->type = PL_PLAIN;
 
@@ -270,16 +256,31 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", file);
 
 	  free_pli(pli, 0);
-	  goto out_close;
+	  return;
 	}
 
-      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
+      DPRINTF(E_INFO, L_SCAN, "Added new playlist as id %d\n", pl_id);
     }
 
   free_pli(pli, 0);
 
+  ret = stat(file, &sb);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
+      return;
+    }
+
+  fp = fopen(file, "r");
+  if (!fp)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
+      return;
+    }
+
   extinf = 0;
   memset(&mfi, 0, sizeof(struct media_file_info));
+  counter = 0;
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
@@ -312,30 +313,33 @@ scan_playlist(char *file, time_t mtime, int dir_id)
       if ((!isalnum(path[0])) && (path[0] != '/') && (path[0] != '.'))
 	continue;
 
-      /* Check if line is an URL, will be added to library */
-      if (strncasecmp(path, "http://", strlen("http://")) == 0)
-	{
-	  DPRINTF(E_DBG, L_SCAN, "Playlist contains URL entry: '%s'\n", path);
-
-	  ret = process_url(path, sb.st_mtime, extinf, &mfi, &plitem_path);
-	}
-      /* Regular file, should already be in library */
+      /* Check if line is an URL, will be added to library, otherwise it should already be there */
+      if (strncasecmp(path, "http://", 7) == 0)
+	ret = process_url(path, sb.st_mtime, extinf, &mfi, &plitem_path);
       else
-	{
-	  ret = process_regular_file(&plitem_path, path);
-	}
+	ret = process_regular_file(&plitem_path, path);
 
+      if (ret < 0)
+	continue;
+
+      ret = db_pl_add_item_bypath(pl_id, plitem_path);
       if (ret == 0)
 	{
-	  ret = db_pl_add_item_bypath(pl_id, plitem_path);
-	  if (ret < 0)
-	    DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", plitem_path);
-
-	  /* Clean up in preparation for next item */
-	  extinf = 0;
-	  free_mfi(&mfi, 1);
-	  free(plitem_path);
+	  counter++;
+	  if (counter % 200 == 0)
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Added %d items to playlist ...\n", counter);
+	      db_transaction_end();
+	      db_transaction_begin();
+	    }
 	}
+      else
+	DPRINTF(E_WARN, L_SCAN, "Could not add '%s' to playlist\n", plitem_path);
+
+      /* Clean up in preparation for next item */
+      extinf = 0;
+      free_mfi(&mfi, 1);
+      free(plitem_path);
     }
 
   /* We had some extinf that we never got to use, free it now */
@@ -343,14 +347,9 @@ scan_playlist(char *file, time_t mtime, int dir_id)
     free_mfi(&mfi, 1);
 
   if (!feof(fp))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s': %s\n", file, strerror(errno));
+    DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s' (only added %d tracks): %s\n", file, counter, strerror(errno));
+  else
+    DPRINTF(E_LOG, L_SCAN, "Done processing playlist, added %d items\n", counter);
 
-      goto out_close;
-    }
-
-  DPRINTF(E_INFO, L_SCAN, "Done processing playlist\n");
-
- out_close:
   fclose(fp);
 }
