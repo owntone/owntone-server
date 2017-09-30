@@ -447,27 +447,25 @@ process_deferred_playlists(void)
 }
 
 static void
-process_regular_file(char *file, struct stat *sb, int type, int flags, int dir_id)
+process_regular_file(const char *file, struct stat *sb, int type, int flags, int dir_id)
 {
-  time_t stamp;
-  int id;
   bool is_bulkscan = (flags & F_SCAN_BULK);
   struct media_file_info mfi;
   char virtual_path[PATH_MAX];
   int ret;
 
-  // Do not rescan metadata if file did not change since last scan
-  db_file_stamp_bypath(file, &stamp, &id);
-  if (stamp && (stamp >= sb->st_mtime))
-    {
-      db_file_ping(id);
-      return;
-    }
+  // Will return 0 if file is not in library or if file mtime is newer than library timestamp
+  // - note if mtime is 0 then we always scan the file
+  ret = db_file_ping_bypath(file, sb->st_mtime);
+  if ((sb->st_mtime != 0) && (ret != 0))
+    return;
 
   // File is new or modified - (re)scan metadata and update file in library
   memset(&mfi, 0, sizeof(struct media_file_info));
 
-  mfi.id = id;
+  // Sets id=0 if file is not in the library already
+  mfi.id = db_file_id_bypath(file);
+
   mfi.fname = strdup(filename_from_path(file));
   mfi.path = strdup(file);
 
