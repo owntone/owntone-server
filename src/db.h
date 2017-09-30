@@ -500,7 +500,7 @@ int
 db_files_get_album_count(void);
 
 int
-db_files_get_count_bymatch(char *path);
+db_files_get_count_bymatch(const char *path);
 
 void
 db_file_inc_playcount(int id);
@@ -508,26 +508,29 @@ db_file_inc_playcount(int id);
 void
 db_file_ping(int id);
 
+int
+db_file_ping_bypath(const char *path, time_t mtime_max);
+
 void
-db_file_ping_bymatch(char *path, int isdir);
+db_file_ping_bymatch(const char *path, int isdir);
 
 char *
 db_file_path_byid(int id);
 
 int
-db_file_id_bypath(char *path);
+db_file_id_bypath(const char *path);
 
 int
-db_file_id_bymatch(char *path);
+db_file_id_bymatch(const char *path);
 
 int
-db_file_id_byfile(char *filename);
+db_file_id_byfile(const char *filename);
 
 int
-db_file_id_byurl(char *url);
+db_file_id_byurl(const char *url);
 
 int
-db_file_id_by_virtualpath_match(char *path);
+db_file_id_by_virtualpath_match(const char *path);
 
 void
 db_file_stamp_bypath(const char *path, time_t *stamp, int *id);
@@ -548,19 +551,19 @@ void
 db_file_seek_update(int id, uint32_t seek);
 
 void
-db_file_delete_bypath(char *path);
+db_file_delete_bypath(const char *path);
 
 void
-db_file_disable_bypath(char *path, char *strip, uint32_t cookie);
+db_file_disable_bypath(const char *path, char *strip, uint32_t cookie);
 
 void
-db_file_disable_bymatch(char *path, char *strip, uint32_t cookie);
+db_file_disable_bymatch(const char *path, char *strip, uint32_t cookie);
 
 int
-db_file_enable_bycookie(uint32_t cookie, char *path);
+db_file_enable_bycookie(uint32_t cookie, const char *path);
 
 int
-db_file_update_directoryid(char *path, int dir_id);
+db_file_update_directoryid(const char *path, int dir_id);
 
 int
 db_filecount_get(struct filecount_info *fci, struct query_params *qp);
@@ -573,7 +576,7 @@ void
 db_pl_ping(int id);
 
 void
-db_pl_ping_bymatch(char *path, int isdir);
+db_pl_ping_bymatch(const char *path, int isdir);
 
 int
 db_pl_id_bypath(const char *path);
@@ -585,7 +588,7 @@ struct playlist_info *
 db_pl_fetch_byvirtualpath(const char *virtual_path);
 
 struct playlist_info *
-db_pl_fetch_bytitlepath(char *title, char *path);
+db_pl_fetch_bytitlepath(const char *title, const char *path);
 
 int
 db_pl_add(struct playlist_info *pli, int *id);
@@ -606,16 +609,16 @@ void
 db_pl_delete(int id);
 
 void
-db_pl_delete_bypath(char *path);
+db_pl_delete_bypath(const char *path);
 
 void
-db_pl_disable_bypath(char *path, char *strip, uint32_t cookie);
+db_pl_disable_bypath(const char *path, char *strip, uint32_t cookie);
 
 void
-db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie);
+db_pl_disable_bymatch(const char *path, char *strip, uint32_t cookie);
 
 int
-db_pl_enable_bycookie(uint32_t cookie, char *path);
+db_pl_enable_bycookie(uint32_t cookie, const char *path);
 
 /* Groups */
 int

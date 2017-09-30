@@ -1806,7 +1806,7 @@ db_files_get_album_count(void)
 }
 
 int
-db_files_get_count_bymatch(char *path)
+db_files_get_count_bymatch(const char *path)
 {
 #define Q_TMPL "SELECT COUNT(*) FROM files f WHERE f.path LIKE '%%%q';"
   char *query;
@@ -1857,8 +1857,23 @@ db_file_ping(int id)
 #undef Q_TMPL
 }
 
+int
+db_file_ping_bypath(const char *path, time_t mtime_max)
+{
+#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE path = '%q' AND db_timestamp >= %" PRIi64 ";"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path, (int64_t)mtime_max);
+
+  ret = db_query_run(query, 1, 0);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
 void
-db_file_ping_bymatch(char *path, int isdir)
+db_file_ping_bymatch(const char *path, int isdir)
 {
 #define Q_TMPL_DIR "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
 #define Q_TMPL_NODIR "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q%%';"
@@ -1933,7 +1948,7 @@ db_file_path_byid(int id)
 }
 
 static int
-db_file_id_byquery(char *query)
+db_file_id_byquery(const char *query)
 {
   sqlite3_stmt *stmt;
   int ret;
@@ -1976,7 +1991,7 @@ db_file_id_byquery(char *query)
 }
 
 int
-db_file_id_bypath(char *path)
+db_file_id_bypath(const char *path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.path = '%q';"
   char *query;
@@ -2000,7 +2015,7 @@ db_file_id_bypath(char *path)
 }
 
 int
-db_file_id_bymatch(char *path)
+db_file_id_bymatch(const char *path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.path LIKE '%%%q';"
   char *query;
@@ -2024,7 +2039,7 @@ db_file_id_bymatch(char *path)
 }
 
 int
-db_file_id_byfile(char *filename)
+db_file_id_byfile(const char *filename)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.fname = '%q';"
   char *query;
@@ -2048,7 +2063,7 @@ db_file_id_byfile(char *filename)
 }
 
 int
-db_file_id_byurl(char *url)
+db_file_id_byurl(const char *url)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.url = '%q';"
   char *query;
@@ -2072,7 +2087,7 @@ db_file_id_byurl(char *url)
 }
 
 int
-db_file_id_by_virtualpath_match(char *path)
+db_file_id_by_virtualpath_match(const char *path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.virtual_path LIKE '%%%q%%';"
   char *query;
@@ -2171,13 +2186,12 @@ db_file_fetch_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  mfi = (struct media_file_info *)malloc(sizeof(struct media_file_info));
+  mfi = calloc(1, sizeof(struct media_file_info));
   if (!mfi)
     {
       DPRINTF(E_LOG, L_DB, "Could not allocate struct media_file_info, out of memory\n");
       return NULL;
     }
-  memset(mfi, 0, sizeof(struct media_file_info));
 
   ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
@@ -2500,7 +2514,7 @@ db_file_seek_update(int id, uint32_t seek)
 }
 
 void
-db_file_delete_bypath(char *path)
+db_file_delete_bypath(const char *path)
 {
 #define Q_TMPL "DELETE FROM files WHERE path = '%q';"
   char *query;
@@ -2512,7 +2526,7 @@ db_file_delete_bypath(char *path)
 }
 
 void
-db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
+db_file_disable_bypath(const char *path, char *strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE files SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
   char *query;
@@ -2534,7 +2548,7 @@ db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
 }
 
 void
-db_file_disable_bymatch(char *path, char *strip, uint32_t cookie)
+db_file_disable_bymatch(const char *path, char *strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE files SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
@@ -2556,7 +2570,7 @@ db_file_disable_bymatch(char *path, char *strip, uint32_t cookie)
 }
 
 int
-db_file_enable_bycookie(uint32_t cookie, char *path)
+db_file_enable_bycookie(uint32_t cookie, const char *path)
 {
 #define Q_TMPL "UPDATE files SET path = '%q' || path, virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
@@ -2571,7 +2585,7 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 }
 
 int
-db_file_update_directoryid(char *path, int dir_id)
+db_file_update_directoryid(const char *path, int dir_id)
 {
 #define Q_TMPL "UPDATE files SET directory_id = %d WHERE path = %Q;"
   char *query;
@@ -2661,7 +2675,7 @@ db_pl_ping(int id)
 }
 
 void
-db_pl_ping_bymatch(char *path, int isdir)
+db_pl_ping_bymatch(const char *path, int isdir)
 {
 #define Q_TMPL_DIR "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
 #define Q_TMPL_NODIR "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q%%';"
@@ -2702,7 +2716,7 @@ db_pl_id_bypath(const char *path)
 }
 
 static struct playlist_info *
-db_pl_fetch_byquery(char *query)
+db_pl_fetch_byquery(const char *query)
 {
   struct playlist_info *pli;
   sqlite3_stmt *stmt;
@@ -2719,13 +2733,12 @@ db_pl_fetch_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  pli = (struct playlist_info *)malloc(sizeof(struct playlist_info));
+  pli = calloc(1, sizeof(struct playlist_info));
   if (!pli)
     {
       DPRINTF(E_LOG, L_DB, "Could not allocate struct playlist_info, out of memory\n");
       return NULL;
     }
-  memset(pli, 0, sizeof(struct playlist_info));
 
   ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
@@ -2900,7 +2913,7 @@ db_pl_fetch_byid(int id)
 }
 
 struct playlist_info *
-db_pl_fetch_bytitlepath(char *title, char *path)
+db_pl_fetch_bytitlepath(const char *title, const char *path)
 {
 #define Q_TMPL "SELECT p.* FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
   struct playlist_info *pli;
@@ -3066,7 +3079,7 @@ db_pl_delete(int id)
 }
 
 void
-db_pl_delete_bypath(char *path)
+db_pl_delete_bypath(const char *path)
 {
   int id;
 
@@ -3078,7 +3091,7 @@ db_pl_delete_bypath(char *path)
 }
 
 void
-db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
+db_pl_disable_bypath(const char *path, char *strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE playlists SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
   char *query;
@@ -3100,7 +3113,7 @@ db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
 }
 
 void
-db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie)
+db_pl_disable_bymatch(const char *path, char *strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE playlists SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
@@ -3122,7 +3135,7 @@ db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie)
 }
 
 int
-db_pl_enable_bycookie(uint32_t cookie, char *path)
+db_pl_enable_bycookie(uint32_t cookie, const char *path)
 {
 #define Q_TMPL "UPDATE playlists SET path = '%q' || path, virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
