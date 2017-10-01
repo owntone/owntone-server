@@ -1,7 +1,5 @@
 /*
- * Copyright (C) 2016 Espen Jürgensen <espenjurgensen@gmail.com>
- *
- * Stiched together from libspotify examples
+ * Copyright (C) 2016-17 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -58,7 +56,6 @@
 #include "listener.h"
 
 /* TODO for the web api:
- * - UI should be prettier
  * - map "added_at" to time_added
  * - what to do about the lack of push?
  * - use the web api more, implement proper init
@@ -1968,16 +1965,15 @@ spotify_login(char **arglist)
 }
 
 static void
-map_track_to_mfi(const struct spotify_track *track, struct media_file_info* mfi)
+map_track_to_mfi(struct media_file_info* mfi, const struct spotify_track *track, const struct spotify_album *album, const char *pl_name)
 {
+  char virtual_path[PATH_MAX];
+
   mfi->title = safe_strdup(track->name);
-  mfi->album = safe_strdup(track->album);
   mfi->artist = safe_strdup(track->artist);
-  mfi->album_artist = safe_strdup(track->album_artist);
   mfi->disc = track->disc_number;
   mfi->song_length = track->duration_ms;
   mfi->track = track->track_number;
-  mfi->compilation = track->is_compilation;
 
   mfi->artwork     = ARTWORK_SPOTIFY;
   mfi->type        = strdup("spotify");
@@ -1986,33 +1982,74 @@ map_track_to_mfi(const struct spotify_track *track, struct media_file_info* mfi)
 
   mfi->path = strdup(track->uri);
   mfi->fname = strdup(track->uri);
+
+  if (album)
+    {
+      mfi->album_artist = safe_strdup(album->artist);
+      mfi->album = safe_strdup(album->name);
+      mfi->genre = safe_strdup(album->genre);
+      mfi->compilation = album->is_compilation;
+      mfi->year = album->release_year;
+      mfi->time_modified = album->mtime;
+    }
+  else
+    {
+      mfi->album_artist = safe_strdup(track->album_artist);
+      mfi->album = cfg_getbool(cfg_getsec(cfg, "spotify"), "album_override") ? safe_strdup(pl_name) : safe_strdup(track->album);
+      mfi->compilation = cfg_getbool(cfg_getsec(cfg, "spotify"), "artist_override") ? true : track->is_compilation;
+      mfi->time_modified = time(NULL);
+    }
+
+  snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi->album_artist, mfi->album, mfi->title);
+  mfi->virtual_path = strdup(virtual_path);
 }
 
 static void
-map_album_to_mfi(const struct spotify_album *album, struct media_file_info* mfi)
+webapi_track_save(struct spotify_track *track, struct spotify_album *album, const char *pl_name, int dir_id)
 {
-  mfi->album = safe_strdup(album->name);
-  mfi->album_artist = safe_strdup(album->artist);
-  mfi->genre = safe_strdup(album->genre);
-  mfi->compilation = album->is_compilation;
-  mfi->year = album->release_year;
-  mfi->time_modified = album->mtime;
+  struct media_file_info mfi;
+  int ret;
+
+  if (track->linked_from_uri)
+    DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) linked from %s\n", track->name, track->uri, track->linked_from_uri);
+
+  ret = db_file_ping_bypath(track->uri, track->mtime);
+  if (ret == 0)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) is new or modified (mtime is %" PRIi64 ")\n", track->name, track->uri, (int64_t)track->mtime);
+
+      memset(&mfi, 0, sizeof(struct media_file_info));
+
+      mfi.data_kind = DATA_KIND_SPOTIFY;
+      mfi.id = db_file_id_bypath(track->uri);
+      mfi.directory_id = dir_id;
+
+      map_track_to_mfi(&mfi, track, album, pl_name);
+
+      library_add_media(&mfi);
+
+      free_mfi(&mfi, 1);
+    }
+
+  spotify_uri_register(track->uri);
+
+  if (album)
+    cache_artwork_ping(track->uri, album->mtime, 0);
+  else
+    cache_artwork_ping(track->uri, 1, 0);
 }
+
 
 /* Thread: library */
 static int
 scan_saved_albums()
 {
   struct spotify_request request;
-  json_object *jsontracks;
-  int track_count;
   struct spotify_album album;
   struct spotify_track track;
-  struct media_file_info mfi;
-  char virtual_path[PATH_MAX];
+  json_object *jsontracks;
+  int track_count;
   int dir_id;
-  time_t stamp;
-  int id;
   int i;
   int count;
   int ret;
@@ -2034,39 +2071,12 @@ scan_saved_albums()
 	  for (i = 0; i < track_count && ret == 0; i++)
 	    {
 	      ret = spotifywebapi_album_track_fetch(jsontracks, i, &track);
-	      if (ret == 0 && track.uri)
-		{
-		  db_file_stamp_bypath(track.uri, &stamp, &id);
-		  if (stamp && (stamp >= track.mtime))
-		    {
-		      db_file_ping(id);
-		    }
-		  else
-		    {
-		      memset(&mfi, 0, sizeof(struct media_file_info));
+	      if (ret < 0 || !track.uri)
+		continue;
 
-		      mfi.id = id;
-
-		      map_track_to_mfi(&track, &mfi);
-		      map_album_to_mfi(&album, &mfi);
-
-		      mfi.data_kind = DATA_KIND_SPOTIFY;
-		      snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi.album_artist, mfi.album, mfi.title);
-		      mfi.virtual_path = strdup(virtual_path);
-		      mfi.directory_id = dir_id;
-
-		      library_add_media(&mfi);
-
-		      free_mfi(&mfi, 1);
-		    }
-
-		  spotify_uri_register(track.uri);
-
-		  cache_artwork_ping(track.uri, album.mtime, 0);
-
-		  if (spotify_saved_plid)
-		    db_pl_add_item_bypath(spotify_saved_plid, track.uri);
-		}
+	      webapi_track_save(&track, &album, NULL, dir_id);
+	      if (spotify_saved_plid)
+		db_pl_add_item_bypath(spotify_saved_plid, track.uri);
 	    }
 
 	  db_transaction_end();
@@ -2086,79 +2096,27 @@ scan_saved_albums()
 static int
 scan_playlisttracks(struct spotify_playlist *playlist, int plid)
 {
-  cfg_t *spotify_cfg;
-  bool artist_override;
-  bool album_override;
   struct spotify_request request;
   struct spotify_track track;
-  struct media_file_info mfi;
-  char virtual_path[PATH_MAX];
   int dir_id;
-  time_t stamp;
-  int id;
 
   memset(&request, 0, sizeof(struct spotify_request));
-
-  spotify_cfg = cfg_getsec(cfg, "spotify");
-  artist_override = cfg_getbool(spotify_cfg, "artist_override");
-  album_override = cfg_getbool(spotify_cfg, "album_override");
 
   while (0 == spotifywebapi_request_next(&request, playlist->tracks_href, true))
     {
       db_transaction_begin();
 
-//      DPRINTF(E_DBG, L_SPOTIFY, "Playlist tracks\n%s\n", request.response_body);
       while (0 == spotifywebapi_playlisttracks_fetch(&request, &track))
 	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Got playlist track: '%s' (%s) \n", track.name, track.uri);
-
-	  if (!track.is_playable)
+	  if (!track.uri || !track.is_playable)
 	    {
 	      DPRINTF(E_LOG, L_SPOTIFY, "Track not available for playback: '%s' - '%s' (%s) (restrictions: %s)\n", track.artist, track.name, track.uri, track.restrictions);
 	      continue;
 	    }
 
-	  if (track.uri)
-	    {
-	      if (track.linked_from_uri)
-		DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) linked from %s\n", track.name, track.uri, track.linked_from_uri);
-
-	      db_file_stamp_bypath(track.uri, &stamp, &id);
-	      if (stamp)
-		{
-		  db_file_ping(id);
-		}
-	      else
-		{
-		  memset(&mfi, 0, sizeof(struct media_file_info));
-
-		  mfi.id = id;
-
-		  dir_id = prepare_directories(track.album_artist, track.album);
-
-		  map_track_to_mfi(&track, &mfi);
-
-		  mfi.compilation = (track.is_compilation || artist_override);
-		  if (album_override)
-		    {
-		      free(mfi.album);
-		      mfi.album = strdup(playlist->name);
-		    }
-
-		  mfi.time_modified = time(NULL);
-		  mfi.data_kind = DATA_KIND_SPOTIFY;
-		  snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi.album_artist, mfi.album, mfi.title);
-		  mfi.virtual_path = strdup(virtual_path);
-		  mfi.directory_id = dir_id;
-
-		  library_add_media(&mfi);
-		  free_mfi(&mfi, 1);
-		}
-
-	      spotify_uri_register(track.uri);
-	      cache_artwork_ping(track.uri, 1, 0);
-	      db_pl_add_item_bypath(plid, track.uri);
-	    }
+	  dir_id = prepare_directories(track.album_artist, track.album);
+	  webapi_track_save(&track, NULL, playlist->name, dir_id);
+	  db_pl_add_item_bypath(plid, track.uri);
 	}
 
       db_transaction_end();
@@ -2318,7 +2276,7 @@ initscan()
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
 	  "In order to use the web api, authorize forked-daapd to access "
-	  "your saved tracks by visiting http://forked-daapd.local:3689/oauth\n");
+	  "your saved tracks by visiting http://forked-daapd.local:3689\n");
 
       db_spotify_purge();
     }
