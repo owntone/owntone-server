@@ -76,24 +76,19 @@ static int
 process_url(const char *path, time_t mtime, int extinf, struct media_file_info *mfi, char **filename)
 {
   char virtual_path[PATH_MAX];
-  time_t stamp;
-  int id;
   int ret;
 
   *filename = strdup(path);
 
   // Playlist hasn't changed since last probe of this item, so we wont't probe again
-  db_file_stamp_bypath(path, &stamp, &id);
-  if (stamp && (stamp >= mtime))
-    {
-      db_file_ping(id);
-      return 0;
-    }
+  ret = db_file_ping_bypath(path, mtime);
+  if ((mtime != 0) && (ret != 0))
+    return 0;
 
   if (extinf)
     DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi->artist, mfi->title);
 
-  mfi->id = id;
+  mfi->id = db_file_id_bypath(path);
   mfi->path = strdup(path);
   mfi->fname = strdup(filename_from_path(path));
   mfi->data_kind = DATA_KIND_HTTP;
