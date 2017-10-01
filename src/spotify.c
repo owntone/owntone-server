@@ -1975,6 +1975,8 @@ map_track_to_mfi(struct media_file_info* mfi, const struct spotify_track *track,
   mfi->song_length = track->duration_ms;
   mfi->track = track->track_number;
 
+  mfi->data_kind   = DATA_KIND_SPOTIFY;
+  mfi->media_kind  = MEDIA_KIND_MUSIC;
   mfi->artwork     = ARTWORK_SPOTIFY;
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
@@ -2020,7 +2022,6 @@ webapi_track_save(struct spotify_track *track, struct spotify_album *album, cons
 
       memset(&mfi, 0, sizeof(struct media_file_info));
 
-      mfi.data_kind = DATA_KIND_SPOTIFY;
       mfi.id = db_file_id_bypath(track->uri);
       mfi.directory_id = dir_id;
 
