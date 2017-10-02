@@ -542,7 +542,6 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
   int ret;
   char virtual_path[PATH_MAX];
   int dir_id;
-  time_t stamp;
   int id;
 
   memset(&mfi, 0, sizeof(struct media_file_info));
@@ -600,7 +599,9 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
 
 //  DPRINTF(E_DBG, L_SPOTIFY, "Saving track '%s': '%s' by %s (%s)\n", url, mfi.title, mfi.artist, mfi.album);
 
-  db_file_stamp_bypath(url, &stamp, &id);
+  id = db_file_id_bypath(url);
+  if (id)
+    db_file_ping(id);
 
   mfi.id = id;
   mfi.path = strdup(url);
