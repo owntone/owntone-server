@@ -2110,63 +2110,6 @@ db_file_id_by_virtualpath_match(const char *path)
 #undef Q_TMPL
 }
 
-void
-db_file_stamp_bypath(const char *path, time_t *stamp, int *id)
-{
-#define Q_TMPL "SELECT f.id, f.db_timestamp FROM files f WHERE f.path = '%q';"
-  char *query;
-  sqlite3_stmt *stmt;
-  int ret;
-
-  *id = 0;
-  *stamp = 0;
-
-  query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return;
-    }
-
-  ret = db_blocking_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      if (ret == SQLITE_DONE)
-	DPRINTF(E_DBG, L_DB, "No results\n");
-      else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      sqlite3_free(query);
-      return;
-    }
-
-  *id = sqlite3_column_int(stmt, 0);
-  *stamp = (time_t)sqlite3_column_int64(stmt, 1);
-
-#ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
-    ; /* EMPTY */
-#endif
-
-  sqlite3_finalize(stmt);
-  sqlite3_free(query);
-
-#undef Q_TMPL
-}
-
 static struct media_file_info *
 db_file_fetch_byquery(char *query)
 {

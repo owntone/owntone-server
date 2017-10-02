@@ -532,9 +532,6 @@ db_file_id_byurl(const char *url);
 int
 db_file_id_by_virtualpath_match(const char *path);
 
-void
-db_file_stamp_bypath(const char *path, time_t *stamp, int *id);
-
 struct media_file_info *
 db_file_fetch_byid(int id);
 
