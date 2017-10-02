@@ -941,11 +941,7 @@ bulk_scan(int flags)
     }
 
   if (!(flags & F_SCAN_FAST) && playlists)
-    {
-      db_transaction_begin();
-      process_deferred_playlists();
-      db_transaction_end();
-    }
+    process_deferred_playlists();
 
   if (library_is_exiting())
     return;

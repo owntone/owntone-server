@@ -80,11 +80,6 @@ process_url(const char *path, time_t mtime, int extinf, struct media_file_info *
 
   *filename = strdup(path);
 
-  // Playlist hasn't changed since last probe of this item, so we wont't probe again
-  ret = db_file_ping_bypath(path, mtime);
-  if ((mtime != 0) && (ret != 0))
-    return 0;
-
   if (extinf)
     DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi->artist, mfi->title);
 
@@ -196,8 +191,6 @@ scan_playlist(char *file, time_t mtime, int dir_id)
   char virtual_path[PATH_MAX];
   char *plitem_path;
 
-  DPRINTF(E_LOG, L_SCAN, "Processing static playlist: '%s'\n", file);
-
   ptr = strrchr(file, '.');
   if (!ptr)
     return;
@@ -219,19 +212,23 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 
       if (mtime && (pli->db_timestamp >= mtime))
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist not modified since last processing, skipping\n");
+	  DPRINTF(E_LOG, L_SCAN, "Playlist '%s' is not modified, no processing required\n", file);
 
+	  // Protect this playlist's radio stations from purge after scan
+	  db_pl_ping_items_bymatch("http://", pli->id);
 	  free_pli(pli, 0);
 	  return;
 	}
 
-      DPRINTF(E_INFO, L_SCAN, "Updating playlist\n");
+      DPRINTF(E_LOG, L_SCAN, "Playlist '%s' is modified, processing\n", file);
 
       pl_id = pli->id;
       db_pl_clear_items(pl_id);
     }
   else
     {
+      DPRINTF(E_LOG, L_SCAN, "Playlist '%s' is new, processing\n", file);
+
       CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
 
       pli->type = PL_PLAIN;
@@ -272,6 +269,8 @@ scan_playlist(char *file, time_t mtime, int dir_id)
       DPRINTF(E_LOG, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
       return;
     }
+
+  db_transaction_begin();
 
   extinf = 0;
   memset(&mfi, 0, sizeof(struct media_file_info));
@@ -323,7 +322,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  counter++;
 	  if (counter % 200 == 0)
 	    {
-	      DPRINTF(E_LOG, L_SCAN, "Added %d items to playlist ...\n", counter);
+	      DPRINTF(E_LOG, L_SCAN, "Added %d items to playlist...\n", counter);
 	      db_transaction_end();
 	      db_transaction_begin();
 	    }
@@ -337,6 +336,8 @@ scan_playlist(char *file, time_t mtime, int dir_id)
       free(plitem_path);
     }
 
+  db_transaction_end();
+
   /* We had some extinf that we never got to use, free it now */
   if (extinf)
     free_mfi(&mfi, 1);
@@ -344,7 +345,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
   if (!feof(fp))
     DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s' (only added %d tracks): %s\n", file, counter, strerror(errno));
   else
-    DPRINTF(E_LOG, L_SCAN, "Done processing playlist, added %d items\n", counter);
+    DPRINTF(E_LOG, L_SCAN, "Done processing playlist, added/modified %d items\n", counter);
 
   fclose(fp);
 }
