@@ -575,6 +575,9 @@ db_pl_ping(int id);
 void
 db_pl_ping_bymatch(const char *path, int isdir);
 
+void
+db_pl_ping_items_bymatch(const char *path, int id);
+
 int
 db_pl_id_bypath(const char *path);
 

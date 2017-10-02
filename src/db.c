@@ -2634,6 +2634,18 @@ db_pl_ping_bymatch(const char *path, int isdir)
 #undef Q_TMPL_NODIR
 }
 
+void
+db_pl_ping_items_bymatch(const char *path, int id)
+{
+#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE path IN (SELECT filepath FROM playlistitems WHERE filepath LIKE '%q%%' AND playlistid = %d);"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path, id);
+
+  db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
 int
 db_pl_id_bypath(const char *path)
 {
