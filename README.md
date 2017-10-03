@@ -82,7 +82,7 @@ probably obsolete when you read it :-)
 | Remote                   | Apple      | Remote | iOS           | Yes (4.3)       |
 | Retune                   | SquallyDoc | Remote | Android       | Yes (3.5.23)    |
 | TunesRemote+             | Melloware  | Remote | Android       | Yes (2.5.3)     |
-| Remote for iTunes        | Hyperfine  | Remote | Android       | Yes             |
+| Remote for iTunes        | Hyperfine  | Remote | Android       | Partially       |
 | Remote for Windows Phone | Komodex    | Remote | Windows Phone | Yes (2.2.1.0)   |
 | TunesRemote SE           |            | Remote | Java          | Yes (r108)      |
 
