@@ -509,6 +509,9 @@ squote_to_dquote(char *buf)
 static void
 cast_session_free(struct cast_session *cs)
 {
+  if (!cs)
+    return;
+
   event_free(cs->reply_timeout);
   event_free(cs->ev);
 

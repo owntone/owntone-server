@@ -702,14 +702,12 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
       calculate_H_AMK(usr->alg, usr->H_AMK, usr->A, usr->M, usr->session_key, usr->session_key_len);
         
       *bytes_M = usr->M;
-      if (len_M)
-        *len_M = hash_length(usr->alg);
+      *len_M   = hash_length(usr->alg);
     }
   else
     {
       *bytes_M = NULL;
-      if (len_M) 
-        *len_M   = 0;
+      *len_M   = 0;
     }
 
  cleanup2:

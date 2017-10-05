@@ -97,6 +97,9 @@ pulse_from_device_volume(int device_volume)
 static void
 pulse_session_free(struct pulse_session *ps)
 {
+  if (!ps)
+    return;
+
   if (ps->stream)
     {
       pa_threaded_mainloop_lock(pulse.mainloop);

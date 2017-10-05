@@ -1349,7 +1349,7 @@ evrtsp_connection_get_local_address(struct evrtsp_connection *evcon,
 
       default:
 	free(*address);
-	address = NULL;
+	*address = NULL;
 
 	event_err(1, "%s: unhandled address family\n", __func__);
 	return;

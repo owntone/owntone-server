@@ -1368,7 +1368,7 @@ raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb)
     }
 
   /* Restart sequence: last sequence + 1 */
-  ret = snprintf(buf, sizeof(buf), "seq=%u;rtptime=%u", stream_seq + 1, RAOP_RTPTIME(rtptime));
+  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", stream_seq + 1, RAOP_RTPTIME(rtptime));
   if ((ret < 0) || (ret >= sizeof(buf)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in FLUSH request\n");
@@ -1468,7 +1468,7 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb)
   evrtsp_add_header(req->output_headers, "Range", "npt=0-");
 
   /* Start sequence: next sequence */
-  ret = snprintf(buf, sizeof(buf), "seq=%u;rtptime=%u", stream_seq + 1, RAOP_RTPTIME(rs->start_rtptime));
+  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", stream_seq + 1, RAOP_RTPTIME(rs->start_rtptime));
   if ((ret < 0) || (ret >= sizeof(buf)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in RECORD request\n");
@@ -1778,6 +1778,9 @@ raop_status(struct raop_session *rs)
 static void
 raop_session_free(struct raop_session *rs)
 {
+  if (!rs)
+    return;
+
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
   evrtsp_connection_free(rs->ctrl);
@@ -1802,8 +1805,6 @@ raop_session_free(struct raop_session *rs)
   free(rs->output_session);
 
   free(rs);
-
-  rs = NULL;
 }
 
 static void
@@ -3461,7 +3462,7 @@ raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len)
   /* Check that seqnum is in the retransmit buffer */
   if ((seqnum > pktbuf_head->seqnum) || (seqnum < pktbuf_tail->seqnum))
     {
-      DPRINTF(E_WARN, L_RAOP, "Device '%s' asking for seqnum %u; not in buffer (h %u t %u)\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
+      DPRINTF(E_WARN, L_RAOP, "Device '%s' asking for seqnum %" PRIu16 "; not in buffer (h %" PRIu16 " t %" PRIu16 ")\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
       return;
     }
 

@@ -211,7 +211,7 @@ daap_session_add(const char *user_agent, int request_session_id)
 
   daap_session_cleanup();
 
-  s = (struct daap_session *)malloc(sizeof(struct daap_session));
+  s = calloc(1, sizeof(struct daap_session));
   if (!s)
     {
       DPRINTF(E_LOG, L_DAAP, "Out of memory for DAAP session\n");
@@ -225,6 +225,7 @@ daap_session_add(const char *user_agent, int request_session_id)
       if (daap_session_get(request_session_id))
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Session id requested in login (%d) is not available\n", request_session_id);
+	  free(s);
 	  return NULL;
 	}
       
@@ -385,7 +386,7 @@ daap_sort_context_new(void)
   struct sort_ctx *ctx;
   int ret;
 
-  ctx = (struct sort_ctx *)malloc(sizeof(struct sort_ctx));
+  ctx = calloc(1, sizeof(struct sort_ctx));
   if (!ctx)
     {
       DPRINTF(E_LOG, L_DAAP, "Out of memory for sorting context\n");
@@ -532,14 +533,10 @@ user_agent_filter(const char *user_agent, struct query_params *qp)
 {
   const char *filter;
   char *buffer;
-  int len;
 
   if (!user_agent)
     return;
 
-  // Valgrind doesn't like strlen(filter) below, so instead we allocate 128 bytes
-  // to hold the string and the leading " AND ". Remember to adjust the 128 if
-  // you define strings here that will be too large for the buffer.
   if (is_remote(user_agent))
     filter = "(f.data_kind <> 1)"; // No internet radio
   else
@@ -547,12 +544,9 @@ user_agent_filter(const char *user_agent, struct query_params *qp)
 
   if (qp->filter)
     {
-      len = strlen(qp->filter) + 128;
-      buffer = (char *)malloc(len);
-      snprintf(buffer, len, "%s AND %s", qp->filter, filter);
+      buffer = safe_asprintf("%s AND %s", qp->filter, filter);
       free(qp->filter);
-      qp->filter = strdup(buffer);
-      free(buffer);
+      qp->filter = buffer;
     }
   else
     qp->filter = strdup(filter);
@@ -719,7 +713,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, const struc
 
   DPRINTF(E_DBG, L_DAAP, "Asking for %d meta tags\n", nmeta);
 
-  meta = (const struct dmap_field **)malloc(nmeta * sizeof(const struct dmap_field *));
+  meta = (const struct dmap_field **)calloc(nmeta, sizeof(const struct dmap_field *));
   if (!meta)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not allocate meta array; out of memory\n");
@@ -1069,7 +1063,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   /* Else, just let the request hang until we have changes to push back */
-  ur = (struct daap_update_request *)malloc(sizeof(struct daap_update_request));
+  ur = calloc(1, sizeof(struct daap_update_request));
   if (!ur)
     {
       DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");

@@ -277,11 +277,11 @@ fixup_tags(struct media_file_info *mfi)
 
       if (!mfi->album)
 	{
-	  len = snprintf(NULL, 0, "%s, Season %d", mfi->tv_series_name, mfi->tv_season_num);
+	  len = snprintf(NULL, 0, "%s, Season %u", mfi->tv_series_name, mfi->tv_season_num);
 
 	  mfi->album = (char *)malloc(len + 1);
 	  if (mfi->album)
-	    sprintf(mfi->album, "%s, Season %d", mfi->tv_series_name, mfi->tv_season_num);
+	    sprintf(mfi->album, "%s, Season %u", mfi->tv_series_name, mfi->tv_season_num);
 	}
     }
 

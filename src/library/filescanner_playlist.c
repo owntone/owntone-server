@@ -248,7 +248,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
 
-	  return;
+	  goto out_close;
 	}
 
       memset(pli, 0, sizeof(struct playlist_info));
@@ -270,7 +270,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", file);
 
 	  free_pli(pli, 0);
-	  return;
+	  goto out_close;
 	}
 
       DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
@@ -346,11 +346,11 @@ scan_playlist(char *file, time_t mtime, int dir_id)
     {
       DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s': %s\n", file, strerror(errno));
 
-      fclose(fp);
-      return;
+      goto out_close;
     }
 
-  fclose(fp);
-
   DPRINTF(E_INFO, L_SCAN, "Done processing playlist\n");
+
+ out_close:
+  fclose(fp);
 }

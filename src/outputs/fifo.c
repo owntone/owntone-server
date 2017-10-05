@@ -237,12 +237,14 @@ fifo_empty(struct fifo_session *fifo_session)
 static void
 fifo_session_free(struct fifo_session *fifo_session)
 {
+  if (!fifo_session)
+    return;
+
   event_free(fifo_session->deferredev);
 
   free(fifo_session->output_session);
   free(fifo_session);
   free_buffer();
-  fifo_session = NULL;
 }
 
 static void

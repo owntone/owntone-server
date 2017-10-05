@@ -133,14 +133,15 @@ prebuf_free(struct alsa_session *as)
 static void
 alsa_session_free(struct alsa_session *as)
 {
+  if (!as)
+    return;
+
   event_free(as->deferredev);
 
   prebuf_free(as);
 
   free(as->output_session);
   free(as);
-
-  as = NULL;
 }
 
 static void
@@ -654,7 +655,8 @@ buffer_write(struct alsa_session *as, uint8_t *buf, snd_pcm_sframes_t *avail, in
   if (ret != nsamp)
     DPRINTF(E_WARN, L_LAUDIO, "ALSA partial write detected\n");
 
-  *avail -= ret;
+  if (avail)
+    *avail -= ret;
 
   return 0;
 }

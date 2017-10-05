@@ -67,12 +67,13 @@ defer_cb(int fd, short what, void *arg);
 static void
 dummy_session_free(struct dummy_session *ds)
 {
+  if (!ds)
+    return;
+
   event_free(ds->deferredev);
 
   free(ds->output_session);
   free(ds);
-
-  ds = NULL;
 }
 
 static void
