@@ -24,6 +24,7 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Local audio through ALSA](#local-audio-through-alsa)
 - [Local audio, Bluetooth and more through Pulseaudio](#local-audio-bluetooth-and-more-through-pulseaudio)
 - [MP3 network streaming (streaming to iOS)](#mp3-network-streaming-streaming-to-ios)
+- [Remote access](#remote-access)
 - [Supported formats](#supported-formats)
 - [Playlists and internet radio](#playlists-and-internet-radio)
 - [Artwork](#artwork)
@@ -272,6 +273,21 @@ Note that MP3 encoding must be supported by ffmpeg/libav for this to work. If
 it is not available you will see a message in the log file. In Debian/Ubuntu you
 get MP3 encoding support by installing the package "libavcodec-extra".
 
+## Remote access
+
+It is possible to access a shared library over the internet. You must have remote
+access to the host machine.
+
+First log in to the host and forward port 3689 to your local machine. You now need to
+broadcast the daap service to iTunes on your local machine. On macOS the command is:
+
+```
+dns-sd -P iTunesServer _daap._tcp local 3689 localhost.local 127.0.0.1 "ffid=12345"
+```
+
+The `ffid` key is required but its value does not matter.
+
+Your library will now appear as 'iTunesServer' in iTunes.
 
 ## Supported formats
 
