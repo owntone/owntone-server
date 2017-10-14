@@ -73,12 +73,31 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
 }
 
 static int
-process_url(const char *path, time_t mtime, int extinf, struct media_file_info *mfi, char **filename)
+parent_dir(const char **current, const char *path)
+{
+  const char *ptr;
+
+  if (*current)
+    ptr = *current;
+  else
+    ptr = strrchr(path, '/');
+
+  if (!ptr || (ptr == path))
+    return -1;
+
+  for (ptr--; (ptr > path) && (*ptr != '/'); ptr--)
+    ;
+
+  *current = ptr;
+
+  return 0;
+}
+
+static int
+process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_file_info *mfi)
 {
   char virtual_path[PATH_MAX];
   int ret;
-
-  *filename = strdup(path);
 
   if (extinf)
     DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi->artist, mfi->title);
@@ -107,66 +126,98 @@ process_url(const char *path, time_t mtime, int extinf, struct media_file_info *
 
   library_add_media(mfi);
 
-  return 0;
+  return db_pl_add_item_bypath(pl_id, path);
 }
 
 static int
-process_regular_file(char **filename, char *path)
+process_regular_file(int pl_id, char *path)
 {
+  struct query_params qp;
+  char filter[PATH_MAX];
+  const char *a;
+  const char *b;
+  char *dbpath;
+  char *winner;
+  int score;
   int i;
-  int mfi_id;
-  char *ptr;
-  char *entry;
   int ret;
 
-  /* Playlist might be from Windows so we change backslash to forward slash */
+  // Playlist might be from Windows so we change backslash to forward slash
   for (i = 0; i < strlen(path); i++)
     {
       if (path[i] == '\\')
 	path[i] = '/';
     }
 
-  /* Now search for the library item where the path has closest match to playlist item */
-  /* Succes is when we find an unambiguous match, or when we no longer can expand the  */
-  /* the path to refine our search.                                                    */
-  entry = NULL;
-  do
+  ret = snprintf(filter, sizeof(filter), "(f.fname = '%s')", filename_from_path(path)); // TODO make case insensitive?
+  if (ret < 0 || ret >= sizeof(filter))
     {
-      ptr = strrchr(path, '/');
-      if (entry)
-	*(entry - 1) = '/';
-
-      if (ptr)
-	{
-	  *ptr = '\0';
-	  entry = ptr + 1;
-	}
-      else
-	entry = path;
-
-      DPRINTF(E_SPAM, L_SCAN, "Playlist entry is now %s\n", entry);
-      ret = db_files_get_count_bymatch(entry);
-    }
-  while (ptr && (ret > 1));
-
-  if (ret > 0)
-    {
-      mfi_id = db_file_id_bymatch(entry);
-
-      DPRINTF(E_DBG, L_SCAN, "Found playlist entry match, id is %d, entry is %s\n", mfi_id, entry);
-
-      *filename = db_file_path_byid(mfi_id);
-      if (!(*filename))
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist entry %s matches file id %d, but file path is missing.\n", entry, mfi_id);
-	  return -1;
-	}
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_SCAN, "No match for playlist entry %s\n", entry);
+      DPRINTF(E_LOG, L_SCAN, "Playlist contains bad filename: '%s'\n", path);
       return -1;
     }
+
+  // Fast path - only works if there are not multiple items in the lib with the
+  // same filename
+/*  ret = db_pl_add_item_byfile(pl_id, filename_from_path(path));
+  if (ret == 1)
+    return 0;
+
+  DPRINTF(E_DBG, L_SCAN, "Fast path adding '%s' to playlist did not work (ret=%d), now searching\n", path, ret);
+*/
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_BROWSE_PATH;
+  qp.sort = S_NONE;
+  qp.filter = filter;
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      return -1;
+    }
+
+  winner = NULL;
+  score = 0;
+  while (((ret = db_query_fetch_string(&qp, &dbpath)) == 0) && (dbpath))
+    {
+      if (qp.results == 1)
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Adding '%s' to playlist %d (fast path)\n", dbpath, pl_id);
+
+	  winner = strdup(dbpath);
+	  break;
+	}
+
+      for (i = 0, a = NULL, b = NULL; (parent_dir(&a, path) == 0) && (parent_dir(&b, dbpath) == 0) && (strcasecmp(a, b) == 0); i++)
+	;
+
+      DPRINTF(E_DBG, L_SCAN, "Comparison of '%s' and '%s' gave score %d\n", dbpath, path, i);
+
+      if (i > score)
+	{
+	  free(winner);
+	  winner = strdup(dbpath);
+	  score = ret;
+	}
+      else if (i == score)
+	{
+	  free(winner);
+	  winner = NULL;
+	}
+    }
+
+  db_query_end(&qp);
+
+  if (!winner)
+    {
+      DPRINTF(E_LOG, L_SCAN, "No file in the library matches playlist entry '%s'\n", path);
+      return -1;
+    }
+
+  db_pl_add_item_bypath(pl_id, winner);
+  free(winner);
 
   return 0;
 }
@@ -189,7 +240,6 @@ scan_playlist(char *file, time_t mtime, int dir_id)
   int counter;
   int ret;
   char virtual_path[PATH_MAX];
-  char *plitem_path;
 
   ptr = strrchr(file, '.');
   if (!ptr)
@@ -309,14 +359,10 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 
       /* Check if line is an URL, will be added to library, otherwise it should already be there */
       if (strncasecmp(path, "http://", 7) == 0)
-	ret = process_url(path, sb.st_mtime, extinf, &mfi, &plitem_path);
+	ret = process_url(pl_id, path, sb.st_mtime, extinf, &mfi);
       else
-	ret = process_regular_file(&plitem_path, path);
+	ret = process_regular_file(pl_id, path);
 
-      if (ret < 0)
-	continue;
-
-      ret = db_pl_add_item_bypath(pl_id, plitem_path);
       if (ret == 0)
 	{
 	  counter++;
@@ -327,13 +373,10 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	      db_transaction_begin();
 	    }
 	}
-      else
-	DPRINTF(E_WARN, L_SCAN, "Could not add '%s' to playlist\n", plitem_path);
 
       /* Clean up in preparation for next item */
       extinf = 0;
       free_mfi(&mfi, 1);
-      free(plitem_path);
     }
 
   db_transaction_end();

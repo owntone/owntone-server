@@ -293,6 +293,9 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_RESCAN				\
   "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
 
+#define I_FNAME					\
+  "CREATE INDEX IF NOT EXISTS idx_fname ON files(disabled, fname);"
+
 #define I_SONGARTISTID				\
   "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"
 
@@ -370,6 +373,7 @@ static const struct db_init_query db_init_table_queries[] =
 static const struct db_init_query db_init_index_queries[] =
   {
     { I_RESCAN,    "create rescan index" },
+    { I_FNAME,     "create filename index" },
     { I_SONGARTISTID, "create songartistid index" },
     { I_SONGALBUMID, "create songalbumid index" },
     { I_STATEMKINDSARI, "create state/mkind/sari index" },

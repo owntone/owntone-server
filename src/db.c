@@ -684,9 +684,10 @@ db_purge_cruft(time_t ref)
   int i;
   int ret;
   char *query;
-  char *queries_tmpl[3] =
+  char *queries_tmpl[4] =
     {
-      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> %d AND p.db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT p.id FROM playlists p WHERE p.type <> %d AND p.db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlistitems WHERE filepath IN (SELECT f.path FROM files f WHERE -1 <> %d AND f.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> %d AND db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 ";",
     };
@@ -2957,6 +2958,21 @@ db_pl_add(struct playlist_info *pli, int *id)
 
 #undef QDUP_TMPL
 #undef QADD_TMPL
+}
+
+int
+db_pl_add_item_byfile(int plid, const char *filename)
+{
+#define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) SELECT %d, path FROM files WHERE fname='%q' GROUP BY fname HAVING COUNT(*)=1;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, plid, filename);
+
+  ret = db_query_run(query, 1, 0);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
 }
 
 int

@@ -1564,6 +1564,16 @@ static const struct db_upgrade_query db_upgrade_v1904_queries[] =
   };
 
 
+#define U_V1905_SCVER_MINOR \
+  "UPDATE admin SET value = '05' WHERE key = 'schema_version_minor';"
+
+// Purpose of this upgrade is to reset the indeces, so that I_FNAME gets added
+static const struct db_upgrade_query db_upgrade_v1905_queries[] =
+  {
+    { U_V1905_SCVER_MINOR,    "set schema_version_minor to 05" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1699,6 +1709,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1903:
       ret = db_generic_upgrade(hdl, db_upgrade_v1904_queries, sizeof(db_upgrade_v1904_queries) / sizeof(db_upgrade_v1904_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1904:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1905_queries, sizeof(db_upgrade_v1905_queries) / sizeof(db_upgrade_v1905_queries[0]));
       if (ret < 0)
 	return -1;
 
