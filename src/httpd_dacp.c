@@ -1004,7 +1004,6 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   const char *sort;
   const char *cuequery;
   const char *param;
-  uint32_t item_id;
   uint32_t pos;
   int clear;
   struct db_queue_item *queue_item = NULL;
@@ -1052,7 +1051,6 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   if (param)
     dacp_propset_shufflestate(param, NULL);
 
-  item_id = 0;
   pos = 0;
   param = evhttp_find_header(query, "index");
   if (param)
@@ -1074,9 +1072,8 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	  if (history->count > pos)
 	    {
 	      pos = (history->start_index + history->count - pos - 1) % MAX_HISTORY_COUNT;
-	      item_id = history->item_id[pos];
 
-	      queue_item = db_queue_fetch_byitemid(item_id);
+	      queue_item = db_queue_fetch_byitemid(history->item_id[pos]);
 	      if (!queue_item)
 		{
 		  DPRINTF(E_LOG, L_DACP, "Could not start playback from history\n");
@@ -1595,7 +1592,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   int count;
   int ret;
   int start_index;
-  struct query_params query_params;
+  struct query_params qp;
   struct db_queue_item queue_item;
 
   /* /ctrl-int/1/playqueue-contents?span=50&session-id=... */
@@ -1615,7 +1612,6 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
     }
 
-  count = 0; // count of songs in songlist
   songlist = evbuffer_new();
   if (!songlist)
     {
@@ -1626,6 +1622,8 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     }
 
   player_get_status(&status);
+
+  count = 0; // count of songs in songlist
 
   /*
    * If the span parameter is negativ make song list for Previously Played,
@@ -1642,59 +1640,51 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	{
 	  start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
 	}
-      for (count = 0; count < history->count && count < abs(span); count++)
+
+      while ((count < history->count) && (count < abs(span)))
 	{
 	  ret = playqueuecontents_add_source(songlist, history->id[(start_index + count) % MAX_HISTORY_COUNT], (count + 1), status.plid);
 	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+	    goto error;
 
-	      dmap_send_error(req, "ceQR", "Out of memory");
-	      return;
-	    }
+	  count++;
 	}
     }
   else
     {
-      memset(&query_params, 0, sizeof(struct query_params));
-      if (status.shuffle)
-	query_params.sort = S_SHUFFLE_POS;
-      ret = db_queue_enum_start(&query_params);
+      memset(&qp, 0, sizeof(struct query_params));
 
-      count = 0; //FIXME [queue] Check count value
-      while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+      if (status.shuffle)
+	qp.sort = S_SHUFFLE_POS;
+
+      ret = db_queue_enum_start(&qp);
+      if (ret < 0)
+	goto error;
+
+      //FIXME [queue] Check count value
+      while ((db_queue_enum_fetch(&qp, &queue_item) == 0) && (queue_item.id > 0))
 	{
 	  if (status.item_id == 0 || status.item_id == queue_item.id)
-	    count = 1;
+	    {
+	      count = 1;
+	    }
 	  else if (count > 0)
 	    {
 	      ret = playqueuecontents_add_queue_item(songlist, &queue_item, count, status.plid);
 	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
-
-		  dmap_send_error(req, "ceQR", "Out of memory");
-		  return;
-		}
+		goto error;
 
 	      count++;
 	    }
 	}
 
-      db_queue_enum_end(&query_params);
+      db_queue_enum_end(&qp);
     }
 
   /* Playlists are hist, curr and main. */
   playlists = evbuffer_new();
   if (!playlists)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not allocate playlists evbuffer for playqueue-contents\n");
-      if (songlist)
-	evbuffer_free(songlist);
-
-      dmap_send_error(req, "ceQR", "Out of memory");
-      return;
-    }
+    goto error;
 
   dmap_add_container(playlists, "mlit", 61);
   dmap_add_string(playlists, "ceQk", "hist");              /* 12 */
@@ -1702,7 +1692,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   dmap_add_int(playlists, "ceQm", 200);                    /* 12 */
   dmap_add_string(playlists, "ceQl", "Previously Played"); /* 25 = 8 + 17 */
 
-  if (songlist)
+  if (count > 0)
     {
       dmap_add_container(playlists, "mlit", 36);
       dmap_add_string(playlists, "ceQk", "curr");            /* 12 */
@@ -1730,34 +1720,30 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   dmap_add_char(evbuf, "ceQu", 0);                                           /*  9 */
   dmap_add_container(evbuf, "mlcl", 8 + playlist_length + songlist_length);  /*  8 */
   dmap_add_container(evbuf, "ceQS", playlist_length);                        /*  8 */
+
   ret = evbuffer_add_buffer(evbuf, playlists);
   evbuffer_free(playlists);
   if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not add playlists to evbuffer for playqueue-contents\n");
-      if (songlist)
-	evbuffer_free(songlist);
+    goto error;
 
-      dmap_send_error(req, "ceQR", "Out of memory");
-      return;
-    }
+  ret = evbuffer_add_buffer(evbuf, songlist);
+  if (ret < 0)
+    goto error;
 
-  if (songlist)
-    {
-      ret = evbuffer_add_buffer(evbuf, songlist);
-      evbuffer_free(songlist);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DACP, "Could not add songlist to evbuffer for playqueue-contents\n");
+  evbuffer_free(songlist);
 
-	  dmap_send_error(req, "ceQR", "Out of memory");
-	  return;
-	}
-    } 
   dmap_add_char(evbuf, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
   dmap_add_char(evbuf, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
+
+  return;
+
+ error:
+  DPRINTF(E_LOG, L_DACP, "Out of memory in dacp_reply_playqueuecontents or database error\n");
+
+  evbuffer_free(songlist);
+  dmap_send_error(req, "ceQR", "Out of memory");
 }
 
 static void
