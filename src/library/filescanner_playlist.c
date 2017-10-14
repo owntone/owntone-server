@@ -253,7 +253,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 
       if (mtime && (pli->db_timestamp >= mtime))
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist '%s' is not modified, no processing required\n", file);
+	  DPRINTF(E_LOG, L_SCAN, "Unchanged playlist found, not processing '%s'\n", file);
 
 	  // Protect this playlist's radio stations from purge after scan
 	  db_pl_ping_items_bymatch("http://", pli->id);
@@ -261,14 +261,14 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  return;
 	}
 
-      DPRINTF(E_LOG, L_SCAN, "Playlist '%s' is modified, processing\n", file);
+      DPRINTF(E_LOG, L_SCAN, "Modified playlist found, processing '%s'\n", file);
 
       pl_id = pli->id;
       db_pl_clear_items(pl_id);
     }
   else
     {
-      DPRINTF(E_LOG, L_SCAN, "Playlist '%s' is new, processing\n", file);
+      DPRINTF(E_LOG, L_SCAN, "New playlist found, processing '%s'\n", file);
 
       CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
 
@@ -359,7 +359,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  counter++;
 	  if (counter % 200 == 0)
 	    {
-	      DPRINTF(E_LOG, L_SCAN, "Added %d items to playlist...\n", counter);
+	      DPRINTF(E_LOG, L_SCAN, "Processed %d items...\n", counter);
 	      db_transaction_end();
 	      db_transaction_begin();
 	    }
