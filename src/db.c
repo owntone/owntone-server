@@ -353,6 +353,48 @@ db_escape_string(const char *str)
   return ret;
 }
 
+// Basically a wrapper for sqlite3_mprintf()
+char *
+db_mprintf(const char *fmt, ...)
+{
+  char *query;
+  char *ret;
+  va_list va;
+
+  va_start(va, fmt);
+  ret = sqlite3_vmprintf(fmt, va);
+  if (!ret)
+    {
+      DPRINTF(E_FATAL, L_MISC, "Out of memory for db_mprintf\n");
+      abort();
+    }
+  va_end(va);
+
+  query = strdup(ret);
+  sqlite3_free(ret);
+
+  return query;
+}
+
+int
+db_snprintf(char *s, int n, const char *fmt, ...)
+{
+  char *ret;
+  va_list va;
+
+  if (n < 2)
+    return -1;
+
+  va_start(va, fmt);
+  ret = sqlite3_vsnprintf(n, s, fmt, va);
+  va_end(va);
+
+  if (!ret || (strlen(ret) == n - 1))
+    return -1;
+
+  return 0;
+}
+
 void
 free_pi(struct pairing_info *pi, int content_only)
 {

@@ -424,7 +424,13 @@ struct db_queue_item
 };
 
 char *
-db_escape_string(const char *str);
+db_escape_string(const char *str); // TODO Remove this, use db_mprintf instead
+
+char *
+db_mprintf(const char *fmt, ...);
+
+int
+db_snprintf(char *s, int n, const char *fmt, ...);
 
 void
 free_pi(struct pairing_info *pi, int content_only);

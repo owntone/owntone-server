@@ -149,13 +149,6 @@ process_regular_file(int pl_id, char *path)
 	path[i] = '/';
     }
 
-  ret = snprintf(filter, sizeof(filter), "(f.fname = '%s')", filename_from_path(path)); // TODO make case insensitive?
-  if (ret < 0 || ret >= sizeof(filter))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Playlist contains bad filename: '%s'\n", path);
-      return -1;
-    }
-
   // Fast path - only works if there are not multiple items in the lib with the
   // same filename
 /*  ret = db_pl_add_item_byfile(pl_id, filename_from_path(path));
@@ -164,6 +157,13 @@ process_regular_file(int pl_id, char *path)
 
   DPRINTF(E_DBG, L_SCAN, "Fast path adding '%s' to playlist did not work (ret=%d), now searching\n", path, ret);
 */
+
+  ret = db_snprintf(filter, sizeof(filter), "f.fname = '%q'", filename_from_path(path)); // TODO make case insensitive?
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Path in playlist is too long: '%s'\n", path);
+      return -1;
+    }
 
   memset(&qp, 0, sizeof(struct query_params));
 
