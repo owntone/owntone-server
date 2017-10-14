@@ -385,11 +385,14 @@ db_snprintf(char *s, int n, const char *fmt, ...)
   if (n < 2)
     return -1;
 
+  // For size check since sqlite3_vsnprintf does not seem to support it
+  s[n - 2] = '\0';
+
   va_start(va, fmt);
   ret = sqlite3_vsnprintf(n, s, fmt, va);
   va_end(va);
 
-  if (!ret || (strlen(ret) == n - 1))
+  if (!ret || (s[n - 2] != '\0'))
     return -1;
 
   return 0;
