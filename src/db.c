@@ -1333,6 +1333,7 @@ db_build_query_count_items(struct query_params *qp)
 int
 db_query_start(struct query_params *qp)
 {
+  sqlite3_stmt *stmt;
   char *query;
   int ret;
 
@@ -1422,7 +1423,7 @@ db_query_start(struct query_params *qp)
 
   DPRINTF(E_DBG, L_DB, "Starting query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &qp->stmt, NULL);
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -1432,6 +1433,8 @@ db_query_start(struct query_params *qp)
     }
 
   sqlite3_free(query);
+
+  qp->stmt = stmt;
 
   return 0;
 }
@@ -3344,6 +3347,7 @@ int
 db_directory_enum_start(struct directory_enum *de)
 {
 #define Q_TMPL "SELECT * FROM directories WHERE disabled = 0 AND parent_id = %d ORDER BY virtual_path;"
+  sqlite3_stmt *stmt;
   char *query;
   int ret;
 
@@ -3360,7 +3364,7 @@ db_directory_enum_start(struct directory_enum *de)
 
   DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &de->stmt, NULL);
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -3370,6 +3374,8 @@ db_directory_enum_start(struct directory_enum *de)
     }
 
   sqlite3_free(query);
+
+  de->stmt = stmt;
 
   return 0;
 
@@ -4385,6 +4391,7 @@ static int
 queue_enum_start(struct query_params *qp)
 {
 #define Q_TMPL "SELECT * FROM queue WHERE %s %s;"
+  sqlite3_stmt *stmt;
   char *query;
   const char *orderby;
   int ret;
@@ -4397,7 +4404,7 @@ queue_enum_start(struct query_params *qp)
     orderby = sort_clause[S_POS];
 
   if (qp->filter)
-     query = sqlite3_mprintf(Q_TMPL, qp->filter, orderby);
+    query = sqlite3_mprintf(Q_TMPL, qp->filter, orderby);
   else
     query = sqlite3_mprintf(Q_TMPL, "1=1", orderby);
 
@@ -4410,7 +4417,7 @@ queue_enum_start(struct query_params *qp)
 
   DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &qp->stmt, NULL);
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -4420,6 +4427,8 @@ queue_enum_start(struct query_params *qp)
     }
 
   sqlite3_free(query);
+
+  qp->stmt = stmt;
 
   return 0;
 
@@ -5724,6 +5733,7 @@ db_watch_enum_start(struct watch_enum *we)
 {
 #define Q_MATCH_TMPL "SELECT wd FROM inotify WHERE path LIKE '%q/%%';"
 #define Q_COOKIE_TMPL "SELECT wd FROM inotify WHERE cookie = %" PRIi64 ";"
+  sqlite3_stmt *stmt;
   char *query;
   int ret;
 
@@ -5748,7 +5758,7 @@ db_watch_enum_start(struct watch_enum *we)
 
   DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &we->stmt, NULL);
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -5758,6 +5768,8 @@ db_watch_enum_start(struct watch_enum *we)
     }
 
   sqlite3_free(query);
+
+  we->stmt = stmt;
 
   return 0;
 

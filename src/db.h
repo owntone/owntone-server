@@ -6,8 +6,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <sqlite3.h>
-
 #include "outputs.h"
 
 enum index_type {
@@ -81,7 +79,7 @@ struct query_params {
   int results;
 
   /* Private query context, keep out */
-  sqlite3_stmt *stmt;
+  void *stmt;
   char buf1[32];
   char buf2[32];
 };
@@ -346,7 +344,7 @@ struct watch_enum {
   char *match;
 
   /* Private enum context, keep out */
-  sqlite3_stmt *stmt;
+  void *stmt;
 };
 
 struct filecount_info {
@@ -375,7 +373,7 @@ struct directory_enum {
   int parent_id;
 
   /* Private enum context, keep out */
-  sqlite3_stmt *stmt;
+  void *stmt;
 };
 
 struct db_queue_item

@@ -1459,13 +1459,13 @@ mpd_queue_add(char *path, int recursive)
 
   if (recursive)
     {
-      qp.filter = sqlite3_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
+      qp.filter = db_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
   else
     {
-      qp.filter = sqlite3_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q'", path);
+      qp.filter = db_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
@@ -1474,7 +1474,7 @@ mpd_queue_add(char *path, int recursive)
 
   ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
 
-  sqlite3_free(qp.filter);
+  free(qp.filter);
   return ret;
 }
 
@@ -1778,12 +1778,12 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
   memset(&query_params, 0, sizeof(struct query_params));
 
   if (songid > 0)
-    query_params.filter = sqlite3_mprintf("id = %d", songid);
+    query_params.filter = db_mprintf("id = %d", songid);
 
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
-      sqlite3_free(query_params.filter);
+      free(query_params.filter);
       *errmsg = safe_asprintf("Failed to start queue enum for command playlistid: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
@@ -1796,13 +1796,13 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 	      *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
 
 	      db_queue_enum_end(&query_params);
-	      sqlite3_free(query_params.filter);
+	      free(query_params.filter);
 	      return ACK_ERROR_UNKNOWN;
 	    }
 	}
 
   db_queue_enum_end(&query_params);
-  sqlite3_free(query_params.filter);
+  free(query_params.filter);
 
   return 0;
 }
@@ -1840,13 +1840,13 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   if (start_pos < 0)
       DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
       else
-	query_params.filter = sqlite3_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
+	query_params.filter = db_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
     }
 
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
     {
-      sqlite3_free(query_params.filter);
+      free(query_params.filter);
       *errmsg = safe_asprintf("Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
@@ -1859,13 +1859,13 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 	  *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
 
 	  db_queue_enum_end(&query_params);
-	  sqlite3_free(query_params.filter);
+	  free(query_params.filter);
 	  return ACK_ERROR_UNKNOWN;
 	}
     }
 
   db_queue_enum_end(&query_params);
-  sqlite3_free(query_params.filter);
+  free(query_params.filter);
 
   return 0;
 }
@@ -2105,7 +2105,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
   qp.type = Q_PL;
   qp.sort = S_PLAYLIST;
   qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(f.type = %d OR f.type = %d)", PL_PLAIN, PL_SMART);
+  qp.filter = db_mprintf("(f.type = %d OR f.type = %d)", PL_PLAIN, PL_SMART);
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -2135,7 +2135,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
 
   db_query_end(&qp);
 
-  sqlite3_free(qp.filter);
+  free(qp.filter);
 
   return 0;
 }
@@ -2333,15 +2333,15 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
     {
       if (0 == strcasecmp(argv[i], "any"))
 	{
-	  c1 = sqlite3_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
+	  c1 = db_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "file"))
 	{
-	  c1 = sqlite3_mprintf("(f.virtual_path = '/%q')", argv[i + 1]);
+	  c1 = db_mprintf("(f.virtual_path = '/%q')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "base"))
 	{
-	  c1 = sqlite3_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "modified-since"))
 	{
@@ -2363,23 +2363,23 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	}
       else if (0 == strcasecmp(argv[i], "artist"))
 	{
-	  c1 = sqlite3_mprintf("(f.artist = '%q')", argv[i + 1]);
+	  c1 = db_mprintf("(f.artist = '%q')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "albumartist"))
 	{
-	  c1 = sqlite3_mprintf("(f.album_artist = '%q')", argv[i + 1]);
+	  c1 = db_mprintf("(f.album_artist = '%q')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "album"))
 	{
-	  c1 = sqlite3_mprintf("(f.album = '%q')", argv[i + 1]);
+	  c1 = db_mprintf("(f.album = '%q')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "title"))
 	{
-	  c1 = sqlite3_mprintf("(f.title = '%q')", argv[i + 1]);
+	  c1 = db_mprintf("(f.title = '%q')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "genre"))
 	{
-	  c1 = sqlite3_mprintf("(f.genre = '%q')", argv[i + 1]);
+	  c1 = db_mprintf("(f.genre = '%q')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "disc"))
 	{
@@ -2387,7 +2387,7 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	  if (ret < 0)
 	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
 	  else
-	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
+	    c1 = db_mprintf("(f.disc = %d)", num);
 	}
       else if (0 == strcasecmp(argv[i], "track"))
 	{
@@ -2395,20 +2395,20 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	  if (ret < 0)
 	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
 	  else
-	    c1 = sqlite3_mprintf("(f.track = %d)", num);
+	    c1 = db_mprintf("(f.track = %d)", num);
 	}
       else if (0 == strcasecmp(argv[i], "date"))
 	{
 	  ret = safe_atou32(argv[i + 1], &num);
 	  if (ret < 0)
-	    c1 = sqlite3_mprintf("(f.year = 0 OR f.year IS NULL)");
+	    c1 = db_mprintf("(f.year = 0 OR f.year IS NULL)");
 	  else
-	    c1 = sqlite3_mprintf("(f.year = %d)", num);
+	    c1 = db_mprintf("(f.year = %d)", num);
 	}
       else if (i == 0 && argc == 1)
 	{
 	  // Special case: a single token is allowed if listing albums for an artist
-	  c1 = sqlite3_mprintf("(f.album_artist = '%q')", argv[i]);
+	  c1 = db_mprintf("(f.album_artist = '%q')", argv[i]);
 	}
       else
 	{
@@ -2418,16 +2418,16 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
       if (c1)
 	{
 	  if (qp->filter)
-	    c2 = sqlite3_mprintf("%s AND %s", qp->filter, c1);
+	    c2 = db_mprintf("%s AND %s", qp->filter, c1);
 	  else
-	    c2 = sqlite3_mprintf("%s", c1);
+	    c2 = db_mprintf("%s", c1);
 
 	  if (qp->filter)
-	    sqlite3_free(qp->filter);
+	    free(qp->filter);
 
 	  qp->filter = c2;
 	  c2 = NULL;
-	  sqlite3_free(c1);
+	  free(c1);
 	  c1 = NULL;
 	}
     }
@@ -2455,7 +2455,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   ret = db_filecount_get(&fci, &qp);
   if (ret < 0)
     {
-      sqlite3_free(qp.filter);
+      free(qp.filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
@@ -2468,7 +2468,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
         (fci.length / 1000));
 
   db_query_end(&qp);
-  sqlite3_free(qp.filter);
+  free(qp.filter);
 
   return 0;
 }
@@ -2498,7 +2498,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
-      sqlite3_free(qp.filter);
+      free(qp.filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
@@ -2514,7 +2514,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   db_query_end(&qp);
-  sqlite3_free(qp.filter);
+  free(qp.filter);
 
   return 0;
 }
@@ -2543,7 +2543,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   player_get_status(&status);
 
   ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
-  sqlite3_free(qp.filter);
+  free(qp.filter);
   if (ret < 0)
     {
       *errmsg = safe_asprintf("Failed to add songs to playlist");
@@ -2639,7 +2639,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
-      sqlite3_free(qp.filter);
+      free(qp.filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
@@ -2681,7 +2681,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   db_query_end(&qp);
-  sqlite3_free(qp.filter);
+  free(qp.filter);
 
   return 0;
 }
@@ -2703,7 +2703,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   qp.type = Q_PL;
   qp.sort = S_PLAYLIST;
   qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(f.directory_id = %d AND (f.type = %d OR f.type = %d))", directory_id, PL_PLAIN, PL_SMART);
+  qp.filter = db_mprintf("(f.directory_id = %d AND (f.type = %d OR f.type = %d))", directory_id, PL_PLAIN, PL_SMART);
   ret = db_query_start(&qp);
   if (ret < 0)
     {
@@ -2736,7 +2736,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
 	}
     }
   db_query_end(&qp);
-  sqlite3_free(qp.filter);
+  free(qp.filter);
 
   // Load sub directories for dir-id
   memset(&dir_enum, 0, sizeof(struct directory_enum));
@@ -2776,7 +2776,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   qp.type = Q_ITEMS;
   qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(f.directory_id = %d)", directory_id);
+  qp.filter = db_mprintf("(f.directory_id = %d)", directory_id);
   ret = db_query_start(&qp);
   if (ret < 0)
     {
@@ -2967,15 +2967,15 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
     {
       if (0 == strcasecmp(argv[i], "any"))
 	{
-	  c1 = sqlite3_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
+	  c1 = db_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "file"))
 	{
-	  c1 = sqlite3_mprintf("(f.virtual_path LIKE '%%%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.virtual_path LIKE '%%%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "base"))
 	{
-	  c1 = sqlite3_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "modified-since"))
 	{
@@ -2997,23 +2997,23 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
 	}
       else if (0 == strcasecmp(argv[i], "artist"))
 	{
-	  c1 = sqlite3_mprintf("(f.artist LIKE '%%%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.artist LIKE '%%%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "albumartist"))
 	{
-	  c1 = sqlite3_mprintf("(f.album_artist LIKE '%%%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.album_artist LIKE '%%%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "album"))
 	{
-	  c1 = sqlite3_mprintf("(f.album LIKE '%%%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.album LIKE '%%%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "title"))
 	{
-	  c1 = sqlite3_mprintf("(f.title LIKE '%%%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.title LIKE '%%%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "genre"))
 	{
-	  c1 = sqlite3_mprintf("(f.genre LIKE '%%%q%%')", argv[i + 1]);
+	  c1 = db_mprintf("(f.genre LIKE '%%%q%%')", argv[i + 1]);
 	}
       else if (0 == strcasecmp(argv[i], "disc"))
 	{
@@ -3021,7 +3021,7 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
 	  if (ret < 0)
 	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
 	  else
-	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
+	    c1 = db_mprintf("(f.disc = %d)", num);
 	}
       else if (0 == strcasecmp(argv[i], "track"))
 	{
@@ -3029,15 +3029,15 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
 	  if (ret < 0)
 	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
 	  else
-	    c1 = sqlite3_mprintf("(f.track = %d)", num);
+	    c1 = db_mprintf("(f.track = %d)", num);
 	}
       else if (0 == strcasecmp(argv[i], "date"))
 	{
 	  ret = safe_atou32(argv[i + 1], &num);
 	  if (ret < 0)
-	    c1 = sqlite3_mprintf("(f.year = 0 OR f.year IS NULL)");
+	    c1 = db_mprintf("(f.year = 0 OR f.year IS NULL)");
 	  else
-	    c1 = sqlite3_mprintf("(f.year = %d)", num);
+	    c1 = db_mprintf("(f.year = %d)", num);
 	}
       else
 	{
@@ -3047,16 +3047,16 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
       if (c1)
 	{
 	  if (qp->filter)
-	    c2 = sqlite3_mprintf("%s AND %s", qp->filter, c1);
+	    c2 = db_mprintf("%s AND %s", qp->filter, c1);
 	  else
-	    c2 = sqlite3_mprintf("%s", c1);
+	    c2 = db_mprintf("%s", c1);
 
 	  if (qp->filter)
-	    sqlite3_free(qp->filter);
+	    free(qp->filter);
 
 	  qp->filter = c2;
 	  c2 = NULL;
-	  sqlite3_free(c1);
+	  free(c1);
 	  c1 = NULL;
 	}
     }
@@ -3103,7 +3103,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       db_query_end(&qp);
-      sqlite3_free(qp.filter);
+      free(qp.filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
@@ -3119,7 +3119,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   db_query_end(&qp);
-  sqlite3_free(qp.filter);
+  free(qp.filter);
 
   return 0;
 }
@@ -3148,7 +3148,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
   player_get_status(&status);
 
   ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
-  sqlite3_free(qp.filter);
+  free(qp.filter);
   if (ret < 0)
     {
       *errmsg = safe_asprintf("Failed to add songs to playlist");

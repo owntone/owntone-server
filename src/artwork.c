@@ -862,10 +862,10 @@ source_item_ownpl_get(struct artwork_ctx *ctx)
   int format;
   int ret;
 
-  ret = snprintf(filter, sizeof(filter), "(filepath = '%s')", ctx->dbmfi->path);
-  if ((ret < 0) || (ret >= sizeof(filter)))
+  ret = db_snprintf(filter, sizeof(filter), "filepath = '%q'", ctx->dbmfi->path);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", ctx->dbmfi->path);
+      DPRINTF(E_LOG, L_ART, "Artwork path is too long: '%s'\n", ctx->dbmfi->path);
       return ART_E_ERROR;
     }
 
@@ -1055,8 +1055,8 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
   ctx.cache = ON_FAILURE;
   ctx.individual = cfg_getbool(cfg_getsec(cfg, "library"), "artwork_individual");
 
-  ret = snprintf(filter, sizeof(filter), "id = %d", id);
-  if ((ret < 0) || (ret >= sizeof(filter)))
+  ret = db_snprintf(filter, sizeof(filter), "id = %d", id);
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not build filter for file id %d; no artwork will be sent\n", id);
       return -1;

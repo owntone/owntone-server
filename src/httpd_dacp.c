@@ -867,7 +867,6 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
   int id;
   int ret;
   int len;
-  char *s;
   char buf[1024];
   struct player_status status;
 
@@ -943,10 +942,13 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
       else if ((len > 6) && (strncmp(queuefilter, "genre:", 6) == 0))
 	{
 	  qp.type = Q_ITEMS;
-	  s = db_escape_string(queuefilter + 6);
-	  if (!s)
-	    return -1;
-	  snprintf(buf, sizeof(buf), "f.genre = '%s'", s);
+	  ret = db_snprintf(buf, sizeof(buf), "f.genre = %Q", queuefilter + 6);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DACP, "Invalid genre in queuefilter: %s\n", queuefilter);
+
+	      return -1;
+	    }
 	  qp.filter = strdup(buf);
 	}
       else
@@ -1680,7 +1682,6 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	}
 
       db_queue_enum_end(&query_params);
-      sqlite3_free(query_params.filter);
     }
 
   /* Playlists are hist, curr and main. */

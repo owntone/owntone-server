@@ -1765,12 +1765,13 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
   qp.type = Q_ITEMS;
   qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(f.virtual_path = %Q OR f.virtual_path LIKE '%q/%%')", virtual_path, virtual_path);
+  qp.filter = db_mprintf("(f.virtual_path = %Q OR f.virtual_path LIKE '%q/%%')", virtual_path, virtual_path);
 
   ret = db_query_start(&qp);
   if (ret < 0)
     {
       db_query_end(&qp);
+      free(qp.filter);
       return -1;
     }
 
@@ -1791,6 +1792,7 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
     }
 
   db_query_end(&qp);
+  free(qp.filter);
 
   return ret;
 }

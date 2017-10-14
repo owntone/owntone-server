@@ -35,6 +35,7 @@
 #endif
 
 #include <event2/event.h>
+#include <sqlite3.h>
 
 #include "conffile.h"
 #include "logger.h"
