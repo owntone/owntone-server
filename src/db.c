@@ -3009,21 +3009,6 @@ db_pl_add(struct playlist_info *pli, int *id)
 }
 
 int
-db_pl_add_item_byfile(int plid, const char *filename)
-{
-#define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) SELECT %d, path FROM files WHERE fname='%q' GROUP BY fname HAVING COUNT(*)=1;"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, plid, filename);
-
-  ret = db_query_run(query, 1, 0);
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
-#undef Q_TMPL
-}
-
-int
 db_pl_add_item_bypath(int plid, const char *path)
 {
 #define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, '%q');"

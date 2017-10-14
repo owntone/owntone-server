@@ -294,7 +294,7 @@ static const struct db_init_query db_init_table_queries[] =
   "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
 
 #define I_FNAME					\
-  "CREATE INDEX IF NOT EXISTS idx_fname ON files(disabled, fname);"
+  "CREATE INDEX IF NOT EXISTS idx_fname ON files(disabled, fname COLLATE NOCASE);"
 
 #define I_SONGARTISTID				\
   "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"

@@ -598,9 +598,6 @@ int
 db_pl_add(struct playlist_info *pli, int *id);
 
 int
-db_pl_add_item_byfile(int plid, const char *filename);
-
-int
 db_pl_add_item_bypath(int plid, const char *path);
 
 int
