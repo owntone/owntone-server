@@ -170,7 +170,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
 }
 
 void
-scan_smartpl(char *file, time_t mtime, int dir_id)
+scan_smartpl(const char *file, time_t mtime, int dir_id)
 {
   struct playlist_info *pli;
   int pl_id;

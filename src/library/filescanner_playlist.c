@@ -121,7 +121,7 @@ process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_
   if (!mfi->title)
     mfi->title = strdup(mfi->fname);
 
-  snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi->title);
+  snprintf(virtual_path, sizeof(virtual_path), "/http:/%s", mfi->title);
   mfi->virtual_path = strdup(virtual_path);
 
   library_add_media(mfi);
@@ -171,7 +171,7 @@ process_regular_file(int pl_id, char *path)
 
   winner = NULL;
   score = 0;
-  while (((ret = db_query_fetch_string(&qp, &dbpath)) == 0) && (dbpath))
+  while ((db_query_fetch_string(&qp, &dbpath) == 0) && dbpath)
     {
       if (qp.results == 1)
 	{
@@ -188,7 +188,7 @@ process_regular_file(int pl_id, char *path)
 	{
 	  free(winner);
 	  winner = strdup(dbpath);
-	  score = ret;
+	  score = i;
 	}
       else if (i == score)
 	{
@@ -214,7 +214,7 @@ process_regular_file(int pl_id, char *path)
 }
 
 void
-scan_playlist(char *file, time_t mtime, int dir_id)
+scan_playlist(const char *file, time_t mtime, int dir_id)
 {
   FILE *fp;
   struct media_file_info mfi;
@@ -230,7 +230,6 @@ scan_playlist(char *file, time_t mtime, int dir_id)
   int pl_format;
   int counter;
   int ret;
-  char virtual_path[PATH_MAX];
 
   ptr = strrchr(file, '.');
   if (!ptr)
@@ -278,8 +277,8 @@ scan_playlist(char *file, time_t mtime, int dir_id)
       pli->title = strip_extension(filename);
 
       pli->path = strdup(file);
-      snprintf(virtual_path, PATH_MAX, "/file:%s", file);
-      pli->virtual_path = strip_extension(virtual_path);
+      snprintf(buf, sizeof(buf), "/file:%s", file);
+      pli->virtual_path = strip_extension(buf);
 
       pli->directory_id = dir_id;
 

@@ -688,7 +688,7 @@ ignore_pl(plist_t pl, char *name)
 }
 
 static void
-process_pls(plist_t playlists, char *file)
+process_pls(plist_t playlists, const char *file)
 {
   plist_t pl;
   plist_t items;
@@ -730,7 +730,6 @@ process_pls(plist_t playlists, char *file)
 	}
 
       pli = db_pl_fetch_bytitlepath(name, file);
-
       if (pli)
 	{
 	  pl_id = pli->id;
@@ -754,19 +753,18 @@ process_pls(plist_t playlists, char *file)
 
       if (pl_id == 0)
 	{
-	  pli = (struct playlist_info *)malloc(sizeof(struct playlist_info));
+	  pli = calloc(1, sizeof(struct playlist_info));
 	  if (!pli)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
 
 	      return;
 	    }
-	  memset(pli, 0, sizeof(struct playlist_info));
 
 	  pli->type = PL_PLAIN;
 	  pli->title = strdup(name);
 	  pli->path = strdup(file);
-	  snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+	  snprintf(virtual_path, sizeof(virtual_path), "/file:%s", file);
 	  pli->virtual_path = strdup(virtual_path);
 
 	  ret = db_pl_add(pli, &pl_id);
@@ -790,15 +788,13 @@ process_pls(plist_t playlists, char *file)
 
 
 void
-scan_itunes_itml(char *file)
+scan_itunes_itml(const char *file)
 {
   struct stat sb;
   char *itml_xml;
-  char *ptr;
   plist_t itml;
   plist_t node;
   int fd;
-  int size;
   int ret;
 
   DPRINTF(E_LOG, L_SCAN, "Processing iTunes library: %s\n", file);
@@ -871,8 +867,7 @@ scan_itunes_itml(char *file)
       return;
     }
 
-  size = ID_MAP_SIZE * sizeof(struct itml_to_db_map *);
-  id_map = malloc(size);
+  id_map = calloc(ID_MAP_SIZE, sizeof(struct itml_to_db_map *));
   if (!id_map)
     {
       DPRINTF(E_FATAL, L_SCAN, "iTunes library parser could not allocate ID map\n");
@@ -880,19 +875,6 @@ scan_itunes_itml(char *file)
       plist_free(itml);
       return;
     }
-  memset(id_map, 0, size);
-
-  ptr = strrchr(file, '/');
-  if (!ptr)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Invalid filename\n");
-
-      id_map_free();
-      plist_free(itml);
-      return;
-    }
-
-  *ptr = '\0';
 
   ret = process_tracks(node);
   if (ret <= 0)
@@ -903,8 +885,6 @@ scan_itunes_itml(char *file)
       plist_free(itml);
       return;
     }
-
-  *ptr = '/';
 
   DPRINTF(E_INFO, L_SCAN, "Loaded %d tracks from iTunes library\n", ret);
 
