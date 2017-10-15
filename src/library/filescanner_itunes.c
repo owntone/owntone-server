@@ -541,6 +541,7 @@ process_tracks(plist_t tracks)
   uint64_t trk_id;
   uint8_t disabled;
   int ntracks;
+  int nloaded;
   int mfi_id;
   int ret;
 
@@ -553,6 +554,7 @@ process_tracks(plist_t tracks)
   db_transaction_begin();
 
   ntracks = 0;
+  nloaded = 0;
 
   iter = NULL;
   plist_dict_new_iter(tracks, &iter);
@@ -616,12 +618,6 @@ process_tracks(plist_t tracks)
 
       free(str);
 
-      if (mfi_id <= 0)
-	{
-	  plist_dict_next_item(tracks, iter, NULL, &trk);
-	  continue;
-	}
-
       ntracks++;
       if (ntracks % 200 == 0)
 	{
@@ -630,9 +626,17 @@ process_tracks(plist_t tracks)
 	  db_transaction_begin();
 	}
 
+      if (mfi_id <= 0)
+	{
+	  plist_dict_next_item(tracks, iter, NULL, &trk);
+	  continue;
+	}
+
       ret = id_map_add(trk_id, mfi_id);
       if (ret < 0)
 	DPRINTF(E_LOG, L_SCAN, "Out of memory for itml -> db mapping\n");
+
+      nloaded++;
 
       plist_dict_next_item(tracks, iter, NULL, &trk);
     }
@@ -641,7 +645,7 @@ process_tracks(plist_t tracks)
 
   db_transaction_end();
 
-  return ntracks;
+  return nloaded;
 }
 
 
@@ -682,6 +686,10 @@ process_pl_items(plist_t items, int pl_id, const char *name)
 	  continue;
 	}
 
+      ret = db_pl_add_item_byid(pl_id, db_id);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_SCAN, "Could not add ID %d to playlist\n", db_id);
+
       ntracks++;
       if (ntracks % 200 == 0)
 	{
@@ -689,10 +697,6 @@ process_pl_items(plist_t items, int pl_id, const char *name)
 	  db_transaction_end();
 	  db_transaction_begin();
 	}
-
-      ret = db_pl_add_item_byid(pl_id, db_id);
-      if (ret < 0)
-	DPRINTF(E_WARN, L_SCAN, "Could not add ID %d to playlist\n", db_id);
     }
 
   db_transaction_end();

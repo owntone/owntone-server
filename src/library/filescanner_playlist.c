@@ -207,7 +207,8 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
   int extinf;
   int pl_id;
   int pl_format;
-  int counter;
+  int ntracks;
+  int nadded;
   int ret;
 
   ptr = strrchr(file, '.');
@@ -293,7 +294,8 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 
   extinf = 0;
   memset(&mfi, 0, sizeof(struct media_file_info));
-  counter = 0;
+  ntracks = 0;
+  nadded = 0;
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
@@ -332,16 +334,16 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
       else
 	ret = process_regular_file(pl_id, path);
 
-      if (ret == 0)
+      ntracks++;
+      if (ntracks % 200 == 0)
 	{
-	  counter++;
-	  if (counter % 200 == 0)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Processed %d items...\n", counter);
-	      db_transaction_end();
-	      db_transaction_begin();
-	    }
+	  DPRINTF(E_LOG, L_SCAN, "Processed %d items...\n", ntracks);
+	  db_transaction_end();
+	  db_transaction_begin();
 	}
+
+      if (ret == 0)
+	nadded++;
 
       /* Clean up in preparation for next item */
       extinf = 0;
@@ -355,9 +357,9 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
     free_mfi(&mfi, 1);
 
   if (!feof(fp))
-    DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s' (only added %d tracks): %s\n", file, counter, strerror(errno));
+    DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s' (only added %d tracks): %s\n", file, nadded, strerror(errno));
   else
-    DPRINTF(E_LOG, L_SCAN, "Done processing playlist, added/modified %d items\n", counter);
+    DPRINTF(E_LOG, L_SCAN, "Done processing playlist, added/modified %d items\n", nadded);
 
   fclose(fp);
 }
