@@ -191,6 +191,27 @@ strip_extension(const char *path)
   return result;
 }
 
+int
+parent_dir(const char **current, const char *path)
+{
+  const char *ptr;
+
+  if (*current)
+    ptr = *current;
+  else
+    ptr = strrchr(path, '/');
+
+  if (!ptr || (ptr == path))
+    return -1;
+
+  for (ptr--; (ptr > path) && (*ptr != '/'); ptr--)
+    ;
+
+  *current = ptr;
+
+  return 0;
+}
+
 static int
 push_dir(struct stacked_dir **s, char *path, int parent_id)
 {

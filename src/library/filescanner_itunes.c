@@ -41,6 +41,7 @@
 
 #include "logger.h"
 #include "db.h"
+#include "library/filescanner.h"
 #include "conffile.h"
 #include "misc.h"
 
@@ -307,73 +308,88 @@ check_meta(plist_t dict)
 }
 
 static int
-find_track_file(char *location)
+mfi_id_find(const char *path)
 {
+  struct query_params qp;
+  char filter[PATH_MAX];
+  const char *a;
+  const char *b;
+  char *dbpath;
+  char *winner;
+  int score;
+  int i;
   int ret;
-  int plen;
-  int mfi_id;
-  char *entry;
-  char *ptr;
 
-  location = evhttp_decode_uri(location);
-  if (!location)
+  ret = db_snprintf(filter, sizeof(filter), "f.fname = '%q' COLLATE NOCASE", filename_from_path(path));
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not decode iTunes XML playlist url.\n");
-
-      return 0;
+      DPRINTF(E_LOG, L_SCAN, "Location in iTunes XML is too long: '%s'\n", path);
+      return -1;
     }
 
-  plen = strlen("file://");
+  memset(&qp, 0, sizeof(struct query_params));
 
-  /* Not a local file ... */
-  if (strncmp(location, "file://", plen) != 0)
-    return 0;
+  qp.type = Q_BROWSE_PATH;
+  qp.sort = S_NONE;
+  qp.filter = filter;
 
-  /* Now search for the library item where the path has closest match to playlist item */
-  /* Succes is when we find an unambiguous match, or when we no longer can expand the  */
-  /* the path to refine our search.                                                    */
-  entry = NULL;
-  do
+  ret = db_query_start(&qp);
+  if (ret < 0)
     {
-      ptr = strrchr(location, '/');
-      if (entry)
-	*(entry - 1) = '/';
-      if (ptr)
+      db_query_end(&qp);
+      return -1;
+    }
+
+  winner = NULL;
+  score = 0;
+  while ((db_query_fetch_string(&qp, &dbpath) == 0) && dbpath)
+    {
+      if (qp.results == 1)
 	{
-	  *ptr = '\0';
-	  entry = ptr + 1;
+	  winner = strdup(dbpath);
+	  break;
 	}
-      else
-	entry = location;
 
-      DPRINTF(E_SPAM, L_SCAN, "iTunes XML playlist entry is now %s\n", entry);
-      ret = db_files_get_count_bymatch(entry);
+      for (i = 0, a = NULL, b = NULL; (parent_dir(&a, path) == 0) && (parent_dir(&b, dbpath) == 0) && (strcasecmp(a, b) == 0); i++)
+	;
 
-    } while (ptr && (ret > 1));
+      DPRINTF(E_SPAM, L_SCAN, "Comparison of '%s' and '%s' gave score %d\n", dbpath, path, i);
 
-  if (ret > 0)
-    {
-      mfi_id = db_file_id_bymatch(entry);
-      DPRINTF(E_DBG, L_SCAN, "Found iTunes XML playlist entry match, id is %d, entry is %s\n", mfi_id, entry);
-
-      free(location);
-      return mfi_id;
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_SCAN, "No match for iTunes XML playlist entry %s\n", entry);
-
-      free(location);
-      return 0;
+      if (i > score)
+	{
+	  free(winner);
+	  winner = strdup(dbpath);
+	  score = i;
+	}
+      else if (i == score)
+	{
+	  free(winner);
+	  winner = NULL;
+	}
     }
 
+  db_query_end(&qp);
+
+  if (!winner)
+    {
+      DPRINTF(E_LOG, L_SCAN, "No file matches iTunes XML entry '%s'\n", path);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_SCAN, "Found '%s' from iTunes XML (results %d)\n", path, qp.results);
+
+  ret = db_file_id_bypath(winner);
+  free(winner);
+
+  return ret;
 }
 
 static int
 process_track_file(plist_t trk)
 {
-  char *location;
   struct media_file_info *mfi;
+  char *location;
+  char *path;
   char *string;
   uint64_t integer;
   char **strval;
@@ -385,24 +401,30 @@ process_track_file(plist_t trk)
   int ret;
 
   ret = get_dictval_string_from_key(trk, "Location", &location);
-  if (ret < 0)
+  if ((ret < 0) || !location)
     {
-      DPRINTF(E_WARN, L_SCAN, "Track type File with no Location\n");
-
-      return 0;
+      DPRINTF(E_LOG, L_SCAN, "Track type File with no Location\n");
+      return -1;
     }
 
-  mfi_id = find_track_file(location);
+  if (strncmp(location, "file://", strlen("file://")) != 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Track type File, but Location does not start with file://: '%s'\n", location);
+      free(location);
+      return -1;
+    }
 
+  path = evhttp_decode_uri(location + strlen("file://"));
+  free(location);
+
+  mfi_id = mfi_id_find(path);
   if (mfi_id <= 0)
     {
-      DPRINTF(E_INFO, L_SCAN, "Could not match location '%s' to any known file\n", location);
-
-      free(location);
-      return 0;
+      free(path);
+      return -1;
     }
 
-  free(location);
+  free(path);
 
   if (!cfg_getbool(cfg_getsec(cfg, "library"), "itunes_overrides"))
     return mfi_id;

@@ -73,27 +73,6 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
 }
 
 static int
-parent_dir(const char **current, const char *path)
-{
-  const char *ptr;
-
-  if (*current)
-    ptr = *current;
-  else
-    ptr = strrchr(path, '/');
-
-  if (!ptr || (ptr == path))
-    return -1;
-
-  for (ptr--; (ptr > path) && (*ptr != '/'); ptr--)
-    ;
-
-  *current = ptr;
-
-  return 0;
-}
-
-static int
 process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_file_info *mfi)
 {
   char virtual_path[PATH_MAX];
