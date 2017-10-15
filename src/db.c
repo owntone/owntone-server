@@ -1854,28 +1854,6 @@ db_files_get_album_count(void)
   return db_get_one_int("SELECT COUNT(DISTINCT songalbumid) FROM files f WHERE f.disabled = 0;");
 }
 
-int
-db_files_get_count_bymatch(const char *path)
-{
-#define Q_TMPL "SELECT COUNT(*) FROM files f WHERE f.path LIKE '%%%q';"
-  char *query;
-  int count;
-
-  query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory making count query string.\n");
-
-      return -1;
-    }
-
-  count = db_get_one_int(query);
-  sqlite3_free(query);
-
-  return count;
-#undef Q_TMPL
-}
-
 void
 db_file_inc_playcount(int id)
 {
@@ -2043,30 +2021,6 @@ int
 db_file_id_bypath(const char *path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.path = '%q';"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return 0;
-    }
-
-  ret = db_file_id_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
-#undef Q_TMPL
-}
-
-int
-db_file_id_bymatch(const char *path)
-{
-#define Q_TMPL "SELECT f.id FROM files f WHERE f.path LIKE '%%%q';"
   char *query;
   int ret;
 

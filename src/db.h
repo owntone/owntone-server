@@ -503,9 +503,6 @@ db_files_get_artist_count(void);
 int
 db_files_get_album_count(void);
 
-int
-db_files_get_count_bymatch(const char *path);
-
 void
 db_file_inc_playcount(int id);
 
@@ -523,9 +520,6 @@ db_file_path_byid(int id);
 
 int
 db_file_id_bypath(const char *path);
-
-int
-db_file_id_bymatch(const char *path);
 
 int
 db_file_id_byfile(const char *filename);
