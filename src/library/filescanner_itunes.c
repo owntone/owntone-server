@@ -550,6 +550,8 @@ process_tracks(plist_t tracks)
       return 0;
     }
 
+  db_transaction_begin();
+
   ntracks = 0;
 
   iter = NULL;
@@ -621,6 +623,12 @@ process_tracks(plist_t tracks)
 	}
 
       ntracks++;
+      if (ntracks % 200 == 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Processed %d tracks...\n", ntracks);
+	  db_transaction_end();
+	  db_transaction_begin();
+	}
 
       ret = id_map_add(trk_id, mfi_id);
       if (ret < 0)
@@ -631,19 +639,26 @@ process_tracks(plist_t tracks)
 
   free(iter);
 
+  db_transaction_end();
+
   return ntracks;
 }
 
 
 static void
-process_pl_items(plist_t items, int pl_id)
+process_pl_items(plist_t items, int pl_id, const char *name)
 {
   plist_t trk;
   uint64_t itml_id;
   uint32_t db_id;
   uint32_t alen;
   uint32_t i;
+  int ntracks;
   int ret;
+
+  db_transaction_begin();
+
+  ntracks = 0;
 
   alen = plist_array_get_size(items);
   for (i = 0; i < alen; i++)
@@ -667,14 +682,24 @@ process_pl_items(plist_t items, int pl_id)
 	  continue;
 	}
 
+      ntracks++;
+      if (ntracks % 200 == 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Processed %d tracks from playlist '%s'...\n", ntracks, name);
+	  db_transaction_end();
+	  db_transaction_begin();
+	}
+
       ret = db_pl_add_item_byid(pl_id, db_id);
       if (ret < 0)
 	DPRINTF(E_WARN, L_SCAN, "Could not add ID %d to playlist\n", db_id);
     }
+
+  db_transaction_end();
 }
 
 static int 
-ignore_pl(plist_t pl, char *name)
+ignore_pl(plist_t pl, const char *name)
 {
   uint64_t kind;
   int smart;
@@ -802,24 +827,69 @@ process_pls(plist_t playlists, const char *file)
 	  DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
 	}
 
-      free(name);
+      process_pl_items(items, pl_id, name);
 
-      process_pl_items(items, pl_id);
+      free(name);
     }
 }
 
 
 void
-scan_itunes_itml(const char *file)
+scan_itunes_itml(const char *file, time_t mtime, int dir_id)
 {
+  struct playlist_info *pli;
   struct stat sb;
+  char buf[PATH_MAX];
   char *itml_xml;
   plist_t itml;
   plist_t node;
   int fd;
   int ret;
 
-  DPRINTF(E_LOG, L_SCAN, "Processing iTunes library: %s\n", file);
+  // This is special playlist that is disabled and only used for saving a timestamp
+  pli = db_pl_fetch_bytitlepath(file, file);
+  if (pli)
+    {
+      db_pl_ping(pli->id);
+      db_pl_disable_bypath(file, "", 0);
+
+      if (mtime && (pli->db_timestamp >= mtime))
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Unchanged iTunes XML found, not processing '%s'\n", file);
+
+	  // TODO Protect the radio stations from purge after scan
+	  free_pli(pli, 0);
+	  return;
+	}
+
+      DPRINTF(E_LOG, L_SCAN, "Modified iTunes XML found, processing '%s'\n", file);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_SCAN, "New iTunes XML found, processing: '%s'\n", file);
+
+      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
+
+      pli->type = PL_PLAIN;
+      pli->title = strdup(file);
+      pli->path = strdup(file);
+      snprintf(buf, sizeof(buf), "/file:%s", file);
+      pli->virtual_path = strip_extension(buf);
+      pli->directory_id = dir_id;
+
+      ret = db_pl_add(pli, (int *)&pli->id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Error adding iTunes XML playlist '%s'\n", file);
+
+	  free_pli(pli, 0);
+	  return;
+	}
+
+      db_pl_disable_bypath(file, "", 0);
+    }
+
+  free_pli(pli, 0);
 
   fd = open(file, O_RDONLY);
   if (fd < 0)
@@ -841,7 +911,7 @@ scan_itunes_itml(const char *file)
   itml_xml = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
   if (itml_xml == MAP_FAILED)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not map iTunes library: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not map iTunes library '%s': %s\n", file, strerror(errno));
 
       close(fd);
       return;
@@ -852,7 +922,7 @@ scan_itunes_itml(const char *file)
 
   ret = munmap(itml_xml, sb.st_size);
   if (ret < 0)
-    DPRINTF(E_LOG, L_SCAN, "Could not unmap iTunes library: %s\n", strerror(errno));
+    DPRINTF(E_LOG, L_SCAN, "Could not unmap iTunes library '%s': %s\n", file, strerror(errno));
 
   close(fd);
 
@@ -883,7 +953,7 @@ scan_itunes_itml(const char *file)
   ret = get_dictval_dict_from_key(itml, "Tracks", &node);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not find Tracks dict\n");
+      DPRINTF(E_LOG, L_SCAN, "Could not find Tracks dict in '%s'\n", file);
 
       plist_free(itml);
       return;
@@ -901,20 +971,20 @@ scan_itunes_itml(const char *file)
   ret = process_tracks(node);
   if (ret <= 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "No tracks loaded\n");
+      DPRINTF(E_LOG, L_SCAN, "No tracks loaded from iTunes XML '%s'\n", file);
 
       id_map_free();
       plist_free(itml);
       return;
     }
 
-  DPRINTF(E_INFO, L_SCAN, "Loaded %d tracks from iTunes library\n", ret);
+  DPRINTF(E_LOG, L_SCAN, "Loaded %d tracks from iTunes XML '%s'\n", ret, file);
 
   /* Playlists */
   ret = get_dictval_array_from_key(itml, "Playlists", &node);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not find Playlists dict\n");
+      DPRINTF(E_LOG, L_SCAN, "Could not find Playlists dict in '%s'\n", file);
 
       id_map_free();
       plist_free(itml);

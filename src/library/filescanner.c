@@ -391,7 +391,7 @@ process_playlist(char *file, time_t mtime, int dir_id)
     scan_playlist(file, mtime, dir_id);
 #ifdef ITUNES
   else if (ft == FILE_ITUNES)
-    scan_itunes_itml(file);
+    scan_itunes_itml(file, mtime, dir_id);
 #endif
 }
 
