@@ -205,7 +205,7 @@ process_regular_file(int pl_id, char *path)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_SCAN, "Adding '%s' to playlist %d (results %d)\n", dbpath, pl_id, qp.results);
+  DPRINTF(E_DBG, L_SCAN, "Adding '%s' to playlist %d (results %d)\n", winner, pl_id, qp.results);
 
   db_pl_add_item_bypath(pl_id, winner);
   free(winner);
