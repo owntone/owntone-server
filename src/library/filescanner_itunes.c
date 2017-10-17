@@ -609,7 +609,7 @@ process_tracks(plist_t tracks)
 	mfi_id = process_track_file(trk);
       else
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Unknown track type: %s\n", str);
+	  DPRINTF(E_LOG, L_SCAN, "Unknown track type: '%s'\n", str);
 
 	  free(str);
 	  plist_dict_next_item(tracks, iter, NULL, &trk);
@@ -862,6 +862,7 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id)
 	  DPRINTF(E_LOG, L_SCAN, "Unchanged iTunes XML found, not processing '%s'\n", file);
 
 	  // TODO Protect the radio stations from purge after scan
+	  db_pl_ping_bymatch(file, 0);
 	  free_pli(pli, 0);
 	  return;
 	}
