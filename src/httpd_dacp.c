@@ -2116,8 +2116,6 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
       return;
     }
 
-  DPRINTF(E_LOG, L_DACP, "MARK Hanging on rev num %d...\n", reqd_rev);
-
   /* Else, just let the request hang until we have changes to push back */
   ur = calloc(1, sizeof(struct dacp_update_request));
   if (!ur)
