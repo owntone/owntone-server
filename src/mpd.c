@@ -1837,8 +1837,8 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 	  return ACK_ERROR_ARG;
 	}
 
-  if (start_pos < 0)
-      DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
+      if (start_pos < 0)
+	DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
       else
 	query_params.filter = db_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
     }
@@ -2422,8 +2422,7 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	  else
 	    c2 = db_mprintf("%s", c1);
 
-	  if (qp->filter)
-	    free(qp->filter);
+	  free(qp->filter);
 
 	  qp->filter = c2;
 	  c2 = NULL;
@@ -3051,8 +3050,7 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
 	  else
 	    c2 = db_mprintf("%s", c1);
 
-	  if (qp->filter)
-	    free(qp->filter);
+	  free(qp->filter);
 
 	  qp->filter = c2;
 	  c2 = NULL;
