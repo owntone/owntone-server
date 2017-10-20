@@ -145,7 +145,8 @@ static int update_efd;
 static int update_pipe[2];
 #endif
 static struct event *updateev;
-static int current_rev;
+/* Next revision number the client should call with */
+static int next_rev;
 
 /* Play status update requests */
 static struct dacp_update_request *update_requests;
@@ -263,9 +264,10 @@ make_playstatusupdate(struct evbuffer *evbuf)
 	}
     }
 
-  dmap_add_int(psu, "mstt", 200);         /* 12 */
+  dmap_add_int(psu, "mstt", 200);             /* 12 */
 
-  dmap_add_int(psu, "cmsr", current_rev); /* 12 */
+  next_rev++;
+  dmap_add_int(psu, "cmsr", next_rev);        /* 12 */
 
   dmap_add_char(psu, "caps", status.status);  /*  9 */ /* play status, 2 = stopped, 3 = paused, 4 = playing */
   dmap_add_char(psu, "cash", status.shuffle); /*  9 */ /* shuffle, true/false */
@@ -284,8 +286,8 @@ make_playstatusupdate(struct evbuffer *evbuf)
 
       dmap_add_int(psu, "casa", 1);           /* 12 */ /* unknown */
       dmap_add_int(psu, "astm", queue_item->song_length);
-      dmap_add_char(psu, "casc", 1);         /* Maybe an indication of extra data? */
-      dmap_add_char(psu, "caks", 6);         /* Unknown */
+      dmap_add_char(psu, "casc", 1);          /* Maybe an indication of extra data? */
+      dmap_add_char(psu, "caks", 6);          /* Unknown */
 
       dacp_playingtime(psu, &status, queue_item);
 
@@ -382,8 +384,6 @@ playstatusupdate_cb(int fd, short what, void *arg)
 
       free(ur);
     }
-
-  current_rev++;
 
  out_free_update:
   evbuffer_free(update);
@@ -2116,8 +2116,10 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
       return;
     }
 
+  DPRINTF(E_LOG, L_DACP, "MARK Hanging on rev num %d...\n", reqd_rev);
+
   /* Else, just let the request hang until we have changes to push back */
-  ur = (struct dacp_update_request *)malloc(sizeof(struct dacp_update_request));
+  ur = calloc(1, sizeof(struct dacp_update_request));
   if (!ur)
     {
       DPRINTF(E_LOG, L_DACP, "Out of memory for update request\n");
@@ -2475,7 +2477,7 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
   while ((ptr = strchr(ptr + 1, ',')))
     nspk++;
 
-  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
+  ids = calloc((nspk + 1), sizeof(uint64_t));
   if (!ids)
     {
       DPRINTF(E_LOG, L_DACP, "Out of memory for speaker ids\n");
@@ -2750,7 +2752,7 @@ dacp_init(void)
   int i;
   int ret;
 
-  current_rev = 2;
+  next_rev = 1;
   update_requests = NULL;
 
 #ifdef HAVE_EVENTFD
