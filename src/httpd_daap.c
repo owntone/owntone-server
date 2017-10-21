@@ -531,25 +531,28 @@ is_remote(const char *user_agent)
 static void
 user_agent_filter(const char *user_agent, struct query_params *qp)
 {
-  const char *filter;
-  char *buffer;
+  char *filter;
 
   if (!user_agent)
     return;
 
   if (is_remote(user_agent))
-    filter = "(f.data_kind <> 1)"; // No internet radio
-  else
-    filter = "(f.data_kind = 0)"; // Only real files
-
-  if (qp->filter)
     {
-      buffer = safe_asprintf("%s AND %s", qp->filter, filter);
-      free(qp->filter);
-      qp->filter = buffer;
+      if (qp->filter)
+	filter = safe_asprintf("%s AND (f.data_kind <> %d)", qp->filter, DATA_KIND_HTTP);
+      else
+	filter = safe_asprintf("(f.data_kind <> %d)", DATA_KIND_HTTP);
     }
   else
-    qp->filter = strdup(filter);
+    {
+      if (qp->filter)
+	filter = safe_asprintf("%s AND (f.data_kind = %d)", qp->filter, DATA_KIND_FILE);
+      else
+	filter = safe_asprintf("(f.data_kind = %d)", DATA_KIND_FILE);
+    }
+
+  free(qp->filter);
+  qp->filter = filter;
 
   DPRINTF(E_DBG, L_DAAP, "SQL filter w/client mod: %s\n", qp->filter);
 }
