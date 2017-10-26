@@ -45,6 +45,7 @@
 #include "conffile.h"
 #include "artwork.h"
 #include "httpd.h"
+#include "httpd_daap.h"
 #include "httpd_dacp.h"
 #include "dmap_common.h"
 #include "db.h"
@@ -54,12 +55,6 @@
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
-
-/* From httpd_daap.c */
-struct daap_session;
-
-struct daap_session *
-daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf);
 
 
 struct uri_map {
@@ -231,6 +226,40 @@ dacp_playingtime(struct evbuffer *evbuf, struct player_status *status, struct db
     dmap_add_int(evbuf, "cant", 0); /* Unknown remaining time */
 
   dmap_add_int(evbuf, "cast", queue_item->song_length); /* Song length in ms */
+}
+
+static int
+dacp_request_authorize(struct evhttp_request *req, struct evkeyvalq *query)
+{
+  const char *param;
+  int32_t id;
+  int ret;
+
+  param = evhttp_find_header(query, "session-id");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "No session-id specified in request\n");
+      goto invalid;
+    }
+
+  ret = safe_atoi32(param, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Invalid session-id specified in request: '%s'\n", param);
+      goto invalid;
+    }
+
+  if (!daap_session_is_valid(id))
+    {
+      DPRINTF(E_LOG, L_DACP, "Invalid session-id (%d) specified in request\n", id);
+      goto invalid;
+    }
+
+  return 0;
+
+ invalid:
+  httpd_send_error(req, 403, "Forbidden");
+  return -1;
 }
 
 
@@ -907,7 +936,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
 	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &albumid);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_DACP, "Invalid album id in queuefilter: %s\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid album id in queuefilter: '%s'\n", queuefilter);
 
 	      return -1;
 	    }
@@ -920,7 +949,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
 	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &artistid);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_DACP, "Invalid artist id in queuefilter: %s\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid artist id in queuefilter: '%s'\n", queuefilter);
 
 	      return -1;
 	    }
@@ -933,7 +962,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
 	  ret = safe_atoi32(strchr(queuefilter, ':') + 1, &plid);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_DACP, "Invalid playlist id in queuefilter: %s\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid playlist id in queuefilter: '%s'\n", queuefilter);
 
 	      return -1;
 	    }
@@ -946,7 +975,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
 	  ret = db_snprintf(buf, sizeof(buf), "f.genre = %Q", queuefilter + 6);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_DACP, "Invalid genre in queuefilter: %s\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid genre in queuefilter: '%s'\n", queuefilter);
 
 	      return -1;
 	    }
@@ -954,7 +983,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
 	}
       else
 	{
-	  DPRINTF(E_LOG, L_DACP, "Unknown queuefilter %s\n", queuefilter);
+	  DPRINTF(E_LOG, L_DACP, "Unknown queuefilter '%s', query is '%s'\n", queuefilter, query);
 
 	  // If the queuefilter is unkown, ignore it and use the query parameter instead to build the sql query
 	  id = 0;
@@ -1157,11 +1186,11 @@ dacp_reply_cue_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **
 static void
 dacp_reply_cue(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   const char *param;
+  int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   param = evhttp_find_header(query, "command");
@@ -1190,7 +1219,6 @@ static void
 dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct player_status status;
-  struct daap_session *s;
   const char *param;
   const char *shuffle;
   uint32_t plid;
@@ -1204,8 +1232,8 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
    * With our DAAP implementation, container-spec is the playlist ID and container-item-spec/item-spec is the song ID
    */
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   /* Check for shuffle */
@@ -1332,10 +1360,10 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 static void
 dacp_reply_pause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
+  int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   player_playback_pause();
@@ -1347,14 +1375,12 @@ dacp_reply_pause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 static void
 dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   struct player_status status;
   int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
-
 
   player_get_status(&status);
   if (status.status == PLAY_PLAYING)
@@ -1380,11 +1406,10 @@ dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **
 static void
 dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   ret = player_playback_next();
@@ -1412,11 +1437,10 @@ dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 static void
 dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   ret = player_playback_prev();
@@ -1444,10 +1468,10 @@ dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 static void
 dacp_reply_beginff(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
+  int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   /* TODO */
@@ -1459,10 +1483,10 @@ dacp_reply_beginff(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
 static void
 dacp_reply_beginrew(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
+  int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   /* TODO */
@@ -1474,10 +1498,10 @@ dacp_reply_beginrew(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 static void
 dacp_reply_playresume(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
+  int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   /* TODO */
@@ -1581,7 +1605,6 @@ static void
 dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
     struct evkeyvalq *query)
 {
-  struct daap_session *s;
   struct evbuffer *songlist;
   struct evbuffer *playlists;
   struct player_status status;
@@ -1598,8 +1621,8 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 
   /* /ctrl-int/1/playqueue-contents?span=50&session-id=... */
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   DPRINTF(E_DBG, L_DACP, "Fetching playqueue contents\n");
@@ -1996,8 +2019,8 @@ dacp_reply_playqueueedit_remove(struct evhttp_request *req, struct evbuffer *evb
 static void
 dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   const char *param;
+  int ret;
 
   /*  Variations of /ctrl-int/1/playqueue-edit and expected behaviour
       User selected play (album or artist tab):
@@ -2042,8 +2065,8 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
   -> remove song on position 1 from the playqueue
    */
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   param = evhttp_find_header(query, "command");
@@ -2077,15 +2100,14 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
 static void
 dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   struct dacp_update_request *ur;
   struct evhttp_connection *evcon;
   const char *param;
   int reqd_rev;
   int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   param = evhttp_find_header(query, "revision-number");
@@ -2144,7 +2166,6 @@ static void
 dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   char clen[32];
-  struct daap_session *s;
   struct evkeyvalq *headers;
   const char *param;
   char *ctype;
@@ -2154,8 +2175,8 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   int max_h;
   int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   param = evhttp_find_header(query, "mw");
@@ -2235,7 +2256,6 @@ static void
 dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct player_status status;
-  struct daap_session *s;
   const struct dacp_prop_map *dpm;
   struct db_queue_item *queue_item = NULL;
   struct evbuffer *proplist;
@@ -2246,8 +2266,8 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
   size_t len;
   int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   param = evhttp_find_header(query, "properties");
@@ -2341,12 +2361,12 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 static void
 dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   const struct dacp_prop_map *dpm;
   struct evkeyval *param;
+  int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   /* Known properties:
@@ -2410,12 +2430,12 @@ speaker_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct sp
 static void
 dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   struct evbuffer *spklist;
   size_t len;
+  int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   spklist = evbuffer_new();
@@ -2444,7 +2464,6 @@ dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 static void
 dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   const char *param;
   const char *ptr;
   uint64_t *ids;
@@ -2452,8 +2471,8 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
   int i;
   int ret;
 
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
+  ret = dacp_request_authorize(req, query);
+  if (ret < 0)
     return;
 
   param = evhttp_find_header(query, "speaker-id");

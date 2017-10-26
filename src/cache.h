@@ -13,7 +13,7 @@ void
 cache_daap_resume(void);
 
 int
-cache_daap_get(const char *query, struct evbuffer *evbuf);
+cache_daap_get(struct evbuffer *evbuf, const char *query);
 
 void
 cache_daap_add(const char *query, const char *ua, int msec);
