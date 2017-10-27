@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
@@ -323,15 +324,16 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
 
 /* Get an artwork file from the filesystem. Will rescale if needed.
  *
- * @out evbuf     Image data
- * @in  path      Path to the artwork (alternative to inbuf)
- * @in  inbuf     Buffer with the artwork (alternative to path)
- * @in  max_w     Requested width
- * @in  max_h     Requested height
- * @return        ART_FMT_* on success, ART_E_ERROR on error
+ * @out evbuf        Image data
+ * @in  path         Path to the artwork file (alternative to inbuf)
+ * @in  inbuf        Buffer with the artwork (alternative to path)
+ * @in  max_w        Requested width
+ * @in  max_h        Requested height
+ * @in  is_embedded  Whether the artwork in file is embedded or raw jpeg/png
+ * @return           ART_FMT_* on success, ART_E_ERROR on error
  */
 static int
-artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_w, int max_h)
+artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_w, int max_h, bool is_embedded)
 {
   struct decode_ctx *xcode_decode;
   struct encode_ctx *xcode_encode;
@@ -348,7 +350,10 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
   xcode_decode = transcode_decode_setup(XCODE_JPEG, DATA_KIND_FILE, path, inbuf, 0); // Covers XCODE_PNG too
   if (!xcode_decode)
     {
-      DPRINTF(E_DBG, L_ART, "No artwork found in '%s'\n", path);
+      if (path)
+	DPRINTF(E_DBG, L_ART, "No artwork found in '%s'\n", path);
+      else
+	DPRINTF(E_DBG, L_ART, "No artwork provided to artwork_get()\n");
       return ART_E_NONE;
     }
 
@@ -358,7 +363,13 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
     format_ok = ART_FMT_PNG;
   else
     {
-      DPRINTF(E_LOG, L_ART, "Artwork file '%s' not a PNG or JPEG file\n", path);
+      if (is_embedded)
+	DPRINTF(E_DBG, L_ART, "File '%s' has no PNG or JPEG artwork\n", path);
+      else if (path)
+	DPRINTF(E_LOG, L_ART, "Artwork file '%s' not a PNG or JPEG file\n", path);
+      else
+	DPRINTF(E_LOG, L_ART, "Artwork data provided to artwork_get() is not PNG or JPEG\n");
+
       goto fail_free_decode;
     }
 
@@ -368,12 +379,25 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
   ret = rescale_calculate(&target_w, &target_h, width, height, max_w, max_h);
   if (ret < 0)
     {
-      // No rescaling required, just read the raw file into the evbuf
-      if (!path || artwork_read(evbuf, path) != 0)
-	goto fail_free_decode;
+      if (is_embedded)
+	{
+	  target_w = width;
+	  target_h = height;
+	}
+      else if (path)
+	{
+	  // No rescaling required, just read the raw file into the evbuf
+	  ret = artwork_read(evbuf, path);
+	  if (ret < 0)
+	    goto fail_free_decode;
 
-      transcode_decode_cleanup(&xcode_decode);
-      return format_ok;
+	  transcode_decode_cleanup(&xcode_decode);
+	  return format_ok;
+	}
+      else
+	{
+	  goto fail_free_decode;
+	}
     }
 
   if (format_ok == ART_FMT_JPEG)
@@ -383,7 +407,10 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
 
   if (!xcode_encode)
     {
-      DPRINTF(E_WARN, L_ART, "Cannot open artwork file for rescaling '%s'\n", path);
+      if (path)
+	DPRINTF(E_WARN, L_ART, "Error preparing rescaling of '%s'\n", path);
+      else
+	DPRINTF(E_WARN, L_ART, "Error preparing rescaling of artwork data\n");
       goto fail_free_decode;
     }
 
@@ -519,7 +546,7 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
 
   snprintf(out_path, PATH_MAX, "%s", path);
 
-  return artwork_get(evbuf, path, NULL, max_w, max_h);
+  return artwork_get(evbuf, path, NULL, max_w, max_h, false);
 }
 
 
@@ -632,7 +659,7 @@ source_item_embedded_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
 
-  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h);
+  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h, true);
 }
 
 /* Looks for basename(in_path).{png,jpg}, so if in_path is /foo/bar.mp3 it
@@ -686,7 +713,7 @@ source_item_own_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
-  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h);
+  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false);
 }
 
 /*
@@ -817,7 +844,7 @@ source_item_spotify_get(struct artwork_ctx *ctx)
     }
 
   // For non-file input, artwork_get() will also fail if no rescaling is required
-  ret = artwork_get(ctx->evbuf, NULL, evbuf, ctx->max_w, ctx->max_h);
+  ret = artwork_get(ctx->evbuf, NULL, evbuf, ctx->max_w, ctx->max_h, false);
   if (ret == ART_E_ERROR)
     {
       DPRINTF(E_DBG, L_ART, "Not rescaling Spotify image\n");
