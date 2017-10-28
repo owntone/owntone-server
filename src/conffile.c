@@ -45,14 +45,12 @@ static int cb_loglevel(cfg_t *cfg, cfg_opt_t *opt, const char *value, void *resu
 static cfg_opt_t sec_general[] =
   {
     CFG_STR("uid", "nobody", CFGF_NONE),
+    CFG_STR("db_path", STATEDIR "/cache/" PACKAGE "/songs3.db", CFGF_NONE),
+    CFG_STR("logfile", STATEDIR "/log/" PACKAGE ".log", CFGF_NONE),
+    CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
     CFG_STR("admin_password", NULL, CFGF_NONE),
     CFG_INT("websocket_port", 3688, CFGF_NONE),
-    CFG_STR("logfile", STATEDIR "/log/" PACKAGE ".log", CFGF_NONE),
-    CFG_STR("db_path", STATEDIR "/cache/" PACKAGE "/songs3.db", CFGF_NONE),
-    CFG_INT("db_pragma_cache_size", -1, CFGF_NONE),
-    CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
-    CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
-    CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
+    CFG_BOOL("promiscuous_mode", cfg_false, CFGF_NONE),
     CFG_BOOL("ipv6", cfg_true, CFGF_NONE),
     CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
     CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
@@ -62,6 +60,10 @@ static cfg_opt_t sec_general[] =
 #else
     CFG_BOOL("high_resolution_clock", cfg_true, CFGF_NONE),
 #endif
+    // Hidden options
+    CFG_INT("db_pragma_cache_size", -1, CFGF_NONE),
+    CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
+    CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_STR("allow_origin", "*", CFGF_NONE),
     CFG_END()
   };

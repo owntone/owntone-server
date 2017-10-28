@@ -954,6 +954,9 @@ daap_request_authorize(struct daap_request *dreq)
   char *passwd;
   int ret;
 
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+    return 0;
+
   param = evhttp_find_header(&dreq->query, "session-id");
   if (param)
     {
@@ -1148,7 +1151,7 @@ daap_reply_login(struct evbuffer *reply, struct daap_request *dreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(reply, 32));
 
   is_remote = (param = evhttp_find_header(&dreq->query, "pairing-guid"));
-  if (param)
+  if (param && !cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
     {
       if (strlen(param) < 3)
 	{

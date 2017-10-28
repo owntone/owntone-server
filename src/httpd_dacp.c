@@ -235,6 +235,9 @@ dacp_request_authorize(struct evhttp_request *req, struct evkeyvalq *query)
   int32_t id;
   int ret;
 
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+    return 0;
+
   param = evhttp_find_header(query, "session-id");
   if (!param)
     {

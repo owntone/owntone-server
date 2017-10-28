@@ -22,10 +22,16 @@ general {
 	loglevel = log
 
 	# Admin password for the web interface
-	# If not set (default), access to the web interface is only permitted from localhost
+	# If not set (default), access to the web interface is only permitted
+	# from localhost (except in promiscuous mode)
 #	admin_password = ""
+
 	# Websocket port for the web interface. 
 #	websocket_port = 3688
+
+	# Let clients connect without checking their credentials. This applies
+	# both to Remotes, DAAP clients and the web interface.
+#	promiscuous_mode = no
 
 	# Enable/disable IPv6
 	ipv6 = yes

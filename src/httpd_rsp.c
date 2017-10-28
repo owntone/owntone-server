@@ -853,7 +853,7 @@ rsp_request(struct evhttp_request *req)
   /* Check authentication */
   lib = cfg_getsec(cfg, "library");
   passwd = cfg_getstr(lib, "password");
-  if (passwd)
+  if (passwd && !cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
     {
       libname = cfg_getstr(lib, "name");
 

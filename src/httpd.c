@@ -954,6 +954,9 @@ httpd_admin_check_auth(struct evhttp_request *req)
   const char *passwd;
   int ret;
 
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+    return true;
+
   passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");
   if (passwd)
     {
