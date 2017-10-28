@@ -41,6 +41,9 @@
 #include "conffile.h"
 #include "db.h"
 #include "httpd.h"
+#ifdef LASTFM
+# include "lastfm.h"
+#endif
 #include "library.h"
 #include "logger.h"
 #include "misc.h"
@@ -416,6 +419,120 @@ jsonapi_reply_pairing(struct evhttp_request *req, struct evbuffer *evbuf, char *
   return pairing_get(evbuf);
 }
 
+static int
+jsonapi_reply_lastfm(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
+{
+  json_object *reply;
+  bool enabled = false;
+  bool scrobbling_enabled = false;
+  int ret;
+
+#ifdef LASTFM
+  enabled = true;
+  scrobbling_enabled = lastfm_is_enabled();
+#endif
+
+  reply = json_object_new_object();
+  json_object_object_add(reply, "enabled", json_object_new_boolean(enabled));
+  json_object_object_add(reply, "scrobbling_enabled", json_object_new_boolean(scrobbling_enabled));
+
+  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
+  jparse_free(reply);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "LastFM: Couldn't add LastFM enabled to response buffer.\n");
+      return -1;
+    }
+
+  return 0;
+}
+
+/*
+ * Endpoint to log into LastFM
+ */
+static int
+jsonapi_reply_lastfm_login(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
+{
+#ifdef LASTFM
+  struct evbuffer *in_evbuf;
+  json_object* request;
+  const char *user;
+  const char *password;
+  char *errmsg = NULL;
+  json_object* reply;
+  json_object* errors;
+  int ret;
+
+  DPRINTF(E_DBG, L_WEB, "Received LastFM login request\n");
+
+  in_evbuf = evhttp_request_get_input_buffer(req);
+  request = jparse_obj_from_evbuffer(in_evbuf);
+  if (!request)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
+      return -1;
+    }
+
+  reply = json_object_new_object();
+
+  user = jparse_str_from_obj(request, "user");
+  password = jparse_str_from_obj(request, "password");
+  if (user && strlen(user) > 0 && password && strlen(password) > 0)
+    {
+      ret = lastfm_login_user(user, password, &errmsg);
+      if (ret < 0)
+        {
+	  json_object_object_add(reply, "success", json_object_new_boolean(false));
+	  errors = json_object_new_object();
+	  if (errmsg)
+	    json_object_object_add(errors, "error", json_object_new_string(errmsg));
+	  else
+	    json_object_object_add(errors, "error", json_object_new_string("Unknown error"));
+	  json_object_object_add(reply, "errors", errors);
+	}
+      else
+        {
+	  json_object_object_add(reply, "success", json_object_new_boolean(true));
+	}
+      free(errmsg);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_WEB, "No user or password in LastFM login post request\n");
+
+      json_object_object_add(reply, "success", json_object_new_boolean(false));
+      errors = json_object_new_object();
+      if (!user || strlen(user) == 0)
+	json_object_object_add(errors, "user", json_object_new_string("Username is required"));
+      if (!password || strlen(password) == 0)
+	json_object_object_add(errors, "password", json_object_new_string("Password is required"));
+      json_object_object_add(reply, "errors", errors);
+    }
+
+  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
+  jparse_free(reply);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "LastFM: Couldn't add LastFM login data to response buffer.\n");
+      return -1;
+    }
+
+#else
+  DPRINTF(E_LOG, L_WEB, "Received LastFM login request but was not compiled with enable-lastfm\n");
+#endif
+
+  return 0;
+}
+
+static int
+jsonapi_reply_lastfm_logout(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
+{
+#ifdef LASTFM
+  lastfm_logout();
+#endif
+  return 0;
+}
+
 static struct uri_map adm_handlers[] =
   {
     { .regexp = "^/api/config", .handler = jsonapi_reply_config },
@@ -424,6 +541,9 @@ static struct uri_map adm_handlers[] =
     { .regexp = "^/api/spotify-login", .handler = jsonapi_reply_spotify_login },
     { .regexp = "^/api/spotify", .handler = jsonapi_reply_spotify },
     { .regexp = "^/api/pairing", .handler = jsonapi_reply_pairing },
+    { .regexp = "^/api/lastfm-login", .handler = jsonapi_reply_lastfm_login },
+    { .regexp = "^/api/lastfm-logout", .handler = jsonapi_reply_lastfm_logout },
+    { .regexp = "^/api/lastfm", .handler = jsonapi_reply_lastfm },
     { .regexp = NULL, .handler = NULL }
   };
 

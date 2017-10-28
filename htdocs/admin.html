@@ -68,113 +68,158 @@
 
 
 <!--
-  ############# Content section #############
+  ############# Status section #############
 -->
 <section class="section">
   <div class="container">
-    <div class="columns">
+    <!-- Section-heading -->
+    <div class="columns is-centered fd-section-heading">
+      <div class="column is-10"><h1 class="is-uppercase is-size-7">Status</h1></div>
+    </div>
 
-      <div class="column">
-        <div class="card">
-          <header class="card-header">
-            <p class="card-header-title">
-              <span class="icon" v-show="library.updating"><i class="fa fa-refresh fa-spin"></i></span>
-              <span class="icon" v-show="!library.updating"><i class="fa fa-refresh"></i></span>
-               Update library
-            </p>
-          </header>
-          <div class="card-content">
-            <div class="content">
-              Scan new and modified items into your library.
-            </div>
-          </div>
-          <footer class="card-footer">
-            <a class="card-footer-item is-primary" v-on:click="update" v-show="!library.updating">Update</a>
-            <span class="card-footer-item" v-show="library.updating">Update in progress ...</span>
-          </footer>
-        </div> <!-- card update library -->
-      </div> <!-- column -->
+    <!-- Library update -->
+    <div class="columns is-centered fd-section-content">
+      <div class="column is-3">
+        <h2 class="title is-5">
+          <span class="icon" v-show="library.updating"><i class="fa fa-refresh fa-spin"></i>
+          </span><span class="icon" v-show="!library.updating"><i class="fa fa-music"></i></span>
+           Library
+         </h2>
+      </div>
 
+      <div class="column is-7 content">
+        <a class="button" v-on:click="update" v-show="!library.updating">Update library</a>
+        <p v-show="library.updating">Update in progress ...</p>
+      </div>
+    </div>
 
-      <div class="column">
-        <div class="card">
-          <header class="card-header">
-            <p class="card-header-title">
-              <span class="icon"><i class="fa fa-mobile"></i></span> Remote pairing
-            </p>
-          </header>
-          <div class="card-content">
-            <div class="content" v-show="pairing.active">
-              <p>Remote pairing request from <b>{{pairing.remote}}</b></p>
-              <form v-on:submit.prevent="kickoffPairing">
-                <div class="field has-addons">
-                  <div class="control">
-                    <input class="input" type="text" placeholder="Enter pairing code" v-model="pairing_req.pin">
-                  </div>
-                  <div class="control">
-                    <button class="button is-primary" type="submit">Send</button>
-                  </div>
-                </div>
-              </form>
-            </div>
-            <div class="content" v-show="!pairing.active">
-              <p>No active pairing request.</p>
-              <a class="button"  v-on:click="loadPairing" v-show="!config.websocket_port">Refresh</a>
-            </div>
-          </div>
-        </div> <!-- card remote pairing -->
-      </div> <!-- column -->
+    <!-- Pairing -->
+    <div class="columns is-centered fd-section-content">
+      <div class="column is-3">
+        <h2 class="title is-5"><span class="icon"><i class="fa fa-mobile"></i></span> Remote Pairing</h2>
+      </div>
 
-
-      <div class="column">
-        <div class="card" v-show="spotify.enabled">
-          <header class="card-header">
-            <p class="card-header-title">
-              <span class="icon"><i class="fa fa-spotify"></i></span> Spotify
-            </p>
-          </header>
-          <div class="card-content">
-            <div class="content" v-show="!spotify.libspotify_installed">
-              <p><b>libspotify</b> is not installed (required for playing spotify tracks)</p>
-            </div>
-            <div class="content" v-show="spotify.libspotify_installed">
-              <div v-show="!spotify.libspotify_logged_in"><p><b>libspotify</b> (requires Spotify premium account, enables playback of Spotify songs):</p>
-                <form v-on:submit.prevent="loginLibspotify">
-                  <div class="field has-addons">
-                    <div class="control">
-                      <input class="input" type="text" placeholder="Username" v-model="libspotify.user">
-                      <p class="help is-danger">{{ libspotify.errors.user }}</p>
-                    </div>
-                    <div class="control">
-                      <input class="input" type="password" placeholder="Password" v-model="libspotify.password">
-                      <p class="help is-danger">{{ libspotify.errors.password }}</p>
-                    </div>
-                    <div class="control">
-                      <button class="button" type="submit">Login</button>
-                    </div>
-                  </div>
-                  <p class="help is-danger">{{ libspotify.errors.error }}</p>
-                </form>
+      <div class="column is-7 content">
+        <!-- Paring request active -->
+        <div class="content" v-show="pairing.active">
+          <p>Remote pairing request from <b>{{pairing.remote}}</b></p>
+          <form v-on:submit.prevent="kickoffPairing">
+            <div class="field has-addons">
+              <div class="control">
+                <input class="input" type="text" placeholder="Enter pairing code" v-model="pairing_req.pin">
               </div>
-              <p v-show="spotify.libspotify_logged_in"><b>libspotify</b> (requires Spotify premium account, enables playback of Spotify songs): logged in as <b>{{ spotify.libspotify_user }}</b></p>
-              <hr>
-              <div v-show="!spotify.webapi_token_valid">
-                <p><b>Spotify Web API</b> access is required to add saved albums and playlists to your library.</p>
-                <a class="button" v-bind:href="spotify.oauth_uri">Authorize Web API access</a>
-              </div>
-              <div v-show="spotify.webapi_token_valid">
-                <p><b>Spotify Web API</b>: access authorized for <b>{{ spotify.webapi_user }}</b></p>
-                <a class="button" v-bind:href="spotify.oauth_uri">Reauthorize Web API access</a>
+              <div class="control">
+                <button class="button is-primary" type="submit">Send</button>
               </div>
             </div>
-          </div>
-        </div> <!-- card spotify -->
-      </div> <!-- column -->
+          </form>
+        </div>
+        <!-- No pairing requests -->
+        <div class="content" v-show="!pairing.active">
+          <p>No active pairing request.</p>
+          <a class="button"  v-on:click="loadPairing" v-show="!config.websocket_port">Refresh</a>
+        </div>
+      </div>
+    </div>
 
-    </div> <!-- columns -->
-  </div> <!-- container -->
+  </div>
 </section>
 
+<!--
+  ############# Online accounts & services section #############
+-->
+<section class="section">
+  <div class="container">
+    <!-- Section-heading -->
+    <div class="columns is-centered fd-section-heading">
+      <div class="column is-10"><h1 class="is-uppercase is-size-7">Online accounts &amp; services</h1></div>
+    </div>
+
+    <!-- Spotify -->
+    <div class="columns is-centered fd-section-content" v-show="spotify.enabled">
+      <div class="column is-3">
+        <h2 class="title is-5"><span class="icon"><i class="fa fa-spotify"></i></span> Spotify</h2>
+      </div>
+
+      <div class="column is-7 content">
+        <div class="content" v-show="!spotify.libspotify_installed">
+          <p><b>libspotify</b> is not installed (required for playing spotify tracks)</p>
+        </div>
+        <div class="content" v-show="spotify.libspotify_installed">
+          <!-- libspotify -->
+          <div v-show="!spotify.libspotify_logged_in"><p><b>libspotify</b> (requires Spotify premium account, enables playback of Spotify songs)</p>
+            <form v-on:submit.prevent="loginLibspotify">
+              <div class="field has-addons">
+                <div class="control">
+                  <input class="input" type="text" placeholder="Username" v-model="libspotify.user">
+                  <p class="help is-danger">{{ libspotify.errors.user }}</p>
+                </div>
+                <div class="control">
+                  <input class="input" type="password" placeholder="Password" v-model="libspotify.password">
+                  <p class="help is-danger">{{ libspotify.errors.password }}</p>
+                </div>
+                <div class="control">
+                  <button class="button" type="submit">Login</button>
+                </div>
+              </div>
+              <p class="help is-danger">{{ libspotify.errors.error }}</p>
+            </form>
+          </div>
+          <p v-show="spotify.libspotify_logged_in"><b>libspotify</b> (requires Spotify premium account, enables playback of Spotify songs): logged in as <b>{{ spotify.libspotify_user }}</b></p>
+          <!-- Spotify web api -->
+          <div v-show="!spotify.webapi_token_valid">
+            <p><b>Spotify Web API</b> access is required to add saved albums and playlists to your library.</p>
+            <a class="button" v-bind:href="spotify.oauth_uri">Authorize Web API access</a>
+          </div>
+          <div v-show="spotify.webapi_token_valid">
+            <p><b>Spotify Web API</b>: access authorized for <b>{{ spotify.webapi_user }}</b></p>
+            <a class="button" v-bind:href="spotify.oauth_uri">Reauthorize Web API access</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Last.fm -->
+    <div class="columns is-centered fd-section-content" v-show="lastfm.enabled">
+      <div class="column is-3">
+        <h2 class="title is-5"><span class="icon"><i class="fa fa-lastfm"></i></span> Last.fm</h2>
+      </div>
+
+      <div class="column is-7 content">
+        <!-- Scrobbling enabled -->
+        <div class="content" v-show="lastfm.scrobbling_enabled">
+          <a class="button" v-on:click="logoutLastfm">Stop scrobbling</a>
+        </div>
+        <!-- Scrobbling NOT enabled -->
+        <div class="content" v-show="!lastfm.scrobbling_enabled">
+          <p><b>Last.fm</b> (enable scrobbling)</p>
+          <form v-on:submit.prevent="loginLastfm">
+            <div class="field has-addons">
+              <div class="control">
+                <input class="input" type="text" placeholder="Username" v-model="lastfm_login.user">
+                <p class="help is-danger">{{ lastfm_login.errors.user }}</p>
+              </div>
+              <div class="control">
+                <input class="input" type="password" placeholder="Password" v-model="lastfm_login.password">
+                <p class="help is-danger">{{ lastfm_login.errors.password }}</p>
+              </div>
+              <div class="control">
+                <button class="button" type="submit">Login</button>
+              </div>
+            </div>
+            <p class="help is-danger">{{ lastfm_login.errors.error }}</p>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!--
+  ############# Footer #############
+-->
 <footer class="footer">
   <div class="container">
     <div class="content has-text-centered">
@@ -190,7 +235,7 @@
 
 </div> <!-- #root -->
 
-<script src="/js/vue.min.js"></script>
+<script src="/js/vue.js"></script>
 <script src="/js/axios.min.js"></script>
 <script src="/js/forked-daapd.js"></script>
 

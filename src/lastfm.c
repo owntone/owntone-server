@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include <gcrypt.h>
 #include <mxml.h>
@@ -38,13 +39,14 @@
 
 #include "db.h"
 #include "lastfm.h"
+#include "listener.h"
 #include "logger.h"
 #include "misc.h"
 #include "http.h"
 
 // LastFM becomes disabled if we get a scrobble, try initialising session,
 // but can't (probably no session key in db because user does not use LastFM)
-static int lastfm_disabled = 0;
+static bool lastfm_disabled = false;
 
 /**
  * The API key and secret (not so secret being open source) is specific to 
@@ -117,15 +119,15 @@ param_sign(struct keyval *kv)
 
 /* --------------------------------- MAIN --------------------------------- */
 
-static void
-response_proces(struct http_client_ctx *ctx)
+static int
+response_process(struct http_client_ctx *ctx, char **errmsg)
 {
   mxml_node_t *tree;
   mxml_node_t *s_node;
   mxml_node_t *e_node;
   char *body;
-  char *errmsg;
   char *sk;
+  int ret;
 
   // NULL-terminate the buffer
   evbuffer_add(ctx->input_body, "", 1);
@@ -134,27 +136,31 @@ response_proces(struct http_client_ctx *ctx)
   if (!body || (strlen(body) == 0))
     {
       DPRINTF(E_LOG, L_LASTFM, "Empty response\n");
-      return;
+      return -1;
     }
-
-  DPRINTF(E_SPAM, L_LASTFM, "LastFM response:\n%s\n", body);
 
   tree = mxmlLoadString(NULL, body, MXML_OPAQUE_CALLBACK);
   if (!tree)
-    return;
+    {
+      DPRINTF(E_LOG, L_LASTFM, "Failed to parse LastFM response:\n%s\n", body);
+      return -1;
+    }
 
   // Look for errors
   e_node = mxmlFindElement(tree, tree, "error", NULL, NULL, MXML_DESCEND);
   if (e_node)
     {
-      errmsg = trimwhitespace(mxmlGetOpaque(e_node));
-      DPRINTF(E_LOG, L_LASTFM, "Request to LastFM failed: %s\n", errmsg);
+      DPRINTF(E_LOG, L_LASTFM, "Request to LastFM failed: %s\n", mxmlGetOpaque(e_node));
+      DPRINTF(E_DBG, L_LASTFM, "LastFM response:\n%s\n", body);
 
       if (errmsg)
-	free(errmsg);
+	*errmsg = trimwhitespace(mxmlGetOpaque(e_node));
+
       mxmlDelete(tree);
-      return;
+      return -1;
     }
+
+  DPRINTF(E_SPAM, L_LASTFM, "LastFM response:\n%s\n", body);
 
   // Was it a scrobble request? Then do nothing. TODO: Check for error messages
   s_node = mxmlFindElement(tree, tree, "scrobbles", NULL, NULL, MXML_DESCEND);
@@ -162,7 +168,7 @@ response_proces(struct http_client_ctx *ctx)
     {
       DPRINTF(E_DBG, L_LASTFM, "Scrobble callback\n");
       mxmlDelete(tree);
-      return;
+      return 0;
     }
 
   // Otherwise an auth request, so get the session key
@@ -171,7 +177,7 @@ response_proces(struct http_client_ctx *ctx)
     {
       DPRINTF(E_LOG, L_LASTFM, "Session key not found\n");
       mxmlDelete(tree);
-      return;
+      return -1;
     }
 
   sk = trimwhitespace(mxmlGetOpaque(s_node));
@@ -184,28 +190,36 @@ response_proces(struct http_client_ctx *ctx)
 	free(lastfm_session_key);
 
       lastfm_session_key = sk;
+      lastfm_disabled = false;
+      ret = 0;
+    }
+  else
+    {
+      ret = -1;
     }
 
   mxmlDelete(tree);
+  return ret;
 }
 
+/*
+ * Post request against the Last.fm api
+ *
+ * Important:
+ * The Last.fm API requires that we MD5 sign sorted parameters (without "format" parameters),
+ * therefor the keyval parameters must be sorted alphabetically by their key.
+ *
+ * @param url API endpoint url
+ * @param kv Alphabetically sorted post parameters
+ * @param errmsg (Optional) returns the error message (or NULL) if request failed
+ */
 static int
-request_post(char *method, struct keyval *kv, int auth)
+request_post(const char *url, struct keyval *kv, char **errmsg)
 {
   struct http_client_ctx ctx;
   int ret;
 
-  ret = keyval_add(kv, "method", method);
-  if (ret < 0)
-    return -1;
-
-  if (!auth)
-    ret = keyval_add(kv, "sk", lastfm_session_key);
-  if (ret < 0)
-    return -1;
-
   // API requires that we MD5 sign sorted param (without "format" param)
-  keyval_sort(kv);
   ret = param_sign(kv);
   if (ret < 0)
     {
@@ -222,14 +236,14 @@ request_post(char *method, struct keyval *kv, int auth)
       return -1;
     }
 
-  ctx.url = auth ? auth_url : api_url;
+  ctx.url = url;
   ctx.input_body = evbuffer_new();
 
   ret = http_client_request(&ctx);
   if (ret < 0)
     goto out_free_ctx;
 
-  response_proces(&ctx);
+  ret = response_process(&ctx, errmsg);
 
  out_free_ctx:
   free(ctx.output_body);
@@ -275,16 +289,18 @@ scrobble(int id)
   snprintf(trackNumber, sizeof(trackNumber), "%" PRIu32, mfi->track);
   snprintf(timestamp, sizeof(timestamp), "%" PRIi64, (int64_t)time(NULL));
 
-  ret = ( (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
-          (keyval_add(kv, "sk", lastfm_session_key) == 0) &&
-          (keyval_add(kv, "artist", mfi->artist) == 0) &&
-          (keyval_add(kv, "track", mfi->title) == 0) &&
-          (keyval_add(kv, "album", mfi->album) == 0) &&
-          (keyval_add(kv, "albumArtist", mfi->album_artist) == 0) &&
-          (keyval_add(kv, "duration", duration) == 0) &&
-          (keyval_add(kv, "trackNumber", trackNumber) == 0) &&
-          (keyval_add(kv, "timestamp", timestamp) == 0)
-        );
+  ret = (
+	  (keyval_add(kv, "album", mfi->album) == 0) &&
+	  (keyval_add(kv, "albumArtist", mfi->album_artist) == 0) &&
+	  (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
+	  (keyval_add(kv, "artist", mfi->artist) == 0) &&
+	  (keyval_add(kv, "duration", duration) == 0) &&
+	  (keyval_add(kv, "method", "track.scrobble") == 0) &&
+	  (keyval_add(kv, "sk", lastfm_session_key) == 0) &&
+	  (keyval_add(kv, "timestamp", timestamp) == 0) &&
+	  (keyval_add(kv, "track", mfi->title) == 0) &&
+	  (keyval_add(kv, "trackNumber", trackNumber) == 0)
+      );
 
   free_mfi(mfi, 0);
 
@@ -297,7 +313,7 @@ scrobble(int id)
 
   DPRINTF(E_INFO, L_LASTFM, "Scrobbling '%s' by '%s'\n", keyval_get(kv, "track"), keyval_get(kv, "artist"));
 
-  ret = request_post("track.scrobble", kv, 0);
+  ret = request_post(api_url, kv, NULL);
 
   keyval_clear(kv);
   free(kv);
@@ -314,40 +330,72 @@ scrobble(int id)
 
 /* ---------------------------- Our lastfm API  --------------------------- */
 
-/* Thread: filescanner */
-void
-lastfm_login(char **arglist)
+/* Thread: filescanner, httpd */
+static void
+stop_scrobbling()
 {
-  struct keyval *kv;
-  int ret;
-
-  DPRINTF(E_LOG, L_LASTFM, "LastFM credentials file OK, logging in with username %s\n", arglist[0]);
-
   // Delete any existing session key
   free(lastfm_session_key);
   lastfm_session_key = NULL;
 
-  db_admin_delete("lastfm_sk");
+  // Disable LastFM, will be enabled after successful login request
+  lastfm_disabled = true;
 
-  // Enable LastFM now that we got a login attempt
-  lastfm_disabled = 0;
+  db_admin_delete("lastfm_sk");
+}
+
+/* Thread: filescanner, httpd */
+int
+lastfm_login_user(const char *user, const char *password, char **errmsg)
+{
+  struct keyval *kv;
+  int ret;
+
+  DPRINTF(E_LOG, L_LASTFM, "LastFM credentials file OK, logging in with username %s\n", user);
+
+  // Stop active scrobbling session
+  stop_scrobbling();
 
   kv = keyval_alloc();
   if (!kv)
-    return;
+    return -1;
 
-  ret = ( (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
-          (keyval_add(kv, "username", arglist[0]) == 0) &&
-          (keyval_add(kv, "password", arglist[1]) == 0) );
+  ret = (
+	  (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
+	  (keyval_add(kv, "method", "auth.getMobileSession") == 0) &&
+	  (keyval_add(kv, "password", password) == 0) &&
+	  (keyval_add(kv, "username", user) == 0)
+      );
   if (!ret)
     goto out_free_kv;
 
   // Send the login request
-  request_post("auth.getMobileSession", kv, 1);
+  ret = request_post(auth_url, kv, errmsg);
 
  out_free_kv:
   keyval_clear(kv);
   free(kv);
+
+  listener_notify(LISTENER_LASTFM);
+
+  return ret;
+}
+
+/* Thread: filescanner */
+void
+lastfm_login(char **arglist)
+{
+  if (arglist)
+    lastfm_login_user(arglist[0], arglist[1], NULL);
+  else
+    lastfm_login_user(NULL, NULL, NULL);
+}
+
+void
+lastfm_logout(void)
+{
+  stop_scrobbling();
+  listener_notify(LISTENER_LASTFM);
 }
 
 /* Thread: worker */
@@ -360,17 +408,27 @@ lastfm_scrobble(int id)
   if (lastfm_disabled)
     return -1;
 
-  // No session key in mem or in db
-  if (!lastfm_session_key)
-    lastfm_session_key = db_admin_get("lastfm_sk");
+  return scrobble(id);
+}
 
+/* Thread: httpd */
+bool
+lastfm_is_enabled(void)
+{
+  return !lastfm_disabled;
+}
+
+/* Thread: main */
+int
+lastfm_init(void)
+{
+  lastfm_session_key = db_admin_get("lastfm_sk");
   if (!lastfm_session_key)
     {
-      DPRINTF(E_INFO, L_LASTFM, "No valid LastFM session key\n");
-      lastfm_disabled = 1;
-      return -1;
+      DPRINTF(E_DBG, L_LASTFM, "No valid LastFM session key\n");
+      lastfm_disabled = true;
     }
 
-  return scrobble(id);
+  return 0;
 }
 

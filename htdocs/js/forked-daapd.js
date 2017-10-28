@@ -8,7 +8,9 @@ var app = new Vue({
     spotify: {},
     pairing: {},
     pairing_req: { pin: '' },
-    libspotify: { user: '', password: '', errors: { user: '', password: '', error: '' } }
+    libspotify: { user: '', password: '', errors: { user: '', password: '', error: '' } },
+    lastfm: {},
+    lastfm_login: { user: '', password: '', errors: { user: '', password: '', error: '' } }
   },
 
   created: function () {
@@ -16,6 +18,7 @@ var app = new Vue({
     this.loadLibrary();
     this.loadSpotify();
     this.loadPairing();
+    this.loadLastfm();
   },
 
   methods: {
@@ -35,6 +38,10 @@ var app = new Vue({
 
     loadPairing: function() {
       axios.get('/api/pairing').then(response => this.pairing = response.data);
+    },
+
+    loadLastfm: function() {
+      axios.get('/api/lastfm').then(response => this.lastfm = response.data);
     },
 
     update: function() {
@@ -66,6 +73,29 @@ var app = new Vue({
       });
     },
 
+    loginLastfm: function() {
+      axios.post('/api/lastfm-login', this.lastfm_login).then(response => {
+        this.lastfm_login.user = '';
+        this.lastfm_login.password = '';
+        this.lastfm_login.errors.user = '';
+        this.lastfm_login.errors.password = '';
+        this.lastfm_login.errors.error = '';
+        if (!response.data.success) {
+          this.lastfm_login.errors.user = response.data.errors.user;
+          this.lastfm_login.errors.password = response.data.errors.password;
+          this.lastfm_login.errors.error = response.data.errors.error;
+        }
+      });
+    },
+
+    logoutLastfm: function() {
+      axios.get('/api/lastfm-logout', this.lastfm_login).then(response => {
+        if (!this.config.websocket_port) {
+          this.loadLastfm();
+        }
+      });
+    },
+
     connect: function() {
       if (this.config.websocket_port <= 0) {
         console.log('Websocket disabled');
@@ -74,7 +104,7 @@ var app = new Vue({
       var socket = new WebSocket('ws://' + document.domain + ':' + this.config.websocket_port, 'notify');
       const vm = this;
       socket.onopen = function() {
-          socket.send(JSON.stringify({ notify: ['update', 'pairing', 'spotify']}));
+          socket.send(JSON.stringify({ notify: ['update', 'pairing', 'spotify', 'lastfm']}));
           socket.onmessage = function(response) {
               console.log(response.data); // upon message
               var data = JSON.parse(response.data);
@@ -86,6 +116,9 @@ var app = new Vue({
               }
               if (data.notify.includes('spotify')) {
                 vm.loadSpotify();
+              }
+              if (data.notify.includes('lastfm')) {
+                vm.loadLastfm();
               }
           };
       };

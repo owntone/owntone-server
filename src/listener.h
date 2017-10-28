@@ -24,6 +24,8 @@ enum listener_event_type
   LISTENER_PAIRING = (1 << 8),
   /* Spotify status changes (login, logout) */
   LISTENER_SPOTIFY = (1 << 9),
+  /* Last.fm status changes (enable/disable scrobbling) */
+  LISTENER_LASTFM = (1 << 10),
 };
 
 typedef void (*notify)(enum listener_event_type type);
