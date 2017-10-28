@@ -373,7 +373,20 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
   response_code = evhttp_request_get_response_code(req);
   if (response_code != HTTP_OK)
     {
-      DPRINTF(E_LOG, L_REMOTE, "Pairing failed with Remote %s/%s, HTTP response code %d\n", ri->pi.remote_id, ri->pi.name, response_code);
+      if (ri->v6_address)
+	{
+	  if (response_code != 0)
+	    DPRINTF(E_LOG, L_REMOTE, "Pairing failed with '%s' ([%s]:%d), HTTP response code %d\n", ri->pi.name, ri->v6_address, ri->v6_port, response_code);
+	  else
+	    DPRINTF(E_LOG, L_REMOTE, "Pairing failed with '%s' ([%s]:%d), no reply from Remote\n", ri->pi.name, ri->v6_address, ri->v6_port);
+	}
+      else
+	{
+	  if (response_code != 0)
+	    DPRINTF(E_LOG, L_REMOTE, "Pairing failed with '%s' (%s:%d), HTTP response code %d\n", ri->pi.name, ri->v4_address, ri->v4_port, response_code);
+	  else
+	    DPRINTF(E_LOG, L_REMOTE, "Pairing failed with '%s' (%s:%d), no reply from Remote\n", ri->pi.name, ri->v4_address, ri->v4_port);
+	}
 
       goto cleanup;
     }
@@ -558,6 +571,9 @@ do_pairing(struct remote_info *ri)
 	return;
 
       DPRINTF(E_WARN, L_REMOTE, "Could not send pairing request on IPv6\n");
+
+      free(ri->v6_address);
+      ri->v6_address = NULL;
     }
 
   ret = send_pairing_request(ri, req_uri, AF_INET);
