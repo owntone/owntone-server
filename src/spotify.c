@@ -1244,12 +1244,13 @@ artwork_get_bh(void *arg, int *retval)
   sp_imageformat imageformat;
   sp_error err;
   const void *data;
+  char *path;
   size_t data_size;
   int ret;
 
   artwork = arg;
   sp_image *image = artwork->image;
-  char *path = artwork->path;
+  path = artwork->path;
 
   fptr_sp_image_remove_load_callback(image, artwork_loaded_cb, artwork);
 
@@ -1273,17 +1274,25 @@ artwork_get_bh(void *arg, int *retval)
       goto fail;
     }
 
+  data_size = 0;
   data = fptr_sp_image_data(image, &data_size);
-  if (!data || (data_size == 0))
+  if (!data)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Getting artwork failed, no image data from Spotify: %s\n", path);
+      goto fail;
+    }
+
+  if ((data_size < 200) || (data_size > 20000000))
+    {
+      // Sometimes we get strange data size even though fptr_sp_image_data returns success
+      DPRINTF(E_LOG, L_SPOTIFY, "Skipping artwork, data size is weird (%zu)\n", data_size);
       goto fail;
     }
 
   ret = evbuffer_expand(artwork->evbuf, data_size);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for artwork\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for artwork (data size requested was %zu)\n", data_size);
       goto fail;
     }
 
