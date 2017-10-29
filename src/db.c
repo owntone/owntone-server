@@ -5999,7 +5999,7 @@ db_perthread_init(void)
   ret = sqlite3_open(db_path, &hdl);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not open database: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not open '%s': %s\n", db_path, sqlite3_errmsg(hdl));
 
       sqlite3_close(hdl);
       return -1;

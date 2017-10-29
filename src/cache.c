@@ -454,7 +454,7 @@ cache_create(void)
   ret = sqlite3_open(g_db_path, &g_db_hdl);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not open cache database: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Could not open '%s': %s\n", g_db_path, sqlite3_errmsg(g_db_hdl));
 
       sqlite3_close(g_db_hdl);
       return -1;
