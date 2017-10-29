@@ -599,6 +599,9 @@ user_agent_filter(struct query_params *qp, struct daap_request *dreq)
 {
   char *filter;
 
+  if (!(qp->type == Q_ITEMS || (qp->type & Q_F_BROWSE)))
+    return;
+
   if (dreq->is_remote)
     {
       if (qp->filter)
@@ -727,8 +730,8 @@ query_params_set(struct query_params *qp, int *sort_headers, struct daap_request
     }
 
   qp->type = type;
-  if (type == Q_ITEMS || (type & Q_F_BROWSE))
-    user_agent_filter(qp, dreq);
+
+  user_agent_filter(qp, dreq);
 }
 
 static int
