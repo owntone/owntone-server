@@ -31,6 +31,7 @@
 #endif
 #include <json.h>
 #include <regex.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "httpd_jsonapi.h"
@@ -43,6 +44,7 @@
 #include "logger.h"
 #include "misc.h"
 #include "misc_json.h"
+#include "player.h"
 #include "remote_pairing.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify_webapi.h"
@@ -492,6 +494,142 @@ jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
   return 0;
 }
 
+static void
+speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
+{
+  json_object *outputs;
+  json_object *output;
+  char output_id[21];
+
+  outputs = arg;
+  output = json_object_new_object();
+
+  snprintf(output_id, sizeof(output_id), "%" PRIu64, id);
+  json_object_object_add(output, "id", json_object_new_string(output_id));
+  json_object_object_add(output, "name", json_object_new_string(name));
+  json_object_object_add(output, "type", json_object_new_string(output_type));
+  json_object_object_add(output, "selected", json_object_new_boolean(flags.selected));
+  json_object_object_add(output, "has_password", json_object_new_boolean(flags.has_password));
+  json_object_object_add(output, "requires_auth", json_object_new_boolean(flags.requires_auth));
+  json_object_object_add(output, "needs_auth_key", json_object_new_boolean(flags.needs_auth_key));
+  json_object_object_add(output, "volume", json_object_new_int(absvol));
+
+  json_object_array_add(outputs, output);
+}
+
+static int
+jsonapi_reply_outputs(struct httpd_request *hreq)
+{
+  json_object *jreply;
+  json_object *outputs;
+
+  outputs = json_object_new_array();
+
+  player_speaker_enumerate(speaker_enum_cb, outputs);
+
+  jreply = json_object_new_object();
+  json_object_object_add(jreply, "outputs", outputs);
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return 0;
+}
+
+static int
+jsonapi_reply_verification(struct httpd_request *hreq)
+{
+  struct evbuffer *in_evbuf;
+  json_object* request;
+  const char* message;
+
+  if (evhttp_request_get_command(hreq->req) != EVHTTP_REQ_POST)
+    {
+      DPRINTF(E_LOG, L_WEB, "Verification: request is not a POST request\n");
+      return -1;
+    }
+
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
+  request = jparse_obj_from_evbuffer(in_evbuf);
+  if (!request)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_WEB, "Received verification post request: %s\n", json_object_to_json_string(request));
+
+  message = jparse_str_from_obj(request, "pin");
+  if (message)
+    player_raop_verification_kickoff((char **)&message);
+  else
+    DPRINTF(E_LOG, L_WEB, "Missing pin in request body: %s\n", json_object_to_json_string(request));
+
+  jparse_free(request);
+
+  return 0;
+}
+
+static int
+jsonapi_reply_select_outputs(struct httpd_request *hreq)
+{
+  struct evbuffer *in_evbuf;
+  json_object *request;
+  json_object *outputs;
+  json_object *output_id;
+  int nspk, i, ret;
+  uint64_t *ids;
+
+  if (evhttp_request_get_command(hreq->req) != EVHTTP_REQ_POST)
+    {
+      DPRINTF(E_LOG, L_WEB, "Select outputs: request is not a POST request\n");
+      return -1;
+    }
+
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
+  request = jparse_obj_from_evbuffer(in_evbuf);
+  if (!request)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_WEB, "Received select-outputs post request: %s\n", json_object_to_json_string(request));
+
+  ret = jparse_array_from_obj(request, "outputs", &outputs);
+  if (ret == 0)
+    {
+      nspk = json_object_array_length(outputs);
+
+      ids = calloc((nspk + 1), sizeof(uint64_t));
+      ids[0] = nspk;
+
+      ret = 0;
+      for (i = 0; i < nspk; i++)
+	{
+	  output_id = json_object_array_get_idx(outputs, i);
+	  ret = safe_atou64(json_object_get_string(output_id), &ids[i + 1]);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_WEB, "Failed to convert output id: %s\n", json_object_to_json_string(request));
+	      break;
+	    }
+	}
+
+      if (ret == 0)
+	player_speaker_set(ids);
+
+      free(ids);
+    }
+  else
+    DPRINTF(E_LOG, L_WEB, "Missing outputs in request body: %s\n", json_object_to_json_string(request));
+
+  jparse_free(request);
+
+  return 0;
+}
+
 static struct httpd_uri_map adm_handlers[] =
   {
     { .regexp = "^/api/config", .handler = jsonapi_reply_config },
@@ -503,6 +641,9 @@ static struct httpd_uri_map adm_handlers[] =
     { .regexp = "^/api/lastfm-login", .handler = jsonapi_reply_lastfm_login },
     { .regexp = "^/api/lastfm-logout", .handler = jsonapi_reply_lastfm_logout },
     { .regexp = "^/api/lastfm", .handler = jsonapi_reply_lastfm },
+    { .regexp = "^/api/outputs", .handler = jsonapi_reply_outputs },
+    { .regexp = "^/api/select-outputs", .handler = jsonapi_reply_select_outputs },
+    { .regexp = "^/api/verification", .handler = jsonapi_reply_verification },
     { .regexp = NULL, .handler = NULL }
   };
 
