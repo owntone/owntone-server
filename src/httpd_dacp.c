@@ -340,6 +340,8 @@ make_playstatusupdate(struct evbuffer *evbuf)
       return -1;
     }
 
+  DPRINTF(E_DBG, L_DACP, "Replying to playstatusupdate with status %d and next_rev %d\n", status.status, next_rev);
+
   return 0;
 }
 
