@@ -5,6 +5,8 @@ var app = new Vue({
   data: {
     config: {},
     library: {},
+    outputs: [],
+    verification_req: { pin: '' },
     spotify: {},
     pairing: {},
     pairing_req: { pin: '' },
@@ -16,6 +18,7 @@ var app = new Vue({
   created: function () {
     this.loadConfig();
     this.loadLibrary();
+    this.loadOutputs();
     this.loadSpotify();
     this.loadPairing();
     this.loadLastfm();
@@ -30,6 +33,10 @@ var app = new Vue({
 
     loadLibrary: function() {
       axios.get('/api/library').then(response => this.library = response.data);
+    },
+
+    loadOutputs: function() {
+      axios.get('/api/outputs').then(response => this.outputs = response.data.outputs);
     },
 
     loadSpotify: function() {
@@ -54,6 +61,28 @@ var app = new Vue({
         console.log('Kicked off pairing');
         if (!this.config.websocket_port) {
           this.pairing = {};
+        }
+      });
+    },
+
+    kickoffVerification: function() {
+      axios.post('/api/verification', this.verification_req).then(response => {
+        console.log('Kicked off verification');
+        this.verification_req.pin = '';
+      });
+    },
+
+    selectOutputs: function() {
+      var selected_outputs = [];
+      for (var i = 0; i < this.outputs.length; i++) {
+        if (this.outputs[i].selected) {
+          selected_outputs.push(this.outputs[i].id);
+        }
+      }
+
+      axios.post('/api/select-outputs', { outputs: selected_outputs }).then(response => {
+        if (!this.config.websocket_port) {
+          this.loadOutputs();
         }
       });
     },
@@ -104,7 +133,7 @@ var app = new Vue({
       var socket = new WebSocket('ws://' + document.domain + ':' + this.config.websocket_port, 'notify');
       const vm = this;
       socket.onopen = function() {
-          socket.send(JSON.stringify({ notify: ['update', 'pairing', 'spotify', 'lastfm']}));
+          socket.send(JSON.stringify({ notify: ['update', 'pairing', 'spotify', 'lastfm', 'outputs']}));
           socket.onmessage = function(response) {
               console.log(response.data); // upon message
               var data = JSON.parse(response.data);
@@ -119,6 +148,9 @@ var app = new Vue({
               }
               if (data.notify.includes('lastfm')) {
                 vm.loadLastfm();
+              }
+              if (data.notify.includes('outputs')) {
+                vm.loadOutputs();
               }
           };
       };

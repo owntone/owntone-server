@@ -122,6 +122,38 @@
       </div>
     </div>
 
+    <!-- Outputs -->
+    <div class="columns is-centered fd-section-content">
+      <div class="column is-3">
+        <h2 class="title is-5">
+          <span class="icon"><i class="fa fa-volume-up"></i></span>
+           Outputs
+         </h2>
+      </div>
+
+      <div class="column is-7 content">
+        <div v-for="output in outputs">
+          <div class="field">
+            <div class="control">
+              <label class="checkbox">
+                <input type="checkbox" v-model="output.selected" v-on:change="selectOutputs"> {{ output.name }}
+              </label>
+            </div>
+          </div>
+          <form v-on:submit.prevent="kickoffVerification" style="margin-bottom:24px;" v-show="output.needs_auth_key">
+            <div class="field has-addons">
+              <div class="control">
+                <input class="input" type="text" placeholder="Enter verification code" v-model="verification_req.pin">
+              </div>
+              <div class="control">
+                <button class="button is-primary" type="submit">Send</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
 
