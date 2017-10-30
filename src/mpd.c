@@ -4988,8 +4988,11 @@ int mpd_init(void)
   if (http_port > 0)
     evhttp_free(evhttpd);
  evhttp_fail:
-  evconnlistener_free(mpd_listener);
-  evconnlistener_free(mpd_listener6);
+  // Note evconnlistener_free segfaults if you give it a null pointer, so we need the if
+  if (mpd_listener)
+    evconnlistener_free(mpd_listener);
+  if (mpd_listener6)
+    evconnlistener_free(mpd_listener6);
  connew_fail:
   commands_base_free(cmdbase);
   event_base_free(evbase_mpd);
@@ -5036,8 +5039,11 @@ void mpd_deinit(void)
   if (http_port > 0)
     evhttp_free(evhttpd);
 
-  evconnlistener_free(mpd_listener);
-  evconnlistener_free(mpd_listener6);
+  // Note evconnlistener_free segfaults if you give it a null pointer, so we need the if
+  if (mpd_listener)
+    evconnlistener_free(mpd_listener);
+  if (mpd_listener6)
+    evconnlistener_free(mpd_listener6);
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);
