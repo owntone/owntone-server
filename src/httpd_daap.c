@@ -342,6 +342,8 @@ update_refresh_cb(int fd, short event, void *arg)
   CHECK_NULL(L_DAAP, reply = evbuffer_new());
   CHECK_ERR(L_DAAP, evbuffer_expand(reply, 32));
 
+  current_rev++;
+
   /* Send back current revision */
   dmap_add_container(reply, "mupd", 24);
   dmap_add_int(reply, "mstt", 200);         /* 12 */
