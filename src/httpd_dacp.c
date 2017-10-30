@@ -146,7 +146,7 @@ static int update_pipe[2];
 #endif
 static struct event *updateev;
 /* Next revision number the client should call with */
-static int next_rev;
+static int current_rev;
 
 /* Play status update requests */
 static struct dacp_update_request *update_requests;
@@ -266,8 +266,7 @@ make_playstatusupdate(struct evbuffer *evbuf)
 
   dmap_add_int(psu, "mstt", 200);             /* 12 */
 
-  next_rev++;
-  dmap_add_int(psu, "cmsr", next_rev);        /* 12 */
+  dmap_add_int(psu, "cmsr", current_rev);     /* 12 */
 
   dmap_add_char(psu, "caps", status.status);  /*  9 */ /* play status, 2 = stopped, 3 = paused, 4 = playing */
   dmap_add_char(psu, "cash", status.shuffle); /*  9 */ /* shuffle, true/false */
@@ -357,6 +356,8 @@ playstatusupdate_cb(int fd, short what, void *arg)
 
       goto out_free_evbuf;
     }
+
+  current_rev++;
 
   ret = make_playstatusupdate(update);
   if (ret < 0)
@@ -2750,7 +2751,7 @@ dacp_init(void)
   int i;
   int ret;
 
-  next_rev = 1;
+  current_rev = 2;
   update_requests = NULL;
 
 #ifdef HAVE_EVENTFD
