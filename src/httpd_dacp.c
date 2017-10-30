@@ -2699,7 +2699,7 @@ dacp_request(struct evhttp_request *req)
 
   if (handler < 0)
     {
-      DPRINTF(E_LOG, L_DACP, "Unrecognized DACP request\n");
+      DPRINTF(E_LOG, L_DACP, "Unrecognized DACP request: '%s'\n", uri);
 
       httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
