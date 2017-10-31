@@ -2385,8 +2385,10 @@ speaker_enumerate(void *arg, int *retval)
 	  flags.selected = device->selected;
 	  flags.has_password = device->has_password;
 	  flags.has_video = device->has_video;
+	  flags.requires_auth = device->requires_auth;
+	  flags.needs_auth_key = (device->requires_auth && device->auth_key == NULL);
 
-	  spk_enum->cb(device->id, device->name, device->relvol, device->volume, flags, spk_enum->arg);
+	  spk_enum->cb(device->id, device->name, device->type_name, device->relvol, device->volume, flags, spk_enum->arg);
 
 #ifdef DEBUG_RELVOL
 	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
