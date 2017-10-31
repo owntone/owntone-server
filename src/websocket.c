@@ -141,6 +141,10 @@ process_notify_request(struct ws_session_data_notify *session_data, void *in, si
 		{
 		  session_data->events |= LISTENER_LASTFM;
 		}
+	      else if (0 == strcmp(event_type, "ouputs"))
+		{
+		  session_data->events |= LISTENER_SPEAKER;
+		}
 	    }
 	}
     }
@@ -184,6 +188,10 @@ send_notify_reply(short events, struct lws* wsi)
   if (events & LISTENER_LASTFM)
     {
       json_object_array_add(notify, json_object_new_string("lastfm"));
+    }
+  if (events & LISTENER_SPEAKER)
+    {
+      json_object_array_add(notify, json_object_new_string("outputs"));
     }
 
   reply = json_object_new_object();
@@ -266,7 +274,7 @@ static struct lws_protocols protocols[] =
 static void *
 websocket(void *arg)
 {
-  listener_add(listener_cb, LISTENER_UPDATE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM);
+  listener_add(listener_cb, LISTENER_UPDATE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER);
 
   while(!ws_exit)
     {
