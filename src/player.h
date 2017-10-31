@@ -31,6 +31,8 @@ enum repeat_mode {
 struct spk_flags {
   unsigned selected:1;
   unsigned has_password:1;
+  unsigned requires_auth:1;
+  unsigned needs_auth_key:1;
 
   unsigned has_video:1;
 };
@@ -55,7 +57,7 @@ struct player_status {
   uint32_t len_ms;
 };
 
-typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg);
+typedef void (*spk_enum_cb)(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg);
 
 struct player_history
 {

@@ -3254,7 +3254,7 @@ mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errms
  * Adds a new struct output to the given struct outputs in *arg for the given speaker (id, name, etc.).
  */
 static void
-outputs_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg)
+outputs_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
 {
   struct outputs *outputs;
   struct output *output;
@@ -3549,7 +3549,7 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  *   outputvolume: 50
  */
 static void
-speaker_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
 {
   struct evbuffer *evbuf;
 

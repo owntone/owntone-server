@@ -510,7 +510,7 @@ playqueuecontents_add_queue_item(struct evbuffer *songlist, struct db_queue_item
 }
 
 static void
-speaker_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
 {
   struct evbuffer *evbuf;
   int len;
