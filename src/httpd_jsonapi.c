@@ -630,6 +630,354 @@ jsonapi_reply_select_outputs(struct httpd_request *hreq)
   return 0;
 }
 
+static int
+jsonapi_reply_player_play(struct httpd_request *hreq)
+{
+  int ret;
+
+  ret = player_playback_start();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error starting playback.\n");
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player_pause(struct httpd_request *hreq)
+{
+  int ret;
+
+  ret = player_playback_pause();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error pausing playback.\n");
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player_stop(struct httpd_request *hreq)
+{
+  int ret;
+
+  ret = player_playback_stop();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error stopping playback.\n");
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player_next(struct httpd_request *hreq)
+{
+  int ret;
+
+  ret = player_playback_next();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error switching to next item.\n");
+      return -1;
+    }
+
+  ret = player_playback_start();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error starting playback after switching to next item.\n");
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player_previous(struct httpd_request *hreq)
+{
+  int ret;
+
+  ret = player_playback_prev();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error switching to previous item.\n");
+      return -1;
+    }
+
+  ret = player_playback_start();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error starting playback after switching to previous item.\n");
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player(struct httpd_request *hreq)
+{
+  struct player_status status;
+  json_object *reply;
+
+  player_get_status(&status);
+
+  reply = json_object_new_object();
+
+  switch (status.status)
+    {
+      case PLAY_PAUSED:
+	json_object_object_add(reply, "state", json_object_new_string("pause"));
+	break;
+
+      case PLAY_PLAYING:
+	json_object_object_add(reply, "state", json_object_new_string("play"));
+	break;
+
+      default:
+	json_object_object_add(reply, "state", json_object_new_string("stop"));
+	break;
+    }
+
+  switch (status.repeat)
+    {
+      case REPEAT_SONG:
+	json_object_object_add(reply, "repeat", json_object_new_string("single"));
+	break;
+
+      case REPEAT_ALL:
+	json_object_object_add(reply, "repeat", json_object_new_string("all"));
+	break;
+
+      default:
+	json_object_object_add(reply, "repeat", json_object_new_string("off"));
+	break;
+    }
+
+  json_object_object_add(reply, "consume", json_object_new_boolean(status.consume));
+  json_object_object_add(reply, "shuffle", json_object_new_boolean(status.shuffle));
+  json_object_object_add(reply, "volume", json_object_new_int(status.volume));
+
+  json_object_object_add(reply, "item_id", json_object_new_int(status.item_id));
+  json_object_object_add(reply, "item_length_ms", json_object_new_int(status.len_ms));
+  json_object_object_add(reply, "item_progress_ms", json_object_new_int(status.pos_ms));
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply)));
+
+  jparse_free(reply);
+
+  return 0;
+}
+
+static json_object *
+queue_item_to_json(struct db_queue_item *queue_item)
+{
+  json_object *item;
+
+  item = json_object_new_object();
+
+  json_object_object_add(item, "id", json_object_new_int(queue_item->id));
+  json_object_object_add(item, "position", json_object_new_int(queue_item->pos));
+  json_object_object_add(item, "shuffle_position", json_object_new_int(queue_item->shuffle_pos));
+
+  json_object_object_add(item, "file_id", json_object_new_int(queue_item->file_id));
+  json_object_object_add(item, "path", json_object_new_string(queue_item->path));
+  json_object_object_add(item, "virtual_path", json_object_new_string(queue_item->virtual_path));
+
+  json_object_object_add(item, "title", json_object_new_string(queue_item->title));
+  json_object_object_add(item, "artist", json_object_new_string(queue_item->artist));
+  json_object_object_add(item, "albumartist", json_object_new_string(queue_item->album_artist));
+  json_object_object_add(item, "album", json_object_new_string(queue_item->album));
+  json_object_object_add(item, "genre", json_object_new_string(queue_item->genre));
+  json_object_object_add(item, "artist_sort", json_object_new_string(queue_item->artist_sort));
+  json_object_object_add(item, "albumartist_sort", json_object_new_string(queue_item->album_artist_sort));
+  json_object_object_add(item, "album_sort", json_object_new_string(queue_item->album_sort));
+  json_object_object_add(item, "year", json_object_new_int(queue_item->year));
+  json_object_object_add(item, "length_ms", json_object_new_int(queue_item->song_length));
+
+  return item;
+}
+
+static int
+jsonapi_reply_queue(struct httpd_request *hreq)
+{
+  struct query_params query_params;
+  const char *param;
+  uint32_t item_id;
+  int start_pos, end_pos;
+  int version;
+  int count;
+  struct db_queue_item queue_item;
+  json_object *reply;
+  json_object *items;
+  json_object *item;
+  int ret = 0;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+  reply = json_object_new_object();
+
+  version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
+  count = db_queue_get_count();
+
+  json_object_object_add(reply, "version", json_object_new_int(version));
+  json_object_object_add(reply, "count", json_object_new_int(count));
+
+  items = json_object_new_array();
+  json_object_object_add(reply, "items", items);
+
+  param = evhttp_find_header(hreq->query, "sort");
+  if (param && strcmp(param, "shuffle") == 0)
+    {
+      query_params.sort = S_SHUFFLE_POS;
+    }
+
+  param = evhttp_find_header(hreq->query, "id");
+  if (param && safe_atou32(param, &item_id) == 0)
+    {
+      query_params.filter = db_mprintf("id = %d", item_id);
+    }
+  else
+    {
+      param = evhttp_find_header(hreq->query, "start");
+      if (param && safe_atoi32(param, &start_pos) == 0)
+	{
+	  param = evhttp_find_header(hreq->query, "end");
+	  if (!param || safe_atoi32(param, &end_pos) != 0)
+	    {
+	      end_pos = start_pos + 1;
+	    }
+
+	  if (query_params.sort == S_SHUFFLE_POS)
+	    query_params.filter = db_mprintf("shuffle_pos >= %d AND shuffle_pos < %d", start_pos, end_pos);
+	  else
+	    query_params.filter = db_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
+	}
+    }
+
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
+    goto db_start_error;
+
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+    {
+      item = queue_item_to_json(&queue_item);
+      if (!item)
+	goto error;
+
+      json_object_array_add(items, item);
+    }
+
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "outputs: Couldn't add outputs to response buffer.\n");
+
+ error:
+  db_queue_enum_end(&query_params);
+ db_start_error:
+  jparse_free(reply);
+  free(query_params.filter);
+
+  return ret;
+}
+
+static int
+jsonapi_reply_player_repeat(struct httpd_request *hreq)
+{
+  const char *param;
+
+  param = evhttp_find_header(hreq->query, "state");
+  if (!param)
+    return -1;
+
+  if (strcmp(param, "single") == 0)
+    {
+      player_repeat_set(REPEAT_SONG);
+    }
+  else if (strcmp(param, "all") == 0)
+    {
+      player_repeat_set(REPEAT_ALL);
+    }
+  else if (strcmp(param, "off") == 0)
+    {
+      player_repeat_set(REPEAT_OFF);
+    }
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player_shuffle(struct httpd_request *hreq)
+{
+  const char *param;
+  bool shuffle;
+
+  param = evhttp_find_header(hreq->query, "state");
+  if (!param)
+    return -1;
+
+  shuffle = (strcmp(param, "true") == 0);
+  player_shuffle_set(shuffle);
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player_consume(struct httpd_request *hreq)
+{
+  const char *param;
+  bool consume;
+
+  param = evhttp_find_header(hreq->query, "state");
+  if (!param)
+    return -1;
+
+  consume = (strcmp(param, "true") == 0);
+  player_consume_set(consume);
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player_volume(struct httpd_request *hreq)
+{
+  const char *param;
+  uint64_t output_id;
+  int volume;
+  int ret;
+
+  param = evhttp_find_header(hreq->query, "volume");
+  if (!param)
+    return -1;
+
+  ret = safe_atoi32(param, &volume);
+  if (ret < 0)
+    return -1;
+
+  if (volume < 0 || volume > 100)
+    return -1;
+
+  param = evhttp_find_header(hreq->query, "output_id");
+  if (param)
+    {
+      ret = safe_atou64(param, &output_id);
+      if (ret < 0)
+	return -1;
+
+      ret = player_volume_setabs_speaker(output_id, volume);
+    }
+  else
+    {
+      ret = player_volume_set(volume);
+    }
+
+  return ret;
+}
+
 static struct httpd_uri_map adm_handlers[] =
   {
     { .regexp = "^/api/config", .handler = jsonapi_reply_config },
@@ -644,6 +992,17 @@ static struct httpd_uri_map adm_handlers[] =
     { .regexp = "^/api/outputs", .handler = jsonapi_reply_outputs },
     { .regexp = "^/api/select-outputs", .handler = jsonapi_reply_select_outputs },
     { .regexp = "^/api/verification", .handler = jsonapi_reply_verification },
+    { .regexp = "^/api/player/play", .handler = jsonapi_reply_player_play },
+    { .regexp = "^/api/player/pause", .handler = jsonapi_reply_player_pause },
+    { .regexp = "^/api/player/stop", .handler = jsonapi_reply_player_stop },
+    { .regexp = "^/api/player/next", .handler = jsonapi_reply_player_next },
+    { .regexp = "^/api/player/previous", .handler = jsonapi_reply_player_previous },
+    { .regexp = "^/api/player/shuffle", .handler = jsonapi_reply_player_shuffle },
+    { .regexp = "^/api/player/repeat", .handler = jsonapi_reply_player_repeat },
+    { .regexp = "^/api/player/consume", .handler = jsonapi_reply_player_consume },
+    { .regexp = "^/api/player/volume", .handler = jsonapi_reply_player_volume },
+    { .regexp = "^/api/player", .handler = jsonapi_reply_player },
+    { .regexp = "^/api/queue", .handler = jsonapi_reply_queue },
     { .regexp = NULL, .handler = NULL }
   };
 
