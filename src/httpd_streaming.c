@@ -30,16 +30,13 @@
 #include <unistd.h>
 
 #include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/http.h>
 
+#include "httpd_streaming.h"
 #include "logger.h"
 #include "conffile.h"
 #include "transcode.h"
 #include "player.h"
 #include "listener.h"
-#include "httpd.h"
-#include "httpd_streaming.h"
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
@@ -213,19 +210,7 @@ streaming_write(uint8_t *buf, uint64_t rtptime)
 }
 
 int
-streaming_is_request(struct evhttp_request *req, char *uri)
-{
-  char *ptr;
-
-  ptr = strrchr(uri, '/');
-  if (!ptr || (strcasecmp(ptr, "/stream.mp3") != 0))
-    return 0;
-
-  return 1;
-}
-
-int
-streaming_request(struct evhttp_request *req)
+streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
   struct streaming_session *session;
   struct evhttp_connection *evcon;
@@ -280,6 +265,18 @@ streaming_request(struct evhttp_request *req)
 
   evhttp_connection_set_timeout(evcon, STREAMING_CONNECTION_TIMEOUT);
   evhttp_connection_set_closecb(evcon, streaming_fail_cb, session);
+
+  return 0;
+}
+
+int
+streaming_is_request(const char *path)
+{
+  char *ptr;
+
+  ptr = strrchr(path, '/');
+  if (ptr && (strcasecmp(ptr, "/stream.mp3") == 0))
+    return 1;
 
   return 0;
 }

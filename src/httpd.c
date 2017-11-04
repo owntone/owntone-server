@@ -43,7 +43,8 @@
 # include <sys/eventfd.h>
 #endif
 #include <event2/event.h>
-#include <event2/keyvalq_struct.h>
+#include <event2/http.h>
+#include <event2/http_struct.h>
 #ifdef HAVE_LIBEVENT2_OLD
 # include <event2/bufferevent.h>
 # include <event2/bufferevent_struct.h>
@@ -450,6 +451,99 @@ stream_fail_cb(struct evhttp_connection *evcon, void *arg)
   event_del(st->ev);
 
   stream_end(st, 1);
+}
+
+
+void
+httpd_uri_free(struct httpd_uri_parsed *parsed)
+{
+  if (!parsed)
+    return;
+
+  free(parsed->uri_decoded);
+  free(parsed->path);
+  free(parsed->path_parts[0]);
+
+  evhttp_clear_headers(&(parsed->ev_query));
+
+  if (parsed->ev_uri)
+    evhttp_uri_free(parsed->ev_uri);
+
+  free(parsed);
+}
+
+struct httpd_uri_parsed *
+httpd_uri_parse(const char *uri)
+{
+  struct httpd_uri_parsed *parsed;
+  const char *path;
+  const char *query;
+  char *ptr;
+  int i;
+  int ret;
+
+  CHECK_NULL(L_HTTPD, parsed = calloc(1, sizeof(struct httpd_uri_parsed)));
+
+  parsed->uri = uri;
+
+  parsed->ev_uri = evhttp_uri_parse_with_flags(parsed->uri, EVHTTP_URI_NONCONFORMANT);
+  if (!parsed->ev_uri)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not parse request: '%s'\n", parsed->uri);
+      goto error;
+    }
+
+  parsed->uri_decoded = evhttp_uridecode(parsed->uri, 0, NULL);
+  if (!parsed->uri_decoded)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not URI decode request: '%s'\n", parsed->uri);
+      goto error;
+    }
+
+  query = evhttp_uri_get_query(parsed->ev_uri);
+  if (query)
+    {
+      ret = evhttp_parse_query_str(query, &(parsed->ev_query));
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Invalid query '%s' in request: '%s'\n", query, parsed->uri);
+	  goto error;
+	}
+    }
+
+  path = evhttp_uri_get_path(parsed->ev_uri);
+  if (!path)
+    {
+      DPRINTF(E_WARN, L_HTTPD, "No path in request: '%s'\n", parsed->uri);
+      return parsed;
+    }
+
+  parsed->path = evhttp_uridecode(path, 0, NULL);
+  if (!parsed->path)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not URI decode path: '%s'\n", path);
+      goto error;
+    }
+
+  CHECK_NULL(L_HTTPD, parsed->path_parts[0] = strdup(parsed->path));
+
+  strtok_r(parsed->path_parts[0], "/", &ptr);
+  for (i = 1; (i < sizeof(parsed->path_parts) / sizeof(parsed->path_parts[0])) && parsed->path_parts[i - 1]; i++)
+    {
+      parsed->path_parts[i] = strtok_r(NULL, "/", &ptr);
+    }
+
+  if (!parsed->path_parts[0] || parsed->path_parts[i - 1] || (i < 2))
+    {
+      DPRINTF(E_LOG, L_HTTPD, "URI path has too many/few components (%d): '%s'\n", (parsed->path_parts[0]) ? i : 0, parsed->path);
+      goto error;
+    }
+
+  return parsed;
+
+ error:
+  httpd_uri_free(parsed);
+  return NULL;
 }
 
 
@@ -923,7 +1017,7 @@ redirect_to_admin(struct evhttp_request *req)
 
 /* Thread: httpd */
 static void
-redirect_to_index(struct evhttp_request *req, char *uri)
+redirect_to_index(struct evhttp_request *req, const char *uri)
 {
   struct evkeyvalq *headers;
   char buf[256];
@@ -986,7 +1080,7 @@ httpd_admin_check_auth(struct evhttp_request *req)
 
 /* Thread: httpd */
 static void
-serve_file(struct evhttp_request *req, char *uri)
+serve_file(struct evhttp_request *req, const char *uri)
 {
   char *ext;
   char path[PATH_MAX];
@@ -1179,9 +1273,12 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
   struct evkeyvalq *input_headers;
   struct evkeyvalq *output_headers;
-  const char *req_uri;
-  char *uri;
-  char *ptr;
+  struct httpd_uri_parsed *parsed;
+  const char *uri;
+
+  // Clear the proxy request flag set by evhttp if the request URI was absolute.
+  // It has side-effects on Connection: keep-alive
+  req->flags &= ~EVHTTP_PROXY_REQUEST;
 
   // Did we get a CORS preflight request?
   input_headers = evhttp_request_get_input_headers(req);
@@ -1203,66 +1300,55 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
       return;
     }
 
-  req_uri = evhttp_request_get_uri(req);
-  if (!req_uri || strcmp(req_uri, "/") == 0)
+  uri = evhttp_request_get_uri(req);
+  if (!uri)
     {
+      DPRINTF(E_WARN, L_HTTPD, "No URI in request\n");
       redirect_to_admin(req);
-
       return;
     }
 
-  uri = strdup(req_uri);
-  ptr = strchr(uri, '?');
-  if (ptr)
+  parsed = httpd_uri_parse(uri);
+  if (!parsed || !parsed->path || (strcmp(parsed->path, "/") == 0))
     {
-      DPRINTF(E_SPAM, L_HTTPD, "Found query string\n");
-
-      *ptr = '\0';
-    }
-
-  ptr = uri;
-  uri = evhttp_decode_uri(uri);
-  free(ptr);
-
-  /* Dispatch protocol-specific URIs */
-  if (rsp_is_request(req, uri))
-    {
-      rsp_request(req);
-
-      goto out;
-    }
-  else if (daap_is_request(req, uri))
-    {
-      daap_request(req);
-
-      goto out;
-    }
-  else if (dacp_is_request(req, uri))
-    {
-      dacp_request(req);
-
-      goto out;
-    }
-  else if (jsonapi_is_request(req, uri))
-    {
-      jsonapi_request(req);
-
-      goto out;
-    }
-  else if (streaming_is_request(req, uri))
-    {
-      streaming_request(req);
-
+      redirect_to_admin(req);
       goto out;
     }
 
-  DPRINTF(E_DBG, L_HTTPD, "HTTP request: %s\n", uri);
+  /* Dispatch protocol-specific handlers */
+  if (dacp_is_request(parsed->path))
+    {
+      dacp_request(req, parsed);
+      goto out;
+    }
+  else if (daap_is_request(parsed->path))
+    {
+      daap_request(req, parsed);
+      goto out;
+    }
+  else if (jsonapi_is_request(parsed->path))
+    {
+      jsonapi_request(req, parsed);
+      goto out;
+    }
+  else if (streaming_is_request(parsed->path))
+    {
+      streaming_request(req, parsed);
+      goto out;
+    }
+  else if (rsp_is_request(parsed->path))
+    {
+      rsp_request(req, parsed);
+      goto out;
+    }
+
+  DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", parsed->uri);
 
   /* Serve web interface files */
-  serve_file(req, uri);
+  serve_file(req, parsed->path);
 
  out:
-  free(uri);
+  httpd_uri_free(parsed);
 }
 
 /* Thread: httpd */
@@ -1298,7 +1384,7 @@ exit_cb(int fd, short event, void *arg)
   httpd_exit = 1;
 }
 
-char *
+/*static char *
 httpd_fixup_uri(struct evhttp_request *req)
 {
   struct evkeyvalq *headers;
@@ -1314,7 +1400,7 @@ httpd_fixup_uri(struct evhttp_request *req)
   if (!uri)
     return NULL;
 
-  /* No query string, nothing to do */
+  // No query string, nothing to do
   q = strchr(uri, '?');
   if (!q)
     return strdup(uri);
@@ -1329,8 +1415,8 @@ httpd_fixup_uri(struct evhttp_request *req)
       && (strncmp(ua, "Roku", strlen("Roku")) != 0))
     return strdup(uri);
 
-  /* Reencode + as %2B and space as + in the query,
-     which iTunes and Roku devices don't do */
+  // Reencode + as %2B and space as + in the query,
+  // which iTunes and Roku devices don't do
   len = strlen(uri);
 
   u = q;
@@ -1377,7 +1463,7 @@ httpd_fixup_uri(struct evhttp_request *req)
   *f = '\0';
 
   return fixed;
-}
+}*/
 
 static const char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
 

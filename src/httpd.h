@@ -4,12 +4,50 @@
 
 #include <event2/http.h>
 #include <event2/buffer.h>
+#include <event2/keyvalq_struct.h>
 #include <stdbool.h>
 
 enum httpd_send_flags
 {
   HTTPD_SEND_NO_GZIP =   (1 << 0),
 };
+
+/*
+ * Contains a parsed version of the URI httpd got. The URI may have been
+ * complete:
+ *   scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+ * or relative:
+ *   [/path][?query][#fragment]
+ *
+ * We are interested in the path and the query, so they are disassembled to
+ * path_parts and ev_query. If the request is http://x:3689/foo/bar?key1=val1,
+ * then part_parts[1] is "foo", [2] is "bar" and the rest is null (the first
+ * element points to the copy of the path so it can be freed).
+ *
+ * The allocated strings are URI decoded.
+ */
+struct httpd_uri_parsed
+{
+  const char *uri;
+  struct evhttp_uri *ev_uri;
+  struct evkeyvalq ev_query;
+  char *uri_decoded;
+  char *path;
+  char *path_parts[7];
+};
+
+/*
+ * Helper to free the parsed uri struct
+ */
+void
+httpd_uri_free(struct httpd_uri_parsed *parsed);
+
+/*
+ * Parse an URI into the struct
+ */
+struct httpd_uri_parsed *
+httpd_uri_parse(const char *uri);
+
 
 void
 httpd_stream_file(struct evhttp_request *req, int id);
@@ -52,9 +90,6 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
  */
 void
 httpd_send_error(struct evhttp_request *req, int error, const char *reason);
-
-char *
-httpd_fixup_uri(struct evhttp_request *req);
 
 int
 httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);

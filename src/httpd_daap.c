@@ -42,22 +42,19 @@
 #include <uninorm.h>
 #include <unistd.h>
 
+#include <event2/event.h>
+
+#include "httpd_daap.h"
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
 #include "misc.h"
-#include "httpd.h"
 #include "transcode.h"
 #include "artwork.h"
-#include "httpd_daap.h"
 #include "daap_query.h"
 #include "dmap_common.h"
 #include "cache.h"
 
-#include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/http_struct.h>
-#include <event2/keyvalq_struct.h>
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
@@ -105,20 +102,16 @@ struct daap_session {
 
 // Will be filled out by daap_request_parse()
 struct daap_request {
-  // The request URI
-  const char *source_uri;
-  // http request struct - null when the request is from daap_reply_build(), i.e. the cache
-  struct evhttp_request *req;
-  // If the request is http://x:3689/foo/bar?key1=val1, then path is "foo/bar"
-  const char *path;
-  // If the request is http://x:3689/foo/bar?key1=val1, then part_part[1] is "foo", [2] is "bar" and the rest is null
-  char *path_parts[7];
-  // A the request query was ?key1=val1&key2=val2 then this will be parsed into this struct
-  struct evkeyvalq query;
   // User-agent
   const char *user_agent;
   // Was the request made by a remote, e.g. Apple Remote
   bool is_remote;
+  // The parsed request URI given to us by httpd.c
+  struct httpd_uri_parsed *uri_parsed;
+  // Shortcut to &uri_parsed->ev_query
+  struct evkeyvalq *query;
+  // http request struct - null when the request is from daap_reply_build(), i.e. the cache
+  struct evhttp_request *req;
   // Pointer to the session matching the request
   struct daap_session *session;
   // A pointer to the handler that will process the request
@@ -507,112 +500,32 @@ daap_sort_finalize(struct sort_ctx *ctx)
 
 /* ----------------------------- OTHER HELPERS ------------------------------ */
 
-/* Remotes are clients that will issue DACP commands. For these clients we will
- * do the playback, and we will not stream to them. This is a crude function to
- * identify them, so we can give them appropriate treatment.
- */
-static bool
-is_remote(const char *user_agent)
-{
-  if (!user_agent)
-    return false;
-  if (strcasestr(user_agent, "remote"))
-    return true;
-  if (strstr(user_agent, "Retune"))
-    return true;
-
-  return false;
-}
-
-static char *
-uri_relative(char *uri, const char *protocol)
-{
-  char *ret;
-
-  if (strncmp(uri, protocol, strlen(protocol)) != 0)
-    return NULL;
-
-  ret = strchr(uri + strlen(protocol), '/');
-  if (!ret)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Malformed DAAP Request URI '%s'\n", uri);
-      return NULL;
-    }
-
-  return ret;
-}
-
-static char *
-daap_fix_request_uri(struct evhttp_request *req, char *uri)
-{
-  char *ret;
-
-  /* iTunes 9 gives us an absolute request-uri like
-   *  daap://10.1.1.20:3689/server-info
-   * iTunes 12.1 gives us an absolute request-uri for streaming like
-   *  http://10.1.1.20:3689/databases/1/items/1.mp3
-   */
-
-  if ( (ret = uri_relative(uri, "daap://")) || (ret = uri_relative(uri, "http://")) )
-    {
-      /* Clear the proxy request flag set by evhttp
-       * due to the request URI being absolute.
-       * It has side-effects on Connection: keep-alive
-       */
-      req->flags &= ~EVHTTP_PROXY_REQUEST;
-      return ret;
-    }
-
-  return uri;
-}
-
-/* Returns eg /databases/1/containers from /databases/1/containers?meta=dmap.item... */
-static char *
-extract_uri(char *full_uri)
-{
-  char *uri;
-  char *ptr;
-
-  ptr = strchr(full_uri, '?');
-  if (ptr)
-    *ptr = '\0';
-
-  uri = strdup(full_uri);
-
-  if (ptr)
-    *ptr = '?';
-
-  if (!uri)
-    return NULL;
-
-  ptr = uri;
-  uri = evhttp_decode_uri(uri);
-  free(ptr);
-
-  return uri;
-}
-
 /* We try not to return items that the client cannot play (like Spotify and
  * internet streams in iTunes), or which are inappropriate (like internet streams
- * in the album tab of remotes)
+ * in the album tab of remotes). Note that the function must never append a
+ * filter if the SELECT is not from the files table.
  */
 static void
 user_agent_filter(struct query_params *qp, struct daap_request *dreq)
 {
   char *filter;
 
-  if (!(qp->type == Q_ITEMS || (qp->type & Q_F_BROWSE)))
-    return;
-
   if (dreq->is_remote)
     {
-      if (qp->filter)
-	filter = safe_asprintf("%s AND (f.data_kind <> %d)", qp->filter, DATA_KIND_HTTP);
-      else
-	filter = safe_asprintf("(f.data_kind <> %d)", DATA_KIND_HTTP);
+      // This makes sure 1) the SELECT is from files, 2) that the Remote query
+      // contained extended_media_kind:1, which characterise the queries we want
+      // to filter. TODO: Not a really nice way of doing this, but best I could
+      // think of.
+      if (!qp->filter || !strstr(qp->filter, "f.media_kind"))
+	return;
+
+      filter = safe_asprintf("%s AND (f.data_kind <> %d)", qp->filter, DATA_KIND_HTTP);
     }
   else
     {
+      if (qp->type != Q_ITEMS)
+	return;
+
       if (qp->filter)
 	filter = safe_asprintf("%s AND (f.data_kind = %d)", qp->filter, DATA_KIND_FILE);
       else
@@ -639,7 +552,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct daap_request
 
   memset(qp, 0, sizeof(struct query_params));
 
-  param = evhttp_find_header(&dreq->query, "index");
+  param = evhttp_find_header(dreq->query, "index");
   if (param)
     {
       if (param[0] == '-') /* -n, last n entries */
@@ -685,7 +598,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct daap_request
     qp->idx_type = I_SUB;
 
   qp->sort = S_NONE;
-  param = evhttp_find_header(&dreq->query, "sort");
+  param = evhttp_find_header(dreq->query, "sort");
   if (param)
     {
       if (strcmp(param, "name") == 0)
@@ -706,7 +619,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct daap_request
   if (sort_headers)
     {
       *sort_headers = 0;
-      param = evhttp_find_header(&dreq->query, "include-sort-headers");
+      param = evhttp_find_header(dreq->query, "include-sort-headers");
       if (param && (strcmp(param, "1") == 0))
 	{
 	  *sort_headers = 1;
@@ -714,9 +627,9 @@ query_params_set(struct query_params *qp, int *sort_headers, struct daap_request
 	}
     }
 
-  param = evhttp_find_header(&dreq->query, "query");
+  param = evhttp_find_header(dreq->query, "query");
   if (!param)
-    param = evhttp_find_header(&dreq->query, "filter");
+    param = evhttp_find_header(dreq->query, "filter");
 
   if (param)
     {
@@ -832,14 +745,11 @@ daap_reply_send(struct evhttp_request *req, struct evbuffer *reply, enum daap_re
 }
 
 static struct daap_request *
-daap_request_parse(const char *source_uri, const char *user_agent, struct evhttp_request *req)
+daap_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent)
 {
   struct daap_request *dreq;
   struct evkeyvalq *headers;
-  struct evhttp_uri *uri;
-  const char *query;
   const char *param;
-  char *ptr;
   int32_t id;
   int ret;
   int i;
@@ -847,32 +757,18 @@ daap_request_parse(const char *source_uri, const char *user_agent, struct evhttp
   CHECK_NULL(L_DAAP, dreq = calloc(1, sizeof(struct daap_request)));
 
   dreq->req = req;
-  dreq->source_uri = source_uri;
+  dreq->uri_parsed = uri_parsed;
+  dreq->query = &(uri_parsed->ev_query);
 
   if (user_agent)
     dreq->user_agent = user_agent;
   else if (req && (headers = evhttp_request_get_input_headers(req)))
     dreq->user_agent = evhttp_find_header(headers, "User-Agent");
 
-  uri = evhttp_uri_parse_with_flags(source_uri, EVHTTP_URI_NONCONFORMANT);
-  if (!uri)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not parse URI in DAAP request: '%s'\n", source_uri);
-      free(dreq);
-      return NULL;
-    }
-
-  // Find a handler for the path (note, path includes the leading '/')
-  dreq->path = evhttp_uri_get_path(uri);
-  if (!dreq->path || dreq->path[0] == '\0')
-    {
-      DPRINTF(E_LOG, L_DAAP, "Missing path in the DAAP request: '%s'\n", source_uri);
-      goto error;
-    }
-
+  // Find a handler for the path
   for (i = 0; daap_handlers[i].handler; i++)
     {
-      ret = regexec(&daap_handlers[i].preg, dreq->path, 0, NULL, 0);
+      ret = regexec(&daap_handlers[i].preg, uri_parsed->path, 0, NULL, 0);
       if (ret == 0)
         {
           dreq->handler = daap_handlers[i].handler;
@@ -882,27 +778,18 @@ daap_request_parse(const char *source_uri, const char *user_agent, struct evhttp
 
   if (!dreq->handler)
     {
-      DPRINTF(E_LOG, L_DAAP, "Unrecognized path '%s' in DAAP request: '%s'\n", dreq->path, source_uri);
-      goto error;
-    }
-
-  // Parse the query
-  query = evhttp_uri_get_query(uri);
-  ret = evhttp_parse_query_str(query, &dreq->query);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Invalid query '%s' in DAAP request: '%s'\n", query, source_uri);
+      DPRINTF(E_LOG, L_DAAP, "Unrecognized path '%s' in DAAP request: '%s'\n", uri_parsed->path, uri_parsed->uri);
       goto error;
     }
 
   // Check if we have a session
-  param = evhttp_find_header(&dreq->query, "session-id");
+  param = evhttp_find_header(dreq->query, "session-id");
   if (param)
     {
       ret = safe_atoi32(param, &id);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Invalid session id in DAAP request: '%s'\n", source_uri);
+	  DPRINTF(E_LOG, L_DAAP, "Invalid session id in DAAP request: '%s'\n", uri_parsed->uri);
 	  goto error;
 	}
 
@@ -910,46 +797,15 @@ daap_request_parse(const char *source_uri, const char *user_agent, struct evhttp
     }
 
   // Are we making a reply for a remote?
-  param = evhttp_find_header(&dreq->query, "pairing-guid");
+  param = evhttp_find_header(dreq->query, "pairing-guid");
   dreq->is_remote = (param || (dreq->session && dreq->session->is_remote));
 
-  // Copy path and split it in parts
-  CHECK_NULL(L_DAAP, dreq->path_parts[0] = strdup(dreq->path));
-
-  strtok_r(dreq->path_parts[0], "/", &ptr);
-  for (i = 1; (i < sizeof(dreq->path_parts) / sizeof(dreq->path_parts[0])) && dreq->path_parts[i - 1]; i++)
-    {
-      dreq->path_parts[i] = strtok_r(NULL, "/", &ptr);
-    }
-
-  if (!dreq->path_parts[0] || dreq->path_parts[i - 1] || (i < 2))
-    {
-      DPRINTF(E_LOG, L_DAAP, "DAAP URI has too many/few components (%d): '%s'\n", (dreq->path_parts[0]) ? i : 0, dreq->path);
-      goto error;
-    }
-
-  evhttp_uri_free(uri);
   return dreq;
 
  error:
-  evhttp_clear_headers(&dreq->query);
-  free(dreq->path_parts[0]);
-  evhttp_uri_free(uri);
   free(dreq);
 
   return NULL;
-}
-
-static void
-daap_request_free(struct daap_request *dreq)
-{
-  if (!dreq)
-    return;
-
-  evhttp_clear_headers(&dreq->query);
-  free(dreq->path_parts[0]);
-
-  free(dreq);
 }
 
 static int
@@ -962,12 +818,12 @@ daap_request_authorize(struct daap_request *dreq)
   if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
     return 0;
 
-  param = evhttp_find_header(&dreq->query, "session-id");
+  param = evhttp_find_header(dreq->query, "session-id");
   if (param)
     {
       if (!dreq->session)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "DAAP session not found: '%s'\n", dreq->source_uri);
+	  DPRINTF(E_LOG, L_DAAP, "DAAP session not found: '%s'\n", dreq->uri_parsed->uri);
 	  return -1;
 	}
 
@@ -980,11 +836,11 @@ daap_request_authorize(struct daap_request *dreq)
     return 0;
 
   // If no valid session then we may need to authenticate
-  if ((strcmp(dreq->path, "/server-info") == 0)
-      || (strcmp(dreq->path, "/login") == 0)
-      || (strcmp(dreq->path, "/logout") == 0)
-      || (strcmp(dreq->path, "/content-codes") == 0)
-      || (strncmp(dreq->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
+  if ((strcmp(dreq->uri_parsed->path, "/server-info") == 0)
+      || (strcmp(dreq->uri_parsed->path, "/login") == 0)
+      || (strcmp(dreq->uri_parsed->path, "/logout") == 0)
+      || (strcmp(dreq->uri_parsed->path, "/content-codes") == 0)
+      || (strncmp(dreq->uri_parsed->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
     return 0; // No authentication
 
   DPRINTF(E_DBG, L_DAAP, "Checking authentication for library\n");
@@ -1155,7 +1011,7 @@ daap_reply_login(struct evbuffer *reply, struct daap_request *dreq)
 
   CHECK_ERR(L_DAAP, evbuffer_expand(reply, 32));
 
-  is_remote = (param = evhttp_find_header(&dreq->query, "pairing-guid"));
+  is_remote = (param = evhttp_find_header(dreq->query, "pairing-guid"));
   if (param && !cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
     {
       if (strlen(param) < 3)
@@ -1186,7 +1042,7 @@ daap_reply_login(struct evbuffer *reply, struct daap_request *dreq)
         DPRINTF(E_INFO, L_DAAP, "Client (unknown user-agent) logging in\n");
     }
 
-  param = evhttp_find_header(&dreq->query, "request-session-id");
+  param = evhttp_find_header(dreq->query, "request-session-id");
   if (param)
     {
       ret = safe_atoi32(param, &request_session_id);
@@ -1241,7 +1097,7 @@ daap_reply_update(struct evbuffer *reply, struct daap_request *dreq)
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  param = evhttp_find_header(&dreq->query, "revision-number");
+  param = evhttp_find_header(dreq->query, "revision-number");
   if (!param)
     {
       DPRINTF(E_DBG, L_DAAP, "Missing revision-number in client update request\n");
@@ -1440,7 +1296,7 @@ daap_reply_songlist_generic(struct evbuffer *reply, struct daap_request *dreq, i
   CHECK_ERR(L_DAAP, evbuffer_expand(songlist, 4096));
   CHECK_ERR(L_DAAP, evbuffer_expand(song, 512));
 
-  param = evhttp_find_header(&dreq->query, "meta");
+  param = evhttp_find_header(dreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_DBG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1601,7 +1457,7 @@ daap_reply_plsonglist(struct evbuffer *reply, struct daap_request *dreq)
   int playlist;
   int ret;
 
-  ret = safe_atoi32(dreq->path_parts[3], &playlist);
+  ret = safe_atoi32(dreq->uri_parsed->path_parts[3], &playlist);
   if (ret < 0)
     {
       dmap_error_make(reply, "apso", "Invalid playlist ID");
@@ -1638,7 +1494,7 @@ daap_reply_playlists(struct evbuffer *reply, struct daap_request *dreq)
 
   cfg_radiopl = cfg_getbool(cfg_getsec(cfg, "library"), "radio_playlists");
 
-  ret = safe_atoi32(dreq->path_parts[1], &database);
+  ret = safe_atoi32(dreq->uri_parsed->path_parts[1], &database);
   if (ret < 0)
     {
       dmap_error_make(reply, "aply", "Invalid database ID");
@@ -1655,7 +1511,7 @@ daap_reply_playlists(struct evbuffer *reply, struct daap_request *dreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(playlistlist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(playlist, 128));
 
-  param = evhttp_find_header(&dreq->query, "meta");
+  param = evhttp_find_header(dreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_LOG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1853,7 +1709,7 @@ daap_reply_groups(struct evbuffer *reply, struct daap_request *dreq)
   int i;
   int ret;
 
-  param = evhttp_find_header(&dreq->query, "group-type");
+  param = evhttp_find_header(dreq->query, "group-type");
   if (strcmp(param, "artists") == 0)
     {
       // Request from Remote may have the form:
@@ -1881,7 +1737,7 @@ daap_reply_groups(struct evbuffer *reply, struct daap_request *dreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(grouplist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(group, 128));
 
-  param = evhttp_find_header(&dreq->query, "meta");
+  param = evhttp_find_header(dreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_LOG, L_DAAP, "No meta parameter in query, using default\n");
@@ -2060,25 +1916,25 @@ daap_reply_browse(struct evbuffer *reply, struct daap_request *dreq)
   int nitems;
   int ret;
 
-  if (strcmp(dreq->path_parts[3], "artists") == 0)
+  if (strcmp(dreq->uri_parsed->path_parts[3], "artists") == 0)
     {
       tag = "abar";
       query_params_set(&qp, &sort_headers, dreq, Q_BROWSE_ARTISTS);
       qp.sort = S_ARTIST;
     }
-  else if (strcmp(dreq->path_parts[3], "albums") == 0)
+  else if (strcmp(dreq->uri_parsed->path_parts[3], "albums") == 0)
     {
       tag = "abal";
       query_params_set(&qp, &sort_headers, dreq, Q_BROWSE_ALBUMS);
       qp.sort = S_ALBUM;
     }
-  else if (strcmp(dreq->path_parts[3], "genres") == 0)
+  else if (strcmp(dreq->uri_parsed->path_parts[3], "genres") == 0)
     {
       tag = "abgn";
       query_params_set(&qp, &sort_headers, dreq, Q_BROWSE_GENRES);
       qp.sort = S_GENRE;
     }
-  else if (strcmp(dreq->path_parts[3], "composers") == 0)
+  else if (strcmp(dreq->uri_parsed->path_parts[3], "composers") == 0)
     {
       tag = "abcp";
       query_params_set(&qp, &sort_headers, dreq, Q_BROWSE_COMPOSERS);
@@ -2086,7 +1942,7 @@ daap_reply_browse(struct evbuffer *reply, struct daap_request *dreq)
     }
   else
     {
-      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", dreq->path_parts[3]);
+      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", dreq->uri_parsed->path_parts[3]);
       dmap_error_make(reply, "abro", "Invalid browse type");
       return DAAP_REPLY_ERROR;
     }
@@ -2191,16 +2047,16 @@ daap_reply_extra_data(struct evbuffer *reply, struct daap_request *dreq)
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  ret = safe_atoi32(dreq->path_parts[3], &id);
+  ret = safe_atoi32(dreq->uri_parsed->path_parts[3], &id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not convert id parameter to integer: '%s'\n", dreq->path_parts[3]);
+      DPRINTF(E_LOG, L_DAAP, "Could not convert id parameter to integer: '%s'\n", dreq->uri_parsed->path_parts[3]);
       return DAAP_REPLY_BAD_REQUEST;
     }
 
-  if (evhttp_find_header(&dreq->query, "mw") && evhttp_find_header(&dreq->query, "mh"))
+  if (evhttp_find_header(dreq->query, "mw") && evhttp_find_header(dreq->query, "mh"))
     {
-      param = evhttp_find_header(&dreq->query, "mw");
+      param = evhttp_find_header(dreq->query, "mw");
       ret = safe_atoi32(param, &max_w);
       if (ret < 0)
 	{
@@ -2208,7 +2064,7 @@ daap_reply_extra_data(struct evbuffer *reply, struct daap_request *dreq)
 	  return DAAP_REPLY_BAD_REQUEST;
 	}
 
-      param = evhttp_find_header(&dreq->query, "mh");
+      param = evhttp_find_header(dreq->query, "mh");
       ret = safe_atoi32(param, &max_h);
       if (ret < 0)
 	{
@@ -2224,9 +2080,9 @@ daap_reply_extra_data(struct evbuffer *reply, struct daap_request *dreq)
       max_h = 0;
     }
 
-  if (strcmp(dreq->path_parts[2], "groups") == 0)
+  if (strcmp(dreq->uri_parsed->path_parts[2], "groups") == 0)
     ret = artwork_get_group(reply, id, max_w, max_h);
-  else if (strcmp(dreq->path_parts[2], "items") == 0)
+  else if (strcmp(dreq->uri_parsed->path_parts[2], "items") == 0)
     ret = artwork_get_item(reply, id, max_w, max_h);
 
   len = evbuffer_get_length(reply);
@@ -2272,7 +2128,7 @@ daap_stream(struct evbuffer *reply, struct daap_request *dreq)
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  ret = safe_atoi32(dreq->path_parts[3], &id);
+  ret = safe_atoi32(dreq->uri_parsed->path_parts[3], &id);
   if (ret < 0)
     return DAAP_REPLY_BAD_REQUEST;
 
@@ -2448,33 +2304,25 @@ static struct uri_map daap_handlers[] =
 
 /* ------------------------------- DAAP API --------------------------------- */
 
+/* iTunes 9 gives us an absolute request-uri like
+ *  daap://10.1.1.20:3689/server-info
+ * iTunes 12.1 gives us an absolute request-uri for streaming like
+ *  http://10.1.1.20:3689/databases/1/items/1.mp3
+ */
 void
-daap_request(struct evhttp_request *req)
+daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
   struct daap_request *dreq;
   struct evkeyvalq *headers;
   struct timespec start;
   struct timespec end;
   struct evbuffer *reply;
-  const char *source_uri;
   int ret;
   int msec;
 
-  // Clear the proxy request flag set by evhttp if the request URI was absolute.
-  // It has side-effects on Connection: keep-alive
-  req->flags &= ~EVHTTP_PROXY_REQUEST;
+  DPRINTF(E_DBG, L_DAAP, "DAAP request: '%s'\n", uri_parsed->uri);
 
-  source_uri = evhttp_request_get_uri(req);
-  if (!source_uri)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not get source URI from DAAP request\n");
-      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DAAP, "DAAP request: %s\n", source_uri);
-
-  dreq = daap_request_parse(source_uri, NULL, req);
+  dreq = daap_request_parse(req, uri_parsed, NULL);
   if (!dreq)
     {
       httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
@@ -2485,7 +2333,7 @@ daap_request(struct evhttp_request *req)
   if (ret < 0)
     {
       httpd_send_error(req, 403, "Forbidden");
-      daap_request_free(dreq);
+      free(dreq);
       return;
     }
 
@@ -2503,7 +2351,7 @@ daap_request(struct evhttp_request *req)
   CHECK_NULL(L_DAAP, reply = evbuffer_new());
 
   // Try the cache
-  ret = cache_daap_get(reply, source_uri);
+  ret = cache_daap_get(reply, uri_parsed->uri);
   if (ret == 0)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
@@ -2511,7 +2359,7 @@ daap_request(struct evhttp_request *req)
       httpd_send_reply(req, HTTP_OK, "OK", reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
 
       evbuffer_free(reply);
-      daap_request_free(dreq);
+      free(dreq);
       return;
     }
 
@@ -2525,38 +2373,34 @@ daap_request(struct evhttp_request *req)
   DPRINTF(E_DBG, L_DAAP, "DAAP request handled in %d milliseconds\n", msec);
 
   if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold())
-    cache_daap_add(source_uri, dreq->user_agent, msec);
+    cache_daap_add(uri_parsed->uri, dreq->user_agent, msec);
 
   evbuffer_free(reply);
-  daap_request_free(dreq);
+  free(dreq);
 }
 
 int
-daap_is_request(struct evhttp_request *req, char *uri)
+daap_is_request(const char *path)
 {
-  uri = daap_fix_request_uri(req, uri);
-  if (!uri)
-    return 0;
-
-  if (strncmp(uri, "/databases/", strlen("/databases/")) == 0)
+  if (strncmp(path, "/databases/", strlen("/databases/")) == 0)
     return 1;
-  if (strcmp(uri, "/databases") == 0)
+  if (strcmp(path, "/databases") == 0)
     return 1;
-  if (strcmp(uri, "/server-info") == 0)
+  if (strcmp(path, "/server-info") == 0)
     return 1;
-  if (strcmp(uri, "/content-codes") == 0)
+  if (strcmp(path, "/content-codes") == 0)
     return 1;
-  if (strcmp(uri, "/login") == 0)
+  if (strcmp(path, "/login") == 0)
     return 1;
-  if (strcmp(uri, "/update") == 0)
+  if (strcmp(path, "/update") == 0)
     return 1;
-  if (strcmp(uri, "/activity") == 0)
+  if (strcmp(path, "/activity") == 0)
     return 1;
-  if (strcmp(uri, "/logout") == 0)
+  if (strcmp(path, "/logout") == 0)
     return 1;
 
 #ifdef DMAP_TEST
-  if (strcmp(uri, "/dmap-test") == 0)
+  if (strcmp(path, "/dmap-test") == 0)
     return 1;
 #endif
 
@@ -2577,32 +2421,39 @@ daap_session_is_valid(int id)
 }
 
 struct evbuffer *
-daap_reply_build(const char *source_uri, const char *user_agent)
+daap_reply_build(const char *uri, const char *user_agent)
 {
   struct daap_request *dreq;
+  struct httpd_uri_parsed *uri_parsed;
   struct evbuffer *reply;
   int ret;
 
-  DPRINTF(E_DBG, L_DAAP, "Building reply for DAAP request: %s\n", source_uri);
+  DPRINTF(E_DBG, L_DAAP, "Building reply for DAAP request: '%s'\n", uri);
 
-  CHECK_NULL(L_DAAP, reply = evbuffer_new());
+  uri_parsed = httpd_uri_parse(uri);
+  if (!uri_parsed)
+    return NULL;
 
-  dreq = daap_request_parse(source_uri, user_agent, NULL);
+  dreq = daap_request_parse(NULL, uri_parsed, user_agent);
   if (!dreq)
     {
-      evbuffer_free(reply);
+      httpd_uri_free(uri_parsed);
       return NULL;
     }
+
+  CHECK_NULL(L_DAAP, reply = evbuffer_new());
 
   ret = dreq->handler(reply, dreq);
   if (ret < 0)
     {
       evbuffer_free(reply);
-      daap_request_free(dreq);
+      free(dreq);
+      httpd_uri_free(uri_parsed);
       return NULL;
     }
 
-  daap_request_free(dreq);
+  free(dreq);
+  httpd_uri_free(uri_parsed);
 
   return reply;
 }
