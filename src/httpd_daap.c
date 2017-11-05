@@ -1630,7 +1630,7 @@ daap_reply_playlists(struct evbuffer *reply, struct daap_request *dreq)
       if (plid == 1)
 	dmap_add_char(playlist, "abpl", 1);
 
-      DPRINTF(E_DBG, L_DAAP, "Done with playlist\n");
+      DPRINTF(E_SPAM, L_DAAP, "Done with playlist\n");
 
       len = evbuffer_get_length(playlist);
       dmap_add_container(playlistlist, "mlit", len);

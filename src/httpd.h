@@ -91,6 +91,18 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
 void
 httpd_send_error(struct evhttp_request *req, int error, const char *reason);
 
+/*
+ * Redirects to /admin.html
+ */
+void
+httpd_redirect_to_admin(struct evhttp_request *req);
+
+/*
+ * Redirects to [uri]/index.html
+ */
+void
+httpd_redirect_to_index(struct evhttp_request *req, const char *uri);
+
 int
 httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);
 
