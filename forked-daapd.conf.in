@@ -177,6 +177,12 @@ audio {
 	# Type of the output (alsa, pulseaudio, dummy or disabled)
 #	type = "alsa"
 
+	# For pulseaudio output, an optional server can be specified.
+	# See http://billauer.co.il/blog/2014/01/pa-multiple-users/
+	# for an example how to set up access to the daemon started
+	# by a logged-in user.
+#	server = "localhost"
+
 	# Audio PCM device name for local audio output - ALSA only
 #	card = "default"
 
