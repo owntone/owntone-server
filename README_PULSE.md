@@ -1,11 +1,66 @@
 # forked-daapd and Pulseaudio
 Credit: [Rob Pope](http://robpope.co.uk/blog/post/setting-up-forked-daapd-with-bluetooth)
 
+System mode is generally only recommended for headless servers, i.e.,
+systems without desktop users.
+
+
+## User Mode with Network Access
+
+If there is a desktop user logged in most of the time, a setup with
+[network access via localhost
+only](http://billauer.co.il/blog/2014/01/pa-multiple-users/)
+for daemons is a more appropriate solution, since the normal user
+administration (with, e.g., `pulseaudio -k`) works as
+advertised. Also, the user specific configuration for pulseaudio is
+preserved across sessions as expected.
+
+Quoting from the above blog, the necessary setup (per user) boils down
+to:
+
+
+### Step1:  Copy system pulseaudio configuration to the users home directory
+
+```
+mkdir -p ~/.pulse
+cp /etc/pulse/default.pa ~/.pulse/
+```
+
+
+### Step 2: Enable TCP access from localhost only
+
+Edit the file `~/.pulse/default.pa` , adding the following line at the end:
+
+```
+load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1
+```
+
+
+### Step 3: Restart the pulseaudio deamon
+
+```
+pulseaudio -k
+# OR
+pulseaudio -D
+```
+
+
+### Step 4:
+
+In the `audio` section of `/etc/forked-daapd.conf`, set `server` to `localhost`:
+
+```
+server = "localhost"
+```
+
+
+## System Mode
+
 This guide was written based on headless Debian Jessie platforms. Most of the
 instructions will require that you are root.
 
 
-## Step 1: Setting up Pulseaudio in system mode with Bluetooth support
+### Step 1: Setting up Pulseaudio in system mode with Bluetooth support
 
 If you see a "Connection refused" error when starting forked-daapd, then you
 will probably need to setup Pulseaudio to run in system mode [1]. This means
@@ -30,12 +85,12 @@ WantedBy=multi-user.target
 ```
 
 If you want Bluetooth support, you must also configure Pulseaudio to load the
-Bluetooth module. First install it (Debian: 
+Bluetooth module. First install it (Debian:
 `apt install pulseaudio-module-bluetooth`) and then add the following to
 /etc/pulse/system.pa:
 
 ```
-### Enable Bluetooth
+#### Enable Bluetooth
 .ifexists module-bluetooth-discover.so
 load-module module-bluetooth-discover
 .endif
@@ -55,7 +110,7 @@ Phew, almost done with Pulseaudio! Now you should:
 3. check that the Bluetooth module is loaded with `pactl list modules short`
 
 
-## Step 2: Setting up forked-daapd
+### Step 2: Setting up forked-daapd
 
 Add the user forked-daapd is running as (typically "daapd") to the
 "pulse-access" group:
@@ -67,7 +122,7 @@ adduser daapd pulse-access
 Now (re)start forked-daapd.
 
 
-## Step 3: Adding a Bluetooth device
+### Step 3: Adding a Bluetooth device
 
 To connect with the device, run `bluetoothctl` and then:
 
@@ -82,11 +137,10 @@ trust [MAC address]
 connect [MAC address]
 ```
 
-Now the speaker should appear in forked-daapd. You can also verify that 
+Now the speaker should appear in forked-daapd. You can also verify that
 Pulseaudio has detected the speaker with `pactl list sinks short`.
 
 ---
 
 [1] Note that Pulseaudio will warn against system mode. However, in this use
 case it is actually the solution recommended by the [Pulseaudio folks themselves](https://lists.freedesktop.org/archives/pulseaudio-discuss/2016-August/026823.html).
-
