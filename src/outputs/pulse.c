@@ -891,12 +891,15 @@ static int
 pulse_init(void)
 {
   char *type;
+  char *server;
   int state;
   int ret;
 
   type = cfg_getstr(cfg_getsec(cfg, "audio"), "type");
   if (type && (strcasecmp(type, "pulseaudio") != 0))
     return -1;
+
+  server = cfg_getstr(cfg_getsec(cfg, "audio"), "server");
 
   ret = 0;
 
@@ -914,8 +917,8 @@ pulse_init(void)
     goto fail;
 
   pa_context_set_state_callback(pulse.context, context_state_cb, NULL);
-
-  if (pa_context_connect(pulse.context, NULL, 0, NULL) < 0)
+  
+  if (pa_context_connect(pulse.context, server, 0, NULL) < 0)
     {
       ret = pa_context_errno(pulse.context);
       goto fail;

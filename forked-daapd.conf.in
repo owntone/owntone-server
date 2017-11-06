@@ -177,6 +177,10 @@ audio {
 	# Type of the output (alsa, pulseaudio, dummy or disabled)
 #	type = "alsa"
 
+        # For pulseaudio output, an optional server can be specified.
+        # If not set, connection is made via local socket.
+#       server = ""
+
 	# Audio PCM device name for local audio output - ALSA only
 #	card = "default"
 
