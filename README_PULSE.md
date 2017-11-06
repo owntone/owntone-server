@@ -1,66 +1,28 @@
 # forked-daapd and Pulseaudio
+
+You have the choice of runnning Pulseaudio either in system mode or user mode.
+For headless servers, i.e. systems without desktop users, system mode is
+recommended.
+
+If there is a desktop user logged in most of the time, a setup with network
+access via localhost only for daemons is a more appropriate solution, since the
+normal user administration (with, e.g., `pulseaudio -k`) works as advertised.
+Also, the user specific configuration for pulseaudio is preserved across
+sessions as expected.
+
+- [System mode](#system-mode-with-bluetooth-support)
+- [User mode](#user-mode-with-network-access)
+
+
+## System Mode with Bluetooth support
+
 Credit: [Rob Pope](http://robpope.co.uk/blog/post/setting-up-forked-daapd-with-bluetooth)
-
-System mode is generally only recommended for headless servers, i.e.,
-systems without desktop users.
-
-
-## User Mode with Network Access
-
-If there is a desktop user logged in most of the time, a setup with
-[network access via localhost
-only](http://billauer.co.il/blog/2014/01/pa-multiple-users/)
-for daemons is a more appropriate solution, since the normal user
-administration (with, e.g., `pulseaudio -k`) works as
-advertised. Also, the user specific configuration for pulseaudio is
-preserved across sessions as expected.
-
-Quoting from the above blog, the necessary setup (per user) boils down
-to:
-
-
-### Step1:  Copy system pulseaudio configuration to the users home directory
-
-```
-mkdir -p ~/.pulse
-cp /etc/pulse/default.pa ~/.pulse/
-```
-
-
-### Step 2: Enable TCP access from localhost only
-
-Edit the file `~/.pulse/default.pa` , adding the following line at the end:
-
-```
-load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1
-```
-
-
-### Step 3: Restart the pulseaudio deamon
-
-```
-pulseaudio -k
-# OR
-pulseaudio -D
-```
-
-
-### Step 4:
-
-In the `audio` section of `/etc/forked-daapd.conf`, set `server` to `localhost`:
-
-```
-server = "localhost"
-```
-
-
-## System Mode
 
 This guide was written based on headless Debian Jessie platforms. Most of the
 instructions will require that you are root.
 
 
-### Step 1: Setting up Pulseaudio in system mode with Bluetooth support
+### Step 1: Setting up Pulseaudio
 
 If you see a "Connection refused" error when starting forked-daapd, then you
 will probably need to setup Pulseaudio to run in system mode [1]. This means
@@ -139,6 +101,47 @@ connect [MAC address]
 
 Now the speaker should appear in forked-daapd. You can also verify that
 Pulseaudio has detected the speaker with `pactl list sinks short`.
+
+
+
+## User Mode with Network Access
+
+Credit: wolfmanx and [this blog](http://billauer.co.il/blog/2014/01/pa-multiple-users/)
+
+
+### Step 1: Copy system pulseaudio configuration to the users home directory
+
+```
+mkdir -p ~/.pulse
+cp /etc/pulse/default.pa ~/.pulse/
+```
+
+
+### Step 2: Enable TCP access from localhost only
+
+Edit the file `~/.pulse/default.pa` , adding the following line at the end:
+
+```
+load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1
+```
+
+
+### Step 3: Restart the pulseaudio deamon
+
+```
+pulseaudio -k
+# OR
+pulseaudio -D
+```
+
+
+### Step 4: Adjust configuration file
+
+In the `audio` section of `/etc/forked-daapd.conf`, set `server` to `localhost`:
+
+```
+server = "localhost"
+```
 
 ---
 
