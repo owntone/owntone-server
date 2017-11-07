@@ -2821,21 +2821,21 @@ daap_request(struct evhttp_request *req)
   /* |:ws:| Waive HTTP authentication for allow_nets */
   if (passwd)
     {
-      n = cfg_size(lib, "allow_nets");
-      if ( n )
+      evcon = evhttp_request_get_connection(req);
+      if (evcon)
         {
-          evcon = evhttp_request_get_connection(req);
-          if (evcon)
+          evhttp_connection_get_peer(
+              evhttp_request_get_connection(req), &client_ip, &client_port);
+          if (strncmp(client_ip, "::ffff:", sizeof("::ffff:") - 1) == 0)
+            {
+              client_ip += sizeof("::ffff:") - 1;
+            }
+
+          n = cfg_size(lib, "allow_nets");
+          if ( n )
             {
               const char *network_pfx_settings[] = { "allow_nets", NULL };
               const char *allow_net;
-
-              evhttp_connection_get_peer(
-                  evhttp_request_get_connection(req), &client_ip, &client_port);
-              if (strncmp(client_ip, "::ffff:", sizeof("::ffff:") - 1) == 0)
-                {
-                  client_ip += sizeof("::ffff:") - 1;
-                }
 
               if ((allow_net = string_startswith_prefix_from_settings(
                        client_ip, lib, network_pfx_settings)) != NULL)
@@ -2887,7 +2887,7 @@ daap_request(struct evhttp_request *req)
       };
       if (string_startswith_prefix_from_settings(ua, lib, user_agent_settings))
         {
-          DPRINTF(E_DBG, L_DAAP, " 'Access granted to User-Agent: %s"
+          DPRINTF(E_DBG, L_DAAP, "Access granted to User-Agent: %s"
                   " from IP: %s\n", ua_string, client_ip);
           passwd = NULL;
         }
@@ -2908,7 +2908,8 @@ daap_request(struct evhttp_request *req)
 	  return;
 	}
 
-      DPRINTF(E_DBG, L_HTTPD, "Library authentication successful\n");
+      DPRINTF(E_DBG, L_HTTPD, "Library authentication successful."
+              " User-Agent: %s from IP: %s\n", ua_string, client_ip);
     }
 
   memset(uri_parts, 0, sizeof(uri_parts));
