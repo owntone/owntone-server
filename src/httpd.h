@@ -2,10 +2,11 @@
 #ifndef __HTTPD_H__
 #define __HTTPD_H__
 
+#include <stdbool.h>
+#include <regex.h>
 #include <event2/http.h>
 #include <event2/buffer.h>
 #include <event2/keyvalq_struct.h>
-#include <stdbool.h>
 
 enum httpd_send_flags
 {
@@ -37,6 +38,40 @@ struct httpd_uri_parsed
 };
 
 /*
+ * A collection of pointers to request data that the reply handlers may need.
+ * Also has the function pointer to the reply handler and a pointer to a reply
+ * evbuffer.
+ */
+struct httpd_request {
+  // User-agent (if available)
+  const char *user_agent;
+  // The parsed request URI given to us by httpd_uri_parse
+  struct httpd_uri_parsed *uri_parsed;
+  // Shortcut to &uri_parsed->ev_query
+  struct evkeyvalq *query;
+  // http request struct (if available)
+  struct evhttp_request *req;
+  // A pointer to extra data that the module handling the request might need
+  void *extra_data;
+
+  // Reply evbuffer
+  struct evbuffer *reply;
+
+  // A pointer to the handler that will process the request
+  int (*handler)(struct httpd_request *hreq);
+};
+
+/*
+ * Maps a regex of the request path to a handler of the request
+ */
+struct httpd_uri_map
+{
+  char *regexp;
+  int (*handler)(struct httpd_request *hreq);
+  regex_t preg;
+};
+
+/*
  * Helper to free the parsed uri struct
  */
 void
@@ -48,6 +83,15 @@ httpd_uri_free(struct httpd_uri_parsed *parsed);
 struct httpd_uri_parsed *
 httpd_uri_parse(const char *uri);
 
+/*
+ * Parse a request into the httpd_request struct. It can later be freed with
+ * free(), unless the module has allocated something to *extra_data. Note that
+ * the pointers in the returned struct are only valid as long as the inputs are
+ * still valid. If req is not null, then we will find the user-agent from the 
+ * request headers, except if provided as an argument to this function.
+ */
+struct httpd_request *
+httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map);
 
 void
 httpd_stream_file(struct evhttp_request *req, int id);

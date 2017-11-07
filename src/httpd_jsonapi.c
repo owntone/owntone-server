@@ -49,26 +49,6 @@
 # include "spotify.h"
 #endif
 
-struct json_request {
-  // The parsed request URI given to us by httpd.c
-  struct httpd_uri_parsed *uri_parsed;
-  // Shortcut to &uri_parsed->ev_query
-  struct evkeyvalq *query;
-  // http request struct
-  struct evhttp_request *req;
-  // A pointer to the handler that will process the request
-  int (*handler)(struct evbuffer *reply, struct json_request *jreq);
-};
-
-struct uri_map
-{
-  regex_t preg;
-  char *regexp;
-  int (*handler)(struct evbuffer *reply, struct json_request *jreq);
-};
-
-/* Forward declaration of handlers */
-static struct uri_map adm_handlers[];
 
 /* -------------------------------- HELPERS --------------------------------- */
 
@@ -147,44 +127,6 @@ pairing_get(struct evbuffer *evbuf)
   return 0;
 }
 
-static struct json_request *
-json_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
-{
-  struct json_request *jreq;
-  int ret;
-  int i;
-
-  CHECK_NULL(L_WEB, jreq = calloc(1, sizeof(struct json_request)));
-
-  jreq->req = req;
-  jreq->uri_parsed = uri_parsed;
-  jreq->query = &(uri_parsed->ev_query);
-
-  // Find a handler for the path
-  for (i = 0; adm_handlers[i].handler; i++)
-    {
-      ret = regexec(&adm_handlers[i].preg, uri_parsed->path, 0, NULL, 0);
-      if (ret == 0)
-        {
-          jreq->handler = adm_handlers[i].handler;
-          break;
-        }
-    }
-
-  if (!jreq->handler)
-    {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in JSON api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
-      goto error;
-    }
-
-  return jreq;
-
- error:
-  free(jreq);
-
-  return NULL;
-}
-
 
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 
@@ -199,7 +141,7 @@ json_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_pars
  * }
  */
 static int
-jsonapi_reply_config(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_config(struct httpd_request *hreq)
 {
   json_object *jreply;
   json_object *buildopts;
@@ -229,7 +171,7 @@ jsonapi_reply_config(struct evbuffer *reply, struct json_request *jreq)
     }
   json_object_object_add(jreply, "buildoptions", buildopts);
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -250,7 +192,7 @@ jsonapi_reply_config(struct evbuffer *reply, struct json_request *jreq)
  *}
  */
 static int
-jsonapi_reply_library(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_library(struct httpd_request *hreq)
 {
   struct query_params qp;
   struct filecount_info fci;
@@ -276,9 +218,7 @@ jsonapi_reply_library(struct evbuffer *reply, struct json_request *jreq)
 
   is_scanning = library_is_scanning();
 
-
   // Build json response
-
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
   json_object_object_add(jreply, "artists", json_object_new_int(artists));
@@ -287,7 +227,7 @@ jsonapi_reply_library(struct evbuffer *reply, struct json_request *jreq)
   json_object_object_add(jreply, "db_playtime", json_object_new_int64((fci.length / 1000)));
   json_object_object_add(jreply, "updating", json_object_new_boolean(is_scanning));
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -298,7 +238,7 @@ jsonapi_reply_library(struct evbuffer *reply, struct json_request *jreq)
  * Endpoint to trigger a library rescan
  */
 static int
-jsonapi_reply_update(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_update(struct httpd_request *hreq)
 {
   library_rescan();
   return 0;
@@ -315,7 +255,7 @@ jsonapi_reply_update(struct evbuffer *reply, struct json_request *jreq)
  * }
  */
 static int
-jsonapi_reply_spotify(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_spotify(struct httpd_request *hreq)
 {
   json_object *jreply;
 
@@ -354,7 +294,7 @@ jsonapi_reply_spotify(struct evbuffer *reply, struct json_request *jreq)
   json_object_object_add(jreply, "enabled", json_object_new_boolean(false));
 #endif
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -362,7 +302,7 @@ jsonapi_reply_spotify(struct evbuffer *reply, struct json_request *jreq)
 }
 
 static int
-jsonapi_reply_spotify_login(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_spotify_login(struct httpd_request *hreq)
 {
 #ifdef HAVE_SPOTIFY_H
   struct evbuffer *in_evbuf;
@@ -376,7 +316,7 @@ jsonapi_reply_spotify_login(struct evbuffer *reply, struct json_request *jreq)
 
   DPRINTF(E_DBG, L_WEB, "Received Spotify login request\n");
 
-  in_evbuf = evhttp_request_get_input_buffer(jreq->req);
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
 
   request = jparse_obj_from_evbuffer(in_evbuf);
   if (!request)
@@ -418,7 +358,7 @@ jsonapi_reply_spotify_login(struct evbuffer *reply, struct json_request *jreq)
       json_object_object_add(jreply, "errors", errors);
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -436,18 +376,18 @@ jsonapi_reply_spotify_login(struct evbuffer *reply, struct json_request *jreq)
  * If request is a POST request, tries to pair the active remote with the given pin.
  */
 static int
-jsonapi_reply_pairing(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_pairing(struct httpd_request *hreq)
 {
-  if (evhttp_request_get_command(jreq->req) == EVHTTP_REQ_POST)
+  if (evhttp_request_get_command(hreq->req) == EVHTTP_REQ_POST)
     {
-      return pairing_kickoff(jreq->req);
+      return pairing_kickoff(hreq->req);
     }
 
-  return pairing_get(reply);
+  return pairing_get(hreq->reply);
 }
 
 static int
-jsonapi_reply_lastfm(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_lastfm(struct httpd_request *hreq)
 {
   json_object *jreply;
   bool enabled = false;
@@ -463,7 +403,7 @@ jsonapi_reply_lastfm(struct evbuffer *reply, struct json_request *jreq)
   json_object_object_add(jreply, "enabled", json_object_new_boolean(enabled));
   json_object_object_add(jreply, "scrobbling_enabled", json_object_new_boolean(scrobbling_enabled));
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -474,7 +414,7 @@ jsonapi_reply_lastfm(struct evbuffer *reply, struct json_request *jreq)
  * Endpoint to log into LastFM
  */
 static int
-jsonapi_reply_lastfm_login(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_lastfm_login(struct httpd_request *hreq)
 {
 #ifdef LASTFM
   struct evbuffer *in_evbuf;
@@ -488,7 +428,7 @@ jsonapi_reply_lastfm_login(struct evbuffer *reply, struct json_request *jreq)
 
   DPRINTF(E_DBG, L_WEB, "Received LastFM login request\n");
 
-  in_evbuf = evhttp_request_get_input_buffer(jreq->req);
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
   request = jparse_obj_from_evbuffer(in_evbuf);
   if (!request)
     {
@@ -532,7 +472,7 @@ jsonapi_reply_lastfm_login(struct evbuffer *reply, struct json_request *jreq)
       json_object_object_add(jreply, "errors", errors);
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -544,7 +484,7 @@ jsonapi_reply_lastfm_login(struct evbuffer *reply, struct json_request *jreq)
 }
 
 static int
-jsonapi_reply_lastfm_logout(struct evbuffer *reply, struct json_request *jreq)
+jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
 {
 #ifdef LASTFM
   lastfm_logout();
@@ -552,7 +492,7 @@ jsonapi_reply_lastfm_logout(struct evbuffer *reply, struct json_request *jreq)
   return 0;
 }
 
-static struct uri_map adm_handlers[] =
+static struct httpd_uri_map adm_handlers[] =
   {
     { .regexp = "^/api/config", .handler = jsonapi_reply_config },
     { .regexp = "^/api/library", .handler = jsonapi_reply_library },
@@ -572,8 +512,7 @@ static struct uri_map adm_handlers[] =
 void
 jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
-  struct json_request *jreq;
-  struct evbuffer *reply;
+  struct httpd_request *hreq;
   struct evkeyvalq *headers;
   int ret;
 
@@ -585,9 +524,11 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
       return;
     }
 
-  jreq = json_request_parse(req, uri_parsed);
-  if (!jreq)
+  hreq = httpd_request_parse(req, uri_parsed, NULL, adm_handlers);
+  if (!hreq)
     {
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in JSON api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+
       httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
@@ -595,9 +536,9 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "DAAP-Server", "forked-daapd/" VERSION);
 
-  CHECK_NULL(L_WEB, reply = evbuffer_new());
+  CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
 
-  ret = jreq->handler(reply, jreq);
+  ret = hreq->handler(hreq);
   if (ret < 0)
     {
       httpd_send_error(req, 500, "Internal Server Error");
@@ -606,11 +547,11 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 
   evhttp_add_header(headers, "Content-Type", "application/json");
 
-  httpd_send_reply(req, HTTP_OK, "OK", reply, 0);
+  httpd_send_reply(req, HTTP_OK, "OK", hreq->reply, 0);
 
  error:
-  evbuffer_free(reply);
-  free(jreq);
+  evbuffer_free(hreq->reply);
+  free(hreq);
 }
 
 int
@@ -654,4 +595,3 @@ jsonapi_deinit(void)
   for (i = 0; adm_handlers[i].handler; i++)
     regfree(&adm_handlers[i].preg);
 }
-

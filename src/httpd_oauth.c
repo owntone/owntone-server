@@ -25,7 +25,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <regex.h>
 #include <stdint.h>
 #include <inttypes.h>
 
@@ -37,72 +36,12 @@
 # include "spotify.h"
 #endif
 
-struct oauth_request {
-  // The parsed request URI given to us by httpd.c
-  struct httpd_uri_parsed *uri_parsed;
-  // Shortcut to &uri_parsed->ev_query
-  struct evkeyvalq *query;
-  // http request struct
-  struct evhttp_request *req;
-  // A pointer to the handler that will process the request
-  void (*handler)(struct oauth_request *oreq);
-};
-
-struct uri_map {
-  regex_t preg;
-  char *regexp;
-  void (*handler)(struct oauth_request *oreq);
-};
-
-/* Forward declaration of handlers */
-static struct uri_map oauth_handlers[];
-
-
-/* ------------------------------- HELPERS ---------------------------------- */
-
-static struct oauth_request *
-oauth_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
-{
-  struct oauth_request *oreq;
-  int i;
-  int ret;
-
-  CHECK_NULL(L_WEB, oreq = calloc(1, sizeof(struct oauth_request)));
-
-  oreq->req        = req;
-  oreq->uri_parsed = uri_parsed;
-  oreq->query      = &(uri_parsed->ev_query);
-
-  for (i = 0; oauth_handlers[i].handler; i++)
-    {
-      ret = regexec(&oauth_handlers[i].preg, uri_parsed->path, 0, NULL, 0);
-      if (ret == 0)
-        {
-          oreq->handler = oauth_handlers[i].handler;
-          break;
-        }
-    }
-
-  if (!oreq->handler)
-    {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in OAuth request: '%s'\n", uri_parsed->path, uri_parsed->uri);
-      goto error;
-    }
-
-  return oreq;
-
- error:
-  free(oreq);
-
-  return NULL;
-}
-
 
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 
 #ifdef HAVE_SPOTIFY_H
-static void
-oauth_reply_spotify(struct oauth_request *oreq)
+static int
+oauth_reply_spotify(struct httpd_request *hreq)
 {
   char redirect_uri[256];
   char *errmsg;
@@ -112,28 +51,32 @@ oauth_reply_spotify(struct oauth_request *oreq)
   httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
   snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
-  ret = spotify_oauth_callback(oreq->query, redirect_uri, &errmsg);
+  ret = spotify_oauth_callback(hreq->query, redirect_uri, &errmsg);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback: '%s'\n", oreq->uri_parsed->uri);
-      httpd_send_error(oreq->req, HTTP_INTERNAL, errmsg);
+      DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback: '%s'\n", hreq->uri_parsed->uri);
+      httpd_send_error(hreq->req, HTTP_INTERNAL, errmsg);
       free(errmsg);
-      return;
+      return -1;
     }
 
-  httpd_redirect_to_admin(oreq->req);
+  httpd_redirect_to_admin(hreq->req);
+
+  return 0;
 }
 #else
-static void
-oauth_reply_spotify(struct oauth_request *oreq)
+static int
+oauth_reply_spotify(struct httpd_request *hreq)
 {
   DPRINTF(E_LOG, L_HTTPD, "This version of forked-daapd was built without support for Spotify\n");
 
-  httpd_send_error(oreq->req, HTTP_NOTFOUND, "This version of forked-daapd was built without support for Spotify");
+  httpd_send_error(hreq->req, HTTP_NOTFOUND, "This version of forked-daapd was built without support for Spotify");
+
+  return -1;
 }
 #endif
 
-static struct uri_map oauth_handlers[] =
+static struct httpd_uri_map oauth_handlers[] =
   {
     {
       .regexp = "^/oauth/spotify$",
@@ -151,20 +94,22 @@ static struct uri_map oauth_handlers[] =
 void
 oauth_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
-  struct oauth_request *oreq;
+  struct httpd_request *hreq;
 
   DPRINTF(E_LOG, L_WEB, "OAuth request: '%s'\n", uri_parsed->uri);
 
-  oreq = oauth_request_parse(req, uri_parsed);
-  if (!oreq)
+  hreq = httpd_request_parse(req, uri_parsed, NULL, oauth_handlers);
+  if (!hreq)
     {
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in OAuth request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+
       httpd_send_error(req, HTTP_NOTFOUND, NULL);
       return;
     }
 
-  oreq->handler(oreq);
+  hreq->handler(hreq);
 
-  free(oreq);
+  free(hreq);
 }
 
 int

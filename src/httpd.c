@@ -253,6 +253,7 @@ httpd_fixup_uri(struct evhttp_request *req)
 }
 */
 
+
 /* --------------------------- REQUEST HELPERS ------------------------------ */
 
 static void
@@ -874,6 +875,46 @@ httpd_uri_parse(const char *uri)
 
  error:
   httpd_uri_free(parsed);
+  return NULL;
+}
+
+struct httpd_request *
+httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map)
+{
+  struct httpd_request *hreq;
+  struct evkeyvalq *headers;
+  int i;
+  int ret;
+
+  CHECK_NULL(L_HTTPD, hreq = calloc(1, sizeof(struct httpd_request)));
+
+  // Note req is allowed to be NULL
+  hreq->req = req;
+  hreq->uri_parsed = uri_parsed;
+  hreq->query = &(uri_parsed->ev_query);
+
+  if (req && !user_agent)
+    {
+      headers = evhttp_request_get_input_headers(req);
+      hreq->user_agent = evhttp_find_header(headers, "User-Agent");
+    }
+  else
+    hreq->user_agent = user_agent;
+
+  // Find a handler for the path
+  for (i = 0; uri_map[i].handler; i++)
+    {
+      ret = regexec(&uri_map[i].preg, uri_parsed->path, 0, NULL, 0);
+      if (ret == 0)
+        {
+          hreq->handler = uri_map[i].handler;
+          return hreq; // Success
+        }
+    }
+
+  // Handler not found, that's an error
+  free(hreq);
+
   return NULL;
 }
 

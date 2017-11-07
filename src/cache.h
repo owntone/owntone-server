@@ -16,7 +16,7 @@ int
 cache_daap_get(struct evbuffer *evbuf, const char *query);
 
 void
-cache_daap_add(const char *query, const char *ua, int msec);
+cache_daap_add(const char *query, const char *ua, int is_remote, int msec);
 
 int
 cache_daap_threshold(void);
