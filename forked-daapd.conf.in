@@ -56,8 +56,41 @@ library {
 	# TCP port to listen on. Default port is 3689 (daap)
 	port = 3689
 
+        # User agents starting with one of the strings are considered
+	# remotes.  As they are required to be paired, the password is
+	# not required for them.
+#       remote_user_agents = { "Remote", "RetuneAndroid" }
+
 	# Password for the library. Optional.
 #	password = ""
+
+        # IPv4 address prefixes, which are allowed without password.
+        # If the client IP address begins with one of the prefixes, it
+        # is allowed without password check.
+	#
+	# If you wish to allow all internal clients, the setting
+	# {"127.0.0.", "192.168."} probably covers it in most cases.
+#       allow_nets = {}
+
+        # User agents starting with one of the strings are allowed
+        # without password check. Default is unset.
+	#
+	# The amarok plug-in can neither submit a password, nor can it
+	# be paired. Version 4.14.22 identifies as "User Agent:
+	# iTunes/4.6 (Windows; N)". Adding this to `allow_user_agents`
+	# grants Amarok access, while other clients may still require
+	# pairing or password authentication.
+#       allow_user_agents = {}
+
+        # URIs starting with one of the strings are allowed
+        # without password check.
+	#
+	# Giving out server information and content-codes seems
+	# uncritical.  However, allowing library queries without
+	# authentication over the internet is probably not a good idea
+	# and you might consider removing "/databases/1/items" from
+	# `allow_uris`.
+#       allow_uris = {"/server-info","/logout","/content-codes","/databases/1/items"}
 
 	# Directories to index
 	directories = { "/srv/music" }

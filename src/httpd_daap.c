@@ -507,6 +507,41 @@ daap_sort_finalize(struct sort_ctx *ctx)
   dmap_add_int(ctx->headerlist, "mshn", ctx->misc_mshn); /* 12 */
 }
 
+/* Check for each prefix from the settings (string arrays) in section,
+ * whether string starts with it.
+ *
+ * If a prefix match is found, it is returned, otherwise NULL is
+ * returned.
+ */
+const char *
+string_startswith_prefix_from_settings(const char *string, cfg_t *section, const char **settings)
+{
+  const char *setting;
+  int n;
+  int i;
+
+  const char *found = NULL;
+  while (string && !found)
+    {
+      setting = *settings++;
+      if (!setting)
+      {
+          break;
+      }
+      n = cfg_size(section, setting);
+      for (i = 0; i < n; i++)
+      {
+          char *candidate = cfg_getnstr(section, setting, i);
+          if ((strncmp(string, candidate, strlen(candidate)) == 0))
+          {
+              found = candidate;
+              break;
+          }
+      }
+    }
+  return found;
+}
+
 /* Remotes are clients that will issue DACP commands. For these clients we will
  * do the playback, and we will not stream to them. This is a crude function to
  * identify them, so we can give them appropriate treatment.
@@ -514,14 +549,12 @@ daap_sort_finalize(struct sort_ctx *ctx)
 static int
 is_remote(const char *user_agent)
 {
-  if (!user_agent)
-    return 0;
-  if (strcasestr(user_agent, "remote"))
-    return 1;
-  if (strstr(user_agent, "Retune"))
-    return 1;
-
-  return 0;
+    static const char *user_agent_settings[] = {
+        "remote_user_agents",
+        NULL
+    };
+    return string_startswith_prefix_from_settings(
+        user_agent, cfg_getsec(cfg, "library"), user_agent_settings) != NULL;
 }
 
 /* We try not to return items that the client cannot play (like Spotify and
@@ -939,32 +972,35 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
       return -1;
     }
 
-  if (ua && (strncmp(ua, "Remote", strlen("Remote")) == 0))
+  if (ua)
     {
-      param = evhttp_find_header(query, "pairing-guid");
-      if (!param)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Login attempt with U-A: Remote and no pairing-guid\n");
+      if (is_remote(ua))
+        {
+          param = evhttp_find_header(query, "pairing-guid");
+          if (!param)
+            {
+              DPRINTF(E_LOG, L_DAAP, "Login attempt with U-A: Remote and no pairing-guid\n");
 
-	  httpd_send_error(req, 403, "Forbidden");
-	  return -1;
-	}
+              httpd_send_error(req, 403, "Forbidden");
+              return -1;
+            }
 
-      memset(&pi, 0, sizeof(struct pairing_info));
-      pi.guid = strdup(param + 2); /* Skip leading 0X */
+          memset(&pi, 0, sizeof(struct pairing_info));
+          pi.guid = strdup(param + 2); /* Skip leading 0X */
 
-      ret = db_pairing_fetch_byguid(&pi);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Login attempt with invalid pairing-guid\n");
+          ret = db_pairing_fetch_byguid(&pi);
+          if (ret < 0)
+            {
+              DPRINTF(E_LOG, L_DAAP, "Login attempt with invalid pairing-guid\n");
 
-	  free_pi(&pi, 1);
-	  httpd_send_error(req, 403, "Forbidden");
-	  return -1;
-	}
+              free_pi(&pi, 1);
+              httpd_send_error(req, 403, "Forbidden");
+              return -1;
+            }
 
-      DPRINTF(E_INFO, L_DAAP, "Remote '%s' logging in with GUID %s\n", pi.name, pi.guid);
-      free_pi(&pi, 1);
+          DPRINTF(E_INFO, L_DAAP, "Remote '%s' logging in with GUID %s\n", pi.name, pi.guid);
+          free_pi(&pi, 1);
+        }
     }
 
   param = evhttp_find_header(query, "request-session-id");
@@ -2697,6 +2733,7 @@ daap_request(struct evhttp_request *req)
   struct timespec start;
   struct timespec end;
   const char *ua;
+  const char *ua_string;
   cfg_t *lib;
   char *libname;
   char *passwd;
@@ -2704,6 +2741,10 @@ daap_request(struct evhttp_request *req)
   int handler;
   int ret;
   int i;
+  int n;
+  struct evhttp_connection *evcon;
+  char *client_ip = "0.0.0.0";
+  u_short client_port = 0;
 
   memset(&query, 0, sizeof(struct evkeyvalq));
 
@@ -2770,35 +2811,98 @@ daap_request(struct evhttp_request *req)
 
   /* Check authentication */
   lib = cfg_getsec(cfg, "library");
+  libname = cfg_getstr(lib, "name");
   passwd = cfg_getstr(lib, "password");
 
-  /* No authentication for these URIs */
-  if ((strcmp(uri, "/server-info") == 0)
-      || (strcmp(uri, "/logout") == 0)
-      || (strcmp(uri, "/content-codes") == 0)
-      || (strncmp(uri, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
-    passwd = NULL;
-
-  /* Waive HTTP authentication for Remote
-   * Remotes are authentified by their pairing-guid; DAAP queries require a
-   * valid session-id that Remote can only obtain if its pairing-guid is in
-   * our database. So HTTP authentication is waived for Remote.
-   */
   headers = evhttp_request_get_input_headers(req);
   ua = evhttp_find_header(headers, "User-Agent");
-  if ((ua) && (strncmp(ua, "Remote", strlen("Remote")) == 0))
-    passwd = NULL;
+  ua_string = ua ? ua : "None";
+
+  /* |:ws:| Waive HTTP authentication for allow_nets */
+  if (passwd)
+    {
+      n = cfg_size(lib, "allow_nets");
+      if ( n )
+        {
+          evcon = evhttp_request_get_connection(req);
+          if (evcon)
+            {
+              const char *network_pfx_settings[] = { "allow_nets", NULL };
+              const char *allow_net;
+
+              evhttp_connection_get_peer(
+                  evhttp_request_get_connection(req), &client_ip, &client_port);
+              if (strncmp(client_ip, "::ffff:", sizeof("::ffff:") - 1) == 0)
+                {
+                  client_ip += sizeof("::ffff:") - 1;
+                }
+
+              if ((allow_net = string_startswith_prefix_from_settings(
+                       client_ip, lib, network_pfx_settings)) != NULL)
+                {
+                  DPRINTF(E_DBG, L_DAAP, "Access granted from allowed"
+                          " network: %s to User-Agent: %s IP: %s\n",
+                          allow_net, ua_string, client_ip);
+                  passwd = NULL;
+                }
+             }
+        }
+    }
 
   if (passwd)
     {
-      libname = cfg_getstr(lib, "name");
+      /* No authentication for these URIs */
+      static const char *uri_settings[] = {
+          "allow_uris",
+          NULL
+      };
+      if (string_startswith_prefix_from_settings(uri, lib, uri_settings))
+        {
+          DPRINTF(E_DBG, L_DAAP, "Access granted for URI: %s to User-Agent: %s"
+                  " from IP: %s\n", uri, ua_string, client_ip);
+          passwd = NULL;
+        }
+    }
 
+  /* Waive HTTP authentication for remotes and allowed user agents.
+   *
+   * Remotes are authentified by their pairing-guid; DAAP queries require a
+   * valid session-id that Remote can only obtain if its pairing-guid is in
+   * our database. So HTTP authentication is waived for Remote.
+   *
+   * Since not all remote clients supply a User-Agent header starting
+   * with "Remote", the User-Agent strings can be configured with
+   * "remote_user_agents".
+   *
+   * The allowed User-Agent strings can be configured with
+   * "allowed_user_agents".
+   */
+
+  if ((ua) && passwd)
+    {
+      static const char *user_agent_settings[] = {
+          "remote_user_agents",
+          "allow_user_agents",
+          NULL
+      };
+      if (string_startswith_prefix_from_settings(ua, lib, user_agent_settings))
+        {
+          DPRINTF(E_DBG, L_DAAP, " 'Access granted to User-Agent: %s"
+                  " from IP: %s\n", ua_string, client_ip);
+          passwd = NULL;
+        }
+    }
+
+  if (passwd)
+    {
       DPRINTF(E_DBG, L_HTTPD, "Checking authentication for library '%s'\n", libname);
 
       /* We don't care about the username */
       ret = httpd_basic_auth(req, NULL, passwd, libname);
       if (ret != 0)
 	{
+          DPRINTF(E_LOG, L_HTTPD, "Access denied to User-Agent: %s"
+                  " from IP: %s\n", ua_string, client_ip);
 	  free(uri);
 	  free(full_uri);
 	  return;
