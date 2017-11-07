@@ -71,7 +71,11 @@ static cfg_opt_t sec_library[] =
   {
     CFG_STR("name", "My Music on %h", CFGF_NONE),
     CFG_INT("port", 3689, CFGF_NONE),
+    CFG_STR_LIST("remote_user_agents", "{Remote,RetuneAndroid}", CFGF_NONE),
     CFG_STR("password", NULL, CFGF_NONE),
+    CFG_STR_LIST("allow_nets", NULL, CFGF_NONE),
+    CFG_STR_LIST("allow_user_agents", NULL, CFGF_NONE),
+    CFG_STR_LIST("allow_uris", "{/server-info,/logout,/content-codes,/databases/1/items}", CFGF_NONE),
     CFG_STR_LIST("directories", NULL, CFGF_NONE),
     CFG_STR_LIST("podcasts", NULL, CFGF_NONE),
     CFG_STR_LIST("audiobooks", NULL, CFGF_NONE),
