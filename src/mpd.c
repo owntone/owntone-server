@@ -313,32 +313,36 @@ static char*
 mpd_pars_quoted(char **input)
 {
   char *arg;
+  char *src;
+  char *dst;
+  char ch;
 
   // skip double quote character
   (*input)++;
 
-  arg = *input;
-
-  while (**input != '"')
+  src = dst = arg = *input;
+  while ((ch = *src) != '"')
     {
-      // A backslash character escapes the following character
-      if (**input == '\\')
+      // A backslash character escapes the following character and should be removed
+      if (ch == '\\')
 	{
-	  (*input)++;
+          ch = *(++src);
 	}
+      *dst++ = ch;
 
-      if (**input == 0)
+      if (ch == 0)
 	{
 	  // Error handling for missing double quote at end of parameter
 	  DPRINTF(E_LOG, L_MPD, "Error missing closing double quote in argument\n");
+          *input = src;
 	  return NULL;
 	}
 
-      (*input)++;
+      ++src;
     }
 
-  **input = '\0';
-  (*input)++;
+  *dst = '\0';
+  *input = ++src;
 
   return arg;
 }
