@@ -1321,8 +1321,6 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
   if (ie->mask & IN_CLOSE_WRITE)
     {
-      int follow_symlinks = cfg_getbool(cfg_getsec(cfg, "library"), "follow_symlinks");
-
       DPRINTF(E_DBG, L_SCAN, "File closed: %s\n", path);
 
       // File has been closed so remove from the IN_ATTRIB ignore list
@@ -1342,7 +1340,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	  return;
 	}
 
-      if (is_link && !follow_symlinks)
+      if (is_link && !cfg_getbool(cfg_getsec(cfg, "library"), "follow_symlinks"))
         {
           DPRINTF(E_DBG, L_SCAN, "Ignore symlink %s\n", path);
           return;
