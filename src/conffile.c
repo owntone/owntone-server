@@ -73,6 +73,7 @@ static cfg_opt_t sec_library[] =
     CFG_INT("port", 3689, CFGF_NONE),
     CFG_STR("password", NULL, CFGF_NONE),
     CFG_STR_LIST("directories", NULL, CFGF_NONE),
+    CFG_BOOL("follow_symlinks", cfg_true, CFGF_NONE),
     CFG_STR_LIST("podcasts", NULL, CFGF_NONE),
     CFG_STR_LIST("audiobooks", NULL, CFGF_NONE),
     CFG_STR_LIST("compilations", NULL, CFGF_NONE),

@@ -679,9 +679,11 @@ create_virtual_path(char *path, char *virtual_path, int virtual_path_len)
  * The return value is 0 if the operation is successful, or -1 on failure
  */
 static int
-read_attributes(char *resolved_path, const char *path, struct stat *sb)
+read_attributes(char *resolved_path, const char *path, struct stat *sb, int *is_link)
 {
   int ret;
+
+  *is_link = 0;
 
   ret = lstat(path, sb);
   if (ret < 0)
@@ -692,6 +694,8 @@ read_attributes(char *resolved_path, const char *path, struct stat *sb)
 
   if (S_ISLNK(sb->st_mode))
     {
+      *is_link = 1;
+
       if (!realpath(path, resolved_path))
         {
 	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, could not dereference symlink: %s\n", path, strerror(errno));
@@ -721,6 +725,8 @@ process_directory(char *path, int parent_id, int flags)
   char entry[PATH_MAX];
   char resolved_path[PATH_MAX];
   struct stat sb;
+  int is_link;
+  int follow_symlinks;
   struct watch_info wi;
   int type;
   char virtual_path[PATH_MAX];
@@ -758,6 +764,8 @@ process_directory(char *path, int parent_id, int flags)
   if (check_speciallib(path, "audiobooks"))
     type |= F_SCAN_TYPE_AUDIOBOOK;
 
+  follow_symlinks = cfg_getbool(cfg_getsec(cfg, "library"), "follow_symlinks");
+
   for (;;)
     {
       if (library_is_exiting())
@@ -786,13 +794,19 @@ process_directory(char *path, int parent_id, int flags)
 	  continue;
 	}
 
-      ret = read_attributes(resolved_path, entry, &sb);
+      ret = read_attributes(resolved_path, entry, &sb, &is_link);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, read_attributes() failed\n", entry);
 
 	  continue;
 	}
+
+      if (is_link && !follow_symlinks)
+        {
+          DPRINTF(E_DBG, L_SCAN, "Ignore symlink %s\n", entry);
+          continue;
+        }
 
       if (S_ISDIR(sb.st_mode))
 	{
@@ -1179,6 +1193,7 @@ static void
 process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
   struct stat sb;
+  int is_link;
   uint32_t path_hash;
   char *file = path;
   char resolved_path[PATH_MAX];
@@ -1306,6 +1321,8 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
   if (ie->mask & IN_CLOSE_WRITE)
     {
+      int follow_symlinks = cfg_getbool(cfg_getsec(cfg, "library"), "follow_symlinks");
+
       DPRINTF(E_DBG, L_SCAN, "File closed: %s\n", path);
 
       // File has been closed so remove from the IN_ATTRIB ignore list
@@ -1317,13 +1334,19 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    incomingfiles_buffer[i] = 0;
 	  }
 
-      ret = read_attributes(resolved_path, path, &sb);
+      ret = read_attributes(resolved_path, path, &sb, &is_link);
       if (ret < 0)
         {
 	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, read_attributes() failed\n", path);
 
 	  return;
 	}
+
+      if (is_link && !follow_symlinks)
+        {
+          DPRINTF(E_DBG, L_SCAN, "Ignore symlink %s\n", path);
+          return;
+        }
 
       type = 0;
       if (check_speciallib(path, "compilations"))

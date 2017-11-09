@@ -62,6 +62,9 @@ library {
 	# Directories to index
 	directories = { "/srv/music" }
 
+	# Follow symlinks. Default: true.	
+#	follow_symlinks = true
+
 	# Directories containing podcasts
 	# For each directory that is indexed the path is matched against these
 	# names. If there is a match all items in the directory are marked as 
