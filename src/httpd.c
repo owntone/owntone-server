@@ -530,7 +530,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   if (xcoded <= 0)
     {
       if (xcoded == 0)
-	DPRINTF(E_LOG, L_HTTPD, "Done streaming transcoded file id %d\n", st->id);
+	DPRINTF(E_INFO, L_HTTPD, "Done streaming transcoded file id %d\n", st->id);
       else
 	DPRINTF(E_LOG, L_HTTPD, "Transcoding error, file id %d\n", st->id);
 
@@ -617,7 +617,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
   if (ret <= 0)
     {
       if (ret == 0)
-	DPRINTF(E_LOG, L_HTTPD, "Done streaming file id %d\n", st->id);
+	DPRINTF(E_INFO, L_HTTPD, "Done streaming file id %d\n", st->id);
       else
 	DPRINTF(E_LOG, L_HTTPD, "Streaming error, file id %d\n", st->id);
 

@@ -2629,7 +2629,7 @@ dacp_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   /* Content-Type for all DACP replies; can be overriden as needed */
   evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
 
-  CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
+  CHECK_NULL(L_DACP, hreq->reply = evbuffer_new());
 
   hreq->handler(hreq);
 

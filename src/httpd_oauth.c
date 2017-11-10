@@ -68,7 +68,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
 static int
 oauth_reply_spotify(struct httpd_request *hreq)
 {
-  DPRINTF(E_LOG, L_HTTPD, "This version of forked-daapd was built without support for Spotify\n");
+  DPRINTF(E_LOG, L_WEB, "This version of forked-daapd was built without support for Spotify\n");
 
   httpd_send_error(hreq->req, HTTP_NOTFOUND, "This version of forked-daapd was built without support for Spotify");
 
