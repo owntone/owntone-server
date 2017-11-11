@@ -77,11 +77,16 @@ static bool scan_exit;
 /* Flag for scan in progress */
 static bool scanning;
 
-// After being told by db that the library was updated through update_trigger(),
-// wait 60 seconds before notifying listeners of LISTENER_DATABASE. This is to
-// avoid bombarding the listeners while there are many db updates, and to make
-// sure they only get a single update (useful for the cache).
-static struct timeval library_update_wait = { 60, 0 };
+// After being told by db that the library was updated through
+// library_update_trigger(), wait 5 seconds before notifying listeners
+// of LISTENER_DATABASE. This is to catch bulk updates like automated
+// tag editing, music file imports/renames.  This way multiple updates
+// are collected for a single update notification (useful to avoid
+// repeated library reads from clients).
+//
+// Note: this update delay does not apply to library scans.  The scans
+// use the flag `scanning` for deferring update notifcations.
+static struct timeval library_update_wait = { 5, 0 };
 static struct event *updateev;
 
 
