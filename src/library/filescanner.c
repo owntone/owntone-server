@@ -1612,6 +1612,11 @@ filescanner_rescan()
   inofd_event_set();
   bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
 
+  if (!library_is_exiting())
+    {
+      /* Enable inotify */
+      event_add(inoev, NULL);
+    }
   return 0;
 }
 
@@ -1624,6 +1629,11 @@ filescanner_fullrescan()
   inofd_event_set();
   bulk_scan(F_SCAN_BULK);
 
+  if (!library_is_exiting())
+    {
+      /* Enable inotify */
+      event_add(inoev, NULL);
+    }
   return 0;
 }
 
