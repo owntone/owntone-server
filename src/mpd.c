@@ -143,6 +143,11 @@ static const char * const ffmpeg_mime_types[] = { "application/flv", "applicatio
     NULL
 };
 
+/* Provide for connection specfic authentication. */
+struct mpd_cmd_ctx {
+    int authenticated;
+};
+
 struct output
 {
   unsigned short shortid;
@@ -3197,6 +3202,38 @@ mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 */
 
+static int
+mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  char *required_password;
+  char *supplied_password = "";
+  int unrequired;
+
+  if (argc > 1)
+    {
+      supplied_password = argv[1];
+    }
+
+  required_password = cfg_getstr(cfg_getsec(cfg, "library"), "password");
+  unrequired = !required_password || required_password[0] == '\0';
+
+  if (unrequired || strcmp(supplied_password, required_password) == 0)
+    {
+      DPRINTF(E_DBG, L_MPD,
+              "Authentication succeeded with supplied password: %s%s\n",
+              supplied_password,
+              unrequired ? " although no password is required" : "");
+      return 0;
+    }
+
+  DPRINTF(E_LOG, L_MPD,
+          "Authentication failed with supplied password: %s"
+          " for required password: %s\n",
+          supplied_password, required_password);
+  *errmsg = safe_asprintf("Wrong password. Authentication failed.");
+  return ACK_ERROR_PASSWORD;
+}
+
 /*
  * Callback function for the 'player_speaker_enumerate' function.
  * Adds a new struct output to the given struct outputs in *arg for the given speaker (id, name, etc.).
@@ -4213,11 +4250,11 @@ static struct mpd_command mpd_handlers[] =
       .mpdcommand = "kill",
       .handler = mpd_command_kill
     },
+     */
     {
       .mpdcommand = "password",
       .handler = mpd_command_password
     },
-     */
     {
       .mpdcommand = "ping",
       .handler = mpd_command_ignore
@@ -4357,7 +4394,7 @@ mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errms
  * (see mpd_input_filter function).
  *
  * @param bev the buffer event
- * @param ctx (not used)
+ * @param ctx used for authentication
  */
 static void
 mpd_read_cb(struct bufferevent *bev, void *ctx)
@@ -4374,6 +4411,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   int close_cmd;
   char *argv[COMMAND_ARGV_MAX];
   int argc;
+  struct mpd_cmd_ctx *cmd_ctx = (struct mpd_cmd_ctx *)ctx;
 
   /* Get the input evbuffer, contains the command sequence received from the client */
   input = bufferevent_get_input(bev);
@@ -4444,6 +4482,16 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	  errmsg = safe_asprintf("Unsupported command '%s'", argv[0]);
 	  ret = ACK_ERROR_UNKNOWN;
 	}
+      else if (strcmp(command->mpdcommand, "password") == 0)
+        {
+          ret = command->handler(output, argc, argv, &errmsg);
+          cmd_ctx->authenticated = ret == 0;
+        }
+      else if (!cmd_ctx->authenticated)
+        {
+	  errmsg = safe_asprintf("Not authenticated");
+	  ret = ACK_ERROR_PERMISSION;
+        }
       else
 	ret = command->handler(output, argc, argv, &errmsg);
 
@@ -4583,9 +4631,19 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
    */
   struct event_base *base = evconnlistener_get_base(listener);
   struct bufferevent *bev = bufferevent_socket_new(base, sock, BEV_OPT_CLOSE_ON_FREE);
+  struct mpd_cmd_ctx *cmd_ctx = (struct mpd_cmd_ctx *)malloc(sizeof(struct mpd_cmd_ctx));
 
-  bev = bufferevent_filter_new(bev, mpd_input_filter, NULL, BEV_OPT_CLOSE_ON_FREE, NULL, NULL);
-  bufferevent_setcb(bev, mpd_read_cb, NULL, mpd_event_cb, bev);
+  if (!cmd_ctx)
+    {
+      DPRINTF(E_LOG, L_MPD, "Out of memory for command context\n");
+      bufferevent_free(bev);
+      return;
+    }
+
+  cmd_ctx->authenticated = !cfg_getstr(cfg_getsec(cfg, "library"), "password");
+
+  bev = bufferevent_filter_new(bev, mpd_input_filter, NULL, BEV_OPT_CLOSE_ON_FREE, free, cmd_ctx);
+  bufferevent_setcb(bev, mpd_read_cb, NULL, mpd_event_cb, cmd_ctx);
   bufferevent_enable(bev, EV_READ | EV_WRITE);
 
   /*
