@@ -147,11 +147,14 @@ httpd_redirect_to_admin(struct evhttp_request *req);
 void
 httpd_redirect_to_index(struct evhttp_request *req, const char *uri);
 
-int
-httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);
+bool
+httpd_peer_is_trusted(struct evhttp_request *req);
 
 bool
 httpd_admin_check_auth(struct evhttp_request *req);
+
+int
+httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);
 
 int
 httpd_init(void);

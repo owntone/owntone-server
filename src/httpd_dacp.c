@@ -547,7 +547,7 @@ dacp_request_authorize(struct httpd_request *hreq)
   int32_t id;
   int ret;
 
-  if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+  if (httpd_peer_is_trusted(hreq->req))
     return 0;
 
   param = evhttp_find_header(hreq->query, "session-id");
@@ -566,7 +566,7 @@ dacp_request_authorize(struct httpd_request *hreq)
 
   if (!daap_session_is_valid(id))
     {
-      DPRINTF(E_LOG, L_DACP, "Invalid session-id (%d) specified in request\n", id);
+      DPRINTF(E_LOG, L_DACP, "Session %d does not exist\n", id);
       goto invalid;
     }
 

@@ -277,10 +277,7 @@ serve_file(struct evhttp_request *req, const char *uri)
 
   /* Check authentication */
   if (!httpd_admin_check_auth(req))
-    {
-      DPRINTF(E_DBG, L_HTTPD, "Remote web interface request denied;\n");
-      return;
-    }
+    return;
 
   ret = snprintf(path, sizeof(path), "%s%s", WEB_ROOT, uri);
   if ((ret < 0) || (ret >= sizeof(path)))
@@ -1404,38 +1401,77 @@ httpd_redirect_to_index(struct evhttp_request *req, const char *uri)
 }
 
 bool
+httpd_peer_is_trusted(struct evhttp_request *req)
+{
+  struct evhttp_connection *evcon;
+  cfg_t *section;
+  const char *network;
+  char *addr;
+  uint16_t port;
+  int i;
+  int n;
+
+  evcon = evhttp_request_get_connection(req);
+  if (!evcon)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
+      return false;
+    }
+
+  evhttp_connection_get_peer(evcon, &addr, &port);
+  if (strncmp(addr, "::ffff:", strlen("::ffff:")) == 0)
+    addr += strlen("::ffff:");
+
+  section = cfg_getsec(cfg, "general");
+
+  n = cfg_size(section, "trusted_networks");
+  for (i = 0; i < n; i++)
+    {
+      network = cfg_getnstr(section, "trusted_networks", i);
+
+      if (strncmp(network, addr, strlen(network)) == 0)
+	return true;
+
+      if ((strcmp(network, "localhost") == 0) && (strcmp(addr, "127.0.0.1") == 0 || strcmp(addr, "::1") == 0))
+	return true;
+
+      if (strcmp(network, "any") == 0)
+	return true;
+    }
+
+  return false;
+}
+
+bool
 httpd_admin_check_auth(struct evhttp_request *req)
 {
-  const char *host;
   const char *passwd;
   int ret;
 
-  if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+  if (httpd_peer_is_trusted(req))
     return true;
 
   passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");
-  if (passwd)
+  if (!passwd)
     {
-      DPRINTF(E_DBG, L_HTTPD, "Checking web interface authentication\n");
+      DPRINTF(E_LOG, L_HTTPD, "Web interface request to '%s' denied: No password set in the config\n", evhttp_request_get_uri(req));
 
-      ret = httpd_basic_auth(req, "admin", passwd, PACKAGE " web interface");
-      if (ret != 0)
-	return false;
-
-      DPRINTF(E_DBG, L_HTTPD, "Authentication successful\n");
+      httpd_send_error(req, 403, "Forbidden");
+      return false;
     }
-  else
+
+  DPRINTF(E_DBG, L_HTTPD, "Checking web interface authentication\n");
+
+  ret = httpd_basic_auth(req, "admin", passwd, PACKAGE " web interface");
+  if (ret != 0)
     {
-      host = evhttp_request_get_host(req);
-      if ((strcmp(host, "::1") != 0)
-	  && (strcmp(host, "127.0.0.1") != 0))
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
+      DPRINTF(E_LOG, L_HTTPD, "Web interface request to '%s' denied: Incorrect password\n", evhttp_request_get_uri(req));
 
-	  httpd_send_error(req, 403, "Forbidden");
-	  return false;
-	}
+      // httpd_basic_auth has sent a reply
+      return false;
     }
+
+  DPRINTF(E_DBG, L_HTTPD, "Authentication successful\n");
 
   return true;
 }

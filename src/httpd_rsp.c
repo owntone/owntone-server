@@ -284,7 +284,7 @@ rsp_request_authorize(struct httpd_request *hreq)
   char *passwd;
   int ret;
 
-  if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+  if (httpd_peer_is_trusted(hreq->req))
     return 0;
 
   passwd = cfg_getstr(cfg_getsec(cfg, "library"), "password");

@@ -229,7 +229,7 @@ daap_session_add(bool is_remote, int request_session_id)
 	  free(s);
 	  return NULL;
 	}
-      
+
       s->id = request_session_id;
     }
   else
@@ -715,7 +715,7 @@ daap_request_authorize(struct httpd_request *hreq)
   char *passwd;
   int ret;
 
-  if (cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+  if (httpd_peer_is_trusted(hreq->req))
     return 0;
 
   param = evhttp_find_header(hreq->query, "session-id");
@@ -913,7 +913,7 @@ daap_reply_login(struct httpd_request *hreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 32));
 
   param = evhttp_find_header(hreq->query, "pairing-guid");
-  if (param && !cfg_getbool(cfg_getsec(cfg, "general"), "promiscuous_mode"))
+  if (param && !httpd_peer_is_trusted(hreq->req))
     {
       if (strlen(param) < 3)
 	{
@@ -2204,7 +2204,7 @@ static struct httpd_uri_map daap_handlers[] =
       .handler = daap_reply_dmap_test
     },
 #endif /* DMAP_TEST */
-    { 
+    {
       .regexp = NULL,
       .handler = NULL
     }
@@ -2298,7 +2298,7 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   clock_gettime(CLOCK_MONOTONIC, &start);
 
   ret = hreq->handler(hreq);
-  
+
   daap_reply_send(hreq, ret);
 
   clock_gettime(CLOCK_MONOTONIC, &end);

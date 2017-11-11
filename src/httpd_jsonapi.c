@@ -519,10 +519,7 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", uri_parsed->uri);
 
   if (!httpd_admin_check_auth(req))
-    {
-      DPRINTF(E_DBG, L_WEB, "JSON api request denied\n");
-      return;
-    }
+    return;
 
   hreq = httpd_request_parse(req, uri_parsed, NULL, adm_handlers);
   if (!hreq)
