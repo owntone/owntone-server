@@ -4711,6 +4711,14 @@ mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type
 
   switch (type)
     {
+      case LISTENER_DATABASE:
+	evbuffer_add(client->evbuffer, "changed: database\n", 18);
+	break;
+
+      case LISTENER_UPDATE:
+	evbuffer_add(client->evbuffer, "changed: update\n", 16);
+	break;
+
       case LISTENER_PLAYER:
 	evbuffer_add(client->evbuffer, "changed: player\n", 16);
 	break;
@@ -5069,7 +5077,7 @@ int mpd_init(void)
 #endif
 
   idle_clients = NULL;
-  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS);
+  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST);
 
   return 0;
 
