@@ -28,20 +28,17 @@
 #include <string.h>
 #include <sys/queue.h>
 #include <sys/types.h>
-#include <regex.h>
 #include <limits.h>
 
 #include <mxml.h>
-#include <event2/buffer.h>
-#include <event2/keyvalq_struct.h>
 
+#include "httpd_rsp.h"
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
 #include "misc.h"
 #include "httpd.h"
 #include "transcode.h"
-#include "httpd_rsp.h"
 #include "rsp_query.h"
 
 #define RSP_VERSION "1.0"
@@ -58,12 +55,6 @@ struct field_map {
   char *field;
   size_t offset;
   int flags;
-};
-
-struct uri_map {
-  regex_t preg;
-  char *regexp;
-  void (*handler)(struct evhttp_request *req, char **uri, struct evkeyvalq *query);
 };
 
 static const struct field_map pl_fields[] =
@@ -124,6 +115,8 @@ static const struct field_map rsp_fields[] =
   };
 
 
+/* -------------------------------- HELPERS --------------------------------- */
+
 static struct evbuffer *
 mxml_to_evbuf(mxml_node_t *tree)
 {
@@ -160,61 +153,6 @@ mxml_to_evbuf(mxml_node_t *tree)
 
   return evbuf;
 }
-
-/* Forward */
-static void
-rsp_send_error(struct evhttp_request *req, char *errmsg);
-
-static int
-get_query_params(struct evhttp_request *req, struct evkeyvalq *query, struct query_params *qp)
-{
-  const char *param;
-  int ret;
-
-  qp->offset = 0;
-  param = evhttp_find_header(query, "offset");
-  if (param)
-    {
-      ret = safe_atoi32(param, &qp->offset);
-      if (ret < 0)
-	{
-	  rsp_send_error(req, "Invalid offset");
-	  return -1;
-	}
-    }
-
-  qp->limit = 0;
-  param = evhttp_find_header(query, "limit");
-  if (param)
-    {
-      ret = safe_atoi32(param, &qp->limit);
-      if (ret < 0)
-	{
-	  rsp_send_error(req, "Invalid limit");
-	  return -1;
-	}
-    }
-
-  if (qp->offset || qp->limit)
-    qp->idx_type = I_SUB;
-  else
-    qp->idx_type = I_NONE;
-
-  qp->sort = S_NONE;
-
-  param = evhttp_find_header(query, "query");
-  if (param)
-    {
-      DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
-
-      qp->filter = rsp_query_parse_sql(param);
-      if (!qp->filter)
-	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
-    }
-
-  return 0;
-}
-
 
 static void
 rsp_send_error(struct evhttp_request *req, char *errmsg)
@@ -265,6 +203,56 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
   evbuffer_free(evbuf);
 }
 
+static int
+query_params_set(struct query_params *qp, struct httpd_request *hreq)
+{
+  const char *param;
+  int ret;
+
+  qp->offset = 0;
+  param = evhttp_find_header(hreq->query, "offset");
+  if (param)
+    {
+      ret = safe_atoi32(param, &qp->offset);
+      if (ret < 0)
+	{
+	  rsp_send_error(hreq->req, "Invalid offset");
+	  return -1;
+	}
+    }
+
+  qp->limit = 0;
+  param = evhttp_find_header(hreq->query, "limit");
+  if (param)
+    {
+      ret = safe_atoi32(param, &qp->limit);
+      if (ret < 0)
+	{
+	  rsp_send_error(hreq->req, "Invalid limit");
+	  return -1;
+	}
+    }
+
+  if (qp->offset || qp->limit)
+    qp->idx_type = I_SUB;
+  else
+    qp->idx_type = I_NONE;
+
+  qp->sort = S_NONE;
+
+  param = evhttp_find_header(hreq->query, "query");
+  if (param)
+    {
+      DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
+
+      qp->filter = rsp_query_parse_sql(param);
+      if (!qp->filter)
+	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
+    }
+
+  return 0;
+}
+
 static void
 rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
 {
@@ -290,9 +278,37 @@ rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
   evbuffer_free(evbuf);
 }
 
+static int
+rsp_request_authorize(struct httpd_request *hreq)
+{
+  char *passwd;
+  int ret;
 
-static void
-rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
+  if (httpd_peer_is_trusted(hreq->req))
+    return 0;
+
+  passwd = cfg_getstr(cfg_getsec(cfg, "library"), "password");
+  if (!passwd)
+    return 0;
+
+  DPRINTF(E_DBG, L_RSP, "Checking authentication for library\n");
+
+  // We don't care about the username
+  ret = httpd_basic_auth(hreq->req, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_RSP, "Unsuccessful library authentication\n");
+      return -1;
+    }
+
+  return 0;
+}
+
+
+/* --------------------------- REPLY HANDLERS ------------------------------- */
+
+static int
+rsp_reply_info(struct httpd_request *hreq)
 {
   mxml_node_t *reply;
   mxml_node_t *status;
@@ -342,11 +358,13 @@ rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   node = mxmlNewElement(info, "name");
   mxmlNewText(node, 0, library);
 
-  rsp_send_reply(req, reply);
+  rsp_send_reply(hreq->req, reply);
+
+  return 0;
 }
 
-static void
-rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
+static int
+rsp_reply_db(struct httpd_request *hreq)
 {
   struct query_params qp;
   struct db_playlist_info dbpli;
@@ -369,8 +387,8 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
     {
       DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(req, "Could not start query");
-      return;
+      rsp_send_error(hreq->req, "Could not start query");
+      return -1;
     }
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
@@ -419,8 +437,8 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 
       mxmlDelete(reply);
       db_query_end(&qp);
-      rsp_send_error(req, "Error fetching query results");
-      return;
+      rsp_send_error(hreq->req, "Error fetching query results");
+      return -1;
     }
 
   /* HACK
@@ -433,11 +451,13 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 
   db_query_end(&qp);
 
-  rsp_send_reply(req, reply);
+  rsp_send_reply(hreq->req, reply);
+
+  return 0;
 }
 
-static void
-rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
+static int
+rsp_reply_playlist(struct httpd_request *hreq)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -460,11 +480,11 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  ret = safe_atoi32(uri[2], &qp.id);
+  ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &qp.id);
   if (ret < 0)
     {
-      rsp_send_error(req, "Invalid playlist ID");
-      return;
+      rsp_send_error(hreq->req, "Invalid playlist ID");
+      return -1;
     }
 
   if (qp.id == 0)
@@ -473,7 +493,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
     qp.type = Q_PLITEMS;
 
   mode = F_FULL;
-  param = evhttp_find_header(query, "type");
+  param = evhttp_find_header(hreq->query, "type");
   if (param)
     {
       if (strcasecmp(param, "full") == 0)
@@ -488,20 +508,20 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 	DPRINTF(E_LOG, L_RSP, "Unknown browse mode %s\n", param);
     }
 
-  ret = get_query_params(req, query, &qp);
+  ret = query_params_set(&qp, hreq);
   if (ret < 0)
-    return;
+    return -1;
 
   ret = db_query_start(&qp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(req, "Could not start query");
+      rsp_send_error(hreq->req, "Could not start query");
 
       if (qp.filter)
 	free(qp.filter);
-      return;
+      return -1;
     }
 
   if (qp.offset > qp.results)
@@ -536,7 +556,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   /* Items block (all items) */
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      headers = evhttp_request_get_input_headers(req);
+      headers = evhttp_request_get_input_headers(hreq->req);
 
       ua = evhttp_find_header(headers, "User-Agent");
       client_codecs = evhttp_find_header(headers, "Accept-Codecs");
@@ -607,8 +627,8 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
       mxmlDelete(reply);
       db_query_end(&qp);
-      rsp_send_error(req, "Error fetching query results");
-      return;
+      rsp_send_error(hreq->req, "Error fetching query results");
+      return -1;
     }
 
   /* HACK
@@ -621,11 +641,13 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
   db_query_end(&qp);
 
-  rsp_send_reply(req, reply);
+  rsp_send_reply(hreq->req, reply);
+
+  return 0;
 }
 
-static void
-rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
+static int
+rsp_reply_browse(struct httpd_request *hreq)
 {
   struct query_params qp;
   char *browse_item;
@@ -638,43 +660,43 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  if (strcmp(uri[3], "artist") == 0)
+  if (strcmp(hreq->uri_parsed->path_parts[3], "artist") == 0)
     qp.type = Q_BROWSE_ARTISTS;
-  else if (strcmp(uri[3], "genre") == 0)
+  else if (strcmp(hreq->uri_parsed->path_parts[3], "genre") == 0)
     qp.type = Q_BROWSE_GENRES;
-  else if (strcmp(uri[3], "album") == 0)
+  else if (strcmp(hreq->uri_parsed->path_parts[3], "album") == 0)
     qp.type = Q_BROWSE_ALBUMS;
-  else if (strcmp(uri[3], "composer") == 0)
+  else if (strcmp(hreq->uri_parsed->path_parts[3], "composer") == 0)
     qp.type = Q_BROWSE_COMPOSERS;
   else
     {
-      DPRINTF(E_LOG, L_RSP, "Unsupported browse type '%s'\n", uri[3]);
+      DPRINTF(E_LOG, L_RSP, "Unsupported browse type '%s'\n", hreq->uri_parsed->path_parts[3]);
 
-      rsp_send_error(req, "Unsupported browse type");
-      return;
+      rsp_send_error(hreq->req, "Unsupported browse type");
+      return -1;
     }
 
-  ret = safe_atoi32(uri[2], &qp.id);
+  ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &qp.id);
   if (ret < 0)
     {
-      rsp_send_error(req, "Invalid playlist ID");
-      return;
+      rsp_send_error(hreq->req, "Invalid playlist ID");
+      return -1;
     }
 
-  ret = get_query_params(req, query, &qp);
+  ret = query_params_set(&qp, hreq);
   if (ret < 0)
-    return;
+    return -1;
 
   ret = db_query_start(&qp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(req, "Could not start query");
+      rsp_send_error(hreq->req, "Could not start query");
 
       if (qp.filter)
 	free(qp.filter);
-      return;
+      return -1;
     }
 
   if (qp.offset > qp.results)
@@ -722,8 +744,8 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
 
       mxmlDelete(reply);
       db_query_end(&qp);
-      rsp_send_error(req, "Error fetching query results");
-      return;
+      rsp_send_error(hreq->req, "Error fetching query results");
+      return -1;
     }
 
   /* HACK
@@ -736,24 +758,31 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
 
   db_query_end(&qp);
 
-  rsp_send_reply(req, reply);
+  rsp_send_reply(hreq->req, reply);
+
+  return 0;
 }
 
-static void
-rsp_stream(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
+static int
+rsp_stream(struct httpd_request *hreq)
 {
   int id;
   int ret;
 
-  ret = safe_atoi32(uri[2], &id);
+  ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &id);
   if (ret < 0)
-    httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
-  else
-    httpd_stream_file(req, id);
+    {
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      return -1;
+    }
+
+  httpd_stream_file(hreq->req, id);
+
+  return 0;
 }
 
 
-static struct uri_map rsp_handlers[] =
+static struct httpd_uri_map rsp_handlers[] =
   {
     {
       .regexp = "^/rsp/info$",
@@ -782,127 +811,42 @@ static struct uri_map rsp_handlers[] =
   };
 
 
+/* -------------------------------- RSP API --------------------------------- */
+
 void
-rsp_request(struct evhttp_request *req)
+rsp_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
-  char *full_uri;
-  char *uri;
-  char *ptr;
-  char *uri_parts[5];
-  struct evkeyvalq query;
-  cfg_t *lib;
-  char *libname;
-  char *passwd;
-  int handler;
-  int i;
+  struct httpd_request *hreq;
   int ret;
 
-  memset(&query, 0, sizeof(struct evkeyvalq));
+  DPRINTF(E_DBG, L_RSP, "RSP request: '%s'\n", uri_parsed->uri);
 
-  full_uri = httpd_fixup_uri(req);
-  if (!full_uri)
+  hreq = httpd_request_parse(req, uri_parsed, NULL, rsp_handlers);
+  if (!hreq)
     {
+      DPRINTF(E_LOG, L_RSP, "Unrecognized path '%s' in RSP request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+
       rsp_send_error(req, "Server error");
       return;
     }
 
-  ptr = strchr(full_uri, '?');
-  if (ptr)
-    *ptr = '\0';
-
-  uri = strdup(full_uri);
-  if (!uri)
+  ret = rsp_request_authorize(hreq);
+  if (ret < 0)
     {
-      rsp_send_error(req, "Server error");
-
-      free(full_uri);
+      rsp_send_error(req, "Access denied");
+      free(hreq);
       return;
     }
 
-  if (ptr)
-    *ptr = '?';
+  hreq->handler(hreq);
 
-  ptr = uri;
-  uri = evhttp_decode_uri(uri);
-  free(ptr);
-
-  DPRINTF(E_DBG, L_RSP, "RSP request: %s\n", full_uri);
-
-  handler = -1;
-  for (i = 0; rsp_handlers[i].handler; i++)
-    {
-      ret = regexec(&rsp_handlers[i].preg, uri, 0, NULL, 0);
-      if (ret == 0)
-	{
-	  handler = i;
-	  break;
-	}
-    }
-
-  if (handler < 0)
-    {
-      DPRINTF(E_LOG, L_RSP, "Unrecognized RSP request\n");
-
-      rsp_send_error(req, "Bad path");
-
-      free(uri);
-      free(full_uri);
-      return;
-    }
-
-  /* Check authentication */
-  lib = cfg_getsec(cfg, "library");
-  passwd = cfg_getstr(lib, "password");
-  if (passwd)
-    {
-      libname = cfg_getstr(lib, "name");
-
-      DPRINTF(E_DBG, L_HTTPD, "Checking authentication for library '%s'\n", libname);
-
-      /* We don't care about the username */
-      ret = httpd_basic_auth(req, NULL, passwd, libname);
-      if (ret != 0)
-	{
-	  free(uri);
-	  free(full_uri);
-	  return;
-	}
-
-      DPRINTF(E_DBG, L_HTTPD, "Library authentication successful\n");
-    }
-
-  memset(uri_parts, 0, sizeof(uri_parts));
-
-  uri_parts[0] = strtok_r(uri, "/", &ptr);
-  for (i = 1; (i < sizeof(uri_parts) / sizeof(uri_parts[0])) && uri_parts[i - 1]; i++)
-    {
-      uri_parts[i] = strtok_r(NULL, "/", &ptr);
-    }
-
-  if (!uri_parts[0] || uri_parts[i - 1] || (i < 2))
-    {
-      DPRINTF(E_LOG, L_RSP, "RSP URI has too many/few components (%d)\n", (uri_parts[0]) ? i : 0);
-
-      rsp_send_error(req, "Bad path");
-
-      free(uri);
-      free(full_uri);
-      return;
-    }
-
-  evhttp_parse_query(full_uri, &query);
-
-  rsp_handlers[handler].handler(req, uri_parts, &query);
-
-  evhttp_clear_headers(&query);
-  free(uri);
-  free(full_uri);
+  free(hreq);
 }
 
 int
-rsp_is_request(struct evhttp_request *req, char *uri)
+rsp_is_request(const char *path)
 {
-  if (strncmp(uri, "/rsp/", strlen("/rsp/")) == 0)
+  if (strncmp(path, "/rsp/", strlen("/rsp/")) == 0)
     return 1;
 
   return 0;

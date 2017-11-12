@@ -346,13 +346,24 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
     }
 }
 
+void
+dmap_error_make(struct evbuffer *evbuf, const char *container, const char *errmsg)
+{
+  int len;
+
+  len = 12 + 8 + 8 + strlen(errmsg);
+
+  CHECK_ERR(L_DMAP, evbuffer_expand(evbuf, len));
+
+  dmap_add_container(evbuf, container, len - 8);
+  dmap_add_int(evbuf, "mstt", 500);
+  dmap_add_string(evbuf, "msts", errmsg);
+}
 
 void
 dmap_send_error(struct evhttp_request *req, const char *container, const char *errmsg)
 {
   struct evbuffer *evbuf;
-  int len;
-  int ret;
 
   if (!req)
     return;
@@ -366,22 +377,7 @@ dmap_send_error(struct evhttp_request *req, const char *container, const char *e
       return;
     }
 
-  len = 12 + 8 + 8 + strlen(errmsg);
-
-  ret = evbuffer_expand(evbuf, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DMAP, "Could not expand evbuffer for DMAP error\n");
-
-      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-
-      evbuffer_free(evbuf);
-      return;
-    }
-
-  dmap_add_container(evbuf, container, len - 8);
-  dmap_add_int(evbuf, "mstt", 500);
-  dmap_add_string(evbuf, "msts", errmsg);
+  dmap_error_make(evbuf, container, errmsg);
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 

@@ -437,16 +437,19 @@ void
 free_mfi(struct media_file_info *mfi, int content_only);
 
 void
-unicode_fixup_mfi(struct media_file_info *mfi);
-
-void
 free_pli(struct playlist_info *pli, int content_only);
 
 void
 free_di(struct directory_info *di, int content_only);
 
 void
+free_query_params(struct query_params *qp, int content_only);
+
+void
 free_queue_item(struct db_queue_item *queue_item, int content_only);
+
+void
+unicode_fixup_mfi(struct media_file_info *mfi);
 
 /* Maintenance and DB hygiene */
 void

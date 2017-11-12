@@ -26,21 +26,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "httpd_jsonapi.h"
-
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
-#include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/keyvalq_struct.h>
 #include <json.h>
 #include <regex.h>
 #include <string.h>
 
+#include "httpd_jsonapi.h"
 #include "conffile.h"
 #include "db.h"
-#include "httpd.h"
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
@@ -54,275 +49,11 @@
 # include "spotify.h"
 #endif
 
-struct uri_map
-{
-  regex_t preg;
-  char *regexp;
-  int (*handler)(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query);
-};
 
-
+/* -------------------------------- HELPERS --------------------------------- */
 
 /*
- * Endpoint to retrieve configuration values
- *
- * Example response:
- *
- * {
- *  "websocket_port": 6603,
- *  "version": "25.0"
- * }
- */
-static int
-jsonapi_reply_config(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
-{
-  json_object *reply;
-  json_object *buildopts;
-  int websocket_port;
-  char **buildoptions;
-  int i;
-  int ret;
-
-  reply = json_object_new_object();
-
-  // Websocket port
-#ifdef HAVE_LIBWEBSOCKETS
-  websocket_port = cfg_getint(cfg_getsec(cfg, "general"), "websocket_port");
-#else
-  websocket_port = 0;
-#endif
-  json_object_object_add(reply, "websocket_port", json_object_new_int(websocket_port));
-
-  // forked-daapd version
-  json_object_object_add(reply, "version", json_object_new_string(VERSION));
-
-  // enabled build options
-  buildopts = json_object_new_array();
-  buildoptions = buildopts_get();
-  for (i = 0; buildoptions[i]; i++)
-    {
-      json_object_array_add(buildopts, json_object_new_string(buildoptions[i]));
-    }
-  json_object_object_add(reply, "buildoptions", buildopts);
-
-  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
-  jparse_free(reply);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "config: Couldn't add config data to response buffer.\n");
-      return -1;
-    }
-
-  return 0;
-}
-
-/*
- * Endpoint to retrieve informations about the library
- *
- * Example response:
- *
- * {
- *  "artists": 84,
- *  "albums": 151,
- *  "songs": 3085,
- *  "db_playtime": 687824,
- *  "updating": false
- *}
- */
-static int
-jsonapi_reply_library(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
-{
-  struct query_params qp;
-  struct filecount_info fci;
-  int artists;
-  int albums;
-  bool is_scanning;
-  json_object *reply;
-  int ret;
-
-  // Fetch values for response
-
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_COUNT_ITEMS;
-  ret = db_filecount_get(&fci, &qp);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "library: failed to get file count info\n");
-      return -1;
-    }
-
-  artists = db_files_get_artist_count();
-  albums = db_files_get_album_count();
-
-  is_scanning = library_is_scanning();
-
-
-  // Build json response
-
-  reply = json_object_new_object();
-
-  json_object_object_add(reply, "artists", json_object_new_int(artists));
-  json_object_object_add(reply, "albums", json_object_new_int(albums));
-  json_object_object_add(reply, "songs", json_object_new_int(fci.count));
-  json_object_object_add(reply, "db_playtime", json_object_new_int64((fci.length / 1000)));
-  json_object_object_add(reply, "updating", json_object_new_boolean(is_scanning));
-
-  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
-  jparse_free(reply);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "library: Couldn't add library information data to response buffer.\n");
-      return -1;
-    }
-
-  return 0;
-}
-
-/*
- * Endpoint to trigger a library rescan
- */
-static int
-jsonapi_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
-{
-  library_rescan();
-  return 0;
-}
-
-/*
- * Endpoint to retrieve information about the spotify integration
- *
- * Exampe response:
- *
- * {
- *  "enabled": true,
- *  "oauth_uri": "https://accounts.spotify.com/authorize/?client_id=...
- * }
- */
-static int
-jsonapi_reply_spotify(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
-{
-  json_object *reply;
-  int ret;
-
-  reply = json_object_new_object();
-
-#ifdef HAVE_SPOTIFY_H
-  int httpd_port;
-  char redirect_uri[256];
-  char *oauth_uri;
-  struct spotify_status_info info;
-
-  json_object_object_add(reply, "enabled", json_object_new_boolean(true));
-
-  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-  snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
-
-  oauth_uri = spotifywebapi_oauth_uri_get(redirect_uri);
-  if (!uri)
-    {
-      DPRINTF(E_LOG, L_WEB, "Cannot display Spotify oauth interface (http_form_uriencode() failed)\n");
-    }
-  else
-    {
-      json_object_object_add(reply, "oauth_uri", json_object_new_string(oauth_uri));
-      free(oauth_uri);
-    }
-
-  spotify_status_info_get(&info);
-  json_object_object_add(reply, "libspotify_installed", json_object_new_boolean(info.libspotify_installed));
-  json_object_object_add(reply, "libspotify_logged_in", json_object_new_boolean(info.libspotify_logged_in));
-  json_object_object_add(reply, "libspotify_user", json_object_new_string(info.libspotify_user));
-  json_object_object_add(reply, "webapi_token_valid", json_object_new_boolean(info.webapi_token_valid));
-  json_object_object_add(reply, "webapi_user", json_object_new_string(info.webapi_user));
-
-#else
-  json_object_object_add(reply, "enabled", json_object_new_boolean(false));
-#endif
-
-  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
-  jparse_free(reply);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "spotify: Couldn't add spotify information data to response buffer.\n");
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-jsonapi_reply_spotify_login(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
-{
-#ifdef HAVE_SPOTIFY_H
-  struct evbuffer *in_evbuf;
-  json_object* request;
-  const char *user;
-  const char *password;
-  char *errmsg = NULL;
-  json_object* reply;
-  json_object* errors;
-  int ret;
-
-  DPRINTF(E_DBG, L_WEB, "Received spotify login request\n");
-
-  in_evbuf = evhttp_request_get_input_buffer(req);
-  request = jparse_obj_from_evbuffer(in_evbuf);
-  if (!request)
-    {
-      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-      return -1;
-    }
-
-  reply = json_object_new_object();
-
-  user = jparse_str_from_obj(request, "user");
-  password = jparse_str_from_obj(request, "password");
-  if (user && strlen(user) > 0 && password && strlen(password) > 0)
-    {
-      ret = spotify_login_user(user, password, &errmsg);
-      if (ret < 0)
-	{
-	  json_object_object_add(reply, "success", json_object_new_boolean(false));
-	  errors = json_object_new_object();
-	  json_object_object_add(errors, "error", json_object_new_string(errmsg));
-	  json_object_object_add(reply, "errors", errors);
-	}
-      else
-	{
-	  json_object_object_add(reply, "success", json_object_new_boolean(true));
-	}
-      free(errmsg);
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_WEB, "No user or password in spotify login post request\n");
-
-      json_object_object_add(reply, "success", json_object_new_boolean(false));
-      errors = json_object_new_object();
-      if (!user || strlen(user) == 0)
-	json_object_object_add(errors, "user", json_object_new_string("Username is required"));
-      if (!password || strlen(password) == 0)
-	json_object_object_add(errors, "password", json_object_new_string("Password is required"));
-      json_object_object_add(reply, "errors", errors);
-    }
-
-  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
-  jparse_free(reply);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "spotify: Couldn't add spotify login data to response buffer.\n");
-      return -1;
-    }
-
-#else
-  DPRINTF(E_LOG, L_WEB, "Received spotify login request but was not compiled with enable-spotify\n");
-#endif
-
-  return 0;
-}
-
-/*
- * Endpoint to kickoff pairing of a daap/dacp client
+ * Kicks off pairing of a daap/dacp client
  *
  * Expects the paring pin to be present in the post request body, e. g.:
  *
@@ -331,7 +62,7 @@ jsonapi_reply_spotify_login(struct evhttp_request *req, struct evbuffer *evbuf, 
  * }
  */
 static int
-pairing_kickoff(struct evhttp_request* req)
+pairing_kickoff(struct evhttp_request *req)
 {
   struct evbuffer *evbuf;
   json_object* request;
@@ -359,7 +90,7 @@ pairing_kickoff(struct evhttp_request* req)
 }
 
 /*
- * Endpoint to retrieve pairing information
+ * Retrieves pairing information
  *
  * Example response:
  *
@@ -372,32 +103,268 @@ static int
 pairing_get(struct evbuffer *evbuf)
 {
   char *remote_name;
-  json_object *reply;
-  int ret;
+  json_object *jreply;
 
   remote_name = remote_pairing_get_name();
 
-  reply = json_object_new_object();
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
   if (remote_name)
     {
-      json_object_object_add(reply, "active", json_object_new_boolean(true));
-      json_object_object_add(reply, "remote", json_object_new_string(remote_name));
+      json_object_object_add(jreply, "active", json_object_new_boolean(true));
+      json_object_object_add(jreply, "remote", json_object_new_string(remote_name));
     }
   else
     {
-      json_object_object_add(reply, "active", json_object_new_boolean(false));
+      json_object_object_add(jreply, "active", json_object_new_boolean(false));
     }
 
-  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
-  jparse_free(reply);
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
   free(remote_name);
 
+  return 0;
+}
+
+
+/* --------------------------- REPLY HANDLERS ------------------------------- */
+
+/*
+ * Endpoint to retrieve configuration values
+ *
+ * Example response:
+ *
+ * {
+ *  "websocket_port": 6603,
+ *  "version": "25.0"
+ * }
+ */
+static int
+jsonapi_reply_config(struct httpd_request *hreq)
+{
+  json_object *jreply;
+  json_object *buildopts;
+  int websocket_port;
+  char **buildoptions;
+  int i;
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  // Websocket port
+#ifdef HAVE_LIBWEBSOCKETS
+  websocket_port = cfg_getint(cfg_getsec(cfg, "general"), "websocket_port");
+#else
+  websocket_port = 0;
+#endif
+  json_object_object_add(jreply, "websocket_port", json_object_new_int(websocket_port));
+
+  // forked-daapd version
+  json_object_object_add(jreply, "version", json_object_new_string(VERSION));
+
+  // enabled build options
+  buildopts = json_object_new_array();
+  buildoptions = buildopts_get();
+  for (i = 0; buildoptions[i]; i++)
+    {
+      json_object_array_add(buildopts, json_object_new_string(buildoptions[i]));
+    }
+  json_object_object_add(jreply, "buildoptions", buildopts);
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return 0;
+}
+
+/*
+ * Endpoint to retrieve informations about the library
+ *
+ * Example response:
+ *
+ * {
+ *  "artists": 84,
+ *  "albums": 151,
+ *  "songs": 3085,
+ *  "db_playtime": 687824,
+ *  "updating": false
+ *}
+ */
+static int
+jsonapi_reply_library(struct httpd_request *hreq)
+{
+  struct query_params qp;
+  struct filecount_info fci;
+  int artists;
+  int albums;
+  bool is_scanning;
+  json_object *jreply;
+  int ret;
+
+  // Fetch values for response
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_COUNT_ITEMS;
+  ret = db_filecount_get(&fci, &qp);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "pairing: Couldn't add pairing information data to response buffer.\n");
+      DPRINTF(E_LOG, L_WEB, "library: failed to get file count info\n");
       return -1;
     }
+
+  artists = db_files_get_artist_count();
+  albums = db_files_get_album_count();
+
+  is_scanning = library_is_scanning();
+
+  // Build json response
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  json_object_object_add(jreply, "artists", json_object_new_int(artists));
+  json_object_object_add(jreply, "albums", json_object_new_int(albums));
+  json_object_object_add(jreply, "songs", json_object_new_int(fci.count));
+  json_object_object_add(jreply, "db_playtime", json_object_new_int64((fci.length / 1000)));
+  json_object_object_add(jreply, "updating", json_object_new_boolean(is_scanning));
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return 0;
+}
+
+/*
+ * Endpoint to trigger a library rescan
+ */
+static int
+jsonapi_reply_update(struct httpd_request *hreq)
+{
+  library_rescan();
+  return 0;
+}
+
+/*
+ * Endpoint to retrieve information about the spotify integration
+ *
+ * Exampe response:
+ *
+ * {
+ *  "enabled": true,
+ *  "oauth_uri": "https://accounts.spotify.com/authorize/?client_id=...
+ * }
+ */
+static int
+jsonapi_reply_spotify(struct httpd_request *hreq)
+{
+  json_object *jreply;
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+#ifdef HAVE_SPOTIFY_H
+  int httpd_port;
+  char redirect_uri[256];
+  char *oauth_uri;
+  struct spotify_status_info info;
+
+  json_object_object_add(jreply, "enabled", json_object_new_boolean(true));
+
+  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+  snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
+
+  oauth_uri = spotifywebapi_oauth_uri_get(redirect_uri);
+  if (!oauth_uri)
+    {
+      DPRINTF(E_LOG, L_WEB, "Cannot display Spotify oauth interface (http_form_uriencode() failed)\n");
+      jparse_free(jreply);
+      return -1;
+    }
+
+  json_object_object_add(jreply, "oauth_uri", json_object_new_string(oauth_uri));
+  free(oauth_uri);
+
+  spotify_status_info_get(&info);
+  json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(info.libspotify_installed));
+  json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(info.libspotify_logged_in));
+  json_object_object_add(jreply, "libspotify_user", json_object_new_string(info.libspotify_user));
+  json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(info.webapi_token_valid));
+  json_object_object_add(jreply, "webapi_user", json_object_new_string(info.webapi_user));
+
+#else
+  json_object_object_add(jreply, "enabled", json_object_new_boolean(false));
+#endif
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return 0;
+}
+
+static int
+jsonapi_reply_spotify_login(struct httpd_request *hreq)
+{
+#ifdef HAVE_SPOTIFY_H
+  struct evbuffer *in_evbuf;
+  json_object* request;
+  const char *user;
+  const char *password;
+  char *errmsg = NULL;
+  json_object* jreply;
+  json_object* errors;
+  int ret;
+
+  DPRINTF(E_DBG, L_WEB, "Received Spotify login request\n");
+
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
+
+  request = jparse_obj_from_evbuffer(in_evbuf);
+  if (!request)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
+      return -1;
+    }
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  user = jparse_str_from_obj(request, "user");
+  password = jparse_str_from_obj(request, "password");
+  if (user && strlen(user) > 0 && password && strlen(password) > 0)
+    {
+      ret = spotify_login_user(user, password, &errmsg);
+      if (ret < 0)
+	{
+	  json_object_object_add(jreply, "success", json_object_new_boolean(false));
+	  errors = json_object_new_object();
+	  json_object_object_add(errors, "error", json_object_new_string(errmsg));
+	  json_object_object_add(jreply, "errors", errors);
+	}
+      else
+	{
+	  json_object_object_add(jreply, "success", json_object_new_boolean(true));
+	}
+      free(errmsg);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_WEB, "No user or password in spotify login post request\n");
+
+      json_object_object_add(jreply, "success", json_object_new_boolean(false));
+      errors = json_object_new_object();
+      if (!user || strlen(user) == 0)
+	json_object_object_add(errors, "user", json_object_new_string("Username is required"));
+      if (!password || strlen(password) == 0)
+	json_object_object_add(errors, "password", json_object_new_string("Password is required"));
+      json_object_object_add(jreply, "errors", errors);
+    }
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+#else
+  DPRINTF(E_LOG, L_WEB, "Received spotify login request but was not compiled with enable-spotify\n");
+#endif
 
   return 0;
 }
@@ -409,40 +376,36 @@ pairing_get(struct evbuffer *evbuf)
  * If request is a POST request, tries to pair the active remote with the given pin.
  */
 static int
-jsonapi_reply_pairing(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
+jsonapi_reply_pairing(struct httpd_request *hreq)
 {
-  if (evhttp_request_get_command(req) == EVHTTP_REQ_POST)
+  if (evhttp_request_get_command(hreq->req) == EVHTTP_REQ_POST)
     {
-      return pairing_kickoff(req);
+      return pairing_kickoff(hreq->req);
     }
 
-  return pairing_get(evbuf);
+  return pairing_get(hreq->reply);
 }
 
 static int
-jsonapi_reply_lastfm(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
+jsonapi_reply_lastfm(struct httpd_request *hreq)
 {
-  json_object *reply;
+  json_object *jreply;
   bool enabled = false;
   bool scrobbling_enabled = false;
-  int ret;
 
 #ifdef LASTFM
   enabled = true;
   scrobbling_enabled = lastfm_is_enabled();
 #endif
 
-  reply = json_object_new_object();
-  json_object_object_add(reply, "enabled", json_object_new_boolean(enabled));
-  json_object_object_add(reply, "scrobbling_enabled", json_object_new_boolean(scrobbling_enabled));
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
-  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
-  jparse_free(reply);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "LastFM: Couldn't add LastFM enabled to response buffer.\n");
-      return -1;
-    }
+  json_object_object_add(jreply, "enabled", json_object_new_boolean(enabled));
+  json_object_object_add(jreply, "scrobbling_enabled", json_object_new_boolean(scrobbling_enabled));
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
 
   return 0;
 }
@@ -451,21 +414,21 @@ jsonapi_reply_lastfm(struct evhttp_request *req, struct evbuffer *evbuf, char *u
  * Endpoint to log into LastFM
  */
 static int
-jsonapi_reply_lastfm_login(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
+jsonapi_reply_lastfm_login(struct httpd_request *hreq)
 {
 #ifdef LASTFM
   struct evbuffer *in_evbuf;
-  json_object* request;
+  json_object *request;
   const char *user;
   const char *password;
   char *errmsg = NULL;
-  json_object* reply;
-  json_object* errors;
+  json_object *jreply;
+  json_object *errors;
   int ret;
 
   DPRINTF(E_DBG, L_WEB, "Received LastFM login request\n");
 
-  in_evbuf = evhttp_request_get_input_buffer(req);
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
   request = jparse_obj_from_evbuffer(in_evbuf);
   if (!request)
     {
@@ -473,7 +436,7 @@ jsonapi_reply_lastfm_login(struct evhttp_request *req, struct evbuffer *evbuf, c
       return -1;
     }
 
-  reply = json_object_new_object();
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
   user = jparse_str_from_obj(request, "user");
   password = jparse_str_from_obj(request, "password");
@@ -482,17 +445,17 @@ jsonapi_reply_lastfm_login(struct evhttp_request *req, struct evbuffer *evbuf, c
       ret = lastfm_login_user(user, password, &errmsg);
       if (ret < 0)
         {
-	  json_object_object_add(reply, "success", json_object_new_boolean(false));
+	  json_object_object_add(jreply, "success", json_object_new_boolean(false));
 	  errors = json_object_new_object();
 	  if (errmsg)
 	    json_object_object_add(errors, "error", json_object_new_string(errmsg));
 	  else
 	    json_object_object_add(errors, "error", json_object_new_string("Unknown error"));
-	  json_object_object_add(reply, "errors", errors);
+	  json_object_object_add(jreply, "errors", errors);
 	}
       else
         {
-	  json_object_object_add(reply, "success", json_object_new_boolean(true));
+	  json_object_object_add(jreply, "success", json_object_new_boolean(true));
 	}
       free(errmsg);
     }
@@ -500,22 +463,18 @@ jsonapi_reply_lastfm_login(struct evhttp_request *req, struct evbuffer *evbuf, c
     {
       DPRINTF(E_LOG, L_WEB, "No user or password in LastFM login post request\n");
 
-      json_object_object_add(reply, "success", json_object_new_boolean(false));
+      json_object_object_add(jreply, "success", json_object_new_boolean(false));
       errors = json_object_new_object();
       if (!user || strlen(user) == 0)
 	json_object_object_add(errors, "user", json_object_new_string("Username is required"));
       if (!password || strlen(password) == 0)
 	json_object_object_add(errors, "password", json_object_new_string("Password is required"));
-      json_object_object_add(reply, "errors", errors);
+      json_object_object_add(jreply, "errors", errors);
     }
 
-  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
-  jparse_free(reply);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "LastFM: Couldn't add LastFM login data to response buffer.\n");
-      return -1;
-    }
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
 
 #else
   DPRINTF(E_LOG, L_WEB, "Received LastFM login request but was not compiled with enable-lastfm\n");
@@ -525,7 +484,7 @@ jsonapi_reply_lastfm_login(struct evhttp_request *req, struct evbuffer *evbuf, c
 }
 
 static int
-jsonapi_reply_lastfm_logout(struct evhttp_request *req, struct evbuffer *evbuf, char *uri, struct evkeyvalq *query)
+jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
 {
 #ifdef LASTFM
   lastfm_logout();
@@ -533,7 +492,7 @@ jsonapi_reply_lastfm_logout(struct evhttp_request *req, struct evbuffer *evbuf, 
   return 0;
 }
 
-static struct uri_map adm_handlers[] =
+static struct httpd_uri_map adm_handlers[] =
   {
     { .regexp = "^/api/config", .handler = jsonapi_reply_config },
     { .regexp = "^/api/library", .handler = jsonapi_reply_library },
@@ -547,119 +506,57 @@ static struct uri_map adm_handlers[] =
     { .regexp = NULL, .handler = NULL }
   };
 
+
+/* ------------------------------- JSON API --------------------------------- */
+
 void
-jsonapi_request(struct evhttp_request *req)
+jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
-  char *full_uri;
-  char *uri;
-  char *ptr;
-  struct evbuffer *evbuf;
-  struct evkeyvalq query;
+  struct httpd_request *hreq;
   struct evkeyvalq *headers;
-  int handler;
   int ret;
-  int i;
 
-  /* Check authentication */
+  DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", uri_parsed->uri);
+
   if (!httpd_admin_check_auth(req))
+    return;
+
+  hreq = httpd_request_parse(req, uri_parsed, NULL, adm_handlers);
+  if (!hreq)
     {
-      DPRINTF(E_DBG, L_WEB, "JSON api request denied;\n");
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in JSON api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+
+      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
-
-  memset(&query, 0, sizeof(struct evkeyvalq));
-
-  full_uri = httpd_fixup_uri(req);
-  if (!full_uri)
-    {
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
-      return;
-    }
-
-  ptr = strchr(full_uri, '?');
-  if (ptr)
-    *ptr = '\0';
-
-  uri = strdup(full_uri);
-  if (!uri)
-    {
-      free(full_uri);
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
-      return;
-    }
-
-  if (ptr)
-    *ptr = '?';
-
-  ptr = uri;
-  uri = evhttp_decode_uri(uri);
-  free(ptr);
-
-  DPRINTF(E_DBG, L_WEB, "Web admin request: %s\n", full_uri);
-
-  handler = -1;
-  for (i = 0; adm_handlers[i].handler; i++)
-    {
-      ret = regexec(&adm_handlers[i].preg, uri, 0, NULL, 0);
-      if (ret == 0)
-	{
-	  handler = i;
-	  break;
-	}
-    }
-
-  if (handler < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized web admin request\n");
-
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
-
-      free(uri);
-      free(full_uri);
-      return;
-    }
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_WEB, "Could not allocate evbuffer for Web Admin reply\n");
-
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-
-      free(uri);
-      free(full_uri);
-      return;
-    }
-
-  evhttp_parse_query(full_uri, &query);
 
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "DAAP-Server", "forked-daapd/" VERSION);
 
-  ret = adm_handlers[handler].handler(req, evbuf, uri, &query);
+  CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
+
+  ret = hreq->handler(hreq);
   if (ret < 0)
     {
-      evhttp_send_error(req, 500, "Internal Server Error");
-    }
-  else
-    {
-      headers = evhttp_request_get_output_headers(req);
-      evhttp_add_header(headers, "Content-Type", "application/json");
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
+      httpd_send_error(req, 500, "Internal Server Error");
+      goto error;
     }
 
-  evbuffer_free(evbuf);
-  evhttp_clear_headers(&query);
-  free(uri);
-  free(full_uri);
+  evhttp_add_header(headers, "Content-Type", "application/json");
+
+  httpd_send_reply(req, HTTP_OK, "OK", hreq->reply, 0);
+
+ error:
+  evbuffer_free(hreq->reply);
+  free(hreq);
 }
 
 int
-jsonapi_is_request(struct evhttp_request *req, char *uri)
+jsonapi_is_request(const char *path)
 {
-  if (strncmp(uri, "/api/", strlen("/api/")) == 0)
+  if (strncmp(path, "/api/", strlen("/api/")) == 0)
     return 1;
-  if (strcmp(uri, "/api") == 0)
+  if (strcmp(path, "/api") == 0)
     return 1;
 
   return 0;
@@ -679,7 +576,7 @@ jsonapi_init(void)
 	{
 	  regerror(ret, &adm_handlers[i].preg, buf, sizeof(buf));
 
-	  DPRINTF(E_FATAL, L_WEB, "Admin web interface init failed; regexp error: %s\n", buf);
+	  DPRINTF(E_FATAL, L_WEB, "JSON api init failed; regexp error: %s\n", buf);
 	  return -1;
 	}
     }
@@ -695,4 +592,3 @@ jsonapi_deinit(void)
   for (i = 0; adm_handlers[i].handler; i++)
     regfree(&adm_handlers[i].preg);
 }
-

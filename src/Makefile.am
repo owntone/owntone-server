@@ -114,6 +114,7 @@ forked_daapd_SOURCES = main.c \
 	httpd_dacp.c httpd_dacp.h \
 	httpd_jsonapi.c httpd_jsonapi.h \
 	httpd_streaming.c httpd_streaming.h \
+	httpd_oauth.c httpd_oauth.h \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
 	$(FFMPEG_SRC) \

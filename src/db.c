@@ -452,6 +452,75 @@ free_mfi(struct media_file_info *mfi, int content_only)
 }
 
 void
+free_pli(struct playlist_info *pli, int content_only)
+{
+  if (!pli)
+    return;
+
+  free(pli->title);
+  free(pli->query);
+  free(pli->path);
+  free(pli->virtual_path);
+
+  if (!content_only)
+    free(pli);
+  else
+    memset(pli, 0, sizeof(struct playlist_info));
+}
+
+void
+free_di(struct directory_info *di, int content_only)
+{
+  if (!di)
+    return;
+
+  free(di->virtual_path);
+
+  if (!content_only)
+    free(di);
+  else
+    memset(di, 0, sizeof(struct directory_info));
+}
+
+void
+free_query_params(struct query_params *qp, int content_only)
+{
+  if (!qp)
+    return;
+
+  free(qp->filter);
+
+  if (!content_only)
+    free(qp);
+  else
+    memset(qp, 0, sizeof(struct query_params));
+}
+
+void
+free_queue_item(struct db_queue_item *queue_item, int content_only)
+{
+  if (!queue_item)
+    return;
+
+  free(queue_item->path);
+  free(queue_item->virtual_path);
+  free(queue_item->title);
+  free(queue_item->artist);
+  free(queue_item->album_artist);
+  free(queue_item->album);
+  free(queue_item->genre);
+  free(queue_item->artist_sort);
+  free(queue_item->album_sort);
+  free(queue_item->album_artist_sort);
+  free(queue_item->artwork_url);
+
+  if (!content_only)
+    free(queue_item);
+  else
+    memset(queue_item, 0, sizeof(struct db_queue_item));
+}
+
+void
 unicode_fixup_mfi(struct media_file_info *mfi)
 {
   char *ret;
@@ -483,37 +552,6 @@ unicode_fixup_mfi(struct media_file_info *mfi)
 	  *field = ret;
 	}
     }
-}
-
-void
-free_pli(struct playlist_info *pli, int content_only)
-{
-  if (!pli)
-    return;
-
-  free(pli->title);
-  free(pli->query);
-  free(pli->path);
-  free(pli->virtual_path);
-
-  if (!content_only)
-    free(pli);
-  else
-    memset(pli, 0, sizeof(struct playlist_info));
-}
-
-void
-free_di(struct directory_info *di, int content_only)
-{
-  if (!di)
-    return;
-
-  free(di->virtual_path);
-
-  if (!content_only)
-    free(di);
-  else
-    memset(di, 0, sizeof(struct directory_info));
 }
 
 
@@ -1338,6 +1376,7 @@ db_query_start(struct query_params *qp)
   int ret;
 
   qp->stmt = NULL;
+  qp->results = -1;
 
   switch (qp->type)
     {
@@ -1444,8 +1483,6 @@ db_query_end(struct query_params *qp)
 {
   if (!qp->stmt)
     return;
-
-  qp->results = -1;
 
   sqlite3_finalize(qp->stmt);
   qp->stmt = NULL;
@@ -3873,30 +3910,6 @@ db_speaker_clear_all(void)
 }
 
 /* Queue */
-
-void
-free_queue_item(struct db_queue_item *queue_item, int content_only)
-{
-  if (!queue_item)
-    return;
-
-  free(queue_item->path);
-  free(queue_item->virtual_path);
-  free(queue_item->title);
-  free(queue_item->artist);
-  free(queue_item->album_artist);
-  free(queue_item->album);
-  free(queue_item->genre);
-  free(queue_item->artist_sort);
-  free(queue_item->album_sort);
-  free(queue_item->album_artist_sort);
-  free(queue_item->artwork_url);
-
-  if (!content_only)
-    free(queue_item);
-  else
-    memset(queue_item, 0, sizeof(struct db_queue_item));
-}
 
 /*
  * Returns the queue version from the admin table

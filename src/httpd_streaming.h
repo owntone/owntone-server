@@ -2,7 +2,7 @@
 #ifndef __HTTPD_STREAMING_H__
 #define __HTTPD_STREAMING_H__
 
-#include <event2/http.h>
+#include "httpd.h"
 
 /* httpd_streaming takes care of incoming requests to /stream.mp3
  * It will receive decoded audio from the player, and encode it, and
@@ -14,10 +14,10 @@ void
 streaming_write(uint8_t *buf, uint64_t rtptime);
 
 int
-streaming_is_request(struct evhttp_request *req, char *uri);
+streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed);
 
 int
-streaming_request(struct evhttp_request *req);
+streaming_is_request(const char *path);
 
 int
 streaming_init(void);

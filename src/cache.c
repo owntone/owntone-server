@@ -47,13 +47,14 @@
 #include "commands.h"
 
 
-#define CACHE_VERSION 2
+#define CACHE_VERSION 3
 
 
 struct cache_arg
 {
   char *query; // daap query
   char *ua;    // user agent
+  int is_remote;
   int msec;
 
   char *path;  // artwork path
@@ -139,6 +140,7 @@ cache_create_tables(void)
   "   id                 INTEGER PRIMARY KEY NOT NULL,"		\
   "   query              VARCHAR(4096) UNIQUE NOT NULL,"	\
   "   user_agent         VARCHAR(1024),"			\
+  "   is_remote          INTEGER DEFAULT 0,"			\
   "   msec               INTEGER DEFAULT 0,"			\
   "   timestamp          INTEGER DEFAULT 0"			\
   ");"
@@ -605,7 +607,7 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
 static enum command_state
 cache_daap_query_add(void *arg, int *retval)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO queries (user_agent, query, msec, timestamp) VALUES ('%q', '%q', %d, %" PRIi64 ");"
+#define Q_TMPL "INSERT OR REPLACE INTO queries (user_agent, is_remote, query, msec, timestamp) VALUES ('%q', %d, '%q', %d, %" PRIi64 ");"
 #define Q_CLEANUP "DELETE FROM queries WHERE id NOT IN (SELECT id FROM queries ORDER BY timestamp DESC LIMIT 20);"
   struct cache_arg *cmdarg;
   struct timeval delay = { 60, 0 };
@@ -631,7 +633,7 @@ cache_daap_query_add(void *arg, int *retval)
   remove_tag(cmdarg->query, "session-id");
   remove_tag(cmdarg->query, "revision-number");
 
-  query = sqlite3_mprintf(Q_TMPL, cmdarg->ua, cmdarg->query, cmdarg->msec, (int64_t)time(NULL));
+  query = sqlite3_mprintf(Q_TMPL, cmdarg->ua, cmdarg->is_remote, cmdarg->query, cmdarg->msec, (int64_t)time(NULL));
   if (!query)
     {
       DPRINTF(E_LOG, L_CACHE, "Out of memory making query string.\n");
@@ -809,7 +811,7 @@ cache_daap_update_cb(int fd, short what, void *arg)
       return;
     }
 
-  ret = sqlite3_prepare_v2(g_db_hdl, "SELECT id, user_agent, query FROM queries;", -1, &stmt, 0);
+  ret = sqlite3_prepare_v2(g_db_hdl, "SELECT id, user_agent, is_remote, query FROM queries;", -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_CACHE, "Error preparing for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
@@ -818,9 +820,9 @@ cache_daap_update_cb(int fd, short what, void *arg)
 
   while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
     {
-      query = strdup((char *)sqlite3_column_text(stmt, 2));
+      query = strdup((char *)sqlite3_column_text(stmt, 3));
 
-      evbuf = daap_reply_build(query, (char *)sqlite3_column_text(stmt, 1));
+      evbuf = daap_reply_build(query, (char *)sqlite3_column_text(stmt, 1), sqlite3_column_int(stmt, 2));
       if (!evbuf)
 	{
 	  DPRINTF(E_LOG, L_CACHE, "Error building DAAP reply for query: %s\n", query);
@@ -1315,7 +1317,7 @@ cache_daap_resume(void)
 }
 
 int
-cache_daap_get(const char *query, struct evbuffer *evbuf)
+cache_daap_get(struct evbuffer *evbuf, const char *query)
 {
   struct cache_arg cmdarg;
 
@@ -1329,7 +1331,7 @@ cache_daap_get(const char *query, struct evbuffer *evbuf)
 }
 
 void
-cache_daap_add(const char *query, const char *ua, int msec)
+cache_daap_add(const char *query, const char *ua, int is_remote, int msec)
 {
   struct cache_arg *cmdarg;
 
@@ -1345,6 +1347,7 @@ cache_daap_add(const char *query, const char *ua, int msec)
 
   cmdarg->query = strdup(query);
   cmdarg->ua = strdup(ua);
+  cmdarg->is_remote = is_remote;
   cmdarg->msec = msec;
 
   commands_exec_async(cmdbase, cache_daap_query_add, cmdarg);
