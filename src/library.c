@@ -90,56 +90,24 @@ static bool scanning;
 static struct timeval library_update_wait = { 5, 0 };
 static struct event *updateev;
 
-static int library_deferred_commit_interval = 10;
-static unsigned int library_deferred_updates = 0;
-static time_t library_deferred_update_time = 0;
-static time_t library_update_time = 0;
+// Counts the number of changes made to the database between to DATABASE
+// event notifications
+static unsigned int deferred_update_notifications = 0;
 
-static void
-library_update_time_set(int deferred, time_t update_time)
+static bool
+handle_deferred_update_notifications(void)
 {
-  time_t *use_update_time;
-  unsigned int last_deferred_count = library_deferred_updates;
-  int persist;
-  time_t now = time(NULL);
+  bool ret = (deferred_update_notifications > 0);
 
-  if (deferred)
+  if (ret)
     {
-      use_update_time = &library_deferred_update_time;
-      ++library_deferred_updates;
-      persist = (now - library_deferred_update_time) >=
-          library_deferred_commit_interval;
-    }
-  else
-    {
-      if ( !update_time && library_deferred_updates)
-        {
-          update_time = library_deferred_update_time;
-        }
-      use_update_time = &library_update_time;
-      library_deferred_updates = 0;
-      persist = 1;
+      DPRINTF(E_DBG, L_LIB, "Database changed (%d changes)\n", deferred_update_notifications);
+
+      deferred_update_notifications = 0;
+      db_admin_setint64("db_update", (int64_t) time(NULL));
     }
 
-  *use_update_time = update_time ? update_time : now;
-
-  if ( persist )
-    {
-      /* |:todo:| persist update_time */
-      char stamp[32];
-      strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime(use_update_time));
-      DPRINTF(E_LOG, L_LIB, "Store DB update time: %s (%3d)%s\n", stamp, last_deferred_count, deferred ? " (deferred)" : "");
-    }
-}
-
-static void
-library_handle_deferred_updates(void)
-{
-  if (!scanning && library_deferred_updates)
-    {
-      library_update_time_set(0, 0);
-      listener_notify(LISTENER_DATABASE);
-    }
+  return ret;
 }
 
 static void
@@ -625,10 +593,13 @@ rescan(void *arg, int *ret)
   purge_cruft(starttime);
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
+  DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
+
+  if (handle_deferred_update_notifications())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
@@ -663,25 +634,40 @@ fullrescan(void *arg, int *ret)
     }
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
+  DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
+
+  if (handle_deferred_update_notifications())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
 }
 
+/*
+ * Callback to notify listeners of database changes
+ */
 static void
 update_trigger_cb(int fd, short what, void *arg)
 {
-  library_handle_deferred_updates();
+  if (handle_deferred_update_notifications())
+    {
+      listener_notify(LISTENER_DATABASE);
+    }
 }
 
 static enum command_state
 update_trigger(void *arg, int *retval)
 {
-  evtimer_add(updateev, &library_update_wait);
+  ++deferred_update_notifications;
+
+  // Only add the timer event if the update occurred outside a (init-/re-/fullre-) scan.
+  // The scanning functions take care of notifying clients of database changes directly
+  // after the scan finished.
+  if (!scanning)
+    evtimer_add(updateev, &library_update_wait);
 
   *retval = 0;
   return COMMAND_END;
@@ -750,11 +736,14 @@ initscan()
     }
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
+  DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
 
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
+
+  if (handle_deferred_update_notifications())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 }
 
 /*
@@ -784,23 +773,27 @@ library_is_exiting()
   return scan_exit;
 }
 
-time_t
-library_update_time_get(void)
-{
-  return library_update_time;
-}
-
+/*
+ * Trigger for sending the DATABASE event
+ *
+ * Needs to be called, if an update to the database (library tables) occurred. The DATABASE event
+ * is emitted with the delay 'library_update_wait'. It is safe to call this function from any thread.
+ */
 void
 library_update_trigger(void)
 {
-  library_update_time_set(1, 0);
+  int ret;
 
-  if (scanning)
+  pthread_t current_thread = pthread_self();
+  if (pthread_equal(current_thread, tid_library))
     {
-      return;
+      // We are already running in the library thread, it is safe to directly call update_trigger
+      update_trigger(NULL, &ret);
     }
-
-  commands_exec_async(cmdbase, update_trigger, NULL);
+  else
+    {
+      commands_exec_async(cmdbase, update_trigger, NULL);
+    }
 }
 
 static enum command_state
@@ -1010,22 +1003,6 @@ library_init(void)
     }
 
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
-
-
-  {
-      /* |:todo:| replace with initialization of library_update_time from persistent storage */
-      const char *db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
-      if (db_path)
-        {
-          struct stat sb;
-          ret = lstat(db_path, &sb);
-          if ( ret == 0 )
-            {
-              library_update_time = sb.st_mtim.tv_sec;
-              DPRINTF(E_DBG, L_LIB, "db_path %s has modified time %ld\n", db_path, library_update_time);
-            }
-        }
-  }
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 
