@@ -1499,6 +1499,7 @@ static int
 db_query_run(char *query, int free, int library_update)
 {
   char *errmsg;
+  int changes = 0;
   int ret;
 
   if (!query)
@@ -1516,6 +1517,8 @@ db_query_run(char *query, int free, int library_update)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
+  else
+    changes = sqlite3_changes(hdl);
 
   sqlite3_free(errmsg);
 
@@ -1524,7 +1527,7 @@ db_query_run(char *query, int free, int library_update)
 
   cache_daap_resume();
 
-  if (library_update)
+  if (library_update && changes > 0)
     library_update_trigger();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
@@ -3678,7 +3681,7 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 void
 db_spotify_purge(void)
 {
-#define Q_TMPL "UPDATE directories SET disabled = %" PRIi64 " WHERE virtual_path = '/spotify:';"
+#define Q_TMPL "UPDATE directories SET disabled = %" PRIi64 " WHERE virtual_path = '/spotify:' AND disabled <> %" PRIi64 ";"
   char *queries[4] =
     {
       "DELETE FROM files WHERE path LIKE 'spotify:%%';",
@@ -3699,7 +3702,7 @@ db_spotify_purge(void)
     }
 
   // Disable the spotify directory by setting 'disabled' to INOTIFY_FAKE_COOKIE value
-  query = sqlite3_mprintf(Q_TMPL, INOTIFY_FAKE_COOKIE);
+  query = sqlite3_mprintf(Q_TMPL, INOTIFY_FAKE_COOKIE, INOTIFY_FAKE_COOKIE);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
