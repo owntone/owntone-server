@@ -90,53 +90,16 @@ static bool scanning;
 static struct timeval library_update_wait = { 5, 0 };
 static struct event *updateev;
 
-static int library_deferred_commit_interval = 10;
 static unsigned int library_deferred_updates = 0;
-static time_t library_deferred_update_time = 0;
-static time_t library_update_time = 0;
-
-static void
-library_update_time_set(int deferred, time_t update_time)
-{
-  time_t *use_update_time;
-  unsigned int last_deferred_count = library_deferred_updates;
-  int persist;
-  time_t now = time(NULL);
-
-  if (deferred)
-    {
-      use_update_time = &library_deferred_update_time;
-      ++library_deferred_updates;
-      persist = (now - library_deferred_update_time) >=
-          library_deferred_commit_interval;
-    }
-  else
-    {
-      if ( !update_time && library_deferred_updates)
-        {
-          update_time = library_deferred_update_time;
-        }
-      use_update_time = &library_update_time;
-      library_deferred_updates = 0;
-      persist = 1;
-    }
-
-  *use_update_time = update_time ? update_time : now;
-
-  if ( persist )
-    {
-      /* |:todo:| persist update_time */
-      char stamp[32];
-      strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime(use_update_time));
-      DPRINTF(E_LOG, L_LIB, "Store DB update time: %s (%3d)%s\n", stamp, last_deferred_count, deferred ? " (deferred)" : "");
-    }
-}
 
 static void
 library_handle_deferred_updates(void)
 {
-  if (!scanning && library_deferred_updates)
+  if (library_deferred_updates)
     {
+      DPRINTF(E_LOG, L_LIB, "Notify clients of database changes (%d changes)\n", library_deferred_updates);
+
+      library_deferred_updates = 0;
       db_admin_setint64("db_update", (int64_t)time(NULL));
       listener_notify(LISTENER_DATABASE);
     }
@@ -628,7 +591,6 @@ rescan(void *arg, int *ret)
   DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
   listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
 
   *ret = 0;
   return COMMAND_END;
@@ -666,7 +628,6 @@ fullrescan(void *arg, int *ret)
   DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
   listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
 
   *ret = 0;
   return COMMAND_END;
@@ -681,6 +642,7 @@ update_trigger_cb(int fd, short what, void *arg)
 static enum command_state
 update_trigger(void *arg, int *retval)
 {
+  ++library_deferred_updates;
   evtimer_add(updateev, &library_update_wait);
 
   *retval = 0;
@@ -754,7 +716,6 @@ initscan()
 
   scanning = false;
   listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
 }
 
 /*
@@ -784,23 +745,20 @@ library_is_exiting()
   return scan_exit;
 }
 
-time_t
-library_update_time_get(void)
-{
-  return library_update_time;
-}
-
 void
 library_update_trigger(void)
 {
-  library_update_time_set(1, 0);
+  int ret;
 
-  if (scanning)
+  pthread_t current_thread = pthread_self();
+  if (pthread_equal(current_thread, tid_library))
     {
-      return;
+      update_trigger(NULL, &ret);
     }
-
-  commands_exec_async(cmdbase, update_trigger, NULL);
+  else
+    {
+      commands_exec_async(cmdbase, update_trigger, NULL);
+    }
 }
 
 static enum command_state
@@ -1010,22 +968,6 @@ library_init(void)
     }
 
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
-
-
-  {
-      /* |:todo:| replace with initialization of library_update_time from persistent storage */
-      const char *db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
-      if (db_path)
-        {
-          struct stat sb;
-          ret = lstat(db_path, &sb);
-          if ( ret == 0 )
-            {
-              library_update_time = sb.st_mtim.tv_sec;
-              DPRINTF(E_DBG, L_LIB, "db_path %s has modified time %ld\n", db_path, library_update_time);
-            }
-        }
-  }
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 
