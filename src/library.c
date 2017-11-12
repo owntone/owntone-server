@@ -22,6 +22,7 @@
 #endif
 
 #include <errno.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
@@ -89,6 +90,57 @@ static bool scanning;
 static struct timeval library_update_wait = { 5, 0 };
 static struct event *updateev;
 
+static int library_deferred_commit_interval = 10;
+static unsigned int library_deferred_updates = 0;
+static time_t library_deferred_update_time = 0;
+static time_t library_update_time = 0;
+
+static void
+library_update_time_set(int deferred, time_t update_time)
+{
+  time_t *use_update_time;
+  unsigned int last_deferred_count = library_deferred_updates;
+  int persist;
+  time_t now = time(NULL);
+
+  if (deferred)
+    {
+      use_update_time = &library_deferred_update_time;
+      ++library_deferred_updates;
+      persist = (now - library_deferred_update_time) >=
+          library_deferred_commit_interval;
+    }
+  else
+    {
+      if ( !update_time && library_deferred_updates)
+        {
+          update_time = library_deferred_update_time;
+        }
+      use_update_time = &library_update_time;
+      library_deferred_updates = 0;
+      persist = 1;
+    }
+
+  *use_update_time = update_time ? update_time : now;
+
+  if ( persist )
+    {
+      /* |:todo:| persist update_time */
+      char stamp[32];
+      strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime(use_update_time));
+      DPRINTF(E_LOG, L_LIB, "Store DB update time: %s (%3d)%s\n", stamp, last_deferred_count, deferred ? " (deferred)" : "");
+    }
+}
+
+static void
+library_handle_deferred_updates(void)
+{
+  if (!scanning && library_deferred_updates)
+    {
+      library_update_time_set(0, 0);
+      listener_notify(LISTENER_DATABASE);
+    }
+}
 
 static void
 sort_tag_create(char **sort_tag, char *src_tag)
@@ -573,9 +625,10 @@ rescan(void *arg, int *ret)
   purge_cruft(starttime);
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec\n", difftime(endtime, starttime));
+  DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
   listener_notify(LISTENER_UPDATE);
+  library_handle_deferred_updates();
 
   *ret = 0;
   return COMMAND_END;
@@ -610,9 +663,10 @@ fullrescan(void *arg, int *ret)
     }
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec\n", difftime(endtime, starttime));
+  DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
   listener_notify(LISTENER_UPDATE);
+  library_handle_deferred_updates();
 
   *ret = 0;
   return COMMAND_END;
@@ -621,7 +675,7 @@ fullrescan(void *arg, int *ret)
 static void
 update_trigger_cb(int fd, short what, void *arg)
 {
-  listener_notify(LISTENER_DATABASE);
+  library_handle_deferred_updates();
 }
 
 static enum command_state
@@ -696,11 +750,11 @@ initscan()
     }
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec\n", difftime(endtime, starttime));
+  DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
 
   scanning = false;
   listener_notify(LISTENER_UPDATE);
-  listener_notify(LISTENER_DATABASE);
+  library_handle_deferred_updates();
 }
 
 /*
@@ -730,11 +784,21 @@ library_is_exiting()
   return scan_exit;
 }
 
+time_t
+library_update_time_get(void)
+{
+  return library_update_time;
+}
+
 void
 library_update_trigger(void)
 {
+  library_update_time_set(1, 0);
+
   if (scanning)
-    return;
+    {
+      return;
+    }
 
   commands_exec_async(cmdbase, update_trigger, NULL);
 }
@@ -946,6 +1010,22 @@ library_init(void)
     }
 
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
+
+
+  {
+      /* |:todo:| replace with initialization of library_update_time from persistent storage */
+      const char *db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
+      if (db_path)
+        {
+          struct stat sb;
+          ret = lstat(db_path, &sb);
+          if ( ret == 0 )
+            {
+              library_update_time = sb.st_mtim.tv_sec;
+              DPRINTF(E_DBG, L_LIB, "db_path %s has modified time %ld\n", db_path, library_update_time);
+            }
+        }
+  }
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 

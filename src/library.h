@@ -115,6 +115,9 @@ library_set_scanning(bool is_scanning);
 bool
 library_is_exiting();
 
+time_t
+library_update_time_get(void);
+
 void
 library_update_trigger(void);
 
