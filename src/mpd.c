@@ -836,14 +836,14 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       "songs: %d\n"
       "uptime: %d\n" //in seceonds
       "db_playtime: %" PRIu64 "\n"
-      "db_update: %d\n"
+      "db_update: %ld\n"
       "playtime: %d\n",
         artists,
         albums,
         fci.count,
         4,
         (fci.length / 1000),
-        6,
+        library_update_time_get(),
         7);
 
   return 0;
