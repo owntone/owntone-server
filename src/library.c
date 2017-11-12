@@ -137,7 +137,7 @@ library_handle_deferred_updates(void)
 {
   if (!scanning && library_deferred_updates)
     {
-      library_update_time_set(0, 0);
+      db_admin_setint64("db_update", (int64_t)time(NULL));
       listener_notify(LISTENER_DATABASE);
     }
 }
