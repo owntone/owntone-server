@@ -90,46 +90,30 @@ static bool scanning;
 static struct timeval library_update_wait = { 5, 0 };
 static struct event *updateev;
 
-static int library_deferred_commit_interval = 10;
 static unsigned int library_deferred_updates = 0;
-static time_t library_deferred_update_time = 0;
+// Avoid DOS attacks by caching the database value
 static time_t library_update_time = 0;
 
 static void
-library_update_time_set(int deferred, time_t update_time)
+library_update_time_set_deferred(void)
 {
-  time_t *use_update_time;
-  unsigned int last_deferred_count = library_deferred_updates;
-  int persist;
-  time_t now = time(NULL);
-
-  if (deferred)
+  if (library_deferred_updates++ != 0)
     {
-      use_update_time = &library_deferred_update_time;
-      ++library_deferred_updates;
-      persist = (now - library_deferred_update_time) >=
-          library_deferred_commit_interval;
-    }
-  else
-    {
-      if ( !update_time && library_deferred_updates)
-        {
-          update_time = library_deferred_update_time;
-        }
-      use_update_time = &library_update_time;
-      library_deferred_updates = 0;
-      persist = 1;
+      return;
     }
 
-  *use_update_time = update_time ? update_time : now;
+  // There is at least one change. Mark the database as outdated in
+  // case the scan does not complete.
+  db_admin_setint64("db_update", (int64_t)time(NULL));
+}
 
-  if ( persist )
-    {
-      char stamp[32];
-      strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime(use_update_time));
-      DPRINTF(E_LOG, L_LIB, "Store DB update time: %s (%3d)%s\n", stamp, last_deferred_count, deferred ? " (deferred)" : "");
-      db_admin_setint64("db_update", (int64_t)use_update_time);
-    }
+static void
+library_update_time_set(void)
+{
+  library_update_time = time(NULL);
+  db_admin_setint64("db_update", (int64_t)library_update_time);
+  library_deferred_updates = 0;
+  listener_notify(LISTENER_DATABASE);
 }
 
 static void
@@ -137,8 +121,7 @@ library_handle_deferred_updates(void)
 {
   if (!scanning && library_deferred_updates)
     {
-      library_update_time_set(0, 0);
-      listener_notify(LISTENER_DATABASE);
+      library_update_time_set();
     }
 }
 
@@ -793,7 +776,7 @@ library_update_time_get(void)
 void
 library_update_trigger(void)
 {
-  library_update_time_set(1, 0);
+  library_update_time_set_deferred();
 
   if (scanning)
     {
