@@ -764,7 +764,7 @@ pipelist_create(void)
 // the pipe thread to watch the pipes. If no pipes in library, it will shut down
 // the pipe thread.
 static void
-pipe_listener_cb(enum listener_event_type type)
+pipe_listener_cb(short event_mask)
 {
   union pipe_arg *cmdarg;
 

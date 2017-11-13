@@ -28,18 +28,18 @@ enum listener_event_type
   LISTENER_LASTFM = (1 << 10),
 };
 
-typedef void (*notify)(enum listener_event_type type);
+typedef void (*notify)(short event_mask);
 
 /*
  * Registers the given callback function to the given event types.
  * This function is not thread safe. Listeners must be added once at startup.
  *
  * @param notify_cb Callback function
- * @param events Event mask, one or more of LISTENER_*
+ * @param event_mask Event mask, one or more of LISTENER_*
  * @return 0 on success, -1 on failure
  */
 int
-listener_add(notify notify_cb, short events);
+listener_add(notify notify_cb, short event_mask);
 
 /*
  * Removes the given callback function
