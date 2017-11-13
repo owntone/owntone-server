@@ -92,17 +92,20 @@ static struct event *updateev;
 
 static unsigned int library_deferred_updates = 0;
 
-static void
+static bool
 library_handle_deferred_updates(void)
 {
-  if (library_deferred_updates)
+  bool ret = (library_deferred_updates > 0);
+
+  if (ret)
     {
       DPRINTF(E_LOG, L_LIB, "Notify clients of database changes (%d changes)\n", library_deferred_updates);
 
       library_deferred_updates = 0;
       db_admin_setint64("db_update", (int64_t)time(NULL));
-      listener_notify(LISTENER_DATABASE);
     }
+
+  return ret;
 }
 
 static void
@@ -590,7 +593,11 @@ rescan(void *arg, int *ret)
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
+
+  if (library_handle_deferred_updates())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
@@ -627,7 +634,11 @@ fullrescan(void *arg, int *ret)
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
+
+  if (library_handle_deferred_updates())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
@@ -636,14 +647,19 @@ fullrescan(void *arg, int *ret)
 static void
 update_trigger_cb(int fd, short what, void *arg)
 {
-  library_handle_deferred_updates();
+  if (library_handle_deferred_updates())
+    {
+      listener_notify(LISTENER_DATABASE);
+    }
 }
 
 static enum command_state
 update_trigger(void *arg, int *retval)
 {
   ++library_deferred_updates;
-  evtimer_add(updateev, &library_update_wait);
+
+  if (!scanning)
+    evtimer_add(updateev, &library_update_wait);
 
   *retval = 0;
   return COMMAND_END;
@@ -715,7 +731,11 @@ initscan()
   DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
 
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
+
+  if (library_handle_deferred_updates())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 }
 
 /*
