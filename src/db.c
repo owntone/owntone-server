@@ -3412,7 +3412,16 @@ db_directory_add(struct directory_info *di, int *id)
 
   char *query;
   char *errmsg;
+  int vp_len = strlen(di->virtual_path);
   int ret;
+
+  if (vp_len && di->virtual_path[vp_len-1] == ' ')
+    {
+      /* Since sqlite removes the trailing space, so these
+       * directories will be found as new in perpetuity.
+       */
+      DPRINTF(E_LOG, L_DB, "Directory name ends with space: [%s]\n", di->virtual_path);
+    }
 
   query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id);
 
