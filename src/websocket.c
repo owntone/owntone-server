@@ -50,10 +50,10 @@ static short write_events;
 
 /* Thread: library (the thread the event occurred) */
 static void
-listener_cb(enum listener_event_type type)
+listener_cb(short event_mask)
 {
   // Add event to the event mask, clients will be notified at the next break of the libwebsockets service loop
-  events |= type;
+  events |= event_mask;
 }
 
 /*

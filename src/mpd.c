@@ -4747,12 +4747,12 @@ mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
 static enum command_state
 mpd_notify_idle(void *arg, int *retval)
 {
-  enum listener_event_type type;
+  short event_mask;
   struct mpd_client_ctx *client;
   int i;
 
-  type = *(enum listener_event_type *)arg;
-  DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle results: %d\n", type);
+  event_mask = *(short *)arg;
+  DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle results: %d\n", event_mask);
 
   i = 0;
   client = mpd_clients;
@@ -4760,7 +4760,7 @@ mpd_notify_idle(void *arg, int *retval)
     {
       DPRINTF(E_DBG, L_MPD, "Notify client #%d\n", i);
 
-      mpd_notify_idle_client(client, type);
+      mpd_notify_idle_client(client, event_mask);
       client = client->next;
       i++;
     }
@@ -4770,14 +4770,14 @@ mpd_notify_idle(void *arg, int *retval)
 }
 
 static void
-mpd_listener_cb(enum listener_event_type type)
+mpd_listener_cb(short event_mask)
 {
-  enum listener_event_type *ptr;
+  short *ptr;
 
-  ptr = (enum listener_event_type *)malloc(sizeof(enum listener_event_type));
-  *ptr = type;
+  ptr = (short *)malloc(sizeof(short));
+  *ptr = event_mask;
 
-  DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", type);
+  DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", event_mask);
   commands_exec_async(cmdbase, mpd_notify_idle, ptr);
 }
 

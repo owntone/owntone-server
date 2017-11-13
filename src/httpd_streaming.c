@@ -188,7 +188,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 
 // Thread: player (not fully thread safe, but hey...)
 static void
-player_change_cb(enum listener_event_type type)
+player_change_cb(short event_mask)
 {
   streaming_player_changed = 1;
 }

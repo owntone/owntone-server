@@ -398,12 +398,12 @@ playstatusupdate_cb(int fd, short what, void *arg)
 
 /* Thread: player */
 static void
-dacp_playstatus_update_handler(enum listener_event_type type)
+dacp_playstatus_update_handler(short event_mask)
 {
   int ret;
 
   // Only send status update on player change events
-  if (type != LISTENER_PLAYER)
+  if (!(event_mask & LISTENER_PLAYER))
     return;
 
 #ifdef HAVE_EVENTFD

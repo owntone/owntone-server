@@ -871,7 +871,7 @@ cache_daap_update(void *arg, int *retval)
 
 /* Callback from filescanner thread */
 static void
-cache_daap_listener_cb(enum listener_event_type type)
+cache_daap_listener_cb(short event_mask)
 {
   commands_exec_async(cmdbase, cache_daap_update, NULL);
 }
