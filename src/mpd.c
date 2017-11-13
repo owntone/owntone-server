@@ -193,6 +193,13 @@ struct idle_client
 
 struct idle_client *idle_clients;
 
+#define ALL_IDLE_CLIENT_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST)
+
+static enum listener_event_type
+idle_client_active_events = 0;
+
+static void
+mpd_listener_cb(enum listener_event_type type);
 
 /*
  * Creates a new string for the given path that starts with a '/'.
@@ -652,9 +659,12 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	}
     }
   else
-    client->events = LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST;
+    client->events = ALL_IDLE_CLIENT_EVENTS;
 
   idle_clients = client;
+
+  if (client->events & idle_client_active_events)
+    mpd_listener_cb(client->events & idle_client_active_events);
 
   return 0;
 }
@@ -4672,52 +4682,42 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
 }
 
 static int
-mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type)
+mpd_notify_idle_client(struct idle_client *client)
 {
-  if (!(client->events & type))
+  enum listener_event_type masked_events = client->events & idle_client_active_events;
+  if (!(masked_events))
     {
-      DPRINTF(E_DBG, L_MPD, "Client not listening for event: %d\n", type);
+      DPRINTF(E_DBG, L_MPD, "Client not listening for any active events (0x%04x)\n", idle_client_active_events);
       return 1;
     }
 
-  switch (type)
-    {
-      case LISTENER_DATABASE:
-	evbuffer_add(client->evbuffer, "changed: database\n", 18);
-	break;
+  DPRINTF(E_DBG, L_MPD, "Handling events 0x%04x of active events 0x%04x\n", masked_events, idle_client_active_events);
 
-      case LISTENER_UPDATE:
-	evbuffer_add(client->evbuffer, "changed: update\n", 16);
-	break;
+  if (masked_events & LISTENER_DATABASE)
+    evbuffer_add(client->evbuffer, "changed: database\n", 18);
 
-      case LISTENER_PLAYER:
-	evbuffer_add(client->evbuffer, "changed: player\n", 16);
-	break;
+  if (masked_events & LISTENER_UPDATE)
+    evbuffer_add(client->evbuffer, "changed: update\n", 16);
 
-      case LISTENER_QUEUE:
-	evbuffer_add(client->evbuffer, "changed: playlist\n", 18);
-	break;
+  if (masked_events & LISTENER_PLAYER)
+    evbuffer_add(client->evbuffer, "changed: player\n", 16);
 
-      case LISTENER_VOLUME:
-	evbuffer_add(client->evbuffer, "changed: mixer\n", 15);
-	break;
+  if (masked_events & LISTENER_QUEUE)
+    evbuffer_add(client->evbuffer, "changed: playlist\n", 18);
 
-      case LISTENER_SPEAKER:
-	evbuffer_add(client->evbuffer, "changed: output\n", 16);
-	break;
+  if (masked_events & LISTENER_VOLUME)
+    evbuffer_add(client->evbuffer, "changed: mixer\n", 15);
 
-      case LISTENER_OPTIONS:
-	evbuffer_add(client->evbuffer, "changed: options\n", 17);
-	break;
+  if (masked_events & LISTENER_SPEAKER)
+    evbuffer_add(client->evbuffer, "changed: output\n", 16);
 
-      case LISTENER_STORED_PLAYLIST:
-	evbuffer_add(client->evbuffer, "changed: stored_playlist\n", 25);
-	break;
+  if (masked_events & LISTENER_OPTIONS)
+    evbuffer_add(client->evbuffer, "changed: options\n", 17);
 
-      default:
-	DPRINTF(E_WARN, L_MPD, "Unsupported event type (%d) in notify idle clients.\n", type);
-	return -1;
-    }
+  if (masked_events & LISTENER_STORED_PLAYLIST)
+    evbuffer_add(client->evbuffer, "changed: stored_playlist\n", 25);
+
+  idle_client_active_events &= ~masked_events;
 
   evbuffer_add(client->evbuffer, "OK\n", 3);
 
@@ -4727,27 +4727,26 @@ mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type
 static enum command_state
 mpd_notify_idle(void *arg, int *retval)
 {
-  enum listener_event_type type;
   struct idle_client *client;
   struct idle_client *prev;
   struct idle_client *next;
   int i;
   int ret;
 
-  type = *(enum listener_event_type *)arg;
-  DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle results: %d\n", type);
+  if (idle_client_active_events)
+    DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle events: 0x%04x\n", idle_client_active_events);
 
   prev = NULL;
   next = NULL;
   i = 0;
   client = idle_clients;
-  while (client)
+  while (idle_client_active_events && client)
     {
       DPRINTF(E_DBG, L_MPD, "Notify client #%d\n", i);
 
       next = client->next;
 
-      ret = mpd_notify_idle_client(client, type);
+      ret = mpd_notify_idle_client(client);
 
       if (ret == 0)
 	{
@@ -4774,13 +4773,10 @@ mpd_notify_idle(void *arg, int *retval)
 static void
 mpd_listener_cb(enum listener_event_type type)
 {
-  enum listener_event_type *ptr;
-
-  ptr = (enum listener_event_type *)malloc(sizeof(enum listener_event_type));
-  *ptr = type;
+  idle_client_active_events |= type;
 
   DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", type);
-  commands_exec_async(cmdbase, mpd_notify_idle, ptr);
+  commands_exec_async(cmdbase, mpd_notify_idle, NULL);
 }
 
 /*
@@ -5048,7 +5044,7 @@ int mpd_init(void)
 #endif
 
   idle_clients = NULL;
-  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST);
+  listener_add(mpd_listener_cb, ALL_IDLE_CLIENT_EVENTS);
 
   return 0;
 
