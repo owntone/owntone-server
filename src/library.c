@@ -125,10 +125,10 @@ library_update_time_set(int deferred, time_t update_time)
 
   if ( persist )
     {
-      /* |:todo:| persist update_time */
       char stamp[32];
       strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime(use_update_time));
       DPRINTF(E_LOG, L_LIB, "Store DB update time: %s (%3d)%s\n", stamp, last_deferred_count, deferred ? " (deferred)" : "");
+      db_admin_setint64("db_update", (int64_t)use_update_time);
     }
 }
 
@@ -1009,23 +1009,9 @@ library_init(void)
 	sources[i]->disabled = 1;
     }
 
+  library_update_time = (time_t) db_admin_getint64("db_update");
+
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
-
-
-  {
-      /* |:todo:| replace with initialization of library_update_time from persistent storage */
-      const char *db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
-      if (db_path)
-        {
-          struct stat sb;
-          ret = lstat(db_path, &sb);
-          if ( ret == 0 )
-            {
-              library_update_time = sb.st_mtim.tv_sec;
-              DPRINTF(E_DBG, L_LIB, "db_path %s has modified time %ld\n", db_path, library_update_time);
-            }
-        }
-  }
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 
