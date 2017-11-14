@@ -4614,6 +4614,29 @@ mpd_input_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, enu
   return BEV_OK;
 }
 
+/* |:todo:| This should probably go somewhere else. */
+static const char *
+sockaddr_to_string(const struct sockaddr *address, char *addr_str, int addr_str_len)
+{
+  const char *ret;
+
+  if (address->sa_family == AF_INET)
+    {
+      struct sockaddr_in *addr = (struct sockaddr_in *)address;
+      ret = evutil_inet_ntop(AF_INET, &addr->sin_addr, addr_str, addr_str_len);
+    }
+  else if (address->sa_family == AF_INET6)
+    {
+      struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)address;
+      ret = evutil_inet_ntop(AF_INET6, &addr6->sin6_addr, addr_str, addr_str_len);
+    }
+  else
+    {
+      ret = NULL;
+    }
+  return ret;
+}
+
 /*
  * The connection listener callback function is invoked when a new connection was received.
  *
@@ -4645,6 +4668,12 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
     }
 
   cmd_ctx->authenticated = !cfg_getstr(cfg_getsec(cfg, "library"), "password");
+  if (!cmd_ctx->authenticated)
+    {
+      char addr_str[INET6_ADDRSTRLEN];
+      sockaddr_to_string(address, addr_str, sizeof(addr_str));
+      cmd_ctx->authenticated = peer_address_is_trusted(addr_str);
+    }
 
   bev = bufferevent_filter_new(bev, mpd_input_filter, NULL, BEV_OPT_CLOSE_ON_FREE, free, cmd_ctx);
   bufferevent_setcb(bev, mpd_read_cb, NULL, mpd_event_cb, cmd_ctx);
