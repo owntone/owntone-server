@@ -91,38 +91,23 @@ static struct timeval library_update_wait = { 5, 0 };
 static struct event *updateev;
 
 static unsigned int library_deferred_updates = 0;
-// Avoid DOS attacks by caching the database value
-static time_t library_update_time = 0;
 
-static void
-library_update_time_set_deferred(void)
+static bool
+library_handle_deferred_updates(void)
 {
-  if (library_deferred_updates++ != 0)
+  bool ret = (library_deferred_updates > 0);
+  if (ret)
     {
-      return;
-    }
-
-  // There is at least one change. Mark the database as outdated in
+      DPRINTF(E_LOG, L_LIB, "Notify clients of database changes (%d changes)\n", library_deferred_updates);
   // case the scan does not complete.
   db_admin_setint64("db_update", (int64_t)time(NULL));
 }
 
-static void
-library_update_time_set(void)
-{
-  library_update_time = time(NULL);
-  db_admin_setint64("db_update", (int64_t)library_update_time);
-  library_deferred_updates = 0;
-  listener_notify(LISTENER_DATABASE);
-}
-
-static void
-library_handle_deferred_updates(void)
-{
-  if (!scanning && library_deferred_updates)
-    {
-      library_update_time_set();
+      library_deferred_updates = 0;
+      db_admin_setint64("db_update", (int64_t)time(NULL));
     }
+
+  return ret;
 }
 
 static void
@@ -610,8 +595,11 @@ rescan(void *arg, int *ret)
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
+
+  if (library_handle_deferred_updates())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
@@ -648,8 +636,11 @@ fullrescan(void *arg, int *ret)
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
+
+  if (library_handle_deferred_updates())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
@@ -658,13 +649,19 @@ fullrescan(void *arg, int *ret)
 static void
 update_trigger_cb(int fd, short what, void *arg)
 {
-  library_handle_deferred_updates();
+  if (library_handle_deferred_updates())
+    {
+      listener_notify(LISTENER_DATABASE);
+    }
 }
 
 static enum command_state
 update_trigger(void *arg, int *retval)
 {
-  evtimer_add(updateev, &library_update_wait);
+  ++library_deferred_updates;
+
+  if (!scanning)
+    evtimer_add(updateev, &library_update_wait);
 
   *retval = 0;
   return COMMAND_END;
@@ -736,8 +733,11 @@ initscan()
   DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), library_deferred_updates);
 
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
-  library_handle_deferred_updates();
+
+  if (library_handle_deferred_updates())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 }
 
 /*
@@ -767,23 +767,20 @@ library_is_exiting()
   return scan_exit;
 }
 
-time_t
-library_update_time_get(void)
-{
-  return library_update_time;
-}
-
 void
 library_update_trigger(void)
 {
-  library_update_time_set_deferred();
+  int ret;
 
-  if (scanning)
+  pthread_t current_thread = pthread_self();
+  if (pthread_equal(current_thread, tid_library))
     {
-      return;
+      update_trigger(NULL, &ret);
     }
-
-  commands_exec_async(cmdbase, update_trigger, NULL);
+  else
+    {
+      commands_exec_async(cmdbase, update_trigger, NULL);
+    }
 }
 
 static enum command_state
@@ -993,8 +990,6 @@ library_init(void)
     }
 
   library_update_time = (time_t) db_admin_getint64("db_update");
-
-  CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 

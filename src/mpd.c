@@ -20,6 +20,7 @@
 # include <config.h>
 #endif
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -144,9 +145,54 @@ static const char * const ffmpeg_mime_types[] = { "application/flv", "applicatio
 };
 
 /* Provide for connection specfic authentication. */
-struct mpd_cmd_ctx {
-    int authenticated;
+struct mpd_client_ctx
+{
+  int authenticated;
+
+  short events;
+  bool is_idle;
+  short idle_events;
+
+  struct evbuffer *evbuffer;
+
+  struct mpd_client_ctx *next;
 };
+
+struct mpd_client_ctx *mpd_clients;
+
+static void
+free_mpd_client_ctx(void *ctx)
+{
+  struct mpd_client_ctx *client_ctx = ctx;
+  struct mpd_client_ctx *client;
+  struct mpd_client_ctx *prev;
+
+  if (!client_ctx)
+    return;
+
+  client = mpd_clients;
+  prev = NULL;
+
+  while (client)
+    {
+      if (client == client_ctx)
+	{
+	  DPRINTF(E_DBG, L_MPD, "Removing mpd client\n");
+
+	  if (prev)
+	    prev->next = client->next;
+	  else
+	    mpd_clients = client->next;
+
+	  break;
+	}
+
+      prev = client;
+      client = client->next;
+    }
+
+  free(client_ctx);
+}
 
 struct output
 {
@@ -182,24 +228,6 @@ free_outputs(struct output *outputs)
       next = next ? next->next : NULL;
     }
 }
-
-struct idle_client
-{
-  struct evbuffer *evbuffer;
-  short events;
-
-  struct idle_client *next;
-};
-
-struct idle_client *idle_clients;
-
-#define ALL_IDLE_CLIENT_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST)
-
-static enum listener_event_type
-idle_client_active_events = 0;
-
-static void
-mpd_listener_cb(enum listener_event_type type);
 
 /*
  * Creates a new string for the given path that starts with a '/'.
@@ -559,7 +587,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
  * Command handler function for 'currentsong'
  */
 static int
-mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
 
   struct player_status status;
@@ -594,27 +622,19 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
   return 0;
 }
 
+static int
+mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events);
 /*
  *
  * Example input:
  * idle "database" "mixer" "options" "output" "player" "playlist" "sticker" "update"
  */
 static int
-mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct idle_client *client;
   int i;
 
-  client = (struct idle_client*)malloc(sizeof(struct idle_client));
-  if (!client)
-    {
-      DPRINTF(E_LOG, L_MPD, "Out of memory for idle_client\n");
-      return ACK_ERROR_UNKNOWN;
-    }
-
-  client->evbuffer = evbuf;
-  client->events = 0;
-  client->next = idle_clients;
+  ctx->idle_events = 0;
 
   if (argc > 1)
     {
@@ -622,35 +642,35 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	{
 	  if (0 == strcmp(argv[i], "database"))
 	    {
-	      client->events |= LISTENER_DATABASE;
+	      ctx->idle_events |= LISTENER_DATABASE;
 	    }
 	  else if (0 == strcmp(argv[i], "update"))
 	    {
-	      client->events |= LISTENER_UPDATE;
+	      ctx->idle_events |= LISTENER_UPDATE;
 	    }
 	  else if (0 == strcmp(argv[i], "player"))
 	    {
-	      client->events |= LISTENER_PLAYER;
+	      ctx->idle_events |= LISTENER_PLAYER;
 	    }
 	  else if (0 == strcmp(argv[i], "playlist"))
 	    {
-	      client->events |= LISTENER_QUEUE;
+	      ctx->idle_events |= LISTENER_QUEUE;
 	    }
 	  else if (0 == strcmp(argv[i], "mixer"))
 	    {
-	      client->events |= LISTENER_VOLUME;
+	      ctx->idle_events |= LISTENER_VOLUME;
 	    }
 	  else if (0 == strcmp(argv[i], "output"))
 	    {
-	      client->events |= LISTENER_SPEAKER;
+	      ctx->idle_events |= LISTENER_SPEAKER;
 	    }
 	  else if (0 == strcmp(argv[i], "options"))
 	    {
-	      client->events |= LISTENER_OPTIONS;
+	      ctx->idle_events |= LISTENER_OPTIONS;
 	    }
 	  else if (0 == strcmp(argv[i], "stored_playlist"))
 	    {
-	      client->events |= LISTENER_STORED_PLAYLIST;
+	      ctx->idle_events |= LISTENER_STORED_PLAYLIST;
 	    }
 	  else
 	    {
@@ -659,49 +679,50 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	}
     }
   else
-    client->events = ALL_IDLE_CLIENT_EVENTS;
+    ctx->idle_events = LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST;
 
-  idle_clients = client;
+  ctx->is_idle = true;
 
-  if (client->events & idle_client_active_events)
-    mpd_listener_cb(client->events & idle_client_active_events);
+  if (ctx->events & ctx->idle_events)
+    mpd_notify_idle_client(ctx, ctx->events);
 
   return 0;
 }
 
-static void
-mpd_remove_idle_client(struct evbuffer *evbuf)
-{
-  struct idle_client *client;
-  struct idle_client *prev;
-
-  client = idle_clients;
-  prev = NULL;
-
-  while (client)
-    {
-      if (client->evbuffer == evbuf)
-	{
-	  DPRINTF(E_DBG, L_MPD, "Removing idle client for evbuffer\n");
-
-	  if (prev)
-	    prev->next = client->next;
-	  else
-	    idle_clients = client->next;
-
-	  free(client);
-	  break;
-	}
-
-      prev = client;
-      client = client->next;
-    }
-}
+//static void
+//mpd_remove_client(struct evbuffer *evbuf)
+//{
+//  struct idle_client *client;
+//  struct idle_client *prev;
+//
+//  client = idle_clients;
+//  prev = NULL;
+//
+//  while (client)
+//    {
+//      if (client->evbuffer == evbuf)
+//	{
+//	  DPRINTF(E_DBG, L_MPD, "Removing idle client for evbuffer\n");
+//
+//	  if (prev)
+//	    prev->next = client->next;
+//	  else
+//	    idle_clients = client->next;
+//
+//	  free(client);
+//	  break;
+//	}
+//
+//      prev = client;
+//      client = client->next;
+//    }
+//}
 
 static int
-mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  mpd_remove_idle_client(evbuf);
+  ctx->is_idle = false;
+  ctx->idle_events = 0;
   return 0;
 }
 
@@ -728,7 +749,7 @@ mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  *  nextsongid: 2
  */
 static int
-mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct player_status status;
   int queue_length;
@@ -820,7 +841,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Command handler function for 'stats'
  */
 static int
-mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct filecount_info fci;
@@ -848,14 +869,14 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       "songs: %d\n"
       "uptime: %d\n" //in seceonds
       "db_playtime: %" PRIi64 "\n"
-      "db_update: %" PRIi64 "\n"
+      "db_update: %ld\n"
       "playtime: %d\n",
         artists,
         albums,
         fci.count,
         4,
         (fci.length / 1000),
-        library_update_time_get(),
+	(time_t) db_admin_getint64("db_update"),
         7);
 
   return 0;
@@ -868,7 +889,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  *   1 = enable consume
  */
 static int
-mpd_command_consume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_consume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int enable;
   int ret;
@@ -897,7 +918,7 @@ mpd_command_consume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
  *   1 = enable shuffle
  */
 static int
-mpd_command_random(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_random(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int enable;
   int ret;
@@ -926,7 +947,7 @@ mpd_command_random(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  *   1 = repeat all
  */
 static int
-mpd_command_repeat(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_repeat(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int enable;
   int ret;
@@ -957,7 +978,7 @@ mpd_command_repeat(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Sets the volume, expects argument argv[1] to be an integer 0-100
  */
 static int
-mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int volume;
   int ret;
@@ -996,7 +1017,7 @@ mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  *   1 = repeat song
  */
 static int
-mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int enable;
   struct player_status status;
@@ -1033,7 +1054,7 @@ mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * "replay_gain_mode: off".
  */
 static int
-mpd_command_replay_gain_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_replay_gain_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   evbuffer_add(evbuf, "replay_gain_mode: off\n", 22);
   return 0;
@@ -1046,7 +1067,7 @@ mpd_command_replay_gain_status(struct evbuffer *evbuf, int argc, char **argv, ch
  * According to the mpd protocoll specification this function is deprecated.
  */
 static int
-mpd_command_volume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_volume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct player_status status;
   int volume;
@@ -1079,7 +1100,7 @@ mpd_command_volume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Skips to the next song in the playqueue
  */
 static int
-mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int ret;
 
@@ -1108,7 +1129,7 @@ mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  *   1 = pause
  */
 static int
-mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int pause;
   struct player_status status;
@@ -1152,7 +1173,7 @@ mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * where to start playback.
  */
 static int
-mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int songpos;
   struct player_status status;
@@ -1214,7 +1235,7 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * where to start playback.
  */
 static int
-mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   uint32_t id;
   struct player_status status;
@@ -1270,7 +1291,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Skips to the previous song in the playqueue
  */
 static int
-mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int ret;
 
@@ -1298,7 +1319,7 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
  * (fractions allowed).
  */
 static int
-mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   uint32_t songpos;
   float seek_target_sec;
@@ -1347,7 +1368,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * (fractions allowed).
  */
 static int
-mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct player_status status;
   uint32_t id;
@@ -1402,7 +1423,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Seeks the current song to the position in seconds given in argument argv[1] (fractions allowed).
  */
 static int
-mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   float seek_target_sec;
   int seek_target_msec;
@@ -1441,7 +1462,7 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
  * Stop playback.
  */
 static int
-mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int ret;
 
@@ -1503,7 +1524,7 @@ mpd_queue_add(char *path, int recursive)
  * Expects argument argv[1] to be a path to a single file or directory.
  */
 static int
-mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct media_file_info mfi;
   int ret;
@@ -1546,7 +1567,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * it must be an integer representing the position in the playqueue.
  */
 static int
-mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct media_file_info mfi;
   int ret;
@@ -1597,7 +1618,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Stops playback and removes all songs from the playqueue
  */
 static int
-mpd_command_clear(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_clear(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int ret;
 
@@ -1619,7 +1640,7 @@ mpd_command_clear(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * should be removed.
  */
 static int
-mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int start_pos;
   int end_pos;
@@ -1658,7 +1679,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * Removes the song with given id from the playqueue. Expects argument argv[1] to be an integer (song id).
  */
 static int
-mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   uint32_t songid;
   int ret;
@@ -1688,7 +1709,7 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
 
 //Moves the song at FROM or range of songs at START:END to TO in the playlist.
 static int
-mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int start_pos;
   int end_pos;
@@ -1731,7 +1752,7 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static int
-mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   uint32_t songid;
   uint32_t to_pos;
@@ -1775,7 +1796,7 @@ mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
  * The order of the songs is always the not shuffled order.
  */
 static int
-mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params query_params;
   struct db_queue_item queue_item;
@@ -1835,7 +1856,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
  * The order of the songs is always the not shuffled order.
  */
 static int
-mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params query_params;
   struct db_queue_item queue_item;
@@ -1894,7 +1915,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
  * Lists all changed songs in the queue since the given playlist version in argv[1].
  */
 static int
-mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params query_params;
   struct db_queue_item queue_item;
@@ -1935,7 +1956,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
  * Lists all changed songs in the queue since the given playlist version in argv[1] without metadata.
  */
 static int
-mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params query_params;
   struct db_queue_item queue_item;
@@ -1973,7 +1994,7 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
  * Lists all songs in the playlist given by virtual-path in argv[1].
  */
 static int
-mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   char path[PATH_MAX];
   struct playlist_info *pli;
@@ -2041,7 +2062,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
  * Lists all songs in the playlist given by virtual-path in argv[1] with metadata.
  */
 static int
-mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   char path[PATH_MAX];
   struct playlist_info *pli;
@@ -2111,7 +2132,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
  * Lists all playlists with their last modified date.
  */
 static int
-mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct db_playlist_info dbpli;
@@ -2164,7 +2185,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
  * Adds the playlist given by virtual-path in argv[1] to the queue.
  */
 static int
-mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   char path[PATH_MAX];
   struct playlist_info *pli;
@@ -2211,7 +2232,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static int
-mpd_command_playlistadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_playlistadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   char *vp_playlist;
   char *vp_item;
@@ -2255,7 +2276,7 @@ mpd_command_playlistadd(struct evbuffer *evbuf, int argc, char **argv, char **er
 }
 
 static int
-mpd_command_rm(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_rm(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   char *virtual_path;
   int ret;
@@ -2295,7 +2316,7 @@ mpd_command_rm(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static int
-mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   char *virtual_path;
   int ret;
@@ -2454,7 +2475,7 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 }
 
 static int
-mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct filecount_info fci;
@@ -2492,7 +2513,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static int
-mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -2538,7 +2559,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static int
-mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct player_status status;
@@ -2572,7 +2593,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 }
 
 static int
-mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct db_group_info dbgri;
@@ -2825,7 +2846,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
 }
 
 static int
-mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int dir_id;
   char parent[PATH_MAX];
@@ -2865,7 +2886,7 @@ mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 }
 
 static int
-mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int dir_id;
   char parent[PATH_MAX];
@@ -2909,7 +2930,7 @@ mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **er
  * Lists the contents of the directory given in argv[1].
  */
 static int
-mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int dir_id;
   char parent[PATH_MAX];
@@ -2961,7 +2982,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   // If the root directory was passed as argument add the stored playlists to the response
   if (ret == 0 && print_playlists)
     {
-      return mpd_command_listplaylists(evbuf, argc, argv, errmsg);
+      return mpd_command_listplaylists(evbuf, argc, argv, errmsg, ctx);
     }
 
   return ret;
@@ -3096,7 +3117,7 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
  * Example request: "search artist foo album bar"
  */
 static int
-mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -3142,7 +3163,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static int
-mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
   struct player_status status;
@@ -3180,7 +3201,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
  * Initiates an init-rescan (scans for new files)
  */
 static int
-mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   if (argc > 1 && strlen(argv[1]) > 0)
     {
@@ -3197,7 +3218,7 @@ mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
 /*
 static int
-mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int ret;
 
@@ -3217,7 +3238,7 @@ mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 */
 
 static int
-mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   char *required_password;
   char *supplied_password = "";
@@ -3282,7 +3303,7 @@ outputs_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct sp
  * Expects argument argv[1] to be the id of the speaker to disable.
  */
 static int
-mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct outputs outputs;
   struct output *output;
@@ -3366,7 +3387,7 @@ mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **
  * Expects argument argv[1] to be the id of the speaker to enable.
  */
 static int
-mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct outputs outputs;
   struct output *output;
@@ -3451,7 +3472,7 @@ mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  * Expects argument argv[1] to be the id of the speaker to enable/disable.
  */
 static int
-mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct outputs outputs;
   struct output *output;
@@ -3570,7 +3591,7 @@ speaker_enum_cb(uint64_t id, const char *name, int relvol, int absvol, struct sp
  * Returns a lists with the avaiable speakers.
  */
 static int
-mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   player_speaker_enumerate(speaker_enum_cb, evbuf);
 
@@ -3621,7 +3642,7 @@ outputvolume_set(uint32_t shortid, int volume, char **errmsg)
 }
 
 static int
-mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   uint32_t shortid;
   int volume;
@@ -3764,7 +3785,7 @@ mpd_find_channel(const char *name)
 }
 
 static int
-mpd_command_channels(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_channels(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int i;
 
@@ -3779,7 +3800,7 @@ mpd_command_channels(struct evbuffer *evbuf, int argc, char **argv, char **errms
 }
 
 static int
-mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   const char *channelname;
   const char *message;
@@ -3811,7 +3832,7 @@ mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **er
  * not raise an error.
  */
 static int
-mpd_command_ignore(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_ignore(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   //do nothing
   DPRINTF(E_DBG, L_MPD, "Ignore command %s\n", argv[0]);
@@ -3819,7 +3840,7 @@ mpd_command_ignore(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static int
-mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
+mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx);
 
 /*
  * Command handler function for 'tagtypes'
@@ -3827,7 +3848,7 @@ mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errms
  *   tagtype: Artist
  */
 static int
-mpd_command_tagtypes(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_tagtypes(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   evbuffer_add_printf(evbuf,
       "tagtype: Artist\n"
@@ -3851,7 +3872,7 @@ mpd_command_tagtypes(struct evbuffer *evbuf, int argc, char **argv, char **errms
  * therefor the function reports only ffmpeg as available.
  */
 static int
-mpd_command_decoders(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_decoders(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int i;
 
@@ -3884,7 +3905,7 @@ struct mpd_command
    * @param errmsg error message set by this function if an error occured
    * @return 0 if successful, one of ack values if an error occured
    */
-  int (*handler)(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
+  int (*handler)(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx);
 };
 
 static struct mpd_command mpd_handlers[] =
@@ -4388,7 +4409,7 @@ mpd_find_command(const char *name)
 }
 
 static int
-mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   int i;
 
@@ -4425,7 +4446,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   int close_cmd;
   char *argv[COMMAND_ARGV_MAX];
   int argc;
-  struct mpd_cmd_ctx *cmd_ctx = (struct mpd_cmd_ctx *)ctx;
+  struct mpd_client_ctx *client_ctx = (struct mpd_client_ctx *)ctx;
 
   /* Get the input evbuffer, contains the command sequence received from the client */
   input = bufferevent_get_input(bev);
@@ -4498,16 +4519,16 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	}
       else if (strcmp(command->mpdcommand, "password") == 0)
         {
-          ret = command->handler(output, argc, argv, &errmsg);
-          cmd_ctx->authenticated = ret == 0;
+          ret = command->handler(output, argc, argv, &errmsg, client_ctx);
+          client_ctx->authenticated = ret == 0;
         }
-      else if (!cmd_ctx->authenticated)
+      else if (!client_ctx->authenticated)
         {
 	  errmsg = safe_asprintf("Not authenticated");
 	  ret = ACK_ERROR_PERMISSION;
         }
       else
-	ret = command->handler(output, argc, argv, &errmsg);
+	ret = command->handler(output, argc, argv, &errmsg, client_ctx);
 
       /*
        * If an error occurred, add the ACK line to the response buffer and exit the loop
@@ -4552,8 +4573,6 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 static void
 mpd_event_cb(struct bufferevent *bev, short events, void *ctx)
 {
-  struct evbuffer *evbuf;
-
   if (events & BEV_EVENT_ERROR)
     {
       DPRINTF(E_LOG, L_MPD, "Error from bufferevent: %s\n",
@@ -4562,8 +4581,6 @@ mpd_event_cb(struct bufferevent *bev, short events, void *ctx)
 
   if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR))
     {
-      evbuf = bufferevent_get_output(bev);
-      mpd_remove_idle_client(evbuf);
       bufferevent_free(bev);
     }
 }
@@ -4645,19 +4662,21 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
    */
   struct event_base *base = evconnlistener_get_base(listener);
   struct bufferevent *bev = bufferevent_socket_new(base, sock, BEV_OPT_CLOSE_ON_FREE);
-  struct mpd_cmd_ctx *cmd_ctx = (struct mpd_cmd_ctx *)malloc(sizeof(struct mpd_cmd_ctx));
+  struct mpd_client_ctx *client_ctx = calloc(1, sizeof(struct mpd_client_ctx));
 
-  if (!cmd_ctx)
+  if (!client_ctx)
     {
       DPRINTF(E_LOG, L_MPD, "Out of memory for command context\n");
       bufferevent_free(bev);
       return;
     }
 
-  cmd_ctx->authenticated = !cfg_getstr(cfg_getsec(cfg, "library"), "password");
+  client_ctx->authenticated = !cfg_getstr(cfg_getsec(cfg, "library"), "password");
+  client_ctx->next = mpd_clients;
+  mpd_clients = client_ctx;
 
-  bev = bufferevent_filter_new(bev, mpd_input_filter, NULL, BEV_OPT_CLOSE_ON_FREE, free, cmd_ctx);
-  bufferevent_setcb(bev, mpd_read_cb, NULL, mpd_event_cb, cmd_ctx);
+  bev = bufferevent_filter_new(bev, mpd_input_filter, NULL, BEV_OPT_CLOSE_ON_FREE, free_mpd_client_ctx, client_ctx);
+  bufferevent_setcb(bev, mpd_read_cb, NULL, mpd_event_cb, client_ctx);
   bufferevent_enable(bev, EV_READ | EV_WRITE);
 
   /*
@@ -4665,6 +4684,9 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
    * of the supported mpd protocol and not the server version.
    */
   evbuffer_add(bufferevent_get_output(bev), "OK MPD 0.18.0\n", 14);
+  client_ctx->evbuffer = bufferevent_get_output(bev);
+
+  DPRINTF(E_INFO, L_MPD, "New mpd client connection accepted\n");
 }
 
 /*
@@ -4682,44 +4704,42 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
 }
 
 static int
-mpd_notify_idle_client(struct idle_client *client)
+mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
 {
-  enum listener_event_type masked_events = client->events & idle_client_active_events;
-  if (!(masked_events))
+  if (!client_ctx->is_idle)
     {
-      DPRINTF(E_DBG, L_MPD, "Client not listening for any active events (0x%04x)\n", idle_client_active_events);
+      client_ctx->events |= events;
       return 1;
     }
 
-  DPRINTF(E_DBG, L_MPD, "Handling events 0x%04x of active events 0x%04x\n", masked_events, idle_client_active_events);
+  if (!(client_ctx->idle_events & events))
+    {
+      DPRINTF(E_DBG, L_MPD, "Client not listening for events: %d\n", events);
+      return 1;
+    }
 
-  if (masked_events & LISTENER_DATABASE)
-    evbuffer_add(client->evbuffer, "changed: database\n", 18);
+  if (events & LISTENER_DATABASE)
+    evbuffer_add(client_ctx->evbuffer, "changed: database\n", 18);
+  if (events & LISTENER_UPDATE)
+    evbuffer_add(client_ctx->evbuffer, "changed: update\n", 16);
+  if (events & LISTENER_PLAYER)
+    evbuffer_add(client_ctx->evbuffer, "changed: player\n", 16);
+  if (events & LISTENER_QUEUE)
+    evbuffer_add(client_ctx->evbuffer, "changed: playlist\n", 18);
+  if (events & LISTENER_VOLUME)
+    evbuffer_add(client_ctx->evbuffer, "changed: mixer\n", 15);
+  if (events & LISTENER_SPEAKER)
+    evbuffer_add(client_ctx->evbuffer, "changed: output\n", 16);
+  if (events & LISTENER_OPTIONS)
+    evbuffer_add(client_ctx->evbuffer, "changed: options\n", 17);
+  if (events & LISTENER_STORED_PLAYLIST)
+    evbuffer_add(client_ctx->evbuffer, "changed: stored_playlist\n", 25);
 
-  if (masked_events & LISTENER_UPDATE)
-    evbuffer_add(client->evbuffer, "changed: update\n", 16);
+  evbuffer_add(client_ctx->evbuffer, "OK\n", 3);
 
-  if (masked_events & LISTENER_PLAYER)
-    evbuffer_add(client->evbuffer, "changed: player\n", 16);
-
-  if (masked_events & LISTENER_QUEUE)
-    evbuffer_add(client->evbuffer, "changed: playlist\n", 18);
-
-  if (masked_events & LISTENER_VOLUME)
-    evbuffer_add(client->evbuffer, "changed: mixer\n", 15);
-
-  if (masked_events & LISTENER_SPEAKER)
-    evbuffer_add(client->evbuffer, "changed: output\n", 16);
-
-  if (masked_events & LISTENER_OPTIONS)
-    evbuffer_add(client->evbuffer, "changed: options\n", 17);
-
-  if (masked_events & LISTENER_STORED_PLAYLIST)
-    evbuffer_add(client->evbuffer, "changed: stored_playlist\n", 25);
-
-  idle_client_active_events &= ~masked_events;
-
-  evbuffer_add(client->evbuffer, "OK\n", 3);
+  client_ctx->is_idle = false;
+  client_ctx->idle_events = 0;
+  client_ctx->events = 0;
 
   return 0;
 }
@@ -4727,42 +4747,21 @@ mpd_notify_idle_client(struct idle_client *client)
 static enum command_state
 mpd_notify_idle(void *arg, int *retval)
 {
-  struct idle_client *client;
-  struct idle_client *prev;
-  struct idle_client *next;
+  short event_mask;
+  struct mpd_client_ctx *client;
   int i;
-  int ret;
 
-  if (idle_client_active_events)
-    DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle events: 0x%04x\n", idle_client_active_events);
+  event_mask = *(short *)arg;
+  DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle results: %d\n", event_mask);
 
-  prev = NULL;
-  next = NULL;
   i = 0;
-  client = idle_clients;
-  while (idle_client_active_events && client)
+  client = mpd_clients;
+  while (client)
     {
       DPRINTF(E_DBG, L_MPD, "Notify client #%d\n", i);
 
-      next = client->next;
-
-      ret = mpd_notify_idle_client(client);
-
-      if (ret == 0)
-	{
-	  if (prev)
-	    prev->next = next;
-	  else
-	    idle_clients = next;
-
-	  free(client);
-	}
-      else
-	{
-	  prev = client;
-	}
-
-      client = next;
+      mpd_notify_idle_client(client, event_mask);
+      client = client->next;
       i++;
     }
 
@@ -4771,12 +4770,15 @@ mpd_notify_idle(void *arg, int *retval)
 }
 
 static void
-mpd_listener_cb(enum listener_event_type type)
+mpd_listener_cb(short event_mask)
 {
-  idle_client_active_events |= type;
+  short *ptr;
 
-  DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", type);
-  commands_exec_async(cmdbase, mpd_notify_idle, NULL);
+  ptr = (short *)malloc(sizeof(short));
+  *ptr = event_mask;
+
+  DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", event_mask);
+  commands_exec_async(cmdbase, mpd_notify_idle, ptr);
 }
 
 /*
@@ -5043,8 +5045,8 @@ int mpd_init(void)
   pthread_set_name_np(tid_mpd, "mpd");
 #endif
 
-  idle_clients = NULL;
-  listener_add(mpd_listener_cb, ALL_IDLE_CLIENT_EVENTS);
+  mpd_clients = NULL;
+  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST);
 
   return 0;
 
@@ -5071,7 +5073,6 @@ int mpd_init(void)
 /* Thread: main */
 void mpd_deinit(void)
 {
-  struct idle_client *temp;
   unsigned short port;
   unsigned short http_port;
   int ret;
@@ -5094,11 +5095,9 @@ void mpd_deinit(void)
 
   listener_remove(mpd_listener_cb);
 
-  while (idle_clients)
+  while (mpd_clients)
     {
-      temp = idle_clients;
-      idle_clients = idle_clients->next;
-      free(temp);
+      free_mpd_client_ctx(mpd_clients);
     }
 
   http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
