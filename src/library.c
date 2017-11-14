@@ -96,12 +96,10 @@ static bool
 library_handle_deferred_updates(void)
 {
   bool ret = (library_deferred_updates > 0);
+
   if (ret)
     {
       DPRINTF(E_LOG, L_LIB, "Notify clients of database changes (%d changes)\n", library_deferred_updates);
-  // case the scan does not complete.
-  db_admin_setint64("db_update", (int64_t)time(NULL));
-}
 
       library_deferred_updates = 0;
       db_admin_setint64("db_update", (int64_t)time(NULL));
@@ -989,7 +987,7 @@ library_init(void)
 	sources[i]->disabled = 1;
     }
 
-  library_update_time = (time_t) db_admin_getint64("db_update");
+  CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 
