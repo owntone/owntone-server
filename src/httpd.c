@@ -1400,25 +1400,15 @@ httpd_redirect_to_index(struct evhttp_request *req, const char *uri)
   httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
+/* |:todo:|This is also needed for mpd and should probably go somewhere else. */
 bool
-httpd_peer_is_trusted(struct evhttp_request *req)
+peer_address_is_trusted(const char *addr)
 {
-  struct evhttp_connection *evcon;
   cfg_t *section;
   const char *network;
-  char *addr;
-  uint16_t port;
   int i;
   int n;
 
-  evcon = evhttp_request_get_connection(req);
-  if (!evcon)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
-      return false;
-    }
-
-  evhttp_connection_get_peer(evcon, &addr, &port);
   if (strncmp(addr, "::ffff:", strlen("::ffff:")) == 0)
     addr += strlen("::ffff:");
 
@@ -1440,6 +1430,24 @@ httpd_peer_is_trusted(struct evhttp_request *req)
     }
 
   return false;
+}
+
+bool
+httpd_peer_is_trusted(struct evhttp_request *req)
+{
+  struct evhttp_connection *evcon;
+  char *addr;
+  uint16_t port;
+
+  evcon = evhttp_request_get_connection(req);
+  if (!evcon)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
+      return false;
+    }
+
+  evhttp_connection_get_peer(evcon, &addr, &port);
+  return peer_address_is_trusted(addr);
 }
 
 bool

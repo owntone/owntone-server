@@ -148,6 +148,9 @@ void
 httpd_redirect_to_index(struct evhttp_request *req, const char *uri);
 
 bool
+peer_address_is_trusted(const char *addr);
+
+bool
 httpd_peer_is_trusted(struct evhttp_request *req);
 
 bool
