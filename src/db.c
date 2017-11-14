@@ -1499,6 +1499,7 @@ static int
 db_query_run(char *query, int free, int library_update)
 {
   char *errmsg;
+  int changes = 0;
   int ret;
 
   if (!query)
@@ -1516,6 +1517,8 @@ db_query_run(char *query, int free, int library_update)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
+  else
+    changes = sqlite3_changes(hdl);
 
   sqlite3_free(errmsg);
 
@@ -1524,7 +1527,7 @@ db_query_run(char *query, int free, int library_update)
 
   cache_daap_resume();
 
-  if (library_update)
+  if (library_update && changes > 0)
     library_update_trigger();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
@@ -3669,7 +3672,7 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 void
 db_spotify_purge(void)
 {
-#define Q_TMPL "UPDATE directories SET disabled = %" PRIi64 " WHERE virtual_path = '/spotify:';"
+#define Q_TMPL "UPDATE directories SET disabled = %" PRIi64 " WHERE virtual_path = '/spotify:' AND disabled <> %" PRIi64 ";"
   char *queries[4] =
     {
       "DELETE FROM files WHERE path LIKE 'spotify:%%';",
@@ -3690,7 +3693,7 @@ db_spotify_purge(void)
     }
 
   // Disable the spotify directory by setting 'disabled' to INOTIFY_FAKE_COOKIE value
-  query = sqlite3_mprintf(Q_TMPL, INOTIFY_FAKE_COOKIE);
+  query = sqlite3_mprintf(Q_TMPL, INOTIFY_FAKE_COOKIE, INOTIFY_FAKE_COOKIE);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3759,13 +3762,28 @@ db_admin_set(const char *key, const char *value)
 #undef Q_TMPL
 }
 
-char *
-db_admin_get(const char *key)
+int
+db_admin_setint64(const char *key, int64_t value)
+{
+#define Q_TMPL "INSERT OR REPLACE INTO admin (key, value) VALUES ('%q', '%" PRIi64 "');"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, key, value);
+
+  return db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
+static int
+admin_get(const char *key, short type, void *value)
 {
 #define Q_TMPL "SELECT value FROM admin a WHERE a.key = '%q';"
   char *query;
   sqlite3_stmt *stmt;
-  char *res;
+  char *cval;
+  int32_t *ival;
+  int64_t *i64val;
+  char **strval;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL, key);
@@ -3773,7 +3791,7 @@ db_admin_get(const char *key)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return NULL;
+      return -1;
     }
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
@@ -3784,7 +3802,7 @@ db_admin_get(const char *key)
       DPRINTF(E_WARN, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_free(query);
-      return NULL;
+      return -1;
     }
 
   ret = db_blocking_step(stmt);
@@ -3797,12 +3815,41 @@ db_admin_get(const char *key)
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
-      return NULL;
+      return -1;
     }
 
-  res = (char *)sqlite3_column_text(stmt, 0);
-  if (res)
-    res = strdup(res);
+  switch (type)
+    {
+      case DB_TYPE_CHAR:
+	cval = (char *) value;
+	*cval = sqlite3_column_int(stmt, 0);
+	break;
+
+      case DB_TYPE_INT:
+	ival = (int32_t *) value;
+
+	*ival = sqlite3_column_int(stmt, 0);
+	break;
+
+      case DB_TYPE_INT64:
+	i64val = (int64_t *) value;
+
+	*i64val = sqlite3_column_int64(stmt, 0);
+	break;
+
+      case DB_TYPE_STRING:
+	strval = (char **) value;
+
+	cval = (char *)sqlite3_column_text(stmt, 0);
+	if (cval)
+	  *strval = strdup(cval);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in admin_set\n", type);
+
+	ret = -2;
+    }
 
 #ifdef DB_PROFILE
   while (db_blocking_step(stmt) == SQLITE_ROW)
@@ -3812,9 +3859,41 @@ db_admin_get(const char *key)
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
-  return res;
+  return ret;
 
 #undef Q_TMPL
+}
+
+char *
+db_admin_get(const char *key)
+{
+  char *value = NULL;
+  int ret;
+
+  ret = admin_get(key, DB_TYPE_STRING, &value);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error reading admin value: %s\n", key);
+      return NULL;
+    }
+
+  return value;
+}
+
+int64_t
+db_admin_getint64(const char *key)
+{
+  int64_t value = 0;
+  int ret;
+
+  ret = admin_get(key, DB_TYPE_INT64, &value);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error reading admin value: %s\n", key);
+      return 0;
+    }
+
+  return value;
 }
 
 int
