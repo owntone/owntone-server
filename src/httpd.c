@@ -879,6 +879,7 @@ struct httpd_request *
 httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map)
 {
   struct httpd_request *hreq;
+  struct evhttp_connection *evcon;
   struct evkeyvalq *headers;
   int i;
   int ret;
@@ -890,12 +891,19 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
   hreq->uri_parsed = uri_parsed;
   hreq->query = &(uri_parsed->ev_query);
 
-  if (req && !user_agent)
+  if (req)
     {
       headers = evhttp_request_get_input_headers(req);
       hreq->user_agent = evhttp_find_header(headers, "User-Agent");
+
+      evcon = evhttp_request_get_connection(req);
+      if (evcon)
+	evhttp_connection_get_peer(evcon, &hreq->peer_address, &hreq->peer_port);
+      else
+	DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
     }
-  else
+
+  if (user_agent)
     hreq->user_agent = user_agent;
 
   // Find a handler for the path
@@ -1400,44 +1408,14 @@ httpd_redirect_to_index(struct evhttp_request *req, const char *uri)
   httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
-/* |:todo:|This is also needed for mpd and should probably go somewhere else. */
 bool
-peer_address_is_trusted(const char *addr)
-{
-  cfg_t *section;
-  const char *network;
-  int i;
-  int n;
-
-  if (strncmp(addr, "::ffff:", strlen("::ffff:")) == 0)
-    addr += strlen("::ffff:");
-
-  section = cfg_getsec(cfg, "general");
-
-  n = cfg_size(section, "trusted_networks");
-  for (i = 0; i < n; i++)
-    {
-      network = cfg_getnstr(section, "trusted_networks", i);
-
-      if (strncmp(network, addr, strlen(network)) == 0)
-	return true;
-
-      if ((strcmp(network, "localhost") == 0) && (strcmp(addr, "127.0.0.1") == 0 || strcmp(addr, "::1") == 0))
-	return true;
-
-      if (strcmp(network, "any") == 0)
-	return true;
-    }
-
-  return false;
-}
-
-bool
-httpd_peer_is_trusted(struct evhttp_request *req)
+httpd_admin_check_auth(struct evhttp_request *req)
 {
   struct evhttp_connection *evcon;
   char *addr;
   uint16_t port;
+  const char *passwd;
+  int ret;
 
   evcon = evhttp_request_get_connection(req);
   if (!evcon)
@@ -1447,16 +1425,8 @@ httpd_peer_is_trusted(struct evhttp_request *req)
     }
 
   evhttp_connection_get_peer(evcon, &addr, &port);
-  return peer_address_is_trusted(addr);
-}
 
-bool
-httpd_admin_check_auth(struct evhttp_request *req)
-{
-  const char *passwd;
-  int ret;
-
-  if (httpd_peer_is_trusted(req))
+  if (peer_address_is_trusted(addr))
     return true;
 
   passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");

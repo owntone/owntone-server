@@ -715,7 +715,7 @@ daap_request_authorize(struct httpd_request *hreq)
   char *passwd;
   int ret;
 
-  if (httpd_peer_is_trusted(hreq->req))
+  if (peer_address_is_trusted(hreq->peer_address))
     return 0;
 
   param = evhttp_find_header(hreq->query, "session-id");
@@ -913,11 +913,11 @@ daap_reply_login(struct httpd_request *hreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 32));
 
   param = evhttp_find_header(hreq->query, "pairing-guid");
-  if (param && !httpd_peer_is_trusted(hreq->req))
+  if (param && !peer_address_is_trusted(hreq->peer_address))
     {
       if (strlen(param) < 3)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Login attempt with invalid pairing-guid: %s\n", param);
+	  DPRINTF(E_LOG, L_DAAP, "Login attempt from %s with invalid pairing-guid: %s\n", hreq->peer_address, param);
 	  return DAAP_REPLY_FORBIDDEN;
 	}
 
@@ -927,20 +927,20 @@ daap_reply_login(struct httpd_request *hreq)
       ret = db_pairing_fetch_byguid(&pi);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Login attempt with invalid pairing-guid: %s\n", param);
+	  DPRINTF(E_LOG, L_DAAP, "Login attempt from %s with invalid pairing-guid: %s\n", hreq->peer_address, param);
 	  free_pi(&pi, 1);
 	  return DAAP_REPLY_FORBIDDEN;
 	}
 
-      DPRINTF(E_INFO, L_DAAP, "Remote '%s' logging in with GUID %s\n", pi.name, pi.guid);
+      DPRINTF(E_INFO, L_DAAP, "Remote '%s' (%s) logging in with GUID %s\n", pi.name, hreq->peer_address, pi.guid);
       free_pi(&pi, 1);
     }
   else
     {
       if (hreq->user_agent)
-        DPRINTF(E_INFO, L_DAAP, "Client '%s' logging in\n", hreq->user_agent);
+        DPRINTF(E_INFO, L_DAAP, "Client '%s' logging in from %s\n", hreq->user_agent, hreq->peer_address);
       else
-        DPRINTF(E_INFO, L_DAAP, "Client (unknown user-agent) logging in\n");
+        DPRINTF(E_INFO, L_DAAP, "Client (unknown user-agent) logging in from %s\n", hreq->peer_address);
     }
 
   param = evhttp_find_header(hreq->query, "request-session-id");

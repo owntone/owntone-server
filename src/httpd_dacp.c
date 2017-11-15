@@ -547,7 +547,7 @@ dacp_request_authorize(struct httpd_request *hreq)
   int32_t id;
   int ret;
 
-  if (httpd_peer_is_trusted(hreq->req))
+  if (peer_address_is_trusted(hreq->peer_address))
     return 0;
 
   param = evhttp_find_header(hreq->query, "session-id");

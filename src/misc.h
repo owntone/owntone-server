@@ -7,6 +7,7 @@
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <time.h>
 #include <pthread.h>
 
@@ -103,6 +104,12 @@ b64_encode(const uint8_t *in, size_t len);
 
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
+
+
+/* Checks if the address is in a network that is configured as trusted */
+bool
+peer_address_is_trusted(const char *addr);
+
 
 #ifndef HAVE_CLOCK_GETTIME
 
