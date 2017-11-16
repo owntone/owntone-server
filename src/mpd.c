@@ -719,11 +719,18 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 //}
 
 static int
+mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events);
+
+static int
 mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  ctx->is_idle = false;
-  ctx->idle_events = 0;
-  return 0;
+  /*
+   * The protocol specifies: "The idle command can be canceled by
+   * sending the command noidle (no other commands are allowed). MPD
+   * will then leave idle mode and print results immediately; might be
+   * empty at this time."
+   */
+  return mpd_notify_idle_client(ctx, 0);
 }
 
 /*
@@ -869,7 +876,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       "songs: %d\n"
       "uptime: %d\n" //in seceonds
       "db_playtime: %" PRIi64 "\n"
-      "db_update: %ld\n"
+      "db_update: %" PRIi64 "\n"
       "playtime: %d\n",
         artists,
         albums,
