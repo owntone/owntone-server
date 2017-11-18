@@ -22,6 +22,7 @@
 #endif
 
 #include <errno.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
@@ -77,13 +78,37 @@ static bool scan_exit;
 /* Flag for scan in progress */
 static bool scanning;
 
-// After being told by db that the library was updated through update_trigger(),
-// wait 60 seconds before notifying listeners of LISTENER_DATABASE. This is to
-// avoid bombarding the listeners while there are many db updates, and to make
-// sure they only get a single update (useful for the cache).
-static struct timeval library_update_wait = { 60, 0 };
+// After being told by db that the library was updated through
+// library_update_trigger(), wait 5 seconds before notifying listeners
+// of LISTENER_DATABASE. This is to catch bulk updates like automated
+// tag editing, music file imports/renames.  This way multiple updates
+// are collected for a single update notification (useful to avoid
+// repeated library reads from clients).
+//
+// Note: this update delay does not apply to library scans.  The scans
+// use the flag `scanning` for deferring update notifcations.
+static struct timeval library_update_wait = { 5, 0 };
 static struct event *updateev;
 
+// Counts the number of changes made to the database between to DATABASE
+// event notifications
+static unsigned int deferred_update_notifications = 0;
+
+static bool
+handle_deferred_update_notifications(void)
+{
+  bool ret = (deferred_update_notifications > 0);
+
+  if (ret)
+    {
+      DPRINTF(E_DBG, L_LIB, "Database changed (%d changes)\n", deferred_update_notifications);
+
+      deferred_update_notifications = 0;
+      db_admin_setint64("db_update", (int64_t) time(NULL));
+    }
+
+  return ret;
+}
 
 static void
 sort_tag_create(char **sort_tag, char *src_tag)
@@ -568,9 +593,13 @@ rescan(void *arg, int *ret)
   purge_cruft(starttime);
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec\n", difftime(endtime, starttime));
+  DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
+
+  if (handle_deferred_update_notifications())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
@@ -605,24 +634,40 @@ fullrescan(void *arg, int *ret)
     }
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec\n", difftime(endtime, starttime));
+  DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
+
+  if (handle_deferred_update_notifications())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 
   *ret = 0;
   return COMMAND_END;
 }
 
+/*
+ * Callback to notify listeners of database changes
+ */
 static void
 update_trigger_cb(int fd, short what, void *arg)
 {
-  listener_notify(LISTENER_DATABASE);
+  if (handle_deferred_update_notifications())
+    {
+      listener_notify(LISTENER_DATABASE);
+    }
 }
 
 static enum command_state
 update_trigger(void *arg, int *retval)
 {
-  evtimer_add(updateev, &library_update_wait);
+  ++deferred_update_notifications;
+
+  // Only add the timer event if the update occurred outside a (init-/re-/fullre-) scan.
+  // The scanning functions take care of notifying clients of database changes directly
+  // after the scan finished.
+  if (!scanning)
+    evtimer_add(updateev, &library_update_wait);
 
   *retval = 0;
   return COMMAND_END;
@@ -691,11 +736,14 @@ initscan()
     }
 
   endtime = time(NULL);
-  DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec\n", difftime(endtime, starttime));
+  DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
 
   scanning = false;
-  listener_notify(LISTENER_UPDATE);
-  listener_notify(LISTENER_DATABASE);
+
+  if (handle_deferred_update_notifications())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
 }
 
 /*
@@ -725,13 +773,27 @@ library_is_exiting()
   return scan_exit;
 }
 
+/*
+ * Trigger for sending the DATABASE event
+ *
+ * Needs to be called, if an update to the database (library tables) occurred. The DATABASE event
+ * is emitted with the delay 'library_update_wait'. It is safe to call this function from any thread.
+ */
 void
 library_update_trigger(void)
 {
-  if (scanning)
-    return;
+  int ret;
 
-  commands_exec_async(cmdbase, update_trigger, NULL);
+  pthread_t current_thread = pthread_self();
+  if (pthread_equal(current_thread, tid_library))
+    {
+      // We are already running in the library thread, it is safe to directly call update_trigger
+      update_trigger(NULL, &ret);
+    }
+  else
+    {
+      commands_exec_async(cmdbase, update_trigger, NULL);
+    }
 }
 
 static enum command_state

@@ -680,8 +680,14 @@ db_spotify_files_delete(void);
 int
 db_admin_set(const char *key, const char *value);
 
+int
+db_admin_setint64(const char *key, int64_t value);
+
 char *
 db_admin_get(const char *key);
+
+int64_t
+db_admin_getint64(const char *key);
 
 int
 db_admin_delete(const char *key);
