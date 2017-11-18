@@ -88,6 +88,9 @@ player_speaker_enumerate(spk_enum_cb cb, void *arg);
 int
 player_speaker_set(uint64_t *ids);
 
+void
+player_speaker_status_trigger(void);
+
 int
 player_playback_start(void);
 
