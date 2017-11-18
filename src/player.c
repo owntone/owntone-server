@@ -2364,6 +2364,15 @@ playback_pause(void *arg, int *retval)
   return COMMAND_END;
 }
 
+/*
+ * Notify of speaker/device changes (other than activation/deactivation)
+ */
+void
+player_speaker_status_trigger(void)
+{
+  listener_notify(LISTENER_SPEAKER);
+}
+
 static enum command_state
 speaker_enumerate(void *arg, int *retval)
 {

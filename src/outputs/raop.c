@@ -1773,6 +1773,9 @@ raop_status(struct raop_session *rs)
   rs->status_cb = NULL;
   if (status_cb)
     status_cb(rs->device, rs->output_session, state);
+
+  if (rs->state == RAOP_STATE_UNVERIFIED)
+    player_speaker_status_trigger();
 }
 
 static void
@@ -4159,6 +4162,8 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
   rs->state = RAOP_STATE_STARTUP;
 
   raop_send_req_options(rs, raop_cb_startup_options);
+
+  player_speaker_status_trigger();
 
   return;
 
