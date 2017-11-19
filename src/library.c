@@ -104,7 +104,7 @@ handle_deferred_update_notifications(void)
       DPRINTF(E_DBG, L_LIB, "Database changed (%d changes)\n", deferred_update_notifications);
 
       deferred_update_notifications = 0;
-      db_admin_setint64(ADMIN_DB_UPDATE, (int64_t) time(NULL));
+      db_admin_setint64(DB_ADMIN_DB_UPDATE, (int64_t) time(NULL));
     }
 
   return ret;

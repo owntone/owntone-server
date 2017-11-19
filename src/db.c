@@ -4042,10 +4042,10 @@ queue_inc_version_and_notify()
 
   db_transaction_begin();
 
-  queue_version = db_admin_getint(ADMIN_QUEUE_VERSION);
+  queue_version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
   queue_version++;
 
-  ret = db_admin_setint(ADMIN_QUEUE_VERSION, queue_version);
+  ret = db_admin_setint(DB_ADMIN_QUEUE_VERSION, queue_version);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not update version in admin table: %d\n", queue_version);
@@ -6190,14 +6190,14 @@ db_check_version(void)
 
   vacuum = cfg_getbool(cfg_getsec(cfg, "sqlite"), "vacuum");
 
-  db_ver_major = db_admin_getint(ADMIN_SCHEMA_VERSION_MAJOR);
+  db_ver_major = db_admin_getint(DB_ADMIN_SCHEMA_VERSION_MAJOR);
   if (!db_ver_major)
-    db_ver_major = db_admin_getint(ADMIN_SCHEMA_VERSION); // Pre schema v15.1
+    db_ver_major = db_admin_getint(DB_ADMIN_SCHEMA_VERSION); // Pre schema v15.1
 
   if (!db_ver_major)
     return 1; // Will create new database
 
-  db_ver_minor = db_admin_getint(ADMIN_SCHEMA_VERSION_MINOR);
+  db_ver_minor = db_admin_getint(DB_ADMIN_SCHEMA_VERSION_MINOR);
 
   db_ver = db_ver_major * 100 + db_ver_minor;
 
@@ -6352,7 +6352,7 @@ db_init(void)
 
   files = db_files_get_count();
   pls = db_pl_get_count();
-  db_admin_setint64(ADMIN_START_TIME, (int64_t) time(NULL));
+  db_admin_setint64(DB_ADMIN_START_TIME, (int64_t) time(NULL));
 
   db_perthread_deinit();
 
