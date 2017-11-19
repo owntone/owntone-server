@@ -642,7 +642,7 @@ tokens_get(struct keyval *kv, const char **err)
   token_requested = time(NULL);
 
   if (spotify_refresh_token)
-    db_admin_set("spotify_refresh_token", spotify_refresh_token);
+    db_admin_set(ADMIN_SPOTIFY_REFRESH_TOKEN, spotify_refresh_token);
 
   request_user_info();
 
@@ -701,7 +701,7 @@ spotifywebapi_token_refresh(char **user)
       return 0;
     }
 
-  refresh_token = db_admin_get("spotify_refresh_token");
+  refresh_token = db_admin_get(ADMIN_SPOTIFY_REFRESH_TOKEN);
   if (!refresh_token)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "No spotify refresh token found\n");

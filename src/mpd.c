@@ -741,7 +741,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 	break;
     }
 
-  queue_version = db_queue_get_version();
+  queue_version = db_admin_getint(ADMIN_QUEUE_VERSION);
   queue_length = db_queue_get_count();
 
   evbuffer_add_printf(evbuf,
@@ -842,7 +842,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       fci.count,
       4,
       (fci.length / 1000),
-      (time_t) db_admin_getint64("db_update"),
+      (time_t) db_admin_getint64(ADMIN_DB_UPDATE),
       7);
 
   return 0;

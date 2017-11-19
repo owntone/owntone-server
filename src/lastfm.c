@@ -184,7 +184,7 @@ response_process(struct http_client_ctx *ctx, char **errmsg)
   if (sk)
     {
       DPRINTF(E_LOG, L_LASTFM, "Got session key from LastFM: %s\n", sk);
-      db_admin_set("lastfm_sk", sk);
+      db_admin_set(ADMIN_LASTFM_SESSION_KEY, sk);
 
       if (lastfm_session_key)
 	free(lastfm_session_key);
@@ -341,7 +341,7 @@ stop_scrobbling()
   // Disable LastFM, will be enabled after successful login request
   lastfm_disabled = true;
 
-  db_admin_delete("lastfm_sk");
+  db_admin_delete(ADMIN_LASTFM_SESSION_KEY);
 }
 
 /* Thread: filescanner, httpd */
@@ -422,7 +422,7 @@ lastfm_is_enabled(void)
 int
 lastfm_init(void)
 {
-  lastfm_session_key = db_admin_get("lastfm_sk");
+  lastfm_session_key = db_admin_get(ADMIN_LASTFM_SESSION_KEY);
   if (!lastfm_session_key)
     {
       DPRINTF(E_DBG, L_LASTFM, "No valid LastFM session key\n");
