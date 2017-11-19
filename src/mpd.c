@@ -148,7 +148,7 @@ static const char * const ffmpeg_mime_types[] = { "application/flv", "applicatio
 struct mpd_client_ctx
 {
   // True if the connection is already authenticated or does not need authentication
-  int authenticated;
+  bool authenticated;
 
   // The events the client needs to be notified of
   short events;
@@ -478,23 +478,23 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
   mpd_time(modified, sizeof(modified), queue_item->time_modified);
 
   ret = evbuffer_add_printf(evbuf,
-    "file: %s\n"
-    "Last-Modified: %s\n"
-    "Time: %d\n"
-    "Artist: %s\n"
-    "AlbumArtist: %s\n"
-    "ArtistSort: %s\n"
-    "AlbumArtistSort: %s\n"
-    "Album: %s\n"
-    "Title: %s\n"
-    "Track: %d\n"
-    "Date: %d\n"
-    "Genre: %s\n"
+      "file: %s\n"
+      "Last-Modified: %s\n"
+      "Time: %d\n"
+      "Artist: %s\n"
+      "AlbumArtist: %s\n"
+      "ArtistSort: %s\n"
+      "AlbumArtistSort: %s\n"
+      "Album: %s\n"
+      "Title: %s\n"
+      "Track: %d\n"
+      "Date: %d\n"
+      "Genre: %s\n"
       "Disc: %d\n"
       "Pos: %d\n"
       "Id: %d\n",
       (queue_item->virtual_path + 1),
-    modified,
+      modified,
       (queue_item->song_length / 1000),
       queue_item->artist,
       queue_item->album_artist,
@@ -1804,15 +1804,15 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
   while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
-	  if (ret < 0)
-	    {
-	      *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
 
-	      db_queue_enum_end(&query_params);
-	      free(query_params.filter);
-	      return ACK_ERROR_UNKNOWN;
-	    }
+	  db_queue_enum_end(&query_params);
+	  free(query_params.filter);
+	  return ACK_ERROR_UNKNOWN;
 	}
+    }
 
   db_queue_enum_end(&query_params);
   free(query_params.filter);
@@ -2476,8 +2476,8 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   evbuffer_add_printf(evbuf,
       "songs: %d\n"
       "playtime: %" PRIu64 "\n",
-        fci.count,
-        (fci.length / 1000));
+      fci.count,
+      (fci.length / 1000));
 
   db_query_end(&qp);
   free(qp.filter);
