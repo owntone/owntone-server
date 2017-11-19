@@ -63,6 +63,14 @@ enum query_type {
 #define ARTWORK_SPOTIFY   6
 #define ARTWORK_HTTP      7
 
+#define ADMIN_SCHEMA_VERSION_MAJOR "schema_version_major"
+#define ADMIN_SCHEMA_VERSION_MINOR "schema_version_minor"
+#define ADMIN_SCHEMA_VERSION "schema_version"
+#define ADMIN_QUEUE_VERSION "queue_version"
+#define ADMIN_DB_UPDATE "db_update"
+#define ADMIN_LASTFM_SESSION_KEY "lastfm_sk"
+#define ADMIN_SPOTIFY_REFRESH_TOKEN "spotify_refresh_token"
+
 struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;
@@ -681,10 +689,16 @@ int
 db_admin_set(const char *key, const char *value);
 
 int
+db_admin_setint(const char *key, int value);
+
+int
 db_admin_setint64(const char *key, int64_t value);
 
 char *
 db_admin_get(const char *key);
+
+int
+db_admin_getint(const char *key);
 
 int64_t
 db_admin_getint64(const char *key);
@@ -703,9 +717,6 @@ void
 db_speaker_clear_all(void);
 
 /* Queue */
-int
-db_queue_get_version();
-
 int
 db_queue_update_item(struct db_queue_item *queue_item);
 

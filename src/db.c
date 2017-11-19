@@ -3772,6 +3772,18 @@ db_admin_set(const char *key, const char *value)
 }
 
 int
+db_admin_setint(const char *key, int value)
+{
+#define Q_TMPL "INSERT OR REPLACE INTO admin (key, value) VALUES ('%q', '%d');"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, key, value);
+
+  return db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
+int
 db_admin_setint64(const char *key, int64_t value)
 {
 #define Q_TMPL "INSERT OR REPLACE INTO admin (key, value) VALUES ('%q', '%" PRIi64 "');"
@@ -3889,6 +3901,22 @@ db_admin_get(const char *key)
   return value;
 }
 
+int
+db_admin_getint(const char *key)
+{
+  int value = 0;
+  int ret;
+
+  ret = admin_get(key, DB_TYPE_INT, &value);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error reading admin value: %s\n", key);
+      return 0;
+    }
+
+  return value;
+}
+
 int64_t
 db_admin_getint64(const char *key)
 {
@@ -4000,34 +4028,6 @@ db_speaker_clear_all(void)
 /* Queue */
 
 /*
- * Returns the queue version from the admin table
- *
- * @return queue version
- */
-int
-db_queue_get_version()
-{
-  char *version;
-  int32_t queue_version;
-  int ret;
-
-  queue_version = 0;
-  version = db_admin_get("queue_version");
-  if (version)
-    {
-      ret = safe_atoi32(version, &queue_version);
-      free(version);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not get playlist version\n");
-	  return -1;
-	}
-    }
-
-  return queue_version;
-}
-
-/*
  * Increments the version of the queue in the admin table and notifies listener of LISTENER_QUEUE
  * about the change.
  *
@@ -4038,25 +4038,14 @@ static void
 queue_inc_version_and_notify()
 {
   int queue_version;
-  char version[10];
   int ret;
 
   db_transaction_begin();
 
-  queue_version = db_queue_get_version();
-  if (queue_version < 0)
-    queue_version = 0;
-
+  queue_version = db_admin_getint(ADMIN_QUEUE_VERSION);
   queue_version++;
-  ret = snprintf(version, sizeof(version), "%d", queue_version);
-  if (ret >= sizeof(version))
-    {
-      DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not convert version to string: %d\n", queue_version);
-      db_transaction_rollback();
-      return;
-    }
 
-  ret = db_admin_set("queue_version", version);
+  ret = db_admin_setint(ADMIN_QUEUE_VERSION, queue_version);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DB, "Error incrementing queue version. Could not update version in admin table: %d\n", queue_version);
@@ -6192,7 +6181,6 @@ static int
 db_check_version(void)
 {
 #define Q_VACUUM "VACUUM;"
-  char *buf;
   char *errmsg;
   int db_ver_major;
   int db_ver_minor;
@@ -6202,24 +6190,14 @@ db_check_version(void)
 
   vacuum = cfg_getbool(cfg_getsec(cfg, "sqlite"), "vacuum");
 
-  buf = db_admin_get("schema_version_major");
-  if (!buf)
-    buf = db_admin_get("schema_version"); // Pre schema v15.1
+  db_ver_major = db_admin_getint(ADMIN_SCHEMA_VERSION_MAJOR);
+  if (!db_ver_major)
+    db_ver_major = db_admin_getint(ADMIN_SCHEMA_VERSION); // Pre schema v15.1
 
-  if (!buf)
+  if (!db_ver_major)
     return 1; // Will create new database
 
-  safe_atoi32(buf, &db_ver_major);
-  free(buf);
-
-  buf = db_admin_get("schema_version_minor");
-  if (buf)
-    {
-      safe_atoi32(buf, &db_ver_minor);
-      free(buf);
-    }
-  else
-    db_ver_minor = 0;
+  db_ver_minor = db_admin_getint(ADMIN_SCHEMA_VERSION_MINOR);
 
   db_ver = db_ver_major * 100 + db_ver_minor;
 
