@@ -3913,6 +3913,8 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 
   if (req->response_code == RTSP_FORBIDDEN)
     {
+      rs->device->requires_auth = 1;
+
       ret = raop_send_req_pin_start(rs, raop_cb_pin_start);
       if (ret < 0)
 	{
