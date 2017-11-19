@@ -689,7 +689,8 @@ mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
    * will then leave idle mode and print results immediately; might be
    * empty at this time."
    */
-  return mpd_notify_idle_client(ctx, 0);
+  mpd_notify_idle_client(ctx, 0);
+  return 0;
 }
 
 /*
@@ -815,7 +816,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   int albums;
   time_t start_time;
   double uptime;
-  time_t db_update;
+  int64_t db_update;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -833,7 +834,7 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
 
   start_time = (time_t) db_admin_getint64(ADMIN_START_TIME);
   uptime = difftime(time(NULL), start_time);
-  db_update = (time_t) db_admin_getint64(ADMIN_DB_UPDATE);
+  db_update = db_admin_getint64(ADMIN_DB_UPDATE);
 
   //TODO [mpd] Implement missing stats attributes (playtime)
   evbuffer_add_printf(evbuf,
