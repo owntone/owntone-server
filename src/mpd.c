@@ -813,6 +813,9 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   struct filecount_info fci;
   int artists;
   int albums;
+  time_t start_time;
+  double uptime;
+  time_t db_update;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -828,21 +831,25 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   artists = db_files_get_artist_count();
   albums = db_files_get_album_count();
 
-  //TODO [mpd] Implement missing stats attributes (uptime, playtime)
+  start_time = (time_t) db_admin_getint64(ADMIN_START_TIME);
+  uptime = difftime(time(NULL), start_time);
+  db_update = (time_t) db_admin_getint64(ADMIN_DB_UPDATE);
+
+  //TODO [mpd] Implement missing stats attributes (playtime)
   evbuffer_add_printf(evbuf,
       "artists: %d\n"
       "albums: %d\n"
       "songs: %d\n"
-      "uptime: %d\n" //in seceonds
+      "uptime: %.f\n" //in seceonds
       "db_playtime: %" PRIi64 "\n"
       "db_update: %" PRIi64 "\n"
       "playtime: %d\n",
       artists,
       albums,
       fci.count,
-      4,
+      uptime,
       (fci.length / 1000),
-      (time_t) db_admin_getint64(ADMIN_DB_UPDATE),
+      db_update,
       7);
 
   return 0;
