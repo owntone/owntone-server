@@ -1454,11 +1454,11 @@ mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
  * Add media file item with given virtual path to the queue
  *
  * @param path The virtual path
- * @param recursive If 0 add only item with exact match, otherwise add all items virtual path start with the given path
+ * @param exact_match If TRUE add only item with exact match, otherwise add all items virtual path start with the given path
  * @return The queue item id of the last inserted item or -1 on failure
  */
 static int
-mpd_queue_add(char *path, int recursive)
+mpd_queue_add(char *path, bool exact_match)
 {
   struct query_params qp;
   struct player_status status;
@@ -1470,17 +1470,15 @@ mpd_queue_add(char *path, int recursive)
   qp.idx_type = I_NONE;
   qp.sort = S_ARTIST;
 
-  if (recursive)
-    {
-      qp.filter = db_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
-      if (!qp.filter)
-	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
-    }
+  if (exact_match)
+    qp.filter = db_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q'", path);
   else
+    qp.filter = db_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
+
+  if (!qp.filter)
     {
-      qp.filter = db_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q'", path);
-      if (!qp.filter)
-	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
+      DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
+      return -1;
     }
 
   player_get_status(&status);
@@ -1508,7 +1506,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, st
       return ACK_ERROR_ARG;
     }
 
-  ret = mpd_queue_add(argv[1], 1);
+  ret = mpd_queue_add(argv[1], false);
 
   if (ret < 0)
     {
@@ -1557,7 +1555,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       DPRINTF(E_LOG, L_MPD, "Adding at a specified position not supported for 'addid', adding songs at end of queue.\n");
     }
 
-  ret = mpd_queue_add(argv[1], 0);
+  ret = mpd_queue_add(argv[1], true);
 
   if (ret == 0)
     {
@@ -2124,6 +2122,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
   if (ret < 0)
     {
       db_query_end(&qp);
+      free(qp.filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
@@ -2134,6 +2133,8 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
         {
           *errmsg = safe_asprintf("Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
+          db_query_end(&qp);
+          free(qp.filter);
           return ACK_ERROR_UNKNOWN;
         }
 
@@ -2147,7 +2148,6 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
     }
 
   db_query_end(&qp);
-
   free(qp.filter);
 
   return 0;
@@ -2720,6 +2720,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   if (ret < 0)
     {
       db_query_end(&qp);
+      free(qp.filter);
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
@@ -2728,7 +2729,6 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
 	{
 	  DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
-	  return -1;
 	}
 
       if (listinfo)
@@ -2757,6 +2757,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Failed to start directory enum for parent_id %d\n", directory_id);
+      db_directory_enum_end(&dir_enum);
       return -1;
     }
   while ((ret = db_directory_enum_fetch(&dir_enum, &subdir)) == 0 && subdir.id > 0)
@@ -2793,6 +2794,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   if (ret < 0)
     {
       db_query_end(&qp);
+      free(qp.filter);
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
@@ -2814,6 +2816,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
 	}
     }
   db_query_end(&qp);
+  free(qp.filter);
 
   return 0;
 }
@@ -3765,8 +3768,8 @@ mpd_command_channels(struct evbuffer *evbuf, int argc, char **argv, char **errms
   for (i = 0; mpd_channels[i].handler; i++)
     {
       evbuffer_add_printf(evbuf,
-      		      "channel: %s\n",
-      		      mpd_channels[i].channel);
+	  "channel: %s\n",
+	  mpd_channels[i].channel);
     }
 
   return 0;
