@@ -2365,7 +2365,7 @@ playback_pause(void *arg, int *retval)
 }
 
 /*
- * Notify of speaker/device changes (other than activation/deactivation)
+ * Notify of speaker/device changes
  */
 void
 player_speaker_status_trigger(void)

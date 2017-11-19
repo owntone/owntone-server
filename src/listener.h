@@ -10,7 +10,7 @@ enum listener_event_type
   LISTENER_QUEUE     = (1 << 1),
   /* The volume has been changed */
   LISTENER_VOLUME    = (1 << 2),
-  /* A speaker has been enabled or disabled */
+  /* Speaker status changes (enabled/disabled or verification status) */
   LISTENER_SPEAKER   = (1 << 3),
   /* Options like repeat, random has been changed */
   LISTENER_OPTIONS   = (1 << 4),
