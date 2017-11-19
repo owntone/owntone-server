@@ -6352,6 +6352,7 @@ db_init(void)
 
   files = db_files_get_count();
   pls = db_pl_get_count();
+  db_admin_setint64(ADMIN_START_TIME, (int64_t) time(NULL));
 
   db_perthread_deinit();
 
