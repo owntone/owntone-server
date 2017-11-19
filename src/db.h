@@ -63,14 +63,14 @@ enum query_type {
 #define ARTWORK_SPOTIFY   6
 #define ARTWORK_HTTP      7
 
-#define ADMIN_SCHEMA_VERSION_MAJOR "schema_version_major"
-#define ADMIN_SCHEMA_VERSION_MINOR "schema_version_minor"
-#define ADMIN_SCHEMA_VERSION "schema_version"
-#define ADMIN_QUEUE_VERSION "queue_version"
-#define ADMIN_DB_UPDATE "db_update"
-#define ADMIN_START_TIME "start_time"
-#define ADMIN_LASTFM_SESSION_KEY "lastfm_sk"
-#define ADMIN_SPOTIFY_REFRESH_TOKEN "spotify_refresh_token"
+#define DB_ADMIN_SCHEMA_VERSION_MAJOR "schema_version_major"
+#define DB_ADMIN_SCHEMA_VERSION_MINOR "schema_version_minor"
+#define DB_ADMIN_SCHEMA_VERSION "schema_version"
+#define DB_ADMIN_QUEUE_VERSION "queue_version"
+#define DB_ADMIN_DB_UPDATE "db_update"
+#define DB_ADMIN_START_TIME "start_time"
+#define DB_ADMIN_LASTFM_SESSION_KEY "lastfm_sk"
+#define DB_ADMIN_SPOTIFY_REFRESH_TOKEN "spotify_refresh_token"
 
 struct query_params {
   /* Query parameters, filled in by caller */
