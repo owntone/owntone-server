@@ -4115,6 +4115,9 @@ db_queue_update_item(struct db_queue_item *qi)
 
   ret = db_query_run(query, 1, 0);
 
+  /* MPD changes playlist version when metadata changes */
+  queue_inc_version_and_notify();
+
   return ret;
 #undef Q_TMPL
 }
