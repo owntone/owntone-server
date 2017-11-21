@@ -4542,6 +4542,17 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
     {
       evbuffer_add(output, "OK\n", 3);
     }
+
+  if (close_cmd)
+    {
+      /*
+       * Freeing the bufferevent closes the connection, if it was
+       * opened with BEV_OPT_CLOSE_ON_FREE.
+       * Since bufferevent is reference-counted, it will happen as
+       * soon as possible, not necessarily immediately.
+       */
+      bufferevent_free(bev);
+    }
 }
 
 /*
