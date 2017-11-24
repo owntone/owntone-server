@@ -162,7 +162,7 @@
 
 #define T_QUEUE								\
   "CREATE TABLE IF NOT EXISTS queue ("					\
-  "   id                  INTEGER PRIMARY KEY NOT NULL,"		\
+  "   id                  INTEGER PRIMARY KEY AUTOINCREMENT,"		\
   "   file_id             INTEGER NOT NULL,"				\
   "   pos                 INTEGER NOT NULL,"				\
   "   shuffle_pos         INTEGER NOT NULL,"				\
@@ -184,7 +184,8 @@
   "   year                INTEGER DEFAULT 0,"				\
   "   track               INTEGER DEFAULT 0,"				\
   "   disc                INTEGER DEFAULT 0,"				\
-  "   artwork_url         VARCHAR(4096) DEFAULT NULL"			\
+  "   artwork_url         VARCHAR(4096) DEFAULT NULL,"			\
+  "   queue_version       INTEGER DEFAULT 0"				\
   ");"
 
 #define TRG_GROUPS_INSERT_FILES						\

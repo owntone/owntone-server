@@ -1574,6 +1574,58 @@ static const struct db_upgrade_query db_upgrade_v1905_queries[] =
   };
 
 
+/* Upgrade from schema v19.05 to v20.00 */
+
+#define U_V1906_DROP_TABLE_QUEUE					\
+  "DROP TABLE queue;"
+
+#define U_V1906_CREATE_TABLE_QUEUE					\
+  "CREATE TABLE IF NOT EXISTS queue ("					\
+  "   id                  INTEGER PRIMARY KEY AUTOINCREMENT,"		\
+  "   file_id             INTEGER NOT NULL,"				\
+  "   pos                 INTEGER NOT NULL,"				\
+  "   shuffle_pos         INTEGER NOT NULL,"				\
+  "   data_kind           INTEGER NOT NULL,"				\
+  "   media_kind          INTEGER NOT NULL,"				\
+  "   song_length         INTEGER NOT NULL,"				\
+  "   path                VARCHAR(4096) NOT NULL,"			\
+  "   virtual_path        VARCHAR(4096) NOT NULL,"			\
+  "   title               VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist        VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   album               VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   genre               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   songalbumid         INTEGER NOT NULL,"				\
+  "   time_modified       INTEGER DEFAULT 0,"				\
+  "   artist_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_sort          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist_sort   VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   year                INTEGER DEFAULT 0,"				\
+  "   track               INTEGER DEFAULT 0,"				\
+  "   disc                INTEGER DEFAULT 0,"				\
+  "   artwork_url         VARCHAR(4096) DEFAULT NULL,"			\
+  "   queue_version       INTEGER DEFAULT 0"				\
+  ");"
+
+#define U_V1906_UPDATE_HTTP_VIRTUAL_PATH \
+  "UPDATE files SET virtual_path = '/' || path WHERE data_kind = 1;"
+
+#define U_V1906_SCVER_MAJOR			\
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_V1906_SCVER_MINOR			\
+  "UPDATE admin SET value = '06' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_V1906_queries[] =
+  {
+    { U_V1906_DROP_TABLE_QUEUE,         "drop queue table" },
+    { U_V1906_CREATE_TABLE_QUEUE,       "create queue table" },
+    { U_V1906_UPDATE_HTTP_VIRTUAL_PATH, "update virtual path for http streams" },
+
+    { U_V1906_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V1906_SCVER_MINOR,    "set schema_version_minor to 06" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1716,6 +1768,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1904:
       ret = db_generic_upgrade(hdl, db_upgrade_v1905_queries, sizeof(db_upgrade_v1905_queries) / sizeof(db_upgrade_v1905_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1905:
+      ret = db_generic_upgrade(hdl, db_upgrade_V1906_queries, sizeof(db_upgrade_V1906_queries) / sizeof(db_upgrade_V1906_queries[0]));
       if (ret < 0)
 	return -1;
 
