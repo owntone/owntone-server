@@ -1968,7 +1968,7 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
 static int
 mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  char path[PATH_MAX];
+  char *path;
   struct playlist_info *pli;
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -1980,18 +1980,19 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
       return ACK_ERROR_ARG;
     }
 
-  if (strncmp(argv[1], "/", 1) == 0)
-    ret = snprintf(path, sizeof(path), "%s", argv[1]);
-  else
-    ret = snprintf(path, sizeof(path), "/%s", argv[1]);
-
-  if (ret >= sizeof(path))
+  if (!default_pl_dir || strstr(argv[1], ":/"))
     {
-      *errmsg = safe_asprintf("Length of path exceeds the PATH_MAX value '%s'", argv[1]);
-      return ACK_ERROR_ARG;
+      // Argument is a virtual path, make sure it starts with a '/'
+      path = prepend_slash(argv[1]);
+    }
+  else
+    {
+      // Argument is a playlist name, prepend default playlist directory
+      path = safe_asprintf("%s/%s%s", default_pl_dir, argv[1]);
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
+  free(path);
   if (!pli)
     {
       *errmsg = safe_asprintf("Playlist not found for path '%s'", argv[1]);
@@ -2036,7 +2037,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
 static int
 mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  char path[PATH_MAX];
+  char *path;
   struct playlist_info *pli;
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -2048,18 +2049,19 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
       return ACK_ERROR_ARG;
     }
 
-  if (strncmp(argv[1], "/", 1) == 0)
-    ret = snprintf(path, sizeof(path), "%s", argv[1]);
-  else
-    ret = snprintf(path, sizeof(path), "/%s", argv[1]);
-
-  if (ret >= sizeof(path))
+  if (!default_pl_dir || strstr(argv[1], ":/"))
     {
-      *errmsg = safe_asprintf("Length of path exceeds the PATH_MAX value '%s'", argv[1]);
-      return ACK_ERROR_ARG;
+      // Argument is a virtual path, make sure it starts with a '/'
+      path = prepend_slash(argv[1]);
+    }
+  else
+    {
+      // Argument is a playlist name, prepend default playlist directory
+      path = safe_asprintf("%s/%s%s", default_pl_dir, argv[1]);
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
+  free(path);
   if (!pli)
     {
       *errmsg = safe_asprintf("Playlist not found for path '%s'", argv[1]);
@@ -2161,7 +2163,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
 static int
 mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  char path[PATH_MAX];
+  char *path;
   struct playlist_info *pli;
   struct player_status status;
   int ret;
@@ -2172,18 +2174,19 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       return ACK_ERROR_ARG;
     }
 
-  if (strncmp(argv[1], "/", 1) == 0)
-    ret = snprintf(path, sizeof(path), "%s", argv[1]);
-  else
-    ret = snprintf(path, sizeof(path), "/%s", argv[1]);
-
-  if (ret >= sizeof(path))
+  if (!default_pl_dir || strstr(argv[1], ":/"))
     {
-      *errmsg = safe_asprintf("Length of path exceeds the PATH_MAX value '%s'", argv[1]);
-      return ACK_ERROR_ARG;
+      // Argument is a virtual path, make sure it starts with a '/'
+      path = prepend_slash(argv[1]);
+    }
+  else
+    {
+      // Argument is a playlist name, prepend default playlist directory
+      path = safe_asprintf("%s/%s%s", default_pl_dir, argv[1]);
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
+  free(path);
   if (!pli)
     {
       *errmsg = safe_asprintf("Playlist not found for path '%s'", argv[1]);
