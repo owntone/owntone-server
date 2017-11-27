@@ -464,18 +464,18 @@ http_stream_setup(char **stream, const char *url)
   while ((ch = *pos) != '\0')
     {
       if (ch == '?' || ch == '#')
-        break;
+	break;
       if (ch == '.')
-        ext = pos;
+	ext = pos;
       ++pos;
     }
 
   if (ext)
     {
       if (strncasecmp(ext, ".m3u", 4) == 0)
-        pl_format = PLAYLIST_M3U;
+	pl_format = PLAYLIST_M3U;
       else if (strncasecmp(ext, ".pls", 4) == 0)
-        pl_format = PLAYLIST_PLS;
+	pl_format = PLAYLIST_PLS;
     }
 
   if (pl_format==PLAYLIST_UNK)
@@ -515,45 +515,45 @@ http_stream_setup(char **stream, const char *url)
     {
       // Skip comments and blank lines without counting for the limit
       if (pl_format == PLAYLIST_M3U && (line[0] == '#' || line[0] == '\0'))
-        goto line_done;
+	goto line_done;
 
       n++;
 
       if (pl_format == PLAYLIST_PLS && !in_playlist)
-        {
-          if (strncasecmp(line, "[playlist]", strlen("[playlist]")) == 0)
-            {
-              in_playlist = true;
-              n = 0;
-            }
-          goto line_done;
-        }
+	{
+	  if (strncasecmp(line, "[playlist]", strlen("[playlist]")) == 0)
+	    {
+	      in_playlist = true;
+	      n = 0;
+	    }
+	  goto line_done;
+	}
 
       if (pl_format == PLAYLIST_PLS)
-        {
-          pos = line;
-          while (*pos == ' ')
-            ++pos;
+	{
+	  pos = line;
+	  while (*pos == ' ')
+	    ++pos;
 
           // We are only interested in `FileN=http://foo/bar.mp3` entries
-          if (strncasecmp(pos, "file", strlen("file")) != 0)
-            goto line_done;
+	  if (strncasecmp(pos, "file", strlen("file")) != 0)
+	    goto line_done;
 
-          while (*pos != '=' && *pos != '\0')
-            ++pos;
+	  while (*pos != '=' && *pos != '\0')
+	    ++pos;
 
-          if (*pos == '\0')
-            goto line_done;
+	  if (*pos == '\0')
+	    goto line_done;
 
-          ++pos;
-          while (*pos == ' ')
-            ++pos;
+	  ++pos;
+	  while (*pos == ' ')
+	    ++pos;
         
-          // allocate the value part and proceed as with m3u
-          pos = strdup(pos);
-          free(line);
-          line = (char *) pos;
-        }
+	  // allocate the value part and proceed as with m3u
+	  pos = strdup(pos);
+	  free(line);
+	  line = (char *) pos;
+	}
 
       if (strncasecmp(line, "http://", strlen("http://")) == 0)
 	{
