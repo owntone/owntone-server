@@ -44,6 +44,11 @@
 #include "logger.h"
 #include "misc.h"
 
+/* Formats we can read so far */
+#define PLAYLIST_UNK 0
+#define PLAYLIST_PLS 1
+#define PLAYLIST_M3U 2
+
 /* ======================= libevent HTTP client  =============================*/
 
 // Number of seconds the client will wait for a response before aborting
@@ -444,17 +449,42 @@ http_stream_setup(char **stream, const char *url)
   char *line;
   int ret;
   int n;
+  const char *pos;
+  char ch;
+  int pl_format;
+  bool in_playlist;
 
   *stream = NULL;
+  pl_format = PLAYLIST_UNK;
 
-  ext = strrchr(url, '.');
-  if (!ext || (strcasecmp(ext, ".m3u") != 0))
+  // Find last dot before query or fragment,
+  // e.g., http://yp.shoutcast.com/sbin/tunein-station.pls?id=99179772#Air Jazz
+  pos = url;
+  ext = NULL;
+  while ((ch = *pos) != '\0')
+    {
+      if (ch == '?' || ch == '#')
+        break;
+      if (ch == '.')
+        ext = pos;
+      ++pos;
+    }
+
+  if (ext)
+    {
+      if (strncasecmp(ext, ".m3u", 4) == 0)
+        pl_format = PLAYLIST_M3U;
+      else if (strncasecmp(ext, ".pls", 4) == 0)
+        pl_format = PLAYLIST_PLS;
+    }
+
+  if (pl_format==PLAYLIST_UNK)
     {
       *stream = strdup(url);
       return 0;
     }
 
-  // It was a m3u playlist, so now retrieve it
+  // It was a m3u or pls playlist, so now retrieve it
   memset(&ctx, 0, sizeof(struct http_client_ctx));
 
   evbuf = evbuffer_new();
@@ -479,10 +509,52 @@ http_stream_setup(char **stream, const char *url)
   /* Read the playlist until the first stream link is found, but give up if
    * nothing is found in the first 10 lines
    */
+  in_playlist = false;
   n = 0;
   while ((line = evbuffer_readln(ctx.input_body, NULL, EVBUFFER_EOL_ANY)) && (n < 10))
     {
+      // Skip comments and blank lines without counting for the limit
+      if (pl_format == PLAYLIST_M3U && (line[0] == '#' || line[0] == '\0'))
+        goto line_done;
+
       n++;
+
+      if (pl_format == PLAYLIST_PLS && !in_playlist)
+        {
+          if (strncasecmp(line, "[playlist]", strlen("[playlist]")) == 0)
+            {
+              in_playlist = true;
+              n = 0;
+            }
+          goto line_done;
+        }
+
+      if (pl_format == PLAYLIST_PLS)
+        {
+          pos = line;
+          while (*pos == ' ')
+            ++pos;
+
+          // We are only interested in `FileN=http://foo/bar.mp3` entries
+          if (strncasecmp(pos, "file", strlen("file")) != 0)
+            goto line_done;
+
+          while (*pos != '=' && *pos != '\0')
+            ++pos;
+
+          if (*pos == '\0')
+            goto line_done;
+
+          ++pos;
+          while (*pos == ' ')
+            ++pos;
+        
+          // allocate the value part and proceed as with m3u
+          pos = strdup(pos);
+          free(line);
+          line = (char *) pos;
+        }
+
       if (strncasecmp(line, "http://", strlen("http://")) == 0)
 	{
 	  DPRINTF(E_DBG, L_HTTP, "Found internet playlist stream (line %d): %s\n", n, line);
@@ -491,6 +563,7 @@ http_stream_setup(char **stream, const char *url)
 	  break;
 	}
 
+    line_done:
       free(line);
     }
 
