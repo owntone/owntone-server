@@ -76,6 +76,7 @@ static int
 process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_file_info *mfi)
 {
   char virtual_path[PATH_MAX];
+  char *pos;
   int ret;
 
   if (extinf)
@@ -83,7 +84,13 @@ process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_
 
   mfi->id = db_file_id_bypath(path);
   mfi->path = strdup(path);
-  mfi->fname = strdup(filename_from_path(path));
+
+  pos = strchr(path, '#');
+  if (pos)
+    mfi->fname = strdup(pos+1);
+  else
+    mfi->fname = strdup(filename_from_path(mfi->path));
+
   mfi->data_kind = DATA_KIND_HTTP;
   mfi->time_modified = mtime;
   mfi->directory_id = DIR_HTTP;
@@ -100,7 +107,7 @@ process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_
   if (!mfi->title)
     mfi->title = strdup(mfi->fname);
 
-  snprintf(virtual_path, sizeof(virtual_path), "/http:/%s", mfi->title);
+  snprintf(virtual_path, sizeof(virtual_path), "/%s", mfi->path);
   mfi->virtual_path = strdup(virtual_path);
 
   library_add_media(mfi);

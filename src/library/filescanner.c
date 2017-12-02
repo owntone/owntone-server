@@ -1640,13 +1640,21 @@ filescanner_fullrescan()
 static int
 scan_metadata(const char *path, struct media_file_info *mfi)
 {
+  char *pos;
   int ret;
 
   if (strncasecmp(path, "http://", strlen("http://")) == 0)
     {
       memset(mfi, 0, sizeof(struct media_file_info));
       mfi->path = strdup(path);
-      mfi->fname = strdup(filename_from_path(mfi->path));
+      mfi->virtual_path = safe_asprintf("/%s", mfi->path);
+
+      pos = strchr(path, '#');
+      if (pos)
+	mfi->fname = strdup(pos+1);
+      else
+	mfi->fname = strdup(filename_from_path(mfi->path));
+
       mfi->data_kind = DATA_KIND_HTTP;
       mfi->directory_id = DIR_HTTP;
 
@@ -1658,6 +1666,9 @@ scan_metadata(const char *path, struct media_file_info *mfi)
 	  mfi->codectype = strdup("mpeg");
 	  mfi->description = strdup("MPEG audio file");
 	}
+
+      if (!mfi->title)
+	mfi->title = strdup(mfi->fname);
 
       return LIBRARY_OK;
     }
