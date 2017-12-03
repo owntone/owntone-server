@@ -2543,8 +2543,6 @@ speaker_set(void *arg, int *retval)
 	}
     }
 
-  listener_notify(LISTENER_SPEAKER);
-
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
@@ -2986,6 +2984,9 @@ player_speaker_set(uint64_t *ids)
   cmdarg.speaker_set_param.intval = 0;
 
   ret = commands_exec_sync(cmdbase, speaker_set, NULL, &cmdarg);
+
+  listener_notify(LISTENER_SPEAKER);
+
   return ret;
 }
 
