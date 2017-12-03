@@ -79,6 +79,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #endif
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
+#define WEB_ROOT  DATADIR "/htdocs"
 
 struct event_base *evbase_main;
 
@@ -108,6 +109,7 @@ usage(char *program)
   printf("  -f             Run in foreground\n");
   printf("  -b <id>        ffid to be broadcast\n");
   printf("  -v             Display version information\n");
+  printf("  -w <directory> Use <directory> as the web root directory for serving static files\n");
   printf("\n\n");
   printf("Available log domains:\n");
   logger_domains();
@@ -469,6 +471,7 @@ main(int argc, char **argv)
   char *logfile;
   char *ffid;
   char *pidfile;
+  char *webroot;
   char **buildopts;
   const char *av_version;
   const char *gcry_version;
@@ -489,6 +492,7 @@ main(int argc, char **argv)
       { "config",       1, NULL, 'c' },
       { "pidfile",      1, NULL, 'P' },
       { "version",      0, NULL, 'v' },
+      { "webroot",      1, NULL, 'w' },
 
       { "mdns-no-rsp",  0, NULL, 512 },
       { "mdns-no-daap", 0, NULL, 513 },
@@ -498,6 +502,7 @@ main(int argc, char **argv)
 
   configfile = CONFFILE;
   pidfile = PIDFILE;
+  webroot = WEB_ROOT;
   loglevel = -1;
   logdomains = NULL;
   logfile = NULL;
@@ -506,7 +511,7 @@ main(int argc, char **argv)
   mdns_no_rsp = 0;
   mdns_no_daap = 0;
 
-  while ((option = getopt_long(argc, argv, "D:d:c:P:fb:v", option_map, NULL)) != -1)
+  while ((option = getopt_long(argc, argv, "D:d:c:P:fb:vw:", option_map, NULL)) != -1)
     {
       switch (option)
 	{
@@ -519,8 +524,8 @@ main(int argc, char **argv)
 	    break;
 
 	  case 'b':
-            ffid = optarg;
-            break;
+	    ffid = optarg;
+	    break;
 
 	  case 'd':
 	    ret = safe_atoi32(optarg, &option);
@@ -528,34 +533,38 @@ main(int argc, char **argv)
 	      fprintf(stderr, "Error: loglevel must be an integer in '-d %s'\n", optarg);
 	    else
 	      loglevel = option;
-            break;
+	    break;
 
 	  case 'D':
 	    logdomains = optarg;
-            break;
+	    break;
 
-          case 'f':
-            background = 0;
-            break;
+	  case 'f':
+	    background = 0;
+	    break;
 
-          case 'c':
-            configfile = optarg;
-            break;
+	  case 'c':
+	    configfile = optarg;
+	    break;
 
-          case 'P':
+	  case 'P':
 	    pidfile = optarg;
-            break;
+	    break;
 
-          case 'v':
+	  case 'v':
 	    version();
-            return EXIT_SUCCESS;
-            break;
+	    return EXIT_SUCCESS;
+	    break;
 
-          default:
-            usage(argv[0]);
-            return EXIT_FAILURE;
-            break;
-        }
+	  case 'w':
+	    webroot = optarg;
+	    break;
+
+	  default:
+	    usage(argv[0]);
+	    return EXIT_FAILURE;
+	    break;
+	}
     }
 
   ret = logger_init(NULL, NULL, (loglevel < 0) ? E_LOG : loglevel);
@@ -763,7 +772,7 @@ main(int argc, char **argv)
     }
 
   /* Spawn HTTPd thread */
-  ret = httpd_init();
+  ret = httpd_init(webroot);
   if (ret != 0)
     {
       DPRINTF(E_FATAL, L_MAIN, "HTTPd thread failed to start\n");
