@@ -72,8 +72,6 @@
 #endif
 
 
-#define WEB_ROOT DATADIR "/htdocs"
-
 #define STREAM_CHUNK_SIZE (64 * 1024)
 #define ERR_PAGE "<html>\n<head>\n" \
   "<title>%d %s</title>\n" \
@@ -117,6 +115,7 @@ static const struct content_type_map ext2ctype[] =
 
 static const char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
 
+static const char *webroot_directory;
 struct event_base *evbase_httpd;
 
 #ifdef HAVE_EVENTFD
@@ -142,7 +141,7 @@ struct stream_ctx *g_st;
 static int
 path_is_legal(const char *path)
 {
-  return strncmp(WEB_ROOT, path, strlen(WEB_ROOT));
+  return strncmp(webroot_directory, path, strlen(webroot_directory));
 }
 
 /* Callback from the worker thread (async operation as it may block) */
@@ -279,7 +278,7 @@ serve_file(struct evhttp_request *req, const char *uri)
   if (!httpd_admin_check_auth(req))
     return;
 
-  ret = snprintf(path, sizeof(path), "%s%s", WEB_ROOT, uri);
+  ret = snprintf(path, sizeof(path), "%s%s", webroot_directory, uri);
   if ((ret < 0) || (ret >= sizeof(path)))
     {
       DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", uri);
@@ -1555,12 +1554,29 @@ httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passw
 
 /* Thread: main */
 int
-httpd_init(void)
+httpd_init(const char *webroot)
 {
+  struct stat sb;
   int v6enabled;
   int ret;
 
   httpd_exit = 0;
+
+  DPRINTF(E_DBG, L_HTTPD, "Starting web server with root directory '%s'\n", webroot);
+  ret = lstat(webroot, &sb);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not lstat() web root directory '%s': %s\n", webroot, strerror(errno));
+
+      return -1;
+    }
+  if (!S_ISDIR(sb.st_mode))
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Web root directory '%s' is not a directory\n", webroot);
+
+      return -1;
+    }
+  webroot_directory = webroot;
 
   evbase_httpd = event_base_new();
   if (!evbase_httpd)
