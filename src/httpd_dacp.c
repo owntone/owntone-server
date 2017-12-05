@@ -1072,6 +1072,9 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
 
   mfi->rating = rating;
 
+  /* rating is shared as MPD sticker `rating` */
+  listener_notify(LISTENER_STICKER);
+  
   /* We're not touching any string field in mfi, so it's safe to
    * skip unicode_fixup_mfi() before the update
    */
