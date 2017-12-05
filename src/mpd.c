@@ -67,6 +67,8 @@ static struct commands_base *cmdbase;
 
 static struct evhttp *evhttpd;
 
+#define ALL_IDLE_LISTENER_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST | LISTENER_STICKER)
+
 struct evconnlistener *mpd_listener6;
 struct evconnlistener *mpd_listener;
 
@@ -374,7 +376,7 @@ mpd_pars_quoted(char **input)
       // A backslash character escapes the following character and should be removed
       if (ch == '\\')
 	{
-          ch = *(++src);
+	  ch = *(++src);
 	}
       *dst++ = ch;
 
@@ -382,7 +384,7 @@ mpd_pars_quoted(char **input)
 	{
 	  // Error handling for missing double quote at end of parameter
 	  DPRINTF(E_LOG, L_MPD, "Error missing closing double quote in argument\n");
-          *input = src;
+	  *input = src;
 	  return NULL;
 	}
 
@@ -665,12 +667,14 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 	    ctx->idle_events |= LISTENER_OPTIONS;
 	  else if (0 == strcmp(argv[i], "stored_playlist"))
 	    ctx->idle_events |= LISTENER_STORED_PLAYLIST;
+	  else if (0 == strcmp(argv[i], "sticker"))
+            ctx->idle_events |= LISTENER_STICKER;
 	  else
 	    DPRINTF(E_DBG, L_MPD, "Idle command for '%s' not supported\n", argv[i]);
 	}
     }
   else
-    ctx->idle_events = LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST;
+    ctx->idle_events = ALL_IDLE_LISTENER_EVENTS;
 
   // If events the client listens to occurred since the last idle call (or since the client connected,
   // if it is the first idle call), notify immediately.
@@ -2134,12 +2138,12 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
   while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
-        {
-          *errmsg = safe_asprintf("Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
-          db_query_end(&qp);
-          free(qp.filter);
-          return ACK_ERROR_UNKNOWN;
-        }
+	{
+	  *errmsg = safe_asprintf("Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
+	  db_query_end(&qp);
+	  free(qp.filter);
+	  return ACK_ERROR_UNKNOWN;
+	}
 
       mpd_time(modified, sizeof(modified), time_modified);
 
@@ -2598,9 +2602,9 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
     }
   else if (0 == strcasecmp(argv[1], "albumartist"))
       {
-        qp.type = Q_GROUP_ARTISTS;
-        qp.sort = S_ARTIST;
-        type = "AlbumArtist: ";
+	qp.type = Q_GROUP_ARTISTS;
+	qp.sort = S_ARTIST;
+	type = "AlbumArtist: ";
       }
   else if (0 == strcasecmp(argv[1], "album"))
     {
@@ -3196,6 +3200,285 @@ mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   return 0;
 }
 
+struct mpd_sticker_command {
+  const char *cmd;
+  int (*handler)(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating);
+  int need_args;
+  int want_dir;
+  int get_mfi;
+};
+
+#define MPD_RATING_FACTOR 10.0
+
+static int
+mpd_sticker_get(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
+{
+  int ret = 0;
+
+  if (name_is_rating)
+    {
+      if (!mfi || !mfi->rating)
+	{
+	  *errmsg = safe_asprintf("no such sticker");
+	  ret = ACK_ERROR_NO_EXIST;
+	  return ret;
+	}
+      *rating = mfi->rating / MPD_RATING_FACTOR;
+      evbuffer_add_printf(evbuf, "sticker: rating=%d\n", *rating);
+      return ret;
+    }
+
+  /* |:todo:| real sticker implementation */
+  *errmsg = safe_asprintf("no such sticker");
+  ret = ACK_ERROR_NO_EXIST;
+  return ret;
+}
+
+static int
+mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
+{
+  int ret = 0;
+
+  if (name_is_rating)
+    {
+      ret = safe_atou32(argv[5], (unsigned int *) rating);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("rating '%s' doesn't convert to integer", argv[5]);
+	  ret = ACK_ERROR_ARG;
+	  return ret;
+	}
+      *rating *= MPD_RATING_FACTOR;
+      *set_rating = 1;
+      return ret;
+    }
+
+  /* |:todo:| real sticker implementation */
+  *errmsg = safe_asprintf("no such sticker");
+  ret = ACK_ERROR_NO_EXIST;
+  return ret;
+}
+
+static int
+mpd_sticker_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
+{
+  int ret = 0;
+
+  if (name_is_rating)
+    {
+      *rating = 0;
+      *set_rating = 1;
+      return ret;
+    }
+
+  /* |:todo:| real sticker implementation */
+  *errmsg = safe_asprintf("no such sticker");
+  ret = ACK_ERROR_NO_EXIST;
+  return ret;
+}
+
+static int
+mpd_sticker_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
+{
+  int ret = 0;
+
+  if (mfi && mfi->rating)
+    {
+      *rating = mfi->rating / MPD_RATING_FACTOR;
+      evbuffer_add_printf(evbuf, "sticker: rating=%d\n", *rating);
+    }
+
+  /* |:todo:| real sticker implementation */
+  return ret;
+}
+
+static int
+mpd_sticker_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
+{
+  int ret = 0;
+
+  if (name_is_rating && argc == 5)
+    {
+      struct query_params qp;
+      struct db_media_file_info dbmfi;
+      char *c1;
+
+      memset(&qp, 0, sizeof(struct query_params));
+
+      qp.type = Q_ITEMS;
+      qp.sort = S_VPATH;
+      qp.idx_type = I_NONE;
+
+      c1 = db_mprintf("(f.virtual_path LIKE '%s%%' AND f.rating != 0)", virtual_path);
+      if (!c1)
+	{
+	  *errmsg = safe_asprintf("Out of memory");
+	  ret = ACK_ERROR_UNKNOWN;
+	  return ret;
+	}
+      qp.filter = c1;
+
+      ret = db_query_start(&qp);
+      if (ret < 0)
+	{
+	  db_query_end(&qp);
+	  free(qp.filter);
+
+	  *errmsg = safe_asprintf("Could not start query");
+	  ret = ACK_ERROR_UNKNOWN;
+	  return ret;
+	}
+
+      while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+	{
+	  ret = safe_atou32(dbmfi.rating, (unsigned int *) rating);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Error rating=%s doesn't convert to integer, song id: %s\n",
+		      dbmfi.rating, dbmfi.id);
+	      continue;
+	    }
+	  *rating /= MPD_RATING_FACTOR;
+	  if (!*rating)
+	    /* inconsistent database */
+	    continue;
+
+	  ret = evbuffer_add_printf(evbuf,
+				    "file: file:%s\n"
+				    "sticker: rating=%d\n",
+				    dbmfi.path,
+				    *rating);
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
+	}
+      ret = 0;
+
+      db_query_end(&qp);
+      free(qp.filter);
+      return ret;
+    }
+
+  /* |:todo:| MPD_STICKER_FIND with expressions */
+
+  /* |:todo:| real sticker implementation */
+  *errmsg = safe_asprintf("bad request");
+  ret = ACK_ERROR_ARG;
+  return ret;
+}
+
+static struct mpd_sticker_command mpd_sticker_handlers[] = {
+  { "get", mpd_sticker_get, 5, 0, 0 },
+  { "set", mpd_sticker_set, 6, 0, 0 },
+  { "delete", mpd_sticker_delete, 5, 0, 0 },
+  { "list", mpd_sticker_list, 4, 0, 1 },
+  { "find", mpd_sticker_find, 5, 1, 0 },
+  { NULL, NULL, 0, 0, 0 },
+};
+
+static void
+mpd_add_idle_events(short event_mask);
+
+/*
+ * Command handler function for 'sticker'
+ *
+ *   sticker get "noth here" rating
+ *   ACK [2@0] {sticker} unknown sticker domain
+ *
+ *   sticker get song "Al Cohn & Shorty Rogers/East Coast - West Coast Scene/04 Shorty Rogers - Cool Sunshine.flac" rating
+ *   ACK [50@0] {sticker} no such sticker
+ *
+ *   sticker get song "Al Cohn & Shorty Rogers/East Coast - West Coast Scene/03 Al Cohn - Serenade For Kathy.flac" rating
+ *   sticker: rating=8
+ *   OK
+ *
+ * From cantata:
+ *   sticker set song "file:/srv/music/VA/The Electro Swing Revolution Vol 3 1 - Hop, Hop, Hop/13 Mr. Hotcut - You Are.mp3" rating "6"
+ *   OK
+ */
+static int
+mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  struct mpd_sticker_command *cmd_param;
+  const char *cmd;
+  char *virtual_path = NULL;
+  const char *name = NULL;
+  bool name_is_rating = false;
+  struct media_file_info *mfi = NULL;
+  int rating = -1;
+  bool set_rating = false;
+  int i;
+  int ret;
+
+  if (argc < 4)
+    {
+      *errmsg = safe_asprintf("not enough arguments");
+      return ACK_ERROR_ARG;
+    }
+
+  if (strcmp(argv[2], "song") != 0)
+    {
+      *errmsg = safe_asprintf("unknown sticker domain");
+      return ACK_ERROR_ARG;
+    }
+
+  cmd = argv[1];
+  for (i=0; i<(sizeof(mpd_sticker_handlers) / sizeof(struct mpd_sticker_command)); ++i)
+    {
+      cmd_param = &mpd_sticker_handlers[i];
+      if (cmd_param->cmd && strcmp(cmd, cmd_param->cmd) == 0)
+	break;
+    }
+  if (!cmd_param->cmd)
+    {
+      *errmsg = safe_asprintf("bad request");
+      return ACK_ERROR_ARG;
+    }
+  if (argc < cmd_param->need_args)
+    {
+      *errmsg = safe_asprintf("not enough arguments");
+      return ACK_ERROR_ARG;
+    }
+
+  if (argc > 4)
+    {
+      name = argv[4];
+      name_is_rating = strcmp(name, "rating") == 0;
+    }
+
+  virtual_path = prepend_slash(argv[3]);
+
+  if (cmd_param->get_mfi || (!cmd_param->want_dir && name_is_rating))
+    {
+      mfi = db_file_fetch_byvirtualpath(virtual_path);
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Virtual path not found: %s\n", virtual_path);
+	  *errmsg = safe_asprintf("unknown sticker domain");
+          free(virtual_path);
+	  return ACK_ERROR_ARG;
+	}
+    }
+
+  ret = cmd_param->handler(evbuf, argc, argv, errmsg, name, virtual_path, name_is_rating, mfi, &rating, &set_rating);
+
+  if (ret == 0 && mfi && set_rating && mfi->rating != rating)
+    {
+      DPRINTF(E_DBG, L_MPD, "STICKER notification for changed rating: %d -> %d\n", mfi->rating, rating);
+      mfi->rating = rating;
+      /* Note, that a DATABASE event is triggered, but the
+       * client actually expects a sticker event, so add it here. */
+      mpd_add_idle_events(LISTENER_STICKER);
+      db_file_update(mfi);
+    }
+
+  free(virtual_path);
+
+  if (mfi)
+    free_mfi(mfi, 0);
+
+  return ret;
+}
+
 /*
 static int
 mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
@@ -3235,16 +3518,16 @@ mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errms
   if (unrequired || strcmp(supplied_password, required_password) == 0)
     {
       DPRINTF(E_DBG, L_MPD,
-              "Authentication succeeded with supplied password: %s%s\n",
-              supplied_password,
-              unrequired ? " although no password is required" : "");
+	      "Authentication succeeded with supplied password: %s%s\n",
+	      supplied_password,
+	      unrequired ? " although no password is required" : "");
       return 0;
     }
 
   DPRINTF(E_LOG, L_MPD,
-          "Authentication failed with supplied password: %s"
-          " for required password: %s\n",
-          supplied_password, required_password);
+	  "Authentication failed with supplied password: %s"
+	  " for required password: %s\n",
+	  supplied_password, required_password);
   *errmsg = safe_asprintf("Wrong password. Authentication failed.");
   return ACK_ERROR_PASSWORD;
 }
@@ -4250,7 +4533,7 @@ static struct mpd_command mpd_handlers[] =
      */
     {
       .mpdcommand = "sticker",
-      .handler = mpd_command_ignore
+      .handler = mpd_command_sticker
     },
 
     /*
@@ -4396,7 +4679,7 @@ mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errms
   for (i = 0; mpd_handlers[i].handler; i++)
     {
       evbuffer_add_printf(evbuf,
-          "command: %s\n",
+	  "command: %s\n",
 	  mpd_handlers[i].mpdcommand);
     }
 
@@ -4498,15 +4781,15 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	  ret = ACK_ERROR_UNKNOWN;
 	}
       else if (strcmp(command->mpdcommand, "password") == 0)
-        {
-          ret = command->handler(output, argc, argv, &errmsg, client_ctx);
-          client_ctx->authenticated = ret == 0;
-        }
+	{
+	  ret = command->handler(output, argc, argv, &errmsg, client_ctx);
+	  client_ctx->authenticated = ret == 0;
+	}
       else if (!client_ctx->authenticated)
-        {
+	{
 	  errmsg = safe_asprintf("Not authenticated");
 	  ret = ACK_ERROR_PERMISSION;
-        }
+	}
       else
 	ret = command->handler(output, argc, argv, &errmsg, client_ctx);
 
@@ -4694,6 +4977,7 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
       sockaddr_to_string(address, addr_str, sizeof(addr_str));
       client_ctx->authenticated = peer_address_is_trusted(addr_str);
     }
+
   client_ctx->next = mpd_clients;
   mpd_clients = client_ctx;
 
@@ -4725,6 +5009,28 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
   DPRINTF(E_LOG, L_MPD, "Error occured %d (%s) on the listener.\n", err, evutil_socket_error_to_string(err));
 }
 
+static void
+mpd_add_idle_events(short event_mask)
+{
+  struct mpd_client_ctx *client;
+  int i;
+
+  DPRINTF(E_DBG, L_MPD, "Add idle events (untriggered): %d\n", event_mask);
+
+  i = 0;
+  client = mpd_clients;
+  while (client)
+    {
+      client->events |= event_mask;
+      if (client->is_idle)
+	{
+	  client->events &= client->idle_events;
+	}
+      client = client->next;
+      i++;
+    }
+}
+
 static int
 mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
 {
@@ -4733,6 +5039,9 @@ mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
       client_ctx->events |= events;
       return 1;
     }
+
+  // in case mpd_add_idle_events has added any events
+  events |= client_ctx->events;
 
   if (!(client_ctx->idle_events & events))
     {
@@ -4744,10 +5053,10 @@ mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
     evbuffer_add(client_ctx->evbuffer, "changed: database\n", 18);
   if (events & LISTENER_UPDATE)
     evbuffer_add(client_ctx->evbuffer, "changed: update\n", 16);
-  if (events & LISTENER_PLAYER)
-    evbuffer_add(client_ctx->evbuffer, "changed: player\n", 16);
   if (events & LISTENER_QUEUE)
     evbuffer_add(client_ctx->evbuffer, "changed: playlist\n", 18);
+  if (events & LISTENER_PLAYER)
+    evbuffer_add(client_ctx->evbuffer, "changed: player\n", 16);
   if (events & LISTENER_VOLUME)
     evbuffer_add(client_ctx->evbuffer, "changed: mixer\n", 15);
   if (events & LISTENER_SPEAKER)
@@ -4756,6 +5065,8 @@ mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
     evbuffer_add(client_ctx->evbuffer, "changed: options\n", 17);
   if (events & LISTENER_STORED_PLAYLIST)
     evbuffer_add(client_ctx->evbuffer, "changed: stored_playlist\n", 25);
+  if (events & LISTENER_STICKER)
+    evbuffer_add(client_ctx->evbuffer, "changed: sticker\n", 17);
 
   evbuffer_add(client_ctx->evbuffer, "OK\n", 3);
 
@@ -4795,12 +5106,21 @@ static void
 mpd_listener_cb(short event_mask)
 {
   short *ptr;
+  pthread_t current_thread = pthread_self();
 
-  ptr = (short *)malloc(sizeof(short));
-  *ptr = event_mask;
-
-  DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", event_mask);
-  commands_exec_async(cmdbase, mpd_notify_idle, ptr);
+  if (pthread_equal(current_thread, tid_mpd))
+    {
+      int ret;
+      DPRINTF(E_DBG, L_MPD, "Immediate listener callback called with event type %d.\n", event_mask);
+      mpd_notify_idle(&event_mask, &ret);
+    }
+  else
+    {
+      ptr = (short *)malloc(sizeof(short));
+      *ptr = event_mask;
+      DPRINTF(E_DBG, L_MPD, "Asynchronous listener callback called with event type %d.\n", event_mask);
+      commands_exec_async(cmdbase, mpd_notify_idle, ptr);
+    }
 }
 
 /*
@@ -5068,7 +5388,7 @@ int mpd_init(void)
 #endif
 
   mpd_clients = NULL;
-  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST);
+  listener_add(mpd_listener_cb, ALL_IDLE_LISTENER_EVENTS);
 
   return 0;
 
