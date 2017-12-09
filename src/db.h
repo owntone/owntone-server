@@ -428,6 +428,8 @@ struct db_queue_item
   uint32_t disc;
 
   char *artwork_url;
+
+  uint32_t queue_version;
 };
 
 char *

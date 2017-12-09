@@ -385,26 +385,30 @@ metadata_update_cb(void *arg)
       goto out_free_metadata;
     }
 
-  // Since we won't be using the metadata struct values for anything else than
-  // this we just swap pointers
-  if (metadata->artist)
-    swap_pointers(&queue_item->artist, &metadata->artist);
-  if (metadata->title)
-    swap_pointers(&queue_item->title, &metadata->title);
-  if (metadata->album)
-    swap_pointers(&queue_item->album, &metadata->album);
-  if (metadata->genre)
-    swap_pointers(&queue_item->genre, &metadata->genre);
-  if (metadata->artwork_url)
-    swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
-  if (metadata->song_length)
-    queue_item->song_length = metadata->song_length;
-
-  ret = db_queue_update_item(queue_item);
-  if (ret < 0)
+  // Update queue item if metadata changed
+  if (metadata->artist || metadata->title || metadata->album || metadata->genre || metadata->artwork_url || metadata->song_length)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
-      goto out_free_queueitem;
+      // Since we won't be using the metadata struct values for anything else than
+      // this we just swap pointers
+      if (metadata->artist)
+	swap_pointers(&queue_item->artist, &metadata->artist);
+      if (metadata->title)
+	swap_pointers(&queue_item->title, &metadata->title);
+      if (metadata->album)
+	swap_pointers(&queue_item->album, &metadata->album);
+      if (metadata->genre)
+	swap_pointers(&queue_item->genre, &metadata->genre);
+      if (metadata->artwork_url)
+	swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
+      if (metadata->song_length)
+	queue_item->song_length = metadata->song_length;
+
+      ret = db_queue_update_item(queue_item);
+      if (ret < 0)
+        {
+	  DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
+	  goto out_free_queueitem;
+	}
     }
 
   o_metadata = outputs_metadata_prepare(metadata->item_id);

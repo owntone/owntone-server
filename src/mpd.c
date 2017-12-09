@@ -1882,6 +1882,52 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   return 0;
 }
 
+static int
+plchanges_build_queryparams(struct query_params *query_params, int argc, char **argv, char **errmsg)
+{
+  uint32_t version;
+  int start_pos;
+  int end_pos;
+  int ret;
+
+  memset(query_params, 0, sizeof(struct query_params));
+
+  if (argc < 2)
+    {
+      *errmsg = safe_asprintf("Missing argument for command 'plchanges'");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[1], &version);
+  if (ret < 0)
+    {
+      *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[1]);
+      return ACK_ERROR_ARG;
+    }
+
+  start_pos = 0;
+  end_pos = 0;
+  if (argc > 2)
+    {
+      ret = mpd_pars_range_arg(argv[2], &start_pos, &end_pos);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("Argument doesn't convert to integer or range: '%s'", argv[2]);
+	  return ACK_ERROR_ARG;
+	}
+
+      if (start_pos < 0)
+	DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
+    }
+
+  if (start_pos < 0 || end_pos <= 0)
+    query_params->filter = db_mprintf("(queue_version > %d)", version);
+  else
+    query_params->filter = db_mprintf("(queue_version > %d AND pos >= %d AND pos < %d)", version, start_pos, end_pos);
+
+  return 0;
+}
+
 /*
  * Command handler function for 'plchanges'
  * Lists all changed songs in the queue since the given playlist version in argv[1].
@@ -1893,34 +1939,34 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
   struct db_queue_item queue_item;
   int ret;
 
-  /*
-   * forked-daapd does not keep track of changes in the queue based on the playlist version,
-   * therefor plchanges returns all songs in the queue as changed ignoring the given version.
-   */
-  memset(&query_params, 0, sizeof(struct query_params));
+  ret = plchanges_build_queryparams(&query_params, argc, argv, errmsg);
+  if (ret != 0)
+    return ret;
 
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
-    {
-      *errmsg = safe_asprintf("Failed to start queue enum for command plchanges");
-      return ACK_ERROR_ARG;
-    }
+    goto error;
 
   while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
 	{
-	  *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
-
-	  db_queue_enum_end(&query_params);
-	  return ACK_ERROR_UNKNOWN;
+	  DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d", queue_item.file_id);
+	  goto error;
 	}
     }
 
   db_queue_enum_end(&query_params);
+  free_query_params(&query_params, 1);
 
   return 0;
+
+ error:
+  db_queue_enum_end(&query_params);
+  free_query_params(&query_params, 1);
+  *errmsg = safe_asprintf("Failed to start queue enum for command plchanges");
+  return ACK_ERROR_UNKNOWN;
 }
 
 /*
@@ -1934,18 +1980,13 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
   struct db_queue_item queue_item;
   int ret;
 
-  /*
-   * forked-daapd does not keep track of changes in the queue based on the playlist version,
-   * therefor plchangesposid returns all songs in the queue as changed ignoring the given version.
-   */
-  memset(&query_params, 0, sizeof(struct query_params));
+  ret = plchanges_build_queryparams(&query_params, argc, argv, errmsg);
+  if (ret != 0)
+    return ret;
 
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
-    {
-      *errmsg = safe_asprintf("Failed to start queue enum for command plchangesposid");
-      return ACK_ERROR_ARG;
-    }
+    goto error;
 
   while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
@@ -1957,8 +1998,15 @@ mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char *
     }
 
   db_queue_enum_end(&query_params);
+  free_query_params(&query_params, 1);
 
   return 0;
+
+ error:
+  db_queue_enum_end(&query_params);
+  free_query_params(&query_params, 1);
+  *errmsg = safe_asprintf("Failed to start queue enum for command plchangesposid");
+  return ACK_ERROR_UNKNOWN;
 }
 
 /*
