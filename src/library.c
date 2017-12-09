@@ -93,6 +93,7 @@ static struct event *updateev;
 // Counts the number of changes made to the database between to DATABASE
 // event notifications
 static unsigned int deferred_update_notifications = 0;
+static short deferred_update_events = 0;
 
 static bool
 handle_deferred_update_notifications(void)
@@ -654,14 +655,18 @@ update_trigger_cb(int fd, short what, void *arg)
 {
   if (handle_deferred_update_notifications())
     {
-      listener_notify(LISTENER_DATABASE);
+      listener_notify(deferred_update_events);
+      deferred_update_events = 0;
     }
 }
 
 static enum command_state
 update_trigger(void *arg, int *retval)
 {
+  short *events = arg;
+
   ++deferred_update_notifications;
+  deferred_update_events |= *events;
 
   // Only add the timer event if the update occurred outside a (init-/re-/fullre-) scan.
   // The scanning functions take care of notifying clients of database changes directly
@@ -780,19 +785,22 @@ library_is_exiting()
  * is emitted with the delay 'library_update_wait'. It is safe to call this function from any thread.
  */
 void
-library_update_trigger(void)
+library_update_trigger(short update_events)
 {
+  short *events;
   int ret;
 
   pthread_t current_thread = pthread_self();
   if (pthread_equal(current_thread, tid_library))
     {
       // We are already running in the library thread, it is safe to directly call update_trigger
-      update_trigger(NULL, &ret);
+      update_trigger(&update_events, &ret);
     }
   else
     {
-      commands_exec_async(cmdbase, update_trigger, NULL);
+      events = malloc(sizeof(short));
+      *events = update_events;
+      commands_exec_async(cmdbase, update_trigger, events);
     }
 }
 

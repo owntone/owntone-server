@@ -1005,7 +1005,6 @@ dacp_propset_repeatstate(const char *value, struct evkeyvalq *query)
 static void
 dacp_propset_userrating(const char *value, struct evkeyvalq *query)
 {
-  struct media_file_info *mfi;
   const char *param;
   uint32_t itemid;
   uint32_t rating;
@@ -1052,35 +1051,31 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
       return;
     }
 
-  mfi = db_file_fetch_byid(itemid);
+  ret = db_file_rating_update_byid(itemid, rating);
 
   /* If no mfi, it may be because we sent an invalid nowplaying itemid. In this
    * case request the real one from the player and default to that.
    */
-  if (!mfi)
+  if (ret == 0)
     {
       DPRINTF(E_WARN, L_DACP, "Invalid id %d for rating, defaulting to player id\n", itemid);
 
       ret = player_now_playing(&itemid);
-      if ((ret < 0) || !(mfi = db_file_fetch_byid(itemid)))
+      if (ret < 0)
 	{
 	  DPRINTF(E_WARN, L_DACP, "Could not find an id for rating\n");
 
 	  return;
 	}
+
+      ret = db_file_rating_update_byid(itemid, rating);
+      if (ret <= 0)
+      	{
+      	  DPRINTF(E_WARN, L_DACP, "Could not find an id for rating\n");
+
+      	  return;
+      	}
     }
-
-  mfi->rating = rating;
-
-  /* rating is shared as MPD sticker `rating` */
-  listener_notify(LISTENER_STICKER);
-  
-  /* We're not touching any string field in mfi, so it's safe to
-   * skip unicode_fixup_mfi() before the update
-   */
-  db_file_update(mfi);
-
-  free_mfi(mfi, 0);
 }
 
 
