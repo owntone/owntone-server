@@ -329,7 +329,7 @@ static enum group_type
 db_group_type_bypersistentid(int64_t persistentid);
 
 static int
-db_query_run(char *query, int free, int cache_update);
+db_query_run(char *query, int free, short update_events);
 
 
 char *
@@ -804,7 +804,7 @@ db_purge_cruft(time_t ref)
 
   DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
 
-  ret = db_query_run(query, 1, 1);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
   if (ret == 0)
     DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
 
@@ -1496,7 +1496,7 @@ db_query_end(struct query_params *qp)
  * to update their cache of the library (and of course also of our own cache).
  */
 static int
-db_query_run(char *query, int free, int library_update)
+db_query_run(char *query, int free, short update_events)
 {
   char *errmsg;
   int changes = 0;
@@ -1527,8 +1527,8 @@ db_query_run(char *query, int free, int library_update)
 
   cache_daap_resume();
 
-  if (library_update && changes > 0)
-    library_update_trigger();
+  if (update_events && changes > 0)
+    library_update_trigger(update_events);
 
   return ((ret != SQLITE_OK) ? -1 : 0);
 }
@@ -2392,7 +2392,7 @@ db_file_add(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  library_update_trigger();
+  library_update_trigger(LISTENER_DATABASE);
 
   return 0;
 
@@ -2471,7 +2471,7 @@ db_file_update(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  library_update_trigger();
+  library_update_trigger(LISTENER_DATABASE);
 
   return 0;
 
@@ -2499,6 +2499,36 @@ db_file_seek_update(int id, uint32_t seek)
 #undef Q_TMPL
 }
 
+int
+db_file_rating_update_byid(uint32_t id, uint32_t rating)
+{
+#define Q_TMPL "UPDATE files SET rating = %d WHERE id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, rating, id);
+
+  ret = db_query_run(query, 1, LISTENER_STICKER);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
+int
+db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating)
+{
+#define Q_TMPL "UPDATE files SET rating = %d WHERE virtual_path = %Q;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, rating, virtual_path);
+
+  ret = db_query_run(query, 1, LISTENER_STICKER);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
 void
 db_file_delete_bypath(const char *path)
 {
@@ -2507,7 +2537,7 @@ db_file_delete_bypath(const char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path);
 
-  db_query_run(query, 1, 1);
+  db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
@@ -2529,7 +2559,7 @@ db_file_disable_bypath(const char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
 
-  db_query_run(query, 1, 1);
+  db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
@@ -2551,7 +2581,7 @@ db_file_disable_bymatch(const char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
 
-  db_query_run(query, 1, 1);
+  db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
@@ -3161,7 +3191,7 @@ db_groups_cleanup()
 
   db_transaction_begin();
 
-  ret = db_query_run(Q_TMPL_ALBUM, 0, 1);
+  ret = db_query_run(Q_TMPL_ALBUM, 0, LISTENER_DATABASE);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -3170,7 +3200,7 @@ db_groups_cleanup()
 
   DPRINTF(E_DBG, L_DB, "Removed album group-entries: %d\n", sqlite3_changes(hdl));
 
-  ret = db_query_run(Q_TMPL_ARTIST, 0, 1);
+  ret = db_query_run(Q_TMPL_ARTIST, 0, LISTENER_DATABASE);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -3558,7 +3588,7 @@ db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path, path, path);
 
-  db_query_run(query, 1, 1);
+  db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
@@ -3571,7 +3601,7 @@ db_directory_enable_bycookie(uint32_t cookie, char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
 
-  ret = db_query_run(query, 1, 1);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
@@ -3586,7 +3616,7 @@ db_directory_enable_bypath(char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path);
 
-  ret = db_query_run(query, 1, 1);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
@@ -3695,7 +3725,7 @@ db_spotify_purge(void)
 
   for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
     {
-      ret = db_query_run(queries[i], 0, 1);
+      ret = db_query_run(queries[i], 0, LISTENER_DATABASE);
 
       if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Processed %d rows\n", sqlite3_changes(hdl));
@@ -3708,7 +3738,7 @@ db_spotify_purge(void)
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
       return;
     }
-  ret = db_query_run(query, 1, 1);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
 
   if (ret == 0)
     DPRINTF(E_DBG, L_DB, "Disabled spotify directory\n");
@@ -3733,7 +3763,7 @@ db_spotify_pl_delete(int id)
     {
       query = sqlite3_mprintf(queries_tmpl[i], id);
 
-      ret = db_query_run(query, 1, 1);
+      ret = db_query_run(query, 1, LISTENER_DATABASE);
 
       if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));
@@ -3750,7 +3780,7 @@ db_spotify_files_delete(void)
 
   query = sqlite3_mprintf(Q_TMPL);
 
-  ret = db_query_run(query, 1, 1);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
 
   if (ret == 0)
     DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));

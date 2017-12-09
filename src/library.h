@@ -116,7 +116,7 @@ bool
 library_is_exiting();
 
 void
-library_update_trigger(void);
+library_update_trigger(short update_events);
 
 int
 library_playlist_add(const char *vp_playlist, const char *vp_item);

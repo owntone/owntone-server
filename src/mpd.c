@@ -3423,9 +3423,6 @@ static struct mpd_sticker_command mpd_sticker_handlers[] = {
   { NULL, NULL, 0, 0, 0 },
 };
 
-static void
-mpd_add_idle_events(short event_mask);
-
 /*
  * Command handler function for 'sticker'
  *
@@ -3511,12 +3508,7 @@ mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   if (ret == 0 && mfi && set_rating && mfi->rating != rating)
     {
-      DPRINTF(E_DBG, L_MPD, "STICKER notification for changed rating: %d -> %d\n", mfi->rating, rating);
-      mfi->rating = rating;
-      /* Note, that a DATABASE event is triggered, but the
-       * client actually expects a sticker event, so add it here. */
-      mpd_add_idle_events(LISTENER_STICKER);
-      db_file_update(mfi);
+      db_file_rating_update_byvirtualpath(virtual_path, rating);
     }
 
   free(virtual_path);
@@ -5057,28 +5049,6 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
   DPRINTF(E_LOG, L_MPD, "Error occured %d (%s) on the listener.\n", err, evutil_socket_error_to_string(err));
 }
 
-static void
-mpd_add_idle_events(short event_mask)
-{
-  struct mpd_client_ctx *client;
-  int i;
-
-  DPRINTF(E_DBG, L_MPD, "Add idle events (untriggered): %d\n", event_mask);
-
-  i = 0;
-  client = mpd_clients;
-  while (client)
-    {
-      client->events |= event_mask;
-      if (client->is_idle)
-	{
-	  client->events &= client->idle_events;
-	}
-      client = client->next;
-      i++;
-    }
-}
-
 static int
 mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
 {
@@ -5154,21 +5124,11 @@ static void
 mpd_listener_cb(short event_mask)
 {
   short *ptr;
-  pthread_t current_thread = pthread_self();
 
-  if (pthread_equal(current_thread, tid_mpd))
-    {
-      int ret;
-      DPRINTF(E_DBG, L_MPD, "Immediate listener callback called with event type %d.\n", event_mask);
-      mpd_notify_idle(&event_mask, &ret);
-    }
-  else
-    {
-      ptr = (short *)malloc(sizeof(short));
-      *ptr = event_mask;
-      DPRINTF(E_DBG, L_MPD, "Asynchronous listener callback called with event type %d.\n", event_mask);
-      commands_exec_async(cmdbase, mpd_notify_idle, ptr);
-    }
+  ptr = (short *)malloc(sizeof(short));
+  *ptr = event_mask;
+  DPRINTF(E_DBG, L_MPD, "Asynchronous listener callback called with event type %d.\n", event_mask);
+  commands_exec_async(cmdbase, mpd_notify_idle, ptr);
 }
 
 /*
