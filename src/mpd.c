@@ -1119,12 +1119,6 @@ mpd_command_consume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   int enable;
   int ret;
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'consume'");
-      return ACK_ERROR_ARG;
-    }
-
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
     {
@@ -1148,12 +1142,6 @@ mpd_command_random(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   int enable;
   int ret;
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'random'");
-      return ACK_ERROR_ARG;
-    }
-
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
     {
@@ -1176,12 +1164,6 @@ mpd_command_repeat(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 {
   int enable;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'repeat'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
@@ -1207,12 +1189,6 @@ mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 {
   int volume;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'setvol'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atoi32(argv[1], &volume);
   if (ret < 0)
@@ -1247,12 +1223,6 @@ mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   int enable;
   struct player_status status;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'single'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
@@ -1297,12 +1267,6 @@ mpd_command_volume(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   struct player_status status;
   int volume;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'volume'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atoi32(argv[1], &volume);
   if (ret < 0)
@@ -1551,12 +1515,6 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   int seek_target_msec;
   int ret;
 
-  if (argc < 3)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'seek'");
-      return ACK_ERROR_ARG;
-    }
-
   ret = safe_atou32(argv[1], &songpos);
   if (ret < 0)
     {
@@ -1600,12 +1558,6 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   float seek_target_sec;
   int seek_target_msec;
   int ret;
-
-  if (argc < 3)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'seekcur'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atou32(argv[1], &id);
   if (ret < 0)
@@ -1653,12 +1605,6 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   float seek_target_sec;
   int seek_target_msec;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'seekcur'");
-      return ACK_ERROR_ARG;
-    }
 
   seek_target_sec = strtof(argv[1], NULL);
   seek_target_msec = seek_target_sec * 1000;
@@ -1752,12 +1698,6 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, st
   struct media_file_info mfi;
   int ret;
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'add'");
-      return ACK_ERROR_ARG;
-    }
-
   ret = mpd_queue_add(argv[1], false);
 
   if (ret < 0)
@@ -1795,12 +1735,6 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   struct media_file_info mfi;
   int to_pos = -1;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'addid'");
-      return ACK_ERROR_ARG;
-    }
 
   if (argc > 2)
     {
@@ -1917,12 +1851,6 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
   uint32_t songid;
   int ret;
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'deleteid'");
-      return ACK_ERROR_ARG;
-    }
-
   ret = safe_atou32(argv[1], &songid);
   if (ret < 0)
     {
@@ -1949,12 +1877,6 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   int count;
   uint32_t to_pos;
   int ret;
-
-  if (argc < 3)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'move'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = mpd_pars_range_arg(argv[1], &start_pos, &end_pos);
   if (ret < 0)
@@ -1990,12 +1912,6 @@ mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   uint32_t songid;
   uint32_t to_pos;
   int ret;
-
-  if (argc < 3)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'moveid'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atou32(argv[1], &songid);
   if (ret < 0)
@@ -2241,12 +2157,6 @@ plchanges_build_queryparams(struct query_params *query_params, int argc, char **
 
   memset(query_params, 0, sizeof(struct query_params));
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'plchanges'");
-      return ACK_ERROR_ARG;
-    }
-
   ret = safe_atou32(argv[1], &version);
   if (ret < 0)
     {
@@ -2371,12 +2281,6 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
   struct db_media_file_info dbmfi;
   int ret;
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'listplaylist'");
-      return ACK_ERROR_ARG;
-    }
-
   if (!default_pl_dir || strstr(argv[1], ":/"))
     {
       // Argument is a virtual path, make sure it starts with a '/'
@@ -2439,12 +2343,6 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
   struct query_params qp;
   struct db_media_file_info dbmfi;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'listplaylistinfo'");
-      return ACK_ERROR_ARG;
-    }
 
   if (!default_pl_dir || strstr(argv[1], ":/"))
     {
@@ -2565,12 +2463,6 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   struct player_status status;
   int ret;
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'load'");
-      return ACK_ERROR_ARG;
-    }
-
   if (!default_pl_dir || strstr(argv[1], ":/"))
     {
       // Argument is a virtual path, make sure it starts with a '/'
@@ -2618,12 +2510,6 @@ mpd_command_playlistadd(struct evbuffer *evbuf, int argc, char **argv, char **er
       return ACK_ERROR_PERMISSION;
     }
 
-  if (argc < 3)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'playlistadd'");
-      return ACK_ERROR_ARG;
-    }
-
   if (!default_pl_dir || strstr(argv[1], ":/"))
     {
       // Argument is a virtual path, make sure it starts with a '/'
@@ -2661,12 +2547,6 @@ mpd_command_rm(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, str
       return ACK_ERROR_PERMISSION;
     }
 
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'rm'");
-      return ACK_ERROR_ARG;
-    }
-
   if (!default_pl_dir || strstr(argv[1], ":/"))
     {
       // Argument is a virtual path, make sure it starts with a '/'
@@ -2699,12 +2579,6 @@ mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
     {
       *errmsg = safe_asprintf("Modifying stored playlists is not enabled");
       return ACK_ERROR_PERMISSION;
-    }
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'save'");
-      return ACK_ERROR_ARG;
     }
 
   if (!default_pl_dir || strstr(argv[1], ":/"))
@@ -3608,12 +3482,6 @@ mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   int i;
   int ret;
 
-  if (argc < 4)
-    {
-      *errmsg = safe_asprintf("not enough arguments");
-      return ACK_ERROR_ARG;
-    }
-
   if (strcmp(argv[2], "song") != 0)
     {
       *errmsg = safe_asprintf("unknown sticker domain");
@@ -4367,480 +4235,139 @@ struct mpd_command
    * @return 0 if successful, one of ack values if an error occured
    */
   int (*handler)(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx);
+  int min_argc;
 };
 
 static struct mpd_command mpd_handlers[] =
   {
-    /*
-     * Commands for querying status
-     */
-    {
-      .mpdcommand = "clearerror",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "currentsong",
-      .handler = mpd_command_currentsong
-    },
-    {
-      .mpdcommand = "idle",
-      .handler = mpd_command_idle
-    },
-    {
-      .mpdcommand = "noidle",
-      .handler = mpd_command_noidle
-    },
-    {
-      .mpdcommand = "status",
-      .handler = mpd_command_status
-    },
-    {
-      .mpdcommand = "stats",
-      .handler = mpd_command_stats
-    },
+    /* commandname                | handler function                      | minimum argument count*/
 
-    /*
-     * Playback options
-     */
-    {
-      .mpdcommand = "consume",
-      .handler = mpd_command_consume
-    },
-    {
-      .mpdcommand = "crossfade",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "mixrampdb",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "mixrampdelay",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "random",
-      .handler = mpd_command_random
-    },
-    {
-      .mpdcommand = "repeat",
-      .handler = mpd_command_repeat
-    },
-    {
-      .mpdcommand = "setvol",
-      .handler = mpd_command_setvol
-    },
-    {
-      .mpdcommand = "single",
-      .handler = mpd_command_single
-    },
-    {
-      .mpdcommand = "replay_gain_mode",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "replay_gain_status",
-      .handler = mpd_command_replay_gain_status
-    },
-    {
-      .mpdcommand = "volume",
-      .handler = mpd_command_volume
-    },
+    // Commands for querying status
+    { "clearerror",                 mpd_command_ignore,                     -1 },
+    { "currentsong",                mpd_command_currentsong,                -1 },
+    { "idle",                       mpd_command_idle,                       -1 },
+    { "noidle",                     mpd_command_noidle,                     -1 },
+    { "status",                     mpd_command_status,                     -1 },
+    { "stats",                      mpd_command_stats,                      -1 },
 
-    /*
-     * Controlling playback
-     */
-    {
-      .mpdcommand = "next",
-      .handler = mpd_command_next
-    },
-    {
-      .mpdcommand = "pause",
-      .handler = mpd_command_pause
-    },
-    {
-      .mpdcommand = "play",
-      .handler = mpd_command_play
-    },
-    {
-      .mpdcommand = "playid",
-      .handler = mpd_command_playid
-    },
-    {
-      .mpdcommand = "previous",
-      .handler = mpd_command_previous
-    },
-    {
-      .mpdcommand = "seek",
-      .handler = mpd_command_seek
-    },
-    {
-      .mpdcommand = "seekid",
-      .handler = mpd_command_seekid
-    },
-    {
-      .mpdcommand = "seekcur",
-      .handler = mpd_command_seekcur
-    },
-    {
-      .mpdcommand = "stop",
-      .handler = mpd_command_stop
-    },
+    // Playback options
+    { "consume",                    mpd_command_consume,                     2 },
+    { "crossfade",                  mpd_command_ignore,                     -1 },
+    { "mixrampdb",                  mpd_command_ignore,                     -1 },
+    { "mixrampdelay",               mpd_command_ignore,                     -1 },
+    { "random",                     mpd_command_random,                      2 },
+    { "repeat",                     mpd_command_repeat,                      2 },
+    { "setvol",                     mpd_command_setvol,                      2 },
+    { "single",                     mpd_command_single,                      2 },
+    { "replay_gain_mode",           mpd_command_ignore,                     -1 },
+    { "replay_gain_status",         mpd_command_replay_gain_status,         -1 },
+    { "volume",                     mpd_command_volume,                      2 },
 
-    /*
-     * The current playlist
-     */
-    {
-      .mpdcommand = "add",
-      .handler = mpd_command_add
-    },
-    {
-      .mpdcommand = "addid",
-      .handler = mpd_command_addid
-    },
-    {
-      .mpdcommand = "clear",
-      .handler = mpd_command_clear
-    },
-    {
-      .mpdcommand = "delete",
-      .handler = mpd_command_delete
-    },
-    {
-      .mpdcommand = "deleteid",
-      .handler = mpd_command_deleteid
-    },
-    {
-      .mpdcommand = "move",
-      .handler = mpd_command_move
-    },
-    {
-      .mpdcommand = "moveid",
-      .handler = mpd_command_moveid
-    },
-    // According to the mpd protocol the use of "playlist" is deprecated
-    {
-      .mpdcommand = "playlist",
-      .handler = mpd_command_playlistinfo
-    },
-    {
-      .mpdcommand = "playlistfind",
-      .handler = mpd_command_playlistfind
-    },
-    {
-      .mpdcommand = "playlistid",
-      .handler = mpd_command_playlistid
-    },
-    {
-      .mpdcommand = "playlistinfo",
-      .handler = mpd_command_playlistinfo
-    },
-    {
-      .mpdcommand = "playlistsearch",
-      .handler = mpd_command_playlistsearch
-    },
-    {
-      .mpdcommand = "plchanges",
-      .handler = mpd_command_plchanges
-    },
-    {
-      .mpdcommand = "plchangesposid",
-      .handler = mpd_command_plchangesposid
-    },
-    /*
-    {
-      .mpdcommand = "prio",
-      .handler = mpd_command_prio
-    },
-    {
-      .mpdcommand = "prioid",
-      .handler = mpd_command_prioid
-    },
-    {
-      .mpdcommand = "rangeid",
-      .handler = mpd_command_rangeid
-    },
-    {
-      .mpdcommand = "shuffle",
-      .handler = mpd_command_shuffle
-    },
-    {
-      .mpdcommand = "swap",
-      .handler = mpd_command_swap
-    },
-    {
-      .mpdcommand = "swapid",
-      .handler = mpd_command_swapid
-    },
-    {
-      .mpdcommand = "addtagid",
-      .handler = mpd_command_addtagid
-    },
-    {
-      .mpdcommand = "cleartagid",
-      .handler = mpd_command_cleartagid
-    },
-     */
+    // Controlling playback
+    { "next",                       mpd_command_next,                       -1 },
+    { "pause",                      mpd_command_pause,                      -1 },
+    { "play",                       mpd_command_play,                       -1 },
+    { "playid",                     mpd_command_playid,                     -1 },
+    { "previous",                   mpd_command_previous,                   -1 },
+    { "seek",                       mpd_command_seek,                        3 },
+    { "seekid",                     mpd_command_seekid,                      3 },
+    { "seekcur",                    mpd_command_seekcur,                     2 },
+    { "stop",                       mpd_command_stop,                       -1 },
 
-    /*
-     * Stored playlists
-     */
-    {
-      .mpdcommand = "listplaylist",
-      .handler = mpd_command_listplaylist
-    },
-    {
-      .mpdcommand = "listplaylistinfo",
-      .handler = mpd_command_listplaylistinfo
-    },
-    {
-      .mpdcommand = "listplaylists",
-      .handler = mpd_command_listplaylists
-    },
-    {
-      .mpdcommand = "load",
-      .handler = mpd_command_load
-    },
-    {
-      .mpdcommand = "playlistadd",
-      .handler = mpd_command_playlistadd
-    },
-    /*
-    {
-      .mpdcommand = "playlistclear",
-      .handler = mpd_command_playlistclear
-    },
-    {
-      .mpdcommand = "playlistdelete",
-      .handler = mpd_command_playlistdelete
-    },
-    {
-      .mpdcommand = "playlistmove",
-      .handler = mpd_command_playlistmove
-    },
-    {
-      .mpdcommand = "rename",
-      .handler = mpd_command_rename
-    },
-     */
-    {
-      .mpdcommand = "rm",
-      .handler = mpd_command_rm
-    },
-    {
-      .mpdcommand = "save",
-      .handler = mpd_command_save
-    },
+    // The current playlist
+    { "add",                        mpd_command_add,                         2 },
+    { "addid",                      mpd_command_addid,                       2 },
+    { "clear",                      mpd_command_clear,                      -1 },
+    { "delete",                     mpd_command_delete,                     -1 },
+    { "deleteid",                   mpd_command_deleteid,                    2 },
+    { "move",                       mpd_command_move,                        3 },
+    { "moveid",                     mpd_command_moveid,                      3 },
+    { "playlist",                   mpd_command_playlistinfo,               -1 }, // According to the mpd protocol the use of "playlist" is deprecated
+    { "playlistfind",               mpd_command_playlistfind,               -1 },
+    { "playlistid",                 mpd_command_playlistid,                 -1 },
+    { "playlistinfo",               mpd_command_playlistinfo,               -1 },
+    { "playlistsearch",             mpd_command_playlistsearch,             -1 },
+    { "plchanges",                  mpd_command_plchanges,                   2 },
+    { "plchangesposid",             mpd_command_plchangesposid,              2 },
+//    { "prio",                       mpd_command_prio,                       -1 },
+//    { "prioid",                     mpd_command_prioid,                     -1 },
+//    { "rangeid",                    mpd_command_rangeid,                    -1 },
+//    { "shuffle",                    mpd_command_shuffle,                    -1 },
+//    { "swap",                       mpd_command_swap,                       -1 },
+//    { "swapid",                     mpd_command_swapid,                     -1 },
+//    { "addtagid",                   mpd_command_addtagid,                   -1 },
+//    { "cleartagid",                 mpd_command_cleartagid,                 -1 },
 
-    /*
-     * The music database
-     */
-    {
-      .mpdcommand = "count",
-      .handler = mpd_command_count
-    },
-    {
-      .mpdcommand = "find",
-      .handler = mpd_command_find
-    },
-    {
-      .mpdcommand = "findadd",
-      .handler = mpd_command_findadd
-    },
-    {
-      .mpdcommand = "list",
-      .handler = mpd_command_list
-    },
-    {
-      .mpdcommand = "listall",
-      .handler = mpd_command_listall
-    },
-    {
-      .mpdcommand = "listallinfo",
-      .handler = mpd_command_listallinfo
-    },
-    /*
-    {
-      .mpdcommand = "listfiles",
-      .handler = mpd_command_listfiles
-    },
-    */
-    {
-      .mpdcommand = "lsinfo",
-      .handler = mpd_command_lsinfo
-    },
-    /*
-    {
-      .mpdcommand = "readcomments",
-      .handler = mpd_command_readcomments
-    },
-    */
-    {
-      .mpdcommand = "search",
-      .handler = mpd_command_search
-    },
-    {
-      .mpdcommand = "searchadd",
-      .handler = mpd_command_searchadd
-    },
-    /*
-    {
-      .mpdcommand = "searchaddpl",
-      .handler = mpd_command_searchaddpl
-    },
-    */
-    {
-      .mpdcommand = "update",
-      .handler = mpd_command_update
-    },
-    /*
-    {
-      .mpdcommand = "rescan",
-      .handler = mpd_command_rescan
-    },
-    */
+    // Stored playlists
+    { "listplaylist",               mpd_command_listplaylist,                2 },
+    { "listplaylistinfo",           mpd_command_listplaylistinfo,            2 },
+    { "listplaylists",              mpd_command_listplaylists,              -1 },
+    { "load",                       mpd_command_load,                        2 },
+    { "playlistadd",                mpd_command_playlistadd,                 3 },
+//    { "playlistclear",              mpd_command_playlistclear,              -1 },
+//    { "playlistdelete",             mpd_command_playlistdelete,             -1 },
+//    { "playlistmove",               mpd_command_playlistmove,               -1 },
+//    { "rename",                     mpd_command_rename,                     -1 },
+    { "rm",                         mpd_command_rm,                          2 },
+    { "save",                       mpd_command_save,                        2 },
 
-    /*
-     * Mounts and neighbors
-     */
-    /*
-    {
-      .mpdcommand = "mount",
-      .handler = mpd_command_mount
-    },
-    {
-      .mpdcommand = "unmount",
-      .handler = mpd_command_unmount
-    },
-    {
-      .mpdcommand = "listmounts",
-      .handler = mpd_command_listmounts
-    },
-    {
-      .mpdcommand = "listneighbors",
-      .handler = mpd_command_listneighbors
-    },
-     */
+    // The music database
+    { "count",                      mpd_command_count,                      -1 },
+    { "find",                       mpd_command_find,                       -1 },
+    { "findadd",                    mpd_command_findadd,                    -1 },
+    { "list",                       mpd_command_list,                       -1 },
+    { "listall",                    mpd_command_listall,                    -1 },
+    { "listallinfo",                mpd_command_listallinfo,                -1 },
+//    { "listfiles",                  mpd_command_listfiles,                  -1 },
+    { "lsinfo",                     mpd_command_lsinfo,                     -1 },
+//    { "readcomments",               mpd_command_readcomments,               -1 },
+    { "search",                     mpd_command_search,                     -1 },
+    { "searchadd",                  mpd_command_searchadd,                  -1 },
+//    { "searchaddpl",                mpd_command_searchaddpl,                -1 },
+    { "update",                     mpd_command_update,                     -1 },
+//    { "rescan",                     mpd_command_rescan,                     -1 },
 
-    /*
-     * Stickers
-     */
-    {
-      .mpdcommand = "sticker",
-      .handler = mpd_command_sticker
-    },
+    // Mounts and neighbors
+//    { "mount",                      mpd_command_mount,                      -1 },
+//    { "unmount",                    mpd_command_unmount,                    -1 },
+//    { "listmounts",                 mpd_command_listmounts,                 -1 },
+//    { "listneighbors",              mpd_command_listneighbors,              -1 },
 
-    /*
-     * Connection settings
-     */
-    {
-      .mpdcommand = "close",
-      .handler = mpd_command_ignore
-    },
-    /*
-    {
-      .mpdcommand = "kill",
-      .handler = mpd_command_kill
-    },
-     */
-    {
-      .mpdcommand = "password",
-      .handler = mpd_command_password
-    },
-    {
-      .mpdcommand = "ping",
-      .handler = mpd_command_ignore
-    },
+    // Stickers
+    { "sticker",                    mpd_command_sticker,                     4 },
 
-    /*
-     * Audio output devices
-     */
-    {
-      .mpdcommand = "disableoutput",
-      .handler = mpd_command_disableoutput
-    },
-    {
-      .mpdcommand = "enableoutput",
-      .handler = mpd_command_enableoutput
-    },
-    {
-      .mpdcommand = "toggleoutput",
-      .handler = mpd_command_toggleoutput
-    },
-    {
-      .mpdcommand = "outputs",
-      .handler = mpd_command_outputs
-    },
+    // Connection settings
+    { "close",                      mpd_command_ignore,                     -1 },
+//    { "kill",                       mpd_command_kill,                       -1 },
+    { "password",                   mpd_command_password,                   -1 },
+    { "ping",                       mpd_command_ignore,                     -1 },
 
-    /*
-     * Reflection
-     */
-    /*
-    {
-      .mpdcommand = "config",
-      .handler = mpd_command_config
-    },
-    */
-    {
-      .mpdcommand = "commands",
-      .handler = mpd_command_commands
-    },
-    {
-      .mpdcommand = "notcommands",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "tagtypes",
-      .handler = mpd_command_tagtypes
-    },
-    {
-      .mpdcommand = "urlhandlers",
-      .handler = mpd_command_urlhandlers
-    },
-    {
-      .mpdcommand = "decoders",
-      .handler = mpd_command_decoders
-    },
+    // Audio output devices
+    { "disableoutput",              mpd_command_disableoutput,              -1 },
+    { "enableoutput",               mpd_command_enableoutput,               -1 },
+    { "toggleoutput",               mpd_command_toggleoutput,               -1 },
+    { "outputs",                    mpd_command_outputs,                    -1 },
 
-    /*
-     * Client to client
-     */
-    {
-      .mpdcommand = "subscribe",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "unsubscribe",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "channels",
-      .handler = mpd_command_channels
-    },
-    {
-      .mpdcommand = "readmessages",
-      .handler = mpd_command_ignore
-    },
-    {
-      .mpdcommand = "sendmessage",
-      .handler = mpd_command_sendmessage
-    },
+    // Reflection
+//    { "config",                     mpd_command_config,                     -1 },
+    { "commands",                   mpd_command_commands,                   -1 },
+    { "notcommands",                mpd_command_ignore,                     -1 },
+    { "tagtypes",                   mpd_command_tagtypes,                   -1 },
+    { "urlhandlers",                mpd_command_urlhandlers,                -1 },
+    { "decoders",                   mpd_command_decoders,                   -1 },
 
-    /*
-     * Forked-daapd commands (not supported by mpd)
-     */
-    {
-      .mpdcommand = "outputvolume",
-      .handler = mpd_command_outputvolume
-    },
+    // Client to client
+    { "subscribe",                  mpd_command_ignore,                     -1 },
+    { "unsubscribe",                mpd_command_ignore,                     -1 },
+    { "channels",                   mpd_command_channels,                   -1 },
+    { "readmessages",               mpd_command_ignore,                     -1 },
+    { "sendmessage",                mpd_command_sendmessage,                -1 },
 
-    /*
-     * NULL command to terminate loop
-     */
-    {
-      .mpdcommand = NULL,
-      .handler = NULL
-    }
+    // Forked-daapd commands (not supported by mpd)
+    { "outputvolume",               mpd_command_outputvolume,               -1 },
+
+    // NULL command to terminate loop
+    { NULL, NULL, -1 }
   };
 
 /*
@@ -4973,6 +4500,11 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	{
 	  errmsg = safe_asprintf("Unsupported command '%s'", argv[0]);
 	  ret = ACK_ERROR_UNKNOWN;
+	}
+      else if (command->min_argc > argc)
+	{
+	  errmsg = safe_asprintf("Missing argument(s) for command '%s', expected %d, given %d", argv[0], command->min_argc, argc);
+	  ret = ACK_ERROR_ARG;
 	}
       else if (strcmp(command->mpdcommand, "password") == 0)
 	{
