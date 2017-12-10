@@ -454,9 +454,21 @@ stream_url_make(char *out, size_t len, const char *peer_addr, int family)
     return -1;
 
   found = 0;
-  getifaddrs(&ifap);
+  ret = getifaddrs(&ifap);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not get interface address: %s\n", strerror(errno));
+      return -1;
+    }
+
   for (ifa = ifap; !found && ifa; ifa = ifa->ifa_next)
     {
+      if (!ifa->ifa_addr)
+	{
+	  DPRINTF(E_LOG, L_CAST, "Skipping null address from getifaddrs()\n");
+	  continue;
+	}
+
       if (ifa->ifa_addr->sa_family != family)
 	continue;
 
