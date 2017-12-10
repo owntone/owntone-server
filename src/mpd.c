@@ -59,6 +59,9 @@
 #include "remote_pairing.h"
 
 
+#define MPD_ALL_IDLE_LISTENER_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST | LISTENER_STICKER)
+#define MPD_RATING_FACTOR 10.0
+
 static pthread_t tid_mpd;
 
 static struct event_base *evbase_mpd;
@@ -66,8 +69,6 @@ static struct event_base *evbase_mpd;
 static struct commands_base *cmdbase;
 
 static struct evhttp *evhttpd;
-
-#define ALL_IDLE_LISTENER_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST | LISTENER_STICKER)
 
 struct evconnlistener *mpd_listener6;
 struct evconnlistener *mpd_listener;
@@ -674,7 +675,7 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 	}
     }
   else
-    ctx->idle_events = ALL_IDLE_LISTENER_EVENTS;
+    ctx->idle_events = MPD_ALL_IDLE_LISTENER_EVENTS;
 
   // If events the client listens to occurred since the last idle call (or since the client connected,
   // if it is the first idle call), notify immediately.
@@ -3248,179 +3249,192 @@ mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   return 0;
 }
 
-struct mpd_sticker_command {
-  const char *cmd;
-  int (*handler)(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating);
-  int need_args;
-  int want_dir;
-  int get_mfi;
-};
+static int
+mpd_sticker_get(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path)
+{
+  struct media_file_info *mfi = NULL;
+  uint32_t rating;
+  int ret = 0;
 
-#define MPD_RATING_FACTOR 10.0
+  if (strcmp(argv[4], "rating") != 0)
+    {
+      *errmsg = safe_asprintf("no such sticker");
+      return ACK_ERROR_NO_EXIST;
+    }
+
+  mfi = db_file_fetch_byvirtualpath(virtual_path);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_MPD, "Virtual path not found: %s\n", virtual_path);
+      *errmsg = safe_asprintf("unknown sticker domain");
+      return ACK_ERROR_ARG;
+    }
+
+  if (mfi && mfi->rating > 0)
+    {
+      rating = mfi->rating / MPD_RATING_FACTOR;
+      evbuffer_add_printf(evbuf, "sticker: rating=%d\n", rating);
+    }
+
+  free_mfi(mfi, 0);
+
+  return 0;
+}
 
 static int
-mpd_sticker_get(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
+mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path)
+{
+  uint32_t rating;
+  int ret = 0;
+
+  if (strcmp(argv[4], "rating") != 0)
+    {
+      *errmsg = safe_asprintf("no such sticker");
+      return ACK_ERROR_NO_EXIST;
+    }
+
+  ret = safe_atou32(argv[5], &rating);
+  if (ret < 0)
+    {
+      *errmsg = safe_asprintf("rating '%s' doesn't convert to integer", argv[5]);
+      return ACK_ERROR_ARG;
+    }
+
+  rating *= MPD_RATING_FACTOR;
+  ret = db_file_rating_update_byvirtualpath(virtual_path, rating);
+  if (ret <= 0)
+    {
+      *errmsg = safe_asprintf("Invalid path '%s'", virtual_path);
+      return ACK_ERROR_ARG;
+    }
+
+  return 0;
+}
+
+static int
+mpd_sticker_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path)
 {
   int ret = 0;
 
-  if (name_is_rating)
+  if (strcmp(argv[4], "rating") != 0)
     {
-      if (!mfi || !mfi->rating)
-	{
-	  *errmsg = safe_asprintf("no such sticker");
-	  ret = ACK_ERROR_NO_EXIST;
-	  return ret;
-	}
-      *rating = mfi->rating / MPD_RATING_FACTOR;
-      evbuffer_add_printf(evbuf, "sticker: rating=%d\n", *rating);
+      *errmsg = safe_asprintf("no such sticker");
+      return ACK_ERROR_NO_EXIST;
+    }
+
+  ret = db_file_rating_update_byvirtualpath(virtual_path, 0);
+  if (ret <= 0)
+    {
+      *errmsg = safe_asprintf("Invalid path '%s'", virtual_path);
+      return ACK_ERROR_ARG;
+    }
+  return 0;
+}
+
+static int
+mpd_sticker_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path)
+{
+  struct media_file_info *mfi = NULL;
+  uint32_t rating;
+  int ret = 0;
+
+  mfi = db_file_fetch_byvirtualpath(virtual_path);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_MPD, "Virtual path not found: %s\n", virtual_path);
+      *errmsg = safe_asprintf("unknown sticker domain");
+      return ACK_ERROR_ARG;
+    }
+
+  if (mfi && mfi->rating > 0)
+    {
+      rating = mfi->rating / MPD_RATING_FACTOR;
+      evbuffer_add_printf(evbuf, "sticker: rating=%d\n", rating);
+    }
+
+  free_mfi(mfi, 0);
+
+  /* |:todo:| real sticker implementation */
+  return 0;
+}
+
+static int
+mpd_sticker_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path)
+{
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
+  uint32_t rating;
+  int ret = 0;
+
+  if (strcmp(argv[4], "rating") != 0)
+    {
+      *errmsg = safe_asprintf("no such sticker");
+      return ACK_ERROR_NO_EXIST;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.sort = S_VPATH;
+  qp.idx_type = I_NONE;
+
+  qp.filter = db_mprintf("(f.virtual_path LIKE '%s%%' AND f.rating > 0)", virtual_path);
+  if (!qp.filter)
+    {
+      *errmsg = safe_asprintf("Out of memory");
+      ret = ACK_ERROR_UNKNOWN;
       return ret;
     }
 
-  /* |:todo:| real sticker implementation */
-  *errmsg = safe_asprintf("no such sticker");
-  ret = ACK_ERROR_NO_EXIST;
-  return ret;
-}
-
-static int
-mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
-{
-  int ret = 0;
-
-  if (name_is_rating)
+  ret = db_query_start(&qp);
+  if (ret < 0)
     {
-      ret = safe_atou32(argv[5], (unsigned int *) rating);
-      if (ret < 0)
-	{
-	  *errmsg = safe_asprintf("rating '%s' doesn't convert to integer", argv[5]);
-	  ret = ACK_ERROR_ARG;
-	  return ret;
-	}
-      *rating *= MPD_RATING_FACTOR;
-      *set_rating = 1;
-      return ret;
-    }
-
-  /* |:todo:| real sticker implementation */
-  *errmsg = safe_asprintf("no such sticker");
-  ret = ACK_ERROR_NO_EXIST;
-  return ret;
-}
-
-static int
-mpd_sticker_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
-{
-  int ret = 0;
-
-  if (name_is_rating)
-    {
-      *rating = 0;
-      *set_rating = 1;
-      return ret;
-    }
-
-  /* |:todo:| real sticker implementation */
-  *errmsg = safe_asprintf("no such sticker");
-  ret = ACK_ERROR_NO_EXIST;
-  return ret;
-}
-
-static int
-mpd_sticker_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
-{
-  int ret = 0;
-
-  if (mfi && mfi->rating)
-    {
-      *rating = mfi->rating / MPD_RATING_FACTOR;
-      evbuffer_add_printf(evbuf, "sticker: rating=%d\n", *rating);
-    }
-
-  /* |:todo:| real sticker implementation */
-  return ret;
-}
-
-static int
-mpd_sticker_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *name, const char *virtual_path, bool name_is_rating, struct media_file_info *mfi, int *rating, bool *set_rating)
-{
-  int ret = 0;
-
-  if (name_is_rating && argc == 5)
-    {
-      struct query_params qp;
-      struct db_media_file_info dbmfi;
-      char *c1;
-
-      memset(&qp, 0, sizeof(struct query_params));
-
-      qp.type = Q_ITEMS;
-      qp.sort = S_VPATH;
-      qp.idx_type = I_NONE;
-
-      c1 = db_mprintf("(f.virtual_path LIKE '%s%%' AND f.rating != 0)", virtual_path);
-      if (!c1)
-	{
-	  *errmsg = safe_asprintf("Out of memory");
-	  ret = ACK_ERROR_UNKNOWN;
-	  return ret;
-	}
-      qp.filter = c1;
-
-      ret = db_query_start(&qp);
-      if (ret < 0)
-	{
-	  db_query_end(&qp);
-	  free(qp.filter);
-
-	  *errmsg = safe_asprintf("Could not start query");
-	  ret = ACK_ERROR_UNKNOWN;
-	  return ret;
-	}
-
-      while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
-	{
-	  ret = safe_atou32(dbmfi.rating, (unsigned int *) rating);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_MPD, "Error rating=%s doesn't convert to integer, song id: %s\n",
-		      dbmfi.rating, dbmfi.id);
-	      continue;
-	    }
-	  *rating /= MPD_RATING_FACTOR;
-	  if (!*rating)
-	    /* inconsistent database */
-	    continue;
-
-	  ret = evbuffer_add_printf(evbuf,
-				    "file: file:%s\n"
-				    "sticker: rating=%d\n",
-				    dbmfi.path,
-				    *rating);
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
-	}
-      ret = 0;
-
       db_query_end(&qp);
       free(qp.filter);
+
+      *errmsg = safe_asprintf("Could not start query");
+      ret = ACK_ERROR_UNKNOWN;
       return ret;
     }
 
-  /* |:todo:| MPD_STICKER_FIND with expressions */
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      ret = safe_atou32(dbmfi.rating, &rating);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Error rating=%s doesn't convert to integer, song id: %s\n",
+		  dbmfi.rating, dbmfi.id);
+	  continue;
+	}
 
-  /* |:todo:| real sticker implementation */
-  *errmsg = safe_asprintf("bad request");
-  ret = ACK_ERROR_ARG;
-  return ret;
+      rating /= MPD_RATING_FACTOR;
+      ret = evbuffer_add_printf(evbuf,
+				"file: file:%s\n"
+				"sticker: rating=%d\n",
+				dbmfi.path,
+				rating);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
+    }
+
+  db_query_end(&qp);
+  free(qp.filter);
+  return 0;
 }
 
+struct mpd_sticker_command {
+  const char *cmd;
+  int (*handler)(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path);
+  int need_args;
+};
+
 static struct mpd_sticker_command mpd_sticker_handlers[] = {
-  { "get", mpd_sticker_get, 5, 0, 0 },
-  { "set", mpd_sticker_set, 6, 0, 0 },
-  { "delete", mpd_sticker_delete, 5, 0, 0 },
-  { "list", mpd_sticker_list, 4, 0, 1 },
-  { "find", mpd_sticker_find, 5, 1, 0 },
-  { NULL, NULL, 0, 0, 0 },
+  { "get", mpd_sticker_get, 5 },
+  { "set", mpd_sticker_set, 6 },
+  { "delete", mpd_sticker_delete, 5 },
+  { "list", mpd_sticker_list, 4 },
+  { "find", mpd_sticker_find, 5 },
+  { NULL, NULL, 0 },
 };
 
 /*
@@ -3444,13 +3458,7 @@ static int
 mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct mpd_sticker_command *cmd_param;
-  const char *cmd;
   char *virtual_path = NULL;
-  const char *name = NULL;
-  bool name_is_rating = false;
-  struct media_file_info *mfi = NULL;
-  int rating = -1;
-  bool set_rating = false;
   int i;
   int ret;
 
@@ -3466,11 +3474,10 @@ mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_ARG;
     }
 
-  cmd = argv[1];
   for (i=0; i<(sizeof(mpd_sticker_handlers) / sizeof(struct mpd_sticker_command)); ++i)
     {
       cmd_param = &mpd_sticker_handlers[i];
-      if (cmd_param->cmd && strcmp(cmd, cmd_param->cmd) == 0)
+      if (cmd_param->cmd && strcmp(argv[1], cmd_param->cmd) == 0)
 	break;
     }
   if (!cmd_param->cmd)
@@ -3484,37 +3491,11 @@ mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_ARG;
     }
 
-  if (argc > 4)
-    {
-      name = argv[4];
-      name_is_rating = strcmp(name, "rating") == 0;
-    }
-
   virtual_path = prepend_slash(argv[3]);
 
-  if (cmd_param->get_mfi || (!cmd_param->want_dir && name_is_rating))
-    {
-      mfi = db_file_fetch_byvirtualpath(virtual_path);
-      if (!mfi)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Virtual path not found: %s\n", virtual_path);
-	  *errmsg = safe_asprintf("unknown sticker domain");
-          free(virtual_path);
-	  return ACK_ERROR_ARG;
-	}
-    }
-
-  ret = cmd_param->handler(evbuf, argc, argv, errmsg, name, virtual_path, name_is_rating, mfi, &rating, &set_rating);
-
-  if (ret == 0 && mfi && set_rating && mfi->rating != rating)
-    {
-      db_file_rating_update_byvirtualpath(virtual_path, rating);
-    }
+  ret = cmd_param->handler(evbuf, argc, argv, errmsg, virtual_path);
 
   free(virtual_path);
-
-  if (mfi)
-    free_mfi(mfi, 0);
 
   return ret;
 }
@@ -5396,7 +5377,7 @@ int mpd_init(void)
 #endif
 
   mpd_clients = NULL;
-  listener_add(mpd_listener_cb, ALL_IDLE_LISTENER_EVENTS);
+  listener_add(mpd_listener_cb, MPD_ALL_IDLE_LISTENER_EVENTS);
 
   return 0;
 
