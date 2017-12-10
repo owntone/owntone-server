@@ -3509,7 +3509,7 @@ mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_ARG;
     }
 
-  for (i=0; i<(sizeof(mpd_sticker_handlers) / sizeof(struct mpd_sticker_command)); ++i)
+  for (i = 0; i < (sizeof(mpd_sticker_handlers) / sizeof(struct mpd_sticker_command)); ++i)
     {
       cmd_param = &mpd_sticker_handlers[i];
       if (cmd_param->cmd && strcmp(argv[1], cmd_param->cmd) == 0)
@@ -5073,9 +5073,6 @@ mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
       client_ctx->events |= events;
       return 1;
     }
-
-  // in case mpd_add_idle_events has added any events
-  events |= client_ctx->events;
 
   if (!(client_ctx->idle_events & events))
     {
