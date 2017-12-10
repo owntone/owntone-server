@@ -72,6 +72,8 @@ enum query_type {
 #define DB_ADMIN_LASTFM_SESSION_KEY "lastfm_sk"
 #define DB_ADMIN_SPOTIFY_REFRESH_TOKEN "spotify_refresh_token"
 
+#define DB_FILES_RATING_MAX 100
+
 struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;
