@@ -3254,7 +3254,6 @@ mpd_sticker_get(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, co
 {
   struct media_file_info *mfi = NULL;
   uint32_t rating;
-  int ret = 0;
 
   if (strcmp(argv[4], "rating") != 0)
     {
@@ -3270,7 +3269,7 @@ mpd_sticker_get(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, co
       return ACK_ERROR_ARG;
     }
 
-  if (mfi && mfi->rating > 0)
+  if (mfi->rating > 0)
     {
       rating = mfi->rating / MPD_RATING_FACTOR;
       evbuffer_add_printf(evbuf, "sticker: rating=%d\n", rating);
@@ -3342,7 +3341,6 @@ mpd_sticker_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, c
 {
   struct media_file_info *mfi = NULL;
   uint32_t rating;
-  int ret = 0;
 
   mfi = db_file_fetch_byvirtualpath(virtual_path);
   if (!mfi)
@@ -3352,7 +3350,7 @@ mpd_sticker_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, c
       return ACK_ERROR_ARG;
     }
 
-  if (mfi && mfi->rating > 0)
+  if (mfi->rating > 0)
     {
       rating = mfi->rating / MPD_RATING_FACTOR;
       evbuffer_add_printf(evbuf, "sticker: rating=%d\n", rating);
@@ -3369,7 +3367,9 @@ mpd_sticker_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, c
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
-  uint32_t rating;
+  uint32_t rating = 0;
+  uint32_t rating_arg = 0;
+  const char *operator;
   int ret = 0;
 
   if (strcmp(argv[4], "rating") != 0)
@@ -3378,13 +3378,42 @@ mpd_sticker_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, c
       return ACK_ERROR_NO_EXIST;
     }
 
+  if (argc == 6)
+    {
+      *errmsg = safe_asprintf("not enough arguments for 'sticker find'");
+      return ACK_ERROR_ARG;
+    }
+
+  if (argc > 6)
+    {
+      if (strcmp(argv[5], "=") != 0 && strcmp(argv[5], ">") != 0 && strcmp(argv[5], "<") != 0)
+	{
+	  *errmsg = safe_asprintf("invalid operator '%s' given to 'sticker find'", argv[5]);
+	  return ACK_ERROR_ARG;
+	}
+      operator = argv[5];
+
+      ret = safe_atou32(argv[6], &rating_arg);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("rating '%s' doesn't convert to integer", argv[6]);
+	  return ACK_ERROR_ARG;
+	}
+      rating_arg *= MPD_RATING_FACTOR;
+    }
+  else
+    {
+      operator = ">";
+      rating_arg = 0;
+    }
+
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_ITEMS;
   qp.sort = S_VPATH;
   qp.idx_type = I_NONE;
 
-  qp.filter = db_mprintf("(f.virtual_path LIKE '%s%%' AND f.rating > 0)", virtual_path);
+  qp.filter = db_mprintf("(f.virtual_path LIKE '%s%%' AND f.rating > 0 AND f.rating %s %d)", virtual_path, operator, rating_arg);
   if (!qp.filter)
     {
       *errmsg = safe_asprintf("Out of memory");
