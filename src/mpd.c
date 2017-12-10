@@ -3301,6 +3301,12 @@ mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, co
     }
 
   rating *= MPD_RATING_FACTOR;
+  if (rating > DB_FILES_RATING_MAX)
+    {
+      *errmsg = safe_asprintf("rating '%s' is greater than maximum value allowed", argv[5], (DB_FILES_RATING_MAX / MPD_RATING_FACTOR));
+      return ACK_ERROR_ARG;
+    }
+
   ret = db_file_rating_update_byvirtualpath(virtual_path, rating);
   if (ret <= 0)
     {
