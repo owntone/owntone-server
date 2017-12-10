@@ -3444,9 +3444,9 @@ mpd_sticker_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, c
 
       rating /= MPD_RATING_FACTOR;
       ret = evbuffer_add_printf(evbuf,
-				"file: file:%s\n"
+				"file: %s\n"
 				"sticker: rating=%d\n",
-				dbmfi.path,
+				(dbmfi.virtual_path + 1),
 				rating);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
