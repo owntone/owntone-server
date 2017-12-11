@@ -5,6 +5,7 @@ var app = new Vue({
   data: {
     config: {},
     library: {},
+    player: {},
     outputs: [],
     verification_req: { pin: '' },
     spotify: {},
@@ -18,6 +19,7 @@ var app = new Vue({
   created: function () {
     this.loadConfig();
     this.loadLibrary();
+    this.loadPlayer();
     this.loadOutputs();
     this.loadSpotify();
     this.loadPairing();
@@ -33,6 +35,13 @@ var app = new Vue({
 
     loadLibrary: function() {
       axios.get('/api/library').then(response => this.library = response.data);
+    },
+
+    loadPlayer: function() {
+      axios.get('/api/player').then(response => { 
+      	this.player = response.data;
+       	this.player.nowplayingurl = '/ctrl-int/1/nowplayingartwork?mw=256&mh=256?x='+this.player.file_id;
+      });
     },
 
     loadOutputs: function() {
@@ -133,7 +142,7 @@ var app = new Vue({
       var socket = new WebSocket('ws://' + document.domain + ':' + this.config.websocket_port, 'notify');
       const vm = this;
       socket.onopen = function() {
-          socket.send(JSON.stringify({ notify: ['update', 'pairing', 'spotify', 'lastfm', 'outputs']}));
+          socket.send(JSON.stringify({ notify: ['update', 'pairing', 'spotify', 'lastfm', 'outputs', 'player']}));
           socket.onmessage = function(response) {
               console.log(response.data); // upon message
               var data = JSON.parse(response.data);
@@ -151,6 +160,9 @@ var app = new Vue({
               }
               if (data.notify.includes('outputs')) {
                 vm.loadOutputs();
+              }
+              if (data.notify.includes('player')) {
+                  vm.loadPlayer();
               }
           };
       };
