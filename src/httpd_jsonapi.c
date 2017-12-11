@@ -538,6 +538,113 @@ jsonapi_reply_outputs(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_queue(struct httpd_request *hreq)
+{
+  int version;
+  int count;
+  json_object *jreply;
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
+  count = db_queue_get_count();
+
+  json_object_object_add(jreply, "version", json_object_new_int(version));
+  json_object_object_add(jreply, "count", json_object_new_int(count));
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return 0;
+}
+
+static int
+jsonapi_reply_options(struct httpd_request *hreq)
+{
+  struct player_status status;
+
+  json_object *jreply;
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  player_get_status(&status);
+
+  json_object_object_add(jreply, "player_status", json_object_new_int(status.status));/* play status, 2 = stopped, 3 = paused, 4 = playing */
+  json_object_object_add(jreply, "shuffle", json_object_new_int(status.shuffle));
+  json_object_object_add(jreply, "repeat", json_object_new_int(status.repeat));
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return 0;
+}
+
+static int
+jsonapi_reply_player(struct httpd_request *hreq)
+{
+  struct player_status status;
+  struct db_queue_item *queue_item = NULL;
+  json_object *jreply;
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  player_get_status(&status);
+
+  json_object_object_add(jreply, "player_status", json_object_new_int(status.status));/* play status, 2 = stopped, 3 = paused, 4 = playing */
+  json_object_object_add(jreply, "shuffle", json_object_new_int(status.shuffle));
+  json_object_object_add(jreply, "repeat", json_object_new_int(status.repeat));
+
+  if (status.status != PLAY_STOPPED)
+  {
+    queue_item = db_queue_fetch_byitemid(status.item_id);
+	if (!queue_item)
+	{
+	  DPRINTF(E_LOG, L_WEB, "Could not fetch item id %d (file id %d)\n", status.item_id, status.id);
+	  jparse_free(jreply);
+	  return -1;
+	}
+    uint32_t rtime_ms = 0;
+
+    if (queue_item->song_length)
+      rtime_ms = queue_item->song_length - status.pos_ms;
+
+    json_object_object_add(jreply, "id", json_object_new_int(queue_item->id));
+    json_object_object_add(jreply, "file_id", json_object_new_int(queue_item->file_id));
+    json_object_object_add(jreply, "pos", json_object_new_int(queue_item->pos));
+    json_object_object_add(jreply, "shuffle_pos", json_object_new_int(queue_item->shuffle_pos));
+    json_object_object_add(jreply, "data_kind", json_object_new_int(queue_item->data_kind));
+    json_object_object_add(jreply, "media_kind", json_object_new_int(queue_item->media_kind));
+    json_object_object_add(jreply, "song_length", json_object_new_int(queue_item->song_length));
+    json_object_object_add(jreply, "time_remaining", json_object_new_int(rtime_ms));
+    json_object_object_add(jreply, "path", json_object_new_string(queue_item->path));
+    json_object_object_add(jreply, "virtual_path", json_object_new_string(queue_item->virtual_path));
+    json_object_object_add(jreply, "title", json_object_new_string(queue_item->title));
+    json_object_object_add(jreply, "artist", json_object_new_string(queue_item->artist));
+    json_object_object_add(jreply, "album_artist", json_object_new_string(queue_item->album_artist));
+    json_object_object_add(jreply, "album", json_object_new_string(queue_item->album));
+    json_object_object_add(jreply, "genre", json_object_new_string(queue_item->genre));
+    json_object_object_add(jreply, "song_album_id", json_object_new_int64(queue_item->songalbumid));
+    json_object_object_add(jreply, "time_modified", json_object_new_int(queue_item->time_modified));
+    json_object_object_add(jreply, "year", json_object_new_int(queue_item->year));
+    json_object_object_add(jreply, "track", json_object_new_int(queue_item->track));
+    json_object_object_add(jreply, "disc", json_object_new_int(queue_item->disc));
+
+	if (queue_item->artwork_url)
+		json_object_object_add(jreply, "artwork_url", json_object_new_string(queue_item->artwork_url));
+
+    free_queue_item(queue_item, 0);
+  }
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return 0;
+}
+
+static int
 jsonapi_reply_verification(struct httpd_request *hreq)
 {
   struct evbuffer *in_evbuf;
@@ -641,9 +748,13 @@ static struct httpd_uri_map adm_handlers[] =
     { .regexp = "^/api/lastfm-login", .handler = jsonapi_reply_lastfm_login },
     { .regexp = "^/api/lastfm-logout", .handler = jsonapi_reply_lastfm_logout },
     { .regexp = "^/api/lastfm", .handler = jsonapi_reply_lastfm },
+    { .regexp = "^/api/options", .handler = jsonapi_reply_options },
     { .regexp = "^/api/outputs", .handler = jsonapi_reply_outputs },
+    { .regexp = "^/api/player", .handler = jsonapi_reply_player },
+    { .regexp = "^/api/queue", .handler = jsonapi_reply_queue },
     { .regexp = "^/api/select-outputs", .handler = jsonapi_reply_select_outputs },
     { .regexp = "^/api/verification", .handler = jsonapi_reply_verification },
+    { .regexp = "^/api/volume", .handler = jsonapi_reply_outputs },
     { .regexp = NULL, .handler = NULL }
   };
 

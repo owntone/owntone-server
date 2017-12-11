@@ -77,6 +77,36 @@
       <div class="column is-10"><h1 class="is-uppercase is-size-7">Status</h1></div>
     </div>
 
+<!-- Player update -->
+    <div class="columns is-centered fd-section-content">
+      <div class="column is-3">
+        <h2 class="title is-5">
+          <span class="icon" v-show="player.player_status == 2"><i class="fa fa-stop"></i></span>
+          <span class="icon" v-show="player.player_status == 3"><i class="fa fa-pause"></i></span>
+          <span class="icon" v-show="player.player_status == 4"><i class="fa fa-play-circle"></i></span>
+           Player
+         </h2>
+      </div>
+
+      <div class="column is-7 content">
+        <p v-show="player.player_status == 2">Stopped.</p>
+        <article class="level-left media-left" v-show="player.player_status > 2">
+	      	<div class="level-item">
+	  	    	<figure class="image is-128x128" style="margin:.5em">
+	    	    	<img :src="player.nowplayingurl">
+	    	  	</figure>
+	    	</div> 
+	        <div class="level-item">
+	        	<div class="content">
+	        		<p><strong>{{player.title}}</strong><br>
+	        		<i>{{player.album}}</i><br>
+	        		{{player.artist}}</p>
+	      		</div>
+	      	</div>
+        </article>
+      </div>
+    </div>
+
     <!-- Library update -->
     <div class="columns is-centered fd-section-content">
       <div class="column is-3">
