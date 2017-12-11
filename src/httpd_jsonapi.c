@@ -754,6 +754,7 @@ static struct httpd_uri_map adm_handlers[] =
     { .regexp = "^/api/queue", .handler = jsonapi_reply_queue },
     { .regexp = "^/api/select-outputs", .handler = jsonapi_reply_select_outputs },
     { .regexp = "^/api/verification", .handler = jsonapi_reply_verification },
+    { .regexp = "^/api/volume", .handler = jsonapi_reply_outputs },
     { .regexp = NULL, .handler = NULL }
   };
 
