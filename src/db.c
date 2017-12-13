@@ -4268,8 +4268,8 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
   if (qp->results == 0)
     {
       db_query_end(qp);
-      ret = -1;
-      goto end_transaction;
+      db_transaction_end();
+      return 0;
     }
 
   while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
