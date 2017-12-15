@@ -92,8 +92,8 @@ static struct event *updateev;
 
 // Counts the number of changes made to the database between to DATABASE
 // event notifications
-static unsigned int deferred_update_notifications = 0;
-static short deferred_update_events = 0;
+static unsigned int deferred_update_notifications;
+static short deferred_update_events;
 
 static bool
 handle_deferred_update_notifications(void)
