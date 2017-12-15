@@ -1596,7 +1596,7 @@ cache_init(void)
 
   cmdbase = commands_base_new(evbase_cache, NULL);
 
-  ret = listener_add(cache_daap_listener_cb, LISTENER_DATABASE | LISTENER_RATING);
+  ret = listener_add(cache_daap_listener_cb, LISTENER_DATABASE);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not create listener event\n");
