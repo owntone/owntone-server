@@ -59,7 +59,7 @@
 #include "remote_pairing.h"
 
 
-#define MPD_ALL_IDLE_LISTENER_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST | LISTENER_STICKER)
+#define MPD_ALL_IDLE_LISTENER_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST | LISTENER_RATING)
 #define MPD_RATING_FACTOR 10.0
 
 static pthread_t tid_mpd;
@@ -669,7 +669,7 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 	  else if (0 == strcmp(argv[i], "stored_playlist"))
 	    ctx->idle_events |= LISTENER_STORED_PLAYLIST;
 	  else if (0 == strcmp(argv[i], "sticker"))
-            ctx->idle_events |= LISTENER_STICKER;
+            ctx->idle_events |= LISTENER_RATING;
 	  else
 	    DPRINTF(E_DBG, L_MPD, "Idle command for '%s' not supported\n", argv[i]);
 	}
@@ -5096,7 +5096,7 @@ mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
     evbuffer_add(client_ctx->evbuffer, "changed: options\n", 17);
   if (events & LISTENER_STORED_PLAYLIST)
     evbuffer_add(client_ctx->evbuffer, "changed: stored_playlist\n", 25);
-  if (events & LISTENER_STICKER)
+  if (events & LISTENER_RATING)
     evbuffer_add(client_ctx->evbuffer, "changed: sticker\n", 17);
 
   evbuffer_add(client_ctx->evbuffer, "OK\n", 3);
