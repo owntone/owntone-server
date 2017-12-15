@@ -26,8 +26,8 @@ enum listener_event_type
   LISTENER_SPOTIFY = (1 << 9),
   /* Last.fm status changes (enable/disable scrobbling) */
   LISTENER_LASTFM = (1 << 10),
-  /* The sticker database has been modified (MPD) */
-  LISTENER_STICKER  = (1 << 11),
+  /* Song rating changes */
+  LISTENER_RATING = (1 << 11),
 };
 
 typedef void (*notify)(short event_mask);

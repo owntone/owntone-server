@@ -2508,7 +2508,7 @@ db_file_rating_update_byid(uint32_t id, uint32_t rating)
 
   query = sqlite3_mprintf(Q_TMPL, rating, id);
 
-  ret = db_query_run(query, 1, LISTENER_STICKER);
+  ret = db_query_run(query, 1, LISTENER_RATING);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
@@ -2523,7 +2523,7 @@ db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating)
 
   query = sqlite3_mprintf(Q_TMPL, rating, virtual_path);
 
-  ret = db_query_run(query, 1, LISTENER_STICKER);
+  ret = db_query_run(query, 1, LISTENER_RATING);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
