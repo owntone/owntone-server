@@ -343,6 +343,11 @@ struct db_media_file_info {
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
 
+enum strip_type {
+  STRIP_NONE,
+  STRIP_PATH,
+};
+
 struct watch_info {
   int wd;
   char *path;
@@ -572,13 +577,13 @@ void
 db_file_delete_bypath(const char *path);
 
 void
-db_file_disable_bypath(const char *path, char *strip, uint32_t cookie);
+db_file_disable_bypath(const char *path, enum strip_type strip, uint32_t cookie);
 
 void
-db_file_disable_bymatch(const char *path, char *strip, uint32_t cookie);
+db_file_disable_bymatch(const char *path, enum strip_type strip, uint32_t cookie);
 
 int
-db_file_enable_bycookie(uint32_t cookie, const char *path);
+db_file_enable_bycookie(uint32_t cookie, const char *path, const char *filename);
 
 int
 db_file_update_directoryid(const char *path, int dir_id);
@@ -633,10 +638,10 @@ void
 db_pl_delete_bypath(const char *path);
 
 void
-db_pl_disable_bypath(const char *path, char *strip, uint32_t cookie);
+db_pl_disable_bypath(const char *path, enum strip_type strip, uint32_t cookie);
 
 void
-db_pl_disable_bymatch(const char *path, char *strip, uint32_t cookie);
+db_pl_disable_bymatch(const char *path, enum strip_type strip, uint32_t cookie);
 
 int
 db_pl_enable_bycookie(uint32_t cookie, const char *path);
@@ -669,7 +674,7 @@ void
 db_directory_ping_bymatch(char *virtual_path);
 
 void
-db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie);
+db_directory_disable_bymatch(char *path, enum strip_type strip, uint32_t cookie);
 
 int
 db_directory_enable_bycookie(uint32_t cookie, char *path);
@@ -836,10 +841,10 @@ int
 db_watch_get_bypath(struct watch_info *wi);
 
 void
-db_watch_mark_bypath(char *path, char *strip, uint32_t cookie);
+db_watch_mark_bypath(char *path, enum strip_type strip, uint32_t cookie);
 
 void
-db_watch_mark_bymatch(char *path, char *strip, uint32_t cookie);
+db_watch_mark_bymatch(char *path, enum strip_type strip, uint32_t cookie);
 
 void
 db_watch_move_bycookie(uint32_t cookie, char *path);

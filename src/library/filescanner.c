@@ -948,9 +948,9 @@ bulk_scan(int flags)
 	  DPRINTF(E_LOG, L_SCAN, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));
 
 	  /* Assume dir is mistakenly not mounted, so just disable everything and update timestamps */
-	  db_file_disable_bymatch(path, "", 0);
-	  db_pl_disable_bymatch(path, "", 0);
-	  db_directory_disable_bymatch(path, "", 0);
+	  db_file_disable_bymatch(path, STRIP_NONE, 0);
+	  db_pl_disable_bymatch(path, STRIP_NONE, 0);
+	  db_directory_disable_bymatch(path, STRIP_NONE, 0);
 
 	  db_file_ping_bymatch(path, 1);
 	  db_pl_ping_bymatch(path, 1);
@@ -1063,9 +1063,9 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 
   if (ie->mask & IN_UNMOUNT)
     {
-      db_file_disable_bymatch(path, "", 0);
-      db_pl_disable_bymatch(path, "", 0);
-      db_directory_disable_bymatch(path, "", 0);
+      db_file_disable_bymatch(path, STRIP_NONE, 0);
+      db_pl_disable_bymatch(path, STRIP_NONE, 0);
+      db_directory_disable_bymatch(path, STRIP_NONE, 0);
     }
 
   if (ie->mask & IN_MOVE_SELF)
@@ -1109,18 +1109,18 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  if (ret < 0)
 	    return;
 
-	  db_file_disable_bymatch(path, "", 0);
-	  db_pl_disable_bymatch(path, "", 0);
+	  db_file_disable_bymatch(path, STRIP_NONE, 0);
+	  db_pl_disable_bymatch(path, STRIP_NONE, 0);
 	}
     }
 
   if (ie->mask & IN_MOVED_FROM)
     {
-      db_watch_mark_bypath(path, path, ie->cookie);
-      db_watch_mark_bymatch(path, path, ie->cookie);
-      db_file_disable_bymatch(path, path, ie->cookie);
-      db_pl_disable_bymatch(path, path, ie->cookie);
-      db_directory_disable_bymatch(path, path, ie->cookie);
+      db_watch_mark_bypath(path, STRIP_PATH, ie->cookie);
+      db_watch_mark_bymatch(path, STRIP_PATH, ie->cookie);
+      db_file_disable_bymatch(path, STRIP_PATH, ie->cookie);
+      db_pl_disable_bymatch(path, STRIP_PATH, ie->cookie);
+      db_directory_disable_bymatch(path, STRIP_PATH, ie->cookie);
     }
 
   if (ie->mask & IN_MOVED_TO)
@@ -1128,7 +1128,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
       if (db_watch_cookie_known(ie->cookie))
 	{
 	  db_watch_move_bycookie(ie->cookie, path);
-	  db_file_enable_bycookie(ie->cookie, path);
+	  db_file_enable_bycookie(ie->cookie, path, NULL);
 	  db_pl_enable_bycookie(ie->cookie, path);
 	  db_directory_enable_bycookie(ie->cookie, path);
 
@@ -1162,9 +1162,9 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  if (ret == 0)
 	    watches_clear(wi->wd, path);
 
-	  db_file_disable_bymatch(path, "", 0);
-	  db_pl_disable_bymatch(path, "", 0);
-	  db_directory_disable_bymatch(path, "", 0);
+	  db_file_disable_bymatch(path, STRIP_NONE, 0);
+	  db_pl_disable_bymatch(path, STRIP_NONE, 0);
+	  db_directory_disable_bymatch(path, STRIP_NONE, 0);
 	}
       else if (ret < 0)
 	{
@@ -1222,8 +1222,8 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
     {
       DPRINTF(E_DBG, L_SCAN, "File moved from: %s\n", path);
 
-      db_file_disable_bypath(path, path, ie->cookie);
-      db_pl_disable_bypath(path, path, ie->cookie);
+      db_file_disable_bypath(path, STRIP_PATH, ie->cookie);
+      db_pl_disable_bypath(path, STRIP_PATH, ie->cookie);
     }
 
   if (ie->mask & IN_ATTRIB)
@@ -1260,7 +1260,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
     {
       DPRINTF(E_DBG, L_SCAN, "File moved to: %s\n", path);
 
-      ret = db_file_enable_bycookie(ie->cookie, path);
+      ret = db_file_enable_bycookie(ie->cookie, path, filename_from_path(path));
 
       if (ret > 0)
 	{

@@ -855,7 +855,7 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id)
   if (pli)
     {
       db_pl_ping(pli->id);
-      db_pl_disable_bypath(file, "", 0);
+      db_pl_disable_bypath(file, STRIP_NONE, 0);
 
       if (mtime && (pli->db_timestamp >= mtime))
 	{
@@ -891,7 +891,7 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id)
 	  return;
 	}
 
-      db_pl_disable_bypath(file, "", 0);
+      db_pl_disable_bypath(file, STRIP_NONE, 0);
     }
 
   free_pli(pli, 0);

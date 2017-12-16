@@ -2548,61 +2548,66 @@ db_file_delete_bypath(const char *path)
 }
 
 void
-db_file_disable_bypath(const char *path, char *strip, uint32_t cookie)
+db_file_disable_bypath(const char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE files SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
   char *query;
   int64_t disabled;
-  int striplen;
-  int striplenvpath;
+  int path_striplen;
+  int vpath_striplen;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
-  striplen = strlen(strip) + 1;
-  if (strlen(strip) > 0)
-    striplenvpath = strlen(strip) + strlen("/file:/");
-  else
-    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
+  path_striplen = (strip == STRIP_PATH) ? strlen(path) : 0;
+  vpath_striplen = (strip == STRIP_PATH) ? strlen("/file:") + path_striplen : 0;
+
+  query = sqlite3_mprintf(Q_TMPL, path_striplen + 1, vpath_striplen + 1, disabled, path);
 
   db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
 void
-db_file_disable_bymatch(const char *path, char *strip, uint32_t cookie)
+db_file_disable_bymatch(const char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE files SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
   int64_t disabled;
-  int striplen;
-  int striplenvpath;
+  int path_striplen;
+  int vpath_striplen;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
-  striplen = strlen(strip) + 1;
-  if (strlen(strip) > 0)
-    striplenvpath = strlen(strip) + strlen("/file:/");
-  else
-    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
+  path_striplen = (strip == STRIP_PATH) ? strlen(path) : 0;
+  vpath_striplen = (strip == STRIP_PATH) ? strlen("/file:") + path_striplen : 0;
+
+  query = sqlite3_mprintf(Q_TMPL, path_striplen + 1, vpath_striplen + 1, disabled, path);
 
   db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
+// "path" will be the directory part for directory updates (dir moved) and the
+// full path for file updates (file moved). The db will have the filename in 
+// the path field for the former case (with a "/" prefix), and an empty path
+// field for the latter.
 int
-db_file_enable_bycookie(uint32_t cookie, const char *path)
+db_file_enable_bycookie(uint32_t cookie, const char *path, const char *filename)
 {
-#define Q_TMPL "UPDATE files SET path = '%q' || path, virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+#define Q_TMPL_UPDATE_FNAME "UPDATE files SET path = ('%q' || path), virtual_path = ('/file:%q' || virtual_path), fname = '%q', disabled = 0 WHERE disabled = %" PRIi64 ";"
+#define Q_TMPL "UPDATE files SET path = ('%q' || path), virtual_path = ('/file:%q' || virtual_path), disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, path, path, (int64_t)cookie);
+  if (filename)
+    query = sqlite3_mprintf(Q_TMPL_UPDATE_FNAME, path, path, filename, (int64_t)cookie);
+  else
+    query = sqlite3_mprintf(Q_TMPL, path, path, (int64_t)cookie);
 
-  ret = db_query_run(query, 1, 1);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL_UPDATE_FNAME
 #undef Q_TMPL
 }
 
@@ -3125,44 +3130,40 @@ db_pl_delete_bypath(const char *path)
 }
 
 void
-db_pl_disable_bypath(const char *path, char *strip, uint32_t cookie)
+db_pl_disable_bypath(const char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE playlists SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
   char *query;
   int64_t disabled;
-  int striplen;
-  int striplenvpath;
+  int path_striplen;
+  int vpath_striplen;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
-  striplen = strlen(strip) + 1;
-  if (strlen(strip) > 0)
-    striplenvpath = strlen(strip) + strlen("/file:/");
-  else
-    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
+  path_striplen = (strip == STRIP_PATH) ? strlen(path) : 0;
+  vpath_striplen = (strip == STRIP_PATH) ? strlen("/file:") + path_striplen : 0;
+
+  query = sqlite3_mprintf(Q_TMPL, path_striplen + 1, vpath_striplen + 1, disabled, path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
 void
-db_pl_disable_bymatch(const char *path, char *strip, uint32_t cookie)
+db_pl_disable_bymatch(const char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE playlists SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
   int64_t disabled;
-  int striplen;
-  int striplenvpath;
+  int path_striplen;
+  int vpath_striplen;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
-  striplen = strlen(strip) + 1;
-  if (strlen(strip) > 0)
-    striplenvpath = strlen(strip) + strlen("/file:/");
-  else
-    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
+  path_striplen = (strip == STRIP_PATH) ? strlen(path) : 0;
+  vpath_striplen = (strip == STRIP_PATH) ? strlen("/file:") + path_striplen : 0;
+
+  query = sqlite3_mprintf(Q_TMPL, path_striplen + 1, vpath_striplen + 1, disabled, path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
@@ -3171,7 +3172,7 @@ db_pl_disable_bymatch(const char *path, char *strip, uint32_t cookie)
 int
 db_pl_enable_bycookie(uint32_t cookie, const char *path)
 {
-#define Q_TMPL "UPDATE playlists SET path = '%q' || path, virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+#define Q_TMPL "UPDATE playlists SET path = ('%q' || path), virtual_path = ('/file:%q' || virtual_path), disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
   int ret;
 
@@ -3459,7 +3460,7 @@ db_directory_add(struct directory_info *di, int *id)
       /* Since sqlite removes the trailing space, so these
        * directories will be found as new in perpetuity.
        */
-      DPRINTF(E_LOG, L_DB, "Directory name ends with space: [%s]\n", di->virtual_path);
+      DPRINTF(E_LOG, L_DB, "Directory name ends with space: '%s'\n", di->virtual_path);
     }
 
   query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id);
@@ -3491,7 +3492,7 @@ db_directory_add(struct directory_info *di, int *id)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Added directory %s with id %d\n", di->virtual_path, *id);
+  DPRINTF(E_DBG, L_DB, "Added directory '%s' with id %d\n", di->virtual_path, *id);
 
   return 0;
 
@@ -3530,7 +3531,7 @@ db_directory_update(struct directory_info *di)
 
   sqlite3_free(query);
 
-  DPRINTF(E_DBG, L_DB, "Updated directory %s with id %d\n", di->virtual_path, di->id);
+  DPRINTF(E_DBG, L_DB, "Updated directory '%s' with id %d\n", di->virtual_path, di->id);
 
   return 0;
 
@@ -3579,20 +3580,18 @@ db_directory_ping_bymatch(char *virtual_path)
 }
 
 void
-db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie)
+db_directory_disable_bymatch(char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE directories SET virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
   char *query;
   int64_t disabled;
-  int striplen;
+  int vpath_striplen;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
-  if (strlen(strip) > 0)
-    striplen = strlen(strip) + strlen("/file:/");
-  else
-    striplen = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path, path, path);
+  vpath_striplen = (strip == STRIP_PATH) ? strlen("/file:") + strlen(path) : 0;
+
+  query = sqlite3_mprintf(Q_TMPL, vpath_striplen + 1, disabled, path, path, path);
 
   db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
@@ -3601,7 +3600,7 @@ db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie)
 int
 db_directory_enable_bycookie(uint32_t cookie, char *path)
 {
-#define Q_TMPL "UPDATE directories SET virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+#define Q_TMPL "UPDATE directories SET virtual_path = ('/file:%q' || virtual_path), disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
   int ret;
 
@@ -5643,34 +5642,36 @@ db_watch_get_bypath(struct watch_info *wi)
 }
 
 void
-db_watch_mark_bypath(char *path, char *strip, uint32_t cookie)
+db_watch_mark_bypath(char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE inotify SET path = substr(path, %d), cookie = %" PRIi64 " WHERE path = '%q';"
   char *query;
   int64_t disabled;
-  int striplen;
+  int path_striplen;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
-  striplen = strlen(strip) + 1;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  path_striplen = (strip == STRIP_PATH) ? strlen(path) : 0;
+
+  query = sqlite3_mprintf(Q_TMPL, path_striplen + 1, disabled, path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
 void
-db_watch_mark_bymatch(char *path, char *strip, uint32_t cookie)
+db_watch_mark_bymatch(char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE inotify SET path = substr(path, %d), cookie = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
   int64_t disabled;
-  int striplen;
+  int path_striplen;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
-  striplen = strlen(strip) + 1;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  path_striplen = (strip == STRIP_PATH) ? strlen(path) : 0;
+
+  query = sqlite3_mprintf(Q_TMPL, path_striplen + 1, disabled, path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
