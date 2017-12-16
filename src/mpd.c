@@ -732,8 +732,8 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   int queue_length;
   int queue_version;
   char *state;
-  int pos_pl;
-  struct db_queue_item *next_item;
+  uint32_t itemid = 0;
+  struct db_queue_item *queue_item;
 
   player_get_status(&status);
 
@@ -775,39 +775,50 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
       state);
 
   if (status.status != PLAY_STOPPED)
-    {
-      pos_pl = db_queue_get_pos(status.item_id, 0);
+    queue_item = db_queue_fetch_byitemid(status.item_id);
+  else
+    queue_item = db_queue_fetch_bypos(0, status.shuffle);
 
+  if (queue_item)
+   {
       evbuffer_add_printf(evbuf,
 	  "song: %d\n"
-	  "songid: %d\n"
+	  "songid: %d\n",
+	  queue_item->pos,
+	  queue_item->id);
+
+      itemid = queue_item->id;
+      free_queue_item(queue_item, 0);
+   }
+
+  if (status.status != PLAY_STOPPED)
+   {
+      evbuffer_add_printf(evbuf,
 	  "time: %d:%d\n"
 	  "elapsed: %#.3f\n"
 	  "bitrate: 128\n"
 	  "audio: 44100:16:2\n",
-	  pos_pl,
-	  status.item_id,
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
 	  (status.pos_ms / 1000.0));
-    }
+   }
 
   if (library_is_scanning())
     {
       evbuffer_add(evbuf, "updating_db: 1\n", 15);
     }
 
-  if (status.status != PLAY_STOPPED)
+  if (itemid > 0)
     {
-      next_item = db_queue_fetch_next(status.item_id, status.shuffle);
-      if (next_item)
+      queue_item = db_queue_fetch_next(itemid, status.shuffle);
+      if (queue_item)
 	{
 	  evbuffer_add_printf(evbuf,
 	      "nextsong: %d\n"
 	      "nextsongid: %d\n",
-	      next_item->id,
-	      next_item->pos);
+	      queue_item->id,
+	      queue_item->pos);
 
-	  free_queue_item(next_item, 0);
+	  free_queue_item(queue_item, 0);
 	}
     }
 
