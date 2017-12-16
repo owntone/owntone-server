@@ -608,16 +608,13 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
   player_get_status(&status);
 
   if (status.status == PLAY_STOPPED)
-    {
-      // Return empty evbuffer if there is no current playing song
-      return 0;
-    }
+    queue_item = db_queue_fetch_bypos(0, status.shuffle);
+  else
+    queue_item = db_queue_fetch_byitemid(status.item_id);
 
-  queue_item = db_queue_fetch_byitemid(status.item_id);
   if (!queue_item)
     {
-      *errmsg = safe_asprintf("Error adding queue item info for file with id: %d", status.item_id);
-      return ACK_ERROR_UNKNOWN;
+      return 0;
     }
 
   ret = mpd_add_db_queue_item(evbuf, queue_item);
