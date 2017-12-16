@@ -1793,6 +1793,7 @@ static int
 mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct media_file_info mfi;
+  int to_pos = -1;
   int ret;
 
   if (argc < 2)
@@ -1801,10 +1802,14 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       return ACK_ERROR_ARG;
     }
 
-  //TODO if argc > 2 add song at position argv[2]
   if (argc > 2)
     {
-      DPRINTF(E_LOG, L_MPD, "Adding at a specified position not supported for 'addid', adding songs at end of queue.\n");
+      ret = safe_atoi32(argv[2], &to_pos);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[2]);
+	  return ACK_ERROR_ARG;
+	}
     }
 
   ret = mpd_queue_add(argv[1], true);
@@ -1827,6 +1832,11 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
     {
       *errmsg = safe_asprintf("Failed to add song '%s' to playlist", argv[1]);
       return ACK_ERROR_UNKNOWN;
+    }
+
+  if (to_pos >= 0)
+    {
+      db_queue_move_byitemid(ret, to_pos, 0);
     }
 
   evbuffer_add_printf(evbuf,
