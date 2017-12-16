@@ -694,7 +694,12 @@ mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
    * will then leave idle mode and print results immediately; might be
    * empty at this time."
    */
-  mpd_notify_idle_client(ctx, 0);
+  if (ctx->events)
+    mpd_notify_idle_client(ctx, ctx->events);
+  else
+    evbuffer_add(ctx->evbuffer, "OK\n", 3);
+
+  ctx->is_idle = false;
   return 0;
 }
 
@@ -4822,7 +4827,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
       else if (0 == strcmp(argv[0], "idle"))
 	idle_cmd = 1;
       else if (0 == strcmp(argv[0], "noidle"))
-	idle_cmd = 0;
+	idle_cmd = 1;
       else if (0 == strcmp(argv[0], "close"))
 	close_cmd = 1;
 
