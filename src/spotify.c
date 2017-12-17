@@ -422,10 +422,10 @@ check_webapi_scan_allowed()
   bool libspotify_logged_in = false;
   bool webapi_token_valid = false;
 
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   libspotify_logged_in = spotify_status_info.libspotify_logged_in;
   webapi_token_valid = spotify_status_info.webapi_token_valid;
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
   return libspotify_logged_in && webapi_token_valid;
 }
@@ -1096,10 +1096,10 @@ logged_in(sp_session *sess, sp_error error)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Login failed: %s\n",	fptr_sp_error_message(error));
 
-      CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
       spotify_status_info.libspotify_logged_in = false;
       spotify_status_info.libspotify_user[0] = '\0';
-      CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
       listener_notify(LISTENER_SPOTIFY);
 
@@ -1123,11 +1123,11 @@ logged_in(sp_session *sess, sp_error error)
       fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
     }
 
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   spotify_status_info.libspotify_logged_in = true;
   snprintf(spotify_status_info.libspotify_user, sizeof(spotify_status_info.libspotify_user), "%s", fptr_sp_session_user_name(sess));
   spotify_status_info.libspotify_user[sizeof(spotify_status_info.libspotify_user) - 1] = '\0';
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
   listener_notify(LISTENER_SPOTIFY);
 
@@ -1147,10 +1147,10 @@ logged_out(sp_session *sess)
 {
   DPRINTF(E_INFO, L_SPOTIFY, "Logout complete\n");
 
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   spotify_status_info.libspotify_logged_in = false;
   spotify_status_info.libspotify_user[0] = '\0';
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
 
@@ -1527,7 +1527,7 @@ spotify_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, char *
   // Received a valid access token
   spotify_access_token_valid = true;
 
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   spotify_status_info.webapi_token_valid = spotify_access_token_valid;
   if (user)
     {
@@ -1535,7 +1535,7 @@ spotify_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, char *
       spotify_status_info.webapi_user[sizeof(spotify_status_info.webapi_user) - 1] = '\0';
       free(user);
     }
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
   // Trigger scan after successful access to spotifywebapi
   library_exec_async(webapi_fullrescan, NULL);
@@ -1557,9 +1557,9 @@ spotify_uri_register(const char *uri)
 void
 spotify_status_info_get(struct spotify_status_info *info)
 {
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   memcpy(info, &spotify_status_info, sizeof(struct spotify_status_info));
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 }
 
 /* Thread: library, httpd */
@@ -1973,7 +1973,7 @@ initscan()
 
   /* Refresh access token for the spotify webapi */
   spotify_access_token_valid = (0 == spotifywebapi_token_refresh(&user));
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   spotify_status_info.webapi_token_valid = spotify_access_token_valid;
   if (user)
     {
@@ -1981,7 +1981,7 @@ initscan()
       spotify_status_info.webapi_user[sizeof(spotify_status_info.webapi_user) - 1] = '\0';
       free(user);
     }
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
   spotify_saved_plid = 0;
 
@@ -2147,9 +2147,9 @@ spotify_init(void)
 	break;
     }
 
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   spotify_status_info.libspotify_installed = true;
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
   spotify_audio_buffer = evbuffer_new();
 
