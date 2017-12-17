@@ -1092,6 +1092,8 @@ logged_in(sp_session *sess, sp_error error)
   sp_playlistcontainer *pc;
   int i;
 
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
+
   if (SP_ERROR_OK != error)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Login failed: %s\n",	fptr_sp_error_message(error));
@@ -1101,12 +1103,15 @@ logged_in(sp_session *sess, sp_error error)
       spotify_status_info.libspotify_user[0] = '\0';
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
+      CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&login_cond));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
+
       listener_notify(LISTENER_SPOTIFY);
 
       return;
     }
 
-  DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded, reloading playlists\n");
+  DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded (libspotify)\n");
 
   pl = fptr_sp_session_starred_create(sess);
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
@@ -1128,6 +1133,9 @@ logged_in(sp_session *sess, sp_error error)
   snprintf(spotify_status_info.libspotify_user, sizeof(spotify_status_info.libspotify_user), "%s", fptr_sp_session_user_name(sess));
   spotify_status_info.libspotify_user[sizeof(spotify_status_info.libspotify_user) - 1] = '\0';
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
+
+  CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&login_cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
 
   listener_notify(LISTENER_SPOTIFY);
 
@@ -1245,7 +1253,7 @@ static void connectionstate_updated(sp_session *session)
 {
   if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(session))
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Connection to Spotify (re)established, reloading saved tracks\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Connection to Spotify (re)established (libspotify)\n");
     }
   else if (g_state == SPOTIFY_STATE_PLAYING)
     {
@@ -1609,9 +1617,11 @@ spotify_login_user(const char *user, const char *password, char **errmsg)
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
     }
 
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
+
   if (user && password)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", user);
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials, logging in with username '%s' (libspotify)\n", user);
       err = fptr_sp_session_login(g_sess, user, password, 1, NULL);
     }
   else
@@ -1625,8 +1635,13 @@ spotify_login_user(const char *user, const char *password, char **errmsg)
       DPRINTF(E_LOG, L_SPOTIFY, "Could not login into Spotify: %s\n", fptr_sp_error_message(err));
       if (errmsg)
 	*errmsg = safe_asprintf("Could not login into Spotify: %s", fptr_sp_error_message(err));
+
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
       return -1;
     }
+
+  CHECK_ERR(L_SPOTIFY, pthread_cond_wait(&login_cond, &login_lck));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
 
   return 0;
 }
