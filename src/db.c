@@ -3615,7 +3615,7 @@ db_directory_enable_bycookie(uint32_t cookie, char *path)
 int
 db_directory_enable_bypath(char *path)
 {
-#define Q_TMPL "UPDATE directories SET disabled = 0 WHERE virtual_path = %Q;"
+#define Q_TMPL "UPDATE directories SET disabled = 0 WHERE virtual_path = %Q AND disabled <> 0;"
   char *query;
   int ret;
 
