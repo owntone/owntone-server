@@ -402,7 +402,9 @@ fptr_assign_all()
 
 
 static enum command_state
-webapi_scan(void *arg, int *ret);
+webapi_fullrescan(void *arg, int *ret);
+static enum command_state
+webapi_rescan(void *arg, int *ret);
 static enum command_state
 webapi_pl_save(void *arg, int *ret);
 static enum command_state
@@ -413,6 +415,20 @@ create_base_playlist();
 
 /* --------------------------  PLAYLIST HELPERS    ------------------------- */
 /*            Should only be called from within the spotify thread           */
+
+static bool
+check_webapi_scan_allowed()
+{
+  bool libspotify_logged_in = false;
+  bool webapi_token_valid = false;
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
+  libspotify_logged_in = spotify_status_info.libspotify_logged_in;
+  webapi_token_valid = spotify_status_info.webapi_token_valid;
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
+
+  return libspotify_logged_in && webapi_token_valid;
+}
 
 /*
  * Returns the directory id for /spotify:/<artist>/<album>, if the directory (or the parent
@@ -573,7 +589,7 @@ static void playlist_update_in_progress(sp_playlist *pl, bool done, void *userda
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Playlist update (status %d): %s\n", done, fptr_sp_playlist_name(pl));
 
-      if (spotify_access_token_valid)
+      if (check_webapi_scan_allowed())
 	{
 	  webapi_playlist_updated(pl);
 	}
@@ -584,11 +600,7 @@ static void playlist_metadata_updated(sp_playlist *pl, void *userdata)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Playlist metadata updated: %s\n", fptr_sp_playlist_name(pl));
 
-  if (spotify_access_token_valid)
-    {
-      //TODO Update disabled to prevent multiple triggering of updates e. g. on adding a playlist
-      //webapi_playlist_updated(pl);
-    }
+  //TODO Update disabled to prevent multiple triggering of updates e. g. on adding a playlist
 }
 
 /**
@@ -618,7 +630,7 @@ static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
 
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
-  if (spotify_access_token_valid)
+  if (check_webapi_scan_allowed())
     {
       webapi_playlist_updated(pl);
     }
@@ -670,7 +682,7 @@ playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl, int position, void *
 
   fptr_sp_playlist_remove_callbacks(pl, &pl_callbacks, NULL);
 
-  if (spotify_access_token_valid && !scanning)
+  if (check_webapi_scan_allowed() && !scanning)
     {
       link = fptr_sp_link_create_from_playlist(pl);
       if (!link)
@@ -1096,11 +1108,6 @@ logged_in(sp_session *sess, sp_error error)
 
   DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded, reloading playlists\n");
 
-  if (!spotify_access_token_valid)
-    create_base_playlist();
-
-  db_directory_enable_bypath("/spotify:");
-
   pl = fptr_sp_session_starred_create(sess);
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
@@ -1123,6 +1130,9 @@ logged_in(sp_session *sess, sp_error error)
   CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
 
   listener_notify(LISTENER_SPOTIFY);
+
+  // Trigger scan after successful login to libspotify
+  library_exec_async(webapi_rescan, NULL);
 }
 
 /**
@@ -1528,7 +1538,7 @@ spotify_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, char *
   CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&status_lck));
 
   // Trigger scan after successful access to spotifywebapi
-  library_exec_async(webapi_scan, NULL);
+  library_exec_async(webapi_fullrescan, NULL);
 
   listener_notify(LISTENER_SPOTIFY);
 
@@ -1930,24 +1940,39 @@ create_base_playlist()
     }
 }
 
+static bool
+scan()
+{
+  bool scan_allowed = check_webapi_scan_allowed();
+
+  if (scan_allowed)
+    {
+      scanning = true;
+
+      db_directory_enable_bypath("/spotify:");
+      create_base_playlist();
+      create_saved_tracks_playlist();
+      scan_saved_albums();
+      scan_playlists();
+
+      scanning = false;
+    }
+  else
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "No valid web api token or missing libspotify login, rescan ignored\n");
+    }
+
+  return scan_allowed;
+}
+
 /* Thread: library */
 static int
 initscan()
 {
   char *user = NULL;
 
-  scanning = true;
-
   /* Refresh access token for the spotify webapi */
   spotify_access_token_valid = (0 == spotifywebapi_token_refresh(&user));
-  if (!spotify_access_token_valid)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
-	  "In order to use the web api, authorize forked-daapd to access "
-	  "your saved tracks by visiting http://forked-daapd.local:3689\n");
-
-      db_spotify_purge();
-    }
   CHECK_ERR(L_REMOTE, pthread_mutex_lock(&status_lck));
   spotify_status_info.webapi_token_valid = spotify_access_token_valid;
   if (user)
@@ -1964,20 +1989,19 @@ initscan()
    * Login to spotify needs to be done before scanning tracks from the web api.
    * (Scanned tracks need to be registered with libspotify for playback)
    */
-  spotify_login(NULL);
+  spotify_login_user(NULL, NULL, NULL);
 
   /*
    * Scan saved tracks from the web api
    */
-  if (spotify_access_token_valid)
+  if (!scan())
     {
-      create_base_playlist();
-      create_saved_tracks_playlist();
-      scan_saved_albums();
-      scan_playlists();
-    }
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
+	  "In order to use the web api, authorize forked-daapd to access "
+	  "your saved tracks by visiting http://forked-daapd.local:3689\n");
 
-  scanning = false;
+      db_spotify_purge();
+    }
 
   return 0;
 }
@@ -1986,21 +2010,7 @@ initscan()
 static int
 rescan()
 {
-  if (!spotify_access_token_valid)
-    {
-      DPRINTF(E_DBG, L_SPOTIFY, "No valid web api token, ignoring rescan\n");
-      return 0;
-    }
-
-  scanning = true;
-
-  create_base_playlist();
-  create_saved_tracks_playlist();
-  scan_saved_albums();
-  scan_playlists();
-
-  scanning = false;
-
+  scan();
   return 0;
 }
 
@@ -2008,30 +2018,23 @@ rescan()
 static int
 fullrescan()
 {
-  if (!spotify_access_token_valid)
-    {
-      DPRINTF(E_DBG, L_SPOTIFY, "No valid web api token, ignoring fullrescan\n");
-      return 0;
-    }
-
-  scanning = true;
-
-  create_base_playlist();
-  create_saved_tracks_playlist();
-  scan_saved_albums();
-  scan_playlists();
-
-  scanning = false;
-
+  db_spotify_purge();
+  scan();
   return 0;
 }
 
 /* Thread: library */
 static enum command_state
-webapi_scan(void *arg, int *ret)
+webapi_fullrescan(void *arg, int *ret)
 {
-  db_spotify_purge();
+  *ret = fullrescan();
+  return COMMAND_END;
+}
 
+/* Thread: library */
+static enum command_state
+webapi_rescan(void *arg, int *ret)
+{
   *ret = rescan();
   return COMMAND_END;
 }
