@@ -164,6 +164,11 @@ DPRINTF(int severity, int domain, const char *fmt, ...)
 {
   va_list ap;
 
+  // If domain and severity do not match the current log configuration, return early to
+  // safe some unnecessary code execution (tiny performance gain)
+  if (logger_initialized && (!((1 << domain) & logdomains) || (severity > threshold)))
+    return;
+
   va_start(ap, fmt);
   vlogger(severity, domain, fmt, ap);
   va_end(ap);
