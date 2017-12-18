@@ -1138,9 +1138,6 @@ logged_in(sp_session *sess, sp_error error)
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
 
   listener_notify(LISTENER_SPOTIFY);
-
-  // Trigger scan after successful login to libspotify
-  library_exec_async(webapi_rescan, NULL);
 }
 
 /**
@@ -1571,10 +1568,11 @@ spotify_status_info_get(struct spotify_status_info *info)
 }
 
 /* Thread: library, httpd */
-int
-spotify_login_user(const char *user, const char *password, char **errmsg)
+static int
+login_user(const char *user, const char *password, char **errmsg)
 {
   sp_error err;
+  int ret;
 
   if (!g_sess)
     {
@@ -1643,7 +1641,30 @@ spotify_login_user(const char *user, const char *password, char **errmsg)
   CHECK_ERR(L_SPOTIFY, pthread_cond_wait(&login_cond, &login_lck));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
 
-  return 0;
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
+  ret = spotify_status_info.libspotify_logged_in ? 0 : -1;
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
+
+  if (ret < 0 && errmsg)
+    *errmsg = safe_asprintf("Login failed");
+
+  return ret;
+}
+
+/* Thread: httpd, library */
+int
+spotify_login_user(const char *user, const char *password, char **errmsg)
+{
+  int ret;
+
+  ret = login_user(user, password, errmsg);
+  if (ret == 0)
+    {
+      // Trigger scan after successful login to libspotify
+      library_exec_async(webapi_rescan, NULL);
+    }
+
+  return ret;
 }
 
 /* Thread: library */
@@ -2004,7 +2025,7 @@ initscan()
    * Login to spotify needs to be done before scanning tracks from the web api.
    * (Scanned tracks need to be registered with libspotify for playback)
    */
-  spotify_login_user(NULL, NULL, NULL);
+  login_user(NULL, NULL, NULL);
 
   /*
    * Scan saved tracks from the web api
