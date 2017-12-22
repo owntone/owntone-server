@@ -126,4 +126,9 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
 char *
 spotifywebapi_artwork_get(const char *path, int max_w, int max_h);
 
+int
+spotifywebapi_init(void);
+int
+spotifywebapi_deinit(void);
+
 #endif /* SRC_SPOTIFY_WEBAPI_H_ */

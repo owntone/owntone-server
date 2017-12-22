@@ -43,6 +43,8 @@ static char *spotify_user;
 static int32_t expires_in = 3600;
 static time_t token_requested = 0;
 
+static pthread_mutex_t token_lck;
+
 // Endpoints and credentials for the web api
 static const char *spotify_client_id     = "0e684a5422384114a8ae7ac020f01789";
 static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
@@ -73,14 +75,14 @@ free_http_client_ctx(struct http_client_ctx *ctx)
 }
 
 static int
-request_uri(struct spotify_request *request, const char *uri)
+request_uri(struct spotify_request *request, const char *uri, bool check_token)
 {
   char bearer_token[1024];
   int ret;
 
   memset(request, 0, sizeof(struct spotify_request));
 
-  if (0 > spotifywebapi_token_refresh(NULL))
+  if (check_token && (0 > spotifywebapi_token_refresh(NULL)))
     {
       return -1;
     }
@@ -166,7 +168,7 @@ spotifywebapi_request_next(struct spotify_request *request, const char *uri, boo
       spotifywebapi_request_end(request);
     }
 
-  ret = request_uri(request, next_uri);
+  ret = request_uri(request, next_uri, true);
   free(next_uri);
 
   if (ret < 0)
@@ -498,7 +500,7 @@ spotifywebapi_playlist_start(struct spotify_request *request, const char *path, 
       return -1;
     }
 
-  ret = request_uri(request, uri);
+  ret = request_uri(request, uri, true);
   if (ret < 0)
     {
       free(owner);
@@ -540,7 +542,7 @@ spotifywebapi_track_start(struct spotify_request *request, const char *path, str
       return -1;
     }
 
-  ret = request_uri(request, uri);
+  ret = request_uri(request, uri, true);
   if (ret < 0)
     {
       return -1;
@@ -627,7 +629,7 @@ spotifywebapi_artwork_get(const char *path, int max_w, int max_h)
 }
 
 static int
-request_user_info()
+request_user_info(char **user)
 {
   struct spotify_request request;
   int ret;
@@ -637,7 +639,7 @@ request_user_info()
   free(spotify_user);
   spotify_user = NULL;
 
-  ret = request_uri(&request, spotify_me_uri);
+  ret = request_uri(&request, spotify_me_uri, false);
 
   if (ret < 0)
     {
@@ -649,6 +651,9 @@ request_user_info()
       spotify_user_country = safe_strdup(jparse_str_from_obj(request.haystack, "country"));
 
       DPRINTF(E_DBG, L_SPOTIFY, "User '%s', country '%s'\n", spotify_user, spotify_user_country);
+
+      if (user)
+	*user = safe_strdup(spotify_user);
     }
 
   spotifywebapi_request_end(&request);
@@ -695,7 +700,7 @@ spotifywebapi_oauth_uri_get(const char *redirect_uri)
 }
 
 static int
-tokens_get(struct keyval *kv, const char **err)
+tokens_get(struct keyval *kv, char **user, const char **err)
 {
   struct http_client_ctx ctx;
   char *param;
@@ -779,7 +784,7 @@ tokens_get(struct keyval *kv, const char **err)
   if (spotify_refresh_token)
     db_admin_set(DB_ADMIN_SPOTIFY_REFRESH_TOKEN, spotify_refresh_token);
 
-  request_user_info();
+  request_user_info(user);
 
   ret = 0;
 
@@ -797,6 +802,8 @@ spotifywebapi_token_get(const char *code, const char *redirect_uri, char **user,
   struct keyval kv;
   int ret;
 
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&token_lck));
+
   *err = "";
   memset(&kv, 0, sizeof(struct keyval));
   ret = ( (keyval_add(&kv, "grant_type", "authorization_code") == 0) &&
@@ -811,13 +818,11 @@ spotifywebapi_token_get(const char *code, const char *redirect_uri, char **user,
       ret = -1;
     }
   else
-    ret = tokens_get(&kv, err);
+    ret = tokens_get(&kv, user, err);
 
-  if (user && ret == 0)
-    {
-      *user = safe_strdup(spotify_user);
-    }
   keyval_clear(&kv);
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
 
   return ret;
 }
@@ -826,13 +831,19 @@ int
 spotifywebapi_token_refresh(char **user)
 {
   struct keyval kv;
-  char *refresh_token;
+  char *refresh_token = NULL;
   const char *err;
   int ret;
+
+  memset(&kv, 0, sizeof(struct keyval));
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&token_lck));
 
   if (token_requested && difftime(time(NULL), token_requested) < expires_in)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Spotify token still valid\n");
+
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
       return 0;
     }
 
@@ -840,12 +851,11 @@ spotifywebapi_token_refresh(char **user)
   if (!refresh_token)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "No spotify refresh token found\n");
-      return -1;
+      goto error;
     }
 
   DPRINTF(E_DBG, L_SPOTIFY, "Spotify refresh-token: '%s'\n", refresh_token);
 
-  memset(&kv, 0, sizeof(struct keyval));
   ret = ( (keyval_add(&kv, "grant_type", "refresh_token") == 0) &&
 	  (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
 	  (keyval_add(&kv, "client_secret", spotify_client_secret) == 0) &&
@@ -853,18 +863,38 @@ spotifywebapi_token_refresh(char **user)
   if (!ret)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Add parameters to keyval failed");
-      ret = -1;
+      goto error;
     }
-  else
-    ret = tokens_get(&kv, &err);
 
-  if (user && ret == 0)
-    {
-      *user = safe_strdup(spotify_user);
-    }
+  ret = tokens_get(&kv, user, &err);
+
   free(refresh_token);
   keyval_clear(&kv);
 
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
+
   return ret;
+
+ error:
+  free(refresh_token);
+  keyval_clear(&kv);
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
+
+  return -1;
+}
+
+int
+spotifywebapi_init()
+{
+  CHECK_ERR(L_SPOTIFY, mutex_init(&token_lck));
+  return 0;
+}
+
+int
+spotifywebapi_deinit()
+{
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&token_lck));
+  return 0;
 }
 

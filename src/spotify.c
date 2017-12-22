@@ -1967,8 +1967,9 @@ spotify_init(void)
 
   CHECK_ERR(L_SPOTIFY, mutex_init(&login_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_init(&login_cond, NULL));
-
   CHECK_ERR(L_SPOTIFY, mutex_init(&status_lck));
+
+  spotifywebapi_init();
 
   /* Spawn thread */
   ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
@@ -1988,6 +1989,8 @@ spotify_init(void)
   return 0;
 
  thread_fail:
+  spotifywebapi_deinit();
+
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&status_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
@@ -2053,6 +2056,9 @@ spotify_deinit(void)
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&status_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
+
+  /* Deinit web api */
+  spotifywebapi_deinit();
 
   /* Free audio buffer */
   evbuffer_free(spotify_audio_buffer);
