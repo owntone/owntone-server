@@ -2194,6 +2194,8 @@ spotify_init(void)
   CHECK_ERR(L_SPOTIFY, mutex_init(&login_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_init(&login_cond, NULL));
 
+  CHECK_ERR(L_SPOTIFY, mutex_init(&status_lck));
+
   /* Spawn thread */
   ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
   if (ret < 0)
@@ -2212,6 +2214,7 @@ spotify_init(void)
   return 0;
 
  thread_fail:
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&status_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
 
@@ -2273,6 +2276,7 @@ spotify_deinit(void)
   close(g_notify_pipe[1]);
 
   /* Destroy locks */
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&status_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
 
