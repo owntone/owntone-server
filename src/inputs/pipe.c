@@ -496,15 +496,12 @@ pipe_read_cb(evutil_socket_t fd, short event, void *arg)
   ret = player_get_status(&status);
   if (status.id == pipe->id)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Pipe '%s' already playing\n", pipe->path);
+      DPRINTF(E_INFO, L_PLAYER, "Pipe '%s' already playing\n", pipe->path);
       return; // We are already playing the pipe
     }
-  else if ((ret < 0) || (status.status == PLAY_PLAYING))
+  else if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Data arrived on pipe '%s' - ignoring, player is busy\n", pipe->path);
-      // FIXME What to do in this situation? Can't re-add the event, since it
-      // will trigger right away, but also not good to stop watching the pipe
-      // like we do right now.
+      DPRINTF(E_LOG, L_PLAYER, "Pipe autostart of '%s' failed because state of player is unknown\n", pipe->path);
       return;
     }
 
