@@ -1890,6 +1890,12 @@ playback_stop(void *arg, int *retval)
 {
   struct player_source *ps_playing;
 
+  if (player_state == PLAY_STOPPED)
+    {
+      *retval = 0;
+      return COMMAND_END;
+    }
+
   // We may be restarting very soon, so we don't bring the devices to a full
   // stop just yet; this saves time when restarting, which is nicer for the user
   *retval = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
@@ -2334,6 +2340,18 @@ static enum command_state
 playback_pause(void *arg, int *retval)
 {
   uint64_t pos;
+
+  if (player_state == PLAY_STOPPED)
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  if (player_state == PLAY_PAUSED)
+    {
+      *retval = 0;
+      return COMMAND_END;
+    }
 
   pos = source_check();
   if (pos == 0)
