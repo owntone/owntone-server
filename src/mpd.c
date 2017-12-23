@@ -594,6 +594,239 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
   return ret;
 }
 
+static int
+mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
+{
+  char *c1;
+  char *c2;
+  int start_pos;
+  int end_pos;
+  int i;
+  uint32_t num;
+  int ret;
+
+  c1 = NULL;
+  c2 = NULL;
+
+  for (i = 0; i < argc; i += 2)
+    {
+      if (0 == strcasecmp(argv[i], "any"))
+	{
+	  c1 = db_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "file"))
+	{
+	  c1 = db_mprintf("(f.virtual_path = '/%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "base"))
+	{
+	  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "modified-since"))
+	{
+	  DPRINTF(E_WARN, L_MPD, "Special parameter 'modified-since' is not supported by forked-daapd and will be ignored\n");
+	}
+      else if (0 == strcasecmp(argv[i], "window"))
+	{
+	  ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
+	  if (ret == 0)
+	    {
+	      qp->idx_type = I_SUB;
+	      qp->limit = end_pos - start_pos;
+	      qp->offset = start_pos;
+	    }
+	  else
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Window argument doesn't convert to integer or range: '%s'\n", argv[i + 1]);
+	    }
+	}
+      else if (0 == strcasecmp(argv[i], "artist"))
+	{
+	  c1 = db_mprintf("(f.artist = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "albumartist"))
+	{
+	  c1 = db_mprintf("(f.album_artist = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "album"))
+	{
+	  c1 = db_mprintf("(f.album = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "title"))
+	{
+	  c1 = db_mprintf("(f.title = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "genre"))
+	{
+	  c1 = db_mprintf("(f.genre = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "disc"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = db_mprintf("(f.disc = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "track"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = db_mprintf("(f.track = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "date"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    c1 = db_mprintf("(f.year = 0 OR f.year IS NULL)");
+	  else
+	    c1 = db_mprintf("(f.year = %d)", num);
+	}
+      else if (i == 0 && argc == 1)
+	{
+	  // Special case: a single token is allowed if listing albums for an artist
+	  c1 = db_mprintf("(f.album_artist = '%q')", argv[i]);
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported by forked-daapd and will be ignored\n", argv[i]);
+	}
+
+      if (c1)
+	{
+	  if (qp->filter)
+	    c2 = db_mprintf("%s AND %s", qp->filter, c1);
+	  else
+	    c2 = db_mprintf("%s", c1);
+
+	  free(qp->filter);
+
+	  qp->filter = c2;
+	  c2 = NULL;
+	  free(c1);
+	  c1 = NULL;
+	}
+    }
+
+  return 0;
+}
+
+static int
+mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
+{
+  char *c1;
+  char *c2;
+  int start_pos;
+  int end_pos;
+  int i;
+  uint32_t num;
+  int ret;
+
+  c1 = NULL;
+  c2 = NULL;
+
+  for (i = 0; i < argc; i += 2)
+    {
+      if (0 == strcasecmp(argv[i], "any"))
+	{
+	  c1 = db_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "file"))
+	{
+	  c1 = db_mprintf("(f.virtual_path LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "base"))
+	{
+	  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "modified-since"))
+	{
+	  DPRINTF(E_WARN, L_MPD, "Special parameter 'modified-since' is not supported by forked-daapd and will be ignored\n");
+	}
+      else if (0 == strcasecmp(argv[i], "window"))
+	{
+	  ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
+	  if (ret == 0)
+	    {
+	      qp->idx_type = I_SUB;
+	      qp->limit = end_pos - start_pos;
+	      qp->offset = start_pos;
+	    }
+	  else
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Window argument doesn't convert to integer or range: '%s'\n", argv[i + 1]);
+	    }
+	}
+      else if (0 == strcasecmp(argv[i], "artist"))
+	{
+	  c1 = db_mprintf("(f.artist LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "albumartist"))
+	{
+	  c1 = db_mprintf("(f.album_artist LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "album"))
+	{
+	  c1 = db_mprintf("(f.album LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "title"))
+	{
+	  c1 = db_mprintf("(f.title LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "genre"))
+	{
+	  c1 = db_mprintf("(f.genre LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "disc"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = db_mprintf("(f.disc = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "track"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = db_mprintf("(f.track = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "date"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    c1 = db_mprintf("(f.year = 0 OR f.year IS NULL)");
+	  else
+	    c1 = db_mprintf("(f.year = %d)", num);
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported by forked-daapd and will be ignored\n", argv[i]);
+	}
+
+      if (c1)
+	{
+	  if (qp->filter)
+	    c2 = db_mprintf("%s AND %s", qp->filter, c1);
+	  else
+	    c2 = db_mprintf("%s", c1);
+
+	  free(qp->filter);
+
+	  qp->filter = c2;
+	  c2 = NULL;
+	  free(c1);
+	  c1 = NULL;
+	}
+    }
+
+  return 0;
+}
+
 /*
  * Command handler function for 'currentsong'
  */
@@ -608,16 +841,13 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
   player_get_status(&status);
 
   if (status.status == PLAY_STOPPED)
-    {
-      // Return empty evbuffer if there is no current playing song
-      return 0;
-    }
+    queue_item = db_queue_fetch_bypos(0, status.shuffle);
+  else
+    queue_item = db_queue_fetch_byitemid(status.item_id);
 
-  queue_item = db_queue_fetch_byitemid(status.item_id);
   if (!queue_item)
     {
-      *errmsg = safe_asprintf("Error adding queue item info for file with id: %d", status.item_id);
-      return ACK_ERROR_UNKNOWN;
+      return 0;
     }
 
   ret = mpd_add_db_queue_item(evbuf, queue_item);
@@ -732,8 +962,8 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   int queue_length;
   int queue_version;
   char *state;
-  int pos_pl;
-  struct db_queue_item *next_item;
+  uint32_t itemid = 0;
+  struct db_queue_item *queue_item;
 
   player_get_status(&status);
 
@@ -775,39 +1005,50 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
       state);
 
   if (status.status != PLAY_STOPPED)
-    {
-      pos_pl = db_queue_get_pos(status.item_id, 0);
+    queue_item = db_queue_fetch_byitemid(status.item_id);
+  else
+    queue_item = db_queue_fetch_bypos(0, status.shuffle);
 
+  if (queue_item)
+   {
       evbuffer_add_printf(evbuf,
 	  "song: %d\n"
-	  "songid: %d\n"
+	  "songid: %d\n",
+	  queue_item->pos,
+	  queue_item->id);
+
+      itemid = queue_item->id;
+      free_queue_item(queue_item, 0);
+   }
+
+  if (status.status != PLAY_STOPPED)
+   {
+      evbuffer_add_printf(evbuf,
 	  "time: %d:%d\n"
 	  "elapsed: %#.3f\n"
 	  "bitrate: 128\n"
 	  "audio: 44100:16:2\n",
-	  pos_pl,
-	  status.item_id,
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
 	  (status.pos_ms / 1000.0));
-    }
+   }
 
   if (library_is_scanning())
     {
       evbuffer_add(evbuf, "updating_db: 1\n", 15);
     }
 
-  if (status.status != PLAY_STOPPED)
+  if (itemid > 0)
     {
-      next_item = db_queue_fetch_next(status.item_id, status.shuffle);
-      if (next_item)
+      queue_item = db_queue_fetch_next(itemid, status.shuffle);
+      if (queue_item)
 	{
 	  evbuffer_add_printf(evbuf,
 	      "nextsong: %d\n"
 	      "nextsongid: %d\n",
-	      next_item->id,
-	      next_item->pos);
+	      queue_item->id,
+	      queue_item->pos);
 
-	  free_queue_item(next_item, 0);
+	  free_queue_item(queue_item, 0);
 	}
     }
 
@@ -1552,6 +1793,7 @@ static int
 mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct media_file_info mfi;
+  int to_pos = -1;
   int ret;
 
   if (argc < 2)
@@ -1560,10 +1802,14 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       return ACK_ERROR_ARG;
     }
 
-  //TODO if argc > 2 add song at position argv[2]
   if (argc > 2)
     {
-      DPRINTF(E_LOG, L_MPD, "Adding at a specified position not supported for 'addid', adding songs at end of queue.\n");
+      ret = safe_atoi32(argv[2], &to_pos);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[2]);
+	  return ACK_ERROR_ARG;
+	}
     }
 
   ret = mpd_queue_add(argv[1], true);
@@ -1586,6 +1832,11 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
     {
       *errmsg = safe_asprintf("Failed to add song '%s' to playlist", argv[1]);
       return ACK_ERROR_UNKNOWN;
+    }
+
+  if (to_pos >= 0)
+    {
+      db_queue_move_byitemid(ret, to_pos, 0);
     }
 
   evbuffer_add_printf(evbuf,
@@ -1864,6 +2115,94 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
       else
 	query_params.filter = db_mprintf("pos >= %d AND pos < %d", start_pos, end_pos);
     }
+
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
+    {
+      free(query_params.filter);
+      *errmsg = safe_asprintf("Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
+      return ACK_ERROR_ARG;
+    }
+
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+    {
+      ret = mpd_add_db_queue_item(evbuf, &queue_item);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
+
+	  db_queue_enum_end(&query_params);
+	  free(query_params.filter);
+	  return ACK_ERROR_UNKNOWN;
+	}
+    }
+
+  db_queue_enum_end(&query_params);
+  free(query_params.filter);
+
+  return 0;
+}
+
+static int
+mpd_command_playlistfind(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  struct query_params query_params;
+  struct db_queue_item queue_item;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  if (argc < 3 || ((argc - 1) % 2) != 0)
+    {
+      *errmsg = safe_asprintf("Missing argument(s) for command 'playlistfind'");
+      return ACK_ERROR_ARG;
+    }
+
+  mpd_get_query_params_find(argc - 1, argv + 1, &query_params);
+
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
+    {
+      free(query_params.filter);
+      *errmsg = safe_asprintf("Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
+      return ACK_ERROR_ARG;
+    }
+
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+    {
+      ret = mpd_add_db_queue_item(evbuf, &queue_item);
+      if (ret < 0)
+	{
+	  *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
+
+	  db_queue_enum_end(&query_params);
+	  free(query_params.filter);
+	  return ACK_ERROR_UNKNOWN;
+	}
+    }
+
+  db_queue_enum_end(&query_params);
+  free(query_params.filter);
+
+  return 0;
+}
+
+static int
+mpd_command_playlistsearch(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  struct query_params query_params;
+  struct db_queue_item queue_item;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  if (argc < 3 || ((argc - 1) % 2) != 0)
+    {
+      *errmsg = safe_asprintf("Missing argument(s) for command 'playlistfind'");
+      return ACK_ERROR_ARG;
+    }
+
+  mpd_get_query_params_search(argc - 1, argv + 1, &query_params);
 
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
@@ -2391,125 +2730,6 @@ mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 }
 
 static int
-mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
-{
-  char *c1;
-  char *c2;
-  int start_pos;
-  int end_pos;
-  int i;
-  uint32_t num;
-  int ret;
-
-  c1 = NULL;
-  c2 = NULL;
-
-  for (i = 0; i < argc; i += 2)
-    {
-      if (0 == strcasecmp(argv[i], "any"))
-	{
-	  c1 = db_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "file"))
-	{
-	  c1 = db_mprintf("(f.virtual_path = '/%q')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "base"))
-	{
-	  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "modified-since"))
-	{
-	  DPRINTF(E_WARN, L_MPD, "Special parameter 'modified-since' is not supported by forked-daapd and will be ignored\n");
-	}
-      else if (0 == strcasecmp(argv[i], "window"))
-	{
-	  ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
-	  if (ret == 0)
-	    {
-	      qp->idx_type = I_SUB;
-	      qp->limit = end_pos - start_pos;
-	      qp->offset = start_pos;
-	    }
-	  else
-	    {
-	      DPRINTF(E_LOG, L_MPD, "Window argument doesn't convert to integer or range: '%s'\n", argv[i + 1]);
-	    }
-	}
-      else if (0 == strcasecmp(argv[i], "artist"))
-	{
-	  c1 = db_mprintf("(f.artist = '%q')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "albumartist"))
-	{
-	  c1 = db_mprintf("(f.album_artist = '%q')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "album"))
-	{
-	  c1 = db_mprintf("(f.album = '%q')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "title"))
-	{
-	  c1 = db_mprintf("(f.title = '%q')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "genre"))
-	{
-	  c1 = db_mprintf("(f.genre = '%q')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "disc"))
-	{
-	  ret = safe_atou32(argv[i + 1], &num);
-	  if (ret < 0)
-	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
-	  else
-	    c1 = db_mprintf("(f.disc = %d)", num);
-	}
-      else if (0 == strcasecmp(argv[i], "track"))
-	{
-	  ret = safe_atou32(argv[i + 1], &num);
-	  if (ret < 0)
-	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
-	  else
-	    c1 = db_mprintf("(f.track = %d)", num);
-	}
-      else if (0 == strcasecmp(argv[i], "date"))
-	{
-	  ret = safe_atou32(argv[i + 1], &num);
-	  if (ret < 0)
-	    c1 = db_mprintf("(f.year = 0 OR f.year IS NULL)");
-	  else
-	    c1 = db_mprintf("(f.year = %d)", num);
-	}
-      else if (i == 0 && argc == 1)
-	{
-	  // Special case: a single token is allowed if listing albums for an artist
-	  c1 = db_mprintf("(f.album_artist = '%q')", argv[i]);
-	}
-      else
-	{
-	  DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported by forked-daapd and will be ignored\n", argv[i]);
-	}
-
-      if (c1)
-	{
-	  if (qp->filter)
-	    c2 = db_mprintf("%s AND %s", qp->filter, c1);
-	  else
-	    c2 = db_mprintf("%s", c1);
-
-	  free(qp->filter);
-
-	  qp->filter = c2;
-	  c2 = NULL;
-	  free(c1);
-	  c1 = NULL;
-	}
-    }
-
-  return 0;
-}
-
-static int
 mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
@@ -3024,120 +3244,6 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
     }
 
   return ret;
-}
-
-static int
-mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
-{
-  char *c1;
-  char *c2;
-  int start_pos;
-  int end_pos;
-  int i;
-  uint32_t num;
-  int ret;
-
-  c1 = NULL;
-  c2 = NULL;
-
-  for (i = 0; i < argc; i += 2)
-    {
-      if (0 == strcasecmp(argv[i], "any"))
-	{
-	  c1 = db_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "file"))
-	{
-	  c1 = db_mprintf("(f.virtual_path LIKE '%%%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "base"))
-	{
-	  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "modified-since"))
-	{
-	  DPRINTF(E_WARN, L_MPD, "Special parameter 'modified-since' is not supported by forked-daapd and will be ignored\n");
-	}
-      else if (0 == strcasecmp(argv[i], "window"))
-	{
-	  ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
-	  if (ret == 0)
-	    {
-	      qp->idx_type = I_SUB;
-	      qp->limit = end_pos - start_pos;
-	      qp->offset = start_pos;
-	    }
-	  else
-	    {
-	      DPRINTF(E_LOG, L_MPD, "Window argument doesn't convert to integer or range: '%s'\n", argv[i + 1]);
-	    }
-	}
-      else if (0 == strcasecmp(argv[i], "artist"))
-	{
-	  c1 = db_mprintf("(f.artist LIKE '%%%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "albumartist"))
-	{
-	  c1 = db_mprintf("(f.album_artist LIKE '%%%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "album"))
-	{
-	  c1 = db_mprintf("(f.album LIKE '%%%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "title"))
-	{
-	  c1 = db_mprintf("(f.title LIKE '%%%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "genre"))
-	{
-	  c1 = db_mprintf("(f.genre LIKE '%%%q%%')", argv[i + 1]);
-	}
-      else if (0 == strcasecmp(argv[i], "disc"))
-	{
-	  ret = safe_atou32(argv[i + 1], &num);
-	  if (ret < 0)
-	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
-	  else
-	    c1 = db_mprintf("(f.disc = %d)", num);
-	}
-      else if (0 == strcasecmp(argv[i], "track"))
-	{
-	  ret = safe_atou32(argv[i + 1], &num);
-	  if (ret < 0)
-	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
-	  else
-	    c1 = db_mprintf("(f.track = %d)", num);
-	}
-      else if (0 == strcasecmp(argv[i], "date"))
-	{
-	  ret = safe_atou32(argv[i + 1], &num);
-	  if (ret < 0)
-	    c1 = db_mprintf("(f.year = 0 OR f.year IS NULL)");
-	  else
-	    c1 = db_mprintf("(f.year = %d)", num);
-	}
-      else
-	{
-	  DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported by forked-daapd and will be ignored\n", argv[i]);
-	}
-
-      if (c1)
-	{
-	  if (qp->filter)
-	    c2 = db_mprintf("%s AND %s", qp->filter, c1);
-	  else
-	    c2 = db_mprintf("%s", c1);
-
-	  free(qp->filter);
-
-	  qp->filter = c2;
-	  c2 = NULL;
-	  free(c1);
-	  c1 = NULL;
-	}
-    }
-
-  return 0;
 }
 
 /*
@@ -4386,12 +4492,10 @@ static struct mpd_command mpd_handlers[] =
       .mpdcommand = "playlist",
       .handler = mpd_command_playlistinfo
     },
-    /*
     {
       .mpdcommand = "playlistfind",
       .handler = mpd_command_playlistfind
     },
-    */
     {
       .mpdcommand = "playlistid",
       .handler = mpd_command_playlistid
@@ -4400,12 +4504,10 @@ static struct mpd_command mpd_handlers[] =
       .mpdcommand = "playlistinfo",
       .handler = mpd_command_playlistinfo
     },
-    /*
     {
       .mpdcommand = "playlistsearch",
       .handler = mpd_command_playlistsearch
     },
-    */
     {
       .mpdcommand = "plchanges",
       .handler = mpd_command_plchanges

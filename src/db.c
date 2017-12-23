@@ -4450,7 +4450,7 @@ db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t ite
 static int
 queue_enum_start(struct query_params *qp)
 {
-#define Q_TMPL "SELECT * FROM queue WHERE %s %s;"
+#define Q_TMPL "SELECT * FROM queue f WHERE %s %s;"
   sqlite3_stmt *stmt;
   char *query;
   const char *orderby;
