@@ -449,26 +449,59 @@ http_stream_setup(char **stream, const char *url)
   char *line;
   int ret;
   int n;
-  const char *pos;
+  char *current_url;
+  ptrdiff_t url_length;
+  ptrdiff_t base_length;
+  char *pos;
   char ch;
   int pl_format;
   bool in_playlist;
 
   *stream = NULL;
-  pl_format = PLAYLIST_UNK;
+  ctx.input_body = NULL;
+  line = NULL;
 
-  // Find last dot before query or fragment,
+  current_url = strdup(url);
+  if (!current_url)
+    return -1;
+
+ repeat:
+
+  // Find last slash/dot before query or fragment,
   // e.g., http://yp.shoutcast.com/sbin/tunein-station.pls?id=99179772#Air Jazz
-  pos = url;
+
+  base_length = 0;
+  pos = current_url;
   ext = NULL;
+
   while ((ch = *pos) != '\0')
     {
       if (ch == '?' || ch == '#')
 	break;
+      if (ch == '/')
+	base_length = (ptrdiff_t) (pos - current_url + 1);
       if (ch == '.')
 	ext = pos;
       ++pos;
     }
+
+  // remove fragment from URL
+  if (*pos != '\0')
+    {
+      while (*pos != '\0' && *pos != '#')
+	++pos;
+      if (*pos == '#')
+	{
+	  url_length = (ptrdiff_t) (pos - current_url);
+	  pos = strndup(current_url, url_length);
+	  if (!pos)
+	    goto failure;
+	  current_url = pos;
+	}
+    }
+
+  // check playlist format
+  pl_format = PLAYLIST_UNK;
 
   if (ext)
     {
@@ -480,27 +513,27 @@ http_stream_setup(char **stream, const char *url)
 
   if (pl_format==PLAYLIST_UNK)
     {
-      *stream = strdup(url);
-      return 0;
+      goto success;
     }
 
   // It was a m3u or pls playlist, so now retrieve it
+  DPRINTF(E_DBG, L_HTTP, "Fetching internet playlist: %s\n", current_url);
+
   memset(&ctx, 0, sizeof(struct http_client_ctx));
 
+  ctx.url = current_url;
   evbuf = evbuffer_new();
   if (!evbuf)
-    return -1;
-
-  ctx.url = url;
+    {
+      goto failure;
+    }
   ctx.input_body = evbuf;
 
   ret = http_client_request(&ctx);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTP, "Couldn't fetch internet playlist: %s\n", url);
-
-      evbuffer_free(evbuf);
-      return -1;
+      DPRINTF(E_LOG, L_HTTP, "Couldn't fetch internet playlist: %s\n", current_url);
+      goto failure;
     }
 
   // Pad with CRLF because evbuffer_readln() might not read the last line otherwise
@@ -511,10 +544,22 @@ http_stream_setup(char **stream, const char *url)
    */
   in_playlist = false;
   n = 0;
-  while ((line = evbuffer_readln(ctx.input_body, NULL, EVBUFFER_EOL_ANY)) && (n < 10))
+  while ((n < 10) && (line = evbuffer_readln(ctx.input_body, NULL, EVBUFFER_EOL_ANY)))
     {
+      // Detect HTTP Live Streaming playlists
+      if (pl_format == PLAYLIST_M3U &&
+	  (strncmp(line, "#EXT-X-MEDIA", strlen("#EXT-X-MEDIA")) == 0 // HLS master file
+	   || strncmp(line, "#EXT-X-STREAM-INF", strlen("#EXT-X-STREAM-INF")) == 0 // HLS master file
+	   || strncmp(line, "#EXT-X-MEDIA-SEQUENCE", strlen("#EXT-X-MEDIA-SEQUENCE")) == 0 // HLS playlist
+	   || strncmp(line, "#EXT-X-TARGETDURATION", strlen("#EXT-X-TARGETDURATION")) == 0 // HLS playlist
+	   ))
+	{
+	  DPRINTF(E_DBG, L_HTTP, "Found HLS playlist %s (line %d): %s\n", current_url, n, line);
+	  goto success;
+	}
+
       // Skip comments and blank lines without counting for the limit
-      if (pl_format == PLAYLIST_M3U && (line[0] == '#' || line[0] == '\0'))
+      if ((pl_format == PLAYLIST_M3U && (line[0] == '#')) || line[0] == '\0')
 	goto line_done;
 
       n++;
@@ -535,7 +580,7 @@ http_stream_setup(char **stream, const char *url)
 	  while (*pos == ' ')
 	    ++pos;
 
-          // We are only interested in `FileN=http://foo/bar.mp3` entries
+	  // We are only interested in `FileN=http://foo/bar.mp3` entries
 	  if (strncasecmp(pos, "file", strlen("file")) != 0)
 	    goto line_done;
 
@@ -548,11 +593,14 @@ http_stream_setup(char **stream, const char *url)
 	  ++pos;
 	  while (*pos == ' ')
 	    ++pos;
-        
+
 	  // allocate the value part and proceed as with m3u
 	  pos = strdup(pos);
+	  if (!pos)
+	    goto failure;
+
 	  free(line);
-	  line = (char *) pos;
+	  line = pos;
 	}
 
       if (strncasecmp(line, "http://", strlen("http://")) == 0)
@@ -562,23 +610,60 @@ http_stream_setup(char **stream, const char *url)
 	  n = -1;
 	  break;
 	}
+      else if (line[0] != '/' && strstr(line, ":/") == NULL)
+	{
+	  // prepend base URL to relative URL
+	  pos = malloc(base_length + strlen(line) + 1);
+	  if (!pos)
+	    goto failure;
+
+	  strncpy(pos, current_url, base_length);
+	  strcpy(&pos[base_length], line);
+
+	  DPRINTF(E_DBG, L_HTTP, "Found internet playlist stream (line %d): %s => %s\n", n, line, pos);
+
+	  free(line);
+	  line = pos;
+
+	  n = -1;
+	  break;
+	}
 
     line_done:
       free(line);
+      line = NULL;
     }
 
   evbuffer_free(ctx.input_body);
+  ctx.input_body = NULL;
 
   if (n != -1)
     {
       DPRINTF(E_LOG, L_HTTP, "Couldn't find stream in internet playlist: %s\n", url);
-
-      return -1;
+      goto failure;
     }
 
-  *stream = line;
+  free(current_url);
+  current_url = line;
+  line = NULL;
 
-  return 0;
+  goto repeat;
+
+ success:
+  *stream = current_url;
+  ret = 0;
+  goto exit;
+
+ failure:
+  free(current_url);
+  ret = -1;
+
+ exit:
+  if (ctx.input_body)
+    evbuffer_free(ctx.input_body);
+  if (line)
+    free(line);
+  return ret;
 }
 
 
