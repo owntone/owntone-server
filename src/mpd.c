@@ -4295,6 +4295,37 @@ mpd_command_tagtypes(struct evbuffer *evbuf, int argc, char **argv, char **errms
 }
 
 /*
+ * Command handler function for 'urlhandlers'
+ * Returns a lists with supported tags in the form:
+ *   handler: protocol://
+ */
+static int
+mpd_command_urlhandlers(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  evbuffer_add_printf(evbuf,
+      "handler: http://\n"
+      // handlers supported by MPD 0.19.12
+      // "handler: https://\n"
+      // "handler: mms://\n"
+      // "handler: mmsh://\n"
+      // "handler: mmst://\n"
+      // "handler: mmsu://\n"
+      // "handler: gopher://\n"
+      // "handler: rtp://\n"
+      // "handler: rtsp://\n"
+      // "handler: rtmp://\n"
+      // "handler: rtmpt://\n"
+      // "handler: rtmps://\n"
+      // "handler: smb://\n"
+      // "handler: nfs://\n"
+      // "handler: cdda://\n"
+      // "handler: alsa://\n"
+      );
+
+  return 0;
+}
+
+/*
  * Command handler function for 'decoders'
  * MPD returns the decoder plugins with their supported suffix and mime types.
  *
@@ -4764,7 +4795,7 @@ static struct mpd_command mpd_handlers[] =
     },
     {
       .mpdcommand = "urlhandlers",
-      .handler = mpd_command_ignore
+      .handler = mpd_command_urlhandlers
     },
     {
       .mpdcommand = "decoders",
