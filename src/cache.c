@@ -445,11 +445,13 @@ cache_create(void)
 #define Q_PRAGMA_CACHE_SIZE "PRAGMA cache_size=%d;"
 #define Q_PRAGMA_JOURNAL_MODE "PRAGMA journal_mode=%s;"
 #define Q_PRAGMA_SYNCHRONOUS "PRAGMA synchronous=%d;"
+#define Q_PRAGMA_MMAP_SIZE "PRAGMA mmap_size=%d;"
   char *errmsg;
   int ret;
   int cache_size;
   char *journal_mode;
   int synchronous;
+  int mmap_size;
   char *query;
 
   // Open db
@@ -534,12 +536,29 @@ cache_create(void)
 	}
     }
 
+  // Set mmap size
+  mmap_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_mmap_size_cache");
+  if (synchronous > -1)
+    {
+      query = sqlite3_mprintf(Q_PRAGMA_MMAP_SIZE, mmap_size);
+      ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_CACHE, "Error setting pragma_mmap_size: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  sqlite3_close(g_db_hdl);
+	  return -1;
+	}
+    }
+
   DPRINTF(E_DBG, L_CACHE, "Cache created\n");
 
   return 0;
 #undef Q_PRAGMA_CACHE_SIZE
 #undef Q_PRAGMA_JOURNAL_MODE
 #undef Q_PRAGMA_SYNCHRONOUS
+#undef Q_PRAGMA_MMAP_SIZE
 }
 
 static void

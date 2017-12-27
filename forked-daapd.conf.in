@@ -315,6 +315,16 @@ sqlite {
 	# Change the setting of the "synchronous" flag
 	# 0: OFF, 1: NORMAL, 2: FULL (default)
 #	pragma_synchronous = 2
+	
+	# Number of bytes set aside for memory-mapped I/O  for the library database
+	# (requires sqlite 3.7.17 or later)
+	# 0: disables mmap (default), any other value > 0: number of bytes for mmap
+#	pragma_mmap_size_library = 0
+
+	# Number of bytes set aside for memory-mapped I/O for the cache database
+	# (requires sqlite 3.7.17 or later)
+	# 0: disables mmap (default), any other value > 0: number of bytes for mmap
+#	pragma_mmap_size_cache = 0
 
 	# Should the database be vacuumed on startup? (increases startup time,
 	# but may reduce database size). Default is yes.

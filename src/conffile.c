@@ -151,6 +151,8 @@ static cfg_opt_t sec_sqlite[] =
     CFG_INT("pragma_cache_size_cache", -1, CFGF_NONE),
     CFG_STR("pragma_journal_mode", NULL, CFGF_NONE),
     CFG_INT("pragma_synchronous", -1, CFGF_NONE),
+    CFG_INT("pragma_mmap_size_library", -1, CFGF_NONE),
+    CFG_INT("pragma_mmap_size_cache", -1, CFGF_NONE),
     CFG_BOOL("vacuum", cfg_true, CFGF_NONE),
     CFG_END()
   };
