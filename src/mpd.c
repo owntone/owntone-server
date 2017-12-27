@@ -3448,14 +3448,16 @@ struct mpd_sticker_command {
   int need_args;
 };
 
-static struct mpd_sticker_command mpd_sticker_handlers[] = {
-  { "get", mpd_sticker_get, 5 },
-  { "set", mpd_sticker_set, 6 },
-  { "delete", mpd_sticker_delete, 5 },
-  { "list", mpd_sticker_list, 4 },
-  { "find", mpd_sticker_find, 5 },
-  { NULL, NULL, 0 },
-};
+static struct mpd_sticker_command mpd_sticker_handlers[] =
+  {
+    /* sticker command    | handler function        | minimum argument count */
+    { "get",                mpd_sticker_get,          5 },
+    { "set",                mpd_sticker_set,          6 },
+    { "delete",             mpd_sticker_delete,       5 },
+    { "list",               mpd_sticker_list,         4 },
+    { "find",               mpd_sticker_find,         5 },
+    { NULL, NULL, 0 },
+  };
 
 /*
  * Command handler function for 'sticker'
@@ -4042,22 +4044,11 @@ struct mpd_channel
 
 static struct mpd_channel mpd_channels[] =
   {
-    {
-      .channel = "outputvolume",
-      .handler = channel_outputvolume
-    },
-    {
-      .channel = "pairing",
-      .handler = channel_pairing
-    },
-    {
-      .channel = "verification",
-      .handler = channel_verification
-    },
-    {
-      .channel = NULL,
-      .handler = NULL
-    },
+    /* channel               | handler function */
+    { "outputvolume",          channel_outputvolume },
+    { "pairing",               channel_pairing },
+    { "verification",          channel_verification },
+    { NULL, NULL },
   };
 
 /*
