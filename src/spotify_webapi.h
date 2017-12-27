@@ -82,13 +82,6 @@ struct spotify_playlist
   int tracks_count;
 };
 
-struct spotify_image
-{
-  const char *url;
-  int width;
-  int height;
-};
-
 struct spotify_request
 {
   struct http_client_ctx *ctx;
@@ -123,12 +116,5 @@ int
 spotifywebapi_playlisttracks_fetch(struct spotify_request *request, struct spotify_track *track);
 int
 spotifywebapi_playlist_start(struct spotify_request *request, const char *path, struct spotify_playlist *playlist);
-char *
-spotifywebapi_artwork_get(const char *path, int max_w, int max_h);
-
-int
-spotifywebapi_init(void);
-int
-spotifywebapi_deinit(void);
 
 #endif /* SRC_SPOTIFY_WEBAPI_H_ */

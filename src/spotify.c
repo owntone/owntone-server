@@ -141,6 +141,9 @@ static bool scanning;
 static pthread_mutex_t status_lck;
 static struct spotify_status_info spotify_status_info;
 
+// Timeout timespec
+static struct timespec spotify_artwork_timeout = { SPOTIFY_ARTWORK_TIMEOUT, 0 };
+
 // Audio buffer
 static struct evbuffer *spotify_audio_buffer;
 
@@ -888,6 +891,194 @@ playback_eot(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static void
+artwork_loaded_cb(sp_image *image, void *userdata)
+{
+  struct artwork_get_param *artwork;
+
+  artwork = userdata;
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&artwork->mutex));
+
+  artwork->is_loaded = 1;
+
+  CHECK_ERR(L_SPOTIFY, pthread_cond_signal(&artwork->cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&artwork->mutex));
+}
+
+static enum command_state
+artwork_get_bh(void *arg, int *retval)
+{
+  struct artwork_get_param *artwork;
+  sp_imageformat imageformat;
+  sp_error err;
+  const void *data;
+  char *path;
+  size_t data_size;
+  int ret;
+
+  artwork = arg;
+  sp_image *image = artwork->image;
+  path = artwork->path;
+
+  fptr_sp_image_remove_load_callback(image, artwork_loaded_cb, artwork);
+
+  err = fptr_sp_image_error(image);
+  if (err != SP_ERROR_OK)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork (%s) failed, Spotify error: %s\n", path, fptr_sp_error_message(err));
+      goto fail;
+    }
+
+  if (!fptr_sp_image_is_loaded(image))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Load callback returned, but no image? Possible bug: %s\n", path);
+      goto fail;
+    }
+
+  imageformat = fptr_sp_image_format(image);
+  if (imageformat != SP_IMAGE_FORMAT_JPEG)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid image format from Spotify: %s\n", path);
+      goto fail;
+    }
+
+  data_size = 0;
+  data = fptr_sp_image_data(image, &data_size);
+  if (!data)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Getting artwork failed, no image data from Spotify: %s\n", path);
+      goto fail;
+    }
+
+  if ((data_size < 200) || (data_size > 20000000))
+    {
+      // Sometimes we get strange data size even though fptr_sp_image_data returns success
+      DPRINTF(E_LOG, L_SPOTIFY, "Skipping artwork, data size is weird (%zu)\n", data_size);
+      goto fail;
+    }
+
+  ret = evbuffer_expand(artwork->evbuf, data_size);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for artwork (data size requested was %zu)\n", data_size);
+      goto fail;
+    }
+
+  ret = evbuffer_add(artwork->evbuf, data, data_size);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not add Spotify image to event buffer\n");
+      goto fail;
+    }
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Spotify artwork loaded ok\n");
+
+  fptr_sp_image_release(image);
+
+  *retval = 0;
+  return COMMAND_END;
+
+ fail:
+  fptr_sp_image_release(image);
+
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
+artwork_get(void *arg, int *retval)
+{
+  struct artwork_get_param *artwork;
+  char *path;
+  sp_link *link;
+  sp_track *track;
+  sp_album *album;
+  const byte *image_id;
+  sp_image *image;
+  sp_image_size image_size;
+  sp_error err;
+
+  artwork = arg;
+  path = artwork->path;
+
+  // Now begins: path -> link -> track -> album -> image_id -> image -> format -> data
+  link = fptr_sp_link_create_from_string(path);
+  if (!link)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid Spotify link: %s\n", path);
+      goto level1_exit;
+    }
+
+  track = fptr_sp_link_as_track(link);
+  if (!track)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid Spotify track: %s\n", path);
+      goto level2_exit;
+    }
+
+  album = fptr_sp_track_album(track);
+  if (!album)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid Spotify album: %s\n", path);
+      goto level2_exit;
+    }
+
+  // Get an image at least the same size as requested
+  image_size = SP_IMAGE_SIZE_SMALL; // 64x64
+  if ((artwork->max_w > 64) || (artwork->max_h > 64))
+    image_size = SP_IMAGE_SIZE_NORMAL; // 300x300
+  if ((artwork->max_w > 300) || (artwork->max_h > 300))
+    image_size = SP_IMAGE_SIZE_LARGE; // 640x640
+
+  image_id = fptr_sp_album_cover(album, image_size);
+  if (!image_id)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Getting artwork failed, no Spotify image id: %s\n", path);
+      goto level2_exit;
+    }
+
+  image = fptr_sp_image_create(g_sess, image_id);
+  if (!image)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Getting artwork failed, no Spotify image: %s\n", path);
+      goto level2_exit;
+    }
+
+  fptr_sp_link_release(link);
+
+  artwork->image = image;
+  artwork->is_loaded = fptr_sp_image_is_loaded(image);
+
+  /* If the image is ready we can return it straight away, otherwise we will
+   * let the calling thread wait, since the Spotify thread should not wait
+   */
+  if (artwork->is_loaded)
+    return artwork_get_bh(artwork, retval);
+
+  DPRINTF(E_SPAM, L_SPOTIFY, "Will wait for Spotify to call artwork_loaded_cb\n");
+
+  /* Async - we will return to spotify_artwork_get which will wait for callback */
+  err = fptr_sp_image_add_load_callback(image, artwork_loaded_cb, artwork);
+  if (err != SP_ERROR_OK)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Adding artwork cb failed, Spotify error: %s\n", fptr_sp_error_message(err));
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  *retval = 0;
+  return COMMAND_END;
+
+ level2_exit:
+  fptr_sp_link_release(link);
+
+ level1_exit:
+  *retval = -1;
+  return COMMAND_END;
+}
+
+
 /* ---------------------------  SESSION CALLBACKS  ------------------------- */
 /**
  * This callback is called when an attempt to login has succeeded or failed.
@@ -1256,6 +1447,41 @@ spotify_playback_seek(int ms)
     return ms;
   else
     return -1;
+}
+
+/* Thread: httpd (artwork) and worker */
+int
+spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
+{
+  struct artwork_get_param artwork;
+  struct timespec ts;
+  int ret;
+
+  artwork.evbuf  = evbuf;
+  artwork.path = path;
+  artwork.max_w = max_w;
+  artwork.max_h = max_h;
+
+  CHECK_ERR(L_SPOTIFY, mutex_init(&artwork.mutex));
+  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&artwork.cond, NULL));
+
+  ret = commands_exec_sync(cmdbase, artwork_get, NULL, &artwork);
+
+  // Artwork was not ready, wait for callback from libspotify
+  if (ret == 0)
+    {
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&artwork.mutex));
+      ts = timespec_reltoabs(spotify_artwork_timeout);
+      while ((!artwork.is_loaded) && (ret != ETIMEDOUT))
+	CHECK_ERR_EXCEPT(L_SPOTIFY, pthread_cond_timedwait(&artwork.cond, &artwork.mutex, &ts), ret, ETIMEDOUT);
+      if (ret == ETIMEDOUT)
+	DPRINTF(E_LOG, L_SPOTIFY, "Timeout waiting for artwork from Spotify\n");
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&artwork.mutex));
+
+      ret = commands_exec_sync(cmdbase, artwork_get_bh, NULL, &artwork);
+    }
+
+  return ret;
 }
 
 /* Thread: httpd */
@@ -1967,9 +2193,8 @@ spotify_init(void)
 
   CHECK_ERR(L_SPOTIFY, mutex_init(&login_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_init(&login_cond, NULL));
-  CHECK_ERR(L_SPOTIFY, mutex_init(&status_lck));
 
-  spotifywebapi_init();
+  CHECK_ERR(L_SPOTIFY, mutex_init(&status_lck));
 
   /* Spawn thread */
   ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
@@ -1989,8 +2214,6 @@ spotify_init(void)
   return 0;
 
  thread_fail:
-  spotifywebapi_deinit();
-
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&status_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
@@ -2056,9 +2279,6 @@ spotify_deinit(void)
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&status_lck));
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&login_cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&login_lck));
-
-  /* Deinit web api */
-  spotifywebapi_deinit();
 
   /* Free audio buffer */
   evbuffer_free(spotify_audio_buffer);
