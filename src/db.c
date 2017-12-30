@@ -5141,9 +5141,9 @@ db_queue_move_byitemid(uint32_t item_id, int pos_to, char shuffle)
 
   // Update pos for all items after the item with given item_id
   if (shuffle)
-    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos - 1 WHERE shuffle_pos > %d;", pos_from);
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos - 1, queue_version = %d WHERE shuffle_pos > %d;", queue_version, pos_from);
   else
-    query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1 WHERE pos > %d;", pos_from);
+    query = sqlite3_mprintf("UPDATE queue SET pos = pos - 1, queue_version = %d WHERE pos > %d;", queue_version, pos_from);
 
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
@@ -5151,9 +5151,9 @@ db_queue_move_byitemid(uint32_t item_id, int pos_to, char shuffle)
 
   // Update pos for all items from the given pos_to
   if (shuffle)
-    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos + 1 WHERE shuffle_pos >= %d;", pos_to);
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos + 1, queue_version = %d WHERE shuffle_pos >= %d;", queue_version, pos_to);
   else
-    query = sqlite3_mprintf("UPDATE queue SET pos = pos + 1 WHERE pos >= %d;", pos_to);
+    query = sqlite3_mprintf("UPDATE queue SET pos = pos + 1, queue_version = %d WHERE pos >= %d;", queue_version, pos_to);
 
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
@@ -5161,9 +5161,9 @@ db_queue_move_byitemid(uint32_t item_id, int pos_to, char shuffle)
 
   // Update item with the given item_id
   if (shuffle)
-    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d where id = %d;", pos_to, item_id);
+    query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = %d, queue_version = %d where id = %d;", pos_to, queue_version, item_id);
   else
-    query = sqlite3_mprintf("UPDATE queue SET pos = %d where id = %d;", pos_to, item_id);
+    query = sqlite3_mprintf("UPDATE queue SET pos = %d, queue_version = %d where id = %d;", pos_to, queue_version, item_id);
 
   ret = db_query_run(query, 1, 0);
 
