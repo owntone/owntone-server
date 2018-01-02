@@ -41,6 +41,7 @@
 #endif
 
 #include "http.h"
+#include "httpd.h"
 #include "logger.h"
 #include "misc.h"
 
@@ -444,39 +445,37 @@ int
 http_stream_setup(char **stream, const char *url)
 {
   struct http_client_ctx ctx;
+  struct httpd_uri_parsed *parsed;
   struct evbuffer *evbuf;
   const char *ext;
   char *line;
+  char *pos;
   int ret;
   int n;
-  const char *pos;
-  char ch;
   int pl_format;
   bool in_playlist;
 
   *stream = NULL;
-  pl_format = PLAYLIST_UNK;
 
-  // Find last dot before query or fragment,
-  // e.g., http://yp.shoutcast.com/sbin/tunein-station.pls?id=99179772#Air Jazz
-  pos = url;
-  ext = NULL;
-  while ((ch = *pos) != '\0')
+  parsed = httpd_uri_parse(url);
+  if (!parsed)
     {
-      if (ch == '?' || ch == '#')
-	break;
-      if (ch == '.')
-	ext = pos;
-      ++pos;
+      DPRINTF(E_LOG, L_HTTP, "Couldn't parse internet playlist: '%s'\n", url);
+      return -1;
     }
 
-  if (ext)
+  // parsed->path does not include query or fragment, so should work with any url's
+  // e.g. http://yp.shoutcast.com/sbin/tunein-station.pls?id=99179772#Air Jazz
+  pl_format = PLAYLIST_UNK;
+  if (parsed->path && (ext = strrchr(parsed->path, '.')))
     {
-      if (strncasecmp(ext, ".m3u", 4) == 0)
+      if (strcasecmp(ext, ".m3u") == 0)
 	pl_format = PLAYLIST_M3U;
-      else if (strncasecmp(ext, ".pls", 4) == 0)
+      else if (strcasecmp(ext, ".pls") == 0)
 	pl_format = PLAYLIST_PLS;
     }
+
+  httpd_uri_free(parsed);
 
   if (pl_format==PLAYLIST_UNK)
     {
@@ -552,7 +551,7 @@ http_stream_setup(char **stream, const char *url)
 	  // allocate the value part and proceed as with m3u
 	  pos = strdup(pos);
 	  free(line);
-	  line = (char *) pos;
+	  line = pos;
 	}
 
       if (strncasecmp(line, "http://", strlen("http://")) == 0)
