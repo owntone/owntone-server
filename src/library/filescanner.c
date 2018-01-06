@@ -1058,6 +1058,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
   int flags = 0;
   int ret;
   int parent_id;
+  int fd;
 
   DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
@@ -1151,11 +1152,11 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	free(wi->path);
       wi->path = s;
 
-#ifdef HAVE_EUIDACCESS
-      if (euidaccess(path, (R_OK | X_OK)) < 0)
-#else
-      if (access(path, (R_OK | X_OK)) < 0)
-#endif
+      // We don't use access() or euidaccess() because they don't work with ACL's
+      // - this also means we can't check for executable permission, which stat()
+      // will require
+      fd = open(path, O_RDONLY);
+      if (fd < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' failed: %s\n", path, strerror(errno));
 
@@ -1176,6 +1177,9 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	{
 	  DPRINTF(E_INFO, L_SCAN, "Directory event, but '%s' already being watched\n", path);
 	}
+
+      if (fd > 0)
+	close(fd);
     }
 
   if (ie->mask & IN_CREATE)
@@ -1202,6 +1206,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   int type;
   int i;
   int dir_id;
+  int fd;
   char *ptr;
   int ret;
 
@@ -1237,11 +1242,9 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    return;
 	}
 
-#ifdef HAVE_EUIDACCESS
-      if (euidaccess(path, R_OK) < 0)
-#else
-      if (access(path, R_OK) < 0)
-#endif
+      // We don't use access() or euidaccess() because they don't work with ACL's
+      fd = open(path, O_RDONLY);
+      if (fd < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' failed: %s\n", path, strerror(errno));
 
@@ -1254,6 +1257,9 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
 	  ie->mask |= IN_CLOSE_WRITE;
 	}
+
+      if (fd > 0)
+	close(fd);
     }
 
   if (ie->mask & IN_MOVED_TO)
