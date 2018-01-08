@@ -829,7 +829,7 @@ httpd_uri_parse(const char *uri)
     }
 
   query = evhttp_uri_get_query(parsed->ev_uri);
-  if (query)
+  if (query && strchr(query, '='))
     {
       ret = evhttp_parse_query_str(query, &(parsed->ev_query));
       if (ret < 0)
