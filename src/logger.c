@@ -260,6 +260,12 @@ logger_reinit(void)
 }
 
 
+int
+logger_severity(void)
+{
+  return threshold;
+}
+
 /* The functions below are used at init time with a single thread running */
 void
 logger_domains(void)
