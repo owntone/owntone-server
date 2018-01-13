@@ -48,6 +48,7 @@
 #define E_SPAM    5
 
 
+
 void
 DPRINTF(int severity, int domain, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 
@@ -64,6 +65,9 @@ logger_alsa(const char *file, int line, const char *function, int err, const cha
 
 void
 logger_reinit(void);
+
+int
+logger_severity(void);
 
 void
 logger_domains(void);

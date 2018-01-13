@@ -355,6 +355,9 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
+dnl DB profiling support
+FORK_ARG_ENABLE([DB profiling support], [dbprofile], [DB_PROFILE])
+
 dnl iTunes playlists with libplist
 FORK_ARG_DISABLE([iTunes Music Library XML support], [itunes], [ITUNES],
 	[AS_IF([[test "x$with_libplist" = "xno"]],
