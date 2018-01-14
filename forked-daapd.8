@@ -1,21 +1,21 @@
 .\"  -*- nroff -*-
-.TH FORKED-DAAPD "8" "2015-12-30" "forked-daapd" "DAAP, MPD & RSP media server"
+.TH FORKED-DAAPD "8" "2018-01-14" "forked-daapd" "DAAP, MPD, Chromecast & RSP media server"
 .SH NAME
-forked\-daapd \- iTunes\-compatible DAAP server with MPD and RSP support
+forked\-daapd \- iTunes\-compatible DAAP server with MPD, Chromecast and RSP support
 .SH SYNOPSIS
 .B forked-daapd
 [\fIoptions\fR]
 .SH DESCRIPTION
 \fBforked\-daapd\fP is a Linux/FreeBSD DAAP (iTunes) media server with support
-for AirPlay devices, Apple Remote (and compatibles), MPD, Spotify, mp3 streaming
-and internet radio. It allows you to share your music collection over the local
-network.
+for AirPlay devices, Apple Remote (and compatibles), MPD, Spotify, Chromecast,
+mp3 streaming and internet radio. It allows you to share your music collection over
+the local network.
 .SH OPTIONS
 .TP
-\fB\-d\fR \fIlevel\fP
+\fB\-d, \-\-debug=\fR\fIlevel\fP
 Log level (0\-5).
 .TP
-\fB\-D\fR \fIdom,..,dom\fP
+\fB\-D, \-\-logdomains=\fR\fIdom,..,dom\fP
 Debug domains; available domains are: \fIconfig\fP, \fIdaap\fP,
 \fIdb\fP, \fIhttpd\fP, \fImain\fP, \fImdns\fP, \fImisc\fP,
 \fIrsp\fP, \fIscan\fP, \fIxcode\fP, \fIevent\fP, \fIhttp\fP, \fIremote\fP,
@@ -23,20 +23,32 @@ Debug domains; available domains are: \fIconfig\fP, \fIdaap\fP,
 \fIlaudio\fP, \fIdmap\fP, \fIfdbperf\fP, \fIspotify\fP, \fIlastfm\fP,
 \fIcache\fP, \fImpd\fP, \fIstream\fP, \fIcast\fP, \fIfifo\fP, \fIlib\fP.
 .TP
-\fB\-c\fR \fIfile\fP
+\fB\-c, \-\-config=\fR\fIfile\fP
 Use \fIfile\fP as the configuration file.
 .TP
-\fB\-P\fR \fIfile\fP
+\fB\-P, \-\-pidfile=\fR\fIfile\fP
 Write PID to \fIfile\fP.
 .TP
-\fB\-f\fR
+\fB\-f, \-\-foreground\fR
 Run in the foreground.
 .TP
-\fB\-b\fR \fIffid\fP
+\fB\-b, \-\-ffid=\fR\fIffid\fP
 \fIffid\fP to be broadcast in mDNS records.
 .TP
-\fB\-v\fR
+\fB\-v, \-\-version\fR
 Display version information.
+.TP
+\fB\-\-mdns-no-rsp\fR
+Don't announce RSP service via mDNS.
+.TP
+\fB\-\-mdns-no-daap\fR
+Don't announce DAAP service via mDNS.
+.TP
+\fB\-\-mdns-no-cname\fR
+Don't register forked-daapd.local as CNAME via mDNS.
+.TP
+\fB\-\-mdns-no-web\fR
+Don't announce web interface via mDNS.
 .SH FILES
 .nf
  \fI/etc/forked\-daapd.conf\fR

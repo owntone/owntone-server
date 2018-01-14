@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -117,7 +118,7 @@ usage(char *program)
 }
 
 static int
-daemonize(int background, char *pidfile)
+daemonize(bool background, char *pidfile)
 {
   FILE *fp;
   pid_t childpid;
@@ -226,7 +227,7 @@ daemonize(int background, char *pidfile)
 }
 
 static int
-register_services(char *ffid, int no_rsp, int no_daap, int mdns_no_mpd)
+register_services(char *ffid, bool no_web, bool no_rsp, bool no_daap, bool no_mpd)
 {
   cfg_t *lib;
   cfg_t *mpd;
@@ -275,11 +276,13 @@ register_services(char *ffid, int no_rsp, int no_daap, int mdns_no_mpd)
 
   port = cfg_getint(lib, "port");
 
-  /* Register web server service - disabled since we have no web interface */
-/*  ret = mdns_register(libname, "_http._tcp", port, txtrecord);
-  if (ret < 0)
-    return ret;
-*/
+  if (!no_web)
+    {
+      ret = mdns_register(libname, "_http._tcp", port, txtrecord);
+      if (ret < 0)
+	return ret;
+    }
+
   /* Register RSP service */
   if (!no_rsp)
     {
@@ -328,7 +331,7 @@ register_services(char *ffid, int no_rsp, int no_daap, int mdns_no_mpd)
   /* Register MPD serivce */
   mpd = cfg_getsec(cfg, "mpd");
   mpd_port = cfg_getint(mpd, "port");
-  if (!mdns_no_mpd && mpd_port > 0)
+  if (!no_mpd && mpd_port > 0)
     {
       ret = mdns_register(libname, "_mpd._tcp", mpd_port, NULL);
             if (ret < 0)
@@ -462,10 +465,12 @@ main(int argc, char **argv)
 {
   int option;
   char *configfile;
-  int background;
-  int mdns_no_rsp;
-  int mdns_no_daap;
-  int mdns_no_mpd;
+  bool background;
+  bool mdns_no_rsp;
+  bool mdns_no_daap;
+  bool mdns_no_cname;
+  bool mdns_no_web;
+  bool mdns_no_mpd;
   int loglevel;
   char *logdomains;
   char *logfile;
@@ -496,6 +501,8 @@ main(int argc, char **argv)
 
       { "mdns-no-rsp",  0, NULL, 512 },
       { "mdns-no-daap", 0, NULL, 513 },
+      { "mdns-no-cname",0, NULL, 514 },
+      { "mdns-no-web",  0, NULL, 515 },
 
       { NULL,           0, NULL, 0 }
     };
@@ -506,21 +513,31 @@ main(int argc, char **argv)
   loglevel = -1;
   logdomains = NULL;
   logfile = NULL;
-  background = 1;
+  background = true;
   ffid = NULL;
-  mdns_no_rsp = 0;
-  mdns_no_daap = 0;
+  mdns_no_rsp = false;
+  mdns_no_daap = false;
+  mdns_no_cname = false;
+  mdns_no_web = false;
 
   while ((option = getopt_long(argc, argv, "D:d:c:P:fb:vw:", option_map, NULL)) != -1)
     {
       switch (option)
 	{
 	  case 512:
-	    mdns_no_rsp = 1;
+	    mdns_no_rsp = true;
 	    break;
 
 	  case 513:
-	    mdns_no_daap = 1;
+	    mdns_no_daap = true;
+	    break;
+
+	  case 514:
+	    mdns_no_cname = true;
+	    break;
+
+	  case 515:
+	    mdns_no_web = true;
 	    break;
 
 	  case 'b':
@@ -540,7 +557,7 @@ main(int argc, char **argv)
 	    break;
 
 	  case 'f':
-	    background = 0;
+	    background = false;
 	    break;
 
 	  case 'c':
@@ -791,9 +808,9 @@ main(int argc, char **argv)
       ret = EXIT_FAILURE;
       goto mpd_fail;
     }
-  mdns_no_mpd = 0;
+  mdns_no_mpd = false;
 #else
-  mdns_no_mpd = 1;
+  mdns_no_mpd = true;
 #endif
 
 #ifdef LASTFM
@@ -811,7 +828,7 @@ main(int argc, char **argv)
     }
 
   /* Register mDNS services */
-  ret = register_services(ffid, mdns_no_rsp, mdns_no_daap, mdns_no_mpd);
+  ret = register_services(ffid, mdns_no_web, mdns_no_rsp, mdns_no_daap, mdns_no_mpd);
   if (ret < 0)
     {
       ret = EXIT_FAILURE;
@@ -819,7 +836,8 @@ main(int argc, char **argv)
     }
 
   /* Register this CNAME with mDNS for OAuth */
-  mdns_cname("forked-daapd.local");
+  if (!mdns_no_cname)
+    mdns_cname("forked-daapd.local");
 
 #ifdef HAVE_SIGNALFD
   /* Set up signal fd */
