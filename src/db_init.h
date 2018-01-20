@@ -26,7 +26,7 @@
  * is a major upgrade. In other words minor version upgrades permit downgrading
  * forked-daapd after the database was upgraded. */
 #define SCHEMA_VERSION_MAJOR 19
-#define SCHEMA_VERSION_MINOR 06
+#define SCHEMA_VERSION_MINOR 07
 
 int
 db_init_indices(sqlite3 *hdl);

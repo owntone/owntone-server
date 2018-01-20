@@ -1574,8 +1574,6 @@ static const struct db_upgrade_query db_upgrade_v1905_queries[] =
   };
 
 
-/* Upgrade from schema v19.05 to v20.00 */
-
 #define U_V1906_DROP_TABLE_QUEUE					\
   "DROP TABLE queue;"
 
@@ -1623,6 +1621,16 @@ static const struct db_upgrade_query db_upgrade_V1906_queries[] =
 
     { U_V1906_SCVER_MAJOR,    "set schema_version_major to 19" },
     { U_V1906_SCVER_MINOR,    "set schema_version_minor to 06" },
+  };
+
+
+#define U_V1907_SCVER_MINOR			\
+  "UPDATE admin SET value = '07' WHERE key = 'schema_version_minor';"
+
+// Purpose of this upgrade is to reset the indeces
+static const struct db_upgrade_query db_upgrade_V1907_queries[] =
+  {
+    { U_V1907_SCVER_MINOR,    "set schema_version_minor to 07" },
   };
 
 
@@ -1775,6 +1783,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1905:
       ret = db_generic_upgrade(hdl, db_upgrade_V1906_queries, sizeof(db_upgrade_V1906_queries) / sizeof(db_upgrade_V1906_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1906:
+      ret = db_generic_upgrade(hdl, db_upgrade_V1907_queries, sizeof(db_upgrade_V1907_queries) / sizeof(db_upgrade_V1907_queries[0]));
       if (ret < 0)
 	return -1;
 

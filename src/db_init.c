@@ -311,26 +311,25 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_STATEMKINDSALI				\
   "CREATE INDEX IF NOT EXISTS idx_state_mkind_sali ON files(disabled, media_kind, songalbumid);"
 
-#define I_ARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
+/* Used by Q_BROWSE_ALBUM */
+#define I_ALBUM					\
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(disabled, album_sort, album, media_kind);"
 
+/* Used by Q_BROWSE_ARTIST */
 #define I_ALBUMARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(disabled, album_artist_sort, album_artist, media_kind);"
 
 /* Used by Q_BROWSE_COMPOSERS */
 #define I_COMPOSER				\
-  "CREATE INDEX IF NOT EXISTS idx_composer ON files(disabled, media_kind, composer_sort);"
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(disabled, composer_sort, composer, media_kind);"
 
 /* Used by Q_BROWSE_GENRES */
 #define I_GENRE					\
-  "CREATE INDEX IF NOT EXISTS idx_genre ON files(disabled, media_kind, genre);"
+  "CREATE INDEX IF NOT EXISTS idx_genre ON files(disabled, genre, media_kind);"
 
 /* Used by Q_PLITEMS for smart playlists */
 #define I_TITLE					\
-  "CREATE INDEX IF NOT EXISTS idx_title ON files(disabled, media_kind, title_sort);"
-
-#define I_ALBUM					\
-  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(disabled, title_sort, media_kind);"
 
 #define I_FILELIST					\
   "CREATE INDEX IF NOT EXISTS idx_filelist ON files(disabled, virtual_path, time_modified);"
@@ -380,7 +379,6 @@ static const struct db_init_query db_init_index_queries[] =
     { I_STATEMKINDSARI, "create state/mkind/sari index" },
     { I_STATEMKINDSALI, "create state/mkind/sali index" },
 
-    { I_ARTIST,    "create artist index" },
     { I_ALBUMARTIST, "create album_artist index" },
     { I_COMPOSER,  "create composer index" },
     { I_GENRE,     "create genre index" },

@@ -238,8 +238,6 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
   else
     qp->idx_type = I_NONE;
 
-  qp->sort = S_NONE;
-
   param = evhttp_find_header(hreq->query, "query");
   if (param)
     {
@@ -492,6 +490,8 @@ rsp_reply_playlist(struct httpd_request *hreq)
   else
     qp.type = Q_PLITEMS;
 
+  qp.sort = S_NAME;
+
   mode = F_FULL;
   param = evhttp_find_header(hreq->query, "type");
   if (param)
@@ -526,9 +526,10 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
   if (qp.offset > qp.results)
     records = 0;
-  else if (qp.limit > (qp.results - qp.offset))
-    records = qp.results - qp.offset;
   else
+    records = qp.results - qp.offset;
+
+  if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
@@ -661,13 +662,21 @@ rsp_reply_browse(struct httpd_request *hreq)
   memset(&qp, 0, sizeof(struct query_params));
 
   if (strcmp(hreq->uri_parsed->path_parts[3], "artist") == 0)
-    qp.type = Q_BROWSE_ARTISTS;
+    {
+      qp.type = Q_BROWSE_ARTISTS;
+    }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "genre") == 0)
-    qp.type = Q_BROWSE_GENRES;
+    {
+      qp.type = Q_BROWSE_GENRES;
+    }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "album") == 0)
-    qp.type = Q_BROWSE_ALBUMS;
+    {
+      qp.type = Q_BROWSE_ALBUMS;
+    }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "composer") == 0)
-    qp.type = Q_BROWSE_COMPOSERS;
+    {
+      qp.type = Q_BROWSE_COMPOSERS;
+    }
   else
     {
       DPRINTF(E_LOG, L_RSP, "Unsupported browse type '%s'\n", hreq->uri_parsed->path_parts[3]);
@@ -701,9 +710,10 @@ rsp_reply_browse(struct httpd_request *hreq)
 
   if (qp.offset > qp.results)
     records = 0;
-  else if (qp.limit > (qp.results - qp.offset))
-    records = qp.results - qp.offset;
   else
+    records = qp.results - qp.offset;
+
+  if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes

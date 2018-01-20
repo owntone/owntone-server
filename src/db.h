@@ -15,6 +15,7 @@ enum index_type {
   I_SUB
 };
 
+// Keep in sync with sort_clause[]
 enum sort_type {
   S_NONE = 0,
   S_NAME,
@@ -41,17 +42,19 @@ enum query_type {
   Q_GROUP_ALBUMS     = 5,
   Q_GROUP_ARTISTS    = 6,
   Q_GROUP_ITEMS      = 7,
-  Q_COUNT_ITEMS      = 8,
+  Q_GROUP_DIRS       = 8,
+  Q_COUNT_ITEMS      = 9,
+
+  // Keep in sync with browse_clause[]
   Q_BROWSE_ARTISTS   = Q_F_BROWSE | 1,
   Q_BROWSE_ALBUMS    = Q_F_BROWSE | 2,
   Q_BROWSE_GENRES    = Q_F_BROWSE | 3,
   Q_BROWSE_COMPOSERS = Q_F_BROWSE | 4,
-  Q_GROUP_DIRS       = Q_F_BROWSE | 5,
-  Q_BROWSE_YEARS     = Q_F_BROWSE | 6,
-  Q_BROWSE_DISCS     = Q_F_BROWSE | 7,
-  Q_BROWSE_TRACKS    = Q_F_BROWSE | 8,
-  Q_BROWSE_VPATH     = Q_F_BROWSE | 9,
-  Q_BROWSE_PATH      = Q_F_BROWSE | 10,
+  Q_BROWSE_YEARS     = Q_F_BROWSE | 5,
+  Q_BROWSE_DISCS     = Q_F_BROWSE | 6,
+  Q_BROWSE_TRACKS    = Q_F_BROWSE | 7,
+  Q_BROWSE_VPATH     = Q_F_BROWSE | 8,
+  Q_BROWSE_PATH      = Q_F_BROWSE | 9,
 };
 
 #define ARTWORK_UNKNOWN   0

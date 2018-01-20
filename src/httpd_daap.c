@@ -566,9 +566,9 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
     {
       if (strcmp(param, "name") == 0)
 	qp->sort = S_NAME;
-      else if (strcmp(param, "album") == 0)
+      else if (strcmp(param, "album") == 0 && (type != Q_BROWSE_ALBUMS)) // Only set if non-default sort requested
 	qp->sort = S_ALBUM;
-      else if (strcmp(param, "artist") == 0)
+      else if (strcmp(param, "artist") == 0 && (type != Q_BROWSE_ARTISTS)) // Only set if non-default sort requested
 	qp->sort = S_ARTIST;
       else if (strcmp(param, "releasedate") == 0)
 	qp->sort = S_NAME;
@@ -603,7 +603,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
 	DPRINTF(E_LOG, L_DAAP, "Ignoring improper DAAP query: %s\n", param);
 
       /* iTunes seems to default to this when there is a query (which there is for audiobooks, but not for normal playlists) */
-      if (qp->sort == S_NONE)
+      if (!qp->sort && !(type & Q_F_BROWSE))
 	qp->sort = S_ALBUM;
     }
 
@@ -1829,25 +1829,21 @@ daap_reply_browse(struct httpd_request *hreq)
     {
       tag = "abar";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_ARTISTS);
-      qp.sort = S_ARTIST;
     }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "albums") == 0)
     {
       tag = "abal";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_ALBUMS);
-      qp.sort = S_ALBUM;
     }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "genres") == 0)
     {
       tag = "abgn";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_GENRES);
-      qp.sort = S_GENRE;
     }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "composers") == 0)
     {
       tag = "abcp";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_COMPOSERS);
-      qp.sort = S_COMPOSER;
     }
   else
     {

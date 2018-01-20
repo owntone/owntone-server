@@ -2753,31 +2753,26 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   else if (0 == strcasecmp(argv[1], "date"))
     {
       qp.type = Q_BROWSE_YEARS;
-      qp.sort = S_YEAR;
       type = "Date: ";
     }
   else if (0 == strcasecmp(argv[1], "genre"))
     {
       qp.type = Q_BROWSE_GENRES;
-      qp.sort = S_GENRE;
       type = "Genre: ";
     }
   else if (0 == strcasecmp(argv[1], "disc"))
     {
       qp.type = Q_BROWSE_DISCS;
-      qp.sort = S_DISC;
       type = "Disc: ";
     }
   else if (0 == strcasecmp(argv[1], "track"))
     {
       qp.type = Q_BROWSE_TRACKS;
-      qp.sort = S_TRACK;
       type = "Track: ";
     }
   else if (0 == strcasecmp(argv[1], "file"))
     {
       qp.type = Q_BROWSE_VPATH;
-      qp.sort = S_VPATH;
       type = "file: ";
     }
   else
