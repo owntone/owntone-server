@@ -1307,21 +1307,21 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 	}
     }
   else
-    DPRINTF(E_DBG, L_XCODE, "Client advertises codecs: %s\n", client_codecs);
+    DPRINTF(E_SPAM, L_XCODE, "Client advertises codecs: %s\n", client_codecs);
 
   if (!client_codecs)
     {
-      DPRINTF(E_DBG, L_XCODE, "Could not identify client, using default codectype set\n");
+      DPRINTF(E_SPAM, L_XCODE, "Could not identify client, using default codectype set\n");
       client_codecs = default_codecs;
     }
 
   if (strstr(client_codecs, file_codectype))
     {
-      DPRINTF(E_DBG, L_XCODE, "Codectype supported by client, no decoding needed\n");
+      DPRINTF(E_SPAM, L_XCODE, "Codectype supported by client, no decoding needed\n");
       return 0;
     }
 
-  DPRINTF(E_DBG, L_XCODE, "Will decode\n");
+  DPRINTF(E_SPAM, L_XCODE, "Will decode\n");
   return 1;
 }
 
