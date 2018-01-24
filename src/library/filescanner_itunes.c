@@ -409,7 +409,7 @@ process_track_file(plist_t trk)
 
   if (strncmp(location, "file://", strlen("file://")) != 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Track type File, but Location does not start with file://: '%s'\n", location);
+      DPRINTF(E_LOG, L_SCAN, "Track type File, but Location does not start with 'file://': '%s'\n", location);
       free(location);
       return -1;
     }
@@ -675,20 +675,20 @@ process_pl_items(plist_t items, int pl_id, const char *name)
       ret = get_dictval_int_from_key(trk, "Track ID", &itml_id);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_SCAN, "No Track ID found for playlist item %u\n", i);
+	  DPRINTF(E_WARN, L_SCAN, "No Track ID found for playlist item %u in '%s'\n", i, name);
 	  continue;
 	}
 
       db_id = id_map_get(itml_id);
       if (!db_id)
 	{
-	  DPRINTF(E_INFO, L_SCAN, "Track ID %" PRIu64 " dropped\n", itml_id);
+	  DPRINTF(E_INFO, L_SCAN, "Did not find a match for track ID %" PRIu64 " in '%s'\n", itml_id, name);
 	  continue;
 	}
 
       ret = db_pl_add_item_byid(pl_id, db_id);
       if (ret < 0)
-	DPRINTF(E_WARN, L_SCAN, "Could not add ID %d to playlist\n", db_id);
+	DPRINTF(E_WARN, L_SCAN, "Could not add ID %d to playlist '%s'\n", db_id, name);
 
       ntracks++;
       if (ntracks % 200 == 0)
@@ -815,7 +815,7 @@ process_pls(plist_t playlists, const char *file)
 	  pli->type = PL_PLAIN;
 	  pli->title = strdup(name);
 	  pli->path = strdup(file);
-	  snprintf(virtual_path, sizeof(virtual_path), "/file:%s", file);
+	  snprintf(virtual_path, sizeof(virtual_path), "/file:%s/%s", file, name);
 	  pli->virtual_path = strdup(virtual_path);
 
 	  ret = db_pl_add(pli, &pl_id);
@@ -857,7 +857,11 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id)
       db_pl_ping(pli->id);
       db_pl_disable_bypath(file, STRIP_NONE, 0);
 
-      if (mtime && (pli->db_timestamp >= mtime))
+      // mtime == db_timestamp is also treated as a modification because some editors do
+      // stuff like 1) close the file with no changes (leading us to update db_timestamp),
+      // 2) copy over a modified version from a tmp file (which may result in a mtime that
+      // is equal to the newly updated db_timestamp)
+      if (mtime && (pli->db_timestamp > mtime))
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Unchanged iTunes XML found, not processing '%s'\n", file);
 

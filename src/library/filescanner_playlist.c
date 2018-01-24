@@ -237,7 +237,11 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
     {
       db_pl_ping(pli->id);
 
-      if (mtime && (pli->db_timestamp >= mtime))
+      // mtime == db_timestamp is also treated as a modification because some editors do
+      // stuff like 1) close the file with no changes (leading us to update db_timestamp),
+      // 2) copy over a modified version from a tmp file (which may result in a mtime that
+      // is equal to the newly updated db_timestamp)
+      if (mtime && (pli->db_timestamp > mtime))
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Unchanged playlist found, not processing '%s'\n", file);
 
