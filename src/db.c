@@ -3120,13 +3120,23 @@ db_pl_delete(int id)
 void
 db_pl_delete_bypath(const char *path)
 {
-  int id;
+  int i;
+  int ret;
+  char *query;
+  char *queries_tmpl[] =
+    {
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE path = '%q');",
+      "DELETE FROM playlists WHERE path = '%q';",
+    };
 
-  id = db_pl_id_bypath(path);
-  if (id < 0)
-    return;
+  for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
+    {
+      query = sqlite3_mprintf(queries_tmpl[i], path);
 
-  db_pl_delete(id);
+      ret = db_query_run(query, 1, 0);
+      if (ret == 0)
+	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+    }
 }
 
 void

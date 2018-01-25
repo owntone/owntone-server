@@ -648,7 +648,6 @@ process_tracks(plist_t tracks)
   return nloaded;
 }
 
-
 static void
 process_pl_items(plist_t items, int pl_id, const char *name)
 {
@@ -780,19 +779,6 @@ process_pls(plist_t playlists, const char *file)
 	  continue;
 	}
 
-      pli = db_pl_fetch_bytitlepath(name, file);
-      if (pli)
-	{
-	  pl_id = pli->id;
-
-	  free_pli(pli, 0);
-
-	  db_pl_ping(pl_id);
-	  db_pl_clear_items(pl_id);
-	}
-      else
-	pl_id = 0;
-
       ret = get_dictval_array_from_key(pl, "Playlist Items", &items);
       if (ret < 0)
 	{
@@ -802,34 +788,25 @@ process_pls(plist_t playlists, const char *file)
 	  continue;
 	}
 
-      if (pl_id == 0)
+      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
+
+      pli->type = PL_PLAIN;
+      pli->title = strdup(name);
+      pli->path = strdup(file);
+      snprintf(virtual_path, sizeof(virtual_path), "/file:%s/%s", file, name);
+      pli->virtual_path = strdup(virtual_path);
+
+      ret = db_pl_add(pli, &pl_id);
+      free_pli(pli, 0);
+      if (ret < 0)
 	{
-	  pli = calloc(1, sizeof(struct playlist_info));
-	  if (!pli)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
+	  DPRINTF(E_LOG, L_SCAN, "Error adding iTunes playlist '%s' (%s)\n", name, file);
 
-	      return;
-	    }
-
-	  pli->type = PL_PLAIN;
-	  pli->title = strdup(name);
-	  pli->path = strdup(file);
-	  snprintf(virtual_path, sizeof(virtual_path), "/file:%s/%s", file, name);
-	  pli->virtual_path = strdup(virtual_path);
-
-	  ret = db_pl_add(pli, &pl_id);
-	  free_pli(pli, 0);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Error adding iTunes playlist '%s' (%s)\n", name, file);
-
-	      free(name);
-	      continue;
-	    }
-
-	  DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
+	  free(name);
+	  continue;
 	}
+
+      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
 
       process_pl_items(items, pl_id, name);
 
@@ -854,9 +831,6 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id)
   pli = db_pl_fetch_bytitlepath(file, file);
   if (pli)
     {
-      db_pl_ping(pli->id);
-      db_pl_disable_bypath(file, STRIP_NONE, 0);
-
       // mtime == db_timestamp is also treated as a modification because some editors do
       // stuff like 1) close the file with no changes (leading us to update db_timestamp),
       // 2) copy over a modified version from a tmp file (which may result in a mtime that
@@ -872,31 +846,36 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id)
 	}
 
       DPRINTF(E_LOG, L_SCAN, "Modified iTunes XML found, processing '%s'\n", file);
+
+      // Clear out everything, we will recreate
+      db_pl_delete_bypath(file);
+      free_pli(pli, 0);
     }
   else
     {
       DPRINTF(E_LOG, L_SCAN, "New iTunes XML found, processing: '%s'\n", file);
-
-      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
-
-      pli->type = PL_PLAIN;
-      pli->title = strdup(file);
-      pli->path = strdup(file);
-      snprintf(buf, sizeof(buf), "/file:%s", file);
-      pli->virtual_path = strip_extension(buf);
-      pli->directory_id = dir_id;
-
-      ret = db_pl_add(pli, (int *)&pli->id);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Error adding iTunes XML playlist '%s'\n", file);
-
-	  free_pli(pli, 0);
-	  return;
-	}
-
-      db_pl_disable_bypath(file, STRIP_NONE, 0);
     }
+
+  CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
+
+  pli->type = PL_PLAIN;
+  pli->title = strdup(file);
+  pli->path = strdup(file);
+  snprintf(buf, sizeof(buf), "/file:%s", file);
+  pli->virtual_path = strip_extension(buf);
+  pli->directory_id = dir_id;
+
+  ret = db_pl_add(pli, (int *)&pli->id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error adding iTunes XML meta playlist '%s'\n", file);
+
+      free_pli(pli, 0);
+      return;
+    }
+
+  // Disable, only used for saving timestamp
+  db_pl_disable_bypath(file, STRIP_NONE, 0);
 
   free_pli(pli, 0);
 
