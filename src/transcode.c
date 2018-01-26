@@ -586,8 +586,11 @@ decode_filter_encode_write(struct transcode_ctx *ctx, struct stream_ctx *s, AVPa
   int ret;
 
   ret = avcodec_send_packet(s->codec, pkt);
-  if (ret < 0)
-    return ret;
+  if (ret < 0 && (ret != AVERROR_INVALIDDATA) && (ret != AVERROR(EAGAIN))) // We don't bail on invalid data, some streams work anyway
+    {
+      DPRINTF(E_LOG, L_XCODE, "Decoder error, avcodec_send_packet said '%s' (%d)\n", err2str(ret), ret);
+      return ret;
+    }
 
   if (ctx->encode_ctx)
     {
