@@ -1,18 +1,18 @@
 htdocsdir = $(datadir)/forked-daapd/htdocs
 
-htdocs_DATA = \
+dist_htdocs_DATA = \
 	admin.html 
 
 htdocscssdir = $(datadir)/forked-daapd/htdocs/css
 
-htdocscss_DATA = \
+dist_htdocscss_DATA = \
 	css/bulma.min.css \
 	css/font-awesome.min.css \
 	css/forked-daapd.css 
 
 htdocsfontsdir = $(datadir)/forked-daapd/htdocs/fonts
 
-htdocsfonts_DATA = \
+dist_htdocsfonts_DATA = \
 	fonts/FontAwesome.otf\
 	fonts/fontawesome-webfont.eot \
 	fonts/fontawesome-webfont.svg \
@@ -22,7 +22,7 @@ htdocsfonts_DATA = \
 
 htdocsjsdir = $(datadir)/forked-daapd/htdocs/js
 
-htdocsjs_DATA = \
+dist_htdocsjs_DATA = \
 	js/axios.js \
 	js/axios.map \
 	js/axios.min.js \
