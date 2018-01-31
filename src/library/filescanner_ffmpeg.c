@@ -198,36 +198,26 @@ static const struct metadata_map md_map_vorbis[] =
  * ID3v2.x tags will be removed from the map once a version of ffmpeg containing
  * the changes listed above will be generally available. The more entries in the
  * map, the slower the filescanner gets.
+ *
+ * Update 20180131: Removed tags supported by ffmpeg 2.5.4 (around 3 years old)
+ * + added some tags used for grouping
+ *
  */
 static const struct metadata_map md_map_id3[] =
   {
-    { "TT2",                 0, mfi_offsetof(title),                 NULL },              /* ID3v2.2 */
-    { "TIT2",                0, mfi_offsetof(title),                 NULL },              /* ID3v2.3 */
-    { "TP1",                 0, mfi_offsetof(artist),                NULL },              /* ID3v2.2 */
-    { "TPE1",                0, mfi_offsetof(artist),                NULL },              /* ID3v2.3 */
-    { "TP2",                 0, mfi_offsetof(album_artist),          NULL },              /* ID3v2.2 */
-    { "TPE2",                0, mfi_offsetof(album_artist),          NULL },              /* ID3v2.3 */
-    { "TAL",                 0, mfi_offsetof(album),                 NULL },              /* ID3v2.2 */
-    { "TALB",                0, mfi_offsetof(album),                 NULL },              /* ID3v2.3 */
-    { "TCO",                 0, mfi_offsetof(genre),                 NULL },              /* ID3v2.2 */
-    { "TCON",                0, mfi_offsetof(genre),                 NULL },              /* ID3v2.3 */
+    { "TT1",                 0, mfi_offsetof(grouping),              NULL },              /* ID3v2.2 */
+    { "TIT1",                0, mfi_offsetof(grouping),              NULL },              /* ID3v2.3 */
+    { "GP1",                 0, mfi_offsetof(grouping),              NULL },              /* unofficial iTunes */
+    { "GRP1",                0, mfi_offsetof(grouping),              NULL },              /* unofficial iTunes */
     { "TCM",                 0, mfi_offsetof(composer),              NULL },              /* ID3v2.2 */
-    { "TCOM",                0, mfi_offsetof(composer),              NULL },              /* ID3v2.3 */
-    { "TRK",                 1, mfi_offsetof(track),                 parse_track },       /* ID3v2.2 */
-    { "TRCK",                1, mfi_offsetof(track),                 parse_track },       /* ID3v2.3 */
     { "TPA",                 1, mfi_offsetof(disc),                  parse_disc },        /* ID3v2.2 */
-    { "TPOS",                1, mfi_offsetof(disc),                  parse_disc },        /* ID3v2.3 */
     { "TYE",                 1, mfi_offsetof(year),                  NULL },              /* ID3v2.2 */
     { "TYER",                1, mfi_offsetof(year),                  NULL },              /* ID3v2.3 */
     { "TDA",                 1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.2 */
     { "TDAT",                1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.3 */
     { "TDR",                 1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.2 */
-    { "TDRL",                1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.4 */
-    { "TSOA",                0, mfi_offsetof(album_sort),            NULL },              /* ID3v2.4 */
     { "XSOA",                0, mfi_offsetof(album_sort),            NULL },              /* ID3v2.3 */
-    { "TSOP",                0, mfi_offsetof(artist_sort),           NULL },              /* ID3v2.4 */
     { "XSOP",                0, mfi_offsetof(artist_sort),           NULL },              /* ID3v2.3 */
-    { "TSOT",                0, mfi_offsetof(title_sort),            NULL },              /* ID3v2.4 */
     { "XSOT",                0, mfi_offsetof(title_sort),            NULL },              /* ID3v2.3 */
     { "TS2",                 0, mfi_offsetof(album_artist_sort),     NULL },              /* ID3v2.2 */
     { "TSO2",                0, mfi_offsetof(album_artist_sort),     NULL },              /* ID3v2.3 */
