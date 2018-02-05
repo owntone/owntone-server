@@ -1,6 +1,9 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 25.1:
+	- added web interface
+
 version 25.0:
 	- improved playback resilience
 	- substitute packet skipping (producing audio "clicks") with start/stop

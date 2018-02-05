@@ -139,7 +139,7 @@ pairing_get(struct evbuffer *evbuf)
  *
  * {
  *  "websocket_port": 6603,
- *  "version": "25.0"
+ *  "version": "25.1"
  * }
  */
 static int
