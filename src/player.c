@@ -2436,11 +2436,20 @@ speaker_activate(struct output_device *device)
 {
   int ret;
 
-  if (!device)
+  if (device->has_password && !device->password)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! speaker_activate called with device\n");
-      return -1;
+      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' is password-protected, but we don't have it\n", device->type_name, device->name);
+
+      return -2;
     }
+
+  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is selected\n", device->type_name, device->name);
+
+  if (!device->selected)
+    speaker_select_output(device);
+
+  if (device->session)
+    return 0;
 
   if (player_state == PLAY_PLAYING)
     {
@@ -2450,7 +2459,7 @@ speaker_activate(struct output_device *device)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
-	  return -1;
+	  goto error;
 	}
     }
   else
@@ -2461,11 +2470,16 @@ speaker_activate(struct output_device *device)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
-	  return -1;
+	  goto error;
 	}
     }
 
   return 0;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Could not activate %s device '%s'\n", device->type_name, device->name);
+  speaker_deselect_output(device);
+  return -1;
 }
 
 static int
@@ -2518,40 +2532,17 @@ speaker_set(void *arg, int *retval)
 
       if (i <= nspk)
 	{
-	  if (device->has_password && !device->password)
-	    {
-	      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' is password-protected, but we don't have it\n", device->type_name, device->name);
+	  ret = speaker_activate(device);
 
-	      cmdarg->speaker_set_param.intval = -2;
-	      continue;
-	    }
-
-	  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is selected\n", device->type_name, device->name);
-
-	  if (!device->selected)
-	    speaker_select_output(device);
-
-	  if (!device->session)
-	    {
-	      ret = speaker_activate(device);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_PLAYER, "Could not activate %s device '%s'\n", device->type_name, device->name);
-
-		  speaker_deselect_output(device);
-
-		  if (cmdarg->speaker_set_param.intval != -2)
-		    cmdarg->speaker_set_param.intval = -1;
-		}
-	      else
-		(*retval)++;
-	    }
+	  if (ret > 0)
+	    (*retval)++;
+	  else if (ret < 0 && cmdarg->speaker_set_param.intval != -2)
+	    cmdarg->speaker_set_param.intval = ret;
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is NOT selected\n", device->type_name, device->name);
-
 	  ret = speaker_deactivate(device);
+
 	  if (ret > 0)
 	    (*retval)++;
 	}
