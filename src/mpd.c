@@ -3571,10 +3571,11 @@ mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errms
 
 /*
  * Callback function for the 'player_speaker_enumerate' function.
- * Adds a new struct output to the given struct outputs in *arg for the given speaker (id, name, etc.).
+ * Expect a struct output_get_param as argument and allocates a struct output if
+ * the shortid of output_get_param matches the given speaker/output spk.
  */
 static void
-outputs_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
+outputs_enum_cb(struct spk_info *spk, void *arg)
 {
   struct outputs *outputs;
   struct output *output;
@@ -3583,15 +3584,15 @@ outputs_enum_cb(uint64_t id, const char *name, const char *output_type, int relv
 
   output = (struct output*)malloc(sizeof(struct output));
 
-  output->id = id;
-  output->shortid = (unsigned short) id;
-  output->name = strdup(name);
-  output->selected = flags.selected;
+  output->id = spk->id;
+  output->shortid = (unsigned short) spk->id;
+  output->name = strdup(spk->name);
+  output->selected = spk->selected;
 
   output->next = outputs->outputs;
   outputs->outputs = output;
   outputs->count++;
-  if (flags.selected)
+  if (spk->selected)
     outputs->active++;
 
   DPRINTF(E_DBG, L_MPD, "Output enum: shortid %d, id %" PRIu64 ", name '%s', selected %d\n",
@@ -3869,7 +3870,7 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  *   outputvolume: 50
  */
 static void
-speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(struct spk_info *spk, void *arg)
 {
   struct evbuffer *evbuf;
 
@@ -3880,10 +3881,10 @@ speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relv
 		      "outputname: %s\n"
 		      "outputenabled: %d\n"
 		      "outputvolume: %d\n",
-		      (unsigned short) id,
-		      name,
-		      flags.selected,
-		      absvol);
+		      (unsigned short) spk->id,
+		      spk->name,
+		      spk->selected,
+		      spk->absvol);
 }
 
 /*

@@ -2384,27 +2384,25 @@ speaker_enumerate(void *arg, int *retval)
 {
   struct spk_enum *spk_enum = arg;
   struct output_device *device;
-  struct spk_flags flags;
-
-#ifdef DEBUG_RELVOL
-  DPRINTF(E_DBG, L_PLAYER, "*** master: %d\n", master_volume);
-#endif
+  struct spk_info spk;
 
   for (device = dev_list; device; device = device->next)
     {
       if (device->advertised || device->selected)
 	{
-	  flags.selected = device->selected;
-	  flags.has_password = device->has_password;
-	  flags.has_video = device->has_video;
-	  flags.requires_auth = device->requires_auth;
-	  flags.needs_auth_key = (device->requires_auth && device->auth_key == NULL);
+	  spk.id = device->id;
+	  spk.name = device->name;
+	  spk.output_type = device->type_name;
+	  spk.relvol = device->relvol;
+	  spk.absvol = device->volume;
 
-	  spk_enum->cb(device->id, device->name, device->type_name, device->relvol, device->volume, flags, spk_enum->arg);
+	  spk.selected = device->selected;
+	  spk.has_password = device->has_password;
+	  spk.has_video = device->has_video;
+	  spk.requires_auth = device->requires_auth;
+	  spk.needs_auth_key = (device->requires_auth && device->auth_key == NULL);
 
-#ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-#endif
+	  spk_enum->cb(&spk, spk_enum->arg);
 	}
     }
 

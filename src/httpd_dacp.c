@@ -510,34 +510,34 @@ playqueuecontents_add_queue_item(struct evbuffer *songlist, struct db_queue_item
 }
 
 static void
-speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(struct spk_info *spk, void *arg)
 {
   struct evbuffer *evbuf;
   int len;
 
   evbuf = (struct evbuffer *)arg;
 
-  len = 8 + strlen(name) + 28;
-  if (flags.selected)
+  len = 8 + strlen(spk->name) + 28;
+  if (spk->selected)
     len += 9;
-  if (flags.has_password)
+  if (spk->has_password)
     len += 9;
-  if (flags.has_video)
+  if (spk->has_video)
     len += 9;
 
   CHECK_ERR(L_DACP, evbuffer_expand(evbuf, 71 + len));
 
-  dmap_add_container(evbuf, "mdcl", len); /* 8 + len */
-  if (flags.selected)
-    dmap_add_char(evbuf, "caia", 1);      /* 9 */
-  if (flags.has_password)
-    dmap_add_char(evbuf, "cahp", 1);      /* 9 */
-  if (flags.has_video)
-    dmap_add_char(evbuf, "caiv", 1);      /* 9 */
-  dmap_add_string(evbuf, "minm", name);   /* 8 + len */
-  dmap_add_long(evbuf, "msma", id);       /* 16 */
+  dmap_add_container(evbuf, "mdcl", len);        /* 8 + len */
+  if (spk->selected)
+    dmap_add_char(evbuf, "caia", 1);             /* 9 */
+  if (spk->has_password)
+    dmap_add_char(evbuf, "cahp", 1);             /* 9 */
+  if (spk->has_video)
+    dmap_add_char(evbuf, "caiv", 1);             /* 9 */
+  dmap_add_string(evbuf, "minm", spk->name);   /* 8 + len */
+  dmap_add_long(evbuf, "msma", spk->id);       /* 16 */
 
-  dmap_add_int(evbuf, "cmvo", relvol);    /* 12 */
+  dmap_add_int(evbuf, "cmvo", spk->relvol);    /* 12 */
 }
 
 static int

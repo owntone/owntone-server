@@ -495,7 +495,7 @@ jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
 }
 
 static void
-speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(struct spk_info *spk, void *arg)
 {
   json_object *outputs;
   json_object *output;
@@ -504,15 +504,15 @@ speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relv
   outputs = arg;
   output = json_object_new_object();
 
-  snprintf(output_id, sizeof(output_id), "%" PRIu64, id);
+  snprintf(output_id, sizeof(output_id), "%" PRIu64, spk->id);
   json_object_object_add(output, "id", json_object_new_string(output_id));
-  json_object_object_add(output, "name", json_object_new_string(name));
-  json_object_object_add(output, "type", json_object_new_string(output_type));
-  json_object_object_add(output, "selected", json_object_new_boolean(flags.selected));
-  json_object_object_add(output, "has_password", json_object_new_boolean(flags.has_password));
-  json_object_object_add(output, "requires_auth", json_object_new_boolean(flags.requires_auth));
-  json_object_object_add(output, "needs_auth_key", json_object_new_boolean(flags.needs_auth_key));
-  json_object_object_add(output, "volume", json_object_new_int(absvol));
+  json_object_object_add(output, "name", json_object_new_string(spk->name));
+  json_object_object_add(output, "type", json_object_new_string(spk->output_type));
+  json_object_object_add(output, "selected", json_object_new_boolean(spk->selected));
+  json_object_object_add(output, "has_password", json_object_new_boolean(spk->has_password));
+  json_object_object_add(output, "requires_auth", json_object_new_boolean(spk->requires_auth));
+  json_object_object_add(output, "needs_auth_key", json_object_new_boolean(spk->needs_auth_key));
+  json_object_object_add(output, "volume", json_object_new_int(spk->absvol));
 
   json_object_array_add(outputs, output);
 }

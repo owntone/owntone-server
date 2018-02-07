@@ -2,6 +2,7 @@
 #ifndef __PLAYER_H__
 #define __PLAYER_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "db.h"
@@ -28,13 +29,19 @@ enum repeat_mode {
   REPEAT_ALL  = 2,
 };
 
-struct spk_flags {
-  unsigned selected:1;
-  unsigned has_password:1;
-  unsigned requires_auth:1;
-  unsigned needs_auth_key:1;
+struct spk_info {
+  uint64_t id;
+  const char *name;
+  const char *output_type;
+  int relvol;
+  int absvol;
 
-  unsigned has_video:1;
+  bool selected;
+  bool has_password;
+  bool requires_auth;
+  bool needs_auth_key;
+
+  bool has_video;
 };
 
 struct player_status {
@@ -57,7 +64,7 @@ struct player_status {
   uint32_t len_ms;
 };
 
-typedef void (*spk_enum_cb)(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg);
+typedef void (*spk_enum_cb)(struct spk_info *spk, void *arg);
 
 struct player_history
 {
