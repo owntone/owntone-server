@@ -2535,6 +2535,60 @@ speaker_set(void *arg, int *retval)
 }
 
 static enum command_state
+speaker_enable(void *arg, int *retval)
+{
+  uint64_t *id = arg;
+  struct output_device *device;
+
+  *retval = 0;
+
+  DPRINTF(E_DBG, L_PLAYER, "Speaker enable: %" PRIu64 "\n", *id);
+
+  *retval = 0;
+
+  for (device = dev_list; device; device = device->next)
+    {
+      if (*id == device->id)
+	{
+	  *retval = speaker_activate(device);
+	  break;
+	}
+    }
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_disable(void *arg, int *retval)
+{
+  uint64_t *id = arg;
+  struct output_device *device;
+
+  *retval = 0;
+
+  DPRINTF(E_DBG, L_PLAYER, "Speaker disable: %" PRIu64 "\n", *id);
+
+  *retval = 0;
+
+  for (device = dev_list; device; device = device->next)
+    {
+      if (*id == device->id)
+	{
+	  *retval = speaker_deactivate(device);
+	  break;
+	}
+    }
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  return COMMAND_END;
+}
+
+static enum command_state
 volume_set(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
@@ -2959,6 +3013,30 @@ player_speaker_set(uint64_t *ids)
   speaker_set_param.intval = 0;
 
   ret = commands_exec_sync(cmdbase, speaker_set, NULL, &speaker_set_param);
+
+  listener_notify(LISTENER_SPEAKER);
+
+  return ret;
+}
+
+int
+player_speaker_enable(uint64_t id)
+{
+  int ret;
+
+  ret = commands_exec_sync(cmdbase, speaker_enable, NULL, &id);
+
+  listener_notify(LISTENER_SPEAKER);
+
+  return ret;
+}
+
+int
+player_speaker_disable(uint64_t id)
+{
+  int ret;
+
+  ret = commands_exec_sync(cmdbase, speaker_disable, NULL, &id);
 
   listener_notify(LISTENER_SPEAKER);
 
