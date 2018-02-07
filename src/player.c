@@ -2473,10 +2473,15 @@ speaker_deactivate(struct output_device *device)
 {
   DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
 
+  if (device->selected)
+    speaker_deselect_output(device);
+
+  if (!device->session)
+    return 0;
+
   outputs_status_cb(device->session, device_shutdown_cb);
   outputs_device_stop(device->session);
-
-  return 0;
+  return 1;
 }
 
 static enum command_state
@@ -2546,22 +2551,9 @@ speaker_set(void *arg, int *retval)
 	{
 	  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is NOT selected\n", device->type_name, device->name);
 
-	  if (device->selected)
-	    speaker_deselect_output(device);
-
-	  if (device->session)
-	    {
-	      ret = speaker_deactivate(device);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_PLAYER, "Could not deactivate %s device '%s'\n", device->type_name, device->name);
-
-		  if (cmdarg->speaker_set_param.intval != -2)
-		    cmdarg->speaker_set_param.intval = -1;
-		}
-	      else
-		(*retval)++;
-	    }
+	  ret = speaker_deactivate(device);
+	  if (ret > 0)
+	    (*retval)++;
 	}
     }
 
