@@ -75,7 +75,7 @@ pairing_kickoff(struct evhttp_request *req)
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-      return -1;
+      return HTTP_BADREQUEST;
     }
 
   DPRINTF(E_DBG, L_WEB, "Received pairing post request: %s\n", json_object_to_json_string(request));
@@ -88,7 +88,7 @@ pairing_kickoff(struct evhttp_request *req)
 
   jparse_free(request);
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 /*
@@ -126,7 +126,7 @@ pairing_get(struct evbuffer *evbuf)
   jparse_free(jreply);
   free(remote_name);
 
-  return 0;
+  return HTTP_OK;
 }
 
 
@@ -177,7 +177,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
 
   jparse_free(jreply);
 
-  return 0;
+  return HTTP_OK;
 }
 
 /*
@@ -212,7 +212,7 @@ jsonapi_reply_library(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "library: failed to get file count info\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
   artists = db_files_get_artist_count();
@@ -233,7 +233,7 @@ jsonapi_reply_library(struct httpd_request *hreq)
 
   jparse_free(jreply);
 
-  return 0;
+  return HTTP_OK;
 }
 
 /*
@@ -243,7 +243,7 @@ static int
 jsonapi_reply_update(struct httpd_request *hreq)
 {
   library_rescan();
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 /*
@@ -279,7 +279,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_WEB, "Cannot display Spotify oauth interface (http_form_uriencode() failed)\n");
       jparse_free(jreply);
-      return -1;
+      return HTTP_INTERNAL;
     }
 
   json_object_object_add(jreply, "oauth_uri", json_object_new_string(oauth_uri));
@@ -300,7 +300,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
 
   jparse_free(jreply);
 
-  return 0;
+  return HTTP_OK;
 }
 
 static int
@@ -324,7 +324,7 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-      return -1;
+      return HTTP_BADREQUEST;
     }
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -368,7 +368,7 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
   DPRINTF(E_LOG, L_WEB, "Received spotify login request but was not compiled with enable-spotify\n");
 #endif
 
-  return 0;
+  return HTTP_OK;
 }
 
 /*
@@ -409,7 +409,7 @@ jsonapi_reply_lastfm(struct httpd_request *hreq)
 
   jparse_free(jreply);
 
-  return 0;
+  return HTTP_OK;
 }
 
 /*
@@ -435,7 +435,7 @@ jsonapi_reply_lastfm_login(struct httpd_request *hreq)
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-      return -1;
+      return HTTP_BADREQUEST;
     }
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -482,7 +482,7 @@ jsonapi_reply_lastfm_login(struct httpd_request *hreq)
   DPRINTF(E_LOG, L_WEB, "Received LastFM login request but was not compiled with enable-lastfm\n");
 #endif
 
-  return 0;
+  return HTTP_OK;
 }
 
 static int
@@ -491,7 +491,7 @@ jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
 #ifdef LASTFM
   lastfm_logout();
 #endif
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static void
@@ -534,7 +534,7 @@ jsonapi_reply_outputs(struct httpd_request *hreq)
 
   jparse_free(jreply);
 
-  return 0;
+  return HTTP_OK;
 }
 
 static int
@@ -547,7 +547,7 @@ jsonapi_reply_verification(struct httpd_request *hreq)
   if (evhttp_request_get_command(hreq->req) != EVHTTP_REQ_POST)
     {
       DPRINTF(E_LOG, L_WEB, "Verification: request is not a POST request\n");
-      return -1;
+      return HTTP_BADREQUEST;
     }
 
   in_evbuf = evhttp_request_get_input_buffer(hreq->req);
@@ -555,7 +555,7 @@ jsonapi_reply_verification(struct httpd_request *hreq)
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-      return -1;
+      return HTTP_BADREQUEST;
     }
 
   DPRINTF(E_DBG, L_WEB, "Received verification post request: %s\n", json_object_to_json_string(request));
@@ -568,7 +568,7 @@ jsonapi_reply_verification(struct httpd_request *hreq)
 
   jparse_free(request);
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -584,7 +584,7 @@ jsonapi_reply_select_outputs(struct httpd_request *hreq)
   if (evhttp_request_get_command(hreq->req) != EVHTTP_REQ_POST)
     {
       DPRINTF(E_LOG, L_WEB, "Select outputs: request is not a POST request\n");
-      return -1;
+      return HTTP_BADREQUEST;
     }
 
   in_evbuf = evhttp_request_get_input_buffer(hreq->req);
@@ -592,7 +592,7 @@ jsonapi_reply_select_outputs(struct httpd_request *hreq)
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-      return -1;
+      return HTTP_BADREQUEST;
     }
 
   DPRINTF(E_DBG, L_WEB, "Received select-outputs post request: %s\n", json_object_to_json_string(request));
@@ -627,7 +627,7 @@ jsonapi_reply_select_outputs(struct httpd_request *hreq)
 
   jparse_free(request);
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -639,10 +639,10 @@ jsonapi_reply_player_play(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error starting playback.\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -654,10 +654,10 @@ jsonapi_reply_player_pause(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error pausing playback.\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -669,10 +669,10 @@ jsonapi_reply_player_stop(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error stopping playback.\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -684,17 +684,17 @@ jsonapi_reply_player_next(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error switching to next item.\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
   ret = player_playback_start();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error starting playback after switching to next item.\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -706,17 +706,17 @@ jsonapi_reply_player_previous(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error switching to previous item.\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
   ret = player_playback_start();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error starting playback after switching to previous item.\n");
-      return -1;
+      return HTTP_INTERNAL;
     }
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -771,7 +771,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
   jparse_free(reply);
 
-  return 0;
+  return HTTP_OK;
 }
 
 static json_object *
@@ -882,7 +882,10 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   jparse_free(reply);
   free(query_params.filter);
 
-  return ret;
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
 }
 
 static int
@@ -892,7 +895,7 @@ jsonapi_reply_player_repeat(struct httpd_request *hreq)
 
   param = evhttp_find_header(hreq->query, "state");
   if (!param)
-    return -1;
+    return HTTP_BADREQUEST;
 
   if (strcmp(param, "single") == 0)
     {
@@ -907,7 +910,7 @@ jsonapi_reply_player_repeat(struct httpd_request *hreq)
       player_repeat_set(REPEAT_OFF);
     }
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -918,12 +921,12 @@ jsonapi_reply_player_shuffle(struct httpd_request *hreq)
 
   param = evhttp_find_header(hreq->query, "state");
   if (!param)
-    return -1;
+    return HTTP_BADREQUEST;
 
   shuffle = (strcmp(param, "true") == 0);
   player_shuffle_set(shuffle);
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -934,12 +937,12 @@ jsonapi_reply_player_consume(struct httpd_request *hreq)
 
   param = evhttp_find_header(hreq->query, "state");
   if (!param)
-    return -1;
+    return HTTP_BADREQUEST;
 
   consume = (strcmp(param, "true") == 0);
   player_consume_set(consume);
 
-  return 0;
+  return HTTP_NOCONTENT;
 }
 
 static int
@@ -952,21 +955,21 @@ jsonapi_reply_player_volume(struct httpd_request *hreq)
 
   param = evhttp_find_header(hreq->query, "volume");
   if (!param)
-    return -1;
+    return HTTP_BADREQUEST;
 
   ret = safe_atoi32(param, &volume);
   if (ret < 0)
-    return -1;
+    return HTTP_BADREQUEST;
 
   if (volume < 0 || volume > 100)
-    return -1;
+    return HTTP_BADREQUEST;
 
   param = evhttp_find_header(hreq->query, "output_id");
   if (param)
     {
       ret = safe_atou64(param, &output_id);
       if (ret < 0)
-	return -1;
+	return HTTP_BADREQUEST;
 
       ret = player_volume_setabs_speaker(output_id, volume);
     }
@@ -975,7 +978,10 @@ jsonapi_reply_player_volume(struct httpd_request *hreq)
       ret = player_volume_set(volume);
     }
 
-  return ret;
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_NOCONTENT;
 }
 
 static struct httpd_uri_map adm_handlers[] =
@@ -1014,7 +1020,7 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
   struct httpd_request *hreq;
   struct evkeyvalq *headers;
-  int ret;
+  int status_code;
 
   DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", uri_parsed->uri);
 
@@ -1035,18 +1041,30 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 
   CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
 
-  ret = hreq->handler(hreq);
-  if (ret < 0)
+  status_code = hreq->handler(hreq);
+
+  switch (status_code)
     {
-      httpd_send_error(req, 500, "Internal Server Error");
-      goto error;
+      case HTTP_OK:                  /* 200 OK */
+	evhttp_add_header(headers, "Content-Type", "application/json");
+	httpd_send_reply(req, status_code, "OK", hreq->reply, 0);
+	break;
+      case HTTP_NOCONTENT:           /* 204 No Content */
+	httpd_send_reply(req, status_code, "No Content", hreq->reply, 0);
+	break;
+
+      case HTTP_BADREQUEST:          /* 400 Bad Request */
+	httpd_send_error(req, status_code, "Bad Request");
+	break;
+      case HTTP_NOTFOUND:            /* 404 Not Found */
+	httpd_send_error(req, status_code, "Not Found");
+	break;
+      case HTTP_INTERNAL:            /* 500 Internal Server Error */
+      default:
+	httpd_send_error(req, HTTP_INTERNAL, "Internal Server Error");
+	break;
     }
 
-  evhttp_add_header(headers, "Content-Type", "application/json");
-
-  httpd_send_reply(req, HTTP_OK, "OK", hreq->reply, 0);
-
- error:
   evbuffer_free(hreq->reply);
   free(hreq);
 }
