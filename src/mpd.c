@@ -212,31 +212,21 @@ struct output
   char *name;
 
   unsigned selected;
-
-  struct output *next;
 };
 
-struct outputs
+struct output_get_param
 {
-  unsigned int count;
-  unsigned int active;
-  struct output *outputs;
+  unsigned short shortid;
+  struct output *output;
 };
 
 static void
-free_outputs(struct output *outputs)
+free_output(struct output *output)
 {
-  struct output *temp;
-  struct output *next;
-
-  temp = outputs;
-  next = outputs ? outputs->next : NULL;
-  while (temp)
+  if (output)
     {
-      free(temp->name);
-      free(temp);
-      temp = next;
-      next = next ? next->next : NULL;
+      free(output->name);
+      free(output);
     }
 }
 
@@ -3571,31 +3561,27 @@ mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errms
 
 /*
  * Callback function for the 'player_speaker_enumerate' function.
- * Adds a new struct output to the given struct outputs in *arg for the given speaker (id, name, etc.).
+ * Expect a struct output_get_param as argument and allocates a struct output if
+ * the shortid of output_get_param matches the given speaker/output spk.
  */
 static void
-outputs_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
+output_get_cb(struct spk_info *spk, void *arg)
 {
-  struct outputs *outputs;
-  struct output *output;
+  struct output_get_param *param = arg;
 
-  outputs = (struct outputs *)arg;
+  if (!param->output
+      && param->shortid == (unsigned short) spk->id)
+    {
+      param->output =  calloc(1, sizeof(struct output));
 
-  output = (struct output*)malloc(sizeof(struct output));
+      param->output->id = spk->id;
+      param->output->shortid = (unsigned short) spk->id;
+      param->output->name = strdup(spk->name);
+      param->output->selected = spk->selected;
 
-  output->id = id;
-  output->shortid = (unsigned short) id;
-  output->name = strdup(name);
-  output->selected = flags.selected;
-
-  output->next = outputs->outputs;
-  outputs->outputs = output;
-  outputs->count++;
-  if (flags.selected)
-    outputs->active++;
-
-  DPRINTF(E_DBG, L_MPD, "Output enum: shortid %d, id %" PRIu64 ", name '%s', selected %d\n",
-      output->shortid, output->id, output->name, output->selected);
+      DPRINTF(E_DBG, L_MPD, "Output found: shortid %d, id %" PRIu64 ", name '%s', selected %d\n",
+	param->output->shortid, param->output->id, param->output->name, param->output->selected);
+    }
 }
 
 /*
@@ -3605,19 +3591,9 @@ outputs_enum_cb(uint64_t id, const char *name, const char *output_type, int relv
 static int
 mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct outputs outputs;
-  struct output *output;
+  struct output_get_param param;
   uint32_t num;
-  uint64_t *ids;
-  int nspk;
-  int i;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'disableoutput'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atou32(argv[1], &num);
   if (ret < 0)
@@ -3626,57 +3602,21 @@ mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **
       return ACK_ERROR_ARG;
     }
 
-  outputs.count = 0;
-  outputs.active = 0;
-  outputs.outputs = NULL;
+  memset(&param, 0, sizeof(struct output_get_param));
+  param.shortid = num;
 
-  player_speaker_enumerate(outputs_enum_cb, &outputs);
+  player_speaker_enumerate(output_get_cb, &param);
 
-  nspk = outputs.active;
-  output = outputs.outputs;
-  while (output)
+  if (param.output && param.output->selected)
     {
-      if (output->shortid == num && output->selected)
+      ret = player_speaker_disable(param.output->id);
+      free_output(param.output);
+
+      if (ret < 0)
 	{
-	  nspk--;
-	  break;
+	  *errmsg = safe_asprintf("Speakers deactivation failed: %d", num);
+	  return ACK_ERROR_UNKNOWN;
 	}
-      output = output->next;
-    }
-
-  if (nspk == outputs.active)
-    {
-      DPRINTF(E_LOG, L_MPD, "No speaker to deactivate\n");
-      free_outputs(outputs.outputs);
-      return 0;
-    }
-
-  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
-
-  ids[0] = nspk;
-
-  i = 1;
-  output = outputs.outputs;
-  while (output)
-    {
-      if (output->shortid != num && output->selected)
-      {
-	ids[i] = output->id;
-	i++;
-      }
-
-      output = output->next;
-    }
-
-  ret = player_speaker_set(ids);
-
-  free(ids);
-  free_outputs(outputs.outputs);
-
-  if (ret < 0)
-    {
-      *errmsg = safe_asprintf("Speakers deactivation failed: %d", num);
-      return ACK_ERROR_UNKNOWN;
     }
 
   return 0;
@@ -3689,19 +3629,9 @@ mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **
 static int
 mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct outputs outputs;
-  struct output *output;
+  struct output_get_param param;
   uint32_t num;
-  uint64_t *ids;
-  int nspk;
-  int i;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'enableoutput'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atou32(argv[1], &num);
   if (ret < 0)
@@ -3710,58 +3640,21 @@ mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
       return ACK_ERROR_ARG;
     }
 
-  outputs.count = 0;
-  outputs.active = 0;
-  outputs.outputs = NULL;
+  memset(&param, 0, sizeof(struct output_get_param));
+  param.shortid = num;
 
-  player_speaker_enumerate(outputs_enum_cb, &outputs);
+  player_speaker_enumerate(output_get_cb, &param);
 
-  nspk = outputs.active;
-  output = outputs.outputs;
-  while (output)
+  if (param.output && !param.output->selected)
     {
-      if (output->shortid == num && !output->selected)
+      ret = player_speaker_enable(param.output->id);
+      free_output(param.output);
+
+      if (ret < 0)
 	{
-	  nspk++;
-	  break;
+	  *errmsg = safe_asprintf("Speakers deactivation failed: %d", num);
+	  return ACK_ERROR_UNKNOWN;
 	}
-      output = output->next;
-    }
-
-  if (nspk == outputs.active)
-    {
-      DPRINTF(E_LOG, L_MPD, "No speaker to activate\n");
-      free_outputs(outputs.outputs);
-      return 0;
-    }
-
-  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
-
-  ids[0] = nspk;
-
-  i = 1;
-  output = outputs.outputs;
-  while (output)
-    {
-      if (output->shortid == num || output->selected)
-      {
-	ids[i] = output->id;
-	i++;
-      }
-
-      output = output->next;
-    }
-
-  ret = player_speaker_set(ids);
-
-  if (ids)
-    free(ids);
-  free_outputs(outputs.outputs);
-
-  if (ret < 0)
-    {
-      *errmsg = safe_asprintf("Speakers activation failed: %d", num);
-      return ACK_ERROR_UNKNOWN;
     }
 
   return 0;
@@ -3774,19 +3667,9 @@ mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 static int
 mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct outputs outputs;
-  struct output *output;
+  struct output_get_param param;
   uint32_t num;
-  uint64_t *ids;
-  int nspk;
-  int i;
   int ret;
-
-  if (argc < 2)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'toggleoutput'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atou32(argv[1], &num);
   if (ret < 0)
@@ -3795,64 +3678,25 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
       return ACK_ERROR_ARG;
     }
 
-  outputs.count = 0;
-  outputs.active = 0;
-  outputs.outputs = NULL;
+  memset(&param, 0, sizeof(struct output_get_param));
+  param.shortid = num;
 
-  player_speaker_enumerate(outputs_enum_cb, &outputs);
+  player_speaker_enumerate(output_get_cb, &param);
 
-  nspk = outputs.active;
-  output = outputs.outputs;
-  while (output)
+  if (param.output)
     {
-      if (output->shortid == num && !output->selected)
+      if (param.output->selected)
+	ret = player_speaker_disable(param.output->id);
+      else
+	ret = player_speaker_enable(param.output->id);
+
+      free_output(param.output);
+
+      if (ret < 0)
 	{
-	  nspk++;
-	  break;
+	  *errmsg = safe_asprintf("Toggle speaker failed: %d", num);
+	  return ACK_ERROR_UNKNOWN;
 	}
-      else if (output->shortid == num && output->selected)
-	{
-	  nspk--;
-	  break;
-	}
-      output = output->next;
-    }
-
-  if (nspk == outputs.active)
-    {
-      DPRINTF(E_LOG, L_MPD, "No speaker to de/activate\n");
-      free_outputs(outputs.outputs);
-      return 0;
-    }
-
-  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
-
-  ids[0] = nspk;
-
-  i = 1;
-  output = outputs.outputs;
-  while (output)
-    {
-      if ((output->shortid == num && !output->selected)
-	  || (output->shortid != num && output->selected))
-      {
-	ids[i] = output->id;
-	i++;
-      }
-
-      output = output->next;
-    }
-
-  ret = player_speaker_set(ids);
-
-  if (ids)
-    free(ids);
-  free_outputs(outputs.outputs);
-
-  if (ret < 0)
-    {
-      *errmsg = safe_asprintf("Speakers de/activation failed: %d", num);
-      return ACK_ERROR_UNKNOWN;
     }
 
   return 0;
@@ -3869,7 +3713,7 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  *   outputvolume: 50
  */
 static void
-speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relvol, int absvol, struct spk_flags flags, void *arg)
+speaker_enum_cb(struct spk_info *spk, void *arg)
 {
   struct evbuffer *evbuf;
 
@@ -3880,14 +3724,14 @@ speaker_enum_cb(uint64_t id, const char *name, const char *output_type, int relv
 		      "outputname: %s\n"
 		      "outputenabled: %d\n"
 		      "outputvolume: %d\n",
-		      (unsigned short) id,
-		      name,
-		      flags.selected,
-		      absvol);
+		      (unsigned short) spk->id,
+		      spk->name,
+		      spk->selected,
+		      spk->absvol);
 }
 
 /*
- * Command handler function for 'outputs'
+ * Command handler function for 'output'
  * Returns a lists with the avaiable speakers.
  */
 static int
@@ -3901,40 +3745,28 @@ mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 static int
 outputvolume_set(uint32_t shortid, int volume, char **errmsg)
 {
-  struct outputs outputs;
-  struct output *output;
+  struct output_get_param param;
   int ret;
 
-  outputs.count = 0;
-  outputs.active = 0;
-  outputs.outputs = NULL;
+  memset(&param, 0, sizeof(struct output_get_param));
+  param.shortid = shortid;
 
-  player_speaker_enumerate(outputs_enum_cb, &outputs);
+  player_speaker_enumerate(output_get_cb, &param);
 
-  output = outputs.outputs;
-  while (output)
+  if (param.output)
     {
-      if (output->shortid == shortid)
+      ret = player_volume_setabs_speaker(param.output->id, volume);
+      free_output(param.output);
+
+      if (ret < 0)
 	{
-	  break;
+	  *errmsg = safe_asprintf("Setting volume to %d for speaker with short-id %d failed", volume, shortid);
+	  return ACK_ERROR_UNKNOWN;
 	}
-      output = output->next;
     }
-
-  if (!output)
+  else
     {
-      free_outputs(outputs.outputs);
       *errmsg = safe_asprintf("No speaker found for short id: %d", shortid);
-      return ACK_ERROR_UNKNOWN;
-    }
-
-  ret = player_volume_setabs_speaker(output->id, volume);
-
-  free_outputs(outputs.outputs);
-
-  if (ret < 0)
-    {
-      *errmsg = safe_asprintf("Setting volume to %d for speaker with short-id %d failed", volume, shortid);
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -3947,12 +3779,6 @@ mpd_command_outputvolume(struct evbuffer *evbuf, int argc, char **argv, char **e
   uint32_t shortid;
   int volume;
   int ret;
-
-  if (argc < 3)
-    {
-      *errmsg = safe_asprintf("Missing argument for command 'outputvolume'");
-      return ACK_ERROR_ARG;
-    }
 
   ret = safe_atou32(argv[1], &shortid);
   if (ret < 0)
@@ -4334,9 +4160,9 @@ static struct mpd_command mpd_handlers[] =
     { "ping",                       mpd_command_ignore,                     -1 },
 
     // Audio output devices
-    { "disableoutput",              mpd_command_disableoutput,              -1 },
-    { "enableoutput",               mpd_command_enableoutput,               -1 },
-    { "toggleoutput",               mpd_command_toggleoutput,               -1 },
+    { "disableoutput",              mpd_command_disableoutput,               2 },
+    { "enableoutput",               mpd_command_enableoutput,                2 },
+    { "toggleoutput",               mpd_command_toggleoutput,                2 },
     { "outputs",                    mpd_command_outputs,                    -1 },
 
     // Reflection
@@ -4355,7 +4181,7 @@ static struct mpd_command mpd_handlers[] =
     { "sendmessage",                mpd_command_sendmessage,                -1 },
 
     // Forked-daapd commands (not supported by mpd)
-    { "outputvolume",               mpd_command_outputvolume,               -1 },
+    { "outputvolume",               mpd_command_outputvolume,                3 },
 
     // NULL command to terminate loop
     { NULL, NULL, -1 }

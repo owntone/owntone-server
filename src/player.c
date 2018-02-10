@@ -155,16 +155,7 @@ struct speaker_auth_param
 
 union player_arg
 {
-  struct volume_param vol_param;
-  void *noarg;
-  struct spk_enum *spk_enum;
   struct output_device *device;
-  struct player_status *status;
-  struct player_source *ps;
-  struct metadata_param metadata_param;
-  uint32_t *id_ptr;
-  struct speaker_set_param speaker_set_param;
-  enum repeat_mode mode;
   struct speaker_auth_param auth;
   uint32_t id;
   int intval;
@@ -1375,13 +1366,12 @@ device_auth_kickoff(void *arg, int *retval)
 static enum command_state
 device_metadata_send(void *arg, int *retval)
 {
-  union player_arg *cmdarg;
+  struct metadata_param *metadata_param = arg;
   struct input_metadata *imd;
   struct output_metadata *omd;
 
-  cmdarg = arg;
-  imd = cmdarg->metadata_param.input;
-  omd = cmdarg->metadata_param.output;
+  imd = metadata_param->input;
+  omd = metadata_param->output;
 
   outputs_metadata_send(omd, imd->rtptime, imd->offset, imd->startup);
 
@@ -1777,14 +1767,11 @@ playback_suspend(void)
 static enum command_state
 get_status(void *arg, int *retval)
 {
-  union player_arg *cmdarg = arg;
+  struct player_status *status = arg;
   struct timespec ts;
   struct player_source *ps;
-  struct player_status *status;
   uint64_t pos;
   int ret;
-
-  status = cmdarg->status;
 
   memset(status, 0, sizeof(struct player_status));
 
@@ -1865,11 +1852,8 @@ get_status(void *arg, int *retval)
 static enum command_state
 now_playing(void *arg, int *retval)
 {
-  union player_arg *cmdarg = arg;
-  uint32_t *id;
+  uint32_t *id = arg;
   struct player_source *ps_playing;
-
-  id = cmdarg->id_ptr;
 
   ps_playing = source_now_playing();
 
@@ -2398,32 +2382,27 @@ player_speaker_status_trigger(void)
 static enum command_state
 speaker_enumerate(void *arg, int *retval)
 {
-  union player_arg *cmdarg = arg;
+  struct spk_enum *spk_enum = arg;
   struct output_device *device;
-  struct spk_enum *spk_enum;
-  struct spk_flags flags;
-
-  spk_enum = cmdarg->spk_enum;
-
-#ifdef DEBUG_RELVOL
-  DPRINTF(E_DBG, L_PLAYER, "*** master: %d\n", master_volume);
-#endif
+  struct spk_info spk;
 
   for (device = dev_list; device; device = device->next)
     {
       if (device->advertised || device->selected)
 	{
-	  flags.selected = device->selected;
-	  flags.has_password = device->has_password;
-	  flags.has_video = device->has_video;
-	  flags.requires_auth = device->requires_auth;
-	  flags.needs_auth_key = (device->requires_auth && device->auth_key == NULL);
+	  spk.id = device->id;
+	  spk.name = device->name;
+	  spk.output_type = device->type_name;
+	  spk.relvol = device->relvol;
+	  spk.absvol = device->volume;
 
-	  spk_enum->cb(device->id, device->name, device->type_name, device->relvol, device->volume, flags, spk_enum->arg);
+	  spk.selected = device->selected;
+	  spk.has_password = device->has_password;
+	  spk.has_video = device->has_video;
+	  spk.requires_auth = device->requires_auth;
+	  spk.needs_auth_key = (device->requires_auth && device->auth_key == NULL);
 
-#ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-#endif
+	  spk_enum->cb(&spk, spk_enum->arg);
 	}
     }
 
@@ -2436,11 +2415,20 @@ speaker_activate(struct output_device *device)
 {
   int ret;
 
-  if (!device)
+  if (device->has_password && !device->password)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! speaker_activate called with device\n");
-      return -1;
+      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' is password-protected, but we don't have it\n", device->type_name, device->name);
+
+      return -2;
     }
+
+  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is selected\n", device->type_name, device->name);
+
+  if (!device->selected)
+    speaker_select_output(device);
+
+  if (device->session)
+    return 0;
 
   if (player_state == PLAY_PLAYING)
     {
@@ -2450,7 +2438,7 @@ speaker_activate(struct output_device *device)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
-	  return -1;
+	  goto error;
 	}
     }
   else
@@ -2461,11 +2449,16 @@ speaker_activate(struct output_device *device)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
-	  return -1;
+	  goto error;
 	}
     }
 
   return 0;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Could not activate %s device '%s'\n", device->type_name, device->name);
+  speaker_deselect_output(device);
+  return -1;
 }
 
 static int
@@ -2473,16 +2466,21 @@ speaker_deactivate(struct output_device *device)
 {
   DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
 
+  if (device->selected)
+    speaker_deselect_output(device);
+
+  if (!device->session)
+    return 0;
+
   outputs_status_cb(device->session, device_shutdown_cb);
   outputs_device_stop(device->session);
-
-  return 0;
+  return 1;
 }
 
 static enum command_state
 speaker_set(void *arg, int *retval)
 {
-  union player_arg *cmdarg = arg;
+  struct speaker_set_param *speaker_set_param = arg;
   struct output_device *device;
   uint64_t *ids;
   int nspk;
@@ -2490,7 +2488,7 @@ speaker_set(void *arg, int *retval)
   int ret;
 
   *retval = 0;
-  ids = cmdarg->speaker_set_param.device_ids;
+  ids = speaker_set_param->device_ids;
 
   if (ids)
     nspk = ids[0];
@@ -2513,62 +2511,80 @@ speaker_set(void *arg, int *retval)
 
       if (i <= nspk)
 	{
-	  if (device->has_password && !device->password)
-	    {
-	      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' is password-protected, but we don't have it\n", device->type_name, device->name);
+	  ret = speaker_activate(device);
 
-	      cmdarg->speaker_set_param.intval = -2;
-	      continue;
-	    }
-
-	  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is selected\n", device->type_name, device->name);
-
-	  if (!device->selected)
-	    speaker_select_output(device);
-
-	  if (!device->session)
-	    {
-	      ret = speaker_activate(device);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_PLAYER, "Could not activate %s device '%s'\n", device->type_name, device->name);
-
-		  speaker_deselect_output(device);
-
-		  if (cmdarg->speaker_set_param.intval != -2)
-		    cmdarg->speaker_set_param.intval = -1;
-		}
-	      else
-		(*retval)++;
-	    }
+	  if (ret > 0)
+	    (*retval)++;
+	  else if (ret < 0 && speaker_set_param->intval != -2)
+	    speaker_set_param->intval = ret;
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is NOT selected\n", device->type_name, device->name);
+	  ret = speaker_deactivate(device);
 
-	  if (device->selected)
-	    speaker_deselect_output(device);
-
-	  if (device->session)
-	    {
-	      ret = speaker_deactivate(device);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_PLAYER, "Could not deactivate %s device '%s'\n", device->type_name, device->name);
-
-		  if (cmdarg->speaker_set_param.intval != -2)
-		    cmdarg->speaker_set_param.intval = -1;
-		}
-	      else
-		(*retval)++;
-	    }
+	  if (ret > 0)
+	    (*retval)++;
 	}
     }
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
-  *retval = cmdarg->speaker_set_param.intval;
+  *retval = speaker_set_param->intval;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_enable(void *arg, int *retval)
+{
+  uint64_t *id = arg;
+  struct output_device *device;
+
+  *retval = 0;
+
+  DPRINTF(E_DBG, L_PLAYER, "Speaker enable: %" PRIu64 "\n", *id);
+
+  *retval = 0;
+
+  for (device = dev_list; device; device = device->next)
+    {
+      if (*id == device->id)
+	{
+	  *retval = speaker_activate(device);
+	  break;
+	}
+    }
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_disable(void *arg, int *retval)
+{
+  uint64_t *id = arg;
+  struct output_device *device;
+
+  *retval = 0;
+
+  DPRINTF(E_DBG, L_PLAYER, "Speaker disable: %" PRIu64 "\n", *id);
+
+  *retval = 0;
+
+  for (device = dev_list; device; device = device->next)
+    {
+      if (*id == device->id)
+	{
+	  *retval = speaker_deactivate(device);
+	  break;
+	}
+    }
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
   return COMMAND_END;
 }
 
@@ -2613,14 +2629,14 @@ volume_set(void *arg, int *retval)
 static enum command_state
 volume_setrel_speaker(void *arg, int *retval)
 {
-  union player_arg *cmdarg = arg;
+  struct volume_param *vol_param = arg;
   struct output_device *device;
   uint64_t id;
   int relvol;
 
   *retval = 0;
-  id = cmdarg->vol_param.spk_id;
-  relvol = cmdarg->vol_param.volume;
+  id = vol_param->spk_id;
+  relvol = vol_param->volume;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -2657,14 +2673,14 @@ volume_setrel_speaker(void *arg, int *retval)
 static enum command_state
 volume_setabs_speaker(void *arg, int *retval)
 {
-  union player_arg *cmdarg = arg;
+  struct volume_param *vol_param = arg;
   struct output_device *device;
   uint64_t id;
   int volume;
 
   *retval = 0;
-  id = cmdarg->vol_param.spk_id;
-  volume = cmdarg->vol_param.volume;
+  id = vol_param->spk_id;
+  volume = vol_param->volume;
 
   master_volume = volume;
 
@@ -2707,24 +2723,24 @@ volume_setabs_speaker(void *arg, int *retval)
 static enum command_state
 repeat_set(void *arg, int *retval)
 {
-  union player_arg *cmdarg = arg;
+  enum repeat_mode *mode = arg;
 
-  if (cmdarg->mode == repeat)
+  if (*mode == repeat)
     {
       *retval = 0;
       return COMMAND_END;
     }
 
-  switch (cmdarg->mode)
+  switch (*mode)
     {
       case REPEAT_OFF:
       case REPEAT_SONG:
       case REPEAT_ALL:
-	repeat = cmdarg->mode;
+	repeat = *mode;
 	break;
 
       default:
-	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", cmdarg->mode);
+	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", *mode);
 	*retval = -1;
 	return COMMAND_END;
     }
@@ -2854,12 +2870,9 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 int
 player_get_status(struct player_status *status)
 {
-  union player_arg cmdarg;
   int ret;
 
-  cmdarg.status = status;
-
-  ret = commands_exec_sync(cmdbase, get_status, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, get_status, NULL, status);
   return ret;
 }
 
@@ -2875,12 +2888,9 @@ player_get_status(struct player_status *status)
 int
 player_now_playing(uint32_t *id)
 {
-  union player_arg cmdarg;
   int ret;
 
-  cmdarg.id_ptr = id;
-
-  ret = commands_exec_sync(cmdbase, now_playing, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, now_playing, NULL, id);
   return ret;
 }
 
@@ -2985,27 +2995,48 @@ player_playback_prev(void)
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg)
 {
-  union player_arg cmdarg;
   struct spk_enum spk_enum;
 
   spk_enum.cb = cb;
   spk_enum.arg = arg;
 
-  cmdarg.spk_enum = &spk_enum;
-
-  commands_exec_sync(cmdbase, speaker_enumerate, NULL, &cmdarg);
+  commands_exec_sync(cmdbase, speaker_enumerate, NULL, &spk_enum);
 }
 
 int
 player_speaker_set(uint64_t *ids)
 {
-  union player_arg cmdarg;
+  struct speaker_set_param speaker_set_param;
   int ret;
 
-  cmdarg.speaker_set_param.device_ids = ids;
-  cmdarg.speaker_set_param.intval = 0;
+  speaker_set_param.device_ids = ids;
+  speaker_set_param.intval = 0;
 
-  ret = commands_exec_sync(cmdbase, speaker_set, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, speaker_set, NULL, &speaker_set_param);
+
+  listener_notify(LISTENER_SPEAKER);
+
+  return ret;
+}
+
+int
+player_speaker_enable(uint64_t id)
+{
+  int ret;
+
+  ret = commands_exec_sync(cmdbase, speaker_enable, NULL, &id);
+
+  listener_notify(LISTENER_SPEAKER);
+
+  return ret;
+}
+
+int
+player_speaker_disable(uint64_t id)
+{
+  int ret;
+
+  ret = commands_exec_sync(cmdbase, speaker_disable, NULL, &id);
 
   listener_notify(LISTENER_SPEAKER);
 
@@ -3033,7 +3064,7 @@ player_volume_set(int vol)
 int
 player_volume_setrel_speaker(uint64_t id, int relvol)
 {
-  union player_arg cmdarg;
+  struct volume_param vol_param;
   int ret;
 
   if (relvol < 0 || relvol > 100)
@@ -3042,17 +3073,17 @@ player_volume_setrel_speaker(uint64_t id, int relvol)
       return -1;
     }
 
-  cmdarg.vol_param.spk_id = id;
-  cmdarg.vol_param.volume = relvol;
+  vol_param.spk_id = id;
+  vol_param.volume = relvol;
 
-  ret = commands_exec_sync(cmdbase, volume_setrel_speaker, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, volume_setrel_speaker, NULL, &vol_param);
   return ret;
 }
 
 int
 player_volume_setabs_speaker(uint64_t id, int vol)
 {
-  union player_arg cmdarg;
+  struct volume_param vol_param;
   int ret;
 
   if (vol < 0 || vol > 100)
@@ -3061,22 +3092,19 @@ player_volume_setabs_speaker(uint64_t id, int vol)
       return -1;
     }
 
-  cmdarg.vol_param.spk_id = id;
-  cmdarg.vol_param.volume = vol;
+  vol_param.spk_id = id;
+  vol_param.volume = vol;
 
-  ret = commands_exec_sync(cmdbase, volume_setabs_speaker, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, volume_setabs_speaker, NULL, &vol_param);
   return ret;
 }
 
 int
 player_repeat_set(enum repeat_mode mode)
 {
-  union player_arg cmdarg;
   int ret;
 
-  cmdarg.mode = mode;
-
-  ret = commands_exec_sync(cmdbase, repeat_set, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, repeat_set, NULL, &mode);
   return ret;
 }
 
@@ -3200,12 +3228,12 @@ player_raop_verification_kickoff(char **arglist)
 void
 player_metadata_send(void *imd, void *omd)
 {
-  union player_arg cmdarg;
+  struct metadata_param metadata_param;
 
-  cmdarg.metadata_param.input = imd;
-  cmdarg.metadata_param.output = omd;
+  metadata_param.input = imd;
+  metadata_param.output = omd;
 
-  commands_exec_sync(cmdbase, device_metadata_send, NULL, &cmdarg);
+  commands_exec_sync(cmdbase, device_metadata_send, NULL, &metadata_param);
 }
 
 
