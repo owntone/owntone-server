@@ -46,6 +46,14 @@ jparse_free(json_object* haystack)
     }
 }
 
+bool
+jparse_contains_key(json_object *haystack, const char *key, json_type type)
+{
+  json_object *needle;
+
+  return json_object_object_get_ex(haystack, key, &needle) && json_object_get_type(needle) == type;
+}
+
 int
 jparse_array_from_obj(json_object *haystack, const char *key, json_object **needle)
 {
