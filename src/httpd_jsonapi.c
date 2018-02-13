@@ -1137,9 +1137,6 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
       return;
     }
 
-  headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "DAAP-Server", "forked-daapd/" VERSION);
-
   CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
 
   status_code = hreq->handler(hreq);
@@ -1147,6 +1144,7 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
+	headers = evhttp_request_get_output_headers(req);
 	evhttp_add_header(headers, "Content-Type", "application/json");
 	httpd_send_reply(req, status_code, "OK", hreq->reply, 0);
 	break;
