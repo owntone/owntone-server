@@ -36,6 +36,9 @@
 void
 jparse_free(json_object *haystack);
 
+bool
+jparse_contains_key(json_object *haystack, const char *key, json_type type);
+
 int
 jparse_array_from_obj(json_object *haystack, const char *key, json_object **needle);
 

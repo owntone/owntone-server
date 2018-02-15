@@ -880,6 +880,7 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
   struct httpd_request *hreq;
   struct evhttp_connection *evcon;
   struct evkeyvalq *headers;
+  int req_method;
   int i;
   int ret;
 
@@ -889,6 +890,7 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
   hreq->req = req;
   hreq->uri_parsed = uri_parsed;
   hreq->query = &(uri_parsed->ev_query);
+  req_method = 0;
 
   if (req)
     {
@@ -900,6 +902,8 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
 	evhttp_connection_get_peer(evcon, &hreq->peer_address, &hreq->peer_port);
       else
 	DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
+
+      req_method = evhttp_request_get_command(req);
     }
 
   if (user_agent)
@@ -908,6 +912,10 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
   // Find a handler for the path
   for (i = 0; uri_map[i].handler; i++)
     {
+      // Check if handler supports the current http request method
+      if (uri_map[i].method && req_method && !(req_method & uri_map[i].method))
+	continue;
+
       ret = regexec(&uri_map[i].preg, uri_parsed->path, 0, NULL, 0);
       if (ret == 0)
         {
@@ -1687,7 +1695,7 @@ httpd_init(const char *webroot)
   if (allow_origin)
     {
       if (strlen(allow_origin) != 0)
-	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
+	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
       else
 	allow_origin = NULL;
     }

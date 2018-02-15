@@ -69,6 +69,7 @@ struct httpd_request {
  */
 struct httpd_uri_map
 {
+  int method;
   char *regexp;
   int (*handler)(struct httpd_request *hreq);
   regex_t preg;

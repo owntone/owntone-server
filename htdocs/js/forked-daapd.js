@@ -80,7 +80,7 @@ var app = new Vue({
         }
       }
 
-      axios.post('/api/select-outputs', { outputs: selected_outputs }).then(response => {
+      axios.put('/api/outputs/set', { outputs: selected_outputs }).then(response => {
         if (!this.config.websocket_port) {
           this.loadOutputs();
         }
