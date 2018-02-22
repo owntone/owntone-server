@@ -623,7 +623,7 @@ main(int argc, char **argv)
 
   DPRINTF(E_LOG, L_MAIN, "Forked Media Server Version %s taking off\n", VERSION);
 
-  DPRINTF(E_LOG, L_MAIN, "Built %s with:\n", __DATE__);
+  DPRINTF(E_LOG, L_MAIN, "Built with:\n");
   buildopts = buildopts_get();
   for (i = 0; buildopts[i]; i++)
     {
