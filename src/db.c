@@ -4292,7 +4292,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
   struct db_media_file_info dbmfi;
   int queue_version;
   int pos;
-  int new_item_id;
+  int new_item_id = 0; // Quell compiler warning about uninitialized use of new_item_id
   int ret;
 
   queue_version = queue_transaction_begin();
@@ -4356,7 +4356,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
  * @param plid Id of the stored playlist
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return 0 on success, -1 on failure
+ * @return Item id of the last inserted item on success, -1 on failure
  */
 int
 db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
@@ -4380,7 +4380,7 @@ db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
  * @param id Id of the file
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return 0 on success, -1 on failure
+ * @return Item id of the last inserted item on success, -1 on failure
  */
 int
 db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
@@ -4419,7 +4419,7 @@ db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t ite
   int queue_version;
   char *query;
   int pos;
-  int new_item_id;
+  int new_item_id = 0; // Quell compiler warning about uninitialized use of new_item_id
   int ret;
 
   queue_version = queue_transaction_begin();
