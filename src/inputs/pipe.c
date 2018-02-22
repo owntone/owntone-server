@@ -39,6 +39,10 @@
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
+#include <pthread.h>
+#ifdef HAVE_PTHREAD_NP_H
+# include <pthread_np.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
