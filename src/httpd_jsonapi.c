@@ -29,7 +29,7 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
-#include <json.h>
+
 #include <regex.h>
 #include <stdio.h>
 #include <string.h>

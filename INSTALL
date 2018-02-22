@@ -72,7 +72,7 @@ sudo yum install \
  git automake autoconf gettext-devel gperf gawk libtool \
  sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
  avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
- libplist-devel libsodium-devel
+ libplist-devel libsodium-devel json-c-devel
 
 Clone the forked-daapd repo:
 
@@ -125,7 +125,7 @@ Afterwards, you can optionally install Oracle's newer version, and then
 
 sudo port install \
   autoconf automake libtool pkgconfig git gperf libgcrypt \
-  libunistring libconfuse ffmpeg libevent
+  libunistring libconfuse ffmpeg libevent json-c
 
 Download, configure, build and install the Mini-XML library:
   http://www.msweet.org/projects.php/Mini-XML
@@ -144,7 +144,7 @@ Optional features require the following additional ports:
 
  Feature             | Configure argument     | Ports
  --------------------|------------------------|--------------------------------------------
- Chromecast          | --enable-chromecast    | json-c gnutls protobuf-c
+ Chromecast          | --enable-chromecast    | gnutls protobuf-c
  LastFM              | --enable-lastfm        | curl
  iTunes XML          | --disable-itunes       | libplist
  Device verification | --disable-verification | libplist libsodium

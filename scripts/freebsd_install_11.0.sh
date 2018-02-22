@@ -2,7 +2,7 @@
 # Credit thorsteneckel who made the how-to that is the basis for this
 # script, see https://gist.github.com/thorsteneckel/c0610fb415c8d0486bce
 
-echo "This script will install forked-daapd in FreeBSD 10.1. The script is not"
+echo "This script will install forked-daapd in FreeBSD 11.0. The script is not"
 echo "very polished, so you might want to look through it before running it."
 read -p "Continue? [y/N] " yn
 if [ "$yn" != "y" ]; then
@@ -11,7 +11,7 @@ fi
 
 DEPS="gmake autoconf automake libtool gettext gperf glib pkgconf wget git \
      ffmpeg libconfuse libevent mxml libgcrypt libunistring libiconv \
-     libplist libinotify avahi sqlite3 alsa-lib libsodium"
+     libplist libinotify avahi sqlite3 alsa-lib libsodium json-c"
 echo "The script can install the following dependency packages for you:"
 echo $DEPS
 read -p "Should the script install these packages? [y/N] " yn

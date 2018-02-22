@@ -144,6 +144,15 @@ FORK_MODULES_CHECK([FORKED], [LIBEVENT], [libevent >= 2],
 			[Define to 1 if you have libevent 2 (<2.1.4)])])
 	])
 
+dnl json-c version checks
+FORK_MODULES_CHECK([FORKED], [JSON_C], [json-c],
+	[json_tokener_parse], [json.h],
+	[dnl check for old version
+	 PKG_CHECK_EXISTS([json-c >= 0.11], [],
+		[AC_DEFINE([HAVE_JSON_C_OLD], 1,
+			[Define to 1 if you have json-c < 0.11])])
+	])
+
 dnl antlr version checks
 FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	[antlr3BaseRecognizerNew], [antlr3.h],
@@ -285,19 +294,6 @@ dnl Build with libevent_pthreads
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libevent_pthreads support],
 	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
 	[evthread_use_pthreads], [event2/thread.h])
-
-dnl Build with json-c
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [json-c support], [json], [JSON_C],
-	[json-c >= 0.11], [json_tokener_parse], [json.h], [],
-	[FORK_MODULES_CHECK([FORKED_OPTS], [JSON_C], [json],
-		[json_tokener_parse], [json.h],
-		[[with_json=yes]
-		 AC_DEFINE([HAVE_JSON_C_OLD], 1,
-			[Define to 1 if you have json-c < 0.11])],
-		[AS_IF([[test "x$with_json" != "xcheck"]],
-			[AC_MSG_FAILURE([[--with-json was given, but test for json-c failed]])])
-		 [with_json=no]]
-	)])
 
 dnl Build with Avahi (or Bonjour if not)
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [Avahi mDNS], [avahi], [AVAHI],
