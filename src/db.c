@@ -4356,7 +4356,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
  * @param plid Id of the stored playlist
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return 0 on success, -1 on failure
+ * @return Item id of the last inserted item on success, -1 on failure
  */
 int
 db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
@@ -4380,7 +4380,7 @@ db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
  * @param id Id of the file
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return 0 on success, -1 on failure
+ * @return Item id of the last inserted item on success, -1 on failure
  */
 int
 db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
