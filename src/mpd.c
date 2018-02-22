@@ -3469,7 +3469,7 @@ static struct mpd_sticker_command mpd_sticker_handlers[] =
 static int
 mpd_command_sticker(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct mpd_sticker_command *cmd_param;
+  struct mpd_sticker_command *cmd_param = NULL;  // Quell compiler warning about uninitialized use of cmd_param
   char *virtual_path = NULL;
   int i;
   int ret;

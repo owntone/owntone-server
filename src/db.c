@@ -4292,7 +4292,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
   struct db_media_file_info dbmfi;
   int queue_version;
   int pos;
-  int new_item_id;
+  int new_item_id = 0; // Quell compiler warning about uninitialized use of new_item_id
   int ret;
 
   queue_version = queue_transaction_begin();
@@ -4419,7 +4419,7 @@ db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t ite
   int queue_version;
   char *query;
   int pos;
-  int new_item_id;
+  int new_item_id = 0; // Quell compiler warning about uninitialized use of new_item_id
   int ret;
 
   queue_version = queue_transaction_begin();
