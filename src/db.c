@@ -684,9 +684,9 @@ db_exec(const char *query, char **errmsg)
 
 /* Maintenance and DB hygiene */
 static void
-db_analyze(void)
+db_pragma_optimize(void)
 {
-  char *query = "ANALYZE;";
+  const char *query = "PRAGMA optimize;";
   char *errmsg;
   int ret;
 
@@ -695,7 +695,7 @@ db_analyze(void)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "ANALYZE failed: %s\n", errmsg);
+      DPRINTF(E_LOG, L_DB, "PRAGMA optimize failed: %s\n", errmsg);
 
       sqlite3_free(errmsg);
     }
@@ -755,7 +755,7 @@ db_hook_post_scan(void)
 {
   DPRINTF(E_DBG, L_DB, "Running post-scan DB maintenance tasks...\n");
 
-  db_analyze();
+  db_pragma_optimize();
 
   DPRINTF(E_DBG, L_DB, "Done with post-scan DB maintenance\n");
 }
@@ -6412,8 +6412,6 @@ db_init(void)
 	  return -1;
 	}
     }
-
-  db_analyze();
 
   db_set_cfg_names();
 
