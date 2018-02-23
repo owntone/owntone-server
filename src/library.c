@@ -593,6 +593,9 @@ rescan(void *arg, int *ret)
 
   purge_cruft(starttime);
 
+  DPRINTF(E_DBG, L_LIB, "Running post library scan jobs\n");
+  db_hook_post_scan();
+
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
   scanning = false;
@@ -982,6 +985,7 @@ library(void *arg)
   if (!scan_exit)
     DPRINTF(E_FATAL, L_LIB, "Scan event loop terminated ahead of time!\n");
 
+  db_hook_post_scan();
   db_perthread_deinit();
 
   pthread_exit(NULL);
