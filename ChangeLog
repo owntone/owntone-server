@@ -1,6 +1,25 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 26.0:
+	- added web interface
+	- added JSON API
+	- new mpd commands (e.g. sticker, urlhandlers, playlistfind)
+	- support for adding non-library urls to the playback queue
+	- support for id3 grouping tags
+	- support for filesystems with ACL's
+	- use Spotify web api to load all playlists
+	- improved client authentication options
+	- only rescan playlists if changed -> faster startup
+	- fix bug related to dacp/daap client revision number handling
+	- fix bugs related to import of iTunes XML playlists
+	- restore ATV4/tvOS11 support by removing requirement for timing_port
+	- fixes for Hyperfine Remote
+	- improve database performance
+	- make sure daemons listen on both ipv4 and ipv6 (for BSD)
+	- ffmpeg/transcoding refactored for new ffmpeg API
+	- and more...
+
 version 25.0:
 	- improved playback resilience
 	- substitute packet skipping (producing audio "clicks") with start/stop
