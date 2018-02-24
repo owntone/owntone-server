@@ -1146,10 +1146,10 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
       case HTTP_OK:                  /* 200 OK */
 	headers = evhttp_request_get_output_headers(req);
 	evhttp_add_header(headers, "Content-Type", "application/json");
-	httpd_send_reply(req, status_code, "OK", hreq->reply, 0);
+	httpd_send_reply(req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(req, status_code, "No Content", hreq->reply, 0);
+	httpd_send_reply(req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
 
       case HTTP_BADREQUEST:          /* 400 Bad Request */
