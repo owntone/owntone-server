@@ -333,6 +333,68 @@ static const struct browse_clause browse_clause[] =
     { "f.path, f.path",                        "f.path",           "f.path" },
   };
 
+
+struct media_kind_label {
+  enum media_kind type;
+  const char *label;
+};
+
+/* Keep in sync with enum media_kind */
+static const struct media_kind_label media_kind_labels[] =
+  {
+    { MEDIA_KIND_MUSIC,      "music" },
+    { MEDIA_KIND_MOVIE,      "movie" },
+    { MEDIA_KIND_PODCAST,    "podcast" },
+    { MEDIA_KIND_AUDIOBOOK,  "audiobook" },
+    { MEDIA_KIND_MUSICVIDEO, "musicvideo" },
+    { MEDIA_KIND_TVSHOW,     "tvshow" },
+  };
+
+const char *
+db_media_kind_label(enum media_kind media_kind)
+{
+  int i;
+
+  for (i = 0; i < ARRAY_SIZE(media_kind_labels); i++)
+    {
+      if (media_kind == media_kind_labels[i].type)
+	return media_kind_labels[i].label;
+    }
+
+  return NULL;
+}
+
+enum media_kind
+db_media_kind_enum(const char *label)
+{
+  int i;
+
+  if (!label)
+    return 0;
+
+  for (i = 0; i < ARRAY_SIZE(media_kind_labels); i++)
+    {
+      if (strcmp(label, media_kind_labels[i].label) == 0)
+	return media_kind_labels[i].type;
+    }
+
+  return 0;
+}
+
+/* Keep in sync with enum data_kind */
+static char *data_kind_label[] = { "file", "url", "spotify", "pipe" };
+
+const char *
+db_data_kind_label(enum data_kind data_kind)
+{
+  if (data_kind < ARRAY_SIZE(data_kind_label))
+    {
+      return data_kind_label[data_kind];
+    }
+
+  return NULL;
+}
+
 /* Shuffle RNG state */
 struct rng_ctx shuffle_rng;
 

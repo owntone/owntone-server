@@ -105,6 +105,7 @@ struct pairing_info {
   char *guid;
 };
 
+/* Keep in sync with media_kind_labels[] */
 enum media_kind {
   MEDIA_KIND_MUSIC = 1,
   MEDIA_KIND_MOVIE = 2,
@@ -114,12 +115,22 @@ enum media_kind {
   MEDIA_KIND_TVSHOW = 64,
 };
 
+const char *
+db_media_kind_label(enum media_kind media_kind);
+
+enum media_kind
+db_media_kind_enum(const char *label);
+
+/* Keep in sync with data_kind_label[] */
 enum data_kind {
   DATA_KIND_FILE = 0,    /* normal file */
   DATA_KIND_HTTP = 1,    /* network stream (radio) */
   DATA_KIND_SPOTIFY = 2, /* iTunes has no spotify data kind, but we use 2 */
   DATA_KIND_PIPE = 3,    /* iTunes has no pipe data kind, but we use 3 */
 };
+
+const char *
+db_data_kind_label(enum data_kind data_kind);
 
 /* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
 struct media_file_info {

@@ -15,6 +15,7 @@
 #define STOB(s) ((s) * 4)
 #define BTOS(b) ((b) / 4)
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 struct onekeyval {
   char *name;
@@ -56,7 +57,6 @@ safe_strdup(const char *str);
 
 char *
 safe_asprintf(const char *fmt, ...);
-
 
 /* Key/value functions */
 struct keyval *
