@@ -145,11 +145,6 @@ httpd_send_error(struct evhttp_request *req, int error, const char *reason);
 void
 httpd_redirect_to_admin(struct evhttp_request *req);
 
-/*
- * Redirects to [uri]/index.html
- */
-void
-httpd_redirect_to_index(struct evhttp_request *req, const char *uri);
 
 bool
 httpd_admin_check_auth(struct evhttp_request *req);
