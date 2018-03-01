@@ -743,9 +743,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
       output_headers = evhttp_request_get_output_headers(req);
 
       evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
-
-      // Allow only GET method and authorization header in cross origin requests
-      evhttp_add_header(output_headers, "Access-Control-Allow-Method", "GET");
+      evhttp_add_header(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
       evhttp_add_header(output_headers, "Access-Control-Allow-Headers", "authorization");
 
       // In this case there is no reason to go through httpd_send_reply
