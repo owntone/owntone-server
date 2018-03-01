@@ -22,14 +22,30 @@
 #include <stdint.h>
 
 #include "input.h"
+#include "logger.h"
 #include "spotify.h"
+
+// How many retries to start playback if resource is still loading
+#define SPOTIFY_SETUP_RETRIES 5
+// How long to wait between retries in microseconds (500000 = 0.5 seconds)
+#define SPOTIFY_SETUP_RETRY_WAIT 500000
 
 static int
 setup(struct player_source *ps)
 {
+  int i = 0;
   int ret;
 
-  ret = spotify_playback_setup(ps->path);
+  while((ret = spotify_playback_setup(ps->path)) == SPOTIFY_SETUP_ERROR_IS_LOADING)
+    {
+      if (i >= SPOTIFY_SETUP_RETRIES)
+	break;
+
+      DPRINTF(E_DBG, L_SPOTIFY, "Resource still loading (%d)\n", i);
+      usleep(SPOTIFY_SETUP_RETRY_WAIT);
+      i++;
+    }
+
   if (ret < 0)
     return -1;
 

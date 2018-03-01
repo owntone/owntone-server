@@ -604,7 +604,7 @@ playback_setup(void *arg, int *retval)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed: %s\n", fptr_sp_error_message(err));
-      *retval = -1;
+      *retval = (SP_ERROR_IS_LOADING == err) ? SPOTIFY_SETUP_ERROR_IS_LOADING : -1;
       return COMMAND_END;
     }
 
