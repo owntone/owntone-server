@@ -4,8 +4,18 @@ Available API endpoints:
 
 * [Player](#player): control playback, volume, shuffle/repeat modes
 * [Outputs / Speakers](#outputs--speakers): list available outputs and enable/disable outputs
+* [Queue](#queue): list, add or modify the current queue
+* [Library](#library): list playlists, artists, albums and tracks from your library
 * [Server info](#server-info): get server information
 * [Push notifications](#push-notifications): receive push notifications
+
+JSON-Object model:
+
+* [Queue item](#queue-item-object)
+* [Playlist](#playlist-object)
+* [Artist](#artist-object)
+* [Album](#album-object)
+* [Track](#track-object)
 
 ## Player
 
@@ -429,6 +439,574 @@ On success returns the HTTP `204 No Content` success status response code.
 curl -X PUT "http://localhost:3689/api/outputs/0" --data "{\"selected\":true, \"volume\": 50}"
 ```
 
+
+
+## Queue
+
+| Method    | Endpoint                                                    | Description                          |
+| --------- | ----------------------------------------------------------- | ------------------------------------ |
+| GET       | [/api/queue](#list-queue-items)                             | Get a list of queue items            |
+| PUT       | [/api/queue/clear](#clearing-the-queue)                     | Remove all items from the queue      |
+| POST      | [/api/queue/items/add](#adding-items-to-the-queue)          | Add items to the queue               |
+| PUT       | [/api/queue/items/{id}](#moving-a-queue-item)               | Move a queue item in the queue       |
+| DELETE    | [/api/queue/items/{id}](#removing-a-queue-item)             | Remove a queue item form the queue   |
+
+
+
+### List queue items
+
+Lists the items in the current queue
+
+**Endpoint**
+
+```
+GET /api/queue
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| id              | *(Optional)* If a queue item id is given, only the item with the id will be returend. |
+| start           | *(Optional)* If a `start`and an `end` position is given, only the items from `start` (included) to `end` (excluded) will be returned. If only a `start` position is given, only the item at this position will be returned. |
+| end             | *(Optional)* See `start` parameter |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| version         | integer  | Version number of the current queue       |
+| count           | integer  | Number of items in the current queue      |
+| items           | array    | Array of [`queue item`](#queue-item-object) objects |
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/queue"
+```
+
+```
+{
+  "version": 833,
+  "count": 20,
+  "items": [
+    {
+      "id": 12122,
+      "position": 0,
+      "track_id": 10749,
+      "title": "Angels",
+      "artist": "The xx",
+      "artist_sort": "xx, The",
+      "album": "Coexist",
+      "album_sort": "Coexist",
+      "albumartist": "The xx",
+      "albumartist_sort": "xx, The",
+      "genre": "Indie Rock",
+      "year": 2012,
+      "track_number": 1,
+      "disc_number": 1,
+      "length_ms": 171735,
+      "media_kind": "music",
+      "data_kind": "file",
+      "path": "/home/asiate/MusicTest/The xx/Coexist/01 Angels.mp3",
+      "uri": "library:track:10749"
+    },
+    ...
+  ]
+}
+```
+
+
+### Clearing the queue
+
+Remove all items form the current queue
+
+**Endpoint**
+
+```
+PUT /api/queue/clear
+```
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```
+curl -X PUT "http://localhost:3689/api/queue/clear"
+```
+
+
+### Adding items to the queue
+
+Add tracks, playlists artists or albums to the current queue
+
+**Endpoint**
+
+```
+POST /api/queue/items/add
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`) |
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```
+curl -X POST "http://localhost:3689/api/queue/items/add?uris=library:playlist:68,library:artist:2932599850102967727"
+```
+
+
+### Moving a queue item
+
+Move a queue item in the current queue
+
+**Endpoint**
+
+```
+PUT /api/queue/items/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Queue item id        |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| new_position    | The new position for the queue item in the current queue.   |
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```
+curl -X PUT "http://localhost:3689/api/queue/items/3?new_position=0"
+```
+
+
+### Removing a queue item
+
+Remove a queue item from the current queue
+
+**Endpoint**
+
+```
+DELETE /api/queue/items/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Queue item id        |
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```
+curl -X PUT "http://localhost:3689/api/queue/items/2"
+```
+
+
+
+## Library
+
+| Method    | Endpoint                                                    | Description                          |
+| --------- | ----------------------------------------------------------- | ------------------------------------ |
+| GET       | [/api/library/playlists](#list-playlists)                   | Get a list of playlists              |
+| GET       | [/api/library/playlists/{id}/tracks](#list-playlist-tracks) | Get list of tracks for a playlist    |
+| GET       | [/api/library/artists](#list-artists)                       | Get a list of artists                |
+| GET       | [/api/library/artists/{id}/albums](#list-artist-albums)     | Get list of albums for an artist     |
+| GET       | [/api/library/albums](#list-albums)                         | Get a list of albums                 |
+| GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
+
+
+
+### List playlists
+
+Lists the playlists in your library
+
+**Endpoint**
+
+```
+GET /api/library/playlists
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first playlist to return         |
+| limit           | *(Optional)* Maximum number of playlists to return          |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`playlist`](#playlist-object) objects              |
+| total           | integer  | Total number of playlists in the library  |
+| offset          | integer  | Requested offset of the first playlist    |
+| limit           | integer  | Requested maximum number of playlists     |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/playlists"
+```
+
+```
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "radio",
+      "path": "/music/srv/radio.m3u",
+      "smart_playlist": false,
+      "uri": "library:playlist:1"
+    },
+    ...
+  ],
+  "total": 20,
+  "offset": 0,
+  "limit": -1
+}
+```
+
+
+### List playlist tracks
+
+Lists the tracks in a playlists
+
+**Endpoint**
+
+```
+GET /api/library/playlists/{id}/tracks
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Playlist id          |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first track to return            |
+| limit           | *(Optional)* Maximum number of tracks to return             |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`track`](#track-object) objects |
+| total           | integer  | Total number of tracks in the playlist    |
+| offset          | integer  | Requested offset of the first track       |
+| limit           | integer  | Requested maximum number of tracks        |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/playlists/1/tracks"
+```
+
+```
+{
+  "items": [
+    {
+      "id": 10766,
+      "title": "Solange wir tanzen",
+      "artist": "Heinrich",
+      "artist_sort": "Heinrich",
+      "album": "Solange wir tanzen",
+      "album_sort": "Solange wir tanzen",
+      "albumartist": "Heinrich",
+      "albumartist_sort": "Heinrich",
+      "genre": "Electronica",
+      "year": 2014,
+      "track_number": 1,
+      "disc_number": 1,
+      "length_ms": 223085,
+      "play_count": 2,
+      "last_time_played": "2018-02-23T10:31:20Z",
+      "media_kind": "music",
+      "data_kind": "file",
+      "path": "/music/srv/Heinrich/Solange wir tanzen/01 Solange wir tanzen.mp3",
+      "uri": "library:track:10766"
+    },
+    ...
+  ],
+  "total": 20,
+  "offset": 0,
+  "limit": -1
+}
+```
+
+
+### List artists
+
+Lists the artists in your library
+
+**Endpoint**
+
+```
+GET /api/library/artists
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first artist to return           |
+| limit           | *(Optional)* Maximum number of artists to return            |
+
+**Response**
+
+| Key             | Type     | Value                                       |
+| --------------- | -------- | ------------------------------------------- |
+| items           | array    | Array of [`artist`](#artist-object) objects |
+| total           | integer  | Total number of artists in the library      |
+| offset          | integer  | Requested offset of the first artist        |
+| limit           | integer  | Requested maximum number of artists         |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/artists"
+```
+
+```
+{
+  "items": [
+    {
+      "id": "3815427709949443149",
+      "name": "ABAY",
+      "name_sort": "ABAY",
+      "album_count": 1,
+      "track_count": 10,
+      "length_ms": 2951554,
+      "uri": "library:artist:3815427709949443149"
+    },
+    ...
+  ],
+  "total": 20,
+  "offset": 0,
+  "limit": -1
+}
+```
+
+
+### List artist albums
+
+Lists the albums of an artist
+
+**Endpoint**
+
+```
+GET /api/library/artists/{id}/albums
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Artist id            |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first album to return            |
+| limit           | *(Optional)* Maximum number of albums to return             |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`album`](#album-object) objects |
+| total           | integer  | Total number of albums of this artist     |
+| offset          | integer  | Requested offset of the first album       |
+| limit           | integer  | Requested maximum number of albums        |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/artists/32561671101664759/albums"
+```
+
+```
+{
+  "items": [
+    {
+      "id": "8009851123233197743",
+      "name": "Add Violence",
+      "name_sort": "Add Violence",
+      "artist": "Nine Inch Nails",
+      "artist_id": "32561671101664759",
+      "track_count": 5,
+      "length_ms": 1634961,
+      "uri": "library:album:8009851123233197743"
+    },
+    ...
+  ],
+  "total": 20,
+  "offset": 0,
+  "limit": -1
+}
+```
+
+
+### List albums
+
+Lists the albums in your library
+
+**Endpoint**
+
+```
+GET /api/library/albums
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first album to return            |
+| limit           | *(Optional)* Maximum number of albums to return             |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`album`](#album-object) objects |
+| total           | integer  | Total number of albums in the library     |
+| offset          | integer  | Requested offset of the first albums      |
+| limit           | integer  | Requested maximum number of albums        |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/albums"
+```
+
+```
+{
+  "items": [
+    {
+      "id": "8009851123233197743",
+      "name": "Add Violence",
+      "name_sort": "Add Violence",
+      "artist": "Nine Inch Nails",
+      "artist_id": "32561671101664759",
+      "track_count": 5,
+      "length_ms": 1634961,
+      "uri": "library:album:8009851123233197743"
+    },
+    ...
+  ],
+  "total": 20,
+  "offset": 0,
+  "limit": -1
+}
+```
+
+
+### List album tracks
+
+Lists the tracks in an album
+
+**Endpoint**
+
+```
+GET /api/library/albums/{id}/tracks
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Album id             |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first track to return            |
+| limit           | *(Optional)* Maximum number of tracks to return             |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`track`](#track-object) objects |
+| total           | integer  | Total number of tracks                    |
+| offset          | integer  | Requested offset of the first track       |
+| limit           | integer  | Requested maximum number of tracks        |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
+```
+
+```
+{
+  "items": [
+    {
+      "id": 10766,
+      "title": "Solange wir tanzen",
+      "artist": "Heinrich",
+      "artist_sort": "Heinrich",
+      "album": "Solange wir tanzen",
+      "album_sort": "Solange wir tanzen",
+      "albumartist": "Heinrich",
+      "albumartist_sort": "Heinrich",
+      "genre": "Electronica",
+      "year": 2014,
+      "track_number": 1,
+      "disc_number": 1,
+      "length_ms": 223085,
+      "play_count": 2,
+      "last_time_played": "2018-02-23T10:31:20Z",
+      "media_kind": "music",
+      "data_kind": "file",
+      "path": "/music/srv/Heinrich/Solange wir tanzen/01 Solange wir tanzen.mp3",
+      "uri": "library:track:10766"
+    },
+    ...
+  ],
+  "total": 20,
+  "offset": 0,
+  "limit": -1
+}
+```
+
+
+
+
 ## Server info
 
 | Method    | Endpoint                                         | Description                          |
@@ -525,3 +1103,94 @@ curl --include \
   ]
 }
 ```
+
+
+## Object model
+
+
+### `queue item` object
+
+| Key                | Type     | Value                                     |
+| ------------------ | -------- | ----------------------------------------- |
+| id                 | string   | Item id                                   |
+| position           | integer  | Position in the queue (starting with zero) |
+| track_id           | string   | Track id                                   |
+| title              | string   | Title                                     |
+| artist             | string   | Track artist name                         |
+| artist_sort        | string   | Track artist sort name                    |
+| album              | string   | Album name                                |
+| album_sort         | string   | Album sort name                           |
+| album_artist       | string   | Album artist name                         |
+| album_artist_sort  | string   | Album artist sort name                    |
+| genre              | string   | Genre                                     |
+| year               | integer  | Release year                              |
+| track_number       | integer  | Track number                              |
+| disc_number        | integer  | Disc number                               |
+| length_ms          | integer  | Track length in milliseconds              |
+| media_kind         | string   | Media type of this track: `music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow` |
+| data_kind          | string   | Data type of this track: `file`, `url`, `spotify`, `pipe` |
+| path               | string   | Path                                      |
+| uri                | string   | Resource identifier                       |
+
+
+### `playlist` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| id              | string   | Playlist id                               |
+| name            | string   | Playlist name                             |
+| path            | string   | Path                                      |
+| smart_playlist  | boolean  | `true` if playlist is a smart playlist   |
+| uri             | string   | Resource identifier                       |
+
+
+### `artist` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| id              | string   | Artist id                                 |
+| name            | string   | Artist name                               |
+| name_sort       | string   | Artist sort name                          |
+| album_count     | integer  | Number of albums                          |
+| track_count     | integer  | Number of tracks                          |
+| length_ms       | integer  | Total length of tracks in milliseconds    |
+| uri             | string   | Resource identifier                       |
+
+
+### `album` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| id              | string   | Album id                                  |
+| name            | string   | Album name                                |
+| name_sort       | string   | Album sort name                           |
+| artist_id       | string   | Album artist id                           |
+| artist          | string   | Album artist name                         |
+| track_count     | integer  | Number of tracks                          |
+| length_ms       | integer  | Total length of tracks in milliseconds    |
+| uri             | string   | Resource identifier                       |
+
+
+### `track` object
+
+| Key                | Type     | Value                                     |
+| ------------------ | -------- | ----------------------------------------- |
+| id                 | string   | Track id                                  |
+| title              | string   | Title                                     |
+| artist             | string   | Track artist name                         |
+| artist_sort        | string   | Track artist sort name                    |
+| album              | string   | Album name                                |
+| album_sort         | string   | Album sort name                           |
+| album_artist       | string   | Album artist name                         |
+| album_artist_sort  | string   | Album artist sort name                    |
+| genre              | string   | Genre                                     |
+| year               | integer  | Release year                              |
+| track_number       | integer  | Track number                              |
+| disc_number        | integer  | Disc number                               |
+| length_ms          | integer  | Track length in milliseconds              |
+| play_count         | integer  | How many times the track was played       |
+| time_played        | string   | The timestamp in `ISO 8601` format      |
+| media_kind         | string   | Media type of this track: `music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow` |
+| data_kind          | string   | Data type of this track: `file`, `stream`, `spotify`, `pipe` |
+| path               | string   | Path                                      |
+| uri                | string   | Resource identifier                       |
