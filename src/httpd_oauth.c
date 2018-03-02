@@ -33,7 +33,7 @@
 #include "misc.h"
 #include "conffile.h"
 #ifdef HAVE_SPOTIFY_H
-# include "spotify.h"
+# include "spotify_webapi.h"
 #endif
 
 
@@ -51,7 +51,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
   httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
   snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
-  ret = spotify_oauth_callback(hreq->query, redirect_uri, &errmsg);
+  ret = spotifywebapi_oauth_callback(hreq->query, redirect_uri, &errmsg);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback: '%s'\n", hreq->uri_parsed->uri);
