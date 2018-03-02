@@ -626,6 +626,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   char redirect_uri[256];
   char *oauth_uri;
   struct spotify_status_info info;
+  struct spotifywebapi_status_info webapi_info;
 
   json_object_object_add(jreply, "enabled", json_object_new_boolean(true));
 
@@ -647,8 +648,10 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(info.libspotify_installed));
   json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(info.libspotify_logged_in));
   json_object_object_add(jreply, "libspotify_user", json_object_new_string(info.libspotify_user));
-  json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(info.webapi_token_valid));
-  json_object_object_add(jreply, "webapi_user", json_object_new_string(info.webapi_user));
+
+  spotifywebapi_status_info_get(&webapi_info);
+  json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(webapi_info.token_valid));
+  json_object_object_add(jreply, "webapi_user", json_object_new_string(webapi_info.user));
 
 #else
   json_object_object_add(jreply, "enabled", json_object_new_boolean(false));

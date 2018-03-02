@@ -13,9 +13,6 @@ struct spotify_status_info
   bool libspotify_installed;
   bool libspotify_logged_in;
   char libspotify_user[100];
-
-  bool webapi_token_valid;
-  char webapi_user[100];
 };
 
 int
@@ -42,11 +39,8 @@ spotify_playback_seek(int ms);
 int
 spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h);
 
-void
-spotify_oauth_interface(struct evbuffer *evbuf, const char *redirect_uri);
-
 int
-spotify_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, char **errmsg);
+spotify_relogin();
 
 int
 spotify_login_user(const char *user, const char *password, char **errmsg);
@@ -56,6 +50,9 @@ spotify_login(char **arglist);
 
 void
 spotify_status_info_get(struct spotify_status_info *info);
+
+void
+spotify_uri_register(const char *uri);
 
 int
 spotify_init(void);
