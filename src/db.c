@@ -4624,30 +4624,6 @@ db_queue_get_pos(uint32_t item_id, char shuffle)
 #undef Q_TMPL_SHUFFLE
 }
 
-int
-db_queue_get_pos_byfileid(uint32_t file_id, char shuffle)
-{
-#define Q_TMPL "SELECT pos FROM queue WHERE file_id = %d LIMIT 1;"
-#define Q_TMPL_SHUFFLE "SELECT shuffle_pos FROM queue WHERE file_id = %d LIMIT 1;"
-
-  char *query;
-  int pos;
-
-  if (shuffle)
-    query = sqlite3_mprintf(Q_TMPL_SHUFFLE, file_id);
-  else
-    query = sqlite3_mprintf(Q_TMPL, file_id);
-
-  pos = db_get_one_int(query);
-
-  sqlite3_free(query);
-
-  return pos;
-
-#undef Q_TMPL
-#undef Q_TMPL_SHUFFLE
-}
-
 static int
 queue_fetch_byitemid(uint32_t item_id, struct db_queue_item *queue_item, int with_metadata)
 {
