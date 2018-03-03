@@ -3868,7 +3868,7 @@ admin_get(const char *key, short type, void *value)
   ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_WARN, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_free(query);
       return -1;
@@ -3880,7 +3880,7 @@ admin_get(const char *key, short type, void *value)
       if (ret == SQLITE_DONE)
 	DPRINTF(E_DBG, L_DB, "No results\n");
       else
-	DPRINTF(E_WARN, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
@@ -3942,7 +3942,7 @@ db_admin_get(const char *key)
   ret = admin_get(key, DB_TYPE_STRING, &value);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DB, "Error reading admin value: %s\n", key);
+      DPRINTF(E_DBG, L_DB, "Could not find key '%s' in admin table\n", key);
       return NULL;
     }
 
@@ -3958,7 +3958,7 @@ db_admin_getint(const char *key)
   ret = admin_get(key, DB_TYPE_INT, &value);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DB, "Error reading admin value: %s\n", key);
+      DPRINTF(E_DBG, L_DB, "Could not find key '%s' in admin table\n", key);
       return 0;
     }
 
@@ -3974,7 +3974,7 @@ db_admin_getint64(const char *key)
   ret = admin_get(key, DB_TYPE_INT64, &value);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DB, "Error reading admin value: %s\n", key);
+      DPRINTF(E_DBG, L_DB, "Could not find key '%s' in admin table\n", key);
       return 0;
     }
 
