@@ -23,7 +23,7 @@ An expression consists of:
 field-name operator operand
 ```
 
-Where valid field-names (with there types) are:
+Where valid field-names (with their types) are:
 * artist (string)
 * album_artist (string)
 * album (string)
