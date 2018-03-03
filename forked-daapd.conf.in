@@ -204,7 +204,7 @@ audio {
 	# If not set, the value for "card" will be used.
 #	mixer_device = ""
 
-	# Syncronization
+	# Synchronization
 	# If your local audio is out of sync with AirPlay, you can adjust this
 	# value. Positive values correspond to moving local audio ahead,
 	# negative correspond to delaying it. The unit is samples, where is
