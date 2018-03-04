@@ -27,6 +27,7 @@ EXTRA_DIST = \
 install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)/libspotify"
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/log"
+	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run"
 
 CLEANFILES = $(BUILT_SOURCES)
 
