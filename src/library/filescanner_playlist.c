@@ -36,6 +36,7 @@
 #include "db.h"
 #include "library/filescanner.h"
 #include "misc.h"
+#include "conffile.h"
 #include "library.h"
 
 /* Formats we can read so far */
@@ -77,10 +78,27 @@ process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_
 {
   char virtual_path[PATH_MAX];
   char *pos;
+  char *preserve_artist;
+  char *preserve_title;
   int ret;
+  int m3u_overrides;
+
+  m3u_overrides = cfg_getbool(cfg_getsec(cfg, "library"), "m3u_overrides");
+  preserve_artist = NULL;
+  preserve_title  = NULL;
 
   if (extinf)
-    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi->artist, mfi->title);
+    {
+      DPRINTF(E_INFO, L_SCAN, "Playlist '%s' has EXTINF metadata, artist is '%s', title is '%s'\n", path, mfi->artist, mfi->title);
+
+      if (m3u_overrides)
+	{
+	  preserve_artist = mfi->artist;
+	  preserve_title  = mfi->title;
+	  mfi->artist = NULL;
+	  mfi->title  = NULL;
+	}
+    }
 
   mfi->id = db_file_id_bypath(path);
   mfi->path = strdup(path);
@@ -102,6 +120,14 @@ process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_
       mfi->type = strdup("mp3");
       mfi->codectype = strdup("mpeg");
       mfi->description = strdup("MPEG audio file");
+    }
+
+  if (m3u_overrides && (preserve_artist || preserve_title))
+    {
+      free(mfi->artist);
+      free(mfi->title);
+      mfi->artist = preserve_artist;
+      mfi->title  = preserve_title;
     }
 
   if (!mfi->title)

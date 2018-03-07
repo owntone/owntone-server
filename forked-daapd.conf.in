@@ -155,6 +155,10 @@ library {
 	# to trigger a rescan.
 #	filescan_disable = false
 
+	# Should artists and titles in M3U playlists that contain internet radio
+	# URL's override what we get by querying the radio station?
+#	m3u_overrides = false
+
 	# Should iTunes metadata override ours?
 #	itunes_overrides = false
 
