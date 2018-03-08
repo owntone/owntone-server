@@ -1703,7 +1703,10 @@ dacp_reply_playqueuecontents(struct httpd_request *hreq)
 	    {
 	      ret = playqueuecontents_add_queue_item(songlist, &queue_item, count, status.plid);
 	      if (ret < 0)
-		goto error;
+		{
+		  db_queue_enum_end(&qp);
+		  goto error;
+		}
 
 	      count++;
 	    }

@@ -815,9 +815,6 @@ db_queue_get_count();
 int
 db_queue_get_pos(uint32_t item_id, char shuffle);
 
-int
-db_queue_get_pos_byfileid(uint32_t file_id, char shuffle);
-
 /* Inotify */
 int
 db_watch_clear(void);
