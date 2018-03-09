@@ -55,27 +55,6 @@
 #include "input.h"
 #include "listener.h"
 
-/* TODO for the web api:
- * - map "added_at" to time_added
- * - what to do about the lack of push?
- * - use the web api more, implement proper init
-*/
-
-/* A few words on our reloading sequence of saved tracks
- *
- *   1. libspotify will not tell us about the user's saved tracks when loading
- *      so we keep track of them with the special playlist spotify:savedtracks.
- *   2. spotify_login will copy all paths in spotify:savedtracks to a temporary
- *      spotify_reload_list before all Spotify items in the database get purged.
- *   3. when the connection to Spotify is established after login, we register
- *      all the paths with libspotify, and we also add them back to the
- *      spotify:savedtracks playlist - however, that's just for the
- *      playlistsitems table. Adding the items to the files table is done when
- *      libspotify calls back with metadata - see spotify_pending_process().
- *   4. if the user reloads saved tracks, we first clear all items in the
- *      playlist, then add those back that are returned from the web api, and
- *      then use our normal cleanup of stray files to tidy db and cache.
- */
 
 // How long to wait for artwork (in sec) before giving up
 #define SPOTIFY_ARTWORK_TIMEOUT 3
