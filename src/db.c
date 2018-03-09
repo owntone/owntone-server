@@ -32,6 +32,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <unictype.h>
+#include <uninorm.h>
+#include <unistr.h>
 #include <sys/mman.h>
 #include <limits.h>
 
@@ -639,6 +642,324 @@ unicode_fixup_mfi(struct media_file_info *mfi)
 	  *field = ret;
 	}
     }
+}
+
+static void
+sort_tag_create(char **sort_tag, char *src_tag)
+{
+  const uint8_t *i_ptr;
+  const uint8_t *n_ptr;
+  const uint8_t *number;
+  uint8_t out[1024];
+  uint8_t *o_ptr;
+  int append_number;
+  ucs4_t puc;
+  int numlen;
+  size_t len;
+  int charlen;
+
+  /* Note: include terminating NUL in string length for u8_normalize */
+
+  if (*sort_tag)
+    {
+      DPRINTF(E_DBG, L_LIB, "Existing sort tag will be normalized: %s\n", *sort_tag);
+      o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
+      free(*sort_tag);
+      *sort_tag = (char *)o_ptr;
+      return;
+    }
+
+  if (!src_tag || ((len = strlen(src_tag)) == 0))
+    {
+      *sort_tag = NULL;
+      return;
+    }
+
+  // Set input pointer past article if present
+  if ((strncasecmp(src_tag, "a ", 2) == 0) && (len > 2))
+    i_ptr = (uint8_t *)(src_tag + 2);
+  else if ((strncasecmp(src_tag, "an ", 3) == 0) && (len > 3))
+    i_ptr = (uint8_t *)(src_tag + 3);
+  else if ((strncasecmp(src_tag, "the ", 4) == 0) && (len > 4))
+    i_ptr = (uint8_t *)(src_tag + 4);
+  else
+    i_ptr = (uint8_t *)src_tag;
+
+  // Poor man's natural sort. Makes sure we sort like this: a1, a2, a10, a11, a21, a111
+  // We do this by padding zeroes to (short) numbers. As an alternative we could have
+  // made a proper natural sort algorithm in sqlext.c, but we don't, since we don't
+  // want any risk of hurting response times
+  memset(&out, 0, sizeof(out));
+  o_ptr = (uint8_t *)&out;
+  number = NULL;
+  append_number = 0;
+
+  do
+    {
+      n_ptr = u8_next(&puc, i_ptr);
+
+      if (uc_is_digit(puc))
+	{
+	  if (!number) // We have encountered the beginning of a number
+	    number = i_ptr;
+	  append_number = (n_ptr == NULL); // If last char in string append number now
+	}
+      else
+	{
+	  if (number)
+	    append_number = 1; // A number has ended so time to append it
+	  else
+	    {
+              charlen = u8_strmblen(i_ptr);
+              if (charlen >= 0)
+	    	o_ptr = u8_stpncpy(o_ptr, i_ptr, charlen); // No numbers in sight, just append char
+	    }
+	}
+
+      // Break if less than 100 bytes remain (prevent buffer overflow)
+      if (sizeof(out) - u8_strlen(out) < 100)
+	break;
+
+      // Break if number is very large (prevent buffer overflow)
+      if (number && (i_ptr - number > 50))
+	break;
+
+      if (append_number)
+	{
+	  numlen = i_ptr - number;
+	  if (numlen < 5) // Max pad width
+	    {
+	      u8_strcpy(o_ptr, (uint8_t *)"00000");
+	      o_ptr += (5 - numlen);
+	    }
+	  o_ptr = u8_stpncpy(o_ptr, number, numlen + u8_strmblen(i_ptr));
+
+	  number = NULL;
+	  append_number = 0;
+	}
+
+      i_ptr = n_ptr;
+    }
+  while (n_ptr);
+
+  *sort_tag = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)&out, u8_strlen(out) + 1, NULL, &len);
+}
+
+void
+fixup_tags_mfi(struct media_file_info *mfi)
+{
+  cfg_t *lib;
+  size_t len;
+  char *tag;
+  char *sep = " - ";
+  char *ca;
+
+  if (mfi->genre && (strlen(mfi->genre) == 0))
+    {
+      free(mfi->genre);
+      mfi->genre = NULL;
+    }
+
+  if (mfi->artist && (strlen(mfi->artist) == 0))
+    {
+      free(mfi->artist);
+      mfi->artist = NULL;
+    }
+
+  if (mfi->title && (strlen(mfi->title) == 0))
+    {
+      free(mfi->title);
+      mfi->title = NULL;
+    }
+
+  /*
+   * Default to mpeg4 video/audio for unknown file types
+   * in an attempt to allow streaming of DRM-afflicted files
+   */
+  if (mfi->codectype && strcmp(mfi->codectype, "unkn") == 0)
+    {
+      if (mfi->has_video)
+	{
+	  strcpy(mfi->codectype, "mp4v");
+	  strcpy(mfi->type, "m4v");
+	}
+      else
+	{
+	  strcpy(mfi->codectype, "mp4a");
+	  strcpy(mfi->type, "m4a");
+	}
+    }
+
+  if (!mfi->artist)
+    {
+      if (mfi->orchestra && mfi->conductor)
+	{
+	  len = strlen(mfi->orchestra) + strlen(sep) + strlen(mfi->conductor);
+	  tag = (char *)malloc(len + 1);
+	  if (tag)
+	    {
+	      sprintf(tag,"%s%s%s", mfi->orchestra, sep, mfi->conductor);
+	      mfi->artist = tag;
+            }
+        }
+      else if (mfi->orchestra)
+	{
+	  mfi->artist = strdup(mfi->orchestra);
+        }
+      else if (mfi->conductor)
+	{
+	  mfi->artist = strdup(mfi->conductor);
+        }
+    }
+
+  /* Handle TV shows, try to present prettier metadata */
+  if (mfi->tv_series_name && strlen(mfi->tv_series_name) != 0)
+    {
+      mfi->media_kind = MEDIA_KIND_TVSHOW;  /* tv show */
+
+      /* Default to artist = series_name */
+      if (mfi->artist && strlen(mfi->artist) == 0)
+	{
+	  free(mfi->artist);
+	  mfi->artist = NULL;
+	}
+
+      if (!mfi->artist)
+	mfi->artist = strdup(mfi->tv_series_name);
+
+      /* Default to album = "<series_name>, Season <season_num>" */
+      if (mfi->album && strlen(mfi->album) == 0)
+	{
+	  free(mfi->album);
+	  mfi->album = NULL;
+	}
+
+      if (!mfi->album)
+	{
+	  len = snprintf(NULL, 0, "%s, Season %u", mfi->tv_series_name, mfi->tv_season_num);
+
+	  mfi->album = (char *)malloc(len + 1);
+	  if (mfi->album)
+	    sprintf(mfi->album, "%s, Season %u", mfi->tv_series_name, mfi->tv_season_num);
+	}
+    }
+
+  /* Check the 4 top-tags are filled */
+  if (!mfi->artist)
+    mfi->artist = strdup("Unknown artist");
+  if (!mfi->album)
+    mfi->album = strdup("Unknown album");
+  if (!mfi->genre)
+    mfi->genre = strdup("Unknown genre");
+  if (!mfi->title)
+    {
+      /* fname is left untouched by unicode_fixup_mfi() for
+       * obvious reasons, so ensure it is proper UTF-8
+       */
+      mfi->title = unicode_fixup_string(mfi->fname, "ascii");
+      if (mfi->title == mfi->fname)
+	mfi->title = strdup(mfi->fname);
+    }
+
+  /* Ensure sort tags are filled, manipulated and normalized */
+  sort_tag_create(&mfi->artist_sort, mfi->artist);
+  sort_tag_create(&mfi->album_sort, mfi->album);
+  sort_tag_create(&mfi->title_sort, mfi->title);
+
+  /* We need to set album_artist according to media type and config */
+  if (mfi->compilation)          /* Compilation */
+    {
+      lib = cfg_getsec(cfg, "library");
+      ca = cfg_getstr(lib, "compilation_artist");
+      if (ca && mfi->album_artist)
+	{
+	  free(mfi->album_artist);
+	  mfi->album_artist = strdup(ca);
+	}
+      else if (ca && !mfi->album_artist)
+	{
+	  mfi->album_artist = strdup(ca);
+	}
+      else if (!ca && !mfi->album_artist)
+	{
+	  mfi->album_artist = strdup("");
+	  mfi->album_artist_sort = strdup("");
+	}
+    }
+  else if (mfi->media_kind == MEDIA_KIND_PODCAST) /* Podcast */
+    {
+      if (mfi->album_artist)
+	free(mfi->album_artist);
+      mfi->album_artist = strdup("");
+      mfi->album_artist_sort = strdup("");
+    }
+  else if (!mfi->album_artist)   /* Regular media without album_artist */
+    {
+      mfi->album_artist = strdup(mfi->artist);
+    }
+
+  if (!mfi->album_artist_sort && (strcmp(mfi->album_artist, mfi->artist) == 0))
+    mfi->album_artist_sort = strdup(mfi->artist_sort);
+  else
+    sort_tag_create(&mfi->album_artist_sort, mfi->album_artist);
+
+  /* Composer is not one of our mandatory tags, so take extra care */
+  if (mfi->composer_sort || mfi->composer)
+    sort_tag_create(&mfi->composer_sort, mfi->composer);
+}
+
+static void
+fixup_tags_queue_item(struct db_queue_item *queue_item)
+{
+  if (queue_item->genre && (strlen(queue_item->genre) == 0))
+    {
+      free(queue_item->genre);
+      queue_item->genre = NULL;
+    }
+
+  if (queue_item->artist && (strlen(queue_item->artist) == 0))
+    {
+      free(queue_item->artist);
+      queue_item->artist = NULL;
+    }
+
+  if (queue_item->title && (strlen(queue_item->title) == 0))
+    {
+      free(queue_item->title);
+      queue_item->title = NULL;
+    }
+
+  /* Check the 4 top-tags are filled */
+  if (!queue_item->artist)
+    queue_item->artist = strdup("Unknown artist");
+  if (!queue_item->album)
+    queue_item->album = strdup("Unknown album");
+  if (!queue_item->genre)
+    queue_item->genre = strdup("Unknown genre");
+  if (!queue_item->title)
+    queue_item->title = strdup(queue_item->path);
+
+  /* Ensure sort tags are filled, manipulated and normalized */
+  sort_tag_create(&queue_item->artist_sort, queue_item->artist);
+  sort_tag_create(&queue_item->album_sort, queue_item->album);
+
+  /* We need to set album_artist according to media type and config */
+  if (queue_item->media_kind == MEDIA_KIND_PODCAST) /* Podcast */
+    {
+      if (queue_item->album_artist)
+	free(queue_item->album_artist);
+      queue_item->album_artist = strdup("");
+      queue_item->album_artist_sort = strdup("");
+    }
+  else if (!queue_item->album_artist)   /* Regular media without album_artist */
+    {
+      queue_item->album_artist = strdup(queue_item->artist);
+    }
+
+  if (!queue_item->album_artist_sort && (strcmp(queue_item->album_artist, queue_item->artist) == 0))
+    queue_item->album_artist_sort = strdup(queue_item->artist_sort);
+  else
+    sort_tag_create(&queue_item->album_artist_sort, queue_item->album_artist);
 }
 
 
@@ -4219,6 +4540,38 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos, int q
 #undef Q_TMPL
 }
 
+static int
+queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_version)
+{
+#define Q_TMPL "INSERT INTO queue "							\
+		    "(id, file_id, song_length, data_kind, media_kind, "		\
+		    "pos, shuffle_pos, path, virtual_path, title, "			\
+		    "artist, album_artist, album, genre, songalbumid, "			\
+		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
+		    "track, disc, queue_version)" 					\
+		"VALUES"                                           			\
+		    "(NULL, %d, %d, %d, %d, "						\
+		    "%d, %d, %Q, %Q, %Q, "						\
+		    "%Q, %Q, %Q, %Q, %" PRIi64 ", "					\
+		    "%d, %Q, %Q, %Q, %d, "						\
+		    "%d, %d, %d);"
+
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL,
+			  item->file_id, item->song_length, item->data_kind, item->media_kind,
+			  pos, pos, item->path, item->virtual_path, item->title,
+			  item->artist, item->album_artist, item->album, item->genre, item->songalbumid,
+			  item->time_modified, item->artist_sort, item->album_sort, item->album_artist_sort, item->year,
+			  item->track, item->disc, queue_version);
+  ret = db_query_run(query, 1, 0);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
 int
 db_queue_update_item(struct db_queue_item *qi)
 {
@@ -4335,6 +4688,46 @@ db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
   queue_transaction_end(ret, queue_version);
 
   return ret;
+}
+
+int
+db_queue_add_start(struct db_queue_add_info *queue_add_info)
+{
+  int ret = 0;
+
+  memset(queue_add_info, 0, sizeof(struct db_queue_add_info));
+  queue_add_info->queue_version = queue_transaction_begin();
+
+  queue_add_info->pos = db_queue_get_count();
+  if (queue_add_info->pos < 0)
+    {
+      ret = -1;
+      queue_transaction_end(ret, queue_add_info->queue_version);
+      return ret;
+    }
+
+   return 0;
+}
+
+void
+db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret)
+{
+  queue_transaction_end(ret, queue_add_info->queue_version);
+}
+
+int
+db_queue_add_item(struct db_queue_add_info *queue_add_info, struct db_queue_item *item)
+{
+  int ret;
+
+  fixup_tags_queue_item(item);
+  ret = queue_add_item(item, queue_add_info->pos, queue_add_info->pos, queue_add_info->queue_version);
+  if (ret == 0)
+    queue_add_info->pos++;
+
+  return ret;
+
+#undef Q_TMPL
 }
 
 /*
@@ -4463,63 +4856,6 @@ db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
   ret = db_queue_add_by_query(&qp, reshuffle, item_id);
 
   return ret;
-}
-
-int
-db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t item_id)
-{
-#define Q_TMPL "INSERT INTO queue "							\
-		    "(id, file_id, song_length, data_kind, media_kind, "		\
-		    "pos, shuffle_pos, path, virtual_path, title, "			\
-		    "artist, album_artist, album, genre, songalbumid, "			\
-		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
-		    "track, disc, queue_version)" 					\
-		"VALUES"                                           			\
-		    "(NULL, %d, %d, %d, %d, "						\
-		    "%d, %d, %Q, %Q, %Q, "						\
-		    "%Q, %Q, %Q, %Q, %d, "						\
-		    "%d, %Q, %Q, %Q, %d, "						\
-		    "%d, %d, %d);"
-
-  int queue_version;
-  char *query;
-  int pos;
-  int new_item_id = 0; // Quell compiler warning about uninitialized use of new_item_id
-  int ret;
-
-  queue_version = queue_transaction_begin();
-
-  pos = db_queue_get_count();
-  if (pos < 0)
-    {
-      ret = -1;
-      goto end_transaction;
-    }
-
-  query = sqlite3_mprintf(Q_TMPL,
-			  queue_item->file_id, queue_item->song_length, queue_item->data_kind, queue_item->media_kind,
-			  pos, pos, queue_item->path, queue_item->virtual_path, queue_item->title,
-			  queue_item->artist, queue_item->album_artist, queue_item->album, queue_item->genre, queue_item->songalbumid,
-			  queue_item->time_modified, queue_item->artist_sort, queue_item->album_sort, queue_item->album_artist_sort, queue_item->year,
-			  queue_item->track, queue_item->disc, queue_version);
-  ret = db_query_run(query, 1, 0);
-  if (ret < 0)
-    goto end_transaction;
-
-  new_item_id = (int) sqlite3_last_insert_rowid(hdl);
-
-  // Reshuffle after adding new items
-  if (reshuffle)
-    {
-      ret = queue_reshuffle(item_id, queue_version);
-    }
-
- end_transaction:
-  queue_transaction_end(ret, queue_version);
-
-  return (ret == 0) ? new_item_id : ret;
-
-#undef Q_TMPL
 }
 
 static int

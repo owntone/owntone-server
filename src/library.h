@@ -67,11 +67,6 @@ struct library_source
   int (*fullrescan)(void);
 
   /*
-   * Scans metadata for the media file with the given path into the given mfi
-   */
-  int (*scan_metadata)(const char *path, struct media_file_info *mfi);
-
-  /*
    * Save queue as a new playlist under the given virtual path
    */
   int (*playlist_add)(const char *vp_playlist, const char *vp_item);
@@ -85,8 +80,12 @@ struct library_source
    * Save queue as a new playlist under the given virtual path
    */
   int (*queue_save)(const char *virtual_path);
-};
 
+  /*
+   * Add item for the given path to the current queue
+   */
+  int (*queue_add)(const char *path);
+};
 
 void
 library_add_media(struct media_file_info *mfi);
@@ -95,10 +94,7 @@ int
 library_add_playlist_info(const char *path, const char *title, const char *virtual_path, enum pl_type type, int parent_pl_id, int dir_id);
 
 int
-library_scan_media(const char *path, struct media_file_info *mfi);
-
-int
-library_add_queue_item(struct media_file_info *mfi);
+library_queue_add(const char *path);
 
 void
 library_rescan();

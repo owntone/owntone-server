@@ -1643,39 +1643,102 @@ filescanner_fullrescan()
   return 0;
 }
 
-static int
-scan_metadata(const char *path, struct media_file_info *mfi)
+static void
+map_media_file_to_queue_item(struct db_queue_item *queue_item, struct media_file_info *mfi)
 {
+  memset(queue_item, 0, sizeof(struct db_queue_item));
+
+  if (mfi->id)
+    queue_item->file_id = mfi->id;
+  else
+    queue_item->file_id = 9999999;
+
+  queue_item->title = safe_strdup(mfi->title);
+  queue_item->artist = safe_strdup(mfi->artist);
+  queue_item->album_artist = safe_strdup(mfi->album_artist);
+  queue_item->album = safe_strdup(mfi->album);
+  queue_item->genre = safe_strdup(mfi->genre);
+  queue_item->artist_sort = safe_strdup(mfi->artist_sort);
+  queue_item->album_artist_sort = safe_strdup(mfi->album_artist_sort);
+  queue_item->album_sort = safe_strdup(mfi->album_sort);
+  queue_item->path = safe_strdup(mfi->path);
+  queue_item->virtual_path = safe_strdup(mfi->virtual_path);
+  queue_item->data_kind = mfi->data_kind;
+  queue_item->media_kind = mfi->media_kind;
+  queue_item->song_length = mfi->song_length;
+  queue_item->seek = mfi->seek;
+  queue_item->songalbumid = mfi->songalbumid;
+  queue_item->time_modified = mfi->time_modified;
+  queue_item->year = mfi->year;
+  queue_item->track = mfi->track;
+  queue_item->disc = mfi->disc;
+  //queue_item->artwork_url
+}
+
+static int
+queue_add_stream(const char *path)
+{
+  struct media_file_info mfi;
   char *pos;
+  struct db_queue_item item;
+  struct db_queue_add_info queue_add_info;
   int ret;
 
-  if (strncasecmp(path, "http://", strlen("http://")) == 0)
+  memset(&mfi, 0, sizeof(struct media_file_info));
+  mfi.path = strdup(path);
+  mfi.virtual_path = safe_asprintf("/%s", mfi.path);
+
+  pos = strchr(path, '#');
+  if (pos)
+    mfi.fname = strdup(pos+1);
+  else
+    mfi.fname = strdup(filename_from_path(mfi.path));
+
+  mfi.data_kind = DATA_KIND_HTTP;
+  mfi.directory_id = DIR_HTTP;
+
+  ret = scan_metadata_ffmpeg(path, &mfi);
+  if (ret < 0)
     {
-      memset(mfi, 0, sizeof(struct media_file_info));
-      mfi->path = strdup(path);
-      mfi->virtual_path = safe_asprintf("/%s", mfi->path);
+      DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
+      mfi.type = strdup("mp3");
+      mfi.codectype = strdup("mpeg");
+      mfi.description = strdup("MPEG audio file");
+    }
 
-      pos = strchr(path, '#');
-      if (pos)
-	mfi->fname = strdup(pos+1);
-      else
-	mfi->fname = strdup(filename_from_path(mfi->path));
+  if (!mfi.title)
+    mfi.title = strdup(mfi.fname);
 
-      mfi->data_kind = DATA_KIND_HTTP;
-      mfi->directory_id = DIR_HTTP;
+  if (!mfi.virtual_path)
+    mfi.virtual_path = strdup(mfi.path);
+  if (!mfi.item_kind)
+    mfi.item_kind = 2; /* music */
+  if (!mfi.media_kind)
+    mfi.media_kind = MEDIA_KIND_MUSIC; /* music */
 
-      ret = scan_metadata_ffmpeg(path, mfi);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
-	  mfi->type = strdup("mp3");
-	  mfi->codectype = strdup("mpeg");
-	  mfi->description = strdup("MPEG audio file");
-	}
+  unicode_fixup_mfi(&mfi);
 
-      if (!mfi->title)
-	mfi->title = strdup(mfi->fname);
+  map_media_file_to_queue_item(&item, &mfi);
 
+  ret = db_queue_add_start(&queue_add_info);
+  if (ret == 0)
+    {
+      ret = db_queue_add_item(&queue_add_info, &item);
+      db_queue_add_end(&queue_add_info, ret);
+    }
+
+  free_queue_item(&item, 1);
+  free_mfi(&mfi, 1);
+
+  return 0;
+}
+
+static int
+queue_add(const char *uri)
+{
+  if (strncasecmp(uri, "http://", strlen("http://")) == 0)
+    {
+      queue_add_stream(uri);
       return LIBRARY_OK;
     }
 
@@ -2052,8 +2115,8 @@ struct library_source filescanner =
   .initscan = filescanner_initscan,
   .rescan = filescanner_rescan,
   .fullrescan = filescanner_fullrescan,
-  .scan_metadata = scan_metadata,
   .playlist_add = playlist_add,
   .playlist_remove = playlist_remove,
   .queue_save = queue_save,
+  .queue_add = queue_add,
 };
