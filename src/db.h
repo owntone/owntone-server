@@ -454,6 +454,12 @@ struct db_queue_item
   uint32_t queue_version;
 };
 
+struct db_queue_add_info
+{
+  int queue_version;
+  int pos;
+};
+
 char *
 db_escape_string(const char *str); // TODO Remove this, use db_mprintf instead
 
@@ -483,6 +489,9 @@ free_queue_item(struct db_queue_item *queue_item, int content_only);
 
 void
 unicode_fixup_mfi(struct media_file_info *mfi);
+
+void
+fixup_tags_mfi(struct media_file_info *mfi);
 
 /* Maintenance and DB hygiene */
 void
@@ -764,7 +773,13 @@ int
 db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id);
 
 int
-db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t item_id);
+db_queue_add_start(struct db_queue_add_info *queue_add_info);
+
+void
+db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret);
+
+int
+db_queue_add_item(struct db_queue_add_info *queue_add_info, struct db_queue_item *item);
 
 int
 db_queue_enum_start(struct query_params *qp);
