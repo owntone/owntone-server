@@ -1373,6 +1373,15 @@ daap_reply_plsonglist(struct httpd_request *hreq)
       return DAAP_REPLY_ERROR;
     }
 
+  // This is a work-around for Remote for iTunes that for unknown reasons
+  // sometimes requests playlist 0
+  if (playlist == 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Client '%s' made invalid request for playlist 0, returning playlist 1\n", hreq->user_agent);
+
+      playlist = 1;
+    }
+
   return daap_reply_songlist_generic(hreq, playlist);
 }
 
