@@ -462,7 +462,7 @@ request_endpoint_with_token_refresh(const char *href)
 }
 
 typedef int (*paging_request_cb)(void *arg);
-typedef int (*paging_item_cb)(json_object *item, int index, void *arg);
+typedef int (*paging_item_cb)(json_object *item, int index, int total, void *arg);
 
 /*
  * Request the spotify endpoint at 'href'
@@ -499,6 +499,8 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
   json_object *item;
   int count;
   int i;
+  int offset;
+  int total;
   int ret;
 
   next_href = safe_strdup(href);
@@ -524,6 +526,9 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
       free(next_href);
       next_href = safe_strdup(jparse_str_from_obj(response, "next"));
 
+      offset = jparse_int_from_obj(response, "offset");
+      total = jparse_int_from_obj(response, "total");
+
       if (jparse_array_from_obj(response, "items", &items) == 0)
         {
 	  count = json_object_array_length(items);
@@ -537,7 +542,7 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
 		  continue;
 		}
 
-	      ret = item_cb(item, i, arg);
+	      ret = item_cb(item, (i + offset), total, arg);
 	      if (ret < 0)
 		{
 		  DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: error processing item at index %d '%s' (API endpoint: '%s')\n",
@@ -999,7 +1004,7 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
  * Add a saved album to the library
  */
 static int
-saved_album_add(json_object *item, int index, void *arg)
+saved_album_add(json_object *item, int index, int total, void *arg)
 {
   json_object *jsonalbum;
   struct spotify_album album;
@@ -1056,6 +1061,9 @@ saved_album_add(json_object *item, int index, void *arg)
 
   db_transaction_end();
 
+  if ((index + 1) >= total || ((index + 1) % 10 == 0))
+    DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved albums\n", (index + 1), total);
+
   return 0;
 }
 
@@ -1079,7 +1087,7 @@ scan_saved_albums()
  * Add a saved playlist tracks to the library
  */
 static int
-saved_playlist_tracks_add(json_object *item, int index, void *arg)
+saved_playlist_tracks_add(json_object *item, int index, int total, void *arg)
 {
   struct spotify_track track;
   json_object *jsontrack;
@@ -1128,7 +1136,7 @@ scan_playlist_tracks(const char *playlist_tracks_endpoint_uri, int plid)
  * Add a saved playlist to the library
  */
 static int
-saved_playlist_add(json_object *item, int index, void *arg)
+saved_playlist_add(json_object *item, int index, int total, void *arg)
 {
   struct spotify_playlist playlist;
   char virtual_path[PATH_MAX];
@@ -1162,6 +1170,8 @@ saved_playlist_add(json_object *item, int index, void *arg)
     scan_playlist_tracks(playlist.tracks_href, plid);
   else
     DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved playlists\n", (index + 1), total);
 
   return 0;
 }
@@ -1217,12 +1227,16 @@ create_base_playlist()
 static void
 scan()
 {
+  time_t start;
+  time_t end;
+
   if (!token_valid() || scanning)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "No valid web api token or scan already in progress, rescan ignored\n");
       return;
     }
 
+  start = time(NULL);
   scanning = true;
 
   db_directory_enable_bypath("/spotify:");
@@ -1232,6 +1246,9 @@ scan()
   scan_playlists();
 
   scanning = false;
+  end = time(NULL);
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Spotify scan completed in %.f sec\n", difftime(end, start));
 }
 
 /* Thread: library */
@@ -1329,7 +1346,7 @@ webapi_pl_save(void *arg, int *ret)
       goto out;
     }
 
-  *ret = saved_playlist_add(response, 0, NULL);
+  *ret = saved_playlist_add(response, 0, 1, NULL);
 
   jparse_free(response);
 
