@@ -1692,7 +1692,7 @@ db_build_query_group_albums(struct query_params *qp)
   if (!qc)
     return NULL;
 
-  count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songalbumid) FROM files f WHERE f.disabled = 0;");
+  count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songalbumid) FROM files f %s;", qc->where);
   query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, 1 as album_count, f.album_artist, f.songartistid, SUM(f.song_length) FROM files f JOIN groups g ON f.songalbumid = g.persistentid %s GROUP BY f.songalbumid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
   db_free_query_clause(qc);
