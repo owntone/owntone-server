@@ -44,13 +44,14 @@ Where valid field-names (with their types) are:
 * time_played (date)
 
 Valid operators include:
-* is, includes (string)
+* is, includes, starts with (string)
 * >, <, <=, >=, = (int)
 * after, before (date)
 * is (enumeration)
 
 The "is" operator must exactly match the field value, while the "includes" operator matches a substring.
-Both matches are case-insensitive.
+The "starts with" operator matches, if the value starts with the given prefix.
+All three matches are case-insensitive.
 
 Valid operands include:
 * "string value" (string)
