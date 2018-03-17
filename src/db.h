@@ -91,6 +91,9 @@ struct query_params {
   int offset;
   int limit;
 
+  char *having;
+  char *orderby;
+
   char *filter;
 
   /* Query results, filled in by query_start */
