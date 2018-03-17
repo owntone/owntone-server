@@ -124,6 +124,7 @@ forked_daapd_SOURCES = main.c \
 	rng.c rng.h \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
+	smartpl_query.c smartpl_query.h \
 	player.c player.h \
 	worker.c worker.h \
 	input.h input.c \
