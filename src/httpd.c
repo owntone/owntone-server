@@ -255,12 +255,25 @@ httpd_fixup_uri(struct evhttp_request *req)
 
 /* --------------------------- REQUEST HELPERS ------------------------------ */
 
+
+
+void
+httpd_redirect_to_admin(struct evhttp_request *req)
+{
+  struct evkeyvalq *headers;
+
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "Location", "/admin.html");
+
+  httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
+}
+
 static void
 serve_file(struct evhttp_request *req, const char *uri)
 {
   char *ext;
   char path[PATH_MAX];
-  char *deref;
+  char deref[PATH_MAX];
   char *ctype;
   struct evbuffer *evbuf;
   struct evkeyvalq *input_headers;
@@ -272,6 +285,7 @@ serve_file(struct evhttp_request *req, const char *uri)
   const char *modified_since;
   char last_modified[1000];
   struct tm *tm_modified;
+  bool slashed;
   int ret;
 
   /* Check authentication */
@@ -298,16 +312,9 @@ serve_file(struct evhttp_request *req, const char *uri)
       return;
     }
 
-  if (S_ISDIR(sb.st_mode))
+  if (S_ISLNK(sb.st_mode))
     {
-      httpd_redirect_to_index(req, uri);
-
-      return;
-    }
-  else if (S_ISLNK(sb.st_mode))
-    {
-      deref = realpath(path, NULL);
-      if (!deref)
+      if (!realpath(path, deref))
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
 
@@ -322,12 +329,10 @@ serve_file(struct evhttp_request *req, const char *uri)
 
 	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
-	  free(deref);
 	  return;
 	}
 
       strcpy(path, deref);
-      free(deref);
 
       ret = stat(path, &sb);
       if (ret < 0)
@@ -338,12 +343,37 @@ serve_file(struct evhttp_request *req, const char *uri)
 
 	  return;
 	}
+    }
 
-      if (S_ISDIR(sb.st_mode))
-	{
-	  httpd_redirect_to_index(req, uri);
+  if (S_ISDIR(sb.st_mode))
+    {
+      slashed = (path[strlen(path) - 1] == '/');
 
+      ret = snprintf(deref, sizeof(deref), "%s%sindex.html", path, (slashed) ? "" : "/");
+      if ((ret < 0) || (ret >= sizeof(deref)))
+        {
+	  DPRINTF(E_LOG, L_HTTPD, "Redirection URL exceeds buffer length\n");
+
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 	  return;
+	}
+
+      strcpy(path, deref);
+
+      ret = stat(path, &sb);
+      if (ret < 0)
+        {
+	  if (strcmp(uri, "/") == 0)
+	    {
+	      httpd_redirect_to_admin(req);
+	      return;
+	    }
+	  else
+	    {
+	      DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
+	      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
+	      return;
+	    }
 	}
     }
 
@@ -713,9 +743,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
       output_headers = evhttp_request_get_output_headers(req);
 
       evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
-
-      // Allow only GET method and authorization header in cross origin requests
-      evhttp_add_header(output_headers, "Access-Control-Allow-Method", "GET");
+      evhttp_add_header(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
       evhttp_add_header(output_headers, "Access-Control-Allow-Headers", "authorization");
 
       // In this case there is no reason to go through httpd_send_reply
@@ -732,10 +760,15 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     }
 
   parsed = httpd_uri_parse(uri);
-  if (!parsed || !parsed->path || (strcmp(parsed->path, "/") == 0))
+  if (!parsed || !parsed->path)
     {
       httpd_redirect_to_admin(req);
       goto out;
+    }
+
+  if (strcmp(parsed->path, "/") == 0)
+    {
+      goto serve_file;
     }
 
   /* Dispatch protocol-specific handlers */
@@ -773,6 +806,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", parsed->uri);
 
   /* Serve web interface files */
+ serve_file:
   serve_file(req, parsed->path);
 
  out:
@@ -1377,42 +1411,6 @@ httpd_send_error(struct evhttp_request* req, int error, const char* reason)
 
   if (evbuf)
     evbuffer_free(evbuf);
-}
-
-void
-httpd_redirect_to_admin(struct evhttp_request *req)
-{
-  struct evkeyvalq *headers;
-
-  headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "Location", "/admin.html");
-
-  httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
-}
-
-void
-httpd_redirect_to_index(struct evhttp_request *req, const char *uri)
-{
-  struct evkeyvalq *headers;
-  char buf[256];
-  int slashed;
-  int ret;
-
-  slashed = (uri[strlen(uri) - 1] == '/');
-
-  ret = snprintf(buf, sizeof(buf), "%s%sindex.html", uri, (slashed) ? "" : "/");
-  if ((ret < 0) || (ret >= sizeof(buf)))
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Redirection URL exceeds buffer length\n");
-
-      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
-      return;
-    }
-
-  headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "Location", buf);
-
-  httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
 bool
