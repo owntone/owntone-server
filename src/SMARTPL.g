@@ -27,7 +27,26 @@ options {
 playlist	:	STR '{' expression '}' EOF
 			;
 
-expression	:	aexpr (OR^ aexpr)*
+expression	:	aexpr (OR^ aexpr)* (HAVING^ aexpr)? (ORDERBY^ orderexpr)? (LIMIT^ limitexpr)?
+			;
+
+orderexpr	:	ordertag SORTDIR
+			;
+
+ordertag	:	STRTAG
+			|	INTTAG
+			|	DATETAG
+			|	ENUMTAG
+			|	(XXX)? NeverUsedRule
+			;
+
+NeverUsedRule: /* antlr3 seems to have a problem with ordertag, introducing the NeverUsedRule fixes it. See: https://stackoverflow.com/questions/20057063/follow-set-in-is-undefined-in-generated-parser */
+			;
+
+XXX			:	'XXX' /**/
+			;
+
+limitexpr	:	INT
 			;
 
 aexpr		:	nexpr (AND^ nexpr)*
@@ -42,6 +61,7 @@ crit		:	LPAR expression RPAR	->	expression
 			|	INTTAG INTBOOL INT
 			|	DATETAG	(AFTER|BEFORE) dateval
 			|	ENUMTAG IS ENUMVAL
+			|	GROUPTAG INTBOOL INT
 			;
 
 dateval		:	DATE
@@ -77,6 +97,10 @@ DATETAG		:	'time_added'
 
 ENUMTAG		:	'data_kind'
 			|	'media_kind'
+			;
+
+GROUPTAG	:	'track_count'
+			|	'album_count'
 			;
 
 INCLUDES	:	'includes'
@@ -161,6 +185,24 @@ ENUMVAL		:	'music'
 			|	'url'
 			|	'spotify'
 			|	'pipe'
+			;
+
+ORDERBY		:	'order by'
+			|	'ORDER BY'
+			;
+
+SORTDIR		:	'asc'
+			|	'ASC'
+			|	'desc'
+			|	'DESC'
+			;
+
+LIMIT		:	'limit'
+			|	'LIMIT'
+			;
+
+HAVING		:	'having'
+			|	'HAVING'
 			;
 
 STR			:	'"' ~('"')+ '"'

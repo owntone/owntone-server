@@ -40,8 +40,8 @@ options {
 @members {
 }
 
-playlist	returns [ pANTLR3_STRING title, pANTLR3_STRING query ]
-@init { $title = NULL; $query = NULL; }
+playlist	returns [ pANTLR3_STRING title, pANTLR3_STRING query, pANTLR3_STRING orderby, pANTLR3_STRING having, int limit ]
+@init { $title = NULL; $query = NULL; $orderby = NULL; $having = NULL; $limit = -1; }
 	:	STR '{' e = expression '}'
 		{
 			pANTLR3_UINT8 val;
@@ -56,12 +56,54 @@ playlist	returns [ pANTLR3_STRING title, pANTLR3_STRING query ]
 			$query->append8($query, "(");
 			$query->appendS($query, $e.result);
 			$query->append8($query, ")");
+			
+			$limit = $e.limit;
+			
+			$orderby = $e.result->factory->newRaw($e.result->factory);
+			$orderby->appendS($orderby, $e.orderby);
+			
+			$having = $e.result->factory->newRaw($e.result->factory);
+			$having->appendS($having, $e.having);
 		}
 	;
 
-expression	returns [ pANTLR3_STRING result ]
-@init { $result = NULL; }
-	:	^(NOT a = expression)
+expression	returns [ pANTLR3_STRING result, pANTLR3_STRING orderby, pANTLR3_STRING having, int limit ]
+@init { $result = NULL; $orderby = NULL; $having = NULL; $limit = -1; }
+	:	^(LIMIT a = expression INT)
+		{
+			$result = $a.result->factory->newRaw($a.result->factory);
+			$result->appendS($result, $a.result);
+			
+			$having = $a.result->factory->newRaw($a.result->factory);
+			$having->appendS($having, $a.having);
+			
+			$orderby = $a.result->factory->newRaw($a.result->factory);
+			$orderby->appendS($orderby, $a.orderby);
+			
+			$limit = atoi((const char *)$INT.text->chars);
+		}
+	|	^(ORDERBY a = expression o = ordertag SORTDIR)
+		{
+			$result = $a.result->factory->newRaw($a.result->factory);
+			$result->appendS($result, $a.result);
+			
+			$having = $a.result->factory->newRaw($a.result->factory);
+			$having->appendS($having, $a.having);
+			
+			$orderby = $o.result->factory->newRaw($o.result->factory);
+			$orderby->appendS($orderby, $o.result);
+			$orderby->append8($orderby, " ");
+			$orderby->appendS($orderby, $SORTDIR.text->toUTF8($SORTDIR.text));
+		}
+	|	^(HAVING a = expression b = expression)
+		{
+			$result = $a.result->factory->newRaw($a.result->factory);
+			$result->appendS($result, $a.result);
+			
+			$having = $b.result->factory->newRaw($b.result->factory);
+			$having->appendS($having, $b.result);
+		}
+	|	^(NOT a = expression)
 		{
 			$result = $a.result->factory->newRaw($a.result->factory);
 			$result->append8($result, "NOT(");
@@ -216,6 +258,43 @@ expression	returns [ pANTLR3_STRING result ]
 			$result = $ENUMTAG.text->factory->newRaw($ENUMTAG.text->factory);
 			$result->append8($result, str);
 		}
+	|	GROUPTAG INTBOOL INT
+		{
+			$result = $GROUPTAG.text->factory->newRaw($GROUPTAG.text->factory);
+			$result->appendS($result, $GROUPTAG.text->toUTF8($GROUPTAG.text));
+			$result->append8($result, " ");
+			$result->appendS($result, $INTBOOL.text->toUTF8($INTBOOL.text));
+			$result->append8($result, " ");
+			$result->appendS($result, $INT.text->toUTF8($INT.text));
+		}
+	;
+
+ordertag	returns [ pANTLR3_STRING result ]
+@init { $result = NULL; }
+	:	STRTAG
+		{
+			$result = $STRTAG.text->factory->newRaw($STRTAG.text->factory);
+			$result->append8($result, "f.");
+			$result->appendS($result, $STRTAG.text->toUTF8($STRTAG.text));
+		}
+	|	INTTAG
+		{
+			$result = $INTTAG.text->factory->newRaw($INTTAG.text->factory);
+			$result->append8($result, "f.");
+			$result->appendS($result, $INTTAG.text->toUTF8($INTTAG.text));
+		}
+	|	DATETAG
+		{
+			$result = $DATETAG.text->factory->newRaw($DATETAG.text->factory);
+			$result->append8($result, "f.");
+			$result->appendS($result, $DATETAG.text->toUTF8($DATETAG.text));
+		}
+	|	ENUMTAG
+		{
+			$result = $ENUMTAG.text->factory->newRaw($ENUMTAG.text->factory);
+			$result->append8($result, "f.");
+			$result->appendS($result, $ENUMTAG.text->toUTF8($ENUMTAG.text));
+		}
 	;
 
 dateval		returns [ int result ]
@@ -364,3 +443,5 @@ interval	returns [ int result ]
 			}
 		}
 	;
+
+
