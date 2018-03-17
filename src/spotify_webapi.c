@@ -1780,6 +1780,29 @@ spotifywebapi_status_info_get(struct spotifywebapi_status_info *info)
     {
       memcpy(info->user, spotify_user, (sizeof(info->user) - 1));
     }
+  if (spotify_user_country)
+    {
+      memcpy(info->country, spotify_user_country, (sizeof(info->country) - 1));
+    }
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
+}
+
+void
+spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
+{
+  token_refresh();
+
+  memset(info, 0, sizeof(struct spotifywebapi_access_token));
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&token_lck));
+
+  if (token_requested > 0)
+    info->expires_in = expires_in - difftime(time(NULL), token_requested);
+  else
+    info->expires_in = 0;
+
+  info->token = safe_strdup(spotify_access_token);
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
 }
