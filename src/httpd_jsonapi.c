@@ -47,11 +47,11 @@
 #include "misc_json.h"
 #include "player.h"
 #include "remote_pairing.h"
+#include "smartpl_query.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify_webapi.h"
 # include "spotify.h"
 #endif
-
 
 /* -------------------------------- HELPERS --------------------------------- */
 
@@ -2070,124 +2070,282 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 }
 
 static int
+search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression)
+{
+  json_object *type;
+  json_object *items;
+  struct query_params query_params;
+  int total;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  type = json_object_new_object();
+  json_object_object_add(reply, "tracks", type);
+  items = json_object_new_array();
+  json_object_object_add(type, "items", items);
+
+  query_params.type = Q_ITEMS;
+  query_params.sort = S_NAME;
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  if (param_query)
+    {
+      query_params.filter = db_mprintf("(f.title LIKE '%%%q%%')", param_query);
+    }
+  else
+    {
+      query_params.filter = strdup(smartpl_expression->query_where);
+      query_params.orderby = safe_strdup(smartpl_expression->order_by);
+
+      if (smartpl_expression->limit > 0)
+	{
+	  query_params.idx_type = I_SUB;
+	  query_params.limit = smartpl_expression->limit;
+	  query_params.offset = 0;
+	}
+    }
+
+  ret = fetch_tracks(&query_params, items, &total);
+  if (ret < 0)
+    goto out;
+
+  json_object_object_add(type, "total", json_object_new_int(total));
+  json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
+
+ out:
+  free_query_params(&query_params, 1);
+
+  return ret;
+}
+
+static int
+search_artists(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression)
+{
+  json_object *type;
+  json_object *items;
+  struct query_params query_params;
+  int total;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  type = json_object_new_object();
+  json_object_object_add(reply, "artists", type);
+  items = json_object_new_array();
+  json_object_object_add(type, "items", items);
+
+  query_params.type = Q_GROUP_ARTISTS;
+  query_params.sort = S_ARTIST;
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  if (param_query)
+    {
+      query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%')", param_query);
+    }
+  else
+    {
+      query_params.filter = strdup(smartpl_expression->query_where);
+      query_params.having = safe_strdup(smartpl_expression->having);
+      query_params.orderby = safe_strdup(smartpl_expression->order_by);
+
+      if (smartpl_expression->limit > 0)
+	{
+	  query_params.idx_type = I_SUB;
+	  query_params.limit = smartpl_expression->limit;
+	  query_params.offset = 0;
+	}
+    }
+
+  ret = fetch_artists(&query_params, items, &total);
+  if (ret < 0)
+    goto out;
+
+  json_object_object_add(type, "total", json_object_new_int(total));
+  json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
+
+ out:
+  free_query_params(&query_params, 1);
+
+  return ret;
+}
+
+static int
+search_albums(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression)
+{
+  json_object *type;
+  json_object *items;
+  struct query_params query_params;
+  int total;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  type = json_object_new_object();
+  json_object_object_add(reply, "albums", type);
+  items = json_object_new_array();
+  json_object_object_add(type, "items", items);
+
+  query_params.type = Q_GROUP_ALBUMS;
+  query_params.sort = S_ALBUM;
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  if (param_query)
+    {
+      query_params.filter = db_mprintf("(f.album LIKE '%%%q%%')", param_query);
+    }
+  else
+    {
+      query_params.filter = strdup(smartpl_expression->query_where);
+      query_params.having = safe_strdup(smartpl_expression->having);
+      query_params.orderby = safe_strdup(smartpl_expression->order_by);
+
+      if (smartpl_expression->limit > 0)
+	{
+	  query_params.idx_type = I_SUB;
+	  query_params.limit = smartpl_expression->limit;
+	  query_params.offset = 0;
+	}
+    }
+
+  ret = fetch_albums(&query_params, items, &total);
+  if (ret < 0)
+    goto out;
+
+  json_object_object_add(type, "total", json_object_new_int(total));
+  json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
+
+ out:
+  free_query_params(&query_params, 1);
+
+  return ret;
+}
+
+static int
+search_playlists(json_object *reply, struct httpd_request *hreq, const char *param_query)
+{
+  json_object *type;
+  json_object *items;
+  struct query_params query_params;
+  int total;
+  int ret;
+
+  if (!param_query)
+    return 0;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  type = json_object_new_object();
+  json_object_object_add(reply, "playlists", type);
+  items = json_object_new_array();
+  json_object_object_add(type, "items", items);
+
+  query_params.type = Q_PL;
+  query_params.sort = S_PLAYLIST;
+  query_params.filter = db_mprintf("((f.type = %d OR f.type = %d) AND f.title LIKE '%%%q%%')", PL_PLAIN, PL_SMART, param_query);
+
+  ret = fetch_playlists(&query_params, items, &total);
+  if (ret < 0)
+    goto out;
+
+  json_object_object_add(type, "total", json_object_new_int(total));
+  json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
+
+ out:
+  free_query_params(&query_params, 1);
+
+  return ret;
+}
+
+static int
 jsonapi_reply_search(struct httpd_request *hreq)
 {
   const char *param_type;
   const char *param_query;
-  struct query_params query_params;
+  const char *param_expression;
+  char *expression;
+  struct smartpl smartpl_expression;
   json_object *reply;
-  json_object *type;
-  json_object *items;
-  int total;
   int ret = 0;
 
   reply = NULL;
 
   param_type = evhttp_find_header(hreq->query, "type");
   param_query = evhttp_find_header(hreq->query, "query");
+  param_expression = evhttp_find_header(hreq->query, "expression");
 
-  if (!param_type || !param_query)
+  if (!param_type || (!param_query && !param_expression))
     {
       DPRINTF(E_LOG, L_WEB, "Missing request parameter\n");
 
       return HTTP_BADREQUEST;
     }
 
-  memset(&query_params, 0, sizeof(struct query_params));
+  memset(&smartpl_expression, 0, sizeof(struct smartpl));
 
-  ret = query_params_limit_set(&query_params, hreq);
-  if (ret < 0)
-    goto error;
+  if (param_expression)
+    {
+      expression = safe_asprintf("\"query\" { %s }", param_expression);
+      ret = smartpl_query_parse_string(&smartpl_expression, expression);
+      free(expression);
+
+      if (ret < 0)
+	return HTTP_BADREQUEST;
+    }
 
   reply = json_object_new_object();
 
   if (strstr(param_type, "track"))
     {
-      type = json_object_new_object();
-      json_object_object_add(reply, "tracks", type);
-      items = json_object_new_array();
-      json_object_object_add(type, "items", items);
-
-
-      query_params.type = Q_ITEMS;
-      query_params.sort = S_NAME;
-      query_params.filter = db_mprintf("(f.title LIKE '%%%q%%')", param_query);
-
-      ret = fetch_tracks(&query_params, items, &total);
-      free(query_params.filter);
-
+      ret = search_tracks(reply, hreq, param_query, &smartpl_expression);
       if (ret < 0)
 	goto error;
-
-      json_object_object_add(type, "total", json_object_new_int(total));
-      json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
-      json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
     }
 
   if (strstr(param_type, "artist"))
     {
-      type = json_object_new_object();
-      json_object_object_add(reply, "artists", type);
-      items = json_object_new_array();
-      json_object_object_add(type, "items", items);
-
-      query_params.type = Q_GROUP_ARTISTS;
-      query_params.sort = S_ARTIST;
-      query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%')", param_query);
-
-      ret = fetch_artists(&query_params, items, &total);
-      free(query_params.filter);
-
+      ret = search_artists(reply, hreq, param_query, &smartpl_expression);
       if (ret < 0)
 	goto error;
-
-      json_object_object_add(type, "total", json_object_new_int(total));
-      json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
-      json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
     }
 
   if (strstr(param_type, "album"))
     {
-      type = json_object_new_object();
-      json_object_object_add(reply, "albums", type);
-      items = json_object_new_array();
-      json_object_object_add(type, "items", items);
-
-      query_params.type = Q_GROUP_ALBUMS;
-      query_params.sort = S_ALBUM;
-      query_params.filter = db_mprintf("(f.album LIKE '%%%q%%')", param_query);
-
-      ret = fetch_albums(&query_params, items, &total);
-      free(query_params.filter);
-
+      ret = search_albums(reply, hreq, param_query, &smartpl_expression);
       if (ret < 0)
-        goto error;
-
-      json_object_object_add(type, "total", json_object_new_int(total));
-      json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
-      json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
+	goto error;
     }
 
-  if (strstr(param_type, "playlist"))
+  if (strstr(param_type, "playlist") && param_query)
     {
-      type = json_object_new_object();
-      json_object_object_add(reply, "playlists", type);
-      items = json_object_new_array();
-      json_object_object_add(type, "items", items);
-
-      query_params.type = Q_PL;
-      query_params.sort = S_PLAYLIST;
-      query_params.filter = db_mprintf("((f.type = %d OR f.type = %d) AND f.title LIKE '%%%q%%')", PL_PLAIN, PL_SMART, param_query);
-
-      ret = fetch_playlists(&query_params, items, &total);
-      free(query_params.filter);
-
+      ret = search_playlists(reply, hreq, param_query);
       if (ret < 0)
-        goto error;
-
-      json_object_object_add(type, "total", json_object_new_int(total));
-      json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
-      json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
+	goto error;
     }
 
   ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
@@ -2196,6 +2354,7 @@ jsonapi_reply_search(struct httpd_request *hreq)
 
  error:
   jparse_free(reply);
+  free_smartpl(&smartpl_expression, 1);
 
   if (ret < 0)
     return HTTP_INTERNAL;
