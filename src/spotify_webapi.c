@@ -270,6 +270,8 @@ request_endpoint(const char *uri)
       goto out;
     }
 
+  DPRINTF(E_DBG, L_SPOTIFY, "Request Spotify API endpoint: '%s')\n", uri);
+
   ret = http_client_request(ctx);
   if (ret < 0)
     {
@@ -487,11 +489,12 @@ typedef int (*paging_item_cb)(json_object *item, int index, int total, void *arg
  * @param item_cb The callback function invoked for every item
  * @param pre_request_cb Callback function invoked before each request (optional)
  * @param post_request_cb Callback function invoked after each request (optional)
+ * @param with_market If TRUE appends the user country as market to the request (applies track relinking)
  * @param arg User data passed to each callback
  * @return 0 on success, -1 on failure
  */
 static int
-request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_request_cb pre_request_cb, paging_request_cb post_request_cb, void *arg)
+request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_request_cb pre_request_cb, paging_request_cb post_request_cb, bool with_market, void *arg)
 {
   char *next_href;
   json_object *response;
@@ -503,7 +506,17 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
   int total;
   int ret;
 
-  next_href = safe_strdup(href);
+  if (!with_market || !spotify_user_country)
+    {
+      next_href = safe_strdup(href);
+    }
+  else
+    {
+      if (strchr(href, '?'))
+	next_href = safe_asprintf("%s&market=%s", href, spotify_user_country);
+      else
+	next_href = safe_asprintf("%s?market=%s", href, spotify_user_country);
+    }
 
   while (next_href)
     {
@@ -1077,7 +1090,7 @@ scan_saved_albums()
 {
   int ret;
 
-  ret = request_pagingobject_endpoint(spotify_albums_uri, saved_album_add, NULL, NULL, NULL);
+  ret = request_pagingobject_endpoint(spotify_albums_uri, saved_album_add, NULL, NULL, true, NULL);
 
   return ret;
 }
@@ -1110,7 +1123,7 @@ saved_playlist_tracks_add(json_object *item, int index, int total, void *arg)
   if (!track.uri || !track.is_playable)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Track not available for playback: '%s' - '%s' (%s) (restrictions: %s)\n", track.artist, track.name, track.uri, track.restrictions);
-      return -1;
+      return 0;
     }
 
   dir_id = prepare_directories(track.album_artist, track.album);
@@ -1127,7 +1140,7 @@ scan_playlist_tracks(const char *playlist_tracks_endpoint_uri, int plid)
 {
   int ret;
 
-  ret = request_pagingobject_endpoint(playlist_tracks_endpoint_uri, saved_playlist_tracks_add, transaction_start, transaction_end, &plid);
+  ret = request_pagingobject_endpoint(playlist_tracks_endpoint_uri, saved_playlist_tracks_add, transaction_start, transaction_end, true, &plid);
 
   return ret;
 }
@@ -1186,7 +1199,7 @@ scan_playlists()
 {
   int ret;
 
-  ret = request_pagingobject_endpoint(spotify_playlists_uri, saved_playlist_add, NULL, NULL, NULL);
+  ret = request_pagingobject_endpoint(spotify_playlists_uri, saved_playlist_add, NULL, NULL, false, NULL);
 
   return ret;
 }
