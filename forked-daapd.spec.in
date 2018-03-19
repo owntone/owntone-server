@@ -1,73 +1,52 @@
-# -*- Mode:rpm-spec -*-
 # @configure_input@
+# -*- Mode:rpm-spec -*-
 %global username @DAAPD_USER@
 %global groupname @DAAPD_GROUP@
 
 %bcond_without alsa
-%bcond_with pulseaudio
-%bcond_without libcurl
-%bcond_without json
-%bcond_with itunes
+%bcond_without pulseaudio
 %bcond_with spotify
 %bcond_with lastfm
 %bcond_with chromecast
-%bcond_without mpd
 
 %global _hardened_build 1
 
 Summary: iTunes-compatible DAAP server with MPD and RSP support
-Name: @PACKAGE_NAME@
+Name: forked-daapd
 Version: @PACKAGE_VERSION@
 Release: 1%{?dist}
 License: GPLv2+
 Group: Applications/Multimedia
 Url: https://github.com/ejurgensen/forked-daapd
-Source: https://github.com/ejurgensen/%{name}/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+Source0: https://github.com/ejurgensen/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 %{?systemd_ordering}
-BuildRequires: systemd
-BuildRequires: pkgconfig
-BuildRequires: pkgconfig(sqlite3) >= 3.5.0
-BuildRequires: pkgconfig(libconfuse)
-BuildRequires: libunistring-devel
-BuildRequires: pkgconfig(mxml)
-BuildRequires: pkgconfig(libevent) >= 2.0.0
-BuildRequires: pkgconfig(avahi-client) >= 0.6.24
-BuildRequires: libgcrypt-devel >= 1.2.0
+BuildRequires: gcc, make, systemd, pkgconfig, libunistring-devel
+BuildRequires: pkgconfig(zlib), pkgconfig(libconfuse), pkgconfig(mxml)
+BuildRequires: pkgconfig(sqlite3) >= 3.5.0, pkgconfig(libevent) >= 2.0.0
+BuildRequires: pkgconfig(json-c), antlr3-C-devel, libgcrypt-devel >= 1.2.0
 BuildRequires: libgpg-error-devel >= 1.6
-BuildRequires: pkgconfig(zlib)
-BuildRequires: antlr3-C-devel
-BuildRequires: pkgconfig(libavformat)
-BuildRequires: pkgconfig(libavcodec)
-BuildRequires: pkgconfig(libswscale)
-BuildRequires: pkgconfig(libavutil)
-BuildRequires: pkgconfig(libavfilter)
+BuildRequires: pkgconfig(libavformat), pkgconfig(libavcodec)
+BuildRequires: pkgconfig(libswscale), pkgconfig(libavutil)
+BuildRequires: pkgconfig(libavfilter), pkgconfig(libcurl)
+BuildRequires: pkgconfig(openssl), pkgconfig(libwebsockets) > 2.0.2
+BuildRequires: pkgconfig(libsodium), pkgconfig(libplist) >= 0.16
+BuildRequires: pkgconfig(avahi-client) >= 0.6.24
 Requires(pre): shadow-utils
-Requires: systemd-units
 %if %{with alsa}
 BuildRequires: pkgconfig(alsa)
 %endif
 %if %{with pulseaudio}
 BuildRequires: pkgconfig(libpulse)
 %endif
-%if %{with libcurl}
-BuildRequires: pkgconfig(libcurl)
-%endif
-%if %{with json}
-BuildRequires: pkgconfig(json-c)
-%endif
-%if %{with itunes}
-BuildRequires: pkgconfig(libplist) >= 0.16
-%endif
 %if %{with spotify}
 BuildRequires: libspotify-devel
 %endif
 %if %{with chromecast}
-BuildRequires: pkgconfig(gnutls)
 BuildRequires: pkgconfig(libprotobuf-c)
+BuildRequires: pkgconfig(gnutls)
 %endif
 
 %global homedir %{_localstatedir}/lib/%{name}
-%global gecos %{name} User
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 %description
@@ -85,50 +64,16 @@ by iTunes and friends to share/stream media libraries over the network.
 forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 
 %prep
-%if %{with spotify} && %{without json}
-echo "ERROR: Option '-with spotify' cannot be used with '-without json'" >&2 && exit 1
-%endif
-%if %{with lastfm} && %{without libcurl}
-echo "ERROR: Option '-with lastfm' cannot be used with '-without libcurl'" >&2 && exit 1
-%endif
-%if %{with chromecast} && %{without json}
-echo "ERROR: Option '-with chromecast' cannot be used with '-without json'" >&2 && exit 1
-%endif
-
 %setup -q
 
 %build
 %configure \
-%if %{without alsa}
-  --without-alsa \
-%endif
-%if %{without pulseaudio}
-  --without-pulseaudio \
-%endif
-%if %{without libcurl}
-  --without-libcurl \
-%endif
-%if %{without json}
-  --without-json \
-%endif
-%if %{with itunes}
-  --enable-itunes \
-%endif
-%if %{with spotify}
-  --enable-spotify \
-%endif
-%if %{with lastfm}
-  --enable-lastfm \
-%endif
-%if %{with chromecast}
-  --enable-chromecast \
-%endif
-%if %{with mpd}
-  --enable-mpd \
-%endif
-  --with-daapd-user=%{username} \
-  --with-daapd-group=%{groupname}
-make %{?_smp_mflags}
+  --with%{!?with_alsa:out}-alsa --with%{!?with_pulseaudio:out}-pulseaudio \
+  --with-libcurl --with-libwebsockets --with-libsodium --with-libplist \
+  --with-avahi %{?with_spotify:--enable-spotify} \
+  %{?with_lastfm:--enable-lastfm} %{?with_chromecast:--enable-chromecast} \
+  --with-daapd-user=%{username} --with-daapd-group=%{groupname}
+%make_build
 
 %install
 make install DESTDIR=%{buildroot} docdir=%{_pkgdocdir}
@@ -144,7 +89,7 @@ rm -f %{buildroot}%{_libdir}/%{name}/*.la
 getent group %{groupname} >/dev/null || groupadd -r %{groupname}
 getent passwd %{username} >/dev/null || \
     useradd -r -g %{groupname} -d %{homedir} -s /sbin/nologin \
-    -c '%{gecos}' %{username}
+    -c '%{name} User' %{username}
 exit 0
 
 %post
@@ -162,7 +107,8 @@ exit 0
 %{_pkgdocdir}
 %config(noreplace) %{_sysconfdir}/forked-daapd.conf
 %{_sbindir}/forked-daapd
-%{_libdir}/*
+%{_libdir}/%{name}/
+%{_datarootdir}/%{name}/
 %{_unitdir}/%{name}.service
 %attr(0750,%{username},%{groupname}) %{_localstatedir}/cache/%{name}
 %attr(0750,%{username},%{groupname}) %{homedir}
@@ -170,5 +116,10 @@ exit 0
 %{_mandir}/man?/*
 
 %changelog
+* Sat Mar 17 2018 Scott Shambarger <devel@shambarger.net> - 26.0-1
+   - 26.0 release.
+   - Update spec file to handle new feature defaults.
+   - Added new files/directories.
+
 * Tue Dec 20 2016 Scott Shambarger <devel@shambarger.net> - 24.2-1
    - Initial RPM release candidate.
