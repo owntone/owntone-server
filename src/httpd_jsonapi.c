@@ -1618,7 +1618,12 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 	}
       else
 	{
-	  DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
+	  ret = library_queue_add(uri);
+	  if (ret != LIBRARY_OK)
+	    {
+	      DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
+	      break;
+	    }
 	}
     }
   while ((uri = strtok(NULL, ",")));
