@@ -1282,6 +1282,9 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
   mfi->path = strdup(track->uri);
   mfi->fname = strdup(track->uri);
 
+  mfi->time_modified = track->mtime;
+  mfi->time_added = track->mtime;
+
   if (album)
     {
       mfi->album_artist = safe_strdup(album->artist);
@@ -1289,7 +1292,6 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
       mfi->genre = safe_strdup(album->genre);
       mfi->compilation = album->is_compilation;
       mfi->year = album->release_year;
-      mfi->time_modified = album->mtime;
     }
   else
     {
@@ -1303,8 +1305,6 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
 	mfi->compilation =  true;
       else
 	mfi->compilation = track->is_compilation;
-
-      mfi->time_modified = time(NULL);
     }
 
   snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi->album_artist, mfi->album, mfi->title);
@@ -1407,6 +1407,7 @@ saved_album_add(json_object *item, int index, int total, void *arg)
 	break;
 
       parse_metadata_track(jsontrack, &track);
+      track.mtime = album.mtime;
 
       ret = track_add(&track, &album, NULL, dir_id);
 
