@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <regex.h>
+#include <time.h>
 #include <event2/http.h>
 #include <event2/buffer.h>
 #include <event2/keyvalq_struct.h>
@@ -99,6 +100,12 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
 
 void
 httpd_stream_file(struct evhttp_request *req, int id);
+
+bool
+httpd_request_not_modified_since(struct evhttp_request *req, const time_t *mtime);
+
+bool
+httpd_request_etag_matches(struct evhttp_request *req, const char *etag);
 
 /*
  * Gzips an evbuffer

@@ -1706,6 +1706,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   int start_pos, end_pos;
   int version;
   int count;
+  char etag[21];
   struct player_status status;
   struct db_queue_item queue_item;
   json_object *reply;
@@ -1713,11 +1714,15 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   json_object *item;
   int ret = 0;
 
-  memset(&query_params, 0, sizeof(struct query_params));
-  reply = json_object_new_object();
-
   version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
   count = db_queue_get_count();
+
+  snprintf(etag, sizeof(etag), "%d", version);
+  if (httpd_request_etag_matches(hreq->req, etag))
+    return HTTP_NOTMODIFIED;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+  reply = json_object_new_object();
 
   json_object_object_add(reply, "version", json_object_new_int(version));
   json_object_object_add(reply, "count", json_object_new_int(count));
@@ -1880,6 +1885,7 @@ jsonapi_reply_player_volume(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_artists(struct httpd_request *hreq)
 {
+  time_t db_update;
   struct query_params query_params;
   const char *param;
   enum media_kind media_kind;
@@ -1887,6 +1893,11 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
   json_object *items;
   int total;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   media_kind = 0;
   param = evhttp_find_header(hreq->query, "media_kind");
@@ -1940,9 +1951,15 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_artist(struct httpd_request *hreq)
 {
+  time_t db_update;
   const char *artist_id;
   json_object *reply;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   artist_id = hreq->uri_parsed->path_parts[3];
 
@@ -1969,12 +1986,18 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
 {
+  time_t db_update;
   struct query_params query_params;
   const char *artist_id;
   json_object *reply;
   json_object *items;
   int total;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   artist_id = hreq->uri_parsed->path_parts[3];
 
@@ -2018,6 +2041,7 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_albums(struct httpd_request *hreq)
 {
+  time_t db_update;
   struct query_params query_params;
   const char *param;
   enum media_kind media_kind;
@@ -2025,6 +2049,11 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
   json_object *items;
   int total;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   media_kind = 0;
   param = evhttp_find_header(hreq->query, "media_kind");
@@ -2078,9 +2107,15 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_album(struct httpd_request *hreq)
 {
+  time_t db_update;
   const char *album_id;
   json_object *reply;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   album_id = hreq->uri_parsed->path_parts[3];
 
@@ -2107,12 +2142,18 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 {
+  time_t db_update;
   struct query_params query_params;
   const char *album_id;
   json_object *reply;
   json_object *items;
   int total;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   album_id = hreq->uri_parsed->path_parts[3];
 
@@ -2156,11 +2197,17 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlists(struct httpd_request *hreq)
 {
+  time_t db_update;
   struct query_params query_params;
   json_object *reply;
   json_object *items;
   int total;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   reply = json_object_new_object();
   items = json_object_new_array();
@@ -2202,9 +2249,15 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlist(struct httpd_request *hreq)
 {
+  time_t db_update;
   const char *playlist_id;
   json_object *reply;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   playlist_id = hreq->uri_parsed->path_parts[3];
 
@@ -2231,12 +2284,18 @@ jsonapi_reply_library_playlist(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 {
+  time_t db_update;
   struct query_params query_params;
   json_object *reply;
   json_object *items;
   int playlist_id;
   int total;
   int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
   if (ret < 0)
@@ -2665,6 +2724,9 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
 	httpd_send_reply(req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	break;
+      case HTTP_NOTMODIFIED:         /* 304 Not Modified */
+	httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
 	break;
 
       case HTTP_BADREQUEST:          /* 400 Bad Request */

@@ -268,6 +268,75 @@ httpd_redirect_to_admin(struct evhttp_request *req)
   httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
 
+/*
+ * Checks if the given ETag matches the "If-None-Match" request header
+ *
+ * If the request does not contains a "If-None-Match" header value or the value
+ * does not match the given ETag, it returns false (modified) and adds the
+ * "Cache-Control" and "ETag" headers to the response header.
+ *
+ * @param req The request with request and response headers
+ * @param etag The valid ETag for the requested resource
+ * @return True if the given ETag matches the request-header-value "If-None-Match", otherwise false
+ */
+bool
+httpd_request_etag_matches(struct evhttp_request *req, const char *etag)
+{
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
+  const char *none_match;
+
+  input_headers = evhttp_request_get_input_headers(req);
+  none_match = evhttp_find_header(input_headers, "If-None-Match");
+
+  // Return not modified, if given timestamp matches "If-Modified-Since" request header
+  if (none_match && (strcasecmp(etag, none_match) == 0))
+    return true;
+
+  // Add cache headers to allow client side caching
+  output_headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(output_headers, "Cache-Control", "private");
+  evhttp_add_header(output_headers, "ETag", etag);
+
+  return false;
+}
+
+/*
+ * Checks if the given timestamp matches the "If-Modified-Since" request header
+ *
+ * If the request does not contains a "If-Modified-Since" header value or the value
+ * does not match the given timestamp, it returns false (modified) and adds the
+ * "Cache-Control" and "Last-Modified" headers to the response header.
+ *
+ * @param req The request with request and response headers
+ * @param mtime The last modified timestamp for the requested resource
+ * @return True if the given timestamp matches the request-header-value "If-Modified-Since", otherwise false
+ */
+bool
+httpd_request_not_modified_since(struct evhttp_request *req, const time_t *mtime)
+{
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
+  char last_modified[1000];
+  const char *modified_since;
+
+  input_headers = evhttp_request_get_input_headers(req);
+  modified_since = evhttp_find_header(input_headers, "If-Modified-Since");
+
+  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", gmtime(mtime));
+
+  // Return not modified, if given timestamp matches "If-Modified-Since" request header
+  if (modified_since && (strcasecmp(last_modified, modified_since) == 0))
+    return true;
+
+  // Add cache headers to allow client side caching
+  output_headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(output_headers, "Cache-Control", "private");
+  evhttp_add_header(output_headers, "Last-Modified", last_modified);
+
+  return false;
+}
+
 static void
 serve_file(struct evhttp_request *req, const char *uri)
 {
@@ -276,15 +345,11 @@ serve_file(struct evhttp_request *req, const char *uri)
   char deref[PATH_MAX];
   char *ctype;
   struct evbuffer *evbuf;
-  struct evkeyvalq *input_headers;
   struct evkeyvalq *output_headers;
   struct stat sb;
   int fd;
   int i;
   uint8_t buf[4096];
-  const char *modified_since;
-  char last_modified[1000];
-  struct tm *tm_modified;
   bool slashed;
   int ret;
 
@@ -384,13 +449,7 @@ serve_file(struct evhttp_request *req, const char *uri)
       return;
     }
 
-  tm_modified = gmtime(&sb.st_mtime);
-  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", tm_modified);
-
-  input_headers = evhttp_request_get_input_headers(req);
-  modified_since = evhttp_find_header(input_headers, "If-Modified-Since");
-
-  if (modified_since && strcasecmp(last_modified, modified_since) == 0)
+  if (httpd_request_not_modified_since(req, &sb.st_mtime))
     {
       httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
       return;
@@ -447,10 +506,6 @@ serve_file(struct evhttp_request *req, const char *uri)
 
   output_headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(output_headers, "Content-Type", ctype);
-
-  // Allow browsers to cache the file
-  evhttp_add_header(output_headers, "Cache-Control", "private");
-  evhttp_add_header(output_headers, "Last-Modified", last_modified);
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
