@@ -114,6 +114,20 @@ expression	returns [ pANTLR3_STRING result ]
 			$result->append8($result, sqlite3_mprintf("\%q", (const char *)val));
 			$result->append8($result, "'");
 		}
+	|	STRTAG STARTSWITH STR
+		{
+			pANTLR3_UINT8 val;
+			val = $STR.text->toUTF8($STR.text)->chars;
+			val++;
+			val[strlen((const char *)val) - 1] = '\0';
+			
+			$result = $STR.text->factory->newRaw($STR.text->factory);
+			$result->append8($result, "f.");
+			$result->appendS($result, $STRTAG.text->toUTF8($STRTAG.text));
+			$result->append8($result, " LIKE '");
+			$result->append8($result, sqlite3_mprintf("\%q", (const char *)val));
+			$result->append8($result, "\%'");
+		}
 	|	INTTAG INTBOOL INT
 		{
 			$result = $INTTAG.text->factory->newRaw($INTTAG.text->factory);

@@ -38,7 +38,7 @@ nexpr		:	NOT^ crit
 			;
 
 crit		:	LPAR expression RPAR	->	expression
-			|	STRTAG (INCLUDES|IS) STR
+			|	STRTAG (INCLUDES|IS|STARTSWITH) STR
 			|	INTTAG INTBOOL INT
 			|	DATETAG	(AFTER|BEFORE) dateval
 			|	ENUMTAG IS ENUMVAL
@@ -83,6 +83,9 @@ INCLUDES	:	'includes'
 			;
 
 IS			:	'is'
+			;
+
+STARTSWITH	:	'starts with'
 			;
 
 INTBOOL		:	(GREATER|GREATEREQUAL|LESS|LESSEQUAL|EQUAL)
