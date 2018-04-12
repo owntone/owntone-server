@@ -78,6 +78,9 @@ enum query_type {
 /* Max value for media_file_info->rating (valid range is from 0 to 100) */
 #define DB_FILES_RATING_MAX 100
 
+/* Magic id for media_file_info objects that are not stored in the files database table */
+#define DB_MEDIA_FILE_NON_PERSISTENT_ID 9999999
+
 struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;

@@ -11,6 +11,9 @@ int
 scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi);
 
 void
+scan_metadata_stream(const char *path, struct media_file_info *mfi);
+
+void
 scan_playlist(const char *file, time_t mtime, int dir_id);
 
 void

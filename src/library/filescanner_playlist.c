@@ -72,18 +72,14 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
   return 1;
 }
 
-static int
-process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_file_info *mfi)
+void
+scan_metadata_stream(const char *path, struct media_file_info *mfi)
 {
-  char virtual_path[PATH_MAX];
   char *pos;
   int ret;
 
-  if (extinf)
-    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi->artist, mfi->title);
-
-  mfi->id = db_file_id_bypath(path);
   mfi->path = strdup(path);
+  mfi->virtual_path = safe_asprintf("/%s", mfi->path);
 
   pos = strchr(path, '#');
   if (pos)
@@ -92,7 +88,7 @@ process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_
     mfi->fname = strdup(filename_from_path(mfi->path));
 
   mfi->data_kind = DATA_KIND_HTTP;
-  mfi->time_modified = mtime;
+  mfi->time_modified = time(NULL);
   mfi->directory_id = DIR_HTTP;
 
   ret = scan_metadata_ffmpeg(path, mfi);
@@ -106,12 +102,14 @@ process_url(int pl_id, const char *path, time_t mtime, int extinf, struct media_
 
   if (!mfi->title)
     mfi->title = strdup(mfi->fname);
+}
 
-  snprintf(virtual_path, sizeof(virtual_path), "/%s", mfi->path);
-  mfi->virtual_path = strdup(virtual_path);
-
+static int
+process_url(int pl_id, const char *path, struct media_file_info *mfi)
+{
+  mfi->id = db_file_id_bypath(path);
+  scan_metadata_stream(path, mfi);
   library_add_media(mfi);
-
   return db_pl_add_item_bypath(pl_id, path);
 }
 
@@ -341,7 +339,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 
       /* Check if line is an URL, will be added to library, otherwise it should already be there */
       if (strncasecmp(path, "http://", 7) == 0)
-	ret = process_url(pl_id, path, sb.st_mtime, extinf, &mfi);
+	ret = process_url(pl_id, path, &mfi);
       else
 	ret = process_regular_file(pl_id, path);
 
