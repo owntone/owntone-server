@@ -143,7 +143,7 @@ static int seek_target;
 /* If an item is removed from the library while in the queue, we replace it with this */
 static struct media_file_info dummy_mfi =
 {
-  .id = 9999999,
+  .id = DB_MEDIA_FILE_NON_PERSISTENT_ID,
   .title = "(unknown title)",
   .artist = "(unknown artist)",
   .album = "(unknown album)",
@@ -151,7 +151,7 @@ static struct media_file_info dummy_mfi =
 };
 static struct db_queue_item dummy_queue_item =
 {
-  .file_id = 9999999,
+  .file_id = DB_MEDIA_FILE_NON_PERSISTENT_ID,
   .title = "(unknown title)",
   .artist = "(unknown artist)",
   .album = "(unknown album)",

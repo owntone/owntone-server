@@ -1651,7 +1651,7 @@ map_media_file_to_queue_item(struct db_queue_item *queue_item, struct media_file
   if (mfi->id)
     queue_item->file_id = mfi->id;
   else
-    queue_item->file_id = 9999999;
+    queue_item->file_id = DB_MEDIA_FILE_NON_PERSISTENT_ID;
 
   queue_item->title = safe_strdup(mfi->title);
   queue_item->artist = safe_strdup(mfi->artist);
@@ -1679,43 +1679,13 @@ static int
 queue_add_stream(const char *path)
 {
   struct media_file_info mfi;
-  char *pos;
   struct db_queue_item item;
   struct db_queue_add_info queue_add_info;
   int ret;
 
   memset(&mfi, 0, sizeof(struct media_file_info));
-  mfi.path = strdup(path);
-  mfi.virtual_path = safe_asprintf("/%s", mfi.path);
 
-  pos = strchr(path, '#');
-  if (pos)
-    mfi.fname = strdup(pos+1);
-  else
-    mfi.fname = strdup(filename_from_path(mfi.path));
-
-  mfi.data_kind = DATA_KIND_HTTP;
-  mfi.directory_id = DIR_HTTP;
-
-  ret = scan_metadata_ffmpeg(path, &mfi);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
-      mfi.type = strdup("mp3");
-      mfi.codectype = strdup("mpeg");
-      mfi.description = strdup("MPEG audio file");
-    }
-
-  if (!mfi.title)
-    mfi.title = strdup(mfi.fname);
-
-  if (!mfi.virtual_path)
-    mfi.virtual_path = strdup(mfi.path);
-  if (!mfi.item_kind)
-    mfi.item_kind = 2; /* music */
-  if (!mfi.media_kind)
-    mfi.media_kind = MEDIA_KIND_MUSIC; /* music */
-
+  scan_metadata_stream(path, &mfi);
   unicode_fixup_mfi(&mfi);
 
   map_media_file_to_queue_item(&item, &mfi);
@@ -1891,6 +1861,8 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
   struct query_params qp;
   struct db_media_file_info dbmfi;
   uint32_t data_kind;
+  const char *path;
+  struct media_file_info mfi;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -1901,28 +1873,45 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
 
   ret = db_query_start(&qp);
   if (ret < 0)
-    {
-      db_query_end(&qp);
-      free(qp.filter);
-      return -1;
-    }
+    goto out;
 
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  if (qp.results > 0)
     {
-      if ((safe_atou32(dbmfi.data_kind, &data_kind) < 0)
-	  || (data_kind == DATA_KIND_PIPE))
-	{
-	  DPRINTF(E_WARN, L_SCAN, "Item '%s' not added to playlist (id = %d), unsupported data kind\n", dbmfi.path, pl_id);
-	  continue;
+      while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+        {
+	  if ((safe_atou32(dbmfi.data_kind, &data_kind) < 0)
+	      || (data_kind == DATA_KIND_PIPE))
+	    {
+	      DPRINTF(E_WARN, L_SCAN, "Item '%s' not added to playlist (id = %d), unsupported data kind\n", dbmfi.path, pl_id);
+	      continue;
+	    }
+
+	  ret = playlist_add_path(fp, pl_id, dbmfi.path);
+	  if (ret < 0)
+	    break;
+
+	  DPRINTF(E_DBG, L_SCAN, "Item '%s' added to playlist (id = %d)\n", dbmfi.path, pl_id);
 	}
+    }
+  else if (strncasecmp(virtual_path, "/http://", strlen("/http://")) == 0)
+    {
+      path = (virtual_path + 1);
 
-      ret = playlist_add_path(fp, pl_id, dbmfi.path);
+      DPRINTF(E_DBG, L_SCAN, "Scan stream '%s' and add to playlist (id = %d)\n", path, pl_id);
+
+      memset(&mfi, 0, sizeof(struct media_file_info));
+      scan_metadata_stream(path, &mfi);
+      library_add_media(&mfi);
+      free_mfi(&mfi, 1);
+
+      ret = playlist_add_path(fp, pl_id, path);
       if (ret < 0)
-	break;
-
-      DPRINTF(E_DBG, L_SCAN, "Item '%s' added to playlist (id = %d)\n", dbmfi.path, pl_id);
+	DPRINTF(E_LOG, L_SCAN, "Failed to add stream '%s' to playlist (id = %d)\n", path, pl_id);
+      else
+	DPRINTF(E_DBG, L_SCAN, "Item '%s' added to playlist (id = %d)\n", path, pl_id);
     }
 
+ out:
   db_query_end(&qp);
   free(qp.filter);
 
@@ -2017,6 +2006,7 @@ queue_save(const char *virtual_path)
   FILE *fp;
   struct query_params query_params;
   struct db_queue_item queue_item;
+  struct media_file_info mfi;
   int pl_id;
   int ret;
 
@@ -2056,6 +2046,25 @@ queue_save(const char *virtual_path)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Unsupported data kind for playlist file '%s' ignoring item '%s'\n", virtual_path, queue_item.path);
 	  continue;
+	}
+
+      if (queue_item.file_id == DB_MEDIA_FILE_NON_PERSISTENT_ID)
+	{
+	  // If the queue item is not in the library and it is a http stream, scan and add to the library prior to saving to the playlist file.
+	  if (queue_item.data_kind == DATA_KIND_HTTP)
+	    {
+	      DPRINTF(E_DBG, L_SCAN, "Scan stream '%s' and add to playlist (id = %d)\n", queue_item.path, pl_id);
+
+	      memset(&mfi, 0, sizeof(struct media_file_info));
+	      scan_metadata_stream(queue_item.path, &mfi);
+	      library_add_media(&mfi);
+	      free_mfi(&mfi, 1);
+	    }
+	  else
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Unsupported item for playlist file '%s' ignoring item '%s'\n", virtual_path, queue_item.path);
+	      continue;
+	    }
 	}
 
       ret = fprintf(fp, "%s\n", queue_item.path);

@@ -2510,7 +2510,7 @@ mpd_command_playlistadd(struct evbuffer *evbuf, int argc, char **argv, char **er
   free(vp_item);
   if (ret < 0)
     {
-      *errmsg = safe_asprintf("Error saving queue to file '%s'", argv[1]);
+      *errmsg = safe_asprintf("Error adding item to file '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
