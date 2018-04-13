@@ -80,13 +80,16 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
       return;
     }
 
-  if (pli->title)
-    free(pli->title);
+  free(pli->title);
   pli->title = strdup(smartpl.title);
 
-  if (pli->query)
-    free(pli->query);
+  free(pli->query);
   pli->query = strdup(smartpl.query_where);
+
+  free(pli->query_orderby);
+  pli->query_orderby = safe_strdup(smartpl.order_by);
+
+  pli->query_limit = smartpl.limit;
 
   free_smartpl(&smartpl, 1);
 

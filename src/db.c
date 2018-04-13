@@ -175,6 +175,8 @@ static const struct col_type_map pli_cols_map[] =
     { pli_offsetof(virtual_path), DB_TYPE_STRING },
     { pli_offsetof(parent_id),    DB_TYPE_INT },
     { pli_offsetof(directory_id), DB_TYPE_INT },
+    { pli_offsetof(query_orderby),DB_TYPE_STRING },
+    { pli_offsetof(query_limit),  DB_TYPE_INT },
 
     /* items is computed on the fly */
   };
@@ -265,6 +267,8 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(virtual_path),
     dbpli_offsetof(parent_id),
     dbpli_offsetof(directory_id),
+    dbpli_offsetof(query_orderby),
+    dbpli_offsetof(query_limit),
 
     /* items is computed on the fly */
   };
@@ -1263,18 +1267,54 @@ db_build_query_plitems_plain(struct query_params *qp)
 }
 
 static char *
-db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query)
+db_build_query_plitems_smart(struct query_params *qp, struct playlist_info *pli)
 {
   struct query_clause *qc;
   char *count;
   char *query;
+  bool free_orderby = false;
+
+  if (pli->query_limit > 0)
+    {
+      if (qp->idx_type == I_SUB)
+	{
+	  if (pli->query_limit > qp->offset + qp->limit)
+	    qp->limit = pli->query_limit;
+	}
+      else if (qp->idx_type == I_NONE)
+	{
+	  qp->idx_type = I_SUB;
+	  qp->limit = pli->query_limit;
+	  qp->offset = 0;
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_DB, "Cannot append limit from smart playlist '%s' to query\n", pli->path);
+	}
+    }
+
+  if (pli->query_orderby)
+    {
+      if (!qp->orderby && qp->sort == S_NONE)
+	{
+	  qp->orderby = strdup(pli->query_orderby);
+	  free_orderby = true;
+	}
+      else
+	DPRINTF(E_WARN, L_DB, "Cannot append order by from smart playlist '%s' to query\n", pli->path);
+    }
 
   qc = db_build_query_clause(qp);
+  if (free_orderby)
+    {
+      free(qp->orderby);
+      qp->orderby = NULL;
+    }
   if (!qc)
     return NULL;
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND %s;", qc->where, smartpl_query);
-  query = sqlite3_mprintf("SELECT f.* FROM files f %s AND %s %s %s;", qc->where, smartpl_query, qc->order, qc->index);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND %s LIMIT %d;", qc->where, pli->query, pli->query_limit);
+  query = sqlite3_mprintf("SELECT f.* FROM files f %s AND %s %s %s;", qc->where, pli->query, qc->order, qc->index);
 
   db_free_query_clause(qc);
 
@@ -1301,7 +1341,7 @@ db_build_query_plitems(struct query_params *qp)
     {
       case PL_SPECIAL:
       case PL_SMART:
-	query = db_build_query_plitems_smart(qp, pli->query);
+	query = db_build_query_plitems_smart(qp, pli);
 	break;
 
       case PL_PLAIN:
@@ -3055,8 +3095,9 @@ int
 db_pl_add(struct playlist_info *pli, int *id)
 {
 #define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, parent_id, virtual_path, directory_id)" \
-                  " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q', %d);"
+#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, " \
+                  " parent_id, virtual_path, directory_id, query_orderby, query_limit)" \
+                  " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q', %d, %Q, %d);"
   char *query;
   char *errmsg;
   int ret;
@@ -3082,7 +3123,8 @@ db_pl_add(struct playlist_info *pli, int *id)
   /* Add */
   query = sqlite3_mprintf(QADD_TMPL,
 			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
-			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id);
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id,
+			  pli->query_orderby, pli->query_limit);
 
   if (!query)
     {
@@ -3147,14 +3189,16 @@ int
 db_pl_update(struct playlist_info *pli)
 {
 #define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, query = '%q', db_timestamp = %" PRIi64 ", disabled = %d, " \
-               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q', directory_id = %d " \
+               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q', directory_id = %d, " \
+               " query_orderby = %Q, query_limit = %d " \
                " WHERE id = %d;"
   char *query;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL,
 			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
-			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id, pli->id);
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id,
+			  pli->query_orderby, pli->query_limit, pli->id);
 
   ret = db_query_run(query, 1, 0);
 
