@@ -24,56 +24,66 @@ field-name operator operand
 ```
 
 Where valid field-names (with their types) are:
-* artist (string)
-* album_artist (string)
-* album (string)
-* title (string)
-* genre (string)
-* composer (string)
-* path (string)
-* type (string)
-* grouping (string)
-* data_kind (enumeration)
-* media_kind (enumeration)
-* play_count (integer)
-* rating (integer)
-* year (integer)
-* compilation (integer)
-* time_added (date)
-* time_modified (date)
-* time_played (date)
+* `artist` (string)
+* `album_artist` (string)
+* `album` (string)
+* `title` (string)
+* `genre` (string)
+* `composer` (string)
+* `path` (string)
+* `type` (string)
+* `grouping` (string)
+* `data_kind` (enumeration)
+* `media_kind` (enumeration)
+* `play_count` (integer)
+* `rating` (integer)
+* `year` (integer)
+* `compilation` (integer)
+* `time_added` (date)
+* `time_modified` (date)
+* `time_played` (date)
 
 Valid operators include:
-* is, includes, starts with (string)
-* >, <, <=, >=, = (int)
-* after, before (date)
-* is (enumeration)
+* `is`, `includes`, `starts with` (string)
+* `>`, `<`, `<=`, `>=`, `=` (int)
+* `after`, `before` (date)
+* `is` (enumeration)
 
-The "is" operator must exactly match the field value, while the "includes" operator matches a substring.
-The "starts with" operator matches, if the value starts with the given prefix.
+The `is` operator must exactly match the field value, while the `includes` operator matches a substring.
+The `starts with` operator matches, if the value starts with the given prefix.
 All three matches are case-insensitive.
 
 Valid operands include:
 * "string value" (string)
 * integer (int)
 
-Valid operands for the enumeration "data_kind" are:
-* file
-* url
-* spotify
-* pipe
+Valid operands for the enumeration `data_kind` are:
+* `file`
+* `url`
+* `spotify`
+* `pipe`
 
-Valid operands for the enumeration "media_kind" are:
-* music
-* movie
-* podcast
-* audiobook
-* tvshow
+Valid operands for the enumeration `media_kind` are:
+* `music`
+* `movie`
+* `podcast`
+* `audiobook`
+* `tvshow`
 
 
-Multiple expressions can be anded or ored together, using the keywords OR and AND. The unary not operator is also supported using the keyword NOT.
+Multiple expressions can be anded or ored together, using the keywords `OR` and `AND`. The unary not operator is also supported using the keyword `NOT`.
 
-Examples:
+
+It is possible to define the sort order and limit the number of items by adding an order clause and/or a limit clause after the last expression:
+
+```
+"Playlist Name" { expression ORDER BY field-name sort-direction LIMIT limit }
+```
+
+"sort-direction" is either `ASC` (ascending) or `DESC` (descending). "limit" is the maximum number of items.
+
+
+## Examples
 
 ```
 "techno" {
@@ -113,6 +123,15 @@ This would match all songs added as files to the library that are not placed und
 
 This would match any podcast and audiobook file that was never played with forked-daapd.
 
+```
+"Recently added music" {
+  media_kind is music
+  order by time_added desc
+  limit 10
+}
+```
+This would match the last 10 music files added to the library.
+
 
 ## Date operand syntax
 
@@ -125,9 +144,9 @@ One example of a valid date is a date in yyyy-mm-dd format:
 ```
 
 There are also some special date keywords:
-* "today", "yesterday", "last week", "last month", "last year"
+* `today`, `yesterday`, `last week`, `last month`, `last year`
 
-A valid date can also be made by applying an interval to a date. Intervals can be defined as "days", "weeks", "months", "years".
+A valid date can also be made by applying an interval to a date. Intervals can be defined as `days`, `weeks`, `months`, `years`.
 As an example, a valid date might be:
 
 ```3 weeks before today``` or ```3 weeks ago```
