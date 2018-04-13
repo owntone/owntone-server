@@ -1634,6 +1634,23 @@ static const struct db_upgrade_query db_upgrade_V1907_queries[] =
   };
 
 
+#define U_V1908_ALTER_PL_ADD_ORDERBY \
+  "ALTER TABLE playlists ADD COLUMN query_orderby VARCHAR(1024);"
+#define U_V1908_ALTER_PL_ADD_LIMIT \
+  "ALTER TABLE playlists ADD COLUMN query_limit INTEGER DEFAULT 0;"
+
+#define U_V1908_SCVER_MINOR \
+  "UPDATE admin SET value = '08' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1908_queries[] =
+  {
+    { U_V1908_ALTER_PL_ADD_ORDERBY,    "alter table playlists add column query_orderby" },
+    { U_V1908_ALTER_PL_ADD_LIMIT,      "alter table playlists add column query_limit" },
+
+    { U_V1908_SCVER_MINOR,    "set schema_version_minor to 08" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1790,6 +1807,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1906:
       ret = db_generic_upgrade(hdl, db_upgrade_V1907_queries, sizeof(db_upgrade_V1907_queries) / sizeof(db_upgrade_V1907_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1907:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1908_queries, ARRAY_SIZE(db_upgrade_v1908_queries));
       if (ret < 0)
 	return -1;
 

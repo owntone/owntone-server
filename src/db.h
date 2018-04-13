@@ -247,6 +247,8 @@ struct playlist_info {
   char *virtual_path;    /* virtual path of underlying playlist */
   uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
   uint32_t directory_id; /* Id of directory */
+  char *query_orderby;   /* order by clause if it is a smart playlist */
+  uint32_t query_limit;  /* limit if it is a smart playlist */
 };
 
 #define pli_offsetof(field) offsetof(struct playlist_info, field)
@@ -266,6 +268,8 @@ struct db_playlist_info {
   char *virtual_path;
   char *parent_id;
   char *directory_id;
+  char *query_orderby;
+  char *query_limit;
 };
 
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
