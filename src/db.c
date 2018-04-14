@@ -2070,13 +2070,17 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int w
 
   ncols = sqlite3_column_count(qp->stmt);
 
-  if (sizeof(dbpli_cols_map) / sizeof(dbpli_cols_map[0]) != ncols)
+  if (ARRAY_SIZE(dbpli_cols_map) > ncols)
     {
       DPRINTF(E_LOG, L_DB, "BUG: dbpli column map out of sync with schema\n");
       return -1;
     }
+  if (ARRAY_SIZE(dbpli_cols_map) < ncols)
+    {
+      DPRINTF(E_LOG, L_DB, "dbpli column map out of sync with schema, database schema does not match forked-daapd version!\n");
+    }
 
-  for (i = 0; i < ncols; i++)
+  for (i = 0; i < ARRAY_SIZE(dbpli_cols_map); i++)
     {
       strcol = (char **) ((char *)dbpli + dbpli_cols_map[i]);
 
@@ -3240,7 +3244,7 @@ db_pl_fetch_byquery(const char *query)
 
   ncols = sqlite3_column_count(stmt);
 
-  if (sizeof(pli_cols_map) / sizeof(pli_cols_map[0]) != ncols)
+  if (ARRAY_SIZE(pli_cols_map) > ncols)
     {
       DPRINTF(E_LOG, L_DB, "BUG: pli column map out of sync with schema\n");
 
@@ -3248,8 +3252,12 @@ db_pl_fetch_byquery(const char *query)
       free(pli);
       return NULL;
     }
+  if (ARRAY_SIZE(pli_cols_map) < ncols)
+    {
+      DPRINTF(E_LOG, L_DB, "BUG: pli column map out of sync with schema\n");
+    }
 
-  for (i = 0; i < ncols; i++)
+  for (i = 0; i < ARRAY_SIZE(pli_cols_map); i++)
     {
       switch (pli_cols_map[i].type)
 	{
