@@ -6,6 +6,7 @@ Available API endpoints:
 * [Outputs / Speakers](#outputs--speakers): list available outputs and enable/disable outputs
 * [Queue](#queue): list, add or modify the current queue
 * [Library](#library): list playlists, artists, albums and tracks from your library
+* [Search](#search): search for playlists, artists, albums and tracks
 * [Server info](#server-info): get server information
 * [Push notifications](#push-notifications): receive push notifications
 
@@ -28,6 +29,7 @@ JSON-Object model:
 | PUT       | [/api/player/consume](#set-consume-mode)         | Set consume mode                     |
 | PUT       | [/api/player/repeat](#set-repeat-mode)           | Set repeat mode                      |
 | PUT       | [/api/player/volume](#set-volume)                | Set master volume or volume for a specific output |
+| PUT       | [/api/player/seek](#seek)                        | Seek to a position in the currently playing track |
 
 
 
@@ -253,6 +255,34 @@ curl -X PUT "http://localhost:3689/api/player/volume?volume=50"
 
 ```
 curl -X PUT "http://localhost:3689/api/player/volume?volume=50&output_id=0"
+```
+
+
+### Seek
+
+Seek to a position in the currently playing track.
+
+**Endpoint**
+
+```
+PUT /api/player/seek
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| position_ms     | The new position in milliseconds to seek to                 |
+
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```
+curl -X PUT "http://localhost:3689/api/player/seek?position_ms=2000"
 ```
 
 
@@ -508,7 +538,7 @@ curl -X GET "http://localhost:3689/api/queue"
       "length_ms": 171735,
       "media_kind": "music",
       "data_kind": "file",
-      "path": "/home/asiate/MusicTest/The xx/Coexist/01 Angels.mp3",
+      "path": "/music/srv/The xx/Coexist/01 Angels.mp3",
       "uri": "library:track:10749"
     },
     ...
@@ -631,10 +661,13 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | Method    | Endpoint                                                    | Description                          |
 | --------- | ----------------------------------------------------------- | ------------------------------------ |
 | GET       | [/api/library/playlists](#list-playlists)                   | Get a list of playlists              |
+| GET       | [/api/library/playlists/{id}](#get-a-playlist)              | Get a playlist                       |
 | GET       | [/api/library/playlists/{id}/tracks](#list-playlist-tracks) | Get list of tracks for a playlist    |
 | GET       | [/api/library/artists](#list-artists)                       | Get a list of artists                |
+| GET       | [/api/library/artists/{id}](#get-an-artist)                 | Get an artist                        |
 | GET       | [/api/library/artists/{id}/albums](#list-artist-albums)     | Get list of albums for an artist     |
 | GET       | [/api/library/albums](#list-albums)                         | Get a list of albums                 |
+| GET       | [/api/library/albums/{id}](#get-an-album)                   | Get an album                         |
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 
 
@@ -687,6 +720,44 @@ curl -X GET "http://localhost:3689/api/library/playlists"
   "total": 20,
   "offset": 0,
   "limit": -1
+}
+```
+
+
+### Get a playlist
+
+Get a specific playlists in your library
+
+**Endpoint**
+
+```
+GET /api/library/playlists/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Playlist id          |
+
+**Response**
+
+On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`playlist`](#playlist-object) object**.
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/playlists/1"
+```
+
+```
+{
+  "id": 1,
+  "name": "radio",
+  "path": "/music/srv/radio.m3u",
+  "smart_playlist": false,
+  "uri": "library:playlist:1"
 }
 ```
 
@@ -817,6 +888,46 @@ curl -X GET "http://localhost:3689/api/library/artists"
 ```
 
 
+### Get an artist
+
+Get a specific artist in your library
+
+**Endpoint**
+
+```
+GET /api/library/artists/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Artist id            |
+
+**Response**
+
+On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`artist`](#artist-object) object**.
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/artists/3815427709949443149"
+```
+
+```
+{
+  "id": "3815427709949443149",
+  "name": "ABAY",
+  "name_sort": "ABAY",
+  "album_count": 1,
+  "track_count": 10,
+  "length_ms": 2951554,
+  "uri": "library:artist:3815427709949443149"
+}
+```
+
+
 ### List artist albums
 
 Lists the albums of an artist
@@ -933,6 +1044,47 @@ curl -X GET "http://localhost:3689/api/library/albums"
 ```
 
 
+### Get an album
+
+Get a specific album in your library
+
+**Endpoint**
+
+```
+GET /api/library/albums/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Album id             |
+
+**Response**
+
+On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`album`](#album-object) object**.
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/albums/8009851123233197743"
+```
+
+```
+{
+  "id": "8009851123233197743",
+  "name": "Add Violence",
+  "name_sort": "Add Violence",
+  "artist": "Nine Inch Nails",
+  "artist_id": "32561671101664759",
+  "track_count": 5,
+  "length_ms": 1634961,
+  "uri": "library:album:8009851123233197743"
+}
+```
+
+
 ### List album tracks
 
 Lists the tracks in an album
@@ -1005,6 +1157,193 @@ curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
 ```
 
 
+
+## Search
+
+| Method    | Endpoint                                                    | Description                          |
+| --------- | ----------------------------------------------------------- | ------------------------------------ |
+| GET       | [/api/search](#search-by-search-term)                       | Search for playlists, artists, albums, tracks by a simple search term |
+| GET       | [/api/search](#search-by-query-language)                    | Search by complex query expression   |
+
+
+
+### Search by search term
+
+Search for playlists, artists, albums, tracks that include the given query in their title (case insensitive matching).
+
+**Endpoint**
+
+```
+GET /api/search
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| query           | The search keyword                                          |
+| type            | Comma separated list of the result types (`playlist`, `artist`, `album`, `track` |
+| offset          | *(Optional)* Offset of the first item to return for each type |
+| limit           | *(Optional)* Maximum number of items to return for each type  |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| tracks          | object   | [`paging`](#paging-object) object containing [`track`](#track-object) objects that matches the `query` |
+| artists         | object   | [`paging`](#paging-object) object containing [`artist`](#artist-object) objects that matches the `query` |
+| albums          | object   | [`paging`](#paging-object) object containing [`album`](#album-object) objects that matches the `query` |
+| playlists       | object   | [`paging`](#paging-object) object containing [`playlist`](#playlist-object) objects that matches the `query` |
+
+
+**Example**
+
+Search for all tracks, artists, albums and playlists that contain "the" in their title and return the first two results for each type:
+
+```
+curl -X GET "http://localhost:3689/api/search?type=tracks,artists,albums,playlists&query=the&offset=0&limit=2"
+```
+
+```
+{
+  "tracks": {
+    "items": [
+      {
+        "id": 35,
+        "title": "Another Love",
+        "artist": "Tom Odell",
+        "artist_sort": "Tom Odell",
+        "album": "Es is was es is",
+        "album_sort": "Es is was es is",
+        "album_id": "6494853621007413058",
+        "album_artist": "Various artists",
+        "album_artist_sort": "Various artists",
+        "album_artist_id": "8395563705718003786",
+        "genre": "Singer/Songwriter",
+        "year": 2013,
+        "track_number": 7,
+        "disc_number": 1,
+        "length_ms": 251030,
+        "play_count": 0,
+        "media_kind": "music",
+        "data_kind": "file",
+        "path": "/music/srv/Compilations/Es is was es is/07 Another Love.m4a",
+        "uri": "library:track:35"
+      },
+      {
+        "id": 215,
+        "title": "Away From the Sun",
+        "artist": "3 Doors Down",
+        "artist_sort": "3 Doors Down",
+        "album": "Away From the Sun",
+        "album_sort": "Away From the Sun",
+        "album_id": "8264078270267374619",
+        "album_artist": "3 Doors Down",
+        "album_artist_sort": "3 Doors Down",
+        "album_artist_id": "5030128490104968038",
+        "genre": "Rock",
+        "year": 2002,
+        "track_number": 2,
+        "disc_number": 1,
+        "length_ms": 233278,
+        "play_count": 0,
+        "media_kind": "music",
+        "data_kind": "file",
+        "path": "/music/srv/Away From the Sun/02 Away From the Sun.mp3",
+        "uri": "library:track:215"
+      }
+    ],
+    "total": 14,
+    "offset": 0,
+    "limit": 2
+  },
+  "artists": {
+    "items": [
+      {
+        "id": "8737690491750445895",
+        "name": "The xx",
+        "name_sort": "xx, The",
+        "album_count": 2,
+        "track_count": 25,
+        "length_ms": 5229196,
+        "uri": "library:artist:8737690491750445895"
+      }
+    ],
+    "total": 1,
+    "offset": 0,
+    "limit": 2
+  },
+  "albums": {
+    "items": [
+      {
+        "id": "8264078270267374619",
+        "name": "Away From the Sun",
+        "name_sort": "Away From the Sun",
+        "artist": "3 Doors Down",
+        "artist_id": "5030128490104968038",
+        "track_count": 12,
+        "length_ms": 2818174,
+        "uri": "library:album:8264078270267374619"
+      },
+      {
+        "id": "6835720495312674468",
+        "name": "The Better Life",
+        "name_sort": "Better Life",
+        "artist": "3 Doors Down",
+        "artist_id": "5030128490104968038",
+        "track_count": 11,
+        "length_ms": 2393332,
+        "uri": "library:album:6835720495312674468"
+      }
+    ],
+    "total": 3,
+    "offset": 0,
+    "limit": 2
+  },
+  "playlists": {
+    "items": [],
+    "total": 0,
+    "offset": 0,
+    "limit": 2
+  }
+}
+```
+
+### Search by query language
+
+Search for artists, albums, tracks by a smart playlist query expression (see [README_SMARTPL.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md) for the expression syntax).
+
+**Endpoint**
+
+```
+GET /api/search
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| expression      | The smart playlist query expression                         |
+| type            | Comma separated list of the result types (`artist`, `album`, `track` |
+| offset          | *(Optional)* Offset of the first item to return for each type |
+| limit           | *(Optional)* Maximum number of items to return for each type  |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| tracks          | object   | [`paging`](#paging-object) object containing [`track`](#track-object) objects that matches the `query` |
+| artists         | object   | [`paging`](#paging-object) object containing [`artist`](#artist-object) objects that matches the `query` |
+| albums          | object   | [`paging`](#paging-object) object containing [`album`](#album-object) objects that matches the `query` |
+
+
+**Example**
+
+Search for music tracks ordered descending by the time added to the library and limit result to 2 items:
+
+```
+curl -X GET "http://localhost:3689/api/search?type=tracks&expression=media_kind+is+music+order+by+time_added+desc&offset=0&limit=2"
+```
 
 
 ## Server info
@@ -1181,8 +1520,10 @@ curl --include \
 | artist_sort        | string   | Track artist sort name                    |
 | album              | string   | Album name                                |
 | album_sort         | string   | Album sort name                           |
+| album_id           | string   | Album id                                  |
 | album_artist       | string   | Album artist name                         |
 | album_artist_sort  | string   | Album artist sort name                    |
+| album_artist_id    | string   | Album artist id                           |
 | genre              | string   | Genre                                     |
 | year               | integer  | Release year                              |
 | track_number       | integer  | Track number                              |
@@ -1194,3 +1535,14 @@ curl --include \
 | data_kind          | string   | Data type of this track: `file`, `stream`, `spotify`, `pipe` |
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
+
+
+### `paging` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of result objects                   |
+| total           | integer  | Total number of items                     |
+| offset          | integer  | Requested offset of the first item        |
+| limit           | integer  | Requested maximum number of items         |
+
