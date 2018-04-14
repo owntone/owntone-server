@@ -172,7 +172,6 @@ struct raop_session
   bool encrypt;
   bool auth_quirk_itunes;
   bool wants_metadata;
-  bool keep_alive;
 
   bool only_probe;
 
@@ -2008,37 +2007,31 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb, boo
       case RAOP_DEV_APEX1_80211G:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 1;
-	rs->keep_alive = 0;
 	break;
 
       case RAOP_DEV_APEX2_80211N:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 0;
-	rs->keep_alive = 0;
 	break;
 
       case RAOP_DEV_APEX3_80211N:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
-	rs->keep_alive = 0;
 	break;
 
       case RAOP_DEV_APPLETV:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
-	rs->keep_alive = 0;
 	break;
 
       case RAOP_DEV_APPLETV4:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
-	rs->keep_alive = 1;
 	break;
 
       case RAOP_DEV_OTHER:
 	rs->encrypt = re->encrypt;
 	rs->auth_quirk_itunes = 0;
-	rs->keep_alive = 0;
 	break;
     }
 
@@ -2749,9 +2742,6 @@ raop_keep_alive_timer_cb(int fd, short what, void *arg)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-//      if (!rs->keep_alive)
-//	continue;
-
       if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
 
