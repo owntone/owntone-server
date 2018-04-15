@@ -556,6 +556,7 @@ free_pli(struct playlist_info *pli, int content_only)
   free(pli->query);
   free(pli->path);
   free(pli->virtual_path);
+  free(pli->query_order);
 
   if (!content_only)
     free(pli);
