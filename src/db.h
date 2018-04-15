@@ -248,7 +248,7 @@ struct playlist_info {
   uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
   uint32_t directory_id; /* Id of directory */
   char *query_order;     /* order by clause if it is a smart playlist */
-  uint32_t query_limit;  /* limit if it is a smart playlist */
+  int32_t query_limit;   /* limit if it is a smart playlist */
 };
 
 #define pli_offsetof(field) offsetof(struct playlist_info, field)

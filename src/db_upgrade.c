@@ -1637,7 +1637,7 @@ static const struct db_upgrade_query db_upgrade_V1907_queries[] =
 #define U_V1908_ALTER_PL_ADD_ORDER \
   "ALTER TABLE playlists ADD COLUMN query_order VARCHAR(1024);"
 #define U_V1908_ALTER_PL_ADD_LIMIT \
-  "ALTER TABLE playlists ADD COLUMN query_limit INTEGER DEFAULT 0;"
+  "ALTER TABLE playlists ADD COLUMN query_limit INTEGER DEFAULT -1;"
 
 #define U_V1908_SCVER_MINOR \
   "UPDATE admin SET value = '08' WHERE key = 'schema_version_minor';"
