@@ -1634,8 +1634,8 @@ static const struct db_upgrade_query db_upgrade_V1907_queries[] =
   };
 
 
-#define U_V1908_ALTER_PL_ADD_ORDERBY \
-  "ALTER TABLE playlists ADD COLUMN query_orderby VARCHAR(1024);"
+#define U_V1908_ALTER_PL_ADD_ORDER \
+  "ALTER TABLE playlists ADD COLUMN query_order VARCHAR(1024);"
 #define U_V1908_ALTER_PL_ADD_LIMIT \
   "ALTER TABLE playlists ADD COLUMN query_limit INTEGER DEFAULT 0;"
 
@@ -1644,7 +1644,7 @@ static const struct db_upgrade_query db_upgrade_V1907_queries[] =
 
 static const struct db_upgrade_query db_upgrade_v1908_queries[] =
   {
-    { U_V1908_ALTER_PL_ADD_ORDERBY,    "alter table playlists add column query_orderby" },
+    { U_V1908_ALTER_PL_ADD_ORDER,      "alter table playlists add column query_order" },
     { U_V1908_ALTER_PL_ADD_LIMIT,      "alter table playlists add column query_limit" },
 
     { U_V1908_SCVER_MINOR,    "set schema_version_minor to 08" },

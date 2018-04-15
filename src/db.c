@@ -175,7 +175,7 @@ static const struct col_type_map pli_cols_map[] =
     { pli_offsetof(virtual_path), DB_TYPE_STRING },
     { pli_offsetof(parent_id),    DB_TYPE_INT },
     { pli_offsetof(directory_id), DB_TYPE_INT },
-    { pli_offsetof(query_orderby),DB_TYPE_STRING },
+    { pli_offsetof(query_order),DB_TYPE_STRING },
     { pli_offsetof(query_limit),  DB_TYPE_INT },
 
     /* items is computed on the fly */
@@ -267,7 +267,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(virtual_path),
     dbpli_offsetof(parent_id),
     dbpli_offsetof(directory_id),
-    dbpli_offsetof(query_orderby),
+    dbpli_offsetof(query_order),
     dbpli_offsetof(query_limit),
 
     /* items is computed on the fly */
@@ -582,7 +582,7 @@ free_query_params(struct query_params *qp, int content_only)
 
   free(qp->filter);
   free(qp->having);
-  free(qp->orderby);
+  free(qp->order);
 
   if (!content_only)
     free(qp);
@@ -1118,8 +1118,8 @@ db_build_query_clause(struct query_params *qp)
     else
       qc->having = sqlite3_mprintf("");
 
-  if (qp->orderby)
-    qc->order = sqlite3_mprintf("ORDER BY %s", qp->orderby);
+  if (qp->order)
+    qc->order = sqlite3_mprintf("ORDER BY %s", qp->order);
   else if (qp->sort)
     qc->order = sqlite3_mprintf("ORDER BY %s", sort_clause[qp->sort]);
   else if (qp->type & Q_F_BROWSE)
@@ -1293,11 +1293,11 @@ db_build_query_plitems_smart(struct query_params *qp, struct playlist_info *pli)
 	}
     }
 
-  if (pli->query_orderby)
+  if (pli->query_order)
     {
-      if (!qp->orderby && qp->sort == S_NONE)
+      if (!qp->order && qp->sort == S_NONE)
 	{
-	  qp->orderby = strdup(pli->query_orderby);
+	  qp->order = strdup(pli->query_order);
 	  free_orderby = true;
 	}
       else
@@ -1307,8 +1307,8 @@ db_build_query_plitems_smart(struct query_params *qp, struct playlist_info *pli)
   qc = db_build_query_clause(qp);
   if (free_orderby)
     {
-      free(qp->orderby);
-      qp->orderby = NULL;
+      free(qp->order);
+      qp->order = NULL;
     }
   if (!qc)
     return NULL;
@@ -3104,7 +3104,7 @@ db_pl_add(struct playlist_info *pli, int *id)
 {
 #define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
 #define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, " \
-                  " parent_id, virtual_path, directory_id, query_orderby, query_limit)" \
+                  " parent_id, virtual_path, directory_id, query_order, query_limit)" \
                   " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q', %d, %Q, %d);"
   char *query;
   char *errmsg;
@@ -3132,7 +3132,7 @@ db_pl_add(struct playlist_info *pli, int *id)
   query = sqlite3_mprintf(QADD_TMPL,
 			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
 			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id,
-			  pli->query_orderby, pli->query_limit);
+			  pli->query_order, pli->query_limit);
 
   if (!query)
     {
@@ -3198,7 +3198,7 @@ db_pl_update(struct playlist_info *pli)
 {
 #define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, query = '%q', db_timestamp = %" PRIi64 ", disabled = %d, " \
                " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q', directory_id = %d, " \
-               " query_orderby = %Q, query_limit = %d " \
+               " query_order = %Q, query_limit = %d " \
                " WHERE id = %d;"
   char *query;
   int ret;
@@ -3206,7 +3206,7 @@ db_pl_update(struct playlist_info *pli)
   query = sqlite3_mprintf(Q_TMPL,
 			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
 			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id,
-			  pli->query_orderby, pli->query_limit, pli->id);
+			  pli->query_order, pli->query_limit, pli->id);
 
   ret = db_query_run(query, 1, 0);
 

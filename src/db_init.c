@@ -110,7 +110,7 @@
   "   virtual_path   VARCHAR(4096),"			\
   "   parent_id      INTEGER DEFAULT 0,"		\
   "   directory_id   INTEGER DEFAULT 0,"		\
-  "   query_orderby  VARCHAR(1024),"			\
+  "   query_order    VARCHAR(1024),"			\
   "   query_limit    INTEGER DEFAULT 0"			\
   ");"
 
