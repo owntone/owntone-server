@@ -131,44 +131,62 @@ expression	returns [ pANTLR3_STRING result, pANTLR3_STRING orderby, pANTLR3_STRI
 	|	STRTAG INCLUDES STR
 		{
 			pANTLR3_UINT8 val;
+			char *tmp;
+			
 			val = $STR.text->toUTF8($STR.text)->chars;
 			val++;
 			val[strlen((const char *)val) - 1] = '\0';
+			
+			tmp = sqlite3_mprintf("\%q", (const char *)val);
 			
 			$result = $STR.text->factory->newRaw($STR.text->factory);
 			$result->append8($result, "f.");
 			$result->appendS($result, $STRTAG.text->toUTF8($STRTAG.text));
 			$result->append8($result, " LIKE '\%");
-			$result->append8($result, sqlite3_mprintf("\%q", (const char *)val));
+			$result->append8($result, tmp);
 			$result->append8($result, "\%'");
+			
+			sqlite3_free(tmp);
 		}
 	|	STRTAG IS STR
 		{
 			pANTLR3_UINT8 val;
+			char *tmp;
+			
 			val = $STR.text->toUTF8($STR.text)->chars;
 			val++;
 			val[strlen((const char *)val) - 1] = '\0';
+			
+			tmp = sqlite3_mprintf("\%q", (const char *)val);
 			
 			$result = $STR.text->factory->newRaw($STR.text->factory);
 			$result->append8($result, "f.");
 			$result->appendS($result, $STRTAG.text->toUTF8($STRTAG.text));
 			$result->append8($result, " LIKE '");
-			$result->append8($result, sqlite3_mprintf("\%q", (const char *)val));
+			$result->append8($result, tmp);
 			$result->append8($result, "'");
+			
+			sqlite3_free(tmp);
 		}
 	|	STRTAG STARTSWITH STR
 		{
 			pANTLR3_UINT8 val;
+			char *tmp;
+			
 			val = $STR.text->toUTF8($STR.text)->chars;
 			val++;
 			val[strlen((const char *)val) - 1] = '\0';
+			
+			tmp = sqlite3_mprintf("\%q", (const char *)val);
 			
 			$result = $STR.text->factory->newRaw($STR.text->factory);
 			$result->append8($result, "f.");
 			$result->appendS($result, $STRTAG.text->toUTF8($STRTAG.text));
 			$result->append8($result, " LIKE '");
-			$result->append8($result, sqlite3_mprintf("\%q", (const char *)val));
+			$result->append8($result, tmp);
 			$result->append8($result, "\%'");
+			
+			sqlite3_free(tmp);
 		}
 	|	INTTAG INTBOOL INT
 		{
