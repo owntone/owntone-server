@@ -135,9 +135,9 @@ parse_input(struct smartpl *smartpl, pANTLR3_INPUT_STREAM input)
 	free(smartpl->having);
       smartpl->having = safe_strdup((char *)plreturn.having->chars);
 
-      if (smartpl->order_by)
-	free(smartpl->order_by);
-      smartpl->order_by = safe_strdup((char *)plreturn.orderby->chars);
+      if (smartpl->order)
+	free(smartpl->order);
+      smartpl->order = safe_strdup((char *)plreturn.orderby->chars);
 
       smartpl->limit = plreturn.limit;
 
@@ -224,7 +224,7 @@ free_smartpl(struct smartpl *smartpl, int content_only)
   free(smartpl->title);
   free(smartpl->query_where);
   free(smartpl->having);
-  free(smartpl->order_by);
+  free(smartpl->order);
 
   if (!content_only)
     free(smartpl);

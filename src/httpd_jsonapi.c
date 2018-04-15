@@ -2369,7 +2369,7 @@ search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_
   else
     {
       query_params.filter = strdup(smartpl_expression->query_where);
-      query_params.orderby = safe_strdup(smartpl_expression->order_by);
+      query_params.order = safe_strdup(smartpl_expression->order);
 
       if (smartpl_expression->limit > 0)
 	{
@@ -2428,7 +2428,7 @@ search_artists(json_object *reply, struct httpd_request *hreq, const char *param
     {
       query_params.filter = strdup(smartpl_expression->query_where);
       query_params.having = safe_strdup(smartpl_expression->having);
-      query_params.orderby = safe_strdup(smartpl_expression->order_by);
+      query_params.order = safe_strdup(smartpl_expression->order);
 
       if (smartpl_expression->limit > 0)
 	{
@@ -2487,7 +2487,7 @@ search_albums(json_object *reply, struct httpd_request *hreq, const char *param_
     {
       query_params.filter = strdup(smartpl_expression->query_where);
       query_params.having = safe_strdup(smartpl_expression->having);
-      query_params.orderby = safe_strdup(smartpl_expression->order_by);
+      query_params.order = safe_strdup(smartpl_expression->order);
 
       if (smartpl_expression->limit > 0)
 	{

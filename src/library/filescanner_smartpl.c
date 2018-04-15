@@ -86,8 +86,8 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
   free(pli->query);
   pli->query = strdup(smartpl.query_where);
 
-  free(pli->query_orderby);
-  pli->query_orderby = safe_strdup(smartpl.order_by);
+  free(pli->query_order);
+  pli->query_order = safe_strdup(smartpl.order);
 
   pli->query_limit = smartpl.limit;
 

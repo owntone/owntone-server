@@ -92,7 +92,7 @@ struct query_params {
   int limit;
 
   char *having;
-  char *orderby;
+  char *order;
 
   char *filter;
 
@@ -247,7 +247,7 @@ struct playlist_info {
   char *virtual_path;    /* virtual path of underlying playlist */
   uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
   uint32_t directory_id; /* Id of directory */
-  char *query_orderby;   /* order by clause if it is a smart playlist */
+  char *query_order;     /* order by clause if it is a smart playlist */
   uint32_t query_limit;  /* limit if it is a smart playlist */
 };
 
@@ -268,7 +268,7 @@ struct db_playlist_info {
   char *virtual_path;
   char *parent_id;
   char *directory_id;
-  char *query_orderby;
+  char *query_order;
   char *query_limit;
 };
 

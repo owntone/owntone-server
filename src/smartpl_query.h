@@ -7,7 +7,7 @@ struct smartpl {
   char *title;
   char *query_where;
   char *having;
-  char *order_by;
+  char *order;
   int limit;
 };
 
