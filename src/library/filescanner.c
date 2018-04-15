@@ -1823,11 +1823,61 @@ playlist_add_path(FILE *fp, int pl_id, const char *path)
 }
 
 static int
+ensure_file_record(const char *path)
+{
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
+  struct media_file_info mfi;
+  bool found;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_ITEMS;
+  qp.sort = S_ARTIST;
+  qp.idx_type = I_NONE;
+  qp.filter = db_mprintf("(f.path = %Q)", path);
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      free(qp.filter);
+      return -1;
+    }
+
+  found = ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id);
+  db_query_end(&qp);
+  free(qp.filter);
+
+  while (!found)
+    {
+      // Given path is not in the library, check if it is possible to add as a non-library queue item
+      ret = library_scan_media(path, &mfi);
+      if (ret != LIBRARY_OK)
+	{
+	  DPRINTF(E_WARN, L_SCAN, "Non-library item '%s' not added\n", path);
+	  break;
+	}
+
+      DPRINTF(E_DBG, L_SCAN, "Non-library item '%s' added with vp: %s\n", mfi.path, mfi.virtual_path);
+
+      library_add_media(&mfi);
+      free_mfi(&mfi, 1);
+      break;
+    }
+
+  return ret;
+}
+
+static int
 playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
+  struct db_queue_item queue_item;
+  char *path;
   uint32_t data_kind;
+  int added;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -1844,6 +1894,7 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
       return -1;
     }
 
+  added = 0;
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
       if ((safe_atou32(dbmfi.data_kind, &data_kind) < 0)
@@ -1858,10 +1909,57 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
 	break;
 
       DPRINTF(E_DBG, L_SCAN, "Item '%s' added to playlist (id = %d)\n", dbmfi.path, pl_id);
+      ++added;
     }
 
   db_query_end(&qp);
   free(qp.filter);
+
+  path = NULL;
+  while (ret == 0 && added == 0 && strncasecmp(virtual_path, "/http:/", strlen("/http:/")) == 0)
+    {
+      // if not found, check in current playlist
+      do
+	{
+	  memset(&qp, 0, sizeof(struct query_params));
+	  qp.filter = db_mprintf("virtual_path = %Q", virtual_path);
+
+	  ret = db_queue_enum_start(&qp);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Failed to start queue enum\n");
+	      free(qp.filter);
+	      break;
+	    }
+
+	  while ((ret = db_queue_enum_fetch(&qp, &queue_item)) == 0 && queue_item.id > 0)
+	    {
+	      DPRINTF(E_DBG, L_SCAN, "Found queue item for virtual_path '%s': '%s'\n", virtual_path, queue_item.path);
+	      path = strdup(queue_item.path);
+	      break;
+	    }
+
+	  db_queue_enum_end(&qp);
+	  free(qp.filter);
+	}
+      while (0);
+
+      // if not found in queue, use URL as is
+      if (!path)
+	  path = strdup(&virtual_path[1]);
+
+      ensure_file_record(path);
+
+      ret = playlist_add_path(fp, pl_id, path);
+      if (ret < 0)
+	break;
+
+      DPRINTF(E_DBG, L_SCAN, "Non-library item '%s' added to playlist (id = %d) after scan\n", path, pl_id);
+      break;
+    }
+
+  if (path)
+    free(path);
 
   return ret;
 }
@@ -1994,6 +2092,9 @@ queue_save(const char *virtual_path)
 	  DPRINTF(E_LOG, L_SCAN, "Unsupported data kind for playlist file '%s' ignoring item '%s'\n", virtual_path, queue_item.path);
 	  continue;
 	}
+
+      if (queue_item.data_kind == DATA_KIND_HTTP)
+	ensure_file_record(queue_item.path);
 
       ret = fprintf(fp, "%s\n", queue_item.path);
       if (ret < 0)
