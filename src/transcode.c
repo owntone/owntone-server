@@ -363,6 +363,7 @@ static int
 stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id, const char *codec_name)
 {
   AVCodec *encoder;
+  AVDictionary *options = NULL;
   int ret;
 
   encoder = avcodec_find_encoder(codec_id);
@@ -386,7 +387,11 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   if (ctx->ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
     s->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
-  ret = avcodec_open2(s->codec, NULL, NULL);
+  // With ffmpeg 3.4, jpeg encoding with optimal huffman tables will segfault, see issue #502
+  if (codec_id == AV_CODEC_ID_MJPEG)
+    av_dict_set(&options, "huffman", "default", 0);
+
+  ret = avcodec_open2(s->codec, NULL, &options);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Cannot open encoder (%s): %s\n", codec_name, err2str(ret));
