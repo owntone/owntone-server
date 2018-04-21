@@ -15,6 +15,7 @@ dist_man_MANS = forked-daapd.8
 nobase_dist_doc_DATA = \
 	UPGRADING \
 	README.md \
+	README_JSON_API.md \
 	README_PULSE.md \
 	README_SMARTPL.md \
 	scripts/pairinghelper.sh
