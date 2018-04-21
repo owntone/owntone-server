@@ -370,7 +370,7 @@ serve_file(struct evhttp_request *req, const char *uri)
   ret = lstat(path, &sb);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Could not lstat() %s: %s\n", path, strerror(errno));
+      DPRINTF(E_WARN, L_HTTPD, "Could not lstat() %s: %s\n", path, strerror(errno));
 
       httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
