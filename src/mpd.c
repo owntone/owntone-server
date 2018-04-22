@@ -1053,8 +1053,6 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
 {
   struct query_params qp;
   struct filecount_info fci;
-  int artists;
-  int albums;
   time_t start_time;
   double uptime;
   int64_t db_update;
@@ -1070,9 +1068,6 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       return ACK_ERROR_UNKNOWN;
     }
 
-  artists = db_files_get_artist_count();
-  albums = db_files_get_album_count();
-
   start_time = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
   uptime = difftime(time(NULL), start_time);
   db_update = db_admin_getint64(DB_ADMIN_DB_UPDATE);
@@ -1086,8 +1081,8 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       "db_playtime: %" PRIi64 "\n"
       "db_update: %" PRIi64 "\n"
       "playtime: %d\n",
-      artists,
-      albums,
+      fci.artist_count,
+      fci.album_count,
       fci.count,
       uptime,
       (fci.length / 1000),

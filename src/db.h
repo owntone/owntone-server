@@ -391,6 +391,8 @@ struct watch_enum {
 struct filecount_info {
   uint32_t count;
   uint64_t length;
+  uint32_t artist_count;
+  uint32_t album_count;
 };
 
 /* Directory ids must be in sync with the ids in Q_DIR* in db_init.c */
@@ -551,12 +553,6 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 /* Files */
 int
 db_files_get_count(void);
-
-int
-db_files_get_artist_count(void);
-
-int
-db_files_get_album_count(void);
 
 void
 db_file_inc_playcount(int id);

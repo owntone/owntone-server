@@ -31,6 +31,7 @@
 #endif
 
 #include <regex.h>
+#include <sqlite3.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -77,7 +78,7 @@ safe_json_add_int_from_string(json_object *obj, const char *key, const char *val
 }
 
 static inline void
-safe_json_add_time_from_string(json_object *obj, const char *key, const char *value)
+safe_json_add_time_from_string(json_object *obj, const char *key, const char *value, bool with_time)
 {
   uint32_t tmp;
   time_t timestamp;
@@ -103,7 +104,10 @@ safe_json_add_time_from_string(json_object *obj, const char *key, const char *va
       return;
     }
 
-  strftime(result, sizeof(result), "%FT%TZ", &tm);
+  if (with_time)
+    strftime(result, sizeof(result), "%FT%TZ", &tm);
+  else
+    strftime(result, sizeof(result), "%F", &tm);
 
   json_object_object_add(obj, key, json_object_new_string(result));
 }
@@ -182,7 +186,10 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "length_ms", dbmfi->song_length);
 
   safe_json_add_int_from_string(item, "play_count", dbmfi->play_count);
-  safe_json_add_time_from_string(item, "time_played", dbmfi->time_played);
+  safe_json_add_time_from_string(item, "time_played", dbmfi->time_played, true);
+  safe_json_add_time_from_string(item, "time_added", dbmfi->time_added, true);
+  safe_json_add_time_from_string(item, "date_released", dbmfi->date_released, false);
+  safe_json_add_int_from_string(item, "seek_ms", dbmfi->seek);
 
   ret = safe_atoi32(dbmfi->media_kind, &intval);
   if (ret == 0)
@@ -556,39 +563,33 @@ jsonapi_reply_library(struct httpd_request *hreq)
 {
   struct query_params qp;
   struct filecount_info fci;
-  int artists;
-  int albums;
-  bool is_scanning;
   json_object *jreply;
   int ret;
 
-  // Fetch values for response
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
   memset(&qp, 0, sizeof(struct query_params));
   qp.type = Q_COUNT_ITEMS;
   ret = db_filecount_get(&fci, &qp);
-  if (ret < 0)
+  if (ret == 0)
+    {
+      json_object_object_add(jreply, "songs", json_object_new_int(fci.count));
+      json_object_object_add(jreply, "db_playtime", json_object_new_int64((fci.length / 1000)));
+      json_object_object_add(jreply, "artists", json_object_new_int(fci.artist_count));
+      json_object_object_add(jreply, "albums", json_object_new_int(fci.album_count));
+    }
+  else
     {
       DPRINTF(E_LOG, L_WEB, "library: failed to get file count info\n");
-      return HTTP_INTERNAL;
     }
 
-  artists = db_files_get_artist_count();
-  albums = db_files_get_album_count();
+  safe_json_add_time_from_string(jreply, "started_at", db_admin_get(DB_ADMIN_START_TIME), true);
+  safe_json_add_time_from_string(jreply, "updated_at", db_admin_get(DB_ADMIN_DB_UPDATE), true);
 
-  is_scanning = library_is_scanning();
-
-  // Build json response
-  CHECK_NULL(L_WEB, jreply = json_object_new_object());
-
-  json_object_object_add(jreply, "artists", json_object_new_int(artists));
-  json_object_object_add(jreply, "albums", json_object_new_int(albums));
-  json_object_object_add(jreply, "songs", json_object_new_int(fci.count));
-  json_object_object_add(jreply, "db_playtime", json_object_new_int64((fci.length / 1000)));
-  json_object_object_add(jreply, "updating", json_object_new_boolean(is_scanning));
+  json_object_object_add(jreply, "updating", json_object_new_boolean(library_is_scanning()));
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
-
   jparse_free(jreply);
 
   return HTTP_OK;
@@ -2340,7 +2341,60 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 }
 
 static int
-search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression)
+jsonapi_reply_library_count(struct httpd_request *hreq)
+{
+  const char *param_expression;
+  char *expression;
+  struct smartpl smartpl_expression;
+  struct query_params qp;
+  struct filecount_info fci;
+  json_object *jreply;
+  int ret;
+
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_COUNT_ITEMS;
+
+  param_expression = evhttp_find_header(hreq->query, "expression");
+  if (param_expression)
+    {
+      memset(&smartpl_expression, 0, sizeof(struct smartpl));
+      expression = safe_asprintf("\"query\" { %s }", param_expression);
+      ret = smartpl_query_parse_string(&smartpl_expression, expression);
+      free(expression);
+
+      if (ret < 0)
+	return HTTP_BADREQUEST;
+
+      qp.filter = strdup(smartpl_expression.query_where);
+      free_smartpl(&smartpl_expression, 1);
+    }
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  ret = db_filecount_get(&fci, &qp);
+  if (ret == 0)
+    {
+      json_object_object_add(jreply, "tracks", json_object_new_int(fci.count));
+      json_object_object_add(jreply, "artists", json_object_new_int(fci.artist_count));
+      json_object_object_add(jreply, "albums", json_object_new_int(fci.album_count));
+      json_object_object_add(jreply, "db_playtime", json_object_new_int64((fci.length / 1000)));
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_WEB, "library: failed to get count info\n");
+    }
+
+  free(qp.filter);
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  jparse_free(jreply);
+
+  return HTTP_OK;
+}
+
+static int
+search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
 {
   json_object *type;
   json_object *items;
@@ -2364,7 +2418,10 @@ search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_
 
   if (param_query)
     {
-      query_params.filter = db_mprintf("(f.title LIKE '%%%q%%')", param_query);
+      if (media_kind)
+	query_params.filter = db_mprintf("(f.title LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
+      else
+	query_params.filter = db_mprintf("(f.title LIKE '%%%q%%')", param_query);
     }
   else
     {
@@ -2394,7 +2451,7 @@ search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_
 }
 
 static int
-search_artists(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression)
+search_artists(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
 {
   json_object *type;
   json_object *items;
@@ -2422,7 +2479,10 @@ search_artists(json_object *reply, struct httpd_request *hreq, const char *param
 
   if (param_query)
     {
-      query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%')", param_query);
+      if (media_kind)
+	query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
+      else
+	query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%')", param_query);
     }
   else
     {
@@ -2453,7 +2513,7 @@ search_artists(json_object *reply, struct httpd_request *hreq, const char *param
 }
 
 static int
-search_albums(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression)
+search_albums(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
 {
   json_object *type;
   json_object *items;
@@ -2481,7 +2541,10 @@ search_albums(json_object *reply, struct httpd_request *hreq, const char *param_
 
   if (param_query)
     {
-      query_params.filter = db_mprintf("(f.album LIKE '%%%q%%')", param_query);
+      if (media_kind)
+	query_params.filter = db_mprintf("(f.album LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
+      else
+	query_params.filter = db_mprintf("(f.album LIKE '%%%q%%')", param_query);
     }
   else
     {
@@ -2558,6 +2621,8 @@ jsonapi_reply_search(struct httpd_request *hreq)
   const char *param_type;
   const char *param_query;
   const char *param_expression;
+  const char *param_media_kind;
+  enum media_kind media_kind;
   char *expression;
   struct smartpl smartpl_expression;
   json_object *reply;
@@ -2576,6 +2641,18 @@ jsonapi_reply_search(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
+  media_kind = 0;
+  param_media_kind = evhttp_find_header(hreq->query, "media_kind");
+  if (param_media_kind)
+    {
+      media_kind = db_media_kind_enum(param_media_kind);
+      if (!media_kind)
+      {
+	DPRINTF(E_LOG, L_WEB, "Invalid media kind '%s'\n", param_media_kind);
+	return HTTP_BADREQUEST;
+      }
+    }
+
   memset(&smartpl_expression, 0, sizeof(struct smartpl));
 
   if (param_expression)
@@ -2592,21 +2669,21 @@ jsonapi_reply_search(struct httpd_request *hreq)
 
   if (strstr(param_type, "track"))
     {
-      ret = search_tracks(reply, hreq, param_query, &smartpl_expression);
+      ret = search_tracks(reply, hreq, param_query, &smartpl_expression, media_kind);
       if (ret < 0)
 	goto error;
     }
 
   if (strstr(param_type, "artist"))
     {
-      ret = search_artists(reply, hreq, param_query, &smartpl_expression);
+      ret = search_artists(reply, hreq, param_query, &smartpl_expression, media_kind);
       if (ret < 0)
 	goto error;
     }
 
   if (strstr(param_type, "album"))
     {
-      ret = search_albums(reply, hreq, param_query, &smartpl_expression);
+      ret = search_albums(reply, hreq, param_query, &smartpl_expression, media_kind);
       if (ret < 0)
 	goto error;
     }
@@ -2681,6 +2758,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
+    { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
 
