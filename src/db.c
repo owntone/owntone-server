@@ -1834,7 +1834,7 @@ db_build_query_count_items(struct query_params *qp)
 
   qp->results = 1;
 
-  query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length) FROM files f %s;", qc->where);
+  query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length), COUNT(distinct songartistid), COUNT(distinct songalbumid) FROM files f %s;", qc->where);
   if (!query)
     DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
@@ -2218,6 +2218,8 @@ db_query_fetch_count(struct query_params *qp, struct filecount_info *fci)
 
   fci->count = sqlite3_column_int(qp->stmt, 0);
   fci->length = sqlite3_column_int64(qp->stmt, 1);
+  fci->artist_count = sqlite3_column_int(qp->stmt, 2);
+  fci->album_count = sqlite3_column_int(qp->stmt, 3);
 
   return 0;
 }
@@ -2322,18 +2324,6 @@ int
 db_files_get_count(void)
 {
   return db_get_one_int("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
-}
-
-int
-db_files_get_artist_count(void)
-{
-  return db_get_one_int("SELECT COUNT(DISTINCT songartistid) FROM files f WHERE f.disabled = 0;");
-}
-
-int
-db_files_get_album_count(void)
-{
-  return db_get_one_int("SELECT COUNT(DISTINCT songalbumid) FROM files f WHERE f.disabled = 0;");
 }
 
 void
