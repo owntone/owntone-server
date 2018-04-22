@@ -669,6 +669,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums](#list-albums)                         | Get a list of albums                 |
 | GET       | [/api/library/albums/{id}](#get-an-album)                   | Get an album                         |
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
+| GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 
 
 
@@ -1157,6 +1158,48 @@ curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
 ```
 
 
+### Get count of tracks, artists and albums
+
+Get information about the number of tracks, artists and albums and the total playtime
+
+**Endpoint**
+
+```
+GET /api/library/count
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| expression      | *(Optional)* The smart playlist query expression, if this parameter is omitted returns the information for the whole library |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| tracks          | integer  | Number of tracks matching the expression  |
+| artists         | integer  | Number of artists matching the expression |
+| albums          | integer  | Number of albums matching the expression  |
+| db_playtime     | integer  | Total playtime in milliseconds of all tracks matching the expression |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/count?expression=data_kind+is+file"
+```
+
+```
+{
+  "tracks": 6811,
+  "artists": 355,
+  "albums": 646,
+  "db_playtime": 1590767
+}
+```
+
+
 
 ## Search
 
@@ -1182,7 +1225,8 @@ GET /api/search
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | query           | The search keyword                                          |
-| type            | Comma separated list of the result types (`playlist`, `artist`, `album`, `track` |
+| type            | Comma separated list of the result types (`playlist`, `artist`, `album`, `track`) |
+| media_kind      | *(Optional)* Filter results by media kind (`music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow`). Filter only applies to artist, album and track result types. |
 | offset          | *(Optional)* Offset of the first item to return for each type |
 | limit           | *(Optional)* Maximum number of items to return for each type  |
 
@@ -1530,7 +1574,10 @@ curl --include \
 | disc_number        | integer  | Disc number                               |
 | length_ms          | integer  | Track length in milliseconds              |
 | play_count         | integer  | How many times the track was played       |
-| time_played        | string   | The timestamp in `ISO 8601` format      |
+| time_played        | string   | Timestamp in `ISO 8601` format           |
+| time_added         | string   | Timestamp in `ISO 8601` format           |
+| date_released      | string   | Date in the format `yyyy-mm-dd`         |
+| seek_ms            | integer  | Resume point in milliseconds (available only for podcasts and audiobooks) |
 | media_kind         | string   | Media type of this track: `music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow` |
 | data_kind          | string   | Data type of this track: `file`, `stream`, `spotify`, `pipe` |
 | path               | string   | Path                                      |
