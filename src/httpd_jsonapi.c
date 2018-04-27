@@ -31,7 +31,6 @@
 #endif
 
 #include <regex.h>
-#include <sqlite3.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -1895,7 +1894,7 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -1957,7 +1956,7 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
   json_object *reply;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -1995,7 +1994,7 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2051,7 +2050,7 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2113,7 +2112,7 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
   json_object *reply;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2151,7 +2150,7 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2205,7 +2204,7 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2255,7 +2254,7 @@ jsonapi_reply_library_playlist(struct httpd_request *hreq)
   json_object *reply;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2293,7 +2292,7 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2343,6 +2342,7 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_count(struct httpd_request *hreq)
 {
+  time_t db_update;
   const char *param_expression;
   char *expression;
   struct smartpl smartpl_expression;
@@ -2351,6 +2351,10 @@ jsonapi_reply_library_count(struct httpd_request *hreq)
   json_object *jreply;
   int ret;
 
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
 
   memset(&qp, 0, sizeof(struct query_params));
   qp.type = Q_COUNT_ITEMS;
