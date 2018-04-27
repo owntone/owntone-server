@@ -1834,7 +1834,7 @@ db_build_query_count_items(struct query_params *qp)
 
   qp->results = 1;
 
-  query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length), COUNT(distinct songartistid), COUNT(distinct songalbumid) FROM files f %s;", qc->where);
+  query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length), COUNT(DISTINCT songartistid), COUNT(DISTINCT songalbumid) FROM files f %s;", qc->where);
   if (!query)
     DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
