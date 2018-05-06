@@ -1443,56 +1443,6 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, cha
 }
 
 static int
-raop_send_req_get_parameter(struct raop_session *rs, struct evbuffer *evbuf, char *ctype, char *rtpinfo, evrtsp_req_cb cb)
-{
-  struct evrtsp_request *req;
-  int ret;
-
-  req = evrtsp_request_new(cb, rs);
-  if (!req)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not create RTSP request for GET_PARAMETER\n");
-
-      return -1;
-    }
-
-  ret = evbuffer_add_buffer(req->output_buffer, evbuf);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for GET_PARAMETER payload\n");
-
-      evrtsp_request_free(req);
-      return -1;
-    }
-
-  ret = raop_add_headers(rs, req, EVRTSP_REQ_GET_PARAMETER);
-  if (ret < 0)
-    {
-      evrtsp_request_free(req);
-      return -1;
-    }
-
-  evrtsp_add_header(req->output_headers, "Content-Type", ctype);
-
-  if (rtpinfo)
-    evrtsp_add_header(req->output_headers, "RTP-Info", rtpinfo);
-
-  ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_GET_PARAMETER, rs->session_url);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not make GET_PARAMETER request\n");
-
-      return -1;
-    }
-
-  rs->reqs_in_flight++;
-
-  evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
-
-  return 0;
-}
-
-static int
 raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb)
 {
   char buf[64];
@@ -2419,15 +2369,14 @@ raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startu
 }
 
 /* Volume handling */
+
+/* For future use
 static int
 raop_volume_to_pct(float raop_volume)
 {
   int volume;
 
-  /* RAOP volume
-   *  -144.0 is off
-   *  -30.0 - 0 maps to 0 - 100
-   */
+  // RAOP volume: -144.0 is off, -30.0 - 0 maps to 0 - 100
   if (raop_volume > -30.0 && raop_volume <= 0.0)
     volume = (int)(100.0 * raop_volume / 30.0 + 100.0);
   else
@@ -2435,6 +2384,7 @@ raop_volume_to_pct(float raop_volume)
 
   return volume;
 }
+*/
 
 static float
 raop_volume_from_pct(int volume, char *name)
@@ -2503,36 +2453,6 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
   evbuffer_free(evbuf);
 
   rs->volume = volume;
-
-  return ret;
-}
-
-static int
-raop_get_volume_internal(struct raop_session *rs, evrtsp_req_cb cb)
-{
-  struct evbuffer *evbuf;
-  int ret;
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not allocate evbuffer for volume payload\n");
-      return -1;
-    }
-
-  ret = evbuffer_add_printf(evbuf, "volume\n");
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for GET_PARAMETER payload (volume)\n");
-      evbuffer_free(evbuf);
-      return -1;
-    }
-
-  ret = raop_send_req_get_parameter(rs, evbuf, "text/parameters", NULL, cb);
-  if (ret < 0)
-    DPRINTF(E_LOG, L_RAOP, "Could not send GET_PARAMETER request for volume\n");
-
-  evbuffer_free(evbuf);
 
   return ret;
 }
@@ -2639,8 +2559,6 @@ static void
 raop_cb_keep_alive(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
-  char *body;
-  float raop_volume;
 
   rs->reqs_in_flight--;
 
@@ -2656,24 +2574,9 @@ raop_cb_keep_alive(struct evrtsp_request *req, void *arg)
 
   if (req->response_code != RTSP_OK)
     {
-      DPRINTF(E_LOG, L_RAOP, "Keep alive GET_PARAMETER request to '%s' failed: %d %s\n", rs->devname, req->response_code, req->response_code_line);
+      DPRINTF(E_LOG, L_RAOP, "Keep alive request to '%s' failed: %d %s\n", rs->devname, req->response_code, req->response_code_line);
       return;
     }
-
-  evbuffer_add(req->input_buffer, "", 1); // NULL-terminate
-
-  body = (char *)evbuffer_pullup(req->input_buffer, -1);
-  if (!body || strncmp(body, "volume: ", strlen("volume: ")) != 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Invalid response from '%s' to keep alive request: '%s'\n", rs->devname, body);
-      return;
-    }
-
-  raop_volume = atof(strchr(body, ':') + 2);
-
-  rs->volume = raop_volume_to_pct(raop_volume);
-
-  DPRINTF(E_DBG, L_RAOP, "GET_PARAMETER request to '%s' returned volume %f (%d)\n", rs->devname, raop_volume, rs->volume);
 
   evtimer_add(keep_alive_timer, &keep_alive_tv);
 
@@ -2745,7 +2648,7 @@ raop_keep_alive_timer_cb(int fd, short what, void *arg)
       if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
 
-      raop_get_volume_internal(rs, raop_cb_keep_alive);
+      raop_send_req_options(rs, raop_cb_keep_alive);
     }
 }
 
