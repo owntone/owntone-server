@@ -1072,6 +1072,9 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
 
   DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", id);
 
+  if (id == DB_MEDIA_FILE_NON_PERSISTENT_ID)
+    return  -1;
+
   memset(&ctx, 0, sizeof(struct artwork_ctx));
 
   ctx.qp.type = Q_ITEMS;
