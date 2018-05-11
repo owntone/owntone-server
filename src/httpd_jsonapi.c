@@ -627,6 +627,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   char *oauth_uri;
   struct spotify_status_info info;
   struct spotifywebapi_status_info webapi_info;
+  struct spotifywebapi_access_token webapi_token;
 
   json_object_object_add(jreply, "enabled", json_object_new_boolean(true));
 
@@ -647,11 +648,16 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   spotify_status_info_get(&info);
   json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(info.libspotify_installed));
   json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(info.libspotify_logged_in));
-  json_object_object_add(jreply, "libspotify_user", json_object_new_string(info.libspotify_user));
+  safe_json_add_string(jreply, "libspotify_user", info.libspotify_user);
 
   spotifywebapi_status_info_get(&webapi_info);
   json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(webapi_info.token_valid));
-  json_object_object_add(jreply, "webapi_user", json_object_new_string(webapi_info.user));
+  safe_json_add_string(jreply, "webapi_user", webapi_info.user);
+  safe_json_add_string(jreply, "webapi_country", webapi_info.country);
+
+  spotifywebapi_access_token_get(&webapi_token);
+  safe_json_add_string(jreply, "webapi_token", webapi_token.token);
+  json_object_object_add(jreply, "webapi_token_expires_in", json_object_new_int(webapi_token.expires_in));
 
 #else
   json_object_object_add(jreply, "enabled", json_object_new_boolean(false));
@@ -1612,7 +1618,12 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 	}
       else
 	{
-	  DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
+	  ret = library_queue_add(uri);
+	  if (ret != LIBRARY_OK)
+	    {
+	      DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
+	      break;
+	    }
 	}
     }
   while ((uri = strtok(NULL, ",")));

@@ -15,6 +15,8 @@ struct spotify_status_info
   char libspotify_user[100];
 };
 
+#define SPOTIFY_SETUP_ERROR_IS_LOADING -2
+
 int
 spotify_playback_setup(const char *path);
 
