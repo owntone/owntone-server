@@ -2370,22 +2370,6 @@ raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startu
 
 /* Volume handling */
 
-/* For future use
-static int
-raop_volume_to_pct(float raop_volume)
-{
-  int volume;
-
-  // RAOP volume: -144.0 is off, -30.0 - 0 maps to 0 - 100
-  if (raop_volume > -30.0 && raop_volume <= 0.0)
-    volume = (int)(100.0 * raop_volume / 30.0 + 100.0);
-  else
-    volume = 0;
-
-  return volume;
-}
-*/
-
 static float
 raop_volume_from_pct(int volume, char *name)
 {

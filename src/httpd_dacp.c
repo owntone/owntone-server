@@ -110,6 +110,8 @@ dacp_propget_extendedmediakind(struct evbuffer *evbuf, struct player_status *sta
 static void
 dacp_propset_volume(const char *value, struct evkeyvalq *query);
 static void
+dacp_propset_devicevolume(const char *value, struct evkeyvalq *query);
+static void
 dacp_propset_playingtime(const char *value, struct evkeyvalq *query);
 static void
 dacp_propset_shufflestate(const char *value, struct evkeyvalq *query);
@@ -540,6 +542,26 @@ speaker_enum_cb(struct spk_info *spk, void *arg)
   dmap_add_int(evbuf, "cmvo", spk->relvol);    /* 12 */
 }
 
+static void
+seek_timer_cb(int fd, short what, void *arg)
+{
+  int ret;
+
+  DPRINTF(E_DBG, L_DACP, "Seek timer expired, target %d ms\n", seek_target);
+
+  ret = player_playback_seek(seek_target);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Player failed to seek to %d ms\n", seek_target);
+
+      return;
+    }
+
+  ret = player_playback_start();
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DACP, "Player returned an error for start after seek\n");
+}
+
 static int
 dacp_request_authorize(struct httpd_request *hreq)
 {
@@ -930,23 +952,29 @@ dacp_propset_volume(const char *value, struct evkeyvalq *query)
 }
 
 static void
-seek_timer_cb(int fd, short what, void *arg)
+dacp_propset_devicevolume(const char *value, struct evkeyvalq *query)
 {
-  int ret;
+  float raop_volume;
+  int volume;
 
-  DPRINTF(E_DBG, L_DACP, "Seek timer expired, target %d ms\n", seek_target);
+  raop_volume = atof(value);
 
-  ret = player_playback_seek(seek_target);
-  if (ret < 0)
+  // Basic sanity check, don't want to set to max volume on invalid volume
+  if (raop_volume == 0.0 && value[0] != '0')
     {
-      DPRINTF(E_LOG, L_DACP, "Player failed to seek to %d ms\n", seek_target);
-
+      DPRINTF(E_LOG, L_DACP, "dmcp.device-volume is invalid: %s\n", value);
       return;
     }
 
-  ret = player_playback_start();
-  if (ret < 0)
-    DPRINTF(E_LOG, L_DACP, "Player returned an error for start after seek\n");
+  // RAOP volume: -144.0 is off, -30.0 - 0 maps to 0 - 100
+  if (raop_volume > -30.0 && raop_volume <= 0.0)
+    volume = (int)(100.0 * raop_volume / 30.0 + 100.0);
+  else
+    volume = 0;
+
+  DPRINTF(E_DBG, L_DACP, "Propset volume to %s, new volume is %d\n", value, volume);
+
+// TODO: How to find the id so we can call something like player_volume_speaker_info(id, volume);
 }
 
 static void
@@ -1313,6 +1341,23 @@ dacp_reply_cue(struct httpd_request *hreq)
 }
 
 static int
+dacp_reply_play(struct httpd_request *hreq)
+{
+  int ret;
+
+  ret = dacp_request_authorize(hreq);
+  if (ret < 0)
+    return -1;
+
+  player_playback_start();
+
+  /* 204 No Content is the canonical reply */
+  httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+
+  return 0;
+}
+
+static int
 dacp_reply_playspec(struct httpd_request *hreq)
 {
   struct player_status status;
@@ -1446,6 +1491,23 @@ dacp_reply_playspec(struct httpd_request *hreq)
   httpd_send_error(hreq->req, 500, "Internal Server Error");
 
   return -1;
+}
+
+static int
+dacp_reply_stop(struct httpd_request *hreq)
+{
+  int ret;
+
+  ret = dacp_request_authorize(hreq);
+  if (ret < 0)
+    return -1;
+
+  player_playback_stop();
+
+  /* 204 No Content is the canonical reply */
+  httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+
+  return 0;
 }
 
 static int
@@ -2376,11 +2438,12 @@ dacp_reply_setproperty(struct httpd_request *hreq)
   if (ret < 0)
     return -1;
 
-  /* Known properties:
-   * dacp.shufflestate 0/1
-   * dacp.repeatstate  0/1/2
-   * dacp.playingtime  seek to time in ms
-   * dmcp.volume       0-100, float
+  /* Known properties (see dacp_prop.gperf):
+   * dacp.shufflestate  0/1
+   * dacp.repeatstate   0/1/2
+   * dacp.playingtime   seek to time in ms
+   * dmcp.volume        0-100, float
+   * dmcp.device-volume -144-0, float (raop volume)
    */
 
   /* /ctrl-int/1/setproperty?dacp.shufflestate=1&session-id=100 */
@@ -2536,8 +2599,16 @@ static struct httpd_uri_map dacp_handlers[] =
       .handler = dacp_reply_cue
     },
     {
+      .regexp = "^/ctrl-int/[[:digit:]]+/play$",
+      .handler = dacp_reply_play
+    },
+    {
       .regexp = "^/ctrl-int/[[:digit:]]+/playspec$",
       .handler = dacp_reply_playspec
+    },
+    {
+      .regexp = "^/ctrl-int/[[:digit:]]+/stop$",
+      .handler = dacp_reply_stop
     },
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/pause$",
