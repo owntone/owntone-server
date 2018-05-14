@@ -261,8 +261,8 @@ register_services(char *ffid, bool no_web, bool no_rsp, bool no_daap, bool no_mp
   snprintf(txtrecord[2], 128, "Machine ID=%0X", hash);
   snprintf(txtrecord[3], 128, "Machine Name=%s", libname);
   snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
-  snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
-  snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
+  snprintf(txtrecord[5], 128, "iTSh Version=131073"); // iTunes 6.0.4
+  snprintf(txtrecord[6], 128, "Version=196610");      // iTunes 6.0.4
 
   password = cfg_getstr(lib, "password");
   snprintf(txtrecord[7], 128, "Password=%s", (password) ? "true" : "false");
@@ -283,7 +283,7 @@ register_services(char *ffid, bool no_web, bool no_rsp, bool no_daap, bool no_mp
 	return ret;
     }
 
-  /* Register RSP service */
+  // Register RSP service
   if (!no_rsp)
     {
       ret = mdns_register(libname, "_rsp._tcp", port, txtrecord);
@@ -291,7 +291,7 @@ register_services(char *ffid, bool no_web, bool no_rsp, bool no_daap, bool no_mp
 	return ret;
     }
 
-  /* Register DAAP service */
+  // Register DAAP service
   if (!no_daap)
     {
       ret = mdns_register(libname, "_daap._tcp", port, txtrecord);
@@ -302,33 +302,54 @@ register_services(char *ffid, bool no_web, bool no_rsp, bool no_daap, bool no_mp
   for (i = 0; i < (sizeof(records) / sizeof(records[0])); i++)
     {
       memset(records[i], 0, 128);
+      txtrecord[i] = records[i];
     }
 
+  // Register DACP service
+  snprintf(txtrecord[0], 128, "txtvers=1");
+  snprintf(txtrecord[1], 128, "Ver=131077");   // iTunes 12.7.4
+  snprintf(txtrecord[2], 128, "DbId=1");       // Must be the id of our database, i.e. 1
+  snprintf(txtrecord[3], 128, "OSsi=0x2012E"); // Magic number! Yay!
+  txtrecord[4] = NULL;
+
+  // The group name for the dacp service must be iTunes_Ctrl_(libhash),
+  // otherwise at least my Sony speaker won't use the service.
+
+  // Use as scratch space for the hash
+  snprintf(records[4], 128, "iTunes_Ctrl_%" PRIX64, libhash);
+
+  ret = mdns_register(records[4], "_dacp._tcp", port, txtrecord);
+  if (ret < 0)
+    return ret;
+
+  for (i = 0; i < (sizeof(records) / sizeof(records[0])); i++)
+    {
+      memset(records[i], 0, 128);
+      txtrecord[i] = records[i];
+    }
+
+  // Register touch-able service, for Remote.app
   snprintf(txtrecord[0], 128, "txtvers=1");
   snprintf(txtrecord[1], 128, "DbId=%016" PRIX64, libhash);
   snprintf(txtrecord[2], 128, "DvTy=iTunes");
-  snprintf(txtrecord[3], 128, "DvSv=2306"); /* Magic number! Yay! */
-  snprintf(txtrecord[4], 128, "Ver=131073"); /* iTunes 6.0.4 */
-  snprintf(txtrecord[5], 128, "OSsi=0x1F5"); /* Magic number! Yay! */
+  snprintf(txtrecord[3], 128, "DvSv=2306");  // Magic number! Yay!
+  snprintf(txtrecord[4], 128, "Ver=131073"); // iTunes 6.0.4
+  snprintf(txtrecord[5], 128, "OSsi=0x1F5"); // Magic number! Yay!
   snprintf(txtrecord[6], 128, "CtlN=%s", libname);
-
-  /* Terminator */
   txtrecord[7] = NULL;
 
-  /* The group name for the touch-able service advertising is a 64bit hash
-   * but is different from the DbId in iTunes. For now we'll use a hash of
-   * the library name for both, and we'll change that if needed.
-   */
+  // The group name for the touch-able service advertising is a 64bit hash
+  // but is different from the DbId in iTunes. For now we'll use a hash of
+  // the library name for both, and we'll change that if needed.
 
-  /* Use as scratch space for the hash */
+  // Use as scratch space for the hash
   snprintf(records[7], 128, "%016" PRIX64, libhash);
 
-  /* Register touch-able service, for Remote.app */
   ret = mdns_register(records[7], "_touch-able._tcp", port, txtrecord);
   if (ret < 0)
     return ret;
 
-  /* Register MPD serivce */
+  // Register MPD serivce
   mpd = cfg_getsec(cfg, "mpd");
   mpd_port = cfg_getint(mpd, "port");
   if (!no_mpd && mpd_port > 0)
