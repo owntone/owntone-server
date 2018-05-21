@@ -3094,6 +3094,18 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 }
 
 /*
+ * Command handler function for 'listfiles'
+ *
+ * This command should list all files including files that are not part of the library. We do not support this
+ * and only report files in the library.
+ */
+static int
+mpd_command_listfiles(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  return mpd_command_lsinfo(evbuf, argc, argv, errmsg, ctx);
+}
+
+/*
  * Command handler function for 'search'
  * Lists any song that matches the given list of arguments. Arguments are pairs of TYPE and WHAT, where
  * TYPE is the tag that contains WHAT (case insensitiv).
@@ -4118,7 +4130,7 @@ static struct mpd_command mpd_handlers[] =
     { "list",                       mpd_command_list,                       -1 },
     { "listall",                    mpd_command_listall,                    -1 },
     { "listallinfo",                mpd_command_listallinfo,                -1 },
-//    { "listfiles",                  mpd_command_listfiles,                  -1 },
+    { "listfiles",                  mpd_command_listfiles,                  -1 },
     { "lsinfo",                     mpd_command_lsinfo,                     -1 },
 //    { "readcomments",               mpd_command_readcomments,               -1 },
     { "search",                     mpd_command_search,                     -1 },
