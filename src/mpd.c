@@ -557,6 +557,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       "file: %s\n"
       "Last-Modified: %s\n"
       "Time: %d\n"
+      "duration: %.3f\n"
       "Artist: %s\n"
       "AlbumArtist: %s\n"
       "ArtistSort: %s\n"
@@ -570,6 +571,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       (dbmfi->virtual_path + 1),
       modified,
       (songlength / 1000),
+      ((float) songlength / 1000),
       dbmfi->artist,
       dbmfi->album_artist,
       dbmfi->artist_sort,
