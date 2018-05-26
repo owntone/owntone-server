@@ -2684,6 +2684,8 @@ volume_setrel_speaker(void *arg, int *retval)
       break;
     }
 
+  volume_master_find();
+
 #ifdef DEBUG_RELVOL
   debug_print_speaker();
 #endif
@@ -2737,9 +2739,12 @@ volume_setabs_speaker(void *arg, int *retval)
 	}
     }
 
+  volume_master_find();
+
 #ifdef DEBUG_RELVOL
   debug_print_speaker();
 #endif
+
   listener_notify(LISTENER_VOLUME);
 
   if (*retval > 0)
