@@ -81,6 +81,9 @@ static char *buildopts[] =
 #ifdef HAVE_LIBPULSE
     "Pulseaudio",
 #endif
+#ifdef WEBINTERFACE
+    "Webinterface",
+#endif
     NULL
   };
 
