@@ -3,11 +3,11 @@ sudo: required
 dist: trusty
 env:
   matrix:
-    - CFG="--disable-websocket --disable-verification"
-    - CFG="--disable-websocket --enable-lastfm --disable-verification"
-    - CFG="--disable-websocket --enable-spotify --disable-verification"
-    - CFG="--disable-websocket --enable-chromecast --disable-verification"
-    - CFG="--disable-websocket --with-pulseaudio --disable-verification"
+    - CFG="--disable-websocket --disable-webinterface --disable-verification"
+    - CFG="--disable-websocket --disable-webinterface --enable-lastfm --disable-verification"
+    - CFG="--disable-websocket --disable-webinterface --enable-spotify --disable-verification"
+    - CFG="--disable-websocket --disable-webinterface --enable-chromecast --disable-verification"
+    - CFG="--disable-websocket --disable-webinterface --with-pulseaudio --disable-verification"
 
 script:
   - autoreconf -fi
