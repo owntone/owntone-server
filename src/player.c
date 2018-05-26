@@ -2631,6 +2631,23 @@ volume_set(void *arg, int *retval)
   return COMMAND_END;
 }
 
+#ifdef DEBUG_RELVOL
+static void debug_print_speaker()
+{
+  struct output_device *device;
+
+  DPRINTF(E_DBG, L_PLAYER, "*** Master: %d\n", master_volume);
+
+  for (device = dev_list; device; device = device->next)
+    {
+      if (!device->selected)
+	continue;
+
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
+    }
+}
+#endif
+
 static enum command_state
 volume_setrel_speaker(void *arg, int *retval)
 {
@@ -2667,6 +2684,9 @@ volume_setrel_speaker(void *arg, int *retval)
       break;
     }
 
+#ifdef DEBUG_RELVOL
+  debug_print_speaker();
+#endif
   listener_notify(LISTENER_VOLUME);
 
   if (*retval > 0)
@@ -2717,6 +2737,9 @@ volume_setabs_speaker(void *arg, int *retval)
 	}
     }
 
+#ifdef DEBUG_RELVOL
+  debug_print_speaker();
+#endif
   listener_notify(LISTENER_VOLUME);
 
   if (*retval > 0)
