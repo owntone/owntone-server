@@ -132,6 +132,18 @@ outputs_device_volume_set(struct output_device *device, output_status_cb cb)
     return -1;
 }
 
+int
+outputs_device_volume_to_pct(struct output_device *device, const char *volume)
+{
+  if (outputs[device->type]->disabled)
+    return -1;
+
+  if (outputs[device->type]->device_volume_to_pct)
+    return outputs[device->type]->device_volume_to_pct(device, volume);
+  else
+    return -1;
+}
+
 void
 outputs_playback_start(uint64_t next_pkt, struct timespec *ts)
 {

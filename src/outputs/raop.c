@@ -1197,6 +1197,11 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
   evrtsp_add_header(req->output_headers, "Client-Instance", buf);
   evrtsp_add_header(req->output_headers, "DACP-ID", buf);
 
+  // We set Active-Remote as 32 bit unsigned decimal, as at least my device
+  // can't handle any larger. Must be aligned with volume_byactiveremote().
+  snprintf(buf, sizeof(buf), "%" PRIu32, (uint32_t)rs->device->id);
+  evrtsp_add_header(req->output_headers, "Active-Remote", buf);
+
   if (rs->session)
     evrtsp_add_header(req->output_headers, "Session", rs->session);
 
@@ -2400,6 +2405,41 @@ raop_volume_from_pct(int volume, char *name)
     raop_volume = -144.0;
 
   return raop_volume;
+}
+
+static int
+raop_volume_to_pct(struct output_device *rd, const char *volume)
+{
+  float raop_volume;
+  cfg_t *airplay;
+  int max_volume;
+
+  raop_volume = atof(volume);
+
+  // Basic sanity check
+  if (raop_volume == 0.0 && volume[0] != '0')
+    {
+      DPRINTF(E_LOG, L_RAOP, "RAOP device volume is invalid: '%s'\n", volume);
+      return -1;
+    }
+
+  max_volume = RAOP_CONFIG_MAX_VOLUME;
+
+  airplay = cfg_gettsec(cfg, "airplay", rd->name);
+  if (airplay)
+    max_volume = cfg_getint(airplay, "max_volume");
+
+  if ((max_volume < 1) || (max_volume > RAOP_CONFIG_MAX_VOLUME))
+    {
+      DPRINTF(E_LOG, L_RAOP, "Config has bad max_volume (%d) for device '%s', using default instead\n", max_volume, rd->name);
+      max_volume = RAOP_CONFIG_MAX_VOLUME;
+    }
+
+  // RAOP volume: -144.0 is off, -30.0 - 0 scaled by max_volume maps to 0 - 100
+  if (raop_volume > -30.0 && raop_volume <= 0.0)
+    return (int)(100.0 * (raop_volume / 30.0 + 1.0) * RAOP_CONFIG_MAX_VOLUME / (float)max_volume);
+  else
+    return 0;
 }
 
 static int
@@ -4905,6 +4945,7 @@ struct output_definition output_raop =
   .device_probe = raop_device_probe,
   .device_free_extra = raop_device_free_extra,
   .device_volume_set = raop_set_volume_one,
+  .device_volume_to_pct = raop_volume_to_pct,
   .playback_start = raop_playback_start,
   .playback_stop = raop_playback_stop,
   .write = raop_v2_write,

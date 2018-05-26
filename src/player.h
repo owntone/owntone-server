@@ -138,6 +138,9 @@ int
 player_volume_setabs_speaker(uint64_t id, int vol);
 
 int
+player_volume_byactiveremote(uint32_t activeremote, const char *value);
+
+int
 player_repeat_set(enum repeat_mode mode);
 
 int

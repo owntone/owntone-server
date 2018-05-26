@@ -129,6 +129,11 @@ struct volume_param {
   uint64_t spk_id;
 };
 
+struct activeremote_param {
+  uint32_t activeremote;
+  const char *value;
+};
+
 struct spk_enum
 {
   spk_enum_cb cb;
@@ -2720,6 +2725,52 @@ volume_setabs_speaker(void *arg, int *retval)
   return COMMAND_END;
 }
 
+// Just updates internal volume params (does not make actual requests to the speaker)
+static enum command_state
+volume_byactiveremote(void *arg, int *retval)
+{
+  struct activeremote_param *ar_param = arg;
+  struct output_device *device;
+  uint32_t activeremote;
+  int volume;
+
+  *retval = 0;
+  activeremote = ar_param->activeremote;
+
+  for (device = dev_list; device; device = device->next)
+    {
+      if ((uint32_t)device->id == activeremote)
+	break;
+    }
+
+  if (!device)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not find speaker with Active-Remote id %d\n", activeremote);
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  volume = outputs_device_volume_to_pct(device, ar_param->value); // Only converts
+  if (volume < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not parse volume given by Active-Remote id %d\n", activeremote);
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  device->volume = volume;
+
+  volume_master_find();
+
+#ifdef DEBUG_RELVOL
+  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
+#endif
+
+  listener_notify(LISTENER_VOLUME);
+
+  return COMMAND_END;
+}
+
 static enum command_state
 repeat_set(void *arg, int *retval)
 {
@@ -3096,6 +3147,19 @@ player_volume_setabs_speaker(uint64_t id, int vol)
   vol_param.volume = vol;
 
   ret = commands_exec_sync(cmdbase, volume_setabs_speaker, NULL, &vol_param);
+  return ret;
+}
+
+int
+player_volume_byactiveremote(uint32_t activeremote, const char *value)
+{
+  struct activeremote_param ar_param;
+  int ret;
+
+  ar_param.activeremote = activeremote;
+  ar_param.value = value;
+
+  ret = commands_exec_sync(cmdbase, volume_byactiveremote, NULL, &ar_param);
   return ret;
 }
 

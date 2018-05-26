@@ -179,6 +179,9 @@ struct output_definition
   // Set the volume and call back
   int (*device_volume_set)(struct output_device *device, output_status_cb cb);
 
+  // Convert device internal representation of volume to our pct scale
+  int (*device_volume_to_pct)(struct output_device *device, const char *volume);
+
   // Start/stop playback on devices that were started
   void (*playback_start)(uint64_t next_pkt, struct timespec *ts);
   void (*playback_stop)(void);
@@ -216,6 +219,9 @@ outputs_device_free(struct output_device *device);
 
 int
 outputs_device_volume_set(struct output_device *device, output_status_cb cb);
+
+int
+outputs_device_volume_to_pct(struct output_device *device, const char *value);
 
 void
 outputs_playback_start(uint64_t next_pkt, struct timespec *ts);
