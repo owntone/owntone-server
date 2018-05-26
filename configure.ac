@@ -377,6 +377,13 @@ FORK_ARG_DISABLE([Apple TV device verification], [verification], [RAOP_VERIFICAT
 	])
 AM_CONDITIONAL([COND_RAOP_VERIFICATION], [[test "x$enable_verification" = "xyes"]])
 
+dnl Include default webinterface
+FORK_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE],
+	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
+		[AC_MSG_ERROR([[Default web interface requires libwebsockets]])])
+	])
+AM_CONDITIONAL([COND_WEBINTERFACE], [[test "x$enable_webinterface" = "xyes"]])
+
 dnl Defining users and groups
 AC_ARG_WITH([daapd_user],
 	[AS_HELP_STRING([--with-daapd-user=USER],
