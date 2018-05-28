@@ -64,7 +64,7 @@ listener_cb(short event_mask)
 static int
 callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
-   return 0;
+  return 0;
 }
 
 /*
@@ -324,6 +324,38 @@ websocket(void *arg)
   pthread_exit(NULL);
 }
 
+static void
+logger_libwebsockets(int level, const char *line)
+{
+  int severity;
+
+  switch (level)
+    {
+      case LLL_ERR:
+	severity = E_LOG;
+	break;
+
+      case LLL_WARN:
+	severity = E_WARN;
+	break;
+
+      case LLL_NOTICE:
+      case LLL_INFO:
+	severity = E_INFO;
+	break;
+
+      case LLL_DEBUG:
+	severity = E_DBG;
+	break;
+
+      default:
+	severity = E_LOG;
+	break;
+    }
+
+  DPRINTF(severity, L_WEB, "LWS %s", line);
+}
+
 int
 websocket_init(void)
 {
@@ -344,6 +376,9 @@ websocket_init(void)
   info.gid = -1;
   info.uid = -1;
 
+  // Log levels below NOTICE are only emmited if libwebsockets was built with DEBUG defined
+  lws_set_log_level(LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO | LLL_DEBUG,
+		    logger_libwebsockets);
 
   context = lws_create_context(&info);
   if (context == NULL)
