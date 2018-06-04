@@ -380,7 +380,7 @@ AM_CONDITIONAL([COND_RAOP_VERIFICATION], [[test "x$enable_verification" = "xyes"
 dnl Include default webinterface
 FORK_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE],
 	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
-		[AC_MSG_ERROR([[Default web interface requires libwebsockets]])])
+		[AC_MSG_ERROR([[Web interface requires libwebsockets >= 2.0.2 (or use --disable-webinterface)]])])
 	])
 AM_CONDITIONAL([COND_WEBINTERFACE], [[test "x$enable_webinterface" = "xyes"]])
 
