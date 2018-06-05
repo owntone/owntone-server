@@ -41,6 +41,7 @@ Optional packages:
  LastFM              | --enable-lastfm        | libcurl4-gnutls-dev OR libcurl4-openssl-dev
  iTunes XML          | --disable-itunes       | libplist-dev
  Device verification | --disable-verification | libplist-dev libsodium-dev
+ Player web UI       | --disable-webinterface | libwebsockets-dev
  Live web UI         | --with-libwebsockets   | libwebsockets-dev
  Pulseaudio          | --with-pulseaudio      | libpulse-dev
 
@@ -72,7 +73,7 @@ sudo yum install \
  git automake autoconf gettext-devel gperf gawk libtool \
  sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
  avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
- libplist-devel libsodium-devel json-c-devel
+ libplist-devel libsodium-devel json-c-devel libwebsockets-devel
 
 Clone the forked-daapd repo:
 
@@ -125,7 +126,7 @@ Afterwards, you can optionally install Oracle's newer version, and then
 
 sudo port install \
   autoconf automake libtool pkgconfig git gperf libgcrypt \
-  libunistring libconfuse ffmpeg libevent json-c
+  libunistring libconfuse ffmpeg libevent json-c libwebsockets
 
 Download, configure, build and install the Mini-XML library:
   http://www.msweet.org/projects.php/Mini-XML
@@ -239,7 +240,7 @@ Libraries:
         from <http://www.gnutls.org/>
  - libprotobuf-c (optional - Chromecast support)
         from <https://github.com/protobuf-c/protobuf-c/wiki>
- - libwebsockets (optional - websocket support)
+ - libwebsockets 2.0.2+ (optional - websocket support)
         from <https://libwebsockets.org/>
 
 If using binary packages, remember that you need the development packages to
@@ -300,9 +301,13 @@ to disable this feature.
 Support for Chromecast devices is optional. Use --enable-chromecast to enable
 this feature.
 
-Building with libwebsockets is optional. Websockets improve the UI of the web
-interface. It will be enabled if the library is present (with headers). Use
---without-libwebsockets to disable.
+The player web interface is optional. Use --disable-webinterface to disable
+this feature.
+
+Building with libwebsockets is optional, but required if you want the player
+web interface (so not required for the admin web interface, where websockets
+only improve the UI). It will be enabled if the library is present (with
+headers). Use --without-libwebsockets to disable.
 
 Building with Pulseaudio is optional. It will be enabled if the library is
 present (with headers). Use --without-pulseaudio to disable.

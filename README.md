@@ -20,8 +20,8 @@ Before you continue, make sure you know what version of forked-daapd you have,
 and what features it was built with (e.g. Spotify support).
 
 How to find out? Go to the [web interface](http://forked-daapd.local:3689) and
-check the information in the footer. No web interface? Then check the top of
-forked-daapd's log file (usually /var/log/forked-daapd.log).
+check. No web interface? Then check the top of forked-daapd's log file (usually
+/var/log/forked-daapd.log).
 
 Note that you are viewing a snapshot of the instructions that may or may not
 match the version of forked-daapd that you are using. Go to
@@ -117,11 +117,11 @@ probably obsolete when you read it :-)
 
 ## Web interface
 
-You can find forked-daapd's admin web interface at [http://forked-daapd.local:3689](http://forked-daapd.local:3689)
+You can find forked-daapd's web interface at [http://forked-daapd.local:3689](http://forked-daapd.local:3689)
 or alternatively at [http://[your_server_address_here]:3689](http://[your_server_address_here]:3689).
 
-Use the web interface to trigger manual library rescans, pair with remotes,
-select speakers, authenticate with Spotify, etc.
+Use the web interface to control playback, trigger manual library rescans, pair
+with remotes, select speakers, authenticate with Spotify, etc.
 
 
 ## Using Remote
