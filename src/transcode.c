@@ -923,10 +923,10 @@ close_output(struct encode_ctx *ctx)
 static int
 open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 {
-  AVFilter *buffersrc;
-  AVFilter *format;
-  AVFilter *scale;
-  AVFilter *buffersink;
+  const AVFilter *buffersrc;
+  const AVFilter *format;
+  const AVFilter *scale;
+  const AVFilter *buffersink;
   AVFilterContext *buffersrc_ctx;
   AVFilterContext *format_ctx;
   AVFilterContext *scale_ctx;
