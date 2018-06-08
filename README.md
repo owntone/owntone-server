@@ -430,10 +430,8 @@ not necessary during normal operation.
 You can choose between:
 
 - a [MPD command line client](#mpd-clients) (easiest) like `mpc`
-- curl with forked-daapd's JSON API
+- curl with forked-daapd's JSON API (see [README_JSON_API.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_JSON_API.md))
 - curl with DAAP/DACP commands (hardest)
-
-Using the JSON API is currently undocumented (TODO).
 
 Here is an example of how to use curl with DAAP/DACP. Say you have a playlist
 with a radio station, and you want to make a script that starts playback of that
