@@ -538,6 +538,8 @@ The original (now unmaintained) source can be found here:
 
 README's for previous versions of forked-daapd:
 
+  [forked-daapd version 26.1](https://github.com/ejurgensen/forked-daapd/blob/26.1/README.md)
+
   [forked-daapd version 26.0](https://github.com/ejurgensen/forked-daapd/blob/26.0/README.md)
 
   [forked-daapd version 25.0](https://github.com/ejurgensen/forked-daapd/blob/25.0/README.md)

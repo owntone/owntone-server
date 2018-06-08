@@ -1,6 +1,17 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 26.1:
+	- player web interface
+	- support for Airplay speaker control commands
+	- add non-library items (e.g. radio stations) to the queue
+	- fix for keeping connection alive towards some devices e.g. old ApEx's
+	- extension of the JSON API
+	- under-the-hood improvements of Spotify integration
+	- fix for Android "Remote for iTunes"
+	- fix ffmpeg segfault when jpeg encoding
+	- performance improvements + misc
+
 version 26.0:
 	- added web interface
 	- added JSON API
