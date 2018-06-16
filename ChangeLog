@@ -1,6 +1,9 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 26.2:
+	- fix for db indexes not being used on fresh installs
+
 version 26.1:
 	- player web interface
 	- support for Airplay speaker control commands
