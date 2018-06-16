@@ -1102,7 +1102,7 @@ db_exec(const char *query, char **errmsg)
 static void
 db_pragma_optimize(void)
 {
-  const char *query = "PRAGMA optimize;";
+  const char *query = "ANALYZE;";
   char *errmsg;
   int ret;
 
@@ -1111,7 +1111,7 @@ db_pragma_optimize(void)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "PRAGMA optimize failed: %s\n", errmsg);
+      DPRINTF(E_LOG, L_DB, "ANALYZE failed: %s\n", errmsg);
 
       sqlite3_free(errmsg);
     }
