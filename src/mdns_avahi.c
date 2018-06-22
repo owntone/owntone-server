@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -54,6 +55,9 @@
 #include "mdns.h"
 
 #define MDNSERR avahi_strerror(avahi_client_errno(mdns_client))
+
+// Seconds to wait before timing out when making device connection test
+#define MDNS_CONNECT_TEST_TIMEOUT 2
 
 /* Main event base, from main.c */
 extern struct event_base *evbase_main;
@@ -353,7 +357,7 @@ struct mdns_record_browser {
 
   char *name;
   char *domain;
-  struct keyval txt_kv;
+  struct keyval *txt_kv;
 
   int port;
 };
@@ -470,6 +474,114 @@ resolvers_cleanup(const char *name, AvahiProtocol proto)
     }
 }
 
+static int
+connection_test(int family, const char *address, const char *address_log, int port)
+{
+  struct addrinfo hints;
+  struct addrinfo *ai;
+  char strport[32];
+  int sock;
+  fd_set fdset;
+  struct timeval timeout = { MDNS_CONNECT_TEST_TIMEOUT, 0 };
+  socklen_t len;
+  int retval;
+  int ret;
+
+  retval = -1;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = family;
+  hints.ai_socktype = SOCK_STREAM;
+
+  snprintf(strport, sizeof(strport), "%d", port);
+
+  ret = getaddrinfo(address, strport, &hints, &ai);
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getaddrinfo error: %s\n", address_log, port, gai_strerror(ret));
+      return -1;
+    }
+
+  sock = socket(ai->ai_family, ai->ai_socktype | SOCK_NONBLOCK, ai->ai_protocol);
+  if (sock < 0)
+    {
+      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with socket error: %s\n", address_log, port, strerror(errno));
+      goto out_free_ai;
+    }
+
+  ret = connect(sock, ai->ai_addr, ai->ai_addrlen);
+  if (ret < 0 && errno != EALREADY && errno != EINPROGRESS)
+    {
+      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with connect error: %s\n", address_log, port, strerror(errno));
+      goto out_close_socket;
+    }
+
+  FD_ZERO(&fdset);
+  FD_SET(sock, &fdset);
+
+  ret = select(sock + 1, NULL, &fdset, NULL, &timeout);
+  if (ret != 1)
+    {
+      if (errno == EINPROGRESS)
+	DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d timed out (limit is %d seconds)\n", address_log, port, MDNS_CONNECT_TEST_TIMEOUT);
+      else
+	DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with select error: %s\n", address_log, port, strerror(errno));
+      goto out_close_socket;
+    }
+
+  len = sizeof(retval);
+  ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &retval, &len);
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getsockopt error: %s\n", address_log, port, strerror(errno));
+      goto out_close_socket;
+    }
+
+  DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d completed successfully (return value %d)\n", address_log, port, retval);
+
+ out_close_socket:
+  close(sock);
+ out_free_ai:
+  freeaddrinfo(ai);
+
+  return retval;
+}
+
+// Avahi will sometimes give us link-local addresses in 169.254.0.0/16 or
+// fe80::/10, which (most of the time) are useless. We also check if we can make
+// a connection to the address
+// - see also https://lists.freedesktop.org/archives/avahi/2012-September/002183.html
+static int
+address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *addr, int port)
+{
+  char address[AVAHI_ADDRESS_STR_MAX];
+  char address_log[AVAHI_ADDRESS_STR_MAX];
+  int family;
+  int ret;
+
+  avahi_address_snprint(address, sizeof(address), addr);
+  family = avahi_proto_to_af(proto);
+  if (family == AF_INET)
+    snprintf(address_log, sizeof(address_log), "%s", address);
+  else
+    snprintf(address_log, sizeof(address_log), "[%s]", address);
+
+  if ((proto == AVAHI_PROTO_INET && is_v4ll(&(addr->data.ipv4))) || (proto == AVAHI_PROTO_INET6 && is_v6ll(&(addr->data.ipv6))))
+    {
+      DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address_log);
+      return -1;
+    }
+
+  ret = connection_test(family, address, address_log, port);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is not connectable\n", hostname, address_log);
+      return -1;
+    }
+
+  return 0;
+}
+
 static void
 browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol proto,
                        AvahiBrowserEvent event, const char *hostname, uint16_t clazz, uint16_t type,
@@ -502,23 +614,19 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
   family = avahi_proto_to_af(proto);
   avahi_address_snprint(address, sizeof(address), &addr);
 
-  // Avahi will sometimes give us link-local addresses in 169.254.0.0/16 or
-  // fe80::/10, which (most of the time) are useless
-  // - see also https://lists.freedesktop.org/archives/avahi/2012-September/002183.html
-  if ((proto == AVAHI_PROTO_INET && is_v4ll(&addr.data.ipv4)) || (proto == AVAHI_PROTO_INET6 && is_v6ll(&addr.data.ipv6)))
-    {
-      DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address);
-      return;
-    }
-
   DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s, proto %d): NEW record %s for service type '%s'\n", hostname, proto, address, rb_data->mb->type);
 
-  // Execute callback (mb->cb) with all the data
-  rb_data->mb->cb(rb_data->name, rb_data->mb->type, rb_data->domain, hostname, family, address, rb_data->port, &rb_data->txt_kv);
+  ret = address_check(proto, hostname, &addr, rb_data->port);
+  if (ret < 0)
+    return;
 
-  // Stop record browser
+  // Execute callback (mb->cb) with all the data
+  rb_data->mb->cb(rb_data->name, rb_data->mb->type, rb_data->domain, hostname, family, address, rb_data->port, rb_data->txt_kv);
+
+  // Stop record browser, we found an address (or there was an error)
  out_free_record_browser:
-  keyval_clear(&rb_data->txt_kv);
+  keyval_clear(rb_data->txt_kv);
+  free(rb_data->txt_kv);
   free(rb_data->name);
   free(rb_data->domain);
   free(rb_data);
@@ -534,6 +642,8 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
   AvahiRecordBrowser *rb;
   struct mdns_browser *mb;
   struct mdns_record_browser *rb_data;
+  struct keyval *txt_kv;
+  char address[AVAHI_ADDRESS_STR_MAX];
   char *key;
   char *value;
   uint16_t dns_type;
@@ -542,6 +652,8 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
   mb = (struct mdns_browser *)userdata;
 
+  family = avahi_proto_to_af(proto);
+
   if (event != AVAHI_RESOLVER_FOUND)
     {
       if (event == AVAHI_RESOLVER_FAILURE)
@@ -549,7 +661,6 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       else
 	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver empty callback\n");
 
-      family = avahi_proto_to_af(proto);
       if (family != AF_UNSPEC)
 	mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
 
@@ -559,14 +670,11 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       return;
     }
 
-  DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d, host %s\n", name, type, proto, hostname);
+  avahi_address_snprint(address, sizeof(address), addr);
 
-  CHECK_NULL(L_MDNS, rb_data = calloc(1, sizeof(struct mdns_record_browser)));
+  DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d, host %s, address %s\n", name, type, proto, hostname, address);
 
-  rb_data->name = strdup(name);
-  rb_data->domain = strdup(domain);
-  rb_data->mb = mb;
-  rb_data->port = port;
+  CHECK_NULL(L_MDNS, txt_kv = keyval_alloc());
 
   while (txt)
     {
@@ -578,25 +686,45 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
       if (value)
 	{
-	  keyval_add(&rb_data->txt_kv, key, value);
+	  keyval_add(txt_kv, key, value);
 	  avahi_free(value);
 	}
 
       avahi_free(key);
     }
 
-  if (proto == AVAHI_PROTO_INET6)
-    dns_type = AVAHI_DNS_TYPE_AAAA;
-  else
-    dns_type = AVAHI_DNS_TYPE_A;
-
   // We need to implement a record browser because the announcement from some
   // devices (e.g. ApEx 1 gen) will include multiple records, and we need to
   // filter out those records that won't work (notably link-local). The value of
   // *addr given by browse_resolve_callback is just the first record.
-  rb = avahi_record_browser_new(mdns_client, intf, proto, hostname, AVAHI_DNS_CLASS_IN, dns_type, 0, browse_record_callback, rb_data);
-  if (!rb)
-    DPRINTF(E_LOG, L_MDNS, "Could not create record browser for host %s: %s\n", hostname, MDNSERR);
+  ret = address_check(proto, hostname, addr, port);
+  if (ret < 0)
+    {
+      CHECK_NULL(L_MDNS, rb_data = calloc(1, sizeof(struct mdns_record_browser)));
+
+      rb_data->name = strdup(name);
+      rb_data->domain = strdup(domain);
+      rb_data->mb = mb;
+      rb_data->port = port;
+      rb_data->txt_kv = txt_kv;
+
+      if (proto == AVAHI_PROTO_INET6)
+	dns_type = AVAHI_DNS_TYPE_AAAA;
+      else
+	dns_type = AVAHI_DNS_TYPE_A;
+
+      rb = avahi_record_browser_new(mdns_client, intf, proto, hostname, AVAHI_DNS_CLASS_IN, dns_type, 0, browse_record_callback, rb_data);
+      if (!rb)
+	DPRINTF(E_LOG, L_MDNS, "Could not create record browser for host %s: %s\n", hostname, MDNSERR);
+
+      return;
+    }
+
+  // Execute callback (mb->cb) with all the data
+  mb->cb(name, mb->type, domain, hostname, family, address, port, txt_kv);
+
+  keyval_clear(txt_kv);
+  free(txt_kv);
 }
 
 static void
@@ -630,7 +758,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 
 	CHECK_NULL(L_MDNS, r = calloc(1, sizeof(struct mdns_resolver)));
 
-	r->resolver = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, proto, 0, browse_resolve_callback, mb);
+	r->resolver = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, AVAHI_PROTO_UNSPEC, 0, browse_resolve_callback, mb);
 	if (!r->resolver)
 	  {
 	    DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n", MDNSERR);
