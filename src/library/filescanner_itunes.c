@@ -66,6 +66,45 @@ struct metadata_map {
   size_t offset;
 };
 
+/* Example iTunes XML dict
+ * TODO Skip Count and Skip Date
+ *
+	<dict>
+		<key>Track ID</key><integer>615</integer>
+		<key>Size</key><integer>7602660</integer>
+		<key>Total Time</key><integer>317178</integer>
+		<key>Track Number</key><integer>4</integer>
+		<key>Year</key><integer>1975</integer>
+		<key>BPM</key><integer>122</integer>
+		<key>Date Modified</key><date>2016-08-09T15:07:35Z</date>
+		<key>Date Added</key><date>2009-03-27T15:37:39Z</date>
+		<key>Bit Rate</key><integer>192</integer>
+		<key>Sample Rate</key><integer>44100</integer>
+		<key>Volume Adjustment</key><integer>255</integer>
+		<key>Play Count</key><integer>94</integer>
+		<key>Play Date</key><integer>3598042339</integer>
+		<key>Play Date UTC</key><date>2018-01-06T05:12:19Z</date>
+		<key>Skip Count</key><integer>17</integer>
+		<key>Skip Date</key><date>2018-02-28T22:17:40Z</date>
+		<key>Rating</key><integer>80</integer>
+		<key>Album Rating</key><integer>60</integer>
+		<key>Persistent ID</key><string>735C22B6342B6B74</string>
+		<key>Track Type</key><string>File</string>
+		<key>File Folder Count</key><integer>-1</integer>
+		<key>Library Folder Count</key><integer>-1</integer>
+		<key>Name</key><string>Wish You Were Here</string>
+		<key>Artist</key><string>Pink Floyd</string>
+		<key>Album Artist</key><string>Pink Floyd</string>
+		<key>Composer</key><string>David Gilmour/Roger Waters</string>
+		<key>Album</key><string>Wish You Were Here</string>
+		<key>Genre</key><string>Classic Rock</string>
+		<key>Kind</key><string>MPEG audio file</string>
+		<key>Equalizer</key><string>#!#116#!#</string>
+		<key>Equalizer</key><string>Rock</string>
+		<key>Sort Album</key><string>Wish You Were Here</string>
+		<key>Location</key><string>file://localhost/E:/Music/Pink%20Floyd/Wish%20You%20Were%20Here/04%20Wish%20You%20Were%20Here.mp3</string>
+	</dict>
+ */
 static struct metadata_map md_map[] =
   {
     { "Name",         PLIST_STRING,  mfi_offsetof(title) },
@@ -87,6 +126,8 @@ static struct metadata_map md_map[] =
     { "Rating",       PLIST_UINT,    mfi_offsetof(rating) },
     { "Compilation",  PLIST_BOOLEAN, mfi_offsetof(compilation) },
     { "Date Added",   PLIST_DATE,    mfi_offsetof(time_added) },
+    { "Play Date",    PLIST_UINT,    mfi_offsetof(time_played) },
+    { "Play Count",   PLIST_UINT,    mfi_offsetof(play_count) },
     { NULL,           0, 0 }
   };
 
