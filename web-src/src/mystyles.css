@@ -1,0 +1,101 @@
+
+.slider {
+  min-width: 250px;
+  width: 100%;
+}
+.range-slider-fill {
+  background-color: hsl(0, 0%, 21%);
+}
+
+a.navbar-item {
+  outline: 0;
+  line-height: 1.5;
+  padding: .5rem 1rem;
+}
+
+.fd-expanded {
+  flex-grow: 1;
+  flex-shrink: 1;
+}
+
+.fd-margin-left-auto {
+  margin-left: auto;
+}
+
+.fd-has-action {
+  cursor: pointer;
+}
+
+.fd-is-movable {
+  cursor: move;
+}
+
+.fd-is-text-clipped {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fd-tabs-section {
+  padding-bottom: 0;
+}
+
+.fd-progress-bar {
+  top: 52px !important;
+}
+
+.sortable-chosen .media-right {
+  visibility: hidden;
+}
+.sortable-ghost h1, .sortable-ghost h2 {
+  color: hsl(348, 100%, 61%) !important;
+}
+
+.media:first-of-type {
+  padding-top: 17px;
+  margin-top: 16px;
+}
+
+/* Transition effect */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity .4s;
+}
+.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+  opacity: 0;
+}
+
+/* Now playing progress bar */
+.fd-progress-now-playing {
+}
+.seek-slider {
+  min-width: 250px;
+  max-width: 500px;
+  width: 100% !important;
+}
+.seek-slider .range-slider-fill {
+  background-color: hsl(171, 100%, 41%);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+.seek-slider .range-slider-knob {
+  width: 10px;
+  height: 10px;
+  background-color: hsl(171, 100%, 41%);
+  border-color: hsl(171, 100%, 41%);
+}
+
+/* Add a little bit of spacing between title and subtitle */
+.title:not(.is-spaced) + .subtitle {
+  margin-top: -1.3rem !important;
+}
+.title:not(.is-spaced) + .subtitle + .subtitle {
+  margin-top: -1.3rem !important;
+}
+
+/* Only scroll content if modal contains a card component */
+.fd-modal-card {
+  overflow: visible;
+}
+.fd-modal-card .card-content {
+  max-height: calc(100vh - 200px);
+  overflow: auto;
+}

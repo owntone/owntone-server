@@ -304,6 +304,15 @@ this feature.
 
 The player web interface is optional. Use --disable-webinterface to disable
 this feature.
+If enabled, 'sudo make install' will install the prebuild html, js, css files.
+The prebuild files are:
+- htdocs/index.html
+- htdocs/player/*
+The source for the player web interface is located under the web-src folder and
+requires nodejs >= 6.0 to be built. In the web-src folder run 'npm install' to
+install all dependencies for the player web interface. After that run 'npm run build'.
+This will build the web interface and update the htdocs folder. 
+(See README_PLAYER_WEBINTERFACE.md for more informations)
 
 Building with libwebsockets is optional, but required if you want the player
 web interface (so not required for the admin web interface, where websockets

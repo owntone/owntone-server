@@ -4,9 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>forked-daapd</title>
-  <link rel="stylesheet" href="/css/font-awesome.min.css">
-  <link rel="stylesheet" href="/css/bulma.min.css">
-  <link rel="stylesheet" href="/css/forked-daapd.css">
+  
+  <!-- Hosted libraries -->
+  <!-- <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css"> -->
+  <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css"> -->
+
+  <!-- Local libraries -->
+  <link rel="stylesheet" href="/admin/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="/admin/vendor/bulma/bulma.min.css">
+
+  <link rel="stylesheet" href="/admin/css/forked-daapd.css">
 </head>
 
 <body>
@@ -19,7 +26,7 @@
 <nav class="navbar">
   <div class="navbar-brand">
     <b class="navbar-item">forked-daapd</b>
-    <a class="navbar-item" href="https://github.com/ejurgensen/forked-daapd" title="GitHub"><i class="fa fa-github"></i></a>
+    <a class="navbar-item" href="https://github.com/ejurgensen/forked-daapd" title="GitHub"><i class="fab fa-github"></i></a>
   </div>
 </nav>
 
@@ -170,7 +177,7 @@
     <!-- Spotify -->
     <div class="columns is-centered fd-section-content" v-show="spotify.enabled">
       <div class="column is-3">
-        <h2 class="title is-5"><span class="icon"><i class="fa fa-spotify"></i></span> Spotify</h2>
+        <h2 class="title is-5"><span class="icon"><i class="fab fa-spotify"></i></span> Spotify</h2>
       </div>
 
       <div class="column is-7 content">
@@ -214,7 +221,7 @@
     <!-- Last.fm -->
     <div class="columns is-centered fd-section-content" v-show="lastfm.enabled">
       <div class="column is-3">
-        <h2 class="title is-5"><span class="icon"><i class="fa fa-lastfm"></i></span> Last.fm</h2>
+        <h2 class="title is-5"><span class="icon"><i class="fab fa-lastfm"></i></span> Last.fm</h2>
       </div>
 
       <div class="column is-7 content">
@@ -267,9 +274,14 @@
 
 </div> <!-- #root -->
 
-<script src="/js/vue.min.js"></script>
-<script src="/js/axios.min.js"></script>
-<script src="/js/forked-daapd.js"></script>
+<!-- Hosted libraries -->
+<!-- <script src="https://cdn.jsdelivr.net/npm/vue@2.5.17/dist/vue.min.js"></script> -->
+<!-- <script src="https://unpkg.com/axios@0.18.0/dist/axios.min.js"></script> -->
+
+<!-- Local libraries -->
+<script src="/admin/vendor/vue/vue.min.js"></script>
+<script src="/admin/vendor/axios/axios.min.js"></script>
+<script src="/admin/js/forked-daapd.js"></script>
 
 </body>
 </html>

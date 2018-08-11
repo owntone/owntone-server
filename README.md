@@ -124,6 +124,7 @@ or alternatively at [http://[your_server_address_here]:3689](http://[your_server
 Use the web interface to control playback, trigger manual library rescans, pair
 with remotes, select speakers, authenticate with Spotify, etc.
 
+You can find some screenshots and build instructions in [README_PLAYER_WEBINTERFACE.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_PLAYER_WEBINTERFACE.md).
 
 ## Using Remote
 
