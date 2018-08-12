@@ -748,6 +748,10 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
 
       user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
       av_dict_set(&options, "user_agent", user_agent, 0);
+
+      av_dict_set(&options, "reconnect", "1", 0);
+      av_dict_set(&options, "reconnect_at_eof", "1", 0);
+      av_dict_set(&options, "reconnect_streamed", "1", 0);
     }
 
   // TODO Newest versions of ffmpeg have timeout and reconnect options we should use
