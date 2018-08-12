@@ -733,6 +733,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
   AVCodecContext *dec_ctx;
   AVInputFormat *ifmt;
   unsigned int stream_index;
+  const char *user_agent;
   int ret;
 
   CHECK_NULL(L_XCODE, ctx->ifmt_ctx = avformat_alloc_context());
@@ -744,6 +745,9 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
       ctx->ifmt_ctx->probesize = 64000;
 # endif
       av_dict_set(&options, "icy", "1", 0);
+
+      user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
+      av_dict_set(&options, "user_agent", user_agent, 0);
     }
 
   // TODO Newest versions of ffmpeg have timeout and reconnect options we should use

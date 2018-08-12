@@ -65,6 +65,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_STR("allow_origin", "*", CFGF_NONE),
+    CFG_STR("user_agent", PACKAGE_NAME "/" PACKAGE_VERSION, CFGF_NONE),
     CFG_END()
   };
 

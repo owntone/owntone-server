@@ -1166,6 +1166,7 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
   char buf[64];
   const char *method;
   const char *url;
+  const char *user_agent;
   int ret;
 
   method = evrtsp_method(req_method);
@@ -1177,7 +1178,8 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
 
   rs->cseq++;
 
-  evrtsp_add_header(req->output_headers, "User-Agent", "forked-daapd/" VERSION);
+  user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
+  evrtsp_add_header(req->output_headers, "User-Agent", user_agent);
 
   /* Add Authorization header */
   url = (req_method == EVRTSP_REQ_OPTIONS) ? "*" : rs->session_url;

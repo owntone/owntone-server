@@ -44,6 +44,7 @@
 #include "httpd.h"
 #include "logger.h"
 #include "misc.h"
+#include "conffile.h"
 
 /* Formats we can read so far */
 #define PLAYLIST_UNK 0
@@ -190,6 +191,7 @@ http_client_request_impl(struct http_client_ctx *ctx)
   struct evbuffer *output_buffer;
   struct onekeyval *okv;
   enum evhttp_cmd_type method;
+  const char *user_agent;
   char host[512];
   char host_port[1024];
   char path[2048];
@@ -258,7 +260,10 @@ http_client_request_impl(struct http_client_ctx *ctx)
 
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "Host", host_port);
-  evhttp_add_header(headers, "User-Agent", "forked-daapd/" VERSION);
+
+  user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
+  evhttp_add_header(headers, "User-Agent", user_agent);
+
   evhttp_add_header(headers, "Icy-MetaData", "1");
 
   if (ctx->output_headers)
@@ -334,6 +339,7 @@ https_client_request_impl(struct http_client_ctx *ctx)
   CURLcode res;
   struct curl_slist *headers;
   struct onekeyval *okv;
+  const char *user_agent;
   char header[1024];
 
   curl = curl_easy_init();
@@ -343,8 +349,9 @@ https_client_request_impl(struct http_client_ctx *ctx)
       return -1;
     }
 
+  user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
   curl_easy_setopt(curl, CURLOPT_URL, ctx->url);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, "forked-daapd/" VERSION);
 
   if (ctx->output_headers)
     {
