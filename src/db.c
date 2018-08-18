@@ -158,6 +158,8 @@ static const struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(virtual_path),       DB_TYPE_STRING },
     { mfi_offsetof(directory_id),       DB_TYPE_INT },
     { mfi_offsetof(date_released),      DB_TYPE_INT },
+    { mfi_offsetof(skip_count),         DB_TYPE_INT },
+    { mfi_offsetof(time_skipped),       DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -250,6 +252,8 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(virtual_path),
     dbmfi_offsetof(directory_id),
     dbmfi_offsetof(date_released),
+    dbmfi_offsetof(skip_count),
+    dbmfi_offsetof(time_skipped),
   };
 
 /* This list must be kept in sync with
@@ -2345,6 +2349,24 @@ db_file_inc_playcount(int id)
 }
 
 void
+db_file_inc_skipcount(int id)
+{
+#define Q_TMPL "UPDATE files SET skip_count = skip_count + 1, time_skipped = %" PRIi64 " WHERE id = %d;"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
+void
 db_file_ping(int id)
 {
 #define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE id = %d;"
@@ -2751,23 +2773,35 @@ db_file_fetch_byvirtualpath(const char *virtual_path)
 int
 db_file_add(struct media_file_info *mfi)
 {
-#define Q_TMPL "INSERT INTO files (id, path, fname, title, artist, album, genre, comment, type, composer," \
-               " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
-               " total_tracks, disc, total_discs, bpm, compilation, artwork, rating, play_count, seek, data_kind, item_kind," \
-               " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
-               " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
-               " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
-               " songartistid, songalbumid, " \
-               " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort, virtual_path," \
-               " directory_id, date_released) " \
-               " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
-               " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
-               " %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d," \
-               " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
-               " %Q, %d, %d, %d, %d, TRIM(%Q)," \
-               " %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
-               " daap_songalbumid(LOWER(TRIM(%Q)), ''), daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q))), " \
-               " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d);"
+#define Q_TMPL "INSERT INTO files ("                                            \
+                " id, path, fname, title, artist, album, genre, comment, type," \
+                " composer, orchestra, conductor, grouping, url, bitrate,"      \
+                " samplerate, song_length, file_size, year, track,"             \
+                " total_tracks, disc, total_discs, bpm, compilation, artwork,"  \
+                " rating, play_count, seek, data_kind, item_kind, description," \
+                " time_added, time_modified, time_played, db_timestamp,"        \
+                " disabled, sample_count, codectype, idx, has_video,"           \
+                " contentrating, bits_per_sample, album_artist, media_kind,"    \
+                " tv_series_name, tv_episode_num_str, tv_network_name,"         \
+                " tv_episode_sort, tv_season_num, songartistid, songalbumid,"   \
+                " title_sort, artist_sort, album_sort, composer_sort,"          \
+                " album_artist_sort, virtual_path, directory_id, date_released,"\
+                " skip_count, time_skipped"                                     \
+               ") VALUES ("                                                     \
+                " NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q," \
+                " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d,"              \
+                " %d, %d, %" PRIi64 ", %d, %d,"                                 \
+                " %d, %d, %d, %d, %d, %d,"                                      \
+                " %d, %d, %d, %d, %d, %Q,"                                      \
+                " %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ","          \
+                " %d, %" PRIi64 ", %Q, %d, %d,"                                 \
+                " %d, %d, TRIM(%Q), %d,"                                        \
+                " TRIM(%Q), TRIM(%Q), TRIM(%Q),"                                \
+                " %d, %d, daap_songalbumid(LOWER(TRIM(%Q)), ''), daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
+                " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q),"                      \
+                " TRIM(%Q), TRIM(%Q), %d, %d,"                                  \
+                " %d, %" PRIi64 ""                                              \
+               ");"
 
   char *query;
   char *errmsg;
@@ -2789,20 +2823,19 @@ db_file_add(struct media_file_info *mfi)
     mfi->time_modified = mfi->db_timestamp;
 
   query = sqlite3_mprintf(Q_TMPL,
-			  STR(mfi->path), STR(mfi->fname), mfi->title, mfi->artist, mfi->album,
-			  mfi->genre, mfi->comment, mfi->type, mfi->composer,
-			  mfi->orchestra, mfi->conductor, mfi->grouping, mfi->url, mfi->bitrate,
-			  mfi->samplerate, mfi->song_length, mfi->file_size, mfi->year, mfi->track,
-			  mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm, mfi->compilation, mfi->artwork,
-			  mfi->rating, mfi->play_count, mfi->seek, mfi->data_kind, mfi->item_kind,
-			  mfi->description, (int64_t)mfi->time_added, (int64_t)mfi->time_modified,
-			  (int64_t)mfi->time_played, (int64_t)mfi->db_timestamp, mfi->disabled, mfi->sample_count,
-			  mfi->codectype, mfi->index, mfi->has_video,
-			  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist,
-			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str,
-			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
-			  mfi->album_artist, mfi->album_artist, mfi->album, mfi->title_sort, mfi->artist_sort, mfi->album_sort,
-			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id, mfi->date_released);
+                  STR(mfi->path), STR(mfi->fname), mfi->title, mfi->artist, mfi->album, mfi->genre, mfi->comment, mfi->type,
+                  mfi->composer, mfi->orchestra, mfi->conductor, mfi->grouping, mfi->url, mfi->bitrate,
+                  mfi->samplerate, mfi->song_length, mfi->file_size, mfi->year, mfi->track,
+                  mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm, mfi->compilation, mfi->artwork,
+                  mfi->rating, mfi->play_count, mfi->seek, mfi->data_kind, mfi->item_kind, mfi->description,
+                  (int64_t)mfi->time_added, (int64_t)mfi->time_modified, (int64_t)mfi->time_played, (int64_t)mfi->db_timestamp,
+                  mfi->disabled, mfi->sample_count, mfi->codectype, mfi->index, mfi->has_video,
+                  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist, mfi->media_kind,
+                  mfi->tv_series_name, mfi->tv_episode_num_str, mfi->tv_network_name,
+                  mfi->tv_episode_sort, mfi->tv_season_num, mfi->album_artist, mfi->album_artist, mfi->album,
+                  mfi->title_sort, mfi->artist_sort, mfi->album_sort, mfi->composer_sort,
+                  mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id, mfi->date_released,
+                  mfi->skip_count, mfi->time_skipped);
 
   if (!query)
     {
@@ -2835,19 +2868,19 @@ int
 db_file_update(struct media_file_info *mfi)
 {
 #define Q_TMPL "UPDATE files SET path = '%q', fname = '%q', title = TRIM(%Q), artist = TRIM(%Q), album = TRIM(%Q), genre = TRIM(%Q)," \
-	       " comment = TRIM(%Q), type = %Q, composer = TRIM(%Q), orchestra = TRIM(%Q), conductor = TRIM(%Q), grouping = TRIM(%Q)," \
-	       " url = %Q, bitrate = %d, samplerate = %d, song_length = %d, file_size = %" PRIi64 "," \
-	       " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
-	       " compilation = %d, artwork = %d, rating = %d, seek = %d, data_kind = %d, item_kind = %d," \
-	       " description = %Q, time_modified = %" PRIi64 "," \
-	       " db_timestamp = %" PRIi64 ", disabled = %" PRIi64 ", sample_count = %" PRIi64 "," \
-	       " codectype = %Q, idx = %d, has_video = %d," \
-	       " bits_per_sample = %d, album_artist = TRIM(%Q)," \
-	       " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
-	       " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
-	       " songartistid = daap_songalbumid(LOWER(TRIM(%Q)), ''), songalbumid = daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
-	       " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)," \
-	       " virtual_path = TRIM(%Q), directory_id = %d, date_released = %d" \
+                " comment = TRIM(%Q), type = %Q, composer = TRIM(%Q), orchestra = TRIM(%Q), conductor = TRIM(%Q), grouping = TRIM(%Q)," \
+                " url = %Q, bitrate = %d, samplerate = %d, song_length = %d, file_size = %" PRIi64 "," \
+                " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
+                " compilation = %d, artwork = %d, rating = %d, seek = %d, data_kind = %d, item_kind = %d," \
+                " description = %Q, time_modified = %" PRIi64 "," \
+                " db_timestamp = %" PRIi64 ", disabled = %" PRIi64 ", sample_count = %" PRIi64 "," \
+                " codectype = %Q, idx = %d, has_video = %d," \
+                " bits_per_sample = %d, album_artist = TRIM(%Q)," \
+                " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
+                " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
+                " songartistid = daap_songalbumid(LOWER(TRIM(%Q)), ''), songalbumid = daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
+                " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)," \
+                " virtual_path = TRIM(%Q), directory_id = %d, date_released = %d, skip_count = %d, time_skipped = %" PRIi64 "" \
 	       " WHERE id = %d;"
 
   char *query;
@@ -2880,7 +2913,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->album_artist, mfi->album_artist, mfi->album,
 			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
 			  mfi->composer_sort, mfi->album_artist_sort,
-			  mfi->virtual_path, mfi->directory_id, mfi->date_released,
+			  mfi->virtual_path, mfi->directory_id, mfi->date_released, mfi->skip_count, mfi->time_skipped,
 			  mfi->id);
 
   if (!query)

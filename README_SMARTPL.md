@@ -36,12 +36,14 @@ Where valid field-names (with their types) are:
 * `data_kind` (enumeration)
 * `media_kind` (enumeration)
 * `play_count` (integer)
+* `skip_count` (integer)
 * `rating` (integer)
 * `year` (integer)
 * `compilation` (integer)
 * `time_added` (date)
 * `time_modified` (date)
 * `time_played` (date)
+* `time_skipped` (date)
 
 Valid operators include:
 * `is`, `includes`, `starts with` (string)

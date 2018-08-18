@@ -85,7 +85,10 @@ static const struct dmap_field_map dfm_dmap_aseq = { -1,                        
 static const struct dmap_field_map dfm_dmap_asfm = { dbmfi_offsetof(type),                    -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asgn = { dbmfi_offsetof(genre),                   -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ashp = { dbmfi_offsetof(play_count),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_askd = { dbmfi_offsetof(time_skipped),            -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_askp = { dbmfi_offsetof(skip_count),              -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aspc = { dbmfi_offsetof(play_count),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aspl = { dbmfi_offsetof(time_played),             -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_assp = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_assr = { dbmfi_offsetof(samplerate),              -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asst = { -1,                                      -1,                            -1 };
@@ -207,9 +210,12 @@ struct dmap_field;
 "daap.songformat",                           "asfm", &dfm_dmap_asfm, DMAP_TYPE_STRING
 "daap.songgenre",                            "asgn", &dfm_dmap_asgn, DMAP_TYPE_STRING
 "daap.songhasbeenplayed",                    "ashp", &dfm_dmap_ashp, DMAP_TYPE_UBYTE
+"daap.songlastskipdate",                     "askd", &dfm_dmap_askd, DMAP_TYPE_DATE
+"daap.songuserskipcount",                    "askp", &dfm_dmap_askp, DMAP_TYPE_UINT
 "daap.songkeywords",                         "asky", &dfm_dmap_asky, DMAP_TYPE_STRING
 "daap.songlongcontentdescription",           "aslc", &dfm_dmap_aslc, DMAP_TYPE_STRING
 "daap.songuserplaycount",                    "aspc", &dfm_dmap_aspc, DMAP_TYPE_UINT
+"daap.songdateplayed",                       "aspl", &dfm_dmap_aspl, DMAP_TYPE_DATE
 "daap.songrelativevolume",                   "asrv", &dfm_dmap_asrv, DMAP_TYPE_BYTE
 "daap.sortartist",                           "assa", &dfm_dmap_assa, DMAP_TYPE_STRING
 "daap.sortcomposer",                         "assc", &dfm_dmap_assc, DMAP_TYPE_STRING

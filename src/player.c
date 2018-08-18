@@ -352,6 +352,14 @@ playcount_inc_cb(void *arg)
   db_file_inc_playcount(*id);
 }
 
+static void
+skipcount_inc_cb(void *arg)
+{
+  int *id = arg;
+
+  db_file_inc_skipcount(*id);
+}
+
 #ifdef LASTFM
 // Callback from the worker thread (async operation as it may block)
 static void
@@ -2219,6 +2227,7 @@ playback_next_bh(void *arg, int *retval)
 {
   struct player_source *ps;
   int ret;
+  int id;
   uint32_t item_id;
 
   // The upper half is playback_pause, therefor the current playing item is
@@ -2230,11 +2239,16 @@ playback_next_bh(void *arg, int *retval)
       return COMMAND_END;
     }
 
+  item_id = cur_streaming->item_id;
+
   // Only add to history if playback started
   if (cur_streaming->output_start > cur_streaming->stream_start)
-    history_add(cur_streaming->id, cur_streaming->item_id);
+    {
+      history_add(cur_streaming->id, item_id);
 
-  item_id = cur_streaming->item_id;
+      id = (int)cur_streaming->id;
+      worker_execute(skipcount_inc_cb, &id, sizeof(int), 5);
+    }
 
   ps = source_next();
   if (!ps)

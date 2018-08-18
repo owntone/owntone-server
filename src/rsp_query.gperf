@@ -36,12 +36,14 @@ struct rsp_query_field_map;
 "compilation",           RSP_TYPE_INT
 "rating",                RSP_TYPE_INT
 "play_count",            RSP_TYPE_INT
+"skip_count",            RSP_TYPE_INT
 "data_kind",             RSP_TYPE_INT
 "item_kind",             RSP_TYPE_INT
 "description",           RSP_TYPE_STRING
 "time_added",            RSP_TYPE_DATE
 "time_modified",         RSP_TYPE_DATE
 "time_played",           RSP_TYPE_DATE
+"time_skipped",          RSP_TYPE_DATE
 "db_timestamp",          RSP_TYPE_DATE
 "sample_count",          RSP_TYPE_INT
 "codectype",             RSP_TYPE_STRING

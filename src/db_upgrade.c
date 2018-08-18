@@ -1651,6 +1651,23 @@ static const struct db_upgrade_query db_upgrade_v1908_queries[] =
   };
 
 
+#define U_V1909_ALTER_FILES_ADD_SKIP_COUNT \
+  "ALTER TABLE files ADD COLUMN skip_count INTEGER DEFAULT 0;"
+#define U_V1909_ALTER_FILES_ADD_TIME_SKIPPED \
+  "ALTER TABLE files ADD COLUMN time_skipped INTEGER DEFAULT 0;"
+
+#define U_V1909_SCVER_MINOR \
+  "UPDATE admin SET value = '09' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1909_queries[] =
+  {
+    { U_V1909_ALTER_FILES_ADD_SKIP_COUNT,   "alter table files add column skip_count" },
+    { U_V1909_ALTER_FILES_ADD_TIME_SKIPPED, "alter table files add column time_skipped" },
+
+    { U_V1909_SCVER_MINOR,    "set schema_version_minor to 09" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1663,7 +1680,7 @@ db_upgrade(sqlite3 *hdl, int db_ver)
   switch (db_ver)
     {
     case 1000:
-      ret = db_generic_upgrade(hdl, db_upgrade_v11_queries, sizeof(db_upgrade_v11_queries) / sizeof(db_upgrade_v11_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v11_queries, ARRAY_SIZE(db_upgrade_v11_queries));
       if (ret < 0)
 	return -1;
 
@@ -1678,14 +1695,14 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       if (ret < 0)
 	return -1;
 
-      ret = db_generic_upgrade(hdl, db_upgrade_v12_queries, sizeof(db_upgrade_v12_queries) / sizeof(db_upgrade_v12_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v12_queries, ARRAY_SIZE(db_upgrade_v12_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1200:
-      ret = db_generic_upgrade(hdl, db_upgrade_v13_queries, sizeof(db_upgrade_v13_queries) / sizeof(db_upgrade_v13_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v13_queries, ARRAY_SIZE(db_upgrade_v13_queries));
       if (ret < 0)
 	return -1;
 
@@ -1696,7 +1713,7 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       if (ret < 0)
 	return -1;
 
-      ret = db_generic_upgrade(hdl, db_upgrade_v14_queries, sizeof(db_upgrade_v14_queries) / sizeof(db_upgrade_v14_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v14_queries, ARRAY_SIZE(db_upgrade_v14_queries));
       if (ret < 0)
 	return -1;
 
@@ -1707,21 +1724,21 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       if (ret < 0)
 	return -1;
 
-      ret = db_generic_upgrade(hdl, db_upgrade_v15_queries, sizeof(db_upgrade_v15_queries) / sizeof(db_upgrade_v15_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v15_queries, ARRAY_SIZE(db_upgrade_v15_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1500:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1501_queries, sizeof(db_upgrade_v1501_queries) / sizeof(db_upgrade_v1501_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1501_queries, ARRAY_SIZE(db_upgrade_v1501_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1501:
-      ret = db_generic_upgrade(hdl, db_upgrade_v16_queries, sizeof(db_upgrade_v16_queries) / sizeof(db_upgrade_v16_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v16_queries, ARRAY_SIZE(db_upgrade_v16_queries));
       if (ret < 0)
 	return -1;
 
@@ -1732,28 +1749,28 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       /* FALLTHROUGH */
 
     case 1600:
-      ret = db_generic_upgrade(hdl, db_upgrade_v17_queries, sizeof(db_upgrade_v17_queries) / sizeof(db_upgrade_v17_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v17_queries, ARRAY_SIZE(db_upgrade_v17_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1700:
-      ret = db_generic_upgrade(hdl, db_upgrade_v18_queries, sizeof(db_upgrade_v18_queries) / sizeof(db_upgrade_v18_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v18_queries, ARRAY_SIZE(db_upgrade_v18_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1800:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1801_queries, sizeof(db_upgrade_v1801_queries) / sizeof(db_upgrade_v1801_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1801_queries, ARRAY_SIZE(db_upgrade_v1801_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1801:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1900_queries, sizeof(db_upgrade_v1900_queries) / sizeof(db_upgrade_v1900_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1900_queries, ARRAY_SIZE(db_upgrade_v1900_queries));
       if (ret < 0)
 	return -1;
 
@@ -1764,49 +1781,49 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       /* FALLTHROUGH */
 
     case 1900:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1901_queries, sizeof(db_upgrade_v1901_queries) / sizeof(db_upgrade_v1901_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1901_queries, ARRAY_SIZE(db_upgrade_v1901_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1901:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1902_queries, sizeof(db_upgrade_v1902_queries) / sizeof(db_upgrade_v1902_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1902_queries, ARRAY_SIZE(db_upgrade_v1902_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1902:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1903_queries, sizeof(db_upgrade_v1903_queries) / sizeof(db_upgrade_v1903_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1903_queries, ARRAY_SIZE(db_upgrade_v1903_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1903:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1904_queries, sizeof(db_upgrade_v1904_queries) / sizeof(db_upgrade_v1904_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1904_queries, ARRAY_SIZE(db_upgrade_v1904_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1904:
-      ret = db_generic_upgrade(hdl, db_upgrade_v1905_queries, sizeof(db_upgrade_v1905_queries) / sizeof(db_upgrade_v1905_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_v1905_queries, ARRAY_SIZE(db_upgrade_v1905_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1905:
-      ret = db_generic_upgrade(hdl, db_upgrade_V1906_queries, sizeof(db_upgrade_V1906_queries) / sizeof(db_upgrade_V1906_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_V1906_queries, ARRAY_SIZE(db_upgrade_V1906_queries));
       if (ret < 0)
 	return -1;
 
       /* FALLTHROUGH */
 
     case 1906:
-      ret = db_generic_upgrade(hdl, db_upgrade_V1907_queries, sizeof(db_upgrade_V1907_queries) / sizeof(db_upgrade_V1907_queries[0]));
+      ret = db_generic_upgrade(hdl, db_upgrade_V1907_queries, ARRAY_SIZE(db_upgrade_V1907_queries));
       if (ret < 0)
 	return -1;
 
@@ -1814,6 +1831,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1907:
       ret = db_generic_upgrade(hdl, db_upgrade_v1908_queries, ARRAY_SIZE(db_upgrade_v1908_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1908:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1909_queries, ARRAY_SIZE(db_upgrade_v1909_queries));
       if (ret < 0)
 	return -1;
 

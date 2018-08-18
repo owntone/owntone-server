@@ -128,6 +128,8 @@ static struct metadata_map md_map[] =
     { "Date Added",   PLIST_DATE,    mfi_offsetof(time_added) },
     { "Play Date",    PLIST_UINT,    mfi_offsetof(time_played) },
     { "Play Count",   PLIST_UINT,    mfi_offsetof(play_count) },
+    { "Skip Count",   PLIST_UINT,    mfi_offsetof(skip_count) },
+    { "Skip Date",    PLIST_DATE,    mfi_offsetof(time_skipped) },
     { NULL,           0, 0 }
   };
 

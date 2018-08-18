@@ -27,6 +27,7 @@ struct dmap_query_field_map;
 "daap.songdataurl",           "f.url",              0
 "daap.songdateadded",         "f.time_added",       1
 "daap.songdatemodified",      "f.time_modified",    1
+"daap.songlastskipdate",      "f.time_skipped",     1
 "daap.songdatereleased",      "f.date_released",    1
 "daap.songdescription",       "f.description",      0
 "daap.songdisccount",         "f.total_discs",      1
@@ -40,6 +41,7 @@ struct dmap_query_field_map;
 "daap.songtrackcount",        "f.total_tracks",     1
 "daap.songtracknumber",       "f.track",            1
 "daap.songuserplaycount",     "f.play_count",       1
+"daap.songuserskipcount",     "f.skip_count",       1
 "daap.songyear",              "f.year",             1
 "com.apple.itunes.mediakind", "f.media_kind",       1
 "com.apple.itunes.extended-media-kind",  "f.media_kind",         1

@@ -219,6 +219,9 @@ struct media_file_info {
 
   uint32_t directory_id; /* Id of directory */
   uint32_t date_released;
+
+  uint32_t skip_count;
+  uint32_t time_skipped;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -363,6 +366,8 @@ struct db_media_file_info {
   char *virtual_path;
   char *directory_id;
   char *date_released;
+  char *skip_count;
+  char *time_skipped;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
@@ -556,6 +561,9 @@ db_files_get_count(void);
 
 void
 db_file_inc_playcount(int id);
+
+void
+db_file_inc_skipcount(int id);
 
 void
 db_file_ping(int id);

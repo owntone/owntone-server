@@ -93,7 +93,9 @@
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   virtual_path       VARCHAR(4096) DEFAULT NULL,"	\
   "   directory_id       INTEGER DEFAULT 0,"		\
-  "   date_released      INTEGER DEFAULT 0"             \
+  "   date_released      INTEGER DEFAULT 0,"            \
+  "   skip_count         INTEGER DEFAULT 0,"            \
+  "   time_skipped       INTEGER DEFAULT 0"             \
   ");"
 
 #define T_PL					\

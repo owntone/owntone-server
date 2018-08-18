@@ -186,7 +186,9 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "length_ms", dbmfi->song_length);
 
   safe_json_add_int_from_string(item, "play_count", dbmfi->play_count);
+  safe_json_add_int_from_string(item, "skip_count", dbmfi->skip_count);
   safe_json_add_time_from_string(item, "time_played", dbmfi->time_played, true);
+  safe_json_add_time_from_string(item, "time_skipped", dbmfi->time_skipped, true);
   safe_json_add_time_from_string(item, "time_added", dbmfi->time_added, true);
   safe_json_add_time_from_string(item, "date_released", dbmfi->date_released, false);
   safe_json_add_int_from_string(item, "seek_ms", dbmfi->seek);

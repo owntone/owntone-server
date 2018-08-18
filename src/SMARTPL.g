@@ -85,6 +85,7 @@ STRTAG		:	'artist'
 			;
 
 INTTAG		:	'play_count'
+			|	'skip_count'
 			|	'rating'
 			|	'year'
 			|	'compilation'
@@ -93,6 +94,7 @@ INTTAG		:	'play_count'
 DATETAG		:	'time_added'
 			|	'time_modified'
 			|	'time_played'
+			|	'time_skipped'
 			;
 
 ENUMTAG		:	'data_kind'
