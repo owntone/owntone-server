@@ -90,10 +90,7 @@ static int main_exit;
 static void
 version(void)
 {
-  fprintf(stdout, "Forked Media Server: Version %s\n", VERSION);
-  fprintf(stdout, "Copyright (C) 2009-2015 Julien BLACHE <jb@jblache.org>\n");
-  fprintf(stdout, "Based on mt-daapd, Copyright (C) 2003-2007 Ron Pedde <ron@pedde.com>\n");
-  fprintf(stdout, "Released under the GNU General Public License version 2 or later\n");
+  fprintf(stdout, "%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
 }
 
 static void
