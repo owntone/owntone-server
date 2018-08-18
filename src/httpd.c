@@ -1624,10 +1624,10 @@ httpd_init(const char *webroot)
   httpd_exit = 0;
 
   DPRINTF(E_DBG, L_HTTPD, "Starting web server with root directory '%s'\n", webroot);
-  ret = lstat(webroot, &sb);
+  ret = stat(webroot, &sb);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Could not lstat() web root directory '%s': %s\n", webroot, strerror(errno));
+      DPRINTF(E_LOG, L_HTTPD, "Could not stat() web root directory '%s': %s\n", webroot, strerror(errno));
 
       return -1;
     }
