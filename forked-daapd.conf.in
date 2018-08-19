@@ -178,6 +178,17 @@ library {
 	# there is data to be read. To exclude specific pipes from watching,
 	# consider using the above _ignore options.
 #	pipe_autostart = true
+
+	# Enable automatic rating updates
+	# If enabled, rating is automatically updated after a song has either been
+	# played or skipped (only skipping to the next song is taken into account).
+	# The calculation is taken from the beets plugin "mpdstats" (see 
+	# https://beets.readthedocs.io/en/latest/plugins/mpdstats.html).
+	# It consist of calculating a stable rating based only on the play- and 
+	# skipcount and a rolling rating based on the current rating and the action
+	# (played or skipped). Both results are combined with a mix-factor of 0.75:
+	# new rating = 0.75 * stable rating + 0.25 * rolling rating)
+#	rating_updates = false
 }
 
 # Local audio output

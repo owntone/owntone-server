@@ -100,6 +100,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR_LIST("no_decode", NULL, CFGF_NONE),
     CFG_STR_LIST("force_decode", NULL, CFGF_NONE),
     CFG_BOOL("pipe_autostart", cfg_true, CFGF_NONE),
+    CFG_BOOL("rating_updates", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
