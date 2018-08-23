@@ -308,8 +308,8 @@ AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
 dnl Spotify with dynamic linking to libspotify
 FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
-	[AS_IF([[test "x$with_json" = "xno"]],
-		[AC_MSG_ERROR([[Spotify support requires json-c]])])
+	[AS_IF([[test "x$with_libcurl" = "xno"]],
+		[AC_MSG_ERROR([[Spotify support requires libcurl]])])
 	 AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
 		[AC_MSG_ERROR([[Spotify support requires libevent_pthreads]])])
 	 FORK_MODULES_CHECK([SPOTIFY], [LIBSPOTIFY], [libspotify],
@@ -333,9 +333,7 @@ AM_CONDITIONAL([COND_LASTFM], [[test "x$enable_lastfm" = "xyes"]])
 
 dnl ChromeCast support with libprotobuf-c
 FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
-	[AS_IF([[test "x$with_json" = "xno"]],
-		[AC_MSG_ERROR([[Chromecast support requires json-c]])])
-	 FORK_MODULES_CHECK([FORKED_OPTS], [LIBPROTOBUF_C],
+	[FORK_MODULES_CHECK([FORKED_OPTS], [LIBPROTOBUF_C],
 		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
 		[protobuf-c/protobuf-c.h], [],
 		[FORK_FUNC_REQUIRE([FORKED_OPTS], [v0 libprotobuf-c],

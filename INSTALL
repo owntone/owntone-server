@@ -38,7 +38,8 @@ Optional packages:
  Feature             | Configure argument     | Packages
  --------------------|------------------------|---------------------------------------------
  Chromecast          | --enable-chromecast    | libgnutls-dev libprotobuf-c-dev
- LastFM              | --enable-lastfm        | libcurl4-gnutls-dev OR libcurl4-openssl-dev
+ LastFM              | --enable-lastfm        | libcurl4-[gnutls|openssl]-dev
+ Spotify             | --enable-spotify       | libcurl4-[gnutls|openssl]-dev libspotify-dev
  iTunes XML          | --disable-itunes       | libplist-dev
  Device verification | --disable-verification | libplist-dev libsodium-dev
  Player web UI       | --disable-webinterface | libwebsockets-dev
