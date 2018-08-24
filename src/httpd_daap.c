@@ -2311,7 +2311,7 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 
   DPRINTF(E_DBG, L_DAAP, "DAAP request handled in %d milliseconds\n", msec);
 
-  if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold())
+  if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold() && hreq->user_agent)
     cache_daap_add(uri_parsed->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
 
   evbuffer_free(hreq->reply);
