@@ -669,6 +669,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums](#list-albums)                         | Get a list of albums                 |
 | GET       | [/api/library/albums/{id}](#get-an-album)                   | Get an album                         |
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
+| GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 
 
@@ -1159,6 +1160,151 @@ curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
 ```
 
 
+### list genres
+
+Get list of genres
+
+**Endpoint**
+
+```
+GET /api/library/genres
+```
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`genre`](#genre-object) objects |
+| total           | integer  | Total number of genres in the library     |
+| offset          | integer  | Requested offset of the first genre       |
+| limit           | integer  | Requested maximum number of genres        |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/library/genres"
+```
+
+```
+{
+  "items": [
+    {
+      "name": "Classical",
+      "album_count": 3,
+      "artist_count": 2,
+      "track_count": 4
+    },
+    {
+      "name": "Drum & Bass",
+      "album_count": 1,
+      "artist_count": 1,
+      "track_count": 1
+    },
+    {
+      "name": "Pop",
+      "album_count": 3,
+      "artist_count": 3,
+      "track_count": 4
+    },
+    {
+      "name": "Rock/Pop",
+      "album_count": 1,
+      "artist_count": 1,
+      "track_count": 1
+    },
+    {
+      "name": "'90s Alternative",
+      "album_count": 1,
+      "artist_count": 1,
+      "track_count": 1
+    }
+  ],
+  "total": 4,
+  "offset": 0,
+  "limit": -1
+}
+
+```
+
+### List albums for genre
+
+Lists the albums in a genre
+
+**Endpoint**
+
+```
+GET api/search?type=albums&expression=genre+is+\"{genre name}\""
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| genre           | genre name (uri encoded and html esc seq for chars: '/&)    |
+| offset          | *(Optional)* Offset of the first album to return            |
+| limit           | *(Optional)* Maximum number of albums to return             |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`album`](#album-object) objects |
+| total           | integer  | Total number of albums in the library     |
+| offset          | integer  | Requested offset of the first albums      |
+| limit           | integer  | Requested maximum number of albums        |
+
+
+**Example**
+
+```
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Pop\"
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Rock%2FPop\"            # Rock/Pop
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Drum%20%26%20Bass\"     # Drum & Bass
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"%2790s%20Alternative\"  # '90 Alternative
+```
+
+```
+{
+  "albums": {
+    "items": [
+      {
+        "id": "320189328729146437",
+        "name": "Best Ever",
+        "name_sort": "Best Ever",
+        "artist": "ABC",
+        "artist_id": "8760559201889050080",
+        "track_count": 1,
+        "length_ms": 3631,
+        "uri": "library:album:320189328729146437"
+      },
+      {
+        "id": "7964595866631625723",
+        "name": "Greatest Hits",
+        "name_sort": "Greatest Hits",
+        "artist": "Marvin Gaye",
+        "artist_id": "5261930703203735930",
+        "track_count": 2,
+        "length_ms": 7262,
+        "uri": "library:album:7964595866631625723"
+      },
+      {
+        "id": "3844610748145176456",
+        "name": "The Very Best of Etta",
+        "name_sort": "Very Best of Etta",
+        "artist": "Etta James",
+        "artist_id": "2627182178555864595",
+        "track_count": 1,
+        "length_ms": 177926,
+        "uri": "library:album:3844610748145176456"
+      }
+    ],
+    "total": 3,
+    "offset": 0,
+    "limit": -1
+  }
+}
+```
+
 ### Get count of tracks, artists and albums
 
 Get information about the number of tracks, artists and albums and the total playtime
@@ -1206,14 +1352,14 @@ curl -X GET "http://localhost:3689/api/library/count?expression=data_kind+is+fil
 
 | Method    | Endpoint                                                    | Description                          |
 | --------- | ----------------------------------------------------------- | ------------------------------------ |
-| GET       | [/api/search](#search-by-search-term)                       | Search for playlists, artists, albums, tracks by a simple search term |
+| GET       | [/api/search](#search-by-search-term)                       | Search for playlists, artists, albums, tracks,genres by a simple search term |
 | GET       | [/api/search](#search-by-query-language)                    | Search by complex query expression   |
 
 
 
 ### Search by search term
 
-Search for playlists, artists, albums, tracks that include the given query in their title (case insensitive matching).
+Search for playlists, artists, albums, tracks, genres that include the given query in their title (case insensitive matching).
 
 **Endpoint**
 
@@ -1226,7 +1372,7 @@ GET /api/search
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | query           | The search keyword                                          |
-| type            | Comma separated list of the result types (`playlist`, `artist`, `album`, `track`) |
+| type            | Comma separated list of the result types (`playlist`, `artist`, `album`, `track`, `genre`) |
 | media_kind      | *(Optional)* Filter results by media kind (`music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow`). Filter only applies to artist, album and track result types. |
 | offset          | *(Optional)* Offset of the first item to return for each type |
 | limit           | *(Optional)* Maximum number of items to return for each type  |
@@ -1239,6 +1385,7 @@ GET /api/search
 | artists         | object   | [`paging`](#paging-object) object containing [`artist`](#artist-object) objects that matches the `query` |
 | albums          | object   | [`paging`](#paging-object) object containing [`album`](#album-object) objects that matches the `query` |
 | playlists       | object   | [`paging`](#paging-object) object containing [`playlist`](#playlist-object) objects that matches the `query` |
+| genres          | object   | [`paging`](#paging-object) object containing [`genre`](#genre-object) objects that matches the `query` |
 
 
 **Example**
@@ -1593,4 +1740,14 @@ curl --include \
 | total           | integer  | Total number of items                     |
 | offset          | integer  | Requested offset of the first item        |
 | limit           | integer  | Requested maximum number of items         |
+
+
+### `genre` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| name            | string   | Name of genre                             |
+| album_count     | integer  | Total number of albums for genre          |
+| artist_count    | integer  | Total number of arists for genre          |
+| track_count     | integer  | Total number of tracks for genre          |
 
