@@ -2816,8 +2816,14 @@ search_genres(json_object *reply, struct httpd_request *hreq, const char *param_
     }
 
   ret = fetch_genres(&query_params, items, &total);
-  if (ret < 0)
-    goto out;
+  if (ret < 0) 
+    {
+      /* browse seems to expect to find rows; if it can't it returns NULL to
+       * db_build_query_check() .. db_get_one_int() leading to this to case
+       */
+      total = 0;
+      ret = 0;
+    }
 
   json_object_object_add(type, "total", json_object_new_int(total));
   json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
