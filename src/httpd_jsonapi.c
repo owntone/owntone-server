@@ -235,7 +235,7 @@ playlist_to_json(struct db_playlist_info *dbpli)
 }
 
 static json_object *
-genre_to_json(const char* genre, const struct filecount_info* fci)
+genre_to_json(const char *genre, const struct filecount_info *fci)
 {
   json_object *item;
 
@@ -485,8 +485,8 @@ fetch_genres(struct query_params *query_params, json_object *items, int *total)
 {
   json_object *item;
   int ret;
-  char* genre;
-  char* sort_item;
+  char *genre;
+  char *sort_item;
   struct filecount_info fci;
   struct query_params qp;
 
@@ -494,18 +494,23 @@ fetch_genres(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
+  memset(&qp, 0, sizeof(qp));
+  qp.type = Q_COUNT_ITEMS;
+  qp.idx_type = I_NONE;
+
   while (((ret = db_query_fetch_string_sort(query_params, &genre, &sort_item)) == 0) && (genre))
     {
       memset(&fci, 0, sizeof(fci));
-      memset(&qp, 0, sizeof(qp));
 
-      qp.type = Q_COUNT_ITEMS;
-      qp.idx_type = I_NONE;
       qp.filter = db_mprintf("(f.genre = '%q')", genre);
-      db_query_start(&qp);
-      db_filecount_get(&fci, &qp);
+      ret = db_filecount_get(&fci, &qp);
       free(qp.filter);
-      db_query_end(&qp);
+
+      if (ret < 0)
+        {
+          DPRINTF(E_LOG, L_WEB, "library: failed to get (genre=%s) file count info\n", genre);
+          continue;
+        }
 
       item = genre_to_json(genre, &fci);
       if (!item)
