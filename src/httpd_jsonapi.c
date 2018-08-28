@@ -2473,9 +2473,11 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
   if (media_kind)
     query_params.filter = db_mprintf("(f.media_kind = %d)", media_kind);
 
-  ret = fetch_genres(&query_params, items, &total);
+  ret = fetch_genres(&query_params, items, NULL);
   if (ret < 0)
     goto error;
+  else
+    total = json_object_array_length(items);
 
   json_object_object_add(reply, "total", json_object_new_int(total));
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
@@ -2796,7 +2798,6 @@ search_genres(json_object *reply, struct httpd_request *hreq, const char *param_
   json_object_object_add(type, "items", items);
 
   query_params.type = Q_BROWSE_GENRES;
-  query_params.sort = S_GENRE;
   query_params.idx_type = I_NONE;
 
   if (param_query)
@@ -2820,7 +2821,7 @@ search_genres(json_object *reply, struct httpd_request *hreq, const char *param_
 	}
     }
 
-  ret = fetch_genres(&query_params, items, &total);
+  ret = fetch_genres(&query_params, items, NULL);
   if (ret < 0) 
     {
       /* browse seems to expect to find rows; if it can't it returns NULL to
@@ -2828,7 +2829,10 @@ search_genres(json_object *reply, struct httpd_request *hreq, const char *param_
        */
       total = 0;
       ret = 0;
+      DPRINTF(E_DBG, L_WEB, "reseting fetch_genre() return\n");
     }
+  else
+    total = json_object_array_length(items);
 
   json_object_object_add(type, "total", json_object_new_int(total));
   json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
