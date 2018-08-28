@@ -1257,10 +1257,10 @@ GET api/search?type=albums&expression=genre+is+\"{genre name}\""
 **Example**
 
 ```
-curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Pop\"
-curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Rock%2FPop\"            # Rock/Pop
-curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Drum%20%26%20Bass\"     # Drum & Bass
-curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"%2790s%20Alternative\"  # '90 Alternative
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Pop\""
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Rock%2FPop\""            # Rock/Pop
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Drum%20%26%20Bass\""     # Drum & Bass
+curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"%2790s%20Alternative\""  # '90 Alternative
 ```
 
 ```
