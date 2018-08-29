@@ -348,6 +348,7 @@ fetch_artist(const char *artist_id)
 
  error:
   db_query_end(&query_params);
+  free(query_params.filter);
 
   return artist;
 }
@@ -414,6 +415,7 @@ fetch_album(const char *album_id)
 
  error:
   db_query_end(&query_params);
+  free(query_params.filter);
 
   return album;
 }
@@ -476,6 +478,7 @@ fetch_playlist(const char *playlist_id)
 
  error:
   db_query_end(&query_params);
+  free(query_params.filter);
 
   return playlist;
 }
@@ -639,6 +642,7 @@ jsonapi_reply_library(struct httpd_request *hreq)
   struct filecount_info fci;
   json_object *jreply;
   int ret;
+  char *s;
 
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -658,8 +662,10 @@ jsonapi_reply_library(struct httpd_request *hreq)
       DPRINTF(E_LOG, L_WEB, "library: failed to get file count info\n");
     }
 
-  safe_json_add_time_from_string(jreply, "started_at", db_admin_get(DB_ADMIN_START_TIME), true);
-  safe_json_add_time_from_string(jreply, "updated_at", db_admin_get(DB_ADMIN_DB_UPDATE), true);
+  safe_json_add_time_from_string(jreply, "started_at", (s = db_admin_get(DB_ADMIN_START_TIME)), true);
+  free(s);
+  safe_json_add_time_from_string(jreply, "updated_at", (s = db_admin_get(DB_ADMIN_DB_UPDATE)), true);
+  free(s);
 
   json_object_object_add(jreply, "updating", json_object_new_boolean(library_is_scanning()));
 
