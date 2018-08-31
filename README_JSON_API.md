@@ -1189,37 +1189,22 @@ curl -X GET "http://localhost:3689/api/library/genres"
 {
   "items": [
     {
-      "name": "Classical",
-      "album_count": 3,
-      "artist_count": 2,
-      "track_count": 4
+      "name": "Classical"
     },
     {
-      "name": "Drum & Bass",
-      "album_count": 1,
-      "artist_count": 1,
-      "track_count": 1
+      "name": "Drum & Bass"
     },
     {
-      "name": "Pop",
-      "album_count": 3,
-      "artist_count": 3,
-      "track_count": 4
+      "name": "Pop"
     },
     {
-      "name": "Rock/Pop",
-      "album_count": 1,
-      "artist_count": 1,
-      "track_count": 1
+      "name": "Rock/Pop"
     },
     {
-      "name": "'90s Alternative",
-      "album_count": 1,
-      "artist_count": 1,
-      "track_count": 1
+      "name": "'90s Alternative"
     }
   ],
-  "total": 4,
+  "total": 5,
   "offset": 0,
   "limit": -1
 }
@@ -1385,7 +1370,6 @@ GET /api/search
 | artists         | object   | [`paging`](#paging-object) object containing [`artist`](#artist-object) objects that matches the `query` |
 | albums          | object   | [`paging`](#paging-object) object containing [`album`](#album-object) objects that matches the `query` |
 | playlists       | object   | [`paging`](#paging-object) object containing [`playlist`](#playlist-object) objects that matches the `query` |
-| genres          | object   | [`paging`](#paging-object) object containing [`genre`](#genre-object) objects that matches the `query` |
 
 
 **Example**
@@ -1747,7 +1731,4 @@ curl --include \
 | Key             | Type     | Value                                     |
 | --------------- | -------- | ----------------------------------------- |
 | name            | string   | Name of genre                             |
-| album_count     | integer  | Total number of albums for genre          |
-| artist_count    | integer  | Total number of arists for genre          |
-| track_count     | integer  | Total number of tracks for genre          |
 
