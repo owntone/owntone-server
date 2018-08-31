@@ -235,7 +235,7 @@ playlist_to_json(struct db_playlist_info *dbpli)
 }
 
 static json_object *
-genre_to_json(const char *genre, const struct filecount_info *fci)
+genre_to_json(const char *genre)
 {
   json_object *item;
 
@@ -246,9 +246,6 @@ genre_to_json(const char *genre, const struct filecount_info *fci)
 
   item = json_object_new_object();
   safe_json_add_string(item, "name", genre);
-  json_object_object_add(item, "album_count",  json_object_new_int(fci ? fci->album_count : 0));
-  json_object_object_add(item, "artist_count", json_object_new_int(fci ? fci->artist_count : 0));
-  json_object_object_add(item, "track_count",  json_object_new_int(fci ? fci->count : 0));
 
   return item;
 }
@@ -490,32 +487,14 @@ fetch_genres(struct query_params *query_params, json_object *items, int *total)
   int ret;
   char *genre;
   char *sort_item;
-  struct filecount_info fci;
-  struct query_params qp;
 
   ret = db_query_start(query_params);
   if (ret < 0)
     goto error;
 
-  memset(&qp, 0, sizeof(qp));
-  qp.type = Q_COUNT_ITEMS;
-  qp.idx_type = I_NONE;
-
   while (((ret = db_query_fetch_string_sort(query_params, &genre, &sort_item)) == 0) && (genre))
     {
-      memset(&fci, 0, sizeof(fci));
-
-      qp.filter = db_mprintf("(f.genre = '%q')", genre);
-      ret = db_filecount_get(&fci, &qp);
-      free(qp.filter);
-
-      if (ret < 0)
-        {
-          DPRINTF(E_LOG, L_WEB, "library: failed to get (genre=%s) file count info\n", genre);
-          continue;
-        }
-
-      item = genre_to_json(genre, &fci);
+      item = genre_to_json(genre);
       if (!item)
 	{
 	  ret = -1;
@@ -2784,74 +2763,6 @@ search_playlists(json_object *reply, struct httpd_request *hreq, const char *par
 }
 
 static int
-search_genres(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
-{
-  json_object *type;
-  json_object *items;
-  struct query_params query_params;
-  int total;
-  int ret;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  ret = query_params_limit_set(&query_params, hreq);
-  if (ret < 0)
-    goto out;
-
-  type = json_object_new_object();
-  json_object_object_add(reply, "genres", type);
-  items = json_object_new_array();
-  json_object_object_add(type, "items", items);
-
-  query_params.type = Q_BROWSE_GENRES;
-  query_params.idx_type = I_NONE;
-
-  if (param_query)
-    {
-      if (media_kind)
-	query_params.filter = db_mprintf("(f.genre LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
-      else
-	query_params.filter = db_mprintf("(f.genre LIKE '%%%q%%')", param_query);
-    }
-  else
-    {
-      query_params.filter = strdup(smartpl_expression->query_where);
-      query_params.having = safe_strdup(smartpl_expression->having);
-      query_params.order = safe_strdup(smartpl_expression->order);
-
-      if (smartpl_expression->limit > 0)
-	{
-	  query_params.idx_type = I_SUB;
-	  query_params.limit = smartpl_expression->limit;
-	  query_params.offset = 0;
-	}
-    }
-
-  ret = fetch_genres(&query_params, items, NULL);
-  if (ret < 0) 
-    {
-      /* browse seems to expect to find rows; if it can't it returns NULL to
-       * db_build_query_check() .. db_get_one_int() leading to this to case
-       */
-      total = 0;
-      ret = 0;
-      DPRINTF(E_DBG, L_WEB, "reseting fetch_genre() return\n");
-    }
-  else
-    total = json_object_array_length(items);
-
-  json_object_object_add(type, "total", json_object_new_int(total));
-  json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
-  json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
-
- out:
-  free_query_params(&query_params, 1);
-
-  return ret;
-}
-
-
-static int
 jsonapi_reply_search(struct httpd_request *hreq)
 {
   const char *param_type;
@@ -2895,21 +2806,6 @@ jsonapi_reply_search(struct httpd_request *hreq)
     {
       expression = safe_asprintf("\"query\" { %s }", param_expression);
 
-#ifndef ANTLR_PARSER_FIX
-      /* HACK -- a bug in smartpl_query.c:parse_input() causes svr to lockup 
-       * when it doesn't get a string it doesn't like (the %2B instead of +):
-       * ie /api/search?type=albums&media_type=music&expression=genre%2Bis%2B%22Pop%22
-       * causes 'expression' with '+' instead of ' '
-       */
-      {
-          DPRINTF(E_DBG, L_WEB, " in smart expr= '%s'\n", expression);
-          char*  p;
-          while ( (p = strchr(expression, '+')) ) {
-              *p = ' ';
-          }
-          DPRINTF(E_DBG, L_WEB, "out smart expr= '%s'\n", expression);
-      }
-#endif
       ret = smartpl_query_parse_string(&smartpl_expression, expression);
       free(expression);
 
@@ -2946,14 +2842,6 @@ jsonapi_reply_search(struct httpd_request *hreq)
       if (ret < 0)
 	goto error;
     }
-
- if (strstr(param_type, "genre"))
-    {
-      ret = search_genres(reply, hreq, param_query, &smartpl_expression, media_kind);
-      if (ret < 0)
-	goto error;
-    }
-
 
   ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
   if (ret < 0)
