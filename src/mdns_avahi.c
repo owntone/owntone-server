@@ -555,7 +555,7 @@ static int
 address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *addr, int port)
 {
   char address[AVAHI_ADDRESS_STR_MAX];
-  char address_log[AVAHI_ADDRESS_STR_MAX];
+  char address_log[AVAHI_ADDRESS_STR_MAX + 2];
   int family;
   int ret;
 
