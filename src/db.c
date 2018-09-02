@@ -629,7 +629,7 @@ unicode_fixup_mfi(struct media_file_info *mfi)
   char **field;
   int i;
 
-  for (i = 0; i < (sizeof(mfi_cols_map) / sizeof(mfi_cols_map[0])); i++)
+  for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
       if (mfi_cols_map[i].type != DB_TYPE_STRING)
 	continue;
@@ -2018,13 +2018,14 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
 
   ncols = sqlite3_column_count(qp->stmt);
 
-  if (sizeof(dbmfi_cols_map) / sizeof(dbmfi_cols_map[0]) != ncols)
+  // We allow more cols in db than in map because the db may be a future schema
+  if (ncols < ARRAY_SIZE(dbmfi_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: dbmfi column map out of sync with schema\n");
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbmfi column map (%lu)\n", ncols, ARRAY_SIZE(dbmfi_cols_map));
       return -1;
     }
 
-  for (i = 0; i < ncols; i++)
+  for (i = 0; i < ARRAY_SIZE(dbmfi_cols_map); i++)
     {
       strcol = (char **) ((char *)dbmfi + dbmfi_cols_map[i]);
 
@@ -2075,14 +2076,11 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int w
 
   ncols = sqlite3_column_count(qp->stmt);
 
-  if (ARRAY_SIZE(dbpli_cols_map) > ncols)
+  // We allow more cols in db than in map because the db may be a future schema
+  if (ncols < ARRAY_SIZE(dbpli_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: dbpli column map out of sync with schema\n");
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbpli column map (%lu)\n", ncols, ARRAY_SIZE(dbpli_cols_map));
       return -1;
-    }
-  if (ARRAY_SIZE(dbpli_cols_map) < ncols)
-    {
-      DPRINTF(E_LOG, L_DB, "dbpli column map out of sync with schema, database schema does not match forked-daapd version!\n");
     }
 
   for (i = 0; i < ARRAY_SIZE(dbpli_cols_map); i++)
@@ -2173,13 +2171,14 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
 
   ncols = sqlite3_column_count(qp->stmt);
 
-  if (sizeof(dbgri_cols_map) / sizeof(dbgri_cols_map[0]) != ncols)
+  // We allow more cols in db than in map because the db may be a future schema
+  if (ncols < ARRAY_SIZE(dbgri_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: dbgri column map out of sync with schema\n");
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbgri column map (%lu)\n", ncols, ARRAY_SIZE(dbgri_cols_map));
       return -1;
     }
 
-  for (i = 0; i < ncols; i++)
+  for (i = 0; i < ARRAY_SIZE(dbgri_cols_map); i++)
     {
       strcol = (char **) ((char *)dbgri + dbgri_cols_map[i]);
 
@@ -2658,16 +2657,17 @@ db_file_fetch_byquery(char *query)
 
   ncols = sqlite3_column_count(stmt);
 
-  if (sizeof(mfi_cols_map) / sizeof(mfi_cols_map[0]) != ncols)
+  // We allow more cols in db than in map because the db may be a future schema
+  if (ncols < ARRAY_SIZE(mfi_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: mfi column map out of sync with schema\n");
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than mfi column map (%lu)\n", ncols, ARRAY_SIZE(mfi_cols_map));
 
       sqlite3_finalize(stmt);
       free(mfi);
       return NULL;
     }
 
-  for (i = 0; i < ncols; i++)
+  for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
       switch (mfi_cols_map[i].type)
 	{
@@ -3268,17 +3268,13 @@ db_pl_fetch_byquery(const char *query)
 
   ncols = sqlite3_column_count(stmt);
 
-  if (ARRAY_SIZE(pli_cols_map) > ncols)
+  if (ncols < ARRAY_SIZE(pli_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: pli column map out of sync with schema\n");
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than pli column map (%lu)\n", ncols, ARRAY_SIZE(pli_cols_map));
 
       sqlite3_finalize(stmt);
       free(pli);
       return NULL;
-    }
-  if (ARRAY_SIZE(pli_cols_map) < ncols)
-    {
-      DPRINTF(E_LOG, L_DB, "BUG: pli column map out of sync with schema\n");
     }
 
   for (i = 0; i < ARRAY_SIZE(pli_cols_map); i++)
@@ -6029,16 +6025,16 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
 
   ncols = sqlite3_column_count(stmt);
 
-  if (sizeof(wi_cols_map) / sizeof(wi_cols_map[0]) != ncols)
+  if (ncols < ARRAY_SIZE(wi_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: wi column map out of sync with schema\n");
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than wi column map (%lu)\n", ncols, ARRAY_SIZE(wi_cols_map));
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
       return -1;
     }
 
-  for (i = 0; i < ncols; i++)
+  for (i = 0; i < ARRAY_SIZE(wi_cols_map); i++)
     {
       switch (wi_cols_map[i].type)
 	{
@@ -6801,6 +6797,10 @@ db_check_version(void)
 
       vacuum = 1;
     }
+  else if (db_ver_minor > SCHEMA_VERSION_MINOR)
+    {
+      DPRINTF(E_LOG, L_DB, "Future (but compatible) database version detected (v%d.%d)\n", db_ver_major, db_ver_minor);
+    }
 
   if (vacuum)
     {
@@ -6828,7 +6828,21 @@ db_init(void)
   int pls;
   int ret;
 
+  if (ARRAY_SIZE(dbmfi_cols_map) != ARRAY_SIZE(mfi_cols_map))
+    {
+      DPRINTF(E_FATAL, L_DB, "BUG: mfi column maps are not in sync\n");
+      return -1;
+    }
+
+  if (ARRAY_SIZE(dbpli_cols_map) != ARRAY_SIZE(pli_cols_map))
+    {
+      DPRINTF(E_FATAL, L_DB, "BUG: pli column maps are not in sync\n");
+      return -1;
+    }
+
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
+
+  DPRINTF(E_LOG, L_DB, "Configured to use database file '%s'\n", db_path);
 
   ret = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
   if (ret != SQLITE_OK)
