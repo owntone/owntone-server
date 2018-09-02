@@ -234,12 +234,29 @@ playlist_to_json(struct db_playlist_info *dbpli)
   return item;
 }
 
+static json_object *
+genre_to_json(const char *genre)
+{
+  json_object *item;
+
+  if (genre == NULL)
+    {
+      return NULL;
+    }
+
+  item = json_object_new_object();
+  safe_json_add_string(item, "name", genre);
+
+  return item;
+}
+
+
 static int
 fetch_tracks(struct query_params *query_params, json_object *items, int *total)
 {
   struct db_media_file_info dbmfi;
   json_object *item;
-  int ret = 0;
+  int ret;
 
   ret = db_query_start(query_params);
   if (ret < 0)
@@ -328,6 +345,7 @@ fetch_artist(const char *artist_id)
 
  error:
   db_query_end(&query_params);
+  free(query_params.filter);
 
   return artist;
 }
@@ -394,6 +412,7 @@ fetch_album(const char *album_id)
 
  error:
   db_query_end(&query_params);
+  free(query_params.filter);
 
   return album;
 }
@@ -456,9 +475,44 @@ fetch_playlist(const char *playlist_id)
 
  error:
   db_query_end(&query_params);
+  free(query_params.filter);
 
   return playlist;
 }
+
+static int
+fetch_genres(struct query_params *query_params, json_object *items, int *total)
+{
+  json_object *item;
+  int ret;
+  char *genre;
+  char *sort_item;
+
+  ret = db_query_start(query_params);
+  if (ret < 0)
+    goto error;
+
+  while (((ret = db_query_fetch_string_sort(query_params, &genre, &sort_item)) == 0) && (genre))
+    {
+      item = genre_to_json(genre);
+      if (!item)
+	{
+	  ret = -1;
+	  goto error;
+	}
+
+      json_object_array_add(items, item);
+    }
+
+  if (total)
+    *total = query_params->results;
+
+ error:
+  db_query_end(query_params);
+
+  return ret;
+}
+
 
 static int
 query_params_limit_set(struct query_params *query_params, struct httpd_request *hreq)
@@ -567,6 +621,7 @@ jsonapi_reply_library(struct httpd_request *hreq)
   struct filecount_info fci;
   json_object *jreply;
   int ret;
+  char *s;
 
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -586,8 +641,10 @@ jsonapi_reply_library(struct httpd_request *hreq)
       DPRINTF(E_LOG, L_WEB, "library: failed to get file count info\n");
     }
 
-  safe_json_add_time_from_string(jreply, "started_at", db_admin_get(DB_ADMIN_START_TIME), true);
-  safe_json_add_time_from_string(jreply, "updated_at", db_admin_get(DB_ADMIN_DB_UPDATE), true);
+  safe_json_add_time_from_string(jreply, "started_at", (s = db_admin_get(DB_ADMIN_START_TIME)), true);
+  free(s);
+  safe_json_add_time_from_string(jreply, "updated_at", (s = db_admin_get(DB_ADMIN_DB_UPDATE)), true);
+  free(s);
 
   json_object_object_add(jreply, "updating", json_object_new_boolean(library_is_scanning()));
 
@@ -2357,6 +2414,75 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_genres(struct httpd_request *hreq)
+{
+  time_t db_update;
+  struct query_params query_params;
+  const char *param;
+  enum media_kind media_kind;
+  json_object *reply;
+  json_object *items;
+  int total;
+  int ret;
+
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
+  media_kind = 0;
+  param = evhttp_find_header(hreq->query, "media_kind");
+  if (param)
+    {
+      media_kind = db_media_kind_enum(param);
+      if (!media_kind)
+	{
+	  DPRINTF(E_LOG, L_WEB, "Invalid media kind '%s'\n", param);
+	  return HTTP_BADREQUEST;
+	}
+    }
+
+  reply = json_object_new_object();
+  items = json_object_new_array();
+  json_object_object_add(reply, "items", items);
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto error;
+
+  query_params.type = Q_BROWSE_GENRES;
+  query_params.idx_type = I_NONE;
+
+  if (media_kind)
+    query_params.filter = db_mprintf("(f.media_kind = %d)", media_kind);
+
+  ret = fetch_genres(&query_params, items, NULL);
+  if (ret < 0)
+    goto error;
+  else
+    total = json_object_array_length(items);
+
+  json_object_object_add(reply, "total", json_object_new_int(total));
+  json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
+
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add genres to response buffer.\n");
+
+ error:
+  jparse_free(reply);
+  free_query_params(&query_params, 1);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 jsonapi_reply_library_count(struct httpd_request *hreq)
 {
   time_t db_update;
@@ -2679,6 +2805,7 @@ jsonapi_reply_search(struct httpd_request *hreq)
   if (param_expression)
     {
       expression = safe_asprintf("\"query\" { %s }", param_expression);
+
       ret = smartpl_query_parse_string(&smartpl_expression, expression);
       free(expression);
 
@@ -2779,6 +2906,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
+    { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
