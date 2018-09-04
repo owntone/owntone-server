@@ -103,7 +103,7 @@ db_drop_indices(sqlite3 *hdl)
 
 
 static int
-db_generic_upgrade(sqlite3 *hdl, const struct db_upgrade_query *queries, int nqueries)
+db_generic_upgrade(sqlite3 *hdl, const struct db_upgrade_query *queries, unsigned int nqueries)
 {
   char *errmsg;
   int i;

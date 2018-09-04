@@ -2021,7 +2021,7 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
   // We allow more cols in db than in map because the db may be a future schema
   if (ncols < ARRAY_SIZE(dbmfi_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbmfi column map (%lu)\n", ncols, ARRAY_SIZE(dbmfi_cols_map));
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbmfi column map (%u)\n", ncols, ARRAY_SIZE(dbmfi_cols_map));
       return -1;
     }
 
@@ -2079,7 +2079,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int w
   // We allow more cols in db than in map because the db may be a future schema
   if (ncols < ARRAY_SIZE(dbpli_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbpli column map (%lu)\n", ncols, ARRAY_SIZE(dbpli_cols_map));
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbpli column map (%u)\n", ncols, ARRAY_SIZE(dbpli_cols_map));
       return -1;
     }
 
@@ -2174,7 +2174,7 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
   // We allow more cols in db than in map because the db may be a future schema
   if (ncols < ARRAY_SIZE(dbgri_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbgri column map (%lu)\n", ncols, ARRAY_SIZE(dbgri_cols_map));
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbgri column map (%u)\n", ncols, ARRAY_SIZE(dbgri_cols_map));
       return -1;
     }
 
@@ -2660,7 +2660,7 @@ db_file_fetch_byquery(char *query)
   // We allow more cols in db than in map because the db may be a future schema
   if (ncols < ARRAY_SIZE(mfi_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than mfi column map (%lu)\n", ncols, ARRAY_SIZE(mfi_cols_map));
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than mfi column map (%u)\n", ncols, ARRAY_SIZE(mfi_cols_map));
 
       sqlite3_finalize(stmt);
       free(mfi);
@@ -3270,7 +3270,7 @@ db_pl_fetch_byquery(const char *query)
 
   if (ncols < ARRAY_SIZE(pli_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than pli column map (%lu)\n", ncols, ARRAY_SIZE(pli_cols_map));
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than pli column map (%u)\n", ncols, ARRAY_SIZE(pli_cols_map));
 
       sqlite3_finalize(stmt);
       free(pli);
@@ -6027,7 +6027,7 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
 
   if (ncols < ARRAY_SIZE(wi_cols_map))
     {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than wi column map (%lu)\n", ncols, ARRAY_SIZE(wi_cols_map));
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than wi column map (%u)\n", ncols, ARRAY_SIZE(wi_cols_map));
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);

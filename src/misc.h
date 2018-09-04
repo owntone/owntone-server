@@ -15,7 +15,7 @@
 #define STOB(s) ((s) * 4)
 #define BTOS(b) ((b) / 4)
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define ARRAY_SIZE(x) ((unsigned int)(sizeof(x) / sizeof((x)[0])))
 
 struct onekeyval {
   char *name;
