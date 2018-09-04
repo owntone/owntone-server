@@ -318,6 +318,17 @@ Recommended build settings:
 
 After configure run the usual make, and if that went well, 'sudo make install'
 
+You may see two kinds of warnings during make.
+First, /usr/bin/antlr3 may generate a long series of warnings that
+begin like this:
+  warning(24):  template error: context ...
+  
+Second, you may see compiler warnings that look like this:
+  RSPLexer.c: In function `mESCAPED':
+  RSPLexer.c:2674:16: warning: unused variable `_type' [-Wunused-variable]
+    ANTLR3_UINT32 _type;
+                  ^~~~~                  
+You can safely ignore all of these warnings.
 
 Long version - after installation
 ---------------------------------
