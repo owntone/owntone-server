@@ -4720,13 +4720,21 @@ db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
   queue_version = queue_transaction_begin();
 
   // Position of the first new item
-  pos = db_queue_get_pos(item_id, 0);
-  if (pos < 0)
+  if (item_id == 0)
     {
-      ret = -1;
-      goto end_transaction;
+      // player Q is empty or stopped; add to head of player Q
+      pos = 1;
     }
-  pos++;
+  else
+    {
+      pos = db_queue_get_pos(item_id, 0);
+      if (pos < 0)
+        {
+          ret = -1;
+          goto end_transaction;
+        }
+      pos++;
+    }
 
   // Shuffle position of the first new item
   shuffle_pos = db_queue_get_count();
