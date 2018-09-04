@@ -1544,7 +1544,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 }
 
 static int
-queue_tracks_add_artist(const char *id)
+queue_tracks_add_artist(const char *id, bool addnext)
 {
   struct query_params query_params;
   struct player_status status;
@@ -1559,7 +1559,9 @@ queue_tracks_add_artist(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
+  ret = addnext ? 
+          db_queue_add_by_queryafteritemid(&query_params, status.item_id) :
+          db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
 
   free(query_params.filter);
 
@@ -1567,7 +1569,7 @@ queue_tracks_add_artist(const char *id)
 }
 
 static int
-queue_tracks_add_album(const char *id)
+queue_tracks_add_album(const char *id, bool addnext)
 {
   struct query_params query_params;
   struct player_status status;
@@ -1582,7 +1584,9 @@ queue_tracks_add_album(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
+  ret = addnext ? 
+          db_queue_add_by_queryafteritemid(&query_params, status.item_id) :
+          db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
 
   free(query_params.filter);
 
@@ -1590,7 +1594,7 @@ queue_tracks_add_album(const char *id)
 }
 
 static int
-queue_tracks_add_track(const char *id)
+queue_tracks_add_track(const char *id, bool addnext)
 {
   struct query_params query_params;
   struct player_status status;
@@ -1605,7 +1609,9 @@ queue_tracks_add_track(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
+  ret = addnext ? 
+          db_queue_add_by_queryafteritemid(&query_params, status.item_id) :
+          db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
 
   free(query_params.filter);
 
@@ -1640,8 +1646,18 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *param;
   char *uris;
   char *uri;
+  char *ptr;
+  char *tmp;
   const char *id;
+  bool addnext = false;
+  bool done = false;
   int ret = 0;
+
+  param = evhttp_find_header(hreq->query, "next");
+  if (param)
+    {
+      addnext = (strcmp(param, "1") == 0);
+    }
 
   param = evhttp_find_header(hreq->query, "uris");
   if (!param)
@@ -1652,24 +1668,51 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
     }
 
   uris = strdup(param);
-  uri = strtok(uris, ",");
-
-  do
+  ptr = uris;
+  while (!done)
     {
+      if (addnext)
+        {
+          if ( (uri = strrchr(uris, ',')) == NULL) 
+            {
+              uri = uris;
+              done = true;
+            }
+          else
+            {
+              ptr = uri++;
+              *ptr = '\0';
+            }
+        }
+      else
+        {
+          if ( (tmp = strchr(ptr, ',')) == NULL) 
+            {
+              uri = ptr;
+              done = true;
+            }
+          else 
+            {
+              uri = ptr;
+              ptr = tmp+1;
+              *tmp = '\0';
+            }
+        }
+
       if (strncmp(uri, "library:artist:", strlen("library:artist:")) == 0)
 	{
 	  id = uri + (strlen("library:artist:"));
-	  queue_tracks_add_artist(id);
+	  queue_tracks_add_artist(id, addnext);
 	}
       else if (strncmp(uri, "library:album:", strlen("library:album:")) == 0)
 	{
 	  id = uri + (strlen("library:album:"));
-	  queue_tracks_add_album(id);
+	  queue_tracks_add_album(id, addnext);
 	}
       else if (strncmp(uri, "library:track:", strlen("library:track:")) == 0)
 	{
 	  id = uri + (strlen("library:track:"));
-	  queue_tracks_add_track(id);
+	  queue_tracks_add_track(id, addnext);
 	}
       else if (strncmp(uri, "library:playlist:", strlen("library:playlist:")) == 0)
 	{
@@ -1686,7 +1729,6 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 	    }
 	}
     }
-  while ((uri = strtok(NULL, ",")));
 
   free(uris);
 
