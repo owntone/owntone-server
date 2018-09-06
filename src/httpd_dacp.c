@@ -2610,6 +2610,10 @@ static struct httpd_uri_map dacp_handlers[] =
       .handler = dacp_reply_pause
     },
     {
+      .regexp = "^/ctrl-int/[[:digit:]]+/discrete-pause$",
+      .handler = dacp_reply_playpause
+    },
+    {
       .regexp = "^/ctrl-int/[[:digit:]]+/playpause$",
       .handler = dacp_reply_playpause
     },
