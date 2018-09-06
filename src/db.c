@@ -4612,7 +4612,7 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos, int q
 
   query = sqlite3_mprintf(Q_TMPL,
 			  dbmfi->id, dbmfi->song_length, dbmfi->data_kind, dbmfi->media_kind,
-			  pos, pos, dbmfi->path, dbmfi->virtual_path, dbmfi->title,
+			  pos, shuffle_pos, dbmfi->path, dbmfi->virtual_path, dbmfi->title,
 			  dbmfi->artist, dbmfi->album_artist, dbmfi->album, dbmfi->genre, dbmfi->songalbumid,
 			  dbmfi->time_modified, dbmfi->artist_sort, dbmfi->album_sort, dbmfi->album_artist_sort, dbmfi->year,
 			  dbmfi->track, dbmfi->disc, queue_version);
@@ -4710,66 +4710,18 @@ db_queue_update_item(struct db_queue_item *qi)
 int
 db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
 {
-  int queue_version;
-  struct db_media_file_info dbmfi;
-  char *query;
-  int shuffle_pos;
   int pos;
   int ret;
-
-  queue_version = queue_transaction_begin();
 
   // Position of the first new item
   pos = db_queue_get_pos(item_id, 0);
   if (pos < 0)
     {
-      ret = -1;
-      goto end_transaction;
+      return -1;
     }
   pos++;
 
-  // Shuffle position of the first new item
-  shuffle_pos = db_queue_get_count();
-  if (shuffle_pos < 0)
-    {
-      ret = -1;
-      goto end_transaction;
-    }
-
-  // Start query for new items from files table
-  ret = db_query_start(qp);
-  if (ret < 0)
-    goto end_transaction;
-
-  DPRINTF(E_DBG, L_DB, "Player queue query returned %d items\n", qp->results);
-
-  // Update pos for all items after the item with item_id
-  query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos > %d;", qp->results, queue_version, (pos - 1));
-  ret = db_query_run(query, 1, 0);
-  if (ret < 0)
-    goto end_transaction;
-
-  // Iterate over new items from files table and insert into queue
-  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
-    {
-      ret = queue_add_file(&dbmfi, pos, shuffle_pos, queue_version);
-
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Failed to add song with id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
-	  break;
-	}
-
-      DPRINTF(E_DBG, L_DB, "Added song with id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
-      shuffle_pos++;
-      pos++;
-    }
-
-  db_query_end(qp);
-
- end_transaction:
-  queue_transaction_end(ret, queue_version);
-
+  ret = db_queue_add_by_query(qp, 0, 0, pos, NULL, NULL);
   return ret;
 }
 
@@ -4825,21 +4777,30 @@ db_queue_add_item(struct db_queue_add_info *queue_add_info, struct db_queue_item
  * @param qp Query parameters for the files table
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return Item id of the last inserted item on success, -1 on failure
+ * @param position The position in the queue for the new queue item, -1 to add at end of queue
+ * @param count If not NULL returns the number of items added to the queue
+ * @param new_item_id If not NULL return the queue item id of the first new queue item
+ * @return 0 on success, -1 on failure
  */
 int
-db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
+db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
 {
   struct db_media_file_info dbmfi;
+  char *query;
   int queue_version;
+  int queue_count;
   int pos;
-  int new_item_id = 0; // Quell compiler warning about uninitialized use of new_item_id
   int ret;
+
+  if (new_item_id)
+    *new_item_id = 0;
+  if (count)
+    *count = 0;
 
   queue_version = queue_transaction_begin();
 
-  pos = db_queue_get_count();
-  if (pos < 0)
+  queue_count = db_queue_get_count();
+  if (queue_count < 0)
     {
       ret = -1;
       goto end_transaction;
@@ -4858,9 +4819,24 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
       return 0;
     }
 
+  if (position < 0 || position > queue_count)
+    {
+      pos = queue_count;
+    }
+  else
+    {
+      pos = position;
+
+      // Update pos for all items from the given position (make room for the new items in the queue)
+      query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos >= %d;", qp->results, queue_version, pos);
+      ret = db_query_run(query, 1, 0);
+      if (ret < 0)
+	goto end_transaction;
+    }
+
   while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      ret = queue_add_file(&dbmfi, pos, pos, queue_version);
+      ret = queue_add_file(&dbmfi, pos, queue_count, queue_version);
 
       if (ret < 0)
 	{
@@ -4869,15 +4845,20 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
 	}
 
       DPRINTF(E_DBG, L_DB, "Added song id %s (%s) to queue\n", dbmfi.id, dbmfi.title);
+
+      if (new_item_id && *new_item_id == 0)
+	*new_item_id = (int) sqlite3_last_insert_rowid(hdl);
+      if (count)
+	(*count)++;
+
       pos++;
+      queue_count++;
     }
 
   db_query_end(qp);
 
   if (ret < 0)
     goto end_transaction;
-
-  new_item_id = (int) sqlite3_last_insert_rowid(hdl);
 
   // Reshuffle after adding new items
   if (reshuffle)
@@ -4888,7 +4869,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
  end_transaction:
   queue_transaction_end(ret, queue_version);
 
-  return (ret == 0) ? new_item_id : ret;
+  return ret;
 }
 
 /*
@@ -4897,10 +4878,13 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id)
  * @param plid Id of the stored playlist
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return Item id of the last inserted item on success, -1 on failure
+ * @param position The position in the queue for the new queue item, -1 to add at end of queue
+ * @param count If not NULL returns the number of items added to the queue
+ * @param new_item_id If not NULL return the queue item id of the first new queue item
+ * @return 0 on success, -1 on failure
  */
 int
-db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
+db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
 {
   struct query_params qp;
   int ret;
@@ -4910,7 +4894,7 @@ db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
   qp.id = plid;
   qp.type = Q_PLITEMS;
 
-  ret = db_queue_add_by_query(&qp, reshuffle, item_id);
+  ret = db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
 
   return ret;
 }
@@ -4921,10 +4905,13 @@ db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id)
  * @param id Id of the file
  * @param reshuffle If 1 queue will be reshuffled after adding new items
  * @param item_id The base item id, all items after this will be reshuffled
- * @return Item id of the last inserted item on success, -1 on failure
+ * @param position The position in the queue for the new queue item, -1 to add at end of queue
+ * @param count If not NULL returns the number of items added to the queue
+ * @param new_item_id If not NULL return the queue item id of the first new queue item
+ * @return 0 on success, -1 on failure
  */
 int
-db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
+db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
 {
   struct query_params qp;
   char buf[124];
@@ -4936,7 +4923,7 @@ db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id)
   snprintf(buf, sizeof(buf), "f.id = %" PRIu32, id);
   qp.filter = buf;
 
-  ret = db_queue_add_by_query(&qp, reshuffle, item_id);
+  ret = db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
 
   return ret;
 }

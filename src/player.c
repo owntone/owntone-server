@@ -2111,7 +2111,7 @@ playback_start_id(void *arg, int *retval)
     {
       db_queue_clear(0);
 
-      ret = db_queue_add_by_fileid(cmdarg->id, 0, 0);
+      ret = db_queue_add_by_fileid(cmdarg->id, 0, 0, -1, NULL, NULL);
       if (ret < 0)
 	return COMMAND_END;
 
