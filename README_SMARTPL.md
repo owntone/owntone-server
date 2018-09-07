@@ -26,6 +26,7 @@ field-name operator operand
 Where valid field-names (with their types) are:
 * `artist` (string)
 * `album_artist` (string)
+* `songartistid` (string)
 * `album` (string)
 * `title` (string)
 * `genre` (string)
