@@ -723,7 +723,7 @@ daap_request_authorize(struct httpd_request *hreq)
     {
       if (!session)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "DAAP session not found: '%s'\n", hreq->uri_parsed->uri);
+	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri_parsed->uri);
 	  return -1;
 	}
 
@@ -749,7 +749,7 @@ daap_request_authorize(struct httpd_request *hreq)
   ret = httpd_basic_auth(hreq->req, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
   if (ret != 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Unsuccessful library authentication\n");
+      DPRINTF(E_LOG, L_DAAP, "Unsuccessful library authorization attempt from '%s'\n", hreq->peer_address);
       return -1;
     }
 
