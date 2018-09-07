@@ -484,6 +484,7 @@ connection_test(int family, const char *address, const char *address_log, int po
   fd_set fdset;
   struct timeval timeout = { MDNS_CONNECT_TEST_TIMEOUT, 0 };
   socklen_t len;
+  int error;
   int retval;
   int ret;
 
@@ -529,15 +530,23 @@ connection_test(int family, const char *address, const char *address_log, int po
       goto out_close_socket;
     }
 
-  len = sizeof(retval);
-  ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &retval, &len);
+  len = sizeof(error);
+  ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len);
   if (ret < 0)
     {
       DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getsockopt error: %s\n", address_log, port, strerror(errno));
       goto out_close_socket;
     }
 
-  DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d completed successfully (return value %d)\n", address_log, port, retval);
+  if (error)
+    {
+      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getsockopt return: %s\n", address_log, port, strerror(error));
+      goto out_close_socket;
+    }
+
+  DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d completed successfully\n", address_log, port);
+
+  retval = 0;
 
  out_close_socket:
   close(sock);
