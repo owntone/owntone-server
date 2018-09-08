@@ -818,9 +818,8 @@ source_check(void)
 #ifdef LASTFM
 	  worker_execute(scrobble_cb, &id, sizeof(int), 8);
 #endif
+	  history_add(cur_playing->id, cur_playing->item_id);
 	}
-
-      history_add(cur_playing->id, cur_playing->item_id);
 
       if (consume)
 	db_queue_delete_byitemid(cur_playing->item_id);
