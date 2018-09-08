@@ -811,11 +811,15 @@ source_check(void)
       i++;
 
       id = (int)cur_playing->id;
-      worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
+
+      if (id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
+	{
+	  worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
 #ifdef LASTFM
-      worker_execute(scrobble_cb, &id, sizeof(int), 8);
+	  worker_execute(scrobble_cb, &id, sizeof(int), 8);
 #endif
-      history_add(cur_playing->id, cur_playing->item_id);
+	  history_add(cur_playing->id, cur_playing->item_id);
+	}
 
       if (consume)
 	db_queue_delete_byitemid(cur_playing->item_id);
