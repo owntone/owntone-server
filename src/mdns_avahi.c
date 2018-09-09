@@ -568,7 +568,8 @@ address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *add
   int family;
   int ret;
 
-  avahi_address_snprint(address, sizeof(address), addr);
+  CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), addr));
+
   family = avahi_proto_to_af(proto);
   if (family == AF_INET)
     snprintf(address_log, sizeof(address_log), "%s", address);
@@ -621,7 +622,8 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
     return;
 
   family = avahi_proto_to_af(proto);
-  avahi_address_snprint(address, sizeof(address), &addr);
+
+  CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), &addr));
 
   DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s, proto %d): NEW record %s for service type '%s'\n", hostname, proto, address, rb_data->mb->type);
 
@@ -679,7 +681,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       return;
     }
 
-  avahi_address_snprint(address, sizeof(address), addr);
+  CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), addr));
 
   DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d, host %s, address %s\n", name, type, proto, hostname, address);
 
