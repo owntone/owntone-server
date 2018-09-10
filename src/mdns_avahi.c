@@ -499,49 +499,55 @@ connection_test(int family, const char *address, const char *address_log, int po
   ret = getaddrinfo(address, strport, &hints, &ai);
   if (ret < 0)
     {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getaddrinfo error: %s\n", address_log, port, gai_strerror(ret));
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with getaddrinfo error: %s\n", address_log, port, gai_strerror(ret));
       return -1;
     }
 
   sock = socket(ai->ai_family, ai->ai_socktype | SOCK_NONBLOCK, ai->ai_protocol);
   if (sock < 0)
     {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with socket error: %s\n", address_log, port, strerror(errno));
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with socket error: %s\n", address_log, port, strerror(errno));
       goto out_free_ai;
     }
 
   ret = connect(sock, ai->ai_addr, ai->ai_addrlen);
-  if (ret < 0 && errno != EALREADY && errno != EINPROGRESS)
+  if (ret < 0 && errno != EINPROGRESS)
     {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with connect error: %s\n", address_log, port, strerror(errno));
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with connect error: %s\n", address_log, port, strerror(errno));
       goto out_close_socket;
     }
 
-  FD_ZERO(&fdset);
-  FD_SET(sock, &fdset);
-
-  ret = select(sock + 1, NULL, &fdset, NULL, &timeout);
-  if (ret != 1)
+  // We often need to wait for the connection. On Linux this seems always to be
+  // the case, but FreeBSD connect() sometimes returns immediate success.
+  if (ret != 0)
     {
-      if (errno == EINPROGRESS)
-	DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d timed out (limit is %d seconds)\n", address_log, port, MDNS_CONNECT_TEST_TIMEOUT);
-      else
-	DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with select error: %s\n", address_log, port, strerror(errno));
-      goto out_close_socket;
-    }
+      FD_ZERO(&fdset);
+      FD_SET(sock, &fdset);
 
-  len = sizeof(error);
-  ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len);
-  if (ret < 0)
-    {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getsockopt error: %s\n", address_log, port, strerror(errno));
-      goto out_close_socket;
-    }
+      ret = select(sock + 1, NULL, &fdset, NULL, &timeout);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with select error: %s\n", address_log, port, strerror(errno));
+	  goto out_close_socket;
+	}
+      else if (ret == 0)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d timed out (limit is %d seconds)\n", address_log, port, MDNS_CONNECT_TEST_TIMEOUT);
+	  goto out_close_socket;
+	}
 
-  if (error)
-    {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getsockopt return: %s\n", address_log, port, strerror(error));
-      goto out_close_socket;
+      len = sizeof(error);
+      ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with getsockopt error: %s\n", address_log, port, strerror(errno));
+	  goto out_close_socket;
+	}
+      else if (error)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with getsockopt return: %s\n", address_log, port, strerror(error));
+	  goto out_close_socket;
+	}
     }
 
   DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d completed successfully\n", address_log, port);
