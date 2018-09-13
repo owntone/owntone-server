@@ -1749,8 +1749,7 @@ dacp_reply_playqueuecontents(struct httpd_request *hreq)
       if (ret < 0)
 	goto error;
 
-      //FIXME [queue] Check count value
-      while ((db_queue_enum_fetch(&qp, &queue_item) == 0) && (queue_item.id > 0))
+      while ((db_queue_enum_fetch(&qp, &queue_item) == 0) && (queue_item.id > 0) && (count < span))
 	{
 	  if (status.item_id == 0 || status.item_id == queue_item.id)
 	    {
