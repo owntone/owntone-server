@@ -1422,6 +1422,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
   struct player_status status;
   struct db_queue_item *queue_item;
   json_object *reply;
+  int file_id = 0;
 
   player_get_status(&status);
 
@@ -1463,6 +1464,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
   if (status.item_id)
     {
+      file_id = status.id;
       json_object_object_add(reply, "item_id", json_object_new_int(status.item_id));
       json_object_object_add(reply, "item_length_ms", json_object_new_int(status.len_ms));
       json_object_object_add(reply, "item_progress_ms", json_object_new_int(status.pos_ms));
@@ -1473,6 +1475,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
       if (queue_item)
 	{
+	  file_id = queue_item->file_id;
 	  json_object_object_add(reply, "item_id", json_object_new_int(queue_item->id));
 	  json_object_object_add(reply, "item_length_ms", json_object_new_int(queue_item->song_length));
 	  json_object_object_add(reply, "item_progress_ms", json_object_new_int(0));
@@ -1485,6 +1488,21 @@ jsonapi_reply_player(struct httpd_request *hreq)
 	  json_object_object_add(reply, "item_progress_ms", json_object_new_int(0));
 	}
     }
+
+  if (file_id)
+    {
+      /* verify artwork is available for file id */
+      struct media_file_info* mfi;
+      if ( (mfi = db_file_fetch_byid(file_id)) && mfi->artwork)
+        {
+          free_mfi(mfi, 0);
+        }
+      else
+        {
+          file_id = 0;
+        }
+    }
+  json_object_object_add(reply, "file_id", json_object_new_int(file_id));
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply)));
 
