@@ -39,10 +39,10 @@
 static int
 artwork_to_evbuf(struct httpd_request *hreq, struct db_group_info *dbgri, uint32_t *dbmfi_id)
 {
-  int  ret = 0;
-  int  len = 0;
-  const char*  ctype = "invalid";
-  char  clen[32];
+  int ret = 0;
+  int len = 0;
+  const char* ctype = "invalid";
+  char clen[32];
   struct evkeyvalq *headers;
 
   if ( (dbgri == NULL && dbmfi_id == NULL) || (dbgri && dbmfi_id)) 
@@ -183,7 +183,7 @@ artworkapi_reply_album(struct httpd_request *hreq)
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
-  return fetch_artwork(hreq, NULL, hreq->uri_parsed->path_parts[3]) == 0 ? HTTP_OK : HTTP_NOCONTENT;
+  return fetch_artwork(hreq, NULL, hreq->uri_parsed->path_parts[2]) == 0 ? HTTP_OK : HTTP_NOCONTENT;
 }
 
 static struct httpd_uri_map adm_handlers[] =
