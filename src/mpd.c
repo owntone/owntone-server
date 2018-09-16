@@ -1641,12 +1641,14 @@ mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
  * @return The queue item id of the last inserted item or -1 on failure
  */
 static int
-mpd_queue_add(char *path, bool exact_match)
+mpd_queue_add(char *path, bool exact_match, int position)
 {
   struct query_params qp;
   struct player_status status;
+  int new_item_id;
   int ret;
 
+  new_item_id = 0;
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_ITEMS;
@@ -1666,9 +1668,13 @@ mpd_queue_add(char *path, bool exact_match)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, position, NULL, &new_item_id);
 
   free(qp.filter);
+
+  if (ret == 0)
+    return new_item_id;
+
   return ret;
 }
 
@@ -1682,7 +1688,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, st
 {
   int ret;
 
-  ret = mpd_queue_add(argv[1], false);
+  ret = mpd_queue_add(argv[1], false, -1);
 
   if (ret < 0)
     {
@@ -1726,7 +1732,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
 	}
     }
 
-  ret = mpd_queue_add(argv[1], true);
+  ret = mpd_queue_add(argv[1], true, to_pos);
 
   if (ret == 0)
     {
@@ -1743,11 +1749,6 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
     {
       *errmsg = safe_asprintf("Failed to add song '%s' to playlist", argv[1]);
       return ACK_ERROR_UNKNOWN;
-    }
-
-  if (to_pos >= 0)
-    {
-      db_queue_move_byitemid(ret, to_pos, 0);
     }
 
   evbuffer_add_printf(evbuf,
@@ -2463,7 +2464,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_playlistid(pli->id, status.shuffle, status.item_id);
+  ret = db_queue_add_by_playlistid(pli->id, status.shuffle, status.item_id, -1, NULL, NULL);
   free_pli(pli, 0);
   if (ret < 0)
     {
@@ -2687,7 +2688,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
   free(qp.filter);
   if (ret < 0)
     {
@@ -3175,7 +3176,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
   free(qp.filter);
   if (ret < 0)
     {
