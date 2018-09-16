@@ -411,6 +411,7 @@ db_data_kind_label(enum data_kind data_kind)
 struct rng_ctx shuffle_rng;
 
 static char *db_path;
+static bool db_rating_updates;
 static __thread sqlite3 *hdl;
 
 
@@ -2333,9 +2334,31 @@ void
 db_file_inc_playcount(int id)
 {
 #define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0 WHERE id = %d;"
+  /*
+   * Rating calculation is taken from from the beets plugin "mpdstats" (see https://beets.readthedocs.io/en/latest/plugins/mpdstats.html)
+   * and adapted to the forked-daapd rating rage (0 to 100).
+   *
+   * Rating consist of the stable rating and a rolling rating.
+   * The stable rating is calculated based on the number was played and skipped:
+   *   stable rating = (play_count + 1.0) / (play_count + skip_count + 2.0) * 100
+   * The rolling rating is calculated based on the current action (played or skipped):
+   *   rolling rating for played = rating + ((100.0 - rating) / 2.0)
+   *   rolling rating for skipped = rating - (rating / 2.0)
+   *
+   * The new rating is a mix of stable and rolling rating (factor 0.75):
+   *   new rating = stable rating * 0.75 + rolling rating * 0.25
+   */
+#define Q_TMPL_WITH_RATING \
+               "UPDATE files "\
+               " SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0, "\
+	       "     rating = CAST(((play_count + 1.0) / (play_count + skip_count + 2.0) * 100 * 0.75) + ((rating + ((100.0 - rating) / 2.0)) * 0.25) AS INT)" \
+               " WHERE id = %d;"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
+  if (db_rating_updates)
+    query = sqlite3_mprintf(Q_TMPL_WITH_RATING, (int64_t)time(NULL), id);
+  else
+    query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -2345,15 +2368,25 @@ db_file_inc_playcount(int id)
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
+#undef Q_TMPL_WITH_RATING
 }
 
 void
 db_file_inc_skipcount(int id)
 {
 #define Q_TMPL "UPDATE files SET skip_count = skip_count + 1, time_skipped = %" PRIi64 " WHERE id = %d;"
+  // see db_file_inc_playcount for a description of how the rating is calculated
+#define Q_TMPL_WITH_RATING \
+               "UPDATE files "\
+               " SET skip_count = skip_count + 1, time_skipped = %" PRIi64 ", seek = 0, "\
+	       "     rating = CAST(((play_count + 1.0) / (play_count + skip_count + 2.0) * 100 * 0.75) + ((rating - (rating / 2.0)) * 0.25) AS INT)" \
+               " WHERE id = %d;"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
+  if (db_rating_updates)
+    query = sqlite3_mprintf(Q_TMPL_WITH_RATING, (int64_t)time(NULL), id);
+  else
+    query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -2363,6 +2396,7 @@ db_file_inc_skipcount(int id)
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
+#undef Q_TMPL_WITH_RATING
 }
 
 void
@@ -6841,6 +6875,7 @@ db_init(void)
     }
 
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
+  db_rating_updates = cfg_getbool(cfg_getsec(cfg, "library"), "rating_updates");
 
   DPRINTF(E_LOG, L_DB, "Configured to use database file '%s'\n", db_path);
 
