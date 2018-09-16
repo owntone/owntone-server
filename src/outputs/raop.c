@@ -1611,7 +1611,10 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb, const char *lo
   /* Session ID and session URL */
   gcry_randomize(&session_id, sizeof(session_id), GCRY_STRONG_RANDOM);
 
-  ret = snprintf(rs->session_url, sizeof(rs->session_url), "rtsp://%s/%u", address, session_id);
+  if (family == AF_INET)
+    ret = snprintf(rs->session_url, sizeof(rs->session_url), "rtsp://%s/%u", address, session_id);
+  else
+    ret = snprintf(rs->session_url, sizeof(rs->session_url), "rtsp://[%s]/%u", address, session_id);
   if ((ret < 0) || (ret >= sizeof(rs->session_url)))
     {
       DPRINTF(E_LOG, L_RAOP, "Session URL length exceeds 127 characters\n");
