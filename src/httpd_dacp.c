@@ -414,7 +414,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
   if (mode == 3)
     ret = db_queue_add_by_queryafteritemid(&qp, status.item_id);
   else
-    ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
+    ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
 
   if (qp.filter)
     free(qp.filter);
@@ -595,6 +595,8 @@ dacp_request_authorize(struct httpd_request *hreq)
   return 0;
 
  invalid:
+  DPRINTF(E_LOG, L_DACP, "Unauthorized request '%s' from '%s' (is peer trusted in your config?)\n", hreq->uri_parsed->uri, hreq->peer_address);
+
   httpd_send_error(hreq->req, 403, "Forbidden");
   return -1;
 }
@@ -1444,9 +1446,9 @@ dacp_reply_playspec(struct httpd_request *hreq)
   db_queue_clear(0);
 
   if (plid > 0)
-    ret = db_queue_add_by_playlistid(plid, status.shuffle, status.item_id);
+    ret = db_queue_add_by_playlistid(plid, status.shuffle, status.item_id, -1, NULL, NULL);
   else if (id > 0)
-    ret = db_queue_add_by_fileid(id, status.shuffle, status.item_id);
+    ret = db_queue_add_by_fileid(id, status.shuffle, status.item_id, -1, NULL, NULL);
 
   if (ret < 0)
     {
@@ -1747,8 +1749,7 @@ dacp_reply_playqueuecontents(struct httpd_request *hreq)
       if (ret < 0)
 	goto error;
 
-      //FIXME [queue] Check count value
-      while ((db_queue_enum_fetch(&qp, &queue_item) == 0) && (queue_item.id > 0))
+      while ((db_queue_enum_fetch(&qp, &queue_item) == 0) && (queue_item.id > 0) && (count < span))
 	{
 	  if (status.item_id == 0 || status.item_id == queue_item.id)
 	    {
@@ -2606,6 +2607,10 @@ static struct httpd_uri_map dacp_handlers[] =
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/pause$",
       .handler = dacp_reply_pause
+    },
+    {
+      .regexp = "^/ctrl-int/[[:digit:]]+/discrete-pause$",
+      .handler = dacp_reply_playpause
     },
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/playpause$",

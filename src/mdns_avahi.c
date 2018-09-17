@@ -484,6 +484,7 @@ connection_test(int family, const char *address, const char *address_log, int po
   fd_set fdset;
   struct timeval timeout = { MDNS_CONNECT_TEST_TIMEOUT, 0 };
   socklen_t len;
+  int error;
   int retval;
   int ret;
 
@@ -498,46 +499,60 @@ connection_test(int family, const char *address, const char *address_log, int po
   ret = getaddrinfo(address, strport, &hints, &ai);
   if (ret < 0)
     {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getaddrinfo error: %s\n", address_log, port, gai_strerror(ret));
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with getaddrinfo error: %s\n", address_log, port, gai_strerror(ret));
       return -1;
     }
 
   sock = socket(ai->ai_family, ai->ai_socktype | SOCK_NONBLOCK, ai->ai_protocol);
   if (sock < 0)
     {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with socket error: %s\n", address_log, port, strerror(errno));
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with socket error: %s\n", address_log, port, strerror(errno));
       goto out_free_ai;
     }
 
   ret = connect(sock, ai->ai_addr, ai->ai_addrlen);
-  if (ret < 0 && errno != EALREADY && errno != EINPROGRESS)
+  if (ret < 0 && errno != EINPROGRESS)
     {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with connect error: %s\n", address_log, port, strerror(errno));
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with connect error: %s\n", address_log, port, strerror(errno));
       goto out_close_socket;
     }
 
-  FD_ZERO(&fdset);
-  FD_SET(sock, &fdset);
-
-  ret = select(sock + 1, NULL, &fdset, NULL, &timeout);
-  if (ret != 1)
+  // We often need to wait for the connection. On Linux this seems always to be
+  // the case, but FreeBSD connect() sometimes returns immediate success.
+  if (ret != 0)
     {
-      if (errno == EINPROGRESS)
-	DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d timed out (limit is %d seconds)\n", address_log, port, MDNS_CONNECT_TEST_TIMEOUT);
-      else
-	DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with select error: %s\n", address_log, port, strerror(errno));
-      goto out_close_socket;
+      FD_ZERO(&fdset);
+      FD_SET(sock, &fdset);
+
+      ret = select(sock + 1, NULL, &fdset, NULL, &timeout);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with select error: %s\n", address_log, port, strerror(errno));
+	  goto out_close_socket;
+	}
+      else if (ret == 0)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d timed out (limit is %d seconds)\n", address_log, port, MDNS_CONNECT_TEST_TIMEOUT);
+	  goto out_close_socket;
+	}
+
+      len = sizeof(error);
+      ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with getsockopt error: %s\n", address_log, port, strerror(errno));
+	  goto out_close_socket;
+	}
+      else if (error)
+	{
+	  DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with getsockopt return: %s\n", address_log, port, strerror(error));
+	  goto out_close_socket;
+	}
     }
 
-  len = sizeof(retval);
-  ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &retval, &len);
-  if (ret < 0)
-    {
-      DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d failed with getsockopt error: %s\n", address_log, port, strerror(errno));
-      goto out_close_socket;
-    }
+  DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d completed successfully\n", address_log, port);
 
-  DPRINTF(E_DBG, L_MDNS, "Connection test to %s:%d completed successfully (return value %d)\n", address_log, port, retval);
+  retval = 0;
 
  out_close_socket:
   close(sock);
@@ -559,7 +574,8 @@ address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *add
   int family;
   int ret;
 
-  avahi_address_snprint(address, sizeof(address), addr);
+  CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), addr));
+
   family = avahi_proto_to_af(proto);
   if (family == AF_INET)
     snprintf(address_log, sizeof(address_log), "%s", address);
@@ -612,7 +628,8 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
     return;
 
   family = avahi_proto_to_af(proto);
-  avahi_address_snprint(address, sizeof(address), &addr);
+
+  CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), &addr));
 
   DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s, proto %d): NEW record %s for service type '%s'\n", hostname, proto, address, rb_data->mb->type);
 
@@ -670,7 +687,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       return;
     }
 
-  avahi_address_snprint(address, sizeof(address), addr);
+  CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), addr));
 
   DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d, host %s, address %s\n", name, type, proto, hostname, address);
 

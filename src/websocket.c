@@ -340,12 +340,12 @@ logger_libwebsockets(int level, const char *line)
 	break;
 
       case LLL_NOTICE:
-      case LLL_INFO:
-	severity = E_INFO;
+	severity = E_DBG;
 	break;
 
+      case LLL_INFO:
       case LLL_DEBUG:
-	severity = E_DBG;
+	severity = E_SPAM;
 	break;
 
       default:

@@ -1,6 +1,15 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 26.3:
+	- fix AirPlay 2 devices (e.g. Sonos Beam and Airport Express)
+	- fix mdns problems with ATV4 and ipv6
+	- fix possible segfault if null user-agent
+	- new metadata: Skip Count and Times Skipped (incl iTunes XML mapping)
+	- iTunes XML mapping of Play Count and Play Date
+	- fix for crashes when client provides no User-Agent
+	- logging improvements
+
 version 26.2:
 	- fix for db indexes not being used on fresh installs
 
