@@ -44,24 +44,39 @@ artwork_to_evbuf(struct httpd_request *hreq, struct db_group_info *dbgri, uint32
   const char* ctype = "invalid";
   char clen[32];
   struct evkeyvalq *headers;
+  const char *param;
+  unsigned int maxw = 600;
+  unsigned int maxh = 600;
 
   if ( (dbgri == NULL && dbmfi_id == NULL) || (dbgri && dbmfi_id)) 
     {
       return -1;
     }
 
+  param = evhttp_find_header(hreq->query, "maxw");
+  if (param)
+    {
+      maxw = (unsigned int)atoi(param);
+    }
+  param = evhttp_find_header(hreq->query, "maxh");
+  if (param)
+    {
+      maxh = (unsigned int)atoi(param);
+    }
+
+
   if (dbgri)
     {
-      int  gpid;
+      int gpid;
       safe_atoi32(dbgri->id, &gpid);
-      if ( (ret = artwork_get_group(hreq->reply, gpid, 600, 600)) < 0)
+      if ( (ret = artwork_get_group(hreq->reply, gpid, maxw, maxh)) < 0)
         {
           DPRINTF(E_LOG, L_WEB, "artwork: failed to retreive for group %d\n", gpid);
         }
     }
   if (dbmfi_id)
     {
-      if ( (ret = artwork_get_item(hreq->reply, *dbmfi_id, 600, 600)) < 0)
+      if ( (ret = artwork_get_item(hreq->reply, *dbmfi_id, maxw, maxh)) < 0)
         {
           DPRINTF(E_LOG, L_WEB, "artwork: failed to retreive for item %d\n", *dbmfi_id);
         }
@@ -104,12 +119,13 @@ fetch_artwork(struct httpd_request *hreq, const char *artist_id, const char *alb
   struct query_params query_params;
   int ret;
 
-  if (artist_id == NULL && album_id == NULL || (artist_id && album_id)) 
+
+  if ( (artist_id == NULL && album_id == NULL) || (artist_id && album_id)) 
     {
       return -1;
     }
   memset(&query_params, 0, sizeof(struct query_params));
-  memset(&dbgri, 0, sizeof(dbgri));
+  memset(&dbgri, 0, sizeof(struct db_group_info));
 
   if (album_id) 
     {
@@ -160,8 +176,14 @@ artworkapi_reply_playing(struct httpd_request *hreq)
   if ( safe_atou32(hreq->uri_parsed->path_parts[2], &dbmfi_id) < 0)
     return HTTP_BADREQUEST;
 
-  return dbmfi_id == 0 ? HTTP_NOCONTENT :
-                         artwork_to_evbuf(hreq, NULL, &dbmfi_id) == 0 ? HTTP_OK : HTTP_NOCONTENT;
+  if (dbmfi_id == 0)
+    {
+      return HTTP_NOCONTENT;
+    }
+  else
+    {
+      return artwork_to_evbuf(hreq, NULL, &dbmfi_id) == 0 ? HTTP_OK : HTTP_NOCONTENT;
+    }
 }
 
 static int
@@ -186,7 +208,7 @@ artworkapi_reply_album(struct httpd_request *hreq)
   return fetch_artwork(hreq, NULL, hreq->uri_parsed->path_parts[2]) == 0 ? HTTP_OK : HTTP_NOCONTENT;
 }
 
-static struct httpd_uri_map adm_handlers[] =
+static struct httpd_uri_map artworkapi_handlers[] =
 {
   { EVHTTP_REQ_GET,  "^/artwork/track/[[:digit:]]+$",   artworkapi_reply_playing },
   { EVHTTP_REQ_GET,  "^/artwork/artist/[[:digit:]]+$",  artworkapi_reply_artist  },
@@ -202,7 +224,6 @@ void
 artworkapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {
   struct httpd_request *hreq;
-  struct evkeyvalq *headers;
   int status_code;
 
   DPRINTF(E_DBG, L_WEB, "artwork api request: '%s'\n", uri_parsed->uri);
@@ -210,10 +231,10 @@ artworkapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_pars
   if (!httpd_admin_check_auth(req))
     return;
 
-  hreq = httpd_request_parse(req, uri_parsed, NULL, adm_handlers);
+  hreq = httpd_request_parse(req, uri_parsed, NULL, artworkapi_handlers);
   if (!hreq)
     {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in artwrok api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in artwork api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
 
       httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
@@ -226,28 +247,22 @@ artworkapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_pars
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	headers = evhttp_request_get_output_headers(req);
-        if ( (evhttp_find_header(headers, "Content-Type")) == NULL) {
-            // TODO - clear other headers?
-            httpd_send_error(req, HTTP_INTERNAL, "Internal Server Error");
-        } else {
-            httpd_send_reply(req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
-        }
-	break;
+        httpd_send_reply(req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+        break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
-	break;
-
+        httpd_send_reply(req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+        break;
       case HTTP_BADREQUEST:          /* 400 Bad Request */
-	httpd_send_error(req, status_code, "Bad Request");
-	break;
+        httpd_send_error(req, status_code, "Bad Request");
+        break;
       case HTTP_NOTFOUND:            /* 404 Not Found */
-	httpd_send_error(req, status_code, "Not Found");
-	break;
+        httpd_send_error(req, status_code, "Not Found");
+        break;
+
       case HTTP_INTERNAL:            /* 500 Internal Server Error */
       default:
-	httpd_send_error(req, HTTP_INTERNAL, "Internal Server Error");
-	break;
+        httpd_send_error(req, HTTP_INTERNAL, "Internal Server Error");
+        break;
     }
 
   evbuffer_free(hreq->reply);
@@ -267,17 +282,16 @@ artworkapi_init(void)
   int i;
   int ret;
 
-  DPRINTF(E_DBG, L_WEB, "artwork api started\n");
-  for (i = 0; adm_handlers[i].handler; i++)
+  for (i = 0; artworkapi_handlers[i].handler; i++)
     {
-      ret = regcomp(&adm_handlers[i].preg, adm_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
+      ret = regcomp(&artworkapi_handlers[i].preg, artworkapi_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
       if (ret != 0)
-	{
-	  regerror(ret, &adm_handlers[i].preg, buf, sizeof(buf));
+        {
+          regerror(ret, &artworkapi_handlers[i].preg, buf, sizeof(buf));
 
-	  DPRINTF(E_FATAL, L_WEB, "artwork api init failed; regexp error: %s\n", buf);
-	  return -1;
-	}
+          DPRINTF(E_FATAL, L_WEB, "artwork api init failed; regexp error: %s\n", buf);
+          return -1;
+        }
     }
 
   return 0;
@@ -288,6 +302,6 @@ artworkapi_deinit(void)
 {
   int i;
 
-  for (i = 0; adm_handlers[i].handler; i++)
-    regfree(&adm_handlers[i].preg);
+  for (i = 0; artworkapi_handlers[i].handler; i++)
+    regfree(&artworkapi_handlers[i].preg);
 }
