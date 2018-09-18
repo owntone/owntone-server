@@ -1577,7 +1577,7 @@ queue_tracks_add_artist(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, -1, NULL, NULL);
 
   free(query_params.filter);
 
@@ -1600,7 +1600,7 @@ queue_tracks_add_album(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, -1, NULL, NULL);
 
   free(query_params.filter);
 
@@ -1623,7 +1623,7 @@ queue_tracks_add_track(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id);
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, -1, NULL, NULL);
 
   free(query_params.filter);
 
@@ -1647,7 +1647,7 @@ queue_tracks_add_playlist(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_playlistid(playlist_id, status.shuffle, status.item_id);
+  ret = db_queue_add_by_playlistid(playlist_id, status.shuffle, status.item_id, -1, NULL, NULL);
 
   return ret;
 }

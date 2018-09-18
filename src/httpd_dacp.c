@@ -414,7 +414,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
   if (mode == 3)
     ret = db_queue_add_by_queryafteritemid(&qp, status.item_id);
   else
-    ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id);
+    ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
 
   if (qp.filter)
     free(qp.filter);
@@ -1446,9 +1446,9 @@ dacp_reply_playspec(struct httpd_request *hreq)
   db_queue_clear(0);
 
   if (plid > 0)
-    ret = db_queue_add_by_playlistid(plid, status.shuffle, status.item_id);
+    ret = db_queue_add_by_playlistid(plid, status.shuffle, status.item_id, -1, NULL, NULL);
   else if (id > 0)
-    ret = db_queue_add_by_fileid(id, status.shuffle, status.item_id);
+    ret = db_queue_add_by_fileid(id, status.shuffle, status.item_id, -1, NULL, NULL);
 
   if (ret < 0)
     {
