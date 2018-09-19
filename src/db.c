@@ -2869,7 +2869,7 @@ db_file_add(struct media_file_info *mfi)
                   mfi->tv_episode_sort, mfi->tv_season_num, mfi->album_artist, mfi->album_artist, mfi->album,
                   mfi->title_sort, mfi->artist_sort, mfi->album_sort, mfi->composer_sort,
                   mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id, mfi->date_released,
-                  mfi->skip_count, mfi->time_skipped);
+                  mfi->skip_count, (int64_t)mfi->time_skipped);
 
   if (!query)
     {
@@ -2947,7 +2947,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->album_artist, mfi->album_artist, mfi->album,
 			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
 			  mfi->composer_sort, mfi->album_artist_sort,
-			  mfi->virtual_path, mfi->directory_id, mfi->date_released, mfi->skip_count, mfi->time_skipped,
+			  mfi->virtual_path, mfi->directory_id, mfi->date_released, mfi->skip_count, (int64_t)mfi->time_skipped,
 			  mfi->id);
 
   if (!query)
