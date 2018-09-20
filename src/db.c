@@ -50,6 +50,7 @@
 #include "db_init.h"
 #include "db_upgrade.h"
 #include "rng.h"
+#include "misc_artwork.h"
 
 
 #define STR(x) ((x) ? (x) : "")
@@ -4633,24 +4634,32 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos, int q
 		    "pos, shuffle_pos, path, virtual_path, title, "			\
 		    "artist, album_artist, album, genre, songalbumid, "			\
 		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
+		    "artwork_url," 							\
 		    "track, disc, queue_version)" 					\
 		"VALUES"                                           			\
 		    "(NULL, %s, %s, %s, %s, "						\
 		    "%d, %d, %Q, %Q, %Q, "						\
 		    "%Q, %Q, %Q, %Q, %s, "						\
 		    "%s, %Q, %Q, %Q, %s, "						\
+		    "%Q, "								\
 		    "%s, %s, %d);"
 
   char *query;
   int ret;
+  char *artwork_url;
+
+  artwork_url = dbmfi->artwork && dbmfi->artwork[0] == '0' ? NULL : artworkapi_url(dbmfi->id);
 
   query = sqlite3_mprintf(Q_TMPL,
 			  dbmfi->id, dbmfi->song_length, dbmfi->data_kind, dbmfi->media_kind,
 			  pos, shuffle_pos, dbmfi->path, dbmfi->virtual_path, dbmfi->title,
 			  dbmfi->artist, dbmfi->album_artist, dbmfi->album, dbmfi->genre, dbmfi->songalbumid,
 			  dbmfi->time_modified, dbmfi->artist_sort, dbmfi->album_sort, dbmfi->album_artist_sort, dbmfi->year,
+			  artwork_url,
 			  dbmfi->track, dbmfi->disc, queue_version);
   ret = db_query_run(query, 1, 0);
+
+  free(artwork_url);
 
   return ret;
 

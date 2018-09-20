@@ -113,57 +113,6 @@ artwork_to_evbuf(struct httpd_request *hreq, struct db_group_info *dbgri, uint32
 }
 
 static int
-fetch_artwork(struct httpd_request *hreq, const char *artist_id, const char *album_id)
-{
-  struct db_group_info dbgri;
-  struct query_params query_params;
-  int ret;
-
-
-  if ( (artist_id == NULL && album_id == NULL) || (artist_id && album_id)) 
-    {
-      return -1;
-    }
-  memset(&query_params, 0, sizeof(struct query_params));
-  memset(&dbgri, 0, sizeof(struct db_group_info));
-
-  if (album_id) 
-    {
-      query_params.type = Q_GROUP_ALBUMS;
-      query_params.sort = S_ALBUM;
-      query_params.filter = db_mprintf("(f.songalbumid = %s)", album_id);
-    }
-  else if (artist_id)
-    {
-      query_params.type = Q_GROUP_ARTISTS;
-      query_params.sort = S_ARTIST;
-      query_params.filter = db_mprintf("(f.songartistid = %s)", artist_id);
-    }
-
-  if ( (ret = db_query_start(&query_params)) < 0) 
-    {
-      goto error;
-    }
-
-  if ( (ret = db_query_fetch_group(&query_params, &dbgri)) < 0) 
-    {
-      DPRINTF(E_LOG, L_WEB, "artwork: Couldn't find dbgri\n");
-    }
-  else 
-    {
-      ret = (dbgri.id == NULL) ? 
-                  -1 : // couldn't find it, bad data from client?
-                  artwork_to_evbuf(hreq, &dbgri, NULL);
-    }
-
-error:
-  db_query_end(&query_params);
-  free_query_params(&query_params, 1);
-
-  return ret;
-}
-
-static int
 artworkapi_reply_playing(struct httpd_request *hreq)
 {
   uint32_t dbmfi_id;
@@ -186,40 +135,19 @@ artworkapi_reply_playing(struct httpd_request *hreq)
     }
 }
 
-static int
-artworkapi_reply_artist(struct httpd_request *hreq)
-{
-  time_t db_update;
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
-    return HTTP_NOTMODIFIED;
-
-  return fetch_artwork(hreq, hreq->uri_parsed->path_parts[2], NULL) == 0 ? HTTP_OK : HTTP_NOCONTENT;
-}
-
-static int
-artworkapi_reply_album(struct httpd_request *hreq)
-{
-  time_t db_update;
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
-    return HTTP_NOTMODIFIED;
-
-  return fetch_artwork(hreq, NULL, hreq->uri_parsed->path_parts[2]) == 0 ? HTTP_OK : HTTP_NOCONTENT;
-}
-
 static struct httpd_uri_map artworkapi_handlers[] =
 {
   { EVHTTP_REQ_GET,  "^/artwork/track/[[:digit:]]+$",   artworkapi_reply_playing },
+  /*
   { EVHTTP_REQ_GET,  "^/artwork/artist/[[:digit:]]+$",  artworkapi_reply_artist  },
   { EVHTTP_REQ_GET,  "^/artwork/album/[[:digit:]]+$",   artworkapi_reply_album   },
+  */
 
   { 0, NULL, NULL }
 };
 
 
 /* ------------------------------- API --------------------------------- */
-
 void
 artworkapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 {

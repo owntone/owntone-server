@@ -116,6 +116,7 @@ forked_daapd_SOURCES = main.c \
 	httpd_streaming.c httpd_streaming.h \
 	httpd_oauth.c httpd_oauth.h \
 	httpd_artwork.c httpd_artwork.h \
+	misc_artwork.c \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
 	transcode.h artwork.h \

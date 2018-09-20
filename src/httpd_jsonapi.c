@@ -53,6 +53,7 @@
 # include "spotify_webapi.h"
 # include "spotify.h"
 #endif
+#include "misc_artwork.h"
 
 /* -------------------------------- HELPERS --------------------------------- */
 
@@ -1416,13 +1417,47 @@ jsonapi_reply_player_seek(struct httpd_request *hreq)
   return HTTP_NOCONTENT;
 }
 
+static char*
+jsonapi_artwork_uri(struct evhttp_request *ev_req, char* artwork)
+{
+  char *buf;
+  const char *host;
+  const char *proto;
+  int len;
+
+  if (ev_req == NULL || artwork == NULL)
+    {
+      return NULL;
+    }
+
+  /* figure out where the cli request thinks this server is located via 
+   * http/1.1 mandatory 'host' header
+   */
+  if ( (host = evhttp_find_header(evhttp_request_get_input_headers(ev_req), "Host")) == NULL)
+    {
+      DPRINTF(E_DBG, L_WEB, "missing 'Host' http request header\n");
+      return NULL;
+    }
+
+  len = 8 + strlen(host) + strlen(artwork) +1;
+  buf = (char*)malloc(len);
+  snprintf(buf, len, "%s://%s%s", 
+              ( (proto = evhttp_find_header(evhttp_request_get_input_headers(ev_req), "X-Forwarded-Proto")) == NULL ?
+                    "http" : proto),
+              host,
+              artwork);
+
+  DPRINTF(E_DBG, L_WEB, "full artwork uri=%s\n", buf);
+  
+  return buf;
+}
+
 static int
 jsonapi_reply_player(struct httpd_request *hreq)
 {
   struct player_status status;
   struct db_queue_item *queue_item;
   json_object *reply;
-  int file_id = 0;
 
   player_get_status(&status);
 
@@ -1464,10 +1499,28 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
   if (status.item_id)
     {
-      file_id = status.id;
+      struct media_file_info* mfi;
+
       json_object_object_add(reply, "item_id", json_object_new_int(status.item_id));
       json_object_object_add(reply, "item_length_ms", json_object_new_int(status.len_ms));
       json_object_object_add(reply, "item_progress_ms", json_object_new_int(status.pos_ms));
+
+      /* verify artwork is available for file id */
+      if ( (mfi = db_file_fetch_byid(status.id)) && mfi->artwork && mfi->data_kind == DATA_KIND_FILE)
+        {
+          char *awu = artworkapi_url_byid(mfi->id);
+          char *fau = jsonapi_artwork_uri(hreq->req, awu);
+
+          safe_json_add_string(reply, "artwork_url", fau);
+
+          free(awu);
+          free(fau);
+        }
+      else
+        {
+          json_object_object_add(reply, "artwork_url", NULL);
+        }
+      free(mfi);
     }
   else
     {
@@ -1475,10 +1528,16 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
       if (queue_item)
 	{
-	  file_id = queue_item->file_id;
+          char *fau = queue_item->data_kind == DATA_KIND_FILE ? 
+                          jsonapi_artwork_uri(hreq->req, queue_item->artwork_url) :
+                          NULL;
+
 	  json_object_object_add(reply, "item_id", json_object_new_int(queue_item->id));
 	  json_object_object_add(reply, "item_length_ms", json_object_new_int(queue_item->song_length));
 	  json_object_object_add(reply, "item_progress_ms", json_object_new_int(0));
+          safe_json_add_string(reply, "artwork_url", fau);
+
+          free(fau);
 	  free_queue_item(queue_item, 0);
 	}
       else
@@ -1486,23 +1545,9 @@ jsonapi_reply_player(struct httpd_request *hreq)
 	  json_object_object_add(reply, "item_id", json_object_new_int(0));
 	  json_object_object_add(reply, "item_length_ms", json_object_new_int(0));
 	  json_object_object_add(reply, "item_progress_ms", json_object_new_int(0));
+	  json_object_object_add(reply, "artwork_url", NULL);
 	}
     }
-
-  if (file_id)
-    {
-      /* verify artwork is available for file id */
-      struct media_file_info* mfi;
-      if ( (mfi = db_file_fetch_byid(file_id)) && mfi->artwork)
-        {
-          free_mfi(mfi, 0);
-        }
-      else
-        {
-          file_id = 0;
-        }
-    }
-  json_object_object_add(reply, "file_id", json_object_new_int(file_id));
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply)));
 
@@ -1557,6 +1602,11 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
     {
       safe_json_add_string(item, "uri", queue_item->path);
     }
+
+  safe_json_add_string(item, "artwork_url", 
+                       (queue_item->data_kind == DATA_KIND_FILE) ? 
+                           queue_item->artwork_url : 
+                           NULL);
 
   return item;
 }
