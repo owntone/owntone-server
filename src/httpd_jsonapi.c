@@ -1506,19 +1506,23 @@ jsonapi_reply_player(struct httpd_request *hreq)
       json_object_object_add(reply, "item_progress_ms", json_object_new_int(status.pos_ms));
 
       /* verify artwork is available for file id */
-      if ( (mfi = db_file_fetch_byid(status.id)) && mfi->artwork && mfi->data_kind == DATA_KIND_FILE)
+      mfi = db_file_fetch_byid(status.id);
+      if (mfi == NULL)
         {
-          char *awu = artworkapi_url_byid(mfi->id);
-          char *fau = jsonapi_artwork_uri(hreq->req, awu);
-
-          safe_json_add_string(reply, "artwork_url", fau);
-
-          free(awu);
-          free(fau);
+          json_object_object_add(reply, "artwork_url", NULL);
         }
       else
         {
-          json_object_object_add(reply, "artwork_url", NULL);
+          if (mfi->artwork && mfi->data_kind == DATA_KIND_FILE)
+            {
+              char *awu = artworkapi_url_byid(mfi->id);
+              char *fau = jsonapi_artwork_uri(hreq->req, awu);
+
+              safe_json_add_string(reply, "artwork_url", fau);
+
+              free(awu);
+              free(fau);
+            }
         }
       free_mfi(mfi, 0);
     }
@@ -1528,9 +1532,10 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
       if (queue_item)
 	{
-          char *fau = queue_item->data_kind == DATA_KIND_FILE ? 
-                          jsonapi_artwork_uri(hreq->req, queue_item->artwork_url) :
-                          NULL;
+          char *fau = NULL;
+          
+          if (queue_item->data_kind == DATA_KIND_FILE)
+              fau = jsonapi_artwork_uri(hreq->req, queue_item->artwork_url);
 
 	  json_object_object_add(reply, "item_id", json_object_new_int(queue_item->id));
 	  json_object_object_add(reply, "item_length_ms", json_object_new_int(queue_item->song_length));
