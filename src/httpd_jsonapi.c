@@ -1520,7 +1520,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
         {
           json_object_object_add(reply, "artwork_url", NULL);
         }
-      free(mfi);
+      free_mfi(mfi, 0);
     }
   else
     {
