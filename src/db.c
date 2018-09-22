@@ -1819,7 +1819,7 @@ db_build_query_browse(struct query_params *qp)
   select = browse_clause[qp->type & ~Q_F_BROWSE].select;
   where  = browse_clause[qp->type & ~Q_F_BROWSE].where;
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND %s != '' %s;", qc->where, where, qc->group);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT %s FROM files f %s AND %s != '' %s);", select, qc->where, where, qc->group);
   query = sqlite3_mprintf("SELECT %s FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
 
   db_free_query_clause(qc);
