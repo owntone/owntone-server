@@ -93,6 +93,7 @@ struct query_params {
 
   char *having;
   char *order;
+  char *group;
 
   char *filter;
 
