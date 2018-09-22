@@ -1616,6 +1616,10 @@ db_build_query_clause(struct query_params *qp)
 
   if (qp->type & Q_F_BROWSE)
     qc->group = sqlite3_mprintf("GROUP BY %s", browse_clause[qp->type & ~Q_F_BROWSE].group);
+  else if (qp->group)
+    qc->group = sqlite3_mprintf("GROUP BY %s", qp->group);
+  else
+    qc->group = sqlite3_mprintf("");
 
   if (qp->filter)
     qc->where = sqlite3_mprintf("WHERE f.disabled = 0 AND %s", qp->filter);
@@ -1623,9 +1627,9 @@ db_build_query_clause(struct query_params *qp)
     qc->where = sqlite3_mprintf("WHERE f.disabled = 0");
 
   if (qp->having && (qp->type & (Q_GROUP_ALBUMS | Q_GROUP_ARTISTS)))
-      qc->having = sqlite3_mprintf("HAVING %s", qp->having);
-    else
-      qc->having = sqlite3_mprintf("");
+    qc->having = sqlite3_mprintf("HAVING %s", qp->having);
+  else
+    qc->having = sqlite3_mprintf("");
 
   if (qp->order)
     qc->order = sqlite3_mprintf("ORDER BY %s", qp->order);
@@ -1707,7 +1711,7 @@ db_build_query_items(struct query_params *qp)
     return NULL;
 
   count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT f.* FROM files f %s %s %s;", qc->where, qc->order, qc->index);
+  query = sqlite3_mprintf("SELECT f.* FROM files f %s %s %s %s;", qc->where, qc->group, qc->order, qc->index);
 
   db_free_query_clause(qc);
 
