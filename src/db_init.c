@@ -84,8 +84,8 @@
   "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   tv_episode_sort    INTEGER NOT NULL,"		\
   "   tv_season_num      INTEGER NOT NULL,"		\
-  "   songartistid       INTEGER NOT NULL,"		\
-  "   songalbumid        INTEGER NOT NULL,"		\
+  "   songartistid       INTEGER DEFAULT 0,"		\
+  "   songalbumid        INTEGER DEFAULT 0,"		\
   "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
@@ -194,18 +194,27 @@
   "   composer            VARCHAR(1024) DEFAULT NULL"			\
   ");"
 
-#define TRG_GROUPS_INSERT_FILES						\
-  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
+#define TRG_FILES_INSERT_SONGIDS						\
+  "CREATE TRIGGER trg_files_insert_songids AFTER INSERT ON files FOR EACH ROW"	\
+  " BEGIN"									\
+  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "	\
+  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"	\
+  "   WHERE id = NEW.id;"							\
   " END;"
 
-#define TRG_GROUPS_UPDATE_FILES						\
-  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
+#define TRG_FILES_UPDATE_SONGIDS						\
+  "CREATE TRIGGER trg_files_update_songids AFTER UPDATE OF album_artist, album ON files FOR EACH ROW"	\
+  " BEGIN"									\
+  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "	\
+  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"	\
+  "   WHERE id = NEW.id;"							\
+  " END;"
+
+#define TRG_GROUPS_UPDATE							\
+  "CREATE TRIGGER trg_groups_update AFTER UPDATE OF songartistid, songalbumid ON files FOR EACH ROW"	\
+  " BEGIN"									\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);"	\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);"	\
   " END;"
 
 #define Q_PL1								\
@@ -278,8 +287,9 @@ static const struct db_init_query db_init_table_queries[] =
     { T_DIRECTORIES, "create table directories" },
     { T_QUEUE,     "create table queue" },
 
-    { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
-    { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
+    { TRG_FILES_INSERT_SONGIDS,    "create trigger trg_files_insert_songids" },
+    { TRG_FILES_UPDATE_SONGIDS,    "create trigger trg_files_update_songids" },
+    { TRG_GROUPS_UPDATE,           "create trigger trg_groups_update" },
 
     { Q_PL1,       "create default playlist" },
     { Q_PL2,       "create default smart playlist 'Music'" },

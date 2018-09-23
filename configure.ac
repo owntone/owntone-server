@@ -122,6 +122,8 @@ FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 	[dnl Check that SQLite3 has the unlock notify API built-in
 	 AC_CHECK_FUNC([[sqlite3_unlock_notify]], [],
 		[AC_MSG_ERROR([[SQLite3 was built without unlock notify support]])])
+	 dnl Check for sqlite3_expanded_sql (optional)
+	 AC_CHECK_FUNCS([sqlite3_expanded_sql])
 	 dnl Check that SQLite3 has been built with threadsafe operations
 	 AC_MSG_CHECKING([[if SQLite3 was built with threadsafe operations support]])
 	 AC_RUN_IFELSE([AC_LANG_PROGRAM([[#include <sqlite3.h>

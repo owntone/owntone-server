@@ -26,6 +26,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <errno.h>
 
@@ -57,6 +58,13 @@
 /* Inotify cookies are uint32_t */
 #define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)
 
+#define DB_TYPE_CHAR     1
+#define DB_TYPE_INT      2
+#define DB_TYPE_INT64    3
+#define DB_TYPE_STRING   4
+
+#define DB_FLAG_AUTO     1 // Flags that column value is set automatically by the db, e.g. by a trigger
+
 enum group_type {
   G_ALBUMS = 1,
   G_ARTISTS = 2,
@@ -68,14 +76,18 @@ struct db_unlock {
   pthread_mutex_t lck;
 };
 
-#define DB_TYPE_CHAR    1
-#define DB_TYPE_INT     2
-#define DB_TYPE_INT64   3
-#define DB_TYPE_STRING  4
+struct db_statements
+{
+  sqlite3_stmt *files_insert;
+  sqlite3_stmt *files_update;
+  sqlite3_stmt *files_ping;
+};
 
 struct col_type_map {
+  char *name;
   ssize_t offset;
   short type;
+  short flag;
 };
 
 struct query_clause {
@@ -98,68 +110,68 @@ struct browse_clause {
  */
 static const struct col_type_map mfi_cols_map[] =
   {
-    { mfi_offsetof(id),                 DB_TYPE_INT },
-    { mfi_offsetof(path),               DB_TYPE_STRING },
-    { mfi_offsetof(fname),              DB_TYPE_STRING },
-    { mfi_offsetof(title),              DB_TYPE_STRING },
-    { mfi_offsetof(artist),             DB_TYPE_STRING },
-    { mfi_offsetof(album),              DB_TYPE_STRING },
-    { mfi_offsetof(genre),              DB_TYPE_STRING },
-    { mfi_offsetof(comment),            DB_TYPE_STRING },
-    { mfi_offsetof(type),               DB_TYPE_STRING },
-    { mfi_offsetof(composer),           DB_TYPE_STRING },
-    { mfi_offsetof(orchestra),          DB_TYPE_STRING },
-    { mfi_offsetof(conductor),          DB_TYPE_STRING },
-    { mfi_offsetof(grouping),           DB_TYPE_STRING },
-    { mfi_offsetof(url),                DB_TYPE_STRING },
-    { mfi_offsetof(bitrate),            DB_TYPE_INT },
-    { mfi_offsetof(samplerate),         DB_TYPE_INT },
-    { mfi_offsetof(song_length),        DB_TYPE_INT },
-    { mfi_offsetof(file_size),          DB_TYPE_INT64 },
-    { mfi_offsetof(year),               DB_TYPE_INT },
-    { mfi_offsetof(track),              DB_TYPE_INT },
-    { mfi_offsetof(total_tracks),       DB_TYPE_INT },
-    { mfi_offsetof(disc),               DB_TYPE_INT },
-    { mfi_offsetof(total_discs),        DB_TYPE_INT },
-    { mfi_offsetof(bpm),                DB_TYPE_INT },
-    { mfi_offsetof(compilation),        DB_TYPE_CHAR },
-    { mfi_offsetof(artwork),            DB_TYPE_CHAR },
-    { mfi_offsetof(rating),             DB_TYPE_INT },
-    { mfi_offsetof(play_count),         DB_TYPE_INT },
-    { mfi_offsetof(seek),               DB_TYPE_INT },
-    { mfi_offsetof(data_kind),          DB_TYPE_INT },
-    { mfi_offsetof(item_kind),          DB_TYPE_INT },
-    { mfi_offsetof(description),        DB_TYPE_STRING },
-    { mfi_offsetof(time_added),         DB_TYPE_INT },
-    { mfi_offsetof(time_modified),      DB_TYPE_INT },
-    { mfi_offsetof(time_played),        DB_TYPE_INT },
-    { mfi_offsetof(db_timestamp),       DB_TYPE_INT },
-    { mfi_offsetof(disabled),           DB_TYPE_INT },
-    { mfi_offsetof(sample_count),       DB_TYPE_INT64 },
-    { mfi_offsetof(codectype),          DB_TYPE_STRING },
-    { mfi_offsetof(index),              DB_TYPE_INT },
-    { mfi_offsetof(has_video),          DB_TYPE_INT },
-    { mfi_offsetof(contentrating),      DB_TYPE_INT },
-    { mfi_offsetof(bits_per_sample),    DB_TYPE_INT },
-    { mfi_offsetof(album_artist),       DB_TYPE_STRING },
-    { mfi_offsetof(media_kind),         DB_TYPE_INT },
-    { mfi_offsetof(tv_series_name),     DB_TYPE_STRING },
-    { mfi_offsetof(tv_episode_num_str), DB_TYPE_STRING },
-    { mfi_offsetof(tv_network_name),    DB_TYPE_STRING },
-    { mfi_offsetof(tv_episode_sort),    DB_TYPE_INT },
-    { mfi_offsetof(tv_season_num),      DB_TYPE_INT },
-    { mfi_offsetof(songartistid),       DB_TYPE_INT64 },
-    { mfi_offsetof(songalbumid),        DB_TYPE_INT64 },
-    { mfi_offsetof(title_sort),         DB_TYPE_STRING },
-    { mfi_offsetof(artist_sort),        DB_TYPE_STRING },
-    { mfi_offsetof(album_sort),         DB_TYPE_STRING },
-    { mfi_offsetof(composer_sort),      DB_TYPE_STRING },
-    { mfi_offsetof(album_artist_sort),  DB_TYPE_STRING },
-    { mfi_offsetof(virtual_path),       DB_TYPE_STRING },
-    { mfi_offsetof(directory_id),       DB_TYPE_INT },
-    { mfi_offsetof(date_released),      DB_TYPE_INT },
-    { mfi_offsetof(skip_count),         DB_TYPE_INT },
-    { mfi_offsetof(time_skipped),       DB_TYPE_INT },
+    { "id",                 mfi_offsetof(id),                 DB_TYPE_INT, DB_FLAG_AUTO },
+    { "path",               mfi_offsetof(path),               DB_TYPE_STRING },
+    { "fname",              mfi_offsetof(fname),              DB_TYPE_STRING },
+    { "title",              mfi_offsetof(title),              DB_TYPE_STRING },
+    { "artist",             mfi_offsetof(artist),             DB_TYPE_STRING },
+    { "album",              mfi_offsetof(album),              DB_TYPE_STRING },
+    { "genre",              mfi_offsetof(genre),              DB_TYPE_STRING },
+    { "comment",            mfi_offsetof(comment),            DB_TYPE_STRING },
+    { "type",               mfi_offsetof(type),               DB_TYPE_STRING },
+    { "composer",           mfi_offsetof(composer),           DB_TYPE_STRING },
+    { "orchestra",          mfi_offsetof(orchestra),          DB_TYPE_STRING },
+    { "conductor",          mfi_offsetof(conductor),          DB_TYPE_STRING },
+    { "grouping",           mfi_offsetof(grouping),           DB_TYPE_STRING },
+    { "url",                mfi_offsetof(url),                DB_TYPE_STRING },
+    { "bitrate",            mfi_offsetof(bitrate),            DB_TYPE_INT },
+    { "samplerate",         mfi_offsetof(samplerate),         DB_TYPE_INT },
+    { "song_length",        mfi_offsetof(song_length),        DB_TYPE_INT },
+    { "file_size",          mfi_offsetof(file_size),          DB_TYPE_INT64 },
+    { "year",               mfi_offsetof(year),               DB_TYPE_INT },
+    { "track",              mfi_offsetof(track),              DB_TYPE_INT },
+    { "total_tracks",       mfi_offsetof(total_tracks),       DB_TYPE_INT },
+    { "disc",               mfi_offsetof(disc),               DB_TYPE_INT },
+    { "total_discs",        mfi_offsetof(total_discs),        DB_TYPE_INT },
+    { "bpm",                mfi_offsetof(bpm),                DB_TYPE_INT },
+    { "compilation",        mfi_offsetof(compilation),        DB_TYPE_CHAR },
+    { "artwork",            mfi_offsetof(artwork),            DB_TYPE_CHAR },
+    { "rating",             mfi_offsetof(rating),             DB_TYPE_INT },
+    { "play_count",         mfi_offsetof(play_count),         DB_TYPE_INT },
+    { "seek",               mfi_offsetof(seek),               DB_TYPE_INT },
+    { "data_kind",          mfi_offsetof(data_kind),          DB_TYPE_INT },
+    { "item_kind",          mfi_offsetof(item_kind),          DB_TYPE_INT },
+    { "description",        mfi_offsetof(description),        DB_TYPE_STRING },
+    { "time_added",         mfi_offsetof(time_added),         DB_TYPE_INT },
+    { "time_modified",      mfi_offsetof(time_modified),      DB_TYPE_INT },
+    { "time_played",        mfi_offsetof(time_played),        DB_TYPE_INT },
+    { "db_timestamp",       mfi_offsetof(db_timestamp),       DB_TYPE_INT },
+    { "disabled",           mfi_offsetof(disabled),           DB_TYPE_INT },
+    { "sample_count",       mfi_offsetof(sample_count),       DB_TYPE_INT64 },
+    { "codectype",          mfi_offsetof(codectype),          DB_TYPE_STRING },
+    { "idx",                mfi_offsetof(index),              DB_TYPE_INT },
+    { "has_video",          mfi_offsetof(has_video),          DB_TYPE_INT },
+    { "contentrating",      mfi_offsetof(contentrating),      DB_TYPE_INT },
+    { "bits_per_sample",    mfi_offsetof(bits_per_sample),    DB_TYPE_INT },
+    { "album_artist",       mfi_offsetof(album_artist),       DB_TYPE_STRING },
+    { "media_kind",         mfi_offsetof(media_kind),         DB_TYPE_INT },
+    { "tv_series_name",     mfi_offsetof(tv_series_name),     DB_TYPE_STRING },
+    { "tv_episode_num_str", mfi_offsetof(tv_episode_num_str), DB_TYPE_STRING },
+    { "tv_network_name",    mfi_offsetof(tv_network_name),    DB_TYPE_STRING },
+    { "tv_episode_sort",    mfi_offsetof(tv_episode_sort),    DB_TYPE_INT },
+    { "tv_season_num",      mfi_offsetof(tv_season_num),      DB_TYPE_INT },
+    { "songartistid",       mfi_offsetof(songartistid),       DB_TYPE_INT64, DB_FLAG_AUTO },
+    { "songalbumid",        mfi_offsetof(songalbumid),        DB_TYPE_INT64, DB_FLAG_AUTO },
+    { "title_sort",         mfi_offsetof(title_sort),         DB_TYPE_STRING },
+    { "artist_sort",        mfi_offsetof(artist_sort),        DB_TYPE_STRING },
+    { "album_sort",         mfi_offsetof(album_sort),         DB_TYPE_STRING },
+    { "composer_sort",      mfi_offsetof(composer_sort),      DB_TYPE_STRING },
+    { "album_artist_sort",  mfi_offsetof(album_artist_sort),  DB_TYPE_STRING },
+    { "virtual_path",       mfi_offsetof(virtual_path),       DB_TYPE_STRING },
+    { "directory_id",       mfi_offsetof(directory_id),       DB_TYPE_INT },
+    { "date_released",      mfi_offsetof(date_released),      DB_TYPE_INT },
+    { "skip_count",         mfi_offsetof(skip_count),         DB_TYPE_INT },
+    { "time_skipped",       mfi_offsetof(time_skipped),       DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -168,20 +180,20 @@ static const struct col_type_map mfi_cols_map[] =
  */
 static const struct col_type_map pli_cols_map[] =
   {
-    { pli_offsetof(id),           DB_TYPE_INT },
-    { pli_offsetof(title),        DB_TYPE_STRING },
-    { pli_offsetof(type),         DB_TYPE_INT },
-    { pli_offsetof(query),        DB_TYPE_STRING },
-    { pli_offsetof(db_timestamp), DB_TYPE_INT },
-    { pli_offsetof(disabled),     DB_TYPE_INT },
-    { pli_offsetof(path),         DB_TYPE_STRING },
-    { pli_offsetof(index),        DB_TYPE_INT },
-    { pli_offsetof(special_id),   DB_TYPE_INT },
-    { pli_offsetof(virtual_path), DB_TYPE_STRING },
-    { pli_offsetof(parent_id),    DB_TYPE_INT },
-    { pli_offsetof(directory_id), DB_TYPE_INT },
-    { pli_offsetof(query_order),DB_TYPE_STRING },
-    { pli_offsetof(query_limit),  DB_TYPE_INT },
+    { "id",                 pli_offsetof(id),           DB_TYPE_INT, DB_FLAG_AUTO },
+    { "title",              pli_offsetof(title),        DB_TYPE_STRING },
+    { "type",               pli_offsetof(type),         DB_TYPE_INT },
+    { "query",              pli_offsetof(query),        DB_TYPE_STRING },
+    { "db_timestamp",       pli_offsetof(db_timestamp), DB_TYPE_INT },
+    { "disabled",           pli_offsetof(disabled),     DB_TYPE_INT },
+    { "path",               pli_offsetof(path),         DB_TYPE_STRING },
+    { "idx",                pli_offsetof(index),        DB_TYPE_INT },
+    { "special_id",         pli_offsetof(special_id),   DB_TYPE_INT },
+    { "virtual_path",       pli_offsetof(virtual_path), DB_TYPE_STRING },
+    { "parent_id",          pli_offsetof(parent_id),    DB_TYPE_INT },
+    { "directory_id",       pli_offsetof(directory_id), DB_TYPE_INT },
+    { "query_order",        pli_offsetof(query_order),  DB_TYPE_STRING },
+    { "query_limit",        pli_offsetof(query_limit),  DB_TYPE_INT },
 
     /* items is computed on the fly */
   };
@@ -303,9 +315,9 @@ static const ssize_t dbgri_cols_map[] =
  */
 static const struct col_type_map wi_cols_map[] =
   {
-    { wi_offsetof(wd),     DB_TYPE_INT },
-    { wi_offsetof(cookie), DB_TYPE_INT },
-    { wi_offsetof(path),   DB_TYPE_STRING },
+    { "wd",          wi_offsetof(wd),     DB_TYPE_INT, DB_FLAG_AUTO },
+    { "cookie",      wi_offsetof(cookie), DB_TYPE_INT },
+    { "path",        wi_offsetof(path),   DB_TYPE_STRING },
   };
 
 /* Sort clauses, used for ORDER BY */
@@ -412,7 +424,9 @@ struct rng_ctx shuffle_rng;
 
 static char *db_path;
 static bool db_rating_updates;
+
 static __thread sqlite3 *hdl;
+static __thread struct db_statements db_statements;
 
 
 /* Forward */
@@ -976,6 +990,53 @@ fixup_tags_queue_item(struct db_queue_item *queue_item)
     sort_tag_create(&queue_item->album_artist_sort, queue_item->album_artist);
 }
 
+// TODO Make sure fixup_tags_mfi takes care of trimming whitespace
+static int
+bind_mfi(sqlite3_stmt *stmt, struct media_file_info *mfi)
+{
+  char **strptr;
+  char *ptr;
+  int i;
+  int n;
+
+  for (i = 0, n = 1; i < ARRAY_SIZE(mfi_cols_map); i++)
+    {
+      if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
+	continue;
+
+      ptr = (char *)mfi + mfi_cols_map[i].offset;
+      strptr = (char **)((char *)mfi + mfi_cols_map[i].offset);
+
+      switch (mfi_cols_map[i].type)
+	{
+	  case DB_TYPE_CHAR:
+	  case DB_TYPE_INT:
+	    sqlite3_bind_int(stmt, n, *((uint32_t *)ptr));
+	    break;
+
+	  case DB_TYPE_INT64:
+	    sqlite3_bind_int64(stmt, n, *((uint64_t *)ptr));
+	    break;
+
+	  case DB_TYPE_STRING:
+	    sqlite3_bind_text(stmt, n, *strptr, -1, SQLITE_STATIC); // TODO should we use _TRANSIENT?
+	    break;
+
+	  default:
+	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in mfi column map\n", mfi_cols_map[i].type);
+	    return -1;
+	}
+
+      n++;
+    }
+
+  // This binds the final "WHERE id = ?" if it is an update
+  if (mfi->id)
+    sqlite3_bind_int(stmt, n, mfi->id);
+
+  return 0;
+}
+
 
 /* Unlock notification support */
 static void
@@ -1063,6 +1124,37 @@ db_blocking_prepare_v2(const char *query, int len, sqlite3_stmt **stmt, const ch
     }
 
   return ret;
+}
+
+static int
+db_statement_run(sqlite3_stmt *stmt)
+{
+  int ret;
+
+#ifdef HAVE_SQLITE3_EXPANDED_SQL
+  char *query;
+  if (logger_severity() >= E_DBG)
+    {
+      query = sqlite3_expanded_sql(stmt);
+      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+      sqlite3_free(query);
+    }
+#else
+  DPRINTF(E_DBG, L_DB, "Running query (prepared statement)\n");
+#endif
+
+  while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
+    ; /* EMPTY */
+
+  if (ret != SQLITE_DONE)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+    }
+
+  sqlite3_reset(stmt);
+  sqlite3_clear_bindings(stmt);
+
+  return (ret == SQLITE_DONE) ? sqlite3_changes(hdl) : -1;
 }
 
 
@@ -1499,7 +1591,10 @@ db_build_query_check(struct query_params *qp, char *count, char *query)
 
   qp->results = db_get_one_int(count);
   if (qp->results < 0)
-    goto failed;
+    {
+      DPRINTF(E_LOG, L_DB, "No results for count\n");
+      goto failed;
+    }
 
   sqlite3_free(count);
 
@@ -2415,16 +2510,11 @@ db_file_ping(int id)
 int
 db_file_ping_bypath(const char *path, time_t mtime_max)
 {
-#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE path = '%q' AND db_timestamp >= %" PRIi64 ";"
-  char *query;
-  int ret;
+  sqlite3_bind_int64(db_statements.files_ping, 1, (int64_t)time(NULL));
+  sqlite3_bind_text(db_statements.files_ping, 2, path, -1, SQLITE_STATIC);
+  sqlite3_bind_int64(db_statements.files_ping, 3, (int64_t)mtime_max);
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path, (int64_t)mtime_max);
-
-  ret = db_query_run(query, 1, 0);
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
-#undef Q_TMPL
+  return db_statement_run(db_statements.files_ping);
 }
 
 void
@@ -2808,40 +2898,7 @@ db_file_fetch_byvirtualpath(const char *virtual_path)
 int
 db_file_add(struct media_file_info *mfi)
 {
-#define Q_TMPL "INSERT INTO files ("                                            \
-                " id, path, fname, title, artist, album, genre, comment, type," \
-                " composer, orchestra, conductor, grouping, url, bitrate,"      \
-                " samplerate, song_length, file_size, year, track,"             \
-                " total_tracks, disc, total_discs, bpm, compilation, artwork,"  \
-                " rating, play_count, seek, data_kind, item_kind, description," \
-                " time_added, time_modified, time_played, db_timestamp,"        \
-                " disabled, sample_count, codectype, idx, has_video,"           \
-                " contentrating, bits_per_sample, album_artist, media_kind,"    \
-                " tv_series_name, tv_episode_num_str, tv_network_name,"         \
-                " tv_episode_sort, tv_season_num, songartistid, songalbumid,"   \
-                " title_sort, artist_sort, album_sort, composer_sort,"          \
-                " album_artist_sort, virtual_path, directory_id, date_released,"\
-                " skip_count, time_skipped"                                     \
-               ") VALUES ("                                                     \
-                " NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q," \
-                " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d,"              \
-                " %d, %d, %" PRIi64 ", %d, %d,"                                 \
-                " %d, %d, %d, %d, %d, %d,"                                      \
-                " %d, %d, %d, %d, %d, %Q,"                                      \
-                " %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ","          \
-                " %d, %" PRIi64 ", %Q, %d, %d,"                                 \
-                " %d, %d, TRIM(%Q), %d,"                                        \
-                " TRIM(%Q), TRIM(%Q), TRIM(%Q),"                                \
-                " %d, %d, daap_songalbumid(LOWER(TRIM(%Q)), ''), daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
-                " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q),"                      \
-                " TRIM(%Q), TRIM(%Q), %d, %d,"                                  \
-                " %d, %" PRIi64 ""                                              \
-               ");"
-
-  char *query;
-  char *errmsg;
   int ret;
-
 
   if (mfi->id != 0)
     {
@@ -2857,69 +2914,22 @@ db_file_add(struct media_file_info *mfi)
   if (mfi->time_modified == 0)
     mfi->time_modified = mfi->db_timestamp;
 
-  query = sqlite3_mprintf(Q_TMPL,
-                  STR(mfi->path), STR(mfi->fname), mfi->title, mfi->artist, mfi->album, mfi->genre, mfi->comment, mfi->type,
-                  mfi->composer, mfi->orchestra, mfi->conductor, mfi->grouping, mfi->url, mfi->bitrate,
-                  mfi->samplerate, mfi->song_length, mfi->file_size, mfi->year, mfi->track,
-                  mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm, mfi->compilation, mfi->artwork,
-                  mfi->rating, mfi->play_count, mfi->seek, mfi->data_kind, mfi->item_kind, mfi->description,
-                  (int64_t)mfi->time_added, (int64_t)mfi->time_modified, (int64_t)mfi->time_played, (int64_t)mfi->db_timestamp,
-                  mfi->disabled, mfi->sample_count, mfi->codectype, mfi->index, mfi->has_video,
-                  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist, mfi->media_kind,
-                  mfi->tv_series_name, mfi->tv_episode_num_str, mfi->tv_network_name,
-                  mfi->tv_episode_sort, mfi->tv_season_num, mfi->album_artist, mfi->album_artist, mfi->album,
-                  mfi->title_sort, mfi->artist_sort, mfi->album_sort, mfi->composer_sort,
-                  mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id, mfi->date_released,
-                  mfi->skip_count, (int64_t)mfi->time_skipped);
+  ret = bind_mfi(db_statements.files_insert, mfi);
+  if (ret < 0)
+    return -1;
 
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
+  ret = db_statement_run(db_statements.files_insert);
+  if (ret < 0)
+    return -1;
 
   library_update_trigger(LISTENER_DATABASE);
 
   return 0;
-
-#undef Q_TMPL
 }
 
 int
 db_file_update(struct media_file_info *mfi)
 {
-#define Q_TMPL "UPDATE files SET path = '%q', fname = '%q', title = TRIM(%Q), artist = TRIM(%Q), album = TRIM(%Q), genre = TRIM(%Q)," \
-                " comment = TRIM(%Q), type = %Q, composer = TRIM(%Q), orchestra = TRIM(%Q), conductor = TRIM(%Q), grouping = TRIM(%Q)," \
-                " url = %Q, bitrate = %d, samplerate = %d, song_length = %d, file_size = %" PRIi64 "," \
-                " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
-                " compilation = %d, artwork = %d, rating = %d, seek = %d, data_kind = %d, item_kind = %d," \
-                " description = %Q, time_modified = %" PRIi64 "," \
-                " db_timestamp = %" PRIi64 ", disabled = %" PRIi64 ", sample_count = %" PRIi64 "," \
-                " codectype = %Q, idx = %d, has_video = %d," \
-                " bits_per_sample = %d, album_artist = TRIM(%Q)," \
-                " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
-                " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
-                " songartistid = daap_songalbumid(LOWER(TRIM(%Q)), ''), songalbumid = daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
-                " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)," \
-                " virtual_path = TRIM(%Q), directory_id = %d, date_released = %d, skip_count = %d, time_skipped = %" PRIi64 "" \
-	       " WHERE id = %d;"
-
-  char *query;
-  char *errmsg;
   int ret;
 
   if (mfi->id == 0)
@@ -2933,49 +2943,17 @@ db_file_update(struct media_file_info *mfi)
   if (mfi->time_modified == 0)
     mfi->time_modified = mfi->db_timestamp;
 
-  query = sqlite3_mprintf(Q_TMPL,
-			  STR(mfi->path), STR(mfi->fname), mfi->title, mfi->artist, mfi->album, mfi->genre,
-			  mfi->comment, mfi->type, mfi->composer, mfi->orchestra, mfi->conductor, mfi->grouping,
-			  mfi->url, mfi->bitrate, mfi->samplerate, mfi->song_length, mfi->file_size,
-			  mfi->year, mfi->track, mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm,
-			  mfi->compilation, mfi->artwork, mfi->rating, mfi->seek, mfi->data_kind, mfi->item_kind,
-			  mfi->description, (int64_t)mfi->time_modified,
-			  (int64_t)mfi->db_timestamp, (int64_t)mfi->disabled, mfi->sample_count,
-			  mfi->codectype, mfi->index, mfi->has_video,
-			  mfi->bits_per_sample, mfi->album_artist,
-			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str,
-			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
-			  mfi->album_artist, mfi->album_artist, mfi->album,
-			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
-			  mfi->composer_sort, mfi->album_artist_sort,
-			  mfi->virtual_path, mfi->directory_id, mfi->date_released, mfi->skip_count, (int64_t)mfi->time_skipped,
-			  mfi->id);
+  ret = bind_mfi(db_statements.files_update, mfi);
+  if (ret < 0)
+    return -1;
 
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
+  ret = db_statement_run(db_statements.files_update);
+  if (ret < 0)
+    return -1;
 
   library_update_trigger(LISTENER_DATABASE);
 
   return 0;
-
-#undef Q_TMPL
 }
 
 void
@@ -6692,10 +6670,8 @@ db_pragma_set_mmap_size(int mmap_size)
 #undef Q_TMPL
 }
 
-
-
-int
-db_perthread_init(void)
+static int
+db_open(void)
 {
   char *errmsg;
   int ret;
@@ -6781,6 +6757,117 @@ db_perthread_init(void)
       mmap_size = db_pragma_get_mmap_size();
       DPRINTF(E_DBG, L_DB, "Database mmap_size: %d\n", mmap_size);
     }
+
+  return 0;
+}
+
+static int
+db_statements_prepare(void)
+{
+  char *query;
+  char keystr[2048];
+  char valstr[1024];
+  int keyremain;
+  int valremain;
+  int ret;
+  int i;
+
+  // Prepare "INSERT INTO files" statement
+  keyremain = sizeof(keystr);
+  valremain = sizeof(valstr);
+  for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
+    {
+      if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
+	continue;
+
+      keyremain -= snprintf(keystr + sizeof(keystr) - keyremain, keyremain, "%s, ", mfi_cols_map[i].name);
+      valremain -= snprintf(valstr + sizeof(valstr) - valremain, valremain, "?, ");
+      if (keyremain <= 0 || valremain <= 0)
+	{
+	  DPRINTF(E_FATAL, L_DB, "Bug! Size of keystr or valstr is insufficient (%d, %d)\n", keyremain, valremain);
+	  return -1;
+	}
+    }
+
+  // Terminates at the ending ", "
+  keystr[sizeof(keystr) - keyremain - 2] = '\0';
+  valstr[sizeof(valstr) - valremain - 2] = '\0';
+
+  CHECK_NULL(L_DB, query = db_mprintf("INSERT INTO files (%s) VALUES (%s);", keystr, valstr));
+
+  ret = db_blocking_prepare_v2(query, -1, &db_statements.files_insert, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "Could not prepare statement '%s': %s\n", query, sqlite3_errmsg(hdl));
+      free(query);
+      return -1;
+    }
+
+  free(query);
+
+  // Prepare "UPDATE files" statement
+  keyremain = sizeof(keystr);
+  for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
+    {
+      if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
+	continue;
+
+      keyremain -= snprintf(keystr + sizeof(keystr) - keyremain, keyremain, "%s = ?, ", mfi_cols_map[i].name);
+      if (keyremain <= 0)
+	{
+	  DPRINTF(E_FATAL, L_DB, "Bug! Size of keystr is insufficient (%d)\n", keyremain);
+	  return -1;
+	}
+    }
+
+  // Terminates at the ending ", "
+  keystr[sizeof(keystr) - keyremain - 2] = '\0';
+
+  CHECK_NULL(L_DB, query = db_mprintf("UPDATE files SET %s WHERE %s = ?;", keystr, mfi_cols_map[0].name));
+
+  ret = db_blocking_prepare_v2(query, -1, &db_statements.files_update, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "Could not prepare statement '%s': %s\n", query, sqlite3_errmsg(hdl));
+      free(query);
+      return -1;
+    }
+  free(query);
+
+  // Prepare "UPDATE files SET db_timestamp" statement
+  CHECK_NULL(L_DB, query = db_mprintf("UPDATE files SET db_timestamp = ?, disabled = 0 WHERE path = ? AND db_timestamp >= ?;"));
+
+  ret = db_blocking_prepare_v2(query, -1, &db_statements.files_ping, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "Could not prepare statement '%s': %s\n", query, sqlite3_errmsg(hdl));
+      free(query);
+      return -1;
+    }
+
+  free(query);
+
+  return 0;
+}
+
+int
+db_perthread_init(void)
+{
+  int ret;
+
+  ret = db_open();
+  if (ret < 0)
+    return -1;
+
+  ret = db_statements_prepare();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statements\n");
+
+      sqlite3_close(hdl);
+      return -1;
+    }
+
   return 0;
 }
 
@@ -6798,8 +6885,6 @@ db_perthread_deinit(void)
 
   sqlite3_close(hdl);
 }
-
-
 
 
 static int
@@ -6965,9 +7050,12 @@ db_init(void)
       return -1;
     }
 
-  ret = db_perthread_init();
+  ret = db_open();
   if (ret < 0)
-    return ret;
+    {
+      DPRINTF(E_FATAL, L_DB, "Could not open database\n");
+      return -1;
+    }
 
   ret = db_check_version();
   if (ret < 0)
