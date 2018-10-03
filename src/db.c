@@ -1820,7 +1820,7 @@ db_build_query_browse(struct query_params *qp)
   select = browse_clause[qp->type & ~Q_F_BROWSE].select;
   where  = browse_clause[qp->type & ~Q_F_BROWSE].where;
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND %s != '' %s;", qc->where, where, qc->group);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT %s FROM files f %s AND %s != '' %s);", select, qc->where, where, qc->group);
   query = sqlite3_mprintf("SELECT %s FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
 
   db_free_query_clause(qc);
@@ -2870,7 +2870,7 @@ db_file_add(struct media_file_info *mfi)
                   mfi->tv_episode_sort, mfi->tv_season_num, mfi->album_artist, mfi->album_artist, mfi->album,
                   mfi->title_sort, mfi->artist_sort, mfi->album_sort, mfi->composer_sort,
                   mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id, mfi->date_released,
-                  mfi->skip_count, mfi->time_skipped);
+                  mfi->skip_count, (int64_t)mfi->time_skipped);
 
   if (!query)
     {
@@ -2948,7 +2948,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->album_artist, mfi->album_artist, mfi->album,
 			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
 			  mfi->composer_sort, mfi->album_artist_sort,
-			  mfi->virtual_path, mfi->directory_id, mfi->date_released, mfi->skip_count, mfi->time_skipped,
+			  mfi->virtual_path, mfi->directory_id, mfi->date_released, mfi->skip_count, (int64_t)mfi->time_skipped,
 			  mfi->id);
 
   if (!query)

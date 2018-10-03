@@ -2005,7 +2005,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb, boo
 	break;
 
       case AF_INET6:
-	if (!rd->v6_address || (timing_6svc.fd < 0) || (control_6svc.fd < 0))
+	if (!rd->v6_address || rd->v6_disabled || (timing_6svc.fd < 0) || (control_6svc.fd < 0))
 	  return NULL;
 
 	address = rd->v6_address;
@@ -2731,6 +2731,9 @@ raop_cb_pin_start(struct evrtsp_request *req, void *arg)
 
 
 // Forward
+static int
+raop_device_start(struct output_device *rd, output_status_cb cb, uint64_t rtptime);
+
 static void
 raop_device_stop(struct output_session *session);
 
@@ -3701,11 +3704,31 @@ raop_v2_stream_open(struct raop_session *rs)
 static void
 raop_startup_cancel(struct raop_session *rs)
 {
-  /* Try being nice to our peer */
-  if (rs->session)
-    raop_send_req_teardown(rs, raop_session_failure_cb, "startup_cancel");
-  else
-    raop_session_failure(rs);
+  if (!rs->session)
+    {
+      raop_session_failure(rs);
+      return;
+    }
+
+  // Some devices don't seem to work with ipv6, so if the error wasn't a hard
+  // failure (bad password) we fall back to ipv4 and flag device as bad for ipv6
+  if (rs->family == AF_INET6 && !(rs->state & RAOP_STATE_F_FAILED))
+    {
+      // This flag is permanent and will not be overwritten by mdns advertisements
+      rs->device->v6_disabled = 1;
+
+      // Be nice to our peer + raop_session_failure_cb() cleans up old session
+      raop_send_req_teardown(rs, raop_session_failure_cb, "startup_cancel");
+
+      // Try to start a new session
+      raop_device_start(rs->device, rs->status_cb, rs->start_rtptime);
+
+      // Don't let the failed session make a negative status callback
+      rs->status_cb = NULL;
+      return;
+    }
+
+  raop_send_req_teardown(rs, raop_session_failure_cb, "startup_cancel");
 }
 
 static void
@@ -4014,20 +4037,12 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
     {
       DPRINTF(E_LOG, L_RAOP, "No response from '%s' (%s) to OPTIONS request\n", rs->devname, rs->address);
 
-      if (rs->device->v4_address && (rs->sa.ss.ss_family == AF_INET6))
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Falling back to ipv4, the ipv6 address is not responding\n");
-
-	  free(rs->device->v6_address);
-	  rs->device->v6_address = NULL;
-	}
-
       goto cleanup;
     }
 
   if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED) && (req->response_code != RTSP_FORBIDDEN))
     {
-      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed '%s': %d %s\n", rs->devname, req->response_code, req->response_code_line);
+      DPRINTF(E_LOG, L_RAOP, "OPTIONS request failed '%s' (%s): %d %s\n", rs->devname, rs->address, req->response_code, req->response_code_line);
 
       goto cleanup;
     }
@@ -4040,7 +4055,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
     {
       if (rs->req_has_auth)
 	{
-	  DPRINTF(E_LOG, L_RAOP, "Bad password for device '%s'\n", rs->devname);
+	  DPRINTF(E_LOG, L_RAOP, "Bad password for device '%s' (%s)\n", rs->devname, rs->address);
 
 	  rs->state = RAOP_STATE_PASSWORD;
 	  goto cleanup;
@@ -4053,7 +4068,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       ret = raop_send_req_options(rs, raop_cb_startup_options, "startup_options");
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_RAOP, "Could not re-run OPTIONS request with authentication\n");
+	  DPRINTF(E_LOG, L_RAOP, "Could not re-run OPTIONS request with authentication for '%s' (%s)\n", rs->devname, rs->address);
 	  goto cleanup;
 	}
 
@@ -4067,7 +4082,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "startup_options");
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_RAOP, "Could not request PIN for device verification\n");
+	  DPRINTF(E_LOG, L_RAOP, "Could not request PIN from '%s' (%s) for device verification\n", rs->devname, rs->address);
 	  goto cleanup;
 	}
 
@@ -4080,7 +4095,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
   if (param)
     rs->supports_post = (strstr(param, "POST") != NULL);
   else
-    DPRINTF(E_DBG, L_RAOP, "Could not find 'Public' header in OPTIONS reply from '%s'\n", rs->devname);
+    DPRINTF(E_DBG, L_RAOP, "Could not find 'Public' header in OPTIONS reply from '%s' (%s)\n", rs->devname, rs->address);
 
   if (rs->only_probe)
     {

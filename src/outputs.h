@@ -103,6 +103,7 @@ struct output_device
   unsigned has_password:1;
   unsigned has_video:1;
   unsigned requires_auth:1;
+  unsigned v6_disabled:1;
 
   // Credentials if relevant
   const char *password;

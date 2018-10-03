@@ -1,6 +1,13 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 26.4:
+	- automatic rating
+	- fix issue in 26.3 causing invalid time_skipped values in the db
+	- improved fallback to ipv4 if ipv6 fails
+	- fix issue returning too many queue items to clients
+	- fix missing prompt for library password
+
 version 26.3:
 	- fix AirPlay 2 devices (e.g. Sonos Beam and Airport Express)
 	- fix mdns problems with ATV4 and ipv6

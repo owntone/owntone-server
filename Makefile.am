@@ -18,6 +18,7 @@ nobase_dist_doc_DATA = \
 	README_JSON_API.md \
 	README_PULSE.md \
 	README_SMARTPL.md \
+	README_PLAYER_WEBINTERFACE.md \
 	scripts/pairinghelper.sh
 
 EXTRA_DIST = \
