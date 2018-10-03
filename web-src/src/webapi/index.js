@@ -45,6 +45,10 @@ export default {
     return axios.post('/api/queue/items/add?uris=' + uri)
   },
 
+  queue_add_next (uri) {
+    return axios.post('/api/queue/items/addnext?uris=' + uri)
+  },
+
   player_status () {
     return axios.get('/api/player')
   },

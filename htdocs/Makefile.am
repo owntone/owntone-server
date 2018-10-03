@@ -87,10 +87,11 @@ dist_htdocsplayercss_DATA = \
 htdocsplayerfontsdir = $(datadir)/forked-daapd/htdocs/player/fonts
 
 dist_htdocsplayerfonts_DATA = \
-	player/fonts/materialdesignicons-webfont.13621ea.ttf \
-	player/fonts/materialdesignicons-webfont.5cdddea.woff2 \
-	player/fonts/materialdesignicons-webfont.1bd36f0.woff \
-	player/fonts/materialdesignicons-webfont.dbcb3fe.eot
+	player/fonts/materialdesignicons-webfont.a33808e.ttf \
+	player/fonts/materialdesignicons-webfont.32562ea.woff2 \
+	player/fonts/materialdesignicons-webfont.40f483d.woff \
+	player/fonts/materialdesignicons-webfont.c28acdf.eot
+
 
 htdocsplayerjsdir = $(datadir)/forked-daapd/htdocs/player/js
 
@@ -105,5 +106,5 @@ dist_htdocsplayerjs_DATA = \
 htdocsplayerimgdir = $(datadir)/forked-daapd/htdocs/player/img
 
 dist_htdocsplayerimg_DATA = \
-	player/img/materialdesignicons-webfont.55a80a2.svg
+	player/img/materialdesignicons-webfont.07c3c54.svg
 endif
