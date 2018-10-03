@@ -1667,6 +1667,20 @@ static const struct db_upgrade_query db_upgrade_v1909_queries[] =
     { U_V1909_SCVER_MINOR,    "set schema_version_minor to 09" },
   };
 
+// Clean up after bug in commit fde0a281 (schema 19.09)
+#define U_V1910_CLEANUP_TIME_SKIPPED \
+  "UPDATE files SET time_skipped = 0 WHERE time_skipped > 2000000000;"
+
+#define U_V1910_SCVER_MINOR \
+  "UPDATE admin SET value = '10' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1910_queries[] =
+  {
+    { U_V1910_CLEANUP_TIME_SKIPPED,   "clean up time_skipped" },
+
+    { U_V1910_SCVER_MINOR,    "set schema_version_minor to 10" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1841,6 +1855,12 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       if (ret < 0)
 	return -1;
 
+      /* FALLTHROUGH */
+
+    case 1909:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1910_queries, ARRAY_SIZE(db_upgrade_v1910_queries));
+      if (ret < 0)
+	return -1;
       break;
 
     default:

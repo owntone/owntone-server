@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2016-2018 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  * Copyright (C) 2010 Kai Elwert <elwertk@googlemail.com>
  *
@@ -718,10 +718,17 @@ daap_request_authorize(struct httpd_request *hreq)
   if (peer_address_is_trusted(hreq->peer_address))
     return 0;
 
+  // Regular DAAP clients like iTunes will login with /login, and we will reply
+  // with httpd_basic_auth() if a library password is set. Remote clients will
+  // also call /login, but they should not get a httpd_basic_auth(), instead
+  // daap_reply_login() will take care of auth.
+  if (session->is_remote && (strcmp(hreq->uri_parsed->path, "/login") == 0))
+    return 0;
+
   param = evhttp_find_header(hreq->query, "session-id");
   if (param)
     {
-      if (!session)
+      if (session->id == 0)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri_parsed->uri);
 	  return -1;
@@ -737,7 +744,6 @@ daap_request_authorize(struct httpd_request *hreq)
 
   // If no valid session then we may need to authenticate
   if ((strcmp(hreq->uri_parsed->path, "/server-info") == 0)
-      || (strcmp(hreq->uri_parsed->path, "/login") == 0)
       || (strcmp(hreq->uri_parsed->path, "/logout") == 0)
       || (strcmp(hreq->uri_parsed->path, "/content-codes") == 0)
       || (strncmp(hreq->uri_parsed->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
@@ -1004,7 +1010,7 @@ daap_reply_update(struct httpd_request *hreq)
       DPRINTF(E_DBG, L_DAAP, "Missing revision-number in client update request\n");
       /* Some players (Amarok, Banshee) don't supply a revision number.
 	 They get a standard update of everything. */
-      param = "1";  /* Default to "1" will insure update */
+      param = "1";  /* Default to "1" will ensure an update */
     }
 
   ret = safe_atoi32(param, &reqd_rev);
@@ -2258,20 +2264,20 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
 	hreq->extra_data = daap_session_get(id);
     }
 
-  ret = daap_request_authorize(hreq);
-  if (ret < 0)
-    {
-      httpd_send_error(req, 403, "Forbidden");
-      free(hreq);
-      return;
-    }
-
   // Create an ad-hoc session, which is a way of passing is_remote to the handler, even though no real session exists
   if (!hreq->extra_data)
     {
       memset(&session, 0, sizeof(struct daap_session));
       session.is_remote = (evhttp_find_header(hreq->query, "pairing-guid") != NULL);
       hreq->extra_data = &session;
+    }
+
+  ret = daap_request_authorize(hreq);
+  if (ret < 0)
+    {
+      httpd_send_error(req, 403, "Forbidden");
+      free(hreq);
+      return;
     }
 
   // Set reply headers
