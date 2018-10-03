@@ -12,6 +12,11 @@
         <h3 class="subtitle is-5">
           {{ now_playing.album }}
         </h3>
+        <div class="columns" v-if=artwork>
+          <div class="column is-one-third is-offset-one-third">
+            <img :src="artwork_uri" is-square>
+          </div>
+        </div>
         <p class="control has-text-centered fd-progress-now-playing">
           <range-slider
             class="seek-slider fd-has-action"
@@ -57,7 +62,8 @@ export default {
   data () {
     return {
       item_progress_ms: 0,
-      interval_id: 0
+      interval_id: 0,
+      artwork_uri: ''
     }
   },
 
@@ -68,6 +74,8 @@ export default {
       if (this.state.state === 'play') {
         this.interval_id = window.setInterval(this.tick, 1000)
       }
+      // console.log('[ ] artwork =' + this.state.artwork_url)
+      this.artwork_uri = this.state.artwork_url
     })
   },
 
@@ -84,6 +92,16 @@ export default {
     },
     now_playing () {
       return this.$store.getters.now_playing
+    },
+    artwork () {
+      // console.log('[c] artwork =' + this.state.artwork_url)
+      return this.state.artwork_url !== undefined && this.state.artwork_url !== null
+    },
+    artwork_url () {
+      // var url = 'http://' + window.location.host + this.artwork_uri
+      // var url = 'http://localhost:3689' + this.artwork_uri
+      // return url
+      return this.artwork_uri
     }
   },
 
@@ -109,6 +127,10 @@ export default {
       if (this.state.state === 'play') {
         this.interval_id = window.setInterval(this.tick, 1000)
       }
+    },
+    'artwork' () {
+      this.artwork_uri = this.state.artwork_url
+      // console.log('[w] artwork url=' + this.artwork_uri)
     }
   }
 }
