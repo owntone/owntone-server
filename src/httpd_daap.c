@@ -732,7 +732,7 @@ daap_request_authorize(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri_parsed->uri);
 
-	  httpd_send_error(req, 401, "Unauthorized");
+	  httpd_send_error(hreq->req, 401, "Unauthorized");
 	  return -1;
 	}
 
