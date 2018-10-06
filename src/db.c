@@ -6767,31 +6767,24 @@ db_statements_prepare(void)
   char *query;
   char keystr[2048];
   char valstr[1024];
-  int keyremain;
-  int valremain;
   int ret;
   int i;
 
   // Prepare "INSERT INTO files" statement
-  keyremain = sizeof(keystr);
-  valremain = sizeof(valstr);
+  memset(keystr, 0, sizeof(keystr));
+  memset(valstr, 0, sizeof(valstr));
   for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
       if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
 	continue;
 
-      keyremain -= snprintf(keystr + sizeof(keystr) - keyremain, keyremain, "%s, ", mfi_cols_map[i].name);
-      valremain -= snprintf(valstr + sizeof(valstr) - valremain, valremain, "?, ");
-      if (keyremain <= 0 || valremain <= 0)
-	{
-	  DPRINTF(E_FATAL, L_DB, "Bug! Size of keystr or valstr is insufficient (%d, %d)\n", keyremain, valremain);
-	  return -1;
-	}
+      CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s, ", mfi_cols_map[i].name));
+      CHECK_ERR(L_DB, safe_snprintf_cat(valstr, sizeof(valstr), "?, "));
     }
 
-  // Terminates at the ending ", "
-  keystr[sizeof(keystr) - keyremain - 2] = '\0';
-  valstr[sizeof(valstr) - valremain - 2] = '\0';
+  // Terminate at the ending ", "
+  *(strrchr(keystr, ',')) = '\0';
+  *(strrchr(valstr, ',')) = '\0';
 
   CHECK_NULL(L_DB, query = db_mprintf("INSERT INTO files (%s) VALUES (%s);", keystr, valstr));
 
@@ -6806,22 +6799,17 @@ db_statements_prepare(void)
   free(query);
 
   // Prepare "UPDATE files" statement
-  keyremain = sizeof(keystr);
+  memset(keystr, 0, sizeof(keystr));
   for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
       if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
 	continue;
 
-      keyremain -= snprintf(keystr + sizeof(keystr) - keyremain, keyremain, "%s = ?, ", mfi_cols_map[i].name);
-      if (keyremain <= 0)
-	{
-	  DPRINTF(E_FATAL, L_DB, "Bug! Size of keystr is insufficient (%d)\n", keyremain);
-	  return -1;
-	}
+      CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = ?, ", mfi_cols_map[i].name));
     }
 
-  // Terminates at the ending ", "
-  keystr[sizeof(keystr) - keyremain - 2] = '\0';
+  // Terminate at the ending ", "
+  *(strrchr(keystr, ',')) = '\0';
 
   CHECK_NULL(L_DB, query = db_mprintf("UPDATE files SET %s WHERE %s = ?;", keystr, mfi_cols_map[0].name));
 

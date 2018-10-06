@@ -58,6 +58,10 @@ safe_strdup(const char *str);
 char *
 safe_asprintf(const char *fmt, ...);
 
+int
+safe_snprintf_cat(char *dst, size_t n, const char *fmt, ...);
+
+
 /* Key/value functions */
 struct keyval *
 keyval_alloc(void);
@@ -87,8 +91,13 @@ m_readfile(const char *path, int num_lines);
 char *
 unicode_fixup_string(char *str, const char *fromcode);
 
+// Modifies str so it is trimmed. Returns pointer to str.
 char *
-trimwhitespace(const char *str);
+trim(char *str);
+
+// Copies the trimmed part of str to a newly allocated string (caller must free)
+char *
+atrim(const char *str);
 
 void
 swap_pointers(char **a, char **b);
@@ -105,8 +114,7 @@ b64_encode(const uint8_t *in, size_t len);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
-
-/* Checks if the address is in a network that is configured as trusted */
+// Checks if the address is in a network that is configured as trusted
 bool
 peer_address_is_trusted(const char *addr);
 
