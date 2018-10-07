@@ -117,6 +117,7 @@ artist_to_json(struct db_group_info *dbgri)
 {
   json_object *item;
   char uri[100];
+  char artwork_url[100];
   int ret;
 
   item = json_object_new_object();
@@ -132,6 +133,10 @@ artist_to_json(struct db_group_info *dbgri)
   if (ret < sizeof(uri))
     json_object_object_add(item, "uri", json_object_new_string(uri));
 
+  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/group/%s", dbgri->id);
+  if (ret < sizeof(artwork_url))
+    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
+
   return item;
 }
 
@@ -140,6 +145,7 @@ album_to_json(struct db_group_info *dbgri)
 {
   json_object *item;
   char uri[100];
+  char artwork_url[100];
   int ret;
 
   item = json_object_new_object();
@@ -156,6 +162,10 @@ album_to_json(struct db_group_info *dbgri)
   if (ret < sizeof(uri))
     json_object_object_add(item, "uri", json_object_new_string(uri));
 
+  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/group/%s", dbgri->id);
+  if (ret < sizeof(artwork_url))
+    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
+
   return item;
 }
 
@@ -164,6 +174,7 @@ track_to_json(struct db_media_file_info *dbmfi)
 {
   json_object *item;
   char uri[100];
+  char artwork_url[100];
   int intval;
   int ret;
 
@@ -206,6 +217,10 @@ track_to_json(struct db_media_file_info *dbmfi)
   ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "track", dbmfi->id);
   if (ret < sizeof(uri))
     json_object_object_add(item, "uri", json_object_new_string(uri));
+
+  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%s", dbmfi->id);
+  if (ret < sizeof(artwork_url))
+    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
 
   return item;
 }
@@ -1466,6 +1481,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
       json_object_object_add(reply, "item_id", json_object_new_int(status.item_id));
       json_object_object_add(reply, "item_length_ms", json_object_new_int(status.len_ms));
       json_object_object_add(reply, "item_progress_ms", json_object_new_int(status.pos_ms));
+      json_object_object_add(reply, "artwork_url", json_object_new_string("/artwork/nowplaying"));
     }
   else
     {
@@ -1498,6 +1514,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 {
   json_object *item;
   char uri[100];
+  char artwork_url[100];
   int ret;
 
   item = json_object_new_object();
@@ -1534,10 +1551,15 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
       ret = snprintf(uri, sizeof(uri), "%s:%s:%d", "library", "track", queue_item->file_id);
       if (ret < sizeof(uri))
 	json_object_object_add(item, "uri", json_object_new_string(uri));
+
+      ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d", queue_item->file_id);
+      if (ret < sizeof(artwork_url))
+	json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
     }
   else
     {
       safe_json_add_string(item, "uri", queue_item->path);
+      safe_json_add_string(item, "artwork_url", queue_item->artwork_url);
     }
 
   return item;

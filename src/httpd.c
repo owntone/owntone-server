@@ -63,6 +63,7 @@
 #include "httpd_jsonapi.h"
 #include "httpd_streaming.h"
 #include "httpd_oauth.h"
+#include "httpd_artworkapi.h"
 #include "transcode.h"
 #ifdef LASTFM
 # include "lastfm.h"
@@ -840,6 +841,11 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   else if (jsonapi_is_request(parsed->path))
     {
       jsonapi_request(req, parsed);
+      goto out;
+    }
+  else if (artworkapi_is_request(parsed->path))
+    {
+      artworkapi_request(req, parsed);
       goto out;
     }
   else if (streaming_is_request(parsed->path))
@@ -1679,6 +1685,14 @@ httpd_init(const char *webroot)
       goto jsonapi_fail;
     }
 
+  ret = artworkapi_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Artwork init failed\n");
+
+      goto artworkapi_fail;
+    }
+
   ret = oauth_init();
   if (ret < 0)
     {
@@ -1814,6 +1828,8 @@ httpd_init(const char *webroot)
 #endif
   oauth_deinit();
  oauth_fail:
+  artworkapi_deinit();
+ artworkapi_fail:
   jsonapi_deinit();
  jsonapi_fail:
   dacp_deinit();
