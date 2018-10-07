@@ -35,7 +35,7 @@ struct httpd_uri_parsed
   struct evkeyvalq ev_query;
   char *uri_decoded;
   char *path;
-  char *path_parts[7];
+  char *path_parts[31];
 };
 
 /*
