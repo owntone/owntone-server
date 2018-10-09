@@ -161,8 +161,7 @@ struct raop_extra
 
   bool encrypt;
   bool wants_metadata;
-
-  char *pk;
+  bool supports_auth_setup;
 };
 
 struct raop_session
@@ -175,6 +174,7 @@ struct raop_session
   bool auth_quirk_itunes;
   bool wants_metadata;
   bool supports_post;
+  bool supports_auth_setup;
 
   bool only_probe;
 
@@ -188,7 +188,6 @@ struct raop_session
   char *realm;
   char *nonce;
   const char *password;
-  const char *pk;
 
   char *devname;
   char *address;
@@ -2046,7 +2045,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb, boo
 
   rs->password = rd->password;
 
-  rs->pk = re->pk;
+  rs->supports_auth_setup = re->supports_auth_setup;
   rs->wants_metadata = re->wants_metadata;
 
   switch (re->devtype)
@@ -4105,7 +4104,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       // We're not going further with this session
       raop_session_cleanup(rs);
     }
-  else if (rs->supports_post && rs->pk)
+  else if (rs->supports_post && rs->supports_auth_setup)
     {
       // AirPlay 2 devices require this step or the ANNOUNCE will get a 403
       ret = raop_send_req_auth_setup(rs, raop_cb_startup_auth_setup, "startup_options");
@@ -4562,6 +4561,9 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   const char *p;
   char *at_name;
   char *password;
+  char *et;
+  char *token;
+  char *ptr;
   uint64_t id;
   uint64_t sf;
   int ret;
@@ -4569,7 +4571,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   ret = safe_hextou64(name, &id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not extract AirPlay device ID (%s)\n", name);
+      DPRINTF(E_LOG, L_RAOP, "Could not extract AirPlay device ID ('%s')\n", name);
 
       return;
     }
@@ -4577,13 +4579,13 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   at_name = strchr(name, '@');
   if (!at_name)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not extract AirPlay device name (%s)\n", name);
+      DPRINTF(E_LOG, L_RAOP, "Could not extract AirPlay device name ('%s')\n", name);
 
       return;
     }
   at_name++;
 
-  DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device %s (port %d, id %" PRIx64 ")\n", at_name, port, id);
+  DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device '%s' (port %d, id %" PRIx64 ")\n", at_name, port, id);
 
   airplay = cfg_gettsec(cfg, "airplay", at_name);
   if (airplay && cfg_getbool(airplay, "exclude"))
@@ -4593,22 +4595,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       return;
     }
 
-  rd = calloc(1, sizeof(struct output_device));
-  if (!rd)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory (rd)\n");
-
-      return;
-    }
-
-  re = calloc(1, sizeof(struct raop_extra));
-  if (!re)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory (re)\n");
-      free(rd);
-
-      return;
-    }
+  CHECK_NULL(L_RAOP, rd = calloc(1, sizeof(struct output_device)));
+  CHECK_NULL(L_RAOP, re = calloc(1, sizeof(struct raop_extra)));
 
   rd->id = id;
   rd->name = strdup(at_name);
@@ -4641,21 +4629,21 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "tp");
   if (!p)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: no tp field in TXT record!\n", name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': no tp field in TXT record!\n", at_name);
 
       goto free_rd;
     }
 
   if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: tp has no value\n", name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': tp has no value\n", at_name);
 
       goto free_rd;
     }
 
   if (!strstr(p, "UDP"))
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': device does not support AirTunes v2 (tp=%s), discarding\n", at_name, p);
 
       goto free_rd;
     }
@@ -4665,13 +4653,11 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "pw");
   if (!p)
     {
-      DPRINTF(E_INFO, L_RAOP, "AirPlay %s: no pw field in TXT record, assuming no password protection\n", name);
-
       rd->has_password = 0;
     }
   else if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: pw has no value\n", name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': pw has no value\n", at_name);
 
       goto free_rd;
     }
@@ -4682,14 +4668,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (rd->has_password)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay device %s is password-protected\n", name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s' is password-protected\n", at_name);
 
       airplay = cfg_gettsec(cfg, "airplay", at_name);
       if (airplay)
 	password = cfg_getstr(airplay, "password");
 
       if (!password)
-	DPRINTF(E_LOG, L_RAOP, "No password given in config for AirPlay device %s\n", name);
+	DPRINTF(E_LOG, L_RAOP, "No password given in config for AirPlay device '%s'\n", at_name);
     }
 
   rd->password = password;
@@ -4719,7 +4705,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
     re->devtype = RAOP_DEV_APPLETV;
   else if (*p == '\0')
-    DPRINTF(E_LOG, L_RAOP, "AirPlay %s: am has no value\n", name);
+    DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s': am has no value\n", at_name);
 
   /* Encrypt stream */
   p = keyval_get(txt, "ek");
@@ -4735,9 +4721,21 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else
     re->wants_metadata = 0;
 
-  p = keyval_get(txt, "pk");
+  p = keyval_get(txt, "et");
   if (p)
-    re->pk = strdup(p);
+    {
+      et = strdup(p);
+      token = strtok_r(et, ",", &ptr);
+      while (token)
+	{
+	  // Value of 4 seems to indicate support (!= requirement) for auth-setup
+	  if (strcmp(token, "4") == 0)
+	    re->supports_auth_setup = 1;
+
+	  token = strtok_r(NULL, ",", &ptr);
+	}
+      free(et);
+    }
 
   rd->advertised = 1;
 
@@ -4746,19 +4744,19 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       case AF_INET:
 	rd->v4_address = strdup(address);
 	rd->v4_port = port;
-	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, verification: %u, encrypt: %u, metadata: %u, type %s, address %s:%d\n", 
-	  name, rd->has_password, rd->requires_auth, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
+	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device '%s': password: %u, verification: %u, encrypt: %u, authsetup: %u, metadata: %u, type %s, address %s:%d\n", 
+	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wants_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       case AF_INET6:
 	rd->v6_address = strdup(address);
 	rd->v6_port = port;
-	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, verification: %u, encrypt: %u, metadata: %u, type %s, address [%s]:%d\n", 
-	  name, rd->has_password, rd->requires_auth, re->encrypt, re->wants_metadata, raop_devtype[re->devtype], address, port);
+	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device '%s': password: %u, verification: %u, encrypt: %u, authsetup: %u, metadata: %u, type %s, address [%s]:%d\n", 
+	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wants_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       default:
-	DPRINTF(E_LOG, L_RAOP, "Error: AirPlay device %s has neither ipv4 og ipv6 address\n", name);
+	DPRINTF(E_LOG, L_RAOP, "Error: AirPlay device '%s' has neither ipv4 og ipv6 address\n", at_name);
 	goto free_rd;
     }
 
@@ -4856,7 +4854,6 @@ raop_device_free_extra(struct output_device *device)
 {
   struct raop_extra *re = device->extra_device_info;
 
-  free(re->pk);
   free(re);
 }
 
