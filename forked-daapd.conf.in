@@ -221,6 +221,11 @@ audio {
 	# negative correspond to delaying it. The unit is samples, where is
 	# 44100 = 1 second. The offset must be between -44100 and 44100.
 #	offset = 0
+
+	# How often to check and correct for drift between ALSA and AirPlay.
+	# The value is an integer expressed in seconds.
+	# Clamped to the range 1..20.
+#	adjust_period_seconds = 10
 }
 
 # Pipe output
