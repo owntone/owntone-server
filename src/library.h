@@ -84,7 +84,7 @@ struct library_source
   /*
    * Add item for the given path to the current queue
    */
-  int (*queue_add)(const char *path);
+  int (*queue_add)(const char *path, int position, int *count, int *new_item_id);
 };
 
 void
@@ -94,7 +94,7 @@ int
 library_add_playlist_info(const char *path, const char *title, const char *virtual_path, enum pl_type type, int parent_pl_id, int dir_id);
 
 int
-library_queue_add(const char *path);
+library_queue_add(const char *path, int position, int *count, int *new_item_id);
 
 void
 library_rescan();

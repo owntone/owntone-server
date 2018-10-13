@@ -1680,6 +1680,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   char *uri;
   const char *id;
   int pos = -1;
+  int count = 0;
   int ret = 0;
 
 
@@ -1709,35 +1710,41 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   do
     {
+      count = 0;
+
       if (strncmp(uri, "library:artist:", strlen("library:artist:")) == 0)
 	{
 	  id = uri + (strlen("library:artist:"));
-	  pos += queue_tracks_add_artist(id, pos);
+	  count = queue_tracks_add_artist(id, pos);
 	}
       else if (strncmp(uri, "library:album:", strlen("library:album:")) == 0)
 	{
 	  id = uri + (strlen("library:album:"));
-	  pos += queue_tracks_add_album(id, pos);
+	  count = queue_tracks_add_album(id, pos);
 	}
       else if (strncmp(uri, "library:track:", strlen("library:track:")) == 0)
 	{
 	  id = uri + (strlen("library:track:"));
-	  pos += queue_tracks_add_track(id, pos);
+	  count = queue_tracks_add_track(id, pos);
 	}
       else if (strncmp(uri, "library:playlist:", strlen("library:playlist:")) == 0)
 	{
 	  id = uri + (strlen("library:playlist:"));
-	  pos += queue_tracks_add_playlist(id, pos);
+	  count = queue_tracks_add_playlist(id, pos);
 	}
       else
 	{
-	  ret = library_queue_add(uri);
+	  ret = library_queue_add(uri, pos, &count, NULL);
 	  if (ret != LIBRARY_OK)
 	    {
 	      DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
 	      break;
 	    }
+	  pos += count;
 	}
+
+      if (pos >= 0)
+	pos += count;
     }
   while ((uri = strtok(NULL, ",")));
 

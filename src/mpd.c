@@ -1699,7 +1699,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, st
   if (ret == 0)
     {
       // Given path is not in the library, check if it is possible to add as a non-library queue item
-      ret = library_queue_add(argv[1]);
+      ret = library_queue_add(argv[1], -1, NULL, NULL);
       if (ret != LIBRARY_OK)
 	{
 	  *errmsg = safe_asprintf("Failed to add song '%s' to playlist (unkown path)", argv[1]);
@@ -1737,7 +1737,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   if (ret == 0)
     {
       // Given path is not in the library, directly add it as a new queue item
-      ret = library_queue_add(argv[1]);
+      ret = library_queue_add(argv[1], to_pos, NULL, NULL);
       if (ret != LIBRARY_OK)
 	{
 	  *errmsg = safe_asprintf("Failed to add song '%s' to playlist (unkown path)", argv[1]);

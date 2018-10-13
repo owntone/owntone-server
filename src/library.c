@@ -143,7 +143,7 @@ library_add_media(struct media_file_info *mfi)
 }
 
 int
-library_queue_add(const char *path)
+library_queue_add(const char *path, int position, int *count, int *new_item_id)
 {
   int i;
   int ret;
@@ -159,7 +159,7 @@ library_queue_add(const char *path)
 	  continue;
 	}
 
-      ret = sources[i]->queue_add(path);
+      ret = sources[i]->queue_add(path, position, count, new_item_id);
 
       if (ret == LIBRARY_OK)
 	{
