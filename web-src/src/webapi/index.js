@@ -45,6 +45,14 @@ export default {
     return axios.post('/api/queue/items/add?uris=' + uri)
   },
 
+  queue_add_next (uri) {
+    var position = 0
+    if (store.getters.now_playing && store.getters.now_playing.id) {
+      position = store.getters.now_playing.position + 1
+    }
+    return axios.post('/api/queue/items/add?uris=' + uri + '&position=' + position)
+  },
+
   player_status () {
     return axios.get('/api/player')
   },
