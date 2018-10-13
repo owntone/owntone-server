@@ -583,6 +583,7 @@ POST /api/queue/items/add
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`) |
+| position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.  |
 
 **Response**
 
