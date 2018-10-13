@@ -136,18 +136,16 @@ prebuf_free(struct alsa_session *as)
 static void
 alsa_session_free(struct alsa_session *as)
 {
-  if (as)
-    {
-      if (as->deferredev)
-	event_free(as->deferredev);
+  if (!as)
+    return;
 
-      prebuf_free(as);
+  if (as->deferredev)
+    event_free(as->deferredev);
 
-      if (as->output_session)
-	free(as->output_session);
+  prebuf_free(as);
 
-      free(as);
-    }
+  free(as->output_session);
+  free(as);
 }
 
 static void
@@ -180,7 +178,7 @@ alsa_session_make(struct output_device *device, output_status_cb cb)
   if (!as)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (as)\n");
-      goto failure_cleanup;
+      return NULL;
     }
 
   as->output_session = calloc(1, sizeof(struct output_session));
