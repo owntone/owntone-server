@@ -116,6 +116,7 @@ struct mdns_browser
   struct mdns_resolver *resolvers;
   char *regtype;
   /* references */
+  enum mdns_options flags;
   mdns_browse_cb cb;
   DNSServiceProtocol protocol;
   void *res_uuid;
@@ -871,20 +872,16 @@ mdns_browse_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
 }
 
 int
-mdns_browse(char *regtype, int family, mdns_browse_cb cb)
+mdns_browse(char *regtype, int family, mdns_browse_cb cb, enum mdns_options flags)
 {
   struct mdns_browser *mb;
   DNSServiceErrorType err;
 
   DPRINTF(E_DBG, L_MDNS, "Adding service browser for type %s\n", regtype);
 
-  mb = calloc(1, sizeof(*mb));
-  if (!mb)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory creating service browser.\n");
-      return -1;
-    }
+  CHECK_NULL(L_MDNS, mb = calloc(1, sizeof(*mb)));
 
+  mb->flags = flags;
   mb->cb = cb;
 
   /* flags are ignored in DNS-SD implementation */

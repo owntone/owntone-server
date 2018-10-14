@@ -348,6 +348,7 @@ struct mdns_browser
   char *type;
   AvahiProtocol protocol;
   mdns_browse_cb cb;
+  enum mdns_options flags;
 
   struct mdns_browser *next;
 };
@@ -567,7 +568,7 @@ connection_test(int family, const char *address, const char *address_log, int po
 // a connection to the address
 // - see also https://lists.freedesktop.org/archives/avahi/2012-September/002183.html
 static int
-address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *addr, int port)
+address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *addr, int port, enum mdns_options flags)
 {
   char address[AVAHI_ADDRESS_STR_MAX];
   char address_log[AVAHI_ADDRESS_STR_MAX + 2];
@@ -587,6 +588,9 @@ address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *add
       DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address_log);
       return -1;
     }
+
+  if (!(flags & MDNS_CONNECTION_TEST))
+    return 0; // All done
 
   ret = connection_test(family, address, address_log, port);
   if (ret < 0)
@@ -633,7 +637,7 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
 
   DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s, proto %d): NEW record %s for service type '%s'\n", hostname, proto, address, rb_data->mb->type);
 
-  ret = address_check(proto, hostname, &addr, rb_data->port);
+  ret = address_check(proto, hostname, &addr, rb_data->port, rb_data->mb->flags);
   if (ret < 0)
     return;
 
@@ -714,7 +718,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
   // devices (e.g. ApEx 1 gen) will include multiple records, and we need to
   // filter out those records that won't work (notably link-local). The value of
   // *addr given by browse_resolve_callback is just the first record.
-  ret = address_check(proto, hostname, addr, port);
+  ret = address_check(proto, hostname, addr, port, mb->flags);
   if (ret < 0)
     {
       CHECK_NULL(L_MDNS, rb_data = calloc(1, sizeof(struct mdns_record_browser)));
@@ -1156,22 +1160,18 @@ mdns_cname(char *name)
 }
 
 int
-mdns_browse(char *type, int family, mdns_browse_cb cb)
+mdns_browse(char *type, int family, mdns_browse_cb cb, enum mdns_options flags)
 {
   struct mdns_browser *mb;
   AvahiServiceBrowser *b;
 
   DPRINTF(E_DBG, L_MDNS, "Adding service browser for type %s\n", type);
 
-  mb = calloc(1, sizeof(struct mdns_browser));
-  if (!mb)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory for new mdns browser\n");
-      return -1;
-    }
+  CHECK_NULL(L_MDNS, mb = calloc(1, sizeof(struct mdns_browser)));
 
   mb->protocol = avahi_af_to_proto(family);
   mb->type = strdup(type);
+  mb->flags = flags;
   mb->cb = cb;
 
   mb->next = browser_list;

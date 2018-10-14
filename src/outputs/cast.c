@@ -1774,7 +1774,7 @@ cast_init(void)
   else
     family = AF_INET;
 
-  ret = mdns_browse("_googlecast._tcp", family, cast_device_cb);
+  ret = mdns_browse("_googlecast._tcp", family, cast_device_cb, 0);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CAST, "Could not add mDNS browser for Chromecast devices\n");

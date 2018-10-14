@@ -5025,7 +5025,7 @@ raop_init(void)
   else
     family = AF_INET;
 
-  ret = mdns_browse("_raop._tcp", family, raop_device_cb);
+  ret = mdns_browse("_raop._tcp", family, raop_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices\n");
