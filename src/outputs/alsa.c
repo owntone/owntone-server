@@ -57,6 +57,7 @@ static snd_mixer_elem_t *vol_elem;
 static long vol_min;
 static long vol_max;
 static int offset;
+static int adjust_period_seconds;
 
 #define ALSA_F_STARTED  (1 << 15)
 
@@ -86,6 +87,8 @@ struct alsa_session
 
   int32_t last_latency;
   int sync_counter;
+  unsigned source_sample_rate;  // raw input audio sample rate in Hz
+  unsigned target_sample_rate;  // output rate in Hz to configure ALSA device
 
   // An array that will hold the packets we prebuffer. The length of the array
   // is prebuf_len (measured in rtp_packets)
@@ -136,7 +139,8 @@ alsa_session_free(struct alsa_session *as)
   if (!as)
     return;
 
-  event_free(as->deferredev);
+  if (as->deferredev)
+    event_free(as->deferredev);
 
   prebuf_free(as);
 
@@ -168,47 +172,46 @@ alsa_session_cleanup(struct alsa_session *as)
 static struct alsa_session *
 alsa_session_make(struct output_device *device, output_status_cb cb)
 {
-  struct output_session *os;
   struct alsa_session *as;
-
-  os = calloc(1, sizeof(struct output_session));
-  if (!os)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (os)\n");
-      return NULL;
-    }
 
   as = calloc(1, sizeof(struct alsa_session));
   if (!as)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (as)\n");
-      free(os);
       return NULL;
     }
+
+  as->output_session = calloc(1, sizeof(struct output_session));
+  if (!as->output_session)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (output_session)\n");
+      goto failure_cleanup;
+    }
+  as->output_session->session = as;
+  as->output_session->type = device->type;
 
   as->deferredev = evtimer_new(evbase_player, defer_cb, as);
   if (!as->deferredev)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA deferred event\n");
-      free(os);
-      free(as);
-      return NULL;
+      goto failure_cleanup;
     }
 
-  os->session = as;
-  os->type = device->type;
-
-  as->output_session = os;
   as->state = ALSA_STATE_STOPPED;
   as->device = device;
   as->status_cb = cb;
   as->volume = device->volume;
   as->devname = card_name;
+  as->source_sample_rate = 44100;
+  as->target_sample_rate = 44100;   // TODO: make ALSA device sample rate configurable
 
   as->next = sessions;
   sessions = as;
-
   return as;
+
+ failure_cleanup:
+  alsa_session_free(as);
+  return NULL;
 }
 
 
@@ -466,10 +469,10 @@ device_open(struct alsa_session *as)
       goto out_fail;
     }
 
-  ret = snd_pcm_hw_params_set_rate(hdl, hw_params, 44100, 0);
+  ret = snd_pcm_hw_params_set_rate(hdl, hw_params, as->target_sample_rate, 0);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Hardware doesn't support 44.1 kHz: %s\n", snd_strerror(ret));
+      DPRINTF(E_LOG, L_LAUDIO, "Hardware doesn't support %u Hz: %s\n", as->target_sample_rate, snd_strerror(ret));
 
       goto out_fail;
     }
@@ -691,8 +694,8 @@ sync_check(struct alsa_session *as, uint64_t rtptime, snd_pcm_sframes_t delay, i
       as->sync_counter = 0;
       sync = ALSA_SYNC_OK;
     }
-  // If we have measured a consistent latency for 10 seconds, then we take action
-  else if (as->sync_counter >= 10 * 126)
+  // If we have measured a consistent latency for configured period, then we take action
+  else if (as->sync_counter >= adjust_period_seconds * 126)
     {
       DPRINTF(E_INFO, L_LAUDIO, "Taking action to compensate for ALSA latency of %d samples\n", latency);
 
@@ -994,6 +997,7 @@ alsa_init(void)
   cfg_t *cfg_audio;
   char *nickname;
   char *type;
+  int original_adjust;
 
   cfg_audio = cfg_getsec(cfg, "audio");
   type = cfg_getstr(cfg_audio, "type");
@@ -1013,6 +1017,14 @@ alsa_init(void)
       DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset (%d) set in the configuration is out of bounds\n", offset);
       offset = 44100 * (offset/abs(offset));
     }
+
+  original_adjust = adjust_period_seconds = cfg_getint(cfg_audio, "adjust_period_seconds");
+  if (adjust_period_seconds < 1)
+    adjust_period_seconds = 1;
+  else if (adjust_period_seconds > 20)
+    adjust_period_seconds = 20;
+  if (original_adjust != adjust_period_seconds)
+    DPRINTF(E_LOG, L_LAUDIO, "Clamped ALSA adjust_period_seconds from %d to %d\n", original_adjust, adjust_period_seconds);
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
