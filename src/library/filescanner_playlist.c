@@ -245,6 +245,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 
 	  // Protect this playlist's radio stations from purge after scan
 	  db_pl_ping_items_bymatch("http://", pli->id);
+	  db_pl_ping_items_bymatch("https://", pli->id);
 	  free_pli(pli, 0);
 	  return;
 	}
@@ -338,7 +339,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 	continue;
 
       /* Check if line is an URL, will be added to library, otherwise it should already be there */
-      if (strncasecmp(path, "http://", 7) == 0)
+      if (strncasecmp(path, "http://", 7) == 0 || strncasecmp(path, "https://", 8) == 0)
 	ret = process_url(pl_id, path, &mfi);
       else
 	ret = process_regular_file(pl_id, path);
