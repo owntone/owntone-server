@@ -19,7 +19,7 @@
     "moment-duration-format": "^2.2.2",
     "npm": "^6.4.1",
     "reconnectingwebsocket": "^1.0.0",
-    "spotify-web-api-js": "^0.23.0",
+    "spotify-web-api-js": "^1.1.1",
     "vue": "^2.5.17",
     "vue-infinite-loading": "^2.4.0",
     "vue-progressbar": "^0.7.4",

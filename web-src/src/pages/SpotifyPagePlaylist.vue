@@ -33,8 +33,8 @@ const playlistData = {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return Promise.all([
-      spotifyApi.getPlaylist(to.params.user_id, to.params.playlist_id),
-      spotifyApi.getPlaylistTracks(to.params.user_id, to.params.playlist_id, { limit: 50, offset: 0 })
+      spotifyApi.getPlaylist(to.params.playlist_id),
+      spotifyApi.getPlaylistTracks(to.params.playlist_id, { limit: 50, offset: 0 })
     ])
   },
 
@@ -65,7 +65,7 @@ export default {
     load_next: function ($state) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
-      spotifyApi.getPlaylistTracks(this.playlist.owner.id, this.playlist.id, { limit: 50, offset: this.offset }).then(data => {
+      spotifyApi.getPlaylistTracks(this.playlist.id, { limit: 50, offset: this.offset }).then(data => {
         this.append_tracks(data, $state)
       })
     },

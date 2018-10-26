@@ -168,7 +168,7 @@ export const router = new VueRouter({
       meta: { show_progress: true }
     },
     {
-      path: '/music/spotify/playlists/:user_id/:playlist_id',
+      path: '/music/spotify/playlists/:playlist_id',
       name: 'Spotify Playlist',
       component: SpotifyPagePlaylist,
       meta: { show_progress: true }

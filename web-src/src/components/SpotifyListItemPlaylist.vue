@@ -100,7 +100,7 @@ export default {
 
     open_playlist: function () {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/spotify/playlists/' + this.playlist.owner.id + '/' + this.playlist.id })
+      this.$router.push({ path: '/music/spotify/playlists/' + this.playlist.id })
     }
   }
 }
