@@ -11,6 +11,8 @@ import PageArtists from '@/pages/PageArtists'
 import PageArtist from '@/pages/PageArtist'
 import PageAlbums from '@/pages/PageAlbums'
 import PageAlbum from '@/pages/PageAlbum'
+import PageGenres from '@/pages/PageGenres'
+import PageGenre from '@/pages/PageGenre'
 import PagePodcasts from '@/pages/PagePodcasts'
 import PagePodcast from '@/pages/PagePodcast'
 import PageAudiobooks from '@/pages/PageAudiobooks'
@@ -90,6 +92,18 @@ export const router = new VueRouter({
       path: '/music/albums/:album_id',
       name: 'Album',
       component: PageAlbum,
+      meta: { show_progress: true }
+    },
+    {
+      path: '/music/genres',
+      name: 'Genres',
+      component: PageGenres,
+      meta: { show_progress: true }
+    },
+    {
+      path: '/music/genres/:genre',
+      name: 'Genre',
+      component: PageGenre,
       meta: { show_progress: true }
     },
     {
