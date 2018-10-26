@@ -23,6 +23,12 @@
                   <span class="">Albums</span>
                 </a>
               </router-link>
+              <router-link tag="li" to="/music/genres" active-class="is-active">
+                <a>
+                  <span class="icon is-small"><i class="mdi mdi-speaker"></i></span>
+                  <span class="">Genres</span>
+                </a>
+              </router-link>
               <router-link tag="li" to="/music/spotify" v-if="spotify_enabled" active-class="is-active">
                 <a>
                   <span class="icon is-small"><i class="mdi mdi-spotify"></i></span>
