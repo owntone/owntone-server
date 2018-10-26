@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media" :id="anchor_name">
     <div class="media-content fd-has-action is-clipped" v-on:click="play">
       <h1 class="title is-6">{{ track.title }}</h1>
       <h2 class="subtitle is-7 has-text-grey"><b>{{ track.artist }}</b></h2>
@@ -85,11 +85,32 @@ export default {
   name: 'PartTrack',
   components: { ModalDialog },
 
-  props: ['track', 'position', 'context_uri'],
+  props: ['track', 'position', 'context_uri', 'links'],
 
   data () {
     return {
       show_details_modal: false
+    }
+  },
+
+  computed: {
+    anchor_name: function () {
+      if (this.links === undefined) {
+        return 'idx_nav_undef'
+      }
+
+      var name = this.track.title.charAt(0).toUpperCase()
+      var anchr = this.links.find(function (elem) {
+        return (elem.n === name)
+      })
+
+      if (anchr === null) {
+        // shouldnt happen!!
+        return 'idx_nav_undef'
+      } else {
+        // console.log('anchr=' + JSON.stringify(anchr, null, 2))
+        return anchr.a
+      }
     }
   },
 

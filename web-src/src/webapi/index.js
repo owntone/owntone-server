@@ -145,6 +145,18 @@ export default {
     })
   },
 
+  library_artist_tracks (artist) {
+    if (artist) {
+      var artistParams = {
+        'type': 'tracks',
+        'expression': 'songartistid is "' + artist + '"'
+      }
+      return axios.get('/api/search', {
+        params: artistParams
+      })
+    }
+  },
+
   library_podcasts () {
     return axios.get('/api/library/albums?media_kind=podcast')
   },
