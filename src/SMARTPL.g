@@ -82,6 +82,9 @@ STRTAG		:	'artist'
 			|	'path'
 			|	'type'
 			|	'grouping'
+			|	'artist_id'
+			|	'album_id'
+			|	'songartistid'
 			;
 
 INTTAG		:	'play_count'
