@@ -25,7 +25,8 @@ export default {
 
   data () {
     return {
-      token_timer_id: 0
+      token_timer_id: 0,
+      reconnect_attempts: 0
     }
   },
 
@@ -88,11 +89,12 @@ export default {
       var socket = new ReconnectingWebSocket(
         'ws://' + window.location.hostname + ':' + vm.$store.state.config.websocket_port,
         'notify',
-        { reconnectInterval: 5000 }
+        { reconnectInterval: 3000 }
       )
 
       socket.onopen = function () {
         vm.$store.dispatch('add_notification', { text: 'Connection to server established', type: 'primary', topic: 'connection', timeout: 2000 })
+        vm.reconnect_attempts = 0
         socket.send(JSON.stringify({ notify: ['update', 'player', 'options', 'outputs', 'volume', 'spotify'] }))
 
         vm.update_outputs()
@@ -105,7 +107,8 @@ export default {
         // vm.$store.dispatch('add_notification', { text: 'Connection closed', type: 'danger', timeout: 2000 })
       }
       socket.onerror = function () {
-        vm.$store.dispatch('add_notification', { text: 'Connection lost. Reconnecting ...', type: 'danger', topic: 'connection' })
+        vm.reconnect_attempts++
+        vm.$store.dispatch('add_notification', { text: 'Connection lost. Reconnecting ... (' + vm.reconnect_attempts + ')', type: 'danger', topic: 'connection' })
       }
       socket.onmessage = function (response) {
         var data = JSON.parse(response.data)
