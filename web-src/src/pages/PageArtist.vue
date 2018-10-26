@@ -4,7 +4,7 @@
       <p class="title is-4">{{ artist.name }}</p>
     </template>
     <template slot="content">
-      <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | {{ artist.track_count }} tracks</p>
+      <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
       <list-item-album v-for="album in albums.items" :key="album.id" :album="album"></list-item-album>
     </template>
   </content-with-heading>
@@ -43,6 +43,9 @@ export default {
   },
 
   methods: {
+    open_tracks: function () {
+      this.$router.push({ path: '/music/artists/' + this.artist.id + '/tracks' })
+    }
   }
 }
 </script>
