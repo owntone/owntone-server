@@ -25,6 +25,7 @@
     "vue-progressbar": "^0.7.4",
     "vue-range-slider": "^0.6.0",
     "vue-router": "^3.0.1",
+    "vue-scrollto": "^2.11.0",
     "vue2-touch-events": "^1.0.0",
     "vuedraggable": "^2.16.0",
     "vuex": "^3.0.1"

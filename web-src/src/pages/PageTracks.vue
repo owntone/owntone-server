@@ -14,6 +14,15 @@
         </a>
       </template>
       <template slot="content">
+        <div class="columns is-centered">
+          <div class="column is-three-quarters">
+            <div class="tabs is-centered is-small">
+              <ul>
+                <tab-idx-nav-item v-for="link in links" :key="link.n" :link="link"></tab-idx-nav-item>
+              </ul>
+            </div>
+          </div>
+        </div>
         <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="track.uri" :links="links"></list-item-track>
       </template>
     </content-with-heading>
@@ -24,6 +33,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemTrack from '@/components/ListItemTrack'
+import TabIdxNavItem from '@/components/TabsIdxNav'
 import webapi from '@/webapi'
 
 const tracksData = {
@@ -34,6 +44,24 @@ const tracksData = {
   set: function (vm, response) {
     vm.artist_id = vm.$route.params.artist
     vm.tracks = response.data.tracks
+
+    var li = 0
+    var v = null
+    var i
+    for (i = 0; i < vm.tracks.items.length; i++) {
+      if (i === 0) {
+        vm.artist = vm.tracks.items[0].artist
+      }
+      var n = vm.tracks.items[i].title.charAt(0).toUpperCase()
+      if (n !== v) {
+        var obj = {}
+        obj.n = n
+        obj.a = 'idx_nav_' + li
+        vm.links.push(obj)
+        li++
+        v = n
+      }
+    }
   }
 }
 
@@ -46,7 +74,8 @@ export default {
     return {
       tracks: {},
       artist: '',
-      artist_id: 0
+      artist_id: 0,
+      links: []
     }
   },
 

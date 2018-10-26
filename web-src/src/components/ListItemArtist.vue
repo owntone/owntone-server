@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media" :id="anchor_name">
     <div class="media-content fd-has-action is-clipped" v-on:click="open_artist">
       <h1 class="title is-6">{{ artist.name }}</h1>
     </div>
@@ -48,11 +48,32 @@ export default {
   name: 'PartArtist',
   components: { ModalDialog },
 
-  props: ['artist'],
+  props: ['artist', 'links'],
 
   data () {
     return {
       show_details_modal: false
+    }
+  },
+
+  computed: {
+    anchor_name: function () {
+      if (this.links === undefined) {
+        return 'idx_nav_undef'
+      }
+
+      var name = this.artist.name_sort.charAt(0).toUpperCase()
+      var anchr = this.links.find(function (elem) {
+        return (elem.n === name)
+      })
+
+      if (anchr === null) {
+        // shouldnt happen!!
+        return 'idx_nav_undef'
+      } else {
+        // console.log('anchr=' + JSON.stringify(anchr, null, 2))
+        return anchr.a
+      }
     }
   },
 

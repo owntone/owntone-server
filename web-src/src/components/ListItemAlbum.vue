@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media" :id="anchor_name">
     <div class="media-content fd-has-action is-clipped" v-on:click="open_album">
       <h1 class="title is-6">{{ album.name }}</h1>
       <h2 class="subtitle is-7 has-text-grey"><b>{{ album.artist }}</b></h2>
@@ -53,11 +53,34 @@ export default {
   name: 'ListItemAlbum',
   components: { ModalDialog },
 
-  props: ['album', 'media_kind'],
+  props: ['album', 'media_kind', 'links'],
 
   data () {
     return {
       show_details_modal: false
+    }
+  },
+
+  computed: {
+    anchor_name: function () {
+      if (this.links === undefined) {
+        // -> from the artists page
+        return 'idx_nav_undef'
+      }
+
+      // -> from the albums page
+      var name = this.album.name_sort.charAt(0).toUpperCase()
+      var anchr = this.links.find(function (elem) {
+        return (elem.n === name)
+      })
+
+      if (anchr === null) {
+        // shouldnt happen!!
+        return 'idx_nav_undef'
+      } else {
+        // console.log('anchr=' + JSON.stringify(anchr, null, 2))
+        return anchr.a
+      }
     }
   },
 
