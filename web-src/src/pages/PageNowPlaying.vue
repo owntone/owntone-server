@@ -11,6 +11,7 @@
         </h2>
         <h3 class="subtitle is-5">
           {{ now_playing.album }}
+          <img class="column is-one-third is-offset-one-third" img :src="artwork_uri" is-square @error="alt_artwork_uri">
         </h3>
         <p class="control has-text-centered fd-progress-now-playing">
           <range-slider
@@ -84,6 +85,13 @@ export default {
     },
     now_playing () {
       return this.$store.getters.now_playing
+    },
+    artwork_uri () {
+      if (this.state.artwork_url === undefined) {
+        return ''
+      }
+      // for dev add 'http://localhost:3689'
+      return this.state.artwork_url + '?item_id=' + this.state.item_id
     }
   },
 
@@ -96,6 +104,10 @@ export default {
       webapi.player_seek(newPosition).catch(() => {
         this.item_progress_ms = this.state.item_progress_ms
       })
+    },
+
+    alt_artwork_uri: function (event) {
+      event.target.src = '/artwork-default.png'
     }
   },
 

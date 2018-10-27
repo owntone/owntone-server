@@ -29,7 +29,8 @@ export default new Vuex.Store({
       'volume': 0,
       'item_id': 0,
       'item_length_ms': 0,
-      'item_progress_ms': 0
+      'item_progress_ms': 0,
+      'artwork_url': ''
     },
     queue: {
       'version': 0,
