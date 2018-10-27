@@ -3,6 +3,14 @@
     <template slot="heading-left">
       <p class="title is-4">{{ artist.name }}</p>
     </template>
+    <template slot="heading-right">
+      <a class="button is-small is-dark is-rounded" @click="play">
+        <span class="icon">
+          <i class="mdi mdi-play"></i>
+        </span>
+        <span>Play</span>
+      </a>
+    </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
       <list-item-album v-for="album in albums.items" :key="album.id" :album="album"></list-item-album>
@@ -45,6 +53,14 @@ export default {
   methods: {
     open_tracks: function () {
       this.$router.push({ path: '/music/artists/' + this.artist.id + '/tracks' })
+    },
+
+    play: function () {
+      webapi.queue_clear().then(() =>
+        webapi.queue_add(this.albums.items.map(a => a.uri).join(',')).then(() =>
+          webapi.player_play()
+        )
+      )
     }
   }
 }
