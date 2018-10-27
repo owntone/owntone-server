@@ -2,8 +2,7 @@
   <div>
     <content-with-heading>
       <template slot="heading-left">
-        <a class="title is-4 has-text-link has-text-weight-normal" @click="open_artist">{{ artist }}</a>
-        <p class="heading">{{ tracks.total }} tracks</p>
+        <p class="title is-4">{{ artist.name }}</p>
       </template>
       <template slot="heading-right">
         <a class="button is-small is-dark is-rounded" @click="play">
@@ -14,7 +13,8 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="track.uri" :links="links"></list-item-track>
+        <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_artist">{{ artist.album_count }} albums</a> | {{ artist.track_count }} tracks</p>
+        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="track.uri"></list-item-track>
       </template>
     </content-with-heading>
   </div>
@@ -28,12 +28,15 @@ import webapi from '@/webapi'
 
 const tracksData = {
   load: function (to) {
-    return webapi.library_artist_tracks(to.params.artist)
+    return Promise.all([
+      webapi.library_artist(to.params.artist_id),
+      webapi.library_artist_tracks(to.params.artist_id)
+    ])
   },
 
   set: function (vm, response) {
-    vm.artist_id = vm.$route.params.artist
-    vm.tracks = response.data.tracks
+    vm.artist = response[0].data
+    vm.tracks = response[1].data.tracks
   }
 }
 
@@ -44,16 +47,15 @@ export default {
 
   data () {
     return {
-      tracks: {},
-      artist: '',
-      artist_id: 0
+      artist: {},
+      tracks: {}
     }
   },
 
   methods: {
     open_artist: function () {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/artists/' + this.artist_id })
+      this.$router.push({ path: '/music/artists/' + this.artist.id })
     },
 
     play: function () {

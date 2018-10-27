@@ -84,7 +84,7 @@ export const router = new VueRouter({
       meta: { show_progress: true }
     },
     {
-      path: '/music/artists/:artist/tracks',
+      path: '/music/artists/:artist_id/tracks',
       name: 'Tracks',
       component: PageTracks,
       meta: { show_progress: true }
