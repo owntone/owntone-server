@@ -11,6 +11,7 @@ dist_htdocs_DATA = \
 	admin.html \
 	android-chrome-96x96.png \
 	apple-touch-icon.png \
+	artwork-default.png \
 	browserconfig.xml \
 	favicon.ico \
 	favicon-16x16.png \
