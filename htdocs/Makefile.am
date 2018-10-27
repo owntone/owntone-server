@@ -82,28 +82,28 @@ htdocsplayercssdir = $(datadir)/forked-daapd/htdocs/player/css
 
 dist_htdocsplayercss_DATA = \
 	player/css/app.css \
-	player/css/app.css.map
+	player/css/app.css.map \
+	player/css/chunk-vendors.css \
+	player/css/chunk-vendors.css.map
 
 htdocsplayerfontsdir = $(datadir)/forked-daapd/htdocs/player/fonts
 
 dist_htdocsplayerfonts_DATA = \
-	player/fonts/materialdesignicons-webfont.13621ea.ttf \
-	player/fonts/materialdesignicons-webfont.5cdddea.woff2 \
-	player/fonts/materialdesignicons-webfont.1bd36f0.woff \
-	player/fonts/materialdesignicons-webfont.dbcb3fe.eot
+	player/fonts/materialdesignicons-webfont.ttf \
+	player/fonts/materialdesignicons-webfont.woff2 \
+	player/fonts/materialdesignicons-webfont.woff \
+	player/fonts/materialdesignicons-webfont.eot
 
 htdocsplayerjsdir = $(datadir)/forked-daapd/htdocs/player/js
 
 dist_htdocsplayerjs_DATA = \
 	player/js/app.js \
 	player/js/app.js.map \
-	player/js/manifest.js \
-	player/js/manifest.js.map \
-	player/js/vendor.js \
-	player/js/vendor.js.map
+	player/js/chunk-vendors.js \
+	player/js/chunk-vendors.js.map
 
 htdocsplayerimgdir = $(datadir)/forked-daapd/htdocs/player/img
 
 dist_htdocsplayerimg_DATA = \
-	player/img/materialdesignicons-webfont.55a80a2.svg
+	player/img/materialdesignicons-webfont.svg
 endif
