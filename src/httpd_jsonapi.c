@@ -1566,10 +1566,11 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 }
 
 static int
-queue_tracks_add_artist(const char *id)
+queue_tracks_add_artist(const char *id, int pos)
 {
   struct query_params query_params;
   struct player_status status;
+  int count = 0;
   int ret = 0;
 
   memset(&query_params, 0, sizeof(struct query_params));
@@ -1581,18 +1582,22 @@ queue_tracks_add_artist(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, -1, NULL, NULL);
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, &count, NULL);
 
   free(query_params.filter);
+
+  if (ret == 0)
+    return count;
 
   return ret;
 }
 
 static int
-queue_tracks_add_album(const char *id)
+queue_tracks_add_album(const char *id, int pos)
 {
   struct query_params query_params;
   struct player_status status;
+  int count = 0;
   int ret = 0;
 
   memset(&query_params, 0, sizeof(struct query_params));
@@ -1604,18 +1609,22 @@ queue_tracks_add_album(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, -1, NULL, NULL);
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, &count, NULL);
 
   free(query_params.filter);
+
+  if (ret == 0)
+    return count;
 
   return ret;
 }
 
 static int
-queue_tracks_add_track(const char *id)
+queue_tracks_add_track(const char *id, int pos)
 {
   struct query_params query_params;
   struct player_status status;
+  int count = 0;
   int ret = 0;
 
   memset(&query_params, 0, sizeof(struct query_params));
@@ -1627,18 +1636,22 @@ queue_tracks_add_track(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, -1, NULL, NULL);
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, &count, NULL);
 
   free(query_params.filter);
+
+  if (ret == 0)
+    return count;
 
   return ret;
 }
 
 static int
-queue_tracks_add_playlist(const char *id)
+queue_tracks_add_playlist(const char *id, int pos)
 {
   struct player_status status;
   int playlist_id;
+  int count = 0;
   int ret;
 
   ret = safe_atoi32(id, &playlist_id);
@@ -1651,7 +1664,10 @@ queue_tracks_add_playlist(const char *id)
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_playlistid(playlist_id, status.shuffle, status.item_id, -1, NULL, NULL);
+  ret = db_queue_add_by_playlistid(playlist_id, status.shuffle, status.item_id, pos, &count, NULL);
+
+  if (ret == 0)
+    return count;
 
   return ret;
 }
@@ -1663,7 +1679,23 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   char *uris;
   char *uri;
   const char *id;
+  int pos = -1;
+  int count = 0;
   int ret = 0;
+
+
+  param = evhttp_find_header(hreq->query, "position");
+  if (param)
+    {
+      if (safe_atoi32(param, &pos) < 0)
+        {
+	  DPRINTF(E_LOG, L_WEB, "Invalid position parameter '%s'\n", param);
+
+	  return HTTP_BADREQUEST;
+	}
+
+      DPRINTF(E_DBG, L_WEB, "Add tracks starting at position '%d\n", pos);
+    }
 
   param = evhttp_find_header(hreq->query, "uris");
   if (!param)
@@ -1678,35 +1710,41 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   do
     {
+      count = 0;
+
       if (strncmp(uri, "library:artist:", strlen("library:artist:")) == 0)
 	{
 	  id = uri + (strlen("library:artist:"));
-	  queue_tracks_add_artist(id);
+	  count = queue_tracks_add_artist(id, pos);
 	}
       else if (strncmp(uri, "library:album:", strlen("library:album:")) == 0)
 	{
 	  id = uri + (strlen("library:album:"));
-	  queue_tracks_add_album(id);
+	  count = queue_tracks_add_album(id, pos);
 	}
       else if (strncmp(uri, "library:track:", strlen("library:track:")) == 0)
 	{
 	  id = uri + (strlen("library:track:"));
-	  queue_tracks_add_track(id);
+	  count = queue_tracks_add_track(id, pos);
 	}
       else if (strncmp(uri, "library:playlist:", strlen("library:playlist:")) == 0)
 	{
 	  id = uri + (strlen("library:playlist:"));
-	  queue_tracks_add_playlist(id);
+	  count = queue_tracks_add_playlist(id, pos);
 	}
       else
 	{
-	  ret = library_queue_add(uri);
+	  ret = library_queue_add(uri, pos, &count, NULL);
 	  if (ret != LIBRARY_OK)
 	    {
 	      DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
 	      break;
 	    }
+	  pos += count;
 	}
+
+      if (pos >= 0)
+	pos += count;
     }
   while ((uri = strtok(NULL, ",")));
 

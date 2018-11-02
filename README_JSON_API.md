@@ -37,7 +37,7 @@ JSON-Object model:
 
 **Endpoint**
 
-```
+```http
 GET /api/player
 ```
 
@@ -57,11 +57,11 @@ GET /api/player
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/player"
 ```
 
-```
+```json
 {
   "state": "pause",
   "repeat": "off",
@@ -81,15 +81,15 @@ Start or resume, pause, stop playback.
 
 **Endpoint**
 
-```
+```http
 PUT /api/player/play
 ```
 
-```
+```http
 PUT /api/player/pause
 ```
 
-```
+```http
 PUT /api/player/stop
 ```
 
@@ -99,15 +99,15 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/play"
 ```
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/pause"
 ```
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/stop"
 ```
 
@@ -118,11 +118,11 @@ Skip forward or backward
 
 **Endpoint**
 
-```
+```http
 PUT /api/player/next
 ```
 
-```
+```http
 PUT /api/player/prev
 ```
 
@@ -132,11 +132,11 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/next"
 ```
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/prev"
 ```
 
@@ -147,7 +147,7 @@ Enable or disable shuffle mode
 
 **Endpoint**
 
-```
+```http
 PUT /api/player/shuffle
 ```
 
@@ -164,7 +164,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/shuffle?state=true"
 ```
 
@@ -175,7 +175,7 @@ Enable or disable consume mode
 
 **Endpoint**
 
-```
+```http
 PUT /api/player/consume
 ```
 
@@ -192,7 +192,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/consume?state=true"
 ```
 
@@ -203,7 +203,7 @@ Change repeat mode
 
 **Endpoint**
 
-```
+```http
 PUT /api/player/repeat
 ```
 
@@ -220,7 +220,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/repeat?state=all"
 ```
 
@@ -231,7 +231,7 @@ Change master volume or volume of a specific output.
 
 **Endpoint**
 
-```
+```http
 PUT /api/player/volume
 ```
 
@@ -249,11 +249,11 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/volume?volume=50"
 ```
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/volume?volume=50&output_id=0"
 ```
 
@@ -264,7 +264,7 @@ Seek to a position in the currently playing track.
 
 **Endpoint**
 
-```
+```http
 PUT /api/player/seek
 ```
 
@@ -281,7 +281,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/player/seek?position_ms=2000"
 ```
 
@@ -302,7 +302,7 @@ curl -X PUT "http://localhost:3689/api/player/seek?position_ms=2000"
 
 **Endpoint**
 
-```
+```http
 GET /api/outputs
 ```
 
@@ -328,11 +328,11 @@ GET /api/outputs
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/outputs"
 ```
 
-```
+```json
 {
   "outputs": [
     {
@@ -376,7 +376,7 @@ with the given ids and disables the remaining outputs.
 
 **Endpoint**
 
-```
+```http
 PUT /api/outputs/set
 ```
 
@@ -392,7 +392,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/outputs/set" --data "{\"outputs\":[\"198018693182577\",\"0\"]}"
 ```
 
@@ -403,7 +403,7 @@ Get an output
 
 **Endpoint**
 
-```
+```http
 GET /api/outputs/{id}
 ```
 
@@ -419,11 +419,11 @@ On success returns the HTTP `200 OK` success status response code. With the resp
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/outputs/0"
 ```
 
-```
+```json
 {
   "id": "0",
   "name": "Computer",
@@ -442,7 +442,7 @@ Enable or disable an output and change its volume.
 
 **Endpoint**
 
-```
+```http
 PUT /api/outputs/{id}
 ```
 
@@ -465,7 +465,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/outputs/0" --data "{\"selected\":true, \"volume\": 50}"
 ```
 
@@ -489,7 +489,7 @@ Lists the items in the current queue
 
 **Endpoint**
 
-```
+```http
 GET /api/queue
 ```
 
@@ -511,11 +511,11 @@ GET /api/queue
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/queue"
 ```
 
-```
+```json
 {
   "version": 833,
   "count": 20,
@@ -553,7 +553,7 @@ Remove all items form the current queue
 
 **Endpoint**
 
-```
+```http
 PUT /api/queue/clear
 ```
 
@@ -563,7 +563,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/queue/clear"
 ```
 
@@ -574,7 +574,7 @@ Add tracks, playlists artists or albums to the current queue
 
 **Endpoint**
 
-```
+```http
 POST /api/queue/items/add
 ```
 
@@ -583,6 +583,7 @@ POST /api/queue/items/add
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`) |
+| position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.  |
 
 **Response**
 
@@ -590,7 +591,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X POST "http://localhost:3689/api/queue/items/add?uris=library:playlist:68,library:artist:2932599850102967727"
 ```
 
@@ -601,7 +602,7 @@ Move a queue item in the current queue
 
 **Endpoint**
 
-```
+```http
 PUT /api/queue/items/{id}
 ```
 
@@ -623,7 +624,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/queue/items/3?new_position=0"
 ```
 
@@ -634,7 +635,7 @@ Remove a queue item from the current queue
 
 **Endpoint**
 
-```
+```http
 DELETE /api/queue/items/{id}
 ```
 
@@ -650,7 +651,7 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/queue/items/2"
 ```
 
@@ -680,7 +681,7 @@ Lists the playlists in your library
 
 **Endpoint**
 
-```
+```http
 GET /api/library/playlists
 ```
 
@@ -703,11 +704,11 @@ GET /api/library/playlists
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/playlists"
 ```
 
-```
+```json
 {
   "items": [
     {
@@ -732,7 +733,7 @@ Get a specific playlists in your library
 
 **Endpoint**
 
-```
+```http
 GET /api/library/playlists/{id}
 ```
 
@@ -749,11 +750,11 @@ On success returns the HTTP `200 OK` success status response code. With the resp
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/playlists/1"
 ```
 
-```
+```json
 {
   "id": 1,
   "name": "radio",
@@ -770,7 +771,7 @@ Lists the tracks in a playlists
 
 **Endpoint**
 
-```
+```http
 GET /api/library/playlists/{id}/tracks
 ```
 
@@ -799,11 +800,11 @@ GET /api/library/playlists/{id}/tracks
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/playlists/1/tracks"
 ```
 
-```
+```json
 {
   "items": [
     {
@@ -843,7 +844,7 @@ Lists the artists in your library
 
 **Endpoint**
 
-```
+```http
 GET /api/library/artists
 ```
 
@@ -866,11 +867,11 @@ GET /api/library/artists
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/artists"
 ```
 
-```
+```json
 {
   "items": [
     {
@@ -897,7 +898,7 @@ Get a specific artist in your library
 
 **Endpoint**
 
-```
+```http
 GET /api/library/artists/{id}
 ```
 
@@ -914,11 +915,11 @@ On success returns the HTTP `200 OK` success status response code. With the resp
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/artists/3815427709949443149"
 ```
 
-```
+```json
 {
   "id": "3815427709949443149",
   "name": "ABAY",
@@ -937,7 +938,7 @@ Lists the albums of an artist
 
 **Endpoint**
 
-```
+```http
 GET /api/library/artists/{id}/albums
 ```
 
@@ -966,11 +967,11 @@ GET /api/library/artists/{id}/albums
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/artists/32561671101664759/albums"
 ```
 
-```
+```json
 {
   "items": [
     {
@@ -998,7 +999,7 @@ Lists the albums in your library
 
 **Endpoint**
 
-```
+```http
 GET /api/library/albums
 ```
 
@@ -1021,11 +1022,11 @@ GET /api/library/albums
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/albums"
 ```
 
-```
+```json
 {
   "items": [
     {
@@ -1053,7 +1054,7 @@ Get a specific album in your library
 
 **Endpoint**
 
-```
+```http
 GET /api/library/albums/{id}
 ```
 
@@ -1070,11 +1071,11 @@ On success returns the HTTP `200 OK` success status response code. With the resp
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/albums/8009851123233197743"
 ```
 
-```
+```json
 {
   "id": "8009851123233197743",
   "name": "Add Violence",
@@ -1094,7 +1095,7 @@ Lists the tracks in an album
 
 **Endpoint**
 
-```
+```http
 GET /api/library/albums/{id}/tracks
 ```
 
@@ -1123,11 +1124,11 @@ GET /api/library/albums/{id}/tracks
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
 ```
 
-```
+```json
 {
   "items": [
     {
@@ -1166,7 +1167,7 @@ Get list of genres
 
 **Endpoint**
 
-```
+```http
 GET /api/library/genres
 ```
 **Response**
@@ -1181,11 +1182,11 @@ GET /api/library/genres
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/genres"
 ```
 
-```
+```json
 {
   "items": [
     {
@@ -1217,7 +1218,7 @@ Lists the albums in a genre
 
 **Endpoint**
 
-```
+```http
 GET api/search?type=albums&expression=genre+is+\"{genre name}\""
 ```
 
@@ -1241,14 +1242,14 @@ GET api/search?type=albums&expression=genre+is+\"{genre name}\""
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Pop\""
 curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Rock%2FPop\""            # Rock/Pop
 curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"Drum%20%26%20Bass\""     # Drum & Bass
 curl -X GET "http://localhost:3689/api/search?type=albums&expression=genre+is+\"%2790s%20Alternative\""  # '90 Alternative
 ```
 
-```
+```json
 {
   "albums": {
     "items": [
@@ -1296,7 +1297,7 @@ Get information about the number of tracks, artists and albums and the total pla
 
 **Endpoint**
 
-```
+```http
 GET /api/library/count
 ```
 
@@ -1318,11 +1319,11 @@ GET /api/library/count
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/library/count?expression=data_kind+is+file"
 ```
 
-```
+```json
 {
   "tracks": 6811,
   "artists": 355,
@@ -1348,7 +1349,7 @@ Search for playlists, artists, albums, tracks, genres that include the given que
 
 **Endpoint**
 
-```
+```http
 GET /api/search
 ```
 
@@ -1376,11 +1377,11 @@ GET /api/search
 
 Search for all tracks, artists, albums and playlists that contain "the" in their title and return the first two results for each type:
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/search?type=tracks,artists,albums,playlists&query=the&offset=0&limit=2"
 ```
 
-```
+```json
 {
   "tracks": {
     "items": [
@@ -1491,7 +1492,7 @@ Search for artists, albums, tracks by a smart playlist query expression (see [RE
 
 **Endpoint**
 
-```
+```http
 GET /api/search
 ```
 
@@ -1517,7 +1518,7 @@ GET /api/search
 
 Search for music tracks ordered descending by the time added to the library and limit result to 2 items:
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/search?type=tracks&expression=media_kind+is+music+order+by+time_added+desc&offset=0&limit=2"
 ```
 
@@ -1534,7 +1535,7 @@ curl -X GET "http://localhost:3689/api/search?type=tracks&expression=media_kind+
 
 **Endpoint**
 
-```
+```http
 GET /api/config
 ```
 
@@ -1549,11 +1550,11 @@ GET /api/config
 
 **Example**
 
-```
+```shell
 curl -X GET "http://localhost:3689/api/config"
 ```
 
-```
+```json
 {
   "websocket_port": 3688,
   "version": "25.0",
@@ -1597,7 +1598,7 @@ will send a message each time one of the events occurred.
 
 **Example**
 
-```
+```shell
 curl --include \
      --no-buffer \
      --header "Connection: Upgrade" \
@@ -1611,7 +1612,7 @@ curl --include \
      --data "{ \"notify\": [ \"player\" ] }"
 ```
 
-```
+```json
 { 
   "notify": [
     "player"

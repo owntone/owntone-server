@@ -474,7 +474,11 @@ struct db_queue_item
 struct db_queue_add_info
 {
   int queue_version;
+  int start_pos;
   int pos;
+  int shuffle_pos;
+  int count;
+  int new_item_id;
 };
 
 char *
@@ -787,9 +791,9 @@ int
 db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id);
 
 int
-db_queue_add_start(struct db_queue_add_info *queue_add_info);
+db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos);
 
-void
+int
 db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret);
 
 int

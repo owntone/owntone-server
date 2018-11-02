@@ -4678,7 +4678,7 @@ queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_v
 
   query = sqlite3_mprintf(Q_TMPL,
 			  item->file_id, item->song_length, item->data_kind, item->media_kind,
-			  pos, pos, item->path, item->virtual_path, item->title,
+			  pos, shuffle_pos, item->path, item->virtual_path, item->title,
 			  item->artist, item->album_artist, item->album, item->genre, item->songalbumid,
 			  item->time_modified, item->artist_sort, item->album_sort, item->album_artist_sort, item->year,
 			  item->track, item->disc, queue_version);
@@ -4760,28 +4760,48 @@ db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
 }
 
 int
-db_queue_add_start(struct db_queue_add_info *queue_add_info)
+db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos)
 {
+  int queue_count;
   int ret = 0;
 
   memset(queue_add_info, 0, sizeof(struct db_queue_add_info));
   queue_add_info->queue_version = queue_transaction_begin();
 
-  queue_add_info->pos = db_queue_get_count();
-  if (queue_add_info->pos < 0)
+  queue_count = db_queue_get_count();
+  if (queue_count < 0)
     {
       ret = -1;
       queue_transaction_end(ret, queue_add_info->queue_version);
       return ret;
     }
 
-   return 0;
+  queue_add_info->pos = queue_count;
+  queue_add_info->shuffle_pos = queue_count;
+
+  if (pos >= 0 && pos < queue_count)
+    queue_add_info->pos = pos;
+
+  queue_add_info->start_pos = queue_add_info->pos;
+
+  return 0;
 }
 
-void
+int
 db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret)
 {
+  char *query;
+
+  // Update pos for all items from the given position
+  if (ret == 0)
+    {
+      query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos >= %d AND queue_version < %d;",
+			      queue_add_info->count, queue_add_info->queue_version, queue_add_info->start_pos, queue_add_info->queue_version);
+      ret = db_query_run(query, 1, 0);
+    }
+
   queue_transaction_end(ret, queue_add_info->queue_version);
+  return ret;
 }
 
 int
@@ -4790,9 +4810,16 @@ db_queue_add_item(struct db_queue_add_info *queue_add_info, struct db_queue_item
   int ret;
 
   fixup_tags_queue_item(item);
-  ret = queue_add_item(item, queue_add_info->pos, queue_add_info->pos, queue_add_info->queue_version);
+  ret = queue_add_item(item, queue_add_info->pos, queue_add_info->shuffle_pos, queue_add_info->queue_version);
   if (ret == 0)
-    queue_add_info->pos++;
+    {
+      queue_add_info->pos++;
+      queue_add_info->shuffle_pos++;
+      queue_add_info->count++;
+
+      if (queue_add_info->new_item_id == 0)
+	queue_add_info->new_item_id = (int) sqlite3_last_insert_rowid(hdl);
+    }
 
   return ret;
 
