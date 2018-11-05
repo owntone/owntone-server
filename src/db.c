@@ -5963,6 +5963,20 @@ db_queue_reshuffle(uint32_t item_id)
   return ret;
 }
 
+/*
+ * Increment queue version (triggers queue change event)
+ */
+int
+db_queue_inc_version()
+{
+  int queue_version;
+
+  queue_version = queue_transaction_begin();
+  queue_transaction_end(0, queue_version);
+
+  return 0;
+}
+
 int
 db_queue_get_count()
 {

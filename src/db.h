@@ -854,6 +854,9 @@ int
 db_queue_reshuffle(uint32_t item_id);
 
 int
+db_queue_inc_version(void);
+
+int
 db_queue_get_count();
 
 int
