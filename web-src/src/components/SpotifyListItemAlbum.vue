@@ -68,12 +68,8 @@ export default {
 
   methods: {
     play: function () {
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.album.uri).then(() =>
-          webapi.player_play()
-        )
-      )
       this.show_details_modal = false
+      webapi.player_play_uri(this.album.uri, false)
     },
 
     queue_add: function () {

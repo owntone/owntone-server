@@ -83,12 +83,8 @@ export default {
 
   methods: {
     play: function () {
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.context_uri).then(() =>
-          webapi.player_playpos(this.position)
-        )
-      )
       this.show_details_modal = false
+      webapi.player_play_uri(this.context_uri, false, this.position)
     },
 
     queue_add: function () {

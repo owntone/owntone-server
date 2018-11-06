@@ -99,20 +99,12 @@ export default {
   methods: {
     play: function () {
       this.show_details_modal = false
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.context_uri).then(() =>
-          webapi.player_playpos(this.position)
-        )
-      )
+      webapi.player_play_uri(this.context_uri, false, this.position)
     },
 
     play_track: function () {
       this.show_details_modal = false
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.track.uri).then(() =>
-          webapi.player_play()
-        )
-      )
+      webapi.player_play_uri(this.track.uri, false)
     },
 
     queue_add: function () {

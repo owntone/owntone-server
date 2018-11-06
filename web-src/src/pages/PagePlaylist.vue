@@ -5,10 +5,7 @@
     </template>
     <template slot="heading-right">
       <a class="button is-small is-dark is-rounded" @click="play">
-        <span class="icon">
-          <i class="mdi mdi-play"></i>
-        </span>
-        <span>Play</span>
+        <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
       </a>
     </template>
     <template slot="content">
@@ -52,11 +49,7 @@ export default {
 
   methods: {
     play: function () {
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.playlist.uri).then(() =>
-          webapi.player_play()
-        )
-      )
+      webapi.player_play_uri(this.playlist.uri, true)
     }
   }
 }

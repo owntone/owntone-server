@@ -53,11 +53,7 @@ export default {
 
   methods: {
     play: function () {
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.album.uri).then(() =>
-          webapi.player_play()
-        )
-      )
+      webapi.player_play_uri(this.album.uri, false)
     }
   }
 }

@@ -64,29 +64,27 @@ export default {
   methods: {
     play: function () {
       this.show_details_modal = false
-      webapi.queue_clear().then(() =>
-        webapi.library_genre(this.genre.name).then(({ data }) =>
-          webapi.queue_add(data.albums.items.map(a => a.uri).join(',')).then(() =>
-            webapi.player_play()
-          )
-        )
+      webapi.library_genre(this.genre.name).then(({ data }) =>
+        webapi.player_play_uri(data.albums.items.map(a => a.uri).join(','), false)
       )
     },
 
     queue_add: function () {
       this.show_details_modal = false
       webapi.library_genre(this.genre.name).then(({ data }) =>
-        webapi.queue_add(data.albums.items.map(a => a.uri).join(','))
+        webapi.queue_add(data.albums.items.map(a => a.uri).join(',')).then(() =>
+          this.$store.dispatch('add_notification', { text: 'Genre albums appended to queue', type: 'info', timeout: 1500 })
+        )
       )
-      this.$store.dispatch('add_notification', { text: 'Genre albums appended to queue', type: 'info', timeout: 1500 })
     },
 
     queue_add_next: function () {
       this.show_details_modal = false
       webapi.library_genre(this.genre.name).then(({ data }) =>
-        webapi.queue_add_next(data.albums.items.map(a => a.uri).join(','))
+        webapi.queue_add_next(data.albums.items.map(a => a.uri).join(',')).then(() =>
+          this.$store.dispatch('add_notification', { text: 'Genre albums playing next', type: 'info', timeout: 1500 })
+        )
       )
-      this.$store.dispatch('add_notification', { text: 'Genre albums playing next', type: 'info', timeout: 1500 })
     },
 
     open_genre: function () {
