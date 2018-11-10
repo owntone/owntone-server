@@ -1,18 +1,23 @@
 <template>
-  <section class="hero">
-    <div class="hero-body">
-      <div class="container has-text-centered">
-        <p class="heading">NOW PLAYING</p>
-        <h1 class="title is-3">
+  <section class="hero fd-is-fullheight">
+    <div class="hero-head fd-has-padding-left-right">
+      <div class="container has-text-centered fd-has-margin-top">
+        <h1 class="title is-4">
           {{ now_playing.title }}
         </h1>
-        <h2 class="title is-5">
+        <h2 class="title is-6">
           {{ now_playing.artist }}
         </h2>
-        <h3 class="subtitle is-5">
+        <h3 class="subtitle is-6">
           {{ now_playing.album }}
-          <img class="column is-one-third is-offset-one-third" img :src="artwork_uri" is-square @error="alt_artwork_uri">
         </h3>
+      </div>
+    </div>
+    <div class="hero-body fd-is-fullheight-body has-text-centered" v-show="artwork_visible">
+      <img :src="artwork_url" class="fd-has-shadow fd-image-fullheight" @load="artwork_loaded" @error="artwork_error">
+    </div>
+    <div class="hero-foot fd-has-padding-left-right">
+      <div class="container has-text-centered fd-has-margin-bottom">
         <p class="control has-text-centered fd-progress-now-playing">
           <range-slider
             class="seek-slider fd-has-action"
@@ -27,14 +32,14 @@
         <p class="content">
           <span>{{ item_progress_ms | duration }} / {{ now_playing.length_ms | duration }}</span>
         </p>
-        <p class="control has-text-centered">
+        <div class="buttons has-addons is-centered">
           <player-button-previous class="button is-medium"></player-button-previous>
           <player-button-play-pause class="button is-medium" icon_style="mdi-36px"></player-button-play-pause>
           <player-button-next class="button is-medium"></player-button-next>
           <player-button-repeat class="button is-medium is-light"></player-button-repeat>
           <player-button-shuffle class="button is-medium is-light"></player-button-shuffle>
           <player-button-consume class="button is-medium is-light"></player-button-consume>
-        </p>
+        </div>
       </div>
     </div>
   </section>
@@ -58,7 +63,8 @@ export default {
   data () {
     return {
       item_progress_ms: 0,
-      interval_id: 0
+      interval_id: 0,
+      artwork_visible: false
     }
   },
 
@@ -86,12 +92,12 @@ export default {
     now_playing () {
       return this.$store.getters.now_playing
     },
-    artwork_uri () {
-      if (this.state.artwork_url === undefined) {
-        return ''
+
+    artwork_url: function () {
+      if (this.now_playing.artwork_url && this.now_playing.artwork_url.startsWith('/')) {
+        return this.now_playing.artwork_url + '?maxwidth=600&maxheight=600'
       }
-      // for dev add 'http://localhost:3689'
-      return this.state.artwork_url + '?item_id=' + this.state.item_id
+      return this.now_playing.artwork_url
     }
   },
 
@@ -106,8 +112,12 @@ export default {
       })
     },
 
-    alt_artwork_uri: function (event) {
-      event.target.src = '/artwork-default.png'
+    artwork_loaded: function () {
+      this.artwork_visible = true
+    },
+
+    artwork_error: function () {
+      this.artwork_visible = false
     }
   },
 

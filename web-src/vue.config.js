@@ -7,7 +7,7 @@ module.exports = {
 
   // Output path for the generated index.html
   indexPath: 'index.html',
-  
+
   assetsDir: 'player',
 
   // Do not add hashes to the generated js/css filenames, would otherwise
@@ -24,6 +24,9 @@ module.exports = {
     // localhost:3689
     proxy: {
       '/api': {
+        target: 'http://localhost:3689',
+      },
+      '/artwork': {
         target: 'http://localhost:3689',
       }
     }

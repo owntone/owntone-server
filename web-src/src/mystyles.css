@@ -30,10 +30,38 @@ a.navbar-item {
   cursor: move;
 }
 
+.fd-has-margin-top {
+  margin-top: 24px;
+}
+
+.fd-has-margin-bottom {
+  margin-bottom: 24px;
+}
+
+.fd-has-padding-left-right {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
 .fd-is-text-clipped {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.fd-is-fullheight {
+  height: calc(100vh - 3.25rem - 3.25rem);
+}
+
+.fd-is-fullheight-body {
+  flex-shrink: 1;
+  overflow: hidden;
+  height: 100%
+}
+
+.fd-image-fullheight {
+  height: 100%;
+  width: auto;
 }
 
 .fd-tabs-section {
@@ -42,6 +70,10 @@ a.navbar-item {
 
 .fd-progress-bar {
   top: 52px !important;
+}
+
+.fd-has-shadow {
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
 .sortable-chosen .media-right {
