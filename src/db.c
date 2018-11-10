@@ -4788,7 +4788,7 @@ db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos)
 }
 
 int
-db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret)
+db_queue_add_end(struct db_queue_add_info *queue_add_info, char reshuffle, uint32_t item_id, int ret)
 {
   char *query;
 
@@ -4798,6 +4798,12 @@ db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret)
       query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos >= %d AND queue_version < %d;",
 			      queue_add_info->count, queue_add_info->queue_version, queue_add_info->start_pos, queue_add_info->queue_version);
       ret = db_query_run(query, 1, 0);
+    }
+
+  // Reshuffle after adding new items
+  if (ret == 0 && reshuffle)
+    {
+      ret = queue_reshuffle(item_id, queue_add_info->queue_version);
     }
 
   queue_transaction_end(ret, queue_add_info->queue_version);

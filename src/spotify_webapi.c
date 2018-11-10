@@ -997,7 +997,7 @@ map_track_to_queueitem(struct db_queue_item *item, const struct spotify_track *t
 }
 
 static int
-queue_add_track(const char *uri, int position, int *count, int *new_item_id)
+queue_add_track(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   json_object *response;
   struct spotify_track track;
@@ -1019,7 +1019,7 @@ queue_add_track(const char *uri, int position, int *count, int *new_item_id)
   if (ret == 0)
     {
       ret = db_queue_add_item(&queue_add_info, &item);
-      ret = db_queue_add_end(&queue_add_info, ret);
+      ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
       if (ret == 0)
 	{
 	  if (count)
@@ -1068,7 +1068,7 @@ queue_add_album_tracks(json_object *item, int index, int total, void *arg)
 }
 
 static int
-queue_add_album(const char *uri, int position, int *count, int *new_item_id)
+queue_add_album(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   char *album_endpoint_uri = NULL;
   char *endpoint_uri = NULL;
@@ -1088,7 +1088,7 @@ queue_add_album(const char *uri, int position, int *count, int *new_item_id)
 
   ret = request_pagingobject_endpoint(endpoint_uri, queue_add_album_tracks, NULL, NULL, true, &param);
 
-  ret = db_queue_add_end(&param.queue_add_info, ret);
+  ret = db_queue_add_end(&param.queue_add_info, reshuffle, item_id, ret);
   if (ret == 0 && count)
     *count = param.queue_add_info.count;
 
@@ -1137,7 +1137,7 @@ queue_add_playlist_tracks(json_object *item, int index, int total, void *arg)
 }
 
 static int
-queue_add_playlist(const char *uri, int position, int *count, int *new_item_id)
+queue_add_playlist(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   char *endpoint_uri;
   struct db_queue_add_info queue_add_info;
@@ -1151,7 +1151,7 @@ queue_add_playlist(const char *uri, int position, int *count, int *new_item_id)
 
   ret = request_pagingobject_endpoint(endpoint_uri, queue_add_playlist_tracks, NULL, NULL, true, &queue_add_info);
 
-  ret = db_queue_add_end(&queue_add_info, ret);
+  ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
   if (ret == 0 && count)
     *count = queue_add_info.count;
 
@@ -1161,21 +1161,21 @@ queue_add_playlist(const char *uri, int position, int *count, int *new_item_id)
 }
 
 static int
-queue_add(const char *uri, int position, int *count, int *new_item_id)
+queue_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   if (strncasecmp(uri, "spotify:track:", strlen("spotify:track:")) == 0)
     {
-      queue_add_track(uri, position, count, new_item_id);
+      queue_add_track(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
   else if (strncasecmp(uri, "spotify:album:", strlen("spotify:album:")) == 0)
     {
-      queue_add_album(uri, position, count, new_item_id);
+      queue_add_album(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
   else if (strncasecmp(uri, "spotify:", strlen("spotify:")) == 0)
     {
-      queue_add_playlist(uri, position, count, new_item_id);
+      queue_add_playlist(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
 

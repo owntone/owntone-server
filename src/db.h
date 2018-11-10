@@ -794,7 +794,7 @@ int
 db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos);
 
 int
-db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret);
+db_queue_add_end(struct db_queue_add_info *queue_add_info, char reshuffle, uint32_t item_id, int ret);
 
 int
 db_queue_add_item(struct db_queue_add_info *queue_add_info, struct db_queue_item *item);

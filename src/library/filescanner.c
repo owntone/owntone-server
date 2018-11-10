@@ -1676,7 +1676,7 @@ map_media_file_to_queue_item(struct db_queue_item *queue_item, struct media_file
 }
 
 static int
-queue_add_stream(const char *path, int position, int *count, int *new_item_id)
+queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct media_file_info mfi;
   struct db_queue_item item;
@@ -1694,7 +1694,7 @@ queue_add_stream(const char *path, int position, int *count, int *new_item_id)
   if (ret == 0)
     {
       ret = db_queue_add_item(&queue_add_info, &item);
-      ret = db_queue_add_end(&queue_add_info, ret);
+      ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
       if (ret == 0)
 	{
 	  if (count)
@@ -1711,11 +1711,11 @@ queue_add_stream(const char *path, int position, int *count, int *new_item_id)
 }
 
 static int
-queue_add(const char *uri, int position, int *count, int *new_item_id)
+queue_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   if (strncasecmp(uri, "http://", strlen("http://")) == 0)
     {
-      queue_add_stream(uri, position, count, new_item_id);
+      queue_add_stream(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
 
