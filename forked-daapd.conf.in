@@ -246,6 +246,11 @@ audio {
 	# speaker list
 #	exclude = false
 
+	# Enable this option to keep a particular AirPlay device in the speaker
+	# list and thus ignore mdns notifications about it no longer being
+	# present. The speaker will remain until restart of forked-daapd.
+#	permanent = false
+
 	# AirPlay password
 #	password = "s1kr3t"
 #}

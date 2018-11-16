@@ -4594,6 +4594,12 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       return;
     }
+  if (airplay && cfg_getbool(airplay, "permanent") && (port < 0))
+    {
+      DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' disappeared, but set as permanent in config\n", at_name);
+
+      return;
+    }
 
   CHECK_NULL(L_RAOP, rd = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_RAOP, re = calloc(1, sizeof(struct raop_extra)));
