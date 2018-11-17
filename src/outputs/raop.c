@@ -159,8 +159,11 @@ struct raop_extra
 {
   enum raop_devtype devtype;
 
+  // "ek" param in the mdns announcement
   bool encrypt;
+  // "md" param in the mdns announcement
   bool wants_metadata;
+  // Part of the "et" param in the mdns announcement
   bool supports_auth_setup;
 };
 
@@ -234,6 +237,15 @@ struct raop_metadata
   uint64_t end;
 
   struct raop_metadata *next;
+};
+
+struct raop_airplay_announcement
+{
+  uint64_t id;
+  char *name;
+  int family;
+
+  struct raop_airplay_announcement *next;
 };
 
 struct raop_service
@@ -338,6 +350,9 @@ static struct timeval keep_alive_tv = { 30, 0 };
 
 /* Sessions */
 static struct raop_session *sessions;
+
+/* _airplay._tcp announcements */
+static struct raop_airplay_announcement *raop_airplay_announcements;
 
 
 /* ALAC bits writer - big endian
@@ -4557,6 +4572,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 {
   struct output_device *rd;
   struct raop_extra *re;
+  struct raop_airplay_announcement *an;
   cfg_t *airplay;
   const char *p;
   char *at_name;
@@ -4594,12 +4610,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       return;
     }
-  if (airplay && cfg_getbool(airplay, "permanent") && (port < 0))
-    {
-      DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' disappeared, but set as permanent in config\n", at_name);
-
-      return;
-    }
 
   CHECK_NULL(L_RAOP, rd = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_RAOP, re = calloc(1, sizeof(struct raop_extra)));
@@ -4612,7 +4622,21 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (port < 0)
     {
-      /* Device stopped advertising */
+      // Device stopped advertising, but let's see if we really should remove it
+      if (airplay && cfg_getbool(airplay, "permanent"))
+	{
+	  DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' disappeared, but set as permanent in config\n", at_name);
+	  goto free_rd;
+	}
+      for (an = raop_airplay_announcements; an; an = an->next)
+	{
+	  if (!(id == an->id && family == an->family))
+	    continue;
+
+	  DPRINTF(E_DBG, L_RAOP, "Removal of AirPlay device '%s' deferred for _airplay._tcp announcement\n", at_name);
+	  goto free_rd;
+	}
+
       switch (family)
 	{
 	  case AF_INET:
@@ -4631,7 +4655,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       return;
     }
 
-  /* Protocol */
+  // Protocol
   p = keyval_get(txt, "tp");
   if (!p)
     {
@@ -4654,7 +4678,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       goto free_rd;
     }
 
-  /* Password protection */
+  // Password protection
   password = NULL;
   p = keyval_get(txt, "pw");
   if (!p)
@@ -4686,7 +4710,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   rd->password = password;
 
-  /* Device verification */
+  // Device verification
   p = keyval_get(txt, "sf");
   if (p && (safe_hextou64(p, &sf) == 0))
     {
@@ -4696,7 +4720,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       // Note: device_add() in player.c will get the auth key from the db if available
     }
 
-  /* Device type */
+  // Device type
   re->devtype = RAOP_DEV_OTHER;
   p = keyval_get(txt, "am");
 
@@ -4713,14 +4737,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else if (*p == '\0')
     DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s': am has no value\n", at_name);
 
-  /* Encrypt stream */
+  // Encrypt stream
   p = keyval_get(txt, "ek");
   if (p && (*p == '1'))
     re->encrypt = 1;
   else
     re->encrypt = 0;
 
-  /* Metadata support */
+  // Metadata support
   p = keyval_get(txt, "md");
   if (p && (*p != '\0'))
     re->wants_metadata = 1;
@@ -4774,6 +4798,103 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
  free_rd:
   outputs_device_free(rd);
+}
+
+// Here is the deal with browsing for _airplay._tcp (even though we mainly use
+// _raop._tcp): Some devices (Apple HomePod) stop announcing _raop._tcp records
+// despite being online. They will, however, keep announcing _airplay._tcp, so
+// we make it a condition that _airplay._tcp also times out before removing a
+// device.
+static void
+raop_device_airplay_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
+{
+  struct raop_airplay_announcement *an;
+  struct raop_airplay_announcement *prev;
+  const char *p;
+  char deviceid[13];
+  char raopname[128];
+  int i;
+  uint64_t id;
+  int ret;
+
+  DPRINTF(E_DBG, L_RAOP, "_airplay._tcp event from '%s' (address '%s', port %d, family %d)\n", name, address, port, family);
+
+#ifdef DEBUG
+  for (an = raop_airplay_announcements; an; an = an->next)
+    {
+      snprintf(raopname, sizeof(raopname), "%" PRIX64 "@%s", an->id, an->name);
+      DPRINTF(E_DBG, L_RAOP, "Dump of _airplay._tcp announcements in list: '%s' (family %d)\n", raopname, an->family);
+    }
+#endif
+
+  // Device is gone (note, depending on order it might already have been removed)
+  if (port < 0)
+    {
+      prev = NULL;
+      for (an = raop_airplay_announcements; an; an = an->next)
+	{
+	  if (strcmp(name, an->name) == 0 && family == an->family)
+	    break;
+
+	  prev = an;
+	}
+
+      if (!an)
+	return;
+
+      // Remove from list so raop_device_cb will not find it
+      if (!prev)
+	raop_airplay_announcements = an->next;
+      else
+	prev->next = an->next;
+
+      snprintf(raopname, sizeof(raopname), "%" PRIX64 "@%s", an->id, an->name);
+      raop_device_cb(raopname, type, domain, hostname, family, address, port, txt);
+
+      free(an->name);
+      free(an);
+      return;
+    }
+
+  // Find device's ID
+  p = keyval_get(txt, "deviceid");
+  if (!p)
+    {
+      DPRINTF(E_WARN, L_RAOP, "_airplay._tcp event from '%s' without deviceid in txt field\n", name);
+      return;
+    }
+
+  // Converts p="AB:CD:EF:01:02:03" -> deviceid="ABCDEF0123456"
+  for (i = 0; (*p != '\0') && (i < sizeof(deviceid)); p++)
+    {
+      if (*p == ':')
+	continue;
+
+      deviceid[i] = *p;
+      i++;
+    }
+  deviceid[sizeof(deviceid) - 1] = '\0';
+
+  ret = safe_hextou64(deviceid, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not read AirPlay device ID ('%s') from '%s'\n", deviceid, name);
+      return;
+    }
+
+  // If we already have the announcement registered we are done
+  for (an = raop_airplay_announcements; an; an = an->next)
+    {
+      if (id == an->id && family == an->family)
+	return;
+    }
+
+  an = calloc(1, sizeof(struct raop_airplay_announcement));
+  an->id     = id;
+  an->name   = strdup(name);
+  an->family = family;
+  an->next   = raop_airplay_announcements;
+  raop_airplay_announcements = an;
 }
 
 static int
@@ -5034,11 +5155,18 @@ raop_init(void)
   ret = mdns_browse("_raop._tcp", family, raop_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices\n");
+      DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices (_raop._tcp)\n");
 
       goto out_stop_control;
     }
 
+  ret = mdns_browse("_airplay._tcp", family, raop_device_airplay_cb, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices (_airplay._tcp)\n");
+
+      goto out_stop_control;
+    }
 
   return 0;
 
