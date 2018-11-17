@@ -794,7 +794,7 @@ int
 db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos);
 
 int
-db_queue_add_end(struct db_queue_add_info *queue_add_info, int ret);
+db_queue_add_end(struct db_queue_add_info *queue_add_info, char reshuffle, uint32_t item_id, int ret);
 
 int
 db_queue_add_item(struct db_queue_add_info *queue_add_info, struct db_queue_item *item);
@@ -852,6 +852,9 @@ db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_
 
 int
 db_queue_reshuffle(uint32_t item_id);
+
+int
+db_queue_inc_version(void);
 
 int
 db_queue_get_count();

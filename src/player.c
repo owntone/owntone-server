@@ -2852,29 +2852,31 @@ static enum command_state
 shuffle_set(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
+  char new_shuffle;
   uint32_t cur_id;
 
-  switch (cmdarg->intval)
-    {
-      case 1:
-	if (!shuffle)
-	  {
-	    cur_id = cur_streaming ? cur_streaming->item_id : 0;
-	    db_queue_reshuffle(cur_id);
-	  }
-	/* FALLTHROUGH */
-      case 0:
-	shuffle = cmdarg->intval;
-	break;
+  new_shuffle = (cmdarg->intval == 0) ? 0 : 1;
 
-      default:
-	DPRINTF(E_LOG, L_PLAYER, "Invalid shuffle mode: %d\n", cmdarg->intval);
-	*retval = -1;
-	return COMMAND_END;
+  // Ignore unchanged shuffle mode requests
+  if (new_shuffle == shuffle)
+    goto out;
+
+  // Update queue and notify listeners
+  if (new_shuffle)
+    {
+      cur_id = cur_streaming ? cur_streaming->item_id : 0;
+      db_queue_reshuffle(cur_id);
+    }
+  else
+    {
+      db_queue_inc_version();
     }
 
+  // Update shuffle mode and notify listeners
+  shuffle = new_shuffle;
   listener_notify(LISTENER_OPTIONS);
 
+ out:
   *retval = 0;
   return COMMAND_END;
 }

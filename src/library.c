@@ -145,10 +145,13 @@ library_add_media(struct media_file_info *mfi)
 int
 library_queue_add(const char *path, int position, int *count, int *new_item_id)
 {
+  struct player_status status;
   int i;
   int ret;
 
   DPRINTF(E_DBG, L_LIB, "Add items for path '%s' to the queue\n", path);
+
+  player_get_status(&status);
 
   ret = LIBRARY_PATH_INVALID;
   for (i = 0; sources[i] && ret == LIBRARY_PATH_INVALID; i++)
@@ -159,7 +162,7 @@ library_queue_add(const char *path, int position, int *count, int *new_item_id)
 	  continue;
 	}
 
-      ret = sources[i]->queue_add(path, position, count, new_item_id);
+      ret = sources[i]->queue_add(path, position, status.shuffle, status.item_id, count, new_item_id);
 
       if (ret == LIBRARY_OK)
 	{

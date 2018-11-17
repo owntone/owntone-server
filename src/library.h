@@ -84,7 +84,7 @@ struct library_source
   /*
    * Add item for the given path to the current queue
    */
-  int (*queue_add)(const char *path, int position, int *count, int *new_item_id);
+  int (*queue_add)(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
 };
 
 void
