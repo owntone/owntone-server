@@ -5,7 +5,7 @@ Available API endpoints:
 * [Player](#player): control playback, volume, shuffle/repeat modes
 * [Outputs / Speakers](#outputs--speakers): list available outputs and enable/disable outputs
 * [Queue](#queue): list, add or modify the current queue
-* [Library](#library): list playlists, artists, albums and tracks from your library
+* [Library](#library): list playlists, artists, albums and tracks from your library or trigger library rescan
 * [Search](#search): search for playlists, artists, albums and tracks
 * [Server info](#server-info): get server information
 * [Push notifications](#push-notifications): receive push notifications
@@ -661,6 +661,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 
 | Method    | Endpoint                                                    | Description                          |
 | --------- | ----------------------------------------------------------- | ------------------------------------ |
+| GET       | [/api/library](#library-information)                        | Get library information              |
 | GET       | [/api/library/playlists](#list-playlists)                   | Get a list of playlists              |
 | GET       | [/api/library/playlists/{id}](#get-a-playlist)              | Get a playlist                       |
 | GET       | [/api/library/playlists/{id}/tracks](#list-playlist-tracks) | Get list of tracks for a playlist    |
@@ -672,7 +673,50 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
+| GET       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
 
+
+
+### Library information
+
+List some library stats
+
+**Endpoint**
+
+```http
+GET /api/library
+```
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| songs           | integer  | Array of [`playlist`](#playlist-object) objects           |
+| db_playtime     | integer  | Total playtime of all songs in the library  |
+| artists         | integer  | Number of album artists in the library    |
+| albums          | integer  | Number of albums in the library           |
+| started_at      | string   | Server startup time (timestamp in `ISO 8601` format)     |
+| updated_at      | string   | Last library update (timestamp in `ISO 8601` format)     |
+| updating        | boolean  | `true` if library rescan is in progress  |
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/library"
+```
+
+```json
+{
+  "songs": 217,
+  "db_playtime": 66811,
+  "artists": 9,
+  "albums": 19,
+  "started_at": "2018-11-19T19:06:08Z",
+  "updated_at": "2018-11-19T19:06:16Z",
+  "updating": false
+}
+```
 
 
 ### List playlists
@@ -1329,6 +1373,39 @@ curl -X GET "http://localhost:3689/api/library/count?expression=data_kind+is+fil
   "artists": 355,
   "albums": 646,
   "db_playtime": 1590767
+}
+```
+
+
+### Trigger rescan
+
+Trigger a library rescan
+
+**Endpoint**
+
+```http
+GET /api/update
+```
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/update"
+```
+
+```json
+{
+  "songs": 217,
+  "db_playtime": 66811,
+  "artists": 9,
+  "albums": 19,
+  "started_at": "2018-11-19T19:06:08Z",
+  "updated_at": "2018-11-19T19:06:16Z",
+  "updating": false
 }
 ```
 
