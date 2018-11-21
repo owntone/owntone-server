@@ -1681,6 +1681,22 @@ static const struct db_upgrade_query db_upgrade_v1910_queries[] =
     { U_V1910_SCVER_MINOR,    "set schema_version_minor to 10" },
   };
 
+#define U_v1911_ALTER_QUEUE_ADD_COMPOSER \
+  "ALTER TABLE queue ADD COLUMN composer VARCHAR(1024) DEFAULT NULL;"
+
+#define U_v1911_SCVER_MAJOR			\
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_v1911_SCVER_MINOR			\
+  "UPDATE admin SET value = '11' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1911_queries[] =
+  {
+    { U_v1911_ALTER_QUEUE_ADD_COMPOSER,   "alter table queue add column composer" },
+
+    { U_v1911_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_v1911_SCVER_MINOR,    "set schema_version_minor to 11" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1859,6 +1875,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1909:
       ret = db_generic_upgrade(hdl, db_upgrade_v1910_queries, ARRAY_SIZE(db_upgrade_v1910_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1910:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1911_queries, ARRAY_SIZE(db_upgrade_v1911_queries));
       if (ret < 0)
 	return -1;
       break;

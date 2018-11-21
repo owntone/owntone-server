@@ -452,6 +452,7 @@ struct db_queue_item
   char *title;
   char *artist;
   char *album_artist;
+  char *composer;
   char *album;
   char *genre;
 
