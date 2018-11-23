@@ -1715,6 +1715,7 @@ curl --include \
 | album_sort         | string   | Album sort name                           |
 | album_artist       | string   | Album artist name                         |
 | album_artist_sort  | string   | Album artist sort name                    |
+| composer           | string   | Composer (optional)                       |
 | genre              | string   | Genre                                     |
 | year               | integer  | Release year                              |
 | track_number       | integer  | Track number                              |
@@ -1778,6 +1779,7 @@ curl --include \
 | album_artist       | string   | Album artist name                         |
 | album_artist_sort  | string   | Album artist sort name                    |
 | album_artist_id    | string   | Album artist id                           |
+| composer           | string   | Track composer                            |
 | genre              | string   | Genre                                     |
 | year               | integer  | Release year                              |
 | track_number       | integer  | Track number                              |
