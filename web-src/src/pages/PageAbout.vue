@@ -68,7 +68,7 @@
           <div class="column is-four-fifths">
             <div class="content has-text-centered-mobile">
               <p class="is-size-7">Compiled with support for {{ config.buildoptions | join }}.</p>
-              <p class="is-size-7"><a href="https://github.com/chme/forked-daapd-web">Web interface</a> v{{ version }} built with <a href="http://bulma.io">Bulma</a>, <a href="https://materialdesignicons.com/">Material Design Icons</a>, <a href="https://vuejs.org/">Vue.js</a>, <a href="https://github.com/mzabriskie/axios">axios</a> and <a href="https://github.com/chme/forked-daapd-web/network/dependencies">more</a>.</p>
+              <p class="is-size-7">Web interface built with <a href="http://bulma.io">Bulma</a>, <a href="https://materialdesignicons.com/">Material Design Icons</a>, <a href="https://vuejs.org/">Vue.js</a>, <a href="https://github.com/mzabriskie/axios">axios</a> and <a href="https://github.com/ejurgensen/forked-daapd/network/dependencies">more</a>.</p>
             </div>
           </div>
         </div>
@@ -82,12 +82,6 @@ import webapi from '@/webapi'
 
 export default {
   name: 'PageAbout',
-
-  data () {
-    return {
-      'version': process.env.V2
-    }
-  },
 
   computed: {
     config () {

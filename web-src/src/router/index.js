@@ -11,6 +11,9 @@ import PageArtists from '@/pages/PageArtists'
 import PageArtist from '@/pages/PageArtist'
 import PageAlbums from '@/pages/PageAlbums'
 import PageAlbum from '@/pages/PageAlbum'
+import PageGenres from '@/pages/PageGenres'
+import PageGenre from '@/pages/PageGenre'
+import PageTracks from '@/pages/PageTracks'
 import PagePodcasts from '@/pages/PagePodcasts'
 import PagePodcast from '@/pages/PagePodcast'
 import PageAudiobooks from '@/pages/PageAudiobooks'
@@ -81,6 +84,12 @@ export const router = new VueRouter({
       meta: { show_progress: true }
     },
     {
+      path: '/music/artists/:artist_id/tracks',
+      name: 'Tracks',
+      component: PageTracks,
+      meta: { show_progress: true }
+    },
+    {
       path: '/music/albums',
       name: 'Albums',
       component: PageAlbums,
@@ -90,6 +99,18 @@ export const router = new VueRouter({
       path: '/music/albums/:album_id',
       name: 'Album',
       component: PageAlbum,
+      meta: { show_progress: true }
+    },
+    {
+      path: '/music/genres',
+      name: 'Genres',
+      component: PageGenres,
+      meta: { show_progress: true }
+    },
+    {
+      path: '/music/genres/:genre',
+      name: 'Genre',
+      component: PageGenre,
       meta: { show_progress: true }
     },
     {
@@ -168,7 +189,7 @@ export const router = new VueRouter({
       meta: { show_progress: true }
     },
     {
-      path: '/music/spotify/playlists/:user_id/:playlist_id',
+      path: '/music/spotify/playlists/:playlist_id',
       name: 'Spotify Playlist',
       component: SpotifyPagePlaylist,
       meta: { show_progress: true }

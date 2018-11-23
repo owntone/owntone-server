@@ -34,6 +34,9 @@
               <a class="card-footer-item has-text-dark" @click="queue_add">
                 <span class="icon"><i class="mdi mdi-playlist-plus mdi-18px"></i></span> <span>Add</span>
               </a>
+              <a class="card-footer-item has-text-dark" @click="queue_add_next">
+                <span class="icon"><i class="mdi mdi-playlist-play mdi-18px"></i></span> <span>Add Next</span>
+              </a>
               <a class="card-footer-item has-text-dark" @click="play">
                 <span class="icon"><i class="mdi mdi-play mdi-18px"></i></span> <span>Play</span>
               </a>
@@ -64,16 +67,19 @@ export default {
   methods: {
     play: function () {
       this.show_details_modal = false
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.album.uri).then(() =>
-          webapi.player_play()
-        )
-      )
+      webapi.player_play_uri(this.album.uri, false)
     },
 
     queue_add: function () {
       this.show_details_modal = false
       webapi.queue_add(this.album.uri).then(() =>
+        this.$store.dispatch('add_notification', { text: 'Album tracks appended to queue', type: 'info', timeout: 2000 })
+      )
+    },
+
+    queue_add_next: function () {
+      this.show_details_modal = false
+      webapi.queue_add_next(this.album.uri).then(() =>
         this.$store.dispatch('add_notification', { text: 'Album tracks appended to queue', type: 'info', timeout: 2000 })
       )
     },

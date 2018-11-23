@@ -5,10 +5,7 @@
     </template>
     <template slot="heading-right">
       <a class="button is-small is-dark is-rounded" @click="play">
-        <span class="icon">
-          <i class="mdi mdi-play"></i>
-        </span>
-        <span>Play</span>
+        <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
       </a>
     </template>
     <template slot="content">
@@ -33,8 +30,8 @@ const playlistData = {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return Promise.all([
-      spotifyApi.getPlaylist(to.params.user_id, to.params.playlist_id),
-      spotifyApi.getPlaylistTracks(to.params.user_id, to.params.playlist_id, { limit: 50, offset: 0 })
+      spotifyApi.getPlaylist(to.params.playlist_id),
+      spotifyApi.getPlaylistTracks(to.params.playlist_id, { limit: 50, offset: 0 })
     ])
   },
 
@@ -65,7 +62,7 @@ export default {
     load_next: function ($state) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
-      spotifyApi.getPlaylistTracks(this.playlist.owner.id, this.playlist.id, { limit: 50, offset: this.offset }).then(data => {
+      spotifyApi.getPlaylistTracks(this.playlist.id, { limit: 50, offset: this.offset }).then(data => {
         this.append_tracks(data, $state)
       })
     },
@@ -84,12 +81,8 @@ export default {
     },
 
     play: function () {
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.playlist.uri).then(() =>
-          webapi.player_play()
-        )
-      )
       this.show_details_modal = false
+      webapi.player_play_uri(this.playlist.uri, true)
     }
   }
 }

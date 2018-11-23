@@ -36,6 +36,9 @@
                 <a class="card-footer-item has-text-dark" @click="queue_add">
                   <span class="icon"><i class="mdi mdi-playlist-plus mdi-18px"></i></span> <span>Add</span>
                 </a>
+                <a class="card-footer-item has-text-dark" @click="queue_add_next">
+                  <span class="icon"><i class="mdi mdi-playlist-play mdi-18px"></i></span> <span>Add Next</span>
+                </a>
                 <a class="card-footer-item has-text-dark" @click="play">
                   <span class="icon"><i class="mdi mdi-play mdi-18px"></i></span> <span>Play</span>
                 </a>
@@ -65,17 +68,20 @@ export default {
 
   methods: {
     play: function () {
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.playlist.uri).then(() =>
-          webapi.player_play()
-        )
-      )
       this.show_details_modal = false
+      webapi.player_play_uri(this.playlist.uri, false)
     },
 
     queue_add: function () {
       webapi.queue_add(this.playlist.uri).then(() =>
         this.$store.dispatch('add_notification', { text: 'Playlist appended to queue', type: 'info', timeout: 2000 })
+      )
+      this.show_details_modal = false
+    },
+
+    queue_add_next: function () {
+      webapi.queue_add_next(this.playlist.uri).then(() =>
+        this.$store.dispatch('add_notification', { text: 'Playlist tracks appended to queue', type: 'info', timeout: 2000 })
       )
       this.show_details_modal = false
     },
@@ -90,7 +96,7 @@ export default {
 
     open_playlist: function () {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/spotify/playlists/' + this.playlist.owner.id + '/' + this.playlist.id })
+      this.$router.push({ path: '/music/spotify/playlists/' + this.playlist.id })
     }
   }
 }

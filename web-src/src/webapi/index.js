@@ -45,12 +45,30 @@ export default {
     return axios.post('/api/queue/items/add?uris=' + uri)
   },
 
+  queue_add_next (uri) {
+    var position = 0
+    if (store.getters.now_playing && store.getters.now_playing.id) {
+      position = store.getters.now_playing.position + 1
+    }
+    return axios.post('/api/queue/items/add?uris=' + uri + '&position=' + position)
+  },
+
   player_status () {
     return axios.get('/api/player')
   },
 
-  player_play () {
-    return axios.put('/api/player/play')
+  player_play_uri (uris, shuffle, position = 0) {
+    return this.queue_clear().then(() =>
+      this.player_shuffle(shuffle).then(() =>
+        this.queue_add(uris).then(() =>
+          this.player_play({ 'position': position })
+        )
+      )
+    )
+  },
+
+  player_play (options = {}) {
+    return axios.put('/api/player/play', undefined, { params: options })
   },
 
   player_playpos (position) {
@@ -128,6 +146,33 @@ export default {
 
   library_album_tracks (albumId) {
     return axios.get('/api/library/albums/' + albumId + '/tracks')
+  },
+
+  library_genres () {
+    return axios.get('/api/library/genres')
+  },
+
+  library_genre (genre) {
+    var genreParams = {
+      'type': 'albums',
+      'media_kind': 'music',
+      'expression': 'genre is "' + genre + '"'
+    }
+    return axios.get('/api/search', {
+      params: genreParams
+    })
+  },
+
+  library_artist_tracks (artist) {
+    if (artist) {
+      var artistParams = {
+        'type': 'tracks',
+        'expression': 'songartistid is "' + artist + '"'
+      }
+      return axios.get('/api/search', {
+        params: artistParams
+      })
+    }
   },
 
   library_podcasts () {

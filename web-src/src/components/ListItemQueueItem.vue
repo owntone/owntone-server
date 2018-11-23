@@ -107,7 +107,7 @@ export default {
 
     play: function () {
       this.show_details_modal = false
-      webapi.player_playid(this.item.id)
+      webapi.player_play({ 'item_id': this.item.id })
     }
   }
 }

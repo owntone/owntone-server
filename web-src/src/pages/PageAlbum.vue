@@ -5,12 +5,16 @@
       <a class="title is-4 has-text-link has-text-weight-normal" @click="open_artist">{{ album.artist }}</a>
     </template>
     <template slot="heading-right">
-      <a class="button is-small is-dark is-rounded" @click="play">
-        <span class="icon">
-          <i class="mdi mdi-play"></i>
-        </span>
-        <span>Play</span>
-      </a>
+      <div class="buttons is-centered">
+        <a class="button is-small is-dark is-rounded" @click="play">
+          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+        </a>
+        <!--
+        <a class="button is-small is-dark is-rounded" @click="play">
+          <span class="icon"><i class="mdi mdi-play"></i></span> <span>Play</span>
+        </a>
+        -->
+      </div>
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ album.track_count }} tracks</p>
@@ -58,11 +62,7 @@ export default {
     },
 
     play: function () {
-      webapi.queue_clear().then(() =>
-        webapi.queue_add(this.album.uri).then(() =>
-          webapi.player_play()
-        )
-      )
+      webapi.player_play_uri(this.album.uri, true)
     }
   }
 }

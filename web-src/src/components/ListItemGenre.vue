@@ -1,7 +1,7 @@
 <template>
   <div class="media">
-    <div class="media-content fd-has-action is-clipped" v-on:click="open_artist">
-      <h1 class="title is-6">{{ artist.name }}</h1>
+    <div class="media-content fd-has-action is-clipped" v-on:click="open_genre">
+      <h1 class="title is-6">{{ genre.name }}</h1>
     </div>
     <div class="media-right">
       <a @click="show_details_modal = true">
@@ -12,28 +12,30 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_artist">{{ artist.name }}</a>
+                <a class="has-text-link" @click="open_genre">{{ genre.name }}</a>
               </p>
+<!--
               <div class="content is-small">
                 <p>
                   <span class="heading">Albums</span>
-                  <span class="title is-6">{{ artist.album_count }}</span>
+                  <span class="title is-6">{{ genre.album_count }}</span>
                 </p>
                 <p>
                   <span class="heading">Tracks</span>
-                  <span class="title is-6">{{ artist.track_count }}</span>
+                  <span class="title is-6">{{ genre.track_count }}</span>
                 </p>
               </div>
+ -->
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"><i class="mdi mdi-playlist-plus mdi-18px"></i></span> <span>Add</span>
+                <span class="icon"><i class="mdi mdi-playlist-plus mdi-12px"></i></span> <span>Add</span>
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"><i class="mdi mdi-playlist-play mdi-18px"></i></span> <span>Add Next</span>
+                <span class="icon"><i class="mdi mdi-playlist-play mdi-12px"></i></span> <span>Add Next</span>
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><i class="mdi mdi-play mdi-18px"></i></span> <span>Play</span>
+                <span class="icon"><i class="mdi mdi-play mdi-12px"></i></span> <span>Play</span>
               </a>
             </footer>
           </div>
@@ -48,10 +50,10 @@ import ModalDialog from '@/components/ModalDialog'
 import webapi from '@/webapi'
 
 export default {
-  name: 'PartArtist',
+  name: 'PartGenre',
   components: { ModalDialog },
 
-  props: ['artist'],
+  props: [ 'genre' ],
 
   data () {
     return {
@@ -62,26 +64,32 @@ export default {
   methods: {
     play: function () {
       this.show_details_modal = false
-      webapi.player_play_uri(this.artist.uri, false)
+      webapi.library_genre(this.genre.name).then(({ data }) =>
+        webapi.player_play_uri(data.albums.items.map(a => a.uri).join(','), false)
+      )
     },
 
     queue_add: function () {
       this.show_details_modal = false
-      webapi.queue_add(this.artist.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Artist tracks appended to queue', type: 'info', timeout: 2000 })
+      webapi.library_genre(this.genre.name).then(({ data }) =>
+        webapi.queue_add(data.albums.items.map(a => a.uri).join(',')).then(() =>
+          this.$store.dispatch('add_notification', { text: 'Genre albums appended to queue', type: 'info', timeout: 1500 })
+        )
       )
     },
 
     queue_add_next: function () {
       this.show_details_modal = false
-      webapi.queue_add_next(this.artist.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Album tracks appended to queue', type: 'info', timeout: 2000 })
+      webapi.library_genre(this.genre.name).then(({ data }) =>
+        webapi.queue_add_next(data.albums.items.map(a => a.uri).join(',')).then(() =>
+          this.$store.dispatch('add_notification', { text: 'Genre albums playing next', type: 'info', timeout: 1500 })
+        )
       )
     },
 
-    open_artist: function () {
+    open_genre: function () {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/artists/' + this.artist.id })
+      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
     }
   }
 }
