@@ -190,6 +190,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_string(item, "album_artist", dbmfi->album_artist);
   safe_json_add_string(item, "album_artist_sort", dbmfi->album_artist_sort);
   safe_json_add_string(item, "album_artist_id", dbmfi->songartistid);
+  safe_json_add_string(item, "composer", dbmfi->composer);
   safe_json_add_string(item, "genre", dbmfi->genre);
   safe_json_add_int_from_string(item, "year", dbmfi->year);
   safe_json_add_int_from_string(item, "track_number", dbmfi->track);
@@ -1535,6 +1536,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   safe_json_add_string(item, "album_sort", queue_item->album_sort);
   safe_json_add_string(item, "album_artist", queue_item->album_artist);
   safe_json_add_string(item, "album_artist_sort", queue_item->album_artist_sort);
+  safe_json_add_string(item, "composer", queue_item->composer);
   safe_json_add_string(item, "genre", queue_item->genre);
 
   json_object_object_add(item, "year", json_object_new_int(queue_item->year));
