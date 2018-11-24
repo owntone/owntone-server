@@ -3850,13 +3850,37 @@ db_group_persistentid_byid(int id, int64_t *persistentid)
 
 /* Directories */
 int
-db_directory_id_byvirtualpath(char *virtual_path)
+db_directory_id_byvirtualpath(const char *virtual_path)
 {
 #define Q_TMPL "SELECT d.id FROM directories d WHERE d.virtual_path = '%q';"
   char *query;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL, virtual_path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_file_id_byquery(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_directory_id_bypath(const char *path)
+{
+#define Q_TMPL "SELECT d.id FROM directories d WHERE d.path = '%q';"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");

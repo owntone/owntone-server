@@ -699,7 +699,10 @@ db_group_persistentid_byid(int id, int64_t *persistentid);
 
 /* Directories */
 int
-db_directory_id_byvirtualpath(char *virtual_path);
+db_directory_id_byvirtualpath(const char *virtual_path);
+
+int
+db_directory_id_bypath(const char *path);
 
 int
 db_directory_enum_start(struct directory_enum *de);
