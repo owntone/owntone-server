@@ -412,6 +412,7 @@ enum directory_ids {
 struct directory_info {
   uint32_t id;
   char *virtual_path;
+  char *path;
   uint32_t db_timestamp;
   uint32_t disabled;
   uint32_t parent_id;

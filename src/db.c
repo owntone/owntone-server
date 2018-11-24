@@ -3944,6 +3944,7 @@ db_directory_enum_fetch(struct directory_enum *de, struct directory_info *di)
   disabled = sqlite3_column_int64(de->stmt, 3);
   di->disabled = (disabled != 0);
   di->parent_id = sqlite3_column_int(de->stmt, 4);
+  di->path = (char *)sqlite3_column_text(de->stmt, 5);
 
   return 0;
 }
@@ -3961,8 +3962,8 @@ db_directory_enum_end(struct directory_enum *de)
 static int
 db_directory_add(struct directory_info *di, int *id)
 {
-#define QADD_TMPL "INSERT INTO directories (virtual_path, db_timestamp, disabled, parent_id)" \
-                  " VALUES (TRIM(%Q), %d, %d, %d);"
+#define QADD_TMPL "INSERT INTO directories (virtual_path, db_timestamp, disabled, parent_id, path)" \
+                  " VALUES (TRIM(%Q), %d, %d, %d, TRIM(%Q));"
 
   char *query;
   char *errmsg;
@@ -3977,7 +3978,7 @@ db_directory_add(struct directory_info *di, int *id)
       DPRINTF(E_LOG, L_DB, "Directory name ends with space: '%s'\n", di->virtual_path);
     }
 
-  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id);
+  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->path);
 
   if (!query)
     {
@@ -4016,14 +4017,14 @@ db_directory_add(struct directory_info *di, int *id)
 static int
 db_directory_update(struct directory_info *di)
 {
-#define QADD_TMPL "UPDATE directories SET virtual_path = TRIM(%Q), db_timestamp = %d, disabled = %d, parent_id = %d" \
+#define QADD_TMPL "UPDATE directories SET virtual_path = TRIM(%Q), db_timestamp = %d, disabled = %d, parent_id = %d, path = TRIM(%Q)" \
                   " WHERE id = %d;"
   char *query;
   char *errmsg;
   int ret;
 
   /* Add */
-  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->id);
+  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->path, di->id);
 
   if (!query)
     {
