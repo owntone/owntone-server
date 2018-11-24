@@ -163,6 +163,17 @@ export default {
     })
   },
 
+  library_genre_tracks (genre) {
+    var genreParams = {
+      'type': 'tracks',
+      'media_kind': 'music',
+      'expression': 'genre is "' + genre + '"'
+    }
+    return axios.get('/api/search', {
+      params: genreParams
+    })
+  },
+
   library_artist_tracks (artist) {
     if (artist) {
       var artistParams = {
