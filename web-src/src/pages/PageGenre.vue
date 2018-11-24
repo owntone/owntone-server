@@ -5,7 +5,7 @@
     <content-with-heading>
       <template slot="heading-left">
         <p class="title is-4">{{ name }}</p>
-        <p class="heading">{{ genreAlbums.total }} albums</p>
+        <p class="heading">{{ genreAlbums.total }} albums | <a class="has-text-link" @click="open_tracks">{{ tracks }} tracks</a></p>
       </template>
       <template slot="heading-right">
         <a class="button is-small is-dark is-rounded" @click="play">
@@ -65,6 +65,11 @@ export default {
   },
 
   methods: {
+    open_tracks: function () {
+      this.show_details_modal = false
+      this.$router.push({ path: '/music/genres/' + this.name + '/tracks' })
+    },
+
     play: function () {
       webapi.player_play_uri(this.genreAlbums.items.map(a => a.uri).join(','), true)
     }
