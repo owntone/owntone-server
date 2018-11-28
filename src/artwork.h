@@ -5,6 +5,9 @@
 #define ART_FMT_PNG     1
 #define ART_FMT_JPEG    2
 
+#define ART_DEFAULT_HEIGHT 600
+#define ART_DEFAULT_WIDTH  600
+
 #include <event2/buffer.h>
 
 /*
