@@ -4665,13 +4665,13 @@ queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_v
 		    "pos, shuffle_pos, path, virtual_path, title, "			\
 		    "artist, album_artist, album, genre, songalbumid, "			\
 		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
-		    "track, disc, queue_version)" 					\
+		    "track, disc, artwork_url, queue_version)" 				\
 		"VALUES"                                           			\
 		    "(NULL, %d, %d, %d, %d, "						\
 		    "%d, %d, %Q, %Q, %Q, "						\
 		    "%Q, %Q, %Q, %Q, %" PRIi64 ", "					\
 		    "%d, %Q, %Q, %Q, %d, "						\
-		    "%d, %d, %d);"
+		    "%d, %d, %Q, %d);"
 
   char *query;
   int ret;
@@ -4681,7 +4681,7 @@ queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_v
 			  pos, shuffle_pos, item->path, item->virtual_path, item->title,
 			  item->artist, item->album_artist, item->album, item->genre, item->songalbumid,
 			  item->time_modified, item->artist_sort, item->album_sort, item->album_artist_sort, item->year,
-			  item->track, item->disc, queue_version);
+			  item->track, item->disc, item->artwork_url, queue_version);
   ret = db_query_run(query, 1, 0);
 
   return ret;
