@@ -954,9 +954,6 @@ process_items(struct artwork_ctx *ctx, int item_mode)
       if (!ctx->persistentid)
 	safe_atoi64(dbmfi.songalbumid, &ctx->persistentid);
 
-      if (item_mode && !ctx->individual)
-	goto no_artwork;
-
       ret = (safe_atoi32(dbmfi.id, &ctx->id) < 0) ||
             (safe_atou32(dbmfi.data_kind, &data_kind) < 0) ||
             (data_kind > 30);
@@ -965,6 +962,9 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 	  DPRINTF(E_LOG, L_ART, "Error converting dbmfi id or data_kind to number\n");
 	  continue;
 	}
+
+      if (item_mode && !ctx->individual && data_kind != DATA_KIND_HTTP)
+	goto no_artwork;
 
       for (i = 0; artwork_item_source[i].handler; i++)
 	{
