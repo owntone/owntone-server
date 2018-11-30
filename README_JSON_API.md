@@ -1724,6 +1724,7 @@ curl --include \
 | data_kind          | string   | Data type of this track: `file`, `url`, `spotify`, `pipe` |
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
+| artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
 
 
 ### `playlist` object
@@ -1748,6 +1749,7 @@ curl --include \
 | track_count     | integer  | Number of tracks                          |
 | length_ms       | integer  | Total length of tracks in milliseconds    |
 | uri             | string   | Resource identifier                       |
+| artwork_url     | string   | *(optional)* [Artwork url](#artwork-urls) |
 
 
 ### `album` object
@@ -1762,6 +1764,7 @@ curl --include \
 | track_count     | integer  | Number of tracks                          |
 | length_ms       | integer  | Total length of tracks in milliseconds    |
 | uri             | string   | Resource identifier                       |
+| artwork_url     | string   | *(optional)* [Artwork url](#artwork-urls) |
 
 
 ### `track` object
@@ -1792,6 +1795,7 @@ curl --include \
 | data_kind          | string   | Data type of this track: `file`, `stream`, `spotify`, `pipe` |
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
+| artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
 
 
 ### `paging` object
@@ -1810,3 +1814,13 @@ curl --include \
 | --------------- | -------- | ----------------------------------------- |
 | name            | string   | Name of genre                             |
 
+
+
+### Artwork urls
+
+Artwork urls in `queue item`, `artist`, `album` and `track` objects can be either relative urls or absolute urls to the artwork image.
+Absolute artwork urls are pointing to external artwork images (e. g. for radio streams that provide artwork metadata), while relative artwork urls are served from forked-daapd. 
+
+It is possible to add the query parameters `maxwidth` and/or `maxheight` to relative artwork urls, in order to get a smaller image (forked-daapd only scales down never up).
+
+Note that even if a relative artwork url attribute is present, it is not guaranteed to exist.
