@@ -593,7 +593,7 @@ source_pause(uint64_t pos)
   if (!ps_playing)
     return -1;
 
-  if (cur_streaming && (cur_streaming == ps_playing))
+  if (cur_streaming)
     {
       if (ps_playing != cur_streaming)
 	{
@@ -2003,6 +2003,19 @@ playback_start_item(void *arg, int *retval)
       // Resume playback of current source
       ps = source_now_playing();
       DPRINTF(E_DBG, L_PLAYER, "Resume playback of '%s' (id=%d, item-id=%d)\n", ps->path, ps->id, ps->item_id);
+
+      // Check if source needs to be reopend
+      if (!ps->setup_done)
+        {
+	  DPRINTF(E_INFO, L_PLAYER, "Opening '%s'\n", ps->path);
+
+	  ret = input_setup(ps);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s'\n", ps->path);
+	      return -1;
+	    }
+	}
     }
   else
     {
@@ -2330,10 +2343,11 @@ playback_pause_bh(void *arg, int *retval)
 
   if (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Source is not pausable, abort playback\n");
+      // For stream and pipe input we stop reading from the source but still switch to the paused state.
+      // (Resuming playback will reopen the source)
+      DPRINTF(E_DBG, L_PLAYER, "Source is not pausable, stop playback\n");
 
-      playback_abort();
-      return COMMAND_END;
+      input_stop(cur_streaming);
     }
   status_update(PLAY_PAUSED);
 
