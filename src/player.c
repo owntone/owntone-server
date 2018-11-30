@@ -593,7 +593,7 @@ source_pause(uint64_t pos)
   if (!ps_playing)
     return -1;
 
-  if (cur_streaming && (cur_streaming == ps_playing))
+  if (cur_streaming)
     {
       if (ps_playing != cur_streaming)
 	{
