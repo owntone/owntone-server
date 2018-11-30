@@ -1525,7 +1525,8 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   else
     json_object_object_add(item, "position", json_object_new_int(queue_item->pos));
 
-  json_object_object_add(item, "track_id", json_object_new_int(queue_item->file_id));
+  if (queue_item->file_id > 0 && queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
+    json_object_object_add(item, "track_id", json_object_new_int(queue_item->file_id));
 
   safe_json_add_string(item, "title", queue_item->title);
   safe_json_add_string(item, "artist", queue_item->artist);
@@ -1546,20 +1547,26 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 
   safe_json_add_string(item, "path", queue_item->path);
 
-  if (queue_item->file_id > 0)
+  if (queue_item->file_id > 0 && queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
       ret = snprintf(uri, sizeof(uri), "%s:%s:%d", "library", "track", queue_item->file_id);
       if (ret < sizeof(uri))
 	json_object_object_add(item, "uri", json_object_new_string(uri));
-
-      ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d", queue_item->file_id);
-      if (ret < sizeof(artwork_url))
-	json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
     }
   else
     {
       safe_json_add_string(item, "uri", queue_item->path);
+    }
+
+  if (queue_item->artwork_url)
+    {
       safe_json_add_string(item, "artwork_url", queue_item->artwork_url);
+    }
+  else if (queue_item->file_id > 0 && queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
+    {
+      ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d", queue_item->file_id);
+      if (ret < sizeof(artwork_url))
+	json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
     }
 
   return item;

@@ -639,7 +639,7 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 	  else
 	    metadata->title = strdup(metadata->title);
 	}
-      else if ((strncmp(icy_token, "StreamUrl", strlen("StreamUrl")) == 0) && !metadata->artwork_url)
+      else if ((strncmp(icy_token, "StreamUrl", strlen("StreamUrl")) == 0) && !metadata->artwork_url && strlen(ptr) > 0)
 	{
 	  metadata->artwork_url = strdup(ptr);
 	}

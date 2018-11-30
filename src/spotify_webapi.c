@@ -26,6 +26,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "artwork.h"
 #include "cache.h"
 #include "conffile.h"
 #include "db.h"
@@ -53,6 +54,7 @@ struct spotify_album
   const char *release_date_precision;
   int release_year;
   const char *uri;
+  const char *artwork_url;
 };
 
 struct spotify_track
@@ -71,6 +73,7 @@ struct spotify_track
   const char *name;
   int track_number;
   const char *uri;
+  const char *artwork_url;
 
   bool is_playable;
   const char *restrictions;
@@ -577,12 +580,50 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
   return 0;
 }
 
+static const char *
+get_album_image(json_object *jsonalbum)
+{
+  json_object *jsonimages;
+  json_object *jsonimage;
+  int image_count;
+  int index;
+  const char *artwork_url;
+  int width;
+  int temp;
+
+  artwork_url = NULL;
+  temp = 0;
+  width = 0;
+
+  if (json_object_object_get_ex(jsonalbum, "images", &jsonimages))
+    {
+      // Find image closest to ART_DEFAULT_WIDTH
+      image_count = json_object_array_length(jsonimages);
+      for (index = 0; index < image_count; index++)
+        {
+	  jsonimage = json_object_array_get_idx(jsonimages, index);
+	  if (jsonimage)
+	    {
+	      temp = jparse_int_from_obj(jsonimage, "width");
+
+	      if (temp > width && temp < ART_DEFAULT_WIDTH)
+		{
+		  artwork_url = jparse_str_from_obj(jsonimage, "url");
+		  width = temp;
+		}
+	    }
+	}
+    }
+
+  return artwork_url;
+}
+
 static void
 parse_metadata_track(json_object *jsontrack, struct spotify_track *track)
 {
-  json_object* jsonalbum;
-  json_object* jsonartists;
-  json_object* needle;
+  json_object *jsonalbum;
+  json_object *jsonartists;
+  json_object *needle;
 
   memset(track, 0, sizeof(struct spotify_track));
 
@@ -591,6 +632,8 @@ parse_metadata_track(json_object *jsontrack, struct spotify_track *track)
       track->album = jparse_str_from_obj(jsonalbum, "name");
       if (json_object_object_get_ex(jsonalbum, "artists", &jsonartists))
 	track->album_artist = jparse_str_from_array(jsonartists, 0, "name");
+
+      track->artwork_url = get_album_image(jsonalbum);
     }
 
   if (json_object_object_get_ex(jsontrack, "artists", &jsonartists))
@@ -657,6 +700,8 @@ parse_metadata_album(json_object *jsonalbum, struct spotify_album *album)
   album->release_date = jparse_str_from_obj(jsonalbum, "release_date");
   album->release_date_precision = jparse_str_from_obj(jsonalbum, "release_date_precision");
   album->release_year = get_year_from_date(album->release_date);
+
+  album->artwork_url = get_album_image(jsonalbum);
 
   // TODO Genre is an array of strings ('genres'), but it is always empty (https://github.com/spotify/web-api/issues/157)
   //album->genre = jparse_str_from_obj(jsonalbum, "genre");
@@ -976,11 +1021,13 @@ map_track_to_queueitem(struct db_queue_item *item, const struct spotify_track *t
     {
       item->album_artist = safe_strdup(album->artist);
       item->album = safe_strdup(album->name);
+      item->artwork_url = safe_strdup(album->artwork_url);
     }
   else
     {
       item->album_artist = safe_strdup(track->album_artist);
       item->album = safe_strdup(track->album);
+      item->artwork_url = safe_strdup(track->artwork_url);
     }
 
   item->disc = track->disc_number;
