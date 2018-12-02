@@ -1327,6 +1327,7 @@ static int
 play_item_at_position(const char *param)
 {
   uint32_t position;
+  struct player_status status;
   struct db_queue_item *queue_item;
   int ret;
 
@@ -1338,7 +1339,9 @@ play_item_at_position(const char *param)
       return HTTP_BADREQUEST;
     }
 
-  queue_item = db_queue_fetch_bypos(position, 0);
+  player_get_status(&status);
+
+  queue_item = db_queue_fetch_bypos(position, status.shuffle);
   if (!queue_item)
     {
       DPRINTF(E_LOG, L_WEB, "No queue item at position '%d'\n", position);
