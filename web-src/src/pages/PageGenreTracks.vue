@@ -12,7 +12,7 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_genre">albums</a> | tracks</p>
-        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="track.uri" :links="links"></list-item-track>
+        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="tracks.items.map(a => a.uri).join(',')" :links="links"></list-item-track>
       </template>
     </content-with-heading>
   </div>
