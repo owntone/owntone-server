@@ -57,7 +57,7 @@ export default {
     return axios.get('/api/player')
   },
 
-  player_play_uri (uris, shuffle, position = 0) {
+  player_play_uri (uris, shuffle, position = undefined) {
     return this.queue_clear().then(() =>
       this.player_shuffle(shuffle).then(() =>
         this.queue_add(uris).then(() =>
