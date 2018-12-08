@@ -3,7 +3,6 @@
     <content-with-heading>
       <template slot="heading-left">
         <p class="title is-4">{{ genre }}</p>
-        <p class="heading">{{ tracks.total }} tracks</p>
       </template>
       <template slot="heading-right">
         <a class="button is-small is-dark is-rounded" @click="play">
@@ -11,7 +10,7 @@
         </a>
       </template>
       <template slot="content">
-        <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_genre">albums</a> | tracks</p>
+        <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_genre">albums</a> | {{ tracks.total }} tracks</p>
         <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="tracks.items.map(a => a.uri).join(',')" :links="links"></list-item-track>
       </template>
     </content-with-heading>

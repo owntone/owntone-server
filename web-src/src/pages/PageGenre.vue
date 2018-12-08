@@ -1,11 +1,8 @@
 <template>
   <div>
-    <tabs-music></tabs-music>
-
     <content-with-heading>
       <template slot="heading-left">
         <p class="title is-4">{{ name }}</p>
-        <p class="heading">{{ genreAlbums.total }} albums | <a class="has-text-link" @click="open_tracks">{{ tracks }} tracks</a></p>
       </template>
       <template slot="heading-right">
         <a class="button is-small is-dark is-rounded" @click="play">
@@ -13,6 +10,7 @@
         </a>
       </template>
       <template slot="content">
+        <p class="heading has-text-centered-mobile">{{ genreAlbums.total }} albums | <a class="has-text-link" @click="open_tracks">{{ tracks }} tracks</a></p>
         <list-item-albums v-for="album in genreAlbums.items" :key="album.id" :album="album" :links="links"></list-item-albums>
       </template>
     </content-with-heading>
