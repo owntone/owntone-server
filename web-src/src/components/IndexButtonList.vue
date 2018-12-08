@@ -1,0 +1,29 @@
+<template>
+  <div class="buttons is-centered fd-is-square">
+    <a v-for="char in filtered_index" :key="char" class="button is-small" @click="nav(char)">{{ char }}</a>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'IndexButtonList',
+
+  props: ['index'],
+
+  computed: {
+    filtered_index () {
+      const specialChars = '!"#$%&\'()*+,-./:;<=>?@[\\]^`{|}~'
+      return this.index.filter(c => !specialChars.includes(c))
+    }
+  },
+
+  methods: {
+    nav: function (id) {
+      this.$router.push({ path: this.$router.currentRoute.path + '#index_' + id })
+    }
+  }
+}
+</script>
+
+<style>
+</style>

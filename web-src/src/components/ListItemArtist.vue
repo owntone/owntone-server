@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media" :id="'index_' + anchor">
     <div class="media-content fd-has-action is-clipped" v-on:click="open_artist">
       <h1 class="title is-6">{{ artist.name }}</h1>
     </div>
@@ -51,7 +51,7 @@ export default {
   name: 'PartArtist',
   components: { ModalDialog },
 
-  props: ['artist'],
+  props: ['artist', 'anchor'],
 
   data () {
     return {

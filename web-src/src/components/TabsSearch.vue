@@ -1,5 +1,5 @@
 <template>
-  <section class="section fd-tabs-section" v-if="spotify_enabled">
+  <section class="section fd-remove-padding-bottom" v-if="spotify_enabled">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">

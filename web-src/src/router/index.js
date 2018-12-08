@@ -75,7 +75,7 @@ export const router = new VueRouter({
       path: '/music/artists',
       name: 'Artists',
       component: PageArtists,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/artists/:artist_id',
@@ -93,7 +93,7 @@ export const router = new VueRouter({
       path: '/music/albums',
       name: 'Albums',
       component: PageAlbums,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/albums/:album_id',
@@ -105,7 +105,7 @@ export const router = new VueRouter({
       path: '/music/genres',
       name: 'Genres',
       component: PageGenres,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/genres/:genre',
@@ -201,10 +201,25 @@ export const router = new VueRouter({
     }
   ],
   scrollBehavior (to, from, savedPosition) {
+    // console.log(to.path + '_' + from.path + '__' + to.hash + ' savedPosition:' + savedPosition)
     if (savedPosition) {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve(savedPosition)
+        }, 500)
+      })
+    } else if (to.path === from.path && to.hash) {
+      return { selector: to.hash, offset: { x: 0, y: 90 } }
+    } else if (to.hash) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          resolve({ selector: to.hash, offset: { x: 0, y: 90 } })
+        }, 500)
+      })
+    } else if (to.meta.has_index) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          resolve({ selector: '#top', offset: { x: 0, y: 110 } })
         }, 500)
       })
     } else {

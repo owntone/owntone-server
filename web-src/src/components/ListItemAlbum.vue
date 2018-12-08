@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media" :id="'index_' + anchor">
     <div class="media-content fd-has-action is-clipped" v-on:click="open_album">
       <h1 class="title is-6">{{ album.name }}</h1>
       <h2 class="subtitle is-7 has-text-grey"><b>{{ album.artist }}</b></h2>
@@ -56,7 +56,7 @@ export default {
   name: 'ListItemAlbum',
   components: { ModalDialog },
 
-  props: ['album', 'media_kind'],
+  props: ['album', 'media_kind', 'anchor'],
 
   data () {
     return {

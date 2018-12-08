@@ -3,6 +3,9 @@
     <tabs-music></tabs-music>
 
     <content-with-heading>
+      <template slot="options">
+        <index-button-list :index="index_list"></index-button-list>
+      </template>
       <template slot="heading-left">
         <p class="title is-4">Artists</p>
         <p class="heading">{{ artists.total }} artists</p>
@@ -16,7 +19,7 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists.items" :key="artist.id" :artist="artist" v-if="!hide_singles || artist.track_count > (artist.album_count * 2)"></list-item-artist>
+        <list-item-artist v-for="(artist, index) in artists.items" :key="artist.id" :artist="artist" :anchor="anchor(artist, index)" v-if="!hide_singles || artist.track_count > (artist.album_count * 2)"></list-item-artist>
       </template>
     </content-with-heading>
   </div>
@@ -26,6 +29,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
+import IndexButtonList from '@/components/IndexButtonList'
 import ListItemArtist from '@/components/ListItemArtist'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
@@ -43,23 +47,33 @@ const artistsData = {
 export default {
   name: 'PageArtists',
   mixins: [ LoadDataBeforeEnterMixin(artistsData) ],
-  components: { ContentWithHeading, TabsMusic, ListItemArtist },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist },
 
   data () {
     return {
-      artists: {}
+      artists: { items: [] }
     }
   },
 
   computed: {
     hide_singles () {
       return this.$store.state.hide_singles
+    },
+
+    index_list () {
+      return [...new Set(this.artists.items
+        .filter(artist => !this.$store.state.hide_singles || artist.track_count > (artist.album_count * 2))
+        .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
     }
   },
 
   methods: {
     update_hide_singles: function (e) {
       this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
+    },
+
+    anchor: function (artist, index) {
+      return artist.name_sort.charAt(0).toUpperCase()
     }
   }
 }

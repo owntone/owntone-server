@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media" :id="'index_' + anchor">
     <div class="media-content fd-has-action is-clipped" v-on:click="open_genre">
       <h1 class="title is-6">{{ genre.name }}</h1>
     </div>
@@ -53,7 +53,7 @@ export default {
   name: 'PartGenre',
   components: { ModalDialog },
 
-  props: [ 'genre' ],
+  props: [ 'genre', 'anchor' ],
 
   data () {
     return {

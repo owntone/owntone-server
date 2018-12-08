@@ -38,9 +38,18 @@ a.navbar-item {
   margin-bottom: 24px;
 }
 
+.fd-remove-padding-bottom {
+  padding-bottom: 0;
+}
+
 .fd-has-padding-left-right {
   padding-left: 24px;
   padding-right: 24px;
+}
+
+.fd-is-square .button {
+  height: 27px;
+  width: 27px;
 }
 
 .fd-is-text-clipped {
@@ -65,7 +74,17 @@ a.navbar-item {
 }
 
 .fd-tabs-section {
-  padding-bottom: 0;
+  padding-bottom: 3px;
+  padding-top: 3px;
+  background: white;
+  top: 3.25rem;
+  z-index: 20;
+  position: fixed;
+  width: 100%;
+}
+
+section.fd-tabs-section + section.fd-content {
+  margin-top: 24px;
 }
 
 .fd-progress-bar {
