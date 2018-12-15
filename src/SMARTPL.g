@@ -92,6 +92,8 @@ INTTAG		:	'play_count'
 			|	'rating'
 			|	'year'
 			|	'compilation'
+			|	'track'
+			|	'disc'
 			;
 
 DATETAG		:	'time_added'

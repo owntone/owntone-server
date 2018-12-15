@@ -40,6 +40,8 @@ Where valid field-names (with their types) are:
 * `rating` (integer)
 * `year` (integer)
 * `compilation` (integer)
+* `track` (integer)
+* `disc` (integer)
 * `time_added` (date)
 * `time_modified` (date)
 * `time_played` (date)
