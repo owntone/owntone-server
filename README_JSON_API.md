@@ -1874,6 +1874,7 @@ curl --include \
 | ------------------ | -------- | ----------------------------------------- |
 | id                 | string   | Track id                                  |
 | title              | string   | Title                                     |
+| title_sort         | string   | Sort title                                |
 | artist             | string   | Track artist name                         |
 | artist_sort        | string   | Track artist sort name                    |
 | album              | string   | Album name                                |
@@ -1888,8 +1889,11 @@ curl --include \
 | track_number       | integer  | Track number                              |
 | disc_number        | integer  | Disc number                               |
 | length_ms          | integer  | Track length in milliseconds              |
+| rating             | integer  | Track rating (ranges from 0 to 100)       |
 | play_count         | integer  | How many times the track was played       |
+| skip_count         | integer  | How many times the track was skipped      |
 | time_played        | string   | Timestamp in `ISO 8601` format           |
+| time_skipped       | string   | Timestamp in `ISO 8601` format           |
 | time_added         | string   | Timestamp in `ISO 8601` format           |
 | date_released      | string   | Date in the format `yyyy-mm-dd`         |
 | seek_ms            | integer  | Resume point in milliseconds (available only for podcasts and audiobooks) |
