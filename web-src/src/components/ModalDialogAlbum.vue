@@ -6,6 +6,9 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
+              <figure class="image is-square fd-has-margin-bottom" v-show="artwork_visible">
+                <img :src="artwork_url" @load="artwork_loaded" @error="artwork_error" class="fd-has-shadow">
+              </figure>
               <p class="title is-4">
                 <a class="has-text-link" @click="open_album">{{ album.name }}</a>
               </p>
@@ -50,6 +53,21 @@ export default {
   name: 'ModalDialogAlbum',
   props: [ 'show', 'album', 'media_kind' ],
 
+  data () {
+    return {
+      artwork_visible: false
+    }
+  },
+
+  computed: {
+    artwork_url: function () {
+      if (this.album.artwork_url && this.album.artwork_url.startsWith('/')) {
+        return this.album.artwork_url + '?maxwidth=600&maxheight=600'
+      }
+      return this.album.artwork_url
+    }
+  },
+
   methods: {
     play: function () {
       this.$emit('close')
@@ -84,6 +102,14 @@ export default {
     open_artist: function () {
       this.show_details_modal = false
       this.$router.push({ path: '/music/artists/' + this.album.artist_id })
+    },
+
+    artwork_loaded: function () {
+      this.artwork_visible = true
+    },
+
+    artwork_error: function () {
+      this.artwork_visible = false
     }
   }
 }
