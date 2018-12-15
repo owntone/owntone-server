@@ -182,6 +182,7 @@ track_to_json(struct db_media_file_info *dbmfi)
 
   safe_json_add_int_from_string(item, "id", dbmfi->id);
   safe_json_add_string(item, "title", dbmfi->title);
+  safe_json_add_string(item, "title_sort", dbmfi->title_sort);
   safe_json_add_string(item, "artist", dbmfi->artist);
   safe_json_add_string(item, "artist_sort", dbmfi->artist_sort);
   safe_json_add_string(item, "album", dbmfi->album);
@@ -197,6 +198,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "disc_number", dbmfi->disc);
   safe_json_add_int_from_string(item, "length_ms", dbmfi->song_length);
 
+  safe_json_add_int_from_string(item, "rating", dbmfi->rating);
   safe_json_add_int_from_string(item, "play_count", dbmfi->play_count);
   safe_json_add_int_from_string(item, "skip_count", dbmfi->skip_count);
   safe_json_add_time_from_string(item, "time_played", dbmfi->time_played, true);
