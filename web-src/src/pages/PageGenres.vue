@@ -11,7 +11,14 @@
         <p class="heading">{{ genres.total }} genres</p>
       </template>
       <template slot="content">
-        <list-item-genre v-for="(genre, index) in genres.items" :key="genre.name" :genre="genre" :anchor="anchor(genre, index)"></list-item-genre>
+        <list-item-genre v-for="(genre, index) in genres.items" :key="genre.name" :genre="genre" :anchor="anchor(genre, index)">
+          <template slot="actions">
+            <a @click="open_dialog(genre)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-genre>
+        <modal-dialog-genre :show="show_details_modal" :genre="selected_genre" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -23,6 +30,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListItemGenre from '@/components/ListItemGenre'
+import ModalDialogGenre from '@/components/ModalDialogGenre'
 import webapi from '@/webapi'
 
 const genresData = {
@@ -38,11 +46,14 @@ const genresData = {
 export default {
   name: 'PageGenres',
   mixins: [ LoadDataBeforeEnterMixin(genresData) ],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemGenre },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemGenre, ModalDialogGenre },
 
   data () {
     return {
-      genres: { items: [] }
+      genres: { items: [] },
+
+      show_details_modal: false,
+      selected_genre: {}
     }
   },
 
@@ -56,6 +67,11 @@ export default {
   methods: {
     anchor: function (genre, index) {
       return genre.name.charAt(0).toUpperCase()
+    },
+
+    open_dialog: function (genre) {
+      this.selected_genre = genre
+      this.show_details_modal = true
     }
   }
 }

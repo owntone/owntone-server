@@ -19,7 +19,14 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-album v-for="(album, index) in albums.items" :key="album.id" :album="album" :anchor="anchor(album, index)" v-if="!hide_singles || album.track_count > 2"></list-item-album>
+        <list-item-album v-for="(album, index) in albums.items" :key="album.id" :album="album" :anchor="anchor(album, index)" v-if="!hide_singles || album.track_count > 2">
+          <template slot="actions">
+            <a @click="open_dialog(album)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-album>
+        <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -31,6 +38,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListItemAlbum from '@/components/ListItemAlbum'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
@@ -47,11 +55,14 @@ const albumsData = {
 export default {
   name: 'PageAlbums',
   mixins: [ LoadDataBeforeEnterMixin(albumsData) ],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbum },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbum, ModalDialogAlbum },
 
   data () {
     return {
-      albums: { items: [] }
+      albums: { items: [] },
+
+      show_details_modal: false,
+      selected_album: {}
     }
   },
 
@@ -74,6 +85,11 @@ export default {
 
     anchor: function (album, index) {
       return album.name_sort.charAt(0).toUpperCase()
+    },
+
+    open_dialog: function (album) {
+      this.selected_album = album
+      this.show_details_modal = true
     }
   }
 }

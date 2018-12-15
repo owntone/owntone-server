@@ -40,8 +40,18 @@
           :key="item.id" :item="item" :position="index"
           :current_position="current_position"
           :show_only_next_items="show_only_next_items"
-          :edit_mode="edit_mode"></list-item-queue-item>
+          :edit_mode="edit_mode">
+            <template slot="actions">
+              <a @click="open_dialog(item)" v-if="!edit_mode">
+                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+              </a>
+              <a @click="remove(item)" v-if="item.id !== state.item_id && edit_mode">
+                <span class="icon has-text-grey"><i class="mdi mdi-delete mdi-18px"></i></span>
+              </a>
+            </template>
+          </list-item-queue-item>
       </draggable>
+      <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -49,17 +59,21 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemQueueItem from '@/components/ListItemQueueItem'
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import draggable from 'vuedraggable'
 
 export default {
   name: 'PageQueue',
-  components: { ContentWithHeading, ListItemQueueItem, draggable },
+  components: { ContentWithHeading, ListItemQueueItem, draggable, ModalDialogQueueItem },
 
   data () {
     return {
-      edit_mode: false
+      edit_mode: false,
+
+      show_details_modal: false,
+      selected_item: {}
     }
   },
 
@@ -92,6 +106,10 @@ export default {
       this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
     },
 
+    remove: function (item) {
+      webapi.queue_remove(item.id)
+    },
+
     move_item: function (e) {
       var oldPosition = !this.show_only_next_items ? e.oldIndex : e.oldIndex + this.current_position
       var item = this.queue_items[oldPosition]
@@ -99,6 +117,11 @@ export default {
       if (newPosition !== oldPosition) {
         webapi.queue_move(item.id, newPosition)
       }
+    },
+
+    open_dialog: function (item) {
+      this.selected_item = item
+      this.show_details_modal = true
     }
   }
 }

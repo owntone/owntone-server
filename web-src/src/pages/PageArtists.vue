@@ -19,7 +19,14 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="(artist, index) in artists.items" :key="artist.id" :artist="artist" :anchor="anchor(artist, index)" v-if="!hide_singles || artist.track_count > (artist.album_count * 2)"></list-item-artist>
+        <list-item-artist v-for="(artist, index) in artists.items" :key="artist.id" :artist="artist" :anchor="anchor(artist, index)" v-if="!hide_singles || artist.track_count > (artist.album_count * 2)">
+          <template slot="actions">
+            <a @click="open_dialog(artist)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-artist>
+        <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -31,6 +38,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListItemArtist from '@/components/ListItemArtist'
+import ModalDialogArtist from '@/components/ModalDialogArtist'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
@@ -47,11 +55,14 @@ const artistsData = {
 export default {
   name: 'PageArtists',
   mixins: [ LoadDataBeforeEnterMixin(artistsData) ],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist, ModalDialogArtist },
 
   data () {
     return {
-      artists: { items: [] }
+      artists: { items: [] },
+
+      show_details_modal: false,
+      selected_artist: {}
     }
   },
 
@@ -74,6 +85,11 @@ export default {
 
     anchor: function (artist, index) {
       return artist.name_sort.charAt(0).toUpperCase()
+    },
+
+    open_dialog: function (artist) {
+      this.selected_artist = artist
+      this.show_details_modal = true
     }
   }
 }

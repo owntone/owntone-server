@@ -10,7 +10,14 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
-      <list-item-album v-for="album in albums.items" :key="album.id" :album="album"></list-item-album>
+      <list-item-album v-for="album in albums.items" :key="album.id" :album="album">
+        <template slot="actions">
+          <a @click="open_dialog(album)">
+            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+          </a>
+        </template>
+      </list-item-album>
+      <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -19,6 +26,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemAlbum from '@/components/ListItemAlbum'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import webapi from '@/webapi'
 
 const artistData = {
@@ -38,12 +46,15 @@ const artistData = {
 export default {
   name: 'PageArtist',
   mixins: [ LoadDataBeforeEnterMixin(artistData) ],
-  components: { ContentWithHeading, ListItemAlbum },
+  components: { ContentWithHeading, ListItemAlbum, ModalDialogAlbum },
 
   data () {
     return {
       artist: {},
-      albums: {}
+      albums: {},
+
+      show_details_modal: false,
+      selected_album: {}
     }
   },
 
@@ -54,6 +65,11 @@ export default {
 
     play: function () {
       webapi.player_play_uri(this.albums.items.map(a => a.uri).join(','), true)
+    },
+
+    open_dialog: function (album) {
+      this.selected_album = album
+      this.show_details_modal = true
     }
   }
 }

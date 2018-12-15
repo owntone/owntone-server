@@ -11,7 +11,14 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_artist">{{ artist.album_count }} albums</a> | {{ artist.track_count }} tracks</p>
-        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="tracks.items.map(a => a.uri).join(',')"></list-item-track>
+        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="tracks.items.map(a => a.uri).join(',')">
+          <template slot="actions">
+            <a @click="open_dialog(track)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-track>
+        <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -21,6 +28,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemTrack from '@/components/ListItemTrack'
+import ModalDialogTrack from '@/components/ModalDialogTrack'
 import webapi from '@/webapi'
 
 const tracksData = {
@@ -40,12 +48,15 @@ const tracksData = {
 export default {
   name: 'PageTracks',
   mixins: [ LoadDataBeforeEnterMixin(tracksData) ],
-  components: { ContentWithHeading, ListItemTrack },
+  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack },
 
   data () {
     return {
       artist: {},
-      tracks: {}
+      tracks: {},
+
+      show_details_modal: false,
+      selected_track: {}
     }
   },
 
@@ -57,6 +68,11 @@ export default {
 
     play: function () {
       webapi.player_play_uri(this.tracks.items.map(a => a.uri).join(','), true)
+    },
+
+    open_dialog: function (track) {
+      this.selected_track = track
+      this.show_details_modal = true
     }
   }
 }

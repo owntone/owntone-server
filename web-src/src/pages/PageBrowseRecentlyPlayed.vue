@@ -8,7 +8,14 @@
         <p class="heading">tracks</p>
       </template>
       <template slot="content">
-        <list-item-track v-for="track in recently_played.items" :key="track.id" :track="track" :position="0" :context_uri="track.uri"></list-item-track>
+        <list-item-track v-for="track in recently_played.items" :key="track.id" :track="track" :position="0" :context_uri="track.uri">
+          <template slot="actions">
+            <a @click="open_dialog(track)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-track>
+        <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -19,6 +26,7 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import ListItemTrack from '@/components/ListItemTrack'
+import ModalDialogTrack from '@/components/ModalDialogTrack'
 import webapi from '@/webapi'
 
 const browseData = {
@@ -38,11 +46,21 @@ const browseData = {
 export default {
   name: 'PageBrowseType',
   mixins: [ LoadDataBeforeEnterMixin(browseData) ],
-  components: { ContentWithHeading, TabsMusic, ListItemTrack },
+  components: { ContentWithHeading, TabsMusic, ListItemTrack, ModalDialogTrack },
 
   data () {
     return {
-      recently_played: {}
+      recently_played: {},
+
+      show_details_modal: false,
+      selected_track: {}
+    }
+  },
+
+  methods: {
+    open_dialog: function (track) {
+      this.selected_track = track
+      this.show_details_modal = true
     }
   }
 }

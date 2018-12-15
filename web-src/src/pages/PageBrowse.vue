@@ -9,7 +9,14 @@
         <p class="heading">albums</p>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in recently_added.items" :key="album.id" :album="album"></list-item-album>
+        <list-item-album v-for="album in recently_added.items" :key="album.id" :album="album">
+          <template slot="actions">
+            <a @click="open_album_dialog(album)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-album>
+        <modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
       </template>
       <template slot="footer">
         <nav class="level">
@@ -27,7 +34,14 @@
         <p class="heading">tracks</p>
       </template>
       <template slot="content">
-        <list-item-track v-for="track in recently_played.items" :key="track.id" :track="track" :position="0" :context_uri="track.uri"></list-item-track>
+        <list-item-track v-for="track in recently_played.items" :key="track.id" :track="track" :position="0" :context_uri="track.uri">
+          <template slot="actions">
+            <a @click="open_track_dialog(track)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-track>
+        <modal-dialog-track :show="show_track_details_modal" :track="selected_track" @close="show_track_details_modal = false" />
       </template>
       <template slot="footer">
         <nav class="level">
@@ -46,6 +60,8 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import ListItemAlbum from '@/components/ListItemAlbum'
 import ListItemTrack from '@/components/ListItemTrack'
+import ModalDialogTrack from '@/components/ModalDialogTrack'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import webapi from '@/webapi'
 
 const browseData = {
@@ -65,18 +81,34 @@ const browseData = {
 export default {
   name: 'PageBrowse',
   mixins: [ LoadDataBeforeEnterMixin(browseData) ],
-  components: { ContentWithHeading, TabsMusic, ListItemAlbum, ListItemTrack },
+  components: { ContentWithHeading, TabsMusic, ListItemAlbum, ListItemTrack, ModalDialogTrack, ModalDialogAlbum },
 
   data () {
     return {
       recently_added: {},
-      recently_played: {}
+      recently_played: {},
+
+      show_track_details_modal: false,
+      selected_track: {},
+
+      show_album_details_modal: false,
+      selected_album: {}
     }
   },
 
   methods: {
     open_browse: function (type) {
       this.$router.push({ path: '/music/browse/' + type })
+    },
+
+    open_track_dialog: function (track) {
+      this.selected_track = track
+      this.show_track_details_modal = true
+    },
+
+    open_album_dialog: function (album) {
+      this.selected_album = album
+      this.show_album_details_modal = true
     }
   }
 }

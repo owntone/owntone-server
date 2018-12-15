@@ -10,8 +10,15 @@
         </a>
       </template>
       <template slot="content">
-        <p class="heading has-text-centered-mobile">{{ genreAlbums.total }} albums | <a class="has-text-link" @click="open_tracks">{{ tracks }} tracks</a></p>
-        <list-item-albums v-for="album in genreAlbums.items" :key="album.id" :album="album" :links="links"></list-item-albums>
+        <p class="heading has-text-centered-mobile">{{ genreAlbums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
+        <list-item-albums v-for="album in genreAlbums.items" :key="album.id" :album="album" :links="links">
+          <template slot="actions">
+            <a @click="open_dialog(album)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-albums>
+        <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -22,6 +29,7 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import ListItemAlbums from '@/components/ListItemAlbum'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import webapi from '@/webapi'
 
 const genreData = {
@@ -52,13 +60,16 @@ const genreData = {
 export default {
   name: 'PageGenre',
   mixins: [ LoadDataBeforeEnterMixin(genreData) ],
-  components: { ContentWithHeading, TabsMusic, ListItemAlbums },
+  components: { ContentWithHeading, TabsMusic, ListItemAlbums, ModalDialogAlbum },
 
   data () {
     return {
       name: '',
       genreAlbums: {},
-      links: []
+      links: [],
+
+      show_details_modal: false,
+      selected_album: {}
     }
   },
 
@@ -70,6 +81,11 @@ export default {
 
     play: function () {
       webapi.player_play_uri(this.genreAlbums.items.map(a => a.uri).join(','), true)
+    },
+
+    open_dialog: function (album) {
+      this.selected_album = album
+      this.show_details_modal = true
     }
   }
 }
