@@ -150,3 +150,7 @@ section.fd-tabs-section + section.fd-content {
   max-height: calc(100vh - 200px);
   overflow: auto;
 }
+.fd-modal-card .card {
+  margin-left: 16px;
+  margin-right: 16px;
+}
