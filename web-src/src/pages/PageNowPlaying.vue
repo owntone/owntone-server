@@ -14,7 +14,15 @@
       </div>
     </div>
     <div class="hero-body fd-is-fullheight-body has-text-centered" v-show="artwork_visible">
-      <img :src="artwork_url" class="fd-has-shadow fd-image-fullheight" @load="artwork_loaded" @error="artwork_error">
+      <img :src="artwork_url" class="fd-has-shadow fd-image-fullheight fd-has-action"
+        @load="artwork_loaded"
+        @error="artwork_error"
+        @click="open_dialog(now_playing)">
+    </div>
+    <div class="hero-body fd-is-fullheight-body has-text-centered" v-show="!artwork_visible">
+      <a @click="open_dialog(now_playing)" class="button is-white is-large">
+        <span class="icon has-text-dark"><i class="mdi mdi-information-outline"></i></span>
+      </a>
     </div>
     <div class="hero-foot fd-has-padding-left-right">
       <div class="container has-text-centered fd-has-margin-bottom">
@@ -41,11 +49,13 @@
           <player-button-consume class="button is-medium is-light"></player-button-consume>
         </div>
       </div>
+      <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
     </div>
   </section>
 </template>
 
 <script>
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
 import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause'
 import PlayerButtonNext from '@/components/PlayerButtonNext'
 import PlayerButtonPrevious from '@/components/PlayerButtonPrevious'
@@ -58,13 +68,16 @@ import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageNowPlaying',
-  components: { PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
+  components: { ModalDialogQueueItem, PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
 
   data () {
     return {
       item_progress_ms: 0,
       interval_id: 0,
-      artwork_visible: false
+      artwork_visible: false,
+
+      show_details_modal: false,
+      selected_item: {}
     }
   },
 
@@ -118,6 +131,11 @@ export default {
 
     artwork_error: function () {
       this.artwork_visible = false
+    },
+
+    open_dialog: function (item) {
+      this.selected_item = item
+      this.show_details_modal = true
     }
   },
 
