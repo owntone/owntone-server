@@ -8,7 +8,7 @@
         <p class="heading">albums</p>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in recently_added.items" :key="album.id" :album="album">
+        <list-item-album v-for="album in recently_added.items" :key="album.id" :album="album" @click="open_album(album)">
           <template slot="actions">
             <a @click="open_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -58,6 +58,10 @@ export default {
   },
 
   methods: {
+    open_album: function (album) {
+      this.$router.push({ path: '/music/albums/' + album.id })
+    },
+
     open_dialog: function (album) {
       this.selected_album = album
       this.show_details_modal = true

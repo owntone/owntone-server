@@ -81,7 +81,7 @@
         <p class="title is-4">Albums</p>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in albums.items" :key="album.id" :album="album">
+        <list-item-album v-for="album in albums.items" :key="album.id" :album="album" @click="open_album(album)">
           <template slot="actions">
             <a @click="open_album_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -280,6 +280,10 @@ export default {
           query: this.$route.query.query
         }
       })
+    },
+
+    open_album: function (album) {
+      this.$router.push({ path: '/music/albums/' + album.id })
     },
 
     open_recent_search: function (query) {

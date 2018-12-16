@@ -11,7 +11,7 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile">{{ genreAlbums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
-        <list-item-albums v-for="album in genreAlbums.items" :key="album.id" :album="album" :links="links">
+        <list-item-albums v-for="album in genreAlbums.items" :key="album.id" :album="album" :links="links" @click="open_album(album)">
           <template slot="actions">
             <a @click="open_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -81,6 +81,10 @@ export default {
 
     play: function () {
       webapi.player_play_uri(this.genreAlbums.items.map(a => a.uri).join(','), true)
+    },
+
+    open_album: function (album) {
+      this.$router.push({ path: '/music/albums/' + album.id })
     },
 
     open_dialog: function (album) {
