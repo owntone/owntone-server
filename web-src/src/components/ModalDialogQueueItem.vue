@@ -21,6 +21,10 @@
                   <span class="heading">Album artist</span>
                   <span class="title is-6">{{ item.album_artist }}</span>
                 </p>
+                <p v-if="item.composer">
+                  <span class="heading">Composer</span>
+                  <span class="title is-6">{{ item.composer }}</span>
+                </p>
                 <p v-if="item.year > 0">
                   <span class="heading">Year</span>
                   <span class="title is-6">{{ item.year }}</span>

@@ -21,6 +21,10 @@
                   <span class="heading">Album artist</span>
                   <a class="title is-6 has-text-link" @click="open_artist">{{ track.album_artist }}</a>
                 </p>
+                <p v-if="track.composer">
+                  <span class="heading">Composer</span>
+                  <span class="title is-6">{{ track.composer }}</span>
+                </p>
                 <p v-if="track.date_released">
                   <span class="heading">Release date</span>
                   <span class="title is-6">{{ track.date_released | time('L')}}</span>
