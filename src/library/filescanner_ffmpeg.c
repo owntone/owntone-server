@@ -388,16 +388,17 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
       return -1;
     }
 
-  free(path);
-
   ret = avformat_find_stream_info(ctx, NULL);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Cannot get stream info of '%s': %s\n", path, err2str(ret));
 
       avformat_close_input(&ctx);
+      free(path);
       return -1;
     }
+
+  free(path);
 
 #if 0
   /* Dump input format as determined by ffmpeg */
