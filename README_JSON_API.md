@@ -587,12 +587,23 @@ POST /api/queue/items/add
 
 **Response**
 
-On success returns the HTTP `204 No Content` success status response code.
+On success returns the HTTP `200 OK` success status response code.
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| count           | integer  | number of tracks added to the queue       |
+
 
 **Example**
 
 ```shell
 curl -X POST "http://localhost:3689/api/queue/items/add?uris=library:playlist:68,library:artist:2932599850102967727"
+```
+
+```json
+{
+  "count": 42
+}
 ```
 
 
