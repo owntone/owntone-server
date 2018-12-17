@@ -72,7 +72,9 @@ db_drop_indices(sqlite3 *hdl)
       DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_finalize(stmt);
-      return -1;
+
+      ret = -1;
+      goto out;
     }
 
   sqlite3_finalize(stmt);
@@ -80,7 +82,6 @@ db_drop_indices(sqlite3 *hdl)
   for (i = 0; i < n; i++)
     {
       query = sqlite3_mprintf(Q_TMPL, index[i]);
-      free(index[i]);
 
       DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
@@ -90,13 +91,19 @@ db_drop_indices(sqlite3 *hdl)
 	  DPRINTF(E_LOG, L_DB, "DB error while running '%s': %s\n", query, errmsg);
 
 	  sqlite3_free(errmsg);
-	  return -1;
+	  sqlite3_free(query);
+
+	  ret = -1;
+	  goto out;
 	}
 
       sqlite3_free(query);
     }
 
-  return 0;
+ out:
+  for (i = 0; i < n; i++)
+    free(index[i]);
+  return ret;
 #undef Q_TMPL
 #undef Q_INDEX
 }
