@@ -19,12 +19,17 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="(artist, index) in artists.items" :key="artist.id" :artist="artist" :anchor="anchor(artist, index)" v-if="!hide_singles || artist.track_count > (artist.album_count * 2)">
-          <template slot="actions">
-            <a @click="open_dialog(artist)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
+        <list-item-artist v-for="(artist, index) in artists.items"
+          :key="artist.id"
+          :artist="artist"
+          :anchor="anchor(artist, index)"
+          @click="open_artist(artist)"
+          v-if="!hide_singles || artist.track_count > (artist.album_count * 2)">
+            <template slot="actions">
+              <a @click="open_dialog(artist)">
+                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+              </a>
+            </template>
         </list-item-artist>
         <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" @close="show_details_modal = false" />
       </template>
@@ -85,6 +90,10 @@ export default {
 
     anchor: function (artist, index) {
       return artist.name_sort.charAt(0).toUpperCase()
+    },
+
+    open_artist: function (artist) {
+      this.$router.push({ path: '/music/artists/' + artist.id })
     },
 
     open_dialog: function (artist) {

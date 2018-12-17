@@ -31,7 +31,7 @@
         <p class="title is-4">Tracks</p>
       </template>
       <template slot="content">
-        <list-item-track v-for="track in tracks.items" :key="track.id" :track="track" :position="0" :context_uri="track.uri">
+        <list-item-track v-for="track in tracks.items" :key="track.id" :track="track" @click="play_track(track)">
           <template slot="actions">
             <a @click="open_track_dialog(track)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -56,7 +56,7 @@
         <p class="title is-4">Artists</p>
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists.items" :key="artist.id" :artist="artist">
+        <list-item-artist v-for="artist in artists.items" :key="artist.id" :artist="artist" @click="open_artist(artist)">
           <template slot="actions">
             <a @click="open_artist_dialog(artist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -106,7 +106,7 @@
         <p class="title is-4">Playlists</p>
       </template>
       <template slot="content">
-        <list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist">
+        <list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist" @click="open_playlist(playlist)">
           <template slot="actions">
             <a @click="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -282,8 +282,20 @@ export default {
       })
     },
 
+    play_track: function (track) {
+      webapi.player_play_uri(track.uri, false)
+    },
+
+    open_artist: function (artist) {
+      this.$router.push({ path: '/music/artists/' + artist.id })
+    },
+
     open_album: function (album) {
       this.$router.push({ path: '/music/albums/' + album.id })
+    },
+
+    open_playlist: function (playlist) {
+      this.$router.push({ path: '/playlists/' + playlist.id })
     },
 
     open_recent_search: function (query) {

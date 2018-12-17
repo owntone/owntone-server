@@ -1,7 +1,7 @@
-<template>
-  <div class="media" :id="'index_' + anchor">
-    <div class="media-content fd-has-action is-clipped" v-on:click="open_artist">
-      <h1 class="title is-6">{{ artist.name }}</h1>
+<template functional>
+  <div class="media" :id="'index_' + props.anchor">
+    <div class="media-content fd-has-action is-clipped" @click="listeners.click">
+      <h1 class="title is-6">{{ props.artist.name }}</h1>
     </div>
     <div class="media-right">
       <slot name="actions"></slot>
@@ -12,15 +12,7 @@
 <script>
 export default {
   name: 'ListItemArtist',
-  components: {},
-
-  props: ['artist', 'anchor'],
-
-  methods: {
-    open_artist: function () {
-      this.$router.push({ path: '/music/artists/' + this.artist.id })
-    }
-  }
+  props: ['artist', 'anchor']
 }
 </script>
 

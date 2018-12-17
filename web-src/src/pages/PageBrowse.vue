@@ -34,7 +34,7 @@
         <p class="heading">tracks</p>
       </template>
       <template slot="content">
-        <list-item-track v-for="track in recently_played.items" :key="track.id" :track="track" :position="0" :context_uri="track.uri">
+        <list-item-track v-for="track in recently_played.items" :key="track.id" :track="track" @click="play_track(track)">
           <template slot="actions">
             <a @click="open_track_dialog(track)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -113,6 +113,10 @@ export default {
     open_album_dialog: function (album) {
       this.selected_album = album
       this.show_album_details_modal = true
+    },
+
+    play_track: function (track) {
+      webapi.player_play_uri(track.uri, false)
     }
   }
 }

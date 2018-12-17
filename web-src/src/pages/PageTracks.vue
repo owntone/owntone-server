@@ -11,7 +11,7 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_artist">{{ artist.album_count }} albums</a> | {{ artist.track_count }} tracks</p>
-        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" :position="index" :context_uri="tracks.items.map(a => a.uri).join(',')">
+        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" @click="play_track(index)">
           <template slot="actions">
             <a @click="open_dialog(track)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -68,6 +68,10 @@ export default {
 
     play: function () {
       webapi.player_play_uri(this.tracks.items.map(a => a.uri).join(','), true)
+    },
+
+    play_track: function (position) {
+      webapi.player_play_uri(this.tracks.items.map(a => a.uri).join(','), false, position)
     },
 
     open_dialog: function (track) {

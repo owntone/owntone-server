@@ -1,7 +1,7 @@
-<template>
-  <div class="media" :id="'index_' + anchor">
-    <div class="media-content fd-has-action is-clipped" v-on:click="open_genre">
-      <h1 class="title is-6">{{ genre.name }}</h1>
+<template functional>
+  <div class="media" :id="'index_' + props.anchor">
+    <div class="media-content fd-has-action is-clipped" @click="listeners.click">
+      <h1 class="title is-6">{{ props.genre.name }}</h1>
     </div>
     <div class="media-right">
       <slot name="actions"></slot>
@@ -12,16 +12,7 @@
 <script>
 export default {
   name: 'ListItemGenre',
-  components: {},
-
-  props: [ 'genre', 'anchor' ],
-
-  methods: {
-    open_genre: function () {
-      this.show_details_modal = false
-      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
-    }
-  }
+  props: [ 'genre', 'anchor' ]
 }
 </script>
 

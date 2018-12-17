@@ -1,9 +1,9 @@
-<template>
+<template functional>
   <div class="media">
-    <div class="media-content fd-has-action is-clipped" v-on:click="play">
-      <h1 class="title is-6">{{ track.title }}</h1>
-      <h2 class="subtitle is-7 has-text-grey"><b>{{ track.artist }}</b></h2>
-      <h2 class="subtitle is-7 has-text-grey">{{ track.album }}</h2>
+    <div class="media-content fd-has-action is-clipped" @click="listeners.click">
+      <h1 class="title is-6">{{ props.track.title }}</h1>
+      <h2 class="subtitle is-7 has-text-grey"><b>{{ props.track.artist }}</b></h2>
+      <h2 class="subtitle is-7 has-text-grey">{{ props.track.album }}</h2>
     </div>
     <div class="media-right">
       <slot name="actions"></slot>
@@ -12,24 +12,9 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
-
 export default {
   name: 'ListItemTrack',
-  components: {},
-
-  props: ['track', 'position', 'context_uri'],
-
-  data () {
-    return {
-    }
-  },
-
-  methods: {
-    play: function () {
-      webapi.player_play_uri(this.context_uri, false, this.position)
-    }
-  }
+  props: ['track']
 }
 </script>
 

@@ -10,7 +10,7 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ tracks.length }} tracks</p>
-      <list-item-track v-for="(track, index) in tracks" :key="track.id" :track="track" :position="index" :context_uri="playlist.uri">
+      <list-item-track v-for="(track, index) in tracks" :key="track.id" :track="track" @click="play_track(index)">
         <template slot="actions">
           <a @click="open_dialog(track)">
             <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -61,6 +61,10 @@ export default {
   methods: {
     play: function () {
       webapi.player_play_uri(this.playlist.uri, true)
+    },
+
+    play_track: function (position) {
+      webapi.player_play_uri(this.playlist.uri, false, position)
     },
 
     open_dialog: function (track) {
