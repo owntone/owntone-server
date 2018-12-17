@@ -20,15 +20,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ListItemQueueItem',
-  components: {},
-
   props: ['item', 'position', 'current_position', 'show_only_next_items', 'edit_mode'],
-
-  data () {
-    return {
-      show_details_modal: false
-    }
-  },
 
   computed: {
     state () {
@@ -42,7 +34,6 @@ export default {
 
   methods: {
     play: function () {
-      this.show_details_modal = false
       webapi.player_play({ 'item_id': this.item.id })
     }
   }

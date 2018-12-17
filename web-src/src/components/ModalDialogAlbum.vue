@@ -89,7 +89,6 @@ export default {
     },
 
     open_album: function () {
-      this.show_details_modal = false
       if (this.media_kind === 'podcast') {
         this.$router.push({ path: '/podcasts/' + this.album.id })
       } else if (this.media_kind === 'audiobook') {
@@ -100,7 +99,6 @@ export default {
     },
 
     open_artist: function () {
-      this.show_details_modal = false
       this.$router.push({ path: '/music/artists/' + this.album.artist_id })
     },
 
