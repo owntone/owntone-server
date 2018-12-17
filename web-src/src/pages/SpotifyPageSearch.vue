@@ -31,8 +31,15 @@
         <p class="title is-4">Tracks</p>
       </template>
       <template slot="content">
-        <spotify-list-item-track v-for="track in tracks.items" :key="track.id" :track="track" :album="track.album" :position="0" :context_uri="track.uri"></spotify-list-item-track>
+        <spotify-list-item-track v-for="track in tracks.items" :key="track.id" :track="track" :album="track.album" :position="0" :context_uri="track.uri">
+          <template slot="actions">
+            <a @click="open_track_dialog(track)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </spotify-list-item-track>
         <infinite-loading v-if="query.type === 'track'" @infinite="search_tracks_next"><span slot="no-more">.</span></infinite-loading>
+        <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="selected_track.album" @close="show_track_details_modal = false" />
       </template>
       <template slot="footer">
         <nav v-if="show_all_tracks_button" class="level">
@@ -50,8 +57,15 @@
         <p class="title is-4">Artists</p>
       </template>
       <template slot="content">
-        <spotify-list-item-artist v-for="artist in artists.items" :key="artist.id" :artist="artist"></spotify-list-item-artist>
+        <spotify-list-item-artist v-for="artist in artists.items" :key="artist.id" :artist="artist">
+          <template slot="actions">
+            <a @click="open_artist_dialog(artist)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </spotify-list-item-artist>
         <infinite-loading v-if="query.type === 'artist'" @infinite="search_artists_next"><span slot="no-more">.</span></infinite-loading>
+        <spotify-modal-dialog-artist :show="show_artist_details_modal" :artist="selected_artist" @close="show_artist_details_modal = false" />
       </template>
       <template slot="footer">
         <nav v-if="show_all_artists_button" class="level">
@@ -69,8 +83,15 @@
         <p class="title is-4">Albums</p>
       </template>
       <template slot="content">
-        <spotify-list-item-album v-for="album in albums.items" :key="album.id" :album="album"></spotify-list-item-album>
+        <spotify-list-item-album v-for="album in albums.items" :key="album.id" :album="album">
+          <template slot="actions">
+            <a @click="open_album_dialog(album)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </spotify-list-item-album>
         <infinite-loading v-if="query.type === 'album'" @infinite="search_albums_next"><span slot="no-more">.</span></infinite-loading>
+        <spotify-modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
       </template>
       <template slot="footer">
         <nav v-if="show_all_albums_button" class="level">
@@ -88,8 +109,15 @@
         <p class="title is-4">Playlists</p>
       </template>
       <template slot="content">
-        <spotify-list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist"></spotify-list-item-playlist>
+        <spotify-list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist">
+          <template slot="actions">
+            <a @click="open_playlist_dialog(playlist)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </spotify-list-item-playlist>
         <infinite-loading v-if="query.type === 'playlist'" @infinite="search_playlists_next"><span slot="no-more">.</span></infinite-loading>
+        <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
       </template>
       <template slot="footer">
         <nav v-if="show_all_playlists_button" class="level">
@@ -110,6 +138,10 @@ import SpotifyListItemTrack from '@/components/SpotifyListItemTrack'
 import SpotifyListItemArtist from '@/components/SpotifyListItemArtist'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
 import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist'
+import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack'
+import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
 import SpotifyWebApi from 'spotify-web-api-js'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
@@ -117,7 +149,7 @@ import InfiniteLoading from 'vue-infinite-loading'
 
 export default {
   name: 'SpotifyPageSearch',
-  components: { ContentWithHeading, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, InfiniteLoading },
+  components: { ContentWithHeading, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogTrack, SpotifyModalDialogArtist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, InfiniteLoading },
 
   data () {
     return {
@@ -128,7 +160,19 @@ export default {
       playlists: { items: [], total: 0 },
 
       query: {},
-      search_param: {}
+      search_param: {},
+
+      show_track_details_modal: false,
+      selected_track: {},
+
+      show_album_details_modal: false,
+      selected_album: {},
+
+      show_artist_details_modal: false,
+      selected_artist: {},
+
+      show_playlist_details_modal: false,
+      selected_playlist: {}
     }
   },
 
@@ -321,6 +365,26 @@ export default {
     open_recent_search: function (query) {
       this.search_query = query
       this.new_search()
+    },
+
+    open_track_dialog: function (track) {
+      this.selected_track = track
+      this.show_track_details_modal = true
+    },
+
+    open_album_dialog: function (album) {
+      this.selected_album = album
+      this.show_album_details_modal = true
+    },
+
+    open_artist_dialog: function (artist) {
+      this.selected_artist = artist
+      this.show_artist_details_modal = true
+    },
+
+    open_playlist_dialog: function (playlist) {
+      this.selected_playlist = playlist
+      this.show_playlist_details_modal = true
     }
   },
 
