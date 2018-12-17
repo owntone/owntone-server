@@ -2037,6 +2037,7 @@ playback_start_item(void *arg, int *retval)
       if (ret < 0)
 	{
 	  playback_abort();
+	  source_free(ps);
 	  *retval = -1;
 	  return COMMAND_END;
 	}
