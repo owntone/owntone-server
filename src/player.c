@@ -925,7 +925,7 @@ source_prev()
   if (!queue_item)
     {
       int queue_count;
-      int pos = db_queue_get_pos(cur_streaming->item_id, 0);
+      int pos = db_queue_get_pos(cur_streaming->item_id, shuffle);
 
       // do we have no prev item because we're the first item?
       if ( pos != 0)
