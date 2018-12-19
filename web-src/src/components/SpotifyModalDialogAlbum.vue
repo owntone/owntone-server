@@ -6,6 +6,9 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
+              <figure class="image is-square fd-has-margin-bottom" v-show="artwork_visible">
+                <img :src="artwork_url" @load="artwork_loaded" @error="artwork_error" class="fd-has-shadow">
+              </figure>
               <p class="title is-4">
                 <a class="has-text-link" @click="open_album">{{ album.name }}</a>
               </p>
@@ -50,6 +53,21 @@ export default {
   name: 'SpotifyModalDialogAlbum',
   props: [ 'show', 'album' ],
 
+  data () {
+    return {
+      artwork_visible: false
+    }
+  },
+
+  computed: {
+    artwork_url: function () {
+      if (this.album.images && this.album.images.length > 0) {
+        return this.album.images[0].url
+      }
+      return ''
+    }
+  },
+
   methods: {
     play: function () {
       this.$emit('close')
@@ -76,6 +94,14 @@ export default {
 
     open_artist: function () {
       this.$router.push({ path: '/music/spotify/artists/' + this.album.artists[0].id })
+    },
+
+    artwork_loaded: function () {
+      this.artwork_visible = true
+    },
+
+    artwork_error: function () {
+      this.artwork_visible = false
     }
   }
 }
