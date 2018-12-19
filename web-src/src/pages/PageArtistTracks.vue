@@ -1,6 +1,9 @@
 <template>
   <div>
     <content-with-heading>
+      <template slot="options">
+        <index-button-list :index="index_list"></index-button-list>
+      </template>
       <template slot="heading-left">
         <p class="title is-4">{{ artist.name }}</p>
       </template>
@@ -27,6 +30,7 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
+import IndexButtonList from '@/components/IndexButtonList'
 import ListItemTrack from '@/components/ListItemTrack'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
 import webapi from '@/webapi'
@@ -48,15 +52,22 @@ const tracksData = {
 export default {
   name: 'PageArtistTracks',
   mixins: [ LoadDataBeforeEnterMixin(tracksData) ],
-  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack },
+  components: { ContentWithHeading, ListItemTrack, IndexButtonList, ModalDialogTrack },
 
   data () {
     return {
       artist: {},
-      tracks: {},
+      tracks: { items: [] },
 
       show_details_modal: false,
       selected_track: {}
+    }
+  },
+
+  computed: {
+    index_list () {
+      return [...new Set(this.tracks.items
+        .map(track => track.title.charAt(0).toUpperCase()))]
     }
   },
 
