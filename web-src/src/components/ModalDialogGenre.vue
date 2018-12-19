@@ -12,13 +12,13 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"><i class="mdi mdi-playlist-plus mdi-12px"></i></span> <span>Add</span>
+                <span class="icon"><i class="mdi mdi-playlist-plus"></i></span> <span class="is-size-7">Add</span>
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"><i class="mdi mdi-playlist-play mdi-12px"></i></span> <span>Add Next</span>
+                <span class="icon"><i class="mdi mdi-playlist-play"></i></span> <span class="is-size-7">Add Next</span>
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><i class="mdi mdi-play mdi-12px"></i></span> <span>Play</span>
+                <span class="icon"><i class="mdi mdi-play"></i></span> <span class="is-size-7">Play</span>
               </a>
             </footer>
           </div>

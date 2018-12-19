@@ -49,10 +49,10 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="remove">
-                <span class="icon"><i class="mdi mdi-delete mdi-18px"></i></span> <span>Remove</span>
+                <span class="icon"><i class="mdi mdi-delete"></i></span> <span class="is-size-7">Remove</span>
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><i class="mdi mdi-play mdi-18px"></i></span> <span>Play</span>
+                <span class="icon"><i class="mdi mdi-play"></i></span> <span class="is-size-7">Play</span>
               </a>
             </footer>
           </div>
