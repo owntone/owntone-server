@@ -11,7 +11,7 @@
         <p class="heading">{{ genres.total }} genres</p>
       </template>
       <template slot="content">
-        <list-item-genre v-for="(genre, index) in genres.items" :key="genre.name" :genre="genre" :anchor="anchor(genre, index)" @click="open_genre(genre)">
+        <list-item-genre v-for="genre in genres.items" :key="genre.name" :genre="genre" @click="open_genre(genre)">
           <template slot="actions">
             <a @click="open_dialog(genre)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -65,10 +65,6 @@ export default {
   },
 
   methods: {
-    anchor: function (genre, index) {
-      return genre.name.charAt(0).toUpperCase()
-    },
-
     open_genre: function (genre) {
       this.$router.push({ name: 'Genre', params: { genre: genre.name } })
     },

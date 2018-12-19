@@ -112,13 +112,13 @@ export const router = new VueRouter({
       path: '/music/genres/:genre',
       name: 'Genre',
       component: PageGenre,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/genres/:genre/tracks',
       name: 'GenreTracks',
       component: PageGenreTracks,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/podcasts',

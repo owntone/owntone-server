@@ -1,5 +1,5 @@
 <template functional>
-  <div class="media" :id="'index_' + props.anchor">
+  <div class="media" :id="'index_' + props.genre.name.charAt(0).toUpperCase()">
     <div class="media-content fd-has-action is-clipped" @click="listeners.click">
       <h1 class="title is-6">{{ props.genre.name }}</h1>
     </div>
@@ -12,7 +12,7 @@
 <script>
 export default {
   name: 'ListItemGenre',
-  props: [ 'genre', 'anchor' ]
+  props: [ 'genre' ]
 }
 </script>
 

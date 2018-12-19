@@ -19,10 +19,9 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="(artist, index) in artists.items"
+        <list-item-artist v-for="artist in artists.items"
           :key="artist.id"
           :artist="artist"
-          :anchor="anchor(artist, index)"
           @click="open_artist(artist)"
           v-if="!hide_singles || artist.track_count > (artist.album_count * 2)">
             <template slot="actions">
@@ -86,10 +85,6 @@ export default {
   methods: {
     update_hide_singles: function (e) {
       this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
-    },
-
-    anchor: function (artist, index) {
-      return artist.name_sort.charAt(0).toUpperCase()
     },
 
     open_artist: function (artist) {

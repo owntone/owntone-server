@@ -1,6 +1,9 @@
 <template>
   <div>
     <content-with-heading>
+      <template slot="options">
+        <index-button-list :index="index_list"></index-button-list>
+      </template>
       <template slot="heading-left">
         <p class="title is-4">{{ name }}</p>
       </template>
@@ -10,8 +13,8 @@
         </a>
       </template>
       <template slot="content">
-        <p class="heading has-text-centered-mobile">{{ genreAlbums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
-        <list-item-albums v-for="album in genreAlbums.items" :key="album.id" :album="album" :links="links" @click="open_album(album)">
+        <p class="heading has-text-centered-mobile">{{ genre_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
+        <list-item-albums v-for="album in genre_albums.items" :key="album.id" :album="album" @click="open_album(album)">
           <template slot="actions">
             <a @click="open_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -28,6 +31,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
+import IndexButtonList from '@/components/IndexButtonList'
 import ListItemAlbums from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import webapi from '@/webapi'
@@ -39,37 +43,29 @@ const genreData = {
 
   set: function (vm, response) {
     vm.name = vm.$route.params.genre
-    vm.genreAlbums = response.data.albums
-    var li = 0
-    var v = null
-    var i
-    for (i = 0; i < vm.genreAlbums.items.length; i++) {
-      var n = vm.genreAlbums.items[i].name_sort.charAt(0).toUpperCase()
-      if (n !== v) {
-        var obj = {}
-        obj.n = n
-        obj.a = 'idx_nav_' + li
-        vm.links.push(obj)
-        li++
-        v = n
-      }
-    }
+    vm.genre_albums = response.data.albums
   }
 }
 
 export default {
   name: 'PageGenre',
   mixins: [ LoadDataBeforeEnterMixin(genreData) ],
-  components: { ContentWithHeading, TabsMusic, ListItemAlbums, ModalDialogAlbum },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbums, ModalDialogAlbum },
 
   data () {
     return {
       name: '',
-      genreAlbums: {},
-      links: [],
+      genre_albums: { items: [] },
 
       show_details_modal: false,
       selected_album: {}
+    }
+  },
+
+  computed: {
+    index_list () {
+      return [...new Set(this.genre_albums.items
+        .map(album => album.name.charAt(0).toUpperCase()))]
     }
   },
 
@@ -80,7 +76,7 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_uri(this.genreAlbums.items.map(a => a.uri).join(','), true)
+      webapi.player_play_uri(this.genre_albums.items.map(a => a.uri).join(','), true)
     },
 
     open_album: function (album) {
