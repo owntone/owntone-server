@@ -970,7 +970,7 @@ fixup_tags_queue_item(struct db_queue_item *queue_item)
       queue_item->album_artist = strdup(queue_item->artist);
     }
 
-  if (!queue_item->album_artist_sort && (strcmp(queue_item->album_artist, queue_item->artist) == 0))
+  if (!queue_item->album_artist_sort && queue_item->artist_sort && (strcmp(queue_item->album_artist, queue_item->artist) == 0))
     queue_item->album_artist_sort = strdup(queue_item->artist_sort);
   else
     sort_tag_create(&queue_item->album_artist_sort, queue_item->album_artist);
