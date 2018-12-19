@@ -46,7 +46,7 @@ const tracksData = {
 }
 
 export default {
-  name: 'PageTracks',
+  name: 'PageArtistTracks',
   mixins: [ LoadDataBeforeEnterMixin(tracksData) ],
   components: { ContentWithHeading, ListItemTrack, ModalDialogTrack },
 
