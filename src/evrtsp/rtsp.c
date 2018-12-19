@@ -1319,6 +1319,7 @@ evrtsp_connection_get_local_address(struct evrtsp_connection *evcon,
 
   *address = NULL;
   *port = 0;
+  memset(&addr, 0, sizeof(addr));
 
   if (!evrtsp_connected(evcon))
     return;
@@ -1333,7 +1334,7 @@ evrtsp_connection_get_local_address(struct evrtsp_connection *evcon,
   if (!*address)
     return;
 
-  *family = addr.ss.ss_family;
+  *family = addr.sa.sa_family;
 
   switch (*family)
     {
