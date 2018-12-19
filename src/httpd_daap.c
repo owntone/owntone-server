@@ -1707,6 +1707,9 @@ daap_reply_groups(struct httpd_request *hreq)
       for (i = 0; i < nmeta; i++)
 	{
 	  df = meta[i];
+	  if (!df)
+	    continue;
+
 	  dfm = df->dfm;
 
 	  /* dmap.itemcount - always added */
