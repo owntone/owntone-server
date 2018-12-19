@@ -213,7 +213,7 @@ export const router = new VueRouter({
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve(savedPosition)
-        }, 500)
+        }, 10)
       })
     } else if (to.path === from.path && to.hash) {
       return { selector: to.hash, offset: { x: 0, y: 90 } }
@@ -221,13 +221,13 @@ export const router = new VueRouter({
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve({ selector: to.hash, offset: { x: 0, y: 90 } })
-        }, 500)
+        }, 10)
       })
     } else if (to.meta.has_index) {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve({ selector: '#top', offset: { x: 0, y: 110 } })
-        }, 500)
+        }, 10)
       })
     } else {
       return { x: 0, y: 0 }
