@@ -1,5 +1,5 @@
 <template>
-  <div class="buttons is-centered fd-is-square">
+  <div class="buttons is-centered fd-is-square" style="margin-bottom: 64px;" v-if="filtered_index.length > 1">
     <a v-for="char in filtered_index" :key="char" class="button is-small" @click="nav(char)">{{ char }}</a>
   </div>
 </template>
