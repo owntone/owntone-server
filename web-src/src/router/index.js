@@ -58,25 +58,25 @@ export const router = new VueRouter({
       path: '/music/browse',
       name: 'Browse',
       component: PageBrowse,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/browse/recently_added',
       name: 'Browse Recently Added',
       component: PageBrowseRecentlyAdded,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/browse/recently_played',
       name: 'Browse Recently Played',
       component: PageBrowseRecentlyPlayed,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/artists',
       name: 'Artists',
       component: PageArtists,
-      meta: { show_progress: true, has_index: true }
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/music/artists/:artist_id',
@@ -94,7 +94,7 @@ export const router = new VueRouter({
       path: '/music/albums',
       name: 'Albums',
       component: PageAlbums,
-      meta: { show_progress: true, has_index: true }
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/music/albums/:album_id',
@@ -106,7 +106,7 @@ export const router = new VueRouter({
       path: '/music/genres',
       name: 'Genres',
       component: PageGenres,
-      meta: { show_progress: true, has_index: true }
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/music/genres/:genre',
@@ -169,19 +169,19 @@ export const router = new VueRouter({
       path: '/music/spotify',
       name: 'Spotify',
       component: SpotifyPageBrowse,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/spotify/new-releases',
       name: 'Spotify Browse New Releases',
       component: SpotifyPageBrowseNewReleases,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/spotify/featured-playlists',
       name: 'Spotify Browse Featured Playlists',
       component: SpotifyPageBrowseFeaturedPlaylists,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/spotify/artists/:artist_id',
@@ -226,7 +226,11 @@ export const router = new VueRouter({
     } else if (to.meta.has_index) {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          resolve({ selector: '#top', offset: { x: 0, y: 110 } })
+          if (to.meta.has_tabs) {
+            resolve({ selector: '#top', offset: { x: 0, y: 140 } })
+          } else {
+            resolve({ selector: '#top', offset: { x: 0, y: 100 } })
+          }
         }, 10)
       })
     } else {
