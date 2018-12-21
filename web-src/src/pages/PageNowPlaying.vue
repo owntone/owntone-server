@@ -20,8 +20,8 @@
         @click="open_dialog(now_playing)">
     </div>
     <div class="hero-body fd-is-fullheight-body has-text-centered" v-show="!artwork_visible">
-      <a @click="open_dialog(now_playing)" class="button is-white is-large">
-        <span class="icon has-text-dark"><i class="mdi mdi-information-outline"></i></span>
+      <a @click="open_dialog(now_playing)" class="button is-white is-medium">
+        <span class="icon has-text-grey-light"><i class="mdi mdi-information-outline"></i></span>
       </a>
     </div>
     <div class="hero-foot fd-has-padding-left-right">
