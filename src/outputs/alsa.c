@@ -622,7 +622,7 @@ buffer_write(struct alsa_session *as, uint8_t *buf, snd_pcm_sframes_t *avail, in
 
   nsamp = AIRTUNES_V2_PACKET_SAMPLES;
 
-  if (prebuffering || !prebuf_empty || *avail < AIRTUNES_V2_PACKET_SAMPLES)
+  if (as->prebuf && (prebuffering || !prebuf_empty || *avail < AIRTUNES_V2_PACKET_SAMPLES))
     {
       pkt = &as->prebuf[as->prebuf_head * PACKET_SIZE];
 
