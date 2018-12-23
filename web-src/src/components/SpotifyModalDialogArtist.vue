@@ -54,16 +54,12 @@ export default {
 
     queue_add: function () {
       this.$emit('close')
-      webapi.queue_add(this.artist.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Artist tracks appended to queue', type: 'info', timeout: 2000 })
-      )
+      webapi.queue_add(this.artist.uri)
     },
 
     queue_add_next: function () {
       this.$emit('close')
-      webapi.queue_add_next(this.artist.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Artist tracks appended to queue', type: 'info', timeout: 2000 })
-      )
+      webapi.queue_add_next(this.artist.uri)
     },
 
     open_artist: function () {

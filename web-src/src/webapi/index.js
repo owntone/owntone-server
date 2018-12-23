@@ -41,8 +41,13 @@ export default {
     return axios.put('/api/queue/items/' + itemId + '?new_position=' + newPosition)
   },
 
-  queue_add (uri) {
-    return axios.post('/api/queue/items/add?uris=' + uri)
+  queue_add (uri, showNotification = true) {
+    return axios.post('/api/queue/items/add?uris=' + uri).then((response) => {
+      if (showNotification) {
+        store.dispatch('add_notification', { text: response.data.count + ' tracks appended to queue', type: 'info', timeout: 2000 })
+      }
+      return Promise.resolve(response)
+    })
   },
 
   queue_add_next (uri) {
@@ -50,7 +55,10 @@ export default {
     if (store.getters.now_playing && store.getters.now_playing.id) {
       position = store.getters.now_playing.position + 1
     }
-    return axios.post('/api/queue/items/add?uris=' + uri + '&position=' + position)
+    return axios.post('/api/queue/items/add?uris=' + uri + '&position=' + position).then((response) => {
+      store.dispatch('add_notification', { text: response.data.count + ' tracks appended to queue', type: 'info', timeout: 2000 })
+      return Promise.resolve(response)
+    })
   },
 
   player_status () {
@@ -60,7 +68,7 @@ export default {
   player_play_uri (uris, shuffle, position = undefined) {
     return this.queue_clear().then(() =>
       this.player_shuffle(shuffle).then(() =>
-        this.queue_add(uris).then(() =>
+        this.queue_add(uris, false).then(() =>
           this.player_play({ 'position': position })
         )
       )

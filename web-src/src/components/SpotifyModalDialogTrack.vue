@@ -73,16 +73,12 @@ export default {
 
     queue_add: function () {
       this.$emit('close')
-      webapi.queue_add(this.track.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Track appended to queue', type: 'info', timeout: 2000 })
-      )
+      webapi.queue_add(this.track.uri)
     },
 
     queue_add_next: function () {
       this.$emit('close')
-      webapi.queue_add_next(this.track.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Track appended to queue', type: 'info', timeout: 2000 })
-      )
+      webapi.queue_add_next(this.track.uri)
     },
 
     open_album: function () {

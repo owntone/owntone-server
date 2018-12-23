@@ -47,18 +47,14 @@ export default {
     queue_add: function () {
       this.$emit('close')
       webapi.library_genre(this.genre.name).then(({ data }) =>
-        webapi.queue_add(data.albums.items.map(a => a.uri).join(',')).then(() =>
-          this.$store.dispatch('add_notification', { text: 'Genre albums appended to queue', type: 'info', timeout: 1500 })
-        )
+        webapi.queue_add(data.albums.items.map(a => a.uri).join(','))
       )
     },
 
     queue_add_next: function () {
       this.$emit('close')
       webapi.library_genre(this.genre.name).then(({ data }) =>
-        webapi.queue_add_next(data.albums.items.map(a => a.uri).join(',')).then(() =>
-          this.$store.dispatch('add_notification', { text: 'Genre albums playing next', type: 'info', timeout: 1500 })
-        )
+        webapi.queue_add_next(data.albums.items.map(a => a.uri).join(','))
       )
     },
 

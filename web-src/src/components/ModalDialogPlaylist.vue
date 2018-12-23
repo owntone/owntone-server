@@ -50,16 +50,12 @@ export default {
 
     queue_add: function () {
       this.$emit('close')
-      webapi.queue_add(this.playlist.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Playlist appended to queue', type: 'info', timeout: 2000 })
-      )
+      webapi.queue_add(this.playlist.uri)
     },
 
     queue_add_next: function () {
       this.$emit('close')
-      webapi.queue_add_next(this.playlist.uri).then(() =>
-        this.$store.dispatch('add_notification', { text: 'Album tracks appended to queue', type: 'info', timeout: 2000 })
-      )
+      webapi.queue_add_next(this.playlist.uri)
     },
 
     open_playlist: function () {
