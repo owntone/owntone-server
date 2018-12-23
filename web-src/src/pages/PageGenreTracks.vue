@@ -64,7 +64,7 @@ export default {
   computed: {
     index_list () {
       return [...new Set(this.tracks.items
-        .map(track => track.title.charAt(0).toUpperCase()))]
+        .map(track => track.title_sort.charAt(0).toUpperCase()))]
     }
   },
 
