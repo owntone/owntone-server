@@ -214,6 +214,13 @@ export default {
     return axios.get('/api/library/playlists/' + playlistId + '/tracks')
   },
 
+  library_files (directory = undefined) {
+    var filesParams = { 'directory': directory }
+    return axios.get('/api/library/files', {
+      params: filesParams
+    })
+  },
+
   search (searchParams) {
     return axios.get('/api/search', {
       params: searchParams

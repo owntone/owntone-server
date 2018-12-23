@@ -21,6 +21,7 @@ import PageAudiobooks from '@/pages/PageAudiobooks'
 import PageAudiobook from '@/pages/PageAudiobook'
 import PagePlaylists from '@/pages/PagePlaylists'
 import PagePlaylist from '@/pages/PagePlaylist'
+import PageFiles from '@/pages/PageFiles'
 import PageSearch from '@/pages/PageSearch'
 import PageAbout from '@/pages/PageAbout'
 import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse'
@@ -142,6 +143,12 @@ export const router = new VueRouter({
       path: '/audiobooks/:album_id',
       name: 'Audiobook',
       component: PageAudiobook,
+      meta: { show_progress: true }
+    },
+    {
+      path: '/files',
+      name: 'Files',
+      component: PageFiles,
       meta: { show_progress: true }
     },
     {
