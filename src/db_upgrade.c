@@ -1698,6 +1698,27 @@ static const struct db_upgrade_query db_upgrade_v1911_queries[] =
   };
 
 
+#define U_V1912_ALTER_DIRECTORIES_ADD_PATH \
+  "ALTER TABLE directories ADD COLUMN path VARCHAR(4096) DEFAULT NULL;"
+
+#define U_V1912_UPDATE_FILE_DIRECTORIES_PATH \
+  "UPDATE directories SET path = SUBSTR(path, 7) WHERE virtual_path like '/file:/%';"
+#define U_V1912_UPDATE_FILE_ROOT_PATH \
+  "UPDATE directories SET path = '/' WHERE virtual_path = '/file:';"
+
+#define U_V1912_SCVER_MINOR \
+  "UPDATE admin SET value = '12' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1912_queries[] =
+  {
+    { U_V1912_ALTER_DIRECTORIES_ADD_PATH,   "alter table directories add column path" },
+    { U_V1912_UPDATE_FILE_DIRECTORIES_PATH, "set paths for '/file:' directories" },
+    { U_V1912_UPDATE_FILE_ROOT_PATH,        "set path for '/file:' directory" },
+
+    { U_V1912_SCVER_MINOR,    "set schema_version_minor to 12" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1884,6 +1905,14 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       ret = db_generic_upgrade(hdl, db_upgrade_v1911_queries, ARRAY_SIZE(db_upgrade_v1911_queries));
       if (ret < 0)
 	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1911:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1912_queries, ARRAY_SIZE(db_upgrade_v1912_queries));
+      if (ret < 0)
+	return -1;
+
       break;
 
     default:

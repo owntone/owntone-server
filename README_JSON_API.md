@@ -587,12 +587,23 @@ POST /api/queue/items/add
 
 **Response**
 
-On success returns the HTTP `204 No Content` success status response code.
+On success returns the HTTP `200 OK` success status response code.
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| count           | integer  | number of tracks added to the queue       |
+
 
 **Example**
 
 ```shell
 curl -X POST "http://localhost:3689/api/queue/items/add?uris=library:playlist:68,library:artist:2932599850102967727"
+```
+
+```json
+{
+  "count": 42
+}
 ```
 
 
@@ -673,6 +684,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
+| GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library  |
 | GET       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
 
 
@@ -1205,7 +1217,7 @@ curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
 ```
 
 
-### list genres
+### List genres
 
 Get list of genres
 
@@ -1373,6 +1385,105 @@ curl -X GET "http://localhost:3689/api/library/count?expression=data_kind+is+fil
   "artists": 355,
   "albums": 646,
   "db_playtime": 1590767
+}
+```
+
+
+### List local directories
+
+List the local directories and the directory contents (tracks and playlists)
+
+
+**Endpoint**
+
+```http
+GET /api/library/files
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| directory       | *(Optional)* A path to a directory in your local library.   |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| directories     | array    | Array of [`directory`](#directory-object) objects containing the sub directories |
+| tracks          | object   | [`paging`](#paging-object) object containing [`track`](#track-object) objects that matches the `directory`   |
+| playlists       | object   | [`paging`](#paging-object) object containing [`playlist`](#playlist-object) objects that matches the `directory`   |
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/library/files?directory=/music/srv"
+```
+
+```json
+{
+  "directories": [
+    {
+      "path": "/music/srv/Audiobooks"
+    },
+    {
+      "path": "/music/srv/Music"
+    },
+    {
+      "path": "/music/srv/Playlists"
+    },
+    {
+      "path": "/music/srv/Podcasts"
+    }
+  ],
+  "tracks": {
+    "items": [
+      {
+        "id": 1,
+        "title": "input.pipe",
+        "artist": "Unknown artist",
+        "artist_sort": "Unknown artist",
+        "album": "Unknown album",
+        "album_sort": "Unknown album",
+        "album_id": "4201163758598356043",
+        "album_artist": "Unknown artist",
+        "album_artist_sort": "Unknown artist",
+        "album_artist_id": "4187901437947843388",
+        "genre": "Unknown genre",
+        "year": 0,
+        "track_number": 0,
+        "disc_number": 0,
+        "length_ms": 0,
+        "play_count": 0,
+        "skip_count": 0,
+        "time_added": "2018-11-24T08:41:35Z",
+        "seek_ms": 0,
+        "media_kind": "music",
+        "data_kind": "pipe",
+        "path": "/music/srv/input.pipe",
+        "uri": "library:track:1",
+        "artwork_url": "/artwork/item/1"
+      }
+    ],
+    "total": 1,
+    "offset": 0,
+    "limit": -1
+  },
+  "playlists": {
+    "items": [
+      {
+        "id": 8,
+        "name": "radio",
+        "path": "/music/srv/radio.m3u",
+        "smart_playlist": true,
+        "uri": "library:playlist:8"
+      }
+    ],
+    "total": 1,
+    "offset": 0,
+    "limit": -1
+  }
 }
 ```
 
@@ -1774,6 +1885,7 @@ curl --include \
 | ------------------ | -------- | ----------------------------------------- |
 | id                 | string   | Track id                                  |
 | title              | string   | Title                                     |
+| title_sort         | string   | Sort title                                |
 | artist             | string   | Track artist name                         |
 | artist_sort        | string   | Track artist sort name                    |
 | album              | string   | Album name                                |
@@ -1788,8 +1900,11 @@ curl --include \
 | track_number       | integer  | Track number                              |
 | disc_number        | integer  | Disc number                               |
 | length_ms          | integer  | Track length in milliseconds              |
+| rating             | integer  | Track rating (ranges from 0 to 100)       |
 | play_count         | integer  | How many times the track was played       |
+| skip_count         | integer  | How many times the track was skipped      |
 | time_played        | string   | Timestamp in `ISO 8601` format           |
+| time_skipped       | string   | Timestamp in `ISO 8601` format           |
 | time_added         | string   | Timestamp in `ISO 8601` format           |
 | date_released      | string   | Date in the format `yyyy-mm-dd`         |
 | seek_ms            | integer  | Resume point in milliseconds (available only for podcasts and audiobooks) |
@@ -1816,6 +1931,12 @@ curl --include \
 | --------------- | -------- | ----------------------------------------- |
 | name            | string   | Name of genre                             |
 
+
+### `directory` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| path            | string   | Directory path                            |
 
 
 ### Artwork urls

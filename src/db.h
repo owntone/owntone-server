@@ -412,6 +412,7 @@ enum directory_ids {
 struct directory_info {
   uint32_t id;
   char *virtual_path;
+  char *path;
   uint32_t db_timestamp;
   uint32_t disabled;
   uint32_t parent_id;
@@ -698,7 +699,10 @@ db_group_persistentid_byid(int id, int64_t *persistentid);
 
 /* Directories */
 int
-db_directory_id_byvirtualpath(char *virtual_path);
+db_directory_id_byvirtualpath(const char *virtual_path);
+
+int
+db_directory_id_bypath(const char *path);
 
 int
 db_directory_enum_start(struct directory_enum *de);
@@ -710,7 +714,7 @@ void
 db_directory_enum_end(struct directory_enum *de);
 
 int
-db_directory_addorupdate(char *virtual_path, int disabled, int parent_id);
+db_directory_addorupdate(char *virtual_path, char *path, int disabled, int parent_id);
 
 void
 db_directory_ping_bymatch(char *virtual_path);

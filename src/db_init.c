@@ -161,7 +161,8 @@
   "   virtual_path        VARCHAR(4096) NOT NULL,"		\
   "   db_timestamp        INTEGER DEFAULT 0,"			\
   "   disabled            INTEGER DEFAULT 0,"			\
-  "   parent_id           INTEGER DEFAULT 0"			\
+  "   parent_id           INTEGER DEFAULT 0,"			\
+  "   path                VARCHAR(4096) DEFAULT NULL"		\
   ");"
 
 #define T_QUEUE								\
@@ -239,17 +240,17 @@
 
 
 #define Q_DIR1 \
-  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
-  " VALUES (1, '/', 0, 0, 0);"
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id, path)" \
+  " VALUES (1, '/', 0, 0, 0, NULL);"
 #define Q_DIR2 \
-  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
-  " VALUES (2, '/file:', 0, 0, 1);"
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id, path)" \
+  " VALUES (2, '/file:', 0, 0, 1, '/');"
 #define Q_DIR3 \
-  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
-  " VALUES (3, '/http:', 0, 0, 1);"
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id, path)" \
+  " VALUES (3, '/http:', 0, 0, 1, NULL);"
 #define Q_DIR4 \
-  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
-  " VALUES (4, '/spotify:', 0, 4294967296, 1);"
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id, path)" \
+  " VALUES (4, '/spotify:', 0, 4294967296, 1, NULL);"
 
 #define Q_QUEUE_VERSION			\
   "INSERT INTO admin (key, value) VALUES ('queue_version', '0');"

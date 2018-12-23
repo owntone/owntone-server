@@ -182,6 +182,7 @@ track_to_json(struct db_media_file_info *dbmfi)
 
   safe_json_add_int_from_string(item, "id", dbmfi->id);
   safe_json_add_string(item, "title", dbmfi->title);
+  safe_json_add_string(item, "title_sort", dbmfi->title_sort);
   safe_json_add_string(item, "artist", dbmfi->artist);
   safe_json_add_string(item, "artist_sort", dbmfi->artist_sort);
   safe_json_add_string(item, "album", dbmfi->album);
@@ -197,6 +198,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "disc_number", dbmfi->disc);
   safe_json_add_int_from_string(item, "length_ms", dbmfi->song_length);
 
+  safe_json_add_int_from_string(item, "rating", dbmfi->rating);
   safe_json_add_int_from_string(item, "play_count", dbmfi->play_count);
   safe_json_add_int_from_string(item, "skip_count", dbmfi->skip_count);
   safe_json_add_time_from_string(item, "time_played", dbmfi->time_played, true);
@@ -262,6 +264,24 @@ genre_to_json(const char *genre)
 
   item = json_object_new_object();
   safe_json_add_string(item, "name", genre);
+
+  return item;
+}
+
+static json_object *
+directory_to_json(struct directory_info *directory_info)
+{
+  json_object *item;
+
+  if (directory_info == NULL)
+    {
+      return NULL;
+    }
+
+  item = json_object_new_object();
+  safe_json_add_string(item, "path", directory_info->path);
+//  json_object_object_add(item, "id", json_object_new_int(directory_info->id));
+//  json_object_object_add(item, "parent_id", json_object_new_int(directory_info->parent_id));
 
   return item;
 }
@@ -525,6 +545,38 @@ fetch_genres(struct query_params *query_params, json_object *items, int *total)
 
  error:
   db_query_end(query_params);
+
+  return ret;
+}
+
+static int
+fetch_directories(int parent_id, json_object *items)
+{
+  json_object *item;
+  int ret;
+  struct directory_info subdir;
+  struct directory_enum dir_enum;
+
+  memset(&dir_enum, 0, sizeof(struct directory_enum));
+  dir_enum.parent_id = parent_id;
+  ret = db_directory_enum_start(&dir_enum);
+  if (ret < 0)
+    goto error;
+
+  while ((ret = db_directory_enum_fetch(&dir_enum, &subdir)) == 0 && subdir.id > 0)
+    {
+      item = directory_to_json(&subdir);
+      if (!item)
+      {
+	ret = -1;
+	goto error;
+      }
+
+      json_object_array_add(items, item);
+    }
+
+ error:
+  db_directory_enum_end(&dir_enum);
 
   return ret;
 }
@@ -1275,6 +1327,7 @@ static int
 play_item_at_position(const char *param)
 {
   uint32_t position;
+  struct player_status status;
   struct db_queue_item *queue_item;
   int ret;
 
@@ -1286,7 +1339,9 @@ play_item_at_position(const char *param)
       return HTTP_BADREQUEST;
     }
 
-  queue_item = db_queue_fetch_bypos(position, 0);
+  player_get_status(&status);
+
+  queue_item = db_queue_fetch_bypos(position, status.shuffle);
   if (!queue_item)
     {
       DPRINTF(E_LOG, L_WEB, "No queue item at position '%d'\n", position);
@@ -1690,6 +1745,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *id;
   int pos = -1;
   int count = 0;
+  json_object *reply;
   int ret = 0;
 
 
@@ -1759,10 +1815,19 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   free(uris);
 
+  if (ret == 0)
+    {
+      reply = json_object_new_object();
+      json_object_object_add(reply, "count", json_object_new_int(count));
+
+      ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+      jparse_free(reply);
+    }
+
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  return HTTP_NOCONTENT;
+  return HTTP_OK;
 }
 
 static int
@@ -2610,6 +2675,107 @@ jsonapi_reply_library_count(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_files(struct httpd_request *hreq)
+{
+  const char *param;
+  int directory_id;
+  json_object *reply;
+  json_object *directories;
+  struct query_params query_params;
+  json_object *tracks;
+  json_object *tracks_items;
+  json_object *playlists;
+  json_object *playlists_items;
+  int total;
+  int ret;
+
+  param = evhttp_find_header(hreq->query, "directory");
+
+  directory_id = DIR_FILE;
+  if (param)
+    {
+      directory_id = db_directory_id_bypath(param);
+      if (directory_id <= 0)
+	return HTTP_INTERNAL;
+    }
+
+  reply = json_object_new_object();
+
+  // Add sub directories to response
+  directories = json_object_new_array();
+  json_object_object_add(reply, "directories", directories);
+
+  ret = fetch_directories(directory_id, directories);
+  if (ret < 0)
+    {
+      goto error;
+    }
+
+  // Add tracks to response
+  tracks = json_object_new_object();
+  json_object_object_add(reply, "tracks", tracks);
+  tracks_items = json_object_new_array();
+  json_object_object_add(tracks, "items", tracks_items);
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto error;
+
+  query_params.type = Q_ITEMS;
+  query_params.sort = S_NAME;
+  query_params.filter = db_mprintf("(f.directory_id = %d)", directory_id);
+
+  ret = fetch_tracks(&query_params, tracks_items, &total);
+  free(query_params.filter);
+
+  if (ret < 0)
+    goto error;
+
+  json_object_object_add(tracks, "total", json_object_new_int(total));
+  json_object_object_add(tracks, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(tracks, "limit", json_object_new_int(query_params.limit));
+
+  // Add playlists
+  playlists = json_object_new_object();
+  json_object_object_add(reply, "playlists", playlists);
+  playlists_items = json_object_new_array();
+  json_object_object_add(playlists, "items", playlists_items);
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto error;
+
+  query_params.type = Q_PL;
+  query_params.sort = S_PLAYLIST;
+  query_params.filter = db_mprintf("(f.directory_id = %d)", directory_id);
+
+  ret = fetch_playlists(&query_params, playlists_items, &total);
+  free(query_params.filter);
+
+  if (ret < 0)
+    goto error;
+
+  json_object_object_add(playlists, "total", json_object_new_int(total));
+  json_object_object_add(playlists, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(playlists, "limit", json_object_new_int(query_params.limit));
+
+  // Build JSON response
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add directories to response buffer.\n");
+
+ error:
+  jparse_free(reply);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
 {
   json_object *type;
@@ -2977,6 +3143,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
+    { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
 
