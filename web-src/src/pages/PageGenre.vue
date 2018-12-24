@@ -76,7 +76,9 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_uri(this.genre_albums.items.map(a => a.uri).join(','), true)
+      webapi.library_genre_tracks(this.name).then(({ data }) =>
+        webapi.player_play_uri(data.tracks.items.map(a => a.uri).join(','), true)
+      )
     },
 
     open_album: function (album) {
