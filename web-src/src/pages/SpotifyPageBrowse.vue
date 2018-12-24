@@ -8,7 +8,14 @@
         <p class="title is-4">New Releases</p>
       </template>
       <template slot="content">
-        <spotify-list-item-album v-for="album in new_releases" :key="album.id" :album="album"></spotify-list-item-album>
+        <spotify-list-item-album v-for="album in new_releases" :key="album.id" :album="album">
+          <template slot="actions">
+            <a @click="open_album_dialog(album)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </spotify-list-item-album>
+        <spotify-modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
       </template>
       <template slot="footer">
         <nav class="level">
@@ -27,7 +34,14 @@
         <p class="title is-4">Featured Playlists</p>
       </template>
       <template slot="content">
-        <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist"></spotify-list-item-playlist>
+        <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist">
+          <template slot="actions">
+            <a @click="open_playlist_dialog(playlist)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </spotify-list-item-playlist>
+        <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
       </template>
       <template slot="footer">
         <nav class="level">
@@ -48,6 +62,8 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
 import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -77,7 +93,17 @@ const browseData = {
 export default {
   name: 'SpotifyPageBrowse',
   mixins: [ LoadDataBeforeEnterMixin(browseData) ],
-  components: { ContentWithHeading, TabsMusic, SpotifyListItemAlbum, SpotifyListItemPlaylist },
+  components: { ContentWithHeading, TabsMusic, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist },
+
+  data () {
+    return {
+      show_album_details_modal: false,
+      selected_album: {},
+
+      show_playlist_details_modal: false,
+      selected_playlist: {}
+    }
+  },
 
   computed: {
     new_releases () {
@@ -86,6 +112,18 @@ export default {
 
     featured_playlists () {
       return this.$store.state.spotify_featured_playlists.slice(0, 3)
+    }
+  },
+
+  methods: {
+    open_album_dialog: function (album) {
+      this.selected_album = album
+      this.show_album_details_modal = true
+    },
+
+    open_playlist_dialog: function (playlist) {
+      this.selected_playlist = playlist
+      this.show_playlist_details_modal = true
     }
   }
 }

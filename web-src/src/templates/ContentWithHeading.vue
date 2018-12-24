@@ -1,9 +1,10 @@
 <template>
-  <section class="section">
+  <section class="section fd-content">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <nav class="level">
+          <slot name="options"></slot>
+          <nav class="level" id="top">
             <!-- Left side -->
             <div class="level-left">
               <div class="level-item has-text-centered-mobile">

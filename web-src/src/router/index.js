@@ -13,7 +13,8 @@ import PageAlbums from '@/pages/PageAlbums'
 import PageAlbum from '@/pages/PageAlbum'
 import PageGenres from '@/pages/PageGenres'
 import PageGenre from '@/pages/PageGenre'
-import PageTracks from '@/pages/PageTracks'
+import PageGenreTracks from '@/pages/PageGenreTracks'
+import PageArtistTracks from '@/pages/PageArtistTracks'
 import PagePodcasts from '@/pages/PagePodcasts'
 import PagePodcast from '@/pages/PagePodcast'
 import PageAudiobooks from '@/pages/PageAudiobooks'
@@ -57,25 +58,25 @@ export const router = new VueRouter({
       path: '/music/browse',
       name: 'Browse',
       component: PageBrowse,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/browse/recently_added',
       name: 'Browse Recently Added',
       component: PageBrowseRecentlyAdded,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/browse/recently_played',
       name: 'Browse Recently Played',
       component: PageBrowseRecentlyPlayed,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/artists',
       name: 'Artists',
       component: PageArtists,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/music/artists/:artist_id',
@@ -86,14 +87,14 @@ export const router = new VueRouter({
     {
       path: '/music/artists/:artist_id/tracks',
       name: 'Tracks',
-      component: PageTracks,
-      meta: { show_progress: true }
+      component: PageArtistTracks,
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/albums',
       name: 'Albums',
       component: PageAlbums,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/music/albums/:album_id',
@@ -105,13 +106,19 @@ export const router = new VueRouter({
       path: '/music/genres',
       name: 'Genres',
       component: PageGenres,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/music/genres/:genre',
       name: 'Genre',
       component: PageGenre,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_index: true }
+    },
+    {
+      path: '/music/genres/:genre/tracks',
+      name: 'GenreTracks',
+      component: PageGenreTracks,
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/podcasts',
@@ -162,19 +169,19 @@ export const router = new VueRouter({
       path: '/music/spotify',
       name: 'Spotify',
       component: SpotifyPageBrowse,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/spotify/new-releases',
       name: 'Spotify Browse New Releases',
       component: SpotifyPageBrowseNewReleases,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/spotify/featured-playlists',
       name: 'Spotify Browse Featured Playlists',
       component: SpotifyPageBrowseFeaturedPlaylists,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/music/spotify/artists/:artist_id',
@@ -201,11 +208,30 @@ export const router = new VueRouter({
     }
   ],
   scrollBehavior (to, from, savedPosition) {
+    // console.log(to.path + '_' + from.path + '__' + to.hash + ' savedPosition:' + savedPosition)
     if (savedPosition) {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve(savedPosition)
-        }, 500)
+        }, 10)
+      })
+    } else if (to.path === from.path && to.hash) {
+      return { selector: to.hash, offset: { x: 0, y: 90 } }
+    } else if (to.hash) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          resolve({ selector: to.hash, offset: { x: 0, y: 90 } })
+        }, 10)
+      })
+    } else if (to.meta.has_index) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          if (to.meta.has_tabs) {
+            resolve({ selector: '#top', offset: { x: 0, y: 140 } })
+          } else {
+            resolve({ selector: '#top', offset: { x: 0, y: 100 } })
+          }
+        }, 10)
       })
     } else {
       return { x: 0, y: 0 }

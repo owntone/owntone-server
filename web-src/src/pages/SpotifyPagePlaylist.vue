@@ -10,8 +10,15 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ playlist.tracks.total }} tracks</p>
-      <spotify-list-item-track v-for="(item, index) in tracks" :key="item.track.id" :track="item.track" :album="item.track.album" :position="index" :context_uri="playlist.uri"></spotify-list-item-track>
+      <spotify-list-item-track v-for="(item, index) in tracks" :key="item.track.id" :track="item.track" :album="item.track.album" :position="index" :context_uri="playlist.uri">
+        <template slot="actions">
+          <a @click="open_track_dialog(item.track)">
+            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+          </a>
+        </template>
+      </spotify-list-item-track>
       <infinite-loading v-if="offset < total" @infinite="load_next"><span slot="no-more">.</span></infinite-loading>
+      <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="selected_track.album" @close="show_track_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -20,6 +27,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack'
+import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack'
 import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -47,14 +55,17 @@ const playlistData = {
 export default {
   name: 'SpotifyPagePlaylist',
   mixins: [ LoadDataBeforeEnterMixin(playlistData) ],
-  components: { ContentWithHeading, SpotifyListItemTrack, InfiniteLoading },
+  components: { ContentWithHeading, SpotifyListItemTrack, SpotifyModalDialogTrack, InfiniteLoading },
 
   data () {
     return {
-      playlist: {},
+      playlist: { tracks: {} },
       tracks: [],
       total: 0,
-      offset: 0
+      offset: 0,
+
+      show_track_details_modal: false,
+      selected_track: {}
     }
   },
 
@@ -83,6 +94,11 @@ export default {
     play: function () {
       this.show_details_modal = false
       webapi.player_play_uri(this.playlist.uri, true)
+    },
+
+    open_track_dialog: function (track) {
+      this.selected_track = track
+      this.show_track_details_modal = true
     }
   }
 }

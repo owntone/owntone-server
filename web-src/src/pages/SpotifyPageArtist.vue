@@ -5,8 +5,15 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ total }} albums</p>
-      <spotify-list-item-album v-for="album in albums" :key="album.id" :album="album"></spotify-list-item-album>
+      <spotify-list-item-album v-for="album in albums" :key="album.id" :album="album">
+        <template slot="actions">
+          <a @click="open_dialog(album)">
+            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+          </a>
+        </template>
+      </spotify-list-item-album>
       <infinite-loading v-if="offset < total" @infinite="load_next"><span slot="no-more">.</span></infinite-loading>
+      <spotify-modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -15,6 +22,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
 import store from '@/store'
 import SpotifyWebApi from 'spotify-web-api-js'
 import InfiniteLoading from 'vue-infinite-loading'
@@ -42,14 +50,17 @@ const artistData = {
 export default {
   name: 'SpotifyPageArtist',
   mixins: [ LoadDataBeforeEnterMixin(artistData) ],
-  components: { ContentWithHeading, SpotifyListItemAlbum, InfiniteLoading },
+  components: { ContentWithHeading, SpotifyListItemAlbum, SpotifyModalDialogAlbum, InfiniteLoading },
 
   data () {
     return {
       artist: {},
       albums: [],
       total: 0,
-      offset: 0
+      offset: 0,
+
+      show_details_modal: false,
+      selected_album: {}
     }
   },
 
@@ -73,6 +84,11 @@ export default {
           $state.complete()
         }
       }
+    },
+
+    open_dialog: function (album) {
+      this.selected_album = album
+      this.show_details_modal = true
     }
   }
 }
