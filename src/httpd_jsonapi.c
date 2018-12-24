@@ -1745,6 +1745,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *id;
   int pos = -1;
   int count = 0;
+  int ttl_count = 0;
   json_object *reply;
   int ret = 0;
 
@@ -1810,6 +1811,8 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
       if (pos >= 0)
 	pos += count;
+
+      ttl_count += count;
     }
   while ((uri = strtok(NULL, ",")));
 
@@ -1818,7 +1821,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   if (ret == 0)
     {
       reply = json_object_new_object();
-      json_object_object_add(reply, "count", json_object_new_int(count));
+      json_object_object_add(reply, "count", json_object_new_int(ttl_count));
 
       ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
       jparse_free(reply);
