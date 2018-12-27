@@ -632,6 +632,10 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object *buildopts;
   int websocket_port;
   char **buildoptions;
+  cfg_t *lib;
+  int ndirs;
+  char *path;
+  json_object *directories;
   int i;
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -661,6 +665,17 @@ jsonapi_reply_config(struct httpd_request *hreq)
       json_object_array_add(buildopts, json_object_new_string(buildoptions[i]));
     }
   json_object_object_add(jreply, "buildoptions", buildopts);
+
+  // Library directories
+  lib = cfg_getsec(cfg, "library");
+  ndirs = cfg_size(lib, "directories");
+  directories = json_object_new_array();
+  for (i = 0; i < ndirs; i++)
+    {
+      path = cfg_getnstr(lib, "directories", i);
+      json_object_array_add(directories, json_object_new_string(path));
+    }
+  json_object_object_add(jreply, "directories", directories);
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
@@ -2726,7 +2741,7 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
     goto error;
 
   query_params.type = Q_ITEMS;
-  query_params.sort = S_NAME;
+  query_params.sort = S_VPATH;
   query_params.filter = db_mprintf("(f.directory_id = %d)", directory_id);
 
   ret = fetch_tracks(&query_params, tracks_items, &total);
