@@ -417,7 +417,7 @@ parse_item(struct input_metadata *m, const char *item)
       if (data != &progress && data != &volume)
 	free(*data);
 
-      *data = b64_decode(s);
+      CHECK_NULL(L_PLAYER, *data = b64_decode(s));
 
       DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x): '%s'\n", type, code, *data);
 

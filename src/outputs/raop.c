@@ -4730,7 +4730,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "et");
   if (p)
     {
-      et = strdup(p);
+      CHECK_NULL(L_RAOP, et = strdup(p));
       token = strtok_r(et, ",", &ptr);
       while (token)
 	{
