@@ -133,9 +133,6 @@ library_add_media(struct media_file_info *mfi)
   if (!mfi->media_kind)
     mfi->media_kind = MEDIA_KIND_MUSIC; /* music */
 
-  unicode_fixup_mfi(mfi);
-  fixup_tags_mfi(mfi);
-
   if (mfi->id == 0)
     db_file_add(mfi);
   else

@@ -1686,7 +1686,6 @@ queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_i
   memset(&mfi, 0, sizeof(struct media_file_info));
 
   scan_metadata_stream(path, &mfi);
-  unicode_fixup_mfi(&mfi);
 
   map_media_file_to_queue_item(&item, &mfi);
 

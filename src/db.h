@@ -425,8 +425,7 @@ struct directory_enum {
   void *stmt;
 };
 
-struct db_queue_item
-{
+struct db_queue_item {
   /* A unique id for this queue item. If the same item appears multiple
      times in the queue each corresponding queue item has its own id. */
   uint32_t id;
@@ -434,18 +433,16 @@ struct db_queue_item
   /* Id of the file/item in the files database */
   uint32_t file_id;
 
-  /* Length of the item in ms */
-  uint32_t song_length;
+  uint32_t pos;
+  uint32_t shuffle_pos;
 
   /* Data type of the item */
   enum data_kind data_kind;
   /* Media type of the item */
   enum media_kind media_kind;
 
-  uint32_t seek;
-
-  uint32_t pos;
-  uint32_t shuffle_pos;
+  /* Length of the item in ms */
+  uint32_t song_length;
 
   char *path;
   char *virtual_path;
@@ -453,7 +450,6 @@ struct db_queue_item
   char *title;
   char *artist;
   char *album_artist;
-  char *composer;
   char *album;
   char *genre;
 
@@ -471,7 +467,14 @@ struct db_queue_item
   char *artwork_url;
 
   uint32_t queue_version;
+
+  char *composer;
+
+  /* Not saved in queue table */
+  uint32_t seek;
 };
+
+#define qi_offsetof(field) offsetof(struct db_queue_item, field)
 
 struct db_queue_add_info
 {
@@ -509,12 +512,6 @@ free_query_params(struct query_params *qp, int content_only);
 
 void
 free_queue_item(struct db_queue_item *queue_item, int content_only);
-
-void
-unicode_fixup_mfi(struct media_file_info *mfi);
-
-void
-fixup_tags_mfi(struct media_file_info *mfi);
 
 /* Maintenance and DB hygiene */
 void
