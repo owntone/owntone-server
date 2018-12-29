@@ -2591,6 +2591,7 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
 
   query_params.type = Q_BROWSE_GENRES;
   query_params.idx_type = I_NONE;
+  query_params.sort = S_GENRE;
 
   if (media_kind)
     query_params.filter = db_mprintf("(f.media_kind = %d)", media_kind);
@@ -2598,8 +2599,8 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
   ret = fetch_genres(&query_params, items, NULL);
   if (ret < 0)
     goto error;
-  else
-    total = json_object_array_length(items);
+
+  total = json_object_array_length(items);
 
   json_object_object_add(reply, "total", json_object_new_int(total));
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
