@@ -6976,7 +6976,7 @@ db_check_version(void)
 
   db_ver = db_ver_major * 100 + db_ver_minor;
 
-  if (db_ver_major < 10)
+  if (db_ver_major < 17)
     {
       DPRINTF(E_FATAL, L_DB, "Database schema v%d too old, cannot upgrade\n", db_ver_major);
 
