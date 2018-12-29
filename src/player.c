@@ -1310,6 +1310,8 @@ device_add(void *arg, int *retval)
 
   device_list_sort();
 
+  listener_notify(LISTENER_SPEAKER);
+
   *retval = 0;
   return COMMAND_END;
 }
@@ -1363,6 +1365,8 @@ device_remove_family(void *arg, int *retval)
     }
 
   outputs_device_free(remove);
+
+  listener_notify(LISTENER_SPEAKER);
 
   *retval = 0;
   return COMMAND_END;
