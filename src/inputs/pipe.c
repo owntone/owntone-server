@@ -418,6 +418,13 @@ parse_item(struct input_metadata *m, const char *item)
 	free(*data);
 
       *data = b64_decode(s);
+      if (!*data)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Base64 decode of '%s' failed\n", s);
+
+	  pthread_mutex_unlock(&pipe_metadata_lock);
+	  goto out_error;
+	}
 
       DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x): '%s'\n", type, code, *data);
 
