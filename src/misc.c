@@ -738,9 +738,7 @@ b64_decode(const char *b64)
 
   len = strlen(b64);
 
-  str = (char *)malloc(len);
-  if (!str)
-    return NULL;
+  CHECK_NULL(L_MISC, str = malloc(len));
 
   memset(str, 0, len);
 
