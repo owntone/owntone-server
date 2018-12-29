@@ -1752,39 +1752,15 @@ queue_tracks_add_playlist(const char *id, int pos)
 }
 
 static int
-jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
+queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 {
-  const char *param;
   char *uris;
   char *uri;
   const char *id;
-  int pos = -1;
   int count = 0;
-  int ttl_count = 0;
-  json_object *reply;
   int ret = 0;
 
-
-  param = evhttp_find_header(hreq->query, "position");
-  if (param)
-    {
-      if (safe_atoi32(param, &pos) < 0)
-        {
-	  DPRINTF(E_LOG, L_WEB, "Invalid position parameter '%s'\n", param);
-
-	  return HTTP_BADREQUEST;
-	}
-
-      DPRINTF(E_DBG, L_WEB, "Add tracks starting at position '%d\n", pos);
-    }
-
-  param = evhttp_find_header(hreq->query, "uris");
-  if (!param)
-    {
-      DPRINTF(E_LOG, L_WEB, "Missing query parameter 'uris'\n");
-
-      return HTTP_BADREQUEST;
-    }
+  *total_count = 0;
 
   uris = strdup(param);
   uri = strtok(uris, ",");
@@ -1827,16 +1803,99 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
       if (pos >= 0)
 	pos += count;
 
-      ttl_count += count;
+      *total_count += count;
     }
   while ((uri = strtok(NULL, ",")));
 
   free(uris);
 
+  return ret;
+}
+
+static int
+queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
+{
+  char *expression;
+  struct smartpl smartpl_expression;
+  struct query_params query_params;
+  struct player_status status;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  query_params.type = Q_ITEMS;
+  query_params.sort = S_ALBUM;
+  query_params.idx_type = I_NONE;
+
+  memset(&smartpl_expression, 0, sizeof(struct smartpl));
+  expression = safe_asprintf("\"query\" { %s }", param);
+  ret = smartpl_query_parse_string(&smartpl_expression, expression);
+  free(expression);
+
+  if (ret < 0)
+    return -1;
+
+  query_params.filter = strdup(smartpl_expression.query_where);
+  free_smartpl(&smartpl_expression, 1);
+
+  player_get_status(&status);
+
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, NULL);
+
+  free(query_params.filter);
+
+  return ret;
+
+}
+
+static int
+jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
+{
+  const char *param_pos;
+  const char *param_uris;
+  const char *param_expression;
+  int pos = -1;
+  int total_count = 0;
+  json_object *reply;
+  int ret = 0;
+
+
+  param_pos = evhttp_find_header(hreq->query, "position");
+  if (param_pos)
+    {
+      if (safe_atoi32(param_pos, &pos) < 0)
+        {
+	  DPRINTF(E_LOG, L_WEB, "Invalid position parameter '%s'\n", param_pos);
+
+	  return HTTP_BADREQUEST;
+	}
+
+      DPRINTF(E_DBG, L_WEB, "Add tracks starting at position '%d\n", pos);
+    }
+
+  param_uris = evhttp_find_header(hreq->query, "uris");
+  param_expression = evhttp_find_header(hreq->query, "expression");
+
+  if (!param_uris && !param_expression)
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing query parameter 'uris' or 'expression'\n");
+
+      return HTTP_BADREQUEST;
+    }
+
+  if (param_uris)
+    {
+      ret = queue_tracks_add_byuris(param_uris, pos, &total_count);
+    }
+  else
+    {
+      ret = queue_tracks_add_byexpression(param_expression, pos, &total_count);
+    }
+
   if (ret == 0)
     {
       reply = json_object_new_object();
-      json_object_object_add(reply, "count", json_object_new_int(ttl_count));
+      json_object_object_add(reply, "count", json_object_new_int(total_count));
 
       ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
       jparse_free(reply);
