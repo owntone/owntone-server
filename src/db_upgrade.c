@@ -108,6 +108,69 @@ db_drop_indices(sqlite3 *hdl)
 #undef Q_INDEX
 }
 
+static int
+db_drop_triggers(sqlite3 *hdl)
+{
+#define Q_TRIGGER "SELECT name FROM sqlite_master WHERE type == 'trigger' AND name LIKE 'trg_%';"
+#define Q_TMPL "DROP TRIGGER %q;"
+  sqlite3_stmt *stmt;
+  char *errmsg;
+  char *query;
+  char *trigger[256];
+  int ret;
+  int i;
+  int n;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_TRIGGER);
+
+  ret = sqlite3_prepare_v2(hdl, Q_TRIGGER, strlen(Q_TRIGGER) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  n = 0;
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      trigger[n] = strdup((char *)sqlite3_column_text(stmt, 0));
+      n++;
+    }
+
+  if (ret != SQLITE_DONE)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      return -1;
+    }
+
+  sqlite3_finalize(stmt);
+
+  for (i = 0; i < n; i++)
+    {
+      query = sqlite3_mprintf(Q_TMPL, trigger[i]);
+      free(trigger[i]);
+
+      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+      ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "DB error while running '%s': %s\n", query, errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+
+      sqlite3_free(query);
+    }
+
+  return 0;
+#undef Q_TMPL
+#undef Q_TRIGGER
+}
+
 
 static int
 db_generic_upgrade(sqlite3 *hdl, const struct db_upgrade_query *queries, unsigned int nqueries)
@@ -131,6 +194,132 @@ db_generic_upgrade(sqlite3 *hdl, const struct db_upgrade_query *queries, unsigne
     }
 
   return 0;
+}
+
+/* The below implements relevant parts of SQLITE's recommended 12 steps to
+ * altering a table. It is not required to use this function if you just want to
+ * add a column). The steps:
+ * 1.  If foreign key constraints are enabled, disable them using PRAGMA
+ *     foreign_keys=OFF.
+ * 2.  Start a transaction.
+ * 3.  Remember the format of all indexes and triggers associated with table X.
+ *     This information will be needed in step 8 below. One way to do this is to
+ *     run a query like the following: SELECT type, sql FROM sqlite_master WHERE
+ *     tbl_name='X'.
+ * 4.  Use CREATE TABLE to construct a new table "new_X" that is in the desired
+ *     revised format of table X. Make sure that the name "new_X" does not
+ *     collide with any existing table name, of course.
+ * 5.  Transfer content from X into new_X using a statement like: INSERT INTO
+ *     new_X SELECT ... FROM X.
+ * 6.  Drop the old table X: DROP TABLE X.
+ * 7.  Change the name of new_X to X using: ALTER TABLE new_X RENAME TO X.
+ * 8.  Use CREATE INDEX and CREATE TRIGGER to reconstruct indexes and triggers
+ *     associated with table X. Perhaps use the old format of the triggers and
+ *     indexes saved from step 3 above as a guide, making changes as appropriate
+ *     for the alteration.
+ * 9.  If any views refer to table X in a way that is affected by the schema
+ *     change, then drop those views using DROP VIEW and recreate them with
+ *     whatever changes are necessary to accommodate the schema change using
+ *     CREATE VIEW.
+ * 10. If foreign key constraints were originally enabled then run PRAGMA
+ *     foreign_key_check to verify that the schema change did not break any
+ *     foreign key constraints.
+ * 11. Commit the transaction started in step 2.
+ * 12. If foreign keys constraints were originally enabled, reenable them now.
+ * Source: https://www.sqlite.org/lang_altertable.html
+ */
+static int
+db_table_upgrade(sqlite3 *hdl, const char *name, const char *newtablequery)
+{
+  sqlite3_stmt *stmt;
+  char *query;
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_LOG, L_DB, "Upgrading %s table...\n", name);
+
+  // Step 1: Skipped, no foreign key constraints
+  // Step 2: Skipped, we are already in a transaction
+  // Step 3: Nothing to do, we already know our indexes and triggers
+  // Step 4: Create the new table using table definition from db_init, but with
+  // new_ prefixed to the name
+  CHECK_NULL(L_DB, query = sqlite3_mprintf(newtablequery));
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    goto error;
+
+  sqlite3_free(query);
+
+  // Step 5: Transfer content - note: no support for changed column names or dropped columns!
+  // This will select the column names from our new table (which where given to us in newtablequery)
+  CHECK_NULL(L_DB, query = sqlite3_mprintf("SELECT group_concat(name) FROM pragma_table_info('new_%s');", name));
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      errmsg = sqlite3_mprintf("%s", sqlite3_errmsg(hdl));
+      goto error;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+        errmsg = sqlite3_mprintf("Getting col names from pragma_table_info returned nothing");
+      else
+        errmsg = sqlite3_mprintf("%s", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      goto error;
+    }
+
+  sqlite3_free(query);
+
+  CHECK_NULL(L_DB, query = sqlite3_mprintf("INSERT INTO new_%s SELECT %s FROM %s;", name, sqlite3_column_text(stmt, 0), name));
+
+  sqlite3_finalize(stmt);
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    goto error;
+
+  sqlite3_free(query);
+
+  // Step 6: Drop old table
+  CHECK_NULL(L_DB, query = sqlite3_mprintf("DROP TABLE %s;", name));
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    goto error;
+
+  sqlite3_free(query);
+
+  // Step 7: Give the new table the final name
+  CHECK_NULL(L_DB, query = sqlite3_mprintf("ALTER TABLE new_%s RENAME TO %s;", name, name));
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    goto error;
+
+  sqlite3_free(query);
+
+  // Step 8: Skipped, will be done by db_check_version in db.c
+  // Step 9: Skipped, no views
+  // Step 10: Skipped, no foreign key constraints
+  // Step 11: Skipped, our caller takes care of COMMIT
+  // Step 12: Skipped, no foreign key constraints
+
+  DPRINTF(E_LOG, L_DB, "Upgrade of %s table complete!\n", name);
+
+  return 0;
+
+ error:
+  DPRINTF(E_LOG, L_DB, "DB error %d running query '%s': %s\n", ret, query, errmsg);
+  sqlite3_free(query);
+  sqlite3_free(errmsg);
+
+  return -1;
 }
 
 /* Upgrade the files table to the new schema by dumping and reloading the
@@ -308,7 +497,7 @@ db_upgrade_files_table(sqlite3 *hdl, const char *dumpquery, const char *newtable
       /* Not an issue, but takes up space in the database */
     }
 
- DPRINTF(E_LOG, L_DB, "Upgrade of files table complete!\n");
+  DPRINTF(E_LOG, L_DB, "Upgrade of files table complete!\n");
 
  out_munmap:
   if (dump)
@@ -1728,30 +1917,82 @@ static const struct db_upgrade_query db_upgrade_v1912_queries[] =
   };
 
 
-#define U_V2000_DROP_TRG1							\
-  "DROP TRIGGER update_groups_new_file;"
-#define U_V2000_DROP_TRG2							\
-  "DROP TRIGGER update_groups_update_file;"
-#define U_V2000_TRG1								\
-  "CREATE TRIGGER trg_files_insert_songids AFTER INSERT ON files FOR EACH ROW"	\
-  " BEGIN"									\
-  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "	\
-  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"	\
-  "   WHERE id = NEW.id;"							\
-  " END;"
-#define U_V2000_TRG2								\
-  "CREATE TRIGGER trg_files_update_songids AFTER UPDATE OF album_artist, album ON files FOR EACH ROW"	\
-  " BEGIN"									\
-  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "	\
-  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"	\
-  "   WHERE id = NEW.id;"							\
-  " END;"
-#define U_V2000_TRG3								\
-  "CREATE TRIGGER trg_groups_update AFTER UPDATE OF songartistid, songalbumid ON files FOR EACH ROW"	\
-  " BEGIN"									\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);"	\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);"	\
-  " END;"
+#define U_V20_NEW_FILES_TABLE				\
+  "CREATE TABLE new_files ("				\
+  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
+  "   path               VARCHAR(4096) NOT NULL,"	\
+  "   virtual_path       VARCHAR(4096) DEFAULT NULL,"	\
+  "   fname              VARCHAR(255) NOT NULL,"	\
+  "   directory_id       INTEGER DEFAULT 0,"		\
+  "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
+  "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   orchestra          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   conductor          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   grouping           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   url                VARCHAR(1024) DEFAULT NULL,"	\
+  "   bitrate            INTEGER DEFAULT 0,"		\
+  "   samplerate         INTEGER DEFAULT 0,"		\
+  "   song_length        INTEGER DEFAULT 0,"		\
+  "   file_size          INTEGER DEFAULT 0,"		\
+  "   year               INTEGER DEFAULT 0,"		\
+  "   date_released      INTEGER DEFAULT 0,"		\
+  "   track              INTEGER DEFAULT 0,"		\
+  "   total_tracks       INTEGER DEFAULT 0,"		\
+  "   disc               INTEGER DEFAULT 0,"		\
+  "   total_discs        INTEGER DEFAULT 0,"		\
+  "   bpm                INTEGER DEFAULT 0,"		\
+  "   compilation        INTEGER DEFAULT 0,"		\
+  "   artwork            INTEGER DEFAULT 0,"		\
+  "   rating             INTEGER DEFAULT 0,"		\
+  "   play_count         INTEGER DEFAULT 0,"		\
+  "   skip_count         INTEGER DEFAULT 0,"            \
+  "   seek               INTEGER DEFAULT 0,"		\
+  "   data_kind          INTEGER DEFAULT 0,"		\
+  "   media_kind         INTEGER DEFAULT 0,"		\
+  "   item_kind          INTEGER DEFAULT 0,"		\
+  "   description        INTEGER DEFAULT 0,"		\
+  "   db_timestamp       INTEGER DEFAULT 0,"		\
+  "   time_added         INTEGER DEFAULT 0,"		\
+  "   time_modified      INTEGER DEFAULT 0,"		\
+  "   time_played        INTEGER DEFAULT 0,"		\
+  "   time_skipped       INTEGER DEFAULT 0,"            \
+  "   disabled           INTEGER DEFAULT 0,"		\
+  "   sample_count       INTEGER DEFAULT 0,"		\
+  "   codectype          VARCHAR(5) DEFAULT NULL,"	\
+  "   idx                INTEGER NOT NULL,"		\
+  "   has_video          INTEGER DEFAULT 0,"		\
+  "   contentrating      INTEGER DEFAULT 0,"		\
+  "   bits_per_sample    INTEGER DEFAULT 0,"		\
+  "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_episode_sort    INTEGER NOT NULL,"		\
+  "   tv_season_num      INTEGER NOT NULL,"		\
+  "   songartistid       INTEGER DEFAULT 0,"		\
+  "   songalbumid        INTEGER DEFAULT 0,"		\
+  "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
+  ");"
+
+static int
+db_upgrade_v20(sqlite3 *hdl)
+{
+  return db_table_upgrade(hdl, "files", U_V20_NEW_FILES_TABLE);
+}
+
+#define U_V2000_DROP_TRG1				\
+  "DROP TRIGGER IF EXISTS update_groups_new_file;"
+#define U_V2000_DROP_TRG2				\
+  "DROP TRIGGER IF EXISTS update_groups_update_file;"
 
 #define U_V2000_SCVER_MAJOR \
   "UPDATE admin SET value = '20' WHERE key = 'schema_version_major';"
@@ -1762,9 +2003,6 @@ static const struct db_upgrade_query db_upgrade_v2000_queries[] =
   {
     { U_V2000_DROP_TRG1,      "drop trigger update_groups_new_file" },
     { U_V2000_DROP_TRG2,      "drop trigger update_groups_update_file" },
-    { U_V2000_TRG1,           "create trigger trg_files_insert_songids" },
-    { U_V2000_TRG2,           "create trigger trg_files_update_songids" },
-    { U_V2000_TRG3,           "create trigger trg_groups_update" },
 
     { U_V2000_SCVER_MAJOR,    "set schema_version_major to 20" },
     { U_V2000_SCVER_MINOR,    "set schema_version_minor to 00" },
@@ -1777,6 +2015,10 @@ db_upgrade(sqlite3 *hdl, int db_ver)
   int ret;
 
   ret = db_drop_indices(hdl);
+  if (ret < 0)
+    return -1;
+
+  ret = db_drop_triggers(hdl);
   if (ret < 0)
     return -1;
 
@@ -1968,9 +2210,14 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       /* FALLTHROUGH */
 
     case 1912:
+      ret = db_upgrade_v20(hdl);
+      if (ret < 0)
+	return -1;
+
       ret = db_generic_upgrade(hdl, db_upgrade_v2000_queries, ARRAY_SIZE(db_upgrade_v2000_queries));
       if (ret < 0)
 	return -1;
+
       break;
 
     default:

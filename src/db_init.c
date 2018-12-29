@@ -36,10 +36,13 @@
   "CREATE TABLE IF NOT EXISTS files ("			\
   "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
   "   path               VARCHAR(4096) NOT NULL,"	\
+  "   virtual_path       VARCHAR(4096) DEFAULT NULL,"	\
   "   fname              VARCHAR(255) NOT NULL,"	\
+  "   directory_id       INTEGER DEFAULT 0,"		\
   "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
   "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
   "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
   "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
@@ -53,6 +56,7 @@
   "   song_length        INTEGER DEFAULT 0,"		\
   "   file_size          INTEGER DEFAULT 0,"		\
   "   year               INTEGER DEFAULT 0,"		\
+  "   date_released      INTEGER DEFAULT 0,"		\
   "   track              INTEGER DEFAULT 0,"		\
   "   total_tracks       INTEGER DEFAULT 0,"		\
   "   disc               INTEGER DEFAULT 0,"		\
@@ -62,14 +66,17 @@
   "   artwork            INTEGER DEFAULT 0,"		\
   "   rating             INTEGER DEFAULT 0,"		\
   "   play_count         INTEGER DEFAULT 0,"		\
+  "   skip_count         INTEGER DEFAULT 0,"            \
   "   seek               INTEGER DEFAULT 0,"		\
   "   data_kind          INTEGER DEFAULT 0,"		\
+  "   media_kind         INTEGER DEFAULT 0,"		\
   "   item_kind          INTEGER DEFAULT 0,"		\
   "   description        INTEGER DEFAULT 0,"		\
+  "   db_timestamp       INTEGER DEFAULT 0,"		\
   "   time_added         INTEGER DEFAULT 0,"		\
   "   time_modified      INTEGER DEFAULT 0,"		\
   "   time_played        INTEGER DEFAULT 0,"		\
-  "   db_timestamp       INTEGER DEFAULT 0,"		\
+  "   time_skipped       INTEGER DEFAULT 0,"            \
   "   disabled           INTEGER DEFAULT 0,"		\
   "   sample_count       INTEGER DEFAULT 0,"		\
   "   codectype          VARCHAR(5) DEFAULT NULL,"	\
@@ -77,8 +84,6 @@
   "   has_video          INTEGER DEFAULT 0,"		\
   "   contentrating      INTEGER DEFAULT 0,"		\
   "   bits_per_sample    INTEGER DEFAULT 0,"		\
-  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   media_kind         INTEGER NOT NULL,"		\
   "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
@@ -89,13 +94,8 @@
   "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   virtual_path       VARCHAR(4096) DEFAULT NULL,"	\
-  "   directory_id       INTEGER DEFAULT 0,"		\
-  "   date_released      INTEGER DEFAULT 0,"            \
-  "   skip_count         INTEGER DEFAULT 0,"            \
-  "   time_skipped       INTEGER DEFAULT 0"             \
+  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
   ");"
 
 #define T_PL					\
@@ -194,29 +194,6 @@
   "   composer            VARCHAR(1024) DEFAULT NULL"			\
   ");"
 
-#define TRG_FILES_INSERT_SONGIDS						\
-  "CREATE TRIGGER trg_files_insert_songids AFTER INSERT ON files FOR EACH ROW"	\
-  " BEGIN"									\
-  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "	\
-  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"	\
-  "   WHERE id = NEW.id;"							\
-  " END;"
-
-#define TRG_FILES_UPDATE_SONGIDS						\
-  "CREATE TRIGGER trg_files_update_songids AFTER UPDATE OF album_artist, album ON files FOR EACH ROW"	\
-  " BEGIN"									\
-  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "	\
-  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"	\
-  "   WHERE id = NEW.id;"							\
-  " END;"
-
-#define TRG_GROUPS_UPDATE							\
-  "CREATE TRIGGER trg_groups_update AFTER UPDATE OF songartistid, songalbumid ON files FOR EACH ROW"	\
-  " BEGIN"									\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);"	\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);"	\
-  " END;"
-
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
   " VALUES(1, 'Library', 0, '1 = 1', 0, '', 0, 0);"
@@ -287,20 +264,18 @@ static const struct db_init_query db_init_table_queries[] =
     { T_DIRECTORIES, "create table directories" },
     { T_QUEUE,     "create table queue" },
 
-    { TRG_FILES_INSERT_SONGIDS,    "create trigger trg_files_insert_songids" },
-    { TRG_FILES_UPDATE_SONGIDS,    "create trigger trg_files_update_songids" },
-    { TRG_GROUPS_UPDATE,           "create trigger trg_groups_update" },
-
     { Q_PL1,       "create default playlist" },
     { Q_PL2,       "create default smart playlist 'Music'" },
     { Q_PL3,       "create default smart playlist 'Movies'" },
     { Q_PL4,       "create default smart playlist 'TV Shows'" },
     { Q_PL5,       "create default smart playlist 'Podcasts'" },
     { Q_PL6,       "create default smart playlist 'Audiobooks'" },
+
     { Q_DIR1,      "create default root directory '/'" },
     { Q_DIR2,      "create default base directory '/file:'" },
     { Q_DIR3,      "create default base directory '/http:'" },
     { Q_DIR4,      "create default base directory '/spotify:'" },
+
     { Q_QUEUE_VERSION, "initialize queue version" },
   };
 
@@ -421,6 +396,41 @@ static const struct db_init_query db_init_index_queries[] =
     { I_QUEUE_SHUFFLEPOS,  "create queue shuffle pos index" },
   };
 
+
+/* Triggers must be prefixed with trg_ for db_drop_triggers() to id them */
+
+#define TRG_FILES_INSERT_SONGIDS									\
+  "CREATE TRIGGER trg_files_insert_songids AFTER INSERT ON files FOR EACH ROW"				\
+  " BEGIN"												\
+  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "			\
+  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"			\
+  "   WHERE id = NEW.id;"										\
+  " END;"
+
+#define TRG_FILES_UPDATE_SONGIDS									\
+  "CREATE TRIGGER trg_files_update_songids AFTER UPDATE OF album_artist, album ON files FOR EACH ROW"	\
+  " BEGIN"												\
+  "   UPDATE files SET songartistid = daap_songalbumid(LOWER(NEW.album_artist), ''), "			\
+  "     songalbumid = daap_songalbumid(LOWER(NEW.album_artist), LOWER(NEW.album))"			\
+  "   WHERE id = NEW.id;"										\
+  " END;"
+
+#define TRG_GROUPS_UPDATE										\
+  "CREATE TRIGGER trg_groups_update AFTER UPDATE OF songartistid, songalbumid ON files FOR EACH ROW"	\
+  " WHEN (NEW.songartistid != 0 AND NEW.songalbumid != 0)"						\
+  " BEGIN"												\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);"	\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);"	\
+  " END;"
+
+static const struct db_init_query db_init_trigger_queries[] =
+  {
+    { TRG_FILES_INSERT_SONGIDS,    "create trigger trg_files_insert_songids" },
+    { TRG_FILES_UPDATE_SONGIDS,    "create trigger trg_files_update_songids" },
+    { TRG_GROUPS_UPDATE,           "create trigger trg_groups_update" },
+  };
+
+
 int
 db_init_indices(sqlite3 *hdl)
 {
@@ -433,6 +443,30 @@ db_init_indices(sqlite3 *hdl)
       DPRINTF(E_DBG, L_DB, "DB init index query: %s\n", db_init_index_queries[i].desc);
 
       ret = sqlite3_exec(hdl, db_init_index_queries[i].query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
+int
+db_init_triggers(sqlite3 *hdl)
+{
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(db_init_trigger_queries) / sizeof(db_init_trigger_queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "DB init trigger query: %s\n", db_init_trigger_queries[i].desc);
+
+      ret = sqlite3_exec(hdl, db_init_trigger_queries[i].query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);

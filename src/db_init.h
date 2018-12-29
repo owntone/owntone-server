@@ -32,6 +32,9 @@ int
 db_init_indices(sqlite3 *hdl);
 
 int
+db_init_triggers(sqlite3 *hdl);
+
+int
 db_init_tables(sqlite3 *hdl);
 
 #endif /* SRC_DB_INIT_H_ */

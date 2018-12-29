@@ -144,10 +144,13 @@ static const struct col_type_map mfi_cols_map[] =
   {
     { "id",                 mfi_offsetof(id),                 DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_AUTO },
     { "path",               mfi_offsetof(path),               DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
+    { "virtual_path",       mfi_offsetof(virtual_path),       DB_TYPE_STRING },
     { "fname",              mfi_offsetof(fname),              DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
+    { "directory_id",       mfi_offsetof(directory_id),       DB_TYPE_INT },
     { "title",              mfi_offsetof(title),              DB_TYPE_STRING, DB_FIXUP_TITLE },
     { "artist",             mfi_offsetof(artist),             DB_TYPE_STRING, DB_FIXUP_ARTIST },
     { "album",              mfi_offsetof(album),              DB_TYPE_STRING, DB_FIXUP_ALBUM },
+    { "album_artist",       mfi_offsetof(album_artist),       DB_TYPE_STRING, DB_FIXUP_ALBUM_ARTIST },
     { "genre",              mfi_offsetof(genre),              DB_TYPE_STRING, DB_FIXUP_GENRE },
     { "comment",            mfi_offsetof(comment),            DB_TYPE_STRING },
     { "type",               mfi_offsetof(type),               DB_TYPE_STRING, DB_FIXUP_TYPE },
@@ -161,6 +164,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "song_length",        mfi_offsetof(song_length),        DB_TYPE_INT },
     { "file_size",          mfi_offsetof(file_size),          DB_TYPE_INT64 },
     { "year",               mfi_offsetof(year),               DB_TYPE_INT },
+    { "date_released",      mfi_offsetof(date_released),      DB_TYPE_INT },
     { "track",              mfi_offsetof(track),              DB_TYPE_INT },
     { "total_tracks",       mfi_offsetof(total_tracks),       DB_TYPE_INT },
     { "disc",               mfi_offsetof(disc),               DB_TYPE_INT },
@@ -170,23 +174,24 @@ static const struct col_type_map mfi_cols_map[] =
     { "artwork",            mfi_offsetof(artwork),            DB_TYPE_CHAR },
     { "rating",             mfi_offsetof(rating),             DB_TYPE_INT },
     { "play_count",         mfi_offsetof(play_count),         DB_TYPE_INT },
+    { "skip_count",         mfi_offsetof(skip_count),         DB_TYPE_INT },
     { "seek",               mfi_offsetof(seek),               DB_TYPE_INT },
     { "data_kind",          mfi_offsetof(data_kind),          DB_TYPE_INT },
+    { "media_kind",         mfi_offsetof(media_kind),         DB_TYPE_INT,    DB_FIXUP_MEDIA_KIND },
     { "item_kind",          mfi_offsetof(item_kind),          DB_TYPE_INT },
     { "description",        mfi_offsetof(description),        DB_TYPE_STRING },
+    { "db_timestamp",       mfi_offsetof(db_timestamp),       DB_TYPE_INT },
     { "time_added",         mfi_offsetof(time_added),         DB_TYPE_INT,    DB_FIXUP_TIME_ADDED },
     { "time_modified",      mfi_offsetof(time_modified),      DB_TYPE_INT,    DB_FIXUP_TIME_MODIFIED },
     { "time_played",        mfi_offsetof(time_played),        DB_TYPE_INT },
-    { "db_timestamp",       mfi_offsetof(db_timestamp),       DB_TYPE_INT },
+    { "time_skipped",       mfi_offsetof(time_skipped),       DB_TYPE_INT },
     { "disabled",           mfi_offsetof(disabled),           DB_TYPE_INT },
     { "sample_count",       mfi_offsetof(sample_count),       DB_TYPE_INT64 },
     { "codectype",          mfi_offsetof(codectype),          DB_TYPE_STRING, DB_FIXUP_CODECTYPE },
-    { "idx",                mfi_offsetof(index),              DB_TYPE_INT },
+    { "idx",                mfi_offsetof(idx),                DB_TYPE_INT },
     { "has_video",          mfi_offsetof(has_video),          DB_TYPE_INT },
     { "contentrating",      mfi_offsetof(contentrating),      DB_TYPE_INT },
     { "bits_per_sample",    mfi_offsetof(bits_per_sample),    DB_TYPE_INT },
-    { "album_artist",       mfi_offsetof(album_artist),       DB_TYPE_STRING, DB_FIXUP_ALBUM_ARTIST },
-    { "media_kind",         mfi_offsetof(media_kind),         DB_TYPE_INT,    DB_FIXUP_MEDIA_KIND },
     { "tv_series_name",     mfi_offsetof(tv_series_name),     DB_TYPE_STRING },
     { "tv_episode_num_str", mfi_offsetof(tv_episode_num_str), DB_TYPE_STRING },
     { "tv_network_name",    mfi_offsetof(tv_network_name),    DB_TYPE_STRING },
@@ -197,13 +202,8 @@ static const struct col_type_map mfi_cols_map[] =
     { "title_sort",         mfi_offsetof(title_sort),         DB_TYPE_STRING, DB_FIXUP_TITLE_SORT },
     { "artist_sort",        mfi_offsetof(artist_sort),        DB_TYPE_STRING, DB_FIXUP_ARTIST_SORT },
     { "album_sort",         mfi_offsetof(album_sort),         DB_TYPE_STRING, DB_FIXUP_ALBUM_SORT },
-    { "composer_sort",      mfi_offsetof(composer_sort),      DB_TYPE_STRING, DB_FIXUP_COMPOSER_SORT },
     { "album_artist_sort",  mfi_offsetof(album_artist_sort),  DB_TYPE_STRING, DB_FIXUP_ALBUM_ARTIST_SORT },
-    { "virtual_path",       mfi_offsetof(virtual_path),       DB_TYPE_STRING },
-    { "directory_id",       mfi_offsetof(directory_id),       DB_TYPE_INT },
-    { "date_released",      mfi_offsetof(date_released),      DB_TYPE_INT },
-    { "skip_count",         mfi_offsetof(skip_count),         DB_TYPE_INT },
-    { "time_skipped",       mfi_offsetof(time_skipped),       DB_TYPE_INT },
+    { "composer_sort",      mfi_offsetof(composer_sort),      DB_TYPE_STRING, DB_FIXUP_COMPOSER_SORT },
   };
 
 /* This list must be kept in sync with
@@ -271,10 +271,13 @@ static const ssize_t dbmfi_cols_map[] =
   {
     dbmfi_offsetof(id),
     dbmfi_offsetof(path),
+    dbmfi_offsetof(virtual_path),
     dbmfi_offsetof(fname),
+    dbmfi_offsetof(directory_id),
     dbmfi_offsetof(title),
     dbmfi_offsetof(artist),
     dbmfi_offsetof(album),
+    dbmfi_offsetof(album_artist),
     dbmfi_offsetof(genre),
     dbmfi_offsetof(comment),
     dbmfi_offsetof(type),
@@ -288,6 +291,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(song_length),
     dbmfi_offsetof(file_size),
     dbmfi_offsetof(year),
+    dbmfi_offsetof(date_released),
     dbmfi_offsetof(track),
     dbmfi_offsetof(total_tracks),
     dbmfi_offsetof(disc),
@@ -297,14 +301,17 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(artwork),
     dbmfi_offsetof(rating),
     dbmfi_offsetof(play_count),
+    dbmfi_offsetof(skip_count),
     dbmfi_offsetof(seek),
     dbmfi_offsetof(data_kind),
+    dbmfi_offsetof(media_kind),
     dbmfi_offsetof(item_kind),
     dbmfi_offsetof(description),
+    dbmfi_offsetof(db_timestamp),
     dbmfi_offsetof(time_added),
     dbmfi_offsetof(time_modified),
     dbmfi_offsetof(time_played),
-    dbmfi_offsetof(db_timestamp),
+    dbmfi_offsetof(time_skipped),
     dbmfi_offsetof(disabled),
     dbmfi_offsetof(sample_count),
     dbmfi_offsetof(codectype),
@@ -312,8 +319,6 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(has_video),
     dbmfi_offsetof(contentrating),
     dbmfi_offsetof(bits_per_sample),
-    dbmfi_offsetof(album_artist),
-    dbmfi_offsetof(media_kind),
     dbmfi_offsetof(tv_series_name),
     dbmfi_offsetof(tv_episode_num_str),
     dbmfi_offsetof(tv_network_name),
@@ -324,13 +329,8 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(title_sort),
     dbmfi_offsetof(artist_sort),
     dbmfi_offsetof(album_sort),
-    dbmfi_offsetof(composer_sort),
     dbmfi_offsetof(album_artist_sort),
-    dbmfi_offsetof(virtual_path),
-    dbmfi_offsetof(directory_id),
-    dbmfi_offsetof(date_released),
-    dbmfi_offsetof(skip_count),
-    dbmfi_offsetof(time_skipped),
+    dbmfi_offsetof(composer_sort),
   };
 
 /* This list must be kept in sync with
@@ -7002,6 +7002,7 @@ db_check_version(void)
 	  return -1;
 	}
 
+      // Will drop indices and triggers
       ret = db_upgrade(hdl, db_ver);
       if (ret < 0)
 	{
@@ -7018,6 +7019,21 @@ db_check_version(void)
 	}
 
       ret = db_init_indices(hdl);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Database upgrade errored out, rolling back changes ...\n");
+	  ret = sqlite3_exec(hdl, "ROLLBACK TRANSACTION;", NULL, NULL, &errmsg);
+	  if (ret != SQLITE_OK)
+	    {
+	      DPRINTF(E_LOG, L_DB, "DB error while running 'ROLLBACK TRANSACTION': %s\n",  errmsg);
+
+	      sqlite3_free(errmsg);
+	    }
+
+	  return -1;
+	}
+
+      ret = db_init_triggers(hdl);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DB, "Database upgrade errored out, rolling back changes ...\n");
