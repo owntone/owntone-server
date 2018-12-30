@@ -870,7 +870,9 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	if (*tag)
 	  break;
 
-	if (ctx->mfi && ctx->mfi->orchestra && ctx->mfi->conductor)
+	if (ctx->mfi && ctx->mfi->album_artist)
+	  *tag = strdup(ctx->mfi->album_artist);
+	else if (ctx->mfi && ctx->mfi->orchestra && ctx->mfi->conductor)
 	  *tag = safe_asprintf("%s - %s", ctx->mfi->orchestra, ctx->mfi->conductor);
 	else if (ctx->mfi && ctx->mfi->orchestra)
 	  *tag = strdup(ctx->mfi->orchestra);
