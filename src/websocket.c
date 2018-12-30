@@ -129,6 +129,10 @@ process_notify_request(struct ws_session_data_notify *session_data, void *in, si
 		{
 		  session_data->events |= LISTENER_UPDATE;
 		}
+	      else if (0 == strcmp(event_type, "database"))
+		{
+		  session_data->events |= LISTENER_DATABASE;
+		}
 	      else if (0 == strcmp(event_type, "pairing"))
 		{
 		  session_data->events |= LISTENER_PAIRING;
@@ -192,6 +196,10 @@ send_notify_reply(short events, struct lws* wsi)
   if (events & LISTENER_UPDATE)
     {
       json_object_array_add(notify, json_object_new_string("update"));
+    }
+  if (events & LISTENER_DATABASE)
+    {
+      json_object_array_add(notify, json_object_new_string("database"));
     }
   if (events & LISTENER_PAIRING)
     {
@@ -306,7 +314,7 @@ static struct lws_protocols protocols[] =
 static void *
 websocket(void *arg)
 {
-  listener_add(listener_cb, LISTENER_UPDATE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER
+  listener_add(listener_cb, LISTENER_UPDATE | LISTENER_DATABASE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER
 	       | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE);
 
   while(!ws_exit)
