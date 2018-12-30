@@ -208,6 +208,34 @@ sqlext_daap_songalbumid_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
   sqlite3_result_int64(pv, result);
 }
 
+static void
+sqlext_daap_no_zero_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
+{
+  sqlite3_int64 new_value;
+  sqlite3_int64 old_value;
+
+  if (n != 2)
+    {
+      sqlite3_result_error(pv, "daap_no_zero() requires 2 parameters, new_value and old_value", -1);
+      return;
+    }
+
+  if ((sqlite3_value_type(ppv[0]) != SQLITE_INTEGER)
+      || (sqlite3_value_type(ppv[1]) != SQLITE_INTEGER))
+    {
+      sqlite3_result_error(pv, "daap_no_zero() requires 2 integer parameters", -1);
+      return;
+    }
+
+  new_value = sqlite3_value_int64(ppv[0]);
+  old_value = sqlite3_value_int64(ppv[1]);
+
+  if (new_value != 0)
+    sqlite3_result_int64(pv, new_value);
+  else
+    sqlite3_result_int64(pv, old_value);
+}
+
 static int
 sqlext_daap_unicode_xcollation(void *notused, int llen, const void *left, int rlen, const void *right)
 {
@@ -255,6 +283,15 @@ sqlite3_extension_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines 
     {
       if (pzErrMsg)
 	*pzErrMsg = sqlite3_mprintf("Could not create daap_songalbumid function: %s\n", sqlite3_errmsg(db));
+
+      return -1;
+    }
+
+  ret = sqlite3_create_function(db, "daap_no_zero", 2, SQLITE_UTF8, NULL, sqlext_daap_no_zero_xfunc, NULL, NULL);
+  if (ret != SQLITE_OK)
+    {
+      if (pzErrMsg)
+	*pzErrMsg = sqlite3_mprintf("Could not create daap_no_zero function: %s\n", sqlite3_errmsg(db));
 
       return -1;
     }

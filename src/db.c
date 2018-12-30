@@ -63,7 +63,10 @@
 #define DB_TYPE_INT64    3
 #define DB_TYPE_STRING   4
 
-#define DB_FLAG_AUTO     1 // Flags that column value is set automatically by the db, e.g. by a trigger
+// Flags that column value is set automatically by the db, e.g. by a trigger
+#define DB_FLAG_AUTO     (1 << 0)
+// Flags that we will only update column value if we have non-zero value (to avoid zeroing e.g. rating)
+#define DB_FLAG_NO_ZERO  (1 << 1)
 
 enum group_type {
   G_ALBUMS = 1,
@@ -173,10 +176,10 @@ static const struct col_type_map mfi_cols_map[] =
     { "bpm",                mfi_offsetof(bpm),                DB_TYPE_INT },
     { "compilation",        mfi_offsetof(compilation),        DB_TYPE_CHAR },
     { "artwork",            mfi_offsetof(artwork),            DB_TYPE_CHAR },
-    { "rating",             mfi_offsetof(rating),             DB_TYPE_INT },
-    { "play_count",         mfi_offsetof(play_count),         DB_TYPE_INT },
-    { "skip_count",         mfi_offsetof(skip_count),         DB_TYPE_INT },
-    { "seek",               mfi_offsetof(seek),               DB_TYPE_INT },
+    { "rating",             mfi_offsetof(rating),             DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
+    { "play_count",         mfi_offsetof(play_count),         DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
+    { "skip_count",         mfi_offsetof(skip_count),         DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
+    { "seek",               mfi_offsetof(seek),               DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
     { "data_kind",          mfi_offsetof(data_kind),          DB_TYPE_INT },
     { "media_kind",         mfi_offsetof(media_kind),         DB_TYPE_INT,    DB_FIXUP_MEDIA_KIND },
     { "item_kind",          mfi_offsetof(item_kind),          DB_TYPE_INT,    DB_FIXUP_ITEM_KIND },
@@ -184,8 +187,8 @@ static const struct col_type_map mfi_cols_map[] =
     { "db_timestamp",       mfi_offsetof(db_timestamp),       DB_TYPE_INT },
     { "time_added",         mfi_offsetof(time_added),         DB_TYPE_INT,    DB_FIXUP_TIME_ADDED },
     { "time_modified",      mfi_offsetof(time_modified),      DB_TYPE_INT,    DB_FIXUP_TIME_MODIFIED },
-    { "time_played",        mfi_offsetof(time_played),        DB_TYPE_INT },
-    { "time_skipped",       mfi_offsetof(time_skipped),       DB_TYPE_INT },
+    { "time_played",        mfi_offsetof(time_played),        DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
+    { "time_skipped",       mfi_offsetof(time_skipped),       DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
     { "disabled",           mfi_offsetof(disabled),           DB_TYPE_INT },
     { "sample_count",       mfi_offsetof(sample_count),       DB_TYPE_INT64 },
     { "codectype",          mfi_offsetof(codectype),          DB_TYPE_STRING, DB_FIXUP_CODECTYPE },
@@ -1087,7 +1090,7 @@ bind_mfi(sqlite3_stmt *stmt, struct media_file_info *mfi)
 
   for (i = 0, n = 1; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
-      if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
+      if (mfi_cols_map[i].flag & DB_FLAG_AUTO)
 	continue;
 
       ptr = (char *)mfi + mfi_cols_map[i].offset;
@@ -6860,7 +6863,7 @@ db_statements_prepare(void)
   memset(valstr, 0, sizeof(valstr));
   for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
-      if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
+      if (mfi_cols_map[i].flag & DB_FLAG_AUTO)
 	continue;
 
       CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s, ", mfi_cols_map[i].name));
@@ -6887,10 +6890,13 @@ db_statements_prepare(void)
   memset(keystr, 0, sizeof(keystr));
   for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
-      if (mfi_cols_map[i].flag == DB_FLAG_AUTO)
+      if (mfi_cols_map[i].flag & DB_FLAG_AUTO)
 	continue;
 
-      CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = ?, ", mfi_cols_map[i].name));
+      if (mfi_cols_map[i].flag & DB_FLAG_NO_ZERO)
+	CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = daap_no_zero(?, %s), ", mfi_cols_map[i].name, mfi_cols_map[i].name));
+      else
+	CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = ?, ", mfi_cols_map[i].name));
     }
 
   // Terminate at the ending ", "
