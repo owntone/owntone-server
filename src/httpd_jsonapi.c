@@ -1762,6 +1762,12 @@ queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 
   *total_count = 0;
 
+  if (strlen(param) == 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Empty query parameter 'uris'\n");
+      return -1;
+    }
+
   uris = strdup(param);
   uri = strtok(uris, ",");
 
@@ -3254,6 +3260,9 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
 
   status_code = hreq->handler(hreq);
+
+  if (status_code >= 400)
+    DPRINTF(E_LOG, L_WEB, "JSON api request failed with error code %d (%s)\n", status_code, uri_parsed->uri);
 
   switch (status_code)
     {
