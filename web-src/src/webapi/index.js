@@ -91,6 +91,10 @@ export default {
     return axios.put('/api/player/pause')
   },
 
+  player_stop () {
+    return axios.put('/api/player/stop')
+  },
+
   player_next () {
     return axios.put('/api/player/next')
   },
