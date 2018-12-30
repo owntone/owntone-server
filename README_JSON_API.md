@@ -1795,6 +1795,7 @@ will send a message each time one of the events occurred.
 | Type            | Description                               |
 | --------------- | ----------------------------------------- |
 | update          | Library update started or finished        |
+| database        | Library database changed (new/modified/deleted tracks)  |
 | outputs         | An output was enabled or disabled         |
 | player          | Player state changes                      |
 | options         | Playback option changes (shuffle, repeat, consume mode) |
