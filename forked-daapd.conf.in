@@ -95,9 +95,9 @@ library {
 	# (changing this setting only takes effect after rescan, see the README)
 	compilations = { "/Compilations" }
 
-	# Compilations usually have many artists, and if you don't want every
-	# artist to be listed when artist browsing in Remote, you can set
-	# a single name which will be used for all music in the compilation dir
+	# Compilations usually have many artists, and sometimes no album arist.
+	# If you don't want every non album artist to be listed in artist views,
+	# you can set a single name which will be used for all compilations.
 	# (changing this setting only takes effect after rescan, see the README)
 	compilation_artist = "Various artists"
 

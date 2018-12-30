@@ -895,14 +895,6 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	break;
 
       case DB_FIXUP_ALBUM_ARTIST: // Will be set after artist, because artist (must) come first in the col_maps
-	if (ctx->mfi && ctx->mfi->compilation && (ca = cfg_getstr(cfg_getsec(cfg, "library"), "compilation_artist")))
-	  {
-	    free(*tag);
-	    *tag = strdup(ca);
-	  }
-        else if (ctx->mfi && ctx->mfi->compilation)
-	  *tag = strdup("");
-
 	if (ctx->mfi && ctx->mfi->media_kind == MEDIA_KIND_PODCAST)
 	  {
 	    free(*tag);
@@ -912,12 +904,14 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	if (*tag)
 	  break;
 
-	if (ctx->mfi && ctx->mfi->artist)
+	if (ctx->mfi && ctx->mfi->compilation && (ca = cfg_getstr(cfg_getsec(cfg, "library"), "compilation_artist")))
+	  *tag = strdup(ca); // If ca is empty string then the artist will not be shown in artist view
+	else if (ctx->mfi && ctx->mfi->artist)
 	  *tag = strdup(ctx->mfi->artist);
 	else if (ctx->queue_item && ctx->queue_item->artist)
 	  *tag = strdup(ctx->queue_item->artist);
 	else
-	  *tag = strdup("Unknown album artist");
+	  *tag = strdup("Unknown artist");
 	break;
 
       case DB_FIXUP_GENRE:
