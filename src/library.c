@@ -128,11 +128,6 @@ library_add_media(struct media_file_info *mfi)
 	      mfi->path, mfi->directory_id, mfi->virtual_path);
     }
 
-  if (!mfi->item_kind)
-    mfi->item_kind = 2; /* music */
-  if (!mfi->media_kind)
-    mfi->media_kind = MEDIA_KIND_MUSIC; /* music */
-
   if (mfi->id == 0)
     db_file_add(mfi);
   else

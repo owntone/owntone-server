@@ -82,6 +82,7 @@ enum fixup_type {
   DB_FIXUP_TYPE,
   DB_FIXUP_CODECTYPE,
   DB_FIXUP_MEDIA_KIND,
+  DB_FIXUP_ITEM_KIND,
   DB_FIXUP_TITLE_SORT,
   DB_FIXUP_ARTIST_SORT,
   DB_FIXUP_ALBUM_SORT,
@@ -178,7 +179,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "seek",               mfi_offsetof(seek),               DB_TYPE_INT },
     { "data_kind",          mfi_offsetof(data_kind),          DB_TYPE_INT },
     { "media_kind",         mfi_offsetof(media_kind),         DB_TYPE_INT,    DB_FIXUP_MEDIA_KIND },
-    { "item_kind",          mfi_offsetof(item_kind),          DB_TYPE_INT },
+    { "item_kind",          mfi_offsetof(item_kind),          DB_TYPE_INT,    DB_FIXUP_ITEM_KIND },
     { "description",        mfi_offsetof(description),        DB_TYPE_STRING },
     { "db_timestamp",       mfi_offsetof(db_timestamp),       DB_TYPE_INT },
     { "time_added",         mfi_offsetof(time_added),         DB_TYPE_INT,    DB_FIXUP_TIME_ADDED },
@@ -924,6 +925,17 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
       case DB_FIXUP_MEDIA_KIND:
 	if (ctx->mfi && ctx->mfi->tv_series_name)
 	  ctx->mfi->media_kind = MEDIA_KIND_TVSHOW;
+	else if (ctx->mfi && !ctx->mfi->media_kind)
+	  ctx->mfi->media_kind = MEDIA_KIND_MUSIC;
+	else if (ctx->queue_item && !ctx->queue_item->media_kind)
+	  ctx->queue_item->media_kind = MEDIA_KIND_MUSIC;
+
+	break;
+
+      case DB_FIXUP_ITEM_KIND:
+	if (ctx->mfi && !ctx->mfi->item_kind)
+	  ctx->mfi->item_kind = 2; // music
+
 	break;
 
       case DB_FIXUP_TIME_ADDED:
