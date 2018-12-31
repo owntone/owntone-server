@@ -66,7 +66,7 @@
   "   artwork            INTEGER DEFAULT 0,"		\
   "   rating             INTEGER DEFAULT 0,"		\
   "   play_count         INTEGER DEFAULT 0,"		\
-  "   skip_count         INTEGER DEFAULT 0,"            \
+  "   skip_count         INTEGER DEFAULT 0,"		\
   "   seek               INTEGER DEFAULT 0,"		\
   "   data_kind          INTEGER DEFAULT 0,"		\
   "   media_kind         INTEGER DEFAULT 0,"		\
@@ -76,7 +76,7 @@
   "   time_added         INTEGER DEFAULT 0,"		\
   "   time_modified      INTEGER DEFAULT 0,"		\
   "   time_played        INTEGER DEFAULT 0,"		\
-  "   time_skipped       INTEGER DEFAULT 0,"            \
+  "   time_skipped       INTEGER DEFAULT 0,"		\
   "   disabled           INTEGER DEFAULT 0,"		\
   "   sample_count       INTEGER DEFAULT 0,"		\
   "   codectype          VARCHAR(5) DEFAULT NULL,"	\
