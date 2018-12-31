@@ -1756,20 +1756,22 @@ queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 {
   char *uris;
   char *uri;
+  char *ptr;
   const char *id;
   int count = 0;
   int ret = 0;
 
   *total_count = 0;
 
-  if (strlen(param) == 0)
+  CHECK_NULL(L_WEB, uris = strdup(param));
+  uri = strtok_r(uris, ",", &ptr);
+
+  if (!uri)
     {
       DPRINTF(E_LOG, L_WEB, "Empty query parameter 'uris'\n");
+      free(uris);
       return -1;
     }
-
-  uris = strdup(param);
-  uri = strtok(uris, ",");
 
   do
     {
@@ -1811,7 +1813,7 @@ queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 
       *total_count += count;
     }
-  while ((uri = strtok(NULL, ",")));
+  while ((uri = strtok_r(NULL, ",", &ptr)));
 
   free(uris);
 
