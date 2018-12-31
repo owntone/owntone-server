@@ -140,12 +140,16 @@ db_data_kind_label(enum data_kind data_kind);
 
 /* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
 struct media_file_info {
+  uint32_t id;
+
   char *path;
-  uint32_t index;
+  char *virtual_path;
   char *fname;
+  uint32_t directory_id; /* Id of directory */
   char *title;
   char *artist;
   char *album;
+  char *album_artist;
   char *genre;
   char *comment;
   char *type;            /* daap.songformat */
@@ -160,6 +164,7 @@ struct media_file_info {
   uint32_t song_length;
   int64_t file_size;
   uint32_t year;         /* TDRC */
+  uint32_t date_released;
 
   uint32_t track;        /* TRCK */
   uint32_t total_tracks;
@@ -167,44 +172,44 @@ struct media_file_info {
   uint32_t disc;         /* TPOS */
   uint32_t total_discs;
 
+  uint32_t bpm;          /* TBPM */
+  uint32_t compilation;
+  char artwork;
+  uint32_t rating;
+
+  uint32_t play_count;
+  uint32_t skip_count;
+  uint32_t seek;
+
+  uint32_t data_kind;    /* dmap.datakind (asdk) */
+  uint32_t media_kind;
+  uint32_t item_kind;    /* song or movie */
+
+  char *description;     /* daap.songdescription */
+
+  uint32_t db_timestamp;
   uint32_t time_added;   /* FIXME: time_t */
   uint32_t time_modified;
   uint32_t time_played;
-
-  uint32_t play_count;
-  uint32_t seek;
-  uint32_t rating;
-  uint32_t db_timestamp;
+  uint32_t time_skipped;
 
   uint32_t disabled;
-  uint32_t bpm;          /* TBPM */
 
-  uint32_t id;
-
-  char *description;     /* daap.songdescription */
+  uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
   char *codectype;       /* song.codectype, 4 chars max (32 bits) */
 
-  uint32_t item_kind;    /* song or movie */
-  uint32_t data_kind;    /* dmap.datakind (asdk) */
-  uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
-  uint32_t compilation;
-  char artwork;
+  uint32_t idx;
 
-  /* iTunes 5+ */
-  uint32_t contentrating;
+  uint32_t has_video;    /* iTunes 6.0.2 */
+  uint32_t contentrating;/* iTunes 5+ */
 
-  /* iTunes 6.0.2 */
-  uint32_t has_video;
   uint32_t bits_per_sample;
 
-  uint32_t media_kind;
-  uint32_t tv_episode_sort;
-  uint32_t tv_season_num;
   char *tv_series_name;
   char *tv_episode_num_str; /* com.apple.itunes.episode-num-str, used as a unique episode identifier */
   char *tv_network_name;
-
-  char *album_artist;
+  uint32_t tv_episode_sort;
+  uint32_t tv_season_num;
 
   int64_t songartistid;
   int64_t songalbumid;
@@ -212,16 +217,8 @@ struct media_file_info {
   char *title_sort;
   char *artist_sort;
   char *album_sort;
-  char *composer_sort;
   char *album_artist_sort;
-
-  char *virtual_path;
-
-  uint32_t directory_id; /* Id of directory */
-  uint32_t date_released;
-
-  uint32_t skip_count;
-  uint32_t time_skipped;
+  char *composer_sort;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -308,10 +305,13 @@ struct db_group_info {
 struct db_media_file_info {
   char *id;
   char *path;
+  char *virtual_path;
   char *fname;
+  char *directory_id;
   char *title;
   char *artist;
   char *album;
+  char *album_artist;
   char *genre;
   char *comment;
   char *type;
@@ -325,6 +325,7 @@ struct db_media_file_info {
   char *song_length;
   char *file_size;
   char *year;
+  char *date_released;
   char *track;
   char *total_tracks;
   char *disc;
@@ -334,14 +335,17 @@ struct db_media_file_info {
   char *artwork;
   char *rating;
   char *play_count;
+  char *skip_count;
   char *seek;
   char *data_kind;
+  char *media_kind;
   char *item_kind;
   char *description;
+  char *db_timestamp;
   char *time_added;
   char *time_modified;
   char *time_played;
-  char *db_timestamp;
+  char *time_skipped;
   char *disabled;
   char *sample_count;
   char *codectype;
@@ -349,8 +353,6 @@ struct db_media_file_info {
   char *has_video;
   char *contentrating;
   char *bits_per_sample;
-  char *album_artist;
-  char *media_kind;
   char *tv_episode_sort;
   char *tv_season_num;
   char *tv_series_name;
@@ -361,13 +363,8 @@ struct db_media_file_info {
   char *title_sort;
   char *artist_sort;
   char *album_sort;
-  char *composer_sort;
   char *album_artist_sort;
-  char *virtual_path;
-  char *directory_id;
-  char *date_released;
-  char *skip_count;
-  char *time_skipped;
+  char *composer_sort;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
@@ -425,8 +422,7 @@ struct directory_enum {
   void *stmt;
 };
 
-struct db_queue_item
-{
+struct db_queue_item {
   /* A unique id for this queue item. If the same item appears multiple
      times in the queue each corresponding queue item has its own id. */
   uint32_t id;
@@ -434,18 +430,16 @@ struct db_queue_item
   /* Id of the file/item in the files database */
   uint32_t file_id;
 
-  /* Length of the item in ms */
-  uint32_t song_length;
+  uint32_t pos;
+  uint32_t shuffle_pos;
 
   /* Data type of the item */
   enum data_kind data_kind;
   /* Media type of the item */
   enum media_kind media_kind;
 
-  uint32_t seek;
-
-  uint32_t pos;
-  uint32_t shuffle_pos;
+  /* Length of the item in ms */
+  uint32_t song_length;
 
   char *path;
   char *virtual_path;
@@ -453,7 +447,6 @@ struct db_queue_item
   char *title;
   char *artist;
   char *album_artist;
-  char *composer;
   char *album;
   char *genre;
 
@@ -471,7 +464,14 @@ struct db_queue_item
   char *artwork_url;
 
   uint32_t queue_version;
+
+  char *composer;
+
+  /* Not saved in queue table */
+  uint32_t seek;
 };
+
+#define qi_offsetof(field) offsetof(struct db_queue_item, field)
 
 struct db_queue_add_info
 {
@@ -509,12 +509,6 @@ free_query_params(struct query_params *qp, int content_only);
 
 void
 free_queue_item(struct db_queue_item *queue_item, int content_only);
-
-void
-unicode_fixup_mfi(struct media_file_info *mfi);
-
-void
-fixup_tags_mfi(struct media_file_info *mfi);
 
 /* Maintenance and DB hygiene */
 void

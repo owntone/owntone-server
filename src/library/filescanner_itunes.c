@@ -548,7 +548,6 @@ process_track_file(plist_t trk)
       mfi->album_artist = strdup(mfi->artist);
     }
 
-  unicode_fixup_mfi(mfi);
   db_file_update(mfi);
 
   free_mfi(mfi, 0);

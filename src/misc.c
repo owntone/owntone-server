@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <limits.h>
 #include <sys/param.h>
 #ifndef CLOCK_REALTIME
@@ -341,6 +342,7 @@ safe_asprintf(const char *fmt, ...)
 {
   char *ret = NULL;
   va_list va;
+
   va_start(va, fmt);
   if (vasprintf(&ret, fmt, va) < 0)
     {
@@ -348,7 +350,32 @@ safe_asprintf(const char *fmt, ...)
       abort();
     }
   va_end(va);
+
   return ret;
+}
+
+int
+safe_snprintf_cat(char *dst, size_t n, const char *fmt, ...)
+{
+  size_t dstlen;
+  va_list va;
+  int ret;
+
+  if (!dst || !fmt)
+    return -1;
+
+  dstlen = strlen(dst);
+  if (n < dstlen)
+    return -1;
+
+  va_start(va, fmt);
+  ret = vsnprintf(dst + dstlen, n - dstlen, fmt, va);
+  va_end(va);
+
+  if (ret >= 0 && ret < n - dstlen)
+    return 0;
+  else
+    return -1;
 }
 
 
@@ -586,7 +613,7 @@ m_readfile(const char *path, int num_lines)
 	  goto error;
 	}
 
-      lines[i] = trimwhitespace(line);
+      lines[i] = atrim(line);
       if (!lines[i] || (strlen(lines[i]) == 0))
 	{
 	  DPRINTF(E_LOG, L_MISC, "Line %d in '%s' is invalid\n", i+1, path);
@@ -643,40 +670,58 @@ unicode_fixup_string(char *str, const char *fromcode)
 }
 
 char *
-trimwhitespace(const char *str)
+trim(char *str)
 {
-  char *ptr;
-  char *start;
-  char *out;
+  size_t start; // Position of first non-space char
+  size_t term;  // Position of 0-terminator
 
   if (!str)
     return NULL;
 
-  // Find the beginning
-  while (isspace(*str))
-    str++;
+  start = 0;
+  term  = strlen(str);
 
-  if (*str == 0) // All spaces?
-    return strdup("");
+  while ((start < term) && isspace(str[start]))
+    start++;
+  while ((term > start) && isspace(str[term - 1]))
+    term--;
 
-  // Make copy, because we will need to insert a null terminator
-  start = strdup(str);
-  if (!start)
+  str[term] = '\0';
+
+  // Shift chars incl. terminator
+  if (start)
+    memmove(str, str + start, term - start + 1);
+
+  return str;
+}
+
+char *
+atrim(const char *str)
+{
+  size_t start; // Position of first non-space char
+  size_t term;  // Position of 0-terminator
+  size_t size;
+  char *result;
+
+  if (!str)
     return NULL;
 
-  // Find the end
-  ptr = start + strlen(start) - 1;
-  while (ptr > start && isspace(*ptr))
-    ptr--;
+  start = 0;
+  term  = strlen(str);
 
-  // Insert null terminator
-  *(ptr+1) = 0;
+  while ((start < term) && isspace(str[start]))
+    start++;
+  while ((term > start) && isspace(str[term - 1]))
+    term--;
 
-  out = strdup(start);
+  size = term - start + 1;
 
-  free(start);
+  result = malloc(size);
 
-  return out;
+  memcpy(result, str + start, size);
+  result[size - 1] = '\0';
+
+  return result;
 }
 
 void

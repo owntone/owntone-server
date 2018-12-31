@@ -154,7 +154,7 @@ response_process(struct http_client_ctx *ctx, char **errmsg)
       DPRINTF(E_DBG, L_LASTFM, "LastFM response:\n%s\n", body);
 
       if (errmsg)
-	*errmsg = trimwhitespace(mxmlGetOpaque(e_node));
+	*errmsg = atrim(mxmlGetOpaque(e_node));
 
       mxmlDelete(tree);
       return -1;
@@ -180,7 +180,7 @@ response_process(struct http_client_ctx *ctx, char **errmsg)
       return -1;
     }
 
-  sk = trimwhitespace(mxmlGetOpaque(s_node));
+  sk = atrim(mxmlGetOpaque(s_node));
   if (sk)
     {
       DPRINTF(E_LOG, L_LASTFM, "Got session key from LastFM: %s\n", sk);

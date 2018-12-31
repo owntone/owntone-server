@@ -509,14 +509,18 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
   else
     {
       mfi.data_kind = DATA_KIND_FILE;
+      mfi.file_size = sb->st_size;
 
       if (type & F_SCAN_TYPE_AUDIOBOOK)
 	mfi.media_kind = MEDIA_KIND_AUDIOBOOK;
       else if (type & F_SCAN_TYPE_PODCAST)
 	mfi.media_kind = MEDIA_KIND_PODCAST;
 
-      mfi.compilation = (type & F_SCAN_TYPE_COMPILATION);
-      mfi.file_size = sb->st_size;
+      if (type & F_SCAN_TYPE_COMPILATION)
+	{
+	  mfi.compilation = 1;
+	  mfi.album_artist = safe_strdup(cfg_getstr(cfg_getsec(cfg, "library"), "compilation_artist"));
+	}
 
       ret = scan_metadata_ffmpeg(file, &mfi);
       if (ret < 0)
@@ -1686,7 +1690,6 @@ queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_i
   memset(&mfi, 0, sizeof(struct media_file_info));
 
   scan_metadata_stream(path, &mfi);
-  unicode_fixup_mfi(&mfi);
 
   map_media_file_to_queue_item(&item, &mfi);
 
