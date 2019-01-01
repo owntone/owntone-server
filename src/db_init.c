@@ -526,6 +526,18 @@ db_init_tables(sqlite3 *hdl)
     }
 
   ret = db_init_indices(hdl);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_DB, "DB init error: failed to create indices\n");
+      return -1;
+    }
+
+  ret = db_init_triggers(hdl);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_DB, "DB init error: failed to create triggers\n");
+      return -1;
+    }
 
   return ret;
 }
