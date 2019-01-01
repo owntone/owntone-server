@@ -39,49 +39,52 @@ struct db_upgrade_query {
 };
 
 static int
-db_drop_indices(sqlite3 *hdl)
+db_drop_from_master(sqlite3 *hdl, const char *type, const char *prefix)
 {
-#define Q_INDEX "SELECT name FROM sqlite_master WHERE type == 'index' AND name LIKE 'idx_%';"
-#define Q_TMPL "DROP INDEX %q;"
+#define Q_TMPL_SELECT "SELECT name FROM sqlite_master WHERE type == lower('%s') AND name LIKE '%s_%%';"
+#define Q_TMPL_DROP "DROP %s %q;"
   sqlite3_stmt *stmt;
   char *errmsg;
   char *query;
-  char *index[256];
+  char *name[256];
   int ret;
   int i;
   int n;
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_INDEX);
+  query = sqlite3_mprintf(Q_TMPL_SELECT, type, prefix);
 
-  ret = sqlite3_prepare_v2(hdl, Q_INDEX, strlen(Q_INDEX) + 1, &stmt, NULL);
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement '%s': %s\n", query, sqlite3_errmsg(hdl));
+      sqlite3_free(query);
       return -1;
     }
 
   n = 0;
   while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
     {
-      index[n] = strdup((char *)sqlite3_column_text(stmt, 0));
+      name[n] = strdup((char *)sqlite3_column_text(stmt, 0));
       n++;
-    }
-
-  if (ret != SQLITE_DONE)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-
-      ret = -1;
-      goto out;
     }
 
   sqlite3_finalize(stmt);
 
+  if (ret != SQLITE_DONE)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step '%s': %s\n", query, sqlite3_errmsg(hdl));
+      sqlite3_free(query);
+      ret = -1;
+      goto out;
+    }
+
+  sqlite3_free(query);
+
   for (i = 0; i < n; i++)
     {
-      query = sqlite3_mprintf(Q_TMPL, index[i]);
+      query = sqlite3_mprintf(Q_TMPL_DROP, type, name[i]);
 
       DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
@@ -102,75 +105,12 @@ db_drop_indices(sqlite3 *hdl)
 
  out:
   for (i = 0; i < n; i++)
-    free(index[i]);
+    free(name[i]);
+
   return ret;
-#undef Q_TMPL
-#undef Q_INDEX
+#undef Q_TMPL_DROP
+#undef Q_TMPL_SELECT
 }
-
-static int
-db_drop_triggers(sqlite3 *hdl)
-{
-#define Q_TRIGGER "SELECT name FROM sqlite_master WHERE type == 'trigger' AND name LIKE 'trg_%';"
-#define Q_TMPL "DROP TRIGGER %q;"
-  sqlite3_stmt *stmt;
-  char *errmsg;
-  char *query;
-  char *trigger[256];
-  int ret;
-  int i;
-  int n;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_TRIGGER);
-
-  ret = sqlite3_prepare_v2(hdl, Q_TRIGGER, strlen(Q_TRIGGER) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-      return -1;
-    }
-
-  n = 0;
-  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
-    {
-      trigger[n] = strdup((char *)sqlite3_column_text(stmt, 0));
-      n++;
-    }
-
-  if (ret != SQLITE_DONE)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      return -1;
-    }
-
-  sqlite3_finalize(stmt);
-
-  for (i = 0; i < n; i++)
-    {
-      query = sqlite3_mprintf(Q_TMPL, trigger[i]);
-      free(trigger[i]);
-
-      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-      ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "DB error while running '%s': %s\n", query, errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-
-      sqlite3_free(query);
-    }
-
-  return 0;
-#undef Q_TMPL
-#undef Q_TRIGGER
-}
-
 
 static int
 db_generic_upgrade(sqlite3 *hdl, const struct db_upgrade_query *queries, unsigned int nqueries)
@@ -1038,11 +978,11 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 {
   int ret;
 
-  ret = db_drop_indices(hdl);
+  ret = db_drop_from_master(hdl, "INDEX", "idx");
   if (ret < 0)
     return -1;
 
-  ret = db_drop_triggers(hdl);
+  ret = db_drop_from_master(hdl, "TRIGGER", "trg");
   if (ret < 0)
     return -1;
 
