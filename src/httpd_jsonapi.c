@@ -1335,6 +1335,13 @@ play_item_with_id(const char *param)
   ret = player_playback_start_byitem(queue_item);
   free_queue_item(queue_item, 0);
 
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to start playback from item with id '%d'\n", item_id);
+
+      return HTTP_INTERNAL;
+    }
+
   return HTTP_NOCONTENT;
 }
 
@@ -1367,6 +1374,13 @@ play_item_at_position(const char *param)
   player_playback_stop();
   ret = player_playback_start_byitem(queue_item);
   free_queue_item(queue_item, 0);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to start playback from position '%d'\n", position);
+
+      return HTTP_INTERNAL;
+    }
 
   return HTTP_NOCONTENT;
 }
