@@ -582,9 +582,12 @@ POST /api/queue/items/add
 
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
-| uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`) |
-| expression      | A smart playlist query expression identifying the tracks that will be added to the queue.                |
-| position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.  |
+| uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`)           |
+| expression      | A smart playlist query expression identifying the tracks that will be added to the queue.                          |
+| position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.            |
+| playback        | *(Optional)* If the `playback` parameter is set to `start`, playback will be started after adding the new items. |
+| clear           | *(Optional)* If the `clear` parameter is set to `true`, the queue will be cleared before adding the new items.    |
+| shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.    |
 
 Either the `uris` or the `expression` parameter must be set. If both are set the `uris` parameter takes presedence and the `expression` parameter will be ignored.
 
