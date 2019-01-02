@@ -1876,7 +1876,9 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *param_pos;
   const char *param_uris;
   const char *param_expression;
+  const char *param;
   int pos = -1;
+  bool shuffle;
   int total_count = 0;
   json_object *reply;
   int ret = 0;
@@ -1905,6 +1907,22 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
+  // if query parameter "clear" is "true", stop playback and clear the queue before adding new queue items
+  param = evhttp_find_header(hreq->query, "clear");
+  if (param && strcmp(param, "true") == 0)
+    {
+      player_playback_stop();
+      db_queue_clear(0);
+    }
+
+  // if query parameter "shuffle" is present, update the shuffle state before adding new queue items
+  param = evhttp_find_header(hreq->query, "shuffle");
+  if (param)
+    {
+      shuffle = (strcmp(param, "true") == 0);
+      player_shuffle_set(shuffle);
+    }
+
   if (param_uris)
     {
       ret = queue_tracks_add_byuris(param_uris, pos, &total_count);
@@ -1925,6 +1943,13 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   if (ret < 0)
     return HTTP_INTERNAL;
+
+  // If query parameter "playback" is "start", start playback after successfully adding new items
+  param = evhttp_find_header(hreq->query, "playback");
+  if (param && strcmp(param, "start") == 0)
+    {
+      player_playback_start();
+    }
 
   return HTTP_OK;
 }
