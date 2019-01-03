@@ -183,6 +183,12 @@ static struct artwork_source artwork_item_source[] =
       .cache = ON_FAILURE,
     },
     {
+      .name = "pipe",
+      .handler = source_item_own_get,
+      .data_kinds = (1 << DATA_KIND_PIPE),
+      .cache = NEVER,
+    },
+    {
       .name = "embedded",
       .handler = source_item_embedded_get,
       .data_kinds = (1 << DATA_KIND_FILE),
