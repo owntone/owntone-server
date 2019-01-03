@@ -281,6 +281,30 @@ dmapval(const char s[4])
   return ((s[0] << 24) | (s[1] << 16) | (s[2] << 8) | (s[3] << 0));
 }
 
+
+static void
+parse_artwork(struct input_metadata *m, char *artwork, uint32_t length)
+{
+  char jpg[] = { 0xff, 0xd8 };
+  char png[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
+  char jpgext[] = "%s.jpg";
+  char pngext[] = "%s.png";
+
+  char buffer[100];
+  uint16_t pathlen = strlen(pipe_metadata->path)-9;
+  strncpy(buffer, pipe_metadata->path, pathlen);
+  buffer[pathlen] = '\0';
+
+  sprintf(buffer, strncmp(artwork, png, strlen(png)) == 0 ? pngext : jpgext, buffer);
+  DPRINTF(E_DBG, L_PLAYER, "Writing Shairport artwork to: %s\n", buffer);
+
+  FILE *write_ptr;
+  write_ptr = fopen(buffer, "wb");
+  fwrite(artwork, length, 1, write_ptr);
+  fclose(write_ptr);
+}
+
+
 static void
 parse_progress(struct input_metadata *m, char *progress)
 {
@@ -359,8 +383,10 @@ parse_item(struct input_metadata *m, const char *item)
   const char *s;
   uint32_t type;
   uint32_t code;
+  uint32_t length;
   char *progress;
   char *volume;
+  char *artwork;
   char **data;
   int ret;
 
@@ -388,6 +414,11 @@ parse_item(struct input_metadata *m, const char *item)
        (s = mxmlGetText(needle, NULL)) )
     sscanf(s, "%8x", &code);
 
+  length = 0;
+  if ( (needle = mxmlFindElement(haystack, haystack, "length", NULL, NULL, MXML_DESCEND)) &&
+       (s = mxmlGetText(needle, NULL)) )
+    sscanf(s, "%d", &length);
+
   if (!type || !code)
     {
       DPRINTF(E_LOG, L_PLAYER, "No type (%d) or code (%d) in pipe metadata, aborting\n", type, code);
@@ -406,6 +437,8 @@ parse_item(struct input_metadata *m, const char *item)
     data = &progress;
   else if (code == dmapval("pvol"))
     data = &volume;
+  else if (code == dmapval("PICT"))
+    data = &artwork;
   else
     goto out_nothing;
 
@@ -414,7 +447,7 @@ parse_item(struct input_metadata *m, const char *item)
     {
       pthread_mutex_lock(&pipe_metadata_lock);
 
-      if (data != &progress && data != &volume)
+      if (data != &progress && data != &volume && data != &artwork)
 	free(*data);
 
       *data = b64_decode(s);
@@ -436,6 +469,11 @@ parse_item(struct input_metadata *m, const char *item)
       else if (data == &volume)
 	{
 	  parse_volume(volume);
+	  free(*data);
+	}
+      else if (data == &artwork)
+	{
+	  parse_artwork(m, artwork, length);
 	  free(*data);
 	}
 
