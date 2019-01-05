@@ -582,8 +582,14 @@ POST /api/queue/items/add
 
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
-| uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`) |
-| position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.  |
+| uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`)           |
+| expression      | A smart playlist query expression identifying the tracks that will be added to the queue.                          |
+| position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.            |
+| playback        | *(Optional)* If the `playback` parameter is set to `start`, playback will be started after adding the new items. |
+| clear           | *(Optional)* If the `clear` parameter is set to `true`, the queue will be cleared before adding the new items.    |
+| shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.    |
+
+Either the `uris` or the `expression` parameter must be set. If both are set the `uris` parameter takes presedence and the `expression` parameter will be ignored.
 
 **Response**
 
@@ -596,8 +602,22 @@ On success returns the HTTP `200 OK` success status response code.
 
 **Example**
 
+Add new items by uri:
+
 ```shell
 curl -X POST "http://localhost:3689/api/queue/items/add?uris=library:playlist:68,library:artist:2932599850102967727"
+```
+
+```json
+{
+  "count": 42
+}
+```
+
+Add new items by query language:
+
+```shell
+curl -X POST "http://localhost:3689/api/queue/items/add?expression=media_kind+is+music"
 ```
 
 ```json
@@ -1778,6 +1798,7 @@ will send a message each time one of the events occurred.
 | Type            | Description                               |
 | --------------- | ----------------------------------------- |
 | update          | Library update started or finished        |
+| database        | Library database changed (new/modified/deleted tracks)  |
 | outputs         | An output was enabled or disabled         |
 | player          | Player state changes                      |
 | options         | Playback option changes (shuffle, repeat, consume mode) |

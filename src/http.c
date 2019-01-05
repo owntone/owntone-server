@@ -597,6 +597,7 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 {
   uint8_t *buffer;
   char *icy_token;
+  char *save_pr;
   char *ptr;
   char *end;
 
@@ -604,13 +605,13 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
   if (!buffer)
     return -1;
 
-  icy_token = strtok((char *)buffer, ";");
+  icy_token = strtok_r((char *)buffer, ";", &save_pr);
   while (icy_token != NULL)
     {
       ptr = strchr(icy_token, '=');
       if (!ptr || (ptr[1] == '\0'))
 	{
-	  icy_token = strtok(NULL, ";");
+	  icy_token = strtok_r(NULL, ";", &save_pr);
 	  continue;
 	}
 
@@ -647,7 +648,7 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
       if (end)
 	*end = '\'';
 
-      icy_token = strtok(NULL, ";");
+      icy_token = strtok_r(NULL, ";", &save_pr);
     }
   av_free(buffer);
 
@@ -663,6 +664,7 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
   uint8_t *buffer;
   uint8_t *utf;
   char *icy_token;
+  char *save_pr;
   char *ptr;
 
   av_opt_get(fmtctx, "icy_metadata_headers", AV_OPT_SEARCH_CHILDREN, &buffer);
@@ -677,13 +679,13 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
   if (!utf)
     return -1;
 
-  icy_token = strtok((char *)utf, "\r\n");
+  icy_token = strtok_r((char *)utf, "\r\n", &save_pr);
   while (icy_token != NULL)
     {
       ptr = strchr(icy_token, ':');
       if (!ptr || (ptr[1] == '\0'))
 	{
-	  icy_token = strtok(NULL, "\r\n");
+	  icy_token = strtok_r(NULL, "\r\n", &save_pr);
 	  continue;
 	}
 
@@ -698,7 +700,7 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
       else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && !metadata->genre)
 	metadata->genre = strdup(ptr);
 
-      icy_token = strtok(NULL, "\r\n");
+      icy_token = strtok_r(NULL, "\r\n", &save_pr);
     }
   free(utf);
 

@@ -632,6 +632,10 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object *buildopts;
   int websocket_port;
   char **buildoptions;
+  cfg_t *lib;
+  int ndirs;
+  char *path;
+  json_object *directories;
   int i;
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -661,6 +665,17 @@ jsonapi_reply_config(struct httpd_request *hreq)
       json_object_array_add(buildopts, json_object_new_string(buildoptions[i]));
     }
   json_object_object_add(jreply, "buildoptions", buildopts);
+
+  // Library directories
+  lib = cfg_getsec(cfg, "library");
+  ndirs = cfg_size(lib, "directories");
+  directories = json_object_new_array();
+  for (i = 0; i < ndirs; i++)
+    {
+      path = cfg_getnstr(lib, "directories", i);
+      json_object_array_add(directories, json_object_new_string(path));
+    }
+  json_object_object_add(jreply, "directories", directories);
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
@@ -1320,6 +1335,13 @@ play_item_with_id(const char *param)
   ret = player_playback_start_byitem(queue_item);
   free_queue_item(queue_item, 0);
 
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to start playback from item with id '%d'\n", item_id);
+
+      return HTTP_INTERNAL;
+    }
+
   return HTTP_NOCONTENT;
 }
 
@@ -1352,6 +1374,13 @@ play_item_at_position(const char *param)
   player_playback_stop();
   ret = player_playback_start_byitem(queue_item);
   free_queue_item(queue_item, 0);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to start playback from position '%d'\n", position);
+
+      return HTTP_INTERNAL;
+    }
 
   return HTTP_NOCONTENT;
 }
@@ -1737,42 +1766,26 @@ queue_tracks_add_playlist(const char *id, int pos)
 }
 
 static int
-jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
+queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 {
-  const char *param;
   char *uris;
   char *uri;
+  char *ptr;
   const char *id;
-  int pos = -1;
   int count = 0;
-  int ttl_count = 0;
-  json_object *reply;
   int ret = 0;
 
+  *total_count = 0;
 
-  param = evhttp_find_header(hreq->query, "position");
-  if (param)
+  CHECK_NULL(L_WEB, uris = strdup(param));
+  uri = strtok_r(uris, ",", &ptr);
+
+  if (!uri)
     {
-      if (safe_atoi32(param, &pos) < 0)
-        {
-	  DPRINTF(E_LOG, L_WEB, "Invalid position parameter '%s'\n", param);
-
-	  return HTTP_BADREQUEST;
-	}
-
-      DPRINTF(E_DBG, L_WEB, "Add tracks starting at position '%d\n", pos);
+      DPRINTF(E_LOG, L_WEB, "Empty query parameter 'uris'\n");
+      free(uris);
+      return -1;
     }
-
-  param = evhttp_find_header(hreq->query, "uris");
-  if (!param)
-    {
-      DPRINTF(E_LOG, L_WEB, "Missing query parameter 'uris'\n");
-
-      return HTTP_BADREQUEST;
-    }
-
-  uris = strdup(param);
-  uri = strtok(uris, ",");
 
   do
     {
@@ -1812,16 +1825,117 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
       if (pos >= 0)
 	pos += count;
 
-      ttl_count += count;
+      *total_count += count;
     }
-  while ((uri = strtok(NULL, ",")));
+  while ((uri = strtok_r(NULL, ",", &ptr)));
 
   free(uris);
+
+  return ret;
+}
+
+static int
+queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
+{
+  char *expression;
+  struct smartpl smartpl_expression;
+  struct query_params query_params;
+  struct player_status status;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  query_params.type = Q_ITEMS;
+  query_params.sort = S_ALBUM;
+  query_params.idx_type = I_NONE;
+
+  memset(&smartpl_expression, 0, sizeof(struct smartpl));
+  expression = safe_asprintf("\"query\" { %s }", param);
+  ret = smartpl_query_parse_string(&smartpl_expression, expression);
+  free(expression);
+
+  if (ret < 0)
+    return -1;
+
+  query_params.filter = strdup(smartpl_expression.query_where);
+  free_smartpl(&smartpl_expression, 1);
+
+  player_get_status(&status);
+
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, NULL);
+
+  free(query_params.filter);
+
+  return ret;
+
+}
+
+static int
+jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
+{
+  const char *param_pos;
+  const char *param_uris;
+  const char *param_expression;
+  const char *param;
+  int pos = -1;
+  bool shuffle;
+  int total_count = 0;
+  json_object *reply;
+  int ret = 0;
+
+
+  param_pos = evhttp_find_header(hreq->query, "position");
+  if (param_pos)
+    {
+      if (safe_atoi32(param_pos, &pos) < 0)
+        {
+	  DPRINTF(E_LOG, L_WEB, "Invalid position parameter '%s'\n", param_pos);
+
+	  return HTTP_BADREQUEST;
+	}
+
+      DPRINTF(E_DBG, L_WEB, "Add tracks starting at position '%d\n", pos);
+    }
+
+  param_uris = evhttp_find_header(hreq->query, "uris");
+  param_expression = evhttp_find_header(hreq->query, "expression");
+
+  if (!param_uris && !param_expression)
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing query parameter 'uris' or 'expression'\n");
+
+      return HTTP_BADREQUEST;
+    }
+
+  // if query parameter "clear" is "true", stop playback and clear the queue before adding new queue items
+  param = evhttp_find_header(hreq->query, "clear");
+  if (param && strcmp(param, "true") == 0)
+    {
+      player_playback_stop();
+      db_queue_clear(0);
+    }
+
+  // if query parameter "shuffle" is present, update the shuffle state before adding new queue items
+  param = evhttp_find_header(hreq->query, "shuffle");
+  if (param)
+    {
+      shuffle = (strcmp(param, "true") == 0);
+      player_shuffle_set(shuffle);
+    }
+
+  if (param_uris)
+    {
+      ret = queue_tracks_add_byuris(param_uris, pos, &total_count);
+    }
+  else
+    {
+      ret = queue_tracks_add_byexpression(param_expression, pos, &total_count);
+    }
 
   if (ret == 0)
     {
       reply = json_object_new_object();
-      json_object_object_add(reply, "count", json_object_new_int(ttl_count));
+      json_object_object_add(reply, "count", json_object_new_int(total_count));
 
       ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
       jparse_free(reply);
@@ -1829,6 +1943,13 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   if (ret < 0)
     return HTTP_INTERNAL;
+
+  // If query parameter "playback" is "start", start playback after successfully adding new items
+  param = evhttp_find_header(hreq->query, "playback");
+  if (param && strcmp(param, "start") == 0)
+    {
+      player_playback_start();
+    }
 
   return HTTP_OK;
 }
@@ -2726,7 +2847,7 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
     goto error;
 
   query_params.type = Q_ITEMS;
-  query_params.sort = S_NAME;
+  query_params.sort = S_VPATH;
   query_params.filter = db_mprintf("(f.directory_id = %d)", directory_id);
 
   ret = fetch_tracks(&query_params, tracks_items, &total);
@@ -3180,6 +3301,9 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
 
   status_code = hreq->handler(hreq);
+
+  if (status_code >= 400)
+    DPRINTF(E_LOG, L_WEB, "JSON api request failed with error code %d (%s)\n", status_code, uri_parsed->uri);
 
   switch (status_code)
     {
