@@ -7,7 +7,7 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_genre">{{ genre.name }}</a>
+                {{ directory.path }}
               </p>
             </div>
             <footer class="card-footer">
@@ -33,34 +33,29 @@
 import webapi from '@/webapi'
 
 export default {
-  name: 'ModalDialogGenre',
-  props: [ 'show', 'genre' ],
+  name: 'ModalDialogDirectory',
+  props: [ 'show', 'directory' ],
 
   methods: {
     play: function () {
       this.$emit('close')
-      webapi.library_genre_tracks(this.genre.name).then(({ data }) =>
+      webapi.search({ 'type': 'tracks', 'expression': 'path starts with "' + this.directory.path + '" order by path asc' }).then(({ data }) => {
         webapi.player_play_uri(data.tracks.items.map(a => a.uri).join(','), false)
-      )
+      })
     },
 
     queue_add: function () {
       this.$emit('close')
-      webapi.library_genre_tracks(this.genre.name).then(({ data }) =>
+      webapi.search({ 'type': 'tracks', 'expression': 'path starts with "' + this.directory.path + '" order by path asc' }).then(({ data }) => {
         webapi.queue_add(data.tracks.items.map(a => a.uri).join(','))
-      )
+      })
     },
 
     queue_add_next: function () {
       this.$emit('close')
-      webapi.library_genre_tracks(this.genre.name).then(({ data }) =>
+      webapi.search({ 'type': 'tracks', 'expression': 'path starts with "' + this.directory.path + '" order by path asc' }).then(({ data }) => {
         webapi.queue_add_next(data.tracks.items.map(a => a.uri).join(','))
-      )
-    },
-
-    open_genre: function () {
-      this.$emit('close')
-      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
+      })
     }
   }
 }

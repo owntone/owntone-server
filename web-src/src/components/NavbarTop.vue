@@ -13,6 +13,9 @@
       <router-link to="/audiobooks" class="navbar-item" active-class="is-active" v-if="audiobooks.tracks > 0">
         <span class="icon"><i class="mdi mdi-book-open-variant"></i></span>
       </router-link>
+      <router-link to="/files" class="navbar-item" active-class="is-active">
+        <span class="icon"><i class="mdi mdi-folder-open"></i></span>
+      </router-link>
       <router-link to="/search" class="navbar-item" active-class="is-active">
         <span class="icon"><i class="mdi mdi-magnify"></i></span>
       </router-link>

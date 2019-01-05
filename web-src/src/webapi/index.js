@@ -91,6 +91,10 @@ export default {
     return axios.put('/api/player/pause')
   },
 
+  player_stop () {
+    return axios.put('/api/player/stop')
+  },
+
   player_next () {
     return axios.put('/api/player/next')
   },
@@ -212,6 +216,13 @@ export default {
 
   library_playlist_tracks (playlistId) {
     return axios.get('/api/library/playlists/' + playlistId + '/tracks')
+  },
+
+  library_files (directory = undefined) {
+    var filesParams = { 'directory': directory }
+    return axios.get('/api/library/files', {
+      params: filesParams
+    })
   },
 
   search (searchParams) {
