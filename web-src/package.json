@@ -1,6 +1,6 @@
 {
   "name": "forked-daapd-web",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "forked-daapd web interface",
   "author": "chme <christian.meffert@googlemail.com>",
   "license": "GPL-2.0",
@@ -29,9 +29,9 @@
     "vuex": "^3.0.1"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^3.2.0",
-    "@vue/cli-plugin-eslint": "^3.2.1",
-    "@vue/cli-service": "^3.2.0",
+    "@vue/cli-plugin-babel": "^3.2.2",
+    "@vue/cli-plugin-eslint": "^3.2.2",
+    "@vue/cli-service": "^3.2.3",
     "@vue/eslint-config-standard": "^3.0.5",
     "vue-template-compiler": "^2.5.21"
   }
