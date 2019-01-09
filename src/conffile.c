@@ -127,6 +127,13 @@ static cfg_opt_t sec_airplay[] =
     CFG_END()
   };
 
+/* Chromecast device section structure */
+static cfg_opt_t sec_chromecast[] =
+  {
+    CFG_BOOL("exclude", cfg_false, CFGF_NONE),
+    CFG_END()
+  };
+
 /* FIFO section structure */
 static cfg_opt_t sec_fifo[] =
   {
@@ -178,6 +185,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_SEC("audio", sec_audio, CFGF_NONE),
     CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
+    CFG_SEC("chromecast", sec_chromecast, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("fifo", sec_fifo, CFGF_NONE),
     CFG_SEC("spotify", sec_spotify, CFGF_NONE),
     CFG_SEC("sqlite", sec_sqlite, CFGF_NONE),
