@@ -40,6 +40,7 @@
 #include "conffile.h"
 #include "db.h"
 #include "avio_evbuffer.h"
+#include "misc.h"
 #include "transcode.h"
 
 // Interval between ICY metadata checks for streams, in seconds
@@ -218,6 +219,17 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile)
 	settings->channel_layout = AV_CH_LAYOUT_STEREO;
 	settings->channels = 2;
 	settings->sample_format = AV_SAMPLE_FMT_S16P;
+	settings->byte_depth = 2; // Bytes per sample = 16/8
+	break;
+
+      case XCODE_OPUS:
+	settings->encode_audio = 1;
+	settings->format = "data"; // Means we get the raw packet from the encoder, no muxing
+	settings->audio_codec = AV_CODEC_ID_OPUS;
+	settings->sample_rate = 48000;
+	settings->channel_layout = AV_CH_LAYOUT_STEREO;
+	settings->channels = 2;
+	settings->sample_format = AV_SAMPLE_FMT_S16; // Only libopus support
 	settings->byte_depth = 2; // Bytes per sample = 16/8
 	break;
 
@@ -1383,7 +1395,7 @@ transcode_cleanup(struct transcode_ctx **ctx)
 /*                       Encoding, decoding and transcoding                  */
 
 int
-transcode_decode(void **frame, struct decode_ctx *dec_ctx)
+transcode_decode(transcode_frame **frame, struct decode_ctx *dec_ctx)
 {
   struct transcode_ctx ctx;
   int ret;
@@ -1414,7 +1426,7 @@ transcode_decode(void **frame, struct decode_ctx *dec_ctx)
 
 // Filters and encodes
 int
-transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, void *frame, int eof)
+transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, transcode_frame *frame, int eof)
 {
   AVFrame *f = frame;
   struct stream_ctx *s;
@@ -1489,8 +1501,8 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
   return processed;
 }
 
-void *
-transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size)
+transcode_frame *
+transcode_frame_new(enum transcode_profile profile, void *data, size_t size)
 {
   AVFrame *f;
   int ret;
@@ -1502,7 +1514,7 @@ transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size)
       return NULL;
     }
 
-  f->nb_samples     = size / 4;
+  f->nb_samples     = BTOS(size);
   f->format         = AV_SAMPLE_FMT_S16;
   f->channel_layout = AV_CH_LAYOUT_STEREO;
 #ifdef HAVE_FFMPEG
@@ -1511,7 +1523,9 @@ transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size)
   f->pts            = AV_NOPTS_VALUE;
   f->sample_rate    = 44100;
 
-  ret = avcodec_fill_audio_frame(f, 2, f->format, data, size, 0);
+  // We don't align because the frame won't be given directly to the encoder
+  // anyway, it will first go through the filter (which might align it...?)
+  ret = avcodec_fill_audio_frame(f, 2, f->format, data, size, 1);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Error filling frame with rawbuf: %s\n", err2str(ret));
@@ -1523,7 +1537,7 @@ transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size)
 }
 
 void
-transcode_frame_free(void *frame)
+transcode_frame_free(transcode_frame *frame)
 {
   AVFrame *f = frame;
 
