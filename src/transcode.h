@@ -14,6 +14,8 @@ enum transcode_profile
   XCODE_PCM16_HEADER,
   // Transcodes the best audio stream into MP3
   XCODE_MP3,
+  // Transcodes the best audio stream into OPUS
+  XCODE_OPUS,
   // Transcodes the best video stream into JPEG/PNG
   XCODE_JPEG,
   XCODE_PNG,
@@ -22,6 +24,8 @@ enum transcode_profile
 struct decode_ctx;
 struct encode_ctx;
 struct transcode_ctx;
+
+typedef void transcode_frame;
 
 // Setting up
 struct decode_ctx *
@@ -60,7 +64,7 @@ transcode_cleanup(struct transcode_ctx **ctx);
  * @return         Positive if OK, negative if error, 0 if EOF
  */
 int
-transcode_decode(void **frame, struct decode_ctx *ctx);
+transcode_decode(transcode_frame **frame, struct decode_ctx *ctx);
 
 /* Encodes and remuxes a frame. Also resamples if needed.
  *
@@ -71,7 +75,7 @@ transcode_decode(void **frame, struct decode_ctx *ctx);
  * @return         Bytes added if OK, negative if error
  */
 int
-transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, void *frame, int eof);
+transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, transcode_frame *frame, int eof);
 
 /* Demuxes, decodes, encodes and remuxes from the input.
  *
@@ -87,17 +91,18 @@ int
 transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int want_bytes);
 
 /* Converts a buffer with raw data to a frame that can be passed directly to the
- * transcode_encode() function
+ * transcode_encode() function. It does not copy, so if you free the data the
+ * frame will become invalid.
  *
  * @in  profile    Tells the function what kind of frame to create
  * @in  data       Buffer with raw data
  * @in  size       Size of buffer
  * @return         Opaque pointer to frame if OK, otherwise NULL
  */
-void *
-transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size);
+transcode_frame *
+transcode_frame_new(enum transcode_profile profile, void *data, size_t size);
 void
-transcode_frame_free(void *frame);
+transcode_frame_free(transcode_frame *frame);
 
 /* Seek to the specified position - next transcode() will return this packet
  *
