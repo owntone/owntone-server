@@ -26,12 +26,13 @@
 #include "transcode.h"
 #include "http.h"
 #include "misc.h"
+#include "logger.h"
 #include "input.h"
 
 static int
 setup(struct player_source *ps)
 {
-  ps->input_ctx = transcode_setup(XCODE_PCM16_NOHEADER, ps->data_kind, ps->path, ps->len_ms, NULL);
+  ps->input_ctx = transcode_setup(XCODE_PCM_NATIVE, ps->data_kind, ps->path, ps->len_ms, NULL);
   if (!ps->input_ctx)
     return -1;
 
@@ -57,12 +58,18 @@ setup_http(struct player_source *ps)
 static int
 start(struct player_source *ps)
 {
+  struct transcode_ctx *ctx = ps->input_ctx;
   struct evbuffer *evbuf;
   short flags;
+  int sample_rate;
+  int bps;
   int ret;
   int icy_timer;
 
   evbuf = evbuffer_new();
+
+  sample_rate = transcode_encode_query(ctx->encode_ctx, "sample_rate");
+  bps = transcode_encode_query(ctx->encode_ctx, "bits_per_sample");
 
   ret = -1;
   flags = 0;
@@ -70,14 +77,14 @@ start(struct player_source *ps)
     {
       // We set "wanted" to 1 because the read size doesn't matter to us
       // TODO optimize?
-      ret = transcode(evbuf, &icy_timer, ps->input_ctx, 1);
+      ret = transcode(evbuf, &icy_timer, ctx, 1);
       if (ret < 0)
 	break;
 
       flags = ((ret == 0) ? INPUT_FLAG_EOF : 0) |
                (icy_timer ? INPUT_FLAG_METADATA : 0);
 
-      ret = input_write(evbuf, flags);
+      ret = input_write(evbuf, sample_rate, bps, flags);
       if (ret < 0)
 	break;
     }

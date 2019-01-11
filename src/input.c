@@ -215,7 +215,7 @@ playback(void *arg)
   // Loops until input_loop_break is set or no more input, e.g. EOF
   ret = inputs[type]->start(ps);
   if (ret < 0)
-    input_write(NULL, INPUT_FLAG_ERROR);
+    input_write(NULL, 0, 0, INPUT_FLAG_ERROR);
 
 #ifdef DEBUG
   DPRINTF(E_DBG, L_PLAYER, "Playback loop stopped (break is %d, ret %d)\n", input_loop_break, ret);
@@ -240,7 +240,7 @@ input_wait(void)
 
 // Called by input modules from within the playback loop
 int
-input_write(struct evbuffer *evbuf, short flags)
+input_write(struct evbuffer *evbuf, int sample_rate, int bits_per_sample, short flags)
 {
   struct timespec ts;
   int ret;

@@ -8,10 +8,12 @@
 
 enum transcode_profile
 {
-  // Transcodes the best audio stream into PCM16 (does not add wav header)
+  // Decodes/resamples the best audio stream into 44100 PCM16 (does not add wav header)
   XCODE_PCM16_NOHEADER,
-  // Transcodes the best audio stream into PCM16 (with wav header)
+  // Decodes/resamples the best audio stream into 44100 PCM16 (with wav header)
   XCODE_PCM16_HEADER,
+  // Decodes the best audio stream into PCM16 or PCM24, no resampling (does not add wav header)
+  XCODE_PCM_NATIVE,
   // Transcodes the best audio stream into MP3
   XCODE_MP3,
   // Transcodes the best audio stream into OPUS
@@ -23,7 +25,11 @@ enum transcode_profile
 
 struct decode_ctx;
 struct encode_ctx;
-struct transcode_ctx;
+struct transcode_ctx
+{
+  struct decode_ctx *decode_ctx;
+  struct encode_ctx *encode_ctx;
+};
 
 typedef void transcode_frame;
 
@@ -121,6 +127,16 @@ transcode_seek(struct transcode_ctx *ctx, int ms);
  */
 int
 transcode_decode_query(struct decode_ctx *ctx, const char *query);
+
+/* Query for information (e.g. sample rate) about the output being produced by
+ * the transcoding
+ *
+ * @in  ctx        Encode context
+ * @in  query      Query - see implementation for supported queries
+ * @return         Negative if error, otherwise query dependent
+ */
+int
+transcode_encode_query(struct encode_ctx *ctx, const char *query);
 
 // Metadata
 struct http_icy_metadata *
