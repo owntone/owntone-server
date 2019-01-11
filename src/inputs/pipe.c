@@ -103,6 +103,9 @@ static pthread_t tid_pipe;
 static struct event_base *evbase_pipe;
 static struct commands_base *cmdbase;
 
+// From config - the sample rate and bps of the pipe input
+static int pipe_sample_rate;
+static int pipe_bits_per_sample;
 // From config - should we watch library pipes for data or only start on request
 static int pipe_autostart;
 // The mfi id of the pipe autostarted by the pipe thread
@@ -307,7 +310,7 @@ parse_progress(struct input_metadata *m, char *progress)
 
   m->rtptime = start; // Not actually used - we have our own rtptime
   m->offset = (pos > start) ? (pos - start) : 0;
-  m->song_length = (end - start) * 10 / 441; // Convert to ms based on 44100
+  m->song_length = (end - start) * 1000 / pipe_sample_rate;
 }
 
 static void
@@ -845,7 +848,7 @@ start(struct player_source *ps)
       ret = evbuffer_read(evbuf, pipe->fd, PIPE_READ_MAX);
       if ((ret == 0) && (pipe->is_autostarted))
 	{
-	  input_write(evbuf, INPUT_FLAG_EOF); // Autostop
+	  input_write(evbuf, pipe_sample_rate, pipe_bits_per_sample, INPUT_FLAG_EOF); // Autostop
 	  break;
 	}
       else if ((ret == 0) || ((ret < 0) && (errno == EAGAIN)))
@@ -862,7 +865,7 @@ start(struct player_source *ps)
       flags = (pipe_metadata_is_new ? INPUT_FLAG_METADATA : 0);
       pipe_metadata_is_new = 0;
 
-      ret = input_write(evbuf, flags);
+      ret = input_write(evbuf, pipe_sample_rate, pipe_bits_per_sample, flags);
       if (ret < 0)
 	break;
     }
@@ -943,6 +946,20 @@ init(void)
     {
       pipe_listener_cb(0);
       CHECK_ERR(L_PLAYER, listener_add(pipe_listener_cb, LISTENER_DATABASE));
+    }
+
+  pipe_sample_rate = cfg_getint(cfg_getsec(cfg, "library"), "pipe_sample_rate");
+  if (pipe_sample_rate != 44100 || pipe_sample_rate != 48000 || pipe_sample_rate != 96000)
+    {
+      DPRINTF(E_FATAL, L_PLAYER, "The configuration of pipe_sample_rate is invalid: %d\n", pipe_sample_rate);
+      return -1;
+    }
+
+  pipe_bits_per_sample = cfg_getint(cfg_getsec(cfg, "library"), "pipe_bits_per_sample");
+  if (pipe_bits_per_sample != 16 || pipe_bits_per_sample != 24)
+    {
+      DPRINTF(E_FATAL, L_PLAYER, "The configuration of pipe_bits_per_sample is invalid: %d\n", pipe_bits_per_sample);
+      return -1;
     }
 
   return 0;

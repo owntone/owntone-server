@@ -140,18 +140,20 @@ struct input_definition
 int input_loop_break;
 
 /*
- * Transfer stream data to the player's input buffer. The input evbuf will be
- * drained on succesful write. This is to avoid copying memory. If the player's
- * input buffer is full the function will block until the write can be made
- * (unless INPUT_FILE_NONBLOCK is set).
+ * Transfer stream data to the player's input buffer. Data must be PCM-LE
+ * samples. The input evbuf will be drained on succesful write. This is to avoid
+ * copying memory. If the player's input buffer is full the function will block
+ * until the write can be made (unless INPUT_FILE_NONBLOCK is set).
  *
- * @in  evbuf    Raw audio data to write
+ * @in  evbuf    Raw PCM_LE audio data to write
+ * @in  evbuf    Sample rate of the data
+ * @in  evbuf    Bits per sample (typically 16 or 24)
  * @in  flags    One or more INPUT_FLAG_*
  * @return       0 on success, EAGAIN if buffer was full (and _NONBLOCK is set),
  *               -1 on error
  */
 int
-input_write(struct evbuffer *evbuf, short flags);
+input_write(struct evbuffer *evbuf, int sample_rate, int bits_per_sample, short flags);
 
 /*
  * Input modules can use this to wait in the playback loop (like input_write()
