@@ -59,17 +59,16 @@ static int
 start(struct player_source *ps)
 {
   struct transcode_ctx *ctx = ps->input_ctx;
+  struct input_quality quality = { 0 };
   struct evbuffer *evbuf;
   short flags;
-  int sample_rate;
-  int bps;
   int ret;
   int icy_timer;
 
   evbuf = evbuffer_new();
 
-  sample_rate = transcode_encode_query(ctx->encode_ctx, "sample_rate");
-  bps = transcode_encode_query(ctx->encode_ctx, "bits_per_sample");
+  quality.sample_rate = transcode_encode_query(ctx->encode_ctx, "sample_rate");
+  quality.bits_per_sample = transcode_encode_query(ctx->encode_ctx, "bits_per_sample");
 
   ret = -1;
   flags = 0;
@@ -84,7 +83,7 @@ start(struct player_source *ps)
       flags = ((ret == 0) ? INPUT_FLAG_EOF : 0) |
                (icy_timer ? INPUT_FLAG_METADATA : 0);
 
-      ret = input_write(evbuf, sample_rate, bps, flags);
+      ret = input_write(evbuf, &quality, flags);
       if (ret < 0)
 	break;
     }
