@@ -831,6 +831,7 @@ static int
 start(struct player_source *ps)
 {
   struct pipe *pipe = ps->input_ctx;
+  struct input_quality quality = { 0 };
   struct evbuffer *evbuf;
   short flags;
   int ret;
@@ -842,13 +843,16 @@ start(struct player_source *ps)
       return -1;
     }
 
+  quality.sample_rate = pipe_sample_rate;
+  quality.bits_per_sample = pipe_bits_per_sample;
+
   ret = -1;
   while (!input_loop_break)
     {
       ret = evbuffer_read(evbuf, pipe->fd, PIPE_READ_MAX);
       if ((ret == 0) && (pipe->is_autostarted))
 	{
-	  input_write(evbuf, pipe_sample_rate, pipe_bits_per_sample, INPUT_FLAG_EOF); // Autostop
+	  input_write(evbuf, NULL, INPUT_FLAG_EOF); // Autostop
 	  break;
 	}
       else if ((ret == 0) || ((ret < 0) && (errno == EAGAIN)))
@@ -865,7 +869,7 @@ start(struct player_source *ps)
       flags = (pipe_metadata_is_new ? INPUT_FLAG_METADATA : 0);
       pipe_metadata_is_new = 0;
 
-      ret = input_write(evbuf, pipe_sample_rate, pipe_bits_per_sample, flags);
+      ret = input_write(evbuf, &quality, flags);
       if (ret < 0)
 	break;
     }
@@ -949,14 +953,14 @@ init(void)
     }
 
   pipe_sample_rate = cfg_getint(cfg_getsec(cfg, "library"), "pipe_sample_rate");
-  if (pipe_sample_rate != 44100 || pipe_sample_rate != 48000 || pipe_sample_rate != 96000)
+  if (pipe_sample_rate != 44100 && pipe_sample_rate != 48000 && pipe_sample_rate != 96000)
     {
       DPRINTF(E_FATAL, L_PLAYER, "The configuration of pipe_sample_rate is invalid: %d\n", pipe_sample_rate);
       return -1;
     }
 
   pipe_bits_per_sample = cfg_getint(cfg_getsec(cfg, "library"), "pipe_bits_per_sample");
-  if (pipe_bits_per_sample != 16 || pipe_bits_per_sample != 24)
+  if (pipe_bits_per_sample != 16 && pipe_bits_per_sample != 24)
     {
       DPRINTF(E_FATAL, L_PLAYER, "The configuration of pipe_bits_per_sample is invalid: %d\n", pipe_bits_per_sample);
       return -1;

@@ -29,6 +29,8 @@ enum input_flags
   INPUT_FLAG_ERROR    = (1 << 2),
   // Flags possible new stream metadata
   INPUT_FLAG_METADATA = (1 << 3),
+  // Flags new stream quality
+  INPUT_FLAG_QUALITY  = (1 << 4),
 };
 
 struct player_source
@@ -80,6 +82,13 @@ struct player_source
 };
 
 typedef int (*input_cb)(void);
+
+struct input_quality
+{
+  int sample_rate;
+  int bits_per_sample;
+  // Maybe some day also add channels here
+};
 
 struct input_metadata
 {
@@ -146,14 +155,13 @@ int input_loop_break;
  * until the write can be made (unless INPUT_FILE_NONBLOCK is set).
  *
  * @in  evbuf    Raw PCM_LE audio data to write
- * @in  evbuf    Sample rate of the data
- * @in  evbuf    Bits per sample (typically 16 or 24)
+ * @in  evbuf    Quality of the PCM (sample rate etc.)
  * @in  flags    One or more INPUT_FLAG_*
  * @return       0 on success, EAGAIN if buffer was full (and _NONBLOCK is set),
  *               -1 on error
  */
 int
-input_write(struct evbuffer *evbuf, int sample_rate, int bits_per_sample, short flags);
+input_write(struct evbuffer *evbuf, struct input_quality *quality, short flags);
 
 /*
  * Input modules can use this to wait in the playback loop (like input_write()
@@ -223,6 +231,12 @@ input_seek(struct player_source *ps, int seek_ms);
  */
 void
 input_flush(short *flags);
+
+/*
+ * Returns the current quality of data returned by intput_read().
+ */
+int
+input_quality_get(struct input_quality *quality);
 
 /*
  * Gets metadata from the input, returns 0 if metadata is set, otherwise -1
