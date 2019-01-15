@@ -86,8 +86,13 @@ export default {
 
       const vm = this
 
+      var protocol = 'ws://'
+      if (window.location.protocol == 'https:') {
+        protocol = 'wss://'
+      }
+
       var socket = new ReconnectingWebSocket(
-        'ws://' + window.location.hostname + ':' + vm.$store.state.config.websocket_port,
+        protocol + window.location.hostname + ':' + vm.$store.state.config.websocket_port,
         'notify',
         { reconnectInterval: 3000 }
       )
