@@ -270,7 +270,7 @@ wrapper, create one as follows:
 
   #!/bin/sh
   CLASSPATH=...
-  exec /path/to/java -cp $CLASSPATH org.antlr.Tool "@"
+  exec /path/to/java -cp $CLASSPATH org.antlr.Tool "$@"
 
 Adjust the CLASSPATH as needed so that Java will find all the jars needed
 by ANTLR3.
