@@ -282,6 +282,7 @@ struct group_info {
   char *itemname;        /* album or album_artist (minm) */
   char *itemname_sort;   /* album_sort or album_artist_sort (~mshc) */
   uint32_t itemcount;    /* number of items (mimc) */
+  uint32_t groupartistcount; /* number of artists, 1 unless for compilation */
   uint32_t groupalbumcount; /* number of albums (agac) */
   char *songalbumartist; /* song album artist (asaa) */
   uint64_t songartistid; /* song artist id (asri) */
@@ -296,6 +297,7 @@ struct db_group_info {
   char *itemname;
   char *itemname_sort;
   char *itemcount;
+  char *groupartistcount;
   char *groupalbumcount;
   char *songalbumartist;
   char *songartistid;
