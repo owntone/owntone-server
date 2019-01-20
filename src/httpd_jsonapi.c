@@ -1441,6 +1441,33 @@ jsonapi_reply_player_stop(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_player_toggle(struct httpd_request *hreq)
+{
+  struct player_status status;
+  int ret;
+
+  player_get_status(&status);
+  DPRINTF(E_DBG, L_WEB, "Toggle playback request with current state %d.\n", status.status);
+
+  if (status.status == PLAY_PLAYING)
+    {
+      ret = player_playback_pause();
+    }
+  else
+    {
+      ret = player_playback_start();
+    }
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error toggling playback state.\n");
+      return HTTP_INTERNAL;
+    }
+
+  return HTTP_NOCONTENT;
+}
+
+static int
 jsonapi_reply_player_next(struct httpd_request *hreq)
 {
   int ret;
@@ -3240,6 +3267,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_PUT,    "^/api/player/play$",                           jsonapi_reply_player_play },
     { EVHTTP_REQ_PUT,    "^/api/player/pause$",                          jsonapi_reply_player_pause },
     { EVHTTP_REQ_PUT,    "^/api/player/stop$",                           jsonapi_reply_player_stop },
+    { EVHTTP_REQ_PUT,    "^/api/player/toggle$",                         jsonapi_reply_player_toggle },
     { EVHTTP_REQ_PUT,    "^/api/player/next$",                           jsonapi_reply_player_next },
     { EVHTTP_REQ_PUT,    "^/api/player/previous$",                       jsonapi_reply_player_previous },
     { EVHTTP_REQ_PUT,    "^/api/player/shuffle$",                        jsonapi_reply_player_shuffle },
