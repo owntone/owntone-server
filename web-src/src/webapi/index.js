@@ -221,15 +221,7 @@ export default {
   },
 
   library_artist_tracks (artist) {
-    if (artist) {
-      var artistParams = {
-        'type': 'tracks',
-        'expression': 'songartistid is "' + artist + '"'
-      }
-      return axios.get('/api/search', {
-        params: artistParams
-      })
-    }
+    return axios.get('/api/library/artists/' + artist + '/tracks')
   },
 
   library_podcasts () {

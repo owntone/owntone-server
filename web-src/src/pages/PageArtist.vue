@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template slot="heading-left">
-      <p class="title is-4">{{ artist.name }}</p>
+      <p class="title is-4">{{ album_artist }}</p>
     </template>
     <template slot="heading-right">
       <div class="buttons is-centered">
@@ -14,7 +14,7 @@
       </div>
     </template>
     <template slot="content">
-      <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
+      <p class="heading has-text-centered-mobile">{{ albums.total }} albums | <a class="has-text-link" @click="open_tracks">{{ track_count }} tracks</a></p>
       <list-item-album v-for="album in albums.items" :key="album.id" :album="album" @click="open_album(album)">
         <template slot="actions">
           <a @click="open_dialog(album)">
@@ -45,7 +45,9 @@ const artistData = {
   },
 
   set: function (vm, response) {
-    vm.artist = response[0].data
+    vm.album_artist = response[0].data.artist
+    vm.artist_id = vm.$route.params.artist_id
+    vm.artist = response[0].data.items
     vm.albums = response[1].data
   }
 }
@@ -57,8 +59,10 @@ export default {
 
   data () {
     return {
+      album_artist: '',
+      artist_id: '',
       artist: {},
-      albums: {},
+      albums: { items: [] },
 
       show_details_modal: false,
       selected_album: {},
@@ -67,9 +71,19 @@ export default {
     }
   },
 
+  computed: {
+    track_count () {
+      var n = 0
+      return this.albums.items.reduce((acc, item) => {
+        acc += item.track_count
+        return acc
+      }, n)
+    }
+  },
+
   methods: {
     open_tracks: function () {
-      this.$router.push({ path: '/music/artists/' + this.artist.id + '/tracks' })
+      this.$router.push({ path: '/music/artists/' + this.artist_id + '/tracks' })
     },
 
     play: function () {
