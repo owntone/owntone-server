@@ -30,6 +30,7 @@
 # include <config.h>
 #endif
 
+#include <limits.h>
 #include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -1066,6 +1067,7 @@ struct outputs_param
 {
   json_object *output;
   uint64_t output_id;
+  int output_volume;
 };
 
 static json_object *
@@ -1101,25 +1103,15 @@ speaker_enum_cb(struct spk_info *spk, void *arg)
   json_object_array_add(outputs, output);
 }
 
-static void
-speaker_get_cb(struct spk_info *spk, void *arg)
-{
-  struct outputs_param *outputs_param = arg;
-
-  if (outputs_param->output_id == spk->id)
-    {
-      outputs_param->output = speaker_to_json(spk);
-    }
-}
-
 /*
  * GET /api/outputs/[output_id]
  */
 static int
 jsonapi_reply_outputs_get_byid(struct httpd_request *hreq)
 {
-  struct outputs_param outputs_param;
+  struct spk_info speaker_info;
   uint64_t output_id;
+  json_object *jreply;
   int ret;
 
   ret = safe_atou64(hreq->uri_parsed->path_parts[2], &output_id);
@@ -1130,21 +1122,19 @@ jsonapi_reply_outputs_get_byid(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
-  outputs_param.output_id = output_id;
-  outputs_param.output = NULL;
+  ret = player_speaker_get_byid(output_id, &speaker_info);
 
-  player_speaker_enumerate(speaker_get_cb, &outputs_param);
-
-  if (!outputs_param.output)
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "No output found for '%s'\n", hreq->uri_parsed->path);
 
       return HTTP_BADREQUEST;
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(outputs_param.output)));
+  jreply = speaker_to_json(&speaker_info);
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
-  jparse_free(outputs_param.output);
+  jparse_free(jreply);
 
   return HTTP_OK;
 }
@@ -2203,36 +2193,113 @@ jsonapi_reply_player_consume(struct httpd_request *hreq)
 }
 
 static int
+volume_set(int volume, int step)
+{
+  int new_volume;
+  struct player_status status;
+  int ret;
+
+  new_volume = volume;
+
+  if (step != 0)
+    {
+      // Calculate new volume from given step value
+      player_get_status(&status);
+      new_volume = status.volume + step;
+    }
+
+  // Make sure we are setting a correct value
+  new_volume = new_volume > 100 ? 100 : new_volume;
+  new_volume = new_volume < 0 ? 0 : new_volume;
+
+  ret = player_volume_set(new_volume);
+  return ret;
+}
+
+static int
+output_volume_set(int volume, int step, uint64_t output_id)
+{
+  int new_volume;
+  struct spk_info speaker_info;
+  int ret;
+
+  new_volume = volume;
+
+  if (step != 0)
+    {
+      // Calculate new output volume from the given step value
+      ret = player_speaker_get_byid(output_id, &speaker_info);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_WEB, "No output found for the given output id .\n");
+	  return -1;
+	}
+
+      new_volume = speaker_info.absvol + step;
+    }
+
+  // Make sure we are setting a correct value
+  new_volume = new_volume > 100 ? 100 : new_volume;
+  new_volume = new_volume < 0 ? 0 : new_volume;
+
+  ret = player_volume_setabs_speaker(output_id, new_volume);
+  return ret;
+}
+
+static int
 jsonapi_reply_player_volume(struct httpd_request *hreq)
 {
+  const char *param_volume;
+  const char *param_step;
   const char *param;
   uint64_t output_id;
   int volume;
+  int step;
   int ret;
 
-  param = evhttp_find_header(hreq->query, "volume");
-  if (!param)
-    return HTTP_BADREQUEST;
+  volume = 0;
+  step = 0;
 
-  ret = safe_atoi32(param, &volume);
-  if (ret < 0)
-    return HTTP_BADREQUEST;
+  // Parse and validate parameters
+  param_volume = evhttp_find_header(hreq->query, "volume");
+  if (param_volume)
+    {
+      ret = safe_atoi32(param_volume, &volume);
+      if (ret < 0)
+	return HTTP_BADREQUEST;
+    }
 
-  if (volume < 0 || volume > 100)
-    return HTTP_BADREQUEST;
+  param_step = evhttp_find_header(hreq->query, "step");
+  if (param_step)
+    {
+      ret = safe_atoi32(param_step, &step);
+      if (ret < 0)
+	return HTTP_BADREQUEST;
+    }
+
+  if ((!param_volume && !param_step)
+      || (param_volume && param_step))
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid parameters for player/volume request. Either 'volume' or 'step' parameter required.\n");
+      return HTTP_BADREQUEST;
+    }
 
   param = evhttp_find_header(hreq->query, "output_id");
   if (param)
     {
+      // Update volume for individual output
       ret = safe_atou64(param, &output_id);
       if (ret < 0)
-	return HTTP_BADREQUEST;
-
-      ret = player_volume_setabs_speaker(output_id, volume);
+	{
+	  DPRINTF(E_LOG, L_WEB, "Invalid value for parameter 'output_id'. Output id must be an integer (output_id='%s').\n", param);
+	  return HTTP_BADREQUEST;
+	}
+      ret = output_volume_set(volume, step, output_id);
     }
   else
     {
-      ret = player_volume_set(volume);
+      // Update master volume
+      ret = volume_set(volume, step);
     }
 
   if (ret < 0)
