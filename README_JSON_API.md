@@ -714,6 +714,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/artists](#list-artists)                       | Get a list of artists                |
 | GET       | [/api/library/artists/{id}](#get-an-artist)                 | Get an artist                        |
 | GET       | [/api/library/artists/{id}/albums](#list-artist-albums)     | Get list of albums for an artist     |
+| GET       | [/api/library/artists/{id}/tracks](#list-artist-tracks)     | Get list of tracks for an artist     |
 | GET       | [/api/library/albums](#list-albums)                         | Get a list of albums                 |
 | GET       | [/api/library/albums/{id}](#get-an-album)                   | Get an album                         |
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
@@ -987,7 +988,7 @@ curl -X GET "http://localhost:3689/api/library/artists"
 
 ### Get an artist
 
-Get a specific artist in your library
+Get a specific artist(s) in your library
 
 **Endpoint**
 
@@ -999,11 +1000,11 @@ GET /api/library/artists/{id}
 
 | Parameter       | Value                |
 | --------------- | -------------------- |
-| id              | Artist id            |
+| id              | Artist id(s) (comma seperated) |
 
 **Response**
 
-On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`artist`](#artist-object) object**.
+On success returns the HTTP `200 OK` success status response code. With the response body holding an array of the **[`artist`](#artist-object) object**.
 
 
 **Example**
@@ -1014,16 +1015,22 @@ curl -X GET "http://localhost:3689/api/library/artists/3815427709949443149"
 
 ```json
 {
-  "id": "3815427709949443149",
-  "name": "ABAY",
-  "name_sort": "ABAY",
-  "album_count": 1,
-  "track_count": 10,
-  "length_ms": 2951554,
-  "uri": "library:artist:3815427709949443149"
+  "items": [
+    {
+      "id": "3815427709949443149",
+      "name": "ABAY",
+      "name_sort": "ABAY",
+      "album_count": 1,
+      "track_count": 10,
+      "length_ms": 2951554,
+      "uri": "library:artist:3815427709949443149"
+    }
+  ],
+  "artist_id": "3815427709949443149",
+  "artist": "ABAY",
+  "total": 1
 }
 ```
-
 
 ### List artist albums
 
@@ -1083,6 +1090,45 @@ curl -X GET "http://localhost:3689/api/library/artists/32561671101664759/albums"
   "offset": 0,
   "limit": -1
 }
+```
+
+### List artist tracks 
+
+Lists the tracks (across all albums) of an artist
+
+**Endpoint**
+
+```http
+GET /api/library/artists/{id}/tracks
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Artist id            |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first album to return            |
+| limit           | *(Optional)* Maximum number of albums to return             |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`album`](#track-object) objects |
+| total           | integer  | Total number of albums of this artist     |
+| offset          | integer  | Requested offset of the first album       |
+| limit           | integer  | Requested maximum number of albums        |
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/library/artists/32561671101664759/tracks"
 ```
 
 

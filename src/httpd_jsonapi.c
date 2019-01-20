@@ -164,14 +164,17 @@ album_to_json(struct db_group_info *dbgri)
   char uri[100];
   char artwork_url[100];
   int ret;
+  int artist_count;
 
+  artist_count = dbgri->groupartistcount ? atol(dbgri->groupartistcount) : 0;
   item = json_object_new_object();
 
   safe_json_add_string(item, "id", dbgri->persistentid);
   safe_json_add_string(item, "name", dbgri->itemname);
   safe_json_add_string(item, "name_sort", dbgri->itemname_sort);
-  safe_json_add_string(item, "artist", dbgri->songalbumartist);
+  safe_json_add_string(item, "artist", artist_count > 1 ? "Various Artists" : dbgri->songalbumartist);
   safe_json_add_string(item, "artist_id", dbgri->songartistid);
+  json_object_object_add(item, "artist_count", json_object_new_int(artist_count));
   safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
   safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
 
@@ -376,31 +379,72 @@ static json_object *
 fetch_artist(const char *artist_id)
 {
   struct query_params query_params;
-  json_object *artist;
+  json_object *reply = NULL, *items = NULL, *item = NULL;
   struct db_group_info dbgri;
   int ret = 0;
+  int total = 0;
+  char *artist_name = NULL;
+  bool various_artists = false;
 
   memset(&query_params, 0, sizeof(struct query_params));
-  artist = NULL;
 
   query_params.type = Q_GROUP_ARTISTS;
   query_params.sort = S_ARTIST;
-  query_params.filter = db_mprintf("(f.songartistid = %s)", artist_id);
+  query_params.filter = db_mprintf("(f.songartistid in (%s))", artist_id);
 
   ret = db_query_start(&query_params);
   if (ret < 0)
     goto error;
 
-  if ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
+  reply = json_object_new_object();
+  items = json_object_new_array();
+  json_object_object_add(reply, "items", items);
+
+  /* we can have multiple artists comes back (if artist_id is list of artists
+   * for compilation)
+   */
+  while ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
     {
-      artist = artist_to_json(&dbgri);
+      item = artist_to_json(&dbgri);
+      if (!item)
+	{
+	  ret = -1;
+	  goto error;
+	}
+
+      json_object_array_add(items, item);
+
+      // make sure we set the artist name to the matching one in db
+      if (artist_name == NULL && strcmp(artist_id, dbgri.persistentid) == 0)
+	artist_name = strdup(dbgri.itemname);
+
+      if (!various_artists && atol(dbgri.groupartistcount) > 1)
+	various_artists = true;
+
+      total += atol(dbgri.groupartistcount);
     }
+
+  // if we asked for multiple artists in artist_id we wont have matched
+  if (artist_name == NULL)
+    various_artists = true;
+
+  if (total == 0)
+    {
+      jparse_free(reply);
+      reply = NULL;
+      goto error;
+    }
+
+  json_object_object_add(reply, "artist_id", json_object_new_string(artist_id));
+  json_object_object_add(reply, "artist", json_object_new_string(various_artists ? "Various Artists" : artist_name));
+  json_object_object_add(reply, "total", json_object_new_int(total));
 
  error:
   db_query_end(&query_params);
   free(query_params.filter);
+  free(artist_name);
 
-  return artist;
+  return reply;
 }
 
 static int
@@ -2473,7 +2517,7 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
 
   query_params.type = Q_GROUP_ALBUMS;
   query_params.sort = S_ALBUM;
-  query_params.filter = db_mprintf("(f.songartistid = %q)", artist_id);
+  query_params.filter = db_mprintf("(f.songartistid in (%s))", artist_id);
 
   ret = fetch_albums(&query_params, items, &total);
   free(query_params.filter);
@@ -2488,6 +2532,60 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
   ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add albums to response buffer.\n");
+
+ error:
+  jparse_free(reply);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_library_artist_tracks(struct httpd_request *hreq)
+{
+  time_t db_update;
+  struct query_params query_params;
+  const char *artist_id;
+  json_object *reply;
+  json_object *items;
+  int total;
+  int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
+  artist_id = hreq->uri_parsed->path_parts[3];
+
+  reply = json_object_new_object();
+  items = json_object_new_array();
+  json_object_object_add(reply, "items", items);
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto error;
+
+  query_params.type = Q_ITEMS;
+  query_params.sort = S_NAME;
+  query_params.filter = db_mprintf("(f.songartistid in (%s))", artist_id);
+
+  ret = fetch_tracks(&query_params, items, &total);
+  free(query_params.filter);
+
+  if (ret < 0)
+    goto error;
+
+  json_object_object_add(reply, "total", json_object_new_int(total));
+  json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
+
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add artist tracks to response buffer.\n");
 
  error:
   jparse_free(reply);
@@ -3493,8 +3591,9 @@ static struct httpd_uri_map adm_handlers[] =
 //    { EVHTTP_REQ_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },
 //    { EVHTTP_REQ_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_tracks },
     { EVHTTP_REQ_GET,    "^/api/library/artists$",                       jsonapi_reply_library_artists },
-    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+$",          jsonapi_reply_library_artist },
-    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+/albums$",   jsonapi_reply_library_artist_albums },
+    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+(,[[:digit:]]+)*$", jsonapi_reply_library_artist },
+    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+(,[[:digit:]]+)*/albums$", jsonapi_reply_library_artist_albums },
+    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+(,[[:digit:]]+)*/tracks$", jsonapi_reply_library_artist_tracks },
     { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
