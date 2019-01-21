@@ -31,8 +31,8 @@ enum repeat_mode {
 
 struct spk_info {
   uint64_t id;
-  const char *name;
-  const char *output_type;
+  char name[255];
+  char output_type[50];
   int relvol;
   int absvol;
 
@@ -94,6 +94,9 @@ player_speaker_enumerate(spk_enum_cb cb, void *arg);
 
 int
 player_speaker_set(uint64_t *ids);
+
+int
+player_speaker_get_byid(uint64_t id, struct spk_info *spk);
 
 int
 player_speaker_enable(uint64_t id);

@@ -146,6 +146,12 @@ struct speaker_set_param
   int intval;
 };
 
+struct speaker_get_param
+{
+  uint64_t spk_id;
+  struct spk_info *spk_info;
+};
+
 struct metadata_param
 {
   struct input_metadata *input;
@@ -2407,6 +2413,25 @@ player_speaker_status_trigger(void)
   listener_notify(LISTENER_SPEAKER);
 }
 
+static void
+device_to_speaker_info(struct spk_info *spk, struct output_device *device)
+{
+  memset(spk, 0, sizeof(struct spk_info));
+  spk->id = device->id;
+  strncpy(spk->name, device->name, sizeof(spk->name));
+  spk->name[sizeof(spk->name) - 1] = '\0';
+  strncpy(spk->output_type, device->type_name, sizeof(spk->output_type));
+  spk->output_type[sizeof(spk->output_type) - 1] = '\0';
+  spk->relvol = device->relvol;
+  spk->absvol = device->volume;
+
+  spk->selected = device->selected;
+  spk->has_password = device->has_password;
+  spk->has_video = device->has_video;
+  spk->requires_auth = device->requires_auth;
+  spk->needs_auth_key = (device->requires_auth && device->auth_key == NULL);
+}
+
 static enum command_state
 speaker_enumerate(void *arg, int *retval)
 {
@@ -2418,23 +2443,34 @@ speaker_enumerate(void *arg, int *retval)
     {
       if (device->advertised || device->selected)
 	{
-	  spk.id = device->id;
-	  spk.name = device->name;
-	  spk.output_type = device->type_name;
-	  spk.relvol = device->relvol;
-	  spk.absvol = device->volume;
-
-	  spk.selected = device->selected;
-	  spk.has_password = device->has_password;
-	  spk.has_video = device->has_video;
-	  spk.requires_auth = device->requires_auth;
-	  spk.needs_auth_key = (device->requires_auth && device->auth_key == NULL);
-
+	  device_to_speaker_info(&spk, device);
 	  spk_enum->cb(&spk, spk_enum->arg);
 	}
     }
 
   *retval = 0;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_get_byid(void *arg, int *retval)
+{
+  struct speaker_get_param *spk_param = arg;
+  struct output_device *device;
+
+  for (device = dev_list; device; device = device->next)
+    {
+      if ((device->advertised || device->selected)
+	  && device->id == spk_param->spk_id)
+	{
+	  device_to_speaker_info(spk_param->spk_info, device);
+	  *retval = 0;
+	  return COMMAND_END;
+	}
+    }
+
+  // No output device found with matching id
+  *retval = -1;
   return COMMAND_END;
 }
 
@@ -3120,6 +3156,18 @@ player_speaker_set(uint64_t *ids)
 
   listener_notify(LISTENER_SPEAKER);
 
+  return ret;
+}
+
+int
+player_speaker_get_byid(uint64_t id, struct spk_info *spk)
+{
+  struct speaker_get_param param;
+  int ret;
+
+  param.spk_id = id;
+
+  ret = commands_exec_sync(cmdbase, speaker_get_byid, NULL, &param);
   return ret;
 }
 
