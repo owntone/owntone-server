@@ -2654,7 +2654,6 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   memset(&query_params, 0, sizeof(struct query_params));
 
   query_params.type = Q_ITEMS;
-  query_params.sort = S_ALBUM;
   query_params.filter = db_mprintf("(f.id = %q)", track_id);
 
   ret = db_query_start(&query_params);
@@ -2692,8 +2691,51 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 {
-  //db_file_fetch_byid()
-  return 0;
+  int track_id;
+  const char *param;
+  int val;
+  int ret;
+
+  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &track_id);
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  // Update play_count/skip_count
+  param = evhttp_find_header(hreq->query, "play_count");
+  if (param)
+    {
+      if (strcmp(param, "increment") == 0)
+	{
+	  db_file_inc_playcount(track_id);
+	}
+      else if (strcmp(param, "reset") == 0)
+	{
+	  db_file_reset_playskip_count(track_id);
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
+	}
+    }
+
+  // Update rating
+  param = evhttp_find_header(hreq->query, "rating");
+  if (param)
+    {
+      ret = safe_atoi32(param, &val);
+      if (ret < 0)
+	return HTTP_BADREQUEST;
+
+      if (val >= 0 && val <= DB_FILES_RATING_MAX)
+      	ret = db_file_rating_update_byid(track_id, val);
+      else
+      	DPRINTF(E_WARN, L_WEB, "Ignoring invalid rating value '%d' for track '%d'.\n", val, track_id);
+
+      if (ret < 0)
+        return HTTP_INTERNAL;
+    }
+
+  return HTTP_OK;
 }
 
 static int
