@@ -23,7 +23,7 @@ JSON-Object model:
 | Method    | Endpoint                                         | Description                          |
 | --------- | ------------------------------------------------ | ------------------------------------ |
 | GET       | [/api/player](#get-player-status)                | Get player status                    |
-| PUT       | [/api/player/play, /api/player/pause, /api/player/stop](#control-playback) | Start, pause or stop playback |
+| PUT       | [/api/player/play, /api/player/pause, /api/player/stop, /api/player/toggle](#control-playback) | Start, pause or stop playback |
 | PUT       | [/api/player/next, /api/player/prev](#skip-tracks) | Skip forward or backward           |
 | PUT       | [/api/player/shuffle](#set-shuffle-mode)         | Set shuffle mode                     |
 | PUT       | [/api/player/consume](#set-consume-mode)         | Set consume mode                     |
@@ -93,6 +93,10 @@ PUT /api/player/pause
 PUT /api/player/stop
 ```
 
+```http
+PUT /api/player/toggle
+```
+
 **Response**
 
 On success returns the HTTP `204 No Content` success status response code.
@@ -109,6 +113,10 @@ curl -X PUT "http://localhost:3689/api/player/pause"
 
 ```shell
 curl -X PUT "http://localhost:3689/api/player/stop"
+```
+
+```shell
+curl -X PUT "http://localhost:3689/api/player/toggle"
 ```
 
 
@@ -240,8 +248,10 @@ PUT /api/player/volume
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | volume          | The new volume (0 - 100)                                    |
+| step            | The increase or decrease volume by the given amount (-100 - 100) |
 | output_id       | *(Optional)* If an output id is given, only the volume of this output will be changed. If parameter is omited, the master volume will be changed. |
 
+Either `volume` or `step` must be present as query parameter
 
 **Response**
 
@@ -251,6 +261,10 @@ On success returns the HTTP `204 No Content` success status response code.
 
 ```shell
 curl -X PUT "http://localhost:3689/api/player/volume?volume=50"
+```
+
+```shell
+curl -X PUT "http://localhost:3689/api/player/volume?step=-5"
 ```
 
 ```shell
