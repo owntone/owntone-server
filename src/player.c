@@ -149,7 +149,7 @@ struct speaker_set_param
 struct speaker_get_param
 {
   uint64_t spk_id;
-  struct spk_info *spk_info;
+  struct player_speaker_info *spk_info;
 };
 
 struct metadata_param
@@ -2414,9 +2414,9 @@ player_speaker_status_trigger(void)
 }
 
 static void
-device_to_speaker_info(struct spk_info *spk, struct output_device *device)
+device_to_speaker_info(struct player_speaker_info *spk, struct output_device *device)
 {
-  memset(spk, 0, sizeof(struct spk_info));
+  memset(spk, 0, sizeof(struct player_speaker_info));
   spk->id = device->id;
   strncpy(spk->name, device->name, sizeof(spk->name));
   spk->name[sizeof(spk->name) - 1] = '\0';
@@ -2437,7 +2437,7 @@ speaker_enumerate(void *arg, int *retval)
 {
   struct spk_enum *spk_enum = arg;
   struct output_device *device;
-  struct spk_info spk;
+  struct player_speaker_info spk;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -3160,7 +3160,7 @@ player_speaker_set(uint64_t *ids)
 }
 
 int
-player_speaker_get_byid(uint64_t id, struct spk_info *spk)
+player_speaker_get_byid(uint64_t id, struct player_speaker_info *spk)
 {
   struct speaker_get_param param;
   int ret;

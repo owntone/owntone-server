@@ -1071,7 +1071,7 @@ struct outputs_param
 };
 
 static json_object *
-speaker_to_json(struct spk_info *spk)
+speaker_to_json(struct player_speaker_info *spk)
 {
   json_object *output;
   char output_id[21];
@@ -1092,7 +1092,7 @@ speaker_to_json(struct spk_info *spk)
 }
 
 static void
-speaker_enum_cb(struct spk_info *spk, void *arg)
+speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 {
   json_object *outputs;
   json_object *output;
@@ -1109,7 +1109,7 @@ speaker_enum_cb(struct spk_info *spk, void *arg)
 static int
 jsonapi_reply_outputs_get_byid(struct httpd_request *hreq)
 {
-  struct spk_info speaker_info;
+  struct player_speaker_info speaker_info;
   uint64_t output_id;
   json_object *jreply;
   int ret;
@@ -2220,7 +2220,7 @@ static int
 output_volume_set(int volume, int step, uint64_t output_id)
 {
   int new_volume;
-  struct spk_info speaker_info;
+  struct player_speaker_info speaker_info;
   int ret;
 
   new_volume = volume;

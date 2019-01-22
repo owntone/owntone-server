@@ -29,7 +29,7 @@ enum repeat_mode {
   REPEAT_ALL  = 2,
 };
 
-struct spk_info {
+struct player_speaker_info {
   uint64_t id;
   char name[255];
   char output_type[50];
@@ -64,7 +64,7 @@ struct player_status {
   uint32_t len_ms;
 };
 
-typedef void (*spk_enum_cb)(struct spk_info *spk, void *arg);
+typedef void (*spk_enum_cb)(struct player_speaker_info *spk, void *arg);
 
 struct player_history
 {
@@ -96,7 +96,7 @@ int
 player_speaker_set(uint64_t *ids);
 
 int
-player_speaker_get_byid(uint64_t id, struct spk_info *spk);
+player_speaker_get_byid(uint64_t id, struct player_speaker_info *spk);
 
 int
 player_speaker_enable(uint64_t id);
