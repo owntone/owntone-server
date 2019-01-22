@@ -2635,6 +2635,68 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
+{
+  time_t db_update;
+  struct query_params query_params;
+  const char *track_id;
+  struct db_media_file_info dbmfi;
+  json_object *reply = NULL;
+  int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
+
+  track_id = hreq->uri_parsed->path_parts[3];
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  query_params.type = Q_ITEMS;
+  query_params.sort = S_ALBUM;
+  query_params.filter = db_mprintf("(f.id = %q)", track_id);
+
+  ret = db_query_start(&query_params);
+  if (ret < 0)
+    goto error;
+
+  ret = db_query_fetch_file(&query_params, &dbmfi);
+  if (ret < 0)
+    goto error;
+
+  if (dbmfi.id == 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Track with id '%s' not found.\n", track_id);
+      ret = -1;
+      goto error;
+    }
+
+  reply = track_to_json(&dbmfi);
+
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add track to response buffer.\n");
+
+ error:
+  db_query_end(&query_params);
+  free(query_params.filter);
+  jparse_free(reply);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
+{
+  //db_file_fetch_byid()
+  return 0;
+}
+
+static int
 jsonapi_reply_library_playlists(struct httpd_request *hreq)
 {
   time_t db_update;
@@ -3374,6 +3436,8 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
+    { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
+    { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
