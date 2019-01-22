@@ -3548,7 +3548,7 @@ mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errms
  * the shortid of output_get_param matches the given speaker/output spk.
  */
 static void
-output_get_cb(struct spk_info *spk, void *arg)
+output_get_cb(struct player_speaker_info *spk, void *arg)
 {
   struct output_get_param *param = arg;
 
@@ -3696,7 +3696,7 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  *   outputvolume: 50
  */
 static void
-speaker_enum_cb(struct spk_info *spk, void *arg)
+speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 {
   struct evbuffer *evbuf;
 
