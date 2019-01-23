@@ -130,7 +130,13 @@ var app = new Vue({
         console.log('Websocket disabled');
         return;
       }
-      var socket = new WebSocket('ws://' + document.domain + ':' + this.config.websocket_port, 'notify');
+
+      var protocol = 'ws://'
+      if (window.location.protocol === 'https:') {
+          protocol = 'wss://'
+      }
+
+      var socket = new WebSocket(protocol + document.domain + ':' + this.config.websocket_port, 'notify');
       const vm = this;
       socket.onopen = function() {
           socket.send(JSON.stringify({ notify: ['update', 'pairing', 'spotify', 'lastfm', 'outputs']}));
