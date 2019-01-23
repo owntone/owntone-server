@@ -2586,6 +2586,24 @@ db_file_inc_skipcount(int id)
 }
 
 void
+db_file_reset_playskip_count(int id)
+{
+#define Q_TMPL "UPDATE files SET play_count = 0, skip_count = 0, time_played = 0, time_skipped = 0 WHERE id = %d;"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
+void
 db_file_ping(int id)
 {
 #define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE id = %d;"

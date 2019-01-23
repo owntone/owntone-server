@@ -567,6 +567,9 @@ void
 db_file_inc_skipcount(int id);
 
 void
+db_file_reset_playskip_count(int id);
+
+void
 db_file_ping(int id);
 
 int
