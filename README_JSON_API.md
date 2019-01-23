@@ -716,9 +716,11 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums](#list-albums)                         | Get a list of albums                 |
 | GET       | [/api/library/albums/{id}](#get-an-album)                   | Get an album                         |
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
+| GET       | [/api/library/tracks/{id}](#get-a-track)                    | Get a track                          |
+| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update a tracks properties (rating, play_count) |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
-| GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library  |
+| GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
 | GET       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
 
 
@@ -1248,6 +1250,106 @@ curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
   "offset": 0,
   "limit": -1
 }
+```
+
+
+### Get a track
+
+Get a specific track in your library
+
+**Endpoint**
+
+```http
+GET /api/library/tracks/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Track id             |
+
+**Response**
+
+On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`track`](#track-object) object**.
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/library/track/1"
+```
+
+```json
+{
+  "id": 1,
+  "title": "Pardon Me",
+  "title_sort": "Pardon Me",
+  "artist": "Incubus",
+  "artist_sort": "Incubus",
+  "album": "Make Yourself",
+  "album_sort": "Make Yourself",
+  "album_id": "6683985628074308431",
+  "album_artist": "Incubus",
+  "album_artist_sort": "Incubus",
+  "album_artist_id": "4833612337650426236",
+  "composer": "Alex Katunich/Brandon Boyd/Chris Kilmore/Jose Antonio Pasillas II/Mike Einziger",
+  "genre": "Alternative Rock",
+  "year": 2001,
+  "track_number": 12,
+  "disc_number": 1,
+  "length_ms": 223170,
+  "rating": 0,
+  "play_count": 0,
+  "skip_count": 0,
+  "time_added": "2019-01-20T11:58:29Z",
+  "date_released": "2001-05-27",
+  "seek_ms": 0,
+  "media_kind": "music",
+  "data_kind": "file",
+  "path": "/music/srv/Incubus/Make Yourself/12 Pardon Me.mp3",
+  "uri": "library:track:1",
+  "artwork_url": "/artwork/item/1"
+}
+```
+
+
+### Update track properties
+
+Change properties of a specific track (supported properties are "rating" and "play_count")
+
+**Endpoint**
+
+```http
+PUT /api/library/tracks/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Track id             |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| rating          | The new rating (0 - 100)                                    |
+| play_count      | Either `increment` or `reset`. `increment` will increment `play_count` and update `time_played`, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped` |
+
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```shell
+curl -X PUT "http://localhost:3689/api/library/tracks/1?rating=100"
+```
+
+```shell
+curl -X PUT "http://localhost:3689/api/library/tracks/1?play_count=increment"
 ```
 
 
