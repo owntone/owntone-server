@@ -202,6 +202,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_string(item, "title_sort", dbmfi->title_sort);
   safe_json_add_string(item, "artist", dbmfi->artist);
   safe_json_add_string(item, "artist_sort", dbmfi->artist_sort);
+  safe_json_add_string(item, "artist_id", dbmfi->songtrackartistid);
   safe_json_add_string(item, "album", dbmfi->album);
   safe_json_add_string(item, "album_sort", dbmfi->album_sort);
   safe_json_add_string(item, "album_id", dbmfi->songalbumid);
@@ -385,7 +386,7 @@ fetch_artist(const char *artist_id)
 
   query_params.type = Q_GROUP_ARTISTS;
   query_params.sort = S_ARTIST;
-  query_params.filter = db_mprintf("(f.songartistid = %s)", artist_id);
+  query_params.filter = db_mprintf("(f.songartistid = %s OR f.songtrackartistid = %q)", artist_id, artist_id);
 
   ret = db_query_start(&query_params);
   if (ret < 0)
@@ -1718,7 +1719,7 @@ queue_tracks_add_artist(const char *id, int pos)
   query_params.type = Q_ITEMS;
   query_params.sort = S_ALBUM;
   query_params.idx_type = I_NONE;
-  query_params.filter = db_mprintf("(f.songartistid = %q)", id);
+  query_params.filter = db_mprintf("(f.songartistid = %q OR f.songtrackartistid = %q)", id, id);
 
   player_get_status(&status);
 
@@ -2473,7 +2474,7 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
 
   query_params.type = Q_GROUP_ALBUMS;
   query_params.sort = S_ALBUM;
-  query_params.filter = db_mprintf("(f.songartistid = %q)", artist_id);
+  query_params.filter = db_mprintf("(f.songartistid = %q OR f.songtrackartistid = %q)", artist_id, artist_id);
 
   ret = fetch_albums(&query_params, items, &total);
   free(query_params.filter);
@@ -2488,6 +2489,60 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
   ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add albums to response buffer.\n");
+
+ error:
+  jparse_free(reply);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_library_artist_tracks(struct httpd_request *hreq)
+{
+  time_t db_update;
+  struct query_params query_params;
+  const char *artist_id;
+  json_object *reply;
+  json_object *items;
+  int total;
+  int ret = 0;
+
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+    return HTTP_NOTMODIFIED;
+
+  artist_id = hreq->uri_parsed->path_parts[3];
+
+  reply = json_object_new_object();
+  items = json_object_new_array();
+  json_object_object_add(reply, "items", items);
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto error;
+
+  query_params.type = Q_ITEMS;
+  query_params.sort = S_NAME;
+  query_params.filter = db_mprintf("(f.songartistid = %q OR f.songtrackartistid = %q)", artist_id, artist_id);
+
+  ret = fetch_tracks(&query_params, items, &total);
+  free(query_params.filter);
+
+  if (ret < 0)
+    goto error;
+
+  json_object_object_add(reply, "total", json_object_new_int(total));
+  json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
+
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add artist tracks to response buffer.\n");
 
  error:
   jparse_free(reply);
@@ -3218,9 +3273,9 @@ search_artists(json_object *reply, struct httpd_request *hreq, const char *param
   if (param_query)
     {
       if (media_kind)
-	query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
+	query_params.filter = db_mprintf("((f.album_artist LIKE '%%%q%%' OR f.artist LIKE '%%%q%%') AND f.media_kind = %d)", param_query, param_query, media_kind);
       else
-	query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%')", param_query);
+	query_params.filter = db_mprintf("(f.album_artist LIKE '%%%q%%' OR f.artist LIKE '%%%q%%')", param_query, param_query);
     }
   else
     {
@@ -3495,6 +3550,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/artists$",                       jsonapi_reply_library_artists },
     { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+$",          jsonapi_reply_library_artist },
     { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+/albums$",   jsonapi_reply_library_artist_albums },
+    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+/tracks$",	 jsonapi_reply_library_artist_tracks },
     { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
