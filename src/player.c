@@ -3166,6 +3166,7 @@ player_speaker_get_byid(uint64_t id, struct player_speaker_info *spk)
   int ret;
 
   param.spk_id = id;
+  param.spk_info = spk;
 
   ret = commands_exec_sync(cmdbase, speaker_get_byid, NULL, &param);
   return ret;
