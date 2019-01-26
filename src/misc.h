@@ -56,10 +56,10 @@ char *
 safe_strdup(const char *str);
 
 char *
-safe_asprintf(const char *fmt, ...);
+safe_asprintf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 int
-safe_snprintf_cat(char *dst, size_t n, const char *fmt, ...);
+safe_snprintf_cat(char *dst, size_t n, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
 
 /* Key/value functions */
