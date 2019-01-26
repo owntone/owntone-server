@@ -2267,7 +2267,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
   else
     {
       // Argument is a playlist name, prepend default playlist directory
-      path = safe_asprintf("%s/%s%s", default_pl_dir, argv[1]);
+      path = safe_asprintf("%s/%s", default_pl_dir, argv[1]);
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
@@ -2330,7 +2330,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
   else
     {
       // Argument is a playlist name, prepend default playlist directory
-      path = safe_asprintf("%s/%s%s", default_pl_dir, argv[1]);
+      path = safe_asprintf("%s/%s", default_pl_dir, argv[1]);
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
@@ -2449,7 +2449,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   else
     {
       // Argument is a playlist name, prepend default playlist directory
-      path = safe_asprintf("%s/%s%s", default_pl_dir, argv[1]);
+      path = safe_asprintf("%s/%s", default_pl_dir, argv[1]);
     }
 
   pli = db_pl_fetch_byvirtualpath(path);
@@ -3260,7 +3260,7 @@ mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, co
   rating *= MPD_RATING_FACTOR;
   if (rating > DB_FILES_RATING_MAX)
     {
-      *errmsg = safe_asprintf("rating '%s' is greater than maximum value allowed", argv[5], (DB_FILES_RATING_MAX / MPD_RATING_FACTOR));
+      *errmsg = safe_asprintf("rating '%s' is greater than maximum value allowed", argv[5]);
       return ACK_ERROR_ARG;
     }
 
