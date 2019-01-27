@@ -24,7 +24,7 @@ JSON-Object model:
 | --------- | ------------------------------------------------ | ------------------------------------ |
 | GET       | [/api/player](#get-player-status)                | Get player status                    |
 | PUT       | [/api/player/play, /api/player/pause, /api/player/stop, /api/player/toggle](#control-playback) | Start, pause or stop playback |
-| PUT       | [/api/player/next, /api/player/prev](#skip-tracks) | Skip forward or backward           |
+| PUT       | [/api/player/next, /api/player/previous](#skip-tracks) | Skip forward or backward           |
 | PUT       | [/api/player/shuffle](#set-shuffle-mode)         | Set shuffle mode                     |
 | PUT       | [/api/player/consume](#set-consume-mode)         | Set consume mode                     |
 | PUT       | [/api/player/repeat](#set-repeat-mode)           | Set repeat mode                      |
@@ -131,7 +131,7 @@ PUT /api/player/next
 ```
 
 ```http
-PUT /api/player/prev
+PUT /api/player/previous
 ```
 
 **Response**
@@ -145,7 +145,7 @@ curl -X PUT "http://localhost:3689/api/player/next"
 ```
 
 ```shell
-curl -X PUT "http://localhost:3689/api/player/prev"
+curl -X PUT "http://localhost:3689/api/player/previous"
 ```
 
 
