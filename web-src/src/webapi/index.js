@@ -202,6 +202,26 @@ export default {
     return axios.get('/api/library/albums?media_kind=podcast')
   },
 
+  library_podcasts_new_episodes () {
+    var episodesParams = {
+      'type': 'tracks',
+      'expression': 'media_kind is podcast and play_count = 0 ORDER BY time_added DESC'
+    }
+    return axios.get('/api/search', {
+      params: episodesParams
+    })
+  },
+
+  library_podcast_episodes (albumId) {
+    var episodesParams = {
+      'type': 'tracks',
+      'expression': 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY time_added DESC'
+    }
+    return axios.get('/api/search', {
+      params: episodesParams
+    })
+  },
+
   library_audiobooks () {
     return axios.get('/api/library/albums?media_kind=audiobook')
   },

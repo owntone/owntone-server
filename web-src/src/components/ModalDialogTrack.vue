@@ -12,6 +12,10 @@
               <p class="subtitle">
                 {{ track.artist }}
               </p>
+              <div class="buttons" v-if="track.media_kind === 'podcast'">
+                <a class="button is-small" v-if="track.play_count > 0" @click="mark_new">Mark as new</a>
+                <a class="button is-small" v-if="track.play_count === 0" @click="mark_played">Mark as played</a>
+              </div>
               <div class="content is-small">
                 <p>
                   <span class="heading">Album</span>
@@ -125,6 +129,16 @@ export default {
     open_artist: function () {
       this.$emit('close')
       this.$router.push({ path: '/music/artists/' + this.track.album_artist_id })
+    },
+
+    mark_new: function () {
+      this.$emit('close')
+      // TODO
+    },
+
+    mark_played: function () {
+      this.$emit('close')
+      // TODO
     }
   }
 }

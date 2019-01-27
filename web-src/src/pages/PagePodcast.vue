@@ -36,13 +36,13 @@ const albumData = {
   load: function (to) {
     return Promise.all([
       webapi.library_album(to.params.album_id),
-      webapi.library_album_tracks(to.params.album_id)
+      webapi.library_podcast_episodes(to.params.album_id)
     ])
   },
 
   set: function (vm, response) {
     vm.album = response[0].data
-    vm.tracks = response[1].data.items
+    vm.tracks = response[1].data.tracks.items
   }
 }
 
