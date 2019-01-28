@@ -9,7 +9,8 @@ export default new Vuex.Store({
     config: {
       'websocket_port': 0,
       'version': '',
-      'buildoptions': [ ]
+      'buildoptions': [ ],
+      'show_composer': [ ]
     },
     library: {
       'artists': 0,
