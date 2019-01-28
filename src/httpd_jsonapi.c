@@ -30,10 +30,12 @@
 # include <config.h>
 #endif
 
+#include <errno.h>
 #include <limits.h>
 #include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -636,6 +638,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
   cfg_t *lib;
   int ndirs;
   char *path;
+  char *deref;
   json_object *directories;
   int i;
 
@@ -674,7 +677,18 @@ jsonapi_reply_config(struct httpd_request *hreq)
   for (i = 0; i < ndirs; i++)
     {
       path = cfg_getnstr(lib, "directories", i);
-      json_object_array_add(directories, json_object_new_string(path));
+
+      // The path in the conf file may have a trailing slash character. Return the realpath like it is done in the bulk_scan function in filescanner.c
+      deref = realpath(path, NULL);
+      if (deref)
+        {
+	  json_object_array_add(directories, json_object_new_string(deref));
+	  free(deref);
+	}
+      else
+	{
+	  DPRINTF(E_LOG, L_WEB, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));
+	}
     }
   json_object_object_add(jreply, "directories", directories);
 
