@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "httpd_jsonapi.h"
 #include "conffile.h"
@@ -650,11 +651,16 @@ jsonapi_reply_config(struct httpd_request *hreq)
   int websocket_port;
   char **buildoptions;
   cfg_t *lib;
-  int ndirs;
+  int n;
   char *path;
   char *deref;
   json_object *directories;
+  json_object *show_composer;
   int i;
+  char *ptr;
+  char *l;
+  char *buf;
+  int  bufsz;
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
@@ -686,9 +692,9 @@ jsonapi_reply_config(struct httpd_request *hreq)
 
   // Library directories
   lib = cfg_getsec(cfg, "library");
-  ndirs = cfg_size(lib, "directories");
+  n = cfg_size(lib, "directories");
   directories = json_object_new_array();
-  for (i = 0; i < ndirs; i++)
+  for (i = 0; i < n; i++)
     {
       path = cfg_getnstr(lib, "directories", i);
 
@@ -706,9 +712,33 @@ jsonapi_reply_config(struct httpd_request *hreq)
     }
   json_object_object_add(jreply, "directories", directories);
 
+  n = cfg_size(lib, "show_composer");
+  show_composer = json_object_new_array();
+  buf = NULL;
+  bufsz = 0;
+  for (i = 0; i < n; i++)
+    {
+      ptr = cfg_getnstr(lib, "show_composer", i);
+      if (strlen(ptr) > bufsz)
+        {
+	  bufsz = strlen(ptr);
+	  free(buf);
+	  buf = malloc(bufsz+1);
+	  buf[bufsz] = '\0';
+        }
+
+      l = buf;
+      while (*ptr)
+        *l++ = tolower(*ptr++);
+
+      json_object_array_add(show_composer, json_object_new_string(buf));
+    }
+  json_object_object_add(jreply, "show_composer", show_composer);
+
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
+  free(buf);
 
   return HTTP_OK;
 }

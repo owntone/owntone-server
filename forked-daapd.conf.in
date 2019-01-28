@@ -191,6 +191,11 @@ library {
 	# (played or skipped). Both results are combined with a mix-factor of 0.75:
 	# new rating = 0.75 * stable rating + 0.25 * rolling rating)
 #	rating_updates = false
+
+	# which genres to display composer on webui's Now Playing screen
+	# empty list to disable or "*" to display all
+	# entries are case insensitive
+	show_composer = { }
 }
 
 # Local audio output
