@@ -217,7 +217,7 @@ expression	returns [ pANTLR3_STRING result, pANTLR3_STRING orderby, pANTLR3_STRI
 			$result = $DATETAG.text->factory->newRaw($DATETAG.text->factory);
 			$result->append8($result, "f.");
 			$result->appendS($result, $DATETAG.text->toUTF8($DATETAG.text));
-			$result->append8($result, " > ");
+			$result->append8($result, " < ");
 			$result->append8($result, str);
 		}
 	|	ENUMTAG IS ENUMVAL
