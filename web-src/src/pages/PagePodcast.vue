@@ -20,7 +20,7 @@
           </a>
         </template>
       </list-item-track>
-      <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
+      <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" @play_count_changed="reload_tracks" />
     </template>
   </content-with-heading>
 </template>
@@ -73,6 +73,12 @@ export default {
     open_dialog: function (track) {
       this.selected_track = track
       this.show_details_modal = true
+    },
+
+    reload_tracks: function () {
+      webapi.library_podcast_episodes(this.album.id).then(({ data }) => {
+        this.tracks = data.tracks.items
+      })
     }
   }
 }

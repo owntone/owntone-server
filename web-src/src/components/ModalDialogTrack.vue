@@ -132,13 +132,17 @@ export default {
     },
 
     mark_new: function () {
-      this.$emit('close')
-      // TODO
+      webapi.library_track_update(this.track.id, { 'play_count': 'reset' }).then(() => {
+        this.$emit('play_count_changed')
+        this.$emit('close')
+      })
     },
 
     mark_played: function () {
-      this.$emit('close')
-      // TODO
+      webapi.library_track_update(this.track.id, { 'play_count': 'increment' }).then(() => {
+        this.$emit('play_count_changed')
+        this.$emit('close')
+      })
     }
   }
 }
