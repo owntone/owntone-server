@@ -974,6 +974,7 @@ static const struct db_upgrade_query db_upgrade_v2000_queries[] =
 
 #define U_V2001_ALTER_QUEUE_ADD_SONGARTISTID \
   "ALTER TABLE queue ADD COLUMN songartistid INTEGER NOT NULL default 0;"
+
 #define U_V2001_SCVER_MINOR \
   "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
 
@@ -995,6 +996,80 @@ static const struct db_upgrade_query db_upgrade_v2100_queries[] =
     { U_V2100_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
+#define U_V2101_ALTER_FILES_ADD_SONGTRACKARTISTID \
+  "ALTER TABLE files ADD COLUMN songtrackartistid  INTEGER DEFAULT 0;"
+
+#define U_V2101_ALTER_QUEUE_ADD_SONGTRACKARTISTID \
+  "ALTER TABLE queue ADD COLUMN songtrackartistid INTEGER NOT NULL default 0;"
+
+#define U_V2101_UPDATE_GROUPS_SONGTRACKARTISTID \
+  "INSERT OR IGNORE INTO groups SELECT NULL as id, 2 as type, f.artist as name,f.songtrackartistid as persistentid from files f where f.songtrackartistid != f.songartistid;"
+
+#define U_V2101_DROP_TRG1				\
+  "DROP TRIGGER IF EXISTS trg_groups_insert;"
+#define U_V2101_DROP_TRG2				\
+  "DROP TRIGGER IF EXISTS trg_groups_update;"
+
+#define U_V2101_SCVER_MINOR \
+  "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2101_queries[] =
+  {
+    { U_V2101_ALTER_FILES_ADD_SONGTRACKARTISTID, "add column songtrackartistid to files tbl" },
+    { U_V2101_ALTER_QUEUE_ADD_SONGTRACKARTISTID, "add column songtrackartistid to queue tbl" },
+    { U_V2101_UPDATE_GROUPS_SONGTRACKARTISTID, "insert missing artist to groups" },
+
+    { U_V2101_DROP_TRG1,      "drop trigger trg_groups_insert" },
+    { U_V2101_DROP_TRG2,      "drop trigger trg_groups_update" },
+
+    { U_V2101_SCVER_MINOR,    "set schema_version_minor to 01" },
+  };
+
+static int
+db_upgrade_v2101_set_songtrackartistid(sqlite3 *hdl)
+{
+  // songtrackartistid = daap_songalbumid(LOWER(NEW.artist), '')," for all existing
+  sqlite3_stmt *stmt;
+  char *query;
+  char *uquery;
+  char *errmsg;
+  int id;
+  char *artist;
+  int64_t hash;
+  int ret;
+
+  query = "SELECT id, artist FROM files;";
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare v2101 songtrackartistid update statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      id = sqlite3_column_int(stmt, 0);
+      artist = (char *)sqlite3_column_text(stmt, 1);
+      hash = two_str_hash(artist, NULL);
+
+      uquery = sqlite3_mprintf("UPDATE files SET songtrackartistid = %" PRIi64 " WHERE id = %d;", hash, id);
+      ret = sqlite3_exec(hdl, uquery, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error updating songtrackartistid files: %s\n", errmsg);
+	}
+
+      sqlite3_free(uquery);
+      sqlite3_free(errmsg);
+    }
+
+  sqlite3_finalize(stmt);
+
+  return 0;
+}
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1140,6 +1215,17 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2001:
       ret = db_generic_upgrade(hdl, db_upgrade_v2100_queries, ARRAY_SIZE(db_upgrade_v2100_queries));
+      if (ret < 0)
+        return -1;
+
+      /* FALLTHROUGH */
+
+    case 2100:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2101_queries, ARRAY_SIZE(db_upgrade_v2101_queries));
+      if (ret < 0)
+	return -1;
+
+      ret = db_upgrade_v2101_set_songtrackartistid(hdl);
       if (ret < 0)
 	return -1;
 
