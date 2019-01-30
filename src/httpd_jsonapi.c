@@ -2590,7 +2590,7 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_MODIFIED);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2644,7 +2644,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   json_object *reply = NULL;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_MODIFIED);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 
@@ -2836,7 +2836,7 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_MODIFIED);
   if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
     return HTTP_NOTMODIFIED;
 

@@ -71,6 +71,7 @@ enum query_type {
 #define DB_ADMIN_SCHEMA_VERSION "schema_version"
 #define DB_ADMIN_QUEUE_VERSION "queue_version"
 #define DB_ADMIN_DB_UPDATE "db_update"
+#define DB_ADMIN_DB_MODIFIED "db_modified"
 #define DB_ADMIN_START_TIME "start_time"
 #define DB_ADMIN_LASTFM_SESSION_KEY "lastfm_sk"
 #define DB_ADMIN_SPOTIFY_REFRESH_TOKEN "spotify_refresh_token"

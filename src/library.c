@@ -98,6 +98,7 @@ static short deferred_update_events;
 static bool
 handle_deferred_update_notifications(void)
 {
+  time_t update_time;
   bool ret = (deferred_update_notifications > 0);
 
   if (ret)
@@ -105,7 +106,9 @@ handle_deferred_update_notifications(void)
       DPRINTF(E_DBG, L_LIB, "Database changed (%d changes)\n", deferred_update_notifications);
 
       deferred_update_notifications = 0;
-      db_admin_setint64(DB_ADMIN_DB_UPDATE, (int64_t) time(NULL));
+      update_time = time(NULL);
+      db_admin_setint64(DB_ADMIN_DB_UPDATE, (int64_t) update_time);
+      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) update_time);
     }
 
   return ret;
