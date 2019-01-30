@@ -714,8 +714,9 @@ jsonapi_reply_config(struct httpd_request *hreq)
 
   n = cfg_size(lib, "show_composer");
   show_composer = json_object_new_array();
-  buf = NULL;
-  bufsz = 0;
+  bufsz = 32;
+  buf = malloc(bufsz+1);
+  memset(buf, 0, bufsz+1);
   for (i = 0; i < n; i++)
     {
       ptr = cfg_getnstr(lib, "show_composer", i);
