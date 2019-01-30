@@ -58,10 +58,9 @@
 // Inotify cookies are uint32_t
 #define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)
 
-#define DB_TYPE_CHAR     1
-#define DB_TYPE_INT      2
-#define DB_TYPE_INT64    3
-#define DB_TYPE_STRING   4
+#define DB_TYPE_INT      1
+#define DB_TYPE_INT64    2
+#define DB_TYPE_STRING   3
 
 // Flags that column value is set automatically by the db, e.g. by a trigger
 #define DB_FLAG_AUTO     (1 << 0)
@@ -174,8 +173,8 @@ static const struct col_type_map mfi_cols_map[] =
     { "disc",               mfi_offsetof(disc),               DB_TYPE_INT },
     { "total_discs",        mfi_offsetof(total_discs),        DB_TYPE_INT },
     { "bpm",                mfi_offsetof(bpm),                DB_TYPE_INT },
-    { "compilation",        mfi_offsetof(compilation),        DB_TYPE_CHAR },
-    { "artwork",            mfi_offsetof(artwork),            DB_TYPE_CHAR },
+    { "compilation",        mfi_offsetof(compilation),        DB_TYPE_INT },
+    { "artwork",            mfi_offsetof(artwork),            DB_TYPE_INT },
     { "rating",             mfi_offsetof(rating),             DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
     { "play_count",         mfi_offsetof(play_count),         DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
     { "skip_count",         mfi_offsetof(skip_count),         DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
@@ -1034,7 +1033,6 @@ fixup_tags(struct fixup_ctx *ctx)
 		fixup_func[i](tag, ctx->map[j].fixup, ctx);
 		break;
 
-	      case DB_TYPE_CHAR:
 	      case DB_TYPE_INT:
 	      case DB_TYPE_INT64:
 		fixup_func[i](NULL, ctx->map[j].fixup, ctx);
@@ -1098,9 +1096,8 @@ bind_mfi(sqlite3_stmt *stmt, struct media_file_info *mfi)
 
       switch (mfi_cols_map[i].type)
 	{
-	  case DB_TYPE_CHAR:
 	  case DB_TYPE_INT:
-	    sqlite3_bind_int(stmt, n, *((uint32_t *)ptr));
+	    sqlite3_bind_int64(stmt, n, *((uint32_t *)ptr)); // Use _int64 because _int is for signed int32
 	    break;
 
 	  case DB_TYPE_INT64:
@@ -2889,12 +2886,6 @@ db_file_fetch_byquery(char *query)
     {
       switch (mfi_cols_map[i].type)
 	{
-	  case DB_TYPE_CHAR:
-	    cval = (char *)mfi + mfi_cols_map[i].offset;
-
-	    *cval = sqlite3_column_int(stmt, i);
-	    break;
-
 	  case DB_TYPE_INT:
 	    ival = (uint32_t *) ((char *)mfi + mfi_cols_map[i].offset);
 
@@ -4486,11 +4477,6 @@ admin_get(const char *key, short type, void *value)
 
   switch (type)
     {
-      case DB_TYPE_CHAR:
-	cval = (char *) value;
-	*cval = sqlite3_column_int(stmt, 0);
-	break;
-
       case DB_TYPE_INT:
 	ival = (int32_t *) value;
 

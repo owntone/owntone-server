@@ -175,7 +175,7 @@ struct media_file_info {
 
   uint32_t bpm;          /* TBPM */
   uint32_t compilation;
-  char artwork;
+  uint32_t artwork;
   uint32_t rating;
 
   uint32_t play_count;
