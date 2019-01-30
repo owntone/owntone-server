@@ -2540,6 +2540,7 @@ db_file_inc_playcount(int id)
 	       "     rating = CAST(((play_count + 1.0) / (play_count + skip_count + 2.0) * 100 * 0.75) + ((rating + ((100.0 - rating) / 2.0)) * 0.25) AS INT)" \
                " WHERE id = %d;"
   char *query;
+  int ret;
 
   if (db_rating_updates)
     query = sqlite3_mprintf(Q_TMPL_WITH_RATING, (int64_t)time(NULL), id);
@@ -2552,7 +2553,9 @@ db_file_inc_playcount(int id)
       return;
     }
 
-  db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, 0);
+  if (ret == 0)
+    db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
 #undef Q_TMPL
 #undef Q_TMPL_WITH_RATING
 }
@@ -2568,6 +2571,7 @@ db_file_inc_skipcount(int id)
 	       "     rating = CAST(((play_count + 1.0) / (play_count + skip_count + 2.0) * 100 * 0.75) + ((rating - (rating / 2.0)) * 0.25) AS INT)" \
                " WHERE id = %d;"
   char *query;
+  int ret;
 
   if (db_rating_updates)
     query = sqlite3_mprintf(Q_TMPL_WITH_RATING, (int64_t)time(NULL), id);
@@ -2580,7 +2584,9 @@ db_file_inc_skipcount(int id)
       return;
     }
 
-  db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, 0);
+  if (ret == 0)
+    db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
 #undef Q_TMPL
 #undef Q_TMPL_WITH_RATING
 }
@@ -2590,6 +2596,7 @@ db_file_reset_playskip_count(int id)
 {
 #define Q_TMPL "UPDATE files SET play_count = 0, skip_count = 0, time_played = 0, time_skipped = 0 WHERE id = %d;"
   char *query;
+  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, id);
   if (!query)
@@ -2599,7 +2606,9 @@ db_file_reset_playskip_count(int id)
       return;
     }
 
-  db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, 0);
+  if (ret == 0)
+    db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
 #undef Q_TMPL
 }
 
@@ -3058,6 +3067,7 @@ db_file_seek_update(int id, uint32_t seek)
 {
 #define Q_TMPL "UPDATE files SET seek = %d WHERE id = %d;"
   char *query;
+  int ret;
 
   if (id == 0)
     return;
@@ -3070,8 +3080,26 @@ db_file_seek_update(int id, uint32_t seek)
       return;
     }
 
-  db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, 0);
+  if (ret == 0)
+    db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
 #undef Q_TMPL
+}
+
+static int
+db_file_rating_update(char *query)
+{
+  int ret;
+
+  ret = db_query_run(query, 1, 0);
+
+  if (ret == 0)
+    {
+      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
+      listener_notify(LISTENER_RATING);
+    }
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 }
 
 int
@@ -3079,16 +3107,10 @@ db_file_rating_update_byid(uint32_t id, uint32_t rating)
 {
 #define Q_TMPL "UPDATE files SET rating = %d WHERE id = %d;"
   char *query;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, rating, id);
 
-  ret = db_query_run(query, 1, 0);
-
-  if (ret == 0)
-    listener_notify(LISTENER_RATING);
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+  return db_file_rating_update(query);
 #undef Q_TMPL
 }
 
@@ -3097,16 +3119,10 @@ db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating)
 {
 #define Q_TMPL "UPDATE files SET rating = %d WHERE virtual_path = %Q;"
   char *query;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, rating, virtual_path);
 
-  ret = db_query_run(query, 1, 0);
-
-  if (ret == 0)
-    listener_notify(LISTENER_RATING);
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+  return db_file_rating_update(query);
 #undef Q_TMPL
 }
 
