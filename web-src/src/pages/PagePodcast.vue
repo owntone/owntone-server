@@ -14,6 +14,16 @@
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ album.track_count }} tracks</p>
       <list-item-track v-for="track in tracks" :key="track.id" :track="track" @click="play_track(track)">
+        <template slot="progress">
+          <range-slider
+            class="track-progress"
+            min="0"
+            :max="track.length_ms"
+            step="1"
+            :disabled="true"
+            :value="track.seek_ms" >
+          </range-slider>
+        </template>
         <template slot="actions">
           <a @click="open_dialog(track)">
             <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -30,6 +40,7 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemTrack from '@/components/ListItemTrack'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
+import RangeSlider from 'vue-range-slider'
 import webapi from '@/webapi'
 
 const albumData = {
@@ -49,7 +60,7 @@ const albumData = {
 export default {
   name: 'PagePodcast',
   mixins: [ LoadDataBeforeEnterMixin(albumData) ],
-  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack },
+  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, RangeSlider },
 
   data () {
     return {
