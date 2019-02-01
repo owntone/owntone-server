@@ -1654,6 +1654,19 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   safe_json_add_string(item, "composer", queue_item->composer);
   safe_json_add_string(item, "genre", queue_item->genre);
 
+  if (queue_item->songartistid > 0)
+    {
+      ret = snprintf(uri, sizeof(uri), "%" PRIi64, queue_item->songartistid);
+      if (ret < sizeof(uri))
+        json_object_object_add(item, "albumartist_id", json_object_new_string(uri));
+    }
+  if (queue_item->songalbumid > 0)
+    {
+      ret = snprintf(uri, sizeof(uri), "%" PRIi64, queue_item->songalbumid);
+      if (ret < sizeof(uri))
+        json_object_object_add(item, "album_id", json_object_new_string(uri));
+    }
+
   json_object_object_add(item, "year", json_object_new_int(queue_item->year));
   json_object_object_add(item, "track_number", json_object_new_int(queue_item->track));
   json_object_object_add(item, "disc_number", json_object_new_int(queue_item->disc));
