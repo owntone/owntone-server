@@ -15,11 +15,11 @@
               <div class="content is-small">
                 <p>
                   <span class="heading">Album</span>
-                  <span class="title is-6">{{ item.album }}</span>
+                  <a class="title is-6 has-text-link" @click="open_album">{{ item.album }}</a>
                 </p>
                 <p v-if="item.album_artist">
                   <span class="heading">Album artist</span>
-                  <span class="title is-6">{{ item.album_artist }}</span>
+                  <a class="title is-6 has-text-link" @click="open_album_artist">{{ item.album_artist }}</a>
                 </p>
                 <p v-if="item.composer">
                   <span class="heading">Composer</span>
@@ -31,7 +31,7 @@
                 </p>
                 <p>
                   <span class="heading">Genre</span>
-                  <span class="title is-6">{{ item.genre }}</span>
+                  <a class="title is-6 has-text-link" @click="open_genre">{{ item.genre }}</a>
                 </p>
                 <p>
                   <span class="heading">Track / Disc</span>
@@ -79,6 +79,24 @@ export default {
     play: function () {
       this.$emit('close')
       webapi.player_play({ 'item_id': this.item.id })
+    },
+
+    open_album: function () {
+      if (this.media_kind === 'podcast') {
+        this.$router.push({ path: '/podcasts/' + this.item.album_id })
+      } else if (this.media_kind === 'audiobook') {
+        this.$router.push({ path: '/audiobooks/' + this.item.album_id })
+      } else {
+        this.$router.push({ path: '/music/albums/' + this.item.album_id })
+      }
+    },
+
+    open_album_artist: function () {
+      this.$router.push({ path: '/music/artists/' + this.item.albumartist_id })
+    },
+
+    open_genre: function () {
+      this.$router.push({ path: '/music/genres/' + this.item.genre })
     }
   }
 }
