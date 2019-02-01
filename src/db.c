@@ -264,6 +264,7 @@ static const struct col_type_map qi_cols_map[] =
     { "artwork_url",        qi_offsetof(artwork_url),         DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
     { "queue_version",      qi_offsetof(queue_version),       DB_TYPE_INT },
     { "composer",           qi_offsetof(composer),            DB_TYPE_STRING, DB_FIXUP_COMPOSER },
+    { "songartistid",       qi_offsetof(songartistid),        DB_TYPE_INT64 },
   };
 
 /* This list must be kept in sync with
@@ -4748,13 +4749,13 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos, int q
 #define Q_TMPL "INSERT INTO queue "							\
 		    "(id, file_id, song_length, data_kind, media_kind, "		\
 		    "pos, shuffle_pos, path, virtual_path, title, "			\
-		    "artist, composer, album_artist, album, genre, songalbumid, "	\
+		    "artist, composer, album_artist, album, genre, songalbumid, songartistid,"	\
 		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
 		    "track, disc, queue_version)" 					\
 		"VALUES"                                           			\
 		    "(NULL, %s, %s, %s, %s, "						\
 		    "%d, %d, %Q, %Q, %Q, "						\
-		    "%Q, %Q, %Q, %Q, %Q, %s, "						\
+		    "%Q, %Q, %Q, %Q, %Q, %s, %s,"					\
 		    "%s, %Q, %Q, %Q, %s, "						\
 		    "%s, %s, %d);"
 
@@ -4764,7 +4765,7 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos, int q
   query = sqlite3_mprintf(Q_TMPL,
 			  dbmfi->id, dbmfi->song_length, dbmfi->data_kind, dbmfi->media_kind,
 			  pos, shuffle_pos, dbmfi->path, dbmfi->virtual_path, dbmfi->title,
-			  dbmfi->artist, dbmfi->composer, dbmfi->album_artist, dbmfi->album, dbmfi->genre, dbmfi->songalbumid,
+			  dbmfi->artist, dbmfi->composer, dbmfi->album_artist, dbmfi->album, dbmfi->genre, dbmfi->songalbumid, dbmfi->songartistid,
 			  dbmfi->time_modified, dbmfi->artist_sort, dbmfi->album_sort, dbmfi->album_artist_sort, dbmfi->year,
 			  dbmfi->track, dbmfi->disc, queue_version);
   ret = db_query_run(query, 1, 0);
@@ -4780,13 +4781,13 @@ queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_v
 #define Q_TMPL "INSERT INTO queue "							\
 		    "(id, file_id, song_length, data_kind, media_kind, "		\
 		    "pos, shuffle_pos, path, virtual_path, title, "			\
-		    "artist, composer, album_artist, album, genre, songalbumid, "       \
+		    "artist, composer, album_artist, album, genre, songalbumid, songartistid, "	\
 		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
 		    "track, disc, artwork_url, queue_version)" 				\
 		"VALUES"                                           			\
 		    "(NULL, %d, %d, %d, %d, "						\
 		    "%d, %d, %Q, %Q, %Q, "						\
-		    "%Q, %Q, %Q, %Q, %Q, %" PRIi64 ", "					\
+		    "%Q, %Q, %Q, %Q, %Q, %" PRIi64 ", %" PRIi64 ","			\
 		    "%d, %Q, %Q, %Q, %d, "						\
 		    "%d, %d, %Q, %d);"
 
@@ -4796,7 +4797,7 @@ queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_v
   query = sqlite3_mprintf(Q_TMPL,
 			  item->file_id, item->song_length, item->data_kind, item->media_kind,
 			  pos, shuffle_pos, item->path, item->virtual_path, item->title,
-			  item->artist, item->composer, item->album_artist, item->album, item->genre, item->songalbumid,
+			  item->artist, item->composer, item->album_artist, item->album, item->genre, item->songalbumid, item->songartistid,
 			  item->time_modified, item->artist_sort, item->album_sort, item->album_artist_sort, item->year,
 			  item->track, item->disc, item->artwork_url, queue_version);
   ret = db_query_run(query, 1, 0);
@@ -4814,7 +4815,8 @@ db_queue_update_item(struct db_queue_item *qi)
 		    "pos = %d, shuffle_pos = %d, path = '%q', virtual_path = %Q, "	\
 		    "title = %Q, artist = %Q, album_artist = %Q, album = %Q, "		\
 		    "composer = %Q,"                                                    \
-		    "genre = %Q, songalbumid = %" PRIi64 ", time_modified = %d, "	\
+		    "genre = %Q, time_modified = %d, "					\
+		    "songalbumid = %" PRIi64 ", songartistid = %" PRIi64 ", "		\
 		    "artist_sort = %Q, album_sort = %Q, album_artist_sort = %Q, "	\
 		    "year = %d, track = %d, disc = %d, artwork_url = %Q, "		\
 		    "queue_version = %d "						\
@@ -4831,7 +4833,8 @@ db_queue_update_item(struct db_queue_item *qi)
 			  qi->pos, qi->shuffle_pos, qi->path, qi->virtual_path,
 			  qi->title, qi->artist, qi->album_artist, qi->album,
                           qi->composer,
-			  qi->genre, qi->songalbumid, qi->time_modified,
+			  qi->genre, qi->time_modified,
+			  qi->songalbumid, qi->songartistid,
 			  qi->artist_sort, qi->album_sort, qi->album_artist_sort,
 			  qi->year, qi->track, qi->disc, qi->artwork_url, queue_version,
 			  qi->id);
@@ -5223,6 +5226,7 @@ queue_enum_fetch(struct query_params *qp, struct db_queue_item *queue_item, int 
   queue_item->disc = sqlite3_column_int(qp->stmt, 21);
   queue_item->artwork_url = strdup_if((char *)sqlite3_column_text(qp->stmt, 22), keep_item);
   queue_item->composer = strdup_if((char *)sqlite3_column_text(qp->stmt, 24), keep_item);
+  queue_item->songartistid = sqlite3_column_int64(qp->stmt, 25);
 
   return 0;
 }
