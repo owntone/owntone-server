@@ -93,7 +93,6 @@ struct spotify_playlist
   int tracks_count;
 };
 
-
 // Credentials for the web api
 static char *spotify_access_token;
 static char *spotify_refresh_token;
@@ -581,36 +580,42 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
 }
 
 static const char *
-get_album_image(json_object *jsonalbum)
+get_album_image(json_object *jsonalbum, int max_w)
 {
   json_object *jsonimages;
   json_object *jsonimage;
   int image_count;
   int index;
   const char *artwork_url;
-  int width;
-  int temp;
 
   artwork_url = NULL;
-  temp = 0;
-  width = 0;
 
-  if (json_object_object_get_ex(jsonalbum, "images", &jsonimages))
+  if (max_w <= 0)
     {
-      // Find image closest to ART_DEFAULT_WIDTH
-      image_count = json_object_array_length(jsonimages);
-      for (index = 0; index < image_count; index++)
-        {
-	  jsonimage = json_object_array_get_idx(jsonimages, index);
-	  if (jsonimage)
-	    {
-	      temp = jparse_int_from_obj(jsonimage, "width");
+      return NULL;
+    }
 
-	      if (temp > width && temp < ART_DEFAULT_WIDTH)
-		{
-		  artwork_url = jparse_str_from_obj(jsonimage, "url");
-		  width = temp;
-		}
+  if (!json_object_object_get_ex(jsonalbum, "images", &jsonimages))
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "No images in for spotify album object found\n");
+      return NULL;
+    }
+
+  // Find first image that has a smaller width than the given max_w
+  // (this should avoid the need for resizing and improve performance at the cost of some quality loss)
+  // Note that Spotify returns the images ordered descending by width (widest image first)
+  image_count = json_object_array_length(jsonimages);
+  for (index = 0; index < image_count; index++)
+    {
+      jsonimage = json_object_array_get_idx(jsonimages, index);
+      if (jsonimage)
+	{
+	  artwork_url = jparse_str_from_obj(jsonimage, "url");
+
+	  if (jparse_int_from_obj(jsonimage, "width") <= max_w)
+	    {
+	      // We have the first image that has a smaller width than the given max_w
+	      break;
 	    }
 	}
     }
@@ -619,7 +624,7 @@ get_album_image(json_object *jsonalbum)
 }
 
 static void
-parse_metadata_track(json_object *jsontrack, struct spotify_track *track)
+parse_metadata_track(json_object *jsontrack, struct spotify_track *track, int max_w)
 {
   json_object *jsonalbum;
   json_object *jsonartists;
@@ -633,7 +638,8 @@ parse_metadata_track(json_object *jsontrack, struct spotify_track *track)
       if (json_object_object_get_ex(jsonalbum, "artists", &jsonartists))
 	track->album_artist = jparse_str_from_array(jsonartists, 0, "name");
 
-      track->artwork_url = get_album_image(jsonalbum);
+      if (max_w > 0)
+	track->artwork_url = get_album_image(jsonalbum, max_w);
     }
 
   if (json_object_object_get_ex(jsontrack, "artists", &jsonartists))
@@ -679,7 +685,7 @@ get_year_from_date(const char *date)
 }
 
 static void
-parse_metadata_album(json_object *jsonalbum, struct spotify_album *album)
+parse_metadata_album(json_object *jsonalbum, struct spotify_album *album, int max_w)
 {
   json_object* jsonartists;
 
@@ -701,7 +707,8 @@ parse_metadata_album(json_object *jsonalbum, struct spotify_album *album)
   album->release_date_precision = jparse_str_from_obj(jsonalbum, "release_date_precision");
   album->release_year = get_year_from_date(album->release_date);
 
-  album->artwork_url = get_album_image(jsonalbum);
+  if (max_w > 0)
+    album->artwork_url = get_album_image(jsonalbum, max_w);
 
   // TODO Genre is an array of strings ('genres'), but it is always empty (https://github.com/spotify/web-api/issues/157)
   //album->genre = jparse_str_from_obj(jsonalbum, "genre");
@@ -1056,7 +1063,7 @@ queue_add_track(const char *uri, int position, char reshuffle, uint32_t item_id,
   if (!response)
     return -1;
 
-  parse_metadata_track(response, &track);
+  parse_metadata_track(response, &track, ART_DEFAULT_WIDTH);
 
   DPRINTF(E_DBG, L_SPOTIFY, "Got track: '%s' (%s) \n", track.name, track.uri);
 
@@ -1097,7 +1104,7 @@ queue_add_album_tracks(json_object *item, int index, int total, void *arg)
 
   param = arg;
 
-  parse_metadata_track(item, &track);
+  parse_metadata_track(item, &track, ART_DEFAULT_WIDTH);
 
   if (!track.uri || !track.is_playable)
     {
@@ -1125,7 +1132,7 @@ queue_add_album(const char *uri, int position, char reshuffle, uint32_t item_id,
 
   album_endpoint_uri = get_album_endpoint_uri(uri);
   json_album = request_endpoint_with_token_refresh(album_endpoint_uri);
-  parse_metadata_album(json_album, &param.album);
+  parse_metadata_album(json_album, &param.album, ART_DEFAULT_WIDTH);
 
   ret = db_queue_add_start(&param.queue_add_info, position);
   if (ret < 0)
@@ -1164,7 +1171,7 @@ queue_add_playlist_tracks(json_object *item, int index, int total, void *arg)
       return -1;
     }
 
-  parse_metadata_track(jsontrack, &track);
+  parse_metadata_track(jsontrack, &track, ART_DEFAULT_WIDTH);
   track.added_at = jparse_str_from_obj(item, "added_at");
   track.mtime = jparse_time_from_obj(item, "added_at");
 
@@ -1436,7 +1443,7 @@ saved_album_add(json_object *item, int index, int total, void *arg)
     }
 
   // Map album information
-  parse_metadata_album(jsonalbum, &album);
+  parse_metadata_album(jsonalbum, &album, 0);
   album.added_at = jparse_str_from_obj(item, "added_at");
   album.mtime = jparse_time_from_obj(item, "added_at");
 
@@ -1453,7 +1460,7 @@ saved_album_add(json_object *item, int index, int total, void *arg)
       if (!jsontrack)
 	break;
 
-      parse_metadata_track(jsontrack, &track);
+      parse_metadata_track(jsontrack, &track, 0);
       track.mtime = album.mtime;
 
       ret = track_add(&track, &album, NULL, dir_id);
@@ -1506,7 +1513,7 @@ saved_playlist_tracks_add(json_object *item, int index, int total, void *arg)
       return -1;
     }
 
-  parse_metadata_track(jsontrack, &track);
+  parse_metadata_track(jsontrack, &track, 0);
   track.added_at = jparse_str_from_obj(item, "added_at");
   track.mtime = jparse_time_from_obj(item, "added_at");
 
@@ -1825,6 +1832,29 @@ spotifywebapi_pl_remove(const char *uri)
     }
 
   library_exec_async(webapi_pl_remove, strdup(uri));
+}
+
+char *
+spotifywebapi_artwork_url_get(const char *uri, int max_w, int max_h)
+{
+  json_object *response;
+  struct spotify_track track;
+  char *artwork_url;
+
+  response = request_track(uri);
+  if (!response)
+    {
+      return NULL;
+    }
+
+  parse_metadata_track(response, &track, max_w);
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Got track artwork url: '%s' (%s) \n", track.artwork_url, track.uri);
+
+  artwork_url = safe_strdup(track.artwork_url);
+  jparse_free(response);
+
+  return artwork_url;
 }
 
 void
