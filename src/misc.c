@@ -1039,6 +1039,11 @@ murmur_hash64(const void *key, int len, uint32_t seed)
 # error Platform not supported
 #endif
 
+bool
+quality_is_equal(struct media_quality *a, struct media_quality *b)
+{
+  return (a->sample_rate == b->sample_rate && a->bits_per_sample == b->bits_per_sample && a->channels == b->channels);
+}
 
 bool
 peer_address_is_trusted(const char *addr)

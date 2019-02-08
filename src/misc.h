@@ -12,10 +12,17 @@
 #include <pthread.h>
 
 /* Samples to bytes, bytes to samples */
-#define STOB(s) ((s) * 4)
-#define BTOS(b) ((b) / 4)
+#define STOB(s, bits, c) ((s) * (c) * (bits) / 8)
+#define BTOS(b, bits, c) ((b) / ((c) * (bits) / 8))
 
 #define ARRAY_SIZE(x) ((unsigned int)(sizeof(x) / sizeof((x)[0])))
+
+// Remember to adjust quality_is_equal() if adding elements
+struct media_quality {
+  int sample_rate;
+  int bits_per_sample;
+  int channels;
+};
 
 struct onekeyval {
   char *name;
@@ -113,6 +120,9 @@ b64_encode(const uint8_t *in, size_t len);
 
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
+
+bool
+quality_is_equal(struct media_quality *a, struct media_quality *b);
 
 // Checks if the address is in a network that is configured as trusted
 bool
