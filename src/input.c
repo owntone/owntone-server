@@ -41,7 +41,7 @@
 
 // Disallow further writes to the buffer when its size is larger than this threshold
 // TODO untie from 44100
-#define INPUT_BUFFER_THRESHOLD STOB(88200)
+#define INPUT_BUFFER_THRESHOLD STOB(88200, 16, 2)
 // How long (in sec) to wait for player read before looping in playback thread
 #define INPUT_LOOP_TIMEOUT 1
 
@@ -68,7 +68,7 @@ static struct input_definition *inputs[] = {
 struct marker
 {
   uint64_t pos; // Position of marker measured in bytes
-  struct input_quality quality;
+  struct media_quality quality;
   enum input_flags flags;
 
   // Reverse linked list, yay!
@@ -89,8 +89,8 @@ struct input_buffer
   input_cb full_cb;
 
   // Quality of write/read data
-  struct input_quality cur_write_quality;
-  struct input_quality cur_read_quality;
+  struct media_quality cur_write_quality;
+  struct media_quality cur_read_quality;
 
   size_t bytes_written;
   size_t bytes_read;
@@ -236,7 +236,7 @@ input_wait(void)
 
 // Called by input modules from within the playback loop
 int
-input_write(struct evbuffer *evbuf, struct input_quality *quality, short flags)
+input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags)
 {
   struct timespec ts;
   int ret;
@@ -270,7 +270,7 @@ input_write(struct evbuffer *evbuf, struct input_quality *quality, short flags)
   // Change of quality. Note, the marker is placed at the last position of the
   // last byte we wrote, even though that of course doesn't have the new quality
   // yet. Not intuitive, but input_read() will understand.
-  if (quality && memcmp(quality, &input_buffer.cur_write_quality, sizeof(struct input_quality)) != 0)
+  if (quality && !quality_is_equal(quality, &input_buffer.cur_write_quality))
     {
       input_buffer.cur_write_quality = *quality;
       marker_add(INPUT_FLAG_QUALITY);
@@ -346,17 +346,20 @@ input_read(void *data, size_t size, short *flags)
 
 #ifdef DEBUG
   // Logs if flags present or each 10 seconds
+  size_t one_sec_size = STOB(input_buffer.cur_read_quality.sample_rate, input_buffer.cur_read_quality.bits_per_sample, input_buffer.cur_read_quality.channels);
   debug_elapsed += len;
-  if (*flags || (debug_elapsed / STOB(input_buffer.cur_read_quality.sample_rate) > 10))
+  if (*flags || (debug_elapsed > 10 * one_sec_size))
     {
       debug_elapsed = 0;
-      DPRINTF(E_SPAM, L_PLAYER, "READ %zu bytes (%d/%d), WROTE %zu bytes (%d/%d), SIZE %zu (=%zu), FLAGS %04x\n",
+      DPRINTF(E_SPAM, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), SIZE %zu (=%zu), FLAGS %04x\n",
         input_buffer.bytes_read,
         input_buffer.cur_read_quality.sample_rate,
         input_buffer.cur_read_quality.bits_per_sample,
+        input_buffer.cur_read_quality.channels,
         input_buffer.bytes_written,
         input_buffer.cur_write_quality.sample_rate,
         input_buffer.cur_write_quality.bits_per_sample,
+        input_buffer.cur_write_quality.channels,
         evbuffer_get_length(input_buffer.evbuf),
         input_buffer.bytes_written - input_buffer.bytes_read,
         *flags);
@@ -518,8 +521,8 @@ input_flush(short *flags)
 
   evbuffer_drain(input_buffer.evbuf, len);
 
-  memset(&input_buffer.cur_read_quality, 0, sizeof(struct input_quality));
-  memset(&input_buffer.cur_write_quality, 0, sizeof(struct input_quality));
+  memset(&input_buffer.cur_read_quality, 0, sizeof(struct media_quality));
+  memset(&input_buffer.cur_write_quality, 0, sizeof(struct media_quality));
 
   input_buffer.bytes_read = 0;
   input_buffer.bytes_written = 0;
@@ -534,7 +537,7 @@ input_flush(short *flags)
 }
 
 int
-input_quality_get(struct input_quality *quality)
+input_quality_get(struct media_quality *quality)
 {
   // No mutex, other threads should not be able to affect cur_read_quality
   *quality = input_buffer.cur_read_quality;
