@@ -44,8 +44,10 @@ extern struct event_base *evbase_httpd;
 // Seconds between sending silence when player is idle
 // (to prevent client from hanging up)
 #define STREAMING_SILENCE_INTERVAL 1
-// Buffer size for transmitting from player to httpd thread
-#define STREAMING_RAWBUF_SIZE (STOB(AIRTUNES_V2_PACKET_SAMPLES))
+// How many samples we store in the buffer used for transmitting from player to httpd thread
+#define STREAMING_RAWBUF_SAMPLES 352
+// Buffer size
+#define STREAMING_RAWBUF_SIZE (STOB(STREAMING_RAWBUF_SAMPLES, 16, 2))
 
 // Linked list of mp3 streaming requests
 struct streaming_session {
@@ -134,7 +136,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
       if (!streaming_sessions)
 	return;
 
-      frame = transcode_frame_new(XCODE_MP3, streaming_rawbuf, STREAMING_RAWBUF_SIZE);
+      frame = transcode_frame_new(streaming_rawbuf, STREAMING_RAWBUF_SIZE, STREAMING_RAWBUF_SAMPLES, 44100, 16);
       if (!frame)
 	{
 	  DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
@@ -289,7 +291,7 @@ streaming_init(void)
   int remaining;
   int ret;
 
-  decode_ctx = transcode_decode_setup_raw();
+  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16_44100);
   if (!decode_ctx)
     {
       DPRINTF(E_LOG, L_STREAMING, "Could not create decoding context\n");
@@ -339,10 +341,10 @@ streaming_init(void)
     }
 
   // Encode some silence which will be used for playback pause and put in a permanent buffer
-  remaining = STREAMING_SILENCE_INTERVAL * STOB(44100);
+  remaining = STREAMING_SILENCE_INTERVAL * STOB(44100, 16, 2);
   while (remaining > STREAMING_RAWBUF_SIZE)
     {
-      frame = transcode_frame_new(XCODE_MP3, streaming_rawbuf, STREAMING_RAWBUF_SIZE);
+      frame = transcode_frame_new(streaming_rawbuf, STREAMING_RAWBUF_SIZE, STREAMING_RAWBUF_SAMPLES, 44100, 16);
       if (!frame)
 	{
 	  DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
