@@ -1007,7 +1007,7 @@ logged_out(sp_session *sess)
 static int music_delivery(sp_session *sess, const sp_audioformat *format,
                           const void *frames, int num_frames)
 {
-  struct input_quality quality = { 0 };
+  struct media_quality quality = { 0 };
   size_t size;
   int ret;
 
@@ -1021,6 +1021,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
 
   quality.sample_rate = format->sample_rate;
   quality.bits_per_sample = 16;
+  quality.channels = format->channels;
 
   // Audio discontinuity, e.g. seek
   if (num_frames == 0)
