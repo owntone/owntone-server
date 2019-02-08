@@ -131,6 +131,7 @@ forked_daapd_SOURCES = main.c \
 	input.h input.c \
 	inputs/file_http.c inputs/pipe.c \
 	outputs.h outputs.c \
+	outputs/rtp_common.h outputs/rtp_common.c \
 	outputs/raop.c $(RAOP_VERIFICATION_SRC) \
 	outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
