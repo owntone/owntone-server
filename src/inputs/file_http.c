@@ -59,7 +59,7 @@ static int
 start(struct player_source *ps)
 {
   struct transcode_ctx *ctx = ps->input_ctx;
-  struct input_quality quality = { 0 };
+  struct media_quality quality = { 0 };
   struct evbuffer *evbuf;
   short flags;
   int ret;
@@ -69,6 +69,7 @@ start(struct player_source *ps)
 
   quality.sample_rate = transcode_encode_query(ctx->encode_ctx, "sample_rate");
   quality.bits_per_sample = transcode_encode_query(ctx->encode_ctx, "bits_per_sample");
+  quality.channels = transcode_encode_query(ctx->encode_ctx, "channels");
 
   ret = -1;
   flags = 0;
