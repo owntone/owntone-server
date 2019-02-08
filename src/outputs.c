@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -29,6 +30,8 @@
 #include <inttypes.h>
 
 #include "logger.h"
+#include "misc.h"
+#include "transcode.h"
 #include "outputs.h"
 
 extern struct output_definition output_raop;
@@ -62,6 +65,145 @@ static struct output_definition *outputs[] = {
 #endif
     NULL
 };
+
+struct output_quality_subscription
+{
+  int count;
+  struct media_quality quality;
+  struct encode_ctx *encode_ctx;
+};
+
+// Last element is a zero terminator
+static struct output_quality_subscription output_quality_subscriptions[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
+static bool output_got_new_subscription;
+
+/* ------------------------------- MISC HELPERS ----------------------------- */
+
+static enum transcode_profile
+quality_to_xcode(struct media_quality *quality)
+{
+  if (quality->sample_rate == 44100 && quality->bits_per_sample == 16)
+    return XCODE_PCM16_44100;
+  if (quality->sample_rate == 44100 && quality->bits_per_sample == 24)
+    return XCODE_PCM24_44100;
+  if (quality->sample_rate == 48000 && quality->bits_per_sample == 16)
+    return XCODE_PCM16_48000;
+  if (quality->sample_rate == 48000 && quality->bits_per_sample == 24)
+    return XCODE_PCM24_48000;
+
+  return XCODE_UNKNOWN;
+}
+
+static int
+encoding_reset(struct media_quality *quality)
+{
+  struct output_quality_subscription *subscription;
+  struct decode_ctx *decode_ctx;
+  enum transcode_profile profile;
+  int i;
+
+  profile = quality_to_xcode(quality);
+  if  (profile == XCODE_UNKNOWN)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create subscription decoding context, invalid quality (%d/%d/%d)\n",
+	quality->sample_rate, quality->bits_per_sample, quality->channels);
+      return -1;
+    }
+
+  decode_ctx = transcode_decode_setup_raw(profile);
+  if (!decode_ctx)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create subscription decoding context (profile %d)\n", profile);
+      return -1;
+    }
+
+  for (i = 0; output_quality_subscriptions[i].count > 0; i++)
+    {
+      subscription = &output_quality_subscriptions[i]; // Just for short-hand
+
+      transcode_encode_cleanup(&subscription->encode_ctx); // Will also point the ctx to NULL
+
+      if (quality_is_equal(quality, &subscription->quality))
+	continue; // No resampling required
+
+      profile = quality_to_xcode(&subscription->quality);
+      if (profile != XCODE_UNKNOWN)
+	subscription->encode_ctx = transcode_encode_setup(profile, decode_ctx, NULL, 0, 0);
+      else
+	DPRINTF(E_LOG, L_PLAYER, "Could not setup resampling to %d/%d/%d for output\n",
+	  subscription->quality.sample_rate, subscription->quality.bits_per_sample, subscription->quality.channels);
+    }
+
+  transcode_decode_cleanup(&decode_ctx);
+
+  return 0;
+}
+
+static void
+buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_quality *quality, int nsamples)
+{
+  transcode_frame *frame;
+  int ret;
+  int i;
+  int n;
+
+  obuf->write_counter++;
+
+  // The resampling/encoding (transcode) contexts work for a given input quality,
+  // so if the quality changes we need to reset the contexts. We also do that if
+  // we have received a subscription for a new quality.
+  if (!quality_is_equal(quality, &obuf->frames[0].quality) || output_got_new_subscription)
+    {
+      encoding_reset(quality);
+      output_got_new_subscription = false;
+    }
+
+  // The first element of the output_buffer is always just the raw input frame
+  // TODO can we avoid the copy below? we can't use evbuffer_add_buffer_reference,
+  // because then the outputs can't use it and we would need to copy there instead
+  evbuffer_add(obuf->frames[0].evbuf, buf, bufsize);
+  obuf->frames[0].buffer = buf;
+  obuf->frames[0].bufsize = bufsize;
+  obuf->frames[0].quality = *quality;
+  obuf->frames[0].samples = nsamples;
+
+  for (i = 0, n = 1; output_quality_subscriptions[i].count > 0; i++)
+    {
+      if (quality_is_equal(&output_quality_subscriptions[i].quality, quality))
+	continue; // Skip, no resampling required and we have the data in element 0
+
+      frame = transcode_frame_new(buf, bufsize, nsamples, quality->sample_rate, quality->bits_per_sample);
+      if (!frame)
+	continue;
+
+      ret = transcode_encode(obuf->frames[n].evbuf, output_quality_subscriptions[i].encode_ctx, frame, 0);
+      transcode_frame_free(frame);
+      if (ret < 0)
+	continue;
+
+      obuf->frames[n].buffer  = evbuffer_pullup(obuf->frames[n].evbuf, -1);
+      obuf->frames[n].bufsize = evbuffer_get_length(obuf->frames[n].evbuf);
+      obuf->frames[n].quality = output_quality_subscriptions[i].quality;
+      obuf->frames[n].samples = BTOS(obuf->frames[n].bufsize, obuf->frames[n].quality.bits_per_sample, obuf->frames[n].quality.channels);
+      n++;
+    }
+}
+
+static void
+buffer_drain(struct output_buffer *obuf)
+{
+  int i;
+
+  for (i = 0; obuf->frames[i].buffer; i++)
+    {
+      evbuffer_drain(obuf->frames[i].evbuf, obuf->frames[i].bufsize);
+      obuf->frames[i].buffer  = NULL;
+      obuf->frames[i].bufsize = 0;
+      // We don't reset quality and samples, would be a waste of time
+    }
+}
+
+/* ----------------------------------- API ---------------------------------- */
 
 int
 outputs_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime)
@@ -144,8 +286,20 @@ outputs_device_volume_to_pct(struct output_device *device, const char *volume)
     return -1;
 }
 
+int
+outputs_device_quality_set(struct output_device *device, struct media_quality *quality)
+{
+  if (outputs[device->type]->disabled)
+    return -1;
+
+  if (outputs[device->type]->quality_set)
+    return outputs[device->type]->quality_set(device, quality);
+  else
+    return -1;
+}
+
 void
-outputs_playback_start(uint64_t next_pkt, struct timespec *ts)
+outputs_playback_start(uint64_t next_pkt, struct timespec *start_time)
 {
   int i;
 
@@ -155,7 +309,22 @@ outputs_playback_start(uint64_t next_pkt, struct timespec *ts)
 	continue;
 
       if (outputs[i]->playback_start)
-	outputs[i]->playback_start(next_pkt, ts);
+	outputs[i]->playback_start(next_pkt, start_time);
+    }
+}
+
+void
+outputs_playback_start2(struct timespec *start_time)
+{
+  int i;
+
+  for (i = 0; outputs[i]; i++)
+    {
+      if (outputs[i]->disabled)
+	continue;
+
+      if (outputs[i]->playback_start2)
+	outputs[i]->playback_start2(start_time);
     }
 }
 
@@ -187,6 +356,25 @@ outputs_write(uint8_t *buf, uint64_t rtptime)
       if (outputs[i]->write)
 	outputs[i]->write(buf, rtptime);
     }
+}
+
+void
+outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples)
+{
+  int i;
+
+  buffer_fill(&output_buffer, buf, bufsize, quality, nsamples);
+
+  for (i = 0; outputs[i]; i++)
+    {
+      if (outputs[i]->disabled)
+	continue;
+
+      if (outputs[i]->write2)
+	outputs[i]->write2(&output_buffer);
+    }
+
+  buffer_drain(&output_buffer);
 }
 
 int
@@ -335,6 +523,77 @@ outputs_authorize(enum output_types type, const char *pin)
 }
 
 int
+outputs_quality_subscribe(struct media_quality *quality)
+{
+  int i;
+
+  // If someone else is already subscribing to this quality we just increase the
+  // reference count.
+  for (i = 0; output_quality_subscriptions[i].count > 0; i++)
+    {
+      if (!quality_is_equal(quality, &output_quality_subscriptions[i].quality))
+	continue;
+
+      output_quality_subscriptions[i].count++;
+
+      DPRINTF(E_DBG, L_PLAYER, "Subscription request for quality %d/%d/%d (now %d subscribers)\n",
+	quality->sample_rate, quality->bits_per_sample, quality->channels, output_quality_subscriptions[i].count);
+
+      return 0;
+    }
+
+  if (i >= (ARRAY_SIZE(output_quality_subscriptions) - 1))
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! The number of different quality levels requested by outputs is too high\n");
+      return -1;
+    }
+
+  output_quality_subscriptions[i].quality = *quality;
+  output_quality_subscriptions[i].count++;
+
+  DPRINTF(E_DBG, L_PLAYER, "Subscription request for quality %d/%d/%d (now %d subscribers)\n",
+    quality->sample_rate, quality->bits_per_sample, quality->channels, output_quality_subscriptions[i].count);
+
+  // Better way of signaling this?
+  output_got_new_subscription = true;
+
+  return 0;
+}
+
+void
+outputs_quality_unsubscribe(struct media_quality *quality)
+{
+  int i;
+
+  // Find subscription
+  for (i = 0; output_quality_subscriptions[i].count > 0; i++)
+    {
+      if (quality_is_equal(quality, &output_quality_subscriptions[i].quality))
+	break;
+    }
+
+  if (output_quality_subscriptions[i].count == 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! Unsubscription request for a quality level that there is no subscription for\n");
+      return;
+    }
+
+  output_quality_subscriptions[i].count--;
+
+  DPRINTF(E_DBG, L_PLAYER, "Unsubscription request for quality %d/%d/%d (now %d subscribers)\n",
+    quality->sample_rate, quality->bits_per_sample, quality->channels, output_quality_subscriptions[i].count);
+
+  if (output_quality_subscriptions[i].count > 0)
+    return;
+
+  transcode_encode_cleanup(&output_quality_subscriptions[i].encode_ctx);
+
+  // Shift elements
+  for (; i < ARRAY_SIZE(output_quality_subscriptions) - 1; i++)
+    output_quality_subscriptions[i] = output_quality_subscriptions[i + 1];
+}
+
+int
 outputs_priority(struct output_device *device)
 {
   return outputs[device->type]->priority;
@@ -378,6 +637,9 @@ outputs_init(void)
   if (no_output)
     return -1;
 
+  for (i = 0; i < ARRAY_SIZE(output_buffer.frames); i++)
+    output_buffer.frames[i].evbuf = evbuffer_new();
+
   return 0;
 }
 
@@ -394,5 +656,16 @@ outputs_deinit(void)
       if (outputs[i]->deinit)
         outputs[i]->deinit();
     }
+
+  // In case some outputs forgot to unsubscribe
+  for (i = 0; i < ARRAY_SIZE(output_quality_subscriptions); i++)
+    if (output_quality_subscriptions[i].count > 0)
+      {
+	transcode_encode_cleanup(&output_quality_subscriptions[i].encode_ctx);
+	memset(&output_quality_subscriptions[i], 0, sizeof(struct output_quality_subscription));
+      }
+
+  for (i = 0; i < ARRAY_SIZE(output_buffer.frames); i++)
+    evbuffer_free(output_buffer.frames[i].evbuf);
 }
 
