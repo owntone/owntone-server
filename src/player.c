@@ -111,18 +111,31 @@
 
 // Default volume (must be from 0 - 100)
 #define PLAYER_DEFAULT_VOLUME 50
-// For every tick_interval, we will read a packet from the input buffer and
+
+// The interval between each tick of the playback clock in ms. This means that
+// we read 10 ms frames from the input and pass to the output, so the clock
+// ticks 100 times a second. We use this value because most common sample rates
+// are divisible by 100, and because it keeps delay low.
+// TODO sample rates of 22050 might cause underruns, since we would be reading
+// only 100 x 220 = 22000 samples each second.
+#define PLAYER_TICK_INTERVAL 10
+
+// For every tick_interval, we will read a frame from the input buffer and
 // write it to the outputs. If the input is empty, we will try to catch up next
 // tick. However, at some point we will owe the outputs so much data that we
 // have to suspend playback and wait for the input to get its act together.
 // (value is in milliseconds and should be low enough to avoid output underrun)
 #define PLAYER_READ_BEHIND_MAX 1500
+
 // Generally, an output must not block (for long) when outputs_write() is
 // called. If an output does that anyway, the next tick event will be late, and
 // by extension playback_cb(). We will try to catch up, but if the delay
 // gets above this value, we will suspend playback and reset the output.
 // (value is in milliseconds)
 #define PLAYER_WRITE_BEHIND_MAX 1500
+
+// TODO fix me
+#define TEMP_NEXT_RTPTIME (last_rtptime + pb_session.samples_written + pb_session.samples_per_read)
 
 struct volume_param {
   int volume;
@@ -172,6 +185,19 @@ union player_arg
   int intval;
 };
 
+struct player_session
+{
+  uint8_t *buffer;
+  size_t bufsize;
+
+  uint32_t samples_written;
+  int samples_per_read;
+
+  struct media_quality quality;
+};
+
+static struct player_session pb_session;
+
 struct event_base *evbase_player;
 
 static int player_exit;
@@ -199,15 +225,15 @@ static int pb_timer_fd;
 timer_t pb_timer;
 #endif
 static struct event *pb_timer_ev;
-static struct timespec pb_timer_last;
-static struct timespec packet_timer_last;
+//static struct timespec pb_timer_last;
+//static struct timespec packet_timer_last;
 
 // How often the playback timer triggers playback_cb()
 static struct timespec tick_interval;
 // Timer resolution
 static struct timespec timer_res;
 // Time between two packets
-static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
+//static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
 
 // How many writes we owe the output (when the input is underrunning)
 static int pb_read_deficit;
@@ -242,8 +268,8 @@ static uint32_t cur_plid;
 static uint32_t cur_plversion;
 
 // Player buffer (holds one packet)
-static uint8_t pb_buffer[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
-static size_t pb_buffer_offset;
+//static uint8_t pb_buffer[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
+//static size_t pb_buffer_offset;
 
 // Play history
 static struct player_history *history;
@@ -443,7 +469,7 @@ metadata_trigger(int startup)
   struct input_metadata metadata;
   int ret;
 
-  ret = input_metadata_get(&metadata, cur_streaming, startup, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  ret = input_metadata_get(&metadata, cur_streaming, startup, TEMP_NEXT_RTPTIME);
   if (ret < 0)
     return;
 
@@ -652,8 +678,8 @@ source_pause(uint64_t pos)
 // TODO what if ret < 0?
 
   // Adjust start_pos to take into account the pause and seek back
-  cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
-  cur_streaming->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+  cur_streaming->stream_start = TEMP_NEXT_RTPTIME - ((uint64_t)ret * 44100) / 1000;
+  cur_streaming->output_start = TEMP_NEXT_RTPTIME;
   cur_streaming->end = 0;
 
   return 0;
@@ -676,8 +702,8 @@ source_seek(int seek_ms)
     return -1;
 
   // Adjust start_pos to take into account the pause and seek back
-  cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
-  cur_streaming->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+  cur_streaming->stream_start = TEMP_NEXT_RTPTIME - ((uint64_t)ret * 44100) / 1000;
+  cur_streaming->output_start = TEMP_NEXT_RTPTIME;
 
   return ret;
 }
@@ -945,7 +971,7 @@ source_switch(int nbytes)
 
   DPRINTF(E_DBG, L_PLAYER, "Switching track\n");
 
-  source_close(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES + BTOS(nbytes) - 1);
+  source_close(TEMP_NEXT_RTPTIME + BTOS(nbytes, pb_session.quality.bits_per_sample, 2) - 1);
 
   while ((ps = source_next()))
     {
@@ -960,7 +986,7 @@ source_switch(int nbytes)
       if (ret < 0)
 	{
 	  db_queue_delete_byitemid(ps->item_id);
-	  source_close(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES + BTOS(nbytes) - 1);
+	  source_close(TEMP_NEXT_RTPTIME + BTOS(nbytes, pb_session.quality.bits_per_sample, 2) - 1);
 	  continue;
 	}
 
@@ -978,6 +1004,32 @@ source_switch(int nbytes)
   return 0;
 }
 
+static void
+session_init(struct player_session *session, struct media_quality *quality)
+{
+  session->samples_written = 0;
+  session->quality = *quality;
+  session->samples_per_read = (quality->sample_rate / 1000) * (tick_interval.tv_nsec / 1000000);
+  session->bufsize = STOB(session->samples_per_read, quality->bits_per_sample, quality->channels);
+
+  DPRINTF(E_DBG, L_PLAYER, "New session values (q=%d/%d/%d, spr=%d, bufsize=%zu)\n",
+    quality->sample_rate, quality->bits_per_sample, quality->channels,
+    session->samples_per_read, session->bufsize);
+
+  if (session->buffer)
+    session->buffer = realloc(session->buffer, session->bufsize);
+  else
+    session->buffer = malloc(session->bufsize);
+
+  CHECK_NULL(L_PLAYER, session->buffer);
+}
+
+static void
+session_deinit(struct player_session *session)
+{
+  free(session->buffer);
+  memset(session, 0, sizeof(struct player_session));
+}
 
 /* ----------------- Main read, write and playback timer event -------------- */
 
@@ -985,6 +1037,7 @@ source_switch(int nbytes)
 static int
 source_read(uint8_t *buf, int len)
 {
+  struct media_quality quality;
   int nbytes;
   uint32_t item_id;
   int ret;
@@ -1019,6 +1072,11 @@ source_read(uint8_t *buf, int len)
     {
       metadata_trigger(0);
     }
+  else if (flags & INPUT_FLAG_QUALITY)
+    {
+      input_quality_get(&quality);
+      session_init(&pb_session, &quality);
+    }
 
   // We pad the output buffer with silence if we don't have enough data for a
   // full packet and there is no more data coming up (no more tracks in queue)
@@ -1032,55 +1090,12 @@ source_read(uint8_t *buf, int len)
 }
 
 static void
-playback_write(void)
-{
-  int want;
-  int got;
-
-  source_check();
-
-  // Make sure playback is still running after source_check()
-  if (player_state == PLAY_STOPPED)
-    return;
-
-  pb_read_deficit++;
-  while (pb_read_deficit)
-    {
-      want = sizeof(pb_buffer) - pb_buffer_offset;
-      got = source_read(pb_buffer + pb_buffer_offset, want);
-      if (got == want)
-	{
-	  pb_read_deficit--;
-	  last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
-	  outputs_write(pb_buffer, last_rtptime);
-	  pb_buffer_offset = 0;
-	}
-      else if (got < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source, aborting playback\n");
-	  playback_abort();
-	  return;
-	}
-      else if (pb_read_deficit > pb_read_deficit_max)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback (deficit=%d)\n", pb_read_deficit);
-	  playback_suspend();
-	  return;
-	}
-      else
-	{
-	  DPRINTF(E_SPAM, L_PLAYER, "Partial read (offset=%zu, deficit=%d)\n", pb_buffer_offset, pb_read_deficit);
-	  pb_buffer_offset += got;
-	  return;
-	}
-    }
-}
-
-static void
 playback_cb(int fd, short what, void *arg)
 {
-  struct timespec next_tick;
   uint64_t overrun;
+  int got;
+  int nsamples;
+  int i;
   int ret;
 
   // Check if we missed any timer expirations
@@ -1125,22 +1140,45 @@ playback_cb(int fd, short what, void *arg)
   // If there was an overrun, we will try to read/write a corresponding number
   // of times so we catch up. The read from the input is non-blocking, so it
   // should not bring us further behind, even if there is no data.
-  next_tick = timespec_add(pb_timer_last, tick_interval);
-  for (; overrun > 0; overrun--)
-    next_tick = timespec_add(next_tick, tick_interval);
-
-  do
+  for (i = 1 + overrun + pb_read_deficit; i > 0; i--)
     {
-      playback_write();
-      packet_timer_last = timespec_add(packet_timer_last, packet_time);
+      source_check();
+
+      // Make sure playback is still running after source_check()
+      if (player_state != PLAY_PLAYING)
+	return;
+
+      got = source_read(pb_session.buffer, pb_session.bufsize);
+      if (got < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source, aborting playback\n");
+	  playback_abort();
+	  break;
+	}
+      else if (got == 0)
+	{
+	  pb_read_deficit++;
+	  break;
+	}
+
+      nsamples = BTOS(got, pb_session.quality.bits_per_sample, pb_session.quality.channels);
+      outputs_write2(pb_session.buffer, pb_session.bufsize, &pb_session.quality, nsamples);
+      pb_session.samples_written += nsamples;
+
+      if (got < pb_session.bufsize)
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d\n", pb_session.bufsize, got);
+	  pb_read_deficit++;
+	}
+      else if (pb_read_deficit > 0)
+	pb_read_deficit--;
     }
-  while ((timespec_cmp(packet_timer_last, next_tick) < 0) && (player_state == PLAY_PLAYING));
 
-  // Make sure playback is still running
-  if (player_state == PLAY_STOPPED)
-    return;
-
-  pb_timer_last = next_tick;
+  if (pb_read_deficit > pb_read_deficit_max)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback (deficit=%d)\n", pb_read_deficit);
+      playback_suspend();
+    }
 }
 
 
@@ -1576,15 +1614,9 @@ device_activate_cb(struct output_device *device, struct output_session *session,
     {
       ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
-
-	  // Fallback to nearest timer expiration time
-	  ts.tv_sec = pb_timer_last.tv_sec;
-	  ts.tv_nsec = pb_timer_last.tv_nsec;
-	}
-
-      outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &ts);
+	DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
+      else
+	outputs_playback_start2(&ts);
     }
 
   outputs_status_cb(session, device_streaming_cb);
@@ -1775,7 +1807,7 @@ playback_abort(void)
 static void
 playback_suspend(void)
 {
-  player_flush_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  player_flush_pending = outputs_flush(device_command_cb, TEMP_NEXT_RTPTIME);
 
   playback_timer_stop();
 
@@ -1825,7 +1857,7 @@ get_status(void *arg, int *retval)
 	status->id = cur_streaming->id;
 	status->item_id = cur_streaming->item_id;
 
-	pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - cur_streaming->stream_start;
+	pos = TEMP_NEXT_RTPTIME - cur_streaming->stream_start;
 	status->pos_ms = (pos * 1000) / 44100;
 	status->len_ms = cur_streaming->len_ms;
 
@@ -1909,7 +1941,7 @@ playback_stop(void *arg, int *retval)
 
   // We may be restarting very soon, so we don't bring the devices to a full
   // stop just yet; this saves time when restarting, which is nicer for the user
-  *retval = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  *retval = outputs_flush(device_command_cb, TEMP_NEXT_RTPTIME);
 
   playback_timer_stop();
 
@@ -1935,35 +1967,29 @@ playback_stop(void *arg, int *retval)
 static enum command_state
 playback_start_bh(void *arg, int *retval)
 {
+  struct timespec ts;
   int ret;
-
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, &pb_pos_stamp, &timer_res);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't get current clock: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  playback_timer_stop();
 
   // initialize the packet timer to the same relative time that we have 
   // for the playback timer.
-  packet_timer_last.tv_sec = pb_pos_stamp.tv_sec;
-  packet_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
+//  packet_timer_last.tv_sec = pb_pos_stamp.tv_sec;
+//  packet_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
-  pb_timer_last.tv_sec = pb_pos_stamp.tv_sec;
-  pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
+//  pb_timer_last.tv_sec = pb_pos_stamp.tv_sec;
+//  pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
-  pb_buffer_offset = 0;
+//  pb_buffer_offset = 0;
   pb_read_deficit = 0;
+
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
+  if (ret < 0)
+    goto out_fail;
 
   ret = playback_timer_start();
   if (ret < 0)
     goto out_fail;
 
-  // Everything OK, start outputs
-  outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
+  outputs_playback_start2(&ts);
 
   status_update(PLAY_PLAYING);
 
@@ -1998,7 +2024,7 @@ playback_start_item(void *arg, int *retval)
     }
 
   // Update global playback position
-  pb_pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - 88200;
+  pb_pos = TEMP_NEXT_RTPTIME - 88200;
 
   if (player_state == PLAY_STOPPED && !queue_item)
     {
@@ -2039,7 +2065,7 @@ playback_start_item(void *arg, int *retval)
 	    }
 	}
 
-      ret = source_open(ps, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, seek_ms);
+      ret = source_open(ps, TEMP_NEXT_RTPTIME, seek_ms);
       if (ret < 0)
 	{
 	  playback_abort();
@@ -2066,7 +2092,7 @@ playback_start_item(void *arg, int *retval)
     {
       if (device->selected && !device->session)
 	{
-	  ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	  ret = outputs_device_start(device, device_restart_cb, TEMP_NEXT_RTPTIME);
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_PLAYER, "Could not start selected %s device '%s'\n", device->type_name, device->name);
@@ -2086,7 +2112,7 @@ playback_start_item(void *arg, int *retval)
 	  continue;
 
 	speaker_select_output(device);
-	ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	ret = outputs_device_start(device, device_restart_cb, TEMP_NEXT_RTPTIME);
 	if (ret < 0)
 	  {
 	    DPRINTF(E_DBG, L_PLAYER, "Could not autoselect %s device '%s'\n", device->type_name, device->name);
@@ -2202,7 +2228,7 @@ playback_prev_bh(void *arg, int *retval)
 
       source_stop();
 
-      ret = source_open(ps, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, 0);
+      ret = source_open(ps, TEMP_NEXT_RTPTIME, 0);
       if (ret < 0)
 	{
 	  source_free(ps);
@@ -2275,7 +2301,7 @@ playback_next_bh(void *arg, int *retval)
 
   source_stop();
 
-  ret = source_open(ps, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, 0);
+  ret = source_open(ps, TEMP_NEXT_RTPTIME, 0);
   if (ret < 0)
     {
       source_free(ps);
@@ -2388,7 +2414,7 @@ playback_pause(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  *retval = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  *retval = outputs_flush(device_command_cb, TEMP_NEXT_RTPTIME);
 
   playback_timer_stop();
 
@@ -2498,7 +2524,7 @@ speaker_activate(struct output_device *device)
     {
       DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
 
-      ret = outputs_device_start(device, device_activate_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+      ret = outputs_device_start(device, device_activate_cb, TEMP_NEXT_RTPTIME);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
@@ -3008,6 +3034,21 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 }
 
 int
+player_get_time(struct timespec *ts)
+{
+  int ret;
+
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
+      return -1;
+    }
+
+  return 0;
+}
+
+int
 player_get_status(struct player_status *status)
 {
   int ret;
@@ -3444,32 +3485,20 @@ player(void *arg)
 int
 player_init(void)
 {
+  struct media_quality default_quality = { 44100, 16, 2 };
   uint64_t interval;
   uint32_t rnd;
   int ret;
 
-  player_exit = 0;
-
   speaker_autoselect = cfg_getbool(cfg_getsec(cfg, "general"), "speaker_autoselect");
   clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
 
-  dev_list = NULL;
-
   master_volume = -1;
-
-  output_sessions = 0;
-
-  cur_playing = NULL;
-  cur_streaming = NULL;
-  cur_plid = 0;
-  cur_plversion = 0;
 
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;
-  shuffle = 0;
-  consume = 0;
 
-  history = (struct player_history *)calloc(1, sizeof(struct player_history));
+  history = calloc(1, sizeof(struct player_history));
 
   // Determine if the resolution of the system timer is > or < the size
   // of an audio packet. NOTE: this assumes the system clock resolution
@@ -3485,11 +3514,11 @@ player_init(void)
     {
       DPRINTF(E_INFO, L_PLAYER, "High resolution clock not enabled on this system (res is %ld)\n", timer_res.tv_nsec);
 
-      timer_res.tv_nsec = 2 * AIRTUNES_V2_STREAM_PERIOD;
+      timer_res.tv_nsec = 10 * PLAYER_TICK_INTERVAL * 1000000;
     }
 
   // Set the tick interval for the playback timer
-  interval = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
+  interval = MAX(timer_res.tv_nsec, PLAYER_TICK_INTERVAL * 1000000);
   tick_interval.tv_nsec = interval;
 
   pb_write_deficit_max = (PLAYER_WRITE_BEHIND_MAX * 1000000 / interval);
@@ -3532,6 +3561,8 @@ player_init(void)
       goto evnew_fail;
     }
 
+  session_init(&pb_session, &default_quality);
+
   cmdbase = commands_base_new(evbase_player, NULL);
 
   ret = outputs_init();
@@ -3568,6 +3599,7 @@ player_init(void)
   outputs_deinit();
  outputs_fail:
   commands_base_free(cmdbase);
+  session_deinit(&pb_session);
  evnew_fail:
   event_base_free(evbase_player);
  evbase_fail:
@@ -3599,6 +3631,8 @@ player_deinit(void)
 
   player_exit = 1;
   commands_base_destroy(cmdbase);
+
+  session_deinit(&pb_session);
 
   ret = pthread_join(tid_player, NULL);
   if (ret != 0)

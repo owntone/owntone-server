@@ -38,7 +38,10 @@
 #include "player.h"
 #include "outputs.h"
 
-#define PACKET_SIZE STOB(AIRTUNES_V2_PACKET_SAMPLES)
+// Same as Airplay - maybe not optimal?
+#define ALSA_SAMPLES_PER_PACKET 352
+#define ALSA_PACKET_SIZE STOB(ALSA_SAMPLES_PER_PACKET, 16, 2)
+
 // The maximum number of samples that the output is allowed to get behind (or
 // ahead) of the player position, before compensation is attempted
 #define ALSA_MAX_LATENCY 352
@@ -573,15 +576,15 @@ playback_start(struct alsa_session *as, uint64_t pos, uint64_t start_pos)
   // buffering, because my sound card's start_threshold is not to be counted on.
   // Instead we allocate our own buffer, and when it is time to play we write as
   // much as we can to alsa's buffer.
-  as->prebuf_len = (start_pos - pos) / AIRTUNES_V2_PACKET_SAMPLES + 1;
-  if (as->prebuf_len > (3 * 44100 - offset) / AIRTUNES_V2_PACKET_SAMPLES)
+  as->prebuf_len = (start_pos - pos) / ALSA_SAMPLES_PER_PACKET + 1;
+  if (as->prebuf_len > (3 * 44100 - offset) / ALSA_SAMPLES_PER_PACKET)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Sanity check of prebuf_len (%" PRIu32 " packets) failed\n", as->prebuf_len);
       return;
     }
   DPRINTF(E_DBG, L_LAUDIO, "Will prebuffer %d packets\n", as->prebuf_len);
 
-  as->prebuf = malloc(as->prebuf_len * PACKET_SIZE);
+  as->prebuf = malloc(as->prebuf_len * ALSA_PACKET_SIZE);
   if (!as->prebuf)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Out of memory for audio buffer (requested %" PRIu32 " packets)\n", as->prebuf_len);
@@ -589,7 +592,7 @@ playback_start(struct alsa_session *as, uint64_t pos, uint64_t start_pos)
     }
 
   as->pos = pos;
-  as->start_pos = start_pos - AIRTUNES_V2_PACKET_SAMPLES;
+  as->start_pos = start_pos - ALSA_SAMPLES_PER_PACKET;
 
   // Dump PCM config data for E_DBG logging
   ret = snd_output_buffer_open(&output);
@@ -620,32 +623,32 @@ buffer_write(struct alsa_session *as, uint8_t *buf, snd_pcm_sframes_t *avail, in
   snd_pcm_sframes_t nsamp;
   snd_pcm_sframes_t ret;
 
-  nsamp = AIRTUNES_V2_PACKET_SAMPLES;
+  nsamp = ALSA_SAMPLES_PER_PACKET;
 
-  if (as->prebuf && (prebuffering || !prebuf_empty || *avail < AIRTUNES_V2_PACKET_SAMPLES))
+  if (as->prebuf && (prebuffering || !prebuf_empty || *avail < ALSA_SAMPLES_PER_PACKET))
     {
-      pkt = &as->prebuf[as->prebuf_head * PACKET_SIZE];
+      pkt = &as->prebuf[as->prebuf_head * ALSA_PACKET_SIZE];
 
-      memcpy(pkt, buf, PACKET_SIZE);
+      memcpy(pkt, buf, ALSA_PACKET_SIZE);
 
       as->prebuf_head = (as->prebuf_head + 1) % as->prebuf_len;
 
-      if (prebuffering || *avail < AIRTUNES_V2_PACKET_SAMPLES)
+      if (prebuffering || *avail < ALSA_SAMPLES_PER_PACKET)
 	return 0; // No actual writing
 
       // We will now set buf so that we will transfer as much as possible to ALSA
-      buf = &as->prebuf[as->prebuf_tail * PACKET_SIZE];
+      buf = &as->prebuf[as->prebuf_tail * ALSA_PACKET_SIZE];
 
       if (as->prebuf_head > as->prebuf_tail)
 	npackets = as->prebuf_head - as->prebuf_tail;
       else
 	npackets = as->prebuf_len - as->prebuf_tail;
 
-      nsamp = npackets * AIRTUNES_V2_PACKET_SAMPLES;
+      nsamp = npackets * ALSA_SAMPLES_PER_PACKET;
       while (nsamp > *avail)
 	{
 	  npackets -= 1;
-	  nsamp -= AIRTUNES_V2_PACKET_SAMPLES;
+	  nsamp -= ALSA_SAMPLES_PER_PACKET;
 	}
 
       as->prebuf_tail = (as->prebuf_tail + npackets) % as->prebuf_len;
@@ -685,7 +688,7 @@ sync_check(struct alsa_session *as, uint64_t rtptime, snd_pcm_sframes_t delay, i
   else
     npackets = 0;
 
-  pb_pos = rtptime - delay - AIRTUNES_V2_PACKET_SAMPLES * npackets;
+  pb_pos = rtptime - delay - ALSA_SAMPLES_PER_PACKET * npackets;
   latency = cur_pos - (pb_pos - offset);
 
   // If the latency is low or very different from our last measurement, we reset the sync_counter
@@ -727,7 +730,7 @@ playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
   prebuffering = (as->pos < as->start_pos);
   prebuf_empty = (as->prebuf_head == as->prebuf_tail);
 
-  as->pos += AIRTUNES_V2_PACKET_SAMPLES;
+  as->pos += ALSA_SAMPLES_PER_PACKET;
 
   if (prebuffering)
     {
@@ -771,7 +774,7 @@ playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
 	}
 
       // Fill the prebuf with audio before restarting, so we don't underrun again
-      as->start_pos = as->pos + AIRTUNES_V2_PACKET_SAMPLES * (as->prebuf_len - 1);
+      as->start_pos = as->pos + ALSA_SAMPLES_PER_PACKET * (as->prebuf_len - 1);
 
       return;
     }
@@ -799,7 +802,7 @@ playback_pos_get(uint64_t *pos, uint64_t next_pkt)
   // Make pos the rtptime of the packet containing cur_pos
   *pos = next_pkt;
   while (*pos > cur_pos)
-    *pos -= AIRTUNES_V2_PACKET_SAMPLES;
+    *pos -= ALSA_SAMPLES_PER_PACKET;
 }
 
 /* ------------------ INTERFACE FUNCTIONS CALLED BY OUTPUTS.C --------------- */

@@ -39,13 +39,13 @@
 #include "player.h"
 #include "outputs.h"
 
-#define FIFO_BUFFER_SIZE 65536 /* pipe capacity on Linux >= 2.6.11 */
-
+#define FIFO_BUFFER_SIZE 65536 // pipe capacity on Linux >= 2.6.11
+#define FIFO_PACKET_SIZE 1408  // 352 samples/packet * 16 bit/sample * 2 channels
 
 struct fifo_packet
 {
   /* pcm data */
-  uint8_t samples[1408]; // STOB(AIRTUNES_V2_PACKET_SAMPLES)
+  uint8_t samples[FIFO_PACKET_SIZE];
 
   /* RTP-time of the first sample*/
   uint64_t rtptime;
@@ -453,7 +453,7 @@ static void
 fifo_write(uint8_t *buf, uint64_t rtptime)
 {
   struct fifo_session *fifo_session = sessions;
-  size_t length = STOB(AIRTUNES_V2_PACKET_SAMPLES);
+  size_t length = FIFO_PACKET_SIZE;
   ssize_t bytes;
   struct fifo_packet *packet;
   uint64_t cur_pos;
