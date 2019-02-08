@@ -73,22 +73,35 @@
 #include "db.h"
 #include "artwork.h"
 #include "dmap_common.h"
+#include "rtp_common.h"
 #include "outputs.h"
 
 #ifdef RAOP_VERIFICATION
 #include "raop_verification.h"
 #endif
 
+// AirTunes v2 packet interval in ns */
+// (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet
+// #define AIRTUNES_V2_STREAM_PERIOD 7981859
+
 #ifndef MIN
 # define MIN(a, b) ((a < b) ? a : b)
 #endif
 
-#define AIRTUNES_V2_HDR_LEN        12
-#define ALAC_HDR_LEN               3
-#define AIRTUNES_V2_PKT_LEN        (AIRTUNES_V2_HDR_LEN + ALAC_HDR_LEN + STOB(AIRTUNES_V2_PACKET_SAMPLES))
-#define AIRTUNES_V2_PKT_TAIL_LEN   (AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN - ((AIRTUNES_V2_PKT_LEN / 16) * 16))
-#define AIRTUNES_V2_PKT_TAIL_OFF   (AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_PKT_TAIL_LEN)
-#define RETRANSMIT_BUFFER_SIZE     1000
+#define ALAC_HEADER_LEN                      3
+
+#define RAOP_QUALITY_SAMPLE_RATE_DEFAULT     44100
+#define RAOP_QUALITY_BITS_PER_SAMPLE_DEFAULT 16
+#define RAOP_QUALITY_CHANNELS_DEFAULT        2
+
+// AirTunes v2 number of samples per packet
+// Probably using this value because 44100/352 and 48000/352 has good 32 byte
+// alignment, which improves performance of some encoders
+// TODO Should probably not be fixed, but vary with quality
+#define RAOP_SAMPLES_PER_PACKET              352
+
+// How many RTP packets keep in a buffer for retransmission
+#define RAOP_PACKET_BUFFER_SIZE    1000
 
 #define RAOP_MD_DELAY_STARTUP      15360
 #define RAOP_MD_DELAY_SWITCH       (RAOP_MD_DELAY_STARTUP * 2)
@@ -102,17 +115,6 @@ union sockaddr_all
   struct sockaddr_in6 sin6;
   struct sockaddr sa;
   struct sockaddr_storage ss;
-};
-
-struct raop_v2_packet
-{
-  uint8_t clear[AIRTUNES_V2_PKT_LEN];
-  uint8_t encrypted[AIRTUNES_V2_PKT_LEN];
-
-  uint16_t seqnum;
-
-  struct raop_v2_packet *prev;
-  struct raop_v2_packet *next;
 };
 
 enum raop_devtype {
@@ -164,8 +166,24 @@ struct raop_extra
   bool supports_auth_setup;
 };
 
+struct raop_master_session
+{
+  struct evbuffer *evbuf;
+
+  struct rtp_session *rtp_session;
+
+  uint8_t *rawbuf;
+  size_t rawbuf_size;
+  int samples_per_packet;
+  bool encrypt;
+
+  struct raop_master_session *next;
+};
+
 struct raop_session
 {
+  struct raop_master_session *master_session;
+
   struct evrtsp_connection *ctrl;
 
   enum raop_state state;
@@ -252,6 +270,7 @@ typedef void (*evrtsp_req_cb)(struct evrtsp_request *req, void *arg);
 #define FRAC             4294967296. /* 2^32 as a double */
 #define NTP_EPOCH_DELTA  0x83aa7e80  /* 2208988800 - that's 1970 - 1900 in seconds */
 
+// TODO move to rtp_common
 struct ntp_stamp
 {
   uint32_t sec;
@@ -314,16 +333,6 @@ static struct raop_service timing_6svc;
 /* AirTunes v2 playback synchronization / control */
 static struct raop_service control_4svc;
 static struct raop_service control_6svc;
-static int sync_counter;
-
-/* AirTunes v2 audio stream */
-static uint32_t ssrc_id;
-static uint16_t stream_seq;
-
-/* Retransmit packet buffer */
-static int pktbuf_size;
-static struct raop_v2_packet *pktbuf_head;
-static struct raop_v2_packet *pktbuf_tail;
 
 /* Metadata */
 static struct raop_metadata *metadata_head;
@@ -337,8 +346,11 @@ static struct event *keep_alive_timer;
 static struct timeval keep_alive_tv = { 30, 0 };
 
 /* Sessions */
-static struct raop_session *sessions;
+static struct raop_master_session *raop_master_sessions;
+static struct raop_session *raop_sessions;
 
+/* Struct with default quality levels */
+static struct media_quality raop_quality_default = { RAOP_QUALITY_SAMPLE_RATE_DEFAULT, RAOP_QUALITY_BITS_PER_SAMPLE_DEFAULT, RAOP_QUALITY_CHANNELS_DEFAULT };
 
 /* ALAC bits writer - big endian
  * p    outgoing buffer pointer
@@ -391,30 +403,30 @@ alac_write_bits(uint8_t **p, uint8_t val, int blen, int *bpos)
 
 /* Raw data must be little endian */
 static void
-alac_encode(uint8_t *raw, uint8_t *buf, int buflen)
+alac_encode(uint8_t *dst, uint8_t *raw, int len)
 {
   uint8_t *maxraw;
   int bpos;
 
   bpos = 0;
-  maxraw = raw + buflen;
+  maxraw = raw + len;
 
-  alac_write_bits(&buf, 1, 3, &bpos); /* channel=1, stereo */
-  alac_write_bits(&buf, 0, 4, &bpos); /* unknown */
-  alac_write_bits(&buf, 0, 8, &bpos); /* unknown */
-  alac_write_bits(&buf, 0, 4, &bpos); /* unknown */
-  alac_write_bits(&buf, 0, 1, &bpos); /* hassize */
+  alac_write_bits(&dst, 1, 3, &bpos); /* channel=1, stereo */
+  alac_write_bits(&dst, 0, 4, &bpos); /* unknown */
+  alac_write_bits(&dst, 0, 8, &bpos); /* unknown */
+  alac_write_bits(&dst, 0, 4, &bpos); /* unknown */
+  alac_write_bits(&dst, 0, 1, &bpos); /* hassize */
 
-  alac_write_bits(&buf, 0, 2, &bpos); /* unused */
-  alac_write_bits(&buf, 1, 1, &bpos); /* is-not-compressed */
+  alac_write_bits(&dst, 0, 2, &bpos); /* unused */
+  alac_write_bits(&dst, 1, 1, &bpos); /* is-not-compressed */
 
   for (; raw < maxraw; raw += 4)
     {
       /* Byteswap to big endian */
-      alac_write_bits(&buf, *(raw + 1), 8, &bpos);
-      alac_write_bits(&buf, *raw, 8, &bpos);
-      alac_write_bits(&buf, *(raw + 3), 8, &bpos);
-      alac_write_bits(&buf, *(raw + 2), 8, &bpos);
+      alac_write_bits(&dst, *(raw + 1), 8, &bpos);
+      alac_write_bits(&dst, *raw, 8, &bpos);
+      alac_write_bits(&dst, *(raw + 3), 8, &bpos);
+      alac_write_bits(&dst, *(raw + 2), 8, &bpos);
     }
 }
 
@@ -1268,11 +1280,11 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
   /* Add SDP payload - but don't add RSA/AES key/iv if no encryption - important for ATV3 update 6.0 */
   if (rs->encrypt)
     ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT,
-			      session_id, af, address, rs_af, rs->address, AIRTUNES_V2_PACKET_SAMPLES,
+			      session_id, af, address, rs_af, rs->address, RAOP_SAMPLES_PER_PACKET,
 			      raop_aes_key_b64, raop_aes_iv_b64);
   else
     ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT_NO_ENC,
-			      session_id, af, address, rs_af, rs->address, AIRTUNES_V2_PACKET_SAMPLES);
+			      session_id, af, address, rs_af, rs->address, RAOP_SAMPLES_PER_PACKET);
 
   if (p)
     *p = '%';
@@ -1306,7 +1318,7 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
  * - if rs->reqs_in_flight == 0, setup evrtsp connection closecb
  *
  * When a request fails, the whole RAOP session is declared failed and
- * torn down by calling raop_session_failure(), even if there are requests
+ * torn down by calling session_failure(), even if there are requests
  * queued on the evrtsp connection. There is no reason to think pending
  * requests would work out better than the one that just failed and recovery
  * would be tricky to get right.
@@ -1362,8 +1374,9 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb, const char *lo
 static int
 raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb, const char *log_caller)
 {
-  char buf[64];
+  struct raop_master_session *rms = rs->master_session;
   struct evrtsp_request *req;
+  char buf[64];
   int ret;
 
   DPRINTF(E_DBG, L_RAOP, "%s: Sending FLUSH to '%s'\n", log_caller, rs->devname);
@@ -1384,7 +1397,7 @@ raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb,
     }
 
   /* Restart sequence: last sequence + 1 */
-  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", stream_seq + 1, RAOP_RTPTIME(rtptime));
+  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", rms->rtp_session->seqnum + 1, rms->rtp_session->pos);
   if ((ret < 0) || (ret >= sizeof(buf)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in FLUSH request\n");
@@ -1464,8 +1477,9 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, cha
 static int
 raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
 {
-  char buf[64];
+  struct raop_master_session *rms = rs->master_session;
   struct evrtsp_request *req;
+  char buf[64];
   int ret;
 
   DPRINTF(E_DBG, L_RAOP, "%s: Sending RECORD to '%s'\n", log_caller, rs->devname);
@@ -1488,7 +1502,7 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb, const char *log_
   evrtsp_add_header(req->output_headers, "Range", "npt=0-");
 
   /* Start sequence: next sequence */
-  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", stream_seq + 1, RAOP_RTPTIME(rs->start_rtptime));
+  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", rms->rtp_session->seqnum + 1, rms->rtp_session->pos);
   if ((ret < 0) || (ret >= sizeof(buf)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in RECORD request\n");
@@ -1830,9 +1844,11 @@ raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *l
 }
 #endif
 
-/* Maps our internal state to the generic output state and then makes a callback
- * to the player to tell that state
- */
+
+/* ------------------------------ Session handling -------------------------- */
+
+// Maps our internal state to the generic output state and then makes a callback
+// to the player to tell that state
 static void
 raop_status(struct raop_session *rs)
 {
@@ -1872,11 +1888,98 @@ raop_status(struct raop_session *rs)
     player_speaker_status_trigger();
 }
 
+static struct raop_master_session *
+master_session_make(struct media_quality *quality, bool encrypt)
+{
+  struct raop_master_session *rms;
+  int ret;
+
+  // First check if we already have a suitable session
+  for (rms = raop_master_sessions; rms; rms = rms->next)
+    {
+      if (encrypt == rms->encrypt && quality_is_equal(quality, &rms->rtp_session->quality))
+	return rms;
+    }
+
+  // Let's create a master session
+  ret = outputs_quality_subscribe(quality);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not subscribe to required audio quality (%d/%d/%d)\n", quality->sample_rate, quality->bits_per_sample, quality->channels);
+      return NULL;
+    }
+
+  CHECK_NULL(L_RAOP, rms = calloc(1, sizeof(struct raop_master_session)));
+
+  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0, OUTPUTS_BUFFER_DURATION);
+  if (!rms->rtp_session)
+    {
+      outputs_quality_unsubscribe(quality);
+      free(rms);
+      return NULL;
+    }
+
+  rms->encrypt = encrypt;
+  rms->samples_per_packet = RAOP_SAMPLES_PER_PACKET;
+  rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
+
+  CHECK_NULL(L_RAOP, rms->rawbuf = malloc(rms->rawbuf_size));
+  CHECK_NULL(L_RAOP, rms->evbuf = evbuffer_new());
+
+  rms->next = raop_master_sessions;
+  raop_master_sessions = rms;
+
+  return rms;
+}
+
 static void
-raop_session_free(struct raop_session *rs)
+master_session_free(struct raop_master_session *rms)
+{
+  outputs_quality_unsubscribe(&rms->rtp_session->quality);
+  rtp_session_free(rms->rtp_session);
+
+  evbuffer_free(rms->evbuf);
+  free(rms->rawbuf);
+
+  free(rms);
+}
+
+static void
+master_session_cleanup(struct raop_master_session *rms)
+{
+  struct raop_master_session *s;
+  struct raop_session *rs;
+
+  // First check if any other session is using the master session
+  for (rs = raop_sessions; rs; rs=rs->next)
+    {
+      if (rs->master_session == rms)
+	return;
+    }
+
+  if (rms == raop_master_sessions)
+    raop_master_sessions = raop_master_sessions->next;
+  else
+    {
+      for (s = raop_master_sessions; s && (s->next != rms); s = s->next)
+	; /* EMPTY */
+
+      if (!s)
+	DPRINTF(E_WARN, L_RAOP, "WARNING: struct raop_master_session not found in list; BUG!\n");
+      else
+	s->next = rms->next;
+    }
+
+  master_session_free(rms);
+}
+
+static void
+session_free(struct raop_session *rs)
 {
   if (!rs)
     return;
+
+  master_session_cleanup(rs->master_session);
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
@@ -1905,17 +2008,15 @@ raop_session_free(struct raop_session *rs)
 }
 
 static void
-raop_session_cleanup(struct raop_session *rs)
+session_cleanup(struct raop_session *rs)
 {
   struct raop_session *s;
-  struct raop_v2_packet *pkt;
-  struct raop_v2_packet *next_pkt;
 
-  if (rs == sessions)
-    sessions = sessions->next;
+  if (rs == raop_sessions)
+    raop_sessions = raop_sessions->next;
   else
     {
-      for (s = sessions; s && (s->next != rs); s = s->next)
+      for (s = raop_sessions; s && (s->next != rs); s = s->next)
 	; /* EMPTY */
 
       if (!s)
@@ -1924,27 +2025,11 @@ raop_session_cleanup(struct raop_session *rs)
 	s->next = rs->next;
     }
 
-  raop_session_free(rs);
-
-  /* No more active sessions, free retransmit buffer */
-  if (!sessions)
-    {
-      pkt = pktbuf_head;
-      while (pkt)
-	{
-	  next_pkt = pkt->next;
-	  free(pkt);
-	  pkt = next_pkt;
-	}
-
-      pktbuf_head = NULL;
-      pktbuf_tail = NULL;
-      pktbuf_size = 0;
-    }
+  session_free(rs);
 }
 
 static void
-raop_session_failure(struct raop_session *rs)
+session_failure(struct raop_session *rs)
 {
   /* Session failed, let our user know */
   if (rs->state != RAOP_STATE_PASSWORD)
@@ -1952,17 +2037,25 @@ raop_session_failure(struct raop_session *rs)
 
   raop_status(rs);
 
-  raop_session_cleanup(rs);
+  session_cleanup(rs);
 }
 
 static void
-raop_deferredev_cb(int fd, short what, void *arg)
+session_failure_cb(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+
+  session_failure(rs);
+}
+
+static void
+deferredev_cb(int fd, short what, void *arg)
 {
   struct raop_session *rs = arg;
 
   DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device '%s'\n", rs->devname);
 
-  raop_session_failure(rs);
+  session_failure(rs);
 }
 
 static void
@@ -1980,7 +2073,7 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 }
 
 static struct raop_session *
-raop_session_make(struct output_device *rd, int family, output_status_cb cb, bool only_probe)
+session_make(struct output_device *rd, int family, output_status_cb cb, bool only_probe)
 {
   struct output_session *os;
   struct raop_session *rs;
@@ -2081,7 +2174,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb, boo
 	break;
     }
 
-  rs->deferredev = evtimer_new(evbase_player, raop_deferredev_cb, rs);
+  rs->deferredev = evtimer_new(evbase_player, deferredev_cb, rs);
   if (!rs->deferredev)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for deferred error handling!\n");
@@ -2155,8 +2248,15 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb, boo
 
   rs->volume = rd->volume;
 
-  rs->next = sessions;
-  sessions = rs;
+  rs->master_session = master_session_make(&rd->quality, rs->encrypt);
+  if (!rs->master_session)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not attach a master session for device '%s'\n", rd->name);
+      goto out_free_evcon;
+    }
+
+  rs->next = raop_sessions;
+  raop_sessions = rs;
 
   return rs;
 
@@ -2170,16 +2270,9 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb, boo
   return NULL;
 }
 
-static void
-raop_session_failure_cb(struct evrtsp_request *req, void *arg)
-{
-  struct raop_session *rs = arg;
 
-  raop_session_failure(rs);
-}
+/* ----------------------------- Metadata handling -------------------------- */
 
-
-/* Metadata handling */
 static void
 raop_cb_metadata(struct evrtsp_request *req, void *arg)
 {
@@ -2208,7 +2301,7 @@ raop_cb_metadata(struct evrtsp_request *req, void *arg)
   return;
 
  error:
-  raop_session_failure(rs);
+  session_failure(rs);
 }
 
 static int
@@ -2396,7 +2489,7 @@ raop_metadata_startup_send(struct raop_session *rs)
 	  ret = raop_metadata_send_internal(rs, rmd, offset, RAOP_MD_DELAY_STARTUP);
 	  if (ret < 0)
 	    {
-	      raop_session_failure(rs);
+	      session_failure(rs);
 
 	      return;
 	    }
@@ -2409,7 +2502,7 @@ raop_metadata_startup_send(struct raop_session *rs)
 	  ret = raop_metadata_send_internal(rs, rmd, 0, RAOP_MD_DELAY_SWITCH);
 	  if (ret < 0)
 	    {
-	      raop_session_failure(rs);
+	      session_failure(rs);
 
 	      return;
 	    }
@@ -2439,7 +2532,7 @@ raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startu
       metadata_tail = rmd;
     }
 
-  for (rs = sessions; rs; rs = next)
+  for (rs = raop_sessions; rs; rs = next)
     {
       next = rs->next;
 
@@ -2454,7 +2547,7 @@ raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startu
       ret = raop_metadata_send_internal(rs, rmd, offset, delay);
       if (ret < 0)
 	{
-	  raop_session_failure(rs);
+	  session_failure(rs);
 	  continue;
 	}
     }
@@ -2599,7 +2692,7 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
   return;
 
  error:
-  raop_session_failure(rs);
+  session_failure(rs);
 }
 
 /* Volume in [0 - 100] */
@@ -2620,7 +2713,7 @@ raop_set_volume_one(struct output_device *rd, output_status_cb cb)
   ret = raop_set_volume_internal(rs, rd->volume, raop_cb_set_volume);
   if (ret < 0)
     {
-      raop_session_failure(rs);
+      session_failure(rs);
 
       return 0;
     }
@@ -2663,7 +2756,7 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
   return;
 
  error:
-  raop_session_failure(rs);
+  session_failure(rs);
 }
 
 static void
@@ -2676,7 +2769,7 @@ raop_cb_keep_alive(struct evrtsp_request *req, void *arg)
   if (!req)
     {
       DPRINTF(E_LOG, L_RAOP, "No reply from '%s' to our keep alive request, hanging up\n", rs->devname);
-      raop_session_failure(rs);
+      session_failure(rs);
       return;
     }
 
@@ -2725,7 +2818,7 @@ raop_cb_pin_start(struct evrtsp_request *req, void *arg)
   return;
 
  error:
-  raop_session_failure(rs);
+  session_failure(rs);
 }
 
 
@@ -2743,7 +2836,7 @@ raop_flush_timer_cb(int fd, short what, void *arg)
 
   DPRINTF(E_DBG, L_RAOP, "Flush timer expired; tearing down RAOP sessions\n");
 
-  for (rs = sessions; rs; rs = rs->next)
+  for (rs = raop_sessions; rs; rs = rs->next)
     {
       if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
@@ -2757,7 +2850,7 @@ raop_keep_alive_timer_cb(int fd, short what, void *arg)
 {
   struct raop_session *rs;
 
-  for (rs = sessions; rs; rs = rs->next)
+  for (rs = raop_sessions; rs; rs = rs->next)
     {
       if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
@@ -2776,7 +2869,7 @@ raop_flush(output_status_cb cb, uint64_t rtptime)
   int ret;
 
   pending = 0;
-  for (rs = sessions; rs; rs = next)
+  for (rs = raop_sessions; rs; rs = next)
     {
       next = rs->next;
 
@@ -2786,7 +2879,7 @@ raop_flush(output_status_cb cb, uint64_t rtptime)
       ret = raop_send_req_flush(rs, rtptime, raop_cb_flush, "flush");
       if (ret < 0)
 	{
-	  raop_session_failure(rs);
+	  session_failure(rs);
 
 	  continue;
 	}
@@ -3050,86 +3143,39 @@ raop_v2_timing_start(int v6enabled)
   return 0;
 }
 
+
 /* AirTunes v2 playback synchronization */
 static void
-raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
+sync_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 {
-  uint8_t msg[20];
-  struct timespec ts;
-  struct ntp_stamp cur_stamp;
-  struct raop_session *rs;
-  uint64_t cur_pos;
-  uint32_t cur_pos32;
-  uint32_t next_pkt32;
   int len;
   int ret;
 
-  memset(msg, 0, sizeof(msg));
-
-  msg[0] = (sync_counter == 0) ? 0x90 : 0x80;
-  msg[1] = 0xd4;
-  msg[3] = 0x07;
-
-  next_pkt32 = htobe32(RAOP_RTPTIME(next_pkt));
-  memcpy(msg + 16, &next_pkt32, 4);
-
-  if (!init)
+  switch (rs->sa.ss.ss_family)
     {
-      ret = player_get_current_pos(&cur_pos, &ts, 1);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Could not get current playback position and clock\n");
+      case AF_INET:
+	rs->sa.sin.sin_port = htons(rs->control_port);
+	len = sizeof(rs->sa.sin);
+	break;
 
-	  return;
-	}
+      case AF_INET6:
+	rs->sa.sin6.sin6_port = htons(rs->control_port);
+	len = sizeof(rs->sa.sin6);
+	break;
 
-      timespec_to_ntp(&ts, &cur_stamp);
-    }
-  else
-    {
-      cur_pos = next_pkt - 88200;
-      timespec_to_ntp(init, &cur_stamp);
+      default:
+	DPRINTF(E_WARN, L_RAOP, "Unknown family %d\n", rs->sa.ss.ss_family);
+	return;
     }
 
-  cur_pos32 = htobe32(RAOP_RTPTIME(cur_pos));
-  cur_stamp.sec = htobe32(cur_stamp.sec);
-  cur_stamp.frac = htobe32(cur_stamp.frac);
-
-  memcpy(msg + 4, &cur_pos32, 4);
-  memcpy(msg + 8, &cur_stamp.sec, 4);
-  memcpy(msg + 12, &cur_stamp.frac, 4);
-
-  for (rs = sessions; rs; rs = rs->next)
-    {
-      if (rs->state != RAOP_STATE_STREAMING)
-	continue;
-
-      switch (rs->sa.ss.ss_family)
-	{
-	  case AF_INET:
-	    rs->sa.sin.sin_port = htons(rs->control_port);
-	    len = sizeof(rs->sa.sin);
-	    break;
-
-	  case AF_INET6:
-	    rs->sa.sin6.sin6_port = htons(rs->control_port);
-	    len = sizeof(rs->sa.sin6);
-	    break;
-
-	  default:
-	    DPRINTF(E_WARN, L_RAOP, "Unknown family %d\n", rs->sa.ss.ss_family);
-	    continue;
-	}
-
-      ret = sendto(rs->control_svc->fd, msg, sizeof(msg), 0, &rs->sa.sa, len);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
-    }
+  ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->sa.sa, len);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
 }
 
 /* Forward */
 static void
-raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len);
+packets_resend(struct raop_session *rs, uint16_t seqnum, uint16_t len);
 
 static void
 raop_v2_control_cb(int fd, short what, void *arg)
@@ -3168,7 +3214,7 @@ raop_v2_control_cb(int fd, short what, void *arg)
 	if (svc != &control_4svc)
 	  goto readd;
 
-	for (rs = sessions; rs; rs = rs->next)
+	for (rs = raop_sessions; rs; rs = rs->next)
 	  {
 	    if ((rs->sa.ss.ss_family == AF_INET)
 		&& (sa.sin.sin_addr.s_addr == rs->sa.sin.sin_addr.s_addr))
@@ -3184,7 +3230,7 @@ raop_v2_control_cb(int fd, short what, void *arg)
 	if (svc != &control_6svc)
 	  goto readd;
 
-	for (rs = sessions; rs; rs = rs->next)
+	for (rs = raop_sessions; rs; rs = rs->next)
 	  {
 	    if ((rs->sa.ss.ss_family == AF_INET6)
 		&& IN6_ARE_ADDR_EQUAL(&sa.sin6.sin6_addr, &rs->sa.sin6.sin6_addr))
@@ -3226,7 +3272,7 @@ raop_v2_control_cb(int fd, short what, void *arg)
 
   DPRINTF(E_DBG, L_RAOP, "Got retransmit request from '%s', seq_start %u len %u\n", rs->devname, seq_start, seq_len);
 
-  raop_v2_resend_range(rs, seq_start, seq_len);
+  packets_resend(rs, seq_start, seq_len);
 
  readd:
   ret = event_add(svc->ev, NULL);
@@ -3384,149 +3430,64 @@ raop_v2_control_start(int v6enabled)
 
 
 /* AirTunes v2 streaming */
-static struct raop_v2_packet *
-raop_v2_new_packet(void)
-{
-  struct raop_v2_packet *pkt;
-
-  if (pktbuf_size >= RETRANSMIT_BUFFER_SIZE)
-    {
-      pktbuf_size--;
-
-      pkt = pktbuf_tail;
-
-      pktbuf_tail = pktbuf_tail->prev;
-      pktbuf_tail->next = NULL;
-    }
-  else
-    {
-      pkt = (struct raop_v2_packet *)malloc(sizeof(struct raop_v2_packet));
-      if (!pkt)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Out of memory for RAOP packet\n");
-
-	  return NULL;
-	}
-    }
-
-  return pkt;
-}
-
-static struct raop_v2_packet *
-raop_v2_make_packet(uint8_t *rawbuf, uint64_t rtptime)
+static int
+packet_prepare(struct rtp_packet *pkt, uint8_t *rawbuf, size_t rawbuf_size, bool encrypt)
 {
   char ebuf[64];
-  struct raop_v2_packet *pkt;
   gpg_error_t gc_err;
-  uint32_t rtptime32;
-  uint16_t seq;
 
-  pkt = raop_v2_new_packet();
-  if (!pkt)
-    return NULL;
+  alac_encode(pkt->payload, rawbuf, rawbuf_size);
 
-  memset(pkt, 0, sizeof(struct raop_v2_packet));
+  if (!encrypt)
+    return 0;
 
-  alac_encode(rawbuf, pkt->clear + AIRTUNES_V2_HDR_LEN, STOB(AIRTUNES_V2_PACKET_SAMPLES));
-
-  stream_seq++;
-
-  pkt->seqnum = stream_seq;
-
-  seq = htobe16(pkt->seqnum);
-  rtptime32 = htobe32(RAOP_RTPTIME(rtptime));
-
-  pkt->clear[0] = 0x80;
-  pkt->clear[1] = (sync_counter == 0) ? 0xe0 : 0x60;
-
-  memcpy(pkt->clear + 2, &seq, 2);
-  memcpy(pkt->clear + 4, &rtptime32, 4);
-
-  /* RTP SSRC ID
-   * Note: should htobe32() that value, but it's just a
-   * random/unique ID so it's no big deal
-   */
-  memcpy(pkt->clear + 8, &ssrc_id, 4);
-
-  /* Copy AirTunes v2 header to encrypted packet */
-  memcpy(pkt->encrypted, pkt->clear, AIRTUNES_V2_HDR_LEN);
-
-  /* Copy the tail of the audio packet that is left unencrypted */
-  memcpy(pkt->encrypted + AIRTUNES_V2_PKT_TAIL_OFF,
-	 pkt->clear + AIRTUNES_V2_PKT_TAIL_OFF,
-	 AIRTUNES_V2_PKT_TAIL_LEN);
-
-  /* Reset cipher */
+  // Reset cipher
   gc_err = gcry_cipher_reset(raop_aes_ctx);
   if (gc_err != GPG_ERR_NO_ERROR)
     {
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
       DPRINTF(E_LOG, L_RAOP, "Could not reset AES cipher: %s\n", ebuf);
-
-      free(pkt);
-      return NULL;
+      return -1;
     }
 
-  /* Set IV */
+  // Set IV
   gc_err = gcry_cipher_setiv(raop_aes_ctx, raop_aes_iv, sizeof(raop_aes_iv));
   if (gc_err != GPG_ERR_NO_ERROR)
     {
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
       DPRINTF(E_LOG, L_RAOP, "Could not set AES IV: %s\n", ebuf);
-
-      free(pkt);
-      return NULL;
+      return -1;
     }
 
-  /* Encrypt in blocks of 16 bytes */
-  gc_err = gcry_cipher_encrypt(raop_aes_ctx,
-			       pkt->encrypted + AIRTUNES_V2_HDR_LEN, ((AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN) / 16) * 16,
-			       pkt->clear + AIRTUNES_V2_HDR_LEN, ((AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN) / 16) * 16);
+  // Encrypt in blocks of 16 bytes
+  gc_err = gcry_cipher_encrypt(raop_aes_ctx, pkt->payload, (pkt->payload_len / 16) * 16, NULL, 0);
   if (gc_err != GPG_ERR_NO_ERROR)
     {
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
       DPRINTF(E_LOG, L_RAOP, "Could not encrypt payload: %s\n", ebuf);
-
-      free(pkt);
-      return NULL;
+      return -1;
     }
 
-  pkt->prev = NULL;
-  pkt->next = pktbuf_head;
-
-  if (pktbuf_head)
-    pktbuf_head->prev = pkt;
-
-  if (!pktbuf_tail)
-    pktbuf_tail = pkt;
-
-  pktbuf_head = pkt;
-
-  pktbuf_size++;
-
-  return pkt;
+  return 0;
 }
 
 static int
-raop_v2_send_packet(struct raop_session *rs, struct raop_v2_packet *pkt)
+packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 {
-  uint8_t *data;
   int ret;
 
   if (!rs)
     return -1;
 
-  data = (rs->encrypt) ? pkt->encrypted : pkt->clear;
-
-  ret = send(rs->server_fd, data, AIRTUNES_V2_PKT_LEN, 0);
+  ret = send(rs->server_fd, pkt->data, pkt->data_len, 0);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Send error for '%s': %s\n", rs->devname, strerror(errno));
 
-      raop_session_failure(rs);
+      session_failure(rs);
       return -1;
     }
-  else if (ret != AIRTUNES_V2_PKT_LEN)
+  else if (ret != pkt->data_len)
     {
       DPRINTF(E_WARN, L_RAOP, "Partial send (%d) for '%s'\n", ret, rs->devname);
       return -1;
@@ -3535,108 +3496,109 @@ raop_v2_send_packet(struct raop_session *rs, struct raop_v2_packet *pkt)
   return 0;
 }
 
+static void
+packets_resend(struct raop_session *rs, uint16_t seqnum, uint16_t len)
+{
+  struct rtp_packet *pkt;
+  uint16_t s;
+  bool pkt_missing = false;
+
+  for (s = seqnum; s < seqnum + len; s++)
+    {
+      pkt = rtp_packet_get(rs->master_session->rtp_session, s);
+      if (pkt)
+	packet_send(rs, pkt);
+      else
+	pkt_missing = true;
+    }
+
+  if (pkt_missing)
+    DPRINTF(E_WARN, L_RAOP, "Device '%s' asking for seqnum %" PRIu16 " (len %" PRIu16 "), but not in buffer\n", rs->devname, seqnum, len);
+}
+
+
 // Forward
 static void
 raop_playback_stop(void);
 
-static void
-raop_v2_write(uint8_t *buf, uint64_t rtptime)
+
+static int
+frame_send(struct raop_master_session *rms)
 {
-  struct raop_v2_packet *pkt;
+  struct rtp_packet *pkt;
+  struct rtp_packet *sync_pkt;
   struct raop_session *rs;
   struct raop_session *next;
+  bool sync_send;
+  int ret;
 
-  pkt = raop_v2_make_packet(buf, rtptime);
-  if (!pkt)
+  while (evbuffer_get_length(rms->evbuf) >= rms->rawbuf_size)
     {
-      raop_playback_stop();
+      evbuffer_remove(rms->evbuf, rms->rawbuf, rms->rawbuf_size);
 
-      return;
+      pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet);
+
+      ret = packet_prepare(pkt, rms->rawbuf, rms->rawbuf_size, rms->encrypt);
+      if (ret < 0)
+	{
+	  raop_playback_stop();
+	  return -1;
+	}
+
+      sync_send = rtp_sync_check(rms->rtp_session, pkt);
+      if (sync_send)
+	sync_pkt = rtp_sync_packet_next(rms->rtp_session);
+
+      for (rs = raop_sessions; rs; rs = next)
+	{
+	  // packet_send() may free rs on failure, so save rs->next now
+	  next = rs->next;
+
+	  // A device could have joined after playback_start() was called, so we
+	  // also update state here
+	  if (rs->state == RAOP_STATE_CONNECTED)
+	    rs->state = RAOP_STATE_STREAMING;
+
+	  if (rs->master_session != rms || rs->state != RAOP_STATE_STREAMING)
+	    continue;
+
+	  if (sync_send)
+	    sync_packet_send(rs, sync_pkt);
+
+	  packet_send(rs, pkt);
+	}
+
+      // Commits packet to retransmit buffer, and prepares the session for the next packet
+      rtp_packet_commit(rms->rtp_session, pkt);
     }
 
-  if (sync_counter == 126)
-    {
-      raop_v2_control_send_sync(rtptime, NULL);
-
-      sync_counter = 1;
-    }
-  else
-    sync_counter++;
-
-  for (rs = sessions; rs; rs = next)
-    {
-      // raop_v2_send_packet may free rs on failure, so save rs->next now
-      next = rs->next;
-
-      if (rs->state != RAOP_STATE_STREAMING)
-	continue;
-
-      raop_v2_send_packet(rs, pkt);
-    }
-
-  return;
+  return 0;
 }
 
 static void
-raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len)
+raop_write(struct output_buffer *obuf)
 {
-  struct raop_v2_packet *pktbuf;
-  int ret;
-  uint16_t distance;
+  struct raop_master_session *rms;
+  int i;
 
-  /* Check that seqnum is in the retransmit buffer */
-  if ((seqnum > pktbuf_head->seqnum) || (seqnum < pktbuf_tail->seqnum))
+  for (rms = raop_master_sessions; rms; rms = rms->next)
     {
-      DPRINTF(E_WARN, L_RAOP, "Device '%s' asking for seqnum %" PRIu16 "; not in buffer (h %" PRIu16 " t %" PRIu16 ")\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
-      return;
-    }
-
-  if (seqnum > pktbuf_head->seqnum)
-    {
-      distance = seqnum - pktbuf_tail->seqnum;
-
-      if (distance > (RETRANSMIT_BUFFER_SIZE / 2))
-	pktbuf = pktbuf_head;
-      else
-	pktbuf = pktbuf_tail;
-    }
-  else
-    {
-      distance = pktbuf_head->seqnum - seqnum;
-
-      if (distance > (RETRANSMIT_BUFFER_SIZE / 2))
-	pktbuf = pktbuf_tail;
-      else
-	pktbuf = pktbuf_head;
-    }
-
-  if (pktbuf == pktbuf_head)
-    {
-      while (pktbuf && seqnum != pktbuf->seqnum)
-	pktbuf = pktbuf->next;
-    }
-  else
-    {
-      while (pktbuf && seqnum != pktbuf->seqnum)
-	pktbuf = pktbuf->prev;
-    }
-
-  while (len && pktbuf)
-    {
-      ret = raop_v2_send_packet(rs, pktbuf);
-      if (ret < 0)
+      for (i = 0; obuf->frames[i].buffer; i++)
 	{
-	  DPRINTF(E_LOG, L_RAOP, "Error retransmit packet, aborting retransmission\n");
-	  return;
+	  if (quality_is_equal(&obuf->frames[i].quality, &rms->rtp_session->quality))
+	    {
+/*  DPRINTF(E_LOG, L_RAOP, "raop_write: stream %d, bufsize %zu, samples %d (%d/%d/%d)\n", 0, obuf->frames[0].bufsize, obuf->frames[0].samples,
+    obuf->frames[0].quality.sample_rate, obuf->frames[0].quality.bits_per_sample, obuf->frames[0].quality.channels);
+  DPRINTF(E_LOG, L_RAOP, "raop_write: stream %d, bufsize %zu, samples %d (%d/%d/%d)\n", i, obuf->frames[i].bufsize, obuf->frames[i].samples,
+    obuf->frames[i].quality.sample_rate, obuf->frames[i].quality.bits_per_sample, obuf->frames[i].quality.channels);
+*/
+	      evbuffer_add_buffer_reference(rms->evbuf, obuf->frames[i].evbuf);
+	      frame_send(rms);
+	    }
 	}
-
-      pktbuf = pktbuf->prev;
-      len--;
     }
-
-  if (len != 0)
-    DPRINTF(E_LOG, L_RAOP, "WARNING: len non-zero at end of retransmission\n");
 }
+
 
 static int
 raop_v2_stream_open(struct raop_session *rs)
@@ -3681,13 +3643,7 @@ raop_v2_stream_open(struct raop_session *rs)
       goto out_fail;
     }
 
-  /* Include the device into the set of active devices if
-   * playback is in progress.
-   */
-  if (sync_counter != 0)
-    rs->state = RAOP_STATE_STREAMING;
-  else
-    rs->state = RAOP_STATE_CONNECTED;
+  rs->state = RAOP_STATE_CONNECTED;
 
   return 0;
 
@@ -3705,7 +3661,7 @@ raop_startup_cancel(struct raop_session *rs)
 {
   if (!rs->session)
     {
-      raop_session_failure(rs);
+      session_failure(rs);
       return;
     }
 
@@ -3716,8 +3672,8 @@ raop_startup_cancel(struct raop_session *rs)
       // This flag is permanent and will not be overwritten by mdns advertisements
       rs->device->v6_disabled = 1;
 
-      // Be nice to our peer + raop_session_failure_cb() cleans up old session
-      raop_send_req_teardown(rs, raop_session_failure_cb, "startup_cancel");
+      // Be nice to our peer + session_failure_cb() cleans up old session
+      raop_send_req_teardown(rs, session_failure_cb, "startup_cancel");
 
       // Try to start a new session
       raop_device_start(rs->device, rs->status_cb, rs->start_rtptime);
@@ -3727,7 +3683,7 @@ raop_startup_cancel(struct raop_session *rs)
       return;
     }
 
-  raop_send_req_teardown(rs, raop_session_failure_cb, "startup_cancel");
+  raop_send_req_teardown(rs, session_failure_cb, "startup_cancel");
 }
 
 static void
@@ -4102,7 +4058,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       raop_status(rs);
 
       // We're not going further with this session
-      raop_session_cleanup(rs);
+      session_cleanup(rs);
     }
   else if (rs->supports_post && rs->supports_auth_setup)
     {
@@ -4123,7 +4079,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 
  cleanup:
   if (rs->only_probe)
-    raop_session_failure(rs);
+    session_failure(rs);
   else
     raop_startup_cancel(rs);
 }
@@ -4155,12 +4111,12 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
   /* Session shut down, tell our user */
   raop_status(rs);
 
-  raop_session_cleanup(rs);
+  session_cleanup(rs);
 
   return;
 
  error:
-  raop_session_failure(rs);
+  session_failure(rs);
 }
 
 
@@ -4429,7 +4385,7 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
   db_speaker_save(rs->device);
 
   // The player considers this session failed, so we don't need it any more
-  raop_session_cleanup(rs);
+  session_cleanup(rs);
 
   /* Fallthrough */
 
@@ -4486,7 +4442,7 @@ raop_verification_setup(const char *pin)
   struct raop_session *rs;
   int ret;
 
-  for (rs = sessions; rs; rs = rs->next)
+  for (rs = raop_sessions; rs; rs = rs->next)
     {
       if (rs->state == RAOP_STATE_UNVERIFIED)
 	break;
@@ -4612,7 +4568,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (port < 0)
     {
-      /* Device stopped advertising */
+      // Device stopped advertising
       switch (family)
 	{
 	  case AF_INET:
@@ -4631,7 +4587,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       return;
     }
 
-  /* Protocol */
+  // Protocol
   p = keyval_get(txt, "tp");
   if (!p)
     {
@@ -4654,7 +4610,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       goto free_rd;
     }
 
-  /* Password protection */
+  // Password protection
   password = NULL;
   p = keyval_get(txt, "pw");
   if (!p)
@@ -4686,7 +4642,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   rd->password = password;
 
-  /* Device verification */
+  // Device verification
   p = keyval_get(txt, "sf");
   if (p && (safe_hextou64(p, &sf) == 0))
     {
@@ -4696,7 +4652,24 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       // Note: device_add() in player.c will get the auth key from the db if available
     }
 
-  /* Device type */
+  // Quality supported - note this is mostly WIP, since newer devices that support
+  // higher than 44100/16 don't seem to use the below fields (probably use sf instead)
+  p = keyval_get(txt, "sr");
+  if (!p || (safe_atoi32(p, &rd->quality.sample_rate) != 0))
+    rd->quality.sample_rate = RAOP_QUALITY_SAMPLE_RATE_DEFAULT;
+
+  p = keyval_get(txt, "ss");
+  if (!p || (safe_atoi32(p, &rd->quality.bits_per_sample) != 0))
+    rd->quality.bits_per_sample = RAOP_QUALITY_BITS_PER_SAMPLE_DEFAULT;
+
+  p = keyval_get(txt, "ch");
+  if (!p || (safe_atoi32(p, &rd->quality.channels) != 0))
+    rd->quality.channels = RAOP_QUALITY_CHANNELS_DEFAULT;
+
+  if (!quality_is_equal(&rd->quality, &raop_quality_default))
+    DPRINTF(E_LOG, L_RAOP, "Device '%s' requested non-default audio quality (%d/%d/%d)\n", rd->name, rd->quality.sample_rate, rd->quality.bits_per_sample, rd->quality.channels);
+
+  // Device type
   re->devtype = RAOP_DEV_OTHER;
   p = keyval_get(txt, "am");
 
@@ -4713,14 +4686,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else if (*p == '\0')
     DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s': am has no value\n", at_name);
 
-  /* Encrypt stream */
+  // Encrypt stream
   p = keyval_get(txt, "ek");
   if (p && (*p == '1'))
     re->encrypt = 1;
   else
     re->encrypt = 0;
 
-  /* Metadata support */
+  // Metadata support
   p = keyval_get(txt, "md");
   if (p && (*p != '\0'))
     re->wants_metadata = 1;
@@ -4777,7 +4750,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 }
 
 static int
-raop_device_start_generic(struct output_device *rd, output_status_cb cb, uint64_t rtptime, bool only_probe)
+raop_device_start_generic(struct output_device *rd, output_status_cb cb, bool only_probe)
 {
   struct raop_session *rs;
   int ret;
@@ -4787,11 +4760,9 @@ raop_device_start_generic(struct output_device *rd, output_status_cb cb, uint64_
    * address and build our session URL for all subsequent requests.
    */
 
-  rs = raop_session_make(rd, AF_INET6, cb, only_probe);
+  rs = session_make(rd, AF_INET6, cb, only_probe);
   if (rs)
     {
-      rs->start_rtptime = rtptime;
-
       if (rd->auth_key)
 	ret = raop_verification_verify(rs);
       else if (rd->requires_auth)
@@ -4804,15 +4775,13 @@ raop_device_start_generic(struct output_device *rd, output_status_cb cb, uint64_
       else
 	{
 	  DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv6\n");
-	  raop_session_cleanup(rs);
+	  session_cleanup(rs);
 	}
     }
 
-  rs = raop_session_make(rd, AF_INET, cb, only_probe);
+  rs = session_make(rd, AF_INET, cb, only_probe);
   if (!rs)
     return -1;
-
-  rs->start_rtptime = rtptime;
 
   if (rd->auth_key)
     ret = raop_verification_verify(rs);
@@ -4824,7 +4793,7 @@ raop_device_start_generic(struct output_device *rd, output_status_cb cb, uint64_
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv4\n");
-      raop_session_cleanup(rs);
+      session_cleanup(rs);
       return -1;
     }
 
@@ -4834,13 +4803,13 @@ raop_device_start_generic(struct output_device *rd, output_status_cb cb, uint64_
 static int
 raop_device_probe(struct output_device *rd, output_status_cb cb)
 {
-  return raop_device_start_generic(rd, cb, 0, 1);
+  return raop_device_start_generic(rd, cb, 1);
 }
 
 static int
 raop_device_start(struct output_device *rd, output_status_cb cb, uint64_t rtptime)
 {
-  return raop_device_start_generic(rd, cb, rtptime, 0);
+  return raop_device_start_generic(rd, cb, 0);
 }
 
 static void
@@ -4851,7 +4820,7 @@ raop_device_stop(struct output_session *session)
   if (rs->state & RAOP_STATE_F_CONNECTED)
     raop_send_req_teardown(rs, raop_cb_shutdown_teardown, "device_stop");
   else
-    raop_session_cleanup(rs);
+    session_cleanup(rs);
 }
 
 
@@ -4864,23 +4833,32 @@ raop_device_free_extra(struct output_device *device)
 }
 
 static void
-raop_playback_start(uint64_t next_pkt, struct timespec *ts)
+raop_playback_start(struct timespec *start_time)
 {
+  struct raop_master_session *rms;
   struct raop_session *rs;
+  struct rtp_packet *sync_pkt;
 
   event_del(flush_timer);
   evtimer_add(keep_alive_timer, &keep_alive_tv);
 
-  sync_counter = 0;
-
-  for (rs = sessions; rs; rs = rs->next)
+  for (rms = raop_master_sessions; rms; rms = rms->next)
     {
-      if (rs->state == RAOP_STATE_CONNECTED)
-	rs->state = RAOP_STATE_STREAMING;
-    }
+      rtp_session_restart(rms->rtp_session, start_time); // Resets sync counter
+      sync_pkt = rtp_sync_packet_next(rms->rtp_session);
 
-  /* Send initial playback sync */
-  raop_v2_control_send_sync(next_pkt, ts);
+      for (rs = raop_sessions; rs; rs = rs->next)
+	{
+	  if (rs->master_session != rms)
+	    continue;
+
+	  if (rs->state == RAOP_STATE_CONNECTED)
+	    rs->state = RAOP_STATE_STREAMING;
+
+	  if (sync_pkt && rs->state == RAOP_STATE_STREAMING)
+	    sync_packet_send(rs, sync_pkt);
+	}
+    }
 }
 
 static void
@@ -4891,7 +4869,7 @@ raop_playback_stop(void)
 
   evtimer_del(keep_alive_timer);
 
-  for (rs = sessions; rs; rs = rs->next)
+  for (rs = raop_sessions; rs; rs = rs->next)
     {
       ret = raop_send_req_teardown(rs, raop_cb_shutdown_teardown, "playback_stop");
       if (ret < 0)
@@ -4912,7 +4890,6 @@ raop_init(void)
 {
   char ebuf[64];
   char *ptr;
-  char *libname;
   gpg_error_t gc_err;
   int v6enabled;
   int family;
@@ -4930,27 +4907,11 @@ raop_init(void)
   control_6svc.fd = -1;
   control_6svc.port = 0;
 
-  sessions = NULL;
-
-  pktbuf_size = 0;
-  pktbuf_head = NULL;
-  pktbuf_tail = NULL;
-
-  metadata_head = NULL;
-  metadata_tail = NULL;
-
-  /* Generate RTP SSRC ID from library name */
-  libname = cfg_getstr(cfg_getsec(cfg, "library"), "name");
-  ssrc_id = djb_hash(libname, strlen(libname));
-
-  /* Random RTP sequence start */
-  gcry_randomize(&stream_seq, sizeof(stream_seq), GCRY_STRONG_RANDOM);
-
-  /* Generate AES key and IV */
+  // Generate AES key and IV
   gcry_randomize(raop_aes_key, sizeof(raop_aes_key), GCRY_STRONG_RANDOM);
   gcry_randomize(raop_aes_iv, sizeof(raop_aes_iv), GCRY_STRONG_RANDOM);
 
-  /* Setup AES */
+  // Setup AES
   gc_err = gcry_cipher_open(&raop_aes_ctx, GCRY_CIPHER_AES, GCRY_CIPHER_MODE_CBC, 0);
   if (gc_err != GPG_ERR_NO_ERROR)
     {
@@ -4960,7 +4921,7 @@ raop_init(void)
       return -1;
     }
 
-  /* Set key */
+  // Set key
   gc_err = gcry_cipher_setkey(raop_aes_ctx, raop_aes_key, sizeof(raop_aes_key));
   if (gc_err != GPG_ERR_NO_ERROR)
     {
@@ -4970,7 +4931,7 @@ raop_init(void)
       goto out_close_cipher;
     }
 
-  /* Prepare Base64-encoded key & IV for SDP */
+  // Prepare Base64-encoded key & IV for SDP
   raop_aes_key_b64 = raop_crypt_encrypt_aes_key_base64();
   if (!raop_aes_key_b64)
     {
@@ -4987,7 +4948,7 @@ raop_init(void)
       goto out_free_b64_key;
     }
 
-  /* Remove base64 padding */
+  // Remove base64 padding
   ptr = strchr(raop_aes_key_b64, '=');
   if (ptr)
     *ptr = '\0';
@@ -5064,11 +5025,11 @@ raop_deinit(void)
 {
   struct raop_session *rs;
 
-  for (rs = sessions; sessions; rs = sessions)
+  for (rs = raop_sessions; raop_sessions; rs = raop_sessions)
     {
-      sessions = rs->next;
+      raop_sessions = rs->next;
 
-      raop_session_free(rs);
+      session_free(rs);
     }
 
   raop_v2_control_stop();
@@ -5097,9 +5058,9 @@ struct output_definition output_raop =
   .device_free_extra = raop_device_free_extra,
   .device_volume_set = raop_set_volume_one,
   .device_volume_to_pct = raop_volume_to_pct,
-  .playback_start = raop_playback_start,
+  .playback_start2 = raop_playback_start,
   .playback_stop = raop_playback_stop,
-  .write = raop_v2_write,
+  .write2 = raop_write,
   .flush = raop_flush,
   .status_cb = raop_set_status_cb,
   .metadata_prepare = raop_metadata_prepare,

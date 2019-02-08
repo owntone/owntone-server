@@ -38,6 +38,8 @@
 #include "outputs.h"
 #include "commands.h"
 
+// From Airplay
+#define PULSE_SAMPLES_PER_PACKET 352
 #define PULSE_MAX_DEVICES 64
 #define PULSE_LOG_MAX 10
 
@@ -602,7 +604,7 @@ stream_open(struct pulse_session *ps, pa_stream_notify_cb_t cb)
 
   flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_AUTO_TIMING_UPDATE;
 
-  ps->attr.tlength   = STOB(2 * ss.rate + AIRTUNES_V2_PACKET_SAMPLES - offset); // 2 second latency
+  ps->attr.tlength   = STOB(2 * ss.rate + PULSE_SAMPLES_PER_PACKET - offset, 16, 2); // 2 second latency
   ps->attr.maxlength = 2 * ps->attr.tlength;
   ps->attr.prebuf    = (uint32_t)-1;
   ps->attr.minreq    = (uint32_t)-1;
@@ -760,7 +762,7 @@ pulse_write(uint8_t *buf, uint64_t rtptime)
   if (!sessions)
     return;
 
-  length = STOB(AIRTUNES_V2_PACKET_SAMPLES);
+  length = STOB(PULSE_SAMPLES_PER_PACKET, 16, 2);
 
   pa_threaded_mainloop_lock(pulse.mainloop);
 

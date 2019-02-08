@@ -7,15 +7,6 @@
 
 #include "db.h"
 
-// AirTunes v2 packet interval in ns */
-// (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet
-#define AIRTUNES_V2_STREAM_PERIOD 7981859
-
-// AirTunes v2 number of samples per packet
-// Probably using this value because 44100/352 and 48000/352 has good 32 byte
-// alignment, which improves performance of some encoders
-#define AIRTUNES_V2_PACKET_SAMPLES  352
-
 // Maximum number of previously played songs that are remembered
 #define MAX_HISTORY_COUNT 20
 
@@ -84,6 +75,9 @@ struct player_history
 
 int
 player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit);
+
+int
+player_get_time(struct timespec *ts);
 
 int
 player_get_status(struct player_status *status);
