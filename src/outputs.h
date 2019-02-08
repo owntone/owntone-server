@@ -3,6 +3,8 @@
 #define __OUTPUTS_H__
 
 #include <time.h>
+#include <event2/buffer.h>
+#include "misc.h"
 
 /* Outputs is a generic interface between the player and a media output method,
  * like for instance AirPlay (raop) or ALSA. The purpose of the interface is to
@@ -45,6 +47,20 @@
  * device_streaming_cb                      -> device_streaming_cb (re-add)
  *
  */
+
+// If an output requires a specific quality (like Airplay 1 devices often
+// require 44100/16) then it should make a subscription request to the output
+// module, which will then make sure to include this quality when it writes the
+// audio. The below sets the maximum number of *different* subscriptions
+// allowed. Note that multiple outputs requesting the *same* quality only counts
+// as one.
+#define OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS 5
+
+// Number of seconds the outputs should buffer before starting playback. Note
+// this value cannot freely be changed because 1) some Airplay devices ignore
+// the values we give and stick to 2 seconds, 2) those devices that can handle
+// different values can only do so within a limited range (maybe max 3 secs)
+#define OUTPUTS_BUFFER_DURATION 2
 
 // Must be in sync with outputs[] in outputs.c
 enum output_types
@@ -113,6 +129,9 @@ struct output_device
   int volume;
   int relvol;
 
+  // Quality of audio output
+  struct media_quality quality;
+
   // Address
   char *v4_address;
   char *v6_address;
@@ -140,6 +159,22 @@ struct output_metadata
   void *metadata;
   struct output_metadata *next;
 };
+
+struct output_frame
+{
+  struct media_quality quality;
+  struct evbuffer *evbuf;
+  uint8_t *buffer;
+  size_t bufsize;
+  int samples;
+};
+
+struct output_buffer
+{
+  uint32_t write_counter; // REMOVE ME? not used for anything
+  struct output_frame frames[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
+} output_buffer;
+
 
 typedef void (*output_status_cb)(struct output_device *device, struct output_session *session, enum output_device_state status);
 
@@ -183,12 +218,17 @@ struct output_definition
   // Convert device internal representation of volume to our pct scale
   int (*device_volume_to_pct)(struct output_device *device, const char *volume);
 
+  // Request a change of quality from the device
+  int (*quality_set)(struct output_device *device, struct media_quality *quality);
+
   // Start/stop playback on devices that were started
   void (*playback_start)(uint64_t next_pkt, struct timespec *ts);
+  void (*playback_start2)(struct timespec *start_time);
   void (*playback_stop)(void);
 
   // Write stream data to the output devices
   void (*write)(uint8_t *buf, uint64_t rtptime);
+  void (*write2)(struct output_buffer *buffer);
 
   // Flush all sessions, the return must be number of sessions pending the flush
   int (*flush)(output_status_cb cb, uint64_t rtptime);
@@ -224,14 +264,24 @@ outputs_device_volume_set(struct output_device *device, output_status_cb cb);
 int
 outputs_device_volume_to_pct(struct output_device *device, const char *value);
 
+// TODO should this function have a callback?
+int
+outputs_device_quality_set(struct output_device *device, struct media_quality *quality);
+
 void
-outputs_playback_start(uint64_t next_pkt, struct timespec *ts);
+outputs_playback_start(uint64_t next_pkt, struct timespec *start_time);
+
+void
+outputs_playback_start2(struct timespec *start_time);
 
 void
 outputs_playback_stop(void);
 
 void
 outputs_write(uint8_t *buf, uint64_t rtptime);
+
+void
+outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples);
 
 int
 outputs_flush(output_status_cb cb, uint64_t rtptime);
@@ -256,6 +306,12 @@ outputs_metadata_free(struct output_metadata *omd);
 
 void
 outputs_authorize(enum output_types type, const char *pin);
+
+int
+outputs_quality_subscribe(struct media_quality *quality);
+
+void
+outputs_quality_unsubscribe(struct media_quality *quality);
 
 int
 outputs_priority(struct output_device *device);
