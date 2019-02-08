@@ -8,12 +8,17 @@
 
 enum transcode_profile
 {
-  // Decodes/resamples the best audio stream into 44100 PCM16 (does not add wav header)
-  XCODE_PCM16_NOHEADER,
-  // Decodes/resamples the best audio stream into 44100 PCM16 (with wav header)
-  XCODE_PCM16_HEADER,
+  // Used for errors
+  XCODE_UNKNOWN = 0,
   // Decodes the best audio stream into PCM16 or PCM24, no resampling (does not add wav header)
   XCODE_PCM_NATIVE,
+  // Decodes/resamples the best audio stream into 44100 PCM16 (with wav header)
+  XCODE_PCM16_HEADER,
+  // Decodes/resamples the best audio stream (no wav headers)
+  XCODE_PCM16_44100,
+  XCODE_PCM16_48000,
+  XCODE_PCM24_44100,
+  XCODE_PCM24_48000,
   // Transcodes the best audio stream into MP3
   XCODE_MP3,
   // Transcodes the best audio stream into OPUS
@@ -44,7 +49,7 @@ struct transcode_ctx *
 transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size);
 
 struct decode_ctx *
-transcode_decode_setup_raw(void);
+transcode_decode_setup_raw(enum transcode_profile profile);
 
 int
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype);
@@ -100,13 +105,17 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
  * transcode_encode() function. It does not copy, so if you free the data the
  * frame will become invalid.
  *
- * @in  profile    Tells the function what kind of frame to create
  * @in  data       Buffer with raw data
  * @in  size       Size of buffer
+ * @in  nsamples   Number of samples in the buffer
+ * @in  sample_rate
+ *                 Sample rate
+ * @in  bits_per_sample
+ *                 BPS must be either 16 or 24
  * @return         Opaque pointer to frame if OK, otherwise NULL
  */
 transcode_frame *
-transcode_frame_new(enum transcode_profile profile, void *data, size_t size);
+transcode_frame_new(void *data, size_t size, int nsamples, int sample_rate, int bits_per_sample);
 void
 transcode_frame_free(transcode_frame *frame);
 
