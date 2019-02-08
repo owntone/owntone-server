@@ -6,6 +6,7 @@
 # include <config.h>
 #endif
 #include <event2/buffer.h>
+#include "misc.h"
 #include "transcode.h"
 
 // Must be in sync with inputs[] in input.c
@@ -83,13 +84,6 @@ struct player_source
 
 typedef int (*input_cb)(void);
 
-struct input_quality
-{
-  int sample_rate;
-  int bits_per_sample;
-  // Maybe some day also add channels here
-};
-
 struct input_metadata
 {
   uint32_t item_id;
@@ -161,7 +155,7 @@ int input_loop_break;
  *               -1 on error
  */
 int
-input_write(struct evbuffer *evbuf, struct input_quality *quality, short flags);
+input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags);
 
 /*
  * Input modules can use this to wait in the playback loop (like input_write()
@@ -236,7 +230,7 @@ input_flush(short *flags);
  * Returns the current quality of data returned by intput_read().
  */
 int
-input_quality_get(struct input_quality *quality);
+input_quality_get(struct media_quality *quality);
 
 /*
  * Gets metadata from the input, returns 0 if metadata is set, otherwise -1
