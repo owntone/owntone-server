@@ -33,7 +33,7 @@ const browseData = {
   load: function (to) {
     return webapi.search({
       type: 'track',
-      expression: 'time_played after 8 weeks ago order by time_played desc',
+      expression: 'time_played after 8 weeks ago and media_kind is music order by time_played desc',
       limit: 50
     })
   },
