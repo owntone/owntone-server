@@ -228,7 +228,7 @@ https_get_cb(char **out, const char *url)
   ctx.url = url;
   ctx.input_body = evbuffer_new();
 
-  ret = http_client_request(&ctx);
+  ret = http_client_request(&ctx, NULL);
   if (ret < 0 || ctx.response_code != HTTP_OK)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Failed to AP list from '%s' (return %d, error code %d)\n", ctx.url, ret, ctx.response_code);

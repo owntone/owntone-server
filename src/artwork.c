@@ -439,7 +439,7 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
   client.input_headers = kv;
   client.input_body = evbuf;
 
-  ret = http_client_request(&client);
+  ret = http_client_request(&client, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_ART, "Request to '%s' failed with return value %d\n", url, ret);
@@ -1288,7 +1288,7 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
   client.url = url;
   client.output_headers = &output_headers;
 
-  ret = http_client_request(&client);
+  ret = http_client_request(&client, NULL);
   keyval_clear(&output_headers);
   if (ret < 0 || client.response_code != HTTP_OK)
     {

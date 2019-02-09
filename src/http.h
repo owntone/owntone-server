@@ -4,9 +4,15 @@
 
 #include <event2/buffer.h>
 #include <event2/http.h>
+#include <curl/curl.h>
 #include "misc.h"
 
 #include <libavformat/avformat.h>
+
+struct http_client_session
+{
+  CURL *curl;
+};
 
 struct http_client_ctx
 {
@@ -54,6 +60,11 @@ struct http_icy_metadata
   uint32_t hash;
 };
 
+void
+http_client_session_init(struct http_client_session *session);
+
+void
+http_client_session_deinit(struct http_client_session *session);
 
 /* Make a http(s) request. We use libcurl to make https requests. We could use
  * libevent and avoid the dependency, but for SSL, libevent needs to be v2.1
@@ -63,7 +74,7 @@ struct http_icy_metadata
  * @return 0 if successful, -1 if an error occurred (e.g. no libcurl)
  */
 int
-http_client_request(struct http_client_ctx *ctx);
+http_client_request(struct http_client_ctx *ctx, struct http_client_session *session);
 
 
 /* Converts the keyval dictionary to a application/x-www-form-urlencoded string.
