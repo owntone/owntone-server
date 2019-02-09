@@ -100,7 +100,6 @@ request_cb(struct evhttp_request *req, void *arg)
 {
   struct http_client_ctx *ctx;
   const char *response_code_line;
-  int response_code;
 
   ctx = (struct http_client_ctx *)arg;
 
@@ -119,21 +118,21 @@ request_cb(struct evhttp_request *req, void *arg)
       goto connection_error;
     }
 
-  response_code = evhttp_request_get_response_code(req);
+  ctx->response_code = evhttp_request_get_response_code(req);
 #ifndef HAVE_LIBEVENT2_OLD
   response_code_line = evhttp_request_get_response_code_line(req);
 #else
   response_code_line = "no error text";
 #endif
 
-  if (response_code == 0)
+  if (ctx->response_code == 0)
     {
       DPRINTF(E_WARN, L_HTTP, "Connection to %s failed: Connection refused\n", ctx->url);
       goto connection_error;
     }
-  else if (response_code != 200)
+  else if (ctx->response_code != 200)
     {
-      DPRINTF(E_WARN, L_HTTP, "Connection to %s failed: %s (error %d)\n", ctx->url, response_code_line, response_code);
+      DPRINTF(E_WARN, L_HTTP, "Connection to %s failed: %s (error %d)\n", ctx->url, response_code_line, ctx->response_code);
       goto connection_error;
     }
 
@@ -309,6 +308,23 @@ http_client_request_impl(struct http_client_ctx *ctx)
 }
 
 #ifdef HAVE_LIBCURL
+
+static void
+curl_headers_save(struct keyval *kv, CURL *curl)
+{
+  char *content_type;
+  int ret;
+
+  if (!kv || !curl)
+    return;
+
+  ret = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &content_type);
+  if (ret == CURLE_OK && content_type)
+    {
+      keyval_add(kv, "Content-Type", content_type);
+    }
+}
+
 static size_t
 curl_request_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
@@ -341,6 +357,7 @@ https_client_request_impl(struct http_client_ctx *ctx)
   struct onekeyval *okv;
   const char *user_agent;
   char header[1024];
+  long response_code;
 
   curl = curl_easy_init();
   if (!curl)
@@ -383,6 +400,10 @@ https_client_request_impl(struct http_client_ctx *ctx)
       curl_easy_cleanup(curl);
       return -1;
     }
+
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+  ctx->response_code = (int) response_code;
+  curl_headers_save(ctx->input_headers, curl);
 
   curl_easy_cleanup(curl);
 

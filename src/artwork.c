@@ -206,7 +206,7 @@ static struct artwork_source artwork_item_source[] =
       .name = "Spotify web api",
       .handler = source_item_spotifywebapi_get,
       .data_kinds = (1 << DATA_KIND_SPOTIFY),
-      .cache = ON_SUCCESS,
+      .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "playlist own",
@@ -261,13 +261,14 @@ artwork_url_read(struct evbuffer *evbuf, const char *url)
   if (http_client_request(&client) < 0)
     goto out_kv;
 
+  if (client.response_code != HTTP_OK)
+    goto out_kv;
+
   content_type = keyval_get(kv, "Content-Type");
   if (content_type && (strcmp(content_type, "image/jpeg") == 0))
     ret = ART_FMT_JPEG;
   else if (content_type && (strcmp(content_type, "image/png") == 0))
     ret = ART_FMT_PNG;
-  else
-    ret = ART_FMT_JPEG;
 
  out_kv:
   keyval_clear(kv);
