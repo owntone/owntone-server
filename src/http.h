@@ -29,6 +29,9 @@ struct http_client_ctx
    */
   int headers_only;
 
+  /* HTTP Response code */
+  int response_code;
+
   /* Private */
   int ret;
   void *evbase;

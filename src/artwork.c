@@ -42,6 +42,7 @@
 #include "artwork.h"
 
 #ifdef HAVE_SPOTIFY_H
+# include "spotify_webapi.h"
 # include "spotify.h"
 #endif
 
@@ -138,6 +139,7 @@ static int source_item_embedded_get(struct artwork_ctx *ctx);
 static int source_item_own_get(struct artwork_ctx *ctx);
 static int source_item_stream_get(struct artwork_ctx *ctx);
 static int source_item_spotify_get(struct artwork_ctx *ctx);
+static int source_item_spotifywebapi_get(struct artwork_ctx *ctx);
 static int source_item_ownpl_get(struct artwork_ctx *ctx);
 
 /* List of sources that can provide artwork for a group (i.e. usually an album
@@ -201,6 +203,12 @@ static struct artwork_source artwork_item_source[] =
       .cache = ON_SUCCESS,
     },
     {
+      .name = "Spotify web api",
+      .handler = source_item_spotifywebapi_get,
+      .data_kinds = (1 << DATA_KIND_SPOTIFY),
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
       .name = "playlist own",
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
@@ -217,6 +225,58 @@ static struct artwork_source artwork_item_source[] =
 
 
 /* -------------------------------- HELPERS -------------------------------- */
+
+/* Reads an artwork file from the given url straight into an evbuf
+ *
+ * @out evbuf     Image data
+ * @in  url       URL for the image
+ * @return        0 on success, -1 on error
+ */
+static int
+artwork_url_read(struct evbuffer *evbuf, const char *url)
+{
+  struct http_client_ctx client;
+  struct keyval *kv;
+  const char *content_type;
+  int len;
+  int ret;
+
+  DPRINTF(E_SPAM, L_ART, "Trying internet artwork in %s\n", url);
+
+  ret = ART_E_NONE;
+
+  len = strlen(url);
+  if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
+    goto out_url;
+
+  kv = keyval_alloc();
+  if (!kv)
+    goto out_url;
+
+  memset(&client, 0, sizeof(struct http_client_ctx));
+  client.url = url;
+  client.input_headers = kv;
+  client.input_body = evbuf;
+
+  if (http_client_request(&client) < 0)
+    goto out_kv;
+
+  if (client.response_code != HTTP_OK)
+    goto out_kv;
+
+  content_type = keyval_get(kv, "Content-Type");
+  if (content_type && (strcmp(content_type, "image/jpeg") == 0))
+    ret = ART_FMT_JPEG;
+  else if (content_type && (strcmp(content_type, "image/png") == 0))
+    ret = ART_FMT_PNG;
+
+ out_kv:
+  keyval_clear(kv);
+  free(kv);
+
+ out_url:
+  return ret;
+}
 
 /* Reads an artwork file from the filesystem straight into an evbuf
  * TODO Use evbuffer_add_file or evbuffer_read?
@@ -322,9 +382,10 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
   return 0;
 }
 
-/* Get an artwork file from the filesystem. Will rescale if needed.
+/*
+ * Either gets the artwork file given in "path" from the file system (rescaled if needed) or rescales the artwork given in "inbuf".
  *
- * @out evbuf        Image data
+ * @out evbuf        Image data (rescaled if needed)
  * @in  path         Path to the artwork file (alternative to inbuf)
  * @in  inbuf        Buffer with the artwork (alternative to path)
  * @in  max_w        Requested width
@@ -727,10 +788,7 @@ source_item_own_get(struct artwork_ctx *ctx)
 static int
 source_item_stream_get(struct artwork_ctx *ctx)
 {
-  struct http_client_ctx client;
   struct db_queue_item *queue_item;
-  struct keyval *kv;
-  const char *content_type;
   char *url;
   char *ext;
   int len;
@@ -764,33 +822,13 @@ source_item_stream_get(struct artwork_ctx *ctx)
   if (ret > 0)
     goto out_url;
 
-  kv = keyval_alloc();
-  if (!kv)
-    goto out_url;
-
-  memset(&client, 0, sizeof(struct http_client_ctx));
-  client.url = url;
-  client.input_headers = kv;
-  client.input_body = ctx->evbuf;
-
-  if (http_client_request(&client) < 0)
-    goto out_kv;
-
-  content_type = keyval_get(kv, "Content-Type");
-  if (content_type && (strcmp(content_type, "image/jpeg") == 0))
-    ret = ART_FMT_JPEG;
-  else if (content_type && (strcmp(content_type, "image/png") == 0))
-    ret = ART_FMT_PNG;
+  ret = artwork_url_read(ctx->evbuf, url);
 
   if (ret > 0)
     {
-      DPRINTF(E_SPAM, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
+      DPRINTF(E_SPAM, L_ART, "Found internet stream artwork in %s (%d)\n", url, ret);
       cache_artwork_stash(ctx->evbuf, url, ret);
     }
-
- out_kv:
-  keyval_clear(kv);
-  free(kv);
 
  out_url:
   free(url);
@@ -867,9 +905,93 @@ source_item_spotify_get(struct artwork_ctx *ctx)
 
   return ART_E_ERROR;
 }
+
+static int
+source_item_spotifywebapi_get(struct artwork_ctx *ctx)
+{
+  struct evbuffer *raw;
+  struct evbuffer *evbuf;
+  char *artwork_url;
+  int content_type;
+  int ret;
+
+  artwork_url = NULL;
+  raw = evbuffer_new();
+  evbuf = evbuffer_new();
+  if (!raw || !evbuf)
+    {
+      DPRINTF(E_LOG, L_ART, "Out of memory for Spotify evbuf\n");
+      return ART_E_ERROR;
+    }
+
+  artwork_url = spotifywebapi_artwork_url_get(ctx->dbmfi->path, ctx->max_w, ctx->max_h);
+  if (!artwork_url)
+    {
+      DPRINTF(E_WARN, L_ART, "No artwork from Spotify for %s\n", ctx->dbmfi->path);
+      return ART_E_NONE;
+    }
+
+  ret = artwork_url_read(raw, artwork_url);
+  if (ret <= 0)
+    goto out_free_evbuf;
+
+  content_type = ret;
+
+  // Make a refbuf of raw for ffmpeg image size probing and possibly rescaling.
+  // We keep raw around in case rescaling is not necessary.
+#ifdef HAVE_LIBEVENT2_OLD
+  uint8_t *buf = evbuffer_pullup(raw, -1);
+  if (!buf)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not pullup raw artwork\n");
+      goto out_free_evbuf;
+    }
+
+  ret = evbuffer_add_reference(evbuf, buf, evbuffer_get_length(raw), NULL, NULL);
+#else
+  ret = evbuffer_add_buffer_reference(evbuf, raw);
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not copy/ref raw image for ffmpeg\n");
+      goto out_free_evbuf;
+    }
+
+  // For non-file input, artwork_get() will also fail if no rescaling is required
+  ret = artwork_get(ctx->evbuf, NULL, evbuf, ctx->max_w, ctx->max_h, false);
+  if (ret == ART_E_ERROR)
+    {
+      DPRINTF(E_DBG, L_ART, "Not rescaling Spotify image\n");
+      ret = evbuffer_add_buffer(ctx->evbuf, raw);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
+	  goto out_free_evbuf;
+	}
+    }
+
+  evbuffer_free(evbuf);
+  evbuffer_free(raw);
+  free(artwork_url);
+
+  return content_type;
+
+ out_free_evbuf:
+  evbuffer_free(evbuf);
+  evbuffer_free(raw);
+  free(artwork_url);
+
+  return ART_E_ERROR;
+}
 #else
 static int
 source_item_spotify_get(struct artwork_ctx *ctx)
+{
+  return ART_E_ERROR;
+}
+
+static int
+source_item_spotifywebapi_get(struct artwork_ctx *ctx)
 {
   return ART_E_ERROR;
 }
