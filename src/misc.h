@@ -17,6 +17,10 @@
 
 #define ARRAY_SIZE(x) ((unsigned int)(sizeof(x) / sizeof((x)[0])))
 
+#ifndef MIN
+# define MIN(a, b) ((a < b) ? a : b)
+#endif
+
 // Remember to adjust quality_is_equal() if adding elements
 struct media_quality {
   int sample_rate;
