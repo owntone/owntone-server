@@ -44,10 +44,8 @@ extern struct event_base *evbase_httpd;
 // Seconds between sending silence when player is idle
 // (to prevent client from hanging up)
 #define STREAMING_SILENCE_INTERVAL 1
-// How many samples we store in the buffer used for transmitting from player to httpd thread
-#define STREAMING_RAWBUF_SAMPLES 352
-// Buffer size
-#define STREAMING_RAWBUF_SIZE (STOB(STREAMING_RAWBUF_SAMPLES, 16, 2))
+// How many bytes we try to read at a time from the httpd pipe
+#define STREAMING_READ_SIZE STOB(352, 16, 2)
 
 // Linked list of mp3 streaming requests
 struct streaming_session {
@@ -56,23 +54,24 @@ struct streaming_session {
 };
 static struct streaming_session *streaming_sessions;
 
-static int streaming_initialized;
+// Means we're not able to encode to mp3
+static bool streaming_not_supported;
 
-// Buffers and interval for sending silence when playback is paused
-static uint8_t *streaming_silence_data;
-static size_t streaming_silence_size;
+// Interval for sending silence when playback is paused
 static struct timeval streaming_silence_tv = { STREAMING_SILENCE_INTERVAL, 0 };
 
 // Input buffer, output buffer and encoding ctx for transcode
-static uint8_t streaming_rawbuf[STREAMING_RAWBUF_SIZE];
 static struct encode_ctx *streaming_encode_ctx;
 static struct evbuffer *streaming_encoded_data;
+static struct media_quality streaming_quality;
 
 // Used for pushing events and data from the player
 static struct event *streamingev;
+static struct event *metaev;
 static struct player_status streaming_player_status;
 static int streaming_player_changed;
 static int streaming_pipe[2];
+static int streaming_meta[2];
 
 
 static void
@@ -117,11 +116,76 @@ streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
 }
 
 static void
+streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
+{
+  struct media_quality quality;
+  struct decode_ctx *decode_ctx;
+  int ret;
+
+  ret = read(fd, &quality, sizeof(struct media_quality));
+  if (ret != sizeof(struct media_quality))
+    goto error;
+
+  streaming_quality = quality;
+
+  decode_ctx = NULL;
+  if (quality.sample_rate == 44100 && quality.bits_per_sample == 16)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16_44100);
+  else if (quality.sample_rate == 44100 && quality.bits_per_sample == 24)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24_44100);
+  else if (quality.sample_rate == 48000 && quality.bits_per_sample == 16)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16_48000);
+  else if (quality.sample_rate == 48000 && quality.bits_per_sample == 24)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24_48000);
+
+  if (!decode_ctx)
+    goto error;
+
+  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, decode_ctx, NULL, 0, 0);
+  transcode_decode_cleanup(&decode_ctx);
+  if (!streaming_encode_ctx)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream MP3, libav does not support MP3 encoding\n");
+      streaming_not_supported = 1;
+      return;
+    }
+
+  streaming_not_supported = 0;
+
+ error:
+  DPRINTF(E_LOG, L_STREAMING, "Unknown or unsupported quality of input data, cannot MP3 encode\n");
+  transcode_encode_cleanup(&streaming_encode_ctx);
+  streaming_not_supported = 1;
+}
+
+static int
+encode_buffer(uint8_t *buffer, size_t size)
+{
+  transcode_frame *frame;
+  int samples;
+  int ret;
+
+  samples = BTOS(size, streaming_quality.bits_per_sample, streaming_quality.channels);
+
+  frame = transcode_frame_new(buffer, size, samples, streaming_quality.sample_rate, streaming_quality.bits_per_sample);
+  if (!frame)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
+      return -1;
+    }
+
+  ret = transcode_encode(streaming_encoded_data, streaming_encode_ctx, frame, 0);
+  transcode_frame_free(frame);
+
+  return ret;
+}
+
+static void
 streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 {
   struct streaming_session *session;
   struct evbuffer *evbuf;
-  void *frame;
+  uint8_t rawbuf[STREAMING_READ_SIZE];
   uint8_t *buf;
   int len;
   int ret;
@@ -129,24 +193,16 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   // Player wrote data to the pipe (EV_READ)
   if (event & EV_READ)
     {
-      ret = read(streaming_pipe[0], &streaming_rawbuf, STREAMING_RAWBUF_SIZE);
-      if (ret < 0)
-	return;
-
-      if (!streaming_sessions)
-	return;
-
-      frame = transcode_frame_new(streaming_rawbuf, STREAMING_RAWBUF_SIZE, STREAMING_RAWBUF_SAMPLES, 44100, 16);
-      if (!frame)
+      while (1)
 	{
-	  DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
-	  return;
-	}
+	  ret = read(fd, &rawbuf, sizeof(rawbuf));
+	  if (ret <= 0)
+	    break;
 
-      ret = transcode_encode(streaming_encoded_data, streaming_encode_ctx, frame, 0);
-      transcode_frame_free(frame);
-      if (ret < 0)
-	return;
+	  ret = encode_buffer(rawbuf, ret);
+	  if (ret < 0)
+	    return;
+	}
     }
   // Event timed out, let's see what the player is doing and send silence if it is paused
   else
@@ -157,16 +213,18 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	  player_get_status(&streaming_player_status);
 	}
 
-      if (!streaming_sessions)
-	return;
-
       if (streaming_player_status.status != PLAY_PAUSED)
 	return;
 
-      evbuffer_add(streaming_encoded_data, streaming_silence_data, streaming_silence_size);
+      memset(&rawbuf, 0, sizeof(rawbuf));
+      ret = encode_buffer(rawbuf, sizeof(rawbuf));
+      if (ret < 0)
+	return;
     }
 
   len = evbuffer_get_length(streaming_encoded_data);
+  if (len == 0)
+    return;
 
   // Send data
   evbuf = evbuffer_new();
@@ -181,6 +239,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
       else
 	evhttp_send_reply_chunk(session->req, streaming_encoded_data);
     }
+
   evbuffer_free(evbuf);
 }
 
@@ -193,14 +252,24 @@ player_change_cb(short event_mask)
 
 // Thread: player (also prone to race conditions, mostly during deinit)
 void
-streaming_write(uint8_t *buf, uint64_t rtptime)
+streaming_write(struct output_buffer *obuf)
 {
   int ret;
 
   if (!streaming_sessions)
     return;
 
-  ret = write(streaming_pipe[1], buf, STREAMING_RAWBUF_SIZE);
+  if (!quality_is_equal(&obuf->frames[0].quality, &streaming_quality))
+    {
+      ret = write(streaming_meta[1], &obuf->frames[0].quality, sizeof(struct media_quality));
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
+	  return;
+	}
+    }
+
+  ret = write(streaming_pipe[1], obuf->frames[0].buffer, obuf->frames[0].bufsize);
   if (ret < 0)
     {
       if (errno == EAGAIN)
@@ -221,9 +290,9 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   char *address;
   ev_uint16_t port;
 
-  if (!streaming_initialized)
+  if (!streaming_not_supported)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Got mp3 streaming request, but cannot encode to mp3\n");
+      DPRINTF(E_LOG, L_STREAMING, "Got MP3 streaming request, but cannot encode to MP3\n");
 
       evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
       return -1;
@@ -286,25 +355,7 @@ streaming_is_request(const char *path)
 int
 streaming_init(void)
 {
-  struct decode_ctx *decode_ctx;
-  void *frame;
-  int remaining;
   int ret;
-
-  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16_44100);
-  if (!decode_ctx)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Could not create decoding context\n");
-      return -1;
-    }
-
-  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, decode_ctx, NULL, 0, 0);
-  transcode_decode_cleanup(&decode_ctx);
-  if (!streaming_encode_ctx)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream mp3, libav does not support mp3 encoding\n");
-      return -1;
-    }
 
   // Non-blocking because otherwise httpd and player thread may deadlock
 #ifdef HAVE_PIPE2
@@ -320,7 +371,23 @@ streaming_init(void)
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_STREAMING, "Could not create pipe: %s\n", strerror(errno));
-      goto pipe_fail;
+      goto error;
+    }
+
+#ifdef HAVE_PIPE2
+  ret = pipe2(streaming_meta, O_CLOEXEC | O_NONBLOCK);
+#else
+  if ( pipe(streaming_meta) < 0 ||
+       fcntl(streaming_meta[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
+       fcntl(streaming_meta[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
+    ret = -1;
+  else
+    ret = 0;
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_STREAMING, "Could not create pipe: %s\n", strerror(errno));
+      goto error;
     }
 
   // Listen to playback changes so we don't have to poll to check for pausing
@@ -328,77 +395,22 @@ streaming_init(void)
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_STREAMING, "Could not add listener\n");
-      goto listener_fail;
+      goto error;
     }
 
   // Initialize buffer for encoded mp3 audio and event for pipe reading
-  streaming_encoded_data = evbuffer_new();
-  streamingev = event_new(evbase_httpd, streaming_pipe[0], EV_TIMEOUT | EV_READ | EV_PERSIST, streaming_send_cb, NULL);
-  if (!streaming_encoded_data || !streamingev)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Out of memory for encoded_data or event\n");
-      goto event_fail;
-    }
+  CHECK_NULL(L_STREAMING, streaming_encoded_data = evbuffer_new());
 
-  // Encode some silence which will be used for playback pause and put in a permanent buffer
-  remaining = STREAMING_SILENCE_INTERVAL * STOB(44100, 16, 2);
-  while (remaining > STREAMING_RAWBUF_SIZE)
-    {
-      frame = transcode_frame_new(streaming_rawbuf, STREAMING_RAWBUF_SIZE, STREAMING_RAWBUF_SAMPLES, 44100, 16);
-      if (!frame)
-	{
-	  DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
-	  goto silence_fail;
-	}
-
-      ret = transcode_encode(streaming_encoded_data, streaming_encode_ctx, frame, 0);
-      transcode_frame_free(frame);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_STREAMING, "Could not encode silence buffer\n");
-	  goto silence_fail;
-	}
-
-      remaining -= STREAMING_RAWBUF_SIZE;
-    }
-
-  streaming_silence_size = evbuffer_get_length(streaming_encoded_data);
-  if (streaming_silence_size == 0)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "The encoder didn't encode any silence\n");
-      goto silence_fail;
-    }
-
-  streaming_silence_data = malloc(streaming_silence_size);
-  if (!streaming_silence_data)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Out of memory for streaming_silence_data\n");
-      goto silence_fail;
-    }
-
-  ret = evbuffer_remove(streaming_encoded_data, streaming_silence_data, streaming_silence_size);
-  if (ret != streaming_silence_size)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Unknown error while copying silence buffer\n");
-      free(streaming_silence_data);
-      goto silence_fail;
-    }
-
-  // All done
-  streaming_initialized = 1;
+  CHECK_NULL(L_STREAMING, streamingev = event_new(evbase_httpd, streaming_pipe[0], EV_TIMEOUT | EV_READ | EV_PERSIST, streaming_send_cb, NULL));
+  CHECK_NULL(L_STREAMING, metaev = event_new(evbase_httpd, streaming_meta[0], EV_READ | EV_PERSIST, streaming_meta_cb, NULL));
 
   return 0;
 
- silence_fail:
-  event_free(streamingev);
-  evbuffer_free(streaming_encoded_data);
- event_fail:
-  listener_remove(player_change_cb);
- listener_fail:
+ error:
   close(streaming_pipe[0]);
   close(streaming_pipe[1]);
- pipe_fail:
-  transcode_encode_cleanup(&streaming_encode_ctx);
+  close(streaming_meta[0]);
+  close(streaming_meta[1]);
 
   return -1;
 }
@@ -408,9 +420,6 @@ streaming_deinit(void)
 {
   struct streaming_session *session;
   struct streaming_session *next;
-
-  if (!streaming_initialized)
-    return;
 
   session = streaming_sessions;
   streaming_sessions = NULL; // Stops writing and sending
@@ -430,8 +439,9 @@ streaming_deinit(void)
 
   close(streaming_pipe[0]);
   close(streaming_pipe[1]);
+  close(streaming_meta[0]);
+  close(streaming_meta[1]);
 
   transcode_encode_cleanup(&streaming_encode_ctx);
   evbuffer_free(streaming_encoded_data);
-  free(streaming_silence_data);
 }

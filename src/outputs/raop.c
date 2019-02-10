@@ -80,14 +80,6 @@
 #include "raop_verification.h"
 #endif
 
-// AirTunes v2 packet interval in ns */
-// (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet
-// #define AIRTUNES_V2_STREAM_PERIOD 7981859
-
-#ifndef MIN
-# define MIN(a, b) ((a < b) ? a : b)
-#endif
-
 #define ALAC_HEADER_LEN                      3
 
 #define RAOP_QUALITY_SAMPLE_RATE_DEFAULT     44100
@@ -220,9 +212,7 @@ struct raop_session
   int volume;
   uint64_t start_rtptime;
 
-  /* Do not dereference - only passed to the status cb */
   struct output_device *device;
-  struct output_session *output_session;
   output_status_cb status_cb;
 
   /* AirTunes v2 */
@@ -320,6 +310,14 @@ static const char *raop_devtype[] =
   "Other",
 };
 
+/* Struct with default quality levels */
+static struct media_quality raop_quality_default =
+{
+  RAOP_QUALITY_SAMPLE_RATE_DEFAULT,
+  RAOP_QUALITY_BITS_PER_SAMPLE_DEFAULT,
+  RAOP_QUALITY_CHANNELS_DEFAULT
+};
+
 /* From player.c */
 extern struct event_base *evbase_player;
 
@@ -355,15 +353,9 @@ static struct timeval keep_alive_tv = { 30, 0 };
 static struct raop_master_session *raop_master_sessions;
 static struct raop_session *raop_sessions;
 
-/* Struct with default quality levels */
-static struct media_quality raop_quality_default = { RAOP_QUALITY_SAMPLE_RATE_DEFAULT, RAOP_QUALITY_BITS_PER_SAMPLE_DEFAULT, RAOP_QUALITY_CHANNELS_DEFAULT };
-
 // Forwards
 static int
 raop_device_start(struct output_device *rd, output_status_cb cb);
-
-static void
-raop_device_stop(struct output_session *session);
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
@@ -1763,7 +1755,7 @@ raop_status(struct raop_session *rs)
 
   rs->status_cb = NULL;
   if (status_cb)
-    status_cb(rs->device, rs->output_session, state);
+    status_cb(rs->device, state);
 
   if (rs->state == RAOP_STATE_UNVERIFIED)
     player_speaker_status_trigger();
@@ -1882,8 +1874,6 @@ session_free(struct raop_session *rs)
   if (rs->devname)
     free(rs->devname);
 
-  free(rs->output_session);
-
   free(rs);
 }
 
@@ -1905,6 +1895,8 @@ session_cleanup(struct raop_session *rs)
 	s->next = rs->next;
     }
 
+  rs->device->session = NULL;
+
   session_free(rs);
 }
 
@@ -1921,14 +1913,6 @@ session_failure(struct raop_session *rs)
 }
 
 static void
-session_failure_cb(struct evrtsp_request *req, void *arg)
-{
-  struct raop_session *rs = arg;
-
-  session_failure(rs);
-}
-
-static void
 deferredev_cb(int fd, short what, void *arg)
 {
   struct raop_session *rs = arg;
@@ -1939,12 +1923,9 @@ deferredev_cb(int fd, short what, void *arg)
 }
 
 static void
-raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
+deferred_session_failure(struct raop_session *rs)
 {
-  struct raop_session *rs = arg;
   struct timeval tv;
-
-  DPRINTF(E_LOG, L_RAOP, "Device '%s' closed RTSP connection\n", rs->devname);
 
   rs->state = RAOP_STATE_FAILED;
 
@@ -1952,10 +1933,57 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
   evtimer_add(rs->deferredev, &tv);
 }
 
+static void
+raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
+{
+  struct raop_session *rs = arg;
+
+  DPRINTF(E_LOG, L_RAOP, "Device '%s' closed RTSP connection\n", rs->devname);
+
+  deferred_session_failure(rs);
+}
+
+static void
+session_teardown_cb(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  struct output_device *rd = rs->device;
+  output_status_cb status_cb = rs->status_cb;
+
+  rs->reqs_in_flight--;
+
+  if (!req || req->response_code != RTSP_OK)
+    DPRINTF(E_LOG, L_RAOP, "TEARDOWN request failed in session shutdown: %d %s\n", req->response_code, req->response_code_line);
+
+  // Clean up session before giving status to the user (good to get rid of it if he
+  // calls back into us - e.g. tries to make a new session in the callback)
+  session_cleanup(rs);
+
+  // Can't use raop_status() here, sadly
+  if (status_cb)
+    status_cb(rd, OUTPUT_STATE_STOPPED);
+
+  return;
+}
+
+static int
+session_teardown(struct raop_session *rs, const char *log_caller)
+{
+  int ret;
+
+  ret = raop_send_req_teardown(rs, session_teardown_cb, log_caller);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "%s: TEARDOWN request failed!\n", log_caller);
+      deferred_session_failure(rs);
+    }
+
+  return ret;
+}
+
 static struct raop_session *
 session_make(struct output_device *rd, int family, output_status_cb cb, bool only_probe)
 {
-  struct output_session *os;
   struct raop_session *rs;
   struct raop_extra *re;
   char *address;
@@ -1988,25 +2016,8 @@ session_make(struct output_device *rd, int family, output_status_cb cb, bool onl
 	return NULL;
     }
 
-  os = calloc(1, sizeof(struct output_session));
-  if (!os)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory (os)\n");
-      return NULL;
-    }
+  CHECK_NULL(L_PLAYER, rs = calloc(1, sizeof(struct raop_session)));
 
-  rs = calloc(1, sizeof(struct raop_session));
-  if (!rs)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory (rs)\n");
-      free(os);
-      return NULL;
-    }
-
-  os->session = rs;
-  os->type = rd->type;
-
-  rs->output_session = os;
   rs->state = RAOP_STATE_STOPPED;
   rs->only_probe = only_probe;
   rs->reqs_in_flight = 0;
@@ -2135,8 +2146,12 @@ session_make(struct output_device *rd, int family, output_status_cb cb, bool onl
       goto out_free_evcon;
     }
 
+  // Attach to list of sessions
   rs->next = raop_sessions;
   raop_sessions = rs;
+
+  // rs is now the official device session
+  rd->session = rs;
 
   return rs;
 
@@ -2717,15 +2732,10 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
 static int
 raop_set_volume_one(struct output_device *rd, output_status_cb cb)
 {
-  struct raop_session *rs;
+  struct raop_session *rs = rd->session;
   int ret;
 
-  if (!rd->session || !rd->session->session)
-    return 0;
-
-  rs = rd->session->session;
-
-  if (!(rs->state & RAOP_STATE_F_CONNECTED))
+  if (!rs || !(rs->state & RAOP_STATE_F_CONNECTED))
     return 0;
 
   ret = raop_set_volume_internal(rs, rd->volume, raop_cb_set_volume);
@@ -2813,12 +2823,7 @@ raop_flush_timer_cb(int fd, short what, void *arg)
   DPRINTF(E_DBG, L_RAOP, "Flush timer expired; tearing down RAOP sessions\n");
 
   for (rs = raop_sessions; rs; rs = rs->next)
-    {
-      if (!(rs->state & RAOP_STATE_F_CONNECTED))
-	continue;
-
-      raop_device_stop(rs->output_session);
-    }
+    session_teardown(rs, "raop_flush_timer_cb");
 }
 
 static void
@@ -2882,7 +2887,6 @@ packet_prepare(struct rtp_packet *pkt, uint8_t *rawbuf, size_t rawbuf_size, bool
 static int
 packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 {
-  struct timeval tv;
   int ret;
 
   if (!rs)
@@ -2893,12 +2897,9 @@ packet_send(struct raop_session *rs, struct rtp_packet *pkt)
     {
       DPRINTF(E_LOG, L_RAOP, "Send error for '%s': %s\n", rs->devname, strerror(errno));
 
-      rs->state = RAOP_STATE_FAILED;
-
       // Can't free it right away, it would make the ->next in the calling
       // master_session and session loops invalid
-      evutil_timerclear(&tv);
-      evtimer_add(rs->deferredev, &tv);
+      deferred_session_failure(rs);
       return -1;
     }
   else if (ret != pkt->data_len)
@@ -2943,8 +2944,6 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
   ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->sa.sa, len);
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
-
-  DPRINTF(E_DBG, L_PLAYER, "SYNC PACKET SENT\n");
 }
 
 static void
@@ -2990,7 +2989,6 @@ packets_send(struct raop_master_session *rms)
 	{
 	  pkt->header[1] = 0xe0;
 	  packet_send(rs, pkt);
-	  rs->state = RAOP_STATE_STREAMING;
 	}
       else if (rs->state == RAOP_STATE_STREAMING)
 	{
@@ -3006,7 +3004,7 @@ packets_send(struct raop_master_session *rms)
 }
 
 static void
-packets_sync_send(struct raop_master_session *rms, struct timespec *pts)
+packets_sync_send(struct raop_master_session *rms, struct timespec pts)
 {
   struct rtp_packet *sync_pkt;
   struct raop_session *rs;
@@ -3022,9 +3020,9 @@ packets_sync_send(struct raop_master_session *rms, struct timespec *pts)
   // OUTPUTS_BUFFER_DURATION secs into the future. However, in the sync packet
   // we want to tell the device what it should be playing right now. So we give
   // it a cur_time where we subtract this duration.
-  // TODO do we need this? could we just send the future timestamp?
-  cur_stamp.ts.tv_sec = pts->tv_sec - OUTPUTS_BUFFER_DURATION;
-  cur_stamp.ts.tv_nsec = pts->tv_nsec;
+  cur_stamp.ts.tv_sec = pts.tv_sec - OUTPUTS_BUFFER_DURATION;
+  cur_stamp.ts.tv_nsec = pts.tv_nsec;
+
   // The cur_pos will be the rtptime of the coming packet, minus
   // OUTPUTS_BUFFER_DURATION in samples (output_buffer_samples). Because we
   // might also have some data lined up in rms->evbuf, we also need to account
@@ -3041,6 +3039,8 @@ packets_sync_send(struct raop_master_session *rms, struct timespec *pts)
 	{
 	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, &cur_stamp, 0x90);
 	  control_packet_send(rs, sync_pkt);
+
+	  DPRINTF(E_DBG, L_PLAYER, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", rtptime=%" PRIu32 "\n", rs->devname, cur_stamp.pos, rms->rtp_session->pos);
 	}
       else if (is_sync_time && rs->state == RAOP_STATE_STREAMING)
 	{
@@ -3554,8 +3554,31 @@ raop_v2_control_start(int v6enabled)
 /* ------------------------------ Session startup --------------------------- */
 
 static void
+raop_cb_startup_retry(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+  struct output_device *rd = rs->device;
+  output_status_cb cb = rs->status_cb;
+
+  session_cleanup(rs);
+  raop_device_start(rd, cb);
+}
+
+static void
+raop_cb_startup_cancel(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs = arg;
+
+  session_failure(rs);
+}
+
+static void
 raop_startup_cancel(struct raop_session *rs)
 {
+  struct output_device *rd = rs->device;
+  output_status_cb cb;
+  int ret;
+
   if (!rs->session)
     {
       session_failure(rs);
@@ -3567,20 +3590,24 @@ raop_startup_cancel(struct raop_session *rs)
   if (rs->family == AF_INET6 && !(rs->state & RAOP_STATE_F_FAILED))
     {
       // This flag is permanent and will not be overwritten by mdns advertisements
-      rs->device->v6_disabled = 1;
+      rd->v6_disabled = 1;
 
-      // Be nice to our peer + session_failure_cb() cleans up old session
-      raop_send_req_teardown(rs, session_failure_cb, "startup_cancel");
+      // Stop current session and wait for call back
+      ret = raop_send_req_teardown(rs, raop_cb_startup_retry, "startup_cancel");
+      if (ret < 0)
+	{
+	  // No connection at all, lets clean up and try again
+	  cb = rs->status_cb;
+	  session_cleanup(rs);
+	  raop_device_start(rd, cb);
+	}
 
-      // Try to start a new session
-      raop_device_start(rs->device, rs->status_cb);
-
-      // Don't let the failed session make a negative status callback
-      rs->status_cb = NULL;
       return;
     }
 
-  raop_send_req_teardown(rs, session_failure_cb, "startup_cancel");
+  ret = raop_send_req_teardown(rs, raop_cb_startup_cancel, "startup_cancel");
+  if (ret < 0)
+    session_failure(rs);
 }
 
 static void
@@ -4067,41 +4094,6 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
     session_failure(rs);
   else
     raop_startup_cancel(rs);
-}
-
-static void
-raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
-{
-  struct raop_session *rs = arg;
-  int ret;
-
-  rs->reqs_in_flight--;
-
-  if (!req)
-    goto error;
-
-  if (req->response_code != RTSP_OK)
-    {
-      DPRINTF(E_LOG, L_RAOP, "TEARDOWN request failed in session shutdown: %d %s\n", req->response_code, req->response_code_line);
-
-      goto error;
-    }
-
-  ret = raop_check_cseq(rs, req);
-  if (ret < 0)
-    goto error;
-
-  rs->state = RAOP_STATE_STOPPED;
-
-  /* Session shut down, tell our user */
-  raop_status(rs);
-
-  session_cleanup(rs);
-
-  return;
-
- error:
-  session_failure(rs);
 }
 
 
@@ -4801,51 +4793,51 @@ raop_device_probe(struct output_device *rd, output_status_cb cb)
 static int
 raop_device_start(struct output_device *rd, output_status_cb cb)
 {
-  event_del(flush_timer);
-  evtimer_add(keep_alive_timer, &keep_alive_tv);
-
   return raop_device_start_generic(rd, cb, 0);
 }
 
-static void
-raop_device_stop(struct output_session *session)
+static int
+raop_device_stop(struct output_device *rd, output_status_cb cb)
 {
-  struct raop_session *rs = session->session;
+  struct raop_session *rs = rd->session;
 
-  if (rs->state & RAOP_STATE_F_CONNECTED)
-    raop_send_req_teardown(rs, raop_cb_shutdown_teardown, "device_stop");
-  else
-    session_cleanup(rs);
+  rs->status_cb = cb;
+
+  return session_teardown(rs, "device_stop");
 }
 
 static void
-raop_device_free_extra(struct output_device *device)
+raop_device_free_extra(struct output_device *rd)
 {
-  struct raop_extra *re = device->extra_device_info;
+  struct raop_extra *re = rd->extra_device_info;
 
   free(re);
+}
+
+static void
+raop_device_set_cb(struct output_device *rd, output_status_cb cb)
+{
+  struct raop_session *rs = rd->session;
+
+  rs->status_cb = cb;
 }
 
 static void
 raop_playback_stop(void)
 {
   struct raop_session *rs;
-  int ret;
 
   evtimer_del(keep_alive_timer);
 
   for (rs = raop_sessions; rs; rs = rs->next)
-    {
-      ret = raop_send_req_teardown(rs, raop_cb_shutdown_teardown, "playback_stop");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_RAOP, "playback_stop: TEARDOWN request failed!\n");
-    }
+    session_teardown(rs, "playback_stop");
 }
 
 static void
 raop_write(struct output_buffer *obuf)
 {
   struct raop_master_session *rms;
+  struct raop_session *rs;
   int i;
 
   for (rms = raop_master_sessions; rms; rms = rms->next)
@@ -4871,6 +4863,19 @@ raop_write(struct output_buffer *obuf)
 	    }
 	}
     }
+
+  // Check for devices that have joined since last write (we have already sent them
+  // initialization sync and rtp packets via packets_sync_send and packets_send)
+  for (rs = raop_sessions; rs; rs = rs->next)
+    {
+      if (rs->state != RAOP_STATE_CONNECTED)
+	continue;
+
+      event_del(flush_timer); // In case playback was stopped but then restarted again
+
+      rs->state = RAOP_STATE_STREAMING;
+      // Make a cb?
+    }
 }
 
 static int
@@ -4894,7 +4899,6 @@ raop_flush(output_status_cb cb)
       if (ret < 0)
 	{
 	  session_failure(rs);
-
 	  continue;
 	}
 
@@ -4910,14 +4914,6 @@ raop_flush(output_status_cb cb)
     }
 
   return pending;
-}
-
-static void
-raop_set_status_cb(struct output_session *session, output_status_cb cb)
-{
-  struct raop_session *rs = session->session;
-
-  rs->status_cb = cb;
 }
 
 static int
@@ -5035,7 +5031,6 @@ raop_init(void)
       goto out_stop_control;
     }
 
-
   return 0;
 
  out_stop_control:
@@ -5087,16 +5082,16 @@ struct output_definition output_raop =
   .disabled = 0,
   .init = raop_init,
   .deinit = raop_deinit,
-  .device_start2 = raop_device_start,
+  .device_start = raop_device_start,
   .device_stop = raop_device_stop,
   .device_probe = raop_device_probe,
   .device_free_extra = raop_device_free_extra,
   .device_volume_set = raop_set_volume_one,
   .device_volume_to_pct = raop_volume_to_pct,
+  .device_set_cb = raop_device_set_cb,
   .playback_stop = raop_playback_stop,
-  .write2 = raop_write,
-  .flush2 = raop_flush,
-  .status_cb = raop_set_status_cb,
+  .write = raop_write,
+  .flush = raop_flush,
   .metadata_prepare = raop_metadata_prepare,
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,

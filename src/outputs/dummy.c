@@ -47,9 +47,7 @@ struct dummy_session
   struct event *deferredev;
   output_status_cb defer_cb;
 
-  /* Do not dereference - only passed to the status cb */
   struct output_device *device;
-  struct output_session *output_session;
   output_status_cb status_cb;
 };
 
@@ -72,7 +70,6 @@ dummy_session_free(struct dummy_session *ds)
 
   event_free(ds->deferredev);
 
-  free(ds->output_session);
   free(ds);
 }
 
@@ -82,27 +79,20 @@ dummy_session_cleanup(struct dummy_session *ds)
   // Normally some here code to remove from linked list - here we just say:
   sessions = NULL;
 
+  ds->device->session = NULL;
+
   dummy_session_free(ds);
 }
 
 static struct dummy_session *
 dummy_session_make(struct output_device *device, output_status_cb cb)
 {
-  struct output_session *os;
   struct dummy_session *ds;
-
-  os = calloc(1, sizeof(struct output_session));
-  if (!os)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy session (os)\n");
-      return NULL;
-    }
 
   ds = calloc(1, sizeof(struct dummy_session));
   if (!ds)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy session (as)\n");
-      free(os);
       return NULL;
     }
 
@@ -110,20 +100,17 @@ dummy_session_make(struct output_device *device, output_status_cb cb)
   if (!ds->deferredev)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy deferred event\n");
-      free(os);
       free(ds);
       return NULL;
     }
 
-  os->session = ds;
-  os->type = device->type;
-
-  ds->output_session = os;
   ds->state = OUTPUT_STATE_CONNECTED;
   ds->device = device;
   ds->status_cb = cb;
 
   sessions = ds;
+
+  device->session = ds;
 
   return ds;
 }
@@ -139,7 +126,7 @@ defer_cb(int fd, short what, void *arg)
   struct dummy_session *ds = arg;
 
   if (ds->defer_cb)
-    ds->defer_cb(ds->device, ds->output_session, ds->state);
+    ds->defer_cb(ds->device, ds->state);
 
   if (ds->state == OUTPUT_STATE_STOPPED)
     dummy_session_cleanup(ds);
@@ -157,7 +144,7 @@ dummy_status(struct dummy_session *ds)
 /* ------------------ INTERFACE FUNCTIONS CALLED BY OUTPUTS.C --------------- */
 
 static int
-dummy_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime)
+dummy_device_start(struct output_device *device, output_status_cb cb)
 {
   struct dummy_session *ds;
 
@@ -170,13 +157,15 @@ dummy_device_start(struct output_device *device, output_status_cb cb, uint64_t r
   return 0;
 }
 
-static void
-dummy_device_stop(struct output_session *session)
+static int
+dummy_device_stop(struct output_device *device, output_status_cb cb)
 {
-  struct dummy_session *ds = session->session;
+  struct dummy_session *ds = device->session;
 
   ds->state = OUTPUT_STATE_STOPPED;
   dummy_status(ds);
+
+  return 0;
 }
 
 static int
@@ -199,12 +188,10 @@ dummy_device_probe(struct output_device *device, output_status_cb cb)
 static int
 dummy_device_volume_set(struct output_device *device, output_status_cb cb)
 {
-  struct dummy_session *ds;
+  struct dummy_session *ds = device->session;
 
-  if (!device->session || !device->session->session)
+  if (!ds)
     return 0;
-
-  ds = device->session->session;
 
   ds->status_cb = cb;
   dummy_status(ds);
@@ -213,15 +200,11 @@ dummy_device_volume_set(struct output_device *device, output_status_cb cb)
 }
 
 static void
-dummy_playback_start(uint64_t next_pkt, struct timespec *ts)
+dummy_device_set_cb(struct output_device *device, output_status_cb cb)
 {
-  struct dummy_session *ds = sessions;
+  struct dummy_session *ds = device->session;
 
-  if (!sessions)
-    return;
-
-  ds->state = OUTPUT_STATE_STREAMING;
-  dummy_status(ds);
+  ds->status_cb = cb;
 }
 
 static void
@@ -234,14 +217,6 @@ dummy_playback_stop(void)
 
   ds->state = OUTPUT_STATE_CONNECTED;
   dummy_status(ds);
-}
-
-static void
-dummy_set_status_cb(struct output_session *session, output_status_cb cb)
-{
-  struct dummy_session *ds = session->session;
-
-  ds->status_cb = cb;
 }
 
 static int
@@ -298,7 +273,6 @@ struct output_definition output_dummy =
   .device_stop = dummy_device_stop,
   .device_probe = dummy_device_probe,
   .device_volume_set = dummy_device_volume_set,
-  .playback_start = dummy_playback_start,
+  .device_set_cb = dummy_device_set_cb,
   .playback_stop = dummy_playback_stop,
-  .status_cb = dummy_set_status_cb,
 };

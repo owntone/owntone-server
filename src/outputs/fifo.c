@@ -45,10 +45,11 @@
 struct fifo_packet
 {
   /* pcm data */
-  uint8_t samples[FIFO_PACKET_SIZE];
+  uint8_t *samples;
+  size_t samples_size;
 
-  /* RTP-time of the first sample*/
-  uint64_t rtptime;
+  /* Presentation timestamp of the first sample */
+  struct timespec pts;
 
   struct fifo_packet *next;
   struct fifo_packet *prev;
@@ -59,7 +60,10 @@ struct fifo_buffer
   struct fifo_packet *head;
   struct fifo_packet *tail;
 };
+
 static struct fifo_buffer buffer;
+
+static struct media_quality fifo_quality = { 44100, 16, 2 };
 
 
 static void
@@ -94,9 +98,7 @@ struct fifo_session
   struct event *deferredev;
   output_status_cb defer_cb;
 
-  /* Do not dereference - only passed to the status cb */
   struct output_device *device;
-  struct output_session *output_session;
   output_status_cb status_cb;
 };
 
@@ -242,7 +244,6 @@ fifo_session_free(struct fifo_session *fifo_session)
 
   event_free(fifo_session->deferredev);
 
-  free(fifo_session->output_session);
   free(fifo_session);
   free_buffer();
 }
@@ -253,43 +254,26 @@ fifo_session_cleanup(struct fifo_session *fifo_session)
   // Normally some here code to remove from linked list - here we just say:
   sessions = NULL;
 
+  fifo_session->device->session = NULL;
+
   fifo_session_free(fifo_session);
 }
 
 static struct fifo_session *
 fifo_session_make(struct output_device *device, output_status_cb cb)
 {
-  struct output_session *output_session;
   struct fifo_session *fifo_session;
 
-  output_session = calloc(1, sizeof(struct output_session));
-  if (!output_session)
-    {
-      DPRINTF(E_LOG, L_FIFO, "Out of memory (os)\n");
-      return NULL;
-    }
-
-  fifo_session = calloc(1, sizeof(struct fifo_session));
-  if (!fifo_session)
-    {
-      DPRINTF(E_LOG, L_FIFO, "Out of memory (fs)\n");
-      free(output_session);
-      return NULL;
-    }
+  CHECK_NULL(L_FIFO, fifo_session = calloc(1, sizeof(struct fifo_session)));
 
   fifo_session->deferredev = evtimer_new(evbase_player, defer_cb, fifo_session);
   if (!fifo_session->deferredev)
     {
       DPRINTF(E_LOG, L_FIFO, "Out of memory for fifo deferred event\n");
-      free(output_session);
       free(fifo_session);
       return NULL;
     }
 
-  output_session->session = fifo_session;
-  output_session->type = device->type;
-
-  fifo_session->output_session = output_session;
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_session->device = device;
   fifo_session->status_cb = cb;
@@ -300,6 +284,8 @@ fifo_session_make(struct output_device *device, output_status_cb cb)
   fifo_session->output_fd = -1;
 
   sessions = fifo_session;
+
+  device->session = fifo_session;
 
   return fifo_session;
 }
@@ -315,7 +301,7 @@ defer_cb(int fd, short what, void *arg)
   struct fifo_session *ds = arg;
 
   if (ds->defer_cb)
-    ds->defer_cb(ds->device, ds->output_session, ds->state);
+    ds->defer_cb(ds->device, ds->state);
 
   if (ds->state == OUTPUT_STATE_STOPPED)
     fifo_session_cleanup(ds);
@@ -333,10 +319,14 @@ fifo_status(struct fifo_session *fifo_session)
 /* ------------------ INTERFACE FUNCTIONS CALLED BY OUTPUTS.C --------------- */
 
 static int
-fifo_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime)
+fifo_device_start(struct output_device *device, output_status_cb cb)
 {
   struct fifo_session *fifo_session;
   int ret;
+
+  ret = outputs_quality_subscribe(&fifo_quality);
+  if (ret < 0)
+    return -1;
 
   fifo_session = fifo_session_make(device, cb);
   if (!fifo_session)
@@ -351,16 +341,22 @@ fifo_device_start(struct output_device *device, output_status_cb cb, uint64_t rt
   return 0;
 }
 
-static void
-fifo_device_stop(struct output_session *output_session)
+static int
+fifo_device_stop(struct output_device *device, output_status_cb cb)
 {
-  struct fifo_session *fifo_session = output_session->session;
+  struct fifo_session *fifo_session = device->session;
+
+  outputs_quality_unsubscribe(&fifo_quality);
+
+  fifo_session->status_cb = cb;
 
   fifo_close(fifo_session);
   free_buffer();
 
   fifo_session->state = OUTPUT_STATE_STOPPED;
   fifo_status(fifo_session);
+
+  return 0;
 }
 
 static int
@@ -393,12 +389,10 @@ fifo_device_probe(struct output_device *device, output_status_cb cb)
 static int
 fifo_device_volume_set(struct output_device *device, output_status_cb cb)
 {
-  struct fifo_session *fifo_session;
+  struct fifo_session *fifo_session = device->session;
 
-  if (!device->session || !device->session->session)
+  if (!fifo_session)
     return 0;
-
-  fifo_session = device->session->session;
 
   fifo_session->status_cb = cb;
   fifo_status(fifo_session);
@@ -407,15 +401,11 @@ fifo_device_volume_set(struct output_device *device, output_status_cb cb)
 }
 
 static void
-fifo_playback_start(uint64_t next_pkt, struct timespec *ts)
+fifo_device_set_cb(struct output_device *device, output_status_cb cb)
 {
-  struct fifo_session *fifo_session = sessions;
+  struct fifo_session *fifo_session = device->session;
 
-  if (!fifo_session)
-    return;
-
-  fifo_session->state = OUTPUT_STATE_STREAMING;
-  fifo_status(fifo_session);
+  fifo_session->status_cb = cb;
 }
 
 static void
@@ -433,7 +423,7 @@ fifo_playback_stop(void)
 }
 
 static int
-fifo_flush(output_status_cb cb, uint64_t rtptime)
+fifo_flush(output_status_cb cb)
 {
   struct fifo_session *fifo_session = sessions;
 
@@ -450,45 +440,59 @@ fifo_flush(output_status_cb cb, uint64_t rtptime)
 }
 
 static void
-fifo_write(uint8_t *buf, uint64_t rtptime)
+fifo_write(struct output_buffer *obuf)
 {
   struct fifo_session *fifo_session = sessions;
-  size_t length = FIFO_PACKET_SIZE;
-  ssize_t bytes;
   struct fifo_packet *packet;
-  uint64_t cur_pos;
   struct timespec now;
-  int ret;
+  ssize_t bytes;
+  int i;
 
   if (!fifo_session || !fifo_session->device->selected)
     return;
 
-  packet = (struct fifo_packet *) calloc(1, sizeof(struct fifo_packet));
-  memcpy(packet->samples, buf, sizeof(packet->samples));
-  packet->rtptime = rtptime;
+  for (i = 0; obuf->frames[i].buffer; i++)
+    {
+      if (quality_is_equal(&fifo_quality, &obuf->frames[i].quality))
+        break;
+    }
+
+  if (!obuf->frames[i].buffer)
+    {
+      DPRINTF(E_LOG, L_FIFO, "Bug! Did not get audio in quality required\n");
+      return;
+    }
+
+  fifo_session->state = OUTPUT_STATE_STREAMING;
+
+  CHECK_NULL(L_FIFO, packet = calloc(1, sizeof(struct fifo_packet)));
+  CHECK_NULL(L_FIFO, packet->samples = malloc(obuf->frames[i].bufsize));
+
+  memcpy(packet->samples, obuf->frames[i].buffer, obuf->frames[i].bufsize);
+  packet->samples_size = obuf->frames[i].bufsize;
+  packet->pts = obuf->pts;
+
   if (buffer.head)
     {
       buffer.head->next = packet;
       packet->prev = buffer.head;
     }
+
   buffer.head = packet;
   if (!buffer.tail)
     buffer.tail = packet;
 
-  ret = player_get_current_pos(&cur_pos, &now, 0);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_FIFO, "Could not get playback position\n");
-      return;
-    }
+  now.tv_sec = obuf->pts.tv_sec - OUTPUTS_BUFFER_DURATION;
+  now.tv_nsec = obuf->pts.tv_sec;
 
-  while (buffer.tail && buffer.tail->rtptime <= cur_pos)
+  while (buffer.tail && (timespec_cmp(buffer.tail->pts, now) == -1))
     {
-      bytes = write(fifo_session->output_fd, buffer.tail->samples, length);
+      bytes = write(fifo_session->output_fd, buffer.tail->samples, buffer.tail->samples_size);
       if (bytes > 0)
 	{
 	  packet = buffer.tail;
 	  buffer.tail = buffer.tail->next;
+	  free(packet->samples);
 	  free(packet);
 	  return;
 	}
@@ -509,14 +513,6 @@ fifo_write(uint8_t *buf, uint64_t rtptime)
 	  return;
 	}
     }
-}
-
-static void
-fifo_set_status_cb(struct output_session *session, output_status_cb cb)
-{
-  struct fifo_session *fifo_session = session->session;
-
-  fifo_session->status_cb = cb;
 }
 
 static int
@@ -578,9 +574,8 @@ struct output_definition output_fifo =
   .device_stop = fifo_device_stop,
   .device_probe = fifo_device_probe,
   .device_volume_set = fifo_device_volume_set,
-  .playback_start = fifo_playback_start,
+  .device_set_cb = fifo_device_set_cb,
   .playback_stop = fifo_playback_stop,
   .write = fifo_write,
   .flush = fifo_flush,
-  .status_cb = fifo_set_status_cb,
 };

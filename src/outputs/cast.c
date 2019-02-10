@@ -177,9 +177,7 @@ struct cast_session
   char *session_id;
   int media_session_id;
 
-  /* Do not dereference - only passed to the status cb */
   struct output_device *device;
-  struct output_session *output_session;
   output_status_cb status_cb;
 
   struct cast_session *next;
@@ -1327,7 +1325,6 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 static struct cast_session *
 cast_session_make(struct output_device *device, int family, output_status_cb cb)
 {
-  struct output_session *os;
   struct cast_session *cs;
   const char *proto;
   const char *err;
@@ -1359,25 +1356,8 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
 	return NULL;
     }
 
-  os = calloc(1, sizeof(struct output_session));
-  if (!os)
-    {
-      DPRINTF(E_LOG, L_CAST, "Out of memory (os)\n");
-      return NULL;
-    }
+  CHECK_NULL(L_CAST, cs = calloc(1, sizeof(struct cast_session)));
 
-  cs = calloc(1, sizeof(struct cast_session));
-  if (!cs)
-    {
-      DPRINTF(E_LOG, L_CAST, "Out of memory (cs)\n");
-      free(os);
-      return NULL;
-    }
-
-  os->session = cs;
-  os->type = device->type;
-
-  cs->output_session = os;
   cs->state = CAST_STATE_DISCONNECTED;
   cs->device = device;
   cs->status_cb = cb;
@@ -1439,6 +1419,8 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
 
   cs->next = sessions;
   sessions = cs;
+
+  device->session = cs;
 
   proto = gnutls_protocol_get_name(gnutls_protocol_get_version(cs->tls_session));
 
