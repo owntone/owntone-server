@@ -169,6 +169,7 @@ struct raop_extra
 struct raop_master_session
 {
   struct evbuffer *evbuf;
+  int evbuf_samples;
 
   struct rtp_session *rtp_session;
 
@@ -176,6 +177,11 @@ struct raop_master_session
   size_t rawbuf_size;
   int samples_per_packet;
   bool encrypt;
+
+  // Number of samples that we tell the output to buffer (this will mean that
+  // the position that we send in the sync packages are offset by this amount
+  // compared to the rtptimes of the corresponding RTP packages we are sending)
+  int output_buffer_samples;
 
   struct raop_master_session *next;
 };
@@ -354,7 +360,7 @@ static struct media_quality raop_quality_default = { RAOP_QUALITY_SAMPLE_RATE_DE
 
 // Forwards
 static int
-raop_device_start(struct output_device *rd, output_status_cb cb, uint64_t rtptime);
+raop_device_start(struct output_device *rd, output_status_cb cb);
 
 static void
 raop_device_stop(struct output_session *session);
@@ -1245,7 +1251,7 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb, const char *lo
 }
 
 static int
-raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb, const char *log_caller)
+raop_send_req_flush(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
 {
   struct raop_master_session *rms = rs->master_session;
   struct evrtsp_request *req;
@@ -1269,8 +1275,8 @@ raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb,
       return -1;
     }
 
-  /* Restart sequence: last sequence + 1 */
-  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", rms->rtp_session->seqnum + 1, rms->rtp_session->pos);
+  /* Restart sequence */
+  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", rms->rtp_session->seqnum, rms->rtp_session->pos);
   if ((ret < 0) || (ret >= sizeof(buf)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in FLUSH request\n");
@@ -1375,7 +1381,7 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb, const char *log_
   evrtsp_add_header(req->output_headers, "Range", "npt=0-");
 
   /* Start sequence: next sequence */
-  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", rms->rtp_session->seqnum + 1, rms->rtp_session->pos);
+  ret = snprintf(buf, sizeof(buf), "seq=%" PRIu16 ";rtptime=%u", rms->rtp_session->seqnum, rms->rtp_session->pos);
   if ((ret < 0) || (ret >= sizeof(buf)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in RECORD request\n");
@@ -1384,6 +1390,8 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb, const char *log_
       return -1;
     }
   evrtsp_add_header(req->output_headers, "RTP-Info", buf);
+
+  DPRINTF(E_DBG, L_RAOP, "RTP-Info is %s\n", buf);
 
   ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_RECORD, rs->session_url);
   if (ret < 0)
@@ -1784,7 +1792,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
 
   CHECK_NULL(L_RAOP, rms = calloc(1, sizeof(struct raop_master_session)));
 
-  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0, OUTPUTS_BUFFER_DURATION);
+  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0);
   if (!rms->rtp_session)
     {
       outputs_quality_unsubscribe(quality);
@@ -1795,6 +1803,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
   rms->encrypt = encrypt;
   rms->samples_per_packet = RAOP_SAMPLES_PER_PACKET;
   rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
+  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
 
   CHECK_NULL(L_RAOP, rms->rawbuf = malloc(rms->rawbuf_size));
   CHECK_NULL(L_RAOP, rms->evbuf = evbuffer_new());
@@ -1810,10 +1819,8 @@ master_session_free(struct raop_master_session *rms)
 {
   outputs_quality_unsubscribe(&rms->rtp_session->quality);
   rtp_session_free(rms->rtp_session);
-
   evbuffer_free(rms->evbuf);
   free(rms->rawbuf);
-
   free(rms);
 }
 
@@ -2875,6 +2882,7 @@ packet_prepare(struct rtp_packet *pkt, uint8_t *rawbuf, size_t rawbuf_size, bool
 static int
 packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 {
+  struct timeval tv;
   int ret;
 
   if (!rs)
@@ -2885,7 +2893,12 @@ packet_send(struct raop_session *rs, struct rtp_packet *pkt)
     {
       DPRINTF(E_LOG, L_RAOP, "Send error for '%s': %s\n", rs->devname, strerror(errno));
 
-      session_failure(rs);
+      rs->state = RAOP_STATE_FAILED;
+
+      // Can't free it right away, it would make the ->next in the calling
+      // master_session and session loops invalid
+      evutil_timerclear(&tv);
+      evtimer_add(rs->deferredev, &tv);
       return -1;
     }
   else if (ret != pkt->data_len)
@@ -2894,6 +2907,13 @@ packet_send(struct raop_session *rs, struct rtp_packet *pkt)
       return -1;
     }
 
+/*  DPRINTF(E_DBG, L_PLAYER, "RTP PACKET seqnum %u, rtptime %u, payload 0x%x, pktbuf_s %zu\n",
+    rs->master_session->rtp_session->seqnum,
+    rs->master_session->rtp_session->pos,
+    pkt->header[1],
+    rs->master_session->rtp_session->pktbuf_len
+    );
+*/
   return 0;
 }
 
@@ -2923,6 +2943,8 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
   ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->sa.sa, len);
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
+
+  DPRINTF(E_DBG, L_PLAYER, "SYNC PACKET SENT\n");
 }
 
 static void
@@ -2946,53 +2968,86 @@ packets_resend(struct raop_session *rs, uint16_t seqnum, uint16_t len)
 }
 
 static int
-frame_send(struct raop_master_session *rms)
+packets_send(struct raop_master_session *rms)
 {
   struct rtp_packet *pkt;
-  struct rtp_packet *sync_pkt;
   struct raop_session *rs;
-  struct raop_session *next;
-  bool sync_send;
   int ret;
 
-  while (evbuffer_get_length(rms->evbuf) >= rms->rawbuf_size)
+  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet, 0x60);
+
+  ret = packet_prepare(pkt, rms->rawbuf, rms->rawbuf_size, rms->encrypt);
+  if (ret < 0)
+    return -1;
+
+  for (rs = raop_sessions; rs; rs = rs->next)
     {
-      evbuffer_remove(rms->evbuf, rms->rawbuf, rms->rawbuf_size);
+      if (rs->master_session != rms)
+	continue;
 
-      pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet);
-
-      ret = packet_prepare(pkt, rms->rawbuf, rms->rawbuf_size, rms->encrypt);
-      if (ret < 0)
-	return -1;
-
-      sync_send = rtp_sync_check(rms->rtp_session, pkt);
-      if (sync_send)
-	sync_pkt = rtp_sync_packet_next(rms->rtp_session);
-
-      for (rs = raop_sessions; rs; rs = next)
+      // Device just joined
+      if (rs->state == RAOP_STATE_CONNECTED)
 	{
-	  // packet_send() may free rs on failure, so save rs->next now
-	  next = rs->next;
-
-	  // A device could have joined after playback_start() was called, so we
-	  // also update state here
-	  if (rs->state == RAOP_STATE_CONNECTED)
-	    rs->state = RAOP_STATE_STREAMING;
-
-	  if (rs->master_session != rms || rs->state != RAOP_STATE_STREAMING)
-	    continue;
-
-	  if (sync_send)
-	    control_packet_send(rs, sync_pkt);
-
+	  pkt->header[1] = 0xe0;
+	  packet_send(rs, pkt);
+	  rs->state = RAOP_STATE_STREAMING;
+	}
+      else if (rs->state == RAOP_STATE_STREAMING)
+	{
+	  pkt->header[1] = 0x60;
 	  packet_send(rs, pkt);
 	}
-
-      // Commits packet to retransmit buffer, and prepares the session for the next packet
-      rtp_packet_commit(rms->rtp_session, pkt);
     }
 
+  // Commits packet to retransmit buffer, and prepares the session for the next packet
+  rtp_packet_commit(rms->rtp_session, pkt);
+
   return 0;
+}
+
+static void
+packets_sync_send(struct raop_master_session *rms, struct timespec *pts)
+{
+  struct rtp_packet *sync_pkt;
+  struct raop_session *rs;
+  struct rtcp_timestamp cur_stamp;
+  bool is_sync_time;
+
+  // Check if it is time send a sync packet to sessions that are already running
+  is_sync_time = rtp_sync_is_time(rms->rtp_session);
+
+  // The last write from the player had a timestamp which has been passed to
+  // this function as pts. This is the time the device should be playing the
+  // samples just written by the player, so it is a time which is
+  // OUTPUTS_BUFFER_DURATION secs into the future. However, in the sync packet
+  // we want to tell the device what it should be playing right now. So we give
+  // it a cur_time where we subtract this duration.
+  // TODO do we need this? could we just send the future timestamp?
+  cur_stamp.ts.tv_sec = pts->tv_sec - OUTPUTS_BUFFER_DURATION;
+  cur_stamp.ts.tv_nsec = pts->tv_nsec;
+  // The cur_pos will be the rtptime of the coming packet, minus
+  // OUTPUTS_BUFFER_DURATION in samples (output_buffer_samples). Because we
+  // might also have some data lined up in rms->evbuf, we also need to account
+  // for that.
+  cur_stamp.pos = rms->rtp_session->pos + rms->evbuf_samples - rms->output_buffer_samples;
+
+  for (rs = raop_sessions; rs; rs = rs->next)
+    {
+      if (rs->master_session != rms)
+	continue;
+
+      // A device has joined and should get an init sync packet
+      if (rs->state == RAOP_STATE_CONNECTED)
+	{
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, &cur_stamp, 0x90);
+	  control_packet_send(rs, sync_pkt);
+	}
+      else if (is_sync_time && rs->state == RAOP_STATE_STREAMING)
+	{
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, &cur_stamp, 0x80);
+	  control_packet_send(rs, sync_pkt);
+	}
+    }
 }
 
 
@@ -3518,7 +3573,7 @@ raop_startup_cancel(struct raop_session *rs)
       raop_send_req_teardown(rs, session_failure_cb, "startup_cancel");
 
       // Try to start a new session
-      raop_device_start(rs->device, rs->status_cb, rs->start_rtptime);
+      raop_device_start(rs->device, rs->status_cb);
 
       // Don't let the failed session make a negative status callback
       rs->status_cb = NULL;
@@ -4744,8 +4799,11 @@ raop_device_probe(struct output_device *rd, output_status_cb cb)
 }
 
 static int
-raop_device_start(struct output_device *rd, output_status_cb cb, uint64_t rtptime)
+raop_device_start(struct output_device *rd, output_status_cb cb)
 {
+  event_del(flush_timer);
+  evtimer_add(keep_alive_timer, &keep_alive_tv);
+
   return raop_device_start_generic(rd, cb, 0);
 }
 
@@ -4760,42 +4818,12 @@ raop_device_stop(struct output_session *session)
     session_cleanup(rs);
 }
 
-
 static void
 raop_device_free_extra(struct output_device *device)
 {
   struct raop_extra *re = device->extra_device_info;
 
   free(re);
-}
-
-static void
-raop_playback_start(struct timespec *start_time)
-{
-  struct raop_master_session *rms;
-  struct raop_session *rs;
-  struct rtp_packet *sync_pkt;
-
-  event_del(flush_timer);
-  evtimer_add(keep_alive_timer, &keep_alive_tv);
-
-  for (rms = raop_master_sessions; rms; rms = rms->next)
-    {
-      rtp_session_restart(rms->rtp_session, start_time); // Resets sync counter
-      sync_pkt = rtp_sync_packet_next(rms->rtp_session);
-
-      for (rs = raop_sessions; rs; rs = rs->next)
-	{
-	  if (rs->master_session != rms)
-	    continue;
-
-	  if (rs->state == RAOP_STATE_CONNECTED)
-	    rs->state = RAOP_STATE_STREAMING;
-
-	  if (sync_pkt && rs->state == RAOP_STATE_STREAMING)
-	    control_packet_send(rs, sync_pkt);
-	}
-    }
 }
 
 static void
@@ -4827,14 +4855,26 @@ raop_write(struct output_buffer *obuf)
 	  if (!quality_is_equal(&obuf->frames[i].quality, &rms->rtp_session->quality))
 	    continue;
 
+	  // Sends sync packets to new sessions, and if it is sync time then also to old sessions
+	  packets_sync_send(rms, obuf->pts);
+
 	  evbuffer_add_buffer_reference(rms->evbuf, obuf->frames[i].evbuf);
-	  frame_send(rms);
+	  rms->evbuf_samples += obuf->frames[i].samples;
+
+	  // Send as many packets as we have data for (one packet requires rawbuf_size bytes)
+	  while (evbuffer_get_length(rms->evbuf) >= rms->rawbuf_size)
+	    {
+	      evbuffer_remove(rms->evbuf, rms->rawbuf, rms->rawbuf_size);
+	      rms->evbuf_samples -= rms->samples_per_packet;
+
+	      packets_send(rms);
+	    }
 	}
     }
 }
 
 static int
-raop_flush(output_status_cb cb, uint64_t rtptime)
+raop_flush(output_status_cb cb)
 {
   struct timeval tv;
   struct raop_session *rs;
@@ -4850,7 +4890,7 @@ raop_flush(output_status_cb cb, uint64_t rtptime)
       if (rs->state != RAOP_STATE_STREAMING)
 	continue;
 
-      ret = raop_send_req_flush(rs, rtptime, raop_cb_flush, "flush");
+      ret = raop_send_req_flush(rs, raop_cb_flush, "flush");
       if (ret < 0)
 	{
 	  session_failure(rs);
@@ -5047,16 +5087,15 @@ struct output_definition output_raop =
   .disabled = 0,
   .init = raop_init,
   .deinit = raop_deinit,
-  .device_start = raop_device_start,
+  .device_start2 = raop_device_start,
   .device_stop = raop_device_stop,
   .device_probe = raop_device_probe,
   .device_free_extra = raop_device_free_extra,
   .device_volume_set = raop_set_volume_one,
   .device_volume_to_pct = raop_volume_to_pct,
-  .playback_start2 = raop_playback_start,
   .playback_stop = raop_playback_stop,
   .write2 = raop_write,
-  .flush = raop_flush,
+  .flush2 = raop_flush,
   .status_cb = raop_set_status_cb,
   .metadata_prepare = raop_metadata_prepare,
   .metadata_send = raop_metadata_send,

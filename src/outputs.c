@@ -140,7 +140,7 @@ encoding_reset(struct media_quality *quality)
 }
 
 static void
-buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_quality *quality, int nsamples)
+buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts)
 {
   transcode_frame *frame;
   int ret;
@@ -148,6 +148,7 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
   int n;
 
   obuf->write_counter++;
+  obuf->pts = pts;
 
   // The resampling/encoding (transcode) contexts work for a given input quality,
   // so if the quality changes we need to reset the contexts. We also do that if
@@ -213,6 +214,18 @@ outputs_device_start(struct output_device *device, output_status_cb cb, uint64_t
 
   if (outputs[device->type]->device_start)
     return outputs[device->type]->device_start(device, cb, rtptime);
+  else
+    return -1;
+}
+
+int
+outputs_device_start2(struct output_device *device, output_status_cb cb)
+{
+  if (outputs[device->type]->disabled)
+    return -1;
+
+  if (outputs[device->type]->device_start2)
+    return outputs[device->type]->device_start2(device, cb);
   else
     return -1;
 }
@@ -299,36 +312,6 @@ outputs_device_quality_set(struct output_device *device, struct media_quality *q
 }
 
 void
-outputs_playback_start(uint64_t next_pkt, struct timespec *start_time)
-{
-  int i;
-
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled)
-	continue;
-
-      if (outputs[i]->playback_start)
-	outputs[i]->playback_start(next_pkt, start_time);
-    }
-}
-
-void
-outputs_playback_start2(struct timespec *start_time)
-{
-  int i;
-
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled)
-	continue;
-
-      if (outputs[i]->playback_start2)
-	outputs[i]->playback_start2(start_time);
-    }
-}
-
-void
 outputs_playback_stop(void)
 {
   int i;
@@ -359,11 +342,11 @@ outputs_write(uint8_t *buf, uint64_t rtptime)
 }
 
 void
-outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples)
+outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts)
 {
   int i;
 
-  buffer_fill(&output_buffer, buf, bufsize, quality, nsamples);
+  buffer_fill(&output_buffer, buf, bufsize, quality, nsamples, pts);
 
   for (i = 0; outputs[i]; i++)
     {
@@ -391,6 +374,25 @@ outputs_flush(output_status_cb cb, uint64_t rtptime)
 
       if (outputs[i]->flush)
 	ret += outputs[i]->flush(cb, rtptime);
+    }
+
+  return ret;
+}
+
+int
+outputs_flush2(output_status_cb cb)
+{
+  int ret;
+  int i;
+
+  ret = 0;
+  for (i = 0; outputs[i]; i++)
+    {
+      if (outputs[i]->disabled)
+	continue;
+
+      if (outputs[i]->flush2)
+	ret += outputs[i]->flush2(cb);
     }
 
   return ret;

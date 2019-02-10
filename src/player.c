@@ -134,7 +134,7 @@
 // (value is in milliseconds)
 #define PLAYER_WRITE_BEHIND_MAX 1500
 
-// TODO fix me
+// TODO get rid of me
 #define TEMP_NEXT_RTPTIME (last_rtptime + pb_session.samples_written + pb_session.samples_per_read)
 
 struct volume_param {
@@ -194,6 +194,14 @@ struct player_session
   int samples_per_read;
 
   struct media_quality quality;
+
+  // The time the playback session started
+  struct timespec start_ts;
+
+  // The time the first sample in the buffer should be played by the output.
+  // It will be equal to:
+  // pts = start_ts + OUTPUTS_BUFFER_DURATION + ticks_elapsed * player_tick_interval
+  struct timespec pts;
 };
 
 static struct player_session pb_session;
@@ -225,15 +233,11 @@ static int pb_timer_fd;
 timer_t pb_timer;
 #endif
 static struct event *pb_timer_ev;
-//static struct timespec pb_timer_last;
-//static struct timespec packet_timer_last;
 
-// How often the playback timer triggers playback_cb()
-static struct timespec tick_interval;
+// Time between ticks, i.e. time between when playback_cb() is invoked
+static struct timespec player_tick_interval;
 // Timer resolution
-static struct timespec timer_res;
-// Time between two packets
-//static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
+static struct timespec player_timer_res;
 
 // How many writes we owe the output (when the input is underrunning)
 static int pb_read_deficit;
@@ -1009,7 +1013,7 @@ session_init(struct player_session *session, struct media_quality *quality)
 {
   session->samples_written = 0;
   session->quality = *quality;
-  session->samples_per_read = (quality->sample_rate / 1000) * (tick_interval.tv_nsec / 1000000);
+  session->samples_per_read = (quality->sample_rate / 1000) * (player_tick_interval.tv_nsec / 1000000);
   session->bufsize = STOB(session->samples_per_read, quality->bits_per_sample, quality->channels);
 
   DPRINTF(E_DBG, L_PLAYER, "New session values (q=%d/%d/%d, spr=%d, bufsize=%zu)\n",
@@ -1022,6 +1026,10 @@ session_init(struct player_session *session, struct media_quality *quality)
     session->buffer = malloc(session->bufsize);
 
   CHECK_NULL(L_PLAYER, session->buffer);
+
+  clock_gettime_with_res(CLOCK_MONOTONIC, &session->start_ts, &player_timer_res);
+  session->pts.tv_sec = session->start_ts.tv_sec + OUTPUTS_BUFFER_DURATION;
+  session->pts.tv_nsec = session->start_ts.tv_nsec;
 }
 
 static void
@@ -1092,6 +1100,7 @@ source_read(uint8_t *buf, int len)
 static void
 playback_cb(int fd, short what, void *arg)
 {
+  struct timespec ts;
   uint64_t overrun;
   int got;
   int nsamples;
@@ -1162,16 +1171,25 @@ playback_cb(int fd, short what, void *arg)
 	}
 
       nsamples = BTOS(got, pb_session.quality.bits_per_sample, pb_session.quality.channels);
-      outputs_write2(pb_session.buffer, pb_session.bufsize, &pb_session.quality, nsamples);
+      outputs_write2(pb_session.buffer, pb_session.bufsize, &pb_session.quality, nsamples, &pb_session.pts);
       pb_session.samples_written += nsamples;
 
       if (got < pb_session.bufsize)
 	{
 	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d\n", pb_session.bufsize, got);
+	  // How much the number of samples we got corresponds to in time (nanoseconds)
+	  ts.tv_sec = 0;
+	  ts.tv_nsec = 1000000000L * nsamples / pb_session.quality.sample_rate;
+	  pb_session.pts = timespec_add(pb_session.pts, ts);
 	  pb_read_deficit++;
 	}
-      else if (pb_read_deficit > 0)
-	pb_read_deficit--;
+      else
+	{
+	  // We got a full frame, so that means we can also advance the presentation timestamp by a full tick
+	  pb_session.pts = timespec_add(pb_session.pts, player_tick_interval);
+	  if (pb_read_deficit > 0)
+	    pb_read_deficit--;
+	}
     }
 
   if (pb_read_deficit > pb_read_deficit_max)
@@ -1568,7 +1586,6 @@ device_lost_cb(struct output_device *device, struct output_session *session, enu
 static void
 device_activate_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
-  struct timespec ts;
   int retval;
   int ret;
 
@@ -1609,15 +1626,6 @@ device_activate_cb(struct output_device *device, struct output_session *session,
   device->session = session;
 
   output_sessions++;
-
-  if ((player_state == PLAY_PLAYING) && (output_sessions == 1))
-    {
-      ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
-      else
-	outputs_playback_start2(&ts);
-    }
 
   outputs_status_cb(session, device_streaming_cb);
 
@@ -1742,8 +1750,8 @@ playback_timer_start(void)
       return -1;
     }
 
-  tick.it_interval = tick_interval;
-  tick.it_value = tick_interval;
+  tick.it_interval = player_tick_interval;
+  tick.it_value = player_tick_interval;
 
 #ifdef HAVE_TIMERFD
   ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
@@ -1807,7 +1815,7 @@ playback_abort(void)
 static void
 playback_suspend(void)
 {
-  player_flush_pending = outputs_flush(device_command_cb, TEMP_NEXT_RTPTIME);
+  player_flush_pending = outputs_flush2(device_command_cb);
 
   playback_timer_stop();
 
@@ -1941,7 +1949,7 @@ playback_stop(void *arg, int *retval)
 
   // We may be restarting very soon, so we don't bring the devices to a full
   // stop just yet; this saves time when restarting, which is nicer for the user
-  *retval = outputs_flush(device_command_cb, TEMP_NEXT_RTPTIME);
+  *retval = outputs_flush2(device_command_cb);
 
   playback_timer_stop();
 
@@ -1981,15 +1989,13 @@ playback_start_bh(void *arg, int *retval)
 //  pb_buffer_offset = 0;
   pb_read_deficit = 0;
 
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &player_timer_res);
   if (ret < 0)
     goto out_fail;
 
   ret = playback_timer_start();
   if (ret < 0)
     goto out_fail;
-
-  outputs_playback_start2(&ts);
 
   status_update(PLAY_PLAYING);
 
@@ -2092,7 +2098,7 @@ playback_start_item(void *arg, int *retval)
     {
       if (device->selected && !device->session)
 	{
-	  ret = outputs_device_start(device, device_restart_cb, TEMP_NEXT_RTPTIME);
+	  ret = outputs_device_start2(device, device_restart_cb);
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_PLAYER, "Could not start selected %s device '%s'\n", device->type_name, device->name);
@@ -2414,7 +2420,7 @@ playback_pause(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  *retval = outputs_flush(device_command_cb, TEMP_NEXT_RTPTIME);
+  *retval = outputs_flush2(device_command_cb);
 
   playback_timer_stop();
 
@@ -2524,7 +2530,7 @@ speaker_activate(struct output_device *device)
     {
       DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
 
-      ret = outputs_device_start(device, device_activate_cb, TEMP_NEXT_RTPTIME);
+      ret = outputs_device_start2(device, device_activate_cb);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
@@ -2996,7 +3002,7 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
   uint64_t delta;
   int ret;
 
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &player_timer_res);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -3038,7 +3044,7 @@ player_get_time(struct timespec *ts)
 {
   int ret;
 
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &player_timer_res);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -3503,7 +3509,7 @@ player_init(void)
   // Determine if the resolution of the system timer is > or < the size
   // of an audio packet. NOTE: this assumes the system clock resolution
   // is less than one second.
-  if (clock_getres(CLOCK_MONOTONIC, &timer_res) < 0)
+  if (clock_getres(CLOCK_MONOTONIC, &player_timer_res) < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get the system timer resolution.\n");
 
@@ -3512,14 +3518,14 @@ player_init(void)
 
   if (!cfg_getbool(cfg_getsec(cfg, "general"), "high_resolution_clock"))
     {
-      DPRINTF(E_INFO, L_PLAYER, "High resolution clock not enabled on this system (res is %ld)\n", timer_res.tv_nsec);
+      DPRINTF(E_INFO, L_PLAYER, "High resolution clock not enabled on this system (res is %ld)\n", player_timer_res.tv_nsec);
 
-      timer_res.tv_nsec = 10 * PLAYER_TICK_INTERVAL * 1000000;
+      player_timer_res.tv_nsec = 10 * PLAYER_TICK_INTERVAL * 1000000;
     }
 
   // Set the tick interval for the playback timer
-  interval = MAX(timer_res.tv_nsec, PLAYER_TICK_INTERVAL * 1000000);
-  tick_interval.tv_nsec = interval;
+  interval = MAX(player_timer_res.tv_nsec, PLAYER_TICK_INTERVAL * 1000000);
+  player_tick_interval.tv_nsec = interval;
 
   pb_write_deficit_max = (PLAYER_WRITE_BEHIND_MAX * 1000000 / interval);
   pb_read_deficit_max  = (PLAYER_READ_BEHIND_MAX * 1000000 / interval);

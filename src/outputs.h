@@ -172,6 +172,7 @@ struct output_frame
 struct output_buffer
 {
   uint32_t write_counter; // REMOVE ME? not used for anything
+  struct timespec *pts;
   struct output_frame frames[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
 } output_buffer;
 
@@ -202,6 +203,7 @@ struct output_definition
 
   // Prepare a playback session on device and call back
   int (*device_start)(struct output_device *device, output_status_cb cb, uint64_t rtptime);
+  int (*device_start2)(struct output_device *device, output_status_cb cb);
 
   // Close a session prepared by device_start
   void (*device_stop)(struct output_session *session);
@@ -223,7 +225,6 @@ struct output_definition
 
   // Start/stop playback on devices that were started
   void (*playback_start)(uint64_t next_pkt, struct timespec *ts);
-  void (*playback_start2)(struct timespec *start_time);
   void (*playback_stop)(void);
 
   // Write stream data to the output devices
@@ -232,6 +233,7 @@ struct output_definition
 
   // Flush all sessions, the return must be number of sessions pending the flush
   int (*flush)(output_status_cb cb, uint64_t rtptime);
+  int (*flush2)(output_status_cb cb);
 
   // Authorize an output with a pin-code (probably coming from the filescanner)
   void (*authorize)(const char *pin);
@@ -248,6 +250,9 @@ struct output_definition
 
 int
 outputs_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime);
+
+int
+outputs_device_start2(struct output_device *device, output_status_cb cb);
 
 void
 outputs_device_stop(struct output_session *session);
@@ -269,22 +274,19 @@ int
 outputs_device_quality_set(struct output_device *device, struct media_quality *quality);
 
 void
-outputs_playback_start(uint64_t next_pkt, struct timespec *start_time);
-
-void
-outputs_playback_start2(struct timespec *start_time);
-
-void
 outputs_playback_stop(void);
 
 void
 outputs_write(uint8_t *buf, uint64_t rtptime);
 
 void
-outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples);
+outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts);
 
 int
 outputs_flush(output_status_cb cb, uint64_t rtptime);
+
+int
+outputs_flush2(output_status_cb cb);
 
 void
 outputs_status_cb(struct output_session *session, output_status_cb cb);
