@@ -105,9 +105,7 @@ struct alsa_session
   struct event *deferredev;
   output_status_cb defer_cb;
 
-  /* Do not dereference - only passed to the status cb */
   struct output_device *device;
-  struct output_session *output_session;
   output_status_cb status_cb;
 
   struct alsa_session *next;
@@ -147,7 +145,6 @@ alsa_session_free(struct alsa_session *as)
 
   prebuf_free(as);
 
-  free(as->output_session);
   free(as);
 }
 
@@ -169,6 +166,8 @@ alsa_session_cleanup(struct alsa_session *as)
 	s->next = as->next;
     }
 
+  as->device->session = NULL;
+
   alsa_session_free(as);
 }
 
@@ -177,21 +176,7 @@ alsa_session_make(struct output_device *device, output_status_cb cb)
 {
   struct alsa_session *as;
 
-  as = calloc(1, sizeof(struct alsa_session));
-  if (!as)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (as)\n");
-      return NULL;
-    }
-
-  as->output_session = calloc(1, sizeof(struct output_session));
-  if (!as->output_session)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for ALSA session (output_session)\n");
-      goto failure_cleanup;
-    }
-  as->output_session->session = as;
-  as->output_session->type = device->type;
+  CHECK_NULL(L_LAUDIO, as = calloc(1, sizeof(struct alsa_session)));
 
   as->deferredev = evtimer_new(evbase_player, defer_cb, as);
   if (!as->deferredev)
@@ -210,6 +195,9 @@ alsa_session_make(struct output_device *device, output_status_cb cb)
 
   as->next = sessions;
   sessions = as;
+
+  device->session = as;
+
   return as;
 
  failure_cleanup:

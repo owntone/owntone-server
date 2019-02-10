@@ -70,9 +70,7 @@ struct pulse_session
 
   char *devname;
 
-  /* Do not dereference - only passed to the status cb */
   struct output_device *device;
-  struct output_session *output_session;
   output_status_cb status_cb;
 
   struct pulse_session *next;
@@ -141,34 +139,18 @@ pulse_session_cleanup(struct pulse_session *ps)
 	p->next = ps->next;
     }
 
+  ps->device->session = NULL;
+
   pulse_session_free(ps);
 }
 
 static struct pulse_session *
 pulse_session_make(struct output_device *device, output_status_cb cb)
 {
-  struct output_session *os;
   struct pulse_session *ps;
 
-  os = calloc(1, sizeof(struct output_session));
-  if (!os)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory (os)\n");
-      return NULL;
-    }
+  CHECK_NULL(L_LAUDIO, ps = calloc(1, sizeof(struct pulse_session)));
 
-  ps = calloc(1, sizeof(struct pulse_session));
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory (ps)\n");
-      free(os);
-      return NULL;
-    }
-
-  os->session = ps;
-  os->type = device->type;
-
-  ps->output_session = os;
   ps->state = PA_STREAM_UNCONNECTED;
   ps->device = device;
   ps->status_cb = cb;
@@ -177,6 +159,8 @@ pulse_session_make(struct output_device *device, output_status_cb cb)
 
   ps->next = sessions;
   sessions = ps;
+
+  device->session = ps;
 
   return ps;
 }

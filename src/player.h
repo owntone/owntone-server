@@ -72,13 +72,6 @@ struct player_history
   uint32_t item_id[MAX_HISTORY_COUNT];
 };
 
-
-int
-player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit);
-
-int
-player_get_time(struct timespec *ts);
-
 int
 player_get_status(struct player_status *status);
 

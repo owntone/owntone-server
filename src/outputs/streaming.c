@@ -24,7 +24,6 @@
 #include "outputs.h"
 #include "httpd_streaming.h"
 
-
 struct output_definition output_streaming =
 {
   .name = "mp3 streaming",
