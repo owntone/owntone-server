@@ -140,16 +140,9 @@ struct output_device
 
   // Opaque pointers to device and session data
   void *extra_device_info;
-  struct output_session *session;
+  void *session;
 
   struct output_device *next;
-};
-
-// Except for the type, sessions are opaque outside of the output backend
-struct output_session
-{
-  enum output_types type;
-  void *session;
 };
 
 // Linked list of metadata prepared by each output backend
@@ -172,12 +165,12 @@ struct output_frame
 struct output_buffer
 {
   uint32_t write_counter; // REMOVE ME? not used for anything
-  struct timespec *pts;
+  struct timespec pts;
   struct output_frame frames[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
 } output_buffer;
 
 
-typedef void (*output_status_cb)(struct output_device *device, struct output_session *session, enum output_device_state status);
+typedef void (*output_status_cb)(struct output_device *device, enum output_device_state status);
 
 struct output_definition
 {
@@ -202,11 +195,10 @@ struct output_definition
   void (*deinit)(void);
 
   // Prepare a playback session on device and call back
-  int (*device_start)(struct output_device *device, output_status_cb cb, uint64_t rtptime);
-  int (*device_start2)(struct output_device *device, output_status_cb cb);
+  int (*device_start)(struct output_device *device, output_status_cb cb);
 
-  // Close a session prepared by device_start
-  void (*device_stop)(struct output_session *session);
+  // Close a session prepared by device_start and call back
+  int (*device_stop)(struct output_device *device, output_status_cb cb);
 
   // Test the connection to a device and call back
   int (*device_probe)(struct output_device *device, output_status_cb cb);
@@ -223,23 +215,21 @@ struct output_definition
   // Request a change of quality from the device
   int (*quality_set)(struct output_device *device, struct media_quality *quality);
 
+  // Change the call back associated with a device
+  void (*device_set_cb)(struct output_device *device, output_status_cb cb);
+
   // Start/stop playback on devices that were started
   void (*playback_start)(uint64_t next_pkt, struct timespec *ts);
   void (*playback_stop)(void);
 
   // Write stream data to the output devices
-  void (*write)(uint8_t *buf, uint64_t rtptime);
-  void (*write2)(struct output_buffer *buffer);
+  void (*write)(struct output_buffer *buffer);
 
   // Flush all sessions, the return must be number of sessions pending the flush
-  int (*flush)(output_status_cb cb, uint64_t rtptime);
-  int (*flush2)(output_status_cb cb);
+  int (*flush)(output_status_cb cb);
 
   // Authorize an output with a pin-code (probably coming from the filescanner)
   void (*authorize)(const char *pin);
-
-  // Change the call back associated with a session
-  void (*status_cb)(struct output_session *session, output_status_cb cb);
 
   // Metadata
   void *(*metadata_prepare)(int id);
@@ -249,13 +239,10 @@ struct output_definition
 };
 
 int
-outputs_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime);
+outputs_device_start(struct output_device *device, output_status_cb cb);
 
 int
-outputs_device_start2(struct output_device *device, output_status_cb cb);
-
-void
-outputs_device_stop(struct output_session *session);
+outputs_device_stop(struct output_device *device, output_status_cb cb);
 
 int
 outputs_device_probe(struct output_device *device, output_status_cb cb);
@@ -274,22 +261,16 @@ int
 outputs_device_quality_set(struct output_device *device, struct media_quality *quality);
 
 void
+outputs_device_set_cb(struct output_device *device, output_status_cb cb);
+
+void
 outputs_playback_stop(void);
 
 void
-outputs_write(uint8_t *buf, uint64_t rtptime);
-
-void
-outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts);
+outputs_write(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts);
 
 int
-outputs_flush(output_status_cb cb, uint64_t rtptime);
-
-int
-outputs_flush2(output_status_cb cb);
-
-void
-outputs_status_cb(struct output_session *session, output_status_cb cb);
+outputs_flush(output_status_cb cb);
 
 struct output_metadata *
 outputs_metadata_prepare(int id);
