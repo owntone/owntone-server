@@ -323,7 +323,7 @@ input_read(void *data, size_t size, short *flags)
   // with multiple markers, and we don't return data that contains mixed sample
   // rates, bits per sample or an EOF in the middle.
   marker = input_buffer.marker_tail;
-  if (marker && marker->pos < input_buffer.bytes_read + size)
+  if (marker && marker->pos <= input_buffer.bytes_read + size)
     {
       *flags = marker->flags;
       if (*flags & INPUT_FLAG_QUALITY)
