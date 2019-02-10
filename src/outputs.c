@@ -148,7 +148,7 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
   int n;
 
   obuf->write_counter++;
-  obuf->pts = pts;
+  obuf->pts = *pts;
 
   // The resampling/encoding (transcode) contexts work for a given input quality,
   // so if the quality changes we need to reset the contexts. We also do that if
@@ -207,49 +207,48 @@ buffer_drain(struct output_buffer *obuf)
 /* ----------------------------------- API ---------------------------------- */
 
 int
-outputs_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime)
+outputs_device_start(struct output_device *device, output_status_cb cb)
 {
-  if (outputs[device->type]->disabled)
+  if (outputs[device->type]->disabled || !outputs[device->type]->device_start)
     return -1;
 
-  if (outputs[device->type]->device_start)
-    return outputs[device->type]->device_start(device, cb, rtptime);
-  else
-    return -1;
+  if (device->session)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! outputs_device_start() called for a device that already has a session\n");
+      return -1;
+    }
+
+  return outputs[device->type]->device_start(device, cb);
 }
 
 int
-outputs_device_start2(struct output_device *device, output_status_cb cb)
+outputs_device_stop(struct output_device *device, output_status_cb cb)
 {
-  if (outputs[device->type]->disabled)
+  if (outputs[device->type]->disabled || !outputs[device->type]->device_stop)
     return -1;
 
-  if (outputs[device->type]->device_start2)
-    return outputs[device->type]->device_start2(device, cb);
-  else
-    return -1;
-}
+  if (!device->session)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! outputs_device_stop() called for a device that has no session\n");
+      return -1;
+    }
 
-void
-outputs_device_stop(struct output_session *session)
-{
-  if (outputs[session->type]->disabled)
-    return;
-
-  if (outputs[session->type]->device_stop)
-    outputs[session->type]->device_stop(session);
+  return outputs[device->type]->device_stop(device, cb);
 }
 
 int
 outputs_device_probe(struct output_device *device, output_status_cb cb)
 {
-  if (outputs[device->type]->disabled)
+  if (outputs[device->type]->disabled || !outputs[device->type]->device_probe)
     return -1;
 
-  if (outputs[device->type]->device_probe)
-    return outputs[device->type]->device_probe(device, cb);
-  else
-    return -1;
+  if (device->session)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! outputs_device_probe() called for a device that already has a session\n");
+      return -1;
+    }
+
+  return outputs[device->type]->device_probe(device, cb);
 }
 
 void
@@ -312,6 +311,16 @@ outputs_device_quality_set(struct output_device *device, struct media_quality *q
 }
 
 void
+outputs_device_set_cb(struct output_device *device, output_status_cb cb)
+{
+  if (outputs[device->type]->disabled)
+    return;
+
+  if (outputs[device->type]->device_set_cb)
+    outputs[device->type]->device_set_cb(device, cb);
+}
+
+void
 outputs_playback_stop(void)
 {
   int i;
@@ -327,22 +336,7 @@ outputs_playback_stop(void)
 }
 
 void
-outputs_write(uint8_t *buf, uint64_t rtptime)
-{
-  int i;
-
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled)
-	continue;
-
-      if (outputs[i]->write)
-	outputs[i]->write(buf, rtptime);
-    }
-}
-
-void
-outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts)
+outputs_write(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts)
 {
   int i;
 
@@ -353,15 +347,15 @@ outputs_write2(void *buf, size_t bufsize, struct media_quality *quality, int nsa
       if (outputs[i]->disabled)
 	continue;
 
-      if (outputs[i]->write2)
-	outputs[i]->write2(&output_buffer);
+      if (outputs[i]->write)
+	outputs[i]->write(&output_buffer);
     }
 
   buffer_drain(&output_buffer);
 }
 
 int
-outputs_flush(output_status_cb cb, uint64_t rtptime)
+outputs_flush(output_status_cb cb)
 {
   int ret;
   int i;
@@ -373,39 +367,10 @@ outputs_flush(output_status_cb cb, uint64_t rtptime)
 	continue;
 
       if (outputs[i]->flush)
-	ret += outputs[i]->flush(cb, rtptime);
+	ret += outputs[i]->flush(cb);
     }
 
   return ret;
-}
-
-int
-outputs_flush2(output_status_cb cb)
-{
-  int ret;
-  int i;
-
-  ret = 0;
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled)
-	continue;
-
-      if (outputs[i]->flush2)
-	ret += outputs[i]->flush2(cb);
-    }
-
-  return ret;
-}
-
-void
-outputs_status_cb(struct output_session *session, output_status_cb cb)
-{
-  if (outputs[session->type]->disabled)
-    return;
-
-  if (outputs[session->type]->status_cb)
-    outputs[session->type]->status_cb(session, cb);
 }
 
 struct output_metadata *
