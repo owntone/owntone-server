@@ -37,9 +37,6 @@ struct rtp_session
   uint32_t pos;
   uint16_t seqnum;
 
-  // True if we haven't started streaming yet
-  bool is_virgin;
-
   struct media_quality quality;
 
   // Packet buffer (ring buffer), used for retransmission
@@ -48,35 +45,25 @@ struct rtp_session
   size_t pktbuf_size;
   size_t pktbuf_len;
 
-  // Time of playback start (given by player)
-  struct timespec start_time;
-
-  // Number of seconds that we tell the client to buffer (this will mean that
-  // the position that we send in the sync packages are offset by this amount
-  // compared to the rtptimes of the corresponding RTP packages we are sending)
-  int buffer_duration;
-
   // Number of samples to elapse before sync'ing. If 0 we set it to the s/r, so
   // we sync once a second. If negative we won't sync.
   int sync_each_nsamples;
   int sync_counter;
   struct rtp_packet sync_packet_next;
-
-  struct rtcp_timestamp sync_last_check;
 };
 
 
 struct rtp_session *
-rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples, int buffer_duration);
+rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples);
 
 void
 rtp_session_free(struct rtp_session *session);
 
 void
-rtp_session_restart(struct rtp_session *session, struct timespec *ts);
+rtp_session_flush(struct rtp_session *session);
 
 struct rtp_packet *
-rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples);
+rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char type);
 
 void
 rtp_packet_commit(struct rtp_session *session, struct rtp_packet *pkt);
@@ -85,9 +72,9 @@ struct rtp_packet *
 rtp_packet_get(struct rtp_session *session, uint16_t seqnum);
 
 bool
-rtp_sync_check(struct rtp_session *session, struct rtp_packet *pkt);
+rtp_sync_is_time(struct rtp_session *session);
 
 struct rtp_packet *
-rtp_sync_packet_next(struct rtp_session *session);
+rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp *cur_stamp, char type);
 
 #endif  /* !__RTP_COMMON_H__ */
