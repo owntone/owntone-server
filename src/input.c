@@ -267,9 +267,6 @@ input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags)
       return 0;
     }
 
-  // Change of quality. Note, the marker is placed at the last position of the
-  // last byte we wrote, even though that of course doesn't have the new quality
-  // yet. Not intuitive, but input_read() will understand.
   if (quality && !quality_is_equal(quality, &input_buffer.cur_write_quality))
     {
       input_buffer.cur_write_quality = *quality;

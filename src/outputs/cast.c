@@ -1420,7 +1420,8 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
   cs->next = sessions;
   sessions = cs;
 
-  device->session = cs;
+  // cs is now the official session for the device
+  outputs_device_session_add(device, cs);
 
   proto = gnutls_protocol_get_name(gnutls_protocol_get_version(cs->tls_session));
 

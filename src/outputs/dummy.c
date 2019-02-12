@@ -33,8 +33,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include <event2/event.h>
-
+#include "misc.h"
 #include "conffile.h"
 #include "logger.h"
 #include "player.h"
@@ -44,21 +43,11 @@ struct dummy_session
 {
   enum output_device_state state;
 
-  struct event *deferredev;
-  output_status_cb defer_cb;
-
-  struct output_device *device;
-  output_status_cb status_cb;
+  uint64_t device_id;
+  int callback_id;
 };
 
-/* From player.c */
-extern struct event_base *evbase_player;
-
 struct dummy_session *sessions;
-
-/* Forwards */
-static void
-defer_cb(int fd, short what, void *arg);
 
 /* ---------------------------- SESSION HANDLING ---------------------------- */
 
@@ -67,8 +56,6 @@ dummy_session_free(struct dummy_session *ds)
 {
   if (!ds)
     return;
-
-  event_free(ds->deferredev);
 
   free(ds);
 }
@@ -79,38 +66,25 @@ dummy_session_cleanup(struct dummy_session *ds)
   // Normally some here code to remove from linked list - here we just say:
   sessions = NULL;
 
-  ds->device->session = NULL;
+  outputs_device_session_remove(ds->device_id);
 
   dummy_session_free(ds);
 }
 
 static struct dummy_session *
-dummy_session_make(struct output_device *device, output_status_cb cb)
+dummy_session_make(struct output_device *device, int callback_id)
 {
   struct dummy_session *ds;
 
-  ds = calloc(1, sizeof(struct dummy_session));
-  if (!ds)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy session (as)\n");
-      return NULL;
-    }
-
-  ds->deferredev = evtimer_new(evbase_player, defer_cb, ds);
-  if (!ds->deferredev)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy deferred event\n");
-      free(ds);
-      return NULL;
-    }
+  CHECK_NULL(L_LAUDIO, ds = calloc(1, sizeof(struct dummy_session)));
 
   ds->state = OUTPUT_STATE_CONNECTED;
-  ds->device = device;
-  ds->status_cb = cb;
+  ds->device_id = device->id;
+  ds->callback_id = callback_id;
 
   sessions = ds;
 
-  device->session = ds;
+  outputs_device_session_add(device->id, ds);
 
   return ds;
 }
@@ -118,37 +92,24 @@ dummy_session_make(struct output_device *device, output_status_cb cb)
 
 /* ---------------------------- STATUS HANDLERS ----------------------------- */
 
-// Maps our internal state to the generic output state and then makes a callback
-// to the player to tell that state
-static void
-defer_cb(int fd, short what, void *arg)
-{
-  struct dummy_session *ds = arg;
-
-  if (ds->defer_cb)
-    ds->defer_cb(ds->device, ds->state);
-
-  if (ds->state == OUTPUT_STATE_STOPPED)
-    dummy_session_cleanup(ds);
-}
-
 static void
 dummy_status(struct dummy_session *ds)
 {
-  ds->defer_cb = ds->status_cb;
-  event_active(ds->deferredev, 0, 0);
-  ds->status_cb = NULL;
+  outputs_cb(ds->callback_id, ds->device_id, ds->state);
+
+  if (ds->state == OUTPUT_STATE_STOPPED)
+    dummy_session_cleanup(ds);
 }
 
 
 /* ------------------ INTERFACE FUNCTIONS CALLED BY OUTPUTS.C --------------- */
 
 static int
-dummy_device_start(struct output_device *device, output_status_cb cb)
+dummy_device_start(struct output_device *device, int callback_id)
 {
   struct dummy_session *ds;
 
-  ds = dummy_session_make(device, cb);
+  ds = dummy_session_make(device, callback_id);
   if (!ds)
     return -1;
 
@@ -158,26 +119,28 @@ dummy_device_start(struct output_device *device, output_status_cb cb)
 }
 
 static int
-dummy_device_stop(struct output_device *device, output_status_cb cb)
+dummy_device_stop(struct output_device *device, int callback_id)
 {
   struct dummy_session *ds = device->session;
 
+  ds->callback_id = callback_id;
   ds->state = OUTPUT_STATE_STOPPED;
+
   dummy_status(ds);
 
   return 0;
 }
 
 static int
-dummy_device_probe(struct output_device *device, output_status_cb cb)
+dummy_device_probe(struct output_device *device, int callback_id)
 {
   struct dummy_session *ds;
 
-  ds = dummy_session_make(device, cb);
+  ds = dummy_session_make(device, callback_id);
   if (!ds)
     return -1;
 
-  ds->status_cb = cb;
+  ds->callback_id = callback_id;
   ds->state = OUTPUT_STATE_STOPPED;
 
   dummy_status(ds);
@@ -186,25 +149,25 @@ dummy_device_probe(struct output_device *device, output_status_cb cb)
 }
 
 static int
-dummy_device_volume_set(struct output_device *device, output_status_cb cb)
+dummy_device_volume_set(struct output_device *device, int callback_id)
 {
   struct dummy_session *ds = device->session;
 
   if (!ds)
     return 0;
 
-  ds->status_cb = cb;
+  ds->callback_id = callback_id;
   dummy_status(ds);
 
   return 1;
 }
 
 static void
-dummy_device_set_cb(struct output_device *device, output_status_cb cb)
+dummy_device_cb_set(struct output_device *device, int callback_id)
 {
   struct dummy_session *ds = device->session;
 
-  ds->status_cb = cb;
+  ds->callback_id = callback_id;
 }
 
 static void
@@ -234,12 +197,7 @@ dummy_init(void)
 
   nickname = cfg_getstr(cfg_audio, "nickname");
 
-  device = calloc(1, sizeof(struct output_device));
-  if (!device)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Out of memory for dummy device\n");
-      return -1;
-    }
+  CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
 
   device->id = 0;
   device->name = strdup(nickname);
@@ -273,6 +231,6 @@ struct output_definition output_dummy =
   .device_stop = dummy_device_stop,
   .device_probe = dummy_device_probe,
   .device_volume_set = dummy_device_volume_set,
-  .device_set_cb = dummy_device_set_cb,
+  .device_cb_set = dummy_device_cb_set,
   .playback_stop = dummy_playback_stop,
 };

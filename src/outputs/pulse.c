@@ -160,7 +160,7 @@ pulse_session_make(struct output_device *device, output_status_cb cb)
   ps->next = sessions;
   sessions = ps;
 
-  device->session = ps;
+  outputs_device_session_add(device, ps);
 
   return ps;
 }

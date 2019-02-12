@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2012-2019 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * RAOP AirTunes v2
@@ -180,6 +180,9 @@ struct raop_master_session
 
 struct raop_session
 {
+  uint64_t device_id;
+  int callback_id;
+
   struct raop_master_session *master_session;
 
   struct evrtsp_connection *ctrl;
@@ -211,9 +214,6 @@ struct raop_session
 
   int volume;
   uint64_t start_rtptime;
-
-  struct output_device *device;
-  output_status_cb status_cb;
 
   /* AirTunes v2 */
   unsigned short server_port;
@@ -355,7 +355,7 @@ static struct raop_session *raop_sessions;
 
 // Forwards
 static int
-raop_device_start(struct output_device *rd, output_status_cb cb);
+raop_device_start(struct output_device *rd, int callback_id);
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
@@ -1089,7 +1089,7 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
 
   // We set Active-Remote as 32 bit unsigned decimal, as at least my device
   // can't handle any larger. Must be aligned with volume_byactiveremote().
-  snprintf(buf, sizeof(buf), "%" PRIu32, (uint32_t)rs->device->id);
+  snprintf(buf, sizeof(buf), "%" PRIu32, (uint32_t)rs->device_id);
   evrtsp_add_header(req->output_headers, "Active-Remote", buf);
 
   if (rs->session)
@@ -1725,7 +1725,6 @@ raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *l
 static void
 raop_status(struct raop_session *rs)
 {
-  output_status_cb status_cb = rs->status_cb;
   enum output_device_state state;
 
   switch (rs->state)
@@ -1749,16 +1748,16 @@ raop_status(struct raop_session *rs)
 	state = OUTPUT_STATE_STREAMING;
 	break;
       default:
-	DPRINTF(E_LOG, L_RAOP, "Bug! Unhandled state in cast_status()\n");
+	DPRINTF(E_LOG, L_RAOP, "Bug! Unhandled state in raop_status()\n");
 	state = OUTPUT_STATE_FAILED;
     }
 
-  rs->status_cb = NULL;
-  if (status_cb)
-    status_cb(rs->device, state);
+  outputs_cb(rs->callback_id, rs->device_id, state);
+  rs->callback_id = -1;
 
+  // Ugly... fixme...
   if (rs->state == RAOP_STATE_UNVERIFIED)
-    player_speaker_status_trigger();
+    outputs_listener_notify();
 }
 
 static struct raop_master_session *
@@ -1895,7 +1894,7 @@ session_cleanup(struct raop_session *rs)
 	s->next = rs->next;
     }
 
-  rs->device->session = NULL;
+  outputs_device_session_remove(rs->device_id);
 
   session_free(rs);
 }
@@ -1947,23 +1946,17 @@ static void
 session_teardown_cb(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
-  struct output_device *rd = rs->device;
-  output_status_cb status_cb = rs->status_cb;
 
   rs->reqs_in_flight--;
 
   if (!req || req->response_code != RTSP_OK)
     DPRINTF(E_LOG, L_RAOP, "TEARDOWN request failed in session shutdown: %d %s\n", req->response_code, req->response_code_line);
 
-  // Clean up session before giving status to the user (good to get rid of it if he
-  // calls back into us - e.g. tries to make a new session in the callback)
+  rs->state = OUTPUT_STATE_STOPPED;
+
+  raop_status(rs);
+
   session_cleanup(rs);
-
-  // Can't use raop_status() here, sadly
-  if (status_cb)
-    status_cb(rd, OUTPUT_STATE_STOPPED);
-
-  return;
 }
 
 static int
@@ -1982,7 +1975,7 @@ session_teardown(struct raop_session *rs, const char *log_caller)
 }
 
 static struct raop_session *
-session_make(struct output_device *rd, int family, output_status_cb cb, bool only_probe)
+session_make(struct output_device *rd, int family, int callback_id, bool only_probe)
 {
   struct raop_session *rs;
   struct raop_extra *re;
@@ -2023,8 +2016,9 @@ session_make(struct output_device *rd, int family, output_status_cb cb, bool onl
   rs->reqs_in_flight = 0;
   rs->cseq = 1;
 
-  rs->device = rd;
-  rs->status_cb = cb;
+  rs->device_id = rd->id;
+  rs->callback_id = callback_id;
+
   rs->server_fd = -1;
 
   rs->password = rd->password;
@@ -2151,7 +2145,7 @@ session_make(struct output_device *rd, int family, output_status_cb cb, bool onl
   raop_sessions = rs;
 
   // rs is now the official device session
-  rd->session = rs;
+  outputs_device_session_add(rd->id, rs);
 
   return rs;
 
@@ -2323,7 +2317,7 @@ raop_cb_metadata(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto error;
 
-  /* No status_cb call, user doesn't want/need to know about the status
+  /* No callback to player, user doesn't want/need to know about the status
    * of metadata requests unless they cause the session to fail.
    */
 
@@ -2730,15 +2724,15 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
 
 /* Volume in [0 - 100] */
 static int
-raop_set_volume_one(struct output_device *rd, output_status_cb cb)
+raop_set_volume_one(struct output_device *device, int callback_id)
 {
-  struct raop_session *rs = rd->session;
+  struct raop_session *rs = device->session;
   int ret;
 
   if (!rs || !(rs->state & RAOP_STATE_F_CONNECTED))
     return 0;
 
-  ret = raop_set_volume_internal(rs, rd->volume, raop_cb_set_volume);
+  ret = raop_set_volume_internal(rs, device->volume, raop_cb_set_volume);
   if (ret < 0)
     {
       session_failure(rs);
@@ -2746,7 +2740,7 @@ raop_set_volume_one(struct output_device *rd, output_status_cb cb)
       return 0;
     }
 
-  rs->status_cb = cb;
+  rs->callback_id = callback_id;
 
   return 1;
 }
@@ -3557,11 +3551,18 @@ static void
 raop_cb_startup_retry(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
-  struct output_device *rd = rs->device;
-  output_status_cb cb = rs->status_cb;
+  struct output_device *device;
+  int callback_id = rs->callback_id;
+
+  device = outputs_device_get(rs->device_id);
+  if (!device)
+    {
+      session_failure(rs);
+      return;
+    }
 
   session_cleanup(rs);
-  raop_device_start(rd, cb);
+  raop_device_start(device, callback_id);
 }
 
 static void
@@ -3575,11 +3576,11 @@ raop_cb_startup_cancel(struct evrtsp_request *req, void *arg)
 static void
 raop_startup_cancel(struct raop_session *rs)
 {
-  struct output_device *rd = rs->device;
-  output_status_cb cb;
+  struct output_device *device;
   int ret;
 
-  if (!rs->session)
+  device = outputs_device_get(rs->device_id);
+  if (!device || !rs->session)
     {
       session_failure(rs);
       return;
@@ -3590,17 +3591,12 @@ raop_startup_cancel(struct raop_session *rs)
   if (rs->family == AF_INET6 && !(rs->state & RAOP_STATE_F_FAILED))
     {
       // This flag is permanent and will not be overwritten by mdns advertisements
-      rd->v6_disabled = 1;
+      device->v6_disabled = 1;
 
       // Stop current session and wait for call back
       ret = raop_send_req_teardown(rs, raop_cb_startup_retry, "startup_cancel");
       if (ret < 0)
-	{
-	  // No connection at all, lets clean up and try again
-	  cb = rs->status_cb;
-	  session_cleanup(rs);
-	  raop_device_start(rd, cb);
-	}
+	raop_cb_startup_retry(NULL, rs); // No connection at all, call retry directly
 
       return;
     }
@@ -3995,6 +3991,7 @@ static void
 raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
+  struct output_device *device;
   const char *param;
   int ret;
 
@@ -4044,7 +4041,11 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 
   if (req->response_code == RTSP_FORBIDDEN)
     {
-      rs->device->requires_auth = 1;
+      device = outputs_device_get(rs->device_id);
+      if (!device)
+	goto cleanup;
+
+      device->requires_auth = 1;
 
       ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "startup_options");
       if (ret < 0)
@@ -4251,6 +4252,7 @@ static void
 raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
+  struct output_device *device;
   int ret;
 
   verification_verify_free(rs->verification_verify_ctx);
@@ -4258,9 +4260,13 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
   ret = raop_verification_response_process(5, req, rs);
   if (ret < 0)
     {
+      device = outputs_device_get(rs->device_id);
+      if (!device)
+	goto error;
+
       // Clear auth_key, the device did not accept it
-      free(rs->device->auth_key);
-      rs->device->auth_key = NULL;
+      free(device->auth_key);
+      device->auth_key = NULL;
       goto error;
     }
 
@@ -4270,7 +4276,7 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
 
   raop_send_req_options(rs, raop_cb_startup_options, "verify_step2");
 
-  player_speaker_status_trigger();
+  outputs_listener_notify();
 
   return;
 
@@ -4283,14 +4289,19 @@ static void
 raop_cb_verification_verify_step1(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
+  struct output_device *device;
   int ret;
 
   ret = raop_verification_response_process(4, req, rs);
   if (ret < 0)
     {
+      device = outputs_device_get(rs->device_id);
+      if (!device)
+	goto error;
+
       // Clear auth_key, the device did not accept it
-      free(rs->device->auth_key);
-      rs->device->auth_key = NULL;
+      free(device->auth_key);
+      device->auth_key = NULL;
       goto error;
     }
 
@@ -4311,14 +4322,14 @@ raop_cb_verification_verify_step1(struct evrtsp_request *req, void *arg)
 static int
 raop_verification_verify(struct raop_session *rs)
 {
+  struct output_device *device;
   int ret;
 
-  rs->verification_verify_ctx = verification_verify_new(rs->device->auth_key); // Naughty boy is dereferencing device
-  if (!rs->verification_verify_ctx)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for verification verify context\n");
-      return -1;
-    }
+  device = outputs_device_get(rs->device_id);
+  if (!device)
+    goto error;
+
+  CHECK_NULL(L_RAOP, rs->verification_verify_ctx = verification_verify_new(device->auth_key));
 
   ret = raop_verification_request_send(4, rs, raop_cb_verification_verify_step1);
   if (ret < 0)
@@ -4340,6 +4351,7 @@ static void
 raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
+  struct output_device *device;
   const char *authorization_key;
   int ret;
 
@@ -4356,11 +4368,15 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
 
   DPRINTF(E_LOG, L_RAOP, "Verification setup stage complete, saving authorization key\n");
 
-  // Dereferencing output_device and a blocking db call... :-~
-  free(rs->device->auth_key);
-  rs->device->auth_key = strdup(authorization_key);
+  device = outputs_device_get(rs->device_id);
+  if (!device)
+    goto error;
 
-  db_speaker_save(rs->device);
+  free(device->auth_key);
+  device->auth_key = strdup(authorization_key);
+
+  // A blocking db call... :-~
+  db_speaker_save(device);
 
   // The player considers this session failed, so we don't need it any more
   session_cleanup(rs);
@@ -4734,7 +4750,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 /*                                Thread: player                              */
 
 static int
-raop_device_start_generic(struct output_device *rd, output_status_cb cb, bool only_probe)
+raop_device_start_generic(struct output_device *device, int callback_id, bool only_probe)
 {
   struct raop_session *rs;
   int ret;
@@ -4744,12 +4760,12 @@ raop_device_start_generic(struct output_device *rd, output_status_cb cb, bool on
    * address and build our session URL for all subsequent requests.
    */
 
-  rs = session_make(rd, AF_INET6, cb, only_probe);
+  rs = session_make(device, AF_INET6, callback_id, only_probe);
   if (rs)
     {
-      if (rd->auth_key)
+      if (device->auth_key)
 	ret = raop_verification_verify(rs);
-      else if (rd->requires_auth)
+      else if (device->requires_auth)
 	ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "device_start");
       else
 	ret = raop_send_req_options(rs, raop_cb_startup_options, "device_start");
@@ -4763,13 +4779,13 @@ raop_device_start_generic(struct output_device *rd, output_status_cb cb, bool on
 	}
     }
 
-  rs = session_make(rd, AF_INET, cb, only_probe);
+  rs = session_make(device, AF_INET, callback_id, only_probe);
   if (!rs)
     return -1;
 
-  if (rd->auth_key)
+  if (device->auth_key)
     ret = raop_verification_verify(rs);
-  else if (rd->requires_auth)
+  else if (device->requires_auth)
     ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "device_start");
   else
     ret = raop_send_req_options(rs, raop_cb_startup_options, "device_start");
@@ -4785,41 +4801,41 @@ raop_device_start_generic(struct output_device *rd, output_status_cb cb, bool on
 }
 
 static int
-raop_device_probe(struct output_device *rd, output_status_cb cb)
+raop_device_probe(struct output_device *device, int callback_id)
 {
-  return raop_device_start_generic(rd, cb, 1);
+  return raop_device_start_generic(device, callback_id, 1);
 }
 
 static int
-raop_device_start(struct output_device *rd, output_status_cb cb)
+raop_device_start(struct output_device *device, int callback_id)
 {
-  return raop_device_start_generic(rd, cb, 0);
+  return raop_device_start_generic(device, callback_id, 0);
 }
 
 static int
-raop_device_stop(struct output_device *rd, output_status_cb cb)
+raop_device_stop(struct output_device *device, int callback_id)
 {
-  struct raop_session *rs = rd->session;
+  struct raop_session *rs = device->session;
 
-  rs->status_cb = cb;
+  rs->callback_id = callback_id;
 
   return session_teardown(rs, "device_stop");
 }
 
 static void
-raop_device_free_extra(struct output_device *rd)
+raop_device_cb_set(struct output_device *device, int callback_id)
 {
-  struct raop_extra *re = rd->extra_device_info;
+  struct raop_session *rs = device->session;
 
-  free(re);
+  rs->callback_id = callback_id;
 }
 
 static void
-raop_device_set_cb(struct output_device *rd, output_status_cb cb)
+raop_device_free_extra(struct output_device *device)
 {
-  struct raop_session *rs = rd->session;
+  struct raop_extra *re = device->extra_device_info;
 
-  rs->status_cb = cb;
+  free(re);
 }
 
 static void
@@ -4879,7 +4895,7 @@ raop_write(struct output_buffer *obuf)
 }
 
 static int
-raop_flush(output_status_cb cb)
+raop_flush(int callback_id)
 {
   struct timeval tv;
   struct raop_session *rs;
@@ -4902,7 +4918,7 @@ raop_flush(output_status_cb cb)
 	  continue;
 	}
 
-      rs->status_cb = cb;
+      rs->callback_id = callback_id;
       pending++;
     }
 
@@ -5085,10 +5101,10 @@ struct output_definition output_raop =
   .device_start = raop_device_start,
   .device_stop = raop_device_stop,
   .device_probe = raop_device_probe,
+  .device_cb_set = raop_device_cb_set,
   .device_free_extra = raop_device_free_extra,
   .device_volume_set = raop_set_volume_one,
   .device_volume_to_pct = raop_volume_to_pct,
-  .device_set_cb = raop_device_set_cb,
   .playback_stop = raop_playback_stop,
   .write = raop_write,
   .flush = raop_flush,
