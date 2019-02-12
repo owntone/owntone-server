@@ -21,7 +21,6 @@
  * Here is the sequence of commands from the player to the outputs, and the
  * callback from the output once the command has been executed. Commands marked
  * with * may make multiple callbacks if multiple sessions are affected.
- * (TODO should callbacks always be deferred?)
  *
  * PLAYER              OUTPUT               PLAYER CB
  * speaker_activate    -> device_start      -> device_activate_cb
@@ -150,6 +149,7 @@ struct output_metadata
 {
   enum output_types type;
   void *metadata;
+
   struct output_metadata *next;
 };
 
@@ -168,7 +168,6 @@ struct output_buffer
   struct timespec pts;
   struct output_frame frames[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
 } output_buffer;
-
 
 typedef void (*output_status_cb)(struct output_device *device, enum output_device_state status);
 
@@ -195,38 +194,37 @@ struct output_definition
   void (*deinit)(void);
 
   // Prepare a playback session on device and call back
-  int (*device_start)(struct output_device *device, output_status_cb cb);
+  int (*device_start)(struct output_device *device, int callback_id);
 
   // Close a session prepared by device_start and call back
-  int (*device_stop)(struct output_device *device, output_status_cb cb);
+  int (*device_stop)(struct output_device *device, int callback_id);
 
   // Test the connection to a device and call back
-  int (*device_probe)(struct output_device *device, output_status_cb cb);
-
-  // Free the private device data
-  void (*device_free_extra)(struct output_device *device);
+  int (*device_probe)(struct output_device *device, int callback_id);
 
   // Set the volume and call back
-  int (*device_volume_set)(struct output_device *device, output_status_cb cb);
+  int (*device_volume_set)(struct output_device *device, int callback_id);
 
   // Convert device internal representation of volume to our pct scale
   int (*device_volume_to_pct)(struct output_device *device, const char *volume);
 
   // Request a change of quality from the device
-  int (*quality_set)(struct output_device *device, struct media_quality *quality);
+  int (*device_quality_set)(struct output_device *device, struct media_quality *quality, int callback_id);
 
   // Change the call back associated with a device
-  void (*device_set_cb)(struct output_device *device, output_status_cb cb);
+  void (*device_cb_set)(struct output_device *device, int callback_id);
+
+  // Free the private device data
+  void (*device_free_extra)(struct output_device *device);
 
   // Start/stop playback on devices that were started
-  void (*playback_start)(uint64_t next_pkt, struct timespec *ts);
   void (*playback_stop)(void);
 
   // Write stream data to the output devices
   void (*write)(struct output_buffer *buffer);
 
   // Flush all sessions, the return must be number of sessions pending the flush
-  int (*flush)(output_status_cb cb);
+  int (*flush)(int callback_id);
 
   // Authorize an output with a pin-code (probably coming from the filescanner)
   void (*authorize)(const char *pin);
@@ -238,6 +236,36 @@ struct output_definition
   void (*metadata_prune)(uint64_t rtptime);
 };
 
+// Our main list of devices, not for use by backend modules
+struct output_device *output_device_list;
+
+/* ------------------------------- General use ------------------------------ */
+
+struct output_device *
+outputs_device_get(uint64_t device_id);
+
+/* ----------------------- Called by backend modules ------------------------ */
+
+int
+outputs_device_session_add(uint64_t device_id, void *session);
+
+void
+outputs_device_session_remove(uint64_t device_id);
+
+int
+outputs_quality_subscribe(struct media_quality *quality);
+
+void
+outputs_quality_unsubscribe(struct media_quality *quality);
+
+void
+outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
+
+void
+outputs_listener_notify(void);
+
+/* ---------------------------- Called by player ---------------------------- */
+
 int
 outputs_device_start(struct output_device *device, output_status_cb cb);
 
@@ -247,21 +275,20 @@ outputs_device_stop(struct output_device *device, output_status_cb cb);
 int
 outputs_device_probe(struct output_device *device, output_status_cb cb);
 
-void
-outputs_device_free(struct output_device *device);
-
 int
 outputs_device_volume_set(struct output_device *device, output_status_cb cb);
 
 int
 outputs_device_volume_to_pct(struct output_device *device, const char *value);
 
-// TODO should this function have a callback?
 int
-outputs_device_quality_set(struct output_device *device, struct media_quality *quality);
+outputs_device_quality_set(struct output_device *device, struct media_quality *quality, output_status_cb cb);
 
 void
-outputs_device_set_cb(struct output_device *device, output_status_cb cb);
+outputs_device_cb_set(struct output_device *device, output_status_cb cb);
+
+void
+outputs_device_free(struct output_device *device);
 
 void
 outputs_playback_stop(void);
@@ -289,12 +316,6 @@ outputs_metadata_free(struct output_metadata *omd);
 
 void
 outputs_authorize(enum output_types type, const char *pin);
-
-int
-outputs_quality_subscribe(struct media_quality *quality);
-
-void
-outputs_quality_unsubscribe(struct media_quality *quality);
 
 int
 outputs_priority(struct output_device *device);

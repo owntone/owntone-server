@@ -93,9 +93,6 @@ player_speaker_enable(uint64_t id);
 int
 player_speaker_disable(uint64_t id);
 
-void
-player_speaker_status_trigger(void);
-
 int
 player_playback_start(void);
 
@@ -162,6 +159,9 @@ player_raop_verification_kickoff(char **arglist);
 
 void
 player_metadata_send(void *imd, void *omd);
+
+const char *
+player_pmap(void *p);
 
 int
 player_init(void);

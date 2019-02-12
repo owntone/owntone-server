@@ -196,7 +196,7 @@ alsa_session_make(struct output_device *device, output_status_cb cb)
   as->next = sessions;
   sessions = as;
 
-  device->session = as;
+  outputs_device_session_add(device, as);
 
   return as;
 

@@ -31,8 +31,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <event2/event.h>
-
 #include "misc.h"
 #include "conffile.h"
 #include "logger.h"
@@ -95,21 +93,11 @@ struct fifo_session
 
   int created;
 
-  struct event *deferredev;
-  output_status_cb defer_cb;
-
-  struct output_device *device;
-  output_status_cb status_cb;
+  uint64_t device_id;
+  int callback_id;
 };
 
-/* From player.c */
-extern struct event_base *evbase_player;
-
 static struct fifo_session *sessions;
-
-/* Forwards */
-static void
-defer_cb(int fd, short what, void *arg);
 
 
 /* ---------------------------- FIFO HANDLING ---------------------------- */
@@ -242,8 +230,6 @@ fifo_session_free(struct fifo_session *fifo_session)
   if (!fifo_session)
     return;
 
-  event_free(fifo_session->deferredev);
-
   free(fifo_session);
   free_buffer();
 }
@@ -254,29 +240,21 @@ fifo_session_cleanup(struct fifo_session *fifo_session)
   // Normally some here code to remove from linked list - here we just say:
   sessions = NULL;
 
-  fifo_session->device->session = NULL;
+  outputs_device_session_remove(fifo_session->device_id);
 
   fifo_session_free(fifo_session);
 }
 
 static struct fifo_session *
-fifo_session_make(struct output_device *device, output_status_cb cb)
+fifo_session_make(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session;
 
   CHECK_NULL(L_FIFO, fifo_session = calloc(1, sizeof(struct fifo_session)));
 
-  fifo_session->deferredev = evtimer_new(evbase_player, defer_cb, fifo_session);
-  if (!fifo_session->deferredev)
-    {
-      DPRINTF(E_LOG, L_FIFO, "Out of memory for fifo deferred event\n");
-      free(fifo_session);
-      return NULL;
-    }
-
   fifo_session->state = OUTPUT_STATE_CONNECTED;
-  fifo_session->device = device;
-  fifo_session->status_cb = cb;
+  fifo_session->device_id = device->id;
+  fifo_session->callback_id = callback_id;
 
   fifo_session->created = 0;
   fifo_session->path = device->extra_device_info;
@@ -285,7 +263,7 @@ fifo_session_make(struct output_device *device, output_status_cb cb)
 
   sessions = fifo_session;
 
-  device->session = fifo_session;
+  outputs_device_session_add(device->id, fifo_session);
 
   return fifo_session;
 }
@@ -293,33 +271,19 @@ fifo_session_make(struct output_device *device, output_status_cb cb)
 
 /* ---------------------------- STATUS HANDLERS ----------------------------- */
 
-// Maps our internal state to the generic output state and then makes a callback
-// to the player to tell that state
-static void
-defer_cb(int fd, short what, void *arg)
-{
-  struct fifo_session *ds = arg;
-
-  if (ds->defer_cb)
-    ds->defer_cb(ds->device, ds->state);
-
-  if (ds->state == OUTPUT_STATE_STOPPED)
-    fifo_session_cleanup(ds);
-}
-
 static void
 fifo_status(struct fifo_session *fifo_session)
 {
-  fifo_session->defer_cb = fifo_session->status_cb;
-  event_active(fifo_session->deferredev, 0, 0);
-  fifo_session->status_cb = NULL;
-}
+  outputs_cb(fifo_session->callback_id, fifo_session->device_id, fifo_session->state);
 
+  if (fifo_session->state == OUTPUT_STATE_STOPPED)
+    fifo_session_cleanup(fifo_session);
+}
 
 /* ------------------ INTERFACE FUNCTIONS CALLED BY OUTPUTS.C --------------- */
 
 static int
-fifo_device_start(struct output_device *device, output_status_cb cb)
+fifo_device_start(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session;
   int ret;
@@ -328,7 +292,7 @@ fifo_device_start(struct output_device *device, output_status_cb cb)
   if (ret < 0)
     return -1;
 
-  fifo_session = fifo_session_make(device, cb);
+  fifo_session = fifo_session_make(device, callback_id);
   if (!fifo_session)
     return -1;
 
@@ -342,13 +306,13 @@ fifo_device_start(struct output_device *device, output_status_cb cb)
 }
 
 static int
-fifo_device_stop(struct output_device *device, output_status_cb cb)
+fifo_device_stop(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session = device->session;
 
   outputs_quality_unsubscribe(&fifo_quality);
 
-  fifo_session->status_cb = cb;
+  fifo_session->callback_id = callback_id;
 
   fifo_close(fifo_session);
   free_buffer();
@@ -360,12 +324,12 @@ fifo_device_stop(struct output_device *device, output_status_cb cb)
 }
 
 static int
-fifo_device_probe(struct output_device *device, output_status_cb cb)
+fifo_device_probe(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session;
   int ret;
 
-  fifo_session = fifo_session_make(device, cb);
+  fifo_session = fifo_session_make(device, callback_id);
   if (!fifo_session)
     return -1;
 
@@ -378,7 +342,7 @@ fifo_device_probe(struct output_device *device, output_status_cb cb)
 
   fifo_close(fifo_session);
 
-  fifo_session->status_cb = cb;
+  fifo_session->callback_id = callback_id;
   fifo_session->state = OUTPUT_STATE_STOPPED;
 
   fifo_status(fifo_session);
@@ -387,25 +351,25 @@ fifo_device_probe(struct output_device *device, output_status_cb cb)
 }
 
 static int
-fifo_device_volume_set(struct output_device *device, output_status_cb cb)
+fifo_device_volume_set(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session = device->session;
 
   if (!fifo_session)
     return 0;
 
-  fifo_session->status_cb = cb;
+  fifo_session->callback_id = callback_id;
   fifo_status(fifo_session);
 
   return 1;
 }
 
 static void
-fifo_device_set_cb(struct output_device *device, output_status_cb cb)
+fifo_device_cb_set(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session = device->session;
 
-  fifo_session->status_cb = cb;
+  fifo_session->callback_id = callback_id;
 }
 
 static void
@@ -423,7 +387,7 @@ fifo_playback_stop(void)
 }
 
 static int
-fifo_flush(output_status_cb cb)
+fifo_flush(int callback_id)
 {
   struct fifo_session *fifo_session = sessions;
 
@@ -433,7 +397,7 @@ fifo_flush(output_status_cb cb)
   fifo_empty(fifo_session);
   free_buffer();
 
-  fifo_session->status_cb = cb;
+  fifo_session->callback_id = callback_id;
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_status(fifo_session);
   return 1;
@@ -448,7 +412,7 @@ fifo_write(struct output_buffer *obuf)
   ssize_t bytes;
   int i;
 
-  if (!fifo_session || !fifo_session->device->selected)
+  if (!fifo_session)
     return;
 
   for (i = 0; obuf->frames[i].buffer; i++)
@@ -535,12 +499,7 @@ fifo_init(void)
 
   memset(&buffer, 0, sizeof(struct fifo_buffer));
 
-  device = calloc(1, sizeof(struct output_device));
-  if (!device)
-    {
-      DPRINTF(E_LOG, L_FIFO, "Out of memory for fifo device\n");
-      return -1;
-    }
+  CHECK_NULL(L_FIFO, device = calloc(1, sizeof(struct output_device)));
 
   device->id = 100;
   device->name = strdup(nickname);
@@ -574,7 +533,7 @@ struct output_definition output_fifo =
   .device_stop = fifo_device_stop,
   .device_probe = fifo_device_probe,
   .device_volume_set = fifo_device_volume_set,
-  .device_set_cb = fifo_device_set_cb,
+  .device_cb_set = fifo_device_cb_set,
   .playback_stop = fifo_playback_stop,
   .write = fifo_write,
   .flush = fifo_flush,

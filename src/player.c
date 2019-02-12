@@ -256,9 +256,6 @@ static uint64_t pb_pos;
 // Stream position (packets)
 static uint64_t last_rtptime;
 
-// Output devices
-static struct output_device *dev_list;
-
 // Output status
 static int output_sessions;
 
@@ -326,7 +323,7 @@ volume_master_update(int newvol)
 
   master_volume = newvol;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device->selected)
 	device->relvol = vol_to_rel(device->volume);
@@ -341,7 +338,7 @@ volume_master_find(void)
 
   newmaster = -1;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device->selected && (device->volume > newmaster))
 	newmaster = device->volume;
@@ -1219,14 +1216,14 @@ device_list_sort(void)
     {
       swaps = 0;
       prev = NULL;
-      for (device = dev_list; device && device->next; device = device->next)
+      for (device = output_device_list; device && device->next; device = device->next)
 	{
 	  next = device->next;
 	  if ( (outputs_priority(device) > outputs_priority(next)) ||
 	       (outputs_priority(device) == outputs_priority(next) && strcasecmp(device->name, next->name) > 0) )
 	    {
-	      if (device == dev_list)
-		dev_list = next;
+	      if (device == output_device_list)
+		output_device_list = next;
 	      if (prev)
 		prev->next = next;
 
@@ -1248,7 +1245,7 @@ device_remove(struct output_device *remove)
   int ret;
 
   prev = NULL;
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device == remove)
 	break;
@@ -1271,7 +1268,7 @@ device_remove(struct output_device *remove)
     speaker_deselect_output(remove);
 
   if (!prev)
-    dev_list = remove->next;
+    output_device_list = remove->next;
   else
     prev->next = remove->next;
 
@@ -1283,7 +1280,7 @@ device_check(struct output_device *check)
 {
   struct output_device *device;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device == check)
 	break;
@@ -1304,7 +1301,7 @@ device_add(void *arg, int *retval)
   cmdarg = arg;
   add = cmdarg->device;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device->id == add->id)
 	break;
@@ -1331,8 +1328,8 @@ device_add(void *arg, int *retval)
       else
 	device->selected = 0;
 
-      device->next = dev_list;
-      dev_list = device;
+      device->next = output_device_list;
+      output_device_list = device;
     }
   // Update to a device already in the list
   else
@@ -1392,7 +1389,7 @@ device_remove_family(void *arg, int *retval)
   cmdarg = arg;
   remove = cmdarg->device;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device->id == remove->id)
         break;
@@ -1512,7 +1509,7 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
 	device_remove(device);
     }
   else
-    outputs_device_set_cb(device, device_streaming_cb);
+    outputs_device_cb_set(device, device_streaming_cb);
 }
 
 static void
@@ -1520,7 +1517,7 @@ device_command_cb(struct output_device *device, enum output_device_state status)
 {
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_command_cb (status %d)\n", outputs_name(device->type), status);
 
-  outputs_device_set_cb(device, device_streaming_cb);
+  outputs_device_cb_set(device, device_streaming_cb);
 
   if (status == OUTPUT_STATE_FAILED)
     device_streaming_cb(device, status);
@@ -1622,7 +1619,7 @@ device_activate_cb(struct output_device *device, enum output_device_state status
 
   output_sessions++;
 
-  outputs_device_set_cb(device, device_streaming_cb);
+  outputs_device_cb_set(device, device_streaming_cb);
 
  out:
   /* cur_cmd->ret already set
@@ -1719,12 +1716,32 @@ device_restart_cb(struct output_device *device, enum output_device_state status)
     }
 
   output_sessions++;
-  outputs_device_set_cb(device, device_streaming_cb);
+  outputs_device_cb_set(device, device_streaming_cb);
 
  out:
   commands_exec_end(cmdbase, retval);
 }
 
+const char *
+player_pmap(void *p)
+{
+  if (p == device_restart_cb)
+    return "device_restart_cb";
+  else if (p == device_probe_cb)
+    return "device_probe_cb";
+  else if (p == device_activate_cb)
+    return "device_activate_cb";
+  else if (p == device_streaming_cb)
+    return "device_streaming_cb";
+  else if (p == device_lost_cb)
+    return "device_lost_cb";
+  else if (p == device_command_cb)
+    return "device_command_cb";
+  else if (p == device_shutdown_cb)
+    return "device_shutdown_cb";
+  else
+    return "unknown";
+}
 
 /* ------------------------- Internal playback routines --------------------- */
 
@@ -2092,7 +2109,7 @@ playback_start_item(void *arg, int *retval)
   // Start sessions on selected devices
   *retval = 0;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device->selected && !device->session)
 	{
@@ -2110,7 +2127,7 @@ playback_start_item(void *arg, int *retval)
 
   // If autoselecting is enabled, try to autoselect a non-selected device if the above failed
   if (speaker_autoselect && (*retval == 0) && (output_sessions == 0))
-    for (device = dev_list; device; device = device->next)
+    for (device = output_device_list; device; device = device->next)
       {
 	if ((outputs_priority(device) == 0) || device->session)
 	  continue;
@@ -2434,15 +2451,6 @@ playback_pause(void *arg, int *retval)
   return COMMAND_END;
 }
 
-/*
- * Notify of speaker/device changes
- */
-void
-player_speaker_status_trigger(void)
-{
-  listener_notify(LISTENER_SPEAKER);
-}
-
 static void
 device_to_speaker_info(struct player_speaker_info *spk, struct output_device *device)
 {
@@ -2469,7 +2477,7 @@ speaker_enumerate(void *arg, int *retval)
   struct output_device *device;
   struct player_speaker_info spk;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device->advertised || device->selected)
 	{
@@ -2592,7 +2600,7 @@ speaker_set(void *arg, int *retval)
 
   *retval = 0;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       for (i = 1; i <= nspk; i++)
 	{
@@ -2639,7 +2647,7 @@ speaker_enable(void *arg, int *retval)
 
   *retval = 0;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (*id == device->id)
 	{
@@ -2666,7 +2674,7 @@ speaker_disable(void *arg, int *retval)
 
   *retval = 0;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (*id == device->id)
 	{
@@ -2696,7 +2704,7 @@ volume_set(void *arg, int *retval)
 
   master_volume = volume;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (!device->selected)
 	continue;
@@ -2726,7 +2734,7 @@ static void debug_print_speaker()
 
   DPRINTF(E_DBG, L_PLAYER, "*** Master: %d\n", master_volume);
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (!device->selected)
 	continue;
@@ -2748,7 +2756,7 @@ volume_setrel_speaker(void *arg, int *retval)
   id = vol_param->spk_id;
   relvol = vol_param->volume;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (device->id != id)
 	continue;
@@ -2799,7 +2807,7 @@ volume_setabs_speaker(void *arg, int *retval)
 
   master_volume = volume;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if (!device->selected)
 	continue;
@@ -2853,7 +2861,7 @@ volume_byactiveremote(void *arg, int *retval)
   *retval = 0;
   activeremote = ar_param->activeremote;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if ((uint32_t)device->id == activeremote)
 	break;
@@ -3456,7 +3464,7 @@ player(void *arg)
 
   db_speaker_clear_all();
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       ret = db_speaker_save(device);
       if (ret < 0)
