@@ -35,6 +35,7 @@
 #include "misc.h"
 #include "transcode.h"
 #include "listener.h"
+#include "db.h"
 #include "player.h" //TODO remove me when player_pmap is removed again
 #include "outputs.h"
 
@@ -122,6 +123,22 @@ callback_remove(struct output_device *device)
     }
 }
 
+static void
+callback_remove_all(enum output_types type)
+{
+  struct output_device *device;
+
+  for (device = output_device_list; device; device = device->next)
+    {
+      if (type != device->type)
+	continue;
+
+      outputs_device_cb_set(device, NULL);
+
+      callback_remove(device);
+    }
+}
+
 static int
 callback_add(struct output_device *device, output_status_cb cb)
 {
@@ -163,22 +180,6 @@ callback_add(struct output_device *device, output_status_cb cb)
 };
 
 static void
-callback_remove_all(enum output_types type)
-{
-  struct output_device *device;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (type != device->type)
-	continue;
-
-      outputs_device_cb_set(device, NULL);
-
-      callback_remove(device);
-    }
-}
-
-static void
 deferred_cb(int fd, short what, void *arg)
 {
   struct output_device *device;
@@ -211,6 +212,15 @@ deferred_cb(int fd, short what, void *arg)
       if (outputs_cb_queue[i].cb)
 	DPRINTF(E_DBG, L_PLAYER, "%d. Active callback: %s\n", i, player_pmap(outputs_cb_queue[i].cb));
     }
+}
+
+static void
+device_stop_cb(struct output_device *device, enum output_device_state status)
+{
+  if (status == OUTPUT_STATE_FAILED)
+    DPRINTF(E_WARN, L_PLAYER, "Failed to stop device\n");
+  else
+    DPRINTF(E_INFO, L_PLAYER, "Device stopped properly\n");
 }
 
 static enum transcode_profile
@@ -337,6 +347,41 @@ buffer_drain(struct output_buffer *obuf)
       // We don't reset quality and samples, would be a waste of time
     }
 }
+
+static void
+device_list_sort(void)
+{
+  struct output_device *device;
+  struct output_device *next;
+  struct output_device *prev;
+  int swaps;
+
+  // Swap sorting since even the most inefficient sorting should do fine here
+  do
+    {
+      swaps = 0;
+      prev = NULL;
+      for (device = output_device_list; device && device->next; device = device->next)
+	{
+	  next = device->next;
+	  if ( (outputs_priority(device) > outputs_priority(next)) ||
+	       (outputs_priority(device) == outputs_priority(next) && strcasecmp(device->name, next->name) > 0) )
+	    {
+	      if (device == output_device_list)
+		output_device_list = next;
+	      if (prev)
+		prev->next = next;
+
+	      device->next = next->next;
+	      next->next = device;
+	      swaps++;
+	    }
+	  prev = device;
+	}
+    }
+  while (swaps > 0);
+}
+
 
 /* ----------------------------------- API ---------------------------------- */
 
@@ -488,6 +533,125 @@ outputs_listener_notify(void)
 
 
 /* ---------------------------- Called by player ---------------------------- */
+
+int
+outputs_device_add(struct output_device *add, bool new_deselect, int default_volume)
+{
+  struct output_device *device;
+  char *keep_name;
+  int ret;
+
+  for (device = output_device_list; device; device = device->next)
+    {
+      if (device->id == add->id)
+	break;
+    }
+
+  // New device
+  if (!device)
+    {
+      device = add;
+
+      keep_name = strdup(device->name);
+      ret = db_speaker_get(device, device->id);
+      if (ret < 0)
+	{
+	  device->selected = 0;
+	  device->volume = default_volume;
+	}
+
+      free(device->name);
+      device->name = keep_name;
+
+      if (new_deselect)
+	device->selected = 0;
+
+      device->next = output_device_list;
+      output_device_list = device;
+    }
+  // Update to a device already in the list
+  else
+    {
+      if (add->v4_address)
+	{
+	  free(device->v4_address);
+
+	  device->v4_address = add->v4_address;
+	  device->v4_port = add->v4_port;
+
+	  // Address is ours now
+	  add->v4_address = NULL;
+	}
+
+      if (add->v6_address)
+	{
+	  free(device->v6_address);
+
+	  device->v6_address = add->v6_address;
+	  device->v6_port = add->v6_port;
+
+	  // Address is ours now
+	  add->v6_address = NULL;
+	}
+
+      free(device->name);
+      device->name = add->name;
+      add->name = NULL;
+
+      device->has_password = add->has_password;
+      device->password = add->password;
+
+      outputs_device_free(add);
+    }
+
+  device_list_sort();
+
+  listener_notify(LISTENER_SPEAKER);
+
+  return 0;
+}
+
+void
+outputs_device_remove(struct output_device *remove)
+{
+  struct output_device *device;
+  struct output_device *prev;
+  int ret;
+
+  // Device stop should be able to handle that we invalidate the device, even
+  // if it is an async stop. It might call outputs_device_session_remove(), but
+  // that just won't do anything since the id will be unknown.
+  if (remove->session)
+    outputs_device_stop(remove, device_stop_cb);
+
+  prev = NULL;
+  for (device = output_device_list; device; device = device->next)
+    {
+      if (device == remove)
+	break;
+
+      prev = device;
+    }
+
+  if (!device)
+    return;
+
+  // Save device volume
+  ret = db_speaker_save(remove);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
+
+  DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
+
+  if (!prev)
+    output_device_list = remove->next;
+  else
+    prev->next = remove->next;
+
+  outputs_device_free(remove);
+
+  listener_notify(LISTENER_SPEAKER);
+}
 
 int
 outputs_device_start(struct output_device *device, output_status_cb cb)

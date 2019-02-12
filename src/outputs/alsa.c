@@ -1028,7 +1028,6 @@ alsa_init(void)
   device->name = strdup(nickname);
   device->type = OUTPUT_TYPE_ALSA;
   device->type_name = outputs_name(device->type);
-  device->advertised = 1;
   device->has_video = 0;
 
   DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' with name '%s'\n", card_name, nickname);

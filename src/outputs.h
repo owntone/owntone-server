@@ -114,7 +114,7 @@ struct output_device
 
   // Misc device flags 
   unsigned selected:1;
-  unsigned advertised:1;
+//  unsigned advertised:1;
   unsigned has_password:1;
   unsigned has_video:1;
   unsigned requires_auth:1;
@@ -265,6 +265,12 @@ void
 outputs_listener_notify(void);
 
 /* ---------------------------- Called by player ---------------------------- */
+
+int
+outputs_device_add(struct output_device *add, bool new_deselect, int default_volume);
+
+void
+outputs_device_remove(struct output_device *remove);
 
 int
 outputs_device_start(struct output_device *device, output_status_cb cb);

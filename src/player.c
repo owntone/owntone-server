@@ -1203,198 +1203,37 @@ playback_cb(int fd, short what, void *arg)
 
 /* ----------------- Output device handling (add/remove etc) ---------------- */
 
-static void
-device_list_sort(void)
-{
-  struct output_device *device;
-  struct output_device *next;
-  struct output_device *prev;
-  int swaps;
-
-  // Swap sorting since even the most inefficient sorting should do fine here
-  do
-    {
-      swaps = 0;
-      prev = NULL;
-      for (device = output_device_list; device && device->next; device = device->next)
-	{
-	  next = device->next;
-	  if ( (outputs_priority(device) > outputs_priority(next)) ||
-	       (outputs_priority(device) == outputs_priority(next) && strcasecmp(device->name, next->name) > 0) )
-	    {
-	      if (device == output_device_list)
-		output_device_list = next;
-	      if (prev)
-		prev->next = next;
-
-	      device->next = next->next;
-	      next->next = device;
-	      swaps++;
-	    }
-	  prev = device;
-	}
-    }
-  while (swaps > 0);
-}
-
-static void
-device_remove(struct output_device *remove)
-{
-  struct output_device *device;
-  struct output_device *prev;
-  int ret;
-
-  prev = NULL;
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (device == remove)
-	break;
-
-      prev = device;
-    }
-
-  if (!device)
-    return;
-
-  // Save device volume
-  ret = db_speaker_save(remove);
-  if (ret < 0)
-    DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
-
-  DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
-
-  // Make sure device isn't selected anymore
-  if (remove->selected)
-    speaker_deselect_output(remove);
-
-  if (!prev)
-    output_device_list = remove->next;
-  else
-    prev->next = remove->next;
-
-  outputs_device_free(remove);
-}
-
-static int
-device_check(struct output_device *check)
-{
-  struct output_device *device;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (device == check)
-	break;
-    }
-
-  return (device) ? 0 : -1;
-}
-
 static enum command_state
 device_add(void *arg, int *retval)
 {
-  union player_arg *cmdarg;
-  struct output_device *add;
-  struct output_device *device;
-  char *keep_name;
-  int ret;
+  union player_arg *cmdarg = arg;
+  struct output_device *device = cmdarg->device;
+  bool new_deselect;
+  int default_volume;
 
-  cmdarg = arg;
-  add = cmdarg->device;
+  default_volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
 
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (device->id == add->id)
-	break;
-    }
+  // Never turn on new devices during playback
+  new_deselect = (player_state == PLAY_PLAYING);
 
-  // New device
-  if (!device)
-    {
-      device = add;
+  *retval = outputs_device_add(device, new_deselect, default_volume);
 
-      keep_name = strdup(device->name);
-      ret = db_speaker_get(device, device->id);
-      if (ret < 0)
-	{
-	  device->selected = 0;
-	  device->volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
-	}
+  if (device->selected)
+    speaker_select_output(device);
 
-      free(device->name);
-      device->name = keep_name;
-
-      if (device->selected && (player_state != PLAY_PLAYING))
-	speaker_select_output(device);
-      else
-	device->selected = 0;
-
-      device->next = output_device_list;
-      output_device_list = device;
-    }
-  // Update to a device already in the list
-  else
-    {
-      device->advertised = 1;
-
-      if (add->v4_address)
-	{
-	  if (device->v4_address)
-	    free(device->v4_address);
-
-	  device->v4_address = add->v4_address;
-	  device->v4_port = add->v4_port;
-
-	  // Address is ours now
-	  add->v4_address = NULL;
-	}
-
-      if (add->v6_address)
-	{
-	  if (device->v6_address)
-	    free(device->v6_address);
-
-	  device->v6_address = add->v6_address;
-	  device->v6_port = add->v6_port;
-
-	  // Address is ours now
-	  add->v6_address = NULL;
-	}
-
-      if (device->name)
-	free(device->name);
-      device->name = add->name;
-      add->name = NULL;
-
-      device->has_password = add->has_password;
-      device->password = add->password;
-
-      outputs_device_free(add);
-    }
-
-  device_list_sort();
-
-  listener_notify(LISTENER_SPEAKER);
-
-  *retval = 0;
   return COMMAND_END;
 }
 
 static enum command_state
 device_remove_family(void *arg, int *retval)
 {
-  union player_arg *cmdarg;
+  union player_arg *cmdarg = arg;
   struct output_device *remove;
   struct output_device *device;
 
-  cmdarg = arg;
   remove = cmdarg->device;
 
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (device->id == remove->id)
-        break;
-    }
-
+  device = outputs_device_get(remove->id);
   if (!device)
     {
       DPRINTF(E_WARN, L_PLAYER, "The %s device '%s' stopped advertising, but not in our list\n", remove->type_name, remove->name);
@@ -1421,15 +1260,15 @@ device_remove_family(void *arg, int *retval)
 
   if (!device->v4_address && !device->v6_address)
     {
-      device->advertised = 0;
+      // Make sure device isn't selected anymore
+      if (device->selected)
+	speaker_deselect_output(device);
 
-      if (!device->session)
-	device_remove(device);
+      // Will also stop sessions on the device, if any
+      outputs_device_remove(device);
     }
 
   outputs_device_free(remove);
-
-  listener_notify(LISTENER_SPEAKER);
 
   *retval = 0;
   return COMMAND_END;
@@ -1471,18 +1310,15 @@ device_metadata_send(void *arg, int *retval)
 static void
 device_streaming_cb(struct output_device *device, enum output_device_state status)
 {
-  int ret;
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_streaming_cb (status %d)\n", outputs_name(device->type), status);
-
-  ret = device_check(device);
-  if (ret < 0)
+  if (!device)
     {
       DPRINTF(E_LOG, L_PLAYER, "Output device disappeared during streaming!\n");
 
       output_sessions--;
       return;
     }
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_streaming_cb (status %d)\n", outputs_name(device->type), status);
 
   if (status == OUTPUT_STATE_FAILED)
     {
@@ -1493,9 +1329,6 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
       if (player_state == PLAY_PLAYING)
 	speaker_deselect_output(device);
 
-      if (!device->advertised)
-	device_remove(device);
-
       if (output_sessions == 0)
 	playback_abort();
     }
@@ -1504,9 +1337,6 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
       DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' stopped\n", device->type_name, device->name);
 
       output_sessions--;
-
-      if (!device->advertised)
-	device_remove(device);
     }
   else
     outputs_device_cb_set(device, device_streaming_cb);
@@ -1515,6 +1345,12 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
 static void
 device_command_cb(struct output_device *device, enum output_device_state status)
 {
+  if (!device)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Output device disappeared before command completion!\n");
+      goto out;
+    }
+
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_command_cb (status %d)\n", outputs_name(device->type), status);
 
   outputs_device_cb_set(device, device_streaming_cb);
@@ -1530,6 +1366,7 @@ device_command_cb(struct output_device *device, enum output_device_state status)
 	input_buffer_full_cb(player_playback_start);
     }
 
+ out:
   commands_exec_end(cmdbase, 0);
 }
 
@@ -1537,16 +1374,12 @@ static void
 device_shutdown_cb(struct output_device *device, enum output_device_state status)
 {
   int retval;
-  int ret;
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_shutdown_cb (status %d)\n", outputs_name(device->type), status);
 
   if (output_sessions)
     output_sessions--;
 
   retval = commands_exec_returnvalue(cmdbase);
-  ret = device_check(device);
-  if (ret < 0)
+  if (!device)
     {
       DPRINTF(E_WARN, L_PLAYER, "Output device disappeared before shutdown completion!\n");
 
@@ -1555,8 +1388,7 @@ device_shutdown_cb(struct output_device *device, enum output_device_state status
       goto out;
     }
 
-  if (!device->advertised)
-    device_remove(device);
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_shutdown_cb (status %d)\n", outputs_name(device->type), status);
 
  out:
   /* cur_cmd->ret already set
@@ -1567,37 +1399,21 @@ device_shutdown_cb(struct output_device *device, enum output_device_state status
 }
 
 static void
-device_lost_cb(struct output_device *device, enum output_device_state status)
-{
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_lost_cb (status %d)\n", outputs_name(device->type), status);
-
-  // We lost that device during startup for some reason, not much we can do here
-  if (status == OUTPUT_STATE_FAILED)
-    DPRINTF(E_WARN, L_PLAYER, "Failed to stop lost device\n");
-  else
-    DPRINTF(E_INFO, L_PLAYER, "Lost device stopped properly\n");
-}
-
-static void
 device_activate_cb(struct output_device *device, enum output_device_state status)
 {
   int retval;
-  int ret;
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_activate_cb (status %d)\n", outputs_name(device->type), status);
 
   retval = commands_exec_returnvalue(cmdbase);
-  ret = device_check(device);
-  if (ret < 0)
+  if (!device)
     {
       DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during startup!\n");
-
-      outputs_device_stop(device, device_lost_cb);
 
       if (retval != -2)
 	retval = -1;
       goto out;
     }
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_activate_cb (status %d)\n", outputs_name(device->type), status);
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
@@ -1608,9 +1424,6 @@ device_activate_cb(struct output_device *device, enum output_device_state status
   if (status == OUTPUT_STATE_FAILED)
     {
       speaker_deselect_output(device);
-
-      if (!device->advertised)
-	device_remove(device);
 
       if (retval != -2)
 	retval = -1;
@@ -1634,13 +1447,9 @@ static void
 device_probe_cb(struct output_device *device, enum output_device_state status)
 {
   int retval;
-  int ret;
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_probe_cb (status %d)\n", outputs_name(device->type), status);
 
   retval = commands_exec_returnvalue(cmdbase);
-  ret = device_check(device);
-  if (ret < 0)
+  if (!device)
     {
       DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during probe!\n");
 
@@ -1648,6 +1457,8 @@ device_probe_cb(struct output_device *device, enum output_device_state status)
 	retval = -1;
       goto out;
     }
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_probe_cb (status %d)\n", outputs_name(device->type), status);
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
@@ -1658,9 +1469,6 @@ device_probe_cb(struct output_device *device, enum output_device_state status)
   if (status == OUTPUT_STATE_FAILED)
     {
       speaker_deselect_output(device);
-
-      if (!device->advertised)
-	device_remove(device);
 
       if (retval != -2)
 	retval = -1;
@@ -1680,22 +1488,18 @@ static void
 device_restart_cb(struct output_device *device, enum output_device_state status)
 {
   int retval;
-  int ret;
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_restart_cb (status %d)\n", outputs_name(device->type), status);
 
   retval = commands_exec_returnvalue(cmdbase);
-  ret = device_check(device);
-  if (ret < 0)
+  if (!device)
     {
       DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during restart!\n");
-
-      outputs_device_stop(device, device_lost_cb);
 
       if (retval != -2)
 	retval = -1;
       goto out;
     }
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_restart_cb (status %d)\n", outputs_name(device->type), status);
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
@@ -1706,9 +1510,6 @@ device_restart_cb(struct output_device *device, enum output_device_state status)
   if (status == OUTPUT_STATE_FAILED)
     {
       speaker_deselect_output(device);
-
-      if (!device->advertised)
-	device_remove(device);
 
       if (retval != -2)
 	retval = -1;
@@ -1733,8 +1534,6 @@ player_pmap(void *p)
     return "device_activate_cb";
   else if (p == device_streaming_cb)
     return "device_streaming_cb";
-  else if (p == device_lost_cb)
-    return "device_lost_cb";
   else if (p == device_command_cb)
     return "device_command_cb";
   else if (p == device_shutdown_cb)
@@ -2479,7 +2278,7 @@ speaker_enumerate(void *arg, int *retval)
 
   for (device = output_device_list; device; device = device->next)
     {
-      if (device->advertised || device->selected)
+      if (device->selected)
 	{
 	  device_to_speaker_info(&spk, device);
 	  spk_enum->cb(&spk, spk_enum->arg);
