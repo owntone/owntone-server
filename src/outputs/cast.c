@@ -1299,8 +1299,6 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 
   DPRINTF(E_INFO, L_CAST, "Adding Chromecast device '%s'\n", name);
 
-  device->advertised = 1;
-
   switch (family)
     {
       case AF_INET:

@@ -4712,8 +4712,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       free(et);
     }
 
-  rd->advertised = 1;
-
   switch (family)
     {
       case AF_INET:

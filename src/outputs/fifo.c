@@ -505,7 +505,6 @@ fifo_init(void)
   device->name = strdup(nickname);
   device->type = OUTPUT_TYPE_FIFO;
   device->type_name = outputs_name(device->type);
-  device->advertised = 1;
   device->has_video = 0;
   device->extra_device_info = path;
   DPRINTF(E_INFO, L_FIFO, "Adding fifo output device '%s' with path '%s'\n", nickname, path);

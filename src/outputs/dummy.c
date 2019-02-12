@@ -203,7 +203,6 @@ dummy_init(void)
   device->name = strdup(nickname);
   device->type = OUTPUT_TYPE_DUMMY;
   device->type_name = outputs_name(device->type);
-  device->advertised = 1;
   device->has_video = 0;
 
   DPRINTF(E_INFO, L_LAUDIO, "Adding dummy output device '%s'\n", nickname);
