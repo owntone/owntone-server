@@ -114,7 +114,7 @@ struct output_device
 
   // Misc device flags 
   unsigned selected:1;
-//  unsigned advertised:1;
+  unsigned advertised:1;
   unsigned has_password:1;
   unsigned has_video:1;
   unsigned requires_auth:1;
