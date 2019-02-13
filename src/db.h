@@ -469,6 +469,8 @@ struct db_queue_item {
 
   char *composer;
 
+  int64_t songartistid;
+
   /* Not saved in queue table */
   uint32_t seek;
 };

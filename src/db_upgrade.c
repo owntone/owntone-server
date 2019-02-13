@@ -972,6 +972,17 @@ static const struct db_upgrade_query db_upgrade_v2000_queries[] =
     { U_V2000_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
+#define U_V2001_ALTER_QUEUE_ADD_SONGARTISTID \
+  "ALTER TABLE queue ADD COLUMN songartistid INTEGER NOT NULL default 0;"
+#define U_V2001_SCVER_MINOR \
+  "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2001_queries[] =
+  {
+    { U_V2001_ALTER_QUEUE_ADD_SONGARTISTID, "add songartistid to queue" },
+    { U_V2001_SCVER_MINOR,    "set schema_version_minor to 01" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1103,6 +1114,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 	return -1;
 
       ret = db_generic_upgrade(hdl, db_upgrade_v2000_queries, ARRAY_SIZE(db_upgrade_v2000_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2000:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2001_queries, ARRAY_SIZE(db_upgrade_v2001_queries));
       if (ret < 0)
 	return -1;
 

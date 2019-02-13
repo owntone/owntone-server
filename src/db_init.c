@@ -191,7 +191,8 @@
   "   disc                INTEGER DEFAULT 0,"				\
   "   artwork_url         VARCHAR(4096) DEFAULT NULL,"			\
   "   queue_version       INTEGER DEFAULT 0,"				\
-  "   composer            VARCHAR(1024) DEFAULT NULL"			\
+  "   composer            VARCHAR(1024) DEFAULT NULL,"			\
+  "   songartistid        INTEGER NOT NULL"				\
   ");"
 
 #define Q_PL1								\
