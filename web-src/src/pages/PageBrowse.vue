@@ -67,8 +67,8 @@ import webapi from '@/webapi'
 const browseData = {
   load: function (to) {
     return Promise.all([
-      webapi.search({ type: 'album', expression: 'time_added after 8 weeks ago having track_count > 3 order by time_added desc', limit: 3 }),
-      webapi.search({ type: 'track', expression: 'time_played after 8 weeks ago order by time_played desc', limit: 3 })
+      webapi.search({ type: 'album', expression: 'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc', limit: 3 }),
+      webapi.search({ type: 'track', expression: 'time_played after 8 weeks ago and media_kind is music order by time_played desc', limit: 3 })
     ])
   },
 

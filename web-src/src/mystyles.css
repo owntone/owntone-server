@@ -7,6 +7,34 @@
   background-color: hsl(0, 0%, 21%);
 }
 
+.track-progress {
+  margin: 0;
+  padding: 0;
+  min-width: 250px;
+  width: 100%;
+}
+
+.track-progress .range-slider-knob {
+  visibility: hidden;
+}
+
+.track-progress .range-slider-fill {
+  background-color: hsl(217, 71%, 53%);
+  height: 2px;
+}
+
+.track-progress .range-slider-rail {
+  background-color: hsl(0, 0%, 100%);
+}
+
+.media.with-progress h2:last-of-type {
+  margin-bottom: 6px;
+}
+
+.media.with-progress {
+  margin-top: 0px;
+}
+
 a.navbar-item {
   outline: 0;
   line-height: 1.5;
