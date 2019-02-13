@@ -1211,6 +1211,7 @@ device_add(void *arg, int *retval)
   bool new_deselect;
   int default_volume;
 
+  // Default volume for new devices
   default_volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
 
   // Never turn on new devices during playback
@@ -1260,12 +1261,19 @@ device_remove_family(void *arg, int *retval)
 
   if (!device->v4_address && !device->v6_address)
     {
-      // Make sure device isn't selected anymore
-      if (device->selected)
-	speaker_deselect_output(device);
+      device->advertised = 0;
 
-      // Will also stop sessions on the device, if any
-      outputs_device_remove(device);
+      // If there is a session we will keep the device in the list until the
+      // backend gives us a callback with a failure. Then outputs.c will remove
+      // the device. If the output backend never gives a callback (can that
+      // happen?) then the device will never be removed.
+      if (!device->session)
+	{
+	  if (device->selected)
+	    speaker_deselect_output(device);
+
+	  outputs_device_remove(device);
+	}
     }
 
   outputs_device_free(remove);
@@ -2440,20 +2448,13 @@ speaker_enable(void *arg, int *retval)
   uint64_t *id = arg;
   struct output_device *device;
 
-  *retval = 0;
+  device = outputs_device_get(*id);
+  if (!device)
+    return COMMAND_END;
 
-  DPRINTF(E_DBG, L_PLAYER, "Speaker enable: %" PRIu64 "\n", *id);
+  DPRINTF(E_DBG, L_PLAYER, "Speaker enable: '%s' (id=%" PRIu64 ")\n", device->name, *id);
 
-  *retval = 0;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (*id == device->id)
-	{
-	  *retval = speaker_activate(device);
-	  break;
-	}
-    }
+  *retval = speaker_activate(device);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2467,20 +2468,13 @@ speaker_disable(void *arg, int *retval)
   uint64_t *id = arg;
   struct output_device *device;
 
-  *retval = 0;
+  device = outputs_device_get(*id);
+  if (!device)
+    return COMMAND_END;
 
-  DPRINTF(E_DBG, L_PLAYER, "Speaker disable: %" PRIu64 "\n", *id);
+  DPRINTF(E_DBG, L_PLAYER, "Speaker disable: '%s' (id=%" PRIu64 ")\n", device->name, *id);
 
-  *retval = 0;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (*id == device->id)
-	{
-	  *retval = speaker_deactivate(device);
-	  break;
-	}
-    }
+  *retval = speaker_deactivate(device);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async

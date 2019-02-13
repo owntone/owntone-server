@@ -103,6 +103,7 @@ struct output_quality_subscription
 static struct output_quality_subscription output_quality_subscriptions[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
 static bool output_got_new_subscription;
 
+
 /* ------------------------------- MISC HELPERS ----------------------------- */
 
 static void
@@ -200,6 +201,14 @@ deferred_cb(int fd, short what, void *arg)
 	  device = outputs_device_get(outputs_cb_queue[callback_id].device_id);
 
 	  memset(&outputs_cb_queue[callback_id], 0, sizeof(struct outputs_callback_queue));
+
+	  // The device has left the building (stopped/failed), and the backend
+	  // is not using it any more
+	  if (!device->advertised && !device->session)
+	    {
+	      outputs_device_remove(device);
+	      device = NULL;
+	    }
 
 	  DPRINTF(E_DBG, L_PLAYER, "Making deferred callback to %s, id was %d\n", player_pmap(cb), callback_id);
 
@@ -605,6 +614,8 @@ outputs_device_add(struct output_device *add, bool new_deselect, int default_vol
     }
 
   device_list_sort();
+
+  device->advertised = 1;
 
   listener_notify(LISTENER_SPEAKER);
 
