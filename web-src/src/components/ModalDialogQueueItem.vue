@@ -15,11 +15,13 @@
               <div class="content is-small">
                 <p>
                   <span class="heading">Album</span>
-                  <a class="title is-6 has-text-link" @click="open_album">{{ item.album }}</a>
+                  <a v-if="item.album_id" class="title is-6 has-text-link" @click="open_album">{{ item.album }}</a>
+                  <span v-else class="title is-6">{{ item.album }}</span>
                 </p>
                 <p v-if="item.album_artist">
                   <span class="heading">Album artist</span>
-                  <a class="title is-6 has-text-link" @click="open_album_artist">{{ item.album_artist }}</a>
+                  <a v-if="item.album_artist_id" class="title is-6 has-text-link" @click="open_album_artist">{{ item.album_artist }}</a>
+                  <span v-else class="title is-6">{{ item.album_artist }}</span>
                 </p>
                 <p v-if="item.composer">
                   <span class="heading">Composer</span>
@@ -29,7 +31,7 @@
                   <span class="heading">Year</span>
                   <span class="title is-6">{{ item.year }}</span>
                 </p>
-                <p>
+                <p v-if="item.genre">
                   <span class="heading">Genre</span>
                   <a class="title is-6 has-text-link" @click="open_genre">{{ item.genre }}</a>
                 </p>
@@ -92,7 +94,7 @@ export default {
     },
 
     open_album_artist: function () {
-      this.$router.push({ path: '/music/artists/' + this.item.albumartist_id })
+      this.$router.push({ path: '/music/artists/' + this.item.album_artist_id })
     },
 
     open_genre: function () {
