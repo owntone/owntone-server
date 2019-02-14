@@ -63,6 +63,31 @@
             <hr class="navbar-divider">
             <div class="navbar-item">
               <div class="level is-mobile">
+                <div class="level-left fd-expanded">
+                  <div class="level-item" style="flex-grow: 0;">
+                    <a class="button is-white is-small" :class="{ 'is-loading': loading }"><span class="icon fd-has-action" :class="{ 'has-text-grey-light': !playing && !loading, 'is-loading': loading }" @click="togglePlay"><i class="mdi mdi-18px mdi-radio-tower"></i></span></a>
+                  </div>
+                  <div class="level-item fd-expanded">
+                    <div class="fd-expanded">
+                      <p class="heading" :class="{ 'has-text-grey-light': !playing }">HTTP stream</p>
+                      <range-slider
+                        class="slider fd-has-action"
+                        min="0"
+                        max="100"
+                        step="1"
+                        :disabled="!playing"
+                        :value="stream_volume"
+                        @change="set_stream_volume">
+                      </range-slider>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr class="navbar-divider">
+            <div class="navbar-item">
+              <div class="level is-mobile">
                 <div class="level-left">
                   <div class="level-item">
                     <div class="buttons has-addons">
@@ -104,6 +129,7 @@
 
 <script>
 import webapi from '@/webapi'
+import _audio from '@/audio'
 import NavBarItemOutput from './NavBarItemOutput'
 import PlayerButtonPlayPause from './PlayerButtonPlayPause'
 import PlayerButtonNext from './PlayerButtonNext'
@@ -120,7 +146,11 @@ export default {
 
   data () {
     return {
-      search_query: ''
+      search_query: '',
+
+      playing: false,
+      loading: false,
+      stream_volume: 10
     }
   },
 
@@ -166,7 +196,72 @@ export default {
     open_about: function () {
       this.$store.commit(types.SHOW_BURGER_MENU, false)
       this.$router.push({ path: '/about' })
+    },
+
+    setupAudio: function () {
+      const a = _audio.setupAudio()
+
+      a.addEventListener('waiting', e => {
+        this.playing = false
+        this.loading = true
+      })
+      a.addEventListener('playing', e => {
+        this.playing = true
+        this.loading = false
+      })
+      a.addEventListener('ended', e => {
+        this.playing = false
+        this.loading = false
+      })
+      a.addEventListener('error', e => {
+        this.closeAudio()
+        this.$store.dispatch('add_notification', { text: 'HTTP stream error: failed to load stream or stopped loading due to network problem', type: 'danger' })
+        this.playing = false
+        this.loading = false
+      })
+    },
+
+    // close active audio
+    closeAudio: function () {
+      _audio.stopAudio()
+      this.playing = false
+    },
+
+    playChannel: function () {
+      if (this.playing) {
+        return
+      }
+
+      const channel = '/stream.mp3'
+      this.loading = true
+      _audio.playSource(channel)
+      _audio.setVolume(this.stream_volume / 100)
+    },
+
+    togglePlay: function () {
+      if (this.loading) {
+        return
+      }
+      if (this.playing) {
+        return this.closeAudio()
+      }
+      return this.playChannel()
+    },
+
+    set_stream_volume: function (newVolume) {
+      this.stream_volume = newVolume
+      _audio.setVolume(this.stream_volume / 100)
     }
+  },
+
+  // on app mounted
+  mounted () {
+    this.setupAudio()
+  },
+
+  // on app destroyed
+  destroyed () {
+    this.closeAudio()
   }
 }
 </script>
