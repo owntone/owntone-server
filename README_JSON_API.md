@@ -1960,6 +1960,7 @@ curl --include \
 | title              | string   | Title                                     |
 | artist             | string   | Track artist name                         |
 | artist_sort        | string   | Track artist sort name                    |
+| track_artist_id    | string   | Track artist id                           |
 | album              | string   | Album name                                |
 | album_sort         | string   | Album sort name                           |
 | album_id           | string   | Album id                                  |

@@ -10,7 +10,8 @@
                 {{ item.title }}
               </p>
               <p class="subtitle">
-                {{ item.artist }}
+                <a v-if="item.track_artist_id" class="title is-6 has-text-link" @click="open_track_artist">{{ item.artist }}</a>
+                <span v-else class="subtitle">{{ item.artist }}</span>
               </p>
               <div class="content is-small">
                 <p>
@@ -106,6 +107,10 @@ export default {
 
     open_album_artist: function () {
       this.$router.push({ path: '/music/artists/' + this.item.album_artist_id })
+    },
+
+    open_track_artist: function () {
+      this.$router.push({ path: '/music/artists/' + this.item.track_artist_id })
     },
 
     open_genre: function () {

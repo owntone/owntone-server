@@ -1662,6 +1662,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   safe_json_add_string(item, "title", queue_item->title);
   safe_json_add_string(item, "artist", queue_item->artist);
   safe_json_add_string(item, "artist_sort", queue_item->artist_sort);
+  safe_json_add_string_from_int64(item, "track_artist_id", queue_item->songtrackartistid);
   safe_json_add_string(item, "album", queue_item->album);
   safe_json_add_string(item, "album_sort", queue_item->album_sort);
   safe_json_add_string_from_int64(item, "album_id", queue_item->songalbumid);
