@@ -1961,8 +1961,10 @@ curl --include \
 | artist_sort        | string   | Track artist sort name                    |
 | album              | string   | Album name                                |
 | album_sort         | string   | Album sort name                           |
+| album_id           | string   | Album id                                  |
 | album_artist       | string   | Album artist name                         |
 | album_artist_sort  | string   | Album artist sort name                    |
+| album_artist_id    | string   | Album artist id                           |
 | composer           | string   | Composer (optional)                       |
 | genre              | string   | Genre                                     |
 | year               | integer  | Release year                              |

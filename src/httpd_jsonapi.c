@@ -67,6 +67,20 @@ safe_json_add_string(json_object *obj, const char *key, const char *value)
 }
 
 static inline void
+safe_json_add_string_from_int64(json_object *obj, const char *key, int64_t value)
+{
+  char tmp[100];
+  int ret;
+
+  if (value > 0)
+    {
+      ret = snprintf(tmp, sizeof(tmp), "%" PRIi64, value);
+      if (ret < sizeof(tmp))
+	json_object_object_add(obj, key, json_object_new_string(tmp));
+    }
+}
+
+static inline void
 safe_json_add_int_from_string(json_object *obj, const char *key, const char *value)
 {
   int intval;
@@ -1649,23 +1663,12 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   safe_json_add_string(item, "artist_sort", queue_item->artist_sort);
   safe_json_add_string(item, "album", queue_item->album);
   safe_json_add_string(item, "album_sort", queue_item->album_sort);
+  safe_json_add_string_from_int64(item, "album_id", queue_item->songalbumid);
   safe_json_add_string(item, "album_artist", queue_item->album_artist);
   safe_json_add_string(item, "album_artist_sort", queue_item->album_artist_sort);
+  safe_json_add_string_from_int64(item, "album_artist_id", queue_item->songartistid);
   safe_json_add_string(item, "composer", queue_item->composer);
   safe_json_add_string(item, "genre", queue_item->genre);
-
-  if (queue_item->songartistid > 0)
-    {
-      ret = snprintf(uri, sizeof(uri), "%" PRIi64, queue_item->songartistid);
-      if (ret < sizeof(uri))
-        json_object_object_add(item, "albumartist_id", json_object_new_string(uri));
-    }
-  if (queue_item->songalbumid > 0)
-    {
-      ret = snprintf(uri, sizeof(uri), "%" PRIi64, queue_item->songalbumid);
-      if (ret < sizeof(uri))
-        json_object_object_add(item, "album_id", json_object_new_string(uri));
-    }
 
   json_object_object_add(item, "year", json_object_new_int(queue_item->year));
   json_object_object_add(item, "track_number", json_object_new_int(queue_item->track));
