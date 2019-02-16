@@ -124,22 +124,6 @@ callback_remove(struct output_device *device)
     }
 }
 
-static void
-callback_remove_all(enum output_types type)
-{
-  struct output_device *device;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (type != device->type)
-	continue;
-
-      outputs_device_cb_set(device, NULL);
-
-      callback_remove(device);
-    }
-}
-
 static int
 callback_add(struct output_device *device, output_status_cb cb)
 {
@@ -168,7 +152,7 @@ callback_add(struct output_device *device, output_status_cb cb)
   outputs_cb_queue[callback_id].cb = cb;
   outputs_cb_queue[callback_id].device = device; // Don't dereference this later, it might become invalid!
 
-  DPRINTF(E_DBG, L_PLAYER, "Registered callback to %s with id %d\n", player_pmap(cb), callback_id);
+  DPRINTF(E_DBG, L_PLAYER, "Registered callback to %s with id %d (device %p, %s)\n", player_pmap(cb), callback_id, device, device->name);
 
   int active = 0;
   for (int i = 0; i < ARRAY_SIZE(outputs_cb_queue); i++)
@@ -695,6 +679,18 @@ outputs_device_stop(struct output_device *device, output_status_cb cb)
 }
 
 int
+outputs_device_flush(struct output_device *device, output_status_cb cb)
+{
+  if (outputs[device->type]->disabled || !outputs[device->type]->device_flush)
+    return -1;
+
+  if (!device->session)
+    return -1;
+
+  return outputs[device->type]->device_flush(device, callback_add(device, cb));
+}
+
+int
 outputs_device_probe(struct output_device *device, output_status_cb cb)
 {
   if (outputs[device->type]->disabled || !outputs[device->type]->device_probe)
@@ -786,6 +782,25 @@ outputs_playback_stop(void)
     }
 }
 
+int
+outputs_flush(output_status_cb cb)
+{
+  struct output_device *device;
+  int count = 0;
+  int ret;
+
+  for (device = output_device_list; device; device = device->next)
+    {
+      ret = outputs_device_flush(device, cb);
+      if (ret < 0)
+	continue;
+
+      count++;
+    }
+
+  return count;
+}
+
 void
 outputs_write(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts)
 {
@@ -803,27 +818,6 @@ outputs_write(void *buf, size_t bufsize, struct media_quality *quality, int nsam
     }
 
   buffer_drain(&output_buffer);
-}
-
-int
-outputs_flush(output_status_cb cb)
-{
-  int ret;
-  int i;
-
-  ret = 0;
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled || !outputs[i]->flush)
-	continue;
-
-      // Clear callback register for all devices belonging to outputs[i]
-      callback_remove_all(outputs[i]->type);
-
-      ret += outputs[i]->flush(callback_add(NULL, cb));
-    }
-
-  return ret;
 }
 
 struct output_metadata *

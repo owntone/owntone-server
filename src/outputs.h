@@ -199,6 +199,9 @@ struct output_definition
   // Close a session prepared by device_start and call back
   int (*device_stop)(struct output_device *device, int callback_id);
 
+  // Flush device session and call back
+  int (*device_flush)(struct output_device *device, int callback_id);
+
   // Test the connection to a device and call back
   int (*device_probe)(struct output_device *device, int callback_id);
 
@@ -222,9 +225,6 @@ struct output_definition
 
   // Write stream data to the output devices
   void (*write)(struct output_buffer *buffer);
-
-  // Flush all sessions, the return must be number of sessions pending the flush
-  int (*flush)(int callback_id);
 
   // Authorize an output with a pin-code (probably coming from the filescanner)
   void (*authorize)(const char *pin);
@@ -279,6 +279,9 @@ int
 outputs_device_stop(struct output_device *device, output_status_cb cb);
 
 int
+outputs_device_flush(struct output_device *device, output_status_cb cb);
+
+int
 outputs_device_probe(struct output_device *device, output_status_cb cb);
 
 int
@@ -299,11 +302,11 @@ outputs_device_free(struct output_device *device);
 void
 outputs_playback_stop(void);
 
-void
-outputs_write(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts);
-
 int
 outputs_flush(output_status_cb cb);
+
+void
+outputs_write(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts);
 
 struct output_metadata *
 outputs_metadata_prepare(int id);

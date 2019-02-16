@@ -830,6 +830,24 @@ alsa_device_stop(struct output_session *session)
 }
 
 static int
+alsa_device_flush(struct output_device *device, int callback_id)
+{
+  struct alsa_session *as = device->session;
+  int i;
+
+  // TODO close device?
+
+  snd_pcm_drop(hdl);
+  prebuf_free(as);
+
+  as->callback_id = callback_id;
+  as->state = ALSA_STATE_STARTED;
+  alsa_status(as);
+
+  return 0;
+}
+
+static int
 alsa_device_probe(struct output_device *device, output_status_cb cb)
 {
   struct alsa_session *as;
@@ -951,28 +969,6 @@ alsa_write(uint8_t *buf, uint64_t rtptime)
     }
 }
 
-static int
-alsa_flush(output_status_cb cb, uint64_t rtptime)
-{
-  struct alsa_session *as;
-  int i;
-
-  i = 0;
-  for (as = sessions; as; as = as->next)
-    {
-      i++;
-
-      snd_pcm_drop(hdl);
-      prebuf_free(as);
-
-      as->status_cb = cb;
-      as->state = ALSA_STATE_STARTED;
-      alsa_status(as);
-    }
-
-  return i;
-}
-
 static void
 alsa_set_status_cb(struct output_session *session, output_status_cb cb)
 {
@@ -1059,11 +1055,11 @@ struct output_definition output_alsa =
   .deinit = alsa_deinit,
   .device_start = alsa_device_start,
   .device_stop = alsa_device_stop,
+  .device_flush = alsa_device_flush,
   .device_probe = alsa_device_probe,
   .device_volume_set = alsa_device_volume_set,
   .playback_start = alsa_playback_start,
   .playback_stop = alsa_playback_stop,
   .write = alsa_write,
-  .flush = alsa_flush,
   .status_cb = alsa_set_status_cb,
 };
