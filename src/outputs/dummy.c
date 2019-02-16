@@ -132,6 +132,19 @@ dummy_device_stop(struct output_device *device, int callback_id)
 }
 
 static int
+dummy_device_flush(struct output_device *device, int callback_id)
+{
+  struct dummy_session *ds = device->session;
+
+  ds->callback_id = callback_id;
+  ds->state = OUTPUT_STATE_STOPPED;
+
+  dummy_status(ds);
+
+  return 0;
+}
+
+static int
 dummy_device_probe(struct output_device *device, int callback_id)
 {
   struct dummy_session *ds;
@@ -228,6 +241,7 @@ struct output_definition output_dummy =
   .deinit = dummy_deinit,
   .device_start = dummy_device_start,
   .device_stop = dummy_device_stop,
+  .device_flush = dummy_device_flush,
   .device_probe = dummy_device_probe,
   .device_volume_set = dummy_device_volume_set,
   .device_cb_set = dummy_device_cb_set,

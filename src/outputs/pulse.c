@@ -669,6 +669,40 @@ pulse_device_stop(struct output_session *session)
   stream_close(ps, close_cb);
 }
 
+
+static int
+pulse_device_flush(struct output_device *device, int callback_id)
+{
+  struct pulse_session *ps = device->session;
+  pa_operation* o;
+
+  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio flush\n");
+
+  pa_threaded_mainloop_lock(pulse.mainloop);
+
+  ps->callback_id = callback_id;
+
+  o = pa_stream_cork(ps->stream, 1, NULL, NULL);
+  if (!o)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not pause '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
+      return -1;
+    }
+  pa_operation_unref(o);
+
+  o = pa_stream_flush(ps->stream, flush_cb, ps);
+  if (!o)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not flush '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
+      return -1;
+    }
+  pa_operation_unref(o);
+
+  pa_threaded_mainloop_unlock(pulse.mainloop);
+
+  return 0;
+}
+
 static int
 pulse_device_probe(struct output_device *device, output_status_cb cb)
 {
@@ -824,46 +858,6 @@ pulse_playback_stop(void)
   pa_threaded_mainloop_unlock(pulse.mainloop);
 }
 
-static int
-pulse_flush(output_status_cb cb, uint64_t rtptime)
-{
-  struct pulse_session *ps;
-  pa_operation* o;
-  int i;
-
-  DPRINTF(E_DBG, L_LAUDIO, "Pulseaudio flush\n");
-
-  pa_threaded_mainloop_lock(pulse.mainloop);
-
-  i = 0;
-  for (ps = sessions; ps; ps = ps->next)
-    {
-      i++;
-
-      ps->status_cb = cb;
-
-      o = pa_stream_cork(ps->stream, 1, NULL, NULL);
-      if (!o)
-	{
-	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not pause '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
-	  continue;
-	}
-      pa_operation_unref(o);
-
-      o = pa_stream_flush(ps->stream, flush_cb, ps);
-      if (!o)
-	{
-	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not flush '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
-	  continue;
-	}
-      pa_operation_unref(o);
-    }
-
-  pa_threaded_mainloop_unlock(pulse.mainloop);
-
-  return i;
-}
-
 static void
 pulse_set_status_cb(struct output_session *session, output_status_cb cb)
 {
@@ -962,13 +956,13 @@ struct output_definition output_pulse =
   .deinit = pulse_deinit,
   .device_start = pulse_device_start,
   .device_stop = pulse_device_stop,
+  .device_flush = pulse_device_flush,
   .device_probe = pulse_device_probe,
   .device_free_extra = pulse_device_free_extra,
   .device_volume_set = pulse_device_volume_set,
   .playback_start = pulse_playback_start,
   .playback_stop = pulse_playback_stop,
   .write = pulse_write,
-  .flush = pulse_flush,
   .status_cb = pulse_set_status_cb,
 };
 

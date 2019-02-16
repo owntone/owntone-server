@@ -324,6 +324,21 @@ fifo_device_stop(struct output_device *device, int callback_id)
 }
 
 static int
+fifo_device_flush(struct output_device *device, int callback_id)
+{
+  struct fifo_session *fifo_session = device->session;
+
+  fifo_empty(fifo_session);
+  free_buffer();
+
+  fifo_session->callback_id = callback_id;
+  fifo_session->state = OUTPUT_STATE_CONNECTED;
+  fifo_status(fifo_session);
+
+  return 0;
+}
+
+static int
 fifo_device_probe(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session;
@@ -384,23 +399,6 @@ fifo_playback_stop(void)
 
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_status(fifo_session);
-}
-
-static int
-fifo_flush(int callback_id)
-{
-  struct fifo_session *fifo_session = sessions;
-
-  if (!fifo_session)
-    return 0;
-
-  fifo_empty(fifo_session);
-  free_buffer();
-
-  fifo_session->callback_id = callback_id;
-  fifo_session->state = OUTPUT_STATE_CONNECTED;
-  fifo_status(fifo_session);
-  return 1;
 }
 
 static void
@@ -530,10 +528,10 @@ struct output_definition output_fifo =
   .deinit = fifo_deinit,
   .device_start = fifo_device_start,
   .device_stop = fifo_device_stop,
+  .device_flush = fifo_device_flush,
   .device_probe = fifo_device_probe,
   .device_volume_set = fifo_device_volume_set,
   .device_cb_set = fifo_device_cb_set,
   .playback_stop = fifo_playback_stop,
   .write = fifo_write,
-  .flush = fifo_flush,
 };

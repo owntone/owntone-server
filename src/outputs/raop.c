@@ -342,9 +342,6 @@ static struct raop_service control_6svc;
 static struct raop_metadata *metadata_head;
 static struct raop_metadata *metadata_tail;
 
-/* FLUSH timer */
-static struct event *flush_timer;
-
 /* Keep-alive timer - hack for ATV's with tvOS 10 */
 static struct event *keep_alive_timer;
 static struct timeval keep_alive_tv = { 30, 0 };
@@ -1912,16 +1909,6 @@ session_failure(struct raop_session *rs)
 }
 
 static void
-deferredev_cb(int fd, short what, void *arg)
-{
-  struct raop_session *rs = arg;
-
-  DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device '%s'\n", rs->devname);
-
-  session_failure(rs);
-}
-
-static void
 deferred_session_failure(struct raop_session *rs)
 {
   struct timeval tv;
@@ -1974,6 +1961,23 @@ session_teardown(struct raop_session *rs, const char *log_caller)
   return ret;
 }
 
+static void
+deferredev_cb(int fd, short what, void *arg)
+{
+  struct raop_session *rs = arg;
+
+  if (rs->state == RAOP_STATE_FAILED)
+    {
+      DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device '%s'\n", rs->devname);
+      session_failure(rs);
+    }
+  else
+    {
+      DPRINTF(E_DBG, L_RAOP, "Flush timer expired; tearing down RAOP session on '%s'\n", rs->devname);
+      session_teardown(rs, "deferredev_cb");
+    }
+}
+
 static struct raop_session *
 session_make(struct output_device *rd, int family, int callback_id, bool only_probe)
 {
@@ -2010,6 +2014,7 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
     }
 
   CHECK_NULL(L_PLAYER, rs = calloc(1, sizeof(struct raop_session)));
+  CHECK_NULL(L_RAOP, rs->deferredev = evtimer_new(evbase_player, deferredev_cb, rs));
 
   rs->state = RAOP_STATE_STOPPED;
   rs->only_probe = only_probe;
@@ -2057,14 +2062,6 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
 	rs->encrypt = re->encrypt;
 	rs->auth_quirk_itunes = 0;
 	break;
-    }
-
-  rs->deferredev = evtimer_new(evbase_player, deferredev_cb, rs);
-  if (!rs->deferredev)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for deferred error handling!\n");
-
-      goto out_free_rs;
     }
 
   rs->ctrl = evrtsp_connection_new(address, port);
@@ -2153,7 +2150,6 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
   evrtsp_connection_free(rs->ctrl);
  out_free_event:
   event_free(rs->deferredev);
- out_free_rs:
   free(rs);
 
   return NULL;
@@ -2810,17 +2806,6 @@ raop_cb_keep_alive(struct evrtsp_request *req, void *arg)
   evtimer_add(keep_alive_timer, &keep_alive_tv);
 
   return;
-}
-
-static void
-raop_flush_timer_cb(int fd, short what, void *arg)
-{
-  struct raop_session *rs;
-
-  DPRINTF(E_DBG, L_RAOP, "Flush timer expired; tearing down RAOP sessions\n");
-
-  for (rs = raop_sessions; rs; rs = rs->next)
-    session_teardown(rs, "raop_flush_timer_cb");
 }
 
 static void
@@ -4824,6 +4809,29 @@ raop_device_stop(struct output_device *device, int callback_id)
   return session_teardown(rs, "device_stop");
 }
 
+static int
+raop_device_flush(struct output_device *device, int callback_id)
+{
+  struct raop_session *rs = device->session;
+  struct timeval tv;
+  int ret;
+
+  if (rs->state != RAOP_STATE_STREAMING)
+    return -1;
+
+  ret = raop_send_req_flush(rs, raop_cb_flush, "flush");
+  if (ret < 0)
+    return -1;
+
+  rs->callback_id = callback_id;
+
+  evutil_timerclear(&tv);
+  tv.tv_sec = 10;
+  evtimer_add(rs->deferredev, &tv);
+
+  return 0;
+}
+
 static void
 raop_device_cb_set(struct output_device *device, int callback_id)
 {
@@ -4889,49 +4897,11 @@ raop_write(struct output_buffer *obuf)
       if (rs->state != RAOP_STATE_CONNECTED)
 	continue;
 
-      event_del(flush_timer); // In case playback was stopped but then restarted again
+      event_del(rs->deferredev); // Kills flush timer in case playback was stopped but then restarted again
 
       rs->state = RAOP_STATE_STREAMING;
       // Make a cb?
     }
-}
-
-static int
-raop_flush(int callback_id)
-{
-  struct timeval tv;
-  struct raop_session *rs;
-  struct raop_session *next;
-  int pending;
-  int ret;
-
-  pending = 0;
-  for (rs = raop_sessions; rs; rs = next)
-    {
-      next = rs->next;
-
-      if (rs->state != RAOP_STATE_STREAMING)
-	continue;
-
-      ret = raop_send_req_flush(rs, raop_cb_flush, "flush");
-      if (ret < 0)
-	{
-	  session_failure(rs);
-	  continue;
-	}
-
-      rs->callback_id = callback_id;
-      pending++;
-    }
-
-  if (pending > 0)
-    {
-      evutil_timerclear(&tv);
-      tv.tv_sec = 10;
-      evtimer_add(flush_timer, &tv);
-    }
-
-  return pending;
 }
 
 static int
@@ -5006,14 +4976,7 @@ raop_init(void)
   if (ptr)
     *ptr = '\0';
 
-  flush_timer = evtimer_new(evbase_player, raop_flush_timer_cb, NULL);
-  keep_alive_timer = evtimer_new(evbase_player, raop_keep_alive_timer_cb, NULL);
-  if (!flush_timer || !keep_alive_timer)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for flush timer or keep alive timer\n");
-
-      goto out_free_b64_iv;
-    }
+  CHECK_NULL(L_RAOP, keep_alive_timer = evtimer_new(evbase_player, raop_keep_alive_timer_cb, NULL));
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
 
@@ -5022,7 +4985,7 @@ raop_init(void)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay time synchronization failed to start\n");
 
-      goto out_free_timers;
+      goto out_free_timer;
     }
 
   ret = raop_v2_control_start(v6enabled);
@@ -5055,10 +5018,8 @@ raop_init(void)
   raop_v2_control_stop();
  out_stop_timing:
   raop_v2_timing_stop();
- out_free_timers:
-  event_free(flush_timer);
+ out_free_timer:
   event_free(keep_alive_timer);
- out_free_b64_iv:
   free(raop_aes_iv_b64);
  out_free_b64_key:
   free(raop_aes_key_b64);
@@ -5083,7 +5044,6 @@ raop_deinit(void)
   raop_v2_control_stop();
   raop_v2_timing_stop();
 
-  event_free(flush_timer);
   event_free(keep_alive_timer);
 
   gcry_cipher_close(raop_aes_ctx);
@@ -5102,6 +5062,7 @@ struct output_definition output_raop =
   .deinit = raop_deinit,
   .device_start = raop_device_start,
   .device_stop = raop_device_stop,
+  .device_flush = raop_device_flush,
   .device_probe = raop_device_probe,
   .device_cb_set = raop_device_cb_set,
   .device_free_extra = raop_device_free_extra,
@@ -5109,7 +5070,6 @@ struct output_definition output_raop =
   .device_volume_to_pct = raop_volume_to_pct,
   .playback_stop = raop_playback_stop,
   .write = raop_write,
-  .flush = raop_flush,
   .metadata_prepare = raop_metadata_prepare,
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,
