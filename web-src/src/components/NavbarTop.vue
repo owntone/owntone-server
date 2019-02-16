@@ -39,7 +39,9 @@
               <div class="level is-mobile">
                 <div class="level-left fd-expanded">
                   <div class="level-item" style="flex-grow: 0;">
-                    <span class="icon"><i class="mdi mdi-18px mdi-volume-high"></i></span>
+                    <a class="button is-white is-small" @click="toggle_mute_volume">
+                      <span class="icon"><i class="mdi mdi-18px" :class="{ 'mdi-volume-off': player.volume === 0, 'mdi-volume-high': player.volume > 0 }"></i></span>
+                    </a>
                   </div>
                   <div class="level-item fd-expanded">
                     <div class="fd-expanded">
@@ -147,6 +149,7 @@ export default {
   data () {
     return {
       search_query: '',
+      old_volume: 0,
 
       playing: false,
       loading: false,
@@ -191,6 +194,14 @@ export default {
 
     set_volume: function (newVolume) {
       webapi.player_volume(newVolume)
+    },
+
+    toggle_mute_volume: function () {
+      if (this.player.volume > 0) {
+        this.set_volume(0)
+      } else {
+        this.set_volume(this.old_volume)
+      }
     },
 
     open_about: function () {
@@ -251,6 +262,14 @@ export default {
     set_stream_volume: function (newVolume) {
       this.stream_volume = newVolume
       _audio.setVolume(this.stream_volume / 100)
+    }
+  },
+
+  watch: {
+    '$store.state.player.volume' () {
+      if (this.player.volume > 0) {
+        this.old_volume = this.player.volume
+      }
     }
   },
 
