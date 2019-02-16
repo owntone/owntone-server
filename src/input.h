@@ -6,8 +6,8 @@
 # include <config.h>
 #endif
 #include <event2/buffer.h>
+#include "db.h"
 #include "misc.h"
-#include "transcode.h"
 
 // Must be in sync with inputs[] in input.c
 enum input_types
@@ -22,64 +22,49 @@ enum input_types
 
 enum input_flags
 {
-  // Write to input buffer must not block
-  INPUT_FLAG_NONBLOCK = (1 << 0),
+  // Flags that input is closing current source
+  INPUT_FLAG_START_NEXT = (1 << 0),
   // Flags end of file
-  INPUT_FLAG_EOF      = (1 << 1),
+  INPUT_FLAG_EOF        = (1 << 1),
   // Flags error reading file
-  INPUT_FLAG_ERROR    = (1 << 2),
+  INPUT_FLAG_ERROR      = (1 << 2),
   // Flags possible new stream metadata
-  INPUT_FLAG_METADATA = (1 << 3),
+  INPUT_FLAG_METADATA   = (1 << 3),
   // Flags new stream quality
-  INPUT_FLAG_QUALITY  = (1 << 4),
+  INPUT_FLAG_QUALITY    = (1 << 4),
 };
 
-struct player_source
+struct input_source
 {
-  /* Id of the file/item in the files database */
-  uint32_t id;
+  // Type of input
+  enum input_types type;
 
-  /* Item-Id of the file/item in the queue */
+  // Item-Id of the file/item in the queue
   uint32_t item_id;
 
-  /* Length of the file/item in milliseconds */
+  // Id of the file/item in the files database
+  uint32_t id;
+
+  // Length of the file/item in milliseconds
   uint32_t len_ms;
 
   enum data_kind data_kind;
   enum media_kind media_kind;
   char *path;
 
-  /* Start time of the media item as rtp-time
-     The stream-start is the rtp-time the media item did or would have
-     started playing (after seek or pause), therefor the elapsed time of the
-     media item is always:
-     elapsed time = current rtptime - stream-start */
-  uint64_t stream_start;
+  // Flags that the input has been opened (i.e. needs to be closed)
+  bool open;
 
-  /* Output start time of the media item as rtp-time
-     The output start time is the rtp-time of the first audio packet send
-     to the audio outputs.
-     It differs from stream-start especially after a seek, where the first audio
-     packet has the next rtp-time as output start and stream start becomes the
-     rtp-time the media item would have been started playing if the seek did
-     not happen. */
-  uint64_t output_start;
-
-  /* End time of media item as rtp-time
-     The end time is set if the reading (source_read) of the media item reached
-     end of file, until then it is 0. */
-  uint64_t end;
-
-  /* Opaque pointer to data that the input sets up when called with setup(), and
-   * which is cleaned up by the input with stop()
-   */
+  // The below is private data for the input backend. It is optional for the
+  // backend to use, so nothing in the input or player should depend on it!
+  //
+  // Opaque pointer to data that the input backend sets up when start() is
+  // called, and that is cleaned up by the backend when stop() is called
   void *input_ctx;
-
-  /* Input has completed setup of the source
-   */
-  int setup_done;
-
-  struct player_source *play_next;
+  // Private evbuf. Alloc'ed by backend at start() and free'd at stop()
+  struct evbuffer *evbuf;
+  // Private source quality storage
+  struct media_quality quality;
 };
 
 typedef int (*input_cb)(void);
@@ -90,6 +75,7 @@ struct input_metadata
 
   int startup;
 
+  uint64_t start;
   uint64_t rtptime;
   uint64_t offset;
 
@@ -115,54 +101,62 @@ struct input_definition
   char disabled;
 
   // Prepare a playback session
-  int (*setup)(struct player_source *ps);
+  int (*setup)(struct input_source *source);
 
-  // Starts playback loop (must be defined)
-  int (*start)(struct player_source *ps);
+  // One iteration of the playback loop (= a read operation from source)
+  int (*play)(struct input_source *source);
 
-  // Cleans up when playback loop has ended
-  int (*stop)(struct player_source *ps);
+  // Cleans up (only required when stopping source before it ends itself)
+  int (*stop)(struct input_source *source);
 
   // Changes the playback position
-  int (*seek)(struct player_source *ps, int seek_ms);
+  int (*seek)(struct input_source *source, int seek_ms);
 
   // Return metadata
-  int (*metadata_get)(struct input_metadata *metadata, struct player_source *ps, uint64_t rtptime);
+  int (*metadata_get)(struct input_metadata *metadata, struct input_source *source);
 
   // Initialization function called during startup
   int (*init)(void);
 
   // Deinitialization function called at shutdown
   void (*deinit)(void);
-
 };
 
-/*
- * Input modules should use this to test if playback should end
- */
-int input_loop_break;
+
+/* ---------------------- Interface towards input backends ------------------ */
+/*                           Thread: input and spotify                        */
 
 /*
  * Transfer stream data to the player's input buffer. Data must be PCM-LE
  * samples. The input evbuf will be drained on succesful write. This is to avoid
- * copying memory. If the player's input buffer is full the function will block
- * until the write can be made (unless INPUT_FILE_NONBLOCK is set).
+ * copying memory.
  *
  * @in  evbuf    Raw PCM_LE audio data to write
  * @in  evbuf    Quality of the PCM (sample rate etc.)
  * @in  flags    One or more INPUT_FLAG_*
- * @return       0 on success, EAGAIN if buffer was full (and _NONBLOCK is set),
- *               -1 on error
+ * @return       0 on success, EAGAIN if buffer was full, -1 on error
  */
 int
 input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags);
 
 /*
- * Input modules can use this to wait in the playback loop (like input_write()
- * would have done)
+ * Input modules can use this to wait for the input_buffer to be ready for 
+ * writing. The wait is max INPUT_LOOP_TIMEOUT, which allows the event base to
+ * loop and process pending commands once in a while.
  */
-void
+int
 input_wait(void);
+
+/*
+ * Async switch to the next song in the queue. Mostly for internal use, but
+ * might be relevant some day externally?
+ */
+//void
+//input_next(void);
+
+
+/* ---------------------- Interface towards player thread ------------------- */
+/*                                Thread: player                              */
 
 /*
  * Move a chunk of stream data from the player's input buffer to an output
@@ -186,39 +180,31 @@ void
 input_buffer_full_cb(input_cb cb);
 
 /*
- * Initializes the given player source for playback
+ * Tells the input to start, i.e. after calling this function the input buffer
+ * will begin to fill up, and should be read periodically with input_read(). If
+ * called while another item is still open, it will be closed and the input
+ * buffer will be flushed. This operation blocks.
+ *
+ * @in  item_id  Queue item id to start playing
+ * @in  seek_ms  Position to start playing
+ * @return       Actual seek position if seekable, 0 otherwise, -1 on error
  */
 int
-input_setup(struct player_source *ps);
+input_seek(uint32_t item_id, int seek_ms);
 
 /*
- * Tells the input to start or resume playback, i.e. after calling this function
- * the input buffer will begin to fill up, and should be read periodically with
- * input_read(). Before calling this input_setup() must have been called.
+ * Same as input_seek(), just non-blocking and does not offer seek.
+ *
+ * @in  item_id  Queue item id to start playing
  */
-int
-input_start(struct player_source *ps);
+void
+input_start(uint32_t item_id);
 
 /*
- * Pauses playback of the given player source (stops playback loop) and flushes
- * the input buffer
+ * Stops the input and clears everything. Flushes the input buffer.
  */
-int
-input_pause(struct player_source *ps);
-
-/*
- * Stops playback loop (if running), flushes input buffer and cleans up the
- * player source
- */
-int
-input_stop(struct player_source *ps);
-
-/*
- * Seeks playback position to seek_ms. Returns actual seek position, 0 on
- * unseekable, -1 on error. May block.
- */
-int
-input_seek(struct player_source *ps, int seek_ms);
+void
+input_stop(void);
 
 /*
  * Flush input buffer. Output flags will be the same as input_read().
@@ -236,7 +222,7 @@ input_quality_get(struct media_quality *quality);
  * Gets metadata from the input, returns 0 if metadata is set, otherwise -1
  */
 int
-input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup, uint64_t rtptime);
+input_metadata_get(struct input_metadata *metadata);
 
 /*
  * Free the entire struct

@@ -76,7 +76,7 @@ int
 player_get_status(struct player_status *status);
 
 int
-player_now_playing(uint32_t *id);
+player_playing_now(uint32_t *id);
 
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg);

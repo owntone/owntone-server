@@ -718,7 +718,6 @@ playback_eot(void *arg, int *retval)
 
   g_state = SPOTIFY_STATE_STOPPING;
 
-  // TODO 1) This will block for a while, but perhaps ok?
   input_write(spotify_audio_buffer, NULL, INPUT_FLAG_EOF);
 
   *retval = 0;
@@ -1042,7 +1041,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   // The input buffer only accepts writing when it is approaching depletion, and
   // because we use NONBLOCK it will just return if this is not the case. So in
   // most cases no actual write is made and spotify_audio_buffer will just grow.
-  input_write(spotify_audio_buffer, &quality, INPUT_FLAG_NONBLOCK);
+  input_write(spotify_audio_buffer, &quality, 0);
 
   return num_frames;
 }

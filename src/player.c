@@ -1,6 +1,6 @@
 /*
+ * Copyright (C) 2016-2019 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
- * Copyright (C) 2016-2017 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -101,14 +101,6 @@
 # include "lastfm.h"
 #endif
 
-#ifndef MIN
-# define MIN(a, b) ((a < b) ? a : b)
-#endif
-
-#ifndef MAX
-#define MAX(a, b) ((a > b) ? a : b)
-#endif
-
 // Default volume (must be from 0 - 100)
 #define PLAYER_DEFAULT_VOLUME 50
 
@@ -133,9 +125,6 @@
 // gets above this value, we will suspend playback and reset the output.
 // (value is in milliseconds)
 #define PLAYER_WRITE_BEHIND_MAX 1500
-
-// TODO get rid of me
-#define TEMP_NEXT_RTPTIME (last_rtptime + pb_session.samples_written + pb_session.samples_per_read)
 
 struct volume_param {
   int volume;
@@ -185,15 +174,52 @@ union player_arg
   int intval;
 };
 
+struct player_source
+{
+  /* Id of the file/item in the files database */
+  uint32_t id;
+
+  /* Item-Id of the file/item in the queue */
+  uint32_t item_id;
+
+  /* Length of the file/item in milliseconds */
+  uint32_t len_ms;
+
+  /* Quality of the source (sample rate etc.) */
+  struct media_quality quality;
+
+  enum data_kind data_kind;
+  enum media_kind media_kind;
+  char *path;
+
+  // This is the position (measured in samples) the session was at when we
+  // started reading from the input source.
+  uint64_t read_start;
+
+  // This is the position (measured in samples) the session was at when we got
+  // a EOF or error from the input.
+  uint64_t read_end;
+
+  // Same as the above, but added with samples equivalent to
+  // OUTPUTS_BUFFER_DURATION. So when the session position reaches play_start it
+  // means the media should actually be playing on your device.
+  uint64_t play_start;
+  uint64_t play_end;
+
+  // The number of milliseconds into the media that we started
+  uint32_t seek_ms;
+  // This should at any time match the millisecond position of the media that is
+  // coming out of your device. Will be 0 during initial buffering.
+  uint32_t pos_ms;
+
+  // How many samples the outputs buffer before playing (=delay)
+  int output_buffer_samples;
+};
+
 struct player_session
 {
   uint8_t *buffer;
   size_t bufsize;
-
-  uint32_t samples_written;
-  int samples_per_read;
-
-  struct media_quality quality;
 
   // The time the playback session started
   struct timespec start_ts;
@@ -201,8 +227,24 @@ struct player_session
   // The time the first sample in the buffer should be played by the output.
   // It will be equal to:
   // pts = start_ts + OUTPUTS_BUFFER_DURATION + ticks_elapsed * player_tick_interval
+// TODO is above still correct?
   struct timespec pts;
+
+  // Equals current number of samples written to outputs
+  uint32_t pos;
+
+  // The item from the queue being read by the input now, previously and next
+  struct player_source *reading_now;
+  struct player_source *reading_next;
+  struct player_source *reading_prev;
+
+  // The item from the queue being played right now. This will normally point at
+  // reading_now or reading_prev. It should only be NULL if no playback.
+  struct player_source *playing_now;
 };
+
+
+static int debug_counter = -1;
 
 static struct player_session pb_session;
 
@@ -250,8 +292,8 @@ static int pb_write_deficit_max;
 static bool pb_write_recovery;
 
 // Sync values
-static struct timespec pb_pos_stamp;
-static uint64_t pb_pos;
+//static struct timespec pb_pos_stamp;
+//static uint64_t pb_pos;
 
 // Stream position (packets)
 static uint64_t last_rtptime;
@@ -263,8 +305,6 @@ static int output_sessions;
 static int master_volume;
 
 // Audio source
-static struct player_source *cur_playing;
-static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static uint32_t cur_plversion;
 
@@ -284,8 +324,6 @@ playback_abort(void);
 static void
 playback_suspend(void);
 
-static int
-player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit);
 
 /* ----------------------------- Volume helpers ----------------------------- */
 
@@ -417,6 +455,12 @@ metadata_update_cb(void *arg)
   struct db_queue_item *queue_item;
   int ret;
 
+  ret = input_metadata_get(metadata);
+  if (ret < 0)
+    {
+      goto out_free_metadata;
+    }
+
   queue_item = db_queue_fetch_byitemid(metadata->item_id);
   if (!queue_item)
     {
@@ -470,11 +514,15 @@ static void
 metadata_trigger(int startup)
 {
   struct input_metadata metadata;
-  int ret;
 
-  ret = input_metadata_get(&metadata, cur_streaming, startup, TEMP_NEXT_RTPTIME);
-  if (ret < 0)
-    return;
+  memset(&metadata, 0, sizeof(struct input_metadata));
+
+  metadata.item_id = pb_session.playing_now->item_id;
+
+  metadata.startup = startup;
+  metadata.start   = pb_session.playing_now->read_start;
+  metadata.offset  = pb_session.playing_now->play_start - pb_session.playing_now->read_start;
+  metadata.rtptime = pb_session.pos;
 
   worker_execute(metadata_update_cb, &metadata, sizeof(metadata), 0);
 }
@@ -511,16 +559,57 @@ history_add(uint32_t id, uint32_t item_id)
 static void
 seek_save(void)
 {
-  int seek;
+  struct player_source *ps = pb_session.playing_now;
 
-  if (!cur_streaming)
-    return;
+  if (ps && (ps->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW)))
+    db_file_seek_update(ps->id, ps->pos_ms);
+}
 
-  if (cur_streaming->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
+/*
+ * Returns the next queue item based on the current streaming source and repeat mode
+ *
+ * If repeat mode is repeat all, shuffle is active and the current streaming source is the
+ * last item in the queue, the queue is reshuffled prior to returning the first item of the
+ * queue.
+ */
+static struct db_queue_item *
+queue_item_next(uint32_t item_id)
+{
+  struct db_queue_item *queue_item;
+
+  if (repeat == REPEAT_SONG)
     {
-      seek = (cur_streaming->output_start - cur_streaming->stream_start) / 44100 * 1000;
-      db_file_seek_update(cur_streaming->id, seek);
+      queue_item = db_queue_fetch_byitemid(item_id);
+      if (!queue_item)
+        return NULL;
     }
+  else
+    {
+      queue_item = db_queue_fetch_next(item_id, shuffle);
+      if (!queue_item && repeat == REPEAT_ALL)
+	{
+	  if (shuffle)
+	    db_queue_reshuffle(0);
+
+	  queue_item = db_queue_fetch_bypos(0, shuffle);
+	  if (!queue_item)
+	    return NULL;
+	}
+    }
+
+  if (!queue_item)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Reached end of queue\n");
+      return NULL;
+    }
+
+  return queue_item;
+}
+
+static struct db_queue_item *
+queue_item_prev(uint32_t item_id)
+{
+  return db_queue_fetch_prev(item_id, shuffle);
 }
 
 static void
@@ -534,15 +623,6 @@ status_update(enum play_status status)
 
 /* ----------- Audio source handling (interfaces with input module) --------- */
 
-static struct player_source *
-source_now_playing()
-{
-  if (cur_playing)
-    return cur_playing;
-
-  return cur_streaming;
-}
-
 /*
  * Creates a new player source for the given queue item
  */
@@ -551,559 +631,442 @@ source_new(struct db_queue_item *queue_item)
 {
   struct player_source *ps;
 
-  ps = calloc(1, sizeof(struct player_source));
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory (ps)\n");
-      return NULL;
-    }
+  CHECK_NULL(L_PLAYER, ps = calloc(1, sizeof(struct player_source)));
 
   ps->id = queue_item->file_id;
   ps->item_id = queue_item->id;
   ps->data_kind = queue_item->data_kind;
   ps->media_kind = queue_item->media_kind;
   ps->len_ms = queue_item->song_length;
-  ps->play_next = NULL;
   ps->path = strdup(queue_item->path);
 
   return ps;
 }
 
 static void
-source_free(struct player_source *ps)
+source_free(struct player_source **ps)
 {
-  if (ps->path)
-    free(ps->path);
+  if (!(*ps))
+    return;
 
-  free(ps);
+  free((*ps)->path);
+  free(*ps);
+
+  *ps = NULL;
 }
 
-/*
- * Stops playback for the current streaming source and frees all
- * player sources (starting from the playing source). Sets current streaming
- * and playing sources to NULL.
- */
 static void
-source_stop()
+source_stop(void)
 {
-  struct player_source *ps_playing;
-  struct player_source *ps_temp;
-
-  if (cur_streaming)
-    input_stop(cur_streaming);
-
-  ps_playing = source_now_playing();
-
-  while (ps_playing)
-    {
-      ps_temp = ps_playing;
-      ps_playing = ps_playing->play_next;
-
-      ps_temp->play_next = NULL;
-      source_free(ps_temp);
-    }
-
-  cur_playing = NULL;
-  cur_streaming = NULL;
+  input_stop();
 }
 
-/*
- * Pauses playback
- *
- * Resets the streaming source to the playing source and adjusts stream-start
- * and output-start values to the playing time. Sets the current streaming
- * source to NULL.
- */
-static int
-source_pause(uint64_t pos)
+static struct player_source *
+source_next_create(struct player_source *current)
 {
-  struct player_source *ps_playing;
-  struct player_source *ps_playnext;
-  struct player_source *ps_temp;
-  uint64_t seek_frames;
-  int seek_ms;
-  int ret;
-
-  ps_playing = source_now_playing();
-  if (!ps_playing)
-    return -1;
-
-  if (cur_streaming)
-    {
-      if (ps_playing != cur_streaming)
-	{
-	  DPRINTF(E_DBG, L_PLAYER,
-	      "Pause called on playing source (id=%d) and streaming source already "
-	      "switched to the next item (id=%d)\n", ps_playing->id, cur_streaming->id);
-	  ret = input_stop(cur_streaming);
-	  if (ret < 0)
-	    return -1;
-	}
-      else
-	{
-	  ret = input_pause(cur_streaming);
-	  if (ret < 0)
-	    return -1;
-	}
-    }
-
-  ps_playnext = ps_playing->play_next;
-  while (ps_playnext)
-    {
-      ps_temp = ps_playnext;
-      ps_playnext = ps_playnext->play_next;
-
-      ps_temp->play_next = NULL;
-      source_free(ps_temp);
-    }
-  ps_playing->play_next = NULL;
-
-  cur_playing = NULL;
-  cur_streaming = ps_playing;
-
-  if (!cur_streaming->setup_done)
-    {
-      DPRINTF(E_INFO, L_PLAYER, "Opening '%s'\n", cur_streaming->path);
-
-      ret = input_setup(cur_streaming);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s'\n", cur_streaming->path);
-	  return -1;
-	}
-    }
-
-  // Seek back to the pause position
-  seek_frames = (pos - cur_streaming->stream_start);
-  seek_ms = (int)((seek_frames * 1000) / 44100);
-  ret = input_seek(cur_streaming, seek_ms);
-
-// TODO what if ret < 0?
-
-  // Adjust start_pos to take into account the pause and seek back
-  cur_streaming->stream_start = TEMP_NEXT_RTPTIME - ((uint64_t)ret * 44100) / 1000;
-  cur_streaming->output_start = TEMP_NEXT_RTPTIME;
-  cur_streaming->end = 0;
-
-  return 0;
-}
-
-/*
- * Seeks the current streaming source to the given postion in milliseconds
- * and adjusts stream-start and output-start values.
- *
- * @param seek_ms Position in milliseconds to seek
- * @return The new position in milliseconds or -1 on error
- */
-static int
-source_seek(int seek_ms)
-{
-  int ret;
-
-  ret = input_seek(cur_streaming, seek_ms);
-  if (ret < 0)
-    return -1;
-
-  // Adjust start_pos to take into account the pause and seek back
-  cur_streaming->stream_start = TEMP_NEXT_RTPTIME - ((uint64_t)ret * 44100) / 1000;
-  cur_streaming->output_start = TEMP_NEXT_RTPTIME;
-
-  return ret;
-}
-
-/*
- * Starts or resumes playback
- */
-static int
-source_play()
-{
-  int ret;
-
-  ret = input_start(cur_streaming);
-
-  return ret;
-}
-
-/*
- * Opens the given player source for playback (but does not start playback)
- *
- * The given source is appended to the current streaming source (if one exists) and
- * becomes the new current streaming source.
- *
- * Stream-start and output-start values are set to the given start position.
- */
-static int
-source_open(struct player_source *ps, uint64_t start_pos, int seek_ms)
-{
-  int ret;
-
-  DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (id=%d, item-id=%d)\n", ps->path, ps->id, ps->item_id);
-
-  if (cur_streaming && cur_streaming->end == 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Current streaming source not at eof '%s' (id=%d, item-id=%d)\n",
-	      cur_streaming->path, cur_streaming->id, cur_streaming->item_id);
-      return -1;
-    }
-
-  ret = input_setup(ps);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (id=%d, item-id=%d)\n", ps->path, ps->id, ps->item_id);
-      return -1;
-    }
-
-  // If a streaming source exists, append the new source as play-next and set it
-  // as the new streaming source
-  if (cur_streaming)
-      cur_streaming->play_next = ps;
-
-  cur_streaming = ps;
-
-  cur_streaming->stream_start = start_pos;
-  cur_streaming->output_start = cur_streaming->stream_start;
-  cur_streaming->end = 0;
-
-  // Seek to the given seek position
-  if (seek_ms)
-    {
-      DPRINTF(E_INFO, L_PLAYER, "Seek to %d ms for '%s' (id=%d, item-id=%d)\n", seek_ms, ps->path, ps->id, ps->item_id);
-      source_seek(seek_ms);
-    }
-
-  return ret;
-}
-
-/*
- * Closes the current streaming source and sets its end-time to the given
- * position
- */
-static int
-source_close(uint64_t end_pos)
-{
-  input_stop(cur_streaming);
-
-  cur_streaming->end = end_pos;
-
-  return 0;
-}
-
-/*
- * Updates the now playing item (cur_playing) and notifies remotes and raop devices
- * about changes. Also takes care of stopping playback after the last item.
- *
- * @return Returns the current playback position as rtp-time
- */
-static uint64_t
-source_check(void)
-{
-  struct timespec ts;
   struct player_source *ps;
-  uint64_t pos;
-  int i;
-  int id;
-  int ret;
+  struct db_queue_item *queue_item;
 
-  ret = player_get_current_pos(&pos, &ts, 0);
-  if (ret < 0)
+  if (!current)
+    return NULL;
+
+  queue_item = queue_item_next(current->item_id);
+  if (!queue_item)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't get current playback position\n");
-
-      return 0;
+      DPRINTF(E_LOG, L_PLAYER, "Error fetching next item from queue (item-id=%d, repeat=%d)\n", current->item_id, repeat);
+      return NULL;
     }
 
-  if (player_state == PLAY_STOPPED)
+  ps = source_new(queue_item);
+
+  free_queue_item(queue_item, 0);
+
+  return ps;
+}
+
+static void
+source_next(void)
+{
+  if (!pb_session.reading_next)
+    return;
+
+  DPRINTF(E_DBG, L_PLAYER, "Opening next track: '%s' (id=%d)\n", pb_session.reading_next->path, pb_session.reading_next->item_id);
+
+  input_start(pb_session.reading_next->item_id);
+}
+
+static int
+source_start(void)
+{
+  if (!pb_session.reading_next)
+    return 0;
+
+  DPRINTF(E_DBG, L_PLAYER, "(Re)opening track: '%s' (id=%d, seek=%d)\n", pb_session.reading_next->path, pb_session.reading_next->item_id, pb_session.reading_next->seek_ms);
+
+  return input_seek(pb_session.reading_next->item_id, (int)pb_session.reading_next->seek_ms);
+}
+
+
+/* ------------------------ Playback session upkeep ------------------------- */
+
+// The below update the playback session so it is always in mint condition. That
+// is all they do, they should not do anything else. If you are looking for a
+// place to add some non session actions, look further down at the events.
+
+static int
+source_print(char *line, size_t linesize, struct player_source *ps, const char *name)
+{
+  int pos = 0;
+
+  if (ps)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! source_check called but playback has already stopped\n");
-
-      return pos;
+      pos += snprintf(line + pos, linesize - pos, "%s.path=%s; ", name, ps->path);
+      pos += snprintf(line + pos, linesize - pos, "%s.quality=%d; ", name, ps->quality.sample_rate);
+      pos += snprintf(line + pos, linesize - pos, "%s.item_id=%u; ", name, ps->item_id);
+      pos += snprintf(line + pos, linesize - pos, "%s.read_start=%lu; ", name, ps->read_start);
+      pos += snprintf(line + pos, linesize - pos, "%s.play_start=%lu; ", name, ps->play_start);
+      pos += snprintf(line + pos, linesize - pos, "%s.read_end=%lu; ", name, ps->read_end);
+      pos += snprintf(line + pos, linesize - pos, "%s.play_end=%lu; ", name, ps->play_end);
+      pos += snprintf(line + pos, linesize - pos, "%s.pos_ms=%d; ", name, ps->pos_ms);
+      pos += snprintf(line + pos, linesize - pos, "%s.seek_ms=%d; ", name, ps->seek_ms);
     }
-
-  // If cur_playing is NULL, we are still in the first two seconds after starting the stream
-  if (!cur_playing)
-    {
-      if (pos >= cur_streaming->output_start)
-	{
-	  cur_playing = cur_streaming;
-	  status_update(PLAY_PLAYING);
-
-	  // Start of streaming, no metadata to prune yet
-	}
-
-      return pos;
-    }
-
-  // Check if we are still in the middle of the current playing song
-  if ((cur_playing->end == 0) || (pos < cur_playing->end))
-    return pos;
-
-  // We have reached the end of the current playing song, update cur_playing to 
-  // the next song in the queue and initialize stream_start and output_start values.
-
-  i = 0;
-  while (cur_playing && (cur_playing->end != 0) && (pos > cur_playing->end))
-    {
-      i++;
-
-      id = (int)cur_playing->id;
-
-      if (id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
-	{
-	  worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
-#ifdef LASTFM
-	  worker_execute(scrobble_cb, &id, sizeof(int), 8);
-#endif
-	  history_add(cur_playing->id, cur_playing->item_id);
-	}
-
-      if (consume)
-	db_queue_delete_byitemid(cur_playing->item_id);
-
-      if (!cur_playing->play_next)
-	{
-	  playback_abort();
-	  return pos;
-        }
-
-      ps = cur_playing;
-      cur_playing = cur_playing->play_next;
-
-      source_free(ps);
-    }
-
-  if (i > 0)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Playback switched to next song\n");
-
-      status_update(PLAY_PLAYING);
-
-      outputs_metadata_prune(pos);
-    }
+  else
+    pos += snprintf(line + pos, linesize - pos, "%s=(null); ", name);
 
   return pos;
 }
 
-/*
- * Returns the next player source based on the current streaming source and repeat mode
- *
- * If repeat mode is repeat all, shuffle is active and the current streaming source is the
- * last item in the queue, the queue is reshuffled prior to returning the first item of the
- * queue.
- */
-static struct player_source *
-source_next()
+static void
+session_dump(void)
 {
-  struct player_source *ps = NULL;
-  struct db_queue_item *queue_item;
+  char line[4096];
+  int pos = 0;
 
-  if (!cur_streaming)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "source_next() called with no current streaming source available\n");
-      return NULL;
-    }
+  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
+  pos += source_print(line + pos, sizeof(line) - pos, pb_session.reading_now, "reading_now");
 
-  if (repeat == REPEAT_SONG)
-    {
-      queue_item = db_queue_fetch_byitemid(cur_streaming->item_id);
-      if (!queue_item)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Error fetching item from queue '%s' (id=%d, item-id=%d)\n", cur_streaming->path, cur_streaming->id, cur_streaming->item_id);
-	  return NULL;
-	}
-    }
-  else
-    {
-      queue_item = db_queue_fetch_next(cur_streaming->item_id, shuffle);
-      if (!queue_item && repeat == REPEAT_ALL)
-	{
-	  if (shuffle)
-	    {
-	      db_queue_reshuffle(0);
-	    }
+  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
 
-	  queue_item = db_queue_fetch_bypos(0, shuffle);
-	  if (!queue_item)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Error fetching item from queue '%s' (id=%d, item-id=%d)\n", cur_streaming->path, cur_streaming->id, cur_streaming->item_id);
-	      return NULL;
-	    }
-	}
-    }
+  pos = 0;
+  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
+  pos += source_print(line + pos, sizeof(line) - pos, pb_session.playing_now, "playing_now");
 
-  if (!queue_item)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Reached end of queue\n");
-      return NULL;
-    }
+  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
 
-  ps = source_new(queue_item);
-  free_queue_item(queue_item, 0);
-  return ps;
+  pos = 0;
+  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
+  pos += source_print(line + pos, sizeof(line) - pos, pb_session.reading_prev, "reading_prev");
+
+  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
+
+  pos = 0;
+  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
+  pos += source_print(line + pos, sizeof(line) - pos, pb_session.reading_next, "reading_next");
+
+  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
 }
 
-/*
- * Returns the previous player source based on the current streaming source
- */
-static struct player_source *
-source_prev()
+static void
+session_update_play_eof(void)
 {
-  struct player_source *ps = NULL;
-  struct db_queue_item *queue_item;
-
-  if (!cur_streaming)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "source_prev() called with no current streaming source available\n");
-      return NULL;
-    }
-
-  queue_item = db_queue_fetch_prev(cur_streaming->item_id, shuffle);
-  if (!queue_item)
-    return NULL;
-
-  ps = source_new(queue_item);
-  free_queue_item(queue_item, 0);
-
-  return ps;
+  pb_session.playing_now = pb_session.reading_now;
 }
 
-static int
-source_switch(int nbytes)
+static void
+session_update_play_start(void)
+{
+  pb_session.playing_now = pb_session.reading_now;
+}
+
+static void
+session_update_read_next(void)
 {
   struct player_source *ps;
-  int ret;
 
-  DPRINTF(E_DBG, L_PLAYER, "Switching track\n");
-
-  source_close(TEMP_NEXT_RTPTIME + BTOS(nbytes, pb_session.quality.bits_per_sample, 2) - 1);
-
-  while ((ps = source_next()))
-    {
-      ret = source_open(ps, cur_streaming->end + 1, 0);
-      if (ret < 0)
-	{
-	  db_queue_delete_byitemid(ps->item_id);
-	  continue;
-	}
-
-      ret = source_play();
-      if (ret < 0)
-	{
-	  db_queue_delete_byitemid(ps->item_id);
-	  source_close(TEMP_NEXT_RTPTIME + BTOS(nbytes, pb_session.quality.bits_per_sample, 2) - 1);
-	  continue;
-	}
-
-      break;
-    }
-
-  if (!ps) // End of queue
-    {
-      cur_streaming = NULL;
-      return 0;
-    }
-
-  metadata_trigger(0);
-
-  return 0;
+  ps = source_next_create(pb_session.reading_next);
+  source_free(&pb_session.reading_next);
+  pb_session.reading_next = ps;
 }
 
 static void
-session_reset(struct player_session *session, struct media_quality *quality)
+session_update_read_eof(void)
 {
-  session->samples_written = 0;
-  session->quality = *quality;
-  session->samples_per_read = (quality->sample_rate / 1000) * (player_tick_interval.tv_nsec / 1000000);
-  session->bufsize = STOB(session->samples_per_read, quality->bits_per_sample, quality->channels);
+  pb_session.reading_now->read_end = pb_session.pos - 1;
+  pb_session.reading_now->play_end = pb_session.pos - 1 + pb_session.reading_now->output_buffer_samples;
+
+  source_free(&pb_session.reading_prev);
+  pb_session.reading_prev = pb_session.reading_now;
+  pb_session.reading_now  = pb_session.reading_next;
+  pb_session.reading_next = NULL;
+
+
+  // There is nothing else to play
+  if (!pb_session.reading_now)
+    return;
+
+  pb_session.reading_now->read_start = pb_session.pos;
+}
+
+static void
+session_update_read_start(uint32_t seek_ms)
+{
+  source_free(&pb_session.reading_prev);
+  pb_session.reading_prev = pb_session.reading_now;
+  pb_session.reading_now  = pb_session.reading_next;
+  pb_session.reading_next = NULL;
+
+  // There is nothing else to play
+  if (!pb_session.reading_now)
+    return;
+
+  pb_session.reading_now->seek_ms    = seek_ms;
+  pb_session.reading_now->read_start = pb_session.pos;
+
+  pb_session.playing_now = pb_session.reading_now;
+}
+
+static inline void
+session_update_read(int nsamples)
+{
+  // Did we just complete our first read? Then set the start timestamp
+  if (pb_session.pos == 0)
+    {
+      clock_gettime_with_res(CLOCK_MONOTONIC, &pb_session.start_ts, &player_timer_res);
+      pb_session.pts = pb_session.start_ts;
+    }
+
+  // Advance position
+  pb_session.pos += nsamples;
+
+  // After we have started playing we also must calculate new pos_ms
+  if (pb_session.playing_now->quality.sample_rate && pb_session.pos > pb_session.playing_now->play_start)
+    pb_session.playing_now->pos_ms = pb_session.playing_now->seek_ms + 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
+}
+
+static void
+session_update_read_quality(struct media_quality *quality)
+{
+  int samples_per_read;
+
+  if (quality_is_equal(quality, &pb_session.reading_now->quality))
+    return;
+
+  pb_session.reading_now->quality = *quality;
+  samples_per_read = ((uint64_t)quality->sample_rate * (player_tick_interval.tv_nsec / 1000000)) / 1000;
+  pb_session.reading_now->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+
+  pb_session.bufsize = STOB(samples_per_read, quality->bits_per_sample, quality->channels);
 
   DPRINTF(E_DBG, L_PLAYER, "New session values (q=%d/%d/%d, spr=%d, bufsize=%zu)\n",
-    quality->sample_rate, quality->bits_per_sample, quality->channels,
-    session->samples_per_read, session->bufsize);
+    quality->sample_rate, quality->bits_per_sample, quality->channels, samples_per_read, pb_session.bufsize);
 
-  if (session->buffer)
-    session->buffer = realloc(session->buffer, session->bufsize);
+  if (pb_session.buffer)
+    pb_session.buffer = realloc(pb_session.buffer, pb_session.bufsize);
   else
-    session->buffer = malloc(session->bufsize);
+    pb_session.buffer = malloc(pb_session.bufsize);
 
-  CHECK_NULL(L_PLAYER, session->buffer);
+  CHECK_NULL(L_PLAYER, pb_session.buffer);
 
-  clock_gettime_with_res(CLOCK_MONOTONIC, &session->start_ts, &player_timer_res);
-  session->pts.tv_sec = session->start_ts.tv_sec + OUTPUTS_BUFFER_DURATION;
-  session->pts.tv_nsec = session->start_ts.tv_nsec;
+  pb_session.reading_now->play_start = pb_session.reading_now->play_start + pb_session.reading_now->output_buffer_samples;
 }
 
 static void
-session_clear(struct player_session *session)
+session_stop(void)
 {
-  free(session->buffer);
-  memset(session, 0, sizeof(struct player_session));
+  free(pb_session.buffer);
+  pb_session.buffer = NULL;
+
+  source_free(&pb_session.reading_prev);
+  source_free(&pb_session.reading_now);
+  source_free(&pb_session.reading_next);
+
+  memset(&pb_session, 0, sizeof(struct player_session));
 }
 
-/* ----------------- Main read, write and playback timer event -------------- */
-
-// Returns -1 on error (caller should abort playback), or bytes read (possibly 0)
-static int
-source_read(uint8_t *buf, int len)
+static void
+session_start(struct player_source *ps, uint32_t seek_ms)
 {
-  struct media_quality quality;
-  int nbytes;
-  uint32_t item_id;
-  int ret;
-  short flags;
+  session_stop();
 
-  // Nothing to read, stream silence until source_check() stops playback
-  if (!cur_streaming)
+  // Add the item to play as reading_next
+  pb_session.reading_next = ps;
+  pb_session.reading_next->seek_ms = seek_ms;
+}
+
+
+/* ------------------------- Playback event handlers ------------------------ */
+
+static void
+event_read_quality()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_read_quality()\n");
+
+  struct media_quality quality;
+
+  input_quality_get(&quality);
+
+  session_update_read_quality(&quality);
+}
+
+// Stuff to do when read of current track ends
+static void
+event_read_eof()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_read_eof()\n");
+
+  session_update_read_eof();
+}
+
+static void
+event_read_error()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_read_error()\n");
+
+  db_queue_delete_byitemid(pb_session.reading_now->item_id);
+
+  event_read_eof();
+}
+
+// Kicks of input reading of next source (async), session is not affected by
+// this, so there is no session update
+static void
+event_read_start_next()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_start_next()\n");
+
+  source_next();
+}
+
+static void
+event_metadata_new()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_metadata_new()\n");
+
+  metadata_trigger(0);
+}
+
+static void
+event_play_end()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_play_end()\n");
+
+  playback_abort();
+}
+
+// Stuff to do when playback of current track ends
+static void
+event_play_eof()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_play_eof()\n");
+
+  int id = (int)pb_session.playing_now->id;
+
+  if (id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
-      memset(buf, 0, len);
-      return len;
+      worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
+#ifdef LASTFM
+      worker_execute(scrobble_cb, &id, sizeof(int), 8);
+#endif
+      history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
     }
 
-  nbytes = input_read(buf, len, &flags);
-  if ((nbytes < 0) || (flags & INPUT_FLAG_ERROR))
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Error reading source %d\n", cur_streaming->id);
+  if (consume)
+    db_queue_delete_byitemid(pb_session.playing_now->item_id);
 
-      nbytes = 0;
-      item_id = cur_streaming->item_id;
-      ret = source_switch(0);
-      db_queue_delete_byitemid(item_id);
-      if (ret < 0)
-	return -1;
+  outputs_metadata_prune(pb_session.pos);
+
+  session_update_play_eof();
+}
+
+static void
+event_play_start()
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_play_start()\n");
+
+  event_metadata_new();
+
+  status_update(PLAY_PLAYING);
+
+  session_update_play_start();
+}
+
+// Checks if the new playback position requires change of play status, plus
+// calls session_update_read that updates playback position
+static inline void
+event_read(int nsamples)
+{
+  if (!pb_session.playing_now) // Shouldn't happen
+    return;
+
+  if (pb_session.playing_now->play_end != 0 && pb_session.pos + nsamples >= pb_session.playing_now->play_end)
+    {
+      event_play_eof();
+
+      if (!pb_session.playing_now)
+	{
+	  event_play_end();
+	  return;
+	}
+    }
+
+  if (pb_session.playing_now->pos_ms == 0 && pb_session.pos + nsamples >= pb_session.playing_now->play_start)
+    event_play_start();
+
+  session_update_read(nsamples);
+}
+
+
+/* ---- Main playback stuff: Start, read, write and playback timer event ---- */
+
+// Returns -1 on error or bytes read (possibly 0)
+static inline int
+source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *buf, int len)
+{
+  short flags;
+
+  *quality = pb_session.reading_now->quality;
+  *nsamples = 0;
+  *nbytes = input_read(buf, len, &flags);
+  if ((*nbytes < 0) || (flags & INPUT_FLAG_ERROR))
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Error reading source '%s' (id=%d)\n", pb_session.reading_now->path, pb_session.reading_now->id);
+      event_read_error();
+      return -1;
+    }
+  else if (flags & INPUT_FLAG_START_NEXT)
+    {
+      event_read_start_next();
     }
   else if (flags & INPUT_FLAG_EOF)
     {
-      ret = source_switch(nbytes);
-      if (ret < 0)
-	return -1;
+      event_read_eof();
     }
   else if (flags & INPUT_FLAG_METADATA)
     {
-      metadata_trigger(0);
+      event_metadata_new();
     }
   else if (flags & INPUT_FLAG_QUALITY)
     {
-      input_quality_get(&quality);
-
-      if (!quality_is_equal(&quality, &pb_session.quality))
-	session_reset(&pb_session, &quality);
+      event_read_quality();
     }
 
-  // We pad the output buffer with silence if we don't have enough data for a
-  // full packet and there is no more data coming up (no more tracks in queue)
-  if ((nbytes < len) && (!cur_streaming))
-    {
-      memset(buf + nbytes, 0, len - nbytes);
-      nbytes = len;
-    }
+  if (*nbytes == 0 || quality->channels == 0)
+    return 0;
 
-  return nbytes;
+  *nsamples = BTOS(*nbytes, quality->bits_per_sample, quality->channels);
+
+  event_read(*nsamples);
+
+  return 0;
 }
 
 static void
 playback_cb(int fd, short what, void *arg)
 {
   struct timespec ts;
+  struct media_quality quality;
   uint64_t overrun;
-  int got;
+  int nbytes;
   int nsamples;
   int i;
   int ret;
@@ -1147,40 +1110,35 @@ playback_cb(int fd, short what, void *arg)
       pb_write_recovery = false;
     }
 
+//  debug_counter++;
+//  if (debug_counter % 100 == 0)
+//    session_dump();
+
   // If there was an overrun, we will try to read/write a corresponding number
   // of times so we catch up. The read from the input is non-blocking, so it
   // should not bring us further behind, even if there is no data.
-  for (i = 1 + overrun + pb_read_deficit; i > 0; i--)
+  for (i = 1 + overrun + pb_read_deficit; i > 0 && pb_session.reading_now; i--)
     {
-      source_check();
-
-      // Make sure playback is still running after source_check()
-      if (player_state != PLAY_PLAYING)
-	return;
-
-      got = source_read(pb_session.buffer, pb_session.bufsize);
-      if (got < 0)
+      ret = source_read(&nbytes, &nsamples, &quality, pb_session.buffer, pb_session.bufsize);
+      if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source, aborting playback\n");
-	  playback_abort();
+	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source\n");
 	  break;
 	}
-      else if (got == 0)
+      if (nbytes == 0)
 	{
 	  pb_read_deficit++;
 	  break;
 	}
 
-      nsamples = BTOS(got, pb_session.quality.bits_per_sample, pb_session.quality.channels);
-      outputs_write(pb_session.buffer, pb_session.bufsize, &pb_session.quality, nsamples, &pb_session.pts);
-      pb_session.samples_written += nsamples;
+      outputs_write(pb_session.buffer, pb_session.bufsize, &quality, nsamples, &pb_session.pts);
 
-      if (got < pb_session.bufsize)
+      if (nbytes < pb_session.bufsize)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d\n", pb_session.bufsize, got);
+	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d\n", pb_session.bufsize, nbytes);
 	  // How much the number of samples we got corresponds to in time (nanoseconds)
 	  ts.tv_sec = 0;
-	  ts.tv_nsec = 1000000000L * nsamples / pb_session.quality.sample_rate;
+	  ts.tv_nsec = 1000000000L * nsamples / quality.sample_rate;
 	  pb_session.pts = timespec_add(pb_session.pts, ts);
 	  pb_read_deficit++;
 	}
@@ -1608,16 +1566,45 @@ playback_timer_stop(void)
   return 0;
 }
 
+// Initiates the session and starts the input source
 static int
-pb_session_stop(void)
+playback_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
 {
+  struct player_source *ps;
   int ret;
 
-  ret = playback_timer_stop();
+  ps = source_new(queue_item);
 
-  session_clear(&pb_session);
+  // Clears the session and attaches the new source as reading_next
+  session_start(ps, seek_ms);
+
+  // Sets of opening of the new source
+  while ( (ret = source_start()) < 0)
+    {
+      // Couldn't start requested item, remove it from queue and try next in line
+      db_queue_delete_byitemid(pb_session.reading_next->item_id);
+      session_update_read_next();
+    }
+
+  session_update_read_start((uint32_t)ret);
+
+  if (!pb_session.playing_now)
+    return -1;
 
   return ret;
+}
+
+// Stops input source and deallocates pb_session content
+static void
+playback_session_stop(void)
+{
+  source_stop();
+
+  session_stop();
+
+  playback_timer_stop();
+
+  status_update(PLAY_STOPPED);
 }
 
 static void
@@ -1625,14 +1612,10 @@ playback_abort(void)
 {
   outputs_playback_stop();
 
-  pb_session_stop();
-
-  source_stop();
+  playback_session_stop();
 
   if (!clear_queue_on_stop_disabled)
     db_queue_clear(0);
-
-  status_update(PLAY_STOPPED);
 
   outputs_metadata_purge();
 }
@@ -1644,7 +1627,7 @@ playback_suspend(void)
 {
   player_flush_pending = outputs_flush(device_command_cb);
 
-  pb_session_stop();
+  playback_timer_stop();
 
   status_update(PLAY_PAUSED);
 
@@ -1662,10 +1645,6 @@ static enum command_state
 get_status(void *arg, int *retval)
 {
   struct player_status *status = arg;
-  struct timespec ts;
-  struct player_source *ps;
-  uint64_t pos;
-  int ret;
 
   memset(status, 0, sizeof(struct player_status));
 
@@ -1682,59 +1661,40 @@ get_status(void *arg, int *retval)
       case PLAY_STOPPED:
 	DPRINTF(E_DBG, L_PLAYER, "Player status: stopped\n");
 
-	status->status = PLAY_STOPPED;
+	status->status  = PLAY_STOPPED;
 	break;
 
       case PLAY_PAUSED:
 	DPRINTF(E_DBG, L_PLAYER, "Player status: paused\n");
 
-	status->status = PLAY_PAUSED;
-	status->id = cur_streaming->id;
-	status->item_id = cur_streaming->item_id;
+	status->status  = PLAY_PAUSED;
+	status->id      = pb_session.playing_now->id;
+	status->item_id = pb_session.playing_now->item_id;
 
-	pos = TEMP_NEXT_RTPTIME - cur_streaming->stream_start;
-	status->pos_ms = (pos * 1000) / 44100;
-	status->len_ms = cur_streaming->len_ms;
+	status->pos_ms  = pb_session.playing_now->pos_ms;
+	status->len_ms  = pb_session.playing_now->len_ms;
 
 	break;
 
       case PLAY_PLAYING:
-	if (!cur_playing)
+	if (pb_session.playing_now->pos_ms == 0)
 	  {
 	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing (buffering)\n");
 
 	    status->status = PLAY_PAUSED;
-	    ps = cur_streaming;
-
-	    // Avoid a visible 2-second jump backward for the client
-	    pos = ps->output_start - ps->stream_start;
 	  }
 	else
 	  {
 	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing\n");
 
 	    status->status = PLAY_PLAYING;
-	    ps = cur_playing;
-
-	    ret = player_get_current_pos(&pos, &ts, 0);
-	    if (ret < 0)
-	      {
-		DPRINTF(E_LOG, L_PLAYER, "Could not get current stream position for playstatus\n");
-
-		pos = 0;
-	      }
-
-	    if (pos < ps->stream_start)
-	      pos = 0;
-	    else
-	      pos -= ps->stream_start;
 	  }
 
-	status->pos_ms = (pos * 1000) / 44100;
-	status->len_ms = ps->len_ms;
+	status->id      = pb_session.playing_now->id;
+	status->item_id = pb_session.playing_now->item_id;
 
-	status->id = ps->id;
-	status->item_id = ps->item_id;
+	status->pos_ms  = pb_session.playing_now->pos_ms;
+	status->len_ms  = pb_session.playing_now->len_ms;
 
 	break;
     }
@@ -1744,20 +1704,17 @@ get_status(void *arg, int *retval)
 }
 
 static enum command_state
-now_playing(void *arg, int *retval)
+playing_now(void *arg, int *retval)
 {
   uint32_t *id = arg;
-  struct player_source *ps_playing;
 
-  ps_playing = source_now_playing();
-
-  if (ps_playing)
-    *id = ps_playing->id;
-  else
+  if (player_state == PLAY_STOPPED)
     {
       *retval = -1;
       return COMMAND_END;
     }
+
+  *id = pb_session.playing_now->id;
 
   *retval = 0;
   return COMMAND_END;
@@ -1766,27 +1723,20 @@ now_playing(void *arg, int *retval)
 static enum command_state
 playback_stop(void *arg, int *retval)
 {
-  struct player_source *ps_playing;
-
   if (player_state == PLAY_STOPPED)
     {
       *retval = 0;
       return COMMAND_END;
     }
 
+  if (pb_session.playing_now && pb_session.playing_now->pos_ms > 0)
+    history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
+
   // We may be restarting very soon, so we don't bring the devices to a full
   // stop just yet; this saves time when restarting, which is nicer for the user
   *retval = outputs_flush(device_command_cb);
 
-  pb_session_stop();
-
-  ps_playing = source_now_playing();
-  if (ps_playing)
-    {
-      history_add(ps_playing->id, ps_playing->item_id);
-    }
-
-  source_stop();
+  playback_session_stop();
 
   status_update(PLAY_STOPPED);
 
@@ -1804,29 +1754,19 @@ playback_start_bh(void *arg, int *retval)
 {
   int ret;
 
-  // initialize the packet timer to the same relative time that we have 
-  // for the playback timer.
-//  packet_timer_last.tv_sec = pb_pos_stamp.tv_sec;
-//  packet_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
-
-//  pb_timer_last.tv_sec = pb_pos_stamp.tv_sec;
-//  pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
-
-//  pb_buffer_offset = 0;
   pb_read_deficit = 0;
 
   ret = playback_timer_start();
   if (ret < 0)
-    goto out_fail;
+    goto error;
 
   status_update(PLAY_PLAYING);
 
   *retval = 0;
   return COMMAND_END;
 
- out_fail:
+ error:
   playback_abort();
-
   *retval = -1;
   return COMMAND_END;
 }
@@ -1838,7 +1778,7 @@ playback_start_item(void *arg, int *retval)
   struct media_file_info *mfi;
   struct output_device *device;
   struct player_source *ps;
-  int seek_ms;
+  uint32_t seek_ms;
   int ret;
 
   if (player_state == PLAY_PLAYING)
@@ -1851,9 +1791,6 @@ playback_start_item(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  // Update global playback position
-  pb_pos = TEMP_NEXT_RTPTIME - 88200;
-
   if (player_state == PLAY_STOPPED && !queue_item)
     {
       DPRINTF(E_LOG, L_PLAYER, "Failed to start/resume playback, no queue item given\n");
@@ -1864,24 +1801,22 @@ playback_start_item(void *arg, int *retval)
 
   if (!queue_item)
     {
-      // Resume playback of current source
-      ps = source_now_playing();
+      ps = pb_session.playing_now;
+      if (!ps)
+	{
+	  DPRINTF(E_WARN, L_PLAYER, "Bug! playing_now is null but playback is not stopped!\n");
+	  *retval = -1;
+	  return COMMAND_END;
+	}
+
       DPRINTF(E_DBG, L_PLAYER, "Resume playback of '%s' (id=%d, item-id=%d)\n", ps->path, ps->id, ps->item_id);
     }
   else
     {
       // Start playback for given queue item
       DPRINTF(E_DBG, L_PLAYER, "Start playback of '%s' (id=%d, item-id=%d)\n", queue_item->path, queue_item->file_id, queue_item->id);
-      source_stop();
 
-      ps = source_new(queue_item);
-      if (!ps)
-	{
-	  playback_abort();
-	  *retval = -1;
-	  return COMMAND_END;
-	}
-
+      // Look up where we should start
       seek_ms = 0;
       if (queue_item->file_id > 0)
 	{
@@ -1893,22 +1828,12 @@ playback_start_item(void *arg, int *retval)
 	    }
 	}
 
-      ret = source_open(ps, TEMP_NEXT_RTPTIME, seek_ms);
+      ret = playback_session_start(queue_item, seek_ms);
       if (ret < 0)
 	{
-	  playback_abort();
-	  source_free(ps);
 	  *retval = -1;
 	  return COMMAND_END;
 	}
-    }
-
-  ret = source_play();
-  if (ret < 0)
-    {
-      playback_abort();
-      *retval = -1;
-      return COMMAND_END;
     }
 
   metadata_trigger(1);
@@ -2018,161 +1943,132 @@ playback_start(void *arg, int *retval)
 static enum command_state
 playback_prev_bh(void *arg, int *retval)
 {
+  struct db_queue_item *queue_item;
   int ret;
-  int pos_sec;
-  struct player_source *ps;
 
-  // The upper half is playback_pause, therefor the current playing item is
-  // already set as the cur_streaming (cur_playing is NULL).
-  if (!cur_streaming)
+  // outputs_flush() in playback_pause() may have a caused a failure callback
+  // from the output, which in streaming_cb() can cause playback_abort()
+  if (player_state == PLAY_STOPPED)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
-      *retval = -1;
-      return COMMAND_END;
+      goto error;
     }
 
   // Only add to history if playback started
-  if (cur_streaming->output_start > cur_streaming->stream_start)
-    history_add(cur_streaming->id, cur_streaming->item_id);
-
-  // Compute the playing time in seconds for the current song
-  if (cur_streaming->output_start > cur_streaming->stream_start)
-    pos_sec = (cur_streaming->output_start - cur_streaming->stream_start) / 44100;
-  else
-    pos_sec = 0;
+  if (pb_session.playing_now->pos_ms > 0)
+    history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
   // Only skip to the previous song if the playing time is less than 3 seconds,
   // otherwise restart the current song.
-  DPRINTF(E_DBG, L_PLAYER, "Skipping song played %d sec\n", pos_sec);
-  if (pos_sec < 3)
-    {
-      ps = source_prev();
-      if (!ps)
-        {
-          playback_abort();
-          *retval = -1;
-          return COMMAND_END;
-        }
-
-      source_stop();
-
-      ret = source_open(ps, TEMP_NEXT_RTPTIME, 0);
-      if (ret < 0)
-	{
-	  source_free(ps);
-	  playback_abort();
-
-          *retval = -1;
-          return COMMAND_END;
-	}
-    }
+  if (pb_session.playing_now->pos_ms < 3000)
+    queue_item = queue_item_prev(pb_session.playing_now->item_id);
   else
+    queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+  if (!queue_item)
     {
-      ret = source_seek(0);
-      if (ret < 0)
-	{
-	  playback_abort();
-
-          *retval = -1;
-          return COMMAND_END;
-	}
+      DPRINTF(E_DBG, L_PLAYER, "Error finding previous source, queue item has disappeared\n");
+      goto error;
     }
 
-  if (player_state == PLAY_STOPPED)
+  ret = playback_session_start(queue_item, 0);
+  free_queue_item(queue_item, 0);
+  if (ret < 0)
     {
-      *retval = -1;
-      return COMMAND_END;
+      DPRINTF(E_DBG, L_PLAYER, "Error skipping to previous item, aborting playback\n");
+      goto error;
     }
 
   // Silent status change - playback_start() sends the real status update
   player_state = PLAY_PAUSED;
 
   *retval = 0;
+  return COMMAND_END;
+
+ error:
+  playback_abort();
+  *retval = -1;
   return COMMAND_END;
 }
 
 static enum command_state
 playback_next_bh(void *arg, int *retval)
 {
-  struct player_source *ps;
+  struct db_queue_item *queue_item;
   int ret;
   int id;
-  uint32_t item_id;
 
-  // The upper half is playback_pause, therefor the current playing item is
-  // already set as the cur_streaming (cur_playing is NULL).
-  if (!cur_streaming)
+  // outputs_flush() in playback_pause() may have a caused a failure callback
+  // from the output, which in streaming_cb() can cause playback_abort()
+  if (player_state == PLAY_STOPPED)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
-      *retval = -1;
-      return COMMAND_END;
+      goto error;
     }
 
-  item_id = cur_streaming->item_id;
-
   // Only add to history if playback started
-  if (cur_streaming->output_start > cur_streaming->stream_start)
+  if (pb_session.playing_now->pos_ms > 0)
     {
-      history_add(cur_streaming->id, item_id);
+      history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
-      id = (int)cur_streaming->id;
+      id = (int)(pb_session.playing_now->id);
       worker_execute(skipcount_inc_cb, &id, sizeof(int), 5);
     }
 
-  ps = source_next();
-  if (!ps)
+  if (consume)
+    db_queue_delete_byitemid(pb_session.playing_now->item_id);
+
+  queue_item = queue_item_next(pb_session.playing_now->item_id);
+  if (!queue_item)
     {
-      playback_abort();
-      *retval = -1;
-      return COMMAND_END;
+      DPRINTF(E_DBG, L_PLAYER, "Error finding next source, queue item has disappeared\n");
+      goto error;
     }
 
-  source_stop();
-
-  ret = source_open(ps, TEMP_NEXT_RTPTIME, 0);
+  ret = playback_session_start(queue_item, 0);
+  free_queue_item(queue_item, 0);
   if (ret < 0)
     {
-      source_free(ps);
-      playback_abort();
-      *retval = -1;
-      return COMMAND_END;
+      DPRINTF(E_DBG, L_PLAYER, "Error skipping to next item, aborting playback\n");
+      goto error;
     }
-
-  if (player_state == PLAY_STOPPED)
-    {
-      *retval = -1;
-      return COMMAND_END;
-    }
-
-  if (consume)
-    db_queue_delete_byitemid(item_id);
 
   // Silent status change - playback_start() sends the real status update
   player_state = PLAY_PAUSED;
 
   *retval = 0;
+  return COMMAND_END;
+
+ error:
+  playback_abort();
+  *retval = -1;
   return COMMAND_END;
 }
 
 static enum command_state
 playback_seek_bh(void *arg, int *retval)
 {
+  struct db_queue_item *queue_item;
   union player_arg *cmdarg = arg;
-  int ms;
   int ret;
 
-  *retval = -1;
+  // outputs_flush() in playback_pause() may have a caused a failure callback
+  // from the output, which in streaming_cb() can cause playback_abort()
+  if (player_state == PLAY_STOPPED)
+    {
+      goto error;
+    }
 
-  if (!cur_streaming)
-    return COMMAND_END;
+  queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+  if (!queue_item)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Error seeking in source, queue item has disappeared\n");
+      goto error;
+    }
 
-  ms = cmdarg->intval;
-
-  ret = source_seek(ms);
+  ret = playback_session_start(queue_item, cmdarg->intval);
+  free_queue_item(queue_item, 0);
   if (ret < 0)
     {
-      playback_abort();
-      return COMMAND_END;
+      DPRINTF(E_DBG, L_PLAYER, "Error seeking to %d, aborting playback\n", cmdarg->intval);
+      goto error;
     }
 
   // Silent status change - playback_start() sends the real status update
@@ -2180,39 +2076,57 @@ playback_seek_bh(void *arg, int *retval)
 
   *retval = 0;
   return COMMAND_END;
+
+ error:
+  playback_abort();
+  *retval = -1;
+  return COMMAND_END;
 }
 
 static enum command_state
 playback_pause_bh(void *arg, int *retval)
 {
-  *retval = -1;
+  struct db_queue_item *queue_item;
+  int ret;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
-  // from the output, which in streaming_cb() can cause playback_abort() ->
-  // cur_streaming is NULL
-  if (!cur_streaming)
-    return COMMAND_END;
-
-  if (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE)
+  // from the output, which in streaming_cb() can cause playback_abort()
+  if (player_state == PLAY_STOPPED)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Source is not pausable, abort playback\n");
-
-      playback_abort();
-      return COMMAND_END;
+      goto error;
     }
+
+  queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+  if (!queue_item)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Error pausing source, queue item has disappeared\n");
+      goto error;
+    }
+
+  ret = playback_session_start(queue_item, pb_session.playing_now->pos_ms);
+  free_queue_item(queue_item, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Error pausing source, aborting playback\n");
+      goto error;
+    }
+
   status_update(PLAY_PAUSED);
 
   seek_save();
 
   *retval = 0;
   return COMMAND_END;
+
+ error:
+  playback_abort();
+  *retval = -1;
+  return COMMAND_END;
 }
 
 static enum command_state
 playback_pause(void *arg, int *retval)
 {
-  uint64_t pos;
-
   if (player_state == PLAY_STOPPED)
     {
       *retval = -1;
@@ -2225,28 +2139,9 @@ playback_pause(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  pos = source_check();
-  if (pos == 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not retrieve current position for pause\n");
-
-      playback_abort();
-      *retval = -1;
-      return COMMAND_END;
-    }
-
-  // Make sure playback is still running after source_check()
-  if (player_state == PLAY_STOPPED)
-    {
-      *retval = -1;
-      return COMMAND_END;
-    }
+  playback_timer_stop();
 
   *retval = outputs_flush(device_command_cb);
-
-  pb_session_stop();
-
-  source_pause(pos);
 
   outputs_metadata_purge();
 
@@ -2568,7 +2463,7 @@ volume_setrel_speaker(void *arg, int *retval)
 #endif
 
       if (device->session)
-	*retval = outputs_device_volume_set(device, device_command_cb);
+	*retval += outputs_device_volume_set(device, device_command_cb);
 
       break;
     }
@@ -2624,7 +2519,7 @@ volume_setabs_speaker(void *arg, int *retval)
 #endif
 
 	  if (device->session)
-	    *retval = outputs_device_volume_set(device, device_command_cb);//FIXME Does this need to be += ?
+	    *retval += outputs_device_volume_set(device, device_command_cb);
 	}
     }
 
@@ -2724,7 +2619,6 @@ shuffle_set(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
   char new_shuffle;
-  uint32_t cur_id;
 
   new_shuffle = (cmdarg->intval == 0) ? 0 : 1;
 
@@ -2735,8 +2629,10 @@ shuffle_set(void *arg, int *retval)
   // Update queue and notify listeners
   if (new_shuffle)
     {
-      cur_id = cur_streaming ? cur_streaming->item_id : 0;
-      db_queue_reshuffle(cur_id);
+      if (pb_session.playing_now)
+	db_queue_reshuffle(pb_session.playing_now->item_id);
+      else
+	db_queue_reshuffle(0);
     }
   else
     {
@@ -2794,50 +2690,6 @@ playerqueue_plid(void *arg, int *retval)
 
 /* ------------------------------- Player API ------------------------------- */
 
-// TODO no longer part of API
-static int
-player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
-{
-  uint64_t delta;
-  int ret;
-
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &player_timer_res);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  delta = (ts->tv_sec - pb_pos_stamp.tv_sec) * 1000000 + (ts->tv_nsec - pb_pos_stamp.tv_nsec) / 1000;
-
-#ifdef DEBUG_SYNC
-  DPRINTF(E_DBG, L_PLAYER, "Delta is %" PRIu64 " usec\n", delta);
-#endif
-
-  delta = (delta * 44100) / 1000000;
-
-#ifdef DEBUG_SYNC
-  DPRINTF(E_DBG, L_PLAYER, "Delta is %" PRIu64 " samples\n", delta);
-#endif
-
-  *pos = pb_pos + delta;
-
-  if (commit)
-    {
-      pb_pos = *pos;
-
-      pb_pos_stamp.tv_sec = ts->tv_sec;
-      pb_pos_stamp.tv_nsec = ts->tv_nsec;
-
-#ifdef DEBUG_SYNC
-      DPRINTF(E_DBG, L_PLAYER, "Pos: %" PRIu64 " (clock)\n", *pos);
-#endif
-    }
-
-  return 0;
-}
-
 int
 player_get_status(struct player_status *status)
 {
@@ -2857,11 +2709,11 @@ player_get_status(struct player_status *status)
  * @return 0 on success, -1 on failure (e. g. no playing item found)
  */
 int
-player_now_playing(uint32_t *id)
+player_playing_now(uint32_t *id)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, now_playing, NULL, id);
+  ret = commands_exec_sync(cmdbase, playing_now, NULL, id);
   return ret;
 }
 
@@ -3417,8 +3269,6 @@ player_deinit(void)
 
   player_exit = 1;
   commands_base_destroy(cmdbase);
-
-  session_clear(&pb_session);
 
   ret = pthread_join(tid_player, NULL);
   if (ret != 0)
