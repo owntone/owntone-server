@@ -1083,7 +1083,7 @@ dacp_propset_userrating(const char *value, struct httpd_request *hreq)
     {
       DPRINTF(E_WARN, L_DACP, "Invalid id %d for rating, defaulting to player id\n", itemid);
 
-      ret = player_now_playing(&itemid);
+      ret = player_playing_now(&itemid);
       if (ret < 0)
 	{
 	  DPRINTF(E_WARN, L_DACP, "Could not find an id for rating\n");
@@ -2277,7 +2277,7 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
       goto error;
     }
 
-  ret = player_now_playing(&id);
+  ret = player_playing_now(&id);
   if (ret < 0)
     goto no_artwork;
 

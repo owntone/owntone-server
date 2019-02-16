@@ -2358,6 +2358,9 @@ raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, str
       return -1;
     }
 
+  DPRINTF(E_DBG, L_PLAYER, "Metadata send is start_time=%zu, start=%zu, display=%zu, current=%zu, end=%zu\n",
+    rs->start_rtptime, rmd->start, rmd->start - delay, rmd->start + offset, rmd->end);
+
   ret = raop_send_req_set_parameter(rs, evbuf, "text/parameters", NULL, raop_cb_metadata, "send_progress");
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send SET_PARAMETER progress request to '%s'\n", rs->devname);
@@ -3014,7 +3017,8 @@ packets_sync_send(struct raop_master_session *rms, struct timespec pts)
   // OUTPUTS_BUFFER_DURATION secs into the future. However, in the sync packet
   // we want to tell the device what it should be playing right now. So we give
   // it a cur_time where we subtract this duration.
-  cur_stamp.ts.tv_sec = pts.tv_sec - OUTPUTS_BUFFER_DURATION;
+// TODO update comment to match reality
+  cur_stamp.ts.tv_sec = pts.tv_sec;
   cur_stamp.ts.tv_nsec = pts.tv_nsec;
 
   // The cur_pos will be the rtptime of the coming packet, minus

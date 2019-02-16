@@ -125,7 +125,7 @@ static pthread_mutex_t pipe_metadata_lock;
 // True if there is new metadata to push to the player
 static bool pipe_metadata_is_new;
 
-/* -------------------------------- HELPERS ------------------------------- */
+/* -------------------------------- HELPERS --------------------------------- */
 
 static struct pipe *
 pipe_create(const char *path, int id, enum pipetype type, event_callback_fn cb)
@@ -500,8 +500,8 @@ pipe_metadata_parse(struct input_metadata *m, struct evbuffer *evbuf)
 }
 
 
-/* ----------------------------- PIPE WATCHING ---------------------------- */
-/*                                Thread: pipe                              */
+/* ------------------------------ PIPE WATCHING ----------------------------- */
+/*                                 Thread: pipe                               */
 
 // Some data arrived on a pipe we watch - let's autostart playback
 static void
@@ -617,8 +617,8 @@ pipe_thread_run(void *arg)
 }
 
 
-/* -------------------------- METADATA PIPE HANDLING ---------------------- */
-/*                               Thread: worker                             */
+/* --------------------------- METADATA PIPE HANDLING ----------------------- */
+/*                                Thread: worker                              */
 
 static void
 pipe_metadata_watch_del(void *arg)
@@ -706,8 +706,8 @@ pipe_metadata_watch_add(void *arg)
 }
 
 
-/* ---------------------- PIPE WATCH THREAD START/STOP -------------------- */
-/*                            Thread: filescanner                           */
+/* ----------------------- PIPE WATCH THREAD START/STOP --------------------- */
+/*                             Thread: filescanner                            */
 
 static void
 pipe_thread_start(void)
@@ -802,91 +802,45 @@ pipe_listener_cb(short event_mask)
 }
 
 
-/* -------------------------- PIPE INPUT INTERFACE ------------------------ */
-/*                            Thread: player/input                          */
+/* --------------------------- PIPE INPUT INTERFACE ------------------------- */
+/*                                Thread: input                               */
 
 static int
-setup(struct player_source *ps)
+setup(struct input_source *source)
 {
   struct pipe *pipe;
   int fd;
 
-  fd = pipe_open(ps->path, 0);
+  fd = pipe_open(source->path, 0);
   if (fd < 0)
     return -1;
 
-  CHECK_NULL(L_PLAYER, pipe = pipe_create(ps->path, ps->id, PIPE_PCM, NULL));
+  CHECK_NULL(L_PLAYER, pipe = pipe_create(source->path, source->id, PIPE_PCM, NULL));
+  CHECK_NULL(L_PLAYER, source->evbuf = evbuffer_new());
+
   pipe->fd = fd;
-  pipe->is_autostarted = (ps->id == pipe_autostart_id);
+  pipe->is_autostarted = (source->id == pipe_autostart_id);
 
-  worker_execute(pipe_metadata_watch_add, ps->path, strlen(ps->path) + 1, 0);
+  worker_execute(pipe_metadata_watch_add, source->path, strlen(source->path) + 1, 0);
 
-  ps->input_ctx = pipe;
-  ps->setup_done = 1;
+  source->input_ctx = pipe;
+
+  source->quality.sample_rate = pipe_sample_rate;
+  source->quality.bits_per_sample = pipe_bits_per_sample;
+  source->quality.channels = 2;
 
   return 0;
 }
 
 static int
-start(struct player_source *ps)
+stop(struct input_source *source)
 {
-  struct pipe *pipe = ps->input_ctx;
-  struct media_quality quality = { 0 };
-  struct evbuffer *evbuf;
-  short flags;
-  int ret;
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory for pipe evbuf\n");
-      return -1;
-    }
-
-  quality.sample_rate = pipe_sample_rate;
-  quality.bits_per_sample = pipe_bits_per_sample;
-  quality.channels = 2;
-
-  ret = -1;
-  while (!input_loop_break)
-    {
-      ret = evbuffer_read(evbuf, pipe->fd, PIPE_READ_MAX);
-      if ((ret == 0) && (pipe->is_autostarted))
-	{
-	  input_write(evbuf, NULL, INPUT_FLAG_EOF); // Autostop
-	  break;
-	}
-      else if ((ret == 0) || ((ret < 0) && (errno == EAGAIN)))
-	{
-	  input_wait();
-	  continue;
-	}
-      else if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Could not read from pipe '%s': %s\n", ps->path, strerror(errno));
-	  break;
-	}
-
-      flags = (pipe_metadata_is_new ? INPUT_FLAG_METADATA : 0);
-      pipe_metadata_is_new = 0;
-
-      ret = input_write(evbuf, &quality, flags);
-      if (ret < 0)
-	break;
-    }
-
-  evbuffer_free(evbuf);
-
-  return ret;
-}
-
-static int
-stop(struct player_source *ps)
-{
-  struct pipe *pipe = ps->input_ctx;
+  struct pipe *pipe = source->input_ctx;
   union pipe_arg *cmdarg;
 
   DPRINTF(E_DBG, L_PLAYER, "Stopping pipe\n");
+
+  evbuffer_free(source->evbuf);
 
   pipe_close(pipe->fd);
 
@@ -903,14 +857,51 @@ stop(struct player_source *ps)
 
   pipe_free(pipe);
 
-  ps->input_ctx = NULL;
-  ps->setup_done = 0;
+  source->input_ctx = NULL;
 
   return 0;
 }
 
 static int
-metadata_get(struct input_metadata *metadata, struct player_source *ps, uint64_t rtptime)
+play(struct input_source *source)
+{
+  struct pipe *pipe = source->input_ctx;
+  short flags;
+  int ret;
+
+  ret = input_wait();
+  if (ret < 0)
+    return 0; // Loop, input_buffer is not ready for writing
+
+  ret = evbuffer_read(source->evbuf, pipe->fd, PIPE_READ_MAX);
+  if ((ret == 0) && (pipe->is_autostarted))
+    {
+      input_write(source->evbuf, NULL, INPUT_FLAG_EOF); // Autostop
+      stop(source);
+      return -1;
+    }
+  else if ((ret == 0) || ((ret < 0) && (errno == EAGAIN)))
+    {
+      return 0; // Loop
+    }
+  else if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not read from pipe '%s': %s\n", source->path, strerror(errno));
+      input_write(NULL, NULL, INPUT_FLAG_ERROR);
+      stop(source);
+      return -1;
+    }
+
+  flags = (pipe_metadata_is_new ? INPUT_FLAG_METADATA : 0);
+  pipe_metadata_is_new = 0;
+
+  input_write(source->evbuf, &source->quality, flags);
+
+  return 0;
+}
+
+static int
+metadata_get(struct input_metadata *metadata, struct input_source *source)
 {
   pthread_mutex_lock(&pipe_metadata_lock);
 
@@ -927,8 +918,9 @@ metadata_get(struct input_metadata *metadata, struct player_source *ps, uint64_t
 
   if (pipe_metadata_parsed.song_length)
     {
-      if (rtptime > ps->stream_start)
-	metadata->rtptime = rtptime - pipe_metadata_parsed.offset;
+// TODO this is probably broken
+      if (metadata->rtptime > metadata->start)
+	metadata->rtptime -= pipe_metadata_parsed.offset;
       metadata->offset = pipe_metadata_parsed.offset;
       metadata->song_length = pipe_metadata_parsed.song_length;
     }
@@ -988,7 +980,7 @@ struct input_definition input_pipe =
   .type = INPUT_TYPE_PIPE,
   .disabled = 0,
   .setup = setup,
-  .start = start,
+  .play = play,
   .stop = stop,
   .metadata_get = metadata_get,
   .init = init,
