@@ -112,7 +112,29 @@ streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
     {
       DPRINTF(E_INFO, L_STREAMING, "No more clients, will stop streaming\n");
       event_del(streamingev);
+      event_del(metaev);
     }
+}
+
+static void
+streaming_end(void)
+{
+  struct streaming_session *session;
+  struct evhttp_connection *evcon;
+
+  for (session = streaming_sessions; streaming_sessions; session = streaming_sessions)
+    {
+      evcon = evhttp_request_get_connection(session->req);
+      if (evcon)
+	evhttp_connection_set_closecb(evcon, NULL, NULL);
+      evhttp_send_reply_end(session->req);
+
+      streaming_sessions = session->next;
+      free(session);
+    }
+
+  event_del(streamingev);
+  event_del(metaev);
 }
 
 static void
@@ -122,11 +144,11 @@ streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
   struct decode_ctx *decode_ctx;
   int ret;
 
+  transcode_encode_cleanup(&streaming_encode_ctx);
+
   ret = read(fd, &quality, sizeof(struct media_quality));
   if (ret != sizeof(struct media_quality))
     goto error;
-
-  streaming_quality = quality;
 
   decode_ctx = NULL;
   if (quality.sample_rate == 44100 && quality.bits_per_sample == 16)
@@ -150,12 +172,15 @@ streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
       return;
     }
 
+  streaming_quality = quality;
   streaming_not_supported = 0;
 
+  return;
+
  error:
-  DPRINTF(E_LOG, L_STREAMING, "Unknown or unsupported quality of input data, cannot MP3 encode\n");
-  transcode_encode_cleanup(&streaming_encode_ctx);
+  DPRINTF(E_LOG, L_STREAMING, "Unknown or unsupported quality of input data (%d/%d/%d), cannot MP3 encode\n", quality.sample_rate, quality.bits_per_sample, quality.channels);
   streaming_not_supported = 1;
+  streaming_end();
 }
 
 static int
@@ -164,6 +189,12 @@ encode_buffer(uint8_t *buffer, size_t size)
   transcode_frame *frame;
   int samples;
   int ret;
+
+  if (streaming_not_supported || streaming_quality.channels == 0)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Streaming unsuppored or quality is zero\n");
+      return -1;
+    }
 
   samples = BTOS(size, streaming_quality.bits_per_sample, streaming_quality.channels);
 
@@ -290,7 +321,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   char *address;
   ev_uint16_t port;
 
-  if (!streaming_not_supported)
+  if (streaming_not_supported)
     {
       DPRINTF(E_LOG, L_STREAMING, "Got MP3 streaming request, but cannot encode to MP3\n");
 
@@ -329,7 +360,10 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
     }
 
   if (!streaming_sessions)
-    event_add(streamingev, &streaming_silence_tv);
+    {
+      event_add(streamingev, &streaming_silence_tv);
+      event_add(metaev, NULL);
+    }
 
   session->req = req;
   session->next = streaming_sessions;
