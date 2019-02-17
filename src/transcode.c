@@ -340,7 +340,8 @@ make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_s
   bps = av_get_bits_per_sample(ctx->settings.audio_codec);
   wav_len = ctx->settings.channels * (bps / 8) * ctx->settings.sample_rate * (duration / 1000);
 
-  *est_size = wav_len + sizeof(ctx->header);
+  if (est_size)
+    *est_size = wav_len + sizeof(ctx->header);
 
   memcpy(ctx->header, "RIFF", 4);
   add_le32(ctx->header + 4, 36 + wav_len);
