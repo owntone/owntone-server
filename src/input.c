@@ -226,8 +226,8 @@ flush(short *flags)
 #endif
 }
 
-static enum command_state
-stop(void *arg, int *retval)
+static void
+stop(void)
 {
   short flags;
   int type;
@@ -242,15 +242,12 @@ stop(void *arg, int *retval)
   flush(&flags);
 
   clear(&input_now_reading);
-
-  *retval = 0;
-  return COMMAND_END;
 }
 
 static int
 seek(struct input_source *source, int seek_ms)
 {
-  if (seek_ms > 0 && inputs[source->type]->seek)
+  if (inputs[source->type]->seek)
     return inputs[source->type]->seek(source, seek_ms);
   else
     return 0;
@@ -287,14 +284,17 @@ setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms
 
   source->open = true;
 
-  ret = seek(source, seek_ms);
-  if (ret < 0)
-    goto seek_error;
+  if (seek_ms > 0)
+    {
+      ret = seek(source, seek_ms);
+      if (ret < 0)
+	goto seek_error;
+    }
 
   return ret;
 
  seek_error:
-  stop(NULL, NULL);
+  stop();
  setup_error:
   clear(source);
   return -1;
@@ -320,7 +320,7 @@ start(void *arg, int *retval)
   else
     {
       if (input_now_reading.open)
-	stop(NULL, NULL);
+	stop();
 
       // Get the queue_item from the db
       queue_item = db_queue_fetch_byitemid(cmdarg->item_id);
@@ -348,6 +348,15 @@ start(void *arg, int *retval)
   input_write(NULL, NULL, INPUT_FLAG_ERROR);
   clear(&input_now_reading);
   *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
+stop_cmd(void *arg, int *retval)
+{
+  stop();
+
+  *retval = 0;
   return COMMAND_END;
 }
 
@@ -699,7 +708,7 @@ input_start(uint32_t item_id)
 void
 input_stop(void)
 {
-  commands_exec_async(cmdbase, stop, NULL);
+  commands_exec_async(cmdbase, stop_cmd, NULL);
 }
 
 void
