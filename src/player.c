@@ -668,7 +668,10 @@ source_next_create(struct player_source *current)
   struct db_queue_item *queue_item;
 
   if (!current)
-    return NULL;
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! source_next_create called without a current source\n");
+      return NULL;
+    }
 
   queue_item = queue_item_next(current->item_id);
   if (!queue_item)
@@ -783,7 +786,7 @@ session_update_read_next(void)
 {
   struct player_source *ps;
 
-  ps = source_next_create(pb_session.reading_next);
+  ps = source_next_create(pb_session.reading_now);
   source_free(&pb_session.reading_next);
   pb_session.reading_next = ps;
 }
@@ -799,12 +802,17 @@ session_update_read_eof(void)
   pb_session.reading_now  = pb_session.reading_next;
   pb_session.reading_next = NULL;
 
-
   // There is nothing else to play
   if (!pb_session.reading_now)
     return;
 
+  // We inherit this because the input will only notify on quality changes, not
+  // if it the same as the previous track
+  pb_session.reading_now->quality = pb_session.reading_prev->quality;
+  pb_session.reading_now->output_buffer_samples = pb_session.reading_prev->output_buffer_samples;
+
   pb_session.reading_now->read_start = pb_session.pos;
+  pb_session.reading_now->play_start = pb_session.pos + pb_session.reading_now->output_buffer_samples;
 }
 
 static void
@@ -927,12 +935,14 @@ event_read_error()
   event_read_eof();
 }
 
-// Kicks of input reading of next source (async), session is not affected by
-// this, so there is no session update
+// Kicks of input reading of next source (async)
 static void
 event_read_start_next()
 {
-  DPRINTF(E_DBG, L_PLAYER, "event_start_next()\n");
+  DPRINTF(E_DBG, L_PLAYER, "event_read_start_next()\n");
+
+  // Attaches next item to session as reading_next
+  session_update_read_next();
 
   source_next();
 }
@@ -1024,6 +1034,17 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
 {
   short flags;
 
+  // Nothing to read, stream silence until event_read() stops playback
+  if (!pb_session.reading_now && pb_session.playing_now)
+    {
+      memset(buf, 0, len);
+      *quality = pb_session.playing_now->quality;
+      *nbytes = len;
+      *nsamples = BTOS(*nbytes, quality->bits_per_sample, quality->channels);
+      event_read(*nsamples);
+      return 0;
+    }
+
   *quality = pb_session.reading_now->quality;
   *nsamples = 0;
   *nbytes = input_read(buf, len, &flags);
@@ -1110,14 +1131,14 @@ playback_cb(int fd, short what, void *arg)
       pb_write_recovery = false;
     }
 
-//  debug_counter++;
-//  if (debug_counter % 100 == 0)
-//    session_dump();
+  debug_counter++;
+  if (debug_counter % 100 == 0)
+    session_dump();
 
   // If there was an overrun, we will try to read/write a corresponding number
   // of times so we catch up. The read from the input is non-blocking, so it
   // should not bring us further behind, even if there is no data.
-  for (i = 1 + overrun + pb_read_deficit; i > 0 && pb_session.reading_now; i--)
+  for (i = 1 + overrun + pb_read_deficit; i > 0; i--)
     {
       ret = source_read(&nbytes, &nsamples, &quality, pb_session.buffer, pb_session.bufsize);
       if (ret < 0)

@@ -236,7 +236,7 @@ stop(void *arg, int *retval)
 
   type = input_now_reading.type;
 
-  if (inputs[type]->stop)
+  if (inputs[type]->stop && input_now_reading.open)
     inputs[type]->stop(&input_now_reading);
 
   flush(&flags);
@@ -491,10 +491,18 @@ input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags)
 
   if (flags)
     {
-      if (input_buffer.bytes_written > INPUT_BUFFER_THRESHOLD)
-        marker_add(input_buffer.bytes_written - INPUT_BUFFER_THRESHOLD, INPUT_FLAG_START_NEXT);
-      else
-        marker_add(input_buffer.bytes_written, INPUT_FLAG_START_NEXT);
+      if (read_end)
+	{
+	  input_now_reading.open = false;
+	  // This controls when the player will open the next track in the queue
+	  if (input_buffer.bytes_read + INPUT_BUFFER_THRESHOLD < input_buffer.bytes_written)
+	    // The player's read is behind, tell it to open when it reaches where
+	    // we are minus the buffer size
+	    marker_add(input_buffer.bytes_written - INPUT_BUFFER_THRESHOLD, INPUT_FLAG_START_NEXT);
+	  else
+	    // The player's read is close to our write, so open right away
+	    marker_add(input_buffer.bytes_read, INPUT_FLAG_START_NEXT);
+	}
 
       // Note this marker is added at the post-write position, since EOF, error
       // and metadata belong there.
@@ -578,7 +586,10 @@ play(evutil_socket_t fd, short flags, void *arg)
   // loop any more. input_write() will pass the message to the player.
   ret = inputs[input_now_reading.type]->play(&input_now_reading);
   if (ret < 0)
-    return; // Error or EOF, so don't come back
+    {
+      input_now_reading.open = false;
+      return; // Error or EOF, so don't come back
+    }
 
   event_add(inputev, &tv);
 }

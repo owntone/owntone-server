@@ -69,9 +69,12 @@ stop(struct input_source *source)
   struct transcode_ctx *ctx = source->input_ctx;
 
   transcode_cleanup(&ctx);
-  evbuffer_free(source->evbuf);
+
+  if (source->evbuf)
+    evbuffer_free(source->evbuf);
 
   source->input_ctx = NULL;
+  source->evbuf = NULL;
 
   return 0;
 }

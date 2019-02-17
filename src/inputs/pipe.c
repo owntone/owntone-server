@@ -840,7 +840,8 @@ stop(struct input_source *source)
 
   DPRINTF(E_DBG, L_PLAYER, "Stopping pipe\n");
 
-  evbuffer_free(source->evbuf);
+  if (source->evbuf)
+    evbuffer_free(source->evbuf);
 
   pipe_close(pipe->fd);
 
@@ -858,6 +859,7 @@ stop(struct input_source *source)
   pipe_free(pipe);
 
   source->input_ctx = NULL;
+  source->evbuf = NULL;
 
   return 0;
 }
