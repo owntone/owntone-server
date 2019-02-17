@@ -266,7 +266,10 @@ outputs_listener_notify(void);
 
 /* ---------------------------- Called by player ---------------------------- */
 
-int
+// Ownership of *add is transferred, so don't address after calling. Instead you
+// can address the return value (which is not the same if the device was already
+// in the list.
+struct output_device *
 outputs_device_add(struct output_device *add, bool new_deselect, int default_volume);
 
 void

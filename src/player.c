@@ -794,8 +794,8 @@ session_update_read_next(void)
 static void
 session_update_read_eof(void)
 {
-  pb_session.reading_now->read_end = pb_session.pos - 1;
-  pb_session.reading_now->play_end = pb_session.pos - 1 + pb_session.reading_now->output_buffer_samples;
+  pb_session.reading_now->read_end = pb_session.pos;
+  pb_session.reading_now->play_end = pb_session.pos + pb_session.reading_now->output_buffer_samples;
 
   source_free(&pb_session.reading_prev);
   pb_session.reading_prev = pb_session.reading_now;
@@ -1196,9 +1196,10 @@ device_add(void *arg, int *retval)
   // Never turn on new devices during playback
   new_deselect = (player_state == PLAY_PLAYING);
 
-  *retval = outputs_device_add(device, new_deselect, default_volume);
+  device = outputs_device_add(device, new_deselect, default_volume);
+  *retval = device ? 0 : -1;
 
-  if (device->selected)
+  if (device && device->selected)
     speaker_select_output(device);
 
   return COMMAND_END;
