@@ -527,7 +527,7 @@ outputs_listener_notify(void)
 
 /* ---------------------------- Called by player ---------------------------- */
 
-int
+struct output_device *
 outputs_device_add(struct output_device *add, bool new_deselect, int default_volume)
 {
   struct output_device *device;
@@ -603,7 +603,7 @@ outputs_device_add(struct output_device *add, bool new_deselect, int default_vol
 
   listener_notify(LISTENER_SPEAKER);
 
-  return 0;
+  return device;
 }
 
 void
