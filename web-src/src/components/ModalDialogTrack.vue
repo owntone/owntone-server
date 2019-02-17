@@ -37,9 +37,9 @@
                   <span class="heading">Year</span>
                   <span class="title is-6">{{ track.year }}</span>
                 </p>
-                <p>
+                <p v-if="track.genre">
                   <span class="heading">Genre</span>
-                  <span class="title is-6">{{ track.genre }}</span>
+                  <a class="title is-6 has-text-link" @click="open_genre">{{ track.genre }}</a>
                 </p>
                 <p>
                   <span class="heading">Track / Disc</span>
@@ -129,6 +129,10 @@ export default {
     open_artist: function () {
       this.$emit('close')
       this.$router.push({ path: '/music/artists/' + this.track.album_artist_id })
+    },
+
+    open_genre: function () {
+      this.$router.push({ name: 'Genre', params: { genre: this.track.genre } })
     },
 
     mark_new: function () {
