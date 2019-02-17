@@ -6,9 +6,14 @@
         <p class="title is-7 has-text-grey">{{ current_directory }}</p>
       </template>
       <template slot="heading-right">
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-play"></i></span> <span>Play</span>
-        </a>
+        <div class="buttons is-centered">
+          <a class="button is-small is-light is-rounded" @click="open_directory_dialog({ 'path': current_directory })">
+            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          </a>
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <span class="icon"><i class="mdi mdi-play"></i></span> <span>Play</span>
+          </a>
+        </div>
       </template>
       <template slot="content">
         <div class="media" v-if="$route.query.directory" @click="open_parent_directory()">

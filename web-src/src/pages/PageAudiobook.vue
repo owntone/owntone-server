@@ -5,12 +5,17 @@
       <div class="title is-4 has-text-grey has-text-weight-normal">{{ album.artist }}</div>
     </template>
     <template slot="heading-right">
-      <a class="button is-small is-dark is-rounded" @click="play">
-        <span class="icon">
-          <i class="mdi mdi-play"></i>
-        </span>
-        <span>Play</span>
-      </a>
+      <div class="buttons is-centered">
+        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
+          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        </a>
+        <a class="button is-small is-dark is-rounded" @click="play">
+          <span class="icon">
+            <i class="mdi mdi-play"></i>
+          </span>
+          <span>Play</span>
+        </a>
+      </div>
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ album.track_count }} tracks</p>
@@ -22,6 +27,7 @@
         </template>
       </list-item-track>
       <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
+      <modal-dialog-album :show="show_album_details_modal" :album="album" :media_kind="'audiobook'" @close="show_album_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -31,6 +37,7 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemTrack from '@/components/ListItemTrack'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import webapi from '@/webapi'
 
 const albumData = {
@@ -50,7 +57,7 @@ const albumData = {
 export default {
   name: 'PageAudiobook',
   mixins: [ LoadDataBeforeEnterMixin(albumData) ],
-  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack },
+  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, ModalDialogAlbum },
 
   data () {
     return {
@@ -58,7 +65,9 @@ export default {
       tracks: [],
 
       show_details_modal: false,
-      selected_track: {}
+      selected_track: {},
+
+      show_album_details_modal: false
     }
   },
 
