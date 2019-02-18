@@ -7,19 +7,19 @@ export default {
   _context: new AudioContext(),
   _source: null,
   _gain: null,
-  _analyser: null,
 
   // setup audio routing
   setupAudio () {
     this._source = this._context.createMediaElementSource(this._audio)
-    this._analyser = this._context.createAnalyser()
     this._gain = this._context.createGain()
 
     this._source.connect(this._gain)
-    this._source.connect(this._analyser)
     this._gain.connect(this._context.destination)
 
     this._audio.addEventListener('canplaythrough', e => {
+      this._audio.play()
+    })
+    this._audio.addEventListener('canplay', e => {
       this._audio.play()
     })
     return this._audio
@@ -37,9 +37,12 @@ export default {
   // play audio source url
   playSource (source) {
     this.stopAudio()
-    this._audio.src = String(source || '') + '?x=' + Date.now()
-    this._audio.crossOrigin = 'anonymous'
-    this._audio.load()
+    this._context.resume().then(() => {
+      console.log('playSource')
+      this._audio.src = String(source || '') + '?x=' + Date.now()
+      this._audio.crossOrigin = 'anonymous'
+      this._audio.load()
+    })
   },
 
   // stop playing audio
