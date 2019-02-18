@@ -55,7 +55,7 @@
                 </p>
                 <p>
                   <span class="heading">Type</span>
-                  <span class="title is-6">{{ track.media_kind }} - {{ track.data_kind }}</span>
+                  <span class="title is-6">{{ track.media_kind }} - {{ track.data_kind }} <span class="has-text-weight-normal" v-if="track.data_kind === 'spotify'">(<a @click="open_spotify_artist">artist</a>, <a @click="open_spotify_album">album</a>)</span></span>
                 </p>
                 <p>
                   <span class="heading">Added at</span>
@@ -88,6 +88,7 @@
 
 <script>
 import webapi from '@/webapi'
+import SpotifyWebApi from 'spotify-web-api-js'
 
 export default {
   name: 'ModalDialogTrack',
@@ -96,6 +97,7 @@ export default {
 
   data () {
     return {
+      spotify_track: {}
     }
   },
 
@@ -135,6 +137,16 @@ export default {
       this.$router.push({ name: 'Genre', params: { genre: this.track.genre } })
     },
 
+    open_spotify_artist: function () {
+      this.$emit('close')
+      this.$router.push({ path: '/music/spotify/artists/' + this.spotify_track.artists[0].id })
+    },
+
+    open_spotify_album: function () {
+      this.$emit('close')
+      this.$router.push({ path: '/music/spotify/albums/' + this.spotify_track.album.id })
+    },
+
     mark_new: function () {
       webapi.library_track_update(this.track.id, { 'play_count': 'reset' }).then(() => {
         this.$emit('play_count_changed')
@@ -147,6 +159,20 @@ export default {
         this.$emit('play_count_changed')
         this.$emit('close')
       })
+    }
+  },
+
+  watch: {
+    'track' () {
+      if (this.track && this.track.data_kind === 'spotify') {
+        const spotifyApi = new SpotifyWebApi()
+        spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
+        spotifyApi.getTrack(this.track.path.slice(this.track.path.lastIndexOf(':') + 1)).then((response) => {
+          this.spotify_track = response
+        })
+      } else {
+        this.spotify_track = {}
+      }
     }
   }
 }
