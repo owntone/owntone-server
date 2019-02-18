@@ -40,7 +40,7 @@
                 <div class="level-left fd-expanded">
                   <div class="level-item" style="flex-grow: 0;">
                     <a class="button is-white is-small" @click="toggle_mute_volume">
-                      <span class="icon"><i class="mdi mdi-18px" :class="{ 'mdi-volume-off': player.volume === 0, 'mdi-volume-high': player.volume > 0 }"></i></span>
+                      <span class="icon"><i class="mdi mdi-18px" :class="{ 'mdi-volume-off': player.volume <= 0, 'mdi-volume-high': player.volume > 0 }"></i></span>
                     </a>
                   </div>
                   <div class="level-item fd-expanded">
