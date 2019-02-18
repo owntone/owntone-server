@@ -3,7 +3,7 @@
     <div class="level is-mobile">
       <div class="level-left fd-expanded">
         <div class="level-item" style="flex-grow: 0;">
-          <span class="icon fd-has-action" :class="{ 'has-text-grey-light': !output.selected }" v-on:click="set_enabled"><i class="mdi mdi-18px" v-bind:class="type_class"></i></span>
+          <a class="button is-white is-small"><span class="icon fd-has-action" :class="{ 'has-text-grey-light': !output.selected }" v-on:click="set_enabled"><i class="mdi mdi-18px" v-bind:class="type_class"></i></span></a>
         </div>
         <div class="level-item fd-expanded">
           <div class="fd-expanded">

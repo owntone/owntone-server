@@ -46,8 +46,6 @@ extern struct event_base *evbase_httpd;
 #define STREAMING_SILENCE_INTERVAL 1
 // Buffer size for transmitting from player to httpd thread
 #define STREAMING_RAWBUF_SIZE (STOB(AIRTUNES_V2_PACKET_SAMPLES))
-// Should prevent that we keep transcoding to dead connections
-#define STREAMING_CONNECTION_TIMEOUT 60
 
 // Linked list of mp3 streaming requests
 struct streaming_session {
@@ -73,6 +71,7 @@ static struct event *streamingev;
 static struct player_status streaming_player_status;
 static int streaming_player_changed;
 static int streaming_pipe[2];
+
 
 static void
 streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
@@ -243,6 +242,8 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   evhttp_add_header(output_headers, "Pragma", "no-cache");
   evhttp_add_header(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
   evhttp_add_header(output_headers, "icy-name", name);
+  evhttp_add_header(output_headers, "Access-Control-Allow-Origin", "*");
+  evhttp_add_header(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 
   // TODO ICY metaint
   evhttp_send_reply_start(req, HTTP_OK, "OK");
@@ -263,7 +264,6 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   session->next = streaming_sessions;
   streaming_sessions = session;
 
-  evhttp_connection_set_timeout(evcon, STREAMING_CONNECTION_TIMEOUT);
   evhttp_connection_set_closecb(evcon, streaming_fail_cb, session);
 
   return 0;

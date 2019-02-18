@@ -98,7 +98,7 @@ export default {
     },
 
     open_genre: function () {
-      this.$router.push({ path: '/music/genres/' + this.item.genre })
+      this.$router.push({ name: 'Genre', params: { genre: this.item.name } })
     }
   }
 }

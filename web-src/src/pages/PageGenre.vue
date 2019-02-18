@@ -72,7 +72,7 @@ export default {
   methods: {
     open_tracks: function () {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/genres/' + this.name + '/tracks' })
+      this.$router.push({ name: 'GenreTracks', params: { genre: this.name } })
     },
 
     play: function () {
