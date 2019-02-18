@@ -38,7 +38,6 @@ export default {
   playSource (source) {
     this.stopAudio()
     this._context.resume().then(() => {
-      console.log('playSource')
       this._audio.src = String(source || '') + '?x=' + Date.now()
       this._audio.crossOrigin = 'anonymous'
       this._audio.load()
