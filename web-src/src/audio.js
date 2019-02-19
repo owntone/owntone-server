@@ -4,12 +4,14 @@
  */
 export default {
   _audio: new Audio(),
-  _context: new AudioContext(),
+  _context: null,
   _source: null,
   _gain: null,
 
   // setup audio routing
   setupAudio () {
+    var AudioContext = window.AudioContext || window.webkitAudioContext
+    this._context = new AudioContext()
     this._source = this._context.createMediaElementSource(this._audio)
     this._gain = this._context.createGain()
 
