@@ -4,9 +4,14 @@
       <div class="title is-4">{{ playlist.name }}</div>
     </template>
     <template slot="heading-right">
-      <a class="button is-small is-dark is-rounded" @click="play">
-        <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
-      </a>
+      <div class="buttons is-centered">
+        <a class="button is-small is-light is-rounded" @click="show_playlist_details_modal = true">
+          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        </a>
+        <a class="button is-small is-dark is-rounded" @click="play">
+          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+        </a>
+      </div>
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ playlist.tracks.total }} tracks</p>
@@ -19,6 +24,7 @@
       </spotify-list-item-track>
       <infinite-loading v-if="offset < total" @infinite="load_next"><span slot="no-more">.</span></infinite-loading>
       <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="selected_track.album" @close="show_track_details_modal = false" />
+      <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" @close="show_playlist_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -28,6 +34,7 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack'
 import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
 import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -55,7 +62,7 @@ const playlistData = {
 export default {
   name: 'SpotifyPagePlaylist',
   mixins: [ LoadDataBeforeEnterMixin(playlistData) ],
-  components: { ContentWithHeading, SpotifyListItemTrack, SpotifyModalDialogTrack, InfiniteLoading },
+  components: { ContentWithHeading, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogPlaylist, InfiniteLoading },
 
   data () {
     return {
@@ -65,7 +72,9 @@ export default {
       offset: 0,
 
       show_track_details_modal: false,
-      selected_track: {}
+      selected_track: {},
+
+      show_playlist_details_modal: false
     }
   },
 

@@ -8,9 +8,14 @@
         <p class="title is-4">{{ name }}</p>
       </template>
       <template slot="heading-right">
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
-        </a>
+        <div class="buttons is-centered">
+          <a class="button is-small is-light is-rounded" @click="show_genre_details_modal = true">
+            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          </a>
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+          </a>
+        </div>
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile">{{ genre_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
@@ -22,6 +27,7 @@
           </template>
         </list-item-albums>
         <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
+        <modal-dialog-genre :show="show_genre_details_modal" :genre="{ 'name': name }" @close="show_genre_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -34,6 +40,7 @@ import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListItemAlbums from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ModalDialogGenre from '@/components/ModalDialogGenre'
 import webapi from '@/webapi'
 
 const genreData = {
@@ -50,7 +57,7 @@ const genreData = {
 export default {
   name: 'PageGenre',
   mixins: [ LoadDataBeforeEnterMixin(genreData) ],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbums, ModalDialogAlbum },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbums, ModalDialogAlbum, ModalDialogGenre },
 
   data () {
     return {
@@ -58,7 +65,9 @@ export default {
       genre_albums: { items: [] },
 
       show_details_modal: false,
-      selected_album: {}
+      selected_album: {},
+
+      show_genre_details_modal: false
     }
   },
 
