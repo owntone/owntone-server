@@ -342,7 +342,10 @@ You can safely ignore all of these warnings.
 Long version - after installation
 ---------------------------------
 
-After installation, edit the configuration file, /etc/forked-daapd.conf.
+After installation:
+ - edit the configuration file, /etc/forked-daapd.conf
+ - make sure the Avahi daemon is installed and running (Debian: 'apt install
+   avahi-daemon')
 
 Note that 'sudo make install' will not install any system files to start the
 service after boot, and it will not setup a system user.
