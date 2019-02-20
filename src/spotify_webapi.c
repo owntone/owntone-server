@@ -128,6 +128,7 @@ static const char *spotify_album_uri = "https://api.spotify.com/v1/albums/%s";
 static const char *spotify_album_tracks_uri = "https://api.spotify.com/v1/albums/%s/tracks";
 static const char *spotify_playlists_uri = "https://api.spotify.com/v1/me/playlists?limit=50";
 static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/playlists/%s/tracks";
+static const char *spotify_artist_albums_uri = "https://api.spotify.com/v1/artists/%s/albums?include_groups=album,single";
 
 
 
@@ -864,6 +865,27 @@ get_track_endpoint_uri(const char *uri)
   return endpoint_uri;
 }
 
+static char *
+get_artist_albums_endpoint_uri(const char *uri)
+{
+  char *endpoint_uri = NULL;
+  char *id = NULL;
+  int ret;
+
+  ret = get_id_from_uri(uri, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from uri '%s'\n", uri);
+      goto out;
+    }
+
+  endpoint_uri = safe_asprintf(spotify_artist_albums_uri, id);
+
+ out:
+  free(id);
+  return endpoint_uri;
+}
+
 static json_object *
 request_track(const char *path)
 {
@@ -1106,6 +1128,51 @@ queue_add_album(const char *uri, int position, char reshuffle, uint32_t item_id,
 }
 
 static int
+queue_add_albums(json_object *item, int index, int total, void *arg)
+{
+  struct db_queue_add_info *param;
+  struct queue_add_album_param param_add_album;
+  char *endpoint_uri = NULL;
+  int ret;
+
+  param = arg;
+  param_add_album.queue_add_info = *param;
+
+  parse_metadata_album(item, &param_add_album.album, ART_DEFAULT_WIDTH);
+
+  endpoint_uri = get_album_tracks_endpoint_uri(param_add_album.album.uri);
+  ret = request_pagingobject_endpoint(endpoint_uri, queue_add_album_tracks, NULL, NULL, true, &param_add_album);
+
+  *param = param_add_album.queue_add_info;
+
+  free(endpoint_uri);
+  return ret;
+
+}
+
+static int
+queue_add_artist(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+{
+  struct db_queue_add_info queue_add_info;
+  char *endpoint_uri = NULL;
+  int ret;
+
+  ret = db_queue_add_start(&queue_add_info, position);
+  if (ret < 0)
+    return -1;
+
+  endpoint_uri = get_artist_albums_endpoint_uri(uri);
+  ret = request_pagingobject_endpoint(endpoint_uri, queue_add_albums, NULL, NULL, true, &queue_add_info);
+
+  ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
+  if (ret == 0 && count)
+    *count = queue_add_info.count;
+
+  free(endpoint_uri);
+  return ret;
+}
+
+static int
 queue_add_playlist_tracks(json_object *item, int index, int total, void *arg)
 {
   struct db_queue_add_info *queue_add_info;
@@ -1171,6 +1238,11 @@ queue_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *
   if (strncasecmp(uri, "spotify:track:", strlen("spotify:track:")) == 0)
     {
       queue_add_track(uri, position, reshuffle, item_id, count, new_item_id);
+      return LIBRARY_OK;
+    }
+  else if (strncasecmp(uri, "spotify:artist:", strlen("spotify:artist:")) == 0)
+    {
+      queue_add_artist(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
   else if (strncasecmp(uri, "spotify:album:", strlen("spotify:album:")) == 0)
