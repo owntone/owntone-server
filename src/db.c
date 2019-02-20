@@ -234,6 +234,23 @@ static const struct col_type_map pli_cols_map[] =
   };
 
 /* This list must be kept in sync with
+ * - the order of the columns in the groups table
+ * - the type and name of the fields in struct group_info
+ */
+static const struct col_type_map gri_cols_map[] =
+  {
+    { "id",                 gri_offsetof(id),                DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_AUTO },
+    { "persistentid",       gri_offsetof(persistentid),      DB_TYPE_INT64 },
+    { "itemname",           gri_offsetof(itemname),          DB_TYPE_STRING },
+    { "itemname_sort",      gri_offsetof(itemname_sort),     DB_TYPE_STRING },
+    { "itemcount",          gri_offsetof(itemcount),         DB_TYPE_INT },
+    { "groupalbumcount",    gri_offsetof(groupalbumcount),   DB_TYPE_INT },
+    { "songalbumartist",    gri_offsetof(songalbumartist),   DB_TYPE_STRING },
+    { "songartistid",       gri_offsetof(songartistid),      DB_TYPE_INT64 },
+    { "song_length",        gri_offsetof(song_length),       DB_TYPE_INT },
+  };
+
+/* This list must be kept in sync with
  * - the order of the columns in the queue table
  * - the type and name of the fields in struct db_queue_item
  */
@@ -651,6 +668,22 @@ free_pli(struct playlist_info *pli, int content_only)
     free(pli);
   else
     memset(pli, 0, sizeof(struct playlist_info));
+}
+
+void
+free_gri(struct group_info *gri, int content_only)
+{
+  if (!gri)
+    return;
+
+  free(gri->itemname);
+  free(gri->itemname_sort);
+  free(gri->songalbumartist);
+
+  if (!content_only)
+    free(gri);
+  else
+    memset(gri, 0, sizeof(struct group_info));
 }
 
 void
@@ -3838,7 +3871,6 @@ db_group_type_bypersistentid(int64_t persistentid)
 {
 #define Q_TMPL "SELECT g.type FROM groups g WHERE g.persistentid = %" PRIi64 ";"
   char *query;
-  sqlite3_stmt *stmt;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL, persistentid);
@@ -3849,42 +3881,38 @@ db_group_type_bypersistentid(int64_t persistentid)
       return 0;
     }
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return 0;
-    }
-
-  ret = db_blocking_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      if (ret == SQLITE_DONE)
-	DPRINTF(E_DBG, L_DB, "No results\n");
-      else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      sqlite3_free(query);
-      return 0;
-    }
-
-  ret = sqlite3_column_int(stmt, 0);
-
-#ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
-    ; /* EMPTY */
-#endif
-
-  sqlite3_finalize(stmt);
+  ret = db_get_one_int(query);
   sqlite3_free(query);
 
-  return ret;
+  if (ret < 0)
+    return 0;
 
+  return ret;
+#undef Q_TMPL
+}
+
+static enum group_type
+db_group_type_byid(int id)
+{
+#define Q_TMPL "SELECT g.type FROM groups g WHERE g.id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_get_one_int(query);
+  sqlite3_free(query);
+
+  if (ret < 0)
+    return 0;
+
+  return ret;
 #undef Q_TMPL
 }
 
@@ -3939,6 +3967,201 @@ db_group_persistentid_byid(int id, int64_t *persistentid)
   sqlite3_free(query);
 
   return 0;
+
+#undef Q_TMPL
+}
+
+static struct group_info *
+db_group_fetch_byquery(char *query)
+{
+  struct group_info *gri;
+  sqlite3_stmt *stmt;
+  int ncols;
+  char *cval;
+  uint32_t *ival;
+  uint64_t *i64val;
+  char **strval;
+  uint64_t disabled;
+  int i;
+  int ret;
+
+  if (!query)
+    return NULL;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  gri = calloc(1, sizeof(struct group_info));
+  if (!gri)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not allocate struct group_info, out of memory\n");
+      return NULL;
+    }
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      free(gri);
+      return NULL;
+    }
+
+  ret = db_blocking_step(stmt);
+
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_DBG, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      free(gri);
+      return NULL;
+    }
+
+  ncols = sqlite3_column_count(stmt);
+
+  // We allow more cols in db than in map because the db may be a future schema
+  if (ncols < ARRAY_SIZE(gri_cols_map))
+    {
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than gri column map (%u)\n", ncols, ARRAY_SIZE(gri_cols_map));
+
+      sqlite3_finalize(stmt);
+      free(gri);
+      return NULL;
+    }
+
+  for (i = 0; i < ARRAY_SIZE(gri_cols_map); i++)
+    {
+      switch (gri_cols_map[i].type)
+	{
+	  case DB_TYPE_INT:
+	    ival = (uint32_t *) ((char *)gri + gri_cols_map[i].offset);
+
+	    if (mfi_cols_map[i].offset == mfi_offsetof(disabled))
+	      {
+		disabled = sqlite3_column_int64(stmt, i);
+		*ival = (disabled != 0);
+	      }
+	    else
+	      *ival = sqlite3_column_int(stmt, i);
+	    break;
+
+	  case DB_TYPE_INT64:
+	    i64val = (uint64_t *) ((char *)gri + gri_cols_map[i].offset);
+
+	    *i64val = sqlite3_column_int64(stmt, i);
+	    break;
+
+	  case DB_TYPE_STRING:
+	    strval = (char **) ((char *)gri + gri_cols_map[i].offset);
+
+	    cval = (char *)sqlite3_column_text(stmt, i);
+	    if (cval)
+	      *strval = strdup(cval);
+	    break;
+
+	  default:
+	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in gri column map\n", gri_cols_map[i].type);
+
+	    free_gri(gri, 0);
+	    sqlite3_finalize(stmt);
+	    return NULL;
+	}
+    }
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
+  sqlite3_finalize(stmt);
+
+  return gri;
+}
+
+struct group_info *
+db_group_fetch_byid(int id)
+{
+  struct group_info *gri;
+  enum group_type type;
+  char *query;
+
+  type = db_group_type_byid(id);
+
+  switch (type)
+    {
+      case G_ALBUMS:
+	query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, 1 as album_count, f.album_artist, f.songartistid, SUM(f.song_length) " \
+				"FROM files f JOIN groups g ON f.songalbumid = g.persistentid WHERE g.id = %d GROUP BY f.songalbumid;", id);
+	break;
+
+      case G_ARTISTS:
+	query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, SUM(f.song_length) " \
+				"FROM files f JOIN groups g ON f.songartistid = g.persistentid WHERE g.id = %d GROUP BY f.songartistid;", id);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %d\n", type, id);
+	return NULL;
+    }
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return NULL;
+    }
+
+  gri = db_group_fetch_byquery(query);
+
+  sqlite3_free(query);
+
+  return gri;
+}
+
+struct group_info *
+db_group_fetch_bypersistentid(int64_t persistentid)
+{
+#define Q_TMPL "SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, 1 as album_count, f.album_artist, f.songartistid, SUM(f.song_length) " \
+		"FROM files f JOIN groups g ON f.songalbumid = g.persistentid WHERE f.songalbumid = %" PRIi64 " GROUP BY f.songalbumid;"
+  struct group_info *gri;
+  enum group_type type;
+  char *query;
+
+
+  type = db_group_type_bypersistentid(persistentid);
+
+  switch (type)
+    {
+      case G_ALBUMS:
+	query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, 1 as album_count, f.album_artist, f.songartistid, SUM(f.song_length) " \
+				"FROM files f JOIN groups g ON f.songalbumid = g.persistentid WHERE f.songalbumid = %" PRIi64 " GROUP BY f.songalbumid;", persistentid);
+	break;
+
+      case G_ARTISTS:
+	query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, SUM(f.song_length) " \
+				"FROM files f JOIN groups g ON f.songartistid = g.persistentid WHERE f.songartistid = %" PRIi64 " GROUP BY f.songartistid;", persistentid);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %" PRIi64 "\n", type, persistentid);
+	return NULL;
+    }
+
+  query = sqlite3_mprintf(Q_TMPL, persistentid);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return NULL;
+    }
+
+  gri = db_group_fetch_byquery(query);
+
+  sqlite3_free(query);
+
+  return gri;
 
 #undef Q_TMPL
 }
