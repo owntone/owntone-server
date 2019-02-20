@@ -120,14 +120,14 @@ static const char *spotify_client_id     = "0e684a5422384114a8ae7ac020f01789";
 static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
-static const char *spotify_playlist_uri	 = "https://api.spotify.com/v1/users/%s/playlists/%s";
+static const char *spotify_playlist_uri	 = "https://api.spotify.com/v1/playlists/%s";
 static const char *spotify_track_uri     = "https://api.spotify.com/v1/tracks/%s";
 static const char *spotify_me_uri        = "https://api.spotify.com/v1/me";
 static const char *spotify_albums_uri    = "https://api.spotify.com/v1/me/albums?limit=50";
 static const char *spotify_album_uri = "https://api.spotify.com/v1/albums/%s";
 static const char *spotify_album_tracks_uri = "https://api.spotify.com/v1/albums/%s/tracks";
 static const char *spotify_playlists_uri = "https://api.spotify.com/v1/me/playlists?limit=50";
-static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/users/%s/playlists/%s/tracks";
+static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/playlists/%s/tracks";
 
 
 
@@ -737,51 +737,6 @@ parse_metadata_playlist(json_object *jsonplaylist, struct spotify_playlist *play
 }
 
 /*
- * Extracts the owner and the id from a spotify playlist uri
- *
- * Playlist-uri has the following format: spotify:user:[owner]:playlist:[id]
- * Owner and plid must be freed by the caller.
- */
-static int
-get_owner_plid_from_uri(const char *uri, char **owner, char **plid)
-{
-  char *ptr1;
-  char *ptr2;
-  char *tmp;
-  size_t len;
-
-  ptr1 = strchr(uri, ':');
-  if (!ptr1)
-    return -1;
-  ptr1++;
-  ptr1 = strchr(ptr1, ':');
-  if (!ptr1)
-    return -1;
-  ptr1++;
-  ptr2 = strchr(ptr1, ':');
-
-  len = ptr2 - ptr1;
-
-  tmp = malloc(sizeof(char) * (len + 1));
-  strncpy(tmp, ptr1, len);
-  tmp[len] = '\0';
-  *owner = tmp;
-
-  ptr2++;
-  ptr1 = strchr(ptr2, ':');
-  if (!ptr1)
-    {
-      free(tmp);
-      *owner = NULL;
-      return -1;
-    }
-  ptr1++;
-  *plid = strdup(ptr1);
-
-  return 0;
-}
-
-/*
  * Creates a new string for the playlist API endpoint for the given playist-uri.
  * The returned string needs to be freed by the caller.
  *
@@ -808,21 +763,19 @@ static char *
 get_playlist_endpoint_uri(const char *uri)
 {
   char *endpoint_uri = NULL;
-  char *owner = NULL;
   char *id = NULL;
   int ret;
 
-  ret = get_owner_plid_from_uri(uri, &owner, &id);
+  ret = get_id_from_uri(uri, &id);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Error extracting owner and id from playlist uri '%s'\n", uri);
       goto out;
     }
 
-  endpoint_uri = safe_asprintf(spotify_playlist_uri, owner, id);
+  endpoint_uri = safe_asprintf(spotify_playlist_uri, id);
 
  out:
-  free(owner);
   free(id);
   return endpoint_uri;
 }
@@ -831,21 +784,19 @@ static char *
 get_playlist_tracks_endpoint_uri(const char *uri)
 {
   char *endpoint_uri = NULL;
-  char *owner = NULL;
   char *id = NULL;
   int ret;
 
-  ret = get_owner_plid_from_uri(uri, &owner, &id);
+  ret = get_id_from_uri(uri, &id);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Error extracting owner and id from playlist uri '%s'\n", uri);
       goto out;
     }
 
-  endpoint_uri = safe_asprintf(spotify_playlist_tracks_uri, owner, id);
+  endpoint_uri = safe_asprintf(spotify_playlist_tracks_uri, id);
 
  out:
-  free(owner);
   free(id);
   return endpoint_uri;
 }
