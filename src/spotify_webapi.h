@@ -55,6 +55,8 @@ void
 spotifywebapi_pl_remove(const char *uri);
 char *
 spotifywebapi_artwork_url_get(const char *uri, int max_w, int max_h);
+char *
+spotifywebapi_artist_artwork_url_get(const char *uri, int max_w, int max_h);
 
 void
 spotifywebapi_status_info_get(struct spotifywebapi_status_info *info);

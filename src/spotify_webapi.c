@@ -580,7 +580,7 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
 }
 
 static const char *
-get_album_image(json_object *jsonalbum, int max_w)
+get_image(json_object *jsonobject, int max_w)
 {
   json_object *jsonimages;
   json_object *jsonimage;
@@ -595,7 +595,7 @@ get_album_image(json_object *jsonalbum, int max_w)
       return NULL;
     }
 
-  if (!json_object_object_get_ex(jsonalbum, "images", &jsonimages))
+  if (!json_object_object_get_ex(jsonobject, "images", &jsonimages))
     {
       DPRINTF(E_DBG, L_SPOTIFY, "No images in for spotify album object found\n");
       return NULL;
@@ -639,7 +639,7 @@ parse_metadata_track(json_object *jsontrack, struct spotify_track *track, int ma
 	track->album_artist = jparse_str_from_array(jsonartists, 0, "name");
 
       if (max_w > 0)
-	track->artwork_url = get_album_image(jsonalbum, max_w);
+	track->artwork_url = get_image(jsonalbum, max_w);
     }
 
   if (json_object_object_get_ex(jsontrack, "artists", &jsonartists))
@@ -708,7 +708,7 @@ parse_metadata_album(json_object *jsonalbum, struct spotify_album *album, int ma
   album->release_year = get_year_from_date(album->release_date);
 
   if (max_w > 0)
-    album->artwork_url = get_album_image(jsonalbum, max_w);
+    album->artwork_url = get_image(jsonalbum, max_w);
 
   // TODO Genre is an array of strings ('genres'), but it is always empty (https://github.com/spotify/web-api/issues/157)
   //album->genre = jparse_str_from_obj(jsonalbum, "genre");
@@ -1853,6 +1853,51 @@ spotifywebapi_artwork_url_get(const char *uri, int max_w, int max_h)
 
   artwork_url = safe_strdup(track.artwork_url);
   jparse_free(response);
+
+  return artwork_url;
+}
+
+char *
+spotifywebapi_artist_artwork_url_get(const char *uri, int max_w, int max_h)
+{
+  json_object *response;
+  json_object *jsonartists;
+  json_object *response_artist;
+  const char *artist_endpoint_uri;
+  const char *artist_image_url;
+  char *artwork_url;
+
+  response = request_track(uri);
+  if (!response)
+    {
+      return NULL;
+    }
+
+  artwork_url = NULL;
+  response_artist = NULL;
+
+  if (!json_object_object_get_ex(response, "artists", &jsonartists))
+    goto out;
+
+  artist_endpoint_uri = jparse_str_from_array(jsonartists, 0, "href");
+  if (!artist_endpoint_uri)
+    goto out;
+
+  response_artist = request_endpoint_with_token_refresh(artist_endpoint_uri);
+  if (!response_artist)
+    goto out;
+
+  artist_image_url = get_image(response_artist, max_w);
+  if (!artist_image_url)
+    goto out;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Got artist artwork url: '%s' (%s) \n", artist_image_url, uri);
+
+  artwork_url = safe_strdup(artist_image_url);
+
+ out:
+  jparse_free(response);
+  jparse_free(response_artist);
 
   return artwork_url;
 }
