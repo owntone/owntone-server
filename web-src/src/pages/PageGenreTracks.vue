@@ -8,9 +8,14 @@
         <p class="title is-4">{{ genre }}</p>
       </template>
       <template slot="heading-right">
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
-        </a>
+        <div class="buttons is-centered">
+          <a class="button is-small is-light is-rounded" @click="show_genre_details_modal = true">
+            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          </a>
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+          </a>
+        </div>
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_genre">albums</a> | {{ tracks.total }} tracks</p>
@@ -22,6 +27,7 @@
           </template>
         </list-item-track>
         <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
+        <modal-dialog-genre :show="show_genre_details_modal" :genre="{ 'name': genre }" @close="show_genre_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -33,6 +39,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListItemTrack from '@/components/ListItemTrack'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
+import ModalDialogGenre from '@/components/ModalDialogGenre'
 import webapi from '@/webapi'
 
 const tracksData = {
@@ -49,7 +56,7 @@ const tracksData = {
 export default {
   name: 'PageGenreTracks',
   mixins: [ LoadDataBeforeEnterMixin(tracksData) ],
-  components: { ContentWithHeading, ListItemTrack, IndexButtonList, ModalDialogTrack },
+  components: { ContentWithHeading, ListItemTrack, IndexButtonList, ModalDialogTrack, ModalDialogGenre },
 
   data () {
     return {
@@ -57,7 +64,9 @@ export default {
       genre: '',
 
       show_details_modal: false,
-      selected_track: {}
+      selected_track: {},
+
+      show_genre_details_modal: false
     }
   },
 

@@ -98,7 +98,7 @@ export default {
     },
 
     open_genre: function () {
-      this.$router.push({ name: 'Genre', params: { genre: this.item.name } })
+      this.$router.push({ name: 'Genre', params: { genre: this.item.genre } })
     }
   }
 }

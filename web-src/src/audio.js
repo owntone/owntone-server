@@ -4,12 +4,14 @@
  */
 export default {
   _audio: new Audio(),
-  _context: new AudioContext(),
+  _context: null,
   _source: null,
   _gain: null,
 
   // setup audio routing
   setupAudio () {
+    var AudioContext = window.AudioContext || window.webkitAudioContext
+    this._context = new AudioContext()
     this._source = this._context.createMediaElementSource(this._audio)
     this._gain = this._context.createGain()
 
@@ -38,7 +40,6 @@ export default {
   playSource (source) {
     this.stopAudio()
     this._context.resume().then(() => {
-      console.log('playSource')
       this._audio.src = String(source || '') + '?x=' + Date.now()
       this._audio.crossOrigin = 'anonymous'
       this._audio.load()
