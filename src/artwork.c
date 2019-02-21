@@ -476,6 +476,112 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
   return ART_E_ERROR;
 }
 
+static int
+find_dir_image(const char *dir, cfg_t *lib, const char *config_name, char *out_path)
+{
+  char path[PATH_MAX];
+  int nbasenames;
+  int nextensions;
+  int i, j;
+  int len;
+  int ret;
+
+  ret = snprintf(path, sizeof(path), "%s", dir);
+  if ((ret < 0) || (ret >= sizeof(path)))
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", dir);
+      return -1;
+    }
+
+  len = strlen(path);
+
+  nbasenames = cfg_size(lib, config_name);
+
+  if (nbasenames == 0)
+    return -1;
+
+  nextensions = ARRAY_SIZE(cover_extension);
+
+  for (i = 0; i < nbasenames; i++)
+    {
+      for (j = 0; j < nextensions; j++)
+        {
+	  ret = snprintf(path + len, sizeof(path) - len, "/%s.%s", cfg_getnstr(lib, config_name, i), cover_extension[j]);
+	  if ((ret < 0) || (ret >= sizeof(path) - len))
+	    {
+	      DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s/%s)\n", dir, cfg_getnstr(lib, config_name, i));
+	      continue;
+	    }
+
+	  DPRINTF(E_SPAM, L_ART, "Trying directory artwork file %s\n", path);
+
+	  ret = access(path, F_OK);
+	  if (ret == 0)
+	    {
+	      snprintf(out_path, PATH_MAX, "%s", path);
+	      return 0;
+	    }
+	}
+    }
+
+  return -1;
+}
+
+static int
+find_parent_dir_image(const char *dir, char *out_path)
+{
+  char path[PATH_MAX];
+  char parentdir[PATH_MAX];
+  char *ptr;
+  int i;
+  int nextensions;
+  int len;
+  int ret;
+
+  ret = snprintf(path, sizeof(path), "%s", dir);
+  if ((ret < 0) || (ret >= sizeof(path)))
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", dir);
+      return ART_E_ERROR;
+    }
+
+  ptr = strrchr(path, '/');
+  if (ptr)
+    *ptr = '\0';
+
+  ptr = strrchr(path, '/');
+  if ((!ptr) || (strlen(ptr) <= 1))
+    {
+      DPRINTF(E_LOG, L_ART, "Could not find parent dir name (%s)\n", path);
+      return ART_E_ERROR;
+    }
+  strcpy(parentdir, ptr + 1);
+
+  len = strlen(path);
+  nextensions = ARRAY_SIZE(cover_extension);
+
+  for (i = 0; i < nextensions; i++)
+    {
+      ret = snprintf(path + len, sizeof(path) - len, "/%s.%s", parentdir, cover_extension[i]);
+      if ((ret < 0) || (ret >= sizeof(path) - len))
+        {
+	  DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s)\n", parentdir);
+	  continue;
+	}
+
+      DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", path);
+
+      ret = access(path, F_OK);
+      if (ret == 0)
+	{
+	  snprintf(out_path, PATH_MAX, "%s", path);
+	  return 0;
+	}
+    }
+
+  return -1;
+}
+
 /* Looks for an artwork file in a directory. Will rescale if needed.
  *
  * @out evbuf     Image data
@@ -488,102 +594,21 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
 static int
 artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char *out_path)
 {
-  char path[PATH_MAX];
-  char parentdir[PATH_MAX];
-  int i;
-  int j;
-  int len;
   int ret;
-  cfg_t *lib;
-  int nbasenames;
-  int nextensions;
-  char *ptr;
 
-  ret = snprintf(path, sizeof(path), "%s", dir);
-  if ((ret < 0) || (ret >= sizeof(path)))
+  ret = find_dir_image(dir, cfg_getsec(cfg, "library"), "artwork_basenames", out_path);
+  if (ret == 0)
     {
-      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", dir);
-      return ART_E_ERROR;
+      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
     }
 
-  len = strlen(path);
-
-  lib = cfg_getsec(cfg, "library");
-  nbasenames = cfg_size(lib, "artwork_basenames");
-
-  if (nbasenames == 0)
-    return ART_E_NONE;
-
-  nextensions = sizeof(cover_extension) / sizeof(cover_extension[0]);
-
-  for (i = 0; i < nbasenames; i++)
+  ret = find_parent_dir_image(dir, out_path);
+  if (ret == 0)
     {
-      for (j = 0; j < nextensions; j++)
-	{
-	  ret = snprintf(path + len, sizeof(path) - len, "/%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
-	  if ((ret < 0) || (ret >= sizeof(path) - len))
-	    {
-	      DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s/%s)\n", dir, cfg_getnstr(lib, "artwork_basenames", i));
-	      continue;
-	    }
-
-	  DPRINTF(E_SPAM, L_ART, "Trying directory artwork file %s\n", path);
-
-	  ret = access(path, F_OK);
-	  if (ret < 0)
-	    continue;
-
-	  // If artwork file exists (ret == 0), exit the loop
-	  break;
-	}
-
-      // In case the previous loop exited early, we found an existing artwork file and exit the outer loop
-      if (j < nextensions)
-	break;
+      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
     }
 
-  // If the loop for directory artwork did not exit early, look for parent directory artwork
-  if (i == nbasenames)
-    {
-      ptr = strrchr(path, '/');
-      if (ptr)
-	*ptr = '\0';
-
-      ptr = strrchr(path, '/');
-      if ((!ptr) || (strlen(ptr) <= 1))
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not find parent dir name (%s)\n", path);
-	  return ART_E_ERROR;
-	}
-      strcpy(parentdir, ptr + 1);
-
-      len = strlen(path);
-
-      for (i = 0; i < nextensions; i++)
-	{
-	  ret = snprintf(path + len, sizeof(path) - len, "/%s.%s", parentdir, cover_extension[i]);
-	  if ((ret < 0) || (ret >= sizeof(path) - len))
-	    {
-	      DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s)\n", parentdir);
-	      continue;
-	    }
-
-	  DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", path);
-
-	  ret = access(path, F_OK);
-	  if (ret < 0)
-	    continue;
-
-	  break;
-	}
-
-      if (i == nextensions)
-	return ART_E_NONE;
-    }
-
-  snprintf(out_path, PATH_MAX, "%s", path);
-
-  return artwork_get(evbuf, path, NULL, max_w, max_h, false);
+  return ART_E_NONE;
 }
 
 #ifdef HAVE_SPOTIFY_H
