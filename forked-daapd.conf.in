@@ -134,6 +134,10 @@ library {
 	# default to reduce cache size.
 #	artwork_individual = false
 
+	# Artwork file names for artist images (without file type extension)
+	# forked-daapd will look for jpg and png files with these base names
+#	artwork_artist_basenames = { "artist" }
+
 	# File types the scanner should ignore
 	# Non-audio files will never be added to the database, but here you
 	# can prevent the scanner from even probing them. This might improve
