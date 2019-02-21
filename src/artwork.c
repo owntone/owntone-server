@@ -145,6 +145,12 @@ static struct artwork_group_source artwork_group_source[] =
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
+      .name = "Spotify web api (artist)",
+      .handler = source_group_spotifywebapi_get,
+      .group_types = G_ARTISTS,
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
       .name = "directory",
       .handler = source_group_dir_get,
       .group_types = G_ARTISTS | G_ALBUMS,
@@ -157,9 +163,9 @@ static struct artwork_group_source artwork_group_source[] =
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
-      .name = "Spotify web api",
+      .name = "Spotify web api (album)",
       .handler = source_group_spotifywebapi_get,
-      .group_types = G_ARTISTS | G_ALBUMS,
+      .group_types = G_ALBUMS,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
@@ -672,7 +678,7 @@ artist_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, ch
 
 #ifdef HAVE_SPOTIFY_H
 static int
-artwork_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, const char *spotify_track_uri, int max_w, int max_h)
+artwork_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, const char *spotify_track_uri, int max_w, int max_h, enum group_type type)
 {
   struct evbuffer *raw;
   struct evbuffer *evbuf2;
@@ -689,7 +695,10 @@ artwork_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, const char
       return ART_E_ERROR;
     }
 
-  artwork_url = spotifywebapi_artwork_url_get(spotify_track_uri, max_w, max_h);
+  if (type == G_ARTISTS)
+    artwork_url = spotifywebapi_artist_artwork_url_get(spotify_track_uri, max_w, max_h);
+  else
+    artwork_url = spotifywebapi_artwork_url_get(spotify_track_uri, max_w, max_h);
   if (!artwork_url)
     {
       DPRINTF(E_WARN, L_ART, "No artwork from Spotify for %s\n", spotify_track_uri);
@@ -883,6 +892,7 @@ source_group_embedded_get(struct evbuffer *evbuf, char *artwork_path, struct gro
 }
 
 
+#ifdef HAVE_SPOTIFY_H
 static int
 source_group_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, struct group_info *group_info, int max_w, int max_h)
 {
@@ -905,7 +915,7 @@ source_group_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, struc
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
       snprintf(artwork_path, PATH_MAX, "%s", dbmfi.path);
-      ret = artwork_spotifywebapi_get(evbuf, artwork_path, dbmfi.path, max_w, max_h);
+      ret = artwork_spotifywebapi_get(evbuf, artwork_path, dbmfi.path, max_w, max_h, group_info->type);
       if (ret > 0)
         {
 	  db_query_end(&qp);
@@ -916,6 +926,13 @@ source_group_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, struc
   db_query_end(&qp);
   return ret;
 }
+#else
+static int
+source_group_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, struct group_info *group_info, int max_w, int max_h)
+{
+  return ART_E_ERROR;
+}
+#endif
 
 /* Get an embedded artwork file from a media file. Will rescale if needed.
  */
@@ -1052,15 +1069,9 @@ source_item_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, struct
   if (mfi->data_kind != DATA_KIND_SPOTIFY)
     return ART_E_NONE;
 
-  return artwork_spotifywebapi_get(evbuf, artwork_path, mfi->path, max_w, max_h);
+  return artwork_spotifywebapi_get(evbuf, artwork_path, mfi->path, max_w, max_h, G_ALBUMS);
 }
 #else
-static int
-source_item_spotify_get(struct artwork_ctx *ctx)
-{
-  return ART_E_ERROR;
-}
-
 static int
 source_item_spotifywebapi_get(struct artwork_ctx *ctx)
 {
