@@ -140,6 +140,11 @@ enum data_kind {
 const char *
 db_data_kind_label(enum data_kind data_kind);
 
+enum group_type {
+  G_ALBUMS = 1,
+  G_ARTISTS = 2,
+};
+
 /* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
 struct media_file_info {
   uint32_t id;
@@ -286,6 +291,7 @@ struct group_info {
   char *songalbumartist; /* song album artist (asaa) */
   uint64_t songartistid; /* song artist id (asri) */
   uint32_t song_length;
+  enum group_type type;
 };
 
 #define gri_offsetof(field) offsetof(struct group_info, field)
@@ -300,6 +306,7 @@ struct db_group_info {
   char *songalbumartist;
   char *songartistid;
   char *song_length;
+  char *type;
 };
 
 #define dbgri_offsetof(field) offsetof(struct db_group_info, field)
