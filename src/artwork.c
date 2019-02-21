@@ -101,6 +101,9 @@ struct artwork_group_source {
   // The handler
   int (*handler)(struct evbuffer *evbuf, char *artwork_path, struct group_info *group_info, int max_w, int max_h);
 
+  // What group_type the handler can work with
+  int group_types;
+
   // When should results from the source be cached?
   enum artwork_cache cache;
 };
@@ -135,16 +138,19 @@ static struct artwork_group_source artwork_group_source[] =
     {
       .name = "directory",
       .handler = source_group_dir_get,
+      .group_types = G_ARTISTS | G_ALBUMS,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "embedded",
       .handler = source_group_embedded_get,
+      .group_types = G_ARTISTS | G_ALBUMS,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "Spotify web api",
       .handler = source_group_spotifywebapi_get,
+      .group_types = G_ARTISTS | G_ALBUMS,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
@@ -1047,6 +1053,9 @@ artwork_get_groupinfo(struct evbuffer *evbuf, struct group_info *gri, int max_w,
 
   for (i = 0; artwork_group_source[i].handler; i++)
     {
+      if ((artwork_group_source[i].group_types & gri->type) == 0)
+	continue;
+
       // If just one handler says we should not cache a negative result then we obey that
       if ((artwork_group_source[i].cache & ON_FAILURE) == 0)
 	cache_result = NEVER;
