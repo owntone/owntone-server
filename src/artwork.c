@@ -117,6 +117,9 @@ static const char *cover_extension[] = { "jpg", "png" };
 
 /* ----------------- DECLARE AND CONFIGURE SOURCE HANDLERS ----------------- */
 
+/* Forward - artist group handlers */
+static int source_artist_dir_get(struct evbuffer *evbuf, char *artwork_path, struct group_info *group_info, int max_w, int max_h);
+
 /* Forward - group handlers */
 static int source_group_dir_get(struct evbuffer *evbuf, char *artwork_path, struct group_info *group_info, int max_w, int max_h);
 static int source_group_embedded_get(struct evbuffer *evbuf, char *artwork_path, struct group_info *group_info, int max_w, int max_h);
@@ -135,6 +138,12 @@ static int source_item_ownpl_get(struct evbuffer *evbuf, char *artwork_path, str
  */
 static struct artwork_group_source artwork_group_source[] =
   {
+    {
+      .name = "directory artist",
+      .handler = source_artist_dir_get,
+      .group_types = G_ARTISTS,
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
     {
       .name = "directory",
       .handler = source_group_dir_get,
@@ -617,6 +626,50 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
   return ART_E_NONE;
 }
 
+/* Looks for an artwork file in a directory. Will rescale if needed.
+ *
+ * @out evbuf     Image data
+ * @in  dir       Directory to search
+ * @in  max_w     Requested width
+ * @in  max_h     Requested height
+ * @out out_path  Path to the artwork file if found, must be a char[PATH_MAX] buffer
+ * @return        ART_FMT_* on success, ART_E_NONE on nothing found, ART_E_ERROR on error
+ */
+static int
+artist_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char *out_path)
+{
+  char path[PATH_MAX];
+  char *ptr;
+  int ret;
+
+  ret = find_dir_image(dir, cfg_getsec(cfg, "library"), "artwork_artist_basenames", out_path);
+  if (ret == 0)
+    {
+      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
+    }
+
+  ret = snprintf(path, sizeof(path), "%s", dir);
+  if ((ret < 0) || (ret >= sizeof(path)))
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", dir);
+      return ART_E_ERROR;
+    }
+
+  ptr = strrchr(path, '/');
+  if (ptr)
+    {
+      *ptr = '\0';
+
+      ret = find_dir_image(path, cfg_getsec(cfg, "library"), "artwork_artist_basenames", out_path);
+      if (ret == 0)
+	{
+	  return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
+	}
+    }
+
+  return ART_E_NONE;
+}
+
 #ifdef HAVE_SPOTIFY_H
 static int
 artwork_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, const char *spotify_track_uri, int max_w, int max_h)
@@ -699,6 +752,51 @@ artwork_spotifywebapi_get(struct evbuffer *evbuf, char *artwork_path, const char
 
 
 /* ---------------------- SOURCE HANDLER IMPLEMENTATION -------------------- */
+
+static int
+source_artist_dir_get(struct evbuffer *evbuf, char *artwork_path, struct group_info *group_info, int max_w, int max_h)
+{
+  struct query_params qp;
+  char *dir;
+  int ret;
+
+  /* Image is not in the artwork cache. Try directory artwork first */
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_GROUP_DIRS;
+  qp.persistentid = group_info->persistentid;
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not start Q_GROUP_DIRS query\n");
+      return ART_E_ERROR;
+    }
+
+  while (((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
+    {
+      /* The db query may return non-directories (eg if item is an internet stream or Spotify) */
+      if (access(dir, F_OK) < 0)
+	continue;
+
+      ret = artist_get_dir_image(evbuf, dir, max_w, max_h, artwork_path);
+      if (ret > 0)
+	{
+	  db_query_end(&qp);
+	  return ret;
+	}
+    }
+
+  db_query_end(&qp);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_DIRS results\n");
+      return ART_E_ERROR;
+    }
+
+  return ART_E_NONE;
+}
 
 /* Looks for cover files in a directory, so if dir is /foo/bar and the user has
  * configured the cover file names "cover" and "artwork" it will look for
