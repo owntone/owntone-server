@@ -47,6 +47,10 @@
                   <span class="heading">Path</span>
                   <span class="title is-6">{{ item.path }}</span>
                 </p>
+                <p>
+                  <span class="heading">Type</span>
+                  <span class="title is-6">{{ item.media_kind }} - {{ item.data_kind }} <span class="has-text-weight-normal" v-if="item.data_kind === 'spotify'">(<a @click="open_spotify_artist">artist</a>, <a @click="open_spotify_album">album</a>)</span></span>
+                </p>
               </div>
             </div>
             <footer class="card-footer">
@@ -67,10 +71,17 @@
 
 <script>
 import webapi from '@/webapi'
+import SpotifyWebApi from 'spotify-web-api-js'
 
 export default {
   name: 'ModalDialogQueueItem',
   props: [ 'show', 'item' ],
+
+  data () {
+    return {
+      spotify_track: {}
+    }
+  },
 
   methods: {
     remove: function () {
@@ -99,6 +110,30 @@ export default {
 
     open_genre: function () {
       this.$router.push({ name: 'Genre', params: { genre: this.item.genre } })
+    },
+
+    open_spotify_artist: function () {
+      this.$emit('close')
+      this.$router.push({ path: '/music/spotify/artists/' + this.spotify_track.artists[0].id })
+    },
+
+    open_spotify_album: function () {
+      this.$emit('close')
+      this.$router.push({ path: '/music/spotify/albums/' + this.spotify_track.album.id })
+    }
+  },
+
+  watch: {
+    'item' () {
+      if (this.item && this.item.data_kind === 'spotify') {
+        const spotifyApi = new SpotifyWebApi()
+        spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
+        spotifyApi.getTrack(this.item.path.slice(this.item.path.lastIndexOf(':') + 1)).then((response) => {
+          this.spotify_track = response
+        })
+      } else {
+        this.spotify_track = {}
+      }
     }
   }
 }
