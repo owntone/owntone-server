@@ -600,6 +600,7 @@ POST /api/queue/items/add
 | expression      | A smart playlist query expression identifying the tracks that will be added to the queue.                          |
 | position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.            |
 | playback        | *(Optional)* If the `playback` parameter is set to `start`, playback will be started after adding the new items. |
+| playback_from_position | *(Optional)* If the `playback` parameter is set to `start`, playback will be started with the queue item at the position given in `playback_from_position`. |
 | clear           | *(Optional)* If the `clear` parameter is set to `true`, the queue will be cleared before adding the new items.    |
 | shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.    |
 
