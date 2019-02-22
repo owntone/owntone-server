@@ -213,7 +213,7 @@ struct raop_session
   int family;
 
   int volume;
-  uint64_t start_rtptime;
+  uint32_t start_rtptime;
 
   /* AirTunes v2 */
   unsigned short server_port;
@@ -244,8 +244,8 @@ struct raop_metadata
   int artwork_fmt;
 
   /* Progress data */
-  uint64_t start;
-  uint64_t end;
+  uint32_t start;
+  uint32_t end;
 
   struct raop_metadata *next;
 };
@@ -2327,7 +2327,7 @@ raop_cb_metadata(struct evrtsp_request *req, void *arg)
 }
 
 static int
-raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, uint64_t offset, uint32_t delay)
+raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, uint32_t offset, uint32_t delay)
 {
   uint32_t display;
   int ret;
@@ -2354,7 +2354,7 @@ raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, str
       return -1;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Metadata send is start_time=%zu, start=%zu, display=%zu, current=%zu, end=%zu\n",
+  DPRINTF(E_DBG, L_PLAYER, "Metadata send is start_time=%" PRIu32 ", start=%" PRIu32 ", display=%" PRIu32 ", current=%" PRIu32 ", end=%" PRIu32 "\n",
     rs->start_rtptime, rmd->start, rmd->start - delay, rmd->start + offset, rmd->end);
 
   ret = raop_send_req_set_parameter(rs, evbuf, "text/parameters", NULL, raop_cb_metadata, "send_progress");
@@ -2432,7 +2432,7 @@ raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, str
 }
 
 static int
-raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, uint64_t offset, uint32_t delay)
+raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, uint32_t offset, uint32_t delay)
 {
   char rtptime[32];
   struct evbuffer *evbuf;
@@ -2496,7 +2496,7 @@ static void
 raop_metadata_startup_send(struct raop_session *rs)
 {
   struct raop_metadata *rmd;
-  uint64_t offset;
+  uint32_t offset;
   int sent;
   int ret;
 
@@ -4876,7 +4876,8 @@ raop_write(struct output_buffer *obuf)
 	  // Sends sync packets to new sessions, and if it is sync time then also to old sessions
 	  packets_sync_send(rms, obuf->pts);
 
-	  evbuffer_add_buffer_reference(rms->evbuf, obuf->data[i].evbuf);
+	  // TODO avoid this copy
+	  evbuffer_add(rms->evbuf, obuf->data[i].buffer, obuf->data[i].bufsize);
 	  rms->evbuf_samples += obuf->data[i].samples;
 
 	  // Send as many packets as we have data for (one packet requires rawbuf_size bytes)

@@ -648,7 +648,7 @@ sync_check(snd_pcm_sframes_t *delay, snd_pcm_sframes_t *avail, struct alsa_sessi
   // The will be used by sync_correct, so it knows how much we are out of sync
   as->last_latency = latency;
 
-  DPRINTF(E_DBG, L_LAUDIO, "Sync=%d, pos=%lu, as->pos=%u, dev_pos=%lu, latency=%d, delay=%li, avail=%li, elapsed=%lu, dev_elapsed=%lu\n",
+  DPRINTF(E_DBG, L_LAUDIO, "Sync=%d, pos=%" PRIu64 ", as->pos=%u, dev_pos=%" PRIu64 ", latency=%d, delay=%li, avail=%li, elapsed=%" PRIu64 ", dev_elapsed=%" PRIu64 "\n",
     sync, pos, as->pos, dev_pos, latency, *delay, *avail, elapsed / 1000000, dev_elapsed / 1000000);
 
   return sync;
