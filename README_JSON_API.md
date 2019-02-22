@@ -2048,7 +2048,7 @@ curl --include \
 | date_released      | string   | Date in the format `yyyy-mm-dd`         |
 | seek_ms            | integer  | Resume point in milliseconds (available only for podcasts and audiobooks) |
 | media_kind         | string   | Media type of this track: `music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow` |
-| data_kind          | string   | Data type of this track: `file`, `stream`, `spotify`, `pipe` |
+| data_kind          | string   | Data type of this track: `file`, `url`, `spotify`, `pipe` |
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
 | artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
