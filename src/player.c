@@ -2235,7 +2235,7 @@ speaker_get_byid(void *arg, int *retval)
   struct speaker_get_param *spk_param = arg;
   struct output_device *device;
 
-  for (device = dev_list; device; device = device->next)
+  for (device = output_device_list; device; device = device->next)
     {
       if ((device->advertised || device->selected)
 	  && device->id == spk_param->spk_id)
