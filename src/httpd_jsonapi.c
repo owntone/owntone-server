@@ -1995,7 +1995,10 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   param = evhttp_find_header(hreq->query, "playback");
   if (param && strcmp(param, "start") == 0)
     {
-      player_playback_start();
+      if ((param = evhttp_find_header(hreq->query, "playback_from_position")))
+	play_item_at_position(param);
+      else
+	player_playback_start();
     }
 
   return HTTP_OK;
