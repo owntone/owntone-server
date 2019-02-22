@@ -39,23 +39,17 @@ export default {
   methods: {
     play: function () {
       this.$emit('close')
-      webapi.library_genre_tracks(this.genre.name).then(({ data }) =>
-        webapi.player_play_uri(data.tracks.items.map(a => a.uri).join(','), false)
-      )
+      webapi.player_play_expression('genre is "' + this.genre.name + '" and media_kind is music', false)
     },
 
     queue_add: function () {
       this.$emit('close')
-      webapi.library_genre_tracks(this.genre.name).then(({ data }) =>
-        webapi.queue_add(data.tracks.items.map(a => a.uri).join(','))
-      )
+      webapi.queue_expression_add('genre is "' + this.genre.name + '" and media_kind is music')
     },
 
     queue_add_next: function () {
       this.$emit('close')
-      webapi.library_genre_tracks(this.genre.name).then(({ data }) =>
-        webapi.queue_add_next(data.tracks.items.map(a => a.uri).join(','))
-      )
+      webapi.queue_expression_add_next('genre is "' + this.genre.name + '" and media_kind is music')
     },
 
     open_genre: function () {

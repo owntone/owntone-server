@@ -85,9 +85,7 @@ export default {
     },
 
     play: function () {
-      webapi.library_genre_tracks(this.name).then(({ data }) =>
-        webapi.player_play_uri(data.tracks.items.map(a => a.uri).join(','), true)
-      )
+      webapi.player_play_expression('genre is "' + this.name + '" and media_kind is music', true)
     },
 
     open_album: function (album) {
