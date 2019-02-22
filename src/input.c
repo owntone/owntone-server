@@ -41,9 +41,9 @@
 #include "commands.h"
 #include "input.h"
 
-// Disallow further writes to the buffer when its size is larger than this threshold
-// TODO untie from 44100
-#define INPUT_BUFFER_THRESHOLD STOB(88200, 16, 2)
+// Disallow further writes to the buffer when its size exceeds this threshold.
+// The below gives us room to buffer 2 seconds of 48000/16/2 audio.
+#define INPUT_BUFFER_THRESHOLD STOB(96000, 16, 2)
 // How long (in sec) to wait for player read before looping in playback thread
 #define INPUT_LOOP_TIMEOUT 1
 
@@ -359,65 +359,6 @@ stop_cmd(void *arg, int *retval)
   *retval = 0;
   return COMMAND_END;
 }
-
-/*
-static enum command_state
-next(void *arg, int *retval)
-{
-  struct player_status status;
-  struct db_queue_item *queue_item;
-  uint32_t item_id;
-  int type;
-  int ret;
-
-  // We may have finished reading source way before end of playback, and we
-  // don't want to proceed prematurely. So we wait until the input buffer is
-  // below the write threshold.
-  ret = input_wait();
-  if (ret < 0)
-    {
-      input_next(); // Async call to ourselves
-      return;
-    }
-
-  item_id = input_now_reading.item_id;
-
-  // Cleans up the source that has ended/failed and clears input_now_reading
-  stop(NULL, NULL);
-
-  player_get_status(&status);
-
-  // TODO what about repeat/repeat_all? Maybe move next() to player that can
-  // just call input_start()
-
-  // Get the next queue_item from the db
-  queue_item = db_queue_fetch_next(item_id, status.shuffle);
-  if (!queue_item)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Reached end of playback queue\n");
-      *retval = 0;
-      return COMMAND_END;
-    }
-
-  ret = setup(&input_now_reading, queue_item, 0);
-  free_queue_item(queue_item, 0);
-  if (ret < 0)
-    goto error;
-
-  DPRINTF(E_DBG, L_PLAYER, "Continuing input read loop for item '%s' (item id %" PRIu32 ")\n", input_now_reading.path, input_now_reading.item_id);
-
-  event_active(inputev, 0, 0);
-
-  *retval = 0;
-  return COMMAND_END;
-
- error:
-  input_write(NULL, NULL, INPUT_FLAG_ERROR);
-  clear(&input_now_reading);
-  *retval = -1;
-  return COMMAND_END;
-}
-*/
 
 static enum command_state
 metadata_get(void *arg, int *retval)
