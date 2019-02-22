@@ -4868,16 +4868,16 @@ raop_write(struct output_buffer *obuf)
 
   for (rms = raop_master_sessions; rms; rms = rms->next)
     {
-      for (i = 0; obuf->frames[i].buffer; i++)
+      for (i = 0; obuf->data[i].buffer; i++)
 	{
-	  if (!quality_is_equal(&obuf->frames[i].quality, &rms->rtp_session->quality))
+	  if (!quality_is_equal(&obuf->data[i].quality, &rms->rtp_session->quality))
 	    continue;
 
 	  // Sends sync packets to new sessions, and if it is sync time then also to old sessions
 	  packets_sync_send(rms, obuf->pts);
 
-	  evbuffer_add_buffer_reference(rms->evbuf, obuf->frames[i].evbuf);
-	  rms->evbuf_samples += obuf->frames[i].samples;
+	  evbuffer_add_buffer_reference(rms->evbuf, obuf->data[i].evbuf);
+	  rms->evbuf_samples += obuf->data[i].samples;
 
 	  // Send as many packets as we have data for (one packet requires rawbuf_size bytes)
 	  while (evbuffer_get_length(rms->evbuf) >= rms->rawbuf_size)

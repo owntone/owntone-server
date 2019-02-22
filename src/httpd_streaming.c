@@ -290,9 +290,9 @@ streaming_write(struct output_buffer *obuf)
   if (!streaming_sessions)
     return;
 
-  if (!quality_is_equal(&obuf->frames[0].quality, &streaming_quality))
+  if (!quality_is_equal(&obuf->data[0].quality, &streaming_quality))
     {
-      ret = write(streaming_meta[1], &obuf->frames[0].quality, sizeof(struct media_quality));
+      ret = write(streaming_meta[1], &obuf->data[0].quality, sizeof(struct media_quality));
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
@@ -300,7 +300,7 @@ streaming_write(struct output_buffer *obuf)
 	}
     }
 
-  ret = write(streaming_pipe[1], obuf->frames[0].buffer, obuf->frames[0].bufsize);
+  ret = write(streaming_pipe[1], obuf->data[0].buffer, obuf->data[0].bufsize);
   if (ret < 0)
     {
       if (errno == EAGAIN)

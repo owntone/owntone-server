@@ -290,20 +290,20 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
   // The resampling/encoding (transcode) contexts work for a given input quality,
   // so if the quality changes we need to reset the contexts. We also do that if
   // we have received a subscription for a new quality.
-  if (!quality_is_equal(quality, &obuf->frames[0].quality) || output_got_new_subscription)
+  if (!quality_is_equal(quality, &obuf->data[0].quality) || output_got_new_subscription)
     {
       encoding_reset(quality);
       output_got_new_subscription = false;
     }
 
-  // The first element of the output_buffer is always just the raw input frame
+  // The first element of the output_buffer is always just the raw input data
   // TODO can we avoid the copy below? we can't use evbuffer_add_buffer_reference,
   // because then the outputs can't use it and we would need to copy there instead
-  evbuffer_add(obuf->frames[0].evbuf, buf, bufsize);
-  obuf->frames[0].buffer = buf;
-  obuf->frames[0].bufsize = bufsize;
-  obuf->frames[0].quality = *quality;
-  obuf->frames[0].samples = nsamples;
+  evbuffer_add(obuf->data[0].evbuf, buf, bufsize);
+  obuf->data[0].buffer = buf;
+  obuf->data[0].bufsize = bufsize;
+  obuf->data[0].quality = *quality;
+  obuf->data[0].samples = nsamples;
 
   for (i = 0, n = 1; output_quality_subscriptions[i].count > 0; i++)
     {
@@ -314,15 +314,15 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
       if (!frame)
 	continue;
 
-      ret = transcode_encode(obuf->frames[n].evbuf, output_quality_subscriptions[i].encode_ctx, frame, 0);
+      ret = transcode_encode(obuf->data[n].evbuf, output_quality_subscriptions[i].encode_ctx, frame, 0);
       transcode_frame_free(frame);
       if (ret < 0)
 	continue;
 
-      obuf->frames[n].buffer  = evbuffer_pullup(obuf->frames[n].evbuf, -1);
-      obuf->frames[n].bufsize = evbuffer_get_length(obuf->frames[n].evbuf);
-      obuf->frames[n].quality = output_quality_subscriptions[i].quality;
-      obuf->frames[n].samples = BTOS(obuf->frames[n].bufsize, obuf->frames[n].quality.bits_per_sample, obuf->frames[n].quality.channels);
+      obuf->data[n].buffer  = evbuffer_pullup(obuf->data[n].evbuf, -1);
+      obuf->data[n].bufsize = evbuffer_get_length(obuf->data[n].evbuf);
+      obuf->data[n].quality = output_quality_subscriptions[i].quality;
+      obuf->data[n].samples = BTOS(obuf->data[n].bufsize, obuf->data[n].quality.bits_per_sample, obuf->data[n].quality.channels);
       n++;
     }
 }
@@ -332,11 +332,11 @@ buffer_drain(struct output_buffer *obuf)
 {
   int i;
 
-  for (i = 0; obuf->frames[i].buffer; i++)
+  for (i = 0; obuf->data[i].buffer; i++)
     {
-      evbuffer_drain(obuf->frames[i].evbuf, obuf->frames[i].bufsize);
-      obuf->frames[i].buffer  = NULL;
-      obuf->frames[i].bufsize = 0;
+      evbuffer_drain(obuf->data[i].evbuf, obuf->data[i].bufsize);
+      obuf->data[i].buffer  = NULL;
+      obuf->data[i].bufsize = 0;
       // We don't reset quality and samples, would be a waste of time
     }
 }
@@ -982,8 +982,8 @@ outputs_init(void)
   if (no_output)
     return -1;
 
-  for (i = 0; i < ARRAY_SIZE(output_buffer.frames); i++)
-    output_buffer.frames[i].evbuf = evbuffer_new();
+  for (i = 0; i < ARRAY_SIZE(output_buffer.data); i++)
+    output_buffer.data[i].evbuf = evbuffer_new();
 
   return 0;
 }
@@ -1012,7 +1012,7 @@ outputs_deinit(void)
 	memset(&output_quality_subscriptions[i], 0, sizeof(struct output_quality_subscription));
       }
 
-  for (i = 0; i < ARRAY_SIZE(output_buffer.frames); i++)
-    evbuffer_free(output_buffer.frames[i].evbuf);
+  for (i = 0; i < ARRAY_SIZE(output_buffer.data); i++)
+    evbuffer_free(output_buffer.data[i].evbuf);
 }
 
