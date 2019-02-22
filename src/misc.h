@@ -46,6 +46,15 @@ struct keyval {
   struct onekeyval *tail;
 };
 
+struct ringbuffer {
+  uint8_t *buffer;
+  size_t size;
+  size_t write_avail;
+  size_t read_avail;
+  size_t write_pos;
+  size_t read_pos;
+};
+
 
 char **
 buildopts_get(void);
@@ -136,6 +145,18 @@ quality_is_equal(struct media_quality *a, struct media_quality *b);
 // Checks if the address is in a network that is configured as trusted
 bool
 peer_address_is_trusted(const char *addr);
+
+int
+ringbuffer_init(struct ringbuffer *buf, size_t size);
+
+void
+ringbuffer_free(struct ringbuffer *buf, bool content_only);
+
+size_t
+ringbuffer_write(struct ringbuffer *buf, const void* src, size_t srclen);
+
+size_t
+ringbuffer_read(uint8_t **dst, size_t dstlen, struct ringbuffer *buf);
 
 
 #ifndef HAVE_CLOCK_GETTIME
