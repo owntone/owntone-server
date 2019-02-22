@@ -86,7 +86,6 @@ struct input_definition input_spotify =
   .type = INPUT_TYPE_SPOTIFY,
   .disabled = 0,
   .setup = setup,
-  .start = start,
   .stop = stop,
   .seek = seek,
 };
