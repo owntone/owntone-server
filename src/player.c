@@ -126,6 +126,12 @@
 // (value is in milliseconds)
 #define PLAYER_WRITE_BEHIND_MAX 1500
 
+// When we pause, we keep the input open, but we can't do that forever. We must
+// think of the poor streaming servers, for instance. This timeout determines
+// how long we stay paused, before we go to a full stop.
+// (value is in seconds)
+#define PLAYER_PAUSE_TIME_MAX 600
+
 //#define DEBUG_PLAYER 1
 
 struct volume_param {
@@ -226,10 +232,10 @@ struct player_session
   // The time the playback session started
   struct timespec start_ts;
 
-  // The time the first sample in the buffer should be played by the output.
+  // The time the first sample in the buffer should be played by the output,
+  // without taking output buffer time (OUTPUTS_BUFFER_DURATION) into account.
   // It will be equal to:
-  // pts = start_ts + OUTPUTS_BUFFER_DURATION + ticks_elapsed * player_tick_interval
-// TODO is above still correct?
+  // pts = start_ts + ticks_elapsed * player_tick_interval
   struct timespec pts;
 
   // Equals current number of samples written to outputs
@@ -274,11 +280,14 @@ static int pb_timer_fd;
 timer_t pb_timer;
 #endif
 static struct event *pb_timer_ev;
+static struct event *player_pause_timeout_ev;
 
 // Time between ticks, i.e. time between when playback_cb() is invoked
 static struct timespec player_tick_interval;
 // Timer resolution
 static struct timespec player_timer_res;
+
+static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIME_MAX, 0 };
 
 // How many writes we owe the output (when the input is underrunning)
 static int pb_read_deficit;
@@ -290,13 +299,6 @@ static int pb_write_deficit_max;
 // True if we are trying to recover from a major playback timer overrun (write problems)
 static bool pb_write_recovery;
 
-// Sync values
-//static struct timespec pb_pos_stamp;
-//static uint64_t pb_pos;
-
-// Stream position (packets)
-static uint64_t last_rtptime;
-
 // Output status
 static int output_sessions;
 
@@ -306,10 +308,6 @@ static int master_volume;
 // Audio source
 static uint32_t cur_plid;
 static uint32_t cur_plversion;
-
-// Player buffer (holds one packet)
-//static uint8_t pb_buffer[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
-//static size_t pb_buffer_offset;
 
 // Play history
 static struct player_history *history;
@@ -442,6 +440,12 @@ scrobble_cb(void *arg)
   lastfm_scrobble(*id);
 }
 #endif
+
+static void
+pause_timer_cb(int fd, short what, void *arg)
+{
+  playback_abort();
+}
 
 // Callback from the worker thread. Here the heavy lifting is done: updating the
 // db_queue_item, retrieving artwork (through outputs_metadata_prepare) and
@@ -837,6 +841,7 @@ session_update_read_start(uint32_t seek_ms)
   if (!pb_session.reading_now)
     return;
 
+  pb_session.reading_now->pos_ms     = seek_ms;
   pb_session.reading_now->seek_ms    = seek_ms;
   pb_session.reading_now->read_start = pb_session.pos;
 
@@ -1015,7 +1020,8 @@ event_play_start()
 static inline void
 event_read(int nsamples)
 {
-  if (!pb_session.playing_now) // Shouldn't happen
+  // Shouldn't happen, playing_now must be set during playback, but check anyway
+  if (!pb_session.playing_now)
     return;
 
   if (pb_session.playing_now->play_end != 0 && pb_session.pos + nsamples >= pb_session.playing_now->play_end)
@@ -1029,7 +1035,8 @@ event_read(int nsamples)
 	}
     }
 
-  if (pb_session.playing_now->pos_ms == 0 && pb_session.pos + nsamples >= pb_session.playing_now->play_start)
+  // Check if the playback position will be passing the play_start position
+  if (pb_session.pos < pb_session.playing_now->play_start && pb_session.pos + nsamples >= pb_session.playing_now->play_start)
     event_play_start();
 
   session_update_read(nsamples);
@@ -1548,6 +1555,10 @@ playback_timer_start(void)
   struct itimerspec tick;
   int ret;
 
+  // The pause timer will be active if we have recently paused, but now that
+  // the playback loop has been kicked off, we no longer want that
+  event_del(player_pause_timeout_ev);
+
   ret = event_add(pb_timer_ev, NULL);
   if (ret < 0)
     {
@@ -1622,6 +1633,10 @@ playback_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
 
   if (!pb_session.playing_now)
     return -1;
+
+  // The input source is now open and ready, but we might actually be paused. So
+  // we activate the below event in case the user never starts us again
+  event_add(player_pause_timeout_ev, &player_pause_timeout);
 
   return ret;
 }
@@ -3150,7 +3165,6 @@ int
 player_init(void)
 {
   uint64_t interval;
-  uint32_t rnd;
   int ret;
 
   speaker_autoselect = cfg_getbool(cfg_getsec(cfg, "general"), "speaker_autoselect");
@@ -3161,7 +3175,7 @@ player_init(void)
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;
 
-  history = calloc(1, sizeof(struct player_history));
+  CHECK_NULL(L_PLAYER, history = calloc(1, sizeof(struct player_history)));
 
   // Determine if the resolution of the system timer is > or < the size
   // of an audio packet. NOTE: this assumes the system clock resolution
@@ -3169,14 +3183,12 @@ player_init(void)
   if (clock_getres(CLOCK_MONOTONIC, &player_timer_res) < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get the system timer resolution.\n");
-
-      return -1;
+      goto error_history_free;
     }
 
   if (!cfg_getbool(cfg_getsec(cfg, "general"), "high_resolution_clock"))
     {
       DPRINTF(E_INFO, L_PLAYER, "High resolution clock not enabled on this system (res is %ld)\n", player_timer_res.tv_nsec);
-
       player_timer_res.tv_nsec = 10 * PLAYER_TICK_INTERVAL * 1000000;
     }
 
@@ -3197,54 +3209,37 @@ player_init(void)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer: %s\n", strerror(errno));
-
-      return -1;
+      goto error_history_free;
     }
 
-  // Random RTP time start
-  gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
-  last_rtptime = ((uint64_t)1 << 32) | rnd;
-
-  evbase_player = event_base_new();
-  if (!evbase_player)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create an event base\n");
-
-      goto evbase_fail;
-    }
-
+  CHECK_NULL(L_PLAYER, evbase_player = event_base_new());
+  CHECK_NULL(L_PLAYER, player_pause_timeout_ev = evtimer_new(evbase_player, pause_timer_cb, NULL));
 #ifdef HAVE_TIMERFD
-  pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, playback_cb, NULL);
+  CHECK_NULL(L_PLAYER, pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, playback_cb, NULL));
 #else
-  pb_timer_ev = event_new(evbase_player, SIGALRM, EV_SIGNAL | EV_PERSIST, playback_cb, NULL);
+  CHECK_NULL(L_PLAYER, pb_timer_ev = event_new(evbase_player, SIGALRM, EV_SIGNAL | EV_PERSIST, playback_cb, NULL));
 #endif
-  if (!pb_timer_ev)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer event\n");
-      goto evnew_fail;
-    }
-
-  cmdbase = commands_base_new(evbase_player, NULL);
+  CHECK_NULL(L_PLAYER, cmdbase = commands_base_new(evbase_player, NULL));
 
   ret = outputs_init();
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_PLAYER, "Output initiation failed\n");
-      goto outputs_fail;
+      goto error_evbase_free;
     }
 
   ret = input_init();
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_PLAYER, "Input initiation failed\n");
-      goto input_fail;
+      goto error_outputs_deinit;
     }
 
   ret = pthread_create(&tid_player, NULL, player, NULL);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
-      goto thread_fail;
+      goto error_input_deinit;
     }
 #if defined(HAVE_PTHREAD_SETNAME_NP)
   pthread_setname_np(tid_player, "player");
@@ -3254,20 +3249,20 @@ player_init(void)
 
   return 0;
 
- thread_fail:
+ error_input_deinit:
   input_deinit();
- input_fail:
+ error_outputs_deinit:
   outputs_deinit();
- outputs_fail:
+ error_evbase_free:
   commands_base_free(cmdbase);
- evnew_fail:
   event_base_free(evbase_player);
- evbase_fail:
 #ifdef HAVE_TIMERFD
   close(pb_timer_fd);
 #else
   timer_delete(pb_timer);
 #endif
+ error_history_free:
+  free(history);
 
   return -1;
 }
