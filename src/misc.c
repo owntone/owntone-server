@@ -1082,6 +1082,86 @@ peer_address_is_trusted(const char *addr)
   return false;
 }
 
+int
+ringbuffer_init(struct ringbuffer *buf, size_t size)
+{
+  memset(buf, 0, sizeof(struct ringbuffer));
+
+  CHECK_NULL(L_MISC, buf->buffer = malloc(size));
+  buf->size = size;
+  buf->write_avail = size;
+  return 0;
+}
+
+void
+ringbuffer_free(struct ringbuffer *buf, bool content_only)
+{
+  if (!buf)
+    return;
+
+  free(buf->buffer);
+
+  if (content_only)
+    memset(buf, 0, sizeof(struct ringbuffer));
+  else
+    free(buf);
+}
+
+size_t
+ringbuffer_write(struct ringbuffer *buf, const void* src, size_t srclen)
+{
+  int remaining;
+
+  if (buf->write_avail == 0 || srclen == 0)
+    return 0;
+
+  if (srclen > buf->write_avail)
+   srclen = buf->write_avail;
+
+  remaining = buf->size - buf->write_pos;
+  if (srclen > remaining)
+    {
+      memcpy(buf->buffer + buf->write_pos, src, remaining);
+      memcpy(buf->buffer, src + remaining, srclen - remaining);
+    }
+  else
+    {
+      memcpy(buf->buffer + buf->write_pos, src, srclen);
+    }
+
+  buf->write_pos = (buf->write_pos + srclen) % buf->size;
+
+  buf->write_avail -= srclen;
+  buf->read_avail += srclen;
+
+  return srclen;
+}
+
+size_t
+ringbuffer_read(uint8_t **dst, size_t dstlen, struct ringbuffer *buf)
+{
+  int remaining;
+
+  *dst = buf->buffer + buf->read_pos;
+
+  if (buf->read_avail == 0 || dstlen == 0)
+    return 0;
+
+  remaining = buf->size - buf->read_pos;
+
+  // The number of bytes we will return will be MIN(dstlen, remaining, read_avail)
+  if (dstlen > remaining)
+    dstlen = remaining;
+  if (dstlen > buf->read_avail)
+    dstlen = buf->read_avail;
+
+  buf->read_pos = (buf->read_pos + dstlen) % buf->size;
+
+  buf->write_avail += dstlen;
+  buf->read_avail -= dstlen;
+
+  return dstlen;
+}
 
 int
 clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res)
