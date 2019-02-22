@@ -126,6 +126,8 @@
 // (value is in milliseconds)
 #define PLAYER_WRITE_BEHIND_MAX 1500
 
+//#define DEBUG_PLAYER 1
+
 struct volume_param {
   int volume;
   uint64_t spk_id;
@@ -242,9 +244,6 @@ struct player_session
   // reading_now or reading_prev. It should only be NULL if no playback.
   struct player_source *playing_now;
 };
-
-
-static int debug_counter = -1;
 
 static struct player_session pb_session;
 
@@ -716,6 +715,9 @@ source_start(void)
 // is all they do, they should not do anything else. If you are looking for a
 // place to add some non session actions, look further down at the events.
 
+#ifdef DEBUG_PLAYER
+static int debug_dump_counter = -1;
+
 static int
 source_print(char *line, size_t linesize, struct player_source *ps, const char *name)
 {
@@ -740,10 +742,17 @@ source_print(char *line, size_t linesize, struct player_source *ps, const char *
 }
 
 static void
-session_dump(void)
+session_dump(bool use_counter)
 {
   char line[4096];
   int pos = 0;
+
+  if (use_counter)
+    {
+      debug_dump_counter++;
+      if (debug_dump_counter % 100 != 0)
+	return;
+    }
 
   pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
   pos += source_print(line + pos, sizeof(line) - pos, pb_session.reading_now, "reading_now");
@@ -768,6 +777,7 @@ session_dump(void)
 
   DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
 }
+#endif
 
 static void
 session_update_play_eof(void)
@@ -1131,9 +1141,9 @@ playback_cb(int fd, short what, void *arg)
       pb_write_recovery = false;
     }
 
-  debug_counter++;
-  if (debug_counter % 100 == 0)
-    session_dump();
+#ifdef DEBUG_PLAYER
+  session_dump(true);
+#endif
 
   // If there was an overrun, we will try to read/write a corresponding number
   // of times so we catch up. The read from the input is non-blocking, so it
@@ -1754,19 +1764,9 @@ playback_stop(void *arg, int *retval)
   if (pb_session.playing_now && pb_session.playing_now->pos_ms > 0)
     history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
-  // We may be restarting very soon, so we don't bring the devices to a full
-  // stop just yet; this saves time when restarting, which is nicer for the user
-  *retval = outputs_flush(device_command_cb);
-
-  playback_session_stop();
+  playback_abort();
 
   status_update(PLAY_STOPPED);
-
-  outputs_metadata_purge();
-
-  // We're async if we need to flush devices
-  if (*retval > 0)
-    return COMMAND_PENDING;
 
   return COMMAND_END;
 }
