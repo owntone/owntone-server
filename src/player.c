@@ -2218,11 +2218,8 @@ speaker_enumerate(void *arg, int *retval)
 
   for (device = output_device_list; device; device = device->next)
     {
-      if (device->selected)
-	{
-	  device_to_speaker_info(&spk, device);
-	  spk_enum->cb(&spk, spk_enum->arg);
-	}
+      device_to_speaker_info(&spk, device);
+      spk_enum->cb(&spk, spk_enum->arg);
     }
 
   *retval = 0;
