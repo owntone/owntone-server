@@ -153,7 +153,7 @@ struct output_metadata
   struct output_metadata *next;
 };
 
-struct output_frame
+struct output_data
 {
   struct media_quality quality;
   struct evbuffer *evbuf;
@@ -166,7 +166,7 @@ struct output_buffer
 {
   uint32_t write_counter; // REMOVE ME? not used for anything
   struct timespec pts;
-  struct output_frame frames[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
+  struct output_data data[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
 } output_buffer;
 
 typedef void (*output_status_cb)(struct output_device *device, enum output_device_state status);

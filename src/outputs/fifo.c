@@ -413,13 +413,13 @@ fifo_write(struct output_buffer *obuf)
   if (!fifo_session)
     return;
 
-  for (i = 0; obuf->frames[i].buffer; i++)
+  for (i = 0; obuf->data[i].buffer; i++)
     {
-      if (quality_is_equal(&fifo_quality, &obuf->frames[i].quality))
+      if (quality_is_equal(&fifo_quality, &obuf->data[i].quality))
         break;
     }
 
-  if (!obuf->frames[i].buffer)
+  if (!obuf->data[i].buffer)
     {
       DPRINTF(E_LOG, L_FIFO, "Bug! Did not get audio in quality required\n");
       return;
@@ -428,10 +428,10 @@ fifo_write(struct output_buffer *obuf)
   fifo_session->state = OUTPUT_STATE_STREAMING;
 
   CHECK_NULL(L_FIFO, packet = calloc(1, sizeof(struct fifo_packet)));
-  CHECK_NULL(L_FIFO, packet->samples = malloc(obuf->frames[i].bufsize));
+  CHECK_NULL(L_FIFO, packet->samples = malloc(obuf->data[i].bufsize));
 
-  memcpy(packet->samples, obuf->frames[i].buffer, obuf->frames[i].bufsize);
-  packet->samples_size = obuf->frames[i].bufsize;
+  memcpy(packet->samples, obuf->data[i].buffer, obuf->data[i].bufsize);
+  packet->samples_size = obuf->data[i].bufsize;
   packet->pts = obuf->pts;
 
   if (buffer.head)
