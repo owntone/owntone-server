@@ -1905,13 +1905,14 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
     return -1;
 
   query_params.filter = strdup(smartpl_expression.query_where);
+  query_params.order = safe_strdup(smartpl_expression.order);
   free_smartpl(&smartpl_expression, 1);
 
   player_get_status(&status);
 
   ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, NULL);
 
-  free(query_params.filter);
+  free_query_params(&query_params, 1);
 
   return ret;
 
