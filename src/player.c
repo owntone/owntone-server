@@ -241,6 +241,11 @@ struct player_session
   // Equals current number of samples written to outputs
   uint32_t pos;
 
+  // We try to read a fixed number of bytes from the source each clock tick,
+  // but if it gives us less we increase this correspondingly
+  size_t read_deficit;
+  size_t read_deficit_max;
+
   // The item from the queue being read by the input now, previously and next
   struct player_source *reading_now;
   struct player_source *reading_next;
@@ -289,11 +294,7 @@ static struct timespec player_timer_res;
 
 static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIME_MAX, 0 };
 
-// How many writes we owe the output (when the input is underrunning)
-static int pb_read_deficit;
-
-// PLAYER_READ_BEHIND_MAX and PLAYER_WRITE_BEHIND_MAX converted to clock ticks
-static int pb_read_deficit_max;
+// PLAYER_WRITE_BEHIND_MAX converted to clock ticks
 static int pb_write_deficit_max;
 
 // True if we are trying to recover from a major playback timer overrun (write problems)
@@ -879,6 +880,7 @@ session_update_read_quality(struct media_quality *quality)
   pb_session.reading_now->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
 
   pb_session.bufsize = STOB(samples_per_read, quality->bits_per_sample, quality->channels);
+  pb_session.read_deficit_max = STOB(((uint64_t)quality->sample_rate * PLAYER_READ_BEHIND_MAX) / 1000, quality->bits_per_sample, quality->channels);
 
   DPRINTF(E_DBG, L_PLAYER, "New session values (q=%d/%d/%d, spr=%d, bufsize=%zu)\n",
     quality->sample_rate, quality->bits_per_sample, quality->channels, samples_per_read, pb_session.bufsize);
@@ -1155,46 +1157,55 @@ playback_cb(int fd, short what, void *arg)
   session_dump(true);
 #endif
 
+  // The pessimistic approach: Assume you won't get anything, then anything that
+  // comes your way is a positive surprise.
+  pb_session.read_deficit += (1 + overrun) * pb_session.bufsize;
+
   // If there was an overrun, we will try to read/write a corresponding number
   // of times so we catch up. The read from the input is non-blocking, so it
   // should not bring us further behind, even if there is no data.
-  for (i = 1 + overrun + pb_read_deficit; i > 0; i--)
+  for (i = 1 + overrun; i > 0; i--)
     {
       ret = source_read(&nbytes, &nsamples, &quality, pb_session.buffer, pb_session.bufsize);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source\n");
+	  pb_session.read_deficit -= pb_session.bufsize;
 	  break;
 	}
       if (nbytes == 0)
 	{
-	  pb_read_deficit++;
 	  break;
 	}
+
+      pb_session.read_deficit -= nbytes;
 
       outputs_write(pb_session.buffer, pb_session.bufsize, &quality, nsamples, &pb_session.pts);
 
       if (nbytes < pb_session.bufsize)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d\n", pb_session.bufsize, nbytes);
+	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d, deficit %zu\n", pb_session.bufsize, nbytes, pb_session.read_deficit);
 	  // How much the number of samples we got corresponds to in time (nanoseconds)
 	  ts.tv_sec = 0;
 	  ts.tv_nsec = 1000000000L * nsamples / quality.sample_rate;
 	  pb_session.pts = timespec_add(pb_session.pts, ts);
-	  pb_read_deficit++;
 	}
       else
 	{
 	  // We got a full frame, so that means we can also advance the presentation timestamp by a full tick
 	  pb_session.pts = timespec_add(pb_session.pts, player_tick_interval);
-	  if (pb_read_deficit > 0)
-	    pb_read_deficit--;
+
+	  // It is going well, lets take another round to repay our debt
+	  if (i == 1 && pb_session.read_deficit > pb_session.bufsize)
+	    i = 2;
 	}
     }
 
-  if (pb_read_deficit > pb_read_deficit_max)
+  if (pb_session.read_deficit_max && pb_session.read_deficit > pb_session.read_deficit_max)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback (deficit=%d)\n", pb_read_deficit);
+      DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback (deficit=%zu/%zu bytes)\n",
+	pb_session.read_deficit, pb_session.read_deficit_max);
+
       playback_suspend();
     }
 }
@@ -1793,8 +1804,6 @@ static enum command_state
 playback_start_bh(void *arg, int *retval)
 {
   int ret;
-
-  pb_read_deficit = 0;
 
   ret = playback_timer_start();
   if (ret < 0)
@@ -3197,7 +3206,6 @@ player_init(void)
   player_tick_interval.tv_nsec = interval;
 
   pb_write_deficit_max = (PLAYER_WRITE_BEHIND_MAX * 1000000 / interval);
-  pb_read_deficit_max  = (PLAYER_READ_BEHIND_MAX * 1000000 / interval);
 
   // Create the playback timer
 #ifdef HAVE_TIMERFD
