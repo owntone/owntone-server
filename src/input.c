@@ -477,6 +477,12 @@ input_wait(void)
   // Is the buffer full?
   if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
     {
+      if (input_buffer.full_cb)
+	{
+	  input_buffer.full_cb();
+	  input_buffer.full_cb = NULL;
+	}
+
       pthread_mutex_unlock(&input_buffer.mutex);
       return -1;
     }
