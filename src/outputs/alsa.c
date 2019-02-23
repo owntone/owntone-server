@@ -37,17 +37,13 @@
 #include "player.h"
 #include "outputs.h"
 
-// Same as Airplay - maybe not optimal?
-#define ALSA_SAMPLES_PER_PACKET 352
-#define ALSA_PACKET_SIZE STOB(ALSA_SAMPLES_PER_PACKET, 16, 2)
-
 // The maximum number of samples that the output is allowed to get behind (or
 // ahead) of the player position, before compensation is attempted
-#define ALSA_MAX_LATENCY 352
+#define ALSA_MAX_LATENCY 480
 // If latency is jumping up and down we don't do compensation since we probably
 // wouldn't do a good job. This sets the maximum the latency is allowed to vary
 // within the 10 seconds where we measure latency each second.
-#define ALSA_MAX_LATENCY_VARIANCE 352
+#define ALSA_MAX_LATENCY_VARIANCE 480
 
 #define ALSA_F_STARTED  (1 << 15)
 
@@ -77,19 +73,20 @@ struct alsa_session
   int buffer_nsamp;
 
   uint32_t pos;
-  uint32_t start_pos;
+
+  uint32_t last_pos;
+  uint32_t last_buflen;
 
   struct timespec start_pts;
   struct timespec last_pts;
-  snd_htimestamp_t dev_start_ts;
 
-  snd_pcm_sframes_t last_avail;
-  int32_t last_latency;
+  int last_latency;
+  int sync_counter;
 
   // Here we buffer samples during startup
   struct ringbuffer prebuf;
 
-  int offset;
+  int offset_ms;
   int adjust_period_seconds;
 
   int volume;
@@ -456,24 +453,12 @@ device_close(struct alsa_session *as)
     }
 }
 
-static inline void
-device_timestamp(struct alsa_session *as, snd_pcm_sframes_t *delay, snd_pcm_sframes_t *avail, snd_htimestamp_t *ts)
-{
-  snd_pcm_status(as->hdl, as->pcm_status);
-
-  if (delay)
-    *delay = snd_pcm_status_get_delay(as->pcm_status);
-  if (avail)
-    *avail = snd_pcm_status_get_avail(as->pcm_status);
-
-  snd_pcm_status_get_htstamp(as->pcm_status, ts);
-}
-
 static void
 playback_restart(struct alsa_session *as, struct output_buffer *obuf)
 {
+  struct timespec ts;
   snd_pcm_state_t state;
-  snd_pcm_sframes_t delay;
+  snd_pcm_sframes_t offset_nsamp;
   size_t size;
   char *errmsg;
   int ret;
@@ -519,25 +504,22 @@ playback_restart(struct alsa_session *as, struct output_buffer *obuf)
   // Clear prebuffer in case start got called twice without a stop in between
   ringbuffer_free(&as->prebuf, 1);
 
-  as->start_pos = 0;
   as->pos = 0;
 
-  // Time stamps used for syncing
-  as->start_pts = obuf->pts;
+  // Time stamps used for syncing, here we set when playback should start
+  ts.tv_sec = OUTPUTS_BUFFER_DURATION;
+  ts.tv_nsec = (uint64_t)as->offset_ms * 1000000UL;
+  as->start_pts = timespec_add(obuf->pts, ts);
 
-  device_timestamp(as, &delay, &as->last_avail, &as->dev_start_ts);
-  if (as->dev_start_ts.tv_sec == 0 && as->dev_start_ts.tv_nsec == 0)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Can't get timestamps from ALSA, sync check is disabled\n");
-    }
+  // The difference between pos and start pos should match the 2 second buffer
+  // that AirPlay uses (OUTPUTS_BUFFER_DURATION) + user configured offset_ms. We
+  // will not use alsa's buffer for the initial buffering, because my sound
+  // card's start_threshold is not to be counted on. Instead we allocate our own
+  // buffer, and when it is time to play we write as much as we can to alsa's
+  // buffer.
+  offset_nsamp = (as->offset_ms * as->quality.sample_rate / 1000);
 
-  // The difference between pos and start_pos should match the 2 second buffer
-  // that AirPlay uses (OUTPUTS_BUFFER_DURATION). We will not use alsa's buffer
-  // for the initial buffering, because my sound card's start_threshold is not
-  // to be counted on. Instead we allocate our own buffer, and when it is time
-  // to play we write as much as we can to alsa's buffer. Delay might be
-  // non-zero if we are restarting (?).
-  as->buffer_nsamp = OUTPUTS_BUFFER_DURATION * as->quality.sample_rate - delay;
+  as->buffer_nsamp = OUTPUTS_BUFFER_DURATION * as->quality.sample_rate + offset_nsamp;
   size = STOB(as->buffer_nsamp, as->quality.bits_per_sample, as->quality.channels);
   ringbuffer_init(&as->prebuf, size);
 
@@ -603,60 +585,70 @@ buffer_write(struct alsa_session *as, struct output_data *odata, snd_pcm_sframes
 }
 
 static enum alsa_sync_state
-sync_check(snd_pcm_sframes_t *delay, snd_pcm_sframes_t *avail, struct alsa_session *as, struct timespec pts)
+sync_check(struct alsa_session *as)
 {
   enum alsa_sync_state sync;
-  snd_htimestamp_t ts;
-  uint64_t elapsed;
-  uint64_t dev_elapsed;
-  uint64_t pos;
-  uint64_t dev_pos;
-  uint32_t buffered_samples;
+  snd_pcm_sframes_t delay;
+  struct timespec ts;
+  int elapsed;
+  uint64_t cur_pos;
+  uint64_t exp_pos;
   int32_t latency;
+  int ret;
 
-  // We don't need avail for the sync check, but to reduce querying we retrieve
-  // it here as a service for the caller
-  device_timestamp(as, delay, avail, &ts);
-  if (ts.tv_sec == 0 && ts.tv_nsec == 0)
+  as->sync_counter++;
+
+  ret = snd_pcm_delay(as->hdl, &delay);
+  if (ret < 0)
     return ALSA_SYNC_OK;
 
-  // Here we calculate elapsed time since we started, or since we last reset the
-  // sync timers: elapsed is how long the player thinks has elapsed, dev_elapsed
-  // is how long ALSA thinks has elapsed. If these are different, but the
-  // playback positition is the same, then the ALSA clock has drifted and we are
-  // coming out of sync. Unit is milliseconds.
-  elapsed = (pts.tv_sec - as->start_pts.tv_sec) * 1000L + (pts.tv_nsec - as->start_pts.tv_nsec) / 1000000;
-  dev_elapsed = (ts.tv_sec - as->dev_start_ts.tv_sec) * 1000L + (ts.tv_nsec - as->dev_start_ts.tv_nsec) / 1000000;
+  // Would be nice to use snd_pcm_status_get_audio_htstamp here, but it doesn't
+  // seem to be supported on my computer
+  clock_gettime(CLOCK_MONOTONIC, &ts);
 
-  // Now calculate playback positions. The pos is where we should be, dev_pos is
-  // where we actually are.
-  pos = as->start_pos + (elapsed - 1000 * OUTPUTS_BUFFER_DURATION) * as->quality.sample_rate / 1000;
-  buffered_samples = *delay + BTOS(as->prebuf.read_avail, as->quality.bits_per_sample, as->quality.channels);
-  dev_pos = as->start_pos + dev_elapsed * as->quality.sample_rate / 1000 - buffered_samples;
+  // Here we calculate elapsed time since playback was supposed to start, taking
+  // into account buffer time and configuration of offset_ms. We then calculate
+  // our expected position based on elapsed time, and if it is different from
+  // where we are + what is the buffers, then ALSA is out of sync.
+  elapsed = (ts.tv_sec - as->start_pts.tv_sec) * 1000L + (ts.tv_nsec - as->start_pts.tv_nsec) / 1000000;
+  if (elapsed < 0)
+    return ALSA_SYNC_OK;
 
-  // TODO calculate below and above more efficiently?
-  latency = pos - dev_pos;
+  cur_pos = (uint64_t)as->pos - (delay + BTOS(as->prebuf.read_avail, as->quality.bits_per_sample, as->quality.channels));
+  exp_pos = (uint64_t)elapsed * as->quality.sample_rate / 1000;
+  latency = cur_pos - exp_pos;
 
-  // If the latency is low or very different from our last measurement, we will wait and see
+  // If the latency is low or very different from our last measurement, we reset the sync_counter
   if (abs(latency) < ALSA_MAX_LATENCY || abs(as->last_latency - latency) > ALSA_MAX_LATENCY_VARIANCE)
-    sync = ALSA_SYNC_OK;
-  else if (latency > 0)
-    sync = ALSA_SYNC_BEHIND;
+    {
+      as->sync_counter = 0;
+      sync = ALSA_SYNC_OK;
+    }
+  // If we have measured a consistent latency for configured period, then we take action
+  else if (as->sync_counter >= as->adjust_period_seconds)
+    {
+      as->sync_counter = 0;
+      if (latency < 0)
+	sync = ALSA_SYNC_BEHIND;
+      else
+	sync = ALSA_SYNC_AHEAD;
+    }
   else
-    sync = ALSA_SYNC_AHEAD;
+    sync = ALSA_SYNC_OK;
 
   // The will be used by sync_correct, so it knows how much we are out of sync
   as->last_latency = latency;
 
-  DPRINTF(E_DBG, L_LAUDIO, "Sync=%d, pos=%" PRIu64 ", as->pos=%u, dev_pos=%" PRIu64 ", latency=%d, delay=%li, avail=%li, elapsed=%" PRIu64 ", dev_elapsed=%" PRIu64 "\n",
-    sync, pos, as->pos, dev_pos, latency, *delay, *avail, elapsed / 1000000, dev_elapsed / 1000000);
+  DPRINTF(E_DBG, L_LAUDIO, "start %lu:%lu, now %lu:%lu, elapsed is %d ms, cur_pos=%" PRIu64 ", exp_pos=%" PRIu64 ", latency=%d\n",
+    as->start_pts.tv_sec, as->start_pts.tv_nsec / 1000000, ts.tv_sec, ts.tv_nsec / 1000000, elapsed, cur_pos, exp_pos, latency);
 
   return sync;
 }
 
 static void
-sync_correct(void)
+sync_correct(struct alsa_session *as)
 {
+  DPRINTF(E_INFO, L_LAUDIO, "Here we should take action to compensate for ALSA latency of %d samples\n", as->last_latency);
   // Not implemented yet
 }
 
@@ -664,7 +656,7 @@ static void
 playback_write(struct alsa_session *as, struct output_buffer *obuf)
 {
   snd_pcm_sframes_t ret;
-  snd_pcm_sframes_t delay;
+  snd_pcm_sframes_t avail;
   enum alsa_sync_state sync;
   bool prebuffering;
   int i;
@@ -692,17 +684,19 @@ playback_write(struct alsa_session *as, struct output_buffer *obuf)
       return;
     }
 
-  // Check sync each time a second has passed
+  // Check sync each second (or if this is first write where last_pts is zero)
   if (obuf->pts.tv_sec != as->last_pts.tv_sec)
     {
-      sync = sync_check(&delay, &as->last_avail, as, obuf->pts);
+      sync = sync_check(as);
       if (sync != ALSA_SYNC_OK)
-	sync_correct();
+	sync_correct(as);
 
       as->last_pts = obuf->pts;
     }
 
-  ret = buffer_write(as, &obuf->data[i], as->last_avail);
+  avail = snd_pcm_avail(as->hdl);
+
+  ret = buffer_write(as, &obuf->data[i], avail);
   if (ret < 0)
     goto alsa_error;
 
@@ -798,15 +792,13 @@ alsa_session_make(struct output_device *device, int callback_id)
   if (!as->mixer_device_name || strlen(as->mixer_device_name) == 0)
     as->mixer_device_name = cfg_getstr(cfg_audio, "card");
 
-  // TODO implement
-  as->offset = cfg_getint(cfg_audio, "offset");
-  if (abs(as->offset) > 44100)
+  as->offset_ms = cfg_getint(cfg_audio, "offset_ms");
+  if (abs(as->offset_ms) > 1000)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset (%d) set in the configuration is out of bounds\n", as->offset);
-      as->offset = 44100 * (as->offset/abs(as->offset));
+      DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset_ms (%d) set in the configuration is out of bounds\n", as->offset_ms);
+      as->offset_ms = 1000 * (as->offset_ms/abs(as->offset_ms));
     }
 
-  // TODO implement
   original_adjust = cfg_getint(cfg_audio, "adjust_period_seconds");
   if (original_adjust < 1)
     as->adjust_period_seconds = 1;

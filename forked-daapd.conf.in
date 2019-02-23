@@ -218,11 +218,11 @@ audio {
 #	mixer_device = ""
 
 	# Synchronization
-	# If your local audio is out of sync with AirPlay, you can adjust this
-	# value. Positive values correspond to moving local audio ahead,
-	# negative correspond to delaying it. The unit is samples, where is
-	# 44100 = 1 second. The offset must be between -44100 and 44100.
-#	offset = 0
+	# If your local audio is out of sync with other speakers, e.g. Airplay,
+	# adjust this value. Negative values correspond to moving local audio
+	# ahead, positive correspond to delaying it. The unit is milliseconds.
+	# The offset must be between -1000 and 1000 (+/- 1 sec).
+#	offset_ms = 0
 
 	# How often to check and correct for drift between ALSA and AirPlay.
 	# The value is an integer expressed in seconds.
