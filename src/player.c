@@ -852,7 +852,7 @@ static inline void
 session_update_read(int nsamples)
 {
   // Did we just complete our first read? Then set the start timestamp
-  if (pb_session.pos == 0)
+  if (pb_session.start_ts.tv_sec == 0)
     {
       clock_gettime_with_res(CLOCK_MONOTONIC, &pb_session.start_ts, &player_timer_res);
       pb_session.pts = pb_session.start_ts;
@@ -1089,7 +1089,10 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
     }
 
   if (*nbytes == 0 || quality->channels == 0)
-    return 0;
+    {
+      event_read(0); // This will set start_ts even if source isn't open yet
+      return 0;
+    }
 
   *nsamples = BTOS(*nbytes, quality->bits_per_sample, quality->channels);
 
