@@ -1893,7 +1893,7 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
   memset(&query_params, 0, sizeof(struct query_params));
 
   query_params.type = Q_ITEMS;
-  query_params.sort = S_ALBUM;
+  query_params.sort = S_NAME;
   query_params.idx_type = I_NONE;
 
   memset(&smartpl_expression, 0, sizeof(struct smartpl));
