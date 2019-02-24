@@ -4,7 +4,7 @@
       <div class="container has-text-centered fd-has-margin-top">
         <h1 class="title is-4">
           {{ now_playing.title }}
-          <div class="subtitle is-6" v-show="composer_visible">
+          <div class="subtitle has-text-grey is-7" v-show="composer_visible">
             {{ composer() }}
           </div>
         </h1>
