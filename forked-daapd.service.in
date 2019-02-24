@@ -6,6 +6,21 @@ After=network.target sound.target remote-fs.target pulseaudio.service avahi-daem
 [Service]
 ExecStart=@sbindir@/forked-daapd -f
 
+# Constrain the upper limit of memory/swap that can be used; this prevents 
+# forked-daapd from consuming all system memory (in event of bug/malformed user
+# curl/SMARTPL query etc) that would hang/freeze low resource and headless (ie 
+# RPi) machines
+#
+# systemd will kill the process in such an event but would be auto-restarted as
+# per 'Restart' directive below
+#
+# Values derived from obersvations on rpi3 under load - limits are >50% above
+# seen high watermarks 
+# 
+# https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html
+MemoryMax=256M
+MemorySwapMax=32M
+
 # Restart, but not more than once every 10 minutes
 Restart=on-failure
 StartLimitBurst=2
