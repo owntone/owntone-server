@@ -1868,6 +1868,14 @@ get_status(void *arg, int *retval)
 	DPRINTF(E_DBG, L_PLAYER, "Player status: stopped\n");
 
 	status->status  = PLAY_STOPPED;
+	if (pb_session.playing_now)
+          {
+            status->id      = pb_session.playing_now->id;
+            status->item_id = pb_session.playing_now->item_id;
+            status->pos_ms  = 0;
+            status->len_ms  = pb_session.playing_now->len_ms;
+          }
+
 	break;
 
       case PLAY_PAUSED:
@@ -2118,9 +2126,15 @@ playback_start(void *arg, int *retval)
   if (player_state == PLAY_STOPPED)
     {
       // Start playback of first item in queue
-      queue_item = db_queue_fetch_bypos(0, shuffle);
+      //  OR
+      // where have we previous moved the (stopped) playhead to
+
+      queue_item = (pb_session.playing_now == NULL) ?
+          db_queue_fetch_bypos(0, shuffle) :
+          db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+
       if (!queue_item)
-	return COMMAND_END;
+        return COMMAND_END;
     }
 
   cmd_state = playback_start_item(queue_item, retval);
@@ -2134,13 +2148,34 @@ static enum command_state
 playback_prev_bh(void *arg, int *retval)
 {
   struct db_queue_item *queue_item;
+  uint32_t queue_count;
   int ret;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
   // from the output, which in streaming_cb() can cause pb_abort()
   if (player_state == PLAY_STOPPED)
     {
-      goto error;
+      if (pb_session.playing_now == NULL)
+        goto error;
+ 
+      // now move the playhead
+      queue_item = queue_item_prev(pb_session.playing_now->item_id);
+      if (!queue_item)
+	{
+	  ret = db_queue_get_count(&queue_count);
+          if (ret < 0)
+	    goto error;
+	  queue_item = db_queue_fetch_bypos(queue_count-1, shuffle);
+	  if (!queue_item)
+	    goto error;
+	}
+
+      pb_session_start(queue_item, 0);
+      free_queue_item(queue_item, 0);
+      status_update(player_state, LISTENER_PLAYER);
+
+      *retval = 0;
+      return COMMAND_END;
     }
 
   // Only add to history if playback started
@@ -2150,9 +2185,21 @@ playback_prev_bh(void *arg, int *retval)
   // Only skip to the previous song if the playing time is less than 3 seconds,
   // otherwise restart the current song.
   if (pb_session.playing_now->pos_ms < 3000)
-    queue_item = queue_item_prev(pb_session.playing_now->item_id);
+    {
+      // wrap around to end if are we at the front of Q
+      if (db_queue_get_pos(pb_session.playing_now->item_id, shuffle) == 0)
+        {
+          ret = db_queue_get_count(&queue_count);
+          if (ret < 0)
+            goto error;
+          queue_item = db_queue_fetch_bypos(queue_count-1, shuffle);
+        }
+      else
+	queue_item = queue_item_prev(pb_session.playing_now->item_id);
+    }
   else
     queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+
   if (!queue_item)
     {
       DPRINTF(E_DBG, L_PLAYER, "Error finding previous source, queue item has disappeared\n");
@@ -2185,12 +2232,37 @@ playback_next_bh(void *arg, int *retval)
   struct db_queue_item *queue_item;
   int ret;
   int id;
+  uint32_t queue_count;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
   // from the output, which in streaming_cb() can cause pb_abort()
   if (player_state == PLAY_STOPPED)
     {
-      goto error;
+      if (pb_session.playing_now == NULL)
+        goto error;
+
+      DPRINTF(E_DBG, L_PLAYER, "next_bh - STOPPED, moving playhead\n");
+      *retval = -1;
+
+      // now move the playhead
+      queue_item = queue_item_next(pb_session.playing_now->item_id);
+      if (!queue_item)
+	{
+	  // at end of queue, get from start
+	  queue_item = db_queue_fetch_bypos(0, shuffle);
+	  if (!queue_item)
+	    return COMMAND_END;
+	}
+
+      ret = pb_session_start(queue_item, 0);
+      free_queue_item(queue_item, 0);
+      if (ret < 0)
+	return COMMAND_END;
+
+      status_update(player_state, LISTENER_PLAYER);
+
+      *retval = 0;
+      return COMMAND_END;
     }
 
   // Only add to history if playback started
@@ -2202,11 +2274,37 @@ playback_next_bh(void *arg, int *retval)
       worker_execute(skipcount_inc_cb, &id, sizeof(int), 5);
     }
 
-  queue_item = queue_item_next(pb_session.playing_now->item_id);
-  if (!queue_item)
+  ret = db_queue_get_count(&queue_count);
+  if (ret < 0)
+    goto error;
+
+  if (db_queue_get_pos(pb_session.playing_now->item_id, shuffle) == queue_count-1)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Error finding next source, queue item has disappeared\n");
-      goto error;
+      /* last item on queue skip fwd and move it to start of queue
+       * operation
+       */
+      queue_item = db_queue_fetch_bypos(0, shuffle);
+      if (!queue_item)
+        {
+          *retval = -1;
+          return COMMAND_END;
+        }
+
+      ret = pb_session_start(queue_item, 0);
+      if (ret < 0)
+	{
+	  free_queue_item(queue_item, 0);
+	  goto error;
+	}
+    }
+  else
+    {
+      queue_item = queue_item_next(pb_session.playing_now->item_id);
+      if (!queue_item)
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Error finding next source, queue item has disappeared\n");
+	  goto error;
+	}
     }
 
   if (consume)
@@ -2441,6 +2539,39 @@ playback_seek(void *arg, int *retval)
       return COMMAND_END;
     }
 
+  return playback_pause(arg, retval);
+}
+
+/* ensure that cur_{play,stream}ing object is set in the non playing state and 
+ * returns otherwise drops through to performing actual pause
+ */
+static enum command_state
+playback_pause_set_stream(void *arg, int *retval)
+{
+  struct db_queue_item *queue_item = NULL;
+  int ret = 0;
+
+  *retval = -1;
+
+  if (player_state == PLAY_STOPPED)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "pause_set_stream - not playing, obtaining player source\n");
+ 
+      if (pb_session.playing_now == NULL)
+        {
+          // havent moved playhead
+          queue_item = db_queue_fetch_bypos(0, shuffle);
+          if (!queue_item)
+            return COMMAND_END;
+
+	  ret = pb_session_start(queue_item, 0);
+          free_queue_item(queue_item, 0);
+        }
+
+      *retval = ret;
+      return COMMAND_END;
+    }
+  
   return playback_pause(arg, retval);
 }
 
@@ -3142,7 +3273,7 @@ player_playback_next(void)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, playback_pause, playback_next_bh, NULL);
+  ret = commands_exec_sync(cmdbase, playback_pause_set_stream, playback_next_bh, NULL);
   return ret;
 }
 
@@ -3151,7 +3282,7 @@ player_playback_prev(void)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, playback_pause, playback_prev_bh, NULL);
+  ret = commands_exec_sync(cmdbase, playback_pause_set_stream, playback_prev_bh, NULL);
   return ret;
 }
 
