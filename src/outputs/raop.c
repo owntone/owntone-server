@@ -2991,6 +2991,7 @@ packets_sync_send(struct raop_master_session *rms, struct timespec pts)
   struct rtp_packet *sync_pkt;
   struct raop_session *rs;
   struct rtcp_timestamp cur_stamp;
+  struct timespec ts;
   bool is_sync_time;
 
   // Check if it is time send a sync packet to sessions that are already running
@@ -3005,6 +3006,8 @@ packets_sync_send(struct raop_master_session *rms, struct timespec pts)
 // TODO update comment to match reality
   cur_stamp.ts.tv_sec = pts.tv_sec;
   cur_stamp.ts.tv_nsec = pts.tv_nsec;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
 
   // The cur_pos will be the rtptime of the coming packet, minus
   // OUTPUTS_BUFFER_DURATION in samples (output_buffer_samples). Because we
@@ -3023,7 +3026,8 @@ packets_sync_send(struct raop_master_session *rms, struct timespec pts)
 	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, &cur_stamp, 0x90);
 	  control_packet_send(rs, sync_pkt);
 
-	  DPRINTF(E_DBG, L_PLAYER, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", rtptime=%" PRIu32 "\n", rs->devname, cur_stamp.pos, rms->rtp_session->pos);
+	  DPRINTF(E_DBG, L_PLAYER, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%lu:%lu, now=%lu:%lu, rtptime=%" PRIu32 ",\n",
+	    rs->devname, cur_stamp.pos, cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, rms->rtp_session->pos);
 	}
       else if (is_sync_time && rs->state == RAOP_STATE_STREAMING)
 	{
