@@ -1053,9 +1053,19 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
 {
   short flags;
 
-  // Nothing to read, stream silence until event_read() stops playback
-  if (!pb_session.reading_now && pb_session.playing_now)
+  // Nothing to read
+  if (!pb_session.reading_now)
     {
+      // This can happen if the loop tries to catch up with an overrun or a
+      // deficit, but the playback ends in the first iteration
+      if (!pb_session.playing_now)
+	{
+	  *nbytes = 0;
+	  *nsamples = 0;
+	  return 0;
+	}
+
+      // Stream silence until event_read() stops playback
       memset(buf, 0, len);
       *quality = pb_session.playing_now->quality;
       *nbytes = len;
