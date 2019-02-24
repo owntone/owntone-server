@@ -8,7 +8,7 @@
         <div>
           <p class="is-size-7 fd-is-text-clipped">
             <strong>{{ now_playing.title }}</strong><br>
-            {{ now_playing.artist }}
+            {{ now_playing.artist }}<span v-if="now_playing.data_kind === 'url'"> - {{ now_playing.album }}</span>
           </p>
         </div>
       </router-link>

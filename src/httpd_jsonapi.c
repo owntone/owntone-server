@@ -1893,7 +1893,7 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
   memset(&query_params, 0, sizeof(struct query_params));
 
   query_params.type = Q_ITEMS;
-  query_params.sort = S_ALBUM;
+  query_params.sort = S_NAME;
   query_params.idx_type = I_NONE;
 
   memset(&smartpl_expression, 0, sizeof(struct smartpl));
@@ -1905,13 +1905,14 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
     return -1;
 
   query_params.filter = strdup(smartpl_expression.query_where);
+  query_params.order = safe_strdup(smartpl_expression.order);
   free_smartpl(&smartpl_expression, 1);
 
   player_get_status(&status);
 
   ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, NULL);
 
-  free(query_params.filter);
+  free_query_params(&query_params, 1);
 
   return ret;
 
@@ -1995,7 +1996,10 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   param = evhttp_find_header(hreq->query, "playback");
   if (param && strcmp(param, "start") == 0)
     {
-      player_playback_start();
+      if ((param = evhttp_find_header(hreq->query, "playback_from_position")))
+	play_item_at_position(param);
+      else
+	player_playback_start();
     }
 
   return HTTP_OK;

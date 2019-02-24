@@ -41,11 +41,9 @@ export default {
     return axios.put('/api/queue/items/' + itemId + '?new_position=' + newPosition)
   },
 
-  queue_add (uri, showNotification = true) {
+  queue_add (uri) {
     return axios.post('/api/queue/items/add?uris=' + uri).then((response) => {
-      if (showNotification) {
-        store.dispatch('add_notification', { text: response.data.count + ' tracks appended to queue', type: 'info', timeout: 2000 })
-      }
+      store.dispatch('add_notification', { text: response.data.count + ' tracks appended to queue', type: 'info', timeout: 2000 })
       return Promise.resolve(response)
     })
   },
@@ -61,18 +59,54 @@ export default {
     })
   },
 
+  queue_expression_add (expression) {
+    var options = {}
+    options.expression = expression
+
+    return axios.post('/api/queue/items/add', undefined, { params: options }).then((response) => {
+      store.dispatch('add_notification', { text: response.data.count + ' tracks appended to queue', type: 'info', timeout: 2000 })
+      return Promise.resolve(response)
+    })
+  },
+
+  queue_expression_add_next (expression) {
+    var options = {}
+    options.expression = expression
+    options.position = 0
+    if (store.getters.now_playing && store.getters.now_playing.id) {
+      options.position = store.getters.now_playing.position + 1
+    }
+
+    return axios.post('/api/queue/items/add', undefined, { params: options }).then((response) => {
+      store.dispatch('add_notification', { text: response.data.count + ' tracks appended to queue', type: 'info', timeout: 2000 })
+      return Promise.resolve(response)
+    })
+  },
+
   player_status () {
     return axios.get('/api/player')
   },
 
   player_play_uri (uris, shuffle, position = undefined) {
-    return this.queue_clear().then(() =>
-      this.player_shuffle(shuffle).then(() =>
-        this.queue_add(uris, false).then(() =>
-          this.player_play({ 'position': position })
-        )
-      )
-    )
+    var options = {}
+    options.uris = uris
+    options.shuffle = shuffle ? 'true' : 'false'
+    options.clear = 'true'
+    options.playback = 'start'
+    options.playback_from_position = position
+
+    return axios.post('/api/queue/items/add', undefined, { params: options })
+  },
+
+  player_play_expression (expression, shuffle, position = undefined) {
+    var options = {}
+    options.expression = expression
+    options.shuffle = shuffle ? 'true' : 'false'
+    options.clear = 'true'
+    options.playback = 'start'
+    options.playback_from_position = position
+
+    return axios.post('/api/queue/items/add', undefined, { params: options })
   },
 
   player_play (options = {}) {

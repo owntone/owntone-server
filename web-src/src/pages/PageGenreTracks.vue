@@ -84,11 +84,11 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_uri(this.tracks.items.map(a => a.uri).join(','), true)
+      webapi.player_play_expression('genre is "' + this.genre + '" and media_kind is music', true)
     },
 
     play_track: function (position) {
-      webapi.player_play_uri(this.tracks.items.map(a => a.uri).join(','), false, position)
+      webapi.player_play_expression('genre is "' + this.genre + '" and media_kind is music', false, position)
     },
 
     open_dialog: function (track) {

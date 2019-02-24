@@ -153,9 +153,7 @@ export default {
     },
 
     play: function () {
-      webapi.search({ 'type': 'tracks', 'expression': 'path starts with "' + this.current_directory + '" order by path asc' }).then(({ data }) => {
-        webapi.player_play_uri(data.tracks.items.map(a => a.uri).join(','), false)
-      })
+      webapi.player_play_expression('path starts with "' + this.current_directory + '" order by path asc', false)
     },
 
     play_track: function (position) {

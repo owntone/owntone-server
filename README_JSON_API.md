@@ -600,6 +600,7 @@ POST /api/queue/items/add
 | expression      | A smart playlist query expression identifying the tracks that will be added to the queue.                          |
 | position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.            |
 | playback        | *(Optional)* If the `playback` parameter is set to `start`, playback will be started after adding the new items. |
+| playback_from_position | *(Optional)* If the `playback` parameter is set to `start`, playback will be started with the queue item at the position given in `playback_from_position`. |
 | clear           | *(Optional)* If the `clear` parameter is set to `true`, the queue will be cleared before adding the new items.    |
 | shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.    |
 
@@ -2048,7 +2049,7 @@ curl --include \
 | date_released      | string   | Date in the format `yyyy-mm-dd`         |
 | seek_ms            | integer  | Resume point in milliseconds (available only for podcasts and audiobooks) |
 | media_kind         | string   | Media type of this track: `music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow` |
-| data_kind          | string   | Data type of this track: `file`, `stream`, `spotify`, `pipe` |
+| data_kind          | string   | Data type of this track: `file`, `url`, `spotify`, `pipe` |
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
 | artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |

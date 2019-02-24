@@ -39,23 +39,17 @@ export default {
   methods: {
     play: function () {
       this.$emit('close')
-      webapi.search({ 'type': 'tracks', 'expression': 'path starts with "' + this.directory.path + '" order by path asc' }).then(({ data }) => {
-        webapi.player_play_uri(data.tracks.items.map(a => a.uri).join(','), false)
-      })
+      webapi.player_play_expression('path starts with "' + this.directory.path + '" order by path asc', false)
     },
 
     queue_add: function () {
       this.$emit('close')
-      webapi.search({ 'type': 'tracks', 'expression': 'path starts with "' + this.directory.path + '" order by path asc' }).then(({ data }) => {
-        webapi.queue_add(data.tracks.items.map(a => a.uri).join(','))
-      })
+      webapi.queue_expression_add('path starts with "' + this.directory.path + '" order by path asc')
     },
 
     queue_add_next: function () {
       this.$emit('close')
-      webapi.search({ 'type': 'tracks', 'expression': 'path starts with "' + this.directory.path + '" order by path asc' }).then(({ data }) => {
-        webapi.queue_add_next(data.tracks.items.map(a => a.uri).join(','))
-      })
+      webapi.queue_expression_add_next('path starts with "' + this.directory.path + '" order by path asc')
     }
   }
 }
