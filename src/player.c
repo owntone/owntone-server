@@ -712,10 +712,14 @@ source_next(void)
 static int
 source_start(void)
 {
+  short flags;
+
   if (!pb_session.reading_next)
     return 0;
 
   DPRINTF(E_DBG, L_PLAYER, "(Re)opening track: '%s' (id=%d, seek=%d)\n", pb_session.reading_next->path, pb_session.reading_next->item_id, pb_session.reading_next->seek_ms);
+
+  input_flush(&flags);
 
   return input_seek(pb_session.reading_next->item_id, (int)pb_session.reading_next->seek_ms);
 }
@@ -829,7 +833,7 @@ session_update_read_eof(void)
     return;
 
   // We inherit this because the input will only notify on quality changes, not
-  // if it the same as the previous track
+  // if it is the same as the previous track
   pb_session.reading_now->quality = pb_session.reading_prev->quality;
   pb_session.reading_now->output_buffer_samples = pb_session.reading_prev->output_buffer_samples;
 
@@ -1110,6 +1114,7 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
   if (*nbytes == 0 || quality->channels == 0)
     {
       event_read(0); // This will set start_ts even if source isn't open yet
+      event_read_quality(); // Will poll input for quality since we don't have it
       return 0;
     }
 
