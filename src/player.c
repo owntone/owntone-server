@@ -132,6 +132,12 @@
 // (value is in seconds)
 #define PLAYER_PAUSE_TIME_MAX 600
 
+// When we stop, we keep the outputs open for a while, just in case we are
+// actually just restarting. This timeout determines how long we wait before
+// full stop.
+// (value is in seconds)
+#define PLAYER_STOP_TIME_MAX 10
+
 //#define DEBUG_PLAYER 1
 
 struct volume_param {
@@ -285,7 +291,7 @@ static int pb_timer_fd;
 timer_t pb_timer;
 #endif
 static struct event *pb_timer_ev;
-static struct event *player_pause_timeout_ev;
+static struct event *player_abort_timeout_ev;
 
 // Time between ticks, i.e. time between when playback_cb() is invoked
 static struct timespec player_tick_interval;
@@ -293,6 +299,7 @@ static struct timespec player_tick_interval;
 static struct timespec player_timer_res;
 
 static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIME_MAX, 0 };
+static struct timeval player_stop_timeout = { PLAYER_STOP_TIME_MAX, 0 };
 
 // PLAYER_WRITE_BEHIND_MAX converted to clock ticks
 static int pb_write_deficit_max;
@@ -1581,7 +1588,7 @@ playback_timer_start(void)
 
   // The pause timer will be active if we have recently paused, but now that
   // the playback loop has been kicked off, we no longer want that
-  event_del(player_pause_timeout_ev);
+  event_del(player_abort_timeout_ev);
 
   ret = event_add(pb_timer_ev, NULL);
   if (ret < 0)
@@ -1660,7 +1667,7 @@ playback_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
 
   // The input source is now open and ready, but we might actually be paused. So
   // we activate the below event in case the user never starts us again
-  event_add(player_pause_timeout_ev, &player_pause_timeout);
+  event_add(player_abort_timeout_ev, &player_pause_timeout);
 
   return ret;
 }
@@ -1803,9 +1810,22 @@ playback_stop(void *arg, int *retval)
   if (pb_session.playing_now && pb_session.playing_now->pos_ms > 0)
     history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
-  playback_abort();
+  // We may be restarting very soon, so we don't bring the devices to a full
+  // stop just yet; this saves time when restarting, which is nicer for the user
+  *retval = outputs_flush(device_command_cb);
+
+  playback_session_stop();
 
   status_update(PLAY_STOPPED);
+
+  outputs_metadata_purge();
+
+  // In case we aren't restarting soon we want to make a full stop
+  event_add(player_abort_timeout_ev, &player_stop_timeout);
+
+  // We're async if we need to flush devices
+  if (*retval > 0)
+    return COMMAND_PENDING;
 
   return COMMAND_END;
 }
@@ -3231,7 +3251,7 @@ player_init(void)
     }
 
   CHECK_NULL(L_PLAYER, evbase_player = event_base_new());
-  CHECK_NULL(L_PLAYER, player_pause_timeout_ev = evtimer_new(evbase_player, pause_timer_cb, NULL));
+  CHECK_NULL(L_PLAYER, player_abort_timeout_ev = evtimer_new(evbase_player, pause_timer_cb, NULL));
 #ifdef HAVE_TIMERFD
   CHECK_NULL(L_PLAYER, pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, playback_cb, NULL));
 #else
