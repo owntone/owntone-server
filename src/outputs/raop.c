@@ -1939,7 +1939,7 @@ session_teardown_cb(struct evrtsp_request *req, void *arg)
   if (!req || req->response_code != RTSP_OK)
     DPRINTF(E_LOG, L_RAOP, "TEARDOWN request failed in session shutdown: %d %s\n", req->response_code, req->response_code_line);
 
-  rs->state = OUTPUT_STATE_STOPPED;
+  rs->state = RAOP_STATE_STOPPED;
 
   raop_status(rs);
 
@@ -4817,7 +4817,6 @@ static int
 raop_device_flush(struct output_device *device, int callback_id)
 {
   struct raop_session *rs = device->session;
-  struct timeval tv;
   int ret;
 
   if (rs->state != RAOP_STATE_STREAMING)
@@ -4828,10 +4827,6 @@ raop_device_flush(struct output_device *device, int callback_id)
     return -1;
 
   rs->callback_id = callback_id;
-
-  evutil_timerclear(&tv);
-  tv.tv_sec = 10;
-  evtimer_add(rs->deferredev, &tv);
 
   return 0;
 }
@@ -4901,8 +4896,6 @@ raop_write(struct output_buffer *obuf)
     {
       if (rs->state != RAOP_STATE_CONNECTED)
 	continue;
-
-      event_del(rs->deferredev); // Kills flush timer in case playback was stopped but then restarted again
 
       rs->state = RAOP_STATE_STREAMING;
       // Make a cb?
