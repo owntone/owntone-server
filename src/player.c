@@ -1106,7 +1106,7 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
     {
       event_metadata_new();
     }
-  else if (flags & INPUT_FLAG_QUALITY)
+  else if (flags & INPUT_FLAG_QUALITY || quality->channels == 0)
     {
       event_read_quality();
     }
@@ -1114,7 +1114,6 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
   if (*nbytes == 0 || quality->channels == 0)
     {
       event_read(0); // This will set start_ts even if source isn't open yet
-      event_read_quality(); // Will poll input for quality since we don't have it
       return 0;
     }
 
