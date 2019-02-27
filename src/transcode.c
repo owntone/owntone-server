@@ -216,6 +216,16 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile)
 	settings->sample_format = AV_SAMPLE_FMT_S16;
 	break;
 
+      case XCODE_PCM16_96000:
+	settings->encode_audio = 1;
+	settings->format = "s16le";
+	settings->audio_codec = AV_CODEC_ID_PCM_S16LE;
+	settings->sample_rate = 96000;
+	settings->channel_layout = AV_CH_LAYOUT_STEREO;
+	settings->channels = 2;
+	settings->sample_format = AV_SAMPLE_FMT_S16;
+	break;
+
       case XCODE_PCM24_44100:
 	settings->encode_audio = 1;
 	settings->format = "s24le";
@@ -231,6 +241,46 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile)
 	settings->format = "s24le";
 	settings->audio_codec = AV_CODEC_ID_PCM_S24LE;
 	settings->sample_rate = 48000;
+	settings->channel_layout = AV_CH_LAYOUT_STEREO;
+	settings->channels = 2;
+	settings->sample_format = AV_SAMPLE_FMT_S32;
+	break;
+
+      case XCODE_PCM24_96000:
+	settings->encode_audio = 1;
+	settings->format = "s24le";
+	settings->audio_codec = AV_CODEC_ID_PCM_S24LE;
+	settings->sample_rate = 96000;
+	settings->channel_layout = AV_CH_LAYOUT_STEREO;
+	settings->channels = 2;
+	settings->sample_format = AV_SAMPLE_FMT_S32;
+	break;
+
+      case XCODE_PCM32_44100:
+	settings->encode_audio = 1;
+	settings->format = "s32le";
+	settings->audio_codec = AV_CODEC_ID_PCM_S32LE;
+	settings->sample_rate = 44100;
+	settings->channel_layout = AV_CH_LAYOUT_STEREO;
+	settings->channels = 2;
+	settings->sample_format = AV_SAMPLE_FMT_S32;
+	break;
+
+      case XCODE_PCM32_48000:
+	settings->encode_audio = 1;
+	settings->format = "s32le";
+	settings->audio_codec = AV_CODEC_ID_PCM_S32LE;
+	settings->sample_rate = 48000;
+	settings->channel_layout = AV_CH_LAYOUT_STEREO;
+	settings->channels = 2;
+	settings->sample_format = AV_SAMPLE_FMT_S32;
+	break;
+
+      case XCODE_PCM32_96000:
+	settings->encode_audio = 1;
+	settings->format = "s32le";
+	settings->audio_codec = AV_CODEC_ID_PCM_S32LE;
+	settings->sample_rate = 96000;
 	settings->channel_layout = AV_CH_LAYOUT_STEREO;
 	settings->channels = 2;
 	settings->sample_format = AV_SAMPLE_FMT_S32;
@@ -1198,17 +1248,19 @@ transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ct
   ctx->settings.width = width;
   ctx->settings.height = height;
 
+  // Profile does not specify a sample rate -> use same as source
   if (!ctx->settings.sample_rate && ctx->settings.encode_audio)
     ctx->settings.sample_rate = src_ctx->audio_stream.codec->sample_rate;
 
+  // Profile does not specify a sample format -> use same as source
   if (!ctx->settings.sample_format && ctx->settings.encode_audio)
     {
-      bps = av_get_bits_per_sample(src_ctx->audio_stream.codec->codec_id);
-      if (bps >= 24)
+      bps = av_get_bytes_per_sample(src_ctx->audio_stream.codec->sample_fmt);
+      if (bps == 4)
 	{
 	  ctx->settings.sample_format = AV_SAMPLE_FMT_S32;
-	  ctx->settings.audio_codec = AV_CODEC_ID_PCM_S24LE;
-	  ctx->settings.format = "s24le";
+	  ctx->settings.audio_codec = AV_CODEC_ID_PCM_S32LE;
+	  ctx->settings.format = "s32le";
 	}
       else
 	{
@@ -1579,6 +1631,10 @@ transcode_frame_new(void *data, size_t size, int nsamples, int sample_rate, int 
       f->format = AV_SAMPLE_FMT_S16;
     }
   else if (bits_per_sample == 24)
+    {
+      f->format = AV_SAMPLE_FMT_S32;
+    }
+  else if (bits_per_sample == 32)
     {
       f->format = AV_SAMPLE_FMT_S32;
     }
