@@ -29,7 +29,12 @@ export default new Vuex.Store({
       'volume': 0,
       'item_id': 0,
       'item_length_ms': 0,
-      'item_progress_ms': 0
+      'item_progress_ms': 0,
+      'sample_rate': 0,
+      'bits_per_sample': 0,
+      'channels': 0,
+      'bit_rate': 0,
+      'codec': ''
     },
     queue: {
       'version': 0,

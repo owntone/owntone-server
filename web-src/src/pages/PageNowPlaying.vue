@@ -24,6 +24,11 @@
         <span class="icon has-text-grey-light"><i class="mdi mdi-information-outline"></i></span>
       </a>
     </div>
+    <div class="container has-text-centered">
+      <div class="subtitle has-text-grey is-7" v-show="quality_sample_rate > 0">
+      {{ quality_codec}} {{ quality_sample_rate }} Hz | {{ quality_channels }} | {{ quality_bit_rate }} Kb/s
+      </div>
+    </div>
     <div class="hero-foot fd-has-padding-left-right">
       <div class="container has-text-centered fd-has-margin-bottom">
         <p class="control has-text-centered fd-progress-now-playing">
@@ -111,6 +116,22 @@ export default {
         return this.now_playing.artwork_url + '?maxwidth=600&maxheight=600'
       }
       return this.now_playing.artwork_url
+    },
+
+    quality_sample_rate: function () {
+      return this.state.sample_rate
+    },
+    quality_bits_per_sample: function () {
+      return this.state.bits_per_sample
+    },
+    quality_channels: function () {
+      return this.state.channels === 2 ? 'stereo' : this.state.channels + ' channel'
+    },
+    quality_bit_rate: function () {
+      return this.state.bit_rate / 1000
+    },
+    quality_codec: function () {
+      return this.state.codec
     }
   },
 
