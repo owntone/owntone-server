@@ -17,8 +17,13 @@ enum transcode_profile
   // Decodes/resamples the best audio stream (no wav headers)
   XCODE_PCM16_44100,
   XCODE_PCM16_48000,
+  XCODE_PCM16_96000,
   XCODE_PCM24_44100,
   XCODE_PCM24_48000,
+  XCODE_PCM24_96000,
+  XCODE_PCM32_44100,
+  XCODE_PCM32_48000,
+  XCODE_PCM32_96000,
   // Transcodes the best audio stream into MP3
   XCODE_MP3,
   // Transcodes the best audio stream into OPUS
