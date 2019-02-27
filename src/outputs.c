@@ -223,10 +223,20 @@ quality_to_xcode(struct media_quality *quality)
     return XCODE_PCM16_44100;
   if (quality->sample_rate == 44100 && quality->bits_per_sample == 24)
     return XCODE_PCM24_44100;
+  if (quality->sample_rate == 44100 && quality->bits_per_sample == 32)
+    return XCODE_PCM32_44100;
   if (quality->sample_rate == 48000 && quality->bits_per_sample == 16)
     return XCODE_PCM16_48000;
   if (quality->sample_rate == 48000 && quality->bits_per_sample == 24)
     return XCODE_PCM24_48000;
+  if (quality->sample_rate == 48000 && quality->bits_per_sample == 32)
+    return XCODE_PCM32_48000;
+  if (quality->sample_rate == 96000 && quality->bits_per_sample == 16)
+    return XCODE_PCM16_96000;
+  if (quality->sample_rate == 96000 && quality->bits_per_sample == 24)
+    return XCODE_PCM24_96000;
+  if (quality->sample_rate == 96000 && quality->bits_per_sample == 32)
+    return XCODE_PCM32_96000;
 
   return XCODE_UNKNOWN;
 }
@@ -309,6 +319,9 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
     {
       if (quality_is_equal(&output_quality_subscriptions[i].quality, quality))
 	continue; // Skip, no resampling required and we have the data in element 0
+
+      if (!output_quality_subscriptions[i].encode_ctx)
+	continue;
 
       frame = transcode_frame_new(buf, bufsize, nsamples, quality->sample_rate, quality->bits_per_sample);
       if (!frame)
