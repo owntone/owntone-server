@@ -903,7 +903,7 @@ session_update_read_quality(struct media_quality *quality)
 
   CHECK_NULL(L_PLAYER, pb_session.buffer);
 
-  pb_session.reading_now->play_start = pb_session.reading_now->play_start + pb_session.reading_now->output_buffer_samples;
+  pb_session.reading_now->play_start = pb_session.reading_now->read_start + pb_session.reading_now->output_buffer_samples;
 }
 
 static void
