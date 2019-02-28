@@ -1805,6 +1805,9 @@ master_session_make(struct media_quality *quality, bool encrypt)
 static void
 master_session_free(struct raop_master_session *rms)
 {
+  if (!rms)
+    return;
+
   outputs_quality_unsubscribe(&rms->rtp_session->quality);
   rtp_session_free(rms->rtp_session);
   evbuffer_free(rms->evbuf);
