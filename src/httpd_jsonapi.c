@@ -1632,6 +1632,12 @@ jsonapi_reply_player(struct httpd_request *hreq)
 	}
     }
 
+  json_object_object_add(reply, "sample_rate", json_object_new_int(status.quality.sample_rate));
+  json_object_object_add(reply, "bits_per_sample", json_object_new_int(status.quality.bits_per_sample));
+  json_object_object_add(reply, "channels", json_object_new_int(status.quality.channels));
+  json_object_object_add(reply, "bit_rate", json_object_new_int(status.quality.bit_rate));
+  safe_json_add_string(reply, "codec", status.quality.codec);
+
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply)));
 
   jparse_free(reply);

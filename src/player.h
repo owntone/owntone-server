@@ -55,6 +55,8 @@ struct player_status {
   uint32_t pos_ms;
   /* Length in ms of playing item */
   uint32_t len_ms;
+
+  struct media_quality quality;
 };
 
 typedef void (*spk_enum_cb)(struct player_speaker_info *spk, void *arg);

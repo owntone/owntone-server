@@ -44,6 +44,9 @@ setup(struct input_source *source)
   source->quality.bits_per_sample = transcode_encode_query(ctx->encode_ctx, "bits_per_sample");
   source->quality.channels = transcode_encode_query(ctx->encode_ctx, "channels");
 
+  source->quality.bit_rate = transcode_decode_query(ctx->decode_ctx, "audio_bit_rate");
+  source->quality.codec = transcode_decode_codec(ctx->decode_ctx);
+
   source->input_ctx = ctx;
 
   return 0;

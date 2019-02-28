@@ -1194,6 +1194,7 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
   int bps;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct encode_ctx)));
+  memset(ctx, 0, sizeof(struct encode_ctx));
   CHECK_NULL(L_XCODE, ctx->filt_frame = av_frame_alloc());
   CHECK_NULL(L_XCODE, ctx->encoded_pkt = av_packet_alloc());
 
@@ -1294,6 +1295,7 @@ transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality 
   int ret;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct decode_ctx)));
+  memset(ctx, 0, sizeof(struct decode_ctx));
 
   if (init_settings(&ctx->settings, profile, quality) < 0)
     {
@@ -1738,8 +1740,27 @@ transcode_decode_query(struct decode_ctx *ctx, const char *query)
       if (ctx->video_stream.stream)
 	return (ctx->video_stream.stream->codecpar->codec_id == AV_CODEC_ID_MJPEG);
     }
+  else if (strcmp(query, "audio_bit_rate") == 0)
+    {
+      // avg bitrate -- not useful for flacs
+      if (ctx->audio_stream.stream && ctx->audio_stream.stream->codecpar->bit_rate > 0)
+        return ctx->audio_stream.stream->codecpar->bit_rate;
+
+      // ttl stream bitrate, 0 if not there
+      if (ctx->ifmt_ctx && ctx->ifmt_ctx->bit_rate > 0)
+       return ctx->ifmt_ctx->bit_rate;
+    }
 
   return -1;
+}
+
+const char*
+transcode_decode_codec(struct decode_ctx *ctx)
+{
+  if (ctx->audio_stream.stream && ctx->audio_stream.stream->codec)
+    return avcodec_get_name(ctx->audio_stream.stream->codec->codec_id);
+  else
+    return "<unknown>";
 }
 
 int
@@ -1759,6 +1780,11 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query)
     {
       if (ctx->audio_stream.stream)
 	return ctx->audio_stream.stream->codecpar->channels;
+    }
+  else if (strcmp(query, "bit_rate") == 0)
+    {
+      if (ctx->audio_stream.stream)
+	return ctx->audio_stream.stream->codecpar->bit_rate;
     }
 
   return -1;
