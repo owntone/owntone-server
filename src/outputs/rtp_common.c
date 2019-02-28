@@ -156,7 +156,17 @@ rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, ch
   pkt->data_len    = RTP_HEADER_LEN + payload_len;
   pkt->seqnum      = session->seqnum;
 
-  // RTP Header
+
+  // The RTP header is made of these 12 bytes (RFC 3550):
+  //    0                   1                   2                   3
+  //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //   |V=2|P|X|  CC   |M|     PT      |       sequence number         |
+  //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //   |                           timestamp                           |
+  //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //   |           synchronization source (SSRC) identifier            |
+  //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   pkt->header[0] = 0x80; // Version = 2, P, X and CC are 0
   pkt->header[1] = type; // RTP payload type
 
