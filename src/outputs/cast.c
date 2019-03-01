@@ -361,7 +361,8 @@ struct cast_msg_basic cast_msg[] =
     // codecName can be aac or opus, ssrc should be random
     // We don't set 'aesKey' and 'aesIvMask'
     // sampleRate seems to be ignored
-    // storeTime unknown meaning
+    // storeTime unknown meaning - perhaps size of buffer?
+    // targetDelay - should be RTP delay in ms, but doesn't seem to change anything?
     .payload = "{'type':'OFFER','seqNum':%d,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%d,'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false}]}}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
@@ -617,6 +618,9 @@ master_session_cleanup(struct cast_master_session *cms)
       if (cs->master_session == cms)
 	return;
     }
+
+  if (cms == cast_master_session)
+    cast_master_session = NULL;
 
   master_session_free(cms);
 }
