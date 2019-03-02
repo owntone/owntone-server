@@ -471,10 +471,7 @@ input_wait(void)
 
   pthread_mutex_lock(&input_buffer.mutex);
 
-  ts = timespec_reltoabs(input_loop_timeout);
-  pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
-
-  // Is the buffer full?
+  // Is the buffer full? Then wait for a read or for loop_timeout to elapse
   if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
     {
       if (input_buffer.full_cb)
@@ -483,8 +480,14 @@ input_wait(void)
 	  input_buffer.full_cb = NULL;
 	}
 
-      pthread_mutex_unlock(&input_buffer.mutex);
-      return -1;
+      ts = timespec_reltoabs(input_loop_timeout);
+      pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
+
+      if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
+	{
+	  pthread_mutex_unlock(&input_buffer.mutex);
+	  return -1;
+	}
     }
 
   pthread_mutex_unlock(&input_buffer.mutex);
@@ -597,7 +600,7 @@ input_read(void *data, size_t size, short *flags)
   if (*flags || (debug_elapsed > 10 * one_sec_size))
     {
       debug_elapsed = 0;
-      DPRINTF(E_SPAM, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), SIZE %zu (=%zu), FLAGS %04x\n",
+      DPRINTF(E_DBG, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), SIZE %zu (=%zu), FLAGS %04x\n",
         input_buffer.bytes_read,
         input_buffer.cur_read_quality.sample_rate,
         input_buffer.cur_read_quality.bits_per_sample,
