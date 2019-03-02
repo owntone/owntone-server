@@ -1205,10 +1205,12 @@ playback_cb(int fd, short what, void *arg)
 
       if (nbytes < pb_session.bufsize)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d, deficit %zu\n", pb_session.bufsize, nbytes, pb_session.read_deficit);
 	  // How much the number of samples we got corresponds to in time (nanoseconds)
 	  ts.tv_sec = 0;
-	  ts.tv_nsec = 1000000000L * nsamples / quality.sample_rate;
+	  ts.tv_nsec = 1000000000UL * (uint64_t)nsamples / quality.sample_rate;
+
+	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d (samples=%d/time=%lu), deficit %zu\n", pb_session.bufsize, nbytes, nsamples, ts.tv_nsec, pb_session.read_deficit);
+
 	  pb_session.pts = timespec_add(pb_session.pts, ts);
 	}
       else
@@ -1818,6 +1820,7 @@ playback_stop(void *arg, int *retval)
   // stop just yet; this saves time when restarting, which is nicer for the user
   *retval = outputs_flush(device_command_cb);
 
+  // Stops the input
   playback_session_stop();
 
   status_update(PLAY_STOPPED);
