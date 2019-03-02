@@ -387,8 +387,8 @@ make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_s
   else
     duration = 3 * 60 * 1000; /* 3 minutes, in ms */
 
-  bps = av_get_bits_per_sample(ctx->settings.audio_codec);
-  wav_len = ctx->settings.channels * (bps / 8) * ctx->settings.sample_rate * (duration / 1000);
+  bps = av_get_bytes_per_sample(ctx->settings.sample_format);
+  wav_len = ctx->settings.channels * bps * ctx->settings.sample_rate * (duration / 1000);
 
   if (est_size)
     *est_size = wav_len + sizeof(ctx->header);
@@ -400,9 +400,9 @@ make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_s
   add_le16(ctx->header + 20, 1);
   add_le16(ctx->header + 22, ctx->settings.channels);     /* channels */
   add_le32(ctx->header + 24, ctx->settings.sample_rate);  /* samplerate */
-  add_le32(ctx->header + 28, ctx->settings.sample_rate * ctx->settings.channels * (bps / 8)); /* byte rate */
-  add_le16(ctx->header + 32, ctx->settings.channels * (bps / 8));                             /* block align */
-  add_le16(ctx->header + 34, bps);                                                            /* bits per sample */
+  add_le32(ctx->header + 28, ctx->settings.sample_rate * ctx->settings.channels * bps); /* byte rate */
+  add_le16(ctx->header + 32, ctx->settings.channels * bps);                             /* block align */
+  add_le16(ctx->header + 34, 8 * bps);                                                  /* bits per sample */
   memcpy(ctx->header + 36, "data", 4);
   add_le32(ctx->header + 40, wav_len);
 }
@@ -1281,8 +1281,8 @@ transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ct
 
   if (ctx->settings.icy && src_ctx->data_kind == DATA_KIND_HTTP)
     {
-      bps = av_get_bits_per_sample(ctx->settings.audio_codec);
-      ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.channels * (bps / 8) * ctx->settings.sample_rate;
+      bps = av_get_bytes_per_sample(ctx->settings.sample_format);
+      ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.channels * bps * ctx->settings.sample_rate;
     }
 
   return ctx;
