@@ -1201,7 +1201,7 @@ playback_cb(int fd, short what, void *arg)
 
       pb_session.read_deficit -= nbytes;
 
-      outputs_write(pb_session.buffer, pb_session.bufsize, &quality, nsamples, &pb_session.pts);
+      outputs_write(pb_session.buffer, nbytes, nsamples, &quality, &pb_session.pts);
 
       if (nbytes < pb_session.bufsize)
 	{
