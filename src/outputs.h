@@ -309,7 +309,7 @@ int
 outputs_flush(output_status_cb cb);
 
 void
-outputs_write(void *buf, size_t bufsize, struct media_quality *quality, int nsamples, struct timespec *pts);
+outputs_write(void *buf, size_t bufsize, int nsamples, struct media_quality *quality, struct timespec *pts);
 
 struct output_metadata *
 outputs_metadata_prepare(int id);
