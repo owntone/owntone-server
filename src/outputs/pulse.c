@@ -771,7 +771,6 @@ pulse_device_stop(struct output_device *device, int callback_id)
   return 0;
 }
 
-
 static int
 pulse_device_flush(struct output_device *device, int callback_id)
 {
@@ -907,36 +906,6 @@ pulse_write(struct output_buffer *obuf)
     }
 }
 
-static void
-pulse_playback_stop(void)
-{
-  struct pulse_session *ps;
-  pa_operation* o;
-
-  pa_threaded_mainloop_lock(pulse.mainloop);
-
-  for (ps = sessions; ps; ps = ps->next)
-    {
-      o = pa_stream_cork(ps->stream, 1, NULL, NULL);
-      if (!o)
-	{
-	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not pause '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
-	  continue;
-	}
-      pa_operation_unref(o);
-
-      o = pa_stream_flush(ps->stream, NULL, NULL);
-      if (!o)
-	{
-	  DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio could not flush '%s': %s\n", ps->devname, pa_strerror(pa_context_errno(pulse.context)));
-	  continue;
-	}
-      pa_operation_unref(o);
-    }
-
-  pa_threaded_mainloop_unlock(pulse.mainloop);
-}
-
 static int
 pulse_init(void)
 {
@@ -1032,7 +1001,6 @@ struct output_definition output_pulse =
   .device_free_extra = pulse_device_free_extra,
   .device_cb_set = pulse_device_cb_set,
   .device_volume_set = pulse_device_volume_set,
-  .playback_stop = pulse_playback_stop,
   .write = pulse_write,
 };
 

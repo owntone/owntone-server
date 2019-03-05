@@ -2063,20 +2063,6 @@ cast_device_volume_set(struct output_device *device, int callback_id)
 }
 
 static void
-cast_playback_stop(void)
-{
-  struct cast_session *cs;
-  struct cast_session *next;
-
-  for (cs = cast_sessions; cs; cs = next)
-    {
-      next = cs->next;
-      if (cs->state & CAST_STATE_F_MEDIA_CONNECTED)
-	cast_session_shutdown(cs, CAST_STATE_NONE);
-    }
-}
-
-static void
 cast_write(struct output_buffer *obuf)
 {
   struct cast_master_session *cms;
@@ -2220,7 +2206,6 @@ struct output_definition output_cast =
   .device_flush = cast_device_flush,
   .device_cb_set = cast_device_cb_set,
   .device_volume_set = cast_device_volume_set,
-  .playback_stop = cast_playback_stop,
   .write = cast_write,
   .init = cast_init,
   .deinit = cast_deinit,

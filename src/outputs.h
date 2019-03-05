@@ -3,6 +3,7 @@
 #define __OUTPUTS_H__
 
 #include <time.h>
+#include <event2/event.h>
 #include <event2/buffer.h>
 #include "misc.h"
 
@@ -137,6 +138,8 @@ struct output_device
   short v4_port;
   short v6_port;
 
+  struct event *stop_timer;
+
   // Opaque pointers to device and session data
   void *extra_device_info;
   void *session;
@@ -220,9 +223,6 @@ struct output_definition
   // Free the private device data
   void (*device_free_extra)(struct output_device *device);
 
-  // Start/stop playback on devices that were started
-  void (*playback_stop)(void);
-
   // Write stream data to the output devices
   void (*write)(struct output_buffer *buffer);
 
@@ -282,6 +282,9 @@ int
 outputs_device_stop(struct output_device *device, output_status_cb cb);
 
 int
+outputs_device_stop_delayed(struct output_device *device, output_status_cb cb);
+
+int
 outputs_device_flush(struct output_device *device, output_status_cb cb);
 
 int
@@ -302,11 +305,14 @@ outputs_device_cb_set(struct output_device *device, output_status_cb cb);
 void
 outputs_device_free(struct output_device *device);
 
-void
-outputs_playback_stop(void);
-
 int
 outputs_flush(output_status_cb cb);
+
+int
+outputs_stop(output_status_cb cb);
+
+int
+outputs_stop_delayed_cancel(void);
 
 void
 outputs_write(void *buf, size_t bufsize, int nsamples, struct media_quality *quality, struct timespec *pts);

@@ -128,15 +128,9 @@
 
 // When we pause, we keep the input open, but we can't do that forever. We must
 // think of the poor streaming servers, for instance. This timeout determines
-// how long we stay paused, before we go to a full stop.
+// how long we stay paused, before we close the inputs.
 // (value is in seconds)
-#define PLAYER_PAUSE_TIME_MAX 600
-
-// When we stop, we keep the outputs open for a while, just in case we are
-// actually just restarting. This timeout determines how long we wait before
-// full stop.
-// (value is in seconds)
-#define PLAYER_STOP_TIME_MAX 10
+#define PLAYER_PAUSE_TIMEOUT 600
 
 //#define DEBUG_PLAYER 1
 
@@ -291,15 +285,14 @@ static int pb_timer_fd;
 timer_t pb_timer;
 #endif
 static struct event *pb_timer_ev;
-static struct event *player_abort_timeout_ev;
+static struct event *player_pause_timeout_ev;
 
 // Time between ticks, i.e. time between when playback_cb() is invoked
 static struct timespec player_tick_interval;
 // Timer resolution
 static struct timespec player_timer_res;
 
-static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIME_MAX, 0 };
-static struct timeval player_stop_timeout = { PLAYER_STOP_TIME_MAX, 0 };
+static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIMEOUT, 0 };
 
 // PLAYER_WRITE_BEHIND_MAX converted to clock ticks
 static int pb_write_deficit_max;
@@ -324,10 +317,10 @@ static struct player_history *history;
 /* -------------------------------- Forwards -------------------------------- */
 
 static void
-playback_abort(void);
+pb_abort(void);
 
 static void
-playback_suspend(void);
+pb_suspend(void);
 
 
 /* ----------------------------- Volume helpers ----------------------------- */
@@ -452,7 +445,7 @@ scrobble_cb(void *arg)
 static void
 pause_timer_cb(int fd, short what, void *arg)
 {
-  playback_abort();
+  pb_abort();
 }
 
 // Callback from the worker thread. Here the heavy lifting is done: updating the
@@ -988,7 +981,7 @@ event_play_end()
 {
   DPRINTF(E_DBG, L_PLAYER, "event_play_end()\n");
 
-  playback_abort();
+  pb_abort();
 }
 
 // Stuff to do when playback of current track ends
@@ -1157,13 +1150,13 @@ playback_cb(int fd, short what, void *arg)
       if (pb_write_recovery)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Permanent output delay detected (behind=%" PRIu64 ", max=%d), aborting\n", overrun, pb_write_deficit_max);
-	  playback_abort();
+	  pb_abort();
 	  return;
 	}
 
       DPRINTF(E_LOG, L_PLAYER, "Output delay detected (behind=%" PRIu64 ", max=%d), resetting all outputs\n", overrun, pb_write_deficit_max);
       pb_write_recovery = true;
-      playback_suspend();
+      pb_suspend();
       return;
     }
   else
@@ -1229,7 +1222,7 @@ playback_cb(int fd, short what, void *arg)
       DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback (deficit=%zu/%zu bytes)\n",
 	pb_session.read_deficit, pb_session.read_deficit_max);
 
-      playback_suspend();
+      pb_suspend();
     }
 }
 
@@ -1372,7 +1365,7 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
 	speaker_deselect_output(device);
 
       if (output_sessions == 0)
-	playback_abort();
+	pb_abort();
     }
   else if (status == OUTPUT_STATE_STOPPED)
     {
@@ -1400,13 +1393,33 @@ device_command_cb(struct output_device *device, enum output_device_state status)
   if (status == OUTPUT_STATE_FAILED)
     device_streaming_cb(device, status);
 
-  // Used by playback_suspend - is basically the bottom half
+ out:
+  commands_exec_end(cmdbase, 0);
+}
+
+static void
+device_flush_cb(struct output_device *device, enum output_device_state status)
+{
+  if (!device)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Output device disappeared before flush completion!\n");
+      goto out;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_flush_cb (status %d)\n", outputs_name(device->type), status);
+
+  if (status == OUTPUT_STATE_FAILED)
+    device_streaming_cb(device, status);
+
+  // Used by pb_suspend - is basically the bottom half
   if (player_flush_pending > 0)
     {
       player_flush_pending--;
       if (player_flush_pending == 0)
 	input_buffer_full_cb(player_playback_start);
     }
+
+  outputs_device_stop_delayed(device, device_streaming_cb);
 
  out:
   commands_exec_end(cmdbase, 0);
@@ -1578,6 +1591,8 @@ player_pmap(void *p)
     return "device_streaming_cb";
   else if (p == device_command_cb)
     return "device_command_cb";
+  else if (p == device_flush_cb)
+    return "device_flush_cb";
   else if (p == device_shutdown_cb)
     return "device_shutdown_cb";
   else
@@ -1587,14 +1602,15 @@ player_pmap(void *p)
 /* ------------------------- Internal playback routines --------------------- */
 
 static int
-playback_timer_start(void)
+pb_timer_start(void)
 {
   struct itimerspec tick;
   int ret;
 
-  // The pause timer will be active if we have recently paused, but now that
-  // the playback loop has been kicked off, we no longer want that
-  event_del(player_abort_timeout_ev);
+  // The stop timers will be active if we have recently paused, but now that the
+  // playback loop has been kicked off, we deactivate them
+  event_del(player_pause_timeout_ev);
+  outputs_stop_delayed_cancel();
 
   ret = event_add(pb_timer_ev, NULL);
   if (ret < 0)
@@ -1623,7 +1639,7 @@ playback_timer_start(void)
 }
 
 static int
-playback_timer_stop(void)
+pb_timer_stop(void)
 {
   struct itimerspec tick;
   int ret;
@@ -1648,7 +1664,7 @@ playback_timer_stop(void)
 
 // Initiates the session and starts the input source
 static int
-playback_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
+pb_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
 {
   struct player_source *ps;
   int ret;
@@ -1673,45 +1689,45 @@ playback_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
 
   // The input source is now open and ready, but we might actually be paused. So
   // we activate the below event in case the user never starts us again
-  event_add(player_abort_timeout_ev, &player_pause_timeout);
+  event_add(player_pause_timeout_ev, &player_pause_timeout);
 
   return ret;
 }
 
 // Stops input source and deallocates pb_session content
 static void
-playback_session_stop(void)
+pb_session_stop(void)
 {
   source_stop();
 
   session_stop();
 
-  playback_timer_stop();
+  pb_timer_stop();
 
   status_update(PLAY_STOPPED);
 }
 
 static void
-playback_abort(void)
+pb_abort(void)
 {
-  outputs_playback_stop();
+  // Immediate stop of all outputs
+  outputs_stop(device_streaming_cb);
+  outputs_metadata_purge();
 
-  playback_session_stop();
+  pb_session_stop();
 
   if (!clear_queue_on_stop_disabled)
     db_queue_clear(0);
-
-  outputs_metadata_purge();
 }
 
 // Temporarily suspends/resets playback, used when input buffer underruns or in
 // case of problems writing to the outputs
 static void
-playback_suspend(void)
+pb_suspend(void)
 {
-  player_flush_pending = outputs_flush(device_command_cb);
+  player_flush_pending = outputs_flush(device_flush_cb);
 
-  playback_timer_stop();
+  pb_timer_stop();
 
   status_update(PLAY_PAUSED);
 
@@ -1818,17 +1834,13 @@ playback_stop(void *arg, int *retval)
 
   // We may be restarting very soon, so we don't bring the devices to a full
   // stop just yet; this saves time when restarting, which is nicer for the user
-  *retval = outputs_flush(device_command_cb);
-
-  // Stops the input
-  playback_session_stop();
-
-  status_update(PLAY_STOPPED);
-
+  *retval = outputs_flush(device_flush_cb);
   outputs_metadata_purge();
 
-  // In case we aren't restarting soon we want to make a full stop
-  event_add(player_abort_timeout_ev, &player_stop_timeout);
+  // Stops the input
+  pb_session_stop();
+
+  status_update(PLAY_STOPPED);
 
   // We're async if we need to flush devices
   if (*retval > 0)
@@ -1838,11 +1850,20 @@ playback_stop(void *arg, int *retval)
 }
 
 static enum command_state
+playback_abort(void *arg, int *retval)
+{
+  pb_abort();
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
+static enum command_state
 playback_start_bh(void *arg, int *retval)
 {
   int ret;
 
-  ret = playback_timer_start();
+  ret = pb_timer_start();
   if (ret < 0)
     goto error;
 
@@ -1852,7 +1873,7 @@ playback_start_bh(void *arg, int *retval)
   return COMMAND_END;
 
  error:
-  playback_abort();
+  pb_abort();
   *retval = -1;
   return COMMAND_END;
 }
@@ -1914,7 +1935,7 @@ playback_start_item(void *arg, int *retval)
 	    }
 	}
 
-      ret = playback_session_start(queue_item, seek_ms);
+      ret = pb_session_start(queue_item, seek_ms);
       if (ret < 0)
 	{
 	  *retval = -1;
@@ -2033,7 +2054,7 @@ playback_prev_bh(void *arg, int *retval)
   int ret;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
-  // from the output, which in streaming_cb() can cause playback_abort()
+  // from the output, which in streaming_cb() can cause pb_abort()
   if (player_state == PLAY_STOPPED)
     {
       goto error;
@@ -2055,7 +2076,7 @@ playback_prev_bh(void *arg, int *retval)
       goto error;
     }
 
-  ret = playback_session_start(queue_item, 0);
+  ret = pb_session_start(queue_item, 0);
   free_queue_item(queue_item, 0);
   if (ret < 0)
     {
@@ -2070,7 +2091,7 @@ playback_prev_bh(void *arg, int *retval)
   return COMMAND_END;
 
  error:
-  playback_abort();
+  pb_abort();
   *retval = -1;
   return COMMAND_END;
 }
@@ -2083,7 +2104,7 @@ playback_next_bh(void *arg, int *retval)
   int id;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
-  // from the output, which in streaming_cb() can cause playback_abort()
+  // from the output, which in streaming_cb() can cause pb_abort()
   if (player_state == PLAY_STOPPED)
     {
       goto error;
@@ -2108,7 +2129,7 @@ playback_next_bh(void *arg, int *retval)
       goto error;
     }
 
-  ret = playback_session_start(queue_item, 0);
+  ret = pb_session_start(queue_item, 0);
   free_queue_item(queue_item, 0);
   if (ret < 0)
     {
@@ -2123,7 +2144,7 @@ playback_next_bh(void *arg, int *retval)
   return COMMAND_END;
 
  error:
-  playback_abort();
+  pb_abort();
   *retval = -1;
   return COMMAND_END;
 }
@@ -2136,7 +2157,7 @@ playback_seek_bh(void *arg, int *retval)
   int ret;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
-  // from the output, which in streaming_cb() can cause playback_abort()
+  // from the output, which in streaming_cb() can cause pb_abort()
   if (player_state == PLAY_STOPPED)
     {
       goto error;
@@ -2149,7 +2170,7 @@ playback_seek_bh(void *arg, int *retval)
       goto error;
     }
 
-  ret = playback_session_start(queue_item, cmdarg->intval);
+  ret = pb_session_start(queue_item, cmdarg->intval);
   free_queue_item(queue_item, 0);
   if (ret < 0)
     {
@@ -2164,7 +2185,7 @@ playback_seek_bh(void *arg, int *retval)
   return COMMAND_END;
 
  error:
-  playback_abort();
+  pb_abort();
   *retval = -1;
   return COMMAND_END;
 }
@@ -2176,7 +2197,7 @@ playback_pause_bh(void *arg, int *retval)
   int ret;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
-  // from the output, which in streaming_cb() can cause playback_abort()
+  // from the output, which in streaming_cb() can cause pb_abort()
   if (player_state == PLAY_STOPPED)
     {
       goto error;
@@ -2189,7 +2210,7 @@ playback_pause_bh(void *arg, int *retval)
       goto error;
     }
 
-  ret = playback_session_start(queue_item, pb_session.playing_now->pos_ms);
+  ret = pb_session_start(queue_item, pb_session.playing_now->pos_ms);
   free_queue_item(queue_item, 0);
   if (ret < 0)
     {
@@ -2205,7 +2226,7 @@ playback_pause_bh(void *arg, int *retval)
   return COMMAND_END;
 
  error:
-  playback_abort();
+  pb_abort();
   *retval = -1;
   return COMMAND_END;
 }
@@ -2225,10 +2246,9 @@ playback_pause(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  playback_timer_stop();
+  pb_timer_stop();
 
-  *retval = outputs_flush(device_command_cb);
-
+  *retval = outputs_flush(device_flush_cb);
   outputs_metadata_purge();
 
   // We're async if we need to flush devices
@@ -2860,6 +2880,15 @@ player_playback_stop(void)
 }
 
 int
+player_playback_abort(void)
+{
+  int ret;
+
+  ret = commands_exec_sync(cmdbase, playback_abort, NULL, NULL);
+  return ret;
+}
+
+int
 player_playback_pause(void)
 {
   int ret;
@@ -3258,7 +3287,7 @@ player_init(void)
     }
 
   CHECK_NULL(L_PLAYER, evbase_player = event_base_new());
-  CHECK_NULL(L_PLAYER, player_abort_timeout_ev = evtimer_new(evbase_player, pause_timer_cb, NULL));
+  CHECK_NULL(L_PLAYER, player_pause_timeout_ev = evtimer_new(evbase_player, pause_timer_cb, NULL));
 #ifdef HAVE_TIMERFD
   CHECK_NULL(L_PLAYER, pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, playback_cb, NULL));
 #else
@@ -3317,7 +3346,7 @@ player_deinit(void)
 {
   int ret;
 
-  player_playback_stop();
+  player_playback_abort();
 
 #ifdef HAVE_TIMERFD
   close(pb_timer_fd);

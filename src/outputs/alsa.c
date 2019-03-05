@@ -968,22 +968,6 @@ alsa_device_cb_set(struct output_device *device, int callback_id)
 }
 
 static void
-alsa_playback_stop(void)
-{
-  struct alsa_session *as;
-  struct alsa_session *next;
-
-  for (as = sessions; as; as = next)
-    {
-      next = as->next;
-      snd_pcm_drop(as->hdl);
-
-      as->state = OUTPUT_STATE_STOPPED;
-      alsa_status(as); // Will stop the session
-    }
-}
-
-static void
 alsa_write(struct output_buffer *obuf)
 {
   struct alsa_session *as;
@@ -1061,6 +1045,5 @@ struct output_definition output_alsa =
   .device_probe = alsa_device_probe,
   .device_volume_set = alsa_device_volume_set,
   .device_cb_set = alsa_device_cb_set,
-  .playback_stop = alsa_playback_stop,
   .write = alsa_write,
 };

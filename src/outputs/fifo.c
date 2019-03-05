@@ -388,20 +388,6 @@ fifo_device_cb_set(struct output_device *device, int callback_id)
 }
 
 static void
-fifo_playback_stop(void)
-{
-  struct fifo_session *fifo_session = sessions;
-
-  if (!fifo_session)
-    return;
-
-  free_buffer();
-
-  fifo_session->state = OUTPUT_STATE_CONNECTED;
-  fifo_status(fifo_session);
-}
-
-static void
 fifo_write(struct output_buffer *obuf)
 {
   struct fifo_session *fifo_session = sessions;
@@ -532,6 +518,5 @@ struct output_definition output_fifo =
   .device_probe = fifo_device_probe,
   .device_volume_set = fifo_device_volume_set,
   .device_cb_set = fifo_device_cb_set,
-  .playback_stop = fifo_playback_stop,
   .write = fifo_write,
 };

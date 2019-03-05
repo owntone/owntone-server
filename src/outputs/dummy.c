@@ -183,18 +183,6 @@ dummy_device_cb_set(struct output_device *device, int callback_id)
   ds->callback_id = callback_id;
 }
 
-static void
-dummy_playback_stop(void)
-{
-  struct dummy_session *ds = sessions;
-
-  if (!sessions)
-    return;
-
-  ds->state = OUTPUT_STATE_CONNECTED;
-  dummy_status(ds);
-}
-
 static int
 dummy_init(void)
 {
@@ -245,5 +233,4 @@ struct output_definition output_dummy =
   .device_probe = dummy_device_probe,
   .device_volume_set = dummy_device_volume_set,
   .device_cb_set = dummy_device_cb_set,
-  .playback_stop = dummy_playback_stop,
 };

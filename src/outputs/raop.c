@@ -2816,6 +2816,12 @@ raop_keep_alive_timer_cb(int fd, short what, void *arg)
 {
   struct raop_session *rs;
 
+  if (!raop_sessions)
+    {
+      event_del(keep_alive_timer);
+      return;
+    }
+
   for (rs = raop_sessions; rs; rs = rs->next)
     {
       if (!(rs->state & RAOP_STATE_F_CONNECTED))
@@ -4851,17 +4857,6 @@ raop_device_free_extra(struct output_device *device)
 }
 
 static void
-raop_playback_stop(void)
-{
-  struct raop_session *rs;
-
-  evtimer_del(keep_alive_timer);
-
-  for (rs = raop_sessions; rs; rs = rs->next)
-    session_teardown(rs, "playback_stop");
-}
-
-static void
 raop_write(struct output_buffer *obuf)
 {
   struct raop_master_session *rms;
@@ -5069,7 +5064,6 @@ struct output_definition output_raop =
   .device_free_extra = raop_device_free_extra,
   .device_volume_set = raop_set_volume_one,
   .device_volume_to_pct = raop_volume_to_pct,
-  .playback_stop = raop_playback_stop,
   .write = raop_write,
   .metadata_prepare = raop_metadata_prepare,
   .metadata_send = raop_metadata_send,

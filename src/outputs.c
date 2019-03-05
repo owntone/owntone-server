@@ -74,9 +74,15 @@ static struct output_definition *outputs[] = {
     NULL
 };
 
+// When we stop, we keep the outputs open for a while, just in case we are
+// actually just restarting. This timeout determines how long we wait before
+// full stop.
+// (value is in seconds)
+#define OUTPUTS_STOP_TIMEOUT 10
+
 #define OUTPUTS_MAX_CALLBACKS 64
 
-struct outputs_callback_queue
+struct outputs_callback_register
 {
   output_status_cb cb;
   struct output_device *device;
@@ -89,9 +95,6 @@ struct outputs_callback_queue
   enum output_device_state state;
 };
 
-struct outputs_callback_queue outputs_cb_queue[OUTPUTS_MAX_CALLBACKS];
-struct event *outputs_deferredev;
-
 struct output_quality_subscription
 {
   int count;
@@ -99,12 +102,30 @@ struct output_quality_subscription
   struct encode_ctx *encode_ctx;
 };
 
+static struct outputs_callback_register outputs_cb_register[OUTPUTS_MAX_CALLBACKS];
+static struct event *outputs_deferredev;
+static struct timeval outputs_stop_timeout = { OUTPUTS_STOP_TIMEOUT, 0 };
+
 // Last element is a zero terminator
 static struct output_quality_subscription output_quality_subscriptions[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
-static bool output_got_new_subscription;
+static bool outputs_got_new_subscription;
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
+
+static output_status_cb
+callback_get(struct output_device *device)
+{
+  int callback_id;
+
+  for (callback_id = 0; callback_id < ARRAY_SIZE(outputs_cb_register); callback_id++)
+    {
+      if (outputs_cb_register[callback_id].device == device)
+	return outputs_cb_register[callback_id].cb;
+    }
+
+  return NULL;
+}
 
 static void
 callback_remove(struct output_device *device)
@@ -114,12 +135,12 @@ callback_remove(struct output_device *device)
   if (!device)
     return;
 
-  for (callback_id = 0; callback_id < ARRAY_SIZE(outputs_cb_queue); callback_id++)
+  for (callback_id = 0; callback_id < ARRAY_SIZE(outputs_cb_register); callback_id++)
     {
-      if (outputs_cb_queue[callback_id].device == device)
+      if (outputs_cb_register[callback_id].device == device)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Removing callback to %s, id %d\n", player_pmap(outputs_cb_queue[callback_id].cb), callback_id);
-	  memset(&outputs_cb_queue[callback_id], 0, sizeof(struct outputs_callback_queue));
+	  DPRINTF(E_DBG, L_PLAYER, "Removing callback to %s, id %d\n", player_pmap(outputs_cb_register[callback_id].cb), callback_id);
+	  memset(&outputs_cb_register[callback_id], 0, sizeof(struct outputs_callback_register));
 	}
     }
 }
@@ -137,26 +158,26 @@ callback_add(struct output_device *device, output_status_cb cb)
   callback_remove(device);
 
   // Find a free slot in the queue
-  for (callback_id = 0; callback_id < ARRAY_SIZE(outputs_cb_queue); callback_id++)
+  for (callback_id = 0; callback_id < ARRAY_SIZE(outputs_cb_register); callback_id++)
     {
-      if (outputs_cb_queue[callback_id].cb == NULL)
+      if (outputs_cb_register[callback_id].cb == NULL)
 	break;
     }
 
-  if (callback_id == ARRAY_SIZE(outputs_cb_queue))
+  if (callback_id == ARRAY_SIZE(outputs_cb_register))
     {
       DPRINTF(E_LOG, L_PLAYER, "Output callback queue is full! (size is %d)\n", OUTPUTS_MAX_CALLBACKS);
       return -1;
     }
 
-  outputs_cb_queue[callback_id].cb = cb;
-  outputs_cb_queue[callback_id].device = device; // Don't dereference this later, it might become invalid!
+  outputs_cb_register[callback_id].cb = cb;
+  outputs_cb_register[callback_id].device = device; // Don't dereference this later, it might become invalid!
 
   DPRINTF(E_DBG, L_PLAYER, "Registered callback to %s with id %d (device %p, %s)\n", player_pmap(cb), callback_id, device, device->name);
 
   int active = 0;
-  for (int i = 0; i < ARRAY_SIZE(outputs_cb_queue); i++)
-    if (outputs_cb_queue[i].cb)
+  for (int i = 0; i < ARRAY_SIZE(outputs_cb_register); i++)
+    if (outputs_cb_register[i].cb)
       active++;
 
   DPRINTF(E_DBG, L_PLAYER, "Number of active callbacks: %d\n", active);
@@ -172,19 +193,19 @@ deferred_cb(int fd, short what, void *arg)
   enum output_device_state state;
   int callback_id;
 
-  for (callback_id = 0; callback_id < ARRAY_SIZE(outputs_cb_queue); callback_id++)
+  for (callback_id = 0; callback_id < ARRAY_SIZE(outputs_cb_register); callback_id++)
     {
-      if (outputs_cb_queue[callback_id].ready)
+      if (outputs_cb_register[callback_id].ready)
 	{
 	  // Must copy before making callback, since you never know what the
 	  // callback might result in (could call back in)
-	  cb = outputs_cb_queue[callback_id].cb;
-	  state = outputs_cb_queue[callback_id].state;
+	  cb = outputs_cb_register[callback_id].cb;
+	  state = outputs_cb_register[callback_id].state;
 
 	  // Will be NULL if the device has disappeared
-	  device = outputs_device_get(outputs_cb_queue[callback_id].device_id);
+	  device = outputs_device_get(outputs_cb_register[callback_id].device_id);
 
-	  memset(&outputs_cb_queue[callback_id], 0, sizeof(struct outputs_callback_queue));
+	  memset(&outputs_cb_register[callback_id], 0, sizeof(struct outputs_callback_register));
 
 	  // The device has left the building (stopped/failed), and the backend
 	  // is not using it any more
@@ -200,11 +221,20 @@ deferred_cb(int fd, short what, void *arg)
 	}
     }
 
-  for (int i = 0; i < ARRAY_SIZE(outputs_cb_queue); i++)
+  for (int i = 0; i < ARRAY_SIZE(outputs_cb_register); i++)
     {
-      if (outputs_cb_queue[i].cb)
-	DPRINTF(E_DBG, L_PLAYER, "%d. Active callback: %s\n", i, player_pmap(outputs_cb_queue[i].cb));
+      if (outputs_cb_register[i].cb)
+	DPRINTF(E_DBG, L_PLAYER, "%d. Active callback: %s\n", i, player_pmap(outputs_cb_register[i].cb));
     }
+}
+
+static void
+stop_timer_cb(int fd, short what, void *arg)
+{
+  struct output_device *device = arg;
+  output_status_cb cb = callback_get(device);
+
+  outputs_device_stop(device, cb);
 }
 
 static void
@@ -300,10 +330,10 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
   // The resampling/encoding (transcode) contexts work for a given input quality,
   // so if the quality changes we need to reset the contexts. We also do that if
   // we have received a subscription for a new quality.
-  if (!quality_is_equal(quality, &obuf->data[0].quality) || output_got_new_subscription)
+  if (!quality_is_equal(quality, &obuf->data[0].quality) || outputs_got_new_subscription)
     {
       encoding_reset(quality);
-      output_got_new_subscription = false;
+      outputs_got_new_subscription = false;
     }
 
   // The first element of the output_buffer is always just the raw input data
@@ -468,7 +498,7 @@ outputs_quality_subscribe(struct media_quality *quality)
     quality->sample_rate, quality->bits_per_sample, quality->channels, output_quality_subscriptions[i].count);
 
   // Better way of signaling this?
-  output_got_new_subscription = true;
+  outputs_got_new_subscription = true;
 
   return 0;
 }
@@ -515,7 +545,7 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state state)
   if (callback_id < 0)
     return;
 
-  if (!(callback_id < ARRAY_SIZE(outputs_cb_queue)) || !outputs_cb_queue[callback_id].cb)
+  if (!(callback_id < ARRAY_SIZE(outputs_cb_register)) || !outputs_cb_register[callback_id].cb)
     {
       DPRINTF(E_LOG, L_PLAYER, "Bug! Output backend called us with an illegal callback id (%d)\n", callback_id);
       return;
@@ -523,9 +553,9 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state state)
 
   DPRINTF(E_DBG, L_PLAYER, "Callback request received, id is %i\n", callback_id);
 
-  outputs_cb_queue[callback_id].ready = true;
-  outputs_cb_queue[callback_id].device_id = device_id;
-  outputs_cb_queue[callback_id].state = state;
+  outputs_cb_register[callback_id].ready = true;
+  outputs_cb_register[callback_id].device_id = device_id;
+  outputs_cb_register[callback_id].state = state;
   event_active(outputs_deferredev, 0, 0);
 }
 
@@ -557,6 +587,8 @@ outputs_device_add(struct output_device *add, bool new_deselect, int default_vol
   if (!device)
     {
       device = add;
+
+      device->stop_timer = evtimer_new(evbase_player, stop_timer_cb, device);
 
       keep_name = strdup(device->name);
       ret = db_speaker_get(device, device->id);
@@ -692,6 +724,19 @@ outputs_device_stop(struct output_device *device, output_status_cb cb)
 }
 
 int
+outputs_device_stop_delayed(struct output_device *device, output_status_cb cb)
+{
+  if (outputs[device->type]->disabled || !outputs[device->type]->device_stop)
+    return -1;
+
+  outputs[device->type]->device_cb_set(device, callback_add(device, cb));
+
+  event_add(device->stop_timer, &outputs_stop_timeout);
+
+  return 0;
+}
+
+int
 outputs_device_flush(struct output_device *device, output_status_cb cb)
 {
   if (outputs[device->type]->disabled || !outputs[device->type]->device_flush)
@@ -772,27 +817,15 @@ outputs_device_free(struct output_device *device)
   if (outputs[device->type]->device_free_extra)
     outputs[device->type]->device_free_extra(device);
 
+  if (device->stop_timer)
+    event_free(device->stop_timer);
+
   free(device->name);
   free(device->auth_key);
   free(device->v4_address);
   free(device->v6_address);
 
   free(device);
-}
-
-void
-outputs_playback_stop(void)
-{
-  int i;
-
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled)
-	continue;
-
-      if (outputs[i]->playback_stop)
-	outputs[i]->playback_stop();
-    }
 }
 
 int
@@ -812,6 +845,39 @@ outputs_flush(output_status_cb cb)
     }
 
   return count;
+}
+
+int
+outputs_stop(output_status_cb cb)
+{
+  struct output_device *device;
+  int count = 0;
+  int ret;
+
+  for (device = output_device_list; device; device = device->next)
+    {
+      if (!device->session)
+	continue;
+
+      ret = outputs_device_stop(device, cb);
+      if (ret < 0)
+	continue;
+
+      count++;
+    }
+
+  return count;
+}
+
+int
+outputs_stop_delayed_cancel(void)
+{
+  struct output_device *device;
+
+  for (device = output_device_list; device; device = device->next)
+    event_del(device->stop_timer);
+
+  return 0;
 }
 
 void
