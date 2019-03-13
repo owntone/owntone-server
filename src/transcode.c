@@ -937,7 +937,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
     }
 
   // Clear AVFMT_NOFILE bit, it is not allowed as we will set our own AVIOContext
-  oformat->flags = ~AVFMT_NOFILE;
+  oformat->flags &= ~AVFMT_NOFILE;
 
   CHECK_NULL(L_XCODE, ctx->ofmt_ctx = avformat_alloc_context());
 
