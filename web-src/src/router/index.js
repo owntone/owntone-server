@@ -13,6 +13,7 @@ import PageAlbums from '@/pages/PageAlbums'
 import PageAlbum from '@/pages/PageAlbum'
 import PageGenres from '@/pages/PageGenres'
 import PageGenre from '@/pages/PageGenre'
+import PageGenreArtists from '@/pages/PageGenreArtists'
 import PageGenreTracks from '@/pages/PageGenreTracks'
 import PageArtistTracks from '@/pages/PageArtistTracks'
 import PagePodcasts from '@/pages/PagePodcasts'
@@ -114,6 +115,12 @@ export const router = new VueRouter({
       path: '/music/genres/:genre',
       name: 'Genre',
       component: PageGenre,
+      meta: { show_progress: true, has_index: true }
+    },
+    {
+      path: '/music/genres/:genre/artists',
+      name: 'GenreArtists',
+      component: PageGenreArtists,
       meta: { show_progress: true, has_index: true }
     },
     {
