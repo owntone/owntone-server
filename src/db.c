@@ -708,6 +708,20 @@ free_queue_item(struct db_queue_item *queue_item, int content_only)
     memset(queue_item, 0, sizeof(struct db_queue_item));
 }
 
+void
+free_ci(struct db_composer_info *dci, int content_only)
+{
+  if (!dci)
+    return;
+
+  free(dci->name);
+
+  if (!content_only)
+    free(dci);
+  else
+    memset(dci, 0, sizeof(struct db_composer_info));
+}
+
 static void
 sort_tag_create(char **sort_tag, const char *src_tag)
 {
@@ -2509,6 +2523,96 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
   return 0;
 }
 
+
+static int
+db_composer_info_count(const char *composer, int *album_count, int *track_count)
+{
+#define Q_TMPL "SELECT COUNT(DISTINCT(songalbumid)), COUNT(id) FROM files WHERE composer='%q';"
+
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, composer);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_DBG, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  *album_count  = sqlite3_column_int(stmt, 0);
+  *track_count = sqlite3_column_int(stmt, 1);
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_query_fetch_composer(struct query_params *qp, struct db_composer_info *dci)
+{
+  int ret;
+  const char *name;
+
+  memset(dci, 0, sizeof(struct db_composer_info));
+
+  if (!qp->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Query not started!\n");
+      return -1;
+    }
+
+  if (!(qp->type & Q_F_BROWSE))
+    {
+      DPRINTF(E_LOG, L_DB, "Not a browse query!\n");
+      return -1;
+    }
+
+  ret = db_blocking_step(qp->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  name = (char *)sqlite3_column_text(qp->stmt, 0);
+  if ( (ret = db_composer_info_count(name, &dci->album_count, &dci->track_count)) < 0)
+    return ret;
+  dci->name = strdup(name);
+
+  return 0;
+}
 
 /* Files */
 int

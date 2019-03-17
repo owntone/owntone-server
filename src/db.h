@@ -371,6 +371,12 @@ struct db_media_file_info {
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
 
+struct db_composer_info {
+  char *name;
+  int album_count;
+  int track_count;
+};
+
 enum strip_type {
   STRIP_NONE,
   STRIP_PATH,
@@ -514,6 +520,9 @@ free_query_params(struct query_params *qp, int content_only);
 void
 free_queue_item(struct db_queue_item *queue_item, int content_only);
 
+void
+free_ci(struct db_composer_info*, int content_only);
+
 /* Maintenance and DB hygiene */
 void
 db_hook_post_scan(void);
@@ -558,6 +567,9 @@ db_query_fetch_string(struct query_params *qp, char **string);
 
 int
 db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortstring);
+
+int
+db_query_fetch_composer(struct query_params *qp, struct db_composer_info *dci);
 
 /* Files */
 int
