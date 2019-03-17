@@ -1,6 +1,21 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 26.5
+	- json api/web ui: file view
+	- web ui: artwork support
+	- web ui: "Add next" and genre tab
+	- Airplay connection test improvements
+	- support for https streams in m3u's
+	- use Spotify web api for artwork instead of libspotify
+	- option to make Airplay devices permanent or excluded
+	- support for tracks and disc items in smart playlists
+	- db refactor, fix issues with play count, time played etc
+	- json api: more options available when adding items to the queue
+	- json api: player/toggle
+	- mpd version 0.20 support + support for "listfiles" command
+	- fix double http auth decline issue
+
 version 26.4:
 	- automatic rating
 	- fix issue in 26.3 causing invalid time_skipped values in the db
