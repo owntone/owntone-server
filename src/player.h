@@ -138,7 +138,6 @@ player_shuffle_set(int enable);
 int
 player_consume_set(int enable);
 
-
 void
 player_queue_clear_history(void);
 
@@ -156,9 +155,6 @@ player_device_remove(void *device);
 
 void
 player_raop_verification_kickoff(char **arglist);
-
-void
-player_metadata_send(void *imd, void *omd);
 
 const char *
 player_pmap(void *p);

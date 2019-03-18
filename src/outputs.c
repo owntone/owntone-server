@@ -37,6 +37,7 @@
 #include "listener.h"
 #include "db.h"
 #include "player.h" //TODO remove me when player_pmap is removed again
+#include "worker.h"
 #include "outputs.h"
 
 extern struct output_definition output_raop;
@@ -418,6 +419,60 @@ device_list_sort(void)
   while (swaps > 0);
 }
 
+static void
+metadata_cb_send(int fd, short what, void *arg)
+{
+  struct output_metadata *metadata = arg;
+  int ret;
+
+  event_free(metadata->ev);
+  metadata->ev = NULL;
+
+  ret = metadata->finalize_cb(metadata);
+  if (ret < 0)
+    return;
+
+  outputs[metadata->type]->metadata_send(metadata);
+}
+
+// *** Worker thread ***
+static void
+metadata_cb_prepare(void *arg)
+{
+  struct output_metadata *metadata = *((struct output_metadata **)arg);
+
+  metadata->priv = outputs[metadata->type]->metadata_prepare(metadata);
+  if (!metadata->priv)
+    {
+      event_free(metadata->ev);
+      free(metadata);
+      return;
+    }
+
+  // Metadata is prepared, let the player thread do the actual sending
+  event_active(metadata->ev, 0, 0);
+}
+
+static void
+metadata_send(enum output_types type, uint32_t item_id, bool startup, output_metadata_finalize_cb cb)
+{
+  struct output_metadata *metadata;
+
+  CHECK_NULL(L_PLAYER, metadata = calloc(1, sizeof(struct output_metadata)));
+
+  metadata->type        = type;
+  metadata->item_id     = item_id;
+  metadata->startup     = startup;
+  metadata->finalize_cb = cb;
+
+  metadata->ev = event_new(evbase_player, -1, 0, metadata_cb_send, metadata);
+
+  if (outputs[type]->metadata_prepare)
+    worker_execute(metadata_cb_prepare, &metadata, sizeof(struct output_metadata *), 0);
+  else
+    outputs[type]->metadata_send(metadata);
+}
+
 
 /* ----------------------------------- API ---------------------------------- */
 
@@ -729,6 +784,12 @@ outputs_device_stop_delayed(struct output_device *device, output_status_cb cb)
   if (outputs[device->type]->disabled || !outputs[device->type]->device_stop)
     return -1;
 
+  if (!device->session)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! outputs_device_stop_delayed() called for a device that has no session\n");
+      return -1;
+    }
+
   outputs[device->type]->device_cb_set(device, callback_add(device, cb));
 
   event_add(device->stop_timer, &outputs_stop_timeout);
@@ -899,64 +960,17 @@ outputs_write(void *buf, size_t bufsize, int nsamples, struct media_quality *qua
   buffer_drain(&output_buffer);
 }
 
-struct output_metadata *
-outputs_metadata_prepare(int id)
-{
-  struct output_metadata *omd;
-  struct output_metadata *new;
-  void *metadata;
-  int i;
-
-  omd = NULL;
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled)
-	continue;
-
-      if (!outputs[i]->metadata_prepare)
-	continue;
-
-      metadata = outputs[i]->metadata_prepare(id);
-      if (!metadata)
-	continue;
-
-      new = calloc(1, sizeof(struct output_metadata));
-      if (!new)
-	return omd;
-
-      if (omd)
-	new->next = omd;
-      omd = new;
-      omd->type = i;
-      omd->metadata = metadata;
-    }
-
-  return omd;  
-}
-
 void
-outputs_metadata_send(struct output_metadata *omd, uint64_t rtptime, uint64_t offset, int startup)
+outputs_metadata_send(uint32_t item_id, bool startup, output_metadata_finalize_cb cb)
 {
-  struct output_metadata *ptr;
   int i;
 
   for (i = 0; outputs[i]; i++)
     {
-      if (outputs[i]->disabled)
+      if (outputs[i]->disabled || !outputs[i]->metadata_send)
 	continue;
 
-      if (!outputs[i]->metadata_send)
-	continue;
-
-      // Go through linked list to find appropriate metadata for type
-      for (ptr = omd; ptr; ptr = ptr->next)
-	if (ptr->type == i)
-	  break;
-
-      if (!ptr)
-	continue;
-
-      outputs[i]->metadata_send(ptr->metadata, rtptime, offset, startup);
+      metadata_send(i, item_id, startup, cb);
     }
 }
 
@@ -967,41 +981,10 @@ outputs_metadata_purge(void)
 
   for (i = 0; outputs[i]; i++)
     {
-      if (outputs[i]->disabled)
+      if (outputs[i]->disabled || !outputs[i]->metadata_purge)
 	continue;
 
-      if (outputs[i]->metadata_purge)
-	outputs[i]->metadata_purge();
-    }
-}
-
-void
-outputs_metadata_prune(uint64_t rtptime)
-{
-  int i;
-
-  for (i = 0; outputs[i]; i++)
-    {
-      if (outputs[i]->disabled)
-	continue;
-
-      if (outputs[i]->metadata_prune)
-	outputs[i]->metadata_prune(rtptime);
-    }
-}
-
-void
-outputs_metadata_free(struct output_metadata *omd)
-{
-  struct output_metadata *ptr;
-
-  if (!omd)
-    return;
-
-  for (ptr = omd; omd; ptr = omd)
-    {
-      omd = ptr->next;
-      free(ptr);
+      outputs[i]->metadata_purge();
     }
 }
 

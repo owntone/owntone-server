@@ -33,22 +33,6 @@
  * not always obeyed, for instance some outputs do their setup in ways that
  * could block.
  *
- *
- * About metadata
- * --------------
- * The player gets metadata from library + inputs and passes it to the outputs
- * and other clients (e.g. Remotes).
- *
- *  1. On playback start, metadata from the library is loaded into the queue
- *     items, and these items are then the source of metadata for clients.
- *  2. During playback, the input may signal new metadata by making a
- *     input_write() with the INPUT_FLAG_METADATA flag. When the player read
- *     reaches that data, the player will request the metadata from the input
- *     with input_metadata_get(). This metadata is then saved to the currently
- *     playing queue item, and the clients are told to update metadata.
- *  3. Artwork works differently than textual metadata. The artwork module will
- *     look for artwork in the library, and addition also check the artwork_url
- *     of the queue_item.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -162,12 +146,6 @@ struct speaker_get_param
   struct player_speaker_info *spk_info;
 };
 
-struct metadata_param
-{
-  struct input_metadata *input;
-  struct output_metadata *output;
-};
-
 struct speaker_auth_param
 {
   enum output_types type;
@@ -184,16 +162,16 @@ union player_arg
 
 struct player_source
 {
-  /* Id of the file/item in the files database */
+  // Id of the file/item in the files database
   uint32_t id;
 
-  /* Item-Id of the file/item in the queue */
+  // Item-Id of the file/item in the queue
   uint32_t item_id;
 
-  /* Length of the file/item in milliseconds */
+  // Length of the file/item in milliseconds
   uint32_t len_ms;
 
-  /* Quality of the source (sample rate etc.) */
+  // Quality of the source (sample rate etc.)
   struct media_quality quality;
 
   enum data_kind data_kind;
@@ -292,7 +270,7 @@ static struct timespec player_tick_interval;
 // Timer resolution
 static struct timespec player_timer_res;
 
-static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIMEOUT, 0 };
+//static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIMEOUT, 0 };
 
 // PLAYER_WRITE_BEHIND_MAX converted to clock ticks
 static int pb_write_deficit_max;
@@ -448,87 +426,24 @@ pause_timer_cb(int fd, short what, void *arg)
   pb_abort();
 }
 
-// Callback from the worker thread. Here the heavy lifting is done: updating the
-// db_queue_item, retrieving artwork (through outputs_metadata_prepare) and
-// when done, telling the player to send the metadata to the clients
-static void
-metadata_update_cb(void *arg)
+static int
+metadata_finalize_cb(struct output_metadata *metadata)
 {
-  struct input_metadata *metadata = arg;
-  struct output_metadata *o_metadata;
-  struct db_queue_item *queue_item;
-  int ret;
-
-  ret = input_metadata_get(metadata);
-  if (ret < 0)
+  if (metadata->item_id != pb_session.playing_now->item_id)
     {
-      goto out_free_metadata;
+      DPRINTF(E_WARN, L_PLAYER, "Aborting metadata_send(), item_id changed during metadata preparation (%" PRIu32 " -> %" PRIu32 ")\n",
+	metadata->item_id, pb_session.playing_now->item_id);
+      return -1;
     }
 
-  queue_item = db_queue_fetch_byitemid(metadata->item_id);
-  if (!queue_item)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! Input metadata item_id does not match anything in queue\n");
-      goto out_free_metadata;
-    }
+  if (!metadata->pos_ms)
+    metadata->pos_ms = pb_session.playing_now->pos_ms;
+  if (!metadata->len_ms)
+    metadata->len_ms = pb_session.playing_now->len_ms;
+  if (!metadata->pts.tv_sec)
+    metadata->pts = pb_session.pts;
 
-  // Update queue item if metadata changed
-  if (metadata->artist || metadata->title || metadata->album || metadata->genre || metadata->artwork_url || metadata->song_length)
-    {
-      // Since we won't be using the metadata struct values for anything else than
-      // this we just swap pointers
-      if (metadata->artist)
-	swap_pointers(&queue_item->artist, &metadata->artist);
-      if (metadata->title)
-	swap_pointers(&queue_item->title, &metadata->title);
-      if (metadata->album)
-	swap_pointers(&queue_item->album, &metadata->album);
-      if (metadata->genre)
-	swap_pointers(&queue_item->genre, &metadata->genre);
-      if (metadata->artwork_url)
-	swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
-      if (metadata->song_length)
-	queue_item->song_length = metadata->song_length;
-
-      ret = db_queue_update_item(queue_item);
-      if (ret < 0)
-        {
-	  DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
-	  goto out_free_queueitem;
-	}
-    }
-
-  o_metadata = outputs_metadata_prepare(metadata->item_id);
-
-  // Actual sending must be done by player, since the worker does not own the outputs
-  player_metadata_send(metadata, o_metadata);
-
-  outputs_metadata_free(o_metadata);
-
- out_free_queueitem:
-  free_queue_item(queue_item, 0);
-
- out_free_metadata:
-  input_metadata_free(metadata, 1);
-}
-
-// Gets the metadata, but since the actual update requires db writes and
-// possibly retrieving artwork we let the worker do the next step
-static void
-metadata_trigger(int startup)
-{
-  struct input_metadata metadata;
-
-  memset(&metadata, 0, sizeof(struct input_metadata));
-
-  metadata.item_id = pb_session.playing_now->item_id;
-
-  metadata.startup = startup;
-  metadata.start   = pb_session.playing_now->read_start;
-  metadata.offset  = pb_session.playing_now->play_start - pb_session.playing_now->read_start;
-  metadata.rtptime = pb_session.pos;
-
-  worker_execute(metadata_update_cb, &metadata, sizeof(metadata), 0);
+  return 0;
 }
 
 /*
@@ -877,9 +792,10 @@ session_update_read_quality(struct media_quality *quality)
   int samples_per_read;
 
   if (quality_is_equal(quality, &pb_session.reading_now->quality))
-    return;
+    goto out;
 
   pb_session.reading_now->quality = *quality;
+
   samples_per_read = ((uint64_t)quality->sample_rate * (player_tick_interval.tv_nsec / 1000000)) / 1000;
   pb_session.reading_now->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
 
@@ -897,6 +813,9 @@ session_update_read_quality(struct media_quality *quality)
   CHECK_NULL(L_PLAYER, pb_session.buffer);
 
   pb_session.reading_now->play_start = pb_session.reading_now->read_start + pb_session.reading_now->output_buffer_samples;
+
+ out:
+  free(quality);
 }
 
 static void
@@ -926,15 +845,11 @@ session_start(struct player_source *ps, uint32_t seek_ms)
 /* ------------------------- Playback event handlers ------------------------ */
 
 static void
-event_read_quality()
+event_read_quality(struct media_quality *quality)
 {
   DPRINTF(E_DBG, L_PLAYER, "event_read_quality()\n");
 
-  struct media_quality quality;
-
-  input_quality_get(&quality);
-
-  session_update_read_quality(&quality);
+  session_update_read_quality(quality);
 }
 
 // Stuff to do when read of current track ends
@@ -969,11 +884,13 @@ event_read_start_next()
 }
 
 static void
-event_metadata_new()
+event_read_metadata(struct input_metadata *metadata)
 {
-  DPRINTF(E_DBG, L_PLAYER, "event_metadata_new()\n");
+  DPRINTF(E_DBG, L_PLAYER, "event_read_metadata()\n");
 
-  metadata_trigger(0);
+  outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
+
+  status_update(player_state);
 }
 
 static void
@@ -1004,7 +921,10 @@ event_play_eof()
   if (consume)
     db_queue_delete_byitemid(pb_session.playing_now->item_id);
 
-  outputs_metadata_prune(pb_session.pos);
+//  outputs_metadata_prune(pb_session.pos);
+
+  if (pb_session.reading_next)
+    outputs_metadata_send(pb_session.reading_next->item_id, false, metadata_finalize_cb);
 
   session_update_play_eof();
 }
@@ -1013,8 +933,6 @@ static void
 event_play_start()
 {
   DPRINTF(E_DBG, L_PLAYER, "event_play_start()\n");
-
-  event_metadata_new();
 
   status_update(PLAY_PLAYING);
 
@@ -1055,7 +973,8 @@ event_read(int nsamples)
 static inline int
 source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *buf, int len)
 {
-  short flags;
+  short flag;
+  void *flagdata;
 
   // Nothing to read
   if (!pb_session.reading_now)
@@ -1080,28 +999,28 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
 
   *quality = pb_session.reading_now->quality;
   *nsamples = 0;
-  *nbytes = input_read(buf, len, &flags);
-  if ((*nbytes < 0) || (flags & INPUT_FLAG_ERROR))
+  *nbytes = input_read(buf, len, &flag, &flagdata);
+  if ((*nbytes < 0) || (flag == INPUT_FLAG_ERROR))
     {
       DPRINTF(E_LOG, L_PLAYER, "Error reading source '%s' (id=%d)\n", pb_session.reading_now->path, pb_session.reading_now->id);
       event_read_error();
       return -1;
     }
-  else if (flags & INPUT_FLAG_START_NEXT)
+  else if (flag == INPUT_FLAG_START_NEXT)
     {
       event_read_start_next();
     }
-  else if (flags & INPUT_FLAG_EOF)
+  else if (flag == INPUT_FLAG_EOF)
     {
       event_read_eof();
     }
-  else if (flags & INPUT_FLAG_METADATA)
+  else if (flag == INPUT_FLAG_METADATA)
     {
-      event_metadata_new();
+      event_read_metadata((struct input_metadata *)flagdata);
     }
-  else if (flags & INPUT_FLAG_QUALITY || quality->channels == 0)
+  else if (flag == INPUT_FLAG_QUALITY)
     {
-      event_read_quality();
+      event_read_quality((struct media_quality *)flagdata);
     }
 
   if (*nbytes == 0 || quality->channels == 0)
@@ -1315,25 +1234,6 @@ device_auth_kickoff(void *arg, int *retval)
   union player_arg *cmdarg = arg;
 
   outputs_authorize(cmdarg->auth.type, cmdarg->auth.pin);
-
-  *retval = 0;
-  return COMMAND_END;
-}
-
-
-static enum command_state
-device_metadata_send(void *arg, int *retval)
-{
-  struct metadata_param *metadata_param = arg;
-  struct input_metadata *imd;
-  struct output_metadata *omd;
-
-  imd = metadata_param->input;
-  omd = metadata_param->output;
-
-  outputs_metadata_send(omd, imd->rtptime, imd->offset, imd->startup);
-
-  status_update(player_state);
 
   *retval = 0;
   return COMMAND_END;
@@ -1609,7 +1509,7 @@ pb_timer_start(void)
 
   // The stop timers will be active if we have recently paused, but now that the
   // playback loop has been kicked off, we deactivate them
-  event_del(player_pause_timeout_ev);
+//  event_del(player_pause_timeout_ev);
   outputs_stop_delayed_cancel();
 
   ret = event_add(pb_timer_ev, NULL);
@@ -1689,20 +1589,29 @@ pb_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
 
   // The input source is now open and ready, but we might actually be paused. So
   // we activate the below event in case the user never starts us again
-  event_add(player_pause_timeout_ev, &player_pause_timeout);
+//  event_add(player_pause_timeout_ev, &player_pause_timeout);
 
   return ret;
+}
+
+// Stops input source and stops read loop
+static void
+pb_session_pause(void)
+{
+  pb_timer_stop();
+
+  source_stop();
 }
 
 // Stops input source and deallocates pb_session content
 static void
 pb_session_stop(void)
 {
+  pb_timer_stop();
+
   source_stop();
 
   session_stop();
-
-  pb_timer_stop();
 
   status_update(PLAY_STOPPED);
 }
@@ -1867,6 +1776,8 @@ playback_start_bh(void *arg, int *retval)
   if (ret < 0)
     goto error;
 
+  outputs_metadata_send(pb_session.playing_now->item_id, true, metadata_finalize_cb);
+
   status_update(PLAY_PLAYING);
 
   *retval = 0;
@@ -1942,8 +1853,6 @@ playback_start_item(void *arg, int *retval)
 	  return COMMAND_END;
 	}
     }
-
-  metadata_trigger(1);
 
   // Start sessions on selected devices
   *retval = 0;
@@ -2246,7 +2155,7 @@ playback_pause(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  pb_timer_stop();
+  pb_session_pause();
 
   *retval = outputs_flush(device_flush_cb);
   outputs_metadata_purge();
@@ -3181,20 +3090,6 @@ void
 player_raop_verification_kickoff(char **arglist)
 {
   player_device_auth_kickoff(OUTPUT_TYPE_RAOP, arglist);
-}
-
-
-/* ---------------------------- Thread: worker ------------------------------ */
-
-void
-player_metadata_send(void *imd, void *omd)
-{
-  struct metadata_param metadata_param;
-
-  metadata_param.input = imd;
-  metadata_param.output = omd;
-
-  commands_exec_sync(cmdbase, device_metadata_send, NULL, &metadata_param);
 }
 
 

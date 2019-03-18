@@ -2,6 +2,7 @@
 #ifndef __OUTPUTS_H__
 #define __OUTPUTS_H__
 
+#include <stdbool.h>
 #include <time.h>
 #include <event2/event.h>
 #include <event2/buffer.h>
@@ -61,6 +62,14 @@
 // the values we give and stick to 2 seconds, 2) those devices that can handle
 // different values can only do so within a limited range (maybe max 3 secs)
 #define OUTPUTS_BUFFER_DURATION 2
+
+// Forward declarations
+struct output_device;
+struct output_metadata;
+enum output_device_state;
+
+typedef void (*output_status_cb)(struct output_device *device, enum output_device_state status);
+typedef int (*output_metadata_finalize_cb)(struct output_metadata *metadata);
 
 // Must be in sync with outputs[] in outputs.c
 enum output_types
@@ -147,13 +156,24 @@ struct output_device
   struct output_device *next;
 };
 
-// Linked list of metadata prepared by each output backend
 struct output_metadata
 {
   enum output_types type;
-  void *metadata;
+  uint32_t item_id;
 
-  struct output_metadata *next;
+  // Progress data, filled out by finalize_cb()
+  uint32_t pos_ms;
+  uint32_t len_ms;
+  struct timespec pts;
+  bool startup;
+
+  // Private output data made by the metadata_prepare()
+  void *priv;
+
+  struct event *ev;
+
+  // Finalize before right before sending, e.g. set playback position
+  output_metadata_finalize_cb finalize_cb;
 };
 
 struct output_data
@@ -171,8 +191,6 @@ struct output_buffer
   struct timespec pts;
   struct output_data data[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
 } output_buffer;
-
-typedef void (*output_status_cb)(struct output_device *device, enum output_device_state status);
 
 struct output_definition
 {
@@ -229,11 +247,16 @@ struct output_definition
   // Authorize an output with a pin-code (probably coming from the filescanner)
   void (*authorize)(const char *pin);
 
-  // Metadata
-  void *(*metadata_prepare)(int id);
-  void (*metadata_send)(void *metadata, uint64_t rtptime, uint64_t offset, int startup);
+  // Called from worker thread for async preparation of metadata (e.g. getting
+  // artwork, which might involce downloading image data). The prepared data is
+  // saved to metadata->data, which metadata_send() can use.
+  void *(*metadata_prepare)(struct output_metadata *metadata);
+
+  // Send metadata to outputs. Ownership of *metadata is transferred.
+  void (*metadata_send)(struct output_metadata *metadata);
+
+  // Output will cleanup all metadata (so basically like flush but for metadata)
   void (*metadata_purge)(void);
-  void (*metadata_prune)(uint64_t rtptime);
 };
 
 // Our main list of devices, not for use by backend modules
@@ -317,20 +340,11 @@ outputs_stop_delayed_cancel(void);
 void
 outputs_write(void *buf, size_t bufsize, int nsamples, struct media_quality *quality, struct timespec *pts);
 
-struct output_metadata *
-outputs_metadata_prepare(int id);
-
 void
-outputs_metadata_send(struct output_metadata *omd, uint64_t rtptime, uint64_t offset, int startup);
+outputs_metadata_send(uint32_t item_id, bool startup, output_metadata_finalize_cb cb);
 
 void
 outputs_metadata_purge(void);
-
-void
-outputs_metadata_prune(uint64_t rtptime);
-
-void
-outputs_metadata_free(struct output_metadata *omd);
 
 void
 outputs_authorize(enum output_types type, const char *pin);

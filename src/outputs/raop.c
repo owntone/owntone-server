@@ -89,7 +89,6 @@
 // AirTunes v2 number of samples per packet
 // Probably using this value because 44100/352 and 48000/352 has good 32 byte
 // alignment, which improves performance of some encoders
-// TODO Should probably not be fixed, but vary with quality
 #define RAOP_SAMPLES_PER_PACKET              352
 
 // How many RTP packets keep in a buffer for retransmission
@@ -98,7 +97,7 @@
 #define RAOP_MD_DELAY_STARTUP      15360
 #define RAOP_MD_DELAY_SWITCH       (RAOP_MD_DELAY_STARTUP * 2)
 
-/* This is an arbitrary value which just needs to be kept in sync with the config */
+// This is an arbitrary value which just needs to be kept in sync with the config
 #define RAOP_CONFIG_MAX_VOLUME     11
 
 union sockaddr_all
@@ -239,15 +238,8 @@ struct raop_session
 struct raop_metadata
 {
   struct evbuffer *metadata;
-
   struct evbuffer *artwork;
   int artwork_fmt;
-
-  /* Progress data */
-  uint32_t start;
-  uint32_t end;
-
-  struct raop_metadata *next;
 };
 
 struct raop_service
@@ -339,8 +331,7 @@ static struct raop_service control_4svc;
 static struct raop_service control_6svc;
 
 /* Metadata */
-static struct raop_metadata *metadata_head;
-static struct raop_metadata *metadata_tail;
+static struct output_metadata *raop_cur_metadata;
 
 /* Keep-alive timer - hack for ATV's with tvOS 10 */
 static struct event *keep_alive_timer;
@@ -2164,138 +2155,70 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
 static void
 raop_metadata_free(struct raop_metadata *rmd)
 {
-  evbuffer_free(rmd->metadata);
+  if (!rmd)
+    return;
+
+  if (rmd->metadata)
+    evbuffer_free(rmd->metadata);
   if (rmd->artwork)
     evbuffer_free(rmd->artwork);
+
   free(rmd);
 }
 
 static void
 raop_metadata_purge(void)
 {
-  struct raop_metadata *rmd;
+  if (!raop_cur_metadata)
+    return;
 
-  for (rmd = metadata_head; rmd; rmd = metadata_head)
-    {
-      metadata_head = rmd->next;
-
-      raop_metadata_free(rmd);
-    }
-
-  metadata_tail = NULL;
+  raop_metadata_free(raop_cur_metadata->priv);
+  free(raop_cur_metadata);
+  raop_cur_metadata = NULL;
 }
 
-static void
-raop_metadata_prune(uint64_t rtptime)
-{
-  struct raop_metadata *rmd;
-
-  for (rmd = metadata_head; rmd; rmd = metadata_head)
-    {
-      if (rmd->end >= rtptime)
-	break;
-
-      if (metadata_tail == metadata_head)
-	metadata_tail = rmd->next;
-
-      metadata_head = rmd->next;
-
-      raop_metadata_free(rmd);
-    }
-}
-
-/* Thread: worker */
+// *** Thread: worker ***
 static void *
-raop_metadata_prepare(int id)
+raop_metadata_prepare(struct output_metadata *metadata)
 {
   struct db_queue_item *queue_item;
   struct raop_metadata *rmd;
   struct evbuffer *tmp;
   int ret;
 
-  rmd = (struct raop_metadata *)malloc(sizeof(struct raop_metadata));
-  if (!rmd)
+  queue_item = db_queue_fetch_byitemid(metadata->item_id);
+  if (!queue_item)
     {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for RAOP metadata\n");
-
+      DPRINTF(E_LOG, L_RAOP, "Could not fetch queue item\n");
       return NULL;
     }
 
-  memset(rmd, 0, sizeof(struct raop_metadata));
-
-  queue_item = db_queue_fetch_byitemid(id);
-  if (!queue_item)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for queue item\n");
-
-      goto out_rmd;
-    }
-
-  /* Get artwork */
-  rmd->artwork = evbuffer_new();
-  if (!rmd->artwork)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for artwork evbuffer; no artwork will be sent\n");
-
-      goto skip_artwork;
-    }
+  CHECK_NULL(L_RAOP, rmd = calloc(1, sizeof(struct raop_metadata)));
+  CHECK_NULL(L_RAOP, rmd->artwork = evbuffer_new());
+  CHECK_NULL(L_RAOP, rmd->metadata = evbuffer_new());
+  CHECK_NULL(L_RAOP, tmp = evbuffer_new());
 
   ret = artwork_get_item(rmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT);
   if (ret < 0)
     {
-      DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file id %d; no artwork will be sent\n", id);
-
+      DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file '%s'; no artwork will be sent\n", queue_item->path);
       evbuffer_free(rmd->artwork);
       rmd->artwork = NULL;
     }
 
   rmd->artwork_fmt = ret;
 
- skip_artwork:
-
-  /* Turn it into DAAP metadata */
-  tmp = evbuffer_new();
-  if (!tmp)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for temporary metadata evbuffer; metadata will not be sent\n");
-
-      goto out_qi;
-    }
-
-  rmd->metadata = evbuffer_new();
-  if (!rmd->metadata)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for metadata evbuffer; metadata will not be sent\n");
-
-      evbuffer_free(tmp);
-      goto out_qi;
-    }
-
   ret = dmap_encode_queue_metadata(rmd->metadata, tmp, queue_item);
   evbuffer_free(tmp);
+  free_queue_item(queue_item, 0);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not encode file metadata; metadata will not be sent\n");
-
-      goto out_metadata;
+      raop_metadata_free(rmd);
+      return NULL;
     }
 
-  /* Progress - raop_metadata_send() will add rtptime to these */
-  rmd->start = 0;
-  rmd->end = ((uint64_t)queue_item->song_length * 44100UL) / 1000UL;
-
-  free_queue_item(queue_item, 0);
-
   return rmd;
-
- out_metadata:
-  evbuffer_free(rmd->metadata);
- out_qi:
-  free_queue_item(queue_item, 0);
- out_rmd:
-  free(rmd);
-
-  return NULL;
 }
 
 static void
@@ -2329,36 +2252,61 @@ raop_cb_metadata(struct evrtsp_request *req, void *arg)
   session_failure(rs);
 }
 
-static int
-raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, uint32_t offset, uint32_t delay)
+static void
+raop_metadata_rtptimes_get(uint32_t *start, uint32_t *display, uint32_t *pos, uint32_t *end, struct raop_master_session *rms, struct output_metadata *metadata)
 {
-  uint32_t display;
-  int ret;
+  struct rtp_session *rtp_session = rms->rtp_session;
+  uint64_t sample_rate;
+  uint32_t elapsed_ms;
+  int delay;
 
   /* Here's the deal with progress values:
    * - first value, called display, is always start minus a delay
    *    -> delay x1 if streaming is starting for this device (joining or not)
    *    -> delay x2 if stream is switching to a new song
-   * - second value, called start, is the RTP time of the first sample for this
+   * - second value, called pos, is the RTP time of the first sample for this
    *   song for this device
    *    -> start of song
    *    -> start of song + offset if device is joining in the middle of a song,
    *       or getting out of a pause or seeking
    * - third value, called end, is the RTP time of the last sample for this song
    */
+  sample_rate = rtp_session->quality.sample_rate;
 
-  display = RAOP_RTPTIME(rmd->start - delay);
+  /* First calculate the rtptime that streaming of this item started:
+   * - at time metadata->pts the elapsed time was metadata->pos_ms
+   * - the time is now rtp_session->pts and the position is rtp_session->pos
+   * -> time since item started is elapsed = metadata->pos_ms + (rtp_session->pts - metadata->pts)
+   * -> start must then be start = rtp_session->pos - elapsed * sample_rate;
+   */
+  elapsed_ms = metadata->pos_ms;
 
-  ret = evbuffer_add_printf(evbuf, "progress: %u/%u/%u\r\n", display, RAOP_RTPTIME(rmd->start + offset), RAOP_RTPTIME(rmd->end));
+  *start = rtp_session->pos - sample_rate * elapsed_ms / 1000;
+
+  if (metadata->startup)
+    delay = RAOP_MD_DELAY_STARTUP;
+  else
+    delay = RAOP_MD_DELAY_SWITCH;
+
+  *display = *start - delay;
+  *pos = MAX(rtp_session->pos, *start); // TODO is this calculation correct? It is not in line with the description above
+  *end = *start + sample_rate * metadata->len_ms / 1000;
+
+  DPRINTF(E_DBG, L_RAOP, "Metadata sr=%lu, pos_ms=%u, len_ms=%u, start=%u, display=%u, pos=%u, end=%u, rtptime=%u\n",
+    sample_rate, metadata->pos_ms, metadata->len_ms, *start, *display, *pos, *end, rtp_session->pos);
+}
+
+static int
+raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, uint32_t display, uint32_t pos, uint32_t end)
+{
+  int ret;
+
+  ret = evbuffer_add_printf(evbuf, "progress: %u/%u/%u\r\n", display, pos, end);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not build progress string for sending\n");
-
       return -1;
     }
-
-  DPRINTF(E_DBG, L_PLAYER, "Metadata send is start_time=%" PRIu32 ", start=%" PRIu32 ", display=%" PRIu32 ", current=%" PRIu32 ", end=%" PRIu32 "\n",
-    rs->start_rtptime, rmd->start, rmd->start - delay, rmd->start + offset, rmd->end);
 
   ret = raop_send_req_set_parameter(rs, evbuf, "text/parameters", NULL, raop_cb_metadata, "send_progress");
   if (ret < 0)
@@ -2435,25 +2383,25 @@ raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, str
 }
 
 static int
-raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, uint32_t offset, uint32_t delay)
+raop_metadata_send_generic(struct raop_session *rs, struct output_metadata *metadata)
 {
-  char rtptime[32];
+  struct raop_metadata *rmd = metadata->priv;
   struct evbuffer *evbuf;
+  uint32_t start;
+  uint32_t display;
+  uint32_t pos;
+  uint32_t end;
+  char rtptime[32];
   int ret;
 
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not allocate temp evbuffer for metadata processing\n");
+  raop_metadata_rtptimes_get(&start, &display, &pos, &end, rs->master_session, metadata);
 
-      return -1;
-    }
+  CHECK_NULL(L_RAOP, evbuf = evbuffer_new());
 
-  ret = snprintf(rtptime, sizeof(rtptime), "rtptime=%u", RAOP_RTPTIME(rmd->start));
+  ret = snprintf(rtptime, sizeof(rtptime), "rtptime=%u", start);
   if ((ret < 0) || (ret >= sizeof(rtptime)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer while sending metadata\n");
-
       ret = -1;
       goto out;
     }
@@ -2462,29 +2410,25 @@ raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, 
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send metadata to '%s'\n", rs->devname);
-
       ret = -1;
       goto out;
     }
 
-  if (!rmd->artwork)
-    goto skip_artwork;
-
-  ret = raop_metadata_send_artwork(rs, evbuf, rmd, rtptime);
-  if (ret < 0)
+  if (rmd->artwork)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not send artwork to '%s'\n", rs->devname);
-
-      ret = -1;
-      goto out;
+      ret = raop_metadata_send_artwork(rs, evbuf, rmd, rtptime);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Could not send artwork to '%s'\n", rs->devname);
+	  ret = -1;
+	  goto out;
+	}
     }
 
- skip_artwork:
-  ret = raop_metadata_send_progress(rs, evbuf, rmd, offset, delay);
+  ret = raop_metadata_send_progress(rs, evbuf, rmd, display, pos, end);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send progress to '%s'\n", rs->devname);
-
       ret = -1;
       goto out;
     }
@@ -2495,90 +2439,44 @@ raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, 
   return ret;
 }
 
-static void
+static int
 raop_metadata_startup_send(struct raop_session *rs)
 {
-  struct raop_metadata *rmd;
-  uint32_t offset;
-  int sent;
-  int ret;
+  if (!rs->wants_metadata || !raop_cur_metadata)
+    return 0;
 
-  if (!rs->wants_metadata)
-    return;
+  // We don't need to preserve the previous value, this function is the only one
+  // using raop_cur_metadata
+  raop_cur_metadata->startup = true;
 
-  sent = 0;
-  for (rmd = metadata_head; rmd; rmd = rmd->next)
-    {
-      // Current song, rmd->start >= rmd->end if endless stream
-      if ((rs->start_rtptime >= rmd->start) && ( (rs->start_rtptime < rmd->end) || (rmd->start >= rmd->end) ))
-	{
-	  offset = rs->start_rtptime - rmd->start;
-
-	  ret = raop_metadata_send_internal(rs, rmd, offset, RAOP_MD_DELAY_STARTUP);
-	  if (ret < 0)
-	    {
-	      session_failure(rs);
-
-	      return;
-	    }
-
-	  sent = 1;
-	}
-      // Next song(s)
-      else if (sent && (rs->start_rtptime < rmd->start))
-	{
-	  ret = raop_metadata_send_internal(rs, rmd, 0, RAOP_MD_DELAY_SWITCH);
-	  if (ret < 0)
-	    {
-	      session_failure(rs);
-
-	      return;
-	    }
-	}
-    }
+  return raop_metadata_send_generic(rs, raop_cur_metadata);
 }
 
 static void
-raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startup)
+raop_metadata_send(struct output_metadata *metadata)
 {
-  struct raop_metadata *rmd;
   struct raop_session *rs;
   struct raop_session *next;
-  uint32_t delay;
   int ret;
-
-  rmd = metadata;
-  rmd->start += rtptime;
-  rmd->end += rtptime;
-
-  /* Add the rmd to the metadata list */
-  if (metadata_tail)
-    metadata_tail->next = rmd;
-  else
-    {
-      metadata_head = rmd;
-      metadata_tail = rmd;
-    }
 
   for (rs = raop_sessions; rs; rs = next)
     {
       next = rs->next;
 
-      if (!(rs->state & RAOP_STATE_F_CONNECTED))
+      if (!(rs->state & RAOP_STATE_F_CONNECTED) || !rs->wants_metadata)
 	continue;
 
-      if (!rs->wants_metadata)
-	continue;
-
-      delay = (startup) ? RAOP_MD_DELAY_STARTUP : RAOP_MD_DELAY_SWITCH;
-
-      ret = raop_metadata_send_internal(rs, rmd, offset, delay);
+      ret = raop_metadata_send_generic(rs, metadata);
       if (ret < 0)
 	{
 	  session_failure(rs);
 	  continue;
 	}
     }
+
+  // Replace current metadata with the new stuff
+  raop_metadata_purge();
+  raop_cur_metadata = metadata;
 }
 
 
@@ -3718,15 +3616,13 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto cleanup;
 
-  raop_metadata_startup_send(rs);
+  ret = raop_metadata_startup_send(rs);
+  if (ret < 0)
+    goto cleanup;
 
   ret = raop_v2_stream_open(rs);
   if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not open streaming socket\n");
-
-      goto cleanup;
-    }
+    goto cleanup;
 
   /* Session startup and setup is done, tell our user */
   raop_status(rs);
@@ -5068,7 +4964,6 @@ struct output_definition output_raop =
   .metadata_prepare = raop_metadata_prepare,
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,
-  .metadata_prune = raop_metadata_prune,
 #ifdef RAOP_VERIFICATION
   .authorize = raop_verification_setup,
 #endif
