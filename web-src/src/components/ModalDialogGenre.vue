@@ -9,6 +9,18 @@
               <p class="title is-4">
                 <a class="has-text-link" @click="open_genre">{{ genre.name }}</a>
               </p>
+              <p>
+                <span class="heading">Albums</span>
+                <span class="title is-6">{{ genre.album_count }}</span>
+              </p>
+              <p>
+                <span class="heading">Artists</span>
+                <span class="title is-6">{{ genre.artist_count }}</span>
+              </p>
+              <p>
+                <span class="heading">Tracks</span>
+                <span class="title is-6">{{ genre.track_count }}</span>
+              </p>
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
