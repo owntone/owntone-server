@@ -71,22 +71,25 @@ typedef int (*input_cb)(void);
 
 struct input_metadata
 {
+  // queue_item id
   uint32_t item_id;
 
-  int startup;
+  // Input can override the default player progress by setting this
+  // FIXME only implemented for Airplay speakers currently
+  uint32_t pos_ms;
 
-  uint64_t start;
-  uint64_t rtptime;
-  uint64_t offset;
+  // Sets new song length (input will also update queue_item)
+  uint32_t len_ms;
 
-  // The player will update queue_item with the below
-  uint32_t song_length;
-
+  // Input can update queue_item with the below
   char *artist;
   char *title;
   char *album;
   char *genre;
   char *artwork_url;
+
+  // Indicates whether we are starting playback. Just passed on to output.
+  int startup;
 };
 
 struct input_definition
@@ -164,11 +167,12 @@ input_wait(void);
  *
  * @in  data     Output buffer
  * @in  size     How much data to move to the output buffer
- * @out flags    Flags INPUT_FLAG_*
+ * @out flag     Flag INPUT_FLAG_*
+ * @out flagdata Data associated with the flag, e.g. quality or metadata struct
  * @return       Number of bytes moved, -1 on error
  */
 int
-input_read(void *data, size_t size, short *flags);
+input_read(void *data, size_t size, short *flag, void **flagdata);
 
 /*
  * Player can set this to get a callback from the input when the input buffer
@@ -211,18 +215,6 @@ input_stop(void);
  */
 void
 input_flush(short *flags);
-
-/*
- * Returns the current quality of data returned by intput_read().
- */
-int
-input_quality_get(struct media_quality *quality);
-
-/*
- * Gets metadata from the input, returns 0 if metadata is set, otherwise -1
- */
-int
-input_metadata_get(struct input_metadata *metadata);
 
 /*
  * Free the entire struct

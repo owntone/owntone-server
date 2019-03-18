@@ -308,9 +308,10 @@ parse_progress(struct input_metadata *m, char *progress)
   if (!start || !pos || !end)
     return;
 
-  m->rtptime = start; // Not actually used - we have our own rtptime
-  m->offset = (pos > start) ? (pos - start) : 0;
-  m->song_length = (end - start) * 1000 / pipe_sample_rate;
+  if (pos > start)
+    m->pos_ms = (pos - start) * 1000 / pipe_sample_rate;
+  if (end > start)
+    m->len_ms = (end - start) * 1000 / pipe_sample_rate;
 }
 
 static void
@@ -907,27 +908,7 @@ metadata_get(struct input_metadata *metadata, struct input_source *source)
 {
   pthread_mutex_lock(&pipe_metadata_lock);
 
-  if (pipe_metadata_parsed.artist)
-    swap_pointers(&metadata->artist, &pipe_metadata_parsed.artist);
-  if (pipe_metadata_parsed.title)
-    swap_pointers(&metadata->title, &pipe_metadata_parsed.title);
-  if (pipe_metadata_parsed.album)
-    swap_pointers(&metadata->album, &pipe_metadata_parsed.album);
-  if (pipe_metadata_parsed.genre)
-    swap_pointers(&metadata->genre, &pipe_metadata_parsed.genre);
-  if (pipe_metadata_parsed.artwork_url)
-    swap_pointers(&metadata->artwork_url, &pipe_metadata_parsed.artwork_url);
-
-  if (pipe_metadata_parsed.song_length)
-    {
-// TODO this is probably broken
-      if (metadata->rtptime > metadata->start)
-	metadata->rtptime -= pipe_metadata_parsed.offset;
-      metadata->offset = pipe_metadata_parsed.offset;
-      metadata->song_length = pipe_metadata_parsed.song_length;
-    }
-
-  input_metadata_free(&pipe_metadata_parsed, 1);
+  *metadata = pipe_metadata_parsed;
 
   pthread_mutex_unlock(&pipe_metadata_lock);
 
