@@ -107,7 +107,13 @@
       </template>
       <template slot="content">
         <list-item-composer v-for="composer in composers.items" :key="composer.name" :composer="composer" @click="open_composer(composer)">
+          <template slot="actions">
+            <a @click="open_composer_dialog(composer)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
         </list-item-composer>
+        <modal-dialog-composer :show="show_composer_details_modal" :composer="selected_composer" @close="show_composer_details_modal = false" />
       </template>
       <template slot="footer">
         <nav v-if="show_all_composers_button" class="level">
@@ -157,13 +163,14 @@ import ListItemPlaylist from '@/components/ListItemPlaylist'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import ModalDialogArtist from '@/components/ModalDialogArtist'
+import ModalDialogComposer from '@/components/ModalDialogComposer'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageSearch',
-  components: { ContentWithHeading, TabsSearch, ListItemTrack, ListItemArtist, ListItemAlbum, ListItemComposer, ListItemPlaylist, ModalDialogTrack, ModalDialogAlbum, ModalDialogArtist, ModalDialogPlaylist },
+  components: { ContentWithHeading, TabsSearch, ListItemTrack, ListItemArtist, ListItemAlbum, ListItemComposer, ListItemPlaylist, ModalDialogTrack, ModalDialogAlbum, ModalDialogArtist, ModalDialogComposer, ModalDialogPlaylist },
 
   data () {
     return {
@@ -335,6 +342,10 @@ export default {
       this.$router.push({ path: '/music/albums/' + album.id })
     },
 
+    open_composer: function (composer) {
+      this.$router.push({ name: 'ComposerAlbums', params: { composer: composer.name } })
+    },
+
     open_playlist: function (playlist) {
       this.$router.push({ path: '/playlists/' + playlist.id })
     },
@@ -357,6 +368,11 @@ export default {
     open_artist_dialog: function (artist) {
       this.selected_artist = artist
       this.show_artist_details_modal = true
+    },
+
+    open_composer_dialog: function (composer) {
+      this.selected_composer = composer
+      this.show_composer_details_modal = true
     },
 
     open_playlist_dialog: function (playlist) {

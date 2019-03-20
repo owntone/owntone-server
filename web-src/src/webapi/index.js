@@ -220,6 +220,36 @@ export default {
     })
   },
 
+  library_composers () {
+    return axios.get('/api/library/composers')
+  },
+
+  library_composer (composer, type) {
+    var params = {
+      'type': type,
+      'media_kind': 'music',
+      'expression': 'composer is "' + composer + '"'
+    }
+    return axios.get('/api/search', {
+      params: params
+    })
+  },
+
+  library_genre_composers (genre) {
+    return axios.get('/api/library/composers?genre=' + genre)
+  },
+
+  library_genre_composer (genre, composer, type) {
+    var params = {
+      'type': type,
+      'media_kind': 'music',
+      'expression': 'genre is "' + genre + '" and composer is "' + composer + '"'
+    }
+    return axios.get('/api/search', {
+      params: params
+    })
+  },
+
   library_artist_tracks (artist) {
     if (artist) {
       var artistParams = {

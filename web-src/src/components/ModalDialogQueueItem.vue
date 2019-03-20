@@ -25,7 +25,8 @@
                 </p>
                 <p v-if="item.composer">
                   <span class="heading">Composer</span>
-                  <span class="title is-6">{{ item.composer }}</span>
+                  <a v-if="item.composer" class="title is-6 has-text-link" @click="open_composer">{{ item.composer}}</a>
+                  <span v-else class="title is-6">{{ item.composer }}</span>
                 </p>
                 <p v-if="item.year > 0">
                   <span class="heading">Year</span>
@@ -110,6 +111,10 @@ export default {
 
     open_genre: function () {
       this.$router.push({ name: 'Genre', params: { genre: this.item.genre } })
+    },
+
+    open_composer: function () {
+      this.$router.push({ name: 'ComposerAlbums', params: { composer: this.item.composer } })
     },
 
     open_spotify_artist: function () {
