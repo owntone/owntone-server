@@ -113,8 +113,8 @@ rtp_session_free(struct rtp_session *session)
   for (i = 0; i < session->pktbuf_size; i++)
     free(session->pktbuf[i].data);
 
+  free(session->pktbuf);
   free(session->sync_packet_next.data);
-
   free(session);
 }
 

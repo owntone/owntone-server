@@ -2294,7 +2294,7 @@ raop_metadata_rtptimes_get(uint32_t *start, uint32_t *display, uint32_t *pos, ui
   *pos = MAX(rtp_session->pos, *start); // TODO is this calculation correct? It is not in line with the description above
   *end = *start + sample_rate * metadata->len_ms / 1000;
 
-  DPRINTF(E_DBG, L_RAOP, "Metadata sr=%lu, pos_ms=%u, len_ms=%u, start=%u, display=%u, pos=%u, end=%u, rtptime=%u\n",
+  DPRINTF(E_DBG, L_RAOP, "Metadata sr=%" PRIu64 ", pos_ms=%u, len_ms=%u, start=%u, display=%u, pos=%u, end=%u, rtptime=%u\n",
     sample_rate, metadata->pos_ms, metadata->len_ms, *start, *display, *pos, *end, rtp_session->pos);
 }
 
