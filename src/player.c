@@ -429,7 +429,12 @@ pause_timer_cb(int fd, short what, void *arg)
 static int
 metadata_finalize_cb(struct output_metadata *metadata)
 {
-  if (metadata->item_id != pb_session.playing_now->item_id)
+  if (!pb_session.playing_now)
+    {
+      DPRINTF(E_WARN, L_PLAYER, "Aborting metadata_send(), playback stopped during metadata preparation\n");
+      return -1;
+    }
+  else if (metadata->item_id != pb_session.playing_now->item_id)
     {
       DPRINTF(E_WARN, L_PLAYER, "Aborting metadata_send(), item_id changed during metadata preparation (%" PRIu32 " -> %" PRIu32 ")\n",
 	metadata->item_id, pb_session.playing_now->item_id);
