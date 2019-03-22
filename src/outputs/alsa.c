@@ -376,7 +376,7 @@ device_quality_set(struct alsa_session *as, struct media_quality *quality, char 
   ret = snd_pcm_hw_params(as->hdl, hw_params);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not set hw params: %s\n", snd_strerror(ret));
+      *errmsg = safe_asprintf("Could not set hw params: %s\n", snd_strerror(ret));
       goto free_params;
     }
 

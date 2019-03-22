@@ -1930,7 +1930,9 @@ session_teardown_cb(struct evrtsp_request *req, void *arg)
 
   rs->reqs_in_flight--;
 
-  if (!req || req->response_code != RTSP_OK)
+  if (!req)
+    DPRINTF(E_LOG, L_RAOP, "TEARDOWN request failed in session shutdown\n");
+  else if (req->response_code != RTSP_OK)
     DPRINTF(E_LOG, L_RAOP, "TEARDOWN request failed in session shutdown: %d %s\n", req->response_code, req->response_code_line);
 
   rs->state = RAOP_STATE_STOPPED;

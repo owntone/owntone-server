@@ -422,6 +422,8 @@ setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms
       if (ret < 0)
 	goto seek_error;
     }
+  else
+    ret = 0;
 
   return ret;
 
@@ -694,7 +696,7 @@ input_read(void *data, size_t size, short *flag, void **flagdata)
   // Logs if flags present or each 10 seconds
 
   if (*flag & INPUT_FLAG_QUALITY)
-    input_buffer.cur_read_quality = *((struct media_quality *)marker->data);
+    input_buffer.cur_read_quality = *((struct media_quality *)(*flagdata));
 
   size_t one_sec_size = STOB(input_buffer.cur_read_quality.sample_rate, input_buffer.cur_read_quality.bits_per_sample, input_buffer.cur_read_quality.channels);
   debug_elapsed += len;
