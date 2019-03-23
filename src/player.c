@@ -219,6 +219,10 @@ struct player_session
   // Equals current number of samples written to outputs
   uint32_t pos;
 
+  // The player sources also have a quality property, but in some situations
+  // they may get cleared. So we also save it here.
+  struct media_quality quality;
+
   // We try to read a fixed number of bytes from the source each clock tick,
   // but if it gives us less we increase this correspondingly
   size_t read_deficit;
@@ -505,7 +509,7 @@ queue_item_next(uint32_t item_id)
     {
       queue_item = db_queue_fetch_byitemid(item_id);
       if (!queue_item)
-        return NULL;
+        goto error;
     }
   else
     {
@@ -517,7 +521,7 @@ queue_item_next(uint32_t item_id)
 
 	  queue_item = db_queue_fetch_bypos(0, shuffle);
 	  if (!queue_item)
-	    return NULL;
+	    goto error;
 	}
     }
 
@@ -528,6 +532,10 @@ queue_item_next(uint32_t item_id)
     }
 
   return queue_item;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Error fetching next item from queue (item-id=%" PRIu32 ", repeat=%d)\n", item_id, repeat);
+  return NULL;
 }
 
 static struct db_queue_item *
@@ -599,10 +607,7 @@ source_next_create(struct player_source *current)
 
   queue_item = queue_item_next(current->item_id);
   if (!queue_item)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Error fetching next item from queue (item-id=%d, repeat=%d)\n", current->item_id, repeat);
-      return NULL;
-    }
+    return NULL;
 
   ps = source_new(queue_item);
 
@@ -796,9 +801,10 @@ session_update_read_quality(struct media_quality *quality)
 {
   int samples_per_read;
 
-  if (quality_is_equal(quality, &pb_session.reading_now->quality))
+  if (quality_is_equal(quality, &pb_session.quality))
     goto out;
 
+  pb_session.quality = *quality;
   pb_session.reading_now->quality = *quality;
 
   samples_per_read = ((uint64_t)quality->sample_rate * (player_tick_interval.tv_nsec / 1000000)) / 1000;
@@ -976,16 +982,25 @@ event_read(int nsamples)
 
 // Returns -1 on error or bytes read (possibly 0)
 static inline int
-source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *buf, int len)
+source_read(int *nbytes, int *nsamples, uint8_t *buf, int len)
 {
   short flag;
   void *flagdata;
 
-  // Nothing to read
+  // We can get into this condition if a) we finished reading, but are still
+  // playing (playing_now is non-null), or b) the calling loop tries to catch up
+  // with an overrun or a deficit, but playback ended in the first iteration (in
+  // which case playing_now is null)
   if (!pb_session.reading_now)
     {
-      // This can happen if the loop tries to catch up with an overrun or a
-      // deficit, but the playback ends in the first iteration
+      // This is only for case a). If we are in case b) the session was zeroed,
+      // which means nsamples will become zero.
+      *nbytes = len;
+      *nsamples = BTOS(*nbytes, pb_session.quality.bits_per_sample, pb_session.quality.channels);
+
+      // In case a) this advances playback position and possibly ends playback,
+      // i.e. sets playing_now to null
+      event_read(*nsamples);
       if (!pb_session.playing_now)
 	{
 	  *nbytes = 0;
@@ -993,16 +1008,11 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
 	  return 0;
 	}
 
-      // Stream silence until event_read() stops playback
+      // Stream silence if playback didn't end yet
       memset(buf, 0, len);
-      *quality = pb_session.playing_now->quality;
-      *nbytes = len;
-      *nsamples = BTOS(*nbytes, quality->bits_per_sample, quality->channels);
-      event_read(*nsamples);
       return 0;
     }
 
-  *quality = pb_session.reading_now->quality;
   *nsamples = 0;
   *nbytes = input_read(buf, len, &flag, &flagdata);
   if ((*nbytes < 0) || (flag == INPUT_FLAG_ERROR))
@@ -1028,13 +1038,13 @@ source_read(int *nbytes, int *nsamples, struct media_quality *quality, uint8_t *
       event_read_quality((struct media_quality *)flagdata);
     }
 
-  if (*nbytes == 0 || quality->channels == 0)
+  if (*nbytes == 0 || pb_session.quality.channels == 0)
     {
       event_read(0); // This will set start_ts even if source isn't open yet
       return 0;
     }
 
-  *nsamples = BTOS(*nbytes, quality->bits_per_sample, quality->channels);
+  *nsamples = BTOS(*nbytes, pb_session.quality.bits_per_sample, pb_session.quality.channels);
 
   event_read(*nsamples);
 
@@ -1045,7 +1055,6 @@ static void
 playback_cb(int fd, short what, void *arg)
 {
   struct timespec ts;
-  struct media_quality quality;
   uint64_t overrun;
   int nbytes;
   int nsamples;
@@ -1104,7 +1113,7 @@ playback_cb(int fd, short what, void *arg)
   // should not bring us further behind, even if there is no data.
   for (i = 1 + overrun; i > 0; i--)
     {
-      ret = source_read(&nbytes, &nsamples, &quality, pb_session.buffer, pb_session.bufsize);
+      ret = source_read(&nbytes, &nsamples, pb_session.buffer, pb_session.bufsize);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Error reading from source\n");
@@ -1118,13 +1127,13 @@ playback_cb(int fd, short what, void *arg)
 
       pb_session.read_deficit -= nbytes;
 
-      outputs_write(pb_session.buffer, nbytes, nsamples, &quality, &pb_session.pts);
+      outputs_write(pb_session.buffer, nbytes, nsamples, &pb_session.quality, &pb_session.pts);
 
       if (nbytes < pb_session.bufsize)
 	{
 	  // How much the number of samples we got corresponds to in time (nanoseconds)
 	  ts.tv_sec = 0;
-	  ts.tv_nsec = 1000000000UL * (uint64_t)nsamples / quality.sample_rate;
+	  ts.tv_nsec = 1000000000UL * (uint64_t)nsamples / pb_session.quality.sample_rate;
 
 	  DPRINTF(E_DBG, L_PLAYER, "Incomplete read, wanted %zu, got %d (samples=%d/time=%lu), deficit %zu\n", pb_session.bufsize, nbytes, nsamples, ts.tv_nsec, pb_session.read_deficit);
 
