@@ -498,6 +498,11 @@ stop_cmd(void *arg, int *retval)
 static void
 timeout_cb(int fd, short what, void *arg)
 {
+  if (input_buffer.bytes_read > 0)
+    return;
+
+  DPRINTF(E_WARN, L_PLAYER, "Timed out after %d sec without any reading from input source\n", INPUT_OPEN_TIMEOUT);
+
   stop();
 }
 
