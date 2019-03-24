@@ -723,6 +723,10 @@ static void
 session_update_play_start(void)
 {
   pb_session.playing_now = pb_session.reading_now;
+
+  // This is a stupid work-around to make sure pos_ms is non-zero, because a
+  // zero value means that get_status() tells the clients that we are paused.
+  pb_session.playing_now->pos_ms = pb_session.playing_now->seek_ms + 1;
 }
 
 static void
@@ -945,9 +949,9 @@ event_play_start()
 {
   DPRINTF(E_DBG, L_PLAYER, "event_play_start()\n");
 
-  status_update(PLAY_PLAYING);
-
   session_update_play_start();
+
+  status_update(PLAY_PLAYING);
 }
 
 // Checks if the new playback position requires change of play status, plus
