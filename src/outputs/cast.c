@@ -70,10 +70,9 @@
 #define REPLY_TIMEOUT 5
 
 // ID of the audio mirroring app used by Chrome (Google Home)
-//#define CAST_APP_ID "85CDB22F"
-
+#define CAST_APP_ID "85CDB22F"
 // Old mirroring app (Chromecast)
-#define CAST_APP_ID "0F5096E8"
+#define CAST_APP_ID_OLD "0F5096E8"
 
 // Namespaces
 #define NS_CONNECTION "urn:x-cast:com.google.cast.tp.connection"
@@ -250,6 +249,8 @@ enum cast_msg_types
   GET_STATUS,
   RECEIVER_STATUS,
   LAUNCH,
+  LAUNCH_OLD,
+  LAUNCH_ERROR,
   STOP,
   MEDIA_CONNECT,
   MEDIA_CLOSE,
@@ -264,6 +265,7 @@ enum cast_msg_types
   MEDIA_LOAD_FAILED,
   MEDIA_LOAD_CANCELLED,
   SET_VOLUME,
+  PRESENTATION,
 };
 
 struct cast_msg_basic
@@ -336,6 +338,16 @@ struct cast_msg_basic cast_msg[] =
     .namespace = NS_RECEIVER,
     .payload = "{'type':'LAUNCH','requestId':%d,'appId':'" CAST_APP_ID "'}",
     .flags = USE_REQUEST_ID_ONLY,
+  },
+  {
+    .type = LAUNCH_OLD,
+    .namespace = NS_RECEIVER,
+    .payload = "{'type':'LAUNCH','requestId':%d,'appId':'" CAST_APP_ID_OLD "'}",
+    .flags = USE_REQUEST_ID_ONLY,
+  },
+  {
+    .type = LAUNCH_ERROR,
+    .tag = "LAUNCH_ERROR",
   },
   {
     .type = STOP,
@@ -417,6 +429,12 @@ struct cast_msg_basic cast_msg[] =
     .namespace = NS_RECEIVER,
     .payload = "{'type':'SET_VOLUME','volume':{'level':%.2f,'muted':0},'requestId':%d}",
     .flags = USE_REQUEST_ID,
+  },
+  {
+    .type = PRESENTATION,
+    .namespace = NS_WEBRTC,
+    .payload = "{'type':'PRESENTATION','sessionId':'%s',seqnum:%d,'title':'forked-daapd','icons':[{'url':'http://www.gyfgafguf.dk/images/fugl.jpg'}] }",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
     .type = 0,
@@ -731,6 +749,8 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
   else if (type == OFFER)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id, cs->ssrc_id);
+  else if (type == PRESENTATION)
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
   else if (type == MEDIA_LOAD)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->stream_url, cs->session_id, cs->request_id);
   else if ((type == MEDIA_PLAY) || (type == MEDIA_PAUSE) || (type == MEDIA_STOP))
@@ -1157,6 +1177,17 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
       goto error;
     }
 
+  if (payload->type == LAUNCH_ERROR && !cs->retry)
+    {
+      DPRINTF(E_WARN, L_CAST, "Device '%s' does not support app id '%s', trying '%s' instead\n", cs->devname, CAST_APP_ID, CAST_APP_ID_OLD);
+      cs->retry++;
+      ret = cast_msg_send(cs, LAUNCH_OLD, cast_cb_startup_launch);
+      if (ret < 0)
+	goto error;
+
+      return;
+    }
+
   if (payload->type != RECEIVER_STATUS)
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our LAUNCH (got type: %d) - aborting\n", payload->type);
@@ -1303,6 +1334,15 @@ cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
   cs->state = CAST_STATE_MEDIA_CONNECTED;
 
   cast_status(cs);
+}
+
+static void
+cast_cb_presentation(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  if (!payload)
+    DPRINTF(E_LOG, L_CAST, "No reply to PRESENTATION request from '%s' - will continue\n", cs->devname);
+  else if (payload->type != MEDIA_STATUS)
+    DPRINTF(E_LOG, L_CAST, "Unexpected reply to PRESENTATION request from '%s' - will continue\n", cs->devname);
 }
 
 /* The core of this module. Libevent makes a callback to this function whenever
@@ -1489,6 +1529,15 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
     }
 
   player_device_add(device);
+}
+
+
+/* --------------------------------- METADATA ------------------------------- */
+
+static void
+metadata_send(struct cast_session *cs)
+{
+  cast_msg_send(cs, PRESENTATION, cast_cb_presentation);
 }
 
 
@@ -2108,6 +2157,25 @@ cast_write(struct output_buffer *obuf)
     }
 }
 
+static void
+cast_metadata_send(struct output_metadata *metadata)
+{
+  struct cast_session *cs;
+  struct cast_session *next;
+
+  for (cs = cast_sessions; cs; cs = next)
+    {
+      next = cs->next;
+
+      if (cs->state != CAST_STATE_MEDIA_CONNECTED)
+	continue;
+
+      metadata_send(cs);
+    }
+
+  // TODO free the metadata
+}
+
 static int
 cast_init(void)
 {
@@ -2200,6 +2268,8 @@ struct output_definition output_cast =
   .type = OUTPUT_TYPE_CAST,
   .priority = 2,
   .disabled = 0,
+  .init = cast_init,
+  .deinit = cast_deinit,
   .device_start = cast_device_start,
   .device_probe = cast_device_probe,
   .device_stop = cast_device_stop,
@@ -2207,12 +2277,7 @@ struct output_definition output_cast =
   .device_cb_set = cast_device_cb_set,
   .device_volume_set = cast_device_volume_set,
   .write = cast_write,
-  .init = cast_init,
-  .deinit = cast_deinit,
-/* TODO metadata support
-  .metadata_prepare = cast_metadata_prepare,
+//  .metadata_prepare = cast_metadata_prepare,
   .metadata_send = cast_metadata_send,
-  .metadata_purge = cast_metadata_purge,
-  .metadata_prune = cast_metadata_prune,
-*/
+//  .metadata_purge = cast_metadata_purge,
 };
