@@ -429,6 +429,8 @@ device_configure(struct alsa_session *as)
       goto out_fail;
     }
 
+  snd_pcm_sw_params_free(sw_params);
+
   return 0;
 
  out_fail:
