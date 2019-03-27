@@ -730,11 +730,11 @@ session_update_play_start(void)
 }
 
 static void
-session_update_read_next(void)
+session_update_read_next(struct player_source *current)
 {
   struct player_source *ps;
 
-  ps = source_next_create(pb_session.reading_now);
+  ps = source_next_create(current);
   source_free(&pb_session.reading_next);
   pb_session.reading_next = ps;
 }
@@ -893,7 +893,7 @@ event_read_start_next()
   DPRINTF(E_DBG, L_PLAYER, "event_read_start_next()\n");
 
   // Attaches next item to session as reading_next
-  session_update_read_next();
+  session_update_read_next(pb_session.reading_now);
 
   source_next();
 }
@@ -1585,6 +1585,7 @@ static int
 pb_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
 {
   struct player_source *ps;
+  uint32_t item_id;
   int ret;
 
   ps = source_new(queue_item);
@@ -1595,19 +1596,16 @@ pb_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
   // Sets of opening of the new source
   while ( (ret = source_start()) < 0)
     {
-      // Couldn't start requested item, remove it from queue and try next in line
-      db_queue_delete_byitemid(pb_session.reading_next->item_id);
-      session_update_read_next();
+      // Couldn't start requested item, skip to next and remove failed item from queue
+      item_id = pb_session.reading_next->item_id;
+      session_update_read_next(pb_session.reading_next);
+      db_queue_delete_byitemid(item_id);
     }
 
   session_update_read_start((uint32_t)ret);
 
   if (!pb_session.playing_now)
     return -1;
-
-  // The input source is now open and ready, but we might actually be paused. So
-  // we activate the below event in case the user never starts us again
-//  event_add(player_pause_timeout_ev, &player_pause_timeout);
 
   return ret;
 }
