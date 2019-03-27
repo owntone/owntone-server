@@ -267,7 +267,6 @@ static int pb_timer_fd;
 timer_t pb_timer;
 #endif
 static struct event *pb_timer_ev;
-static struct event *player_pause_timeout_ev;
 
 // Time between ticks, i.e. time between when playback_cb() is invoked
 static struct timespec player_tick_interval;
@@ -423,12 +422,6 @@ scrobble_cb(void *arg)
   lastfm_scrobble(*id);
 }
 #endif
-
-static void
-pause_timer_cb(int fd, short what, void *arg)
-{
-  pb_abort();
-}
 
 static int
 metadata_finalize_cb(struct output_metadata *metadata)
@@ -1527,7 +1520,6 @@ pb_timer_start(void)
 
   // The stop timers will be active if we have recently paused, but now that the
   // playback loop has been kicked off, we deactivate them
-//  event_del(player_pause_timeout_ev);
   outputs_stop_delayed_cancel();
 
   ret = event_add(pb_timer_ev, NULL);
@@ -3198,7 +3190,6 @@ player_init(void)
     }
 
   CHECK_NULL(L_PLAYER, evbase_player = event_base_new());
-  CHECK_NULL(L_PLAYER, player_pause_timeout_ev = evtimer_new(evbase_player, pause_timer_cb, NULL));
 #ifdef HAVE_TIMERFD
   CHECK_NULL(L_PLAYER, pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, playback_cb, NULL));
 #else
