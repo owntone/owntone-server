@@ -1845,7 +1845,7 @@ payload_encode(struct evbuffer *evbuf, uint8_t *rawbuf, size_t rawbuf_size, int 
   frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality->sample_rate, quality->bits_per_sample);
   if (!frame)
     {
-      DPRINTF(E_LOG, L_CAST, "Could not convert raw PCM to frame (bufsize=%ld)\n", rawbuf_size);
+      DPRINTF(E_LOG, L_CAST, "Could not convert raw PCM to frame (bufsize=%zu)\n", rawbuf_size);
       return -1;
     }
 
