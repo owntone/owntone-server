@@ -1226,10 +1226,8 @@ device_remove_family(void *arg, int *retval)
       // happen?) then the device will never be removed.
       if (!device->session)
 	{
-	  if (device->selected)
-	    speaker_deselect_output(device);
-
 	  outputs_device_remove(device);
+	  volume_master_find();
 	}
     }
 
