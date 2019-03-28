@@ -827,6 +827,16 @@ session_update_read_quality(struct media_quality *quality)
 }
 
 static void
+session_resume(void)
+{
+  pb_session.start_ts.tv_sec = 0;
+  pb_session.start_ts.tv_nsec = 0;
+  pb_session.pts.tv_sec = 0;
+  pb_session.pts.tv_nsec = 0;
+  pb_session.read_deficit = 0;
+}
+
+static void
 session_stop(void)
 {
   free(pb_session.buffer);
@@ -1635,6 +1645,13 @@ pb_abort(void)
     db_queue_clear(0);
 }
 
+// Resets session start timestamp and deficits, which is necessary after pb_suspend
+static void
+pb_resume()
+{
+  session_resume();
+}
+
 // Temporarily suspends/resets playback, used when input buffer underruns or in
 // case of problems writing to the outputs
 static void
@@ -1834,6 +1851,8 @@ playback_start_item(void *arg, int *retval)
 	}
 
       DPRINTF(E_DBG, L_PLAYER, "Resume playback of '%s' (id=%d, item-id=%d)\n", ps->path, ps->id, ps->item_id);
+
+      pb_resume();
     }
   else
     {
