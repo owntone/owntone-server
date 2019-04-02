@@ -1,7 +1,8 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.60])
-AC_INIT([forked-daapd], [26.5])
+AC_INIT([forked-daapd], m4_esyscmd([git describe --tags --dirty --always | tr -d '\n']))
+
 
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
