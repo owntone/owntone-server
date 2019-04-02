@@ -47,6 +47,11 @@ extern struct event_base *evbase_httpd;
 // How many bytes we try to read at a time from the httpd pipe
 #define STREAMING_READ_SIZE STOB(352, 16, 2)
 
+#define STREAMING_MP3_SAMPLE_RATE 44100
+#define STREAMING_MP3_BPS         16
+#define STREAMING_MP3_CHANNELS    2
+
+
 // Linked list of mp3 streaming requests
 struct streaming_session {
   struct evhttp_request *req;
@@ -140,6 +145,7 @@ streaming_end(void)
 static void
 streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
 {
+  struct media_quality mp3_quality = { STREAMING_MP3_SAMPLE_RATE, STREAMING_MP3_BPS, STREAMING_MP3_CHANNELS };
   struct media_quality quality;
   struct decode_ctx *decode_ctx;
   int ret;
@@ -151,19 +157,17 @@ streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
     goto error;
 
   decode_ctx = NULL;
-  if (quality.sample_rate == 44100 && quality.bits_per_sample == 16)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16_44100);
-  else if (quality.sample_rate == 44100 && quality.bits_per_sample == 24)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24_44100);
-  else if (quality.sample_rate == 48000 && quality.bits_per_sample == 16)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16_48000);
-  else if (quality.sample_rate == 48000 && quality.bits_per_sample == 24)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24_48000);
+  if (quality.bits_per_sample == 16)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, &quality);
+  else if (quality.bits_per_sample == 24)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24, &quality);
+  else if (quality.bits_per_sample == 32)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM32, &quality);
 
   if (!decode_ctx)
     goto error;
 
-  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, decode_ctx, NULL, 0, 0);
+  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, &mp3_quality, decode_ctx, NULL, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
   if (!streaming_encode_ctx)
     {
@@ -198,7 +202,7 @@ encode_buffer(uint8_t *buffer, size_t size)
 
   samples = BTOS(size, streaming_quality.bits_per_sample, streaming_quality.channels);
 
-  frame = transcode_frame_new(buffer, size, samples, streaming_quality.sample_rate, streaming_quality.bits_per_sample);
+  frame = transcode_frame_new(buffer, size, samples, &streaming_quality);
   if (!frame)
     {
       DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");

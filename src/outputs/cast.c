@@ -1842,7 +1842,7 @@ payload_encode(struct evbuffer *evbuf, uint8_t *rawbuf, size_t rawbuf_size, int 
   transcode_frame *frame;
   int len;
 
-  frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality->sample_rate, quality->bits_per_sample);
+  frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality);
   if (!frame)
     {
       DPRINTF(E_LOG, L_CAST, "Could not convert raw PCM to frame (bufsize=%zu)\n", rawbuf_size);
@@ -2204,14 +2204,14 @@ cast_init(void)
       return -1;
     }
 
-  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16_48000);
+  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, &cast_quality_default);
   if (!decode_ctx)
     {
       DPRINTF(E_LOG, L_CAST, "Could not create decoding context\n");
       goto out_tls_deinit;
     }
 
-  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, decode_ctx, NULL, 0, 0);
+  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, &cast_quality_default, decode_ctx, NULL, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
   if (!cast_encode_ctx)
     {

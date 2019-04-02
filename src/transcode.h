@@ -5,6 +5,7 @@
 #include <event2/buffer.h>
 #include "db.h"
 #include "http.h"
+#include "misc.h"
 
 enum transcode_profile
 {
@@ -12,18 +13,12 @@ enum transcode_profile
   XCODE_UNKNOWN = 0,
   // Decodes the best audio stream into PCM16 or PCM24, no resampling (does not add wav header)
   XCODE_PCM_NATIVE,
-  // Decodes/resamples the best audio stream into 44100 PCM16 (with wav header)
+  // Decodes/resamples the best audio stream into PCM16 (with wav header)
   XCODE_PCM16_HEADER,
-  // Decodes/resamples the best audio stream (no wav headers)
-  XCODE_PCM16_44100,
-  XCODE_PCM16_48000,
-  XCODE_PCM16_96000,
-  XCODE_PCM24_44100,
-  XCODE_PCM24_48000,
-  XCODE_PCM24_96000,
-  XCODE_PCM32_44100,
-  XCODE_PCM32_48000,
-  XCODE_PCM32_96000,
+  // Decodes/resamples the best audio stream into PCM16/24/32 (no wav headers)
+  XCODE_PCM16,
+  XCODE_PCM24,
+  XCODE_PCM32,
   // Transcodes the best audio stream into MP3
   XCODE_MP3,
   // Transcodes the best audio stream into OPUS
@@ -45,16 +40,16 @@ typedef void transcode_frame;
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length);
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length);
 
 struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ctx, off_t *est_size, int width, int height);
+transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, off_t *est_size, int width, int height);
 
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size);
+transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size);
 
 struct decode_ctx *
-transcode_decode_setup_raw(enum transcode_profile profile);
+transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality *quality);
 
 int
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype);
@@ -113,14 +108,11 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
  * @in  data       Buffer with raw data
  * @in  size       Size of buffer
  * @in  nsamples   Number of samples in the buffer
- * @in  sample_rate
- *                 Sample rate
- * @in  bits_per_sample
- *                 BPS must be either 16 or 24
+ * @in  quality    Sample rate, bits per sample and channels
  * @return         Opaque pointer to frame if OK, otherwise NULL
  */
 transcode_frame *
-transcode_frame_new(void *data, size_t size, int nsamples, int sample_rate, int bits_per_sample);
+transcode_frame_new(void *data, size_t size, int nsamples, struct media_quality *quality);
 void
 transcode_frame_free(transcode_frame *frame);
 

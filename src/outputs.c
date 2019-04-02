@@ -250,24 +250,12 @@ device_stop_cb(struct output_device *device, enum output_device_state status)
 static enum transcode_profile
 quality_to_xcode(struct media_quality *quality)
 {
-  if (quality->sample_rate == 44100 && quality->bits_per_sample == 16)
-    return XCODE_PCM16_44100;
-  if (quality->sample_rate == 44100 && quality->bits_per_sample == 24)
-    return XCODE_PCM24_44100;
-  if (quality->sample_rate == 44100 && quality->bits_per_sample == 32)
-    return XCODE_PCM32_44100;
-  if (quality->sample_rate == 48000 && quality->bits_per_sample == 16)
-    return XCODE_PCM16_48000;
-  if (quality->sample_rate == 48000 && quality->bits_per_sample == 24)
-    return XCODE_PCM24_48000;
-  if (quality->sample_rate == 48000 && quality->bits_per_sample == 32)
-    return XCODE_PCM32_48000;
-  if (quality->sample_rate == 96000 && quality->bits_per_sample == 16)
-    return XCODE_PCM16_96000;
-  if (quality->sample_rate == 96000 && quality->bits_per_sample == 24)
-    return XCODE_PCM24_96000;
-  if (quality->sample_rate == 96000 && quality->bits_per_sample == 32)
-    return XCODE_PCM32_96000;
+  if (quality->bits_per_sample == 16)
+    return XCODE_PCM16;
+  if (quality->bits_per_sample == 24)
+    return XCODE_PCM24;
+  if (quality->bits_per_sample == 32)
+    return XCODE_PCM32;
 
   return XCODE_UNKNOWN;
 }
@@ -288,7 +276,7 @@ encoding_reset(struct media_quality *quality)
       return -1;
     }
 
-  decode_ctx = transcode_decode_setup_raw(profile);
+  decode_ctx = transcode_decode_setup_raw(profile, quality);
   if (!decode_ctx)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create subscription decoding context (profile %d)\n", profile);
@@ -306,7 +294,7 @@ encoding_reset(struct media_quality *quality)
 
       profile = quality_to_xcode(&subscription->quality);
       if (profile != XCODE_UNKNOWN)
-	subscription->encode_ctx = transcode_encode_setup(profile, decode_ctx, NULL, 0, 0);
+	subscription->encode_ctx = transcode_encode_setup(profile, &subscription->quality, decode_ctx, NULL, 0, 0);
       else
 	DPRINTF(E_LOG, L_PLAYER, "Could not setup resampling to %d/%d/%d for output\n",
 	  subscription->quality.sample_rate, subscription->quality.bits_per_sample, subscription->quality.channels);
@@ -354,7 +342,7 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
       if (!output_quality_subscriptions[i].encode_ctx)
 	continue;
 
-      frame = transcode_frame_new(buf, bufsize, nsamples, quality->sample_rate, quality->bits_per_sample);
+      frame = transcode_frame_new(buf, bufsize, nsamples, quality);
       if (!frame)
 	continue;
 
