@@ -897,7 +897,6 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
   cast_reply_cb reply_cb;
   struct cast_msg_payload payload = { 0 };
   void *hdl;
-  int unknown_app_id;
   int unknown_session_id;
   int i;
 
@@ -956,11 +955,10 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 
   if (payload.type == RECEIVER_STATUS && (cs->state & CAST_STATE_F_MEDIA_CONNECTED))
     {
-      unknown_app_id = payload.app_id && (strcmp(payload.app_id, CAST_APP_ID) != 0);
       unknown_session_id = payload.session_id && (strcmp(payload.session_id, cs->session_id) != 0);
-      if (unknown_app_id || unknown_session_id)
+      if (unknown_session_id)
 	{
-	  DPRINTF(E_WARN, L_CAST, "Our session on '%s' was hijacked\n", cs->devname);
+	  DPRINTF(E_LOG, L_CAST, "Our session '%s' on '%s' was lost to session '%s'\n", cs->session_id, cs->devname, payload.session_id);
 
 	  // Downgrade state, we don't have the receiver app any more
 	  cs->state = CAST_STATE_CONNECTED;
