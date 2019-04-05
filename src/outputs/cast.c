@@ -1321,7 +1321,7 @@ cast_cb_volume(struct cast_session *cs, struct cast_msg_payload *payload)
   cast_status(cs);
 }
 
-static void
+/*static void
 cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   if (!payload)
@@ -1332,7 +1332,7 @@ cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
   cs->state = CAST_STATE_MEDIA_CONNECTED;
 
   cast_status(cs);
-}
+}*/
 
 static void
 cast_cb_presentation(struct cast_session *cs, struct cast_msg_payload *payload)
@@ -2062,17 +2062,10 @@ static int
 cast_device_flush(struct output_device *device, int callback_id)
 {
   struct cast_session *cs = device->session;
-  int ret;
-
-  if (!(cs->state & CAST_STATE_F_MEDIA_STREAMING))
-    return -1;
-
-  // TODO Can't do this, we need to pause the stream in some other way
-  ret = cast_msg_send(cs, MEDIA_PAUSE, cast_cb_flush);
-  if (ret < 0)
-    return -1;
 
   cs->callback_id = callback_id;
+  cs->state = CAST_STATE_MEDIA_CONNECTED;
+  cast_status(cs);
 
   return 0;
 }
