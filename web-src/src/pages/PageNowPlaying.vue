@@ -4,6 +4,12 @@
       <div class="container has-text-centered fd-has-margin-top">
         <h1 class="title is-4">
           {{ now_playing.title }}
+          <div class="fd-has-padding-left-right" v-show="load_rating()"><star-rating v-model="rating"
+            :star-size="15"
+            :show-rating="false"
+            :max-rating="5"
+            :increment="0.5"
+            @rating-selected="rate_track"></star-rating></div>
         </h1>
         <h2 class="title is-6">
           {{ now_playing.artist }}
@@ -63,18 +69,21 @@ import PlayerButtonShuffle from '@/components/PlayerButtonShuffle'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume'
 import PlayerButtonRepeat from '@/components/PlayerButtonRepeat'
 import RangeSlider from 'vue-range-slider'
+import StarRating from 'vue-star-rating'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageNowPlaying',
-  components: { ModalDialogQueueItem, PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
+  components: { ModalDialogQueueItem, PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider, StarRating },
 
   data () {
     return {
       item_progress_ms: 0,
       interval_id: 0,
       artwork_visible: false,
+
+      rating: -1,
 
       show_details_modal: false,
       selected_item: {}
@@ -131,6 +140,23 @@ export default {
 
     artwork_error: function () {
       this.artwork_visible = false
+    },
+
+    load_rating: function () {
+      if (this.rating < 0 && this.now_playing.track_id) {
+        webapi.library_track(this.now_playing.track_id).then(({ data }) => {
+          this.rating = Math.ceil(data.rating / 20)
+        })
+      }
+      return this.rating >= 0
+    },
+
+    rate_track: function (rating) {
+      if (rating === 0.5) {
+        rating = 0
+      }
+      this.rating = Math.ceil(rating)
+      webapi.library_track_update(this.now_playing.track_id, { 'rating': this.rating * 20 })
     },
 
     open_dialog: function (item) {

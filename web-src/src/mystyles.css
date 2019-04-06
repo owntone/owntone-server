@@ -182,3 +182,7 @@ section.fd-tabs-section + section.fd-content {
   margin-left: 16px;
   margin-right: 16px;
 }
+
+.vue-star-rating {
+  justify-content: center;
+}
