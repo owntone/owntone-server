@@ -1576,7 +1576,8 @@ static int
 jsonapi_reply_player(struct httpd_request *hreq)
 {
   struct player_status status;
-  struct db_queue_item *queue_item;
+  struct db_queue_item *queue_item = NULL;
+  struct media_file_info *mfi = NULL;
   json_object *reply;
 
   player_get_status(&status);
@@ -1619,7 +1620,12 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
   if (status.item_id)
     {
+      queue_item = db_queue_fetch_byitemid(status.item_id);
+      if (queue_item)
+	mfi = db_file_fetch_byid(queue_item->file_id);
+
       json_object_object_add(reply, "item_id", json_object_new_int(status.item_id));
+      json_object_object_add(reply, "item_rating", json_object_new_int(mfi ? mfi->rating : 0));
       json_object_object_add(reply, "item_length_ms", json_object_new_int(status.len_ms));
       json_object_object_add(reply, "item_progress_ms", json_object_new_int(status.pos_ms));
       json_object_object_add(reply, "artwork_url", json_object_new_string("/artwork/nowplaying"));
@@ -1630,14 +1636,17 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
       if (queue_item)
 	{
+	  mfi = db_file_fetch_byid(queue_item->file_id);
+
 	  json_object_object_add(reply, "item_id", json_object_new_int(queue_item->id));
+	  json_object_object_add(reply, "item_rating", json_object_new_int(mfi ? mfi->rating : 0));
 	  json_object_object_add(reply, "item_length_ms", json_object_new_int(queue_item->song_length));
 	  json_object_object_add(reply, "item_progress_ms", json_object_new_int(0));
-	  free_queue_item(queue_item, 0);
 	}
       else
 	{
 	  json_object_object_add(reply, "item_id", json_object_new_int(0));
+	  json_object_object_add(reply, "item_rating", json_object_new_int(0));
 	  json_object_object_add(reply, "item_length_ms", json_object_new_int(0));
 	  json_object_object_add(reply, "item_progress_ms", json_object_new_int(0));
 	}
@@ -1645,6 +1654,8 @@ jsonapi_reply_player(struct httpd_request *hreq)
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply)));
 
+  free_queue_item(queue_item, 0);
+  free_mfi(mfi, 0);
   jparse_free(reply);
 
   return HTTP_OK;
