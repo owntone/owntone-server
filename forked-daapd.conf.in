@@ -223,11 +223,6 @@ audio {
 	# ahead, positive correspond to delaying it. The unit is milliseconds.
 	# The offset must be between -1000 and 1000 (+/- 1 sec).
 #	offset_ms = 0
-
-	# How often to check and correct for drift between ALSA and AirPlay.
-	# The value is an integer expressed in seconds.
-	# Clamped to the range 1..20.
-#	adjust_period_seconds = 10
 }
 
 # Pipe output

@@ -37,13 +37,28 @@
 #include "player.h"
 #include "outputs.h"
 
-// The maximum number of samples that the output is allowed to get behind (or
-// ahead) of the player position, before compensation is attempted
-#define ALSA_MAX_LATENCY 480
+// We measure latency each second, and after a number of measurements determined
+// by adjust_period_seconds we try to determine drift and latency. If both are
+// below the two thresholds set by the below, we don't do anything. Otherwise we
+// may attempt compensation by resampling. Latency is measured in samples, and
+// drift is change of latency per second. Both are floats.
+#define ALSA_MAX_LATENCY 480.0
+#define ALSA_MAX_DRIFT 16.0
 // If latency is jumping up and down we don't do compensation since we probably
-// wouldn't do a good job. This sets the maximum the latency is allowed to vary
-// within the 10 seconds where we measure latency each second.
-#define ALSA_MAX_LATENCY_VARIANCE 480
+// wouldn't do a good job. We use linear regression to determine the trend, but
+// if r2 is below this value we won't attempt to correct sync.
+#define ALSA_MAX_VARIANCE 0.2
+
+// How many latency calculations we keep in the latency_history buffer
+#define ALSA_LATENCY_HISTORY_SIZE 100
+
+// We correct latency by adjusting the sample rate in steps. However, if the
+// latency keeps drifting we give up after reaching this step.
+#define ALSA_RESAMPLE_STEP_MAX 8
+// The sample rate gets adjusted by a multiple of this number. The number of
+// multiples depends on the sample rate, i.e. a low sample rate may get stepped
+// by 16, while high one would get stepped by 4 x 16
+#define ALSA_RESAMPLE_STEP_MULTIPLE 2
 
 #define ALSA_F_STARTED  (1 << 15)
 
@@ -77,17 +92,23 @@ struct alsa_session
   uint32_t last_pos;
   uint32_t last_buflen;
 
-  struct timespec start_pts;
   struct timespec last_pts;
 
-  int last_latency;
-  int sync_counter;
+  // Used for syncing with the clock
+  struct timespec stamp_pts;
+  uint64_t stamp_pos;
+
+  // Array of latency calculations, where latency_counter tells how many are
+  // currently in the array
+  double latency_history[ALSA_LATENCY_HISTORY_SIZE];
+  int latency_counter;
+
+  int sync_resample_step;
 
   // Here we buffer samples during startup
   struct ringbuffer prebuf;
 
   int offset_ms;
-  int adjust_period_seconds;
 
   int volume;
   long vol_min;
@@ -511,7 +532,7 @@ playback_restart(struct alsa_session *as, struct output_buffer *obuf)
   // Time stamps used for syncing, here we set when playback should start
   ts.tv_sec = OUTPUTS_BUFFER_DURATION;
   ts.tv_nsec = (uint64_t)as->offset_ms * 1000000UL;
-  as->start_pts = timespec_add(obuf->pts, ts);
+  as->stamp_pts = timespec_add(obuf->pts, ts);
 
   // The difference between pos and start pos should match the 2 second buffer
   // that AirPlay uses (OUTPUTS_BUFFER_DURATION) + user configured offset_ms. We
@@ -587,71 +608,117 @@ buffer_write(struct alsa_session *as, struct output_data *odata, snd_pcm_sframes
 }
 
 static enum alsa_sync_state
-sync_check(struct alsa_session *as)
+sync_check(double *drift, double *latency, struct alsa_session *as, snd_pcm_sframes_t delay)
 {
   enum alsa_sync_state sync;
-  snd_pcm_sframes_t delay;
   struct timespec ts;
   int elapsed;
   uint64_t cur_pos;
   uint64_t exp_pos;
-  int32_t latency;
+  int32_t diff;
+  double r2;
   int ret;
-
-  as->sync_counter++;
-
-  ret = snd_pcm_delay(as->hdl, &delay);
-  if (ret < 0)
-    return ALSA_SYNC_OK;
 
   // Would be nice to use snd_pcm_status_get_audio_htstamp here, but it doesn't
   // seem to be supported on my computer
   clock_gettime(CLOCK_MONOTONIC, &ts);
 
-  // Here we calculate elapsed time since playback was supposed to start, taking
-  // into account buffer time and configuration of offset_ms. We then calculate
-  // our expected position based on elapsed time, and if it is different from
-  // where we are + what is the buffers, then ALSA is out of sync.
-  elapsed = (ts.tv_sec - as->start_pts.tv_sec) * 1000L + (ts.tv_nsec - as->start_pts.tv_nsec) / 1000000;
+  // Here we calculate elapsed time since last reference position (which is
+  // equal to playback start time, unless we have reset due to sync correction),
+  // taking into account buffer time and configuration of offset_ms. We then
+  // calculate our expected position based on elapsed time, and if different
+  // from where we are + what is in the buffers then ALSA is out of sync.
+  elapsed = (ts.tv_sec - as->stamp_pts.tv_sec) * 1000L + (ts.tv_nsec - as->stamp_pts.tv_nsec) / 1000000;
   if (elapsed < 0)
     return ALSA_SYNC_OK;
 
-  cur_pos = (uint64_t)as->pos - (delay + BTOS(as->prebuf.read_avail, as->quality.bits_per_sample, as->quality.channels));
+  cur_pos = (uint64_t)as->pos - as->stamp_pos - (delay + BTOS(as->prebuf.read_avail, as->quality.bits_per_sample, as->quality.channels));
   exp_pos = (uint64_t)elapsed * as->quality.sample_rate / 1000;
-  latency = cur_pos - exp_pos;
+  diff = cur_pos - exp_pos;
 
-  // If the latency is low or very different from our last measurement, we reset the sync_counter
-  if (abs(latency) < ALSA_MAX_LATENCY || abs(as->last_latency - latency) > ALSA_MAX_LATENCY_VARIANCE)
+  DPRINTF(E_DBG, L_LAUDIO, "counter %d/%d, stamp %lu:%lu, now %lu:%lu, elapsed is %d ms, cur_pos=%" PRIu64 ", exp_pos=%" PRIu64 ", diff=%d\n",
+    as->latency_counter, ALSA_LATENCY_HISTORY_SIZE, as->stamp_pts.tv_sec, as->stamp_pts.tv_nsec / 1000000, ts.tv_sec, ts.tv_nsec / 1000000, elapsed, cur_pos, exp_pos, diff);
+
+  // Add the latency to our measurement history
+  as->latency_history[as->latency_counter] = (double)diff;
+  as->latency_counter++;
+
+  // Haven't collected enough samples for sync evaluation yet, so just return
+  if (as->latency_counter < ALSA_LATENCY_HISTORY_SIZE)
+    return ALSA_SYNC_OK;
+
+  as->latency_counter = 0;
+
+  ret = linear_regression(drift, latency, &r2, NULL, as->latency_history, ALSA_LATENCY_HISTORY_SIZE);
+  if (ret < 0)
     {
-      as->sync_counter = 0;
+      DPRINTF(E_WARN, L_LAUDIO, "Linear regression of collected latency samples failed\n");
+      return ALSA_SYNC_OK;
+    }
+
+  // Set *latency to the "average" within the period
+  *latency = (*drift) * ALSA_LATENCY_HISTORY_SIZE / 2 + (*latency);
+
+  if (abs(*latency) < ALSA_MAX_LATENCY && abs(*drift) < ALSA_MAX_DRIFT)
+    sync = ALSA_SYNC_OK; // If both latency and drift are within thresholds -> no action
+  else if (*latency > 0 && *drift > 0)
+    sync = ALSA_SYNC_AHEAD;
+  else if (*latency < 0 && *drift < 0)
+    sync = ALSA_SYNC_BEHIND;
+  else
+    sync = ALSA_SYNC_OK; // Drift is counteracting latency -> no action
+
+  if (sync != ALSA_SYNC_OK && r2 < ALSA_MAX_VARIANCE)
+    {
+      DPRINTF(E_DBG, L_LAUDIO, "Too much variance in latency measurements (r2=%f/%f), won't try to compensate\n", r2, ALSA_MAX_VARIANCE);
       sync = ALSA_SYNC_OK;
     }
-  // If we have measured a consistent latency for configured period, then we take action
-  else if (as->sync_counter >= as->adjust_period_seconds)
-    {
-      as->sync_counter = 0;
-      if (latency < 0)
-	sync = ALSA_SYNC_BEHIND;
-      else
-	sync = ALSA_SYNC_AHEAD;
-    }
-  else
-    sync = ALSA_SYNC_OK;
 
-  // The will be used by sync_correct, so it knows how much we are out of sync
-  as->last_latency = latency;
-
-  DPRINTF(E_DBG, L_LAUDIO, "start %lu:%lu, now %lu:%lu, elapsed is %d ms, cur_pos=%" PRIu64 ", exp_pos=%" PRIu64 ", latency=%d\n",
-    as->start_pts.tv_sec, as->start_pts.tv_nsec / 1000000, ts.tv_sec, ts.tv_nsec / 1000000, elapsed, cur_pos, exp_pos, latency);
+  DPRINTF(E_DBG, L_LAUDIO, "Sync check result: drift=%f, latency=%f, r2=%f, sync=%d\n", *drift, *latency, r2, sync);
 
   return sync;
 }
 
 static void
-sync_correct(struct alsa_session *as)
+sync_correct(struct alsa_session *as, double drift, double latency, struct timespec pts, snd_pcm_sframes_t delay)
 {
-  DPRINTF(E_INFO, L_LAUDIO, "Here we should take action to compensate for ALSA latency of %d samples\n", as->last_latency);
-  // Not implemented yet
+  int step;
+  int sign;
+
+  // We change the sample_rate in steps that are a multiple of 50. So we might
+  // step 44100 -> 44000 -> 40900 -> 44000 -> 44100. If we used percentages to
+  // to step, we would have to deal with rounding; we don't want to step 44100
+  // -> 39996 -> 44099.
+  step = ALSA_RESAMPLE_STEP_MULTIPLE * (as->quality.sample_rate / 20000);
+
+  sign = (drift < 0) ? -1 : 1;
+
+  if (abs(as->sync_resample_step) == ALSA_RESAMPLE_STEP_MAX)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "The sync of ALSA device '%s' cannot be corrected (drift=%f, latency=%f)\n", as->devname, drift, latency);
+      as->sync_resample_step += sign;
+      return;
+    }
+  else if (abs(as->sync_resample_step) > ALSA_RESAMPLE_STEP_MAX)
+    return; // Don't do anything, we have given up
+
+  // Step 0 is the original audio quality (or the fallback quality), which we
+  // will just keep receiving
+  if (as->sync_resample_step != 0)
+    outputs_quality_unsubscribe(&as->quality);
+
+  as->sync_resample_step += sign;
+  as->quality.sample_rate += sign * step;
+
+  if (as->sync_resample_step != 0)
+    outputs_quality_subscribe(&as->quality);
+
+  // Reset position so next sync_correct latency correction is only based on
+  // what has elapsed since our correction
+  as->stamp_pos = (uint64_t)as->pos - (delay + BTOS(as->prebuf.read_avail, as->quality.bits_per_sample, as->quality.channels));;
+  as->stamp_pts = pts;
+
+  DPRINTF(E_INFO, L_LAUDIO, "Adjusted sample rate to %d to sync ALSA device '%s' (drift=%f, latency=%f)\n", as->quality.sample_rate, as->devname, drift, latency);
 }
 
 static void
@@ -659,7 +726,10 @@ playback_write(struct alsa_session *as, struct output_buffer *obuf)
 {
   snd_pcm_sframes_t ret;
   snd_pcm_sframes_t avail;
+  snd_pcm_sframes_t delay;
   enum alsa_sync_state sync;
+  double drift;
+  double latency;
   bool prebuffering;
   int i;
 
@@ -689,9 +759,13 @@ playback_write(struct alsa_session *as, struct output_buffer *obuf)
   // Check sync each second (or if this is first write where last_pts is zero)
   if (obuf->pts.tv_sec != as->last_pts.tv_sec)
     {
-      sync = sync_check(as);
-      if (sync != ALSA_SYNC_OK)
-	sync_correct(as);
+      ret = snd_pcm_delay(as->hdl, &delay);
+      if (ret == 0)
+	{
+	  sync = sync_check(&drift, &latency, as, delay);
+	  if (sync != ALSA_SYNC_OK)
+	    sync_correct(as, drift, latency, obuf->pts, delay);
+	}
 
       as->last_pts = obuf->pts;
     }
@@ -777,7 +851,6 @@ alsa_session_make(struct output_device *device, int callback_id)
   struct alsa_session *as;
   cfg_t *cfg_audio;
   char *errmsg;
-  int original_adjust;
   int ret;
 
   CHECK_NULL(L_LAUDIO, as = calloc(1, sizeof(struct alsa_session)));
@@ -800,16 +873,6 @@ alsa_session_make(struct output_device *device, int callback_id)
       DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset_ms (%d) set in the configuration is out of bounds\n", as->offset_ms);
       as->offset_ms = 1000 * (as->offset_ms/abs(as->offset_ms));
     }
-
-  original_adjust = cfg_getint(cfg_audio, "adjust_period_seconds");
-  if (original_adjust < 1)
-    as->adjust_period_seconds = 1;
-  else if (original_adjust > 20)
-    as->adjust_period_seconds = 20;
-  else
-    as->adjust_period_seconds = original_adjust;
-  if (as->adjust_period_seconds != original_adjust)
-    DPRINTF(E_LOG, L_LAUDIO, "Clamped ALSA adjust_period_seconds to %d\n", as->adjust_period_seconds);
 
   snd_pcm_status_malloc(&as->pcm_status);
 

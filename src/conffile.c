@@ -117,7 +117,6 @@ static cfg_opt_t sec_audio[] =
     CFG_STR("mixer_device", NULL, CFGF_NONE),
     CFG_INT("offset", 0, CFGF_NONE), // deprecated
     CFG_INT("offset_ms", 0, CFGF_NONE),
-    CFG_INT("adjust_period_seconds", 10, CFGF_NONE),
     CFG_END()
   };
 

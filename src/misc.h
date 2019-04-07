@@ -139,6 +139,9 @@ b64_encode(const uint8_t *in, size_t len);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
+int
+linear_regression(double *m, double *b, double *r, const double *x, const double *y, int n);
+
 bool
 quality_is_equal(struct media_quality *a, struct media_quality *b);
 
