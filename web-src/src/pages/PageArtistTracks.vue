@@ -5,7 +5,7 @@
         <index-button-list :index="index_list"></index-button-list>
       </template>
       <template slot="heading-left">
-        <p class="title is-4">{{ album_artist }}</p>
+        <p class="title is-4">{{ name }}</p>
       </template>
       <template slot="heading-right">
         <div class="buttons is-centered">
@@ -51,8 +51,8 @@ const tracksData = {
   },
 
   set: function (vm, response) {
-    vm.album_artist = response[0].data.artist
-    vm.artist_id = response[0].data.artist_id
+    vm.name = response[0].data.name
+    vm.id = response[0].data.id
     vm.artist = response[0].data.items
     vm.tracks = response[1].data
   }
@@ -65,8 +65,8 @@ export default {
 
   data () {
     return {
-      album_artist: '',
-      artist_id: '',
+      name: '',
+      id: '',
       artist: {},
       tracks: { items: [] },
 
@@ -95,7 +95,7 @@ export default {
   methods: {
     open_artist: function () {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/artists/' + this.artist_id })
+      this.$router.push({ path: '/music/artists/' + this.id })
     },
 
     play: function () {

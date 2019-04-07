@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template slot="heading-left">
-      <p class="title is-4">{{ album_artist }}</p>
+      <p class="title is-4">{{ name }}</p>
     </template>
     <template slot="heading-right">
       <div class="buttons is-centered">
@@ -45,14 +45,14 @@ const artistData = {
   },
 
   set: function (vm, response) {
-    vm.album_artist = response[0].data.artist
-    vm.artist_id = vm.$route.params.artist_id
+    vm.name = response[0].data.name
+    vm.id = response[0].data.id
     vm.artist = response[0].data.items
     vm.albums = response[1].data
 
     vm.consolidated_artist = {
-      'id': vm.artist_id,
-      'name': vm.album_artist,
+      'id': vm.id,
+      'name': vm.name,
       'album_count': vm.albums.items.length,
       'track_count': vm.track_count,
       'uri': vm.albums.items.map(a => a.uri).join(',')
@@ -67,8 +67,8 @@ export default {
 
   data () {
     return {
-      album_artist: '',
-      artist_id: '',
+      name: '',
+      id: '',
       consolidated_artist: {},
       artist: [], // can be multiple entries if compilation album
       albums: { items: [] },
@@ -92,7 +92,7 @@ export default {
 
   methods: {
     open_tracks: function () {
-      this.$router.push({ path: '/music/artists/' + this.artist_id + '/tracks' })
+      this.$router.push({ path: '/music/artists/' + this.id + '/tracks' })
     },
 
     play: function () {
