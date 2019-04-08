@@ -234,6 +234,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->silent = 1;
 	settings->format = "image2";
 	settings->in_format = "mjpeg";
+	settings->pix_fmt = AV_PIX_FMT_YUVJ420P;
 	settings->video_codec = AV_CODEC_ID_MJPEG;
 	break;
 
@@ -241,6 +242,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->encode_video = 1;
 	settings->silent = 1;
 	settings->format = "image2";
+	settings->pix_fmt = AV_PIX_FMT_RGB24;
 	settings->video_codec = AV_CODEC_ID_PNG;
 	break;
 
