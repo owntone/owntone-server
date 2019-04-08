@@ -47,12 +47,6 @@ if COND_LIBWEBSOCKETS
 LIBWEBSOCKETS_SRC=websocket.c websocket.h
 endif
 
-if COND_FFMPEG_LEGACY
-FFMPEG_SRC=transcode_legacy.c artwork_legacy.c ffmpeg-compat.h
-else
-FFMPEG_SRC=transcode.c artwork.c
-endif
-
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -118,8 +112,8 @@ forked_daapd_SOURCES = main.c \
 	httpd_artworkapi.c httpd_artworkapi.h \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
-	transcode.h artwork.h \
-	$(FFMPEG_SRC) \
+	transcode.c transcode.h \
+	artwork.c artwork.h \
 	misc.c misc.h \
 	misc_json.c misc_json.h \
 	rng.c rng.h \

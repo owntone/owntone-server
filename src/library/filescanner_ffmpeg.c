@@ -416,21 +416,13 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
 
   for (i = 0; i < ctx->nb_streams; i++)
     {
-#if HAVE_DECL_AVCODEC_PARAMETERS_FROM_CONTEXT
       codec_type = ctx->streams[i]->codecpar->codec_type;
       codec_id = ctx->streams[i]->codecpar->codec_id;
       sample_rate = ctx->streams[i]->codecpar->sample_rate;
       sample_fmt = ctx->streams[i]->codecpar->format;
-#else
-      codec_type = ctx->streams[i]->codec->codec_type;
-      codec_id = ctx->streams[i]->codec->codec_id;
-      sample_rate = ctx->streams[i]->codec->sample_rate;
-      sample_fmt = ctx->streams[i]->codec->sample_fmt;
-#endif
       switch (codec_type)
 	{
 	  case AVMEDIA_TYPE_VIDEO:
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
 	    if (ctx->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC)
 	      {
 		DPRINTF(E_DBG, L_SCAN, "Found embedded artwork (stream %d)\n", i);
@@ -438,7 +430,7 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
 
 		break;
 	      }
-#endif
+
 	    // We treat these as audio no matter what
 	    if (mfi->compilation || (mfi->media_kind & (MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK)))
 	      break;
