@@ -22,6 +22,7 @@ import PageAudiobook from '@/pages/PageAudiobook'
 import PagePlaylists from '@/pages/PagePlaylists'
 import PagePlaylist from '@/pages/PagePlaylist'
 import PageFiles from '@/pages/PageFiles'
+import PageTopTracks from '@/pages/PageTopTracks'
 import PageSearch from '@/pages/PageSearch'
 import PageAbout from '@/pages/PageAbout'
 import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse'
@@ -120,6 +121,30 @@ export const router = new VueRouter({
       name: 'GenreTracks',
       component: PageGenreTracks,
       meta: { show_progress: true, has_index: true }
+    },
+    {
+      path: '/music/arists/:artist_id/top',
+      name: 'TopArtistTracks',
+      component: PageTopTracks,
+      meta: { show_progress: true, has_tabs: true, has_index: true }
+    },
+    {
+      path: '/music/genres/:genre/top',
+      name: 'TopGenreTracks',
+      component: PageTopTracks,
+      meta: { show_progress: true, has_tabs: true, has_index: true }
+    },
+    {
+      path: '/music/arists/:artist_id/top',
+      name: 'TopArtistTracks',
+      component: PageTopTracks,
+      meta: { show_progress: true, has_tabs: true, has_index: true }
+    },
+    {
+      path: '/music/genres/:genre/top',
+      name: 'TopGenreTracks',
+      component: PageTopTracks,
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/podcasts',

@@ -15,6 +15,7 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
+      <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_toptracks">top tracks</a></p>
       <list-item-album v-for="album in albums.items" :key="album.id" :album="album" @click="open_album(album)">
         <template slot="actions">
           <a @click="open_dialog(album)">
@@ -68,6 +69,11 @@ export default {
   },
 
   methods: {
+    open_toptracks: function () {
+      this.show_details_modal = false
+      this.$router.push({ name: 'TopArtistTracks', params: { condition: 'songartistid is "' + this.artist.id + '" and media_kind is music', id: this.artist.name } })
+    },
+
     open_tracks: function () {
       this.$router.push({ path: '/music/artists/' + this.artist.id + '/tracks' })
     },

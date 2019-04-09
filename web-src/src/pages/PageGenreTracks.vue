@@ -19,6 +19,7 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_genre">albums</a> | {{ tracks.total }} tracks</p>
+        <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_toptracks">top tracks</a></p>
         <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" @click="play_track(index)">
           <template slot="actions">
             <a @click="open_dialog(track)">
@@ -81,6 +82,11 @@ export default {
     open_genre: function () {
       this.show_details_modal = false
       this.$router.push({ name: 'Genre', params: { genre: this.genre } })
+    },
+
+    open_toptracks: function () {
+      this.show_details_modal = false
+      this.$router.push({ name: 'TopGenreTracks', params: { condition: 'genre is "' + this.name + '" and media_kind is music', id: this.name } })
     },
 
     play: function () {
