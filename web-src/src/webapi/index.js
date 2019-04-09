@@ -287,6 +287,13 @@ export default {
     return axios.put('/api/library/tracks/' + trackId, undefined, { params: attributes })
   },
 
+  library_track_set_rating (trackId, rating) {
+    return axios.put('/api/library/tracks/' + trackId, undefined, { params: { 'rating': rating } }).then((response) => {
+      store.dispatch('add_notification', { text: 'track rating updated', type: 'info', timeout: 1500 })
+      return Promise.resolve(response)
+    })
+  },
+
   library_files (directory = undefined) {
     var filesParams = { 'directory': directory }
     return axios.get('/api/library/files', {

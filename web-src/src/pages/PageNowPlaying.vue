@@ -150,7 +150,7 @@ export default {
       }
       this.rating = Math.ceil(rating)
       this.state.item_rating = this.rating * 20
-      webapi.library_track_update(this.now_playing.track_id, { 'rating': this.rating * 20 })
+      webapi.library_track_set_rating(this.now_playing.track_id, this.rating * 20)
     },
 
     open_dialog: function (item) {
