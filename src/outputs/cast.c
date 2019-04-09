@@ -152,17 +152,6 @@ enum cast_state
   CAST_STATE_MEDIA_CONNECTED = CAST_STATE_F_MEDIA_CONNECTED,
   // After OFFER
   CAST_STATE_MEDIA_STREAMING = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_STREAMING,
-
-/*
-  // Receiver app has loaded our media
-  CAST_STATE_MEDIA_LOADED    = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED,
-  // After PAUSE
-  CAST_STATE_MEDIA_PAUSED    = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | 0x01,
-  // After LOAD
-  CAST_STATE_MEDIA_BUFFERING = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | CAST_STATE_F_MEDIA_STREAMING,
-  // After PLAY
-  CAST_STATE_MEDIA_PLAYING   = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | CAST_STATE_F_MEDIA_STREAMING | 0x01,
-*/
 };
 
 struct cast_master_session
@@ -1019,13 +1008,6 @@ cast_status(struct cast_session *cs)
       case CAST_STATE_MEDIA_CONNECTED:
 	state = OUTPUT_STATE_CONNECTED;
 	break;
-/*      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_PAUSED:
-	state = OUTPUT_STATE_CONNECTED;
-	break;
-      case CAST_STATE_MEDIA_BUFFERING ... CAST_STATE_MEDIA_STREAMING:
-	state = OUTPUT_STATE_STREAMING;
-	break;
-*/
       case CAST_STATE_MEDIA_STREAMING:
 	state = OUTPUT_STATE_STREAMING;
 	break;
@@ -1276,64 +1258,13 @@ cast_cb_probe(struct cast_session *cs, struct cast_msg_payload *payload)
   cast_session_shutdown(cs, CAST_STATE_FAILED);
 }
 
-/* cast_cb_load: Callback from starting playback */
-/*static void
-cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
-{
-  if (!payload)
-    {
-      DPRINTF(E_LOG, L_CAST, "No reply from '%s' to our OFFER request\n", cs->devname);
-      goto error;
-    }
-  else if ((payload->type != ANSWER))
-    {
-      DPRINTF(E_LOG, L_CAST, "The device '%s' did not give us an ANSWER to our OFFER\n", cs->devname);
-      goto error;
-    }
-// TODO check result == "ok"
-  else if (!payload->udp_port)
-    {
-      DPRINTF(E_LOG, L_CAST, "Missing UDP port in ANSWER - aborting\n");
-      goto error;
-    }
-
-  DPRINTF(E_LOG, L_CAST, "UDP port in ANSWER is %d\n", payload->udp_port);
-
-  cs->udp_port = payload->udp_port;
-
-  cs->udp_fd = cast_connect(cs->address, cs->udp_port, cs->family, SOCK_DGRAM);
-  if (cs->udp_fd < 0)
-    goto error;
-
-  cs->state = CAST_STATE_MEDIA_LOADED;
-
-  cast_status(cs);
-
-  return;
-
- error:
-  cast_session_shutdown(cs, CAST_STATE_FAILED);
-}
-*/
 static void
 cast_cb_volume(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   cast_status(cs);
 }
 
-/*static void
-cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
-{
-  if (!payload)
-    DPRINTF(E_LOG, L_CAST, "No reply to PAUSE request from '%s' - will continue\n", cs->devname);
-  else if (payload->type != MEDIA_STATUS)
-    DPRINTF(E_LOG, L_CAST, "Unexpected reply to PAUSE request from '%s' - will continue\n", cs->devname);
-
-  cs->state = CAST_STATE_MEDIA_CONNECTED;
-
-  cast_status(cs);
-}*/
-
+/*
 static void
 cast_cb_presentation(struct cast_session *cs, struct cast_msg_payload *payload)
 {
@@ -1342,6 +1273,7 @@ cast_cb_presentation(struct cast_session *cs, struct cast_msg_payload *payload)
   else if (payload->type != MEDIA_STATUS)
     DPRINTF(E_LOG, L_CAST, "Unexpected reply to PRESENTATION request from '%s' - will continue\n", cs->devname);
 }
+*/
 
 /* The core of this module. Libevent makes a callback to this function whenever
  * there is new data to be read on the fd from the ChromeCast. If everything is
@@ -1532,12 +1464,13 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 
 /* --------------------------------- METADATA ------------------------------- */
 
+/*
 static void
 metadata_send(struct cast_session *cs)
 {
   cast_msg_send(cs, PRESENTATION, cast_cb_presentation);
 }
-
+*/
 
 /* --------------------- SESSION CONSTRUCTION AND SHUTDOWN ------------------ */
 
@@ -1740,7 +1673,6 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
   pending = 0;
   switch (cs->state)
     {
-//      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_STREAMING:
       case CAST_STATE_MEDIA_STREAMING:
 	ret = cast_msg_send(cs, MEDIA_STOP, cast_cb_stop_media);
 	pending = 1;
@@ -2148,6 +2080,7 @@ cast_write(struct output_buffer *obuf)
     }
 }
 
+/* Doesn't work, but left here so it can be fixed
 static void
 cast_metadata_send(struct output_metadata *metadata)
 {
@@ -2166,6 +2099,7 @@ cast_metadata_send(struct output_metadata *metadata)
 
   // TODO free the metadata
 }
+*/
 
 static int
 cast_init(void)
@@ -2269,6 +2203,6 @@ struct output_definition output_cast =
   .device_volume_set = cast_device_volume_set,
   .write = cast_write,
 //  .metadata_prepare = cast_metadata_prepare,
-  .metadata_send = cast_metadata_send,
+//  .metadata_send = cast_metadata_send,
 //  .metadata_purge = cast_metadata_purge,
 };
