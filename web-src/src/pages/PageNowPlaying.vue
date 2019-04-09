@@ -56,7 +56,7 @@
 
 <script>
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
-import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause'
+import PlayerButtonPlayStop from '@/components/PlayerButtonPlayStop'
 import PlayerButtonNext from '@/components/PlayerButtonNext'
 import PlayerButtonPrevious from '@/components/PlayerButtonPrevious'
 import PlayerButtonShuffle from '@/components/PlayerButtonShuffle'
@@ -68,7 +68,7 @@ import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageNowPlaying',
-  components: { ModalDialogQueueItem, PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
+  components: { ModalDialogQueueItem, PlayerButtonPlayStop, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
 
   data () {
     return {
