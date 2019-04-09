@@ -217,12 +217,23 @@ audio {
 	# If not set, the value for "card" will be used.
 #	mixer_device = ""
 
-	# Synchronization
-	# If your local audio is out of sync with other speakers, e.g. Airplay,
-	# adjust this value. Negative values correspond to moving local audio
-	# ahead, positive correspond to delaying it. The unit is milliseconds.
-	# The offset must be between -1000 and 1000 (+/- 1 sec).
+	# Enable or disable audio resampling to keep local audio in sync with
+	# e.g. Airplay. This feature relies on accurate ALSA measurements of
+	# delay, and some devices don't provide that. If that is the case you
+	# are better off disabling the feature.
+#	sync_disable = false
+
+	# Here you can adjust when local audio is started relative to other
+	# speakers, e.g. Airplay. Negative values correspond to moving local
+	# audio ahead, positive correspond to delaying it. The unit is
+	# milliseconds. The offset must be between -1000 and 1000 (+/- 1 sec).
 #	offset_ms = 0
+
+	# To calculate what and if resampling is required, local audio delay is
+	# measured each second. After a period the collected measurements are
+	# used to estimate drift and latency, which determines if corrections
+	# are required. This setting sets the length of that period in seconds.
+#	adjust_period_seconds = 100
 }
 
 # Pipe output

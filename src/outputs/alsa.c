@@ -49,9 +49,6 @@
 // if r2 is below this value we won't attempt to correct sync.
 #define ALSA_MAX_VARIANCE 0.2
 
-// How many latency calculations we keep in the latency_history buffer
-#define ALSA_LATENCY_HISTORY_SIZE 100
-
 // We correct latency by adjusting the sample rate in steps. However, if the
 // latency keeps drifting we give up after reaching this step.
 #define ALSA_RESAMPLE_STEP_MAX 8
@@ -100,7 +97,7 @@ struct alsa_session
 
   // Array of latency calculations, where latency_counter tells how many are
   // currently in the array
-  double latency_history[ALSA_LATENCY_HISTORY_SIZE];
+  double *latency_history;
   int latency_counter;
 
   int sync_resample_step;
@@ -122,6 +119,9 @@ struct alsa_session
 };
 
 static struct alsa_session *sessions;
+
+static bool alsa_sync_disable;
+static int alsa_latency_history_size;
 
 // We will try to play the music with the source quality, but if the card
 // doesn't support that we resample to the fallback quality
@@ -636,20 +636,20 @@ sync_check(double *drift, double *latency, struct alsa_session *as, snd_pcm_sfra
   exp_pos = (uint64_t)elapsed * as->quality.sample_rate / 1000;
   diff = cur_pos - exp_pos;
 
-  DPRINTF(E_DBG, L_LAUDIO, "counter %d/%d, stamp %lu:%lu, now %lu:%lu, elapsed is %d ms, cur_pos=%" PRIu64 ", exp_pos=%" PRIu64 ", diff=%d\n",
-    as->latency_counter, ALSA_LATENCY_HISTORY_SIZE, as->stamp_pts.tv_sec, as->stamp_pts.tv_nsec / 1000000, ts.tv_sec, ts.tv_nsec / 1000000, elapsed, cur_pos, exp_pos, diff);
+  DPRINTF(E_SPAM, L_LAUDIO, "counter %d/%d, stamp %lu:%lu, now %lu:%lu, elapsed is %d ms, cur_pos=%" PRIu64 ", exp_pos=%" PRIu64 ", diff=%d\n",
+    as->latency_counter, alsa_latency_history_size, as->stamp_pts.tv_sec, as->stamp_pts.tv_nsec / 1000000, ts.tv_sec, ts.tv_nsec / 1000000, elapsed, cur_pos, exp_pos, diff);
 
   // Add the latency to our measurement history
   as->latency_history[as->latency_counter] = (double)diff;
   as->latency_counter++;
 
   // Haven't collected enough samples for sync evaluation yet, so just return
-  if (as->latency_counter < ALSA_LATENCY_HISTORY_SIZE)
+  if (as->latency_counter < alsa_latency_history_size)
     return ALSA_SYNC_OK;
 
   as->latency_counter = 0;
 
-  ret = linear_regression(drift, latency, &r2, NULL, as->latency_history, ALSA_LATENCY_HISTORY_SIZE);
+  ret = linear_regression(drift, latency, &r2, NULL, as->latency_history, alsa_latency_history_size);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_LAUDIO, "Linear regression of collected latency samples failed\n");
@@ -657,7 +657,7 @@ sync_check(double *drift, double *latency, struct alsa_session *as, snd_pcm_sfra
     }
 
   // Set *latency to the "average" within the period
-  *latency = (*drift) * ALSA_LATENCY_HISTORY_SIZE / 2 + (*latency);
+  *latency = (*drift) * alsa_latency_history_size / 2 + (*latency);
 
   if (abs(*latency) < ALSA_MAX_LATENCY && abs(*drift) < ALSA_MAX_DRIFT)
     sync = ALSA_SYNC_OK; // If both latency and drift are within thresholds -> no action
@@ -757,7 +757,7 @@ playback_write(struct alsa_session *as, struct output_buffer *obuf)
     }
 
   // Check sync each second (or if this is first write where last_pts is zero)
-  if (obuf->pts.tv_sec != as->last_pts.tv_sec)
+  if (!alsa_sync_disable && (obuf->pts.tv_sec != as->last_pts.tv_sec))
     {
       ret = snd_pcm_delay(as->hdl, &delay);
       if (ret == 0)
@@ -873,6 +873,8 @@ alsa_session_make(struct output_device *device, int callback_id)
       DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset_ms (%d) set in the configuration is out of bounds\n", as->offset_ms);
       as->offset_ms = 1000 * (as->offset_ms/abs(as->offset_ms));
     }
+
+  CHECK_NULL(L_LAUDIO, as->latency_history = calloc(alsa_latency_history_size, sizeof(double)));
 
   snd_pcm_status_malloc(&as->pcm_status);
 
@@ -1064,6 +1066,9 @@ alsa_init(void)
   type = cfg_getstr(cfg_audio, "type");
   if (type && (strcasecmp(type, "alsa") != 0))
     return -1;
+
+  alsa_sync_disable = cfg_getbool(cfg_audio, "sync_disable");
+  alsa_latency_history_size = cfg_getint(cfg_audio, "adjust_period_seconds");
 
   CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
 
