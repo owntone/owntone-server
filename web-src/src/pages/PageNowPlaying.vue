@@ -5,10 +5,12 @@
         <h1 class="title is-4">
           {{ now_playing.title }}
           <div class="fd-has-padding-left-right"><star-rating v-model="rating"
-            :star-size="15"
+            :star-size="17"
+            :padding="3"
             :show-rating="false"
             :max-rating="5"
             :increment="0.5"
+            :inline="true"
             @rating-selected="rate_track"></star-rating></div>
         </h1>
         <h2 class="title is-6">
