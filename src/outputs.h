@@ -2,7 +2,11 @@
 #ifndef __OUTPUTS_H__
 #define __OUTPUTS_H__
 
+#include <stdbool.h>
 #include <time.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include "misc.h"
 
 /* Outputs is a generic interface between the player and a media output method,
  * like for instance AirPlay (raop) or ALSA. The purpose of the interface is to
@@ -19,7 +23,6 @@
  * Here is the sequence of commands from the player to the outputs, and the
  * callback from the output once the command has been executed. Commands marked
  * with * may make multiple callbacks if multiple sessions are affected.
- * (TODO should callbacks always be deferred?)
  *
  * PLAYER              OUTPUT               PLAYER CB
  * speaker_activate    -> device_start      -> device_activate_cb
@@ -45,6 +48,28 @@
  * device_streaming_cb                      -> device_streaming_cb (re-add)
  *
  */
+
+// If an output requires a specific quality (like Airplay 1 devices often
+// require 44100/16) then it should make a subscription request to the output
+// module, which will then make sure to include this quality when it writes the
+// audio. The below sets the maximum number of *different* subscriptions
+// allowed. Note that multiple outputs requesting the *same* quality only counts
+// as one.
+#define OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS 5
+
+// Number of seconds the outputs should buffer before starting playback. Note
+// this value cannot freely be changed because 1) some Airplay devices ignore
+// the values we give and stick to 2 seconds, 2) those devices that can handle
+// different values can only do so within a limited range (maybe max 3 secs)
+#define OUTPUTS_BUFFER_DURATION 2
+
+// Forward declarations
+struct output_device;
+struct output_metadata;
+enum output_device_state;
+
+typedef void (*output_status_cb)(struct output_device *device, enum output_device_state status);
+typedef int (*output_metadata_finalize_cb)(struct output_metadata *metadata);
 
 // Must be in sync with outputs[] in outputs.c
 enum output_types
@@ -113,35 +138,59 @@ struct output_device
   int volume;
   int relvol;
 
+  // Quality of audio output
+  struct media_quality quality;
+
   // Address
   char *v4_address;
   char *v6_address;
   short v4_port;
   short v6_port;
 
+  struct event *stop_timer;
+
   // Opaque pointers to device and session data
   void *extra_device_info;
-  struct output_session *session;
+  void *session;
 
   struct output_device *next;
 };
 
-// Except for the type, sessions are opaque outside of the output backend
-struct output_session
-{
-  enum output_types type;
-  void *session;
-};
-
-// Linked list of metadata prepared by each output backend
 struct output_metadata
 {
   enum output_types type;
-  void *metadata;
-  struct output_metadata *next;
+  uint32_t item_id;
+
+  // Progress data, filled out by finalize_cb()
+  uint32_t pos_ms;
+  uint32_t len_ms;
+  struct timespec pts;
+  bool startup;
+
+  // Private output data made by the metadata_prepare()
+  void *priv;
+
+  struct event *ev;
+
+  // Finalize before right before sending, e.g. set playback position
+  output_metadata_finalize_cb finalize_cb;
 };
 
-typedef void (*output_status_cb)(struct output_device *device, struct output_session *session, enum output_device_state status);
+struct output_data
+{
+  struct media_quality quality;
+  struct evbuffer *evbuf;
+  uint8_t *buffer;
+  size_t bufsize;
+  int samples;
+};
+
+struct output_buffer
+{
+  uint32_t write_counter; // REMOVE ME? not used for anything
+  struct timespec pts;
+  struct output_data data[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
+} output_buffer;
 
 struct output_definition
 {
@@ -166,57 +215,103 @@ struct output_definition
   void (*deinit)(void);
 
   // Prepare a playback session on device and call back
-  int (*device_start)(struct output_device *device, output_status_cb cb, uint64_t rtptime);
+  int (*device_start)(struct output_device *device, int callback_id);
 
-  // Close a session prepared by device_start
-  void (*device_stop)(struct output_session *session);
+  // Close a session prepared by device_start and call back
+  int (*device_stop)(struct output_device *device, int callback_id);
+
+  // Flush device session and call back
+  int (*device_flush)(struct output_device *device, int callback_id);
 
   // Test the connection to a device and call back
-  int (*device_probe)(struct output_device *device, output_status_cb cb);
-
-  // Free the private device data
-  void (*device_free_extra)(struct output_device *device);
+  int (*device_probe)(struct output_device *device, int callback_id);
 
   // Set the volume and call back
-  int (*device_volume_set)(struct output_device *device, output_status_cb cb);
+  int (*device_volume_set)(struct output_device *device, int callback_id);
 
   // Convert device internal representation of volume to our pct scale
   int (*device_volume_to_pct)(struct output_device *device, const char *volume);
 
-  // Start/stop playback on devices that were started
-  void (*playback_start)(uint64_t next_pkt, struct timespec *ts);
-  void (*playback_stop)(void);
+  // Request a change of quality from the device
+  int (*device_quality_set)(struct output_device *device, struct media_quality *quality, int callback_id);
+
+  // Change the call back associated with a device
+  void (*device_cb_set)(struct output_device *device, int callback_id);
+
+  // Free the private device data
+  void (*device_free_extra)(struct output_device *device);
 
   // Write stream data to the output devices
-  void (*write)(uint8_t *buf, uint64_t rtptime);
-
-  // Flush all sessions, the return must be number of sessions pending the flush
-  int (*flush)(output_status_cb cb, uint64_t rtptime);
+  void (*write)(struct output_buffer *buffer);
 
   // Authorize an output with a pin-code (probably coming from the filescanner)
   void (*authorize)(const char *pin);
 
-  // Change the call back associated with a session
-  void (*status_cb)(struct output_session *session, output_status_cb cb);
+  // Called from worker thread for async preparation of metadata (e.g. getting
+  // artwork, which might involce downloading image data). The prepared data is
+  // saved to metadata->data, which metadata_send() can use.
+  void *(*metadata_prepare)(struct output_metadata *metadata);
 
-  // Metadata
-  void *(*metadata_prepare)(int id);
-  void (*metadata_send)(void *metadata, uint64_t rtptime, uint64_t offset, int startup);
+  // Send metadata to outputs. Ownership of *metadata is transferred.
+  void (*metadata_send)(struct output_metadata *metadata);
+
+  // Output will cleanup all metadata (so basically like flush but for metadata)
   void (*metadata_purge)(void);
-  void (*metadata_prune)(uint64_t rtptime);
 };
 
+// Our main list of devices, not for use by backend modules
+struct output_device *output_device_list;
+
+/* ------------------------------- General use ------------------------------ */
+
+struct output_device *
+outputs_device_get(uint64_t device_id);
+
+/* ----------------------- Called by backend modules ------------------------ */
+
 int
-outputs_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime);
+outputs_device_session_add(uint64_t device_id, void *session);
 
 void
-outputs_device_stop(struct output_session *session);
+outputs_device_session_remove(uint64_t device_id);
+
+int
+outputs_quality_subscribe(struct media_quality *quality);
+
+void
+outputs_quality_unsubscribe(struct media_quality *quality);
+
+void
+outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
+
+void
+outputs_listener_notify(void);
+
+/* ---------------------------- Called by player ---------------------------- */
+
+// Ownership of *add is transferred, so don't address after calling. Instead you
+// can address the return value (which is not the same if the device was already
+// in the list.
+struct output_device *
+outputs_device_add(struct output_device *add, bool new_deselect, int default_volume);
+
+void
+outputs_device_remove(struct output_device *remove);
+
+int
+outputs_device_start(struct output_device *device, output_status_cb cb);
+
+int
+outputs_device_stop(struct output_device *device, output_status_cb cb);
+
+int
+outputs_device_stop_delayed(struct output_device *device, output_status_cb cb);
+
+int
+outputs_device_flush(struct output_device *device, output_status_cb cb);
 
 int
 outputs_device_probe(struct output_device *device, output_status_cb cb);
-
-void
-outputs_device_free(struct output_device *device);
 
 int
 outputs_device_volume_set(struct output_device *device, output_status_cb cb);
@@ -224,35 +319,32 @@ outputs_device_volume_set(struct output_device *device, output_status_cb cb);
 int
 outputs_device_volume_to_pct(struct output_device *device, const char *value);
 
-void
-outputs_playback_start(uint64_t next_pkt, struct timespec *ts);
+int
+outputs_device_quality_set(struct output_device *device, struct media_quality *quality, output_status_cb cb);
 
 void
-outputs_playback_stop(void);
+outputs_device_cb_set(struct output_device *device, output_status_cb cb);
 
 void
-outputs_write(uint8_t *buf, uint64_t rtptime);
+outputs_device_free(struct output_device *device);
 
 int
-outputs_flush(output_status_cb cb, uint64_t rtptime);
+outputs_flush(output_status_cb cb);
+
+int
+outputs_stop(output_status_cb cb);
+
+int
+outputs_stop_delayed_cancel(void);
 
 void
-outputs_status_cb(struct output_session *session, output_status_cb cb);
-
-struct output_metadata *
-outputs_metadata_prepare(int id);
+outputs_write(void *buf, size_t bufsize, int nsamples, struct media_quality *quality, struct timespec *pts);
 
 void
-outputs_metadata_send(struct output_metadata *omd, uint64_t rtptime, uint64_t offset, int startup);
+outputs_metadata_send(uint32_t item_id, bool startup, output_metadata_finalize_cb cb);
 
 void
 outputs_metadata_purge(void);
-
-void
-outputs_metadata_prune(uint64_t rtptime);
-
-void
-outputs_metadata_free(struct output_metadata *omd);
 
 void
 outputs_authorize(enum output_types type, const char *pin);

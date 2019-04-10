@@ -5,15 +5,24 @@
 #include <event2/buffer.h>
 #include "db.h"
 #include "http.h"
+#include "misc.h"
 
 enum transcode_profile
 {
-  // Transcodes the best audio stream into PCM16 (does not add wav header)
-  XCODE_PCM16_NOHEADER,
-  // Transcodes the best audio stream into PCM16 (with wav header)
+  // Used for errors
+  XCODE_UNKNOWN = 0,
+  // Decodes the best audio stream into PCM16 or PCM24, no resampling (does not add wav header)
+  XCODE_PCM_NATIVE,
+  // Decodes/resamples the best audio stream into PCM16 (with wav header)
   XCODE_PCM16_HEADER,
+  // Decodes/resamples the best audio stream into PCM16/24/32 (no wav headers)
+  XCODE_PCM16,
+  XCODE_PCM24,
+  XCODE_PCM32,
   // Transcodes the best audio stream into MP3
   XCODE_MP3,
+  // Transcodes the best audio stream into OPUS
+  XCODE_OPUS,
   // Transcodes the best video stream into JPEG/PNG
   XCODE_JPEG,
   XCODE_PNG,
@@ -21,20 +30,26 @@ enum transcode_profile
 
 struct decode_ctx;
 struct encode_ctx;
-struct transcode_ctx;
+struct transcode_ctx
+{
+  struct decode_ctx *decode_ctx;
+  struct encode_ctx *encode_ctx;
+};
+
+typedef void transcode_frame;
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length);
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length);
 
 struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ctx, off_t *est_size, int width, int height);
+transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, off_t *est_size, int width, int height);
 
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size);
+transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size);
 
 struct decode_ctx *
-transcode_decode_setup_raw(void);
+transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality *quality);
 
 int
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype);
@@ -60,7 +75,7 @@ transcode_cleanup(struct transcode_ctx **ctx);
  * @return         Positive if OK, negative if error, 0 if EOF
  */
 int
-transcode_decode(void **frame, struct decode_ctx *ctx);
+transcode_decode(transcode_frame **frame, struct decode_ctx *ctx);
 
 /* Encodes and remuxes a frame. Also resamples if needed.
  *
@@ -71,7 +86,7 @@ transcode_decode(void **frame, struct decode_ctx *ctx);
  * @return         Bytes added if OK, negative if error
  */
 int
-transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, void *frame, int eof);
+transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, transcode_frame *frame, int eof);
 
 /* Demuxes, decodes, encodes and remuxes from the input.
  *
@@ -87,17 +102,19 @@ int
 transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int want_bytes);
 
 /* Converts a buffer with raw data to a frame that can be passed directly to the
- * transcode_encode() function
+ * transcode_encode() function. It does not copy, so if you free the data the
+ * frame will become invalid.
  *
- * @in  profile    Tells the function what kind of frame to create
  * @in  data       Buffer with raw data
  * @in  size       Size of buffer
+ * @in  nsamples   Number of samples in the buffer
+ * @in  quality    Sample rate, bits per sample and channels
  * @return         Opaque pointer to frame if OK, otherwise NULL
  */
-void *
-transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size);
+transcode_frame *
+transcode_frame_new(void *data, size_t size, int nsamples, struct media_quality *quality);
 void
-transcode_frame_free(void *frame);
+transcode_frame_free(transcode_frame *frame);
 
 /* Seek to the specified position - next transcode() will return this packet
  *
@@ -116,6 +133,16 @@ transcode_seek(struct transcode_ctx *ctx, int ms);
  */
 int
 transcode_decode_query(struct decode_ctx *ctx, const char *query);
+
+/* Query for information (e.g. sample rate) about the output being produced by
+ * the transcoding
+ *
+ * @in  ctx        Encode context
+ * @in  query      Query - see implementation for supported queries
+ * @return         Negative if error, otherwise query dependent
+ */
+int
+transcode_encode_query(struct encode_ctx *ctx, const char *query);
 
 // Metadata
 struct http_icy_metadata *

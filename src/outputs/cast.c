@@ -1,8 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Espen Jürgensen <espenjurgensen@gmail.com>
- *
- * Credit goes to the authors of pychromecast and those before that who have
- * discovered how to do this.
+ * Copyright (C) 2015-2019 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,8 +47,10 @@
 
 #include "conffile.h"
 #include "mdns.h"
+#include "transcode.h"
 #include "logger.h"
 #include "player.h"
+#include "rtp_common.h"
 #include "outputs.h"
 
 #ifdef HAVE_PROTOBUF_OLD
@@ -66,26 +65,44 @@
 #define CAFILE "/etc/ssl/certs/ca-certificates.crt"
 
 // Seconds without a heartbeat from the Chromecast before we close the session
-#define HEARTBEAT_TIMEOUT 8
-// Seconds after a flush (pause) before we close the session
-#define FLUSH_TIMEOUT 30
+//#define HEARTBEAT_TIMEOUT 30
 // Seconds to wait for a reply before making the callback requested by caller
 #define REPLY_TIMEOUT 5
 
-// ID of the default receiver app
-#define CAST_APP_ID "CC1AD845"
+// ID of the audio mirroring app used by Chrome (Google Home)
+#define CAST_APP_ID "85CDB22F"
+// Old mirroring app (Chromecast)
+#define CAST_APP_ID_OLD "0F5096E8"
 
 // Namespaces
 #define NS_CONNECTION "urn:x-cast:com.google.cast.tp.connection"
 #define NS_RECEIVER "urn:x-cast:com.google.cast.receiver"
 #define NS_HEARTBEAT "urn:x-cast:com.google.cast.tp.heartbeat"
 #define NS_MEDIA "urn:x-cast:com.google.cast.media"
+#define NS_WEBRTC "urn:x-cast:com.google.cast.webrtc"
 
 #define USE_TRANSPORT_ID     (1 << 1)
 #define USE_REQUEST_ID       (1 << 2)
 #define USE_REQUEST_ID_ONLY  (1 << 3)
 
 #define CALLBACK_REGISTER_SIZE 32
+
+// Chromium will send OPUS encoded 10 ms packets (48kHz), about 120 bytes. We
+// use a 20 ms packet, so 50 pkts/sec, because that's the default for ffmpeg.
+// A 20 ms audio packet at 48000 kHz makes this number 48000 * (20 / 1000)
+#define CAST_SAMPLES_PER_PACKET 960
+
+#define CAST_QUALITY_SAMPLE_RATE_DEFAULT     48000
+#define CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT 16
+#define CAST_QUALITY_CHANNELS_DEFAULT        2
+
+/* Notes
+ * OFFER/ANSWER <-webrtc
+ * RTCP/RTP
+ * XR custom receiver report
+ * Control and data on same UDP connection
+ * OPUS encoded
+ */
 
 //#define DEBUG_CONNECTION 1
 
@@ -100,6 +117,13 @@ union sockaddr_all
 struct cast_session;
 struct cast_msg_payload;
 
+// See cast_packet_header_make()
+#define CAST_HEADER_SIZE 11
+#define CAST_PACKET_BUFFER_SIZE 1000
+
+static struct encode_ctx *cast_encode_ctx;
+static struct evbuffer *cast_encoded_data;
+
 typedef void (*cast_reply_cb)(struct cast_session *cs, struct cast_msg_payload *payload);
 
 // Session is starting up
@@ -109,7 +133,7 @@ typedef void (*cast_reply_cb)(struct cast_session *cs, struct cast_msg_payload *
 // Media is loaded in the receiver app
 #define CAST_STATE_F_MEDIA_LOADED    (1 << 15)
 // Media is playing in the receiver app
-#define CAST_STATE_F_MEDIA_PLAYING   (1 << 16)
+#define CAST_STATE_F_MEDIA_STREAMING (1 << 16)
 
 // Beware, the order of this enum has meaning
 enum cast_state
@@ -122,22 +146,40 @@ enum cast_state
   CAST_STATE_DISCONNECTED    = CAST_STATE_F_STARTUP | 0x01,
   // TCP connect, TLS handshake, CONNECT and GET_STATUS request
   CAST_STATE_CONNECTED       = CAST_STATE_F_STARTUP | 0x02,
-  // Default media receiver app is launched
+  // Receiver app has been launched
   CAST_STATE_MEDIA_LAUNCHED  = CAST_STATE_F_STARTUP | 0x03,
-  // CONNECT and GET_STATUS made to receiver app
+  // CONNECT, GET_STATUS and OFFER made to receiver app
   CAST_STATE_MEDIA_CONNECTED = CAST_STATE_F_MEDIA_CONNECTED,
-  // Receiver app has loaded our media
-  CAST_STATE_MEDIA_LOADED    = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED,
-  // After PAUSE
-  CAST_STATE_MEDIA_PAUSED    = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | 0x01,
-  // After LOAD
-  CAST_STATE_MEDIA_BUFFERING = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | CAST_STATE_F_MEDIA_PLAYING,
-  // After PLAY
-  CAST_STATE_MEDIA_PLAYING   = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | CAST_STATE_F_MEDIA_PLAYING | 0x01,
+  // After OFFER
+  CAST_STATE_MEDIA_STREAMING = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_STREAMING,
+};
+
+struct cast_master_session
+{
+  struct evbuffer *evbuf;
+  int evbuf_samples;
+
+  struct rtp_session *rtp_session;
+
+  struct media_quality quality;
+
+  uint8_t *rawbuf;
+  size_t rawbuf_size;
+  int samples_per_packet;
+
+  // Number of samples that we tell the output to buffer (this will mean that
+  // the position that we send in the sync packages are offset by this amount
+  // compared to the rtptimes of the corresponding RTP packages we are sending)
+  int output_buffer_samples;
 };
 
 struct cast_session
 {
+  uint64_t device_id;
+  int callback_id;
+
+  struct cast_master_session *master_session;
+
   // Current state
   enum cast_state state;
 
@@ -145,16 +187,19 @@ struct cast_session
   enum cast_state wanted_state;
 
   // Connection fd and session, and listener event
-  int server_fd;
+  int64_t server_fd; // Use int64 so we can cast in gnutls_transport_set_ptr()
   gnutls_session_t tls_session;
   struct event *ev;
 
   char *devname;
   char *address;
+  int family;
   unsigned short port;
 
   // ChromeCast uses a float between 0 - 1
   float volume;
+
+  uint32_t ssrc_id;
 
   // IP address URL of forked-daapd's mp3 stream
   char stream_url[128];
@@ -172,15 +217,13 @@ struct cast_session
   // register our retry so that we on only retry once.
   int retry;
 
-  // Session info from the ChromeCast
+  // Session info from the Chromecast
   char *transport_id;
   char *session_id;
   int media_session_id;
 
-  /* Do not dereference - only passed to the status cb */
-  struct output_device *device;
-  struct output_session *output_session;
-  output_status_cb status_cb;
+  int udp_fd;
+  unsigned short udp_port;
 
   struct cast_session *next;
 };
@@ -195,9 +238,13 @@ enum cast_msg_types
   GET_STATUS,
   RECEIVER_STATUS,
   LAUNCH,
+  LAUNCH_OLD,
+  LAUNCH_ERROR,
   STOP,
   MEDIA_CONNECT,
   MEDIA_CLOSE,
+  OFFER,
+  ANSWER,
   MEDIA_GET_STATUS,
   MEDIA_STATUS,
   MEDIA_LOAD,
@@ -207,6 +254,7 @@ enum cast_msg_types
   MEDIA_LOAD_FAILED,
   MEDIA_LOAD_CANCELLED,
   SET_VOLUME,
+  PRESENTATION,
 };
 
 struct cast_msg_basic
@@ -227,7 +275,9 @@ struct cast_msg_payload
   const char *session_id;
   const char *transport_id;
   const char *player_state;
+  const char *result;
   int media_session_id;
+  unsigned short udp_port;
 };
 
 // Array of the cast messages that we use. Must be in sync with cast_msg_types.
@@ -279,6 +329,16 @@ struct cast_msg_basic cast_msg[] =
     .flags = USE_REQUEST_ID_ONLY,
   },
   {
+    .type = LAUNCH_OLD,
+    .namespace = NS_RECEIVER,
+    .payload = "{'type':'LAUNCH','requestId':%d,'appId':'" CAST_APP_ID_OLD "'}",
+    .flags = USE_REQUEST_ID_ONLY,
+  },
+  {
+    .type = LAUNCH_ERROR,
+    .tag = "LAUNCH_ERROR",
+  },
+  {
     .type = STOP,
     .namespace = NS_RECEIVER,
     .payload = "{'type':'STOP','sessionId':'%s','requestId':%d}",
@@ -295,6 +355,21 @@ struct cast_msg_basic cast_msg[] =
     .namespace = NS_CONNECTION,
     .payload = "{'type':'CLOSE'}",
     .flags = USE_TRANSPORT_ID,
+  },
+  {
+    .type = OFFER,
+    .namespace = NS_WEBRTC,
+    // codecName can be aac or opus, ssrc should be random
+    // We don't set 'aesKey' and 'aesIvMask'
+    // sampleRate seems to be ignored
+    // storeTime unknown meaning - perhaps size of buffer?
+    // targetDelay - should be RTP delay in ms, but doesn't seem to change anything?
+    .payload = "{'type':'OFFER','seqNum':%d,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%d,'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false}]}}",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
+  },
+  {
+    .type = ANSWER,
+    .tag = "ANSWER",
   },
   {
     .type = MEDIA_GET_STATUS,
@@ -345,6 +420,12 @@ struct cast_msg_basic cast_msg[] =
     .flags = USE_REQUEST_ID,
   },
   {
+    .type = PRESENTATION,
+    .namespace = NS_WEBRTC,
+    .payload = "{'type':'PRESENTATION','sessionId':'%s',seqnum:%d,'title':'forked-daapd','icons':[{'url':'http://www.gyfgafguf.dk/images/fugl.jpg'}] }",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
+  },
+  {
     .type = 0,
   },
 };
@@ -354,29 +435,31 @@ extern struct event_base *evbase_player;
 
 /* Globals */
 static gnutls_certificate_credentials_t tls_credentials;
-static struct cast_session *sessions;
-static struct event *flush_timer;
-static struct timeval heartbeat_timeout = { HEARTBEAT_TIMEOUT, 0 };
-static struct timeval flush_timeout = { FLUSH_TIMEOUT, 0 };
+static struct cast_session *cast_sessions;
+static struct cast_master_session *cast_master_session;
+//static struct timeval heartbeat_timeout = { HEARTBEAT_TIMEOUT, 0 };
 static struct timeval reply_timeout = { REPLY_TIMEOUT, 0 };
+static struct media_quality cast_quality_default = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT };
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
 
 static int
-tcp_connect(const char *address, unsigned int port, int family)
+cast_connect(const char *address, unsigned short port, int family, int type)
 {
   union sockaddr_all sa;
   int fd;
   int len;
   int ret;
 
+  DPRINTF(E_DBG, L_CAST, "Connecting to %s (family=%d), port %u\n", address, family, port);
+
   // TODO Open non-block right away so we don't block the player while connecting
   // and during TLS handshake (we would probably need to introduce a deferredev)
 #ifdef SOCK_CLOEXEC
-  fd = socket(family, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  fd = socket(family, type | SOCK_CLOEXEC, 0);
 #else
-  fd = socket(family, SOCK_STREAM, 0);
+  fd = socket(family, type, 0);
 #endif
   if (fd < 0)
     {
@@ -425,7 +508,7 @@ tcp_connect(const char *address, unsigned int port, int family)
 }
 
 static void
-tcp_close(int fd)
+cast_disconnect(int fd)
 {
   /* no more receptions */
   shutdown(fd, SHUT_RDWR);
@@ -519,16 +602,51 @@ squote_to_dquote(char *buf)
 /* ----------------------------- SESSION CLEANUP ---------------------------- */
 
 static void
+master_session_free(struct cast_master_session *cms)
+{
+  if (!cms)
+    return;
+
+  outputs_quality_unsubscribe(&cms->rtp_session->quality);
+  rtp_session_free(cms->rtp_session);
+  evbuffer_free(cms->evbuf);
+  free(cms->rawbuf);
+  free(cms);
+}
+
+static void
+master_session_cleanup(struct cast_master_session *cms)
+{
+  struct cast_session *cs;
+
+  // First check if any other session is using the master session
+  for (cs = cast_sessions; cs; cs=cs->next)
+    {
+      if (cs->master_session == cms)
+	return;
+    }
+
+  if (cms == cast_master_session)
+    cast_master_session = NULL;
+
+  master_session_free(cms);
+}
+
+static void
 cast_session_free(struct cast_session *cs)
 {
   if (!cs)
     return;
 
+  master_session_cleanup(cs->master_session);
+
   event_free(cs->reply_timeout);
   event_free(cs->ev);
 
   if (cs->server_fd >= 0)
-    tcp_close(cs->server_fd);
+    cast_disconnect(cs->server_fd);
+  if (cs->udp_fd >= 0)
+    cast_disconnect(cs->udp_fd);
 
   gnutls_deinit(cs->tls_session);
 
@@ -542,8 +660,6 @@ cast_session_free(struct cast_session *cs)
   if (cs->transport_id)
     free(cs->transport_id);
 
-  free(cs->output_session);
-
   free(cs);
 }
 
@@ -552,11 +668,11 @@ cast_session_cleanup(struct cast_session *cs)
 {
   struct cast_session *s;
 
-  if (cs == sessions)
-    sessions = sessions->next;
+  if (cs == cast_sessions)
+    cast_sessions = cast_sessions->next;
   else
     {
-      for (s = sessions; s && (s->next != cs); s = s->next)
+      for (s = cast_sessions; s && (s->next != cs); s = s->next)
 	; /* EMPTY */
 
       if (!s)
@@ -564,6 +680,8 @@ cast_session_cleanup(struct cast_session *cs)
       else
 	s->next = cs->next;
     }
+
+  outputs_device_session_remove(cs->device_id);
 
   cast_session_free(cs);
 }
@@ -617,6 +735,10 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   if (cast_msg[type].flags & USE_REQUEST_ID_ONLY)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id);
   else if (type == STOP)
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
+  else if (type == OFFER)
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id, cs->ssrc_id);
+  else if (type == PRESENTATION)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
   else if (type == MEDIA_LOAD)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->stream_url, cs->session_id, cs->request_id);
@@ -694,6 +816,17 @@ cast_msg_parse(struct cast_msg_payload *payload, char *s)
 
   if (json_object_object_get_ex(haystack, "requestId", &needle))
     payload->request_id = json_object_get_int(needle);
+  else if (json_object_object_get_ex(haystack, "seqNum", &needle))
+    payload->request_id = json_object_get_int(needle);
+
+  if (json_object_object_get_ex(haystack, "answer", &somehay) &&
+      json_object_object_get_ex(somehay, "udpPort", &needle) &&
+      json_object_get_type(needle) == json_type_int )
+    payload->udp_port = json_object_get_int(needle);
+
+  if (json_object_object_get_ex(haystack, "result", &needle) &&
+      json_object_get_type(needle) == json_type_string )
+    payload->result = json_object_get_string(needle);
 
   // Might be done now
   if ((payload->type != RECEIVER_STATUS) && (payload->type != MEDIA_STATUS))
@@ -753,7 +886,6 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
   cast_reply_cb reply_cb;
   struct cast_msg_payload payload = { 0 };
   void *hdl;
-  int unknown_app_id;
   int unknown_session_id;
   int i;
 
@@ -812,11 +944,10 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 
   if (payload.type == RECEIVER_STATUS && (cs->state & CAST_STATE_F_MEDIA_CONNECTED))
     {
-      unknown_app_id = payload.app_id && (strcmp(payload.app_id, CAST_APP_ID) != 0);
       unknown_session_id = payload.session_id && (strcmp(payload.session_id, cs->session_id) != 0);
-      if (unknown_app_id || unknown_session_id)
+      if (unknown_session_id)
 	{
-	  DPRINTF(E_WARN, L_CAST, "Our session on '%s' was hijacked\n", cs->devname);
+	  DPRINTF(E_LOG, L_CAST, "Our session '%s' on '%s' was lost to session '%s'\n", cs->session_id, cs->devname, payload.session_id);
 
 	  // Downgrade state, we don't have the receiver app any more
 	  cs->state = CAST_STATE_CONNECTED;
@@ -825,7 +956,15 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 	}
     }
 
-  if (payload.type == MEDIA_STATUS && (cs->state & CAST_STATE_F_MEDIA_PLAYING))
+  if (payload.type == CLOSE && (cs->state & CAST_STATE_F_MEDIA_CONNECTED))
+    {
+      // Downgrade state, we can't write any more
+      cs->state = CAST_STATE_CONNECTED;
+      cast_session_shutdown(cs, CAST_STATE_FAILED);
+      goto out_free_parsed;
+    }
+
+  if (payload.type == MEDIA_STATUS && (cs->state & CAST_STATE_F_MEDIA_STREAMING))
     {
       if (payload.player_state && (strcmp(payload.player_state, "PAUSED") == 0))
 	{
@@ -853,7 +992,6 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 static void
 cast_status(struct cast_session *cs)
 {
-  output_status_cb status_cb = cs->status_cb;
   enum output_device_state state;
 
   switch (cs->state)
@@ -870,10 +1008,7 @@ cast_status(struct cast_session *cs)
       case CAST_STATE_MEDIA_CONNECTED:
 	state = OUTPUT_STATE_CONNECTED;
 	break;
-      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_PAUSED:
-	state = OUTPUT_STATE_CONNECTED;
-	break;
-      case CAST_STATE_MEDIA_BUFFERING ... CAST_STATE_MEDIA_PLAYING:
+      case CAST_STATE_MEDIA_STREAMING:
 	state = OUTPUT_STATE_STREAMING;
 	break;
       default:
@@ -881,9 +1016,8 @@ cast_status(struct cast_session *cs)
 	state = OUTPUT_STATE_FAILED;
     }
 
-  cs->status_cb = NULL;
-  if (status_cb)
-    status_cb(cs->device, cs->output_session, state);
+  outputs_cb(cs->callback_id, cs->device_id, state);
+  cs->callback_id = -1;
 }
 
 /* cast_cb_stop*: Callback chain for shutting down a session */
@@ -931,6 +1065,47 @@ cast_cb_startup_volume(struct cast_session *cs, struct cast_msg_payload *payload
 }
 
 static void
+cast_cb_startup_offer(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  int ret;
+
+  if (!payload)
+    {
+      DPRINTF(E_LOG, L_CAST, "No reply from '%s' to our OFFER request\n", cs->devname);
+      goto error;
+    }
+  else if (payload->type != ANSWER)
+    {
+      DPRINTF(E_LOG, L_CAST, "The device '%s' did not give us an ANSWER to our OFFER\n", cs->devname);
+      goto error;
+    }
+  else if (!payload->udp_port || strcmp(payload->result, "ok") != 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Missing UDP port (or unexpected result '%s') in ANSWER - aborting\n", payload->result);
+      goto error;
+    }
+
+  DPRINTF(E_INFO, L_CAST, "UDP port in ANSWER is %d\n", payload->udp_port);
+
+  cs->udp_port = payload->udp_port;
+
+  cs->udp_fd = cast_connect(cs->address, cs->udp_port, cs->family, SOCK_DGRAM);
+  if (cs->udp_fd < 0)
+    goto error;
+
+  ret = cast_msg_send(cs, SET_VOLUME, cast_cb_startup_volume);
+  if (ret < 0)
+    goto error;
+
+  cs->state = CAST_STATE_MEDIA_CONNECTED;
+
+  return;
+
+ error:
+  cast_session_shutdown(cs, CAST_STATE_FAILED);
+}
+
+static void
 cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   int ret;
@@ -946,11 +1121,9 @@ cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
       goto error;
     }
 
-  ret = cast_msg_send(cs, SET_VOLUME, cast_cb_startup_volume);
+  ret = cast_msg_send(cs, OFFER, cast_cb_startup_offer);
   if (ret < 0)
     goto error;
-
-  cs->state = CAST_STATE_MEDIA_CONNECTED;
 
   return;
 
@@ -982,6 +1155,17 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our LAUNCH - aborting\n");
       goto error;
+    }
+
+  if (payload->type == LAUNCH_ERROR && !cs->retry)
+    {
+      DPRINTF(E_WARN, L_CAST, "Device '%s' does not support app id '%s', trying '%s' instead\n", cs->devname, CAST_APP_ID, CAST_APP_ID_OLD);
+      cs->retry++;
+      ret = cast_msg_send(cs, LAUNCH_OLD, cast_cb_startup_launch);
+      if (ret < 0)
+	goto error;
+
+      return;
     }
 
   if (payload->type != RECEIVER_STATUS)
@@ -1074,56 +1258,22 @@ cast_cb_probe(struct cast_session *cs, struct cast_msg_payload *payload)
   cast_session_shutdown(cs, CAST_STATE_FAILED);
 }
 
-/* cast_cb_load: Callback from starting playback */
-static void
-cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
-{
-  if (!payload)
-    {
-      DPRINTF(E_LOG, L_CAST, "No reply from '%s' to our LOAD request\n", cs->devname);
-      goto error;
-    }
-  else if ((payload->type == MEDIA_LOAD_FAILED) || (payload->type == MEDIA_LOAD_CANCELLED))
-    {
-      DPRINTF(E_LOG, L_CAST, "The device '%s' could not start playback\n", cs->devname);
-      goto error;
-    }
-  else if (!payload->media_session_id)
-    {
-      DPRINTF(E_LOG, L_CAST, "Missing media session id in MEDIA_STATUS - aborting\n");
-      goto error;
-    }
-
-  cs->media_session_id = payload->media_session_id;
-  // We autoplay for the time being
-  cs->state = CAST_STATE_MEDIA_PLAYING;
-
-  cast_status(cs);
-
-  return;
-
- error:
-  cast_session_shutdown(cs, CAST_STATE_FAILED);
-}
-
 static void
 cast_cb_volume(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   cast_status(cs);
 }
 
+/*
 static void
-cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
+cast_cb_presentation(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   if (!payload)
-    DPRINTF(E_LOG, L_CAST, "No reply to PAUSE request from '%s' - will continue\n", cs->devname);
+    DPRINTF(E_LOG, L_CAST, "No reply to PRESENTATION request from '%s' - will continue\n", cs->devname);
   else if (payload->type != MEDIA_STATUS)
-    DPRINTF(E_LOG, L_CAST, "Unexpected reply to PAUSE request from '%s' - will continue\n", cs->devname);
-
-  cs->state = CAST_STATE_MEDIA_PAUSED;
-
-  cast_status(cs);
+    DPRINTF(E_LOG, L_CAST, "Unexpected reply to PRESENTATION request from '%s' - will continue\n", cs->devname);
 }
+*/
 
 /* The core of this module. Libevent makes a callback to this function whenever
  * there is new data to be read on the fd from the ChromeCast. If everything is
@@ -1140,7 +1290,7 @@ cast_listen_cb(int fd, short what, void *arg)
   int received;
   int ret;
 
-  for (cs = sessions; cs; cs = cs->next)
+  for (cs = cast_sessions; cs; cs = cs->next)
     {
       if (cs == (struct cast_session *)arg)
 	break;
@@ -1245,7 +1395,6 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 {
   struct output_device *device;
   const char *friendly_name;
-  cfg_t *chromecast;
   uint32_t id;
 
   id = djb_hash(name, strlen(name));
@@ -1260,13 +1409,6 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
     name = friendly_name;
 
   DPRINTF(E_DBG, L_CAST, "Event for Chromecast device '%s' (port %d, id %" PRIu32 ")\n", name, port, id);
-
-  chromecast = cfg_gettsec(cfg, "chromecast", name);
-  if (chromecast && cfg_getbool(chromecast, "exclude"))
-    {
-      DPRINTF(E_LOG, L_CAST, "Excluding Chromecast device '%s' as set in config\n", name);
-      return;
-    }
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
@@ -1320,14 +1462,62 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 }
 
 
+/* --------------------------------- METADATA ------------------------------- */
+
+/*
+static void
+metadata_send(struct cast_session *cs)
+{
+  cast_msg_send(cs, PRESENTATION, cast_cb_presentation);
+}
+*/
+
 /* --------------------- SESSION CONSTRUCTION AND SHUTDOWN ------------------ */
 
-// Allocates a session and sets of the startup sequence until the session reaches
-// the CAST_STATE_MEDIA_CONNECTED status (so it is ready to load media)
-static struct cast_session *
-cast_session_make(struct output_device *device, int family, output_status_cb cb)
+static struct cast_master_session *
+master_session_make(struct media_quality *quality)
 {
-  struct output_session *os;
+  struct cast_master_session *cms;
+  int ret;
+
+  // First check if we already have a master session, then just use that
+  if (cast_master_session)
+    return cast_master_session;
+
+  // Let's create a master session
+  ret = outputs_quality_subscribe(quality);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not subscribe to required audio quality (%d/%d/%d)\n", quality->sample_rate, quality->bits_per_sample, quality->channels);
+      return NULL;
+    }
+
+  CHECK_NULL(L_CAST, cms = calloc(1, sizeof(struct cast_master_session)));
+
+  cms->rtp_session = rtp_session_new(quality, CAST_PACKET_BUFFER_SIZE, 0);
+  if (!cms->rtp_session)
+    {
+      outputs_quality_unsubscribe(quality);
+      free(cms);
+      return NULL;
+    }
+
+  cms->quality = *quality;
+  cms->samples_per_packet = CAST_SAMPLES_PER_PACKET;
+  cms->rawbuf_size = STOB(cms->samples_per_packet, quality->bits_per_sample, quality->channels);
+  cms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+
+  CHECK_NULL(L_CAST, cms->rawbuf = malloc(cms->rawbuf_size));
+  CHECK_NULL(L_CAST, cms->evbuf = evbuffer_new());
+
+  cast_master_session = cms;
+
+  return cms;
+}
+
+static struct cast_session *
+cast_session_make(struct output_device *device, int family, int callback_id)
+{
   struct cast_session *cs;
   const char *proto;
   const char *err;
@@ -1359,28 +1549,20 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
 	return NULL;
     }
 
-  os = calloc(1, sizeof(struct output_session));
-  if (!os)
-    {
-      DPRINTF(E_LOG, L_CAST, "Out of memory (os)\n");
-      return NULL;
-    }
+  CHECK_NULL(L_CAST, cs = calloc(1, sizeof(struct cast_session)));
 
-  cs = calloc(1, sizeof(struct cast_session));
-  if (!cs)
-    {
-      DPRINTF(E_LOG, L_CAST, "Out of memory (cs)\n");
-      free(os);
-      return NULL;
-    }
-
-  os->session = cs;
-  os->type = device->type;
-
-  cs->output_session = os;
   cs->state = CAST_STATE_DISCONNECTED;
-  cs->device = device;
-  cs->status_cb = cb;
+  cs->device_id = device->id;
+  cs->callback_id = callback_id;
+
+  cs->master_session = master_session_make(&cast_quality_default);
+  if (!cs->master_session)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not attach a master session for device '%s'\n", device->name);
+      goto out_free_session;
+    }
+
+  cs->ssrc_id = cs->master_session->rtp_session->ssrc_id;
 
   /* Init TLS session, use default priorities and put the x509 credentials to the current session */
   if ( ((ret = gnutls_init(&cs->tls_session, GNUTLS_CLIENT)) != GNUTLS_E_SUCCESS) ||
@@ -1388,10 +1570,10 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
        ((ret = gnutls_credentials_set(cs->tls_session, GNUTLS_CRD_CERTIFICATE, tls_credentials)) != GNUTLS_E_SUCCESS) )
     {
       DPRINTF(E_LOG, L_CAST, "Could not initialize GNUTLS session: %s\n", gnutls_strerror(ret));
-      goto out_free_session;
+      goto out_free_master_session;
     }
 
-  cs->server_fd = tcp_connect(address, port, family);
+  cs->server_fd = cast_connect(address, port, family, SOCK_STREAM);
   if (cs->server_fd < 0)
     {
       DPRINTF(E_LOG, L_CAST, "Could not connect to %s\n", device->name);
@@ -1430,15 +1612,21 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
   flags = fcntl(cs->server_fd, F_GETFL, 0);
   fcntl(cs->server_fd, F_SETFL, flags | O_NONBLOCK);
 
-  event_add(cs->ev, &heartbeat_timeout);
+  event_add(cs->ev, NULL); // &heartbeat_timeout
 
   cs->devname = strdup(device->name);
   cs->address = strdup(address);
+  cs->family = family;
+
+  cs->udp_fd = -1;
 
   cs->volume = 0.01 * device->volume;
 
-  cs->next = sessions;
-  sessions = cs;
+  cs->next = cast_sessions;
+  cast_sessions = cs;
+
+  // cs is now the official device session
+  outputs_device_session_add(device->id, cs);
 
   proto = gnutls_protocol_get_name(gnutls_protocol_get_version(cs->tls_session));
 
@@ -1450,9 +1638,11 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
   event_free(cs->reply_timeout);
   event_free(cs->ev);
  out_close_connection:
-  tcp_close(cs->server_fd);
+  cast_disconnect(cs->server_fd);
  out_deinit_gnutls:
   gnutls_deinit(cs->tls_session);
+ out_free_master_session:
+  master_session_cleanup(cs->master_session);
  out_free_session:
   free(cs);
 
@@ -1483,12 +1673,14 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
   pending = 0;
   switch (cs->state)
     {
-      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_PLAYING:
+      case CAST_STATE_MEDIA_STREAMING:
 	ret = cast_msg_send(cs, MEDIA_STOP, cast_cb_stop_media);
 	pending = 1;
 	break;
 
       case CAST_STATE_MEDIA_CONNECTED:
+	cast_disconnect(cs->udp_fd);
+	cs->udp_fd = -1;
 	ret = cast_msg_send(cs, MEDIA_CLOSE, NULL);
 	cs->state = CAST_STATE_MEDIA_LAUNCHED;
 	if ((ret < 0) || (wanted_state >= CAST_STATE_MEDIA_LAUNCHED))
@@ -1505,7 +1697,7 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
 	ret = cast_msg_send(cs, CLOSE, NULL);
 	if (ret == 0)
 	  gnutls_bye(cs->tls_session, GNUTLS_SHUT_RDWR);
-	tcp_close(cs->server_fd);
+	cast_disconnect(cs->server_fd);
 	cs->server_fd = -1;
 	cs->state = CAST_STATE_DISCONNECTED;
 	break;
@@ -1545,20 +1737,207 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
 }
 
 
+/* ------------------ PREPARING AND SENDING CAST RTP PACKETS ---------------- */
+
+// Makes a Cast RTP packet (source: Chromium's media/cast/net/rtp/rtp_packetizer.cc)
+//
+// A Cast RTP packet is made of:
+//   RTP header (12 bytes)
+//   Cast header (7 bytes)
+//   Extension data (4 bytes)
+//   Packet data
+//
+// The Cast header + extension (optional?) consists of:
+//    0                   1                   2                   3
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |k|r|   n_ext   |   frame_id    |          packet id            |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |         max_packet_id         | ref_frame_id  |   ext_type    |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |   ext_size    |      new_playout_delay_ms     |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+// k: Is the frame a key frame?
+// r: Is there a reference frame id?
+// n_ext: Number of Cast extensions (Chromium uses 1: Adaptive Latency)
+// ext_type: 0x04 Adaptive Latency extension
+// ext_size: 0x02 -> 2 bytes
+// new_playout_delay_ms: ??
+
+// OPUS encodes the rawbuf payload
+static int
+payload_encode(struct evbuffer *evbuf, uint8_t *rawbuf, size_t rawbuf_size, int nsamples, struct media_quality *quality)
+{
+  transcode_frame *frame;
+  int len;
+
+  frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality);
+  if (!frame)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not convert raw PCM to frame (bufsize=%zu)\n", rawbuf_size);
+      return -1;
+    }
+
+  len = transcode_encode(evbuf, cast_encode_ctx, frame, 0);
+  transcode_frame_free(frame);
+  if (len < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not Opus encode frame\n");
+      return -1;
+    }
+
+  return len;
+}
+
+static int
+packet_prepare(struct rtp_packet *pkt, struct evbuffer *evbuf)
+{
+
+  // Cast header
+  memset(pkt->payload, 0, CAST_HEADER_SIZE);
+  pkt->payload[0] = 0xc1; // k = 1, r = 1 and one extension
+  pkt->payload[1] = (char)pkt->seqnum;
+  // packet_id and max_packet_id don't seem to be used, so leave them at 0
+  pkt->payload[6] = (char)pkt->seqnum;
+  pkt->payload[7] = 0x04; // kCastRtpExtensionAdaptiveLatency has id (1 << 2)
+  pkt->payload[8] = 0x02; // Extension will use two bytes
+  // leave extension values at 0, but Chromium sets them to:
+  //   (frame.new_playout_delay_ms >> 8) and frame.new_playout_delay_ms (normal byte values are 0x03 0x20)
+
+  // Copy payload
+  return evbuffer_remove(evbuf, pkt->payload + CAST_HEADER_SIZE, pkt->payload_len - CAST_HEADER_SIZE);
+}
+
+static int
+packet_send(struct cast_session *cs, struct rtp_packet *pkt)
+{
+  int ret;
+
+  ret = send(cs->udp_fd, pkt->data, pkt->data_len, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Send error for '%s': %s\n", cs->devname, strerror(errno));
+      return -1;
+    }
+  else if (ret != pkt->data_len)
+    {
+      DPRINTF(E_WARN, L_CAST, "Partial send (%d) for '%s'\n", ret, cs->devname);
+      return 0;
+    }
+
+/*  DPRINTF(E_DBG, L_PLAYER, "RTP PACKET seqnum %u, rtptime %u, payload 0x%x, pktbuf_s %zu\n",
+    cs->master_session->rtp_session->seqnum,
+    cs->master_session->rtp_session->pos,
+    pkt->header[1],
+    cs->master_session->rtp_session->pktbuf_len
+    );
+*/
+  return 0;
+}
+
+static int
+packets_send(struct cast_master_session *cms)
+{
+  struct rtp_packet *pkt;
+  struct cast_session *cs;
+  struct cast_session *next;
+  int len;
+  int ret;
+
+  // Encode payload into cast_encoded_data
+  len = payload_encode(cast_encoded_data, cms->rawbuf, cms->rawbuf_size, cms->samples_per_packet, &cms->quality);
+  if (len < 0)
+    return -1;
+
+  // Chromium uses a RTP payload type that is 0xff
+  pkt = rtp_packet_next(cms->rtp_session, CAST_HEADER_SIZE + len, cms->samples_per_packet, 0xff);
+
+  // Creates Cast header + adds payload
+  ret = packet_prepare(pkt, cast_encoded_data);
+  if (ret < 0)
+    return -1;
+
+  for (cs = cast_sessions; cs; cs = next)
+    {
+      next = cs->next;
+
+      if (cs->master_session != cms || !(cs->state & CAST_STATE_F_MEDIA_CONNECTED))
+	continue;
+
+      ret = packet_send(cs, pkt);
+      if (ret < 0)
+        {
+	  // Downgrade state immediately to avoid further write attempts
+	  cs->state = CAST_STATE_MEDIA_LAUNCHED;
+	  cast_session_shutdown(cs, CAST_STATE_FAILED);
+	}
+    }
+
+  // Commits packet to retransmit buffer, and prepares the session for the next packet
+  rtp_packet_commit(cms->rtp_session, pkt);
+
+  return 0;
+}
+
+/* TODO This does not currently work - need to investigate what sync the devices support
+static void
+packets_sync_send(struct cast_master_session *cms, struct timespec pts)
+{
+  struct rtp_packet *sync_pkt;
+  struct cast_session *cs;
+  struct rtcp_timestamp cur_stamp;
+  struct timespec ts;
+  bool is_sync_time;
+
+  // Check if it is time send a sync packet to sessions that are already running
+  is_sync_time = rtp_sync_is_time(cms->rtp_session);
+
+  // (See raop.c for more comments on sync packets)
+  cur_stamp.ts.tv_sec = pts.tv_sec;
+  cur_stamp.ts.tv_nsec = pts.tv_nsec;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+
+  cur_stamp.pos = cms->rtp_session->pos + cms->evbuf_samples - cms->output_buffer_samples;
+
+  for (cs = cast_sessions; cs; cs = cs->next)
+    {
+      if (cs->master_session != cms)
+	continue;
+
+      // A device has joined and should get an init sync packet
+      if (cs->state == CAST_STATE_MEDIA_CONNECTED)
+	{
+	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
+	  packet_send(cs, sync_pkt);
+
+	  DPRINTF(E_DBG, L_PLAYER, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%lu:%lu, now=%lu:%lu, rtptime=%" PRIu32 ",\n",
+	    cs->devname, cur_stamp.pos, cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, cms->rtp_session->pos);
+	}
+      else if (is_sync_time && cs->state == CAST_STATE_MEDIA_STREAMING)
+	{
+	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
+	  packet_send(cs, sync_pkt);
+	}
+    }
+}
+*/
+
 /* ------------------ INTERFACE FUNCTIONS CALLED BY OUTPUTS.C --------------- */
 
 static int
-cast_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime)
+cast_device_start_generic(struct output_device *device, int callback_id, cast_reply_cb reply_cb)
 {
   struct cast_session *cs;
   int ret;
 
-  cs = cast_session_make(device, AF_INET6, cb);
+  cs = cast_session_make(device, AF_INET6, callback_id);
   if (cs)
     {
       ret = cast_msg_send(cs, CONNECT, NULL);
       if (ret == 0)
-	ret = cast_msg_send(cs, GET_STATUS, cast_cb_startup_connect);
+	ret = cast_msg_send(cs, GET_STATUS, reply_cb);
 
       if (ret < 0)
 	{
@@ -1569,13 +1948,13 @@ cast_device_start(struct output_device *device, output_status_cb cb, uint64_t rt
 	return 0;
     }
 
-  cs = cast_session_make(device, AF_INET, cb);
+  cs = cast_session_make(device, AF_INET, callback_id);
   if (!cs)
     return -1;
 
   ret = cast_msg_send(cs, CONNECT, NULL);
   if (ret == 0)
-    ret = cast_msg_send(cs, GET_STATUS, cast_cb_startup_connect);
+    ret = cast_msg_send(cs, GET_STATUS, reply_cb);
 
   if (ret < 0)
     {
@@ -1583,70 +1962,61 @@ cast_device_start(struct output_device *device, output_status_cb cb, uint64_t rt
       cast_session_cleanup(cs);
       return -1;
     }
+
+  return 0;
+}
+
+static int
+cast_device_start(struct output_device *device, int callback_id)
+{
+  return cast_device_start_generic(device, callback_id, cast_cb_startup_connect);
+}
+
+static int
+cast_device_probe(struct output_device *device, int callback_id)
+{
+  return cast_device_start_generic(device, callback_id, cast_cb_probe);
+}
+
+static int
+cast_device_stop(struct output_device *device, int callback_id)
+{
+  struct cast_session *cs = device->session;
+
+  cs->callback_id = callback_id;
+
+  cast_session_shutdown(cs, CAST_STATE_NONE);
+
+  return 0;
+}
+
+static int
+cast_device_flush(struct output_device *device, int callback_id)
+{
+  struct cast_session *cs = device->session;
+
+  cs->callback_id = callback_id;
+  cs->state = CAST_STATE_MEDIA_CONNECTED;
+  cast_status(cs);
 
   return 0;
 }
 
 static void
-cast_device_stop(struct output_session *session)
+cast_device_cb_set(struct output_device *device, int callback_id)
 {
-  struct cast_session *cs = session->session;
+  struct cast_session *cs = device->session;
 
-  cast_session_shutdown(cs, CAST_STATE_NONE);
+  cs->callback_id = callback_id;
 }
 
 static int
-cast_device_probe(struct output_device *device, output_status_cb cb)
+cast_device_volume_set(struct output_device *device, int callback_id)
 {
-  struct cast_session *cs;
+  struct cast_session *cs = device->session;
   int ret;
 
-  cs = cast_session_make(device, AF_INET6, cb);
-  if (cs)
-    {
-      ret = cast_msg_send(cs, CONNECT, NULL);
-      if (ret == 0)
-	ret = cast_msg_send(cs, GET_STATUS, cast_cb_probe);
-
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_CAST, "Could not send CONNECT or GET_STATUS request on IPv6 (start)\n");
-	  cast_session_cleanup(cs);
-	}
-      else
-	return 0;
-    }
-
-  cs = cast_session_make(device, AF_INET, cb);
-  if (!cs)
-    return -1;
-
-  ret = cast_msg_send(cs, CONNECT, NULL);
-  if (ret == 0)
-    ret = cast_msg_send(cs, GET_STATUS, cast_cb_probe);
-
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_CAST, "Could not send CONNECT or GET_STATUS request on IPv4 (start)\n");
-      cast_session_cleanup(cs);
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-cast_volume_set(struct output_device *device, output_status_cb cb)
-{
-  struct cast_session *cs;
-  int ret;
-
-  if (!device->session || !device->session->session)
-    return 0;
-
-  cs = device->session->session;
-
-  if (!(cs->state & CAST_STATE_F_MEDIA_CONNECTED))
+  if (!cs || !(cs->state & CAST_STATE_F_MEDIA_CONNECTED))
     return 0;
 
   cs->volume = 0.01 * device->volume;
@@ -1659,93 +2029,82 @@ cast_volume_set(struct output_device *device, output_status_cb cb)
     }
 
   // Setting it here means it will not be used for the above cast_session_shutdown
-  cs->status_cb = cb;
+  cs->callback_id = callback_id;
 
   return 1;
 }
 
 static void
-cast_playback_start(uint64_t next_pkt, struct timespec *ts)
+cast_write(struct output_buffer *obuf)
 {
+  struct cast_master_session *cms;
   struct cast_session *cs;
+  int i;
 
-  if (evtimer_pending(flush_timer, NULL))
-    event_del(flush_timer);
+  if (!cast_sessions)
+    return;
 
-  // TODO Maybe we could avoid reloading and instead support play->pause->play
-  for (cs = sessions; cs; cs = cs->next)
+  cms = cast_master_session;
+
+  for (i = 0; obuf->data[i].buffer; i++)
     {
-      if (cs->state & CAST_STATE_F_MEDIA_CONNECTED)
-	cast_msg_send(cs, MEDIA_LOAD, cast_cb_load);
-    }
-}
-
-static void
-cast_playback_stop(void)
-{
-  struct cast_session *cs;
-  struct cast_session *next;
-
-  for (cs = sessions; cs; cs = next)
-    {
-      next = cs->next;
-      if (cs->state & CAST_STATE_F_MEDIA_CONNECTED)
-	cast_session_shutdown(cs, CAST_STATE_NONE);
-    }
-}
-
-static void
-cast_flush_timer_cb(int fd, short what, void *arg)
-{
-  DPRINTF(E_DBG, L_CAST, "Flush timer expired; tearing down all sessions\n");
-
-  cast_playback_stop();
-}
-
-static int
-cast_flush(output_status_cb cb, uint64_t rtptime)
-{
-  struct cast_session *cs;
-  struct cast_session *next;
-  int pending;
-  int ret;
-
-  pending = 0;
-  for (cs = sessions; cs; cs = next)
-    {
-      next = cs->next;
-
-      if (!(cs->state & CAST_STATE_F_MEDIA_PLAYING))
+      if (!quality_is_equal(&obuf->data[i].quality, &cast_quality_default))
 	continue;
 
-      ret = cast_msg_send(cs, MEDIA_PAUSE, cast_cb_flush);
-      if (ret < 0)
-	{
-	  cast_session_shutdown(cs, CAST_STATE_FAILED);
-	  continue;
-	}
+      // Sends sync packets to new sessions, and if it is sync time then also to old sessions
+//      packets_sync_send(cms, obuf->pts);
 
-      cs->status_cb = cb;
-      pending++;
+      // TODO avoid this copy
+      evbuffer_add(cms->evbuf, obuf->data[i].buffer, obuf->data[i].bufsize);
+      cms->evbuf_samples += obuf->data[i].samples;
+
+      // Send as many packets as we have data for (one packet requires rawbuf_size bytes)
+      while (evbuffer_get_length(cms->evbuf) >= cms->rawbuf_size)
+	{
+	  evbuffer_remove(cms->evbuf, cms->rawbuf, cms->rawbuf_size);
+	  cms->evbuf_samples -= cms->samples_per_packet;
+
+	  packets_send(cms);
+	}
     }
 
-  if (pending > 0)
-    evtimer_add(flush_timer, &flush_timeout);
+  // Check for devices that have joined since last write (we have already sent them
+  // initialization sync and rtp packets via packets_sync_send and packets_send)
+  for (cs = cast_sessions; cs; cs = cs->next)
+    {
+      if (cs->state != CAST_STATE_MEDIA_CONNECTED)
+	continue;
 
-  return pending;
+      cs->state = CAST_STATE_MEDIA_STREAMING;
+      // Make a cb?
+    }
 }
 
+/* Doesn't work, but left here so it can be fixed
 static void
-cast_set_status_cb(struct output_session *session, output_status_cb cb)
+cast_metadata_send(struct output_metadata *metadata)
 {
-  struct cast_session *cs = session->session;
+  struct cast_session *cs;
+  struct cast_session *next;
 
-  cs->status_cb = cb;
+  for (cs = cast_sessions; cs; cs = next)
+    {
+      next = cs->next;
+
+      if (cs->state != CAST_STATE_MEDIA_CONNECTED)
+	continue;
+
+      metadata_send(cs);
+    }
+
+  // TODO free the metadata
 }
+*/
 
 static int
 cast_init(void)
 {
+  struct decode_ctx *decode_ctx;
   int family;
   int i;
   int ret;
@@ -1770,10 +2129,18 @@ cast_init(void)
       return -1;
     }
 
-  flush_timer = evtimer_new(evbase_player, cast_flush_timer_cb, NULL);
-  if (!flush_timer)
+  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, &cast_quality_default);
+  if (!decode_ctx)
     {
-      DPRINTF(E_LOG, L_CAST, "Out of memory for flush timer\n");
+      DPRINTF(E_LOG, L_CAST, "Could not create decoding context\n");
+      goto out_tls_deinit;
+    }
+
+  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, &cast_quality_default, decode_ctx, NULL, 0, 0);
+  transcode_decode_cleanup(&decode_ctx);
+  if (!cast_encode_ctx)
+    {
+      DPRINTF(E_LOG, L_CAST, "Will not be able to stream Chromecast, libav does not support Opus encoding\n");
       goto out_tls_deinit;
     }
 
@@ -1786,13 +2153,15 @@ cast_init(void)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CAST, "Could not add mDNS browser for Chromecast devices\n");
-      goto out_free_flush_timer;
+      goto out_encode_ctx_free;
     }
+
+  CHECK_NULL(L_CAST, cast_encoded_data = evbuffer_new());
 
   return 0;
 
- out_free_flush_timer:
-  event_free(flush_timer);
+ out_encode_ctx_free:
+  transcode_encode_cleanup(&cast_encode_ctx);
  out_tls_deinit:
   gnutls_certificate_free_credentials(tls_credentials);
   gnutls_global_deinit();
@@ -1805,13 +2174,14 @@ cast_deinit(void)
 {
   struct cast_session *cs;
 
-  for (cs = sessions; sessions; cs = sessions)
+  for (cs = cast_sessions; cast_sessions; cs = cast_sessions)
     {
-      sessions = cs->next;
+      cast_sessions = cs->next;
       cast_session_free(cs);
     }
 
-  event_free(flush_timer);
+  evbuffer_free(cast_encoded_data);
+  transcode_encode_cleanup(&cast_encode_ctx);
 
   gnutls_certificate_free_credentials(tls_credentials);
   gnutls_global_deinit();
@@ -1826,19 +2196,13 @@ struct output_definition output_cast =
   .init = cast_init,
   .deinit = cast_deinit,
   .device_start = cast_device_start,
-  .device_stop = cast_device_stop,
   .device_probe = cast_device_probe,
-//  .device_free_extra is unset - nothing to free
-  .device_volume_set = cast_volume_set,
-  .playback_start = cast_playback_start,
-  .playback_stop = cast_playback_stop,
-//  .write is unset - we don't write, the Chromecast will read our mp3 stream
-  .flush = cast_flush,
-  .status_cb = cast_set_status_cb,
-/* TODO metadata support
-  .metadata_prepare = cast_metadata_prepare,
-  .metadata_send = cast_metadata_send,
-  .metadata_purge = cast_metadata_purge,
-  .metadata_prune = cast_metadata_prune,
-*/
+  .device_stop = cast_device_stop,
+  .device_flush = cast_device_flush,
+  .device_cb_set = cast_device_cb_set,
+  .device_volume_set = cast_device_volume_set,
+  .write = cast_write,
+//  .metadata_prepare = cast_metadata_prepare,
+//  .metadata_send = cast_metadata_send,
+//  .metadata_purge = cast_metadata_purge,
 };

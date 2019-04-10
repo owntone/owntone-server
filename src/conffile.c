@@ -100,6 +100,8 @@ static cfg_opt_t sec_library[] =
     CFG_STR_LIST("no_decode", NULL, CFGF_NONE),
     CFG_STR_LIST("force_decode", NULL, CFGF_NONE),
     CFG_BOOL("pipe_autostart", cfg_true, CFGF_NONE),
+    CFG_INT("pipe_sample_rate", 44100, CFGF_NONE),
+    CFG_INT("pipe_bits_per_sample", 16, CFGF_NONE),
     CFG_BOOL("rating_updates", cfg_false, CFGF_NONE),
     CFG_END()
   };
@@ -113,8 +115,10 @@ static cfg_opt_t sec_audio[] =
     CFG_STR("card", "default", CFGF_NONE),
     CFG_STR("mixer", NULL, CFGF_NONE),
     CFG_STR("mixer_device", NULL, CFGF_NONE),
-    CFG_INT("offset", 0, CFGF_NONE),
-    CFG_INT("adjust_period_seconds", 10, CFGF_NONE),
+    CFG_BOOL("sync_disable", cfg_false, CFGF_NONE),
+    CFG_INT("offset", 0, CFGF_NONE), // deprecated
+    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("adjust_period_seconds", 100, CFGF_NONE),
     CFG_END()
   };
 

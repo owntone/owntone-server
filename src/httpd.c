@@ -80,6 +80,11 @@
   "<h1>%s</h1>\n" \
   "</body>\n</html>\n"
 
+#define HTTPD_STREAM_SAMPLE_RATE 44100
+#define HTTPD_STREAM_BPS         16
+#define HTTPD_STREAM_CHANNELS    2
+
+
 struct content_type_map {
   char *ext;
   char *ctype;
@@ -1029,6 +1034,7 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
 void
 httpd_stream_file(struct evhttp_request *req, int id)
 {
+  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS };
   struct media_file_info *mfi;
   struct stream_ctx *st;
   void (*stream_cb)(int fd, short event, void *arg);
@@ -1128,7 +1134,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
       stream_cb = stream_chunk_xcode_cb;
 
-      st->xcode = transcode_setup(XCODE_PCM16_HEADER, mfi->data_kind, mfi->path, mfi->song_length, &st->size);
+      st->xcode = transcode_setup(XCODE_PCM16_HEADER, &quality, mfi->data_kind, mfi->path, mfi->song_length, &st->size);
       if (!st->xcode)
 	{
 	  DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");

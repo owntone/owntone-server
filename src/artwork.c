@@ -408,7 +408,7 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
 
   DPRINTF(E_SPAM, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
 
-  xcode_decode = transcode_decode_setup(XCODE_JPEG, DATA_KIND_FILE, path, inbuf, 0); // Covers XCODE_PNG too
+  xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, DATA_KIND_FILE, path, inbuf, 0); // Covers XCODE_PNG too
   if (!xcode_decode)
     {
       if (path)
@@ -462,9 +462,9 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
     }
 
   if (format_ok == ART_FMT_JPEG)
-    xcode_encode = transcode_encode_setup(XCODE_JPEG, xcode_decode, NULL, target_w, target_h);
+    xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, NULL, target_w, target_h);
   else
-    xcode_encode = transcode_encode_setup(XCODE_PNG, xcode_decode, NULL, target_w, target_h);
+    xcode_encode = transcode_encode_setup(XCODE_PNG, NULL, xcode_decode, NULL, target_w, target_h);
 
   if (!xcode_encode)
     {

@@ -12,10 +12,26 @@
 #include <pthread.h>
 
 /* Samples to bytes, bytes to samples */
-#define STOB(s) ((s) * 4)
-#define BTOS(b) ((b) / 4)
+#define STOB(s, bits, c) ((s) * (c) * (bits) / 8)
+#define BTOS(b, bits, c) ((b) / ((c) * (bits) / 8))
 
 #define ARRAY_SIZE(x) ((unsigned int)(sizeof(x) / sizeof((x)[0])))
+
+#ifndef MIN
+# define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+
+#ifndef MAX
+# define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+
+
+// Remember to adjust quality_is_equal() if adding elements
+struct media_quality {
+  int sample_rate;
+  int bits_per_sample;
+  int channels;
+};
 
 struct onekeyval {
   char *name;
@@ -28,6 +44,15 @@ struct onekeyval {
 struct keyval {
   struct onekeyval *head;
   struct onekeyval *tail;
+};
+
+struct ringbuffer {
+  uint8_t *buffer;
+  size_t size;
+  size_t write_avail;
+  size_t read_avail;
+  size_t write_pos;
+  size_t read_pos;
 };
 
 
@@ -114,9 +139,27 @@ b64_encode(const uint8_t *in, size_t len);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
+int
+linear_regression(double *m, double *b, double *r, const double *x, const double *y, int n);
+
+bool
+quality_is_equal(struct media_quality *a, struct media_quality *b);
+
 // Checks if the address is in a network that is configured as trusted
 bool
 peer_address_is_trusted(const char *addr);
+
+int
+ringbuffer_init(struct ringbuffer *buf, size_t size);
+
+void
+ringbuffer_free(struct ringbuffer *buf, bool content_only);
+
+size_t
+ringbuffer_write(struct ringbuffer *buf, const void* src, size_t srclen);
+
+size_t
+ringbuffer_read(uint8_t **dst, size_t dstlen, struct ringbuffer *buf);
 
 
 #ifndef HAVE_CLOCK_GETTIME

@@ -88,7 +88,7 @@ artworkapi_reply_nowplaying(struct httpd_request *hreq)
   if (ret != 0)
     return ret;
 
-  ret = player_now_playing(&id);
+  ret = player_playing_now(&id);
   if (ret != 0)
     return HTTP_NOTFOUND;
 

@@ -7,14 +7,7 @@
 
 #include "db.h"
 
-/* AirTunes v2 packet interval in ns */
-/* (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet */
-# define AIRTUNES_V2_STREAM_PERIOD 7981859
-
-/* AirTunes v2 number of samples per packet */
-#define AIRTUNES_V2_PACKET_SAMPLES  352
-
-/* Maximum number of previously played songs that are remembered */
+// Maximum number of previously played songs that are remembered
 #define MAX_HISTORY_COUNT 20
 
 enum play_status {
@@ -79,15 +72,11 @@ struct player_history
   uint32_t item_id[MAX_HISTORY_COUNT];
 };
 
-
-int
-player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit);
-
 int
 player_get_status(struct player_status *status);
 
 int
-player_now_playing(uint32_t *id);
+player_playing_now(uint32_t *id);
 
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg);
@@ -103,9 +92,6 @@ player_speaker_enable(uint64_t id);
 
 int
 player_speaker_disable(uint64_t id);
-
-void
-player_speaker_status_trigger(void);
 
 int
 player_playback_start(void);
@@ -152,7 +138,6 @@ player_shuffle_set(int enable);
 int
 player_consume_set(int enable);
 
-
 void
 player_queue_clear_history(void);
 
@@ -171,8 +156,8 @@ player_device_remove(void *device);
 void
 player_raop_verification_kickoff(char **arglist);
 
-void
-player_metadata_send(void *imd, void *omd);
+const char *
+player_pmap(void *p);
 
 int
 player_init(void);

@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -37,14 +38,18 @@
 
 #include "misc.h"
 #include "logger.h"
+#include "commands.h"
 #include "input.h"
 
-// Disallow further writes to the buffer when its size is larger than this threshold
-#define INPUT_BUFFER_THRESHOLD STOB(88200)
-// How long (in sec) to wait for player read before looping in playback thread
+// Disallow further writes to the buffer when its size exceeds this threshold.
+// The below gives us room to buffer 2 seconds of 48000/16/2 audio.
+#define INPUT_BUFFER_THRESHOLD STOB(96000, 16, 2)
+// How long (in sec) to wait for player read before looping
 #define INPUT_LOOP_TIMEOUT 1
+// How long (in sec) to keep an input open without the player reading from it
+#define INPUT_OPEN_TIMEOUT 600
 
-#define DEBUG 1 //TODO disable
+//#define DEBUG_INPUT 1
 
 extern struct input_definition input_file;
 extern struct input_definition input_http;
@@ -64,29 +69,65 @@ static struct input_definition *inputs[] = {
     NULL
 };
 
+struct marker
+{
+  // Position of marker measured in bytes
+  uint64_t pos;
+
+  // Type of marker
+  enum input_flags flag;
+
+  // Data associated with the marker, e.g. quality or metadata struct
+  void *data;
+
+  // Reverse linked list, yay!
+  struct marker *prev;
+};
+
 struct input_buffer
 {
   // Raw pcm stream data
   struct evbuffer *evbuf;
 
-  // If non-zero, remaining length of buffer until EOF
-  size_t eof;
-  // If non-zero, remaining length of buffer until read error occurred
-  size_t error;
-  // If non-zero, remaining length of buffer until (possible) new metadata
-  size_t metadata;
+  // If an input makes a write with a flag or a changed sample rate etc, we add
+  // a marker to head, and when we read we check from the tail to see if there
+  // are updates to the player.
+  struct marker *marker_tail;
 
   // Optional callback to player if buffer is full
   input_cb full_cb;
+
+  // Quality of write/read data
+  struct media_quality cur_write_quality;
+  struct media_quality cur_read_quality;
+
+  size_t bytes_written;
+  size_t bytes_read;
 
   // Locks for sharing the buffer between input and player thread
   pthread_mutex_t mutex;
   pthread_cond_t cond;
 };
 
+struct input_arg
+{
+  uint32_t item_id;
+  int seek_ms;
+  struct input_metadata *metadata;
+};
+
 /* --- Globals --- */
 // Input thread
 static pthread_t tid_input;
+
+// Event base, cmdbase and event we use to iterate in the playback loop
+static struct event_base *evbase_input;
+static struct commands_base *cmdbase;
+static struct event *input_ev;
+static bool input_initialized;
+
+// The source we are reading now
+static struct input_source input_now_reading;
 
 // Input buffer
 static struct input_buffer input_buffer;
@@ -94,53 +135,16 @@ static struct input_buffer input_buffer;
 // Timeout waiting in playback loop
 static struct timespec input_loop_timeout = { INPUT_LOOP_TIMEOUT, 0 };
 
-#ifdef DEBUG
+// Timeout waiting for player read
+static struct timeval input_open_timeout = { INPUT_OPEN_TIMEOUT, 0 };
+static struct event *input_open_timeout_ev;
+
+#ifdef DEBUG_INPUT
 static size_t debug_elapsed;
 #endif
 
 
-/* ------------------------------ MISC HELPERS ---------------------------- */
-
-static short
-flags_set(size_t len)
-{
-  short flags = 0;
-
-  if (input_buffer.error)
-    {
-      if (len >= input_buffer.error)
-	{
-	  flags |= INPUT_FLAG_ERROR;
-	  input_buffer.error = 0;
-	}
-      else
-	input_buffer.error -= len;
-    }
-
-  if (input_buffer.eof)
-    {
-      if (len >= input_buffer.eof)
-	{
-	  flags |= INPUT_FLAG_EOF;
-	  input_buffer.eof = 0;
-	}
-      else
-	input_buffer.eof -= len;
-    }
-
-  if (input_buffer.metadata)
-    {
-      if (len >= input_buffer.metadata)
-	{
-	  flags |= INPUT_FLAG_METADATA;
-	  input_buffer.metadata = 0;
-	}
-      else
-	input_buffer.metadata -= len;
-    }
-
-  return flags;
-}
+/* ------------------------------- MISC HELPERS ----------------------------- */
 
 static int
 map_data_kind(int data_kind)
@@ -166,88 +170,360 @@ map_data_kind(int data_kind)
     }
 }
 
-static int
-source_check_and_map(struct player_source *ps, const char *action, char check_setup)
+static void
+metadata_free(struct input_metadata *metadata, int content_only)
 {
-  int type;
+  free(metadata->artist);
+  free(metadata->title);
+  free(metadata->album);
+  free(metadata->genre);
+  free(metadata->artwork_url);
 
-#ifdef DEBUG
-  DPRINTF(E_DBG, L_PLAYER, "Action is %s\n", action);
-#endif
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Stream %s called with invalid player source\n", action);
-      return -1;
-    }
-
-  if (check_setup && !ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, %s not possible\n", action);
-      return -1;
-    }
-
-  type = map_data_kind(ps->data_kind);
-  if (type < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Unsupported input type, %s not possible\n", action);
-      return -1;
-    }
-
-  return type;
+  if (!content_only)
+    free(metadata);
+  else
+    memset(metadata, 0, sizeof(struct input_metadata));
 }
 
-/* ----------------------------- PLAYBACK LOOP ---------------------------- */
-/*                               Thread: input                              */
-
-// TODO Thread safety of ps?
-static void *
-playback(void *arg)
+static struct input_metadata *
+metadata_get(struct input_source *source)
 {
-  struct player_source *ps = arg;
-  int type;
+  struct input_metadata *metadata;
+  struct db_queue_item *queue_item;
   int ret;
 
-  type = source_check_and_map(ps, "start", 1);
-  if ((type < 0) || (inputs[type]->disabled))
-    goto thread_exit;
+  if (!inputs[source->type]->metadata_get)
+    return NULL;
 
-  // Loops until input_loop_break is set or no more input, e.g. EOF
-  ret = inputs[type]->start(ps);
+  metadata = calloc(1, sizeof(struct input_metadata));
+
+  ret = inputs[source->type]->metadata_get(metadata, source);
   if (ret < 0)
-    input_write(NULL, INPUT_FLAG_ERROR);
+    goto out_free_metadata;
 
-#ifdef DEBUG
-  DPRINTF(E_DBG, L_PLAYER, "Playback loop stopped (break is %d, ret %d)\n", input_loop_break, ret);
-#endif
+  queue_item = db_queue_fetch_byitemid(source->item_id);
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! Input source item_id does not match anything in queue\n");
+      goto out_free_metadata;
+    }
 
- thread_exit:
-  pthread_exit(NULL);
+  // Update queue item if metadata changed
+  if (metadata->artist || metadata->title || metadata->album || metadata->genre || metadata->artwork_url || metadata->len_ms)
+    {
+      // Since we won't be using the metadata struct values for anything else
+      // than this we just swap pointers
+      if (metadata->artist)
+	swap_pointers(&queue_item->artist, &metadata->artist);
+      if (metadata->title)
+	swap_pointers(&queue_item->title, &metadata->title);
+      if (metadata->album)
+	swap_pointers(&queue_item->album, &metadata->album);
+      if (metadata->genre)
+	swap_pointers(&queue_item->genre, &metadata->genre);
+      if (metadata->artwork_url)
+	swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
+      if (metadata->len_ms)
+	queue_item->song_length = metadata->len_ms;
+
+      ret = db_queue_update_item(queue_item);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
+    }
+
+  free_queue_item(queue_item, 0);
+
+  return metadata;
+
+ out_free_metadata:
+  metadata_free(metadata, 0);
+  return NULL;
 }
 
-void
-input_wait(void)
+static void
+marker_free(struct marker *marker)
 {
-  struct timespec ts;
+  if (!marker)
+    return;
+
+  if (marker->flag == INPUT_FLAG_METADATA && marker->data)
+    metadata_free(marker->data, 0);
+
+  if (marker->flag == INPUT_FLAG_QUALITY && marker->data)
+    free(marker->data);
+
+  free(marker);
+}
+
+static void
+marker_add(size_t pos, short flag, void *flagdata)
+{
+  struct marker *head;
+  struct marker *marker;
+
+  CHECK_NULL(L_PLAYER, marker = calloc(1, sizeof(struct marker)));
+
+  marker->pos = pos;
+  marker->flag = flag;
+  marker->data = flagdata;
+
+  for (head = input_buffer.marker_tail; head && head->prev; head = head->prev)
+    ; // Fast forward to the head
+
+  if (!head)
+    input_buffer.marker_tail = marker;
+  else
+    head->prev = marker;
+}
+
+static void
+markers_set(short flags, size_t write_size)
+{
+  struct media_quality *quality;
+  struct input_metadata *metadata;
+
+  if (flags & INPUT_FLAG_QUALITY)
+    {
+      quality = malloc(sizeof(struct media_quality));
+      *quality = input_buffer.cur_write_quality;
+      marker_add(input_buffer.bytes_written - write_size, INPUT_FLAG_QUALITY, quality);
+    }
+
+  if (flags & (INPUT_FLAG_EOF | INPUT_FLAG_ERROR))
+    {
+      // This controls when the player will open the next track in the queue
+      if (input_buffer.bytes_read + INPUT_BUFFER_THRESHOLD < input_buffer.bytes_written)
+	// The player's read is behind, tell it to open when it reaches where
+	// we are minus the buffer size
+	marker_add(input_buffer.bytes_written - INPUT_BUFFER_THRESHOLD, INPUT_FLAG_START_NEXT, NULL);
+      else
+	// The player's read is close to our write, so open right away
+	marker_add(input_buffer.bytes_read, INPUT_FLAG_START_NEXT, NULL);
+
+      marker_add(input_buffer.bytes_written, flags & (INPUT_FLAG_EOF | INPUT_FLAG_ERROR), NULL);
+    }
+
+  if (flags & INPUT_FLAG_METADATA)
+    {
+      metadata = metadata_get(&input_now_reading);
+      if (metadata)
+	marker_add(input_buffer.bytes_written, INPUT_FLAG_METADATA, metadata);
+    }
+}
+
+
+/* ------------------------- INPUT SOURCE HANDLING -------------------------- */
+
+static void
+clear(struct input_source *source)
+{
+  free(source->path);
+  memset(source, 0, sizeof(struct input_source));
+}
+
+static void
+flush(short *flags)
+{
+  struct marker *marker;
+  size_t len;
 
   pthread_mutex_lock(&input_buffer.mutex);
 
-  ts = timespec_reltoabs(input_loop_timeout);
-  pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
+  // We will return an OR of all the unread marker flags
+  *flags = 0;
+  for (marker = input_buffer.marker_tail; marker; marker = input_buffer.marker_tail)
+    {
+      *flags |= marker->flag;
+      input_buffer.marker_tail = marker->prev;
+      marker_free(marker);
+    }
+
+  len = evbuffer_get_length(input_buffer.evbuf);
+
+  evbuffer_drain(input_buffer.evbuf, len);
+
+  memset(&input_buffer.cur_read_quality, 0, sizeof(struct media_quality));
+  memset(&input_buffer.cur_write_quality, 0, sizeof(struct media_quality));
+
+  input_buffer.bytes_read = 0;
+  input_buffer.bytes_written = 0;
+
+  input_buffer.full_cb = NULL;
 
   pthread_mutex_unlock(&input_buffer.mutex);
+
+#ifdef DEBUG_INPUT
+  DPRINTF(E_DBG, L_PLAYER, "Flushing %zu bytes with flags %d\n", len, *flags);
+#endif
 }
+
+static void
+stop(void)
+{
+  short flags;
+  int type;
+
+  event_del(input_open_timeout_ev);
+  event_del(input_ev);
+
+  type = input_now_reading.type;
+
+  if (inputs[type]->stop && input_now_reading.open)
+    inputs[type]->stop(&input_now_reading);
+
+  flush(&flags);
+
+  clear(&input_now_reading);
+}
+
+static int
+seek(struct input_source *source, int seek_ms)
+{
+  if (inputs[source->type]->seek)
+    return inputs[source->type]->seek(source, seek_ms);
+  else
+    return 0;
+}
+
+// On error returns -1, on success + seek given + seekable returns the position
+// that the seek gave us, otherwise returns 0.
+static int
+setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms)
+{
+  int type;
+  int ret;
+
+  type = map_data_kind(queue_item->data_kind);
+  if ((type < 0) || (inputs[type]->disabled))
+    goto setup_error;
+
+  source->type       = type;
+  source->data_kind  = queue_item->data_kind;
+  source->media_kind = queue_item->media_kind;
+  source->item_id    = queue_item->id;
+  source->id         = queue_item->file_id;
+  source->len_ms     = queue_item->song_length;
+  source->path       = safe_strdup(queue_item->path);
+
+  DPRINTF(E_DBG, L_PLAYER, "Setting up input item '%s' (item id %" PRIu32 ")\n", source->path, source->item_id);
+
+  if (inputs[type]->setup)
+    {
+      ret = inputs[type]->setup(source);
+      if (ret < 0)
+	goto setup_error;
+    }
+
+  source->open = true;
+
+  if (seek_ms > 0)
+    {
+      ret = seek(source, seek_ms);
+      if (ret < 0)
+	goto seek_error;
+    }
+  else
+    ret = 0;
+
+  return ret;
+
+ seek_error:
+  stop();
+ setup_error:
+  clear(source);
+  return -1;
+}
+
+static enum command_state
+start(void *arg, int *retval)
+{
+  struct input_arg *cmdarg = arg;
+  struct db_queue_item *queue_item;
+  short flags;
+  int ret;
+
+  // If we are asked to start the item that is currently open we can just seek
+  if (input_now_reading.open && cmdarg->item_id == input_now_reading.item_id)
+    {
+      flush(&flags);
+
+      ret = seek(&input_now_reading, cmdarg->seek_ms);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_PLAYER, "Ignoring failed seek to %d ms in '%s'\n", cmdarg->seek_ms, input_now_reading.path);
+    }
+  else
+    {
+      if (input_now_reading.open)
+	stop();
+
+      // Get the queue_item from the db
+      queue_item = db_queue_fetch_byitemid(cmdarg->item_id);
+      if (!queue_item)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Input start was called with an item id that has disappeared (id=%d)\n", cmdarg->item_id);
+	  goto error;
+	}
+
+      ret = setup(&input_now_reading, queue_item, cmdarg->seek_ms);
+      free_queue_item(queue_item, 0);
+      if (ret < 0)
+	goto error;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Starting input read loop for item '%s' (item id %" PRIu32 "), seek %d\n",
+    input_now_reading.path, input_now_reading.item_id, cmdarg->seek_ms);
+
+  event_add(input_open_timeout_ev, &input_open_timeout);
+  event_active(input_ev, 0, 0);
+
+  *retval = ret; // Return is the seek result
+  return COMMAND_END;
+
+ error:
+  input_write(NULL, NULL, INPUT_FLAG_ERROR);
+  clear(&input_now_reading);
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
+stop_cmd(void *arg, int *retval)
+{
+  stop();
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
+static void
+timeout_cb(int fd, short what, void *arg)
+{
+  if (input_buffer.bytes_read > 0)
+    return;
+
+  DPRINTF(E_WARN, L_PLAYER, "Timed out after %d sec without any reading from input source\n", INPUT_OPEN_TIMEOUT);
+
+  stop();
+}
+
+/* ---------------------- Interface towards input backends ------------------ */
+/*                           Thread: input and spotify                        */
 
 // Called by input modules from within the playback loop
 int
-input_write(struct evbuffer *evbuf, short flags)
+input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags)
 {
-  struct timespec ts;
+  bool read_end;
+  size_t len;
   int ret;
 
   pthread_mutex_lock(&input_buffer.mutex);
 
-  while ( (!input_loop_break) && (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD) && evbuf )
+  read_end = (flags & (INPUT_FLAG_EOF | INPUT_FLAG_ERROR));
+  if (read_end)
+    input_now_reading.open = false;
+
+  if ((evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD) && evbuf)
     {
       if (input_buffer.full_cb)
 	{
@@ -255,78 +531,197 @@ input_write(struct evbuffer *evbuf, short flags)
 	  input_buffer.full_cb = NULL;
 	}
 
-      if (flags & INPUT_FLAG_NONBLOCK)
+      // In case of EOF or error the input is always allowed to write, even if the
+      // buffer is full. There is no point in holding back the input in that case.
+      if (!read_end)
 	{
 	  pthread_mutex_unlock(&input_buffer.mutex);
 	  return EAGAIN;
 	}
-
-      ts = timespec_reltoabs(input_loop_timeout);
-      pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
     }
 
-  if (input_loop_break)
+  if (quality && !quality_is_equal(quality, &input_buffer.cur_write_quality))
     {
-      pthread_mutex_unlock(&input_buffer.mutex);
-      return 0;
+      input_buffer.cur_write_quality = *quality;
+      flags |= INPUT_FLAG_QUALITY;
     }
 
+  ret = 0;
+  len = 0;
   if (evbuf)
-    ret = evbuffer_add_buffer(input_buffer.evbuf, evbuf);
-  else
-    ret = 0;
+    {
+      len = evbuffer_get_length(evbuf);
+      input_buffer.bytes_written += len;
+      ret = evbuffer_add_buffer(input_buffer.evbuf, evbuf);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Error adding stream data to input buffer, stopping\n");
+	  input_stop();
+	  flags |= INPUT_FLAG_ERROR;
+	}
+    }
 
-  if (ret < 0)
-    DPRINTF(E_LOG, L_PLAYER, "Error adding stream data to input buffer\n");
-
-  if (!input_buffer.error && (flags & INPUT_FLAG_ERROR))
-    input_buffer.error = evbuffer_get_length(input_buffer.evbuf);
-  if (!input_buffer.eof && (flags & INPUT_FLAG_EOF))
-    input_buffer.eof = evbuffer_get_length(input_buffer.evbuf);
-  if (!input_buffer.metadata && (flags & INPUT_FLAG_METADATA))
-    input_buffer.metadata = evbuffer_get_length(input_buffer.evbuf);
+  if (flags)
+    markers_set(flags, len);
 
   pthread_mutex_unlock(&input_buffer.mutex);
 
   return ret;
 }
 
-
-/* -------------------- Interface towards player thread ------------------- */
-/*                               Thread: player                             */
-
 int
-input_read(void *data, size_t size, short *flags)
+input_wait(void)
 {
-  int len;
-
-  *flags = 0;
-
-  if (!tid_input)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! Read called, but playback not running\n");
-      return -1;
-    }
+  struct timespec ts;
 
   pthread_mutex_lock(&input_buffer.mutex);
 
-#ifdef DEBUG
-  debug_elapsed += size;
-  if (debug_elapsed > STOB(441000)) // 10 sec
+  // Is the buffer full? Then wait for a read or for loop_timeout to elapse
+  if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Input buffer has %zu bytes\n", evbuffer_get_length(input_buffer.evbuf));
-      debug_elapsed = 0;
+      if (input_buffer.full_cb)
+	{
+	  input_buffer.full_cb();
+	  input_buffer.full_cb = NULL;
+	}
+
+      ts = timespec_reltoabs(input_loop_timeout);
+      pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
+
+      if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
+	{
+	  pthread_mutex_unlock(&input_buffer.mutex);
+	  return -1;
+	}
     }
-#endif
+
+  pthread_mutex_unlock(&input_buffer.mutex);
+  return 0;
+}
+
+/*void
+input_next(void)
+{
+  commands_exec_async(cmdbase, next, NULL);
+}*/
+
+/* ---------------------------------- MAIN ---------------------------------- */
+/*                                Thread: input                               */
+
+static void *
+input(void *arg)
+{
+  int ret;
+
+  ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Error: DB init failed (input thread)\n");
+      pthread_exit(NULL);
+    }
+
+  input_initialized = true;
+
+  event_base_dispatch(evbase_input);
+
+  if (input_initialized)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Input event loop terminated ahead of time!\n");
+      input_initialized = false;
+    }
+
+  db_perthread_deinit();
+
+  pthread_exit(NULL);
+}
+
+static void
+play(evutil_socket_t fd, short flags, void *arg)
+{
+  struct timeval tv = { 0, 0 };
+  int ret;
+
+  // Spotify runs in its own thread, so no reading is done by the input thread,
+  // thus there is no reason to activate input_ev
+  if (!inputs[input_now_reading.type]->play)
+    return;
+
+  // Return will be negative if there is an error or EOF. Here, we just don't
+  // loop any more. input_write() will pass the message to the player.
+  ret = inputs[input_now_reading.type]->play(&input_now_reading);
+  if (ret < 0)
+    {
+      input_now_reading.open = false;
+      return; // Error or EOF, so don't come back
+    }
+
+  event_add(input_ev, &tv);
+}
+
+
+/* ---------------------- Interface towards player thread ------------------- */
+/*                                Thread: player                              */
+
+int
+input_read(void *data, size_t size, short *flag, void **flagdata)
+{
+  struct marker *marker;
+  int len;
+
+  *flag = 0;
+
+  pthread_mutex_lock(&input_buffer.mutex);
+
+  // First we check if there is a marker in the requested samples. If there is,
+  // we only return data up until that marker. That way we don't have to deal
+  // with multiple markers, and we don't return data that contains mixed sample
+  // rates, bits per sample or an EOF in the middle.
+  marker = input_buffer.marker_tail;
+  if (marker && marker->pos <= input_buffer.bytes_read + size)
+    {
+      *flag = marker->flag;
+      *flagdata = marker->data;
+
+      size = marker->pos - input_buffer.bytes_read;
+      input_buffer.marker_tail = marker->prev;
+      free(marker);
+    }
 
   len = evbuffer_remove(input_buffer.evbuf, data, size);
   if (len < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Error reading stream data from input buffer\n");
+      *flag = INPUT_FLAG_ERROR;
       goto out_unlock;
     }
 
-  *flags = flags_set(len);
+  input_buffer.bytes_read += len;
+
+#ifdef DEBUG_INPUT
+  // Logs if flags present or each 10 seconds
+
+  if (*flag & INPUT_FLAG_QUALITY)
+    input_buffer.cur_read_quality = *((struct media_quality *)(*flagdata));
+
+  size_t one_sec_size = STOB(input_buffer.cur_read_quality.sample_rate, input_buffer.cur_read_quality.bits_per_sample, input_buffer.cur_read_quality.channels);
+  debug_elapsed += len;
+  if (*flag || (debug_elapsed > 10 * one_sec_size))
+    {
+      debug_elapsed = 0;
+      DPRINTF(E_DBG, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), SIZE %zu (=%zu), FLAGS %04x\n",
+        input_buffer.bytes_read,
+        input_buffer.cur_read_quality.sample_rate,
+        input_buffer.cur_read_quality.bits_per_sample,
+        input_buffer.cur_read_quality.channels,
+        input_buffer.bytes_written,
+        input_buffer.cur_write_quality.sample_rate,
+        input_buffer.cur_write_quality.bits_per_sample,
+        input_buffer.cur_write_quality.channels,
+        evbuffer_get_length(input_buffer.evbuf),
+        input_buffer.bytes_written - input_buffer.bytes_read,
+        *flag);
+    }
+#endif
 
  out_unlock:
   pthread_cond_signal(&input_buffer.cond);
@@ -345,191 +740,47 @@ input_buffer_full_cb(input_cb cb)
 }
 
 int
-input_setup(struct player_source *ps)
+input_seek(uint32_t item_id, int seek_ms)
 {
-  int type;
+  struct input_arg cmdarg;
 
-  type = source_check_and_map(ps, "setup", 0);
-  if ((type < 0) || (inputs[type]->disabled))
-    return -1;
+  cmdarg.item_id = item_id;
+  cmdarg.seek_ms = seek_ms;
 
-  if (!inputs[type]->setup)
-    return 0;
-
-  return inputs[type]->setup(ps);
+  return commands_exec_sync(cmdbase, start, NULL, &cmdarg);
 }
 
-int
-input_start(struct player_source *ps)
+void
+input_start(uint32_t item_id)
 {
-  int ret;
+  struct input_arg *cmdarg;
 
-  if (tid_input)
-    {
-      DPRINTF(E_WARN, L_PLAYER, "Input start called, but playback already running\n");
-      return 0;
-    }
+  CHECK_NULL(L_PLAYER, cmdarg = malloc(sizeof(struct input_arg)));
 
-  input_loop_break = 0;
+  cmdarg->item_id = item_id;
+  cmdarg->seek_ms = 0;
 
-  ret = pthread_create(&tid_input, NULL, playback, ps);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not spawn input thread: %s\n", strerror(errno));
-      return -1;
-    }
-
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_input, "input");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_input, "input");
-#endif
-
-  return 0;
+  commands_exec_async(cmdbase, start, cmdarg);
 }
 
-int
-input_pause(struct player_source *ps)
+void
+input_stop(void)
 {
-  short flags;
-  int ret;
-
-#ifdef DEBUG
-  DPRINTF(E_DBG, L_PLAYER, "Pause called, stopping playback loop\n");
-#endif
-
-  if (!tid_input)
-    return -1;
-
-  pthread_mutex_lock(&input_buffer.mutex);
-
-  input_loop_break = 1;
-
-  pthread_cond_signal(&input_buffer.cond);
-  pthread_mutex_unlock(&input_buffer.mutex);
-
-  // TODO What if input thread is hanging waiting for source? Kill thread?
-  ret = pthread_join(tid_input, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not join input thread: %s\n", strerror(errno));
-      return -1;
-    }
-
-  tid_input = 0;
-
-  input_flush(&flags);
-
-  return 0;
-}
-
-int
-input_stop(struct player_source *ps)
-{
-  int type;
-
-  if (tid_input)
-    input_pause(ps);
-
-  if (!ps)
-    return 0;
-
-  type = source_check_and_map(ps, "stop", 1);
-  if ((type < 0) || (inputs[type]->disabled))
-    return -1;
-
-  if (!inputs[type]->stop)
-    return 0;
-
-  return inputs[type]->stop(ps);
-}
-
-int
-input_seek(struct player_source *ps, int seek_ms)
-{
-  int type;
-
-  type = source_check_and_map(ps, "seek", 1);
-  if ((type < 0) || (inputs[type]->disabled))
-    return -1;
-
-  if (!inputs[type]->seek)
-    return 0;
-
-  if (tid_input)
-    input_pause(ps);
-
-  return inputs[type]->seek(ps, seek_ms);
+  commands_exec_async(cmdbase, stop_cmd, NULL);
 }
 
 void
 input_flush(short *flags)
 {
-  size_t len;
-
-  pthread_mutex_lock(&input_buffer.mutex);
-
-  len = evbuffer_get_length(input_buffer.evbuf);
-
-  evbuffer_drain(input_buffer.evbuf, len);
-
-  *flags = flags_set(len);
-
-  input_buffer.error = 0;
-  input_buffer.eof = 0;
-  input_buffer.metadata = 0;
-  input_buffer.full_cb = NULL;
-
-  pthread_mutex_unlock(&input_buffer.mutex);
-
-#ifdef DEBUG
-  DPRINTF(E_DBG, L_PLAYER, "Flushing %zu bytes with flags %d\n", len, *flags);
-#endif
+  // Flush should be thread safe
+  flush(flags);
 }
 
-int
-input_metadata_get(struct input_metadata *metadata, struct player_source *ps, int startup, uint64_t rtptime)
-{
-  int type;
-
-  if (!metadata || !ps || !ps->stream_start || !ps->output_start)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! Unhandled case in input_metadata_get()\n");
-      return -1;
-    }
-
-  memset(metadata, 0, sizeof(struct input_metadata));
-
-  metadata->item_id = ps->item_id;
-
-  metadata->startup = startup;
-  metadata->offset = ps->output_start - ps->stream_start;
-  metadata->rtptime = ps->stream_start;
-
-  // Note that the source may overwrite the above progress metadata
-  type = source_check_and_map(ps, "metadata_get", 1);
-  if ((type < 0) || (inputs[type]->disabled))
-    return -1;
-
-  if (!inputs[type]->metadata_get)
-    return 0;
-
-  return inputs[type]->metadata_get(metadata, ps, rtptime);
-}
-
+// Not currently used, perhaps remove?
 void
 input_metadata_free(struct input_metadata *metadata, int content_only)
 {
-  free(metadata->artist);
-  free(metadata->title);
-  free(metadata->album);
-  free(metadata->genre);
-  free(metadata->artwork_url);
-
-  if (!content_only)
-    free(metadata);
-  else
-    memset(metadata, 0, sizeof(struct input_metadata));
+  metadata_free(metadata, content_only);
 }
 
 int
@@ -543,12 +794,10 @@ input_init(void)
   pthread_mutex_init(&input_buffer.mutex, NULL);
   pthread_cond_init(&input_buffer.cond, NULL);
 
-  input_buffer.evbuf = evbuffer_new();
-  if (!input_buffer.evbuf)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory for input buffer\n");
-      return -1;
-    }
+  CHECK_NULL(L_PLAYER, evbase_input = event_base_new());
+  CHECK_NULL(L_PLAYER, input_buffer.evbuf = evbuffer_new());
+  CHECK_NULL(L_PLAYER, input_ev = event_new(evbase_input, -1, EV_PERSIST, play, NULL));
+  CHECK_NULL(L_PLAYER, input_open_timeout_ev = evtimer_new(evbase_input, timeout_cb, NULL));
 
   no_input = 1;
   for (i = 0; inputs[i]; i++)
@@ -556,7 +805,7 @@ input_init(void)
       if (inputs[i]->type != i)
 	{
 	  DPRINTF(E_FATAL, L_PLAYER, "BUG! Input definitions are misaligned with input enum\n");
-	  return -1;
+	  goto input_fail;
 	}
 
       if (!inputs[i]->init)
@@ -573,17 +822,41 @@ input_init(void)
     }
 
   if (no_input)
-    return -1;
+    goto input_fail;
+
+  cmdbase = commands_base_new(evbase_input, NULL);
+
+  ret = pthread_create(&tid_input, NULL, input, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Could not spawn input thread: %s\n", strerror(errno));
+      goto thread_fail;
+    }
+
+#if defined(HAVE_PTHREAD_SETNAME_NP)
+  pthread_setname_np(tid_input, "input");
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+  pthread_set_name_np(tid_input, "input");
+#endif
 
   return 0;
+
+ thread_fail:
+  commands_base_free(cmdbase);
+ input_fail:
+  evbuffer_free(input_buffer.evbuf);
+  event_base_free(evbase_input);
+  return -1;
 }
 
 void
 input_deinit(void)
 {
   int i;
+  int ret;
 
-  input_stop(NULL);
+// TODO ok to do from here?
+  input_stop();
 
   for (i = 0; inputs[i]; i++)
     {
@@ -594,9 +867,20 @@ input_deinit(void)
         inputs[i]->deinit();
     }
 
+  input_initialized = false;
+  commands_base_destroy(cmdbase);
+
+  ret = pthread_join(tid_input, NULL);
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Could not join input thread: %s\n", strerror(errno));
+      return;
+    }
+
   pthread_cond_destroy(&input_buffer.cond);
   pthread_mutex_destroy(&input_buffer.mutex);
 
   evbuffer_free(input_buffer.evbuf);
+  event_base_free(evbase_input);
 }
 

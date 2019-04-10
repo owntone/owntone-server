@@ -40,6 +40,7 @@
 #include "conffile.h"
 #include "db.h"
 #include "avio_evbuffer.h"
+#include "misc.h"
 #include "transcode.h"
 
 // Interval between ICY metadata checks for streams, in seconds
@@ -75,12 +76,10 @@ struct settings_ctx
 
   // Audio settings
   enum AVCodecID audio_codec;
-  const char *audio_codec_name;
   int sample_rate;
   uint64_t channel_layout;
   int channels;
   enum AVSampleFormat sample_format;
-  int byte_depth;
   bool wavheader;
   bool icy;
 
@@ -178,47 +177,56 @@ struct encode_ctx
   uint8_t header[44];
 };
 
-struct transcode_ctx
-{
-  struct decode_ctx *decode_ctx;
-  struct encode_ctx *encode_ctx;
-};
-
 
 /* -------------------------- PROFILE CONFIGURATION ------------------------ */
 
 static int
-init_settings(struct settings_ctx *settings, enum transcode_profile profile)
+init_settings(struct settings_ctx *settings, enum transcode_profile profile, struct media_quality *quality)
 {
-  const AVCodecDescriptor *codec_desc;
-
   memset(settings, 0, sizeof(struct settings_ctx));
 
   switch (profile)
     {
+      case XCODE_PCM_NATIVE: // Sample rate and bit depth determined by source
+	settings->encode_audio = 1;
+	settings->icy = 1;
+	break;
+
       case XCODE_PCM16_HEADER:
 	settings->wavheader = 1;
-      case XCODE_PCM16_NOHEADER:
+      case XCODE_PCM16:
 	settings->encode_audio = 1;
 	settings->format = "s16le";
 	settings->audio_codec = AV_CODEC_ID_PCM_S16LE;
-	settings->sample_rate = 44100;
-	settings->channel_layout = AV_CH_LAYOUT_STEREO;
-	settings->channels = 2;
 	settings->sample_format = AV_SAMPLE_FMT_S16;
-	settings->byte_depth = 2; // Bytes per sample = 16/8
-	settings->icy = 1;
+	break;
+
+      case XCODE_PCM24:
+	settings->encode_audio = 1;
+	settings->format = "s24le";
+	settings->audio_codec = AV_CODEC_ID_PCM_S24LE;
+	settings->sample_format = AV_SAMPLE_FMT_S32;
+	break;
+
+      case XCODE_PCM32:
+	settings->encode_audio = 1;
+	settings->format = "s32le";
+	settings->audio_codec = AV_CODEC_ID_PCM_S32LE;
+	settings->sample_format = AV_SAMPLE_FMT_S32;
 	break;
 
       case XCODE_MP3:
 	settings->encode_audio = 1;
 	settings->format = "mp3";
 	settings->audio_codec = AV_CODEC_ID_MP3;
-	settings->sample_rate = 44100;
-	settings->channel_layout = AV_CH_LAYOUT_STEREO;
-	settings->channels = 2;
 	settings->sample_format = AV_SAMPLE_FMT_S16P;
-	settings->byte_depth = 2; // Bytes per sample = 16/8
+	break;
+
+      case XCODE_OPUS:
+	settings->encode_audio = 1;
+	settings->format = "data"; // Means we get the raw packet from the encoder, no muxing
+	settings->audio_codec = AV_CODEC_ID_OPUS;
+	settings->sample_format = AV_SAMPLE_FMT_S16; // Only libopus support
 	break;
 
       case XCODE_JPEG:
@@ -226,6 +234,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile)
 	settings->silent = 1;
 	settings->format = "image2";
 	settings->in_format = "mjpeg";
+	settings->pix_fmt = AV_PIX_FMT_YUVJ420P;
 	settings->video_codec = AV_CODEC_ID_MJPEG;
 	break;
 
@@ -233,6 +242,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile)
 	settings->encode_video = 1;
 	settings->silent = 1;
 	settings->format = "image2";
+	settings->pix_fmt = AV_PIX_FMT_RGB24;
 	settings->video_codec = AV_CODEC_ID_PNG;
 	break;
 
@@ -241,16 +251,21 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile)
 	return -1;
     }
 
-  if (settings->audio_codec)
+  if (quality && quality->sample_rate)
     {
-      codec_desc = avcodec_descriptor_get(settings->audio_codec);
-      settings->audio_codec_name = codec_desc->name;
+      settings->sample_rate    = quality->sample_rate;
     }
 
-  if (settings->video_codec)
+  if (quality && quality->channels)
     {
-      codec_desc = avcodec_descriptor_get(settings->video_codec);
-      settings->video_codec_name = codec_desc->name;
+      settings->channels       = quality->channels;
+      settings->channel_layout = av_get_default_channel_layout(quality->channels);
+    }
+
+  if (quality && quality->bits_per_sample && (quality->bits_per_sample != 8 * av_get_bytes_per_sample(settings->sample_format)))
+    {
+      DPRINTF(E_LOG, L_XCODE, "Bug! Mismatch between profile and media quality\n");
+      return -1;
     }
 
   return 0;
@@ -278,6 +293,19 @@ stream_settings_set(struct stream_ctx *s, struct settings_ctx *settings, enum AV
 
 
 /* -------------------------------- HELPERS -------------------------------- */
+
+static enum AVSampleFormat
+bitdepth2format(int bits_per_sample)
+{
+  if (bits_per_sample == 16)
+    return AV_SAMPLE_FMT_S16;
+  else if (bits_per_sample == 24)
+    return AV_SAMPLE_FMT_S32;
+  else if (bits_per_sample == 32)
+    return AV_SAMPLE_FMT_S32;
+  else
+    return AV_SAMPLE_FMT_NONE;
+}
 
 static inline char *
 err2str(int errnum)
@@ -307,15 +335,18 @@ make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_s
 {
   uint32_t wav_len;
   int duration;
+  int bps;
 
   if (src_ctx->duration)
     duration = src_ctx->duration;
   else
     duration = 3 * 60 * 1000; /* 3 minutes, in ms */
 
-  wav_len = ctx->settings.channels * ctx->settings.byte_depth * ctx->settings.sample_rate * (duration / 1000);
+  bps = av_get_bytes_per_sample(ctx->settings.sample_format);
+  wav_len = ctx->settings.channels * bps * ctx->settings.sample_rate * (duration / 1000);
 
-  *est_size = wav_len + sizeof(ctx->header);
+  if (est_size)
+    *est_size = wav_len + sizeof(ctx->header);
 
   memcpy(ctx->header, "RIFF", 4);
   add_le32(ctx->header + 4, 36 + wav_len);
@@ -324,9 +355,9 @@ make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_s
   add_le16(ctx->header + 20, 1);
   add_le16(ctx->header + 22, ctx->settings.channels);     /* channels */
   add_le32(ctx->header + 24, ctx->settings.sample_rate);  /* samplerate */
-  add_le32(ctx->header + 28, ctx->settings.sample_rate * ctx->settings.channels * ctx->settings.byte_depth); /* byte rate */
-  add_le16(ctx->header + 32, ctx->settings.channels * ctx->settings.byte_depth);                             /* block align */
-  add_le16(ctx->header + 34, ctx->settings.byte_depth * 8);                                                  /* bits per sample */
+  add_le32(ctx->header + 28, ctx->settings.sample_rate * ctx->settings.channels * bps); /* byte rate */
+  add_le16(ctx->header + 32, ctx->settings.channels * bps);                             /* block align */
+  add_le16(ctx->header + 34, 8 * bps);                                                  /* bits per sample */
   memcpy(ctx->header + 36, "data", 4);
   add_le32(ctx->header + 40, wav_len);
 }
@@ -356,20 +387,27 @@ stream_find(struct decode_ctx *ctx, unsigned int stream_index)
  * @out ctx       A pre-allocated stream ctx where we save stream and codec info
  * @in output     Output to add the stream to
  * @in codec_id   What kind of codec should we use
- * @in codec_name Name of codec (only used for logging)
  * @return        Negative on failure, otherwise zero
  */
 static int
-stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id, const char *codec_name)
+stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id)
 {
+  const AVCodecDescriptor *codec_desc;
   AVCodec *encoder;
   AVDictionary *options = NULL;
   int ret;
 
+  codec_desc = avcodec_descriptor_get(codec_id);
+  if (!codec_desc)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Invalid codec ID (%d)\n", codec_id);
+      return -1;
+    }
+
   encoder = avcodec_find_encoder(codec_id);
   if (!encoder)
     {
-      DPRINTF(E_LOG, L_XCODE, "Necessary encoder (%s) not found\n", codec_name);
+      DPRINTF(E_LOG, L_XCODE, "Necessary encoder (%s) not found\n", codec_desc->name);
       return -1;
     }
 
@@ -381,7 +419,7 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   if (!s->codec->pix_fmt)
     {
       s->codec->pix_fmt = avcodec_default_get_format(s->codec, encoder->pix_fmts);
-      DPRINTF(E_DBG, L_XCODE, "Pixel format set to %s (encoder is %s)\n", av_get_pix_fmt_name(s->codec->pix_fmt), codec_name);
+      DPRINTF(E_DBG, L_XCODE, "Pixel format set to %s (encoder is %s)\n", av_get_pix_fmt_name(s->codec->pix_fmt), codec_desc->name);
     }
 
   if (ctx->ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
@@ -394,7 +432,7 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   ret = avcodec_open2(s->codec, NULL, &options);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Cannot open encoder (%s): %s\n", codec_name, err2str(ret));
+      DPRINTF(E_LOG, L_XCODE, "Cannot open encoder (%s): %s\n", codec_desc->name, err2str(ret));
       avcodec_free_context(&s->codec);
       return -1;
     }
@@ -403,7 +441,7 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   ret = avcodec_parameters_from_context(s->stream->codecpar, s->codec);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Cannot copy stream parameters (%s): %s\n", codec_name, err2str(ret));
+      DPRINTF(E_LOG, L_XCODE, "Cannot copy stream parameters (%s): %s\n", codec_desc->name, err2str(ret));
       avcodec_free_context(&s->codec);
       return -1;
     }
@@ -854,7 +892,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
     }
 
   // Clear AVFMT_NOFILE bit, it is not allowed as we will set our own AVIOContext
-  oformat->flags = ~AVFMT_NOFILE;
+  oformat->flags &= ~AVFMT_NOFILE;
 
   CHECK_NULL(L_XCODE, ctx->ofmt_ctx = avformat_alloc_context());
 
@@ -876,14 +914,14 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
 
   if (ctx->settings.encode_audio)
     {
-      ret = stream_add(ctx, &ctx->audio_stream, ctx->settings.audio_codec, ctx->settings.audio_codec_name);
+      ret = stream_add(ctx, &ctx->audio_stream, ctx->settings.audio_codec);
       if (ret < 0)
 	goto out_free_streams;
     }
 
   if (ctx->settings.encode_video)
     {
-      ret = stream_add(ctx, &ctx->video_stream, ctx->settings.video_codec, ctx->settings.video_codec_name);
+      ret = stream_add(ctx, &ctx->video_stream, ctx->settings.video_codec);
       if (ret < 0)
 	goto out_free_streams;
     }
@@ -972,6 +1010,8 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	  goto out_fail;
 	}
 
+      DPRINTF(E_DBG, L_XCODE, "Created 'in' filter: %s\n", args);
+
       snprintf(args, sizeof(args),
                "sample_fmts=%s:sample_rates=%d:channel_layouts=0x%"PRIx64,
                av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
@@ -983,6 +1023,8 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio format filter (%s): %s\n", args, err2str(ret));
 	  goto out_fail;
 	}
+
+      DPRINTF(E_DBG, L_XCODE, "Created 'format' filter: %s\n", args);
 
       ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
       if (ret < 0)
@@ -1122,7 +1164,7 @@ close_filters(struct encode_ctx *ctx)
 /*                                  Setup                                    */
 
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length)
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length)
 {
   struct decode_ctx *ctx;
 
@@ -1133,7 +1175,7 @@ transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind,
   ctx->duration = song_length;
   ctx->data_kind = data_kind;
 
-  if ((init_settings(&ctx->settings, profile) < 0) || (open_input(ctx, path, evbuf) < 0))
+  if ((init_settings(&ctx->settings, profile, quality) < 0) || (open_input(ctx, path, evbuf) < 0))
     goto fail_free;
 
   return ctx;
@@ -1146,19 +1188,51 @@ transcode_decode_setup(enum transcode_profile profile, enum data_kind data_kind,
 }
 
 struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ctx, off_t *est_size, int width, int height)
+transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, off_t *est_size, int width, int height)
 {
   struct encode_ctx *ctx;
+  int bps;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct encode_ctx)));
   CHECK_NULL(L_XCODE, ctx->filt_frame = av_frame_alloc());
   CHECK_NULL(L_XCODE, ctx->encoded_pkt = av_packet_alloc());
 
-  if (init_settings(&ctx->settings, profile) < 0)
+  if (init_settings(&ctx->settings, profile, quality) < 0)
     goto fail_free;
 
   ctx->settings.width = width;
   ctx->settings.height = height;
+
+  // Caller did not specify a sample rate -> use same as source
+  if (!ctx->settings.sample_rate && ctx->settings.encode_audio)
+    {
+      ctx->settings.sample_rate = src_ctx->audio_stream.codec->sample_rate;
+    }
+
+  // Caller did not specify a sample format -> use same as source
+  if (!ctx->settings.sample_format && ctx->settings.encode_audio)
+    {
+      bps = av_get_bytes_per_sample(src_ctx->audio_stream.codec->sample_fmt);
+      if (bps == 4)
+	{
+	  ctx->settings.sample_format = AV_SAMPLE_FMT_S32;
+	  ctx->settings.audio_codec = AV_CODEC_ID_PCM_S32LE;
+	  ctx->settings.format = "s32le";
+	}
+      else
+	{
+	  ctx->settings.sample_format = AV_SAMPLE_FMT_S16;
+	  ctx->settings.audio_codec = AV_CODEC_ID_PCM_S16LE;
+	  ctx->settings.format = "s16le";
+	}
+    }
+
+  // Caller did not specify channels -> use same as source
+  if (!ctx->settings.channels && ctx->settings.encode_audio)
+    {
+      ctx->settings.channels = src_ctx->audio_stream.codec->channels;
+      ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
+    }
 
   if (ctx->settings.wavheader)
     make_wav_header(ctx, src_ctx, est_size);
@@ -1170,7 +1244,10 @@ transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ct
     goto fail_close;
 
   if (ctx->settings.icy && src_ctx->data_kind == DATA_KIND_HTTP)
-    ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.channels * ctx->settings.byte_depth * ctx->settings.sample_rate;
+    {
+      bps = av_get_bytes_per_sample(ctx->settings.sample_format);
+      ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.channels * bps * ctx->settings.sample_rate;
+    }
 
   return ctx;
 
@@ -1184,20 +1261,20 @@ transcode_encode_setup(enum transcode_profile profile, struct decode_ctx *src_ct
 }
 
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size)
+transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size)
 {
   struct transcode_ctx *ctx;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct transcode_ctx)));
 
-  ctx->decode_ctx = transcode_decode_setup(profile, data_kind, path, NULL, song_length);
+  ctx->decode_ctx = transcode_decode_setup(profile, quality, data_kind, path, NULL, song_length);
   if (!ctx->decode_ctx)
     {
       free(ctx);
       return NULL;
     }
 
-  ctx->encode_ctx = transcode_encode_setup(profile, ctx->decode_ctx, est_size, 0, 0);
+  ctx->encode_ctx = transcode_encode_setup(profile, quality, ctx->decode_ctx, est_size, 0, 0);
   if (!ctx->encode_ctx)
     {
       transcode_decode_cleanup(&ctx->decode_ctx);
@@ -1209,16 +1286,24 @@ transcode_setup(enum transcode_profile profile, enum data_kind data_kind, const 
 }
 
 struct decode_ctx *
-transcode_decode_setup_raw(void)
+transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality *quality)
 {
+  const AVCodecDescriptor *codec_desc;
   struct decode_ctx *ctx;
   AVCodec *decoder;
   int ret;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct decode_ctx)));
 
-  if (init_settings(&ctx->settings, XCODE_PCM16_NOHEADER) < 0)
+  if (init_settings(&ctx->settings, profile, quality) < 0)
     {
+      goto out_free_ctx;
+    }
+
+  codec_desc = avcodec_descriptor_get(ctx->settings.audio_codec);
+  if (!codec_desc)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Invalid codec ID (%d)\n", ctx->settings.audio_codec);
       goto out_free_ctx;
     }
 
@@ -1228,7 +1313,7 @@ transcode_decode_setup_raw(void)
   decoder = avcodec_find_decoder(ctx->settings.audio_codec);
   if (!decoder)
     {
-      DPRINTF(E_LOG, L_XCODE, "Could not find decoder for: %s\n", ctx->settings.audio_codec_name);
+      DPRINTF(E_LOG, L_XCODE, "Could not find decoder for: %s\n", codec_desc->name);
       goto out_free_ctx;
     }
 
@@ -1243,7 +1328,7 @@ transcode_decode_setup_raw(void)
   ret = avcodec_parameters_from_context(ctx->audio_stream.stream->codecpar, ctx->audio_stream.codec);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Cannot copy stream parameters (%s): %s\n", ctx->settings.audio_codec_name, err2str(ret));
+      DPRINTF(E_LOG, L_XCODE, "Cannot copy stream parameters (%s): %s\n", codec_desc->name, err2str(ret));
       goto out_free_codec;
     }
 
@@ -1373,6 +1458,9 @@ transcode_encode_cleanup(struct encode_ctx **ctx)
 void
 transcode_cleanup(struct transcode_ctx **ctx)
 {
+  if (!*ctx)
+    return;
+
   transcode_encode_cleanup(&(*ctx)->encode_ctx);
   transcode_decode_cleanup(&(*ctx)->decode_ctx);
   free(*ctx);
@@ -1383,7 +1471,7 @@ transcode_cleanup(struct transcode_ctx **ctx)
 /*                       Encoding, decoding and transcoding                  */
 
 int
-transcode_decode(void **frame, struct decode_ctx *dec_ctx)
+transcode_decode(transcode_frame **frame, struct decode_ctx *dec_ctx)
 {
   struct transcode_ctx ctx;
   int ret;
@@ -1414,7 +1502,7 @@ transcode_decode(void **frame, struct decode_ctx *dec_ctx)
 
 // Filters and encodes
 int
-transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, void *frame, int eof)
+transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, transcode_frame *frame, int eof)
 {
   AVFrame *f = frame;
   struct stream_ctx *s;
@@ -1489,8 +1577,8 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
   return processed;
 }
 
-void *
-transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size)
+transcode_frame *
+transcode_frame_new(void *data, size_t size, int nsamples, struct media_quality *quality)
 {
   AVFrame *f;
   int ret;
@@ -1502,19 +1590,28 @@ transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size)
       return NULL;
     }
 
-  f->nb_samples     = size / 4;
-  f->format         = AV_SAMPLE_FMT_S16;
-  f->channel_layout = AV_CH_LAYOUT_STEREO;
+  f->format = bitdepth2format(quality->bits_per_sample);
+  if (f->format == AV_SAMPLE_FMT_NONE)
+    {
+      DPRINTF(E_LOG, L_XCODE, "transcode_frame_new() called with unsupported bps (%d)\n", quality->bits_per_sample);
+      av_frame_free(&f);
+      return NULL;
+    }
+
+  f->sample_rate    = quality->sample_rate;
+  f->nb_samples     = nsamples;
+  f->channel_layout = av_get_default_channel_layout(quality->channels);
 #ifdef HAVE_FFMPEG
-  f->channels       = 2;
+  f->channels       = quality->channels;
 #endif
   f->pts            = AV_NOPTS_VALUE;
-  f->sample_rate    = 44100;
 
-  ret = avcodec_fill_audio_frame(f, 2, f->format, data, size, 0);
+  // We don't align because the frame won't be given directly to the encoder
+  // anyway, it will first go through the filter (which might align it...?)
+  ret = avcodec_fill_audio_frame(f, 2, f->format, data, size, 1);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Error filling frame with rawbuf: %s\n", err2str(ret));
+      DPRINTF(E_LOG, L_XCODE, "Error filling frame with rawbuf, size %zu, samples %d (%d/%d/2): %s\n", size, nsamples, quality->sample_rate, quality->bits_per_sample, err2str(ret));
       av_frame_free(&f);
       return NULL;
     }
@@ -1523,7 +1620,7 @@ transcode_frame_new(enum transcode_profile profile, uint8_t *data, size_t size)
 }
 
 void
-transcode_frame_free(void *frame)
+transcode_frame_free(transcode_frame *frame)
 {
   AVFrame *f = frame;
 
@@ -1644,6 +1741,29 @@ transcode_decode_query(struct decode_ctx *ctx, const char *query)
 
   return -1;
 }
+
+int
+transcode_encode_query(struct encode_ctx *ctx, const char *query)
+{
+  if (strcmp(query, "sample_rate") == 0)
+    {
+      if (ctx->audio_stream.stream)
+	return ctx->audio_stream.stream->codecpar->sample_rate;
+    }
+  else if (strcmp(query, "bits_per_sample") == 0)
+    {
+      if (ctx->audio_stream.stream)
+	return av_get_bits_per_sample(ctx->audio_stream.stream->codecpar->codec_id);
+    }
+  else if (strcmp(query, "channels") == 0)
+    {
+      if (ctx->audio_stream.stream)
+	return ctx->audio_stream.stream->codecpar->channels;
+    }
+
+  return -1;
+}
+
 
 /*                                  Metadata                                 */
 

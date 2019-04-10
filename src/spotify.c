@@ -718,8 +718,7 @@ playback_eot(void *arg, int *retval)
 
   g_state = SPOTIFY_STATE_STOPPING;
 
-  // TODO 1) This will block for a while, but perhaps ok?
-  input_write(spotify_audio_buffer, INPUT_FLAG_EOF);
+  input_write(spotify_audio_buffer, NULL, INPUT_FLAG_EOF);
 
   *retval = 0;
   return COMMAND_END;
@@ -1007,16 +1006,21 @@ logged_out(sp_session *sess)
 static int music_delivery(sp_session *sess, const sp_audioformat *format,
                           const void *frames, int num_frames)
 {
+  struct media_quality quality = { 0 };
   size_t size;
   int ret;
 
   /* No support for resampling right now */
-  if ((format->sample_rate != 44100) || (format->channels != 2))
+  if ((format->sample_type != SP_SAMPLETYPE_INT16_NATIVE_ENDIAN) || (format->channels != 2))
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Got music with unsupported samplerate or channels, stopping playback\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Got music with unsupported sample format or number of channels, stopping playback\n");
       spotify_playback_stop_nonblock();
       return num_frames;
     }
+
+  quality.sample_rate = format->sample_rate;
+  quality.bits_per_sample = 16;
+  quality.channels = format->channels;
 
   // Audio discontinuity, e.g. seek
   if (num_frames == 0)
@@ -1037,7 +1041,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   // The input buffer only accepts writing when it is approaching depletion, and
   // because we use NONBLOCK it will just return if this is not the case. So in
   // most cases no actual write is made and spotify_audio_buffer will just grow.
-  input_write(spotify_audio_buffer, INPUT_FLAG_NONBLOCK);
+  input_write(spotify_audio_buffer, &quality, 0);
 
   return num_frames;
 }

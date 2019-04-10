@@ -31,12 +31,12 @@
 #define SPOTIFY_SETUP_RETRY_WAIT 500000
 
 static int
-setup(struct player_source *ps)
+setup(struct input_source *source)
 {
   int i = 0;
   int ret;
 
-  while((ret = spotify_playback_setup(ps->path)) == SPOTIFY_SETUP_ERROR_IS_LOADING)
+  while((ret = spotify_playback_setup(source->path)) == SPOTIFY_SETUP_ERROR_IS_LOADING)
     {
       if (i >= SPOTIFY_SETUP_RETRIES)
 	break;
@@ -49,32 +49,15 @@ setup(struct player_source *ps)
   if (ret < 0)
     return -1;
 
-  ps->setup_done = 1;
+  ret = spotify_playback_play();
+  if (ret < 0)
+    return -1;
 
   return 0;
 }
 
 static int
-start(struct player_source *ps)
-{
-  int ret;
-
-  ret = spotify_playback_play();
-  if (ret < 0)
-    return -1;
-
-  while (!input_loop_break)
-    {
-      input_wait();
-    }
-
-  ret = spotify_playback_pause();
-
-  return ret;
-}
-
-static int
-stop(struct player_source *ps)
+stop(struct input_source *source)
 {
   int ret;
 
@@ -82,13 +65,11 @@ stop(struct player_source *ps)
   if (ret < 0)
     return -1;
 
-  ps->setup_done = 0;
-
   return 0;
 }
 
 static int
-seek(struct player_source *ps, int seek_ms)
+seek(struct input_source *source, int seek_ms)
 {
   int ret;
 
@@ -105,7 +86,6 @@ struct input_definition input_spotify =
   .type = INPUT_TYPE_SPOTIFY,
   .disabled = 0,
   .setup = setup,
-  .start = start,
   .stop = stop,
   .seek = seek,
 };
