@@ -110,12 +110,6 @@
 // (value is in milliseconds)
 #define PLAYER_WRITE_BEHIND_MAX 1500
 
-// When we pause, we keep the input open, but we can't do that forever. We must
-// think of the poor streaming servers, for instance. This timeout determines
-// how long we stay paused, before we close the inputs.
-// (value is in seconds)
-#define PLAYER_PAUSE_TIMEOUT 600
-
 //#define DEBUG_PLAYER 1
 
 struct volume_param {
@@ -272,8 +266,6 @@ static struct event *pb_timer_ev;
 static struct timespec player_tick_interval;
 // Timer resolution
 static struct timespec player_timer_res;
-
-//static struct timeval player_pause_timeout = { PLAYER_PAUSE_TIMEOUT, 0 };
 
 // PLAYER_WRITE_BEHIND_MAX converted to clock ticks
 static int pb_write_deficit_max;
@@ -938,8 +930,6 @@ event_play_eof()
 
   if (consume)
     db_queue_delete_byitemid(pb_session.playing_now->item_id);
-
-//  outputs_metadata_prune(pb_session.pos);
 
   if (pb_session.reading_next)
     outputs_metadata_send(pb_session.reading_next->item_id, false, metadata_finalize_cb);

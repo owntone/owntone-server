@@ -49,7 +49,7 @@
 // How long (in sec) to keep an input open without the player reading from it
 #define INPUT_OPEN_TIMEOUT 600
 
-#define DEBUG 1 //TODO disable
+//#define DEBUG_INPUT 1
 
 extern struct input_definition input_file;
 extern struct input_definition input_http;
@@ -139,7 +139,7 @@ static struct timespec input_loop_timeout = { INPUT_LOOP_TIMEOUT, 0 };
 static struct timeval input_open_timeout = { INPUT_OPEN_TIMEOUT, 0 };
 static struct event *input_open_timeout_ev;
 
-#ifdef DEBUG
+#ifdef DEBUG_INPUT
 static size_t debug_elapsed;
 #endif
 
@@ -352,7 +352,7 @@ flush(short *flags)
 
   pthread_mutex_unlock(&input_buffer.mutex);
 
-#ifdef DEBUG
+#ifdef DEBUG_INPUT
   DPRINTF(E_DBG, L_PLAYER, "Flushing %zu bytes with flags %d\n", len, *flags);
 #endif
 }
@@ -697,7 +697,7 @@ input_read(void *data, size_t size, short *flag, void **flagdata)
 
   input_buffer.bytes_read += len;
 
-#ifdef DEBUG
+#ifdef DEBUG_INPUT
   // Logs if flags present or each 10 seconds
 
   if (*flag & INPUT_FLAG_QUALITY)

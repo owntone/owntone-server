@@ -47,7 +47,7 @@
 // If latency is jumping up and down we don't do compensation since we probably
 // wouldn't do a good job. We use linear regression to determine the trend, but
 // if r2 is below this value we won't attempt to correct sync.
-#define ALSA_MAX_VARIANCE 0.2
+#define ALSA_MAX_VARIANCE 0.3
 
 // We correct latency by adjusting the sample rate in steps. However, if the
 // latency keeps drifting we give up after reaching this step.
