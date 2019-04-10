@@ -191,6 +191,16 @@ library {
 	# (played or skipped). Both results are combined with a mix-factor of 0.75:
 	# new rating = 0.75 * stable rating + 0.25 * rolling rating)
 #	rating_updates = false
+
+	# Allows creating, deleting and modifying m3u playlists in the library directories.
+	# Defaults to being disabled.
+#	allow_modifying_stored_playlists = false
+
+	# A directory in one of the library directories that will be used as the default
+	# playlist directory. forked-dapd creates new playlists in this directory if only
+	# a playlist name is provided by the mpd client (requires "allow_modify_stored_playlists"
+	# set to true).
+#	default_playlist_directory = ""
 }
 
 # Local audio output
@@ -320,16 +330,6 @@ mpd {
 	# the playlist like MPD does. Note that some dacp clients do not show
 	# the playqueue if playback is stopped.
 #	clear_queue_on_stop_disable = false
-
-	# Allows creating, deleting and modifying m3u playlists in the library directories.
-	# Defaults to being disabled.
-#	allow_modifying_stored_playlists = false
-
-	# A directory in one of the library directories that will be used as the default
-	# playlist directory. forked-dapd creates new playlists in this directory if only
-	# a playlist name is provided by the mpd client (requires "allow_modify_stored_playlists"
-	# set to true).
-#	default_playlist_directory = ""
 }
 
 # SQLite configuration (allows to modify the operation of the SQLite databases)

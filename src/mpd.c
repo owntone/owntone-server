@@ -4843,8 +4843,8 @@ int mpd_init(void)
 	}
     }
 
-  allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "mpd"), "allow_modifying_stored_playlists");
-  pl_dir = cfg_getstr(cfg_getsec(cfg, "mpd"), "default_playlist_directory");
+  allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "library"), "allow_modifying_stored_playlists");
+  pl_dir = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
   if (pl_dir)
     default_pl_dir = safe_asprintf("/file:%s", pl_dir);
 
