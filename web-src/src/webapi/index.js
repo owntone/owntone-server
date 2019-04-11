@@ -83,6 +83,13 @@ export default {
     })
   },
 
+  queue_save_playlist (name) {
+    return axios.post('/api/queue/save', undefined, { params: { 'name': name } }).then((response) => {
+      store.dispatch('add_notification', { text: 'playlist saved', type: 'info', timeout: 2000 })
+      return Promise.resolve(response)
+    })
+  },
+
   player_status () {
     return axios.get('/api/player')
   },
