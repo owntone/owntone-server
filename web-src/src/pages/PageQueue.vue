@@ -38,6 +38,12 @@
           </span>
           <span>Clear</span>
         </a>
+        <a class="button is-small" v-show="queue_items.length > 1" @click="save_dialog">
+          <span class="icon">
+            <i class="mdi mdi-content-save"></i>
+          </span>
+          <span>Save</span>
+        </a>
       </div>
     </template>
     <template slot="content">
@@ -59,6 +65,7 @@
       </draggable>
       <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
       <modal-dialog-add-url-stream :show="show_url_modal" @close="show_url_modal = false" />
+      <modal-dialog-playlist-save :show="show_pls_save_modal" @close="show_pls_save_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -68,13 +75,14 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemQueueItem from '@/components/ListItemQueueItem'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
 import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream'
+import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import draggable from 'vuedraggable'
 
 export default {
   name: 'PageQueue',
-  components: { ContentWithHeading, ListItemQueueItem, draggable, ModalDialogQueueItem, ModalDialogAddUrlStream },
+  components: { ContentWithHeading, ListItemQueueItem, draggable, ModalDialogQueueItem, ModalDialogAddUrlStream, ModalDialogPlaylistSave },
 
   data () {
     return {
@@ -82,6 +90,7 @@ export default {
 
       show_details_modal: false,
       show_url_modal: false,
+      show_pls_save_modal: false,
       selected_item: {}
     }
   },
@@ -135,6 +144,10 @@ export default {
 
     open_add_stream_dialog: function (item) {
       this.show_url_modal = true
+    },
+
+    save_dialog: function (item) {
+      this.show_pls_save_modal = true
     }
   }
 }
