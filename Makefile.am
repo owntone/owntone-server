@@ -4,8 +4,6 @@ RPM_SPEC_FILE = forked-daapd.spec
 CONF_FILE = forked-daapd.conf
 SYSTEMD_SERVICE_FILE = forked-daapd.service
 
-sysconf_DATA = $(CONF_FILE)
-
 BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE)
 
 SUBDIRS = sqlext src htdocs
@@ -27,6 +25,8 @@ EXTRA_DIST = \
 	$(RPM_SPEC_FILE)
 
 install-data-hook:
+	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)"
+	[ -f "$(DESTDIR)$(sysconfdir)/$(CONF_FILE)" ] || $(INSTALL_DATA) $(CONF_FILE) "$(DESTDIR)$(sysconfdir)/$(CONF_FILE)"
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)/libspotify"
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/log"
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run"
