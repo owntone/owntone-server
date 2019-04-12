@@ -158,6 +158,19 @@ dump_config(struct alsa_session *as)
     }
 }
 
+static snd_pcm_format_t
+bps2format(int bits_per_sample)
+{
+  if (bits_per_sample == 16)
+    return SND_PCM_FORMAT_S16_LE;
+  else if (bits_per_sample == 24)
+    return SND_PCM_FORMAT_S24_LE;
+  else if (bits_per_sample == 32)
+    return SND_PCM_FORMAT_S32_LE;
+  else
+    return SND_PCM_FORMAT_UNKNOWN;
+}
+
 static int
 mixer_open(struct alsa_session *as)
 {
@@ -293,6 +306,31 @@ device_open(struct alsa_session *as)
       goto out_fail;
     }
 
+  // Some devices (like the allo Boss DAC on RPi) fail to open w/o quality set
+  ret = snd_pcm_hw_params_set_format(as->hdl, hw_params, bps2format(alsa_fallback_quality.bits_per_sample));
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Could not set format (bits per sample %d): %s\n", alsa_fallback_quality.bits_per_sample, snd_strerror(ret));
+
+      goto out_fail;
+    }
+
+  ret = snd_pcm_hw_params_set_channels(as->hdl, hw_params, alsa_fallback_quality.channels);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Could not set stereo output: %s\n", snd_strerror(ret));
+
+      goto out_fail;
+    }
+
+  ret = snd_pcm_hw_params_set_rate(as->hdl, hw_params, alsa_fallback_quality.sample_rate, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Hardware doesn't support %u Hz: %s\n", alsa_fallback_quality.sample_rate, snd_strerror(ret));
+
+      goto out_fail;
+    }
+
   ret = snd_pcm_hw_params_get_buffer_size_max(hw_params, &bufsize);
   if (ret < 0)
     {
@@ -310,7 +348,7 @@ device_open(struct alsa_session *as)
   ret = snd_pcm_hw_params(as->hdl, hw_params);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not set hw params: %s\n", snd_strerror(ret));
+      DPRINTF(E_LOG, L_LAUDIO, "Could not set hw params in device_open(): %s\n", snd_strerror(ret));
       goto out_fail;
     }
 
@@ -340,7 +378,6 @@ static int
 device_quality_set(struct alsa_session *as, struct media_quality *quality, char **errmsg)
 {
   snd_pcm_hw_params_t *hw_params;
-  snd_pcm_format_t format;
   int ret;
 
   ret = snd_pcm_hw_params_malloc(&hw_params);
@@ -357,6 +394,15 @@ device_quality_set(struct alsa_session *as, struct media_quality *quality, char 
       goto free_params;
     }
 
+  // Some devices, e.g. the RPi1, require this to be set again, even though it
+  // is also set by device_open()
+  ret = snd_pcm_hw_params_set_access(as->hdl, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+  if (ret < 0)
+    {
+      *errmsg = safe_asprintf("Could not set access method: %s\n", snd_strerror(ret));
+      goto free_params;
+    }
+
   ret = snd_pcm_hw_params_set_rate(as->hdl, hw_params, quality->sample_rate, 0);
   if (ret < 0)
     {
@@ -364,23 +410,7 @@ device_quality_set(struct alsa_session *as, struct media_quality *quality, char 
       goto free_params;
     }
 
-  switch (quality->bits_per_sample)
-    {
-      case 16:
-	format = SND_PCM_FORMAT_S16_LE;
-	break;
-      case 24:
-	format = SND_PCM_FORMAT_S24_LE;
-	break;
-      case 32:
-	format = SND_PCM_FORMAT_S32_LE;
-	break;
-      default:
-	*errmsg = safe_asprintf("Unrecognized number of bits per sample: %d", quality->bits_per_sample);
-	goto free_params;
-    }
-
-  ret = snd_pcm_hw_params_set_format(as->hdl, hw_params, format);
+  ret = snd_pcm_hw_params_set_format(as->hdl, hw_params, bps2format(quality->bits_per_sample));
   if (ret < 0)
     {
       *errmsg = safe_asprintf("Could not set %d bits per sample: %s", quality->bits_per_sample, snd_strerror(ret));
@@ -397,7 +427,7 @@ device_quality_set(struct alsa_session *as, struct media_quality *quality, char 
   ret = snd_pcm_hw_params(as->hdl, hw_params);
   if (ret < 0)
     {
-      *errmsg = safe_asprintf("Could not set hw params: %s\n", snd_strerror(ret));
+      *errmsg = safe_asprintf("Could not set hw params in device_quality_set(): %s\n", snd_strerror(ret));
       goto free_params;
     }
 
