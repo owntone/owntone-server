@@ -10,7 +10,7 @@
 general {
 	# Username
 	# Make sure the user has read access to the library directories you set
- 	# below, and full access to the databases, log and local audio
+	# below, and full access to the databases, log and local audio
 	uid = "@DAAPD_USER@"
 
 	# Database location
