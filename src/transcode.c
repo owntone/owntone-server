@@ -1757,8 +1757,8 @@ transcode_decode_query(struct decode_ctx *ctx, const char *query)
 const char*
 transcode_decode_codec(struct decode_ctx *ctx)
 {
-  if (ctx->audio_stream.stream && ctx->audio_stream.stream->codec)
-    return avcodec_get_name(ctx->audio_stream.stream->codec->codec_id);
+  if (ctx->audio_stream.stream && ctx->audio_stream.stream->codecpar)
+    return avcodec_get_name(ctx->audio_stream.stream->codecpar->codec_id);
   else
     return "<unknown>";
 }
