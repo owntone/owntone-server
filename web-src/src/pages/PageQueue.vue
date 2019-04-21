@@ -35,7 +35,13 @@
       </div>
     </template>
     <template slot="content">
-      <draggable v-model="queue_items" :options="{handle:'.handle'}"  @end="move_item">
+      <draggable
+         v-model="queue_items"
+         handle=".handle"
+         v-bind="dragOptions"
+         @start="drag=true"
+         @update="move_item"
+         @end="drag=false">
         <list-item-queue-item v-for="(item, index) in queue_items"
           :key="item.id" :item="item" :position="index"
           :current_position="current_position"
@@ -49,7 +55,7 @@
                 <span class="icon has-text-grey"><i class="mdi mdi-delete mdi-18px"></i></span>
               </a>
             </template>
-          </list-item-queue-item>
+        </list-item-queue-item>
       </draggable>
       <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
     </template>
@@ -71,6 +77,8 @@ export default {
   data () {
     return {
       edit_mode: false,
+      drag: false,
+      pre_move_queue_items: [],
 
       show_details_modal: false,
       selected_item: {}
@@ -86,7 +94,11 @@ export default {
     },
     queue_items: {
       get () { return this.$store.state.queue.items },
-      set (value) { /* Do nothing? Send move request in @end event */ }
+      set (value) {
+        this.pre_move_queue_items = this.$store.state.queue.items
+        this.$store.state.queue.items = value
+        this.$store.commit(types.UPDATE_QUEUE, this.$store.state.queue)
+      }
     },
     current_position () {
       const nowPlaying = this.$store.getters.now_playing
@@ -94,6 +106,14 @@ export default {
     },
     show_only_next_items () {
       return this.$store.state.show_only_next_items
+    },
+    dragOptions () {
+      return {
+        animation: 100,
+        group: 'description',
+        disabled: false,
+        ghostClass: 'ghost'
+      }
     }
   },
 
@@ -112,7 +132,8 @@ export default {
 
     move_item: function (e) {
       var oldPosition = !this.show_only_next_items ? e.oldIndex : e.oldIndex + this.current_position
-      var item = this.queue_items[oldPosition]
+      var item = this.pre_move_queue_items[oldPosition]
+      this.pre_move_queue_items = []
       var newPosition = item.position + (e.newIndex - e.oldIndex)
       if (newPosition !== oldPosition) {
         webapi.queue_move(item.id, newPosition)
