@@ -40,13 +40,25 @@
         <p class="content">
           <span>{{ item_progress_ms | duration }} / {{ now_playing.length_ms | duration }}</span>
         </p>
-        <div class="buttons has-addons is-centered">
-          <player-button-previous class="button is-medium"></player-button-previous>
-          <player-button-play-pause class="button is-medium" icon_style="mdi-36px"></player-button-play-pause>
-          <player-button-next class="button is-medium"></player-button-next>
-          <player-button-repeat class="button is-medium is-light"></player-button-repeat>
-          <player-button-shuffle class="button is-medium is-light"></player-button-shuffle>
-          <player-button-consume class="button is-medium is-light"></player-button-consume>
+        <div class="buttons has-addons is-centered" style="margin-bottom: 0;">
+          <div>
+            <player-button-skip-back class="button is-small is-rounded is-white" :when_ms="item_progress_ms"></player-button-skip-back>
+          </div>
+          <div>
+            <player-button-previous class="button is-medium is-rounded is-white"></player-button-previous>
+            <player-button-play-stop class="button is-medium is-rounded is-white" icon_style="mdi-24px"></player-button-play-stop>
+            <player-button-next class="button is-medium is-rounded is-white"></player-button-next>
+          </div>
+          <div>
+            <player-button-skip-fwd class="button is-small is-rounded is-white" :when_ms="item_progress_ms"></player-button-skip-fwd>
+          </div>
+        </div>
+        <div class="buttons is-centered">
+          <div>
+            <player-button-repeat class="button is-small is-rounded is-light"></player-button-repeat>
+            <player-button-shuffle class="button is-small is-rounded is-light"></player-button-shuffle>
+            <player-button-consume class="button is-small is-rounded is-light"></player-button-consume>
+          </div>
         </div>
       </div>
       <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
@@ -62,13 +74,15 @@ import PlayerButtonPrevious from '@/components/PlayerButtonPrevious'
 import PlayerButtonShuffle from '@/components/PlayerButtonShuffle'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume'
 import PlayerButtonRepeat from '@/components/PlayerButtonRepeat'
+import PlayerButtonSkipBack from '@/components/PlayerButtonSkipBack'
+import PlayerButtonSkipFwd from '@/components/PlayerButtonSkipFwd'
 import RangeSlider from 'vue-range-slider'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageNowPlaying',
-  components: { ModalDialogQueueItem, PlayerButtonPlayStop, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
+  components: { ModalDialogQueueItem, PlayerButtonPlayStop, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, PlayerButtonSkipBack, PlayerButtonSkipFwd, RangeSlider },
 
   data () {
     return {
