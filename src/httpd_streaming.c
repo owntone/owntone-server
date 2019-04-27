@@ -37,6 +37,7 @@
 #include "transcode.h"
 #include "player.h"
 #include "listener.h"
+#include "db.h"
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
@@ -56,6 +57,10 @@ extern struct event_base *evbase_httpd;
 struct streaming_session {
   struct evhttp_request *req;
   struct streaming_session *next;
+
+  bool     icy;        // client requested icy meta
+  size_t   bytes_sent; // audio bytes only
+  unsigned icy_n;      // number of meta frames sent
 };
 static struct streaming_session *streaming_sessions;
 
@@ -78,17 +83,25 @@ static int streaming_player_changed;
 static int streaming_pipe[2];
 static int streaming_meta[2];
 
+#define STREAMING_ICY_METALEN_MAX 4080  // 255*16
+static const short STREAMING_ICY_METAINT = 8192;
+static unsigned streaming_icy;
+static char *streaming_icy_title;
+
 
 static void
-streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
+streaming_close_cb(struct evhttp_connection *evcon, void *arg)
 {
   struct streaming_session *this;
   struct streaming_session *session;
   struct streaming_session *prev;
+  char *address;
+  ev_uint16_t port;
 
   this = (struct streaming_session *)arg;
 
-  DPRINTF(E_WARN, L_STREAMING, "Connection failed; stopping mp3 streaming to client\n");
+  evhttp_connection_get_peer(evcon, &address, &port);
+  DPRINTF(E_INFO, L_STREAMING, "stopping mp3 streaming to %s:%d\n", address, (int)port);
 
   prev = NULL;
   for (session = streaming_sessions; session; session = session->next)
@@ -101,7 +114,7 @@ streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
 
   if (!session)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream\n");
+      DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream (%s:%d)\n", address, (int)port);
       free(this);
       return;
     }
@@ -110,6 +123,9 @@ streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
     streaming_sessions = session->next;
   else
     prev->next = session->next;
+
+  if (session->icy)
+    --streaming_icy;
 
   free(session);
 
@@ -221,6 +237,114 @@ encode_buffer(uint8_t *buffer, size_t size)
   return ret;
 }
 
+/* we know that the icymeta is limited to 1+255*16 == 4081 bytes so caller must
+ * provide a buf of this size
+ *
+ * the icy meta block is defined by a single byte indicating how many dbl byte 
+ * words used for the actual meta.  unused bytes null padded
+ *
+ * https://stackoverflow.com/questions/4911062/pulling-track-info-from-an-audio-stream-using-php/4914538#4914538
+ * http://www.smackfu.com/stuff/programming/shoutcast.html
+ */
+static uint8_t *
+streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *title, unsigned *buflen)
+{
+  static const char *head = "StreamTitle='";
+  static const char *tail = "';";
+
+  unsigned titlelen = 0;
+  unsigned metalen = 0;
+  uint8_t no16s;
+
+  *buflen = 0;
+
+  if (title == NULL)
+    {
+      no16s = 0;
+      memcpy(buf, &no16s, 1);
+
+      *buflen = 1;
+    }
+  else
+    {
+      titlelen = strlen(title);
+      if (titlelen > STREAMING_ICY_METALEN_MAX)
+	titlelen = STREAMING_ICY_METALEN_MAX;  // dont worry about the null byte
+
+      // 1x byte len following by how many 16 byte words needed
+      no16s = (15 + titlelen)/16 +1;
+      metalen = 1 + no16s*16;
+      memset(buf, 0, metalen);
+
+      memcpy(buf, &no16s, 1);
+      memcpy(&buf[1], head, 13);
+      memcpy(&buf[14], title, titlelen);
+      memcpy(&buf[14+titlelen], tail, 2);
+
+      *buflen = metalen;
+    }
+
+  return buf;
+}
+
+static uint8_t *
+streaming_icy_meta_splice(uint8_t *data, size_t datalen, off_t offset, size_t *len)
+{
+  uint8_t  meta[STREAMING_ICY_METALEN_MAX+1];  // static buffer, of max sz, for the created icymeta
+  unsigned metalen;     // how much of the static buffer is use
+  uint8_t *buf;         // buffer to contain the audio data (data) spliced w/meta (meta)
+
+  if (data == NULL || datalen == 0)
+    return NULL;
+
+  memset(meta, 0, sizeof(meta));
+  streaming_icy_meta_create(meta, streaming_icy_title, &metalen);
+
+  *len = datalen + metalen;
+  // DPRINTF(E_DBG, L_STREAMING, "splicing meta, audio block=%d bytes, offset=%d, metalen=%d new buflen=%d\n", datalen, offset, metalen, *len);
+  buf = malloc(*len);
+  memcpy(buf, data, offset);
+  memcpy(&buf[offset], &meta[0], metalen);
+  memcpy(&buf[offset+metalen], &data[offset], datalen-offset);
+
+  return buf;
+}
+
+static void
+streaming_player_status_update()
+{
+  unsigned x, y;
+  struct db_queue_item *queue_item = NULL;
+  struct player_status  tmp;
+
+  tmp.id = streaming_player_status.id;
+  player_get_status(&streaming_player_status);
+
+  if (tmp.id != streaming_player_status.id && streaming_icy)
+    {
+      free(streaming_icy_title);
+      if ( (queue_item = db_queue_fetch_byfileid(streaming_player_status.id)) == NULL)
+	{
+	  streaming_icy_title = NULL;
+	}
+      else
+	{
+	  x = strlen(queue_item->title);
+	  y = strlen(queue_item->artist);
+	  if (x && y)
+	    {
+	      streaming_icy_title = malloc(x+y+4);
+	      snprintf(streaming_icy_title, x+y+4, "%s - %s", queue_item->title, queue_item->artist);
+	    }
+	  else
+	    {
+	      streaming_icy_title = strdup( x ? queue_item->title : queue_item->artist);
+	    }
+	  free_queue_item(queue_item, 0);
+	}
+    }
+}
+
 static void
 streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 {
@@ -228,6 +352,9 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   struct evbuffer *evbuf;
   uint8_t rawbuf[STREAMING_READ_SIZE];
   uint8_t *buf;
+  uint8_t *splice_buf = NULL;
+  size_t splice_len;
+  off_t offset;
   int len;
   int ret;
 
@@ -240,6 +367,12 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	  if (ret <= 0)
 	    break;
 
+	  if (streaming_player_changed)
+	    {
+	      streaming_player_changed = 0;
+	      streaming_player_status_update();
+	    }
+
 	  ret = encode_buffer(rawbuf, ret);
 	  if (ret < 0)
 	    return;
@@ -251,7 +384,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
       if (streaming_player_changed)
 	{
 	  streaming_player_changed = 0;
-	  player_get_status(&streaming_player_status);
+	  streaming_player_status_update();
 	}
 
       if (streaming_player_status.status != PLAY_PAUSED)
@@ -271,14 +404,47 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   evbuf = evbuffer_new();
   for (session = streaming_sessions; session; session = session->next)
     {
-      if (session->next)
+      // does this session want ICY and it is time to send..
+      if (session->icy && (session->bytes_sent+len)/STREAMING_ICY_METAINT > session->icy_n)
 	{
+	  ++(session->icy_n);
+
 	  buf = evbuffer_pullup(streaming_encoded_data, -1);
-	  evbuffer_add(evbuf, buf, len);
+
+	  // splice in icy title with encoded audio data
+	  splice_len = 0;
+	  offset = len - (session->bytes_sent + len) % STREAMING_ICY_METAINT;
+	  splice_buf = streaming_icy_meta_splice(buf, len, offset, &splice_len);
+
+	  // DPRINTF(E_DBG, L_STREAMING, "session=%x icy #=%d, splicing=%d bytes into original=%d bytes, sent=%ld\n", session, session->icy_n, splice_len, len, session->bytes_sent);
+
+	  evbuffer_add(evbuf, splice_buf, splice_len);
+
+	  free(splice_buf);
+	  splice_buf = NULL;
+
 	  evhttp_send_reply_chunk(session->req, evbuf);
+
+	  if (session->next == NULL)
+	    {
+	      // we're the last session, drop the contents of the encoded buffer
+	      evbuffer_drain(streaming_encoded_data, len);
+	    }
 	}
       else
-	evhttp_send_reply_chunk(session->req, streaming_encoded_data);
+	{
+	  if (session->next)
+	    {
+	      buf = evbuffer_pullup(streaming_encoded_data, -1);
+	      evbuffer_add(evbuf, buf, len);
+	      evhttp_send_reply_chunk(session->req, evbuf);
+	    }
+	  else
+	    {
+	      evhttp_send_reply_chunk(session->req, streaming_encoded_data);
+	    }
+	}
+      session->bytes_sent += len;
     }
 
   evbuffer_free(evbuf);
@@ -330,6 +496,9 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   const char *name;
   char *address;
   ev_uint16_t port;
+  const char *param;
+  bool wanticy = false;
+  char buf[9];
 
   if (streaming_not_supported)
     {
@@ -341,8 +510,11 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
 
   evcon = evhttp_request_get_connection(req);
   evhttp_connection_get_peer(evcon, &address, &port);
+  param = evhttp_find_header( evhttp_request_get_input_headers(req), "Icy-MetaData");
+  if (param && strcmp(param, "1") == 0)
+    wanticy = true;
 
-  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming to %s:%d\n", address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d) to %s:%d\n", wanticy, address, (int)port);
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
@@ -353,14 +525,19 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   evhttp_add_header(output_headers, "Cache-Control", "no-cache");
   evhttp_add_header(output_headers, "Pragma", "no-cache");
   evhttp_add_header(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
-  evhttp_add_header(output_headers, "icy-name", name);
+  if (wanticy) 
+    {
+      ++streaming_icy;
+      evhttp_add_header(output_headers, "icy-name", name);
+      snprintf(buf, sizeof(buf)-1, "%d", STREAMING_ICY_METAINT);
+      evhttp_add_header(output_headers, "icy-metaint", buf);
+    }
   evhttp_add_header(output_headers, "Access-Control-Allow-Origin", "*");
   evhttp_add_header(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 
-  // TODO ICY metaint
   evhttp_send_reply_start(req, HTTP_OK, "OK");
 
-  session = malloc(sizeof(struct streaming_session));
+  session = calloc(1, sizeof(struct streaming_session));
   if (!session)
     {
       DPRINTF(E_LOG, L_STREAMING, "Out of memory for streaming request\n");
@@ -377,9 +554,12 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
 
   session->req = req;
   session->next = streaming_sessions;
+  session->icy = wanticy;
+  session->bytes_sent = 0;
+  session->icy_n = 0;
   streaming_sessions = session;
 
-  evhttp_connection_set_closecb(evcon, streaming_fail_cb, session);
+  evhttp_connection_set_closecb(evcon, streaming_close_cb, session);
 
   return 0;
 }
@@ -448,6 +628,9 @@ streaming_init(void)
   CHECK_NULL(L_STREAMING, streamingev = event_new(evbase_httpd, streaming_pipe[0], EV_TIMEOUT | EV_READ | EV_PERSIST, streaming_send_cb, NULL));
   CHECK_NULL(L_STREAMING, metaev = event_new(evbase_httpd, streaming_meta[0], EV_READ | EV_PERSIST, streaming_meta_cb, NULL));
 
+  streaming_icy = 0;
+  streaming_icy_title = NULL;
+
   return 0;
 
  error:
@@ -488,4 +671,5 @@ streaming_deinit(void)
 
   transcode_encode_cleanup(&streaming_encode_ctx);
   evbuffer_free(streaming_encoded_data);
+  free(streaming_icy_title);
 }
