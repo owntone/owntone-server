@@ -28,6 +28,7 @@
 
 #include <uninorm.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <event2/event.h>
 
@@ -62,6 +63,7 @@ struct streaming_session {
   size_t   bytes_sent; // audio bytes only
   unsigned icy_n;      // number of meta frames sent
 };
+static pthread_mutex_t streaming_sessions_lck;
 static struct streaming_session *streaming_sessions;
 
 // Means we're not able to encode to mp3
@@ -103,6 +105,15 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   evhttp_connection_get_peer(evcon, &address, &port);
   DPRINTF(E_INFO, L_STREAMING, "stopping mp3 streaming to %s:%d\n", address, (int)port);
 
+  pthread_mutex_lock(&streaming_sessions_lck);
+  if (streaming_sessions == NULL)
+    {
+      // this close comes duing deinit(), dont touch the `this` since
+      // is already a dangling ptr (free'd in deinit())
+      pthread_mutex_unlock(&streaming_sessions_lck);
+      return;
+    }
+
   prev = NULL;
   for (session = streaming_sessions; session; session = session->next)
     {
@@ -116,6 +127,7 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
     {
       DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream (%s:%d)\n", address, (int)port);
       free(this);
+    pthread_mutex_unlock(&streaming_sessions_lck);
       return;
     }
 
@@ -135,6 +147,7 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
       event_del(streamingev);
       event_del(metaev);
     }
+    pthread_mutex_unlock(&streaming_sessions_lck);
 }
 
 static void
@@ -142,17 +155,25 @@ streaming_end(void)
 {
   struct streaming_session *session;
   struct evhttp_connection *evcon;
+  char *address;
+  ev_uint16_t port;
 
+  pthread_mutex_lock(&streaming_sessions_lck);
   for (session = streaming_sessions; streaming_sessions; session = streaming_sessions)
     {
       evcon = evhttp_request_get_connection(session->req);
       if (evcon)
-	evhttp_connection_set_closecb(evcon, NULL, NULL);
+	{
+	  evhttp_connection_set_closecb(evcon, NULL, NULL);
+	  evhttp_connection_get_peer(evcon, &address, &port);
+	  DPRINTF(E_INFO, L_STREAMING, "force close stream to %s:%d\n", address, (int)port);
+	}
       evhttp_send_reply_end(session->req);
 
       streaming_sessions = session->next;
       free(session);
     }
+  pthread_mutex_unlock(&streaming_sessions_lck);
 
   event_del(streamingev);
   event_del(metaev);
@@ -402,6 +423,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 
   // Send data
   evbuf = evbuffer_new();
+  pthread_mutex_lock(&streaming_sessions_lck);
   for (session = streaming_sessions; session; session = session->next)
     {
       // does this session want ICY and it is time to send..
@@ -446,6 +468,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	}
       session->bytes_sent += len;
     }
+  pthread_mutex_unlock(&streaming_sessions_lck);
 
   evbuffer_free(evbuf);
 }
@@ -463,6 +486,7 @@ streaming_write(struct output_buffer *obuf)
 {
   int ret;
 
+  // explicit no-lock - let the write to pipes fail if deinit
   if (!streaming_sessions)
     return;
 
@@ -471,7 +495,10 @@ streaming_write(struct output_buffer *obuf)
       ret = write(streaming_meta[1], &obuf->data[0].quality, sizeof(struct media_quality));
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
+	  if (errno == EBADF)
+	    DPRINTF(E_LOG, L_STREAMING, "streaming pipe already closed\n");
+	  else
+	    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
 	  return;
 	}
     }
@@ -482,7 +509,12 @@ streaming_write(struct output_buffer *obuf)
       if (errno == EAGAIN)
 	DPRINTF(E_WARN, L_STREAMING, "Streaming pipe full, skipping write\n");
       else
-	DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
+	{
+	  if (errno == EBADF)
+	    DPRINTF(E_LOG, L_STREAMING, "streaming pipe already closed\n");
+	  else
+	    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
+	}
     }
 }
 
@@ -546,6 +578,8 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
       return -1;
     }
 
+  pthread_mutex_lock(&streaming_sessions_lck);
+
   if (!streaming_sessions)
     {
       event_add(streamingev, &streaming_silence_tv);
@@ -558,6 +592,8 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   session->bytes_sent = 0;
   session->icy_n = 0;
   streaming_sessions = session;
+
+  pthread_mutex_unlock(&streaming_sessions_lck);
 
   evhttp_connection_set_closecb(evcon, streaming_close_cb, session);
 
@@ -580,6 +616,8 @@ int
 streaming_init(void)
 {
   int ret;
+
+  pthread_mutex_init(&streaming_sessions_lck, NULL);
 
   // Non-blocking because otherwise httpd and player thread may deadlock
 #ifdef HAVE_PIPE2
@@ -645,22 +683,10 @@ streaming_init(void)
 void
 streaming_deinit(void)
 {
-  struct streaming_session *session;
-  struct streaming_session *next;
-
-  session = streaming_sessions;
-  streaming_sessions = NULL; // Stops writing and sending
-
-  next = NULL;
-  while (session)
-    {
-      evhttp_send_reply_end(session->req);
-      next = session->next;
-      free(session);
-      session = next;
-    }
+  streaming_end();
 
   event_free(streamingev);
+  streamingev = NULL;
 
   listener_remove(player_change_cb);
 
@@ -672,4 +698,6 @@ streaming_deinit(void)
   transcode_encode_cleanup(&streaming_encode_ctx);
   evbuffer_free(streaming_encoded_data);
   free(streaming_icy_title);
+
+  pthread_mutex_destroy(&streaming_sessions_lck);
 }
