@@ -60,8 +60,7 @@ struct streaming_session {
   struct streaming_session *next;
 
   bool     icy;        // client requested icy meta
-  size_t   bytes_sent; // audio bytes only
-  unsigned icy_n;      // number of meta frames sent
+  size_t   bytes_sent; // audio bytes sent after metablock
 };
 static pthread_mutex_t streaming_sessions_lck;
 static struct streaming_session *streaming_sessions;
@@ -375,7 +374,8 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   uint8_t *buf;
   uint8_t *splice_buf = NULL;
   size_t splice_len;
-  off_t offset;
+  size_t count;
+  int overflow;
   int len;
   int ret;
 
@@ -427,18 +427,17 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   for (session = streaming_sessions; session; session = session->next)
     {
       // does this session want ICY and it is time to send..
-      if (session->icy && (session->bytes_sent+len)/STREAMING_ICY_METAINT > session->icy_n)
+      count = session->bytes_sent+len;
+      if (session->icy && count > STREAMING_ICY_METAINT)
 	{
-	  ++(session->icy_n);
-
+	  overflow = count%STREAMING_ICY_METAINT;
 	  buf = evbuffer_pullup(streaming_encoded_data, -1);
+
+	  // DPRINTF(E_DBG, L_STREAMING, "session=%x sent=%ld len=%ld overflow=%ld\n", session, session->bytes_sent, len, overflow);
 
 	  // splice in icy title with encoded audio data
 	  splice_len = 0;
-	  offset = len - (session->bytes_sent + len) % STREAMING_ICY_METAINT;
-	  splice_buf = streaming_icy_meta_splice(buf, len, offset, &splice_len);
-
-	  // DPRINTF(E_DBG, L_STREAMING, "session=%x icy #=%d, splicing=%d bytes into original=%d bytes, sent=%ld\n", session, session->icy_n, splice_len, len, session->bytes_sent);
+	  splice_buf = streaming_icy_meta_splice(buf, len, len-overflow, &splice_len);
 
 	  evbuffer_add(evbuf, splice_buf, splice_len);
 
@@ -452,6 +451,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	      // we're the last session, drop the contents of the encoded buffer
 	      evbuffer_drain(streaming_encoded_data, len);
 	    }
+	  session->bytes_sent = overflow;
 	}
       else
 	{
@@ -465,8 +465,8 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	    {
 	      evhttp_send_reply_chunk(session->req, streaming_encoded_data);
 	    }
+	  session->bytes_sent += len;
 	}
-      session->bytes_sent += len;
     }
   pthread_mutex_unlock(&streaming_sessions_lck);
 
@@ -590,7 +590,6 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   session->next = streaming_sessions;
   session->icy = wanticy;
   session->bytes_sent = 0;
-  session->icy_n = 0;
   streaming_sessions = session;
 
   pthread_mutex_unlock(&streaming_sessions_lck);
