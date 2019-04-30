@@ -32,7 +32,7 @@ struct media_quality {
   int bits_per_sample;
   int channels;
   int bit_rate;
-  const char *codec;  // not owned, do NOT free
+  const char *codec;
 };
 
 struct onekeyval {

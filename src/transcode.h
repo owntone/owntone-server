@@ -144,13 +144,13 @@ transcode_decode_query(struct decode_ctx *ctx, const char *query);
 int
 transcode_encode_query(struct encode_ctx *ctx, const char *query);
 
-/* string representation of the codec
+/* Name of the codec
  *
  * @in  ctx        decode context
- * @return         static char* - never NULL, caller does NOT own
+ * @return         static char* from ffmpeg - never NULL
  */
 const char*
-transcode_decode_codec(struct decode_ctx *ctx);
+transcode_decode_query_codec(struct decode_ctx *ctx);
 
 // Metadata
 struct http_icy_metadata *
