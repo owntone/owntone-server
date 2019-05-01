@@ -258,7 +258,8 @@ marker_free(struct marker *marker)
 static void
 marker_add(size_t pos, short flag, void *flagdata)
 {
-  struct marker *head;
+  struct marker *insert;
+  struct marker *compare;
   struct marker *marker;
 
   CHECK_NULL(L_PLAYER, marker = calloc(1, sizeof(struct marker)));
@@ -267,13 +268,29 @@ marker_add(size_t pos, short flag, void *flagdata)
   marker->flag = flag;
   marker->data = flagdata;
 
-  for (head = input_buffer.marker_tail; head && head->prev; head = head->prev)
-    ; // Fast forward to the head
+  // We want the list to be ordered by pos, so we reverse through it and compare
+  // each element with pos. Only if the element's pos is less than or equal to
+  // pos do we keep reversing. If no reversing is possible then we insert as new
+  // tail.
+  insert = NULL;
+  compare = input_buffer.marker_tail;
 
-  if (!head)
-    input_buffer.marker_tail = marker;
+  while (compare && compare->pos <= pos)
+    {
+      insert = compare;
+      compare = compare->prev;
+    }
+
+  if (insert)
+    {
+      marker->prev = insert->prev;
+      insert->prev = marker;
+    }
   else
-    head->prev = marker;
+    {
+      marker->prev = input_buffer.marker_tail;
+      input_buffer.marker_tail = marker;
+    }
 }
 
 static void
