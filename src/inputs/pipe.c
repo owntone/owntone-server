@@ -910,6 +910,9 @@ metadata_get(struct input_metadata *metadata, struct input_source *source)
 
   *metadata = pipe_metadata_parsed;
 
+  // Ownership transferred to caller, null all pointers in the struct
+  memset(&pipe_metadata_parsed, 0, sizeof(struct input_metadata));
+
   pthread_mutex_unlock(&pipe_metadata_lock);
 
   return 0;
