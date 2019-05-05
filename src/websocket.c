@@ -381,6 +381,8 @@ websocket_init(void)
   memset(&info, 0, sizeof(info));
   info.port = websocket_port;
   info.protocols = protocols;
+  if (!cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
+    info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
   info.gid = -1;
   info.uid = -1;
 
