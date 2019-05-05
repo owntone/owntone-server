@@ -707,7 +707,13 @@ session_update_play_eof(void)
 static void
 session_update_play_start(void)
 {
-  pb_session.playing_now = pb_session.reading_now;
+  // If the track was really short, reading may have ended before we started
+  // playing the track. Note that the below will fail if we have multiple very
+  // short tracks in a row. A bit of an edge case, but still a FIXME.
+  if (pb_session.reading_now)
+    pb_session.playing_now = pb_session.reading_now;
+  else
+    pb_session.playing_now = pb_session.reading_prev;
 
   // This is a stupid work-around to make sure pos_ms is non-zero, because a
   // zero value means that get_status() tells the clients that we are paused.
