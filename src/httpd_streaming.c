@@ -59,8 +59,8 @@ struct streaming_session {
   struct evhttp_request *req;
   struct streaming_session *next;
 
-  bool     icy;        // client requested icy meta
-  size_t   bytes_sent; // audio bytes sent after metablock
+  bool     require_icy; // client requested icy meta
+  size_t   bytes_sent;  // audio bytes sent after last metablock
 };
 static pthread_mutex_t streaming_sessions_lck;
 static struct streaming_session *streaming_sessions;
@@ -86,7 +86,7 @@ static int streaming_meta[2];
 
 #define STREAMING_ICY_METALEN_MAX 4080  // 255*16
 static const short STREAMING_ICY_METAINT = 8192;
-static unsigned streaming_icy;
+static unsigned streaming_icy_clients;
 static char *streaming_icy_title;
 
 
@@ -135,8 +135,8 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   else
     prev->next = session->next;
 
-  if (session->icy)
-    --streaming_icy;
+  if (session->require_icy)
+    --streaming_icy_clients;
 
   free(session);
 
@@ -269,9 +269,6 @@ encode_buffer(uint8_t *buffer, size_t size)
 static uint8_t *
 streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *title, unsigned *buflen)
 {
-  static const char *head = "StreamTitle='";
-  static const char *tail = "';";
-
   unsigned titlelen = 0;
   unsigned metalen = 0;
   uint8_t no16s;
@@ -296,10 +293,10 @@ streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *
       metalen = 1 + no16s*16;
       memset(buf, 0, metalen);
 
-      memcpy(buf, &no16s, 1);
-      memcpy(&buf[1], head, 13);
-      memcpy(&buf[14], title, titlelen);
-      memcpy(&buf[14+titlelen], tail, 2);
+      memcpy(buf,             &no16s, 1);
+      memcpy(buf+1,           (const uint8_t*)"StreamTitle='", 13);
+      memcpy(buf+14,          title, titlelen);
+      memcpy(buf+14+titlelen, (const uint8_t*)"';", 2);
 
       *buflen = metalen;
     }
@@ -308,11 +305,11 @@ streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *
 }
 
 static uint8_t *
-streaming_icy_meta_splice(uint8_t *data, size_t datalen, off_t offset, size_t *len)
+streaming_icy_meta_splice(const uint8_t *data, size_t datalen, off_t offset, size_t *len)
 {
-  uint8_t  meta[STREAMING_ICY_METALEN_MAX+1];  // static buffer, of max sz, for the created icymeta
-  unsigned metalen;     // how much of the static buffer is use
-  uint8_t *buf;         // buffer to contain the audio data (data) spliced w/meta (meta)
+  uint8_t  meta[STREAMING_ICY_METALEN_MAX+1];  // buffer, of max sz, for the created icymeta
+  unsigned metalen;     // how much of the buffer is use
+  uint8_t *buf;         // client returned buffer to contain the audio data (data) spliced w/meta (meta)
 
   if (data == NULL || datalen == 0)
     return NULL;
@@ -323,9 +320,9 @@ streaming_icy_meta_splice(uint8_t *data, size_t datalen, off_t offset, size_t *l
   *len = datalen + metalen;
   // DPRINTF(E_DBG, L_STREAMING, "splicing meta, audio block=%d bytes, offset=%d, metalen=%d new buflen=%d\n", datalen, offset, metalen, *len);
   buf = malloc(*len);
-  memcpy(buf, data, offset);
-  memcpy(&buf[offset], &meta[0], metalen);
-  memcpy(&buf[offset+metalen], &data[offset], datalen-offset);
+  memcpy(buf,                data, offset);
+  memcpy(buf+offset,         &meta[0], metalen);
+  memcpy(buf+offset+metalen, data+offset, datalen-offset);
 
   return buf;
 }
@@ -340,7 +337,7 @@ streaming_player_status_update()
   tmp.id = streaming_player_status.id;
   player_get_status(&streaming_player_status);
 
-  if (tmp.id != streaming_player_status.id && streaming_icy)
+  if (tmp.id != streaming_player_status.id && streaming_icy_clients)
     {
       free(streaming_icy_title);
       if ( (queue_item = db_queue_fetch_byfileid(streaming_player_status.id)) == NULL)
@@ -428,7 +425,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
     {
       // does this session want ICY and it is time to send..
       count = session->bytes_sent+len;
-      if (session->icy && count > STREAMING_ICY_METAINT)
+      if (session->require_icy && count > STREAMING_ICY_METAINT)
 	{
 	  overflow = count%STREAMING_ICY_METAINT;
 	  buf = evbuffer_pullup(streaming_encoded_data, -1);
@@ -529,7 +526,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   char *address;
   ev_uint16_t port;
   const char *param;
-  bool wanticy = false;
+  bool require_icy = false;
   char buf[9];
 
   if (streaming_not_supported)
@@ -544,9 +541,9 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   evhttp_connection_get_peer(evcon, &address, &port);
   param = evhttp_find_header( evhttp_request_get_input_headers(req), "Icy-MetaData");
   if (param && strcmp(param, "1") == 0)
-    wanticy = true;
+    require_icy = true;
 
-  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d) to %s:%d\n", wanticy, address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d) to %s:%d\n", require_icy, address, (int)port);
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
@@ -557,9 +554,9 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   evhttp_add_header(output_headers, "Cache-Control", "no-cache");
   evhttp_add_header(output_headers, "Pragma", "no-cache");
   evhttp_add_header(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
-  if (wanticy) 
+  if (require_icy) 
     {
-      ++streaming_icy;
+      ++streaming_icy_clients;
       evhttp_add_header(output_headers, "icy-name", name);
       snprintf(buf, sizeof(buf)-1, "%d", STREAMING_ICY_METAINT);
       evhttp_add_header(output_headers, "icy-metaint", buf);
@@ -588,7 +585,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
 
   session->req = req;
   session->next = streaming_sessions;
-  session->icy = wanticy;
+  session->require_icy = require_icy;
   session->bytes_sent = 0;
   streaming_sessions = session;
 
@@ -665,7 +662,7 @@ streaming_init(void)
   CHECK_NULL(L_STREAMING, streamingev = event_new(evbase_httpd, streaming_pipe[0], EV_TIMEOUT | EV_READ | EV_PERSIST, streaming_send_cb, NULL));
   CHECK_NULL(L_STREAMING, metaev = event_new(evbase_httpd, streaming_meta[0], EV_READ | EV_PERSIST, streaming_meta_cb, NULL));
 
-  streaming_icy = 0;
+  streaming_icy_clients = 0;
   streaming_icy_title = NULL;
 
   return 0;
