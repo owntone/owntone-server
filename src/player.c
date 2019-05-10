@@ -194,6 +194,10 @@ struct player_source
 
   // How many samples the outputs buffer before playing (=delay)
   int output_buffer_samples;
+
+  // Linked list, where next is the next item to play
+  struct player_source *prev;
+  struct player_source *next;
 };
 
 struct player_session
@@ -222,14 +226,20 @@ struct player_session
   size_t read_deficit;
   size_t read_deficit_max;
 
-  // The item from the queue being read by the input now, previously and next
-  struct player_source *reading_now;
-  struct player_source *reading_next;
-  struct player_source *reading_prev;
+  // Pointer to the head of the two-way linked list of items from the queue that
+  // we are either playing or going to play. When an item has been played it is
+  // removed from the list. The playing_now and reading_now pointers will point
+  // to items inside this list (or to NULL).
+  struct player_source *source_list;
 
-  // The item from the queue being played right now. This will normally point at
-  // reading_now or reading_prev. It should only be NULL if no playback.
+  // The item from the queue being played right now. It should only be NULL when
+  // there is no playback.
   struct player_source *playing_now;
+
+  // The item from the queue which the player is currently doing input_read()
+  // for. So "reading" means reading from the input buffer - the source itself
+  // may already be closed by the input module.
+  struct player_source *reading_now;
 };
 
 static struct player_session pb_session;
@@ -540,26 +550,6 @@ status_update(enum play_status status)
 
 /* ----------- Audio source handling (interfaces with input module) --------- */
 
-/*
- * Creates a new player source for the given queue item
- */
-static struct player_source *
-source_new(struct db_queue_item *queue_item)
-{
-  struct player_source *ps;
-
-  CHECK_NULL(L_PLAYER, ps = calloc(1, sizeof(struct player_source)));
-
-  ps->id = queue_item->file_id;
-  ps->item_id = queue_item->id;
-  ps->data_kind = queue_item->data_kind;
-  ps->media_kind = queue_item->media_kind;
-  ps->len_ms = queue_item->song_length;
-  ps->path = strdup(queue_item->path);
-
-  return ps;
-}
-
 static void
 source_free(struct player_source **ps)
 {
@@ -572,10 +562,25 @@ source_free(struct player_source **ps)
   *ps = NULL;
 }
 
-static void
-source_stop(void)
+/*
+ * Creates a new player source for the given queue item
+ */
+static struct player_source *
+source_create(struct db_queue_item *queue_item, uint32_t seek_ms)
 {
-  input_stop();
+  struct player_source *ps;
+
+  CHECK_NULL(L_PLAYER, ps = calloc(1, sizeof(struct player_source)));
+
+  ps->id = queue_item->file_id;
+  ps->item_id = queue_item->id;
+  ps->data_kind = queue_item->data_kind;
+  ps->media_kind = queue_item->media_kind;
+  ps->len_ms = queue_item->song_length;
+  ps->path = strdup(queue_item->path);
+  ps->seek_ms = seek_ms;
+
+  return ps;
 }
 
 static struct player_source *
@@ -594,7 +599,7 @@ source_next_create(struct player_source *current)
   if (!queue_item)
     return NULL;
 
-  ps = source_new(queue_item);
+  ps = source_create(queue_item, 0);
 
   free_queue_item(queue_item, 0);
 
@@ -602,29 +607,35 @@ source_next_create(struct player_source *current)
 }
 
 static void
-source_next(void)
+source_stop(void)
 {
-  if (!pb_session.reading_next)
+  input_stop();
+}
+
+static void
+source_start(struct player_source *ps)
+{
+  if (!ps)
     return;
 
-  DPRINTF(E_DBG, L_PLAYER, "Opening next track: '%s' (id=%d)\n", pb_session.reading_next->path, pb_session.reading_next->item_id);
+  DPRINTF(E_DBG, L_PLAYER, "Opening next track: '%s' (id=%d)\n", ps->path, ps->item_id);
 
-  input_start(pb_session.reading_next->item_id);
+  input_start(ps->item_id);
 }
 
 static int
-source_start(void)
+source_restart(struct player_source *ps)
 {
   short flags;
 
-  if (!pb_session.reading_next)
+  if (!ps)
     return 0;
 
-  DPRINTF(E_DBG, L_PLAYER, "(Re)opening track: '%s' (id=%d, seek=%d)\n", pb_session.reading_next->path, pb_session.reading_next->item_id, pb_session.reading_next->seek_ms);
+  DPRINTF(E_DBG, L_PLAYER, "Opening track: '%s' (id=%d, seek=%d)\n", ps->path, ps->item_id, ps->seek_ms);
 
   input_flush(&flags);
 
-  return input_seek(pb_session.reading_next->item_id, (int)pb_session.reading_next->seek_ms);
+  return input_seek(ps->item_id, (int)ps->seek_ms);
 }
 
 
@@ -647,10 +658,10 @@ source_print(char *line, size_t linesize, struct player_source *ps, const char *
       pos += snprintf(line + pos, linesize - pos, "%s.path=%s; ", name, ps->path);
       pos += snprintf(line + pos, linesize - pos, "%s.quality=%d; ", name, ps->quality.sample_rate);
       pos += snprintf(line + pos, linesize - pos, "%s.item_id=%u; ", name, ps->item_id);
-      pos += snprintf(line + pos, linesize - pos, "%s.read_start=%lu; ", name, ps->read_start);
-      pos += snprintf(line + pos, linesize - pos, "%s.play_start=%lu; ", name, ps->play_start);
-      pos += snprintf(line + pos, linesize - pos, "%s.read_end=%lu; ", name, ps->read_end);
-      pos += snprintf(line + pos, linesize - pos, "%s.play_end=%lu; ", name, ps->play_end);
+      pos += snprintf(line + pos, linesize - pos, "%s.read_start=%" PRIu64 "; ", name, ps->read_start);
+      pos += snprintf(line + pos, linesize - pos, "%s.play_start=%" PRIu64 "; ", name, ps->play_start);
+      pos += snprintf(line + pos, linesize - pos, "%s.read_end=%" PRIu64 "; ", name, ps->read_end);
+      pos += snprintf(line + pos, linesize - pos, "%s.play_end=%" PRIu64 "; ", name, ps->play_end);
       pos += snprintf(line + pos, linesize - pos, "%s.pos_ms=%d; ", name, ps->pos_ms);
       pos += snprintf(line + pos, linesize - pos, "%s.seek_ms=%d; ", name, ps->seek_ms);
     }
@@ -663,7 +674,10 @@ source_print(char *line, size_t linesize, struct player_source *ps, const char *
 static void
 session_dump(bool use_counter)
 {
+  struct player_source *ps;
   char line[4096];
+  char label[32];
+  int n;
   int pos = 0;
 
   if (use_counter)
@@ -673,57 +687,56 @@ session_dump(bool use_counter)
 	return;
     }
 
-  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
-  pos += source_print(line + pos, sizeof(line) - pos, pb_session.reading_now, "reading_now");
+  for (ps = pb_session.source_list, n = 0; ps; ps = ps->prev, n--)
+    {
+      pos = snprintf(line, sizeof(line), "pos=%d; ", pb_session.pos);
+      if (ps == pb_session.playing_now && ps == pb_session.reading_now)
+	snprintf(label, sizeof(label), "[%d][rp]", n);
+      else if (ps == pb_session.playing_now)
+	snprintf(label, sizeof(label), "[%d][p]", n);
+      else if (ps == pb_session.reading_now)
+	snprintf(label, sizeof(label), "[%d][r]", n);
+      else
+	snprintf(label, sizeof(label), "[%d][n]", n);
 
-  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
+      pos += source_print(line + pos, sizeof(line) - pos, ps, label);
 
-  pos = 0;
-  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
-  pos += source_print(line + pos, sizeof(line) - pos, pb_session.playing_now, "playing_now");
-
-  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
-
-  pos = 0;
-  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
-  pos += source_print(line + pos, sizeof(line) - pos, pb_session.reading_prev, "reading_prev");
-
-  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
-
-  pos = 0;
-  pos += snprintf(line + pos, sizeof(line) - pos, "pos=%d; ", pb_session.pos);
-  pos += source_print(line + pos, sizeof(line) - pos, pb_session.reading_next, "reading_next");
-
-  DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
+      DPRINTF(E_DBG, L_PLAYER, "%s\n", line);
+    }
 }
 #endif
 
 static void
 session_update_play_eof(void)
 {
-  pb_session.playing_now = pb_session.reading_now;
+  struct player_source *ps = pb_session.playing_now;
+
+  pb_session.playing_now = pb_session.playing_now->next;
+
+  // Remove the item we completed playing from source_list
+  if (pb_session.playing_now)
+    pb_session.playing_now->prev = NULL;
+  else
+    pb_session.source_list = NULL;
+
+  // Free the removed item
+  source_free(&ps);
 }
 
 static void
 session_update_play_start(void)
 {
-  // If the track was really short, reading may have ended before we started
-  // playing the track. Note that the below will fail if we have multiple very
-  // short tracks in a row. A bit of an edge case, but still a FIXME.
-  if (pb_session.reading_now)
-    pb_session.playing_now = pb_session.reading_now;
-  else
-    pb_session.playing_now = pb_session.reading_prev;
+  // Nothing to update right now
 }
 
 static void
-session_update_read_next(struct player_source *current)
+session_update_read_next(struct player_source *ps)
 {
-  struct player_source *ps;
+  // Attach to linked source list
+  ps->prev = pb_session.source_list;
+  pb_session.source_list->next = ps;
 
-  ps = source_next_create(current);
-  source_free(&pb_session.reading_next);
-  pb_session.reading_next = ps;
+  pb_session.source_list = ps;
 }
 
 static void
@@ -732,10 +745,7 @@ session_update_read_eof(void)
   pb_session.reading_now->read_end = pb_session.pos;
   pb_session.reading_now->play_end = pb_session.pos + pb_session.reading_now->output_buffer_samples;
 
-  source_free(&pb_session.reading_prev);
-  pb_session.reading_prev = pb_session.reading_now;
-  pb_session.reading_now  = pb_session.reading_next;
-  pb_session.reading_next = NULL;
+  pb_session.reading_now = pb_session.reading_now->next;
 
   // There is nothing else to play
   if (!pb_session.reading_now)
@@ -743,8 +753,8 @@ session_update_read_eof(void)
 
   // We inherit this because the input will only notify on quality changes, not
   // if it is the same as the previous track
-  pb_session.reading_now->quality = pb_session.reading_prev->quality;
-  pb_session.reading_now->output_buffer_samples = pb_session.reading_prev->output_buffer_samples;
+  pb_session.reading_now->quality = pb_session.reading_now->prev->quality;
+  pb_session.reading_now->output_buffer_samples = pb_session.reading_now->prev->output_buffer_samples;
 
   pb_session.reading_now->read_start = pb_session.pos;
   pb_session.reading_now->play_start = pb_session.pos + pb_session.reading_now->output_buffer_samples;
@@ -753,12 +763,9 @@ session_update_read_eof(void)
 static void
 session_update_read_start(uint32_t seek_ms)
 {
-  source_free(&pb_session.reading_prev);
-  pb_session.reading_prev = pb_session.reading_now;
-  pb_session.reading_now  = pb_session.reading_next;
-  pb_session.reading_next = NULL;
+  pb_session.reading_now = pb_session.source_list;
 
-  // There is nothing else to play
+  // There is nothing to play
   if (!pb_session.reading_now)
     return;
 
@@ -814,7 +821,11 @@ session_update_read_quality(struct media_quality *quality)
 
   CHECK_NULL(L_PLAYER, pb_session.buffer);
 
+  // Maybe we should actually adjust play_start and play_end of all items in the
+  // source list when the quality changes?
   pb_session.reading_now->play_start = pb_session.reading_now->read_start + pb_session.reading_now->output_buffer_samples;
+  if (pb_session.reading_now->prev)
+    pb_session.reading_now->prev->play_end = pb_session.reading_now->play_start;
 
  out:
   free(quality);
@@ -833,24 +844,26 @@ session_resume(void)
 static void
 session_stop(void)
 {
+  struct player_source *ps;
+
   free(pb_session.buffer);
   pb_session.buffer = NULL;
 
-  source_free(&pb_session.reading_prev);
-  source_free(&pb_session.reading_now);
-  source_free(&pb_session.reading_next);
+  for (ps = pb_session.source_list; pb_session.source_list; ps = pb_session.source_list)
+    {
+      pb_session.source_list = ps->prev;
+      source_free(&ps);
+    }
 
   memset(&pb_session, 0, sizeof(struct player_session));
 }
 
 static void
-session_start(struct player_source *ps, uint32_t seek_ms)
+session_start(struct player_source *ps)
 {
   session_stop();
 
-  // Add the item to play as reading_next
-  pb_session.reading_next = ps;
-  pb_session.reading_next->seek_ms = seek_ms;
+  pb_session.source_list = ps;
 }
 
 
@@ -889,10 +902,15 @@ event_read_start_next()
 {
   DPRINTF(E_DBG, L_PLAYER, "event_read_start_next()\n");
 
-  // Attaches next item to session as reading_next
-  session_update_read_next(pb_session.reading_now);
+  struct player_source *ps = source_next_create(pb_session.source_list);
+  if (!ps)
+    return;
 
-  source_next();
+  // Attaches next item to pb_session.source_list
+  session_update_read_next(ps);
+
+  // Starts the input read loop
+  source_start(pb_session.source_list);
 }
 
 static void
@@ -933,8 +951,8 @@ event_play_eof()
   if (consume)
     db_queue_delete_byitemid(pb_session.playing_now->item_id);
 
-  if (pb_session.reading_next)
-    outputs_metadata_send(pb_session.reading_next->item_id, false, metadata_finalize_cb);
+  if (pb_session.playing_now->next)
+    outputs_metadata_send(pb_session.playing_now->next->item_id, false, metadata_finalize_cb);
 
   session_update_play_eof();
 }
@@ -1580,17 +1598,20 @@ pb_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
   uint32_t item_id;
   int ret;
 
-  ps = source_new(queue_item);
+  ps = source_create(queue_item, seek_ms);
 
-  // Clears the session and attaches the new source as reading_next
-  session_start(ps, seek_ms);
+  // Clears the session and attaches the new source as pb_session.source_list
+  session_start(ps);
 
   // Sets of opening of the new source
-  while ( (ret = source_start()) < 0)
+  while ( (ret = source_restart(ps)) < 0)
     {
       // Couldn't start requested item, skip to next and remove failed item from queue
-      item_id = pb_session.reading_next->item_id;
-      session_update_read_next(pb_session.reading_next);
+      item_id = ps->item_id;
+      ps = source_next_create(ps);
+
+      // Will free pb_session.source_list so we don't memleak failed sources
+      session_start(ps);
       db_queue_delete_byitemid(item_id);
     }
 
