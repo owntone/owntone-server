@@ -714,10 +714,6 @@ session_update_play_start(void)
     pb_session.playing_now = pb_session.reading_now;
   else
     pb_session.playing_now = pb_session.reading_prev;
-
-  // This is a stupid work-around to make sure pos_ms is non-zero, because a
-  // zero value means that get_status() tells the clients that we are paused.
-  pb_session.playing_now->pos_ms = pb_session.playing_now->seek_ms + 1;
 }
 
 static void
@@ -973,11 +969,11 @@ event_read(int nsamples)
 	}
     }
 
-  // Check if the playback position will be passing the play_start position
-  if (pb_session.pos < pb_session.playing_now->play_start && pb_session.pos + nsamples >= pb_session.playing_now->play_start)
-    event_play_start();
-
   session_update_read(nsamples);
+
+  // Check if the playback position passed the play_start position
+  if (pb_session.pos - nsamples < pb_session.playing_now->play_start && pb_session.pos >= pb_session.playing_now->play_start)
+    event_play_start();
 }
 
 
@@ -1705,7 +1701,7 @@ get_status(void *arg, int *retval)
 	break;
 
       case PLAY_PLAYING:
-	if (pb_session.playing_now->pos_ms == 0)
+	if (pb_session.playing_now->play_start == 0 || pb_session.pos < pb_session.playing_now->play_start)
 	  {
 	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing (buffering)\n");
 
