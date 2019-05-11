@@ -4793,6 +4793,10 @@ raop_write(struct output_buffer *obuf)
       if (rs->state != RAOP_STATE_CONNECTED)
 	continue;
 
+      // Start sending OPTIONS to keep ATV's alive
+      if (!event_pending(keep_alive_timer, EV_TIMEOUT, NULL))
+	evtimer_add(keep_alive_timer, &keep_alive_tv);
+
       rs->state = RAOP_STATE_STREAMING;
       // Make a cb?
     }
