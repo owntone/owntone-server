@@ -1716,7 +1716,7 @@ queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_i
 static int
 queue_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
-  if (strncasecmp(uri, "http://", strlen("http://")) == 0)
+  if (strncasecmp(uri, "http://", strlen("http://")) == 0 || strncasecmp(uri, "https://", strlen("https://")) == 0)
     {
       queue_add_stream(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
@@ -1903,7 +1903,7 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
 	  DPRINTF(E_DBG, L_SCAN, "Item '%s' added to playlist (id = %d)\n", dbmfi.path, pl_id);
 	}
     }
-  else if (strncasecmp(virtual_path, "/http://", strlen("/http://")) == 0)
+  else if (strncasecmp(virtual_path, "/http://", strlen("/http://")) == 0 || strncasecmp(virtual_path, "/https://", strlen("/https://")) == 0)
     {
       path = (virtual_path + 1);
 
