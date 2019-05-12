@@ -983,6 +983,15 @@ static const struct db_upgrade_query db_upgrade_v2001_queries[] =
     { U_V2001_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
+#define U_V2002_SCVER_MINOR \
+  "UPDATE admin SET value = '02' WHERE key = 'schema_version_minor';"
+
+// This upgrade removes some triggers (will be done automatically by db_drop...)
+static const struct db_upgrade_query db_upgrade_v2002_queries[] =
+  {
+    { U_V2002_SCVER_MINOR,    "set schema_version_minor to 02" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1121,6 +1130,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2000:
       ret = db_generic_upgrade(hdl, db_upgrade_v2001_queries, ARRAY_SIZE(db_upgrade_v2001_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2001:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2002_queries, ARRAY_SIZE(db_upgrade_v2002_queries));
       if (ret < 0)
 	return -1;
 

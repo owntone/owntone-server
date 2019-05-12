@@ -92,6 +92,8 @@ enum fixup_type {
   DB_FIXUP_COMPOSER_SORT,
   DB_FIXUP_TIME_ADDED,
   DB_FIXUP_TIME_MODIFIED,
+  DB_FIXUP_SONGARTISTID,
+  DB_FIXUP_SONGALBUMID,
 };
 
 struct db_unlock {
@@ -200,8 +202,8 @@ static const struct col_type_map mfi_cols_map[] =
     { "tv_network_name",    mfi_offsetof(tv_network_name),    DB_TYPE_STRING },
     { "tv_episode_sort",    mfi_offsetof(tv_episode_sort),    DB_TYPE_INT },
     { "tv_season_num",      mfi_offsetof(tv_season_num),      DB_TYPE_INT },
-    { "songartistid",       mfi_offsetof(songartistid),       DB_TYPE_INT64,  DB_FIXUP_STANDARD, DB_FLAG_AUTO },
-    { "songalbumid",        mfi_offsetof(songalbumid),        DB_TYPE_INT64,  DB_FIXUP_STANDARD, DB_FLAG_AUTO },
+    { "songartistid",       mfi_offsetof(songartistid),       DB_TYPE_INT64,  DB_FIXUP_SONGARTISTID },
+    { "songalbumid",        mfi_offsetof(songalbumid),        DB_TYPE_INT64,  DB_FIXUP_SONGALBUMID },
     { "title_sort",         mfi_offsetof(title_sort),         DB_TYPE_STRING, DB_FIXUP_TITLE_SORT },
     { "artist_sort",        mfi_offsetof(artist_sort),        DB_TYPE_STRING, DB_FIXUP_ARTIST_SORT },
     { "album_sort",         mfi_offsetof(album_sort),         DB_TYPE_STRING, DB_FIXUP_ALBUM_SORT },
@@ -726,7 +728,7 @@ sort_tag_create(char **sort_tag, const char *src_tag)
 
   if (*sort_tag)
     {
-      DPRINTF(E_DBG, L_LIB, "Existing sort tag will be normalized: %s\n", *sort_tag);
+      DPRINTF(E_DBG, L_DB, "Existing sort tag will be normalized: %s\n", *sort_tag);
       o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
       free(*sort_tag);
       *sort_tag = (char *)o_ptr;
@@ -841,7 +843,6 @@ fixup_sanitize(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	    *tag = ret;
 	  }
     }
-
 }
 
 static void
@@ -851,6 +852,16 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 
   switch(fixup)
     {
+      case DB_FIXUP_SONGARTISTID:
+	if (ctx->mfi && ctx->mfi->songartistid == 0)
+	  ctx->mfi->songartistid = two_str_hash(ctx->mfi->album_artist, NULL);
+	break;
+
+      case DB_FIXUP_SONGALBUMID:
+	if (ctx->mfi && ctx->mfi->songalbumid == 0)
+	  ctx->mfi->songalbumid = two_str_hash(ctx->mfi->album_artist, ctx->mfi->album);
+	break;
+
       case DB_FIXUP_TITLE:
 	if (*tag)
 	  break;
