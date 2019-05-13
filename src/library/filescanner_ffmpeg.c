@@ -128,6 +128,18 @@ parse_date(struct media_file_info *mfi, char *date_string)
   return ret;
 }
 
+static int
+parse_albumid(struct media_file_info *mfi, char *id_string)
+{
+  // Already set by a previous tag that we give higher priority
+  if (mfi->songalbumid)
+    return 0;
+
+  // Limit hash length to 63 bits, due to signed type in sqlite
+  mfi->songalbumid = murmur_hash64(id_string, strlen(id_string), 0) >> 1;
+  return 1;
+}
+
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static const struct metadata_map md_map_generic[] =
   {
@@ -151,6 +163,16 @@ static const struct metadata_map md_map_generic[] =
     { "artist-sort",  0, mfi_offsetof(artist_sort),        NULL },
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
     { "compilation",  1, mfi_offsetof(compilation),        NULL },
+
+    // These tags are used to determine if files belong to a common compilation
+    // or album, ref. https://picard.musicbrainz.org/docs/tags
+    { "MusicBrainz Album Id",         1, mfi_offsetof(songalbumid), parse_albumid },
+    { "MusicBrainz Release Group Id", 1, mfi_offsetof(songalbumid), parse_albumid },
+    { "MusicBrainz DiscID",           1, mfi_offsetof(songalbumid), parse_albumid },
+    { "CDDB DiscID",                  1, mfi_offsetof(songalbumid), parse_albumid },
+    { "iTunes_CDDB_IDs",              1, mfi_offsetof(songalbumid), parse_albumid },
+    { "CATALOGNUMBER",                1, mfi_offsetof(songalbumid), parse_albumid },
+    { "BARCODE",                      1, mfi_offsetof(songalbumid), parse_albumid },
 
     { NULL,           0, 0,                                NULL }
   };
