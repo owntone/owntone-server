@@ -986,7 +986,7 @@ static const struct db_upgrade_query db_upgrade_v2001_queries[] =
 #define U_V2002_SCVER_MINOR \
   "UPDATE admin SET value = '02' WHERE key = 'schema_version_minor';"
 
-// This upgrade removes some triggers (will be done automatically by db_drop...)
+// This upgrade just changes triggers (will be done automatically by db_drop...)
 static const struct db_upgrade_query db_upgrade_v2002_queries[] =
   {
     { U_V2002_SCVER_MINOR,    "set schema_version_minor to 02" },
