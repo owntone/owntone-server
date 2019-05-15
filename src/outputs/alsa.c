@@ -613,7 +613,7 @@ buffer_write(struct alsa_session *as, struct output_data *odata, snd_pcm_sframes
       nsamp = BTOS(bufsize, as->quality.bits_per_sample, as->quality.channels);
       ret = snd_pcm_writei(as->hdl, buf, nsamp);
       if (ret < 0)
-	return -1;
+	return ret;
 
       avail -= ret;
     }
