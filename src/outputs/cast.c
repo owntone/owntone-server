@@ -1395,6 +1395,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 {
   struct output_device *device;
   const char *friendly_name;
+  cfg_t *chromecast;
   uint32_t id;
 
   id = djb_hash(name, strlen(name));
@@ -1409,6 +1410,13 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
     name = friendly_name;
 
   DPRINTF(E_DBG, L_CAST, "Event for Chromecast device '%s' (port %d, id %" PRIu32 ")\n", name, port, id);
+
+  chromecast = cfg_gettsec(cfg, "chromecast", name);
+  if (chromecast && cfg_getbool(chromecast, "exclude"))
+    {
+      DPRINTF(E_LOG, L_CAST, "Excluding Chromecast device '%s' as set in config\n", name);
+      return;
+    }
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
