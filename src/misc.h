@@ -130,6 +130,9 @@ swap_pointers(char **a, char **b);
 uint32_t
 djb_hash(const void *data, size_t len);
 
+int64_t
+two_str_hash(const char *a, const char *b);
+
 char *
 b64_decode(const char *b64);
 
