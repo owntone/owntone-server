@@ -12,6 +12,12 @@
           </span>
           <span>Hide previous</span>
         </a>
+        <a class="button is-small" @click="add_stream_dialog">
+          <span class="icon">
+            <i class="mdi mdi-web"></i>
+          </span>
+          <span>Add URL Stream</span>
+        </a>
         <!--
         <a class="button" :class="{ 'is-info': edit_mode }" @click="edit_mode = !edit_mode">
           <span class="icon">
@@ -60,19 +66,21 @@
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemQueueItem from '@/components/ListItemQueueItem'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
+import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import draggable from 'vuedraggable'
 
 export default {
   name: 'PageQueue',
-  components: { ContentWithHeading, ListItemQueueItem, draggable, ModalDialogQueueItem },
+  components: { ContentWithHeading, ListItemQueueItem, draggable, ModalDialogQueueItem, ModalDialogAddUrlStream },
 
   data () {
     return {
       edit_mode: false,
 
       show_details_modal: false,
+      show_url_modal: false,
       selected_item: {}
     }
   },
@@ -122,6 +130,10 @@ export default {
     open_dialog: function (item) {
       this.selected_item = item
       this.show_details_modal = true
+    },
+
+    add_stream_dialog: function (item) {
+      this.show_url_modal = true
     }
   }
 }
