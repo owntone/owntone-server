@@ -456,7 +456,8 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
  * @in arg        Will point to the decode context
  * @return        Non-zero if av_read_frame should be interrupted
  */
-static int decode_interrupt_cb(void *arg)
+static int
+decode_interrupt_cb(void *arg)
 {
   struct decode_ctx *ctx;
 
@@ -788,7 +789,9 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
       av_dict_set(&options, "user_agent", user_agent, 0);
 
       av_dict_set(&options, "reconnect", "1", 0);
-      av_dict_set(&options, "reconnect_at_eof", "1", 0);
+      // The below option disabled because it does not work with m3u8 streams,
+      // see https://lists.ffmpeg.org/pipermail/ffmpeg-user/2018-September/041109.html
+//      av_dict_set(&options, "reconnect_at_eof", "1", 0);
       av_dict_set(&options, "reconnect_streamed", "1", 0);
     }
 
