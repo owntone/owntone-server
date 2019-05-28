@@ -58,6 +58,7 @@
           </list-item-queue-item>
       </draggable>
       <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
+      <modal-dialog-add-url-stream :show="show_url_modal" @close="show_url_modal = false" />
     </template>
   </content-with-heading>
 </template>
