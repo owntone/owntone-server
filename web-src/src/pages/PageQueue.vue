@@ -12,11 +12,11 @@
           </span>
           <span>Hide previous</span>
         </a>
-        <a class="button is-small" @click="add_stream_dialog">
+        <a class="button is-small" @click="open_add_stream_dialog">
           <span class="icon">
             <i class="mdi mdi-web"></i>
           </span>
-          <span>Add URL Stream</span>
+          <span>Add Stream</span>
         </a>
         <!--
         <a class="button" :class="{ 'is-info': edit_mode }" @click="edit_mode = !edit_mode">
@@ -133,7 +133,7 @@ export default {
       this.show_details_modal = true
     },
 
-    add_stream_dialog: function (item) {
+    open_add_stream_dialog: function (item) {
       this.show_url_modal = true
     }
   }
