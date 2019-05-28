@@ -1032,7 +1032,7 @@ source_item_ownpl_get(struct artwork_ctx *ctx)
   mfi_path = ctx->dbmfi->path;
 
   format = ART_E_NONE;
-  while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id) && (format == ART_E_NONE))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id) && (format == ART_E_NONE))
     {
       if (!dbpli.path)
 	continue;

@@ -958,7 +958,7 @@ static int
 mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct player_status status;
-  int queue_length;
+  uint32_t queue_length = 0;
   int queue_version;
   char *state;
   uint32_t itemid = 0;
@@ -982,7 +982,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
     }
 
   queue_version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
-  queue_length = db_queue_get_count();
+  db_queue_get_count(&queue_length);
 
   evbuffer_add_printf(evbuf,
       "volume: %d\n"
@@ -2413,7 +2413,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
       return ACK_ERROR_UNKNOWN;
     }
 
-  while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
 	{
@@ -2830,7 +2830,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
-  while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
 	{

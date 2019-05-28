@@ -67,6 +67,10 @@
 // Flags that we will only update column value if we have non-zero value (to avoid zeroing e.g. rating)
 #define DB_FLAG_NO_ZERO  (1 << 1)
 
+// The two last columns of playlist_info are calculated fields, so all playlist retrieval functions must use this query
+#define Q_PL_SELECT "SELECT f.*, COUNT(pi.id), SUM(pi.filepath NOT NULL AND pi.filepath LIKE 'http%%')" \
+                    " FROM playlists f LEFT JOIN playlistitems pi ON (f.id = pi.playlistid)"
+
 enum group_type {
   G_ALBUMS = 1,
   G_ARTISTS = 2,
@@ -232,7 +236,9 @@ static const struct col_type_map pli_cols_map[] =
     { "query_order",        pli_offsetof(query_order),        DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
     { "query_limit",        pli_offsetof(query_limit),        DB_TYPE_INT },
 
-    /* items is computed on the fly */
+    // Not in the database, but returned via the query's COUNT()/SUM()
+    { "items",              pli_offsetof(items),              DB_TYPE_INT },
+    { "streams",            pli_offsetof(streams),            DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -360,7 +366,8 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(query_order),
     dbpli_offsetof(query_limit),
 
-    /* items is computed on the fly */
+    dbpli_offsetof(items),
+    dbpli_offsetof(streams),
   };
 
 /* This list must be kept in sync with
@@ -502,12 +509,6 @@ static __thread struct db_statements db_statements;
 
 
 /* Forward */
-static int
-db_pl_count_items(int id, int streams_only);
-
-static int
-db_smartpl_count_items(const char *smartpl_query);
-
 struct playlist_info *
 db_pl_fetch_byid(int id);
 
@@ -1709,84 +1710,53 @@ db_build_query_check(struct query_params *qp, char *count, char *query)
 }
 
 static char *
-db_build_query_items(struct query_params *qp)
+db_build_query_items(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
   char *count;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s;", qc->where);
   query = sqlite3_mprintf("SELECT f.* FROM files f %s %s %s %s;", qc->where, qc->group, qc->order, qc->index);
 
-  db_free_query_clause(qc);
-
   return db_build_query_check(qp, count, query);
 }
 
 static char *
-db_build_query_pls(struct query_params *qp)
+db_build_query_pls(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
   char *count;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   count = sqlite3_mprintf("SELECT COUNT(*) FROM playlists f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT f.* FROM playlists f %s %s %s;", qc->where, qc->order, qc->index);
-
-  db_free_query_clause(qc);
+  query = sqlite3_mprintf(Q_PL_SELECT " %s GROUP BY f.id %s %s;", qc->where, qc->order, qc->index);
 
   return db_build_query_check(qp, count, query);
 }
 
 static char *
-db_build_query_find_pls(struct query_params *qp)
+db_build_query_find_pls(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
-  char *count;
-  char *query;
-
   if (!qp->filter)
     {
       DPRINTF(E_LOG, L_DB, "Bug! Playlist find called without search criteria\n");
       return NULL;
     }
 
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
-
   // Use qp->filter because qc->where has a f.disabled which is not a column in playlistitems
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM playlists f WHERE f.id IN (SELECT playlistid FROM playlistitems WHERE %s);", qp->filter);
-  query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.id IN (SELECT playlistid FROM playlistitems WHERE %s) %s %s;", qp->filter, qc->order, qc->index);
+  sqlite3_free(qc->where);
+  qc->where = sqlite3_mprintf("WHERE f.id IN (SELECT playlistid FROM playlistitems WHERE %s)", qp->filter);
 
-  db_free_query_clause(qc);
-
-  return db_build_query_check(qp, count, query);
+  return db_build_query_pls(qp, qc);
 }
 
 static char *
-db_build_query_plitems_plain(struct query_params *qp)
+db_build_query_plitems_plain(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
   char *count;
   char *query;
 
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
-
   count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN playlistitems pi ON f.path = pi.filepath %s AND pi.playlistid = %d;", qc->where, qp->id);
   query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath %s AND pi.playlistid = %d ORDER BY pi.id ASC %s;", qc->where, qp->id, qc->index);
-
-  db_free_query_clause(qc);
 
   return db_build_query_check(qp, count, query);
 }
@@ -1847,16 +1817,16 @@ db_build_query_plitems_smart(struct query_params *qp, struct playlist_info *pli)
 }
 
 static char *
-db_build_query_plitems(struct query_params *qp)
+db_build_query_plitems(struct query_params *qp, struct query_clause *qc)
 {
   struct playlist_info *pli;
   char *query;
 
   if (qp->id <= 0)
-  {
-    DPRINTF(E_LOG, L_DB, "No playlist id specified in playlist items query\n");
-    return NULL;
-  }
+    {
+      DPRINTF(E_LOG, L_DB, "No playlist id specified in playlist items query\n");
+      return NULL;
+    }
 
   pli = db_pl_fetch_byid(qp->id);
   if (!pli)
@@ -1871,7 +1841,7 @@ db_build_query_plitems(struct query_params *qp)
 
       case PL_PLAIN:
       case PL_FOLDER:
-	query = db_build_query_plitems_plain(qp);
+	query = db_build_query_plitems_plain(qp, qc);
 	break;
 
       default:
@@ -1886,54 +1856,35 @@ db_build_query_plitems(struct query_params *qp)
 }
 
 static char *
-db_build_query_group_albums(struct query_params *qp)
+db_build_query_group_albums(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
   char *count;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songalbumid) FROM files f %s;", qc->where);
   query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, 1 as album_count, f.album_artist, f.songartistid, SUM(f.song_length) FROM files f JOIN groups g ON f.songalbumid = g.persistentid %s GROUP BY f.songalbumid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
-  db_free_query_clause(qc);
-
   return db_build_query_check(qp, count, query);
 }
 
 static char *
-db_build_query_group_artists(struct query_params *qp)
+db_build_query_group_artists(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
   char *count;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songartistid) FROM files f %s;", qc->where);
   query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, SUM(f.song_length) FROM files f JOIN groups g ON f.songartistid = g.persistentid %s GROUP BY f.songartistid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
-  db_free_query_clause(qc);
-
   return db_build_query_check(qp, count, query);
 }
 
 static char *
-db_build_query_group_items(struct query_params *qp)
+db_build_query_group_items(struct query_params *qp, struct query_clause *qc)
 {
   enum group_type gt;
-  struct query_clause *qc;
   char *count;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   gt = db_group_type_bypersistentid(qp->persistentid);
 
@@ -1951,26 +1902,18 @@ db_build_query_group_items(struct query_params *qp)
 
       default:
 	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %" PRIi64 "\n", gt, qp->persistentid);
-        db_free_query_clause(qc);
 	return NULL;
     }
-
-  db_free_query_clause(qc);
 
   return db_build_query_check(qp, count, query);
 }
 
 static char *
-db_build_query_group_dirs(struct query_params *qp)
+db_build_query_group_dirs(struct query_params *qp, struct query_clause *qc)
 {
   enum group_type gt;
-  struct query_clause *qc;
   char *count;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   gt = db_group_type_bypersistentid(qp->persistentid);
 
@@ -1992,27 +1935,19 @@ db_build_query_group_dirs(struct query_params *qp)
 
       default:
 	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %" PRIi64 "\n", gt, qp->persistentid);
-        db_free_query_clause(qc);
 	return NULL;
     }
-
-  db_free_query_clause(qc);
 
   return db_build_query_check(qp, count, query);
 }
 
 static char *
-db_build_query_browse(struct query_params *qp)
+db_build_query_browse(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
   const char *where;
   const char *select;
   char *count;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   select = browse_clause[qp->type & ~Q_F_BROWSE].select;
   where  = browse_clause[qp->type & ~Q_F_BROWSE].where;
@@ -2020,20 +1955,13 @@ db_build_query_browse(struct query_params *qp)
   count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT %s FROM files f %s AND %s != '' %s);", select, qc->where, where, qc->group);
   query = sqlite3_mprintf("SELECT %s FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
 
-  db_free_query_clause(qc);
-
   return db_build_query_check(qp, count, query);
 }
 
 static char *
-db_build_query_count_items(struct query_params *qp)
+db_build_query_count_items(struct query_params *qp, struct query_clause *qc)
 {
-  struct query_clause *qc;
   char *query;
-
-  qc = db_build_query_clause(qp);
-  if (!qc)
-    return NULL;
 
   qp->results = 1;
 
@@ -2041,14 +1969,13 @@ db_build_query_count_items(struct query_params *qp)
   if (!query)
     DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-  db_free_query_clause(qc);
-
   return query;
 }
 
 int
 db_query_start(struct query_params *qp)
 {
+  struct query_clause *qc;
   sqlite3_stmt *stmt;
   char *query;
   int ret;
@@ -2056,50 +1983,56 @@ db_query_start(struct query_params *qp)
   qp->stmt = NULL;
   qp->results = -1;
 
+  qc = db_build_query_clause(qp);
+  if (!qc)
+    return -1;
+
   switch (qp->type)
     {
       case Q_ITEMS:
-	query = db_build_query_items(qp);
+	query = db_build_query_items(qp, qc);
 	break;
 
       case Q_PL:
-	query = db_build_query_pls(qp);
+	query = db_build_query_pls(qp, qc);
 	break;
 
       case Q_FIND_PL:
-	query = db_build_query_find_pls(qp);
+	query = db_build_query_find_pls(qp, qc);
 	break;
 
       case Q_PLITEMS:
-	query = db_build_query_plitems(qp);
+	query = db_build_query_plitems(qp, qc);
 	break;
 
       case Q_GROUP_ALBUMS:
-	query = db_build_query_group_albums(qp);
+	query = db_build_query_group_albums(qp, qc);
 	break;
 
       case Q_GROUP_ARTISTS:
-	query = db_build_query_group_artists(qp);
+	query = db_build_query_group_artists(qp, qc);
 	break;
 
       case Q_GROUP_ITEMS:
-	query = db_build_query_group_items(qp);
+	query = db_build_query_group_items(qp, qc);
 	break;
 
       case Q_GROUP_DIRS:
-	query = db_build_query_group_dirs(qp);
+	query = db_build_query_group_dirs(qp, qc);
 	break;
 
       case Q_COUNT_ITEMS:
-	query = db_build_query_count_items(qp);
+	query = db_build_query_count_items(qp, qc);
 	break;
 
       default:
 	if (qp->type & Q_F_BROWSE)
-	  query = db_build_query_browse(qp);
+	  query = db_build_query_browse(qp, qc);
         else
 	  query = NULL;
     }
+
+  db_free_query_clause(qc);
 
   if (!query)
     {
@@ -2235,14 +2168,13 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
 }
 
 int
-db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int with_itemcount)
+db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
 {
   int ncols;
   char **strcol;
-  int id;
+  uint32_t nitems;
+  uint32_t nstreams;
   int type;
-  int nitems;
-  int nstreams;
   int i;
   int ret;
 
@@ -2289,46 +2221,14 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int w
       *strcol = (char *)sqlite3_column_text(qp->stmt, i);
     }
 
-  if (with_itemcount)
+  type = sqlite3_column_int(qp->stmt, 2);
+  if (type == PL_SPECIAL || type == PL_SMART)
     {
-      type = sqlite3_column_int(qp->stmt, 2);
-
-      switch (type)
-	{
-	  case PL_PLAIN:
-	  case PL_FOLDER:
-	    id = sqlite3_column_int(qp->stmt, 0);
-	    nitems = db_pl_count_items(id, 0);
-	    nstreams = db_pl_count_items(id, 1);
-	    break;
-
-	  case PL_SPECIAL:
-	  case PL_SMART:
-	    nitems = db_smartpl_count_items(dbpli->query);
-	    nstreams = 0;
-	    break;
-
-	  default:
-	    DPRINTF(E_LOG, L_DB, "Unknown playlist type %d while fetching playlist\n", type);
-	    return -1;
-	}
-
+      db_files_get_count(&nitems, &nstreams, dbpli->query);
+      snprintf(qp->buf1, sizeof(qp->buf1), "%d", (int)nitems);
+      snprintf(qp->buf2, sizeof(qp->buf2), "%d", (int)nstreams);
       dbpli->items = qp->buf1;
-      ret = snprintf(qp->buf1, sizeof(qp->buf1), "%d", nitems);
-      if ((ret < 0) || (ret >= sizeof(qp->buf1)))
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not convert item count, buffer too small\n");
-
-	  strcpy(qp->buf1, "0");
-	}
       dbpli->streams = qp->buf2;
-      ret = snprintf(qp->buf2, sizeof(qp->buf2), "%d", nstreams);
-      if ((ret < 0) || (ret >= sizeof(qp->buf2)))
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not convert stream count, buffer too small\n");
-
-	  strcpy(qp->buf2, "0");
-	}
     }
 
   return 0;
@@ -2523,9 +2423,62 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 
 /* Files */
 int
-db_files_get_count(void)
+db_files_get_count(uint32_t *nitems, uint32_t *nstreams, const char *filter)
 {
-  return db_get_one_int("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  if (!filter && !nstreams)
+    query = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
+  else if (!filter)
+    query = sqlite3_mprintf("SELECT COUNT(*), SUM(data_kind = %d) FROM files f WHERE f.disabled = 0;", DATA_KIND_HTTP);
+  else if (!nstreams)
+    query = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s;", filter);
+  else
+    query = sqlite3_mprintf("SELECT COUNT(*), SUM(data_kind = %d) FROM files f WHERE f.disabled = 0 AND %s;", DATA_KIND_HTTP, filter);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  sqlite3_free(query);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_INFO, L_DB, "No matching row found for query: %s\n", query);
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s (%s)\n", sqlite3_errmsg(hdl), query);
+
+      sqlite3_finalize(stmt);
+      return -1;
+    }
+
+  if (nitems)
+    *nitems = sqlite3_column_int(stmt, 0);
+  if (nstreams)
+    *nstreams = sqlite3_column_int(stmt, 1);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
+  sqlite3_finalize(stmt);
+
+  return 0;
 }
 
 void
@@ -3232,64 +3185,16 @@ db_file_update_directoryid(const char *path, int dir_id)
 
 /* Playlists */
 int
-db_pl_get_count(void)
+db_pl_get_count(uint32_t *nitems)
 {
-  return db_get_one_int("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
-}
+  int ret = db_get_one_int("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
 
-static int
-db_pl_count_items(int id, int streams_only)
-{
-#define Q_TMPL "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
-               " ON pi.filepath = f.path WHERE f.disabled = 0 AND pi.playlistid = %d;"
-#define Q_TMPL_STREAMS "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
-               " ON pi.filepath = f.path WHERE f.disabled = 0 AND f.data_kind = 1 AND pi.playlistid = %d;"
-  char *query;
-  int ret;
+  if (ret < 0)
+    return -1;
 
-  if (!streams_only)
-    query = sqlite3_mprintf(Q_TMPL, id);
-  else
-    query = sqlite3_mprintf(Q_TMPL_STREAMS, id);
+  *nitems = (uint32_t)ret;
 
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return 0;
-    }
-
-  ret = db_get_one_int(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
-#undef Q_TMPL_STREAMS
-#undef Q_TMPL
-}
-
-static int
-db_smartpl_count_items(const char *smartpl_query)
-{
-#define Q_TMPL "SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s;"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, smartpl_query);
-
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return 0;
-    }
-
-  ret = db_get_one_int(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
-#undef Q_TMPL
+  return 0;
 }
 
 void
@@ -3459,25 +3364,8 @@ db_pl_fetch_byquery(const char *query)
       return NULL;
     }
 
-  switch (pli->type)
-    {
-      case PL_PLAIN:
-      case PL_FOLDER:
-	pli->items = db_pl_count_items(pli->id, 0);
-	pli->streams = db_pl_count_items(pli->id, 1);
-	break;
-
-      case PL_SPECIAL:
-      case PL_SMART:
-	pli->items = db_smartpl_count_items(pli->query);
-	break;
-
-      default:
-	DPRINTF(E_LOG, L_DB, "Unknown playlist type %d while fetching playlist\n", pli->type);
-
-	free_pli(pli, 0);
-	return NULL;
-    }
+  if (pli->type == PL_SPECIAL || pli->type == PL_SMART)
+    db_files_get_count(&pli->items, &pli->streams, pli->query);
 
   return pli;
 }
@@ -3485,11 +3373,10 @@ db_pl_fetch_byquery(const char *query)
 struct playlist_info *
 db_pl_fetch_bypath(const char *path)
 {
-#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.path = '%q';"
   struct playlist_info *pli;
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, path);
+  query = sqlite3_mprintf(Q_PL_SELECT " WHERE f.path = '%q' GROUP BY f.id;", path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3502,18 +3389,15 @@ db_pl_fetch_bypath(const char *path)
   sqlite3_free(query);
 
   return pli;
-
-#undef Q_TMPL
 }
 
 struct playlist_info *
 db_pl_fetch_byvirtualpath(const char *virtual_path)
 {
-#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.virtual_path = '%q';"
   struct playlist_info *pli;
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, virtual_path);
+  query = sqlite3_mprintf(Q_PL_SELECT " WHERE f.virtual_path = '%q' GROUP BY f.id;", virtual_path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3526,18 +3410,15 @@ db_pl_fetch_byvirtualpath(const char *virtual_path)
   sqlite3_free(query);
 
   return pli;
-
-#undef Q_TMPL
 }
 
 struct playlist_info *
 db_pl_fetch_byid(int id)
 {
-#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.id = %d;"
   struct playlist_info *pli;
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, id);
+  query = sqlite3_mprintf(Q_PL_SELECT " WHERE f.id = %d GROUP BY f.id;", id);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3550,18 +3431,15 @@ db_pl_fetch_byid(int id)
   sqlite3_free(query);
 
   return pli;
-
-#undef Q_TMPL
 }
 
 struct playlist_info *
 db_pl_fetch_bytitlepath(const char *title, const char *path)
 {
-#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
   struct playlist_info *pli;
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, title, path);
+  query = sqlite3_mprintf(Q_PL_SELECT " WHERE f.title = '%q' AND f.path = '%q' GROUP BY f.id;", title, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3574,15 +3452,13 @@ db_pl_fetch_bytitlepath(const char *title, const char *path)
   sqlite3_free(query);
 
   return pli;
-
-#undef Q_TMPL
 }
 
 int
 db_pl_add(struct playlist_info *pli, int *id)
 {
 #define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, " \
+#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id," \
                   " parent_id, virtual_path, directory_id, query_order, query_limit)" \
                   " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q', %d, %Q, %d);"
   char *query;
@@ -3677,9 +3553,9 @@ db_pl_add_item_byid(int plid, int fileid)
 int
 db_pl_update(struct playlist_info *pli)
 {
-#define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, query = '%q', db_timestamp = %" PRIi64 ", disabled = %d, " \
-               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q', directory_id = %d, " \
-               " query_order = %Q, query_limit = %d " \
+#define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, query = '%q', db_timestamp = %" PRIi64 ", disabled = %d," \
+               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q', directory_id = %d," \
+               " query_order = %Q, query_limit = %d" \
                " WHERE id = %d;"
   char *query;
   int ret;
@@ -4229,7 +4105,8 @@ db_directory_ping_bymatch(char *virtual_path)
 void
 db_directory_disable_bymatch(char *path, enum strip_type strip, uint32_t cookie)
 {
-#define Q_TMPL "UPDATE directories SET virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
+#define Q_TMPL "UPDATE directories SET virtual_path = substr(virtual_path, %d)," \
+               " disabled = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
   char *query;
   int64_t disabled;
   int vpath_striplen;
@@ -4247,7 +4124,8 @@ db_directory_disable_bymatch(char *path, enum strip_type strip, uint32_t cookie)
 int
 db_directory_enable_bycookie(uint32_t cookie, char *path)
 {
-#define Q_TMPL "UPDATE directories SET virtual_path = ('/file:%q' || virtual_path), disabled = 0 WHERE disabled = %" PRIi64 ";"
+#define Q_TMPL "UPDATE directories SET virtual_path = ('/file:%q' || virtual_path)," \
+               " disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
   int ret;
 
@@ -4895,14 +4773,14 @@ db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id)
 int
 db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos)
 {
-  int queue_count;
-  int ret = 0;
+  uint32_t queue_count;
+  int ret;
 
   memset(queue_add_info, 0, sizeof(struct db_queue_add_info));
   queue_add_info->queue_version = queue_transaction_begin();
 
-  queue_count = db_queue_get_count();
-  if (queue_count < 0)
+  ret = db_queue_get_count(&queue_count);
+  if (ret < 0)
     {
       ret = -1;
       queue_transaction_end(ret, queue_add_info->queue_version);
@@ -4988,7 +4866,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
   struct db_media_file_info dbmfi;
   char *query;
   int queue_version;
-  int queue_count;
+  uint32_t queue_count;
   int pos;
   int ret;
 
@@ -4999,8 +4877,8 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
 
   queue_version = queue_transaction_begin();
 
-  queue_count = db_queue_get_count();
-  if (queue_count < 0)
+  ret = db_queue_get_count(&queue_count);
+  if (ret < 0)
     {
       ret = -1;
       goto end_transaction;
@@ -6001,7 +5879,7 @@ queue_reshuffle(uint32_t item_id, int queue_version)
 {
   char *query;
   int pos;
-  int count;
+  uint32_t count;
   struct db_queue_item queue_item;
   int *shuffle_pos;
   int len;
@@ -6015,27 +5893,25 @@ queue_reshuffle(uint32_t item_id, int queue_version)
   query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = pos, queue_version = %d;", queue_version);
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
-    {
-      return -1;
-    }
+    return -1;
 
   pos = 0;
   if (item_id > 0)
     {
       pos = db_queue_get_pos(item_id, 0);
       if (pos < 0)
-	{
-	  return -1;
-	}
+	return -1;
 
       pos++; // Do not reshuffle the base item
     }
 
-  count = db_queue_get_count();
+  ret = db_queue_get_count(&count);
+  if (ret < 0)
+    return -1;
 
   len = count - pos;
 
-  DPRINTF(E_DBG, L_DB, "Reshuffle %d items off %d total items, starting from pos %d\n", len, count, pos);
+  DPRINTF(E_DBG, L_DB, "Reshuffle %d items off %" PRIu32 " total items, starting from pos %d\n", len, count, pos);
 
   shuffle_pos = malloc(len * sizeof(int));
   for (i = 0; i < len; i++)
@@ -6073,9 +5949,7 @@ queue_reshuffle(uint32_t item_id, int queue_version)
   sqlite3_free(qp.filter);
 
   if (ret < 0)
-    {
-      return -1;
-    }
+    return -1;
 
   return 0;
 }
@@ -6119,9 +5993,16 @@ db_queue_inc_version()
 }
 
 int
-db_queue_get_count()
+db_queue_get_count(uint32_t *nitems)
 {
-  return db_get_one_int("SELECT COUNT(*) FROM queue;");
+  int ret = db_get_one_int("SELECT COUNT(*) FROM queue;");
+
+  if (ret < 0)
+    return -1;
+
+  *nitems = (uint32_t)ret;
+
+  return 0;
 }
 
 
@@ -7141,8 +7022,8 @@ db_check_version(void)
 int
 db_init(void)
 {
-  int files;
-  int pls;
+  uint32_t files;
+  uint32_t pls;
   int ret;
 
   if (ARRAY_SIZE(dbmfi_cols_map) != ARRAY_SIZE(mfi_cols_map))
@@ -7214,13 +7095,14 @@ db_init(void)
 
   db_set_cfg_names();
 
-  files = db_files_get_count();
-  pls = db_pl_get_count();
+  CHECK_ERR(L_DB, db_files_get_count(&files, NULL, NULL));
+  CHECK_ERR(L_DB, db_pl_get_count(&pls));
+
   db_admin_setint64(DB_ADMIN_START_TIME, (int64_t) time(NULL));
 
   db_perthread_deinit();
 
-  DPRINTF(E_LOG, L_DB, "Database OK with %d active files and %d active playlists\n", files, pls);
+  DPRINTF(E_LOG, L_DB, "Database OK with %" PRIu32 " active files and %" PRIu32 " active playlists\n", files, pls);
 
   rng_init(&shuffle_rng);
 

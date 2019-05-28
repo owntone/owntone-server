@@ -487,7 +487,7 @@ fetch_playlists(struct query_params *query_params, json_object *items, int *tota
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_pl(query_params, &dbpli, 0)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(query_params, &dbpli)) == 0) && (dbpli.id))
     {
       item = playlist_to_json(&dbpli);
       if (!item)
@@ -527,7 +527,7 @@ fetch_playlist(const char *playlist_id)
   if (ret < 0)
     goto error;
 
-  if (((ret = db_query_fetch_pl(&query_params, &dbpli, 0)) == 0) && (dbpli.id))
+  if (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
     {
       playlist = playlist_to_json(&dbpli);
     }
@@ -2096,9 +2096,9 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   struct query_params query_params;
   const char *param;
   uint32_t item_id;
+  uint32_t count;
   int start_pos, end_pos;
   int version;
-  int count;
   char etag[21];
   struct player_status status;
   struct db_queue_item queue_item;
@@ -2108,7 +2108,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   int ret = 0;
 
   version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
-  count = db_queue_get_count();
+  db_queue_get_count(&count);
 
   snprintf(etag, sizeof(etag), "%d", version);
   if (httpd_request_etag_matches(hreq->req, etag))
@@ -2118,7 +2118,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   reply = json_object_new_object();
 
   json_object_object_add(reply, "version", json_object_new_int(version));
-  json_object_object_add(reply, "count", json_object_new_int(count));
+  json_object_object_add(reply, "count", json_object_new_int((int)count));
 
   items = json_object_new_array();
   json_object_object_add(reply, "items", items);

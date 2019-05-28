@@ -1095,7 +1095,7 @@ daap_reply_dblist(struct httpd_request *hreq)
   char *name;
   char *name_radio;
   size_t len;
-  int count;
+  uint32_t count = 0;
 
   name = cfg_getstr(cfg_getsec(cfg, "library"), "name");
   name_radio = cfg_getstr(cfg_getsec(cfg, "library"), "name_radio");
@@ -1111,10 +1111,10 @@ daap_reply_dblist(struct httpd_request *hreq)
   dmap_add_int(item, "mdbk", 1);
   dmap_add_int(item, "aeCs", 1);
   dmap_add_string(item, "minm", name);
-  count = db_files_get_count();
-  dmap_add_int(item, "mimc", count);
-  count = db_pl_get_count(); // TODO Don't count empty smart playlists, because they get excluded in aply
-  dmap_add_int(item, "mctc", count);
+  db_files_get_count(&count, NULL, NULL);
+  dmap_add_int(item, "mimc", (int)count);
+  db_pl_get_count(&count); // TODO Don't count empty smart playlists, because they get excluded in aply
+  dmap_add_int(item, "mctc", (int)count);
 //  dmap_add_int(content, "aeMk", 0x405);   // com.apple.itunes.extended-media-kind (OR of all in library)
   dmap_add_int(item, "meds", 3);
 
@@ -1132,8 +1132,8 @@ daap_reply_dblist(struct httpd_request *hreq)
   dmap_add_int(item, "mdbk", 0x64);
   dmap_add_int(item, "aeCs", 0);
   dmap_add_string(item, "minm", name_radio);
-  count = db_pl_get_count();       // TODO This counts too much, should only include stream playlists
-  dmap_add_int(item, "mimc", count);
+  db_pl_get_count(&count); // TODO This counts too much, should only include stream playlists
+  dmap_add_int(item, "mimc", (int)count);
   dmap_add_int(item, "mctc", 0);
   dmap_add_int(item, "aeMk", 1);   // com.apple.itunes.extended-media-kind (OR of all in library)
   dmap_add_int(item, "meds", 3);
@@ -1465,7 +1465,7 @@ daap_reply_playlists(struct httpd_request *hreq)
     }
 
   npls = 0;
-  while (((ret = db_query_fetch_pl(&qp, &dbpli, 1)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
       plid = 1;
       if (safe_atoi32(dbpli.id, &plid) != 0)

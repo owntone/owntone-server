@@ -238,8 +238,6 @@ struct playlist_info {
   uint32_t id;           /* integer id (miid) */
   char *title;           /* playlist name as displayed in iTunes (minm) */
   enum pl_type type;     /* see PL_ types */
-  uint32_t items;        /* number of items (mimc) */
-  uint32_t streams;      /* number of internet streams */
   char *query;           /* where clause if type 1 (MSPS) */
   uint32_t db_timestamp; /* time last updated */
   uint32_t disabled;
@@ -251,6 +249,8 @@ struct playlist_info {
   uint32_t directory_id; /* Id of directory */
   char *query_order;     /* order by clause if it is a smart playlist */
   int32_t query_limit;   /* limit if it is a smart playlist */
+  uint32_t items;        /* number of items (mimc) */
+  uint32_t streams;      /* number of internet streams */
 };
 
 #define pli_offsetof(field) offsetof(struct playlist_info, field)
@@ -259,8 +259,6 @@ struct db_playlist_info {
   char *id;
   char *title;
   char *type;
-  char *items;
-  char *streams;
   char *query;
   char *db_timestamp;
   char *disabled;
@@ -272,6 +270,8 @@ struct db_playlist_info {
   char *directory_id;
   char *query_order;
   char *query_limit;
+  char *items;
+  char *streams;
 };
 
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
@@ -545,7 +545,7 @@ int
 db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi);
 
 int
-db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int with_itemcount);
+db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli);
 
 int
 db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
@@ -561,7 +561,7 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 
 /* Files */
 int
-db_files_get_count(void);
+db_files_get_count(uint32_t *nitems, uint32_t *nstreams, const char *filter);
 
 void
 db_file_inc_playcount(int id);
@@ -637,7 +637,7 @@ db_filecount_get(struct filecount_info *fci, struct query_params *qp);
 
 /* Playlists */
 int
-db_pl_get_count(void);
+db_pl_get_count(uint32_t *nitems);
 
 void
 db_pl_ping(int id);
@@ -863,7 +863,7 @@ int
 db_queue_inc_version(void);
 
 int
-db_queue_get_count();
+db_queue_get_count(uint32_t *nitems);
 
 int
 db_queue_get_pos(uint32_t item_id, char shuffle);

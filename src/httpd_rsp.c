@@ -316,9 +316,9 @@ rsp_reply_info(struct httpd_request *hreq)
   mxml_node_t *node;
   cfg_t *lib;
   char *library;
-  int songcount;
+  uint32_t songcount;
 
-  songcount = db_files_get_count();
+  db_files_get_count(&songcount, NULL, NULL);
 
   lib = cfg_getsec(cfg, "library");
   library = cfg_getstr(lib, "name");
@@ -347,7 +347,7 @@ rsp_reply_info(struct httpd_request *hreq)
 
   /* Info block */
   node = mxmlNewElement(info, "count");
-  mxmlNewTextf(node, 0, "%d", songcount);
+  mxmlNewTextf(node, 0, "%d", (int)songcount);
 
   node = mxmlNewElement(info, "rsp-version");
   mxmlNewText(node, 0, RSP_VERSION);
@@ -377,7 +377,7 @@ rsp_reply_db(struct httpd_request *hreq)
   int i;
   int ret;
 
-  memset(&qp, 0, sizeof(struct db_playlist_info));
+  memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_PL;
   qp.idx_type = I_NONE;
@@ -414,7 +414,7 @@ rsp_reply_db(struct httpd_request *hreq)
   mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Playlists block (all playlists) */
-  while (((ret = db_query_fetch_pl(&qp, &dbpli, 1)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
       /* Playlist block (one playlist) */
       pl = mxmlNewElement(pls, "playlist");
