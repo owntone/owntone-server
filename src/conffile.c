@@ -103,6 +103,8 @@ static cfg_opt_t sec_library[] =
     CFG_INT("pipe_sample_rate", 44100, CFGF_NONE),
     CFG_INT("pipe_bits_per_sample", 16, CFGF_NONE),
     CFG_BOOL("rating_updates", cfg_false, CFGF_NONE),
+    CFG_BOOL("allow_modifying_stored_playlists", cfg_false, CFGF_NONE),
+    CFG_STR("default_playlist_directory", NULL, CFGF_NONE),
     CFG_END()
   };
 
@@ -178,8 +180,6 @@ static cfg_opt_t sec_mpd[] =
     CFG_INT("port", 6600, CFGF_NONE),
     CFG_INT("http_port", 0, CFGF_NONE),
     CFG_BOOL("clear_queue_on_stop_disable", cfg_false, CFGF_NONE),
-    CFG_BOOL("allow_modifying_stored_playlists", cfg_false, CFGF_NONE),
-    CFG_STR("default_playlist_directory", NULL, CFGF_NONE),
     CFG_END()
   };
 

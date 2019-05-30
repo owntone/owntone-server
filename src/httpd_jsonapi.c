@@ -30,6 +30,8 @@
 # include <config.h>
 #endif
 
+#include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <limits.h>
 #include <regex.h>
@@ -56,6 +58,10 @@
 # include "spotify_webapi.h"
 # include "spotify.h"
 #endif
+
+static bool allow_modifying_stored_playlists;
+static char *default_pl_dir;
+
 
 /* -------------------------------- HELPERS --------------------------------- */
 
@@ -705,6 +711,10 @@ jsonapi_reply_config(struct httpd_request *hreq)
 	}
     }
   json_object_object_add(jreply, "directories", directories);
+
+  // Config for creating/modifying stored playlists
+  json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(cfg_getbool(lib, "allow_modifying_stored_playlists")));
+  json_object_object_add(jreply, "default_playlist_directory", json_object_new_string(cfg_getstr(lib, "default_playlist_directory")));
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
@@ -2904,6 +2914,52 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_queue_save(struct httpd_request *hreq)
+{
+  const char *param;
+  char buf[PATH_MAX+7];
+  char *playlist_name = NULL;
+  int ret = 0;
+
+  if ((param = evhttp_find_header(hreq->query, "name")) == NULL)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid argument, missing 'name'\n");
+      return HTTP_BADREQUEST;
+    }
+
+  if (!allow_modifying_stored_playlists)
+    {
+      DPRINTF(E_LOG, L_WEB, "Saving playlists disabled in cfg, ignoring request\n");
+      return 403; 
+    }
+
+  if (access(default_pl_dir, W_OK) < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid playlist save directory=%s\n", default_pl_dir);
+      return 403;
+   }
+
+  playlist_name = atrim(param);
+
+  if (strlen(playlist_name) < 1) {
+      free(playlist_name);
+
+      DPRINTF(E_LOG, L_WEB, "Empty playlist name parameter is not allowed\n");
+      return HTTP_BADREQUEST;
+  }
+
+  snprintf(buf, sizeof(buf), "/file:%s/%s", default_pl_dir, playlist_name);
+  free(playlist_name);
+
+  ret = library_queue_save(buf);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 jsonapi_reply_library_genres(struct httpd_request *hreq)
 {
   time_t db_update;
@@ -3486,6 +3542,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_POST,   "^/api/queue/items/add$",                       jsonapi_reply_queue_tracks_add },
     { EVHTTP_REQ_PUT,    "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_move },
     { EVHTTP_REQ_DELETE, "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_delete },
+    { EVHTTP_REQ_POST,   "^/api/queue/save$",                            jsonapi_reply_queue_save},
 
     { EVHTTP_REQ_GET,    "^/api/library/playlists$",                     jsonapi_reply_library_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist },
@@ -3557,6 +3614,9 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
       case HTTP_BADREQUEST:          /* 400 Bad Request */
 	httpd_send_error(req, status_code, "Bad Request");
 	break;
+      case 403:
+	httpd_send_error(req, status_code, "Forbidden");
+	break;
       case HTTP_NOTFOUND:            /* 404 Not Found */
 	httpd_send_error(req, status_code, "Not Found");
 	break;
@@ -3599,6 +3659,22 @@ jsonapi_init(void)
 	  return -1;
 	}
     }
+
+  default_pl_dir = NULL;
+  allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "library"), "allow_modifying_stored_playlists");
+  if (allow_modifying_stored_playlists)
+    { 
+      default_pl_dir = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
+      if (default_pl_dir == NULL)
+        {
+          allow_modifying_stored_playlists = false;
+          DPRINTF(E_LOG, L_WEB, "Invalid playlist save directory, disabling\n");
+        }
+      else if (access(default_pl_dir, W_OK) < 0)
+        {
+          DPRINTF(E_WARN, L_WEB, "Non-writable playlist save directory=%s\n", default_pl_dir);
+       }
+     }
 
   return 0;
 }
