@@ -180,6 +180,8 @@ static cfg_opt_t sec_mpd[] =
     CFG_INT("port", 6600, CFGF_NONE),
     CFG_INT("http_port", 0, CFGF_NONE),
     CFG_BOOL("clear_queue_on_stop_disable", cfg_false, CFGF_NONE),
+    CFG_BOOL("allow_modifying_stored_playlists", cfg_false, CFGF_NODEFAULT | CFGF_DEPRECATED),
+    CFG_STR("default_playlist_directory", NULL, CFGF_NODEFAULT | CFGF_DEPRECATED),
     CFG_END()
   };
 

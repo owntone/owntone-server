@@ -193,13 +193,13 @@ library {
 #	rating_updates = false
 
 	# Allows creating, deleting and modifying m3u playlists in the library directories.
+	# Only supported by the player web interface and some mpd clients
 	# Defaults to being disabled.
 #	allow_modifying_stored_playlists = false
 
 	# A directory in one of the library directories that will be used as the default
 	# playlist directory. forked-dapd creates new playlists in this directory if only
-	# a playlist name is provided by the mpd client (requires "allow_modify_stored_playlists"
-	# set to true).
+	# a playlist name is provided (requires "allow_modify_stored_playlists" set to true).
 #	default_playlist_directory = ""
 }
 
