@@ -38,7 +38,7 @@
           </span>
           <span>Clear</span>
         </a>
-        <a class="button is-small" v-show="queue_items.length > 1" @click="save_dialog">
+        <a class="button is-small" v-if="is_queue_save_allowed" :disabled="queue_items.length === 0" @click="save_dialog">
           <span class="icon">
             <i class="mdi mdi-content-save"></i>
           </span>
@@ -65,7 +65,7 @@
       </draggable>
       <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
       <modal-dialog-add-url-stream :show="show_url_modal" @close="show_url_modal = false" />
-      <modal-dialog-playlist-save :show="show_pls_save_modal" @close="show_pls_save_modal = false" />
+      <modal-dialog-playlist-save v-if="is_queue_save_allowed" :show="show_pls_save_modal" @close="show_pls_save_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -98,6 +98,9 @@ export default {
   computed: {
     state () {
       return this.$store.state.player
+    },
+    is_queue_save_allowed () {
+      return this.$store.state.config.allow_modifying_stored_playlists && this.$store.state.config.default_playlist_directory
     },
     queue () {
       return this.$store.state.queue
