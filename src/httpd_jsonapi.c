@@ -2917,9 +2917,9 @@ static int
 jsonapi_reply_queue_save(struct httpd_request *hreq)
 {
   const char *param;
-  int ret = 0;
   char buf[PATH_MAX+7];
-  char *plsname = NULL;
+  char *playlist_name = NULL;
+  int ret = 0;
 
   if ((param = evhttp_find_header(hreq->query, "name")) == NULL)
     {
@@ -2939,9 +2939,17 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
       return 403;
    }
 
-  plsname = atrim(param);
-  snprintf(buf, PATH_MAX+7, "/file:%s/%s", default_pl_dir, plsname);
-  free(plsname);
+  playlist_name = atrim(param);
+
+  if (strlen(playlist_name) < 1) {
+      free(playlist_name);
+
+      DPRINTF(E_LOG, L_WEB, "Empty playlist name parameter is not allowed\n");
+      return HTTP_BADREQUEST;
+  }
+
+  snprintf(buf, sizeof(buf), "/file:%s/%s", default_pl_dir, playlist_name);
+  free(playlist_name);
 
   ret = library_queue_save(buf);
 
