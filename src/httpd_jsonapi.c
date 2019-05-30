@@ -712,6 +712,10 @@ jsonapi_reply_config(struct httpd_request *hreq)
     }
   json_object_object_add(jreply, "directories", directories);
 
+  // Config for creating/modifying stored playlists
+  json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(cfg_getbool(lib, "allow_modifying_stored_playlists")));
+  json_object_object_add(jreply, "default_playlist_directory", json_object_new_string(cfg_getstr(lib, "default_playlist_directory")));
+
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
