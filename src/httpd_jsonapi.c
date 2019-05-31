@@ -661,6 +661,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
   char *deref;
   json_object *directories;
   int i;
+  const char *dflt_pl_dir;
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
@@ -714,7 +715,9 @@ jsonapi_reply_config(struct httpd_request *hreq)
 
   // Config for creating/modifying stored playlists
   json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(cfg_getbool(lib, "allow_modifying_stored_playlists")));
-  json_object_object_add(jreply, "default_playlist_directory", json_object_new_string(cfg_getstr(lib, "default_playlist_directory")));
+  if ( (dflt_pl_dir = cfg_getstr(lib, "default_playlist_directory")))
+    json_object_object_add(jreply, "default_playlist_directory", json_object_new_string(dflt_pl_dir));
+
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
