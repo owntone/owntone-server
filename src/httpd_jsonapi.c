@@ -59,8 +59,9 @@
 # include "spotify.h"
 #endif
 
+
 static bool allow_modifying_stored_playlists;
-static char *default_pl_dir;
+static char *default_playlist_directory;
 
 
 /* -------------------------------- HELPERS --------------------------------- */
@@ -713,8 +714,8 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object_object_add(jreply, "directories", directories);
 
   // Config for creating/modifying stored playlists
-  json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(cfg_getbool(lib, "allow_modifying_stored_playlists")));
-  json_object_object_add(jreply, "default_playlist_directory", json_object_new_string(cfg_getstr(lib, "default_playlist_directory")));
+  json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(allow_modifying_stored_playlists));
+  safe_json_add_string(jreply, "default_playlist_directory", default_playlist_directory);
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
@@ -2929,13 +2930,13 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
 
   if (!allow_modifying_stored_playlists)
     {
-      DPRINTF(E_LOG, L_WEB, "Saving playlists disabled in cfg, ignoring request\n");
+      DPRINTF(E_LOG, L_WEB, "Modifying stored playlists is not enabled in the config file\n");
       return 403; 
     }
 
-  if (access(default_pl_dir, W_OK) < 0)
+  if (access(default_playlist_directory, W_OK) < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Invalid playlist save directory=%s\n", default_pl_dir);
+      DPRINTF(E_LOG, L_WEB, "Invalid playlist save directory '%s'\n", default_playlist_directory);
       return 403;
    }
 
@@ -2948,7 +2949,7 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
   }
 
-  snprintf(buf, sizeof(buf), "/file:%s/%s", default_pl_dir, playlist_name);
+  snprintf(buf, sizeof(buf), "/file:%s/%s", default_playlist_directory, playlist_name);
   free(playlist_name);
 
   ret = library_queue_save(buf);
@@ -3645,6 +3646,7 @@ int
 jsonapi_init(void)
 {
   char buf[64];
+  char *temp_path;
   int i;
   int ret;
 
@@ -3660,20 +3662,27 @@ jsonapi_init(void)
 	}
     }
 
-  default_pl_dir = NULL;
+  default_playlist_directory = NULL;
   allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "library"), "allow_modifying_stored_playlists");
   if (allow_modifying_stored_playlists)
     { 
-      default_pl_dir = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
-      if (default_pl_dir == NULL)
-        {
-          allow_modifying_stored_playlists = false;
-          DPRINTF(E_LOG, L_WEB, "Invalid playlist save directory, disabling\n");
-        }
-      else if (access(default_pl_dir, W_OK) < 0)
-        {
-          DPRINTF(E_WARN, L_WEB, "Non-writable playlist save directory=%s\n", default_pl_dir);
-       }
+      temp_path = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
+      if (temp_path)
+	{
+	  // The path in the conf file may have a trailing slash character. Return the realpath like it is done for the library directories.
+	  default_playlist_directory = realpath(temp_path, NULL);
+	  if (default_playlist_directory)
+	    {
+	      if (access(default_playlist_directory, W_OK) < 0)
+	        DPRINTF(E_WARN, L_WEB, "Non-writable playlist save directory '%s'\n", default_playlist_directory);
+	    }
+	}
+
+      if (!default_playlist_directory)
+	{
+	  DPRINTF(E_LOG, L_WEB, "Invalid playlist save directory, disabling modifying stored playlists\n");
+	  allow_modifying_stored_playlists = false;
+	}
      }
 
   return 0;
@@ -3686,4 +3695,6 @@ jsonapi_deinit(void)
 
   for (i = 0; adm_handlers[i].handler; i++)
     regfree(&adm_handlers[i].preg);
+
+  free(default_playlist_directory);
 }
