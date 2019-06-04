@@ -995,6 +995,25 @@ static const struct db_upgrade_query db_upgrade_v2100_queries[] =
     { U_V2100_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
+#define U_v2101_ALTER_QUEUE_ADD_TYPE \
+  "ALTER TABLE queue ADD COLUMN type VARCHAR(8) DEFAULT NULL;"
+#define U_v2101_ALTER_QUEUE_ADD_BITRATE \
+  "ALTER TABLE queue ADD COLUMN bitrate INTEGER DEFAULT 0;"
+#define U_v2101_ALTER_QUEUE_ADD_SAMPLERATE \
+  "ALTER TABLE queue ADD COLUMN samplerate INTEGER DEFAULT 0;"
+
+#define U_v2101_SCVER_MINOR                    \
+  "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2101_queries[] =
+  {
+    { U_v2101_ALTER_QUEUE_ADD_TYPE,       "alter table queue add column type" },
+    { U_v2101_ALTER_QUEUE_ADD_BITRATE,    "alter table queue add column bitrate" },
+    { U_v2101_ALTER_QUEUE_ADD_SAMPLERATE, "alter table queue add column samplerate" },
+
+    { U_v2101_SCVER_MINOR,    "set schema_version_minor to 01" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1140,6 +1159,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2001:
       ret = db_generic_upgrade(hdl, db_upgrade_v2100_queries, ARRAY_SIZE(db_upgrade_v2100_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2100:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2101_queries, ARRAY_SIZE(db_upgrade_v2101_queries));
       if (ret < 0)
 	return -1;
 

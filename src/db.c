@@ -273,6 +273,9 @@ static const struct col_type_map qi_cols_map[] =
     { "queue_version",      qi_offsetof(queue_version),       DB_TYPE_INT },
     { "composer",           qi_offsetof(composer),            DB_TYPE_STRING, DB_FIXUP_COMPOSER },
     { "songartistid",       qi_offsetof(songartistid),        DB_TYPE_INT64 },
+    { "type",               qi_offsetof(type),                DB_TYPE_STRING, DB_FIXUP_CODECTYPE },
+    { "bitrate",            qi_offsetof(bitrate),             DB_TYPE_INT },
+    { "samplerate",         qi_offsetof(samplerate),          DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -704,6 +707,7 @@ free_queue_item(struct db_queue_item *queue_item, int content_only)
   free(queue_item->album_sort);
   free(queue_item->album_artist_sort);
   free(queue_item->artwork_url);
+  free(queue_item->type);
 
   if (!content_only)
     free(queue_item);
@@ -4640,12 +4644,14 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos, int q
 		    "pos, shuffle_pos, path, virtual_path, title, "			\
 		    "artist, composer, album_artist, album, genre, songalbumid, songartistid,"	\
 		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
+		    "type, bitrate, samplerate, "                                       \
 		    "track, disc, queue_version)" 					\
 		"VALUES"                                           			\
 		    "(NULL, %s, %s, %s, %s, "						\
 		    "%d, %d, %Q, %Q, %Q, "						\
 		    "%Q, %Q, %Q, %Q, %Q, %s, %s,"					\
 		    "%s, %Q, %Q, %Q, %s, "						\
+		    "%Q, %s, %s, "				                        \
 		    "%s, %s, %d);"
 
   char *query;
@@ -4656,6 +4662,7 @@ queue_add_file(struct db_media_file_info *dbmfi, int pos, int shuffle_pos, int q
 			  pos, shuffle_pos, dbmfi->path, dbmfi->virtual_path, dbmfi->title,
 			  dbmfi->artist, dbmfi->composer, dbmfi->album_artist, dbmfi->album, dbmfi->genre, dbmfi->songalbumid, dbmfi->songartistid,
 			  dbmfi->time_modified, dbmfi->artist_sort, dbmfi->album_sort, dbmfi->album_artist_sort, dbmfi->year,
+			  dbmfi->type, dbmfi->bitrate, dbmfi->samplerate,
 			  dbmfi->track, dbmfi->disc, queue_version);
   ret = db_query_run(query, 1, 0);
 
@@ -4672,12 +4679,14 @@ queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_v
 		    "pos, shuffle_pos, path, virtual_path, title, "			\
 		    "artist, composer, album_artist, album, genre, songalbumid, songartistid, "	\
 		    "time_modified, artist_sort, album_sort, album_artist_sort, year, "	\
+		    "type, bitrate, samplerate, "                                       \
 		    "track, disc, artwork_url, queue_version)" 				\
 		"VALUES"                                           			\
 		    "(NULL, %d, %d, %d, %d, "						\
 		    "%d, %d, %Q, %Q, %Q, "						\
 		    "%Q, %Q, %Q, %Q, %Q, %" PRIi64 ", %" PRIi64 ","			\
 		    "%d, %Q, %Q, %Q, %d, "						\
+		    "%Q, %" PRIu32 ", %" PRIu32 ", "				        \
 		    "%d, %d, %Q, %d);"
 
   char *query;
@@ -4688,6 +4697,7 @@ queue_add_item(struct db_queue_item *item, int pos, int shuffle_pos, int queue_v
 			  pos, shuffle_pos, item->path, item->virtual_path, item->title,
 			  item->artist, item->composer, item->album_artist, item->album, item->genre, item->songalbumid, item->songartistid,
 			  item->time_modified, item->artist_sort, item->album_sort, item->album_artist_sort, item->year,
+                          item->type, item->bitrate, item->samplerate,
 			  item->track, item->disc, item->artwork_url, queue_version);
   ret = db_query_run(query, 1, 0);
 
@@ -5116,6 +5126,9 @@ queue_enum_fetch(struct query_params *qp, struct db_queue_item *queue_item, int 
   queue_item->artwork_url = strdup_if((char *)sqlite3_column_text(qp->stmt, 22), keep_item);
   queue_item->composer = strdup_if((char *)sqlite3_column_text(qp->stmt, 24), keep_item);
   queue_item->songartistid = sqlite3_column_int64(qp->stmt, 25);
+  queue_item->type = strdup_if((char *)sqlite3_column_text(qp->stmt, 26), keep_item);
+  queue_item->bitrate = sqlite3_column_int(qp->stmt, 27);
+  queue_item->samplerate = sqlite3_column_int(qp->stmt, 28);
 
   return 0;
 }

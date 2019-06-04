@@ -469,6 +469,10 @@ struct db_queue_item {
 
   char *composer;
 
+  char *type;
+  uint32_t bitrate;
+  uint32_t samplerate;
+
   int64_t songartistid;
 
   /* Not saved in queue table */

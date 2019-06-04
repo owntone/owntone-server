@@ -192,7 +192,10 @@
   "   artwork_url         VARCHAR(4096) DEFAULT NULL,"			\
   "   queue_version       INTEGER DEFAULT 0,"				\
   "   composer            VARCHAR(1024) DEFAULT NULL,"			\
-  "   songartistid        INTEGER NOT NULL"				\
+  "   songartistid        INTEGER NOT NULL,"				\
+  "   type                VARCHAR(8) DEFAULT NULL,"			\
+  "   bitrate             INTEGER DEFAULT 0,"				\
+  "   samplerate          INTEGER DEFAULT 0"				\
   ");"
 
 #define Q_PL1								\
