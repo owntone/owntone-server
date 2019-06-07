@@ -373,6 +373,7 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
   char *path;
   int mdcount;
   int sample_rate;
+  int channels;
   int i;
   int ret;
 
@@ -442,6 +443,7 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
       codec_id = ctx->streams[i]->codecpar->codec_id;
       sample_rate = ctx->streams[i]->codecpar->sample_rate;
       sample_fmt = ctx->streams[i]->codecpar->format;
+      channels = ctx->streams[i]->codecpar->channels;
       switch (codec_type)
 	{
 	  case AVMEDIA_TYPE_VIDEO:
@@ -478,6 +480,7 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
 		mfi->bits_per_sample = 8 * av_get_bytes_per_sample(sample_fmt);
 		if (mfi->bits_per_sample == 0)
 		  mfi->bits_per_sample = av_get_bits_per_sample(codec_id);
+		mfi->channels = channels;
 	      } 
 	    break;
 
@@ -503,7 +506,7 @@ scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
   else if (ctx->duration > AV_TIME_BASE) /* guesstimate */
     mfi->bitrate = ((mfi->file_size * 8) / (ctx->duration / AV_TIME_BASE)) / 1000;
 
-  DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps\n", mfi->song_length, mfi->bitrate);
+  DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps, samplerate %d channels %d\n", mfi->song_length, mfi->bitrate, mfi->samplerate, mfi->channels);
 
   /* Try to extract ICY metadata if http stream */
   if (mfi->data_kind == DATA_KIND_HTTP)

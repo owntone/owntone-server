@@ -1677,6 +1677,10 @@ map_media_file_to_queue_item(struct db_queue_item *queue_item, struct media_file
   queue_item->track = mfi->track;
   queue_item->disc = mfi->disc;
   //queue_item->artwork_url
+  queue_item->type = safe_strdup(mfi->type);
+  queue_item->channels = mfi->channels;
+  queue_item->samplerate = mfi->samplerate;
+  queue_item->bitrate = mfi->bitrate;
 }
 
 static int
