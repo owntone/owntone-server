@@ -1001,6 +1001,10 @@ static const struct db_upgrade_query db_upgrade_v2100_queries[] =
   "ALTER TABLE queue ADD COLUMN bitrate INTEGER DEFAULT 0;"
 #define U_v2101_ALTER_QUEUE_ADD_SAMPLERATE \
   "ALTER TABLE queue ADD COLUMN samplerate INTEGER DEFAULT 0;"
+#define U_v2101_ALTER_QUEUE_ADD_CHANNELS \
+  "ALTER TABLE queue ADD COLUMN channels INTEGER DEFAULT 0;"
+#define U_v2101_ALTER_FILES_ADD_CHANNELS \
+  "ALTER TABLE files ADD COLUMN channels INTEGER DEFAULT 0;"
 
 #define U_v2101_SCVER_MINOR                    \
   "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
@@ -1010,6 +1014,8 @@ static const struct db_upgrade_query db_upgrade_v2101_queries[] =
     { U_v2101_ALTER_QUEUE_ADD_TYPE,       "alter table queue add column type" },
     { U_v2101_ALTER_QUEUE_ADD_BITRATE,    "alter table queue add column bitrate" },
     { U_v2101_ALTER_QUEUE_ADD_SAMPLERATE, "alter table queue add column samplerate" },
+    { U_v2101_ALTER_QUEUE_ADD_CHANNELS,   "alter table queue add column channels" },
+    { U_v2101_ALTER_FILES_ADD_CHANNELS,   "alter table files add column channels" },
 
     { U_v2101_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
