@@ -417,6 +417,9 @@ Now you can make a cron job that runs this command:
 When forked-daapd detects a file with filename ending .init-rescan it will
 perform a bulk scan similar to the startup scan.
 
+Alternatively, you can force a metadata scan of the library even if the
+files have not changed by creating a filename ending `.meta-rescan`.
+
 
 ### Troubleshooting library issues
 
