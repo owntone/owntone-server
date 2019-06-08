@@ -62,6 +62,11 @@ struct library_source
   int (*rescan)(void);
 
   /*
+   * Run a metadata rescan of library even if files not changed (called from the library thread)
+   */
+  int (*metarescan)(void);
+
+  /*
    * Run a full rescan (purge library entries and rescan) (called from the library thread)
    */
   int (*fullrescan)(void);
@@ -98,6 +103,9 @@ library_queue_add(const char *path, int position, int *count, int *new_item_id);
 
 void
 library_rescan();
+
+void
+library_metarescan();
 
 void
 library_fullrescan();

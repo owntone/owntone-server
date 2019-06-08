@@ -295,6 +295,49 @@ rescan(void *arg, int *ret)
 }
 
 static enum command_state
+metarescan(void *arg, int *ret)
+{
+  time_t starttime;
+  time_t endtime;
+  int i;
+
+  DPRINTF(E_LOG, L_LIB, "Library meta rescan triggered\n");
+  listener_notify(LISTENER_UPDATE);
+  starttime = time(NULL);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (!sources[i]->disabled && sources[i]->metarescan)
+	{
+	  DPRINTF(E_INFO, L_LIB, "Meta rescan library source '%s'\n", sources[i]->name);
+	  sources[i]->metarescan();
+	}
+      else
+	{
+	  DPRINTF(E_INFO, L_LIB, "Library source '%s' is disabled\n", sources[i]->name);
+	}
+    }
+
+  purge_cruft(starttime);
+
+  DPRINTF(E_DBG, L_LIB, "Running post library scan jobs\n");
+  db_hook_post_scan();
+
+  endtime = time(NULL);
+  DPRINTF(E_LOG, L_LIB, "Library meta rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
+  scanning = false;
+
+  if (handle_deferred_update_notifications())
+    listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+  else
+    listener_notify(LISTENER_UPDATE);
+
+  *ret = 0;
+  return COMMAND_END;
+}
+
+
+static enum command_state
 fullrescan(void *arg, int *ret)
 {
   time_t starttime;
@@ -382,6 +425,18 @@ library_rescan()
   commands_exec_async(cmdbase, rescan, NULL);
 }
 
+void
+library_metarescan()
+{
+  if (scanning)
+    {
+      DPRINTF(E_INFO, L_LIB, "Scan already running, ignoring request to trigger metadata scan\n");
+      return;
+    }
+
+  scanning = true; // TODO Guard "scanning" with a mutex
+  commands_exec_async(cmdbase, metarescan, NULL);
+}
 void
 library_fullrescan()
 {
