@@ -723,6 +723,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
 | GET       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
+| GET       | [/api/update/meta](#trigger-meta-rescan)                    | Trigger a library metadata rescan    |
 
 
 
@@ -1657,6 +1658,25 @@ curl -X GET "http://localhost:3689/api/update"
 }
 ```
 
+### Trigger meta rescan
+
+Trigger a library metadata rescan even if files have not been updated.  Maintenence method.
+
+**Endpoint**
+
+```http
+GET /api/update/meta
+```
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/update/meta"
+```
 
 
 ## Search
