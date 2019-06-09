@@ -56,6 +56,11 @@ var app = new Vue({
       axios.get('/api/update').then(console.log('Library is updating'));
     },
 
+    update_meta: function() {
+      this.library.updating = true;
+      axios.get('/api/update/meta').then(console.log('Library is rescanning meta'));
+    },
+
     kickoffPairing: function() {
       axios.post('/api/pairing', this.pairing_req).then(response => {
         console.log('Kicked off pairing');

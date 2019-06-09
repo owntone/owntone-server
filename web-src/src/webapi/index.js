@@ -21,6 +21,10 @@ export default {
     return axios.get('/api/update')
   },
 
+  library_update_meta () {
+    return axios.get('/api/update/meta')
+  },
+
   library_count (expression) {
     return axios.get('/api/library/count?expression=' + expression)
   },
