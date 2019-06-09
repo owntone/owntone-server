@@ -24,8 +24,9 @@
                 </div>
 
                 <!-- Right side -->
-                <div class="level-right">
+                <div class="level-right buttons">
                   <a class="button is-small is-outlined is-link" :class="{ 'is-loading': library.updating }" @click="update">Update</a>
+                  <a class="button is-small is-outlined is-link" :class="{ 'is-loading': library.updating }" @click="update_meta">Force Meta Rescan</a>
                 </div>
               </nav>
 
@@ -95,6 +96,10 @@ export default {
   methods: {
     update: function () {
       webapi.library_update()
+    },
+
+    update_meta: function () {
+      webapi.library_update_meta()
     }
   },
 

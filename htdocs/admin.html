@@ -97,6 +97,8 @@
       <div class="column is-7 content">
         <a class="button" v-on:click="update" v-show="!library.updating">Update library</a>
         <p v-show="library.updating">Update in progress ...</p>
+        <a class="button" v-on:click="update_meta" v-show="!library.updating">Rescan library meta</a>
+        <p v-show="library.updating">Rescan in progress ...</p>
       </div>
     </div>
 
