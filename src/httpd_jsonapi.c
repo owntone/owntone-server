@@ -2536,7 +2536,7 @@ jsonapi_reply_queue_tracks_delete(struct httpd_request *hreq)
 static int
 jsonapi_reply_queue_clear(struct httpd_request *hreq)
 {
-  player_playback_stop();
+  player_playback_stop_clear();
   db_queue_clear(0);
 
   return HTTP_NOCONTENT;

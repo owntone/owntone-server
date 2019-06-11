@@ -1937,7 +1937,11 @@ playing_now(void *arg, int *retval)
 static enum command_state
 playback_stop(void *arg, int *retval)
 {
-  if (player_state == PLAY_STOPPED)
+  bool check_state = arg ? *((bool*)arg) : false;
+
+  // check_state == false means we force the teardown of Q; we may be stopped 
+  // and have items in the Q as we position the playhead
+  if (check_state && player_state == PLAY_STOPPED)
     {
       *retval = 0;
       return COMMAND_END;
@@ -3217,8 +3221,19 @@ int
 player_playback_stop(void)
 {
   int ret;
+  bool check_state = true;
 
-  ret = commands_exec_sync(cmdbase, playback_stop, NULL, NULL);
+  ret = commands_exec_sync(cmdbase, playback_stop, NULL, &check_state);
+  return ret;
+}
+
+int
+player_playback_stop_clear(void)
+{
+  int ret;
+  bool check_state = false;
+
+  ret = commands_exec_sync(cmdbase, playback_stop, NULL, &check_state);
   return ret;
 }
 
