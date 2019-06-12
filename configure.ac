@@ -238,7 +238,7 @@ AC_CHECK_SIZEOF([void *])
 dnl --- Begin configuring the options ---
 dnl ALSA
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [ALSA support], [alsa], [ALSA],
-	[alsa], [snd_mixer_open], [asoundlib.h])
+	[alsa], [snd_mixer_open], [alsa/asoundlib.h])
 AM_CONDITIONAL([COND_ALSA], [[test "x$with_alsa" = "xyes"]])
 
 dnl PULSEAUDIO
