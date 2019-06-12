@@ -44,12 +44,20 @@ export default {
 
     queue_add: function () {
       this.$emit('close')
-      webapi.queue_expression_add('genre is "' + this.genre.name + '" and media_kind is music')
+      if (this.genre.uri) {
+        webapi.queue_add(this.genre.uri)
+      } else {
+        webapi.queue_expression_add('genre is "' + this.genre.name + '" and media_kind is music')
+      }
     },
 
     queue_add_next: function () {
       this.$emit('close')
-      webapi.queue_expression_add_next('genre is "' + this.genre.name + '" and media_kind is music')
+      if (this.genre.uri) {
+        webapi.queue_add_next(this.genre.uri)
+      } else {
+        webapi.queue_expression_add_next('genre is "' + this.genre.name + '" and media_kind is music')
+      }
     },
 
     open_genre: function () {

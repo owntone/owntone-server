@@ -33,7 +33,7 @@
           </template>
         </list-item-track>
         <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
-        <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
+        <modal-dialog-artist :show="show_artist_details_modal" :artist="modal_artist_obj" @close="show_artist_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -83,6 +83,17 @@ export default {
   },
 
   computed: {
+    modal_artist_obj () {
+      var tracks = this.min_rating === 0 ? this.tracks.items : this.tracks.items.filter(a => a.rating >= this.min_rating)
+      return {
+        'id': this.id,
+        'name': this.artist.name,
+        'album_count': new Set(tracks.map(track => track.album_id)).size,
+        'track_count': tracks.length,
+        'uri': tracks.map(a => a.uri).join(',')
+      }
+    },
+
     index_list () {
       return [...new Set(this.tracks.items
         .map(track => track.title_sort.charAt(0).toUpperCase()))]
