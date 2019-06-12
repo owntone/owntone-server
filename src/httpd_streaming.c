@@ -194,9 +194,15 @@ encode_buffer(uint8_t *buffer, size_t size)
   int samples;
   int ret;
 
-  if (streaming_not_supported || streaming_quality.channels == 0)
+  if (streaming_not_supported)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Streaming unsuppored or quality is zero\n");
+      DPRINTF(E_LOG, L_STREAMING, "Streaming unsupported\n");
+      return -1;
+    }
+
+  if (streaming_quality.channels == 0)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Streaming quality is zero (%d/%d/%d)\n", streaming_quality.sample_rate, streaming_quality.bits_per_sample, streaming_quality.channels);
       return -1;
     }
 
