@@ -206,6 +206,19 @@ uid_t runas_uid;
 gid_t runas_gid;
 
 
+static void
+logger_confuse(cfg_t *cfg, const char *format, va_list args)
+{
+  char fmt[80];
+
+  if (cfg && cfg->name && cfg->line)
+    snprintf(fmt, sizeof(fmt), "[%s:%d] %s\n", cfg->name, cfg->line, format);
+  else
+    snprintf(fmt, sizeof(fmt), "%s\n", format);
+
+  DVPRINTF(E_LOG, L_CONF, fmt, args);
+}
+
 static int
 cb_loglevel(cfg_t *cfg, cfg_opt_t *opt, const char *value, void *result)
 {
@@ -354,6 +367,8 @@ conffile_load(char *file)
   int ret;
 
   cfg = cfg_init(toplvl_cfg, CFGF_NONE);
+
+  cfg_set_error_function(cfg, logger_confuse);
 
   ret = cfg_parse(cfg, file);
 

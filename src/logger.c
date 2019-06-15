@@ -175,6 +175,17 @@ DPRINTF(int severity, int domain, const char *fmt, ...)
 }
 
 void
+DVPRINTF(int severity, int domain, const char *fmt, va_list ap)
+{
+  // If domain and severity do not match the current log configuration, return early to
+  // safe some unnecessary code execution (tiny performance gain)
+  if (logger_initialized && (!((1 << domain) & logdomains) || (severity > threshold)))
+    return;
+
+  vlogger(severity, domain, fmt, ap);
+}
+
+void
 logger_ffmpeg(void *ptr, int level, const char *fmt, va_list ap)
 {
   int severity;
