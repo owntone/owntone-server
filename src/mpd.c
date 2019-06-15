@@ -4848,6 +4848,21 @@ int mpd_init(void)
   if (pl_dir)
     default_pl_dir = safe_asprintf("/file:%s", pl_dir);
 
+  /* Handle deprecated config options */
+  if (0 < cfg_opt_size(cfg_getopt(cfg_getsec(cfg, "mpd"), "allow_modifying_stored_playlists")))
+    {
+      DPRINTF(E_LOG, L_MPD, "Found deprecated option 'allow_modifying_stored_playlists' in section 'mpd', please update configuration file (move option to section 'library').\n");
+      allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "mpd"), "allow_modifying_stored_playlists");
+    }
+  if (0 < cfg_opt_size(cfg_getopt(cfg_getsec(cfg, "mpd"), "default_playlist_directory")))
+    {
+      DPRINTF(E_LOG, L_MPD, "Found deprecated option 'default_playlist_directory' in section 'mpd', please update configuration file (move option to section 'library').\n");
+      free(default_pl_dir);
+      pl_dir = cfg_getstr(cfg_getsec(cfg, "mpd"), "default_playlist_directory");
+      if (pl_dir)
+        default_pl_dir = safe_asprintf("/file:%s", pl_dir);
+    }
+
   DPRINTF(E_INFO, L_MPD, "mpd thread init\n");
 
   ret = pthread_create(&tid_mpd, NULL, mpd, NULL);
