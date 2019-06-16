@@ -112,7 +112,7 @@ FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 		[unistring], [u8_strconv_from_locale], [uniconv.h])])
 
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
-FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse], [cfg_init], [confuse.h])
+FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse >= 3.0.0], [cfg_init], [confuse.h])
 FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml], [mxmlNewElement], [mxml.h],
 	[AC_CHECK_FUNCS([mxmlGetOpaque] [mxmlGetText] [mxmlGetType] [mxmlGetFirstChild])])
 

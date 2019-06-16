@@ -53,6 +53,9 @@ void
 DPRINTF(int severity, int domain, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 
 void
+DVPRINTF(int severity, int domain, const char *fmt, va_list ap);
+
+void
 logger_ffmpeg(void *ptr, int level, const char *fmt, va_list ap);
 
 void
