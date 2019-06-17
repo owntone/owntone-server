@@ -47,7 +47,7 @@
       </div>
     </template>
     <template slot="content">
-      <draggable v-model="queue_items" :options="{handle:'.handle'}"  @end="move_item">
+      <draggable v-model="queue_items" handle=".handle" @end="move_item">
         <list-item-queue-item v-for="(item, index) in queue_items"
           :key="item.id" :item="item" :position="index"
           :current_position="current_position"

@@ -1,6 +1,6 @@
 {
   "name": "forked-daapd-web",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "forked-daapd web interface",
   "author": "chme <christian.meffert@googlemail.com>",
   "license": "GPL-2.0",
@@ -12,17 +12,17 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
-    "axios": "^0.18.0",
+    "axios": "^0.19.0",
     "bulma": "^0.7.5",
-    "mdi": "^2.1.99",
+    "mdi": "^2.2.43",
     "moment": "^2.24.0",
-    "moment-duration-format": "^2.2.2",
+    "moment-duration-format": "^2.3.2",
     "npm": "^6.9.0",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.2.0",
     "vue": "^2.6.10",
     "vue-infinite-loading": "^2.4.4",
-    "vue-progressbar": "^0.7.4",
+    "vue-progressbar": "^0.7.5",
     "vue-range-slider": "^0.6.0",
     "vue-router": "^3.0.6",
     "vuedraggable": "^2.21.0",
@@ -31,8 +31,8 @@
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.8.0",
     "@vue/cli-plugin-eslint": "^3.8.0",
-    "@vue/cli-service": "^3.8.0",
-    "@vue/eslint-config-standard": "^3.0.5",
+    "@vue/cli-service": "^3.8.4",
+    "@vue/eslint-config-standard": "^4.0.0",
     "vue-template-compiler": "^2.6.10"
   }
 }
