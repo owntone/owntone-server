@@ -18,7 +18,7 @@ export default {
   },
 
   library_update () {
-    return axios.get('/api/update')
+    return axios.put('/api/update')
   },
 
   library_update_meta () {

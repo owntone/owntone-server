@@ -3517,7 +3517,8 @@ static struct httpd_uri_map adm_handlers[] =
   {
     { EVHTTP_REQ_GET,    "^/api/config$",                                jsonapi_reply_config },
     { EVHTTP_REQ_GET,    "^/api/library$",                               jsonapi_reply_library },
-    { EVHTTP_REQ_GET,    "^/api/update$",                                jsonapi_reply_update },
+    { EVHTTP_REQ_GET |
+      EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },
     { EVHTTP_REQ_PUT,    "^/api/rescan$",                                jsonapi_reply_meta_rescan },
     { EVHTTP_REQ_POST,   "^/api/spotify-login$",                         jsonapi_reply_spotify_login },
     { EVHTTP_REQ_GET,    "^/api/spotify$",                               jsonapi_reply_spotify },
