@@ -22,7 +22,7 @@ export default {
   },
 
   library_update_meta () {
-    return axios.get('/api/update/meta')
+    return axios.put('/api/rescan')
   },
 
   library_count (expression) {
