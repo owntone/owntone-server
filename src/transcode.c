@@ -731,7 +731,7 @@ open_decoder(unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaTyp
   if ((*stream_index < 0) || (!decoder))
     {
       if (!ctx->settings.silent)
-	DPRINTF(E_LOG, L_XCODE, "No stream data or decoder for '%s'\n", ctx->ifmt_ctx->filename);
+	DPRINTF(E_LOG, L_XCODE, "No stream data or decoder for stream #%d\n", *stream_index);
       return NULL;
     }
 
