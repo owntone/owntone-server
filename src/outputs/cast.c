@@ -187,7 +187,7 @@ struct cast_session
   enum cast_state wanted_state;
 
   // Connection fd and session, and listener event
-  int64_t server_fd; // Use int64 so we can cast in gnutls_transport_set_ptr()
+  int server_fd;
   gnutls_session_t tls_session;
   struct event *ev;
 
@@ -523,7 +523,7 @@ stream_url_make(char *out, size_t len, const char *peer_addr, int family)
   union sockaddr_all haddr;
   union sockaddr_all hmask;
   union sockaddr_all paddr;
-  char host_addr[128];
+  char host_addr[64];
   unsigned short port;
   int found;
   int ret;
@@ -1609,7 +1609,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
       goto out_close_connection;
     }
 
-  gnutls_transport_set_ptr(cs->tls_session, (gnutls_transport_ptr_t)cs->server_fd);
+  gnutls_transport_set_int(cs->tls_session, cs->server_fd);
   ret = gnutls_handshake(cs->tls_session);
   if (ret != GNUTLS_E_SUCCESS)
     {
