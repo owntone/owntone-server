@@ -446,7 +446,7 @@ signal_kqueue_cb(int fd, short event, void *arg)
 }
 #endif
 
-
+#if (LIBAVCODEC_VERSION_MAJOR < 58) || ((LIBAVCODEC_VERSION_MAJOR == 58) && (LIBAVCODEC_VERSION_MINOR < 18))
 static int
 ffmpeg_lockmgr(void **pmutex, enum AVLockOp op)
 {
@@ -477,6 +477,7 @@ ffmpeg_lockmgr(void **pmutex, enum AVLockOp op)
 
   return 1;
 }
+#endif
 
 int
 main(int argc, char **argv)
@@ -660,6 +661,8 @@ main(int argc, char **argv)
   DPRINTF(E_INFO, L_MAIN, "Initialized with libav %s\n", av_version);
 #endif
 
+// The following was deprecated with ffmpeg 4.0 = avcodec 58.18, avformat 58.12, avfilter 7.16
+#if (LIBAVCODEC_VERSION_MAJOR < 58) || ((LIBAVCODEC_VERSION_MAJOR == 58) && (LIBAVCODEC_VERSION_MINOR < 18))
   ret = av_lockmgr_register(ffmpeg_lockmgr);
   if (ret < 0)
     {
@@ -668,9 +671,14 @@ main(int argc, char **argv)
       ret = EXIT_FAILURE;
       goto ffmpeg_init_fail;
     }
-
+#endif
+#if (LIBAVFORMAT_VERSION_MAJOR < 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR < 12))
   av_register_all();
+#endif
+#if (LIBAVFILTER_VERSION_MAJOR < 7) || ((LIBAVFILTER_VERSION_MAJOR == 7) && (LIBAVFILTER_VERSION_MINOR < 16))
   avfilter_register_all();
+#endif
+
 #if HAVE_DECL_AVFORMAT_NETWORK_INIT
   avformat_network_init();
 #endif
@@ -985,9 +993,12 @@ main(int argc, char **argv)
 #if HAVE_DECL_AVFORMAT_NETWORK_INIT
   avformat_network_deinit();
 #endif
-  av_lockmgr_register(NULL);
 
+#if (LIBAVCODEC_VERSION_MAJOR < 58) || ((LIBAVCODEC_VERSION_MAJOR == 58) && (LIBAVCODEC_VERSION_MINOR < 18))
+  av_lockmgr_register(NULL);
  ffmpeg_init_fail:
+#endif
+
   DPRINTF(E_LOG, L_MAIN, "Exiting.\n");
   conffile_unload();
   logger_deinit();
