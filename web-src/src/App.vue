@@ -3,7 +3,8 @@
     <navbar-top />
     <vue-progress-bar class="fd-progress-bar" />
     <transition name="fade">
-      <router-view />
+      <!-- Setting v-show to true on the router-view tag avoids jumpiness during transitions -->
+      <router-view v-show="true" />
     </transition>
     <notifications v-show="!show_burger_menu" />
     <navbar-bottom v-show="!show_burger_menu" />
