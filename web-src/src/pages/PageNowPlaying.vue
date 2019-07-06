@@ -107,10 +107,7 @@ export default {
     },
 
     artwork_url: function () {
-      if (this.now_playing.artwork_url && this.now_playing.artwork_url.startsWith('/')) {
-        return this.now_playing.artwork_url + '?maxwidth=600&maxheight=600'
-      }
-      return this.now_playing.artwork_url
+      return webapi.artwork_url_append_size_params(this.now_playing.artwork_url)
     }
   },
 
