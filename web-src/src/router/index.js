@@ -247,10 +247,7 @@ export const router = new VueRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  if (store.state.show_burger_menu) {
-    store.commit(types.SHOW_BURGER_MENU, false)
-    next(false)
-  } else {
-    next()
-  }
+  const burgerMenuVisible = store.state.show_burger_menu
+  store.commit(types.SHOW_BURGER_MENU, false)
+  next(!burgerMenuVisible)
 })

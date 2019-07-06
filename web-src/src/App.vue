@@ -182,9 +182,6 @@ export default {
   },
 
   watch: {
-    '$route' (to, from) {
-      this.$store.commit(types.SHOW_BURGER_MENU, false)
-    },
     'show_burger_menu' () {
       if (this.show_burger_menu) {
         document.querySelector('html').classList.add('is-clipped')
