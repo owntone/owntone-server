@@ -3,7 +3,7 @@
     <navbar-top />
     <vue-progress-bar class="fd-progress-bar" />
     <transition name="fade">
-      <router-view v-show="!show_burger_menu" />
+      <router-view />
     </transition>
     <notifications v-show="!show_burger_menu" />
     <navbar-bottom v-show="!show_burger_menu" />
