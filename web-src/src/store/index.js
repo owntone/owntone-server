@@ -11,6 +11,9 @@ export default new Vuex.Store({
       'version': '',
       'buildoptions': [ ]
     },
+    settings: {
+      'categories': []
+    },
     library: {
       'artists': 0,
       'albums': 0,
@@ -58,12 +61,47 @@ export default new Vuex.Store({
         return item.id === state.player.item_id
       })
       return (item === undefined) ? {} : item
+    },
+
+    settings_webinterface: state => {
+      if (state.settings) {
+        return state.settings.categories.find(elem => elem.name === 'webinterface')
+      }
+      return null
+    },
+
+    settings_option_show_composer_now_playing: (state, getters) => {
+      if (getters.settings_webinterface) {
+        const option = getters.settings_webinterface.options.find(elem => elem.name === 'show_composer_now_playing')
+        if (option) {
+          return option.value
+        }
+      }
+      return false
+    },
+
+    settings_option_show_composer_for_genre: (state, getters) => {
+      if (getters.settings_webinterface) {
+        const option = getters.settings_webinterface.options.find(elem => elem.name === 'show_composer_for_genre')
+        if (option) {
+          return option.value
+        }
+      }
+      return null
     }
   },
 
   mutations: {
     [types.UPDATE_CONFIG] (state, config) {
       state.config = config
+    },
+    [types.UPDATE_SETTINGS] (state, settings) {
+      state.settings = settings
+    },
+    [types.UPDATE_SETTINGS_OPTION] (state, option) {
+      const settingCategory = state.settings.categories.find(elem => elem.name === option.category)
+      const settingOption = settingCategory.options.find(elem => elem.name === option.name)
+      settingOption.value = option.value
     },
     [types.UPDATE_LIBRARY_STATS] (state, libraryStats) {
       state.library = libraryStats

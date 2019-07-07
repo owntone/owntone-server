@@ -31,6 +31,7 @@ import SpotifyPageArtist from '@/pages/SpotifyPageArtist'
 import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum'
 import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist'
 import SpotifyPageSearch from '@/pages/SpotifyPageSearch'
+import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface'
 
 Vue.use(VueRouter)
 
@@ -212,6 +213,11 @@ export const router = new VueRouter({
       path: '/search/spotify',
       name: 'Spotify Search',
       component: SpotifyPageSearch
+    },
+    {
+      path: '/settings/webinterface',
+      name: 'Settings Webinterface',
+      component: SettingsPageWebinterface
     }
   ],
   scrollBehavior (to, from, savedPosition) {
