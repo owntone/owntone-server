@@ -1,24 +1,24 @@
 <template>
   <nav class="navbar is-light is-fixed-top" role="navigation" aria-label="main navigation">
     <div class="navbar-brand">
-      <router-link to="/playlists" class="navbar-item" active-class="is-active">
+      <navbar-item-link to="/playlists">
         <span class="icon"><i class="mdi mdi-library-music"></i></span>
-      </router-link>
-      <router-link to="/music" class="navbar-item" active-class="is-active">
+      </navbar-item-link>
+      <navbar-item-link to="/music">
         <span class="icon"><i class="mdi mdi-music"></i></span>
-      </router-link>
-      <router-link to="/podcasts" class="navbar-item" active-class="is-active" v-if="podcasts.tracks > 0">
+      </navbar-item-link>
+      <navbar-item-link to="/podcasts" v-if="podcasts.tracks > 0">
         <span class="icon"><i class="mdi mdi-microphone"></i></span>
-      </router-link>
-      <router-link to="/audiobooks" class="navbar-item" active-class="is-active" v-if="audiobooks.tracks > 0">
+      </navbar-item-link>
+      <navbar-item-link to="/audiobooks" v-if="audiobooks.tracks > 0">
         <span class="icon"><i class="mdi mdi-book-open-variant"></i></span>
-      </router-link>
-      <router-link to="/files" class="navbar-item" active-class="is-active">
+      </navbar-item-link>
+      <navbar-item-link to="/files">
         <span class="icon"><i class="mdi mdi-folder-open"></i></span>
-      </router-link>
-      <router-link to="/search" class="navbar-item" active-class="is-active">
+      </navbar-item-link>
+      <navbar-item-link to="/search">
         <span class="icon"><i class="mdi mdi-magnify"></i></span>
-      </router-link>
+      </navbar-item-link>
 
       <div class="navbar-burger" @click="update_show_burger_menu" :class="{ 'is-active': show_burger_menu }">
         <span></span>
@@ -26,16 +26,20 @@
         <span></span>
       </div>
     </div>
+
     <div class="navbar-menu" :class="{ 'is-active': show_burger_menu }">
       <div class="navbar-start">
       </div>
 
       <div class="navbar-end">
+
+        <!-- Outputs dropdown -->
         <div class="navbar-item has-dropdown is-hoverable">
-          <a class="navbar-link"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-volume-high"></i></span> <span class="is-hidden-desktop">Volume</span></a>
+          <a class="navbar-link is-arrowless"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-volume-high"></i></span> <span class="is-hidden-desktop has-text-weight-bold">Volume</span></a>
 
           <div class="navbar-dropdown is-right">
             <div class="navbar-item">
+              <!-- Outputs: master volume -->
               <div class="level is-mobile">
                 <div class="level-left fd-expanded">
                   <div class="level-item" style="flex-grow: 0;">
@@ -59,9 +63,12 @@
                 </div>
               </div>
             </div>
-            <hr class="navbar-divider">
-            <nav-bar-item-output v-for="output in outputs" :key="output.id" :output="output"></nav-bar-item-output>
 
+            <!-- Outputs: master volume -->
+            <hr class="navbar-divider">
+            <navbar-item-output v-for="output in outputs" :key="output.id" :output="output"></navbar-item-output>
+
+            <!-- Outputs: stream volume -->
             <hr class="navbar-divider">
             <div class="navbar-item">
               <div class="level is-mobile">
@@ -87,6 +94,7 @@
               </div>
             </div>
 
+            <!-- Playback controls -->
             <hr class="navbar-divider">
             <div class="navbar-item">
               <div class="level is-mobile">
@@ -110,18 +118,20 @@
             </div>
           </div>
         </div>
+
+        <!-- Settings drop down -->
         <div class="navbar-item has-dropdown is-hoverable">
-          <a class="navbar-link"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-settings"></i></span> <span class="is-hidden-desktop">Settings</span></a>
+          <a class="navbar-link is-arrowless"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-settings"></i></span> <span class="is-hidden-desktop has-text-weight-bold">Settings</span></a>
 
           <div class="navbar-dropdown is-right">
             <a class="navbar-item" href="/admin.html">Admin</a>
             <hr class="navbar-divider">
-            <a class="navbar-item" v-on:click="open_about">
+            <navbar-item-link to="/about">
               <div>
                 <p class="title is-7">forked-daapd</p>
                 <p class="subtitle is-7">{{ config.version }}</p>
               </div>
-            </a>
+            </navbar-item-link>
           </div>
         </div>
       </div>
@@ -132,7 +142,8 @@
 <script>
 import webapi from '@/webapi'
 import _audio from '@/audio'
-import NavBarItemOutput from './NavBarItemOutput'
+import NavbarItemLink from './NavbarItemLink'
+import NavbarItemOutput from './NavbarItemOutput'
 import PlayerButtonPlayPause from './PlayerButtonPlayPause'
 import PlayerButtonNext from './PlayerButtonNext'
 import PlayerButtonPrevious from './PlayerButtonPrevious'
@@ -144,11 +155,10 @@ import * as types from '@/store/mutation_types'
 
 export default {
   name: 'NavbarTop',
-  components: { NavBarItemOutput, PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
+  components: { NavbarItemLink, NavbarItemOutput, PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat, RangeSlider },
 
   data () {
     return {
-      search_query: '',
       old_volume: 0,
 
       playing: false,
@@ -202,11 +212,6 @@ export default {
       } else {
         this.set_volume(this.old_volume)
       }
-    },
-
-    open_about: function () {
-      this.$store.commit(types.SHOW_BURGER_MENU, false)
-      this.$router.push({ path: '/about' })
     },
 
     setupAudio: function () {

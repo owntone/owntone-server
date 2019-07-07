@@ -61,10 +61,7 @@ export default {
 
   computed: {
     artwork_url: function () {
-      if (this.album.artwork_url && this.album.artwork_url.startsWith('/')) {
-        return this.album.artwork_url + '?maxwidth=600&maxheight=600'
-      }
-      return this.album.artwork_url
+      return webapi.artwork_url_append_size_params(this.album.artwork_url)
     }
   },
 
