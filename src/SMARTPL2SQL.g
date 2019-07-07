@@ -310,7 +310,7 @@ ordertag	returns [ pANTLR3_STRING result ]
 	;
 
 dateval		returns [ pANTLR3_STRING result ]
-@init { $result = 0; }
+@init { $result = NULL; }
 	:	DATE
 		{
 			pANTLR3_UINT8 datval;
@@ -347,10 +347,8 @@ dateval		returns [ pANTLR3_STRING result ]
 	|	interval BEFORE DATE
 		{
 			pANTLR3_UINT8 datval;
-                        char str[15];
 
 			datval = $DATE.text->chars;
-                        sprintf(str, "\%d", $interval.result);
 
 			$result = $DATE.text->factory->newRaw($DATE.text->factory);
 			
@@ -376,16 +374,14 @@ dateval		returns [ pANTLR3_STRING result ]
 			}
 
                         $result->append8($result, "'-");
-                        $result->append8($result, str);
-                        $result->append8($result, " seconds', 'localtime'))");
+                        $result->append8($result, (const char *)$interval.result->chars);
+                        $result->append8($result, "', 'localtime'))");
                 }
 	|	interval AFTER DATE
 		{
 			pANTLR3_UINT8 datval;
-                        char str[15];
 			
 			datval = $DATE.text->chars;
-                        sprintf(str, "\%d", $interval.result);
 			
 			$result = $DATE.text->factory->newRaw($DATE.text->factory);
 
@@ -411,52 +407,29 @@ dateval		returns [ pANTLR3_STRING result ]
 			}
 			
                         $result->append8($result, "'+");
-                        $result->append8($result, str);
-                        $result->append8($result, " seconds', 'localtime'))");
+                        $result->append8($result, (const char *)$interval.result->chars);
+                        $result->append8($result, "', 'localtime'))");
                 }
 	|	interval AGO
 		{
-                        char str[15];
-                        sprintf(str, "\%d", $interval.result);
-
 			$result = $AGO.text->factory->newRaw($AGO.text->factory);
 
                         $result->append8($result, "strftime('\%s', datetime('now', 'start of day', ");
                         $result->append8($result, "'-");
-                        $result->append8($result, str);
-                        $result->append8($result, " seconds', 'localtime'))");
+                        $result->append8($result, (const char *)$interval.result->chars);
+                        $result->append8($result, "', 'localtime'))");
 		}
 	;
 
-interval	returns [ int result ]
-@init { $result = 0; }
+interval	returns [ pANTLR3_STRING result ]
+@init { $result = NULL; }
 	:	INT DATINTERVAL
 		{
-			pANTLR3_UINT8 interval;
-			
-			$result = atoi((const char *)$INT.text->chars);
-			interval = $DATINTERVAL.text->chars;
-			
-			if (strcmp((char *)interval, "days") == 0)
-			{
-				$result = $result * 24 * 3600;
-			}
-			else if (strcmp((char *)interval, "weeks") == 0)
-			{
-				$result = $result * 24 * 3600 * 7;
-			}
-			else if (strcmp((char *)interval, "months") == 0)
-			{
-				$result = $result * 24 * 3600 * 30;
-			}
-			else if (strcmp((char *)interval, "weeks") == 0)
-			{
-				$result = $result * 24 * 3600 * 365;
-			}
-			else
-			{
-				$result = 0;
-			}
+			$result = $DATINTERVAL.text->factory->newRaw($DATINTERVAL.text->factory);
+			$result->append8($result, (const char *)$INT.text->chars);
+			$result->append8($result, " ");
+			$result->append8($result, (const char *)$DATINTERVAL.text->chars);
+			return $result;
 		}
 	;
 
