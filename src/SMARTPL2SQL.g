@@ -425,10 +425,27 @@ interval	returns [ pANTLR3_STRING result ]
 @init { $result = NULL; }
 	:	INT DATINTERVAL
 		{
+		        pANTLR3_UINT8 interval;
+			int intval;
+			char buf[25];
+
 			$result = $DATINTERVAL.text->factory->newRaw($DATINTERVAL.text->factory);
-			$result->append8($result, (const char *)$INT.text->chars);
-			$result->append8($result, " ");
-			$result->append8($result, (const char *)$DATINTERVAL.text->chars);
+
+			// SQL doesnt have a modifer for 'week' but for day/hr/min/sec/month/yr
+			interval = $DATINTERVAL.text->chars;
+			if (strcmp((char *)interval, "weeks") == 0)
+			{
+			    intval = atoi((const char *)$INT.text->chars) * 7;
+			    snprintf(buf, sizeof(buf), "\%d days", intval);
+
+			    $result->append8($result, buf);
+			}
+			else
+			{
+			    $result->append8($result, (const char *)$INT.text->chars);
+			    $result->append8($result, " ");
+			    $result->append8($result, (const char *)$DATINTERVAL.text->chars);
+			}
 			return $result;
 		}
 	;
