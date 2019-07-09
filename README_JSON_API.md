@@ -1658,7 +1658,7 @@ curl -X PUT "http://localhost:3689/api/update"
 }
 ```
 
-### Trigger meta rescan
+### Trigger metadata rescan
 
 Trigger a library metadata rescan even if files have not been updated.  Maintenence method.
 
