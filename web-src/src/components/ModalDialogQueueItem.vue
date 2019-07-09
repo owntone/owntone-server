@@ -51,6 +51,10 @@
                   <span class="heading">Type</span>
                   <span class="title is-6">{{ item.media_kind }} - {{ item.data_kind }} <span class="has-text-weight-normal" v-if="item.data_kind === 'spotify'">(<a @click="open_spotify_artist">artist</a>, <a @click="open_spotify_album">album</a>)</span></span>
                 </p>
+                <p>
+                  <span class="heading">Quality</span>
+                  <span class="title is-6">{{ item.type}} | {{ item.samplerate }} Hz | {{ item.channels }} | {{ item.bitrate }} Kb/s</span>
+                </p>
               </div>
             </div>
             <footer class="card-footer">

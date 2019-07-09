@@ -163,6 +163,7 @@ struct media_file_info {
 
   uint32_t bitrate;
   uint32_t samplerate;
+  uint32_t channels;
   uint32_t song_length;
   int64_t file_size;
   uint32_t year;         /* TDRC */
@@ -367,6 +368,7 @@ struct db_media_file_info {
   char *album_sort;
   char *album_artist_sort;
   char *composer_sort;
+  char *channels;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
@@ -468,6 +470,11 @@ struct db_queue_item {
   uint32_t queue_version;
 
   char *composer;
+
+  char *type;
+  uint32_t bitrate;
+  uint32_t samplerate;
+  uint32_t channels;
 
   int64_t songartistid;
 

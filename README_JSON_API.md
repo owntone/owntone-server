@@ -1997,6 +1997,10 @@ curl --include \
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
 | artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
+| type               | string   | file (codec) type (ie mp3/flac/...)       |
+| bitrate            | string   | file bitrate (ie 192/128/...)             |
+| samplerate         | string   | file sample rate (ie 44100/48000/...)     |
+| channel            | string   | file channel (ie mono/stereo/xx ch))      |
 
 
 ### `playlist` object

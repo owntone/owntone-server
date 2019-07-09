@@ -58,6 +58,10 @@
                   <span class="title is-6">{{ track.media_kind }} - {{ track.data_kind }} <span class="has-text-weight-normal" v-if="track.data_kind === 'spotify'">(<a @click="open_spotify_artist">artist</a>, <a @click="open_spotify_album">album</a>)</span></span>
                 </p>
                 <p>
+                  <span class="heading">Quality</span>
+                  <span class="title is-6">{{ track.type}} | {{ track.samplerate}} Hz | {{ track.channels }} channels | {{ track.bitrate}} Kb/s</span>
+                </p>
+                <p>
                   <span class="heading">Added at</span>
                   <span class="title is-6">{{ track.time_added | time('L LT') }}</span>
                 </p>
