@@ -21,7 +21,7 @@ export default {
     return axios.put('/api/update')
   },
 
-  library_update_meta () {
+  library_rescan() {
     return axios.put('/api/rescan')
   },
 

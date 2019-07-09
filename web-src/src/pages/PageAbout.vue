@@ -99,7 +99,7 @@ export default {
     },
 
     update_meta: function () {
-      webapi.library_update_meta()
+      webapi.library_rescan()
     }
   },
 
