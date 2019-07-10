@@ -231,6 +231,11 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_time_from_string(item, "date_released", dbmfi->date_released, false);
   safe_json_add_int_from_string(item, "seek_ms", dbmfi->seek);
 
+  safe_json_add_string(item, "type", dbmfi->type);
+  safe_json_add_int_from_string(item, "samplerate", dbmfi->samplerate);
+  safe_json_add_int_from_string(item, "bitrate", dbmfi->bitrate);
+  safe_json_add_int_from_string(item, "channels", dbmfi->channels);
+
   ret = safe_atoi32(dbmfi->media_kind, &intval);
   if (ret == 0)
     safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
@@ -786,6 +791,14 @@ jsonapi_reply_update(struct httpd_request *hreq)
   library_rescan();
   return HTTP_NOCONTENT;
 }
+
+static int
+jsonapi_reply_meta_rescan(struct httpd_request *hreq)
+{
+  library_metarescan();
+  return HTTP_NOCONTENT;
+}
+
 
 /*
  * Endpoint to retrieve information about the spotify integration
@@ -1656,6 +1669,8 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   json_object *item;
   char uri[100];
   char artwork_url[100];
+  char chbuf[6];
+  const char *ch;
   int ret;
 
   item = json_object_new_object();
@@ -1712,6 +1727,19 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
       if (ret < sizeof(artwork_url))
 	json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
     }
+
+  safe_json_add_string(item, "type", queue_item->type);
+  json_object_object_add(item, "bitrate", json_object_new_int(queue_item->bitrate));
+  json_object_object_add(item, "samplerate", json_object_new_int(queue_item->samplerate));
+  switch (queue_item->channels)
+    {
+      case 1:  ch = "mono";   break;
+      case 2:  ch = "stereo"; break;
+      default:
+        snprintf(chbuf, sizeof(chbuf), "%d ch", queue_item->channels);
+        ch = chbuf;
+    }
+  safe_json_add_string(item, "channels", ch);
 
   return item;
 }
@@ -3509,7 +3537,9 @@ static struct httpd_uri_map adm_handlers[] =
   {
     { EVHTTP_REQ_GET,    "^/api/config$",                                jsonapi_reply_config },
     { EVHTTP_REQ_GET,    "^/api/library$",                               jsonapi_reply_library },
-    { EVHTTP_REQ_GET,    "^/api/update$",                                jsonapi_reply_update },
+    { EVHTTP_REQ_GET |
+      EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },
+    { EVHTTP_REQ_PUT,    "^/api/rescan$",                                jsonapi_reply_meta_rescan },
     { EVHTTP_REQ_POST,   "^/api/spotify-login$",                         jsonapi_reply_spotify_login },
     { EVHTTP_REQ_GET,    "^/api/spotify$",                               jsonapi_reply_spotify },
     { EVHTTP_REQ_GET,    "^/api/pairing$",                               jsonapi_reply_pairing_get },

@@ -722,7 +722,8 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
-| GET       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
+| PUT       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
+| PUT       | [/api/rescan](#trigger-meta-rescan)                         | Trigger a library metadata rescan    |
 
 
 
@@ -1632,7 +1633,7 @@ Trigger a library rescan
 **Endpoint**
 
 ```http
-GET /api/update
+PUT /api/update
 ```
 
 **Response**
@@ -1642,7 +1643,7 @@ On success returns the HTTP `204 No Content` success status response code.
 **Example**
 
 ```shell
-curl -X GET "http://localhost:3689/api/update"
+curl -X PUT "http://localhost:3689/api/update"
 ```
 
 ```json
@@ -1657,6 +1658,25 @@ curl -X GET "http://localhost:3689/api/update"
 }
 ```
 
+### Trigger metadata rescan
+
+Trigger a library metadata rescan even if files have not been updated.  Maintenence method.
+
+**Endpoint**
+
+```http
+PUT /api/rescan
+```
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```shell
+curl -X PUT "http://localhost:3689/api/rescan"
+```
 
 
 ## Search
@@ -1977,6 +1997,10 @@ curl --include \
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
 | artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
+| type               | string   | file (codec) type (ie mp3/flac/...)       |
+| bitrate            | string   | file bitrate (ie 192/128/...)             |
+| samplerate         | string   | file sample rate (ie 44100/48000/...)     |
+| channel            | string   | file channel (ie mono/stereo/xx ch))      |
 
 
 ### `playlist` object

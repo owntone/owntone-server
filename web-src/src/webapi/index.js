@@ -18,7 +18,11 @@ export default {
   },
 
   library_update () {
-    return axios.get('/api/update')
+    return axios.put('/api/update')
+  },
+
+  library_rescan() {
+    return axios.put('/api/rescan')
   },
 
   library_count (expression) {
@@ -302,5 +306,15 @@ export default {
 
   spotify () {
     return axios.get('/api/spotify')
+  },
+
+  artwork_url_append_size_params (artworkUrl, maxwidth = 600, maxheight = 600) {
+    if (artworkUrl && artworkUrl.startsWith('/')) {
+      if (artworkUrl.includes('?')) {
+        return artworkUrl + '&maxwidth=' + maxwidth + '&maxheight=' + maxheight
+      }
+      return artworkUrl + '?maxwidth=' + maxwidth + '&maxheight=' + maxheight
+    }
+    return artworkUrl
   }
 }

@@ -95,7 +95,8 @@
   "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
+  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   channels           INTEGER DEFAULT 0"		\
   ");"
 
 #define T_PL					\
@@ -192,7 +193,11 @@
   "   artwork_url         VARCHAR(4096) DEFAULT NULL,"			\
   "   queue_version       INTEGER DEFAULT 0,"				\
   "   composer            VARCHAR(1024) DEFAULT NULL,"			\
-  "   songartistid        INTEGER NOT NULL"				\
+  "   songartistid        INTEGER NOT NULL,"				\
+  "   type                VARCHAR(8) DEFAULT NULL,"			\
+  "   bitrate             INTEGER DEFAULT 0,"				\
+  "   samplerate          INTEGER DEFAULT 0,"				\
+  "   channels            INTEGER DEFAULT 0"				\
   ");"
 
 #define Q_PL1								\

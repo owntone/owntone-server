@@ -38,6 +38,19 @@ options {
 }
 
 @members {
+    static time_t startoftoday()
+    {
+        struct tm tm;
+        time_t now;
+
+        time(&now);
+        localtime_r(&now, &tm);
+        tm.tm_sec  = 0;
+        tm.tm_min  = 0;
+        tm.tm_hour = 0;
+
+	return mktime(&tm);
+    }
 }
 
 playlist	returns [ pANTLR3_STRING title, pANTLR3_STRING query, pANTLR3_STRING orderby, pANTLR3_STRING having, int limit ]
@@ -325,23 +338,23 @@ dateval		returns [ int result ]
 			
 			if (strcmp((char *)datval, "today") == 0)
 			{
-				$result = time(NULL);
+				$result = startoftoday();
 			}
 			else if (strcmp((char *)datval, "yesterday") == 0)
 			{
-				$result = time(NULL) - 24 * 3600;
+				$result = startoftoday() - 24 * 3600;
 			}
 			else if (strcmp((char *)datval, "last week") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 7;
+				$result = startoftoday() - 24 * 3600 * 7;
 			}
 			else if (strcmp((char *)datval, "last month") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 30;
+				$result = startoftoday() - 24 * 3600 * 30;
 			}
 			else if (strcmp((char *)datval, "last year") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 365;
+				$result = startoftoday() - 24 * 3600 * 365;
 			}
 			else
 			{
@@ -374,23 +387,23 @@ dateval		returns [ int result ]
 			
 			if (strcmp((char *)datval, "yesterday") == 0)
 			{
-				$result = time(NULL) - 24 * 3600;
+				$result = startoftoday() - 24 * 3600;
 			}
 			else if (strcmp((char *)datval, "last week") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 7;
+				$result = startoftoday() - 24 * 3600 * 7;
 			}
 			else if (strcmp((char *)datval, "last month") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 30;
+				$result = startoftoday() - 24 * 3600 * 30;
 			}
 			else if (strcmp((char *)datval, "last year") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 365;
+				$result = startoftoday() - 24 * 3600 * 365;
 			}
 			else
 			{
-				$result = time(NULL);
+				$result = startoftoday(NULL);
 			}
 			
 			$result = $result - $interval.result;
@@ -403,30 +416,30 @@ dateval		returns [ int result ]
 			
 			if (strcmp((char *)datval, "yesterday") == 0)
 			{
-				$result = time(NULL) - 24 * 3600;
+				$result = startoftoday() - 24 * 3600;
 			}
 			else if (strcmp((char *)datval, "last week") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 7;
+				$result = startoftoday() - 24 * 3600 * 7;
 			}
 			else if (strcmp((char *)datval, "last month") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 30;
+				$result = startoftoday() - 24 * 3600 * 30;
 			}
 			else if (strcmp((char *)datval, "last year") == 0)
 			{
-				$result = time(NULL) - 24 * 3600 * 365;
+				$result = startoftoday() - 24 * 3600 * 365;
 			}
 			else
 			{
-				$result = time(NULL);
+				$result = startoftoday();
 			}
 			
 			$result = $result + $interval.result;
 		}
 	|	interval AGO
 		{
-			$result = time(NULL) - $interval.result;
+			$result = startoftoday() - $interval.result;
 		}
 	;
 

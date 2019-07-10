@@ -3,7 +3,8 @@
     <navbar-top />
     <vue-progress-bar class="fd-progress-bar" />
     <transition name="fade">
-      <router-view v-show="!show_burger_menu" />
+      <!-- Setting v-show to true on the router-view tag avoids jumpiness during transitions -->
+      <router-view v-show="true" />
     </transition>
     <notifications v-show="!show_burger_menu" />
     <navbar-bottom v-show="!show_burger_menu" />
@@ -181,9 +182,6 @@ export default {
   },
 
   watch: {
-    '$route' (to, from) {
-      this.$store.commit(types.SHOW_BURGER_MENU, false)
-    },
     'show_burger_menu' () {
       if (this.show_burger_menu) {
         document.querySelector('html').classList.add('is-clipped')

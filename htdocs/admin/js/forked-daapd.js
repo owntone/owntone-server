@@ -53,7 +53,12 @@ var app = new Vue({
 
     update: function() {
       this.library.updating = true;
-      axios.get('/api/update').then(console.log('Library is updating'));
+      axios.put('/api/update').then(console.log('Library is updating'));
+    },
+
+    update_meta: function() {
+      this.library.updating = true;
+      axios.put('/api/rescan').then(console.log('Library is rescanning meta'));
     },
 
     kickoffPairing: function() {
