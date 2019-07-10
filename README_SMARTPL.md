@@ -150,6 +150,8 @@ One example of a valid date is a date in yyyy-mm-dd format:
 There are also some special date keywords:
 * `today`, `yesterday`, `last week`, `last month`, `last year`
 
+These dates refer to the _start_ of that period; `today` means 00:00hrs of today, `last week` means the previous Monday 00:00hrs, `last month` is the first day of the previous month at 00:00hrs etc.
+
 A valid date can also be made by applying an interval to a date. Intervals can be defined as `days`, `weeks`, `months`, `years`.
 As an example, a valid date might be:
 
@@ -173,7 +175,11 @@ This matches all songs added in the last 2 weeks.
 }
 ```
 
-This matches all audiobooks played in the last week.
+This matches all audiobooks played since the start of the last Monday 00:00AM.
+
+All dates, except for `YYYY-DD-HH`, are relative to the day of when `forked-daapd` evaluates the smartpl query; `time_added after today` run on a Monday would match against items added since Monday 00:00hrs and evaluating the same smartpl on Friday would only match against added on Friday 00:00hrs.
+
+Note that `time_added after 4 weeks ago` and `time_added after last month` are subtly different; the former is exactly 4 weeks ago (from today) whereas the latter is the first day of the previous month.
 
 
 ## Differences to mt-daapd smart playlists
