@@ -38,6 +38,34 @@ options {
 }
 
 @members {
+    static void interval_date(pANTLR3_STRING result, pANTLR3_UINT8 interval, pANTLR3_UINT8 datval, char beforeorafter)
+    {
+            if (strcmp((char *)datval, "yesterday") == 0)
+            {
+                result->append8(result, "strftime('\%s', datetime('now', 'start of day', '-1 day', ");
+            }
+            else if (strcmp((char *)datval, "last week") == 0)
+            {
+                result->append8(result, "strftime('\%s', datetime('now', 'start of day', 'weekday 0', '-13 days', ");
+            }
+            else if (strcmp((char *)datval, "last month") == 0)
+            {
+                result->append8(result, "strftime('\%s', datetime('now', 'start of month', '-1 month', ");
+            }
+            else if (strcmp((char *)datval, "last year") == 0)
+            {
+                result->append8(result, "strftime('\%s', datetime('now', 'start of year', '-1 year', ");
+            }
+            else
+            {
+                result->append8(result, "strftime('\%s', datetime('now', 'start of day', ");
+            }
+
+            result->addc(result, '\'');
+            result->addc(result, beforeorafter);
+            result->append8(result, (const char *)interval);
+            result->append8(result, "', 'localtime'))");
+    }
 }
 
 playlist	returns [ pANTLR3_STRING title, pANTLR3_STRING query, pANTLR3_STRING orderby, pANTLR3_STRING having, int limit ]
@@ -346,69 +374,13 @@ dateval		returns [ pANTLR3_STRING result ]
 		}
 	|	interval BEFORE DATE
 		{
-			pANTLR3_UINT8 datval;
-
-			datval = $DATE.text->chars;
-
 			$result = $DATE.text->factory->newRaw($DATE.text->factory);
-			
-			if (strcmp((char *)datval, "yesterday") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of day', '-1 day', ");
-			}
-			else if (strcmp((char *)datval, "last week") == 0)
-			{
-			    $result->append8($result, "strftime('\%s', datetime('now', 'start of day', 'weekday 0', '-13 days', ");
-			}
-			else if (strcmp((char *)datval, "last month") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of month', '-1 month', ");
-			}
-			else if (strcmp((char *)datval, "last year") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of year', '-1 year', ");
-			}
-			else
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of day', ");
-			}
-
-                        $result->append8($result, "'-");
-                        $result->append8($result, (const char *)$interval.result->chars);
-                        $result->append8($result, "', 'localtime'))");
+                        interval_date($result, $interval.result->chars, $DATE.text->chars, '-');
                 }
 	|	interval AFTER DATE
 		{
-			pANTLR3_UINT8 datval;
-			
-			datval = $DATE.text->chars;
-			
 			$result = $DATE.text->factory->newRaw($DATE.text->factory);
-
-			if (strcmp((char *)datval, "yesterday") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of day', '-1 day', ");
-			}
-			else if (strcmp((char *)datval, "last week") == 0)
-			{
-			    $result->append8($result, "strftime('\%s', datetime('now', 'start of day', 'weekday 0', '-13 days', ");
-			}
-			else if (strcmp((char *)datval, "last month") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of month', '-1 month', ");
-			}
-			else if (strcmp((char *)datval, "last year") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of year', '-1 year', ");
-			}
-			else
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of day', ");
-			}
-			
-                        $result->append8($result, "'+");
-                        $result->append8($result, (const char *)$interval.result->chars);
-                        $result->append8($result, "', 'localtime'))");
+                        interval_date($result, $interval.result->chars, $DATE.text->chars, '+');
                 }
 	|	interval AGO
 		{
