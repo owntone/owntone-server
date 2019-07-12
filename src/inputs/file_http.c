@@ -123,9 +123,12 @@ seek(struct input_source *source, int seek_ms)
 static int
 seek_http(struct input_source *source, int seek_ms)
 {
-  // stream is live/unknown length so obvs can't seek
+  // Stream is live/unknown length so can't seek. We return 0 anyway, because
+  // it is valid for the input to request a seek, since the input is not
+  // supposed to concern itself about this.
   if (source->len_ms == 0)
-    return -1;
+    return 0;
+
   return transcode_seek(source->input_ctx, seek_ms);
 }
 
