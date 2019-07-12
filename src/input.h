@@ -197,6 +197,17 @@ int
 input_seek(uint32_t item_id, int seek_ms);
 
 /*
+ * Same as input_seek(), except if the item is already being read we don't do
+ * anything (no flush & seek)
+ *
+ * @in  item_id  Queue item id to start playing
+ * @in  seek_ms  Position to start playing
+ * @return       Actual seek position if seekable, 0 otherwise, -1 on error
+ */
+int
+input_resume(uint32_t item_id, int seek_ms);
+
+/*
  * Same as input_seek(), just non-blocking and does not offer seek.
  *
  * @in  item_id  Queue item id to start playing

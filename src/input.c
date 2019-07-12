@@ -113,7 +113,7 @@ struct input_arg
 {
   uint32_t item_id;
   int seek_ms;
-  struct input_metadata *metadata;
+  bool resume;
 };
 
 /* --- Globals --- */
@@ -462,6 +462,16 @@ start(void *arg, int *retval)
   // If we are asked to start the item that is currently open we can just seek
   if (input_now_reading.open && cmdarg->item_id == input_now_reading.item_id)
     {
+      // When we resume we don't want to flush & seek, since that has either
+      // already been done, or it is not desired because we just filled the
+      // buffer after an underrun.
+      if (cmdarg->resume)
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Resuming input read loop for item '%s' (item id %" PRIu32 ")\n", input_now_reading.path, input_now_reading.item_id);
+	  *retval = cmdarg->seek_ms;
+	  return COMMAND_END;
+	}
+
       flush(&flags);
 
       ret = seek(&input_now_reading, cmdarg->seek_ms);
@@ -763,6 +773,19 @@ input_seek(uint32_t item_id, int seek_ms)
 
   cmdarg.item_id = item_id;
   cmdarg.seek_ms = seek_ms;
+  cmdarg.resume  = false;
+
+  return commands_exec_sync(cmdbase, start, NULL, &cmdarg);
+}
+
+int
+input_resume(uint32_t item_id, int seek_ms)
+{
+  struct input_arg cmdarg;
+
+  cmdarg.item_id = item_id;
+  cmdarg.seek_ms = seek_ms;
+  cmdarg.resume  = true;
 
   return commands_exec_sync(cmdbase, start, NULL, &cmdarg);
 }
@@ -776,6 +799,7 @@ input_start(uint32_t item_id)
 
   cmdarg->item_id = item_id;
   cmdarg->seek_ms = 0;
+  cmdarg->resume  = false;
 
   commands_exec_async(cmdbase, start, cmdarg);
 }

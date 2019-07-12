@@ -612,19 +612,8 @@ source_stop(void)
   input_stop();
 }
 
-static void
-source_start(struct player_source *ps)
-{
-  if (!ps)
-    return;
-
-  DPRINTF(E_DBG, L_PLAYER, "Opening next track: '%s' (id=%d)\n", ps->path, ps->item_id);
-
-  input_start(ps->item_id);
-}
-
 static int
-source_restart(struct player_source *ps)
+source_start(struct player_source *ps)
 {
   short flags;
 
@@ -638,6 +627,32 @@ source_restart(struct player_source *ps)
   return input_seek(ps->item_id, (int)ps->seek_ms);
 }
 
+static void
+source_next(struct player_source *ps)
+{
+  if (!ps)
+    return;
+
+  DPRINTF(E_DBG, L_PLAYER, "Opening next track: '%s' (id=%d)\n", ps->path, ps->item_id);
+
+  input_start(ps->item_id);
+}
+
+static int
+source_restart(void)
+{
+  if (!pb_session.playing_now)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! source_restart called, but playing_now is null\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Restarting track: '%s' (id=%d, pos=%d)\n", pb_session.playing_now->path, pb_session.playing_now->item_id, pb_session.playing_now->pos_ms);
+
+  input_resume(pb_session.playing_now->item_id, pb_session.playing_now->pos_ms);
+
+  return 0;
+}
 
 /* ------------------------ Playback session upkeep ------------------------- */
 
@@ -910,7 +925,7 @@ event_read_start_next()
   session_update_read_next(ps);
 
   // Starts the input read loop
-  source_start(pb_session.source_list);
+  source_next(pb_session.source_list);
 }
 
 static void
@@ -1604,7 +1619,7 @@ pb_session_start(struct db_queue_item *queue_item, uint32_t seek_ms)
   session_start(ps);
 
   // Sets of opening of the new source
-  while ( (ret = source_restart(ps)) < 0)
+  while ( (ret = source_start(ps)) < 0)
     {
       // Couldn't start requested item, skip to next and remove failed item from queue
       item_id = ps->item_id;
@@ -1665,7 +1680,7 @@ pb_resume(void)
 {
   int ret;
 
-  ret = source_restart(pb_session.playing_now);
+  ret = source_restart();
   if (ret < 0)
     {
       pb_abort();
