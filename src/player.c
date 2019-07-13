@@ -649,6 +649,9 @@ source_restart(void)
 
   DPRINTF(E_DBG, L_PLAYER, "Restarting track: '%s' (id=%d, pos=%d)\n", pb_session.playing_now->path, pb_session.playing_now->item_id, pb_session.playing_now->pos_ms);
 
+  // Must be non-blocking, because otherwise we get a deadlock via the input
+  // thread making a sync call to player_playback_start() -> pb_resume() ->
+  // source_restart() -> input_resume()
   input_resume(pb_session.playing_now->item_id, pb_session.playing_now->pos_ms);
 
   return 0;
