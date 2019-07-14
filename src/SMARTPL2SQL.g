@@ -38,34 +38,44 @@ options {
 }
 
 @members {
-    static void interval_date(pANTLR3_STRING result, pANTLR3_UINT8 interval, pANTLR3_UINT8 datval, char beforeorafter)
-    {
-            if (strcmp((char *)datval, "yesterday") == 0)
-            {
-                result->append8(result, "strftime('\%s', datetime('now', 'start of day', '-1 day', ");
-            }
-            else if (strcmp((char *)datval, "last week") == 0)
-            {
-                result->append8(result, "strftime('\%s', datetime('now', 'start of day', 'weekday 0', '-13 days', ");
-            }
-            else if (strcmp((char *)datval, "last month") == 0)
-            {
-                result->append8(result, "strftime('\%s', datetime('now', 'start of month', '-1 month', ");
-            }
-            else if (strcmp((char *)datval, "last year") == 0)
-            {
-                result->append8(result, "strftime('\%s', datetime('now', 'start of year', '-1 year', ");
-            }
-            else
-            {
-                result->append8(result, "strftime('\%s', datetime('now', 'start of day', ");
-            }
+	static void append_date(pANTLR3_STRING result, const char *datval, char beforeorafter, const char *interval)
+	{
+		if (strcmp((char *)datval, "today") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of day'");
+		}
+		else if (strcmp((char *)datval, "yesterday") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of day', '-1 day'");
+		}
+		else if (strcmp((char *)datval, "last week") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of day', 'weekday 0', '-13 days'");
+		}
+		else if (strcmp((char *)datval, "last month") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of month', '-1 month'");
+		}
+		else if (strcmp((char *)datval, "last year") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of year', '-1 year'");
+		}
+		else
+		{
+			result->append8(result, "strftime('\%s', datetime(\'");
+			result->append8(result, datval);
+			result->append8(result, "\'");
+		}
 
-            result->addc(result, '\'');
-            result->addc(result, beforeorafter);
-            result->append8(result, (const char *)interval);
-            result->append8(result, "', 'localtime'))");
-    }
+		if (beforeorafter)
+		{
+			result->append8(result, ", '");
+			result->addc(result, beforeorafter);
+			result->append8(result, interval);
+			result->addc(result, '\'');
+		}
+		result->append8(result, ", 'utc'))");
+	}
 }
 
 playlist	returns [ pANTLR3_STRING title, pANTLR3_STRING query, pANTLR3_STRING orderby, pANTLR3_STRING having, int limit ]
@@ -344,52 +354,24 @@ dateval		returns [ pANTLR3_STRING result ]
 			pANTLR3_UINT8 datval;
 			
 			datval = $DATE.text->chars;
-
 			$result = $DATE.text->factory->newRaw($DATE.text->factory);
-
-			if (strcmp((char *)datval, "today") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of day', 'localtime'))");
-			}
-			else if (strcmp((char *)datval, "yesterday") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of day', '-1 day', 'localtime'))");
-			}
-			else if (strcmp((char *)datval, "last week") == 0)
-			{
-			    $result->append8($result, "strftime('\%s', datetime('now', 'start of day', 'weekday 0', '-13 days', 'localtime'))");
-			}
-			else if (strcmp((char *)datval, "last month") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of month', '-1 month', 'localtime'))");
-			}
-			else if (strcmp((char *)datval, "last year") == 0)
-			{
-                            $result->append8($result, "strftime('\%s', datetime('now', 'start of year', '-1 year', 'localtime'))");
-			}
-			else
-			{
-                            $result->append8($result, "strftime('\%s', datetime('YYYY-MM-DD', (char*)dateval, 'localtime'))");
-			}
+			
+			append_date($result, (const char *)datval, 0, NULL);
 		}
 	|	interval BEFORE DATE
 		{
 			$result = $DATE.text->factory->newRaw($DATE.text->factory);
-                        interval_date($result, $interval.result->chars, $DATE.text->chars, '-');
-                }
+			append_date($result, (const char *)$DATE.text->chars, '-', (const char *)$interval.result->chars);
+		}
 	|	interval AFTER DATE
 		{
 			$result = $DATE.text->factory->newRaw($DATE.text->factory);
-                        interval_date($result, $interval.result->chars, $DATE.text->chars, '+');
-                }
+			append_date($result, (const char *)$DATE.text->chars, '+', (const char *)$interval.result->chars);
+		}
 	|	interval AGO
 		{
 			$result = $AGO.text->factory->newRaw($AGO.text->factory);
-
-                        $result->append8($result, "strftime('\%s', datetime('now', 'start of day', ");
-                        $result->append8($result, "'-");
-                        $result->append8($result, (const char *)$interval.result->chars);
-                        $result->append8($result, "', 'localtime'))");
+			append_date($result, "today", '-', (const char *)$interval.result->chars);
 		}
 	;
 
@@ -397,7 +379,7 @@ interval	returns [ pANTLR3_STRING result ]
 @init { $result = NULL; }
 	:	INT DATINTERVAL
 		{
-		        pANTLR3_UINT8 interval;
+			pANTLR3_UINT8 interval;
 			int intval;
 			char buf[25];
 
@@ -407,16 +389,16 @@ interval	returns [ pANTLR3_STRING result ]
 			interval = $DATINTERVAL.text->chars;
 			if (strcmp((char *)interval, "weeks") == 0)
 			{
-			    intval = atoi((const char *)$INT.text->chars) * 7;
-			    snprintf(buf, sizeof(buf), "\%d days", intval);
+				intval = atoi((const char *)$INT.text->chars) * 7;
+				snprintf(buf, sizeof(buf), "\%d days", intval);
 
-			    $result->append8($result, buf);
+				$result->append8($result, buf);
 			}
 			else
 			{
-			    $result->append8($result, (const char *)$INT.text->chars);
-			    $result->append8($result, " ");
-			    $result->append8($result, (const char *)$DATINTERVAL.text->chars);
+				$result->append8($result, (const char *)$INT.text->chars);
+				$result->append8($result, " ");
+				$result->append8($result, (const char *)$DATINTERVAL.text->chars);
 			}
 			return $result;
 		}
