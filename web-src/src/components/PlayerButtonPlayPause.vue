@@ -19,7 +19,6 @@ export default {
 
     is_pause_allowed () {
       return (this.$store.getters.now_playing &&
-        !(this.$store.getters.now_playing.data_kind === 'url' && this.$store.state.player.item_length_ms <= 0) &&
         this.$store.getters.now_playing.data_kind !== 'pipe')
     }
   },
