@@ -50,6 +50,8 @@
 #define INPUT_OPEN_TIMEOUT 600
 
 //#define DEBUG_INPUT 1
+// For testing http stream underruns
+//#define DEBUG_UNDERRUN 1
 
 extern struct input_definition input_file;
 extern struct input_definition input_http;
@@ -141,6 +143,9 @@ static struct event *input_open_timeout_ev;
 
 #ifdef DEBUG_INPUT
 static size_t debug_elapsed;
+#endif
+#ifdef DEBUG_UNDERRUN
+int debug_underrun_trigger;
 #endif
 
 
@@ -578,6 +583,16 @@ input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags)
   if (evbuf)
     {
       len = evbuffer_get_length(evbuf);
+#ifdef DEBUG_UNDERRUN
+      // Starves the player so it underruns after a few minutes
+      debug_underrun_trigger++;
+      if (debug_underrun_trigger % 10 == 0)
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Underrun debug mode: Dropping audio buffer length %zu\n", len);
+	  evbuffer_drain(evbuf, len);
+	  len = 0;
+	}
+#endif
       input_buffer.bytes_written += len;
       ret = evbuffer_add_buffer(input_buffer.evbuf, evbuf);
       if (ret < 0)
@@ -778,16 +793,18 @@ input_seek(uint32_t item_id, int seek_ms)
   return commands_exec_sync(cmdbase, start, NULL, &cmdarg);
 }
 
-int
+void
 input_resume(uint32_t item_id, int seek_ms)
 {
-  struct input_arg cmdarg;
+  struct input_arg *cmdarg;
 
-  cmdarg.item_id = item_id;
-  cmdarg.seek_ms = seek_ms;
-  cmdarg.resume  = true;
+  CHECK_NULL(L_PLAYER, cmdarg = malloc(sizeof(struct input_arg)));
 
-  return commands_exec_sync(cmdbase, start, NULL, &cmdarg);
+  cmdarg->item_id = item_id;
+  cmdarg->seek_ms = seek_ms;
+  cmdarg->resume  = true;
+
+  commands_exec_async(cmdbase, start, cmdarg);
 }
 
 void
