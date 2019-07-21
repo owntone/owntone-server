@@ -208,7 +208,14 @@ rtp_packet_get(struct rtp_session *session, uint16_t seqnum)
 
   last = session->seqnum - 1;
   first = session->seqnum - session->pktbuf_len;
-  if (seqnum < first || seqnum > last)
+
+  // Rules of programming:
+  // 1) Make your code easy to read
+  // 2) Disregard rule number one if you can use XOR
+  //
+  // The below should be the same as this (a check that works with int wrap-around):
+  // (first <= last && (first <= seqnum && seqnum <= last)) || (first > last && (first <= seqnum || seqnum <= last))
+  if (! ((first <= last) ^ (first <= seqnum) ^ (seqnum <= last)))
     {
       DPRINTF(E_DBG, L_PLAYER, "Seqnum %" PRIu16 " not in buffer (have seqnum %" PRIu16 " to %" PRIu16 ")\n", seqnum, first, last);
       return NULL;
