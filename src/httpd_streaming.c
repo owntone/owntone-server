@@ -59,8 +59,8 @@ struct streaming_session {
   struct evhttp_request *req;
   struct streaming_session *next;
 
-  bool     require_icy; // client requested icy meta
-  size_t   bytes_sent;  // audio bytes sent after last metablock
+  bool     require_icy; // Client requested icy meta
+  size_t   bytes_sent;  // Audio bytes sent since last metablock
 };
 static pthread_mutex_t streaming_sessions_lck;
 static struct streaming_session *streaming_sessions;
@@ -102,13 +102,13 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   this = (struct streaming_session *)arg;
 
   evhttp_connection_get_peer(evcon, &address, &port);
-  DPRINTF(E_INFO, L_STREAMING, "stopping mp3 streaming to %s:%d\n", address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", address, (int)port);
 
   pthread_mutex_lock(&streaming_sessions_lck);
   if (streaming_sessions == NULL)
     {
-      // this close comes duing deinit(), dont touch the `this` since
-      // is already a dangling ptr (free'd in deinit())
+      // This close comes duing deinit() - we don't free `this` since it is
+      // already a dangling ptr (free'd in deinit()) at this stage
       pthread_mutex_unlock(&streaming_sessions_lck);
       return;
     }
@@ -165,7 +165,7 @@ streaming_end(void)
 	{
 	  evhttp_connection_set_closecb(evcon, NULL, NULL);
 	  evhttp_connection_get_peer(evcon, &address, &port);
-	  DPRINTF(E_INFO, L_STREAMING, "force close stream to %s:%d\n", address, (int)port);
+	  DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", address, (int)port);
 	}
       evhttp_send_reply_end(session->req);
 
@@ -257,11 +257,11 @@ encode_buffer(uint8_t *buffer, size_t size)
   return ret;
 }
 
-/* we know that the icymeta is limited to 1+255*16 == 4081 bytes so caller must
- * provide a buf of this size
+/* We know that the icymeta is limited to 1+255*16 (ie 4081) bytes so caller must
+ * provide a buf of this size to avoid needless mallocs
  *
- * the icy meta block is defined by a single byte indicating how many dbl byte 
- * words used for the actual meta.  unused bytes null padded
+ * The icy meta block is defined by a single byte indicating how many double byte
+ * words used for the actual meta.  Unused bytes are null padded
  *
  * https://stackoverflow.com/questions/4911062/pulling-track-info-from-an-audio-stream-using-php/4914538#4914538
  * http://www.smackfu.com/stuff/programming/shoutcast.html
@@ -288,7 +288,11 @@ streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *
       if (titlelen > STREAMING_ICY_METALEN_MAX)
 	titlelen = STREAMING_ICY_METALEN_MAX;  // dont worry about the null byte
 
-      // 1x byte len following by how many 16 byte words needed
+      // [0]    1x byte N, indicate the total number of 16 bytes words required
+      //        to represent the meta data
+      // [1..N] meta data book ended by "StreamTitle='" and "';"
+      //
+      // The '15' is strlen of StreamTitle=' + ';
       no16s = (15 + titlelen)/16 +1;
       metalen = 1 + no16s*16;
       memset(buf, 0, metalen);
@@ -307,9 +311,9 @@ streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *
 static uint8_t *
 streaming_icy_meta_splice(const uint8_t *data, size_t datalen, off_t offset, size_t *len)
 {
-  uint8_t  meta[STREAMING_ICY_METALEN_MAX+1];  // buffer, of max sz, for the created icymeta
-  unsigned metalen;     // how much of the buffer is use
-  uint8_t *buf;         // client returned buffer to contain the audio data (data) spliced w/meta (meta)
+  uint8_t  meta[STREAMING_ICY_METALEN_MAX+1];  // Buffer, of max sz, for the created icymeta
+  unsigned metalen;     // How much of the buffer is in use
+  uint8_t *buf;         // Client returned buffer; contains the audio (from data) spliced w/meta (from meta)
 
   if (data == NULL || datalen == 0)
     return NULL;
@@ -423,7 +427,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   pthread_mutex_lock(&streaming_sessions_lck);
   for (session = streaming_sessions; session; session = session->next)
     {
-      // does this session want ICY and it is time to send..
+      // Does this session want ICY meta data and is it time to send?
       count = session->bytes_sent+len;
       if (session->require_icy && count > STREAMING_ICY_METAINT)
 	{
@@ -432,7 +436,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 
 	  // DPRINTF(E_DBG, L_STREAMING, "session=%x sent=%ld len=%ld overflow=%ld\n", session, session->bytes_sent, len, overflow);
 
-	  // splice in icy title with encoded audio data
+	  // Splice the 'icy title' in with the encoded audio data
 	  splice_len = 0;
 	  splice_buf = streaming_icy_meta_splice(buf, len, len-overflow, &splice_len);
 
@@ -445,7 +449,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 
 	  if (session->next == NULL)
 	    {
-	      // we're the last session, drop the contents of the encoded buffer
+	      // We're the last session, drop the contents of the encoded buffer
 	      evbuffer_drain(streaming_encoded_data, len);
 	    }
 	  session->bytes_sent = overflow;
@@ -483,7 +487,7 @@ streaming_write(struct output_buffer *obuf)
 {
   int ret;
 
-  // explicit no-lock - let the write to pipes fail if deinit
+  // Explicit no-lock - let the write to pipes fail if during deinit
   if (!streaming_sessions)
     return;
 
@@ -508,7 +512,7 @@ streaming_write(struct output_buffer *obuf)
       else
 	{
 	  if (errno == EBADF)
-	    DPRINTF(E_LOG, L_STREAMING, "streaming pipe already closed\n");
+	    DPRINTF(E_LOG, L_STREAMING, "Streaming pipe already closed\n");
 	  else
 	    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
 	}
@@ -554,7 +558,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   evhttp_add_header(output_headers, "Cache-Control", "no-cache");
   evhttp_add_header(output_headers, "Pragma", "no-cache");
   evhttp_add_header(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
-  if (require_icy) 
+  if (require_icy)
     {
       ++streaming_icy_clients;
       evhttp_add_header(output_headers, "icy-name", name);
