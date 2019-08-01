@@ -84,7 +84,8 @@ static int streaming_player_changed;
 static int streaming_pipe[2];
 static int streaming_meta[2];
 
-#define STREAMING_ICY_METALEN_MAX 4080  // 255*16
+#define STREAMING_ICY_METALEN_MAX      4080  // 255*16 incl header/footer (16bytes)
+#define STREAMING_ICY_METATITLELEN_MAX 4064  // STREAMING_ICY_METALEN_MAX -16 (not incl header/footer)
 static const short STREAMING_ICY_METAINT = 8192;
 static unsigned streaming_icy_clients;
 static char *streaming_icy_title;
@@ -285,8 +286,8 @@ streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *
   else
     {
       titlelen = strlen(title);
-      if (titlelen > STREAMING_ICY_METALEN_MAX)
-	titlelen = STREAMING_ICY_METALEN_MAX;  // dont worry about the null byte
+      if (titlelen > STREAMING_ICY_METATITLELEN_MAX)
+	titlelen = STREAMING_ICY_METATITLELEN_MAX;  // dont worry about the null byte
 
       // [0]    1x byte N, indicate the total number of 16 bytes words required
       //        to represent the meta data
