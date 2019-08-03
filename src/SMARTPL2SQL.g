@@ -38,19 +38,44 @@ options {
 }
 
 @members {
-    static time_t startoftoday()
-    {
-        struct tm tm;
-        time_t now;
+	static void append_date(pANTLR3_STRING result, const char *datval, char beforeorafter, const char *interval)
+	{
+		if (strcmp((char *)datval, "today") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of day'");
+		}
+		else if (strcmp((char *)datval, "yesterday") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of day', '-1 day'");
+		}
+		else if (strcmp((char *)datval, "last week") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of day', 'weekday 0', '-13 days'");
+		}
+		else if (strcmp((char *)datval, "last month") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of month', '-1 month'");
+		}
+		else if (strcmp((char *)datval, "last year") == 0)
+		{
+			result->append8(result, "strftime('\%s', datetime('now', 'start of year', '-1 year'");
+		}
+		else
+		{
+			result->append8(result, "strftime('\%s', datetime(\'");
+			result->append8(result, datval);
+			result->append8(result, "\'");
+		}
 
-        time(&now);
-        localtime_r(&now, &tm);
-        tm.tm_sec  = 0;
-        tm.tm_min  = 0;
-        tm.tm_hour = 0;
-
-	return mktime(&tm);
-    }
+		if (beforeorafter)
+		{
+			result->append8(result, ", '");
+			result->addc(result, beforeorafter);
+			result->append8(result, interval);
+			result->addc(result, '\'');
+		}
+		result->append8(result, ", 'utc'))");
+	}
 }
 
 playlist	returns [ pANTLR3_STRING title, pANTLR3_STRING query, pANTLR3_STRING orderby, pANTLR3_STRING having, int limit ]
@@ -213,25 +238,19 @@ expression	returns [ pANTLR3_STRING result, pANTLR3_STRING orderby, pANTLR3_STRI
 		}
 	|	DATETAG AFTER dateval
 		{
-			char str[15];
-			sprintf(str, "\%d", $dateval.result);
-			
 			$result = $DATETAG.text->factory->newRaw($DATETAG.text->factory);
 			$result->append8($result, "f.");
 			$result->appendS($result, $DATETAG.text->toUTF8($DATETAG.text));
 			$result->append8($result, " > ");
-			$result->append8($result, str);
+			$result->append8($result, (const char*)$dateval.result->chars);
 		}
 	|	DATETAG BEFORE dateval
 		{
-			char str[15];
-			sprintf(str, "\%d", $dateval.result);
-			
 			$result = $DATETAG.text->factory->newRaw($DATETAG.text->factory);
 			$result->append8($result, "f.");
 			$result->appendS($result, $DATETAG.text->toUTF8($DATETAG.text));
 			$result->append8($result, " < ");
-			$result->append8($result, str);
+			$result->append8($result, (const char*)$dateval.result->chars);
 		}
 	|	ENUMTAG IS ENUMVAL
 		{
@@ -328,150 +347,60 @@ ordertag	returns [ pANTLR3_STRING result ]
 		}
 	;
 
-dateval		returns [ int result ]
-@init { $result = 0; }
+dateval		returns [ pANTLR3_STRING result ]
+@init { $result = NULL; }
 	:	DATE
 		{
 			pANTLR3_UINT8 datval;
 			
 			datval = $DATE.text->chars;
+			$result = $DATE.text->factory->newRaw($DATE.text->factory);
 			
-			if (strcmp((char *)datval, "today") == 0)
-			{
-				$result = startoftoday();
-			}
-			else if (strcmp((char *)datval, "yesterday") == 0)
-			{
-				$result = startoftoday() - 24 * 3600;
-			}
-			else if (strcmp((char *)datval, "last week") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 7;
-			}
-			else if (strcmp((char *)datval, "last month") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 30;
-			}
-			else if (strcmp((char *)datval, "last year") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 365;
-			}
-			else
-			{
-				struct tm tm;
-				char year[5];
-				char month[3];
-				char day[3];
-				
-				memset((void*)&tm,0,sizeof(tm));
-				memset(year, 0, sizeof(year));
-				memset(month, 0, sizeof(month));
-				memset(day, 0, sizeof(day));
-
-				strncpy(year, (const char *)datval, 4);
-				strncpy(month, (const char *)datval + 5, 2);
-				strncpy(day, (const char *)datval + 8, 2);
-				
-				tm.tm_year = atoi(year) - 1900;
-				tm.tm_mon = atoi(month) - 1;
-				tm.tm_mday = atoi(day);
-				
-				$result = mktime(&tm);
-			}
+			append_date($result, (const char *)datval, 0, NULL);
 		}
 	|	interval BEFORE DATE
 		{
-			pANTLR3_UINT8 datval;
-			
-			datval = $DATE.text->chars;
-			
-			if (strcmp((char *)datval, "yesterday") == 0)
-			{
-				$result = startoftoday() - 24 * 3600;
-			}
-			else if (strcmp((char *)datval, "last week") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 7;
-			}
-			else if (strcmp((char *)datval, "last month") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 30;
-			}
-			else if (strcmp((char *)datval, "last year") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 365;
-			}
-			else
-			{
-				$result = startoftoday(NULL);
-			}
-			
-			$result = $result - $interval.result;
+			$result = $DATE.text->factory->newRaw($DATE.text->factory);
+			append_date($result, (const char *)$DATE.text->chars, '-', (const char *)$interval.result->chars);
 		}
 	|	interval AFTER DATE
 		{
-			pANTLR3_UINT8 datval;
-			
-			datval = $DATE.text->chars;
-			
-			if (strcmp((char *)datval, "yesterday") == 0)
-			{
-				$result = startoftoday() - 24 * 3600;
-			}
-			else if (strcmp((char *)datval, "last week") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 7;
-			}
-			else if (strcmp((char *)datval, "last month") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 30;
-			}
-			else if (strcmp((char *)datval, "last year") == 0)
-			{
-				$result = startoftoday() - 24 * 3600 * 365;
-			}
-			else
-			{
-				$result = startoftoday();
-			}
-			
-			$result = $result + $interval.result;
+			$result = $DATE.text->factory->newRaw($DATE.text->factory);
+			append_date($result, (const char *)$DATE.text->chars, '+', (const char *)$interval.result->chars);
 		}
 	|	interval AGO
 		{
-			$result = startoftoday() - $interval.result;
+			$result = $AGO.text->factory->newRaw($AGO.text->factory);
+			append_date($result, "today", '-', (const char *)$interval.result->chars);
 		}
 	;
 
-interval	returns [ int result ]
-@init { $result = 0; }
+interval	returns [ pANTLR3_STRING result ]
+@init { $result = NULL; }
 	:	INT DATINTERVAL
 		{
 			pANTLR3_UINT8 interval;
-			
-			$result = atoi((const char *)$INT.text->chars);
+			int intval;
+			char buf[25];
+
+			$result = $DATINTERVAL.text->factory->newRaw($DATINTERVAL.text->factory);
+
+			// SQL doesnt have a modifer for 'week' but for day/hr/min/sec/month/yr
 			interval = $DATINTERVAL.text->chars;
-			
-			if (strcmp((char *)interval, "days") == 0)
+			if (strcmp((char *)interval, "weeks") == 0)
 			{
-				$result = $result * 24 * 3600;
-			}
-			else if (strcmp((char *)interval, "weeks") == 0)
-			{
-				$result = $result * 24 * 3600 * 7;
-			}
-			else if (strcmp((char *)interval, "months") == 0)
-			{
-				$result = $result * 24 * 3600 * 30;
-			}
-			else if (strcmp((char *)interval, "weeks") == 0)
-			{
-				$result = $result * 24 * 3600 * 365;
+				intval = atoi((const char *)$INT.text->chars) * 7;
+				snprintf(buf, sizeof(buf), "\%d days", intval);
+
+				$result->append8($result, buf);
 			}
 			else
 			{
-				$result = 0;
+				$result->append8($result, (const char *)$INT.text->chars);
+				$result->append8($result, " ");
+				$result->append8($result, (const char *)$DATINTERVAL.text->chars);
 			}
+			return $result;
 		}
 	;
 
