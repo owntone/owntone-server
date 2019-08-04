@@ -31,6 +31,8 @@ struct spotifywebapi_status_info
   bool token_valid;
   char user[100];
   char country[3]; // ISO 3166-1 alpha-2 country code
+  char granted_scope[250];
+  char required_scope[250];
 };
 
 struct spotifywebapi_access_token

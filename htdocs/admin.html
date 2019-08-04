@@ -213,6 +213,7 @@
           </div>
           <div v-show="spotify.webapi_token_valid">
             <p><b>Spotify Web API</b>: access authorized for <b>{{ spotify.webapi_user }}</b></p>
+            <p v-if="spotify_missing_scope.length > 0" class="help is-danger">Please reauthorize Web API access to grant forked-daapd the following additional access rights: <b>{{ spotify_missing_scope | join }}</b></p>
             <a class="button" v-bind:href="spotify.oauth_uri">Reauthorize Web API access</a>
           </div>
         </div>

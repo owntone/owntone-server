@@ -24,6 +24,15 @@ var app = new Vue({
     this.loadLastfm();
   },
 
+  computed: {
+    spotify_missing_scope () {
+      if (this.spotify.webapi_token_valid && this.spotify.webapi_granted_scope && this.spotify.webapi_required_scope) {
+        return this.spotify.webapi_required_scope.split(' ').filter(scope => this.spotify.webapi_granted_scope.indexOf(scope) < 0)
+      }
+      return []
+    }
+  },
+
   methods: {
     loadConfig: function() {
       axios.get('/api/config').then(response => {

@@ -850,6 +850,8 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(webapi_info.token_valid));
   safe_json_add_string(jreply, "webapi_user", webapi_info.user);
   safe_json_add_string(jreply, "webapi_country", webapi_info.country);
+  safe_json_add_string(jreply, "webapi_granted_scope", webapi_info.granted_scope);
+  safe_json_add_string(jreply, "webapi_required_scope", webapi_info.required_scope);
 
   spotifywebapi_access_token_get(&webapi_token);
   safe_json_add_string(jreply, "webapi_token", webapi_token.token);
