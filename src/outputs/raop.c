@@ -2840,13 +2840,19 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 static void
 packets_resend(struct raop_session *rs, uint16_t seqnum, uint16_t len)
 {
+  struct rtp_session *rtp_session;
   struct rtp_packet *pkt;
   uint16_t s;
   bool pkt_missing = false;
 
+  rtp_session = rs->master_session->rtp_session;
+
+  DPRINTF(E_DBG, L_RAOP, "Got retransmit request from '%s': seqnum %" PRIu16 " (len %" PRIu16 "), last RTP session seqnum %" PRIu16 " (len %zu)\n",
+    rs->devname, seqnum, len, rtp_session->seqnum - 1, rtp_session->pktbuf_len);
+
   for (s = seqnum; s < seqnum + len; s++)
     {
-      pkt = rtp_packet_get(rs->master_session->rtp_session, s);
+      pkt = rtp_packet_get(rtp_session, s);
       if (pkt)
 	packet_send(rs, pkt);
       else
@@ -2855,6 +2861,8 @@ packets_resend(struct raop_session *rs, uint16_t seqnum, uint16_t len)
 
   if (pkt_missing)
     DPRINTF(E_WARN, L_RAOP, "Device '%s' asking for seqnum %" PRIu16 " (len %" PRIu16 "), but not in buffer\n", rs->devname, seqnum, len);
+  else
+    DPRINTF(E_DBG, L_RAOP, "Retransmit done\n");
 }
 
 static int
@@ -3287,8 +3295,6 @@ raop_v2_control_cb(int fd, short what, void *arg)
 
   seq_start = be16toh(seq_start);
   seq_len = be16toh(seq_len);
-
-  DPRINTF(E_DBG, L_RAOP, "Got retransmit request from '%s', seq_start %u len %u\n", rs->devname, seq_start, seq_len);
 
   packets_resend(rs, seq_start, seq_len);
 
