@@ -2838,19 +2838,21 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 }
 
 static void
-packets_resend(struct raop_session *rs, uint16_t seqnum, uint16_t len)
+packets_resend(struct raop_session *rs, uint16_t seqnum, int len)
 {
   struct rtp_session *rtp_session;
   struct rtp_packet *pkt;
   uint16_t s;
+  int i;
   bool pkt_missing = false;
 
   rtp_session = rs->master_session->rtp_session;
 
-  DPRINTF(E_DBG, L_RAOP, "Got retransmit request from '%s': seqnum %" PRIu16 " (len %" PRIu16 "), last RTP session seqnum %" PRIu16 " (len %zu)\n",
+  DPRINTF(E_DBG, L_RAOP, "Got retransmit request from '%s': seqnum %" PRIu16 " (len %d), last RTP session seqnum %" PRIu16 " (len %zu)\n",
     rs->devname, seqnum, len, rtp_session->seqnum - 1, rtp_session->pktbuf_len);
 
-  for (s = seqnum; s < seqnum + len; s++)
+  // Note that seqnum may wrap around, so we don't use it for counting
+  for (i = 0, s = seqnum; i < len; i++, s++)
     {
       pkt = rtp_packet_get(rtp_session, s);
       if (pkt)
@@ -2860,9 +2862,8 @@ packets_resend(struct raop_session *rs, uint16_t seqnum, uint16_t len)
     }
 
   if (pkt_missing)
-    DPRINTF(E_WARN, L_RAOP, "Device '%s' asking for seqnum %" PRIu16 " (len %" PRIu16 "), but not in buffer\n", rs->devname, seqnum, len);
-  else
-    DPRINTF(E_DBG, L_RAOP, "Retransmit done\n");
+    DPRINTF(E_WARN, L_RAOP, "Device '%s' retransmit request for seqnum %" PRIu16 " (len %d) is outside buffer range (last seqnum %" PRIu16 ", len %zu)\n",
+      rs->devname, seqnum, len, rtp_session->seqnum - 1, rtp_session->pktbuf_len);
 }
 
 static int

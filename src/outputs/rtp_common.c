@@ -201,6 +201,7 @@ rtp_packet_get(struct rtp_session *session, uint16_t seqnum)
 {
   uint16_t first;
   uint16_t last;
+  uint16_t delta;
   size_t idx;
 
   if (!session->seqnum || !session->pktbuf_len)
@@ -221,7 +222,11 @@ rtp_packet_get(struct rtp_session *session, uint16_t seqnum)
       return NULL;
     }
 
-  idx = (session->pktbuf_next - (session->seqnum - seqnum)) % session->pktbuf_size;
+  // Distance from current seqnum (which is at pktbuf_next) to the requested seqnum
+  delta = session->seqnum - seqnum;
+
+  // Adding pktbuf_size so we don't have to deal with "negative" pktbuf_next - delta
+  idx = (session->pktbuf_next + session->pktbuf_size - delta) % session->pktbuf_size;
 
   return &session->pktbuf[idx];
 }
