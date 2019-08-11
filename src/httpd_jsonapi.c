@@ -3166,7 +3166,7 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
     goto error;
 
   query_params.type = Q_ITEMS;
-  query_params.sort = S_VPATH;
+  query_params.sort = S_VPATH_CI;
   query_params.filter = db_mprintf("(f.directory_id = %d)", directory_id);
 
   ret = fetch_tracks(&query_params, tracks_items, &total);

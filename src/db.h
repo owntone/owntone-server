@@ -28,6 +28,7 @@ enum sort_type {
   S_DISC,
   S_TRACK,
   S_VPATH,
+  S_VPATH_CI,  // case insensitive
   S_POS,
   S_SHUFFLE_POS,
 };
