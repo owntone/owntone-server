@@ -418,7 +418,6 @@ static const char *sort_clause[] =
     "f.composer_sort",
     "f.disc",
     "f.track",
-    "f.virtual_path",
     "LOWER(f.virtual_path)",
     "pos",
     "shuffle_pos",
