@@ -1428,8 +1428,7 @@ daap_reply_playlists(struct httpd_request *hreq)
     }
 
   query_params_set(&qp, NULL, hreq, Q_PL);
-  if (qp.sort == S_NONE)
-    qp.sort = S_PLAYLIST;
+  qp.sort = S_PLAYLIST; // Only S_PLAYLIST (and S_NONE) works for Q_PL
 
   CHECK_NULL(L_DAAP, playlistlist = evbuffer_new());
   CHECK_NULL(L_DAAP, playlist = evbuffer_new());
