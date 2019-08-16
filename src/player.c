@@ -615,14 +615,12 @@ source_stop(void)
 static int
 source_start(struct player_source *ps)
 {
-  short flags;
-
   if (!ps)
     return 0;
 
   DPRINTF(E_DBG, L_PLAYER, "Opening track: '%s' (id=%d, seek=%d)\n", ps->path, ps->item_id, ps->seek_ms);
 
-  input_flush(&flags);
+  input_flush(NULL);
 
   return input_seek(ps->item_id, (int)ps->seek_ms);
 }
@@ -639,20 +637,14 @@ source_next(struct player_source *ps)
 }
 
 static int
-source_restart(void)
+source_restart(struct player_source *ps)
 {
-  if (!pb_session.playing_now)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! source_restart called, but playing_now is null\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_PLAYER, "Restarting track: '%s' (id=%d, pos=%d)\n", pb_session.playing_now->path, pb_session.playing_now->item_id, pb_session.playing_now->pos_ms);
+  DPRINTF(E_DBG, L_PLAYER, "Restarting track: '%s' (id=%d, pos=%d)\n", ps->path, ps->item_id, ps->pos_ms);
 
   // Must be non-blocking, because otherwise we get a deadlock via the input
   // thread making a sync call to player_playback_start() -> pb_resume() ->
   // source_restart() -> input_resume()
-  input_resume(pb_session.playing_now->item_id, pb_session.playing_now->pos_ms);
+  input_resume(ps->item_id, ps->pos_ms);
 
   return 0;
 }
@@ -1677,13 +1669,31 @@ pb_abort(void)
 }
 
 // Restarts the input (in case it was closed during the pause), resets session
-// start timestamp and deficits, which is necessary after pb_suspend
+// start timestamp and deficits, which is necessary after pb_suspend.
 static int
 pb_resume(void)
 {
+  struct player_source *ps;
   int ret;
 
-  ret = source_restart();
+  // Before pb_resume() is called it is important that source_list is set to
+  // have just one item, and that both reading_now and playing_now point to it.
+  // Otherwise it would mean that the input is currently reading an item that is
+  // not being played, which means asking the input to resume playing_now
+  // will bring us into a situation where the order of data read by input_read()
+  // from the data input_buffer will not the match the order of the source_list.
+  ps = pb_session.source_list;
+  if (!ps || ps != pb_session.playing_now)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! pb_resume() called, but source list is invalid (%p, %p)\n", ps, pb_session.playing_now);
+      pb_abort();
+      return -1;
+    }
+
+  // In many cases the input will already be open, so this only has effect if
+  // we are resuming after pause longer than INPUT_OPEN_TIMEOUT, or if the input
+  // lost connection during the pause
+  ret = source_restart(ps);
   if (ret < 0)
     {
       pb_abort();
@@ -1696,10 +1706,38 @@ pb_resume(void)
 }
 
 // Temporarily suspends/resets playback, used when input buffer underruns or in
-// case of problems writing to the outputs
+// case of problems writing to the outputs. Especially in the latter case the
+// input may have proceeded to a source further ahead than playing_now, so we
+// may also need to reset the input, so that we resume with playing_now.
 static void
 pb_suspend(void)
 {
+  struct db_queue_item *queue_item;
+  struct player_source *ps;
+  int ret;
+
+  // Start session again to reset input, also flushes input buffer
+  ps = pb_session.playing_now;
+  if (ps != pb_session.source_list)
+    {
+      queue_item = db_queue_fetch_byitemid(ps->item_id);
+      if (!queue_item)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Error suspending playback, could not retrieve queue item currently being played\n");
+	  pb_abort();
+	  return;
+	}
+
+      ret = pb_session_start(queue_item, ps->pos_ms);
+      free_queue_item(queue_item, 0);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Error suspending playback, could not start session\n");
+	  pb_abort();
+	  return;
+	}
+    }
+
   player_flush_pending = outputs_flush(device_flush_cb);
 
   pb_timer_stop();
@@ -1861,7 +1899,6 @@ playback_start_item(void *arg, int *retval)
   struct db_queue_item *queue_item = arg;
   struct media_file_info *mfi;
   struct output_device *device;
-  struct player_source *ps;
   uint32_t seek_ms;
   int ret;
 
@@ -1885,16 +1922,6 @@ playback_start_item(void *arg, int *retval)
 
   if (!queue_item)
     {
-      ps = pb_session.playing_now;
-      if (!ps)
-	{
-	  DPRINTF(E_WARN, L_PLAYER, "Bug! playing_now is null but playback is not stopped!\n");
-	  *retval = -1;
-	  return COMMAND_END;
-	}
-
-      DPRINTF(E_DBG, L_PLAYER, "Resume playback of '%s' (id=%d, item-id=%d)\n", ps->path, ps->id, ps->item_id);
-
       ret = pb_resume();
       if (ret < 0)
 	{
