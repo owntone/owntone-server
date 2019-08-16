@@ -221,7 +221,8 @@ void
 input_stop(void);
 
 /*
- * Flush input buffer. Output flags will be the same as input_read().
+ * Flush input buffer. Output flags will be the same as input_read(). Call with
+ * null pointer is valid.
  */
 void
 input_flush(short *flags);

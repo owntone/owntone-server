@@ -115,7 +115,6 @@ struct input_arg
 {
   uint32_t item_id;
   int seek_ms;
-  bool resume;
 };
 
 /* --- Globals --- */
@@ -344,18 +343,19 @@ clear(struct input_source *source)
 }
 
 static void
-flush(short *flags)
+flush(short *flagptr)
 {
   struct marker *marker;
+  short flags;
   size_t len;
 
   pthread_mutex_lock(&input_buffer.mutex);
 
   // We will return an OR of all the unread marker flags
-  *flags = 0;
+  flags = 0;
   for (marker = input_buffer.marker_tail; marker; marker = input_buffer.marker_tail)
     {
-      *flags |= marker->flag;
+      flags |= marker->flag;
       input_buffer.marker_tail = marker->prev;
       marker_free(marker);
     }
@@ -375,14 +375,16 @@ flush(short *flags)
   pthread_mutex_unlock(&input_buffer.mutex);
 
 #ifdef DEBUG_INPUT
-  DPRINTF(E_DBG, L_PLAYER, "Flushing %zu bytes with flags %d\n", len, *flags);
+  DPRINTF(E_DBG, L_PLAYER, "Flushing %zu bytes with flags %d\n", len, flags);
 #endif
+
+  if (flagptr)
+    *flagptr = flags;
 }
 
 static void
 stop(void)
 {
-  short flags;
   int type;
 
   event_del(input_open_timeout_ev);
@@ -393,7 +395,7 @@ stop(void)
   if (inputs[type]->stop && input_now_reading.open)
     inputs[type]->stop(&input_now_reading);
 
-  flush(&flags);
+  flush(NULL);
 
   clear(&input_now_reading);
 }
@@ -461,23 +463,12 @@ start(void *arg, int *retval)
 {
   struct input_arg *cmdarg = arg;
   struct db_queue_item *queue_item;
-  short flags;
   int ret;
 
   // If we are asked to start the item that is currently open we can just seek
   if (input_now_reading.open && cmdarg->item_id == input_now_reading.item_id)
     {
-      // When we resume we don't want to flush & seek, since that has either
-      // already been done, or it is not desired because we just filled the
-      // buffer after an underrun.
-      if (cmdarg->resume)
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "Resuming input read loop for item '%s' (item id %" PRIu32 ")\n", input_now_reading.path, input_now_reading.item_id);
-	  *retval = cmdarg->seek_ms;
-	  return COMMAND_END;
-	}
-
-      flush(&flags);
+      flush(NULL);
 
       ret = seek(&input_now_reading, cmdarg->seek_ms);
       if (ret < 0)
@@ -516,6 +507,26 @@ start(void *arg, int *retval)
   clear(&input_now_reading);
   *retval = -1;
   return COMMAND_END;
+}
+
+// Resume is a no-op if what we are reading now (or just finished reading, hence
+// we don't check if input_now_reading.open is true) is the same item as
+// requested. We also don't want to flush & seek in this case, since that has
+// either already been done, or it is not desired because we just filled the
+// buffer after an underrun.
+static enum command_state
+resume(void *arg, int *retval)
+{
+  struct input_arg *cmdarg = arg;
+
+  if (cmdarg->item_id == input_now_reading.item_id)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Resuming input read loop for item '%s' (item id %" PRIu32 ")\n", input_now_reading.path, input_now_reading.item_id);
+      *retval = cmdarg->seek_ms;
+      return COMMAND_END;
+    }
+
+  return start(arg, retval);
 }
 
 static enum command_state
@@ -788,7 +799,6 @@ input_seek(uint32_t item_id, int seek_ms)
 
   cmdarg.item_id = item_id;
   cmdarg.seek_ms = seek_ms;
-  cmdarg.resume  = false;
 
   return commands_exec_sync(cmdbase, start, NULL, &cmdarg);
 }
@@ -802,9 +812,8 @@ input_resume(uint32_t item_id, int seek_ms)
 
   cmdarg->item_id = item_id;
   cmdarg->seek_ms = seek_ms;
-  cmdarg->resume  = true;
 
-  commands_exec_async(cmdbase, start, cmdarg);
+  commands_exec_async(cmdbase, resume, cmdarg);
 }
 
 void
@@ -816,7 +825,6 @@ input_start(uint32_t item_id)
 
   cmdarg->item_id = item_id;
   cmdarg->seek_ms = 0;
-  cmdarg->resume  = false;
 
   commands_exec_async(cmdbase, start, cmdarg);
 }
