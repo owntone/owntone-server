@@ -1706,21 +1706,25 @@ pb_resume(void)
 }
 
 // Temporarily suspends/resets playback, used when input buffer underruns or in
-// case of problems writing to the outputs. Especially in the latter case the
-// input may have proceeded to a source further ahead than playing_now, so we
-// may also need to reset the input, so that we resume with playing_now.
+// case of problems writing to the outputs.
 static void
 pb_suspend(void)
 {
   struct db_queue_item *queue_item;
-  struct player_source *ps;
   int ret;
 
-  // Start session again to reset input, also flushes input buffer
-  ps = pb_session.playing_now;
-  if (ps != pb_session.source_list)
+  // If ->next is set then suspend was called during a track change, which is a
+  // tricky time. To simplify things, we reset the entire session, which also
+  // means resetting the input, but still letting it proceed with the head of
+  // source_list. Ideally, we instead want to resume with playing_now, because
+  // with the current solution the user will loose a bit of audio. In practice,
+  // that causes issues, because sometimes pb_suspend() is called because of an
+  // output delay, which was caused by e.g. changing quality of the output
+  // during track change. So going back to playing_now would make that repeat.
+  if (pb_session.playing_now->next)
     {
-      queue_item = db_queue_fetch_byitemid(ps->item_id);
+      // So we restart the session with the head source, not playing_now
+      queue_item = db_queue_fetch_byitemid(pb_session.source_list->item_id);
       if (!queue_item)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Error suspending playback, could not retrieve queue item currently being played\n");
@@ -1728,7 +1732,7 @@ pb_suspend(void)
 	  return;
 	}
 
-      ret = pb_session_start(queue_item, ps->pos_ms);
+      ret = pb_session_start(queue_item, 0);
       free_queue_item(queue_item, 0);
       if (ret < 0)
 	{
