@@ -332,6 +332,16 @@ markers_set(short flags, size_t write_size)
     }
 }
 
+static inline void
+buffer_full_cb(void)
+{
+  if (!input_buffer.full_cb)
+    return;
+
+  input_buffer.full_cb();
+  input_buffer.full_cb = NULL;
+}
+
 
 /* ------------------------- INPUT SOURCE HANDLING -------------------------- */
 
@@ -549,6 +559,7 @@ timeout_cb(int fd, short what, void *arg)
   stop();
 }
 
+
 /* ---------------------- Interface towards input backends ------------------ */
 /*                           Thread: input and spotify                        */
 
@@ -564,15 +575,14 @@ input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags)
 
   read_end = (flags & (INPUT_FLAG_EOF | INPUT_FLAG_ERROR));
   if (read_end)
-    input_now_reading.open = false;
+    {
+      buffer_full_cb();
+      input_now_reading.open = false;
+    }
 
   if ((evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD) && evbuf)
     {
-      if (input_buffer.full_cb)
-	{
-	  input_buffer.full_cb();
-	  input_buffer.full_cb = NULL;
-	}
+      buffer_full_cb();
 
       // In case of EOF or error the input is always allowed to write, even if the
       // buffer is full. There is no point in holding back the input in that case.
@@ -632,11 +642,7 @@ input_wait(void)
   // Is the buffer full? Then wait for a read or for loop_timeout to elapse
   if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
     {
-      if (input_buffer.full_cb)
-	{
-	  input_buffer.full_cb();
-	  input_buffer.full_cb = NULL;
-	}
+      buffer_full_cb();
 
       ts = timespec_reltoabs(input_loop_timeout);
       pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
