@@ -418,7 +418,7 @@ static const char *sort_clause[] =
     "f.composer_sort",
     "f.disc",
     "f.track",
-    "LOWER(f.virtual_path)",
+    "f.virtual_path COLLATE NOCASE",
     "pos",
     "shuffle_pos",
   };
@@ -3890,7 +3890,7 @@ db_directory_id_bypath(const char *path)
 int
 db_directory_enum_start(struct directory_enum *de)
 {
-#define Q_TMPL "SELECT * FROM directories WHERE disabled = 0 AND parent_id = %d ORDER BY LOWER(virtual_path);"
+#define Q_TMPL "SELECT * FROM directories WHERE disabled = 0 AND parent_id = %d ORDER BY virtual_path COLLATE NOCASE;"
   sqlite3_stmt *stmt;
   char *query;
   int ret;
