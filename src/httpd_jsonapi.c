@@ -3191,7 +3191,7 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
     goto error;
 
   query_params.type = Q_PL;
-  query_params.sort = S_PLAYLIST;
+  query_params.sort = S_VPATH;
   query_params.filter = db_mprintf("(f.directory_id = %d)", directory_id);
 
   ret = fetch_playlists(&query_params, playlists_items, &total);
