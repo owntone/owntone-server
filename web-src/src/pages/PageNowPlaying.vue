@@ -8,6 +8,9 @@
         <h2 class="title is-6">
           {{ now_playing.artist }}
         </h2>
+        <h2 class="subtitle is-6 has-text-grey has-text-weight-bold" v-if="composer">
+            {{ composer }}
+        </h2>
         <h3 class="subtitle is-6">
           {{ now_playing.album }}
         </h3>
@@ -102,12 +105,34 @@ export default {
     state () {
       return this.$store.state.player
     },
+
     now_playing () {
       return this.$store.getters.now_playing
     },
 
     artwork_url: function () {
       return webapi.artwork_url_append_size_params(this.now_playing.artwork_url)
+    },
+
+    settings_option_show_composer_now_playing () {
+      return this.$store.getters.settings_option_show_composer_now_playing
+    },
+
+    settings_option_show_composer_for_genre () {
+      return this.$store.getters.settings_option_show_composer_for_genre
+    },
+
+    composer () {
+      if (this.settings_option_show_composer_now_playing) {
+        if (!this.settings_option_show_composer_for_genre ||
+            (this.now_playing.genre &&
+            this.settings_option_show_composer_for_genre.toLowerCase()
+              .split(',')
+              .findIndex(elem => this.now_playing.genre.toLowerCase().indexOf(elem.trim()) >= 0) >= 0)) {
+          return this.now_playing.composer
+        }
+      }
+      return null
     }
   },
 

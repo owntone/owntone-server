@@ -144,8 +144,6 @@ section.fd-tabs-section + section.fd-content {
 }
 
 /* Now playing progress bar */
-.fd-progress-now-playing {
-}
 .seek-slider {
   min-width: 250px;
   max-width: 500px;
