@@ -79,6 +79,7 @@ struct settings_ctx
   int sample_rate;
   uint64_t channel_layout;
   int channels;
+  int bit_rate;
   enum AVSampleFormat sample_format;
   bool wavheader;
   bool icy;
@@ -262,6 +263,11 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
       settings->channel_layout = av_get_default_channel_layout(quality->channels);
     }
 
+  if (quality && quality->bit_rate)
+    {
+      settings->bit_rate    = quality->bit_rate;
+    }
+
   if (quality && quality->bits_per_sample && (quality->bits_per_sample != 8 * av_get_bytes_per_sample(settings->sample_format)))
     {
       DPRINTF(E_LOG, L_XCODE, "Bug! Mismatch between profile and media quality\n");
@@ -281,6 +287,7 @@ stream_settings_set(struct stream_ctx *s, struct settings_ctx *settings, enum AV
       s->codec->channels       = settings->channels;
       s->codec->sample_fmt     = settings->sample_format;
       s->codec->time_base      = (AVRational){1, settings->sample_rate};
+      s->codec->bit_rate       = settings->bit_rate;
     }
   else if (type == AVMEDIA_TYPE_VIDEO)
     {
@@ -731,7 +738,7 @@ open_decoder(unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaTyp
   if ((*stream_index < 0) || (!decoder))
     {
       if (!ctx->settings.silent)
-	DPRINTF(E_LOG, L_XCODE, "No stream data or decoder for stream #%d\n", *stream_index);
+       DPRINTF(E_LOG, L_XCODE, "No stream data or decoder for stream #%d\n", *stream_index);
       return NULL;
     }
 

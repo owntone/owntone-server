@@ -60,6 +60,7 @@ static cfg_opt_t sec_general[] =
 #else
     CFG_BOOL("high_resolution_clock", cfg_true, CFGF_NONE),
 #endif
+    CFG_INT("streaming_bitrate", 192, CFGF_NONE),
     // Hidden options
     CFG_INT("db_pragma_cache_size", -1, CFGF_NONE),
     CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
@@ -186,6 +187,15 @@ static cfg_opt_t sec_mpd[] =
     CFG_END()
   };
 
+/* streaming section structure */
+static cfg_opt_t sec_streaming[] =
+  {
+    CFG_INT("sample_rate", 44100, CFGF_NONE),
+    CFG_INT("channels", 2, CFGF_NONE),
+    CFG_INT("bit_rate", 192, CFGF_NONE),
+    CFG_END()
+  };
+
 /* Config file structure */
 static cfg_opt_t toplvl_cfg[] =
   {
@@ -198,6 +208,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("spotify", sec_spotify, CFGF_NONE),
     CFG_SEC("sqlite", sec_sqlite, CFGF_NONE),
     CFG_SEC("mpd", sec_mpd, CFGF_NONE),
+    CFG_SEC("streaming", sec_streaming, CFGF_NONE),
     CFG_END()
   };
 

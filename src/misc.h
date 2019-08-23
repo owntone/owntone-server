@@ -31,6 +31,7 @@ struct media_quality {
   int sample_rate;
   int bits_per_sample;
   int channels;
+  int bit_rate;
 };
 
 struct onekeyval {

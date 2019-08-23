@@ -86,7 +86,7 @@ static struct pulse_session *sessions;
 static uint32_t pulse_known_devices[PULSE_MAX_DEVICES];
 
 static struct media_quality pulse_last_quality;
-static struct media_quality pulse_fallback_quality = { 44100, 16, 2 };
+static struct media_quality pulse_fallback_quality = { 44100, 16, 2, 0 };
 
 // Converts from 0 - 100 to Pulseaudio's scale
 static inline pa_volume_t
