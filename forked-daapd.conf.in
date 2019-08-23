@@ -367,3 +367,16 @@ sqlite {
 	# but may reduce database size). Default is yes.
 #	vacuum = yes
 }
+
+
+# Streaming audio settings for remote connections (ie stream.mp3)
+streaming {
+	# Sample rate, typically 44100 or 48000
+#	sample_rate = 44100
+ 
+	# Channels
+#	channels = 2
+ 
+	# Set the MP3 streaming bit rate (in kbps), valid options: 64 / 96 / 128 / 192 / 320
+#	bit_rate = 192
+}

@@ -61,7 +61,7 @@ struct fifo_buffer
 
 static struct fifo_buffer buffer;
 
-static struct media_quality fifo_quality = { 44100, 16, 2 };
+static struct media_quality fifo_quality = { 44100, 16, 2, 0 };
 
 
 static void

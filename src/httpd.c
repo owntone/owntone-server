@@ -1034,7 +1034,7 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
 void
 httpd_stream_file(struct evhttp_request *req, int id)
 {
-  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS };
+  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, 0 };
   struct media_file_info *mfi;
   struct stream_ctx *st;
   void (*stream_cb)(int fd, short event, void *arg);

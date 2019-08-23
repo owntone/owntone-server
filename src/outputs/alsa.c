@@ -140,7 +140,7 @@ static int alsa_latency_history_size;
 
 // We will try to play the music with the source quality, but if the card
 // doesn't support that we resample to the fallback quality
-static struct media_quality alsa_fallback_quality = { 44100, 16, 2 };
+static struct media_quality alsa_fallback_quality = { 44100, 16, 2, 0 };
 static struct media_quality alsa_last_quality;
 
 

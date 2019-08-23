@@ -446,7 +446,7 @@ static struct cast_session *cast_sessions;
 static struct cast_master_session *cast_master_session;
 //static struct timeval heartbeat_timeout = { HEARTBEAT_TIMEOUT, 0 };
 static struct timeval reply_timeout = { REPLY_TIMEOUT, 0 };
-static struct media_quality cast_quality_default = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT };
+static struct media_quality cast_quality_default = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT, 0 };
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
