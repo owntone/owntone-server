@@ -602,11 +602,6 @@ get_album_image(json_object *jsonalbum, int max_w)
 
   artwork_url = NULL;
 
-  if (max_w <= 0)
-    {
-      return NULL;
-    }
-
   if (!json_object_object_get_ex(jsonalbum, "images", &jsonimages))
     {
       DPRINTF(E_DBG, L_SPOTIFY, "No images in for spotify album object found\n");
@@ -616,6 +611,7 @@ get_album_image(json_object *jsonalbum, int max_w)
   // Find first image that has a smaller width than the given max_w
   // (this should avoid the need for resizing and improve performance at the cost of some quality loss)
   // Note that Spotify returns the images ordered descending by width (widest image first)
+  // Special case is if no max width (max_w = 0) is given, the widest images will be used
   image_count = json_object_array_length(jsonimages);
   for (index = 0; index < image_count; index++)
     {
@@ -624,7 +620,7 @@ get_album_image(json_object *jsonalbum, int max_w)
 	{
 	  artwork_url = jparse_str_from_obj(jsonimage, "url");
 
-	  if (jparse_int_from_obj(jsonimage, "width") <= max_w)
+	  if (max_w <= 0  || jparse_int_from_obj(jsonimage, "width") <= max_w)
 	    {
 	      // We have the first image that has a smaller width than the given max_w
 	      break;
@@ -650,8 +646,7 @@ parse_metadata_track(json_object *jsontrack, struct spotify_track *track, int ma
       if (json_object_object_get_ex(jsonalbum, "artists", &jsonartists))
 	track->album_artist = jparse_str_from_array(jsonartists, 0, "name");
 
-      if (max_w > 0)
-	track->artwork_url = get_album_image(jsonalbum, max_w);
+      track->artwork_url = get_album_image(jsonalbum, max_w);
     }
 
   if (json_object_object_get_ex(jsontrack, "artists", &jsonartists))
