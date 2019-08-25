@@ -180,3 +180,11 @@ section.fd-tabs-section + section.fd-content {
   margin-left: 16px;
   margin-right: 16px;
 }
+
+.dropdown-item a {
+  display: block;
+}
+
+.dropdown-item:hover {
+  background-color: hsl(0, 0%, 96%)
+}
