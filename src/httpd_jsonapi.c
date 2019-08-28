@@ -3440,6 +3440,24 @@ search_playlists(json_object *reply, struct httpd_request *hreq, const char *par
   return ret;
 }
 
+
+static int
+jsonapi_reply_block(struct httpd_request *hreq)
+{
+  const char *param;
+  long zzz = 5;
+  int ret = 0;
+
+  if ((param = evhttp_find_header(hreq->query, "zzz")))
+    {
+      zzz = atol(param);
+    }
+  DPRINTF(E_LOG, L_WEB, "blocking %d seconds\n", zzz);
+  sleep(zzz);
+
+  return HTTP_OK;
+}
+
 static int
 jsonapi_reply_search(struct httpd_request *hreq)
 {
@@ -3595,6 +3613,8 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
+
+    { EVHTTP_REQ_PUT,    "^/api/block$",                                 jsonapi_reply_block},
 
     { 0, NULL, NULL }
   };
