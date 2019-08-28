@@ -14,7 +14,7 @@
 void
 streaming_write(struct output_buffer *obuf);
 
-int
+void
 streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed);
 
 int
