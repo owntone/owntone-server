@@ -201,7 +201,7 @@ scrobble_cb(void *arg)
  * it, and it seems that nowadays iTunes and Remote encodes the query just fine.
  * However, I'm keeping it around for a while in case problems show up. If you
  * are from the future, you can probably safely remove it for good.
- * 
+ *
 static char *
 httpd_fixup_uri(struct evhttp_request *req)
 {
@@ -724,7 +724,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
   if (st->end_offset && ((st->offset + STREAM_CHUNK_SIZE) > (st->end_offset + 1)))
     chunk_size = st->end_offset + 1 - st->offset;
   else
-    chunk_size = STREAM_CHUNK_SIZE;  
+    chunk_size = STREAM_CHUNK_SIZE; 
 
   ret = read(st->fd, st->buf, chunk_size);
   if (ret <= 0)
@@ -813,6 +813,10 @@ exit_cb(int fd, short event, void *arg)
 
 struct httpd_worker *worker_jsonapi = NULL;
 struct httpd_worker *worker_streaming = NULL;
+struct httpd_worker *worker_dacp = NULL;
+struct httpd_worker *worker_daap = NULL;
+struct httpd_worker *worker_artwork = NULL;
+struct httpd_worker *worker_rsp = NULL;
 
 struct httpd_worker_request *
 httpd_worker_request_new(struct evhttp_request *req, struct httpd_uri_parsed *uri, bool stop)
@@ -838,7 +842,7 @@ httpd_worker_free(struct httpd_worker *worker)
 
   pthread_mutex_lock(&worker->lck);
   /* at this point, the only items on the worker->reqs are the pending requests
-   * so we can replace those with the shutdown request and free up all those 
+   * so we can replace those with the shutdown request and free up all those
    * pennding items/send end notifs
    */
   p0 = worker->reqs;
@@ -1035,13 +1039,13 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   /* Dispatch protocol-specific handlers */
   if (dacp_is_request(parsed->path))
     {
-      dacp_request(req, parsed);
-      goto out;
+      httpd_worker_req_push(worker_dacp, httpd_worker_request_new(req, parsed, false));
+      return;
     }
   else if (daap_is_request(parsed->path))
     {
-      daap_request(req, parsed);
-      goto out;
+      httpd_worker_req_push(worker_daap, httpd_worker_request_new(req, parsed, false));
+      return;
     }
   else if (jsonapi_is_request(parsed->path))
     {
@@ -1050,8 +1054,8 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     }
   else if (artworkapi_is_request(parsed->path))
     {
-      artworkapi_request(req, parsed);
-      goto out;
+      httpd_worker_req_push(worker_artwork, httpd_worker_request_new(req, parsed, false));
+      return;
     }
   else if (streaming_is_request(parsed->path))
     {
@@ -1065,8 +1069,8 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     }
   else if (rsp_is_request(parsed->path))
     {
-      rsp_request(req, parsed);
-      goto out;
+      httpd_worker_req_push(worker_rsp, httpd_worker_request_new(req, parsed, false));
+      return;
     }
 
   DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", parsed->uri);
@@ -1860,7 +1864,8 @@ httpd_init(const char *webroot)
     }
 
   ret = rsp_init();
-  if (ret < 0)
+  worker_rsp = httpd_worker_start("httpd-rsp", rsp_request);
+  if (ret < 0 || worker_rsp == NULL)
     {
       DPRINTF(E_FATAL, L_HTTPD, "RSP protocol init failed\n");
 
@@ -1868,7 +1873,8 @@ httpd_init(const char *webroot)
     }
 
   ret = daap_init();
-  if (ret < 0)
+  worker_daap = httpd_worker_start("httpd-daap", daap_request);
+  if (ret < 0 || worker_daap == NULL)
     {
       DPRINTF(E_FATAL, L_HTTPD, "DAAP protocol init failed\n");
 
@@ -1876,7 +1882,8 @@ httpd_init(const char *webroot)
     }
 
   ret = dacp_init();
-  if (ret < 0)
+  worker_dacp = httpd_worker_start("httpd-dacp", dacp_request);
+  if (ret < 0 || worker_dacp == NULL)
     {
       DPRINTF(E_FATAL, L_HTTPD, "DACP protocol init failed\n");
 
@@ -1884,7 +1891,7 @@ httpd_init(const char *webroot)
     }
 
   ret = jsonapi_init();
-  worker_jsonapi = httpd_worker_start("httpd-json", jsonapi_request); 
+  worker_jsonapi = httpd_worker_start("httpd-json", jsonapi_request);
   if (ret < 0 || worker_jsonapi == NULL)
     {
       DPRINTF(E_FATAL, L_HTTPD, "JSON api init failed\n");
@@ -1893,7 +1900,8 @@ httpd_init(const char *webroot)
     }
 
   ret = artworkapi_init();
-  if (ret < 0)
+  worker_artwork = httpd_worker_start("httpd-artwork", artworkapi_request);
+  if (ret < 0 || worker_artwork == NULL)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Artwork init failed\n");
 
@@ -1919,7 +1927,7 @@ httpd_init(const char *webroot)
 #endif
 
   streaming_init();
-  worker_streaming = httpd_worker_start("httpd-streaming", streaming_request); 
+  worker_streaming = httpd_worker_start("httpd-streaming", streaming_request);
   if (worker_streaming == NULL)
     {
       DPRINTF(E_FATAL, L_HTTPD, "streaming init failed\n");
@@ -2047,15 +2055,19 @@ httpd_init(const char *webroot)
  oauth_fail:
   artworkapi_deinit();
  artworkapi_fail:
+  httpd_worker_free(worker_artwork);
   jsonapi_deinit();
  jsonapi_fail:
   httpd_worker_free(worker_jsonapi);
   dacp_deinit();
  dacp_fail:
+  httpd_worker_free(worker_dacp);
   daap_deinit();
  daap_fail:
+  httpd_worker_free(worker_daap);
   rsp_deinit();
  rsp_fail:
+  httpd_worker_free(worker_rsp);
   event_base_free(evbase_httpd);
 
   return -1;
@@ -2104,8 +2116,13 @@ httpd_deinit(void)
   jsonapi_deinit();
   httpd_worker_free(worker_jsonapi);
   rsp_deinit();
+  httpd_worker_free(worker_rsp);
   dacp_deinit();
+  httpd_worker_free(worker_dacp);
   daap_deinit();
+  httpd_worker_free(worker_daap);
+  artworkapi_deinit();
+  httpd_worker_free(worker_artwork);
 
 #ifdef HAVE_EVENTFD
   close(exit_efd);
