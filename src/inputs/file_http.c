@@ -87,10 +87,6 @@ play(struct input_source *source)
   int ret;
   short flags;
 
-  ret = input_wait();
-  if (ret < 0)
-    return 0; // Loop, input_buffer is not ready for writing
-
   // We set "wanted" to 1 because the read size doesn't matter to us
   // TODO optimize?
   ret = transcode(source->evbuf, &icy_timer, ctx, 1);

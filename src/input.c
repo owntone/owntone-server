@@ -44,8 +44,8 @@
 // Disallow further writes to the buffer when its size exceeds this threshold.
 // The below gives us room to buffer 2 seconds of 48000/16/2 audio.
 #define INPUT_BUFFER_THRESHOLD STOB(96000, 16, 2)
-// How long (in sec) to wait for player read before looping
-#define INPUT_LOOP_TIMEOUT 1
+// How long (in nsec) to wait when the input buffer is full before looping
+#define INPUT_LOOP_TIMEOUT_NSEC 10000000
 // How long (in sec) to keep an input open without the player reading from it
 #define INPUT_OPEN_TIMEOUT 600
 
@@ -134,7 +134,7 @@ static struct input_source input_now_reading;
 static struct input_buffer input_buffer;
 
 // Timeout waiting in playback loop
-static struct timespec input_loop_timeout = { INPUT_LOOP_TIMEOUT, 0 };
+static struct timespec input_loop_timeout = { 0, INPUT_LOOP_TIMEOUT_NSEC };
 
 // Timeout waiting for player read
 static struct timeval input_open_timeout = { INPUT_OPEN_TIMEOUT, 0 };
@@ -639,30 +639,12 @@ input_wait(void)
 
   pthread_mutex_lock(&input_buffer.mutex);
 
-  // Is the buffer full? Then wait for a read or for loop_timeout to elapse
-  if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
-    {
-      buffer_full_cb();
-
-      ts = timespec_reltoabs(input_loop_timeout);
-      pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
-
-      if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
-	{
-	  pthread_mutex_unlock(&input_buffer.mutex);
-	  return -1;
-	}
-    }
+  ts = timespec_reltoabs(input_loop_timeout);
+  pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
 
   pthread_mutex_unlock(&input_buffer.mutex);
   return 0;
 }
-
-/*void
-input_next(void)
-{
-  commands_exec_async(cmdbase, next, NULL);
-}*/
 
 /* ---------------------------------- MAIN ---------------------------------- */
 /*                                Thread: input                               */
@@ -694,6 +676,32 @@ input(void *arg)
   pthread_exit(NULL);
 }
 
+static int
+wait_buffer_ready(void)
+{
+  struct timespec ts;
+
+  pthread_mutex_lock(&input_buffer.mutex);
+
+  // Is the buffer full? Then wait for a read or for loop_timeout to elapse
+  if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
+    {
+      buffer_full_cb();
+
+      ts = timespec_reltoabs(input_loop_timeout);
+      pthread_cond_timedwait(&input_buffer.cond, &input_buffer.mutex, &ts);
+
+      if (evbuffer_get_length(input_buffer.evbuf) > INPUT_BUFFER_THRESHOLD)
+	{
+	  pthread_mutex_unlock(&input_buffer.mutex);
+	  return -1;
+	}
+    }
+
+  pthread_mutex_unlock(&input_buffer.mutex);
+  return 0;
+}
+
 static void
 play(evutil_socket_t fd, short flags, void *arg)
 {
@@ -704,6 +712,17 @@ play(evutil_socket_t fd, short flags, void *arg)
   // thus there is no reason to activate input_ev
   if (!inputs[input_now_reading.type]->play)
     return;
+
+  // If the buffer is full we wait until either the player has consumed enough
+  // data or INPUT_LOOP_TIMEOUT has elapsed (so we don't hang the input event
+  // thread when the player doesn't consume data quickly). If the return is
+  // negative then the buffer is still full, so we loop.
+  ret = wait_buffer_ready();
+  if (ret < 0)
+    {
+      event_add(input_ev, &tv);
+      return;
+    }
 
   // Return will be negative if there is an error or EOF. Here, we just don't
   // loop any more. input_write() will pass the message to the player.

@@ -143,20 +143,11 @@ int
 input_write(struct evbuffer *evbuf, struct media_quality *quality, short flags);
 
 /*
- * Input modules can use this to wait for the input_buffer to be ready for 
- * writing. The wait is max INPUT_LOOP_TIMEOUT, which allows the event base to
- * loop and process pending commands once in a while.
+ * Input modules can use this to wait for the player to read, so the module's
+ * playback-loop doesn't spin out of control.
  */
 int
 input_wait(void);
-
-/*
- * Async switch to the next song in the queue. Mostly for internal use, but
- * might be relevant some day externally?
- */
-//void
-//input_next(void);
-
 
 /* ---------------------- Interface towards player thread ------------------- */
 /*                                Thread: player                              */

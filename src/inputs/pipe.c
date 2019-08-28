@@ -872,10 +872,6 @@ play(struct input_source *source)
   short flags;
   int ret;
 
-  ret = input_wait();
-  if (ret < 0)
-    return 0; // Loop, input_buffer is not ready for writing
-
   ret = evbuffer_read(source->evbuf, pipe->fd, PIPE_READ_MAX);
   if ((ret == 0) && (pipe->is_autostarted))
     {
@@ -885,6 +881,7 @@ play(struct input_source *source)
     }
   else if ((ret == 0) || ((ret < 0) && (errno == EAGAIN)))
     {
+      input_wait();
       return 0; // Loop
     }
   else if (ret < 0)
