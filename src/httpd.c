@@ -142,6 +142,32 @@ struct stream_ctx *g_st;
 #endif
 
 
+struct httpd_worker_request
+{
+  bool stop;
+  struct evhttp_request *req;
+  struct httpd_uri_parsed *uri;
+
+  struct httpd_worker_request *next;
+};
+
+struct httpd_worker {
+  pthread_t  tid;
+  char *name;
+
+  void (*cmd)(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed);
+
+  struct httpd_worker_request *reqs;
+  pthread_mutex_t lck;
+  pthread_cond_t  cnd;
+
+#ifdef DEBUG_HTTPD_WORKER
+  unsigned n, c;
+#endif
+};
+
+
+
 /* -------------------------------- HELPERS --------------------------------- */
 
 static int
@@ -782,6 +808,180 @@ exit_cb(int fd, short event, void *arg)
   httpd_exit = 1;
 }
 
+
+/* worker threads */
+
+struct httpd_worker *worker_jsonapi = NULL;
+struct httpd_worker *worker_streaming = NULL;
+
+struct httpd_worker_request *
+httpd_worker_request_new(struct evhttp_request *req, struct httpd_uri_parsed *uri, bool stop)
+{
+  struct httpd_worker_request *wr;
+
+  wr = malloc(sizeof(struct httpd_worker));
+  wr->req = req;
+  wr->uri = uri;
+  wr->stop = stop;
+  wr->next = NULL;
+
+  return wr;
+}
+
+void
+httpd_worker_free(struct httpd_worker *worker)
+{
+  struct httpd_worker_request *p0, *p1;
+
+  if (worker == NULL)
+    return;
+
+  pthread_mutex_lock(&worker->lck);
+  /* at this point, the only items on the worker->reqs are the pending requests
+   * so we can replace those with the shutdown request and free up all those 
+   * pennding items/send end notifs
+   */
+  p0 = worker->reqs;
+  worker->reqs = httpd_worker_request_new(NULL, NULL, true);
+  pthread_cond_signal(&worker->cnd);
+  pthread_mutex_unlock(&worker->lck);
+
+#ifdef DEBUG_HTTPD_WORKER
+  DPRINTF(E_DBG, L_HTTPD, "worker thread %s req=%u completed=%u\n", worker->name, worker->n, worker->c);
+#endif
+  while (p0)
+    {
+      p1 = p0;
+      if (p0->req)
+        {
+	  httpd_send_error(p0->req, HTTP_SERVUNAVAIL, "Server Unavailable");
+	  evhttp_send_reply_end(p0->req);
+	}
+      if (p0->uri)
+        httpd_uri_free(p0->uri);
+
+      p0 = p0->next;
+      free(p1);
+    }
+
+  pthread_join(worker->tid, NULL);
+
+  pthread_mutex_destroy(&worker->lck);
+  pthread_cond_destroy(&worker->cnd);
+  free(worker->name);
+
+  free(worker);
+}
+
+void
+httpd_worker_req_push(struct httpd_worker *worker, struct httpd_worker_request *req)
+{
+  struct httpd_worker_request *ptr;
+
+  pthread_mutex_lock(&worker->lck);
+  ptr = worker->reqs;
+  if (ptr == NULL)
+    {
+      worker->reqs = req;
+    }
+  else
+    {
+      while (ptr->next)
+        ptr = ptr->next;
+      ptr->next = req;
+    }
+#ifdef DEBUG_HTTPD_WORKER
+  ++worker->n;
+#endif
+  pthread_cond_signal(&worker->cnd);
+  pthread_mutex_unlock(&worker->lck);
+}
+
+void*
+httpd_worker_thread(void *arg)
+{
+  struct httpd_worker *worker = (struct httpd_worker*)arg;
+  bool keepgoing = true;
+  struct httpd_worker_request *req;
+  int ret;
+
+#if defined(HAVE_PTHREAD_SETNAME_NP)
+  pthread_setname_np(worker->tid, worker->name);
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+  pthread_set_name_np(worker->tid, worker->name);
+#endif
+
+  ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Error: DB init failed (%s)\n", worker->name);
+      pthread_exit(NULL);
+    }
+
+  DPRINTF(E_LOG, L_HTTPD, "HTTPd worker %s starting\n", worker->name);
+
+  /* wait for work on the req list and execute til we get a stop req
+   */
+  while (keepgoing)
+  {
+    pthread_mutex_lock(&worker->lck);
+    while ( (req = worker->reqs) == NULL)
+      pthread_cond_wait(&worker->cnd, &worker->lck);
+
+    if (req != NULL)
+      {
+        keepgoing = !req->stop;
+        worker->reqs = req->next;
+        req->next = NULL;
+#ifdef DEBUG_HTTPD_WORKER
+	++worker->c;
+#endif
+      }
+    pthread_mutex_unlock(&worker->lck);
+
+    if (keepgoing)
+      {
+        worker->cmd(req->req, req->uri);
+        httpd_uri_free(req->uri);
+      }
+    free(req);
+  }
+  DPRINTF(E_LOG, L_HTTPD, "HTTPd worker %s stopping\n", worker->name);
+
+  db_perthread_deinit();
+  return NULL;
+}
+
+struct httpd_worker *
+httpd_worker_start(char *tname, void (*cmd)(struct evhttp_request *, struct httpd_uri_parsed *))
+{
+  struct httpd_worker *worker;
+  int ret;
+
+  worker = malloc(sizeof(struct httpd_worker));
+  memset(worker, 0, sizeof(struct httpd_worker));
+
+  pthread_mutex_init(&worker->lck, NULL);
+  pthread_cond_init(&worker->cnd, NULL);
+
+  worker->name = strdup(tname);
+  worker->cmd = cmd;
+
+  ret = pthread_create(&worker->tid, NULL, httpd_worker_thread, worker);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not spawn HTTPd worker thread: %s %s\n", tname, strerror(errno));
+      goto worker_fail;
+    }
+
+  return worker;
+
+  worker_fail:
+    httpd_worker_free(worker);
+
+    return NULL;
+}
+
 static void
 httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
@@ -845,8 +1045,8 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     }
   else if (jsonapi_is_request(parsed->path))
     {
-      jsonapi_request(req, parsed);
-      goto out;
+      httpd_worker_req_push(worker_jsonapi, httpd_worker_request_new(req, parsed, false));
+      return;
     }
   else if (artworkapi_is_request(parsed->path))
     {
@@ -855,8 +1055,8 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     }
   else if (streaming_is_request(parsed->path))
     {
-      streaming_request(req, parsed);
-      goto out;
+      httpd_worker_req_push(worker_streaming, httpd_worker_request_new(req, parsed, false));
+      return;
     }
   else if (oauth_is_request(parsed->path))
     {
@@ -1684,7 +1884,8 @@ httpd_init(const char *webroot)
     }
 
   ret = jsonapi_init();
-  if (ret < 0)
+  worker_jsonapi = httpd_worker_start("httpd-json", jsonapi_request); 
+  if (ret < 0 || worker_jsonapi == NULL)
     {
       DPRINTF(E_FATAL, L_HTTPD, "JSON api init failed\n");
 
@@ -1718,6 +1919,14 @@ httpd_init(const char *webroot)
 #endif
 
   streaming_init();
+  worker_streaming = httpd_worker_start("httpd-streaming", streaming_request); 
+  if (worker_streaming == NULL)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "streaming init failed\n");
+
+      goto streaming_fail;
+    }
+
 
 #ifdef HAVE_EVENTFD
   exit_efd = eventfd(0, EFD_CLOEXEC);
@@ -1828,6 +2037,8 @@ httpd_init(const char *webroot)
 #endif
  pipe_fail:
   streaming_deinit();
+ streaming_fail:
+  httpd_worker_free(worker_streaming);
 #ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
  websocket_fail:
@@ -1838,6 +2049,7 @@ httpd_init(const char *webroot)
  artworkapi_fail:
   jsonapi_deinit();
  jsonapi_fail:
+  httpd_worker_free(worker_jsonapi);
   dacp_deinit();
  dacp_fail:
   daap_deinit();
@@ -1884,11 +2096,13 @@ httpd_deinit(void)
     }
 
   streaming_deinit();
+  httpd_worker_free(worker_streaming);
 #ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
 #endif
   oauth_deinit();
   jsonapi_deinit();
+  httpd_worker_free(worker_jsonapi);
   rsp_deinit();
   dacp_deinit();
   daap_deinit();
