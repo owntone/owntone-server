@@ -1900,5 +1900,7 @@ httpd_deinit(void)
   close(exit_pipe[1]);
 #endif
   evhttp_free(evhttpd);
+  event_del(exitev);
+  event_free(exitev);
   event_base_free(evbase_httpd);
 }
