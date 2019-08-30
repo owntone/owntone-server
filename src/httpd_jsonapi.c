@@ -2441,6 +2441,7 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add artists to response buffer.\n");
 
  error:
+  free_query_params(&query_params, 1);
   jparse_free(reply);
 
   if (ret < 0)
@@ -2597,6 +2598,7 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add albums to response buffer.\n");
 
  error:
+  free_query_params(&query_params, 1);
   jparse_free(reply);
 
   if (ret < 0)
@@ -2936,6 +2938,7 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
     DPRINTF(E_LOG, L_WEB, "playlist tracks: Couldn't add tracks to response buffer.\n");
 
  error:
+  free_query_params(&query_params, 1);
   jparse_free(reply);
 
   if (ret < 0)
