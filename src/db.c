@@ -1632,7 +1632,7 @@ db_build_query_clause(struct query_params *qp)
     goto error;
 
   if (qp->type & Q_F_BROWSE)
-    qc->group = sqlite3_mprintf("GROUP BY %s", browse_clause[qp->type & ~Q_F_BROWSE].group);
+    qc->group = sqlite3_mprintf("GROUP BY %s", browse_clause[qp->type & ~Q_F_BROWSE_COUNT].group);
   else if (qp->group)
     qc->group = sqlite3_mprintf("GROUP BY %s", qp->group);
   else
@@ -1653,7 +1653,7 @@ db_build_query_clause(struct query_params *qp)
   else if (qp->sort)
     qc->order = sqlite3_mprintf("ORDER BY %s", sort_clause[qp->sort]);
   else if (qp->type & Q_F_BROWSE)
-    qc->order = sqlite3_mprintf("ORDER BY %s", browse_clause[qp->type & ~Q_F_BROWSE].group);
+    qc->order = sqlite3_mprintf("ORDER BY %s", browse_clause[qp->type & ~Q_F_BROWSE_COUNT].group);
   else
     qc->order = sqlite3_mprintf("");
 
@@ -1956,11 +1956,18 @@ db_build_query_browse(struct query_params *qp, struct query_clause *qc)
   char *count;
   char *query;
 
-  select = browse_clause[qp->type & ~Q_F_BROWSE].select;
-  where  = browse_clause[qp->type & ~Q_F_BROWSE].where;
+  select = browse_clause[qp->type & ~Q_F_BROWSE_COUNT].select;
+  where  = browse_clause[qp->type & ~Q_F_BROWSE_COUNT].where;
 
   count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT %s FROM files f %s AND %s != '' %s);", select, qc->where, where, qc->group);
-  query = sqlite3_mprintf("SELECT %s FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
+  if (qp->type & Q_F_BROWSE_COUNT)
+    {
+      query = sqlite3_mprintf("SELECT %s, COUNT(*), SUM(f.song_length), COUNT(DISTINCT f.songartistid), COUNT(DISTINCT f.songalbumid) FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
+    }
+  else
+    {
+      query = sqlite3_mprintf("SELECT %s FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
+    }
 
   return db_build_query_check(qp, count, query);
 }
@@ -2423,6 +2430,47 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 
   *string = (char *)sqlite3_column_text(qp->stmt, 0);
   *sortstring = (char *)sqlite3_column_text(qp->stmt, 1);
+
+  return 0;
+}
+
+int
+db_query_fetch_browse(struct query_params *qp, struct db_browse_info *browse_info)
+{
+  int ret;
+
+  memset(browse_info, 0, sizeof(struct db_browse_info));
+
+  if (!qp->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Query not started!\n");
+      return -1;
+    }
+
+  if (!(qp->type & Q_F_BROWSE_COUNT))
+    {
+      DPRINTF(E_LOG, L_DB, "Not a browse with count query!\n");
+      return -1;
+    }
+
+  ret = db_blocking_step(qp->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results for count query\n");
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  browse_info->string = (char *)sqlite3_column_text(qp->stmt, 0);
+  browse_info->sortstring = (char *)sqlite3_column_text(qp->stmt, 1);
+  browse_info->count = sqlite3_column_int(qp->stmt, 2);
+  browse_info->length = sqlite3_column_int64(qp->stmt, 3);
+  browse_info->artist_count = sqlite3_column_int(qp->stmt, 4);
+  browse_info->album_count = sqlite3_column_int(qp->stmt, 5);
 
   return 0;
 }

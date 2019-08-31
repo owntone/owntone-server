@@ -33,6 +33,7 @@ enum sort_type {
 };
 
 #define Q_F_BROWSE (1 << 15)
+#define Q_F_BROWSE_COUNT ((1 << 14) | Q_F_BROWSE)
 
 enum query_type {
   Q_ITEMS            = 1,
@@ -55,6 +56,9 @@ enum query_type {
   Q_BROWSE_TRACKS    = Q_F_BROWSE | 7,
   Q_BROWSE_VPATH     = Q_F_BROWSE | 8,
   Q_BROWSE_PATH      = Q_F_BROWSE | 9,
+
+  // Supplementary, not incl in browse_clause[]
+  Q_BROWSE_GENRES_WITH_COUNT = Q_F_BROWSE_COUNT | Q_BROWSE_GENRES,
 };
 
 #define ARTWORK_UNKNOWN   0
@@ -394,6 +398,15 @@ struct watch_enum {
   void *stmt;
 };
 
+struct db_browse_info {
+  const char *string;
+  const char *sortstring;
+  uint32_t count;
+  uint64_t length;
+  uint32_t artist_count;
+  uint32_t album_count;
+};
+
 struct filecount_info {
   uint32_t count;
   uint64_t length;
@@ -565,6 +578,9 @@ db_query_fetch_string(struct query_params *qp, char **string);
 
 int
 db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortstring);
+
+int
+db_query_fetch_browse(struct query_params *qp, struct db_browse_info *browse_info);
 
 /* Files */
 int
