@@ -46,7 +46,6 @@
 
 #ifdef HAVE_SPOTIFY_H
 # include "spotify_webapi.h"
-# include "spotify.h"
 #endif
 
 /* This artwork module will look for artwork by consulting a set of sources one
@@ -192,7 +191,6 @@ static int source_item_embedded_get(struct artwork_ctx *ctx);
 static int source_item_own_get(struct artwork_ctx *ctx);
 static int source_item_stream_get(struct artwork_ctx *ctx);
 static int source_item_pipe_get(struct artwork_ctx *ctx);
-static int source_item_libspotify_get(struct artwork_ctx *ctx);
 static int source_item_spotifywebapi_track_get(struct artwork_ctx *ctx);
 static int source_item_ownpl_get(struct artwork_ctx *ctx);
 static int source_item_spotifywebapi_search_get(struct artwork_ctx *ctx);
@@ -258,12 +256,6 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_pipe_get,
       .data_kinds = (1 << DATA_KIND_PIPE),
       .cache = NEVER,
-    },
-    {
-      .name = "libspotify",
-      .handler = source_item_libspotify_get,
-      .data_kinds = (1 << DATA_KIND_SPOTIFY),
-      .cache = ON_SUCCESS,
     },
     {
       .name = "Spotify track web api",
@@ -1555,34 +1547,6 @@ source_item_coverartarchive_get(struct artwork_ctx *ctx)
 
 #ifdef HAVE_SPOTIFY_H
 static int
-source_item_libspotify_get(struct artwork_ctx *ctx)
-{
-  struct evbuffer *raw;
-  int ret;
-
-  CHECK_NULL(L_ART, raw = evbuffer_new());
-
-  ret = spotify_artwork_get(raw, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_ART, "No artwork from libspotify for %s\n", ctx->dbmfi->path);
-      evbuffer_free(raw);
-      return ART_E_NONE;
-    }
-
-  ret = artwork_evbuf_rescale(ctx->evbuf, raw, ctx->max_w, ctx->max_h);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not rescale libspotify artwork for '%s'\n", ctx->dbmfi->path);
-      evbuffer_free(raw);
-      return ART_E_ERROR;
-    }
-
-  evbuffer_free(raw);
-  return ART_FMT_JPEG;
-}
-
-static int
 source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
 {
   char *artwork_url;
@@ -1630,12 +1594,6 @@ source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
   return ret;
 }
 #else
-static int
-source_item_libspotify_get(struct artwork_ctx *ctx)
-{
-  return ART_E_ERROR;
-}
-
 static int
 source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
 {
