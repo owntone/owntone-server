@@ -122,6 +122,7 @@ forked_daapd_SOURCES = main.c \
 	smartpl_query.c smartpl_query.h \
 	player.c player.h \
 	worker.c worker.h \
+	settings.c settings.h \
 	input.h input.c \
 	inputs/file_http.c inputs/pipe.c \
 	outputs.h outputs.c \

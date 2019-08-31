@@ -8,6 +8,7 @@ Available API endpoints:
 * [Library](#library): list playlists, artists, albums and tracks from your library or trigger library rescan
 * [Search](#search): search for playlists, artists, albums and tracks
 * [Server info](#server-info): get server information
+* [Settings](#settings): list and change settings for the player web interface
 * [Push notifications](#push-notifications): receive push notifications
 
 JSON-Object model:
@@ -1916,6 +1917,163 @@ curl -X GET "http://localhost:3689/api/config"
 }
 ```
 
+
+## Settings
+
+| Method    | Endpoint                                         | Description                          |
+| --------- | ------------------------------------------------ | ------------------------------------ |
+| GET       | [/api/settings](#list-categories)                | Get all available categories         |
+| GET       | [/api/settings/{category-name}](#get-a-category) | Get all available options for a category   |
+| GET       | [/api/settings/{category-name}/{option-name}](#get-a-option) | Get a single setting option    |
+| PUT       | [/api/settings/{category-name}/{option-name}](#change-a-option-value) | Change the value of a setting option    |
+
+
+
+### List categories
+
+List all settings categories with their options
+
+**Endpoint**
+
+```http
+GET /api/settings
+```
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| categories      | array    | Array of settings [category](#category-object) objects |
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/settings"
+```
+
+```json
+{
+  "categories": [
+    {
+      "name": "webinterface",
+      "options": [
+        {
+          "name": "show_composer_now_playing",
+          "type": 1,
+          "value": true
+        },
+        {
+          "name": "show_composer_for_genre",
+          "type": 2,
+          "value": "classical"
+        }
+      ]
+    }
+  ]
+}
+```
+
+
+### Get a category
+
+Get a settings category with their options
+
+**Endpoint**
+
+```http
+GET /api/settings/{category-name}
+```
+
+**Response**
+
+Returns a settings [category](#category-object) object
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/settings/webinterface"
+```
+
+```json
+{
+  "name": "webinterface",
+  "options": [
+    {
+      "name": "show_composer_now_playing",
+      "type": 1,
+      "value": true
+    },
+    {
+      "name": "show_composer_for_genre",
+      "type": 2,
+      "value": "classical"
+    }
+  ]
+}
+```
+
+
+### Get a option
+
+Get a single settings option
+
+**Endpoint**
+
+```http
+GET /api/settings/{category-name}/{option-name}
+```
+
+**Response**
+
+Returns a settings [option](#option-object) object
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/settings/webinterface/show_composer_now_playing"
+```
+
+```json
+{
+  "name": "show_composer_now_playing",
+  "type": 1,
+  "value": true
+}
+```
+
+
+### Change a option value
+
+Get a single settings option
+
+**Endpoint**
+
+```http
+PUT /api/settings/{category-name}/{option-name}
+```
+
+**Request**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| name            | string   | Option name |
+| value           | (integer / boolean / string)   | New option value    |
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+
+**Example**
+
+```shell
+curl -X PUT "http://localhost:3689/api/settings/webinterface/show_composer_now_playing" --data "{\"name\":\"show_composer_now_playing\",\"value\":true}"
+```
+
+
 ## Push notifications
 
 If forked-daapd was built with websocket support, forked-daapd exposes a websocket at `localhost:3688` to inform clients of changes (e. g. player state or library updates).
@@ -2101,6 +2259,23 @@ curl --include \
 | Key             | Type     | Value                                     |
 | --------------- | -------- | ----------------------------------------- |
 | path            | string   | Directory path                            |
+
+
+### `category` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| name            | string   | Category name                             |
+| options         | array    | Array of option in this category          |
+
+
+### `option` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| name            | string   | Option name                               |
+| type            | integer  | The type of the value for this option (`0`: integer, `1`: boolean, `2`: string) |
+| value           | (integer / boolean / string)  | Current value for this option                               |
 
 
 ### Artwork urls

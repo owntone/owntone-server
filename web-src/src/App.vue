@@ -106,6 +106,7 @@ export default {
         vm.update_outputs()
         vm.update_player_status()
         vm.update_library_stats()
+        vm.update_settings()
         vm.update_queue()
         vm.update_spotify()
       }
@@ -163,6 +164,12 @@ export default {
     update_queue: function () {
       webapi.queue().then(({ data }) => {
         this.$store.commit(types.UPDATE_QUEUE, data)
+      })
+    },
+
+    update_settings: function () {
+      webapi.settings().then(({ data }) => {
+        this.$store.commit(types.UPDATE_SETTINGS, data)
       })
     },
 

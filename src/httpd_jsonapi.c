@@ -53,6 +53,7 @@
 #include "misc_json.h"
 #include "player.h"
 #include "remote_pairing.h"
+#include "settings.h"
 #include "smartpl_query.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify_webapi.h"
@@ -727,6 +728,259 @@ jsonapi_reply_config(struct httpd_request *hreq)
   jparse_free(jreply);
 
   return HTTP_OK;
+}
+
+static json_object *
+option_get_json(struct settings_option *option)
+{
+  const char *optionname;
+  json_object *json_option;
+  int intval;
+  bool boolval;
+  char *strval;
+
+
+  optionname = option->name;
+
+  CHECK_NULL(L_WEB, json_option = json_object_new_object());
+  json_object_object_add(json_option, "name", json_object_new_string(option->name));
+  json_object_object_add(json_option, "type", json_object_new_int(option->type));
+
+  if (option->type == SETTINGS_TYPE_INT)
+    {
+      intval = settings_option_getint(option);
+      json_object_object_add(json_option, "value", json_object_new_int(intval));
+    }
+  else if (option->type == SETTINGS_TYPE_BOOL)
+    {
+      boolval = settings_option_getbool(option);
+      json_object_object_add(json_option, "value", json_object_new_boolean(boolval));
+    }
+  else if (option->type == SETTINGS_TYPE_STR)
+    {
+      strval = settings_option_getstr(option);
+      if (strval)
+	{
+	  json_object_object_add(json_option, "value", json_object_new_string(strval));
+	  free(strval);
+	}
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_WEB, "Option '%s' has unknown type %d\n", optionname, option->type);
+      jparse_free(json_option);
+      return NULL;
+    }
+
+  return json_option;
+}
+
+static json_object *
+category_get_json(struct settings_category *category)
+{
+  json_object *json_category;
+  json_object *json_options;
+  json_object *json_option;
+  struct settings_option *option;
+  int count;
+  int i;
+
+  json_category = json_object_new_object();
+
+  json_object_object_add(json_category, "name", json_object_new_string(category->name));
+
+  json_options = json_object_new_array();
+
+  count = settings_option_count(category);
+  for (i = 0; i < count; i++)
+    {
+      option = settings_option_get_byindex(category, i);
+      json_option = option_get_json(option);
+      if (json_option)
+	json_object_array_add(json_options, json_option);
+    }
+
+  json_object_object_add(json_category, "options", json_options);
+
+  return json_category;
+}
+
+static int
+jsonapi_reply_settings_get(struct httpd_request *hreq)
+{
+  struct settings_category *category;
+  json_object *jreply;
+  json_object *json_categories;
+  json_object *json_category;
+  int count;
+  int i;
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  json_categories = json_object_new_array();
+
+  count = settings_categories_count();
+  for (i = 0; i < count; i++)
+    {
+      category = settings_category_get_byindex(i);
+      json_category = category_get_json(category);
+      if (json_category)
+	json_object_array_add(json_categories, json_category);
+    }
+
+  json_object_object_add(jreply, "categories", json_categories);
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_settings_category_get(struct httpd_request *hreq)
+{
+  const char *categoryname;
+  struct settings_category *category;
+  json_object *jreply;
+
+
+  categoryname = hreq->uri_parsed->path_parts[2];
+
+  category = settings_category_get(categoryname);
+  if (!category)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid category name '%s' given\n", categoryname);
+      return HTTP_NOTFOUND;
+    }
+
+  jreply = category_get_json(category);
+
+  if (!jreply)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error getting value for category '%s'\n", categoryname);
+      return HTTP_INTERNAL;
+    }
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_settings_option_get(struct httpd_request *hreq)
+{
+  const char *categoryname;
+  const char *optionname;
+  struct settings_category *category;
+  struct settings_option *option;
+  json_object *jreply;
+
+
+  categoryname = hreq->uri_parsed->path_parts[2];
+  optionname = hreq->uri_parsed->path_parts[3];
+
+  category = settings_category_get(categoryname);
+  if (!category)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid category name '%s' given\n", categoryname);
+      return HTTP_NOTFOUND;
+    }
+
+  option = settings_option_get(category, optionname);
+  if (!option)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid option name '%s' given\n", optionname);
+      return HTTP_NOTFOUND;
+    }
+
+  jreply = option_get_json(option);
+
+  if (!jreply)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error getting value for option '%s'\n", optionname);
+      return HTTP_INTERNAL;
+    }
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_settings_option_put(struct httpd_request *hreq)
+{
+  const char *categoryname;
+  const char *optionname;
+  struct settings_category *category;
+  struct settings_option *option;
+  struct evbuffer *in_evbuf;
+  json_object* request;
+  int intval;
+  bool boolval;
+  const char *strval;
+  int ret;
+
+
+  categoryname = hreq->uri_parsed->path_parts[2];
+  optionname = hreq->uri_parsed->path_parts[3];
+
+  category = settings_category_get(categoryname);
+  if (!category)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid category name '%s' given\n", categoryname);
+      return HTTP_NOTFOUND;
+    }
+
+  option = settings_option_get(category, optionname);
+
+  if (!option)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid option name '%s' given\n", optionname);
+      return HTTP_NOTFOUND;
+    }
+
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
+  request = jparse_obj_from_evbuffer(in_evbuf);
+  if (!request)
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing request body for setting option '%s' (type %d)\n", optionname, option->type);
+      return HTTP_BADREQUEST;
+    }
+
+  if (option->type == SETTINGS_TYPE_INT && jparse_contains_key(request, "value", json_type_int))
+    {
+      intval = jparse_int_from_obj(request, "value");
+      ret = settings_option_setint(option, intval);
+    }
+  else if (option->type == SETTINGS_TYPE_BOOL && jparse_contains_key(request, "value", json_type_boolean))
+    {
+      boolval = jparse_bool_from_obj(request, "value");
+      ret = settings_option_setbool(option, boolval);
+    }
+  else if (option->type == SETTINGS_TYPE_STR && jparse_contains_key(request, "value", json_type_string))
+    {
+      strval = jparse_str_from_obj(request, "value");
+      ret = settings_option_setstr(option, strval);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid value given for option '%s' (type %d): '%s'\n", optionname, option->type, json_object_to_json_string(request));
+      return HTTP_BADREQUEST;
+    }
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error changing setting '%s' (type %d) to '%s'\n", optionname, option->type, json_object_to_json_string(request));
+      return HTTP_INTERNAL;
+    }
+
+  DPRINTF(E_INFO, L_WEB, "Setting option '%s.%s' changed to '%s'\n", categoryname, optionname, json_object_to_json_string(request));
+  return HTTP_NOCONTENT;
 }
 
 /*
@@ -3541,6 +3795,10 @@ jsonapi_reply_search(struct httpd_request *hreq)
 static struct httpd_uri_map adm_handlers[] =
   {
     { EVHTTP_REQ_GET,    "^/api/config$",                                jsonapi_reply_config },
+    { EVHTTP_REQ_GET,    "^/api/settings$",                              jsonapi_reply_settings_get },
+    { EVHTTP_REQ_GET,    "^/api/settings/[A-Za-z0-9_]+$",                jsonapi_reply_settings_category_get },
+    { EVHTTP_REQ_GET,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_get },
+    { EVHTTP_REQ_PUT,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_put },
     { EVHTTP_REQ_GET,    "^/api/library$",                               jsonapi_reply_library },
     { EVHTTP_REQ_GET |
       EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },

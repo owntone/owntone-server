@@ -13,6 +13,14 @@ export default {
     return axios.get('/api/config')
   },
 
+  settings () {
+    return axios.get('/api/settings')
+  },
+
+  settings_update (categoryName, option) {
+    return axios.put('/api/settings/' + categoryName + '/' + option.name, option)
+  },
+
   library_stats () {
     return axios.get('/api/library')
   },

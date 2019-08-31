@@ -121,17 +121,13 @@
 
         <!-- Settings drop down -->
         <div class="navbar-item has-dropdown is-hoverable">
-          <a class="navbar-link is-arrowless"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-settings"></i></span> <span class="is-hidden-desktop has-text-weight-bold">Settings</span></a>
+          <a class="navbar-link is-arrowless"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-settings"></i></span> <span class="is-hidden-desktop has-text-weight-bold">forked-daapd</span></a>
 
           <div class="navbar-dropdown is-right">
             <a class="navbar-item" href="/admin.html">Admin</a>
             <hr class="navbar-divider">
-            <navbar-item-link to="/about">
-              <div>
-                <p class="title is-7">forked-daapd</p>
-                <p class="subtitle is-7">{{ config.version }}</p>
-              </div>
-            </navbar-item-link>
+            <navbar-item-link to="/settings/webinterface">Settings</navbar-item-link>
+            <navbar-item-link to="/about">About</navbar-item-link>
           </div>
         </div>
       </div>
