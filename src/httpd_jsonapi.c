@@ -1848,29 +1848,46 @@ jsonapi_reply_player_previous(struct httpd_request *hreq)
 static int
 jsonapi_reply_player_seek(struct httpd_request *hreq)
 {
-  const char *param;
+  const char *param_pos;
+  const char *param_seek;
   int position_ms;
+  int seek_ms;
   int ret;
 
-  param = evhttp_find_header(hreq->query, "position_ms");
-  if (!param)
+  param_pos = evhttp_find_header(hreq->query, "position_ms");
+  param_seek = evhttp_find_header(hreq->query, "seek_ms");
+  if (!param_pos && !param_seek)
     return HTTP_BADREQUEST;
 
-  ret = safe_atoi32(param, &position_ms);
-  if (ret < 0)
-    return HTTP_BADREQUEST;
+  if (param_pos)
+    {
+      ret = safe_atoi32(param_pos, &position_ms);
+      if (ret < 0)
+	return HTTP_BADREQUEST;
 
-  ret = player_playback_seek(position_ms);
+      ret = player_playback_seek(position_ms);
+    }
+  else
+    {
+      ret = safe_atoi32(param_seek, &seek_ms);
+      if (ret < 0)
+	return HTTP_BADREQUEST;
+
+      ret = player_playback_seek_rel(seek_ms);
+    }
+
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Error seeking to position %d.\n", position_ms);
+      DPRINTF(E_LOG, L_WEB, "Error seeking (position_ms=%s, seek_ms=%s).\n",
+	      (param_pos ? param_pos : ""), (param_seek ? param_seek : ""));
       return HTTP_INTERNAL;
     }
 
   ret = player_playback_start();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Error starting playback after seeking to position %d.\n", position_ms);
+      DPRINTF(E_LOG, L_WEB, "Error starting playback after seeking (position_ms=%s, seek_ms=%s).\n",
+	      (param_pos ? param_pos : ""), (param_seek ? param_seek : ""));
       return HTTP_INTERNAL;
     }
 
