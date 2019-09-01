@@ -2209,6 +2209,77 @@ playback_seek_bh(void *arg, int *retval)
 }
 
 static enum command_state
+playback_seek_rel_bh(void *arg, int *retval)
+{
+  struct db_queue_item *queue_item;
+  union player_arg *cmdarg = arg;
+  int seek_ms;
+  int ret;
+
+
+  // outputs_flush() in playback_pause() may have a caused a failure callback
+  // from the output, which in streaming_cb() can cause pb_abort()
+  if (player_state == PLAY_STOPPED)
+    {
+      goto error;
+    }
+
+  seek_ms = pb_session.playing_now->pos_ms + cmdarg->intval;
+
+  if (seek_ms < 0)
+    {
+      // Seeking behind the start of the current queue item
+      queue_item = queue_item_prev(pb_session.playing_now->item_id);
+      if (queue_item)
+	{
+	  seek_ms = queue_item->song_length + seek_ms;
+	}
+      else
+	{
+	  // There is no previous queue item, seek to the start of the current item
+	  queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+	  seek_ms = 0;
+	}
+    }
+  else if (seek_ms > pb_session.playing_now->len_ms)
+    {
+      // Seeking beyond the end of the current queue item
+      queue_item = queue_item_next(pb_session.playing_now->item_id);
+      seek_ms = seek_ms - pb_session.playing_now->len_ms;
+    }
+  else
+    {
+      // Seeking in the current queue item
+      queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+    }
+
+  if (!queue_item)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Error seeking in source, queue item has disappeared\n");
+      goto error;
+    }
+
+  ret = pb_session_start(queue_item, seek_ms);
+  free_queue_item(queue_item, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Error seeking to %d, aborting playback\n", cmdarg->intval);
+      goto error;
+    }
+
+  // Silent status change - playback_start() sends the real status update
+  player_state = PLAY_PAUSED;
+
+  *retval = 0;
+  return COMMAND_END;
+
+ error:
+  pb_abort();
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
 playback_pause_bh(void *arg, int *retval)
 {
   struct db_queue_item *queue_item;
@@ -2924,6 +2995,18 @@ player_playback_seek(int ms)
   cmdarg.intval = ms;
 
   ret = commands_exec_sync(cmdbase, playback_pause, playback_seek_bh, &cmdarg);
+  return ret;
+}
+
+int
+player_playback_seek_rel(int ms)
+{
+  union player_arg cmdarg;
+  int ret;
+
+  cmdarg.intval = ms;
+
+  ret = commands_exec_sync(cmdbase, playback_pause, playback_seek_rel_bh, &cmdarg);
   return ret;
 }
 
