@@ -112,6 +112,9 @@ int
 player_playback_seek(int ms);
 
 int
+player_playback_seek_rel(int ms);
+
+int
 player_playback_next(void);
 
 int
