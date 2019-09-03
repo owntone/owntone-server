@@ -74,7 +74,7 @@ export default {
   computed: {
     index_list () {
       return [...new Set(this.genre_albums.items
-        .map(album => album.name.charAt(0).toUpperCase()))]
+        .map(album => album.name_sort.charAt(0).toUpperCase()))]
     }
   },
 

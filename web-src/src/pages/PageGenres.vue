@@ -60,7 +60,7 @@ export default {
   computed: {
     index_list () {
       return [...new Set(this.genres.items
-        .map(genre => genre.name.charAt(0).toUpperCase()))]
+        .map(genre => genre.name_sort.charAt(0).toUpperCase()))]
     }
   },
 
