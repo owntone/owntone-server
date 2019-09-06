@@ -52,6 +52,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR("admin_password", NULL, CFGF_NONE),
     CFG_INT("websocket_port", 3688, CFGF_NONE),
     CFG_STR("websocket_interface", NULL, CFGF_NONE),
+    CFG_INT("stream_port", 3680, CFGF_NONE),
     CFG_STR_LIST("trusted_networks", "{localhost,192.168,fd}", CFGF_NONE),
     CFG_BOOL("ipv6", cfg_true, CFGF_NONE),
     CFG_STR("bind_address", NULL, CFGF_NONE),

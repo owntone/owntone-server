@@ -1025,7 +1025,7 @@ rcp_session_make(struct output_device *device, int callback_id)
       goto out_close_connection;
     }
 
-  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+  httpd_port = cfg_getint(cfg_getsec(cfg, "general"), "stream_port");
   s->stream_url = safe_asprintf("http://%s:%d/stream.mp3", addr, httpd_port);
 
   s->ev = event_new(evbase_player, s->sock, EV_READ | EV_PERSIST, rcp_listen_cb, s);
