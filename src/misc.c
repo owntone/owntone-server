@@ -43,6 +43,8 @@
 #include <unistr.h>
 #include <uniconv.h>
 
+#include <libavutil/base64.h>
+
 #include "logger.h"
 #include "conffile.h"
 #include "misc.h"
@@ -771,160 +773,51 @@ two_str_hash(const char *a, const char *b)
   return hash;
 }
 
-static unsigned char b64_decode_table[256];
-
-char *
-b64_decode(const char *b64)
+uint8_t *
+b64_decode(int *dstlen, const char *src)
 {
-  char *str;
-  const unsigned char *iptr;
-  unsigned char *optr;
-  unsigned char c;
+  uint8_t *out;
   int len;
-  int i;
+  int ret;
 
-  if (b64_decode_table[0] == 0)
+  len = AV_BASE64_DECODE_SIZE(strlen(src));
+
+  CHECK_NULL(L_MISC, out = calloc(1, len));
+
+  ret = av_base64_decode(out, src, len);
+  if (ret < 0)
     {
-      memset(b64_decode_table, 0xff, sizeof(b64_decode_table));
-
-      /* Base64 encoding: A-Za-z0-9+/ */
-      for (i = 0; i < 26; i++)
-	{
-	  b64_decode_table['A' + i] = i;
-	  b64_decode_table['a' + i] = i + 26;
-	}
-
-      for (i = 0; i < 10; i++)
-	b64_decode_table['0' + i] = i + 52;
-
-      b64_decode_table['+'] = 62;
-      b64_decode_table['/'] = 63;
-
-      /* Stop on '=' */
-      b64_decode_table['='] = 100; /* > 63 */
+      free(out);
+      return NULL;
     }
 
-  len = strlen(b64);
+  if (dstlen)
+    *dstlen = ret;
 
-  CHECK_NULL(L_MISC, str = malloc(len));
-
-  memset(str, 0, len);
-
-  iptr = (const unsigned char *)b64;
-  optr = (unsigned char *)str;
-  i = 0;
-
-  while (len)
-    {
-      if (*iptr == '=')
-	break;
-
-      c = b64_decode_table[*iptr];
-      if (c > 63)
-	{
-	  iptr++;
-	  len--;
-	  continue;
-	}
-
-      switch (i)
-	{
-	  case 0:
-	    optr[0] = c << 2;
-	    break;
-	  case 1:
-	    optr[0] |= c >> 4;
-	    optr[1] = c << 4;
-	    break;
-	  case 2:
-	    optr[1] |= c >> 2;
-	    optr[2] = c << 6;
-	    break;
-	  case 3:
-	    optr[2] |= c;
-	    break;
-	}
-
-      i++;
-      if (i == 4)
-	{
-	  optr += 3;
-	  i = 0;
-	}
-
-      len--;
-      iptr++;
-    }
-
-  return str;
-}
-
-static const char b64_encode_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-static void
-b64_encode_block(const uint8_t *in, char *out, int len)
-{
-  out[0] = b64_encode_table[in[0] >> 2];
-
-  out[2] = out[3] = '=';
-
-  if (len == 1)
-    out[1] = b64_encode_table[((in[0] & 0x03) << 4)];
-  else
-    {
-      out[1] = b64_encode_table[((in[0] & 0x03) << 4) | ((in[1] & 0xf0) >> 4)];
-
-      if (len == 2)
-	out[2] = b64_encode_table[((in[1] & 0x0f) << 2)];
-      else
-	{
-	  out[2] = b64_encode_table[((in[1] & 0x0f) << 2) | ((in[2] & 0xc0) >> 6)];
-	  out[3] = b64_encode_table[in[2] & 0x3f];
-	}
-    }
-}
-
-static void
-b64_encode_full_block(const uint8_t *in, char *out)
-{
-  out[0] = b64_encode_table[in[0] >> 2];
-  out[1] = b64_encode_table[((in[0] & 0x03) << 4) | ((in[1] & 0xf0) >> 4)];
-  out[2] = b64_encode_table[((in[1] & 0x0f) << 2) | ((in[2] & 0xc0) >> 6)];
-  out[3] = b64_encode_table[in[2] & 0x3f];
+  return out;
 }
 
 char *
-b64_encode(const uint8_t *in, size_t len)
+b64_encode(const uint8_t *src, int srclen)
 {
-  char *encoded;
   char *out;
+  int len;
+  char *ret;
 
-  /* 3 in chars -> 4 out chars */
-  encoded = (char *)malloc(len + (len / 3) + 4 + 1);
-  if (!encoded)
-    return NULL;
+  len = AV_BASE64_SIZE(srclen);
 
-  out = encoded;
+  CHECK_NULL(L_MISC, out = calloc(1, len));
 
-  while (len >= 3)
+  ret = av_base64_encode(out, len, src, srclen);
+  if (!ret)
     {
-      b64_encode_full_block(in, out);
-
-      len -= 3;
-      in += 3;
-      out += 4;
+      free(out);
+      return NULL;
     }
 
-  if (len > 0)
-    {
-      b64_encode_block(in, out, len);
-      out += 4;
-    }
-
-  out[0] = '\0';
-
-  return encoded;
+  return out;
 }
+
 
 /*
  * MurmurHash2, 64-bit versions, by Austin Appleby

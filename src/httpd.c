@@ -1555,7 +1555,7 @@ httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passw
 
   auth += strlen("Basic ");
 
-  authuser = b64_decode(auth);
+  authuser = (char *)b64_decode(NULL, auth);
   if (!authuser)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not decode Authentication header\n");

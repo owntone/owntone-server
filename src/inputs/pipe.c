@@ -285,7 +285,7 @@ dmapval(const char s[4])
 }
 
 static void
-parse_progress(struct input_metadata *m, char *progress)
+handle_progress(struct input_metadata *m, char *progress)
 {
   char *s;
   char *ptr;
@@ -315,7 +315,7 @@ parse_progress(struct input_metadata *m, char *progress)
 }
 
 static void
-parse_volume(const char *volume)
+handle_volume(const char *volume)
 {
   char *volume_next;
   float airplay_volume;
@@ -355,7 +355,7 @@ parse_volume(const char *volume)
 
 // returns 1 on metadata found, 0 on nothing, -1 on error
 static int
-parse_item(struct input_metadata *m, const char *item)
+handle_item(struct input_metadata *m, const char *item)
 {
   mxml_node_t *xml;
   mxml_node_t *haystack;
@@ -363,9 +363,11 @@ parse_item(struct input_metadata *m, const char *item)
   const char *s;
   uint32_t type;
   uint32_t code;
+  char **dstptr;
   char *progress;
   char *volume;
-  char **data;
+  uint8_t *data;
+  int data_len;
   int ret;
 
   ret = 0;
@@ -399,17 +401,17 @@ parse_item(struct input_metadata *m, const char *item)
     }
 
   if (code == dmapval("asal"))
-    data = &m->album;
+    dstptr = &m->album;
   else if (code == dmapval("asar"))
-    data = &m->artist;
+    dstptr = &m->artist;
   else if (code == dmapval("minm"))
-    data = &m->title;
+    dstptr = &m->title;
   else if (code == dmapval("asgn"))
-    data = &m->genre;
+    dstptr = &m->genre;
   else if (code == dmapval("prgr"))
-    data = &progress;
+    dstptr = &progress;
   else if (code == dmapval("pvol"))
-    data = &volume;
+    dstptr = &volume;
   else
     goto out_nothing;
 
@@ -418,11 +420,8 @@ parse_item(struct input_metadata *m, const char *item)
     {
       pthread_mutex_lock(&pipe_metadata_lock);
 
-      if (data != &progress && data != &volume)
-	free(*data);
-
-      *data = b64_decode(s);
-      if (!*data)
+      data = b64_decode(&data_len, s);
+      if (!data)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Base64 decode of '%s' failed\n", s);
 
@@ -430,17 +429,24 @@ parse_item(struct input_metadata *m, const char *item)
 	  goto out_error;
 	}
 
-      DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x): '%s'\n", type, code, *data);
+      DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x, len=%d): '%s'\n", type, code, data_len, (char *)data);
 
-      if (data == &progress)
+      if (dstptr == &progress)
 	{
-	  parse_progress(m, progress);
-	  free(*data);
+	  progress = (char *)data;
+	  handle_progress(m, progress);
+	  free(data);
 	}
-      else if (data == &volume)
+      else if (dstptr == &volume)
 	{
-	  parse_volume(volume);
-	  free(*data);
+	  volume = (char *)data;
+	  handle_volume(volume);
+	  free(data);
+	}
+      else
+	{
+	  free(*dstptr); // If m->x is already set, free it
+	  *dstptr = (char *)data;
 	}
 
       pthread_mutex_unlock(&pipe_metadata_lock);
@@ -480,7 +486,7 @@ extract_item(struct evbuffer *evbuf)
 }
 
 static int
-pipe_metadata_parse(struct input_metadata *m, struct evbuffer *evbuf)
+pipe_metadata_handle(struct input_metadata *m, struct evbuffer *evbuf)
 {
   char *item;
   int found;
@@ -489,7 +495,7 @@ pipe_metadata_parse(struct input_metadata *m, struct evbuffer *evbuf)
   found = 0;
   while ((item = extract_item(evbuf)))
     {
-      ret = parse_item(m, item);
+      ret = handle_item(m, item);
       free(item);
       if (ret < 0)
 	return -1;
@@ -662,7 +668,7 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
       return;
     }
 
-  ret = pipe_metadata_parse(&pipe_metadata_parsed, pipe_metadata_buf);
+  ret = pipe_metadata_handle(&pipe_metadata_parsed, pipe_metadata_buf);
   if (ret < 0)
     {
       pipe_metadata_watch_del(NULL);
