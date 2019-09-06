@@ -119,7 +119,6 @@ static const struct content_type_map ext2ctype[] =
 static const char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
 
 static char webroot_directory[PATH_MAX];
-struct event_base *evbase_httpd;
 
 #ifdef HAVE_EVENTFD
 static int exit_efd;
@@ -128,11 +127,24 @@ static int exit_pipe[2];
 #endif
 static int httpd_exit;
 static struct event *exitev;
-static struct evhttp *evhttpd;
-static pthread_t tid_httpd;
+
+struct httpd_ctx
+{
+  pthread_t tid;
+  struct event_base *evb;
+  struct evhttp     *evh;
+  int port;
+
+  void (*handler)(struct evhttp_request *, struct httpd_uri_parsed *);
+};
+
+static void httpd_generic_hdl(struct evhttp_request *, struct httpd_uri_parsed *);
+static void httpd_stream_hdl(struct evhttp_request *, struct httpd_uri_parsed *);
+
+struct httpd_ctx  evhttpd        = { 0, NULL, NULL, -1, httpd_generic_hdl };
+struct httpd_ctx  evhttpd_stream = { 0, NULL, NULL, -1, httpd_stream_hdl  };
 
 static const char *allow_origin;
-static int httpd_port;
 
 #ifdef HAVE_LIBEVENT2_OLD
 struct stream_ctx *g_st;
@@ -752,6 +764,7 @@ stream_fail_cb(struct evhttp_connection *evcon, void *arg)
 static void *
 httpd(void *arg)
 {
+  struct httpd_ctx *ctx = (struct httpd_ctx*)arg;
   int ret;
 
   ret = db_perthread_init();
@@ -762,7 +775,7 @@ httpd(void *arg)
       pthread_exit(NULL);
     }
 
-  event_base_dispatch(evbase_httpd);
+  event_base_dispatch(ctx->evb);
 
   if (!httpd_exit)
     DPRINTF(E_FATAL, L_HTTPD, "HTTPd event loop terminated ahead of time!\n");
@@ -775,14 +788,75 @@ httpd(void *arg)
 static void
 exit_cb(int fd, short event, void *arg)
 {
-  event_base_loopbreak(evbase_httpd);
+  struct httpd_ctx* ctx = (struct httpd_ctx*)arg;
+  event_base_loopbreak(ctx->evb);
 
   httpd_exit = 1;
 }
 
 static void
+httpd_stream_hdl(struct evhttp_request *req, struct httpd_uri_parsed *parsed)
+{
+  if (streaming_is_request(parsed->path))
+    {
+      streaming_request(req, parsed);
+      return;
+    }
+  httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
+}
+
+static void
+httpd_generic_hdl(struct evhttp_request *req, struct httpd_uri_parsed *parsed)
+{
+  if (strcmp(parsed->path, "/") == 0)
+    goto serve_file;
+
+  /* Dispatch protocol-specific handlers */
+  if (dacp_is_request(parsed->path))
+    {
+      dacp_request(req, parsed);
+      goto out;
+    }
+  else if (daap_is_request(parsed->path))
+    {
+      daap_request(req, parsed);
+      goto out;
+    }
+  else if (jsonapi_is_request(parsed->path))
+    {
+      jsonapi_request(req, parsed);
+      goto out;
+    }
+  else if (artworkapi_is_request(parsed->path))
+    {
+      artworkapi_request(req, parsed);
+      goto out;
+    }
+  else if (oauth_is_request(parsed->path))
+    {
+      oauth_request(req, parsed);
+      goto out;
+    }
+  else if (rsp_is_request(parsed->path))
+    {
+      rsp_request(req, parsed);
+      goto out;
+    }
+
+  DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", parsed->uri);
+
+  /* Serve web interface files */
+ serve_file:
+  serve_file(req, parsed->path);
+
+ out:
+  return;
+}
+
+static void
 httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
+  struct httpd_ctx *ctx = (struct httpd_ctx*)arg;
   struct evkeyvalq *input_headers;
   struct evkeyvalq *output_headers;
   struct httpd_uri_parsed *parsed;
@@ -825,55 +899,10 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
       goto out;
     }
 
-  if (strcmp(parsed->path, "/") == 0)
-    {
-      goto serve_file;
-    }
+  // delegate to the httpd server specific handler (ie generic or streaming)
+  ctx->handler(req, parsed);
 
-  /* Dispatch protocol-specific handlers */
-  if (dacp_is_request(parsed->path))
-    {
-      dacp_request(req, parsed);
-      goto out;
-    }
-  else if (daap_is_request(parsed->path))
-    {
-      daap_request(req, parsed);
-      goto out;
-    }
-  else if (jsonapi_is_request(parsed->path))
-    {
-      jsonapi_request(req, parsed);
-      goto out;
-    }
-  else if (artworkapi_is_request(parsed->path))
-    {
-      artworkapi_request(req, parsed);
-      goto out;
-    }
-  else if (streaming_is_request(parsed->path))
-    {
-      streaming_request(req, parsed);
-      goto out;
-    }
-  else if (oauth_is_request(parsed->path))
-    {
-      oauth_request(req, parsed);
-      goto out;
-    }
-  else if (rsp_is_request(parsed->path))
-    {
-      rsp_request(req, parsed);
-      goto out;
-    }
-
-  DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", parsed->uri);
-
-  /* Serve web interface files */
- serve_file:
-  serve_file(req, parsed->path);
-
- out:
+out:
   httpd_uri_free(parsed);
 }
 
@@ -1256,7 +1285,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       goto out_cleanup;
     }
 
-  st->ev = event_new(evbase_httpd, -1, EV_TIMEOUT, stream_cb, st);
+  st->ev = event_new(evhttpd.evb, -1, EV_TIMEOUT, stream_cb, st);
   evutil_timerclear(&tv);
   if (!st->ev || (event_add(st->ev, &tv) < 0))
     {
@@ -1667,8 +1696,9 @@ httpd_init(const char *webroot)
       return -1;
     }
 
-  evbase_httpd = event_base_new();
-  if (!evbase_httpd)
+  evhttpd.evb = event_base_new();
+  evhttpd_stream.evb = event_base_new();
+  if (!evhttpd.evb || !evhttpd_stream.evb)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create an event base\n");
 
@@ -1683,7 +1713,7 @@ httpd_init(const char *webroot)
       goto rsp_fail;
     }
 
-  ret = daap_init(evbase_httpd);
+  ret = daap_init(evhttpd.evb);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "DAAP protocol init failed\n");
@@ -1691,7 +1721,7 @@ httpd_init(const char *webroot)
       goto daap_fail;
     }
 
-  ret = dacp_init(evbase_httpd);
+  ret = dacp_init(evhttpd.evb);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "DACP protocol init failed\n");
@@ -1733,7 +1763,7 @@ httpd_init(const char *webroot)
     }
 #endif
 
-  streaming_init(evbase_httpd);
+  streaming_init(evhttpd_stream.evb);
 
 #ifdef HAVE_EVENTFD
   exit_efd = eventfd(0, EFD_CLOEXEC);
@@ -1744,7 +1774,7 @@ httpd_init(const char *webroot)
       goto pipe_fail;
     }
 
-  exitev = event_new(evbase_httpd, exit_efd, EV_READ, exit_cb, NULL);
+  exitev = event_new(evhttpd.evb, exit_efd, EV_READ, exit_cb, &evhttpd);
 #else
 # ifdef HAVE_PIPE2
   ret = pipe2(exit_pipe, O_CLOEXEC);
@@ -1758,7 +1788,7 @@ httpd_init(const char *webroot)
       goto pipe_fail;
     }
 
-  exitev = event_new(evbase_httpd, exit_pipe[0], EV_READ, exit_cb, NULL);
+  exitev = event_new(evhttpd.evb, exit_pipe[0], EV_READ, exit_cb, &evhttpd);
 #endif /* HAVE_EVENTFD */
   if (!exitev)
     {
@@ -1768,51 +1798,72 @@ httpd_init(const char *webroot)
     }
   event_add(exitev, NULL);
 
-  evhttpd = evhttp_new(evbase_httpd);
-  if (!evhttpd)
+  evhttpd.evh = evhttp_new(evhttpd.evb);
+  evhttpd_stream.evh = evhttp_new(evhttpd_stream.evb);
+  if (!evhttpd.evh || !evhttpd_stream.evh)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server\n");
 
       goto evhttpd_fail;
     }
 
+  evhttpd.port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+  evhttpd_stream.port = cfg_getint(cfg_getsec(cfg, "general"), "stream_port");
+
   // For CORS headers
   allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
   if (allow_origin)
     {
       if (strlen(allow_origin) != 0)
-	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
+        evhttp_set_allowed_methods(evhttpd.evh, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
       else
 	allow_origin = NULL;
     }
+  evhttp_set_allowed_methods(evhttpd_stream.evh, EVHTTP_REQ_GET | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
 
-  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
-  ret = net_evhttp_bind(evhttpd, httpd_port, "httpd");
+  ret = net_evhttp_bind(evhttpd.evh, evhttpd.port, "httpd");
   if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (server already running?)\n", httpd_port);
+      DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (server already running?)\n", evhttpd.port);
       goto bind_fail;
     }
 
-  evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
+  ret = net_evhttp_bind(evhttpd_stream.evh, evhttpd_stream.port, "httpd stream");
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not bind to streaming port %d (server already running?)\n", evhttpd_stream.port);
+      goto bind_fail;
+    }
 
-  ret = pthread_create(&tid_httpd, NULL, httpd, NULL);
+  evhttp_set_gencb(evhttpd.evh,        httpd_gen_cb, &evhttpd);
+  evhttp_set_gencb(evhttpd_stream.evh, httpd_gen_cb, &evhttpd_stream);
+
+  ret = pthread_create(&evhttpd.tid, NULL, httpd, &evhttpd);
   if (ret != 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not spawn HTTPd thread: %s\n", strerror(errno));
 
       goto thread_fail;
     }
+  ret = pthread_create(&evhttpd_stream.tid, NULL, httpd, &evhttpd_stream);
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not spawn HTTPd streaming thread: %s\n", strerror(errno));
 
-  thread_setname(tid_httpd, "httpd");
+      goto thread_fail;
+    }
+
+  thread_setname(evhttpd.tid, "httpd");
+  thread_setname(evhttpd_stream.tid, "httpd-stream");
 
   return 0;
 
  thread_fail:
  bind_fail:
-  evhttp_free(evhttpd);
+  evhttp_free(evhttpd.evh);
  evhttpd_fail:
+  evhttp_free(evhttpd_stream.evh);
   event_free(exitev);
  exitev_fail:
 #ifdef HAVE_EVENTFD
@@ -1839,7 +1890,8 @@ httpd_init(const char *webroot)
  daap_fail:
   rsp_deinit();
  rsp_fail:
-  event_base_free(evbase_httpd);
+  event_base_free(evhttpd_stream.evb);
+  event_base_free(evhttpd.evb);
 
   return -1;
 }
@@ -1870,7 +1922,16 @@ httpd_deinit(void)
     }
 #endif
 
-  ret = pthread_join(tid_httpd, NULL);
+  ret = pthread_join(evhttpd.tid, NULL);
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not join HTTPd thread: %s\n", strerror(errno));
+
+      return;
+    }
+  event_base_loopbreak(evhttpd_stream.evb);
+
+  ret = pthread_join(evhttpd_stream.tid, NULL);
   if (ret != 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not join HTTPd thread: %s\n", strerror(errno));
@@ -1895,6 +1956,8 @@ httpd_deinit(void)
   close(exit_pipe[1]);
 #endif
   event_free(exitev);
-  evhttp_free(evhttpd);
-  event_base_free(evbase_httpd);
+  evhttp_free(evhttpd.evh);
+  evhttp_free(evhttpd_stream.evh);
+  event_base_free(evhttpd_stream.evb);
+  event_base_free(evhttpd.evb);
 }
