@@ -33,6 +33,9 @@ general {
 
 	# Websocket port for the web interface.
 #	websocket_port = 3688
+#
+	# port for sttreaming mp3
+#	stream_port = 3680
 
 	# Sets who is allowed to connect without authorisation. This applies to
 	# client types like Remotes, DAAP clients (iTunes) and to the web

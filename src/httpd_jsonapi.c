@@ -768,6 +768,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
   websocket_port = 0;
 #endif
   json_object_object_add(jreply, "websocket_port", json_object_new_int(websocket_port));
+  json_object_object_add(jreply, "stream_port", json_object_new_int(cfg_getint(cfg_getsec(cfg, "general"), "stream_port")));
 
   // forked-daapd version
   json_object_object_add(jreply, "version", json_object_new_string(VERSION));
