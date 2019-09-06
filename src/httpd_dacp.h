@@ -5,7 +5,7 @@
 #include "httpd.h"
 
 int
-dacp_init(void);
+dacp_init(struct event_base*);
 
 void
 dacp_deinit(void);

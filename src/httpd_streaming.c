@@ -41,7 +41,7 @@
 #include "db.h"
 
 /* httpd event base, from httpd.c */
-extern struct event_base *evbase_httpd;
+static struct event_base *evbase_httpd;
 
 // Seconds between sending silence when player is idle
 // (to prevent client from hanging up)
@@ -617,7 +617,7 @@ streaming_is_request(const char *path)
 }
 
 int
-streaming_init(void)
+streaming_init(struct event_base* evbase)
 {
   int ret;
   cfg_t *cfgsec;
@@ -662,6 +662,7 @@ streaming_init(void)
       DPRINTF(E_FATAL, L_STREAMING, "Could not initialize mutex (%d): %s\n", ret, strerror(ret));
       goto error;
     }
+  evbase_httpd = evbase;
 
   // Non-blocking because otherwise httpd and player thread may deadlock
 #ifdef HAVE_PIPE2
