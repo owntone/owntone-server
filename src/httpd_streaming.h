@@ -21,7 +21,7 @@ int
 streaming_is_request(const char *path);
 
 int
-streaming_init(void);
+streaming_init(struct event_base*);
 
 void
 streaming_deinit(void);

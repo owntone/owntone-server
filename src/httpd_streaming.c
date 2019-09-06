@@ -41,7 +41,7 @@
 #include "db.h"
 
 /* httpd event base, from httpd.c */
-extern struct event_base *evbase_httpd;
+static struct event_base *evbase_httpd;
 
 // Seconds between sending silence when player is idle
 // (to prevent client from hanging up)
@@ -627,7 +627,7 @@ streaming_is_request(const char *path)
 }
 
 int
-streaming_init(void)
+streaming_init(struct event_base* evbase)
 {
   int ret;
   cfg_t *cfgsec;
@@ -664,6 +664,8 @@ streaming_init(void)
     streaming_icy_metaint = val;
   else
     DPRINTF(E_INFO, L_STREAMING, "Unsupported icy_metaint=%d, supported range: 4096..131072, defaulting to %d\n", val, streaming_icy_metaint);
+
+  evbase_httpd = evbase;
 
   pthread_mutex_init(&streaming_sessions_lck, NULL);
 

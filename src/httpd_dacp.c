@@ -53,7 +53,7 @@
 #define DACP_VOLUME_STEP 5
 
 /* httpd event base, from httpd.c */
-extern struct event_base *evbase_httpd;
+static struct event_base *evbase_httpd;
 
 struct dacp_update_request {
   struct evhttp_request *req;
@@ -2892,7 +2892,7 @@ dacp_is_request(const char *path)
 }
 
 int
-dacp_init(void)
+dacp_init(struct event_base* evbase)
 {
   char buf[64];
   int i;
@@ -2912,6 +2912,8 @@ dacp_init(void)
   dummy_queue_item.artist = CFG_NAME_UNKNOWN_ARTIST;
   dummy_queue_item.album = CFG_NAME_UNKNOWN_ALBUM;
   dummy_queue_item.genre = CFG_NAME_UNKNOWN_GENRE;
+
+  evbase_httpd = evbase;
 
 #ifdef HAVE_EVENTFD
   update_efd = eventfd(0, EFD_CLOEXEC);

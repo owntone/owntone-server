@@ -57,7 +57,7 @@
 
 
 /* httpd event base, from httpd.c */
-extern struct event_base *evbase_httpd;
+static struct event_base *evbase_httpd;
 
 /* Max number of sessions and session timeout
  * Many clients (including iTunes) don't seem to respect the timeout capability
@@ -2433,11 +2433,13 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 }
 
 int
-daap_init(void)
+daap_init(struct event_base* evbase)
 {
   char buf[64];
   int i;
   int ret;
+
+  evbase_httpd = evbase;
 
   srand((unsigned)time(NULL));
   current_rev = 2;

@@ -5,7 +5,7 @@
 #include "httpd.h"
 
 int
-daap_init(void);
+daap_init(struct event_base*);
 
 void
 daap_deinit(void);
