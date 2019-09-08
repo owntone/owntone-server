@@ -1363,7 +1363,7 @@ mpd_command_play(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   struct db_queue_item *queue_item;
   int ret;
 
-  songpos = 0;
+  songpos = -1;
   if (argc > 1)
     {
       ret = safe_atoi32(argv[1], &songpos);
