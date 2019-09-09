@@ -1582,6 +1582,7 @@ spotify_init(void)
   
  session_fail:
  cmd_fail:
+  event_free(g_notifyev);
  evnew_fail:
   commands_base_free(cmdbase);
   event_base_free(evbase_spotify);
@@ -1625,7 +1626,8 @@ spotify_deinit(void)
   /* Release session */
   fptr_sp_session_release(g_sess);
 
-  /* Free event base (should free events too) */
+  /* Free event base */
+  event_free(g_notifyev);
   event_base_free(evbase_spotify);
 
   /* Close pipes */

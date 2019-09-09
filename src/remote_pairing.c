@@ -861,6 +861,8 @@ remote_pairing_deinit(void)
   if (remote_info)
     free_remote(remote_info);
 
+  event_free(pairingev);
+
 #ifdef HAVE_EVENTFD
   close(pairing_efd);
 #else

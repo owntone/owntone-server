@@ -3327,6 +3327,7 @@ player_init(void)
   outputs_deinit();
  error_evbase_free:
   commands_base_free(cmdbase);
+  event_free(pb_timer_ev);
   event_base_free(evbase_player);
 #ifdef HAVE_TIMERFD
   close(pb_timer_fd);
@@ -3369,5 +3370,6 @@ player_deinit(void)
 
   free(history);
 
+  event_free(pb_timer_ev);
   event_base_free(evbase_player);
 }

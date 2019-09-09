@@ -167,6 +167,22 @@ send_command(struct commands_base *cmdbase, struct command *cmd)
 }
 
 /*
+ * Frees the command base and closes the (internally used) pipes
+ */
+int
+commands_base_free(struct commands_base *cmdbase)
+{
+  if (cmdbase->command_event)
+    event_free(cmdbase->command_event);
+
+  close(cmdbase->command_pipe[0]);
+  close(cmdbase->command_pipe[1]);
+  free(cmdbase);
+
+  return 0;
+}
+
+/*
  * Creates a new command base, needs to be freed by commands_base_destroy or commands_base_free.
  *
  * @param evbase The libevent base to use for command handling
@@ -178,12 +194,7 @@ commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
   struct commands_base *cmdbase;
   int ret;
 
-  cmdbase = calloc(1, sizeof(struct commands_base));
-  if (!cmdbase)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Out of memory for cmdbase\n");
-      return NULL;
-    }
+  CHECK_NULL(L_MAIN, cmdbase = calloc(1, sizeof(struct commands_base)));
 
 #ifdef HAVE_PIPE2
   ret = pipe2(cmdbase->command_pipe, O_CLOEXEC);
@@ -201,9 +212,7 @@ commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
   if (!cmdbase->command_event)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not create cmd event\n");
-      close(cmdbase->command_pipe[0]);
-      close(cmdbase->command_pipe[1]);
-      free(cmdbase);
+      commands_base_free(cmdbase);
       return NULL;
     }
 
@@ -211,9 +220,7 @@ commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not add cmd event\n");
-      close(cmdbase->command_pipe[0]);
-      close(cmdbase->command_pipe[1]);
-      free(cmdbase);
+      commands_base_free(cmdbase);
       return NULL;
     }
 
@@ -221,20 +228,6 @@ commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
   cmdbase->exit_cb = exit_cb;
 
   return cmdbase;
-}
-
-/*
- * Frees the command base and closes the (internally used) pipes
- */
-int
-commands_base_free(struct commands_base *cmdbase)
-{
-  event_free(cmdbase->command_event);
-  close(cmdbase->command_pipe[0]);
-  close(cmdbase->command_pipe[1]);
-  free(cmdbase);
-
-  return 0;
 }
 
 /*

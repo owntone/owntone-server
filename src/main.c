@@ -919,6 +919,8 @@ main(int argc, char **argv)
   DPRINTF(E_LOG, L_MAIN, "Stopping gracefully\n");
   ret = EXIT_SUCCESS;
 
+  event_free(sig_event);
+
   /*
    * On a clean shutdown, bring mDNS down first to give a chance
    * to the clients to perform a clean shutdown on their end
@@ -971,6 +973,8 @@ main(int argc, char **argv)
     }
 
  mdns_fail:
+  event_base_free(evbase_main);
+
  daemon_fail:
   if (background)
     {

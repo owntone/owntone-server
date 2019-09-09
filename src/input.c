@@ -935,6 +935,8 @@ input_init(void)
  thread_fail:
   commands_base_free(cmdbase);
  input_fail:
+  event_free(input_open_timeout_ev);
+  event_free(input_ev);
   evbuffer_free(input_buffer.evbuf);
   event_base_free(evbase_input);
   return -1;
@@ -971,6 +973,8 @@ input_deinit(void)
   pthread_cond_destroy(&input_buffer.cond);
   pthread_mutex_destroy(&input_buffer.mutex);
 
+  event_free(input_open_timeout_ev);
+  event_free(input_ev);
   evbuffer_free(input_buffer.evbuf);
   event_base_free(evbase_input);
 }

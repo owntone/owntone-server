@@ -791,5 +791,6 @@ library_deinit()
       sources[i]->deinit();
     }
 
+  event_free(updateev);
   event_base_free(evbase_lib);
 }

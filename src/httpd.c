@@ -1748,7 +1748,7 @@ httpd_init(const char *webroot)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create exit event\n");
 
-      goto event_fail;
+      goto exitev_fail;
     }
   event_add(exitev, NULL);
 
@@ -1757,7 +1757,7 @@ httpd_init(const char *webroot)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server\n");
 
-      goto event_fail;
+      goto evhttpd_fail;
     }
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
@@ -1819,7 +1819,9 @@ httpd_init(const char *webroot)
  thread_fail:
  bind_fail:
   evhttp_free(evhttpd);
- event_fail:
+ evhttpd_fail:
+  event_free(exitev);
+ exitev_fail:
 #ifdef HAVE_EVENTFD
   close(exit_efd);
 #else
@@ -1899,6 +1901,7 @@ httpd_deinit(void)
   close(exit_pipe[0]);
   close(exit_pipe[1]);
 #endif
+  event_free(exitev);
   evhttp_free(evhttpd);
   event_base_free(evbase_httpd);
 }

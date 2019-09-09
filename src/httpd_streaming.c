@@ -686,6 +686,7 @@ streaming_deinit(void)
 {
   streaming_end();
 
+  event_free(metaev);
   event_free(streamingev);
   streamingev = NULL;
 

@@ -1673,6 +1673,7 @@ cache_deinit(void)
       return;
     }
 
-  // Free event base (should free events too)
+  // Free event base
+  event_free(cache_daap_updateev);
   event_base_free(evbase_cache);
 }

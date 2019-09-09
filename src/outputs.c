@@ -1043,7 +1043,7 @@ outputs_deinit(void)
 {
   int i;
 
-  evtimer_del(outputs_deferredev);
+  event_free(outputs_deferredev);
 
   for (i = 0; outputs[i]; i++)
     {
