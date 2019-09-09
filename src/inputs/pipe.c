@@ -62,6 +62,8 @@
 #include "conffile.h"
 #include "listener.h"
 #include "player.h"
+#include "artwork.h"
+#include "cache.h"
 #include "worker.h"
 #include "commands.h"
 #include "mxml-compat.h"
@@ -72,6 +74,8 @@
 #define PIPE_READ_MAX 65536
 // Max number of bytes to buffer from metadata pipes
 #define PIPE_METADATA_BUFLEN_MAX 262144
+// Ignore pictures with larger size than this
+#define PIPE_PICTURE_SIZE_MAX 262144
 
 enum pipetype
 {
@@ -353,6 +357,34 @@ handle_volume(const char *volume)
     DPRINTF(E_LOG, L_PLAYER, "Shairport airplay volume out of range (-144.0, [-30.0 - 0.0]): %.2f\n", airplay_volume);
 }
 
+static void
+handle_picture(struct input_metadata *m, uint8_t *data, int data_len)
+{
+  struct evbuffer *evbuf;
+  int format;
+
+  if (data_len < 2 || data_len > PIPE_PICTURE_SIZE_MAX)
+    goto error;
+
+  if (data[0] == 0xff && data[1] == 0xd8)
+    format = ART_FMT_JPEG;
+  else if (data[0] == 0x89 && data[1] == 0x50)
+    format = ART_FMT_PNG;
+  else
+    goto error;
+
+  CHECK_NULL(L_PLAYER, evbuf = evbuffer_new());
+
+  evbuffer_add(evbuf, data, data_len);
+  cache_artwork_stash(evbuf, "pipe://metadata", format);
+  evbuffer_free(evbuf);
+  return;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Unsupported picture size (%d) or format from Shairport metadata pipe\n", data_len);
+  cache_artwork_stash(NULL, NULL, 0); // Clear the artwork stash
+}
+
 // returns 1 on metadata found, 0 on nothing, -1 on error
 static int
 handle_item(struct input_metadata *m, const char *item)
@@ -366,6 +398,7 @@ handle_item(struct input_metadata *m, const char *item)
   char **dstptr;
   char *progress;
   char *volume;
+  char *picture;
   uint8_t *data;
   int data_len;
   int ret;
@@ -412,6 +445,8 @@ handle_item(struct input_metadata *m, const char *item)
     dstptr = &progress;
   else if (code == dmapval("pvol"))
     dstptr = &volume;
+  else if (code == dmapval("PICT"))
+    dstptr = &picture;
   else
     goto out_nothing;
 
@@ -429,7 +464,7 @@ handle_item(struct input_metadata *m, const char *item)
 	  goto out_error;
 	}
 
-      DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x, len=%d): '%s'\n", type, code, data_len, (char *)data);
+      DPRINTF(E_DBG, L_PLAYER, "Read Shairport metadata (type=%8x, code=%8x, len=%d)\n", type, code, data_len);
 
       if (dstptr == &progress)
 	{
@@ -441,6 +476,11 @@ handle_item(struct input_metadata *m, const char *item)
 	{
 	  volume = (char *)data;
 	  handle_volume(volume);
+	  free(data);
+	}
+      else if (dstptr == &picture)
+	{
+	  handle_picture(m, data, data_len);
 	  free(data);
 	}
       else

@@ -138,6 +138,7 @@ static int source_item_cache_get(struct artwork_ctx *ctx);
 static int source_item_embedded_get(struct artwork_ctx *ctx);
 static int source_item_own_get(struct artwork_ctx *ctx);
 static int source_item_stream_get(struct artwork_ctx *ctx);
+static int source_item_pipe_get(struct artwork_ctx *ctx);
 static int source_item_spotify_get(struct artwork_ctx *ctx);
 static int source_item_spotifywebapi_get(struct artwork_ctx *ctx);
 static int source_item_ownpl_get(struct artwork_ctx *ctx);
@@ -194,6 +195,12 @@ static struct artwork_source artwork_item_source[] =
       .name = "stream",
       .handler = source_item_stream_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
+      .cache = NEVER,
+    },
+    {
+      .name = "pipe",
+      .handler = source_item_pipe_get,
+      .data_kinds = (1 << DATA_KIND_PIPE),
       .cache = NEVER,
     },
     {
@@ -834,6 +841,26 @@ source_item_stream_get(struct artwork_ctx *ctx)
   free(url);
 
   return ret;
+}
+
+/*
+ * If we are playing a pipe and there is also a metadata pipe, then
+ * input/pipe.c may have saved the incoming artwork via cache_artwork_stash()
+ *
+ */
+static int
+source_item_pipe_get(struct artwork_ctx *ctx)
+{
+  int ret;
+  int format;
+
+  DPRINTF(E_SPAM, L_ART, "Trying pipe metadata from %s.metadata\n", ctx->dbmfi->path);
+
+  ret = cache_artwork_read(ctx->evbuf, "pipe://metadata", &format);
+  if (ret < 0)
+    return ART_E_NONE;
+
+  return format;
 }
 
 #ifdef HAVE_SPOTIFY_H
