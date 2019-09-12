@@ -191,6 +191,7 @@ static cfg_opt_t sec_mpd[] =
 static cfg_opt_t sec_streaming[] =
   {
     CFG_INT("sample_rate", 44100, CFGF_NONE),
+    CFG_INT("bits_per_sample", 16, CFGF_NONE),
     CFG_INT("channels", 2, CFGF_NONE),
     CFG_INT("bit_rate", 192, CFGF_NONE),
     CFG_END()

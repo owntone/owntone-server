@@ -53,7 +53,6 @@ extern struct event_base *evbase_httpd;
 #define STREAMING_MP3_BPS         16
 #define STREAMING_MP3_CHANNELS    2
 #define STREAMING_MP3_BIT_RATE    192000
-static int streaming_mp3_bit_rate = STREAMING_MP3_BIT_RATE;
 
 
 // Linked list of mp3 streaming requests
@@ -76,7 +75,8 @@ static struct timeval streaming_silence_tv = { STREAMING_SILENCE_INTERVAL, 0 };
 // Input buffer, output buffer and encoding ctx for transcode
 static struct encode_ctx *streaming_encode_ctx;
 static struct evbuffer *streaming_encoded_data;
-static struct media_quality streaming_quality;
+static struct media_quality streaming_quality_in;
+static struct media_quality streaming_quality_out = { STREAMING_MP3_SAMPLE_RATE, STREAMING_MP3_BPS, STREAMING_MP3_CHANNELS, STREAMING_MP3_BIT_RATE };
 
 // Used for pushing events and data from the player
 static struct event *streamingev;
@@ -190,7 +190,6 @@ streaming_end(void)
 static void
 streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
 {
-  struct media_quality mp3_quality = { STREAMING_MP3_SAMPLE_RATE, STREAMING_MP3_BPS, STREAMING_MP3_CHANNELS, streaming_mp3_bit_rate };
   struct media_quality quality;
   struct decode_ctx *decode_ctx;
   int ret;
@@ -212,19 +211,16 @@ streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
   if (!decode_ctx)
     goto error;
 
-  if (quality.bit_rate)
-    mp3_quality.bit_rate = quality.bit_rate;
-
-  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, &mp3_quality, decode_ctx, NULL, 0, 0);
+  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, &streaming_quality_out, decode_ctx, NULL, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
   if (!streaming_encode_ctx)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream MP3, libav does not support MP3 encoding\n");
+      DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream MP3, libav does not support MP3 encoding: %d/%d/%d @ %d\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate);
       streaming_not_supported = 1;
       return;
     }
 
-  streaming_quality = quality;
+  streaming_quality_in = quality;
   streaming_not_supported = 0;
 
   return;
@@ -248,15 +244,15 @@ encode_buffer(uint8_t *buffer, size_t size)
       return -1;
     }
 
-  if (streaming_quality.channels == 0)
+  if (streaming_quality_in.channels == 0)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Streaming quality is zero (%d/%d/%d)\n", streaming_quality.sample_rate, streaming_quality.bits_per_sample, streaming_quality.channels);
+      DPRINTF(E_LOG, L_STREAMING, "Streaming quality is zero (%d/%d/%d)\n", streaming_quality_in.sample_rate, streaming_quality_in.bits_per_sample, streaming_quality_in.channels);
       return -1;
     }
 
-  samples = BTOS(size, streaming_quality.bits_per_sample, streaming_quality.channels);
+  samples = BTOS(size, streaming_quality_in.bits_per_sample, streaming_quality_in.channels);
 
-  frame = transcode_frame_new(buffer, size, samples, &streaming_quality);
+  frame = transcode_frame_new(buffer, size, samples, &streaming_quality_in);
   if (!frame)
     {
       DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
@@ -503,7 +499,7 @@ streaming_write(struct output_buffer *obuf)
   if (!streaming_sessions)
     return;
 
-  if (!quality_is_equal(&obuf->data[0].quality, &streaming_quality))
+  if (!quality_is_equal(&obuf->data[0].quality, &streaming_quality_in))
     {
       ret = write(streaming_meta[1], &obuf->data[0].quality, sizeof(struct media_quality));
       if (ret < 0)
@@ -628,23 +624,40 @@ int
 streaming_init(void)
 {
   int ret;
+  cfg_t*  cfgsec;
+  int val;
 
-  streaming_mp3_bit_rate = cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
-  switch (streaming_mp3_bit_rate)
+  cfgsec = cfg_getsec(cfg, "streaming");
+
+  val = cfg_getint(cfgsec, "sample_rate");
+  if (val%44100 > 0 && val%48000 > 0)
+    DPRINTF(E_LOG, L_STREAMING, "non standard streaming sample_rate=%d, defaulting\n", val);
+  else
+    streaming_quality_out.sample_rate = val;
+
+  val = cfg_getint(cfgsec, "bits_per_sample");
+  if (val > 0)
+    streaming_quality_out.bits_per_sample = val;
+
+  val = cfg_getint(cfgsec, "channels");
+  if (val > 0)
+    streaming_quality_out.channels = val;
+
+  val = cfg_getint(cfgsec, "bit_rate");
+  switch (val)
   {
     case  64:
     case  96:
     case 128:
     case 192:
     case 320:
-      streaming_mp3_bit_rate *= 1000;
+      streaming_quality_out.bit_rate = val*1000;
       break;
 
     default:
-      DPRINTF(E_WARN, L_STREAMING, "streaming bit_rate=%d not 128/192/320, defaulting\n", streaming_mp3_bit_rate);
-      streaming_mp3_bit_rate = STREAMING_MP3_BIT_RATE;
+      DPRINTF(E_WARN, L_STREAMING, "streaming bit_rate=%d not accepted, defaulting\n", val);
   }
-  DPRINTF(E_INFO, L_STREAMING, "streaming bit_rate=%d\n", streaming_mp3_bit_rate);
+  DPRINTF(E_INFO, L_STREAMING, "streaming quality: %d/%d/%d @ %dkbps\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate/1000);
 
   pthread_mutex_init(&streaming_sessions_lck, NULL);
 
