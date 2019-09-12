@@ -382,4 +382,9 @@ streaming {
  
 	# Set the MP3 streaming bit rate (in kbps), valid options: 64 / 96 / 128 / 192 / 320
 #	bit_rate = 192
+
+	# Byte interval to send metadata to client, if requested.  Should avoid
+        # low values to avoid audiable/stuttering problems with small input-
+        # bufffer clients.
+#	icy_metaint = 16384
 }
