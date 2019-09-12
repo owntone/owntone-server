@@ -94,7 +94,8 @@ static int streaming_meta[2];
  * some devices with small input buffers, a higher quality stream and low 
  * ICY_METAINT can lead to stuttering as observed on a Roku Soundbridge
  */
-static const short STREAMING_ICY_METAINT = 16384;
+#define STREAMING_ICY_METAINT_DEFAULT  16384
+static unsigned short STREAMING_ICY_METAINT = STREAMING_ICY_METAINT_DEFAULT;
 static unsigned streaming_icy_clients;
 static char *streaming_icy_title;
 
@@ -555,7 +556,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   if (param && strcmp(param, "1") == 0)
     require_icy = true;
 
-  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d) to %s:%d\n", require_icy, address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d, icy_metaint=%d) to %s:%d\n", require_icy, STREAMING_ICY_METAINT, address, (int)port);
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
@@ -658,6 +659,13 @@ streaming_init(void)
       DPRINTF(E_WARN, L_STREAMING, "streaming bit_rate=%d not accepted, defaulting\n", val);
   }
   DPRINTF(E_INFO, L_STREAMING, "streaming quality: %d/%d/%d @ %dkbps\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate/1000);
+
+  val = cfg_getint(cfgsec, "icy_metaint");
+  // Too low a value forces server to send more meta than data
+  if (val >= 4096 && val <= 131072)
+    STREAMING_ICY_METAINT = val;
+  else
+    DPRINTF(E_INFO, L_STREAMING, "icy_metaint=%d not accepted, defaulting to %d\n", val, STREAMING_ICY_METAINT);
 
   pthread_mutex_init(&streaming_sessions_lck, NULL);
 
