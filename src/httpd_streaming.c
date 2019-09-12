@@ -148,6 +148,10 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   if (session->require_icy)
     --streaming_icy_clients;
 
+  /* Possible libevent bug; ownership of evhttp_request with libevent
+   * Workaround to force mem cleanup, prefered over evhttp_request_free()
+   */
+  evhttp_send_reply_end(session->req);
   free(session);
 
   if (!streaming_sessions)
