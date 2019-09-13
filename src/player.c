@@ -2042,6 +2042,7 @@ playback_start(void *arg, int *retval)
 {
   struct db_queue_item *queue_item = NULL;
   enum command_state cmd_state;
+  uint32_t count;
 
   *retval = -1;
 
@@ -2050,7 +2051,13 @@ playback_start(void *arg, int *retval)
       // Start playback of first item in queue
       queue_item = db_queue_fetch_bypos(0, shuffle);
       if (!queue_item)
-	return COMMAND_END;
+      {
+	count = 0;
+	db_queue_get_count(&count);
+	if (count == 0)
+	  *retval = 1;
+        return COMMAND_END;
+      }
     }
 
   cmd_state = playback_start_item(queue_item, retval);
@@ -2249,7 +2256,8 @@ playback_pause(void *arg, int *retval)
 {
   if (player_state == PLAY_STOPPED)
     {
-      *retval = -1;
+      // No execution of _bh but caller gets 'success' return
+      *retval = 1;
       return COMMAND_END;
     }
 
