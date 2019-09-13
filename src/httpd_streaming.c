@@ -631,7 +631,7 @@ streaming_init(void)
   cfgsec = cfg_getsec(cfg, "streaming");
 
   val = cfg_getint(cfgsec, "sample_rate");
-  if (val%44100 > 0 && val%48000 > 0)
+  if (val%11025 > 0 && val%12000 > 0 && val%8000)
     DPRINTF(E_LOG, L_STREAMING, "non standard streaming sample_rate=%d, defaulting\n", val);
   else
     streaming_quality_out.sample_rate = val;
