@@ -625,24 +625,16 @@ int
 streaming_init(void)
 {
   int ret;
-  cfg_t*  cfgsec;
+  cfg_t *cfgsec;
   int val;
 
   cfgsec = cfg_getsec(cfg, "streaming");
 
   val = cfg_getint(cfgsec, "sample_rate");
-  if (val%11025 > 0 && val%12000 > 0 && val%8000)
+  if (val%11025 > 0 && val%12000 > 0 && val%8000 > 0)
     DPRINTF(E_LOG, L_STREAMING, "non standard streaming sample_rate=%d, defaulting\n", val);
   else
     streaming_quality_out.sample_rate = val;
-
-  val = cfg_getint(cfgsec, "bits_per_sample");
-  if (val > 0)
-    streaming_quality_out.bits_per_sample = val;
-
-  val = cfg_getint(cfgsec, "channels");
-  if (val > 0)
-    streaming_quality_out.channels = val;
 
   val = cfg_getint(cfgsec, "bit_rate");
   switch (val)
