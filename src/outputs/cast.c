@@ -448,6 +448,8 @@ static struct cast_master_session *cast_master_session;
 static struct timeval reply_timeout = { REPLY_TIMEOUT, 0 };
 static struct media_quality cast_quality_in = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT, 0 };
 static struct media_quality cast_quality_out = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT, 128000 };
+static bool exclude_all = false;
+static uint64_t offset_ms_all = 0;
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
@@ -1329,6 +1331,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
   const char *friendly_name;
   cfg_t *chromecast;
   uint32_t id;
+  int bit_rate;
 
   id = djb_hash(name, strlen(name));
   if (!id)
@@ -1342,6 +1345,11 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
     name = friendly_name;
 
   DPRINTF(E_DBG, L_CAST, "Event for Chromecast device '%s' (port %d, id %" PRIu32 ")\n", name, port, id);
+  if (exclude_all)
+    {
+      DPRINTF(E_LOG, L_CAST, "Excluding all Chromecast devices, incl '%s' as set in config\n", name);
+      return;
+    }
 
   chromecast = cfg_gettsec(cfg, "chromecast", name);
   if (chromecast && cfg_getbool(chromecast, "exclude"))
@@ -1349,8 +1357,8 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
       DPRINTF(E_LOG, L_CAST, "Excluding Chromecast device '%s' as set in config\n", name);
       return;
     }
-
   device = calloc(1, sizeof(struct output_device));
+
   if (!device)
     {
       DPRINTF(E_LOG, L_CAST, "Out of memory for new Chromecast device\n");
@@ -1523,7 +1531,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
 
   chromecast = cfg_gettsec(cfg, "chromecast", device->name);
 
-  offset_ms = chromecast ? cfg_getint(chromecast, "offset_ms") : 0;
+  offset_ms = chromecast ? cfg_getint(chromecast, "offset_ms") : offset_ms_all;
   if (abs(offset_ms) > CAST_OFFSET_MAX)
     {
       DPRINTF(E_LOG, L_CAST, "Ignoring invalid configuration of Chromecast offset (%" PRIu64 " ms)\n", offset_ms);
@@ -2141,6 +2149,9 @@ cast_init(void)
   chromecast = cfg_gettsec(cfg, "chromecast", "*");
   if (chromecast)
     {
+      exclude_all = cfg_getbool(chromecast, "exclude");
+      offset_ms_all = cfg_getint(chromecast, "offset_ms");
+
       bit_rate = cfg_getint(chromecast, "bit_rate");
       // As per wiki and https://wiki.hydrogenaud.io/index.php?title=Opus#Music_encoding_quality
       if (bit_rate >= 6 && bit_rate <= 510)
