@@ -371,7 +371,7 @@ struct cast_msg_basic cast_msg[] =
     // sampleRate seems to be ignored
     // storeTime unknown meaning - perhaps size of buffer?
     // targetDelay - should be RTP delay in ms, but doesn't seem to change anything?
-    .payload = "{'type':'OFFER','seqNum':%d,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%d,'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false}]}}",
+    .payload = "{'type':'OFFER','seqNum':%d,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%d,'storeTime':400,'targetDelay':400,'bitRate':%d,'sampleRate':%d,'timeBase':'1/%d','channels':%d,'receiverRtcpEventLog':false}]}}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
@@ -446,7 +446,8 @@ static struct cast_session *cast_sessions;
 static struct cast_master_session *cast_master_session;
 //static struct timeval heartbeat_timeout = { HEARTBEAT_TIMEOUT, 0 };
 static struct timeval reply_timeout = { REPLY_TIMEOUT, 0 };
-static struct media_quality cast_quality_default = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT, 0 };
+static struct media_quality cast_quality_in = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT, 0 };
+static struct media_quality cast_quality_out = { CAST_QUALITY_SAMPLE_RATE_DEFAULT, CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT, CAST_QUALITY_CHANNELS_DEFAULT, 128000 };
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
@@ -672,7 +673,7 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   else if (type == STOP)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
   else if (type == OFFER)
-    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id, cs->ssrc_id);
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id, cs->ssrc_id, cast_quality_out.bit_rate, cast_quality_out.sample_rate, cast_quality_out.sample_rate, cast_quality_out.channels);
   else if (type == PRESENTATION)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
   else if (type == SET_VOLUME)
@@ -1495,7 +1496,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
   cs->device_id = device->id;
   cs->callback_id = callback_id;
 
-  cs->master_session = master_session_make(&cast_quality_default);
+  cs->master_session = master_session_make(&cast_quality_in);
   if (!cs->master_session)
     {
       DPRINTF(E_LOG, L_CAST, "Could not attach a master session for device '%s'\n", device->name);
@@ -2030,7 +2031,7 @@ cast_write(struct output_buffer *obuf)
 
   for (i = 0; obuf->data[i].buffer; i++)
     {
-      if (quality_is_equal(&obuf->data[i].quality, &cast_quality_default))
+      if (quality_is_equal(&obuf->data[i].quality, &cast_quality_in))
 	break;
     }
 
@@ -2106,6 +2107,8 @@ cast_init(void)
   struct decode_ctx *decode_ctx;
   int family;
   int i;
+  int bit_rate;
+  cfg_t *chromecast;
   int ret;
 
   // Sanity check
@@ -2128,14 +2131,26 @@ cast_init(void)
       return -1;
     }
 
-  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, &cast_quality_default);
+  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, &cast_quality_in);
   if (!decode_ctx)
     {
       DPRINTF(E_LOG, L_CAST, "Could not create decoding context\n");
       goto out_tls_deinit;
     }
 
-  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, &cast_quality_default, decode_ctx, NULL, 0, 0);
+  chromecast = cfg_gettsec(cfg, "chromecast", "*");
+  if (chromecast)
+    {
+      bit_rate = cfg_getint(chromecast, "bit_rate");
+      // As per wiki and https://wiki.hydrogenaud.io/index.php?title=Opus#Music_encoding_quality
+      if (bit_rate >= 6 && bit_rate <= 510)
+        cast_quality_out.bit_rate = bit_rate*1000;
+      else
+        DPRINTF(E_WARN, L_CAST, "Unsupported bit rate (%d) requested, defaulting\n", bit_rate);
+    }
+
+  DPRINTF(E_INFO, L_CAST, "Chromecast quality: %u/%u/%u @ %dkbps\n", cast_quality_out.sample_rate, cast_quality_out.bits_per_sample, cast_quality_out.channels, cast_quality_out.bit_rate/1000);
+  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, &cast_quality_out, decode_ctx, NULL, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
   if (!cast_encode_ctx)
     {
