@@ -139,6 +139,7 @@ static cfg_opt_t sec_chromecast[] =
   {
     CFG_BOOL("exclude", cfg_false, CFGF_NONE),
     CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("bit_rate", 128, CFGF_NONE),
     CFG_END()
   };
 

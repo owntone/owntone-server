@@ -274,6 +274,13 @@ audio {
 #}
 
 # Chromecast settings
+# 
+chromecast "*" {
+	# Bitrate (in kbps) for (Opus) audio stream to Chromecast device
+	# valid options: 6 - 510
+#	bit_rate = 128
+}
+# per Chromecast device settings
 # (make sure you get the capitalization of the device name right)
 #chromecast "My Chromecast device" {
 	# Enable this option to exclude a particular device from the speaker
