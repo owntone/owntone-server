@@ -60,7 +60,6 @@ static cfg_opt_t sec_general[] =
 #else
     CFG_BOOL("high_resolution_clock", cfg_true, CFGF_NONE),
 #endif
-    CFG_INT("streaming_bitrate", 192, CFGF_NONE),
     // Hidden options
     CFG_INT("db_pragma_cache_size", -1, CFGF_NONE),
     CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
