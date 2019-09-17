@@ -233,7 +233,7 @@ static struct artwork_source artwork_item_source[] =
 
 /* -------------------------------- HELPERS -------------------------------- */
 
-/* Reads an artwork file from the given url straight into an evbuf
+/* Reads an artwork file from the given http url straight into an evbuf
  *
  * @out evbuf     Image data
  * @in  url       URL for the image
@@ -844,23 +844,47 @@ source_item_stream_get(struct artwork_ctx *ctx)
 }
 
 /*
- * If we are playing a pipe and there is also a metadata pipe, then
- * input/pipe.c may have saved the incoming artwork via cache_artwork_stash()
+ * If we are playing a pipe and there is also a metadata pipe, then input/pipe.c
+ * may have saved the incoming artwork in a tmp file
  *
  */
 static int
 source_item_pipe_get(struct artwork_ctx *ctx)
 {
+  struct db_queue_item *queue_item;
+  uint8_t header[2] = { 0 };
+  const char *proto = "file:";
+  char *path;
   int ret;
-  int format;
 
   DPRINTF(E_SPAM, L_ART, "Trying pipe metadata from %s.metadata\n", ctx->dbmfi->path);
 
-  ret = cache_artwork_read(ctx->evbuf, "pipe://metadata", &format);
-  if (ret < 0)
-    return ART_E_NONE;
+  queue_item = db_queue_fetch_byfileid(ctx->id);
+  if (!queue_item || !queue_item->artwork_url || strncmp(queue_item->artwork_url, proto, strlen(proto)) != 0)
+    {
+      free_queue_item(queue_item, 0);
+      return ART_E_NONE;
+    }
 
-  return format;
+  path = queue_item->artwork_url + strlen(proto);
+
+  ret = artwork_read(ctx->evbuf, path);
+  if (ret < 0)
+    {
+      free_queue_item(queue_item, 0);
+      return ART_E_ERROR;
+    }
+
+  free_queue_item(queue_item, 0);
+
+  evbuffer_copyout(ctx->evbuf, header, sizeof(header));
+
+  if (header[0] == 0xff && header[1] == 0xd8)
+    return ART_FMT_JPEG;
+  else if (header[0] == 0x89 && header[1] == 0x50)
+    return ART_FMT_PNG;
+  else
+    return ART_E_ERROR;
 }
 
 #ifdef HAVE_SPOTIFY_H

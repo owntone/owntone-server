@@ -62,8 +62,6 @@
 #include "conffile.h"
 #include "listener.h"
 #include "player.h"
-#include "artwork.h"
-#include "cache.h"
 #include "worker.h"
 #include "commands.h"
 #include "mxml-compat.h"
@@ -76,6 +74,8 @@
 #define PIPE_METADATA_BUFLEN_MAX 262144
 // Ignore pictures with larger size than this
 #define PIPE_PICTURE_SIZE_MAX 262144
+// Where we store pictures for the artwork module to read
+#define PIPE_TMPFILE_TEMPLATE "/tmp/forked-daapd.XXXXXX"
 
 enum pipetype
 {
@@ -94,6 +94,24 @@ struct pipe
   struct event *ev;     // Event for the callback
 
   struct pipe *next;
+};
+
+// Extension of struct pipe with extra fields for metadata handling
+struct pipe_metadata
+{
+  // Pipe that we start watching for metadata after playback starts
+  struct pipe *pipe;
+  // We read metadata into this evbuffer
+  struct evbuffer *evbuf;
+  // Parsed metadata goes here
+  struct input_metadata parsed;
+  // Except picture (artwork) data which we store here
+  int pict_tmpfile_fd;
+  char pict_tmpfile_path[sizeof(PIPE_TMPFILE_TEMPLATE)];
+  // Mutex to share the parsed metadata
+  pthread_mutex_t lock;
+  // True if there is new metadata to push to the player
+  bool is_new;
 };
 
 union pipe_arg
@@ -118,16 +136,8 @@ static int pipe_autostart_id;
 // Global list of pipes we are watching (if watching/autostart is enabled)
 static struct pipe *pipe_watch_list;
 
-// Single pipe that we start watching for metadata after playback starts
-static struct pipe *pipe_metadata;
-// We read metadata into this evbuffer
-static struct evbuffer *pipe_metadata_buf;
-// Parsed metadata goes here
-static struct input_metadata pipe_metadata_parsed;
-// Mutex to share the parsed metadata
-static pthread_mutex_t pipe_metadata_lock;
-// True if there is new metadata to push to the player
-static bool pipe_metadata_is_new;
+// Pipe + extra fields that we start watching for metadata after playback starts
+static struct pipe_metadata pipe_metadata;
 
 /* -------------------------------- HELPERS --------------------------------- */
 
@@ -360,29 +370,36 @@ handle_volume(const char *volume)
 static void
 handle_picture(struct input_metadata *m, uint8_t *data, int data_len)
 {
-  struct evbuffer *evbuf;
-  int format;
+  ssize_t ret;
+
+  free(m->artwork_url);
+  m->artwork_url = NULL;
+
+  if (pipe_metadata.pict_tmpfile_fd < 0)
+    return;
 
   if (data_len < 2 || data_len > PIPE_PICTURE_SIZE_MAX)
-    goto error;
+    {
+      DPRINTF(E_WARN, L_PLAYER, "Unsupported picture size (%d) from Shairport metadata pipe\n", data_len);
+      return;
+    }
 
-  if (data[0] == 0xff && data[1] == 0xd8)
-    format = ART_FMT_JPEG;
-  else if (data[0] == 0x89 && data[1] == 0x50)
-    format = ART_FMT_PNG;
-  else
-    goto error;
+  // Reset in case we previously wrote to the tmp file
+  lseek(pipe_metadata.pict_tmpfile_fd, 0L, SEEK_SET);
 
-  CHECK_NULL(L_PLAYER, evbuf = evbuffer_new());
+  ret = write(pipe_metadata.pict_tmpfile_fd, data, data_len);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_PLAYER, "Error writing artwork from metadata pipe to '%s': %s\n", pipe_metadata.pict_tmpfile_path, strerror(errno));
+      return;
+    }
+  else if (ret != data_len)
+    {
+      DPRINTF(E_WARN, L_PLAYER, "Incomplete write of artwork to '%s' (%zd/%d)\n", pipe_metadata.pict_tmpfile_path, ret, data_len);
+      return;
+    }
 
-  evbuffer_add(evbuf, data, data_len);
-  cache_artwork_stash(evbuf, "pipe://metadata", format);
-  evbuffer_free(evbuf);
-  return;
-
- error:
-  DPRINTF(E_LOG, L_PLAYER, "Unsupported picture size (%d) or format from Shairport metadata pipe\n", data_len);
-  cache_artwork_stash(NULL, NULL, 0); // Clear the artwork stash
+  m->artwork_url = safe_asprintf("file:%s", pipe_metadata.pict_tmpfile_path);
 }
 
 // returns 1 on metadata found, 0 on nothing, -1 on error
@@ -453,14 +470,14 @@ handle_item(struct input_metadata *m, const char *item)
   if ( (needle = mxmlFindElement(haystack, haystack, "data", NULL, NULL, MXML_DESCEND)) &&
        (s = mxmlGetText(needle, NULL)) )
     {
-      pthread_mutex_lock(&pipe_metadata_lock);
+      pthread_mutex_lock(&pipe_metadata.lock);
 
       data = b64_decode(&data_len, s);
       if (!data)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Base64 decode of '%s' failed\n", s);
 
-	  pthread_mutex_unlock(&pipe_metadata_lock);
+	  pthread_mutex_unlock(&pipe_metadata.lock);
 	  goto out_error;
 	}
 
@@ -489,7 +506,7 @@ handle_item(struct input_metadata *m, const char *item)
 	  *dstptr = (char *)data;
 	}
 
-      pthread_mutex_unlock(&pipe_metadata_lock);
+      pthread_mutex_unlock(&pipe_metadata.lock);
 
       ret = 1;
     }
@@ -670,13 +687,19 @@ pipe_thread_run(void *arg)
 static void
 pipe_metadata_watch_del(void *arg)
 {
-  if (!pipe_metadata)
+  if (!pipe_metadata.pipe)
     return;
 
-  evbuffer_free(pipe_metadata_buf);
-  watch_del(pipe_metadata);
-  pipe_free(pipe_metadata);
-  pipe_metadata = NULL;
+  evbuffer_free(pipe_metadata.evbuf);
+  watch_del(pipe_metadata.pipe);
+  pipe_free(pipe_metadata.pipe);
+  pipe_metadata.pipe = NULL;
+
+  if (pipe_metadata.pict_tmpfile_fd >= 0)
+    {
+      close(pipe_metadata.pict_tmpfile_fd);
+      unlink(pipe_metadata.pict_tmpfile_path);
+    }
 }
 
 // Some metadata arrived on a pipe we watch
@@ -685,7 +708,7 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
 {
   int ret;
 
-  ret = evbuffer_read(pipe_metadata_buf, pipe_metadata->fd, PIPE_READ_MAX);
+  ret = evbuffer_read(pipe_metadata.evbuf, pipe_metadata.pipe->fd, PIPE_READ_MAX);
   if (ret < 0)
     {
       if (errno != EAGAIN)
@@ -695,20 +718,20 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
   else if (ret == 0)
     {
       // Reset the pipe
-      ret = watch_reset(pipe_metadata);
+      ret = watch_reset(pipe_metadata.pipe);
       if (ret < 0)
 	return;
       goto readd;
     }
 
-  if (evbuffer_get_length(pipe_metadata_buf) > PIPE_METADATA_BUFLEN_MAX)
+  if (evbuffer_get_length(pipe_metadata.evbuf) > PIPE_METADATA_BUFLEN_MAX)
     {
       DPRINTF(E_LOG, L_PLAYER, "Can't process data from metadata pipe, reading will stop\n");
       pipe_metadata_watch_del(NULL);
       return;
     }
 
-  ret = pipe_metadata_handle(&pipe_metadata_parsed, pipe_metadata_buf);
+  ret = pipe_metadata_handle(&pipe_metadata.parsed, pipe_metadata.evbuf);
   if (ret < 0)
     {
       pipe_metadata_watch_del(NULL);
@@ -717,12 +740,12 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
   else if (ret > 0)
     {
       // Trigger notification in playback loop
-      pipe_metadata_is_new = 1;
+      pipe_metadata.is_new = 1;
     }
 
  readd:
-  if (pipe_metadata && pipe_metadata->ev)
-    event_add(pipe_metadata->ev, NULL);
+  if (pipe_metadata.pipe && pipe_metadata.pipe->ev)
+    event_add(pipe_metadata.pipe->ev, NULL);
 }
 
 static void
@@ -736,20 +759,29 @@ pipe_metadata_watch_add(void *arg)
   if ((ret < 0) || (ret > sizeof(path)))
     return;
 
-  pipe_metadata = pipe_create(path, 0, PIPE_METADATA, pipe_metadata_read_cb);
-  if (!pipe_metadata)
+  pipe_metadata_watch_del(NULL); // Just in case we somehow already have a metadata pipe open
+
+  pipe_metadata.pipe = pipe_create(path, 0, PIPE_METADATA, pipe_metadata_read_cb);
+  if (!pipe_metadata.pipe)
     return;
 
-  pipe_metadata_buf = evbuffer_new();
+  pipe_metadata.evbuf = evbuffer_new();
 
-  ret = watch_add(pipe_metadata);
+  ret = watch_add(pipe_metadata.pipe);
   if (ret < 0)
     {
-      evbuffer_free(pipe_metadata_buf);
-      pipe_free(pipe_metadata);
-      pipe_metadata = NULL;
+      evbuffer_free(pipe_metadata.evbuf);
+      pipe_free(pipe_metadata.pipe);
+      pipe_metadata.pipe = NULL;
       return;
     }
+
+  // Try to open a tmpfile to store metadata artwork in (the PICT tag). If we
+  // can't open a tmpfile we will just ignore artwork.
+  strcpy(pipe_metadata.pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE);
+  pipe_metadata.pict_tmpfile_fd = mkstemp(pipe_metadata.pict_tmpfile_path);
+  if (pipe_metadata.pict_tmpfile_fd < 0)
+    DPRINTF(E_WARN, L_PLAYER, "Error opening tmpfile for metadata pipe artwork: %s\n", strerror(errno));
 }
 
 
@@ -900,7 +932,7 @@ stop(struct input_source *source)
       commands_exec_async(cmdbase, pipe_watch_reset, cmdarg);
     }
 
-  if (pipe_metadata)
+  if (pipe_metadata.pipe)
     worker_execute(pipe_metadata_watch_del, NULL, 0, 0);
 
   pipe_free(pipe);
@@ -938,8 +970,8 @@ play(struct input_source *source)
       return -1;
     }
 
-  flags = (pipe_metadata_is_new ? INPUT_FLAG_METADATA : 0);
-  pipe_metadata_is_new = 0;
+  flags = (pipe_metadata.is_new ? INPUT_FLAG_METADATA : 0);
+  pipe_metadata.is_new = 0;
 
   input_write(source->evbuf, &source->quality, flags);
 
@@ -949,14 +981,14 @@ play(struct input_source *source)
 static int
 metadata_get(struct input_metadata *metadata, struct input_source *source)
 {
-  pthread_mutex_lock(&pipe_metadata_lock);
+  pthread_mutex_lock(&pipe_metadata.lock);
 
-  *metadata = pipe_metadata_parsed;
+  *metadata = pipe_metadata.parsed;
 
   // Ownership transferred to caller, null all pointers in the struct
-  memset(&pipe_metadata_parsed, 0, sizeof(struct input_metadata));
+  memset(&pipe_metadata.parsed, 0, sizeof(struct input_metadata));
 
-  pthread_mutex_unlock(&pipe_metadata_lock);
+  pthread_mutex_unlock(&pipe_metadata.lock);
 
   return 0;
 }
@@ -965,7 +997,7 @@ metadata_get(struct input_metadata *metadata, struct input_source *source)
 static int
 init(void)
 {
-  CHECK_ERR(L_PLAYER, mutex_init(&pipe_metadata_lock));
+  CHECK_ERR(L_PLAYER, mutex_init(&pipe_metadata.lock));
 
   pipe_autostart = cfg_getbool(cfg_getsec(cfg, "library"), "pipe_autostart");
   if (pipe_autostart)
@@ -1000,7 +1032,7 @@ deinit(void)
       pipe_thread_stop();
     }
 
-  CHECK_ERR(L_PLAYER, pthread_mutex_destroy(&pipe_metadata_lock));
+  CHECK_ERR(L_PLAYER, pthread_mutex_destroy(&pipe_metadata.lock));
 }
 
 struct input_definition input_pipe =
