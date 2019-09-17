@@ -95,7 +95,7 @@ static int streaming_meta[2];
  * ICY_METAINT can lead to stuttering as observed on a Roku Soundbridge
  */
 #define STREAMING_ICY_METAINT_DEFAULT  16384
-static unsigned short STREAMING_ICY_METAINT = STREAMING_ICY_METAINT_DEFAULT;
+static unsigned short streaming_icy_metaint = STREAMING_ICY_METAINT_DEFAULT;
 static unsigned streaming_icy_clients;
 static char *streaming_icy_title;
 
@@ -438,9 +438,9 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
     {
       // Does this session want ICY meta data and is it time to send?
       count = session->bytes_sent+len;
-      if (session->require_icy && count > STREAMING_ICY_METAINT)
+      if (session->require_icy && count > streaming_icy_metaint)
 	{
-	  overflow = count%STREAMING_ICY_METAINT;
+	  overflow = count%streaming_icy_metaint;
 	  buf = evbuffer_pullup(streaming_encoded_data, -1);
 
 	  // DPRINTF(E_DBG, L_STREAMING, "session=%x sent=%ld len=%ld overflow=%ld\n", session, session->bytes_sent, len, overflow);
@@ -556,7 +556,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   if (param && strcmp(param, "1") == 0)
     require_icy = true;
 
-  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d, icy_metaint=%d) to %s:%d\n", require_icy, STREAMING_ICY_METAINT, address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d, icy_metaint=%d) to %s:%d\n", require_icy, streaming_icy_metaint, address, (int)port);
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
@@ -571,7 +571,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
     {
       ++streaming_icy_clients;
       evhttp_add_header(output_headers, "icy-name", name);
-      snprintf(buf, sizeof(buf)-1, "%d", STREAMING_ICY_METAINT);
+      snprintf(buf, sizeof(buf)-1, "%d", streaming_icy_metaint);
       evhttp_add_header(output_headers, "icy-metaint", buf);
     }
   evhttp_add_header(output_headers, "Access-Control-Allow-Origin", "*");
@@ -631,8 +631,9 @@ streaming_init(void)
   cfgsec = cfg_getsec(cfg, "streaming");
 
   val = cfg_getint(cfgsec, "sample_rate");
-  if (val%11025 > 0 && val%12000 > 0 && val%8000 > 0)
-    DPRINTF(E_LOG, L_STREAMING, "non standard streaming sample_rate=%d, defaulting\n", val);
+  // Validate against the variations of libmp3lame's supported sample rates: 32000/44100/48000
+  if (val % 11025 > 0 && val % 12000 > 0 && val % 8000 > 0)
+    DPRINTF(E_LOG, L_STREAMING, "Non standard streaming sample_rate=%d, defaulting\n", val);
   else
     streaming_quality_out.sample_rate = val;
 
@@ -648,16 +649,16 @@ streaming_init(void)
       break;
 
     default:
-      DPRINTF(E_WARN, L_STREAMING, "streaming bit_rate=%d not accepted, defaulting\n", val);
+      DPRINTF(E_LOG, L_STREAMING, "Unsuppported streaming bit_rate=%d, supports: 64/96/128/192/320, defaulting\n", val);
   }
-  DPRINTF(E_INFO, L_STREAMING, "streaming quality: %d/%d/%d @ %dkbps\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate/1000);
+  DPRINTF(E_INFO, L_STREAMING, "Streaming quality: %d/%d/%d @ %dkbps\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate/1000);
 
   val = cfg_getint(cfgsec, "icy_metaint");
   // Too low a value forces server to send more meta than data
   if (val >= 4096 && val <= 131072)
-    STREAMING_ICY_METAINT = val;
+    streaming_icy_metaint = val;
   else
-    DPRINTF(E_INFO, L_STREAMING, "icy_metaint=%d not accepted, defaulting to %d\n", val, STREAMING_ICY_METAINT);
+    DPRINTF(E_INFO, L_STREAMING, "Unsupported icy_metaint=%d, supported range: 4096..131072, defaulting to %d\n", val, streaming_icy_metaint);
 
   pthread_mutex_init(&streaming_sessions_lck, NULL);
 
