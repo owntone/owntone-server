@@ -498,7 +498,7 @@ connection_test(int family, const char *address, const char *address_log, int po
   snprintf(strport, sizeof(strport), "%d", port);
 
   ret = getaddrinfo(address, strport, &hints, &ai);
-  if (ret < 0)
+  if (ret != 0)
     {
       DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with getaddrinfo error: %s\n", address_log, port, gai_strerror(ret));
       return -1;
