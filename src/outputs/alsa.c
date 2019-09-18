@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <math.h>
 
 #include <alsa/asoundlib.h>
 
@@ -741,7 +742,7 @@ sync_check(double *drift, double *latency, struct alsa_playback_session *pb, snd
   // Set *latency to the "average" within the period
   *latency = (*drift) * alsa_latency_history_size / 2 + (*latency);
 
-  if (abs(*latency) < ALSA_MAX_LATENCY && abs(*drift) < ALSA_MAX_DRIFT)
+  if (fabs(*latency) < ALSA_MAX_LATENCY && fabs(*drift) < ALSA_MAX_DRIFT)
     sync = ALSA_SYNC_OK; // If both latency and drift are within thresholds -> no action
   else if (*latency > 0 && *drift > 0)
     sync = ALSA_SYNC_AHEAD;
