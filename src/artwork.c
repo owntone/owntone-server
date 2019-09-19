@@ -852,10 +852,8 @@ static int
 source_item_pipe_get(struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
-  uint8_t header[2] = { 0 };
   const char *proto = "file:";
   char *path;
-  int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying pipe metadata from %s.metadata\n", ctx->dbmfi->path);
 
@@ -868,23 +866,9 @@ source_item_pipe_get(struct artwork_ctx *ctx)
 
   path = queue_item->artwork_url + strlen(proto);
 
-  ret = artwork_read(ctx->evbuf, path);
-  if (ret < 0)
-    {
-      free_queue_item(queue_item, 0);
-      return ART_E_ERROR;
-    }
+  snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
-  free_queue_item(queue_item, 0);
-
-  evbuffer_copyout(ctx->evbuf, header, sizeof(header));
-
-  if (header[0] == 0xff && header[1] == 0xd8)
-    return ART_FMT_JPEG;
-  else if (header[0] == 0x89 && header[1] == 0x50)
-    return ART_FMT_PNG;
-  else
-    return ART_E_ERROR;
+  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false);
 }
 
 #ifdef HAVE_SPOTIFY_H

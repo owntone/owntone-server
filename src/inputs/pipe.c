@@ -75,7 +75,8 @@
 // Ignore pictures with larger size than this
 #define PIPE_PICTURE_SIZE_MAX 262144
 // Where we store pictures for the artwork module to read
-#define PIPE_TMPFILE_TEMPLATE "/tmp/forked-daapd.XXXXXX"
+#define PIPE_TMPFILE_TEMPLATE "/tmp/forked-daapd.XXXXXX.ext"
+#define PIPE_TMPFILE_TEMPLATE_EXTLEN 4
 
 enum pipetype
 {
@@ -299,6 +300,36 @@ dmapval(const char s[4])
 }
 
 static void
+pict_tmpfile_close(struct pipe_metadata *pm)
+{
+  if (pm->pict_tmpfile_fd < 0)
+    return;
+
+  close(pm->pict_tmpfile_fd);
+  unlink(pm->pict_tmpfile_path);
+
+  pm->pict_tmpfile_fd = -1;
+}
+
+// Opens a tmpfile to store metadata artwork in. *ext is the extension to use
+// for the tmpfile, eg .jpg or .png. Extension cannot be longer than
+// PIPE_TMPFILE_TEMPLATE_EXTLEN.
+static int
+pict_tmpfile_recreate(struct pipe_metadata *pm, const char *ext)
+{
+  int offset = strlen(PIPE_TMPFILE_TEMPLATE) - PIPE_TMPFILE_TEMPLATE_EXTLEN;
+
+  pict_tmpfile_close(pm);
+
+  strcpy(pm->pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE);
+  strncpy(pm->pict_tmpfile_path + offset, ext, PIPE_TMPFILE_TEMPLATE_EXTLEN);
+
+  pm->pict_tmpfile_fd = mkstemps(pm->pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE_EXTLEN);
+
+  return pm->pict_tmpfile_fd;
+}
+
+static void
 handle_progress(struct input_metadata *m, char *progress)
 {
   char *s;
@@ -370,13 +401,11 @@ handle_volume(const char *volume)
 static void
 handle_picture(struct input_metadata *m, uint8_t *data, int data_len)
 {
+  const char *ext;
   ssize_t ret;
 
   free(m->artwork_url);
   m->artwork_url = NULL;
-
-  if (pipe_metadata.pict_tmpfile_fd < 0)
-    return;
 
   if (data_len < 2 || data_len > PIPE_PICTURE_SIZE_MAX)
     {
@@ -384,18 +413,27 @@ handle_picture(struct input_metadata *m, uint8_t *data, int data_len)
       return;
     }
 
-  // Reset in case we previously wrote to the tmp file
-  lseek(pipe_metadata.pict_tmpfile_fd, 0L, SEEK_SET);
+  if (data[0] == 0xff && data[1] == 0xd8)
+    ext = ".jpg";
+  else if (data[0] == 0x89 && data[1] == 0x50)
+    ext = ".png";
+
+  pict_tmpfile_recreate(&pipe_metadata, ext);
+  if (pipe_metadata.pict_tmpfile_fd < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not open tmpfile for pipe artwork '%s': %s\n", pipe_metadata.pict_tmpfile_path, strerror(errno));
+      return;
+    }
 
   ret = write(pipe_metadata.pict_tmpfile_fd, data, data_len);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "Error writing artwork from metadata pipe to '%s': %s\n", pipe_metadata.pict_tmpfile_path, strerror(errno));
+      DPRINTF(E_LOG, L_PLAYER, "Error writing artwork from metadata pipe to '%s': %s\n", pipe_metadata.pict_tmpfile_path, strerror(errno));
       return;
     }
   else if (ret != data_len)
     {
-      DPRINTF(E_WARN, L_PLAYER, "Incomplete write of artwork to '%s' (%zd/%d)\n", pipe_metadata.pict_tmpfile_path, ret, data_len);
+      DPRINTF(E_LOG, L_PLAYER, "Incomplete write of artwork to '%s' (%zd/%d)\n", pipe_metadata.pict_tmpfile_path, ret, data_len);
       return;
     }
 
@@ -695,11 +733,7 @@ pipe_metadata_watch_del(void *arg)
   pipe_free(pipe_metadata.pipe);
   pipe_metadata.pipe = NULL;
 
-  if (pipe_metadata.pict_tmpfile_fd >= 0)
-    {
-      close(pipe_metadata.pict_tmpfile_fd);
-      unlink(pipe_metadata.pict_tmpfile_path);
-    }
+  pict_tmpfile_close(&pipe_metadata);
 }
 
 // Some metadata arrived on a pipe we watch
@@ -775,13 +809,6 @@ pipe_metadata_watch_add(void *arg)
       pipe_metadata.pipe = NULL;
       return;
     }
-
-  // Try to open a tmpfile to store metadata artwork in (the PICT tag). If we
-  // can't open a tmpfile we will just ignore artwork.
-  strcpy(pipe_metadata.pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE);
-  pipe_metadata.pict_tmpfile_fd = mkstemp(pipe_metadata.pict_tmpfile_path);
-  if (pipe_metadata.pict_tmpfile_fd < 0)
-    DPRINTF(E_WARN, L_PLAYER, "Error opening tmpfile for metadata pipe artwork: %s\n", strerror(errno));
 }
 
 
@@ -998,6 +1025,8 @@ static int
 init(void)
 {
   CHECK_ERR(L_PLAYER, mutex_init(&pipe_metadata.lock));
+
+  pipe_metadata.pict_tmpfile_fd = -1;
 
   pipe_autostart = cfg_getbool(cfg_getsec(cfg, "library"), "pipe_autostart");
   if (pipe_autostart)
