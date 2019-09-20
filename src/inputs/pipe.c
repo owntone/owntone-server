@@ -417,6 +417,11 @@ handle_picture(struct input_metadata *m, uint8_t *data, int data_len)
     ext = ".jpg";
   else if (data[0] == 0x89 && data[1] == 0x50)
     ext = ".png";
+  else
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Unsupported picture format from Shairport metadata pipe\n");
+      return;
+    }
 
   pict_tmpfile_recreate(&pipe_metadata, ext);
   if (pipe_metadata.pict_tmpfile_fd < 0)
