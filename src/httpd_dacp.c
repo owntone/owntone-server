@@ -173,13 +173,13 @@ dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct db_
   if ((status->status == PLAY_STOPPED) || !queue_item)
     return;
 
-  /* Send bogus id's if playing internet radio, because clients like
+  /* Send bogus id's if playing internet radio or pipe, because clients like
    * Remote and Retune will only update metadata (like artwork) if the id's
    * change (which they wouldn't do if we sent the real ones)
    * FIXME: Giving the client invalid ids on purpose is hardly ideal, but the
    * clients don't seem to use these ids for anything other than rating.
    */
-  if (queue_item->data_kind == DATA_KIND_HTTP)
+  if (queue_item->data_kind == DATA_KIND_HTTP || queue_item->data_kind == DATA_KIND_PIPE)
     {
       id = djb_hash(queue_item->album, strlen(queue_item->album));
       songalbumid = (int64_t)id;

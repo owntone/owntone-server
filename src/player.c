@@ -928,6 +928,11 @@ event_read_metadata(struct input_metadata *metadata)
 {
   DPRINTF(E_DBG, L_PLAYER, "event_read_metadata()\n");
 
+  // FIXME Right now, metadata->pos_ms is not honoured. If it is >0 it is sent
+  // to the outputs, but the player's pos_ms is not adjusted. That means we
+  // don't always show correct progress for http streams, pipes and files with
+  // chapters.
+
   outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
 
   status_update(player_state);
