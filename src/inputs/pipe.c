@@ -322,7 +322,8 @@ pict_tmpfile_recreate(struct pipe_metadata *pm, const char *ext)
   pict_tmpfile_close(pm);
 
   strcpy(pm->pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE);
-  strncpy(pm->pict_tmpfile_path + offset, ext, PIPE_TMPFILE_TEMPLATE_EXTLEN);
+  // Use memcpy instead of strncpy because gcc 8 gives false warnings otherwise
+  memcpy(pm->pict_tmpfile_path + offset, ext, PIPE_TMPFILE_TEMPLATE_EXTLEN);
 
   pm->pict_tmpfile_fd = mkstemps(pm->pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE_EXTLEN);
 

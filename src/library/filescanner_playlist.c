@@ -159,6 +159,7 @@ process_regular_file(int pl_id, char *path)
     {
       if (qp.results == 1)
 	{
+	  free(winner); // This is just here to keep scan-build happy
 	  winner = strdup(dbpath);
 	  break;
 	}
