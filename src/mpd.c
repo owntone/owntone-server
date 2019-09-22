@@ -1521,7 +1521,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   seek_target_sec = strtof(argv[2], NULL);
   seek_target_msec = seek_target_sec * 1000;
 
-  ret = player_playback_seek(seek_target_msec);
+  ret = player_playback_seek(seek_target_msec, PLAYER_SEEK_POSITION);
 
   if (ret < 0)
     {
@@ -1571,7 +1571,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   seek_target_sec = strtof(argv[2], NULL);
   seek_target_msec = seek_target_sec * 1000;
 
-  ret = player_playback_seek(seek_target_msec);
+  ret = player_playback_seek(seek_target_msec, PLAYER_SEEK_POSITION);
 
   if (ret < 0)
     {
@@ -1604,7 +1604,7 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   seek_target_msec = seek_target_sec * 1000;
 
   // TODO If prefixed by '+' or '-', then the time is relative to the current playing position.
-  ret = player_playback_seek(seek_target_msec);
+  ret = player_playback_seek(seek_target_msec, PLAYER_SEEK_POSITION);
 
   if (ret < 0)
     {

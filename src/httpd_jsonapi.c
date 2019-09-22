@@ -1829,7 +1829,7 @@ jsonapi_reply_player_seek(struct httpd_request *hreq)
       if (ret < 0)
 	return HTTP_BADREQUEST;
 
-      ret = player_playback_seek(position_ms);
+      ret = player_playback_seek(position_ms, PLAYER_SEEK_POSITION);
     }
   else
     {
@@ -1837,7 +1837,7 @@ jsonapi_reply_player_seek(struct httpd_request *hreq)
       if (ret < 0)
 	return HTTP_BADREQUEST;
 
-      ret = player_playback_seek_rel(seek_ms);
+      ret = player_playback_seek(seek_ms, PLAYER_SEEK_RELATIVE);
     }
 
   if (ret < 0)
