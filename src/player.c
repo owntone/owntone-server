@@ -146,6 +146,12 @@ struct speaker_auth_param
   char pin[5];
 };
 
+struct player_seek_param
+{
+  int ms;
+  enum player_seek_mode mode;
+};
+
 union player_arg
 {
   struct output_device *device;
@@ -2167,103 +2173,110 @@ playback_next_bh(void *arg, int *retval)
   return COMMAND_END;
 }
 
-static enum command_state
-playback_seek_bh(void *arg, int *retval)
+static int
+seek_calc_position_ms(struct player_seek_param *seek_param, struct db_queue_item **queue_item, int *position_ms)
 {
-  struct db_queue_item *queue_item;
-  union player_arg *cmdarg = arg;
-  int ret;
+  struct db_queue_item *seek_queue_item = NULL;
+  int seek_ms = 0;
 
-  // outputs_flush() in playback_pause() may have a caused a failure callback
-  // from the output, which in streaming_cb() can cause pb_abort()
-  if (player_state == PLAY_STOPPED)
-    {
-      goto error;
-    }
+  // Initialize out parameters
+  *queue_item = NULL;
+  *position_ms = 0;
 
-  queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
-  if (!queue_item)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Error seeking in source, queue item has disappeared\n");
-      goto error;
-    }
+  // Calculate seek position
+  if (seek_param->mode == PLAYER_SEEK_POSITION)
+    seek_ms = seek_param->ms;
+  else
+    seek_ms = pb_session.playing_now->pos_ms + seek_param->ms;
 
-  ret = pb_session_start(queue_item, cmdarg->intval);
-  free_queue_item(queue_item, 0);
-  if (ret < 0)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Error seeking to %d, aborting playback\n", cmdarg->intval);
-      goto error;
-    }
-
-  // Silent status change - playback_start() sends the real status update
-  player_state = PLAY_PAUSED;
-
-  *retval = 0;
-  return COMMAND_END;
-
- error:
-  pb_abort();
-  *retval = -1;
-  return COMMAND_END;
-}
-
-static enum command_state
-playback_seek_rel_bh(void *arg, int *retval)
-{
-  struct db_queue_item *queue_item;
-  union player_arg *cmdarg = arg;
-  int seek_ms;
-  int ret;
-
-
-  // outputs_flush() in playback_pause() may have a caused a failure callback
-  // from the output, which in streaming_cb() can cause pb_abort()
-  if (player_state == PLAY_STOPPED)
-    {
-      goto error;
-    }
-
-  seek_ms = pb_session.playing_now->pos_ms + cmdarg->intval;
-
+  // Check if we need to switch to a previous track, this will be done if we are in the first 3 seconds
+  // of a track and we have a seek request for more than 3 seconds
   if (seek_ms < 0)
     {
-      // Seeking behind the start of the current queue item
-      queue_item = queue_item_prev(pb_session.playing_now->item_id);
-      if (queue_item)
+      if (pb_session.playing_now->pos_ms < 3000)
 	{
-	  seek_ms = queue_item->song_length + seek_ms;
+	  // We are in the first 3 seconds of the track, switch to the previous track and recalculate the absolute seek position
+	  seek_queue_item = queue_item_prev(pb_session.playing_now->item_id);
+
+	  if (seek_queue_item)
+	    {
+	      seek_ms = seek_queue_item->song_length + seek_ms;
+	      // Make sure to not try to seek behind the previous track (this is also the case if song_length is zero)
+	      seek_ms = (seek_ms < 0) ? 0 : seek_ms;
+	    }
+	  else
+	    {
+	      // There is no previous queue item, seek to the start of the current item
+	      seek_ms = 0;
+	    }
 	}
       else
 	{
-	  // There is no previous queue item, seek to the start of the current item
-	  queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+	  // We are more than 3 seconds into the playing track, seek to beginning of current track
 	  seek_ms = 0;
 	}
     }
-  else if (seek_ms > pb_session.playing_now->len_ms)
+  else if (seek_ms > 0 && seek_ms > pb_session.playing_now->len_ms)
     {
-      // Seeking beyond the end of the current queue item
-      queue_item = queue_item_next(pb_session.playing_now->item_id);
-      seek_ms = seek_ms - pb_session.playing_now->len_ms;
-    }
-  else
-    {
-      // Seeking in the current queue item
-      queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+      // We are seeking beyond the current track, play the next track from the beginning
+      seek_queue_item = queue_item_next(pb_session.playing_now->item_id);
+      if (seek_queue_item)
+        {
+	  seek_ms = 0;
+	}
     }
 
-  if (!queue_item)
+  if (!seek_queue_item)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Error seeking in source, queue item has disappeared\n");
+      // Seeking in the current queue item
+      seek_queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+    }
+
+  if (!seek_queue_item)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Error fetching queue item for seek command (seek_ms=%d, seek_mode=%d)\n", seek_param->ms, seek_param->mode);
+      return -1;
+    }
+
+  if (seek_ms < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Error calculating new seek position for seek command (seek_ms=%d, seek_mode=%d)\n", seek_param->ms, seek_param->mode);
+      free(seek_queue_item);
+      return -1;
+    }
+
+  *queue_item = seek_queue_item;
+  *position_ms = seek_ms;
+  return 0;
+}
+
+static enum command_state
+playback_seek_bh(void *arg, int *retval)
+{
+  struct player_seek_param *seek_param = arg;
+  struct db_queue_item *queue_item;
+  int position_ms;
+  int ret;
+
+  // outputs_flush() in playback_pause() may have a caused a failure callback
+  // from the output, which in streaming_cb() can cause pb_abort()
+  if (player_state == PLAY_STOPPED)
+    {
       goto error;
     }
 
-  ret = pb_session_start(queue_item, seek_ms);
+  ret = seek_calc_position_ms(seek_param, &queue_item, &position_ms);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Error calculating new seek position\n");
+      goto error;
+    }
+
+  ret = pb_session_start(queue_item, position_ms);
   free_queue_item(queue_item, 0);
   if (ret < 0)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Error seeking to %d, aborting playback\n", cmdarg->intval);
+      DPRINTF(E_LOG, L_PLAYER, "Error seeking to %d, aborting playback\n", position_ms);
       goto error;
     }
 
@@ -2346,6 +2359,21 @@ playback_pause(void *arg, int *retval)
 
   // Otherwise, just run the bottom half
   return COMMAND_END;
+}
+
+static enum command_state
+playback_seek(void *arg, int *retval)
+{
+  // Only check if the current playing track is seekable, other checks will be done in playback_pause()
+  if (pb_session.playing_now && pb_session.playing_now->len_ms <= 0)
+    {
+      DPRINTF(E_WARN, L_PLAYER, "Failed to seek, track is not seekable\n");
+
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  return playback_pause(arg, retval);
 }
 
 static void
@@ -2986,27 +3014,31 @@ player_playback_pause(void)
   return ret;
 }
 
+/**
+ * Seeks to the position "seek_ms", depending on the given "seek_mode" seek_ms is
+ * either the new position in the current track (seek_mode == PLAYER_SEEK_POSITION)
+ * or a relative amount of milliseconds from the current playing position
+ * (seek_mode == PLAYER_SEEK_RELATIVE).
+ *
+ * Relative seeking switches tracks, if:
+ * - seeking behind the the current track and current playing position is not more than 3 seconds
+ * - seeking beyond the current track
+ *
+ * @param seek_ms Position or relative amount of milliseconds to seek to
+ * @param seek_mode If PLAYER_SEEK_POSITION seek_ms is a position in milliseconds,
+ * 		if PLAYER_SEEK_RELATIVE seek_ms is the relative amount of milliseconds
+ * @return Returns 0 on success and a negative value on error
+ */
 int
-player_playback_seek(int ms)
+player_playback_seek(int seek_ms, enum player_seek_mode seek_mode)
 {
-  union player_arg cmdarg;
+  struct player_seek_param seek_param;
   int ret;
 
-  cmdarg.intval = ms;
+  seek_param.ms = seek_ms;
+  seek_param.mode = seek_mode;
 
-  ret = commands_exec_sync(cmdbase, playback_pause, playback_seek_bh, &cmdarg);
-  return ret;
-}
-
-int
-player_playback_seek_rel(int ms)
-{
-  union player_arg cmdarg;
-  int ret;
-
-  cmdarg.intval = ms;
-
-  ret = commands_exec_sync(cmdbase, playback_pause, playback_seek_rel_bh, &cmdarg);
+  ret = commands_exec_sync(cmdbase, playback_seek, playback_seek_bh, &seek_param);
   return ret;
 }
 

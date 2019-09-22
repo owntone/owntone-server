@@ -22,6 +22,11 @@ enum repeat_mode {
   REPEAT_ALL  = 2,
 };
 
+enum player_seek_mode {
+  PLAYER_SEEK_POSITION = 1,
+  PLAYER_SEEK_RELATIVE = 2,
+};
+
 struct player_speaker_info {
   uint64_t id;
   char name[255];
@@ -109,10 +114,7 @@ int
 player_playback_pause(void);
 
 int
-player_playback_seek(int ms);
-
-int
-player_playback_seek_rel(int ms);
+player_playback_seek(int seek_ms, enum player_seek_mode seek_mode);
 
 int
 player_playback_next(void);

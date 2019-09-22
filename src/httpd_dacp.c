@@ -549,7 +549,7 @@ seek_timer_cb(int fd, short what, void *arg)
 
   DPRINTF(E_DBG, L_DACP, "Seek timer expired, target %d ms\n", seek_target);
 
-  ret = player_playback_seek(seek_target);
+  ret = player_playback_seek(seek_target, PLAYER_SEEK_POSITION);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Player failed to seek to %d ms\n", seek_target);
