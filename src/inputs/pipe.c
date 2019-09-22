@@ -318,19 +318,17 @@ static int
 pict_tmpfile_recreate(struct pipe_metadata *pm, const char *ext)
 {
   int offset = strlen(PIPE_TMPFILE_TEMPLATE) - PIPE_TMPFILE_TEMPLATE_EXTLEN;
-  int len = strlen(ext);
 
-  if (len > PIPE_TMPFILE_TEMPLATE_EXTLEN)
+  if (strlen(ext) > PIPE_TMPFILE_TEMPLATE_EXTLEN)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Invalid extension provided to pict_tmpfile_recreate (len=%d): '%s'\n", len, ext);
+      DPRINTF(E_LOG, L_PLAYER, "Invalid extension provided to pict_tmpfile_recreate: '%s'\n", ext);
       return -1;
     }
 
   pict_tmpfile_close(pm);
 
   strcpy(pm->pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE);
-  // Use memcpy instead of strncpy because gcc 8 gives false warnings otherwise
-  memcpy(pm->pict_tmpfile_path + offset, ext, len);
+  strcpy(pm->pict_tmpfile_path + offset, ext);
 
   pm->pict_tmpfile_fd = mkstemps(pm->pict_tmpfile_path, PIPE_TMPFILE_TEMPLATE_EXTLEN);
 
