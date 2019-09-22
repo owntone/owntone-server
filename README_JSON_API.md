@@ -288,6 +288,7 @@ PUT /api/player/seek
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | position_ms     | The new position in milliseconds to seek to                 |
+| seek_ms         | A relative amount of milliseconds to seek to                 |
 
 
 **Response**
@@ -296,10 +297,17 @@ On success returns the HTTP `204 No Content` success status response code.
 
 **Example**
 
+Seek to position:
+
 ```shell
 curl -X PUT "http://localhost:3689/api/player/seek?position_ms=2000"
 ```
 
+Relative seeking (skip 30 seconds backwards):
+
+```shell
+curl -X PUT "http://localhost:3689/api/player/seek?seek_ms=-30000"
+```
 
 
 ## Outputs / Speakers
