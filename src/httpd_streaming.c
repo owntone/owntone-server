@@ -106,9 +106,9 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", address, (int)port);
 
   pthread_mutex_lock(&streaming_sessions_lck);
-  if (streaming_sessions == NULL)
+  if (!streaming_sessions)
     {
-      // This close comes duing deinit() - we don't free `this` since it is
+      // This close comes during deinit() - we don't free `this` since it is
       // already a dangling ptr (free'd in deinit()) at this stage
       pthread_mutex_unlock(&streaming_sessions_lck);
       return;
@@ -127,7 +127,7 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
     {
       DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream (%s:%d)\n", address, (int)port);
       free(this);
-    pthread_mutex_unlock(&streaming_sessions_lck);
+      pthread_mutex_unlock(&streaming_sessions_lck);
       return;
     }
 
@@ -139,9 +139,8 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   if (session->require_icy)
     --streaming_icy_clients;
 
-  /* Possible libevent bug; ownership of evhttp_request with libevent
-   * Workaround to force mem cleanup, prefered over evhttp_request_free()
-   */
+  // Valgrind says libevent doesn't free the request on disconnect (even though it owns it - libevent bug?),
+  // so we do it with a reply end
   evhttp_send_reply_end(session->req);
   free(session);
 
@@ -151,7 +150,8 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
       event_del(streamingev);
       event_del(metaev);
     }
-    pthread_mutex_unlock(&streaming_sessions_lck);
+
+  pthread_mutex_unlock(&streaming_sessions_lck);
 }
 
 static void
