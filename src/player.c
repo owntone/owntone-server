@@ -2173,8 +2173,17 @@ playback_next_bh(void *arg, int *retval)
   return COMMAND_END;
 }
 
+/**
+ * Based on the given seek parameters "seek_param" and the current playing track, the queue item and the absolute
+ * position in milliseconds are calculated.
+ *
+ * @param queue_item out: queue item to play after the seek
+ * @param position_ms out: absolute position in milliseconds the queue_item shoud start playing after the seek
+ * @param seek_param in: seek parameters
+ * @return 0 on success, -1 on error
+ */
 static int
-seek_calc_position_ms(struct player_seek_param *seek_param, struct db_queue_item **queue_item, int *position_ms)
+seek_calc_position_ms(struct db_queue_item **queue_item, int *position_ms, struct player_seek_param *seek_param)
 {
   struct db_queue_item *seek_queue_item = NULL;
   int seek_ms = 0;
@@ -2221,8 +2230,13 @@ seek_calc_position_ms(struct player_seek_param *seek_param, struct db_queue_item
       // We are seeking beyond the current track, play the next track from the beginning
       seek_queue_item = queue_item_next(pb_session.playing_now->item_id);
       if (seek_queue_item)
-        {
+	{
 	  seek_ms = 0;
+	}
+      else
+	{
+	  // There is no next queue item, we will seek beyond the length of the current track which will result in stopping playback
+	  DPRINTF(E_DBG, L_PLAYER, "Seeking beyond the last queue item (seek_ms=%d, seek_mode=%d)\n", seek_param->ms, seek_param->mode);
 	}
     }
 
@@ -2241,7 +2255,7 @@ seek_calc_position_ms(struct player_seek_param *seek_param, struct db_queue_item
   if (seek_ms < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Error calculating new seek position for seek command (seek_ms=%d, seek_mode=%d)\n", seek_param->ms, seek_param->mode);
-      free(seek_queue_item);
+      free_queue_item(seek_queue_item, 0);
       return -1;
     }
 
@@ -2265,7 +2279,7 @@ playback_seek_bh(void *arg, int *retval)
       goto error;
     }
 
-  ret = seek_calc_position_ms(seek_param, &queue_item, &position_ms);
+  ret = seek_calc_position_ms(&queue_item, &position_ms, seek_param);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Error calculating new seek position\n");
