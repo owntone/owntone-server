@@ -310,6 +310,7 @@ curl -X PUT "http://localhost:3689/api/player/seek?position_ms=2000"
 | PUT       | [/api/outputs/set](#set-enabled-outputs)         | Set enabled outputs                  |
 | GET       | [/api/outputs/{id}](#get-an-output)              | Get an output                        |
 | PUT       | [/api/outputs/{id}](#change-an-output)           | Change an output (enable/disable or volume) |
+| PUT       | [/api/outputs/{id}/toggle](#toggle-an-output)    | Enable or disable an output, depending on the current state |
 
 
 
@@ -482,6 +483,32 @@ On success returns the HTTP `204 No Content` success status response code.
 
 ```shell
 curl -X PUT "http://localhost:3689/api/outputs/0" --data "{\"selected\":true, \"volume\": 50}"
+```
+
+### Toggle an output
+
+Enable or disable an output, depending on its current state
+
+**Endpoint**
+
+```http
+PUT /api/outputs/{id}/toggle
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Output id            |
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```shell
+curl -X PUT "http://localhost:3689/api/outputs/0/toggle"
 ```
 
 
