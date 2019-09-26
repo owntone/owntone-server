@@ -1503,6 +1503,42 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
 }
 
 /*
+ * PUT /api/outputs/[output_id]/toggle
+ */
+static int
+jsonapi_reply_outputs_toggle_byid(struct httpd_request *hreq)
+{
+  uint64_t output_id;
+  struct player_speaker_info spk;
+  int ret;
+
+  ret = safe_atou64(hreq->uri_parsed->path_parts[2], &output_id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->uri_parsed->path);
+
+      return HTTP_BADREQUEST;
+    }
+
+  ret = player_speaker_get_byid(output_id, &spk);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "No output found for the given output id, toggle failed for '%s'\n", hreq->uri_parsed->path);
+      return HTTP_BADREQUEST;
+    }
+
+  if (spk.selected)
+    ret = player_speaker_disable(output_id);
+  else
+    ret = player_speaker_enable(output_id);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_NOCONTENT;
+}
+
+/*
  * Endpoint "/api/outputs"
  */
 static int
@@ -3817,6 +3853,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_POST,   "^/api/select-outputs$",                        jsonapi_reply_outputs_set }, // deprecated: use "/api/outputs/set"
     { EVHTTP_REQ_GET,    "^/api/outputs/[[:digit:]]+$",                  jsonapi_reply_outputs_get_byid },
     { EVHTTP_REQ_PUT,    "^/api/outputs/[[:digit:]]+$",                  jsonapi_reply_outputs_put_byid },
+    { EVHTTP_REQ_PUT,    "^/api/outputs/[[:digit:]]+/toggle$",           jsonapi_reply_outputs_toggle_byid },
 
     { EVHTTP_REQ_GET,    "^/api/player$",                                jsonapi_reply_player },
     { EVHTTP_REQ_PUT,    "^/api/player/play$",                           jsonapi_reply_player_play },
