@@ -2967,7 +2967,7 @@ player_speaker_set(uint64_t *ids)
 
   ret = commands_exec_sync(cmdbase, speaker_set, NULL, &speaker_set_param);
 
-  listener_notify(LISTENER_SPEAKER);
+  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 
   return ret;
 }
@@ -2992,7 +2992,7 @@ player_speaker_enable(uint64_t id)
 
   ret = commands_exec_sync(cmdbase, speaker_enable, NULL, &id);
 
-  listener_notify(LISTENER_SPEAKER);
+  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 
   return ret;
 }
@@ -3004,7 +3004,7 @@ player_speaker_disable(uint64_t id)
 
   ret = commands_exec_sync(cmdbase, speaker_disable, NULL, &id);
 
-  listener_notify(LISTENER_SPEAKER);
+  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 
   return ret;
 }
