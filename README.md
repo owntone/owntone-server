@@ -99,7 +99,8 @@ probably obsolete when you read it :-)
 
 |          Client          | Developer   |  Type  |   Platform    | Working (vers.) |
 | ------------------------ | ----------- | ------ | ------------- | --------------- |
-| iTunes                   | Apple       | DAAP   | Win, OSX      | Yes (12.7)      |
+| iTunes                   | Apple       | DAAP   | Win           | Yes (12.10.1)   |
+| Apple Music              | Apple       | DAAP   | MacOS         | No              |
 | Rhythmbox                | Gnome       | DAAP   | Linux         | Yes             |
 | Diapente                 | diapente    | DAAP   | Android       | Yes             |
 | WinAmp DAAPClient        | WardFamily  | DAAP   | WinAmp        | Yes             |
