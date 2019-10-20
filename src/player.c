@@ -2244,20 +2244,17 @@ seek_calc_position_ms(struct db_queue_item **queue_item, int *position_ms, struc
     {
       // Seeking in the current queue item
       seek_queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
+
+      if (!seek_queue_item)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Error fetching queue item for seek command (seek_ms=%d, seek_mode=%d)\n", seek_param->ms, seek_param->mode);
+	  return -1;
+	}
     }
 
-  if (!seek_queue_item)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Error fetching queue item for seek command (seek_ms=%d, seek_mode=%d)\n", seek_param->ms, seek_param->mode);
-      return -1;
-    }
 
-  if (seek_ms < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Error calculating new seek position for seek command (seek_ms=%d, seek_mode=%d)\n", seek_param->ms, seek_param->mode);
-      free_queue_item(seek_queue_item, 0);
-      return -1;
-    }
+  DPRINTF(E_DBG, L_PLAYER, "Seek position for seek command (seek_ms=%d, seek_mode=%d) is: seek_ms=%d, queue item id=%d\n",
+	  seek_param->ms, seek_param->mode, seek_ms, seek_queue_item->id);
 
   *queue_item = seek_queue_item;
   *position_ms = seek_ms;
