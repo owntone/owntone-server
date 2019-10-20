@@ -5127,6 +5127,7 @@ queue_enum_fetch(struct query_params *qp, struct db_queue_item *queue_item, int 
   queue_item->track = sqlite3_column_int(qp->stmt, 20);
   queue_item->disc = sqlite3_column_int(qp->stmt, 21);
   queue_item->artwork_url = strdup_if((char *)sqlite3_column_text(qp->stmt, 22), keep_item);
+  queue_item->queue_version = sqlite3_column_int(qp->stmt, 23);
   queue_item->composer = strdup_if((char *)sqlite3_column_text(qp->stmt, 24), keep_item);
   queue_item->songartistid = sqlite3_column_int64(qp->stmt, 25);
   queue_item->type = strdup_if((char *)sqlite3_column_text(qp->stmt, 26), keep_item);
