@@ -2009,15 +2009,34 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
       safe_json_add_string(item, "uri", queue_item->path);
     }
 
-  if (queue_item->artwork_url)
+  if (queue_item->artwork_url
+      && (strncmp(queue_item->artwork_url, "http://", strlen("http://")) == 0
+	  || strncmp(queue_item->artwork_url, "https://", strlen("https://")) == 0))
     {
+      // The queue item contains a valid http url for an artwork image, there is no need
+      // for the client to request the image through the forked-daapd artwork handler.
+      // Directly pass the artwork url to the client.
       safe_json_add_string(item, "artwork_url", queue_item->artwork_url);
     }
   else if (queue_item->file_id > 0 && queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
-      ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d", queue_item->file_id);
-      if (ret < sizeof(artwork_url))
-	json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
+      if (queue_item->data_kind != DATA_KIND_PIPE)
+	{
+	  // Queue item does not have a valid artwork url, construct artwork url to
+	  // get the image through the httpd_artworkapi (uses the artwork handlers).
+	  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d", queue_item->file_id);
+	  if (ret < sizeof(artwork_url))
+	    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
+	}
+      else
+	{
+	  // Pipe metadata can change if the queue version changes. Construct artwork url
+	  // similar to non-pipe items, but append the queue version to the url to force
+	  // clients to reload image if the queue version changes (additional metadata was found).
+	  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d?v=%d", queue_item->file_id, queue_item->queue_version);
+	  if (ret < sizeof(artwork_url))
+	    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
+	}
     }
 
   safe_json_add_string(item, "type", queue_item->type);
