@@ -179,7 +179,7 @@ bps2format(int bits_per_sample)
   if (bits_per_sample == 16)
     return SND_PCM_FORMAT_S16_LE;
   else if (bits_per_sample == 24)
-    return SND_PCM_FORMAT_S24_LE;
+    return SND_PCM_FORMAT_S24_3LE;
   else if (bits_per_sample == 32)
     return SND_PCM_FORMAT_S32_LE;
   else
@@ -631,7 +631,7 @@ static int
 buffer_write(struct alsa_playback_session *pb, struct output_data *odata, snd_pcm_sframes_t avail)
 {
   uint8_t *buf;
-  size_t bufsize;
+  ssize_t bufsize;
   size_t wrote;
   snd_pcm_sframes_t nsamp;
   snd_pcm_sframes_t ret;
@@ -643,7 +643,7 @@ buffer_write(struct alsa_playback_session *pb, struct output_data *odata, snd_pc
       if (wrote < odata->bufsize)
 	DPRINTF(E_WARN, L_LAUDIO, "Bug! Partial prebuf write %zu/%zu\n", wrote, odata->bufsize);
 
-      nsamp = BTOS(wrote, pb->quality.bits_per_sample, pb->quality.channels);
+      nsamp = snd_pcm_bytes_to_frames(pb->pcm, wrote);
       return nsamp;
     }
 
@@ -651,7 +651,7 @@ buffer_write(struct alsa_playback_session *pb, struct output_data *odata, snd_pc
   if (pb->prebuf.read_avail != 0)
     {
       // Maximum amount of bytes we want to read
-      bufsize = STOB(avail, pb->quality.bits_per_sample, pb->quality.channels);
+      bufsize = snd_pcm_frames_to_bytes(pb->pcm, avail);
 
       bufsize = ringbuffer_read(&buf, bufsize, &pb->prebuf);
       if (bufsize == 0)
@@ -659,7 +659,8 @@ buffer_write(struct alsa_playback_session *pb, struct output_data *odata, snd_pc
 
 //      DPRINTF(E_DBG, L_LAUDIO, "Writing prebuffer (read_avail=%zu, bufsize=%zu, avail=%li)\n", pb->prebuf.read_avail, bufsize, avail);
 
-      nsamp = BTOS(bufsize, pb->quality.bits_per_sample, pb->quality.channels);
+      nsamp = snd_pcm_bytes_to_frames(pb->pcm, bufsize);
+
       ret = snd_pcm_writei(pb->pcm, buf, nsamp);
       if (ret < 0)
 	return ret;
@@ -680,7 +681,9 @@ buffer_write(struct alsa_playback_session *pb, struct output_data *odata, snd_pc
       return odata->samples;
     }
 
-  ret = snd_pcm_writei(pb->pcm, odata->buffer, odata->samples);
+  nsamp = snd_pcm_bytes_to_frames(pb->pcm, odata->bufsize);
+
+  ret = snd_pcm_writei(pb->pcm, odata->buffer, nsamp);
   if (ret < 0)
     return ret;
 
@@ -808,7 +811,7 @@ static int
 playback_drain(struct alsa_playback_session *pb)
 {
   uint8_t *buf;
-  size_t bufsize;
+  ssize_t bufsize;
   snd_pcm_state_t state;
   snd_pcm_sframes_t avail;
   snd_pcm_sframes_t delay;
@@ -836,7 +839,7 @@ playback_drain(struct alsa_playback_session *pb)
     }
 
   // Maximum amount of bytes we want to read
-  bufsize = STOB(avail, pb->quality.bits_per_sample, pb->quality.channels);
+  bufsize = snd_pcm_frames_to_bytes(pb->pcm, avail);
 
   bufsize = ringbuffer_read(&buf, bufsize, &pb->prebuf);
   if (bufsize == 0)
@@ -844,7 +847,7 @@ playback_drain(struct alsa_playback_session *pb)
 
 //  DPRINTF(E_DBG, L_LAUDIO, "Draining prebuffer (read_avail=%zu, bufsize=%zu, avail=%li)\n", pb->prebuf.read_avail / 4, bufsize, avail);
 
-  nsamp = BTOS(bufsize, pb->quality.bits_per_sample, pb->quality.channels);
+  nsamp = snd_pcm_bytes_to_frames(pb->pcm, bufsize);
 
   ret = snd_pcm_writei(pb->pcm, buf, nsamp);
 
