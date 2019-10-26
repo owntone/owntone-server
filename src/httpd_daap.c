@@ -821,10 +821,11 @@ daap_reply_server_info(struct httpd_request *hreq)
 
   dmap_add_short(content, "ated", 7);        // daap.supportsextradata
 
-  /* Sub-optimal user-agent sniffing to solve the problem that iTunes 12.1
-   * does not work if we announce support for groups.
-   */ 
+  // Sub-optimal user-agent sniffing to solve the problem that iTunes 12.1 and
+  // Apple Music do not work if we announce support for groups
   if (hreq->user_agent && (strncmp(hreq->user_agent, "iTunes", strlen("iTunes")) == 0))
+    dmap_add_short(content, "asgr", 0);      // daap.supportsgroups (1=artists, 2=albums, 3=both)
+  else if (hreq->user_agent && (strncmp(hreq->user_agent, "Music", strlen("Music")) == 0))
     dmap_add_short(content, "asgr", 0);      // daap.supportsgroups (1=artists, 2=albums, 3=both)
   else
     dmap_add_short(content, "asgr", 3);      // daap.supportsgroups (1=artists, 2=albums, 3=both)
