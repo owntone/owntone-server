@@ -1054,7 +1054,7 @@ init(void)
     }
 
   pipe_bits_per_sample = cfg_getint(cfg_getsec(cfg, "library"), "pipe_bits_per_sample");
-  if (pipe_bits_per_sample != 16 && pipe_bits_per_sample != 24 && pipe_bits_per_sample != 32)
+  if (pipe_bits_per_sample != 16 && pipe_bits_per_sample != 32)
     {
       DPRINTF(E_FATAL, L_PLAYER, "The configuration of pipe_bits_per_sample is invalid: %d\n", pipe_bits_per_sample);
       return -1;
