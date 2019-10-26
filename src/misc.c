@@ -993,7 +993,7 @@ linear_regression(double *m, double *b, double *r2, const double *x, const doubl
 bool
 quality_is_equal(struct media_quality *a, struct media_quality *b)
 {
-  return (a->sample_rate == b->sample_rate && a->bits_per_sample == b->bits_per_sample && a->channels == b->channels);
+  return (a->sample_rate == b->sample_rate && a->bits_per_sample == b->bits_per_sample && a->channels == b->channels && a->bit_rate == b->bit_rate);
 }
 
 bool
