@@ -8,7 +8,7 @@
             <form v-on:submit.prevent="new_search">
               <div class="field">
                 <p class="control is-expanded has-icons-left">
-                  <input class="input is-rounded is-shadowless" type="text" placeholder="Search" v-model="search_query" ref="search_field">
+                  <input class="input is-rounded is-shadowless" type="text" placeholder="Search" v-model="search_query" ref="search_field" autocomplete="off">
                   <span class="icon is-left">
                     <i class="mdi mdi-magnify"></i>
                   </span>
