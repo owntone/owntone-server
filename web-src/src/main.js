@@ -6,12 +6,15 @@ import { router } from './router'
 import store from './store'
 import './filter'
 import './progress'
+import vClickOutside from 'v-click-outside'
 import 'bulma/css/bulma.css'
 import 'mdi/css/materialdesignicons.css'
 import 'vue-range-slider/dist/vue-range-slider.css'
 import './mystyles.css'
 
 Vue.config.productionTip = false
+
+Vue.use(vClickOutside)
 
 /* eslint-disable no-new */
 new Vue({
