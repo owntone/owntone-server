@@ -34,7 +34,10 @@
       <div class="navbar-end">
 
         <!-- Outputs dropdown -->
-        <div class="navbar-item has-dropdown is-hoverable">
+        <div class="navbar-item has-dropdown"
+            :class="{ 'is-active': show_outputs_menu, 'is-hoverable': !show_outputs_menu && !show_settings_menu }"
+            @click="show_outputs_menu = !show_outputs_menu"
+            v-click-outside="on_click_outside_outputs">
           <a class="navbar-link is-arrowless"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-volume-high"></i></span> <span class="is-hidden-desktop has-text-weight-bold">Volume</span></a>
 
           <div class="navbar-dropdown is-right">
@@ -120,7 +123,10 @@
         </div>
 
         <!-- Settings drop down -->
-        <div class="navbar-item has-dropdown is-hoverable">
+        <div class="navbar-item has-dropdown"
+            :class="{ 'is-active': show_settings_menu, 'is-hoverable': !show_outputs_menu && !show_settings_menu }"
+            @click="show_settings_menu = !show_settings_menu"
+            v-click-outside="on_click_outside_settings">
           <a class="navbar-link is-arrowless"><span class="icon is-hidden-mobile is-hidden-tablet-only"><i class="mdi mdi-settings"></i></span> <span class="is-hidden-desktop has-text-weight-bold">forked-daapd</span></a>
 
           <div class="navbar-dropdown is-right">
@@ -159,7 +165,10 @@ export default {
 
       playing: false,
       loading: false,
-      stream_volume: 10
+      stream_volume: 10,
+
+      show_outputs_menu: false,
+      show_settings_menu: false
     }
   },
 
@@ -196,6 +205,14 @@ export default {
   methods: {
     update_show_burger_menu: function () {
       this.$store.commit(types.SHOW_BURGER_MENU, !this.show_burger_menu)
+    },
+
+    on_click_outside_outputs () {
+      this.show_outputs_menu = false
+    },
+
+    on_click_outside_settings () {
+      this.show_settings_menu = false
     },
 
     set_volume: function (newVolume) {

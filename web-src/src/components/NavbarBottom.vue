@@ -12,7 +12,7 @@
           </p>
         </div>
       </router-link>
-      <player-button-play-pause class="navbar-item fd-margin-left-auto" icon_style="mdi-36px"></player-button-play-pause>
+      <player-button-play-pause class="navbar-item fd-margin-left-auto" icon_style="mdi-36px" show_disabled_message></player-button-play-pause>
     </div>
   </nav>
 </template>

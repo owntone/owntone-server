@@ -1,6 +1,6 @@
 {
   "name": "forked-daapd-web",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "forked-daapd web interface",
   "author": "chme <christian.meffert@googlemail.com>",
   "license": "GPL-2.0",
@@ -20,6 +20,7 @@
     "npm": "^6.11.2",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.2.0",
+    "v-click-outside": "^2.1.4",
     "vue": "^2.6.10",
     "vue-infinite-loading": "^2.4.4",
     "vue-progressbar": "^0.7.5",
