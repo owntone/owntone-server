@@ -1020,6 +1020,22 @@ static const struct db_upgrade_query db_upgrade_v2101_queries[] =
     { U_v2101_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
+// This column added because Apple Music makes a DAAP request for playlists
+// that has a query condition on extended-media-kind. We set the default value
+// to 1 to signify music.
+#define U_v2102_ALTER_PLAYLISTS_ADD_MEDIA_KIND \
+  "ALTER TABLE playlists ADD COLUMN media_kind INTEGER DEFAULT 1;"
+
+#define U_v2102_SCVER_MINOR                    \
+  "UPDATE admin SET value = '02' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2102_queries[] =
+  {
+    { U_v2102_ALTER_PLAYLISTS_ADD_MEDIA_KIND, "alter table playlists add column media_kind" },
+
+    { U_v2102_SCVER_MINOR,    "set schema_version_minor to 02" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1175,6 +1191,12 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       if (ret < 0)
 	return -1;
 
+      /* FALLTHROUGH */
+
+    case 2101:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2102_queries, ARRAY_SIZE(db_upgrade_v2102_queries));
+      if (ret < 0)
+	return -1;
       break;
 
     default:

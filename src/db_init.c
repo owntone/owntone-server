@@ -114,7 +114,8 @@
   "   parent_id      INTEGER DEFAULT 0,"		\
   "   directory_id   INTEGER DEFAULT 0,"		\
   "   query_order    VARCHAR(1024),"			\
-  "   query_limit    INTEGER DEFAULT -1"		\
+  "   query_limit    INTEGER DEFAULT -1,"		\
+  "   media_kind     INTEGER DEFAULT 1"			\
   ");"
 
 #define T_PLITEMS				\
