@@ -250,6 +250,7 @@ struct playlist_info {
   uint32_t directory_id; /* Id of directory */
   char *query_order;     /* order by clause if it is a smart playlist */
   int32_t query_limit;   /* limit if it is a smart playlist */
+  uint32_t media_kind;
   uint32_t items;        /* number of items (mimc) */
   uint32_t streams;      /* number of internet streams */
 };
@@ -271,6 +272,7 @@ struct db_playlist_info {
   char *directory_id;
   char *query_order;
   char *query_limit;
+  char *media_kind;
   char *items;
   char *streams;
 };
