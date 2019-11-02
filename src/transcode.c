@@ -50,7 +50,7 @@
 // Maximum number of times we retry when we encounter bad packets
 #define MAX_BAD_PACKETS 5
 // How long to wait (in microsec) before interrupting av_read_frame
-#define READ_TIMEOUT 15000000
+#define READ_TIMEOUT 30000000
 
 static const char *default_codecs = "mpeg,wav";
 static const char *roku_codecs = "mpeg,mp4a,wma,wav";
