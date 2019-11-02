@@ -40,3 +40,4 @@ debian/
 /.cproject
 /.project
 /.autotools
+/.vscode
