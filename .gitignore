@@ -39,3 +39,4 @@ debian/
 /.settings
 /.cproject
 /.project
+/.autotools
