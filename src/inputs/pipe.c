@@ -1047,7 +1047,7 @@ init(void)
     }
 
   pipe_sample_rate = cfg_getint(cfg_getsec(cfg, "library"), "pipe_sample_rate");
-  if (pipe_sample_rate != 44100 && pipe_sample_rate != 48000 && pipe_sample_rate != 96000)
+  if (pipe_sample_rate != 44100 && pipe_sample_rate != 48000 && pipe_sample_rate != 88200 && pipe_sample_rate != 96000)
     {
       DPRINTF(E_FATAL, L_PLAYER, "The configuration of pipe_sample_rate is invalid: %d\n", pipe_sample_rate);
       return -1;
