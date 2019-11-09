@@ -1296,10 +1296,10 @@ dacp_reply_cue_play(struct httpd_request *hreq)
       else
 	{
 	  /* Play from Up Next queue */
-	  if (status.status == PLAY_STOPPED && pos > 0)
-	    pos--;
-
-	  queue_item = db_queue_fetch_byposrelativetoitem(pos, status.item_id, status.shuffle);
+	  if (status.status == PLAY_STOPPED)
+            queue_item = db_queue_fetch_bypos(pos, status.shuffle);
+          else
+            queue_item = db_queue_fetch_byposrelativetoitem(pos, status.item_id, status.shuffle);
 	  if (!queue_item)
 	    {
 	      DPRINTF(E_LOG, L_DACP, "Could not fetch item from queue: pos=%d, now playing=%d\n", pos, status.item_id);
