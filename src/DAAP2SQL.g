@@ -273,6 +273,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			/* String field: escape string, check for '*' */
 			else
 			{
+				/* With Apple Music 1.0.1.37, we observed some ':' queries using '@' instead, resulting in 'Unknown operator' errors */
 				if (op != ':' && op != '@')
 				{
 					DPRINTF(E_LOG, L_DAAP, "Operation '\%c' not valid for string values\n", op);
@@ -308,12 +309,6 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			switch(op)
 			{
 				case '@':
-					if (neg_op)
-						$result->append8($result, " <> ");
-					else
-						$result->append8($result, " = ");
-					break;
-
 				case ':':
 					if (neg_op)
 						$result->append8($result, " <> ");
