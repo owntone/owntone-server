@@ -274,6 +274,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			else
 			{
 				/* With Apple Music 1.0.1.37, we observed some ':' queries using '@' instead, resulting in 'Unknown operator' errors */
+				/* Ex: '/databases/1/containers?query=('com.apple.itunes.extended-media-kind@1', ...) */
 				if (op != ':' && op != '@')
 				{
 					DPRINTF(E_LOG, L_DAAP, "Operation '\%c' not valid for string values\n", op);
