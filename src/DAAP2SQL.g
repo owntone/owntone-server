@@ -215,7 +215,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 				}
 
 				/* No need to exclude empty artist and album, as forked-daapd makes sure there always exists an artist/album. */
-				if (neg_op && op == ':'
+				if (neg_op && (op == ':' || op == '@')
 					&& (strcmp((char *)field, "daap.songalbumartist") == 0 
 						|| strcmp((char *)field, "daap.songartist") == 0 
 						|| strcmp((char *)field, "daap.songalbum") == 0))
@@ -226,7 +226,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 				}
 				
 				/* Need to check against NULL too */
-				if (op == ':')
+				if (op == ':' || op == '@')
 					$result->append8($result, "(");
 			}
 
@@ -273,7 +273,9 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			/* String field: escape string, check for '*' */
 			else
 			{
-				if (op != ':')
+				/* With Apple Music 1.0.1.37, we observed some ':' queries using '@' instead, resulting in 'Unknown operator' errors */
+				/* Ex: '/databases/1/containers?query=('com.apple.itunes.extended-media-kind@1', ...) */
+				if (op != ':' && op != '@')
 				{
 					DPRINTF(E_LOG, L_DAAP, "Operation '\%c' not valid for string values\n", op);
 					$valid = 0;
@@ -307,6 +309,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 
 			switch(op)
 			{
+				case '@':
 				case ':':
 					if (neg_op)
 						$result->append8($result, " <> ");
@@ -351,7 +354,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 				$result->append8($result, "'");
 
 			/* For empty string value, we need to check against NULL too */
-			if ((*val == '\0') && (op == ':'))
+			if ((*val == '\0') && (op == ':' || op == '@'))
 			{
 				if (neg_op)
 					$result->append8($result, " AND ");
