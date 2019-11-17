@@ -26,7 +26,7 @@ general {
 	# "trusted_network" (see below) does not require password
 #	admin_password = ""
 
-	# Websocket port for the web interface. 
+	# Websocket port for the web interface.
 #	websocket_port = 3688
 
 	# Sets who is allowed to connect without authorisation. This applies to
@@ -70,12 +70,12 @@ library {
 	# Directories to index
 	directories = { "/srv/music" }
 
-	# Follow symlinks. Default: true.	
+	# Follow symlinks. Default: true.
 #	follow_symlinks = true
 
 	# Directories containing podcasts
 	# For each directory that is indexed the path is matched against these
-	# names. If there is a match all items in the directory are marked as 
+	# names. If there is a match all items in the directory are marked as
 	# podcasts. Eg. if you index /srv/music, and your podcasts are in
 	# /srv/music/Podcasts, you can set this to "/Podcasts".
 	# (changing this setting only takes effect after rescan, see the README)
@@ -83,14 +83,14 @@ library {
 
 	# Directories containing audiobooks
 	# For each directory that is indexed the path is matched against these
-	# names. If there is a match all items in the directory are marked as 
+	# names. If there is a match all items in the directory are marked as
 	# audiobooks.
 	# (changing this setting only takes effect after rescan, see the README)
 	audiobooks = { "/Audiobooks" }
 
 	# Directories containing compilations (eg soundtracks)
 	# For each directory that is indexed the path is matched against these
-	# names. If there is a match all items in the directory are marked as 
+	# names. If there is a match all items in the directory are marked as
 	# compilations.
 	# (changing this setting only takes effect after rescan, see the README)
 	compilations = { "/Compilations" }
@@ -184,9 +184,9 @@ library {
 	# Enable automatic rating updates
 	# If enabled, rating is automatically updated after a song has either been
 	# played or skipped (only skipping to the next song is taken into account).
-	# The calculation is taken from the beets plugin "mpdstats" (see 
+	# The calculation is taken from the beets plugin "mpdstats" (see
 	# https://beets.readthedocs.io/en/latest/plugins/mpdstats.html).
-	# It consist of calculating a stable rating based only on the play- and 
+	# It consist of calculating a stable rating based only on the play- and
 	# skipcount and a rolling rating based on the current rating and the action
 	# (played or skipped). Both results are combined with a mix-factor of 0.75:
 	# new rating = 0.75 * stable rating + 0.25 * rolling rating)
@@ -207,7 +207,7 @@ library {
 audio {
 	# Name - used in the speaker list in Remote
 	nickname = "Computer"
-	
+
 	# Type of the output (alsa, pulseaudio, dummy or disabled)
 #	type = "alsa"
 
@@ -316,7 +316,7 @@ spotify {
 
 # MPD configuration (only have effect if MPD enabled - see README/INSTALL)
 mpd {
-	# TCP port to listen on for MPD client requests. 
+	# TCP port to listen on for MPD client requests.
 	# Default port is 6600, set to 0 to disable MPD support.
 #	port = 6600
 
@@ -340,19 +340,19 @@ sqlite {
 	# Cache size in number of db pages for the library database
 	# (SQLite default page size is 1024 bytes and cache size is 2000 pages)
 #	pragma_cache_size_library = 2000
-	
+
 	# Cache size in number of db pages for the daap cache database
 	# (SQLite default page size is 1024 bytes and cache size is 2000 pages)
 #	pragma_cache_size_cache = 2000
-	
+
 	# Sets the journal mode for the database
-	# DELETE (default), TRUNCATE, PERSIST, MEMORY, WAL, OFF 
+	# DELETE (default), TRUNCATE, PERSIST, MEMORY, WAL, OFF
 #	pragma_journal_mode = DELETE
-	
+
 	# Change the setting of the "synchronous" flag
 	# 0: OFF, 1: NORMAL, 2: FULL (default)
 #	pragma_synchronous = 2
-	
+
 	# Number of bytes set aside for memory-mapped I/O  for the library database
 	# (requires sqlite 3.7.17 or later)
 	# 0: disables mmap (default), any other value > 0: number of bytes for mmap
@@ -368,12 +368,11 @@ sqlite {
 #	vacuum = yes
 }
 
-
 # Streaming audio settings for remote connections (ie stream.mp3)
 streaming {
 	# Sample rate, typically 44100 or 48000
 #	sample_rate = 44100
- 
+
 	# Set the MP3 streaming bit rate (in kbps), valid options: 64 / 96 / 128 / 192 / 320
 #	bit_rate = 192
 }
