@@ -1,6 +1,25 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 27.0
+	- no fixed resampling to 44100/16, play source quality if possible
+	- Chromecast: quick start, better quality (48000/16 Opus encoded)
+	- performance enhancements: Remote and iTunes will load quicker
+	- alsa sync with variable sample rate, avoiding audible "clicks"
+	- web UI upgraded to v0.5.6, e.g. play non-library tracks, saving queue
+	- fix for Pebble mpd client (and possibly others)
+	- fix issue with some HLS radio stations
+	- support for https streams
+	- fix for artwork showing dithered
+	- ICY metadata in forked-daapd's mp3 stream
+	- support for Spotify collaborative playlists
+	- support for Shairport artwork via pipe
+	- configurable mp3 streaming quality
+	- json api improvements, e.g. for toggling speakers
+	- json api/web ui: Relative seeking
+	- support for some http seeking
+	- fix for macOS Catalina’s Apple Music
+
 version 26.5
 	- json api/web ui: file view
 	- web ui: artwork support
