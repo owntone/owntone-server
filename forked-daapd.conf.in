@@ -57,8 +57,8 @@ general {
 
 # Library configuration
 library {
-	# Name of the library as displayed by the clients
-	# %h: hostname, %v: version
+	# Name of the library as displayed by the clients (%h: hostname). If you
+	# change the name after pairing with Remote you may have to re-pair.
 	name = "My Music on %h"
 
 	# TCP port to listen on. Default port is 3689 (daap)
