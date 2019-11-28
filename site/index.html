@@ -1,0 +1,775 @@
+<!DOCTYPE HTML>
+<!--
+	Editorial by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Generic - Editorial by HTML5 UP</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" /> 
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+
+							<!-- Header -->
+								<header id="header">
+									<a href="index.html" class="logo"><strong>Editorial</strong> by HTML5 UP</a>
+									<ul class="icons">
+										<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
+										<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
+										<li><a href="#" class="icon brands fa-snapchat-ghost"><span class="label">Snapchat</span></a></li>
+										<li><a href="#" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
+										<li><a href="#" class="icon brands fa-medium-m"><span class="label">Medium</span></a></li>
+									</ul>
+								</header>
+
+							<!-- Content -->
+								<section>
+									<h1 id="1-forked-daapd">1. forked-daapd</h1>
+<p>forked-daapd is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
+RSP (Roku) media server.</p>
+<p>It supports AirPlay devices/speakers, Apple Remote (and compatibles),
+MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.</p>
+<p>It does not support streaming video by AirPlay nor Chromecast.</p>
+<p>DAAP stands for Digital Audio Access Protocol which is the protocol used
+by iTunes and friends to share/stream media libraries over the network.</p>
+<p>forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).</p>
+<h2 id="11-looking-for-help">1.1 Looking for help?</h2>
+<p>Before you continue, make sure you know what version of forked-daapd you have,
+and what features it was built with (e.g. Spotify support).</p>
+<p>How to find out? Go to the <a href="http://forked-daapd.local:3689">web interface</a> and
+check. No web interface? Then check the top of forked-daapd's log file (usually
+/var/log/forked-daapd.log).</p>
+<p>Note that you are viewing a snapshot of the instructions that may or may not
+match the version of forked-daapd that you are using. Go to
+<a href="#references">references</a> to find instructions for previous versions of
+forked-daapd.</p>
+<p>If you are looking for help on building forked-daapd (not using it), then
+please see the
+<a href="https://github.com/ejurgensen/forked-daapd/blob/master/INSTALL">INSTALL</a> file.</p>
+<h2 id="12-contents">1.2 Contents</h2>
+<ul>
+<li><a href="#getting-started">Getting started</a></li>
+<li><a href="#supported-clients">Supported clients</a></li>
+<li><a href="#web-interface">Web interface</a></li>
+<li><a href="#using-remote">Using Remote</a></li>
+<li><a href="#airplay-devicesspeakers">AirPlay devices/speakers</a></li>
+<li><a href="#chromecast">Chromecast</a></li>
+<li><a href="#local-audio-through-alsa">Local audio through ALSA</a></li>
+<li><a href="#local-audio-bluetooth-and-more-through-pulseaudio">Local audio, Bluetooth and more through Pulseaudio</a></li>
+<li><a href="#mp3-network-streaming-streaming-to-ios">MP3 network streaming (streaming to iOS)</a></li>
+<li><a href="#remote-access">Remote access</a></li>
+<li><a href="#supported-formats">Supported formats</a></li>
+<li><a href="#playlists-and-internet-radio">Playlists and internet radio</a></li>
+<li><a href="#artwork">Artwork</a></li>
+<li><a href="#library">Library</a></li>
+<li><a href="#command-line">Command line</a></li>
+<li><a href="#spotify">Spotify</a></li>
+<li><a href="#lastfm">LastFM</a></li>
+<li><a href="#mpd-clients">MPD clients</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<h2 id="13-getting-started">1.3 Getting started</h2>
+<p>After installation (see <a href="https://github.com/ejurgensen/forked-daapd/blob/master/INSTALL">INSTALL</a>)
+do the following:</p>
+<ol>
+<li>Edit the configuration file (usually <code>/etc/forked-daapd.conf</code>) to suit your
+    needs</li>
+<li>Start or restart the server (usually <code>/etc/init.d/forked-daapd restart</code>)</li>
+<li>Go to the web interface <a href="http://forked-daapd.local:3689">http://forked-daapd.local:3689</a>,
+    or, if that won't work, to <a href="http://[your_server_address_here]:3689">http://[your_server_address_here]:3689</a></li>
+<li>Wait for the library scan to complete</li>
+<li>If you will be using a remote, e.g. Apple Remote: Start the remote, go to
+    Settings, Add Library</li>
+<li>Enter the pair code in the web interface (update the page with F5 if it does
+    not automatically pick up the pairing request)</li>
+</ol>
+<h2 id="14-supported-clients">1.4 Supported clients</h2>
+<p>forked-daapd supports these kinds of clients:</p>
+<ul>
+<li>DAAP clients, like iTunes or Rhythmbox</li>
+<li>Remote clients, like Apple Remote or compatibles for Android/Windows Phone</li>
+<li>AirPlay devices, like AirPort Express, Shairport and various AirPlay speakers</li>
+<li>Chromecast devices</li>
+<li>MPD clients, like mpc (see <a href="#mpd-clients">mpd-clients</a>)</li>
+<li>MP3 network stream clients, like VLC and almost any other music player</li>
+<li>RSP clients, like Roku Soundbridge</li>
+</ul>
+<p>Like iTunes, you can control forked-daapd with Remote and stream your music
+to AirPlay devices.</p>
+<p>A single forked-daapd instance can handle several clients concurrently,
+regardless of the protocol.</p>
+<p>By default all clients on 192.168.* (and the ipv6 equivalent) are allowed to
+connect without authentication. You can change that in the configuration file.</p>
+<p>Here is a list of working and non-working DAAP and Remote clients. The list is
+probably obsolete when you read it :-)</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th>Developer</th>
+<th>Type</th>
+<th>Platform</th>
+<th>Working (vers.)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iTunes</td>
+<td>Apple</td>
+<td>DAAP</td>
+<td>Win</td>
+<td>Yes (12.10.1)</td>
+</tr>
+<tr>
+<td>Apple Music</td>
+<td>Apple</td>
+<td>DAAP</td>
+<td>MacOS</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Rhythmbox</td>
+<td>Gnome</td>
+<td>DAAP</td>
+<td>Linux</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Diapente</td>
+<td>diapente</td>
+<td>DAAP</td>
+<td>Android</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>WinAmp DAAPClient</td>
+<td>WardFamily</td>
+<td>DAAP</td>
+<td>WinAmp</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Amarok w/DAAP plugin</td>
+<td>KDE</td>
+<td>DAAP</td>
+<td>Linux/Win</td>
+<td>Yes (2.8.0)</td>
+</tr>
+<tr>
+<td>Banshee</td>
+<td></td>
+<td>DAAP</td>
+<td>Linux/Win/OSX</td>
+<td>No (2.6.2)</td>
+</tr>
+<tr>
+<td>jtunes4</td>
+<td></td>
+<td>DAAP</td>
+<td>Java</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Firefly Client</td>
+<td></td>
+<td>(DAAP)</td>
+<td>Java</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Remote</td>
+<td>Apple</td>
+<td>Remote</td>
+<td>iOS</td>
+<td>Yes (4.3)</td>
+</tr>
+<tr>
+<td>Retune</td>
+<td>SquallyDoc</td>
+<td>Remote</td>
+<td>Android</td>
+<td>Yes (3.5.23)</td>
+</tr>
+<tr>
+<td>TunesRemote+</td>
+<td>Melloware</td>
+<td>Remote</td>
+<td>Android</td>
+<td>Yes (2.5.3)</td>
+</tr>
+<tr>
+<td>Remote for iTunes</td>
+<td>Hyperfine</td>
+<td>Remote</td>
+<td>Android</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Remote for Windows Phone</td>
+<td>Komodex</td>
+<td>Remote</td>
+<td>Windows Phone</td>
+<td>Yes (2.2.1.0)</td>
+</tr>
+<tr>
+<td>TunesRemote SE</td>
+<td></td>
+<td>Remote</td>
+<td>Java</td>
+<td>Yes (r108)</td>
+</tr>
+<tr>
+<td>rtRemote for Windows</td>
+<td>bizmodeller</td>
+<td>Remote</td>
+<td>Windows</td>
+<td>Yes (1.2.0.67)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="15-web-interface">1.5 Web interface</h2>
+<p>You can find forked-daapd's web interface at <a href="http://forked-daapd.local:3689">http://forked-daapd.local:3689</a>
+or alternatively at <a href="http://[your_server_address_here]:3689">http://[your_server_address_here]:3689</a>.</p>
+<p>Use the web interface to control playback, trigger manual library rescans, pair
+with remotes, select speakers, authenticate with Spotify, etc.</p>
+<p>The Debian forked-daapd package does not include the web interface due to Debian
+packaging rules.</p>
+<p>You can find some screenshots and build instructions in <a href="https://github.com/ejurgensen/forked-daapd/blob/master/README_PLAYER_WEBINTERFACE.md">README_PLAYER_WEBINTERFACE.md</a>.</p>
+<h2 id="16-using-remote">1.6 Using Remote</h2>
+<p>Remote gets a list of output devices from the server; this list includes any
+and all devices on the network we know of that advertise AirPlay: AirPort
+Express, Apple TV, ... It also includes the local audio output, that is, the
+sound card on the server (even if there is no soundcard).</p>
+<p>If no output is selected when playback starts, forked-daapd will try to
+autoselect a device.</p>
+<p>forked-daapd remembers your selection and the individual volume for each
+output device; selected devices will be automatically re-selected, except if
+they return online during playback.</p>
+<h3 id="161-pairing">1.6.1 Pairing</h3>
+<ol>
+<li>Open the <a href="http://forked-daapd.local:3689">web interface</a></li>
+<li>Start Remote, go to Settings, Add Library</li>
+<li>Enter the pair code in the web interface (update the page with F5 if it does
+    not automatically pick up the pairing request)</li>
+</ol>
+<p>If Remote doesn't connect to forked-daapd after you entered the pairing code
+something went wrong. Check the log file to see the error message. Here are
+some common reasons:</p>
+<h4 id="1611-you-did-not-enter-the-correct-pairing-code">1.6.1.1 You did not enter the correct pairing code</h4>
+<p>You will see an error in the log about pairing failure with a HTTP response code
+that is <em>not</em> 0.
+Solution: Try again.</p>
+<h4 id="1612-no-response-from-remote-possibly-a-network-issue">1.6.1.2 No response from Remote, possibly a network issue</h4>
+<p>If you see an error in the log with either:
+ - a HTTP response code that is 0
+ - "Empty pairing request callback"
+it means that forked-daapd could not establish a connection to Remote. This 
+might be a network issue, your router may not be allowing multicast between the
+Remote device and the host forked-daapd is running on.
+Solution 1: Sometimes it resolves the issue if you force Remote to quit, restart
+it and do the pairing proces again. Another trick is to establish some other
+connection (eg SSH) from the iPod/iPhone/iPad to the host.
+Solution 2: Check your router settings if you can whitelist multicast addresses
+under IGMP settings. For Apple Bonjour, setting a multicast address of
+224.0.0.251 and a netmask of 255.255.255.255 should work.</p>
+<p>Otherwise try using avahi-browse for troubleshooting:
+ - in a terminal, run <code>avahi-browse -r -k _touch-remote._tcp</code>
+ - start Remote, goto Settings, Add Library
+ - after a couple seconds at most, you should get something similar to this:</p>
+<pre><code>+ ath0 IPv4 59eff13ea2f98dbbef6c162f9df71b784a3ef9a3      _touch-remote._tcp   local
+= ath0 IPv4 59eff13ea2f98dbbef6c162f9df71b784a3ef9a3      _touch-remote._tcp   local
+   hostname = [Foobar.local]
+   address = [192.168.1.1]
+   port = [49160]
+   txt = [&quot;DvTy=iPod touch&quot; &quot;RemN=Remote&quot; &quot;txtvers=1&quot; &quot;RemV=10000&quot; &quot;Pair=FAEA410630AEC05E&quot; &quot;DvNm=Foobar&quot;]
+</code></pre>
+
+<p>Hit Ctrl-C to terminate avahi-browse.</p>
+<p>To check for network issues you can try to connect to address and port with
+telnet.</p>
+<h2 id="17-airplay-devicesspeakers">1.7 AirPlay devices/speakers</h2>
+<p>forked-daapd will discover the AirPlay devices available on your network. For
+devices that are password-protected, the device's AirPlay name and password
+must be given in the configuration file. See the sample configuration file
+for the syntax.</p>
+<p>If your Apple TV requires device verification (always required by Apple TV4 with
+tvOS 10.2) then you can do that through the web interface: Select the device and
+then enter the PIN that the Apple TV displays.</p>
+<h2 id="18-chromecast">1.8 Chromecast</h2>
+<p>forked-daapd will discover Chromecast devices available on your network, and you
+can then select the device as a speaker. There is no configuration required.</p>
+<h2 id="19-local-audio-through-alsa">1.9 Local audio through ALSA</h2>
+<p>In the config file, you can select ALSA for local audio. This is the default.</p>
+<p>When using ALSA, the server will try to syncronize playback with AirPlay. You
+can adjust the syncronization in the config file.</p>
+<h2 id="110-local-audio-bluetooth-and-more-through-pulseaudio">1.10 Local audio, Bluetooth and more through Pulseaudio</h2>
+<p>In the config file, you can select Pulseaudio for local audio. In addition to
+local audio, Pulseaudio also supports an array of other targets, e.g. Bluetooth
+or DLNA. However, Pulseaudio does require some setup, so here is a separate page
+with some help on that: <a href="https://github.com/ejurgensen/forked-daapd/blob/master/README_PULSE.md">README_PULSE.md</a></p>
+<p>Note that if you select Pulseaudio the "card" setting in the config file has
+no effect. Instead all soundcards detected by Pulseaudio will be listed as
+speakers by forked-daapd.</p>
+<p>You can adjust the latency of Pulseaudio playback in the config file.</p>
+<h2 id="111-mp3-network-streaming-streaming-to-ios">1.11 MP3 network streaming (streaming to iOS)</h2>
+<p>You can listen to audio being played by forked-daapd by opening this network
+stream address in pretty much any music player:</p>
+<p>http://[your hostname/ip address]:3689/stream.mp3</p>
+<p>This is currently the only way of listening to your audio on iOS devices, since
+Apple does not allow AirPlay receiver apps, and because Apple Home Sharing
+cannot be supported by forked-daapd. So what you can do instead is install a
+music player app like VLC, connect to the stream and control playback with
+Remote. You can also use MPoD in "On the go"-mode, where control and playback is
+integrated in one app.</p>
+<p>Note that MP3 encoding must be supported by ffmpeg/libav for this to work. If
+it is not available you will see a message in the log file. In Debian/Ubuntu you
+get MP3 encoding support by installing the package "libavcodec-extra".</p>
+<h2 id="112-remote-access">1.12 Remote access</h2>
+<p>It is possible to access a shared library over the internet from a DAAP client
+like iTunes. You must have remote access to the host machine.</p>
+<p>First log in to the host and forward port 3689 to your local machine. You now
+need to broadcast the daap service to iTunes on your local machine. On macOS the
+command is:</p>
+<pre><code>dns-sd -P iTunesServer _daap._tcp local 3689 localhost.local 127.0.0.1 &quot;ffid=12345&quot;
+</code></pre>
+
+<p>The <code>ffid</code> key is required but its value does not matter.</p>
+<p>Your library will now appear as 'iTunesServer' in iTunes.</p>
+<h2 id="113-supported-formats">1.13 Supported formats</h2>
+<p>forked-daapd should support pretty much all audio formats. It relies on libav
+(or ffmpeg) to extract metadata and decode the files on the fly when the client
+doesn't support the format.</p>
+<p>Formats are attributed a code, so any new format will need to be explicitely
+added. Currently supported:
+ - MPEG4: mp4a, mp4v
+ - AAC: alac
+ - MP3 (and friends): mpeg
+ - FLAC: flac
+ - OGG VORBIS: ogg
+ - Musepack: mpc
+ - WMA: wma (WMA Pro), wmal (WMA Lossless), wmav (WMA video)
+ - AIFF: aif
+ - WAV: wav
+ - Monkey's audio: ape</p>
+<h2 id="114-playlists-and-internet-radio">1.14 Playlists and internet radio</h2>
+<p>forked-daapd supports M3U and PLS playlists. Just drop your playlist somewhere
+in your library with an .m3u or .pls extension and it will pick it up.</p>
+<p>If the playlist contains an http URL it will be added as an internet radio
+station, and the URL will be probed for Shoutcast (ICY) metadata. If the radio
+station provides artwork, forked-daapd will download it during playback and send
+it to any remotes or AirPlay devices requesting it.</p>
+<p>Instead of downloading M3U's from your radio stations, you can also make an
+empty M3U file and in it insert links to the M3U's of your radio stations.</p>
+<p>Support for iTunes Music Library XML format is available as a compile-time
+option. By default, metadata from our parsers is preferred over what's in
+the iTunes DB; use itunes_overrides = true if you prefer iTunes' metadata.</p>
+<p>forked-daapd has support for smart playlists. How to create a smart playlist is
+documented in
+<a href="https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md">README_SMARTPL.md</a>.</p>
+<h2 id="115-artwork">1.15 Artwork</h2>
+<p>forked-daapd has support for PNG and JPEG artwork which is either:
+ - embedded in the media files
+ - placed as separate image files in the library
+ - made available online by the radio station</p>
+<p>For media in your library, forked-daapd will try to locate album and artist
+artwork (group artwork) by the following procedure:
+ - if a file {artwork,cover,Folder}.{png,jpg} is found in one of the directories
+   containing files that are part of the group, it is used as the artwork. The
+   first file found is used, ordering is not guaranteed;
+ - failing that, if [directory name].{png,jpg} is found in one of the
+   directories containing files that are part of the group, it is used as the
+   artwork. The first file found is used, ordering is not guaranteed;
+ - failing that, individual files are examined and the first file found 
+   with an embedded artwork is used. Here again, ordering is not guaranteed.</p>
+<p>{artwork,cover,Folder} are the default, you can add other base names in the
+configuration file. Here you can also enable/disable support for individual
+file artwork (instead of using the same artwork for all tracks in an entire
+album).</p>
+<p>For playlists in your library, say /foo/bar.m3u, then for any http streams in
+the list, forked-daapd will look for /foo/bar.{jpg,png}.</p>
+<p>You can use symlinks for the artwork files.</p>
+<p>forked-daapd caches artwork in a separate cache file. The default path is 
+<code>/var/cache/forked-daapd/cache.db</code> and can be configured in the configuration 
+file. The cache.db file can be deleted without losing the library and pairing 
+informations.</p>
+<h2 id="116-library">1.16 Library</h2>
+<p>The library is scanned in bulk mode at startup, but the server will be available
+even while this scan is in progress. You can follow the progress of the scan in
+the log file or via the web interface. When the scan is complete you will see
+the log message: "Bulk library scan completed in X sec".</p>
+<p>The very first scan will take longer than subsequent startup scans, since every
+file gets analyzed. At the following startups the server looks for changed files
+and only analyzis those.</p>
+<p>Updates to the library are reflected in real time after the initial scan, so you
+do not need to manually start rescans. The directories are monitored for changes
+and rescanned on the fly. Note that if you have your library on a network mount
+then real time updating may not work. Read below about what to do in that case.</p>
+<p>If you change any of the directory settings in the library section of the
+configuration file a rescan is required before the new setting will take effect.
+You can do this by using "Update library" from the web interface.</p>
+<p>Symlinks are supported and dereferenced, but it is best to use them for
+directories only.</p>
+<h3 id="1161-pipes-for-eg-multiroom-with-shairport-sync">1.16.1 Pipes (for e.g. multiroom with Shairport-sync)</h3>
+<p>Some programs, like for instance Shairport-sync, can be configured to output
+audio to a named pipe. If this pipe is placed in the library, forked-daapd will
+automatically detect that it is there, and when there is audio being written to
+it, playback of the audio will be autostarted (and stopped).</p>
+<p>Using this feature, forked-daapd can act as an AirPlay multiroom "router": You
+can have an AirPlay source (e.g. your iPhone) send audio Shairport-sync, which
+forwards it to forked-daapd through the pipe, which then plays it on whatever
+speakers you have selected (through Remote).</p>
+<p>The format of the audio being written to the pipe must be PCM16.</p>
+<p>You can also start playback of pipes manually. You will find them in remotes 
+listed under "Unknown artist" and "Unknown album". The track title will be the
+name of the pipe.</p>
+<p>Shairport-sync can write metadata to a pipe, and forked-daapd can read this.
+This requires that the metadata pipe has the same filename as the audio pipe
+plus a ".metadata" suffix. Say Shairport-sync is configured to write audio to
+"/foo/bar/pipe", then the metadata pipe should be "/foo/bar/pipe.metadata".</p>
+<h3 id="1162-libraries-on-network-mounts">1.16.2 Libraries on network mounts</h3>
+<p>Most network filesharing protocols do not offer notifications when the library
+is changed. So that means forked-daapd cannot update its database in real time.
+Instead you can schedule a cron job to update the database.</p>
+<p>The first step in doing this is to add two entries to the 'directories'
+configuration item in forked-daapd.conf:</p>
+<pre><code>  directories = { &quot;/some/local/dir&quot;, &quot;/your/network/mount/library&quot; }
+</code></pre>
+
+<p>Now you can make a cron job that runs this command:</p>
+<pre><code>  touch /some/local/dir/trigger.init-rescan
+</code></pre>
+
+<p>When forked-daapd detects a file with filename ending .init-rescan it will
+perform a bulk scan similar to the startup scan.</p>
+<p>Alternatively, you can force a metadata scan of the library even if the
+files have not changed by creating a filename ending <code>.meta-rescan</code>.</p>
+<h3 id="1163-troubleshooting-library-issues">1.16.3 Troubleshooting library issues</h3>
+<p>If you place a file with the filename ending .full-rescan in your library,
+you can trigger a full rescan of your library. This will clear all music and
+playlists from forked-daapd's database and initiate a fresh bulk scan. Pairing
+and speaker information will be kept. Only use this for troubleshooting, it is
+not necessary during normal operation.</p>
+<h2 id="117-command-line">1.17 Command line</h2>
+<p>You can choose between:</p>
+<ul>
+<li>a <a href="#mpd-clients">MPD command line client</a> (easiest) like <code>mpc</code></li>
+<li>curl with forked-daapd's JSON API (see <a href="https://github.com/ejurgensen/forked-daapd/blob/master/README_JSON_API.md">README_JSON_API.md</a>)</li>
+<li>curl with DAAP/DACP commands (hardest)</li>
+</ul>
+<p>Here is an example of how to use curl with DAAP/DACP. Say you have a playlist
+with a radio station, and you want to make a script that starts playback of that
+station:</p>
+<ol>
+<li>Run <code>sqlite3 [your forked-daapd db]</code>. Use <code>select id,title from files</code> to get
+   the id of the radio station, and use <code>select id,title from playlists</code> to get
+   the id of the playlist.</li>
+<li>Convert the two ids to hex.</li>
+<li>Put the following lines in the script with the relevant ids inserted (also
+   observe that you must use a session-id &lt; 100, and that you must login and
+   logout):</li>
+</ol>
+<pre><code>curl &quot;http://localhost:3689/login?pairing-guid=0x1&amp;request-session-id=50&quot;
+curl &quot;http://localhost:3689/ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&amp;container-spec='dmap.persistentid:0x[PLAYLIST-ID]'&amp;container-item-spec='dmap.containeritemid:0x[FILE ID]'&amp;session-id=50&quot;
+curl &quot;http://localhost:3689/logout?session-id=50&quot;
+</code></pre>
+
+<h2 id="118-spotify">1.18 Spotify</h2>
+<p>forked-daapd has support for playback of the tracks in your Spotify library.</p>
+<ol>
+<li>Go to the <a href="http://forked-daapd.local:3689">web interface</a> and check that your
+   version of forked-daapd was built with Spotify support.</li>
+<li>You must have a Spotify premium account. If you normally log into Spotify
+   with your Facebook account you must first go to Spotify's web site where you
+   can get the Spotify username and password that matches your account.</li>
+<li>Make sure you have <code>libspotify</code> installed. Unfortunately, it is no longer
+   available from Spotify, and at the time of writing this they have not
+   provided an alternative. However, on most Debian-based platforms, you can
+   still get it like this:</li>
+<li>Add the mopidy repository, see <a href="https://apt.mopidy.com">instructions</a></li>
+<li>Install with <code>apt install libspotify-dev</code></li>
+</ol>
+<p>Once the above is in order you can login to Spotify via the web interface. The
+procedure for logging in to Spotify is a two-step procedure due to the current
+state of libspotify, but the web interface makes both steps available to you.</p>
+<p>Spotify will automatically notify forked-daapd about playlist updates, so you
+should not need to restart forked-daapd to syncronize with Spotify. However,
+Spotify only notifies about playlist updates, not new saved tracks/albums, so
+you need to manually trigger a rescan to get those.</p>
+<p>forked-daapd will not store your password, but will still be able to log you in
+automatically afterwards, because libspotify saves a login token. You can
+configure the location of your Spotify user data in the configuration file.</p>
+<p>To permanently logout and remove credentials, delete the contents of
+<code>/var/cache/forked-daapd/libspotify</code> (while forked-daapd is stopped).</p>
+<p>Limitations:
+You will not be able to do any playlist management through forked-daapd - use
+a Spotify client for that. You also can only listen to your music by letting
+forked-daapd do the playback - so that means you can't stream from forked-daapd
+to iTunes.</p>
+<h2 id="119-lastfm">1.19 LastFM</h2>
+<p>You can have forked-daapd scrobble the music you listen to. To set up scrobbling
+go to the web interface and authorize forked-daapd with your LastFM credentials.</p>
+<p>forked-daapd will not store your LastFM username/password, only the session key.
+The session key does not expire.</p>
+<h2 id="120-mpd-clients">1.20 MPD clients</h2>
+<p>You can - to some extent - use clients for MPD to control forked-daapd.</p>
+<p>By default forked-daapd listens on port 6600 for MPD clients. You can change
+this in the configuration file.</p>
+<p>Currently only a subset of the commands offered by MPD (see <a href="http://www.musicpd.org/doc/protocol/">MPD protocol documentation</a>) 
+are supported by forked-daapd.</p>
+<p>Due to some differences between forked-daapd and MPD not all commands will act
+the same way they would running MPD:</p>
+<ul>
+<li>crossfade, mixrampdb, mixrampdelay and replaygain will have no effect</li>
+<li>single, repeat: unlike MPD forked-daapd does not support setting single and repeat separately 
+  on/off, instead repeat off, repeat all and repeat single are supported. Thus setting single on 
+  will result in repeat single, repeat on results in repeat all.</li>
+</ul>
+<p>The following table shows what is working for a selection of MPD clients:</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th>Type</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://www.musicpd.org/clients/mpc/">mpc</a></td>
+<td>CLI</td>
+<td>Working commands: mpc, add, crop, current, del (ranges are not yet supported), play, next, prev (behaves like cdprev), pause, toggle, cdprev, seek, clear, outputs, enable, disable, playlist, ls, load, volume, repeat, random, single, search, find, list, update (initiates an init-rescan, the path argument is not supported)</td>
+</tr>
+<tr>
+<td><a href="http://www.ympd.org/">ympd</a></td>
+<td>Web</td>
+<td>Everything except "add stream" should work</td>
+</tr>
+</tbody>
+</table>
+<h2 id="121-references">1.21 References</h2>
+<p>The source for this version of forked-daapd can be found here:</p>
+<p><a href="https://github.com/ejurgensen/forked-daapd.git">https://github.com/ejurgensen/forked-daapd.git</a></p>
+<p>The original (now unmaintained) source can be found here:</p>
+<p><a href="http://git.debian.org/?p=users/jblache/forked-daapd.git">http://git.debian.org/?p=users/jblache/forked-daapd.git</a></p>
+<p>README's for previous versions of forked-daapd:</p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/26.5/README.md">forked-daapd version 26.5</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/26.4/README.md">forked-daapd version 26.4</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/26.3/README.md">forked-daapd version 26.3</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/26.2/README.md">forked-daapd version 26.2</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/26.1/README.md">forked-daapd version 26.1</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/26.0/README.md">forked-daapd version 26.0</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/25.0/README.md">forked-daapd version 25.0</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/24.2/README.md">forked-daapd version 24.2</a></p>
+<p><a href="https://github.com/ejurgensen/forked-daapd/blob/24.1/README.md">forked-daapd version 24.1</a></p>
+<h1 id="2-welcome-to-mkdocs">2. Welcome to MkDocs</h1>
+<p>For full documentation visit <a href="https://mkdocs.org">mkdocs.org</a>.</p>
+<p>!!GET /pet/{petId}!!</p>
+<h2 id="21-commands">2.1 Commands</h2>
+<ul>
+<li><code>mkdocs new [dir-name]</code> - Create a new project.</li>
+<li><code>mkdocs serve</code> - Start the live-reloading docs server.</li>
+<li><code>mkdocs build</code> - Build the documentation site.</li>
+<li><code>mkdocs help</code> - Print this help message.</li>
+</ul>
+<h2 id="22-project-layout">2.2 Project layout</h2>
+<pre><code>mkdocs.yml    # The configuration file.
+docs/
+    index.md  # The documentation homepage.
+    ...       # Other markdown pages, images and other files.
+</code></pre>
+								</section>
+
+						</div>
+					</div>
+
+				<!-- Sidebar -->
+					<div id="sidebar">
+						<div class="inner">
+
+							<!-- Search -->
+							
+								<section id="search" class="alt">
+									<form action="./search.html" method="get">
+										<input type="text" name="q" id="mkdocs-search-query" placeholder="Search" />
+									</form>
+								</section>
+							
+
+							<!-- Menu -->
+							
+								<nav id="menu">
+									<header class="major">
+										<h2>Menu</h2>
+									</header>
+									<ul>
+									
+										
+											<li>
+												<span class="opener">Home</span>
+												<ul>
+													
+														<li><a href=".#1-forked-daapd">1. forked-daapd</a></li>
+														
+															<li><a href=".#11-looking-for-help">1.1 Looking for help?</a></li>
+														
+															<li><a href=".#12-contents">1.2 Contents</a></li>
+														
+															<li><a href=".#13-getting-started">1.3 Getting started</a></li>
+														
+															<li><a href=".#14-supported-clients">1.4 Supported clients</a></li>
+														
+															<li><a href=".#15-web-interface">1.5 Web interface</a></li>
+														
+															<li><a href=".#16-using-remote">1.6 Using Remote</a></li>
+														
+															<li><a href=".#17-airplay-devicesspeakers">1.7 AirPlay devices/speakers</a></li>
+														
+															<li><a href=".#18-chromecast">1.8 Chromecast</a></li>
+														
+															<li><a href=".#19-local-audio-through-alsa">1.9 Local audio through ALSA</a></li>
+														
+															<li><a href=".#110-local-audio-bluetooth-and-more-through-pulseaudio">1.10 Local audio, Bluetooth and more through Pulseaudio</a></li>
+														
+															<li><a href=".#111-mp3-network-streaming-streaming-to-ios">1.11 MP3 network streaming (streaming to iOS)</a></li>
+														
+															<li><a href=".#112-remote-access">1.12 Remote access</a></li>
+														
+															<li><a href=".#113-supported-formats">1.13 Supported formats</a></li>
+														
+															<li><a href=".#114-playlists-and-internet-radio">1.14 Playlists and internet radio</a></li>
+														
+															<li><a href=".#115-artwork">1.15 Artwork</a></li>
+														
+															<li><a href=".#116-library">1.16 Library</a></li>
+														
+															<li><a href=".#117-command-line">1.17 Command line</a></li>
+														
+															<li><a href=".#118-spotify">1.18 Spotify</a></li>
+														
+															<li><a href=".#119-lastfm">1.19 LastFM</a></li>
+														
+															<li><a href=".#120-mpd-clients">1.20 MPD clients</a></li>
+														
+															<li><a href=".#121-references">1.21 References</a></li>
+														
+													
+														<li><a href=".#2-welcome-to-mkdocs">2. Welcome to MkDocs</a></li>
+														
+															<li><a href=".#21-commands">2.1 Commands</a></li>
+														
+															<li><a href=".#22-project-layout">2.2 Project layout</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">JSON API</span>
+												<ul>
+													
+														<li><a href="README_JSON_API/#1-forked-daapd-api-endpoint-reference">1. forked-daapd API Endpoint Reference</a></li>
+														
+															<li><a href="README_JSON_API/#11-player">1.1 Player</a></li>
+														
+															<li><a href="README_JSON_API/#12-outputs-speakers">1.2 Outputs / Speakers</a></li>
+														
+															<li><a href="README_JSON_API/#13-queue">1.3 Queue</a></li>
+														
+															<li><a href="README_JSON_API/#14-library">1.4 Library</a></li>
+														
+															<li><a href="README_JSON_API/#15-search">1.5 Search</a></li>
+														
+															<li><a href="README_JSON_API/#16-server-info">1.6 Server info</a></li>
+														
+															<li><a href="README_JSON_API/#17-settings">1.7 Settings</a></li>
+														
+															<li><a href="README_JSON_API/#18-push-notifications">1.8 Push notifications</a></li>
+														
+															<li><a href="README_JSON_API/#19-object-model">1.9 Object model</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">WEBINTERFACE</span>
+												<ul>
+													
+														<li><a href="README_PLAYER_WEBINTERFACE/#1-forked-daapd-player-web-interface">1. forked-daapd player web interface</a></li>
+														
+															<li><a href="README_PLAYER_WEBINTERFACE/#11-screenshots">1.1 Screenshots</a></li>
+														
+															<li><a href="README_PLAYER_WEBINTERFACE/#12-usage">1.2 Usage</a></li>
+														
+															<li><a href="README_PLAYER_WEBINTERFACE/#13-build-setup">1.3 Build Setup</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">SMARTPL</span>
+												<ul>
+													
+														<li><a href="README_SMARTPL/#1-forked-daapd-smart-playlists">1. forked-daapd smart playlists</a></li>
+														
+															<li><a href="README_SMARTPL/#11-syntax">1.1 Syntax</a></li>
+														
+															<li><a href="README_SMARTPL/#12-examples">1.2 Examples</a></li>
+														
+															<li><a href="README_SMARTPL/#13-date-operand-syntax">1.3 Date operand syntax</a></li>
+														
+															<li><a href="README_SMARTPL/#differences-to-mt-daapd-smart-playlists">Differences to mt-daapd smart playlists</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li><a href=".">Audio</a></li>
+										
+									
+									</ul>
+								</nav>
+							
+
+							<!-- Footer -->
+								<footer id="footer">
+									<p class="copyright">&copy; Untitled. All rights reserved. Demo Images: <a href="https://unsplash.com">Unsplash</a>. Design: <a href="https://html5up.net">HTML5 UP</a>.</p>
+								</footer>
+
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+			<script>hljs.initHighlightingOnLoad();</script>
+			<script>var base_url = '.';</script>
+				<script src="search/main.js" defer></script>
+	</body>
+</html>

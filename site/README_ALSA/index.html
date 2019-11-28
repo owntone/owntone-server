@@ -1,0 +1,468 @@
+<!DOCTYPE HTML>
+<!--
+	Editorial by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Generic - Editorial by HTML5 UP</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../assets/css/main.css" />
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" /> 
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+
+							<!-- Header -->
+								<header id="header">
+									<a href="index.html" class="logo"><strong>Editorial</strong> by HTML5 UP</a>
+									<ul class="icons">
+										<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
+										<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
+										<li><a href="#" class="icon brands fa-snapchat-ghost"><span class="label">Snapchat</span></a></li>
+										<li><a href="#" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
+										<li><a href="#" class="icon brands fa-medium-m"><span class="label">Medium</span></a></li>
+									</ul>
+								</header>
+
+							<!-- Content -->
+								<section>
+									<h1 id="1-forked-daapd-and-alsa">1. forked-daapd and ALSA</h1>
+<p>ALSA is one of the main output configuration options for local audio; when using ALSA you will typically let the system select the soundcard on your machine as the <code>default</code> device/sound card - a mixer associated with the ALSA device is used for volume control.  However if your machine has multiple sound cards and your system chooses the wrong playback device, you will need to manually select the card and mixer to complete the <code>forked daapd</code> configuration.</p>
+<pre><code># example audio section for server
+audio {
+    nickname = &quot;Computer&quot;
+    type = &quot;alsa&quot;
+
+    card = &quot;hw:1&quot;           # defaults to 'default'
+    mixer = &quot;Analogue&quot;      # defaults to 'PCM' or 'Master'
+    mixer_device = &quot;hw:1&quot;   # defaults to same as 'card' value
+}
+</code></pre>
+
+<p>To verify if the <code>default</code> sound device is correct for playback, we will use the <code>aplay</code> utility.</p>
+<pre><code># generate some audio if you don't have a wav file to hand
+$ sox -n -c 2 -r 44100 -b 16 -C 128 /tmp/sine441.wav synth 30 sin 500-100 fade h 0.2 30 0.2
+
+$ aplay -Ddefault /tmp/sine441.wav
+</code></pre>
+
+<p>If you can hear music played then you are good to use <code>default</code> for the server configuration.  If you can not hear anything from the <code>aplay</code> firstly verify (using <code>alsamixer</code>) that the sound card is not muted.  If the card is not muted AND there is no sound you can try the options below to determine the card and mixer for configuring the server.</p>
+<p>The example below is how I determined the correct sound card and mixer values for a Raspberry Pi that has an additional DAC card (hat) mounted.</p>
+<h2 id="11-determining-the-sound-cards-you-have-alsa-can-see">1.1 Determining the sound cards you have / ALSA can see</h2>
+<p>Use <code>aplay -l</code> to list all the sound cards and their order as known to the system - you can have multiple <code>card X, device Y</code> entries; some cards can also have multiple playback devices such as the RPI's onboard soundcard which feeds both headphone (card 0, device 0) and HDMI (card 0, device 1).</p>
+<pre><code>$ aplay -l
+**** List of PLAYBACK Hardware Devices ****
+card 0: ALSA [bcm2835 ALSA], device 0: bcm2835 ALSA [bcm2835 ALSA]
+  Subdevices: 6/7
+  Subdevice #0: subdevice #0
+  Subdevice #1: subdevice #1
+  Subdevice #2: subdevice #2
+  Subdevice #3: subdevice #3
+  Subdevice #4: subdevice #4
+  Subdevice #5: subdevice #5
+  Subdevice #6: subdevice #6
+card 0: ALSA [bcm2835 ALSA], device 1: bcm2835 ALSA [bcm2835 IEC958/HDMI]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 1: IQaudIODAC [IQaudIODAC], device 0: IQaudIO DAC HiFi pcm512x-hifi-0 []
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+</code></pre>
+
+<p>On this machine we see the second sound card installed, an IQaudIODAC dac hat, and identified as <code>card 1 device 0</code>.  This is the playback device we want to be used by the server.</p>
+<p>In ALSA configuration terms <code>card X, device Y</code> is known as <code>hw:X,Y</code> which is the format used for the server configuration: <code>hw:1,0</code> is the IQaudIODAC that we want to use - we verify audiable playback through that sound card using <code>aplay -Dhw:1 /tmp/sine441.wav</code>.  If the card has only one device, we can simply refer to the sound card using <code>hw:X</code> so in this case where the IQaudIODAC only has one device, we can refer to this card as <code>hw:1</code> or <code>hw:1,0</code>.</p>
+<p>Use <code>aplay -L</code> to get more information about the PCM devices defined on the system.</p>
+<pre><code>$ aplay -L
+null
+    Discard all samples (playback) or generate zero samples (capture)
+default:CARD=ALSA
+    bcm2835 ALSA, bcm2835 ALSA
+    Default Audio Device
+sysdefault:CARD=ALSA
+    bcm2835 ALSA, bcm2835 ALSA
+    Default Audio Device
+dmix:CARD=ALSA,DEV=0
+    bcm2835 ALSA, bcm2835 ALSA
+    Direct sample mixing device
+dmix:CARD=ALSA,DEV=1
+    bcm2835 ALSA, bcm2835 IEC958/HDMI
+    Direct sample mixing device
+dsnoop:CARD=ALSA,DEV=0
+    bcm2835 ALSA, bcm2835 ALSA
+    Direct sample snooping device
+dsnoop:CARD=ALSA,DEV=1
+    bcm2835 ALSA, bcm2835 IEC958/HDMI
+    Direct sample snooping device
+hw:CARD=ALSA,DEV=0
+    bcm2835 ALSA, bcm2835 ALSA
+    Direct hardware device without any conversions
+hw:CARD=ALSA,DEV=1
+    bcm2835 ALSA, bcm2835 IEC958/HDMI
+    Direct hardware device without any conversions
+plughw:CARD=ALSA,DEV=0
+    bcm2835 ALSA, bcm2835 ALSA
+    Hardware device with all software conversions
+plughw:CARD=ALSA,DEV=1
+    bcm2835 ALSA, bcm2835 IEC958/HDMI
+    Hardware device with all software conversions
+default:CARD=IQaudIODAC
+    IQaudIODAC, 
+    Default Audio Device
+sysdefault:CARD=IQaudIODAC
+    IQaudIODAC, 
+    Default Audio Device
+dmix:CARD=IQaudIODAC,DEV=0
+    IQaudIODAC, 
+    Direct sample mixing device
+dsnoop:CARD=IQaudIODAC,DEV=0
+    IQaudIODAC, 
+    Direct sample snooping device
+hw:CARD=IQaudIODAC,DEV=0
+    IQaudIODAC, 
+    Direct hardware device without any conversions
+plughw:CARD=IQaudIODAC,DEV=0
+    IQaudIODAC, 
+    Hardware device with all software conversions
+</code></pre>
+
+<p>For the server configuration, we will use:</p>
+<pre><code>audio {
+    nickname = &quot;Computer&quot;
+    type = &quot;alsa&quot;
+    card=&quot;hw:1&quot;
+    # mixer=TBD
+    # mixer_device=TBD
+}
+</code></pre>
+
+<h2 id="12-mixer-name">1.2 Mixer name</h2>
+<p>Once you have the card number (determined from <code>aplay -l</code>) we can inspect/confirm the name of the mixer (it may NOT be <code>PCM</code> as expected by the server).  In this example, the card <code>1</code> is of interest and thus we use <code>-c 1</code> with the following command:</p>
+<pre><code>$ amixer -c 1 
+Simple mixer control 'DSP Program',0
+  Capabilities: enum
+  Items: 'FIR interpolation with de-emphasis' 'Low latency IIR with de-emphasis' 'High attenuation with de-emphasis' 'Fixed process flow' 'Ringing-less low latency FIR'
+  Item0: 'Ringing-less low latency FIR'
+Simple mixer control 'Analogue',0
+  Capabilities: pvolume
+  Playback channels: Front Left - Front Right
+  Limits: Playback 0 - 1
+  Mono:
+  Front Left: Playback 1 [100%] [0.00dB]
+  Front Right: Playback 1 [100%] [0.00dB]
+Simple mixer control 'Analogue Playback Boost',0
+  Capabilities: volume
+  Playback channels: Front Left - Front Right
+  Capture channels: Front Left - Front Right
+  Limits: 0 - 1
+  Front Left: 0 [0%] [0.00dB]
+  Front Right: 0 [0%] [0.00dB]
+...
+</code></pre>
+
+<p>This card has multiple controls but we want the first mixer listed with a <code>pvolume</code> capability - in this case that mixer value required for the server configuration is called <code>Anaolgue</code>.</p>
+<p>For the server configuration, we will use:</p>
+<pre><code>audio {
+    nickname = &quot;Computer&quot;
+    type = &quot;alsa&quot;
+    card=&quot;hw:1&quot;
+    mixer=&quot;Analogue&quot;
+    # mixer_device=TBD
+}
+</code></pre>
+
+<h2 id="13-mixer-device">1.3 Mixer device</h2>
+<p>This is the name of the underlying physical device used for the mixer - it is typically the same value as the value of <code>card</code> in which case a value is not required by the server configuration.  An example of when you want to change explicitly configure this is if you need to use a <code>dmix</code> device (see below).</p>
+<h2 id="14-handling-devices-that-cannot-concurrently-play-multiple-audio-streams">1.4 Handling Devices that cannot concurrently play multiple audio streams</h2>
+<p>Some devices such as various RPI DAC boards (IQaudio DAC, Allo Boss DAC...) can not have multiple streams openned at the same time/cannot play multiple sound files at the same time:  this results in <code>Device or resource busy</code> errors.  You can confirm if your sound card has this problem by using the example below once have determined the names/cards information as above.</p>
+<p>Using our <code>hw:1</code> device we try:</p>
+<pre><code># generate some audio
+$ sox -n -c 2 -r 44100 -b 16 -C 128 /tmp/sine441.wav synth 30 sin 500-100 fade h 0.2 30 0.2
+
+# attempt to play 2 files at the same time
+$ aplay -v -Dhw:1 /tmp/sine441.wav &amp;
+Playing WAVE '/tmp/sine441.wav' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+Hardware PCM card 1 'IQaudIODAC' device 0 subdevice 0
+Its setup is:
+  stream       : PLAYBACK
+  access       : RW_INTERLEAVED
+  format       : S16_LE
+  subformat    : STD
+  channels     : 2
+  rate         : 44100
+  exact rate   : 44100 (44100/1)
+  msbits       : 16
+  buffer_size  : 22052
+  period_size  : 5513
+  period_time  : 125011
+  tstamp_mode  : NONE
+  tstamp_type  : MONOTONIC
+  period_step  : 1
+  avail_min    : 5513
+  period_event : 0
+  start_threshold  : 22052
+  stop_threshold   : 22052
+  silence_threshold: 0
+  silence_size : 0
+  boundary     : 1445199872
+  appl_ptr     : 0
+  hw_ptr       : 0
+$ aplay -v -Dhw:1 /tmp/sine441.wav
+aplay: main:788: audio open error: Device or resource busy
+</code></pre>
+
+<p>In this instance this device can not open multiple streams - <code>forked-daapd</code> can handle this situation transparently with some audio being truncated from the end of the current file as the server prepares to play the following track.  If this handling is causing you problems you may wish to use <a href="https://www.alsa-project.org/main/index.php/Asoundrc#Software_mixing">ALSA's <code>dmix</code> functionally</a> which provides a software mixing module.  We will need to define a <code>dmix</code> component and configure the server to use that as it's sound card.</p>
+<p>The downside to the <code>dmix</code> approach will be the need to fix a samplerate (48000 being the default) for this software mixing module meaning any files that have a mismatched samplerate will be resampled.</p>
+<h2 id="15-alsa-dmix-configurationsetup">1.5 ALSA dmix configuration/setup</h2>
+<p>A <code>dmix</code> device can be defined in <code>/etc/asound.conf</code> or <code>~/.asoundrc</code>.  We will need to know the underlying physical soundcard to be used: in our examples above, <code>hw:1,0</code> / <code>card 1, device 0</code> representing our IQaudIODAC as per output of <code>aplay -l</code>.  We also take the <code>buffer_size</code> and <code>period_size</code> from the output of playing a sound file via <code>aplay -v</code>.</p>
+<pre><code># use 'dac' as the name of the device: &quot;aplay -Ddac ....&quot;
+pcm.!dac {
+    type plug
+    slave.pcm &quot;dmixer&quot;
+    hint.description &quot;IQAudio DAC s/w dmix enabled device&quot;
+}
+
+pcm.dmixer  {
+    type dmix
+    ipc_key 1024             # need to be uniq value
+    ipc_key_add_uid false    # multiple concurrent different users
+    ipc_perm 0666            # multi-user sharing permissions
+
+    slave {
+    pcm &quot;hw:1,0&quot;         # points at the underlying device - could also simply be hw:1
+    period_time 0
+    period_size 4096     # from the output of aplay -v
+    buffer_size 22052    # from the output of aplay -v
+    rate 44100           # locked in sample rate for resampling on dmix device
+    }
+    hint.description &quot;IQAudio DAC s/w dmix device&quot;
+}
+
+ctl.dmixer {
+    type hw
+    card 1                  # underlying device
+    device 0
+}
+
+</code></pre>
+
+<p>Running <code>aplay -L</code> we will see our newly defined devices <code>dac</code> and <code>dmixer</code></p>
+<pre><code>$ aplay -L
+null
+    Discard all samples (playback) or generate zero samples (capture)
+dac
+    IQAudio DAC s/w dmix enabled device
+dmixer
+    IQAudio DAC s/w dmix device
+default:CARD=ALSA
+    bcm2835 ALSA, bcm2835 ALSA
+    Default Audio Device
+...
+</code></pre>
+
+<p>At this point we are able to rerun the concurrent <code>aplay</code> commands (adding <code>-Ddac</code> to specify the playback device to use) to verify ALSA configuration.</p>
+<p>If there is only one card on the machine you may use <code>pcm.!default</code> instead of <code>pcm.!dac</code> - there is less configuration to be done later since many ALSA applications will use the device called <code>default</code> by default.  Furthermore on RPI you can explicitly disable the onboard sound card to leave us with only the IQaudIODAC board enabled (won't affect HDMI sound output) by commenting out <code>#dtparam=audio=on</code> in <code>/boot/config.txt</code> and rebooting.</p>
+<h3 id="151-forked-daapd-config-with-dmix">1.5.1 forked-daapd config with dmix</h3>
+<p>We will use the newly defined card named <code>dac</code> which uses the underlying <code>hw:1</code> device as per <code>/etc/asound.conf</code> or <code>~/.asoundrc</code> configuration.  Note that the <code>mixer_device</code> is now required and must refer to the real device (see the <code>slave.pcm</code> value) and not the named device (ie <code>dac</code>) that we created and are using for the <code>card</code> configuration value.</p>
+<p>For the final server configuration, we will use:</p>
+<pre><code>audio {
+    nickname = &quot;Computer&quot;
+    type = &quot;alsa&quot;
+    card=&quot;dac&quot;
+    mixer=&quot;Analogue&quot;
+    mixer_device=&quot;hw:1&quot;
+}
+</code></pre>
+								</section>
+
+						</div>
+					</div>
+
+				<!-- Sidebar -->
+					<div id="sidebar">
+						<div class="inner">
+
+							<!-- Search -->
+							
+								<section id="search" class="alt">
+									<form action="../search.html" method="get">
+										<input type="text" name="q" id="mkdocs-search-query" placeholder="Search" />
+									</form>
+								</section>
+							
+
+							<!-- Menu -->
+							
+								<nav id="menu">
+									<header class="major">
+										<h2>Menu</h2>
+									</header>
+									<ul>
+									
+										
+											<li>
+												<span class="opener">Home</span>
+												<ul>
+													
+														<li><a href="..#1-forked-daapd">1. forked-daapd</a></li>
+														
+															<li><a href="..#11-looking-for-help">1.1 Looking for help?</a></li>
+														
+															<li><a href="..#12-contents">1.2 Contents</a></li>
+														
+															<li><a href="..#13-getting-started">1.3 Getting started</a></li>
+														
+															<li><a href="..#14-supported-clients">1.4 Supported clients</a></li>
+														
+															<li><a href="..#15-web-interface">1.5 Web interface</a></li>
+														
+															<li><a href="..#16-using-remote">1.6 Using Remote</a></li>
+														
+															<li><a href="..#17-airplay-devicesspeakers">1.7 AirPlay devices/speakers</a></li>
+														
+															<li><a href="..#18-chromecast">1.8 Chromecast</a></li>
+														
+															<li><a href="..#19-local-audio-through-alsa">1.9 Local audio through ALSA</a></li>
+														
+															<li><a href="..#110-local-audio-bluetooth-and-more-through-pulseaudio">1.10 Local audio, Bluetooth and more through Pulseaudio</a></li>
+														
+															<li><a href="..#111-mp3-network-streaming-streaming-to-ios">1.11 MP3 network streaming (streaming to iOS)</a></li>
+														
+															<li><a href="..#112-remote-access">1.12 Remote access</a></li>
+														
+															<li><a href="..#113-supported-formats">1.13 Supported formats</a></li>
+														
+															<li><a href="..#114-playlists-and-internet-radio">1.14 Playlists and internet radio</a></li>
+														
+															<li><a href="..#115-artwork">1.15 Artwork</a></li>
+														
+															<li><a href="..#116-library">1.16 Library</a></li>
+														
+															<li><a href="..#117-command-line">1.17 Command line</a></li>
+														
+															<li><a href="..#118-spotify">1.18 Spotify</a></li>
+														
+															<li><a href="..#119-lastfm">1.19 LastFM</a></li>
+														
+															<li><a href="..#120-mpd-clients">1.20 MPD clients</a></li>
+														
+															<li><a href="..#121-references">1.21 References</a></li>
+														
+													
+														<li><a href="..#2-welcome-to-mkdocs">2. Welcome to MkDocs</a></li>
+														
+															<li><a href="..#21-commands">2.1 Commands</a></li>
+														
+															<li><a href="..#22-project-layout">2.2 Project layout</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">JSON API</span>
+												<ul>
+													
+														<li><a href="../README_JSON_API/#1-forked-daapd-api-endpoint-reference">1. forked-daapd API Endpoint Reference</a></li>
+														
+															<li><a href="../README_JSON_API/#11-player">1.1 Player</a></li>
+														
+															<li><a href="../README_JSON_API/#12-outputs-speakers">1.2 Outputs / Speakers</a></li>
+														
+															<li><a href="../README_JSON_API/#13-queue">1.3 Queue</a></li>
+														
+															<li><a href="../README_JSON_API/#14-library">1.4 Library</a></li>
+														
+															<li><a href="../README_JSON_API/#15-search">1.5 Search</a></li>
+														
+															<li><a href="../README_JSON_API/#16-server-info">1.6 Server info</a></li>
+														
+															<li><a href="../README_JSON_API/#17-settings">1.7 Settings</a></li>
+														
+															<li><a href="../README_JSON_API/#18-push-notifications">1.8 Push notifications</a></li>
+														
+															<li><a href="../README_JSON_API/#19-object-model">1.9 Object model</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">WEBINTERFACE</span>
+												<ul>
+													
+														<li><a href="../README_PLAYER_WEBINTERFACE/#1-forked-daapd-player-web-interface">1. forked-daapd player web interface</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#11-screenshots">1.1 Screenshots</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#12-usage">1.2 Usage</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#13-build-setup">1.3 Build Setup</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">SMARTPL</span>
+												<ul>
+													
+														<li><a href="../README_SMARTPL/#1-forked-daapd-smart-playlists">1. forked-daapd smart playlists</a></li>
+														
+															<li><a href="../README_SMARTPL/#11-syntax">1.1 Syntax</a></li>
+														
+															<li><a href="../README_SMARTPL/#12-examples">1.2 Examples</a></li>
+														
+															<li><a href="../README_SMARTPL/#13-date-operand-syntax">1.3 Date operand syntax</a></li>
+														
+															<li><a href="../README_SMARTPL/#differences-to-mt-daapd-smart-playlists">Differences to mt-daapd smart playlists</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li><a href="..">Audio</a></li>
+										
+									
+									</ul>
+								</nav>
+							
+
+							<!-- Footer -->
+								<footer id="footer">
+									<p class="copyright">&copy; Untitled. All rights reserved. Demo Images: <a href="https://unsplash.com">Unsplash</a>. Design: <a href="https://html5up.net">HTML5 UP</a>.</p>
+								</footer>
+
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../assets/js/jquery.min.js"></script>
+			<script src="../assets/js/browser.min.js"></script>
+			<script src="../assets/js/breakpoints.min.js"></script>
+			<script src="../assets/js/util.js"></script>
+			<script src="../assets/js/main.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+			<script>hljs.initHighlightingOnLoad();</script>
+			<script>var base_url = '..';</script>
+				<script src="../search/main.js" defer></script>
+	</body>
+</html>

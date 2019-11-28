@@ -1,0 +1,1904 @@
+openapi: 3.0.3
+servers:
+  - url: "http://forked-daapd.local:3689/api"
+  - url: "http://localhost:3689/api"
+info:
+  description: >-
+    forked-daapd API Endpoint Reference
+  version: 1.0.0
+  title: forked-daapd API
+tags:
+  - name: player
+    description: "Control playback, volume, shuffle/repeat modes"
+  - name: outputs
+    description: "Outputs / Speakers: list available outputs and enable/disable outputs"
+  - name: queue
+    description: "List, add or modify the current queue"
+  - name: library
+    description: "list playlists, artists, albums and tracks from your library or trigger library rescan"
+  - name: settings
+    description: "List and change settings"
+paths:
+  /player:
+    get:
+      tags:
+        - player
+      summary: Get player status
+      description: ""
+      operationId: getPlayerStatus
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  state:
+                    type: string
+                    description: play, pause or stop
+                  repeat:
+                    type: string
+                    description: off, all or single
+                  consume:
+                    type: boolean
+                    description: true if consume mode is enabled
+                  shuffle:
+                    type: boolean
+                    description: true if shuffle mode is enabled
+                  volume:
+                    type: integer
+                    description: Master volume in percent (0 - 100)
+                  item_id:
+                    type: integer
+                    description: The current playing queue item id
+                  item_length_ms:
+                    type: integer
+                    description: Total length in milliseconds of the current queue item
+                  item_progress_ms:
+                    type: integer
+                    description: Progress into the current queue item in milliseconds
+              example:
+                state: "pause"
+                repeat: "off"
+                consume: false
+                shuffle: false
+                volume: 50
+                item_id: 269
+                item_length_ms: 278093
+                item_progress_ms: 3674
+  /player/play:
+    put:
+      tags:
+        - player
+      summary: Start or resume playback
+      description: ""
+      operationId: setPlayerPlay
+      responses:
+        "204":
+          description: successful operation
+  /player/pause:
+    put:
+      tags:
+        - player
+      summary: Pause playback
+      description: ""
+      operationId: setPlayerPause
+      responses:
+        "204":
+          description: successful operation
+  /player/stop:
+    put:
+      tags:
+        - player
+      summary: Stop playback
+      description: ""
+      operationId: setPlayerStop
+      responses:
+        "204":
+          description: successful operation
+  /player/toggle:
+    put:
+      tags:
+        - player
+      summary: Toggle play / pause
+      description: ""
+      operationId: setPlayerToggle
+      responses:
+        "204":
+          description: successful operation
+  /player/next:
+    put:
+      tags:
+        - player
+      summary: Skip to next track
+      description: ""
+      operationId: setPlayerSkip
+      responses:
+        "204":
+          description: successful operation
+  /player/previous:
+    put:
+      tags:
+        - player
+      summary: Skip to previous track
+      description: ""
+      operationId: setPlayerPrevious
+      responses:
+        "204":
+          description: successful operation
+  /player/shuffle:
+    put:
+      tags:
+        - player
+      summary: Enable or disable shuffle mode
+      description: ""
+      operationId: setPlayerShuffle
+      parameters:
+        - in: query
+          name: state
+          schema:
+            type: boolean
+          description: The new shuffle state, should be either true or false
+      responses:
+        "204":
+          description: successful operation
+  /player/consume:
+    put:
+      tags:
+        - player
+      summary: Enable or disable consume mode
+      description: ""
+      operationId: setPlayerConsume
+      parameters:
+        - in: query
+          name: state
+          schema:
+            type: boolean
+          description: The new consume state, should be either true or false
+      responses:
+        "204":
+          description: successful operation
+  /player/repeat:
+    put:
+      tags:
+        - player
+      summary: Change repeat mode
+      description: ""
+      operationId: setPlayerRepeat
+      parameters:
+        - in: query
+          name: state
+          schema:
+            type: string
+            enum:
+              - off
+              - all
+              - single
+          description: The new repeat mode, should be either off, all or single
+      responses:
+        "204":
+          description: successful operation
+  /player/volume:
+    put:
+      tags:
+        - player
+      summary: Change master volume or volume of a specific output
+      description: "Either volume or step must be present as query parameter"
+      operationId: setPlayerVolume
+      parameters:
+        - in: query
+          name: volume
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+          description: The new volume (0 - 100)
+        - in: query
+          name: step
+          schema:
+            type: integer
+            minimum: -100
+            maximum: 100
+          description: Increase or decrease volume by the given amount (-100 - 100)
+        - in: query
+          name: output_id
+          schema:
+            type: integer
+          description: (Optional) If an output id is given, only the volume of this output will be changed. If parameter is omited, the master volume will be changed.
+      responses:
+        "204":
+          description: successful operation
+  /player/seek:
+    put:
+      tags:
+        - player
+      summary: Seek to a position in the currently playing track
+      description: "Either volume or step must be present as query parameter"
+      operationId: setPlayerSeek
+      parameters:
+        - in: query
+          name: position_ms
+          schema:
+            type: integer
+          description: The new position in milliseconds to seek to
+          examples:
+            relative seek:
+              value: 2000
+              summary: Seek to position
+        - in: query
+          name: seek_ms
+          schema:
+            type: integer
+          description: A relative amount of milliseconds to seek to
+          examples:
+            relative seek:
+              value: -30000
+              summary: Relative seeking (skip 30 seconds backwards)
+      responses:
+        "204":
+          description: successful operation
+
+  /outputs:
+    get:
+      tags:
+        - outputs
+      summary: Get a list of available outputs
+      description: ""
+      operationId: getOutputs
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Output"
+              example:
+                - id: "123456789012345"
+                  name: "kitchen"
+                  type: "AirPlay"
+                  selected: true
+                  has_password: false
+                  requires_auth: false
+                  needs_auth_key: false
+                  volume: 0
+                - id: "0"
+                  name: "Computer"
+                  type: "ALSA"
+                  selected: true
+                  has_password: false
+                  requires_auth: false
+                  needs_auth_key: false
+                  volume: 19
+                - id: "100"
+                  name: "daapd-fifo"
+                  type: "fifo"
+                  selected: false
+                  has_password: false
+                  requires_auth: false
+                  needs_auth_key: false
+                  volume: 0
+  /outputs/set:
+    put:
+      tags:
+        - outputs
+      summary: Set enabled outputs
+      description: "Set the enabled outputs by passing an array of output ids. forked-daapd enables all outputs with the given ids and disables the remaining outputs."
+      operationId: setOutputs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                outputs:
+                  type: array
+                  items:
+                    type: string
+                    description: Output ID
+            example:
+              outputs:
+                - "198018693182577"
+                - "0"
+        description: List of output IDs
+        required: true
+      responses:
+        "204":
+          description: successful operation
+  /outputs/{outputId}:
+    parameters:
+      - in: path
+        name: outputId
+        required: true
+        schema:
+          type: string
+        description: The output id
+    get:
+      tags:
+        - outputs
+      summary: Get an output
+      description: ""
+      operationId: getOutputById
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Output"
+    put:
+      tags:
+        - outputs
+      summary: Change an output
+      description: "Enable or disable an output and change its volume."
+      operationId: setOutputById
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                selected:
+                  type: boolean
+                  description: (Optional) true to enable and false to disable the output
+                volume:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  description: (Optional) Volume in percent (0 - 100)
+                pin:
+                  type: string
+                  description: (Optional) PIN for device verification
+            example:
+              selected: true
+              volume: 50
+        required: true
+      responses:
+        "204":
+          description: successful operation
+  /outputs/{outputId}/toggle:
+    parameters:
+      - in: path
+        name: outputId
+        required: true
+        schema:
+          type: string
+        description: The output id
+    put:
+      tags:
+        - outputs
+      summary: Toggle an output
+      description: "Enable or disable an output, depending on its current state."
+      operationId: toggleOutputById
+      responses:
+        "204":
+          description: successful operation
+
+  /queue:
+    get:
+      tags:
+        - queue
+      summary: List queue items
+      description: ""
+      operationId: getQueue
+      parameters:
+        - in: query
+          name: id
+          schema:
+            type: integer
+          description: (Optional) If a queue item id is given, only the item with the id will be returned.
+        - in: query
+          name: start
+          schema:
+            type: integer
+          description: (Optional) If a startand an end position is given, only the items from start (included) to end (excluded) will be returned. If only a start position is given, only the item at this position will be returned.
+        - in: query
+          name: end
+          schema:
+            type: integer
+          description: (Optional) See start parameter
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                    description: Version number of the current queue
+                  count:
+                    type: integer
+                    description: Number of items in the current queue
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QueueItem"
+                    description: Array of queue item objects
+              example:
+                version: 833
+                count: 1
+                items:
+                  - id: 12122
+                    position: 0
+                    track_id: 10749
+                    title: "Angels"
+                    artist: "The xx"
+                    artist_sort: "xx, The"
+                    album: "Coexist"
+                    album_sort: "Coexist"
+                    albumartist: "The xx"
+                    albumartist_sort: "xx, The"
+                    genre: "Indie Rock"
+                    year: 2012
+                    track_number: 1
+                    disc_number: 1
+                    length_ms: 171735
+                    media_kind: "music"
+                    data_kind: "file"
+                    path: "/music/srv/The xx/Coexist/01 Angels.mp3"
+                    uri: "library:track:10749"
+  /queue/clear:
+    put:
+      tags:
+        - queue
+      summary: Clearing the queue
+      description: "Remove all items form the current queue"
+      operationId: clearQueue
+      responses:
+        "204":
+          description: successful operation
+  /queue/items/add:
+    post:
+      tags:
+        - queue
+      summary: Adding items to the queue
+      description: >-
+        Add tracks, playlists artists or albums to the current queue.
+
+        Either the uris or the expression parameter must be set. If both are set the uris parameter takes presedence and the expression parameter will be ignored.
+      operationId: addQueueItems
+      parameters:
+        - in: query
+          name: uris
+          schema:
+            type: string
+          description: Comma seperated list of resource identifiers (track, playlist, artist or album object uri)
+          examples:
+            Add new items by URI:
+              value: "library:playlist:68,library:artist:2932599850102967727"
+              description: Adding all tracks from playlist 68 and all tracks from artist 2932599850102967727
+        - in: query
+          name: expression
+          schema:
+            type: string
+          description: A smart playlist query expression identifying the tracks that will be added to the queue.
+          examples:
+            Add new items by query language:
+              value: "media_kind+is+music"
+              description: Adding all tracks with media kind `music`
+        - in: query
+          name: position
+          schema:
+            type: integer
+          description: (Optional) If a position is given, new items are inserted starting from this position into the queue.
+        - in: query
+          name: playback
+          schema:
+            type: string
+          description: (Optional) If the playback parameter is set to start, playback will be started after adding the new items.
+        - in: query
+          name: playback_from_position
+          schema:
+            type: integer
+          description: (Optional) If the playback parameter is set to start, playback will be started with the queue item at the position given in playback_from_position.
+        - in: query
+          name: clear
+          schema:
+            type: boolean
+          description: (Optional) If the clear parameter is set to true, the queue will be cleared before adding the new items.
+        - in: query
+          name: shuffle
+          schema:
+            type: boolean
+          description: (Optional) If the shuffle parameter is set to true, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: (Optional) Maximum number of tracks to add
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: Number of tracks added to the queue
+  /queue/items/{itemId}:
+    parameters:
+      - in: path
+        name: itemId
+        schema:
+          type: integer
+        required: true
+        description: Queue item id
+    put:
+      tags:
+        - queue
+      summary: Moving a queue item
+      description: "Move a queue item in the current queue"
+      operationId: moveQueueItemById
+      parameters:
+        - in: query
+          name: new_position
+          schema:
+            type: integer
+          required: true
+          description: The new position for the queue item in the current queue.
+      responses:
+        "204":
+          description: successful operation
+    delete:
+      tags:
+        - queue
+      summary: Removing a queue item
+      description: "Remove a queue item from the current queue"
+      operationId: deleteQueueItemById
+      responses:
+        "204":
+          description: successful operation
+
+  /library:
+    get:
+      tags:
+        - library
+      summary: Library information
+      description: "Get some library stats"
+      operationId: getLibraryInfo
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  songs:
+                    type: integer
+                    description: Array of [`playlist`](#playlist-object) objects
+                  db_playtime:
+                    type: integer
+                    description: Total playtime of all songs in the library
+                  artists:
+                    type: integer
+                    description: Number of album artists in the library
+                  albums:
+                    type: integer
+                    description: Number of albums in the library
+                  started_at:
+                    type: string
+                    description: Server startup time (timestamp in `ISO 8601` format)
+                  updated_at:
+                    type: string
+                    description: Last library update (timestamp in `ISO 8601` format)
+                  updating:
+                    type: boolean
+                    description: "`true` if library rescan is in progress"
+              example:
+                songs: 217
+                db_playtime: 66811
+                artists: 9
+                albums: 19
+                started_at: "2018-11-19T19:06:08Z"
+                updated_at: "2018-11-19T19:06:16Z"
+                updating: false
+  /library/playlists:
+    get:
+      tags:
+        - library
+      summary: List playlists
+      description: "Lists all playlists in your library (does not return playlist folders)"
+      operationId: getLibraryPlaylists
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first playlist to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of playlists to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of playlists in the library
+                  offset:
+                    type: integer
+                    description: Requested offset of the first playlist
+                  limit:
+                    type: integer
+                    description: Requested maximum number of playlists
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Playlist"
+                    description: Array of playlist objects
+  /library/playlists/{playlistId}:
+    parameters:
+      - in: path
+        name: playlistId
+        schema:
+          type: integer
+        description: "Playlist ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: Get a playlist
+      description: "Get a specific playlists in your library"
+      operationId: getLibraryPlaylistById
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Playlist"
+    put:
+      tags:
+        - library
+      summary: Update a playlist
+      description: "Update attributes of a specific playlists in your library"
+      operationId: updateLibraryPlaylistById
+      parameters:
+        - in: query
+          name: query_limit
+          schema:
+            type: integer
+          description: "For RSS feeds, this sets how many podcasts to retrieve"
+      responses:
+        "204":
+          description: successful operation
+    delete:
+      tags:
+        - library
+      summary: Delete a playlist
+      description: "Delete a playlist, e.g. a RSS feed"
+      operationId: deleteLibraryPlaylistById
+      responses:
+        "204":
+          description: successful operation
+  /library/playlists/{playlistId}/tracks:
+    parameters:
+      - in: path
+        name: playlistId
+        schema:
+          type: integer
+        description: "Playlist ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: Get a playlist
+      description: "Get a specific playlists in your library"
+      operationId: getLibraryPlaylistTracksByPlaylistId
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first track to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of tracks to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of tracks in the playlist
+                  offset:
+                    type: integer
+                    description: Requested offset of the first track
+                  limit:
+                    type: integer
+                    description: Requested maximum number of tracks
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Track"
+                    description: Array of track objects
+    put:
+      tags:
+        - library
+      summary: Update playlist tracks
+      description: "Updates the play count for tracks in a playlists"
+      operationId: updateLibraryPlaylistTracksByPlaylistId
+      parameters:
+        - in: query
+          name: play_count
+          schema:
+            type: string
+          description: "Either `increment`, `played` or `reset`. `increment` will increment `play_count` and update `time_played`, `played` will be like `increment` but only where `play_count` is 0, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped`"
+      responses:
+        "204":
+          description: successful operation
+  /library/playlists/{playlistId}/playlists:
+    parameters:
+      - in: path
+        name: playlistId
+        schema:
+          type: integer
+        description: "Playlist ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: List playlists in a playlist folder
+      description: "Lists the playlists in a playlist folder"
+      operationId: getLibraryPlaylistFolderPlaylistsByFolderId
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first playlist to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of playlists to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of playlists in the playlist folder
+                  offset:
+                    type: integer
+                    description: Requested offset of the first playlist
+                  limit:
+                    type: integer
+                    description: Requested maximum number of playlists
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Playlist"
+                    description: Array of playlist objects
+  /library/artists:
+    get:
+      tags:
+        - library
+      summary: List artists
+      description: "Lists the artists in your library"
+      operationId: getLibraryArtists
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first artist to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of artists to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of artists in the library
+                  offset:
+                    type: integer
+                    description: Requested offset of the first artist
+                  limit:
+                    type: integer
+                    description: Requested maximum number of artists
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Artist"
+                    description: Array of artist objects
+  /library/artists/{artistId}:
+    parameters:
+      - in: path
+        name: artistId
+        schema:
+          type: integer
+        description: "Artist ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: Get an artist
+      description: "Get a specific artist in your library"
+      operationId: getLibraryArtistById
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artist"
+  /library/artists/{artistId}/albums:
+    parameters:
+      - in: path
+        name: artistId
+        schema:
+          type: integer
+        description: "Artist ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: List artist albums
+      description: "Lists the albums of an artist"
+      operationId: getLibraryAlbumsByArtistId
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first album to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of albums to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of albums from this artist
+                  offset:
+                    type: integer
+                    description: Requested offset of the first album
+                  limit:
+                    type: integer
+                    description: Requested maximum number of albums
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Album"
+                    description: Array of album objects
+  /library/albums:
+    get:
+      tags:
+        - library
+      summary: List albums
+      description: "Lists the albums in your library"
+      operationId: getLibraryAlbums
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first album to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of albums to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of albums in the library
+                  offset:
+                    type: integer
+                    description: Requested offset of the first album
+                  limit:
+                    type: integer
+                    description: Requested maximum number of albums
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Album"
+                    description: Array of album objects
+  /library/albums/{albumId}:
+    parameters:
+      - in: path
+        name: albumId
+        schema:
+          type: integer
+        description: "Album ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: Get an album
+      description: "Get a specific album in your library"
+      operationId: getLibraryAlbumById
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Album"
+  /library/albums/{albumId}/tracks:
+    parameters:
+      - in: path
+        name: albumId
+        schema:
+          type: integer
+        description: "Album ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: List album tracks
+      description: "Lists the tracks in an album"
+      operationId: getLibraryTracksByAlbumId
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first track to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of tracks to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of tracks from this album
+                  offset:
+                    type: integer
+                    description: Requested offset of the first track
+                  limit:
+                    type: integer
+                    description: Requested maximum number of tracks
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Track"
+                    description: Array of track objects
+  /library/tracks/{trackId}:
+    parameters:
+      - in: path
+        name: trackId
+        schema:
+          type: integer
+        description: "Track ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: Get a track
+      description: "Get a specific track in your library"
+      operationId: getLibraryTrackById
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+    put:
+      tags:
+        - library
+      summary: Update track properties
+      description: "Change properties of a specific track (supported properties are `rating` and `play_count`)"
+      operationId: updateLibraryTrackById
+      parameters:
+        - in: query
+          name: rating
+          schema:
+            type: string
+          description: "The new rating (0 - 100)"
+        - in: query
+          name: play_count
+          schema:
+            type: string
+          description: "Either `increment`, `played` or `reset`. `increment` will increment `play_count` and update `time_played`, `played` will be like `increment` but only where `play_count` is 0, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped`"
+      responses:
+        "204":
+          description: successful operation
+  /library/tracks/{tracksId}/playlists:
+    parameters:
+      - in: path
+        name: tracksId
+        schema:
+          type: integer
+        description: "Track ID"
+        required: true
+    get:
+      tags:
+        - library
+      summary: List playlists for a track
+      description: "Get the list of playlists that contain a track (does not return smart playlists)"
+      operationId: getLibraryPlaylistsByTrackId
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first playlist to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of playlists to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of playlists for this track
+                  offset:
+                    type: integer
+                    description: Requested offset of the first playlist
+                  limit:
+                    type: integer
+                    description: Requested maximum number of playlists
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Playlist"
+                    description: Array of playlist objects
+  /library/genres:
+    get:
+      tags:
+        - library
+      summary: List genres
+      description: "Lists the genres in your library"
+      operationId: getLibraryGenres
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first genre to return"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of genres to return"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of genres in the library
+                  offset:
+                    type: integer
+                    description: Requested offset of the first genre
+                  limit:
+                    type: integer
+                    description: Requested maximum number of genres
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Genre"
+                    description: Array of genre objects
+  /library/count:
+    get:
+      tags:
+        - library
+      summary: Get count of tracks, artists and albums
+      description: "Get information about the number of tracks, artists and albums and the total playtime"
+      operationId: getLibraryCount
+      parameters:
+        - in: query
+          name: expression
+          schema:
+            type: integer
+          description: "*(Optional)* The smart playlist query expression, if this parameter is omitted returns the information for the whole library"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tracks:
+                    type: integer
+                    description: Number of tracks matching the expression
+                  artists:
+                    type: integer
+                    description: Number of artists matching the expression
+                  albums:
+                    type: integer
+                    description: Number of albums matching the expression
+                  db_playtime:
+                    type: integer
+                    description: Total playtime in milliseconds of all tracks matching the expression
+              example:
+                tracks: 6811
+                artists: 355
+                albums: 646
+                db_playtime: 1590767objects
+  /library/files:
+    get:
+      tags:
+        - library
+      summary: List files
+      description: "Lists the files / directory structure in your library"
+      operationId: getLibraryFiles
+      parameters:
+        - in: query
+          name: directory
+          schema:
+            type: string
+          description: "*(Optional)* A path to a directory in your local library."
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  directories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Directory"
+                  tracks:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of tracks in the directory
+                      offset:
+                        type: integer
+                        description: Requested offset of the first track
+                      limit:
+                        type: integer
+                        description: Requested maximum number of tracks
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Track"
+                        description: Array of track objects
+                  playlists:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of playlists in the directory
+                      offset:
+                        type: integer
+                        description: Requested offset of the first playlist
+                      limit:
+                        type: integer
+                        description: Requested maximum number of playlists
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Playlist"
+                        description: Array of playlist objects
+  /library/update:
+    put:
+      tags:
+        - library
+      summary: Trigger rescan
+      description: "Trigger a library rescan"
+      operationId: updateLibrary
+      responses:
+        "204":
+          description: successful operation
+  /library/rescan:
+    put:
+      tags:
+        - library
+      summary: Trigger metadata rescan
+      description: "Trigger a library metadata rescan even if files have not been updated.  Maintenence method."
+      operationId: rescanLibrary
+      responses:
+        "204":
+          description: successful operation
+  /library/backup:
+    put:
+      tags:
+        - library
+      summary: Backup DB
+      description: "Request a library backup - configuration must be enabled and point to a valid writable path. Maintenance method."
+      operationId: backupLibrary
+      responses:
+        "204":
+          description: successful operation
+
+  /search:
+    get:
+      tags:
+        - library
+      summary: Search by search term
+      description: "Search for playlists, artists, albums, tracks, genres that include the given query in their title (case insensitive matching)."
+      operationId: search
+      parameters:
+        - in: query
+          name: query
+          schema:
+            type: string
+          description: The search keyword
+        - in: query
+          name: expression
+          schema:
+            type: string
+          description: The smart playlist query expression
+        - in: query
+          name: type
+          schema:
+            type: string
+          description: Comma separated list of the result types (`playlist`, `artist`, `album`, `track`, `genre`)
+        - in: query
+          name: media_kind
+          schema:
+            type: string
+          description: "*(Optional)* Filter results by media kind (`music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow`). Filter only applies to artist, album and track result types."
+        - in: query
+          name: offset
+          schema:
+            type: integer
+          description: "*(Optional)* Offset of the first item to return for each type"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: "*(Optional)* Maximum number of items to return for each type"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tracks:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of tracks
+                      offset:
+                        type: integer
+                        description: Requested offset of the first track
+                      limit:
+                        type: integer
+                        description: Requested maximum number of tracks
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Track"
+                        description: Array of track objects
+                  artists:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of artists
+                      offset:
+                        type: integer
+                        description: Requested offset of the first artist
+                      limit:
+                        type: integer
+                        description: Requested maximum number of artists
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Artist"
+                        description: Array of artist objects
+                  albums:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of albums
+                      offset:
+                        type: integer
+                        description: Requested offset of the first album
+                      limit:
+                        type: integer
+                        description: Requested maximum number of albums
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Album"
+                        description: Array of album objects
+                  playlists:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of playlists
+                      offset:
+                        type: integer
+                        description: Requested offset of the first playlist
+                      limit:
+                        type: integer
+                        description: Requested maximum number of playlists
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Playlist"
+                        description: Array of playlist objects
+
+  /config:
+    get:
+      tags:
+        - settings
+      summary: Get configuration
+      description: "Get configuration information"
+      operationId: getConfig
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    description: forked-daapd server version
+                  websocket_port:
+                    type: integer
+                    description: "Port number for the [websocket](#push-notifications) (or `0` if websocket is disabled)"
+                  buildoptions:
+                    type: array
+                    items:
+                      type: string
+                    description: Array of strings indicating which features are supported by the forked-daapd server
+  /settings:
+    get:
+      tags:
+        - settings
+      summary: List categories
+      description: "List all settings categories with their options"
+      operationId: getSettingsCategories
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Category"
+  /settings/{categoryName}:
+    parameters:
+      - in: path
+        name: categoryName
+        schema:
+          type: string
+        required: true
+        description: "Settings category name"
+    get:
+      tags:
+        - settings
+      summary: Get a category
+      description: "Get a settings category with their options"
+      operationId: getSettingsCategoryByName
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Category"
+  /settings/{categoryName}/{optionName}:
+    parameters:
+      - in: path
+        name: categoryName
+        schema:
+          type: string
+        required: true
+        description: "Settings category name"
+      - in: path
+        name: optionName
+        schema:
+          type: string
+        required: true
+        description: "Settings option name"
+    get:
+      tags:
+        - settings
+      summary: Get an option
+      description: "Get a single settings option"
+      operationId: getSettingsOptionByName
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Option"
+    put:
+      tags:
+        - settings
+      summary: Change an option value
+      description: "Change an option value"
+      operationId: setSettingsOptionByName
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Option"
+            example:
+              name: "show_composer_now_playing"
+              value: true
+        required: true
+      responses:
+        "204":
+          description: successful operation
+    delete:
+      tags:
+        - settings
+      summary: Delete / reset an option
+      description: "Delete a single settings option (thus resetting it to default)"
+      operationId: deleteSettingsOptionByName
+      responses:
+        "204":
+          description: successful operation
+
+externalDocs:
+  description: forked-daapd documentation
+  url: "https://ejurgensen.github.io/forked-daapd/"
+components:
+  schemas:
+    Output:
+      title: Output / Speaker
+      type: object
+      properties:
+        id:
+          type: string
+          description: Output id
+        name:
+          type: string
+          description: Output name
+        type:
+          type: string
+          enum:
+            - AirPlay
+            - Chromecast
+            - ALSA
+            - Pulseaudio
+            - fifo
+          description: Type of the output (AirPlay, Chromecast, ALSA, Pulseaudio, fifo)
+        selected:
+          type: boolean
+          description: true if output is enabled
+        has_password:
+          type: boolean
+          description: true if output is password protected
+        requires_auth:
+          type: boolean
+          description: true if output requires authentication
+        needs_auth_key:
+          type: boolean
+          description: true if output requires an authorization key (device verification)
+        volume:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Volume in percent (0 - 100)
+      example:
+        id: "123456789012345"
+        name: "kitchen"
+        type: "AirPlay"
+        selected: true
+        has_password: false
+        requires_auth: false
+        needs_auth_key: false
+        volume: 0
+    QueueItem:
+      title: Queue Item
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Item id
+        position:
+          type: integer
+          description: Position in the queue (starting with zero)
+        track_id:
+          type: string
+          description: Track id
+        title:
+          type: string
+          description: Title
+        artist:
+          type: string
+          description: Track artist name
+        artist_sort:
+          type: string
+          description: Track artist sort name
+        album:
+          type: string
+          description: Album name
+        album_sort:
+          type: string
+          description: Album sort name
+        album_id:
+          type: string
+          description: Album id
+        album_artist:
+          type: string
+          description: Album artist name
+        album_artist_sort:
+          type: string
+          description: Album artist sort name
+        album_artist_id:
+          type: string
+          description: Album artist id
+        composer:
+          type: string
+          description: Composer (optional)
+        genre:
+          type: string
+          description: Genre
+        year:
+          type: integer
+          description: Release year
+        track_number:
+          type: integer
+          description: Track number
+        disc_number:
+          type: integer
+          description: Disc number
+        length_ms:
+          type: integer
+          description: Track length in milliseconds
+        media_kind:
+          type: string
+          description: "Media type of this track: music, movie, podcast, audiobook, musicvideo, tvshow"
+        data_kind:
+          type: string
+          description: "Data type of this track: file, url, spotify, pipe"
+        path:
+          type: string
+          description: Path
+        uri:
+          type: string
+          description: Resource identifier
+        artwork_url:
+          type: string
+          description: (optional) Artwork url
+        type:
+          type: string
+          description: file (codec) type (ie mp3/flac/...)
+        bitrate:
+          type: string
+          description: file bitrate (ie 192/128/...)
+        samplerate:
+          type: string
+          description: file sample rate (ie 44100/48000/...)
+        channel:
+          type: string
+          description: file channel (ie mono/stereo/xx ch))
+      example:
+        id: 12122
+        position: 0
+        track_id: 10749
+        title: "Angels"
+        artist: "The xx"
+        artist_sort: "xx, The"
+        album: "Coexist"
+        album_sort: "Coexist"
+        albumartist: "The xx"
+        albumartist_sort: "xx, The"
+        genre: "Indie Rock"
+        year: 2012
+        track_number: 1
+        disc_number: 1
+        length_ms: 171735
+        media_kind: "music"
+        data_kind: "file"
+        path: "/music/srv/The xx/Coexist/01 Angels.mp3"
+        uri: "library:track:10749"
+    Playlist:
+      title: Playlist
+      type: object
+      properties:
+        id:
+          type: string
+          description: Playlist id
+        name:
+          type: string
+          description: Playlist name
+        path:
+          type: string
+          description: Path
+        parent_id:
+          type: integer
+          description: Playlist id of the parent (folder) playlist
+        type:
+          type: string
+          description: Type of this playlist `special`, `folder`, `smart`, `plain`
+        smart_playlist:
+          type: boolean
+          description: "`true` if playlist is a smart playlist"
+        folder:
+          type: boolean
+          description: "`true` if it is a playlist folder"
+        uri:
+          type: string
+          description: Resource identifier
+    Artist:
+      title: Artist
+      type: object
+      properties:
+        id:
+          type: string
+          description: Artist id
+        name:
+          type: string
+          description: Artist name
+        name_sort:
+          type: string
+          description: Artist sort name
+        album_count:
+          type: integer
+          description: Number of albums
+        track_count:
+          type: integer
+          description: Number of tracks
+        length_ms:
+          type: integer
+          description: Total length of tracks in milliseconds
+        uri:
+          type: string
+          description: Resource identifier
+        artwork_url:
+          type: string
+          description: "*(optional)* [Artwork url](#artwork-urls)"
+    Album:
+      title: Album
+      type: object
+      properties:
+        id:
+          type: string
+          description: Album id
+        name:
+          type: string
+          description: Album name
+        name_sort:
+          type: string
+          description: Album sort name
+        artist_id:
+          type: string
+          description: Album artist id
+        artist:
+          type: string
+          description: Album artist name
+        track_count:
+          type: integer
+          description: Number of tracks
+        length_ms:
+          type: integer
+          description: Total length of tracks in milliseconds
+        uri:
+          type: string
+          description: Resource identifier
+        artwork_url:
+          type: string
+          description: "*(optional)* [Artwork url](#artwork-urls)"
+    Track:
+      title: Track
+      type: object
+      properties:
+        id:
+          type: string
+          description: Track id
+        title:
+          type: string
+          description: Title
+        title_sort:
+          type: string
+          description: Sort title
+        artist:
+          type: string
+          description: Track artist name
+        artist_sort:
+          type: string
+          description: Track artist sort name
+        album:
+          type: string
+          description: Album name
+        album_sort:
+          type: string
+          description: Album sort name
+        album_id:
+          type: string
+          description: Album id
+        album_artist:
+          type: string
+          description: Album artist name
+        album_artist_sort:
+          type: string
+          description: Album artist sort name
+        album_artist_id:
+          type: string
+          description: Album artist id
+        composer:
+          type: string
+          description: Track composer
+        genre:
+          type: string
+          description: Genre
+        year:
+          type: integer
+          description: Release year
+        track_number:
+          type: integer
+          description: Track number
+        disc_number:
+          type: integer
+          description: Disc number
+        length_ms:
+          type: integer
+          description: Track length in milliseconds
+        rating:
+          type: integer
+          description: Track rating (ranges from 0 to 100)
+        play_count:
+          type: integer
+          description: How many times the track was played
+        skip_count:
+          type: integer
+          description: How many times the track was skipped
+        time_played:
+          type: string
+          description: Timestamp in `ISO 8601` format
+        time_skipped:
+          type: string
+          description: Timestamp in `ISO 8601` format
+        time_added:
+          type: string
+          description: Timestamp in `ISO 8601` format
+        date_released:
+          type: string
+          description: Date in the format `yyyy-mm-dd`
+        seek_ms:
+          type: integer
+          description: Resume point in milliseconds (available only for podcasts and audiobooks)
+        media_kind:
+          type: string
+          description: Media type of this track `music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow`
+        data_kind:
+          type: string
+          description: Data type of this track `file`, `url`, `spotify`, `pipe`
+        path:
+          type: string
+          description: Path
+        uri:
+          type: string
+          description: Resource identifier
+        artwork_url:
+          type: string
+          description: "*(optional)* [Artwork url](#artwork-urls)"
+    Genre:
+      title: Genre
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of genre
+    Directory:
+      title: Directory
+      type: object
+      properties:
+        path:
+          type: string
+          description: Directory path
+    Category:
+      title: Settings Category
+      type: object
+      properties:
+        name:
+          type: string
+          description: Category name
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/Option"
+          description: Array of option in this category
+    Option:
+      title: Settings Option
+      type: object
+      properties:
+        name:
+          type: string
+          description: Option name
+        type:
+          type: integer
+          description: "The type of the value for this option (`0`: integer, `1`: boolean, `2`: string)"
+        value:
+          description: Current value for this option
+      example:
+        name: "show_composer_now_playing"
+        type: 1
+        value: true
+    Paging:
+      title: Paging Object
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            description: result object
+          description: Array of result objects
+        total:
+          type: integer
+          description: Total number of items
+        offset:
+          type: integer
+          description: Requested offset of the first item
+        limit:
+          type: integer
+          description: Requested maximum number of items

@@ -1,0 +1,249 @@
+<!DOCTYPE HTML>
+<!--
+	Editorial by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Generic - Editorial by HTML5 UP</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../assets/css/main.css" />
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" /> 
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+
+							<!-- Header -->
+								<header id="header">
+									<a href="index.html" class="logo"><strong>Editorial</strong> by HTML5 UP</a>
+									<ul class="icons">
+										<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
+										<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
+										<li><a href="#" class="icon brands fa-snapchat-ghost"><span class="label">Snapchat</span></a></li>
+										<li><a href="#" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
+										<li><a href="#" class="icon brands fa-medium-m"><span class="label">Medium</span></a></li>
+									</ul>
+								</header>
+
+							<!-- Content -->
+								<section>
+									<h1 id="1-forked-daapd-player-web-interface">1. forked-daapd player web interface</h1>
+<p>Mobile friendly player web interface for <a href="http://ejurgensen.github.io/forked-daapd/">forked-daapd</a> build with <a href="https://vuejs.org">Vue.js</a>, <a href="http://bulma.io">Bulma</a>.</p>
+<h2 id="11-screenshots">1.1 Screenshots</h2>
+<p><img src="screenshots/Screenshot-now-playing.png" width="300" alt="Now playing"> <img src="screenshots/Screenshot-queue.png" width="300" alt="Queue"> <img src="screenshots/Screenshot-artists.png" width="300" alt="Artists"> <img src="screenshots/Screenshot-album.png" width="300" alt="Album"></p>
+<h2 id="12-usage">1.2 Usage</h2>
+<p>You can find forked-daapd's web interface at <a href="http://forked-daapd.local:3689">http://forked-daapd.local:3689</a>
+or alternatively at <a href="http://[your_server_address_here]:3689">http://[your_server_address_here]:3689</a>.</p>
+<h2 id="13-build-setup">1.3 Build Setup</h2>
+<p>The source is located in the <code>web-src</code> folder.</p>
+<pre><code>cd web-src
+</code></pre>
+
+<p>It is based on the Vue.js webpack template. For a detailed explanation on how things work, check out the <a href="http://vuejs-templates.github.io/webpack/">guide</a> and <a href="http://vuejs.github.io/vue-loader">docs for vue-loader</a>.</p>
+<pre><code class="bash"># install dependencies
+npm install
+
+# serve with hot reload at localhost:8080
+npm run dev
+
+# build for production with minification (will update player web interface in &quot;../htdocs&quot;)
+npm run build
+
+# build for production and view the bundle analyzer report
+npm run build --report
+</code></pre>
+
+<p>After running <code>npm run dev</code> the web interface is reachable at <a href="http://localhost:8080">localhost:8080</a>. By default it expects <strong>forked-daapd</strong> to be running at <a href="http://localhost:3689">localhost:3689</a> and proxies all JSON API calls to this location. If <strong>forked-daapd</strong> is running at a different location you need to modify the <code>proxyTable</code> configuration in <code>config/index.js</code></p>
+								</section>
+
+						</div>
+					</div>
+
+				<!-- Sidebar -->
+					<div id="sidebar">
+						<div class="inner">
+
+							<!-- Search -->
+							
+								<section id="search" class="alt">
+									<form action="../search.html" method="get">
+										<input type="text" name="q" id="mkdocs-search-query" placeholder="Search" />
+									</form>
+								</section>
+							
+
+							<!-- Menu -->
+							
+								<nav id="menu">
+									<header class="major">
+										<h2>Menu</h2>
+									</header>
+									<ul>
+									
+										
+											<li>
+												<span class="opener">Home</span>
+												<ul>
+													
+														<li><a href="..#1-forked-daapd">1. forked-daapd</a></li>
+														
+															<li><a href="..#11-looking-for-help">1.1 Looking for help?</a></li>
+														
+															<li><a href="..#12-contents">1.2 Contents</a></li>
+														
+															<li><a href="..#13-getting-started">1.3 Getting started</a></li>
+														
+															<li><a href="..#14-supported-clients">1.4 Supported clients</a></li>
+														
+															<li><a href="..#15-web-interface">1.5 Web interface</a></li>
+														
+															<li><a href="..#16-using-remote">1.6 Using Remote</a></li>
+														
+															<li><a href="..#17-airplay-devicesspeakers">1.7 AirPlay devices/speakers</a></li>
+														
+															<li><a href="..#18-chromecast">1.8 Chromecast</a></li>
+														
+															<li><a href="..#19-local-audio-through-alsa">1.9 Local audio through ALSA</a></li>
+														
+															<li><a href="..#110-local-audio-bluetooth-and-more-through-pulseaudio">1.10 Local audio, Bluetooth and more through Pulseaudio</a></li>
+														
+															<li><a href="..#111-mp3-network-streaming-streaming-to-ios">1.11 MP3 network streaming (streaming to iOS)</a></li>
+														
+															<li><a href="..#112-remote-access">1.12 Remote access</a></li>
+														
+															<li><a href="..#113-supported-formats">1.13 Supported formats</a></li>
+														
+															<li><a href="..#114-playlists-and-internet-radio">1.14 Playlists and internet radio</a></li>
+														
+															<li><a href="..#115-artwork">1.15 Artwork</a></li>
+														
+															<li><a href="..#116-library">1.16 Library</a></li>
+														
+															<li><a href="..#117-command-line">1.17 Command line</a></li>
+														
+															<li><a href="..#118-spotify">1.18 Spotify</a></li>
+														
+															<li><a href="..#119-lastfm">1.19 LastFM</a></li>
+														
+															<li><a href="..#120-mpd-clients">1.20 MPD clients</a></li>
+														
+															<li><a href="..#121-references">1.21 References</a></li>
+														
+													
+														<li><a href="..#2-welcome-to-mkdocs">2. Welcome to MkDocs</a></li>
+														
+															<li><a href="..#21-commands">2.1 Commands</a></li>
+														
+															<li><a href="..#22-project-layout">2.2 Project layout</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">JSON API</span>
+												<ul>
+													
+														<li><a href="../README_JSON_API/#1-forked-daapd-api-endpoint-reference">1. forked-daapd API Endpoint Reference</a></li>
+														
+															<li><a href="../README_JSON_API/#11-player">1.1 Player</a></li>
+														
+															<li><a href="../README_JSON_API/#12-outputs-speakers">1.2 Outputs / Speakers</a></li>
+														
+															<li><a href="../README_JSON_API/#13-queue">1.3 Queue</a></li>
+														
+															<li><a href="../README_JSON_API/#14-library">1.4 Library</a></li>
+														
+															<li><a href="../README_JSON_API/#15-search">1.5 Search</a></li>
+														
+															<li><a href="../README_JSON_API/#16-server-info">1.6 Server info</a></li>
+														
+															<li><a href="../README_JSON_API/#17-settings">1.7 Settings</a></li>
+														
+															<li><a href="../README_JSON_API/#18-push-notifications">1.8 Push notifications</a></li>
+														
+															<li><a href="../README_JSON_API/#19-object-model">1.9 Object model</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">WEBINTERFACE</span>
+												<ul>
+													
+														<li><a href="./#1-forked-daapd-player-web-interface">1. forked-daapd player web interface</a></li>
+														
+															<li><a href="./#11-screenshots">1.1 Screenshots</a></li>
+														
+															<li><a href="./#12-usage">1.2 Usage</a></li>
+														
+															<li><a href="./#13-build-setup">1.3 Build Setup</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">SMARTPL</span>
+												<ul>
+													
+														<li><a href="../README_SMARTPL/#1-forked-daapd-smart-playlists">1. forked-daapd smart playlists</a></li>
+														
+															<li><a href="../README_SMARTPL/#11-syntax">1.1 Syntax</a></li>
+														
+															<li><a href="../README_SMARTPL/#12-examples">1.2 Examples</a></li>
+														
+															<li><a href="../README_SMARTPL/#13-date-operand-syntax">1.3 Date operand syntax</a></li>
+														
+															<li><a href="../README_SMARTPL/#differences-to-mt-daapd-smart-playlists">Differences to mt-daapd smart playlists</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li><a href="..">Audio</a></li>
+										
+									
+									</ul>
+								</nav>
+							
+
+							<!-- Footer -->
+								<footer id="footer">
+									<p class="copyright">&copy; Untitled. All rights reserved. Demo Images: <a href="https://unsplash.com">Unsplash</a>. Design: <a href="https://html5up.net">HTML5 UP</a>.</p>
+								</footer>
+
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../assets/js/jquery.min.js"></script>
+			<script src="../assets/js/browser.min.js"></script>
+			<script src="../assets/js/breakpoints.min.js"></script>
+			<script src="../assets/js/util.js"></script>
+			<script src="../assets/js/main.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+			<script>hljs.initHighlightingOnLoad();</script>
+			<script>var base_url = '..';</script>
+				<script src="../search/main.js" defer></script>
+	</body>
+</html>

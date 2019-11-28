@@ -1,0 +1,3644 @@
+<!DOCTYPE HTML>
+<!--
+	Editorial by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Generic - Editorial by HTML5 UP</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../assets/css/main.css" />
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" /> 
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+
+							<!-- Header -->
+								<header id="header">
+									<a href="index.html" class="logo"><strong>Editorial</strong> by HTML5 UP</a>
+									<ul class="icons">
+										<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
+										<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
+										<li><a href="#" class="icon brands fa-snapchat-ghost"><span class="label">Snapchat</span></a></li>
+										<li><a href="#" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
+										<li><a href="#" class="icon brands fa-medium-m"><span class="label">Medium</span></a></li>
+									</ul>
+								</header>
+
+							<!-- Content -->
+								<section>
+									<h1 id="1-forked-daapd-api-endpoint-reference">1. forked-daapd API Endpoint Reference</h1>
+<p>Available API endpoints:</p>
+<ul>
+<li><a href="#player">Player</a>: control playback, volume, shuffle/repeat modes</li>
+<li><a href="#outputs--speakers">Outputs / Speakers</a>: list available outputs and enable/disable outputs</li>
+<li><a href="#queue">Queue</a>: list, add or modify the current queue</li>
+<li><a href="#library">Library</a>: list playlists, artists, albums and tracks from your library or trigger library rescan</li>
+<li><a href="#search">Search</a>: search for playlists, artists, albums and tracks</li>
+<li><a href="#server-info">Server info</a>: get server information</li>
+<li><a href="#settings">Settings</a>: list and change settings for the player web interface</li>
+<li><a href="#push-notifications">Push notifications</a>: receive push notifications</li>
+</ul>
+<p>JSON-Object model:</p>
+<ul>
+<li><a href="#queue-item-object">Queue item</a></li>
+<li><a href="#playlist-object">Playlist</a></li>
+<li><a href="#artist-object">Artist</a></li>
+<li><a href="#album-object">Album</a></li>
+<li><a href="#track-object">Track</a></li>
+</ul>
+<h2 id="11-player">1.1 Player</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><a href="#get-player-status">/api/player</a></td>
+<td>Get player status</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#control-playback">/api/player/play, /api/player/pause, /api/player/stop, /api/player/toggle</a></td>
+<td>Start, pause or stop playback</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#skip-tracks">/api/player/next, /api/player/previous</a></td>
+<td>Skip forward or backward</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#set-shuffle-mode">/api/player/shuffle</a></td>
+<td>Set shuffle mode</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#set-consume-mode">/api/player/consume</a></td>
+<td>Set consume mode</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#set-repeat-mode">/api/player/repeat</a></td>
+<td>Set repeat mode</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#set-volume">/api/player/volume</a></td>
+<td>Set master volume or volume for a specific output</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#seek">/api/player/seek</a></td>
+<td>Seek to a position in the currently playing track</td>
+</tr>
+</tbody>
+</table>
+<h3 id="111-get-player-status">1.1.1 Get player status</h3>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/player
+</code></pre>
+
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>state</td>
+<td>string</td>
+<td><code>play</code>, <code>pause</code> or <code>stop</code></td>
+</tr>
+<tr>
+<td>repeat</td>
+<td>string</td>
+<td><code>off</code>, <code>all</code> or <code>single</code></td>
+</tr>
+<tr>
+<td>consume</td>
+<td>boolean</td>
+<td><code>true</code> if consume mode is enabled</td>
+</tr>
+<tr>
+<td>shuffle</td>
+<td>boolean</td>
+<td><code>true</code> if shuffle mode is enabled</td>
+</tr>
+<tr>
+<td>volume</td>
+<td>integer</td>
+<td>Master volume in percent (0 - 100)</td>
+</tr>
+<tr>
+<td>item_id</td>
+<td>integer</td>
+<td>The current playing queue item <code>id</code></td>
+</tr>
+<tr>
+<td>item_length_ms</td>
+<td>integer</td>
+<td>Total length in milliseconds of the current queue item</td>
+</tr>
+<tr>
+<td>item_progress_ms</td>
+<td>integer</td>
+<td>Progress into the current queue item in milliseconds</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/player&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;state&quot;: &quot;pause&quot;,
+  &quot;repeat&quot;: &quot;off&quot;,
+  &quot;consume&quot;: false,
+  &quot;shuffle&quot;: false,
+  &quot;volume&quot;: 50,
+  &quot;item_id&quot;: 269,
+  &quot;item_length_ms&quot;: 278093,
+  &quot;item_progress_ms&quot;: 3674
+}
+</code></pre>
+
+<h3 id="112-control-playback">1.1.2 Control playback</h3>
+<p>Start or resume, pause, stop playback.</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/player/play
+</code></pre>
+
+<pre><code class="http">PUT /api/player/pause
+</code></pre>
+
+<pre><code class="http">PUT /api/player/stop
+</code></pre>
+
+<pre><code class="http">PUT /api/player/toggle
+</code></pre>
+
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/play&quot;
+</code></pre>
+
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/pause&quot;
+</code></pre>
+
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/stop&quot;
+</code></pre>
+
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/toggle&quot;
+</code></pre>
+
+<h3 id="113-skip-tracks">1.1.3 Skip tracks</h3>
+<p>Skip forward or backward</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/player/next
+</code></pre>
+
+<pre><code class="http">PUT /api/player/previous
+</code></pre>
+
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/next&quot;
+</code></pre>
+
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/previous&quot;
+</code></pre>
+
+<h3 id="114-set-shuffle-mode">1.1.4 Set shuffle mode</h3>
+<p>Enable or disable shuffle mode</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/player/shuffle
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>state</td>
+<td>The new shuffle state, should be either <code>true</code> or <code>false</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/shuffle?state=true&quot;
+</code></pre>
+
+<h3 id="115-set-consume-mode">1.1.5 Set consume mode</h3>
+<p>Enable or disable consume mode</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/player/consume
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>state</td>
+<td>The new consume state, should be either <code>true</code> or <code>false</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/consume?state=true&quot;
+</code></pre>
+
+<h3 id="116-set-repeat-mode">1.1.6 Set repeat mode</h3>
+<p>Change repeat mode</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/player/repeat
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>state</td>
+<td>The new repeat mode, should be either <code>off</code>, <code>all</code> or <code>single</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/repeat?state=all&quot;
+</code></pre>
+
+<h3 id="117-set-volume">1.1.7 Set volume</h3>
+<p>Change master volume or volume of a specific output.</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/player/volume
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>volume</td>
+<td>The new volume (0 - 100)</td>
+</tr>
+<tr>
+<td>step</td>
+<td>The increase or decrease volume by the given amount (-100 - 100)</td>
+</tr>
+<tr>
+<td>output_id</td>
+<td><em>(Optional)</em> If an output id is given, only the volume of this output will be changed. If parameter is omited, the master volume will be changed.</td>
+</tr>
+</tbody>
+</table>
+<p>Either <code>volume</code> or <code>step</code> must be present as query parameter</p>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/volume?volume=50&quot;
+</code></pre>
+
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/volume?step=-5&quot;
+</code></pre>
+
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/volume?volume=50&amp;output_id=0&quot;
+</code></pre>
+
+<h3 id="118-seek">1.1.8 Seek</h3>
+<p>Seek to a position in the currently playing track.</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/player/seek
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>position_ms</td>
+<td>The new position in milliseconds to seek to</td>
+</tr>
+<tr>
+<td>seek_ms</td>
+<td>A relative amount of milliseconds to seek to</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<p>Seek to position:</p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/seek?position_ms=2000&quot;
+</code></pre>
+
+<p>Relative seeking (skip 30 seconds backwards):</p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/player/seek?seek_ms=-30000&quot;
+</code></pre>
+
+<h2 id="12-outputs-speakers">1.2 Outputs / Speakers</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><a href="#get-a-list-of-available-outputs">/api/outputs</a></td>
+<td>Get a list of available outputs</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#set-enabled-outputs">/api/outputs/set</a></td>
+<td>Set enabled outputs</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-an-output">/api/outputs/{id}</a></td>
+<td>Get an output</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#change-an-output">/api/outputs/{id}</a></td>
+<td>Change an output (enable/disable or volume)</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#toggle-an-output">/api/outputs/{id}/toggle</a></td>
+<td>Enable or disable an output, depending on the current state</td>
+</tr>
+</tbody>
+</table>
+<h3 id="121-get-a-list-of-available-outputs">1.2.1 Get a list of available outputs</h3>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/outputs
+</code></pre>
+
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>outputs</td>
+<td>array</td>
+<td>Array of <code>output</code> objects</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>output</code> object</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>Output id</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Output name</td>
+</tr>
+<tr>
+<td>type</td>
+<td>string</td>
+<td>Type of the output: <code>AirPlay</code>, <code>Chromecast</code>, <code>ALSA</code>, <code>Pulseaudio</code>, <code>fifo</code></td>
+</tr>
+<tr>
+<td>selected</td>
+<td>boolean</td>
+<td><code>true</code> if output is enabled</td>
+</tr>
+<tr>
+<td>has_password</td>
+<td>boolean</td>
+<td><code>true</code> if output is password protected</td>
+</tr>
+<tr>
+<td>requires_auth</td>
+<td>boolean</td>
+<td><code>true</code> if output requires authentication</td>
+</tr>
+<tr>
+<td>needs_auth_key</td>
+<td>boolean</td>
+<td><code>true</code> if output requires an authorization key (device verification)</td>
+</tr>
+<tr>
+<td>volume</td>
+<td>integer</td>
+<td>Volume in percent (0 - 100)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/outputs&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;outputs&quot;: [
+    {
+      &quot;id&quot;: &quot;123456789012345&quot;,
+      &quot;name&quot;: &quot;kitchen&quot;,
+      &quot;type&quot;: &quot;AirPlay&quot;,
+      &quot;selected&quot;: true,
+      &quot;has_password&quot;: false,
+      &quot;requires_auth&quot;: false,
+      &quot;needs_auth_key&quot;: false,
+      &quot;volume&quot;: 0
+    },
+    {
+      &quot;id&quot;: &quot;0&quot;,
+      &quot;name&quot;: &quot;Computer&quot;,
+      &quot;type&quot;: &quot;ALSA&quot;,
+      &quot;selected&quot;: true,
+      &quot;has_password&quot;: false,
+      &quot;requires_auth&quot;: false,
+      &quot;needs_auth_key&quot;: false,
+      &quot;volume&quot;: 19
+    },
+    {
+      &quot;id&quot;: &quot;100&quot;,
+      &quot;name&quot;: &quot;daapd-fifo&quot;,
+      &quot;type&quot;: &quot;fifo&quot;,
+      &quot;selected&quot;: false,
+      &quot;has_password&quot;: false,
+      &quot;requires_auth&quot;: false,
+      &quot;needs_auth_key&quot;: false,
+      &quot;volume&quot;: 0
+    }
+  ]
+}
+</code></pre>
+
+<h3 id="122-set-enabled-outputs">1.2.2 Set enabled outputs</h3>
+<p>Set the enabled outputs by passing an array of output ids. forked-daapd enables all outputs
+with the given ids and disables the remaining outputs.</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/outputs/set
+</code></pre>
+
+<p><strong>Body parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>outputs</td>
+<td>array</td>
+<td>Array of output ids</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/outputs/set&quot; --data &quot;{\&quot;outputs\&quot;:[\&quot;198018693182577\&quot;,\&quot;0\&quot;]}&quot;
+</code></pre>
+
+<h3 id="123-get-an-output">1.2.3 Get an output</h3>
+<p>Get an output</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/outputs/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Output id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>200 OK</code> success status response code. With the response body holding the <strong><code>output</code> object</strong>.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/outputs/0&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;id&quot;: &quot;0&quot;,
+  &quot;name&quot;: &quot;Computer&quot;,
+  &quot;type&quot;: &quot;ALSA&quot;,
+  &quot;selected&quot;: true,
+  &quot;has_password&quot;: false,
+  &quot;requires_auth&quot;: false,
+  &quot;needs_auth_key&quot;: false,
+  &quot;volume&quot;: 3
+}
+</code></pre>
+
+<h3 id="124-change-an-output">1.2.4 Change an output</h3>
+<p>Enable or disable an output and change its volume.</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/outputs/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Output id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Body parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>selected</td>
+<td>boolean</td>
+<td><em>(Optional)</em> <code>true</code> to enable and <code>false</code> to disable the output</td>
+</tr>
+<tr>
+<td>volume</td>
+<td>integer</td>
+<td><em>(Optional)</em> Volume in percent (0 - 100)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/outputs/0&quot; --data &quot;{\&quot;selected\&quot;:true, \&quot;volume\&quot;: 50}&quot;
+</code></pre>
+
+<h3 id="125-toggle-an-output">1.2.5 Toggle an output</h3>
+<p>Enable or disable an output, depending on its current state</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/outputs/{id}/toggle
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Output id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/outputs/0/toggle&quot;
+</code></pre>
+
+<h2 id="13-queue">1.3 Queue</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><a href="#list-queue-items">/api/queue</a></td>
+<td>Get a list of queue items</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#clearing-the-queue">/api/queue/clear</a></td>
+<td>Remove all items from the queue</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><a href="#adding-items-to-the-queue">/api/queue/items/add</a></td>
+<td>Add items to the queue</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#moving-a-queue-item">/api/queue/items/{id}</a></td>
+<td>Move a queue item in the queue</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><a href="#removing-a-queue-item">/api/queue/items/{id}</a></td>
+<td>Remove a queue item form the queue</td>
+</tr>
+</tbody>
+</table>
+<h3 id="131-list-queue-items">1.3.1 List queue items</h3>
+<p>Lists the items in the current queue</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/queue
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td><em>(Optional)</em> If a queue item id is given, only the item with the id will be returend.</td>
+</tr>
+<tr>
+<td>start</td>
+<td><em>(Optional)</em> If a <code>start</code>and an <code>end</code> position is given, only the items from <code>start</code> (included) to <code>end</code> (excluded) will be returned. If only a <code>start</code> position is given, only the item at this position will be returned.</td>
+</tr>
+<tr>
+<td>end</td>
+<td><em>(Optional)</em> See <code>start</code> parameter</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>version</td>
+<td>integer</td>
+<td>Version number of the current queue</td>
+</tr>
+<tr>
+<td>count</td>
+<td>integer</td>
+<td>Number of items in the current queue</td>
+</tr>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#queue-item-object"><code>queue item</code></a> objects</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/queue&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;version&quot;: 833,
+  &quot;count&quot;: 20,
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: 12122,
+      &quot;position&quot;: 0,
+      &quot;track_id&quot;: 10749,
+      &quot;title&quot;: &quot;Angels&quot;,
+      &quot;artist&quot;: &quot;The xx&quot;,
+      &quot;artist_sort&quot;: &quot;xx, The&quot;,
+      &quot;album&quot;: &quot;Coexist&quot;,
+      &quot;album_sort&quot;: &quot;Coexist&quot;,
+      &quot;albumartist&quot;: &quot;The xx&quot;,
+      &quot;albumartist_sort&quot;: &quot;xx, The&quot;,
+      &quot;genre&quot;: &quot;Indie Rock&quot;,
+      &quot;year&quot;: 2012,
+      &quot;track_number&quot;: 1,
+      &quot;disc_number&quot;: 1,
+      &quot;length_ms&quot;: 171735,
+      &quot;media_kind&quot;: &quot;music&quot;,
+      &quot;data_kind&quot;: &quot;file&quot;,
+      &quot;path&quot;: &quot;/music/srv/The xx/Coexist/01 Angels.mp3&quot;,
+      &quot;uri&quot;: &quot;library:track:10749&quot;
+    },
+    ...
+  ]
+}
+</code></pre>
+
+<h3 id="132-clearing-the-queue">1.3.2 Clearing the queue</h3>
+<p>Remove all items form the current queue</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/queue/clear
+</code></pre>
+
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/queue/clear&quot;
+</code></pre>
+
+<h3 id="133-adding-items-to-the-queue">1.3.3 Adding items to the queue</h3>
+<p>Add tracks, playlists artists or albums to the current queue</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">POST /api/queue/items/add
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>uris</td>
+<td>Comma seperated list of resource identifiers (<code>track</code>, <code>playlist</code>, <code>artist</code> or <code>album</code> object <code>uri</code>)</td>
+</tr>
+<tr>
+<td>expression</td>
+<td>A smart playlist query expression identifying the tracks that will be added to the queue.</td>
+</tr>
+<tr>
+<td>position</td>
+<td><em>(Optional)</em> If a position is given, new items are inserted starting from this position into the queue.</td>
+</tr>
+<tr>
+<td>playback</td>
+<td><em>(Optional)</em> If the <code>playback</code> parameter is set to <code>start</code>, playback will be started after adding the new items.</td>
+</tr>
+<tr>
+<td>playback_from_position</td>
+<td><em>(Optional)</em> If the <code>playback</code> parameter is set to <code>start</code>, playback will be started with the queue item at the position given in <code>playback_from_position</code>.</td>
+</tr>
+<tr>
+<td>clear</td>
+<td><em>(Optional)</em> If the <code>clear</code> parameter is set to <code>true</code>, the queue will be cleared before adding the new items.</td>
+</tr>
+<tr>
+<td>shuffle</td>
+<td><em>(Optional)</em> If the <code>shuffle</code> parameter is set to <code>true</code>, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.</td>
+</tr>
+</tbody>
+</table>
+<p>Either the <code>uris</code> or the <code>expression</code> parameter must be set. If both are set the <code>uris</code> parameter takes presedence and the <code>expression</code> parameter will be ignored.</p>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>200 OK</code> success status response code.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>count</td>
+<td>integer</td>
+<td>number of tracks added to the queue</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<p>Add new items by uri:</p>
+<pre><code class="shell">curl -X POST &quot;http://localhost:3689/api/queue/items/add?uris=library:playlist:68,library:artist:2932599850102967727&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;count&quot;: 42
+}
+</code></pre>
+
+<p>Add new items by query language:</p>
+<pre><code class="shell">curl -X POST &quot;http://localhost:3689/api/queue/items/add?expression=media_kind+is+music&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;count&quot;: 42
+}
+</code></pre>
+
+<h3 id="134-moving-a-queue-item">1.3.4 Moving a queue item</h3>
+<p>Move a queue item in the current queue</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/queue/items/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Queue item id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>new_position</td>
+<td>The new position for the queue item in the current queue.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/queue/items/3?new_position=0&quot;
+</code></pre>
+
+<h3 id="135-removing-a-queue-item">1.3.5 Removing a queue item</h3>
+<p>Remove a queue item from the current queue</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">DELETE /api/queue/items/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Queue item id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/queue/items/2&quot;
+</code></pre>
+
+<h2 id="14-library">1.4 Library</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><a href="#library-information">/api/library</a></td>
+<td>Get library information</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-playlists">/api/library/playlists</a></td>
+<td>Get a list of playlists</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-a-playlist">/api/library/playlists/{id}</a></td>
+<td>Get a playlist</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-playlist-tracks">/api/library/playlists/{id}/tracks</a></td>
+<td>Get list of tracks for a playlist</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-artists">/api/library/artists</a></td>
+<td>Get a list of artists</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-an-artist">/api/library/artists/{id}</a></td>
+<td>Get an artist</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-artist-albums">/api/library/artists/{id}/albums</a></td>
+<td>Get list of albums for an artist</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-albums">/api/library/albums</a></td>
+<td>Get a list of albums</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-an-album">/api/library/albums/{id}</a></td>
+<td>Get an album</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-album-tracks">/api/library/albums/{id}/tracks</a></td>
+<td>Get list of tracks for an album</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-a-track">/api/library/tracks/{id}</a></td>
+<td>Get a track</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#update-track-properties">/api/library/tracks/{id}</a></td>
+<td>Update a tracks properties (rating, play_count)</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-genres">/api/library/genres</a></td>
+<td>Get list of genres</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-count-of-tracks-artists-and-albums">/api/library/count</a></td>
+<td>Get count of tracks, artists and albums</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#list-local-directories">/api/library/files</a></td>
+<td>Get list of directories in the local library</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#trigger-rescan">/api/update</a></td>
+<td>Trigger a library rescan</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#trigger-meta-rescan">/api/rescan</a></td>
+<td>Trigger a library metadata rescan</td>
+</tr>
+</tbody>
+</table>
+<h3 id="141-library-information">1.4.1 Library information</h3>
+<p>List some library stats</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library
+</code></pre>
+
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>songs</td>
+<td>integer</td>
+<td>Array of <a href="#playlist-object"><code>playlist</code></a> objects</td>
+</tr>
+<tr>
+<td>db_playtime</td>
+<td>integer</td>
+<td>Total playtime of all songs in the library</td>
+</tr>
+<tr>
+<td>artists</td>
+<td>integer</td>
+<td>Number of album artists in the library</td>
+</tr>
+<tr>
+<td>albums</td>
+<td>integer</td>
+<td>Number of albums in the library</td>
+</tr>
+<tr>
+<td>started_at</td>
+<td>string</td>
+<td>Server startup time (timestamp in <code>ISO 8601</code> format)</td>
+</tr>
+<tr>
+<td>updated_at</td>
+<td>string</td>
+<td>Last library update (timestamp in <code>ISO 8601</code> format)</td>
+</tr>
+<tr>
+<td>updating</td>
+<td>boolean</td>
+<td><code>true</code> if library rescan is in progress</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;songs&quot;: 217,
+  &quot;db_playtime&quot;: 66811,
+  &quot;artists&quot;: 9,
+  &quot;albums&quot;: 19,
+  &quot;started_at&quot;: &quot;2018-11-19T19:06:08Z&quot;,
+  &quot;updated_at&quot;: &quot;2018-11-19T19:06:16Z&quot;,
+  &quot;updating&quot;: false
+}
+</code></pre>
+
+<h3 id="142-list-playlists">1.4.2 List playlists</h3>
+<p>Lists the playlists in your library</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/playlists
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first playlist to return</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of playlists to return</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#playlist-object"><code>playlist</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of playlists in the library</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first playlist</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of playlists</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/playlists&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: 1,
+      &quot;name&quot;: &quot;radio&quot;,
+      &quot;path&quot;: &quot;/music/srv/radio.m3u&quot;,
+      &quot;smart_playlist&quot;: false,
+      &quot;uri&quot;: &quot;library:playlist:1&quot;
+    },
+    ...
+  ],
+  &quot;total&quot;: 20,
+  &quot;offset&quot;: 0,
+  &quot;limit&quot;: -1
+}
+</code></pre>
+
+<h3 id="143-get-a-playlist">1.4.3 Get a playlist</h3>
+<p>Get a specific playlists in your library</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/playlists/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Playlist id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>200 OK</code> success status response code. With the response body holding the <strong><a href="#playlist-object"><code>playlist</code></a> object</strong>.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/playlists/1&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;id&quot;: 1,
+  &quot;name&quot;: &quot;radio&quot;,
+  &quot;path&quot;: &quot;/music/srv/radio.m3u&quot;,
+  &quot;smart_playlist&quot;: false,
+  &quot;uri&quot;: &quot;library:playlist:1&quot;
+}
+</code></pre>
+
+<h3 id="144-list-playlist-tracks">1.4.4 List playlist tracks</h3>
+<p>Lists the tracks in a playlists</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/playlists/{id}/tracks
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Playlist id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first track to return</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of tracks to return</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#track-object"><code>track</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of tracks in the playlist</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first track</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of tracks</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/playlists/1/tracks&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: 10766,
+      &quot;title&quot;: &quot;Solange wir tanzen&quot;,
+      &quot;artist&quot;: &quot;Heinrich&quot;,
+      &quot;artist_sort&quot;: &quot;Heinrich&quot;,
+      &quot;album&quot;: &quot;Solange wir tanzen&quot;,
+      &quot;album_sort&quot;: &quot;Solange wir tanzen&quot;,
+      &quot;albumartist&quot;: &quot;Heinrich&quot;,
+      &quot;albumartist_sort&quot;: &quot;Heinrich&quot;,
+      &quot;genre&quot;: &quot;Electronica&quot;,
+      &quot;year&quot;: 2014,
+      &quot;track_number&quot;: 1,
+      &quot;disc_number&quot;: 1,
+      &quot;length_ms&quot;: 223085,
+      &quot;play_count&quot;: 2,
+      &quot;skip_count&quot;: 1,
+      &quot;time_played&quot;: &quot;2018-02-23T10:31:20Z&quot;,
+      &quot;media_kind&quot;: &quot;music&quot;,
+      &quot;data_kind&quot;: &quot;file&quot;,
+      &quot;path&quot;: &quot;/music/srv/Heinrich/Solange wir tanzen/01 Solange wir tanzen.mp3&quot;,
+      &quot;uri&quot;: &quot;library:track:10766&quot;
+    },
+    ...
+  ],
+  &quot;total&quot;: 20,
+  &quot;offset&quot;: 0,
+  &quot;limit&quot;: -1
+}
+</code></pre>
+
+<h3 id="145-list-artists">1.4.5 List artists</h3>
+<p>Lists the artists in your library</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/artists
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first artist to return</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of artists to return</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#artist-object"><code>artist</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of artists in the library</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first artist</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of artists</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/artists&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: &quot;3815427709949443149&quot;,
+      &quot;name&quot;: &quot;ABAY&quot;,
+      &quot;name_sort&quot;: &quot;ABAY&quot;,
+      &quot;album_count&quot;: 1,
+      &quot;track_count&quot;: 10,
+      &quot;length_ms&quot;: 2951554,
+      &quot;uri&quot;: &quot;library:artist:3815427709949443149&quot;
+    },
+    ...
+  ],
+  &quot;total&quot;: 20,
+  &quot;offset&quot;: 0,
+  &quot;limit&quot;: -1
+}
+</code></pre>
+
+<h3 id="146-get-an-artist">1.4.6 Get an artist</h3>
+<p>Get a specific artist in your library</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/artists/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Artist id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>200 OK</code> success status response code. With the response body holding the <strong><a href="#artist-object"><code>artist</code></a> object</strong>.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/artists/3815427709949443149&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;id&quot;: &quot;3815427709949443149&quot;,
+  &quot;name&quot;: &quot;ABAY&quot;,
+  &quot;name_sort&quot;: &quot;ABAY&quot;,
+  &quot;album_count&quot;: 1,
+  &quot;track_count&quot;: 10,
+  &quot;length_ms&quot;: 2951554,
+  &quot;uri&quot;: &quot;library:artist:3815427709949443149&quot;
+}
+</code></pre>
+
+<h3 id="147-list-artist-albums">1.4.7 List artist albums</h3>
+<p>Lists the albums of an artist</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/artists/{id}/albums
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Artist id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first album to return</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of albums to return</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#album-object"><code>album</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of albums of this artist</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first album</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of albums</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/artists/32561671101664759/albums&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: &quot;8009851123233197743&quot;,
+      &quot;name&quot;: &quot;Add Violence&quot;,
+      &quot;name_sort&quot;: &quot;Add Violence&quot;,
+      &quot;artist&quot;: &quot;Nine Inch Nails&quot;,
+      &quot;artist_id&quot;: &quot;32561671101664759&quot;,
+      &quot;track_count&quot;: 5,
+      &quot;length_ms&quot;: 1634961,
+      &quot;uri&quot;: &quot;library:album:8009851123233197743&quot;
+    },
+    ...
+  ],
+  &quot;total&quot;: 20,
+  &quot;offset&quot;: 0,
+  &quot;limit&quot;: -1
+}
+</code></pre>
+
+<h3 id="148-list-albums">1.4.8 List albums</h3>
+<p>Lists the albums in your library</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/albums
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first album to return</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of albums to return</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#album-object"><code>album</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of albums in the library</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first albums</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of albums</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/albums&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: &quot;8009851123233197743&quot;,
+      &quot;name&quot;: &quot;Add Violence&quot;,
+      &quot;name_sort&quot;: &quot;Add Violence&quot;,
+      &quot;artist&quot;: &quot;Nine Inch Nails&quot;,
+      &quot;artist_id&quot;: &quot;32561671101664759&quot;,
+      &quot;track_count&quot;: 5,
+      &quot;length_ms&quot;: 1634961,
+      &quot;uri&quot;: &quot;library:album:8009851123233197743&quot;
+    },
+    ...
+  ],
+  &quot;total&quot;: 20,
+  &quot;offset&quot;: 0,
+  &quot;limit&quot;: -1
+}
+</code></pre>
+
+<h3 id="149-get-an-album">1.4.9 Get an album</h3>
+<p>Get a specific album in your library</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/albums/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Album id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>200 OK</code> success status response code. With the response body holding the <strong><a href="#album-object"><code>album</code></a> object</strong>.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/albums/8009851123233197743&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;id&quot;: &quot;8009851123233197743&quot;,
+  &quot;name&quot;: &quot;Add Violence&quot;,
+  &quot;name_sort&quot;: &quot;Add Violence&quot;,
+  &quot;artist&quot;: &quot;Nine Inch Nails&quot;,
+  &quot;artist_id&quot;: &quot;32561671101664759&quot;,
+  &quot;track_count&quot;: 5,
+  &quot;length_ms&quot;: 1634961,
+  &quot;uri&quot;: &quot;library:album:8009851123233197743&quot;
+}
+</code></pre>
+
+<h3 id="1410-list-album-tracks">1.4.10 List album tracks</h3>
+<p>Lists the tracks in an album</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/albums/{id}/tracks
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Album id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first track to return</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of tracks to return</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#track-object"><code>track</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of tracks</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first track</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of tracks</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/albums/1/tracks&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: 10766,
+      &quot;title&quot;: &quot;Solange wir tanzen&quot;,
+      &quot;artist&quot;: &quot;Heinrich&quot;,
+      &quot;artist_sort&quot;: &quot;Heinrich&quot;,
+      &quot;album&quot;: &quot;Solange wir tanzen&quot;,
+      &quot;album_sort&quot;: &quot;Solange wir tanzen&quot;,
+      &quot;albumartist&quot;: &quot;Heinrich&quot;,
+      &quot;albumartist_sort&quot;: &quot;Heinrich&quot;,
+      &quot;genre&quot;: &quot;Electronica&quot;,
+      &quot;year&quot;: 2014,
+      &quot;track_number&quot;: 1,
+      &quot;disc_number&quot;: 1,
+      &quot;length_ms&quot;: 223085,
+      &quot;play_count&quot;: 2,
+      &quot;last_time_played&quot;: &quot;2018-02-23T10:31:20Z&quot;,
+      &quot;media_kind&quot;: &quot;music&quot;,
+      &quot;data_kind&quot;: &quot;file&quot;,
+      &quot;path&quot;: &quot;/music/srv/Heinrich/Solange wir tanzen/01 Solange wir tanzen.mp3&quot;,
+      &quot;uri&quot;: &quot;library:track:10766&quot;
+    },
+    ...
+  ],
+  &quot;total&quot;: 20,
+  &quot;offset&quot;: 0,
+  &quot;limit&quot;: -1
+}
+</code></pre>
+
+<h3 id="1411-get-a-track">1.4.11 Get a track</h3>
+<p>Get a specific track in your library</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/tracks/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Track id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>200 OK</code> success status response code. With the response body holding the <strong><a href="#track-object"><code>track</code></a> object</strong>.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/track/1&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;id&quot;: 1,
+  &quot;title&quot;: &quot;Pardon Me&quot;,
+  &quot;title_sort&quot;: &quot;Pardon Me&quot;,
+  &quot;artist&quot;: &quot;Incubus&quot;,
+  &quot;artist_sort&quot;: &quot;Incubus&quot;,
+  &quot;album&quot;: &quot;Make Yourself&quot;,
+  &quot;album_sort&quot;: &quot;Make Yourself&quot;,
+  &quot;album_id&quot;: &quot;6683985628074308431&quot;,
+  &quot;album_artist&quot;: &quot;Incubus&quot;,
+  &quot;album_artist_sort&quot;: &quot;Incubus&quot;,
+  &quot;album_artist_id&quot;: &quot;4833612337650426236&quot;,
+  &quot;composer&quot;: &quot;Alex Katunich/Brandon Boyd/Chris Kilmore/Jose Antonio Pasillas II/Mike Einziger&quot;,
+  &quot;genre&quot;: &quot;Alternative Rock&quot;,
+  &quot;year&quot;: 2001,
+  &quot;track_number&quot;: 12,
+  &quot;disc_number&quot;: 1,
+  &quot;length_ms&quot;: 223170,
+  &quot;rating&quot;: 0,
+  &quot;play_count&quot;: 0,
+  &quot;skip_count&quot;: 0,
+  &quot;time_added&quot;: &quot;2019-01-20T11:58:29Z&quot;,
+  &quot;date_released&quot;: &quot;2001-05-27&quot;,
+  &quot;seek_ms&quot;: 0,
+  &quot;media_kind&quot;: &quot;music&quot;,
+  &quot;data_kind&quot;: &quot;file&quot;,
+  &quot;path&quot;: &quot;/music/srv/Incubus/Make Yourself/12 Pardon Me.mp3&quot;,
+  &quot;uri&quot;: &quot;library:track:1&quot;,
+  &quot;artwork_url&quot;: &quot;/artwork/item/1&quot;
+}
+</code></pre>
+
+<h3 id="1412-update-track-properties">1.4.12 Update track properties</h3>
+<p>Change properties of a specific track (supported properties are "rating" and "play_count")</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/library/tracks/{id}
+</code></pre>
+
+<p><strong>Path parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Track id</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>rating</td>
+<td>The new rating (0 - 100)</td>
+</tr>
+<tr>
+<td>play_count</td>
+<td>Either <code>increment</code> or <code>reset</code>. <code>increment</code> will increment <code>play_count</code> and update <code>time_played</code>, <code>reset</code> will set <code>play_count</code> and <code>skip_count</code> to zero and delete <code>time_played</code> and <code>time_skipped</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/library/tracks/1?rating=100&quot;
+</code></pre>
+
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/library/tracks/1?play_count=increment&quot;
+</code></pre>
+
+<h3 id="1413-list-genres">1.4.13 List genres</h3>
+<p>Get list of genres</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/genres
+</code></pre>
+
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#genre-object"><code>genre</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of genres in the library</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first genre</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of genres</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/genres&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;items&quot;: [
+    {
+      &quot;name&quot;: &quot;Classical&quot;
+    },
+    {
+      &quot;name&quot;: &quot;Drum &amp; Bass&quot;
+    },
+    {
+      &quot;name&quot;: &quot;Pop&quot;
+    },
+    {
+      &quot;name&quot;: &quot;Rock/Pop&quot;
+    },
+    {
+      &quot;name&quot;: &quot;'90s Alternative&quot;
+    }
+  ],
+  &quot;total&quot;: 5,
+  &quot;offset&quot;: 0,
+  &quot;limit&quot;: -1
+}
+
+</code></pre>
+
+<h3 id="1414-list-albums-for-genre">1.4.14 List albums for genre</h3>
+<p>Lists the albums in a genre</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET api/search?type=albums&amp;expression=genre+is+\&quot;{genre name}\&quot;&quot;
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>genre</td>
+<td>genre name (uri encoded and html esc seq for chars: '/&amp;)</td>
+</tr>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first album to return</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of albums to return</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of <a href="#album-object"><code>album</code></a> objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of albums in the library</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first albums</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of albums</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/search?type=albums&amp;expression=genre+is+\&quot;Pop\&quot;&quot;
+curl -X GET &quot;http://localhost:3689/api/search?type=albums&amp;expression=genre+is+\&quot;Rock%2FPop\&quot;&quot;            # Rock/Pop
+curl -X GET &quot;http://localhost:3689/api/search?type=albums&amp;expression=genre+is+\&quot;Drum%20%26%20Bass\&quot;&quot;     # Drum &amp; Bass
+curl -X GET &quot;http://localhost:3689/api/search?type=albums&amp;expression=genre+is+\&quot;%2790s%20Alternative\&quot;&quot;  # '90 Alternative
+</code></pre>
+
+<pre><code class="json">{
+  &quot;albums&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;320189328729146437&quot;,
+        &quot;name&quot;: &quot;Best Ever&quot;,
+        &quot;name_sort&quot;: &quot;Best Ever&quot;,
+        &quot;artist&quot;: &quot;ABC&quot;,
+        &quot;artist_id&quot;: &quot;8760559201889050080&quot;,
+        &quot;track_count&quot;: 1,
+        &quot;length_ms&quot;: 3631,
+        &quot;uri&quot;: &quot;library:album:320189328729146437&quot;
+      },
+      {
+        &quot;id&quot;: &quot;7964595866631625723&quot;,
+        &quot;name&quot;: &quot;Greatest Hits&quot;,
+        &quot;name_sort&quot;: &quot;Greatest Hits&quot;,
+        &quot;artist&quot;: &quot;Marvin Gaye&quot;,
+        &quot;artist_id&quot;: &quot;5261930703203735930&quot;,
+        &quot;track_count&quot;: 2,
+        &quot;length_ms&quot;: 7262,
+        &quot;uri&quot;: &quot;library:album:7964595866631625723&quot;
+      },
+      {
+        &quot;id&quot;: &quot;3844610748145176456&quot;,
+        &quot;name&quot;: &quot;The Very Best of Etta&quot;,
+        &quot;name_sort&quot;: &quot;Very Best of Etta&quot;,
+        &quot;artist&quot;: &quot;Etta James&quot;,
+        &quot;artist_id&quot;: &quot;2627182178555864595&quot;,
+        &quot;track_count&quot;: 1,
+        &quot;length_ms&quot;: 177926,
+        &quot;uri&quot;: &quot;library:album:3844610748145176456&quot;
+      }
+    ],
+    &quot;total&quot;: 3,
+    &quot;offset&quot;: 0,
+    &quot;limit&quot;: -1
+  }
+}
+</code></pre>
+
+<h3 id="1415-get-count-of-tracks-artists-and-albums">1.4.15 Get count of tracks, artists and albums</h3>
+<p>Get information about the number of tracks, artists and albums and the total playtime</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/count
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>expression</td>
+<td><em>(Optional)</em> The smart playlist query expression, if this parameter is omitted returns the information for the whole library</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tracks</td>
+<td>integer</td>
+<td>Number of tracks matching the expression</td>
+</tr>
+<tr>
+<td>artists</td>
+<td>integer</td>
+<td>Number of artists matching the expression</td>
+</tr>
+<tr>
+<td>albums</td>
+<td>integer</td>
+<td>Number of albums matching the expression</td>
+</tr>
+<tr>
+<td>db_playtime</td>
+<td>integer</td>
+<td>Total playtime in milliseconds of all tracks matching the expression</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/count?expression=data_kind+is+file&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;tracks&quot;: 6811,
+  &quot;artists&quot;: 355,
+  &quot;albums&quot;: 646,
+  &quot;db_playtime&quot;: 1590767
+}
+</code></pre>
+
+<h3 id="1416-list-local-directories">1.4.16 List local directories</h3>
+<p>List the local directories and the directory contents (tracks and playlists)</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/library/files
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>directory</td>
+<td><em>(Optional)</em> A path to a directory in your local library.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>directories</td>
+<td>array</td>
+<td>Array of <a href="#directory-object"><code>directory</code></a> objects containing the sub directories</td>
+</tr>
+<tr>
+<td>tracks</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#track-object"><code>track</code></a> objects that matches the <code>directory</code></td>
+</tr>
+<tr>
+<td>playlists</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#playlist-object"><code>playlist</code></a> objects that matches the <code>directory</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/library/files?directory=/music/srv&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;directories&quot;: [
+    {
+      &quot;path&quot;: &quot;/music/srv/Audiobooks&quot;
+    },
+    {
+      &quot;path&quot;: &quot;/music/srv/Music&quot;
+    },
+    {
+      &quot;path&quot;: &quot;/music/srv/Playlists&quot;
+    },
+    {
+      &quot;path&quot;: &quot;/music/srv/Podcasts&quot;
+    }
+  ],
+  &quot;tracks&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: 1,
+        &quot;title&quot;: &quot;input.pipe&quot;,
+        &quot;artist&quot;: &quot;Unknown artist&quot;,
+        &quot;artist_sort&quot;: &quot;Unknown artist&quot;,
+        &quot;album&quot;: &quot;Unknown album&quot;,
+        &quot;album_sort&quot;: &quot;Unknown album&quot;,
+        &quot;album_id&quot;: &quot;4201163758598356043&quot;,
+        &quot;album_artist&quot;: &quot;Unknown artist&quot;,
+        &quot;album_artist_sort&quot;: &quot;Unknown artist&quot;,
+        &quot;album_artist_id&quot;: &quot;4187901437947843388&quot;,
+        &quot;genre&quot;: &quot;Unknown genre&quot;,
+        &quot;year&quot;: 0,
+        &quot;track_number&quot;: 0,
+        &quot;disc_number&quot;: 0,
+        &quot;length_ms&quot;: 0,
+        &quot;play_count&quot;: 0,
+        &quot;skip_count&quot;: 0,
+        &quot;time_added&quot;: &quot;2018-11-24T08:41:35Z&quot;,
+        &quot;seek_ms&quot;: 0,
+        &quot;media_kind&quot;: &quot;music&quot;,
+        &quot;data_kind&quot;: &quot;pipe&quot;,
+        &quot;path&quot;: &quot;/music/srv/input.pipe&quot;,
+        &quot;uri&quot;: &quot;library:track:1&quot;,
+        &quot;artwork_url&quot;: &quot;/artwork/item/1&quot;
+      }
+    ],
+    &quot;total&quot;: 1,
+    &quot;offset&quot;: 0,
+    &quot;limit&quot;: -1
+  },
+  &quot;playlists&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: 8,
+        &quot;name&quot;: &quot;radio&quot;,
+        &quot;path&quot;: &quot;/music/srv/radio.m3u&quot;,
+        &quot;smart_playlist&quot;: true,
+        &quot;uri&quot;: &quot;library:playlist:8&quot;
+      }
+    ],
+    &quot;total&quot;: 1,
+    &quot;offset&quot;: 0,
+    &quot;limit&quot;: -1
+  }
+}
+</code></pre>
+
+<h3 id="1417-trigger-rescan">1.4.17 Trigger rescan</h3>
+<p>Trigger a library rescan</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/update
+</code></pre>
+
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/update&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;songs&quot;: 217,
+  &quot;db_playtime&quot;: 66811,
+  &quot;artists&quot;: 9,
+  &quot;albums&quot;: 19,
+  &quot;started_at&quot;: &quot;2018-11-19T19:06:08Z&quot;,
+  &quot;updated_at&quot;: &quot;2018-11-19T19:06:16Z&quot;,
+  &quot;updating&quot;: false
+}
+</code></pre>
+
+<h3 id="1418-trigger-metadata-rescan">1.4.18 Trigger metadata rescan</h3>
+<p>Trigger a library metadata rescan even if files have not been updated.  Maintenence method.</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/rescan
+</code></pre>
+
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/rescan&quot;
+</code></pre>
+
+<h2 id="15-search">1.5 Search</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><a href="#search-by-search-term">/api/search</a></td>
+<td>Search for playlists, artists, albums, tracks,genres by a simple search term</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#search-by-query-language">/api/search</a></td>
+<td>Search by complex query expression</td>
+</tr>
+</tbody>
+</table>
+<h3 id="151-search-by-search-term">1.5.1 Search by search term</h3>
+<p>Search for playlists, artists, albums, tracks, genres that include the given query in their title (case insensitive matching).</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/search
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>query</td>
+<td>The search keyword</td>
+</tr>
+<tr>
+<td>type</td>
+<td>Comma separated list of the result types (<code>playlist</code>, <code>artist</code>, <code>album</code>, <code>track</code>, <code>genre</code>)</td>
+</tr>
+<tr>
+<td>media_kind</td>
+<td><em>(Optional)</em> Filter results by media kind (<code>music</code>, <code>movie</code>, <code>podcast</code>, <code>audiobook</code>, <code>musicvideo</code>, <code>tvshow</code>). Filter only applies to artist, album and track result types.</td>
+</tr>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first item to return for each type</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of items to return for each type</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tracks</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#track-object"><code>track</code></a> objects that matches the <code>query</code></td>
+</tr>
+<tr>
+<td>artists</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#artist-object"><code>artist</code></a> objects that matches the <code>query</code></td>
+</tr>
+<tr>
+<td>albums</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#album-object"><code>album</code></a> objects that matches the <code>query</code></td>
+</tr>
+<tr>
+<td>playlists</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#playlist-object"><code>playlist</code></a> objects that matches the <code>query</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<p>Search for all tracks, artists, albums and playlists that contain "the" in their title and return the first two results for each type:</p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/search?type=tracks,artists,albums,playlists&amp;query=the&amp;offset=0&amp;limit=2&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;tracks&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: 35,
+        &quot;title&quot;: &quot;Another Love&quot;,
+        &quot;artist&quot;: &quot;Tom Odell&quot;,
+        &quot;artist_sort&quot;: &quot;Tom Odell&quot;,
+        &quot;album&quot;: &quot;Es is was es is&quot;,
+        &quot;album_sort&quot;: &quot;Es is was es is&quot;,
+        &quot;album_id&quot;: &quot;6494853621007413058&quot;,
+        &quot;album_artist&quot;: &quot;Various artists&quot;,
+        &quot;album_artist_sort&quot;: &quot;Various artists&quot;,
+        &quot;album_artist_id&quot;: &quot;8395563705718003786&quot;,
+        &quot;genre&quot;: &quot;Singer/Songwriter&quot;,
+        &quot;year&quot;: 2013,
+        &quot;track_number&quot;: 7,
+        &quot;disc_number&quot;: 1,
+        &quot;length_ms&quot;: 251030,
+        &quot;play_count&quot;: 0,
+        &quot;media_kind&quot;: &quot;music&quot;,
+        &quot;data_kind&quot;: &quot;file&quot;,
+        &quot;path&quot;: &quot;/music/srv/Compilations/Es is was es is/07 Another Love.m4a&quot;,
+        &quot;uri&quot;: &quot;library:track:35&quot;
+      },
+      {
+        &quot;id&quot;: 215,
+        &quot;title&quot;: &quot;Away From the Sun&quot;,
+        &quot;artist&quot;: &quot;3 Doors Down&quot;,
+        &quot;artist_sort&quot;: &quot;3 Doors Down&quot;,
+        &quot;album&quot;: &quot;Away From the Sun&quot;,
+        &quot;album_sort&quot;: &quot;Away From the Sun&quot;,
+        &quot;album_id&quot;: &quot;8264078270267374619&quot;,
+        &quot;album_artist&quot;: &quot;3 Doors Down&quot;,
+        &quot;album_artist_sort&quot;: &quot;3 Doors Down&quot;,
+        &quot;album_artist_id&quot;: &quot;5030128490104968038&quot;,
+        &quot;genre&quot;: &quot;Rock&quot;,
+        &quot;year&quot;: 2002,
+        &quot;track_number&quot;: 2,
+        &quot;disc_number&quot;: 1,
+        &quot;length_ms&quot;: 233278,
+        &quot;play_count&quot;: 0,
+        &quot;media_kind&quot;: &quot;music&quot;,
+        &quot;data_kind&quot;: &quot;file&quot;,
+        &quot;path&quot;: &quot;/music/srv/Away From the Sun/02 Away From the Sun.mp3&quot;,
+        &quot;uri&quot;: &quot;library:track:215&quot;
+      }
+    ],
+    &quot;total&quot;: 14,
+    &quot;offset&quot;: 0,
+    &quot;limit&quot;: 2
+  },
+  &quot;artists&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;8737690491750445895&quot;,
+        &quot;name&quot;: &quot;The xx&quot;,
+        &quot;name_sort&quot;: &quot;xx, The&quot;,
+        &quot;album_count&quot;: 2,
+        &quot;track_count&quot;: 25,
+        &quot;length_ms&quot;: 5229196,
+        &quot;uri&quot;: &quot;library:artist:8737690491750445895&quot;
+      }
+    ],
+    &quot;total&quot;: 1,
+    &quot;offset&quot;: 0,
+    &quot;limit&quot;: 2
+  },
+  &quot;albums&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;8264078270267374619&quot;,
+        &quot;name&quot;: &quot;Away From the Sun&quot;,
+        &quot;name_sort&quot;: &quot;Away From the Sun&quot;,
+        &quot;artist&quot;: &quot;3 Doors Down&quot;,
+        &quot;artist_id&quot;: &quot;5030128490104968038&quot;,
+        &quot;track_count&quot;: 12,
+        &quot;length_ms&quot;: 2818174,
+        &quot;uri&quot;: &quot;library:album:8264078270267374619&quot;
+      },
+      {
+        &quot;id&quot;: &quot;6835720495312674468&quot;,
+        &quot;name&quot;: &quot;The Better Life&quot;,
+        &quot;name_sort&quot;: &quot;Better Life&quot;,
+        &quot;artist&quot;: &quot;3 Doors Down&quot;,
+        &quot;artist_id&quot;: &quot;5030128490104968038&quot;,
+        &quot;track_count&quot;: 11,
+        &quot;length_ms&quot;: 2393332,
+        &quot;uri&quot;: &quot;library:album:6835720495312674468&quot;
+      }
+    ],
+    &quot;total&quot;: 3,
+    &quot;offset&quot;: 0,
+    &quot;limit&quot;: 2
+  },
+  &quot;playlists&quot;: {
+    &quot;items&quot;: [],
+    &quot;total&quot;: 0,
+    &quot;offset&quot;: 0,
+    &quot;limit&quot;: 2
+  }
+}
+</code></pre>
+
+<h3 id="152-search-by-query-language">1.5.2 Search by query language</h3>
+<p>Search for artists, albums, tracks by a smart playlist query expression (see <a href="https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md">README_SMARTPL.md</a> for the expression syntax).</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/search
+</code></pre>
+
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>expression</td>
+<td>The smart playlist query expression</td>
+</tr>
+<tr>
+<td>type</td>
+<td>Comma separated list of the result types (<code>artist</code>, <code>album</code>, <code>track</code></td>
+</tr>
+<tr>
+<td>offset</td>
+<td><em>(Optional)</em> Offset of the first item to return for each type</td>
+</tr>
+<tr>
+<td>limit</td>
+<td><em>(Optional)</em> Maximum number of items to return for each type</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tracks</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#track-object"><code>track</code></a> objects that matches the <code>query</code></td>
+</tr>
+<tr>
+<td>artists</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#artist-object"><code>artist</code></a> objects that matches the <code>query</code></td>
+</tr>
+<tr>
+<td>albums</td>
+<td>object</td>
+<td><a href="#paging-object"><code>paging</code></a> object containing <a href="#album-object"><code>album</code></a> objects that matches the <code>query</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<p>Search for music tracks ordered descending by the time added to the library and limit result to 2 items:</p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/search?type=tracks&amp;expression=media_kind+is+music+order+by+time_added+desc&amp;offset=0&amp;limit=2&quot;
+</code></pre>
+
+<h2 id="16-server-info">1.6 Server info</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><a href="#config">/api/config</a></td>
+<td>Get configuration information</td>
+</tr>
+</tbody>
+</table>
+<h3 id="161-config">1.6.1 Config</h3>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/config
+</code></pre>
+
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>version</td>
+<td>string</td>
+<td>forked-daapd server version</td>
+</tr>
+<tr>
+<td>websocket_port</td>
+<td>integer</td>
+<td>Port number for the <a href="#push-notifications">websocket</a> (or <code>0</code> if websocket is disabled)</td>
+</tr>
+<tr>
+<td>buildoptions</td>
+<td>array</td>
+<td>Array of strings indicating which features are supported by the forked-daapd server</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/config&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;websocket_port&quot;: 3688,
+  &quot;version&quot;: &quot;25.0&quot;,
+  &quot;buildoptions&quot;: [
+    &quot;ffmpeg&quot;,
+    &quot;iTunes XML&quot;,
+    &quot;Spotify&quot;,
+    &quot;LastFM&quot;,
+    &quot;MPD&quot;,
+    &quot;Device verification&quot;,
+    &quot;Websockets&quot;,
+    &quot;ALSA&quot;
+  ]
+}
+</code></pre>
+
+<h2 id="17-settings">1.7 Settings</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><a href="#list-categories">/api/settings</a></td>
+<td>Get all available categories</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-a-category">/api/settings/{category-name}</a></td>
+<td>Get all available options for a category</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><a href="#get-a-option">/api/settings/{category-name}/{option-name}</a></td>
+<td>Get a single setting option</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><a href="#change-a-option-value">/api/settings/{category-name}/{option-name}</a></td>
+<td>Change the value of a setting option</td>
+</tr>
+</tbody>
+</table>
+<h3 id="171-list-categories">1.7.1 List categories</h3>
+<p>List all settings categories with their options</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/settings
+</code></pre>
+
+<p><strong>Response</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>categories</td>
+<td>array</td>
+<td>Array of settings <a href="#category-object">category</a> objects</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/settings&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;categories&quot;: [
+    {
+      &quot;name&quot;: &quot;webinterface&quot;,
+      &quot;options&quot;: [
+        {
+          &quot;name&quot;: &quot;show_composer_now_playing&quot;,
+          &quot;type&quot;: 1,
+          &quot;value&quot;: true
+        },
+        {
+          &quot;name&quot;: &quot;show_composer_for_genre&quot;,
+          &quot;type&quot;: 2,
+          &quot;value&quot;: &quot;classical&quot;
+        }
+      ]
+    }
+  ]
+}
+</code></pre>
+
+<h3 id="172-get-a-category">1.7.2 Get a category</h3>
+<p>Get a settings category with their options</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/settings/{category-name}
+</code></pre>
+
+<p><strong>Response</strong></p>
+<p>Returns a settings <a href="#category-object">category</a> object</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/settings/webinterface&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;name&quot;: &quot;webinterface&quot;,
+  &quot;options&quot;: [
+    {
+      &quot;name&quot;: &quot;show_composer_now_playing&quot;,
+      &quot;type&quot;: 1,
+      &quot;value&quot;: true
+    },
+    {
+      &quot;name&quot;: &quot;show_composer_for_genre&quot;,
+      &quot;type&quot;: 2,
+      &quot;value&quot;: &quot;classical&quot;
+    }
+  ]
+}
+</code></pre>
+
+<h3 id="173-get-a-option">1.7.3 Get a option</h3>
+<p>Get a single settings option</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">GET /api/settings/{category-name}/{option-name}
+</code></pre>
+
+<p><strong>Response</strong></p>
+<p>Returns a settings <a href="#option-object">option</a> object</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X GET &quot;http://localhost:3689/api/settings/webinterface/show_composer_now_playing&quot;
+</code></pre>
+
+<pre><code class="json">{
+  &quot;name&quot;: &quot;show_composer_now_playing&quot;,
+  &quot;type&quot;: 1,
+  &quot;value&quot;: true
+}
+</code></pre>
+
+<h3 id="174-change-a-option-value">1.7.4 Change a option value</h3>
+<p>Get a single settings option</p>
+<p><strong>Endpoint</strong></p>
+<pre><code class="http">PUT /api/settings/{category-name}/{option-name}
+</code></pre>
+
+<p><strong>Request</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Option name</td>
+</tr>
+<tr>
+<td>value</td>
+<td>(integer / boolean / string)</td>
+<td>New option value</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<p>On success returns the HTTP <code>204 No Content</code> success status response code.</p>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl -X PUT &quot;http://localhost:3689/api/settings/webinterface/show_composer_now_playing&quot; --data &quot;{\&quot;name\&quot;:\&quot;show_composer_now_playing\&quot;,\&quot;value\&quot;:true}&quot;
+</code></pre>
+
+<h2 id="18-push-notifications">1.8 Push notifications</h2>
+<p>If forked-daapd was built with websocket support, forked-daapd exposes a websocket at <code>localhost:3688</code> to inform clients of changes (e. g. player state or library updates).
+The port depends on the forked-daapd configuration and can be read using the <a href="#config"><code>/api/config</code></a> endpoint.</p>
+<p>After connecting to the websocket, the client should send a message containing the event types it is interested in. After that forked-daapd
+will send a message each time one of the events occurred.</p>
+<p><strong>Message</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>notify</td>
+<td>array</td>
+<td>Array of event types</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Event types</strong></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>update</td>
+<td>Library update started or finished</td>
+</tr>
+<tr>
+<td>database</td>
+<td>Library database changed (new/modified/deleted tracks)</td>
+</tr>
+<tr>
+<td>outputs</td>
+<td>An output was enabled or disabled</td>
+</tr>
+<tr>
+<td>player</td>
+<td>Player state changes</td>
+</tr>
+<tr>
+<td>options</td>
+<td>Playback option changes (shuffle, repeat, consume mode)</td>
+</tr>
+<tr>
+<td>volume</td>
+<td>Volume changes</td>
+</tr>
+<tr>
+<td>queue</td>
+<td>Queue changes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<pre><code class="shell">curl --include \
+     --no-buffer \
+     --header &quot;Connection: Upgrade&quot; \
+     --header &quot;Upgrade: websocket&quot; \
+     --header &quot;Host: localhost:3688&quot; \
+     --header &quot;Origin: http://localhost:3688&quot; \
+     --header &quot;Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==&quot; \
+     --header &quot;Sec-WebSocket-Version: 13&quot; \
+     --header &quot;Sec-WebSocket-Protocol: notify&quot; \
+     http://localhost:3688/ \
+     --data &quot;{ \&quot;notify\&quot;: [ \&quot;player\&quot; ] }&quot;
+</code></pre>
+
+<pre><code class="json">{ 
+  &quot;notify&quot;: [
+    &quot;player&quot;
+  ]
+}
+</code></pre>
+
+<h2 id="19-object-model">1.9 Object model</h2>
+<h3 id="191-queue-item-object">1.9.1 <code>queue item</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>Item id</td>
+</tr>
+<tr>
+<td>position</td>
+<td>integer</td>
+<td>Position in the queue (starting with zero)</td>
+</tr>
+<tr>
+<td>track_id</td>
+<td>string</td>
+<td>Track id</td>
+</tr>
+<tr>
+<td>title</td>
+<td>string</td>
+<td>Title</td>
+</tr>
+<tr>
+<td>artist</td>
+<td>string</td>
+<td>Track artist name</td>
+</tr>
+<tr>
+<td>artist_sort</td>
+<td>string</td>
+<td>Track artist sort name</td>
+</tr>
+<tr>
+<td>album</td>
+<td>string</td>
+<td>Album name</td>
+</tr>
+<tr>
+<td>album_sort</td>
+<td>string</td>
+<td>Album sort name</td>
+</tr>
+<tr>
+<td>album_id</td>
+<td>string</td>
+<td>Album id</td>
+</tr>
+<tr>
+<td>album_artist</td>
+<td>string</td>
+<td>Album artist name</td>
+</tr>
+<tr>
+<td>album_artist_sort</td>
+<td>string</td>
+<td>Album artist sort name</td>
+</tr>
+<tr>
+<td>album_artist_id</td>
+<td>string</td>
+<td>Album artist id</td>
+</tr>
+<tr>
+<td>composer</td>
+<td>string</td>
+<td>Composer (optional)</td>
+</tr>
+<tr>
+<td>genre</td>
+<td>string</td>
+<td>Genre</td>
+</tr>
+<tr>
+<td>year</td>
+<td>integer</td>
+<td>Release year</td>
+</tr>
+<tr>
+<td>track_number</td>
+<td>integer</td>
+<td>Track number</td>
+</tr>
+<tr>
+<td>disc_number</td>
+<td>integer</td>
+<td>Disc number</td>
+</tr>
+<tr>
+<td>length_ms</td>
+<td>integer</td>
+<td>Track length in milliseconds</td>
+</tr>
+<tr>
+<td>media_kind</td>
+<td>string</td>
+<td>Media type of this track: <code>music</code>, <code>movie</code>, <code>podcast</code>, <code>audiobook</code>, <code>musicvideo</code>, <code>tvshow</code></td>
+</tr>
+<tr>
+<td>data_kind</td>
+<td>string</td>
+<td>Data type of this track: <code>file</code>, <code>url</code>, <code>spotify</code>, <code>pipe</code></td>
+</tr>
+<tr>
+<td>path</td>
+<td>string</td>
+<td>Path</td>
+</tr>
+<tr>
+<td>uri</td>
+<td>string</td>
+<td>Resource identifier</td>
+</tr>
+<tr>
+<td>artwork_url</td>
+<td>string</td>
+<td><em>(optional)</em> <a href="#artwork-urls">Artwork url</a></td>
+</tr>
+<tr>
+<td>type</td>
+<td>string</td>
+<td>file (codec) type (ie mp3/flac/...)</td>
+</tr>
+<tr>
+<td>bitrate</td>
+<td>string</td>
+<td>file bitrate (ie 192/128/...)</td>
+</tr>
+<tr>
+<td>samplerate</td>
+<td>string</td>
+<td>file sample rate (ie 44100/48000/...)</td>
+</tr>
+<tr>
+<td>channel</td>
+<td>string</td>
+<td>file channel (ie mono/stereo/xx ch))</td>
+</tr>
+</tbody>
+</table>
+<h3 id="192-playlist-object">1.9.2 <code>playlist</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>Playlist id</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Playlist name</td>
+</tr>
+<tr>
+<td>path</td>
+<td>string</td>
+<td>Path</td>
+</tr>
+<tr>
+<td>smart_playlist</td>
+<td>boolean</td>
+<td><code>true</code> if playlist is a smart playlist</td>
+</tr>
+<tr>
+<td>uri</td>
+<td>string</td>
+<td>Resource identifier</td>
+</tr>
+</tbody>
+</table>
+<h3 id="193-artist-object">1.9.3 <code>artist</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>Artist id</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Artist name</td>
+</tr>
+<tr>
+<td>name_sort</td>
+<td>string</td>
+<td>Artist sort name</td>
+</tr>
+<tr>
+<td>album_count</td>
+<td>integer</td>
+<td>Number of albums</td>
+</tr>
+<tr>
+<td>track_count</td>
+<td>integer</td>
+<td>Number of tracks</td>
+</tr>
+<tr>
+<td>length_ms</td>
+<td>integer</td>
+<td>Total length of tracks in milliseconds</td>
+</tr>
+<tr>
+<td>uri</td>
+<td>string</td>
+<td>Resource identifier</td>
+</tr>
+<tr>
+<td>artwork_url</td>
+<td>string</td>
+<td><em>(optional)</em> <a href="#artwork-urls">Artwork url</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="194-album-object">1.9.4 <code>album</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>Album id</td>
+</tr>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Album name</td>
+</tr>
+<tr>
+<td>name_sort</td>
+<td>string</td>
+<td>Album sort name</td>
+</tr>
+<tr>
+<td>artist_id</td>
+<td>string</td>
+<td>Album artist id</td>
+</tr>
+<tr>
+<td>artist</td>
+<td>string</td>
+<td>Album artist name</td>
+</tr>
+<tr>
+<td>track_count</td>
+<td>integer</td>
+<td>Number of tracks</td>
+</tr>
+<tr>
+<td>length_ms</td>
+<td>integer</td>
+<td>Total length of tracks in milliseconds</td>
+</tr>
+<tr>
+<td>uri</td>
+<td>string</td>
+<td>Resource identifier</td>
+</tr>
+<tr>
+<td>artwork_url</td>
+<td>string</td>
+<td><em>(optional)</em> <a href="#artwork-urls">Artwork url</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="195-track-object">1.9.5 <code>track</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>string</td>
+<td>Track id</td>
+</tr>
+<tr>
+<td>title</td>
+<td>string</td>
+<td>Title</td>
+</tr>
+<tr>
+<td>title_sort</td>
+<td>string</td>
+<td>Sort title</td>
+</tr>
+<tr>
+<td>artist</td>
+<td>string</td>
+<td>Track artist name</td>
+</tr>
+<tr>
+<td>artist_sort</td>
+<td>string</td>
+<td>Track artist sort name</td>
+</tr>
+<tr>
+<td>album</td>
+<td>string</td>
+<td>Album name</td>
+</tr>
+<tr>
+<td>album_sort</td>
+<td>string</td>
+<td>Album sort name</td>
+</tr>
+<tr>
+<td>album_id</td>
+<td>string</td>
+<td>Album id</td>
+</tr>
+<tr>
+<td>album_artist</td>
+<td>string</td>
+<td>Album artist name</td>
+</tr>
+<tr>
+<td>album_artist_sort</td>
+<td>string</td>
+<td>Album artist sort name</td>
+</tr>
+<tr>
+<td>album_artist_id</td>
+<td>string</td>
+<td>Album artist id</td>
+</tr>
+<tr>
+<td>composer</td>
+<td>string</td>
+<td>Track composer</td>
+</tr>
+<tr>
+<td>genre</td>
+<td>string</td>
+<td>Genre</td>
+</tr>
+<tr>
+<td>year</td>
+<td>integer</td>
+<td>Release year</td>
+</tr>
+<tr>
+<td>track_number</td>
+<td>integer</td>
+<td>Track number</td>
+</tr>
+<tr>
+<td>disc_number</td>
+<td>integer</td>
+<td>Disc number</td>
+</tr>
+<tr>
+<td>length_ms</td>
+<td>integer</td>
+<td>Track length in milliseconds</td>
+</tr>
+<tr>
+<td>rating</td>
+<td>integer</td>
+<td>Track rating (ranges from 0 to 100)</td>
+</tr>
+<tr>
+<td>play_count</td>
+<td>integer</td>
+<td>How many times the track was played</td>
+</tr>
+<tr>
+<td>skip_count</td>
+<td>integer</td>
+<td>How many times the track was skipped</td>
+</tr>
+<tr>
+<td>time_played</td>
+<td>string</td>
+<td>Timestamp in <code>ISO 8601</code> format</td>
+</tr>
+<tr>
+<td>time_skipped</td>
+<td>string</td>
+<td>Timestamp in <code>ISO 8601</code> format</td>
+</tr>
+<tr>
+<td>time_added</td>
+<td>string</td>
+<td>Timestamp in <code>ISO 8601</code> format</td>
+</tr>
+<tr>
+<td>date_released</td>
+<td>string</td>
+<td>Date in the format <code>yyyy-mm-dd</code></td>
+</tr>
+<tr>
+<td>seek_ms</td>
+<td>integer</td>
+<td>Resume point in milliseconds (available only for podcasts and audiobooks)</td>
+</tr>
+<tr>
+<td>media_kind</td>
+<td>string</td>
+<td>Media type of this track: <code>music</code>, <code>movie</code>, <code>podcast</code>, <code>audiobook</code>, <code>musicvideo</code>, <code>tvshow</code></td>
+</tr>
+<tr>
+<td>data_kind</td>
+<td>string</td>
+<td>Data type of this track: <code>file</code>, <code>url</code>, <code>spotify</code>, <code>pipe</code></td>
+</tr>
+<tr>
+<td>path</td>
+<td>string</td>
+<td>Path</td>
+</tr>
+<tr>
+<td>uri</td>
+<td>string</td>
+<td>Resource identifier</td>
+</tr>
+<tr>
+<td>artwork_url</td>
+<td>string</td>
+<td><em>(optional)</em> <a href="#artwork-urls">Artwork url</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="196-paging-object">1.9.6 <code>paging</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>items</td>
+<td>array</td>
+<td>Array of result objects</td>
+</tr>
+<tr>
+<td>total</td>
+<td>integer</td>
+<td>Total number of items</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>integer</td>
+<td>Requested offset of the first item</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>integer</td>
+<td>Requested maximum number of items</td>
+</tr>
+</tbody>
+</table>
+<h3 id="197-genre-object">1.9.7 <code>genre</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Name of genre</td>
+</tr>
+</tbody>
+</table>
+<h3 id="198-directory-object">1.9.8 <code>directory</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>path</td>
+<td>string</td>
+<td>Directory path</td>
+</tr>
+</tbody>
+</table>
+<h3 id="199-category-object">1.9.9 <code>category</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Category name</td>
+</tr>
+<tr>
+<td>options</td>
+<td>array</td>
+<td>Array of option in this category</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1910-option-object">1.9.10 <code>option</code> object</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>Option name</td>
+</tr>
+<tr>
+<td>type</td>
+<td>integer</td>
+<td>The type of the value for this option (<code>0</code>: integer, <code>1</code>: boolean, <code>2</code>: string)</td>
+</tr>
+<tr>
+<td>value</td>
+<td>(integer / boolean / string)</td>
+<td>Current value for this option</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1911-artwork-urls">1.9.11 Artwork urls</h3>
+<p>Artwork urls in <code>queue item</code>, <code>artist</code>, <code>album</code> and <code>track</code> objects can be either relative urls or absolute urls to the artwork image.
+Absolute artwork urls are pointing to external artwork images (e. g. for radio streams that provide artwork metadata), while relative artwork urls are served from forked-daapd. </p>
+<p>It is possible to add the query parameters <code>maxwidth</code> and/or <code>maxheight</code> to relative artwork urls, in order to get a smaller image (forked-daapd only scales down never up).</p>
+<p>Note that even if a relative artwork url attribute is present, it is not guaranteed to exist.</p>
+								</section>
+
+						</div>
+					</div>
+
+				<!-- Sidebar -->
+					<div id="sidebar">
+						<div class="inner">
+
+							<!-- Search -->
+							
+								<section id="search" class="alt">
+									<form action="../search.html" method="get">
+										<input type="text" name="q" id="mkdocs-search-query" placeholder="Search" />
+									</form>
+								</section>
+							
+
+							<!-- Menu -->
+							
+								<nav id="menu">
+									<header class="major">
+										<h2>Menu</h2>
+									</header>
+									<ul>
+									
+										
+											<li>
+												<span class="opener">Home</span>
+												<ul>
+													
+														<li><a href="..#1-forked-daapd">1. forked-daapd</a></li>
+														
+															<li><a href="..#11-looking-for-help">1.1 Looking for help?</a></li>
+														
+															<li><a href="..#12-contents">1.2 Contents</a></li>
+														
+															<li><a href="..#13-getting-started">1.3 Getting started</a></li>
+														
+															<li><a href="..#14-supported-clients">1.4 Supported clients</a></li>
+														
+															<li><a href="..#15-web-interface">1.5 Web interface</a></li>
+														
+															<li><a href="..#16-using-remote">1.6 Using Remote</a></li>
+														
+															<li><a href="..#17-airplay-devicesspeakers">1.7 AirPlay devices/speakers</a></li>
+														
+															<li><a href="..#18-chromecast">1.8 Chromecast</a></li>
+														
+															<li><a href="..#19-local-audio-through-alsa">1.9 Local audio through ALSA</a></li>
+														
+															<li><a href="..#110-local-audio-bluetooth-and-more-through-pulseaudio">1.10 Local audio, Bluetooth and more through Pulseaudio</a></li>
+														
+															<li><a href="..#111-mp3-network-streaming-streaming-to-ios">1.11 MP3 network streaming (streaming to iOS)</a></li>
+														
+															<li><a href="..#112-remote-access">1.12 Remote access</a></li>
+														
+															<li><a href="..#113-supported-formats">1.13 Supported formats</a></li>
+														
+															<li><a href="..#114-playlists-and-internet-radio">1.14 Playlists and internet radio</a></li>
+														
+															<li><a href="..#115-artwork">1.15 Artwork</a></li>
+														
+															<li><a href="..#116-library">1.16 Library</a></li>
+														
+															<li><a href="..#117-command-line">1.17 Command line</a></li>
+														
+															<li><a href="..#118-spotify">1.18 Spotify</a></li>
+														
+															<li><a href="..#119-lastfm">1.19 LastFM</a></li>
+														
+															<li><a href="..#120-mpd-clients">1.20 MPD clients</a></li>
+														
+															<li><a href="..#121-references">1.21 References</a></li>
+														
+													
+														<li><a href="..#2-welcome-to-mkdocs">2. Welcome to MkDocs</a></li>
+														
+															<li><a href="..#21-commands">2.1 Commands</a></li>
+														
+															<li><a href="..#22-project-layout">2.2 Project layout</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">JSON API</span>
+												<ul>
+													
+														<li><a href="./#1-forked-daapd-api-endpoint-reference">1. forked-daapd API Endpoint Reference</a></li>
+														
+															<li><a href="./#11-player">1.1 Player</a></li>
+														
+															<li><a href="./#12-outputs-speakers">1.2 Outputs / Speakers</a></li>
+														
+															<li><a href="./#13-queue">1.3 Queue</a></li>
+														
+															<li><a href="./#14-library">1.4 Library</a></li>
+														
+															<li><a href="./#15-search">1.5 Search</a></li>
+														
+															<li><a href="./#16-server-info">1.6 Server info</a></li>
+														
+															<li><a href="./#17-settings">1.7 Settings</a></li>
+														
+															<li><a href="./#18-push-notifications">1.8 Push notifications</a></li>
+														
+															<li><a href="./#19-object-model">1.9 Object model</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">WEBINTERFACE</span>
+												<ul>
+													
+														<li><a href="../README_PLAYER_WEBINTERFACE/#1-forked-daapd-player-web-interface">1. forked-daapd player web interface</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#11-screenshots">1.1 Screenshots</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#12-usage">1.2 Usage</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#13-build-setup">1.3 Build Setup</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">SMARTPL</span>
+												<ul>
+													
+														<li><a href="../README_SMARTPL/#1-forked-daapd-smart-playlists">1. forked-daapd smart playlists</a></li>
+														
+															<li><a href="../README_SMARTPL/#11-syntax">1.1 Syntax</a></li>
+														
+															<li><a href="../README_SMARTPL/#12-examples">1.2 Examples</a></li>
+														
+															<li><a href="../README_SMARTPL/#13-date-operand-syntax">1.3 Date operand syntax</a></li>
+														
+															<li><a href="../README_SMARTPL/#differences-to-mt-daapd-smart-playlists">Differences to mt-daapd smart playlists</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li><a href="..">Audio</a></li>
+										
+									
+									</ul>
+								</nav>
+							
+
+							<!-- Footer -->
+								<footer id="footer">
+									<p class="copyright">&copy; Untitled. All rights reserved. Demo Images: <a href="https://unsplash.com">Unsplash</a>. Design: <a href="https://html5up.net">HTML5 UP</a>.</p>
+								</footer>
+
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../assets/js/jquery.min.js"></script>
+			<script src="../assets/js/browser.min.js"></script>
+			<script src="../assets/js/breakpoints.min.js"></script>
+			<script src="../assets/js/util.js"></script>
+			<script src="../assets/js/main.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+			<script>hljs.initHighlightingOnLoad();</script>
+			<script>var base_url = '..';</script>
+				<script src="../search/main.js" defer></script>
+	</body>
+</html>

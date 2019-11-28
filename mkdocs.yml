@@ -1,0 +1,102 @@
+site_name: forked-daapd
+site_url: https://ejurgensen.github.io/forked-daapd/
+site_description: >-
+  Linux/FreeBSD DAAP (iTunes) and MPD media server with support for AirPlay devices (multiroom), Apple Remote (and compatibles), Chromecast, Spotify and internet radio. 
+# Repository
+repo_name: ejurgensen/forked-daapd
+repo_url: https://github.com/ejurgensen/forked-daapd
+
+nav:
+    - Home: index.md
+    - Documentation:
+        - Getting started: getting_started.md
+        - Building from Source: install.md
+        - Library: library.md
+        - Playlists and Radio: playlists.md
+        - Smart Playlists: smartpl.md
+        - Artwork: artwork.md
+        - Clients:
+            - Supported Clients: clients.md
+            - Web Interface: webinterface.md
+            - Remote: remote.md
+            - MPD Clients: mpd.md
+            - Command Line Clients: cli.md
+        - Outputs:
+            - Supported Outputs: outputs.md
+            - ALSA: alsa.md
+            - Pulse Audio: pulse.md
+        - Online Services Integration:
+            - Spotify: spotify.md
+            - LastFM: lastfm.md
+        - Advanced Topics:
+            - Remote Access: remote_access.md
+            - Radio Streams: streams.md
+    - API Reference:
+        - JSON API: api.md
+        - Swagger UI: swagger.md
+
+theme:
+    name: 'material'
+    palette:
+        scheme: default
+        primary: white
+#        accent: purple
+    favicon: images/favicon.ico
+    logo: images/logo.svg
+    features:
+        - navigation.tabs
+        - navigation.sections
+
+extra:
+    social:
+        - icon: fontawesome/brands/github
+          link: https://github.com/ejurgensen/forked-daapd
+
+extra_css:
+    - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+plugins: 
+    - search
+
+markdown_extensions:
+    - admonition
+    - abbr
+    - attr_list
+    - def_list
+    - footnotes
+    - meta
+    - toc:
+        permalink: true
+    - pymdownx.arithmatex:
+        generic: true
+    - pymdownx.betterem:
+        smart_enable: all
+    - pymdownx.caret
+    - pymdownx.critic
+    - pymdownx.details
+    - pymdownx.emoji:
+        emoji_index: !!python/name:materialx.emoji.twemoji
+        emoji_generator: !!python/name:materialx.emoji.to_svg
+    - pymdownx.highlight
+    - pymdownx.inlinehilite
+    - pymdownx.keys
+    - pymdownx.magiclink:
+        repo_url_shorthand: true
+        user: squidfunk
+        repo: mkdocs-material
+    - pymdownx.mark
+    - pymdownx.smartsymbols
+    - pymdownx.snippets:
+        check_paths: true
+    - pymdownx.superfences:
+        custom_fences:
+          - name: mermaid
+            class: mermaid
+            format: !!python/name:pymdownx.superfences.fence_code_format
+    - pymdownx.tabbed
+    - pymdownx.tasklist:
+        custom_checkbox: true
+    - pymdownx.tilde

@@ -1,0 +1,364 @@
+<!DOCTYPE HTML>
+<!--
+	Editorial by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Generic - Editorial by HTML5 UP</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../assets/css/main.css" />
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" /> 
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+
+							<!-- Header -->
+								<header id="header">
+									<a href="index.html" class="logo"><strong>Editorial</strong> by HTML5 UP</a>
+									<ul class="icons">
+										<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
+										<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
+										<li><a href="#" class="icon brands fa-snapchat-ghost"><span class="label">Snapchat</span></a></li>
+										<li><a href="#" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
+										<li><a href="#" class="icon brands fa-medium-m"><span class="label">Medium</span></a></li>
+									</ul>
+								</header>
+
+							<!-- Content -->
+								<section>
+									<h1 id="1-forked-daapd-smart-playlists">1. forked-daapd smart playlists</h1>
+<p>To add a smart playlist to forked-daapd, create a new text file with a filename ending with .smartpl; 
+the filename doesn't matter, only the .smartpl ending does. The file must be placed somewhere in your
+library folder.</p>
+<h2 id="11-syntax">1.1 Syntax</h2>
+<p>The contents of a smart playlist must follow the syntax:</p>
+<pre><code>&quot;Playlist Name&quot; { expression }
+</code></pre>
+
+<p>There is exactly one smart playlist allowed for a .smartpl file.</p>
+<p>An expression consists of:</p>
+<pre><code>field-name operator operand
+</code></pre>
+
+<p>Where valid field-names (with their types) are:
+* <code>artist</code> (string)
+* <code>album_artist</code> (string)
+* <code>album</code> (string)
+* <code>title</code> (string)
+* <code>genre</code> (string)
+* <code>composer</code> (string)
+* <code>path</code> (string)
+* <code>type</code> (string)
+* <code>grouping</code> (string)
+* <code>data_kind</code> (enumeration)
+* <code>media_kind</code> (enumeration)
+* <code>play_count</code> (integer)
+* <code>skip_count</code> (integer)
+* <code>rating</code> (integer)
+* <code>year</code> (integer)
+* <code>compilation</code> (integer)
+* <code>track</code> (integer)
+* <code>disc</code> (integer)
+* <code>time_added</code> (date)
+* <code>time_modified</code> (date)
+* <code>time_played</code> (date)
+* <code>time_skipped</code> (date)</p>
+<p>Valid operators include:
+* <code>is</code>, <code>includes</code>, <code>starts with</code> (string)
+* <code>&gt;</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>=</code> (int)
+* <code>after</code>, <code>before</code> (date)
+* <code>is</code> (enumeration)</p>
+<p>The <code>is</code> operator must exactly match the field value, while the <code>includes</code> operator matches a substring.
+The <code>starts with</code> operator matches, if the value starts with the given prefix.
+All three matches are case-insensitive.</p>
+<p>Valid operands include:
+* "string value" (string)
+* integer (int)</p>
+<p>Valid operands for the enumeration <code>data_kind</code> are:
+* <code>file</code>
+* <code>url</code>
+* <code>spotify</code>
+* <code>pipe</code></p>
+<p>Valid operands for the enumeration <code>media_kind</code> are:
+* <code>music</code>
+* <code>movie</code>
+* <code>podcast</code>
+* <code>audiobook</code>
+* <code>tvshow</code></p>
+<p>Multiple expressions can be anded or ored together, using the keywords <code>OR</code> and <code>AND</code>. The unary not operator is also supported using the keyword <code>NOT</code>.</p>
+<p>It is possible to define the sort order and limit the number of items by adding an order clause and/or a limit clause after the last expression:</p>
+<pre><code>&quot;Playlist Name&quot; { expression ORDER BY field-name sort-direction LIMIT limit }
+</code></pre>
+
+<p>"sort-direction" is either <code>ASC</code> (ascending) or <code>DESC</code> (descending). "limit" is the maximum number of items.</p>
+<h2 id="12-examples">1.2 Examples</h2>
+<pre><code>&quot;techno&quot; {
+   genre includes &quot;techno&quot;
+   and artist includes &quot;zombie&quot;
+}
+</code></pre>
+
+<p>This would match songs by "Rob Zombie" or "White Zombie", as well as those with a genre of "Techno-Industrial" or
+"Trance/Techno", for example.</p>
+<pre><code>&quot;techno 2015&quot; {
+   genre includes &quot;techno&quot;
+   and artist includes &quot;zombie&quot;
+   and not genre includes &quot;industrial&quot;
+}
+</code></pre>
+
+<p>This would exclude e. g. songs with the genre "Techno-Industrial".</p>
+<pre><code>&quot;Local music&quot; {
+  data_kind is file
+  and media_kind is music
+}
+</code></pre>
+
+<p>This would match all songs added as files to the library that are not placed under the folders for podcasts, audiobooks.</p>
+<pre><code>&quot;Unplayed podcasts and audiobooks&quot; {
+  play_count = 0
+  and (media_kind is podcast or media_kind is audiobook)
+}
+</code></pre>
+
+<p>This would match any podcast and audiobook file that was never played with forked-daapd.</p>
+<pre><code>&quot;Recently added music&quot; {
+  media_kind is music
+  order by time_added desc
+  limit 10
+}
+</code></pre>
+
+<p>This would match the last 10 music files added to the library.</p>
+<h2 id="13-date-operand-syntax">1.3 Date operand syntax</h2>
+<p>One example of a valid date is a date in yyyy-mm-dd format:</p>
+<pre><code>&quot;Files added after January 1, 2004&quot; {
+  time_added after 2004-01-01
+}
+</code></pre>
+
+<p>There are also some special date keywords:
+* <code>today</code>, <code>yesterday</code>, <code>last week</code>, <code>last month</code>, <code>last year</code></p>
+<p>These dates refer to the <em>start</em> of that period; <code>today</code> means 00:00hrs of today, <code>last week</code> means the previous Monday 00:00hrs, <code>last month</code> is the first day of the previous month at 00:00hrs etc.</p>
+<p>A valid date can also be made by applying an interval to a date. Intervals can be defined as <code>days</code>, <code>weeks</code>, <code>months</code>, <code>years</code>.
+As an example, a valid date might be:</p>
+<p><code>3 weeks before today</code> or <code>3 weeks ago</code></p>
+<p>Examples:</p>
+<pre><code>&quot;Recently Added&quot; {
+    time_added after 2 weeks ago
+}
+</code></pre>
+
+<p>This matches all songs added in the last 2 weeks.</p>
+<pre><code>&quot;Recently played audiobooks&quot; {
+    time_played after last week
+    and media_kind is audiobook
+}
+</code></pre>
+
+<p>This matches all audiobooks played since the start of the last Monday 00:00AM.</p>
+<p>All dates, except for <code>YYYY-DD-HH</code>, are relative to the day of when <code>forked-daapd</code> evaluates the smartpl query; <code>time_added after today</code> run on a Monday would match against items added since Monday 00:00hrs and evaluating the same smartpl on Friday would only match against added on Friday 00:00hrs.</p>
+<p>Note that <code>time_added after 4 weeks ago</code> and <code>time_added after last month</code> are subtly different; the former is exactly 4 weeks ago (from today) whereas the latter is the first day of the previous month.</p>
+<h2 id="differences-to-mt-daapd-smart-playlists">Differences to mt-daapd smart playlists</h2>
+<p>The syntax is really close to the mt-daapd smart playlist syntax (see
+http://sourceforge.net/p/mt-daapd/code/HEAD/tree/tags/release-0.2.4.2/contrib/mt-daapd.playlist).</p>
+<p>Even this documentation is based on the file linked above.</p>
+<p>Some differences are:
+* only one smart playlist per file
+* the not operator must be placed before an expression and not before the operator
+* "||", "&amp;&amp;", "!" are not supported (use "or", "and", "not")
+* comments are not supported</p>
+								</section>
+
+						</div>
+					</div>
+
+				<!-- Sidebar -->
+					<div id="sidebar">
+						<div class="inner">
+
+							<!-- Search -->
+							
+								<section id="search" class="alt">
+									<form action="../search.html" method="get">
+										<input type="text" name="q" id="mkdocs-search-query" placeholder="Search" />
+									</form>
+								</section>
+							
+
+							<!-- Menu -->
+							
+								<nav id="menu">
+									<header class="major">
+										<h2>Menu</h2>
+									</header>
+									<ul>
+									
+										
+											<li>
+												<span class="opener">Home</span>
+												<ul>
+													
+														<li><a href="..#1-forked-daapd">1. forked-daapd</a></li>
+														
+															<li><a href="..#11-looking-for-help">1.1 Looking for help?</a></li>
+														
+															<li><a href="..#12-contents">1.2 Contents</a></li>
+														
+															<li><a href="..#13-getting-started">1.3 Getting started</a></li>
+														
+															<li><a href="..#14-supported-clients">1.4 Supported clients</a></li>
+														
+															<li><a href="..#15-web-interface">1.5 Web interface</a></li>
+														
+															<li><a href="..#16-using-remote">1.6 Using Remote</a></li>
+														
+															<li><a href="..#17-airplay-devicesspeakers">1.7 AirPlay devices/speakers</a></li>
+														
+															<li><a href="..#18-chromecast">1.8 Chromecast</a></li>
+														
+															<li><a href="..#19-local-audio-through-alsa">1.9 Local audio through ALSA</a></li>
+														
+															<li><a href="..#110-local-audio-bluetooth-and-more-through-pulseaudio">1.10 Local audio, Bluetooth and more through Pulseaudio</a></li>
+														
+															<li><a href="..#111-mp3-network-streaming-streaming-to-ios">1.11 MP3 network streaming (streaming to iOS)</a></li>
+														
+															<li><a href="..#112-remote-access">1.12 Remote access</a></li>
+														
+															<li><a href="..#113-supported-formats">1.13 Supported formats</a></li>
+														
+															<li><a href="..#114-playlists-and-internet-radio">1.14 Playlists and internet radio</a></li>
+														
+															<li><a href="..#115-artwork">1.15 Artwork</a></li>
+														
+															<li><a href="..#116-library">1.16 Library</a></li>
+														
+															<li><a href="..#117-command-line">1.17 Command line</a></li>
+														
+															<li><a href="..#118-spotify">1.18 Spotify</a></li>
+														
+															<li><a href="..#119-lastfm">1.19 LastFM</a></li>
+														
+															<li><a href="..#120-mpd-clients">1.20 MPD clients</a></li>
+														
+															<li><a href="..#121-references">1.21 References</a></li>
+														
+													
+														<li><a href="..#2-welcome-to-mkdocs">2. Welcome to MkDocs</a></li>
+														
+															<li><a href="..#21-commands">2.1 Commands</a></li>
+														
+															<li><a href="..#22-project-layout">2.2 Project layout</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">JSON API</span>
+												<ul>
+													
+														<li><a href="../README_JSON_API/#1-forked-daapd-api-endpoint-reference">1. forked-daapd API Endpoint Reference</a></li>
+														
+															<li><a href="../README_JSON_API/#11-player">1.1 Player</a></li>
+														
+															<li><a href="../README_JSON_API/#12-outputs-speakers">1.2 Outputs / Speakers</a></li>
+														
+															<li><a href="../README_JSON_API/#13-queue">1.3 Queue</a></li>
+														
+															<li><a href="../README_JSON_API/#14-library">1.4 Library</a></li>
+														
+															<li><a href="../README_JSON_API/#15-search">1.5 Search</a></li>
+														
+															<li><a href="../README_JSON_API/#16-server-info">1.6 Server info</a></li>
+														
+															<li><a href="../README_JSON_API/#17-settings">1.7 Settings</a></li>
+														
+															<li><a href="../README_JSON_API/#18-push-notifications">1.8 Push notifications</a></li>
+														
+															<li><a href="../README_JSON_API/#19-object-model">1.9 Object model</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">WEBINTERFACE</span>
+												<ul>
+													
+														<li><a href="../README_PLAYER_WEBINTERFACE/#1-forked-daapd-player-web-interface">1. forked-daapd player web interface</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#11-screenshots">1.1 Screenshots</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#12-usage">1.2 Usage</a></li>
+														
+															<li><a href="../README_PLAYER_WEBINTERFACE/#13-build-setup">1.3 Build Setup</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li>
+												<span class="opener">SMARTPL</span>
+												<ul>
+													
+														<li><a href="./#1-forked-daapd-smart-playlists">1. forked-daapd smart playlists</a></li>
+														
+															<li><a href="./#11-syntax">1.1 Syntax</a></li>
+														
+															<li><a href="./#12-examples">1.2 Examples</a></li>
+														
+															<li><a href="./#13-date-operand-syntax">1.3 Date operand syntax</a></li>
+														
+															<li><a href="./#differences-to-mt-daapd-smart-playlists">Differences to mt-daapd smart playlists</a></li>
+														
+													
+												</ul>
+											</li>
+										
+									
+										
+											<li><a href="..">Audio</a></li>
+										
+									
+									</ul>
+								</nav>
+							
+
+							<!-- Footer -->
+								<footer id="footer">
+									<p class="copyright">&copy; Untitled. All rights reserved. Demo Images: <a href="https://unsplash.com">Unsplash</a>. Design: <a href="https://html5up.net">HTML5 UP</a>.</p>
+								</footer>
+
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../assets/js/jquery.min.js"></script>
+			<script src="../assets/js/browser.min.js"></script>
+			<script src="../assets/js/breakpoints.min.js"></script>
+			<script src="../assets/js/util.js"></script>
+			<script src="../assets/js/main.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+			<script>hljs.initHighlightingOnLoad();</script>
+			<script>var base_url = '..';</script>
+				<script src="../search/main.js" defer></script>
+	</body>
+</html>

@@ -1,0 +1,322 @@
+FORMAT: 1A
+
+# forked-daapd JSON API
+
+Allow access and control of your forked-daapd server
+
+
+# Group Player
+
+## Player status [/api/player]
+
+### Get player status [GET]
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+                "state": "pause",
+                "repeat": "off",
+                "consume": false,
+                "shuffle": false,
+                "volume": 50,
+                "item_id": 269,
+                "item_length_ms": 278093,
+                "item_progress_ms": 3674
+            }
+
+    + Schema
+
+            {
+                "type": "object",
+                "properties": {
+                    "state": {
+                        "type": "string",
+                        "title": "Player state",
+                        "enum": ["play", "pause", "stop"]
+                    },
+                    "repeat": {
+                        "type": "string",
+                        "title": "Player repeat mode",
+                        "enum": ["off", "all", "single"]
+                    },
+                    "consume": {
+                        "type": "boolean",
+                        "title": "Player consume mode enabled"
+                    },
+                    "shuffle": {
+                        "type": "boolean",
+                        "title": "Player shuffle mode enabled"
+                    },
+                    "volume": {
+                        "type": "integer",
+                        "title": "Master volume in percent (0 - 100)",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "item_id": {
+                        "type": "integer",
+                        "title": "The current playing queue item id"
+                    },
+                    "item_length_ms": {
+                        "type": "integer",
+                        "title": "Total length in milliseconds of the current queue item"
+                    },
+                    "item_progress_ms": {
+                        "type": "integer",
+                        "title": "rogress into the current queue item in milliseconds"
+                    }
+                }
+            }
+
+## Start playback [/api/player/play]
+
+### Start playback [PUT]
+
++ Response 204
+
+
+## Pause playback [/api/player/pause]
+
+### Pause playback [PUT]
+
++ Response 204
+
+
+## Stop playback [/api/player/stop]
+
+### Stop playback [PUT]
+
++ Response 204
+
+
+## Toggle playback [/api/player/toggle]
+
+### Toggle playback [PUT]
+
++ Response 204
+
+
+## Skip to next track [/api/player/next]
+
+### Skip next [PUT]
+
++ Response 204
+
+
+## Skip to previous track [/api/player/previous]
+
+### Skip previous [PUT]
+
++ Response 204
+
+
+## Set shuffle mode [/api/player/shuffle{?state}]
+
++ Parameters
+    + state: `true` (boolean, required) - The new shuffle state, should be either `true` or `false`
+
+### Set shuffle mode [PUT]
+
++ Response 204
+
+
+## Set consume mode [/api/player/consume{?state}]
+
++ Parameters
+    + state: `true` (boolean, required) - The new consume state, should be either `true` or `false`
+
+### Set consume mode [PUT]
+
++ Response 204
+
+
+## Set repeat mode [/api/player/repeat{?state}]
+
++ Parameters
+    + state: `all` (enum[string], required) - The new repeat mode, should be either `off`, `all` or `single`
+
+        + Members
+            + `off`
+            + `all`
+            + `single`
+
+### Set repeat mode [PUT]
+
++ Response 204
+
+
+## Set volume [/api/player/volume{?volume,step,output_id}]
+
+Change master volume or volume of a specific output. Either `volume` or `step` must be present as query parameter.
+
++ Parameters
+    + volume: `50` (integer, optional) - The new volume (0 - 100)
+    + step: `-10` (integer, optional) - Increase or decrease volume by the given amount (-100 - 100)
+    + output_id: `0` (integer, optional) - If an output id is given, only the volume of this output will be changed. If parameter is omited, the master volume will be changed.
+
+### Set volume [PUT]
+
++ Response 204
+
+
+## Seek [/api/player/seek{?position_ms,seek_ms}]
+
+Seek to a position in the currently playing track.
+
++ Parameters
+    + position_ms: `5000` (integer, optional) - The new position in milliseconds to seek to
+    + seek_ms: `-1000` (integer, optional) - A relative amount of milliseconds to seek to
+
+### Seek [PUT]
+
++ Response 204
+
+
+
+# Group Outputs / Speakers
+
+
+## Get a list of available outputs [/api/outputs]
+
+### List outputs [GET]
+
++ Response 200 (application/json)
+
+     + Attributes
+        + outputs (array[Output])
+
+
+## Set enabled outputs [/api/outputs/set]
+
+Set the enabled outputs by passing an array of output ids. forked-daapd enables all outputs
+with the given ids and disables the remaining outputs.
+
+### Set enabled outputs [PUT]
+
++ Request (application/json)
+
+     + Attributes
+        + outputs: 0, 100 (array[string]) - Array of output ids
+
++ Response 204
+
+
+## Output [/api/outputs/{id}]
+
++ Parameters
+    + id: `0` (string, required) - Output id
+
+### Get output [GET]
+
++ Response 200 (application/json)
+
+     + Attributes (Output)
+
+### Change an output [PUT]
+
+Enable or disable an output and change its volume.
+
++ Request
+
+    + Attributes
+        + selected: true (boolean, optional) - `true` to enable and `false` to disable the output
+        + volume: 20 (number, optional) - Volume in percent (0 - 100)
+
++ Response 204
+
+
+## Toggle an output [/api/outputs/{id}/toggle]
+
+Enable or disable an output, depending on its current state.
+
++ Parameters
+    + id: `0` (string, required) - Output id
+
+### Toggle an output [PUT]
+
++ Response 204
+
+
+# Group Queue
+
+
+## Queue [/api/queue{?id,start,end}]
+
++ Parameters
+    + id: 0 (number, optional) - If a queue item id is given, only the item with the id will be returend.
+    + start: 2 (number, optional) - If a `start`and an `end` position is given, only the items from `start` (included) to `end` (excluded) will be returned. If only a `start` position is given, only the item at this position will be returned.
+    + end: 4 (number, optional) - See `start` parameter
+
+### Get output [GET]
+
++ Response 200 (application/json)
+
+     + Attributes
+        + version: 1 (number) - Version number of the current queue
+        + count: 23 (number) - Number of items in the current queue
+        + items (array[Queue item]) - Array of `queue item` objects
+
+
+## Clearing the queue [/api/queue/clear]
+
+Remove all items form the current queue
+
+### Clear queue [PUT]
+
++ Response 204
+
+
+
+## Data Structures
+
+### Output
++ id: 0 (string) - Output id
++ name: Computer (string) - Output name
++ type: ALSA (string) - Type of the output, `AirPlay`, `Chromecast`, `ALSA`, `Pulseaudio`, `fifo`
++ selected: true (boolean) - `true` if output is enabled
++ has_password: false (boolean) - `true` if output is password protected
++ requires_auth: false (boolean) - `true` if output requires authentication
++ needs_auth_key: false (boolean) - `true` if output requires an authorization key for device verification
++ volume: 20 (number) - Volume in percent
+
+### Queue item
++ id: 1 (number) - Item id
++ position: 0 (number) - Position in the queue (starting with zero)
++ track_id: 10749 (number) - Track id
++ title: Angels (string) -  Title
++ artist: The xx (string) - Track artist name
++ artist_sort: xx, The (string) - Track artist sort name
++ album: Coexist (string) - Album name
++ album_sort: Coexist (string) - Album sort name
++ album_id: 999 (string) - Album (persistent) id
++ album_artist: The xx (string) - Album artist name
++ album_artist_sort: xx, The (string) - Album artist sort name
++ album_artist_id: 7777 (string) - Album artist (persistent) id
++ composer (string, optional) - Composer
++ genre: Indie Rock (string) - Genre
++ year: 2012 (number) - Release year
++ track_number: 1 (number) - Track number
++ disc_number: 1 (number) - Disc number
++ length_ms: 171735 (number) - Track length in milliseconds
++ media_kind: music (string) - Media type of this track: `music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow`
++ data_kind: file (string) - Data type of this track: `file`, `url`, `spotify`, `pipe`
++ path: /music/srv/The xx/Coexist/01 Angels.mp3 (string) - Path
++ uri: library:track:10749 (string) - Resource identifier
++ artwork_url (string, optional) - Artwork url
++ type: mp3 (string) - file (codec) type (ie mp3/flac/...)
++ bitrate: 128 (string) - file bitrate (ie 192/128/...)
++ samplerate: 44100 (string) - file sample rate (ie 44100/48000/...)
++ channel: stereo (string) - file channel (ie mono/stereo/xx ch))
+
+### Question
++ question: Favourite programming language? (required)
++ published_at: `2014-11-11T08:40:51.620Z` (required)
++ url: /questions/1 (required)
++ choices (array[Choice], required)
+
+### Choice
++ choice: Javascript (required)
++ url: /questions/1/choices/1 (required)
++ votes: 2048 (number, required)
