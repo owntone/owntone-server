@@ -94,7 +94,6 @@ enum fixup_type {
   DB_FIXUP_ALBUM_SORT,
   DB_FIXUP_ALBUM_ARTIST_SORT,
   DB_FIXUP_COMPOSER_SORT,
-  DB_FIXUP_TIME_ADDED,
   DB_FIXUP_TIME_MODIFIED,
   DB_FIXUP_SONGARTISTID,
   DB_FIXUP_SONGALBUMID,
@@ -190,7 +189,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "item_kind",          mfi_offsetof(item_kind),          DB_TYPE_INT,    DB_FIXUP_ITEM_KIND },
     { "description",        mfi_offsetof(description),        DB_TYPE_STRING },
     { "db_timestamp",       mfi_offsetof(db_timestamp),       DB_TYPE_INT },
-    { "time_added",         mfi_offsetof(time_added),         DB_TYPE_INT,    DB_FIXUP_TIME_ADDED },
+    { "time_added",         mfi_offsetof(time_added),         DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
     { "time_modified",      mfi_offsetof(time_modified),      DB_TYPE_INT,    DB_FIXUP_TIME_MODIFIED },
     { "time_played",        mfi_offsetof(time_played),        DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
     { "time_skipped",       mfi_offsetof(time_skipped),       DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
@@ -960,11 +959,6 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	if (ctx->mfi && !ctx->mfi->item_kind)
 	  ctx->mfi->item_kind = 2; // music
 
-	break;
-
-      case DB_FIXUP_TIME_ADDED:
-	if (ctx->mfi && ctx->mfi->time_added == 0)
-	  ctx->mfi->time_added = ctx->mfi->db_timestamp;
 	break;
 
       case DB_FIXUP_TIME_MODIFIED:
@@ -2992,6 +2986,10 @@ db_file_add(struct media_file_info *mfi)
     }
 
   mfi->db_timestamp = (uint64_t)time(NULL);
+
+  // We don't do this in fixup_tags_mfi() to avoid affecting db_file_update()
+  if (mfi->time_added == 0)
+    mfi->time_added = mfi->db_timestamp;
 
   fixup_tags_mfi(mfi);
 
