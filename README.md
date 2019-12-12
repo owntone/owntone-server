@@ -537,10 +537,6 @@ The source for this version of forked-daapd can be found here:
 
   [https://github.com/ejurgensen/forked-daapd.git](https://github.com/ejurgensen/forked-daapd.git)
 
-The original (now unmaintained) source can be found here:
-
-  [http://git.debian.org/?p=users/jblache/forked-daapd.git](http://git.debian.org/?p=users/jblache/forked-daapd.git)
-
 README's for previous versions of forked-daapd:
 
   [forked-daapd version 27.0](https://github.com/ejurgensen/forked-daapd/blob/27.0/README.md)
