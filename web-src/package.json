@@ -17,7 +17,7 @@
     "mdi": "^2.2.43",
     "moment": "^2.24.0",
     "moment-duration-format": "^2.3.2",
-    "npm": "^6.11.2",
+    "npm": "^6.13.4",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.2.0",
     "v-click-outside": "^2.1.4",
