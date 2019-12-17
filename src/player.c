@@ -2143,15 +2143,15 @@ playback_next_bh(void *arg, int *retval)
       worker_execute(skipcount_inc_cb, &id, sizeof(int), 5);
     }
 
-  if (consume)
-    db_queue_delete_byitemid(pb_session.playing_now->item_id);
-
   queue_item = queue_item_next(pb_session.playing_now->item_id);
   if (!queue_item)
     {
       DPRINTF(E_DBG, L_PLAYER, "Error finding next source, queue item has disappeared\n");
       goto error;
     }
+
+  if (consume)
+    db_queue_delete_byitemid(pb_session.playing_now->item_id);
 
   ret = pb_session_start(queue_item, 0);
   free_queue_item(queue_item, 0);
