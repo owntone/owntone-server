@@ -216,6 +216,8 @@ audio {
 	# socket.
 #	server = ""
 
+        # ALSA settings can be definied in their own 'alsa { }' sections for 
+        # multiple devices
 	# Audio PCM device name for local audio output - ALSA only
 #	card = "default"
 
@@ -245,6 +247,25 @@ audio {
 	# are required. This setting sets the length of that period in seconds.
 #	adjust_period_seconds = 100
 }
+
+# ALSA device settings
+# Multiple sections can be defined for multiple ALSA devices on a host (i.e. a
+# RPi with onboard headphones and DAC hat).  ALSA may see these devices as hw:0
+# and hw:1 via 'aplay -l' (see README_ALSA)
+#
+# Overrides ALSA settings in 'audio' section
+#alsa "alsa default" {
+	# Audio PCM device name for local audio output
+#	card = "default"
+
+	# Mixer channel to use for volume control
+	# If not set, PCM will be used if available, otherwise Master.
+#	mixer = ""
+
+	# Mixer device to use for volume control
+	# If not set, the value for "card" will be used.
+#	mixer_device = ""
+#}
 
 # Pipe output
 # Allows forked-daapd to output audio data to a named pipe

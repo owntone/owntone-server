@@ -274,3 +274,29 @@ audio {
     mixer_device="hw:1"
 }
 ```
+
+## Multiple devices
+
+If your machine has multiple physical devices like our Raspberry Pi example above (the DAC hat and the onboard headphone jack), we can make all these devices available to `forked-daapd` using seperate `alsa { .. }` sections.
+
+NB: When introducing `alsa { .. }` section(s) the ALSA specific configuration in the `audio { .. }` section will be ignored.
+
+For example:
+```
+audio {
+    type = "alsa"
+}
+
+alsa "dac" {
+    card="dac"
+    mixer="Analogue"
+    mixer_device="hw:1"
+}
+
+alsa "headphones" {
+    card = "hw:0,0"
+    mixer = "PCM"
+    mixer_device = "hw:0"
+}
+
+```
