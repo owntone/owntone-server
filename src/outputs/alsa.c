@@ -974,10 +974,12 @@ alsa_session_make(struct output_device *device, int callback_id)
 
   CHECK_NULL(L_LAUDIO, as = calloc(1, sizeof(struct alsa_session)));
 
+  DPRINTF(E_DBG, L_LAUDIO, "alsa dev=%s type=%s callback=%d\n", device->name, device->type_name, callback_id);
+
   as->device_id = device->id;
   as->callback_id = callback_id;
 
-  cfg_audio = cfg_getsec(cfg, "audio");
+  cfg_audio = cfg_size(cfg, "alsa") == 0 ? cfg_getsec(cfg, "audio") : cfg_gettsec(cfg, "alsa", device->name);
 
   as->devname = cfg_getstr(cfg_audio, "card");
   as->mixer_name = cfg_getstr(cfg_audio, "mixer");
@@ -1175,12 +1177,31 @@ alsa_write(struct output_buffer *obuf)
     }
 }
 
+static void
+alsa_device_add(cfg_t* cfg_audio, int id, const char* devname)
+{
+  struct output_device *device;
+  CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
+
+  device->id = id;
+  device->name = strdup(devname);
+  device->type = OUTPUT_TYPE_ALSA;
+  device->type_name = outputs_name(device->type);
+  device->has_video = 0;
+
+  DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' with name '%s'\n", cfg_getstr(cfg_audio, "card"), device->name);
+
+  player_device_add(device);
+}
+
 static int
 alsa_init(void)
 {
-  struct output_device *device;
   cfg_t *cfg_audio;
+  cfg_t *cfg_alsasec;
   const char *type;
+  int i;
+  int alsa_cfg_secn;
 
   // Is ALSA enabled in config?
   cfg_audio = cfg_getsec(cfg, "audio");
@@ -1191,17 +1212,19 @@ alsa_init(void)
   alsa_sync_disable = cfg_getbool(cfg_audio, "sync_disable");
   alsa_latency_history_size = cfg_getint(cfg_audio, "adjust_period_seconds");
 
-  CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
-
-  device->id = 0;
-  device->name = strdup(cfg_getstr(cfg_audio, "nickname"));
-  device->type = OUTPUT_TYPE_ALSA;
-  device->type_name = outputs_name(device->type);
-  device->has_video = 0;
-
-  DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' with name '%s'\n", cfg_getstr(cfg_audio, "card"), device->name);
-
-  player_device_add(device);
+  alsa_cfg_secn = cfg_size(cfg, "alsa");
+  if (alsa_cfg_secn == 0)
+    {
+      alsa_device_add(cfg_audio, 0, cfg_getstr(cfg_audio, "nickname"));
+    }
+  else
+    {
+      for (i = 0; i < alsa_cfg_secn; ++i)
+        {
+          cfg_alsasec = cfg_getnsec(cfg, "alsa", i);
+          alsa_device_add(cfg_alsasec, i, cfg_alsasec->title);
+        }
+    }
 
   snd_lib_error_set_handler(logger_alsa);
 

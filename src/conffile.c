@@ -124,6 +124,17 @@ static cfg_opt_t sec_audio[] =
     CFG_END()
   };
 
+
+/* local ALSA audio section structure */
+static cfg_opt_t sec_alsa[] =
+  {
+    CFG_STR("card", "default", CFGF_NONE),
+    CFG_STR("mixer", NULL, CFGF_NONE),
+    CFG_STR("mixer_device", NULL, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_END()
+  };
+
 /* AirPlay/ApEx device section structure */
 static cfg_opt_t sec_airplay[] =
   {
@@ -201,6 +212,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("general", sec_general, CFGF_NONE),
     CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_SEC("audio", sec_audio, CFGF_NONE),
+    CFG_SEC("alsa", sec_alsa, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("chromecast", sec_chromecast, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("fifo", sec_fifo, CFGF_NONE),
