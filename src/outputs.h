@@ -187,9 +187,11 @@ struct output_data
 
 struct output_buffer
 {
-  uint32_t write_counter; // REMOVE ME? not used for anything
   struct timespec pts;
-  struct output_data data[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 1];
+  // The array is two larger than max quality subscriptions because element 0
+  // holds the original, untranscoded, data (which might not have any
+  // subscribers, and the last element is a zero terminator.
+  struct output_data data[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 2];
 } output_buffer;
 
 struct output_definition

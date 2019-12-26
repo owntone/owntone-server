@@ -313,7 +313,6 @@ buffer_fill(struct output_buffer *obuf, void *buf, size_t bufsize, struct media_
   int i;
   int n;
 
-  obuf->write_counter++;
   obuf->pts = *pts;
 
   // The resampling/encoding (transcode) contexts work for a given input quality,
