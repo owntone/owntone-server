@@ -494,6 +494,10 @@ playback_session_free(struct alsa_playback_session *pb)
   if (!pb)
     return;
 
+  // Unsubscribe from qualities that sync_correct() might have requested
+  if (pb->sync_resample_step != 0)
+    outputs_quality_unsubscribe(&pb->quality);
+
   pcm_close(pb->pcm);
 
   ringbuffer_free(&pb->prebuf, 1);
