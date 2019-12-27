@@ -673,6 +673,9 @@ int
 db_pl_add(struct playlist_info *pli, int *id);
 
 int
+db_pl_update(struct playlist_info *pli);
+
+int
 db_pl_add_item_bypath(int plid, const char *path);
 
 int
@@ -680,9 +683,6 @@ db_pl_add_item_byid(int plid, int fileid);
 
 void
 db_pl_clear_items(int id);
-
-int
-db_pl_update(struct playlist_info *pli);
 
 void
 db_pl_delete(int id);

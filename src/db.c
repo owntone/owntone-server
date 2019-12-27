@@ -62,8 +62,9 @@
 #define DB_TYPE_INT64    2
 #define DB_TYPE_STRING   3
 
-// Flags that column value is set automatically by the db, e.g. by a trigger
-#define DB_FLAG_AUTO     (1 << 0)
+// Flags that the field will not be bound to prepared statements, which is relevant if the field has no
+// matching column, or if the the column value is set automatically by the db, e.g. by a trigger
+#define DB_FLAG_NO_BIND  (1 << 0)
 // Flags that we will only update column value if we have non-zero value (to avoid zeroing e.g. rating)
 #define DB_FLAG_NO_ZERO  (1 << 1)
 
@@ -110,6 +111,9 @@ struct db_statements
   sqlite3_stmt *files_insert;
   sqlite3_stmt *files_update;
   sqlite3_stmt *files_ping;
+
+  sqlite3_stmt *playlists_insert;
+  sqlite3_stmt *playlists_update;
 };
 
 struct col_type_map {
@@ -150,7 +154,7 @@ struct browse_clause {
  */
 static const struct col_type_map mfi_cols_map[] =
   {
-    { "id",                 mfi_offsetof(id),                 DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_AUTO },
+    { "id",                 mfi_offsetof(id),                 DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_BIND },
     { "path",               mfi_offsetof(path),               DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
     { "virtual_path",       mfi_offsetof(virtual_path),       DB_TYPE_STRING },
     { "fname",              mfi_offsetof(fname),              DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
@@ -221,7 +225,7 @@ static const struct col_type_map mfi_cols_map[] =
  */
 static const struct col_type_map pli_cols_map[] =
   {
-    { "id",                 pli_offsetof(id),                 DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_AUTO },
+    { "id",                 pli_offsetof(id),                 DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_BIND },
     { "title",              pli_offsetof(title),              DB_TYPE_STRING, DB_FIXUP_TITLE },
     { "type",               pli_offsetof(type),               DB_TYPE_INT },
     { "query",              pli_offsetof(query),              DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
@@ -235,11 +239,11 @@ static const struct col_type_map pli_cols_map[] =
     { "directory_id",       pli_offsetof(directory_id),       DB_TYPE_INT },
     { "query_order",        pli_offsetof(query_order),        DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
     { "query_limit",        pli_offsetof(query_limit),        DB_TYPE_INT },
-    { "media_kind",         pli_offsetof(media_kind),         DB_TYPE_INT },
+    { "media_kind",         pli_offsetof(media_kind),         DB_TYPE_INT,    DB_FIXUP_MEDIA_KIND },
 
     // Not in the database, but returned via the query's COUNT()/SUM()
-    { "items",              pli_offsetof(items),              DB_TYPE_INT },
-    { "streams",            pli_offsetof(streams),            DB_TYPE_INT },
+    { "items",              pli_offsetof(items),              DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_BIND },
+    { "streams",            pli_offsetof(streams),            DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_BIND },
   };
 
 /* This list must be kept in sync with
@@ -248,7 +252,7 @@ static const struct col_type_map pli_cols_map[] =
  */
 static const struct col_type_map qi_cols_map[] =
   {
-    { "id",                 qi_offsetof(id),                  DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_AUTO },
+    { "id",                 qi_offsetof(id),                  DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_BIND },
     { "file_id",            qi_offsetof(id),                  DB_TYPE_INT },
     { "pos",                qi_offsetof(pos),                 DB_TYPE_INT },
     { "shuffle_pos",        qi_offsetof(shuffle_pos),         DB_TYPE_INT },
@@ -277,7 +281,7 @@ static const struct col_type_map qi_cols_map[] =
     { "type",               qi_offsetof(type),                DB_TYPE_STRING, DB_FIXUP_CODECTYPE },
     { "bitrate",            qi_offsetof(bitrate),             DB_TYPE_INT },
     { "samplerate",         qi_offsetof(samplerate),          DB_TYPE_INT },
-    { "chanenls",           qi_offsetof(channels),            DB_TYPE_INT },
+    { "channels",           qi_offsetof(channels),            DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -400,7 +404,7 @@ static const ssize_t dbgri_cols_map[] =
  */
 static const struct col_type_map wi_cols_map[] =
   {
-    { "wd",          wi_offsetof(wd),     DB_TYPE_INT, DB_FLAG_AUTO },
+    { "wd",          wi_offsetof(wd),     DB_TYPE_INT, DB_FLAG_NO_BIND },
     { "cookie",      wi_offsetof(cookie), DB_TYPE_INT },
     { "path",        wi_offsetof(path),   DB_TYPE_STRING },
   };
@@ -950,6 +954,8 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	  ctx->mfi->media_kind = MEDIA_KIND_TVSHOW;
 	else if (ctx->mfi && !ctx->mfi->media_kind)
 	  ctx->mfi->media_kind = MEDIA_KIND_MUSIC;
+	else if (ctx->pli && !ctx->pli->media_kind)
+	  ctx->pli->media_kind = MEDIA_KIND_MUSIC;
 	else if (ctx->queue_item && !ctx->queue_item->media_kind)
 	  ctx->queue_item->media_kind = MEDIA_KIND_MUSIC;
 
@@ -1095,22 +1101,22 @@ fixup_tags_queue_item(struct db_queue_item *queue_item)
 }
 
 static int
-bind_mfi(sqlite3_stmt *stmt, struct media_file_info *mfi)
+bind_generic(sqlite3_stmt *stmt, void *data, const struct col_type_map *map, size_t map_size, int id)
 {
   char **strptr;
   char *ptr;
   int i;
   int n;
 
-  for (i = 0, n = 1; i < ARRAY_SIZE(mfi_cols_map); i++)
+  for (i = 0, n = 1; i < map_size; i++)
     {
-      if (mfi_cols_map[i].flag & DB_FLAG_AUTO)
+      if (map[i].flag & DB_FLAG_NO_BIND)
 	continue;
 
-      ptr = (char *)mfi + mfi_cols_map[i].offset;
-      strptr = (char **)((char *)mfi + mfi_cols_map[i].offset);
+      ptr = data + map[i].offset;
+      strptr = (char **)(data + map[i].offset);
 
-      switch (mfi_cols_map[i].type)
+      switch (map[i].type)
 	{
 	  case DB_TYPE_INT:
 	    sqlite3_bind_int64(stmt, n, *((uint32_t *)ptr)); // Use _int64 because _int is for signed int32
@@ -1125,7 +1131,7 @@ bind_mfi(sqlite3_stmt *stmt, struct media_file_info *mfi)
 	    break;
 
 	  default:
-	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in mfi column map\n", mfi_cols_map[i].type);
+	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in column map\n", map[i].type);
 	    return -1;
 	}
 
@@ -1133,12 +1139,23 @@ bind_mfi(sqlite3_stmt *stmt, struct media_file_info *mfi)
     }
 
   // This binds the final "WHERE id = ?" if it is an update
-  if (mfi->id)
-    sqlite3_bind_int(stmt, n, mfi->id);
+  if (id)
+    sqlite3_bind_int(stmt, n, id);
 
   return 0;
 }
 
+static int
+bind_mfi(sqlite3_stmt *stmt, struct media_file_info *mfi)
+{
+  return bind_generic(stmt, mfi, mfi_cols_map, ARRAY_SIZE(mfi_cols_map), mfi->id);
+}
+
+static int
+bind_pli(sqlite3_stmt *stmt, struct playlist_info *pli)
+{
+  return bind_generic(stmt, pli, pli_cols_map, ARRAY_SIZE(pli_cols_map), pli->id);
+}
 
 /* Unlock notification support */
 static void
@@ -3464,73 +3481,58 @@ db_pl_fetch_bytitlepath(const char *title, const char *path)
 int
 db_pl_add(struct playlist_info *pli, int *id)
 {
-#define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id," \
-                  " parent_id, virtual_path, directory_id, query_order, query_limit)" \
-                  " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q', %d, %Q, %d);"
-  char *query;
-  char *errmsg;
   int ret;
+
+  // If the backend sets 1 it must be preserved, because the backend is still
+  // scanning and is going to update it later (see filescanner_playlist.c)
+  if (pli->db_timestamp != 1)
+    pli->db_timestamp = (uint64_t)time(NULL);
 
   fixup_tags_pli(pli);
 
-  /* Check duplicates */
-  query = sqlite3_mprintf(QDUP_TMPL, pli->title, STR(pli->path));
-  if (!query)
+  ret = bind_pli(db_statements.playlists_insert, pli);
+  if (ret < 0)
+    return -1;
+
+  ret = db_statement_run(db_statements.playlists_insert);
+  if (ret < 0)
+    return -1;
+
+  if (id)
     {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
+      ret = db_pl_id_bypath(pli->path);
+      if (ret < 0)
+	return -1;
+
+      *id = ret;
     }
 
-  ret = db_get_one_int(query);
-
-  sqlite3_free(query);
-
-  if (ret > 0)
-    {
-      DPRINTF(E_WARN, L_DB, "Duplicate playlist with title '%s' path '%s'\n", pli->title, pli->path);
-      return -1;
-    }
-
-  /* Add */
-  query = sqlite3_mprintf(QADD_TMPL,
-			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
-			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id,
-			  pli->query_order, pli->query_limit);
-
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  *id = (int)sqlite3_last_insert_rowid(hdl);
-  if (*id == 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Successful insert but no last_insert_rowid!\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) with id %d\n", pli->title, pli->path, *id);
+  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s)\n", pli->title, pli->path);
 
   return 0;
+}
 
-#undef QDUP_TMPL
-#undef QADD_TMPL
+int
+db_pl_update(struct playlist_info *pli)
+{
+  int ret;
+
+  // If the backend sets 1 it must be preserved, because the backend is still
+  // scanning and is going to update it later (see filescanner_playlist.c)
+  if (pli->db_timestamp != 1)
+    pli->db_timestamp = (uint64_t)time(NULL);
+
+  fixup_tags_pli(pli);
+
+  ret = bind_pli(db_statements.playlists_update, pli);
+  if (ret < 0)
+    return -1;
+
+  ret = db_statement_run(db_statements.playlists_update);
+  if (ret < 0)
+    return -1;
+
+  return 0;
 }
 
 int
@@ -3554,29 +3556,6 @@ db_pl_add_item_byid(int plid, int fileid)
   query = sqlite3_mprintf(Q_TMPL, plid, fileid);
 
   return db_query_run(query, 1, 0);
-#undef Q_TMPL
-}
-
-int
-db_pl_update(struct playlist_info *pli)
-{
-#define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, query = '%q', db_timestamp = %" PRIi64 ", disabled = %d," \
-               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q', directory_id = %d," \
-               " query_order = %Q, query_limit = %d" \
-               " WHERE id = %d;"
-  char *query;
-  int ret;
-
-  fixup_tags_pli(pli);
-
-  query = sqlite3_mprintf(Q_TMPL,
-			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
-			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id,
-			  pli->query_order, pli->query_limit, pli->id);
-
-  ret = db_query_run(query, 1, 0);
-
-  return ret;
 #undef Q_TMPL
 }
 
@@ -6787,24 +6766,24 @@ db_open(void)
   return 0;
 }
 
-static int
-db_statements_prepare(void)
+static sqlite3_stmt *
+db_statements_prepare_insert(const struct col_type_map *map, size_t map_size, const char *table)
 {
   char *query;
   char keystr[2048];
   char valstr[1024];
+  sqlite3_stmt *stmt;
   int ret;
   int i;
 
-  // Prepare "INSERT INTO files" statement
   memset(keystr, 0, sizeof(keystr));
   memset(valstr, 0, sizeof(valstr));
-  for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
+  for (i = 0; i < map_size; i++)
     {
-      if (mfi_cols_map[i].flag & DB_FLAG_AUTO)
+      if (map[i].flag & DB_FLAG_NO_BIND)
 	continue;
 
-      CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s, ", mfi_cols_map[i].name));
+      CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s, ", map[i].name));
       CHECK_ERR(L_DB, safe_snprintf_cat(valstr, sizeof(valstr), "?, "));
     }
 
@@ -6812,57 +6791,96 @@ db_statements_prepare(void)
   *(strrchr(keystr, ',')) = '\0';
   *(strrchr(valstr, ',')) = '\0';
 
-  CHECK_NULL(L_DB, query = db_mprintf("INSERT INTO files (%s) VALUES (%s);", keystr, valstr));
+  CHECK_NULL(L_DB, query = db_mprintf("INSERT INTO %s (%s) VALUES (%s);", table, keystr, valstr));
 
-  ret = db_blocking_prepare_v2(query, -1, &db_statements.files_insert, NULL);
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "Could not prepare statement '%s': %s\n", query, sqlite3_errmsg(hdl));
       free(query);
-      return -1;
+      return NULL;
     }
 
   free(query);
 
-  // Prepare "UPDATE files" statement
+  return stmt;
+}
+
+static sqlite3_stmt *
+db_statements_prepare_update(const struct col_type_map *map, size_t map_size, const char *table)
+{
+  char *query;
+  char keystr[2048];
+  sqlite3_stmt *stmt;
+  int ret;
+  int i;
+
   memset(keystr, 0, sizeof(keystr));
-  for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
+  for (i = 0; i < map_size; i++)
     {
-      if (mfi_cols_map[i].flag & DB_FLAG_AUTO)
+      if (map[i].flag & DB_FLAG_NO_BIND)
 	continue;
 
-      if (mfi_cols_map[i].flag & DB_FLAG_NO_ZERO)
-	CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = daap_no_zero(?, %s), ", mfi_cols_map[i].name, mfi_cols_map[i].name));
+      if (map[i].flag & DB_FLAG_NO_ZERO)
+	CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = daap_no_zero(?, %s), ", map[i].name, map[i].name));
       else
-	CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = ?, ", mfi_cols_map[i].name));
+	CHECK_ERR(L_DB, safe_snprintf_cat(keystr, sizeof(keystr), "%s = ?, ", map[i].name));
     }
 
   // Terminate at the ending ", "
   *(strrchr(keystr, ',')) = '\0';
 
-  CHECK_NULL(L_DB, query = db_mprintf("UPDATE files SET %s WHERE %s = ?;", keystr, mfi_cols_map[0].name));
+  CHECK_NULL(L_DB, query = db_mprintf("UPDATE %s SET %s WHERE %s = ?;", table, keystr, map[0].name));
 
-  ret = db_blocking_prepare_v2(query, -1, &db_statements.files_update, NULL);
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "Could not prepare statement '%s': %s\n", query, sqlite3_errmsg(hdl));
       free(query);
-      return -1;
+      return NULL;
     }
+
   free(query);
 
-  // Prepare "UPDATE files SET db_timestamp" statement
-  CHECK_NULL(L_DB, query = db_mprintf("UPDATE files SET db_timestamp = ?, disabled = 0 WHERE path = ? AND db_timestamp >= ?;"));
+  return stmt;
+}
 
-  ret = db_blocking_prepare_v2(query, -1, &db_statements.files_ping, NULL);
+static sqlite3_stmt *
+db_statements_prepare_ping(const char *table)
+{
+  char *query;
+  sqlite3_stmt *stmt;
+  int ret;
+
+  CHECK_NULL(L_DB, query = db_mprintf("UPDATE %s SET db_timestamp = ?, disabled = 0 WHERE path = ? AND db_timestamp >= ?;", table));
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "Could not prepare statement '%s': %s\n", query, sqlite3_errmsg(hdl));
       free(query);
-      return -1;
+      return NULL;
     }
 
   free(query);
+
+  return stmt;
+}
+
+static int
+db_statements_prepare(void)
+{
+  db_statements.files_insert = db_statements_prepare_insert(mfi_cols_map, ARRAY_SIZE(mfi_cols_map), "files");
+  db_statements.files_update = db_statements_prepare_update(mfi_cols_map, ARRAY_SIZE(mfi_cols_map), "files");
+  db_statements.files_ping   = db_statements_prepare_ping("files");
+
+  db_statements.playlists_insert = db_statements_prepare_insert(pli_cols_map, ARRAY_SIZE(pli_cols_map), "playlists");
+  db_statements.playlists_update = db_statements_prepare_update(pli_cols_map, ARRAY_SIZE(pli_cols_map), "playlists");
+
+  if ( !db_statements.files_insert || !db_statements.files_update || !db_statements.files_ping
+       || !db_statements.playlists_insert || !db_statements.playlists_update
+     )
+    return -1;
 
   return 0;
 }
