@@ -373,14 +373,14 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
       else if ((len > 6) && (strncmp(queuefilter, "genre:", 6) == 0))
 	{
 	  qp.type = Q_ITEMS;
-	  ret = db_snprintf(buf, sizeof(buf), "f.genre = %Q", queuefilter + 6);
-	  if (ret < 0)
+	  ret = snprintf(buf, sizeof(buf), "'daap.song%s'", queuefilter);
+	  if (ret < 0 || ret >= sizeof(buf))
 	    {
-	      DPRINTF(E_LOG, L_DACP, "Invalid genre in queuefilter: '%s'\n", queuefilter);
+	      DPRINTF(E_LOG, L_DACP, "Invalid genre length in queuefilter: '%s'\n", queuefilter);
 
 	      return -1;
 	    }
-	  qp.filter = strdup(buf);
+	  qp.filter = daap_query_parse_sql(buf);
 	}
       else
 	{
