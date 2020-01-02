@@ -12,6 +12,7 @@ struct dacp_prop_map;
 %%
 "dmcp.volume",                          dacp_propget_volume,                 dacp_propset_volume
 "dmcp.device-volume",                   NULL,                                dacp_propset_devicevolume
+"dmcp.device-prevent-playback",         NULL,                                dacp_propset_devicepreventplayback
 "dacp.playerstate",                     dacp_propget_playerstate,            NULL
 "dacp.nowplaying",                      dacp_propget_nowplaying,             NULL
 "dacp.playingtime",                     dacp_propget_playingtime,            dacp_propset_playingtime

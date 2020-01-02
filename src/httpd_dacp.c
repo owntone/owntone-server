@@ -112,6 +112,8 @@ dacp_propset_volume(const char *value, struct httpd_request *hreq);
 static void
 dacp_propset_devicevolume(const char *value, struct httpd_request *hreq);
 static void
+dacp_propset_devicepreventplayback(const char *value, struct httpd_request *hreq);
+static void
 dacp_propset_playingtime(const char *value, struct httpd_request *hreq);
 static void
 dacp_propset_shufflestate(const char *value, struct httpd_request *hreq);
@@ -957,19 +959,68 @@ static void
 dacp_propset_devicevolume(const char *value, struct httpd_request *hreq)
 {
   struct evkeyvalq *headers;
+  struct player_speaker_info spk_info;
   const char *remote;
-  uint32_t id;
+  uint32_t active_remote;
+  int ret;
 
   headers = evhttp_request_get_input_headers(hreq->req);
   remote = evhttp_find_header(headers, "Active-Remote");
 
-  if (!headers || !remote || (safe_atou32(remote, &id) < 0))
+  if (!headers || !remote || (safe_atou32(remote, &active_remote) < 0))
     {
       DPRINTF(E_LOG, L_DACP, "Request for setting device-volume has invalid Active-Remote: '%s'\n", remote);
       return;
     }
 
-  player_volume_byactiveremote(id, value);
+  ret = player_speaker_get_byactiveremote(&spk_info, active_remote);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Request for setting device-volume from unknown Active-Remote: '%s'\n", remote);
+      return;
+    }
+
+  player_volume_update_speaker(spk_info.id, value);
+}
+
+// iTunes seems to use this as way for a speaker to tell the server that it is
+// busy with something else. If the speaker makes the request with the value 1,
+// then iTunes will disable the speaker, and if it is the only speaker, then
+// playback will also be paused. It is not possible for the user to restart the
+// speaker until it has made a request with value 0 (if attempted, iTunes will
+// show it is waiting for the speaker). As you can see from the below, we
+// don't fully match this behaviour, instead we just enable/disable.
+static void
+dacp_propset_devicepreventplayback(const char *value, struct httpd_request *hreq)
+{
+  struct evkeyvalq *headers;
+  struct player_speaker_info spk_info;
+  const char *remote;
+  uint32_t active_remote;
+  int ret;
+
+  headers = evhttp_request_get_input_headers(hreq->req);
+  remote = evhttp_find_header(headers, "Active-Remote");
+
+  if (!headers || !remote || (safe_atou32(remote, &active_remote) < 0))
+    {
+      DPRINTF(E_LOG, L_DACP, "Request for setting device-prevent-playback has invalid Active-Remote: '%s'\n", remote);
+      return;
+    }
+
+  ret = player_speaker_get_byactiveremote(&spk_info, active_remote);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Request for setting device-prevent-playback from unknown Active-Remote: '%s'\n", remote);
+      return;
+    }
+
+  if (value[0] == '1')
+    player_speaker_disable(spk_info.id);
+  else if (value[0] == '0')
+    player_speaker_enable(spk_info.id);
+  else
+    DPRINTF(E_LOG, L_DACP, "Request for setting device-prevent-playback has invalid value: '%s'\n", value);
 }
 
 static void
@@ -2433,11 +2484,12 @@ dacp_reply_setproperty(struct httpd_request *hreq)
     return -1;
 
   /* Known properties (see dacp_prop.gperf):
-   * dacp.shufflestate  0/1
-   * dacp.repeatstate   0/1/2
-   * dacp.playingtime   seek to time in ms
-   * dmcp.volume        0-100, float
-   * dmcp.device-volume -144-0, float (raop volume)
+   * dacp.shufflestate                0/1
+   * dacp.repeatstate                 0/1/2
+   * dacp.playingtime                 seek to time in ms
+   * dmcp.volume                      0-100, float
+   * dmcp.device-volume               -144-0, float (raop volume)
+   * dmcp.device-prevent-playback     0/1
    */
 
   /* /ctrl-int/1/setproperty?dacp.shufflestate=1&session-id=100 */

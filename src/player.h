@@ -29,6 +29,7 @@ enum player_seek_mode {
 
 struct player_speaker_info {
   uint64_t id;
+  uint32_t active_remote;
   char name[255];
   char output_type[50];
   int relvol;
@@ -93,6 +94,9 @@ int
 player_speaker_get_byid(uint64_t id, struct player_speaker_info *spk);
 
 int
+player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t active_remote);
+
+int
 player_speaker_enable(uint64_t id);
 
 int
@@ -132,7 +136,7 @@ int
 player_volume_setabs_speaker(uint64_t id, int vol);
 
 int
-player_volume_byactiveremote(uint32_t activeremote, const char *value);
+player_volume_update_speaker(uint64_t id, const char *value);
 
 int
 player_repeat_set(enum repeat_mode mode);

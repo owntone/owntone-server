@@ -113,12 +113,8 @@
 //#define DEBUG_PLAYER 1
 
 struct volume_param {
-  int volume;
   uint64_t spk_id;
-};
-
-struct activeremote_param {
-  uint32_t activeremote;
+  int volume;
   const char *value;
 };
 
@@ -137,6 +133,7 @@ struct speaker_set_param
 struct speaker_get_param
 {
   uint64_t spk_id;
+  uint32_t active_remote;
   struct player_speaker_info *spk_info;
 };
 
@@ -2392,6 +2389,7 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
 {
   memset(spk, 0, sizeof(struct player_speaker_info));
   spk->id = device->id;
+  spk->active_remote = (uint32_t)device->id;
   strncpy(spk->name, device->name, sizeof(spk->name));
   spk->name[sizeof(spk->name) - 1] = '\0';
   strncpy(spk->output_type, device->type_name, sizeof(spk->output_type));
@@ -2433,6 +2431,27 @@ speaker_get_byid(void *arg, int *retval)
     {
       if ((device->advertised || device->selected)
 	  && device->id == spk_param->spk_id)
+	{
+	  device_to_speaker_info(spk_param->spk_info, device);
+	  *retval = 0;
+	  return COMMAND_END;
+	}
+    }
+
+  // No output device found with matching id
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_get_byactiveremote(void *arg, int *retval)
+{
+  struct speaker_get_param *spk_param = arg;
+  struct output_device *device;
+
+  for (device = output_device_list; device; device = device->next)
+    {
+      if ((uint32_t)device->id == spk_param->active_remote)
 	{
 	  device_to_speaker_info(spk_param->spk_info, device);
 	  *retval = 0;
@@ -2770,33 +2789,23 @@ volume_setabs_speaker(void *arg, int *retval)
 
 // Just updates internal volume params (does not make actual requests to the speaker)
 static enum command_state
-volume_byactiveremote(void *arg, int *retval)
+volume_update_speaker(void *arg, int *retval)
 {
-  struct activeremote_param *ar_param = arg;
+  struct volume_param *vol_param = arg;
   struct output_device *device;
-  uint32_t activeremote;
   int volume;
 
-  *retval = 0;
-  activeremote = ar_param->activeremote;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if ((uint32_t)device->id == activeremote)
-	break;
-    }
-
+  device = outputs_device_get(vol_param->spk_id);
   if (!device)
     {
-      DPRINTF(E_LOG, L_DACP, "Could not find speaker with Active-Remote id %d\n", activeremote);
       *retval = -1;
       return COMMAND_END;
     }
 
-  volume = outputs_device_volume_to_pct(device, ar_param->value); // Only converts
+  volume = outputs_device_volume_to_pct(device, vol_param->value); // Only converts
   if (volume < 0)
     {
-      DPRINTF(E_LOG, L_DACP, "Could not parse volume given by Active-Remote id %d\n", activeremote);
+      DPRINTF(E_LOG, L_DACP, "Could not parse volume '%s' in update_volume() for speaker '%s'\n", vol_param->value, device->name);
       *retval = -1;
       return COMMAND_END;
     }
@@ -2811,6 +2820,7 @@ volume_byactiveremote(void *arg, int *retval)
 
   listener_notify(LISTENER_VOLUME);
 
+  *retval = 0;
   return COMMAND_END;
 }
 
@@ -3112,6 +3122,19 @@ player_speaker_get_byid(uint64_t id, struct player_speaker_info *spk)
 }
 
 int
+player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t active_remote)
+{
+  struct speaker_get_param param;
+  int ret;
+
+  param.active_remote = active_remote;
+  param.spk_info = spk;
+
+  ret = commands_exec_sync(cmdbase, speaker_get_byactiveremote, NULL, &param);
+  return ret;
+}
+
+int
 player_speaker_enable(uint64_t id)
 {
   int ret;
@@ -3192,15 +3215,15 @@ player_volume_setabs_speaker(uint64_t id, int vol)
 }
 
 int
-player_volume_byactiveremote(uint32_t activeremote, const char *value)
+player_volume_update_speaker(uint64_t id, const char *value)
 {
-  struct activeremote_param ar_param;
+  struct volume_param vol_param;
   int ret;
 
-  ar_param.activeremote = activeremote;
-  ar_param.value = value;
+  vol_param.spk_id = id;
+  vol_param.value  = value;
 
-  ret = commands_exec_sync(cmdbase, volume_byactiveremote, NULL, &ar_param);
+  ret = commands_exec_sync(cmdbase, volume_update_speaker, NULL, &vol_param);
   return ret;
 }
 
