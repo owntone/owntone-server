@@ -326,6 +326,7 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
   if (evc)
     evhttp_connection_set_closecb(evc, NULL, NULL);
 
+  evhttp_request_free(ur->req);
   update_remove(ur);
 }
 

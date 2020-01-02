@@ -840,6 +840,7 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
       p->next = ur->next;
     }
 
+  evhttp_request_free(ur->req);
   free(ur);
 }
 
