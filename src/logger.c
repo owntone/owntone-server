@@ -38,15 +38,7 @@
 #include "conffile.h"
 #include "misc.h"
 
-static pthread_mutex_t logger_lck;
-static int logger_initialized;
-static int logdomains;
-static int threshold;
-static int console = 1;
-static char *logfilename;
-static FILE *logfile;
-static char *labels[] = { "config", "daap", "db", "httpd", "http", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache", "mpd", "stream", "cast", "fifo", "lib", "web" };
-static char *severities[] = { "FATAL", "LOG", "WARN", "INFO", "DEBUG", "SPAM" };
+#define LOGGER_REPEAT_MAX 15
 
 /* We need our own check to avoid nested locking or recursive calls */
 #define LOGGER_CHECK_ERR(f) \
@@ -55,6 +47,19 @@ static char *severities[] = { "FATAL", "LOG", "WARN", "INFO", "DEBUG", "SPAM" };
                     lerr, strerror(lerr)); \
       abort(); \
     } } while(0)
+
+static pthread_mutex_t logger_lck;
+static int logger_initialized;
+static int logdomains;
+static int threshold;
+static int console = 1;
+static int logger_repeat_counter;
+static uint32_t logger_last_hash;
+static char *logfilename;
+static FILE *logfile;
+static char *labels[] = { "config", "daap", "db", "httpd", "http", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache", "mpd", "stream", "cast", "fifo", "lib", "web" };
+static char *severities[] = { "FATAL", "LOG", "WARN", "INFO", "DEBUG", "SPAM" };
+
 
 static int
 set_logdomains(char *domains)
@@ -88,13 +93,47 @@ set_logdomains(char *domains)
   return 0;
 }
 
+static int
+repeat_count(const char *fmt)
+{
+  uint32_t hash;
+
+  hash = djb_hash(fmt, strlen(fmt));
+
+  if (hash == logger_last_hash)
+    logger_repeat_counter++;
+  else
+    logger_repeat_counter = 0;
+
+  logger_last_hash = hash;
+
+  return logger_repeat_counter;
+}
+
 static void
 vlogger_writer(int severity, int domain, const char *fmt, va_list args)
 {
   va_list ap;
+  char content[2048];
   char stamp[32];
   time_t t;
   int ret;
+
+  va_copy(ap, args);
+  ret = vsnprintf(content, sizeof(content), fmt, ap);
+  if (ret < 0 || ret >= sizeof(content))
+    strcpy(content, "(LOGGING SKIPPED - invalid content)\n");
+  va_end(ap);
+
+  // On debug and spam levels we don't suppress repeating log messages
+  if (severity < E_DBG)
+    {
+      ret = repeat_count(content);
+      if (ret == LOGGER_REPEAT_MAX)
+	strcpy(content, "(LOGGING SKIPPED - above log message is repeating)\n");
+      else if (ret > LOGGER_REPEAT_MAX)
+	return;
+    }
 
   if (logfile)
     {
@@ -103,22 +142,14 @@ vlogger_writer(int severity, int domain, const char *fmt, va_list args)
       if (ret == 0)
 	stamp[0] = '\0';
 
-      fprintf(logfile, "[%s] [%5s] %8s: ", stamp, severities[severity], labels[domain]);
-
-      va_copy(ap, args);
-      vfprintf(logfile, fmt, ap);
-      va_end(ap);
+      fprintf(logfile, "[%s] [%5s] %8s: %s", stamp, severities[severity], labels[domain], content);
 
       fflush(logfile);
     }
 
   if (console)
     {
-      fprintf(stderr, "[%5s] %8s: ", severities[severity], labels[domain]);
-
-      va_copy(ap, args);
-      vfprintf(stderr, fmt, ap);
-      va_end(ap);
+      fprintf(stderr, "[%5s] %8s: %s", severities[severity], labels[domain], content);
     }
 }
 
@@ -165,7 +196,7 @@ DPRINTF(int severity, int domain, const char *fmt, ...)
   va_list ap;
 
   // If domain and severity do not match the current log configuration, return early to
-  // safe some unnecessary code execution (tiny performance gain)
+  // save some unnecessary code execution (tiny performance gain)
   if (logger_initialized && (!((1 << domain) & logdomains) || (severity > threshold)))
     return;
 
