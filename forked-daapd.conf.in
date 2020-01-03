@@ -216,8 +216,6 @@ audio {
 	# socket.
 #	server = ""
 
-        # ALSA settings can be definied in their own 'alsa { }' sections for 
-        # multiple devices
 	# Audio PCM device name for local audio output - ALSA only
 #	card = "default"
 
@@ -249,21 +247,21 @@ audio {
 }
 
 # ALSA device settings
-# Multiple sections can be defined for multiple ALSA devices on a host (i.e. a
-# RPi with onboard headphones and DAC hat).  ALSA may see these devices as hw:0
-# and hw:1 via 'aplay -l' (see README_ALSA)
-#
-# Overrides ALSA settings in 'audio' section
-#alsa "alsa default" {
-	# Audio PCM device name for local audio output
-#	card = "default"
+# If you have multiple ALSA devices you can configure them individually via
+# sections like the below. Make sure to set the "card name" correctly. See the
+# README about ALSA for details. Note that these settings will override the ALSA
+# settings in the "audio" section above.
+#alsa "card name" {
+	# Name - used in the speaker list in Remote
+	# If not set, the card name will be used
+#	nickname = "Computer"
 
 	# Mixer channel to use for volume control
-	# If not set, PCM will be used if available, otherwise Master.
+	# If not set, PCM will be used if available, otherwise Master
 #	mixer = ""
 
 	# Mixer device to use for volume control
-	# If not set, the value for "card" will be used.
+	# If not set, the card name will be used
 #	mixer_device = ""
 #}
 

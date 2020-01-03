@@ -111,6 +111,15 @@ struct alsa_playback_session
   struct alsa_playback_session *next;
 };
 
+// Info about the device, which is not required by the player, only internally
+struct alsa_extra
+{
+  const char *card_name;
+  const char *mixer_name;
+  const char *mixer_device_name;
+  int offset_ms;
+};
+
 struct alsa_session
 {
   enum output_device_state state;
@@ -119,7 +128,6 @@ struct alsa_session
   int callback_id;
 
   const char *devname;
-  const char *card_name;
   const char *mixer_name;
   const char *mixer_device_name;
 
@@ -969,30 +977,20 @@ static struct alsa_session *
 alsa_session_make(struct output_device *device, int callback_id)
 {
   struct alsa_session *as;
-  cfg_t *cfg_audio;
+  struct alsa_extra *ae;
   int ret;
 
-  CHECK_NULL(L_LAUDIO, as = calloc(1, sizeof(struct alsa_session)));
+  ae = device->extra_device_info;
 
-  DPRINTF(E_DBG, L_LAUDIO, "alsa dev=%s type=%s callback=%d\n", device->name, device->type_name, callback_id);
+  CHECK_NULL(L_LAUDIO, as = calloc(1, sizeof(struct alsa_session)));
 
   as->device_id = device->id;
   as->callback_id = callback_id;
 
-  cfg_audio = cfg_size(cfg, "alsa") == 0 ? cfg_getsec(cfg, "audio") : cfg_gettsec(cfg, "alsa", device->name);
-
-  as->devname = cfg_getstr(cfg_audio, "card");
-  as->mixer_name = cfg_getstr(cfg_audio, "mixer");
-  as->mixer_device_name = cfg_getstr(cfg_audio, "mixer_device");
-  if (!as->mixer_device_name || strlen(as->mixer_device_name) == 0)
-    as->mixer_device_name = cfg_getstr(cfg_audio, "card");
-
-  as->offset_ms = cfg_getint(cfg_audio, "offset_ms");
-  if (abs(as->offset_ms) > 1000)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset_ms (%d) set in the configuration is out of bounds\n", as->offset_ms);
-      as->offset_ms = 1000 * (as->offset_ms/abs(as->offset_ms));
-    }
+  as->devname = ae->card_name;
+  as->mixer_name = ae->mixer_name;
+  as->mixer_device_name = ae->mixer_device_name;
+  as->offset_ms = ae->offset_ms;
 
   ret = mixer_open(&as->mixer, as->mixer_device_name, as->mixer_name);
   if (ret < 0)
@@ -1118,6 +1116,14 @@ alsa_device_cb_set(struct output_device *device, int callback_id)
 }
 
 static void
+alsa_device_free_extra(struct output_device *device)
+{
+  struct alsa_extra *ae = device->extra_device_info;
+
+  free(ae);
+}
+
+static void
 alsa_write(struct output_buffer *obuf)
 {
   struct alsa_session *as;
@@ -1178,20 +1184,44 @@ alsa_write(struct output_buffer *obuf)
 }
 
 static void
-alsa_device_add(cfg_t* cfg_audio, int id, const char* devname)
+alsa_device_add(cfg_t* cfg_audio, int id)
 {
   struct output_device *device;
+  struct alsa_extra *ae;
+  int ret;
+
   CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
+  CHECK_NULL(L_LAUDIO, ae = calloc(1, sizeof(struct alsa_extra)));
 
   device->id = id;
-  device->name = strdup(devname);
+  device->name = strdup(cfg_getstr(cfg_audio, "nickname"));
   device->type = OUTPUT_TYPE_ALSA;
   device->type_name = outputs_name(device->type);
-  device->has_video = 0;
+  device->extra_device_info = ae;
 
-  DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' with name '%s'\n", cfg_getstr(cfg_audio, "card"), device->name);
+  // The audio section will have no title, so there we get the value from the
+  // "card" option
+  ae->card_name = cfg_title(cfg_audio);
+  if (!ae->card_name)
+    ae->card_name = cfg_getstr(cfg_audio, "card");
 
-  player_device_add(device);
+  ae->mixer_name = cfg_getstr(cfg_audio, "mixer");
+  ae->mixer_device_name = cfg_getstr(cfg_audio, "mixer_device_name");
+  if (!ae->mixer_device_name || strlen(ae->mixer_device_name) == 0)
+    ae->mixer_device_name = ae->card_name;
+
+  ae->offset_ms = cfg_getint(cfg_audio, "offset_ms");
+  if (abs(ae->offset_ms) > 1000)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset_ms (%d) set in the configuration is out of bounds\n", ae->offset_ms);
+      ae->offset_ms = 1000 * (ae->offset_ms/abs(ae->offset_ms));
+    }
+
+  DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' with name '%s'\n", ae->card_name, device->name);
+
+  ret = player_device_add(device);
+  if (ret < 0)
+    outputs_device_free(device);
 }
 
 static int
@@ -1215,14 +1245,14 @@ alsa_init(void)
   alsa_cfg_secn = cfg_size(cfg, "alsa");
   if (alsa_cfg_secn == 0)
     {
-      alsa_device_add(cfg_audio, 0, cfg_getstr(cfg_audio, "nickname"));
+      alsa_device_add(cfg_audio, 0);
     }
   else
     {
       for (i = 0; i < alsa_cfg_secn; ++i)
         {
           cfg_alsasec = cfg_getnsec(cfg, "alsa", i);
-          alsa_device_add(cfg_alsasec, i, cfg_alsasec->title);
+          alsa_device_add(cfg_alsasec, i);
         }
     }
 
@@ -1259,5 +1289,6 @@ struct output_definition output_alsa =
   .device_probe = alsa_device_probe,
   .device_volume_set = alsa_device_volume_set,
   .device_cb_set = alsa_device_cb_set,
+  .device_free_extra = alsa_device_free_extra,
   .write = alsa_write,
 };

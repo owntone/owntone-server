@@ -128,7 +128,7 @@ static cfg_opt_t sec_audio[] =
 /* local ALSA audio section structure */
 static cfg_opt_t sec_alsa[] =
   {
-    CFG_STR("card", "default", CFGF_NONE),
+    CFG_STR("nickname", NULL, CFGF_NONE),
     CFG_STR("mixer", NULL, CFGF_NONE),
     CFG_STR("mixer_device", NULL, CFGF_NONE),
     CFG_INT("offset_ms", 0, CFGF_NONE),

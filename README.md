@@ -219,6 +219,9 @@ In the config file, you can select ALSA for local audio. This is the default.
 When using ALSA, the server will try to syncronize playback with AirPlay. You
 can adjust the syncronization in the config file.
 
+For most setups the default values in the config file should work. If they
+don't, there is help here: [README_ALSA.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_ALSA.md)
+
 
 ## Local audio, Bluetooth and more through Pulseaudio
 

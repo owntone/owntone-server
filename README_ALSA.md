@@ -144,7 +144,7 @@ Simple mixer control 'Analogue Playback Boost',0
 ...
 ```
 
-This card has multiple controls but we want the first mixer listed with a `pvolume` capability - in this case that mixer value required for the server configuration is called `Anaolgue`.
+This card has multiple controls but we want the first mixer listed with a `pvolume` capability - in this case that mixer value required for the server configuration is called `Analogue`.
 
 For the server configuration, we will use:
 ```
@@ -163,7 +163,7 @@ This is the name of the underlying physical device used for the mixer - it is ty
 
 ## Handling Devices that cannot concurrently play multiple audio streams 
 
-Some devices such as various RPI DAC boards (IQaudio DAC, Allo Boss DAC...) can not have multiple streams openned at the same time/cannot play multiple sound files at the same time:  this results in `Device or resource busy` errors.  You can confirm if your sound card has this problem by using the example below once have determined the names/cards information as above.
+Some devices such as various RPI DAC boards (IQaudio DAC, Allo Boss DAC...) cannot have multiple streams openned at the same time/cannot play multiple sound files at the same time. This results in `Device or resource busy` errors.  You can confirm if your sound card has this problem by using the example below once have determined the names/cards information as above.
 
 Using our `hw:1` device we try:
 
@@ -203,7 +203,7 @@ $ aplay -v -Dhw:1 /tmp/sine441.wav
 aplay: main:788: audio open error: Device or resource busy
 ```
 
-In this instance this device can not open multiple streams - `forked-daapd` can handle this situation transparently with some audio being truncated from the end of the current file as the server prepares to play the following track.  If this handling is causing you problems you may wish to use [ALSA's `dmix` functionally](https://www.alsa-project.org/main/index.php/Asoundrc#Software_mixing) which provides a software mixing module.  We will need to define a `dmix` component and configure the server to use that as it's sound card.
+In this instance this device cannot open multiple streams - `forked-daapd` can handle this situation transparently with some audio being truncated from the end of the current file as the server prepares to play the following track. If this handling is causing you problems you may wish to use [ALSA's `dmix` functionally](https://www.alsa-project.org/main/index.php/Asoundrc#Software_mixing) which provides a software mixing module. We will need to define a `dmix` component and configure the server to use that as it's sound card.
 
 The downside to the `dmix` approach will be the need to fix a samplerate (48000 being the default) for this software mixing module meaning any files that have a mismatched samplerate will be resampled.
 
@@ -288,13 +288,12 @@ audio {
 }
 
 alsa "dac" {
-    card="dac"
     mixer="Analogue"
     mixer_device="hw:1"
 }
 
-alsa "headphones" {
-    card = "hw:0,0"
+alsa "hw:0,0" {
+    nickname = "headphones"
     mixer = "PCM"
     mixer_device = "hw:0"
 }
