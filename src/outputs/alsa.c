@@ -1206,7 +1206,7 @@ alsa_device_add(cfg_t* cfg_audio, int id)
     ae->card_name = cfg_getstr(cfg_audio, "card");
 
   ae->mixer_name = cfg_getstr(cfg_audio, "mixer");
-  ae->mixer_device_name = cfg_getstr(cfg_audio, "mixer_device_name");
+  ae->mixer_device_name = cfg_getstr(cfg_audio, "mixer_device");
   if (!ae->mixer_device_name || strlen(ae->mixer_device_name) == 0)
     ae->mixer_device_name = ae->card_name;
 
