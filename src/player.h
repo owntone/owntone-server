@@ -91,7 +91,7 @@ int
 player_speaker_set(uint64_t *ids);
 
 int
-player_speaker_get_byid(uint64_t id, struct player_speaker_info *spk);
+player_speaker_get_byid(struct player_speaker_info *spk, uint64_t id);
 
 int
 player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t active_remote);

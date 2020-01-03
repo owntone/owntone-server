@@ -1430,7 +1430,7 @@ jsonapi_reply_outputs_get_byid(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
-  ret = player_speaker_get_byid(output_id, &speaker_info);
+  ret = player_speaker_get_byid(&speaker_info, output_id);
 
   if (ret < 0)
     {
@@ -1520,7 +1520,7 @@ jsonapi_reply_outputs_toggle_byid(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
-  ret = player_speaker_get_byid(output_id, &spk);
+  ret = player_speaker_get_byid(&spk, output_id);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "No output found for the given output id, toggle failed for '%s'\n", hreq->uri_parsed->path);
@@ -2629,7 +2629,7 @@ output_volume_set(int volume, int step, uint64_t output_id)
   if (step != 0)
     {
       // Calculate new output volume from the given step value
-      ret = player_speaker_get_byid(output_id, &speaker_info);
+      ret = player_speaker_get_byid(&speaker_info, output_id);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_WEB, "No output found for the given output id .\n");
