@@ -49,6 +49,8 @@
 #include "player.h"
 #include "listener.h"
 
+#define DACP_VOLUME_STEP 5
+
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
 
@@ -544,6 +546,47 @@ speaker_enum_cb(struct player_speaker_info *spk, void *arg)
   dmap_add_int(evbuf, "cmvo", spk->relvol);    /* 12 */
 }
 
+static int
+speaker_get(struct player_speaker_info *speaker_info, struct httpd_request *hreq, const char *req_name)
+{
+  struct evkeyvalq *headers;
+  const char *remote;
+  uint32_t active_remote;
+  int ret;
+
+  headers = evhttp_request_get_input_headers(hreq->req);
+  remote = evhttp_find_header(headers, "Active-Remote");
+
+  if (!headers || !remote || (safe_atou32(remote, &active_remote) < 0))
+    {
+      DPRINTF(E_LOG, L_DACP, "'%s' request from '%s' has invalid Active-Remote: '%s'\n", req_name, hreq->peer_address, remote);
+      return -1;
+    }
+
+  ret = player_speaker_get_byactiveremote(speaker_info, active_remote);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "'%s' request from '%s' has unknown Active-Remote: '%s'\n", req_name, hreq->peer_address, remote);
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+speaker_volume_step(struct player_speaker_info *speaker_info, int step)
+{
+  int new_volume;
+
+  new_volume = speaker_info->absvol + step;
+
+  // Make sure we are setting a correct value
+  new_volume = new_volume > 100 ? 100 : new_volume;
+  new_volume = new_volume < 0 ? 0 : new_volume;
+
+  return player_volume_setabs_speaker(speaker_info->id, new_volume);
+}
+
 static void
 seek_timer_cb(int fd, short what, void *arg)
 {
@@ -958,29 +1001,12 @@ dacp_propset_volume(const char *value, struct httpd_request *hreq)
 static void
 dacp_propset_devicevolume(const char *value, struct httpd_request *hreq)
 {
-  struct evkeyvalq *headers;
-  struct player_speaker_info spk_info;
-  const char *remote;
-  uint32_t active_remote;
-  int ret;
+  struct player_speaker_info speaker_info;
 
-  headers = evhttp_request_get_input_headers(hreq->req);
-  remote = evhttp_find_header(headers, "Active-Remote");
+  if (speaker_get(&speaker_info, hreq, "device-volume") < 0)
+    return;
 
-  if (!headers || !remote || (safe_atou32(remote, &active_remote) < 0))
-    {
-      DPRINTF(E_LOG, L_DACP, "Request for setting device-volume has invalid Active-Remote: '%s'\n", remote);
-      return;
-    }
-
-  ret = player_speaker_get_byactiveremote(&spk_info, active_remote);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Request for setting device-volume from unknown Active-Remote: '%s'\n", remote);
-      return;
-    }
-
-  player_volume_update_speaker(spk_info.id, value);
+  player_volume_update_speaker(speaker_info.id, value);
 }
 
 // iTunes seems to use this as way for a speaker to tell the server that it is
@@ -993,32 +1019,15 @@ dacp_propset_devicevolume(const char *value, struct httpd_request *hreq)
 static void
 dacp_propset_devicepreventplayback(const char *value, struct httpd_request *hreq)
 {
-  struct evkeyvalq *headers;
-  struct player_speaker_info spk_info;
-  const char *remote;
-  uint32_t active_remote;
-  int ret;
+  struct player_speaker_info speaker_info;
 
-  headers = evhttp_request_get_input_headers(hreq->req);
-  remote = evhttp_find_header(headers, "Active-Remote");
-
-  if (!headers || !remote || (safe_atou32(remote, &active_remote) < 0))
-    {
-      DPRINTF(E_LOG, L_DACP, "Request for setting device-prevent-playback has invalid Active-Remote: '%s'\n", remote);
-      return;
-    }
-
-  ret = player_speaker_get_byactiveremote(&spk_info, active_remote);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Request for setting device-prevent-playback from unknown Active-Remote: '%s'\n", remote);
-      return;
-    }
+  if (speaker_get(&speaker_info, hreq, "device-prevent-playback") < 0)
+    return;
 
   if (value[0] == '1')
-    player_speaker_disable(spk_info.id);
+    player_speaker_disable(speaker_info.id);
   else if (value[0] == '0')
-    player_speaker_enable(spk_info.id);
+    player_speaker_enable(speaker_info.id);
   else
     DPRINTF(E_LOG, L_DACP, "Request for setting device-prevent-playback has invalid value: '%s'\n", value);
 }
@@ -2634,6 +2643,83 @@ dacp_reply_setspeakers(struct httpd_request *hreq)
   return 0;
 }
 
+static int
+dacp_reply_volumeup(struct httpd_request *hreq)
+{
+  struct player_speaker_info speaker_info;
+  int ret;
+
+  ret = speaker_get(&speaker_info, hreq, "volumeup");
+  if (ret < 0)
+    {
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      return -1;
+    }
+
+  ret = speaker_volume_step(&speaker_info, DACP_VOLUME_STEP);
+  if (ret < 0)
+    {
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      return -1;
+    }
+
+  /* 204 No Content is the canonical reply */
+  httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+
+  return 0;
+}
+
+static int
+dacp_reply_volumedown(struct httpd_request *hreq)
+{
+  struct player_speaker_info speaker_info;
+  int ret;
+
+  ret = speaker_get(&speaker_info, hreq, "volumedown");
+  if (ret < 0)
+    {
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      return -1;
+    }
+
+  ret = speaker_volume_step(&speaker_info, -DACP_VOLUME_STEP);
+  if (ret < 0)
+    {
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      return -1;
+    }
+
+  /* 204 No Content is the canonical reply */
+  httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+
+  return 0;
+}
+
+static int
+dacp_reply_mutetoggle(struct httpd_request *hreq)
+{
+  struct player_speaker_info speaker_info;
+  int ret;
+
+  ret = speaker_get(&speaker_info, hreq, "mutetoggle");
+  if (ret < 0)
+    {
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      return -1;
+    }
+
+  // We don't actually mute, because the player doesn't currently support unmuting
+  if (speaker_info.selected)
+    player_speaker_disable(speaker_info.id);
+  else
+    player_speaker_enable(speaker_info.id);
+
+  /* 204 No Content is the canonical reply */
+  httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+
+  return 0;
+}
+
 static struct httpd_uri_map dacp_handlers[] =
   {
     {
@@ -2719,6 +2805,18 @@ static struct httpd_uri_map dacp_handlers[] =
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/setspeakers$",
       .handler = dacp_reply_setspeakers
+    },
+    {
+      .regexp = "^/ctrl-int/[[:digit:]]+/volumeup$",
+      .handler = dacp_reply_volumeup
+    },
+    {
+      .regexp = "^/ctrl-int/[[:digit:]]+/volumedown$",
+      .handler = dacp_reply_volumedown
+    },
+    {
+      .regexp = "^/ctrl-int/[[:digit:]]+/mutetoggle$",
+      .handler = dacp_reply_mutetoggle
     },
     {
       .regexp = NULL,
