@@ -39,7 +39,9 @@ export default new Vuex.Store({
       'count': 0,
       'items': [ ]
     },
+    lastfm: {},
     spotify: {},
+    pairing: {},
 
     spotify_new_releases: [],
     spotify_featured_playlists: [],
@@ -121,8 +123,14 @@ export default new Vuex.Store({
     [types.UPDATE_QUEUE] (state, queue) {
       state.queue = queue
     },
+    [types.UPDATE_LASTFM] (state, lastfm) {
+      state.lastfm = lastfm
+    },
     [types.UPDATE_SPOTIFY] (state, spotify) {
       state.spotify = spotify
+    },
+    [types.UPDATE_PAIRING] (state, pairing) {
+      state.pairing = pairing
     },
     [types.SPOTIFY_NEW_RELEASES] (state, newReleases) {
       state.spotify_new_releases = newReleases

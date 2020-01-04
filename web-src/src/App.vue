@@ -101,7 +101,7 @@ export default {
       socket.onopen = function () {
         vm.$store.dispatch('add_notification', { text: 'Connection to server established', type: 'primary', topic: 'connection', timeout: 2000 })
         vm.reconnect_attempts = 0
-        socket.send(JSON.stringify({ notify: ['update', 'database', 'player', 'options', 'outputs', 'volume', 'spotify'] }))
+        socket.send(JSON.stringify({ notify: ['update', 'database', 'player', 'options', 'outputs', 'volume', 'spotify', 'lastfm', 'pairing'] }))
 
         vm.update_outputs()
         vm.update_player_status()
@@ -109,6 +109,8 @@ export default {
         vm.update_settings()
         vm.update_queue()
         vm.update_spotify()
+        vm.update_lastfm()
+        vm.update_pairing()
       }
       socket.onclose = function () {
         // vm.$store.dispatch('add_notification', { text: 'Connection closed', type: 'danger', timeout: 2000 })
@@ -133,6 +135,12 @@ export default {
         }
         if (data.notify.includes('spotify')) {
           vm.update_spotify()
+        }
+        if (data.notify.includes('lastfm')) {
+          vm.update_lastfm()
+        }
+        if (data.notify.includes('pairing')) {
+          vm.update_pairing()
         }
       }
     },
@@ -173,6 +181,12 @@ export default {
       })
     },
 
+    update_lastfm: function () {
+      webapi.lastfm().then(({ data }) => {
+        this.$store.commit(types.UPDATE_LASTFM, data)
+      })
+    },
+
     update_spotify: function () {
       webapi.spotify().then(({ data }) => {
         this.$store.commit(types.UPDATE_SPOTIFY, data)
@@ -184,6 +198,12 @@ export default {
         if (data.webapi_token_expires_in > 0 && data.webapi_token) {
           this.token_timer_id = window.setTimeout(this.update_spotify, 1000 * data.webapi_token_expires_in)
         }
+      })
+    },
+
+    update_pairing: function () {
+      webapi.pairing().then(({ data }) => {
+        this.$store.commit(types.UPDATE_PAIRING, data)
       })
     }
   },
