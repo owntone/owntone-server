@@ -623,6 +623,14 @@ outputs_device_add(struct output_device *add, bool new_deselect, int default_vol
     {
       if (device->id == add->id)
 	break;
+
+      // name clash, different id for this type (can be user error in cfg)
+      if (device->type == add->type && strcmp(device->name, add->name) == 0)
+        {
+          DPRINTF(E_WARN, L_PLAYER, "Ignoring duplicate %s device with name/id '%s'/%" PRIu64 "\n", add->type_name, add->name, add->id);
+          outputs_device_free(add);
+          return NULL;
+        }
     }
 
   // New device
