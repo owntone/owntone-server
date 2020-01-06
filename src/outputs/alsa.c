@@ -1188,13 +1188,13 @@ alsa_device_add(cfg_t* cfg_audio, int id)
 {
   struct output_device *device;
   struct alsa_extra *ae;
+  const char *nickname;
   int ret;
 
   CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_LAUDIO, ae = calloc(1, sizeof(struct alsa_extra)));
 
   device->id = id;
-  device->name = strdup(cfg_getstr(cfg_audio, "nickname"));
   device->type = OUTPUT_TYPE_ALSA;
   device->type_name = outputs_name(device->type);
   device->extra_device_info = ae;
@@ -1204,6 +1204,9 @@ alsa_device_add(cfg_t* cfg_audio, int id)
   ae->card_name = cfg_title(cfg_audio);
   if (!ae->card_name)
     ae->card_name = cfg_getstr(cfg_audio, "card");
+
+  nickname = cfg_getstr(cfg_audio, "nickname");
+  device->name = strdup(nickname ? nickname : ae->card_name);
 
   ae->mixer_name = cfg_getstr(cfg_audio, "mixer");
   ae->mixer_device_name = cfg_getstr(cfg_audio, "mixer_device");
