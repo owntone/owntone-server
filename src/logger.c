@@ -38,7 +38,7 @@
 #include "conffile.h"
 #include "misc.h"
 
-#define LOGGER_REPEAT_MAX 5
+#define LOGGER_REPEAT_MAX 10
 
 /* We need our own check to avoid nested locking or recursive calls */
 #define LOGGER_CHECK_ERR(f) \
