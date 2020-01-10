@@ -36,6 +36,7 @@
 #endif
 
 #include <event2/event.h>
+#include <event2/bufferevent.h>
 
 #include "httpd_dacp.h"
 #include "httpd_daap.h"
@@ -2231,6 +2232,7 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
 {
   struct dacp_update_request *ur;
   struct evhttp_connection *evcon;
+  struct bufferevent *bufev;
   const char *param;
   int reqd_rev;
   int ret;
@@ -2257,7 +2259,10 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
       return -1;
     }
 
-  if ((reqd_rev == 0) || (reqd_rev == 1))
+  // Caller didn't use current revision number. It was probably his first
+  // request so we will give him status immediately, incl. which revision number
+  // to use when he calls again.
+  if (reqd_rev != current_rev)
     {
       ret = make_playstatusupdate(hreq->reply);
       if (ret < 0)
@@ -2268,7 +2273,7 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
       return ret;
     }
 
-  /* Else, just let the request hang until we have changes to push back */
+  // Else, just let the request hang until we have changes to push back
   ur = calloc(1, sizeof(struct dacp_update_request));
   if (!ur)
     {
@@ -2288,7 +2293,18 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
    */
   evcon = evhttp_request_get_connection(hreq->req);
   if (evcon)
-    evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
+    {
+      evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
+
+      // This is a workaround for some versions of libevent (2.0, but possibly
+      // also 2.1) that don't detect if the client hangs up, and thus don't
+      // clean up and never call update_fail_cb(). See github issue #870 and
+      // https://github.com/libevent/libevent/issues/666. It should probably be
+      // removed again in the future. The workaround is also present in daap.c
+      bufev = evhttp_connection_get_bufferevent(evcon);
+      if (bufev)
+	bufferevent_enable(bufev, EV_READ);
+    }
 
   return 0;
 }

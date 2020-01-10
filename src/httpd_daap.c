@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include <event2/event.h>
+#include <event2/bufferevent.h>
 
 #include "httpd_daap.h"
 #include "logger.h"
@@ -998,6 +999,7 @@ daap_reply_update(struct httpd_request *hreq)
 {
   struct daap_update_request *ur;
   struct evhttp_connection *evcon;
+  struct bufferevent *bufev;
   const char *param;
   int reqd_rev;
   int ret;
@@ -1077,7 +1079,18 @@ daap_reply_update(struct httpd_request *hreq)
    */
   evcon = evhttp_request_get_connection(hreq->req);
   if (evcon)
-    evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
+    {
+      evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
+
+      // This is a workaround for some versions of libevent (2.0, but possibly
+      // also 2.1) that don't detect if the client hangs up, and thus don't
+      // clean up and never call update_fail_cb(). See github issue #870 and
+      // https://github.com/libevent/libevent/issues/666. It should probably be
+      // removed again in the future. The workaround is also present in dacp.c
+      bufev = evhttp_connection_get_bufferevent(evcon);
+      if (bufev)
+	bufferevent_enable(bufev, EV_READ);
+    }
 
   return DAAP_REPLY_NONE;
 }
