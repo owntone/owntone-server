@@ -743,13 +743,13 @@ playstatusupdate_cb(int fd, short what, void *arg)
   read(update_pipe[0], &dummy, sizeof(dummy));
 #endif
 
+  current_rev++;
+
   if (!update_requests)
     goto readd;
 
   CHECK_NULL(L_DACP, evbuf = evbuffer_new());
   CHECK_NULL(L_DACP, update = evbuffer_new());
-
-  current_rev++;
 
   ret = make_playstatusupdate(update);
   if (ret < 0)
