@@ -223,6 +223,8 @@ static const struct metadata_map md_map_vorbis[] =
  *
  * Update 20180131: Removed tags supported by ffmpeg 2.5.4 (around 3 years old)
  * + added some tags used for grouping
+ * Update 20200114: Removed TDA, TDAT, TYE, TYER, TDR since the they are
+ * well supported by ffmpeg, and forked-daapd was parsing TDA/TDAT incorrectly
  *
  */
 static const struct metadata_map md_map_id3[] =
@@ -233,11 +235,6 @@ static const struct metadata_map md_map_id3[] =
     { "GRP1",                0, mfi_offsetof(grouping),              NULL },              /* unofficial iTunes */
     { "TCM",                 0, mfi_offsetof(composer),              NULL },              /* ID3v2.2 */
     { "TPA",                 1, mfi_offsetof(disc),                  parse_disc },        /* ID3v2.2 */
-    { "TYE",                 1, mfi_offsetof(year),                  NULL },              /* ID3v2.2 */
-    { "TYER",                1, mfi_offsetof(year),                  NULL },              /* ID3v2.3 */
-    { "TDA",                 1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.2 */
-    { "TDAT",                1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.3 */
-    { "TDR",                 1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.2 */
     { "XSOA",                0, mfi_offsetof(album_sort),            NULL },              /* ID3v2.3 */
     { "XSOP",                0, mfi_offsetof(artist_sort),           NULL },              /* ID3v2.3 */
     { "XSOT",                0, mfi_offsetof(title_sort),            NULL },              /* ID3v2.3 */
