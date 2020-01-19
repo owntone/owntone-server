@@ -4395,6 +4395,8 @@ raop_verification_verify(struct raop_session *rs)
  * Apple TV 4:
      ["vv=2" "vs=301.44.3" "vn=65537" "tp=UDP" "pk=9...f" "am=AppleTV5,3" "md=0,1,2" "sf=0x44" "ft=0x5A7FFFF7,0x4DE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
      ["vv=2" "ov=11.4.1" "vs=366.75.2" "vn=65537" "tp=UDP" "pk=c...8" "am=AppleTV5,3" "md=0,1,2" "sf=0x10244" "ft=0x5A7FFFF7,0x155FDE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
+ * Apple TV 4k:
+     ["vv=2" "ov=13.3" "vs=415.3" "vn=65537" "tp=UDP" "pk=1...9" "am=AppleTV6,2" "md=0,1,2" "sf=0x30644" "ft=0x4A7FFFF7,0x3C155FDE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
  * Sony STR-DN1040:
      ["fv=s9327.1090.0" "am=STR-DN1040" "vs=141.9" "vn=65537" "tp=UDP" "ss=16" "sr=44100" "sv=false" "pw=false" "md=0,2" "ft=0x44F0A00" "et=0,4" "da=true" "cn=0,1" "ch=2" "txtvers=1"]
  * AirFoil:
