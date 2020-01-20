@@ -109,7 +109,7 @@ process_url(int pl_id, const char *path, struct media_file_info *mfi)
 {
   mfi->id = db_file_id_bypath(path);
   scan_metadata_stream(path, mfi);
-  library_add_media(mfi);
+  library_media_save(mfi);
   return db_pl_add_item_bypath(pl_id, path);
 }
 

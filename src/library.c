@@ -48,10 +48,20 @@
 #include "listener.h"
 #include "player.h"
 
-struct playlist_add_param
+struct playlist_item_add_param
 {
   const char *vp_playlist;
   const char *vp_item;
+};
+
+struct queue_item_add_param
+{
+  const char *path;
+  int position;
+  char reshuffle;
+  uint32_t item_id;
+  int *count;
+  int *new_item_id;
 };
 
 static struct commands_base *cmdbase;
@@ -95,27 +105,11 @@ static struct event *updateev;
 static unsigned int deferred_update_notifications;
 static short deferred_update_events;
 
-static bool
-handle_deferred_update_notifications(void)
-{
-  time_t update_time;
-  bool ret = (deferred_update_notifications > 0);
 
-  if (ret)
-    {
-      DPRINTF(E_DBG, L_LIB, "Database changed (%d changes)\n", deferred_update_notifications);
-
-      deferred_update_notifications = 0;
-      update_time = time(NULL);
-      db_admin_setint64(DB_ADMIN_DB_UPDATE, (int64_t) update_time);
-      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) update_time);
-    }
-
-  return ret;
-}
+/* ------------------- CALLED BY LIBRARY SOURCE MODULES -------------------- */
 
 void
-library_add_media(struct media_file_info *mfi)
+library_media_save(struct media_file_info *mfi)
 {
   if (!mfi->path || !mfi->fname)
     {
@@ -138,106 +132,48 @@ library_add_media(struct media_file_info *mfi)
 }
 
 int
-library_queue_add(const char *path, int position, int *count, int *new_item_id)
+library_playlist_save(struct playlist_info *pli)
 {
-  struct player_status status;
-  int i;
-  int ret;
-
-  DPRINTF(E_DBG, L_LIB, "Add items for path '%s' to the queue\n", path);
-
-  player_get_status(&status);
-
-  ret = LIBRARY_PATH_INVALID;
-  for (i = 0; sources[i] && ret == LIBRARY_PATH_INVALID; i++)
+  if (!pli->path)
     {
-      if (sources[i]->disabled || !sources[i]->queue_add)
-        {
-	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support queue_add\n", sources[i]->name);
-	  continue;
-	}
-
-      ret = sources[i]->queue_add(path, position, status.shuffle, status.item_id, count, new_item_id);
-
-      if (ret == LIBRARY_OK)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Items for path '%s' from library source '%s' added to the queue\n", path, sources[i]->name);
-	  break;
-	}
+      DPRINTF(E_LOG, L_LIB, "Ignoring playlist file with missing path\n");
+      return -1;
     }
 
-  if (ret != LIBRARY_OK)
-    DPRINTF(E_LOG, L_LIB, "Failed to add items for path '%s' to the queue (%d)\n", path, ret);
+  if (!pli->directory_id || !pli->virtual_path)
+    {
+      // Missing informations for virtual_path and directory_id (may) lead to misplaced appearance in mpd clients
+      DPRINTF(E_WARN, L_LIB, "Playlist with missing values (path='%s', directory='%d', virtual_path='%s')\n",
+	      pli->path, pli->directory_id, pli->virtual_path);
+    }
 
-  return ret;
+  if (pli->id == 0)
+    return db_pl_add(pli, NULL);
+  else
+    return db_pl_update(pli);
 }
 
-int
-library_add_playlist_info(const char *path, const char *title, const char *virtual_path, enum pl_type type, int parent_pl_id, int dir_id)
+
+/* ---------------------- LIBRARY ABSTRACTION --------------------- */
+/*                          thread: library                         */
+
+static bool
+handle_deferred_update_notifications(void)
 {
-  struct playlist_info *pli;
-  int plid;
-  int ret;
+  time_t update_time;
+  bool ret = (deferred_update_notifications > 0);
 
-  pli = db_pl_fetch_bypath(path);
-  if (pli)
+  if (ret)
     {
-      DPRINTF(E_DBG, L_LIB, "Playlist found ('%s', link %s), updating\n", title, path);
+      DPRINTF(E_DBG, L_LIB, "Database changed (%d changes)\n", deferred_update_notifications);
 
-      plid = pli->id;
-
-      pli->type = type;
-      free(pli->title);
-      pli->title = strdup(title);
-      if (pli->virtual_path)
-	free(pli->virtual_path);
-      pli->virtual_path = safe_strdup(virtual_path);
-      pli->directory_id = dir_id;
-
-      ret = db_pl_update(pli);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_LIB, "Error updating playlist ('%s', link %s)\n", title, path);
-
-	  free_pli(pli, 0);
-	  return -1;
-	}
-
-      db_pl_clear_items(plid);
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_LIB, "Adding playlist ('%s', link %s)\n", title, path);
-
-      pli = (struct playlist_info *)malloc(sizeof(struct playlist_info));
-      if (!pli)
-	{
-	  DPRINTF(E_LOG, L_LIB, "Out of memory\n");
-
-	  return -1;
-	}
-
-      memset(pli, 0, sizeof(struct playlist_info));
-
-      pli->type = type;
-      pli->title = strdup(title);
-      pli->path = strdup(path);
-      pli->virtual_path = safe_strdup(virtual_path);
-      pli->parent_id = parent_pl_id;
-      pli->directory_id = dir_id;
-
-      ret = db_pl_add(pli, &plid);
-      if ((ret < 0) || (plid < 1))
-	{
-	  DPRINTF(E_LOG, L_LIB, "Error adding playlist ('%s', link %s, ret %d, plid %d)\n", title, path, ret, plid);
-
-	  free_pli(pli, 0);
-	  return -1;
-	}
+      deferred_update_notifications = 0;
+      update_time = time(NULL);
+      db_admin_setint64(DB_ADMIN_DB_UPDATE, (int64_t) update_time);
+      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) update_time);
     }
 
-  free_pli(pli, 0);
-  return plid;
+  return ret;
 }
 
 static void
@@ -378,9 +314,135 @@ fullrescan(void *arg, int *ret)
   return COMMAND_END;
 }
 
-/*
- * Callback to notify listeners of database changes
- */
+static enum command_state
+playlist_item_add(void *arg, int *retval)
+{
+  struct playlist_item_add_param *param = arg;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  DPRINTF(E_DBG, L_LIB, "Adding item '%s' to playlist '%s'\n", param->vp_item, param->vp_playlist);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->playlist_item_add)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support playlist_item_add\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->playlist_item_add(param->vp_playlist, param->vp_item);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Adding item '%s' to playlist '%s' with library source '%s'\n", param->vp_item, param->vp_playlist, sources[i]->name);
+	  listener_notify(LISTENER_STORED_PLAYLIST);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+static enum command_state
+playlist_remove(void *arg, int *retval)
+{
+  const char *virtual_path = arg;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  DPRINTF(E_DBG, L_LIB, "Removing playlist at path '%s'\n", virtual_path);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->playlist_remove)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support playlist_remove\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->playlist_remove(virtual_path);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Removing playlist '%s' with library source '%s'\n", virtual_path, sources[i]->name);
+	  listener_notify(LISTENER_STORED_PLAYLIST);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+static enum command_state
+queue_item_add(void *arg, int *retval)
+{
+  struct queue_item_add_param *param = arg;
+  int i;
+  int ret;
+
+  DPRINTF(E_DBG, L_LIB, "Add items for path '%s' to the queue\n", param->path);
+
+  ret = LIBRARY_PATH_INVALID;
+  for (i = 0; sources[i] && ret == LIBRARY_PATH_INVALID; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->queue_item_add)
+        {
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support queue_add\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->queue_item_add(param->path, param->position, param->reshuffle, param->item_id, param->count, param->new_item_id);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Items for path '%s' from library source '%s' added to the queue\n", param->path, sources[i]->name);
+	  break;
+	}
+    }
+
+  if (ret != LIBRARY_OK)
+    DPRINTF(E_LOG, L_LIB, "Failed to add items for path '%s' to the queue (%d)\n", param->path, ret);
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+static enum command_state
+queue_save(void *arg, int *retval)
+{
+  const char *virtual_path = arg;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  DPRINTF(E_DBG, L_LIB, "Saving queue to path '%s'\n", virtual_path);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->queue_save)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support queue_save\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->queue_save(virtual_path);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Saving queue to path '%s' with library source '%s'\n", virtual_path, sources[i]->name);
+	  listener_notify(LISTENER_STORED_PLAYLIST);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+
+// Callback to notify listeners of database changes
 static void
 update_trigger_cb(int fd, short what, void *arg)
 {
@@ -410,7 +472,7 @@ update_trigger(void *arg, int *retval)
 }
 
 
-/* --------------------------- LIBRARY INTERFACE -------------------------- */
+/* ----------------------- LIBRARY EXTERNAL INTERFACE ---------------------- */
 
 void
 library_rescan()
@@ -437,6 +499,7 @@ library_metarescan()
   scanning = true; // TODO Guard "scanning" with a mutex
   commands_exec_async(cmdbase, metarescan, NULL);
 }
+
 void
 library_fullrescan()
 {
@@ -494,39 +557,24 @@ initscan()
     listener_notify(LISTENER_UPDATE);
 }
 
-/*
- * @return true if scan is running, otherwise false
- */
 bool
 library_is_scanning()
 {
   return scanning;
 }
 
-/*
- * @param is_scanning true if scan is running, otherwise false
- */
 void
 library_set_scanning(bool is_scanning)
 {
   scanning = is_scanning;
 }
 
-/*
- * @return true if a running scan should be aborted due to imminent shutdown, otherwise false
- */
 bool
 library_is_exiting()
 {
   return scan_exit;
 }
 
-/*
- * Trigger for sending the DATABASE event
- *
- * Needs to be called, if an update to the database (library tables) occurred. The DATABASE event
- * is emitted with the delay 'library_update_wait'. It is safe to call this function from any thread.
- */
 void
 library_update_trigger(short update_events)
 {
@@ -547,81 +595,17 @@ library_update_trigger(short update_events)
     }
 }
 
-static enum command_state
-playlist_add(void *arg, int *retval)
-{
-  struct playlist_add_param *param = arg;
-  int i;
-  int ret = LIBRARY_ERROR;
-
-  DPRINTF(E_DBG, L_LIB, "Adding item '%s' to playlist '%s'\n", param->vp_item, param->vp_playlist);
-
-  for (i = 0; sources[i]; i++)
-    {
-      if (sources[i]->disabled || !sources[i]->playlist_add)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support playlist_add\n", sources[i]->name);
-	  continue;
-	}
-
-      ret = sources[i]->playlist_add(param->vp_playlist, param->vp_item);
-
-      if (ret == LIBRARY_OK)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Adding item '%s' to playlist '%s' with library source '%s'\n", param->vp_item, param->vp_playlist, sources[i]->name);
-	  listener_notify(LISTENER_STORED_PLAYLIST);
-	  break;
-	}
-    }
-
-  *retval = ret;
-  return COMMAND_END;
-}
-
 int
-library_playlist_add(const char *vp_playlist, const char *vp_item)
+library_playlist_item_add(const char *vp_playlist, const char *vp_item)
 {
-  struct playlist_add_param param;
+  struct playlist_item_add_param param;
 
   if (library_is_scanning())
     return -1;
 
   param.vp_playlist = vp_playlist;
   param.vp_item = vp_item;
-  return commands_exec_sync(cmdbase, playlist_add, NULL, &param);
-}
-
-static enum command_state
-playlist_remove(void *arg, int *retval)
-{
-  const char *virtual_path;
-  int i;
-  int ret = LIBRARY_ERROR;
-
-  virtual_path = arg;
-
-  DPRINTF(E_DBG, L_LIB, "Removing playlist at path '%s'\n", virtual_path);
-
-  for (i = 0; sources[i]; i++)
-    {
-      if (sources[i]->disabled || !sources[i]->playlist_remove)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support playlist_remove\n", sources[i]->name);
-	  continue;
-	}
-
-      ret = sources[i]->playlist_remove(virtual_path);
-
-      if (ret == LIBRARY_OK)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Removing playlist '%s' with library source '%s'\n", virtual_path, sources[i]->name);
-	  listener_notify(LISTENER_STORED_PLAYLIST);
-	  break;
-	}
-    }
-
-  *retval = ret;
-  return COMMAND_END;
+  return commands_exec_sync(cmdbase, playlist_item_add, NULL, &param);
 }
 
 int
@@ -633,39 +617,6 @@ library_playlist_remove(char *virtual_path)
   return commands_exec_sync(cmdbase, playlist_remove, NULL, virtual_path);
 }
 
-static enum command_state
-queue_save(void *arg, int *retval)
-{
-  const char *virtual_path;
-  int i;
-  int ret = LIBRARY_ERROR;
-
-  virtual_path = arg;
-
-  DPRINTF(E_DBG, L_LIB, "Saving queue to path '%s'\n", virtual_path);
-
-  for (i = 0; sources[i]; i++)
-    {
-      if (sources[i]->disabled || !sources[i]->queue_save)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support queue_save\n", sources[i]->name);
-	  continue;
-	}
-
-      ret = sources[i]->queue_save(virtual_path);
-
-      if (ret == LIBRARY_OK)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Saving queue to path '%s' with library source '%s'\n", virtual_path, sources[i]->name);
-	  listener_notify(LISTENER_STORED_PLAYLIST);
-	  break;
-	}
-    }
-
-  *retval = ret;
-  return COMMAND_END;
-}
-
 int
 library_queue_save(char *path)
 {
@@ -675,15 +626,24 @@ library_queue_save(char *path)
   return commands_exec_sync(cmdbase, queue_save, NULL, path);
 }
 
-/*
- * Execute the function 'func' with the given argument 'arg' in the library thread.
- *
- * The pointer passed as argument is freed in the library thread after func returned.
- *
- * @param func The function to be executed
- * @param arg Argument passed to func
- * @return 0 if triggering the function execution succeeded, -1 on failure.
- */
+int
+library_queue_item_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+{
+  struct queue_item_add_param param;
+
+  if (library_is_scanning())
+    return -1;
+
+  param.path = path;
+  param.position = position;
+  param.reshuffle = reshuffle;
+  param.item_id = item_id;
+  param.count = count;
+  param.new_item_id = new_item_id;
+
+  return commands_exec_sync(cmdbase, queue_item_add, NULL, &param);
+}
+
 int
 library_exec_async(command_function func, void *arg)
 {

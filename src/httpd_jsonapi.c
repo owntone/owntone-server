@@ -2182,6 +2182,7 @@ queue_tracks_add_playlist(const char *id, int pos)
 static int
 queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 {
+  struct player_status status;
   char *uris;
   char *uri;
   char *ptr;
@@ -2227,7 +2228,9 @@ queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 	}
       else
 	{
-	  ret = library_queue_add(uri, pos, &count, NULL);
+	  player_get_status(&status);
+
+	  ret = library_queue_item_add(uri, pos, status.shuffle, status.item_id, &count, NULL);
 	  if (ret != LIBRARY_OK)
 	    {
 	      DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);

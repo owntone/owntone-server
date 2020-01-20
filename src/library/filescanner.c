@@ -538,7 +538,7 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
 	}
     }
 
-  library_add_media(&mfi);
+  library_media_save(&mfi);
 
   cache_artwork_ping(file, sb->st_mtime, !is_bulkscan);
   // TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
@@ -676,13 +676,14 @@ check_speciallib(char *path, const char *libtype)
 
 /* Thread: scan */
 static int
-create_virtual_path(char *path, char *virtual_path, int virtual_path_len)
+virtual_path_make(char *virtual_path, int virtual_path_len, const char *path)
 {
   int ret;
+
   ret = snprintf(virtual_path, virtual_path_len, "/file:%s", path);
   if ((ret < 0) || (ret >= virtual_path_len))
   {
-    DPRINTF(E_LOG, L_SCAN, "Virtual path /file:%s, PATH_MAX exceeded\n", path);
+    DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", path, ret, virtual_path_len);
     return -1;
   }
 
@@ -766,7 +767,7 @@ process_directory(char *path, int parent_id, int flags)
 
   /* Add/update directories table */
 
-  ret = create_virtual_path(path, virtual_path, sizeof(virtual_path));
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
   if (ret < 0)
     return;
 
@@ -893,7 +894,7 @@ process_parent_directories(char *path)
       strncpy(buf, path, (ptr - path));
       buf[(ptr - path)] = '\0';
 
-      ret = create_virtual_path(buf, virtual_path, sizeof(virtual_path));
+      ret = virtual_path_make(virtual_path, sizeof(virtual_path), buf);
       if (ret < 0)
 	return 0;
 
@@ -1028,7 +1029,7 @@ get_parent_dir_id(const char *path)
 
   pathcopy = strdup(path);
   parent_dir = dirname(pathcopy);
-  ret = create_virtual_path(parent_dir, virtual_path, sizeof(virtual_path));
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), parent_dir);
   if (ret == 0)
     parent_id = db_directory_id_byvirtualpath(virtual_path);
   else
@@ -1222,7 +1223,6 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   uint32_t path_hash;
   char *file = path;
   char resolved_path[PATH_MAX];
-  char *dir;
   char dir_vpath[PATH_MAX];
   int type;
   int i;
@@ -1291,14 +1291,12 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
       if (ret > 0)
 	{
-	  // If file was successfully enabled, update the directory id
-	  dir = strdup(path);
-	  ptr = strrchr(dir, '/');
-	  dir[(ptr - dir)] = '\0';
-
-	  ret = create_virtual_path(dir, dir_vpath, sizeof(dir_vpath));
+	  ret = virtual_path_make(dir_vpath, sizeof(dir_vpath), path);
 	  if (ret >= 0)
 	    {
+	      ptr = strrchr(dir_vpath, '/');
+	      *ptr = '\0';
+
 	      dir_id = db_directory_id_byvirtualpath(dir_vpath);
 	      if (dir_id > 0)
 		{
@@ -1307,8 +1305,6 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 		    DPRINTF(E_LOG, L_SCAN, "Error updating directory id for file: %s\n", path);
 		}
 	    }
-
-	  free(dir);
 	}
       else
 	{
@@ -1719,7 +1715,7 @@ map_media_file_to_queue_item(struct db_queue_item *queue_item, struct media_file
 }
 
 static int
-queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct media_file_info mfi;
   struct db_queue_item item;
@@ -1753,11 +1749,11 @@ queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_i
 }
 
 static int
-queue_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   if (strncasecmp(uri, "http://", strlen("http://")) == 0 || strncasecmp(uri, "https://", strlen("https://")) == 0)
     {
-      queue_add_stream(uri, position, reshuffle, item_id, count, new_item_id);
+      queue_item_stream_add(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
 
@@ -1828,7 +1824,7 @@ has_suffix(const char *file, const char *suffix)
  * Returns NULL on error and a new allocated path on success.
  */
 static char *
-get_playlist_path(const char *vp_playlist)
+playlist_path_create(const char *vp_playlist)
 {
   const char *path;
   char *pl_path;
@@ -1861,27 +1857,6 @@ get_playlist_path(const char *vp_playlist)
   free_pli(pli, 0);
 
   return pl_path;
-}
-
-static int
-get_playlist_id(const char *pl_path, const char *vp_playlist)
-{
-  const char *filename;
-  char *title;
-  int dir_id;
-  int pl_id;
-
-  pl_id = db_pl_id_bypath(pl_path);
-  if (pl_id < 0)
-    {
-      dir_id = get_parent_dir_id(pl_path);
-      filename = filename_from_path(pl_path);
-      title = strip_extension(filename);
-      pl_id = library_add_playlist_info(pl_path, title, vp_playlist, PL_PLAIN, 0, dir_id);
-      free(title);
-    }
-
-  return pl_id;
 }
 
 static int
@@ -1950,7 +1925,7 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
 
       memset(&mfi, 0, sizeof(struct media_file_info));
       scan_metadata_stream(path, &mfi);
-      library_add_media(&mfi);
+      library_media_save(&mfi);
       free_mfi(&mfi, 1);
 
       ret = playlist_add_path(fp, pl_id, path);
@@ -1967,15 +1942,60 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
   return ret;
 }
 
+// Fills a basic pli template based on a path. Caller can then modify content
+// before saving the playlist.
+int
+playlist_template_fill(struct playlist_info *pli, const char *path)
+{
+  const char *filename;
+  char virtual_path[PATH_MAX];
+  int ret;
+
+  filename = filename_from_path(path);
+
+  memset(pli, 0, sizeof(struct playlist_info));
+
+  pli->type  = PL_PLAIN;
+  pli->path  = strdup(path);
+  pli->title = strip_extension(filename); // Will alloc
+
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
+  if (ret < 0)
+    return -1;
+  pli->virtual_path = strip_extension(virtual_path); // Will alloc
+
+  pli->directory_id = get_parent_dir_id(path);
+
+  return 0;
+}
+
 static int
-playlist_add(const char *vp_playlist, const char *vp_item)
+playlist_create(const char *path)
+{
+  struct playlist_info pli;
+  int ret;
+
+  ret = playlist_template_fill(&pli, path);
+  if (ret < 0)
+    return -1;
+
+  ret = library_playlist_save(&pli);
+  free_pli(&pli, 1);
+  if (ret < 0)
+    return -1;
+
+  return db_pl_id_bypath(path);
+}
+
+static int
+playlist_item_add(const char *vp_playlist, const char *vp_item)
 {
   char *pl_path;
   FILE *fp;
   int pl_id;
   int ret;
 
-  pl_path = get_playlist_path(vp_playlist);
+  pl_path = playlist_path_create(vp_playlist);
   if (!pl_path)
     return LIBRARY_PATH_INVALID;
 
@@ -1983,31 +2003,36 @@ playlist_add(const char *vp_playlist, const char *vp_item)
   if (!fp)
     {
       DPRINTF(E_LOG, L_SCAN, "Error opening file '%s' for writing: %d\n", pl_path, errno);
-      free(pl_path);
-      return LIBRARY_ERROR;
+      goto error;
     }
 
-  pl_id = get_playlist_id(pl_path, vp_playlist);
-  free(pl_path);
+  pl_id = db_pl_id_bypath(pl_path);
   if (pl_id < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not get playlist id for %s\n", vp_playlist);
-      fclose(fp);
-      return LIBRARY_ERROR;
+      pl_id = playlist_create(pl_path);
+      if (pl_id < 0)
+	goto error;
     }
 
   ret = playlist_add_files(fp, pl_id, vp_item);
-  fclose(fp);
-
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not add %s to playlist\n", vp_item);
-      return LIBRARY_ERROR;
+      goto error;
     }
+
+  fclose(fp);
+  free(pl_path);
 
   db_pl_ping(pl_id);
 
   return LIBRARY_OK;
+
+ error:
+  if (fp)
+    fclose(fp);
+  free(pl_path);
+  return LIBRARY_ERROR;
 }
 
 static int
@@ -2018,7 +2043,7 @@ playlist_remove(const char *vp_playlist)
   int pl_id;
   int ret;
 
-  pl_path = get_playlist_path(vp_playlist);
+  pl_path = playlist_path_create(vp_playlist);
   if (!pl_path)
     {
       DPRINTF(E_LOG, L_SCAN, "Unsupported virtual path '%s'\n", vp_playlist);
@@ -2059,7 +2084,7 @@ queue_save(const char *virtual_path)
   int pl_id;
   int ret;
 
-  pl_path = get_playlist_path(virtual_path);
+  pl_path = playlist_path_create(virtual_path);
   if (!pl_path)
     return LIBRARY_PATH_INVALID;
 
@@ -2067,17 +2092,15 @@ queue_save(const char *virtual_path)
   if (!fp)
     {
       DPRINTF(E_LOG, L_SCAN, "Error opening file '%s' for writing: %d\n", pl_path, errno);
-      free(pl_path);
-      return LIBRARY_ERROR;
+      goto error;
     }
 
-  pl_id = get_playlist_id(pl_path, virtual_path);
-  free(pl_path);
+  pl_id = db_pl_id_bypath(pl_path);
   if (pl_id < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not get playlist id for %s\n", virtual_path);
-      fclose(fp);
-      return LIBRARY_ERROR;
+      pl_id = playlist_create(pl_path);
+      if (pl_id < 0)
+	goto error;
     }
 
   memset(&query_params, 0, sizeof(struct query_params));
@@ -2085,8 +2108,7 @@ queue_save(const char *virtual_path)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Failed to start queue enum\n");
-      fclose(fp);
-      return LIBRARY_ERROR;
+      goto error;
     }
 
   while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
@@ -2106,7 +2128,7 @@ queue_save(const char *virtual_path)
 
 	      memset(&mfi, 0, sizeof(struct media_file_info));
 	      scan_metadata_stream(queue_item.path, &mfi);
-	      library_add_media(&mfi);
+	      library_media_save(&mfi);
 	      free_mfi(&mfi, 1);
 	    }
 	  else
@@ -2131,7 +2153,9 @@ queue_save(const char *virtual_path)
     }
 
   db_queue_enum_end(&query_params);
+
   fclose(fp);
+  free(pl_path);
 
   db_pl_ping(pl_id);
 
@@ -2139,6 +2163,12 @@ queue_save(const char *virtual_path)
     return LIBRARY_ERROR;
 
   return LIBRARY_OK;
+
+ error:
+  if (fp)
+    fclose(fp);
+  free(pl_path);
+  return LIBRARY_ERROR;
 }
 
 /* Thread: main */
@@ -2174,8 +2204,8 @@ struct library_source filescanner =
   .rescan = filescanner_rescan,
   .metarescan = filescanner_metarescan,
   .fullrescan = filescanner_fullrescan,
-  .playlist_add = playlist_add,
+  .playlist_item_add = playlist_item_add,
   .playlist_remove = playlist_remove,
   .queue_save = queue_save,
-  .queue_add = queue_add,
+  .queue_item_add = queue_item_add,
 };

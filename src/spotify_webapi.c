@@ -1239,7 +1239,7 @@ queue_add_playlist(const char *uri, int position, char reshuffle, uint32_t item_
 }
 
 static int
-queue_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   if (strncasecmp(uri, "spotify:track:", strlen("spotify:track:")) == 0)
     {
@@ -1423,7 +1423,7 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
 
       map_track_to_mfi(&mfi, track, album, pl_name);
 
-      library_add_media(&mfi);
+      library_media_save(&mfi);
 
       free_mfi(&mfi, 1);
     }
@@ -1571,6 +1571,23 @@ scan_playlist_tracks(const char *playlist_tracks_endpoint_uri, int plid)
   return ret;
 }
 
+static void
+map_playlist_to_pli(struct playlist_info *pli, struct spotify_playlist *playlist)
+{
+
+  pli->type  = PL_PLAIN;
+  pli->path  = strdup(playlist->uri);
+  pli->title = safe_strdup(playlist->name);
+
+  pli->parent_id    = spotify_base_plid;
+  pli->directory_id = DIR_SPOTIFY;
+
+  if (playlist->owner)
+    pli->virtual_path = safe_asprintf("/spotify:/%s (%s)", playlist->name, playlist->owner);
+  else
+    pli->virtual_path = safe_asprintf("/spotify:/%s", playlist->name);
+}
+
 /*
  * Add a saved playlist to the library
  */
@@ -1578,8 +1595,8 @@ static int
 saved_playlist_add(json_object *item, int index, int total, void *arg)
 {
   struct spotify_playlist playlist;
-  char virtual_path[PATH_MAX];
-  int plid;
+  struct playlist_info pli;
+  int pl_id;
 
   // Map playlist information
   parse_metadata_playlist(item, &playlist);
@@ -1592,21 +1609,17 @@ saved_playlist_add(json_object *item, int index, int total, void *arg)
       return -1;
     }
 
-  if (playlist.owner)
-    {
-      snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", playlist.name, playlist.owner);
-    }
-  else
-    {
-      snprintf(virtual_path, PATH_MAX, "/spotify:/%s", playlist.name);
-    }
+  memset(&pli, 0, sizeof(struct playlist_info));
 
-  db_transaction_begin();
-  plid = library_add_playlist_info(playlist.uri, playlist.name, virtual_path, PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
-  db_transaction_end();
+  map_playlist_to_pli(&pli, &playlist);
 
-  if (plid > 0)
-    scan_playlist_tracks(playlist.tracks_href, plid);
+  library_playlist_save(&pli);
+  pl_id = db_pl_id_bypath(pli.path);
+
+  free_pli(&pli, 1);
+
+  if (pl_id > 0)
+    scan_playlist_tracks(playlist.tracks_href, pl_id);
   else
     DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
 
@@ -1633,8 +1646,19 @@ scan_playlists()
 static void
 create_saved_tracks_playlist()
 {
-  spotify_saved_plid = library_add_playlist_info("spotify:savedtracks", "Spotify Saved", "/spotify:/Spotify Saved", PL_PLAIN, spotify_base_plid, DIR_SPOTIFY);
+  struct playlist_info pli =
+    {
+      .path = "spotify:savedtracks",
+      .title = "Spotify Saved",
+      .virtual_path = "/spotify:/Spotify Saved",
+      .type = PL_PLAIN,
+      .parent_id = spotify_base_plid,
+      .directory_id = DIR_SPOTIFY,
+    };
 
+  library_playlist_save(&pli);
+
+  spotify_saved_plid = db_pl_id_bypath(pli.path);
   if (spotify_saved_plid <= 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist for saved tracks\n");
@@ -1649,17 +1673,25 @@ static void
 create_base_playlist()
 {
   cfg_t *spotify_cfg;
-  int ret;
+  struct playlist_info pli =
+    {
+      .path = "spotify:playlistfolder",
+      .title = "Spotify",
+      .type = PL_FOLDER,
+    };
 
   spotify_base_plid = 0;
   spotify_cfg = cfg_getsec(cfg, "spotify");
-  if (!cfg_getbool(spotify_cfg, "base_playlist_disable"))
+  if (cfg_getbool(spotify_cfg, "base_playlist_disable"))
+    return;
+
+  library_playlist_save(&pli);
+
+  spotify_base_plid = db_pl_id_bypath(pli.path);
+  if (spotify_base_plid < 0)
     {
-      ret = library_add_playlist_info("spotify:playlistfolder", "Spotify", NULL, PL_FOLDER, 0, 0);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
-      else
-	spotify_base_plid = ret;
+      DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
+      spotify_base_plid = 0;
     }
 }
 
@@ -1968,6 +2000,6 @@ struct library_source spotifyscanner =
   .metarescan = rescan,
   .initscan = initscan,
   .fullrescan = fullrescan,
-  .queue_add = queue_add,
+  .queue_item_add = queue_item_add,
 };
 
