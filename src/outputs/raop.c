@@ -209,6 +209,7 @@ struct raop_session
 
   char *devname;
   char *address;
+  unsigned short port;
   int family;
 
   int volume;
@@ -1851,18 +1852,11 @@ session_free(struct raop_session *rs)
 
   close(rs->server_fd);
 
-  if (rs->realm)
-    free(rs->realm);
-  if (rs->nonce)
-    free(rs->nonce);
-
-  if (rs->session)
-    free(rs->session);
-
-  if (rs->address)
-    free(rs->address);
-  if (rs->devname)
-    free(rs->devname);
+  free(rs->realm);
+  free(rs->nonce);
+  free(rs->session);
+  free(rs->address);
+  free(rs->devname);
 
   free(rs);
 }
@@ -1914,13 +1908,41 @@ deferred_session_failure(struct raop_session *rs)
 }
 
 static void
-raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
+raop_rtsp_fail_cb(struct evrtsp_connection *evcon, void *arg)
 {
   struct raop_session *rs = arg;
 
   DPRINTF(E_LOG, L_RAOP, "Device '%s' closed RTSP connection\n", rs->devname);
 
   deferred_session_failure(rs);
+}
+
+static void
+raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
+{
+  struct raop_session *rs = arg;
+  struct evrtsp_connection *newcon;
+
+  // Try to reconnect FIXME does this block?
+  newcon = evrtsp_connection_new(rs->address, rs->port);
+  if (!newcon)
+    {
+      DPRINTF(E_LOG, L_RAOP, "RTSP reconnect to device '%s' failed\n", rs->devname);
+
+      deferred_session_failure(rs);
+      return;
+    }
+
+  DPRINTF(E_INFO, L_RAOP, "RTSP reconnect to '%s' succeeded\n", rs->devname);
+
+  evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
+  evrtsp_connection_free(rs->ctrl);
+
+  rs->ctrl = newcon;
+  evrtsp_connection_set_base(rs->ctrl, evbase_player);
+
+  // If the connection is closed again we don't want to try a reconnect
+  evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_fail_cb, rs);
 }
 
 static void
@@ -2122,6 +2144,7 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
 
   rs->devname = strdup(rd->name);
   rs->address = strdup(address);
+  rs->port    = port;
   rs->family = family;
 
   rs->volume = rd->volume;
