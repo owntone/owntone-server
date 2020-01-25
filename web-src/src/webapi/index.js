@@ -190,6 +190,10 @@ export default {
     return axios.put('/api/outputs/' + outputId, output)
   },
 
+  output_toggle (outputId) {
+    return axios.put('/api/outputs/' + outputId + '/toggle')
+  },
+
   library_artists () {
     return axios.get('/api/library/artists?media_kind=music')
   },
@@ -314,6 +318,34 @@ export default {
 
   spotify () {
     return axios.get('/api/spotify')
+  },
+
+  spotify_login (credentials) {
+    return axios.post('/api/spotify-login', credentials)
+  },
+
+  lastfm () {
+    return axios.get('/api/lastfm')
+  },
+
+  lastfm_login (credentials) {
+    return axios.post('/api/lastfm-login', credentials)
+  },
+
+  lastfm_logout (credentials) {
+    return axios.get('/api/lastfm-logout')
+  },
+
+  pairing () {
+    return axios.get('/api/pairing')
+  },
+
+  pairing_kickoff (pairingReq) {
+    return axios.post('/api/pairing', pairingReq)
+  },
+
+  verification_kickoff (verificationReq) {
+    return axios.post('/api/verification', verificationReq)
   },
 
   artwork_url_append_size_params (artworkUrl, maxwidth = 600, maxheight = 600) {

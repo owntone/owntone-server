@@ -1,71 +1,70 @@
 <template>
-  <content-with-heading>
-    <template slot="heading-left">
-      <div class="title is-4">Settings</div>
-    </template>
+  <div>
+    <tabs-settings></tabs-settings>
 
-    <template slot="heading-right">
-    </template>
+    <content-with-heading>
+      <template slot="heading-left">
+        <div class="title is-4">Now playing page</div>
+      </template>
 
-    <template slot="content">
-      <div class="heading fd-has-margin-bottom">Now playing page</div>
-
-      <div class="field">
-        <label class="checkbox">
-          <input type="checkbox" :checked="settings_option_show_composer_now_playing" @change="set_timer_show_composer_now_playing" ref="checkbox_show_composer">
-          Show composer
-          <i class="is-size-7"
-              :class="{
-                'has-text-info': statusUpdateShowComposerNowPlaying === 'success',
-                'has-text-danger': statusUpdateShowComposerNowPlaying === 'error'
-              }">{{ info_option_show_composer_now_playing }}</i>
-        </label>
-        <p class="help has-text-justified">
-          If enabled the composer of the current playing track is shown on the &quot;now playing page&quot;
-        </p>
-      </div>
-      <fieldset :disabled="!settings_option_show_composer_now_playing">
+      <template slot="content">
         <div class="field">
-          <label class="label has-text-weight-normal">
-            Show composer only for listed genres
+          <label class="checkbox">
+            <input type="checkbox" :checked="settings_option_show_composer_now_playing" @change="set_timer_show_composer_now_playing" ref="checkbox_show_composer">
+            Show composer
             <i class="is-size-7"
                 :class="{
-                  'has-text-info': statusUpdateShowComposerForGenre === 'success',
-                  'has-text-danger': statusUpdateShowComposerForGenre === 'error'
-                }">{{ info_option_show_composer_for_genre }}</i>
+                  'has-text-info': statusUpdateShowComposerNowPlaying === 'success',
+                  'has-text-danger': statusUpdateShowComposerNowPlaying === 'error'
+                }">{{ info_option_show_composer_now_playing }}</i>
           </label>
-          <div class="control">
-            <input class="input" type="text" placeholder="Genres"
-                :value="settings_option_show_composer_for_genre"
-                @input="set_timer_show_composer_for_genre"
-                ref="field_composer_for_genre">
-          </div>
-          <p class="help">
-            Comma separated list of genres the composer should be displayed on the &quot;now playing page&quot;.
-          </p>
-          <p class="help">
-            Leave empty to always show the composer.
-          </p>
-          <p class="help">
-            The genre tag of the current track is matched by checking, if one of the defined genres are included.
-            For example setting to <code>classical, soundtrack</code> will show the composer for tracks with
-            a genre tag of &quot;Contemporary Classical&quot;.<br>
+          <p class="help has-text-justified">
+            If enabled the composer of the current playing track is shown on the &quot;now playing page&quot;
           </p>
         </div>
-      </fieldset>
-
-    </template>
-  </content-with-heading>
+        <fieldset :disabled="!settings_option_show_composer_now_playing">
+          <div class="field">
+            <label class="label has-text-weight-normal">
+              Show composer only for listed genres
+              <i class="is-size-7"
+                  :class="{
+                    'has-text-info': statusUpdateShowComposerForGenre === 'success',
+                    'has-text-danger': statusUpdateShowComposerForGenre === 'error'
+                  }">{{ info_option_show_composer_for_genre }}</i>
+            </label>
+            <div class="control">
+              <input class="input" type="text" placeholder="Genres"
+                  :value="settings_option_show_composer_for_genre"
+                  @input="set_timer_show_composer_for_genre"
+                  ref="field_composer_for_genre">
+            </div>
+            <p class="help">
+              Comma separated list of genres the composer should be displayed on the &quot;now playing page&quot;.
+            </p>
+            <p class="help">
+              Leave empty to always show the composer.
+            </p>
+            <p class="help">
+              The genre tag of the current track is matched by checking, if one of the defined genres are included.
+              For example setting to <code>classical, soundtrack</code> will show the composer for tracks with
+              a genre tag of &quot;Contemporary Classical&quot;.<br>
+            </p>
+          </div>
+        </fieldset>
+      </template>
+    </content-with-heading>
+  </div>
 </template>
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading'
+import TabsSettings from '@/components/TabsSettings'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'SettingsPageWebinterface',
-  components: { ContentWithHeading },
+  components: { ContentWithHeading, TabsSettings },
 
   data () {
     return {

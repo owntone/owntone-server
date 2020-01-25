@@ -32,6 +32,8 @@ import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum'
 import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist'
 import SpotifyPageSearch from '@/pages/SpotifyPageSearch'
 import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface'
+import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices'
+import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs'
 
 Vue.use(VueRouter)
 
@@ -218,6 +220,16 @@ export const router = new VueRouter({
       path: '/settings/webinterface',
       name: 'Settings Webinterface',
       component: SettingsPageWebinterface
+    },
+    {
+      path: '/settings/online-services',
+      name: 'Settings Online Services',
+      component: SettingsPageOnlineServices
+    },
+    {
+      path: '/settings/remotes-outputs',
+      name: 'Settings Remotes Outputs',
+      component: SettingsPageRemotesOutputs
     }
   ],
   scrollBehavior (to, from, savedPosition) {
