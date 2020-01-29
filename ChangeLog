@@ -1,6 +1,16 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 27.1
+	- web UI upgraded to v0.6.0: settings page, display more Spotify data
+	- support for volumeup, volumedown and mutetoggle DACP commands
+	- support for multiple ALSA devices
+	- suppress repeated logging of same message to avoid log file bloat
+	- fix opening too many files due to looping with shairport-sync
+	- fix for genres with single quotes in name
+	- fix for incorrect update of time_added metadata
+	- fix some small memleaks and missing cleanup
+
 version 27.0
 	- no fixed resampling to 44100/16, play source quality if possible
 	- Chromecast: quick start, better quality (48000/16 Opus encoded)
