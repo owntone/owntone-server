@@ -108,14 +108,14 @@ static short deferred_update_events;
 
 /* ------------------- CALLED BY LIBRARY SOURCE MODULES -------------------- */
 
-void
+int
 library_media_save(struct media_file_info *mfi)
 {
   if (!mfi->path || !mfi->fname)
     {
       DPRINTF(E_LOG, L_LIB, "Ignoring media file with missing values (path='%s', fname='%s', data_kind='%d')\n",
 	      mfi->path, mfi->fname, mfi->data_kind);
-      return;
+      return -1;
     }
 
   if (!mfi->directory_id || !mfi->virtual_path)
@@ -126,9 +126,9 @@ library_media_save(struct media_file_info *mfi)
     }
 
   if (mfi->id == 0)
-    db_file_add(mfi);
+    return db_file_add(mfi);
   else
-    db_file_update(mfi);
+    return db_file_update(mfi);
 }
 
 int

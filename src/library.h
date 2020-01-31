@@ -94,7 +94,7 @@ struct library_source
 
 /* --------------------- Interface towards source backends ----------------- */
 
-void
+int
 library_media_save(struct media_file_info *mfi);
 
 int
