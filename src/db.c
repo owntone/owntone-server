@@ -520,9 +520,6 @@ static __thread struct db_statements db_statements;
 
 
 /* Forward */
-struct playlist_info *
-db_pl_fetch_byid(int id);
-
 static enum group_type
 db_group_type_bypersistentid(int64_t persistentid);
 

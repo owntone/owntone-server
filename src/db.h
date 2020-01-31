@@ -661,6 +661,9 @@ int
 db_pl_id_bypath(const char *path);
 
 struct playlist_info *
+db_pl_fetch_byid(int id);
+
+struct playlist_info *
 db_pl_fetch_bypath(const char *path);
 
 struct playlist_info *
