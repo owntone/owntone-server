@@ -8,10 +8,10 @@
 /* --------------------------- Actual scanners ---------------------------- */
 
 int
-scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi);
+scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file);
 
 void
-scan_metadata_stream(const char *path, struct media_file_info *mfi);
+scan_metadata_stream(struct media_file_info *mfi, const char *path);
 
 void
 scan_playlist(const char *file, time_t mtime, int dir_id);
@@ -59,5 +59,24 @@ strip_extension(const char *path);
  */
 int
 parent_dir(const char **current, const char *path);
+
+/* Fills a playlist struct with default values based on path. The title will
+ * for instance be set to the base filename without file extension. Since
+ * the fields in the struct are alloc'ed, caller must free with free_pli().
+ *
+ * @out pli        the playlist struct to be filled
+ * @in path        the path to the playlist
+ * @return         0 if ok, negative on error
+ */
+int
+playlist_fill(struct playlist_info *pli, const char *path);
+
+/* Adds a playlist to the database with the fields set by playlist_fill()
+ *
+ * @in path        the path to the playlist
+ * @return         the id of the playlist (pli->id), negative on error
+ */
+int
+playlist_add(const char *path);
 
 #endif /* !__FILESCANNER_H__ */

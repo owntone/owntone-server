@@ -38,11 +38,32 @@
 #include "misc.h"
 #include "library.h"
 
-/* Formats we can read so far */
-#define PLAYLIST_PLS 1
-#define PLAYLIST_M3U 2
+// Formats we can read so far
+enum playlist_type
+{
+  PLAYLIST_UNKNOWN = 0,
+  PLAYLIST_PLS,
+  PLAYLIST_M3U,
+};
 
-/* Get metadata from the EXTINF tag */
+static enum playlist_type
+playlist_type(const char *path)
+{
+  char *ptr;
+
+  ptr = strrchr(path, '.');
+  if (!ptr)
+    return PLAYLIST_UNKNOWN;
+
+  if (strcasecmp(ptr, ".m3u") == 0)
+    return PLAYLIST_M3U;
+  else if (strcasecmp(ptr, ".pls") == 0)
+    return PLAYLIST_PLS;
+  else
+    return PLAYLIST_UNKNOWN;
+}
+
+// Get metadata from the EXTINF tag
 static int
 extinf_get(char *string, struct media_file_info *mfi, int *extinf)
 {
@@ -55,7 +76,7 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
   if (!ptr || strlen(ptr) < 2)
     return 0;
 
-  /* New extinf found, so clear old data */
+  // New extinf found, so clear old data
   free_mfi(mfi, 1);
 
   *extinf = 1;
@@ -73,7 +94,7 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
 }
 
 void
-scan_metadata_stream(const char *path, struct media_file_info *mfi)
+scan_metadata_stream(struct media_file_info *mfi, const char *path)
 {
   char *pos;
   int ret;
@@ -91,7 +112,7 @@ scan_metadata_stream(const char *path, struct media_file_info *mfi)
   mfi->time_modified = time(NULL);
   mfi->directory_id = DIR_HTTP;
 
-  ret = scan_metadata_ffmpeg(path, mfi);
+  ret = scan_metadata_ffmpeg(mfi, path);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
@@ -105,11 +126,63 @@ scan_metadata_stream(const char *path, struct media_file_info *mfi)
 }
 
 static int
+process_nested_playlist(int parent_id, const char *path)
+{
+  struct playlist_info *pli;
+  int ret;
+
+  // First set the type of the parent playlist to folder
+  pli = db_pl_fetch_byid(parent_id);
+  if (!pli)
+    goto error;
+
+  pli->type = PL_FOLDER;
+  ret = db_pl_update(pli);
+  if (ret < 0)
+    goto error;
+
+  free_pli(pli, 0);
+
+  // Do we already have the playlist in the database?
+  pli = db_pl_fetch_bypath(path);
+  if (!pli)
+    {
+      pli = calloc(1, sizeof(struct playlist_info));
+      ret = playlist_fill(pli, path);
+      if (ret < 0)
+	goto error;
+    }
+
+  pli->parent_id = parent_id;
+
+  ret = library_playlist_save(pli);
+  if (ret < 0)
+    goto error;
+
+  free_pli(pli, 0);
+
+  return ret;
+
+ error:
+  DPRINTF(E_LOG, L_SCAN, "Error processing nested playlist '%s' in playlist %d\n", path, parent_id);
+  free_pli(pli, 0);
+
+  return -1;
+}
+
+static int
 process_url(int pl_id, const char *path, struct media_file_info *mfi)
 {
+  int ret;
+
   mfi->id = db_file_id_bypath(path);
-  scan_metadata_stream(path, mfi);
-  library_media_save(mfi);
+
+  scan_metadata_stream(mfi, path);
+
+  ret = library_media_save(mfi);
+  if (ret < 0)
+    return -1;
+
   return db_pl_add_item_bypath(pl_id, path);
 }
 
@@ -198,17 +271,63 @@ process_regular_file(int pl_id, char *path)
   return 0;
 }
 
+static int
+playlist_prepare(const char *path, time_t mtime)
+{
+  struct playlist_info *pli;
+  int pl_id;
+
+  pli = db_pl_fetch_bypath(path);
+  if (!pli)
+    {
+      DPRINTF(E_LOG, L_SCAN, "New playlist found, processing '%s'\n", path);
+
+      pl_id = playlist_add(path);
+      if (pl_id < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", path);
+	  return -1;
+	}
+
+      DPRINTF(E_INFO, L_SCAN, "Added new playlist as id %d\n", pl_id);
+      return pl_id;
+    }
+
+  db_pl_ping(pli->id);
+
+  // mtime == db_timestamp is also treated as a modification because some editors do
+  // stuff like 1) close the file with no changes (leading us to update db_timestamp),
+  // 2) copy over a modified version from a tmp file (which may result in a mtime that
+  // is equal to the newly updated db_timestamp)
+  if (mtime && (pli->db_timestamp > mtime))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Unchanged playlist found, not processing '%s'\n", path);
+
+      // Protect this playlist's radio stations from purge after scan
+      db_pl_ping_items_bymatch("http://", pli->id);
+      db_pl_ping_items_bymatch("https://", pli->id);
+      free_pli(pli, 0);
+      return -1;
+    }
+
+  DPRINTF(E_LOG, L_SCAN, "Modified playlist found, processing '%s'\n", path);
+
+  pl_id = pli->id;
+  free_pli(pli, 0);
+
+  db_pl_clear_items(pl_id);
+
+  return pl_id;
+}
+
 void
 scan_playlist(const char *file, time_t mtime, int dir_id)
 {
   FILE *fp;
   struct media_file_info mfi;
-  struct playlist_info *pli;
   struct stat sb;
   char buf[PATH_MAX];
   char *path;
-  const char *filename;
-  char *ptr;
   size_t len;
   int extinf;
   int pl_id;
@@ -217,75 +336,14 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
   int nadded;
   int ret;
 
-  ptr = strrchr(file, '.');
-  if (!ptr)
+  pl_format = playlist_type(file);
+  if (pl_format == PLAYLIST_UNKNOWN)
     return;
 
-  if (strcasecmp(ptr, ".m3u") == 0)
-    pl_format = PLAYLIST_M3U;
-  else if (strcasecmp(ptr, ".pls") == 0)
-    pl_format = PLAYLIST_PLS;
-  else
-    return;
-
-  filename = filename_from_path(file);
-
-  /* Fetch or create playlist */
-  pli = db_pl_fetch_bypath(file);
-  if (pli)
-    {
-      db_pl_ping(pli->id);
-
-      // mtime == db_timestamp is also treated as a modification because some editors do
-      // stuff like 1) close the file with no changes (leading us to update db_timestamp),
-      // 2) copy over a modified version from a tmp file (which may result in a mtime that
-      // is equal to the newly updated db_timestamp)
-      if (mtime && (pli->db_timestamp > mtime))
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Unchanged playlist found, not processing '%s'\n", file);
-
-	  // Protect this playlist's radio stations from purge after scan
-	  db_pl_ping_items_bymatch("http://", pli->id);
-	  db_pl_ping_items_bymatch("https://", pli->id);
-	  free_pli(pli, 0);
-	  return;
-	}
-
-      DPRINTF(E_LOG, L_SCAN, "Modified playlist found, processing '%s'\n", file);
-
-      pl_id = pli->id;
-      db_pl_clear_items(pl_id);
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_SCAN, "New playlist found, processing '%s'\n", file);
-
-      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
-
-      pli->type = PL_PLAIN;
-
-      /* Get only the basename, to be used as the playlist title */
-      pli->title = strip_extension(filename);
-
-      pli->path = strdup(file);
-      snprintf(buf, sizeof(buf), "/file:%s", file);
-      pli->virtual_path = strip_extension(buf);
-
-      pli->directory_id = dir_id;
-
-      ret = db_pl_add(pli, &pl_id);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", file);
-
-	  free_pli(pli, 0);
-	  return;
-	}
-
-      DPRINTF(E_INFO, L_SCAN, "Added new playlist as id %d\n", pl_id);
-    }
-
-  free_pli(pli, 0);
+  // Will create or update the playlist entry in the database
+  pl_id = playlist_prepare(file, mtime);
+  if (pl_id < 0)
+    return; // Not necessarily an error, could also be that the playlist hasn't changed
 
   ret = stat(file, &sb);
   if (ret < 0)
@@ -312,7 +370,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
     {
       len = strlen(buf);
 
-      /* rtrim and check that length is sane (ignore blank lines) */
+      // rtrim and check that length is sane (ignore blank lines)
       while ((len > 0) && isspace(buf[len - 1]))
 	{
 	  len--;
@@ -321,11 +379,11 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
       if (len < 1)
 	continue;
 
-      /* Saves metadata in mfi if EXTINF metadata line */
+      // Saves metadata in mfi if EXTINF metadata line
       if ((pl_format == PLAYLIST_M3U) && extinf_get(buf, &mfi, &extinf))
 	continue;
 
-      /* For pls files we are only interested in the part after the FileX= entry */
+      // For pls files we are only interested in the part after the FileX= entry
       path = NULL;
       if ((pl_format == PLAYLIST_PLS) && (strncasecmp(buf, "file", strlen("file")) == 0) && (path = strchr(buf, '=')))
 	path++;
@@ -335,12 +393,14 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
       if (!path)
 	continue;
 
-      /* Check that first char is sane for a path */
+      // Check that first char is sane for a path
       if ((!isalnum(path[0])) && (path[0] != '/') && (path[0] != '.'))
 	continue;
 
-      /* Check if line is an URL, will be added to library, otherwise it should already be there */
-      if (strncasecmp(path, "http://", 7) == 0 || strncasecmp(path, "https://", 8) == 0)
+      // URLs and playlists will be added to library, tracks should already be there
+      if (playlist_type(path) != PLAYLIST_UNKNOWN)
+	ret = process_nested_playlist(pl_id, path);
+      else if (strncasecmp(path, "http://", 7) == 0 || strncasecmp(path, "https://", 8) == 0)
 	ret = process_url(pl_id, path, &mfi);
       else
 	ret = process_regular_file(pl_id, path);
@@ -356,14 +416,14 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
       if (ret == 0)
 	nadded++;
 
-      /* Clean up in preparation for next item */
+      // Clean up in preparation for next item
       extinf = 0;
       free_mfi(&mfi, 1);
     }
 
   db_transaction_end();
 
-  /* We had some extinf that we never got to use, free it now */
+  // We had some extinf that we never got to use, free it now
   if (extinf)
     free_mfi(&mfi, 1);
 
