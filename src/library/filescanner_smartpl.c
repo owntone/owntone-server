@@ -35,6 +35,8 @@
 #include "db.h"
 #include "misc.h"
 #include "smartpl_query.h"
+#include "library/filescanner.h"
+#include "library.h"
 
 
 void
@@ -42,28 +44,18 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
 {
   struct smartpl smartpl;
   struct playlist_info *pli;
-  int pl_id;
-  char virtual_path[PATH_MAX];
-  char *ptr;
   int ret;
 
   /* Fetch or create playlist */
   pli = db_pl_fetch_bypath(file);
   if (!pli)
     {
-      pli = calloc(1, sizeof(struct playlist_info));
-      if (!pli)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
-	  return;
-	}
+      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
 
-      pli->path = strdup(file);
-      snprintf(virtual_path, PATH_MAX, "/file:%s", file);
-      ptr = strrchr(virtual_path, '.');
-      if (ptr)
-	*ptr = '\0';
-      pli->virtual_path = strdup(virtual_path);
+      ret = playlist_fill(pli, file);
+      if (ret < 0)
+	goto error;
+
       pli->type = PL_SMART;
     }
 
@@ -74,10 +66,8 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Error parsing smart playlist '%s'\n", file);
-
-      free_pli(pli, 0);
       free_smartpl(&smartpl, 1);
-      return;
+      goto error;
     }
 
   free(pli->title);
@@ -93,26 +83,16 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
 
   free_smartpl(&smartpl, 1);
 
-  if (pli->id)
-    {
-      pl_id = pli->id;
-      ret = db_pl_update(pli);
-    }
-  else
-    {
-      ret = db_pl_add(pli, &pl_id);
-    }
+  ret = library_playlist_save(pli);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Error adding smart playlist '%s'\n", file);
-
-      free_pli(pli, 0);
-      return;
+      DPRINTF(E_LOG, L_SCAN, "Error saving smart playlist '%s'\n", file);
+      goto error;
     }
 
-  DPRINTF(E_INFO, L_SCAN, "Added or updated smart playlist as id %d\n", pl_id);
+  DPRINTF(E_INFO, L_SCAN, "Added or updated smart playlist '%s'\n", file);
 
+ error:
   free_pli(pli, 0);
-
-  DPRINTF(E_INFO, L_SCAN, "Done processing smart playlist\n");
+  return;
 }
