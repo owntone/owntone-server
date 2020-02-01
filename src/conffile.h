@@ -3,6 +3,7 @@
 #define __CONFFILE_H__
 
 #include <sys/types.h>
+#include <stdint.h>
 
 #include <confuse.h>
 
