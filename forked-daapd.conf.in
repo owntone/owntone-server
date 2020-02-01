@@ -157,6 +157,10 @@ library {
 	# to trigger a rescan.
 #	filescan_disable = false
 
+	# Should metadata from m3u playlists, e.g. artist and title in EXTINF,
+	# override the metadata we get from radio streams?
+#	m3u_overrides = false
+
 	# Should iTunes metadata override ours?
 #	itunes_overrides = false
 

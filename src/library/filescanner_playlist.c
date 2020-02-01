@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#include "conffile.h"
 #include "logger.h"
 #include "db.h"
 #include "library/filescanner.h"
@@ -63,34 +64,73 @@ playlist_type(const char *path)
     return PLAYLIST_UNKNOWN;
 }
 
-// Get metadata from the EXTINF tag
 static int
-extinf_get(char *string, struct media_file_info *mfi, int *extinf)
+extinf_read(char **artist, char **title, const char *tag)
 {
   char *ptr;
 
-  if (strncmp(string, "#EXTINF:", strlen("#EXTINF:")) != 0)
-    return 0;
-
-  ptr = strchr(string, ',');
+  ptr = strchr(tag, ',');
   if (!ptr || strlen(ptr) < 2)
-    return 0;
+    return -1;
 
-  // New extinf found, so clear old data
-  free_mfi(mfi, 1);
+  *artist = strdup(ptr + 1);
 
-  *extinf = 1;
-  mfi->artist = strdup(ptr + 1);
-
-  ptr = strstr(mfi->artist, " -");
+  ptr = strstr(*artist, " -");
   if (ptr && strlen(ptr) > 3)
-    mfi->title = strdup(ptr + 3);
+    *title = strdup(ptr + 3);
   else
-    mfi->title = strdup("");
+    *title = strdup("");
   if (ptr)
     *ptr = '\0';
 
-  return 1;
+  return 0;
+}
+
+static int
+extval_read(char **val, const char *tag)
+{
+  char *ptr;
+
+  ptr = strchr(tag, ':');
+  if (!ptr || strlen(ptr) < 2)
+    return -1;
+
+  *val = strdup(ptr + 1);
+  return 0;
+}
+
+// Get metadata from a EXTINF or EXTALB tag
+static int
+exttag_read(struct media_file_info *mfi, const char *tag)
+{
+  char *artist;
+  char *title;
+  char *val;
+
+  if (strncmp(tag, "#EXTINF:", strlen("#EXTINF:")) == 0 && extinf_read(&artist, &title, tag) == 0)
+    {
+      free(mfi->artist);
+      free(mfi->title);
+      mfi->artist = artist;
+      mfi->title = title;
+      if (!mfi->album_artist)
+	mfi->album_artist = strdup(artist);
+      return 0;
+    }
+  if (strncmp(tag, "#EXTALB:", strlen("#EXTALB:")) == 0 && extval_read(&val, tag) == 0)
+    {
+      free(mfi->album);
+      mfi->album = val;
+      return 0;
+    }
+  if (strncmp(tag, "#EXTART:", strlen("#EXTART:")) == 0 && extval_read(&val, tag) == 0)
+    {
+      free(mfi->album_artist);
+      mfi->album_artist = val;
+      return 0;
+    }
+
+  return -1;
 }
 
 void
@@ -173,11 +213,35 @@ process_nested_playlist(int parent_id, const char *path)
 static int
 process_url(int pl_id, const char *path, struct media_file_info *mfi)
 {
+  struct media_file_info m3u;
   int ret;
 
   mfi->id = db_file_id_bypath(path);
 
-  scan_metadata_stream(mfi, path);
+  if (cfg_getbool(cfg_getsec(cfg, "library"), "m3u_overrides"))
+    {
+      memset(&m3u, 0, sizeof(struct media_file_info));
+
+      m3u.artist = safe_strdup(mfi->artist);
+      m3u.album_artist = safe_strdup(mfi->album_artist);
+      m3u.album = safe_strdup(mfi->album);
+      m3u.title = safe_strdup(mfi->title);
+
+      scan_metadata_stream(mfi, path);
+
+      if (m3u.artist)
+	swap_pointers(&mfi->artist, &m3u.artist);
+      if (m3u.album_artist)
+	swap_pointers(&mfi->album_artist, &m3u.album_artist);
+      if (m3u.album)
+	swap_pointers(&mfi->album, &m3u.album);
+      if (m3u.title)
+	swap_pointers(&mfi->title, &m3u.title);
+
+      free_mfi(&m3u, 1);
+    }
+  else
+    scan_metadata_stream(mfi, path);
 
   ret = library_media_save(mfi);
   if (ret < 0)
@@ -329,7 +393,6 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
   char buf[PATH_MAX];
   char *path;
   size_t len;
-  int extinf;
   int pl_id;
   int pl_format;
   int ntracks;
@@ -361,7 +424,6 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 
   db_transaction_begin();
 
-  extinf = 0;
   memset(&mfi, 0, sizeof(struct media_file_info));
   ntracks = 0;
   nadded = 0;
@@ -379,8 +441,8 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
       if (len < 1)
 	continue;
 
-      // Saves metadata in mfi if EXTINF metadata line
-      if ((pl_format == PLAYLIST_M3U) && extinf_get(buf, &mfi, &extinf))
+      // Saves metadata in mfi if EXT metadata line
+      if ((pl_format == PLAYLIST_M3U) && (exttag_read(&mfi, buf) == 0))
 	continue;
 
       // For pls files we are only interested in the part after the FileX= entry
@@ -417,15 +479,14 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 	nadded++;
 
       // Clean up in preparation for next item
-      extinf = 0;
       free_mfi(&mfi, 1);
     }
 
   db_transaction_end();
 
-  // We had some extinf that we never got to use, free it now
-  if (extinf)
-    free_mfi(&mfi, 1);
+  // In case we had some m3u ext metadata that we never got to use, free it now
+  // (no risk of double free when the free_mfi()'s are content_only)
+  free_mfi(&mfi, 1);
 
   if (!feof(fp))
     DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s' (only added %d tracks): %s\n", file, nadded, strerror(errno));
