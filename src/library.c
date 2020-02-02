@@ -148,7 +148,7 @@ library_playlist_save(struct playlist_info *pli)
     }
 
   if (pli->id == 0)
-    return db_pl_add(pli, NULL);
+    return db_pl_add(pli);
   else
     return db_pl_update(pli);
 }

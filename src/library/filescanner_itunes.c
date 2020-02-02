@@ -42,6 +42,7 @@
 
 #include "logger.h"
 #include "db.h"
+#include "library.h"
 #include "library/filescanner.h"
 #include "conffile.h"
 #include "misc.h"
@@ -788,13 +789,11 @@ process_pls(plist_t playlists, const char *file)
 {
   plist_t pl;
   plist_t items;
-  struct playlist_info *pli;
+  struct playlist_info pli;
   char *name;
   uint64_t id;
-  int pl_id;
   uint32_t alen;
   uint32_t i;
-  char virtual_path[PATH_MAX];
   int ret;
 
   alen = plist_array_get_size(playlists);
@@ -834,28 +833,28 @@ process_pls(plist_t playlists, const char *file)
 	  continue;
 	}
 
-      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
+      playlist_fill(&pli, file);
 
-      pli->type = PL_PLAIN;
-      pli->title = strdup(name);
-      pli->path = strdup(file);
-      snprintf(virtual_path, sizeof(virtual_path), "/file:%s/%s", file, name);
-      pli->virtual_path = strdup(virtual_path);
+      free(pli.title);
+      pli.title = strdup(name);
+      free(pli.virtual_path);
+      pli.virtual_path = safe_asprintf("/file:%s/%s", file, name);
 
-      ret = db_pl_add(pli, &pl_id);
-      free_pli(pli, 0);
+      ret = library_playlist_save(&pli);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Error adding iTunes playlist '%s' (%s)\n", name, file);
 
+	  free_pli(&pli, 1);
 	  free(name);
 	  continue;
 	}
 
-      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
+      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pli.id);
 
-      process_pl_items(items, pl_id, name);
+      process_pl_items(items, pli.id, name);
 
+      free_pli(&pli, 1);
       free(name);
     }
 }

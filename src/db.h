@@ -673,7 +673,7 @@ struct playlist_info *
 db_pl_fetch_bytitlepath(const char *title, const char *path);
 
 int
-db_pl_add(struct playlist_info *pli, int *id);
+db_pl_add(struct playlist_info *pli);
 
 int
 db_pl_update(struct playlist_info *pli);

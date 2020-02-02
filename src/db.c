@@ -3476,7 +3476,7 @@ db_pl_fetch_bytitlepath(const char *title, const char *path)
 }
 
 int
-db_pl_add(struct playlist_info *pli, int *id)
+db_pl_add(struct playlist_info *pli)
 {
   int ret;
 
@@ -3495,16 +3495,14 @@ db_pl_add(struct playlist_info *pli, int *id)
   if (ret < 0)
     return -1;
 
-  if (id)
+  pli->id = (int)sqlite3_last_insert_rowid(hdl);
+  if (pli->id == 0)
     {
-      ret = db_pl_id_bypath(pli->path);
-      if (ret < 0)
-	return -1;
-
-      *id = ret;
+      DPRINTF(E_LOG, L_DB, "Successful playlist insert but no last_insert_rowid!\n");
+      return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s)\n", pli->title, pli->path);
+  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) as id %d\n", pli->title, pli->path, pli->id);
 
   return 0;
 }

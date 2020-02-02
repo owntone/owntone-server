@@ -464,11 +464,16 @@ playlist_add(const char *path)
     return -1;
 
   ret = library_playlist_save(&pli);
-  free_pli(&pli, 1);
   if (ret < 0)
-    return -1;
+    {
+      free_pli(&pli, 1);
+      return -1;
+    }
 
-  return db_pl_id_bypath(path);
+  ret = pli.id;
+  free_pli(&pli, 1);
+
+  return ret;
 }
 
 
