@@ -863,7 +863,7 @@ static bool
 itml_is_modified(const char *path, time_t mtime)
 {
   struct playlist_info *pli;
-  int pl_id;
+  int ret;
 
   // This is a special playlist that is disabled and only used for saving a timestamp
   pli = db_pl_fetch_bytitlepath(path, path);
@@ -887,19 +887,28 @@ itml_is_modified(const char *path, time_t mtime)
 
       // Clear out everything, we will recreate
       db_pl_delete_bypath(path);
-      free_pli(pli, 0);
     }
   else
     {
       DPRINTF(E_LOG, L_SCAN, "New iTunes XML found, processing: '%s'\n", path);
+
+      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
     }
 
-  pl_id = playlist_add(path);
-  if (pl_id < 0)
+  // Prepare the special meta playlist used for saving timestamp
+  playlist_fill(pli, path);
+  free(pli->title);
+  pli->title = strdup(path);
+
+  ret = library_playlist_save(pli);
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Error adding iTunes XML meta playlist '%s'\n", path);
+      free_pli(pli, 0);
       return false;
     }
+
+  free_pli(pli, 0);
 
   // Disable, only used for saving timestamp
   db_pl_disable_bypath(path, STRIP_NONE, 0);
