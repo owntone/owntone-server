@@ -54,7 +54,7 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
 
       ret = playlist_fill(pli, file);
       if (ret < 0)
-	goto error;
+	goto free_pli;
 
       pli->type = PL_SMART;
     }
@@ -67,18 +67,12 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
     {
       DPRINTF(E_LOG, L_SCAN, "Error parsing smart playlist '%s'\n", file);
       free_smartpl(&smartpl, 1);
-      goto error;
+      goto free_pli;
     }
 
-  free(pli->title);
-  pli->title = strdup(smartpl.title);
-
-  free(pli->query);
-  pli->query = strdup(smartpl.query_where);
-
-  free(pli->query_order);
-  pli->query_order = safe_strdup(smartpl.order);
-
+  swap_pointers(&pli->title, &smartpl.title);
+  swap_pointers(&pli->query, &smartpl.query_where);
+  swap_pointers(&pli->query_order, &smartpl.order);
   pli->query_limit = smartpl.limit;
 
   free_smartpl(&smartpl, 1);
@@ -87,12 +81,12 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Error saving smart playlist '%s'\n", file);
-      goto error;
+      goto free_pli;
     }
 
   DPRINTF(E_INFO, L_SCAN, "Added or updated smart playlist '%s'\n", file);
 
- error:
+ free_pli:
   free_pli(pli, 0);
   return;
 }
