@@ -177,7 +177,7 @@ process_nested_playlist(int parent_id, const char *path)
     goto error;
 
   pli->type = PL_FOLDER;
-  ret = db_pl_update(pli);
+  ret = library_playlist_save(pli);
   if (ret < 0)
     goto error;
 
@@ -191,6 +191,13 @@ process_nested_playlist(int parent_id, const char *path)
       ret = playlist_fill(pli, path);
       if (ret < 0)
 	goto error;
+
+      // This is a "trick" to make sure the nested playlist will be scanned.
+      // Otherwise what could happen is that we save the playlist with current
+      // db_timestamp, and when the scanner finds the actual playlist it will
+      // conclude from the timestamp that the playlist is unchanged, and thus
+      // it would never be scanned.
+      pli->db_timestamp = 1;
     }
 
   pli->parent_id = parent_id;
