@@ -84,7 +84,7 @@ scan_smartpl(const char *file, time_t mtime, int dir_id)
       goto free_pli;
     }
 
-  DPRINTF(E_INFO, L_SCAN, "Added or updated smart playlist '%s'\n", file);
+  DPRINTF(E_INFO, L_SCAN, "Added or updated smart playlist '%s' with id %d\n", file, ret);
 
  free_pli:
   free_pli(pli, 0);

@@ -470,7 +470,6 @@ playlist_add(const char *path)
       return -1;
     }
 
-  ret = pli.id;
   free_pli(&pli, 1);
 
   return ret;

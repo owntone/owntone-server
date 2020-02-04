@@ -1438,6 +1438,22 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
   return 0;
 }
 
+static int
+playlist_add_or_update(struct playlist_info *pli)
+{
+  int pl_id;
+
+  pl_id = db_pl_id_bypath(pli->path);
+  if (pl_id < 0)
+    return library_playlist_save(pli);
+
+  pli->id = pl_id;
+
+  db_pl_clear_items(pli->id);
+
+  return library_playlist_save(pli);
+}
+
 /*
  * Add a saved album to the library
  */
@@ -1574,6 +1590,7 @@ scan_playlist_tracks(const char *playlist_tracks_endpoint_uri, int plid)
 static void
 map_playlist_to_pli(struct playlist_info *pli, struct spotify_playlist *playlist)
 {
+  memset(pli, 0, sizeof(struct playlist_info));
 
   pli->type  = PL_PLAIN;
   pli->path  = strdup(playlist->uri);
@@ -1609,12 +1626,9 @@ saved_playlist_add(json_object *item, int index, int total, void *arg)
       return -1;
     }
 
-  memset(&pli, 0, sizeof(struct playlist_info));
-
   map_playlist_to_pli(&pli, &playlist);
 
-  library_playlist_save(&pli);
-  pl_id = db_pl_id_bypath(pli.path);
+  pl_id = playlist_add_or_update(&pli);
 
   free_pli(&pli, 1);
 
@@ -1648,22 +1662,22 @@ create_saved_tracks_playlist()
 {
   struct playlist_info pli =
     {
-      .path = "spotify:savedtracks",
-      .title = "Spotify Saved",
-      .virtual_path = "/spotify:/Spotify Saved",
+      .path = strdup("spotify:savedtracks"),
+      .title = strdup("Spotify Saved"),
+      .virtual_path = strdup("/spotify:/Spotify Saved"),
       .type = PL_PLAIN,
       .parent_id = spotify_base_plid,
       .directory_id = DIR_SPOTIFY,
     };
 
-  library_playlist_save(&pli);
-
-  spotify_saved_plid = db_pl_id_bypath(pli.path);
-  if (spotify_saved_plid <= 0)
+  spotify_saved_plid = playlist_add_or_update(&pli);
+  if (spotify_saved_plid < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist for saved tracks\n");
       spotify_saved_plid = 0;
     }
+
+  free_pli(&pli, 1);
 }
 
 /*
@@ -1675,24 +1689,27 @@ create_base_playlist()
   cfg_t *spotify_cfg;
   struct playlist_info pli =
     {
-      .path = "spotify:playlistfolder",
-      .title = "Spotify",
+      .path = strdup("spotify:playlistfolder"),
+      .title = strdup("Spotify"),
       .type = PL_FOLDER,
     };
 
   spotify_base_plid = 0;
   spotify_cfg = cfg_getsec(cfg, "spotify");
   if (cfg_getbool(spotify_cfg, "base_playlist_disable"))
-    return;
+    {
+      free_pli(&pli, 1);
+      return;
+    }
 
-  library_playlist_save(&pli);
-
-  spotify_base_plid = db_pl_id_bypath(pli.path);
+  spotify_base_plid = playlist_add_or_update(&pli);
   if (spotify_base_plid < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
       spotify_base_plid = 0;
     }
+
+  free_pli(&pli, 1);
 }
 
 static void

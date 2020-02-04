@@ -3495,16 +3495,16 @@ db_pl_add(struct playlist_info *pli)
   if (ret < 0)
     return -1;
 
-  pli->id = (int)sqlite3_last_insert_rowid(hdl);
-  if (pli->id == 0)
+  ret = (int)sqlite3_last_insert_rowid(hdl);
+  if (ret == 0)
     {
       DPRINTF(E_LOG, L_DB, "Successful playlist insert but no last_insert_rowid!\n");
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) as id %d\n", pli->title, pli->path, pli->id);
+  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) as id %d\n", pli->title, pli->path, ret);
 
-  return 0;
+  return ret;
 }
 
 int
@@ -3527,7 +3527,7 @@ db_pl_update(struct playlist_info *pli)
   if (ret < 0)
     return -1;
 
-  return 0;
+  return pli->id;
 }
 
 int

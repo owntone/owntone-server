@@ -97,6 +97,12 @@ struct library_source
 int
 library_media_save(struct media_file_info *mfi);
 
+/*
+ * Adds a playlist if pli->id == 0, otherwise updates.
+ *
+ * @param pli Playlist to save
+ * @return playlist id if operation succeeded, -1 on failure.
+ */
 int
 library_playlist_save(struct playlist_info *pli);
 

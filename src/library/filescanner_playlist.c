@@ -208,7 +208,7 @@ process_nested_playlist(int parent_id, const char *path)
 
   free_pli(pli, 0);
 
-  return ret;
+  return 0;
 
  error:
   DPRINTF(E_LOG, L_SCAN, "Error processing nested playlist '%s' in playlist %d\n", path, parent_id);

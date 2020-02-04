@@ -850,9 +850,9 @@ process_pls(plist_t playlists, const char *file)
 	  continue;
 	}
 
-      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pli.id);
+      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", ret);
 
-      process_pl_items(items, pli.id, name);
+      process_pl_items(items, ret, name);
 
       free_pli(&pli, 1);
       free(name);
