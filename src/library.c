@@ -747,7 +747,16 @@ library_init(void)
   for (i = 0; sources[i]; i++)
     {
       if (!sources[i]->init)
-	continue;
+        {
+          DPRINTF(E_LOG, L_LIB, "BUG: library source '%s' has no init()\n", sources[i]->name);
+          return -1;
+        }
+
+      if (!sources[i]->metarescan)
+        {
+          DPRINTF(E_LOG, L_LIB, "BUG: library source '%s' has no metarescan()\n", sources[i]->name);
+          return -1;
+        }
 
       ret = sources[i]->init();
       if (ret < 0)
