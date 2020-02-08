@@ -3600,7 +3600,7 @@ db_pl_delete_bypath(const char *path)
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_PL;
-  qp.filter = db_mprintf("path = '%q'", path);
+  CHECK_NULL(L_DB, qp.filter = db_mprintf("path = '%q'", path));
 
   ret = db_query_start(&qp);
   if (ret < 0)
