@@ -1965,6 +1965,7 @@ struct library_source spotifyscanner =
   .init = spotifywebapi_init,
   .deinit = spotifywebapi_deinit,
   .rescan = rescan,
+  .metarescan = rescan,
   .initscan = initscan,
   .fullrescan = fullrescan,
   .queue_add = queue_add,
