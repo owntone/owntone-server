@@ -187,8 +187,8 @@ process_nested_playlist(int parent_id, const char *path)
   deref = realpath(path, NULL);
   if (!deref)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not dereference path '%s'\n", path);
-      goto error;
+      DPRINTF(E_LOG, L_SCAN, "Could not dereference path '%s': %s\n", path, strerror(errno));
+      return -1;
     }
 
   // Do we already have the playlist in the database?
