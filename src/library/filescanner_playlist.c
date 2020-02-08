@@ -169,6 +169,7 @@ static int
 process_nested_playlist(int parent_id, const char *path)
 {
   struct playlist_info *pli;
+  char *deref = NULL;
   int ret;
 
   // First set the type of the parent playlist to folder
@@ -183,12 +184,19 @@ process_nested_playlist(int parent_id, const char *path)
 
   free_pli(pli, 0);
 
+  deref = realpath(path, NULL);
+  if (!deref)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not dereference path '%s'\n", path);
+      goto error;
+    }
+
   // Do we already have the playlist in the database?
-  pli = db_pl_fetch_bypath(path);
+  pli = db_pl_fetch_bypath(deref);
   if (!pli)
     {
       pli = calloc(1, sizeof(struct playlist_info));
-      ret = playlist_fill(pli, path);
+      ret = playlist_fill(pli, deref);
       if (ret < 0)
 	goto error;
 
@@ -207,12 +215,14 @@ process_nested_playlist(int parent_id, const char *path)
     goto error;
 
   free_pli(pli, 0);
+  free(deref);
 
   return 0;
 
  error:
   DPRINTF(E_LOG, L_SCAN, "Error processing nested playlist '%s' in playlist %d\n", path, parent_id);
   free_pli(pli, 0);
+  free(deref);
 
   return -1;
 }
@@ -467,10 +477,10 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 	continue;
 
       // URLs and playlists will be added to library, tracks should already be there
-      if (playlist_type(path) != PLAYLIST_UNKNOWN)
-	ret = process_nested_playlist(pl_id, path);
-      else if (strncasecmp(path, "http://", 7) == 0 || strncasecmp(path, "https://", 8) == 0)
+      if (strncasecmp(path, "http://", 7) == 0 || strncasecmp(path, "https://", 8) == 0)
 	ret = process_url(pl_id, path, &mfi);
+      else if (playlist_type(path) != PLAYLIST_UNKNOWN)
+	ret = process_nested_playlist(pl_id, path);
       else
 	ret = process_regular_file(pl_id, path);
 
