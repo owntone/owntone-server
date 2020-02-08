@@ -72,6 +72,11 @@ ANTLR_SRC = \
 	SMARTPLLexer.c SMARTPLLexer.h SMARTPLParser.c SMARTPLParser.h  \
 	SMARTPL2SQL.c SMARTPL2SQL.h
 
+ANTLR_OBJECTS = \
+	RSPLexer.$(OBJEXT) RSPParser.$(OBJEXT) RSP2SQL.$(OBJEXT) \
+	DAAPLexer.$(OBJEXT) DAAPParser.$(OBJEXT) DAAP2SQL.$(OBJEXT) \
+	SMARTPLLexer.$(OBJEXT) SMARTPLParser.$(OBJEXT) SMARTPL2SQL.$(OBJEXT)
+
 AM_CPPFLAGS += \
 	$(FORKED_CPPFLAGS) \
 	$(FORKED_OPTS_CPPFLAGS) \
@@ -153,6 +158,9 @@ EXTRA_DIST = \
 	$(ANTLR_GRAMMARS) \
 	$(ANTLR_TOKENS) \
 	$(ANTLR_DEPS)
+
+# silence unused warnings from antlr generated files
+$(ANTLR_OBJECTS): AM_CPPFLAGS += -Wno-unused
 
 # gperf construction rules
 %_hash.h: %.gperf
