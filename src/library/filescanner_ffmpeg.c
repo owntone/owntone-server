@@ -354,7 +354,7 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
  * - fname: (filename) used as fallback for artist
  */
 int
-scan_metadata_ffmpeg(const char *file, struct media_file_info *mfi)
+scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 {
   AVFormatContext *ctx;
   AVDictionary *options;

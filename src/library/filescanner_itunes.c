@@ -21,6 +21,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -41,6 +42,7 @@
 
 #include "logger.h"
 #include "db.h"
+#include "library.h"
 #include "library/filescanner.h"
 #include "conffile.h"
 #include "misc.h"
@@ -787,13 +789,11 @@ process_pls(plist_t playlists, const char *file)
 {
   plist_t pl;
   plist_t items;
-  struct playlist_info *pli;
+  struct playlist_info pli;
   char *name;
   uint64_t id;
-  int pl_id;
   uint32_t alen;
   uint32_t i;
-  char virtual_path[PATH_MAX];
   int ret;
 
   alen = plist_array_get_size(playlists);
@@ -833,47 +833,40 @@ process_pls(plist_t playlists, const char *file)
 	  continue;
 	}
 
-      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
+      playlist_fill(&pli, file);
 
-      pli->type = PL_PLAIN;
-      pli->title = strdup(name);
-      pli->path = strdup(file);
-      snprintf(virtual_path, sizeof(virtual_path), "/file:%s/%s", file, name);
-      pli->virtual_path = strdup(virtual_path);
+      free(pli.title);
+      pli.title = strdup(name);
+      free(pli.virtual_path);
+      pli.virtual_path = safe_asprintf("/file:%s/%s", file, name);
 
-      ret = db_pl_add(pli, &pl_id);
-      free_pli(pli, 0);
+      ret = library_playlist_save(&pli);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Error adding iTunes playlist '%s' (%s)\n", name, file);
 
+	  free_pli(&pli, 1);
 	  free(name);
 	  continue;
 	}
 
-      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
+      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", ret);
 
-      process_pl_items(items, pl_id, name);
+      process_pl_items(items, ret, name);
 
+      free_pli(&pli, 1);
       free(name);
     }
 }
 
-
-void
-scan_itunes_itml(const char *file, time_t mtime, int dir_id)
+static bool
+itml_is_modified(const char *path, time_t mtime)
 {
   struct playlist_info *pli;
-  struct stat sb;
-  char buf[PATH_MAX];
-  char *itml_xml;
-  plist_t itml;
-  plist_t node;
-  int fd;
   int ret;
 
-  // This is special playlist that is disabled and only used for saving a timestamp
-  pli = db_pl_fetch_bytitlepath(file, file);
+  // This is a special playlist that is disabled and only used for saving a timestamp
+  pli = db_pl_fetch_bytitlepath(path, path);
   if (pli)
     {
       // mtime == db_timestamp is also treated as a modification because some editors do
@@ -882,47 +875,59 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id)
       // is equal to the newly updated db_timestamp)
       if (mtime && (pli->db_timestamp > mtime))
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Unchanged iTunes XML found, not processing '%s'\n", file);
+	  DPRINTF(E_LOG, L_SCAN, "Unchanged iTunes XML found, not processing '%s'\n", path);
 
 	  // TODO Protect the radio stations from purge after scan
-	  db_pl_ping_bymatch(file, 0);
+	  db_pl_ping_bymatch(path, 0);
 	  free_pli(pli, 0);
-	  return;
+	  return false;
 	}
 
-      DPRINTF(E_LOG, L_SCAN, "Modified iTunes XML found, processing '%s'\n", file);
+      DPRINTF(E_LOG, L_SCAN, "Modified iTunes XML found, processing '%s'\n", path);
 
       // Clear out everything, we will recreate
-      db_pl_delete_bypath(file);
-      free_pli(pli, 0);
+      db_pl_delete_bypath(path);
     }
   else
     {
-      DPRINTF(E_LOG, L_SCAN, "New iTunes XML found, processing: '%s'\n", file);
+      DPRINTF(E_LOG, L_SCAN, "New iTunes XML found, processing: '%s'\n", path);
+
+      CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
     }
 
-  CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
+  // Prepare the special meta playlist used for saving timestamp
+  playlist_fill(pli, path);
+  free(pli->title);
+  pli->title = strdup(path);
 
-  pli->type = PL_PLAIN;
-  pli->title = strdup(file);
-  pli->path = strdup(file);
-  snprintf(buf, sizeof(buf), "/file:%s", file);
-  pli->virtual_path = strip_extension(buf);
-  pli->directory_id = dir_id;
-
-  ret = db_pl_add(pli, (int *)&pli->id);
+  ret = library_playlist_save(pli);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Error adding iTunes XML meta playlist '%s'\n", file);
-
+      DPRINTF(E_LOG, L_SCAN, "Error adding iTunes XML meta playlist '%s'\n", path);
       free_pli(pli, 0);
-      return;
+      return false;
     }
 
-  // Disable, only used for saving timestamp
-  db_pl_disable_bypath(file, STRIP_NONE, 0);
-
   free_pli(pli, 0);
+
+  // Disable, only used for saving timestamp
+  db_pl_disable_bypath(path, STRIP_NONE, 0);
+
+  return true;
+}
+
+void
+scan_itunes_itml(const char *file, time_t mtime, int dir_id)
+{
+  struct stat sb;
+  char *itml_xml;
+  plist_t itml;
+  plist_t node;
+  int fd;
+  int ret;
+
+  if (!itml_is_modified(file, mtime))
+    return;
 
   fd = open(file, O_RDONLY);
   if (fd < 0)

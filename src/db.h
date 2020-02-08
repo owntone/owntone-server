@@ -661,6 +661,9 @@ int
 db_pl_id_bypath(const char *path);
 
 struct playlist_info *
+db_pl_fetch_byid(int id);
+
+struct playlist_info *
 db_pl_fetch_bypath(const char *path);
 
 struct playlist_info *
@@ -670,7 +673,10 @@ struct playlist_info *
 db_pl_fetch_bytitlepath(const char *title, const char *path);
 
 int
-db_pl_add(struct playlist_info *pli, int *id);
+db_pl_add(struct playlist_info *pli);
+
+int
+db_pl_update(struct playlist_info *pli);
 
 int
 db_pl_add_item_bypath(int plid, const char *path);
@@ -680,9 +686,6 @@ db_pl_add_item_byid(int plid, int fileid);
 
 void
 db_pl_clear_items(int id);
-
-int
-db_pl_update(struct playlist_info *pli);
 
 void
 db_pl_delete(int id);

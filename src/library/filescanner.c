@@ -165,57 +165,47 @@ static int
 filescanner_fullrescan();
 
 
-const char *
-filename_from_path(const char *path)
+/* ----------------------- Internal utility functions --------------------- */
+
+static int
+virtual_path_make(char *virtual_path, int virtual_path_len, const char *path)
 {
-  const char *filename;
+  int ret;
 
-  filename = strrchr(path, '/');
-  if ((!filename) || (strlen(filename) == 1))
-    filename = path;
-  else
-    filename++;
-
-  return filename;
-}
-
-char *
-strip_extension(const char *path)
-{
-  char *ptr;
-  char *result;
-
-  result = strdup(path);
-  ptr = strrchr(result, '.');
-  if (ptr)
-    *ptr = '\0';
-
-  return result;
-}
-
-int
-parent_dir(const char **current, const char *path)
-{
-  const char *ptr;
-
-  if (*current)
-    ptr = *current;
-  else
-    ptr = strrchr(path, '/');
-
-  if (!ptr || (ptr == path))
+  ret = snprintf(virtual_path, virtual_path_len, "/file:%s", path);
+  if ((ret < 0) || (ret >= virtual_path_len))
+  {
+    DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", path, ret, virtual_path_len);
     return -1;
-
-  for (ptr--; (ptr > path) && (*ptr != '/'); ptr--)
-    ;
-
-  *current = ptr;
+  }
 
   return 0;
 }
 
 static int
-push_dir(struct stacked_dir **s, char *path, int parent_id)
+get_parent_dir_id(const char *path)
+{
+  char *pathcopy;
+  char *parent_dir;
+  char virtual_path[PATH_MAX];
+  int parent_id;
+  int ret;
+
+  pathcopy = strdup(path);
+  parent_dir = dirname(pathcopy);
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), parent_dir);
+  if (ret == 0)
+    parent_id = db_directory_id_byvirtualpath(virtual_path);
+  else
+    parent_id = 0;
+
+  free(pathcopy);
+
+  return parent_id;
+}
+
+static int
+push_dir(struct stacked_dir **s, const char *path, int parent_id)
 {
   struct stacked_dir *d;
 
@@ -386,6 +376,108 @@ file_type_get(const char *path) {
   return FILE_REGULAR;
 }
 
+
+/* ----------------- Utility functions used by the scanners --------------- */
+
+const char *
+filename_from_path(const char *path)
+{
+  const char *filename;
+
+  filename = strrchr(path, '/');
+  if ((!filename) || (strlen(filename) == 1))
+    filename = path;
+  else
+    filename++;
+
+  return filename;
+}
+
+char *
+strip_extension(const char *path)
+{
+  char *ptr;
+  char *result;
+
+  result = strdup(path);
+  ptr = strrchr(result, '.');
+  if (ptr)
+    *ptr = '\0';
+
+  return result;
+}
+
+int
+parent_dir(const char **current, const char *path)
+{
+  const char *ptr;
+
+  if (*current)
+    ptr = *current;
+  else
+    ptr = strrchr(path, '/');
+
+  if (!ptr || (ptr == path))
+    return -1;
+
+  for (ptr--; (ptr > path) && (*ptr != '/'); ptr--)
+    ;
+
+  *current = ptr;
+
+  return 0;
+}
+
+int
+playlist_fill(struct playlist_info *pli, const char *path)
+{
+  const char *filename;
+  char virtual_path[PATH_MAX];
+  int ret;
+
+  filename = filename_from_path(path);
+
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
+  if (ret < 0)
+    return -1;
+
+  memset(pli, 0, sizeof(struct playlist_info));
+
+  pli->type  = PL_PLAIN;
+  pli->path  = strdup(path);
+  pli->title = strip_extension(filename); // Will alloc
+  pli->virtual_path = strip_extension(virtual_path); // Will alloc
+
+  pli->directory_id = get_parent_dir_id(path);
+
+  return 0;
+}
+
+int
+playlist_add(const char *path)
+{
+  struct playlist_info pli;
+  int ret;
+
+  ret = playlist_fill(&pli, path);
+  if (ret < 0)
+    return -1;
+
+  ret = library_playlist_save(&pli);
+  if (ret < 0)
+    {
+      free_pli(&pli, 1);
+      return -1;
+    }
+
+  free_pli(&pli, 1);
+
+  return ret;
+}
+
+
+/* --------------------------- Processing procedures ---------------------- */
+
 static void
 process_playlist(char *file, time_t mtime, int dir_id)
 {
@@ -530,7 +622,7 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
 	  mfi.album_artist = safe_strdup(cfg_getstr(cfg_getsec(cfg, "library"), "compilation_artist"));
 	}
 
-      ret = scan_metadata_ffmpeg(file, &mfi);
+      ret = scan_metadata_ffmpeg(&mfi, file);
       if (ret < 0)
 	{
 	  free_mfi(&mfi, 1);
@@ -538,7 +630,7 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
 	}
     }
 
-  library_add_media(&mfi);
+  library_media_save(&mfi);
 
   cache_artwork_ping(file, sb->st_mtime, !is_bulkscan);
   // TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
@@ -674,21 +766,6 @@ check_speciallib(char *path, const char *libtype)
   return 0;
 }
 
-/* Thread: scan */
-static int
-create_virtual_path(char *path, char *virtual_path, int virtual_path_len)
-{
-  int ret;
-  ret = snprintf(virtual_path, virtual_path_len, "/file:%s", path);
-  if ((ret < 0) || (ret >= virtual_path_len))
-  {
-    DPRINTF(E_LOG, L_SCAN, "Virtual path /file:%s, PATH_MAX exceeded\n", path);
-    return -1;
-  }
-
-  return 0;
-}
-
 /*
  * Returns informations about the attributes of the file at the given 'path' in the structure
  * pointed to by 'sb'.
@@ -766,7 +843,7 @@ process_directory(char *path, int parent_id, int flags)
 
   /* Add/update directories table */
 
-  ret = create_virtual_path(path, virtual_path, sizeof(virtual_path));
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
   if (ret < 0)
     return;
 
@@ -893,7 +970,7 @@ process_parent_directories(char *path)
       strncpy(buf, path, (ptr - path));
       buf[(ptr - path)] = '\0';
 
-      ret = create_virtual_path(buf, virtual_path, sizeof(virtual_path));
+      ret = virtual_path_make(virtual_path, sizeof(virtual_path), buf);
       if (ret < 0)
 	return 0;
 
@@ -1015,28 +1092,6 @@ bulk_scan(int flags)
     {
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
     }
-}
-
-static int
-get_parent_dir_id(const char *path)
-{
-  char *pathcopy;
-  char *parent_dir;
-  char virtual_path[PATH_MAX];
-  int parent_id;
-  int ret;
-
-  pathcopy = strdup(path);
-  parent_dir = dirname(pathcopy);
-  ret = create_virtual_path(parent_dir, virtual_path, sizeof(virtual_path));
-  if (ret == 0)
-    parent_id = db_directory_id_byvirtualpath(virtual_path);
-  else
-    parent_id = 0;
-
-  free(pathcopy);
-
-  return parent_id;
 }
 
 static int
@@ -1222,7 +1277,6 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   uint32_t path_hash;
   char *file = path;
   char resolved_path[PATH_MAX];
-  char *dir;
   char dir_vpath[PATH_MAX];
   int type;
   int i;
@@ -1291,14 +1345,12 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
       if (ret > 0)
 	{
-	  // If file was successfully enabled, update the directory id
-	  dir = strdup(path);
-	  ptr = strrchr(dir, '/');
-	  dir[(ptr - dir)] = '\0';
-
-	  ret = create_virtual_path(dir, dir_vpath, sizeof(dir_vpath));
+	  ret = virtual_path_make(dir_vpath, sizeof(dir_vpath), path);
 	  if (ret >= 0)
 	    {
+	      ptr = strrchr(dir_vpath, '/');
+	      *ptr = '\0';
+
 	      dir_id = db_directory_id_byvirtualpath(dir_vpath);
 	      if (dir_id > 0)
 		{
@@ -1307,8 +1359,6 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 		    DPRINTF(E_LOG, L_SCAN, "Error updating directory id for file: %s\n", path);
 		}
 	    }
-
-	  free(dir);
 	}
       else
 	{
@@ -1719,7 +1769,7 @@ map_media_file_to_queue_item(struct db_queue_item *queue_item, struct media_file
 }
 
 static int
-queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct media_file_info mfi;
   struct db_queue_item item;
@@ -1728,7 +1778,7 @@ queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_i
 
   memset(&mfi, 0, sizeof(struct media_file_info));
 
-  scan_metadata_stream(path, &mfi);
+  scan_metadata_stream(&mfi, path);
 
   map_media_file_to_queue_item(&item, &mfi);
 
@@ -1753,11 +1803,11 @@ queue_add_stream(const char *path, int position, char reshuffle, uint32_t item_i
 }
 
 static int
-queue_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   if (strncasecmp(uri, "http://", strlen("http://")) == 0 || strncasecmp(uri, "https://", strlen("https://")) == 0)
     {
-      queue_add_stream(uri, position, reshuffle, item_id, count, new_item_id);
+      queue_item_stream_add(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
 
@@ -1828,7 +1878,7 @@ has_suffix(const char *file, const char *suffix)
  * Returns NULL on error and a new allocated path on success.
  */
 static char *
-get_playlist_path(const char *vp_playlist)
+playlist_path_create(const char *vp_playlist)
 {
   const char *path;
   char *pl_path;
@@ -1861,27 +1911,6 @@ get_playlist_path(const char *vp_playlist)
   free_pli(pli, 0);
 
   return pl_path;
-}
-
-static int
-get_playlist_id(const char *pl_path, const char *vp_playlist)
-{
-  const char *filename;
-  char *title;
-  int dir_id;
-  int pl_id;
-
-  pl_id = db_pl_id_bypath(pl_path);
-  if (pl_id < 0)
-    {
-      dir_id = get_parent_dir_id(pl_path);
-      filename = filename_from_path(pl_path);
-      title = strip_extension(filename);
-      pl_id = library_add_playlist_info(pl_path, title, vp_playlist, PL_PLAIN, 0, dir_id);
-      free(title);
-    }
-
-  return pl_id;
 }
 
 static int
@@ -1949,8 +1978,8 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
       DPRINTF(E_DBG, L_SCAN, "Scan stream '%s' and add to playlist (id = %d)\n", path, pl_id);
 
       memset(&mfi, 0, sizeof(struct media_file_info));
-      scan_metadata_stream(path, &mfi);
-      library_add_media(&mfi);
+      scan_metadata_stream(&mfi, path);
+      library_media_save(&mfi);
       free_mfi(&mfi, 1);
 
       ret = playlist_add_path(fp, pl_id, path);
@@ -1968,14 +1997,14 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
 }
 
 static int
-playlist_add(const char *vp_playlist, const char *vp_item)
+playlist_item_add(const char *vp_playlist, const char *vp_item)
 {
   char *pl_path;
   FILE *fp;
   int pl_id;
   int ret;
 
-  pl_path = get_playlist_path(vp_playlist);
+  pl_path = playlist_path_create(vp_playlist);
   if (!pl_path)
     return LIBRARY_PATH_INVALID;
 
@@ -1983,31 +2012,36 @@ playlist_add(const char *vp_playlist, const char *vp_item)
   if (!fp)
     {
       DPRINTF(E_LOG, L_SCAN, "Error opening file '%s' for writing: %d\n", pl_path, errno);
-      free(pl_path);
-      return LIBRARY_ERROR;
+      goto error;
     }
 
-  pl_id = get_playlist_id(pl_path, vp_playlist);
-  free(pl_path);
+  pl_id = db_pl_id_bypath(pl_path);
   if (pl_id < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not get playlist id for %s\n", vp_playlist);
-      fclose(fp);
-      return LIBRARY_ERROR;
+      pl_id = playlist_add(pl_path);
+      if (pl_id < 0)
+	goto error;
     }
 
   ret = playlist_add_files(fp, pl_id, vp_item);
-  fclose(fp);
-
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not add %s to playlist\n", vp_item);
-      return LIBRARY_ERROR;
+      goto error;
     }
+
+  fclose(fp);
+  free(pl_path);
 
   db_pl_ping(pl_id);
 
   return LIBRARY_OK;
+
+ error:
+  if (fp)
+    fclose(fp);
+  free(pl_path);
+  return LIBRARY_ERROR;
 }
 
 static int
@@ -2018,7 +2052,7 @@ playlist_remove(const char *vp_playlist)
   int pl_id;
   int ret;
 
-  pl_path = get_playlist_path(vp_playlist);
+  pl_path = playlist_path_create(vp_playlist);
   if (!pl_path)
     {
       DPRINTF(E_LOG, L_SCAN, "Unsupported virtual path '%s'\n", vp_playlist);
@@ -2059,7 +2093,7 @@ queue_save(const char *virtual_path)
   int pl_id;
   int ret;
 
-  pl_path = get_playlist_path(virtual_path);
+  pl_path = playlist_path_create(virtual_path);
   if (!pl_path)
     return LIBRARY_PATH_INVALID;
 
@@ -2067,17 +2101,15 @@ queue_save(const char *virtual_path)
   if (!fp)
     {
       DPRINTF(E_LOG, L_SCAN, "Error opening file '%s' for writing: %d\n", pl_path, errno);
-      free(pl_path);
-      return LIBRARY_ERROR;
+      goto error;
     }
 
-  pl_id = get_playlist_id(pl_path, virtual_path);
-  free(pl_path);
+  pl_id = db_pl_id_bypath(pl_path);
   if (pl_id < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not get playlist id for %s\n", virtual_path);
-      fclose(fp);
-      return LIBRARY_ERROR;
+      pl_id = playlist_add(pl_path);
+      if (pl_id < 0)
+	goto error;
     }
 
   memset(&query_params, 0, sizeof(struct query_params));
@@ -2085,8 +2117,7 @@ queue_save(const char *virtual_path)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Failed to start queue enum\n");
-      fclose(fp);
-      return LIBRARY_ERROR;
+      goto error;
     }
 
   while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
@@ -2105,8 +2136,8 @@ queue_save(const char *virtual_path)
 	      DPRINTF(E_DBG, L_SCAN, "Scan stream '%s' and add to playlist (id = %d)\n", queue_item.path, pl_id);
 
 	      memset(&mfi, 0, sizeof(struct media_file_info));
-	      scan_metadata_stream(queue_item.path, &mfi);
-	      library_add_media(&mfi);
+	      scan_metadata_stream(&mfi, queue_item.path);
+	      library_media_save(&mfi);
 	      free_mfi(&mfi, 1);
 	    }
 	  else
@@ -2131,7 +2162,9 @@ queue_save(const char *virtual_path)
     }
 
   db_queue_enum_end(&query_params);
+
   fclose(fp);
+  free(pl_path);
 
   db_pl_ping(pl_id);
 
@@ -2139,6 +2172,12 @@ queue_save(const char *virtual_path)
     return LIBRARY_ERROR;
 
   return LIBRARY_OK;
+
+ error:
+  if (fp)
+    fclose(fp);
+  free(pl_path);
+  return LIBRARY_ERROR;
 }
 
 /* Thread: main */
@@ -2174,8 +2213,8 @@ struct library_source filescanner =
   .rescan = filescanner_rescan,
   .metarescan = filescanner_metarescan,
   .fullrescan = filescanner_fullrescan,
-  .playlist_add = playlist_add,
+  .playlist_item_add = playlist_item_add,
   .playlist_remove = playlist_remove,
   .queue_save = queue_save,
-  .queue_add = queue_add,
+  .queue_item_add = queue_item_add,
 };

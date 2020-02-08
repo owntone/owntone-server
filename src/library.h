@@ -72,9 +72,9 @@ struct library_source
   int (*fullrescan)(void);
 
   /*
-   * Save queue as a new playlist under the given virtual path
+   * Add item to playlist
    */
-  int (*playlist_add)(const char *vp_playlist, const char *vp_item);
+  int (*playlist_item_add)(const char *vp_playlist, const char *vp_item);
 
   /*
    * Removes the playlist under the given virtual path
@@ -89,17 +89,24 @@ struct library_source
   /*
    * Add item for the given path to the current queue
    */
-  int (*queue_add)(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
+  int (*queue_item_add)(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
 };
 
-void
-library_add_media(struct media_file_info *mfi);
+/* --------------------- Interface towards source backends ----------------- */
 
 int
-library_add_playlist_info(const char *path, const char *title, const char *virtual_path, enum pl_type type, int parent_pl_id, int dir_id);
+library_media_save(struct media_file_info *mfi);
 
+/*
+ * Adds a playlist if pli->id == 0, otherwise updates.
+ *
+ * @param pli Playlist to save
+ * @return playlist id if operation succeeded, -1 on failure.
+ */
 int
-library_queue_add(const char *path, int position, int *count, int *new_item_id);
+library_playlist_save(struct playlist_info *pli);
+
+/* ------------------------ Library external interface --------------------- */
 
 void
 library_rescan();
@@ -110,20 +117,35 @@ library_metarescan();
 void
 library_fullrescan();
 
+/*
+ * @return true if scan is running, otherwise false
+ */
 bool
 library_is_scanning();
 
+/*
+ * @param is_scanning true if scan is running, otherwise false
+ */
 void
 library_set_scanning(bool is_scanning);
 
+/*
+ * @return true if a running scan should be aborted due to imminent shutdown, otherwise false
+ */
 bool
 library_is_exiting();
 
+/*
+ * Trigger for sending the DATABASE event
+ *
+ * Needs to be called, if an update to the database (library tables) occurred. The DATABASE event
+ * is emitted with the delay 'library_update_wait'. It is safe to call this function from any thread.
+ */
 void
 library_update_trigger(short update_events);
 
 int
-library_playlist_add(const char *vp_playlist, const char *vp_item);
+library_playlist_item_add(const char *vp_playlist, const char *vp_item);
 
 int
 library_playlist_remove(char *virtual_path);
@@ -131,6 +153,18 @@ library_playlist_remove(char *virtual_path);
 int
 library_queue_save(char *path);
 
+int
+library_queue_item_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
+
+/*
+ * Execute the function 'func' with the given argument 'arg' in the library thread.
+ *
+ * The pointer passed as argument is freed in the library thread after func returned.
+ *
+ * @param func The function to be executed
+ * @param arg Argument passed to func
+ * @return 0 if triggering the function execution succeeded, -1 on failure.
+ */
 int
 library_exec_async(command_function func, void *arg);
 
