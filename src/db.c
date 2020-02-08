@@ -3557,13 +3557,17 @@ db_pl_add_item_byid(int plid, int fileid)
 void
 db_pl_clear_items(int id)
 {
-#define Q_TMPL "DELETE FROM playlistitems WHERE playlistid = %d;"
+#define Q_TMPL_ITEMS "DELETE FROM playlistitems WHERE playlistid = %d;"
+#define Q_TMPL_NESTED "UPDATE playlists SET parent_id = 0 WHERE parent_id = %d;"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, id);
-
+  query = sqlite3_mprintf(Q_TMPL_ITEMS, id);
   db_query_run(query, 1, 0);
-#undef Q_TMPL
+
+  query = sqlite3_mprintf(Q_TMPL_NESTED, id);
+  db_query_run(query, 1, 0);
+#undef Q_TMPL_NESTED
+#undef Q_TMPL_ITEMS
 }
 
 void
@@ -3588,23 +3592,30 @@ db_pl_delete(int id)
 void
 db_pl_delete_bypath(const char *path)
 {
-  int i;
+  struct query_params qp;
+  struct db_playlist_info dbpli;
+  int32_t id;
   int ret;
-  char *query;
-  char *queries_tmpl[] =
-    {
-      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE path = '%q');",
-      "DELETE FROM playlists WHERE path = '%q';",
-    };
 
-  for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
-    {
-      query = sqlite3_mprintf(queries_tmpl[i], path);
+  memset(&qp, 0, sizeof(struct query_params));
 
-      ret = db_query_run(query, 1, 0);
-      if (ret == 0)
-	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+  qp.type = Q_PL;
+  qp.filter = db_mprintf("path = '%q'", path);
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    return;
+
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+    {
+      if (safe_atoi32(dbpli.id, &id) != 0)
+	continue;
+
+      db_pl_delete(id);
     }
+
+  db_query_end(&qp);
+  free_query_params(&qp, 1);
 }
 
 void
