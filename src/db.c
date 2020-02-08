@@ -3604,7 +3604,10 @@ db_pl_delete_bypath(const char *path)
 
   ret = db_query_start(&qp);
   if (ret < 0)
-    return;
+    {
+      free(qp.filter);
+      return;
+    }
 
   while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
@@ -3615,7 +3618,7 @@ db_pl_delete_bypath(const char *path)
     }
 
   db_query_end(&qp);
-  free_query_params(&qp, 1);
+  free(qp.filter);
 }
 
 void
