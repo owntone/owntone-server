@@ -480,10 +480,9 @@ Once the above is in order you can login to Spotify via the web interface. The
 procedure for logging in to Spotify is a two-step procedure due to the current
 state of libspotify, but the web interface makes both steps available to you.
 
-Spotify will automatically notify forked-daapd about playlist updates, so you
-should not need to restart forked-daapd to syncronize with Spotify. However,
-Spotify only notifies about playlist updates, not new saved tracks/albums, so
-you need to manually trigger a rescan to get those.
+Spotify no longer automatically notifies clients about playlist updates, so you
+have to trigger updates manually. You can for instance set up a cron job that
+runs `/usr/bin/curl http://localhost:3689/api/update`
 
 forked-daapd will not store your password, but will still be able to log you in
 automatically afterwards, because libspotify saves a login token. You can
@@ -498,6 +497,11 @@ a Spotify client for that. You also can only listen to your music by letting
 forked-daapd do the playback - so that means you can't stream from forked-daapd
 to iTunes.
 
+Alternatives:
+If you want forked-daapd to be a selectable metaspeaker in Spotify's client, you
+can use [librespot](https://github.com/librespot-org/librespot) to write audio
+to a pipe in your library. There will be some lag with volume adjustments, and
+getting metadata to work also requires extra tinkering.
 
 ## LastFM
 
