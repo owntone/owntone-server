@@ -16,6 +16,11 @@ scan_metadata_stream(struct media_file_info *mfi, const char *path);
 void
 scan_playlist(const char *file, time_t mtime, int dir_id);
 
+#ifdef MRSS
+void
+scan_rss(const char *file, time_t mtime, int dir_id);
+#endif
+
 void
 scan_smartpl(const char *file, time_t mtime, int dir_id);
 

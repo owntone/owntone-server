@@ -92,6 +92,7 @@ enum file_type {
   FILE_SMARTPL,
   FILE_ITUNES,
   FILE_ARTWORK,
+  FILE_RSS,
   FILE_CTRL_REMOTE,
   FILE_CTRL_RAOP_VERIFICATION,
   FILE_CTRL_LASTFM,
@@ -328,6 +329,9 @@ file_type_get(const char *path) {
 
   if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
     return FILE_PLAYLIST;
+
+  if (strcasecmp(ext, ".rss_url") == 0 || strcasecmp(ext, ".rss") == 0)
+    return FILE_RSS;
 
   if (strcasecmp(ext, ".smartpl") == 0)
     return FILE_SMARTPL;
@@ -664,6 +668,14 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 	  defer_playlist(file, sb->st_mtime, dir_id);
 	else
 	  process_playlist(file, sb->st_mtime, dir_id);
+	break;
+
+      case FILE_RSS:
+#ifdef MRSS
+	scan_rss(file, sb->st_mtime, dir_id);
+#else
+	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without RSS support\n", file);
+#endif
 	break;
 
       case FILE_SMARTPL:
