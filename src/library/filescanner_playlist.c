@@ -44,7 +44,7 @@ enum playlist_type
 {
   PLAYLIST_UNKNOWN = 0,
   PLAYLIST_PLS,
-  PLAYLIST_M3U,
+  PLAYLIST_M3U
 };
 
 static enum playlist_type
@@ -352,7 +352,7 @@ process_regular_file(int pl_id, char *path)
   return 0;
 }
 
-static int
+int
 playlist_prepare(const char *path, time_t mtime)
 {
   struct playlist_info *pli;
