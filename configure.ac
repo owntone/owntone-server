@@ -278,6 +278,11 @@ AS_IF([[test "x$with_avahi" = "xno"]],
 		[AC_MSG_ERROR([[Avahi client or Bonjour DNS_SD required, please install one.]])])])
 AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
+dnl Build with libmrss
+FORK_ARG_WITH_CHECK([FORKED_OPTS], [libmrss support], [mrss], [LIBMRSS],
+	[mrss], [], [mrss.h])
+AM_CONDITIONAL([COND_MRSS], [[test "x$with_mrss" = "xyes"]])
+
 dnl Spotify with dynamic linking to libspotify
 FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
 	[AS_IF([[test "x$with_libcurl" = "xno"]],
@@ -302,6 +307,13 @@ FORK_ARG_ENABLE([LastFM support], [lastfm], [LASTFM],
 		[AC_MSG_ERROR([[LastFM support requires libcurl]])])
 	])
 AM_CONDITIONAL([COND_LASTFM], [[test "x$enable_lastfm" = "xyes"]])
+
+dnl RSS support with libmrss
+FORK_ARG_ENABLE([MRSS support], [mrss], [MRSS],
+	[AS_IF([[test "x$with_libmrss" = "xno"]],
+		[AC_MSG_ERROR([[RSS support requires libmrss]])])
+	])
+AM_CONDITIONAL([COND_MRSS], [[test "x$enable_mrss" = "xyes"]])
 
 dnl ChromeCast support with libprotobuf-c
 FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
