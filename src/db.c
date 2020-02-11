@@ -1858,6 +1858,7 @@ db_build_query_plitems(struct query_params *qp, struct query_clause *qc)
 	query = db_build_query_plitems_smart(qp, pli);
 	break;
 
+      case PL_RSS:
       case PL_PLAIN:
       case PL_FOLDER:
 	query = db_build_query_plitems_plain(qp, qc);
