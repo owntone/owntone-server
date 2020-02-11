@@ -433,7 +433,7 @@ parent_dir(const char **current, const char *path)
 }
 
 int
-playlist_fill(struct playlist_info *pli, const char *path)
+playlist_fill_type(struct playlist_info *pli, const char *path, enum pl_type type)
 {
   const char *filename;
   char virtual_path[PATH_MAX];
@@ -447,7 +447,7 @@ playlist_fill(struct playlist_info *pli, const char *path)
 
   memset(pli, 0, sizeof(struct playlist_info));
 
-  pli->type  = PL_PLAIN;
+  pli->type  = type;
   pli->path  = strdup(path);
   pli->title = strip_extension(filename); // Will alloc
   pli->virtual_path = strip_extension(virtual_path); // Will alloc
@@ -458,12 +458,18 @@ playlist_fill(struct playlist_info *pli, const char *path)
 }
 
 int
-playlist_add(const char *path)
+playlist_fill(struct playlist_info *pli, const char *path)
+{
+  return playlist_fill_type(pli, path, PL_PLAIN);
+}
+
+int
+playlist_add_type(const char *path, enum pl_type type)
 {
   struct playlist_info pli;
   int ret;
 
-  ret = playlist_fill(&pli, path);
+  ret = playlist_fill_type(&pli, path, type);
   if (ret < 0)
     return -1;
 
@@ -477,6 +483,12 @@ playlist_add(const char *path)
   free_pli(&pli, 1);
 
   return ret;
+}
+
+int
+playlist_add(const char *path)
+{
+  return playlist_add_type(path, PL_PLAIN);
 }
 
 

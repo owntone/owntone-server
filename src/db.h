@@ -232,6 +232,7 @@ enum pl_type {
   PL_FOLDER = 1,
   PL_SMART = 2,
   PL_PLAIN = 3,
+  PL_RSS  = 4,
   PL_MAX,
 };
 

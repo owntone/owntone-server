@@ -75,6 +75,8 @@ parent_dir(const char **current, const char *path);
  */
 int
 playlist_fill(struct playlist_info *pli, const char *path);
+int
+playlist_fill_type(struct playlist_info *pli, const char *path, enum pl_type type);
 
 /* Adds a playlist to the database with the fields set by playlist_fill()
  *
@@ -83,5 +85,7 @@ playlist_fill(struct playlist_info *pli, const char *path);
  */
 int
 playlist_add(const char *path);
+int
+playlist_add_type(const char *path, enum pl_type type);
 
 #endif /* !__FILESCANNER_H__ */

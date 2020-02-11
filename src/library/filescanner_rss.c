@@ -43,7 +43,7 @@
 #include "library.h"
 
 // from filescanner_playlist.c
-extern int playlist_prepare(const char *path, time_t mtime);
+extern int playlist_prepare(const char *path, time_t mtime, enum pl_type type);
 
 // RSS spec: https://validator.w3.org/feed/docs/rss2.html
 
