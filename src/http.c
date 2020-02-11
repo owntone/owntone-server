@@ -386,9 +386,12 @@ https_client_request_impl(struct http_client_ctx *ctx)
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ctx->output_body);
 
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_CLIENT_TIMEOUT);
-
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_request_cb);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, ctx);
+
+  // Artwork and playlist requests might require redirects
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+  curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5);
 
   /* Make request */
   DPRINTF(E_INFO, L_HTTP, "Making request for %s\n", ctx->url);
@@ -416,7 +419,6 @@ http_client_request(struct http_client_ctx *ctx)
 {
   if (strncmp(ctx->url, "http:", strlen("http:")) == 0)
     return http_client_request_impl(ctx);
-
 #ifdef HAVE_LIBCURL
   if (strncmp(ctx->url, "https:", strlen("https:")) == 0)
     return https_client_request_impl(ctx);
