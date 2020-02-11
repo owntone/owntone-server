@@ -33,6 +33,7 @@
 
 #include "db.h"
 #include "misc.h"
+#include "misc_json.h"
 #include "logger.h"
 #include "conffile.h"
 #include "cache.h"
@@ -120,13 +121,43 @@ struct artwork_source {
   enum artwork_cache cache;
 };
 
+/* Since online sources of artwork have similar characteristics there generic
+ * callers for them. They use the below info to request artwork.
+ */
+enum parse_result {
+  ONLINE_SOURCE_PARSE_OK,
+  ONLINE_SOURCE_PARSE_INVALID,
+  ONLINE_SOURCE_PARSE_NOT_FOUND,
+  ONLINE_SOURCE_PARSE_NO_PARSER,
+};
+
+struct online_source {
+  // Name of online source
+  char *name;
+
+  // How to authorize (using the Authorize http header)
+  char *auth_header;
+  char *auth_key;
+  char *auth_secret;
+
+  // How to search for artwork
+  char *search_endpoint;
+  char *search_param;
+  struct query_part {
+    const char *key;
+    const char *template;
+  } query_parts[8];
+
+  // Function that can extract the artwork url from the parsed json response
+  enum parse_result (*response_jparse)(char **artwork_url, json_object *response, int max_w, int max_h);
+};
+
 /* File extensions that we look for or accept
  */
 static const char *cover_extension[] =
   {
     "jpg", "png",
   };
-
 
 /* ----------------- DECLARE AND CONFIGURE SOURCE HANDLERS ----------------- */
 
@@ -139,6 +170,9 @@ static int source_item_embedded_get(struct artwork_ctx *ctx);
 static int source_item_own_get(struct artwork_ctx *ctx);
 static int source_item_stream_get(struct artwork_ctx *ctx);
 static int source_item_pipe_get(struct artwork_ctx *ctx);
+static int source_item_discogs_get(struct artwork_ctx *ctx);
+static int source_item_coverartarchive_get(struct artwork_ctx *ctx);
+static int source_item_spotify2_get(struct artwork_ctx *ctx);
 static int source_item_spotify_get(struct artwork_ctx *ctx);
 static int source_item_spotifywebapi_get(struct artwork_ctx *ctx);
 static int source_item_ownpl_get(struct artwork_ctx *ctx);
@@ -179,7 +213,27 @@ static struct artwork_source artwork_item_source[] =
       .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_SPOTIFY),
       .cache = ON_FAILURE,
     },
+/*    {
+      // TODO merge with spotifywebapi_get
+      .name = "Spotify2",
+      .handler = source_item_spotify2_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = NEVER,
+    },
     {
+      .name = "Discogs",
+      .handler = source_item_discogs_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = NEVER,
+    },
+    {
+      // The Cover Art Archive seems rather slow, so low priority
+      .name = "Cover Art Archive",
+      .handler = source_item_coverartarchive_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = NEVER,
+    },
+*/    {
       .name = "embedded",
       .handler = source_item_embedded_get,
       .data_kinds = (1 << DATA_KIND_FILE),
@@ -229,6 +283,57 @@ static struct artwork_source artwork_item_source[] =
     }
   };
 
+/* Forward - parsers of online source responses */
+static enum parse_result response_jparse_spotify(char **artwork_url, json_object *response, int max_w, int max_h);
+static enum parse_result response_jparse_discogs(char **artwork_url, json_object *response, int max_w, int max_h);
+static enum parse_result response_jparse_musicbrainz(char **artwork_url, json_object *response, int max_w, int max_h);
+
+/* Definitions of online sources */
+static struct online_source spotify_source =
+  {
+    .name = "Spotify",
+    .auth_header = "Bearer $SECRET$",
+    .search_endpoint = "https://api.spotify.com/v1/search",
+    .search_param = "type=album&limit=1&$QUERY$",
+    .query_parts =
+      {
+	{ "q", "artist:$ARTIST$ album:$ALBUM$" },
+	{ NULL, NULL },
+      },
+    .response_jparse = response_jparse_spotify,
+  };
+
+static struct online_source discogs_source =
+  {
+    .name = "Discogs",
+    .auth_header = "Discogs key=$KEY$, secret=$SECRET$",
+    .auth_key = "ivzUxlkUiwpptDKpSCHF",
+    .auth_secret = "CYLZyExtlznKCupoIIhTpHVDReLunhUo",
+    .search_endpoint = "https://api.discogs.com/database/search",
+    .search_param = "type=release&per_page=1&$QUERY$",
+    .query_parts =
+      {
+	{ "artist", "$ARTIST$" },
+	{ "release_title", "$ALBUM$" },
+	{ "track", "$TITLE$" },
+	{ NULL, NULL },
+      },
+    .response_jparse = response_jparse_discogs,
+  };
+
+static struct online_source musicbrainz_source =
+  {
+    .name = "Musicbrainz",
+    .search_endpoint = "http://musicbrainz.org/ws/2/release-group/",
+    .search_param = "limit=1&fmt=json&$QUERY$",
+    .query_parts =
+      {
+	{ "query", "artist:$ARTIST$ AND release:$ALBUM$ AND status:Official" },
+	{ NULL, NULL },
+      },
+    .response_jparse = response_jparse_musicbrainz,
+  };
+
 
 
 /* -------------------------------- HELPERS -------------------------------- */
@@ -237,52 +342,65 @@ static struct artwork_source artwork_item_source[] =
  *
  * @out evbuf     Image data
  * @in  url       URL for the image
- * @return        0 on success, -1 on error
+ * @return        ART_FMT_* on success, ART_E_ERROR otherwise
  */
 static int
-artwork_url_read(struct evbuffer *evbuf, const char *url)
+artwork_read_byurl(struct evbuffer *evbuf, const char *url)
 {
   struct http_client_ctx client;
   struct keyval *kv;
   const char *content_type;
-  int len;
+  size_t len;
   int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying internet artwork in %s\n", url);
 
-  ret = ART_E_NONE;
+  CHECK_NULL(L_ART, kv = keyval_alloc());
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
-    goto out_url;
-
-  kv = keyval_alloc();
-  if (!kv)
-    goto out_url;
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork request URL is invalid (len=%zu): '%s'\n", len, url);
+      goto error;
+    }
 
   memset(&client, 0, sizeof(struct http_client_ctx));
   client.url = url;
   client.input_headers = kv;
   client.input_body = evbuf;
 
-  if (http_client_request(&client) < 0)
-    goto out_kv;
+  ret = http_client_request(&client);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Request to '%s' failed with return value %d\n", url, ret);
+      goto error;
+    }
 
   if (client.response_code != HTTP_OK)
-    goto out_kv;
+    {
+      DPRINTF(E_LOG, L_ART, "Request to '%s' failed with code %d\n", url, client.response_code);
+      goto error;
+    }
 
   content_type = keyval_get(kv, "Content-Type");
   if (content_type && (strcmp(content_type, "image/jpeg") == 0))
     ret = ART_FMT_JPEG;
   else if (content_type && (strcmp(content_type, "image/png") == 0))
     ret = ART_FMT_PNG;
+  else
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
+      goto error;
+    }
 
- out_kv:
   keyval_clear(kv);
   free(kv);
-
- out_url:
   return ret;
+
+ error:
+  keyval_clear(kv);
+  free(kv);
+  return ART_E_ERROR;
 }
 
 /* Reads an artwork file from the filesystem straight into an evbuf
@@ -293,7 +411,7 @@ artwork_url_read(struct evbuffer *evbuf, const char *url)
  * @return        0 on success, -1 on error
  */
 static int
-artwork_read(struct evbuffer *evbuf, char *path)
+artwork_read_bypath(struct evbuffer *evbuf, char *path)
 {
   uint8_t buf[4096];
   struct stat sb;
@@ -390,7 +508,8 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
 }
 
 /*
- * Either gets the artwork file given in "path" from the file system (rescaled if needed) or rescales the artwork given in "inbuf".
+ * Either gets the artwork file given in "path" from the file system (rescaled
+ * if needed) or rescales the artwork given in "inbuf".
  *
  * @out evbuf        Image data (rescaled if needed)
  * @in  path         Path to the artwork file (alternative to inbuf)
@@ -455,7 +574,7 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
       else if (path)
 	{
 	  // No rescaling required, just read the raw file into the evbuf
-	  ret = artwork_read(evbuf, path);
+	  ret = artwork_read_bypath(evbuf, path);
 	  if (ret < 0)
 	    goto fail_free_decode;
 
@@ -507,6 +626,63 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
   return ART_E_ERROR;
 }
 
+/* Rescales an image in an evbuf (if required)
+ *
+ * @out artwork   Rescaled image data (or original, if not rescaled)
+ * @in  raw       Original image data
+ * @in  max_w     Requested max width
+ * @in  max_h     Requested max height
+ * @return        0 on success, -1 on error
+ */
+static int
+artwork_evbuf_rescale(struct evbuffer *artwork, struct evbuffer *raw, int max_w, int max_h)
+{
+  struct evbuffer *refbuf;
+  int ret;
+
+  CHECK_NULL(L_ART, refbuf = evbuffer_new());
+
+  // Make a refbuf of raw for ffmpeg image size probing and possibly rescaling.
+  // We keep raw around in case rescaling is not necessary.
+#ifdef HAVE_LIBEVENT2_OLD
+  uint8_t *buf = evbuffer_pullup(raw, -1);
+  if (!buf)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not pullup raw artwork\n");
+      goto error;
+    }
+
+  ret = evbuffer_add_reference(refbuf, buf, evbuffer_get_length(raw), NULL, NULL);
+#else
+  ret = evbuffer_add_buffer_reference(refbuf, raw);
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not copy/ref raw image for rescaling (ret=%d)\n", ret);
+      goto error;
+    }
+
+  // For non-file input, artwork_get() will also fail if no rescaling is required
+  ret = artwork_get(artwork, NULL, refbuf, max_w, max_h, false);
+  if (ret == ART_E_ERROR)
+    {
+      DPRINTF(E_DBG, L_ART, "No rescaling required\n");
+      ret = evbuffer_add_buffer(artwork, raw);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf (ret=%d)\n", ret);
+	  goto error;
+	}
+    }
+
+  evbuffer_free(refbuf);
+  return 0;
+
+ error:
+  evbuffer_free(refbuf);
+  return -1;
+}
+
 /* Looks for an artwork file in a directory. Will rescale if needed.
  *
  * @out evbuf     Image data
@@ -517,7 +693,7 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
  * @return        ART_FMT_* on success, ART_E_NONE on nothing found, ART_E_ERROR on error
  */
 static int
-artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char *out_path)
+artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char *out_path)
 {
   char path[PATH_MAX];
   char parentdir[PATH_MAX];
@@ -617,6 +793,280 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
   return artwork_get(evbuf, path, NULL, max_w, max_h, false);
 }
 
+/* Retrieves artwork from a URL. Will rescale if needed.
+ *
+ * @out artwork   Image data
+ * @in  url       URL of the artwork
+ * @in  max_w     Requested max width
+ * @in  max_h     Requested max height
+ * @return        ART_FMT_* on success, ART_E_ERROR on error
+ */
+static int
+artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_h)
+{
+  struct evbuffer *raw;
+  int content_type;
+  int ret;
+
+  CHECK_NULL(L_ART, raw = evbuffer_new());
+
+  content_type = artwork_read_byurl(raw, url);
+  if (content_type < 0)
+    goto error;
+
+  ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
+  if (ret < 0)
+    goto error;
+
+  evbuffer_free(raw);
+  return content_type;
+
+ error:
+  evbuffer_free(raw);
+  return ART_E_ERROR;
+}
+
+/* ------------------------- ONLINE SOURCE HANDLING  ----------------------- */
+
+static enum parse_result
+response_jparse_discogs(char **artwork_url, json_object *response, int max_w, int max_h)
+{
+  json_object *image;
+  const char *s;
+  const char *key;
+
+  if ((max_w > 0 && max_w <= 150) || (max_h > 0 && max_h <= 150))
+    key = "thumb";
+  else
+    key = "cover_image";
+
+  image = JPARSE_DRILLDOWN(response, "results", key);
+  if (!image || json_object_get_type(image) != json_type_string)
+    return ONLINE_SOURCE_PARSE_NOT_FOUND;
+
+  s = json_object_get_string(image);
+  if (!s)
+    return ONLINE_SOURCE_PARSE_INVALID;
+
+  *artwork_url = strdup(s);
+
+  return ONLINE_SOURCE_PARSE_OK;
+}
+
+static enum parse_result
+response_jparse_musicbrainz(char **artwork_url, json_object *response, int max_w, int max_h)
+{
+  json_object *id;
+  const char *s;
+
+  id = JPARSE_DRILLDOWN(response, "release-groups", "id");
+  if (!id || json_object_get_type(id) != json_type_string)
+    return ONLINE_SOURCE_PARSE_NOT_FOUND;
+
+  s = json_object_get_string(id);
+  if (!s)
+    return ONLINE_SOURCE_PARSE_INVALID;
+
+  // We will request 500 as a default. The use of https is not just for privacy
+  // it is also because the http client only supports redirects for https.
+  if ((max_w > 0 && max_w <= 250) || (max_h > 0 && max_h <= 250))
+    *artwork_url = safe_asprintf("https://coverartarchive.org/release-group/%s/front-250", s);
+  else if ((max_w == 0 && max_h == 0) || (max_w <= 500 && max_h <= 500))
+    *artwork_url = safe_asprintf("https://coverartarchive.org/release-group/%s/front-500", s);
+  else
+    *artwork_url = safe_asprintf("https://coverartarchive.org/release-group/%s/front-1200", s);
+
+  return ONLINE_SOURCE_PARSE_OK;
+}
+
+static enum parse_result
+response_jparse_spotify(char **artwork_url, json_object *response, int max_w, int max_h)
+{
+  json_object *images;
+  json_object *image;
+  const char *s;
+  int image_count;
+  int i;
+
+  images = JPARSE_DRILLDOWN(response, "albums", "items", "images");
+  if (!images || json_object_get_type(images) != json_type_array)
+    return ONLINE_SOURCE_PARSE_INVALID;
+
+  // Find first image that has a smaller width than the given max_w (this should
+  // avoid the need for resizing and improve performance at the cost of some
+  // quality loss). Note that Spotify returns the images ordered descending by
+  // width (widest image first). Special case is if no max width (max_w = 0) is
+  // given, then the widest images will be used.
+  s = NULL;
+  image_count = json_object_array_length(images);
+  for (i = 0; i < image_count; i++)
+    {
+      image = json_object_array_get_idx(images, i);
+      if (image)
+	{
+	  s = jparse_str_from_obj(image, "url");
+
+	  if (max_w <= 0  || jparse_int_from_obj(image, "width") <= max_w)
+	    {
+	      // We have the first image that has a smaller width than the given max_w
+	      break;
+	    }
+	}
+    }
+
+  if (!s)
+    return ONLINE_SOURCE_PARSE_NOT_FOUND;
+
+  *artwork_url = strdup(s);
+  return ONLINE_SOURCE_PARSE_OK;
+}
+
+static enum parse_result
+online_source_response_parse(char **artwork_url, struct online_source *src, struct evbuffer *response, int max_w, int max_h)
+{
+  json_object *jresponse;
+  char *body;
+  int ret;
+
+  // 0-terminate for safety
+  evbuffer_add(response, "", 1);
+  body = (char *)evbuffer_pullup(response, -1);
+
+  // TODO remove
+  DPRINTF(E_DBG, L_ART, "Response from '%s': %s\n", src->name, body);
+
+  if (src->response_jparse)
+    {
+      jresponse = json_tokener_parse(body);
+      if (!jresponse)
+	return ONLINE_SOURCE_PARSE_INVALID;
+
+      ret = src->response_jparse(artwork_url, jresponse, max_w, max_h);
+      jparse_free(jresponse);
+    }
+  else
+    ret = ONLINE_SOURCE_PARSE_NO_PARSER;
+
+  return ret;
+}
+
+static int
+online_source_request_url_make(char *url, size_t url_size, struct online_source *src, const char *artist, const char *album, const char *title)
+{
+  struct keyval query = { 0 };
+  char param[512];
+  char *encoded_query;
+  int ret;
+  int i;
+
+  for (i = 0; src->query_parts[i].key; i++)
+    {
+      snprintf(param, sizeof(param), "%s", src->query_parts[i].template);
+      if ((safe_snreplace(param, sizeof(param), "$ARTIST$", artist) < 0) ||
+	  (safe_snreplace(param, sizeof(param), "$ALBUM$", album) < 0) ||
+	  (safe_snreplace(param, sizeof(param), "$TITLE$", title) < 0))
+	{
+	  DPRINTF(E_WARN, L_ART, "Cannot make request for online artwork, query string is too long\n");
+	  goto error;
+	}
+
+      ret = keyval_add(&query, src->query_parts[i].key, param);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "keyval_add() failed in request_url_make()\n");
+	  goto error;
+	}
+    }
+
+  encoded_query = http_form_urlencode(&query);
+  if (!encoded_query)
+    goto error;
+
+  snprintf(url, url_size, "%s?%s", src->search_endpoint, src->search_param);
+  if (safe_snreplace(url, url_size, "$QUERY$", encoded_query) < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot make request for online artwork, url is too long (%zu)\n", strlen(encoded_query));
+      goto error;
+    }
+
+  free(encoded_query);
+  keyval_clear(&query);
+
+  return 0;
+
+ error:
+  keyval_clear(&query);
+  return -1;
+}
+
+static char *
+online_source_search(struct online_source *src, struct artwork_ctx *ctx)
+{
+  char *artwork_url;
+  struct http_client_ctx client = { 0 };
+  struct keyval output_headers = { 0 };
+  char url[2048];
+  char auth_header[256];
+  int ret;
+
+  if (!ctx->dbmfi->artist || !ctx->dbmfi->album || !ctx->dbmfi->title)
+    {
+      DPRINTF(E_DBG, L_ART, "Skipping artwork source %s, missing input data (artist=%s, album=%s, title=%s)\n",
+	src->name, ctx->dbmfi->artist, ctx->dbmfi->album, ctx->dbmfi->title);
+      return NULL;
+    }
+
+  ret = online_source_request_url_make(url, sizeof(url), src, ctx->dbmfi->artist, ctx->dbmfi->album, ctx->dbmfi->title);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Skipping artwork source %s, could not construct a request URL\n", src->name);
+      return NULL;
+    }
+
+  if (src->auth_header)
+    {
+      snprintf(auth_header, sizeof(auth_header), "%s", src->auth_header);
+      if ((safe_snreplace(auth_header, sizeof(auth_header), "$KEY$", src->auth_key) < 0) ||
+	  (safe_snreplace(auth_header, sizeof(auth_header), "$SECRET$", src->auth_secret) < 0))
+	{
+	  DPRINTF(E_WARN, L_ART, "Cannot make request for online artwork, auth header is too long\n");
+	  return NULL;
+	}
+
+      keyval_add(&output_headers, "Authorization", auth_header);
+    }
+
+  CHECK_NULL(L_ART, client.input_body = evbuffer_new());
+  client.url = url;
+  client.output_headers = &output_headers;
+
+  ret = http_client_request(&client);
+  keyval_clear(&output_headers);
+  if (ret < 0 || client.response_code != HTTP_OK)
+    {
+      DPRINTF(E_WARN, L_ART, "Artwork request to '%s' failed, response code %d\n", url, client.response_code);
+      evbuffer_free(client.input_body);
+      return NULL;
+    }
+
+  ret = online_source_response_parse(&artwork_url, src, client.input_body, ctx->max_w, ctx->max_h);
+  if (ret == ONLINE_SOURCE_PARSE_NOT_FOUND)
+    DPRINTF(E_DBG, L_ART, "No image tag found in response from source '%s'\n", src->name);
+  else if (ret == ONLINE_SOURCE_PARSE_INVALID)
+    DPRINTF(E_WARN, L_ART, "Response from source '%s' was in an unexpected format\n", src->name);
+  else if (ret == ONLINE_SOURCE_PARSE_NO_PARSER)
+    DPRINTF(E_LOG, L_ART, "Bug! Cannot parse response from source '%s', parser missing\n", src->name);
+  else if (ret != ONLINE_SOURCE_PARSE_OK)
+    DPRINTF(E_LOG, L_ART, "Bug! Cannot parse response from source '%s', unknown error\n", src->name);
+
+  evbuffer_free(client.input_body);
+
+  if (ret != ONLINE_SOURCE_PARSE_OK)
+    return NULL;
+
+  return artwork_url;
+}
+
 
 /* ---------------------- SOURCE HANDLER IMPLEMENTATION -------------------- */
 
@@ -673,7 +1123,7 @@ source_group_dir_get(struct artwork_ctx *ctx)
       if (access(dir, F_OK) < 0)
 	continue;
 
-      ret = artwork_get_dir_image(ctx->evbuf, dir, ctx->max_w, ctx->max_h, ctx->path);
+      ret = artwork_get_bydir(ctx->evbuf, dir, ctx->max_w, ctx->max_h, ctx->path);
       if (ret > 0)
 	{
 	  db_query_end(&qp);
@@ -829,7 +1279,7 @@ source_item_stream_get(struct artwork_ctx *ctx)
   if (ret > 0)
     goto out_url;
 
-  ret = artwork_url_read(ctx->evbuf, url);
+  ret = artwork_read_byurl(ctx->evbuf, url);
 
   if (ret > 0)
     {
@@ -871,93 +1321,99 @@ source_item_pipe_get(struct artwork_ctx *ctx)
   return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false);
 }
 
+static int
+source_item_discogs_get(struct artwork_ctx *ctx)
+{
+  char *url;
+  int ret;
+
+  url = online_source_search(&discogs_source, ctx);
+  if (!url)
+    return ART_E_NONE;
+
+  ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
+
+  free(url);
+  return ret;
+}
+
+static int
+source_item_coverartarchive_get(struct artwork_ctx *ctx)
+{
+  char *url;
+  int ret;
+
+  // We search Musicbrainz to get the Musicbrainz ID, which we need to get the
+  // artwork from the Cover Art Archive
+  url = online_source_search(&musicbrainz_source, ctx);
+  if (!url)
+    return ART_E_NONE;
+
+  // TODO add support in http client for 307 redirects
+  ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
+
+  free(url);
+  return ret;
+}
+
 #ifdef HAVE_SPOTIFY_H
+static int
+source_item_spotify2_get(struct artwork_ctx *ctx)
+{
+  struct spotifywebapi_access_token info;
+  char *url;
+  int ret;
+
+  spotifywebapi_access_token_get(&info);
+  if (!info.token)
+    return ART_E_ERROR;
+
+  spotify_source.auth_secret = info.token;
+
+  url = online_source_search(&spotify_source, ctx);
+  free(info.token);
+  if (!url)
+    return ART_E_NONE;
+
+  ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
+
+  free(url);
+  return ret;
+}
+
 static int
 source_item_spotify_get(struct artwork_ctx *ctx)
 {
   struct evbuffer *raw;
-  struct evbuffer *evbuf;
   int ret;
 
-  raw = evbuffer_new();
-  evbuf = evbuffer_new();
-  if (!raw || !evbuf)
-    {
-      DPRINTF(E_LOG, L_ART, "Out of memory for Spotify evbuf\n");
-      return ART_E_ERROR;
-    }
+  CHECK_NULL(L_ART, raw = evbuffer_new());
 
   ret = spotify_artwork_get(raw, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_ART, "No artwork from Spotify for %s\n", ctx->dbmfi->path);
       evbuffer_free(raw);
-      evbuffer_free(evbuf);
       return ART_E_NONE;
     }
 
-  // Make a refbuf of raw for ffmpeg image size probing and possibly rescaling.
-  // We keep raw around in case rescaling is not necessary.
-#ifdef HAVE_LIBEVENT2_OLD
-  uint8_t *buf = evbuffer_pullup(raw, -1);
-  if (!buf)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not pullup raw artwork\n");
-      goto out_free_evbuf;
-    }
-
-  ret = evbuffer_add_reference(evbuf, buf, evbuffer_get_length(raw), NULL, NULL);
-#else
-  ret = evbuffer_add_buffer_reference(evbuf, raw);
-#endif
+  ret = artwork_evbuf_rescale(ctx->evbuf, raw, ctx->max_w, ctx->max_h);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_ART, "Could not copy/ref raw image for ffmpeg\n");
-      goto out_free_evbuf;
+      DPRINTF(E_LOG, L_ART, "Could not rescale Spotify artwork for '%s'\n", ctx->dbmfi->path);
+      evbuffer_free(raw);
+      return ART_E_ERROR;
     }
 
-  // For non-file input, artwork_get() will also fail if no rescaling is required
-  ret = artwork_get(ctx->evbuf, NULL, evbuf, ctx->max_w, ctx->max_h, false);
-  if (ret == ART_E_ERROR)
-    {
-      DPRINTF(E_DBG, L_ART, "Not rescaling Spotify image\n");
-      ret = evbuffer_add_buffer(ctx->evbuf, raw);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
-	  goto out_free_evbuf;
-	}
-    }
-
-  evbuffer_free(evbuf);
   evbuffer_free(raw);
-
   return ART_FMT_JPEG;
-
- out_free_evbuf:
-  evbuffer_free(evbuf);
-  evbuffer_free(raw);
-
-  return ART_E_ERROR;
 }
 
 static int
 source_item_spotifywebapi_get(struct artwork_ctx *ctx)
 {
-  struct evbuffer *raw;
-  struct evbuffer *evbuf;
   char *artwork_url;
-  int content_type;
   int ret;
-
-  artwork_url = NULL;
-  raw = evbuffer_new();
-  evbuf = evbuffer_new();
-  if (!raw || !evbuf)
-    {
-      DPRINTF(E_LOG, L_ART, "Out of memory for Spotify evbuf\n");
-      return ART_E_ERROR;
-    }
 
   artwork_url = spotifywebapi_artwork_url_get(ctx->dbmfi->path, ctx->max_w, ctx->max_h);
   if (!artwork_url)
@@ -966,59 +1422,21 @@ source_item_spotifywebapi_get(struct artwork_ctx *ctx)
       return ART_E_NONE;
     }
 
-  ret = artwork_url_read(raw, artwork_url);
-  if (ret <= 0)
-    goto out_free_evbuf;
+  ret = artwork_get_byurl(ctx->evbuf, artwork_url, ctx->max_w, ctx->max_h);
 
-  content_type = ret;
-
-  // Make a refbuf of raw for ffmpeg image size probing and possibly rescaling.
-  // We keep raw around in case rescaling is not necessary.
-#ifdef HAVE_LIBEVENT2_OLD
-  uint8_t *buf = evbuffer_pullup(raw, -1);
-  if (!buf)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not pullup raw artwork\n");
-      goto out_free_evbuf;
-    }
-
-  ret = evbuffer_add_reference(evbuf, buf, evbuffer_get_length(raw), NULL, NULL);
+  free(artwork_url);
+  return ret;
+}
 #else
-  ret = evbuffer_add_buffer_reference(evbuf, raw);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not copy/ref raw image for ffmpeg\n");
-      goto out_free_evbuf;
-    }
-
-  // For non-file input, artwork_get() will also fail if no rescaling is required
-  ret = artwork_get(ctx->evbuf, NULL, evbuf, ctx->max_w, ctx->max_h, false);
-  if (ret == ART_E_ERROR)
-    {
-      DPRINTF(E_DBG, L_ART, "Not rescaling Spotify image\n");
-      ret = evbuffer_add_buffer(ctx->evbuf, raw);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
-	  goto out_free_evbuf;
-	}
-    }
-
-  evbuffer_free(evbuf);
-  evbuffer_free(raw);
-  free(artwork_url);
-
-  return content_type;
-
- out_free_evbuf:
-  evbuffer_free(evbuf);
-  evbuffer_free(raw);
-  free(artwork_url);
+static int
+source_item_spotify2_get(struct artwork_ctx *ctx)
+{
+  // Silence compiler warning about spotify_source being unused
+  (void)spotify_source;
 
   return ART_E_ERROR;
 }
-#else
+
 static int
 source_item_spotify_get(struct artwork_ctx *ctx)
 {
