@@ -74,6 +74,10 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
+#ifdef MRSS
+# include "rss.h"
+#endif
+
 
 #ifdef HAVE_LIBCURL
 # include <curl/curl.h>
@@ -843,6 +847,17 @@ main(int argc, char **argv)
   lastfm_init();
 #endif
 
+#ifdef MRSS
+  ret = rss_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "RSS thread failed to start\n");
+
+      ret = EXIT_FAILURE;
+      goto rss_fail;
+    }
+#endif
+
   /* Start Remote pairing service */
   ret = remote_pairing_init();
   if (ret != 0)
@@ -935,6 +950,13 @@ main(int argc, char **argv)
   remote_pairing_deinit();
 
  remote_fail:
+#ifdef MRSS
+  DPRINTF(E_LOG, L_MAIN, "RSS deinit\n");
+  rss_deinit();
+
+  rss_fail:
+#endif
+
 #ifdef MPD
   DPRINTF(E_LOG, L_MAIN, "MPD deinit\n");
   mpd_deinit();

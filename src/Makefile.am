@@ -26,7 +26,7 @@ MPD_SRC=mpd.c mpd.h
 endif
 
 if COND_MRSS
-MRSS_SRC=library/filescanner_rss.c
+MRSS_SRC=library/filescanner_rss.c rss.c
 endif
 
 if COND_RAOP_VERIFICATION

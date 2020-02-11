@@ -399,3 +399,10 @@ streaming {
 	# Set the MP3 streaming bit rate (in kbps), valid options: 64 / 96 / 128 / 192 / 320
 #	bit_rate = 192
 }
+
+
+# RSS settings
+rss {
+	# Period, in seconds, to sync RSS feeds
+#	sync_period = 3600
+}
