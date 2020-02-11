@@ -32,6 +32,29 @@
 
 #include "logger.h"
 
+json_object *
+jparse_drilldown(json_object *haystack, const char *keys[])
+{
+  json_object *needle;
+  json_bool found;
+
+  while (*keys)
+    {
+      found = json_object_object_get_ex(haystack, *keys, &needle);
+      if (!found)
+	return NULL;
+
+      if (json_object_get_type(needle) == json_type_array)
+	haystack = json_object_array_get_idx(needle, 0);
+      else
+	haystack = needle;
+
+      keys++;
+    }
+
+  return needle;
+}
+
 void
 jparse_free(json_object* haystack)
 {
