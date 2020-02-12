@@ -4,7 +4,8 @@ forked-daapd is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
 RSP (Roku) media server.
 
 It supports AirPlay devices/speakers, Apple Remote (and compatibles),
-MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
+MPD clients, Chromecast, network streaming, internet radio, RSS podcasts, 
+Spotify and LastFM.
 
 It does not support streaming video by AirPlay nor Chromecast.
 
@@ -50,6 +51,7 @@ please see the
 - [Artwork](#artwork)
 - [Library](#library)
 - [Command line](#command-line)
+- [RSS podcasts](#rss)
 - [Spotify](#spotify)
 - [LastFM](#lastfm)
 - [MPD clients](#mpd-clients)
@@ -459,6 +461,21 @@ curl "http://localhost:3689/ctrl-int/1/playspec?database-spec='dmap.persistentid
 curl "http://localhost:3689/logout?session-id=50"
 ```
 
+
+## RSS podcasts
+forked-daapd can support RSS podcasts via [libmrss](https://github.com/bakulf/libmrss)
+and its sister dependancy [libnxml](https://github.com/bakulf/libnxml). When enabled, RSS feed podcasts will be automatically 
+refreshed periodically.
+
+To add a RSS feed to the library we have to create either a `.rss` (containing 
+feed XML) or a `.rss_url` file that contains a single line with the RSS feed URL.
+The initial addition to the library will cause the RSS feed podcast episodes to 
+be added to the library as if it were an album.
+
+The server will periodically refresh - the period can be changed via the config
+file.  Alternatively, a user can _force_ a refresh by initiating a library `scan`
+but this is not deseriabale as it will scan all items in library or a user can
+_touch_ the underlying `.rss` or `.rss_url` file.
 
 ## Spotify
 
