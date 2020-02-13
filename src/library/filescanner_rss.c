@@ -329,33 +329,35 @@ scan_rss(const char *file, time_t mtime, int dir_id)
     {
       DPRINTF(E_SPAM, L_SCAN, "Channel '%s' item={ PubDate '%s' Author '%s' Title '%s' Src '%s' Type '%s'\n", data->title, item->pubDate, item->author, item->title, item->enclosure_url, item->enclosure_type);
 
-      scan_metadata_stream(&mfi, item->enclosure_url);
-
-      // always take the main info from the RSS and not the stream
-      free(mfi.artist); mfi.artist = safe_strdup(item->author);
-      free(mfi.title);  mfi.title  = safe_strdup(item->title);
-      free(mfi.album);  mfi.album  = safe_strdup(data->title);
-      free(mfi.url);    mfi.url    = safe_strdup(item->link);
-      free(mfi.comment); mfi.comment = NULL;
-
-      rss_date(&tm, item->pubDate);
-      mfi.date_released = mktime(&tm);
-      mfi.year = 1900 + tm.tm_year;
-      mfi.track = nadded +1;
-      mfi.media_kind = MEDIA_KIND_PODCAST;
-
-      mfi.id = db_file_id_bypath(item->enclosure_url);
-
-      ret = library_media_save(&mfi);
-      db_pl_add_item_bypath(pl_id, item->enclosure_url);
-
-      if (++nadded%50 == 0)
+      if (item->enclosure_url)
         {
-	    DPRINTF(E_LOG, L_SCAN, "RSS added %d entries...\n", nadded);
-	    db_transaction_end();
-	    db_transaction_begin();
-        }
+          scan_metadata_stream(&mfi, item->enclosure_url);
 
+          // always take the main info from the RSS and not the stream
+          free(mfi.artist); mfi.artist = safe_strdup(item->author);
+          free(mfi.title);  mfi.title  = safe_strdup(item->title);
+          free(mfi.album);  mfi.album  = safe_strdup(data->title);
+          free(mfi.url);    mfi.url    = safe_strdup(item->link);
+          free(mfi.comment); mfi.comment = NULL;
+
+          rss_date(&tm, item->pubDate);
+          mfi.date_released = mktime(&tm);
+          mfi.year = 1900 + tm.tm_year;
+          mfi.track = nadded +1;
+          mfi.media_kind = MEDIA_KIND_PODCAST;
+
+          mfi.id = db_file_id_bypath(item->enclosure_url);
+
+          ret = library_media_save(&mfi);
+          db_pl_add_item_bypath(pl_id, item->enclosure_url);
+
+          if (++nadded%50 == 0)
+            {
+                DPRINTF(E_LOG, L_SCAN, "RSS added %d entries...\n", nadded);
+                db_transaction_end();
+                db_transaction_begin();
+            }
+        }
       item = item->next;
     }
 
