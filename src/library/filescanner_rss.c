@@ -143,7 +143,7 @@ process_apple_rss(char* buf, unsigned bufsz, const char *file)
   ctx.input_body = evbuf;
 
   ret = http_client_request(&ctx);
-  if (ret < 0)
+  if (ret < 0 || ret && ctx.response_code != HTTP_OK)
     {
       evbuffer_free(evbuf);
       return NULL;
