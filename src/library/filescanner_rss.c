@@ -107,7 +107,7 @@ scan_rss(const char *file, time_t mtime, int dir_id)
   char buf[PATH_MAX];
   enum rss_type rss_format;
   int pl_id;
-  int nadded;
+  unsigned nadded;
   struct tm tm;
 
   mrss_t *data = NULL;
@@ -241,6 +241,8 @@ scan_rss(const char *file, time_t mtime, int dir_id)
       rss_date(&tm, item->pubDate);
       mfi.date_released = mktime(&tm);
       mfi.year = 1900 + tm.tm_year;
+      mfi.track = nadded +1;
+      mfi.media_kind = MEDIA_KIND_PODCAST;
 
       mfi.id = db_file_id_bypath(item->enclosure_url);
 
@@ -263,7 +265,7 @@ cleanup:
   free_mfi(&mfi, 1);
   mrss_free(data);
 
-  DPRINTF(E_LOG, L_SCAN, "Done processing RSS, added/modified %d items\n", nadded);
+  DPRINTF(E_LOG, L_SCAN, "Done processing RSS, added/modified %u items\n", nadded);
 
   fclose(fp);
 }
