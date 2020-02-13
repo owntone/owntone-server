@@ -28,6 +28,8 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <errno.h>
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE
@@ -192,6 +194,63 @@ process_apple_rss(char* buf, unsigned bufsz, const char *file)
   return buf1;
 }
 
+static bool
+process_image_url(const char *image_url, const char *file)
+{
+  char *ptr;
+  const char *img_extn;
+  char path[PATH_MAX];
+
+  struct http_client_ctx ctx;
+  struct evbuffer *evbuf;
+  int fd;
+  int ret;
+
+  if (!image_url || !file)
+    return false;
+
+  if ((img_extn = strrchr(image_url, '.')) == NULL)
+    return false;
+ 
+  strncpy(path, file, sizeof(path));
+  if ( (ptr = strrchr(path, '.')) == NULL)
+    return false;
+
+  strcpy(ptr, img_extn);
+
+  if ((fd = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0644)) < 0)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Could not create file '%s' for RSS image: %s\n", path, strerror(errno));
+      return false;
+    }
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      close(fd);
+      return false;
+    }
+
+  memset(&ctx, 0, sizeof(struct http_client_ctx));
+  ctx.url = image_url;
+  ctx.input_body = evbuf;
+
+  ret = http_client_request(&ctx);
+  if (ret < 0 || ret && ctx.response_code != HTTP_OK)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Could not retreive RSS image\n");
+    }
+  else
+    {
+      while (evbuffer_write(evbuf, fd) > 0) ;
+    }
+
+  close(fd);
+  evbuffer_free(evbuf);
+
+  return true;
+}
+
 void
 scan_rss(const char *file, time_t mtime, int dir_id)
 {
@@ -204,6 +263,7 @@ scan_rss(const char *file, time_t mtime, int dir_id)
   unsigned nadded;
   struct tm tm;
   char *url = NULL;
+  bool has_artwork = false;
 
   mrss_t *data = NULL;
   mrss_error_t ret;
@@ -260,7 +320,10 @@ scan_rss(const char *file, time_t mtime, int dir_id)
 
           // Is it an apple podcast stream? ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
           if (strncmp(buf, "https://podcasts.apple.com/", 27) == 0)
-            url = process_apple_rss(buf, sizeof(buf), file);
+            {
+              if ((url = process_apple_rss(buf, sizeof(buf), file)) == NULL)
+                url = buf;
+            }
 
           trim(url);
           ret = mrss_parse_url_with_options_and_error(url, &data, NULL, &code);
@@ -303,8 +366,13 @@ scan_rss(const char *file, time_t mtime, int dir_id)
                 webMaster: (null)
                 generator: Libsyn WebEngine 2.0
                 ttl: 0
-
-
+        Image:
+                image_title: CGP Grey
+                image_url: http://static.libsyn.com/p/assets/0/a/6/3/0a636b838b034e38/cgp-logo-itunes.png
+                image_link: http://www.cgpgrey.com
+                image_width: 0
+                image_height: 0
+                image_description: (null)
         Items:
                 title: Your Theme
                 link: http://cgpgrey.libsyn.com/your-theme
@@ -321,6 +389,9 @@ scan_rss(const char *file, time_t mtime, int dir_id)
                 enclosure_length: 25467531
                 enclosure_type: video/mp4
    */
+
+  if (data->image_url)
+    has_artwork = process_image_url(data->image_url, file);
 
   db_transaction_begin();
 
@@ -345,6 +416,8 @@ scan_rss(const char *file, time_t mtime, int dir_id)
           mfi.year = 1900 + tm.tm_year;
           mfi.track = nadded +1;
           mfi.media_kind = MEDIA_KIND_PODCAST;
+          if (has_artwork)
+            mfi.artwork = ARTWORK_DIR;
 
           mfi.id = db_file_id_bypath(item->enclosure_url);
 
