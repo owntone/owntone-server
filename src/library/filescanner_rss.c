@@ -34,12 +34,15 @@
 #endif
 #include <time.h>
 
+#include <event2/event.h>
 #include <mrss.h>
 
 #include "logger.h"
 #include "db.h"
+#include "http.h"
 #include "library/filescanner.h"
 #include "misc.h"
+#include "misc_json.h"
 #include "library.h"
 
 // from filescanner_playlist.c
@@ -98,17 +101,109 @@ rss_date(struct tm *tm, const char *date)
   return true;
 }
 
+// uses incoming buf for result but if too smal, returns new buf
+static char*
+process_apple_rss(char* buf, unsigned bufsz, const char *file)
+{
+  struct http_client_ctx ctx;
+  struct evbuffer *evbuf;
+  char url[100];
+  unsigned podid;  // apple podcast id
+  json_object *json = NULL;
+  json_object *jsonra = NULL;
+  const char *feedURL;
+  char *buf1;
+  const char *ptr;
+  unsigned len;
+  int ret;
+
+  // ask for the json to get feedUrl
+  // https://itunes.apple.com/lookup?id=974722423
+
+  ptr = strrchr(buf, '/');
+  if (!ptr)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not parse Apple Podcast RSS ID from '%s'\n", file);
+      return NULL;
+    }
+  if (sscanf(ptr, "/id%u", &podid) != 1)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not parse Apple Podcast RSS ID from '%s'\n", file);
+      return NULL;
+    }
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    return false;
+
+  snprintf(url, sizeof(url), "https://itunes.apple.com/lookup?id=%u", podid);
+
+  memset(&ctx, 0, sizeof(struct http_client_ctx));
+  ctx.url = url;
+  ctx.input_body = evbuf;
+
+  ret = http_client_request(&ctx);
+  if (ret < 0)
+    {
+      evbuffer_free(evbuf);
+      return NULL;
+    }
+
+  buf1 = buf;
+  json = jparse_obj_from_evbuffer(evbuf);
+  if (!json)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not parse RSS apple response, podcast id %u\n", podid);
+    }
+  else
+    {
+      /* expect json resp - get feedUrl
+       * {
+       *  "resultCount": 1,
+       *  "results": [
+       *    {
+       *      "wrapperType": "track",
+       *      "kind": "podcast",
+       *      ...
+       *      "collectionViewUrl": "https://podcasts.apple.com/us/podcast/cgp-grey/id974722423?uo=4",
+       *      "feedUrl": "http://cgpgrey.libsyn.com/rss",
+       *      ...
+       *      "genres": [
+       *        "Education",
+       *        "Podcasts",
+       *        "News"
+       *      ]
+       *    }
+       *  ]
+       *}
+       */
+      if (json_object_object_get_ex(json, "results", &jsonra) && (feedURL = jparse_str_from_array(jsonra, 0, "feedUrl")) )
+        {
+          if ((len = strlen(feedURL)+1) > bufsz)
+            buf1 = malloc(len);
+          strcpy(buf1, feedURL);
+        }
+      else
+        DPRINTF(E_DBG, L_SCAN, "Could not parse feedURL from RSS apple, podcast id %u\n", podid);
+    }
+
+  jparse_free(json);
+  evbuffer_free(evbuf);
+  return buf1;
+}
+
 void
 scan_rss(const char *file, time_t mtime, int dir_id)
 {
   FILE *fp;
   struct media_file_info mfi;
   struct stat sb;
-  char buf[PATH_MAX];
+  char buf[2048];
   enum rss_type rss_format;
   int pl_id;
   unsigned nadded;
   struct tm tm;
+  char *url = NULL;
 
   mrss_t *data = NULL;
   mrss_error_t ret;
@@ -150,6 +245,7 @@ scan_rss(const char *file, time_t mtime, int dir_id)
     {
       case RSS_HTTP:
         {
+          url = buf;
           if (fgets(buf, sizeof(buf), fp) == NULL)
             {
               DPRINTF(E_LOG, L_SCAN, "Could not read RSS url from '%s': %s\n", file, strerror(errno));
@@ -162,11 +258,15 @@ scan_rss(const char *file, time_t mtime, int dir_id)
               goto cleanup;
             }
 
-          trim(buf);
-          ret = mrss_parse_url_with_options_and_error(buf, &data, NULL, &code);
+          // Is it an apple podcast stream? ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
+          if (strncmp(buf, "https://podcasts.apple.com/", 27) == 0)
+            url = process_apple_rss(buf, sizeof(buf), file);
+
+          trim(url);
+          ret = mrss_parse_url_with_options_and_error(url, &data, NULL, &code);
           if (ret)
             {
-              DPRINTF(E_LOG, L_SCAN, "Could not parse RSS from '%s': %s\n", buf, ret==MRSS_ERR_DOWNLOAD ? mrss_curl_strerror(code) : mrss_strerror(ret));
+              DPRINTF(E_LOG, L_SCAN, "Could not parse RSS from '%s': %s\n", url, ret==MRSS_ERR_DOWNLOAD ? mrss_curl_strerror(code) : mrss_strerror(ret));
               goto cleanup;
             }
         } break;
@@ -264,6 +364,7 @@ scan_rss(const char *file, time_t mtime, int dir_id)
 cleanup:
   free_mfi(&mfi, 1);
   mrss_free(data);
+  if (url != buf) free(url);
 
   DPRINTF(E_LOG, L_SCAN, "Done processing RSS, added/modified %u items\n", nadded);
 
