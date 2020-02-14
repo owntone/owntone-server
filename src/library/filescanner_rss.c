@@ -510,6 +510,9 @@ scan_rss(const char *file, time_t mtime, int dir_id)
           free(mfi.url);    mfi.url    = safe_strdup(item->link);
           free(mfi.comment); mfi.comment = NULL;
 
+	  if (mfi.genre)
+	    mfi.genre = strdup("Podcast");
+
           rss_date(&tm, item->pubDate);
           mfi.date_released = mktime(&tm);
           mfi.year = 1900 + tm.tm_year;
