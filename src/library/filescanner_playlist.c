@@ -352,8 +352,8 @@ process_regular_file(int pl_id, char *path)
   return 0;
 }
 
-int
-playlist_prepare(const char *path, time_t mtime, enum pl_type type)
+static int
+playlist_prepare(const char *path, time_t mtime)
 {
   struct playlist_info *pli;
   int pl_id;
@@ -363,7 +363,7 @@ playlist_prepare(const char *path, time_t mtime, enum pl_type type)
     {
       DPRINTF(E_LOG, L_SCAN, "New playlist found, processing '%s'\n", path);
 
-      pl_id = playlist_add_type(path, type);
+      pl_id = playlist_add_type(path, PL_PLAIN);
       if (pl_id < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", path);
@@ -421,7 +421,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
     return;
 
   // Will create or update the playlist entry in the database
-  pl_id = playlist_prepare(file, mtime, PL_PLAIN);
+  pl_id = playlist_prepare(file, mtime);
   if (pl_id < 0)
     return; // Not necessarily an error, could also be that the playlist hasn't changed
 
