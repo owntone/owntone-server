@@ -46,7 +46,6 @@ static struct event *rss_syncev = NULL;
 
 
 static pthread_t  rss_tid = -1;
-static bool  first = true;
 
 
 // relevant fields from playlist tbl
@@ -108,6 +107,7 @@ rss_sync(int *retval)
 
   *retval = 0;
 
+  DPRINTF(E_INFO, L_RSS, "refreshing RSS feeds\n");
   memset(&query_params, 0, sizeof(struct query_params));
 
   query_params.type = Q_PL;
@@ -118,7 +118,7 @@ rss_sync(int *retval)
   while (library_is_scanning())
   {
     DPRINTF(E_LOG, L_RSS, "DB scan in progress, waiting\n");
-    sleep(30);
+    sleep(10);
   }
 
   ret = db_query_start(&query_params);
@@ -150,13 +150,13 @@ rss_sync(int *retval)
   rfi = head;
   while (rfi)
   {
-    if (!first && now < rfi->lastupd + rss_sync_interval.tv_sec)
+    if (now < rfi->lastupd + rss_sync_interval.tv_sec)
       {
 	DPRINTF(E_DBG, L_RSS, "Skipping %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
       }
     else
       {
-	DPRINTF(E_LOG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
+	DPRINTF(E_DBG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
 	scan_rss(rfi->file, time(&now), false);
       }
     rfi = rfi->next;
@@ -168,7 +168,6 @@ rss_sync(int *retval)
   free_rfi(head);
 
   evtimer_add(rss_syncev, &rss_sync_interval);
-  first = false;
 }
 
 static enum command_state
@@ -196,7 +195,6 @@ rss(void *arg)
 
       pthread_exit(NULL);
     }
-  rss_sync(&ret);
   event_base_dispatch(evbase_rss);
 
   db_perthread_deinit();
@@ -245,6 +243,8 @@ rss_init()
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
   pthread_set_name_np(rss_tid, "rss");
 #endif
+
+  evtimer_add(rss_syncev, &rss_sync_interval);
   
   return 0;
 
