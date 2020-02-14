@@ -75,6 +75,8 @@ rss_playlist_prepare(const char *path, time_t mtime)
     }
 
   db_pl_ping(pli->id);
+  db_pl_ping_items_bymatch("http://", pli->id);
+  db_pl_ping_items_bymatch("https://", pli->id);
 
   // mtime == db_timestamp is also treated as a modification because some editors do
   // stuff like 1) close the file with no changes (leading us to update db_timestamp),
@@ -82,8 +84,6 @@ rss_playlist_prepare(const char *path, time_t mtime)
   // is equal to the newly updated db_timestamp)
   if (mtime && (pli->db_timestamp > mtime))
     {
-      db_pl_ping_items_bymatch("http://", pli->id);
-      db_pl_ping_items_bymatch("https://", pli->id);
       free_pli(pli, 0);
       return -1;
     }
