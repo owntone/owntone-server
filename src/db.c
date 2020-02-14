@@ -627,6 +627,7 @@ free_mfi(struct media_file_info *mfi, int content_only)
   free(mfi->orchestra);
   free(mfi->conductor);
   free(mfi->grouping);
+  free(mfi->url);
   free(mfi->description);
   free(mfi->codectype);
   free(mfi->album_artist);
