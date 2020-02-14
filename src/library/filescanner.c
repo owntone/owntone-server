@@ -1707,12 +1707,12 @@ filescanner_initscan()
 static int
 filescanner_rescan()
 {
-  DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered\n");
+  DPRINTF(E_LOG, L_SCAN, "rescan triggered\n");
 
   inofd_event_unset(); // Clears all inotify watches
   db_watch_clear();
   inofd_event_set();
-  bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
+  bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN | F_SCAN_RSS);
 
   if (!library_is_exiting())
     {
