@@ -1110,7 +1110,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   spotifywebapi_access_token_get(&webapi_token);
   safe_json_add_string(jreply, "webapi_token", webapi_token.token);
   json_object_object_add(jreply, "webapi_token_expires_in", json_object_new_int(webapi_token.expires_in));
-
+  free(webapi_token.token);
 #else
   json_object_object_add(jreply, "enabled", json_object_new_boolean(false));
 #endif
