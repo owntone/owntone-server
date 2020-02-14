@@ -1692,9 +1692,9 @@ filescanner_initscan()
     }
 
   if (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable"))
-    bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
+    bulk_scan(F_SCAN_BULK | F_SCAN_FAST | F_SCAN_RSS);
   else
-    bulk_scan(F_SCAN_BULK);
+    bulk_scan(F_SCAN_BULK | F_SCAN_RSS);
 
   if (!library_is_exiting())
     {
@@ -1747,7 +1747,7 @@ filescanner_fullrescan()
 
   inofd_event_unset(); // Clears all inotify watches
   inofd_event_set();
-  bulk_scan(F_SCAN_BULK);
+  bulk_scan(F_SCAN_BULK | F_SCAN_RSS);
 
   if (!library_is_exiting())
     {
