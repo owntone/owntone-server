@@ -190,7 +190,7 @@ process_apple_rss(char* buf, unsigned bufsz, const char *file)
   ctx.input_body = evbuf;
 
   ret = http_client_request(&ctx);
-  if (ret < 0 || ret && ctx.response_code != HTTP_OK)
+  if (ret < 0 || (ret && ctx.response_code != HTTP_OK))
     {
       evbuffer_free(evbuf);
       return NULL;
@@ -281,7 +281,7 @@ process_image_url(const char *image_url, const char *file)
   ctx.input_body = evbuf;
 
   ret = http_client_request(&ctx);
-  if (ret < 0 || ret && ctx.response_code != HTTP_OK)
+  if (ret < 0 || (ret && ctx.response_code != HTTP_OK))
     {
       DPRINTF(E_INFO, L_SCAN, "Could not retreive RSS image\n");
     }
@@ -297,6 +297,7 @@ process_image_url(const char *image_url, const char *file)
 }
 
 
+#ifdef RSS_DEBUG
 static void
 rss_playlist_items(int plid)
 {
@@ -324,7 +325,7 @@ rss_playlist_items(int plid)
 
   return;
 }
-
+#endif
 
 void
 scan_rss(const char *file, time_t mtime, bool force_rescan)
@@ -350,6 +351,7 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
   CURLcode code;
 
   rss_format = rss_type(file);
+  DPRINTF(E_DBG, L_SCAN, "RSS working on: '%s' type: %d\n", file, rss_format);
   if (rss_format == RSS_UNKNOWN)
     return;
 
@@ -479,7 +481,7 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
 	  sprintf(vpath, "/%s", item->enclosure_url);
 
 	  // check if this item is already in the db - if so, we can stop since the RSS is given to us as LIFO stream
-	  if (feed_file_id = db_file_id_by_virtualpath_match(vpath))
+	  if ((feed_file_id = db_file_id_by_virtualpath_match(vpath)) > 0)
 	    {
 	      DPRINTF(E_DBG, L_SCAN, "Item %d already in DB, finished with RSS feed: plid %d Channel '%s' item={ PubDate '%s' url '%s' }\n", feed_file_id, pl_id, data->title, item->pubDate, item->enclosure_url);
 	      break;
