@@ -47,8 +47,53 @@
 #include "misc_json.h"
 #include "library.h"
 
-// from filescanner_playlist.c
-extern int playlist_prepare(const char *path, time_t mtime, enum pl_type type);
+
+/* If this doesn't exist, create it: return 0
+ * If exist, return 1
+ * If error, return -1
+ */
+static int
+rss_playlist_prepare(const char *path, time_t mtime)
+{
+  struct playlist_info *pli;
+  int pl_id;
+
+  pli = db_pl_fetch_bypath(path);
+  if (!pli)
+    {
+      DPRINTF(E_LOG, L_SCAN, "New RSS found, processing '%s'\n", path);
+
+      pl_id = playlist_add_type(path, PL_RSS);
+      if (pl_id < 0)
+        {
+          DPRINTF(E_LOG, L_SCAN, "Error adding RSS '%s'\n", path);
+          return -1;
+        }
+
+      DPRINTF(E_INFO, L_SCAN, "Added new RSS as id %d\n", pl_id);
+      return pl_id;
+    }
+
+  db_pl_ping(pli->id);
+
+  // mtime == db_timestamp is also treated as a modification because some editors do
+  // stuff like 1) close the file with no changes (leading us to update db_timestamp),
+  // 2) copy over a modified version from a tmp file (which may result in a mtime that
+  // is equal to the newly updated db_timestamp)
+  if (mtime && (pli->db_timestamp > mtime))
+    {
+      db_pl_ping_items_bymatch("http://", pli->id);
+      db_pl_ping_items_bymatch("https://", pli->id);
+      free_pli(pli, 0);
+      return -1;
+    }
+
+  pl_id = pli->id;
+  free_pli(pli, 0);
+
+  return pl_id;
+}
+
 
 // RSS spec: https://validator.w3.org/feed/docs/rss2.html
 
@@ -251,6 +296,36 @@ process_image_url(const char *image_url, const char *file)
   return true;
 }
 
+
+static void
+rss_playlist_items(int plid)
+{
+  struct query_params qp;
+  struct db_media_file_info dbpli;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_PLITEMS;
+  qp.idx_type = I_NONE;
+  qp.id = plid;
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      return;
+    }
+  while (((ret = db_query_fetch_file(&qp, &dbpli)) == 0) && (dbpli.id))
+    {
+      DPRINTF(E_LOG, L_SCAN, "plid=%u  { id=%s title=%s path=%s }\n", plid, dbpli.id, dbpli.title, dbpli.path);
+    }
+  db_query_end(&qp);
+
+  return;
+}
+
+
 void
 scan_rss(const char *file, time_t mtime, int dir_id)
 {
@@ -260,9 +335,13 @@ scan_rss(const char *file, time_t mtime, int dir_id)
   char buf[2048];
   enum rss_type rss_format;
   int pl_id;
+  int feed_file_id;
   unsigned nadded;
   struct tm tm;
   char *url = NULL;
+  char *vpath = NULL;
+  unsigned vpathlen = 0;
+  unsigned len = 0;
   bool has_artwork = false;
 
   mrss_t *data = NULL;
@@ -294,11 +373,10 @@ scan_rss(const char *file, time_t mtime, int dir_id)
     }
 
   // Will create or update the playlist entry in the database
-  pl_id = playlist_prepare(file, mtime, PL_RSS);
+  pl_id = rss_playlist_prepare(file, mtime);
   if (pl_id < 0)
-    return; // Not necessarily an error, could also be that the playlist hasn't changed
+    return;
 
-  memset(&mfi, 0, sizeof(struct media_file_info));
   nadded = 0;
 
   switch (rss_format)
@@ -390,8 +468,6 @@ scan_rss(const char *file, time_t mtime, int dir_id)
                 enclosure_type: video/mp4
    */
 
-  if (data->image_url)
-    has_artwork = process_image_url(data->image_url, file);
 
   db_transaction_begin();
 
@@ -402,6 +478,29 @@ scan_rss(const char *file, time_t mtime, int dir_id)
 
       if (item->enclosure_url)
         {
+	  memset(&mfi, 0, sizeof(struct media_file_info));
+
+	  len = strlen(item->enclosure_url)+2;
+	  if (len > vpathlen)
+	    {
+	      vpathlen = len;
+	      free(vpath);
+	      vpath = malloc(len);
+	    }
+	  sprintf(vpath, "/%s", item->enclosure_url);
+
+	  // check if this item is already in the db - if so, we can stop since the RSS is given to us as LIFO stream
+	  if (feed_file_id = db_file_id_by_virtualpath_match(vpath))
+	    {
+	      DPRINTF(E_DBG, L_SCAN, "Item %d already in DB, finished with RSS feed: plid %d Channel '%s' item={ PubDate '%s' url '%s' }\n", feed_file_id, pl_id, data->title, item->pubDate, item->enclosure_url);
+	      break;
+	    }
+	  DPRINTF(E_INFO, L_SCAN, "Will add to RSS feed: plid %d Channel '%s' item={ PubDate '%s' url '%s' }\n", pl_id, data->title, item->pubDate, item->enclosure_url);
+
+	  // attempt to get artwork if its this is first new item in feed
+	  if (data->image_url && nadded == 0)
+	    has_artwork = process_image_url(data->image_url, file);
+
           scan_metadata_stream(&mfi, item->enclosure_url);
 
           // always take the main info from the RSS and not the stream
@@ -431,17 +530,18 @@ scan_rss(const char *file, time_t mtime, int dir_id)
                 db_transaction_begin();
             }
         }
+      free_mfi(&mfi, 1);
       item = item->next;
     }
 
   db_transaction_end();
 
 cleanup:
-  free_mfi(&mfi, 1);
   mrss_free(data);
+
+  DPRINTF(E_LOG, L_SCAN, "Done processing RSS %s (%s), added/modified %u items\n", file, url ? url : "local", nadded);
+
   if (url != buf) free(url);
-
-  DPRINTF(E_LOG, L_SCAN, "Done processing RSS, added/modified %u items\n", nadded);
-
+  free(vpath);
   fclose(fp);
 }
