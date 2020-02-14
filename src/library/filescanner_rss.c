@@ -343,6 +343,7 @@ scan_rss(const char *file, time_t mtime, int dir_id)
   unsigned vpathlen = 0;
   unsigned len = 0;
   bool has_artwork = false;
+  time_t now;
 
   mrss_t *data = NULL;
   mrss_error_t ret;
@@ -470,6 +471,7 @@ scan_rss(const char *file, time_t mtime, int dir_id)
 
 
   db_transaction_begin();
+  time(&now);
 
   item = data->item;
   while (item)
@@ -516,8 +518,14 @@ scan_rss(const char *file, time_t mtime, int dir_id)
           rss_date(&tm, item->pubDate);
           mfi.date_released = mktime(&tm);
           mfi.year = 1900 + tm.tm_year;
-          mfi.track = nadded +1;
           mfi.media_kind = MEDIA_KIND_PODCAST;
+
+	  // fake the time - useful when we are adding a new stream - since the
+	  // newest podcasts are added first (the stream is most recent first) 
+	  // having time_added date which is older on the most recent episodes 
+	  // makes no sense so make all the dates the same for a singleu update
+	  mfi.time_added = now;
+
           if (has_artwork)
             mfi.artwork = ARTWORK_DIR;
 
