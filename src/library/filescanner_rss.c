@@ -327,11 +327,10 @@ rss_playlist_items(int plid)
 
 
 void
-scan_rss(const char *file, time_t mtime, int dir_id)
+scan_rss(const char *file, time_t mtime, bool force_rescan)
 {
   FILE *fp;
   struct media_file_info mfi;
-  struct stat sb;
   char buf[2048];
   enum rss_type rss_format;
   int pl_id;
@@ -354,18 +353,6 @@ scan_rss(const char *file, time_t mtime, int dir_id)
   if (rss_format == RSS_UNKNOWN)
     return;
 
-  ret = stat(file, &sb);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
-      return;
-    }
-  if (sb.st_size == 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Ingoring empty RSS file '%s'\n", file);
-      return;
-    }
-
   fp = fopen(file, "r");
   if (!fp)
     {
@@ -374,7 +361,7 @@ scan_rss(const char *file, time_t mtime, int dir_id)
     }
 
   // Will create or update the playlist entry in the database
-  pl_id = rss_playlist_prepare(file, mtime);
+  pl_id = rss_playlist_prepare(file, force_rescan ? 0 : mtime);
   if (pl_id < 0)
     return;
 

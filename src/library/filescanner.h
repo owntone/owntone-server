@@ -18,7 +18,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id);
 
 #ifdef MRSS
 void
-scan_rss(const char *file, time_t mtime, int dir_id);
+scan_rss(const char *file, time_t mtime, bool force_rescan);
 #endif
 
 void

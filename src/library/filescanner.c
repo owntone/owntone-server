@@ -77,6 +77,7 @@
 #define F_SCAN_FAST    (1 << 2)
 #define F_SCAN_MOVED   (1 << 3)
 #define F_SCAN_METARESCAN  (1 << 4)
+#define F_SCAN_RSS     (1 << 5)
 
 #define F_SCAN_TYPE_FILE         (1 << 0)
 #define F_SCAN_TYPE_PODCAST      (1 << 1)
@@ -684,7 +685,7 @@ process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
 
       case FILE_RSS:
 #ifdef MRSS
-	scan_rss(file, sb->st_mtime, dir_id);
+	scan_rss(file, sb->st_mtime, flags & F_SCAN_RSS);
 #else
 	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without RSS support\n", file);
 #endif

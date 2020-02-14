@@ -36,8 +36,7 @@
 #include "library.h"
 #include "listener.h"
 #include "logger.h"
-
-extern void scan_rss(const char *file, time_t mtime, int removeme);
+#include "library/filescanner.h"
 
 
 static struct event_base *evbase_rss = NULL;
@@ -158,7 +157,7 @@ rss_sync(int *retval)
     else
       {
 	DPRINTF(E_LOG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
-	scan_rss(rfi->file, time(&now), -1);
+	scan_rss(rfi->file, time(&now), false);
       }
     rfi = rfi->next;
   }
