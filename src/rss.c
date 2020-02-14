@@ -157,7 +157,9 @@ rss_sync(int *retval)
     else
       {
 	DPRINTF(E_DBG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
+        db_transaction_begin();
 	scan_rss(rfi->file, time(&now), false);
+        db_transaction_end();
       }
     rfi = rfi->next;
   }

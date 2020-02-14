@@ -459,7 +459,6 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
    */
 
 
-  db_transaction_begin();
   time(&now);
 
   item = data->item;
@@ -533,8 +532,6 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
       free_mfi(&mfi, 1);
       item = item->next;
     }
-
-  db_transaction_end();
 
 cleanup:
   mrss_free(data);
