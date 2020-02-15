@@ -498,9 +498,7 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
 
           if (++nadded%50 == 0)
             {
-                DPRINTF(E_LOG, L_SCAN, "RSS added %d entries...\n", nadded);
-                db_transaction_end();
-                db_transaction_begin();
+              DPRINTF(E_LOG, L_SCAN, "RSS added %d entries...\n", nadded);
             }
         }
       free_mfi(&mfi, 1);
