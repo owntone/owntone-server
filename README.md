@@ -467,15 +467,15 @@ forked-daapd can support RSS podcasts via [libmrss](https://github.com/bakulf/li
 and its sister dependancy [libnxml](https://github.com/bakulf/libnxml). When enabled, RSS feed podcasts will be automatically 
 refreshed periodically.
 
-To add a RSS feed to the library we have to create either a `.rss` (containing 
-feed XML) or a `.rss_url` file that contains a single line with the RSS feed URL.
-The initial addition to the library will cause the RSS feed podcast episodes to 
-be added to the library as if it were an album.
+To add a RSS feed to the library we have to create a `.rss` file that contains a
+single line with the RSS feed URL (direct link to rss or an Apple podcast link).
+The initial addition to the library will cause the RSS feed podcast episodes to
+be added to the library.
 
 The server will periodically refresh - the period can be changed via the config
 file.  Alternatively, a user can _force_ a refresh by initiating a library `scan`
 but this is not deseriabale as it will scan all items in library or a user can
-_touch_ the underlying `.rss` or `.rss_url` file.
+_touch_ the underlying `.rss` file.
 
 ## Spotify
 

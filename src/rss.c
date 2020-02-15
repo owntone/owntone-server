@@ -299,7 +299,7 @@ rss_feed_create(const char *name, const char* url)
   if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0)
     return -1;
 
-  ret = snprintf(path, sizeof(path), "%s/%s.rss_url", pl_dir, name);
+  ret = snprintf(path, sizeof(path), "%s/%s.rss", pl_dir, name);
   if (ret < 0 || ret > sizeof(path))
     {
       DPRINTF(E_LOG, L_RSS, "Unable to create file path RSS feed: '%s' under '%s'\n", name, pl_dir);

@@ -331,7 +331,7 @@ file_type_get(const char *path) {
   if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
     return FILE_PLAYLIST;
 
-  if (strcasecmp(ext, ".rss_url") == 0 || strcasecmp(ext, ".rss") == 0)
+  if (strcasecmp(ext, ".rss") == 0)
     return FILE_RSS;
 
   if (strcasecmp(ext, ".smartpl") == 0)

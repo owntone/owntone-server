@@ -97,30 +97,6 @@ rss_playlist_prepare(const char *path, time_t mtime)
 
 // RSS spec: https://validator.w3.org/feed/docs/rss2.html
 
-enum rss_type {
-  RSS_UNKNOWN = 0,
-  RSS_FILE,
-  RSS_HTTP
-};
-
-static enum rss_type
-rss_type(const char *path)
-{
-  char *ptr;
-
-  ptr = strrchr(path, '.');
-  if (!ptr)
-    return RSS_UNKNOWN;
-
-  if (strcasecmp(ptr, ".rss") == 0)
-    return RSS_FILE;
-  else if (strcasecmp(ptr, ".rss_url") == 0)
-    return RSS_HTTP;
-  else
-    return RSS_UNKNOWN;
-}
-
-
 static bool
 rss_date(struct tm *tm, const char *date)
 {
@@ -333,7 +309,6 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
   FILE *fp;
   struct media_file_info mfi;
   char buf[2048];
-  enum rss_type rss_format;
   int pl_id;
   int feed_file_id;
   unsigned nadded;
@@ -350,10 +325,7 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
   mrss_item_t *item = NULL;
   CURLcode code;
 
-  rss_format = rss_type(file);
-  DPRINTF(E_DBG, L_SCAN, "RSS working on: '%s' type: %d\n", file, rss_format);
-  if (rss_format == RSS_UNKNOWN)
-    return;
+  DPRINTF(E_DBG, L_SCAN, "RSS working on: '%s'\n", file);
 
   fp = fopen(file, "r");
   if (!fp)
@@ -369,52 +341,32 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
 
   nadded = 0;
 
-  switch (rss_format)
+  url = buf;
+  if (fgets(buf, sizeof(buf), fp) == NULL)
     {
-      case RSS_HTTP:
-        {
-          url = buf;
-          if (fgets(buf, sizeof(buf), fp) == NULL)
-            {
-              DPRINTF(E_LOG, L_SCAN, "Could not read RSS url from '%s': %s\n", file, strerror(errno));
-              goto cleanup;
-            }
+      DPRINTF(E_LOG, L_SCAN, "Could not read RSS url from '%s': %s\n", file, strerror(errno));
+      goto cleanup;
+    }
 
-          if (strncmp (buf, "http://", 7) != 0 && strncmp(buf, "https://", 8) != 0)
-            {
-              DPRINTF(E_LOG, L_SCAN, "Could not read valid RSS url from '%s'\n", file);
-              goto cleanup;
-            }
+  if (strncmp (buf, "http://", 7) != 0 && strncmp(buf, "https://", 8) != 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not read valid RSS url from '%s'\n", file);
+      goto cleanup;
+    }
 
-          // Is it an apple podcast stream? ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
-          if (strncmp(buf, "https://podcasts.apple.com/", 27) == 0)
-            {
-              if ((url = process_apple_rss(buf, sizeof(buf), file)) == NULL)
-                url = buf;
-            }
+  // Is it an apple podcast stream? ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
+  if (strncmp(buf, "https://podcasts.apple.com/", 27) == 0)
+    {
+      if ((url = process_apple_rss(buf, sizeof(buf), file)) == NULL)
+        url = buf;
+    }
 
-          trim(url);
-          ret = mrss_parse_url_with_options_and_error(url, &data, NULL, &code);
-          if (ret)
-            {
-              DPRINTF(E_LOG, L_SCAN, "Could not parse RSS from '%s': %s\n", url, ret==MRSS_ERR_DOWNLOAD ? mrss_curl_strerror(code) : mrss_strerror(ret));
-              goto cleanup;
-            }
-        } break;
-
-      case RSS_FILE:
-        {
-          ret = mrss_parse_file((char*)file, &data);
-          if (ret)
-            {
-              DPRINTF(E_LOG, L_SCAN, "Could not parse RSS from '%s': %s\n", file, mrss_strerror(ret));
-              goto cleanup;
-            }
-        } break;
-
-      default:
-        DPRINTF(E_LOG, L_SCAN, "BUG: unhandled RSS type %d for file '%s'\n", rss_format, file);
-        goto cleanup;
+  trim(url);
+  ret = mrss_parse_url_with_options_and_error(url, &data, NULL, &code);
+  if (ret)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not parse RSS from '%s': %s\n", url, ret==MRSS_ERR_DOWNLOAD ? mrss_curl_strerror(code) : mrss_strerror(ret));
+      goto cleanup;
     }
 
   /* Expect: 'Channel' (used as 'album name') followed by sequence of 'Items' (used as 'tracks' with artist,title,enclosure_url)
