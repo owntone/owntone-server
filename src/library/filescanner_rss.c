@@ -320,7 +320,9 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
   bool has_artwork = false;
   time_t now;
 
+  const char *category_author = NULL;
   mrss_t *data = NULL;
+  mrss_tag_t *tag = NULL;
   mrss_error_t ret;
   mrss_item_t *item = NULL;
   CURLcode code;
@@ -413,6 +415,21 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
 
   time(&now);
 
+  // Author can be found in the following places in order of preferance:
+  // .. the media stream object itself (but not m4v/mp4 streams)
+  // .. feed's item object
+  // .. channel's author tag (failsafe)
+  tag = data->other_tags;
+  while (tag)
+    {
+      if (strcmp(tag->name, "author") == 0)
+        {
+          category_author = tag->value;
+          break;
+        }
+      tag = tag->next;
+    }
+
   item = data->item;
   while (item)
     {
@@ -445,24 +462,29 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
 
           scan_metadata_stream(&mfi, item->enclosure_url);
 
-          // always take the main info from the RSS and not the stream
-          free(mfi.artist); mfi.artist = safe_strdup(item->author);
-          free(mfi.title);  mfi.title  = safe_strdup(item->title);
-          free(mfi.album);  mfi.album  = safe_strdup(data->title);
-          free(mfi.url);    mfi.url    = safe_strdup(item->link);
+          // Always take the meta from media file if possible; some podcasts
+          // (apple) can use mp4 streams which tend not to have decent tags so 
+          // in those cases take info from the RSS and not the stream
+          if (!mfi.artist) mfi.artist = safe_strdup(item->author ? item->author : category_author);
+          if (!mfi.title)  mfi.title  = safe_strdup(item->title);
+          if (!mfi.album)  mfi.album  = safe_strdup(data->title);
+          if (!mfi.url)    mfi.url    = safe_strdup(item->link);
+          if (!mfi.genre)  mfi.genre  = strdup("Podcast");
+
+          // Ignore this - some can be very verbose - we don't show use these
+          // on the podcast
           free(mfi.comment); mfi.comment = NULL;
 
-	  if (mfi.genre)
-	    mfi.genre = strdup("Podcast");
-
+          // date is always from the RSS feed info
           rss_date(&tm, item->pubDate);
           mfi.date_released = mktime(&tm);
           mfi.year = 1900 + tm.tm_year;
+
           mfi.media_kind = MEDIA_KIND_PODCAST;
 
-	  // fake the time - useful when we are adding a new stream - since the
-	  // newest podcasts are added first (the stream is most recent first) 
-	  // having time_added date which is older on the most recent episodes 
+	  // Fake the time - useful when we are adding a new stream - since the
+	  // newest podcasts are added first (the stream is most recent first)
+	  // having time_added date which is older on the most recent episodes
 	  // makes no sense so make all the dates the same for a singleu update
 	  mfi.time_added = now;
 
