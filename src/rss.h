@@ -10,4 +10,10 @@ rss_init(void);
 void
 rss_deinit(void);
 
+int
+rss_feed_create(const char *name, const char* url);
+
+int
+rss_feed_delete(const char *name, const char* url);
+
 #endif

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #ifdef HAVE_PTHREAD_NP_H
 # include <pthread_np.h>
@@ -46,6 +47,7 @@ static struct event *rss_syncev = NULL;
 
 
 static pthread_t  rss_tid = -1;
+const char *pl_dir = NULL;
 
 
 // relevant fields from playlist tbl
@@ -216,6 +218,13 @@ rss_init()
       rss_sync_interval.tv_sec = 60;
     }
 
+  pl_dir = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
+  if (access(pl_dir, W_OK) < 0)
+    {
+      DPRINTF(E_LOG, L_RSS, "Config playlist dir is not writable, will disable saving of new RSS feeds\n");
+      pl_dir = NULL;
+    }
+
   evbase_rss = event_base_new();
   if (!evbase_rss)
     {
@@ -274,4 +283,45 @@ rss_deinit()
     }
   event_free(rss_syncev);
   event_base_free(evbase_rss);
+}
+
+int
+rss_feed_create(const char *name, const char* url)
+{
+  char path[PATH_MAX];
+  int fd;
+  int len;
+  int ret;
+
+  if (!pl_dir || !name || !url)
+    return -1;
+
+  if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0)
+    return -1;
+
+  ret = snprintf(path, sizeof(path), "%s/%s.rss_url", pl_dir, name);
+  if (ret < 0 || ret > sizeof(path))
+    {
+      DPRINTF(E_LOG, L_RSS, "Unable to create file path RSS feed: '%s' under '%s'\n", name, pl_dir);
+      return -1;
+    }
+  DPRINTF(E_DBG, L_RSS, "Create RSS feed: '%s' as '%s' with url: %s\n", name, path, url);
+
+  if ((fd = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0644)) < 0)
+    {
+      DPRINTF(E_LOG, L_RSS, "Unable to create file for RSS feed: '%s'\n", path);
+      return -1;
+    }
+
+  ret = 0;
+  len = strlen(url);
+  if (write(fd, url, len) != len)
+    {
+      DPRINTF(E_LOG, L_RSS, "Failed to create RSS feed:'%s' : '%s'\n", path, strerror(errno));
+      unlink(path);
+      ret = -1;
+    }
+
+  close(fd);
+  return ret;
 }

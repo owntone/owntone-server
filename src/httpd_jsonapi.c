@@ -59,6 +59,9 @@
 # include "spotify_webapi.h"
 # include "spotify.h"
 #endif
+#ifdef MRSS
+# include "rss.h"
+#endif
 
 
 static bool allow_modifying_stored_playlists;
@@ -3551,6 +3554,40 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_podcast(struct httpd_request *hreq)
+{
+  const char *param;
+  const char *name;
+  const char *url;
+  int ret = -1;
+
+#ifdef MRSS
+  param = evhttp_find_header(hreq->query, "action");
+  name = evhttp_find_header(hreq->query, "name");
+  url = evhttp_find_header(hreq->query, "url");
+  if (!name || !url)
+    return HTTP_BADREQUEST;
+
+  if (strcmp(param, "create") == 0)
+    {
+      ret = rss_feed_create(name, url);
+    }
+  else
+    {
+      return HTTP_BADREQUEST;
+    }
+#else
+    DPRINTF(E_LOG, L_WEB, "RSS not enabled in this build\n");
+  return HTTP_NOTIMPLEMENTED;
+#endif
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
 {
   json_object *type;
@@ -3930,6 +3967,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
+    { EVHTTP_REQ_POST,   "^/api/library/podcast$",                       jsonapi_reply_library_podcast },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
 
