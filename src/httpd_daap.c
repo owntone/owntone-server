@@ -573,7 +573,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
       else if (strcmp(param, "artist") == 0 && (type != Q_BROWSE_ARTISTS)) // Only set if non-default sort requested
 	qp->sort = S_ARTIST;
       else if (strcmp(param, "releasedate") == 0)
-	qp->sort = S_NAME;
+	qp->sort = S_RELEASEDATE;
       else
 	DPRINTF(E_DBG, L_DAAP, "Unknown sort param: %s\n", param);
 
