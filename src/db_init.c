@@ -368,6 +368,9 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_QUEUE_SHUFFLEPOS				\
   "CREATE INDEX IF NOT EXISTS idx_queue_shufflepos ON queue(shuffle_pos);"
 
+#define I_FILE_DATE_RELEASED                    \
+  "CREATE INDEX IF NOT EXISTS idx_file_datereleased ON files(date_released);"
+
 static const struct db_init_query db_init_index_queries[] =
   {
     { I_RESCAN,    "create rescan index" },
@@ -401,6 +404,8 @@ static const struct db_init_query db_init_index_queries[] =
 
     { I_QUEUE_POS,  "create queue pos index" },
     { I_QUEUE_SHUFFLEPOS,  "create queue shuffle pos index" },
+
+    { I_FILE_DATE_RELEASED, "create file date_released index" },
   };
 
 
