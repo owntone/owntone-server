@@ -466,10 +466,12 @@ scan_rss(const char *file, time_t mtime, bool force_rescan)
           // (apple) can use mp4 streams which tend not to have decent tags so 
           // in those cases take info from the RSS and not the stream
           if (!mfi.artist) mfi.artist = safe_strdup(item->author ? item->author : category_author);
-          if (!mfi.title)  mfi.title  = safe_strdup(item->title);
           if (!mfi.album)  mfi.album  = safe_strdup(data->title);
           if (!mfi.url)    mfi.url    = safe_strdup(item->link);
           if (!mfi.genre)  mfi.genre  = strdup("Podcast");
+
+          // Title not valid on mp4 (it becomes the url obj) so take from RSS feed
+          free(mfi.title); mfi.title  = safe_strdup(item->title);
 
           // Ignore this - some can be very verbose - we don't show use these
           // on the podcast
