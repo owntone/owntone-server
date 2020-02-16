@@ -840,7 +840,7 @@ response_jparse_discogs(char **artwork_url, json_object *response, int max_w, in
   else
     key = "cover_image";
 
-  image = JPARSE_DRILLDOWN(response, "results", key);
+  image = JPARSE_SELECT(response, "results", key);
   if (!image || json_object_get_type(image) != json_type_string)
     return ONLINE_SOURCE_PARSE_NOT_FOUND;
 
@@ -859,7 +859,7 @@ response_jparse_musicbrainz(char **artwork_url, json_object *response, int max_w
   json_object *id;
   const char *s;
 
-  id = JPARSE_DRILLDOWN(response, "release-groups", "id");
+  id = JPARSE_SELECT(response, "release-groups", "id");
   if (!id || json_object_get_type(id) != json_type_string)
     return ONLINE_SOURCE_PARSE_NOT_FOUND;
 
@@ -888,7 +888,7 @@ response_jparse_spotify(char **artwork_url, json_object *response, int max_w, in
   int image_count;
   int i;
 
-  images = JPARSE_DRILLDOWN(response, "albums", "items", "images");
+  images = JPARSE_SELECT(response, "albums", "items", "images");
   if (!images || json_object_get_type(images) != json_type_array)
     return ONLINE_SOURCE_PARSE_INVALID;
 

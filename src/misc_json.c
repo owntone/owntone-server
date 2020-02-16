@@ -33,11 +33,12 @@
 #include "logger.h"
 
 json_object *
-jparse_drilldown(json_object *haystack, const char *keys[])
+jparse_select(json_object *haystack, const char *keys[])
 {
   json_object *needle;
   json_bool found;
 
+  needle = NULL;
   while (*keys)
     {
       found = json_object_object_get_ex(haystack, *keys, &needle);
