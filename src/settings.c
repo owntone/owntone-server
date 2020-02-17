@@ -31,9 +31,17 @@ static struct settings_option webinterface_options[] =
       { "show_composer_for_genre", SETTINGS_TYPE_STR },
   };
 
+static struct settings_option artwork_options[] =
+  {
+      { "enable_spotify", SETTINGS_TYPE_BOOL },
+      { "enable_discogs", SETTINGS_TYPE_BOOL },
+      { "enable_coverartarchive", SETTINGS_TYPE_BOOL },
+  };
+
 static struct settings_category categories[] =
   {
       { "webinterface", webinterface_options, ARRAY_SIZE(webinterface_options) },
+      { "artwork", artwork_options, ARRAY_SIZE(artwork_options) },
   };
 
 

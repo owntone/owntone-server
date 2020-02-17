@@ -36,6 +36,7 @@
 #include "misc_json.h"
 #include "logger.h"
 #include "conffile.h"
+#include "settings.h"
 #include "cache.h"
 #include "http.h"
 #include "transcode.h"
@@ -213,7 +214,7 @@ static struct artwork_source artwork_item_source[] =
       .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_SPOTIFY),
       .cache = ON_FAILURE,
     },
-/*    {
+    {
       // TODO merge with spotifywebapi_get
       .name = "Spotify2",
       .handler = source_item_spotify2_get,
@@ -233,7 +234,7 @@ static struct artwork_source artwork_item_source[] =
       .data_kinds = (1 << DATA_KIND_FILE),
       .cache = NEVER,
     },
-*/    {
+    {
       .name = "embedded",
       .handler = source_item_embedded_get,
       .data_kinds = (1 << DATA_KIND_FILE),
@@ -1067,6 +1068,23 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
   return artwork_url;
 }
 
+static bool
+online_source_is_enabled(const char *setting_name)
+{
+  struct settings_category *category;
+  struct settings_option *option;
+
+  category = settings_category_get("artwork");
+  if (!category)
+    return false;
+
+  option = settings_option_get(category, setting_name);
+  if (!option)
+    return false;
+
+  return settings_option_getbool(option);
+}
+
 
 /* ---------------------- SOURCE HANDLER IMPLEMENTATION -------------------- */
 
@@ -1327,6 +1345,9 @@ source_item_discogs_get(struct artwork_ctx *ctx)
   char *url;
   int ret;
 
+  if (!online_source_is_enabled("enable_discogs"))
+    return ART_E_NONE;
+
   url = online_source_search(&discogs_source, ctx);
   if (!url)
     return ART_E_NONE;
@@ -1342,6 +1363,9 @@ source_item_coverartarchive_get(struct artwork_ctx *ctx)
 {
   char *url;
   int ret;
+
+  if (!online_source_is_enabled("enable_coverartarchive"))
+    return ART_E_NONE;
 
   // We search Musicbrainz to get the Musicbrainz ID, which we need to get the
   // artwork from the Cover Art Archive
@@ -1363,6 +1387,9 @@ source_item_spotify2_get(struct artwork_ctx *ctx)
   struct spotifywebapi_access_token info;
   char *url;
   int ret;
+
+  if (!online_source_is_enabled("enable_spotify"))
+    return ART_E_NONE;
 
   spotifywebapi_access_token_get(&info);
   if (!info.token)
@@ -1434,7 +1461,7 @@ source_item_spotify2_get(struct artwork_ctx *ctx)
   // Silence compiler warning about spotify_source being unused
   (void)spotify_source;
 
-  return ART_E_ERROR;
+  return ART_E_NONE;
 }
 
 static int
