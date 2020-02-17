@@ -49,10 +49,6 @@ static struct event *rss_syncev = NULL;
 static pthread_t  rss_tid = -1;
 const char *pl_dir = NULL;
 
-static bool lib_updating = false;
-static pthread_mutex_t lib_upd_mtx;
-static pthread_cond_t lib_upd_cond;
-
 
 // relevant fields from playlist tbl
 struct rss_file_item {
@@ -99,15 +95,6 @@ rfi_add(struct rss_file_item* head)
   return curr->next;
 }
 
-static void
-rss_listener_cb(short events)
-{
-  pthread_mutex_lock(&lib_upd_mtx);
-  lib_updating = !lib_updating;
-DPRINTF(E_INFO, L_RSS, "*** library update change: %s ***\n", lib_updating ? "start" : "done");
-  pthread_cond_broadcast(&lib_upd_cond);
-  pthread_mutex_unlock(&lib_upd_mtx);
-}
 
 /* Thread: rss */
 static void
@@ -115,45 +102,26 @@ rss_sync(int *retval)
 {
   struct query_params query_params;
   struct db_playlist_info dbpli;
-  struct rss_file_item *rfi = NULL;
-  struct rss_file_item *head = NULL;
-  struct timespec ts;
-  struct timeval tvnow;
+  struct rss_file_item*  rfi = NULL;
+  struct rss_file_item*  head = NULL;
   time_t  now;
   int ret = 0;
 
   *retval = 0;
 
+  DPRINTF(E_INFO, L_RSS, "refreshing RSS feeds\n");
   memset(&query_params, 0, sizeof(struct query_params));
-
-  pthread_mutex_lock(&lib_upd_mtx);
-  while (library_is_scanning())
-    {
-      DPRINTF(E_INFO, L_RSS, "DB scan in progress, delaying RSS feed update\n");
-      do
-        {
-          gettimeofday(&tvnow, NULL);
-          ts.tv_sec  = tvnow.tv_sec + 5;
-          ts.tv_nsec = tvnow.tv_usec;
-
-          pthread_cond_timedwait(&lib_upd_cond, &lib_upd_mtx, &ts);
-          if (library_is_exiting())
-            {
-              pthread_mutex_unlock(&lib_upd_mtx);
-              goto cleanup;
-            }
-        }
-      while (lib_updating);
-      DPRINTF(E_INFO, L_RSS, "Resuming RSS feed update\n");
-    }
-  // lock library
-  library_set_scanning(true);
-  pthread_mutex_unlock(&lib_upd_mtx);
-  DPRINTF(E_INFO, L_RSS, "Refreshing RSS feeds\n");
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
   query_params.filter = db_mprintf("(f.type = %d)", PL_RSS);
+
+  // TODO - how to do this in FD framework???
+  while (library_is_scanning())
+  {
+    DPRINTF(E_LOG, L_RSS, "DB scan in progress, waiting\n");
+    sleep(10);
+  }
 
   ret = db_query_start(&query_params);
   if (ret < 0)
@@ -180,6 +148,7 @@ rss_sync(int *retval)
   db_query_end(&query_params);
   time(&now);
 
+  library_set_scanning(true);
   rfi = head;
   while (rfi)
   {
@@ -202,7 +171,6 @@ rss_sync(int *retval)
   free(query_params.filter);
   free_rfi(head);
 
- cleanup:
   evtimer_add(rss_syncev, &rss_sync_interval);
 }
 
@@ -243,9 +211,6 @@ rss_init()
 {
   int ret;
 
-  pthread_mutex_init(&lib_upd_mtx, NULL);
-  pthread_cond_init(&lib_upd_cond, NULL);
-
   rss_sync_interval.tv_sec = cfg_getint(cfg_getsec(cfg, "rss"), "sync_period");
   if (rss_sync_interval.tv_sec < 60) 
     {
@@ -258,13 +223,6 @@ rss_init()
     {
       DPRINTF(E_LOG, L_RSS, "Config playlist dir is not writable, will disable saving of new RSS feeds\n");
       pl_dir = NULL;
-    }
-
-  ret = listener_add(rss_listener_cb, LISTENER_UPDATE);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RSS, "Could not create an DB watcher\n");
-      goto listener_fail;
     }
 
   evbase_rss = event_base_new();
@@ -308,8 +266,6 @@ rss_init()
   evbase_rss = NULL;
 
  evbase_fail:
-  listener_remove(rss_listener_cb);
- listener_fail:
   return -1;
 }
 
@@ -327,10 +283,6 @@ rss_deinit()
     }
   event_free(rss_syncev);
   event_base_free(evbase_rss);
-
-  listener_remove(rss_listener_cb);
-  pthread_mutex_destroy(&lib_upd_mtx);
-  pthread_cond_destroy(&lib_upd_cond);
 }
 
 int
