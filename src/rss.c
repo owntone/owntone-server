@@ -35,7 +35,6 @@
 #include "conffile.h"
 #include "db.h"
 #include "library.h"
-#include "listener.h"
 #include "logger.h"
 #include "library/filescanner.h"
 
@@ -95,33 +94,27 @@ rfi_add(struct rss_file_item* head)
   return curr->next;
 }
 
-
 /* Thread: rss */
 static void
 rss_sync(int *retval)
 {
   struct query_params query_params;
   struct db_playlist_info dbpli;
-  struct rss_file_item*  rfi = NULL;
-  struct rss_file_item*  head = NULL;
+  struct rss_file_item *rfi = NULL;
+  struct rss_file_item *head = NULL;
   time_t  now;
   int ret = 0;
 
   *retval = 0;
 
-  DPRINTF(E_INFO, L_RSS, "refreshing RSS feeds\n");
   memset(&query_params, 0, sizeof(struct query_params));
+
+  DPRINTF(E_INFO, L_RSS, "Refreshing RSS feeds\n");
+  library_scanning_start(L_RSS, "Refresh RSS");
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
   query_params.filter = db_mprintf("(f.type = %d)", PL_RSS);
-
-  // TODO - how to do this in FD framework???
-  while (library_is_scanning())
-  {
-    DPRINTF(E_LOG, L_RSS, "DB scan in progress, waiting\n");
-    sleep(10);
-  }
 
   ret = db_query_start(&query_params);
   if (ret < 0)
@@ -148,7 +141,6 @@ rss_sync(int *retval)
   db_query_end(&query_params);
   time(&now);
 
-  library_set_scanning(true);
   rfi = head;
   while (rfi)
   {
@@ -165,7 +157,7 @@ rss_sync(int *retval)
       }
     rfi = rfi->next;
   }
-  library_set_scanning(false);
+  library_scanning_end(L_RSS, "Refresh RSS");
 
  error:
   free(query_params.filter);
