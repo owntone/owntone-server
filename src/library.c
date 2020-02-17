@@ -87,6 +87,7 @@ static bool scan_exit;
 
 /* Flag for scan in progress */
 static bool scanning;
+static pthread_rwlock_t scanning_lck;
 
 // After being told by db that the library was updated through
 // library_update_trigger(), wait 5 seconds before notifying listeners
@@ -196,6 +197,7 @@ rescan(void *arg, int *ret)
   int i;
 
   DPRINTF(E_LOG, L_LIB, "Library rescan triggered\n");
+  library_scanning_start(L_LIB, "rescan");
   listener_notify(LISTENER_UPDATE);
   starttime = time(NULL);
 
@@ -219,7 +221,7 @@ rescan(void *arg, int *ret)
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
-  scanning = false;
+  library_scanning_end(L_LIB, "rescan");
 
   if (handle_deferred_update_notifications())
     listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
@@ -238,6 +240,7 @@ metarescan(void *arg, int *ret)
   int i;
 
   DPRINTF(E_LOG, L_LIB, "Library meta rescan triggered\n");
+  library_scanning_start(L_LIB, "meta scan");
   listener_notify(LISTENER_UPDATE);
   starttime = time(NULL);
 
@@ -261,7 +264,7 @@ metarescan(void *arg, int *ret)
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library meta rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
-  scanning = false;
+  library_scanning_end(L_LIB, "meta scan");
 
   if (handle_deferred_update_notifications())
     listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
@@ -281,6 +284,7 @@ fullrescan(void *arg, int *ret)
   int i;
 
   DPRINTF(E_LOG, L_LIB, "Library full-rescan triggered\n");
+  library_scanning_start(L_LIB, "fullscan");
   listener_notify(LISTENER_UPDATE);
   starttime = time(NULL);
 
@@ -303,7 +307,7 @@ fullrescan(void *arg, int *ret)
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
-  scanning = false;
+  library_scanning_end(L_LIB, "fullscan");
 
   if (handle_deferred_update_notifications())
     listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
@@ -483,7 +487,6 @@ library_rescan()
       return;
     }
 
-  scanning = true; // TODO Guard "scanning" with a mutex
   commands_exec_async(cmdbase, rescan, NULL);
 }
 
@@ -496,7 +499,6 @@ library_metarescan()
       return;
     }
 
-  scanning = true; // TODO Guard "scanning" with a mutex
   commands_exec_async(cmdbase, metarescan, NULL);
 }
 
@@ -509,7 +511,6 @@ library_fullrescan()
       return;
     }
 
-  scanning = true; // TODO Guard "scanning" with a mutex
   commands_exec_async(cmdbase, fullrescan, NULL);
 }
 
@@ -521,7 +522,7 @@ initscan()
   bool clear_queue_disabled;
   int i;
 
-  scanning = true;
+  library_scanning_start(L_LIB, "initscan");
   starttime = time(NULL);
   listener_notify(LISTENER_UPDATE);
 
@@ -549,7 +550,7 @@ initscan()
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library init scan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
 
-  scanning = false;
+  library_scanning_end(L_LIB, "initscan");
 
   if (handle_deferred_update_notifications())
     listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
@@ -564,9 +565,19 @@ library_is_scanning()
 }
 
 void
-library_set_scanning(bool is_scanning)
+library_scanning_start(int domain, const char *msg)
 {
-  scanning = is_scanning;
+  DPRINTF(E_INFO, domain, "Library scan start: %s\n", msg);
+  pthread_rwlock_wrlock(&scanning_lck);
+  scanning = true;
+}
+
+void
+library_scanning_end(int domain, const char *msg)
+{
+  DPRINTF(E_INFO, domain, "Library scan end: %s\n", msg);
+  scanning = false;
+  pthread_rwlock_unlock(&scanning_lck);
 }
 
 bool
@@ -698,6 +709,7 @@ library_init(void)
   int i;
   int ret;
 
+  pthread_rwlock_init(&scanning_lck, NULL);
   scan_exit = false;
   scanning = false;
 
@@ -759,6 +771,7 @@ library_deinit()
       if (sources[i]->deinit && !sources[i]->disabled)
       sources[i]->deinit();
     }
+  pthread_rwlock_destroy(&scanning_lck);
 
   event_free(updateev);
   event_base_free(evbase_lib);

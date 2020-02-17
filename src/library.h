@@ -124,10 +124,13 @@ bool
 library_is_scanning();
 
 /*
- * @param is_scanning true if scan is running, otherwise false
+ * Put library in locked/unlocked state for scanner
  */
 void
-library_set_scanning(bool is_scanning);
+library_scanning_start(int domain, const char *msg);
+
+void
+library_scanning_end(int domain, const char *msg);
 
 /*
  * @return true if a running scan should be aborted due to imminent shutdown, otherwise false
