@@ -3534,6 +3534,44 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_podcast_create(struct httpd_request *hreq)
+{
+  const char *name;
+  const char *url;
+  int ret = -1;
+
+  name = evhttp_find_header(hreq->query, "name");
+  url = evhttp_find_header(hreq->query, "url");
+  if (!name || !url)
+    return HTTP_BADREQUEST;
+
+  ret = library_rss_save(name, url);
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_library_podcast_delete(struct httpd_request *hreq)
+{
+  const char *name;
+  const char *url;
+  int ret = -1;
+
+  name = evhttp_find_header(hreq->query, "name");
+  url = evhttp_find_header(hreq->query, "url");
+  if (!name || !url)
+    return HTTP_BADREQUEST;
+
+  ret = library_rss_remove(name, url);
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
 {
   json_object *type;
@@ -3913,6 +3951,8 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
+    { EVHTTP_REQ_POST,   "^/api/library/podcast$",                       jsonapi_reply_library_podcast_create },
+    { EVHTTP_REQ_DELETE, "^/api/library/podcast$",                       jsonapi_reply_library_podcast_delete },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
 
