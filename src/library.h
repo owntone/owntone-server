@@ -123,6 +123,9 @@ library_fullrescan();
 bool
 library_is_scanning();
 
+void
+library_rss_refresh();
+
 /*
  * @param is_scanning true if scan is running, otherwise false
  */
@@ -155,6 +158,12 @@ library_queue_save(char *path);
 
 int
 library_queue_item_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
+
+int
+library_rss_save(const char *name, const char *url);
+
+int
+library_rss_remove(const char *name, const char *url);
 
 /*
  * Execute the function 'func' with the given argument 'arg' in the library thread.

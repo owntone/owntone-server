@@ -45,6 +45,7 @@
 #include "db.h"
 #include "logger.h"
 #include "misc.h"
+#include "misc_rss.h"
 #include "listener.h"
 #include "player.h"
 
@@ -105,6 +106,8 @@ static struct event *updateev;
 static unsigned int deferred_update_notifications;
 static short deferred_update_events;
 
+static struct timeval rss_refresh_interval = { 60, 0 };
+static struct event *rssev;
 
 /* ------------------- CALLED BY LIBRARY SOURCE MODULES -------------------- */
 
@@ -472,7 +475,105 @@ update_trigger(void *arg, int *retval)
 }
 
 
+static void
+rss_refresh(int *retval)
+{
+  struct query_params query_params;
+  struct db_playlist_info dbpli;
+  struct rss_file_item *rfi = NULL;
+  struct rss_file_item *head = NULL;
+  time_t  now;
+  unsigned feeds = 0;
+  unsigned nadded = 0;
+  int ret = 0;
+
+  *retval = 0;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  DPRINTF(E_INFO, L_RSS, "Refreshing RSS feeds\n");
+  scanning = true;
+
+  query_params.type = Q_PL;
+  query_params.sort = S_PLAYLIST;
+  query_params.filter = db_mprintf("(f.type = %d)", PL_RSS);
+
+  ret = db_query_start(&query_params);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RSS, "Failed to find current RSS feeds from db\n");
+      *retval = ret;
+      goto error;
+    }
+
+  while (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
+    {
+      if (!rfi) 
+      {
+	rfi = rfi_alloc();
+	head = rfi;
+      }
+      else
+	rfi = rfi_add(rfi);
+
+      rfi->id = atol(dbpli.id);
+      rfi->title = safe_strdup(dbpli.title);
+      rfi->url = safe_strdup(dbpli.path);
+      rfi->lastupd = atol(dbpli.db_timestamp);
+    }
+  db_query_end(&query_params);
+  time(&now);
+
+  rfi = head;
+  while (rfi)
+  {
+    if (now < rfi->lastupd + rss_refresh_interval.tv_sec)
+      {
+	DPRINTF(E_DBG, L_RSS, "Skipping %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
+      }
+    else
+      {
+	DPRINTF(E_DBG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
+        db_transaction_begin();
+        rss_feed_refresh(rfi->id, time(&now), rfi->url, &nadded);
+        db_transaction_end();
+      }
+    rfi = rfi->next;
+    ++feeds;
+  }
+  scanning = false;
+
+  DPRINTF(E_INFO, L_RSS, "Completed refreshing RSS feeds: %u items: %u\n", feeds, nadded);
+
+ error:
+  free(query_params.filter);
+  free_rfi(head);
+
+  evtimer_add(rssev, &rss_refresh_interval);
+}
+
+static void
+rss_refresh_cb(int fd, short what, void *arg)
+{
+  int ret;
+  rss_refresh(&ret);
+}
+
+static enum command_state
+rss_refresh_cmd(void *arg, int *retval)
+{
+  rss_refresh(retval);
+  return COMMAND_END;
+}
+
+
 /* ----------------------- LIBRARY EXTERNAL INTERFACE ---------------------- */
+
+void
+library_rss_refresh()
+{
+  commands_exec_async(cmdbase, rss_refresh_cmd, NULL);
+}
 
 void
 library_rescan()
@@ -645,6 +746,22 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 }
 
 int
+library_rss_save(const char *name, const char *url)
+{
+  int ret;
+  ret = rss_add(name, url);
+  return ret;
+}
+
+int
+library_rss_remove(const char *name, const char *url)
+{
+  int ret;
+  ret = rss_remove(name, url);
+  return ret;
+}
+
+int
 library_exec_async(command_function func, void *arg)
 {
   return commands_exec_async(cmdbase, func, arg);
@@ -701,8 +818,18 @@ library_init(void)
   scan_exit = false;
   scanning = false;
 
+  rss_refresh_interval.tv_sec = cfg_getint(cfg_getsec(cfg, "rss"), "refresh_period");
+  if (rss_refresh_interval.tv_sec < 60)
+    {
+      DPRINTF(E_LOG, L_RSS, "RSS 'refresh_period' too low, defaulting to 60 seconds\n");
+      rss_refresh_interval.tv_sec = 60;
+    }
+  DPRINTF(E_INFO, L_RSS, "RSS refresh_period: %lu seconds\n", rss_refresh_interval.tv_sec);
+
+
   CHECK_NULL(L_LIB, evbase_lib = event_base_new());
   CHECK_NULL(L_LIB, updateev = evtimer_new(evbase_lib, update_trigger_cb, NULL));
+  CHECK_NULL(L_LIB, rssev = evtimer_new(evbase_lib, rss_refresh_cb, NULL));
 
   for (i = 0; sources[i]; i++)
     {
@@ -733,6 +860,8 @@ library_init(void)
   pthread_set_name_np(tid_library, "library");
 #endif
 
+  evtimer_add(rssev, &rss_refresh_interval);
+
   return 0;
 }
 
@@ -760,6 +889,7 @@ library_deinit()
       sources[i]->deinit();
     }
 
+  event_free(rssev);
   event_free(updateev);
   event_base_free(evbase_lib);
 }
