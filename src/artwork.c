@@ -97,6 +97,7 @@ struct artwork_ctx {
   // Input data for item handlers
   struct db_media_file_info *dbmfi;
   int id;
+  uint32_t data_kind;
   // Input data for group handlers
   int64_t persistentid;
 
@@ -171,12 +172,12 @@ static int source_item_embedded_get(struct artwork_ctx *ctx);
 static int source_item_own_get(struct artwork_ctx *ctx);
 static int source_item_stream_get(struct artwork_ctx *ctx);
 static int source_item_pipe_get(struct artwork_ctx *ctx);
+static int source_item_libspotify_get(struct artwork_ctx *ctx);
+static int source_item_spotifywebapi_track_get(struct artwork_ctx *ctx);
+static int source_item_ownpl_get(struct artwork_ctx *ctx);
+static int source_item_spotifywebapi_search_get(struct artwork_ctx *ctx);
 static int source_item_discogs_get(struct artwork_ctx *ctx);
 static int source_item_coverartarchive_get(struct artwork_ctx *ctx);
-static int source_item_spotify2_get(struct artwork_ctx *ctx);
-static int source_item_spotify_get(struct artwork_ctx *ctx);
-static int source_item_spotifywebapi_get(struct artwork_ctx *ctx);
-static int source_item_ownpl_get(struct artwork_ctx *ctx);
 
 /* List of sources that can provide artwork for a group (i.e. usually an album
  * identified by a persistentid). The source handlers will be called in the
@@ -215,26 +216,6 @@ static struct artwork_source artwork_item_source[] =
       .cache = ON_FAILURE,
     },
     {
-      // TODO merge with spotifywebapi_get
-      .name = "Spotify2",
-      .handler = source_item_spotify2_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
-      .cache = NEVER,
-    },
-    {
-      .name = "Discogs",
-      .handler = source_item_discogs_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
-      .cache = NEVER,
-    },
-    {
-      // The Cover Art Archive seems rather slow, so low priority
-      .name = "Cover Art Archive",
-      .handler = source_item_coverartarchive_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
-      .cache = NEVER,
-    },
-    {
       .name = "embedded",
       .handler = source_item_embedded_get,
       .data_kinds = (1 << DATA_KIND_FILE),
@@ -259,14 +240,14 @@ static struct artwork_source artwork_item_source[] =
       .cache = NEVER,
     },
     {
-      .name = "Spotify",
-      .handler = source_item_spotify_get,
+      .name = "libspotify",
+      .handler = source_item_libspotify_get,
       .data_kinds = (1 << DATA_KIND_SPOTIFY),
       .cache = ON_SUCCESS,
     },
     {
-      .name = "Spotify web api",
-      .handler = source_item_spotifywebapi_get,
+      .name = "Spotify track web api",
+      .handler = source_item_spotifywebapi_track_get,
       .data_kinds = (1 << DATA_KIND_SPOTIFY),
       .cache = ON_SUCCESS | ON_FAILURE,
     },
@@ -275,6 +256,44 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
       .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
+      .name = "Spotify search web api (files)",
+      .handler = source_item_spotifywebapi_search_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
+      .name = "Spotify search web api (streams)",
+      .handler = source_item_spotifywebapi_search_get,
+      .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
+      .cache = NEVER,
+    },
+    {
+      .name = "Discogs (files)",
+      .handler = source_item_discogs_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
+      .name = "Discogs (streams)",
+      .handler = source_item_discogs_get,
+      .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
+      .cache = NEVER,
+    },
+    {
+      // The Cover Art Archive seems rather slow, so low priority
+      .name = "Cover Art Archive (files)",
+      .handler = source_item_coverartarchive_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
+      // The Cover Art Archive seems rather slow, so low priority
+      .name = "Cover Art Archive (streams)",
+      .handler = source_item_coverartarchive_get,
+      .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
+      .cache = NEVER,
     },
     {
       .name = NULL,
@@ -299,6 +318,7 @@ static struct online_source spotify_source =
     .query_parts =
       {
 	{ "q", "artist:$ARTIST$ album:$ALBUM$" },
+	{ "q", "artist:$ARTIST$ track:$TITLE$" },
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_spotify,
@@ -330,6 +350,7 @@ static struct online_source musicbrainz_source =
     .query_parts =
       {
 	{ "query", "artist:$ARTIST$ AND release:$ALBUM$ AND status:Official" },
+	{ "query", "artist:$ARTIST$ AND title:$TITLE$ AND status:Official" },
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_musicbrainz,
@@ -952,16 +973,56 @@ online_source_response_parse(char **artwork_url, struct online_source *src, stru
 }
 
 static int
-online_source_request_url_make(char *url, size_t url_size, struct online_source *src, const char *artist, const char *album, const char *title)
+online_source_request_url_make(char *url, size_t url_size, struct online_source *src, struct artwork_ctx *ctx)
 {
+  struct db_queue_item *queue_item;
   struct keyval query = { 0 };
+  const char *artist = NULL;
+  const char *album = NULL;
+  const char *title = NULL;
   char param[512];
-  char *encoded_query;
+  char *encoded_query = NULL;
   int ret;
   int i;
 
+  // First check if the item is in the queue. When searching for artwork, it is
+  // better to use queue_item metadata. For stream items the queue metadata will
+  // for instance be updated with icy metadata. It is also possible we are asked
+  // for artwork for a non-library item.
+  queue_item = db_queue_fetch_byfileid(ctx->id);
+  if (queue_item && ctx->data_kind == DATA_KIND_HTTP)
+    {
+      // Normally we prefer searching by artist and album, but for streams we
+      // take the below approach, since they have no album information, and the
+      // title is in the album field
+      artist = queue_item->artist;
+      title = queue_item->album;
+    }
+  else if (queue_item)
+    {
+      artist = queue_item->artist;
+      album = queue_item->album;
+    }
+  else
+    {
+      // We will just search for artist and album
+      artist = ctx->dbmfi->artist;
+      album = ctx->dbmfi->album;
+    }
+
+  if (!artist || (!album && !title))
+    {
+      DPRINTF(E_DBG, L_ART, "Cannot construct query to %s, missing input data (artist=%s, album=%s, title=%s)\n", src->name, artist, album, title);
+      goto error;
+    }
+
   for (i = 0; src->query_parts[i].key; i++)
     {
+      if (!album && strstr(src->query_parts[i].template, "$ALBUM$"))
+	continue;
+      if (!title && strstr(src->query_parts[i].template, "$TITLE$"))
+	continue;
+
       snprintf(param, sizeof(param), "%s", src->query_parts[i].template);
       if ((safe_snreplace(param, sizeof(param), "$ARTIST$", artist) < 0) ||
 	  (safe_snreplace(param, sizeof(param), "$ALBUM$", album) < 0) ||
@@ -992,11 +1053,14 @@ online_source_request_url_make(char *url, size_t url_size, struct online_source 
 
   free(encoded_query);
   keyval_clear(&query);
+  free_queue_item(queue_item, 0);
 
   return 0;
 
  error:
+  free(encoded_query);
   keyval_clear(&query);
+  free_queue_item(queue_item, 0);
   return -1;
 }
 
@@ -1010,14 +1074,7 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
   char auth_header[256];
   int ret;
 
-  if (!ctx->dbmfi->artist || !ctx->dbmfi->album || !ctx->dbmfi->title)
-    {
-      DPRINTF(E_DBG, L_ART, "Skipping artwork source %s, missing input data (artist=%s, album=%s, title=%s)\n",
-	src->name, ctx->dbmfi->artist, ctx->dbmfi->album, ctx->dbmfi->title);
-      return NULL;
-    }
-
-  ret = online_source_request_url_make(url, sizeof(url), src, ctx->dbmfi->artist, ctx->dbmfi->album, ctx->dbmfi->title);
+  ret = online_source_request_url_make(url, sizeof(url), src, ctx);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_ART, "Skipping artwork source %s, could not construct a request URL\n", src->name);
@@ -1382,34 +1439,7 @@ source_item_coverartarchive_get(struct artwork_ctx *ctx)
 
 #ifdef HAVE_SPOTIFY_H
 static int
-source_item_spotify2_get(struct artwork_ctx *ctx)
-{
-  struct spotifywebapi_access_token info;
-  char *url;
-  int ret;
-
-  if (!online_source_is_enabled("enable_spotify"))
-    return ART_E_NONE;
-
-  spotifywebapi_access_token_get(&info);
-  if (!info.token)
-    return ART_E_ERROR;
-
-  spotify_source.auth_secret = info.token;
-
-  url = online_source_search(&spotify_source, ctx);
-  free(info.token);
-  if (!url)
-    return ART_E_NONE;
-
-  ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
-
-  free(url);
-  return ret;
-}
-
-static int
-source_item_spotify_get(struct artwork_ctx *ctx)
+source_item_libspotify_get(struct artwork_ctx *ctx)
 {
   struct evbuffer *raw;
   int ret;
@@ -1437,7 +1467,7 @@ source_item_spotify_get(struct artwork_ctx *ctx)
 }
 
 static int
-source_item_spotifywebapi_get(struct artwork_ctx *ctx)
+source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
 {
   char *artwork_url;
   int ret;
@@ -1454,26 +1484,53 @@ source_item_spotifywebapi_get(struct artwork_ctx *ctx)
   free(artwork_url);
   return ret;
 }
+
+static int
+source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
+{
+  struct spotifywebapi_access_token info;
+  char *url;
+  int ret;
+
+  if (!online_source_is_enabled("enable_spotify"))
+    return ART_E_NONE;
+
+  spotifywebapi_access_token_get(&info);
+  if (!info.token)
+    return ART_E_ERROR;
+
+  spotify_source.auth_secret = info.token;
+
+  url = online_source_search(&spotify_source, ctx);
+  free(info.token);
+  if (!url)
+    return ART_E_NONE;
+
+  ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
+
+  free(url);
+  return ret;
+}
 #else
 static int
-source_item_spotify2_get(struct artwork_ctx *ctx)
+source_item_libspotify_get(struct artwork_ctx *ctx)
+{
+  return ART_E_ERROR;
+}
+
+static int
+source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
+{
+  return ART_E_ERROR;
+}
+
+static int
+source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
 {
   // Silence compiler warning about spotify_source being unused
   (void)spotify_source;
 
   return ART_E_NONE;
-}
-
-static int
-source_item_spotify_get(struct artwork_ctx *ctx)
-{
-  return ART_E_ERROR;
-}
-
-static int
-source_item_spotifywebapi_get(struct artwork_ctx *ctx)
-{
-  return ART_E_ERROR;
 }
 #endif
 
@@ -1538,7 +1595,6 @@ static int
 process_items(struct artwork_ctx *ctx, int item_mode)
 {
   struct db_media_file_info dbmfi;
-  uint32_t data_kind;
   int i;
   int ret;
 
@@ -1560,8 +1616,8 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 	goto no_artwork;
 
       ret = (safe_atoi32(dbmfi.id, &ctx->id) < 0) ||
-            (safe_atou32(dbmfi.data_kind, &data_kind) < 0) ||
-            (data_kind > 30);
+            (safe_atou32(dbmfi.data_kind, &ctx->data_kind) < 0) ||
+            (ctx->data_kind > 30);
       if (ret)
 	{
 	  DPRINTF(E_LOG, L_ART, "Error converting dbmfi id or data_kind to number\n");
@@ -1570,7 +1626,7 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 
       for (i = 0; artwork_item_source[i].handler; i++)
 	{
-	  if ((artwork_item_source[i].data_kinds & (1 << data_kind)) == 0)
+	  if ((artwork_item_source[i].data_kinds & (1 << ctx->data_kind)) == 0)
 	    continue;
 
 	  // If just one handler says we should not cache a negative result then we obey that
