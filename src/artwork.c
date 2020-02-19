@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2015-2020 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -68,6 +68,10 @@
 #define ART_E_NONE 0
 #define ART_E_ERROR -1
 #define ART_E_ABORT -2
+
+// See online_source_is_failing()
+#define ONLINE_SEARCH_COOLDOWN_TIME 3600
+#define ONLINE_SEARCH_FAILURES_MAX 3
 
 enum artwork_cache
 {
@@ -145,10 +149,20 @@ struct online_source {
   // How to search for artwork
   char *search_endpoint;
   char *search_param;
-  struct query_part {
+  struct {
     const char *key;
     const char *template;
   } query_parts[8];
+
+  // Cache previous artwork searches, so we can avoid futile requests
+  struct {
+    int last_id;
+    uint32_t last_hash;
+    int last_response_code;
+    char *last_artwork_url;
+    time_t last_timestamp;
+    int count_failures;
+  } search_history;
 
   // Function that can extract the artwork url from the parsed json response
   enum parse_result (*response_jparse)(char **artwork_url, json_object *response, int max_w, int max_h);
@@ -314,10 +328,10 @@ static struct online_source spotify_source =
     .name = "Spotify",
     .auth_header = "Bearer $SECRET$",
     .search_endpoint = "https://api.spotify.com/v1/search",
-    .search_param = "type=album&limit=1&$QUERY$",
+    .search_param = "type=track&limit=1&$QUERY$",
     .query_parts =
       {
-	{ "q", "artist:$ARTIST$ album:$ALBUM$" },
+	{ "q", "artist:$ARTIST$ album:$ALBUM$" }, // TODO test if album search works with type=track
 	{ "q", "artist:$ARTIST$ track:$TITLE$" },
 	{ NULL, NULL },
       },
@@ -815,7 +829,8 @@ artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char 
   return artwork_get(evbuf, path, NULL, max_w, max_h, false);
 }
 
-/* Retrieves artwork from a URL. Will rescale if needed.
+/* Retrieves artwork from an URL. Will use cache as appropriate, and will
+ * rescale if needed.
  *
  * @out artwork   Image data
  * @in  url       URL of the artwork
@@ -827,21 +842,34 @@ static int
 artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_h)
 {
   struct evbuffer *raw;
-  int content_type;
+  int format;
   int ret;
 
   CHECK_NULL(L_ART, raw = evbuffer_new());
 
-  content_type = artwork_read_byurl(raw, url);
-  if (content_type < 0)
+  ret = cache_artwork_read(raw, url, &format);
+  if (ret == 0 && format > 0)
+    {
+      ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
+      if (ret < 0)
+        goto error;
+
+      evbuffer_free(raw);
+      return format;
+    }
+
+  format = artwork_read_byurl(raw, url);
+  if (format < 0)
     goto error;
+
+  cache_artwork_stash(raw, url, format);
 
   ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
   if (ret < 0)
     goto error;
 
   evbuffer_free(raw);
-  return content_type;
+  return format;
 
  error:
   evbuffer_free(raw);
@@ -910,9 +938,9 @@ response_jparse_spotify(char **artwork_url, json_object *response, int max_w, in
   int image_count;
   int i;
 
-  images = JPARSE_SELECT(response, "albums", "items", "images");
+  images = JPARSE_SELECT(response, "tracks", "items", "album", "images");
   if (!images || json_object_get_type(images) != json_type_array)
-    return ONLINE_SOURCE_PARSE_INVALID;
+    return ONLINE_SOURCE_PARSE_NOT_FOUND;
 
   // Find first image that has a smaller width than the given max_w (this should
   // avoid the need for resizing and improve performance at the cost of some
@@ -1064,12 +1092,53 @@ online_source_request_url_make(char *url, size_t url_size, struct online_source 
   return -1;
 }
 
+static bool
+online_source_is_failing(struct online_source *src, int id)
+{
+  // If the last request was more than ONLINE_SEARCH_COOLDOWN_TIME ago we will always try again
+  if (time(NULL) > src->search_history.last_timestamp + ONLINE_SEARCH_COOLDOWN_TIME)
+    return false;
+
+  // We won't try again if the source was not replying as expected
+  if (src->search_history.last_response_code != HTTP_OK)
+    return true;
+
+  // The playback source has changed since the last search, let's give it a chance
+  // (internet streams can feed us with garbage search metadata, but will not change id)
+  if (id != src->search_history.last_id)
+    return false;
+
+  // We allow up to ONLINE_SEARCH_FAILURES_MAX for the same track id before declaring failure
+  if (src->search_history.count_failures < ONLINE_SEARCH_FAILURES_MAX)
+    return false;
+
+  return true;
+}
+
+static void
+online_source_history_update(struct online_source *src, int id, uint32_t request_hash, int response_code, const char *artwork_url)
+{
+  src->search_history.last_id = id;
+  src->search_history.last_hash = request_hash;
+  src->search_history.last_response_code = response_code;
+  src->search_history.last_timestamp = time(NULL);
+
+  free(src->search_history.last_artwork_url);
+  src->search_history.last_artwork_url = safe_strdup(artwork_url); // FIXME should free this on exit
+
+  if (artwork_url)
+    src->search_history.count_failures = 0;
+  else
+    src->search_history.count_failures++;
+}
+
 static char *
 online_source_search(struct online_source *src, struct artwork_ctx *ctx)
 {
   char *artwork_url;
   struct http_client_ctx client = { 0 };
   struct keyval output_headers = { 0 };
+  uint32_t hash;
   char url[2048];
   char auth_header[256];
   int ret;
@@ -1078,6 +1147,21 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_ART, "Skipping artwork source %s, could not construct a request URL\n", src->name);
+      return NULL;
+    }
+
+  // Be nice to our peer + improve response times by not repeating search requests
+  hash = djb_hash(url, strlen(url));
+  if (hash == src->search_history.last_hash)
+    {
+      artwork_url = safe_strdup(src->search_history.last_artwork_url);
+      return artwork_url;
+    }
+
+  // If our recent searches have been futile we may give the source a break
+  if (online_source_is_failing(src, ctx->id))
+    {
+      DPRINTF(E_DBG, L_ART, "Skipping artwork source %s, too many failed requests\n", src->name);
       return NULL;
     }
 
@@ -1103,8 +1187,7 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
   if (ret < 0 || client.response_code != HTTP_OK)
     {
       DPRINTF(E_WARN, L_ART, "Artwork request to '%s' failed, response code %d\n", url, client.response_code);
-      evbuffer_free(client.input_body);
-      return NULL;
+      goto error;
     }
 
   ret = online_source_response_parse(&artwork_url, src, client.input_body, ctx->max_w, ctx->max_h);
@@ -1117,12 +1200,17 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
   else if (ret != ONLINE_SOURCE_PARSE_OK)
     DPRINTF(E_LOG, L_ART, "Bug! Cannot parse response from source '%s', unknown error\n", src->name);
 
-  evbuffer_free(client.input_body);
-
   if (ret != ONLINE_SOURCE_PARSE_OK)
-    return NULL;
+    goto error;
 
+  online_source_history_update(src, ctx->id, hash, client.response_code, artwork_url);
+  evbuffer_free(client.input_body);
   return artwork_url;
+
+ error:
+  online_source_history_update(src, ctx->id, hash, client.response_code, NULL);
+  evbuffer_free(client.input_body);
+  return NULL;
 }
 
 static bool
@@ -1314,8 +1402,7 @@ source_item_own_get(struct artwork_ctx *ctx)
  * stream (the StreamUrl tag). The path will be converted back to the id, which
  * is given to the player. If the id is currently being played, and there is a
  * valid ICY metadata artwork URL available, it will be returned to this
- * function, which will then use the http client to get the artwork. Notice: No
- * rescaling is done.
+ * function, which will then use the http client to get the artwork.
  */
 static int
 source_item_stream_get(struct artwork_ctx *ctx)
@@ -1350,17 +1437,7 @@ source_item_stream_get(struct artwork_ctx *ctx)
   if ((strcmp(ext, ".jpg") != 0) && (strcmp(ext, ".png") != 0))
     goto out_url;
 
-  cache_artwork_read(ctx->evbuf, url, &ret);
-  if (ret > 0)
-    goto out_url;
-
-  ret = artwork_read_byurl(ctx->evbuf, url);
-
-  if (ret > 0)
-    {
-      DPRINTF(E_SPAM, L_ART, "Found internet stream artwork in %s (%d)\n", url, ret);
-      cache_artwork_stash(ctx->evbuf, url, ret);
-    }
+  ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
 
  out_url:
   free(url);
