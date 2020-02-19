@@ -39,7 +39,8 @@
 #include <time.h>
 
 #include <event2/event.h>
-#include <mrss.h>
+#include <mxml.h>
+#include "mxml-compat.h"
 
 #include "logger.h"
 #include "db.h"
@@ -260,6 +261,7 @@ process_apple_rss(const char *rss_url)
       if (json_object_object_get_ex(json, "results", &jsonra) && (feedURL = jparse_str_from_array(jsonra, 0, "feedUrl")) )
         {
           buf = strcpy(malloc(strlen(feedURL)+1), feedURL);
+	  DPRINTF(E_DBG, L_RSS, "mapped apple podcast URL: %s -> %s\n", rss_url, buf);
         }
       else
         DPRINTF(E_DBG, L_RSS, "Could not parse feedURL from RSS apple, podcast id %u\n", podid);
@@ -370,165 +372,183 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded)
   unsigned len = 0;
   bool has_artwork = false;
 
-  const char *category_author = NULL;
-  mrss_t *data = NULL;
-  mrss_tag_t *tag = NULL;
-  mrss_error_t mret;
-  mrss_item_t *item = NULL;
-  CURLcode code;
+  char *apple_url = NULL;
 
-  int ret = 0;
+  const char *rss_xml = NULL;
+  mxml_node_t *tree = NULL;
+  mxml_node_t *channel;
+  mxml_node_t *node;
+  mxml_node_t *item;
+  const char *rss_feed_title = NULL;
+  const char *rss_feed_author = NULL;
+  const char *rss_item_title = NULL;
+  const char *rss_item_pubDate = NULL;
+  const char *rss_item_url = NULL;
+  const char *rss_item_link = NULL;
+  const char *rss_item_type = NULL;
+
+  struct http_client_ctx ctx;
+  struct evbuffer *evbuf;
+
+  int ret = -1;
 
   DPRINTF(E_DBG, L_RSS, "Refreshing RSS id: %u url:%s\n", pl_id, url);
   db_pl_ping(pl_id);
   db_pl_ping_items_bymatch("http://", pl_id);
   db_pl_ping_items_bymatch("https://", pl_id);
 
-  mret = mrss_parse_url_with_options_and_error((char*)url, &data, NULL, &code);
-  if (mret)
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    goto cleanup;
+
+  // Is it an apple podcast stream?
+  // ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
+  if (strncmp(url, "https://podcasts.apple.com/", 27) == 0)
+    apple_url = process_apple_rss(url);
+
+  memset(&ctx, 0, sizeof(struct http_client_ctx));
+  ctx.url = apple_url ? apple_url : url;
+  ctx.input_body = evbuf;
+
+  ret = http_client_request(&ctx);
+  if (ret < 0 || (ret && ctx.response_code != HTTP_OK))
     {
-      DPRINTF(E_LOG, L_RSS, "Could not parse RSS from '%s': %s\n", url, mret==MRSS_ERR_DOWNLOAD ? mrss_curl_strerror(code) : mrss_strerror(mret));
-      ret = -1;
+      DPRINTF(E_WARN, L_RSS, "Failed to fetch RSS id: %u url: %s resp: %d\n", pl_id, url, ctx.response_code);
       goto cleanup;
     }
 
-  /* Expect: 'Channel' (used as 'album name') followed by sequence of 'Items' (used as 'tracks' with artist,title,enclosure_url)
-   * Look at pubDate in items to determine if it's new
-   *
-        Channel:
-                title: CGP Grey
-                description: CGP Grey explains videos.
-                link: http://www.cgpgrey.com
-                language: en
-                rating: (null)
-                copyright: 2011-2015
-                pubDate: Sun, 26 Jan 2020 15:43:07 +0000
-                lastBuildDate: Sun, 09 Feb 2020 15:48:27 +0000
-                docs: http://www.cgpgrey.com
-                managingeditor: (null)
-                webMaster: (null)
-                generator: Libsyn WebEngine 2.0
-                ttl: 0
-        Image:
-                image_title: CGP Grey
-                image_url: http://static.libsyn.com/p/assets/0/a/6/3/0a636b838b034e38/cgp-logo-itunes.png
-                image_link: http://www.cgpgrey.com
-                image_width: 0
-                image_height: 0
-                image_description: (null)
-        Items:
-                title: Your Theme
-                link: http://cgpgrey.libsyn.com/your-theme
-                description:
-                author: (null)
-                comments: (null)
-                pubDate: Sun, 26 Jan 2020 15:43:07 +0000
-                guid: 8d394457-02b5-4bc8-bce8-619aa87d395c
-                guid_isPermaLink: 0
-                source: (null)
-                source_url: (null)
-                enclosure: (null)
-                enclosure_url: http://traffic.libsyn.com/cgpgrey/Your_New_Years_Resolution_Has_Already_Failed.mp4?dest-id=256939
-                enclosure_length: 25467531
-                enclosure_type: video/mp4
-   */
-
-
-  // Author can be found in the following places in order of preferance:
-  // .. the media stream object itself (but not m4v/mp4 streams)
-  // .. feed's item object
-  // .. channel's author tag (failsafe)
-  tag = data->other_tags;
-  while (tag)
+  evbuffer_add(ctx.input_body, "", 1);
+  rss_xml = (const char*)evbuffer_pullup(ctx.input_body, -1);
+  if (!rss_xml || strlen(rss_xml) == 0)
     {
-      if (strcmp(tag->name, "author") == 0)
-        {
-          category_author = tag->value;
-          break;
-        }
-      tag = tag->next;
+      DPRINTF(E_WARN, L_RSS, "Failed to fetch valid RSS/xml data RSS id: %u url: %sn", pl_id, url);
+      goto cleanup;
     }
 
-  item = data->item;
-  while (item)
+  tree = mxmlLoadString(NULL, rss_xml, MXML_OPAQUE_CALLBACK);
+
+  channel = mxmlFindElement(tree, tree, "channel", NULL, NULL, MXML_DESCEND);
+  if (channel == NULL)
     {
-      DPRINTF(E_DBG, L_RSS, "Feed provides RSS id: %d name: '%s' url: %s pubdate: %s title: '%s'\n", pl_id, data->title, item->enclosure_url, item->pubDate, item->title);
-      if (item->enclosure_url)
-        {
-	  memset(&mfi, 0, sizeof(struct media_file_info));
-
-	  len = strlen(item->enclosure_url)+2;
-	  if (len > vpathlen)
-	    {
-	      vpathlen = len;
-	      free(vpath);
-	      vpath = malloc(len);
-	    }
-	  sprintf(vpath, "/%s", item->enclosure_url);
-
-	  // check if this item is already in the db - if so, we can stop since the RSS is given to us as LIFO stream
-	  if ((feed_file_id = db_file_id_by_virtualpath_match(vpath)) > 0)
-	    {
-	      DPRINTF(E_DBG, L_RSS, "Most recent DB RSS id: %d name: '%s' url: %s file_id: %d pubdate: %s title: '%s'\n", pl_id, data->title, url, feed_file_id, item->pubDate, item->title);
-	      break;
-	    }
-	  DPRINTF(E_INFO, L_RSS, "Adding item to RSS id: %d name: '%s' url: %s pubdate: %s title: '%s'\n", pl_id, data->title, item->enclosure_url, item->pubDate, item->title);
-
-	  // attempt to get artwork if its this is first new item in feed
-	  if (data->image_url && *nadded == 0)
-	    has_artwork = process_image_url(data->image_url, url);  // TODO!!! no local file path to download
-
-          scan_metadata_stream(&mfi, item->enclosure_url);
-
-          // Always take the meta from media file if possible; some podcasts
-          // (apple) can use mp4 streams which tend not to have decent tags so 
-          // in those cases take info from the RSS and not the stream
-          if (!mfi.artist) mfi.artist = safe_strdup(item->author ? item->author : category_author);
-          if (!mfi.album)  mfi.album  = safe_strdup(data->title);
-          if (!mfi.url)    mfi.url    = safe_strdup(item->link);
-          if (!mfi.genre)  mfi.genre  = strdup("Podcast");
-
-          // Title not valid on mp4 (it becomes the url obj) so take from RSS feed
-          free(mfi.title); mfi.title  = safe_strdup(item->title);
-
-          // Ignore this - some can be very verbose - we don't show use these
-          // on the podcast
-          free(mfi.comment); mfi.comment = NULL;
-
-          // date is always from the RSS feed info
-          rss_date(&tm, item->pubDate);
-          mfi.date_released = mktime(&tm);
-          mfi.year = 1900 + tm.tm_year;
-
-          mfi.media_kind = MEDIA_KIND_PODCAST;
-
-	  // Fake the time - useful when we are adding a new stream - since the
-	  // newest podcasts are added first (the stream is most recent first)
-	  // having time_added date which is older on the most recent episodes
-	  // makes no sense so make all the dates the same for a singleu update
-	  mfi.time_added = mtime;
-
-          if (has_artwork)
-            mfi.artwork = ARTWORK_DIR;
-
-          mfi.id = db_file_id_bypath(item->enclosure_url);
-
-          ret = library_media_save(&mfi);
-          db_pl_add_item_bypath(pl_id, item->enclosure_url);
-
-          *nadded = *nadded +1;
-          if (*nadded%50 == 0)
-            {
-              DPRINTF(E_INFO, L_RSS, "RSS added %d entries...\n", *nadded);
-            }
-        }
-      free_mfi(&mfi, 1);
-      item = item->next;
+      DPRINTF(E_WARN, L_RSS, "Invalid RSS/xml, missing 'channel' node - RSS id: %u url: %s\n", pl_id, url);
+      DPRINTF(E_DBG, L_RSS, "RSS xml len: %ld xml: { %s }\n", strlen(rss_xml), rss_xml);
+      goto cleanup;
     }
+
+  node = mxmlFindElement(channel, channel, "title", NULL, NULL, MXML_DESCEND);
+  if (!node)
+    {
+      DPRINTF(E_WARN, L_RSS, "Invalid RSS/xml, missing 'title' - RSS id: %u url: %s\n", pl_id, url);
+      goto cleanup;
+    }
+  rss_feed_title = mxmlGetOpaque(node);
+
+  node = mxmlFindElement(channel, channel, "itunes:author", NULL, NULL, MXML_DESCEND);
+  if (node)
+    rss_feed_author = mxmlGetOpaque(node);
+
+  node = mxmlFindElement(channel, channel, "image", NULL, NULL, MXML_DESCEND);
+  if (node && (item = mxmlFindElement(node, node, "url", NULL, NULL, MXML_DESCEND)))
+    has_artwork = process_image_url(mxmlGetOpaque(item), url);  // TODO!!! no local file path to download
+
+
+  memset(&mfi, 0, sizeof(struct media_file_info));
+  for (node = mxmlFindElement(channel, channel, "item", NULL, NULL, MXML_DESCEND); 
+       node != NULL; 
+       node = mxmlFindElement(node, channel, "item", NULL, NULL, MXML_DESCEND))
+  {
+    item = mxmlFindElement(node, node, "title", NULL, NULL, MXML_DESCEND);
+    rss_item_title = mxmlGetOpaque(item);
+
+    item = mxmlFindElement(node, node, "pubDate", NULL, NULL, MXML_DESCEND);
+    rss_item_pubDate = mxmlGetOpaque(item);
+
+    item = mxmlFindElement(node, node, "link", NULL, NULL, MXML_DESCEND);
+    rss_item_link = mxmlGetOpaque(item);
+
+    item = mxmlFindElement(node, node, "enclosure", NULL, NULL, MXML_DESCEND);
+    rss_item_url = mxmlElementGetAttr(item, "url");
+    rss_item_type = mxmlElementGetAttr(item, "type");
+
+    DPRINTF(E_DBG, L_RSS, "Feed provides RSS id: %d name: '%s' pubDate: %s url: %s title: '%s'\n", pl_id, rss_feed_title, rss_item_pubDate, rss_item_url, rss_item_title);
+    if (!rss_item_url)
+      continue;
+
+ 
+    len = strlen(rss_item_url)+2;
+    if (len > vpathlen)
+      {
+	vpathlen = len;
+	free(vpath);
+	vpath = malloc(len);
+      }
+    sprintf(vpath, "/%s", rss_item_url);
+
+    // check if this item is already in the db - if so, we can stop since the RSS is given to us as LIFO stream
+    if ((feed_file_id = db_file_id_by_virtualpath_match(vpath)) > 0)
+      {
+	DPRINTF(E_DBG, L_RSS, "Most recent DB RSS id: %d name: '%s' url: %s file_id: %d pubdate: %s title: '%s'\n", pl_id, rss_feed_title, url, feed_file_id, rss_item_pubDate, rss_item_title);
+	break;
+      }
+    DPRINTF(E_INFO, L_RSS, "Adding item to RSS id: %d name: '%s' url: %s pubdate: %s title: '%s'\n", pl_id, rss_feed_title, rss_item_url, rss_item_pubDate, rss_item_title);
+
+    scan_metadata_stream(&mfi, rss_item_url);
+
+    // Always take the meta from media file if possible; some podcasts
+    // (apple) can use mp4 streams which tend not to have decent tags so 
+    // in those cases take info from the RSS and not the stream
+    if (!mfi.artist) mfi.artist = safe_strdup(rss_feed_author);
+    if (!mfi.album)  mfi.album  = safe_strdup(rss_feed_title);
+    if (!mfi.url)    mfi.url    = safe_strdup(rss_item_link);
+    if (!mfi.genre)  mfi.genre  = strdup("Podcast");
+
+    // Title not valid on most mp4 (it becomes the url obj) so take from RSS feed
+    if (rss_item_type && strncmp("video", rss_item_type, 5) == 0)
+      {
+	free(mfi.title);
+	mfi.title = safe_strdup(rss_item_title);
+      }
+
+    // Ignore this - some can be very verbose - we don't show use these
+    // on the podcast
+    free(mfi.comment); mfi.comment = NULL;
+
+    // date is always from the RSS feed info
+    rss_date(&tm, rss_item_pubDate);
+    mfi.date_released = mktime(&tm);
+    mfi.year = 1900 + tm.tm_year;
+
+    mfi.media_kind = MEDIA_KIND_PODCAST;
+
+    // Fake the time - useful when we are adding a new stream - since the
+    // newest podcasts are added first (the stream is most recent first)
+    // having time_added date which is older on the most recent episodes
+    // makes no sense so make all the dates the same for a singleu update
+    mfi.time_added = mtime;
+
+    if (has_artwork)
+      mfi.artwork = ARTWORK_DIR;
+
+    mfi.id = db_file_id_bypath(rss_item_url);
+
+    ret = library_media_save(&mfi);
+    db_pl_add_item_bypath(pl_id, rss_item_url);
+
+    *nadded = *nadded +1;
+    if (*nadded%50 == 0)
+      {
+	DPRINTF(E_INFO, L_RSS, "RSS added %d entries...\n", *nadded);
+      }
+
+    free_mfi(&mfi, 1);
+  }
+
 
 cleanup:
-  mrss_free(data);
+  evbuffer_free(evbuf);
+  mxmlDelete(tree);
   free(vpath);
+  free(apple_url);
 
   return ret;
 }
@@ -537,8 +557,6 @@ int
 rss_add(const char *name, const char *feed_url)
 {
   int pl_id = -1;
-  char *apple_url = NULL;
-  const char *url = NULL;
   time_t now;
   unsigned nadded = 0;
   bool isnew = false;
@@ -556,14 +574,7 @@ rss_add(const char *name, const char *feed_url)
   if (pl_id < 0 || !isnew)
     return -1;
 
-  url = feed_url;
-
-  // Is it an apple podcast stream? ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
-  if (strncmp(feed_url, "https://podcasts.apple.com/", 27) == 0)
-    url = apple_url = process_apple_rss(feed_url);
-
-  ret = rss_feed_refresh(pl_id, now, url, &nadded);
-  free(apple_url);
+  ret = rss_feed_refresh(pl_id, now, feed_url, &nadded);
   if (ret < 0) 
     {
       DPRINTF(E_LOG, L_RSS, "Failed to add RSS %s\n", feed_url);
