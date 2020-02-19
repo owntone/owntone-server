@@ -660,6 +660,8 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 
 	      metadata->title = strdup(ptr + 3);
 	    }
+	  else if (strlen(metadata->title) == 0)
+	    metadata->title = NULL;
 	  else
 	    metadata->title = strdup(metadata->title);
 	}
