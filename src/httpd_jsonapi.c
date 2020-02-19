@@ -2037,7 +2037,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
     }
   else if (queue_item->file_id > 0 && queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
-      if (queue_item->data_kind != DATA_KIND_PIPE)
+      if (queue_item->data_kind == DATA_KIND_FILE)
 	{
 	  // Queue item does not have a valid artwork url, construct artwork url to
 	  // get the image through the httpd_artworkapi (uses the artwork handlers).
@@ -2047,7 +2047,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 	}
       else
 	{
-	  // Pipe metadata can change if the queue version changes. Construct artwork url
+	  // Pipe and stream metadata can change if the queue version changes. Construct artwork url
 	  // similar to non-pipe items, but append the queue version to the url to force
 	  // clients to reload image if the queue version changes (additional metadata was found).
 	  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d?v=%d", queue_item->file_id, queue_item->queue_version);
