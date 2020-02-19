@@ -31,7 +31,7 @@ void
 cache_artwork_ping(const char *path, time_t mtime, int del);
 
 int
-cache_artwork_delete_by_path(char *path);
+cache_artwork_delete_by_path(const char *path);
 
 int
 cache_artwork_purge_cruft(time_t ref);
@@ -43,10 +43,10 @@ int
 cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cached, int *format, struct evbuffer *evbuf);
 
 int
-cache_artwork_stash(struct evbuffer *evbuf, char *path, int format);
+cache_artwork_stash(struct evbuffer *evbuf, const char *path, int format);
 
 int
-cache_artwork_read(struct evbuffer *evbuf, char *path, int *format);
+cache_artwork_read(struct evbuffer *evbuf, const char *path, int *format);
 
 /* ---------------------------- Cache API  --------------------------- */
 
