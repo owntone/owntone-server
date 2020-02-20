@@ -25,10 +25,6 @@ if COND_MPD
 MPD_SRC=mpd.c mpd.h
 endif
 
-if COND_MRSS
-MRSS_SRC=misc_rss.h misc_rss.c
-endif
-
 if COND_RAOP_VERIFICATION
 RAOP_VERIFICATION_SRC=outputs/raop_verification.c outputs/raop_verification.h
 endif
@@ -147,7 +143,7 @@ forked_daapd_SOURCES = main.c \
 	commands.c commands.h \
 	mxml-compat.h \
 	$(LIBWEBSOCKETS_SRC) \
-	$(MRSS_SRC) \
+	misc_rss.h misc_rss.c \
 	$(GPERF_SRC) \
 	$(ANTLR_SRC) 
 
