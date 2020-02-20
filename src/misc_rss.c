@@ -495,6 +495,13 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, lon
 
     scan_metadata_stream(&mfi, rss_item_url);
 
+    if (mfi.song_length == 0 && mfi.file_size == 0)
+      {
+	DPRINTF(E_INFO, L_RSS, "Ignoring item (empty media) RSS id: %d name: '%s' url: %s pubdate: %s title: '%s'\n", pl_id, rss_feed_title, rss_item_url, rss_item_pubDate, rss_item_title);
+	free_mfi(&mfi, 1);
+	continue;
+      }
+
     // Always take the meta from media file if possible; some podcasts
     // (apple) can use mp4 streams which tend not to have decent tags so 
     // in those cases take info from the RSS and not the stream
