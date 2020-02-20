@@ -3544,7 +3544,10 @@ jsonapi_reply_library_podcast_create(struct httpd_request *hreq)
   name = evhttp_find_header(hreq->query, "name");
   url = evhttp_find_header(hreq->query, "url");
   if (!name || !url)
-    return HTTP_BADREQUEST;
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing parameters: name: '%s' url: '%s'\n", name, url);
+      return HTTP_BADREQUEST;
+    }
 
   limit = evhttp_find_header(hreq->query, "limit");
   if (limit == NULL)
@@ -3565,7 +3568,10 @@ jsonapi_reply_library_podcast_delete(struct httpd_request *hreq)
 
   url = evhttp_find_header(hreq->query, "url");
   if (!url)
-    return HTTP_BADREQUEST;
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing url parameter\n");
+      return HTTP_BADREQUEST;
+    }
 
   ret = library_rss_remove(url);
   if (ret < 0)
