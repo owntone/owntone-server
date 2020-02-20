@@ -3538,6 +3538,7 @@ jsonapi_reply_library_podcast_create(struct httpd_request *hreq)
 {
   const char *name;
   const char *url;
+  const char *limit;
   int ret = -1;
 
   name = evhttp_find_header(hreq->query, "name");
@@ -3545,7 +3546,11 @@ jsonapi_reply_library_podcast_create(struct httpd_request *hreq)
   if (!name || !url)
     return HTTP_BADREQUEST;
 
-  ret = library_rss_save(name, url);
+  limit = evhttp_find_header(hreq->query, "limit");
+  if (limit == NULL)
+    limit = "-1";
+
+  ret = library_rss_save(name, url, atol(limit));
   if (ret < 0)
     return HTTP_INTERNAL;
 
