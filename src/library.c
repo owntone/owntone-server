@@ -339,7 +339,9 @@ fullrescan(void *arg, int *ret)
 
   player_playback_stop();
   db_queue_clear(0);
+  db_rss_tmp_clone();
   db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+  db_rss_tmp_restore();
 
   for (i = 0; sources[i]; i++)
     {
@@ -353,6 +355,7 @@ fullrescan(void *arg, int *ret)
 	  DPRINTF(E_INFO, L_LIB, "Library source '%s' is disabled\n", sources[i]->name);
 	}
     }
+  rss_refresh(ret);
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);

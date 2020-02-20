@@ -535,6 +535,12 @@ db_purge_cruft(time_t ref);
 void
 db_purge_all(void);
 
+void
+db_rss_tmp_clone();
+
+void
+db_rss_tmp_restore();
+
 /* Transactions */
 void
 db_transaction_begin(void);

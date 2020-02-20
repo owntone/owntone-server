@@ -1525,6 +1525,77 @@ db_purge_all(void)
 #undef Q_TMPL_DIR
 }
 
+void
+db_rss_tmp_clone()
+{
+#define Q_TMPL_PL "CREATE TEMP TABLE nonlibrss AS SELECT * FROM PLAYLISTS WHERE TYPE=%d AND PATH LIKE 'http%%';"
+  char *errmsg;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL_PL, PL_RSS);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running RSS clone query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "RSS clone query '%s' error: %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+  else
+    DPRINTF(E_DBG, L_DB, "RSS clone %d rows\n", sqlite3_changes(hdl));
+  sqlite3_free(query);
+
+#undef Q_TMPL_PL
+}
+
+void
+db_rss_tmp_restore()
+{
+#define Q_TMPL_PL "INSERT OR FAIL INTO playlists SELECT * FROM nonlibrss;"
+  char *errmsg;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL_PL, PL_RSS);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running RSS clone restore query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "RSS clone restore query '%s' error: %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+  else
+    DPRINTF(E_DBG, L_DB, "RSS clone restored %d rows\n", sqlite3_changes(hdl));
+  sqlite3_free(query);
+
+
+  ret = db_exec("DROP TABLE nonlibrss;", &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "RSS clone restore query '%s' error: %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+
+#undef Q_TMPL_PL
+}
+
 static int
 db_get_one_int(const char *query)
 {
