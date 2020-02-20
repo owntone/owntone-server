@@ -25,12 +25,13 @@ free_rfi(struct rss_file_item* rfi);
 
 
 int
-rss_add(const char *name, const char *url);
+rss_add(const char *name, const char *url, long limit);
 
 int
 rss_remove(const char *name, const char *url);
 
+// limit <= 0 means take all recent items on the RSS feed
 int
-rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded);
+rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, long limit);
 
 #endif

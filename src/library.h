@@ -160,7 +160,7 @@ int
 library_queue_item_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
 
 int
-library_rss_save(const char *name, const char *url);
+library_rss_save(const char *name, const char *url, long limit);
 
 int
 library_rss_remove(const char *name, const char *url);

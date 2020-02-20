@@ -362,7 +362,7 @@ rss_playlist_items(int plid)
 
 
 int
-rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded)
+rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, long limit)
 {
   struct media_file_info mfi;
   char *vpath = NULL;
@@ -392,7 +392,7 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded)
 
   int ret = -1;
 
-  DPRINTF(E_DBG, L_RSS, "Refreshing RSS id: %u url:%s\n", pl_id, url);
+  DPRINTF(E_DBG, L_RSS, "Refreshing RSS id: %u url: %s limit: %ld\n", pl_id, url, limit);
   db_pl_ping(pl_id);
   db_pl_ping_items_bymatch("http://", pl_id);
   db_pl_ping_items_bymatch("https://", pl_id);
@@ -547,6 +547,12 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded)
       }
 
     free_mfi(&mfi, 1);
+
+    if (limit > 0 && *nadded == limit)
+      {
+	DPRINTF(E_INFO, L_RSS, "RSS added limit reached, added %d entries...\n", *nadded);
+	break;
+      }
   }
 
 
@@ -560,7 +566,7 @@ cleanup:
 }
 
 int
-rss_add(const char *name, const char *feed_url)
+rss_add(const char *name, const char *feed_url, long limit)
 {
   int pl_id = -1;
   time_t now;
@@ -580,7 +586,7 @@ rss_add(const char *name, const char *feed_url)
   if (pl_id < 0 || !isnew)
     return -1;
 
-  ret = rss_feed_refresh(pl_id, now, feed_url, &nadded);
+  ret = rss_feed_refresh(pl_id, now, feed_url, &nadded, limit);
   if (ret < 0) 
     {
       DPRINTF(E_LOG, L_RSS, "Failed to add RSS %s\n", feed_url);

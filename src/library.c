@@ -581,7 +581,7 @@ rss_refresh(int *retval)
   {
     DPRINTF(E_DBG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
     db_transaction_begin();
-    rss_feed_refresh(rfi->id, time(&now), rfi->url, &nadded);
+    rss_feed_refresh(rfi->id, time(&now), rfi->url, &nadded, -1);
     db_transaction_end();
 
     rfi = rfi->next;
@@ -793,10 +793,10 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 }
 
 int
-library_rss_save(const char *name, const char *url)
+library_rss_save(const char *name, const char *url, long limit)
 {
   int ret;
-  ret = rss_add(name, url);
+  ret = rss_add(name, url, limit);
   return ret;
 }
 
