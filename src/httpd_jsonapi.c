@@ -3152,7 +3152,7 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("(f.type = %d OR f.type = %d)", PL_PLAIN, PL_SMART);
+  query_params.filter = db_mprintf("(f.type = %d OR f.type = %d OR f.type = %d)", PL_PLAIN, PL_SMART, PL_RSS);
 
   ret = fetch_playlists(&query_params, items, &total);
   free(query_params.filter);
@@ -3786,7 +3786,7 @@ search_playlists(json_object *reply, struct httpd_request *hreq, const char *par
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("((f.type = %d OR f.type = %d) AND f.title LIKE '%%%q%%')", PL_PLAIN, PL_SMART, param_query);
+  query_params.filter = db_mprintf("((f.type = %d OR f.type = %d OR f.type = %d) AND f.title LIKE '%%%q%%')", PL_PLAIN, PL_SMART, PL_RSS, param_query);
 
   ret = fetch_playlists(&query_params, items, &total);
   if (ret < 0)
