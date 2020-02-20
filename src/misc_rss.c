@@ -583,8 +583,14 @@ rss_add(const char *name, const char *feed_url, long limit)
 
   time(&now);
   pl_id = rss_playlist_prepare(feed_url, name, now, &isnew);
-  if (pl_id < 0 || !isnew)
+  if (pl_id < 0)
     return -1;
+
+  if (!isnew)
+    {
+      DPRINTF(E_LOG, L_RSS, "Duplicate RSS exists id: %d url: %s\n", pl_id, feed_url);
+      return -1;
+    }
 
   ret = rss_feed_refresh(pl_id, now, feed_url, &nadded, limit);
   if (ret < 0) 
