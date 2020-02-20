@@ -272,64 +272,6 @@ process_apple_rss(const char *rss_url)
   return buf;
 }
 
-static bool
-process_image_url(const char *image_url, const char *file)
-{
-  char *ptr;
-  const char *img_extn;
-  char path[PATH_MAX];
-
-  struct http_client_ctx ctx;
-  struct evbuffer *evbuf;
-  int fd;
-  int ret;
-
-  if (!image_url || !file)
-    return false;
-
-  if ((img_extn = strrchr(image_url, '.')) == NULL)
-    return false;
- 
-  strncpy(path, file, sizeof(path));
-  if ( (ptr = strrchr(path, '.')) == NULL)
-    return false;
-
-  strcpy(ptr, img_extn);
-
-  if ((fd = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0644)) < 0)
-    {
-      DPRINTF(E_INFO, L_RSS, "Could not create file '%s' for RSS image: %s\n", path, strerror(errno));
-      return false;
-    }
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      close(fd);
-      return false;
-    }
-
-  memset(&ctx, 0, sizeof(struct http_client_ctx));
-  ctx.url = image_url;
-  ctx.input_body = evbuf;
-
-  ret = http_client_request(&ctx);
-  if (ret < 0 || (ret && ctx.response_code != HTTP_OK))
-    {
-      DPRINTF(E_INFO, L_RSS, "Could not retreive RSS image\n");
-    }
-  else
-    {
-      while (evbuffer_write(evbuf, fd) > 0) ;
-    }
-
-  close(fd);
-  evbuffer_free(evbuf);
-
-  return true;
-}
-
-
 #ifdef RSS_DEBUG
 static void
 rss_playlist_items(int plid)
@@ -370,7 +312,6 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, lon
   struct tm tm;
   unsigned vpathlen = 0;
   unsigned len = 0;
-  bool has_artwork = false;
 
   char *apple_url = NULL;
 
@@ -446,12 +387,6 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, lon
   node = mxmlFindElement(channel, channel, "itunes:author", NULL, NULL, MXML_DESCEND);
   if (node)
     rss_feed_author = mxmlGetOpaque(node);
-
-  /* TODO - online stream has no local 'album' so we can't DL for any benefit
-  node = mxmlFindElement(channel, channel, "image", NULL, NULL, MXML_DESCEND);
-  if (node && (item = mxmlFindElement(node, node, "url", NULL, NULL, MXML_DESCEND)))
-    has_artwork = process_image_url(mxmlGetOpaque(item), url);
-   */
 
   memset(&mfi, 0, sizeof(struct media_file_info));
   for (node = mxmlFindElement(channel, channel, "item", NULL, NULL, MXML_DESCEND); 
@@ -533,14 +468,6 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, lon
     // having time_added date which is older on the most recent episodes
     // makes no sense so make all the dates the same for a singleu update
     mfi.time_added = mtime;
-
-    /* TODO - some online mp3 have artwork embbed and its pickd up by the
-     * scan_metadata_stream above - however this does not get picked up by
-     * the artwork cache
-    if (has_artwork)
-      mfi.artwork = ARTWORK_DIR;
-     */
-
 
     mfi.id = db_file_id_bypath(rss_item_url);
 
