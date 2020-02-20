@@ -3560,16 +3560,14 @@ jsonapi_reply_library_podcast_create(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_podcast_delete(struct httpd_request *hreq)
 {
-  const char *name;
   const char *url;
   int ret = -1;
 
-  name = evhttp_find_header(hreq->query, "name");
   url = evhttp_find_header(hreq->query, "url");
-  if (!name || !url)
+  if (!url)
     return HTTP_BADREQUEST;
 
-  ret = library_rss_remove(name, url);
+  ret = library_rss_remove(url);
   if (ret < 0)
     return HTTP_INTERNAL;
 

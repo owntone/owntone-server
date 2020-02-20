@@ -163,7 +163,7 @@ int
 library_rss_save(const char *name, const char *url, long limit);
 
 int
-library_rss_remove(const char *name, const char *url);
+library_rss_remove(const char *url);
 
 /*
  * Execute the function 'func' with the given argument 'arg' in the library thread.

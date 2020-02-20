@@ -28,7 +28,7 @@ int
 rss_add(const char *name, const char *url, long limit);
 
 int
-rss_remove(const char *name, const char *url);
+rss_remove(const char *url);
 
 // limit <= 0 means take all recent items on the RSS feed
 int

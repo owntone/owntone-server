@@ -801,10 +801,10 @@ library_rss_save(const char *name, const char *url, long limit)
 }
 
 int
-library_rss_remove(const char *name, const char *url)
+library_rss_remove(const char *url)
 {
   int ret;
-  ret = rss_remove(name, url);
+  ret = rss_remove(url);
   return ret;
 }
 

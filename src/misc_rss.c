@@ -600,15 +600,15 @@ rss_add(const char *name, const char *feed_url, long limit)
 }
 
 int
-rss_remove(const char *name, const char *feed_url)
+rss_remove(const char *feed_url)
 {
   int pl_id;
 
-  DPRINTF(E_DBG, L_RSS, "removing RSS: '%s' '%s'\n", name, feed_url);
+  DPRINTF(E_DBG, L_RSS, "removing RSS: '%s'\n", feed_url);
   pl_id = db_pl_id_bypath(feed_url);
   if (pl_id < 0)
     {
-      DPRINTF(E_INFO, L_RSS, "Cannot remove RSS - No such RSS feed: '%s' '%s'\n", name, feed_url);
+      DPRINTF(E_INFO, L_RSS, "Cannot remove RSS - No such RSS feed: '%s'\n", feed_url);
       return -1;
     }
 
