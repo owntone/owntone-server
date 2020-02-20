@@ -447,10 +447,11 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded)
   if (node)
     rss_feed_author = mxmlGetOpaque(node);
 
+  /* TODO - online stream has no local 'album' so we can't DL for any benefit
   node = mxmlFindElement(channel, channel, "image", NULL, NULL, MXML_DESCEND);
   if (node && (item = mxmlFindElement(node, node, "url", NULL, NULL, MXML_DESCEND)))
-    has_artwork = process_image_url(mxmlGetOpaque(item), url);  // TODO!!! no local file path to download
-
+    has_artwork = process_image_url(mxmlGetOpaque(item), url);
+   */
 
   memset(&mfi, 0, sizeof(struct media_file_info));
   for (node = mxmlFindElement(channel, channel, "item", NULL, NULL, MXML_DESCEND); 
@@ -526,8 +527,13 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded)
     // makes no sense so make all the dates the same for a singleu update
     mfi.time_added = mtime;
 
+    /* TODO - some online mp3 have artwork embbed and its pickd up by the
+     * scan_metadata_stream above - however this does not get picked up by
+     * the artwork cache
     if (has_artwork)
       mfi.artwork = ARTWORK_DIR;
+     */
+
 
     mfi.id = db_file_id_bypath(rss_item_url);
 
