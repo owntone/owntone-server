@@ -4,7 +4,17 @@
       <template slot="heading-left">
         <p class="title is-4">New episodes</p>
       </template>
-      <template slot="content">
+      <template slot="heading-right">
+      <div class="buttons is-centered">
+        <a class="button is-small" @click="mark_all_played">
+          <span class="icon">
+            <i class="mdi mdi-pencil"></i>
+          </span>
+          <span>Mark All Played</span>
+        </a>
+      </div>
+    </template>
+    <template slot="content">
         <list-item-track v-for="track in new_episodes.items" :key="track.id" :track="track" @click="play_track(track)">
           <template slot="progress">
             <range-slider
@@ -31,6 +41,16 @@
         <p class="title is-4">Podcasts</p>
         <p class="heading">{{ albums.total }} podcasts</p>
       </template>
+      <template slot="heading-right">
+        <div class="buttons is-centered">
+          <a class="button is-small" @click="open_add_stream_dialog">
+            <span class="icon">
+              <i class="mdi mdi-rss"></i>
+            </span>
+            <span>RSS Subscriptions</span>
+          </a>
+        </div>
+      </template>
       <template slot="content">
         <list-item-album v-for="album in albums.items" :key="album.id" :album="album" :media_kind="'podcast'" @click="open_album(album)">
           <template slot="actions">
@@ -40,6 +60,7 @@
           </template>
         </list-item-album>
         <modal-dialog-album :show="show_album_details_modal" :album="selected_album" :media_kind="'podcast'" @close="show_album_details_modal = false" />
+        <modal-dialog-add-rss :show="show_url_modal" @close="show_url_modal = false" @rss_change="reload_podcasts"/>
       </template>
     </content-with-heading>
   </div>
@@ -52,6 +73,7 @@ import ListItemTrack from '@/components/ListItemTrack'
 import ListItemAlbum from '@/components/ListItemAlbum'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ModalDialogAddRss from '@/components/ModalDialogAddRss'
 import RangeSlider from 'vue-range-slider'
 import webapi from '@/webapi'
 
@@ -72,7 +94,7 @@ const albumsData = {
 export default {
   name: 'PagePodcasts',
   mixins: [ LoadDataBeforeEnterMixin(albumsData) ],
-  components: { ContentWithHeading, ListItemTrack, ListItemAlbum, ModalDialogTrack, ModalDialogAlbum, RangeSlider },
+  components: { ContentWithHeading, ListItemTrack, ListItemAlbum, ModalDialogTrack, ModalDialogAlbum, ModalDialogAddRss, RangeSlider },
 
   data () {
     return {
@@ -81,6 +103,8 @@ export default {
 
       show_album_details_modal: false,
       selected_album: {},
+
+      show_url_modal: false,
 
       show_track_details_modal: false,
       selected_track: {}
@@ -106,9 +130,27 @@ export default {
       this.show_album_details_modal = true
     },
 
+    mark_all_played: function () {
+      this.new_episodes.items.forEach(ep => {
+        webapi.library_track_update(ep.id, { 'play_count': 'increment' })
+      })
+      this.new_episodes.items = { }
+    },
+
+    open_add_stream_dialog: function (item) {
+      this.show_url_modal = true
+    },
+
     reload_new_episodes: function () {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
         this.new_episodes = data.tracks
+      })
+    },
+
+    reload_podcasts: function () {
+      webapi.library_podcasts().then(({ data }) => {
+        this.albums = data
+        this.reload_new_episodes()
       })
     }
   }
