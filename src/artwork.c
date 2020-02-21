@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <pthread.h>
 
 #include "db.h"
 #include "misc.h"
@@ -78,6 +79,7 @@ enum artwork_cache
   NEVER = 0,       // No caching of any results
   ON_SUCCESS = 1,  // Cache if artwork found
   ON_FAILURE = 2,  // Cache if artwork not found (so we don't keep asking)
+  STASH = 4,  // Only cache "short term": Cache holds just one image, useful for streams
 };
 
 /* This struct contains the data available to the handler, as well as a char
@@ -87,7 +89,7 @@ enum artwork_cache
  * changes.
  */
 struct artwork_ctx {
-  // Handler should output path here if artwork is local
+  // Handler should output path or URL to artwork here
   char path[PATH_MAX];
   // Handler should output artwork data to this evbuffer
   struct evbuffer *evbuf;
@@ -139,25 +141,31 @@ enum parse_result {
 
 struct online_source {
   // Name of online source
-  char *name;
+  const char *name;
+  const bool is_default;
+
+  const char *setting_name;
 
   // How to authorize (using the Authorize http header)
-  char *auth_header;
-  char *auth_key;
-  char *auth_secret;
+  const char *auth_header;
+  const char *auth_key;
+  const char *auth_secret;
 
   // How to search for artwork
-  char *search_endpoint;
-  char *search_param;
+  const char *search_endpoint;
+  const char *search_param;
   struct {
     const char *key;
     const char *template;
   } query_parts[8];
 
-  // Cache previous artwork searches, so we can avoid futile requests
+  // Remember previous artwork searches, used to avoid futile requests
   struct {
+    pthread_mutex_t mutex;
     int last_id;
     uint32_t last_hash;
+    int last_max_w;
+    int last_max_h;
     int last_response_code;
     char *last_artwork_url;
     time_t last_timestamp;
@@ -245,7 +253,7 @@ static struct artwork_source artwork_item_source[] =
       .name = "stream",
       .handler = source_item_stream_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
-      .cache = NEVER,
+      .cache = STASH,
     },
     {
       .name = "pipe",
@@ -281,7 +289,7 @@ static struct artwork_source artwork_item_source[] =
       .name = "Spotify search web api (streams)",
       .handler = source_item_spotifywebapi_search_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
-      .cache = NEVER,
+      .cache = STASH,
     },
     {
       .name = "Discogs (files)",
@@ -293,7 +301,7 @@ static struct artwork_source artwork_item_source[] =
       .name = "Discogs (streams)",
       .handler = source_item_discogs_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
-      .cache = NEVER,
+      .cache = STASH,
     },
     {
       // The Cover Art Archive seems rather slow, so low priority
@@ -307,7 +315,7 @@ static struct artwork_source artwork_item_source[] =
       .name = "Cover Art Archive (streams)",
       .handler = source_item_coverartarchive_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
-      .cache = NEVER,
+      .cache = STASH,
     },
     {
       .name = NULL,
@@ -326,6 +334,8 @@ static enum parse_result response_jparse_musicbrainz(char **artwork_url, json_ob
 static struct online_source spotify_source =
   {
     .name = "Spotify",
+    .is_default = true,
+    .setting_name = "use_artwork_source_spotify",
     .auth_header = "Bearer $SECRET$",
     .search_endpoint = "https://api.spotify.com/v1/search",
     .search_param = "type=track&limit=1&$QUERY$",
@@ -336,11 +346,14 @@ static struct online_source spotify_source =
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_spotify,
+    .search_history = { .mutex = PTHREAD_MUTEX_INITIALIZER },
   };
 
 static struct online_source discogs_source =
   {
     .name = "Discogs",
+    .is_default = false,
+    .setting_name = "use_artwork_source_discogs",
     .auth_header = "Discogs key=$KEY$, secret=$SECRET$",
     .auth_key = "ivzUxlkUiwpptDKpSCHF",
     .auth_secret = "CYLZyExtlznKCupoIIhTpHVDReLunhUo",
@@ -354,11 +367,14 @@ static struct online_source discogs_source =
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_discogs,
+    .search_history = { .mutex = PTHREAD_MUTEX_INITIALIZER },
   };
 
 static struct online_source musicbrainz_source =
   {
     .name = "Musicbrainz",
+    .is_default = false,
+    .setting_name = "use_artwork_source_coverartarchive",
     .search_endpoint = "http://musicbrainz.org/ws/2/release-group/",
     .search_param = "limit=1&fmt=json&$QUERY$",
     .query_parts =
@@ -368,6 +384,7 @@ static struct online_source musicbrainz_source =
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_musicbrainz,
+    .search_history = { .mutex = PTHREAD_MUTEX_INITIALIZER },
   };
 
 
@@ -829,8 +846,8 @@ artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char 
   return artwork_get(evbuf, path, NULL, max_w, max_h, false);
 }
 
-/* Retrieves artwork from an URL. Will use cache as appropriate, and will
- * rescale if needed.
+/* Retrieves artwork from an URL, will rescale if needed. Checks the cache stash
+ * before making a request.
  *
  * @out artwork   Image data
  * @in  url       URL of the artwork
@@ -852,7 +869,7 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
     {
       ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
       if (ret < 0)
-        goto error;
+	goto error;
 
       evbuffer_free(raw);
       return format;
@@ -861,8 +878,6 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   format = artwork_read_byurl(raw, url);
   if (format < 0)
     goto error;
-
-  cache_artwork_stash(raw, url, format);
 
   ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
   if (ret < 0)
@@ -1092,32 +1107,59 @@ online_source_request_url_make(char *url, size_t url_size, struct online_source 
   return -1;
 }
 
+static char *
+online_source_search_check_last(struct online_source *src, uint32_t hash, int max_w, int max_h)
+{
+  char *last_artwork_url = NULL;
+  bool is_same;
+
+  pthread_mutex_lock(&src->search_history.mutex);
+
+  is_same = (hash == src->search_history.last_hash) &&
+            (max_w == src->search_history.last_max_w) &&
+            (max_h == src->search_history.last_max_h);
+
+  if (is_same)
+    last_artwork_url = safe_strdup(src->search_history.last_artwork_url);
+
+  pthread_mutex_unlock(&src->search_history.mutex);
+
+  return last_artwork_url;
+}
+
 static bool
 online_source_is_failing(struct online_source *src, int id)
 {
+  bool is_failing;
+
+  pthread_mutex_lock(&src->search_history.mutex);
+
   // If the last request was more than ONLINE_SEARCH_COOLDOWN_TIME ago we will always try again
   if (time(NULL) > src->search_history.last_timestamp + ONLINE_SEARCH_COOLDOWN_TIME)
-    return false;
-
+    is_failing = false;
   // We won't try again if the source was not replying as expected
-  if (src->search_history.last_response_code != HTTP_OK)
-    return true;
-
+  else if (src->search_history.last_response_code != HTTP_OK)
+    is_failing = true;
   // The playback source has changed since the last search, let's give it a chance
   // (internet streams can feed us with garbage search metadata, but will not change id)
-  if (id != src->search_history.last_id)
-    return false;
-
+  else if (id != src->search_history.last_id)
+    is_failing = false;
   // We allow up to ONLINE_SEARCH_FAILURES_MAX for the same track id before declaring failure
-  if (src->search_history.count_failures < ONLINE_SEARCH_FAILURES_MAX)
-    return false;
+  else if (src->search_history.count_failures < ONLINE_SEARCH_FAILURES_MAX)
+    is_failing = false;
+  else
+    is_failing = true;
 
-  return true;
+  pthread_mutex_unlock(&src->search_history.mutex);
+
+  return is_failing;
 }
 
 static void
 online_source_history_update(struct online_source *src, int id, uint32_t request_hash, int response_code, const char *artwork_url)
 {
+  pthread_mutex_lock(&src->search_history.mutex);
+
   src->search_history.last_id = id;
   src->search_history.last_hash = request_hash;
   src->search_history.last_response_code = response_code;
@@ -1130,6 +1172,8 @@ online_source_history_update(struct online_source *src, int id, uint32_t request
     src->search_history.count_failures = 0;
   else
     src->search_history.count_failures++;
+
+  pthread_mutex_unlock(&src->search_history.mutex);
 }
 
 static char *
@@ -1143,6 +1187,8 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
   char auth_header[256];
   int ret;
 
+  DPRINTF(E_SPAM, L_ART, "Trying %s for %s\n", src->name, ctx->dbmfi->path);
+
   ret = online_source_request_url_make(url, sizeof(url), src, ctx);
   if (ret < 0)
     {
@@ -1152,11 +1198,9 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
 
   // Be nice to our peer + improve response times by not repeating search requests
   hash = djb_hash(url, strlen(url));
-  if (hash == src->search_history.last_hash)
-    {
-      artwork_url = safe_strdup(src->search_history.last_artwork_url);
-      return artwork_url;
-    }
+  artwork_url = online_source_search_check_last(src, hash, ctx->max_w, ctx->max_h);
+  if (artwork_url)
+    return artwork_url;
 
   // If our recent searches have been futile we may give the source a break
   if (online_source_is_failing(src, ctx->id))
@@ -1214,20 +1258,37 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
 }
 
 static bool
-online_source_is_enabled(const char *setting_name)
+online_source_is_enabled(struct online_source *src)
 {
   struct settings_category *category;
-  struct settings_option *option;
+  cfg_t *lib;
+  const char *name;
+  int n_cfg;
+  int i;
 
-  category = settings_category_get("artwork");
-  if (!category)
-    return false;
+  lib = cfg_getsec(cfg, "library");
 
-  option = settings_option_get(category, setting_name);
-  if (!option)
-    return false;
+  n_cfg = cfg_size(lib, "artwork_online_sources");
+  if (n_cfg == 0) // User didn't set anything in the config file, use settings
+    {
+      category = settings_category_get("artwork");
+      if (!category)
+	return src->is_default;
 
-  return settings_option_getbool(option);
+//      if (!settings_option_is_set(category, src->setting_name))
+//	return src->is_default;
+
+      return settings_option_getbool(settings_option_get(category, src->setting_name));
+    }
+
+  for (i = 0; i < n_cfg; i++)
+    {
+      name = cfg_getnstr(lib, "artwork_online_sources", i);
+      if (strcasecmp(name, src->name) == 0)
+        return true;
+    }
+
+  return src->is_default;
 }
 
 
@@ -1479,12 +1540,14 @@ source_item_discogs_get(struct artwork_ctx *ctx)
   char *url;
   int ret;
 
-  if (!online_source_is_enabled("enable_discogs"))
+  if (!online_source_is_enabled(&discogs_source))
     return ART_E_NONE;
 
   url = online_source_search(&discogs_source, ctx);
   if (!url)
     return ART_E_NONE;
+
+  snprintf(ctx->path, sizeof(ctx->path), "%s", url);
 
   ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
 
@@ -1498,7 +1561,7 @@ source_item_coverartarchive_get(struct artwork_ctx *ctx)
   char *url;
   int ret;
 
-  if (!online_source_is_enabled("enable_coverartarchive"))
+  if (!online_source_is_enabled(&musicbrainz_source))
     return ART_E_NONE;
 
   // We search Musicbrainz to get the Musicbrainz ID, which we need to get the
@@ -1507,7 +1570,8 @@ source_item_coverartarchive_get(struct artwork_ctx *ctx)
   if (!url)
     return ART_E_NONE;
 
-  // TODO add support in http client for 307 redirects
+  snprintf(ctx->path, sizeof(ctx->path), "%s", url);
+
   ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
 
   free(url);
@@ -1526,7 +1590,7 @@ source_item_libspotify_get(struct artwork_ctx *ctx)
   ret = spotify_artwork_get(raw, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_ART, "No artwork from Spotify for %s\n", ctx->dbmfi->path);
+      DPRINTF(E_WARN, L_ART, "No artwork from libspotify for %s\n", ctx->dbmfi->path);
       evbuffer_free(raw);
       return ART_E_NONE;
     }
@@ -1534,7 +1598,7 @@ source_item_libspotify_get(struct artwork_ctx *ctx)
   ret = artwork_evbuf_rescale(ctx->evbuf, raw, ctx->max_w, ctx->max_h);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_ART, "Could not rescale Spotify artwork for '%s'\n", ctx->dbmfi->path);
+      DPRINTF(E_LOG, L_ART, "Could not rescale libspotify artwork for '%s'\n", ctx->dbmfi->path);
       evbuffer_free(raw);
       return ART_E_ERROR;
     }
@@ -1569,7 +1633,7 @@ source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
   char *url;
   int ret;
 
-  if (!online_source_is_enabled("enable_spotify"))
+  if (!online_source_is_enabled(&spotify_source))
     return ART_E_NONE;
 
   spotifywebapi_access_token_get(&info);
@@ -1582,6 +1646,8 @@ source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
   free(info.token);
   if (!url)
     return ART_E_NONE;
+
+  snprintf(ctx->path, sizeof(ctx->path), "%s", url);
 
   ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
 
@@ -1719,7 +1785,7 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 	  if (ret > 0)
 	    {
 	      DPRINTF(E_DBG, L_ART, "Artwork for '%s' found in source '%s'\n", dbmfi.title, artwork_item_source[i].name);
-	      ctx->cache = (artwork_item_source[i].cache & ON_SUCCESS);
+	      ctx->cache = artwork_item_source[i].cache;
 	      db_query_end(&ctx->qp);
 	      return ret;
 	    }
@@ -1774,7 +1840,7 @@ process_group(struct artwork_ctx *ctx)
       if (ret > 0)
 	{
 	  DPRINTF(E_DBG, L_ART, "Artwork for group %" PRIi64 " found in source '%s'\n", ctx->persistentid, artwork_group_source[i].name);
-	  ctx->cache = (artwork_group_source[i].cache & ON_SUCCESS);
+	  ctx->cache = artwork_group_source[i].cache;
 	  return ret;
 	}
       else if (ret == ART_E_ABORT)
@@ -1805,7 +1871,7 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
   char filter[32];
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", id);
+  DPRINTF(E_DBG, L_ART, "Artwork request for item %d (max_w=%d, max_h=%d)\n", id, max_w, max_h);
 
   if (id == DB_MEDIA_FILE_NON_PERSISTENT_ID)
     return  -1;
@@ -1832,8 +1898,10 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
   ret = process_items(&ctx, 1);
   if (ret > 0)
     {
-      if (ctx.cache == ON_SUCCESS)
+      if (ctx.cache & ON_SUCCESS)
 	cache_artwork_add(CACHE_ARTWORK_INDIVIDUAL, id, max_w, max_h, ret, ctx.path, evbuf);
+      if (ctx.cache & STASH)
+	cache_artwork_stash(evbuf, ctx.path, ret);
 
       return ret;
     }
@@ -1844,15 +1912,17 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
   ret = process_group(&ctx);
   if (ret > 0)
     {
-      if (ctx.cache == ON_SUCCESS)
+      if (ctx.cache & ON_SUCCESS)
 	cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, ret, ctx.path, evbuf);
+      if (ctx.cache & STASH)
+	cache_artwork_stash(evbuf, ctx.path, ret);
 
       return ret;
     }
 
   DPRINTF(E_DBG, L_ART, "No artwork found for item %d\n", id);
 
-  if (ctx.cache == ON_FAILURE)
+  if (ctx.cache & ON_FAILURE)
     cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, 0, "", evbuf);
 
   return -1;
@@ -1864,7 +1934,7 @@ artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h)
   struct artwork_ctx ctx;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
+  DPRINTF(E_DBG, L_ART, "Artwork request for group %d (max_w=%d, max_h=%d)\n", id, max_w, max_h);
 
   memset(&ctx, 0, sizeof(struct artwork_ctx));
 
@@ -1887,15 +1957,17 @@ artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h)
   ret = process_group(&ctx);
   if (ret > 0)
     {
-      if (ctx.cache == ON_SUCCESS)
+      if (ctx.cache & ON_SUCCESS)
 	cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, ret, ctx.path, evbuf);
+      if (ctx.cache & STASH)
+	cache_artwork_stash(evbuf, ctx.path, ret);
 
       return ret;
     }
 
   DPRINTF(E_DBG, L_ART, "No artwork found for group %d\n", id);
 
-  if (ctx.cache == ON_FAILURE)
+  if (ctx.cache & ON_FAILURE)
     cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, 0, "", evbuf);
 
   return -1;

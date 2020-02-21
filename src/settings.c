@@ -33,9 +33,9 @@ static struct settings_option webinterface_options[] =
 
 static struct settings_option artwork_options[] =
   {
-      { "enable_spotify", SETTINGS_TYPE_BOOL },
-      { "enable_discogs", SETTINGS_TYPE_BOOL },
-      { "enable_coverartarchive", SETTINGS_TYPE_BOOL },
+      { "use_artwork_source_spotify", SETTINGS_TYPE_BOOL },
+      { "use_artwork_source_discogs", SETTINGS_TYPE_BOOL },
+      { "use_artwork_source_coverartarchive", SETTINGS_TYPE_BOOL },
   };
 
 static struct settings_category categories[] =
@@ -105,6 +105,7 @@ settings_option_get(struct settings_category *category, const char *name)
   return NULL;
 }
 
+
 int
 settings_option_getint(struct settings_option *option)
 {
@@ -113,7 +114,6 @@ settings_option_getint(struct settings_option *option)
 
   return db_admin_getint(option->name);
 }
-
 
 bool
 settings_option_getbool(struct settings_option *option)

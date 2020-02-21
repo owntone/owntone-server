@@ -42,9 +42,9 @@ settings_option_get_byindex(struct settings_category *category, int index);
 struct settings_option *
 settings_option_get(struct settings_category *category, const char *name);
 
+
 int
 settings_option_getint(struct settings_option *option);
-
 
 bool
 settings_option_getbool(struct settings_option *option);

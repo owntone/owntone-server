@@ -92,6 +92,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR("name_radio", "Radio", CFGF_NONE),
     CFG_STR_LIST("artwork_basenames", "{artwork,cover,Folder}", CFGF_NONE),
     CFG_BOOL("artwork_individual", cfg_false, CFGF_NONE),
+    CFG_STR_LIST("artwork_online_sources", NULL, CFGF_NONE),
     CFG_STR_LIST("filetypes_ignore", "{.db,.ini,.db-journal,.pdf,.metadata}", CFGF_NONE),
     CFG_STR_LIST("filepath_ignore", NULL, CFGF_NONE),
     CFG_BOOL("filescan_disable", cfg_false, CFGF_NONE),
