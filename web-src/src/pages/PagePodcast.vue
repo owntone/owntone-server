@@ -1,10 +1,23 @@
 <template>
   <content-with-heading>
     <template slot="heading-left">
-      <div class="title is-4">{{ album.name }}</div>
-    </template>
+      <div class="title is-4">{{ album.name }}
+        <a class="button is-small is-danger is-outlined" @click="rss_unsubscribe">
+          <span class="icon">
+            <i class="mdi mdi-bookmark-remove"></i>
+          </span>
+          <span>Unsubscribe</span>
+        </a>
+      </div>
+     </template>
     <template slot="heading-right">
       <div class="buttons is-centered">
+        <a class="button is-small" @click="mark_all_played" v-if="unplayed">
+          <span class="icon">
+            <i class="mdi mdi-pencil"></i>
+          </span>
+          <span>Mark All Played</span>
+        </a>
         <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
           <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
         </a>
@@ -61,6 +74,7 @@ const albumData = {
   set: function (vm, response) {
     vm.album = response[0].data
     vm.tracks = response[1].data.tracks.items
+    vm.unplayed = !vm.tracks.every(track => track.play_count > 0)
   }
 }
 
@@ -73,6 +87,7 @@ export default {
     return {
       album: {},
       tracks: [],
+      unplayed: false,
 
       show_details_modal: false,
       selected_track: {},
@@ -90,9 +105,37 @@ export default {
       webapi.player_play_uri(track.uri, false)
     },
 
+    mark_all_played: function () {
+      webapi.library_album_track_update(this.album.id, { 'play_count': 'played' }).then(({ data }) => (
+        this.tracks.forEach(track => {
+          if (track.play_count === 0) {
+            track.play_count = 1
+          }
+        })
+      ))
+      this.unplayed = false
+    },
+
     open_dialog: function (track) {
       this.selected_track = track
       this.show_details_modal = true
+    },
+
+    rss_unsubscribe: function () {
+      webapi.search({ type: 'playlist', query: this.album.name }).then(({ data }) => {
+        var plids = [...new Set(data.playlists.items
+          .filter(pl => pl.name === this.album.name)
+          .map(pl => pl.id))]
+
+        if (plids.length === 1) {
+          plids.forEach(pl => {
+            webapi.library_playlist_delete(pl)
+          })
+          this.$router.push({ path: '/podcasts' })
+        } else {
+          this.$store.dispatch('add_notification', { text: 'Failed to delete playlist, unable to find unique plid', type: 'danger' })
+        }
+      })
     },
 
     reload_tracks: function () {

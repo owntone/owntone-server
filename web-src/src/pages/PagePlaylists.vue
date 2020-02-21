@@ -8,7 +8,7 @@
       <list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist" @click="open_playlist(playlist)">
         <template slot="icon">
           <span class="icon">
-            <i class="mdi" :class="{ 'mdi-library-music': playlist.type !== 'folder', 'mdi-folder': playlist.type === 'folder' }"></i>
+            <i class="mdi" :class="{ 'mdi-library-music': playlist.type !== 'folder', 'mdi-rss': playlist.type === 'rss', 'mdi-folder': playlist.type === 'folder' }"></i>
           </span>
         </template>
         <template slot="actions">

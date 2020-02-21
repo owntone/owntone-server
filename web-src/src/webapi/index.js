@@ -217,6 +217,10 @@ export default {
     return axios.get('/api/library/albums/' + albumId + '/tracks')
   },
 
+  library_album_track_update (albumId, attributes) {
+    return axios.put('/api/library/albums/' + albumId + '/tracks', undefined, { params: attributes })
+  },
+
   library_genres () {
     return axios.get('/api/library/genres')
   },
@@ -277,6 +281,14 @@ export default {
     return axios.get('/api/search', {
       params: episodesParams
     })
+  },
+
+  library_add (url) {
+    return axios.post('/api/library/add', undefined, { params: { 'url': url } })
+  },
+
+  library_playlist_delete (playlistId) {
+    return axios.delete('/api/library/playlists/' + playlistId, undefined)
   },
 
   library_audiobooks () {

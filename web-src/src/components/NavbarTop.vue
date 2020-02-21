@@ -7,7 +7,7 @@
       <navbar-item-link to="/music">
         <span class="icon"><i class="mdi mdi-music"></i></span>
       </navbar-item-link>
-      <navbar-item-link to="/podcasts" v-if="podcasts.tracks > 0">
+      <navbar-item-link to="/podcasts">
         <span class="icon"><i class="mdi mdi-microphone"></i></span>
       </navbar-item-link>
       <navbar-item-link to="/audiobooks" v-if="audiobooks.tracks > 0">
