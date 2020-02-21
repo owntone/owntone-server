@@ -56,7 +56,19 @@ static struct event *rssev;
 static struct timeval rss_refresh_interval = { 60, 0 };
 static bool scanning;
 
-void
+
+// relevant fields from playlist tbl
+struct rss_file_item {
+  int id;
+  char *title;
+  char *url;
+  time_t lastupd;
+
+  struct rss_file_item *next;
+};
+
+
+static void
 free_rfi(struct rss_file_item* rfi)
 {
   if (!rfi) return;
@@ -73,7 +85,7 @@ free_rfi(struct rss_file_item* rfi)
 }
 
 // should only be called by rfi_add() and if you are getting a new list
-struct rss_file_item*
+static struct rss_file_item*
 rfi_alloc()
 {
   struct rss_file_item *obj = malloc(sizeof(struct rss_file_item));
@@ -82,7 +94,7 @@ rfi_alloc()
 }
 
 // returns the newly alloc'd / added item at end of list
-struct rss_file_item*
+static struct rss_file_item*
 rfi_add(struct rss_file_item* head)
 {
   struct rss_file_item *curr = head;
@@ -308,7 +320,8 @@ rss_playlist_items(int plid)
 #endif
 
 
-int
+// only add required number of feeds items when limit > 0
+static int
 rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, long limit)
 {
   struct media_file_info mfi;
