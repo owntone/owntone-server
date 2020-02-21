@@ -71,6 +71,10 @@ struct library_source
    */
   int (*fullrescan)(void);
 
+  /* Register timers events with library
+   */
+  int (*register_events)(struct event_base *evbase);
+
   /*
    * Add item to playlist
    */

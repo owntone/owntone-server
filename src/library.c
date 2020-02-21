@@ -895,6 +895,9 @@ library_init(void)
       ret = sources[i]->init();
       if (ret < 0)
 	sources[i]->disabled = 1;
+
+      if (sources[i]->register_events && (ret = sources[i]->register_events(evbase_lib)) < 0)
+	sources[i]->disabled = 1;
     }
 
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
