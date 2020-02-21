@@ -127,9 +127,6 @@ library_fullrescan();
 bool
 library_is_scanning();
 
-void
-library_rss_refresh();
-
 /*
  * @param is_scanning true if scan is running, otherwise false
  */

@@ -653,6 +653,8 @@ int
 library_rss_save(const char *name, const char *url, long limit)
 {
   int ret;
+  if (library_is_scanning())
+    return -1;
   ret = rss_add(name, url, limit);
   return ret;
 }
@@ -661,6 +663,8 @@ int
 library_rss_remove(const char *url)
 {
   int ret;
+  if (library_is_scanning())
+    return -1;
   ret = rss_remove(url);
   return ret;
 }
