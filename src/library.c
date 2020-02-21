@@ -45,7 +45,7 @@
 #include "db.h"
 #include "logger.h"
 #include "misc.h"
-#include "misc_rss.h"
+#include "rss.h"
 #include "listener.h"
 #include "player.h"
 
@@ -74,12 +74,14 @@ extern struct library_source filescanner;
 #ifdef HAVE_SPOTIFY_H
 extern struct library_source spotifyscanner;
 #endif
+extern struct library_source rssscanner;
 
 static struct library_source *sources[] = {
     &filescanner,
 #ifdef HAVE_SPOTIFY_H
     &spotifyscanner,
 #endif
+    &rssscanner,
     NULL
 };
 
@@ -105,9 +107,6 @@ static struct event *updateev;
 // event notifications
 static unsigned int deferred_update_notifications;
 static short deferred_update_events;
-
-static struct timeval rss_refresh_interval = { 60, 0 };
-static struct event *rssev;
 
 /* ------------------- CALLED BY LIBRARY SOURCE MODULES -------------------- */
 
@@ -179,50 +178,6 @@ handle_deferred_update_notifications(void)
   return ret;
 }
 
-static void
-rss_protect_feeds()
-{
-  struct query_params query_params;
-  struct db_playlist_info dbpli;
-  unsigned feeds = 0;
-  int pl_id;
-  int ret = 0;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  DPRINTF(E_DBG, L_RSS, "Protecting RSS feeds\n");
-
-  query_params.type = Q_PL;
-  query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("(f.type = %d)", PL_RSS);
-
-  ret = db_query_start(&query_params);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RSS, "Failed to find current RSS feeds from db\n");
-      goto error;
-    }
-
-  while (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
-    {
-      pl_id = atoi(dbpli.id);
-
-      DPRINTF(E_DBG, L_RSS, "Protecting feed id: %d '%s' at %s\n", pl_id, dbpli.title, dbpli.path);
-
-      db_pl_ping(pl_id);
-      db_pl_ping_items_bymatch("http://", pl_id);
-      db_pl_ping_items_bymatch("https://", pl_id);
-
-      ++feeds;
-    }
-  db_query_end(&query_params);
-
-  DPRINTF(E_DBG, L_RSS, "Completed protecing RSS feeds: %u\n", feeds);
-
- error:
-  free(query_params.filter);
-}
-
 
 static void
 purge_cruft(time_t start)
@@ -235,9 +190,6 @@ purge_cruft(time_t start)
   DPRINTF(E_DBG, L_LIB, "Purging old artwork content\n");
   cache_artwork_purge_cruft(start);
 }
-
-static void
-rss_refresh(int *retval);
 
 static enum command_state
 rescan(void *arg, int *ret)
@@ -263,7 +215,6 @@ rescan(void *arg, int *ret)
 	}
     }
 
-  rss_refresh(ret);
   purge_cruft(starttime);
 
   DPRINTF(E_DBG, L_LIB, "Running post library scan jobs\n");
@@ -306,7 +257,6 @@ metarescan(void *arg, int *ret)
 	}
     }
 
-  rss_protect_feeds();  // RSS items don't have meta to refresh, protect these from purge
   purge_cruft(starttime);
 
   DPRINTF(E_DBG, L_LIB, "Running post library scan jobs\n");
@@ -355,7 +305,6 @@ fullrescan(void *arg, int *ret)
 	  DPRINTF(E_INFO, L_LIB, "Library source '%s' is disabled\n", sources[i]->name);
 	}
     }
-  rss_refresh(ret);
 
   endtime = time(NULL);
   DPRINTF(E_LOG, L_LIB, "Library full-rescan completed in %.f sec (%d changes)\n", difftime(endtime, starttime), deferred_update_notifications);
@@ -528,98 +477,7 @@ update_trigger(void *arg, int *retval)
 }
 
 
-static void
-rss_refresh(int *retval)
-{
-  struct query_params query_params;
-  struct db_playlist_info dbpli;
-  struct rss_file_item *rfi = NULL;
-  struct rss_file_item *head = NULL;
-  time_t  now;
-  unsigned feeds = 0;
-  unsigned nadded = 0;
-  int ret = 0;
-
-  *retval = 0;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  DPRINTF(E_INFO, L_RSS, "Refreshing RSS feeds\n");
-  scanning = true;
-
-  query_params.type = Q_PL;
-  query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("(f.type = %d)", PL_RSS);
-
-  ret = db_query_start(&query_params);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RSS, "Failed to find current RSS feeds from db\n");
-      *retval = ret;
-      goto error;
-    }
-
-  while (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
-    {
-      if (!rfi) 
-      {
-	rfi = rfi_alloc();
-	head = rfi;
-      }
-      else
-	rfi = rfi_add(rfi);
-
-      rfi->id = atol(dbpli.id);
-      rfi->title = safe_strdup(dbpli.title);
-      rfi->url = safe_strdup(dbpli.path);
-      rfi->lastupd = atol(dbpli.db_timestamp);
-    }
-  db_query_end(&query_params);
-
-  rfi = head;
-  while (rfi)
-  {
-    DPRINTF(E_DBG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
-    db_transaction_begin();
-    rss_feed_refresh(rfi->id, time(&now), rfi->url, &nadded, -1);
-    db_transaction_end();
-
-    rfi = rfi->next;
-    ++feeds;
-  }
-  scanning = false;
-
-  DPRINTF(E_INFO, L_RSS, "Completed refreshing RSS feeds: %u items: %u\n", feeds, nadded);
-
- error:
-  free(query_params.filter);
-  free_rfi(head);
-
-  evtimer_add(rssev, &rss_refresh_interval);
-}
-
-static void
-rss_refresh_cb(int fd, short what, void *arg)
-{
-  int ret;
-  rss_refresh(&ret);
-}
-
-static enum command_state
-rss_refresh_cmd(void *arg, int *retval)
-{
-  rss_refresh(retval);
-  return COMMAND_END;
-}
-
-
 /* ----------------------- LIBRARY EXTERNAL INTERFACE ---------------------- */
-
-void
-library_rss_refresh()
-{
-  commands_exec_async(cmdbase, rss_refresh_cmd, NULL);
-}
 
 void
 library_rescan()
@@ -684,7 +542,6 @@ initscan()
       if (!sources[i]->disabled && sources[i]->initscan)
 	sources[i]->initscan();
     }
-  rss_refresh(&i);
 
   if (! (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable")))
     {
@@ -865,18 +722,8 @@ library_init(void)
   scan_exit = false;
   scanning = false;
 
-  rss_refresh_interval.tv_sec = cfg_getint(cfg_getsec(cfg, "rss"), "refresh_period");
-  if (rss_refresh_interval.tv_sec < 60)
-    {
-      DPRINTF(E_LOG, L_RSS, "RSS 'refresh_period' too low, defaulting to 60 seconds\n");
-      rss_refresh_interval.tv_sec = 60;
-    }
-  DPRINTF(E_INFO, L_RSS, "RSS refresh_period: %lu seconds\n", rss_refresh_interval.tv_sec);
-
-
   CHECK_NULL(L_LIB, evbase_lib = event_base_new());
   CHECK_NULL(L_LIB, updateev = evtimer_new(evbase_lib, update_trigger_cb, NULL));
-  CHECK_NULL(L_LIB, rssev = evtimer_new(evbase_lib, rss_refresh_cb, NULL));
 
   for (i = 0; sources[i]; i++)
     {
@@ -910,8 +757,6 @@ library_init(void)
   pthread_set_name_np(tid_library, "library");
 #endif
 
-  evtimer_add(rssev, &rss_refresh_interval);
-
   return 0;
 }
 
@@ -939,7 +784,6 @@ library_deinit()
       sources[i]->deinit();
     }
 
-  event_free(rssev);
   event_free(updateev);
   event_base_free(evbase_lib);
 }
