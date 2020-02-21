@@ -561,19 +561,19 @@ int
 rss_remove(const char *feed_url)
 {
   int pl_id;
+  int ret;
 
   DPRINTF(E_DBG, L_RSS, "removing RSS: '%s'\n", feed_url);
+
   pl_id = db_pl_id_bypath(feed_url);
   if (pl_id < 0)
     {
       DPRINTF(E_INFO, L_RSS, "Cannot remove RSS - No such RSS feed: '%s'\n", feed_url);
       return -1;
     }
+  ret = db_rss_delete_byid(pl_id);
 
-  db_pl_clear_items(pl_id);
-  db_pl_delete(pl_id);
-
-  return 0;
+  return ret;
 }
 
  
