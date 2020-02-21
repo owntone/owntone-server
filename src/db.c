@@ -1525,6 +1525,41 @@ db_purge_all(void)
 #undef Q_TMPL_DIR
 }
 
+int
+db_rss_delete_byid(int id)
+{
+#define Q_TMPL "DELETE FROM files WHERE path in (SELECT filepath FROM playlistitems WHERE playlistid = %d)"
+
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "RSS delete_bypath query '%s' error: %s\n", query, errmsg);
+      sqlite3_free(errmsg);
+      return -1;
+    }
+  else
+    DPRINTF(E_DBG, L_DB, "RSS delete_bypath %d rows\n", sqlite3_changes(hdl));
+  sqlite3_free(query);
+
+  db_pl_clear_items(id);
+  db_pl_delete(id);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
 void
 db_rss_tmp_clone()
 {

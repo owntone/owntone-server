@@ -535,6 +535,9 @@ db_purge_cruft(time_t ref);
 void
 db_purge_all(void);
 
+int
+db_rss_delete_byid(int id);
+
 void
 db_rss_tmp_clone();
 
