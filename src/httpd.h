@@ -102,7 +102,7 @@ void
 httpd_stream_file(struct evhttp_request *req, int id);
 
 bool
-httpd_request_not_modified_since(struct evhttp_request *req, const time_t *mtime);
+httpd_request_not_modified_since(struct evhttp_request *req, time_t mtime);
 
 bool
 httpd_request_etag_matches(struct evhttp_request *req, const char *etag);

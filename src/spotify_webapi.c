@@ -419,8 +419,8 @@ token_refresh(void)
       return 0;
     }
 
-  refresh_token = db_admin_get(DB_ADMIN_SPOTIFY_REFRESH_TOKEN);
-  if (!refresh_token)
+  ret = db_admin_get(&refresh_token, DB_ADMIN_SPOTIFY_REFRESH_TOKEN);
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "No spotify refresh token found\n");
       goto error;

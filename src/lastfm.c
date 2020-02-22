@@ -422,8 +422,10 @@ lastfm_is_enabled(void)
 int
 lastfm_init(void)
 {
-  lastfm_session_key = db_admin_get(DB_ADMIN_LASTFM_SESSION_KEY);
-  if (!lastfm_session_key)
+  int ret;
+
+  ret = db_admin_get(&lastfm_session_key, DB_ADMIN_LASTFM_SESSION_KEY);
+  if (ret < 0)
     {
       DPRINTF(E_DBG, L_LASTFM, "No valid LastFM session key\n");
       lastfm_disabled = true;

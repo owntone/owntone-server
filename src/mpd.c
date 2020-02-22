@@ -959,7 +959,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 {
   struct player_status status;
   uint32_t queue_length = 0;
-  int queue_version;
+  int queue_version = 0;
   char *state;
   uint32_t itemid = 0;
   struct db_queue_item *queue_item;
@@ -981,7 +981,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 	break;
     }
 
-  queue_version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
+  db_admin_getint(&queue_version, DB_ADMIN_QUEUE_VERSION);
   db_queue_get_count(&queue_length);
 
   evbuffer_add_printf(evbuf,
@@ -1062,9 +1062,9 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
 {
   struct query_params qp;
   struct filecount_info fci;
-  time_t start_time;
   double uptime;
-  int64_t db_update;
+  int64_t db_start = 0;
+  int64_t db_update = 0;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -1077,9 +1077,9 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       return ACK_ERROR_UNKNOWN;
     }
 
-  start_time = (time_t) db_admin_getint64(DB_ADMIN_START_TIME);
-  uptime = difftime(time(NULL), start_time);
-  db_update = db_admin_getint64(DB_ADMIN_DB_UPDATE);
+  db_admin_getint64(&db_start, DB_ADMIN_START_TIME);
+  uptime = difftime(time(NULL), (time_t) db_start);
+  db_admin_getint64(&db_update, DB_ADMIN_DB_UPDATE);
 
   //TODO [mpd] Implement missing stats attributes (playtime)
   evbuffer_add_printf(evbuf,

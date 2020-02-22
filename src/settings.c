@@ -109,28 +109,40 @@ settings_option_get(struct settings_category *category, const char *name)
 int
 settings_option_getint(struct settings_option *option)
 {
+  int intval = 0;
+
   if (!option || option->type != SETTINGS_TYPE_INT)
     return 0;
 
-  return db_admin_getint(option->name);
+  db_admin_getint(&intval, option->name);
+
+  return intval;
 }
 
 bool
 settings_option_getbool(struct settings_option *option)
 {
+  int intval = 0;
+
   if (!option || option->type != SETTINGS_TYPE_BOOL)
     return false;
 
-  return db_admin_getint(option->name) > 0;
+  db_admin_getint(&intval, option->name);
+
+  return (intval != 0);
 }
 
 char *
 settings_option_getstr(struct settings_option *option)
 {
+  char *s = NULL;
+
   if (!option || option->type != SETTINGS_TYPE_STR)
     return NULL;
 
-  return db_admin_get(option->name);
+  db_admin_get(&s, option->name);
+
+  return s;
 }
 
 int
