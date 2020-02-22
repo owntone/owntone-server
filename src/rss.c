@@ -373,8 +373,11 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, lon
   if (ret < 0 || (ret && ctx.response_code != HTTP_OK))
     {
       DPRINTF(E_WARN, L_RSS, "Failed to fetch RSS id: %u url: %s resp: %d\n", pl_id, url, ctx.response_code);
+      ret = -1;
       goto cleanup;
     }
+
+  ret = -1;
 
   evbuffer_add(ctx.input_body, "", 1);
   rss_xml = (const char*)evbuffer_pullup(ctx.input_body, -1);
@@ -406,6 +409,7 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, lon
   if (node)
     rss_feed_author = mxmlGetOpaque(node);
 
+  ret = 0;
   memset(&mfi, 0, sizeof(struct media_file_info));
   for (node = mxmlFindElement(channel, channel, "item", NULL, NULL, MXML_DESCEND); 
        node != NULL; 
