@@ -30,7 +30,7 @@ enum sort_type {
   S_VPATH,
   S_POS,
   S_SHUFFLE_POS,
-  S_RELEASEDATE,
+  S_DATE_RELEASED,
 };
 
 #define Q_F_BROWSE (1 << 15)

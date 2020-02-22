@@ -335,6 +335,9 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_FILE_DIR					\
   "CREATE INDEX IF NOT EXISTS idx_file_dir ON files(disabled, directory_id);"
 
+#define I_DATE_RELEASED                    \
+  "CREATE INDEX IF NOT EXISTS idx_date_released ON files(disabled, date_released DESC, media_kind);"
+
 #define I_PL_PATH				\
   "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
 
@@ -368,9 +371,6 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_QUEUE_SHUFFLEPOS				\
   "CREATE INDEX IF NOT EXISTS idx_queue_shufflepos ON queue(shuffle_pos);"
 
-#define I_FILE_DATE_RELEASED                    \
-  "CREATE INDEX IF NOT EXISTS idx_file_datereleased ON files(date_released);"
-
 static const struct db_init_query db_init_index_queries[] =
   {
     { I_RESCAN,    "create rescan index" },
@@ -387,6 +387,7 @@ static const struct db_init_query db_init_index_queries[] =
     { I_ALBUM,     "create album index" },
     { I_FILELIST,  "create filelist index" },
     { I_FILE_DIR,  "create file dir index" },
+    { I_DATE_RELEASED, "create date_released index" },
 
     { I_PL_PATH,   "create playlist path index" },
     { I_PL_DISABLED, "create playlist state index" },
@@ -404,8 +405,6 @@ static const struct db_init_query db_init_index_queries[] =
 
     { I_QUEUE_POS,  "create queue pos index" },
     { I_QUEUE_SHUFFLEPOS,  "create queue shuffle pos index" },
-
-    { I_FILE_DATE_RELEASED, "create file date_released index" },
   };
 
 
