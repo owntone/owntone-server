@@ -142,8 +142,6 @@ enum parse_result {
 struct online_source {
   // Name of online source
   const char *name;
-  const bool is_default;
-
   const char *setting_name;
 
   // How to authorize (using the Authorize http header)
@@ -334,14 +332,13 @@ static enum parse_result response_jparse_musicbrainz(char **artwork_url, json_ob
 static struct online_source spotify_source =
   {
     .name = "Spotify",
-    .is_default = true,
     .setting_name = "use_artwork_source_spotify",
     .auth_header = "Bearer $SECRET$",
     .search_endpoint = "https://api.spotify.com/v1/search",
     .search_param = "type=track&limit=1&$QUERY$",
     .query_parts =
       {
-	{ "q", "artist:$ARTIST$ album:$ALBUM$" }, // TODO test if album search works with type=track
+	{ "q", "artist:$ARTIST$ album:$ALBUM$" },
 	{ "q", "artist:$ARTIST$ track:$TITLE$" },
 	{ NULL, NULL },
       },
@@ -352,7 +349,6 @@ static struct online_source spotify_source =
 static struct online_source discogs_source =
   {
     .name = "Discogs",
-    .is_default = false,
     .setting_name = "use_artwork_source_discogs",
     .auth_header = "Discogs key=$KEY$, secret=$SECRET$",
     .auth_key = "ivzUxlkUiwpptDKpSCHF",
@@ -373,7 +369,6 @@ static struct online_source discogs_source =
 static struct online_source musicbrainz_source =
   {
     .name = "Musicbrainz",
-    .is_default = false,
     .setting_name = "use_artwork_source_coverartarchive",
     .search_endpoint = "http://musicbrainz.org/ws/2/release-group/",
     .search_param = "limit=1&fmt=json&$QUERY$",
@@ -997,8 +992,7 @@ online_source_response_parse(char **artwork_url, struct online_source *src, stru
   evbuffer_add(response, "", 1);
   body = (char *)evbuffer_pullup(response, -1);
 
-  // TODO remove
-  DPRINTF(E_DBG, L_ART, "Response from '%s': %s\n", src->name, body);
+  DPRINTF(E_SPAM, L_ART, "Response from '%s': %s\n", src->name, body);
 
   if (src->response_jparse)
     {
@@ -1261,34 +1255,15 @@ static bool
 online_source_is_enabled(struct online_source *src)
 {
   struct settings_category *category;
-  cfg_t *lib;
-  const char *name;
-  int n_cfg;
-  int i;
+  bool enabled;
 
-  lib = cfg_getsec(cfg, "library");
+  CHECK_NULL(L_ART, category = settings_category_get("artwork"));
+  enabled = settings_option_getbool(settings_option_get(category, src->setting_name));
 
-  n_cfg = cfg_size(lib, "artwork_online_sources");
-  if (n_cfg == 0) // User didn't set anything in the config file, use settings
-    {
-      category = settings_category_get("artwork");
-      if (!category)
-	return src->is_default;
+  if (!enabled)
+    DPRINTF(E_DBG, L_ART, "Source %s is disabled\n", src->name);
 
-//      if (!settings_option_is_set(category, src->setting_name))
-//	return src->is_default;
-
-      return settings_option_getbool(settings_option_get(category, src->setting_name));
-    }
-
-  for (i = 0; i < n_cfg; i++)
-    {
-      name = cfg_getnstr(lib, "artwork_online_sources", i);
-      if (strcasecmp(name, src->name) == 0)
-        return true;
-    }
-
-  return src->is_default;
+  return enabled;
 }
 
 
