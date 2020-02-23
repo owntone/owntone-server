@@ -121,8 +121,10 @@ vlogger_writer(int severity, int domain, const char *fmt, va_list args)
 
   va_copy(ap, args);
   ret = vsnprintf(content, sizeof(content), fmt, ap);
-  if (ret < 0 || ret >= sizeof(content))
-    strcpy(content, "(LOGGING SKIPPED - invalid content)\n");
+  if (ret < 0)
+    strcpy(content, "(LOGGING SKIPPED - error printing log message)\n");
+  else if (ret >= sizeof(content))
+    strcpy(content + sizeof(content) - 8, "...\n");
   va_end(ap);
 
   ret = repeat_count(content);

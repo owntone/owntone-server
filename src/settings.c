@@ -22,8 +22,12 @@
 #include <string.h>
 
 #include "db.h"
+#include "conffile.h"
 
-
+// Forward - setting initializers
+static bool artwork_spotify_default_getbool(struct settings_option *option);
+static bool artwork_discogs_default_getbool(struct settings_option *option);
+static bool artwork_coverartarchive_default_getbool(struct settings_option *option);
 
 static struct settings_option webinterface_options[] =
   {
@@ -31,11 +35,67 @@ static struct settings_option webinterface_options[] =
       { "show_composer_for_genre", SETTINGS_TYPE_STR },
   };
 
+static struct settings_option artwork_options[] =
+  {
+      { "use_artwork_source_spotify", SETTINGS_TYPE_BOOL, NULL, artwork_spotify_default_getbool, NULL },
+      { "use_artwork_source_discogs", SETTINGS_TYPE_BOOL, NULL, artwork_discogs_default_getbool, NULL },
+      { "use_artwork_source_coverartarchive", SETTINGS_TYPE_BOOL, NULL, artwork_coverartarchive_default_getbool, NULL },
+  };
+
 static struct settings_category categories[] =
   {
       { "webinterface", webinterface_options, ARRAY_SIZE(webinterface_options) },
+      { "artwork", artwork_options, ARRAY_SIZE(artwork_options) },
   };
 
+
+/* ---------------------------- DEFAULT SETTERS ------------------------------*/
+
+static bool
+artwork_default_getbool(bool no_cfg_default, const char *cfg_name)
+{
+  cfg_t *lib = cfg_getsec(cfg, "library");
+  const char *name;
+  int n_cfg;
+  int i;
+
+  n_cfg = cfg_size(lib, "artwork_online_sources");
+  if (n_cfg == 0)
+    return no_cfg_default;
+
+  for (i = 0; i < n_cfg; i++)
+    {
+      name = cfg_getnstr(lib, "artwork_online_sources", i);
+      if (strcasecmp(name, cfg_name) == 0)
+        return true;
+    }
+
+  return false;
+}
+
+static bool
+artwork_spotify_default_getbool(struct settings_option *option)
+{
+  // Enabled by default, it will only work for premium users anyway. So Spotify
+  // probably won't mind, and the user probably also won't mind that we share
+  // data with Spotify, since he is already doing it.
+  return artwork_default_getbool(true, "spotify");
+}
+
+static bool
+artwork_discogs_default_getbool(struct settings_option *option)
+{
+  return artwork_default_getbool(false, "discogs");
+}
+
+static bool
+artwork_coverartarchive_default_getbool(struct settings_option *option)
+{
+  return artwork_default_getbool(false, "coverartarchive");
+}
+
+
+/* ------------------------------ IMPLEMENTATION -----------------------------*/
 
 int
 settings_categories_count()
@@ -97,32 +157,62 @@ settings_option_get(struct settings_category *category, const char *name)
   return NULL;
 }
 
+
 int
 settings_option_getint(struct settings_option *option)
 {
+  int intval = 0;
+  int ret;
+
   if (!option || option->type != SETTINGS_TYPE_INT)
     return 0;
 
-  return db_admin_getint(option->name);
-}
+  ret = db_admin_getint(&intval, option->name);
+  if (ret == 0)
+    return intval;
 
+  if (option->default_getint)
+    return option->default_getint(option);
+
+  return 0;
+}
 
 bool
 settings_option_getbool(struct settings_option *option)
 {
+  int intval = 0;
+  int ret;
+
   if (!option || option->type != SETTINGS_TYPE_BOOL)
     return false;
 
-  return db_admin_getint(option->name) > 0;
+  ret = db_admin_getint(&intval, option->name);
+  if (ret == 0)
+    return (intval != 0);
+
+  if (option->default_getbool)
+    return option->default_getbool(option);
+
+  return false;
 }
 
 char *
 settings_option_getstr(struct settings_option *option)
 {
+  char *s = NULL;
+  int ret;
+
   if (!option || option->type != SETTINGS_TYPE_STR)
     return NULL;
 
-  return db_admin_get(option->name);
+  ret = db_admin_get(&s, option->name);
+  if (ret == 0)
+    return s;
+
+  if (option->default_getstr)
+    return option->default_getstr(option);
+
+  return NULL;
 }
 
 int

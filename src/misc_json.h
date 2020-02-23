@@ -33,6 +33,13 @@
 #include <stddef.h>
 #include <time.h>
 
+// Convenience macro so that instead of calling jparse with an array of keys
+// to follow, you can call JPARSE_DRILLDOWN(haystack, "key1", "key2"...)
+#define JPARSE_SELECT(haystack, ...) jparse_select(haystack, (const char *[]){__VA_ARGS__, NULL})
+
+json_object *
+jparse_select(json_object *haystack, const char *keys[]);
+
 void
 jparse_free(json_object *haystack);
 

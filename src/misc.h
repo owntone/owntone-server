@@ -87,6 +87,8 @@ safe_asprintf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 int
 safe_snprintf_cat(char *dst, size_t n, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
+int
+safe_snreplace(char *s, size_t sz, const char *pattern, const char *replacement);
 
 /* Key/value functions */
 struct keyval *

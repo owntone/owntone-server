@@ -15,6 +15,9 @@ enum settings_type {
 struct settings_option {
   const char *name;
   enum settings_type type;
+  int (*default_getint)(struct settings_option *option);
+  bool (*default_getbool)(struct settings_option *option);
+  char *(*default_getstr)(struct settings_option *option);
 };
 
 struct settings_category {
@@ -42,9 +45,9 @@ settings_option_get_byindex(struct settings_category *category, int index);
 struct settings_option *
 settings_option_get(struct settings_category *category, const char *name);
 
+
 int
 settings_option_getint(struct settings_option *option);
-
 
 bool
 settings_option_getbool(struct settings_option *option);
@@ -60,6 +63,5 @@ settings_option_setbool(struct settings_option *option, bool value);
 
 int
 settings_option_setstr(struct settings_option *option, const char *value);
-
 
 #endif /* __SETTINGS_H__ */

@@ -319,7 +319,7 @@ httpd_request_etag_matches(struct evhttp_request *req, const char *etag)
  * @return True if the given timestamp matches the request-header-value "If-Modified-Since", otherwise false
  */
 bool
-httpd_request_not_modified_since(struct evhttp_request *req, const time_t *mtime)
+httpd_request_not_modified_since(struct evhttp_request *req, time_t mtime)
 {
   struct evkeyvalq *input_headers;
   struct evkeyvalq *output_headers;
@@ -329,7 +329,7 @@ httpd_request_not_modified_since(struct evhttp_request *req, const time_t *mtime
   input_headers = evhttp_request_get_input_headers(req);
   modified_since = evhttp_find_header(input_headers, "If-Modified-Since");
 
-  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", gmtime(mtime));
+  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", gmtime(&mtime));
 
   // Return not modified, if given timestamp matches "If-Modified-Since" request header
   if (modified_since && (strcasecmp(last_modified, modified_since) == 0))
@@ -455,7 +455,7 @@ serve_file(struct evhttp_request *req, const char *uri)
       return;
     }
 
-  if (httpd_request_not_modified_since(req, &sb.st_mtime))
+  if (httpd_request_not_modified_since(req, sb.st_mtime))
     {
       httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
       return;

@@ -4353,7 +4353,7 @@ db_admin_setint64(const char *key, int64_t value)
 }
 
 static int
-admin_get(const char *key, short type, void *value)
+admin_get(void *value, const char *key, short type)
 {
 #define Q_TMPL "SELECT value FROM admin a WHERE a.key = '%q';"
   char *query;
@@ -4364,13 +4364,7 @@ admin_get(const char *key, short type, void *value)
   char **strval;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, key);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return -1;
-    }
+  CHECK_NULL(L_DB, query = sqlite3_mprintf(Q_TMPL, key));
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
@@ -4437,52 +4431,22 @@ admin_get(const char *key, short type, void *value)
 #undef Q_TMPL
 }
 
-char *
-db_admin_get(const char *key)
+int
+db_admin_get(char **value, const char *key)
 {
-  char *value = NULL;
-  int ret;
-
-  ret = admin_get(key, DB_TYPE_STRING, &value);
-  if (ret < 0)
-    {
-      DPRINTF(E_DBG, L_DB, "Could not find key '%s' in admin table\n", key);
-      return NULL;
-    }
-
-  return value;
+  return admin_get(value, key, DB_TYPE_STRING);
 }
 
 int
-db_admin_getint(const char *key)
+db_admin_getint(int *intval, const char *key)
 {
-  int value = 0;
-  int ret;
-
-  ret = admin_get(key, DB_TYPE_INT, &value);
-  if (ret < 0)
-    {
-      DPRINTF(E_DBG, L_DB, "Could not find key '%s' in admin table\n", key);
-      return 0;
-    }
-
-  return value;
+  return admin_get(intval, key, DB_TYPE_INT);
 }
 
-int64_t
-db_admin_getint64(const char *key)
+int
+db_admin_getint64(int64_t *int64val, const char *key)
 {
-  int64_t value = 0;
-  int ret;
-
-  ret = admin_get(key, DB_TYPE_INT64, &value);
-  if (ret < 0)
-    {
-      DPRINTF(E_DBG, L_DB, "Could not find key '%s' in admin table\n", key);
-      return 0;
-    }
-
-  return value;
+  return admin_get(int64val, key, DB_TYPE_INT64);
 }
 
 int
@@ -4586,11 +4550,11 @@ db_speaker_clear_all(void)
 static int
 queue_transaction_begin()
 {
-  int queue_version;
+  int queue_version = 0;
 
   db_transaction_begin();
 
-  queue_version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
+  db_admin_getint(&queue_version, DB_ADMIN_QUEUE_VERSION);
   queue_version++;
 
   return queue_version;
@@ -6938,22 +6902,22 @@ db_check_version(void)
 {
 #define Q_VACUUM "VACUUM;"
   char *errmsg;
-  int db_ver_major;
-  int db_ver_minor;
+  int db_ver_major = 0;
+  int db_ver_minor = 0;
   int db_ver;
   int vacuum;
   int ret;
 
   vacuum = cfg_getbool(cfg_getsec(cfg, "sqlite"), "vacuum");
 
-  db_ver_major = db_admin_getint(DB_ADMIN_SCHEMA_VERSION_MAJOR);
+  db_admin_getint(&db_ver_major, DB_ADMIN_SCHEMA_VERSION_MAJOR);
   if (!db_ver_major)
-    db_ver_major = db_admin_getint(DB_ADMIN_SCHEMA_VERSION); // Pre schema v15.1
+    db_admin_getint(&db_ver_major, DB_ADMIN_SCHEMA_VERSION); // Pre schema v15.1
 
   if (!db_ver_major)
     return 1; // Will create new database
 
-  db_ver_minor = db_admin_getint(DB_ADMIN_SCHEMA_VERSION_MINOR);
+  db_admin_getint(&db_ver_minor, DB_ADMIN_SCHEMA_VERSION_MINOR);
 
   db_ver = db_ver_major * 100 + db_ver_minor;
 

@@ -57,7 +57,8 @@ struct cache_arg
   int is_remote;
   int msec;
 
-  char *path;  // artwork path
+  const char *path;  // artwork path
+  char *pathcopy;  // copy of artwork path (for async operations)
   int type;    // individual or group artwork
   int64_t persistentid;
   int max_w;
@@ -903,7 +904,7 @@ cache_daap_listener_cb(short event_mask)
  * after the cached timestamp. All cache entries for the given path are deleted, if the file was
  * modified after the cached timestamp.
  *
- * @param cmdarg->path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
+ * @param cmdarg->pathcopy the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
  * @param cmdarg->mtime modified timestamp of the artwork file
  * @return 0 if successful, -1 if an error occurred
  */
@@ -919,7 +920,7 @@ cache_artwork_ping_impl(void *arg, int *retval)
   int ret;
 
   cmdarg = arg;
-  query = sqlite3_mprintf(Q_TMPL_PING, (int64_t)time(NULL), cmdarg->path, (int64_t)cmdarg->mtime);
+  query = sqlite3_mprintf(Q_TMPL_PING, (int64_t)time(NULL), cmdarg->pathcopy, (int64_t)cmdarg->mtime);
 
   DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
@@ -934,7 +935,7 @@ cache_artwork_ping_impl(void *arg, int *retval)
 
   if (cmdarg->del > 0)
     {
-      query = sqlite3_mprintf(Q_TMPL_DEL, cmdarg->path, (int64_t)cmdarg->mtime);
+      query = sqlite3_mprintf(Q_TMPL_DEL, cmdarg->pathcopy, (int64_t)cmdarg->mtime);
 
       DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
@@ -948,14 +949,14 @@ cache_artwork_ping_impl(void *arg, int *retval)
 	}
     }
 
-  free(cmdarg->path);
+  free(cmdarg->pathcopy);
 
   *retval = 0;
   return COMMAND_END;
 
  error_ping:
   sqlite3_free(errmsg);
-  free(cmdarg->path);
+  free(cmdarg->pathcopy);
 
   *retval = -1;
   return COMMAND_END;
@@ -1415,7 +1416,7 @@ cache_artwork_ping(const char *path, time_t mtime, int del)
       return;
     }
 
-  cmdarg->path = strdup(path);
+  cmdarg->pathcopy = strdup(path);
   cmdarg->mtime = mtime;
   cmdarg->del = del;
 
@@ -1429,7 +1430,7 @@ cache_artwork_ping(const char *path, time_t mtime, int del)
  * @return 0 if successful, -1 if an error occurred
  */
 int
-cache_artwork_delete_by_path(char *path)
+cache_artwork_delete_by_path(const char *path)
 {
   struct cache_arg cmdarg;
 
@@ -1541,7 +1542,7 @@ cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cac
  * @return 0 if successful, -1 if an error occurred
  */
 int
-cache_artwork_stash(struct evbuffer *evbuf, char *path, int format)
+cache_artwork_stash(struct evbuffer *evbuf, const char *path, int format)
 {
   struct cache_arg cmdarg;
 
@@ -1564,7 +1565,7 @@ cache_artwork_stash(struct evbuffer *evbuf, char *path, int format)
  * @return 0 if successful, -1 if an error occurred
  */
 int
-cache_artwork_read(struct evbuffer *evbuf, char *path, int *format)
+cache_artwork_read(struct evbuffer *evbuf, const char *path, int *format)
 {
   struct cache_arg cmdarg;
   int ret;

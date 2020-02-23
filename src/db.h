@@ -771,14 +771,14 @@ db_admin_setint(const char *key, int value);
 int
 db_admin_setint64(const char *key, int64_t value);
 
-char *
-db_admin_get(const char *key);
+int
+db_admin_get(char **value, const char *key);
 
 int
-db_admin_getint(const char *key);
+db_admin_getint(int *intval, const char *key);
 
-int64_t
-db_admin_getint64(const char *key);
+int
+db_admin_getint64(int64_t *int64val, const char *key);
 
 int
 db_admin_delete(const char *key);

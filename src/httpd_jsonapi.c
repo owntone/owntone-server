@@ -67,6 +67,16 @@ static char *default_playlist_directory;
 
 /* -------------------------------- HELPERS --------------------------------- */
 
+static bool
+is_modified(struct evhttp_request *req, const char *key)
+{
+  int64_t db_update = 0;
+
+  db_admin_getint64(&db_update, key);
+
+  return (!db_update || !httpd_request_not_modified_since(req, (time_t)db_update));
+}
+
 static inline void
 safe_json_add_string(json_object *obj, const char *key, const char *value)
 {
@@ -1023,10 +1033,19 @@ jsonapi_reply_library(struct httpd_request *hreq)
       DPRINTF(E_LOG, L_WEB, "library: failed to get file count info\n");
     }
 
-  safe_json_add_time_from_string(jreply, "started_at", (s = db_admin_get(DB_ADMIN_START_TIME)), true);
-  free(s);
-  safe_json_add_time_from_string(jreply, "updated_at", (s = db_admin_get(DB_ADMIN_DB_UPDATE)), true);
-  free(s);
+  ret = db_admin_get(&s, DB_ADMIN_START_TIME);
+  if (ret == 0)
+    {
+      safe_json_add_time_from_string(jreply, "started_at", s, true);
+      free(s);
+    }
+
+  ret = db_admin_get(&s, DB_ADMIN_DB_UPDATE);
+  if (ret == 0)
+    {
+      safe_json_add_time_from_string(jreply, "updated_at", s, true);
+      free(s);
+    }
 
   json_object_object_add(jreply, "updating", json_object_new_boolean(library_is_scanning()));
 
@@ -2037,7 +2056,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
     }
   else if (queue_item->file_id > 0 && queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
-      if (queue_item->data_kind != DATA_KIND_PIPE)
+      if (queue_item->data_kind == DATA_KIND_FILE)
 	{
 	  // Queue item does not have a valid artwork url, construct artwork url to
 	  // get the image through the httpd_artworkapi (uses the artwork handlers).
@@ -2047,7 +2066,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 	}
       else
 	{
-	  // Pipe metadata can change if the queue version changes. Construct artwork url
+	  // Pipe and stream metadata can change if the queue version changes. Construct artwork url
 	  // similar to non-pipe items, but append the queue version to the url to force
 	  // clients to reload image if the queue version changes (additional metadata was found).
 	  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d?v=%d", queue_item->file_id, queue_item->queue_version);
@@ -2458,7 +2477,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   uint32_t item_id;
   uint32_t count;
   int start_pos, end_pos;
-  int version;
+  int version = 0;
   char etag[21];
   struct player_status status;
   struct db_queue_item queue_item;
@@ -2467,7 +2486,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   json_object *item;
   int ret = 0;
 
-  version = db_admin_getint(DB_ADMIN_QUEUE_VERSION);
+  db_admin_getint(&version, DB_ADMIN_QUEUE_VERSION);
   db_queue_get_count(&count);
 
   snprintf(etag, sizeof(etag), "%d", version);
@@ -2715,7 +2734,6 @@ jsonapi_reply_player_volume(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_artists(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   const char *param;
   enum media_kind media_kind;
@@ -2724,10 +2742,8 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
-
 
   media_kind = 0;
   param = evhttp_find_header(hreq->query, "media_kind");
@@ -2782,15 +2798,12 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_artist(struct httpd_request *hreq)
 {
-  time_t db_update;
   const char *artist_id;
   json_object *reply;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
-
 
   artist_id = hreq->uri_parsed->path_parts[3];
 
@@ -2817,7 +2830,6 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   const char *artist_id;
   json_object *reply;
@@ -2825,10 +2837,8 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
-
 
   artist_id = hreq->uri_parsed->path_parts[3];
 
@@ -2872,7 +2882,6 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_albums(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   const char *param;
   enum media_kind media_kind;
@@ -2881,10 +2890,8 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
-
 
   media_kind = 0;
   param = evhttp_find_header(hreq->query, "media_kind");
@@ -2939,15 +2946,12 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_album(struct httpd_request *hreq)
 {
-  time_t db_update;
   const char *album_id;
   json_object *reply;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
-
 
   album_id = hreq->uri_parsed->path_parts[3];
 
@@ -2974,7 +2978,6 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   const char *album_id;
   json_object *reply;
@@ -2982,10 +2985,8 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_MODIFIED);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
-
 
   album_id = hreq->uri_parsed->path_parts[3];
 
@@ -3029,17 +3030,14 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   const char *track_id;
   struct db_media_file_info dbmfi;
   json_object *reply = NULL;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_MODIFIED);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
-
 
   track_id = hreq->uri_parsed->path_parts[3];
 
@@ -3133,17 +3131,14 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlists(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   json_object *reply;
   json_object *items;
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
-
 
   reply = json_object_new_object();
   items = json_object_new_array();
@@ -3185,15 +3180,12 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlist(struct httpd_request *hreq)
 {
-  time_t db_update;
   const char *playlist_id;
   json_object *reply;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
-
 
   playlist_id = hreq->uri_parsed->path_parts[3];
 
@@ -3220,7 +3212,6 @@ jsonapi_reply_library_playlist(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   json_object *reply;
   json_object *items;
@@ -3228,10 +3219,8 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_MODIFIED);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
-
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
   if (ret < 0)
@@ -3325,7 +3314,6 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_genres(struct httpd_request *hreq)
 {
-  time_t db_update;
   struct query_params query_params;
   const char *param;
   enum media_kind media_kind;
@@ -3334,9 +3322,7 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
   int total;
   int ret;
 
-
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   media_kind = 0;
@@ -3394,7 +3380,6 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_count(struct httpd_request *hreq)
 {
-  time_t db_update;
   const char *param_expression;
   char *expression;
   struct smartpl smartpl_expression;
@@ -3403,9 +3388,7 @@ jsonapi_reply_library_count(struct httpd_request *hreq)
   json_object *jreply;
   int ret;
 
-
-  db_update = (time_t) db_admin_getint64(DB_ADMIN_DB_UPDATE);
-  if (db_update && httpd_request_not_modified_since(hreq->req, &db_update))
+  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   memset(&qp, 0, sizeof(struct query_params));
