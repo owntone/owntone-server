@@ -151,7 +151,7 @@ rss_playlist_prepare(const char *path, const char *name, time_t mtime, bool *isn
   pli = db_pl_fetch_bypath(path);
   if (!pli)
     {
-      DPRINTF(E_LOG, L_RSS, "New RSS found, processing '%s'\n", path);
+      DPRINTF(E_INFO, L_RSS, "New RSS found, processing '%s'\n", path);
       *isnew = true;
 
       pl_id = rss_playlist_add(path, name);
@@ -161,7 +161,7 @@ rss_playlist_prepare(const char *path, const char *name, time_t mtime, bool *isn
           return -1;
         }
 
-      DPRINTF(E_INFO, L_RSS, "Added new RSS as id %d\n", pl_id);
+      DPRINTF(E_INFO, L_RSS, "Creating new RSS id %d\n", pl_id);
       return pl_id;
     }
   *isnew = false;
@@ -494,15 +494,24 @@ rss_feed_refresh(int pl_id, time_t mtime, const char *url, unsigned *nadded, lon
     mfi.id = db_file_id_bypath(rss_item_url);
 
     ret = library_media_save(&mfi);
-    db_pl_add_item_bypath(pl_id, rss_item_url);
+    free_mfi(&mfi, 1);
+    if (ret < 0)
+      {
+        DPRINTF(E_INFO, L_RSS, "Failed to save item for RSS %s\n", url);
+        break;
+      }
+    ret = db_pl_add_item_bypath(pl_id, rss_item_url);
+    if (ret < 0)
+      {
+	DPRINTF(E_LOG, L_RSS, "Failed to add item for RSS %s\n", url);
+        break;
+      }
 
     *nadded = *nadded +1;
     if (*nadded%50 == 0)
       {
 	DPRINTF(E_INFO, L_RSS, "RSS added %d entries...\n", *nadded);
       }
-
-    free_mfi(&mfi, 1);
 
     if (limit > 0 && *nadded == limit)
       {
@@ -556,7 +565,7 @@ rss_add(const char *name, const char *feed_url, long limit)
       return -1;
     }
 
-  DPRINTF(E_LOG, L_RSS, "Done processing RSS %s added/modified %u items\n", feed_url, nadded);
+  DPRINTF(E_LOG, L_RSS, "Done processing RSS %s added %u items\n", feed_url, nadded);
 
   return 0;
 }
@@ -676,7 +685,12 @@ rss_refresh()
   {
     DPRINTF(E_DBG, L_RSS, "Sync'ing %s  last update: %s", rfi->title, ctime(&(rfi->lastupd)));
     db_transaction_begin();
-    rss_feed_refresh(rfi->id, time(&now), rfi->url, &nadded, -1);
+    ret = rss_feed_refresh(rfi->id, time(&now), rfi->url, &nadded, -1);
+    if (ret < 0)
+      {
+        db_transaction_rollback();
+        break;
+      }
     db_transaction_end();
 
     rfi = rfi->next;
@@ -684,7 +698,7 @@ rss_refresh()
   }
   scanning = false;
 
-  DPRINTF(E_INFO, L_RSS, "Completed refreshing RSS feeds: %u items: %u\n", feeds, nadded);
+  DPRINTF(E_INFO, L_RSS, "%s RSS refresh, feeds: %u items: %u\n", ret == 0 ? "Completed" : "Partial", feeds, nadded);
 
  error:
   free(query_params.filter);
