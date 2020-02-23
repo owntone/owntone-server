@@ -101,6 +101,7 @@ DATETAG		:	'time_added'
 			|	'time_modified'
 			|	'time_played'
 			|	'time_skipped'
+			|	'date_released'
 			;
 
 ENUMTAG		:	'data_kind'

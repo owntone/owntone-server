@@ -426,6 +426,7 @@ static const char *sort_clause[] =
     "f.virtual_path COLLATE NOCASE",
     "pos",
     "shuffle_pos",
+    "f.date_released DESC, f.title_sort DESC",
   };
 
 /* Browse clauses, used for SELECT, WHERE, GROUP BY and for default ORDER BY
