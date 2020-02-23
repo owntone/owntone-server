@@ -238,7 +238,7 @@ static struct artwork_source artwork_item_source[] =
     {
       .name = "embedded",
       .handler = source_item_embedded_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
+      .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_HTTP),
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {

@@ -1036,6 +1036,19 @@ static const struct db_upgrade_query db_upgrade_v2102_queries[] =
     { U_v2102_SCVER_MINOR,    "set schema_version_minor to 02" },
   };
 
+#define U_V2103_SCVER_MAJOR \
+  "UPDATE admin SET value = '21' WHERE key = 'schema_version_major';"
+#define U_V2103_SCVER_MINOR \
+  "UPDATE admin SET value = '03' WHERE key = 'schema_version_minor';"
+
+// This upgrade just changes triggers (will be done automatically by db_drop...)
+static const struct db_upgrade_query db_upgrade_v2103_queries[] =
+  {
+    { U_V2103_SCVER_MAJOR,    "set schema_version_major to 21" },
+    { U_V2103_SCVER_MINOR,    "set schema_version_minor to 03" },
+  };
+
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1195,6 +1208,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2101:
       ret = db_generic_upgrade(hdl, db_upgrade_v2102_queries, ARRAY_SIZE(db_upgrade_v2102_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2102:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2103_queries, ARRAY_SIZE(db_upgrade_v2103_queries));
       if (ret < 0)
 	return -1;
       break;
