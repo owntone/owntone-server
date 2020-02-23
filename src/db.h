@@ -227,6 +227,7 @@ struct media_file_info {
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
 
+/* Keep in sync with pl_type_label[] */
 /* PL_SPECIAL value must be in sync with type value in Q_PL* in db_init.c */
 enum pl_type {
   PL_SPECIAL = 0,
@@ -235,6 +236,9 @@ enum pl_type {
   PL_PLAIN = 3,
   PL_MAX,
 };
+
+const char *
+db_pl_type_label(enum pl_type pl_type);
 
 struct playlist_info {
   uint32_t id;           /* integer id (miid) */
