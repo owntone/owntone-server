@@ -723,52 +723,53 @@ artwork_evbuf_rescale(struct evbuffer *artwork, struct evbuffer *raw, int max_w,
   return -1;
 }
 
-/* Looks for an artwork file in a directory. Will rescale if needed.
+/*
+ * Checks if an image file with one of the configured artwork_basenames exists in
+ * the given directory "dir". Returns 0 if an image exists, -1 if no image was
+ * found or an error occurred.
  *
- * @out evbuf     Image data
- * @in  dir       Directory to search
- * @in  max_w     Requested width
- * @in  max_h     Requested height
- * @out out_path  Path to the artwork file if found, must be a char[PATH_MAX] buffer
- * @return        ART_FMT_* on success, ART_E_NONE on nothing found, ART_E_ERROR on error
+ * If an image exists, "out_path" will contain the absolute path to this image.
+ *
+ * @param out_path If return value is 0, contains the absolute path to the image
+ * @param len If return value is 0, contains the length of the absolute path
+ * @param dir The directory to search
+ * @return 0 if image exists, -1 otherwise
  */
 static int
-artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char *out_path)
+dir_image_find(char *out_path, size_t len, const char *dir)
 {
   char path[PATH_MAX];
-  char parentdir[PATH_MAX];
   int i;
   int j;
-  int len;
+  int path_len;
   int ret;
   cfg_t *lib;
   int nbasenames;
   int nextensions;
-  char *ptr;
 
   ret = snprintf(path, sizeof(path), "%s", dir);
   if ((ret < 0) || (ret >= sizeof(path)))
     {
       DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", dir);
-      return ART_E_ERROR;
+      return -1;
     }
 
-  len = strlen(path);
+  path_len = strlen(path);
 
   lib = cfg_getsec(cfg, "library");
   nbasenames = cfg_size(lib, "artwork_basenames");
 
   if (nbasenames == 0)
-    return ART_E_NONE;
+    return -1;
 
-  nextensions = sizeof(cover_extension) / sizeof(cover_extension[0]);
+  nextensions = ARRAY_SIZE(cover_extension);
 
   for (i = 0; i < nbasenames; i++)
     {
       for (j = 0; j < nextensions; j++)
 	{
-	  ret = snprintf(path + len, sizeof(path) - len, "/%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
-	  if ((ret < 0) || (ret >= sizeof(path) - len))
+	  ret = snprintf(path + path_len, sizeof(path) - path_len, "/%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
+	  if ((ret < 0) || (ret >= sizeof(path) - path_len))
 	    {
 	      DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s/%s)\n", dir, cfg_getnstr(lib, "artwork_basenames", i));
 	      continue;
@@ -777,60 +778,108 @@ artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char 
 	  DPRINTF(E_SPAM, L_ART, "Trying directory artwork file %s\n", path);
 
 	  ret = access(path, F_OK);
-	  if (ret < 0)
-	    continue;
-
-	  // If artwork file exists (ret == 0), exit the loop
-	  break;
-	}
-
-      // In case the previous loop exited early, we found an existing artwork file and exit the outer loop
-      if (j < nextensions)
-	break;
-    }
-
-  // If the loop for directory artwork did not exit early, look for parent directory artwork
-  if (i == nbasenames)
-    {
-      ptr = strrchr(path, '/');
-      if (ptr)
-	*ptr = '\0';
-
-      ptr = strrchr(path, '/');
-      if ((!ptr) || (strlen(ptr) <= 1))
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not find parent dir name (%s)\n", path);
-	  return ART_E_ERROR;
-	}
-      strcpy(parentdir, ptr + 1);
-
-      len = strlen(path);
-
-      for (i = 0; i < nextensions; i++)
-	{
-	  ret = snprintf(path + len, sizeof(path) - len, "/%s.%s", parentdir, cover_extension[i]);
-	  if ((ret < 0) || (ret >= sizeof(path) - len))
+	  if (ret == 0)
 	    {
-	      DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s)\n", parentdir);
-	      continue;
+	      snprintf(out_path, len, "%s", path);
+	      return 0;
 	    }
-
-	  DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", path);
-
-	  ret = access(path, F_OK);
-	  if (ret < 0)
-	    continue;
-
-	  break;
 	}
-
-      if (i == nextensions)
-	return ART_E_NONE;
     }
 
-  snprintf(out_path, PATH_MAX, "%s", path);
+  return -1;
+}
 
-  return artwork_get(evbuf, path, NULL, max_w, max_h, false);
+/*
+ * Checks if an image file exists in the given directory "dir" with the basename
+ * equal to the directory name. Returns 0 if an image exists, -1 if no image was
+ * found or an error occurred.
+ *
+ * If an image exists, "out_path" will contain the absolute path to this image.
+ *
+ * @param out_path If return value is 0, contains the absolute path to the image
+ * @param len If return value is 0, contains the length of the absolute path
+ * @param dir The directory to search
+ * @return 0 if image exists, -1 otherwise
+ */
+static int
+parent_dir_image_find(char *out_path, size_t len, const char *dir)
+{
+  char path[PATH_MAX];
+  char parentdir[PATH_MAX];
+  char *ptr;
+  int i;
+  int nextensions;
+  int path_len;
+  int ret;
+
+  ret = snprintf(path, sizeof(path), "%s", dir);
+  if ((ret < 0) || (ret >= sizeof(path)))
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", dir);
+      return -1;
+    }
+
+  ptr = strrchr(path, '/');
+  if ((!ptr) || (strlen(ptr) <= 1))
+    {
+      DPRINTF(E_LOG, L_ART, "Could not find parent dir name (%s)\n", path);
+      return -1;
+    }
+  strcpy(parentdir, ptr + 1);
+
+  path_len = strlen(path);
+  nextensions = ARRAY_SIZE(cover_extension);
+
+  for (i = 0; i < nextensions; i++)
+    {
+      ret = snprintf(path + path_len, sizeof(path) - path_len, "/%s.%s", parentdir, cover_extension[i]);
+      if ((ret < 0) || (ret >= sizeof(path) - path_len))
+        {
+	  DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s)\n", parentdir);
+	  continue;
+	}
+
+      DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", path);
+
+      ret = access(path, F_OK);
+      if (ret == 0)
+	{
+	  snprintf(out_path, len, "%s", path);
+	  return 0;
+	}
+    }
+
+  return -1;
+}
+
+/* Looks for an artwork file in a directory. Will rescale if needed.
+ *
+ * @out evbuf     Image data
+ * @in  dir       Directory to search
+ * @in  max_w     Requested width
+ * @in  max_h     Requested height
+ * @out out_path  Path to the artwork file if found, must be a char[PATH_MAX] buffer
+ * @in  len       Max size of "out_path"
+ * @return        ART_FMT_* on success, ART_E_NONE on nothing found, ART_E_ERROR on error
+ */
+static int
+artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char *out_path, size_t len)
+{
+  int ret;
+
+  ret = dir_image_find(out_path, len, dir);
+  if (ret >= 0)
+    {
+      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
+    }
+
+  ret = parent_dir_image_find(out_path, len, dir);
+  if (ret >= 0)
+    {
+      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
+    }
+
+  return ART_E_NONE;
 }
 
 /* Retrieves artwork from an URL, will rescale if needed. Checks the cache stash
@@ -1314,7 +1363,7 @@ source_group_dir_get(struct artwork_ctx *ctx)
       if (access(dir, F_OK) < 0)
 	continue;
 
-      ret = artwork_get_bydir(ctx->evbuf, dir, ctx->max_w, ctx->max_h, ctx->path);
+      ret = artwork_get_bydir(ctx->evbuf, dir, ctx->max_w, ctx->max_h, ctx->path, sizeof(ctx->path));
       if (ret > 0)
 	{
 	  db_query_end(&qp);
