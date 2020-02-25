@@ -4415,7 +4415,9 @@ admin_get(void *value, const char *key, short type)
       default:
 	DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in admin_set\n", type);
 
-	ret = -2;
+	sqlite3_finalize(stmt);
+	sqlite3_free(query);
+	return -1;
     }
 
 #ifdef DB_PROFILE
@@ -4426,7 +4428,7 @@ admin_get(void *value, const char *key, short type)
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
-  return ret;
+  return 0;
 
 #undef Q_TMPL
 }
