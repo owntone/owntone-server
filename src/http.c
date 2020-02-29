@@ -370,9 +370,9 @@ https_client_request_impl(struct http_client_ctx *ctx)
   curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
   curl_easy_setopt(curl, CURLOPT_URL, ctx->url);
 
+  headers = NULL;
   if (ctx->output_headers)
     {
-      headers = NULL;
       for (okv = ctx->output_headers->head; okv; okv = okv->next)
 	{
 	  snprintf(header, sizeof(header), "%s: %s", okv->name, okv->value);
@@ -400,6 +400,7 @@ https_client_request_impl(struct http_client_ctx *ctx)
   if (res != CURLE_OK)
     {
       DPRINTF(E_LOG, L_HTTP, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
+      curl_slist_free_all(headers);
       curl_easy_cleanup(curl);
       return -1;
     }
@@ -408,6 +409,7 @@ https_client_request_impl(struct http_client_ctx *ctx)
   ctx->response_code = (int) response_code;
   curl_headers_save(ctx->input_headers, curl);
 
+  curl_slist_free_all(headers);
   curl_easy_cleanup(curl);
 
   return 0;
