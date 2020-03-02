@@ -313,7 +313,7 @@ register_services(char *ffid, bool no_web, bool no_rsp, bool no_daap, bool no_mp
   // otherwise at least my Sony speaker won't use the service.
 
   // Use as scratch space for the hash
-  snprintf(records[4], 128, "iTunes_Ctrl_%" PRIX64, libhash);
+  snprintf(records[4], 128, "iTunes_Ctrl_%016" PRIX64, libhash);
 
   ret = mdns_register(records[4], "_dacp._tcp", port, txtrecord);
   if (ret < 0)
