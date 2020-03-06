@@ -167,6 +167,7 @@ static const struct metadata_map md_map_generic[] =
     // These tags are used to determine if files belong to a common compilation
     // or album, ref. https://picard.musicbrainz.org/docs/tags
     { "MusicBrainz Album Id",         1, mfi_offsetof(songalbumid), parse_albumid },
+    { "MUSICBRAINZ_ALBUMID",          1, mfi_offsetof(songalbumid), parse_albumid },
     { "MusicBrainz Release Group Id", 1, mfi_offsetof(songalbumid), parse_albumid },
     { "MusicBrainz DiscID",           1, mfi_offsetof(songalbumid), parse_albumid },
     { "CDDB DiscID",                  1, mfi_offsetof(songalbumid), parse_albumid },
@@ -262,7 +263,7 @@ extract_metadata_core(struct media_file_info *mfi, AVDictionary *md, const struc
   /* Dump all the metadata reported by ffmpeg */
   mdt = NULL;
   while ((mdt = av_dict_get(md, "", mdt, AV_DICT_IGNORE_SUFFIX)) != NULL)
-    fprintf(stderr, " -> %s = %s\n", mdt->key, mdt->value);
+    DPRINTF(E_DBG, L_SCAN, " -> %s = %s\n", mdt->key, mdt->value);
 #endif
 
   mdcount = 0;
