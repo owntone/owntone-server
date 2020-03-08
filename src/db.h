@@ -234,6 +234,7 @@ enum pl_type {
   PL_FOLDER = 1,
   PL_SMART = 2,
   PL_PLAIN = 3,
+  PL_RSS  = 4,
   PL_MAX,
 };
 
@@ -697,6 +698,9 @@ db_pl_delete(int id);
 
 void
 db_pl_delete_bypath(const char *path);
+
+int
+db_pl_purge_byid(int id);
 
 void
 db_pl_disable_bypath(const char *path, enum strip_type strip, uint32_t cookie);
