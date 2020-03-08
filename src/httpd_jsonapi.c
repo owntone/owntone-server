@@ -531,7 +531,7 @@ fetch_playlists(struct query_params *query_params, json_object *items, int *tota
 }
 
 static json_object *
-fetch_playlist(const char *playlist_id)
+fetch_playlist(uint32_t playlist_id)
 {
   struct query_params query_params;
   json_object *playlist;
@@ -543,7 +543,7 @@ fetch_playlist(const char *playlist_id)
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("(f.id = %s)", playlist_id);
+  query_params.filter = db_mprintf("(f.id = %d)", playlist_id);
 
   ret = db_query_start(&query_params);
   if (ret < 0)
@@ -3185,16 +3185,34 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlist(struct httpd_request *hreq)
 {
-  const char *playlist_id;
-  json_object *reply;
+  uint32_t playlist_id;
+  json_object *reply = NULL;
   int ret = 0;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  playlist_id = hreq->uri_parsed->path_parts[3];
+  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Could not parse playlist id to integer\n");
+      goto error;
+    }
 
-  reply = fetch_playlist(playlist_id);
+  if (playlist_id == 0)
+    {
+      reply = json_object_new_object();
+      json_object_object_add(reply, "id", json_object_new_int(0));
+      json_object_object_add(reply, "name", json_object_new_string("Playlists"));
+      json_object_object_add(reply, "type", json_object_new_string(db_pl_type_label(PL_FOLDER)));
+      json_object_object_add(reply, "smart_playlist", json_object_new_boolean(false));
+      json_object_object_add(reply, "folder", json_object_new_boolean(true));
+    }
+  else
+    {
+      reply = fetch_playlist(playlist_id);
+    }
+
   if (!reply)
     {
       ret = -1;

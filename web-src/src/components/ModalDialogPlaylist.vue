@@ -14,9 +14,13 @@
                   <span class="heading">Path</span>
                   <span class="title is-6">{{ playlist.path }}</span>
                 </p>
+                <p>
+                  <span class="heading">Type</span>
+                  <span class="title is-6">{{ playlist.type }}</span>
+                </p>
               </div>
             </div>
-            <footer class="card-footer">
+            <footer class="card-footer" v-if="!playlist.folder">
               <a class="card-footer-item has-text-dark" @click="queue_add">
                 <span class="icon"><i class="mdi mdi-playlist-plus"></i></span> <span class="is-size-7">Add</span>
               </a>
@@ -60,7 +64,7 @@ export default {
 
     open_playlist: function () {
       this.$emit('close')
-      this.$router.push({ path: '/playlists/' + this.playlist.id })
+      this.$router.push({ path: '/playlists/' + this.playlist.id + '/tracks' })
     }
   }
 }

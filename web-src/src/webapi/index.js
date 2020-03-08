@@ -287,6 +287,10 @@ export default {
     return axios.get('/api/library/playlists')
   },
 
+  library_playlist_folder (playlistId = 0) {
+    return axios.get('/api/library/playlists/' + playlistId + '/playlists')
+  },
+
   library_playlist (playlistId) {
     return axios.get('/api/library/playlists/' + playlistId)
   },

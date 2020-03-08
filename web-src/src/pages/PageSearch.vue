@@ -295,7 +295,7 @@ export default {
     },
 
     open_playlist: function (playlist) {
-      this.$router.push({ path: '/playlists/' + playlist.id })
+      this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
     },
 
     open_recent_search: function (query) {
