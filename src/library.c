@@ -73,12 +73,14 @@ extern struct library_source filescanner;
 #ifdef HAVE_SPOTIFY_H
 extern struct library_source spotifyscanner;
 #endif
+extern struct library_source rssscanner;
 
 static struct library_source *sources[] = {
     &filescanner,
 #ifdef HAVE_SPOTIFY_H
     &spotifyscanner,
 #endif
+    &rssscanner,
     NULL
 };
 
@@ -286,7 +288,7 @@ fullrescan(void *arg, int *ret)
 
   player_playback_stop();
   db_queue_clear(0);
-  db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+  db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups, incl RSS
 
   for (i = 0; sources[i]; i++)
     {
@@ -433,6 +435,68 @@ queue_save(void *arg, int *retval)
 	{
 	  DPRINTF(E_DBG, L_LIB, "Saving queue to path '%s' with library source '%s'\n", virtual_path, sources[i]->name);
 	  listener_notify(LISTENER_STORED_PLAYLIST);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+static enum command_state
+item_add(void *arg, int *retval)
+{
+  struct item_add_params *params = arg;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  DPRINTF(E_DBG, L_LIB, "Adding item to library '%s' '%s'\n", params->name, params->path);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->item_add)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support add_item\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->item_add(params->name, params->path, params->limit);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Add item to path '%s' with library source '%s'\n", params->path, sources[i]->name);
+	  listener_notify(LISTENER_DATABASE);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
+
+static enum command_state
+item_remove(void *arg, int *retval)
+{
+  const char *path = arg;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  DPRINTF(E_DBG, L_LIB, "Removing item from library '%s'\n", path);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->item_remove)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support add_remove\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->item_remove(path);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Removing item from path '%s' with library source '%s'\n", path, sources[i]->name);
+	  listener_notify(LISTENER_DATABASE);
 	  break;
 	}
     }
@@ -642,6 +706,43 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
   param.new_item_id = new_item_id;
 
   return commands_exec_sync(cmdbase, queue_item_add, NULL, &param);
+}
+
+int
+library_item_add(const char *name, const char *path, long limit)
+{
+  struct item_add_params params;
+
+  if (library_is_scanning())
+    return -1;
+
+  params.name = name;
+  params.path = path;
+  params.limit = limit;
+  return commands_exec_sync(cmdbase, item_add, NULL, &params);
+}
+
+int
+library_item_remove(const char *path)
+{
+  if (library_is_scanning())
+    return -1;
+
+  return commands_exec_sync(cmdbase, item_remove, NULL, path);
+}
+
+struct event*
+library_register_event(void (*ev_cb)(int fd, short what, void *arg), void *ev_cb_arg, const struct timeval* cb_interval)
+{
+  struct event *ev;
+  ev = evtimer_new(evbase_lib, ev_cb, ev_cb_arg);
+  if (!ev)
+    {
+      DPRINTF(E_FATAL, L_LIB, "Failed to create timer event\n");
+      return NULL;
+    }
+  evtimer_add(ev, cb_interval);
+  return ev;
 }
 
 int
