@@ -747,6 +747,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/playlists](#list-playlists)                   | Get a list of playlists              |
 | GET       | [/api/library/playlists/{id}](#get-a-playlist)              | Get a playlist                       |
 | GET       | [/api/library/playlists/{id}/tracks](#list-playlist-tracks) | Get list of tracks for a playlist    |
+| GET       | [/api/library/playlists/{id}/playlists](#list-playlists-in-a-playlist-folder) | Get list of playlists for a playlist folder   |
 | GET       | [/api/library/artists](#list-artists)                       | Get a list of artists                |
 | GET       | [/api/library/artists/{id}](#get-an-artist)                 | Get an artist                        |
 | GET       | [/api/library/artists/{id}/albums](#list-artist-albums)     | Get list of albums for an artist     |
@@ -807,7 +808,7 @@ curl -X GET "http://localhost:3689/api/library"
 
 ### List playlists
 
-Lists the playlists in your library
+Lists all playlists in your library (does not return playlist folders)
 
 **Endpoint**
 
@@ -962,6 +963,76 @@ curl -X GET "http://localhost:3689/api/library/playlists/1/tracks"
     ...
   ],
   "total": 20,
+  "offset": 0,
+  "limit": -1
+}
+```
+
+
+### List playlists in a playlist folder
+
+Lists the playlists in a playlist folder
+
+**Note**: The root playlist folder has `id` 0.
+
+**Endpoint**
+
+```http
+GET /api/library/playlists/{id}/playlists
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Playlist id          |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first playlist to return         |
+| limit           | *(Optional)* Maximum number of playlist to return           |
+
+**Response**
+
+| Key             | Type     | Value                                            |
+| --------------- | -------- | ------------------------------------------------ |
+| items           | array    | Array of [`playlist`](#playlist-object) objects  |
+| total           | integer  | Total number of playlists in the playlist folder |
+| offset          | integer  | Requested offset of the first playlist           |
+| limit           | integer  | Requested maximum number of playlist             |
+
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/library/playlists/0/tracks"
+```
+
+```json
+{
+  "items": [
+    {
+      "id": 11,
+      "name": "Spotify",
+      "path": "spotify:playlistfolder",
+      "parent_id": "0",
+      "smart_playlist": false,
+      "folder": true,
+      "uri": "library:playlist:11"
+    },
+    {
+      "id": 8,
+      "name": "bytefm",
+      "path": "/srv/music/Playlists/bytefm.m3u",
+      "parent_id": "0",
+      "smart_playlist": false,
+      "folder": false,
+      "uri": "library:playlist:8"
+    }
+  ],
+  "total": 2,
   "offset": 0,
   "limit": -1
 }
@@ -2203,7 +2274,10 @@ curl --include \
 | id              | string   | Playlist id                               |
 | name            | string   | Playlist name                             |
 | path            | string   | Path                                      |
-| smart_playlist  | boolean  | `true` if playlist is a smart playlist   |
+| parent_id       | integer  | Playlist id of the parent (folder) playlist |
+| type            | string   | Type of this playlist: `special`, `folder`, `smart`, `plain` |
+| smart_playlist  | boolean  | `true` if playlist is a smart playlist    |
+| folder          | boolean  | `true` if it is a playlist folder         |
 | uri             | string   | Resource identifier                       |
 
 

@@ -281,9 +281,14 @@ playlist_to_json(struct db_playlist_info *dbpli)
   safe_json_add_int_from_string(item, "id", dbpli->id);
   safe_json_add_string(item, "name", dbpli->title);
   safe_json_add_string(item, "path", dbpli->path);
+  safe_json_add_string(item, "parent_id", dbpli->parent_id);
   ret = safe_atoi32(dbpli->type, &intval);
   if (ret == 0)
-    json_object_object_add(item, "smart_playlist", json_object_new_boolean(intval == PL_SMART));
+    {
+      safe_json_add_string(item, "type", db_pl_type_label(intval));
+      json_object_object_add(item, "smart_playlist", json_object_new_boolean(intval == PL_SMART));
+      json_object_object_add(item, "folder", json_object_new_boolean(intval == PL_FOLDER));
+    }
 
   ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "playlist", dbpli->id);
   if (ret < sizeof(uri))
@@ -3266,6 +3271,65 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
+{
+  struct query_params query_params;
+  json_object *reply;
+  json_object *items;
+  int playlist_id;
+  int total;
+  int ret = 0;
+
+  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
+    return HTTP_NOTMODIFIED;
+
+
+  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->uri_parsed->path);
+
+      return HTTP_BADREQUEST;
+    }
+
+  reply = json_object_new_object();
+  items = json_object_new_array();
+  json_object_object_add(reply, "items", items);
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto error;
+
+  query_params.type = Q_PL;
+  query_params.sort = S_PLAYLIST;
+  query_params.filter = db_mprintf("f.parent_id = %d AND (f.type = %d OR f.type = %d OR f.type = %d)",
+				   playlist_id, PL_PLAIN, PL_SMART, PL_FOLDER);
+
+  ret = fetch_playlists(&query_params, items, &total);
+  if (ret < 0)
+    goto error;
+
+  json_object_object_add(reply, "total", json_object_new_int(total));
+  json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
+
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "playlist tracks: Couldn't add tracks to response buffer.\n");
+
+ error:
+  free_query_params(&query_params, 1);
+  jparse_free(reply);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 jsonapi_reply_queue_save(struct httpd_request *hreq)
 {
   const char *param;
@@ -3902,6 +3966,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlist_tracks },
 //    { EVHTTP_REQ_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },
 //    { EVHTTP_REQ_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_tracks },
+    { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/playlists", jsonapi_reply_library_playlist_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/artists$",                       jsonapi_reply_library_artists },
     { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+$",          jsonapi_reply_library_artist },
     { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+/albums$",   jsonapi_reply_library_artist_albums },

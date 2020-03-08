@@ -510,6 +510,20 @@ db_data_kind_label(enum data_kind data_kind)
   return NULL;
 }
 
+/* Keep in sync with enum pl_type */
+static char *pl_type_label[] = { "special", "folder", "smart", "plain" };
+
+const char *
+db_pl_type_label(enum pl_type pl_type)
+{
+  if (pl_type < ARRAY_SIZE(pl_type_label))
+    {
+      return pl_type_label[pl_type];
+    }
+
+  return NULL;
+}
+
 /* Shuffle RNG state */
 struct rng_ctx shuffle_rng;
 
