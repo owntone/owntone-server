@@ -658,6 +658,77 @@ query_params_limit_set(struct query_params *query_params, struct httpd_request *
   return 0;
 }
 
+static int
+play_count_update_byid(int track_id, int play_count, const char *param)
+{
+  if (strcmp(param, "increment") == 0)
+    {
+      db_file_inc_playcount(track_id);
+    }
+  else if (strcmp(param, "played") == 0)
+    {
+      if (play_count == 0)
+	db_file_inc_playcount(track_id);
+    }
+  else if (strcmp(param, "reset") == 0)
+    {
+      db_file_reset_playskip_count(track_id);
+    }
+  else
+    {
+      DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count param '%s'\n", param);
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+play_count_update(struct httpd_request *hreq, struct query_params *qp)
+{
+  const char *param;
+  struct db_media_file_info dbmfi;
+  int play_count;
+  int track_id;
+  int ret;
+
+  param = evhttp_find_header(hreq->query, "play_count");
+  if (!param)
+    {
+      DPRINTF(E_WARN, L_WEB, "No actions for play_count update\n");
+      return HTTP_BADREQUEST;
+    }
+
+  ret = db_query_start(qp);
+  if (ret < 0)
+    goto error;
+
+  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      ret = safe_atoi32(dbmfi.id, &track_id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_WEB, "Invalid track id '%s'\n", dbmfi.id);
+	  continue;
+	}
+
+      if (safe_atoi32(dbmfi.play_count, &play_count) < 0)
+	play_count = 0;
+
+      if (play_count_update_byid(track_id, play_count, param) < 0)
+	{
+	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s'\n", param);
+	  ret = HTTP_BADREQUEST;
+	  break;
+	}
+    }
+
+ error:
+  db_query_end(qp);
+
+  return ret;
+}
+
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 
 /*
@@ -3109,20 +3180,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   // Update play_count/skip_count
   param = evhttp_find_header(hreq->query, "play_count");
   if (param)
-    {
-      if (strcmp(param, "increment") == 0)
-	{
-	  db_file_inc_playcount(track_id);
-	}
-      else if (strcmp(param, "reset") == 0)
-	{
-	  db_file_reset_playskip_count(track_id);
-	}
-      else
-	{
-	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
-	}
-    }
+    play_count_update_byid(track_id, 0, param);
 
   // Update rating
   param = evhttp_find_header(hreq->query, "rating");
@@ -3356,6 +3414,26 @@ jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
     return HTTP_INTERNAL;
 
   return HTTP_OK;
+}
+
+static int
+jsonapi_reply_library_playlist_tracks_put_byid(struct httpd_request *hreq)
+{
+  int playlist_id;
+  struct query_params qp;
+  int ret;
+
+  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_PLITEMS;
+  qp.id = playlist_id;
+
+  ret = play_count_update(hreq, &qp);
+
+  return ret < 0 ? HTTP_INTERNAL : ret == 0 ? HTTP_OK : ret;
 }
 
 static int
@@ -3993,6 +4071,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/playlists$",                     jsonapi_reply_library_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlist_tracks },
+    { EVHTTP_REQ_PUT,    "^/api/library/playlists/[[:digit:]]+/tracks",  jsonapi_reply_library_playlist_tracks_put_byid},
 //    { EVHTTP_REQ_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },
 //    { EVHTTP_REQ_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_tracks },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/playlists", jsonapi_reply_library_playlist_playlists },
