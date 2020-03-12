@@ -747,6 +747,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/playlists](#list-playlists)                   | Get a list of playlists              |
 | GET       | [/api/library/playlists/{id}](#get-a-playlist)              | Get a playlist                       |
 | GET       | [/api/library/playlists/{id}/tracks](#list-playlist-tracks) | Get list of tracks for a playlist    |
+| PUT       | [/api/library/playlists/{id}/tracks](#update-playlist-tracks) | Update play count of tracks for a playlist    |
 | GET       | [/api/library/playlists/{id}/playlists](#list-playlists-in-a-playlist-folder) | Get list of playlists for a playlist folder   |
 | GET       | [/api/library/artists](#list-artists)                       | Get a list of artists                |
 | GET       | [/api/library/artists/{id}](#get-an-artist)                 | Get an artist                        |
@@ -968,6 +969,34 @@ curl -X GET "http://localhost:3689/api/library/playlists/1/tracks"
 }
 ```
 
+### Update playlist tracks
+
+Updates the play count for tracks in a playlists
+
+**Endpoint**
+
+```http
+PUT /api/library/playlists/{id}/tracks
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Playlist id          |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| play_count      | Either `increment`, `played` or `reset`. `increment` will increment `play_count` and update `time_played`, `played` will be like `increment` but only where `play_count` is 0, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped` |
+
+
+**Example**
+
+```shell
+curl -X PUT "http://localhost:3689/api/library/playlists/1/tracks?play_count=played"
+```
 
 ### List playlists in a playlist folder
 
