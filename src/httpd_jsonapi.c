@@ -3115,6 +3115,25 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_album_tracks_put_byid(struct httpd_request *hreq)
+{
+  const char *album_id;;
+  struct query_params qp;
+  int ret;
+
+  album_id = hreq->uri_parsed->path_parts[3];
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_ITEMS;
+  qp.filter = db_mprintf("(f.songalbumid = %q)", album_id);
+
+  ret = play_count_update(hreq, &qp);
+  free(qp.filter);
+
+  return ret < 0 ? HTTP_INTERNAL : ret == 0 ? HTTP_OK : ret;
+}
+
+static int
 jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 {
   struct query_params query_params;
@@ -4081,6 +4100,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
+    { EVHTTP_REQ_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
     { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
