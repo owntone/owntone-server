@@ -32,6 +32,7 @@ import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum'
 import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist'
 import SpotifyPageSearch from '@/pages/SpotifyPageSearch'
 import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface'
+import SettingsPageArtwork from '@/pages/SettingsPageArtwork'
 import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices'
 import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs'
 
@@ -224,6 +225,11 @@ export const router = new VueRouter({
       path: '/settings/webinterface',
       name: 'Settings Webinterface',
       component: SettingsPageWebinterface
+    },
+    {
+      path: '/settings/artwork',
+      name: 'Settings Artwork',
+      component: SettingsPageArtwork
     },
     {
       path: '/settings/online-services',

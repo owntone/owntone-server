@@ -15,6 +15,11 @@
                   <span class="">Remotes &amp; Outputs</span>
                 </a>
               </router-link>
+              <router-link tag="li" to="/settings/artwork" active-class="is-active">
+                <a>
+                  <span class="">Artwork</span>
+                </a>
+              </router-link>
               <router-link tag="li" to="/settings/online-services" active-class="is-active">
                 <a>
                   <span class="">Online Services</span>
