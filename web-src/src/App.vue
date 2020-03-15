@@ -6,6 +6,7 @@
       <!-- Setting v-show to true on the router-view tag avoids jumpiness during transitions -->
       <router-view v-show="true" />
     </transition>
+    <modal-dialog-remote-pairing :show="pairing_active" @close="pairing_active = false" />
     <notifications v-show="!show_burger_menu" />
     <navbar-bottom v-show="!show_burger_menu" />
   </div>
@@ -15,19 +16,21 @@
 import NavbarTop from '@/components/NavbarTop'
 import NavbarBottom from '@/components/NavbarBottom'
 import Notifications from '@/components/Notifications'
+import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
 
 export default {
   name: 'App',
-  components: { NavbarTop, NavbarBottom, Notifications },
+  components: { NavbarTop, NavbarBottom, Notifications, ModalDialogRemotePairing },
   template: '<App/>',
 
   data () {
     return {
       token_timer_id: 0,
-      reconnect_attempts: 0
+      reconnect_attempts: 0,
+      pairing_active: false
     }
   },
 
@@ -204,6 +207,7 @@ export default {
     update_pairing: function () {
       webapi.pairing().then(({ data }) => {
         this.$store.commit(types.UPDATE_PAIRING, data)
+        this.pairing_active = data.active
       })
     }
   },
