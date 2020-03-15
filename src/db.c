@@ -511,7 +511,7 @@ db_data_kind_label(enum data_kind data_kind)
 }
 
 /* Keep in sync with enum pl_type */
-static char *pl_type_label[] = { "special", "folder", "smart", "plain" };
+static char *pl_type_label[] = { "special", "folder", "smart", "plain", "rss" };
 
 const char *
 db_pl_type_label(enum pl_type pl_type)
@@ -1872,6 +1872,7 @@ db_build_query_plitems(struct query_params *qp, struct query_clause *qc)
 	query = db_build_query_plitems_smart(qp, pli);
 	break;
 
+      case PL_RSS:
       case PL_PLAIN:
       case PL_FOLDER:
 	query = db_build_query_plitems_plain(qp, qc);
@@ -3635,6 +3636,39 @@ db_pl_delete_bypath(const char *path)
 
   db_query_end(&qp);
   free(qp.filter);
+}
+
+int
+db_pl_purge_byid(int id)
+{
+#define Q_TMPL "DELETE FROM files WHERE path in (SELECT filepath FROM playlistitems WHERE playlistid = %d)"
+
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  db_transaction_begin();
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Deleted %d pl rows\n", sqlite3_changes(hdl));
+
+  db_pl_delete(id);
+  db_transaction_end();
+
+  return 0;
+
+#undef Q_TMPL
 }
 
 void

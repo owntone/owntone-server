@@ -30,6 +30,12 @@
 #define LIBRARY_ERROR -1
 #define LIBRARY_PATH_INVALID -2
 
+struct item_add_params {
+  const char *name;
+  const char *path;
+  int limit;
+};
+
 /*
  * Definition of a library source
  *
@@ -70,6 +76,12 @@ struct library_source
    * Run a full rescan (purge library entries and rescan) (called from the library thread)
    */
   int (*fullrescan)(void);
+
+  /*
+   * Perform an add to library of single item
+   */
+  int (*item_add)(const char *name, const char *path, int limit);
+  int (*item_remove)(const char *path);
 
   /*
    * Add item to playlist
@@ -155,6 +167,17 @@ library_queue_save(char *path);
 
 int
 library_queue_item_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
+
+int
+library_item_add(const char *name, const char *url, long limit);
+
+int
+library_item_remove(const char *url);
+
+/* Register any timer events for library modules
+ */
+struct event*
+library_register_event(void (*ev_cb)(int fd, short what, void *arg), void *ev_cb_arg, const struct timeval* cb_interval);
 
 /*
  * Execute the function 'func' with the given argument 'arg' in the library thread.

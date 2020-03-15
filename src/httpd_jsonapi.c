@@ -3157,7 +3157,7 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("(f.type = %d OR f.type = %d)", PL_PLAIN, PL_SMART);
+  query_params.filter = db_mprintf("(f.type = %d OR f.type = %d OR f.type = %d)", PL_PLAIN, PL_SMART, PL_RSS);
 
   ret = fetch_playlists(&query_params, items, &total);
   free(query_params.filter);
@@ -3322,8 +3322,8 @@ jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("f.parent_id = %d AND (f.type = %d OR f.type = %d OR f.type = %d)",
-				   playlist_id, PL_PLAIN, PL_SMART, PL_FOLDER);
+  query_params.filter = db_mprintf("f.parent_id = %d AND (f.type = %d OR f.type = %d OR f.type = %d OR f.type = %d)",
+				   playlist_id, PL_PLAIN, PL_SMART, PL_RSS, PL_FOLDER);
 
   ret = fetch_playlists(&query_params, items, &total);
   if (ret < 0)
@@ -3616,6 +3616,53 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_item_add(struct httpd_request *hreq)
+{
+  const char *name;
+  const char *url;
+  const char *limit;
+  int ret = -1;
+
+  name = evhttp_find_header(hreq->query, "name");
+  url = evhttp_find_header(hreq->query, "url");
+  if (!name || !url)
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing parameters: name: '%s' url: '%s'\n", name, url);
+      return HTTP_BADREQUEST;
+    }
+
+  limit = evhttp_find_header(hreq->query, "limit");
+  if (limit == NULL)
+    limit = "-1";
+
+  ret = library_item_add(name, url, atol(limit));
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_library_item_remove(struct httpd_request *hreq)
+{
+  const char *url;
+  int ret = -1;
+
+  url = evhttp_find_header(hreq->query, "url");
+  if (!url)
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing url parameter\n");
+      return HTTP_BADREQUEST;
+    }
+
+  ret = library_item_remove(url);
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
 {
   json_object *type;
@@ -3821,7 +3868,7 @@ search_playlists(json_object *reply, struct httpd_request *hreq, const char *par
 
   query_params.type = Q_PL;
   query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("((f.type = %d OR f.type = %d) AND f.title LIKE '%%%q%%')", PL_PLAIN, PL_SMART, param_query);
+  query_params.filter = db_mprintf("((f.type = %d OR f.type = %d OR f.type = %d) AND f.title LIKE '%%%q%%')", PL_PLAIN, PL_SMART, PL_RSS, param_query);
 
   ret = fetch_playlists(&query_params, items, &total);
   if (ret < 0)
@@ -3996,6 +4043,8 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
+    { EVHTTP_REQ_POST,   "^/api/library/item_add$",                      jsonapi_reply_library_item_add },
+    { EVHTTP_REQ_DELETE, "^/api/library/item_remove$",                   jsonapi_reply_library_item_remove },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
 
