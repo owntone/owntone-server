@@ -51,6 +51,7 @@
 #include <gcrypt.h>
 
 #include "logger.h"
+#include "commands.h"
 #include "conffile.h"
 #include "mdns.h"
 #include "misc.h"
@@ -77,15 +78,10 @@ struct remote_info {
 /* Main event base, from main.c */
 extern struct event_base *evbase_main;
 
-#ifdef HAVE_EVENTFD
-static int pairing_efd;
-#else
-static int pairing_pipe[2];
-#endif
-static struct event *pairingev;
 static pthread_mutex_t remote_lck;
 static struct remote_info *remote_info;
 
+static struct commands_base *cmdbase;
 
 /* iTunes - Remote pairing hash */
 static char *
@@ -316,7 +312,7 @@ add_remote_pin_data(const char *pin)
     {
       DPRINTF(E_LOG, L_REMOTE, "No remote known from mDNS, ignoring\n");
 
-      return -1;
+      return REMOTE_ERROR;
     }
 
   DPRINTF(E_DBG, L_REMOTE, "Adding pin to remote '%s'\n", remote_info->pi.name);
@@ -326,26 +322,6 @@ add_remote_pin_data(const char *pin)
 
   return 0;
 }
-
-static void
-kickoff_pairing(void)
-{
-#ifdef HAVE_EVENTFD
-  int ret;
-
-  ret = eventfd_write(pairing_efd, 1);
-  if (ret < 0)
-    DPRINTF(E_LOG, L_REMOTE, "Could not send pairing event: %s\n", strerror(errno));
-#else
-  int dummy = 42;
-  int ret;
-
-  ret = write(pairing_pipe[1], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_REMOTE, "Could not write to pairing fd: %s\n", strerror(errno));
-#endif
-}
-
 
 /* Thread: main (pairing) */
 static void
@@ -362,11 +338,13 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
   int ret;
 
   ri = (struct remote_info *)arg;
+  ret = 0;
 
   if (!req)
     {
       DPRINTF(E_LOG, L_REMOTE, "Empty pairing request callback\n");
 
+      ret = REMOTE_ERROR;
       goto cleanup;
     }
 
@@ -388,6 +366,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
 	    DPRINTF(E_LOG, L_REMOTE, "Pairing failed with '%s' (%s:%d), no reply from Remote\n", ri->pi.name, ri->v4_address, ri->v4_port);
 	}
 
+      ret = REMOTE_INVALID_PIN;
       goto cleanup;
     }
 
@@ -398,6 +377,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response too short\n", ri->pi.remote_id, ri->pi.name);
 
+      ret = REMOTE_ERROR;
       goto cleanup;
     }
 
@@ -407,6 +387,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: unknown pairing response, expected cmpa\n", ri->pi.remote_id, ri->pi.name);
 
+      ret = REMOTE_ERROR;
       goto cleanup;
     }
 
@@ -416,6 +397,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response truncated (got %d expected %d)\n",
 	      ri->pi.remote_id, ri->pi.name, buflen, len + 8);
 
+      ret = REMOTE_ERROR;
       goto cleanup;
     }
 
@@ -438,6 +420,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: cmpg truncated in pairing response\n", ri->pi.remote_id, ri->pi.name);
 
+      ret = REMOTE_ERROR;
       goto cleanup;
     }
 
@@ -453,12 +436,15 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
     {
       DPRINTF(E_LOG, L_REMOTE, "Failed to register pairing!\n");
 
+      ret = REMOTE_ERROR;
       goto cleanup;
     }
 
  cleanup:
   evhttp_connection_free(ri->evcon);
   free_remote(ri);
+  listener_notify(LISTENER_PAIRING);
+  commands_exec_end(cmdbase, ret);
 }
 
 
@@ -531,7 +517,7 @@ send_pairing_request(struct remote_info *ri, char *req_uri, int family)
 }
 
 /* Thread: main (pairing) */
-static void
+static int
 do_pairing(struct remote_info *ri)
 {
   char req_uri[128];
@@ -568,7 +554,7 @@ do_pairing(struct remote_info *ri)
     {
       ret = send_pairing_request(ri, req_uri, AF_INET6);
       if (ret == 0)
-	return;
+	return 0;
 
       DPRINTF(E_WARN, L_REMOTE, "Could not send pairing request on IPv6\n");
 
@@ -584,52 +570,13 @@ do_pairing(struct remote_info *ri)
       goto pairing_fail;
     }
 
-  return;
+  return 0;
 
  pairing_fail:
  req_uri_fail:
  hash_fail:
   free_remote(ri);
-}
-
-
-/* Thread: main (pairing) */
-static void
-pairing_cb(int fd, short event, void *arg)
-{
-  struct remote_info *ri;
-
-#ifdef HAVE_EVENTFD
-  eventfd_t count;
-  int ret;
-
-  ret = eventfd_read(pairing_efd, &count);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Could not read event counter: %s\n", strerror(errno));
-      return;
-    }
-#else
-  int dummy;
-
-  /* Drain the pipe */
-  while (read(pairing_pipe[0], &dummy, sizeof(dummy)) >= 0)
-    ; /* EMPTY */
-#endif
-
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
-
-  if (remote_info && remote_info->paircode && remote_info->pin)
-    {
-      ri = remote_info;
-      unlink_remote(ri);
-      do_pairing(ri);
-    }
-
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
-
-  listener_notify(LISTENER_PAIRING);
-  event_add(pairingev, NULL);
+  return -1;
 }
 
 
@@ -721,37 +668,11 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 	  free(devname);
 	  free(paircode);
 	}
-      else if (ret == 1)
-	kickoff_pairing();
 
       CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
     }
 
   listener_notify(LISTENER_PAIRING);
-}
-
-/* Thread: filescanner, mpd */
-void
-remote_pairing_kickoff(char **arglist)
-{
-  int ret;
-
-  ret = strlen(arglist[0]);
-  if (ret != 4)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing failed, first line did not contain a 4-digit pin (got %d)\n", ret);
-      return;
-    }
-
-  DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing with pin '%s'\n", arglist[0]);
-
-  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
-
-  ret = add_remote_pin_data(arglist[0]);
-  if (ret == 0)
-    kickoff_pairing();
-
-  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
 }
 
 /*
@@ -779,6 +700,76 @@ remote_pairing_get_name(void)
   return remote_name;
 }
 
+/* Thread: main (pairing) */
+static enum command_state
+pairing_pair(void *arg, int *retval)
+{
+  char *pin = arg;
+  struct remote_info *ri;
+  int ret;
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_lock(&remote_lck));
+
+  ret = add_remote_pin_data(pin);
+  if (ret == 0 && remote_info && remote_info->paircode && remote_info->pin)
+    {
+      ri = remote_info;
+      unlink_remote(ri);
+      ret = do_pairing(ri);
+    }
+
+  CHECK_ERR(L_REMOTE, pthread_mutex_unlock(&remote_lck));
+
+  if (ret < 0)
+    {
+      *retval = ret;
+      return COMMAND_END;
+    }
+
+  // We're async if we have a successful pairing request
+  *retval = 1;
+  return COMMAND_PENDING;
+}
+
+/* Thread: filescanner, mpd */
+void
+remote_pairing_kickoff(char **arglist)
+{
+  char *cmdarg;
+  int ret;
+
+  ret = strlen(arglist[0]);
+  if (ret != 4)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing failed, first line did not contain a 4-digit pin (got %d)\n", ret);
+      return;
+    }
+
+  cmdarg = strdup(arglist[0]);
+
+  DPRINTF(E_LOG, L_REMOTE, "Kickoff pairing with pin '%s'\n", arglist[0]);
+
+  commands_exec_async(cmdbase, pairing_pair, cmdarg);
+}
+
+int
+remote_pairing_pair(const char *pin)
+{
+  char cmdarg[5];
+  int ret;
+
+  ret = strlen(pin);
+  if (ret != 4)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Pairing failed, not a 4-digit pin (got %d)\n", ret);
+      return REMOTE_INVALID_PIN;
+    }
+
+  strncpy(cmdarg, pin, sizeof(cmdarg));
+
+  return commands_exec_sync(cmdbase, pairing_pair, NULL, &cmdarg);
+}
+
 
 /* Thread: main */
 int
@@ -790,32 +781,7 @@ remote_pairing_init(void)
 
   CHECK_ERR(L_REMOTE, mutex_init(&remote_lck));
 
-#ifdef HAVE_EVENTFD
-  pairing_efd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-  if (pairing_efd < 0)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not create eventfd: %s\n", strerror(errno));
-
-      return -1;
-    }
-#else
-# ifdef HAVE_PIPE2
-  ret = pipe2(pairing_pipe, O_CLOEXEC | O_NONBLOCK);
-# else
-  if ( pipe(pairing_pipe) < 0 ||
-       fcntl(pairing_pipe[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
-       fcntl(pairing_pipe[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
-    ret = -1;
-  else
-    ret = 0;
-# endif
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not create pairing pipe: %s\n", strerror(errno));
-
-      return -1;
-    }
-#endif /* HAVE_EVENTFD */
+  cmdbase = commands_base_new(evbase_main, NULL);
 
   // No ipv6 for remote at the moment
   ret = mdns_browse("_touch-remote._tcp", AF_INET, touch_remote_cb, 0);
@@ -826,30 +792,10 @@ remote_pairing_init(void)
       goto mdns_browse_fail;
     }
 
-#ifdef HAVE_EVENTFD
-  pairingev = event_new(evbase_main, pairing_efd, EV_READ, pairing_cb, NULL);
-#else
-  pairingev = event_new(evbase_main, pairing_pipe[0], EV_READ, pairing_cb, NULL);
-#endif
-  if (!pairingev)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Out of memory for pairing event\n");
-
-      goto pairingev_fail;
-    }
-
-  event_add(pairingev, NULL);
-
   return 0;
 
- pairingev_fail:
  mdns_browse_fail:
-#ifdef HAVE_EVENTFD
-  close(pairing_efd);
-#else
-  close(pairing_pipe[0]);
-  close(pairing_pipe[1]);
-#endif
+  commands_base_free(cmdbase);
 
   return -1;
 }
@@ -861,14 +807,7 @@ remote_pairing_deinit(void)
   if (remote_info)
     free_remote(remote_info);
 
-  event_free(pairingev);
-
-#ifdef HAVE_EVENTFD
-  close(pairing_efd);
-#else
-  close(pairing_pipe[0]);
-  close(pairing_pipe[1]);
-#endif
+  commands_base_free(cmdbase);
 
   CHECK_ERR(L_REMOTE, pthread_mutex_destroy(&remote_lck));
 }
