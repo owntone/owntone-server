@@ -1330,11 +1330,12 @@ jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
  * }
  */
 static int
-jsonapi_reply_pairing_kickoff(struct httpd_request *hreq)
+jsonapi_reply_pairing_pair(struct httpd_request *hreq)
 {
   struct evbuffer *evbuf;
   json_object* request;
-  const char* message;
+  const char* pin;
+  int ret;
 
   evbuf = evhttp_request_get_input_buffer(hreq->req);
   request = jparse_obj_from_evbuffer(evbuf);
@@ -1346,15 +1347,25 @@ jsonapi_reply_pairing_kickoff(struct httpd_request *hreq)
 
   DPRINTF(E_DBG, L_WEB, "Received pairing post request: %s\n", json_object_to_json_string(request));
 
-  message = jparse_str_from_obj(request, "pin");
-  if (message)
-    remote_pairing_kickoff((char **)&message);
+  pin = jparse_str_from_obj(request, "pin");
+  if (pin)
+    {
+      ret = remote_pairing_pair(pin);
+    }
   else
-    DPRINTF(E_LOG, L_WEB, "Missing pin in request body: %s\n", json_object_to_json_string(request));
+    {
+      DPRINTF(E_LOG, L_WEB, "Missing pin in request body: %s\n", json_object_to_json_string(request));
+      ret = REMOTE_INVALID_PIN;
+    }
 
   jparse_free(request);
 
-  return HTTP_NOCONTENT;
+  if (ret == 0)
+    return HTTP_NOCONTENT;
+  else if (ret == REMOTE_INVALID_PIN)
+    return HTTP_BADREQUEST;
+
+  return HTTP_INTERNAL;
 }
 
 /*
@@ -3946,7 +3957,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_POST,   "^/api/spotify-login$",                         jsonapi_reply_spotify_login },
     { EVHTTP_REQ_GET,    "^/api/spotify$",                               jsonapi_reply_spotify },
     { EVHTTP_REQ_GET,    "^/api/pairing$",                               jsonapi_reply_pairing_get },
-    { EVHTTP_REQ_POST,   "^/api/pairing$",                               jsonapi_reply_pairing_kickoff },
+    { EVHTTP_REQ_POST,   "^/api/pairing$",                               jsonapi_reply_pairing_pair },
     { EVHTTP_REQ_POST,   "^/api/lastfm-login$",                          jsonapi_reply_lastfm_login },
     { EVHTTP_REQ_GET,    "^/api/lastfm-logout$",                         jsonapi_reply_lastfm_logout },
     { EVHTTP_REQ_GET,    "^/api/lastfm$",                                jsonapi_reply_lastfm },
