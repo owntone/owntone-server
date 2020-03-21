@@ -746,6 +746,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library](#library-information)                        | Get library information              |
 | GET       | [/api/library/playlists](#list-playlists)                   | Get a list of playlists              |
 | GET       | [/api/library/playlists/{id}](#get-a-playlist)              | Get a playlist                       |
+| DELETE    | [/api/library/playlists/{id}](#delete-a-playlist)           | Delete a playlist                    |
 | GET       | [/api/library/playlists/{id}/tracks](#list-playlist-tracks) | Get list of tracks for a playlist    |
 | GET       | [/api/library/playlists/{id}/playlists](#list-playlists-in-a-playlist-folder) | Get list of playlists for a playlist folder   |
 | GET       | [/api/library/artists](#list-artists)                       | Get a list of artists                |
@@ -759,6 +760,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
+| POST      | [/api/library/add](#add-an-item-to-the-library)             | Add an item to the library           |
 | PUT       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
 | PUT       | [/api/rescan](#trigger-meta-rescan)                         | Trigger a library metadata rescan    |
 

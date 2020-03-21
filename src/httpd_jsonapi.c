@@ -3289,6 +3289,25 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_playlist_delete(struct httpd_request *hreq)
+{
+  uint32_t pl_id;
+  int ret;
+
+  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &pl_id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->uri_parsed->path);
+
+      return HTTP_BADREQUEST;
+    }
+
+  db_pl_delete(pl_id);
+
+  return HTTP_NOCONTENT;
+}
+
+static int
 jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
 {
   struct query_params query_params;
@@ -3616,46 +3635,19 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
 }
 
 static int
-jsonapi_reply_library_item_add(struct httpd_request *hreq)
-{
-  const char *name;
-  const char *url;
-  const char *limit;
-  int ret = -1;
-
-  name = evhttp_find_header(hreq->query, "name");
-  url = evhttp_find_header(hreq->query, "url");
-  if (!name || !url)
-    {
-      DPRINTF(E_LOG, L_WEB, "Missing parameters: name: '%s' url: '%s'\n", name, url);
-      return HTTP_BADREQUEST;
-    }
-
-  limit = evhttp_find_header(hreq->query, "limit");
-  if (limit == NULL)
-    limit = "-1";
-
-  ret = library_item_add(name, url, atol(limit));
-  if (ret < 0)
-    return HTTP_INTERNAL;
-
-  return HTTP_OK;
-}
-
-static int
-jsonapi_reply_library_item_remove(struct httpd_request *hreq)
+jsonapi_reply_library_add(struct httpd_request *hreq)
 {
   const char *url;
-  int ret = -1;
+  int ret;
 
   url = evhttp_find_header(hreq->query, "url");
   if (!url)
     {
-      DPRINTF(E_LOG, L_WEB, "Missing url parameter\n");
+      DPRINTF(E_LOG, L_WEB, "Missing URL parameter for library add\n");
       return HTTP_BADREQUEST;
     }
 
-  ret = library_item_remove(url);
+  ret = library_item_add(url);
   if (ret < 0)
     return HTTP_INTERNAL;
 
@@ -4030,7 +4022,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlist_tracks },
 //    { EVHTTP_REQ_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },
-//    { EVHTTP_REQ_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_tracks },
+    { EVHTTP_REQ_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_delete },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/playlists", jsonapi_reply_library_playlist_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/artists$",                       jsonapi_reply_library_artists },
     { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+$",          jsonapi_reply_library_artist },
@@ -4043,8 +4035,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
-    { EVHTTP_REQ_POST,   "^/api/library/item_add$",                      jsonapi_reply_library_item_add },
-    { EVHTTP_REQ_DELETE, "^/api/library/item_remove$",                   jsonapi_reply_library_item_remove },
+    { EVHTTP_REQ_POST,   "^/api/library/add$",                           jsonapi_reply_library_add },
 
     { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
 
