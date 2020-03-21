@@ -3632,19 +3632,41 @@ void
 db_pl_delete(int id)
 {
 #define Q_TMPL "DELETE FROM playlists WHERE id = %d;"
+#define Q_FILES "DELETE FROM files WHERE data_kind = %d AND path in (SELECT filepath FROM playlistitems WHERE playlistid = %d)"
   char *query;
   int ret;
 
   if (id == 1)
     return;
 
+  db_transaction_begin();
+
   query = sqlite3_mprintf(Q_TMPL, id);
 
   ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return;
+    }
 
-  if (ret == 0)
-    db_pl_clear_items(id);
+  // http items in files must have been added by the playlist
+  // TODO find a cleaner way of identifying tracks added by a playlist
+  query = sqlite3_mprintf(Q_FILES, DATA_KIND_HTTP, id);
+
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return;
+    }
+
+  // Clear playlistitems
+  db_pl_clear_items(id);
+
+  db_transaction_end();
 #undef Q_TMPL
+#undef Q_FILES
 }
 
 void
@@ -3678,39 +3700,6 @@ db_pl_delete_bypath(const char *path)
 
   db_query_end(&qp);
   free(qp.filter);
-}
-
-int
-db_pl_purge_byid(int id)
-{
-#define Q_TMPL "DELETE FROM files WHERE path in (SELECT filepath FROM playlistitems WHERE playlistid = %d)"
-
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
-
-  db_transaction_begin();
-  ret = db_query_run(query, 1, LISTENER_DATABASE);
-  if (ret < 0)
-    {
-      db_transaction_rollback();
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Deleted %d pl rows\n", sqlite3_changes(hdl));
-
-  db_pl_delete(id);
-  db_transaction_end();
-
-  return 0;
-
-#undef Q_TMPL
 }
 
 void
