@@ -48,6 +48,14 @@
 #include "listener.h"
 #include "player.h"
 
+#define LIBRARY_MAX_CALLBACKS 16
+
+struct library_callback_register
+{
+  library_cb cb;
+  void *arg;
+};
+
 struct playlist_item_add_param
 {
   const char *vp_playlist;
@@ -107,6 +115,9 @@ static struct event *updateev;
 static unsigned int deferred_update_notifications;
 static short deferred_update_events;
 
+// Stores callbacks that backends may have requested
+static struct library_callback_register library_cb_register[LIBRARY_MAX_CALLBACKS];
+
 
 /* ------------------- CALLED BY LIBRARY SOURCE MODULES -------------------- */
 
@@ -153,6 +164,50 @@ library_playlist_save(struct playlist_info *pli)
     return db_pl_add(pli);
   else
     return db_pl_update(pli);
+}
+
+static void
+scheduled_cb(int fd, short what, void *arg)
+{
+  struct library_callback_register *cbreg = arg;
+
+  DPRINTF(E_DBG, L_LIB, "Executing library callback to %p\n", cbreg->cb);
+
+  cbreg->cb(cbreg->arg);
+
+  memset(cbreg, 0, sizeof(struct library_callback_register));
+}
+
+int
+library_callback_schedule(library_cb cb, void *arg, struct timeval *wait)
+{
+  struct library_callback_register *cbreg;
+  int callback_id;
+
+  // Find a free slot in the queue
+  for (callback_id = 0; callback_id < ARRAY_SIZE(library_cb_register); callback_id++)
+    {
+      if (library_cb_register[callback_id].cb == NULL)
+	break;
+    }
+
+  if (callback_id == ARRAY_SIZE(library_cb_register))
+    {
+      DPRINTF(E_LOG, L_LIB, "Library callback register is full! (size is %d)\n", LIBRARY_MAX_CALLBACKS);
+      return -1;
+    }
+
+  cbreg = &library_cb_register[callback_id];
+
+  cbreg->cb = cb;
+  cbreg->arg = arg;
+
+  // One-time event, freed automatically by libevent
+  CHECK_ERR(L_LIB, event_base_once(evbase_lib, -1, EV_TIMEOUT, scheduled_cb, cbreg, wait));
+
+  DPRINTF(E_DBG, L_LIB, "Added library callback to %p (id %d)\n", cbreg->cb, callback_id);
+
+  return callback_id;
 }
 
 
@@ -446,11 +501,11 @@ queue_save(void *arg, int *retval)
 static enum command_state
 item_add(void *arg, int *retval)
 {
-  struct item_add_params *params = arg;
+  const char *path = arg;
   int i;
   int ret = LIBRARY_ERROR;
 
-  DPRINTF(E_DBG, L_LIB, "Adding item to library '%s' '%s'\n", params->name, params->path);
+  DPRINTF(E_DBG, L_LIB, "Adding item to library '%s'\n", path);
 
   for (i = 0; sources[i]; i++)
     {
@@ -460,11 +515,11 @@ item_add(void *arg, int *retval)
 	  continue;
 	}
 
-      ret = sources[i]->item_add(params->name, params->path, params->limit);
+      ret = sources[i]->item_add(path);
 
       if (ret == LIBRARY_OK)
 	{
-	  DPRINTF(E_DBG, L_LIB, "Add item to path '%s' with library source '%s'\n", params->path, sources[i]->name);
+	  DPRINTF(E_DBG, L_LIB, "Add item to path '%s' with library source '%s'\n", path, sources[i]->name);
 	  listener_notify(LISTENER_DATABASE);
 	  break;
 	}
@@ -473,38 +528,6 @@ item_add(void *arg, int *retval)
   *retval = ret;
   return COMMAND_END;
 }
-
-static enum command_state
-item_remove(void *arg, int *retval)
-{
-  const char *path = arg;
-  int i;
-  int ret = LIBRARY_ERROR;
-
-  DPRINTF(E_DBG, L_LIB, "Removing item from library '%s'\n", path);
-
-  for (i = 0; sources[i]; i++)
-    {
-      if (sources[i]->disabled || !sources[i]->item_remove)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support add_remove\n", sources[i]->name);
-	  continue;
-	}
-
-      ret = sources[i]->item_remove(path);
-
-      if (ret == LIBRARY_OK)
-	{
-	  DPRINTF(E_DBG, L_LIB, "Removing item from path '%s' with library source '%s'\n", path, sources[i]->name);
-	  listener_notify(LISTENER_DATABASE);
-	  break;
-	}
-    }
-
-  *retval = ret;
-  return COMMAND_END;
-}
-
 
 // Callback to notify listeners of database changes
 static void
@@ -709,40 +732,12 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 }
 
 int
-library_item_add(const char *name, const char *path, long limit)
-{
-  struct item_add_params params;
-
-  if (library_is_scanning())
-    return -1;
-
-  params.name = name;
-  params.path = path;
-  params.limit = limit;
-  return commands_exec_sync(cmdbase, item_add, NULL, &params);
-}
-
-int
-library_item_remove(const char *path)
+library_item_add(const char *path)
 {
   if (library_is_scanning())
     return -1;
 
-  return commands_exec_sync(cmdbase, item_remove, NULL, path);
-}
-
-struct event*
-library_register_event(void (*ev_cb)(int fd, short what, void *arg), void *ev_cb_arg, const struct timeval* cb_interval)
-{
-  struct event *ev;
-  ev = evtimer_new(evbase_lib, ev_cb, ev_cb_arg);
-  if (!ev)
-    {
-      DPRINTF(E_FATAL, L_LIB, "Failed to create timer event\n");
-      return NULL;
-    }
-  evtimer_add(ev, cb_interval);
-  return ev;
+  return commands_exec_sync(cmdbase, item_add, NULL, (char *)path);
 }
 
 int
@@ -807,21 +802,18 @@ library_init(void)
 
   for (i = 0; sources[i]; i++)
     {
-      if (!sources[i]->init)
-	{
-	  DPRINTF(E_FATAL, L_LIB, "BUG: library source '%s' has no init()\n", sources[i]->name);
-	  return -1;
-	}
-
       if (!sources[i]->initscan || !sources[i]->rescan || !sources[i]->metarescan || !sources[i]->fullrescan)
 	{
 	  DPRINTF(E_FATAL, L_LIB, "BUG: library source '%s' is missing a scanning method\n", sources[i]->name);
 	  return -1;
 	}
 
-      ret = sources[i]->init();
-      if (ret < 0)
-	sources[i]->disabled = 1;
+      if (sources[i]->init && !sources[i]->disabled)
+	{
+	  ret = sources[i]->init();
+	  if (ret < 0)
+	    sources[i]->disabled = 1;
+	}
     }
 
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
@@ -858,7 +850,7 @@ library_deinit()
   for (i = 0; sources[i]; i++)
     {
       if (sources[i]->deinit && !sources[i]->disabled)
-      sources[i]->deinit();
+	sources[i]->deinit();
     }
 
   event_free(updateev);
