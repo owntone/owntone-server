@@ -31,12 +31,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+
+// For strptime()
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE
 #endif
 #include <time.h>
 
-#include <event2/event.h>
+#include <event2/buffer.h>
 #include <mxml.h>
 #include "mxml-compat.h"
 
@@ -49,15 +51,31 @@
 #include "library.h"
 #include "library/filescanner.h"
 
+#define APPLE_PODCASTS_SERVER "https://podcasts.apple.com/"
+#define APPLE_ITUNES_SERVER "https://itunes.apple.com/"
+#define RSS_LIMIT_DEFAULT 10
 
-static struct event *rssev;
+enum rss_scan_type {
+  RSS_SCAN_RESCAN,
+  RSS_SCAN_META,
+};
+
+struct rss_item_info {
+  const char *title;
+  const char *pubdate;
+  const char *link;
+  const char *url;
+  const char *type;
+};
+
 static struct timeval rss_refresh_interval = { 3600, 0 };
-static bool scanning;
 
+// Forward
+static void
+rss_refresh(void *arg);
 
 // RSS spec: https://validator.w3.org/feed/docs/rss2.html
-
-static bool
+static void
 rss_date(struct tm *tm, const char *date)
 {
   // RFC822 https://tools.ietf.org/html/rfc822#section-5
@@ -66,41 +84,40 @@ rss_date(struct tm *tm, const char *date)
   //    optional                  ^^^^^
   //                              could also be GMT/UT/EST/A..I/M..Z
 
-  char *ptr;
+  const char *ptr;
   time_t t;
 
   memset(tm, 0, sizeof(struct tm));
-  ptr = strptime(date, "%a,%n", tm);
-  ptr = strptime(ptr ? ptr : date, "%d%n%b%n%Y%n%H:%M:%S%n", tm);
+  ptr = strptime(date, "%a,%n", tm); // Looks for optional day of week
+  if (!ptr)
+    ptr = date;
+
+  ptr = strptime(ptr, "%d%n%b%n%Y%n%H:%M:%S%n", tm);
   if (!ptr)
     {
       // date is junk, using current time
       time(&t);
       gmtime_r(&t, tm);
-      return false;
     }
 
   // TODO - adjust the TZ?
-  return true;
 }
 
-// uses incoming buf for result but if too smal, returns new buf
-static char*
-process_apple_rss(const char *rss_url)
+// Makes a request to Apple based on the Apple Podcast ID in rss_url. The JSON
+// response is parsed to find the original feed's url. Example rss_url:
+// https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
+static char *
+apple_rss_feedurl_get(const char *rss_url)
 {
   struct http_client_ctx ctx;
   struct evbuffer *evbuf;
   char url[100];
-  char *buf = NULL;
-  unsigned podid;  // apple podcast id
-  json_object *json = NULL;
-  json_object *jsonra = NULL;
-  const char *feedURL;
   const char *ptr;
+  unsigned podcast_id;
+  json_object *jresponse;
+  json_object *jfeedurl;
+  char *feedurl;
   int ret;
-
-  // ask for the json to get feedUrl
-  // https://itunes.apple.com/lookup?id=974722423
 
   ptr = strrchr(rss_url, '/');
   if (!ptr)
@@ -108,643 +125,488 @@ process_apple_rss(const char *rss_url)
       DPRINTF(E_LOG, L_LIB, "Could not parse Apple Podcast RSS ID from '%s'\n", rss_url);
       return NULL;
     }
-  if (sscanf(ptr, "/id%u", &podid) != 1)
+
+  ret = sscanf(ptr, "/id%u", &podcast_id);
+  if (ret != 1)
     {
       DPRINTF(E_LOG, L_LIB, "Could not parse Apple Podcast RSS ID from '%s'\n", rss_url);
       return NULL;
     }
 
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    return false;
-
-  snprintf(url, sizeof(url), "https://itunes.apple.com/lookup?id=%u", podid);
+  CHECK_NULL(L_LIB, evbuf = evbuffer_new());
+  snprintf(url, sizeof(url), "%slookup?id=%u", APPLE_ITUNES_SERVER, podcast_id);
 
   memset(&ctx, 0, sizeof(struct http_client_ctx));
   ctx.url = url;
   ctx.input_body = evbuf;
 
   ret = http_client_request(&ctx);
-  if (ret < 0 || (ret && ctx.response_code != HTTP_OK))
+  if (ret < 0 || ctx.response_code != HTTP_OK)
     {
       evbuffer_free(evbuf);
       return NULL;
     }
 
-  json = jparse_obj_from_evbuffer(evbuf);
-  if (!json)
+  jresponse = jparse_obj_from_evbuffer(evbuf);
+  evbuffer_free(evbuf);
+  if (!jresponse)
     {
-      DPRINTF(E_LOG, L_LIB, "Could not parse RSS apple response, podcast id %u\n", podid);
-    }
-  else
-    {
-      /* expect json resp - get feedUrl
-       * {
-       *  "resultCount": 1,
-       *  "results": [
-       *    {
-       *      "wrapperType": "track",
-       *      "kind": "podcast",
-       *      ...
-       *      "collectionViewUrl": "https://podcasts.apple.com/us/podcast/cgp-grey/id974722423?uo=4",
-       *      "feedUrl": "http://cgpgrey.libsyn.com/rss",
-       *      ...
-       *      "genres": [
-       *        "Education",
-       *        "Podcasts",
-       *        "News"
-       *      ]
-       *    }
-       *  ]
-       *}
-       */
-      if (json_object_object_get_ex(json, "results", &jsonra) && (feedURL = jparse_str_from_array(jsonra, 0, "feedUrl")) )
-        {
-          buf = strcpy(malloc(strlen(feedURL)+1), feedURL);
-	  DPRINTF(E_DBG, L_LIB, "mapped apple podcast URL: %s -> %s\n", rss_url, buf);
-        }
-      else
-        DPRINTF(E_DBG, L_LIB, "Could not parse feedURL from RSS apple, podcast id %u\n", podid);
+      DPRINTF(E_LOG, L_LIB, "Could not parse RSS Apple response, podcast id %u\n", podcast_id);
+      return NULL;
     }
 
-  jparse_free(json);
-  evbuffer_free(evbuf);
-  return buf;
+  /* expect json resp - get feedUrl
+   * {
+   *  "resultCount": 1,
+   *  "results": [
+   *    {
+   *      "wrapperType": "track",
+   *      "kind": "podcast",
+   *      ...
+   *      "collectionViewUrl": "https://podcasts.apple.com/us/podcast/cgp-grey/id974722423?uo=4",
+   *      "feedUrl": "http://cgpgrey.libsyn.com/rss",
+   *      ...
+   *      "genres": [
+   *        "Education",
+   *        "Podcasts",
+   *        "News"
+   *      ]
+   *    }
+   *  ]
+   *}
+   */
+  jfeedurl = JPARSE_SELECT(jresponse, "results", "feedUrl");
+  if (!jfeedurl || json_object_get_type(jfeedurl) != json_type_string)
+    {
+      DPRINTF(E_LOG, L_LIB, "Could not find RSS feedUrl in response from Apple, podcast id %u\n", podcast_id);
+      jparse_free(jresponse);
+      return NULL;
+    }
+
+  feedurl = safe_strdup(json_object_get_string(jfeedurl));
+
+  DPRINTF(E_DBG, L_LIB, "Mapped Apple podcast URL: '%s' -> '%s'\n", rss_url, feedurl);
+
+  jparse_free(jresponse);
+  return feedurl;
 }
 
-#ifdef RSS_DEBUG
-static void
-rss_playlist_items(int plid)
+static struct playlist_info *
+playlist_fetch(bool *is_new, const char *path)
 {
-  struct query_params qp;
-  struct db_media_file_info dbpli;
+  struct playlist_info *pli;
   int ret;
 
-  memset(&qp, 0, sizeof(struct query_params));
+  pli = db_pl_fetch_bypath(path);
+  if (pli)
+    {
+      db_pl_clear_items(pli->id);
+      *is_new = false;
+      return pli;
+    }
 
-  qp.type = Q_PLITEMS;
-  qp.idx_type = I_NONE;
-  qp.id = plid;
+  CHECK_NULL(L_SCAN, pli = calloc(1, sizeof(struct playlist_info)));
 
-  ret = db_query_start(&qp);
+  ret = playlist_fill(pli, path);
   if (ret < 0)
-    {
-      db_query_end(&qp);
-      return;
-    }
-  while (((ret = db_query_fetch_file(&qp, &dbpli)) == 0) && (dbpli.id))
-    {
-      DPRINTF(E_LOG, L_LIB, "plid=%u  { id=%s title=%s path=%s }\n", plid, dbpli.id, dbpli.title, dbpli.path);
-    }
-  db_query_end(&qp);
+    goto error;
 
-  return;
+  pli->directory_id = DIR_HTTP;
+  pli->type = PL_RSS;
+  pli->query_limit = RSS_LIMIT_DEFAULT;
+
+  ret = library_playlist_save(pli);
+  if (ret < 0)
+    goto error;
+
+  pli->id = ret;
+  *is_new = true;
+  return pli;
+
+ error:
+  DPRINTF(E_LOG, L_SCAN, "Error adding playlist for RSS feed '%s'\n", path);
+  free_pli(pli, 0);
+  return NULL;
 }
-#endif
+
+static mxml_node_t *
+rss_xml_get(const char *url)
+{
+  struct http_client_ctx ctx = { 0 };
+  const char *raw = NULL;
+  mxml_node_t *xml = NULL;
+  char *feedurl;
+  int ret;
+
+  // Is it an apple podcast stream?
+  // ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
+  if (strncmp(url, APPLE_PODCASTS_SERVER, strlen(APPLE_PODCASTS_SERVER)) == 0)
+    {
+      feedurl = apple_rss_feedurl_get(url);
+      if (!feedurl)
+	return NULL;
+    }
+  else
+    feedurl = strdup(url);
+
+  CHECK_NULL(L_LIB, ctx.input_body = evbuffer_new());
+  ctx.url = feedurl;
+
+  ret = http_client_request(&ctx);
+  if (ret < 0 || ctx.response_code != HTTP_OK)
+    {
+      DPRINTF(E_LOG, L_LIB, "Failed to fetch RSS from '%s' (return %d, error code %d)\n", ctx.url, ret, ctx.response_code);
+      goto cleanup;
+    }
+
+  evbuffer_add(ctx.input_body, "", 1);
+
+  raw = (const char*)evbuffer_pullup(ctx.input_body, -1);
+
+  xml = mxmlLoadString(NULL, raw, MXML_OPAQUE_CALLBACK);
+  if (!xml)
+    {
+      DPRINTF(E_LOG, L_LIB, "Failed to parse RSS XML from '%s'\n", ctx.url);
+      goto cleanup;
+    }
+
+ cleanup:
+  evbuffer_free(ctx.input_body);
+  free(feedurl);
+  return xml;
+}
 
 static int
-map_rss_item_to_mfi(struct media_file_info *mfi, int pl_id, const char *rss_item_url, const char *rss_item_type, const char *rss_feed_author, const char *rss_feed_title, const char *rss_item_title, const char *rss_item_link, const char *rss_item_pubDate, time_t mtime)
+rss_xml_parse_feed(const char **feed_title, const char **feed_author, mxml_node_t *xml)
 {
-  struct tm tm;
+  mxml_node_t *channel;
+  mxml_node_t *node;
 
-  memset(mfi, 0, sizeof(struct media_file_info));
-  scan_metadata_stream(mfi, rss_item_url);
-
-  if (mfi->song_length == 0 && mfi->file_size == 0)
+  channel = mxmlFindElement(xml, xml, "channel", NULL, NULL, MXML_DESCEND);
+  if (!channel)
     {
-      DPRINTF(E_INFO, L_LIB, "Ignoring item (empty media) RSS id: %d name: '%s' url: %s pubdate: %s title: '%s'\n", pl_id, rss_feed_title, rss_item_url, rss_item_pubDate, rss_item_title);
+      DPRINTF(E_LOG, L_LIB, "Invalid RSS/xml, missing 'channel' node\n");
       return -1;
     }
 
-  // Always take the meta from media file if possible; some podcasts
-  // (apple) can use mp4 streams which tend not to have decent tags so 
-  // in those cases take info from the RSS and not the stream
-  if (!mfi->artist) mfi->artist = safe_strdup(rss_feed_author);
-  if (!mfi->album)  mfi->album  = safe_strdup(rss_feed_title);
-  if (!mfi->url)    mfi->url    = safe_strdup(rss_item_link);
+  node = mxmlFindElement(channel, channel, "title", NULL, NULL, MXML_DESCEND_FIRST);
+  if (!node)
+    {
+      DPRINTF(E_LOG, L_LIB, "Invalid RSS/xml, missing 'title' node\n");
+      return -1;
+    }
+  *feed_title = mxmlGetOpaque(node);
+
+  node = mxmlFindElement(channel, channel, "itunes:author", NULL, NULL, MXML_DESCEND_FIRST);
+  *feed_author = node ? mxmlGetOpaque(node) : NULL;
+
+  return 0;
+}
+
+static int
+rss_xml_parse_item(struct rss_item_info *ri, mxml_node_t *xml, void **saveptr)
+{
+  mxml_node_t *item;
+  mxml_node_t *node;
+  const char *s;
+
+  if (*saveptr)
+    {
+      item = (mxml_node_t *)(*saveptr);
+      while ( (item = mxmlGetNextSibling(item)) )
+	{
+	  s = mxmlGetElement(item);
+	  if (s && strcmp(s, "item") == 0)
+	    break;
+	}
+      *saveptr = item;
+    }
+  else
+    {
+      item = mxmlFindElement(xml, xml, "item", NULL, NULL, MXML_DESCEND);
+      *saveptr = item;
+    }
+
+  if (!item)
+    return -1; // No more items
+
+  memset(ri, 0, sizeof(struct rss_item_info));
+
+  node = mxmlFindElement(item, item, "title", NULL, NULL, MXML_DESCEND_FIRST);
+  ri->title = mxmlGetOpaque(node);
+
+  node = mxmlFindElement(item, item, "pubDate", NULL, NULL, MXML_DESCEND_FIRST);
+  ri->pubdate = mxmlGetOpaque(node);
+
+  node = mxmlFindElement(item, item, "link", NULL, NULL, MXML_DESCEND_FIRST);
+  ri->link = mxmlGetOpaque(node);
+
+  node = mxmlFindElement(item, item, "enclosure", NULL, NULL, MXML_DESCEND_FIRST);
+  ri->url = mxmlElementGetAttr(node, "url");
+  ri->type = mxmlElementGetAttr(node, "type");
+
+  return 0;
+}
+
+static void
+mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const char *feed_title, const char *feed_author, uint32_t time_added)
+{
+  struct tm tm;
+
+  // Always take the meta from media file if possible; some podcasts (Apple) can
+  // use mp4 streams which tend not to have decent tags so  in those cases take
+  // info from the RSS and not the stream
+  if (!mfi->artist)
+    mfi->artist = safe_strdup(feed_author);
+  if (!mfi->album)
+    mfi->album  = safe_strdup(feed_title);
+  if (!mfi->url)
+    mfi->url    = safe_strdup(ri->link);
   if (!mfi->genre || strcmp("(186)Podcast", mfi->genre) == 0)
     {
       free(mfi->genre);
       mfi->genre  = strdup("Podcast");
     }
 
-
   // Title not valid on most mp4 (it becomes the url obj) so take from RSS feed
-  if (rss_item_type && strncmp("video", rss_item_type, 5) == 0)
+  if (ri->type && strncmp("video", ri->type, 5) == 0)
     {
       free(mfi->title);
-      mfi->title = safe_strdup(rss_item_title);
+      mfi->title = safe_strdup(ri->title);
     }
 
-  // Ignore this - some can be very verbose - we don't show use these
-  // on the podcast
-  free(mfi->comment); mfi->comment = NULL;
+  // Remove, some can be very verbose
+  free(mfi->comment);
+  mfi->comment = NULL;
 
-  // date is always from the RSS feed info
-  rss_date(&tm, rss_item_pubDate);
+  // Date is always from the RSS feed info
+  rss_date(&tm, ri->pubdate);
   mfi->date_released = mktime(&tm);
   mfi->year = 1900 + tm.tm_year;
 
   mfi->media_kind = MEDIA_KIND_PODCAST;
 
+  mfi->time_added = time_added;
+}
+
+static int
+rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
+{
+  mxml_node_t *xml;
+  const char *feed_title;
+  const char *feed_author;
+  struct media_file_info mfi = { 0 };
+  struct rss_item_info ri;
+  uint32_t time_added;
+  void *ptr = NULL;
+  int ret;
+
+  xml = rss_xml_get(pli->path);
+  if (!xml)
+    {
+      DPRINTF(E_LOG, L_LIB, "Could not get RSS/xml from '%s' (id %d)\n", pli->path, pli->id);
+      return -1;
+    }
+
+  ret = rss_xml_parse_feed(&feed_title, &feed_author, xml);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LIB, "Invalid RSS/xml received from '%s' (id %d)\n", pli->path, pli->id);
+      mxmlDelete(xml);
+      return -1;
+    }
+
+  free(pli->title);
+  pli->title = safe_strdup(feed_title);
+
   // Fake the time - useful when we are adding a new stream - since the
   // newest podcasts are added first (the stream is most recent first)
   // having time_added date which is older on the most recent episodes
   // makes no sense so make all the dates the same for a singleu update
-  mfi->time_added = mtime;
+  time_added = (uint32_t)time(NULL);
 
-  mfi->id = db_file_id_bypath(rss_item_url);
-
-  return 0;
-}
-
-// Only add required number of feeds items when limit > 0
-int
-rss_scan_feed(int pl_id, const char *url, long limit, unsigned *nadded)
-{
-  struct media_file_info mfi;
-  char *vpath = NULL;
-  int feed_file_id;
-  unsigned vpathlen = 0;
-  unsigned len = 0;
-  time_t mtime;
-
-  char *apple_url = NULL;
-
-  const char *rss_xml = NULL;
-  mxml_node_t *tree = NULL;
-  mxml_node_t *channel;
-  mxml_node_t *node;
-  mxml_node_t *item;
-  const char *rss_feed_title = NULL;
-  const char *rss_feed_author = NULL;
-  const char *rss_item_title = NULL;
-  const char *rss_item_pubDate = NULL;
-  const char *rss_item_url = NULL;
-  const char *rss_item_link = NULL;
-  const char *rss_item_type = NULL;
-
-  struct http_client_ctx ctx;
-  struct evbuffer *evbuf;
-
-  int ret = -1;
-
-  DPRINTF(E_DBG, L_LIB, "Refreshing RSS id: %u url: %s limit: %ld\n", pl_id, url, limit);
-  db_pl_ping(pl_id);
-  db_pl_ping_items_bymatch("http://", pl_id);
-  db_pl_ping_items_bymatch("https://", pl_id);
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    goto cleanup;
-
-  // Is it an apple podcast stream?
-  // ie https://podcasts.apple.com/is/podcast/cgp-grey/id974722423
-  if (strncmp(url, "https://podcasts.apple.com/", 27) == 0)
-    apple_url = process_apple_rss(url);
-
-  memset(&ctx, 0, sizeof(struct http_client_ctx));
-  ctx.url = apple_url ? apple_url : url;
-  ctx.input_body = evbuf;
-
-  ret = http_client_request(&ctx);
-  if (ret < 0 || (ret && ctx.response_code != HTTP_OK))
-    {
-      DPRINTF(E_WARN, L_LIB, "Failed to fetch RSS id: %u url: %s resp: %d\n", pl_id, url, ctx.response_code);
-      ret = -1;
-      goto cleanup;
-    }
-
-  ret = -1;
-
-  evbuffer_add(ctx.input_body, "", 1);
-  rss_xml = (const char*)evbuffer_pullup(ctx.input_body, -1);
-  if (!rss_xml || strlen(rss_xml) == 0)
-    {
-      DPRINTF(E_WARN, L_LIB, "Failed to fetch valid RSS/xml data RSS id: %u url: %sn", pl_id, url);
-      ret = LIBRARY_PATH_INVALID;
-      goto cleanup;
-    }
-
-  tree = mxmlLoadString(NULL, rss_xml, MXML_OPAQUE_CALLBACK);
-
-  channel = mxmlFindElement(tree, tree, "channel", NULL, NULL, MXML_DESCEND);
-  if (channel == NULL)
-    {
-      DPRINTF(E_WARN, L_LIB, "Invalid RSS/xml, missing 'channel' node - RSS id: %u url: %s\n", pl_id, url);
-      DPRINTF(E_DBG, L_LIB, "RSS xml len: %ld xml: { %s }\n", strlen(rss_xml), rss_xml);
-      ret = LIBRARY_PATH_INVALID;
-      goto cleanup;
-    }
-
-  node = mxmlFindElement(channel, channel, "title", NULL, NULL, MXML_DESCEND);
-  if (!node)
-    {
-      DPRINTF(E_WARN, L_LIB, "Invalid RSS/xml, missing 'title' - RSS id: %u url: %s\n", pl_id, url);
-      ret = LIBRARY_PATH_INVALID;
-      goto cleanup;
-    }
-  rss_feed_title = mxmlGetOpaque(node);
-
-  node = mxmlFindElement(channel, channel, "itunes:author", NULL, NULL, MXML_DESCEND);
-  if (node)
-    rss_feed_author = mxmlGetOpaque(node);
-
-  time(&mtime);
-  ret = 0;
-  memset(&mfi, 0, sizeof(struct media_file_info));
-  for (node = mxmlFindElement(channel, channel, "item", NULL, NULL, MXML_DESCEND); 
-       node != NULL; 
-       node = mxmlFindElement(node, channel, "item", NULL, NULL, MXML_DESCEND))
-  {
-    if (library_is_exiting())
-      {
-        DPRINTF(E_WARN, L_LIB, "Abandoning RSS feed refresh due to library exit, will need to rollback pl: %d url: %s\n", pl_id, url);
-        ret = LIBRARY_ERROR;
-        break;
-      }
-
-    item = mxmlFindElement(node, node, "title", NULL, NULL, MXML_DESCEND);
-    rss_item_title = mxmlGetOpaque(item);
-
-    item = mxmlFindElement(node, node, "pubDate", NULL, NULL, MXML_DESCEND);
-    rss_item_pubDate = mxmlGetOpaque(item);
-
-    item = mxmlFindElement(node, node, "link", NULL, NULL, MXML_DESCEND);
-    rss_item_link = mxmlGetOpaque(item);
-
-    item = mxmlFindElement(node, node, "enclosure", NULL, NULL, MXML_DESCEND);
-    rss_item_url = mxmlElementGetAttr(item, "url");
-    rss_item_type = mxmlElementGetAttr(item, "type");
-
-    DPRINTF(E_DBG, L_LIB, "Feed provides RSS id: %d name: '%s' pubDate: %s url: %s title: '%s'\n", pl_id, rss_feed_title, rss_item_pubDate, rss_item_url, rss_item_title);
-    if (!rss_item_url)
-      continue;
-
- 
-    len = strlen(rss_item_url)+2;
-    if (len > vpathlen)
-      {
-	vpathlen = len;
-	free(vpath);
-	vpath = malloc(len);
-      }
-    sprintf(vpath, "/%s", rss_item_url);
-
-    // check if this item is already in the db - if so, we can stop since the RSS is given to us as LIFO stream
-    if ((feed_file_id = db_file_id_by_virtualpath_match(vpath)) > 0)
-      {
-	DPRINTF(E_DBG, L_LIB, "Most recent DB RSS id: %d name: '%s' url: %s file_id: %d pubdate: %s title: '%s'\n", pl_id, rss_feed_title, url, feed_file_id, rss_item_pubDate, rss_item_title);
-	break;
-      }
-    DPRINTF(E_INFO, L_LIB, "Adding item to RSS id: %d name: '%s' url: %s pubdate: %s title: '%s'\n", pl_id, rss_feed_title, rss_item_url, rss_item_pubDate, rss_item_title);
-
-    ret = map_rss_item_to_mfi(&mfi, pl_id, rss_item_url, rss_item_type, rss_feed_author, rss_feed_title, rss_item_title, rss_item_link, rss_item_pubDate, mtime);
-    if (ret < 0)
-      {
-        free_mfi(&mfi, 1);
-        continue;
-      }
-
-    ret = library_media_save(&mfi);
-    free_mfi(&mfi, 1);
-    if (ret < 0)
-      {
-        DPRINTF(E_INFO, L_LIB, "Failed to save item for RSS %s\n", url);
-        break;
-      }
-    ret = db_pl_add_item_bypath(pl_id, rss_item_url);
-    if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_LIB, "Failed to add item for RSS %s\n", url);
-        break;
-      }
-
-    *nadded = *nadded +1;
-    if (*nadded%50 == 0)
-      {
-	DPRINTF(E_INFO, L_LIB, "RSS added %d entries...\n", *nadded);
-      }
-
-    if (limit > 0 && *nadded == limit)
-      {
-	DPRINTF(E_INFO, L_LIB, "RSS added limit reached, added %d entries...\n", *nadded);
-	break;
-      }
-  }
-
-
-cleanup:
-  evbuffer_free(evbuf);
-  mxmlDelete(tree);
-  free(vpath);
-  free(apple_url);
-
-  return ret;
-}
-
-
-static int
-rss_item_add(const char *name, const char *path, int limit)
-{
-  int pl_id = -1;
-  struct playlist_info *pli;
-  struct playlist_info newpli;
-  time_t now;
-  unsigned nadded = 0;
-  int ret = 0;
-
-  DPRINTF(E_DBG, L_LIB, "RSS working on: '%s' '%s'\n", name, path);
-  if (strncmp(path, "http://", 7) != 0 && strncmp(path, "https://", 8) != 0)
-    {
-      DPRINTF(E_LOG, L_LIB, "Invalid RSS path '%s'\n", path);
-      return -1;
-    }
-
-  time(&now);
-
-  pli = db_pl_fetch_bypath(path);
-  if (pli)
-    {
-      DPRINTF(E_LOG, L_LIB, "Duplicate RSS exists id: %d path: %s\n", pli->id, path);
-      free_pli(pli, 0);
-      return LIBRARY_ERROR;
-    }
-
-  memset(&newpli, 0, sizeof(struct playlist_info));
-
-  newpli.type  = PL_RSS;
-  newpli.path  = strdup(path);
-  newpli.title = strdup(name);
-  newpli.virtual_path = malloc(strlen(path)+2);
-  sprintf(newpli.virtual_path, "/%s", path);
-  newpli.directory_id = DIR_HTTP;
-
+  // Walk through the xml, saving each item
+  *count = 0;
   db_transaction_begin();
-  pl_id = library_playlist_save(&newpli);
-  free_pli(&newpli, 1);
-  if (pl_id < 0)
-    {
-      DPRINTF(E_LOG, L_LIB, "Failed to create RSS id path: %s\n", path);
-      ret = -1;
-      goto rollback_error;
-    }
-
-  DPRINTF(E_INFO, L_LIB, "New RSS, created id: %d path: %s\n", pl_id, path);
-
-  // Determine if its really for us -- if not return LIBRARY_PATH_INVALID
-  ret = rss_scan_feed(pl_id, path, limit, &nadded);
-  if (ret < 0) 
-    {
-      DPRINTF(E_LOG, L_LIB, "Failed to add RSS, dropping id: %d path: %s\n", pl_id, path);
-      goto rollback_error;
-    }
-  db_transaction_end();
-  DPRINTF(E_LOG, L_LIB, "Done processing RSS %s added %u items\n", path, nadded);
-
-  return LIBRARY_OK;
-
-rollback_error:
-  db_transaction_rollback();
-  return ret;
-}
-
-static void
-rss_protect_feeds()
-{
-  struct query_params query_params;
-  struct db_playlist_info dbpli;
-  unsigned feeds = 0;
-  int pl_id;
-  int ret = 0;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  DPRINTF(E_DBG, L_LIB, "Protecting RSS feeds\n");
-
-  query_params.type = Q_PL;
-  query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("(f.type = %d)", PL_RSS);
-
-  ret = db_query_start(&query_params);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LIB, "Failed to find current RSS feeds from db\n");
-      goto error;
-    }
-
-  while (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
-    {
-      pl_id = atoi(dbpli.id);
-
-      DPRINTF(E_DBG, L_LIB, "Protecting feed id: %d '%s' at %s\n", pl_id, dbpli.title, dbpli.path);
-
-      db_pl_ping(pl_id);
-      db_pl_ping_items_bymatch("http://", pl_id);
-      db_pl_ping_items_bymatch("https://", pl_id);
-
-      ++feeds;
-    }
-  db_query_end(&query_params);
-
-  DPRINTF(E_DBG, L_LIB, "Completed protecing RSS feeds: %u\n", feeds);
-
- error:
-  free(query_params.filter);
-}
-
- 
-static int
-rss_refresh()
-{
-  struct query_params query_params;
-  struct db_playlist_info dbpli;
-  unsigned feeds = 0;
-  unsigned nadded = 0;
-  int pl_id;
-  int ret = 0;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  DPRINTF(E_INFO, L_LIB, "Refreshing RSS feeds\n");
-  scanning = true;
-
-  query_params.type = Q_PL;
-  query_params.sort = S_PLAYLIST;
-  query_params.filter = db_mprintf("(f.type = %d)", PL_RSS);
-
-  ret = db_query_start(&query_params);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LIB, "Failed to find current RSS feeds from db\n");
-      goto error;
-    }
-
-  while (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
+  while ((ret = rss_xml_parse_item(&ri, xml, &ptr)) == 0 && (*count < pli->query_limit))
     {
       if (library_is_exiting())
-        {
-          pl_id = atoi(dbpli.id);
+	{
+	  db_transaction_rollback();
+	  mxmlDelete(xml);
+	  return -1;
+	}
 
-          DPRINTF(E_DBG, L_LIB, "library is exiting, protecting feed id: %d '%s' at %s\n", pl_id, dbpli.title, dbpli.path);
+      db_pl_add_item_bypath(pli->id, ri.url);
+      (*count)++;
 
-          db_pl_ping(pl_id);
-          db_pl_ping_items_bymatch("http://", pl_id);
-          db_pl_ping_items_bymatch("https://", pl_id);
-        }
-      else
-        {
-          DPRINTF(E_DBG, L_LIB, "refreshing '%s' url: '%s' last update: %s", dbpli.title, dbpli.path, dbpli.db_timestamp);
+      // Try to just ping if already in library
+      if (scan_type == RSS_SCAN_RESCAN)
+	{
+	  ret = db_file_ping_bypath(ri.url, 0);
+	  if (ret > 0)
+	    continue;
+	}
 
-          db_transaction_begin();
-          ret = rss_scan_feed(atol(dbpli.id), dbpli.path, -1, &nadded);
-          if (ret < 0)
-            {
-              db_transaction_rollback();
-              if (!library_is_exiting())
-                break;
+      scan_metadata_stream(&mfi, ri.url);
 
-              pl_id = atoi(dbpli.id);
+      mfi_metadata_fixup(&mfi, &ri, feed_title, feed_author, time_added);
 
-              DPRINTF(E_DBG, L_LIB, "rolled back RSS update, library is exiting, protecting feed id: %d '%s' at %s\n", pl_id, dbpli.title, dbpli.path);
+      library_media_save(&mfi);
 
-              db_pl_ping(pl_id);
-              db_pl_ping_items_bymatch("http://", pl_id);
-              db_pl_ping_items_bymatch("https://", pl_id);
-              continue;
-            }
-          db_transaction_end();
-
-          ++feeds;
-        }
-    }
-  db_query_end(&query_params);
-  scanning = false;
-
-  DPRINTF(E_INFO, L_LIB, "%s RSS refresh, feeds: %u items: %u\n", ret == 0 ? "Completed" : "Partial", feeds, nadded);
-
- error:
-  free(query_params.filter);
-
-  evtimer_add(rssev, &rss_refresh_interval);
-  return ret;
-}
-
-static void
-rss_refresh_cb(int fd, short what, void *arg)
-{
-  rss_refresh();
-}
-
-/* Thread: library */
-static int
-rss_rescan()
-{
-  time_t start;
-  time_t end;
-  int ret;
-
-  if (scanning)
-    {
-      DPRINTF(E_DBG, L_LIB, "Scan already in progress, rescan ignored\n");
-      return 0;
+      free_mfi(&mfi, 1);
     }
 
-  start = time(NULL);
-  scanning = true;
+  db_transaction_end();
+  mxmlDelete(xml);
 
-  ret = rss_refresh();
-
-  scanning = false;
-  end = time(NULL);
-
-  DPRINTF(E_LOG, L_LIB, "RSS scan completed in %.f sec\n", difftime(end, start));
-  return ret;
-}
-
-static int
-rss_metarescan()
-{
-  time_t start;
-  time_t end;
-
-  if (scanning)
-    {
-      DPRINTF(E_DBG, L_LIB, "Scan already in progress, meta rescan ignored\n");
-      return 0;
-    }
-
-  start = time(NULL);
-  scanning = true;
-
-  rss_protect_feeds();
-
-  scanning = false;
-  end = time(NULL);
-
-  DPRINTF(E_LOG, L_LIB, "RSS meta scan completed in %.f sec\n", difftime(end, start));
   return 0;
 }
 
 static int
-rss_fullrescan()
-{
-  DPRINTF(E_LOG, L_LIB, "RSS fullscan not implemented - RSS feeds will be lost\n");
-  return 0;
-}
-
-int
-rss_item_remove(const char *url)
+rss_scan(const char *path, enum rss_scan_type scan_type)
 {
   struct playlist_info *pli;
+  bool pl_is_new;
+  int count;
   int ret;
 
-  DPRINTF(E_DBG, L_LIB, "removing RSS: '%s'\n", url);
-
-  pli = db_pl_fetch_bypath(url);
+  // Fetches or creates playlist, clears playlistitems
+  pli = playlist_fetch(&pl_is_new, path);
   if (!pli)
-    {
-      DPRINTF(E_INFO, L_LIB, "Cannot remove RSS - No such RSS feed: '%s'\n", url);
-      return LIBRARY_ERROR;
-    }
+    return -1;
 
-  if (pli->type == PL_RSS)
-    ret = db_pl_purge_byid(pli->id);
-  else
-    ret = LIBRARY_PATH_INVALID;
+  // Retrieves the RSS and reads the feed, saving each item as a track, and also
+  // adds the relationship to playlistitems. The pli will also be updated with
+  // metadata from the RSS.
+  ret = rss_save(pli, &count, scan_type);
+  if (ret < 0)
+    goto error;
+
+  // Save the playlist again, title etc may have been modified by rss_save().
+  // This also updates the db_timestamp which protects the RSS from deletion.
+  ret = library_playlist_save(pli);
+  if (ret < 0)
+    goto error;
+
+  DPRINTF(E_INFO, L_SCAN, "Added or updated %d items from RSS feed '%s' (id %d)\n", count, path, pli->id);
 
   free_pli(pli, 0);
-  return ret;
-}
-
-
-static int
-init()
-{
-  DPRINTF(E_INFO, L_LIB, "RSS refresh_period: %lu seconds\n", rss_refresh_interval.tv_sec);
-
-  scanning = false;
-  rssev = library_register_event(rss_refresh_cb, NULL, &rss_refresh_interval);
-
   return 0;
+
+ error:
+  if (pl_is_new)
+    db_pl_delete(pli->id);
+  free_pli(pli, 0);
+  return -1;
 }
 
 static void
-deinit()
+rss_scan_all(enum rss_scan_type scan_type)
 {
-  event_free(rssev);
+  struct query_params qp = { 0 };
+  struct db_playlist_info dbpli;
+  time_t start;
+  time_t end;
+  int count;
+  int ret;
+
+  DPRINTF(E_DBG, L_LIB, "Refreshing RSS feeds\n");
+
+  start = time(NULL);
+
+  qp.type = Q_PL;
+  qp.sort = S_PLAYLIST;
+  qp.filter = db_mprintf("(f.type = %d)", PL_RSS);
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LIB, "Failed to find current RSS feeds from db\n");
+      free(qp.filter);
+      return;
+    }
+
+  count = 0;
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.path))
+    {
+      ret = rss_scan(dbpli.path, scan_type);
+      if (ret == 0)
+	count++;
+    }
+
+  db_query_end(&qp);
+  free(qp.filter);
+
+  end = time(NULL);
+
+  if (count == 0)
+    return;
+
+  library_callback_schedule(rss_refresh, NULL, &rss_refresh_interval);
+
+  DPRINTF(E_INFO, L_LIB, "Refreshed %d RSS feeds in %.f sec (scan type %d)\n", count, difftime(end, start), scan_type);
+}
+
+static void
+rss_refresh(void *arg)
+{
+  rss_scan_all(RSS_SCAN_RESCAN);
+}
+
+static int
+rss_rescan(void)
+{
+  rss_scan_all(RSS_SCAN_RESCAN);
+
+  return LIBRARY_OK;
+}
+
+static int
+rss_metascan(void)
+{
+  rss_scan_all(RSS_SCAN_META);
+
+  return LIBRARY_OK;
+}
+
+static int
+rss_fullscan(void)
+{
+  DPRINTF(E_LOG, L_LIB, "RSS feeds removed during full-rescan\n");
+
+  return LIBRARY_OK;
+}
+
+static int
+rss_add(const char *path)
+{
+  int ret;
+
+  if (strncmp(path, "http://", 7) != 0 && strncmp(path, "https://", 8) != 0)
+    {
+      DPRINTF(E_SPAM, L_LIB, "Invalid RSS path '%s'\n", path);
+      return LIBRARY_PATH_INVALID;
+    }
+
+  DPRINTF(E_DBG, L_LIB, "Adding RSS '%s'\n", path);
+
+  ret = rss_scan(path, RSS_SCAN_RESCAN);
+  if (ret < 0)
+    return LIBRARY_PATH_INVALID;
+
+  library_callback_schedule(rss_refresh, NULL, &rss_refresh_interval);
+
+  return LIBRARY_OK;
 }
 
 struct library_source rssscanner =
 {
-  .name = "RSS feed source",
+  .name = "RSS feeds",
   .disabled = 0,
-  .init = init,
-  .deinit = deinit,
-  .rescan = rss_rescan,
-  .metarescan = rss_metarescan,
   .initscan = rss_rescan,
-  .fullrescan = rss_fullrescan,
-  .item_add = rss_item_add,
-  .item_remove = rss_item_remove,
+  .rescan = rss_rescan,
+  .metarescan = rss_metascan,
+  .fullrescan = rss_fullscan,
+  .item_add = rss_add,
 };
