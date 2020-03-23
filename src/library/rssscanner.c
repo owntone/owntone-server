@@ -354,7 +354,7 @@ mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const 
   struct tm tm;
 
   // Always take the meta from media file if possible; some podcasts (Apple) can
-  // use mp4 streams which tend not to have decent tags so  in those cases take
+  // use mp4 streams which tend not to have decent tags so in those cases take
   // info from the RSS and not the stream
   if (!mfi->artist)
     mfi->artist = safe_strdup(feed_author);
@@ -435,6 +435,12 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
 	  db_transaction_rollback();
 	  mxmlDelete(xml);
 	  return -1;
+	}
+
+      if (!ri.url)
+	{
+	  DPRINTF(E_WARN, L_LIB, "Missing URL for item '%s' (date %s) in RSS feed '%s'\n", ri.title, ri.pubdate, feed_title);
+	  continue;
 	}
 
       db_pl_add_item_bypath(pli->id, ri.url);
