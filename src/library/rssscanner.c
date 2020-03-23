@@ -549,7 +549,7 @@ rss_scan_all(enum rss_scan_type scan_type)
   if (count == 0)
     return;
 
-  library_callback_schedule(rss_refresh, NULL, &rss_refresh_interval);
+  library_callback_schedule(rss_refresh, NULL, &rss_refresh_interval, LIBRARY_CB_ADD_OR_REPLACE);
 
   DPRINTF(E_INFO, L_LIB, "Refreshed %d RSS feeds in %.f sec (scan type %d)\n", count, difftime(end, start), scan_type);
 }
@@ -601,7 +601,7 @@ rss_add(const char *path)
   if (ret < 0)
     return LIBRARY_PATH_INVALID;
 
-  library_callback_schedule(rss_refresh, NULL, &rss_refresh_interval);
+  library_callback_schedule(rss_refresh, NULL, &rss_refresh_interval, LIBRARY_CB_ADD_OR_REPLACE);
 
   return LIBRARY_OK;
 }

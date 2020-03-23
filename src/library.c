@@ -54,6 +54,7 @@ struct library_callback_register
 {
   library_cb cb;
   void *arg;
+  struct event *ev;
 };
 
 struct playlist_item_add_param
@@ -170,44 +171,71 @@ static void
 scheduled_cb(int fd, short what, void *arg)
 {
   struct library_callback_register *cbreg = arg;
+  library_cb cb = cbreg->cb;
+  void *cb_arg = cbreg->arg;
 
-  DPRINTF(E_DBG, L_LIB, "Executing library callback to %p\n", cbreg->cb);
-
-  cbreg->cb(cbreg->arg);
-
+  // Must reset the register before calling back, otherwise it won't work if the
+  // callback reschedules by calling library_callback_schedule()
+  event_free(cbreg->ev);
   memset(cbreg, 0, sizeof(struct library_callback_register));
+
+  DPRINTF(E_DBG, L_LIB, "Executing library callback to %p\n", cb);
+  cb(cb_arg);
 }
 
 int
-library_callback_schedule(library_cb cb, void *arg, struct timeval *wait)
+library_callback_schedule(library_cb cb, void *arg, struct timeval *wait, enum library_cb_action action)
 {
   struct library_callback_register *cbreg;
-  int callback_id;
+  bool replace_done;
+  int idx_available;
+  int i;
 
-  // Find a free slot in the queue
-  for (callback_id = 0; callback_id < ARRAY_SIZE(library_cb_register); callback_id++)
+  for (i = 0, idx_available = -1, replace_done = false; i < ARRAY_SIZE(library_cb_register); i++)
     {
-      if (library_cb_register[callback_id].cb == NULL)
-	break;
+      if (idx_available == -1 && library_cb_register[i].cb == NULL)
+	idx_available = i;
+
+      if (library_cb_register[i].cb != cb)
+	continue;
+
+      if (action == LIBRARY_CB_REPLACE || action == LIBRARY_CB_ADD_OR_REPLACE)
+	{
+	  event_add(library_cb_register[i].ev, wait);
+	  library_cb_register[i].arg = arg;
+	  replace_done = true;
+	}
+      else if (action == LIBRARY_CB_DELETE)
+	{
+	  event_free(library_cb_register[i].ev);
+	  memset(&library_cb_register[i], 0, sizeof(struct library_callback_register));
+	}
     }
 
-  if (callback_id == ARRAY_SIZE(library_cb_register))
+  if (action == LIBRARY_CB_REPLACE || action == LIBRARY_CB_DELETE || (action == LIBRARY_CB_ADD_OR_REPLACE && replace_done))
     {
-      DPRINTF(E_LOG, L_LIB, "Library callback register is full! (size is %d)\n", LIBRARY_MAX_CALLBACKS);
+      return 0; // All done
+    }
+  else if (idx_available == -1)
+    {
+      DPRINTF(E_LOG, L_LIB, "Error scheduling callback, register full (size=%d, action=%d)\n", LIBRARY_MAX_CALLBACKS, action);
       return -1;
     }
 
-  cbreg = &library_cb_register[callback_id];
-
+  cbreg = &library_cb_register[idx_available];
   cbreg->cb = cb;
   cbreg->arg = arg;
 
-  // One-time event, freed automatically by libevent
-  CHECK_ERR(L_LIB, event_base_once(evbase_lib, -1, EV_TIMEOUT, scheduled_cb, cbreg, wait));
+  if (!cbreg->ev)
+    cbreg->ev = evtimer_new(evbase_lib, scheduled_cb, cbreg);
 
-  DPRINTF(E_DBG, L_LIB, "Added library callback to %p (id %d)\n", cbreg->cb, callback_id);
+  CHECK_NULL(L_LIB, cbreg->ev);
 
-  return callback_id;
+  event_add(cbreg->ev, wait);
+
+  DPRINTF(E_DBG, L_LIB, "Added library callback to %p (id %d), wait %ld.%06ld\n", cbreg->cb, idx_available, wait->tv_sec, wait->tv_usec);
+
+  return idx_available;
 }
 
 
@@ -851,6 +879,12 @@ library_deinit()
     {
       if (sources[i]->deinit && !sources[i]->disabled)
 	sources[i]->deinit();
+    }
+
+  for (i = 0; i < ARRAY_SIZE(library_cb_register); i++)
+    {
+      if (library_cb_register[i].ev)
+	event_free(library_cb_register[i].ev);
     }
 
   event_free(updateev);
