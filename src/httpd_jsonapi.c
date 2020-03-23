@@ -658,77 +658,6 @@ query_params_limit_set(struct query_params *query_params, struct httpd_request *
   return 0;
 }
 
-static int
-play_count_update_byid(int track_id, int play_count, const char *param)
-{
-  if (strcmp(param, "increment") == 0)
-    {
-      db_file_inc_playcount(track_id);
-    }
-  else if (strcmp(param, "played") == 0)
-    {
-      if (play_count == 0)
-	db_file_inc_playcount(track_id);
-    }
-  else if (strcmp(param, "reset") == 0)
-    {
-      db_file_reset_playskip_count(track_id);
-    }
-  else
-    {
-      DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count param '%s'\n", param);
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-play_count_update(struct httpd_request *hreq, struct query_params *qp)
-{
-  const char *param;
-  struct db_media_file_info dbmfi;
-  int play_count;
-  int track_id;
-  int ret;
-
-  param = evhttp_find_header(hreq->query, "play_count");
-  if (!param)
-    {
-      DPRINTF(E_WARN, L_WEB, "No actions for play_count update\n");
-      return HTTP_BADREQUEST;
-    }
-
-  ret = db_query_start(qp);
-  if (ret < 0)
-    goto error;
-
-  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
-    {
-      ret = safe_atoi32(dbmfi.id, &track_id);
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_WEB, "Invalid track id '%s'\n", dbmfi.id);
-	  continue;
-	}
-
-      if (safe_atoi32(dbmfi.play_count, &play_count) < 0)
-	play_count = 0;
-
-      if (play_count_update_byid(track_id, play_count, param) < 0)
-	{
-	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s'\n", param);
-	  ret = HTTP_BADREQUEST;
-	  break;
-	}
-    }
-
- error:
-  db_query_end(qp);
-
-  return ret;
-}
-
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 
 /*
@@ -3117,20 +3046,33 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_album_tracks_put_byid(struct httpd_request *hreq)
 {
-  const char *album_id;;
-  struct query_params qp;
+  const char *param;
+  int64_t album_id;;
   int ret;
 
-  album_id = hreq->uri_parsed->path_parts[3];
+  ret = safe_atoi64(hreq->uri_parsed->path_parts[3], &album_id);
+  if (ret < 0)
+    return HTTP_INTERNAL;
 
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_ITEMS;
-  qp.filter = db_mprintf("(f.songalbumid = %q)", album_id);
+  param = evhttp_find_header(hreq->query, "play_count");
+  if (!param)
+    return HTTP_BADREQUEST;
 
-  ret = play_count_update(hreq, &qp);
-  free(qp.filter);
+  if (strcmp(param, "increment") == 0)
+    {
+      db_file_inc_playcount_bysongalbumid(album_id, false);
+    }
+  else if (strcmp(param, "played") == 0)
+    {
+      db_file_inc_playcount_bysongalbumid(album_id, true);
+    }
+  else
+    {
+      DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count param '%s'\n", param);
+      return HTTP_BADREQUEST;
+    }
 
-  return ret < 0 ? HTTP_INTERNAL : ret == 0 ? HTTP_OK : ret;
+  return HTTP_OK;
 }
 
 static int
@@ -3199,7 +3141,20 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   // Update play_count/skip_count
   param = evhttp_find_header(hreq->query, "play_count");
   if (param)
-    play_count_update_byid(track_id, 0, param);
+    {
+      if (strcmp(param, "increment") == 0)
+	{
+	  db_file_inc_playcount(track_id);
+	}
+      else if (strcmp(param, "reset") == 0)
+	{
+	  db_file_reset_playskip_count(track_id);
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
+	}
+    }
 
   // Update rating
   param = evhttp_find_header(hreq->query, "rating");
@@ -3438,21 +3393,33 @@ jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_playlist_tracks_put_byid(struct httpd_request *hreq)
 {
+  const char *param;
   int playlist_id;
-  struct query_params qp;
   int ret;
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_PLITEMS;
-  qp.id = playlist_id;
+  param = evhttp_find_header(hreq->query, "play_count");
+  if (!param)
+    return HTTP_BADREQUEST;
 
-  ret = play_count_update(hreq, &qp);
+  if (strcmp(param, "increment") == 0)
+    {
+      db_file_inc_playcount_byplid(playlist_id, false);
+    }
+  else if (strcmp(param, "played") == 0)
+    {
+      db_file_inc_playcount_byplid(playlist_id, true);
+    }
+  else
+    {
+      DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count param '%s'\n", param);
+      return HTTP_BADREQUEST;
+    }
 
-  return ret < 0 ? HTTP_INTERNAL : ret == 0 ? HTTP_OK : ret;
+  return HTTP_OK;
 }
 
 static int
