@@ -3632,7 +3632,8 @@ void
 db_pl_delete(int id)
 {
 #define Q_TMPL "DELETE FROM playlists WHERE id = %d;"
-#define Q_FILES "DELETE FROM files WHERE data_kind = %d AND path in (SELECT filepath FROM playlistitems WHERE playlistid = %d)"
+#define Q_ORPHAN "SELECT filepath FROM playlistitems WHERE filepath NOT IN (SELECT filepath FROM playlistitems WHERE playlistid <> %d) AND playlistid = %d"
+#define Q_FILES "DELETE FROM files WHERE data_kind = %d AND path IN (" Q_ORPHAN ");"
   char *query;
   int ret;
 
@@ -3650,9 +3651,11 @@ db_pl_delete(int id)
       return;
     }
 
-  // http items in files must have been added by the playlist
+  // Remove orphaned files (http items in files must have been added by the
+  // playlist. The GROUP BY/count makes sure the files are not referenced by any
+  // other playlist.
   // TODO find a cleaner way of identifying tracks added by a playlist
-  query = sqlite3_mprintf(Q_FILES, DATA_KIND_HTTP, id);
+  query = sqlite3_mprintf(Q_FILES, DATA_KIND_HTTP, id, id);
 
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
@@ -3665,8 +3668,9 @@ db_pl_delete(int id)
   db_pl_clear_items(id);
 
   db_transaction_end();
-#undef Q_TMPL
 #undef Q_FILES
+#undef Q_ORPHAN
+#undef Q_TMPL
 }
 
 void
