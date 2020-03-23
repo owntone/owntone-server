@@ -33,6 +33,21 @@
 typedef void (*library_cb)(void *arg);
 
 /*
+ * Argument to library_callback_schedule()
+ */
+enum library_cb_action
+{
+  // Add as new callback
+  LIBRARY_CB_ADD,
+  // Replace callback if it already exists
+  LIBRARY_CB_REPLACE,
+  // Replace callback if it already exists, otherwise add as new
+  LIBRARY_CB_ADD_OR_REPLACE,
+  // Delete a callback
+  LIBRARY_CB_DELETE,
+};
+
+/*
  * Definition of a library source
  *
  * A library source is responsible for scanning items into the library db.
@@ -123,10 +138,11 @@ library_playlist_save(struct playlist_info *pli);
  * @param cb      Callback to call
  * @param arg     Argument to call back with
  * @param timeval How long to wait before calling back
+ * @param action  (see enum)
  * @return        id of the scheduled event, -1 on failure
  */
 int
-library_callback_schedule(library_cb cb, void *arg, struct timeval *wait);
+library_callback_schedule(library_cb cb, void *arg, struct timeval *wait, enum library_cb_action action);
 
 /*
  * @return true if a running scan should be aborted due to imminent shutdown
