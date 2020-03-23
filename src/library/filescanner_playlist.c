@@ -39,12 +39,12 @@
 #include "misc.h"
 #include "library.h"
 
-// Formats we can read so far
 enum playlist_type
 {
   PLAYLIST_UNKNOWN = 0,
   PLAYLIST_PLS,
   PLAYLIST_M3U,
+  PLAYLIST_SMART,
 };
 
 static enum playlist_type
@@ -60,6 +60,8 @@ playlist_type(const char *path)
     return PLAYLIST_M3U;
   else if (strcasecmp(ptr, ".pls") == 0)
     return PLAYLIST_PLS;
+  else if (strcasecmp(ptr, ".smartpl") == 0)
+    return PLAYLIST_SMART;
   else
     return PLAYLIST_UNKNOWN;
 }
@@ -417,7 +419,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
   int ret;
 
   pl_format = playlist_type(file);
-  if (pl_format == PLAYLIST_UNKNOWN)
+  if (pl_format != PLAYLIST_M3U && pl_format != PLAYLIST_PLS)
     return;
 
   // Will create or update the playlist entry in the database
