@@ -823,7 +823,9 @@ b64_decode(int *dstlen, const char *src)
 
   len = AV_BASE64_DECODE_SIZE(strlen(src));
 
-  CHECK_NULL(L_MISC, out = calloc(1, len+1));
+  // Add a extra zero byte just in case we are decoding a string without null
+  // termination
+  CHECK_NULL(L_MISC, out = calloc(1, len + 1));
 
   ret = av_base64_decode(out, src, len);
   if (ret < 0)
