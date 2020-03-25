@@ -823,7 +823,7 @@ b64_decode(int *dstlen, const char *src)
 
   len = AV_BASE64_DECODE_SIZE(strlen(src));
 
-  CHECK_NULL(L_MISC, out = calloc(1, len));
+  CHECK_NULL(L_MISC, out = calloc(1, len+1));
 
   ret = av_base64_decode(out, src, len);
   if (ret < 0)
