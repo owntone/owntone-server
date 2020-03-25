@@ -1658,6 +1658,42 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb, const char *log
   return 0;
 }
 
+static int
+raop_send_req_feedback(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
+{
+  struct evrtsp_request *req;
+  int ret;
+
+  DPRINTF(E_DBG, L_RAOP, "%s: Sending feedback to '%s'\n", log_caller, rs->devname);
+
+  req = evrtsp_request_new(cb, rs);
+  if (!req)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not create RTSP request for feedback\n");
+      return -1;
+    }
+
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_POST);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
+
+  ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_POST, "/feedback");
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not make feedback request to '%s'\n", rs->devname);
+      return -1;
+    }
+
+  rs->reqs_in_flight++;
+
+  evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
+
+  return 0;
+}
+
 #ifdef RAOP_VERIFICATION
 static int
 raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
@@ -2727,7 +2763,7 @@ raop_keep_alive_timer_cb(int fd, short what, void *arg)
       if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
 
-      raop_send_req_options(rs, raop_cb_keep_alive, "keep_alive");
+      raop_send_req_feedback(rs, raop_cb_keep_alive, "keep_alive");
     }
 }
 
