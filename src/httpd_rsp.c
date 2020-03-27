@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <limits.h>
 
-#include <mxml.h>
+#include "mxml-compat.h"
 
 #include "httpd_rsp.h"
 #include "logger.h"

@@ -39,7 +39,7 @@
 #include <time.h>
 
 #include <event2/buffer.h>
-#include <mxml.h>
+
 #include "mxml-compat.h"
 
 #include "conffile.h"
