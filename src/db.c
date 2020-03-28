@@ -1664,10 +1664,14 @@ db_build_query_clause(struct query_params *qp)
   else
     qc->group = sqlite3_mprintf("");
 
-  if (qp->filter)
+  if (qp->filter && !qp->with_disabled)
     qc->where = sqlite3_mprintf("WHERE f.disabled = 0 AND %s", qp->filter);
-  else
+  else if (!qp->with_disabled)
     qc->where = sqlite3_mprintf("WHERE f.disabled = 0");
+  else if (qp->filter)
+    qc->where = sqlite3_mprintf("WHERE %s", qp->filter);
+  else
+    qc->where = sqlite3_mprintf("");
 
   if (qp->having && (qp->type & (Q_GROUP_ALBUMS | Q_GROUP_ARTISTS)))
     qc->having = sqlite3_mprintf("HAVING %s", qp->having);
@@ -3653,6 +3657,7 @@ db_pl_delete_bypath(const char *path)
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_PL;
+  qp.with_disabled = 1;
   CHECK_NULL(L_DB, qp.filter = db_mprintf("path = '%q'", path));
 
   ret = db_query_start(&qp);

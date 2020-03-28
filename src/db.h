@@ -99,6 +99,8 @@ struct query_params {
 
   char *filter;
 
+  int with_disabled;
+
   /* Query results, filled in by query_start */
   int results;
 
