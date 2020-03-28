@@ -581,6 +581,12 @@ void
 db_file_inc_playcount(int id);
 
 void
+db_file_inc_playcount_byplid(int id, bool only_unplayed);
+
+void
+db_file_inc_playcount_bysongalbumid(int64_t id, bool only_unplayed);
+
+void
 db_file_inc_skipcount(int id);
 
 void

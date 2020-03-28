@@ -3044,6 +3044,38 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_album_tracks_put_byid(struct httpd_request *hreq)
+{
+  const char *param;
+  int64_t album_id;;
+  int ret;
+
+  ret = safe_atoi64(hreq->uri_parsed->path_parts[3], &album_id);
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  param = evhttp_find_header(hreq->query, "play_count");
+  if (!param)
+    return HTTP_BADREQUEST;
+
+  if (strcmp(param, "increment") == 0)
+    {
+      db_file_inc_playcount_bysongalbumid(album_id, false);
+    }
+  else if (strcmp(param, "played") == 0)
+    {
+      db_file_inc_playcount_bysongalbumid(album_id, true);
+    }
+  else
+    {
+      DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count param '%s'\n", param);
+      return HTTP_BADREQUEST;
+    }
+
+  return HTTP_OK;
+}
+
+static int
 jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 {
   struct query_params query_params;
@@ -3354,6 +3386,38 @@ jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
 
   if (ret < 0)
     return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_library_playlist_tracks_put_byid(struct httpd_request *hreq)
+{
+  const char *param;
+  int playlist_id;
+  int ret;
+
+  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  param = evhttp_find_header(hreq->query, "play_count");
+  if (!param)
+    return HTTP_BADREQUEST;
+
+  if (strcmp(param, "increment") == 0)
+    {
+      db_file_inc_playcount_byplid(playlist_id, false);
+    }
+  else if (strcmp(param, "played") == 0)
+    {
+      db_file_inc_playcount_byplid(playlist_id, true);
+    }
+  else
+    {
+      DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count param '%s'\n", param);
+      return HTTP_BADREQUEST;
+    }
 
   return HTTP_OK;
 }
@@ -3993,6 +4057,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/playlists$",                     jsonapi_reply_library_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlist_tracks },
+    { EVHTTP_REQ_PUT,    "^/api/library/playlists/[[:digit:]]+/tracks",  jsonapi_reply_library_playlist_tracks_put_byid},
 //    { EVHTTP_REQ_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },
 //    { EVHTTP_REQ_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_tracks },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/playlists", jsonapi_reply_library_playlist_playlists },
@@ -4002,6 +4067,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
+    { EVHTTP_REQ_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
     { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},

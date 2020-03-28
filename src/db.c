@@ -2514,10 +2514,10 @@ db_files_get_count(uint32_t *nitems, uint32_t *nstreams, const char *filter)
   return 0;
 }
 
-void
-db_file_inc_playcount(int id)
+static void
+db_file_inc_playcount_byfilter(const char *filter)
 {
-#define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0 WHERE id = %d;"
+#define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0 WHERE %s;"
   /*
    * Rating calculation is taken from from the beets plugin "mpdstats" (see https://beets.readthedocs.io/en/latest/plugins/mpdstats.html)
    * and adapted to the forked-daapd rating rage (0 to 100).
@@ -2536,14 +2536,16 @@ db_file_inc_playcount(int id)
                "UPDATE files "\
                " SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0, "\
 	       "     rating = CAST(((play_count + 1.0) / (play_count + skip_count + 2.0) * 100 * 0.75) + ((rating + ((100.0 - rating) / 2.0)) * 0.25) AS INT)" \
-               " WHERE id = %d;"
+               " WHERE %s;"
   char *query;
   int ret;
 
+
   if (db_rating_updates)
-    query = sqlite3_mprintf(Q_TMPL_WITH_RATING, (int64_t)time(NULL), id);
+    query = sqlite3_mprintf(Q_TMPL_WITH_RATING, (int64_t)time(NULL), filter);
   else
-    query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
+    query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), filter);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -2556,6 +2558,41 @@ db_file_inc_playcount(int id)
     db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
 #undef Q_TMPL
 #undef Q_TMPL_WITH_RATING
+}
+
+void
+db_file_inc_playcount_byplid(int id, bool only_unplayed)
+{
+  char *filter;
+
+  filter = sqlite3_mprintf("path IN (SELECT filepath FROM playlistitems WHERE playlistid = %d) %s",
+			   id, only_unplayed ? "AND play_count = 0" : "");
+
+  db_file_inc_playcount_byfilter(filter);
+  sqlite3_free(filter);
+}
+
+void
+db_file_inc_playcount_bysongalbumid(int64_t id, bool only_unplayed)
+{
+  char *filter;
+
+  filter = sqlite3_mprintf("songalbumid = %" PRIi64 " %s",
+			   id, only_unplayed ? "AND play_count = 0" : "");
+
+  db_file_inc_playcount_byfilter(filter);
+  sqlite3_free(filter);
+}
+
+void
+db_file_inc_playcount(int id)
+{
+  char *filter;
+
+  filter = sqlite3_mprintf("id = %d", id);
+
+  db_file_inc_playcount_byfilter(filter);
+  sqlite3_free(filter);
 }
 
 void
