@@ -368,11 +368,11 @@ mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const 
       mfi->genre  = strdup("Podcast");
     }
 
-  // Title not valid on most mp4 (it becomes the url obj) so take from RSS feed
-  if (ri->type && strncmp("video", ri->type, 5) == 0)
+  // The title from the xml is usually better quality
+  if (ri->title)
     {
       free(mfi->title);
-      mfi->title = safe_strdup(ri->title);
+      mfi->title = strdup(ri->title);
     }
 
   // Remove, some can be very verbose
