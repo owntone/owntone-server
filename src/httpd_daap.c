@@ -481,7 +481,7 @@ user_agent_filter(struct query_params *qp, struct httpd_request *hreq)
       // contained extended_media_kind:1, which characterise the queries we want
       // to filter. TODO: Not a really nice way of doing this, but best I could
       // think of.
-      if (!qp->filter || !strstr(qp->filter, "f.media_kind") || (qp->filter && strstr(qp->filter, "f.media_kind = 4")))
+      if (!qp->filter || !strstr(qp->filter, "f.media_kind = 1"))
 	return;
 
       filter = safe_asprintf("%s AND (f.data_kind <> %d)", qp->filter, DATA_KIND_HTTP);
