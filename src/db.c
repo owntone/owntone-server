@@ -511,7 +511,7 @@ db_data_kind_label(enum data_kind data_kind)
 }
 
 /* Keep in sync with enum pl_type */
-static char *pl_type_label[] = { "special", "folder", "smart", "plain" };
+static char *pl_type_label[] = { "special", "folder", "smart", "plain", "rss" };
 
 const char *
 db_pl_type_label(enum pl_type pl_type)
@@ -1876,6 +1876,7 @@ db_build_query_plitems(struct query_params *qp, struct query_clause *qc)
 	query = db_build_query_plitems_smart(qp, pli);
 	break;
 
+      case PL_RSS:
       case PL_PLAIN:
       case PL_FOLDER:
 	query = db_build_query_plitems_plain(qp, qc);
@@ -3631,18 +3632,44 @@ void
 db_pl_delete(int id)
 {
 #define Q_TMPL "DELETE FROM playlists WHERE id = %d;"
+#define Q_ORPHAN "SELECT filepath FROM playlistitems WHERE filepath NOT IN (SELECT filepath FROM playlistitems WHERE playlistid <> %d) AND playlistid = %d"
+#define Q_FILES "DELETE FROM files WHERE data_kind = %d AND path IN (" Q_ORPHAN ");"
   char *query;
   int ret;
 
   if (id == 1)
     return;
 
+  db_transaction_begin();
+
   query = sqlite3_mprintf(Q_TMPL, id);
 
   ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return;
+    }
 
-  if (ret == 0)
-    db_pl_clear_items(id);
+  // Remove orphaned files (http items in files must have been added by the
+  // playlist. The GROUP BY/count makes sure the files are not referenced by any
+  // other playlist.
+  // TODO find a cleaner way of identifying tracks added by a playlist
+  query = sqlite3_mprintf(Q_FILES, DATA_KIND_HTTP, id, id);
+
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    {
+      db_transaction_rollback();
+      return;
+    }
+
+  // Clear playlistitems
+  db_pl_clear_items(id);
+
+  db_transaction_end();
+#undef Q_FILES
+#undef Q_ORPHAN
 #undef Q_TMPL
 }
 

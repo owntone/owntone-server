@@ -236,6 +236,7 @@ enum pl_type {
   PL_FOLDER = 1,
   PL_SMART = 2,
   PL_PLAIN = 3,
+  PL_RSS  = 4,
   PL_MAX,
 };
 
@@ -255,8 +256,8 @@ struct playlist_info {
   char *virtual_path;    /* virtual path of underlying playlist */
   uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
   uint32_t directory_id; /* Id of directory */
-  char *query_order;     /* order by clause if it is a smart playlist */
-  int32_t query_limit;   /* limit if it is a smart playlist */
+  char *query_order;     /* order by clause, used by e.g. a smart playlists */
+  int32_t query_limit;   /* limit, used by e.g. smart playlists */
   uint32_t media_kind;
   uint32_t items;        /* number of items (mimc) */
   uint32_t streams;      /* number of internet streams */

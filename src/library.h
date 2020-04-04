@@ -30,6 +30,23 @@
 #define LIBRARY_ERROR -1
 #define LIBRARY_PATH_INVALID -2
 
+typedef void (*library_cb)(void *arg);
+
+/*
+ * Argument to library_callback_schedule()
+ */
+enum library_cb_action
+{
+  // Add as new callback
+  LIBRARY_CB_ADD,
+  // Replace callback if it already exists
+  LIBRARY_CB_REPLACE,
+  // Replace callback if it already exists, otherwise add as new
+  LIBRARY_CB_ADD_OR_REPLACE,
+  // Delete a callback
+  LIBRARY_CB_DELETE,
+};
+
 /*
  * Definition of a library source
  *
@@ -72,6 +89,11 @@ struct library_source
   int (*fullrescan)(void);
 
   /*
+   * Add an item to the library
+   */
+  int (*item_add)(const char *path);
+
+  /*
    * Add item to playlist
    */
   int (*playlist_item_add)(const char *vp_playlist, const char *vp_item);
@@ -94,6 +116,12 @@ struct library_source
 
 /* --------------------- Interface towards source backends ----------------- */
 
+/*
+ * Adds a mfi if mfi->id == 0, otherwise updates.
+ *
+ * @param mfi Media to save
+ * @return    0 if operation succeeded, -1 on failure.
+ */
 int
 library_media_save(struct media_file_info *mfi);
 
@@ -101,10 +129,27 @@ library_media_save(struct media_file_info *mfi);
  * Adds a playlist if pli->id == 0, otherwise updates.
  *
  * @param pli Playlist to save
- * @return playlist id if operation succeeded, -1 on failure.
+ * @return    Playlist id if operation succeeded, -1 on failure.
  */
 int
 library_playlist_save(struct playlist_info *pli);
+
+/*
+ * @param cb      Callback to call
+ * @param arg     Argument to call back with
+ * @param timeval How long to wait before calling back
+ * @param action  (see enum)
+ * @return        id of the scheduled event, -1 on failure
+ */
+int
+library_callback_schedule(library_cb cb, void *arg, struct timeval *wait, enum library_cb_action action);
+
+/*
+ * @return true if a running scan should be aborted due to imminent shutdown
+ */
+bool
+library_is_exiting();
+
 
 /* ------------------------ Library external interface --------------------- */
 
@@ -130,12 +175,6 @@ void
 library_set_scanning(bool is_scanning);
 
 /*
- * @return true if a running scan should be aborted due to imminent shutdown, otherwise false
- */
-bool
-library_is_exiting();
-
-/*
  * Trigger for sending the DATABASE event
  *
  * Needs to be called, if an update to the database (library tables) occurred. The DATABASE event
@@ -155,6 +194,10 @@ library_queue_save(char *path);
 
 int
 library_queue_item_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
+
+int
+library_item_add(const char *path);
+
 
 /*
  * Execute the function 'func' with the given argument 'arg' in the library thread.

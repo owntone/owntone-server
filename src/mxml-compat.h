@@ -1,6 +1,96 @@
 #ifndef __MXML_COMPAT_H__
 #define __MXML_COMPAT_H__
 
+// mxml 2.10 has a memory leak in mxmlDelete, see https://github.com/michaelrsweet/mxml/issues/183
+// - and since this is the version in Ubuntu 18.04 LTS and Raspian Stretch, we
+// fix it by including a fixed mxmlDelete here. It should be removed once the
+// major distros no longer have 2.10. The below code is msweet's fixed mxml.
+#ifndef HAVE_MXML_OLD
+# include <mxml.h>
+#else
+// Trick to undefine mxml.h's mxmlDelete
+#define mxmlDelete mxmlDelete_memleak
+# include <mxml.h>
+#undef mxmlDelete
+
+static void
+compat_mxml_free(mxml_node_t *node)
+{
+  int i;
+
+  switch (node->type)
+  {
+    case MXML_ELEMENT :
+        if (node->value.element.name)
+	  free(node->value.element.name);
+
+	if (node->value.element.num_attrs)
+	{
+	  for (i = 0; i < node->value.element.num_attrs; i ++)
+	  {
+	    if (node->value.element.attrs[i].name)
+	      free(node->value.element.attrs[i].name);
+	    if (node->value.element.attrs[i].value)
+	      free(node->value.element.attrs[i].value);
+	  }
+
+          free(node->value.element.attrs);
+	}
+        break;
+    case MXML_INTEGER :
+        break;
+    case MXML_OPAQUE :
+        if (node->value.opaque)
+	  free(node->value.opaque);
+        break;
+    case MXML_REAL :
+        break;
+    case MXML_TEXT :
+        if (node->value.text.string)
+	  free(node->value.text.string);
+        break;
+    case MXML_CUSTOM :
+        if (node->value.custom.data &&
+	    node->value.custom.destroy)
+	  (*(node->value.custom.destroy))(node->value.custom.data);
+	break;
+    default :
+        break;
+  }
+
+  free(node);
+}
+
+static void
+mxmlDelete(mxml_node_t *node)
+{
+  mxml_node_t	*current,
+		*next;
+
+  if (!node)
+    return;
+
+  mxmlRemove(node);
+  for (current = node->child; current; current = next)
+  {
+    if ((next = current->child) != NULL)
+    {
+      current->child = NULL;
+      continue;
+    }
+
+    if ((next = current->next) == NULL)
+    {
+      if ((next = current->parent) == node)
+        next = NULL;
+    }
+    compat_mxml_free(current);
+  }
+
+  compat_mxml_free(node);
+}
+#endif
+
 /* For compability with mxml 2.6 */
 #ifndef HAVE_MXMLGETTEXT
 __attribute__((unused)) static const char *			/* O - Text string or NULL */

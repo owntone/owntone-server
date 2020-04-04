@@ -113,10 +113,16 @@ FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
 FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse >= 3.0], [cfg_init], [confuse.h])
-FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml], [mxmlNewElement], [mxml.h],
-	[AC_CHECK_FUNCS([mxmlGetOpaque] [mxmlGetText] [mxmlGetType] [mxmlGetFirstChild])])
 
-dnl SQLite3 requires extra checks
+FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml],
+	[mxmlNewElement], [mxml.h],
+	[dnl check for old versions which have a serious memleak
+	 AC_CHECK_FUNCS([mxmlGetOpaque] [mxmlGetText] [mxmlGetType] [mxmlGetFirstChild])
+	 PKG_CHECK_EXISTS([libevent >= 2.11], [],
+		[AC_DEFINE([HAVE_MXML_OLD], 1,
+			[Define to 1 if you have libmxml < 2.11)])])
+	])
+
 FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 	[sqlite3_initialize], [sqlite3.h],
 	[dnl Check that SQLite3 has the unlock notify API built-in
@@ -137,7 +143,6 @@ FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 		[AC_MSG_RESULT([[runtime will tell]])])
 	])
 
-dnl libevent2 requires version checks
 FORK_MODULES_CHECK([FORKED], [LIBEVENT], [libevent >= 2],
 	[event_base_new], [event2/event.h],
 	[dnl check for old version
@@ -146,7 +151,6 @@ FORK_MODULES_CHECK([FORKED], [LIBEVENT], [libevent >= 2],
 			[Define to 1 if you have libevent 2 (<2.1.4)])])
 	])
 
-dnl json-c version checks
 FORK_MODULES_CHECK([FORKED], [JSON_C], [json-c],
 	[json_tokener_parse], [json.h],
 	[dnl check for old version
@@ -155,7 +159,6 @@ FORK_MODULES_CHECK([FORKED], [JSON_C], [json-c],
 			[Define to 1 if you have json-c < 0.11])])
 	])
 
-dnl antlr version checks
 FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	[antlr3BaseRecognizerNew], [antlr3.h],
 	[AC_CHECK_FUNC([[antlr3NewAsciiStringInPlaceStream]],

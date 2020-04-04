@@ -48,6 +48,15 @@
 #include "listener.h"
 #include "player.h"
 
+#define LIBRARY_MAX_CALLBACKS 16
+
+struct library_callback_register
+{
+  library_cb cb;
+  void *arg;
+  struct event *ev;
+};
+
 struct playlist_item_add_param
 {
   const char *vp_playlist;
@@ -73,12 +82,14 @@ extern struct library_source filescanner;
 #ifdef HAVE_SPOTIFY_H
 extern struct library_source spotifyscanner;
 #endif
+extern struct library_source rssscanner;
 
 static struct library_source *sources[] = {
     &filescanner,
 #ifdef HAVE_SPOTIFY_H
     &spotifyscanner,
 #endif
+    &rssscanner,
     NULL
 };
 
@@ -104,6 +115,9 @@ static struct event *updateev;
 // event notifications
 static unsigned int deferred_update_notifications;
 static short deferred_update_events;
+
+// Stores callbacks that backends may have requested
+static struct library_callback_register library_cb_register[LIBRARY_MAX_CALLBACKS];
 
 
 /* ------------------- CALLED BY LIBRARY SOURCE MODULES -------------------- */
@@ -151,6 +165,77 @@ library_playlist_save(struct playlist_info *pli)
     return db_pl_add(pli);
   else
     return db_pl_update(pli);
+}
+
+static void
+scheduled_cb(int fd, short what, void *arg)
+{
+  struct library_callback_register *cbreg = arg;
+  library_cb cb = cbreg->cb;
+  void *cb_arg = cbreg->arg;
+
+  // Must reset the register before calling back, otherwise it won't work if the
+  // callback reschedules by calling library_callback_schedule()
+  event_free(cbreg->ev);
+  memset(cbreg, 0, sizeof(struct library_callback_register));
+
+  DPRINTF(E_DBG, L_LIB, "Executing library callback to %p\n", cb);
+  cb(cb_arg);
+}
+
+int
+library_callback_schedule(library_cb cb, void *arg, struct timeval *wait, enum library_cb_action action)
+{
+  struct library_callback_register *cbreg;
+  bool replace_done;
+  int idx_available;
+  int i;
+
+  for (i = 0, idx_available = -1, replace_done = false; i < ARRAY_SIZE(library_cb_register); i++)
+    {
+      if (idx_available == -1 && library_cb_register[i].cb == NULL)
+	idx_available = i;
+
+      if (library_cb_register[i].cb != cb)
+	continue;
+
+      if (action == LIBRARY_CB_REPLACE || action == LIBRARY_CB_ADD_OR_REPLACE)
+	{
+	  event_add(library_cb_register[i].ev, wait);
+	  library_cb_register[i].arg = arg;
+	  replace_done = true;
+	}
+      else if (action == LIBRARY_CB_DELETE)
+	{
+	  event_free(library_cb_register[i].ev);
+	  memset(&library_cb_register[i], 0, sizeof(struct library_callback_register));
+	}
+    }
+
+  if (action == LIBRARY_CB_REPLACE || action == LIBRARY_CB_DELETE || (action == LIBRARY_CB_ADD_OR_REPLACE && replace_done))
+    {
+      return 0; // All done
+    }
+  else if (idx_available == -1)
+    {
+      DPRINTF(E_LOG, L_LIB, "Error scheduling callback, register full (size=%d, action=%d)\n", LIBRARY_MAX_CALLBACKS, action);
+      return -1;
+    }
+
+  cbreg = &library_cb_register[idx_available];
+  cbreg->cb = cb;
+  cbreg->arg = arg;
+
+  if (!cbreg->ev)
+    cbreg->ev = evtimer_new(evbase_lib, scheduled_cb, cbreg);
+
+  CHECK_NULL(L_LIB, cbreg->ev);
+
+  event_add(cbreg->ev, wait);
+
+  DPRINTF(E_DBG, L_LIB, "Added library callback to %p (id %d), wait %ld.%06ld\n", cbreg->cb, idx_available, wait->tv_sec, wait->tv_usec);
+
+  return idx_available;
 }
 
 
@@ -286,7 +371,7 @@ fullrescan(void *arg, int *ret)
 
   player_playback_stop();
   db_queue_clear(0);
-  db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+  db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups, incl RSS
 
   for (i = 0; sources[i]; i++)
     {
@@ -441,6 +526,36 @@ queue_save(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static enum command_state
+item_add(void *arg, int *retval)
+{
+  const char *path = arg;
+  int i;
+  int ret = LIBRARY_ERROR;
+
+  DPRINTF(E_DBG, L_LIB, "Adding item to library '%s'\n", path);
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->item_add)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Library source '%s' is disabled or does not support add_item\n", sources[i]->name);
+	  continue;
+	}
+
+      ret = sources[i]->item_add(path);
+
+      if (ret == LIBRARY_OK)
+	{
+	  DPRINTF(E_DBG, L_LIB, "Add item to path '%s' with library source '%s'\n", path, sources[i]->name);
+	  listener_notify(LISTENER_DATABASE);
+	  break;
+	}
+    }
+
+  *retval = ret;
+  return COMMAND_END;
+}
 
 // Callback to notify listeners of database changes
 static void
@@ -645,6 +760,15 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 }
 
 int
+library_item_add(const char *path)
+{
+  if (library_is_scanning())
+    return -1;
+
+  return commands_exec_sync(cmdbase, item_add, NULL, (char *)path);
+}
+
+int
 library_exec_async(command_function func, void *arg)
 {
   return commands_exec_async(cmdbase, func, arg);
@@ -706,21 +830,18 @@ library_init(void)
 
   for (i = 0; sources[i]; i++)
     {
-      if (!sources[i]->init)
-	{
-	  DPRINTF(E_FATAL, L_LIB, "BUG: library source '%s' has no init()\n", sources[i]->name);
-	  return -1;
-	}
-
       if (!sources[i]->initscan || !sources[i]->rescan || !sources[i]->metarescan || !sources[i]->fullrescan)
 	{
 	  DPRINTF(E_FATAL, L_LIB, "BUG: library source '%s' is missing a scanning method\n", sources[i]->name);
 	  return -1;
 	}
 
-      ret = sources[i]->init();
-      if (ret < 0)
-	sources[i]->disabled = 1;
+      if (sources[i]->init && !sources[i]->disabled)
+	{
+	  ret = sources[i]->init();
+	  if (ret < 0)
+	    sources[i]->disabled = 1;
+	}
     }
 
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
@@ -757,7 +878,13 @@ library_deinit()
   for (i = 0; sources[i]; i++)
     {
       if (sources[i]->deinit && !sources[i]->disabled)
-      sources[i]->deinit();
+	sources[i]->deinit();
+    }
+
+  for (i = 0; i < ARRAY_SIZE(library_cb_register); i++)
+    {
+      if (library_cb_register[i].ev)
+	event_free(library_cb_register[i].ev);
     }
 
   event_free(updateev);
