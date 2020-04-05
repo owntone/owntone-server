@@ -86,6 +86,7 @@ STRTAG		:	'artist'
 			|	'album_id'
 			|	'songartistid'
 			|	'songalbumid'
+			|	'codectype'
 			;
 
 INTTAG		:	'play_count'
@@ -95,6 +96,8 @@ INTTAG		:	'play_count'
 			|	'compilation'
 			|	'track'
 			|	'disc'
+			|	'bitrate'
+			|	'bits_per_sample'
 			;
 
 DATETAG		:	'time_added'
