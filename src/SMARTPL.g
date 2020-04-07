@@ -98,6 +98,7 @@ INTTAG		:	'play_count'
 			|	'disc'
 			|	'bitrate'
 			|	'bits_per_sample'
+			|	'samplerate'
 			;
 
 DATETAG		:	'time_added'
