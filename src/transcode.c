@@ -1022,6 +1022,10 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 
       DPRINTF(E_DBG, L_XCODE, "Created 'in' filter: %s\n", args);
 
+      // For some AIFF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
+      if (!out_stream->codec->channel_layout)
+	out_stream->codec->channel_layout = av_get_default_channel_layout(out_stream->codec->channels);
+
       snprintf(args, sizeof(args),
                "sample_fmts=%s:sample_rates=%d:channel_layouts=0x%"PRIx64,
                av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
@@ -1241,12 +1245,7 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
   if (!ctx->settings.channels && ctx->settings.encode_audio)
     {
       ctx->settings.channels = src_ctx->audio_stream.codec->channels;
-
-      // For some AIF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
-      if (src_ctx->audio_stream.codec->channel_layout)
-	ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
-      else
-	ctx->settings.channel_layout= av_get_default_channel_layout(ctx->settings.channels);
+      ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
     }
 
   if (ctx->settings.wavheader)
