@@ -236,7 +236,7 @@ static struct artwork_source artwork_item_source[] =
     {
       .name = "embedded",
       .handler = source_item_embedded_get,
-      .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_HTTP),
+      .data_kinds = (1 << DATA_KIND_FILE),
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
@@ -292,6 +292,13 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_discogs_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
       .cache = STASH,
+    },
+    {
+      // Low priority because it can be slow - mainly used for remote Podcasts
+      .name = "embedded http",
+      .handler = source_item_embedded_get,
+      .data_kinds = (1 << DATA_KIND_HTTP),
+      .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       // The Cover Art Archive seems rather slow, so low priority
@@ -548,8 +555,8 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
 }
 
 /*
- * Either gets the artwork file given in "path" from the file system (rescaled
- * if needed) or rescales the artwork given in "inbuf".
+ * Either gets the artwork file given in "path" (rescaled if needed) or rescales
+ * the artwork given in "inbuf".
  *
  * @out evbuf        Image data (rescaled if needed)
  * @in  path         Path to the artwork file (alternative to inbuf)
@@ -557,10 +564,11 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
  * @in  max_w        Requested width
  * @in  max_h        Requested height
  * @in  is_embedded  Whether the artwork in file is embedded or raw jpeg/png
+ * @in  data_kind    Used by the transcode module to determine e.g. probe size
  * @return           ART_FMT_* on success, ART_E_ERROR on error
  */
 static int
-artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_w, int max_h, bool is_embedded)
+artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_w, int max_h, bool is_embedded, enum data_kind data_kind)
 {
   struct decode_ctx *xcode_decode;
   struct encode_ctx *xcode_encode;
@@ -574,7 +582,7 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, int max_
 
   DPRINTF(E_SPAM, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
 
-  xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, DATA_KIND_FILE, path, inbuf, 0); // Covers XCODE_PNG too
+  xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, path, inbuf, 0); // Covers XCODE_PNG too
   if (!xcode_decode)
     {
       if (path)
@@ -703,7 +711,7 @@ artwork_evbuf_rescale(struct evbuffer *artwork, struct evbuffer *raw, int max_w,
     }
 
   // For non-file input, artwork_get() will also fail if no rescaling is required
-  ret = artwork_get(artwork, NULL, refbuf, max_w, max_h, false);
+  ret = artwork_get(artwork, NULL, refbuf, max_w, max_h, false, 0);
   if (ret == ART_E_ERROR)
     {
       DPRINTF(E_DBG, L_ART, "No rescaling required\n");
@@ -870,13 +878,13 @@ artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char 
   ret = dir_image_find(out_path, len, dir);
   if (ret >= 0)
     {
-      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
+      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false, DATA_KIND_FILE);
     }
 
   ret = parent_dir_image_find(out_path, len, dir);
   if (ret >= 0)
     {
-      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false);
+      return artwork_get(evbuf, out_path, NULL, max_w, max_h, false, DATA_KIND_FILE);
     }
 
   return ART_E_NONE;
@@ -1417,7 +1425,7 @@ source_item_embedded_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
 
-  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h, true);
+  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h, true, ctx->data_kind);
 }
 
 /* Looks for basename(in_path).{png,jpg}, so if in_path is /foo/bar.mp3 it
@@ -1471,7 +1479,7 @@ source_item_own_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
-  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false);
+  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false, ctx->data_kind);
 }
 
 /*
@@ -1547,7 +1555,7 @@ source_item_pipe_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
-  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false);
+  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false, ctx->data_kind);
 }
 
 static int
