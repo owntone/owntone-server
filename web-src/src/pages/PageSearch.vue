@@ -15,6 +15,12 @@
                 </p>
               </div>
             </form>
+            <div>
+              <label class="checkbox is-size-7">
+                <input type="checkbox" v-model="smart_query" :checked=true>
+                  SMART query
+              </label>
+            </div>
             <div class="tags" style="margin-top: 16px;">
               <a class="tag" v-for="recent_search in recent_searches" :key="recent_search" @click="open_recent_search(recent_search)">{{ recent_search }}</a>
             </div>
@@ -148,6 +154,7 @@ export default {
   data () {
     return {
       search_query: '',
+      smart_query: false,
       tracks: { items: [], total: 0 },
       artists: { items: [], total: 0 },
       albums: { items: [], total: 0 },
@@ -211,7 +218,8 @@ export default {
 
       var searchParams = {
         'type': route.query.type,
-        'query': route.query.query,
+        'query': this.smart_query ? undefined : route.query.query,
+        'expression': this.smart_query ? route.query.query : undefined,
         'media_kind': 'music'
       }
 
@@ -226,7 +234,7 @@ export default {
         this.albums = data.albums ? data.albums : { items: [], total: 0 }
         this.playlists = data.playlists ? data.playlists : { items: [], total: 0 }
 
-        this.$store.commit(types.ADD_RECENT_SEARCH, searchParams.query)
+        this.$store.commit(types.ADD_RECENT_SEARCH, route.query.query)
       })
     },
 
