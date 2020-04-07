@@ -1241,7 +1241,12 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
   if (!ctx->settings.channels && ctx->settings.encode_audio)
     {
       ctx->settings.channels = src_ctx->audio_stream.codec->channels;
-      ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
+
+      // For some AIF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
+      if (src_ctx->audio_stream.codec->channel_layout)
+	ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
+      else
+	ctx->settings.channel_layout= av_get_default_channel_layout(ctx->settings.channels);
     }
 
   if (ctx->settings.wavheader)
