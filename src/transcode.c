@@ -786,10 +786,12 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
 
   if (ctx->data_kind == DATA_KIND_HTTP)
     {
-# ifndef HAVE_FFMPEG
-      // Without this, libav is slow to probe some internet streams, which leads to RAOP timeouts
-      ctx->ifmt_ctx->probesize = 64000;
-# endif
+      // We take the chance of a small probe size to start quicker + search for
+      // embedded artwork quicker. The standard probe size takes around 5 sec
+      // for an mp3, while the below only takes around a second.
+      ctx->ifmt_ctx->probesize = 65536;
+      ctx->ifmt_ctx->format_probesize = 65536;
+
       av_dict_set(&options, "icy", "1", 0);
 
       user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
