@@ -29,6 +29,10 @@ general {
 	# Websocket port for the web interface.
 #	websocket_port = 3688
 
+        # Ports for airplay raop server
+#       raop_control_port = 0
+#       raop_timing_port = 0
+
 	# Sets who is allowed to connect without authorisation. This applies to
 	# client types like Remotes, DAAP clients (iTunes) and to the web
 	# interface. Options are "any", "localhost" or the prefix to one or

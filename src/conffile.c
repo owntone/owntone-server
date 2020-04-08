@@ -50,6 +50,8 @@ static cfg_opt_t sec_general[] =
     CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
     CFG_STR("admin_password", NULL, CFGF_NONE),
     CFG_INT("websocket_port", 3688, CFGF_NONE),
+    CFG_INT("raop_control_port", 0, CFGF_NONE),
+    CFG_INT("raop_timing_port", 0, CFGF_NONE),
     CFG_STR_LIST("trusted_networks", "{localhost,192.168,fd}", CFGF_NONE),
     CFG_BOOL("ipv6", cfg_true, CFGF_NONE),
     CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
