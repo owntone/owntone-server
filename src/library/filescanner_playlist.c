@@ -131,6 +131,12 @@ exttag_read(struct media_file_info *mfi, const char *tag)
       mfi->album_artist = val;
       return 0;
     }
+  if (strncmp(tag, "#EXTGENRE:", strlen("#EXTGENRE:")) == 0 && extval_read(&val, tag) == 0)
+    {
+      free(mfi->genre);
+      mfi->genre = val;
+      return 0;
+    }
 
   return -1;
 }
