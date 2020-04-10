@@ -117,6 +117,8 @@ dacp_propset_devicevolume(const char *value, struct httpd_request *hreq);
 static void
 dacp_propset_devicepreventplayback(const char *value, struct httpd_request *hreq);
 static void
+dacp_propset_devicebusy(const char *value, struct httpd_request *hreq);
+static void
 dacp_propset_playingtime(const char *value, struct httpd_request *hreq);
 static void
 dacp_propset_shufflestate(const char *value, struct httpd_request *hreq);
@@ -1011,13 +1013,8 @@ dacp_propset_devicevolume(const char *value, struct httpd_request *hreq)
   player_volume_update_speaker(speaker_info.id, value);
 }
 
-// iTunes seems to use this as way for a speaker to tell the server that it is
-// busy with something else. If the speaker makes the request with the value 1,
-// then iTunes will disable the speaker, and if it is the only speaker, then
-// playback will also be paused. It is not possible for the user to restart the
-// speaker until it has made a request with value 0 (if attempted, iTunes will
-// show it is waiting for the speaker). As you can see from the below, we
-// don't fully match this behaviour, instead we just enable/disable.
+// See player.c:speaker_prevent_playback_set() for comments regarding
+// prevent-playback and busy properties
 static void
 dacp_propset_devicepreventplayback(const char *value, struct httpd_request *hreq)
 {
@@ -1027,11 +1024,27 @@ dacp_propset_devicepreventplayback(const char *value, struct httpd_request *hreq
     return;
 
   if (value[0] == '1')
-    player_speaker_disable(speaker_info.id);
+    player_speaker_prevent_playback_set(speaker_info.id, true);
   else if (value[0] == '0')
-    player_speaker_enable(speaker_info.id);
+    player_speaker_prevent_playback_set(speaker_info.id, false);
   else
     DPRINTF(E_LOG, L_DACP, "Request for setting device-prevent-playback has invalid value: '%s'\n", value);
+}
+
+static void
+dacp_propset_devicebusy(const char *value, struct httpd_request *hreq)
+{
+  struct player_speaker_info speaker_info;
+
+  if (speaker_get(&speaker_info, hreq, "device-busy") < 0)
+    return;
+
+  if (value[0] == '1')
+    player_speaker_busy_set(speaker_info.id, true);
+  else if (value[0] == '0')
+    player_speaker_busy_set(speaker_info.id, false);
+  else
+    DPRINTF(E_LOG, L_DACP, "Request for setting device-busy has invalid value: '%s'\n", value);
 }
 
 static void
@@ -2516,6 +2529,7 @@ dacp_reply_setproperty(struct httpd_request *hreq)
    * dmcp.volume                      0-100, float
    * dmcp.device-volume               -144-0, float (raop volume)
    * dmcp.device-prevent-playback     0/1
+   * dmcp.device-busy                 0/1
    */
 
   /* /ctrl-int/1/setproperty?dacp.shufflestate=1&session-id=100 */

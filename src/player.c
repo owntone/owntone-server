@@ -112,12 +112,6 @@
 
 //#define DEBUG_PLAYER 1
 
-struct volume_param {
-  uint64_t spk_id;
-  int volume;
-  const char *value;
-};
-
 struct spk_enum
 {
   spk_enum_cb cb;
@@ -128,6 +122,17 @@ struct speaker_set_param
 {
   uint64_t *device_ids;
   int intval;
+};
+
+struct speaker_attr_param
+{
+  uint64_t spk_id;
+
+  int volume;
+  const char *volstr;
+
+  bool prevent_playback;
+  bool busy;
 };
 
 struct speaker_get_param
@@ -376,6 +381,8 @@ static void
 speaker_select_output(struct output_device *device)
 {
   device->selected = 1;
+  device->prevent_playback = 0;
+  device->busy = 0;
 
   if (device->volume > master_volume)
     {
@@ -2402,6 +2409,8 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->has_video = device->has_video;
   spk->requires_auth = device->requires_auth;
   spk->needs_auth_key = (device->requires_auth && device->auth_key == NULL);
+  spk->prevent_playback = device->prevent_playback;
+  spk->busy = device->busy;
 }
 
 static enum command_state
@@ -2627,6 +2636,92 @@ speaker_disable(void *arg, int *retval)
   return COMMAND_END;
 }
 
+/*
+ * Airplay speakers can via DACP set the "busy" + "prevent-playback" properties,
+ * which we handle below. We try to do this like iTunes, except we need to
+ * unselect devices, since our clients don't understand the "grayed out" state:
+ *
+ *                           | Playing to 1 device                            | Playing to 2 devices
+ * device-prevent-playback=1 | Playback stops, device selected but grayed out | Playback stops on device, continues on other device, device selected but grayed out
+ * device-prevent-playback=0 | Playback does not resume, device not grayed    | Playback resumes on device, device not grayed
+ * (device-busy does the same)
+ *
+ * device-prevent-playback=1 | (same)                                         | (same)
+ * device-busy=1             | (no change)                                    | (no change)
+ * device-prevent-playback=0 | Playback does not resume, device still grayed  | Playback does not resume, device still grayed
+ * device-busy=0             | Playback does not resume, device not grayed    | Playback resumes on device, device not grayed
+ * (same if vice versa, ie busy=1 first)
+ *
+ */
+static enum command_state
+speaker_prevent_playback_set(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    return COMMAND_END;
+
+  device->prevent_playback = param->prevent_playback;
+
+  DPRINTF(E_DBG, L_PLAYER, "Speaker prevent playback: '%s' (id=%" PRIu64 ")\n", device->name, device->id);
+
+  if (device->prevent_playback)
+    *retval = speaker_deactivate(device);
+  else if (!device->busy)
+    *retval = speaker_activate(device);
+  else
+    *retval = 0;
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_prevent_playback_set_bh(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+
+  if (output_sessions == 0)
+    {
+      DPRINTF(E_INFO, L_PLAYER, "Ending playback, speaker (id=%" PRIu64 ") set 'busy' or 'prevent-playback' flag\n", param->spk_id);
+      pb_abort(); // TODO Would be better for the user if we paused, but we don't have a handy function for that
+    }
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_busy_set(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    return COMMAND_END;
+
+  device->busy = param->busy;
+
+  DPRINTF(E_DBG, L_PLAYER, "Speaker busy: '%s' (id=%" PRIu64 ")\n", device->name, device->id);
+
+  if (device->busy)
+    *retval = speaker_deactivate(device);
+  else if (!device->prevent_playback)
+    *retval = speaker_activate(device);
+  else
+    *retval = 0;
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  return COMMAND_END;
+}
+
 static enum command_state
 volume_set(void *arg, int *retval)
 {
@@ -2685,7 +2780,7 @@ static void debug_print_speaker()
 static enum command_state
 volume_setrel_speaker(void *arg, int *retval)
 {
-  struct volume_param *vol_param = arg;
+  struct speaker_attr_param *vol_param = arg;
   struct output_device *device;
   uint64_t id;
   int relvol;
@@ -2734,7 +2829,7 @@ volume_setrel_speaker(void *arg, int *retval)
 static enum command_state
 volume_setabs_speaker(void *arg, int *retval)
 {
-  struct volume_param *vol_param = arg;
+  struct speaker_attr_param *vol_param = arg;
   struct output_device *device;
   uint64_t id;
   int volume;
@@ -2791,7 +2886,7 @@ volume_setabs_speaker(void *arg, int *retval)
 static enum command_state
 volume_update_speaker(void *arg, int *retval)
 {
-  struct volume_param *vol_param = arg;
+  struct speaker_attr_param *vol_param = arg;
   struct output_device *device;
   int volume;
 
@@ -2802,10 +2897,10 @@ volume_update_speaker(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  volume = outputs_device_volume_to_pct(device, vol_param->value); // Only converts
+  volume = outputs_device_volume_to_pct(device, vol_param->volstr); // Only converts
   if (volume < 0)
     {
-      DPRINTF(E_LOG, L_DACP, "Could not parse volume '%s' in update_volume() for speaker '%s'\n", vol_param->value, device->name);
+      DPRINTF(E_LOG, L_DACP, "Could not parse volume '%s' in update_volume() for speaker '%s'\n", vol_param->volstr, device->name);
       *retval = -1;
       return COMMAND_END;
     }
@@ -3159,6 +3254,38 @@ player_speaker_disable(uint64_t id)
 }
 
 int
+player_speaker_prevent_playback_set(uint64_t id, bool prevent_playback)
+{
+  struct speaker_attr_param param;
+  int ret;
+
+  param.spk_id = id;
+  param.prevent_playback = prevent_playback;
+
+  ret = commands_exec_sync(cmdbase, speaker_prevent_playback_set, speaker_prevent_playback_set_bh, &param);
+
+  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+
+  return ret;
+}
+
+int
+player_speaker_busy_set(uint64_t id, bool busy)
+{
+  struct speaker_attr_param param;
+  int ret;
+
+  param.spk_id = id;
+  param.busy = busy;
+
+  ret = commands_exec_sync(cmdbase, speaker_busy_set, speaker_prevent_playback_set_bh, &param);
+
+  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+
+  return ret;
+}
+
+int
 player_volume_set(int vol)
 {
   union player_arg cmdarg;
@@ -3179,7 +3306,7 @@ player_volume_set(int vol)
 int
 player_volume_setrel_speaker(uint64_t id, int relvol)
 {
-  struct volume_param vol_param;
+  struct speaker_attr_param vol_param;
   int ret;
 
   if (relvol < 0 || relvol > 100)
@@ -3198,7 +3325,7 @@ player_volume_setrel_speaker(uint64_t id, int relvol)
 int
 player_volume_setabs_speaker(uint64_t id, int vol)
 {
-  struct volume_param vol_param;
+  struct speaker_attr_param vol_param;
   int ret;
 
   if (vol < 0 || vol > 100)
@@ -3215,13 +3342,13 @@ player_volume_setabs_speaker(uint64_t id, int vol)
 }
 
 int
-player_volume_update_speaker(uint64_t id, const char *value)
+player_volume_update_speaker(uint64_t id, const char *volstr)
 {
-  struct volume_param vol_param;
+  struct speaker_attr_param vol_param;
   int ret;
 
   vol_param.spk_id = id;
-  vol_param.value  = value;
+  vol_param.volstr  = volstr;
 
   ret = commands_exec_sync(cmdbase, volume_update_speaker, NULL, &vol_param);
   return ret;

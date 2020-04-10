@@ -40,6 +40,9 @@ struct player_speaker_info {
   bool requires_auth;
   bool needs_auth_key;
 
+  bool prevent_playback;
+  bool busy;
+
   bool has_video;
 };
 
@@ -103,6 +106,12 @@ int
 player_speaker_disable(uint64_t id);
 
 int
+player_speaker_prevent_playback_set(uint64_t id, bool prevent_playback);
+
+int
+player_speaker_busy_set(uint64_t id, bool busy);
+
+int
 player_playback_start(void);
 
 int
@@ -136,7 +145,7 @@ int
 player_volume_setabs_speaker(uint64_t id, int vol);
 
 int
-player_volume_update_speaker(uint64_t id, const char *value);
+player_volume_update_speaker(uint64_t id, const char *volstr);
 
 int
 player_repeat_set(enum repeat_mode mode);
