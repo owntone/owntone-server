@@ -118,9 +118,9 @@ FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml],
 	[mxmlNewElement], [mxml.h],
 	[dnl check for old versions which have a serious memleak
 	 AC_CHECK_FUNCS([mxmlGetOpaque] [mxmlGetText] [mxmlGetType] [mxmlGetFirstChild])
-	 PKG_CHECK_EXISTS([libevent >= 2.11], [],
+	 PKG_CHECK_EXISTS([mxml >= 2.11], [],
 		[AC_DEFINE([HAVE_MXML_OLD], 1,
-			[Define to 1 if you have libmxml < 2.11)])])
+			[Define to 1 if you have mxml < 2.11)])])
 	])
 
 FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
