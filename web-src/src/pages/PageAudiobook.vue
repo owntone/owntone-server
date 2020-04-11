@@ -56,7 +56,7 @@ const albumData = {
 
 export default {
   name: 'PageAudiobook',
-  mixins: [ LoadDataBeforeEnterMixin(albumData) ],
+  mixins: [LoadDataBeforeEnterMixin(albumData)],
   components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, ModalDialogAlbum },
 
   data () {

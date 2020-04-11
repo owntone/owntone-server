@@ -45,7 +45,7 @@ const genresData = {
 
 export default {
   name: 'PageGenres',
-  mixins: [ LoadDataBeforeEnterMixin(genresData) ],
+  mixins: [LoadDataBeforeEnterMixin(genresData)],
   components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemGenre, ModalDialogGenre },
 
   data () {

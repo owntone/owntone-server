@@ -106,7 +106,7 @@ const filesData = {
 
 export default {
   name: 'PageFiles',
-  mixins: [ LoadDataBeforeEnterMixin(filesData) ],
+  mixins: [LoadDataBeforeEnterMixin(filesData)],
   components: { ContentWithHeading, ListItemDirectory, ListItemPlaylist, ListItemTrack, ModalDialogDirectory, ModalDialogPlaylist, ModalDialogTrack },
 
   data () {

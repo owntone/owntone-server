@@ -44,7 +44,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAddRss',
-  props: [ 'show' ],
+  props: ['show'],
 
   data () {
     return {

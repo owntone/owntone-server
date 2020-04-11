@@ -315,7 +315,8 @@ export default {
         return
       }
 
-      this.$router.push({ path: '/search/spotify',
+      this.$router.push({
+        path: '/search/spotify',
         query: {
           type: 'track,artist,album,playlist',
           query: this.search_query,
@@ -327,7 +328,8 @@ export default {
     },
 
     open_search_tracks: function () {
-      this.$router.push({ path: '/search/spotify',
+      this.$router.push({
+        path: '/search/spotify',
         query: {
           type: 'track',
           query: this.$route.query.query
@@ -336,7 +338,8 @@ export default {
     },
 
     open_search_artists: function () {
-      this.$router.push({ path: '/search/spotify',
+      this.$router.push({
+        path: '/search/spotify',
         query: {
           type: 'artist',
           query: this.$route.query.query
@@ -345,7 +348,8 @@ export default {
     },
 
     open_search_albums: function () {
-      this.$router.push({ path: '/search/spotify',
+      this.$router.push({
+        path: '/search/spotify',
         query: {
           type: 'album',
           query: this.$route.query.query
@@ -354,7 +358,8 @@ export default {
     },
 
     open_search_playlists: function () {
-      this.$router.push({ path: '/search/spotify',
+      this.$router.push({
+        path: '/search/spotify',
         query: {
           type: 'playlist',
           query: this.$route.query.query

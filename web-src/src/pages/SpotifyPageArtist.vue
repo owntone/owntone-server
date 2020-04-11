@@ -62,7 +62,7 @@ const artistData = {
 
 export default {
   name: 'SpotifyPageArtist',
-  mixins: [ LoadDataBeforeEnterMixin(artistData) ],
+  mixins: [LoadDataBeforeEnterMixin(artistData)],
   components: { ContentWithHeading, SpotifyListItemAlbum, SpotifyModalDialogAlbum, SpotifyModalDialogArtist, InfiniteLoading },
 
   data () {

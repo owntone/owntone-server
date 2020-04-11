@@ -25,7 +25,6 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
 import ListItemPlaylist from '@/components/ListItemPlaylist'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
 import webapi from '@/webapi'
@@ -46,8 +45,8 @@ const playlistsData = {
 
 export default {
   name: 'PagePlaylists',
-  mixins: [ LoadDataBeforeEnterMixin(playlistsData) ],
-  components: { ContentWithHeading, TabsMusic, ListItemPlaylist, ModalDialogPlaylist },
+  mixins: [LoadDataBeforeEnterMixin(playlistsData)],
+  components: { ContentWithHeading, ListItemPlaylist, ModalDialogPlaylist },
 
   data () {
     return {

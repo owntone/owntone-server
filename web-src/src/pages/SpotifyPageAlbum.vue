@@ -53,7 +53,7 @@ const albumData = {
 
 export default {
   name: 'PageAlbum',
-  mixins: [ LoadDataBeforeEnterMixin(albumData) ],
+  mixins: [LoadDataBeforeEnterMixin(albumData)],
   components: { ContentWithHeading, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogAlbum },
 
   data () {

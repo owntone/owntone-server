@@ -9,7 +9,7 @@ import * as types from '@/store/mutation_types'
 
 export default {
   name: 'NavbarItemLink',
-  props: [ 'to' ],
+  props: ['to'],
 
   computed: {
     is_active () {

@@ -80,7 +80,7 @@ const browseData = {
 
 export default {
   name: 'PageBrowse',
-  mixins: [ LoadDataBeforeEnterMixin(browseData) ],
+  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, ListItemAlbum, ListItemTrack, ModalDialogTrack, ModalDialogAlbum },
 
   data () {

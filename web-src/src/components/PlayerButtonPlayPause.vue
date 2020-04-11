@@ -11,8 +11,8 @@ export default {
   name: 'PlayerButtonPlayPause',
 
   props: {
-    'icon_style': String,
-    'show_disabled_message': Boolean
+    icon_style: String,
+    show_disabled_message: Boolean
   },
 
   computed: {

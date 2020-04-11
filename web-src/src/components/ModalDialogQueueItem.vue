@@ -79,7 +79,7 @@ import SpotifyWebApi from 'spotify-web-api-js'
 
 export default {
   name: 'ModalDialogQueueItem',
-  props: [ 'show', 'item' ],
+  props: ['show', 'item'],
 
   data () {
     return {
@@ -95,7 +95,7 @@ export default {
 
     play: function () {
       this.$emit('close')
-      webapi.player_play({ 'item_id': this.item.id })
+      webapi.player_play({ item_id: this.item.id })
     },
 
     open_album: function () {

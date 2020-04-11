@@ -96,7 +96,7 @@ export default {
   },
 
   queue_save_playlist (name) {
-    return axios.post('/api/queue/save', undefined, { params: { 'name': name } }).then((response) => {
+    return axios.post('/api/queue/save', undefined, { params: { name: name } }).then((response) => {
       store.dispatch('add_notification', { text: 'Queue saved to playlist "' + name + '"', type: 'info', timeout: 2000 })
       return Promise.resolve(response)
     })
@@ -227,9 +227,9 @@ export default {
 
   library_genre (genre) {
     var genreParams = {
-      'type': 'albums',
-      'media_kind': 'music',
-      'expression': 'genre is "' + genre + '"'
+      type: 'albums',
+      media_kind: 'music',
+      expression: 'genre is "' + genre + '"'
     }
     return axios.get('/api/search', {
       params: genreParams
@@ -238,9 +238,9 @@ export default {
 
   library_genre_tracks (genre) {
     var genreParams = {
-      'type': 'tracks',
-      'media_kind': 'music',
-      'expression': 'genre is "' + genre + '"'
+      type: 'tracks',
+      media_kind: 'music',
+      expression: 'genre is "' + genre + '"'
     }
     return axios.get('/api/search', {
       params: genreParams
@@ -250,8 +250,8 @@ export default {
   library_artist_tracks (artist) {
     if (artist) {
       var artistParams = {
-        'type': 'tracks',
-        'expression': 'songartistid is "' + artist + '"'
+        type: 'tracks',
+        expression: 'songartistid is "' + artist + '"'
       }
       return axios.get('/api/search', {
         params: artistParams
@@ -265,8 +265,8 @@ export default {
 
   library_podcasts_new_episodes () {
     var episodesParams = {
-      'type': 'tracks',
-      'expression': 'media_kind is podcast and play_count = 0 ORDER BY time_added DESC'
+      type: 'tracks',
+      expression: 'media_kind is podcast and play_count = 0 ORDER BY time_added DESC'
     }
     return axios.get('/api/search', {
       params: episodesParams
@@ -275,8 +275,8 @@ export default {
 
   library_podcast_episodes (albumId) {
     var episodesParams = {
-      'type': 'tracks',
-      'expression': 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY time_added DESC'
+      type: 'tracks',
+      expression: 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY time_added DESC'
     }
     return axios.get('/api/search', {
       params: episodesParams
@@ -284,7 +284,7 @@ export default {
   },
 
   library_add (url) {
-    return axios.post('/api/library/add', undefined, { params: { 'url': url } })
+    return axios.post('/api/library/add', undefined, { params: { url: url } })
   },
 
   library_playlist_delete (playlistId) {
@@ -320,7 +320,7 @@ export default {
   },
 
   library_files (directory = undefined) {
-    var filesParams = { 'directory': directory }
+    var filesParams = { directory: directory }
     return axios.get('/api/library/files', {
       params: filesParams
     })

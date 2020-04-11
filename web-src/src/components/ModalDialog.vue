@@ -15,7 +15,7 @@
 <script>
 export default {
   name: 'ModalDialog',
-  props: [ 'show' ]
+  props: ['show']
 }
 </script>
 

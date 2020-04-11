@@ -45,7 +45,7 @@ const browseData = {
 
 export default {
   name: 'PageBrowseType',
-  mixins: [ LoadDataBeforeEnterMixin(browseData) ],
+  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, ListItemAlbum, ModalDialogAlbum },
 
   data () {

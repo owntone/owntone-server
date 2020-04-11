@@ -34,7 +34,7 @@ export default {
 
   methods: {
     play: function () {
-      webapi.player_play({ 'item_id': this.item.id })
+      webapi.player_play({ item_id: this.item.id })
     }
   }
 }

@@ -217,10 +217,10 @@ export default {
       }
 
       var searchParams = {
-        'type': route.query.type,
-        'query': this.smart_query ? undefined : route.query.query,
-        'expression': this.smart_query ? route.query.query : undefined,
-        'media_kind': 'music'
+        type: route.query.type,
+        query: this.smart_query ? undefined : route.query.query,
+        expression: this.smart_query ? route.query.query : undefined,
+        media_kind: 'music'
       }
 
       if (route.query.limit) {
@@ -243,7 +243,8 @@ export default {
         return
       }
 
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'track,artist,album,playlist',
           query: this.search_query,
@@ -255,7 +256,8 @@ export default {
     },
 
     open_search_tracks: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'track',
           query: this.$route.query.query
@@ -264,7 +266,8 @@ export default {
     },
 
     open_search_artists: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'artist',
           query: this.$route.query.query
@@ -273,7 +276,8 @@ export default {
     },
 
     open_search_albums: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'album',
           query: this.$route.query.query
@@ -282,7 +286,8 @@ export default {
     },
 
     open_search_playlists: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'playlist',
           query: this.$route.query.query

@@ -80,7 +80,7 @@ const albumData = {
 
 export default {
   name: 'PagePodcast',
-  mixins: [ LoadDataBeforeEnterMixin(albumData) ],
+  mixins: [LoadDataBeforeEnterMixin(albumData)],
   components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, RangeSlider, ModalDialogAlbum },
 
   data () {
@@ -106,7 +106,7 @@ export default {
     },
 
     mark_all_played: function () {
-      webapi.library_album_track_update(this.album.id, { 'play_count': 'played' }).then(({ data }) => (
+      webapi.library_album_track_update(this.album.id, { play_count: 'played' }).then(({ data }) => (
         this.tracks.forEach(track => {
           if (track.play_count === 0) {
             track.play_count = 1

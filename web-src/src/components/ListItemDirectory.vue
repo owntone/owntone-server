@@ -18,7 +18,7 @@
 <script>
 export default {
   name: 'ListItemDirectory',
-  props: [ 'directory' ]
+  props: ['directory']
 }
 </script>
 

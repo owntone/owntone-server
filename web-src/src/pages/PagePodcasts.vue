@@ -93,7 +93,7 @@ const albumsData = {
 
 export default {
   name: 'PagePodcasts',
-  mixins: [ LoadDataBeforeEnterMixin(albumsData) ],
+  mixins: [LoadDataBeforeEnterMixin(albumsData)],
   components: { ContentWithHeading, ListItemTrack, ListItemAlbum, ModalDialogTrack, ModalDialogAlbum, ModalDialogAddRss, RangeSlider },
 
   data () {
@@ -132,7 +132,7 @@ export default {
 
     mark_all_played: function () {
       this.new_episodes.items.forEach(ep => {
-        webapi.library_track_update(ep.id, { 'play_count': 'increment' })
+        webapi.library_track_update(ep.id, { play_count: 'increment' })
       })
       this.new_episodes.items = { }
     },

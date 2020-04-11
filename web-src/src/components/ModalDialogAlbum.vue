@@ -51,7 +51,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbum',
-  props: [ 'show', 'album', 'media_kind' ],
+  props: ['show', 'album', 'media_kind'],
 
   data () {
     return {

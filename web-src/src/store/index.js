@@ -7,37 +7,37 @@ Vue.use(Vuex)
 export default new Vuex.Store({
   state: {
     config: {
-      'websocket_port': 0,
-      'version': '',
-      'buildoptions': [ ]
+      websocket_port: 0,
+      version: '',
+      buildoptions: []
     },
     settings: {
-      'categories': []
+      categories: []
     },
     library: {
-      'artists': 0,
-      'albums': 0,
-      'songs': 0,
-      'db_playtime': 0,
-      'updating': false
+      artists: 0,
+      albums: 0,
+      songs: 0,
+      db_playtime: 0,
+      updating: false
     },
     audiobooks_count: { },
     podcasts_count: { },
-    outputs: [ ],
+    outputs: [],
     player: {
-      'state': 'stop',
-      'repeat': 'off',
-      'consume': false,
-      'shuffle': false,
-      'volume': 0,
-      'item_id': 0,
-      'item_length_ms': 0,
-      'item_progress_ms': 0
+      state: 'stop',
+      repeat: 'off',
+      consume: false,
+      shuffle: false,
+      volume: 0,
+      item_id: 0,
+      item_length_ms: 0,
+      item_progress_ms: 0
     },
     queue: {
-      'version': 0,
-      'count': 0,
-      'items': [ ]
+      version: 0,
+      count: 0,
+      items: []
     },
     lastfm: {},
     spotify: {},
@@ -47,8 +47,8 @@ export default new Vuex.Store({
     spotify_featured_playlists: [],
 
     notifications: {
-      'next_id': 1,
-      'list': []
+      next_id: 1,
+      list: []
     },
     recent_searches: [],
 
@@ -181,11 +181,11 @@ export default new Vuex.Store({
   actions: {
     add_notification ({ commit, state }, notification) {
       const newNotification = {
-        'id': state.notifications.next_id++,
-        'type': notification.type,
-        'text': notification.text,
-        'topic': notification.topic,
-        'timeout': notification.timeout
+        id: state.notifications.next_id++,
+        type: notification.type,
+        text: notification.text,
+        topic: notification.topic,
+        timeout: notification.timeout
       }
 
       commit(types.ADD_NOTIFICATION, newNotification)
