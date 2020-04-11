@@ -13,14 +13,11 @@
                     <i class="mdi mdi-magnify"></i>
                   </span>
                 </p>
+                <p class="help has-text-centered">Tip: you can search by a smart playlist query language <a href="https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md" target="_blank">expression</a> if you prefix it
+                  with <code>query:</code>.
+                </p>
               </div>
             </form>
-            <div>
-              <label class="checkbox is-size-7">
-                <input type="checkbox" v-model="smart_query" :checked=true>
-                  SMART query
-              </label>
-            </div>
             <div class="tags" style="margin-top: 16px;">
               <a class="tag" v-for="recent_search in recent_searches" :key="recent_search" @click="open_recent_search(recent_search)">{{ recent_search }}</a>
             </div>
@@ -154,7 +151,7 @@ export default {
   data () {
     return {
       search_query: '',
-      smart_query: false,
+
       tracks: { items: [], total: 0 },
       artists: { items: [], total: 0 },
       albums: { items: [], total: 0 },
@@ -218,9 +215,13 @@ export default {
 
       var searchParams = {
         type: route.query.type,
-        query: this.smart_query ? undefined : route.query.query,
-        expression: this.smart_query ? route.query.query : undefined,
         media_kind: 'music'
+      }
+
+      if (route.query.query.startsWith('query:')) {
+        searchParams.expression = route.query.query.replace(/^query:/, '').trim()
+      } else {
+        searchParams.query = route.query.query
       }
 
       if (route.query.limit) {

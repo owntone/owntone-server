@@ -178,7 +178,7 @@ export default {
 
   computed: {
     recent_searches () {
-      return this.$store.state.recent_searches
+      return this.$store.state.recent_searches.filter(search => !search.startsWith('query:'))
     },
 
     show_tracks () {
@@ -222,7 +222,7 @@ export default {
       this.reset()
 
       // If no search query present reset and focus search field
-      if (!this.query.query || this.query.query === '') {
+      if (!this.query.query || this.query.query === '' || this.query.query.startsWith('query:')) {
         this.search_query = ''
         this.$refs.search_field.focus()
         return
