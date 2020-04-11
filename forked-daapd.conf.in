@@ -279,7 +279,7 @@ audio {
 # AirPlay/Airport Express settings
 # common to all devices
 #airplay_shared {
-        # UDP ports used when ariplay devices make connections back to forked-daapd
+        # UDP ports used when airplay devices make connections back to forked-daapd
         # (choosing specific ports may be helpful when running forked-daapd behind a firewall)
 #       control_port = 0
 #       timing_port = 0

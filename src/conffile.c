@@ -137,7 +137,7 @@ static cfg_opt_t sec_alsa[] =
     CFG_END()
   };
 
-/* AirPlay/ApEx share section structure */
+/* AirPlay/ApEx shared section structure */
 static cfg_opt_t sec_airplay_shared[] =
   {
     CFG_INT("control_port", 0, CFGF_NONE),
