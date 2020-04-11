@@ -29,10 +29,6 @@ general {
 	# Websocket port for the web interface.
 #	websocket_port = 3688
 
-        # Ports for airplay raop server
-#       raop_control_port = 0
-#       raop_timing_port = 0
-
 	# Sets who is allowed to connect without authorisation. This applies to
 	# client types like Remotes, DAAP clients (iTunes) and to the web
 	# interface. Options are "any", "localhost" or the prefix to one or
@@ -278,6 +274,15 @@ audio {
 #fifo {
 #	nickname = "fifo"
 #	path = "/path/to/fifo"
+#}
+
+# AirPlay/Airport Express settings
+# common to all devices
+#airplay_shared {
+        # UDP ports used when ariplay devices make connections back to forked-daapd
+        # (choosing specific ports may be helpful when running forked-daapd behind a firewall)
+#       control_port = 0
+#       timing_port = 0
 #}
 
 # AirPlay/Airport Express device settings

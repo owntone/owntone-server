@@ -3093,7 +3093,7 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
   memset(&sa, 0, sizeof(union sockaddr_all));
   sa.ss.ss_family = family;
 
-  timing_port = cfg_getint(cfg_getsec(cfg, "general"), "raop_timing_port");
+  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
   switch (family)
     {
       case AF_INET:
@@ -3347,7 +3347,7 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
   memset(&sa, 0, sizeof(union sockaddr_all));
   sa.ss.ss_family = family;
 
-  control_port = cfg_getint(cfg_getsec(cfg, "general"), "raop_control_port");
+  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
   switch (family)
     {
       case AF_INET:

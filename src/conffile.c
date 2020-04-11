@@ -50,8 +50,6 @@ static cfg_opt_t sec_general[] =
     CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
     CFG_STR("admin_password", NULL, CFGF_NONE),
     CFG_INT("websocket_port", 3688, CFGF_NONE),
-    CFG_INT("raop_control_port", 0, CFGF_NONE),
-    CFG_INT("raop_timing_port", 0, CFGF_NONE),
     CFG_STR_LIST("trusted_networks", "{localhost,192.168,fd}", CFGF_NONE),
     CFG_BOOL("ipv6", cfg_true, CFGF_NONE),
     CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
@@ -139,6 +137,14 @@ static cfg_opt_t sec_alsa[] =
     CFG_END()
   };
 
+/* AirPlay/ApEx share section structure */
+static cfg_opt_t sec_airplay_shared[] =
+  {
+    CFG_INT("control_port", 0, CFGF_NONE),
+    CFG_INT("timing_port", 0, CFGF_NONE),
+    CFG_END()
+  };
+
 /* AirPlay/ApEx device section structure */
 static cfg_opt_t sec_airplay[] =
   {
@@ -217,6 +223,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_SEC("audio", sec_audio, CFGF_NONE),
     CFG_SEC("alsa", sec_alsa, CFGF_MULTI | CFGF_TITLE),
+    CFG_SEC("airplay_shared", sec_airplay_shared, CFGF_NONE),
     CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("chromecast", sec_chromecast, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("fifo", sec_fifo, CFGF_NONE),
