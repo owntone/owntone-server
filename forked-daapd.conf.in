@@ -276,6 +276,15 @@ audio {
 #	path = "/path/to/fifo"
 #}
 
+# AirPlay/Airport Express settings
+# common to all devices
+#airplay_shared {
+        # UDP ports used when airplay devices make connections back to forked-daapd
+        # (choosing specific ports may be helpful when running forked-daapd behind a firewall)
+#       control_port = 0
+#       timing_port = 0
+#}
+
 # AirPlay/Airport Express device settings
 # (make sure you get the capitalization of the device name right)
 #airplay "My AirPlay device" {

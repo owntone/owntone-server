@@ -3064,6 +3064,7 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
   int on;
   int len;
   int ret;
+  int timing_port;
 
 #ifdef SOCK_CLOEXEC
   svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -3092,17 +3093,18 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
   memset(&sa, 0, sizeof(union sockaddr_all));
   sa.ss.ss_family = family;
 
+  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
   switch (family)
     {
       case AF_INET:
 	sa.sin.sin_addr.s_addr = INADDR_ANY;
-	sa.sin.sin_port = 0;
+	sa.sin.sin_port = htons(timing_port);
 	len = sizeof(sa.sin);
 	break;
 
       case AF_INET6:
 	sa.sin6.sin6_addr = in6addr_any;
-	sa.sin6.sin6_port = 0;
+	sa.sin6.sin6_port = htons(timing_port);
 	len = sizeof(sa.sin6);
 	break;
     }
@@ -3316,6 +3318,7 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
   int on;
   int len;
   int ret;
+  int control_port;
 
 #ifdef SOCK_CLOEXEC
   svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -3344,17 +3347,18 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
   memset(&sa, 0, sizeof(union sockaddr_all));
   sa.ss.ss_family = family;
 
+  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
   switch (family)
     {
       case AF_INET:
 	sa.sin.sin_addr.s_addr = INADDR_ANY;
-	sa.sin.sin_port = 0;
+	sa.sin.sin_port = htons(control_port);
 	len = sizeof(sa.sin);
 	break;
 
       case AF_INET6:
 	sa.sin6.sin6_addr = in6addr_any;
-	sa.sin6.sin6_port = 0;
+	sa.sin6.sin6_port = htons(control_port);
 	len = sizeof(sa.sin6);
 	break;
     }

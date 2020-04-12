@@ -137,6 +137,14 @@ static cfg_opt_t sec_alsa[] =
     CFG_END()
   };
 
+/* AirPlay/ApEx shared section structure */
+static cfg_opt_t sec_airplay_shared[] =
+  {
+    CFG_INT("control_port", 0, CFGF_NONE),
+    CFG_INT("timing_port", 0, CFGF_NONE),
+    CFG_END()
+  };
+
 /* AirPlay/ApEx device section structure */
 static cfg_opt_t sec_airplay[] =
   {
@@ -215,6 +223,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_SEC("audio", sec_audio, CFGF_NONE),
     CFG_SEC("alsa", sec_alsa, CFGF_MULTI | CFGF_TITLE),
+    CFG_SEC("airplay_shared", sec_airplay_shared, CFGF_NONE),
     CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("chromecast", sec_chromecast, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("fifo", sec_fifo, CFGF_NONE),
