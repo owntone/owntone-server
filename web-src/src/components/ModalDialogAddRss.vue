@@ -6,20 +6,22 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <p class="title is-4">RSS feed</p>
-              <form class="fd-has-margin-bottom">
+              <p class="title is-4">Add Podcast RSS feed URL</p>
+              <form @submit.prevent="add_stream">
                 <div class="field">
                   <p class="control is-expanded has-icons-left">
                     <input class="input is-shadowless" type="text" placeholder="http://url-to-rss" v-model="url" :disabled="loading" ref="url_field">
                     <span class="icon is-left">
-                      <i class="mdi mdi-rss-box"></i>
+                      <i class="mdi mdi-rss"></i>
                     </span>
+                  </p>
+                  <p class="help">Adding a podcast includes creating an RSS playlist, that will allow forked-daapd to manage the podcast subscription.
                   </p>
                 </div>
               </form>
             </div>
             <footer class="card-footer" v-if="loading">
-              <a class="card-footer-item has-text-dark">
+              <a class="card-footer-item button is-loading">
                 <span class="icon"><i class="mdi mdi-web"></i></span> <span class="is-size-7">Processing ...</span>
               </a>
             </footer>
@@ -27,7 +29,7 @@
               <a class="card-footer-item has-text-danger" @click="$emit('close')">
                 <span class="icon"><i class="mdi mdi-cancel"></i></span> <span class="is-size-7">Cancel</span>
               </a>
-              <a class="card-footer-item has-text-dark" @click="add_stream">
+              <a class="card-footer-item has-background-info has-text-white has-text-weight-bold" @click="add_stream">
                 <span class="icon"><i class="mdi mdi-playlist-plus"></i></span> <span class="is-size-7">Add</span>
               </a>
             </footer>
@@ -58,7 +60,7 @@ export default {
       this.loading = true
       webapi.library_add(this.url).then(() => {
         this.$emit('close')
-        this.$emit('rss_change')
+        this.$emit('podcast_added')
         this.url = ''
       }).catch(() => {
         this.loading = false

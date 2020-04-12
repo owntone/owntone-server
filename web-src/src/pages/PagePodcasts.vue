@@ -43,11 +43,11 @@
       </template>
       <template slot="heading-right">
         <div class="buttons is-centered">
-          <a class="button is-small" @click="open_add_stream_dialog">
+          <a class="button is-small" @click="open_add_podcast_dialog">
             <span class="icon">
               <i class="mdi mdi-rss"></i>
             </span>
-            <span>RSS Subscriptions</span>
+            <span>Add Podcast</span>
           </a>
         </div>
       </template>
@@ -77,7 +77,10 @@
             <p class="is-size-7">(This will also remove the RSS playlist <b>{{ rss_playlist_to_remove.name }}</b>.)</p>
           </template>
         </modal-dialog>
-        <modal-dialog-add-rss :show="show_url_modal" @close="show_url_modal = false" @rss_change="reload_podcasts"/>
+        <modal-dialog-add-rss
+          :show="show_url_modal"
+          @close="show_url_modal = false"
+          @podcast_added="reload_podcasts" />
       </template>
     </content-with-heading>
   </div>
@@ -158,7 +161,7 @@ export default {
       this.new_episodes.items = { }
     },
 
-    open_add_stream_dialog: function (item) {
+    open_add_podcast_dialog: function (item) {
       this.show_url_modal = true
     },
 
