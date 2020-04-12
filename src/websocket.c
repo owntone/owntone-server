@@ -46,6 +46,8 @@ static bool ws_exit = false;
 static short events;
 // Event mask of events processed by the writeable callback
 static short write_events;
+// Counter for events to keep track of when to write
+static unsigned short write_events_counter;
 
 
 
@@ -77,6 +79,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, voi
 struct ws_session_data_notify
 {
   short events;
+  unsigned short counter; // to keep track of whether this user has already written
 };
 
 /*
@@ -263,6 +266,7 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
       case LWS_CALLBACK_ESTABLISHED:
 	// Initialize session data for new connections
 	memset(session_data, 0, sizeof(struct ws_session_data_notify));
+	session_data->counter = write_events_counter;
 	break;
 
       case LWS_CALLBACK_RECEIVE:
@@ -270,9 +274,10 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
 	break;
 
       case LWS_CALLBACK_SERVER_WRITEABLE:
-	if (write_events)
+	if (write_events && (write_events_counter != session_data->counter))
 	  {
 	    send_notify_reply(write_events, wsi);
+	    session_data->counter = write_events_counter;
 	  }
 	break;
 
@@ -324,6 +329,7 @@ websocket(void *arg)
       if (events)
 	{
 	  write_events = events;
+	  write_events_counter++;
 	  events = 0;
 	  lws_callback_on_writable_all_protocol(context, &protocols[WS_PROTOCOL_NOTIFY]);
 	}
@@ -398,7 +404,7 @@ websocket_init(void)
       return -1;
     }
 
-
+  write_events_counter = 0;
   ret = pthread_create(&tid_websocket, NULL, websocket, NULL);
   if (ret < 0)
     {
