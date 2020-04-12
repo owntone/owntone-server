@@ -12,8 +12,9 @@
               <p class="title is-4">
                 <a class="has-text-link" @click="open_album">{{ album.name }}</a>
               </p>
-              <div class="buttons" v-if="media_kind === 'podcast' && new_tracks > 0">
-                <a class="button is-small" @click="mark_played">Mark as played</a>
+              <div class="buttons" v-if="media_kind === 'podcast'">
+                <a class="button is-small" v-if="new_tracks > 0" @click="mark_played">Mark as played</a>
+                <a class="button is-small" @click="$emit('remove_podcast')">Remove podcast</a>
               </div>
               <div class="content is-small">
                 <p v-if="album.artist && media_kind !== 'audiobook'">

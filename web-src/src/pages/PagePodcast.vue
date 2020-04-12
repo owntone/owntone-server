@@ -2,12 +2,6 @@
   <content-with-heading>
     <template slot="heading-left">
       <div class="title is-4">{{ album.name }}
-        <a class="button is-small is-danger is-outlined" @click="rss_unsubscribe">
-          <span class="icon">
-            <i class="mdi mdi-bookmark-remove"></i>
-          </span>
-          <span>Unsubscribe</span>
-        </a>
       </div>
      </template>
     <template slot="heading-right">
@@ -53,7 +47,19 @@
         :media_kind="'podcast'"
         :new_tracks="new_tracks"
         @close="show_album_details_modal = false"
-        @play_count_changed="reload_tracks" />
+        @play_count_changed="reload_tracks"
+        @remove_podcast="open_remove_podcast_dialog" />
+      <modal-dialog
+        :show="show_remove_podcast_modal"
+        title="Remove podcast"
+        delete_action="Remove"
+        @close="show_remove_podcast_modal = false"
+        @delete="remove_podcast">
+        <template slot="modal-content">
+          <p>Permanently remove this podcast from your library?</p>
+          <p class="is-size-7">(This will also remove the RSS playlist <b>{{ rss_playlist_to_remove.name }}</b>.)</p>
+        </template>
+      </modal-dialog>
     </template>
   </content-with-heading>
 </template>
@@ -64,6 +70,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemTrack from '@/components/ListItemTrack'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ModalDialog from '@/components/ModalDialog'
 import RangeSlider from 'vue-range-slider'
 import webapi from '@/webapi'
 
@@ -84,7 +91,7 @@ const albumData = {
 export default {
   name: 'PagePodcast',
   mixins: [LoadDataBeforeEnterMixin(albumData)],
-  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, RangeSlider, ModalDialogAlbum },
+  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, RangeSlider, ModalDialogAlbum, ModalDialog },
 
   data () {
     return {
@@ -94,7 +101,10 @@ export default {
       show_details_modal: false,
       selected_track: {},
 
-      show_album_details_modal: false
+      show_album_details_modal: false,
+
+      show_remove_podcast_modal: false,
+      rss_playlist_to_remove: {}
     }
   },
 
@@ -118,20 +128,25 @@ export default {
       this.show_details_modal = true
     },
 
-    rss_unsubscribe: function () {
+    open_remove_podcast_dialog: function () {
+      this.show_album_details_modal = false
       webapi.search({ type: 'playlist', query: this.album.name }).then(({ data }) => {
-        var plids = [...new Set(data.playlists.items
-          .filter(pl => pl.name === this.album.name)
-          .map(pl => pl.id))]
+        var playlists = data.playlists.items.filter(pl => pl.name === this.album.name && pl.type === 'rss')
 
-        if (plids.length === 1) {
-          plids.forEach(pl => {
-            webapi.library_playlist_delete(pl)
-          })
-          this.$router.push({ path: '/podcasts' })
-        } else {
-          this.$store.dispatch('add_notification', { text: 'Failed to delete playlist, unable to find unique plid', type: 'danger' })
+        if (playlists.length !== 1) {
+          this.$store.dispatch('add_notification', { text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.', type: 'danger' })
+          return
         }
+
+        this.rss_playlist_to_remove = playlists[0]
+        this.show_remove_podcast_modal = true
+      })
+    },
+
+    remove_podcast: function () {
+      this.show_remove_podcast_modal = false
+      webapi.library_playlist_delete(this.rss_playlist_to_remove.id).then(() => {
+        this.$router.replace({ path: '/podcasts' })
       })
     },
 
