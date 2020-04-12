@@ -12,12 +12,6 @@
      </template>
     <template slot="heading-right">
       <div class="buttons is-centered">
-        <a class="button is-small" @click="mark_all_played" v-if="unplayed">
-          <span class="icon">
-            <i class="mdi mdi-pencil"></i>
-          </span>
-          <span>Mark All Played</span>
-        </a>
         <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
           <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
         </a>
@@ -48,8 +42,18 @@
           </a>
         </template>
       </list-item-track>
-      <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" @play_count_changed="reload_tracks" />
-      <modal-dialog-album :show="show_album_details_modal" :album="album" :media_kind="'podcast'" @close="show_album_details_modal = false" />
+      <modal-dialog-track
+        :show="show_details_modal"
+        :track="selected_track"
+        @close="show_details_modal = false"
+        @play_count_changed="reload_tracks" />
+      <modal-dialog-album
+        :show="show_album_details_modal"
+        :album="album"
+        :media_kind="'podcast'"
+        :new_tracks="new_tracks"
+        @close="show_album_details_modal = false"
+        @play_count_changed="reload_tracks" />
     </template>
   </content-with-heading>
 </template>
@@ -74,7 +78,6 @@ const albumData = {
   set: function (vm, response) {
     vm.album = response[0].data
     vm.tracks = response[1].data.tracks.items
-    vm.unplayed = !vm.tracks.every(track => track.play_count > 0)
   }
 }
 
@@ -87,12 +90,17 @@ export default {
     return {
       album: {},
       tracks: [],
-      unplayed: false,
 
       show_details_modal: false,
       selected_track: {},
 
       show_album_details_modal: false
+    }
+  },
+
+  computed: {
+    new_tracks () {
+      return this.tracks.filter(track => track.play_count === 0).length
     }
   },
 
@@ -103,17 +111,6 @@ export default {
 
     play_track: function (track) {
       webapi.player_play_uri(track.uri, false)
-    },
-
-    mark_all_played: function () {
-      webapi.library_album_track_update(this.album.id, { play_count: 'played' }).then(({ data }) => (
-        this.tracks.forEach(track => {
-          if (track.play_count === 0) {
-            track.play_count = 1
-          }
-        })
-      ))
-      this.unplayed = false
     },
 
     open_dialog: function (track) {

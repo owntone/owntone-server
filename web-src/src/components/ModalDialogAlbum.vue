@@ -12,6 +12,9 @@
               <p class="title is-4">
                 <a class="has-text-link" @click="open_album">{{ album.name }}</a>
               </p>
+              <div class="buttons" v-if="media_kind === 'podcast' && new_tracks > 0">
+                <a class="button is-small" @click="mark_played">Mark as played</a>
+              </div>
               <div class="content is-small">
                 <p v-if="album.artist && media_kind !== 'audiobook'">
                   <span class="heading">Album artist</span>
@@ -51,7 +54,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbum',
-  props: ['show', 'album', 'media_kind'],
+  props: ['show', 'album', 'media_kind', 'new_tracks'],
 
   data () {
     return {
@@ -93,6 +96,13 @@ export default {
 
     open_artist: function () {
       this.$router.push({ path: '/music/artists/' + this.album.artist_id })
+    },
+
+    mark_played: function () {
+      webapi.library_album_track_update(this.album.id, { play_count: 'played' }).then(({ data }) => {
+        this.$emit('play_count_changed')
+        this.$emit('close')
+      })
     },
 
     artwork_loaded: function () {
