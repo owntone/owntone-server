@@ -307,6 +307,9 @@ it to any remotes or AirPlay devices requesting it.
 Instead of downloading M3U's from your radio stations, you can also make an
 empty M3U file and in it insert links to the M3U's of your radio stations.
 
+Radio streams can only be played by forked-daapd, so that means they will not be
+available to play in DAAP clients like iTunes.
+
 Support for iTunes Music Library XML format is available as a compile-time
 option. By default, metadata from our parsers is preferred over what's in
 the iTunes DB; use itunes_overrides = true if you prefer iTunes' metadata.
