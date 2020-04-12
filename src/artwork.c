@@ -1496,7 +1496,15 @@ source_item_stream_get(struct artwork_ctx *ctx)
   char *url;
   char *ext;
   int len;
+  int media_kind;
   int ret;
+
+  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
+  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
+    {
+      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
+      return ART_E_NONE;
+    }
 
   DPRINTF(E_SPAM, L_ART, "Trying internet stream artwork in %s\n", ctx->dbmfi->path);
 
@@ -1562,10 +1570,18 @@ static int
 source_item_discogs_get(struct artwork_ctx *ctx)
 {
   char *url;
+  int media_kind;
   int ret;
 
   if (!online_source_is_enabled(&discogs_source))
     return ART_E_NONE;
+
+  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
+  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
+    {
+      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
+      return ART_E_NONE;
+    }
 
   url = online_source_search(&discogs_source, ctx);
   if (!url)
@@ -1583,10 +1599,18 @@ static int
 source_item_coverartarchive_get(struct artwork_ctx *ctx)
 {
   char *url;
+  int media_kind;
   int ret;
 
   if (!online_source_is_enabled(&musicbrainz_source))
     return ART_E_NONE;
+
+  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
+  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
+    {
+      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
+      return ART_E_NONE;
+    }
 
   // We search Musicbrainz to get the Musicbrainz ID, which we need to get the
   // artwork from the Cover Art Archive
@@ -1627,10 +1651,18 @@ source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
 {
   struct spotifywebapi_access_token info;
   char *url;
+  int media_kind;
   int ret;
 
   if (!online_source_is_enabled(&spotify_source))
     return ART_E_NONE;
+
+  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
+  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
+    {
+      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
+      return ART_E_NONE;
+    }
 
   spotifywebapi_access_token_get(&info);
   if (!info.token)
