@@ -1,15 +1,15 @@
 #ifndef __MXML_COMPAT_H__
 #define __MXML_COMPAT_H__
 
+#include <mxml.h>
+
 // mxml 2.10 has a memory leak in mxmlDelete, see https://github.com/michaelrsweet/mxml/issues/183
 // - and since this is the version in Ubuntu 18.04 LTS and Raspian Stretch, we
 // fix it by including a fixed mxmlDelete here. It should be removed once the
 // major distros no longer have 2.10. The below code is msweet's fixed mxml.
-#if defined(HAVE_MXML_211LT)
-// Trick to undefine mxml.h's mxmlDelete
-#define mxmlDelete mxmlDelete_memleak
-# include <mxml.h>
-#undef mxmlDelete
+#if (MXML_MAJOR_VERSION == 2) && (MXML_MINOR_VERSION <= 10)
+
+#define mxmlDelete compat_mxmlDelete
 
 static void
 compat_mxml_free(mxml_node_t *node)
@@ -59,8 +59,8 @@ compat_mxml_free(mxml_node_t *node)
   free(node);
 }
 
-static void
-mxmlDelete(mxml_node_t *node)
+__attribute__((unused)) static void
+compat_mxmlDelete(mxml_node_t *node)
 {
   mxml_node_t	*current,
 		*next;
@@ -87,21 +87,31 @@ mxmlDelete(mxml_node_t *node)
 
   compat_mxml_free(node);
 }
-#elif defined(HAVE_MXML_212)
-// Trick to undefine mxml.h's mxmlNewTextf
-#define mxmlNewTextf mxmlNewTextf_segfault
-# include <mxml.h>
-#undef mxmlNewTextf
+#endif
 
-static mxml_node_t *
-mxmlNewTextf(mxml_node_t *parent, int whitespace, const char *format, ...)
+// Debian 10.x amd64 w/mxml 2.12 has a mxmlNewTextf that causes segfault when
+// mxmlSaveString or mxmlSaveAllocString is called,
+// ref https://github.com/ejurgensen/forked-daapd/issues/938
+#if (MXML_MAJOR_VERSION == 2) && (MXML_MINOR_VERSION == 12)
+
+#include <stdarg.h>
+
+#define mxmlNewTextf compat_mxmlNewTextf
+
+__attribute__((unused)) static mxml_node_t *
+compat_mxmlNewTextf(mxml_node_t *parent, int whitespace, const char *format, ...)
 {
   char *s = NULL;
   va_list va;
+  mxml_node_t *node;
+  int ret;
 
   va_start(va, format);
-  vasprintf(&s, format, va);
+  ret = vasprintf(&s, format, va);
   va_end(va);
+
+  if (ret < 0)
+    return NULL;
 
   node = mxmlNewText(parent, whitespace, s);
 
@@ -109,8 +119,6 @@ mxmlNewTextf(mxml_node_t *parent, int whitespace, const char *format, ...)
 
   return node;
 }
-#else
-# include <mxml.h>
 #endif
 
 /* For compability with mxml 2.6 */
