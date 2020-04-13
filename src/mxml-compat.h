@@ -5,9 +5,7 @@
 // - and since this is the version in Ubuntu 18.04 LTS and Raspian Stretch, we
 // fix it by including a fixed mxmlDelete here. It should be removed once the
 // major distros no longer have 2.10. The below code is msweet's fixed mxml.
-#ifndef HAVE_MXML_OLD
-# include <mxml.h>
-#else
+#if defined(HAVE_MXML_211LT)
 // Trick to undefine mxml.h's mxmlDelete
 #define mxmlDelete mxmlDelete_memleak
 # include <mxml.h>
@@ -89,6 +87,30 @@ mxmlDelete(mxml_node_t *node)
 
   compat_mxml_free(node);
 }
+#elif defined(HAVE_MXML_212)
+// Trick to undefine mxml.h's mxmlNewTextf
+#define mxmlNewTextf mxmlNewTextf_segfault
+# include <mxml.h>
+#undef mxmlNewTextf
+
+static mxml_node_t *
+mxmlNewTextf(mxml_node_t *parent, int whitespace, const char *format, ...)
+{
+  char *s = NULL;
+  va_list va;
+
+  va_start(va, format);
+  vasprintf(&s, format, va);
+  va_end(va);
+
+  node = mxmlNewText(parent, whitespace, s);
+
+  free(s);
+
+  return node;
+}
+#else
+# include <mxml.h>
 #endif
 
 /* For compability with mxml 2.6 */
