@@ -338,7 +338,6 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
   int ret;
 
   ri = (struct remote_info *)arg;
-  ret = 0;
 
   if (!req)
     {
