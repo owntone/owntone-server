@@ -944,7 +944,7 @@ event_read_metadata(struct input_metadata *metadata)
   // chapters.
   if (metadata->progress_updated){
     //since pos_ms is continually updated, reverse out the proper seek_ms and update that instead
-    if (pb_session.playing_now->quality.sample_rate && pb_session.pos >= pb_session.playing_now->play_start)
+    if (pb_session.playing_now->quality.sample_rate)
       pb_session.playing_now->seek_ms = metadata->pos_ms - 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
     pb_session.playing_now->len_ms = metadata->len_ms;
     metadata->progress_updated = false;
