@@ -77,6 +77,7 @@ struct input_metadata
   // Input can override the default player progress by setting this
   // FIXME only implemented for Airplay speakers currently
   uint32_t pos_ms;
+  bool progress_updated;
 
   // Sets new song length (input will also update queue_item)
   uint32_t len_ms;

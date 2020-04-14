@@ -942,7 +942,13 @@ event_read_metadata(struct input_metadata *metadata)
   // to the outputs, but the player's pos_ms is not adjusted. That means we
   // don't always show correct progress for http streams, pipes and files with
   // chapters.
-
+  if (metadata->progress_updated){
+    //since pos_ms is continually updated, reverse out the proper seek_ms and update that instead
+    if (pb_session.playing_now->quality.sample_rate && pb_session.pos >= pb_session.playing_now->play_start)
+      pb_session.playing_now->seek_ms = metadata->pos_ms - 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
+    pb_session.playing_now->len_ms = metadata->len_ms;
+    metadata->progress_updated = false;
+  }
   outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
 
   status_update(player_state);
