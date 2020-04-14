@@ -1044,6 +1044,8 @@ alsa_device_start(struct output_device *device, int callback_id)
   if (!as)
     return -1;
 
+  volume_set(&as->mixer, device->volume);
+
   as->state = OUTPUT_STATE_CONNECTED;
   alsa_status(as);
 
