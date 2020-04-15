@@ -209,7 +209,7 @@ The downside to the `dmix` approach will be the need to fix a samplerate (48000 
 
 ## ALSA dmix configuration/setup
 
-A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc`.  We will need to know the underlying physical soundcard to be used: in our examples above, `hw:1,0` / `card 1, device 0` representing our IQaudIODAC as per output of `aplay -l`.  We also take the `buffer_size` and `period_size` from the output of playing a sound file via `aplay -v`.
+A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc` for the same user running `forked-daapd`.  We will need to know the underlying physical soundcard to be used: in our examples above, `hw:1,0` / `card 1, device 0` representing our IQaudIODAC as per output of `aplay -l`.  We also take the `buffer_size` and `period_size` from the output of playing a sound file via `aplay -v`.
 
 ```
 # use 'dac' as the name of the device: "aplay -Ddac ...."
@@ -297,5 +297,103 @@ alsa "hw:0,0" {
     mixer = "PCM"
     mixer_device = "hw:0"
 }
-
 ```
+
+## Setting up an Audio Equalizer
+There exists an ALSA equalizer plugin.  On `debian` (incl Raspberry Pi) systems you can install this plugin by `apt install libasound2-plugin-equal`; this is not currently available on Fedora (FC31) but can be easily built from [source](https://github.com/raedwulf/alsaequal) after installing the corresponding `ladspa` package.
+
+Once installed the user must setup a virtual device and use this device in the server configuration.
+
+If you wish to use your `hw:0` device for output:
+```
+# /etc/asound.conf
+ctl.equal {
+  type equal;
+  #library /usr/lib64/ladspa/caps.so
+}
+
+pcm.equal {
+  type plug;
+  slave.pcm {
+      type equal;
+      slave.pcm "plughw:0,0";  ## must be plughw:x,y and not hw:x,y
+      # library /usr/lib64/ladspa/caps.so
+  }
+  hint.description "equalised device"
+}
+```
+and in `forked-daapd.conf`
+```
+alsa "equal" {
+    nickname = "Equalised Output"
+    mixer = "PCM"  # adjust accordingly
+    mixer_device = "hw:0"
+}
+```
+Using the web UI and on the outputs selection you should see an output called `Equalised Output` which you should select and set the volume.
+
+When starting playback for any audio tracks you should hopefully hear the output. In a terminal, run `alsamixer -Dequal` and you'll see the eqaliser - to test that this is all working, go and drop the upper frequencies and boosting the bass frequencies and give it a second - if this changes the sound profile from your speakers, well done, its done and you can adjust the equalizer as you desire.
+
+Note however, the equalizer appears to require a `plughw` device which means you cannnot use this equalizer with a `dmix` output.
+
+# Troubleshooting
+
+* Errors in log `Failed to open configured mixer element` when selecting output device
+* Errors in log `Invalid CTL` or `Failed to attach mixer` when playing/adjusting volumne
+`mixer` value is wrong.  Verify name of `mixer` value in server config against the names from `amixer -c <card number>` and looking at the "Si .  Assume the device is card 1:
+```
+(IFS=$'\n'
+ CARD=1
+ for i in $(amixer -c ${CARD} scontrols | awk -F\' '{ print $2 }'); do 
+   amixer -c ${CARD} sget "$i" | grep Capabilities | grep -q pvolume && echo $i
+   done
+)
+```
+Look at the names output and choose the one that fits.  The outputs can be something like:
+```
+# laptop
+Master
+Headphone
+Speaker
+PCM
+Mic
+Beep
+
+# RPI with no additional DAC, card = 0
+PCM
+
+# RPI with additional DAC hat (IQAudioDAC, using a pcm512x chip)
+Analogue
+Digital
+```
+
+* No sound during playback - valid mixer/verified by aplay
+Check that the mixer is not muted or volume set to 0.  Using the value of `mixer` as per server config and unmute or set volume to max.  Assume the device is car 1 and `mixer = Analogue`:
+```
+amixer -c 1 set Analogue unmute  ## some mixers can not be muted resulting in "invalid command"
+amixer -c 1 set Analogue 100%
+```
+An example of a device with volume turned all the way down - notice the `Playback` values are `0`[0%]`:
+```
+Simple mixer control 'Analogue',0
+Capabilities: pvolume
+Playback channels: Front Left - Front Right
+Limits: Playback 0 - 1
+Mono:
+Front Left: Playback 0 [0%] [-6.00dB]
+Front Right: Playback 0 [0%] [-6.00dB]
+```
+
+* Server stops playing after moving to new track in paly queue, Error in log `Could not open playback device`
+The log contains these log lines:
+```
+[2019-06-19 20:52:51] [  LOG]   laudio: open '/dev/snd/pcmC0D0p' failed (-16)[2019-06-19 20:52:51] [  LOG]   laudio: Could not open playback device: Device or resource busy
+[2019-06-19 20:52:51] [  LOG]   laudio: Device 'hw' does not support quality (48000/16/2), falling back to default
+[2019-06-19 20:52:51] [  LOG]   laudio: open '/dev/snd/pcmC0D0p' failed (-16)[2019-06-19 20:52:51] [  LOG]   laudio: Could not open playback device: Device or resource busy
+[2019-06-19 20:52:51] [  LOG]   laudio: ALSA device failed setting fallback quality[2019-06-19 20:52:51] [  LOG]   player: The ALSA device 'Computer' FAILED
+```
+If you have a RPI with a DAC hat with a `pcm512x` chip will affect you.  This is because the server wants to open the audio device for the next audio track whilst current track is still playing but the hardware does not allow this - see the comments above regarding determining concurrrent playback.
+
+This error will occur for output hardware that do not support concurrent device open and the server plays 2 files of different bitrate (44.1khz and 48khz) back to back.
+
+If you observe the error, you will need to use the `dmix` configuration as mentioned above.
