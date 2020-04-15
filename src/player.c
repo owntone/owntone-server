@@ -206,6 +206,12 @@ struct player_source
   // Linked list, where next is the next item to play
   struct player_source *prev;
   struct player_source *next;
+
+  // Used for metadata progress
+  bool use_metadata_progress;
+  uint32_t last_pos_ms;
+  uint32_t metadata_pos_ms; // adjusted by buffer duration
+  uint32_t metadata_len_ms;
 };
 
 struct player_session
@@ -594,6 +600,7 @@ source_create(struct db_queue_item *queue_item, uint32_t seek_ms)
   ps->len_ms = queue_item->song_length;
   ps->path = strdup(queue_item->path);
   ps->seek_ms = seek_ms;
+  ps->use_metadata_progress = false; 
 
   return ps;
 }
@@ -948,7 +955,13 @@ event_read_metadata(struct input_metadata *metadata)
   // to the outputs, but the player's pos_ms is not adjusted. That means we
   // don't always show correct progress for http streams, pipes and files with
   // chapters.
-
+  if (metadata->progress_updated){
+    pb_session.playing_now->last_pos_ms = pb_session.playing_now->pos_ms;
+    pb_session.playing_now->metadata_pos_ms = metadata->pos_ms - 1000UL * OUTPUTS_BUFFER_DURATION;
+    pb_session.playing_now->metadata_len_ms = metadata->len_ms;
+    pb_session.playing_now->use_metadata_progress = true;
+    metadata->progress_updated = false;
+  }
   outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
 
   status_update(player_state);
@@ -1819,8 +1832,13 @@ get_status(void *arg, int *retval)
 	status->id      = pb_session.playing_now->id;
 	status->item_id = pb_session.playing_now->item_id;
 
-	status->pos_ms  = pb_session.playing_now->pos_ms;
-	status->len_ms  = pb_session.playing_now->len_ms;
+  if (pb_session.playing_now->use_metadata_progress){
+    status->pos_ms = pb_session.playing_now->pos_ms - pb_session.playing_now->last_pos_ms + pb_session.playing_now->metadata_pos_ms;
+    status->len_ms = pb_session.playing_now->metadata_len_ms;
+  } else {
+    status->pos_ms  = pb_session.playing_now->pos_ms;
+    status->len_ms  = pb_session.playing_now->len_ms;
+  }
 
 	break;
 
@@ -1841,8 +1859,13 @@ get_status(void *arg, int *retval)
 	status->id      = pb_session.playing_now->id;
 	status->item_id = pb_session.playing_now->item_id;
 
-	status->pos_ms  = pb_session.playing_now->pos_ms;
-	status->len_ms  = pb_session.playing_now->len_ms;
+  if (pb_session.playing_now->use_metadata_progress){
+    status->pos_ms = pb_session.playing_now->pos_ms - pb_session.playing_now->last_pos_ms + pb_session.playing_now->metadata_pos_ms;
+    status->len_ms = pb_session.playing_now->metadata_len_ms;
+  } else {
+    status->pos_ms  = pb_session.playing_now->pos_ms;
+    status->len_ms  = pb_session.playing_now->len_ms;
+  }
 
 	break;
     }
