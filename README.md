@@ -498,7 +498,7 @@ Limitations:
 You will not be able to do any playlist management through forked-daapd - use
 a Spotify client for that. You also can only listen to your music by letting
 forked-daapd do the playback - so that means you can't stream from forked-daapd
-to iTunes.
+to DAAP clients (e.g. iTunes) and RSP clients.
 
 Alternatives:
 If you want forked-daapd to be a selectable metaspeaker in Spotify's client, you
