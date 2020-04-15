@@ -453,6 +453,13 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
 	  if (ret > 0)
 	    continue;
 	}
+      else if (scan_type == RSS_SCAN_META)
+	{
+	  // Using existing file id if already in library, resulting in update but preserving play_count etc
+	  mfi.id = db_file_id_bypath(ri.url);
+	  if (mfi.id > 0)
+	    time_added = 0;
+	}
 
       scan_metadata_stream(&mfi, ri.url);
 
