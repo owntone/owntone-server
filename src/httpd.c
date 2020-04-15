@@ -1104,8 +1104,9 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
   if (mfi->data_kind != DATA_KIND_FILE)
     {
-      evhttp_send_error(req, 500, "Cannot stream radio station");
+      DPRINTF(E_LOG, L_HTTPD, "Could not serve '%s' to client, not a file\n", mfi->path);
 
+      evhttp_send_error(req, 500, "Cannot stream non-file content");
       goto out_free_mfi;
     }
 
@@ -1115,7 +1116,6 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_LOG, L_HTTPD, "Out of memory for struct stream_ctx\n");
 
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-
       goto out_free_mfi;
     }
   memset(st, 0, sizeof(struct stream_ctx));
