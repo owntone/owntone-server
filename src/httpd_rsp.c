@@ -44,7 +44,6 @@
 #define RSP_VERSION "1.0"
 #define RSP_XML_ROOT "?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?"
 
-
 #define F_FULL     (1 << 0)
 #define F_BROWSE   (1 << 1)
 #define F_ID       (1 << 2)
@@ -56,6 +55,8 @@ struct field_map {
   size_t offset;
   int flags;
 };
+
+static char rsp_filter_files[32];
 
 static const struct field_map pl_fields[] =
   {
@@ -249,6 +250,11 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
       if (!qp->filter)
 	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
     }
+  else
+    {
+      // Default filter is to include only files (not streams and Spotify)
+      qp->filter = strdup(rsp_filter_files);
+    }
 
   return 0;
 }
@@ -318,7 +324,7 @@ rsp_reply_info(struct httpd_request *hreq)
   char *library;
   uint32_t songcount;
 
-  db_files_get_count(&songcount, NULL, NULL);
+  db_files_get_count(&songcount, NULL, rsp_filter_files);
 
   lib = cfg_getsec(cfg, "library");
   library = cfg_getstr(lib, "name");
@@ -870,6 +876,8 @@ rsp_init(void)
   char buf[64];
   int i;
   int ret;
+
+  snprintf(rsp_filter_files, sizeof(rsp_filter_files), "f.data_kind = %d", DATA_KIND_FILE);
 
   for (i = 0; rsp_handlers[i].handler; i++)
     {
