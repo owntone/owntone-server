@@ -121,6 +121,8 @@ enum media_kind {
   MEDIA_KIND_TVSHOW = 64,
 };
 
+#define MEDIA_KIND_ALL (1 | 2 | 4 | 8 | 32 | 64)
+
 const char *
 db_media_kind_label(enum media_kind media_kind);
 
