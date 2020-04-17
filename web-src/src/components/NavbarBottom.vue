@@ -162,11 +162,16 @@
 
         <!-- Outputs: stream volume -->
         <hr class="navbar-divider">
-        <div class="navbar-item">
+        <div class="navbar-item fd-has-margin-bottom">
           <div class="level is-mobile">
             <div class="level-left fd-expanded">
               <div class="level-item" style="flex-grow: 0;">
-                <a class="button is-white is-small" :class="{ 'is-loading': loading }"><span class="icon fd-has-action" :class="{ 'has-text-grey-light': !playing && !loading, 'is-loading': loading }" @click="togglePlay"><i class="mdi mdi-18px mdi-radio-tower"></i></span></a>
+                <a class="button is-white is-small" :class="{ 'is-loading': loading }">
+                  <span class="icon fd-has-action"
+                    :class="{ 'has-text-grey-light': !playing && !loading, 'is-loading': loading }"
+                    @click="togglePlay"><i class="mdi mdi-18px mdi-radio-tower"></i>
+                  </span>
+                </a>
               </div>
               <div class="level-item fd-expanded">
                 <div class="fd-expanded">

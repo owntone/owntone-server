@@ -133,14 +133,12 @@ export default {
 
   methods: {
     on_click_outside_settings () {
-      console.log('yyyyy')
       this.show_settings_menu = !this.show_settings_menu
     }
   },
 
   watch: {
     $route (to, from) {
-      console.log('xxxx')
       this.show_settings_menu = false
     }
   }
