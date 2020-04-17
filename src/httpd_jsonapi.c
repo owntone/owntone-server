@@ -3226,7 +3226,7 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
 }
 
 static int
-jsonapi_reply_library_playlist(struct httpd_request *hreq)
+jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
 {
   uint32_t playlist_id;
   json_object *reply = NULL;
@@ -3271,6 +3271,55 @@ jsonapi_reply_library_playlist(struct httpd_request *hreq)
 
   if (ret < 0)
     return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
+playlist_attrib_query_limit_set(int playlist_id, const char *param)
+{
+  struct playlist_info *pli;
+  int query_limit;
+  int ret;
+
+  ret = safe_atoi32(param, &query_limit);
+  if (ret < 0)
+    return -1;
+
+  pli = db_pl_fetch_byid(playlist_id);
+  if (!pli)
+    return -1;
+
+  pli->query_limit = query_limit;
+
+  ret = db_pl_update(pli);
+
+  free_pli(pli, 0);
+
+  return ret;
+}
+
+static int
+jsonapi_reply_library_playlist_put(struct httpd_request *hreq)
+{
+  uint32_t playlist_id;
+  const char *param;
+  int ret;
+
+  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Could not parse playlist id to integer\n");
+      return HTTP_BADREQUEST;
+    }
+
+  if ((param = evhttp_find_header(hreq->query, "query_limit")))
+    ret = playlist_attrib_query_limit_set(playlist_id, param);
+  else
+    ret = -1;
+
+  if (ret < 0)
+    return HTTP_BADREQUEST;
 
   return HTTP_OK;
 }
@@ -4094,7 +4143,8 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_POST,   "^/api/queue/save$",                            jsonapi_reply_queue_save},
 
     { EVHTTP_REQ_GET,    "^/api/library/playlists$",                     jsonapi_reply_library_playlists },
-    { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist },
+    { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_get },
+    { EVHTTP_REQ_PUT,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_put },
     { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlist_tracks },
     { EVHTTP_REQ_PUT,    "^/api/library/playlists/[[:digit:]]+/tracks",  jsonapi_reply_library_playlist_tracks_put_byid},
 //    { EVHTTP_REQ_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },

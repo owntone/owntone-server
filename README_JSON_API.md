@@ -746,6 +746,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library](#library-information)                        | Get library information              |
 | GET       | [/api/library/playlists](#list-playlists)                   | Get a list of playlists              |
 | GET       | [/api/library/playlists/{id}](#get-a-playlist)              | Get a playlist                       |
+| PUT       | [/api/library/playlists/{id}](#update-a-playlist)           | Update a playlist attribute          |
 | DELETE    | [/api/library/playlists/{id}](#delete-a-playlist)           | Delete a playlist                    |
 | GET       | [/api/library/playlists/{id}/tracks](#list-playlist-tracks) | Get list of tracks for a playlist    |
 | PUT       | [/api/library/playlists/{id}/tracks](#update-playlist-tracks) | Update play count of tracks for a playlist    |
@@ -896,6 +897,59 @@ curl -X GET "http://localhost:3689/api/library/playlists/1"
   "smart_playlist": false,
   "uri": "library:playlist:1"
 }
+```
+
+
+### Update a playlist
+
+Update attributes of a specific playlists in your library
+
+**Endpoint**
+
+```http
+PUT /api/library/playlists/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Playlist id          |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| query_limit     | For RSS feeds, this sets how many podcasts to retrieve      |
+
+
+**Example**
+
+```shell
+curl -X PUT "http://localhost:3689/api/library/playlists/25?query_limit=20"
+```
+
+
+### Delete a playlist
+
+Delete a playlist, e.g. a RSS feed
+
+**Endpoint**
+
+```http
+DELETE /api/library/playlists/{id}
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Playlist id          |
+
+**Example**
+
+```shell
+curl -X DELETE "http://localhost:3689/api/library/playlists/25"
 ```
 
 
