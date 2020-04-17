@@ -176,7 +176,7 @@ export default {
     },
 
     seek: function (newPosition) {
-      webapi.player_seek(newPosition).catch(() => {
+      webapi.player_seek_to_pos(newPosition).catch(() => {
         this.item_progress_ms = this.state.item_progress_ms
       })
     },

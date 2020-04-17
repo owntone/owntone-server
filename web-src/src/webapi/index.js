@@ -178,8 +178,12 @@ export default {
     return axios.put('/api/player/volume?volume=' + outputVolume + '&output_id=' + outputId)
   },
 
-  player_seek (newPosition) {
+  player_seek_to_pos (newPosition) {
     return axios.put('/api/player/seek?position_ms=' + newPosition)
+  },
+
+  player_seek (seekMs) {
+    return axios.put('/api/player/seek?seek_ms=' + seekMs)
   },
 
   outputs () {

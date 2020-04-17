@@ -19,8 +19,10 @@
 
       <!-- Skip previous (not visible on "now playing" page) -->
       <player-button-previous v-if="is_now_playing_page" class="navbar-item fd-margin-left-auto" icon_style="mdi-24px"></player-button-previous>
+      <player-button-seek-back v-if="is_now_playing_page" seek_ms="10000" class="navbar-item" icon_style="mdi-24px"></player-button-seek-back>
       <!-- Play/pause -->
       <player-button-play-pause class="navbar-item" icon_style="mdi-36px" show_disabled_message></player-button-play-pause>
+      <player-button-seek-forward v-if="is_now_playing_page" seek_ms="30000" class="navbar-item" icon_style="mdi-24px"></player-button-seek-forward>
       <!-- Skip next (not visible on "now playing" page) -->
       <player-button-next v-if="is_now_playing_page" class="navbar-item" icon_style="mdi-24px"></player-button-next>
 
@@ -99,22 +101,11 @@
           <hr class="navbar-divider">
           <div class="navbar-item">
             <div class="level is-mobile fd-expanded">
-              <div class="level-left">
-                <div class="level-item">
-                  <div class="buttons has-addons">
-                    <player-button-previous class="button"></player-button-previous>
-                    <player-button-play-pause class="button"></player-button-play-pause>
-                    <player-button-next class="button"></player-button-next>
-                  </div>
-                </div>
-              </div>
-              <div class="level-right">
-                <div class="level-item">
-                  <div class="buttons has-addons">
-                    <player-button-repeat class="button"></player-button-repeat>
-                    <player-button-shuffle class="button"></player-button-shuffle>
-                    <player-button-consume class="button"></player-button-consume>
-                  </div>
+              <div class="level-item">
+                <div class="buttons has-addons">
+                  <player-button-repeat class="button"></player-button-repeat>
+                  <player-button-shuffle class="button"></player-button-shuffle>
+                  <player-button-consume class="button"></player-button-consume>
                 </div>
               </div>
             </div>
@@ -166,47 +157,34 @@
           </div>
         </div>
 
-        <!-- Outputs dropdown menu
-        <div class="navbar-item has-dropdown"
-            :class="{ 'is-active': show_outputs_menu }">
-          <a class="navbar-link is-arrowless has-text-centered is-size-7" @click="show_outputs_menu = !show_outputs_menu">
-            <span class="icon"><i class="mdi mdi-18px" :class="{ 'mdi-chevron-up': !show_outputs_menu, 'mdi-chevron-down': show_outputs_menu }"></i></span>
-          </a>
+        <!-- Outputs: speaker volumes -->
+        <navbar-item-output v-for="output in outputs" :key="output.id" :output="output"></navbar-item-output>
 
-          <div class="navbar-dropdown is-right" v-show="show_outputs_menu">
-            <hr class="navbar-divider">
-        -->
-            <!-- Outputs: speaker volumes -->
-            <navbar-item-output v-for="output in outputs" :key="output.id" :output="output"></navbar-item-output>
-
-            <!-- Outputs: stream volume -->
-            <hr class="navbar-divider">
-            <div class="navbar-item">
-              <div class="level is-mobile">
-                <div class="level-left fd-expanded">
-                  <div class="level-item" style="flex-grow: 0;">
-                    <a class="button is-white is-small" :class="{ 'is-loading': loading }"><span class="icon fd-has-action" :class="{ 'has-text-grey-light': !playing && !loading, 'is-loading': loading }" @click="togglePlay"><i class="mdi mdi-18px mdi-radio-tower"></i></span></a>
-                  </div>
-                  <div class="level-item fd-expanded">
-                    <div class="fd-expanded">
-                      <p class="heading" :class="{ 'has-text-grey-light': !playing }">HTTP stream <a href="/stream.mp3"><span class="is-lowercase">(stream.mp3)</span></a></p>
-                      <range-slider
-                        class="slider fd-has-action"
-                        min="0"
-                        max="100"
-                        step="1"
-                        :disabled="!playing"
-                        :value="stream_volume"
-                        @change="set_stream_volume">
-                      </range-slider>
-                    </div>
-                  </div>
+        <!-- Outputs: stream volume -->
+        <hr class="navbar-divider">
+        <div class="navbar-item">
+          <div class="level is-mobile">
+            <div class="level-left fd-expanded">
+              <div class="level-item" style="flex-grow: 0;">
+                <a class="button is-white is-small" :class="{ 'is-loading': loading }"><span class="icon fd-has-action" :class="{ 'has-text-grey-light': !playing && !loading, 'is-loading': loading }" @click="togglePlay"><i class="mdi mdi-18px mdi-radio-tower"></i></span></a>
+              </div>
+              <div class="level-item fd-expanded">
+                <div class="fd-expanded">
+                  <p class="heading" :class="{ 'has-text-grey-light': !playing }">HTTP stream <a href="/stream.mp3"><span class="is-lowercase">(stream.mp3)</span></a></p>
+                  <range-slider
+                    class="slider fd-has-action"
+                    min="0"
+                    max="100"
+                    step="1"
+                    :disabled="!playing"
+                    :value="stream_volume"
+                    @change="set_stream_volume">
+                  </range-slider>
                 </div>
               </div>
             </div>
-        <!--  </div>
+          </div>
         </div>
-        -->
       </div>
     </div>
   </nav>
@@ -223,12 +201,26 @@ import PlayerButtonPrevious from '@/components/PlayerButtonPrevious'
 import PlayerButtonShuffle from '@/components/PlayerButtonShuffle'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume'
 import PlayerButtonRepeat from '@/components/PlayerButtonRepeat'
+import PlayerButtonSeekBack from '@/components/PlayerButtonSeekBack'
+import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward'
 import RangeSlider from 'vue-range-slider'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'NavbarBottom',
-  components: { NavbarItemLink, NavbarItemOutput, RangeSlider, PlayerButtonPlayPause, PlayerButtonNext, PlayerButtonPrevious, PlayerButtonShuffle, PlayerButtonConsume, PlayerButtonRepeat },
+  components: {
+    NavbarItemLink,
+    NavbarItemOutput,
+    RangeSlider,
+    PlayerButtonPlayPause,
+    PlayerButtonNext,
+    PlayerButtonPrevious,
+    PlayerButtonShuffle,
+    PlayerButtonConsume,
+    PlayerButtonRepeat,
+    PlayerButtonSeekForward,
+    PlayerButtonSeekBack
+  },
 
   data () {
     return {
