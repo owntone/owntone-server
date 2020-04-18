@@ -130,15 +130,14 @@ export default {
 
     open_remove_podcast_dialog: function () {
       this.show_album_details_modal = false
-      webapi.search({ type: 'playlist', query: this.album.name }).then(({ data }) => {
-        var playlists = data.playlists.items.filter(pl => pl.name === this.album.name && pl.type === 'rss')
-
-        if (playlists.length !== 1) {
+      webapi.library_track_playlists(this.tracks[0].id).then(({ data }) => {
+        const rssPlaylists = data.items.filter(pl => pl.type === 'rss')
+        if (rssPlaylists.length !== 1) {
           this.$store.dispatch('add_notification', { text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.', type: 'danger' })
           return
         }
 
-        this.rss_playlist_to_remove = playlists[0]
+        this.rss_playlist_to_remove = rssPlaylists[0]
         this.show_remove_podcast_modal = true
       })
     },

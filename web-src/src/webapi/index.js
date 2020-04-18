@@ -217,8 +217,10 @@ export default {
     return axios.get('/api/library/albums/' + albumId)
   },
 
-  library_album_tracks (albumId) {
-    return axios.get('/api/library/albums/' + albumId + '/tracks')
+  library_album_tracks (albumId, filter = { limit: -1, offset: 0 }) {
+    return axios.get('/api/library/albums/' + albumId + '/tracks', {
+      params: filter
+    })
   },
 
   library_album_track_update (albumId, attributes) {
@@ -317,6 +319,10 @@ export default {
 
   library_track (trackId) {
     return axios.get('/api/library/tracks/' + trackId)
+  },
+
+  library_track_playlists (trackId) {
+    return axios.get('/api/library/tracks/' + trackId + '/playlists')
   },
 
   library_track_update (trackId, attributes = {}) {
