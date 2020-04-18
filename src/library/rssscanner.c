@@ -353,13 +353,14 @@ mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const 
 {
   struct tm tm;
 
-  // Always take the meta from media file if possible; some podcasts (Apple) can
-  // use mp4 streams which tend not to have decent tags so in those cases take
-  // info from the RSS and not the stream
-  if (!mfi->artist)
-    mfi->artist = safe_strdup(feed_author);
-  if (!mfi->album)
-    mfi->album  = safe_strdup(feed_title);
+  // Always take the artist and album from the RSS feed and not the stream
+  free(mfi->artist);
+  mfi->artist = safe_strdup(feed_author);
+  free(mfi->album);
+  mfi->album  = safe_strdup(feed_title);
+
+  // Some podcasts (Apple) can use mp4 streams which tend not to have decent tags so
+  // in those cases take info from the RSS and not the stream
   if (!mfi->url)
     mfi->url    = safe_strdup(ri->link);
   if (!mfi->genre || strcmp("(186)Podcast", mfi->genre) == 0)
