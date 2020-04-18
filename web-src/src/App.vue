@@ -8,7 +8,10 @@
     </transition>
     <modal-dialog-remote-pairing :show="pairing_active" @close="pairing_active = false" />
     <notifications v-show="!show_burger_menu" />
-    <navbar-bottom v-show="!show_burger_menu" />
+    <navbar-bottom />
+    <div class="is-overlay" v-show="show_burger_menu || show_player_menu"
+        style="z-index:25; width: 100vw; height:100vh;background-color: rgba(10, 10, 10, 0.2);"
+        @click="show_burger_menu = show_player_menu = false"></div>
   </div>
 </template>
 
@@ -35,8 +38,21 @@ export default {
   },
 
   computed: {
-    show_burger_menu () {
-      return this.$store.state.show_burger_menu
+    show_burger_menu: {
+      get () {
+        return this.$store.state.show_burger_menu
+      },
+      set (value) {
+        this.$store.commit(types.SHOW_BURGER_MENU, value)
+      }
+    },
+    show_player_menu: {
+      get () {
+        return this.$store.state.show_player_menu
+      },
+      set (value) {
+        this.$store.commit(types.SHOW_PLAYER_MENU, value)
+      }
     }
   },
 
@@ -209,16 +225,23 @@ export default {
         this.$store.commit(types.UPDATE_PAIRING, data)
         this.pairing_active = data.active
       })
+    },
+
+    update_is_clipped: function () {
+      if (this.show_burger_menu || this.show_player_menu) {
+        document.querySelector('html').classList.add('is-clipped')
+      } else {
+        document.querySelector('html').classList.remove('is-clipped')
+      }
     }
   },
 
   watch: {
     'show_burger_menu' () {
-      if (this.show_burger_menu) {
-        document.querySelector('html').classList.add('is-clipped')
-      } else {
-        document.querySelector('html').classList.remove('is-clipped')
-      }
+      this.update_is_clipped()
+    },
+    'show_player_menu' () {
+      this.update_is_clipped()
     }
   }
 }

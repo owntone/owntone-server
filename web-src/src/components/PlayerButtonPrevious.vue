@@ -1,6 +1,6 @@
 <template>
-  <a v-on:click="play_previous" :disabled="disabled">
-    <span class="icon"><i class="mdi mdi-skip-backward"></i></span>
+  <a @click="play_previous" :disabled="disabled">
+    <span class="icon"><i class="mdi mdi-skip-backward" :class="icon_style"></i></span>
   </a>
 </template>
 
@@ -9,6 +9,10 @@ import webapi from '@/webapi'
 
 export default {
   name: 'PlayerButtonPrevious',
+
+  props: {
+    icon_style: String
+  },
 
   computed: {
     disabled () {

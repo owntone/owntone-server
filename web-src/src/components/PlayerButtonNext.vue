@@ -1,6 +1,6 @@
 <template>
-  <a v-on:click="play_next" :disabled="disabled">
-    <span class="icon"><i class="mdi mdi-skip-forward"></i></span>
+  <a @click="play_next" :disabled="disabled">
+    <span class="icon"><i class="mdi mdi-skip-forward" :class="icon_style"></i></span>
   </a>
 </template>
 
@@ -9,6 +9,10 @@ import webapi from '@/webapi'
 
 export default {
   name: 'PlayerButtonNext',
+
+  props: {
+    icon_style: String
+  },
 
   computed: {
     disabled () {

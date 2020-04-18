@@ -54,7 +54,8 @@ export default new Vuex.Store({
 
     hide_singles: false,
     show_only_next_items: false,
-    show_burger_menu: false
+    show_burger_menu: false,
+    show_player_menu: false
   },
 
   getters: {
@@ -175,6 +176,9 @@ export default new Vuex.Store({
     },
     [types.SHOW_BURGER_MENU] (state, showBurgerMenu) {
       state.show_burger_menu = showBurgerMenu
+    },
+    [types.SHOW_PLAYER_MENU] (state, showPlayerMenu) {
+      state.show_player_menu = showPlayerMenu
     }
   },
 

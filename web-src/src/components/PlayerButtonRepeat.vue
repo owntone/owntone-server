@@ -1,6 +1,6 @@
 <template>
-  <a v-on:click="toggle_repeat_mode" v-bind:class="{ 'is-warning': !is_repeat_off }">
-    <span class="icon"><i class="mdi" v-bind:class="{ 'mdi-repeat': is_repeat_all, 'mdi-repeat-once': is_repeat_single, 'mdi-repeat-off': is_repeat_off }"></i></span>
+  <a @click="toggle_repeat_mode" :class="{ 'is-warning': !is_repeat_off }">
+    <span class="icon"><i class="mdi" :class="[icon_style, { 'mdi-repeat': is_repeat_all, 'mdi-repeat-once': is_repeat_single, 'mdi-repeat-off': is_repeat_off }]"></i></span>
   </a>
 </template>
 
@@ -10,8 +10,8 @@ import webapi from '@/webapi'
 export default {
   name: 'PlayerButtonRepeat',
 
-  data () {
-    return { }
+  props: {
+    icon_style: String
   },
 
   computed: {

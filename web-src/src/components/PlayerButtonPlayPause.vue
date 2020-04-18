@@ -1,6 +1,6 @@
 <template>
   <a @click="toggle_play_pause" :disabled="disabled">
-    <span class="icon"><i class="mdi" v-bind:class="[icon_style, { 'mdi-play': !is_playing, 'mdi-pause': is_playing && is_pause_allowed, 'mdi-stop': is_playing && !is_pause_allowed }]"></i></span>
+    <span class="icon"><i class="mdi" :class="[icon_style, { 'mdi-play': !is_playing, 'mdi-pause': is_playing && is_pause_allowed, 'mdi-stop': is_playing && !is_pause_allowed }]"></i></span>
   </a>
 </template>
 
