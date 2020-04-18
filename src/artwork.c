@@ -1421,11 +1421,21 @@ source_item_cache_get(struct artwork_ctx *ctx)
 static int
 source_item_embedded_get(struct artwork_ctx *ctx)
 {
+  int data_kind;
+  int ret;
+
   DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", ctx->dbmfi->path);
+
+  ret = safe_atoi32(ctx->dbmfi->data_kind, &data_kind);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Trying embedded artwork in %s failed with unkown data_kind %s\n", ctx->dbmfi->path, ctx->dbmfi->data_kind);
+      return ART_E_ERROR;
+    }
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
 
-  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h, true, ctx->data_kind);
+  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h, true, data_kind);
 }
 
 /* Looks for basename(in_path).{png,jpg}, so if in_path is /foo/bar.mp3 it
