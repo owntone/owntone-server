@@ -181,6 +181,100 @@ dump_config(snd_pcm_t *pcm)
     }
 }
 
+static void
+dump_card(int card, snd_ctl_card_info_t *info)
+{
+  char hwdev[14];  // 'hw:' (3) + max_uint (10)
+  snd_ctl_t *hdl;
+  snd_mixer_t *mixer;
+  snd_mixer_elem_t *elem;
+  char mixerstr[256];
+  int err;
+
+  snprintf(hwdev, sizeof(hwdev), "hw:%d", card);
+
+  err = snd_ctl_open(&hdl, hwdev, 0);
+  if (err < 0)
+    {
+      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA card=%d - %s\n", card, snd_strerror(err));
+      return;
+    }
+
+  err = snd_ctl_card_info(hdl, info);
+  if (err < 0)
+    {
+      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (info) card=%d - %s\n", card, snd_strerror(err));
+      goto error;
+    }
+
+  err = snd_mixer_open(&mixer, 0);
+  if (err < 0)
+    {
+      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer open) card=%d - %s\n", card, snd_strerror(err));
+      goto error;
+    }
+
+  err = snd_mixer_attach(mixer, hwdev);
+  if (err < 0)
+    {
+      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer attach) card=%d - %s\n", card, snd_strerror(err));
+      goto errormixer;
+    }
+
+  err = snd_mixer_selem_register(mixer, NULL, NULL);
+  if (err < 0)
+    {
+      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer setup) card=%d - %s\n", card, snd_strerror(err));
+      goto errormixer;
+    }
+
+  err = snd_mixer_load(mixer);
+  if (err < 0)
+    {
+      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer setup) card=%d - %s\n", card, snd_strerror(err));
+      goto errormixer;
+    }
+
+  memset(mixerstr, 0, sizeof(mixerstr));
+  for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem))
+    {
+      if (snd_mixer_selem_has_common_volume(elem) || !snd_mixer_selem_has_playback_volume(elem))
+        continue;
+
+      safe_snprintf_cat(mixerstr, sizeof(mixerstr), " '%s'", snd_mixer_selem_get_name(elem));
+    }
+
+  if (mixerstr[0] == '\0')
+    sprintf(mixerstr, " (no mixers found)");
+
+  DPRINTF(E_INFO, L_LAUDIO, "Available ALSA playback mixer(s) on '%s' (%s):%s\n", hwdev, snd_ctl_card_info_get_name(info), mixerstr);
+
+errormixer:
+  snd_mixer_close(mixer);
+error:
+  snd_ctl_close(hdl);
+}
+
+// Walk all the alsa devices here and log valid playback mixers
+static void
+cards_list()
+{
+  snd_ctl_card_info_t *info = NULL;
+  int card = 0;
+
+  snd_ctl_card_info_alloca(&info);
+  if (!info)
+    return;
+
+  while (card >= 0)
+    {
+      dump_card(card, info);
+
+      if (snd_card_next(&card) < 0)
+	break;
+    }
+}
+
 static snd_pcm_format_t
 bps2format(int bits_per_sample)
 {
@@ -1186,120 +1280,6 @@ alsa_write(struct output_buffer *obuf)
 }
 
 static void
-alsa_device_log(int card, snd_ctl_card_info_t *info)
-{
-  snd_ctl_t *hdl;
-  snd_mixer_t *mixer;
-  snd_mixer_elem_t *elem;
-  char hwdev[14];  // 'hw:' (3) + max_uint (10)
-
-  char *buf = NULL;
-  unsigned buf_size = 128;
-  unsigned buf_len = 0;
-  unsigned len;
-
-  int err;
-
-  snprintf(hwdev, sizeof(hwdev), "hw:%d", card);
-
-  err = snd_ctl_open(&hdl, hwdev, 0);
-  if (err < 0)
-    {
-      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA card=%d - %s\n", card, snd_strerror(err));
-      return;
-    }
-
-  err = snd_ctl_card_info(hdl, info);
-  if (err < 0)
-    {
-      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (info) card=%d - %s\n", card, snd_strerror(err));
-      goto error;
-    }
-
-  err = snd_mixer_open(&mixer, 0);
-  if (err < 0)
-    {
-      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer open) card=%d - %s\n", card, snd_strerror(err));
-      goto error;
-    }
-
-  err = snd_mixer_attach(mixer, hwdev);
-  if (err < 0)
-    {
-      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer attach) card=%d - %s\n", card, snd_strerror(err));
-      goto errormixer;
-    }
-
-  err = snd_mixer_selem_register(mixer, NULL, NULL);
-  if (err < 0)
-    {
-      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer setup) card=%d - %s\n", card, snd_strerror(err));
-      goto errormixer;
-    }
-
-  err = snd_mixer_load(mixer);
-  if (err < 0)
-    {
-      DPRINTF(E_WARN, L_LAUDIO, "Failed to probe ALSA (mixer setup) card=%d - %s\n", card, snd_strerror(err));
-      goto errormixer;
-    }
-
-  for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem))
-    {
-      if (snd_mixer_selem_has_common_volume(elem) || !snd_mixer_selem_has_playback_volume(elem))
-        continue;
-
-      len = strlen(snd_mixer_selem_get_name(elem)) + 3;
-      if (!buf)
-	{
-	  if (buf_size < len*2)
-	    buf_size = len*2;
-	  buf = malloc(buf_size+1);
-	  buf[0] = '\0';
-	  buf_len = 0;
-	}
-      else
-	{
-	  if (buf_len + len > buf_size)
-	    {
-	      buf_size += len + 128;
-	      buf = realloc(buf, buf_size+1);
-	    }
-	}
-      strcat(buf, "'");
-      strcat(buf, snd_mixer_selem_get_name(elem));
-      strcat(buf, "'");
-      strcat(buf, " ");
-      buf_len += len;
-    }
-  DPRINTF(E_INFO, L_LAUDIO, "Available ALSA playback/mixer(s) on '%s' (%s): %s\n", hwdev, snd_ctl_card_info_get_name(info), buf ? buf : "n/a");
-
-errormixer:
-  snd_mixer_close(mixer);
-error:
-  snd_ctl_close(hdl);
-  free(buf);
-}
-
-// walk all the alsa devices here and report valid playback mixers
-static void
-alsa_device_list()
-{
-  snd_ctl_card_info_t *info = NULL;
-  int card = 0;
-
-  snd_ctl_card_info_alloca(&info);
-
-  while (card >= 0)
-    {
-      alsa_device_log(card, info);
-
-      if (snd_card_next(&card) < 0)
-	break;
-    }
-}
-
-static void
 alsa_device_add(cfg_t* cfg_audio, int id)
 {
   struct output_device *device;
@@ -1358,7 +1338,7 @@ alsa_init(void)
   if (type && (strcasecmp(type, "alsa") != 0))
     return -1;
 
-  alsa_device_list();
+  cards_list();
 
   alsa_sync_disable = cfg_getbool(cfg_audio, "sync_disable");
   alsa_latency_history_size = cfg_getint(cfg_audio, "adjust_period_seconds");
