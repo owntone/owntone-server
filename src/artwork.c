@@ -1421,7 +1421,18 @@ source_item_cache_get(struct artwork_ctx *ctx)
 static int
 source_item_embedded_get(struct artwork_ctx *ctx)
 {
+  int artwork;
+
   DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", ctx->dbmfi->path);
+
+  if (safe_atoi32(ctx->dbmfi->artwork, &artwork) < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Error converting dbmfi artwork to number for '%s'\n", ctx->dbmfi->path);
+      return ART_E_ERROR;
+    }
+
+  if (artwork != ARTWORK_EMBEDDED)
+    return ART_E_NONE;
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
 
