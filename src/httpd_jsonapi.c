@@ -3177,6 +3177,71 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_track_playlists(struct httpd_request *hreq)
+{
+  struct query_params query_params;
+  json_object *reply;
+  json_object *items;
+  char *path;
+  const char *track_id;
+  int id;
+  int total;
+  int ret = 0;
+
+  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
+    return HTTP_NOTMODIFIED;
+
+  track_id = hreq->uri_parsed->path_parts[3];
+  if (safe_atoi32(track_id, &id) < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error converting track id '%s' to int.\n", track_id);
+      return HTTP_INTERNAL;
+    }
+
+  path = db_file_path_byid(id);
+  if (!path)
+    {
+      DPRINTF(E_WARN, L_WEB, "No file path found for track with id '%s' not found.\n", track_id);
+      return HTTP_BADREQUEST;
+    }
+
+  reply = json_object_new_object();
+  items = json_object_new_array();
+  json_object_object_add(reply, "items", items);
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto error;
+
+  query_params.type = Q_FIND_PL;
+  query_params.filter = db_mprintf("filepath = '%q'", path);
+
+  ret = fetch_playlists(&query_params, items, &total);
+  if (ret < 0)
+    goto error;
+
+  json_object_object_add(reply, "total", json_object_new_int(total));
+  json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
+
+  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "track playlists: Couldn't add playlists to response buffer.\n");
+
+ error:
+  free_query_params(&query_params, 1);
+  jparse_free(reply);
+  free(path);
+
+  if (ret < 0)
+    return HTTP_INTERNAL;
+
+  return HTTP_OK;
+}
+
+static int
 jsonapi_reply_library_playlists(struct httpd_request *hreq)
 {
   struct query_params query_params;
@@ -4159,6 +4224,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
     { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
+    { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+/playlists$", jsonapi_reply_library_track_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },

@@ -758,6 +758,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums/{id}](#get-an-album)                   | Get an album                         |
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 | GET       | [/api/library/tracks/{id}](#get-a-track)                    | Get a track                          |
+| GET       | [/api/library/tracks/{id}/playlists](#list-playlists-for-a-track) | Get list of playlists for a track |
 | PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update a tracks properties (rating, play_count) |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
@@ -1504,6 +1505,63 @@ curl -X GET "http://localhost:3689/api/library/track/1"
   "path": "/music/srv/Incubus/Make Yourself/12 Pardon Me.mp3",
   "uri": "library:track:1",
   "artwork_url": "/artwork/item/1"
+}
+```
+
+
+### List playlists for a track
+
+Get the list of playlists that contain a track (does not return smart playlists)
+
+**Endpoint**
+
+```http
+GET /api/library/tracks/{id}/playlists
+```
+
+**Path parameters**
+
+| Parameter       | Value                |
+| --------------- | -------------------- |
+| id              | Track id             |
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| offset          | *(Optional)* Offset of the first playlist to return         |
+| limit           | *(Optional)* Maximum number of playlist to return           |
+
+**Response**
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of [`playlist`](#playlist-object) objects              |
+| total           | integer  | Total number of playlists                 |
+| offset          | integer  | Requested offset of the first playlist    |
+| limit           | integer  | Requested maximum number of playlists     |
+
+**Example**
+
+```shell
+curl -X GET "http://localhost:3689/api/library/tracks/27/playlists"
+```
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "playlist",
+      "path": "/music/srv/playlist.m3u",
+      "smart_playlist": false,
+      "uri": "library:playlist:1"
+    },
+    ...
+  ],
+  "total": 2,
+  "offset": 0,
+  "limit": -1
 }
 ```
 
