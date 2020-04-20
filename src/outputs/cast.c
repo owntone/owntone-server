@@ -1090,13 +1090,18 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
 
   if (payload->type == LAUNCH_ERROR && !cs->retry)
     {
-      DPRINTF(E_WARN, L_CAST, "Device '%s' does not support app id '%s', trying '%s' instead\n", cs->devname, CAST_APP_ID, CAST_APP_ID_OLD);
+      DPRINTF(E_WARN, L_CAST, "Device '%s' could not launch app id '%s', trying '%s' instead\n", cs->devname, CAST_APP_ID, CAST_APP_ID_OLD);
       cs->retry++;
       ret = cast_msg_send(cs, LAUNCH_OLD, cast_cb_startup_launch);
       if (ret < 0)
 	goto error;
 
       return;
+    }
+  else if (payload->type == LAUNCH_ERROR)
+    {
+      DPRINTF(E_LOG, L_CAST, "Device '%s' could not launch app id '%s' nor '%s' - aborting\n", cs->devname, CAST_APP_ID, CAST_APP_ID_OLD);
+      goto error;
     }
 
   if (payload->type != RECEIVER_STATUS)
