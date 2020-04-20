@@ -2,19 +2,11 @@
   <section>
     <div v-if="now_playing.id > 0" class="fd-is-fullheight">
       <div class="fd-is-expanded">
-        <figure @click="open_dialog(now_playing)" class="fd-cover-image">
-          <img
-            v-show="artwork_visible"
-            :src="artwork_url"
-            class="fd-has-action"
-            @load="artwork_loaded"
-            @error="artwork_error">
-          <cover-placeholder
-            v-show="!artwork_visible"
-            :artist="now_playing.artist"
-            :album="now_playing.album"
-            class="fd-has-action" />
-        </figure>
+        <cover-artwork @click="open_dialog(now_playing)"
+          :artwork_url="now_playing.artwork_url"
+          :artist="now_playing.artist"
+          :album="now_playing.album"
+          class="fd-cover-image fd-has-action" />
       </div>
       <div class="fd-has-padding-left-right">
         <div class="container has-text-centered">
@@ -68,19 +60,18 @@
 <script>
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
 import RangeSlider from 'vue-range-slider'
-import CoverPlaceholder from '@/components/CoverPlaceholder'
+import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageNowPlaying',
-  components: { ModalDialogQueueItem, RangeSlider, CoverPlaceholder },
+  components: { ModalDialogQueueItem, RangeSlider, CoverArtwork },
 
   data () {
     return {
       item_progress_ms: 0,
       interval_id: 0,
-      artwork_visible: false,
 
       show_details_modal: false,
       selected_item: {}
@@ -111,10 +102,6 @@ export default {
 
     now_playing () {
       return this.$store.getters.now_playing
-    },
-
-    artwork_url: function () {
-      return webapi.artwork_url_append_size_params(this.now_playing.artwork_url)
     },
 
     settings_option_show_composer_now_playing () {
@@ -148,14 +135,6 @@ export default {
       webapi.player_seek_to_pos(newPosition).catch(() => {
         this.item_progress_ms = this.state.item_progress_ms
       })
-    },
-
-    artwork_loaded: function () {
-      this.artwork_visible = true
-    },
-
-    artwork_error: function () {
-      this.artwork_visible = false
     },
 
     open_dialog: function (item) {

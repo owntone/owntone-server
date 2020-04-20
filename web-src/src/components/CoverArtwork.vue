@@ -1,14 +1,27 @@
 <template>
-  <img :src="dataURI" :alt="alt_text">
+  <figure>
+    <img
+      v-show="artwork_visible"
+      :src="artwork_url_with_size"
+      @load="artwork_loaded"
+      @error="artwork_error"
+      @click="$emit('click')">
+    <img
+      v-show="!artwork_visible"
+      :src="dataURI"
+      :alt="alt_text"
+      @click="$emit('click')">
+  </figure>
 </template>
 
 <script>
+import webapi from '@/webapi'
 import SVGRenderer from '@/lib/SVGRenderer'
 import stringToColor from 'string-to-color'
 
 export default {
-  name: 'CoverPlaceholder',
-  props: ['artist', 'album'],
+  name: 'CoverArtwork',
+  props: ['artist', 'album', 'artwork_url'],
 
   data () {
     return {
@@ -17,11 +30,17 @@ export default {
       height: 600,
       font_family: 'sans-serif',
       font_size: 200,
-      font_weight: 600
+      font_weight: 600,
+
+      artwork_visible: false
     }
   },
 
   computed: {
+    artwork_url_with_size: function () {
+      return webapi.artwork_url_append_size_params(this.artwork_url)
+    },
+
     alt_text () {
       return this.artist + ' - ' + this.album
     },
@@ -75,6 +94,16 @@ export default {
 
     dataURI () {
       return this.svg.render(this.rendererParams)
+    }
+  },
+
+  methods: {
+    artwork_loaded: function () {
+      this.artwork_visible = true
+    },
+
+    artwork_error: function () {
+      this.artwork_visible = false
     }
   }
 }

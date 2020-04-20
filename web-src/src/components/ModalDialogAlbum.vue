@@ -6,14 +6,16 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <figure class="image is-square fd-has-margin-bottom" v-show="artwork_visible">
-                <img :src="artwork_url" @load="artwork_loaded" @error="artwork_error" class="fd-has-shadow">
-              </figure>
+              <cover-artwork
+                :artwork_url="album.artwork_url"
+                :artist="album.artist"
+                :album="album.name"
+                class="image is-square fd-has-margin-bottom fd-has-shadow" />
               <p class="title is-4">
                 <a class="has-text-link" @click="open_album">{{ album.name }}</a>
               </p>
               <div class="buttons" v-if="media_kind === 'podcast'">
-                <a class="button is-small" v-if="new_tracks > 0" @click="mark_played">Mark as played</a>
+                <a class="button is-small" @click="mark_played">Mark as played</a>
                 <a class="button is-small" @click="$emit('remove_podcast')">Remove podcast</a>
               </div>
               <div class="content is-small">
@@ -51,10 +53,12 @@
 </template>
 
 <script>
+import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbum',
+  components: { CoverArtwork },
   props: ['show', 'album', 'media_kind', 'new_tracks'],
 
   data () {
