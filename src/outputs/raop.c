@@ -2385,7 +2385,7 @@ raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, str
 }
 
 static int
-raop_metadata_send_generic(struct raop_session *rs, struct output_metadata *metadata)
+raop_metadata_send_generic(struct raop_session *rs, struct output_metadata *metadata, bool only_progress)
 {
   struct raop_metadata *rmd = metadata->priv;
   struct evbuffer *evbuf;
@@ -2399,6 +2399,17 @@ raop_metadata_send_generic(struct raop_session *rs, struct output_metadata *meta
   raop_metadata_rtptimes_get(&start, &display, &pos, &end, rs->master_session, metadata);
 
   CHECK_NULL(L_RAOP, evbuf = evbuffer_new());
+
+  ret = raop_metadata_send_progress(rs, evbuf, rmd, display, pos, end);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not send progress to '%s'\n", rs->devname);
+      ret = -1;
+      goto out;
+    }
+
+  if (only_progress)
+    goto out;
 
   ret = snprintf(rtptime, sizeof(rtptime), "rtptime=%u", start);
   if ((ret < 0) || (ret >= sizeof(rtptime)))
@@ -2427,14 +2438,6 @@ raop_metadata_send_generic(struct raop_session *rs, struct output_metadata *meta
 	}
     }
 
-  ret = raop_metadata_send_progress(rs, evbuf, rmd, display, pos, end);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not send progress to '%s'\n", rs->devname);
-      ret = -1;
-      goto out;
-    }
-
  out:
   evbuffer_free(evbuf);
 
@@ -2447,11 +2450,20 @@ raop_metadata_startup_send(struct raop_session *rs)
   if (!rs->wants_metadata || !raop_cur_metadata)
     return 0;
 
-  // We don't need to preserve the previous value, this function is the only one
-  // using raop_cur_metadata
   raop_cur_metadata->startup = true;
 
-  return raop_metadata_send_generic(rs, raop_cur_metadata);
+  return raop_metadata_send_generic(rs, raop_cur_metadata, false);
+}
+
+static int
+raop_metadata_keep_alive_send(struct raop_session *rs)
+{
+  if (!rs->wants_metadata || !raop_cur_metadata)
+    return 0;
+
+  raop_cur_metadata->startup = false;
+
+  return raop_metadata_send_generic(rs, raop_cur_metadata, true);
 }
 
 static void
@@ -2468,7 +2480,7 @@ raop_metadata_send(struct output_metadata *metadata)
       if (!(rs->state & RAOP_STATE_F_CONNECTED) || !rs->wants_metadata)
 	continue;
 
-      ret = raop_metadata_send_generic(rs, metadata);
+      ret = raop_metadata_send_generic(rs, metadata, false);
       if (ret < 0)
 	{
 	  session_failure(rs);
@@ -2684,34 +2696,6 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
 }
 
 static void
-raop_cb_keep_alive(struct evrtsp_request *req, void *arg)
-{
-  struct raop_session *rs = arg;
-
-  rs->reqs_in_flight--;
-
-  if (!req)
-    {
-      DPRINTF(E_LOG, L_RAOP, "No reply from '%s' to our keep alive request, hanging up\n", rs->devname);
-      session_failure(rs);
-      return;
-    }
-
-  if (!rs->reqs_in_flight)
-    evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
-
-  if (req->response_code != RTSP_OK)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Keep alive request to '%s' failed: %d %s\n", rs->devname, req->response_code, req->response_code_line);
-      return;
-    }
-
-  evtimer_add(keep_alive_timer, &keep_alive_tv);
-
-  return;
-}
-
-static void
 raop_keep_alive_timer_cb(int fd, short what, void *arg)
 {
   struct raop_session *rs;
@@ -2727,8 +2711,10 @@ raop_keep_alive_timer_cb(int fd, short what, void *arg)
       if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
 
-      raop_send_req_options(rs, raop_cb_keep_alive, "keep_alive");
+      raop_metadata_keep_alive_send(rs);
     }
+
+  evtimer_add(keep_alive_timer, &keep_alive_tv);
 }
 
 
