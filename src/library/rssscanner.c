@@ -84,15 +84,19 @@ rss_date(struct tm *tm, const char *date)
   //    optional                  ^^^^^
   //                              could also be GMT/UT/EST/A..I/M..Z
 
-  const char *ptr;
+  const char *ptr = NULL;
   time_t t;
 
   memset(tm, 0, sizeof(struct tm));
-  ptr = strptime(date, "%a,%n", tm); // Looks for optional day of week
-  if (!ptr)
-    ptr = date;
+  if (date)
+    {
+      ptr = strptime(date, "%a,%n", tm); // Looks for optional day of week
+      if (!ptr)
+	ptr = date;
 
-  ptr = strptime(ptr, "%d%n%b%n%Y%n%H:%M:%S%n", tm);
+      ptr = strptime(ptr, "%d%n%b%n%Y%n%H:%M:%S%n", tm);
+    }
+
   if (!ptr)
     {
       // date is junk, using current time
@@ -345,9 +349,14 @@ rss_xml_parse_item(struct rss_item_info *ri, mxml_node_t *xml, void **saveptr)
   ri->url = mxmlElementGetAttr(node, "url");
   ri->type = mxmlElementGetAttr(node, "type");
 
+  DPRINTF(E_DBG, L_LIB, "RSS/xml item: title '%s' pubdate: '%s' link: '%s' url: '%s' type: '%s'\n", ri->title, ri->pubdate, ri->link, ri->url, ri->type);
+
   return 0;
 }
 
+// The RSS spec states:
+//    Elements of <item>
+//    .... All elements of an item are optional, however at least one of title or description must be present
 static void
 mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const char *feed_title, const char *feed_author, uint32_t time_added)
 {
