@@ -164,6 +164,8 @@ struct raop_master_session
 
   struct rtp_session *rtp_session;
 
+  struct rtcp_timestamp cur_stamp;
+
   uint8_t *rawbuf;
   size_t rawbuf_size;
   int samples_per_packet;
@@ -212,7 +214,6 @@ struct raop_session
   int family;
 
   int volume;
-  uint32_t start_rtptime;
 
   /* AirTunes v2 */
   unsigned short server_port;
@@ -2258,44 +2259,45 @@ static void
 raop_metadata_rtptimes_get(uint32_t *start, uint32_t *display, uint32_t *pos, uint32_t *end, struct raop_master_session *rms, struct output_metadata *metadata)
 {
   struct rtp_session *rtp_session = rms->rtp_session;
-  uint64_t sample_rate;
-  uint32_t elapsed_ms;
-  int delay;
+  // All the calculations with long ints to avoid surprises
+  int64_t sample_rate;
+  int64_t diff_ms;
+  int64_t elapsed_ms;
+  int64_t elapsed_samples;
+  int64_t len_samples;
 
-  /* Here's the deal with progress values:
-   * - first value, called display, is always start minus a delay
-   *    -> delay x1 if streaming is starting for this device (joining or not)
-   *    -> delay x2 if stream is switching to a new song
-   * - second value, called pos, is the RTP time of the first sample for this
-   *   song for this device
-   *    -> start of song
-   *    -> start of song + offset if device is joining in the middle of a song,
-   *       or getting out of a pause or seeking
-   * - third value, called end, is the RTP time of the last sample for this song
-   */
   sample_rate = rtp_session->quality.sample_rate;
 
-  /* First calculate the rtptime that streaming of this item started:
-   * - at time metadata->pts the elapsed time was metadata->pos_ms
-   * - the time is now rtp_session->pts and the position is rtp_session->pos
-   * -> time since item started is elapsed = metadata->pos_ms + (rtp_session->pts - metadata->pts)
-   * -> start must then be start = rtp_session->pos - elapsed * sample_rate;
-   */
-  elapsed_ms = metadata->pos_ms;
+  // First calculate the rtptime that streaming of this item started:
+  // - at time metadata->pts the elapsed time was metadata->pos_ms
+  // - the time is now rms->cur_stamp.ts and the position is rms->cur_stamp.pos
+  // -> time since item started is elapsed_ms = metadata->pos_ms + (rms->cur_stamp.ts - metadata->pts)
+  // -> start must then be start = rms->cur_stamp.pos - elapsed_ms * sample_rate;
+  diff_ms         = (rms->cur_stamp.ts.tv_sec - metadata->pts.tv_sec) * 1000L + (rms->cur_stamp.ts.tv_nsec - metadata->pts.tv_nsec) / 1000000L;
+  elapsed_ms      = (int64_t)metadata->pos_ms + diff_ms;
+  elapsed_samples = elapsed_ms * sample_rate / 1000;
+  *start          = rms->cur_stamp.pos - elapsed_samples;
 
-  *start = rtp_session->pos - sample_rate * elapsed_ms / 1000;
+  DPRINTF(E_DBG, L_RAOP, "pos_ms=%u, len_ms=%u, startup=%d, metadata.pts=%ld.%09ld, player.ts=%ld.%09ld, diff_ms=%" PRIi64 ", elapsed_ms=%" PRIi64 "\n",
+    metadata->pos_ms, metadata->len_ms, metadata->startup, metadata->pts.tv_sec, metadata->pts.tv_nsec, rms->cur_stamp.ts.tv_sec, rms->cur_stamp.ts.tv_nsec, diff_ms, elapsed_ms);
 
-  if (metadata->startup)
-    delay = RAOP_MD_DELAY_STARTUP;
-  else
-    delay = RAOP_MD_DELAY_SWITCH;
+  // Here's the deal with progress values:
+  // - display is always start minus a delay
+  //    -> delay x1 if streaming is starting for this device (joining or not)
+  //    -> delay x2 if stream is switching to a new song
+  //    TODO what if we are just sending a keep_alive?
+  // - pos is the RTP time of the first sample for this song for this device
+  //    -> start of song
+  //    -> start of song + offset if device is joining in the middle of a song,
+  //       or getting out of a pause or seeking
+  // - end is the RTP time of the last sample for this song
+  len_samples     = (int64_t)metadata->len_ms * sample_rate / 1000;
+  *display        = metadata->startup ? *start - RAOP_MD_DELAY_STARTUP : *start - RAOP_MD_DELAY_SWITCH;
+  *pos            = MAX(rms->cur_stamp.pos, *start);
+  *end            = len_samples ? *start + len_samples : *pos;
 
-  *display = *start - delay;
-  *pos = MAX(rtp_session->pos, *start); // TODO is this calculation correct? It is not in line with the description above
-  *end = *start + sample_rate * metadata->len_ms / 1000;
-
-  DPRINTF(E_DBG, L_RAOP, "Metadata sr=%" PRIu64 ", pos_ms=%u, len_ms=%u, start=%u, display=%u, pos=%u, end=%u, rtptime=%u\n",
-    sample_rate, metadata->pos_ms, metadata->len_ms, *start, *display, *pos, *end, rtp_session->pos);
+  DPRINTF(E_DBG, L_RAOP, "start=%u, display=%u, pos=%u, end=%u, rtp_session.pos=%u, cur_stamp.pos=%u\n",
+    *start, *display, *pos, *end, rtp_session->pos, rms->cur_stamp.pos);
 }
 
 static int
@@ -2889,35 +2891,48 @@ packets_send(struct raop_master_session *rms)
   return 0;
 }
 
+static inline void
+timestamp_set(struct raop_master_session *rms, struct timespec ts)
+{
+  // The last write from the player had a timestamp which has been passed to
+  // this function as ts. This is the player clock, which is more precise than
+  // the actual clock because it gives us a calculated time reference, which is
+  // independent of how busy the thread is. We save that here, we need this for
+  // reference when sending sync packets and progress.
+  rms->cur_stamp.ts = ts;
+
+  // So what rtptime should be playing, i.e. coming out of the speaker, at time
+  // ts (which is normally "now")? Let's calculate by example:
+  //   - we started playback with a rtptime (pos) of X
+  //   - up until time ts we have received a 1000 samples from the player
+  //   - rms->output_buffer_samples is configured to 400 samples
+  //   -> we should be playing rtptime X + 600
+  //
+  // So how do we measure samples received from player? We know that from the
+  // pos, which says how much has been sent to the device, and from rms->evbuf,
+  // which is the unsent stuff being buffered:
+  //   - received = (pos - X) + rms->evbuf_samples
+  //
+  // This means the rtptime is computed as:
+  //   - rtptime = X + received - rms->output_buffer_samples
+  //   -> rtptime = X + (pos - X) + rms->evbuf_samples - rms->out_buffer_samples
+  //   -> rtptime = pos + rms->evbuf_samples - rms->output_buffer_samples
+  rms->cur_stamp.pos = rms->rtp_session->pos + rms->evbuf_samples - rms->output_buffer_samples;
+}
+
 static void
-packets_sync_send(struct raop_master_session *rms, struct timespec pts)
+packets_sync_send(struct raop_master_session *rms)
 {
   struct rtp_packet *sync_pkt;
   struct raop_session *rs;
-  struct rtcp_timestamp cur_stamp;
   struct timespec ts;
   bool is_sync_time;
 
   // Check if it is time send a sync packet to sessions that are already running
   is_sync_time = rtp_sync_is_time(rms->rtp_session);
 
-  // The last write from the player had a timestamp which has been passed to
-  // this function as pts. This is the time the device should be playing the
-  // samples just written by the player, so it is a time which is
-  // OUTPUTS_BUFFER_DURATION secs into the future. However, in the sync packet
-  // we want to tell the device what it should be playing right now. So we give
-  // it a cur_time where we subtract this duration.
-// TODO update comment to match reality
-  cur_stamp.ts.tv_sec = pts.tv_sec;
-  cur_stamp.ts.tv_nsec = pts.tv_nsec;
-
+  // Just used for logging, the clock shouldn't be too far from rms->cur_stamp.ts
   clock_gettime(CLOCK_MONOTONIC, &ts);
-
-  // The cur_pos will be the rtptime of the coming packet, minus
-  // OUTPUTS_BUFFER_DURATION in samples (output_buffer_samples). Because we
-  // might also have some data lined up in rms->evbuf, we also need to account
-  // for that.
-  cur_stamp.pos = rms->rtp_session->pos + rms->evbuf_samples - rms->output_buffer_samples;
 
   for (rs = raop_sessions; rs; rs = rs->next)
     {
@@ -2927,15 +2942,15 @@ packets_sync_send(struct raop_master_session *rms, struct timespec pts)
       // A device has joined and should get an init sync packet
       if (rs->state == RAOP_STATE_CONNECTED)
 	{
-	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, &cur_stamp, 0x90);
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, rms->cur_stamp, 0x90);
 	  control_packet_send(rs, sync_pkt);
 
-	  DPRINTF(E_DBG, L_PLAYER, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%lu:%lu, now=%lu:%lu, rtptime=%" PRIu32 ",\n",
-	    rs->devname, cur_stamp.pos, cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, rms->rtp_session->pos);
+	  DPRINTF(E_DBG, L_PLAYER, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
+	    rs->devname, rms->cur_stamp.pos, rms->cur_stamp.ts.tv_sec, rms->cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, rms->rtp_session->pos);
 	}
       else if (is_sync_time && rs->state == RAOP_STATE_STREAMING)
 	{
-	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, &cur_stamp, 0x80);
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, rms->cur_stamp, 0x80);
 	  control_packet_send(rs, sync_pkt);
 	}
     }
@@ -4589,6 +4604,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     re->encrypt = 0;
 
   // Metadata support
+  // We don't use the values, but they should mean: 0 = text, 1 = artwork, 2 = progress
   p = keyval_get(txt, "md");
   if (p && (*p != '\0'))
     re->wants_metadata = 1;
@@ -4767,8 +4783,12 @@ raop_write(struct output_buffer *obuf)
 	  if (!quality_is_equal(&obuf->data[i].quality, &rms->rtp_session->quality))
 	    continue;
 
+	  // Set rms->cur_stamp, which involves a calculation of which session
+	  // rtptime corresponds to the pts we are given by the player.
+	  timestamp_set(rms, obuf->pts);
+
 	  // Sends sync packets to new sessions, and if it is sync time then also to old sessions
-	  packets_sync_send(rms, obuf->pts);
+	  packets_sync_send(rms);
 
 	  // TODO avoid this copy
 	  evbuffer_add(rms->evbuf, obuf->data[i].buffer, obuf->data[i].bufsize);
@@ -4792,7 +4812,7 @@ raop_write(struct output_buffer *obuf)
       if (rs->state != RAOP_STATE_CONNECTED)
 	continue;
 
-      // Start sending OPTIONS to keep ATV's alive
+      // Start sending progress to keep ATV's alive
       if (!event_pending(keep_alive_timer, EV_TIMEOUT, NULL))
 	evtimer_add(keep_alive_timer, &keep_alive_tv);
 
