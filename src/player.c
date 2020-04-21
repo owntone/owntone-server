@@ -987,6 +987,9 @@ event_play_start()
 {
   DPRINTF(E_DBG, L_PLAYER, "event_play_start()\n");
 
+  if (!pb_session.playing_now->prev)
+    outputs_metadata_send(pb_session.playing_now->item_id, true, metadata_finalize_cb);
+
   session_update_play_start();
 
   status_update(PLAY_PLAYING);
@@ -1898,8 +1901,6 @@ playback_start_bh(void *arg, int *retval)
   ret = pb_timer_start();
   if (ret < 0)
     goto error;
-
-  outputs_metadata_send(pb_session.playing_now->item_id, true, metadata_finalize_cb);
 
   status_update(PLAY_PLAYING);
 
