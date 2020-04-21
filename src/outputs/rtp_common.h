@@ -75,6 +75,6 @@ bool
 rtp_sync_is_time(struct rtp_session *session);
 
 struct rtp_packet *
-rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp *cur_stamp, char type);
+rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, char type);
 
 #endif  /* !__RTP_COMMON_H__ */

@@ -244,7 +244,7 @@ rtp_sync_is_time(struct rtp_session *session)
 }
 
 struct rtp_packet *
-rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp *cur_stamp, char type)
+rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, char type)
 {
   struct ntp_timestamp cur_ts;
   uint32_t rtptime;
@@ -261,9 +261,9 @@ rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp *cur_sta
   session->sync_packet_next.data[2] = 0x00;
   session->sync_packet_next.data[3] = 0x07;
 
-  timespec_to_ntp(&cur_stamp->ts, &cur_ts);
+  timespec_to_ntp(&cur_stamp.ts, &cur_ts);
 
-  cur_pos = htobe32(cur_stamp->pos);
+  cur_pos = htobe32(cur_stamp.pos);
   memcpy(session->sync_packet_next.data + 4, &cur_pos, 4);
 
   cur_ts.sec = htobe32(cur_ts.sec);
