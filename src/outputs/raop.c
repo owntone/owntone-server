@@ -96,6 +96,9 @@
 
 #define RAOP_MD_DELAY_STARTUP      15360
 #define RAOP_MD_DELAY_SWITCH       (RAOP_MD_DELAY_STARTUP * 2)
+#define RAOP_MD_WANTS_TEXT         (1 << 0)
+#define RAOP_MD_WANTS_ARTWORK      (1 << 1)
+#define RAOP_MD_WANTS_PROGRESS     (1 << 2)
 
 // This is an arbitrary value which just needs to be kept in sync with the config
 #define RAOP_CONFIG_MAX_VOLUME     11
@@ -152,8 +155,8 @@ struct raop_extra
 {
   enum raop_devtype devtype;
 
+  uint16_t wanted_metadata;
   bool encrypt;
-  bool wants_metadata;
   bool supports_auth_setup;
 };
 
@@ -189,10 +192,11 @@ struct raop_session
   struct evrtsp_connection *ctrl;
 
   enum raop_state state;
+
+  uint16_t wanted_metadata;
   bool req_has_auth;
   bool encrypt;
   bool auth_quirk_itunes;
-  bool wants_metadata;
   bool supports_post;
   bool supports_auth_setup;
 
@@ -251,9 +255,6 @@ struct raop_service
 };
 
 typedef void (*evrtsp_req_cb)(struct evrtsp_request *req, void *arg);
-
-/* Truncate RTP time to lower 32bits for RAOP */
-#define RAOP_RTPTIME(x) ((uint32_t)((x) & (uint64_t)0xffffffff))
 
 /* NTP timestamp definitions */
 #define FRAC             4294967296. /* 2^32 as a double */
@@ -2026,7 +2027,7 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
   rs->password = rd->password;
 
   rs->supports_auth_setup = re->supports_auth_setup;
-  rs->wants_metadata = re->wants_metadata;
+  rs->wanted_metadata = re->wanted_metadata;
 
   switch (re->devtype)
     {
@@ -2339,7 +2340,6 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
 
       default:
 	DPRINTF(E_LOG, L_RAOP, "Unsupported artwork format %d\n", rmd->artwork_fmt);
-
 	return -1;
     }
 
@@ -2350,7 +2350,6 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not copy artwork for sending\n");
-
       return -1;
     }
 
@@ -2362,7 +2361,7 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
 }
 
 static int
-raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, char *rtptime)
+raop_metadata_send_text(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, char *rtptime)
 {
   uint8_t *buf;
   size_t len;
@@ -2375,11 +2374,10 @@ raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, str
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not copy metadata for sending\n");
-
       return -1;
     }
 
-  ret = raop_send_req_set_parameter(rs, evbuf, "application/x-dmap-tagged", rtptime, raop_cb_metadata, "send_metadata");
+  ret = raop_send_req_set_parameter(rs, evbuf, "application/x-dmap-tagged", rtptime, raop_cb_metadata, "send_text");
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send SET_PARAMETER metadata request to '%s'\n", rs->devname);
 
@@ -2400,56 +2398,48 @@ raop_metadata_send_generic(struct raop_session *rs, struct output_metadata *meta
 
   raop_metadata_rtptimes_get(&start, &display, &pos, &end, rs->master_session, metadata);
 
-  CHECK_NULL(L_RAOP, evbuf = evbuffer_new());
-
-  ret = raop_metadata_send_progress(rs, evbuf, rmd, display, pos, end);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not send progress to '%s'\n", rs->devname);
-      ret = -1;
-      goto out;
-    }
-
-  if (only_progress)
-    goto out;
-
   ret = snprintf(rtptime, sizeof(rtptime), "rtptime=%u", start);
   if ((ret < 0) || (ret >= sizeof(rtptime)))
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer while sending metadata\n");
-      ret = -1;
-      goto out;
+      return -1;
     }
 
-  ret = raop_metadata_send_metadata(rs, evbuf, rmd, rtptime);
-  if (ret < 0)
+  CHECK_NULL(L_RAOP, evbuf = evbuffer_new());
+
+  if (rs->wanted_metadata & RAOP_MD_WANTS_PROGRESS)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not send metadata to '%s'\n", rs->devname);
-      ret = -1;
-      goto out;
+      ret = raop_metadata_send_progress(rs, evbuf, rmd, display, pos, end);
+      if (ret < 0)
+	goto error;
     }
 
-  if (rmd->artwork)
+  if (!only_progress && (rs->wanted_metadata & RAOP_MD_WANTS_TEXT))
+    {
+      ret = raop_metadata_send_text(rs, evbuf, rmd, rtptime);
+      if (ret < 0)
+	goto error;
+    }
+
+  if (!only_progress && (rs->wanted_metadata & RAOP_MD_WANTS_ARTWORK) && rmd->artwork)
     {
       ret = raop_metadata_send_artwork(rs, evbuf, rmd, rtptime);
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Could not send artwork to '%s'\n", rs->devname);
-	  ret = -1;
-	  goto out;
-	}
+	goto error;
     }
 
- out:
   evbuffer_free(evbuf);
+  return 0;
 
-  return ret;
+ error:
+  evbuffer_free(evbuf);
+  return -1;
 }
 
 static int
 raop_metadata_startup_send(struct raop_session *rs)
 {
-  if (!rs->wants_metadata || !raop_cur_metadata)
+  if (!rs->wanted_metadata || !raop_cur_metadata)
     return 0;
 
   raop_cur_metadata->startup = true;
@@ -2460,7 +2450,7 @@ raop_metadata_startup_send(struct raop_session *rs)
 static int
 raop_metadata_keep_alive_send(struct raop_session *rs)
 {
-  if (!rs->wants_metadata || !raop_cur_metadata)
+  if (!rs->wanted_metadata || !raop_cur_metadata)
     return 0;
 
   raop_cur_metadata->startup = false;
@@ -2479,7 +2469,7 @@ raop_metadata_send(struct output_metadata *metadata)
     {
       next = rs->next;
 
-      if (!(rs->state & RAOP_STATE_F_CONNECTED) || !rs->wants_metadata)
+      if (!(rs->state & RAOP_STATE_F_CONNECTED) || !rs->wanted_metadata)
 	continue;
 
       ret = raop_metadata_send_generic(rs, metadata, false);
@@ -4427,7 +4417,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   const char *p;
   char *at_name;
   char *password;
-  char *et;
+  char *s;
   char *token;
   char *ptr;
   uint64_t id;
@@ -4600,22 +4590,32 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "ek");
   if (p && (*p == '1'))
     re->encrypt = 1;
-  else
-    re->encrypt = 0;
 
   // Metadata support
-  // We don't use the values, but they should mean: 0 = text, 1 = artwork, 2 = progress
   p = keyval_get(txt, "md");
-  if (p && (*p != '\0'))
-    re->wants_metadata = 1;
-  else
-    re->wants_metadata = 0;
+  if (p)
+    {
+      CHECK_NULL(L_RAOP, s = strdup(p));
+      token = strtok_r(s, ",", &ptr);
+      while (token)
+	{
+	  if (strcmp(token, "0") == 0)
+	    re->wanted_metadata |= RAOP_MD_WANTS_TEXT;
+	  else if (strcmp(token, "1") == 0)
+	    re->wanted_metadata |= RAOP_MD_WANTS_ARTWORK;
+	  else if (strcmp(token, "2") == 0)
+	    re->wanted_metadata |= RAOP_MD_WANTS_PROGRESS;
+
+	  token = strtok_r(NULL, ",", &ptr);
+	}
+      free(s);
+    }
 
   p = keyval_get(txt, "et");
   if (p)
     {
-      CHECK_NULL(L_RAOP, et = strdup(p));
-      token = strtok_r(et, ",", &ptr);
+      CHECK_NULL(L_RAOP, s = strdup(p));
+      token = strtok_r(s, ",", &ptr);
       while (token)
 	{
 	  // Value of 4 seems to indicate support (!= requirement) for auth-setup
@@ -4624,7 +4624,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
 	  token = strtok_r(NULL, ",", &ptr);
 	}
-      free(et);
+      free(s);
     }
 
   switch (family)
@@ -4633,14 +4633,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	rd->v4_address = strdup(address);
 	rd->v4_port = port;
 	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device '%s': password: %u, verification: %u, encrypt: %u, authsetup: %u, metadata: %u, type %s, address %s:%d\n", 
-	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wants_metadata, raop_devtype[re->devtype], address, port);
+	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wanted_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       case AF_INET6:
 	rd->v6_address = strdup(address);
 	rd->v6_port = port;
 	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device '%s': password: %u, verification: %u, encrypt: %u, authsetup: %u, metadata: %u, type %s, address [%s]:%d\n", 
-	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wants_metadata, raop_devtype[re->devtype], address, port);
+	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wanted_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       default:
