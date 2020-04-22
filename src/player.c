@@ -234,6 +234,11 @@ struct player_session
   size_t read_deficit;
   size_t read_deficit_max;
 
+  // We send metadata when we start a session, everytime we end a track and if
+  // the input gives us a new metadata event. This value tracks if we have sent
+  // the starting metadata.
+  bool metadata_sent;
+
   // Pointer to the head of the two-way linked list of items from the queue that
   // we are either playing or going to play. When an item has been played it is
   // removed from the list. The playing_now and reading_now pointers will point
@@ -859,6 +864,7 @@ session_restart(void)
   pb_session.pts.tv_sec = 0;
   pb_session.pts.tv_nsec = 0;
   pb_session.read_deficit = 0;
+  pb_session.metadata_sent = 0;
 }
 
 static void
@@ -987,8 +993,11 @@ event_play_start()
 {
   DPRINTF(E_DBG, L_PLAYER, "event_play_start()\n");
 
-  if (!pb_session.playing_now->prev)
-    outputs_metadata_send(pb_session.playing_now->item_id, true, metadata_finalize_cb);
+  if (!pb_session.metadata_sent)
+    {
+      outputs_metadata_send(pb_session.playing_now->item_id, true, metadata_finalize_cb);
+      pb_session.metadata_sent = 1;
+    }
 
   session_update_play_start();
 
