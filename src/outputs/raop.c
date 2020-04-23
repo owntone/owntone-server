@@ -2279,9 +2279,9 @@ raop_metadata_rtptimes_get(uint32_t *start, uint32_t *display, uint32_t *pos, ui
   elapsed_samples = elapsed_ms * sample_rate / 1000;
   *start          = rms->cur_stamp.pos - elapsed_samples;
 
-  DPRINTF(E_DBG, L_RAOP, "pos_ms=%u, len_ms=%u, startup=%d, metadata.pts=%ld.%09ld, player.ts=%ld.%09ld, diff_ms=%" PRIi64 ", elapsed_ms=%" PRIi64 "\n",
+/*  DPRINTF(E_DBG, L_RAOP, "pos_ms=%u, len_ms=%u, startup=%d, metadata.pts=%ld.%09ld, player.ts=%ld.%09ld, diff_ms=%" PRIi64 ", elapsed_ms=%" PRIi64 "\n",
     metadata->pos_ms, metadata->len_ms, metadata->startup, metadata->pts.tv_sec, metadata->pts.tv_nsec, rms->cur_stamp.ts.tv_sec, rms->cur_stamp.ts.tv_nsec, diff_ms, elapsed_ms);
-
+*/
   // Here's the deal with progress values:
   // - display is always start minus a delay
   //    -> delay x1 if streaming is starting for this device (joining or not)
@@ -2297,7 +2297,7 @@ raop_metadata_rtptimes_get(uint32_t *start, uint32_t *display, uint32_t *pos, ui
   *pos            = MAX(rms->cur_stamp.pos, *start);
   *end            = len_samples ? *start + len_samples : *pos;
 
-  DPRINTF(E_DBG, L_RAOP, "start=%u, display=%u, pos=%u, end=%u, rtp_session.pos=%u, cur_stamp.pos=%u\n",
+  DPRINTF(E_SPAM, L_RAOP, "start=%u, display=%u, pos=%u, end=%u, rtp_session.pos=%u, cur_stamp.pos=%u\n",
     *start, *display, *pos, *end, rtp_session->pos, rms->cur_stamp.pos);
 }
 
@@ -2881,6 +2881,15 @@ packets_send(struct raop_master_session *rms)
   return 0;
 }
 
+// Overview of rtptimes as they should be when starting a stream, and assuming
+// the first rtptime (pos) is 88200:
+//   sync pkt:  cur_pos = 0, rtptime = 88200
+//   audio pkt: rtptime = 88200
+//   RECORD:    rtptime = 88200
+//   SET_PARAMETER text/artwork:
+//              rtptime = 88200
+//   SET_PARAMETER progress:
+//              progress = 72840/~88200/[len]
 static inline void
 timestamp_set(struct raop_master_session *rms, struct timespec ts)
 {

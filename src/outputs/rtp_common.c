@@ -274,10 +274,10 @@ rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stam
   rtptime = htobe32(session->pos);
   memcpy(session->sync_packet_next.data + 16, &rtptime, 4);
 
-/*  DPRINTF(E_DBG, L_PLAYER, "SYNC PACKET cur_ts:%ld.%ld, next_pkt:%u, cur_pos:%u, type:0x%x, sync_counter:%d\n",
-    cur_stamp->ts.tv_sec, cur_stamp->ts.tv_nsec,
+/*  DPRINTF(E_DBG, L_PLAYER, "SYNC PACKET cur_ts:%ld.%ld, cur_pos:%u, rtptime:%u, type:0x%x, sync_counter:%d\n",
+    cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec,
+    cur_stamp.pos,
     session->pos,
-    cur_stamp->pos,
     session->sync_packet_next.data[0],
     session->sync_counter
     );
