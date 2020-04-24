@@ -4,7 +4,9 @@ import store from '@/store'
 axios.interceptors.response.use(function (response) {
   return response
 }, function (error) {
-  store.dispatch('add_notification', { text: 'Request failed (status: ' + error.request.status + ' ' + error.request.statusText + ', url: ' + error.request.responseURL + ')', type: 'danger' })
+  if (error.request.status && error.request.responseURL) {
+    store.dispatch('add_notification', { text: 'Request failed (status: ' + error.request.status + ' ' + error.request.statusText + ', url: ' + error.request.responseURL + ')', type: 'danger' })
+  }
   return Promise.reject(error)
 })
 
