@@ -6,7 +6,7 @@
   "author": "chme <christian.meffert@googlemail.com>",
   "scripts": {
     "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build --no-clean",
+    "build": "vue-cli-service build --no-clean --modern",
     "lint": "vue-cli-service lint",
     "dev": "vue-cli-service serve"
   },
