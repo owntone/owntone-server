@@ -385,6 +385,9 @@ mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const 
       mfi->title = strdup(ri->title);
     }
 
+  free(mfi->virtual_path);
+  mfi->virtual_path = safe_asprintf("/rss:/%s/%s/%s", feed_author, feed_title, mfi->title);
+
   // Remove, some can be very verbose
   free(mfi->comment);
   mfi->comment = NULL;
@@ -428,6 +431,9 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
 
   free(pli->title);
   pli->title = safe_strdup(feed_title);
+
+  free(pli->virtual_path);
+  pli->virtual_path = safe_asprintf("/rss:/%s/%s", feed_author, feed_title);
 
   // Fake the time - useful when we are adding a new stream - since the
   // newest podcasts are added first (the stream is most recent first)
