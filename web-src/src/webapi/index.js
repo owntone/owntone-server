@@ -284,7 +284,7 @@ export default {
   library_podcast_episodes (albumId) {
     var episodesParams = {
       type: 'tracks',
-      expression: 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY time_added DESC'
+      expression: 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY date_released DESC'
     }
     return axios.get('/api/search', {
       params: episodesParams
