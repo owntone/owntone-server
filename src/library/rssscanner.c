@@ -429,6 +429,9 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
   free(pli->title);
   pli->title = safe_strdup(feed_title);
 
+  free(pli->virtual_path);
+  pli->virtual_path = safe_asprintf("/%s", pli->path);
+
   // Fake the time - useful when we are adding a new stream - since the
   // newest podcasts are added first (the stream is most recent first)
   // having time_added date which is older on the most recent episodes
