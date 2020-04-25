@@ -236,7 +236,7 @@ static struct artwork_source artwork_item_source[] =
     {
       .name = "embedded",
       .handler = source_item_embedded_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
+      .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_HTTP),
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
@@ -292,13 +292,6 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_discogs_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
       .cache = STASH,
-    },
-    {
-      // Low priority because it can be slow - mainly used for remote Podcasts
-      .name = "embedded http",
-      .handler = source_item_embedded_get,
-      .data_kinds = (1 << DATA_KIND_HTTP),
-      .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       // The Cover Art Archive seems rather slow, so low priority
