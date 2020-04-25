@@ -393,7 +393,6 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 	return -1;
 
       av_dict_set(&options, "icy", "1", 0);
-      mfi->artwork = ARTWORK_HTTP;
     }
 
   ret = avformat_open_input(&ctx, path, NULL, &options);

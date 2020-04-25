@@ -61,11 +61,6 @@ enum query_type {
 #define ARTWORK_UNKNOWN   0
 #define ARTWORK_NONE      1
 #define ARTWORK_EMBEDDED  2
-#define ARTWORK_OWN       3
-#define ARTWORK_DIR       4
-#define ARTWORK_PARENTDIR 5
-#define ARTWORK_SPOTIFY   6
-#define ARTWORK_HTTP      7
 
 #define DB_ADMIN_SCHEMA_VERSION_MAJOR "schema_version_major"
 #define DB_ADMIN_SCHEMA_VERSION_MINOR "schema_version_minor"

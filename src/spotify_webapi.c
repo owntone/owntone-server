@@ -1357,7 +1357,6 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
 
   mfi->data_kind   = DATA_KIND_SPOTIFY;
   mfi->media_kind  = MEDIA_KIND_MUSIC;
-  mfi->artwork     = ARTWORK_SPOTIFY;
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
   mfi->description = strdup("Spotify audio");
