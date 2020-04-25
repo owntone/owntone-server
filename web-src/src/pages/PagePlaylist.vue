@@ -52,7 +52,7 @@ const playlistData = {
 
 export default {
   name: 'PagePlaylist',
-  mixins: [ LoadDataBeforeEnterMixin(playlistData) ],
+  mixins: [LoadDataBeforeEnterMixin(playlistData)],
   components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, ModalDialogPlaylist },
 
   data () {

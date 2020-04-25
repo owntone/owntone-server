@@ -12,7 +12,7 @@
 <script>
 export default {
   name: 'ListItemGenre',
-  props: [ 'genre' ]
+  props: ['genre']
 }
 </script>
 

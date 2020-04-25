@@ -32,6 +32,7 @@ import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum'
 import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist'
 import SpotifyPageSearch from '@/pages/SpotifyPageSearch'
 import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface'
+import SettingsPageArtwork from '@/pages/SettingsPageArtwork'
 import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices'
 import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs'
 
@@ -226,6 +227,11 @@ export const router = new VueRouter({
       component: SettingsPageWebinterface
     },
     {
+      path: '/settings/artwork',
+      name: 'Settings Artwork',
+      component: SettingsPageArtwork
+    },
+    {
       path: '/settings/online-services',
       name: 'Settings Online Services',
       component: SettingsPageOnlineServices
@@ -269,9 +275,15 @@ export const router = new VueRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  const burgerMenuVisible = store.state.show_burger_menu
-  if (burgerMenuVisible) {
+  if (store.state.show_burger_menu) {
     store.commit(types.SHOW_BURGER_MENU, false)
+    next(false)
+    return
   }
-  next(!burgerMenuVisible)
+  if (store.state.show_player_menu) {
+    store.commit(types.SHOW_PLAYER_MENU, false)
+    next(false)
+    return
+  }
+  next(true)
 })

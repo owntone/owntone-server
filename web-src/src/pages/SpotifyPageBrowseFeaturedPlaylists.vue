@@ -50,7 +50,7 @@ const browseData = {
 
 export default {
   name: 'SpotifyPageBrowseFeaturedPlaylists',
-  mixins: [ LoadDataBeforeEnterMixin(browseData) ],
+  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, SpotifyListItemPlaylist, SpotifyModalDialogPlaylist },
 
   data () {

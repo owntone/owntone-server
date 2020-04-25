@@ -19,11 +19,10 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists.items"
+        <list-item-artist v-for="artist in artists_filtered"
           :key="artist.id"
           :artist="artist"
-          @click="open_artist(artist)"
-          v-if="!hide_singles || artist.track_count > (artist.album_count * 2)">
+          @click="open_artist(artist)">
             <template slot="actions">
               <a @click="open_dialog(artist)">
                 <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -58,7 +57,7 @@ const artistsData = {
 
 export default {
   name: 'PageArtists',
-  mixins: [ LoadDataBeforeEnterMixin(artistsData) ],
+  mixins: [LoadDataBeforeEnterMixin(artistsData)],
   components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist, ModalDialogArtist },
 
   data () {
@@ -79,6 +78,10 @@ export default {
       return [...new Set(this.artists.items
         .filter(artist => !this.$store.state.hide_singles || artist.track_count > (artist.album_count * 2))
         .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
+    },
+
+    artists_filtered () {
+      return this.artists.items.filter(artist => !this.hide_singles || artist.track_count > (artist.album_count * 2))
     }
   },
 

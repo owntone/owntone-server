@@ -13,6 +13,9 @@
                     <i class="mdi mdi-magnify"></i>
                   </span>
                 </p>
+                <p class="help has-text-centered">Tip: you can search by a smart playlist query language <a href="https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md" target="_blank">expression</a> if you prefix it
+                  with <code>query:</code>.
+                </p>
               </div>
             </form>
             <div class="tags" style="margin-top: 16px;">
@@ -148,6 +151,7 @@ export default {
   data () {
     return {
       search_query: '',
+
       tracks: { items: [], total: 0 },
       artists: { items: [], total: 0 },
       albums: { items: [], total: 0 },
@@ -210,9 +214,14 @@ export default {
       }
 
       var searchParams = {
-        'type': route.query.type,
-        'query': route.query.query,
-        'media_kind': 'music'
+        type: route.query.type,
+        media_kind: 'music'
+      }
+
+      if (route.query.query.startsWith('query:')) {
+        searchParams.expression = route.query.query.replace(/^query:/, '').trim()
+      } else {
+        searchParams.query = route.query.query
       }
 
       if (route.query.limit) {
@@ -226,7 +235,7 @@ export default {
         this.albums = data.albums ? data.albums : { items: [], total: 0 }
         this.playlists = data.playlists ? data.playlists : { items: [], total: 0 }
 
-        this.$store.commit(types.ADD_RECENT_SEARCH, searchParams.query)
+        this.$store.commit(types.ADD_RECENT_SEARCH, route.query.query)
       })
     },
 
@@ -235,7 +244,8 @@ export default {
         return
       }
 
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'track,artist,album,playlist',
           query: this.search_query,
@@ -247,7 +257,8 @@ export default {
     },
 
     open_search_tracks: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'track',
           query: this.$route.query.query
@@ -256,7 +267,8 @@ export default {
     },
 
     open_search_artists: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'artist',
           query: this.$route.query.query
@@ -265,7 +277,8 @@ export default {
     },
 
     open_search_albums: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'album',
           query: this.$route.query.query
@@ -274,7 +287,8 @@ export default {
     },
 
     open_search_playlists: function () {
-      this.$router.push({ path: '/search/library',
+      this.$router.push({
+        path: '/search/library',
         query: {
           type: 'playlist',
           query: this.$route.query.query

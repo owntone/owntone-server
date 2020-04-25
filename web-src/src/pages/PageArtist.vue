@@ -52,7 +52,7 @@ const artistData = {
 
 export default {
   name: 'PageArtist',
-  mixins: [ LoadDataBeforeEnterMixin(artistData) ],
+  mixins: [LoadDataBeforeEnterMixin(artistData)],
   components: { ContentWithHeading, ListItemAlbum, ModalDialogAlbum, ModalDialogArtist },
 
   data () {

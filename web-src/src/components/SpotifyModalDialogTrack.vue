@@ -63,7 +63,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'SpotifyModalDialogTrack',
-  props: [ 'show', 'track', 'album' ],
+  props: ['show', 'track', 'album'],
 
   methods: {
     play: function () {

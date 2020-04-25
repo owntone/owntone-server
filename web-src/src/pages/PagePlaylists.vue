@@ -8,7 +8,7 @@
       <list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist" @click="open_playlist(playlist)">
         <template slot="icon">
           <span class="icon">
-            <i class="mdi" :class="{ 'mdi-library-music': playlist.type !== 'folder', 'mdi-folder': playlist.type === 'folder' }"></i>
+            <i class="mdi" :class="{ 'mdi-library-music': playlist.type !== 'folder', 'mdi-rss': playlist.type === 'rss', 'mdi-folder': playlist.type === 'folder' }"></i>
           </span>
         </template>
         <template slot="actions">
@@ -25,7 +25,6 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
 import ListItemPlaylist from '@/components/ListItemPlaylist'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
 import webapi from '@/webapi'
@@ -46,8 +45,8 @@ const playlistsData = {
 
 export default {
   name: 'PagePlaylists',
-  mixins: [ LoadDataBeforeEnterMixin(playlistsData) ],
-  components: { ContentWithHeading, TabsMusic, ListItemPlaylist, ModalDialogPlaylist },
+  mixins: [LoadDataBeforeEnterMixin(playlistsData)],
+  components: { ContentWithHeading, ListItemPlaylist, ModalDialogPlaylist },
 
   data () {
     return {

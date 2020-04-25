@@ -19,11 +19,10 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in albums.items"
+        <list-item-album v-for="album in albums_filtered"
           :key="album.id"
           :album="album"
-          @click="open_album(album)"
-          v-if="!hide_singles || album.track_count > 2">
+          @click="open_album(album)">
             <template slot="actions">
               <a @click="open_dialog(album)">
                 <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -61,7 +60,7 @@ const albumsData = {
 
 export default {
   name: 'PageAlbums',
-  mixins: [ LoadDataBeforeEnterMixin(albumsData) ],
+  mixins: [LoadDataBeforeEnterMixin(albumsData)],
   components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbum, ModalDialogAlbum },
 
   data () {
@@ -77,6 +76,10 @@ export default {
   computed: {
     hide_singles () {
       return this.$store.state.hide_singles
+    },
+
+    albums_filtered () {
+      return this.albums.items.filter(album => !this.hide_singles || album.track_count > 2)
     }
   },
 

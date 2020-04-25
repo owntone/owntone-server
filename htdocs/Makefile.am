@@ -100,7 +100,11 @@ dist_htdocsplayerjs_DATA = \
 	player/js/app.js \
 	player/js/app.js.map \
 	player/js/chunk-vendors.js \
-	player/js/chunk-vendors.js.map
+	player/js/chunk-vendors.js.map \
+	player/js/app-legacy.js \
+	player/js/app-legacy.js.map \
+	player/js/chunk-vendors-legacy.js \
+	player/js/chunk-vendors-legacy.js.map
 
 htdocsplayerimgdir = $(datadir)/forked-daapd/htdocs/player/img
 

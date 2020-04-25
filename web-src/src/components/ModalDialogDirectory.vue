@@ -34,7 +34,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogDirectory',
-  props: [ 'show', 'directory' ],
+  props: ['show', 'directory'],
 
   methods: {
     play: function () {

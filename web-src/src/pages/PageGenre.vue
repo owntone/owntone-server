@@ -36,7 +36,6 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListItemAlbums from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
@@ -56,8 +55,8 @@ const genreData = {
 
 export default {
   name: 'PageGenre',
-  mixins: [ LoadDataBeforeEnterMixin(genreData) ],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbums, ModalDialogAlbum, ModalDialogGenre },
+  mixins: [LoadDataBeforeEnterMixin(genreData)],
+  components: { ContentWithHeading, IndexButtonList, ListItemAlbums, ModalDialogAlbum, ModalDialogGenre },
 
   data () {
     return {

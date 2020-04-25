@@ -18,14 +18,6 @@
           </span>
           <span>Add Stream</span>
         </a>
-        <!--
-        <a class="button" :class="{ 'is-info': edit_mode }" @click="edit_mode = !edit_mode">
-          <span class="icon">
-            <i class="mdi mdi-content-save"></i>
-          </span>
-          <span>Save</span>
-        </a>
-        -->
         <a class="button is-small" :class="{ 'is-info': edit_mode }" @click="edit_mode = !edit_mode">
           <span class="icon">
             <i class="mdi mdi-pencil"></i>
@@ -150,7 +142,9 @@ export default {
     },
 
     save_dialog: function (item) {
-      this.show_pls_save_modal = true
+      if (this.queue_items.length > 0) {
+        this.show_pls_save_modal = true
+      }
     }
   }
 }

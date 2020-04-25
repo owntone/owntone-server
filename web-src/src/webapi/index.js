@@ -4,7 +4,9 @@ import store from '@/store'
 axios.interceptors.response.use(function (response) {
   return response
 }, function (error) {
-  store.dispatch('add_notification', { text: 'Request failed (status: ' + error.request.status + ' ' + error.request.statusText + ', url: ' + error.request.responseURL + ')', type: 'danger' })
+  if (error.request.status && error.request.responseURL) {
+    store.dispatch('add_notification', { text: 'Request failed (status: ' + error.request.status + ' ' + error.request.statusText + ', url: ' + error.request.responseURL + ')', type: 'danger' })
+  }
   return Promise.reject(error)
 })
 
@@ -96,7 +98,7 @@ export default {
   },
 
   queue_save_playlist (name) {
-    return axios.post('/api/queue/save', undefined, { params: { 'name': name } }).then((response) => {
+    return axios.post('/api/queue/save', undefined, { params: { name: name } }).then((response) => {
       store.dispatch('add_notification', { text: 'Queue saved to playlist "' + name + '"', type: 'info', timeout: 2000 })
       return Promise.resolve(response)
     })
@@ -178,8 +180,12 @@ export default {
     return axios.put('/api/player/volume?volume=' + outputVolume + '&output_id=' + outputId)
   },
 
-  player_seek (newPosition) {
+  player_seek_to_pos (newPosition) {
     return axios.put('/api/player/seek?position_ms=' + newPosition)
+  },
+
+  player_seek (seekMs) {
+    return axios.put('/api/player/seek?seek_ms=' + seekMs)
   },
 
   outputs () {
@@ -213,8 +219,14 @@ export default {
     return axios.get('/api/library/albums/' + albumId)
   },
 
-  library_album_tracks (albumId) {
-    return axios.get('/api/library/albums/' + albumId + '/tracks')
+  library_album_tracks (albumId, filter = { limit: -1, offset: 0 }) {
+    return axios.get('/api/library/albums/' + albumId + '/tracks', {
+      params: filter
+    })
+  },
+
+  library_album_track_update (albumId, attributes) {
+    return axios.put('/api/library/albums/' + albumId + '/tracks', undefined, { params: attributes })
   },
 
   library_genres () {
@@ -223,9 +235,9 @@ export default {
 
   library_genre (genre) {
     var genreParams = {
-      'type': 'albums',
-      'media_kind': 'music',
-      'expression': 'genre is "' + genre + '"'
+      type: 'albums',
+      media_kind: 'music',
+      expression: 'genre is "' + genre + '"'
     }
     return axios.get('/api/search', {
       params: genreParams
@@ -234,9 +246,9 @@ export default {
 
   library_genre_tracks (genre) {
     var genreParams = {
-      'type': 'tracks',
-      'media_kind': 'music',
-      'expression': 'genre is "' + genre + '"'
+      type: 'tracks',
+      media_kind: 'music',
+      expression: 'genre is "' + genre + '"'
     }
     return axios.get('/api/search', {
       params: genreParams
@@ -246,8 +258,8 @@ export default {
   library_artist_tracks (artist) {
     if (artist) {
       var artistParams = {
-        'type': 'tracks',
-        'expression': 'songartistid is "' + artist + '"'
+        type: 'tracks',
+        expression: 'songartistid is "' + artist + '"'
       }
       return axios.get('/api/search', {
         params: artistParams
@@ -261,8 +273,8 @@ export default {
 
   library_podcasts_new_episodes () {
     var episodesParams = {
-      'type': 'tracks',
-      'expression': 'media_kind is podcast and play_count = 0 ORDER BY time_added DESC'
+      type: 'tracks',
+      expression: 'media_kind is podcast and play_count = 0 ORDER BY time_added DESC'
     }
     return axios.get('/api/search', {
       params: episodesParams
@@ -271,12 +283,20 @@ export default {
 
   library_podcast_episodes (albumId) {
     var episodesParams = {
-      'type': 'tracks',
-      'expression': 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY time_added DESC'
+      type: 'tracks',
+      expression: 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY date_released DESC'
     }
     return axios.get('/api/search', {
       params: episodesParams
     })
+  },
+
+  library_add (url) {
+    return axios.post('/api/library/add', undefined, { params: { url: url } })
+  },
+
+  library_playlist_delete (playlistId) {
+    return axios.delete('/api/library/playlists/' + playlistId, undefined)
   },
 
   library_audiobooks () {
@@ -303,12 +323,16 @@ export default {
     return axios.get('/api/library/tracks/' + trackId)
   },
 
+  library_track_playlists (trackId) {
+    return axios.get('/api/library/tracks/' + trackId + '/playlists')
+  },
+
   library_track_update (trackId, attributes = {}) {
     return axios.put('/api/library/tracks/' + trackId, undefined, { params: attributes })
   },
 
   library_files (directory = undefined) {
-    var filesParams = { 'directory': directory }
+    var filesParams = { directory: directory }
     return axios.get('/api/library/files', {
       params: filesParams
     })

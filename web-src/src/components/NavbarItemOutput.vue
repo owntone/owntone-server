@@ -32,7 +32,7 @@ export default {
   name: 'NavbarItemOutput',
   components: { RangeSlider },
 
-  props: [ 'output' ],
+  props: ['output'],
 
   computed: {
     type_class () {
@@ -61,7 +61,7 @@ export default {
 
     set_enabled: function () {
       const values = {
-        'selected': !this.output.selected
+        selected: !this.output.selected
       }
       webapi.output_update(this.output.id, values)
     }

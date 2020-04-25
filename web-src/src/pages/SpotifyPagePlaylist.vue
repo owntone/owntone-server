@@ -61,7 +61,7 @@ const playlistData = {
 
 export default {
   name: 'SpotifyPagePlaylist',
-  mixins: [ LoadDataBeforeEnterMixin(playlistData) ],
+  mixins: [LoadDataBeforeEnterMixin(playlistData)],
   components: { ContentWithHeading, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogPlaylist, InfiniteLoading },
 
   data () {
