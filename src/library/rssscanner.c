@@ -281,7 +281,7 @@ rss_xml_get(const char *url)
 }
 
 static int
-rss_xml_parse_feed(const char **feed_title, const char **feed_author, mxml_node_t *xml)
+rss_xml_parse_feed(const char **feed_title, const char **feed_author, const char **feed_artwork, mxml_node_t *xml)
 {
   mxml_node_t *channel;
   mxml_node_t *node;
@@ -303,6 +303,14 @@ rss_xml_parse_feed(const char **feed_title, const char **feed_author, mxml_node_
 
   node = mxmlFindElement(channel, channel, "itunes:author", NULL, NULL, MXML_DESCEND_FIRST);
   *feed_author = node ? mxmlGetOpaque(node) : NULL;
+
+  *feed_artwork = NULL;
+  node = mxmlFindElement(channel, channel, "image", NULL, NULL, MXML_DESCEND_FIRST);
+  if (node)
+    {
+      node = mxmlFindElement(node, node, "url", NULL, NULL, MXML_DESCEND_FIRST);
+      *feed_artwork = node ? mxmlGetOpaque(node) : NULL;
+    }
 
   return 0;
 }
@@ -405,6 +413,7 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
   mxml_node_t *xml;
   const char *feed_title;
   const char *feed_author;
+  const char *feed_artwork;
   struct media_file_info mfi = { 0 };
   struct rss_item_info ri;
   uint32_t time_added;
@@ -418,7 +427,7 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
       return -1;
     }
 
-  ret = rss_xml_parse_feed(&feed_title, &feed_author, xml);
+  ret = rss_xml_parse_feed(&feed_title, &feed_author, &feed_artwork, xml);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_LIB, "Invalid RSS/xml received from '%s' (id %d)\n", pli->path, pli->id);
@@ -428,6 +437,9 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
 
   free(pli->title);
   pli->title = safe_strdup(feed_title);
+
+  free(pli->artwork_url);
+  pli->artwork_url = safe_strdup(feed_artwork);
 
   free(pli->virtual_path);
   pli->virtual_path = safe_asprintf("/%s", pli->path);
