@@ -1743,8 +1743,19 @@ source_item_ownpl_get(struct artwork_ctx *ctx)
       if (!dbpli.path)
 	continue;
 
-      ctx->dbmfi->path = dbpli.path;
-      format = source_item_own_get(ctx);
+      if (dbpli.artwork_url)
+	{
+	  format = artwork_get_byurl(ctx->evbuf, dbpli.artwork_url, ctx->max_w, ctx->max_h);
+	  if (format > 0)
+	    break;
+	}
+
+      // Only handle non-remote paths with source_item_own_get()
+      if (dbpli.path && dbpli.path[0] == '/')
+	{
+	  ctx->dbmfi->path = dbpli.path;
+	  format = source_item_own_get(ctx);
+	}
     }
 
   ctx->dbmfi->path = mfi_path;
