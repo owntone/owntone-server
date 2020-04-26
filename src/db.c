@@ -240,6 +240,7 @@ static const struct col_type_map pli_cols_map[] =
     { "query_order",        pli_offsetof(query_order),        DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
     { "query_limit",        pli_offsetof(query_limit),        DB_TYPE_INT },
     { "media_kind",         pli_offsetof(media_kind),         DB_TYPE_INT,    DB_FIXUP_MEDIA_KIND },
+    { "artwork_url",        pli_offsetof(artwork_url),        DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
 
     // Not in the database, but returned via the query's COUNT()/SUM()
     { "items",              pli_offsetof(items),              DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_BIND },
@@ -376,6 +377,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(query_order),
     dbpli_offsetof(query_limit),
     dbpli_offsetof(media_kind),
+    dbpli_offsetof(artwork_url),
 
     dbpli_offsetof(items),
     dbpli_offsetof(streams),
@@ -673,6 +675,7 @@ free_pli(struct playlist_info *pli, int content_only)
   free(pli->path);
   free(pli->virtual_path);
   free(pli->query_order);
+  free(pli->artwork_url);
 
   if (!content_only)
     free(pli);
