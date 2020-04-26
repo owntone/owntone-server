@@ -1048,6 +1048,17 @@ static const struct db_upgrade_query db_upgrade_v2103_queries[] =
     { U_V2103_SCVER_MINOR,    "set schema_version_minor to 03" },
   };
 
+#define U_v2104_ALTER_PLAYLISTS_ADD_ARTWORK_URL \
+  "ALTER TABLE playlists ADD COLUMN artwork_url VARCHAR(4096) DEFAULT NULL;"
+#define U_v2104_SCVER_MINOR                    \
+  "UPDATE admin SET value = '04' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2104_queries[] =
+  {
+    { U_v2104_ALTER_PLAYLISTS_ADD_ARTWORK_URL, "alter table playlists add column artwork_url" },
+
+    { U_v2104_SCVER_MINOR,    "set schema_version_minor to 04" },
+  };
 
 
 int
@@ -1215,6 +1226,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2102:
       ret = db_generic_upgrade(hdl, db_upgrade_v2103_queries, ARRAY_SIZE(db_upgrade_v2103_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2103:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2104_queries, ARRAY_SIZE(db_upgrade_v2104_queries));
       if (ret < 0)
 	return -1;
       break;
