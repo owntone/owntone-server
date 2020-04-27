@@ -1666,6 +1666,8 @@ pb_session_pause(void)
 {
   pb_timer_stop();
 
+  seek_save();
+
   source_stop();
 }
 
@@ -1674,6 +1676,8 @@ static void
 pb_session_stop(void)
 {
   pb_timer_stop();
+
+  seek_save();
 
   source_stop();
 
@@ -2346,8 +2350,6 @@ playback_pause_bh(void *arg, int *retval)
     }
 
   status_update(PLAY_PAUSED);
-
-  seek_save();
 
   *retval = 0;
   return COMMAND_END;
