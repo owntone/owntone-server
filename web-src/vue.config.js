@@ -10,6 +10,9 @@ module.exports = {
 
   assetsDir: 'player',
 
+  // Relative public path 
+  publicPath: './',
+
   // Do not add hashes to the generated js/css filenames, would otherwise
   // require to adjust the Makefile in htdocs each time the web interface is
   // build

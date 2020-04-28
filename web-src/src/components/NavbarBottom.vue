@@ -81,7 +81,7 @@
                 </div>
                 <div class="level-item fd-expanded">
                   <div class="fd-expanded">
-                    <p class="heading" :class="{ 'has-text-grey-light': !playing }">HTTP stream <a href="/stream.mp3"><span class="is-lowercase">(stream.mp3)</span></a></p>
+                    <p class="heading" :class="{ 'has-text-grey-light': !playing }">HTTP stream <a href="stream.mp3"><span class="is-lowercase">(stream.mp3)</span></a></p>
                     <range-slider
                       class="slider fd-has-action"
                       min="0"
@@ -174,7 +174,7 @@
               </div>
               <div class="level-item fd-expanded">
                 <div class="fd-expanded">
-                  <p class="heading" :class="{ 'has-text-grey-light': !playing }">HTTP stream <a href="/stream.mp3"><span class="is-lowercase">(stream.mp3)</span></a></p>
+                  <p class="heading" :class="{ 'has-text-grey-light': !playing }">HTTP stream <a href="stream.mp3"><span class="is-lowercase">(stream.mp3)</span></a></p>
                   <range-slider
                     class="slider fd-has-action"
                     min="0"

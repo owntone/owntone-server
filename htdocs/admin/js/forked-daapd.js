@@ -35,43 +35,43 @@ var app = new Vue({
 
   methods: {
     loadConfig: function() {
-      axios.get('/api/config').then(response => {
+      axios.get('./api/config').then(response => {
         this.config = response.data;
         this.connect()});
     },
 
     loadLibrary: function() {
-      axios.get('/api/library').then(response => this.library = response.data);
+      axios.get('./api/library').then(response => this.library = response.data);
     },
 
     loadOutputs: function() {
-      axios.get('/api/outputs').then(response => this.outputs = response.data.outputs);
+      axios.get('./api/outputs').then(response => this.outputs = response.data.outputs);
     },
 
     loadSpotify: function() {
-      axios.get('/api/spotify').then(response => this.spotify = response.data);
+      axios.get('./api/spotify').then(response => this.spotify = response.data);
     },
 
     loadPairing: function() {
-      axios.get('/api/pairing').then(response => this.pairing = response.data);
+      axios.get('./api/pairing').then(response => this.pairing = response.data);
     },
 
     loadLastfm: function() {
-      axios.get('/api/lastfm').then(response => this.lastfm = response.data);
+      axios.get('./api/lastfm').then(response => this.lastfm = response.data);
     },
 
     update: function() {
       this.library.updating = true;
-      axios.put('/api/update').then(console.log('Library is updating'));
+      axios.put('./api/update').then(console.log('Library is updating'));
     },
 
     update_meta: function() {
       this.library.updating = true;
-      axios.put('/api/rescan').then(console.log('Library is rescanning meta'));
+      axios.put('./api/rescan').then(console.log('Library is rescanning meta'));
     },
 
     kickoffPairing: function() {
-      axios.post('/api/pairing', this.pairing_req).then(response => {
+      axios.post('./api/pairing', this.pairing_req).then(response => {
         console.log('Kicked off pairing');
         if (!this.config.websocket_port) {
           this.pairing = {};
@@ -80,7 +80,7 @@ var app = new Vue({
     },
 
     kickoffVerification: function() {
-      axios.post('/api/verification', this.verification_req).then(response => {
+      axios.post('./api/verification', this.verification_req).then(response => {
         console.log('Kicked off verification');
         this.verification_req.pin = '';
       });
@@ -94,7 +94,7 @@ var app = new Vue({
         }
       }
 
-      axios.put('/api/outputs/set', { outputs: selected_outputs }).then(response => {
+      axios.put('./api/outputs/set', { outputs: selected_outputs }).then(response => {
         if (!this.config.websocket_port) {
           this.loadOutputs();
         }
@@ -102,7 +102,7 @@ var app = new Vue({
     },
 
     loginLibspotify: function() {
-      axios.post('/api/spotify-login', this.libspotify).then(response => {
+      axios.post('./api/spotify-login', this.libspotify).then(response => {
         this.libspotify.user = '';
         this.libspotify.password = '';
         this.libspotify.errors.user = '';
@@ -117,7 +117,7 @@ var app = new Vue({
     },
 
     loginLastfm: function() {
-      axios.post('/api/lastfm-login', this.lastfm_login).then(response => {
+      axios.post('./api/lastfm-login', this.lastfm_login).then(response => {
         this.lastfm_login.user = '';
         this.lastfm_login.password = '';
         this.lastfm_login.errors.user = '';
@@ -132,7 +132,7 @@ var app = new Vue({
     },
 
     logoutLastfm: function() {
-      axios.get('/api/lastfm-logout', this.lastfm_login).then(response => {
+      axios.get('./api/lastfm-logout', this.lastfm_login).then(response => {
         if (!this.config.websocket_port) {
           this.loadLastfm();
         }
