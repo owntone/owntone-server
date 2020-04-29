@@ -808,7 +808,17 @@ rsp_stream(struct httpd_request *hreq)
   return 0;
 }
 
-
+// Sample RSP requests:
+//  /rsp/info
+//  /rsp/db
+//  /rsp/db/13?type=id
+//  /rsp/db/0/artist?type=browse
+//  /rsp/db/0/album?query=artist%3D%22Sting%22&type=browse
+//  /rsp/db/0?query=artist%3D%22Sting%22%20and%20album%3D%22...All%20This%20Time%22&type=browse
+//  /rsp/db/0?query=id%3D36364&type=full
+//  /rsp/stream/36364
+//  /rsp/db/0?query=id%3D36365&type=full
+//  /rsp/stream/36365
 static struct httpd_uri_map rsp_handlers[] =
   {
     {
