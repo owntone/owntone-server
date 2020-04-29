@@ -71,9 +71,9 @@
 // Max number of bytes to read from a pipe at a time
 #define PIPE_READ_MAX 65536
 // Max number of bytes to buffer from metadata pipes
-#define PIPE_METADATA_BUFLEN_MAX 262144
+#define PIPE_METADATA_BUFLEN_MAX 1048576
 // Ignore pictures with larger size than this
-#define PIPE_PICTURE_SIZE_MAX 262144
+#define PIPE_PICTURE_SIZE_MAX 1048576
 // Where we store pictures for the artwork module to read
 #define PIPE_TMPFILE_TEMPLATE "/tmp/forked-daapd.XXXXXX.ext"
 #define PIPE_TMPFILE_TEMPLATE_EXTLEN 4
@@ -751,6 +751,7 @@ pipe_metadata_watch_del(void *arg)
 static void
 pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
 {
+  size_t len;
   int ret;
 
   ret = evbuffer_read(pipe_metadata.evbuf, pipe_metadata.pipe->fd, PIPE_READ_MAX);
@@ -769,11 +770,12 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
       goto readd;
     }
 
-  if (evbuffer_get_length(pipe_metadata.evbuf) > PIPE_METADATA_BUFLEN_MAX)
+  len = evbuffer_get_length(pipe_metadata.evbuf);
+  if (len > PIPE_METADATA_BUFLEN_MAX)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Can't process data from metadata pipe, reading will stop\n");
-      pipe_metadata_watch_del(NULL);
-      return;
+      DPRINTF(E_LOG, L_PLAYER, "Buffer for metadata pipe '%s' is full, discarding %zu bytes\n", pipe_metadata.pipe->path, len);
+      evbuffer_drain(pipe_metadata.evbuf, len);
+      goto readd;
     }
 
   ret = pipe_metadata_handle(&pipe_metadata.parsed, pipe_metadata.evbuf);
