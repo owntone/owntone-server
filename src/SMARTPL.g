@@ -99,6 +99,7 @@ INTTAG		:	'play_count'
 			|	'bitrate'
 			|	'bits_per_sample'
 			|	'samplerate'
+			|	'song_length'
 			;
 
 DATETAG		:	'time_added'
