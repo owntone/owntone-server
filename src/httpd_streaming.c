@@ -49,45 +49,95 @@ extern struct event_base *evbase_httpd;
 // How many bytes we try to read at a time from the httpd pipe
 #define STREAMING_READ_SIZE STOB(352, 16, 2)
 
+#define STREAMING_SESSIONS_MAX 10
+
 #define STREAMING_MP3_SAMPLE_RATE 44100
 #define STREAMING_MP3_BPS         16
 #define STREAMING_MP3_CHANNELS    2
 #define STREAMING_MP3_BIT_RATE    192000
 
+#define STREAMING_ICY_METALEN_MAX      4080  // 255*16 incl header/footer (16bytes)
+#define STREAMING_ICY_METATITLELEN_MAX 4064  // STREAMING_ICY_METALEN_MAX -16 (not incl header/footer)
 
-// Linked list of mp3 streaming requests
+
+struct streaming_ctx;  // Fwd decl
+
+// Linked list of streaming requests
 struct streaming_session {
   struct evhttp_request *req;
   struct streaming_session *next;
 
   bool     require_icy; // Client requested icy meta
   size_t   bytes_sent;  // Audio bytes sent since last metablock
-};
-static pthread_mutex_t streaming_sessions_lck;
-static struct streaming_session *streaming_sessions;
 
-// Means we're not able to encode to mp3
-static bool streaming_not_supported;
+  struct streaming_ctx *ctx;  // what ctx does this session belong
+};
+
+// Context representing a supported output (ie mp3, wav441, wav48)
+// Each context maintains a list of subscribed sessions/clients (sessions), IPC
+// data structures for receiving notifications from the player (audio packets,
+// event changes (via pipes) and buffers for any icy metadata for clients and
+// the encoded output audio stream
+struct streaming_ctx
+{
+  const char *name;
+  const char *endpoint;
+  const char *mime;
+
+  const enum transcode_profile xcode;
+
+  pthread_mutex_t sessions_lck;
+  struct streaming_session *sessions;
+  unsigned available_sessions;
+  bool not_supported;
+
+  unsigned icy_clients;
+
+  // Input buffer, utput buffer and encoding ctx for transcode
+  struct encode_ctx *encode_ctx;
+  struct evbuffer *encoded_data;
+  struct media_quality quality_in;
+  struct media_quality quality_out;
+
+  // Used for pushing events and data from the player
+  struct event *streamingev;
+  struct event *metaev;
+
+  pthread_mutex_t player_lck;
+  struct player_status streaming_player_status;
+  int player_changed;
+
+  int streaming_pipe[2];
+  int streaming_meta[2];
+
+  char icy_title[STREAMING_ICY_METATITLELEN_MAX];
+};
+
+static struct streaming_ctx streaming_ctxs[] = {
+  {
+    .name = "MP3",
+    .endpoint = "/stream.mp3",
+    .mime = "audio/mpeg",
+    .xcode = XCODE_MP3,
+    .sessions = NULL,
+    .available_sessions = STREAMING_SESSIONS_MAX,
+    .not_supported = 0,
+    .icy_clients = 0,
+    .encode_ctx = NULL,
+    .encoded_data = NULL,
+    .quality_out = { STREAMING_MP3_SAMPLE_RATE, STREAMING_MP3_BPS, STREAMING_MP3_CHANNELS, STREAMING_MP3_BIT_RATE },
+    .streamingev = NULL,
+    .metaev = NULL,
+    .player_changed = 0,
+    .icy_title[0] = '\0'
+  },
+  {
+    .name = NULL
+  }
+};
 
 // Interval for sending silence when playback is paused
-static struct timeval streaming_silence_tv = { STREAMING_SILENCE_INTERVAL, 0 };
-
-// Input buffer, output buffer and encoding ctx for transcode
-static struct encode_ctx *streaming_encode_ctx;
-static struct evbuffer *streaming_encoded_data;
-static struct media_quality streaming_quality_in;
-static struct media_quality streaming_quality_out = { STREAMING_MP3_SAMPLE_RATE, STREAMING_MP3_BPS, STREAMING_MP3_CHANNELS, STREAMING_MP3_BIT_RATE };
-
-// Used for pushing events and data from the player
-static struct event *streamingev;
-static struct event *metaev;
-static struct player_status streaming_player_status;
-static int streaming_player_changed;
-static int streaming_pipe[2];
-static int streaming_meta[2];
-
-#define STREAMING_ICY_METALEN_MAX      4080  // 255*16 incl header/footer (16bytes)
-#define STREAMING_ICY_METATITLELEN_MAX 4064  // STREAMING_ICY_METALEN_MAX -16 (not incl header/footer)
+static const struct timeval streaming_silence_tv = { STREAMING_SILENCE_INTERVAL, 0 };
 
 /* As streaming quality goes up, we send more data to the remote client.  With a
  * smaller ICY_METAINT value we have to splice metadata more frequently - on 
@@ -96,35 +146,35 @@ static int streaming_meta[2];
  */
 #define STREAMING_ICY_METAINT_DEFAULT  16384
 static unsigned short streaming_icy_metaint = STREAMING_ICY_METAINT_DEFAULT;
-static unsigned streaming_icy_clients;
-static char streaming_icy_title[STREAMING_ICY_METATITLELEN_MAX];
 
 
 static void
 streaming_close_cb(struct evhttp_connection *evcon, void *arg)
 {
+  struct streaming_ctx *ctx = ((struct streaming_session*)arg)->ctx;
+
   struct streaming_session *this;
   struct streaming_session *session;
   struct streaming_session *prev;
   char *address;
   ev_uint16_t port;
 
-  this = (struct streaming_session *)arg;
+  this = ctx->sessions;
 
   evhttp_connection_get_peer(evcon, &address, &port);
-  DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Stopping %s streaming to %s:%d\n", ctx->name, address, (int)port);
 
-  pthread_mutex_lock(&streaming_sessions_lck);
-  if (!streaming_sessions)
+  pthread_mutex_lock(&ctx->sessions_lck);
+  if (!ctx->sessions)
     {
       // This close comes during deinit() - we don't free `this` since it is
       // already a dangling ptr (free'd in deinit()) at this stage
-      pthread_mutex_unlock(&streaming_sessions_lck);
+      pthread_mutex_unlock(&ctx->sessions_lck);
       return;
     }
 
   prev = NULL;
-  for (session = streaming_sessions; session; session = session->next)
+  for (session = ctx->sessions; session; session = session->next)
     {
       if (session->req == this->req)
 	break;
@@ -136,70 +186,74 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
     {
       DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream (%s:%d)\n", address, (int)port);
       free(this);
-      pthread_mutex_unlock(&streaming_sessions_lck);
+      pthread_mutex_unlock(&ctx->sessions_lck);
       return;
     }
 
   if (!prev)
-    streaming_sessions = session->next;
+    ctx->sessions = session->next;
   else
     prev->next = session->next;
 
+  ++(ctx->available_sessions);
   if (session->require_icy)
-    --streaming_icy_clients;
+    --(ctx->icy_clients);
 
   // Valgrind says libevent doesn't free the request on disconnect (even though it owns it - libevent bug?),
   // so we do it with a reply end
   evhttp_send_reply_end(session->req);
   free(session);
 
-  if (!streaming_sessions)
+  if (!ctx->sessions)
     {
-      DPRINTF(E_INFO, L_STREAMING, "No more clients, will stop streaming\n");
-      event_del(streamingev);
-      event_del(metaev);
+      DPRINTF(E_INFO, L_STREAMING, "%s: No more clients, will stop streaming\n", ctx->name);
+      event_del(ctx->streamingev);
+      event_del(ctx->metaev);
     }
 
-  pthread_mutex_unlock(&streaming_sessions_lck);
+  pthread_mutex_unlock(&ctx->sessions_lck);
 }
 
 static void
-streaming_end(void)
+streaming_end(struct streaming_ctx *ctx)
 {
   struct streaming_session *session;
   struct evhttp_connection *evcon;
   char *address;
   ev_uint16_t port;
 
-  pthread_mutex_lock(&streaming_sessions_lck);
-  for (session = streaming_sessions; streaming_sessions; session = streaming_sessions)
+  pthread_mutex_lock(&ctx->sessions_lck);
+  for (session = ctx->sessions; ctx->sessions; session = ctx->sessions)
     {
       evcon = evhttp_request_get_connection(session->req);
       if (evcon)
 	{
 	  evhttp_connection_set_closecb(evcon, NULL, NULL);
 	  evhttp_connection_get_peer(evcon, &address, &port);
-	  DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", address, (int)port);
+	  DPRINTF(E_INFO, L_STREAMING, "Force close %s stream to %s:%d\n", ctx->name, address, (int)port);
 	}
       evhttp_send_reply_end(session->req);
 
-      streaming_sessions = session->next;
+      ctx->sessions = session->next;
+      ++(ctx->available_sessions);
       free(session);
     }
-  pthread_mutex_unlock(&streaming_sessions_lck);
+  pthread_mutex_unlock(&ctx->sessions_lck);
 
-  event_del(streamingev);
-  event_del(metaev);
+  event_del(ctx->streamingev);
+  event_del(ctx->metaev);
 }
 
 static void
 streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
 {
+  struct streaming_ctx *ctx = arg;
+
   struct media_quality quality;
   struct decode_ctx *decode_ctx;
   int ret;
 
-  transcode_encode_cleanup(&streaming_encode_ctx);
+  transcode_encode_cleanup(&ctx->encode_ctx);
 
   ret = read(fd, &quality, sizeof(struct media_quality));
   if (ret != sizeof(struct media_quality))
@@ -216,56 +270,56 @@ streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
   if (!decode_ctx)
     goto error;
 
-  streaming_encode_ctx = transcode_encode_setup(XCODE_MP3, &streaming_quality_out, decode_ctx, NULL, 0, 0);
+  ctx->encode_ctx = transcode_encode_setup(ctx->xcode, &ctx->quality_out, decode_ctx, NULL, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
-  if (!streaming_encode_ctx)
+  if (!ctx->encode_ctx)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream MP3, libav does not support MP3 encoding: %d/%d/%d @ %d\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate);
-      streaming_not_supported = 1;
-      streaming_end();
+      DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream %s, libav does not support encoding: %d/%d/%d @ %d\n", ctx->name, ctx->quality_out.sample_rate, ctx->quality_out.bits_per_sample, ctx->quality_out.channels, ctx->quality_out.bit_rate);
+      ctx->not_supported = 1;
+      streaming_end(ctx);
       return;
     }
 
-  streaming_quality_in = quality;
-  streaming_not_supported = 0;
+  ctx->quality_in = quality;
+  ctx->not_supported = 0;
 
   return;
 
  error:
-  DPRINTF(E_LOG, L_STREAMING, "Unknown or unsupported quality of input data (%d/%d/%d), cannot MP3 encode\n", quality.sample_rate, quality.bits_per_sample, quality.channels);
-  streaming_not_supported = 1;
-  streaming_end();
+  DPRINTF(E_LOG, L_STREAMING, "Unknown or unsupported quality of input data (%d/%d/%d), cannot %s encode\n", quality.sample_rate, quality.bits_per_sample, quality.channels, ctx->name);
+  ctx->not_supported = 1;
+  streaming_end(ctx);
 }
 
 static int
-encode_buffer(uint8_t *buffer, size_t size)
+encode_buffer(struct streaming_ctx *ctx, uint8_t *buffer, size_t size)
 {
   transcode_frame *frame;
   int samples;
   int ret;
 
-  if (streaming_not_supported)
+  if (ctx->not_supported)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Streaming unsupported\n");
+      DPRINTF(E_LOG, L_STREAMING, "Streaming %s unsupported\n", ctx->name);
       return -1;
     }
 
-  if (streaming_quality_in.channels == 0)
+  if (ctx->quality_in.channels == 0)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Streaming quality is zero (%d/%d/%d)\n", streaming_quality_in.sample_rate, streaming_quality_in.bits_per_sample, streaming_quality_in.channels);
+      DPRINTF(E_LOG, L_STREAMING, "Streaming %s quality is zero (%d/%d/%d)\n", ctx->name, ctx->quality_in.sample_rate, ctx->quality_in.bits_per_sample, ctx->quality_in.channels);
       return -1;
     }
 
-  samples = BTOS(size, streaming_quality_in.bits_per_sample, streaming_quality_in.channels);
+  samples = BTOS(size, ctx->quality_in.bits_per_sample, ctx->quality_in.channels);
 
-  frame = transcode_frame_new(buffer, size, samples, &streaming_quality_in);
+  frame = transcode_frame_new(buffer, size, samples, &ctx->quality_in);
   if (!frame)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
+      DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame for %s stream\n", ctx->name);
       return -1;
     }
 
-  ret = transcode_encode(streaming_encoded_data, streaming_encode_ctx, frame, 0);
+  ret = transcode_encode(ctx->encoded_data, ctx->encode_ctx, frame, 0);
   transcode_frame_free(frame);
 
   return ret;
@@ -283,8 +337,8 @@ encode_buffer(uint8_t *buffer, size_t size)
 static uint8_t *
 streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *title, unsigned *buflen)
 {
-  unsigned titlelen;
-  unsigned metalen;
+  unsigned titlelen = 0;
+  unsigned metalen = 0;
   uint8_t no16s;
 
   *buflen = 0;
@@ -323,7 +377,7 @@ streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *
 }
 
 static uint8_t *
-streaming_icy_meta_splice(const uint8_t *data, size_t datalen, off_t offset, size_t *len)
+streaming_icy_meta_splice(const char *streaming_icy_title, const uint8_t *data, size_t datalen, off_t offset, size_t *len)
 {
   uint8_t  meta[STREAMING_ICY_METALEN_MAX+1];  // Buffer, of max sz, for the created icymeta
   unsigned metalen;     // How much of the buffer is in use
@@ -346,33 +400,35 @@ streaming_icy_meta_splice(const uint8_t *data, size_t datalen, off_t offset, siz
 }
 
 static void
-streaming_player_status_update(void)
+streaming_player_status_update(struct streaming_ctx *ctx)
 {
   struct db_queue_item *queue_item;
   uint32_t prev_id;
 
-  prev_id = streaming_player_status.id;
-  player_get_status(&streaming_player_status);
+  prev_id = ctx->streaming_player_status.id;
+  player_get_status(&ctx->streaming_player_status);
 
-  if (prev_id == streaming_player_status.id || !streaming_icy_clients)
+  if (prev_id == ctx->streaming_player_status.id || !ctx->icy_clients)
     {
       return;
     }
 
-  queue_item = db_queue_fetch_byfileid(streaming_player_status.id);
-  if (!queue_item)
+  queue_item = db_queue_fetch_byfileid(ctx->streaming_player_status.id);
+  if ( !queue_item)
     {
-      streaming_icy_title[0] = '\0';
+      ctx->icy_title[0] = '\0';
       return;
     }
 
-  snprintf(streaming_icy_title, sizeof(streaming_icy_title), "%s - %s", queue_item->title, queue_item->artist);
+  snprintf(ctx->icy_title, sizeof(ctx->icy_title), "%s - %s", queue_item->title, queue_item->artist);
   free_queue_item(queue_item, 0);
 }
 
 static void
 streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 {
+  struct streaming_ctx *ctx = arg;
+
   struct streaming_session *session;
   struct evbuffer *evbuf;
   uint8_t rawbuf[STREAMING_READ_SIZE];
@@ -393,13 +449,15 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	  if (ret <= 0)
 	    break;
 
-	  if (streaming_player_changed)
+	  pthread_mutex_lock(&ctx->player_lck);
+	  if (ctx->player_changed)
 	    {
-	      streaming_player_changed = 0;
-	      streaming_player_status_update();
+	      ctx->player_changed = 0;
+	      streaming_player_status_update(ctx);
 	    }
+	  pthread_mutex_unlock(&ctx->player_lck);
 
-	  ret = encode_buffer(rawbuf, ret);
+	  ret = encode_buffer(ctx, rawbuf, ret);
 	  if (ret < 0)
 	    return;
 	}
@@ -407,42 +465,44 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   // Event timed out, let's see what the player is doing and send silence if it is paused
   else
     {
-      if (streaming_player_changed)
+      pthread_mutex_lock(&ctx->player_lck);
+      if (ctx->player_changed)
 	{
-	  streaming_player_changed = 0;
-	  streaming_player_status_update();
+	  ctx->player_changed = 0;
+	  streaming_player_status_update(ctx);
 	}
+      pthread_mutex_unlock(&ctx->player_lck);
 
-      if (streaming_player_status.status != PLAY_PAUSED)
+      if (ctx->streaming_player_status.status != PLAY_PAUSED)
 	return;
 
       memset(&rawbuf, 0, sizeof(rawbuf));
-      ret = encode_buffer(rawbuf, sizeof(rawbuf));
+      ret = encode_buffer(ctx, rawbuf, sizeof(rawbuf));
       if (ret < 0)
 	return;
     }
 
-  len = evbuffer_get_length(streaming_encoded_data);
+  len = evbuffer_get_length(ctx->encoded_data);
   if (len == 0)
     return;
 
   // Send data
   evbuf = evbuffer_new();
-  pthread_mutex_lock(&streaming_sessions_lck);
-  for (session = streaming_sessions; session; session = session->next)
+  pthread_mutex_lock(&ctx->sessions_lck);
+  for (session = ctx->sessions; session; session = session->next)
     {
       // Does this session want ICY meta data and is it time to send?
       count = session->bytes_sent+len;
       if (session->require_icy && count > streaming_icy_metaint)
 	{
 	  overflow = count%streaming_icy_metaint;
-	  buf = evbuffer_pullup(streaming_encoded_data, -1);
+	  buf = evbuffer_pullup(ctx->encoded_data, -1);
 
 	  // DPRINTF(E_DBG, L_STREAMING, "session=%x sent=%ld len=%ld overflow=%ld\n", session, session->bytes_sent, len, overflow);
 
 	  // Splice the 'icy title' in with the encoded audio data
 	  splice_len = 0;
-	  splice_buf = streaming_icy_meta_splice(buf, len, len-overflow, &splice_len);
+	  splice_buf = streaming_icy_meta_splice(ctx->icy_title, buf, len, len-overflow, &splice_len);
 
 	  evbuffer_add(evbuf, splice_buf, splice_len);
 
@@ -454,7 +514,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	  if (session->next == NULL)
 	    {
 	      // We're the last session, drop the contents of the encoded buffer
-	      evbuffer_drain(streaming_encoded_data, len);
+	      evbuffer_drain(ctx->encoded_data, len);
 	    }
 	  session->bytes_sent = overflow;
 	}
@@ -462,18 +522,18 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	{
 	  if (session->next)
 	    {
-	      buf = evbuffer_pullup(streaming_encoded_data, -1);
+	      buf = evbuffer_pullup(ctx->encoded_data, -1);
 	      evbuffer_add(evbuf, buf, len);
 	      evhttp_send_reply_chunk(session->req, evbuf);
 	    }
 	  else
 	    {
-	      evhttp_send_reply_chunk(session->req, streaming_encoded_data);
+	      evhttp_send_reply_chunk(session->req, ctx->encoded_data);
 	    }
 	  session->bytes_sent += len;
 	}
     }
-  pthread_mutex_unlock(&streaming_sessions_lck);
+  pthread_mutex_unlock(&ctx->sessions_lck);
 
   evbuffer_free(evbuf);
 }
@@ -482,7 +542,24 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 static void
 player_change_cb(short event_mask)
 {
-  streaming_player_changed = 1;
+  struct streaming_ctx *ctx = streaming_ctxs;
+
+  while (ctx->name)
+    {
+      pthread_mutex_lock(&ctx->sessions_lck);
+      if (!ctx->sessions)
+	{
+	  pthread_mutex_unlock(&ctx->sessions_lck);
+	  ++ctx;
+	  continue;
+	}
+      pthread_mutex_unlock(&ctx->sessions_lck);
+
+      pthread_mutex_lock(&ctx->player_lck);
+      ctx->player_changed = 1;
+      pthread_mutex_unlock(&ctx->player_lck);
+      ++ctx;
+    }
 }
 
 // Thread: player (also prone to race conditions, mostly during deinit)
@@ -490,36 +567,44 @@ void
 streaming_write(struct output_buffer *obuf)
 {
   int ret;
+  struct streaming_ctx *ctx = streaming_ctxs;
 
   // Explicit no-lock - let the write to pipes fail if during deinit
-  if (!streaming_sessions)
-    return;
-
-  if (!quality_is_equal(&obuf->data[0].quality, &streaming_quality_in))
+  while (ctx->name)
     {
-      ret = write(streaming_meta[1], &obuf->data[0].quality, sizeof(struct media_quality));
+      pthread_mutex_lock(&ctx->sessions_lck);
+      if (!ctx->sessions)
+	goto next;
+
+      if (!quality_is_equal(&obuf->data[0].quality, &ctx->quality_in))
+        {
+          ret = write(ctx->streaming_meta[1], &obuf->data[0].quality, sizeof(struct media_quality));
+          if (ret < 0)
+            {
+              if (errno == EBADF)
+                DPRINTF(E_LOG, L_STREAMING, "streaming %s pipe already closed\n", ctx->name);
+              else
+                DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming %s pipe: %s\n", ctx->name, strerror(errno));
+              goto next;
+            }
+        }
+
+      ret = write(ctx->streaming_pipe[1], obuf->data[0].buffer, obuf->data[0].bufsize);
       if (ret < 0)
-	{
-	  if (errno == EBADF)
-	    DPRINTF(E_LOG, L_STREAMING, "streaming pipe already closed\n");
-	  else
-	    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
-	  return;
-	}
-    }
-
-  ret = write(streaming_pipe[1], obuf->data[0].buffer, obuf->data[0].bufsize);
-  if (ret < 0)
-    {
-      if (errno == EAGAIN)
-	DPRINTF(E_WARN, L_STREAMING, "Streaming pipe full, skipping write\n");
-      else
-	{
-	  if (errno == EBADF)
-	    DPRINTF(E_LOG, L_STREAMING, "Streaming pipe already closed\n");
-	  else
-	    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe: %s\n", strerror(errno));
-	}
+        {
+          if (errno == EAGAIN)
+            DPRINTF(E_WARN, L_STREAMING, "Streaming %s pipe full, skipping write\n", ctx->name);
+          else
+            {
+              if (errno == EBADF)
+                DPRINTF(E_LOG, L_STREAMING, "Streaming %s pipe already closed\n", ctx->name);
+              else
+                DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming %s pipe: %s\n", ctx->name, strerror(errno));
+            }
+        }
+next:
+      pthread_mutex_unlock(&ctx->sessions_lck);
+      ++ctx;
     }
 }
 
@@ -537,34 +622,66 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   bool require_icy = false;
   char buf[9];
 
-  if (streaming_not_supported)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Got MP3 streaming request, but cannot encode to MP3\n");
+  char *ptr;
+  struct streaming_ctx *ctx = streaming_ctxs;
 
+  // Find appropriate supported ctx
+  ptr = strrchr(uri_parsed->path, '/');
+  if (!ptr)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Bug! Unable to find streaming ctx '%s'\n", uri_parsed->path);
       evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      return -1;
+    }
+
+  while (ctx->name)
+    {
+      if (strcasecmp(ptr, ctx->endpoint) == 0)
+        break;
+      ++ctx;
+    }
+
+  if (!ctx->name)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Bug! Unable to find streaming ctx '%s'\n", uri_parsed->path);
+      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      return -1;
+    }
+
+  if (ctx->not_supported)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Got streaming request for unsupported stream %s\n", ctx->name);
+      evhttp_send_error(req, HTTP_NOTIMPLEMENTED, "Not Implemented");
       return -1;
     }
 
   evcon = evhttp_request_get_connection(req);
   evhttp_connection_get_peer(evcon, &address, &port);
+  if (ctx->available_sessions == 0)
+    {
+      DPRINTF(E_WARN, L_STREAMING, "Exceeded available sessions, rejecting %s streaming to %s:%d\n", ctx->name, address, (int)port);
+      evhttp_send_error(req, HTTP_SERVUNAVAIL, "No streaming sessions currently available");
+      return -1;
+    }
+
   param = evhttp_find_header( evhttp_request_get_input_headers(req), "Icy-MetaData");
   if (param && strcmp(param, "1") == 0)
     require_icy = true;
 
-  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d, icy_metaint=%d) to %s:%d\n", require_icy, streaming_icy_metaint, address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Beginning %s streaming (with icy=%d, icy_metaint=%d) to %s:%d\n", ctx->name, require_icy, streaming_icy_metaint, address, (int)port);
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
 
   output_headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(output_headers, "Content-Type", "audio/mpeg");
+  evhttp_add_header(output_headers, "Content-Type", ctx->mime);
   evhttp_add_header(output_headers, "Server", PACKAGE_NAME "/" VERSION);
   evhttp_add_header(output_headers, "Cache-Control", "no-cache");
   evhttp_add_header(output_headers, "Pragma", "no-cache");
   evhttp_add_header(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
   if (require_icy)
     {
-      ++streaming_icy_clients;
+      ++(ctx->icy_clients);
       evhttp_add_header(output_headers, "icy-name", name);
       snprintf(buf, sizeof(buf)-1, "%d", streaming_icy_metaint);
       evhttp_add_header(output_headers, "icy-metaint", buf);
@@ -582,22 +699,24 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
       return -1;
     }
+  session->ctx = ctx;
 
-  pthread_mutex_lock(&streaming_sessions_lck);
+  pthread_mutex_lock(&ctx->sessions_lck);
 
-  if (!streaming_sessions)
+  if (!ctx->sessions)
     {
-      event_add(streamingev, &streaming_silence_tv);
-      event_add(metaev, NULL);
+      event_add(ctx->streamingev, &streaming_silence_tv);
+      event_add(ctx->metaev, NULL);
     }
 
   session->req = req;
-  session->next = streaming_sessions;
+  session->next = ctx->sessions;
   session->require_icy = require_icy;
   session->bytes_sent = 0;
-  streaming_sessions = session;
+  ctx->sessions = session;
 
-  pthread_mutex_unlock(&streaming_sessions_lck);
+  --(ctx->available_sessions);
+  pthread_mutex_unlock(&ctx->sessions_lck);
 
   evhttp_connection_set_closecb(evcon, streaming_close_cb, session);
 
@@ -608,10 +727,18 @@ int
 streaming_is_request(const char *path)
 {
   char *ptr;
+  struct streaming_ctx *ctx = streaming_ctxs;
 
   ptr = strrchr(path, '/');
-  if (ptr && (strcasecmp(ptr, "/stream.mp3") == 0))
-    return 1;
+  if (ptr)
+    {
+      while (ctx->name)
+	{
+	  if (strcasecmp(ptr, ctx->endpoint) == 0)
+	    return 1;
+	  ++ctx;
+	}
+    }
 
   return 0;
 }
@@ -622,15 +749,25 @@ streaming_init(void)
   int ret;
   cfg_t *cfgsec;
   int val;
+  int max_sessions;
+  struct streaming_ctx *ctx = streaming_ctxs;
 
   cfgsec = cfg_getsec(cfg, "streaming");
 
+  max_sessions = cfg_getint(cfgsec, "max_sessions");
+  if (max_sessions <= 0 || max_sessions > STREAMING_SESSIONS_MAX)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Invalid max_sessions=%d , defaulting\n", max_sessions);
+      max_sessions = STREAMING_SESSIONS_MAX;
+    }
+
+  // MP3 config params
   val = cfg_getint(cfgsec, "sample_rate");
   // Validate against the variations of libmp3lame's supported sample rates: 32000/44100/48000
   if (val % 11025 > 0 && val % 12000 > 0 && val % 8000 > 0)
-    DPRINTF(E_LOG, L_STREAMING, "Non standard streaming sample_rate=%d, defaulting\n", val);
+    DPRINTF(E_LOG, L_STREAMING, "Non standard MP3 streaming sample_rate=%d, defaulting\n", val);
   else
-    streaming_quality_out.sample_rate = val;
+    streaming_ctxs[0].quality_out.sample_rate = val;
 
   val = cfg_getint(cfgsec, "bit_rate");
   switch (val)
@@ -640,14 +777,12 @@ streaming_init(void)
     case 128:
     case 192:
     case 320:
-      streaming_quality_out.bit_rate = val*1000;
+      streaming_ctxs[0].quality_out.bit_rate = val*1000;
       break;
 
     default:
-      DPRINTF(E_LOG, L_STREAMING, "Unsuppported streaming bit_rate=%d, supports: 64/96/128/192/320, defaulting\n", val);
+      DPRINTF(E_LOG, L_STREAMING, "Unsuppported MP3 streaming bit_rate=%d, supports: 64/96/128/192/320, defaulting\n", val);
   }
-
-  DPRINTF(E_INFO, L_STREAMING, "Streaming quality: %d/%d/%d @ %dkbps\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate/1000);
 
   val = cfg_getint(cfgsec, "icy_metaint");
   // Too low a value forces server to send more meta than data
@@ -655,46 +790,6 @@ streaming_init(void)
     streaming_icy_metaint = val;
   else
     DPRINTF(E_INFO, L_STREAMING, "Unsupported icy_metaint=%d, supported range: 4096..131072, defaulting to %d\n", val, streaming_icy_metaint);
-
-  ret = mutex_init(&streaming_sessions_lck);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_STREAMING, "Could not initialize mutex (%d): %s\n", ret, strerror(ret));
-      goto error;
-    }
-
-  // Non-blocking because otherwise httpd and player thread may deadlock
-#ifdef HAVE_PIPE2
-  ret = pipe2(streaming_pipe, O_CLOEXEC | O_NONBLOCK);
-#else
-  if ( pipe(streaming_pipe) < 0 ||
-       fcntl(streaming_pipe[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
-       fcntl(streaming_pipe[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
-    ret = -1;
-  else
-    ret = 0;
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_STREAMING, "Could not create pipe: %s\n", strerror(errno));
-      goto error;
-    }
-
-#ifdef HAVE_PIPE2
-  ret = pipe2(streaming_meta, O_CLOEXEC | O_NONBLOCK);
-#else
-  if ( pipe(streaming_meta) < 0 ||
-       fcntl(streaming_meta[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
-       fcntl(streaming_meta[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
-    ret = -1;
-  else
-    ret = 0;
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_STREAMING, "Could not create pipe: %s\n", strerror(errno));
-      goto error;
-    }
 
   // Listen to playback changes so we don't have to poll to check for pausing
   ret = listener_add(player_change_cb, LISTENER_PLAYER);
@@ -704,21 +799,68 @@ streaming_init(void)
       goto error;
     }
 
-  // Initialize buffer for encoded mp3 audio and event for pipe reading
-  CHECK_NULL(L_STREAMING, streaming_encoded_data = evbuffer_new());
+  while (ctx->name)
+    {
+      ctx->quality_out.sample_rate = streaming_ctxs[0].quality_out.sample_rate;
+      DPRINTF(E_INFO, L_STREAMING, "Streaming %s quality: %d/%d/%d @ %dkbps\n", ctx->name, ctx->quality_out.sample_rate, ctx->quality_out.bits_per_sample, ctx->quality_out.channels, ctx->quality_out.bit_rate/1000);
 
-  CHECK_NULL(L_STREAMING, streamingev = event_new(evbase_httpd, streaming_pipe[0], EV_TIMEOUT | EV_READ | EV_PERSIST, streaming_send_cb, NULL));
-  CHECK_NULL(L_STREAMING, metaev = event_new(evbase_httpd, streaming_meta[0], EV_READ | EV_PERSIST, streaming_meta_cb, NULL));
+      ctx->available_sessions = max_sessions;
+      // Non-blocking because otherwise httpd and player thread may deadlock
+#ifdef HAVE_PIPE2
+      ret = pipe2(ctx->streaming_pipe, O_CLOEXEC | O_NONBLOCK);
+#else
+      if ( pipe(ctx->streaming_pipe) < 0 ||
+	   fcntl(ctx->streaming_pipe[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
+	   fcntl(ctx->streaming_pipe[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
+	ret = -1;
+      else
+	ret = 0;
+#endif
+      if (ret < 0)
+	{
+	  DPRINTF(E_FATAL, L_STREAMING, "Could not create pipe: %s\n", strerror(errno));
+	  goto error;
+	}
 
-  streaming_icy_clients = 0;
+#ifdef HAVE_PIPE2
+      ret = pipe2(ctx->streaming_meta, O_CLOEXEC | O_NONBLOCK);
+#else
+      if ( pipe(ctx->streaming_meta) < 0 ||
+	   fcntl(ctx->streaming_meta[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
+	   fcntl(ctx->streaming_meta[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
+	ret = -1;
+      else
+	ret = 0;
+#endif
+      if (ret < 0)
+	{
+	  DPRINTF(E_FATAL, L_STREAMING, "Could not create pipe: %s\n", strerror(errno));
+	  goto error;
+	}
+
+      pthread_mutex_init(&ctx->sessions_lck, NULL);
+      pthread_mutex_init(&ctx->player_lck, NULL);
+
+      // Initialize buffer for encoded audio and event for pipe reading
+      CHECK_NULL(L_STREAMING, ctx->encoded_data = evbuffer_new());
+      CHECK_NULL(L_STREAMING, ctx->streamingev = event_new(evbase_httpd, ctx->streaming_pipe[0], EV_TIMEOUT | EV_READ | EV_PERSIST, streaming_send_cb, ctx));
+      CHECK_NULL(L_STREAMING, ctx->metaev = event_new(evbase_httpd, ctx->streaming_meta[0], EV_READ | EV_PERSIST, streaming_meta_cb, ctx));
+
+      ++ctx;
+    }
 
   return 0;
 
  error:
-  close(streaming_pipe[0]);
-  close(streaming_pipe[1]);
-  close(streaming_meta[0]);
-  close(streaming_meta[1]);
+  ctx = streaming_ctxs;
+  while (ctx->name)
+    {
+      close(ctx->streaming_pipe[0]);
+      close(ctx->streaming_pipe[1]);
+      close(ctx->streaming_meta[0]);
+      close(ctx->streaming_meta[1]);
+      ++ctx;
+    }
 
   return -1;
 }
@@ -726,21 +868,31 @@ streaming_init(void)
 void
 streaming_deinit(void)
 {
-  streaming_end();
+  struct streaming_ctx *ctx = streaming_ctxs;
 
-  event_free(metaev);
-  event_free(streamingev);
-  streamingev = NULL;
+  while (ctx->name)
+    {
+      streaming_end(ctx);
 
-  listener_remove(player_change_cb);
+      event_free(ctx->metaev);
+      event_free(ctx->streamingev);
+      ctx->streamingev = NULL;
+      ctx->metaev = NULL;
 
-  close(streaming_pipe[0]);
-  close(streaming_pipe[1]);
-  close(streaming_meta[0]);
-  close(streaming_meta[1]);
+      listener_remove(player_change_cb);
 
-  transcode_encode_cleanup(&streaming_encode_ctx);
-  evbuffer_free(streaming_encoded_data);
+      close(ctx->streaming_pipe[0]);
+      close(ctx->streaming_pipe[1]);
+      close(ctx->streaming_meta[0]);
+      close(ctx->streaming_meta[1]);
 
-  pthread_mutex_destroy(&streaming_sessions_lck);
+      transcode_encode_cleanup(&ctx->encode_ctx);
+      evbuffer_free(ctx->encoded_data);
+      ctx->encoded_data = NULL;
+
+      pthread_mutex_destroy(&ctx->sessions_lck);
+      pthread_mutex_destroy(&ctx->player_lck);
+
+      ++ctx;
+    }
 }
