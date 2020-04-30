@@ -23,7 +23,7 @@ export default {
           this.now_playing.data_kind === 'pipe'
     },
     visible () {
-      return ['podcast', 'audiobook'].includes(this.now_playing.media_kind)
+      return ['podcast', 'music', 'audiobook'].includes(this.now_playing.media_kind) && this.$store.state.player.item_length_ms > 0
     }
   },
 
