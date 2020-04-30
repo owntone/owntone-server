@@ -956,7 +956,7 @@ event_read_metadata(struct input_metadata *metadata)
   // don't always show correct progress for http streams, pipes and files with
   // chapters.
   if (metadata->progress_updated){
-    pb_session.playing_now->last_pos_ms = pb_session.playing_now->pos_ms;
+    pb_session.playing_now->last_pos_ms = pb_session.playing_now->seek_ms + 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
     pb_session.playing_now->metadata_pos_ms = metadata->pos_ms - 1000UL * OUTPUTS_BUFFER_DURATION;
     pb_session.playing_now->metadata_len_ms = metadata->len_ms;
     pb_session.playing_now->use_metadata_progress = true;
