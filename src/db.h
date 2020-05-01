@@ -5,6 +5,7 @@
 #include <time.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <limits.h>
 
 #include "outputs.h"
 
@@ -120,6 +121,8 @@ enum media_kind {
   MEDIA_KIND_MUSICVIDEO = 32,
   MEDIA_KIND_TVSHOW = 64,
 };
+
+#define MEDIA_KIND_ALL USHRT_MAX
 
 const char *
 db_media_kind_label(enum media_kind media_kind);

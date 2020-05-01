@@ -103,6 +103,7 @@ struct artwork_ctx {
   struct db_media_file_info *dbmfi;
   int id;
   uint32_t data_kind;
+  uint32_t media_kind;
   // Input data for group handlers
   int64_t persistentid;
 
@@ -121,8 +122,11 @@ struct artwork_source {
   // The handler
   int (*handler)(struct artwork_ctx *ctx);
 
-  // What data_kinds the handler can work with, combined with (1 << A) | (1 << B)
-  int data_kinds;
+  // data_kinds the handler can work with, combined with (1 << A) | (1 << B)
+  uint32_t data_kinds;
+
+  // media_kinds the handler supports, combined with A | B
+  uint32_t media_kinds;
 
   // When should results from the source be cached?
   enum artwork_cache cache;
@@ -231,66 +235,77 @@ static struct artwork_source artwork_item_source[] =
       .name = "cache",
       .handler = source_item_cache_get,
       .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_SPOTIFY),
+      .media_kinds = MEDIA_KIND_ALL,
       .cache = ON_FAILURE,
     },
     {
       .name = "embedded",
       .handler = source_item_embedded_get,
       .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_HTTP),
+      .media_kinds = MEDIA_KIND_ALL,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "own",
       .handler = source_item_own_get,
       .data_kinds = (1 << DATA_KIND_FILE),
+      .media_kinds = MEDIA_KIND_ALL,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "stream",
       .handler = source_item_stream_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
+      .media_kinds = MEDIA_KIND_MUSIC,
       .cache = STASH,
     },
     {
       .name = "pipe",
       .handler = source_item_pipe_get,
       .data_kinds = (1 << DATA_KIND_PIPE),
+      .media_kinds = MEDIA_KIND_ALL,
       .cache = NEVER,
     },
     {
       .name = "Spotify track web api",
       .handler = source_item_spotifywebapi_track_get,
       .data_kinds = (1 << DATA_KIND_SPOTIFY),
+      .media_kinds = MEDIA_KIND_ALL,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "playlist own",
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
+      .media_kinds = MEDIA_KIND_ALL,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "Spotify search web api (files)",
       .handler = source_item_spotifywebapi_search_get,
       .data_kinds = (1 << DATA_KIND_FILE),
+      .media_kinds = MEDIA_KIND_MUSIC,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "Spotify search web api (streams)",
       .handler = source_item_spotifywebapi_search_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
+      .media_kinds = MEDIA_KIND_MUSIC,
       .cache = STASH,
     },
     {
       .name = "Discogs (files)",
       .handler = source_item_discogs_get,
       .data_kinds = (1 << DATA_KIND_FILE),
+      .media_kinds = MEDIA_KIND_MUSIC,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "Discogs (streams)",
       .handler = source_item_discogs_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
+      .media_kinds = MEDIA_KIND_MUSIC,
       .cache = STASH,
     },
     {
@@ -298,6 +313,7 @@ static struct artwork_source artwork_item_source[] =
       .name = "Cover Art Archive (files)",
       .handler = source_item_coverartarchive_get,
       .data_kinds = (1 << DATA_KIND_FILE),
+      .media_kinds = MEDIA_KIND_MUSIC,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
@@ -305,6 +321,7 @@ static struct artwork_source artwork_item_source[] =
       .name = "Cover Art Archive (streams)",
       .handler = source_item_coverartarchive_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
+      .media_kinds = MEDIA_KIND_MUSIC,
       .cache = STASH,
     },
     {
@@ -1500,15 +1517,8 @@ source_item_stream_get(struct artwork_ctx *ctx)
   char *url;
   char *ext;
   int len;
-  int media_kind;
   int ret;
 
-  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
-  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
-    {
-      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
-      return ART_E_NONE;
-    }
 
   DPRINTF(E_SPAM, L_ART, "Trying internet stream artwork in %s\n", ctx->dbmfi->path);
 
@@ -1574,18 +1584,10 @@ static int
 source_item_discogs_get(struct artwork_ctx *ctx)
 {
   char *url;
-  int media_kind;
   int ret;
 
   if (!online_source_is_enabled(&discogs_source))
     return ART_E_NONE;
-
-  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
-  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
-    {
-      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
-      return ART_E_NONE;
-    }
 
   url = online_source_search(&discogs_source, ctx);
   if (!url)
@@ -1603,18 +1605,10 @@ static int
 source_item_coverartarchive_get(struct artwork_ctx *ctx)
 {
   char *url;
-  int media_kind;
   int ret;
 
   if (!online_source_is_enabled(&musicbrainz_source))
     return ART_E_NONE;
-
-  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
-  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
-    {
-      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
-      return ART_E_NONE;
-    }
 
   // We search Musicbrainz to get the Musicbrainz ID, which we need to get the
   // artwork from the Cover Art Archive
@@ -1655,18 +1649,10 @@ source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
 {
   struct spotifywebapi_access_token info;
   char *url;
-  int media_kind;
   int ret;
 
   if (!online_source_is_enabled(&spotify_source))
     return ART_E_NONE;
-
-  ret = safe_atoi32(ctx->dbmfi->media_kind, &media_kind);
-  if (ret != 0 || media_kind != MEDIA_KIND_MUSIC)
-    {
-      DPRINTF(E_SPAM, L_ART, "Ignoring internet stream artwork request for media_kind != music: %s\n", ctx->dbmfi->path);
-      return ART_E_NONE;
-    }
 
   spotifywebapi_access_token_get(&info);
   if (!info.token)
@@ -1797,16 +1783,20 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 
       ret = (safe_atoi32(dbmfi.id, &ctx->id) < 0) ||
             (safe_atou32(dbmfi.data_kind, &ctx->data_kind) < 0) ||
+            (safe_atou32(dbmfi.media_kind, &ctx->media_kind) < 0) ||
             (ctx->data_kind > 30);
       if (ret)
 	{
-	  DPRINTF(E_LOG, L_ART, "Error converting dbmfi id or data_kind to number\n");
+	  DPRINTF(E_LOG, L_ART, "Error converting dbmfi id, data_kind or media_kind to number for '%s'\n", dbmfi.path);
 	  continue;
 	}
 
       for (i = 0; artwork_item_source[i].handler; i++)
 	{
 	  if ((artwork_item_source[i].data_kinds & (1 << ctx->data_kind)) == 0)
+	    continue;
+
+	  if ((artwork_item_source[i].media_kinds & ctx->media_kind) == 0)
 	    continue;
 
 	  // If just one handler says we should not cache a negative result then we obey that
