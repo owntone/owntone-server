@@ -122,18 +122,42 @@ section.fd-tabs-section + section.fd-content {
   overflow: hidden;
   flex-grow: 1;
   flex-shrink: 1;
+
+  /* Use flex box to properly size children */
+  display: flex;
 }
 
 .fd-cover-image {
-  height: 100%;
+  display: flex;
+  flex-grow: 1;
+  flex-shrink: 1;
+
+  /* Allow flex item to shrink smaller than its content size: https://stackoverflow.com/questions/36247140/why-dont-flex-items-shrink-past-content-size */
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .fd-cover-image img {
-  width: 100%;
-  height: 100%;
+  /* Use object-fit to properly size the cover artwork: https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit */
   object-fit: contain;
-  object-position: bottom;
+  object-position: center bottom;
   filter: drop-shadow(0px 0px 1px rgba(0,0,0,.3)) drop-shadow(0px 0px 10px rgba(0,0,0,.3));
+
+  /* Allow flex item to grow/shrink to fill the whole container size */
+  flex-grow: 1;
+  flex-shrink: 1;
+
+  /* Unset height/width to allow flex sizing */
+  height: unset;
+  width: unset;
+  max-width: unset;
+  max-height: unset;
+
+  /* Allow flex item to shrink smaller than its content size: https://stackoverflow.com/questions/36247140/why-dont-flex-items-shrink-past-content-size */
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 
