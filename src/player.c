@@ -208,10 +208,9 @@ struct player_source
   struct player_source *next;
 
   // Used for metadata progress
-  bool use_metadata_progress;
   uint32_t last_pos_ms;
-  uint32_t metadata_pos_ms; // adjusted by buffer duration
-  uint32_t metadata_len_ms;
+  uint32_t last_metadata_pos_ms; // adjusted by buffer duration
+  uint32_t display_len_ms;
 };
 
 struct player_session
@@ -462,9 +461,9 @@ metadata_finalize_cb(struct output_metadata *metadata)
     }
 
   if (!metadata->pos_ms)
-    metadata->pos_ms = pb_session.playing_now->pos_ms;
+    metadata->pos_ms = pb_session.playing_now->pos_ms - pb_session.playing_now->last_pos_ms + pb_session.playing_now->last_metadata_pos_ms;
   if (!metadata->len_ms)
-    metadata->len_ms = pb_session.playing_now->len_ms;
+    metadata->len_ms = pb_session.playing_now->display_len_ms;
   if (!metadata->pts.tv_sec)
     metadata->pts = pb_session.pts;
 
@@ -597,10 +596,9 @@ source_create(struct db_queue_item *queue_item, uint32_t seek_ms)
   ps->item_id = queue_item->id;
   ps->data_kind = queue_item->data_kind;
   ps->media_kind = queue_item->media_kind;
-  ps->len_ms = queue_item->song_length;
+  ps->display_len_ms = ps->len_ms = queue_item->song_length;
   ps->path = strdup(queue_item->path);
   ps->seek_ms = seek_ms;
-  ps->use_metadata_progress = false; 
 
   return ps;
 }
@@ -947,6 +945,14 @@ event_read_start_next()
 }
 
 static void
+session_update_metadata(struct input_metadata *metadata)
+{
+  pb_session.playing_now->last_pos_ms = pb_session.playing_now->seek_ms + 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
+  pb_session.playing_now->last_metadata_pos_ms = metadata->pos_ms - 1000UL * OUTPUTS_BUFFER_DURATION;
+  pb_session.playing_now->display_len_ms = metadata->len_ms;
+}
+
+static void
 event_read_metadata(struct input_metadata *metadata)
 {
   DPRINTF(E_DBG, L_PLAYER, "event_read_metadata()\n");
@@ -956,10 +962,7 @@ event_read_metadata(struct input_metadata *metadata)
   // don't always show correct progress for http streams, pipes and files with
   // chapters.
   if (metadata->progress_updated){
-    pb_session.playing_now->last_pos_ms = pb_session.playing_now->seek_ms + 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
-    pb_session.playing_now->metadata_pos_ms = metadata->pos_ms - 1000UL * OUTPUTS_BUFFER_DURATION;
-    pb_session.playing_now->metadata_len_ms = metadata->len_ms;
-    pb_session.playing_now->use_metadata_progress = true;
+    session_update_metadata(metadata);
     metadata->progress_updated = false;
   }
   outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
@@ -1832,13 +1835,8 @@ get_status(void *arg, int *retval)
 	status->id      = pb_session.playing_now->id;
 	status->item_id = pb_session.playing_now->item_id;
 
-  if (pb_session.playing_now->use_metadata_progress){
-    status->pos_ms = pb_session.playing_now->pos_ms - pb_session.playing_now->last_pos_ms + pb_session.playing_now->metadata_pos_ms;
-    status->len_ms = pb_session.playing_now->metadata_len_ms;
-  } else {
-    status->pos_ms  = pb_session.playing_now->pos_ms;
-    status->len_ms  = pb_session.playing_now->len_ms;
-  }
+  status->pos_ms = pb_session.playing_now->pos_ms - pb_session.playing_now->last_pos_ms + pb_session.playing_now->last_metadata_pos_ms;
+  status->len_ms = pb_session.playing_now->display_len_ms;
 
 	break;
 
@@ -1859,13 +1857,8 @@ get_status(void *arg, int *retval)
 	status->id      = pb_session.playing_now->id;
 	status->item_id = pb_session.playing_now->item_id;
 
-  if (pb_session.playing_now->use_metadata_progress){
-    status->pos_ms = pb_session.playing_now->pos_ms - pb_session.playing_now->last_pos_ms + pb_session.playing_now->metadata_pos_ms;
-    status->len_ms = pb_session.playing_now->metadata_len_ms;
-  } else {
-    status->pos_ms  = pb_session.playing_now->pos_ms;
-    status->len_ms  = pb_session.playing_now->len_ms;
-  }
+  status->pos_ms = pb_session.playing_now->pos_ms - pb_session.playing_now->last_pos_ms + pb_session.playing_now->last_metadata_pos_ms;
+  status->len_ms = pb_session.playing_now->display_len_ms;
 
 	break;
     }
