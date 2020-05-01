@@ -85,9 +85,6 @@
 # include "lastfm.h"
 #endif
 
-// Default volume (must be from 0 - 100)
-#define PLAYER_DEFAULT_VOLUME 50
-
 // The interval between each tick of the playback clock in ms. This means that
 // we read 10 ms frames from the input and pass to the output, so the clock
 // ticks 100 times a second. We use this value because most common sample rates
@@ -110,6 +107,15 @@
 // (value is in milliseconds)
 #define PLAYER_WRITE_BEHIND_MAX 1500
 
+// If a speaker fails during playback we try to bring it back by reconnecting
+// after this number of seconds. When this feature was added, we had an issue
+// with Homepods and ATV4's dropping connections, so it is also a workaround.
+#define PLAYER_SPEAKER_RESURRECT_TIME 5
+
+// Shorthand condition for outputs_start and outputs_device_start, both need to
+// know if they should only probe the device, or fully start it.
+#define PLAYER_ONLY_PROBE (player_state != PLAY_PLAYING)
+
 //#define DEBUG_PLAYER 1
 
 struct spk_enum
@@ -121,7 +127,6 @@ struct spk_enum
 struct speaker_set_param
 {
   uint64_t *device_ids;
-  int intval;
 };
 
 struct speaker_attr_param
@@ -296,12 +301,6 @@ static int pb_write_deficit_max;
 // True if we are trying to recover from a major playback timer overrun (write problems)
 static bool pb_write_recovery;
 
-// Output status
-static int output_sessions;
-
-// Last commanded volume
-static int master_volume;
-
 // Audio source
 static uint32_t cur_plid;
 static uint32_t cur_plversion;
@@ -315,99 +314,8 @@ static struct player_history *history;
 static void
 pb_abort(void);
 
-static void
+static int
 pb_suspend(void);
-
-
-/* ----------------------------- Volume helpers ----------------------------- */
-
-static int
-rel_to_vol(int relvol)
-{
-  float vol;
-
-  if (relvol == 100)
-    return master_volume;
-
-  vol = ((float)relvol * (float)master_volume) / 100.0;
-
-  return (int)vol;
-}
-
-static int
-vol_to_rel(int volume)
-{
-  float rel;
-
-  if (volume == master_volume)
-    return 100;
-
-  rel = ((float)volume / (float)master_volume) * 100.0;
-
-  return (int)rel;
-}
-
-// Master volume helpers
-static void
-volume_master_update(int newvol)
-{
-  struct output_device *device;
-
-  master_volume = newvol;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (device->selected)
-	device->relvol = vol_to_rel(device->volume);
-    }
-}
-
-static void
-volume_master_find(void)
-{
-  struct output_device *device;
-  int newmaster;
-
-  newmaster = -1;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (device->selected && (device->volume > newmaster))
-	newmaster = device->volume;
-    }
-
-  volume_master_update(newmaster);
-}
-
-
-/* ---------------------- Device select/deselect hooks ---------------------- */
-
-static void
-speaker_select_output(struct output_device *device)
-{
-  device->selected = 1;
-  device->prevent_playback = 0;
-  device->busy = 0;
-
-  if (device->volume > master_volume)
-    {
-      if (player_state == PLAY_STOPPED || master_volume == -1)
-	volume_master_update(device->volume);
-      else
-	device->volume = master_volume;
-    }
-
-  device->relvol = vol_to_rel(device->volume);
-}
-
-static void
-speaker_deselect_output(struct output_device *device)
-{
-  device->selected = 0;
-
-  if (device->volume == master_volume)
-    volume_master_find();
-}
 
 
 /* ----------------------- Misc helpers and callbacks ----------------------- */
@@ -1143,7 +1051,12 @@ playback_cb(int fd, short what, void *arg)
 
       DPRINTF(E_LOG, L_PLAYER, "Output delay detected (behind=%" PRIu64 ", max=%d), resetting all outputs\n", overrun, pb_write_deficit_max);
       pb_write_recovery = true;
-      pb_suspend();
+      player_flush_pending = pb_suspend();
+      // No devices to wait for, just set the restart cb right away. Otherwise
+      // the trigger will be set by device_flush_cb.
+      if (player_flush_pending == 0)
+	input_buffer_full_cb(player_playback_start);
+
       return;
     }
   else
@@ -1209,7 +1122,11 @@ playback_cb(int fd, short what, void *arg)
       DPRINTF(E_LOG, L_PLAYER, "Source is not providing sufficient data, temporarily suspending playback (deficit=%zu/%zu bytes)\n",
 	pb_session.read_deficit, pb_session.read_deficit_max);
 
-      pb_suspend();
+      player_flush_pending = pb_suspend();
+      // No devices to wait for, just set the restart cb right away. Otherwise
+      // the trigger will be set by device_flush_cb.
+      if (player_flush_pending == 0)
+	input_buffer_full_cb(player_playback_start);
     }
 }
 
@@ -1222,19 +1139,12 @@ device_add(void *arg, int *retval)
   union player_arg *cmdarg = arg;
   struct output_device *device = cmdarg->device;
   bool new_deselect;
-  int default_volume;
-
-  // Default volume for new devices
-  default_volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
 
   // Never turn on new devices during playback
   new_deselect = (player_state == PLAY_PLAYING);
 
-  device = outputs_device_add(device, new_deselect, default_volume);
+  device = outputs_device_add(device, new_deselect);
   *retval = device ? 0 : -1;
-
-  if (device && device->selected)
-    speaker_select_output(device);
 
   return COMMAND_END;
 }
@@ -1282,10 +1192,7 @@ device_remove_family(void *arg, int *retval)
       // the device. If the output backend never gives a callback (can that
       // happen?) then the device will never be removed.
       if (!device->session)
-	{
-	  outputs_device_remove(device);
-	  volume_master_find();
-	}
+	outputs_device_remove(device);
     }
 
   outputs_device_free(remove);
@@ -1314,30 +1221,24 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
   if (!device)
     {
       DPRINTF(E_LOG, L_PLAYER, "Output device disappeared during streaming!\n");
-
-      output_sessions--;
       return;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_streaming_cb (status %d)\n", outputs_name(device->type), status);
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_streaming_cb (status %d)\n", device->type_name, device->name, status);
 
   if (status == OUTPUT_STATE_FAILED)
     {
-      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' FAILED\n", device->type_name, device->name);
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed - attempting reconnect in %d sec\n", device->type_name, device->name, PLAYER_SPEAKER_RESURRECT_TIME);
 
-      output_sessions--;
+      if (outputs_sessions_count() == 0)
+	pb_suspend();
 
-      if (player_state == PLAY_PLAYING)
-	speaker_deselect_output(device);
-
-      if (output_sessions == 0)
-	pb_abort();
+      // TODO do this internally instead of through the worker
+      worker_execute(player_speaker_resurrect, &(device->id), sizeof(device->id), PLAYER_SPEAKER_RESURRECT_TIME);
     }
   else if (status == OUTPUT_STATE_STOPPED)
     {
       DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' stopped\n", device->type_name, device->name);
-
-      output_sessions--;
     }
   else
     outputs_device_cb_set(device, device_streaming_cb);
@@ -1352,7 +1253,7 @@ device_command_cb(struct output_device *device, enum output_device_state status)
       goto out;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_command_cb (status %d)\n", outputs_name(device->type), status);
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_command_cb (status %d)\n", device->type_name, device->name, status);
 
   outputs_device_cb_set(device, device_streaming_cb);
 
@@ -1372,7 +1273,7 @@ device_flush_cb(struct output_device *device, enum output_device_state status)
       goto out;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_flush_cb (status %d)\n", outputs_name(device->type), status);
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_flush_cb (status %d)\n", device->type_name, device->name, status);
 
   if (status == OUTPUT_STATE_FAILED)
     device_streaming_cb(device, status);
@@ -1396,9 +1297,6 @@ device_shutdown_cb(struct output_device *device, enum output_device_state status
 {
   int retval;
 
-  if (output_sessions)
-    output_sessions--;
-
   retval = commands_exec_returnvalue(cmdbase);
   if (!device)
     {
@@ -1409,13 +1307,9 @@ device_shutdown_cb(struct output_device *device, enum output_device_state status
       goto out;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_shutdown_cb (status %d)\n", outputs_name(device->type), status);
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_shutdown_cb (status %d)\n", device->type_name, device->name, status);
 
  out:
-  /* cur_cmd->ret already set
-   *  - to 0 (or -2 if password issue) in speaker_set()
-   *  - to -1 above on error
-   */
   commands_exec_end(cmdbase, retval);
 }
 
@@ -1434,110 +1328,26 @@ device_activate_cb(struct output_device *device, enum output_device_state status
       goto out;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_activate_cb (status %d)\n", outputs_name(device->type), status);
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_activate_cb (status %d)\n", device->type_name, device->name, status);
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' requires a valid password\n", device->type_name, device->name);
+
       status = OUTPUT_STATE_FAILED;
       retval = -2;
     }
 
   if (status == OUTPUT_STATE_FAILED)
     {
-      speaker_deselect_output(device);
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed to activate\n", device->type_name, device->name);
 
       if (retval != -2)
 	retval = -1;
       goto out;
     }
 
-  output_sessions++;
-
-  outputs_device_cb_set(device, device_streaming_cb);
-
- out:
-  /* cur_cmd->ret already set
-   *  - to 0 in speaker_set() (default)
-   *  - to -2 above if password issue
-   *  - to -1 above on error
-   */
-  commands_exec_end(cmdbase, retval);
-}
-
-static void
-device_probe_cb(struct output_device *device, enum output_device_state status)
-{
-  int retval;
-
-  retval = commands_exec_returnvalue(cmdbase);
-  if (!device)
-    {
-      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during probe!\n");
-
-      if (retval != -2)
-	retval = -1;
-      goto out;
-    }
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_probe_cb (status %d)\n", outputs_name(device->type), status);
-
-  if (status == OUTPUT_STATE_PASSWORD)
-    {
-      status = OUTPUT_STATE_FAILED;
-      retval = -2;
-    }
-
-  if (status == OUTPUT_STATE_FAILED)
-    {
-      speaker_deselect_output(device);
-
-      if (retval != -2)
-	retval = -1;
-      goto out;
-    }
-
- out:
-  /* cur_cmd->ret already set
-   *  - to 0 in speaker_set() (default)
-   *  - to -2 above if password issue
-   *  - to -1 above on error
-   */
-  commands_exec_end(cmdbase, retval);
-}
-
-static void
-device_restart_cb(struct output_device *device, enum output_device_state status)
-{
-  int retval;
-
-  retval = commands_exec_returnvalue(cmdbase);
-  if (!device)
-    {
-      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during restart!\n");
-
-      if (retval != -2)
-	retval = -1;
-      goto out;
-    }
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_restart_cb (status %d)\n", outputs_name(device->type), status);
-
-  if (status == OUTPUT_STATE_PASSWORD)
-    {
-      status = OUTPUT_STATE_FAILED;
-      retval = -2;
-    }
-
-  if (status == OUTPUT_STATE_FAILED)
-    {
-      speaker_deselect_output(device);
-
-      if (retval != -2)
-	retval = -1;
-      goto out;
-    }
-
-  output_sessions++;
+  // If we were just probing this is a no-op
   outputs_device_cb_set(device, device_streaming_cb);
 
  out:
@@ -1547,11 +1357,7 @@ device_restart_cb(struct output_device *device, enum output_device_state status)
 const char *
 player_pmap(void *p)
 {
-  if (p == device_restart_cb)
-    return "device_restart_cb";
-  else if (p == device_probe_cb)
-    return "device_probe_cb";
-  else if (p == device_activate_cb)
+  if (p == device_activate_cb)
     return "device_activate_cb";
   else if (p == device_streaming_cb)
     return "device_streaming_cb";
@@ -1738,10 +1544,11 @@ pb_resume(void)
 
 // Temporarily suspends/resets playback, used when input buffer underruns or in
 // case of problems writing to the outputs.
-static void
+static int
 pb_suspend(void)
 {
   struct db_queue_item *queue_item;
+  int flush_pending;
   int ret;
 
   // If ->next is set then suspend was called during a track change, which is a
@@ -1760,7 +1567,7 @@ pb_suspend(void)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Error suspending playback, could not retrieve queue item currently being played\n");
 	  pb_abort();
-	  return;
+	  return -1;
 	}
 
       ret = pb_session_start(queue_item, 0);
@@ -1769,11 +1576,11 @@ pb_suspend(void)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Error suspending playback, could not start session\n");
 	  pb_abort();
-	  return;
+	  return -1;
 	}
     }
 
-  player_flush_pending = outputs_flush(device_flush_cb);
+  flush_pending = outputs_flush(device_flush_cb);
 
   pb_timer_stop();
 
@@ -1781,9 +1588,7 @@ pb_suspend(void)
 
   seek_save();
 
-  // No devices to wait for, just set the restart cb right away
-  if (player_flush_pending == 0)
-    input_buffer_full_cb(player_playback_start);
+  return flush_pending;
 }
 
 
@@ -1800,7 +1605,7 @@ get_status(void *arg, int *retval)
   status->consume = consume;
   status->repeat = repeat;
 
-  status->volume = master_volume;
+  status->volume = outputs_master_volume;
 
   status->plid = cur_plid;
 
@@ -1987,47 +1792,28 @@ playback_start_item(void *arg, int *retval)
 	}
     }
 
-  // Start sessions on selected devices
-  *retval = 0;
-
-  for (device = output_device_list; device; device = device->next)
+  // Start sessions on selected devices. We shouldn't see any callbacks to
+  // device_shutdown_cb, since the unselected devices shouldn't have sessions.
+  *retval = outputs_start(device_activate_cb, device_shutdown_cb, false);
+  if (*retval < 0)
     {
-      if (device->selected && !device->session)
-	{
-	  ret = outputs_device_start(device, device_restart_cb);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not start selected %s device '%s'\n", device->type_name, device->name);
-	      continue;
-	    }
+      DPRINTF(E_LOG, L_PLAYER, "All selected speakers failed to start\n");
 
-	  DPRINTF(E_INFO, L_PLAYER, "Using selected %s device '%s'\n", device->type_name, device->name);
-	  (*retval)++;
+      // All selected devices failed, autoselect an unselected (if enabled)
+      for (device = output_device_list; (*retval < 0) && speaker_autoselect && device; device = device->next)
+	{
+	  if (!device->selected && outputs_priority(device) != 0 && !device->session)
+	    *retval = outputs_device_start(device, device_activate_cb, false);
+	}
+
+      if (*retval >= 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Autoselected %s device '%s'\n", device->type_name, device->name);
+	  outputs_device_select(device);
 	}
     }
 
-  // If autoselecting is enabled, try to autoselect a non-selected device if the above failed
-  if (speaker_autoselect && (*retval == 0) && (output_sessions == 0))
-    for (device = output_device_list; device; device = device->next)
-      {
-	if ((outputs_priority(device) == 0) || device->session)
-	  continue;
-
-	speaker_select_output(device);
-	ret = outputs_device_start(device, device_restart_cb);
-	if (ret < 0)
-	  {
-	    DPRINTF(E_DBG, L_PLAYER, "Could not autoselect %s device '%s'\n", device->type_name, device->name);
-	    speaker_deselect_output(device);
-	    continue;
-	  }
-
-	DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
-	(*retval)++;
-	break;
-      }
-
-  // We're async if we need to start devices
+  // We're async if we need to wait for devices starting
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
@@ -2416,7 +2202,12 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
 
-  spk->selected = device->selected;
+  // We can't map device->selected directly to spk->selected, since the former
+  // means "has the user selected the device" (even if it isn't working or is
+  // unavailable), while clients that get the latter just want to know if the
+  // speaker plays or will be playing.
+  spk->selected = (device->selected && device->state >= OUTPUT_STATE_STOPPED && !device->busy && !device->prevent_playback);
+
   spk->has_password = device->has_password;
   spk->has_video = device->has_video;
   spk->requires_auth = device->requires_auth;
@@ -2485,72 +2276,6 @@ speaker_get_byactiveremote(void *arg, int *retval)
   return COMMAND_END;
 }
 
-static int
-speaker_activate(struct output_device *device)
-{
-  int ret;
-
-  if (device->has_password && !device->password)
-    {
-      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' is password-protected, but we don't have it\n", device->type_name, device->name);
-
-      return -2;
-    }
-
-  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is selected\n", device->type_name, device->name);
-
-  if (!device->selected)
-    speaker_select_output(device);
-
-  if (device->session)
-    return 0;
-
-  if (player_state == PLAY_PLAYING)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
-
-      ret = outputs_device_start(device, device_activate_cb);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
-	  goto error;
-	}
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Probing %s device '%s'\n", device->type_name, device->name);
-
-      ret = outputs_device_probe(device, device_probe_cb);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
-	  goto error;
-	}
-    }
-
-  return 0;
-
- error:
-  DPRINTF(E_LOG, L_PLAYER, "Could not activate %s device '%s'\n", device->type_name, device->name);
-  speaker_deselect_output(device);
-  return -1;
-}
-
-static int
-speaker_deactivate(struct output_device *device)
-{
-  DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
-
-  if (device->selected)
-    speaker_deselect_output(device);
-
-  if (!device->session)
-    return 0;
-
-  outputs_device_stop(device, device_shutdown_cb);
-  return 1;
-}
-
 static enum command_state
 speaker_set(void *arg, int *retval)
 {
@@ -2559,9 +2284,9 @@ speaker_set(void *arg, int *retval)
   uint64_t *ids;
   int nspk;
   int i;
-  int ret;
 
-  *retval = 0;
+  *retval = -1;
+
   ids = speaker_set_param->device_ids;
 
   if (ids)
@@ -2571,40 +2296,25 @@ speaker_set(void *arg, int *retval)
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker set: %d speakers\n", nspk);
 
-  *retval = 0;
-
   for (device = output_device_list; device; device = device->next)
     {
       for (i = 1; i <= nspk; i++)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Set %" PRIu64 " device %" PRIu64 "\n", ids[i], device->id);
-
 	  if (ids[i] == device->id)
 	    break;
 	}
 
       if (i <= nspk)
-	{
-	  ret = speaker_activate(device);
-
-	  if (ret > 0)
-	    (*retval)++;
-	  else if (ret < 0 && speaker_set_param->intval != -2)
-	    speaker_set_param->intval = ret;
-	}
+	outputs_device_select(device);
       else
-	{
-	  ret = speaker_deactivate(device);
-
-	  if (ret > 0)
-	    (*retval)++;
-	}
+	outputs_device_deselect(device);
     }
+
+  *retval = outputs_start(device_activate_cb, device_shutdown_cb, PLAYER_ONLY_PROBE);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
-  *retval = speaker_set_param->intval;
   return COMMAND_END;
 }
 
@@ -2614,13 +2324,17 @@ speaker_enable(void *arg, int *retval)
   uint64_t *id = arg;
   struct output_device *device;
 
+  *retval = -1;
+
   device = outputs_device_get(*id);
   if (!device)
     return COMMAND_END;
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker enable: '%s' (id=%" PRIu64 ")\n", device->name, *id);
 
-  *retval = speaker_activate(device);
+  outputs_device_select(device);
+
+  *retval = outputs_device_start(device, device_activate_cb, PLAYER_ONLY_PROBE);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2634,13 +2348,17 @@ speaker_disable(void *arg, int *retval)
   uint64_t *id = arg;
   struct output_device *device;
 
+  *retval = -1;
+
   device = outputs_device_get(*id);
   if (!device)
     return COMMAND_END;
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker disable: '%s' (id=%" PRIu64 ")\n", device->name, *id);
 
-  *retval = speaker_deactivate(device);
+  outputs_device_deselect(device);
+
+  *retval = outputs_device_stop(device, device_shutdown_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2680,9 +2398,9 @@ speaker_prevent_playback_set(void *arg, int *retval)
   DPRINTF(E_DBG, L_PLAYER, "Speaker prevent playback: '%s' (id=%" PRIu64 ")\n", device->name, device->id);
 
   if (device->prevent_playback)
-    *retval = speaker_deactivate(device);
+    *retval = outputs_device_stop(device, device_shutdown_cb);
   else if (!device->busy)
-    *retval = speaker_activate(device);
+    *retval = outputs_device_start(device, device_activate_cb, PLAYER_ONLY_PROBE);
   else
     *retval = 0;
 
@@ -2697,7 +2415,7 @@ speaker_prevent_playback_set_bh(void *arg, int *retval)
 {
   struct speaker_attr_param *param = arg;
 
-  if (output_sessions == 0)
+  if (outputs_sessions_count() == 0)
     {
       DPRINTF(E_INFO, L_PLAYER, "Ending playback, speaker (id=%" PRIu64 ") set 'busy' or 'prevent-playback' flag\n", param->spk_id);
       pb_abort(); // TODO Would be better for the user if we paused, but we don't have a handy function for that
@@ -2722,9 +2440,9 @@ speaker_busy_set(void *arg, int *retval)
   DPRINTF(E_DBG, L_PLAYER, "Speaker busy: '%s' (id=%" PRIu64 ")\n", device->name, device->id);
 
   if (device->busy)
-    *retval = speaker_deactivate(device);
+    *retval = outputs_device_stop(device, device_shutdown_cb);
   else if (!device->prevent_playback)
-    *retval = speaker_activate(device);
+    *retval = outputs_device_start(device, device_activate_cb, PLAYER_ONLY_PROBE);
   else
     *retval = 0;
 
@@ -2734,37 +2452,71 @@ speaker_busy_set(void *arg, int *retval)
   return COMMAND_END;
 }
 
+// Attempts to reactivate a speaker that has failed. That includes restarting
+// playback if it was stopped.
+static enum command_state
+speaker_resurrect(void *arg, int *retval)
+{
+  struct speaker_set_param *param = arg;
+  struct output_device *device;
+
+  *retval = -1;
+
+  device = outputs_device_get(*param->device_ids);
+  if (!device)
+    goto out;
+
+  DPRINTF(E_DBG, L_PLAYER, "Speaker resurrect: '%s' (id=%" PRIu64 ")\n", device->name, device->id);
+
+  if (device->busy || device->prevent_playback)
+    goto out;
+
+  if (player_state == PLAY_PAUSED)
+    {
+      // Playback was suspended by device_streaming_cb() because the speaker was
+      // the only one playing. In that case we need to first resume the source,
+      // then wait for the speaker to reactivate, and then run bottom half.
+      *retval = pb_resume();
+      if (*retval < 0)
+	goto out;
+    }
+  else if (player_state == PLAY_STOPPED)
+    {
+      // If PLAY_STOPPED there is nothing to do, we can't resurrect since the
+      // source is gone
+      goto out;
+    }
+
+  *retval = outputs_device_start(device, device_activate_cb, false);
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // Wait for speaker
+
+ out:
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_resurrect_bh(void *arg, int *retval)
+{
+  // Playback was suspended by device_streaming_cb. We resumed the input in the
+  // top half, now we have to start the playback timer and update status
+  if (player_state == PLAY_PAUSED)
+    return playback_start_bh(arg, retval);
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
 static enum command_state
 volume_set(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
-  struct output_device *device;
   int volume;
 
-  *retval = 0;
   volume = cmdarg->intval;
 
-  if (master_volume == volume)
-    return COMMAND_END;
-
-  master_volume = volume;
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (!device->selected)
-	continue;
-
-      device->volume = rel_to_vol(device->relvol);
-
-#ifdef DEBUG_RELVOL
-      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-#endif
-
-      if (device->session)
-	*retval += outputs_device_volume_set(device, device_command_cb);
-    }
-
-  listener_notify(LISTENER_VOLUME);
+  *retval = outputs_volume_set(volume, device_command_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2772,65 +2524,23 @@ volume_set(void *arg, int *retval)
   return COMMAND_END;
 }
 
-#ifdef DEBUG_RELVOL
-static void debug_print_speaker()
-{
-  struct output_device *device;
-
-  DPRINTF(E_DBG, L_PLAYER, "*** Master: %d\n", master_volume);
-
-  for (device = output_device_list; device; device = device->next)
-    {
-      if (!device->selected)
-	continue;
-
-      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-    }
-}
-#endif
-
 static enum command_state
 volume_setrel_speaker(void *arg, int *retval)
 {
   struct speaker_attr_param *vol_param = arg;
   struct output_device *device;
-  uint64_t id;
-  int relvol;
 
-  *retval = 0;
-  id = vol_param->spk_id;
-  relvol = vol_param->volume;
-
-  for (device = output_device_list; device; device = device->next)
+  device = outputs_device_get(vol_param->spk_id);
+  if (!device)
     {
-      if (device->id != id)
-	continue;
-
-      if (!device->selected)
-	{
-	  *retval = 0;
-	  return COMMAND_END;
-	}
-
-      device->relvol = relvol;
-      device->volume = rel_to_vol(relvol);
-
-#ifdef DEBUG_RELVOL
-      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-#endif
-
-      if (device->session)
-	*retval += outputs_device_volume_set(device, device_command_cb);
-
-      break;
+      DPRINTF(E_WARN, L_PLAYER, "Could not set volume for speaker id %" PRIu64 ", speaker disappeared\n", vol_param->spk_id);
+      *retval = -1;
+      return COMMAND_END;
     }
 
-  volume_master_find();
+  outputs_device_volume_register(device, -1, vol_param->volume);
 
-#ifdef DEBUG_RELVOL
-  debug_print_speaker();
-#endif
-  listener_notify(LISTENER_VOLUME);
+  *retval = outputs_device_volume_set(device, device_command_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2843,50 +2553,18 @@ volume_setabs_speaker(void *arg, int *retval)
 {
   struct speaker_attr_param *vol_param = arg;
   struct output_device *device;
-  uint64_t id;
-  int volume;
 
-  *retval = 0;
-  id = vol_param->spk_id;
-  volume = vol_param->volume;
-
-  master_volume = volume;
-
-  for (device = output_device_list; device; device = device->next)
+  device = outputs_device_get(vol_param->spk_id);
+  if (!device)
     {
-      if (!device->selected)
-	continue;
-
-      if (device->id != id)
-	{
-	  device->relvol = vol_to_rel(device->volume);
-
-#ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-#endif
-	  continue;
-	}
-      else
-	{
-	  device->relvol = 100;
-	  device->volume = master_volume;
-
-#ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-#endif
-
-	  if (device->session)
-	    *retval += outputs_device_volume_set(device, device_command_cb);
-	}
+      DPRINTF(E_WARN, L_PLAYER, "Could not set volume for speaker id %" PRIu64 ", speaker disappeared\n", vol_param->spk_id);
+      *retval = -1;
+      return COMMAND_END;
     }
 
-  volume_master_find();
+  outputs_device_volume_register(device, vol_param->volume, -1);
 
-#ifdef DEBUG_RELVOL
-  debug_print_speaker();
-#endif
-
-  listener_notify(LISTENER_VOLUME);
+  *retval = outputs_device_volume_set(device, device_command_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2905,6 +2583,7 @@ volume_update_speaker(void *arg, int *retval)
   device = outputs_device_get(vol_param->spk_id);
   if (!device)
     {
+      DPRINTF(E_WARN, L_PLAYER, "Could not set volume for speaker id %" PRIu64 ", speaker disappeared\n", vol_param->spk_id);
       *retval = -1;
       return COMMAND_END;
     }
@@ -2912,20 +2591,12 @@ volume_update_speaker(void *arg, int *retval)
   volume = outputs_device_volume_to_pct(device, vol_param->volstr); // Only converts
   if (volume < 0)
     {
-      DPRINTF(E_LOG, L_DACP, "Could not parse volume '%s' in update_volume() for speaker '%s'\n", vol_param->volstr, device->name);
+      DPRINTF(E_LOG, L_PLAYER, "Could not parse volume '%s' in update_volume() for speaker '%s'\n", vol_param->volstr, device->name);
       *retval = -1;
       return COMMAND_END;
     }
 
-  device->volume = volume;
-
-  volume_master_find();
-
-#ifdef DEBUG_RELVOL
-  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
-#endif
-
-  listener_notify(LISTENER_VOLUME);
+  outputs_device_volume_register(device, volume, -1);
 
   *retval = 0;
   return COMMAND_END;
@@ -3206,7 +2877,6 @@ player_speaker_set(uint64_t *ids)
   int ret;
 
   speaker_set_param.device_ids = ids;
-  speaker_set_param.intval = 0;
 
   ret = commands_exec_sync(cmdbase, speaker_set, NULL, &speaker_set_param);
 
@@ -3295,6 +2965,18 @@ player_speaker_busy_set(uint64_t id, bool busy)
   listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 
   return ret;
+}
+
+void
+player_speaker_resurrect(void *arg)
+{
+  struct speaker_set_param param;
+
+  param.device_ids = (uint64_t *)arg;
+
+  commands_exec_sync(cmdbase, speaker_resurrect, speaker_resurrect_bh, &param);
+
+  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 }
 
 int
@@ -3536,8 +3218,6 @@ player_init(void)
 
   speaker_autoselect = cfg_getbool(cfg_getsec(cfg, "general"), "speaker_autoselect");
   clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
-
-  master_volume = -1;
 
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;

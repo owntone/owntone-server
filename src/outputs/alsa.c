@@ -1143,7 +1143,7 @@ alsa_device_start(struct output_device *device, int callback_id)
   as->state = OUTPUT_STATE_CONNECTED;
   alsa_status(as);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -1155,7 +1155,7 @@ alsa_device_stop(struct output_device *device, int callback_id)
   as->state = OUTPUT_STATE_STOPPED;
   alsa_status(as); // Will terminate the session since the state is STOPPED
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -1169,7 +1169,7 @@ alsa_device_flush(struct output_device *device, int callback_id)
   as->state = OUTPUT_STATE_CONNECTED;
   alsa_status(as);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -1184,7 +1184,7 @@ alsa_device_probe(struct output_device *device, int callback_id)
   as->state = OUTPUT_STATE_STOPPED;
   alsa_status(as); // Will terminate the session since the state is STOPPED
 
-  return 0;
+  return 1;
 }
 
 static int

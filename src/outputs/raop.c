@@ -3759,7 +3759,7 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
   token = strtok_r(token, ";=", &ptr);
   while (token)
     {
-      DPRINTF(E_DBG, L_RAOP, "token: %s\n", token);
+      DPRINTF(E_SPAM, L_RAOP, "token: %s\n", token);
 
       if (strcmp(token, "server_port") == 0)
         {
@@ -4693,7 +4693,7 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
 	ret = raop_send_req_options(rs, raop_cb_startup_options, "device_start");
 
       if (ret == 0)
-	return 0;
+	return 1;
       else
 	{
 	  DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv6\n");
@@ -4719,7 +4719,7 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
       return -1;
     }
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -4741,7 +4741,9 @@ raop_device_stop(struct output_device *device, int callback_id)
 
   rs->callback_id = callback_id;
 
-  return session_teardown(rs, "device_stop");
+  session_teardown(rs, "device_stop");
+
+  return 1;
 }
 
 static int
@@ -4759,7 +4761,7 @@ raop_device_flush(struct output_device *device, int callback_id)
 
   rs->callback_id = callback_id;
 
-  return 0;
+  return 1;
 }
 
 static void

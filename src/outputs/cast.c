@@ -1932,7 +1932,7 @@ cast_device_start_generic(struct output_device *device, int callback_id, cast_re
 	  cast_session_cleanup(cs);
 	}
       else
-	return 0;
+	return 1;
     }
 
   cs = cast_session_make(device, AF_INET, callback_id);
@@ -1950,7 +1950,7 @@ cast_device_start_generic(struct output_device *device, int callback_id, cast_re
       return -1;
     }
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -1974,7 +1974,7 @@ cast_device_stop(struct output_device *device, int callback_id)
 
   cast_session_shutdown(cs, CAST_STATE_NONE);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -1986,7 +1986,7 @@ cast_device_flush(struct output_device *device, int callback_id)
   cs->state = CAST_STATE_MEDIA_CONNECTED;
   cast_status(cs);
 
-  return 0;
+  return 1;
 }
 
 static void

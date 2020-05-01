@@ -111,6 +111,9 @@ player_speaker_prevent_playback_set(uint64_t id, bool prevent_playback);
 int
 player_speaker_busy_set(uint64_t id, bool busy);
 
+void
+player_speaker_resurrect(void *arg);
+
 int
 player_playback_start(void);
 

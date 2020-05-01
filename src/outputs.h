@@ -122,6 +122,10 @@ struct output_device
   // Type of output (string)
   const char *type_name;
 
+  // Last state that the backend returned to the handlers in outputs.c. This
+  // field must only be set in outputs.c (not in the backends/player).
+  enum output_device_state state;
+
   // Misc device flags 
   unsigned selected:1;
   unsigned advertised:1;
@@ -218,6 +222,11 @@ struct output_definition
   // Deinitialization function called at shutdown
   void (*deinit)(void);
 
+  // For all the below that take callbacks, the return values are:
+  // - negative: error
+  // - zero:     ok, won't make a callback
+  // - positive: number of callbacks that will be made
+
   // Prepare a playback session on device and call back
   int (*device_start)(struct output_device *device, int callback_id);
 
@@ -293,17 +302,26 @@ outputs_listener_notify(void);
 
 /* ---------------------------- Called by player ---------------------------- */
 
+int
+outputs_master_volume;
+
 // Ownership of *add is transferred, so don't address after calling. Instead you
 // can address the return value (which is not the same if the device was already
 // in the list.
 struct output_device *
-outputs_device_add(struct output_device *add, bool new_deselect, int default_volume);
+outputs_device_add(struct output_device *add, bool new_deselect);
 
 void
 outputs_device_remove(struct output_device *remove);
 
+void
+outputs_device_select(struct output_device *device);
+
+void
+outputs_device_deselect(struct output_device *device);
+
 int
-outputs_device_start(struct output_device *device, output_status_cb cb);
+outputs_device_start(struct output_device *device, output_status_cb cb, bool only_probe);
 
 int
 outputs_device_stop(struct output_device *device, output_status_cb cb);
@@ -314,8 +332,8 @@ outputs_device_stop_delayed(struct output_device *device, output_status_cb cb);
 int
 outputs_device_flush(struct output_device *device, output_status_cb cb);
 
-int
-outputs_device_probe(struct output_device *device, output_status_cb cb);
+void
+outputs_device_volume_register(struct output_device *device, int absvol, int relvol);
 
 int
 outputs_device_volume_set(struct output_device *device, output_status_cb cb);
@@ -333,13 +351,22 @@ void
 outputs_device_free(struct output_device *device);
 
 int
-outputs_flush(output_status_cb cb);
+outputs_start(output_status_cb started_cb, output_status_cb stopped_cb, bool only_probe);
 
 int
 outputs_stop(output_status_cb cb);
 
 int
+outputs_flush(output_status_cb cb);
+
+int
+outputs_volume_set(int volume, output_status_cb cb);
+
+int
 outputs_stop_delayed_cancel(void);
+
+int
+outputs_sessions_count(void);
 
 void
 outputs_write(void *buf, size_t bufsize, int nsamples, struct media_quality *quality, struct timespec *pts);
