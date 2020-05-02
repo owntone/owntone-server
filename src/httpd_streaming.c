@@ -271,6 +271,7 @@ streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
     {
       DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream %s, libav does not support encoding: %d/%d/%d @ %d\n", ctx->name, ctx->quality_out.sample_rate, ctx->quality_out.bits_per_sample, ctx->quality_out.channels, ctx->quality_out.bit_rate);
       ctx->not_supported = 1;
+      streaming_end(ctx);
       return;
     }
 
@@ -654,8 +655,8 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
 
   if (ctx->not_supported)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Got %s streaming request, but cannot encode to %s\n", uri_parsed->path, ctx->name);
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+      DPRINTF(E_LOG, L_STREAMING, "Got streaming request for unsupported stream %s\n", ctx->name);
+      evhttp_send_error(req, HTTP_NOTIMPLEMENTED, "Not Implemented");
       return -1;
     }
 
