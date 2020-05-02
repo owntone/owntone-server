@@ -142,6 +142,8 @@ enum raop_state {
   RAOP_STATE_CONNECTED = RAOP_STATE_F_CONNECTED | 0x01,
   // Media data is being sent
   RAOP_STATE_STREAMING = RAOP_STATE_F_CONNECTED | 0x02,
+  // Session teardown in progress (-> going to STOPPED state)
+  RAOP_STATE_TEARDOWN  = RAOP_STATE_F_CONNECTED | 0x03,
   // Session is failed, couldn't startup or error occurred
   RAOP_STATE_FAILED    = RAOP_STATE_F_FAILED | 0x01,
   // Password issue: unknown password or bad password
@@ -1224,7 +1226,6 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb, const char *lo
       return -1;
     }
 
-  rs->state = RAOP_STATE_CONNECTED;
   rs->reqs_in_flight++;
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
@@ -1737,8 +1738,12 @@ raop_status(struct raop_session *rs)
       case RAOP_STATE_STREAMING:
 	state = OUTPUT_STATE_STREAMING;
 	break;
+      case RAOP_STATE_TEARDOWN:
+	DPRINTF(E_LOG, L_RAOP, "Bug! raop_status() called with transitional state (TEARDOWN)\n");
+	state = OUTPUT_STATE_STOPPED;
+	break;
       default:
-	DPRINTF(E_LOG, L_RAOP, "Bug! Unhandled state in raop_status()\n");
+	DPRINTF(E_LOG, L_RAOP, "Bug! Unhandled state in raop_status(): %d\n", rs->state);
 	state = OUTPUT_STATE_FAILED;
     }
 
@@ -1955,6 +1960,9 @@ session_teardown(struct raop_session *rs, const char *log_caller)
       DPRINTF(E_LOG, L_RAOP, "%s: TEARDOWN request failed!\n", log_caller);
       deferred_session_failure(rs);
     }
+
+  // Change state immediately so we won't write any more to the device
+  rs->state = RAOP_STATE_TEARDOWN;
 
   return ret;
 }
@@ -3513,6 +3521,8 @@ raop_startup_cancel(struct raop_session *rs)
 
       return;
     }
+
+  rs->state = RAOP_STATE_TEARDOWN;
 
   ret = raop_send_req_teardown(rs, raop_cb_startup_cancel, "startup_cancel");
   if (ret < 0)
