@@ -226,3 +226,17 @@ section.fd-tabs-section + section.fd-content {
 .dropdown-item:hover {
   background-color: hsl(0, 0%, 96%)
 }
+
+/* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
+@media only screen and (min-width: 1024px) {
+  .navbar-dropdown {
+    max-height: calc(100vh - 3.25rem - 3.25rem - 2rem);
+    overflow: auto;
+  }
+}
+
+/* Limit the size of the bottom navbar menu to not be displayed behind the Safari browser menu on iOS */
+.fd-bottom-navbar .navbar-menu {
+  max-height: calc(100vh - 3.25rem - 3.25rem - 1rem);
+  overflow: scroll;
+}

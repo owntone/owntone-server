@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar is-light is-fixed-top" :style="zindex" role="navigation" aria-label="main navigation">
+  <nav class="fd-top-navbar navbar is-light is-fixed-top" :style="zindex" role="navigation" aria-label="main navigation">
     <div class="navbar-brand">
       <navbar-item-link to="/playlists">
         <span class="icon"><i class="mdi mdi-library-music"></i></span>

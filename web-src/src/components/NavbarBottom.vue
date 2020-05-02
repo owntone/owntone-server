@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar is-white is-fixed-bottom" :style="zindex" :class="{ 'is-transparent': is_now_playing_page, 'is-dark': !is_now_playing_page }" role="navigation" aria-label="player controls">
+  <nav class="fd-bottom-navbar navbar is-white is-fixed-bottom" :style="zindex" :class="{ 'is-transparent': is_now_playing_page, 'is-dark': !is_now_playing_page }" role="navigation" aria-label="player controls">
     <div class="navbar-brand fd-expanded">
 
       <!-- Link to queue -->
@@ -115,8 +115,7 @@
     </div>
 
     <!-- Player menu (only visible on mobile and tablet) -->
-    <div class="navbar-menu is-hidden-desktop" style="max-height: calc(100vh - 3.25rem); overflow: scroll"
-        :class="{ 'is-active': show_player_menu }">
+    <div class="navbar-menu is-hidden-desktop" :class="{ 'is-active': show_player_menu }">
       <div class="navbar-start">
       </div>
       <div class="navbar-end">
