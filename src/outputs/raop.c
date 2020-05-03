@@ -100,6 +100,12 @@
 #define RAOP_MD_WANTS_ARTWORK      (1 << 1)
 #define RAOP_MD_WANTS_PROGRESS     (1 << 2)
 
+// ATV4 and Homepod disconnect for reasons that are not clear, but sending them
+// progress metadata at regular intervals reduces the problem. The below
+// interval was determined via testing, see:
+// https://github.com/ejurgensen/forked-daapd/issues/734#issuecomment-622959334
+#define RAOP_KEEP_ALIVE_INTERVAL   25
+
 // This is an arbitrary value which just needs to be kept in sync with the config
 #define RAOP_CONFIG_MAX_VOLUME     11
 
@@ -339,7 +345,7 @@ static struct output_metadata *raop_cur_metadata;
 
 /* Keep-alive timer - hack for ATV's with tvOS 10 */
 static struct event *keep_alive_timer;
-static struct timeval keep_alive_tv = { 30, 0 };
+static struct timeval keep_alive_tv = { RAOP_KEEP_ALIVE_INTERVAL, 0 };
 
 /* Sessions */
 static struct raop_master_session *raop_master_sessions;
