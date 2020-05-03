@@ -213,6 +213,7 @@ static cfg_opt_t sec_streaming[] =
     CFG_INT("sample_rate", 44100, CFGF_NONE),
     CFG_INT("bit_rate", 192, CFGF_NONE),
     CFG_INT("icy_metaint", 16384, CFGF_NONE),
+    CFG_INT("max_sessions", 5, CFGF_NONE),
     CFG_END()
   };
 

@@ -49,6 +49,8 @@ extern struct event_base *evbase_httpd;
 // How many bytes we try to read at a time from the httpd pipe
 #define STREAMING_READ_SIZE STOB(352, 16, 2)
 
+#define STREAMING_SESSIONS_MAX 10
+
 #define STREAMING_MP3_SAMPLE_RATE 44100
 #define STREAMING_MP3_BPS         16
 #define STREAMING_MP3_CHANNELS    2
@@ -83,6 +85,7 @@ struct streaming_ctx
 
   pthread_mutex_t sessions_lck;
   struct streaming_session *sessions;
+  unsigned available_sessions;
   bool not_supported;
 
   unsigned icy_clients;
@@ -114,6 +117,7 @@ static struct streaming_ctx streaming_ctxs[] = {
     .mime = "audio/mpeg",
     .xcode = XCODE_MP3,
     .sessions = NULL,
+    .available_sessions = STREAMING_SESSIONS_MAX,
     .not_supported = 0,
     .icy_clients = 0,
     .encode_ctx = NULL,
@@ -192,6 +196,7 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   else
     prev->next = session->next;
 
+  ++(ctx->available_sessions);
   if (session->require_icy)
     --(ctx->icy_clients);
 
@@ -231,6 +236,7 @@ streaming_end(struct streaming_ctx *ctx)
       evhttp_send_reply_end(session->req);
 
       ctx->sessions = session->next;
+      ++(ctx->available_sessions);
       free(session);
     }
   pthread_mutex_unlock(&ctx->sessions_lck);
@@ -662,6 +668,13 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
 
   evcon = evhttp_request_get_connection(req);
   evhttp_connection_get_peer(evcon, &address, &port);
+  if (ctx->available_sessions == 0)
+    {
+      DPRINTF(E_WARN, L_STREAMING, "Exceeded available sessions, rejecting %s streaming to %s:%d\n", ctx->name, address, (int)port);
+      evhttp_send_error(req, HTTP_SERVUNAVAIL, "No streaming sessions currently available");
+      return -1;
+    }
+
   param = evhttp_find_header( evhttp_request_get_input_headers(req), "Icy-MetaData");
   if (param && strcmp(param, "1") == 0)
     require_icy = true;
@@ -713,6 +726,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   session->bytes_sent = 0;
   ctx->sessions = session;
 
+  --(ctx->available_sessions);
   pthread_mutex_unlock(&ctx->sessions_lck);
 
   evhttp_connection_set_closecb(evcon, streaming_close_cb, session);
@@ -746,10 +760,19 @@ streaming_init(void)
   int ret;
   cfg_t *cfgsec;
   int val;
+  int max_sessions;
   struct streaming_ctx *ctx = streaming_ctxs;
 
   cfgsec = cfg_getsec(cfg, "streaming");
 
+  max_sessions = cfg_getint(cfgsec, "max_sessions");
+  if (max_sessions <= 0 || max_sessions > STREAMING_SESSIONS_MAX)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Invalid max_sessions=%d , defaulting\n", max_sessions);
+      max_sessions = STREAMING_SESSIONS_MAX;
+    }
+
+  // MP3 config params
   val = cfg_getint(cfgsec, "sample_rate");
   // Validate against the variations of libmp3lame's supported sample rates: 32000/44100/48000
   if (val % 11025 > 0 && val % 12000 > 0 && val % 8000 > 0)
@@ -771,7 +794,7 @@ streaming_init(void)
     default:
       DPRINTF(E_LOG, L_STREAMING, "Unsuppported MP3 streaming bit_rate=%d, supports: 64/96/128/192/320, defaulting\n", val);
   }
-  DPRINTF(E_INFO, L_STREAMING, "Streaming quality: %d/%d/%d @ %dkbps\n", streaming_ctxs[0].quality_out.sample_rate, streaming_ctxs[0].quality_out.bits_per_sample, streaming_ctxs[0].quality_out.channels, streaming_ctxs[0].quality_out.bit_rate/1000);
+  DPRINTF(E_INFO, L_STREAMING, "Streaming MP3 quality: %d/%d/%d @ %dkbps  max sessions: %d\n", streaming_ctxs[0].quality_out.sample_rate, streaming_ctxs[0].quality_out.bits_per_sample, streaming_ctxs[0].quality_out.channels, streaming_ctxs[0].quality_out.bit_rate/1000, max_sessions);
 
   val = cfg_getint(cfgsec, "icy_metaint");
   // Too low a value forces server to send more meta than data
@@ -790,6 +813,7 @@ streaming_init(void)
 
   while (ctx->name)
     {
+      ctx->available_sessions = max_sessions;
       // Non-blocking because otherwise httpd and player thread may deadlock
 #ifdef HAVE_PIPE2
       ret = pipe2(ctx->streaming_pipe, O_CLOEXEC | O_NONBLOCK);
