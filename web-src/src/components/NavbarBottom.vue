@@ -68,11 +68,11 @@
           </div>
 
           <!-- Outputs: master volume -->
-          <hr class="navbar-divider">
+          <hr class="fd-navbar-divider">
           <navbar-item-output v-for="output in outputs" :key="output.id" :output="output"></navbar-item-output>
 
           <!-- Outputs: stream volume -->
-          <hr class="navbar-divider">
+          <hr class="fd-navbar-divider">
           <div class="navbar-item">
             <div class="level is-mobile">
               <div class="level-left fd-expanded">
@@ -98,7 +98,7 @@
           </div>
 
           <!-- Playback controls -->
-          <hr class="navbar-divider">
+          <hr class="fd-navbar-divider">
           <div class="navbar-item">
             <div class="level is-mobile fd-expanded">
               <div class="level-item">
@@ -128,7 +128,7 @@
           </div>
         </div>
 
-        <hr style="margin: 12px 0;">
+        <hr class="fd-navbar-divider">
 
         <!-- Outputs: master volume -->
         <div class="navbar-item">
@@ -160,7 +160,7 @@
         <navbar-item-output v-for="output in outputs" :key="output.id" :output="output"></navbar-item-output>
 
         <!-- Outputs: stream volume -->
-        <hr class="navbar-divider">
+        <hr class="fd-navbar-divider">
         <div class="navbar-item fd-has-margin-bottom">
           <div class="level is-mobile">
             <div class="level-left fd-expanded">
