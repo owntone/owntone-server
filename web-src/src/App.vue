@@ -111,8 +111,14 @@ export default {
         protocol = 'wss://'
       }
 
+      var wsUrl = protocol + window.location.hostname + ':' + vm.$store.state.config.websocket_port
+      if (process.env.NODE_ENV === 'development' && process.env.VUE_APP_WEBSOCKET_SERVER) {
+        // If we are running in the development server, use the websocket url configured in .env.development
+        wsUrl = process.env.VUE_APP_WEBSOCKET_SERVER
+      }
+
       var socket = new ReconnectingWebSocket(
-        protocol + window.location.hostname + ':' + vm.$store.state.config.websocket_port,
+        wsUrl,
         'notify',
         { reconnectInterval: 3000 }
       )

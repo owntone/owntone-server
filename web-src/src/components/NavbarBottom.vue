@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar is-white is-fixed-bottom" :style="zindex" :class="{ 'is-transparent': is_now_playing_page, 'is-dark': !is_now_playing_page }" role="navigation" aria-label="player controls">
+  <nav class="fd-bottom-navbar navbar is-white is-fixed-bottom" :style="zindex" :class="{ 'is-transparent': is_now_playing_page, 'is-dark': !is_now_playing_page }" role="navigation" aria-label="player controls">
     <div class="navbar-brand fd-expanded">
 
       <!-- Link to queue -->
@@ -68,11 +68,11 @@
           </div>
 
           <!-- Outputs: master volume -->
-          <hr class="navbar-divider">
+          <hr class="fd-navbar-divider">
           <navbar-item-output v-for="output in outputs" :key="output.id" :output="output"></navbar-item-output>
 
           <!-- Outputs: stream volume -->
-          <hr class="navbar-divider">
+          <hr class="fd-navbar-divider">
           <div class="navbar-item">
             <div class="level is-mobile">
               <div class="level-left fd-expanded">
@@ -98,7 +98,7 @@
           </div>
 
           <!-- Playback controls -->
-          <hr class="navbar-divider">
+          <hr class="fd-navbar-divider">
           <div class="navbar-item">
             <div class="level is-mobile fd-expanded">
               <div class="level-item">
@@ -115,8 +115,7 @@
     </div>
 
     <!-- Player menu (only visible on mobile and tablet) -->
-    <div class="navbar-menu is-hidden-desktop" style="max-height: calc(100vh - 3.25rem); overflow: scroll"
-        :class="{ 'is-active': show_player_menu }">
+    <div class="navbar-menu is-hidden-desktop" :class="{ 'is-active': show_player_menu }">
       <div class="navbar-start">
       </div>
       <div class="navbar-end">
@@ -129,7 +128,7 @@
           </div>
         </div>
 
-        <hr style="margin: 12px 0;">
+        <hr class="fd-navbar-divider">
 
         <!-- Outputs: master volume -->
         <div class="navbar-item">
@@ -161,7 +160,7 @@
         <navbar-item-output v-for="output in outputs" :key="output.id" :output="output"></navbar-item-output>
 
         <!-- Outputs: stream volume -->
-        <hr class="navbar-divider">
+        <hr class="fd-navbar-divider">
         <div class="navbar-item fd-has-margin-bottom">
           <div class="level is-mobile">
             <div class="level-left fd-expanded">

@@ -43,14 +43,16 @@
         </div>
       </div>
     </div>
-    <div v-else class="fd-is-fullheight" style="justify-content: center;">
-      <div class="fd-is-expanded fd-has-padding-left-right has-text-centered">
-        <h1 class="title is-5">
-          You play queue is empty
-        </h1>
-        <p class="content">
-          Add some tracks by browsing your library
-        </p>
+    <div v-else class="fd-is-fullheight">
+      <div class="fd-is-expanded fd-has-padding-left-right" style="flex-direction: column;">
+        <div class="content has-text-centered">
+          <h1 class="title is-5">
+            Your play queue is empty
+          </h1>
+          <p>
+            Add some tracks by browsing your library
+          </p>
+        </div>
       </div>
     </div>
     <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
