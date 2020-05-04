@@ -100,6 +100,12 @@
 #define RAOP_MD_WANTS_ARTWORK      (1 << 1)
 #define RAOP_MD_WANTS_PROGRESS     (1 << 2)
 
+// ATV4 and Homepod disconnect for reasons that are not clear, but sending them
+// progress metadata at regular intervals reduces the problem. The below
+// interval was determined via testing, see:
+// https://github.com/ejurgensen/forked-daapd/issues/734#issuecomment-622959334
+#define RAOP_KEEP_ALIVE_INTERVAL   25
+
 // This is an arbitrary value which just needs to be kept in sync with the config
 #define RAOP_CONFIG_MAX_VOLUME     11
 
@@ -142,6 +148,8 @@ enum raop_state {
   RAOP_STATE_CONNECTED = RAOP_STATE_F_CONNECTED | 0x01,
   // Media data is being sent
   RAOP_STATE_STREAMING = RAOP_STATE_F_CONNECTED | 0x02,
+  // Session teardown in progress (-> going to STOPPED state)
+  RAOP_STATE_TEARDOWN  = RAOP_STATE_F_CONNECTED | 0x03,
   // Session is failed, couldn't startup or error occurred
   RAOP_STATE_FAILED    = RAOP_STATE_F_FAILED | 0x01,
   // Password issue: unknown password or bad password
@@ -337,7 +345,7 @@ static struct output_metadata *raop_cur_metadata;
 
 /* Keep-alive timer - hack for ATV's with tvOS 10 */
 static struct event *keep_alive_timer;
-static struct timeval keep_alive_tv = { 30, 0 };
+static struct timeval keep_alive_tv = { RAOP_KEEP_ALIVE_INTERVAL, 0 };
 
 /* Sessions */
 static struct raop_master_session *raop_master_sessions;
@@ -1224,7 +1232,6 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb, const char *lo
       return -1;
     }
 
-  rs->state = RAOP_STATE_CONNECTED;
   rs->reqs_in_flight++;
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
@@ -1737,8 +1744,12 @@ raop_status(struct raop_session *rs)
       case RAOP_STATE_STREAMING:
 	state = OUTPUT_STATE_STREAMING;
 	break;
+      case RAOP_STATE_TEARDOWN:
+	DPRINTF(E_LOG, L_RAOP, "Bug! raop_status() called with transitional state (TEARDOWN)\n");
+	state = OUTPUT_STATE_STOPPED;
+	break;
       default:
-	DPRINTF(E_LOG, L_RAOP, "Bug! Unhandled state in raop_status()\n");
+	DPRINTF(E_LOG, L_RAOP, "Bug! Unhandled state in raop_status(): %d\n", rs->state);
 	state = OUTPUT_STATE_FAILED;
     }
 
@@ -1955,6 +1966,9 @@ session_teardown(struct raop_session *rs, const char *log_caller)
       DPRINTF(E_LOG, L_RAOP, "%s: TEARDOWN request failed!\n", log_caller);
       deferred_session_failure(rs);
     }
+
+  // Change state immediately so we won't write any more to the device
+  rs->state = RAOP_STATE_TEARDOWN;
 
   return ret;
 }
@@ -3514,6 +3528,8 @@ raop_startup_cancel(struct raop_session *rs)
       return;
     }
 
+  rs->state = RAOP_STATE_TEARDOWN;
+
   ret = raop_send_req_teardown(rs, raop_cb_startup_cancel, "startup_cancel");
   if (ret < 0)
     session_failure(rs);
@@ -3759,7 +3775,7 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
   token = strtok_r(token, ";=", &ptr);
   while (token)
     {
-      DPRINTF(E_DBG, L_RAOP, "token: %s\n", token);
+      DPRINTF(E_SPAM, L_RAOP, "token: %s\n", token);
 
       if (strcmp(token, "server_port") == 0)
         {
@@ -4693,7 +4709,7 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
 	ret = raop_send_req_options(rs, raop_cb_startup_options, "device_start");
 
       if (ret == 0)
-	return 0;
+	return 1;
       else
 	{
 	  DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv6\n");
@@ -4719,7 +4735,7 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
       return -1;
     }
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -4741,7 +4757,9 @@ raop_device_stop(struct output_device *device, int callback_id)
 
   rs->callback_id = callback_id;
 
-  return session_teardown(rs, "device_stop");
+  session_teardown(rs, "device_stop");
+
+  return 1;
 }
 
 static int
@@ -4759,7 +4777,7 @@ raop_device_flush(struct output_device *device, int callback_id)
 
   rs->callback_id = callback_id;
 
-  return 0;
+  return 1;
 }
 
 static void

@@ -302,7 +302,7 @@ fifo_device_start(struct output_device *device, int callback_id)
 
   fifo_status(fifo_session);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -320,7 +320,7 @@ fifo_device_stop(struct output_device *device, int callback_id)
   fifo_session->state = OUTPUT_STATE_STOPPED;
   fifo_status(fifo_session);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -335,7 +335,7 @@ fifo_device_flush(struct output_device *device, int callback_id)
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_status(fifo_session);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -362,7 +362,7 @@ fifo_device_probe(struct output_device *device, int callback_id)
 
   fifo_status(fifo_session);
 
-  return 0;
+  return 1;
 }
 
 static int

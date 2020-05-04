@@ -115,7 +115,7 @@ dummy_device_start(struct output_device *device, int callback_id)
 
   dummy_status(ds);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -128,7 +128,7 @@ dummy_device_stop(struct output_device *device, int callback_id)
 
   dummy_status(ds);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -141,7 +141,7 @@ dummy_device_flush(struct output_device *device, int callback_id)
 
   dummy_status(ds);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -158,7 +158,7 @@ dummy_device_probe(struct output_device *device, int callback_id)
 
   dummy_status(ds);
 
-  return 0;
+  return 1;
 }
 
 static int
