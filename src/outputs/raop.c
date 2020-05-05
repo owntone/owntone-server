@@ -2025,7 +2025,7 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
 	return NULL;
     }
 
-  CHECK_NULL(L_PLAYER, rs = calloc(1, sizeof(struct raop_session)));
+  CHECK_NULL(L_RAOP, rs = calloc(1, sizeof(struct raop_session)));
   CHECK_NULL(L_RAOP, rs->deferredev = evtimer_new(evbase_player, deferredev_cb, rs));
 
   rs->state = RAOP_STATE_STOPPED;
@@ -2791,7 +2791,7 @@ packet_send(struct raop_session *rs, struct rtp_packet *pkt)
       return -1;
     }
 
-/*  DPRINTF(E_DBG, L_PLAYER, "RTP PACKET seqnum %u, rtptime %u, payload 0x%x, pktbuf_s %zu\n",
+/*  DPRINTF(E_DBG, L_RAOP, "RTP PACKET seqnum %u, rtptime %u, payload 0x%x, pktbuf_s %zu\n",
     rs->master_session->rtp_session->seqnum,
     rs->master_session->rtp_session->pos,
     pkt->header[1],
@@ -2958,7 +2958,7 @@ packets_sync_send(struct raop_master_session *rms)
 	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, rms->cur_stamp, 0x90);
 	  control_packet_send(rs, sync_pkt);
 
-	  DPRINTF(E_DBG, L_PLAYER, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
+	  DPRINTF(E_DBG, L_RAOP, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
 	    rs->devname, rms->cur_stamp.pos, rms->cur_stamp.ts.tv_sec, rms->cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, rms->rtp_session->pos);
 	}
       else if (is_sync_time && rs->state == RAOP_STATE_STREAMING)
