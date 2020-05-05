@@ -1647,21 +1647,26 @@ source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
 static int
 source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
 {
-  struct spotifywebapi_access_token info;
+  struct spotifywebapi_status_info webapi_info;
+  struct spotifywebapi_access_token webapi_token;
   char *url;
   int ret;
 
   if (!online_source_is_enabled(&spotify_source))
     return ART_E_NONE;
 
-  spotifywebapi_access_token_get(&info);
-  if (!info.token)
+  spotifywebapi_status_info_get(&webapi_info);
+  if (!webapi_info.token_valid)
+    return ART_E_NONE; // Not logged in
+
+  spotifywebapi_access_token_get(&webapi_token);
+  if (!webapi_token.token)
     return ART_E_ERROR;
 
-  spotify_source.auth_secret = info.token;
+  spotify_source.auth_secret = webapi_token.token;
 
   url = online_source_search(&spotify_source, ctx);
-  free(info.token);
+  free(webapi_token.token);
   if (!url)
     return ART_E_NONE;
 
