@@ -2065,7 +2065,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   if (queue_item->artwork_url
       && (strncmp(queue_item->artwork_url, "http://", strlen("http://")) == 0
 	  || strncmp(queue_item->artwork_url, "https://", strlen("https://")) == 0) && (
-      (ext = strrchr(queue_item->artwork_url, '.')) && (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpg") == 0 )
+      (ext = strrchr(queue_item->artwork_url, '.')) && (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".png") == 0 )
     ))
     {
       // The queue item contains a valid http url for an artwork image, there is no need
