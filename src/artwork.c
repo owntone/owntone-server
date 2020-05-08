@@ -274,11 +274,12 @@ static struct artwork_source artwork_item_source[] =
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
+      // Changed to STASH so streams can use playlist.png for artwork on embedded stream artwork failures
       .name = "playlist own",
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
-      .media_kinds = MEDIA_KIND_ALL,
-      .cache = ON_SUCCESS | ON_FAILURE,
+      /*.cache = ON_SUCCESS | ON_FAILURE, */
+      .cache = STASH,
     },
     {
       .name = "Spotify search web api (files)",
@@ -392,6 +393,64 @@ static struct online_source musicbrainz_source =
   };
 
 
+/* -------------------------------- HELPERS -------------------------------- */
+
+#define TMP_BUF_SIZE 1024
+static int artwork_read_byurl(struct evbuffer *evbuf, const char *url);
+
+/* Reads an artwork url tags from the json responce within evbuffer, then if found 
+ * makes call to read image from url and replace evbuffer contents with image data
+ *
+ * @out evbuf     Json data passed | replaced with Image data returned
+ * @in  url       URL for the image
+ * @return        ART_FMT_* on success, ART_E_ERROR otherwise
+ */
+
+static int
+artwork_read_json_byurl(struct evbuffer *evbuf, const char *url)
+{
+  int ret = ART_E_ERROR;
+  json_object *jresponse;
+  char *body;
+  cfg_t *lib;
+  int i, n;
+
+  evbuffer_add(evbuf, "", 1);
+  body = (char *)evbuffer_pullup(evbuf, -1);
+  
+  DPRINTF(E_SPAM, L_ART, "Response from '%s': %s\n", url, body);
+    
+  jresponse = json_tokener_parse(body);
+  if (!jresponse) {
+    DPRINTF(E_LOG, L_ART, "Artwork from '%s' has unknown json\n", url);
+    jparse_free(jresponse);
+  } else {
+    lib = cfg_getsec(cfg, "library");
+    n = cfg_size(lib, "stream_urlimage_tags");
+    for (i = 0; i < n; i++) {
+        //DPRINTF(E_SPAM, L_ART, "Artwork from '%s' searching for tag '%s'\n", url, cfg_getnstr(lib, "stream_urlimage_tags", i));
+      const char *aurl = jparse_str_from_obj(jresponse, cfg_getnstr(lib, "stream_urlimage_tags", i));
+      if (aurl) {
+        char buf[TMP_BUF_SIZE];
+        int i = TMP_BUF_SIZE;
+        char *new_artwork_url = strdup(aurl);
+        jparse_free(jresponse);
+        DPRINTF(E_LOG, L_ART, "Artwork from '%s' has found '%s' in json\n", url,new_artwork_url);
+        // Need to empty the network buffer before making a new request.
+        while (i >= TMP_BUF_SIZE)
+          i = evbuffer_remove(evbuf, &buf, TMP_BUF_SIZE);
+        
+        ret = artwork_read_byurl(evbuf, new_artwork_url);
+        free(new_artwork_url);
+        return ret;
+      }
+    }
+    jparse_free(jresponse);
+    DPRINTF(E_LOG, L_ART, "Artwork from '%s' did not find meaningful tag(s) in json reply\n", url);
+  }
+
+  return ART_E_ERROR;
+}
 
 /* -------------------------------- HELPERS -------------------------------- */
 
@@ -440,14 +499,29 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
     }
 
   content_type = keyval_get(kv, "Content-Type");
-  if (content_type && (strcmp(content_type, "image/jpeg") == 0))
+
+  if (content_type && (strcmp(content_type, "application/json") == 0))
+    ret = artwork_read_json_byurl(evbuf, url);
+  else if ( content_type && ( strcmp(content_type, "image/jpeg") == 0 || strcmp(content_type, "image/jpg") == 0 ) )
     ret = ART_FMT_JPEG;
   else if (content_type && (strcmp(content_type, "image/png") == 0))
     ret = ART_FMT_PNG;
   else
-    {
-      DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
-      goto error;
+    { // With no content-type see if we can guess it from url (does it have .jpg or .png)
+      char *ext = strrchr(url, '.');
+      if (ext) {
+        if (strcmp(ext, ".jpg") == 0)
+          ret = ART_FMT_JPEG;
+        else if (strcmp(ext, ".png") == 0)
+          ret = ART_FMT_PNG;
+        else {
+          DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type or filename extension\n", url);
+          goto error;
+        }
+      } else {
+        DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
+        goto error;
+      }
     }
 
   keyval_clear(kv);
@@ -1515,7 +1589,7 @@ source_item_stream_get(struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
   char *url;
-  char *ext;
+  //char *ext;
   int len;
   int ret;
 
@@ -1538,12 +1612,14 @@ source_item_stream_get(struct artwork_ctx *ctx)
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
     goto out_url;
 
+/* 
+  //Remove check here and moved to artwork_read_byurl()
   ext = strrchr(url, '.');
   if (!ext)
     goto out_url;
   if ((strcmp(ext, ".jpg") != 0) && (strcmp(ext, ".png") != 0))
     goto out_url;
-
+*/
   ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
 
  out_url:

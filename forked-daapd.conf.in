@@ -157,6 +157,9 @@ library {
 	# to trigger a rescan.
 #	filescan_disable = false
 
+	# Extra tags should be searched in radio streams for artwork
+	stream_urlimage_tags = { "eventImageUrl", "StreamURL", "ImageUrl" }
+	
 	# Should metadata from m3u playlists, e.g. artist and title in EXTINF,
 	# override the metadata we get from radio streams?
 #	m3u_overrides = false
