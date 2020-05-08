@@ -209,7 +209,7 @@ struct player_source
 
   // Used for metadata progress
   uint32_t last_pos_ms;
-  uint32_t last_metadata_pos_ms; // adjusted by buffer duration
+  uint32_t last_metadata_pos_ms;
   uint32_t display_len_ms;
 };
 
@@ -289,6 +289,9 @@ static int pb_timer_fd;
 timer_t pb_timer;
 #endif
 static struct event *pb_timer_ev;
+static struct event *metadata_delay_ev;
+static struct timeval metadata_delay_tv = { .tv_sec = OUTPUTS_BUFFER_DURATION, .tv_usec = 0 };
+static struct input_metadata *delayed_input_metadata;
 
 // Time between ticks, i.e. time between when playback_cb() is invoked
 static struct timespec player_tick_interval;
@@ -948,26 +951,86 @@ static void
 session_update_metadata(struct input_metadata *metadata)
 {
   pb_session.playing_now->last_pos_ms = pb_session.playing_now->seek_ms + 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
-  pb_session.playing_now->last_metadata_pos_ms = metadata->pos_ms - 1000UL * OUTPUTS_BUFFER_DURATION;
+  pb_session.playing_now->last_metadata_pos_ms = metadata->pos_ms;
   pb_session.playing_now->display_len_ms = metadata->len_ms;
+}
+
+static void
+event_read_metadata_cb(evutil_socket_t fd, short event, void *arg)
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_read_metadata_cb()\n");
+
+  struct db_queue_item *queue_item;
+  queue_item = db_queue_fetch_byitemid(delayed_input_metadata->item_id);
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! Input source item_id does not match anything in queue\n");
+      goto skip_db_queue_update;
+    }
+
+  // Update queue item if metadata changed
+  if (delayed_input_metadata->artist || delayed_input_metadata->title || delayed_input_metadata->album || delayed_input_metadata->genre || delayed_input_metadata->artwork_url || delayed_input_metadata->len_ms)
+    {
+      // Since we won't be using the metadata struct values for anything else
+      // than this we just swap pointers
+      if (delayed_input_metadata->artist)
+	swap_pointers(&queue_item->artist, &delayed_input_metadata->artist);
+      if (delayed_input_metadata->title)
+	swap_pointers(&queue_item->title, &delayed_input_metadata->title);
+      if (delayed_input_metadata->album)
+	swap_pointers(&queue_item->album, &delayed_input_metadata->album);
+      if (delayed_input_metadata->genre)
+	swap_pointers(&queue_item->genre, &delayed_input_metadata->genre);
+      if (delayed_input_metadata->artwork_url)
+	swap_pointers(&queue_item->artwork_url, &delayed_input_metadata->artwork_url);
+      if (delayed_input_metadata->len_ms)
+	queue_item->song_length = delayed_input_metadata->len_ms;
+
+      if (db_queue_update_item(queue_item) < 0)
+	DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
+    }
+
+  free_queue_item(queue_item, 0);
+
+  skip_db_queue_update:
+
+  if (delayed_input_metadata->len_ms) {
+    session_update_metadata(delayed_input_metadata);
+    outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
+    status_update(player_state);
+  }
+
+  input_metadata_free(delayed_input_metadata,0);
+  delayed_input_metadata = NULL;
+
 }
 
 static void
 event_read_metadata(struct input_metadata *metadata)
 {
   DPRINTF(E_DBG, L_PLAYER, "event_read_metadata()\n");
-
-  // FIXME Right now, metadata->pos_ms is not honoured. If it is >0 it is sent
-  // to the outputs, but the player's pos_ms is not adjusted. That means we
-  // don't always show correct progress for http streams, pipes and files with
-  // chapters.
-  if (metadata->progress_updated){
-    session_update_metadata(metadata);
-    metadata->progress_updated = false;
+  if (delayed_input_metadata) { // item_id stays constant, rest can be updated
+    if (metadata->album)
+      swap_pointers(&delayed_input_metadata->album, &metadata->album);
+    if (metadata->artist)
+      swap_pointers(&delayed_input_metadata->artist, &metadata->artist);
+    if (metadata->artwork_url)
+      swap_pointers(&delayed_input_metadata->artwork_url, &metadata->artwork_url);
+    if (metadata->genre)
+      swap_pointers(&delayed_input_metadata->genre, &metadata->genre);
+    if (metadata->title)
+      swap_pointers(&delayed_input_metadata->title, &metadata->title);
+    if (metadata->len_ms) {
+      delayed_input_metadata->len_ms = metadata->len_ms;
+      delayed_input_metadata->pos_ms = metadata->pos_ms;
+    }
+    input_metadata_free(metadata, 0);
+  } else
+  {
+    delayed_input_metadata = metadata; // Keep one copy of metadata per delay_tv window and update if necessary
   }
-  outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
-
-  status_update(player_state);
+  if (!evtimer_pending(metadata_delay_ev, NULL)) // Only allow one progress update per delay_tv window
+    evtimer_add(metadata_delay_ev, &metadata_delay_tv);
 }
 
 static void
@@ -3602,6 +3665,9 @@ player_init(void)
 #endif
   CHECK_NULL(L_PLAYER, cmdbase = commands_base_new(evbase_player, NULL));
 
+  CHECK_NULL(L_PLAYER, metadata_delay_ev = evtimer_new(evbase_player, event_read_metadata_cb, NULL));
+  delayed_input_metadata = NULL;
+
   ret = outputs_init();
   if (ret < 0)
     {
@@ -3637,6 +3703,7 @@ player_init(void)
  error_evbase_free:
   commands_base_free(cmdbase);
   event_free(pb_timer_ev);
+  event_free(metadata_delay_ev);
   event_base_free(evbase_player);
 #ifdef HAVE_TIMERFD
   close(pb_timer_fd);
@@ -3680,5 +3747,6 @@ player_deinit(void)
   free(history);
 
   event_free(pb_timer_ev);
+  event_free(metadata_delay_ev);
   event_base_free(evbase_player);
 }

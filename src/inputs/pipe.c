@@ -363,7 +363,6 @@ handle_progress(struct input_metadata *m, char *progress)
     m->pos_ms = (pos - start) * 1000 / pipe_sample_rate;
   if (end > start)
     m->len_ms = (end - start) * 1000 / pipe_sample_rate;
-  m->progress_updated = true;
 }
 
 static void

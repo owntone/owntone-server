@@ -193,7 +193,6 @@ static struct input_metadata *
 metadata_get(struct input_source *source)
 {
   struct input_metadata *metadata;
-  struct db_queue_item *queue_item;
   int ret;
 
   if (!inputs[source->type]->metadata_get)
@@ -202,46 +201,12 @@ metadata_get(struct input_source *source)
   metadata = calloc(1, sizeof(struct input_metadata));
 
   ret = inputs[source->type]->metadata_get(metadata, source);
-  if (ret < 0)
-    goto out_free_metadata;
-
-  queue_item = db_queue_fetch_byitemid(source->item_id);
-  if (!queue_item)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! Input source item_id does not match anything in queue\n");
-      goto out_free_metadata;
-    }
-
-  // Update queue item if metadata changed
-  if (metadata->artist || metadata->title || metadata->album || metadata->genre || metadata->artwork_url || metadata->len_ms)
-    {
-      // Since we won't be using the metadata struct values for anything else
-      // than this we just swap pointers
-      if (metadata->artist)
-	swap_pointers(&queue_item->artist, &metadata->artist);
-      if (metadata->title)
-	swap_pointers(&queue_item->title, &metadata->title);
-      if (metadata->album)
-	swap_pointers(&queue_item->album, &metadata->album);
-      if (metadata->genre)
-	swap_pointers(&queue_item->genre, &metadata->genre);
-      if (metadata->artwork_url)
-	swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
-      if (metadata->len_ms)
-	queue_item->song_length = metadata->len_ms;
-
-      ret = db_queue_update_item(queue_item);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
-    }
-
-  free_queue_item(queue_item, 0);
-
+  if (ret < 0) {
+    metadata_free(metadata, 0);
+    return NULL;
+  }
+  metadata->item_id = source->item_id;
   return metadata;
-
- out_free_metadata:
-  metadata_free(metadata, 0);
-  return NULL;
 }
 
 static void
@@ -867,7 +832,6 @@ input_flush(short *flags)
   flush(flags);
 }
 
-// Not currently used, perhaps remove?
 void
 input_metadata_free(struct input_metadata *metadata, int content_only)
 {
