@@ -765,9 +765,7 @@ pipe_metadata_read_cb(evutil_socket_t fd, short event, void *arg)
     {
       // Reset the pipe
       ret = watch_reset(pipe_metadata.pipe);
-      if (ret < 0)
-	return;
-      goto readd;
+      return;
     }
 
   len = evbuffer_get_length(pipe_metadata.evbuf);
