@@ -37,6 +37,7 @@ ordertag	:	STRTAG
 			|	INTTAG
 			|	DATETAG
 			|	ENUMTAG
+			|	RANDOMTAG
 			|	(XXX)? NeverUsedRule
 			;
 
@@ -115,6 +116,9 @@ ENUMTAG		:	'data_kind'
 
 GROUPTAG	:	'track_count'
 			|	'album_count'
+			;
+
+RANDOMTAG	:	'random'
 			;
 
 INCLUDES	:	'includes'
