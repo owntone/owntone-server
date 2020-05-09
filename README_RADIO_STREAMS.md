@@ -47,12 +47,13 @@ http://radio.stream.domain/stream.url
 ```
 Please search details of the #EXTINF tag, but the format is basically `#EXTINF:<length>, <Artist Name> - <Artist Title>`. Length is -1 since it's a stream, `<Artist Name>` was left blank since `StreamTitle` is accurate in the Metadata but `<Artist Title>` was populated to `My Radio Stream Name` since `icy-name` was blank. This way forkard-daapd will show `My Radio Stream Name` rather than the URL for the stream name.
 
-Next, modify forked-daapd configuration and make sure `m3u_overrides = true` is set, then forked-daapd will use the .mru
+Next, modify forked-daapd configuration and make sure `m3u_overrides = true` is set, then forked-daapd will use the #EXTINF tag in the .m3u playlist file.
 
 ### 2) Artwork.
 The `StreamUrl` metatag is used for artwork, but in the above example that doesn't point to a valid image file.
-First simply get the artwork for the stream and name it .png or .jpg with the same filename as the .m3u plaulist.  Example `My Radio Stream.m3u` and `My Radio Stream.jpg`.  forked-daapd will now display that artwork.
-Some streams as in the example above will use the `StreamUrl` tag to point to another page with extended information about the current track. If you use curl / wget / web browser to hit the url you will see an output similar to
+First simply get the artwork for the stream and name it .png or .jpg with the same filename as the .m3u playlist.  Example `My Radio Stream.m3u` and `My Radio Stream.jpg`.  forked-daapd will now display that artwork.
+Some streams as in the example above will use the `StreamUrl` tag to point to another page with extended information about the current track. If you use curl / wget / web browser to hit the url you will see an output similar to below.
+ie `curl "https://radio.stream.domain/api9/eventdata/49790578"` would return something like.
 ```
 {
     "eventId": 49793707,

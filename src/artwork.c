@@ -278,7 +278,6 @@ static struct artwork_source artwork_item_source[] =
       .name = "playlist own",
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
-      /*.cache = ON_SUCCESS | ON_FAILURE, */
       .cache = STASH,
     },
     {
@@ -395,21 +394,18 @@ static struct online_source musicbrainz_source =
 
 /* -------------------------------- HELPERS -------------------------------- */
 
-#define TMP_BUF_SIZE 1024
-static int artwork_read_byurl(struct evbuffer *evbuf, const char *url);
-
-/* Reads an artwork url tags from the json responce within evbuffer, then if found 
- * makes call to read image from url and replace evbuffer contents with image data
+/* Reads an artwork url tags from the json responce within evbuffer, matches against
+ * configuration "stream_urlimage_tags" then if found populates new_url
+ * new_url nust be freed by calling function.
  *
  * @out evbuf     Json data passed | replaced with Image data returned
- * @in  url       URL for the image
- * @return        ART_FMT_* on success, ART_E_ERROR otherwise
+ * @in  url       URL for the json
+ * @return        URL for the image found in json. NULL if not found
  */
 
-static int
-artwork_read_json_byurl(struct evbuffer *evbuf, const char *url)
+char *streamurl_json_parse(struct evbuffer *evbuf, const char *url)
 {
-  int ret = ART_E_ERROR;
+  char *new_url = NULL;
   json_object *jresponse;
   char *body;
   cfg_t *lib;
@@ -421,38 +417,31 @@ artwork_read_json_byurl(struct evbuffer *evbuf, const char *url)
   DPRINTF(E_SPAM, L_ART, "Response from '%s': %s\n", url, body);
     
   jresponse = json_tokener_parse(body);
-  if (!jresponse) {
-    DPRINTF(E_LOG, L_ART, "Artwork from '%s' has unknown json\n", url);
-    jparse_free(jresponse);
-  } else {
-    lib = cfg_getsec(cfg, "library");
-    n = cfg_size(lib, "stream_urlimage_tags");
-    for (i = 0; i < n; i++) {
-        //DPRINTF(E_SPAM, L_ART, "Artwork from '%s' searching for tag '%s'\n", url, cfg_getnstr(lib, "stream_urlimage_tags", i));
-      const char *aurl = jparse_str_from_obj(jresponse, cfg_getnstr(lib, "stream_urlimage_tags", i));
-      if (aurl) {
-        char buf[TMP_BUF_SIZE];
-        int i = TMP_BUF_SIZE;
-        char *new_artwork_url = strdup(aurl);
-        jparse_free(jresponse);
-        DPRINTF(E_LOG, L_ART, "Artwork from '%s' has found '%s' in json\n", url,new_artwork_url);
-        // Need to empty the network buffer before making a new request.
-        while (i >= TMP_BUF_SIZE)
-          i = evbuffer_remove(evbuf, &buf, TMP_BUF_SIZE);
-        
-        ret = artwork_read_byurl(evbuf, new_artwork_url);
-        free(new_artwork_url);
-        return ret;
+  if (!jresponse) 
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork from '%s' has unknown json\n", url);
+      jparse_free(jresponse);
+    } 
+  else 
+    {
+      lib = cfg_getsec(cfg, "library");
+      n = cfg_size(lib, "stream_urlimage_tags");
+      for (i = 0; i < n; i++) {
+        const char *aurl = jparse_str_from_obj(jresponse, cfg_getnstr(lib, "stream_urlimage_tags", i));
+        if (aurl) 
+          {
+            new_url = strdup(aurl);
+            jparse_free(jresponse);
+            DPRINTF(E_SPAM, L_ART, "Artwork from '%s' has found image url '%s' in json\n", url,new_url);
+            return new_url;
+         }
       }
+      jparse_free(jresponse);
+      DPRINTF(E_LOG, L_ART, "Artwork from '%s' did not find meaningful tag(s) in json reply\n", url);
     }
-    jparse_free(jresponse);
-    DPRINTF(E_LOG, L_ART, "Artwork from '%s' did not find meaningful tag(s) in json reply\n", url);
-  }
 
-  return ART_E_ERROR;
+  return NULL;
 }
-
-/* -------------------------------- HELPERS -------------------------------- */
 
 /* Reads an artwork file from the given http url straight into an evbuf
  *
@@ -460,6 +449,7 @@ artwork_read_json_byurl(struct evbuffer *evbuf, const char *url)
  * @in  url       URL for the image
  * @return        ART_FMT_* on success, ART_E_ERROR otherwise
  */
+
 static int
 artwork_read_byurl(struct evbuffer *evbuf, const char *url)
 {
@@ -501,27 +491,29 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
   content_type = keyval_get(kv, "Content-Type");
 
   if (content_type && (strcmp(content_type, "application/json") == 0))
-    ret = artwork_read_json_byurl(evbuf, url);
+    {
+      char *new_url = streamurl_json_parse(evbuf, url);
+      if ( new_url != NULL) 
+        { // clear out evbuf so it can be re-used
+          char buf[1024];
+          int i = 1024;
+          while (i >= 1024)
+            i = evbuffer_remove(evbuf, &buf, 1024);
+          // Call ourself with the new artwork URL.
+          ret = artwork_read_byurl(evbuf, new_url);
+          free(new_url);
+        } 
+      else 
+        goto error;
+    }
   else if ( content_type && ( strcmp(content_type, "image/jpeg") == 0 || strcmp(content_type, "image/jpg") == 0 ) )
     ret = ART_FMT_JPEG;
   else if (content_type && (strcmp(content_type, "image/png") == 0))
     ret = ART_FMT_PNG;
   else
-    { // With no content-type see if we can guess it from url (does it have .jpg or .png)
-      char *ext = strrchr(url, '.');
-      if (ext) {
-        if (strcmp(ext, ".jpg") == 0)
-          ret = ART_FMT_JPEG;
-        else if (strcmp(ext, ".png") == 0)
-          ret = ART_FMT_PNG;
-        else {
-          DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type or filename extension\n", url);
-          goto error;
-        }
-      } else {
-        DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
-        goto error;
-      }
+    { 
+      DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
+      goto error;
     }
 
   keyval_clear(kv);
@@ -995,6 +987,7 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   ret = cache_artwork_read(raw, url, &format);
   if (ret == 0 && format > 0)
     {
+      //DPRINTF(E_SPAM, L_ART, "Found artwork in cache_artwork_read %s\n", url);
       ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
       if (ret < 0)
 	goto error;
@@ -1007,6 +1000,8 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   if (format < 0)
     goto error;
 
+  //DPRINTF(E_SPAM, L_ART, "Found artwork in artwork_read_byurl %s\n", url);
+
   ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
   if (ret < 0)
     goto error;
@@ -1016,6 +1011,7 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
 
  error:
   evbuffer_free(raw);
+  DPRINTF(E_SPAM, L_ART, "No artwork in artwork_get_byurl %s\n", url);
   return ART_E_ERROR;
 }
 
@@ -2010,7 +2006,7 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
 	cache_artwork_add(CACHE_ARTWORK_INDIVIDUAL, id, max_w, max_h, ret, ctx.path, evbuf);
       if (ctx.cache & STASH)
 	cache_artwork_stash(evbuf, ctx.path, ret);
-
+      DPRINTF(E_SPAM, L_ART, "Artwork request for item %d, process_items() = %d\n", id, ret);
       return ret;
     }
 
@@ -2024,7 +2020,7 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
 	cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, ret, ctx.path, evbuf);
       if (ctx.cache & STASH)
 	cache_artwork_stash(evbuf, ctx.path, ret);
-
+      DPRINTF(E_SPAM, L_ART, "Artwork request for item %d, process_group() = %d\n", id, ret);
       return ret;
     }
 
