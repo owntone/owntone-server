@@ -719,7 +719,7 @@ session_update_read_start(uint32_t seek_ms)
   if (!pb_session.reading_now)
     return;
 
-  pb_session.reading_now->pos_ms = seek_ms - OUTPUTS_BUFFER_DURATION;
+  pb_session.reading_now->pos_ms = seek_ms;
   pb_session.reading_now->display_pos_ms = seek_ms;
   pb_session.reading_now->seek_ms = seek_ms;
   pb_session.reading_now->read_start = pb_session.pos;
@@ -804,7 +804,7 @@ session_update_read_metadata(uint32_t pos_ms, bool pos_is_updated, uint32_t len_
   pb_session.reading_now->metadata_update = pb_session.pos + pb_session.reading_now->output_buffer_samples;
 
   if (pos_is_updated)
-    pb_session.reading_now->pos_ms = pos_ms - OUTPUTS_BUFFER_DURATION;
+    pb_session.reading_now->pos_ms = pos_ms;
   if (len_ms)
     pb_session.reading_now->display_len_ms = len_ms;
 }
