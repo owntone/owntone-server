@@ -867,13 +867,6 @@ input_flush(short *flags)
   flush(flags);
 }
 
-// Not currently used, perhaps remove?
-void
-input_metadata_free(struct input_metadata *metadata, int content_only)
-{
-  metadata_free(metadata, content_only);
-}
-
 int
 input_init(void)
 {

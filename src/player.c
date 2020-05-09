@@ -175,7 +175,7 @@ struct player_source
   // Item-Id of the file/item in the queue
   uint32_t item_id;
 
-  // Length of the file/item in milliseconds
+  // Length of the file/item in milliseconds, 0 for endless
   uint32_t len_ms;
 
   // Quality of the source (sample rate etc.)
@@ -199,11 +199,25 @@ struct player_source
   uint64_t play_start;
   uint64_t play_end;
 
+  // When we receive a metadata update from the input it shouldn't be pushed to
+  // clients until the speakers have reached the position that matches the
+  // position the player was reading at when it got INPUT_FLAG_METADATA.
+  uint64_t metadata_update;
+
   // The number of milliseconds into the media that we started
   uint32_t seek_ms;
+
+  // Will normally equal len_ms, unless the input has given us another value to
+  // use. Used e.g. by the pipe input to give track lengths via metadata flags.
+  uint32_t display_len_ms;
+
   // This should at any time match the millisecond position of the media that is
   // coming out of your device. Will be 0 during initial buffering.
-  uint32_t pos_ms;
+  uint32_t display_pos_ms;
+
+  // Same as above, except will be negative during buffering and during playback
+  // transition from one track to another.
+  int32_t pos_ms;
 
   // How many samples the outputs buffer before playing (=delay)
   int output_buffer_samples;
@@ -364,9 +378,9 @@ metadata_finalize_cb(struct output_metadata *metadata)
     }
 
   if (!metadata->pos_ms)
-    metadata->pos_ms = pb_session.playing_now->pos_ms;
+    metadata->pos_ms = pb_session.playing_now->display_pos_ms;
   if (!metadata->len_ms)
-    metadata->len_ms = pb_session.playing_now->len_ms;
+    metadata->len_ms = pb_session.playing_now->display_len_ms;
   if (!metadata->pts.tv_sec)
     metadata->pts = pb_session.pts;
 
@@ -408,7 +422,7 @@ seek_save(void)
   struct player_source *ps = pb_session.playing_now;
 
   if (ps && (ps->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW)))
-    db_file_seek_update(ps->id, ps->pos_ms);
+    db_file_seek_update(ps->id, ps->display_pos_ms);
 }
 
 /*
@@ -500,6 +514,7 @@ source_create(struct db_queue_item *queue_item, uint32_t seek_ms)
   ps->data_kind = queue_item->data_kind;
   ps->media_kind = queue_item->media_kind;
   ps->len_ms = queue_item->song_length;
+  ps->display_len_ms = queue_item->song_length;
   ps->path = strdup(queue_item->path);
   ps->seek_ms = seek_ms;
 
@@ -562,12 +577,12 @@ source_next(struct player_source *ps)
 static int
 source_restart(struct player_source *ps)
 {
-  DPRINTF(E_DBG, L_PLAYER, "Restarting track: '%s' (id=%d, pos=%d)\n", ps->path, ps->item_id, ps->pos_ms);
+  DPRINTF(E_DBG, L_PLAYER, "Restarting track: '%s' (id=%d, pos=%d)\n", ps->path, ps->item_id, ps->display_pos_ms);
 
   // Must be non-blocking, because otherwise we get a deadlock via the input
   // thread making a sync call to player_playback_start() -> pb_resume() ->
   // source_restart() -> input_resume()
-  input_resume(ps->item_id, ps->pos_ms);
+  input_resume(ps->item_id, ps->display_pos_ms);
 
   return 0;
 }
@@ -595,8 +610,10 @@ source_print(char *line, size_t linesize, struct player_source *ps, const char *
       pos += snprintf(line + pos, linesize - pos, "%s.play_start=%" PRIu64 "; ", name, ps->play_start);
       pos += snprintf(line + pos, linesize - pos, "%s.read_end=%" PRIu64 "; ", name, ps->read_end);
       pos += snprintf(line + pos, linesize - pos, "%s.play_end=%" PRIu64 "; ", name, ps->play_end);
+      pos += snprintf(line + pos, linesize - pos, "%s.metadata_update=%" PRIu64 "; ", name, ps->metadata_update);
       pos += snprintf(line + pos, linesize - pos, "%s.pos_ms=%d; ", name, ps->pos_ms);
-      pos += snprintf(line + pos, linesize - pos, "%s.seek_ms=%d; ", name, ps->seek_ms);
+      pos += snprintf(line + pos, linesize - pos, "%s.display_pos_ms=%u; ", name, ps->display_pos_ms);
+      pos += snprintf(line + pos, linesize - pos, "%s.seek_ms=%u; ", name, ps->seek_ms);
     }
   else
     pos += snprintf(line + pos, linesize - pos, "%s=(null); ", name);
@@ -702,8 +719,9 @@ session_update_read_start(uint32_t seek_ms)
   if (!pb_session.reading_now)
     return;
 
-  pb_session.reading_now->pos_ms     = seek_ms;
-  pb_session.reading_now->seek_ms    = seek_ms;
+  pb_session.reading_now->pos_ms = seek_ms - OUTPUTS_BUFFER_DURATION;
+  pb_session.reading_now->display_pos_ms = seek_ms;
+  pb_session.reading_now->seek_ms = seek_ms;
   pb_session.reading_now->read_start = pb_session.pos;
 
   pb_session.playing_now = pb_session.reading_now;
@@ -712,6 +730,8 @@ session_update_read_start(uint32_t seek_ms)
 static inline void
 session_update_read(int nsamples)
 {
+  uint32_t step_ms;
+
   // Did we just complete our first read? Then set the start timestamp
   if (pb_session.start_ts.tv_sec == 0)
     {
@@ -722,9 +742,22 @@ session_update_read(int nsamples)
   // Advance position
   pb_session.pos += nsamples;
 
-  // After we have started playing we also must calculate new pos_ms
-  if (pb_session.playing_now->quality.sample_rate && pb_session.pos > pb_session.playing_now->play_start)
-    pb_session.playing_now->pos_ms = pb_session.playing_now->seek_ms + 1000UL * (pb_session.pos - pb_session.playing_now->play_start) / pb_session.playing_now->quality.sample_rate;
+  // Need to know sample rate to calculate pos_ms step
+  if (!pb_session.playing_now->quality.sample_rate)
+    return;
+
+  step_ms = (1000 * nsamples) / pb_session.playing_now->quality.sample_rate;
+
+  // reading_now is null if playback is ending
+  if (pb_session.reading_now)
+    pb_session.reading_now->pos_ms += step_ms;
+  else
+    pb_session.playing_now->pos_ms += step_ms;
+
+  // display_pos is not allowed to be negative, and we only update it when
+  // playback has started
+  if (pb_session.playing_now->pos_ms > 0 && pb_session.pos > pb_session.playing_now->play_start)
+    pb_session.playing_now->display_pos_ms = pb_session.playing_now->pos_ms;
 }
 
 static void
@@ -762,6 +795,18 @@ session_update_read_quality(struct media_quality *quality)
 
  out:
   free(quality);
+}
+
+static void
+session_update_read_metadata(uint32_t pos_ms, bool pos_is_updated, uint32_t len_ms)
+{
+  // Sets when to trigger event_play_metadata()
+  pb_session.reading_now->metadata_update = pb_session.pos + pb_session.reading_now->output_buffer_samples;
+
+  if (pos_is_updated)
+    pb_session.reading_now->pos_ms = pos_ms - OUTPUTS_BUFFER_DURATION;
+  if (len_ms)
+    pb_session.reading_now->display_len_ms = len_ms;
 }
 
 static void
@@ -852,10 +897,13 @@ event_read_metadata(struct input_metadata *metadata)
 {
   DPRINTF(E_DBG, L_PLAYER, "event_read_metadata()\n");
 
-  // FIXME Right now, metadata->pos_ms is not honoured. If it is >0 it is sent
-  // to the outputs, but the player's pos_ms is not adjusted. That means we
-  // don't always show correct progress for http streams, pipes and files with
-  // chapters.
+  session_update_read_metadata(metadata->pos_ms, metadata->pos_is_updated, metadata->len_ms);
+}
+
+static void
+event_play_metadata(void)
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_play_metadata()\n");
 
   outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
 
@@ -937,6 +985,10 @@ event_read(int nsamples)
   // Check if the playback position passed the play_start position
   if (pb_session.pos - nsamples < pb_session.playing_now->play_start && pb_session.pos >= pb_session.playing_now->play_start)
     event_play_start();
+
+  // Check if the playback position passed an input metadata update
+  if (pb_session.pos - nsamples < pb_session.playing_now->metadata_update && pb_session.pos >= pb_session.playing_now->metadata_update)
+    event_play_metadata();
 }
 
 
@@ -1624,8 +1676,8 @@ get_status(void *arg, int *retval)
 	status->id      = pb_session.playing_now->id;
 	status->item_id = pb_session.playing_now->item_id;
 
-	status->pos_ms  = pb_session.playing_now->pos_ms;
-	status->len_ms  = pb_session.playing_now->len_ms;
+	status->pos_ms  = pb_session.playing_now->display_pos_ms;
+	status->len_ms  = pb_session.playing_now->display_len_ms;
 
 	break;
 
@@ -1638,7 +1690,7 @@ get_status(void *arg, int *retval)
 	  }
 	else
 	  {
-	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing\n");
+	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing (%u/%u)\n", pb_session.playing_now->display_pos_ms, pb_session.playing_now->display_len_ms);
 
 	    status->status = PLAY_PLAYING;
 	  }
@@ -1646,8 +1698,8 @@ get_status(void *arg, int *retval)
 	status->id      = pb_session.playing_now->id;
 	status->item_id = pb_session.playing_now->item_id;
 
-	status->pos_ms  = pb_session.playing_now->pos_ms;
-	status->len_ms  = pb_session.playing_now->len_ms;
+	status->pos_ms  = pb_session.playing_now->display_pos_ms;
+	status->len_ms  = pb_session.playing_now->display_len_ms;
 
 	break;
     }
@@ -1682,7 +1734,7 @@ playback_stop(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  if (pb_session.playing_now && pb_session.playing_now->pos_ms > 0)
+  if (pb_session.playing_now && pb_session.playing_now->display_pos_ms > 0)
     history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
   // We may be restarting very soon, so we don't bring the devices to a full
@@ -1889,12 +1941,12 @@ playback_prev_bh(void *arg, int *retval)
     }
 
   // Only add to history if playback started
-  if (pb_session.playing_now->pos_ms > 0)
+  if (pb_session.playing_now->display_pos_ms > 0)
     history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
   // Only skip to the previous song if the playing time is less than 3 seconds,
   // otherwise restart the current song.
-  if (pb_session.playing_now->pos_ms < 3000)
+  if (pb_session.playing_now->display_pos_ms < 3000)
     queue_item = queue_item_prev(pb_session.playing_now->item_id);
   else
     queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
@@ -1939,7 +1991,7 @@ playback_next_bh(void *arg, int *retval)
     }
 
   // Only add to history if playback started
-  if (pb_session.playing_now->pos_ms > 0)
+  if (pb_session.playing_now->display_pos_ms > 0)
     {
       history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
@@ -2000,13 +2052,13 @@ seek_calc_position_ms(struct db_queue_item **queue_item, int *position_ms, struc
   if (seek_param->mode == PLAYER_SEEK_POSITION)
     seek_ms = seek_param->ms;
   else
-    seek_ms = pb_session.playing_now->pos_ms + seek_param->ms;
+    seek_ms = pb_session.playing_now->display_pos_ms + seek_param->ms;
 
   // Check if we need to switch to a previous track, this will be done if we are in the first 3 seconds
   // of a track and we have a seek request for more than 3 seconds
   if (seek_ms < 0)
     {
-      if (pb_session.playing_now->pos_ms < 3000)
+      if (pb_session.playing_now->display_pos_ms < 3000)
 	{
 	  // We are in the first 3 seconds of the track, switch to the previous track and recalculate the absolute seek position
 	  seek_queue_item = queue_item_prev(pb_session.playing_now->item_id);
@@ -2127,7 +2179,7 @@ playback_pause_bh(void *arg, int *retval)
       goto error;
     }
 
-  ret = pb_session_start(queue_item, pb_session.playing_now->pos_ms);
+  ret = pb_session_start(queue_item, pb_session.playing_now->display_pos_ms);
   free_queue_item(queue_item, 0);
   if (ret < 0)
     {
