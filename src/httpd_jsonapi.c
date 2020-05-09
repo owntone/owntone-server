@@ -2299,7 +2299,6 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
 
   query_params.type = Q_ITEMS;
   query_params.sort = S_NAME;
-  query_params.idx_type = I_NONE;
 
   memset(&smartpl_expression, 0, sizeof(struct smartpl));
   expression = safe_asprintf("\"query\" { %s }", param);
@@ -2311,9 +2310,12 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
 
   query_params.filter = strdup(smartpl_expression.query_where);
   query_params.order = safe_strdup(smartpl_expression.order);
+  query_params.limit = smartpl_expression.limit;
   free_smartpl(&smartpl_expression, 1);
 
   player_get_status(&status);
+
+  query_params.idx_type = query_params.limit > 0 ?  I_FIRST : I_NONE;
 
   ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, NULL);
 
