@@ -345,6 +345,11 @@ ordertag	returns [ pANTLR3_STRING result ]
 			$result->append8($result, "f.");
 			$result->appendS($result, $ENUMTAG.text->toUTF8($ENUMTAG.text));
 		}
+	|	RANDOMTAG
+		{
+			$result = $RANDOMTAG.text->factory->newRaw($RANDOMTAG.text->factory);
+			$result->append8($result, "random()");
+		}
 	;
 
 dateval		returns [ pANTLR3_STRING result ]
