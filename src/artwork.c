@@ -1576,7 +1576,9 @@ source_item_pipe_get(struct artwork_ctx *ctx)
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
-  return artwork_get(ctx->evbuf, path, NULL, ctx->max_w, ctx->max_h, false, ctx->data_kind);
+  free_queue_item(queue_item, 0);
+
+  return artwork_get(ctx->evbuf, ctx->path, NULL, ctx->max_w, ctx->max_h, false, ctx->data_kind);
 }
 
 static int
