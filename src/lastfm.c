@@ -37,6 +37,7 @@
 #include "mxml-compat.h"
 
 #include "db.h"
+#include "conffile.h"
 #include "lastfm.h"
 #include "listener.h"
 #include "logger.h"
