@@ -907,7 +907,7 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	else if (ctx->queue_item && ctx->queue_item->path)
 	  *tag = strdup(ctx->queue_item->path);
 	else
-	  *tag = strdup("Unknown title");
+	  *tag = strdup(CFG_NAME_UNKNOWN_TITLE);
 	break;
 
       case DB_FIXUP_ARTIST:
@@ -925,7 +925,7 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
         else if (ctx->mfi && ctx->mfi->tv_series_name)
 	  *tag = strdup(ctx->mfi->tv_series_name);
 	else
-	  *tag = strdup("Unknown artist");
+	  *tag = strdup(CFG_NAME_UNKNOWN_ARTIST);
 	break;
 
       case DB_FIXUP_ALBUM:
@@ -935,7 +935,7 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	if (ctx->mfi && ctx->mfi->tv_series_name)
 	  *tag = safe_asprintf("%s, Season %u", ctx->mfi->tv_series_name, ctx->mfi->tv_season_num);
 	else
-	  *tag = strdup("Unknown album");
+	  *tag = strdup(CFG_NAME_UNKNOWN_ALBUM);
 	break;
 
       case DB_FIXUP_ALBUM_ARTIST: // Will be set after artist, because artist (must) come first in the col_maps
@@ -955,14 +955,14 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	else if (ctx->queue_item && ctx->queue_item->artist)
 	  *tag = strdup(ctx->queue_item->artist);
 	else
-	  *tag = strdup("Unknown artist");
+	  *tag = strdup(CFG_NAME_UNKNOWN_ARTIST);
 	break;
 
       case DB_FIXUP_GENRE:
 	if (*tag)
 	  break;
 
-	*tag = strdup("Unknown genre");
+	*tag = strdup(CFG_NAME_UNKNOWN_GENRE);
 	break;
 
       case DB_FIXUP_MEDIA_KIND:

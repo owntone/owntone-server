@@ -277,7 +277,7 @@ scrobble(int id)
     goto noscrobble;
 
   // Don't scrobble songs with unknown artist
-  if (strcmp(mfi->artist, "Unknown artist") == 0)
+  if (strcmp(mfi->artist, CFG_NAME_UNKNOWN_ARTIST) == 0)
     goto noscrobble;
 
   kv = keyval_alloc();
