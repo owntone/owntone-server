@@ -205,6 +205,11 @@ If your Apple TV requires device verification (always required by Apple TV4 with
 tvOS 10.2) then you can do that through the web interface: Select the device and
 then enter the PIN that the Apple TV displays.
 
+If your speaker is silent when you start playback, and there is no obvious error
+message in the log, you can try disabling ipv6 in the config. Some speakers
+announce that they support ipv6, but in fact don't (at least not with forked-
+daapd).
+
 
 ## Chromecast
 
