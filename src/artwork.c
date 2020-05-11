@@ -1362,7 +1362,6 @@ source_group_dir_get(struct artwork_ctx *ctx)
   char *dir;
   int ret;
 
-  /* Image is not in the artwork cache. Try directory artwork first */
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_GROUP_DIRS;
@@ -1850,6 +1849,8 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 static int
 process_group(struct artwork_ctx *ctx)
 {
+  struct db_media_file_info dbmfi;
+  bool is_valid;
   int i;
   int ret;
 
@@ -1858,6 +1859,22 @@ process_group(struct artwork_ctx *ctx)
       DPRINTF(E_LOG, L_ART, "Bug! No persistentid in call to process_group()\n");
       ctx->cache = NEVER;
       return -1;
+    }
+
+  // Check if the group is valid (exists and is not e.g. "Unknown album")
+  ret = db_query_start(&ctx->qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not start query to check if group is valid (persistentid = %" PRIi64 ")\n", ctx->qp.persistentid);
+      goto invalid_group;
+    }
+
+  is_valid = (db_query_fetch_file(&ctx->qp, &dbmfi) == 0 && dbmfi.id && strcmp(dbmfi.album, CFG_NAME_UNKNOWN_ALBUM) != 0 && strcmp(dbmfi.album_artist, CFG_NAME_UNKNOWN_ARTIST) != 0);
+  db_query_end(&ctx->qp);
+  if (!is_valid)
+    {
+      DPRINTF(E_SPAM, L_ART, "Skipping group sources due to unknown album or artist\n");
+      goto invalid_group;
     }
 
   for (i = 0; artwork_group_source[i].handler; i++)
@@ -1888,9 +1905,8 @@ process_group(struct artwork_ctx *ctx)
 	}
     }
 
-  ret = process_items(ctx, 0);
-
-  return ret;
+ invalid_group:
+  return process_items(ctx, 0);
 }
 
 
