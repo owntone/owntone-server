@@ -340,29 +340,33 @@ handle_progress(struct input_metadata *m, char *progress)
 {
   char *s;
   char *ptr;
-  uint64_t start;
-  uint64_t pos;
-  uint64_t end;
+  // Below must be signed to avoid casting in the calculations of pos_ms/len_ms
+  int64_t start;
+  int64_t pos;
+  int64_t end;
 
   if (!(s = strtok_r(progress, "/", &ptr)))
     return;
-  safe_atou64(s, &start);
+  safe_atoi64(s, &start);
 
   if (!(s = strtok_r(NULL, "/", &ptr)))
     return;
-  safe_atou64(s, &pos);
+  safe_atoi64(s, &pos);
 
   if (!(s = strtok_r(NULL, "/", &ptr)))
     return;
-  safe_atou64(s, &end);
+  safe_atoi64(s, &end);
 
   if (!start || !pos || !end)
     return;
 
-  if (pos > start)
-    m->pos_ms = (pos - start) * 1000 / pipe_sample_rate;
-  if (end > start)
-    m->len_ms = (end - start) * 1000 / pipe_sample_rate;
+  // Note that negative positions are allowed and supported. A negative position
+  // of e.g. -1000 means that the track will start in one second.
+  m->pos_is_updated = true;
+  m->pos_ms = (pos - start) * 1000 / pipe_sample_rate;
+  m->len_ms = (end > start) ? (end - start) * 1000 / pipe_sample_rate : 0;
+
+  DPRINTF(E_DBG, L_PLAYER, "Received Shairport metadata progress: %ld/%ld/%ld => %d/%u ms\n", start, pos, end, m->pos_ms, m->len_ms);
 }
 
 static void
