@@ -174,7 +174,13 @@ dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct db_
    */
   if (queue_item->data_kind == DATA_KIND_HTTP || queue_item->data_kind == DATA_KIND_PIPE)
     {
-      id = djb_hash(queue_item->album, strlen(queue_item->album));
+      // Could also use queue_item->queue_version, but it changes a bit too much
+      // leading to Remote reloading too much
+      if (queue_item->artwork_url)
+	id = djb_hash(queue_item->artwork_url, strlen(queue_item->artwork_url));
+      else
+	id = djb_hash(queue_item->title, strlen(queue_item->title));
+
       songalbumid = (int64_t)id;
     }
   else

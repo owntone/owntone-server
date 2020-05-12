@@ -74,9 +74,12 @@ struct input_metadata
   // queue_item id
   uint32_t item_id;
 
-  // Input can override the default player progress by setting this
-  // FIXME only implemented for Airplay speakers currently
-  uint32_t pos_ms;
+  // Input can override the default player progress by setting this. For the
+  // other fields the receiver can check whether an update happened by checking
+  // if it is non-zero/null, but not for pos_ms since 0 and even negative values
+  // are valid.
+  bool pos_is_updated;
+  int32_t pos_ms;
 
   // Sets new song length (input will also update queue_item)
   uint32_t len_ms;
@@ -87,9 +90,6 @@ struct input_metadata
   char *album;
   char *genre;
   char *artwork_url;
-
-  // Indicates whether we are starting playback. Just passed on to output.
-  int startup;
 };
 
 struct input_definition
@@ -219,7 +219,7 @@ void
 input_flush(short *flags);
 
 /*
- * Free the entire struct
+ * Free input_metadata
  */
 void
 input_metadata_free(struct input_metadata *metadata, int content_only);
