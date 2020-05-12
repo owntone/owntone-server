@@ -66,6 +66,7 @@ static cfg_opt_t sec_general[] =
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_STR("allow_origin", "*", CFGF_NONE),
     CFG_STR("user_agent", PACKAGE_NAME "/" PACKAGE_VERSION, CFGF_NONE),
+    CFG_BOOL("timer_test", cfg_false, CFGF_NONE),
     CFG_END()
   };
 

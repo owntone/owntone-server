@@ -38,6 +38,7 @@
 
 #include "misc.h"
 #include "logger.h"
+#include "conffile.h"
 #include "commands.h"
 #include "input.h"
 
@@ -56,6 +57,7 @@
 extern struct input_definition input_file;
 extern struct input_definition input_http;
 extern struct input_definition input_pipe;
+extern struct input_definition input_timer;
 #ifdef HAVE_SPOTIFY_H
 extern struct input_definition input_spotify;
 #endif
@@ -65,6 +67,7 @@ static struct input_definition *inputs[] = {
     &input_file,
     &input_http,
     &input_pipe,
+    &input_timer,
 #ifdef HAVE_SPOTIFY_H
     &input_spotify,
 #endif
@@ -153,6 +156,10 @@ int debug_underrun_trigger;
 static int
 map_data_kind(int data_kind)
 {
+  // Test mode - ignores the actual source and just plays a signal with clicks
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "timer_test"))
+    return INPUT_TYPE_TIMER;
+
   switch (data_kind)
     {
       case DATA_KIND_FILE:

@@ -130,7 +130,7 @@ forked_daapd_SOURCES = main.c \
 	worker.c worker.h \
 	settings.c settings.h \
 	input.h input.c \
-	inputs/file_http.c inputs/pipe.c \
+	inputs/file_http.c inputs/pipe.c inputs/timer.c \
 	outputs.h outputs.c \
 	outputs/rtp_common.h outputs/rtp_common.c \
 	outputs/raop.c $(RAOP_VERIFICATION_SRC) \
