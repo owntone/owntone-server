@@ -150,22 +150,8 @@ static struct event *seek_timer;
 static int seek_target;
 
 /* If an item is removed from the library while in the queue, we replace it with this */
-static struct media_file_info dummy_mfi =
-{
-  .id = DB_MEDIA_FILE_NON_PERSISTENT_ID,
-  .title = "(unknown title)",
-  .artist = "(unknown artist)",
-  .album = "(unknown album)",
-  .genre = "(unknown genre)",
-};
-static struct db_queue_item dummy_queue_item =
-{
-  .file_id = DB_MEDIA_FILE_NON_PERSISTENT_ID,
-  .title = "(unknown title)",
-  .artist = "(unknown artist)",
-  .album = "(unknown album)",
-  .genre = "(unknown genre)",
-};
+static struct media_file_info dummy_mfi;
+static struct db_queue_item dummy_queue_item;
 
 
 /* -------------------------------- HELPERS --------------------------------- */
@@ -188,7 +174,13 @@ dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct db_
    */
   if (queue_item->data_kind == DATA_KIND_HTTP || queue_item->data_kind == DATA_KIND_PIPE)
     {
-      id = djb_hash(queue_item->album, strlen(queue_item->album));
+      // Could also use queue_item->queue_version, but it changes a bit too much
+      // leading to Remote reloading too much
+      if (queue_item->artwork_url)
+	id = djb_hash(queue_item->artwork_url, strlen(queue_item->artwork_url));
+      else
+	id = djb_hash(queue_item->title, strlen(queue_item->title));
+
       songalbumid = (int64_t)id;
     }
   else
@@ -2908,6 +2900,18 @@ dacp_init(void)
 
   current_rev = 2;
   update_requests = NULL;
+
+  dummy_mfi.id = DB_MEDIA_FILE_NON_PERSISTENT_ID;
+  dummy_mfi.title = CFG_NAME_UNKNOWN_TITLE;
+  dummy_mfi.artist = CFG_NAME_UNKNOWN_ARTIST;
+  dummy_mfi.album = CFG_NAME_UNKNOWN_ALBUM;
+  dummy_mfi.genre = CFG_NAME_UNKNOWN_GENRE;
+
+  dummy_queue_item.file_id = DB_MEDIA_FILE_NON_PERSISTENT_ID;
+  dummy_queue_item.title = CFG_NAME_UNKNOWN_TITLE;
+  dummy_queue_item.artist = CFG_NAME_UNKNOWN_ARTIST;
+  dummy_queue_item.album = CFG_NAME_UNKNOWN_ALBUM;
+  dummy_queue_item.genre = CFG_NAME_UNKNOWN_GENRE;
 
 #ifdef HAVE_EVENTFD
   update_efd = eventfd(0, EFD_CLOEXEC);

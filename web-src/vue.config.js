@@ -27,13 +27,13 @@ module.exports = {
     // localhost:3689
     proxy: {
       '/api': {
-        target: 'http://localhost:3689'
+        target: process.env.VUE_APP_JSON_API_SERVER
       },
       '/artwork': {
-        target: 'http://localhost:3689'
+        target: process.env.VUE_APP_JSON_API_SERVER
       },
       '/stream.mp3': {
-        target: 'http://localhost:3689'
+        target: process.env.VUE_APP_JSON_API_SERVER
       }
     }
   }

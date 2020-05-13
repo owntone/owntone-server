@@ -21,9 +21,12 @@ ExecStart=@sbindir@/forked-daapd -f
 MemoryMax=256M
 MemorySwapMax=32M
 
-# Restart, but not more than once every 10 minutes
+# Restart, but set a limit so we don't restart indefinitely. Unfortunately,
+# systemd also applies the start limits to manual restarts, so that's why the
+# burst value allows for 10 restarts.
 Restart=on-failure
-StartLimitBurst=2
+RestartSec=5
+StartLimitBurst=10
 StartLimitInterval=600
 
 [Install]

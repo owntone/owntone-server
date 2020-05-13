@@ -171,7 +171,6 @@ static const struct metadata_map md_map_generic[] =
     { "MusicBrainz Release Group Id", 1, mfi_offsetof(songalbumid), parse_albumid },
     { "MusicBrainz DiscID",           1, mfi_offsetof(songalbumid), parse_albumid },
     { "CDDB DiscID",                  1, mfi_offsetof(songalbumid), parse_albumid },
-    { "iTunes_CDDB_IDs",              1, mfi_offsetof(songalbumid), parse_albumid },
     { "CATALOGNUMBER",                1, mfi_offsetof(songalbumid), parse_albumid },
     { "BARCODE",                      1, mfi_offsetof(songalbumid), parse_albumid },
 

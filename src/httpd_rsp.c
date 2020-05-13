@@ -210,6 +210,7 @@ static int
 query_params_set(struct query_params *qp, struct httpd_request *hreq)
 {
   const char *param;
+  char *filter;
   int ret;
 
   qp->offset = 0;
@@ -250,11 +251,15 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
       if (!qp->filter)
 	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
     }
+
+  // Always filter to include only files (not streams and Spotify)
+  if (qp->filter)
+    filter = safe_asprintf("%s AND %s", qp->filter, rsp_filter_files);
   else
-    {
-      // Default filter is to include only files (not streams and Spotify)
-      qp->filter = strdup(rsp_filter_files);
-    }
+    filter = strdup(rsp_filter_files);
+
+  free(qp->filter);
+  qp->filter = filter;
 
   return 0;
 }
@@ -422,6 +427,10 @@ rsp_reply_db(struct httpd_request *hreq)
   /* Playlists block (all playlists) */
   while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
+      // Skip non-local playlists, can't be streamed to the device
+      if (!dbpli.path || dbpli.path[0] != '/')
+	continue;
+
       /* Playlist block (one playlist) */
       pl = mxmlNewElement(pls, "playlist");
 
@@ -799,7 +808,17 @@ rsp_stream(struct httpd_request *hreq)
   return 0;
 }
 
-
+// Sample RSP requests:
+//  /rsp/info
+//  /rsp/db
+//  /rsp/db/13?type=id
+//  /rsp/db/0/artist?type=browse
+//  /rsp/db/0/album?query=artist%3D%22Sting%22&type=browse
+//  /rsp/db/0?query=artist%3D%22Sting%22%20and%20album%3D%22...All%20This%20Time%22&type=browse
+//  /rsp/db/0?query=id%3D36364&type=full
+//  /rsp/stream/36364
+//  /rsp/db/0?query=id%3D36365&type=full
+//  /rsp/stream/36365
 static struct httpd_uri_map rsp_handlers[] =
   {
     {

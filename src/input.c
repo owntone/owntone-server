@@ -38,6 +38,7 @@
 
 #include "misc.h"
 #include "logger.h"
+#include "conffile.h"
 #include "commands.h"
 #include "input.h"
 
@@ -56,6 +57,7 @@
 extern struct input_definition input_file;
 extern struct input_definition input_http;
 extern struct input_definition input_pipe;
+extern struct input_definition input_timer;
 #ifdef HAVE_SPOTIFY_H
 extern struct input_definition input_spotify;
 #endif
@@ -65,6 +67,7 @@ static struct input_definition *inputs[] = {
     &input_file,
     &input_http,
     &input_pipe,
+    &input_timer,
 #ifdef HAVE_SPOTIFY_H
     &input_spotify,
 #endif
@@ -153,6 +156,10 @@ int debug_underrun_trigger;
 static int
 map_data_kind(int data_kind)
 {
+  // Test mode - ignores the actual source and just plays a signal with clicks
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "timer_test"))
+    return INPUT_TYPE_TIMER;
+
   switch (data_kind)
     {
       case DATA_KIND_FILE:
@@ -177,6 +184,9 @@ map_data_kind(int data_kind)
 static void
 metadata_free(struct input_metadata *metadata, int content_only)
 {
+  if (!metadata)
+    return;
+
   free(metadata->artist);
   free(metadata->title);
   free(metadata->album);
@@ -193,7 +203,6 @@ static struct input_metadata *
 metadata_get(struct input_source *source)
 {
   struct input_metadata *metadata;
-  struct db_queue_item *queue_item;
   int ret;
 
   if (!inputs[source->type]->metadata_get)
@@ -205,37 +214,7 @@ metadata_get(struct input_source *source)
   if (ret < 0)
     goto out_free_metadata;
 
-  queue_item = db_queue_fetch_byitemid(source->item_id);
-  if (!queue_item)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Bug! Input source item_id does not match anything in queue\n");
-      goto out_free_metadata;
-    }
-
-  // Update queue item if metadata changed
-  if (metadata->artist || metadata->title || metadata->album || metadata->genre || metadata->artwork_url || metadata->len_ms)
-    {
-      // Since we won't be using the metadata struct values for anything else
-      // than this we just swap pointers
-      if (metadata->artist)
-	swap_pointers(&queue_item->artist, &metadata->artist);
-      if (metadata->title)
-	swap_pointers(&queue_item->title, &metadata->title);
-      if (metadata->album)
-	swap_pointers(&queue_item->album, &metadata->album);
-      if (metadata->genre)
-	swap_pointers(&queue_item->genre, &metadata->genre);
-      if (metadata->artwork_url)
-	swap_pointers(&queue_item->artwork_url, &metadata->artwork_url);
-      if (metadata->len_ms)
-	queue_item->song_length = metadata->len_ms;
-
-      ret = db_queue_update_item(queue_item);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
-    }
-
-  free_queue_item(queue_item, 0);
+  metadata->item_id = source->item_id;
 
   return metadata;
 
@@ -867,7 +846,6 @@ input_flush(short *flags)
   flush(flags);
 }
 
-// Not currently used, perhaps remove?
 void
 input_metadata_free(struct input_metadata *metadata, int content_only)
 {

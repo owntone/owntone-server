@@ -545,7 +545,7 @@ process_track_file(plist_t trk)
   /* Don't let album_artist set to "Unknown artist" if we've
    * filled artist from the iTunes data in the meantime
    */
-  if (strcmp(mfi->album_artist, "Unknown artist") == 0)
+  if (strcmp(mfi->album_artist, CFG_NAME_UNKNOWN_ARTIST) == 0)
     {
       free(mfi->album_artist);
       mfi->album_artist = strdup(mfi->artist);

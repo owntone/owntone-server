@@ -15,7 +15,7 @@
           </p>
           <p>In addition to that, you can enable fetching artwork from the following artwork providers:</p>
         </div>
-        <settings-checkbox category_name="artwork" option_name="use_artwork_source_spotify" v-if="spotify.enabled">
+        <settings-checkbox category_name="artwork" option_name="use_artwork_source_spotify" v-if="spotify.libspotify_logged_in">
           <template slot="label"> Spotify</template>
         </settings-checkbox>
         <settings-checkbox category_name="artwork" option_name="use_artwork_source_discogs">

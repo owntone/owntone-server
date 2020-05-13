@@ -754,7 +754,7 @@ pulse_device_start(struct output_device *device, int callback_id)
 
   pulse_status(ps);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -768,7 +768,7 @@ pulse_device_stop(struct output_device *device, int callback_id)
 
   stream_close(ps, close_cb);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -801,7 +801,7 @@ pulse_device_flush(struct output_device *device, int callback_id)
 
   pa_threaded_mainloop_unlock(pulse.mainloop);
 
-  return 0;
+  return 1;
 }
 
 static int
@@ -823,7 +823,7 @@ pulse_device_probe(struct output_device *device, int callback_id)
       return -1;
     }
 
-  return 0;
+  return 1;
 }
 
 static void

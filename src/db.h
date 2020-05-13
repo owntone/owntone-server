@@ -5,6 +5,7 @@
 #include <time.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <limits.h>
 
 #include "outputs.h"
 
@@ -120,6 +121,8 @@ enum media_kind {
   MEDIA_KIND_MUSICVIDEO = 32,
   MEDIA_KIND_TVSHOW = 64,
 };
+
+#define MEDIA_KIND_ALL USHRT_MAX
 
 const char *
 db_media_kind_label(enum media_kind media_kind);
@@ -254,6 +257,7 @@ struct playlist_info {
   char *query_order;     /* order by clause, used by e.g. a smart playlists */
   int32_t query_limit;   /* limit, used by e.g. smart playlists */
   uint32_t media_kind;
+  char *artwork_url;     /* optional artwork */
   uint32_t items;        /* number of items (mimc) */
   uint32_t streams;      /* number of internet streams */
 };
@@ -276,6 +280,7 @@ struct db_playlist_info {
   char *query_order;
   char *query_limit;
   char *media_kind;
+  char *artwork_url;
   char *items;
   char *streams;
 };

@@ -54,7 +54,7 @@ static cfg_opt_t sec_general[] =
     CFG_BOOL("ipv6", cfg_true, CFGF_NONE),
     CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
     CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
-    CFG_BOOL("speaker_autoselect", cfg_true, CFGF_NONE),
+    CFG_BOOL("speaker_autoselect", cfg_false, CFGF_NONE),
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
     CFG_BOOL("high_resolution_clock", cfg_false, CFGF_NONE),
 #else
@@ -66,6 +66,7 @@ static cfg_opt_t sec_general[] =
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_STR("allow_origin", "*", CFGF_NONE),
     CFG_STR("user_agent", PACKAGE_NAME "/" PACKAGE_VERSION, CFGF_NONE),
+    CFG_BOOL("timer_test", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -90,6 +91,11 @@ static cfg_opt_t sec_library[] =
     CFG_STR("name_podcasts", "Podcasts", CFGF_NONE),
     CFG_STR("name_audiobooks", "Audiobooks", CFGF_NONE),
     CFG_STR("name_radio", "Radio", CFGF_NONE),
+    CFG_STR("name_unknown_title", "Unknown title", CFGF_NONE),
+    CFG_STR("name_unknown_artist", "Unknown artist", CFGF_NONE),
+    CFG_STR("name_unknown_album", "Unknown album", CFGF_NONE),
+    CFG_STR("name_unknown_genre", "Unknown genre", CFGF_NONE),
+    CFG_STR("name_unknown_composer", "Unknown composer", CFGF_NONE),
     CFG_STR_LIST("artwork_basenames", "{artwork,cover,Folder}", CFGF_NONE),
     CFG_BOOL("artwork_individual", cfg_false, CFGF_NONE),
     CFG_STR_LIST("artwork_online_sources", NULL, CFGF_NONE),
