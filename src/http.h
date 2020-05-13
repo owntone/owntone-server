@@ -49,7 +49,7 @@ struct http_icy_metadata
   /* Track specific, comes from icy_metadata_packet */
   char *title;
   char *artist;
-  char *artwork_url;
+  char *url;
 
   uint32_t hash;
 };

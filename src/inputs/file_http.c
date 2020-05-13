@@ -147,7 +147,7 @@ metadata_get_http(struct input_metadata *metadata, struct input_source *source)
   swap_pointers(&metadata->artist, &m->artist);
   // Note we map title to album, because clients should show stream name as titel
   swap_pointers(&metadata->album, &m->title);
-  swap_pointers(&metadata->artwork_url, &m->artwork_url);
+  swap_pointers(&metadata->artwork_url, &m->url);
 
   http_icy_metadata_free(m, 0);
   return 0;
