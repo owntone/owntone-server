@@ -987,7 +987,6 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   ret = cache_artwork_read(raw, url, &format);
   if (ret == 0 && format > 0)
     {
-      //DPRINTF(E_SPAM, L_ART, "Found artwork in cache_artwork_read %s\n", url);
       ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
       if (ret < 0)
 	goto error;
@@ -999,8 +998,6 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   format = artwork_read_byurl(raw, url);
   if (format < 0)
     goto error;
-
-  //DPRINTF(E_SPAM, L_ART, "Found artwork in artwork_read_byurl %s\n", url);
 
   ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
   if (ret < 0)
@@ -1585,7 +1582,6 @@ source_item_stream_get(struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
   char *url;
-  //char *ext;
   int len;
   int ret;
 
@@ -1608,14 +1604,6 @@ source_item_stream_get(struct artwork_ctx *ctx)
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
     goto out_url;
 
-/* 
-  //Remove check here and moved to artwork_read_byurl()
-  ext = strrchr(url, '.');
-  if (!ext)
-    goto out_url;
-  if ((strcmp(ext, ".jpg") != 0) && (strcmp(ext, ".png") != 0))
-    goto out_url;
-*/
   ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
 
  out_url:
