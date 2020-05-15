@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Espen Jurgensen
+ * Copyright (C) 2017-2020 Espen Jurgensen
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,14 +20,191 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <string.h> // strcasestr
+#include <strings.h> // strcasecmp
 
 #include <event2/buffer.h>
 
 #include "transcode.h"
 #include "http.h"
 #include "misc.h"
+#include "misc_json.h"
+#include "settings.h"
 #include "logger.h"
+#include "artwork.h"
 #include "input.h"
+
+
+/* ------- Handling/parsing of StreamUrl tags from some http streams ---------*/
+
+struct streamurl_map
+{
+  const char *setting;
+  enum json_type jtype;
+  int (*parser)(struct input_metadata *, const char *, json_object *);
+  char *words;
+};
+
+static int
+streamurl_parse_artwork_url(struct input_metadata *metadata, const char *key, json_object *val)
+{
+  const char *url = json_object_get_string(val);
+
+  if (metadata->artwork_url)
+    return -1; // Already found artwork
+
+  if (!artwork_extension_is_artwork(url))
+    return -1;
+
+  metadata->artwork_url = strdup(url);
+  return 0;
+}
+
+static int
+streamurl_parse_length(struct input_metadata *metadata, const char *key, json_object *val)
+{
+  int len = json_object_get_int(val);
+
+  if (len <= 0 || len > 7200)
+    return -1; // We expect seconds, so if it is longer than 2 hours we are probably wrong
+
+  metadata->len_ms = len * 1000;
+  metadata->pos_is_updated = true;
+  metadata->pos_ms = 0;
+  return 0;
+}
+
+// Lookup is case-insensitive and partial, first occurrence takes precedence
+static struct streamurl_map streamurl_map[] =
+  {
+    { "streamurl_keywords_artwork_url", json_type_string, streamurl_parse_artwork_url },
+    { "streamurl_keywords_length",      json_type_int,    streamurl_parse_length },
+  };
+
+static void
+streamurl_field_parse(struct input_metadata *metadata, struct streamurl_map *map, const char *jkey, json_object *jval)
+{
+  char *word;
+  char *ptr;
+
+  if (!map->words)
+    return;
+
+  for (word = atrim(strtok_r(map->words, ",", &ptr)); word; free(word), word = atrim(strtok_r(NULL, ",", &ptr)))
+    {
+      if (json_object_get_type(jval) != map->jtype)
+	continue;
+
+      if (!strcasestr(jkey, word)) // True if e.g. word="duration" and jkey="eventDuration"
+	continue;
+
+      map->parser(metadata, jkey, jval);
+    }
+}
+
+static void
+streamurl_json_parse(struct input_metadata *metadata, const char *body)
+{
+  json_object *jresponse;
+  int i;
+
+  jresponse = json_tokener_parse(body);
+  if (!jresponse)
+    return;
+
+  json_object_object_foreach(jresponse, jkey, jval)
+    {
+      for (i = 0; i < ARRAY_SIZE(streamurl_map); i++)
+	streamurl_field_parse(metadata, &streamurl_map[i], jkey, jval);
+    }
+
+  jparse_free(jresponse);
+}
+
+static void
+streamurl_settings_unload(void)
+{
+  int i;
+
+  for (i = 0; i < ARRAY_SIZE(streamurl_map); i++)
+    {
+      free(streamurl_map[i].words);
+      streamurl_map[i].words = NULL;
+    }
+}
+
+static int
+streamurl_settings_load(void)
+{
+  struct settings_category *category;
+  bool enabled;
+  int i;
+
+  category = settings_category_get("misc");
+  if (!category)
+    return -1;
+
+  for (i = 0, enabled = false; i < ARRAY_SIZE(streamurl_map); i++)
+    {
+      streamurl_map[i].words = settings_option_getstr(settings_option_get(category, streamurl_map[i].setting));
+      if (streamurl_map[i].words)
+	enabled = true;
+    }
+
+  return enabled ? 0 : -1;
+}
+
+static void
+streamurl_process(struct input_metadata *metadata, const char *url)
+{
+  struct http_client_ctx client = { 0 };
+  struct keyval kv = { 0 };
+  struct evbuffer *evbuf;
+  const char *content_type;
+  char *body;
+  int ret;
+
+  // If the user didn't configure any keywords to look for then we can stop now
+  ret = streamurl_settings_load();
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Ignoring StreamUrl resource '%s', no settings\n", url);
+      return;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Downloading StreamUrl resource '%s'\n", url);
+
+  CHECK_NULL(L_PLAYER, evbuf = evbuffer_new());
+
+  client.url = url;
+  client.input_headers = &kv;
+  client.input_body = evbuf;
+
+  ret = http_client_request(&client);
+  if (ret < 0 || client.response_code != HTTP_OK)
+    {
+      DPRINTF(E_WARN, L_PLAYER, "Request for StreamUrl resource '%s' failed, response code %d\n", url, client.response_code);
+      goto out;
+    }
+
+  // 0-terminate for safety
+  evbuffer_add(evbuf, "", 1);
+  body = (char *)evbuffer_pullup(evbuf, -1);
+
+  content_type = keyval_get(&kv, "Content-Type");
+  if (content_type && strcasecmp(content_type, "application/json") == 0)
+    streamurl_json_parse(metadata, body);
+  else
+    DPRINTF(E_WARN, L_PLAYER, "No handler for StreamUrl resource '%s' with content type '%s'\n", url, content_type);
+
+ out:
+  keyval_clear(&kv);
+  evbuffer_free(evbuf);
+  streamurl_settings_unload();
+}
+
+
+/*---------------------------- Input implementation --------------------------*/
 
 static int
 setup(struct input_source *source)
@@ -141,13 +318,20 @@ metadata_get_http(struct input_metadata *metadata, struct input_source *source)
   if (!changed)
     {
       http_icy_metadata_free(m, 0);
-      return -1; // TODO Perhaps a problem since this prohibits the player updating metadata
+      return -1;
     }
 
   swap_pointers(&metadata->artist, &m->artist);
   // Note we map title to album, because clients should show stream name as titel
   swap_pointers(&metadata->album, &m->title);
-  swap_pointers(&metadata->artwork_url, &m->url);
+
+  if (m->url)
+    {
+      if (artwork_extension_is_artwork(m->url))
+	swap_pointers(&metadata->artwork_url, &m->url);
+      else
+	streamurl_process(metadata, m->url);
+    }
 
   http_icy_metadata_free(m, 0);
   return 0;
