@@ -76,11 +76,11 @@
                   </tr>
                   <tr>
                     <th>Library updated</th>
-                    <td class="has-text-right">{{ library.updated_at | timeFromNow }} <span class="has-text-grey">({{ library.updated_at | time('MMM Do, h:mm') }})</span></td>
+                    <td class="has-text-right">{{ library.updated_at | timeFromNow }} <span class="has-text-grey">({{ library.updated_at | time('lll') }})</span></td>
                   </tr>
                   <tr>
                     <th>Uptime</th>
-                    <td class="has-text-right">{{ library.started_at | timeFromNow(true) }} <span class="has-text-grey">({{ library.started_at | time('MMM Do, h:mm') }})</span></td>
+                    <td class="has-text-right">{{ library.started_at | timeFromNow(true) }} <span class="has-text-grey">({{ library.started_at | time('ll') }})</span></td>
                   </tr>
                 </tbody>
               </table>

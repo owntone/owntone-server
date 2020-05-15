@@ -23,6 +23,7 @@ import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
+import moment from 'moment'
 
 export default {
   name: 'App',
@@ -57,6 +58,7 @@ export default {
   },
 
   created: function () {
+    moment.locale(navigator.language)
     this.connect()
 
     //  Start the progress bar on app start
