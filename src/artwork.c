@@ -1514,7 +1514,6 @@ source_item_stream_get(struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
   char *url;
-  char *ext;
   int len;
   int ret;
 
@@ -1535,12 +1534,6 @@ source_item_stream_get(struct artwork_ctx *ctx)
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
-    goto out_url;
-
-  ext = strrchr(url, '.');
-  if (!ext)
-    goto out_url;
-  if ((strcmp(ext, ".jpg") != 0) && (strcmp(ext, ".png") != 0))
     goto out_url;
 
   ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);

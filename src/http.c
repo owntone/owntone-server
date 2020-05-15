@@ -45,6 +45,16 @@
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
+#include "misc_json.h"
+
+/* Cache the last return of the ICY tag stream_url
+ * All stream tested so far changes stream_url apon artwork change, but constantly sends stream_url 
+ * during playback, which triggers another http request to the stream_url. This setting will
+ * store the last stream_url and return value. 
+ * If a stream uses the same stream_url but content
+ * behind that url changes, this need to be removed. 
+ */
+#define CACHE_STREAMURL
 
 /* Formats we can read so far */
 #define PLAYLIST_UNK 0
@@ -616,6 +626,143 @@ http_stream_setup(char **stream, const char *url)
 /* ======================= ICY metadata handling =============================*/
 
 
+
+char *streamurl_json_parse(struct evbuffer *evbuf, const char *url)
+{
+  char *new_url = NULL;
+  json_object *jresponse;
+  char *body;
+  cfg_t *lib;
+  int i, n;
+
+  evbuffer_add(evbuf, "", 1);
+  body = (char *)evbuffer_pullup(evbuf, -1);
+  
+  //DPRINTF(E_SPAM, L_HTTP, "Response from '%s': %s\n", url, body);
+    
+  jresponse = json_tokener_parse(body);
+  if (!jresponse) 
+    {
+      DPRINTF(E_INFO, L_HTTP, "Artwork from '%s' has unknown json\n", url);
+      jparse_free(jresponse);
+    } 
+  else 
+    {
+      lib = cfg_getsec(cfg, "library");
+      n = cfg_size(lib, "stream_urlimage_tags");
+      for (i = 0; i < n; i++) {
+        const char *aurl = jparse_str_from_obj(jresponse, cfg_getnstr(lib, "stream_urlimage_tags", i));
+        if (aurl) 
+          {
+            new_url = strdup(aurl);
+            jparse_free(jresponse);
+            DPRINTF(E_SPAM, L_HTTP, "Artwork from '%s' has found image url '%s' in json\n", url,new_url);
+            return new_url;
+         }
+      }
+      jparse_free(jresponse);
+      DPRINTF(E_INFO, L_HTTP, "Artwork from '%s' did not find meaningful tag(s) in json reply\n", url);
+    }
+
+  /* This forces the artwork.c to pickup 'playlist own' (file system artwork) when an error or blank is
+   * returned from the json. This makes the displayed artwork default to playlist.png during an add-break
+   * DJ talking rather than the last played artwork which would be stale.
+   * return NULL is also valid, but you'll end up with stale artwork during the above condition.
+   * maybe update player.c before it called db_queue_update_item() to write blank to DB would be a better implimentation
+   */
+  return strdup(" ");
+}
+
+char *getImageUrl(char *stream_url)
+{
+  //char *ext;
+  struct http_client_ctx client;
+  struct keyval *kv;
+  const char *content_type;
+  size_t len;
+  char * ret;
+  int httprtn;
+  struct evbuffer *evbuf; 
+  
+#ifdef CACHE_STREAMURL
+  static char last_stream_url[1024];
+  static char last_artwork_url[1024];
+
+  if ( strncmp(stream_url, last_stream_url, 1024) == 0 ) 
+    {
+      DPRINTF(E_SPAM, L_HTTP, "Using cached ICY StrealUrl for '%s', returning '%s'\n", stream_url, last_artwork_url);
+      return strdup(last_artwork_url);
+    }
+#endif
+
+  DPRINTF(E_LOG, L_HTTP, "Checking ICY StrealUrl tag %s\n", stream_url);
+
+  len = strlen(stream_url);
+  if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
+    {
+      DPRINTF(E_LOG, L_HTTP, "StrealUrl request URL is invalid (len=%zu): '%s'\n", len, stream_url);
+      return NULL;
+    }
+
+  CHECK_NULL(L_HTTP, evbuf = evbuffer_new());
+  CHECK_NULL(L_HTTP, kv = keyval_alloc());
+
+  memset(&client, 0, sizeof(struct http_client_ctx));
+  client.url = stream_url;
+  client.input_headers = kv;
+  client.input_body = evbuf;
+
+  httprtn = http_client_request(&client);
+  if (httprtn < 0)
+    {
+      DPRINTF(E_LOG, L_HTTP, "Request to '%s' failed with return value %d\n", stream_url, httprtn);
+      goto error;
+    }
+
+  if (client.response_code != HTTP_OK)
+    {
+      DPRINTF(E_LOG, L_HTTP, "Request to '%s' failed with code %d\n", stream_url, client.response_code);
+      goto error;
+    }
+
+  content_type = keyval_get(kv, "Content-Type");
+
+  if (content_type && (strcmp(content_type, "application/json") == 0)) 
+    {
+      ret = streamurl_json_parse(evbuf, stream_url);
+      DPRINTF(E_LOG, L_HTTP, "StrealUrl '%s' changed to '%s'\n", stream_url, ret);
+    }
+  else if ( content_type && ( strcmp(content_type, "image/jpeg") == 0 || strcmp(content_type, "image/png") == 0 ) )
+    ret = strdup(stream_url);
+  else
+    { 
+      DPRINTF(E_LOG, L_HTTP, "StrealUrl '%s' has no known content type\n", stream_url);
+      goto error;
+    }
+
+ #ifdef CACHE_STREAMURL
+  if (stream_url) 
+    strncpy(last_stream_url, stream_url, 1024);
+  
+  if (ret)
+    strncpy(last_artwork_url, ret, 1024);
+  else
+    last_artwork_url[0] = '\0';
+ #endif
+
+  evbuffer_free(evbuf);
+  keyval_clear(kv);
+  free(kv);
+  return ret;
+
+  error:
+    evbuffer_free(evbuf);
+    keyval_clear(kv);
+    free(kv);
+    return NULL;
+
+}
+
 #if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
 static int
 metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
@@ -662,14 +809,25 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 
 	      metadata->title = strdup(ptr + 3);
 	    }
-	  else if (strlen(metadata->title) == 0)
-	    metadata->title = NULL;
+	  else if (strlen(metadata->title) == 0) 
+  {  /* Clear out artist and title when blank to stop stale imformation.
+      * Maybe a better place to put these would be player.c before it called db_queue_update_item()
+      * ie return NULL, and on player.c if NULL write blank to DB.
+      */
+      metadata->title = strdup(" "); 
+      metadata->artist = strdup(" ");
+  }
 	  else
 	    metadata->title = strdup(metadata->title);
 	}
       else if ((strncmp(icy_token, "StreamUrl", strlen("StreamUrl")) == 0) && !metadata->artwork_url && strlen(ptr) > 0)
 	{
-	  metadata->artwork_url = strdup(ptr);
+    // If URL has image extension, just assume it's an image and no need to make a seperate HTTP call.
+    char *ext = strrchr(ptr, '.');
+    if (ext && ( strcmp(ext, ".jpg") == 0 || strcmp(ext, ".png") == 0) )
+      metadata->artwork_url = strdup(ptr);
+    else
+      metadata->artwork_url = getImageUrl(ptr);
 	}
 
       if (end)
