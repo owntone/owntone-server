@@ -9,6 +9,7 @@
 #define ART_DEFAULT_WIDTH  600
 
 #include <event2/buffer.h>
+#include <stdbool.h>
 
 /*
  * Get the artwork image for an individual item (track)
@@ -38,9 +39,20 @@ artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h);
  * Checks if the file is an artwork file (based on user config)
  *
  * @in  filename Name of the file
- * @return       1 if true, 0 if false
+ * @return       true/false
  */
-int
+bool
 artwork_file_is_artwork(const char *filename);
+
+/*
+ * Checks if the path (or URL) has file extension that is recognized as a
+ * supported file type (e.g. ".jpg"). Also supports URL-encoded paths, e.g.
+ * http://foo.com/bar.jpg?something
+ *
+ * @in  path     Path to the file (can also be a URL)
+ * @return       true/false
+ */
+bool
+artwork_extension_is_artwork(const char *path);
 
 #endif /* !__ARTWORK_H__ */
