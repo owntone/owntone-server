@@ -241,3 +241,12 @@ settings_option_setstr(struct settings_option *option, const char *value)
 
   return db_admin_set(option->name, value);
 }
+
+int
+settings_option_delete(struct settings_option *option)
+{
+  if (!option)
+    return -1;
+
+  return db_admin_delete(option->name);
+}

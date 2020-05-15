@@ -2173,8 +2173,9 @@ curl -X GET "http://localhost:3689/api/config"
 | --------- | ------------------------------------------------ | ------------------------------------ |
 | GET       | [/api/settings](#list-categories)                | Get all available categories         |
 | GET       | [/api/settings/{category-name}](#get-a-category) | Get all available options for a category   |
-| GET       | [/api/settings/{category-name}/{option-name}](#get-a-option) | Get a single setting option    |
-| PUT       | [/api/settings/{category-name}/{option-name}](#change-a-option-value) | Change the value of a setting option    |
+| GET       | [/api/settings/{category-name}/{option-name}](#get-an-option) | Get a single setting option    |
+| PUT       | [/api/settings/{category-name}/{option-name}](#change-an-option-value) | Change the value of a setting option    |
+| DELETE    | [/api/settings/{category-name}/{option-name}](#delete-an-option) | Reset a setting option to its default   |
 
 
 
@@ -2264,7 +2265,7 @@ curl -X GET "http://localhost:3689/api/settings/webinterface"
 ```
 
 
-### Get a option
+### Get an option
 
 Get a single settings option
 
@@ -2294,7 +2295,7 @@ curl -X GET "http://localhost:3689/api/settings/webinterface/show_composer_now_p
 ```
 
 
-### Change a option value
+### Change an option value
 
 Get a single settings option
 
@@ -2320,6 +2321,28 @@ On success returns the HTTP `204 No Content` success status response code.
 
 ```shell
 curl -X PUT "http://localhost:3689/api/settings/webinterface/show_composer_now_playing" --data "{\"name\":\"show_composer_now_playing\",\"value\":true}"
+```
+
+
+### Delete an option
+
+Delete a single settings option (thus resetting it to default)
+
+**Endpoint**
+
+```http
+DELETE /api/settings/{category-name}/{option-name}
+```
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+
+**Example**
+
+```shell
+curl -X DELETE "http://localhost:3689/api/settings/webinterface/show_composer_now_playing"
 ```
 
 

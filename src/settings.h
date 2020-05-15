@@ -64,4 +64,7 @@ settings_option_setbool(struct settings_option *option, bool value);
 int
 settings_option_setstr(struct settings_option *option, const char *value);
 
+int
+settings_option_delete(struct settings_option *option);
+
 #endif /* __SETTINGS_H__ */

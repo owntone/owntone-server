@@ -998,6 +998,43 @@ jsonapi_reply_settings_option_put(struct httpd_request *hreq)
   return HTTP_NOCONTENT;
 }
 
+static int
+jsonapi_reply_settings_option_delete(struct httpd_request *hreq)
+{
+  const char *categoryname;
+  const char *optionname;
+  struct settings_category *category;
+  struct settings_option *option;
+  int ret;
+
+
+  categoryname = hreq->uri_parsed->path_parts[2];
+  optionname = hreq->uri_parsed->path_parts[3];
+
+  category = settings_category_get(categoryname);
+  if (!category)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid category name '%s' given\n", categoryname);
+      return HTTP_NOTFOUND;
+    }
+
+  option = settings_option_get(category, optionname);
+  if (!option)
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid option name '%s' given\n", optionname);
+      return HTTP_NOTFOUND;
+    }
+
+  ret = settings_option_delete(option);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error deleting option '%s'\n", optionname);
+      return HTTP_INTERNAL;
+    }
+
+  return HTTP_NOCONTENT;
+}
+
 /*
  * Endpoint to retrieve informations about the library
  *
@@ -4167,6 +4204,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/settings/[A-Za-z0-9_]+$",                jsonapi_reply_settings_category_get },
     { EVHTTP_REQ_GET,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_get },
     { EVHTTP_REQ_PUT,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_put },
+    { EVHTTP_REQ_DELETE, "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_delete },
     { EVHTTP_REQ_GET,    "^/api/library$",                               jsonapi_reply_library },
     { EVHTTP_REQ_GET |
       EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },
