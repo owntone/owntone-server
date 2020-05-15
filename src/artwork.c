@@ -440,9 +440,9 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
     }
 
   content_type = keyval_get(kv, "Content-Type");
-  if (content_type && (strcmp(content_type, "image/jpeg") == 0))
+  if (content_type && (strcasecmp(content_type, "image/jpeg") == 0 || strcasecmp(content_type, "image/jpg") == 0))
     ret = ART_FMT_JPEG;
-  else if (content_type && (strcmp(content_type, "image/png") == 0))
+  else if (content_type && strcasecmp(content_type, "image/png") == 0)
     ret = ART_FMT_PNG;
   else
     {
