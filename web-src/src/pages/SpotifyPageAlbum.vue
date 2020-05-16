@@ -1,21 +1,28 @@
 <template>
-  <content-with-heading>
+  <content-with-hero>
     <template slot="heading-left">
-      <div class="title is-4">{{ album.name }}</div>
-      <a class="title is-4 has-text-link has-text-weight-normal" @click="open_artist">{{ album.artists[0].name }}</a>
-    </template>
-    <template slot="heading-right">
-      <div class="buttons is-centered">
-        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
-          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
-        </a>
+      <h1 class="title is-4 fd-has-margin-top">{{ album.name }}</h1>
+      <h2 class="subtitle is-4 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artists[0].name }}</a></h2>
+      <p class="heading has-text-centered-mobile">{{ album.tracks.total }} tracks</p>
+
+      <div class="buttons fd-is-centered-mobile fd-has-margin-top">
         <a class="button is-small is-dark is-rounded" @click="play">
           <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
         </a>
+        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
+          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        </a>
       </div>
     </template>
+    <template slot="heading-right">
+      <p class="image is-square fd-has-shadow">
+        <cover-artwork
+          :artwork_url="artwork_url"
+          :artist="album.artist"
+          :album="album.name" />
+      </p>
+    </template>
     <template slot="content">
-      <p class="heading has-text-centered-mobile">{{ album.tracks.total }} tracks</p>
       <spotify-list-item-track v-for="(track, index) in album.tracks.items" :key="track.id" :track="track" :position="index" :album="album" :context_uri="album.uri">
         <template slot="actions">
           <a @click="open_track_dialog(track)">
@@ -26,15 +33,16 @@
       <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="album" @close="show_track_details_modal = false" />
       <spotify-modal-dialog-album :show="show_album_details_modal" :album="album" @close="show_album_details_modal = false" />
     </template>
-  </content-with-heading>
+  </content-with-hero>
 </template>
 
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
+import ContentWithHero from '@/templates/ContentWithHero'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack'
 import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
+import CoverArtwork from '@/components/CoverArtwork'
 import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -54,7 +62,7 @@ const albumData = {
 export default {
   name: 'PageAlbum',
   mixins: [LoadDataBeforeEnterMixin(albumData)],
-  components: { ContentWithHeading, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogAlbum },
+  components: { ContentWithHero, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogAlbum, CoverArtwork },
 
   data () {
     return {
@@ -64,6 +72,15 @@ export default {
       selected_track: {},
 
       show_album_details_modal: false
+    }
+  },
+
+  computed: {
+    artwork_url: function () {
+      if (this.album.images && this.album.images.length > 0) {
+        return this.album.images[0].url
+      }
+      return ''
     }
   },
 

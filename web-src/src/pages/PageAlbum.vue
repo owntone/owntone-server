@@ -19,8 +19,7 @@
         <cover-artwork
           :artwork_url="album.artwork_url"
           :artist="album.artist"
-          :album="album.name"
-          class="" />
+          :album="album.name" />
       </p>
     </template>
     <template slot="content">
