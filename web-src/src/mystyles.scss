@@ -1,4 +1,7 @@
 
+@import 'bulma';
+
+
 .slider {
   min-width: 250px;
   width: 100%;
@@ -246,4 +249,32 @@ hr.fd-navbar-divider {
 .fd-bottom-navbar .navbar-menu {
   max-height: calc(100vh - 3.25rem - 3.25rem - 1rem);
   overflow: scroll;
+}
+
+
+.buttons {
+  @include mobile {
+      &.fd-is-centered-mobile {
+        justify-content: center;
+        &:not(.has-addons) {
+          .button:not(.is-fullwidth) {
+            margin-left: 0.25rem;
+            margin-right: 0.25rem;
+          }
+        }
+      }
+  }
+}
+
+.column {
+  &.fd-has-cover {
+    max-height: 256px;
+    max-width: 256px;
+    @include mobile {
+      margin: auto;
+    }
+    @include from($tablet) {
+      margin: auto 0 auto auto;
+    }
+  }
 }
