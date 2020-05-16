@@ -10,7 +10,7 @@
                   <!-- Slot heading right -->
                   <slot name="heading-right"></slot>
                 </div>
-                <div class="column is-three-fifths has-text-centered-mobile">
+                <div class="column is-three-fifths has-text-centered-mobile" style="margin: auto 0;">
                     <!-- Slot heading left -->
                     <slot name="heading-left"></slot>
                 </div>

@@ -1,9 +1,8 @@
 <template>
   <content-with-hero>
     <template slot="heading-left">
-      <h1 class="title is-4 fd-has-margin-top">{{ album.name }}</h1>
-      <h2 class="subtitle is-4 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artist }}</a></h2>
-      <p class="heading has-text-centered-mobile">{{ album.track_count }} tracks</p>
+      <h1 class="title is-5">{{ album.name }}</h1>
+      <h2 class="subtitle is-6 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artist }}</a></h2>
 
       <div class="buttons fd-is-centered-mobile fd-has-margin-top">
         <a class="button is-small is-dark is-rounded" @click="play">
@@ -23,6 +22,7 @@
       </p>
     </template>
     <template slot="content">
+      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">{{ album.track_count }} tracks</p>
       <list-item-track v-for="(track, index) in tracks" :key="track.id" :track="track" @click="play_track(index)">
         <template slot="actions">
           <a @click="open_dialog(track)">
