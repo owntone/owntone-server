@@ -43,6 +43,18 @@ If you modify any ANTLR grammar files (.g), you will need to install it.]])],
 		[AC_MSG_ERROR([[antlr3 wrapper required, please install it.]])])
 	])
 
+
+AC_PATH_PROG([NPM], [[npm]])
+AS_IF([[test -z "$NPM"]],
+	[AS_IF([[test -f "$srcdir/web-src/dist/index.html"]],
+		[AM_MISSING_PROG([ANTLR], [[antlr3]])
+		AC_MSG_NOTICE([[
+
+npm not found, but it's output appears to be present.
+If you modify any web-src files, you will need to install it.]])],
+		[AC_MSG_NOTICE([[npm required for web interface, please install it.]])])
+	])
+
 dnl Enable all warnings by default.
 AM_CPPFLAGS="-Wall"
 AC_SUBST([AM_CPPFLAGS])
@@ -374,7 +386,6 @@ dnl --- End options ---
 AC_CONFIG_FILES([
 	src/Makefile
 	sqlext/Makefile
-	htdocs/Makefile
 	Makefile
 	forked-daapd.spec
 ])

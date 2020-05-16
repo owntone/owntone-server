@@ -3,7 +3,7 @@ module.exports = {
   runtimeCompiler: true,
 
   // Output path for the generated static assets (js/css)
-  outputDir: '../htdocs',
+  outputDir: 'dist',
 
   // Output path for the generated index.html
   indexPath: 'index.html',

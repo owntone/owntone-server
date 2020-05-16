@@ -41,3 +41,5 @@ debian/
 /.project
 /.autotools
 /.vscode
+
+!/web-src/Makefile
