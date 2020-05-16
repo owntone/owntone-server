@@ -3,7 +3,7 @@
     <div class="media-content fd-has-action is-clipped" v-on:click="open_album">
       <h1 class="title is-6">{{ album.name }}</h1>
       <h2 class="subtitle is-7 has-text-grey"><b>{{ album.artists[0].name }}</b></h2>
-      <h2 class="subtitle is-7 has-text-grey has-text-weight-normal">({{ album.album_type }}, {{ album.release_date }})</h2>
+      <h2 class="subtitle is-7 has-text-grey has-text-weight-normal">({{ album.album_type }}, {{ album.release_date | time('L') }})</h2>
     </div>
     <div class="media-right">
       <slot name="actions"></slot>

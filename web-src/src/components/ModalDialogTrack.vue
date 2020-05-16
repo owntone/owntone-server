@@ -31,7 +31,7 @@
                 </p>
                 <p v-if="track.date_released">
                   <span class="heading">Release date</span>
-                  <span class="title is-6">{{ track.date_released | time('L')}}</span>
+                  <span class="title is-6">{{ track.date_released | time('L') }}</span>
                 </p>
                 <p v-else-if="track.year > 0">
                   <span class="heading">Year</span>
