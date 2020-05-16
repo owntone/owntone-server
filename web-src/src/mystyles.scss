@@ -278,3 +278,10 @@ hr.fd-navbar-divider {
     }
   }
 }
+
+.fd-overlay-fullscreen {
+  @extend .is-overlay;
+  z-index:25;
+  background-color: rgba(10, 10, 10, 0.2);
+  position: fixed;
+}

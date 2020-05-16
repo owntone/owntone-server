@@ -9,8 +9,7 @@
     <modal-dialog-remote-pairing :show="pairing_active" @close="pairing_active = false" />
     <notifications v-show="!show_burger_menu" />
     <navbar-bottom />
-    <div class="is-overlay" v-show="show_burger_menu || show_player_menu"
-        style="z-index:25; width: 100vw; height:100vh;background-color: rgba(10, 10, 10, 0.2);"
+    <div class="fd-overlay-fullscreen" v-show="show_burger_menu || show_player_menu"
         @click="show_burger_menu = show_player_menu = false"></div>
   </div>
 </template>
