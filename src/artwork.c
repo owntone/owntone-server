@@ -275,11 +275,14 @@ static struct artwork_source artwork_item_source[] =
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
+      // Here we must use STASH because this handler must always just be a
+      // backup when artwork_url_get fails. If we used ON_SUCCESS this image
+      // would go in permanent cache, and artwork_url_get not get called again.
       .name = "playlist own",
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
       .media_kinds = MEDIA_KIND_ALL,
-      .cache = ON_SUCCESS | ON_FAILURE,
+      .cache = STASH,
     },
     {
       .name = "Spotify search web api (files)",
