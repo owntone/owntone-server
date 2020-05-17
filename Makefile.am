@@ -20,6 +20,7 @@ nobase_dist_doc_DATA = \
 	README_ALSA.md \
 	README_SMARTPL.md \
 	README_PLAYER_WEBINTERFACE.md \
+	README_RADIO_STREAMS.md \
 	scripts/pairinghelper.sh
 
 EXTRA_DIST = \
