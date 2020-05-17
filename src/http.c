@@ -720,11 +720,11 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
       if (ptr[0] == ' ')
 	ptr++;
 
-      if ((strncmp(icy_token, "icy-name", strlen("icy-name")) == 0) && !metadata->name)
+      if ((strncmp(icy_token, "icy-name", strlen("icy-name")) == 0) && ptr[0] != '\0' && !metadata->name)
 	metadata->name = strdup(ptr);
-      else if ((strncmp(icy_token, "icy-description", strlen("icy-description")) == 0) && !metadata->description)
+      else if ((strncmp(icy_token, "icy-description", strlen("icy-description")) == 0) && ptr[0] != '\0' && !metadata->description)
 	metadata->description = strdup(ptr);
-      else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && !metadata->genre)
+      else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && ptr[0] != '\0' && !metadata->genre)
 	metadata->genre = strdup(ptr);
 
       icy_token = strtok_r(NULL, "\r\n", &save_pr);
@@ -816,17 +816,17 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
   CHECK_NULL(L_HTTP, metadata = calloc(1, sizeof(struct http_icy_metadata)));
 
   got_header = 0;
-  if ( (value = keyval_get(ctx.input_headers, "icy-name")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-name")) && value[0] != '\0' )
     {
       metadata->name = strdup(value);
       got_header = 1;
     }
-  if ( (value = keyval_get(ctx.input_headers, "icy-description")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-description")) && value[0] != '\0' )
     {
       metadata->description = strdup(value);
       got_header = 1;
     }
-  if ( (value = keyval_get(ctx.input_headers, "icy-genre")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-genre")) && value[0] != '\0' )
     {
       metadata->genre = strdup(value);
       got_header = 1;
