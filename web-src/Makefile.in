@@ -2,7 +2,17 @@ EMPTY_AUTOMAKE_TARGETS = install-exec install-dvi install-html install-info inst
 
 .PHONY: all build distdir install install-data uninstall installdirs mostlyclean clean distclean maintainer-clean lint serve $(EMPTY_AUTOMAKE_TARGETS)
 
+NPM = @NPM@
+INSTALL = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+MKDIR_P = @MKDIR_P@
 
+prefix = @prefix@
+datadir = @datadir@
+pkgdatadir = $(datadir)/@PACKAGE@
+
+srcdir = @srcdir@
+VPATH = @srcdir@
 
 web_src := \
 	$(shell find src/ -type f) \
@@ -16,7 +26,7 @@ conf_src := \
 	package.json \
 	package-lock.json
 
-htdocsdir := $(datadir)/forked-daapd/htdocs
+htdocsdir := $(pkgdatadir)/htdocs
 
 dist_htdocs_DATA := \
 	htdocs/index.html \
@@ -76,11 +86,11 @@ distdir:
 		public \
 		src \
 		$(conf_src) \
-		$(distdir)/web-src
+		$(distdir)
 
 install: install-data
 
-install-data: htdocs
+install-data: htdocs installdirs
 	$(INSTALL_DATA) -D -t $(htdocsdir) $(dist_htdocs_DATA)
 	$(INSTALL_DATA) -D -t $(htdocsplayercssdir) $(dist_htdocsplayercss_DATA)
 	$(INSTALL_DATA) -D -t $(htdocsplayerfontsdir) $(dist_htdocsplayerfonts_DATA)
@@ -91,11 +101,11 @@ uninstall:
 	-rm -rf $(htdocsdir)
 
 installdirs:
-	$(INSTALL_DATA) -d $(htdocsdir)
-	$(INSTALL_DATA) -d $(htdocsplayercssdir)
-	$(INSTALL_DATA) -d $(htdocsplayerfontsdir)
-	$(INSTALL_DATA) -d $(htdocsplayerjsdir)
-	$(INSTALL_DATA) -d $(htdocsplayerimgdir)
+	$(MKDIR_P) $(htdocsdir)
+	$(MKDIR_P) $(htdocsplayercssdir)
+	$(MKDIR_P) $(htdocsplayerfontsdir)
+	$(MKDIR_P) $(htdocsplayerjsdir)
+	$(MKDIR_P) $(htdocsplayerimgdir)
 
 mostlyclean:
 	-rm -rf htdocs
@@ -107,18 +117,18 @@ distclean:
 maintainer-clean:
 
 lint: node_modules
-	$(if $(NPM),$(NPM) run lint --prefix %reldir%)
+	$(if $(NPM),$(NPM) run lint)
 
 serve: node_modules
-	$(if $(NPM),$(NPM) run serve --prefix %reldir%)
+	$(if $(NPM),$(NPM) run serve)
 
 # This rule informs `make` that the `node_modules/` directory is out-of-date
 # after changes to `package.json` or `package-lock.json`, and instructs `make` 
 # on how to install modules to get back up-to-date.
 node_modules: $(conf_src)
-	$(if $(NPM),$(NPM) install --prefix %reldir%)
+	$(if $(NPM),$(NPM) install)
 
 htdocs: node_modules $(web_src)
-	$(if $(NPM),$(NPM) run build --prefix %reldir%)
+	$(if $(NPM),$(NPM) run build)
 
 

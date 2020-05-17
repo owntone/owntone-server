@@ -385,6 +385,7 @@ dnl --- End options ---
 
 AC_CONFIG_FILES([
 	src/Makefile
+	web-src/Makefile
 	sqlext/Makefile
 	Makefile
 	forked-daapd.spec
