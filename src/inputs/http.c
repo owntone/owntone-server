@@ -289,10 +289,20 @@ metadata_prepare(struct input_source *source)
 
 /*---------------------------- Input implementation --------------------------*/
 
+// Important! If you change any of the below then consider if the change also
+// should be made in file.c
+
 static int
 setup(struct input_source *source)
 {
   struct transcode_ctx *ctx;
+  char *url;
+
+  if (http_stream_setup(&url, source->path) < 0)
+    return -1;
+
+  free(source->path);
+  source->path = url;
 
   ctx = transcode_setup(XCODE_PCM_NATIVE, NULL, source->data_kind, source->path, source->len_ms, NULL);
   if (!ctx)
@@ -307,20 +317,6 @@ setup(struct input_source *source)
   source->input_ctx = ctx;
 
   return 0;
-}
-
-static int
-setup_http(struct input_source *source)
-{
-  char *url;
-
-  if (http_stream_setup(&url, source->path) < 0)
-    return -1;
-
-  free(source->path);
-  source->path = url;
-
-  return setup(source);
 }
 
 static int
@@ -373,12 +369,6 @@ play(struct input_source *source)
 static int
 seek(struct input_source *source, int seek_ms)
 {
-  return transcode_seek(source->input_ctx, seek_ms);
-}
-
-static int
-seek_http(struct input_source *source, int seek_ms)
-{
   // Stream is live/unknown length so can't seek. We return 0 anyway, because
   // it is valid for the input to request a seek, since the input is not
   // supposed to concern itself about this.
@@ -389,7 +379,7 @@ seek_http(struct input_source *source, int seek_ms)
 }
 
 static int
-metadata_get_http(struct input_metadata *metadata, struct input_source *source)
+metadata_get(struct input_metadata *metadata, struct input_source *source)
 {
   pthread_mutex_lock(&prepared_metadata.lock);
 
@@ -404,39 +394,28 @@ metadata_get_http(struct input_metadata *metadata, struct input_source *source)
 }
 
 static int
-init_http(void)
+init(void)
 {
   CHECK_ERR(L_PLAYER, mutex_init(&prepared_metadata.lock));
   return 0;
 }
 
 static void
-deinit_http(void)
+deinit(void)
 {
   CHECK_ERR(L_PLAYER, pthread_mutex_destroy(&prepared_metadata.lock));
 }
-
-struct input_definition input_file =
-{
-  .name = "file",
-  .type = INPUT_TYPE_FILE,
-  .disabled = 0,
-  .setup = setup,
-  .play = play,
-  .stop = stop,
-  .seek = seek,
-};
 
 struct input_definition input_http =
 {
   .name = "http",
   .type = INPUT_TYPE_HTTP,
   .disabled = 0,
-  .setup = setup_http,
+  .setup = setup,
   .play = play,
   .stop = stop,
-  .metadata_get = metadata_get_http,
-  .seek = seek_http,
-  .init = init_http,
-  .deinit = deinit_http,
+  .metadata_get = metadata_get,
+  .seek = seek,
+  .init = init,
+  .deinit = deinit,
 };
