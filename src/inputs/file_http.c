@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <string.h> // strcasestr
 #include <strings.h> // strcasecmp
+#include <pthread.h> // mutex
 
 #include <event2/buffer.h>
 
@@ -32,7 +33,16 @@
 #include "settings.h"
 #include "logger.h"
 #include "artwork.h"
+#include "worker.h"
 #include "input.h"
+
+struct prepared_metadata
+{
+  // Parsed metadata goes here
+  struct input_metadata parsed;
+  // Mutex to share the parsed metadata
+  pthread_mutex_t lock;
+} prepared_metadata;
 
 
 /* ------- Handling/parsing of StreamUrl tags from some http streams ---------*/
@@ -102,7 +112,7 @@ streamurl_field_parse(struct input_metadata *metadata, struct streamurl_map *map
     }
 }
 
-static void
+static int
 streamurl_json_parse(struct input_metadata *metadata, const char *body)
 {
   json_object *jresponse;
@@ -110,15 +120,19 @@ streamurl_json_parse(struct input_metadata *metadata, const char *body)
 
   jresponse = json_tokener_parse(body);
   if (!jresponse)
-    return;
+    return -1;
 
   json_object_object_foreach(jresponse, jkey, jval)
     {
       for (i = 0; i < ARRAY_SIZE(streamurl_map); i++)
-	streamurl_field_parse(metadata, &streamurl_map[i], jkey, jval);
+	{
+	  streamurl_field_parse(metadata, &streamurl_map[i], jkey, jval);
+	}
     }
 
   jparse_free(jresponse);
+
+  return 0;
 }
 
 static void
@@ -154,7 +168,7 @@ streamurl_settings_load(void)
   return enabled ? 0 : -1;
 }
 
-static void
+static int
 streamurl_process(struct input_metadata *metadata, const char *url)
 {
   struct http_client_ctx client = { 0 };
@@ -169,7 +183,7 @@ streamurl_process(struct input_metadata *metadata, const char *url)
   if (ret < 0)
     {
       DPRINTF(E_DBG, L_PLAYER, "Ignoring StreamUrl resource '%s', no settings\n", url);
-      return;
+      return -1;
     }
 
   DPRINTF(E_DBG, L_PLAYER, "Downloading StreamUrl resource '%s'\n", url);
@@ -184,6 +198,7 @@ streamurl_process(struct input_metadata *metadata, const char *url)
   if (ret < 0 || client.response_code != HTTP_OK)
     {
       DPRINTF(E_WARN, L_PLAYER, "Request for StreamUrl resource '%s' failed, response code %d\n", url, client.response_code);
+      ret = -1;
       goto out;
     }
 
@@ -193,14 +208,82 @@ streamurl_process(struct input_metadata *metadata, const char *url)
 
   content_type = keyval_get(&kv, "Content-Type");
   if (content_type && strcasecmp(content_type, "application/json") == 0)
-    streamurl_json_parse(metadata, body);
+    {
+      ret = streamurl_json_parse(metadata, body);
+    }
   else
-    DPRINTF(E_WARN, L_PLAYER, "No handler for StreamUrl resource '%s' with content type '%s'\n", url, content_type);
+    {
+      DPRINTF(E_WARN, L_PLAYER, "No handler for StreamUrl resource '%s' with content type '%s'\n", url, content_type);
+      ret = -1;
+    }
 
  out:
   keyval_clear(&kv);
   evbuffer_free(evbuf);
   streamurl_settings_unload();
+  return ret;
+}
+
+// Thread: worker
+static void
+streamurl_cb(void *arg)
+{
+  struct input_metadata metadata = { 0 };
+  char *url = arg;
+  int ret;
+
+  ret = streamurl_process(&metadata, url);
+  if (ret < 0) // Only negative on error/unconfigured (not if no metadata)
+    return;
+
+  pthread_mutex_lock(&prepared_metadata.lock);
+
+  swap_pointers(&prepared_metadata.parsed.artwork_url, &metadata.artwork_url);
+  prepared_metadata.parsed.pos_is_updated = metadata.pos_is_updated;
+  prepared_metadata.parsed.pos_ms = metadata.pos_ms;
+  prepared_metadata.parsed.len_ms = metadata.len_ms;
+
+  pthread_mutex_unlock(&prepared_metadata.lock);
+
+  input_metadata_free(&metadata, 1);
+
+  input_write(NULL, NULL, INPUT_FLAG_METADATA);
+}
+
+
+/*-------------------------------- http metadata -----------------------------*/
+
+// Checks if there is new metadata, which means getting the ICY data plus the
+// StreamTitle and StreamUrl fields from libav. If StreamUrl is not an artwork
+// link then we also kick off async downloading of it.
+static int
+metadata_prepare(struct input_source *source)
+{
+  struct http_icy_metadata *m;
+  int changed;
+
+  m = transcode_metadata(source->input_ctx, &changed);
+  if (!m)
+    return -1;
+
+  if (!changed)
+    {
+      http_icy_metadata_free(m, 0);
+      return -1;
+    }
+
+  swap_pointers(&prepared_metadata.parsed.artist, &m->artist);
+  // Note we map title to album, because clients should show stream name as title
+  swap_pointers(&prepared_metadata.parsed.album, &m->title);
+
+  // In this case we have to go async to download the url and process the content
+  if (m->url && !artwork_extension_is_artwork(m->url))
+    worker_execute(streamurl_cb, m->url, strlen(m->url) + 1, 0);
+  else
+    swap_pointers(&prepared_metadata.parsed.artwork_url, &m->url);
+
+  http_icy_metadata_free(m, 0);
+  return 0;
 }
 
 
@@ -280,7 +363,7 @@ play(struct input_source *source)
       return -1;
     }
 
-  flags = (icy_timer ? INPUT_FLAG_METADATA : 0);
+  flags = (icy_timer && metadata_prepare(source) == 0) ? INPUT_FLAG_METADATA : 0;
 
   input_write(source->evbuf, &source->quality, flags);
 
@@ -308,33 +391,29 @@ seek_http(struct input_source *source, int seek_ms)
 static int
 metadata_get_http(struct input_metadata *metadata, struct input_source *source)
 {
-  struct http_icy_metadata *m;
-  int changed;
+  pthread_mutex_lock(&prepared_metadata.lock);
 
-  m = transcode_metadata(source->input_ctx, &changed);
-  if (!m)
-    return -1;
+  *metadata = prepared_metadata.parsed;
 
-  if (!changed)
-    {
-      http_icy_metadata_free(m, 0);
-      return -1;
-    }
+  // Ownership transferred to caller, null all pointers in the struct
+  memset(&prepared_metadata.parsed, 0, sizeof(struct input_metadata));
 
-  swap_pointers(&metadata->artist, &m->artist);
-  // Note we map title to album, because clients should show stream name as titel
-  swap_pointers(&metadata->album, &m->title);
+  pthread_mutex_unlock(&prepared_metadata.lock);
 
-  if (m->url)
-    {
-      if (artwork_extension_is_artwork(m->url))
-	swap_pointers(&metadata->artwork_url, &m->url);
-      else
-	streamurl_process(metadata, m->url);
-    }
-
-  http_icy_metadata_free(m, 0);
   return 0;
+}
+
+static int
+init_http(void)
+{
+  CHECK_ERR(L_PLAYER, mutex_init(&prepared_metadata.lock));
+  return 0;
+}
+
+static void
+deinit_http(void)
+{
+  CHECK_ERR(L_PLAYER, pthread_mutex_destroy(&prepared_metadata.lock));
 }
 
 struct input_definition input_file =
@@ -357,5 +436,7 @@ struct input_definition input_http =
   .play = play,
   .stop = stop,
   .metadata_get = metadata_get_http,
-  .seek = seek_http
+  .seek = seek_http,
+  .init = init_http,
+  .deinit = deinit_http,
 };
