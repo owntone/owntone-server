@@ -667,9 +667,9 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 	  else
 	    metadata->title = strdup(metadata->title);
 	}
-      else if ((strncmp(icy_token, "StreamUrl", strlen("StreamUrl")) == 0) && !metadata->artwork_url && strlen(ptr) > 0)
+      else if ((strncmp(icy_token, "StreamUrl", strlen("StreamUrl")) == 0) && !metadata->url && strlen(ptr) > 0)
 	{
-	  metadata->artwork_url = strdup(ptr);
+	  metadata->url = strdup(ptr);
 	}
 
       if (end)
@@ -720,11 +720,11 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
       if (ptr[0] == ' ')
 	ptr++;
 
-      if ((strncmp(icy_token, "icy-name", strlen("icy-name")) == 0) && !metadata->name)
+      if ((strncmp(icy_token, "icy-name", strlen("icy-name")) == 0) && ptr[0] != '\0' && !metadata->name)
 	metadata->name = strdup(ptr);
-      else if ((strncmp(icy_token, "icy-description", strlen("icy-description")) == 0) && !metadata->description)
+      else if ((strncmp(icy_token, "icy-description", strlen("icy-description")) == 0) && ptr[0] != '\0' && !metadata->description)
 	metadata->description = strdup(ptr);
-      else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && !metadata->genre)
+      else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && ptr[0] != '\0' && !metadata->genre)
 	metadata->genre = strdup(ptr);
 
       icy_token = strtok_r(NULL, "\r\n", &save_pr);
@@ -741,10 +741,7 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
   int got_packet;
   int got_header;
 
-  metadata = malloc(sizeof(struct http_icy_metadata));
-  if (!metadata)
-    return NULL;
-  memset(metadata, 0, sizeof(struct http_icy_metadata));
+  CHECK_NULL(L_HTTP, metadata = calloc(1, sizeof(struct http_icy_metadata)));
 
   got_packet = (metadata_packet_get(metadata, fmtctx) == 0);
   got_header = (!packet_only) && (metadata_header_get(metadata, fmtctx) == 0);
@@ -761,7 +758,7 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 	metadata->genre,
 	metadata->title,
 	metadata->artist,
-	metadata->artwork_url,
+	metadata->url,
 	metadata->hash
 	);
 */
@@ -816,23 +813,20 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
       return NULL;
     }
 
-  metadata = malloc(sizeof(struct http_icy_metadata));
-  if (!metadata)
-    return NULL;
-  memset(metadata, 0, sizeof(struct http_icy_metadata));
+  CHECK_NULL(L_HTTP, metadata = calloc(1, sizeof(struct http_icy_metadata)));
 
   got_header = 0;
-  if ( (value = keyval_get(ctx.input_headers, "icy-name")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-name")) && value[0] != '\0' )
     {
       metadata->name = strdup(value);
       got_header = 1;
     }
-  if ( (value = keyval_get(ctx.input_headers, "icy-description")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-description")) && value[0] != '\0' )
     {
       metadata->description = strdup(value);
       got_header = 1;
     }
-  if ( (value = keyval_get(ctx.input_headers, "icy-genre")) )
+  if ( (value = keyval_get(ctx.input_headers, "icy-genre")) && value[0] != '\0' )
     {
       metadata->genre = strdup(value);
       got_header = 1;
@@ -853,7 +847,7 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 	metadata->genre,
 	metadata->title,
 	metadata->artist,
-	metadata->artwork_url,
+	metadata->url,
 	metadata->hash
 	);*/
 
@@ -864,24 +858,14 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 void
 http_icy_metadata_free(struct http_icy_metadata *metadata, int content_only)
 {
-  if (metadata->name)
-    free(metadata->name);
+  if (!metadata)
+    return;
 
-  if (metadata->description)
-    free(metadata->description);
-
-  if (metadata->genre)
-    free(metadata->genre);
-
-  if (metadata->title)
-    free(metadata->title);
-
-  if (metadata->artist)
-    free(metadata->artist);
-
-  if (metadata->artwork_url)
-    free(metadata->artwork_url);
-
-  if (!content_only)
-    free(metadata);
+  free(metadata->name);
+  free(metadata->description);
+  free(metadata->genre);
+  free(metadata->title);
+  free(metadata->artist);
+  free(metadata->url);
+  free(metadata);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Espen Jurgensen
+ * Copyright (C) 2017-2020 Espen Jurgensen
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,10 +24,14 @@
 #include <event2/buffer.h>
 
 #include "transcode.h"
-#include "http.h"
 #include "misc.h"
 #include "logger.h"
 #include "input.h"
+
+/*---------------------------- Input implementation --------------------------*/
+
+// Important! If you change any of the below then consider if the change also
+// should be made in http.c
 
 static int
 setup(struct input_source *source)
@@ -50,20 +54,6 @@ setup(struct input_source *source)
 }
 
 static int
-setup_http(struct input_source *source)
-{
-  char *url;
-
-  if (http_stream_setup(&url, source->path) < 0)
-    return -1;
-
-  free(source->path);
-  source->path = url;
-
-  return setup(source);
-}
-
-static int
 stop(struct input_source *source)
 {
   struct transcode_ctx *ctx = source->input_ctx;
@@ -83,13 +73,11 @@ static int
 play(struct input_source *source)
 {
   struct transcode_ctx *ctx = source->input_ctx;
-  int icy_timer;
   int ret;
-  short flags;
 
   // We set "wanted" to 1 because the read size doesn't matter to us
   // TODO optimize?
-  ret = transcode(source->evbuf, &icy_timer, ctx, 1);
+  ret = transcode(source->evbuf, NULL, ctx, 1);
   if (ret == 0)
     {
       input_write(source->evbuf, &source->quality, INPUT_FLAG_EOF);
@@ -103,9 +91,7 @@ play(struct input_source *source)
       return -1;
     }
 
-  flags = (icy_timer ? INPUT_FLAG_METADATA : 0);
-
-  input_write(source->evbuf, &source->quality, flags);
+  input_write(source->evbuf, &source->quality, 0);
 
   return 0;
 }
@@ -114,43 +100,6 @@ static int
 seek(struct input_source *source, int seek_ms)
 {
   return transcode_seek(source->input_ctx, seek_ms);
-}
-
-static int
-seek_http(struct input_source *source, int seek_ms)
-{
-  // Stream is live/unknown length so can't seek. We return 0 anyway, because
-  // it is valid for the input to request a seek, since the input is not
-  // supposed to concern itself about this.
-  if (source->len_ms == 0)
-    return 0;
-
-  return transcode_seek(source->input_ctx, seek_ms);
-}
-
-static int
-metadata_get_http(struct input_metadata *metadata, struct input_source *source)
-{
-  struct http_icy_metadata *m;
-  int changed;
-
-  m = transcode_metadata(source->input_ctx, &changed);
-  if (!m)
-    return -1;
-
-  if (!changed)
-    {
-      http_icy_metadata_free(m, 0);
-      return -1; // TODO Perhaps a problem since this prohibits the player updating metadata
-    }
-
-  swap_pointers(&metadata->artist, &m->artist);
-  // Note we map title to album, because clients should show stream name as titel
-  swap_pointers(&metadata->album, &m->title);
-  swap_pointers(&metadata->artwork_url, &m->artwork_url);
-
-  http_icy_metadata_free(m, 0);
-  return 0;
 }
 
 struct input_definition input_file =
@@ -162,16 +111,4 @@ struct input_definition input_file =
   .play = play,
   .stop = stop,
   .seek = seek,
-};
-
-struct input_definition input_http =
-{
-  .name = "http",
-  .type = INPUT_TYPE_HTTP,
-  .disabled = 0,
-  .setup = setup_http,
-  .play = play,
-  .stop = stop,
-  .metadata_get = metadata_get_http,
-  .seek = seek_http
 };

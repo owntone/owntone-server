@@ -323,6 +323,10 @@ forked-daapd has support for smart playlists. How to create a smart playlist is
 documented in
 [README_SMARTPL.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md).
 
+If you're not satisfied with internet radio metadata that forked-daapd shows,
+then you can read about tweaking it in
+[README_RADIO_STREAMS.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_RADIO_STREAMS.md).
+
 
 ## Artwork
 

@@ -133,7 +133,7 @@ struct input_definition
 /*
  * Transfer stream data to the player's input buffer. Data must be PCM-LE
  * samples. The input evbuf will be drained on succesful write. This is to avoid
- * copying memory.
+ * copying memory. Thread-safe.
  *
  * @in  evbuf    Raw PCM_LE audio data to write
  * @in  evbuf    Quality of the PCM (sample rate etc.)

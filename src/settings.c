@@ -42,10 +42,17 @@ static struct settings_option artwork_options[] =
       { "use_artwork_source_coverartarchive", SETTINGS_TYPE_BOOL, NULL, artwork_coverartarchive_default_getbool, NULL },
   };
 
+static struct settings_option misc_options[] =
+  {
+      { "streamurl_keywords_artwork_url", SETTINGS_TYPE_STR },
+      { "streamurl_keywords_length", SETTINGS_TYPE_STR },
+  };
+
 static struct settings_category categories[] =
   {
       { "webinterface", webinterface_options, ARRAY_SIZE(webinterface_options) },
       { "artwork", artwork_options, ARRAY_SIZE(artwork_options) },
+      { "misc", misc_options, ARRAY_SIZE(misc_options) },
   };
 
 
@@ -93,7 +100,6 @@ artwork_coverartarchive_default_getbool(struct settings_option *option)
 {
   return artwork_default_getbool(false, "coverartarchive");
 }
-
 
 /* ------------------------------ IMPLEMENTATION -----------------------------*/
 

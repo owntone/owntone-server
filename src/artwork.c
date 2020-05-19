@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -193,7 +194,7 @@ static int source_group_dir_get(struct artwork_ctx *ctx);
 static int source_item_cache_get(struct artwork_ctx *ctx);
 static int source_item_embedded_get(struct artwork_ctx *ctx);
 static int source_item_own_get(struct artwork_ctx *ctx);
-static int source_item_stream_get(struct artwork_ctx *ctx);
+static int source_item_artwork_url_get(struct artwork_ctx *ctx);
 static int source_item_pipe_get(struct artwork_ctx *ctx);
 static int source_item_spotifywebapi_track_get(struct artwork_ctx *ctx);
 static int source_item_ownpl_get(struct artwork_ctx *ctx);
@@ -254,7 +255,7 @@ static struct artwork_source artwork_item_source[] =
     },
     {
       .name = "stream",
-      .handler = source_item_stream_get,
+      .handler = source_item_artwork_url_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
       .media_kinds = MEDIA_KIND_MUSIC,
       .cache = STASH,
@@ -274,11 +275,14 @@ static struct artwork_source artwork_item_source[] =
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
+      // Here we must use STASH because this handler must always just be a
+      // backup when artwork_url_get fails. If we used ON_SUCCESS this image
+      // would go in permanent cache, and artwork_url_get not get called again.
       .name = "playlist own",
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
       .media_kinds = MEDIA_KIND_ALL,
-      .cache = ON_SUCCESS | ON_FAILURE,
+      .cache = STASH,
     },
     {
       .name = "Spotify search web api (files)",
@@ -1503,25 +1507,15 @@ source_item_own_get(struct artwork_ctx *ctx)
 }
 
 /*
- * Downloads the artwork pointed to by the ICY metadata tag in an internet radio
- * stream (the StreamUrl tag). The path will be converted back to the id, which
- * is given to the player. If the id is currently being played, and there is a
- * valid ICY metadata artwork URL available, it will be returned to this
- * function, which will then use the http client to get the artwork.
+ * Downloads the artwork from the location pointed to by queue_item->artwork_url
  */
 static int
-source_item_stream_get(struct artwork_ctx *ctx)
+source_item_artwork_url_get(struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
-  char *url;
-  char *ext;
-  int len;
   int ret;
 
-
-  DPRINTF(E_SPAM, L_ART, "Trying internet stream artwork in %s\n", ctx->dbmfi->path);
-
-  ret = ART_E_NONE;
+  DPRINTF(E_SPAM, L_ART, "Trying artwork url for %s\n", ctx->dbmfi->path);
 
   queue_item = db_queue_fetch_byfileid(ctx->id);
   if (!queue_item || !queue_item->artwork_url)
@@ -1530,23 +1524,11 @@ source_item_stream_get(struct artwork_ctx *ctx)
       return ART_E_NONE;
     }
 
-  url = strdup(queue_item->artwork_url);
+  ret = artwork_get_byurl(ctx->evbuf, queue_item->artwork_url, ctx->max_w, ctx->max_h);
+
+  snprintf(ctx->path, sizeof(ctx->path), "%s", queue_item->artwork_url);
+
   free_queue_item(queue_item, 0);
-
-  len = strlen(url);
-  if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
-    goto out_url;
-
-  ext = strrchr(url, '.');
-  if (!ext)
-    goto out_url;
-  if ((strcmp(ext, ".jpg") != 0) && (strcmp(ext, ".png") != 0))
-    goto out_url;
-
-  ret = artwork_get_byurl(ctx->evbuf, url, ctx->max_w, ctx->max_h);
-
- out_url:
-  free(url);
 
   return ret;
 }
@@ -2024,7 +2006,7 @@ artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h)
 }
 
 /* Checks if the file is an artwork file */
-int
+bool
 artwork_file_is_artwork(const char *filename)
 {
   cfg_t *lib;
@@ -2039,7 +2021,7 @@ artwork_file_is_artwork(const char *filename)
 
   for (i = 0; i < n; i++)
     {
-      for (j = 0; j < (sizeof(cover_extension) / sizeof(cover_extension[0])); j++)
+      for (j = 0; j < ARRAY_SIZE(cover_extension); j++)
 	{
 	  ret = snprintf(artwork, sizeof(artwork), "%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
 	  if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -2049,12 +2031,42 @@ artwork_file_is_artwork(const char *filename)
 	    }
 
 	  if (strcmp(artwork, filename) == 0)
-	    return 1;
+	    return true;
 	}
 
-      if (j < (sizeof(cover_extension) / sizeof(cover_extension[0])))
+      if (j < ARRAY_SIZE(cover_extension))
 	break;
     }
 
-  return 0;
+  return false;
+}
+
+bool
+artwork_extension_is_artwork(const char *path)
+{
+  char *ext;
+  int len;
+  int i;
+
+  ext = strrchr(path, '.');
+  if (!ext)
+    return false;
+
+  ext++;
+
+  for (i = 0; i < ARRAY_SIZE(cover_extension); i++)
+    {
+      len = strlen(cover_extension[i]);
+
+      if (strncasecmp(cover_extension[i], ext, len) != 0)
+        continue;
+
+      // Check that after the extension we either have the end or "?"
+      if (ext[len] != '\0' && ext[len] != '?')
+        continue;
+
+      return true;
+    }
+
+  return false;
 }
