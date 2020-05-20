@@ -230,6 +230,13 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->sample_format = AV_SAMPLE_FMT_S16; // Only libopus support
 	break;
 
+      case XCODE_FLAC:
+	settings->encode_audio = 1;
+	settings->format = "flac";
+	settings->audio_codec = AV_CODEC_ID_FLAC;
+	settings->sample_format = AV_SAMPLE_FMT_S16;
+	break;
+
       case XCODE_JPEG:
 	settings->encode_video = 1;
 	settings->silent = 1;
