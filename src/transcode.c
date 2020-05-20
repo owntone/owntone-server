@@ -270,7 +270,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 
   if (quality && quality->bits_per_sample && (quality->bits_per_sample != 8 * av_get_bytes_per_sample(settings->sample_format)))
     {
-      DPRINTF(E_LOG, L_XCODE, "Bug! Mismatch between profile and media quality\n");
+      DPRINTF(E_LOG, L_XCODE, "Bug! Mismatch between profile and media quality: profile bps: %d required: %d\n", quality->bits_per_sample, 8 * av_get_bytes_per_sample(settings->sample_format));
       return -1;
     }
 
