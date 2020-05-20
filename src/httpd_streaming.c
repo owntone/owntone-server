@@ -51,6 +51,7 @@ extern struct event_base *evbase_httpd;
 
 #define STREAMING_SESSIONS_MAX 10
 
+#define STREAMING_PCM_SAMPLE_RATE 44100
 #define STREAMING_MP3_SAMPLE_RATE 44100
 #define STREAMING_MP3_BPS         16
 #define STREAMING_MP3_CHANNELS    2
@@ -123,6 +124,23 @@ static struct streaming_ctx streaming_ctxs[] = {
     .encode_ctx = NULL,
     .encoded_data = NULL,
     .quality_out = { STREAMING_MP3_SAMPLE_RATE, STREAMING_MP3_BPS, STREAMING_MP3_CHANNELS, STREAMING_MP3_BIT_RATE },
+    .streamingev = NULL,
+    .metaev = NULL,
+    .player_changed = 0,
+    .icy_title = NULL
+  },
+  {
+    .name = "PCM16",
+    .endpoint = "/stream.pcm",
+    .mime = "audio/wav",
+    .xcode = XCODE_PCM16_HEADER,
+    .sessions = NULL,
+    .available_sessions = STREAMING_SESSIONS_MAX,
+    .not_supported = 0,
+    .icy_clients = 0,
+    .encode_ctx = NULL,
+    .encoded_data = NULL,
+    .quality_out = { STREAMING_PCM_SAMPLE_RATE, 16, 2, 0 },
     .streamingev = NULL,
     .metaev = NULL,
     .player_changed = 0,
@@ -795,6 +813,15 @@ streaming_init(void)
       DPRINTF(E_LOG, L_STREAMING, "Unsuppported MP3 streaming bit_rate=%d, supports: 64/96/128/192/320, defaulting\n", val);
   }
   DPRINTF(E_INFO, L_STREAMING, "Streaming MP3 quality: %d/%d/%d @ %dkbps  max sessions: %d\n", streaming_ctxs[0].quality_out.sample_rate, streaming_ctxs[0].quality_out.bits_per_sample, streaming_ctxs[0].quality_out.channels, streaming_ctxs[0].quality_out.bit_rate/1000, max_sessions);
+
+  // PCM config parsm
+  val = cfg_getint(cfgsec, "pcm_sample_rate");
+  if (val != 44100 && val != 48000)
+    DPRINTF(E_LOG, L_STREAMING, "Non standard PCM streaming pcm_sample_rate=%d, defaulting\n", val);
+  else
+    streaming_ctxs[1].quality_out.sample_rate = val;
+  DPRINTF(E_INFO, L_STREAMING, "Streaming PCM quality: %d/%d/%d max sessions: %d\n", streaming_ctxs[1].quality_out.sample_rate, streaming_ctxs[1].quality_out.bits_per_sample, streaming_ctxs[1].quality_out.channels, max_sessions);
+
 
   val = cfg_getint(cfgsec, "icy_metaint");
   // Too low a value forces server to send more meta than data
