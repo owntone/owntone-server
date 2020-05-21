@@ -6,72 +6,86 @@ NPM = @NPM@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 MKDIR_P = @MKDIR_P@
+PATH_SEPARATOR = @PATH_SEPARATOR@
 
 prefix = @prefix@
+datarootdir = @datarootdir@
 datadir = @datadir@
 pkgdatadir = $(datadir)/@PACKAGE@
 
 srcdir = @srcdir@
 VPATH = @srcdir@
 
-web_src := \
-	$(shell find src/ -type f) \
-	$(shell find public/ -type f) \
+am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
+
+am__base_list = \
+	sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+	sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+	test -z "$$files" \
+		|| { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+		|| { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+		$(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+
+web_conf := \
 	vue.config.js \
 	postcss.config.js \
 	babel.config.js \
 	.eslintrc.js \
 	.browserslistrc
-conf_src := \
+web_src := \
+	$(shell find src/ -type f) \
+	$(shell find public/ -type f) \
+	$(web_conf)
+package_json_src := \
 	package.json \
 	package-lock.json
+@COND_WEBINTERFACE_TRUE@htdocs_src_dir := \
+@COND_WEBINTERFACE_TRUE@	htdocs
 
-htdocsdir := $(pkgdatadir)/htdocs
+@COND_WEBINTERFACE_TRUE@htdocsdir := $(pkgdatadir)/htdocs
+@COND_WEBINTERFACE_TRUE@dist_htdocs_DATA := \
+@COND_WEBINTERFACE_TRUE@	htdocs/index.html \
+@COND_WEBINTERFACE_TRUE@	htdocs/logo.svg \
+@COND_WEBINTERFACE_TRUE@	htdocs/android-chrome-96x96.png \
+@COND_WEBINTERFACE_TRUE@	htdocs/apple-touch-icon.png \
+@COND_WEBINTERFACE_TRUE@	htdocs/browserconfig.xml \
+@COND_WEBINTERFACE_TRUE@	htdocs/favicon.ico \
+@COND_WEBINTERFACE_TRUE@	htdocs/favicon-16x16.png \
+@COND_WEBINTERFACE_TRUE@	htdocs/favicon-32x32.png \
+@COND_WEBINTERFACE_TRUE@	htdocs/mstile-150x150.png \
+@COND_WEBINTERFACE_TRUE@	htdocs/safari-pinned-tab.svg \
+@COND_WEBINTERFACE_TRUE@	htdocs/site.webmanifest
 
-dist_htdocs_DATA := \
-	htdocs/index.html \
-	htdocs/android-chrome-96x96.png \
-	htdocs/apple-touch-icon.png \
-	htdocs/browserconfig.xml \
-	htdocs/favicon.ico \
-	htdocs/favicon-16x16.png \
-	htdocs/favicon-32x32.png \
-	htdocs/mstile-150x150.png \
-	htdocs/safari-pinned-tab.svg \
-	htdocs/site.webmanifest
+@COND_WEBINTERFACE_TRUE@htdocsplayercssdir := $(htdocsdir)/player/css
+@COND_WEBINTERFACE_TRUE@dist_htdocsplayercss_DATA := \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/css/app.css \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/css/app.css.map \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/css/chunk-vendors.css \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/css/chunk-vendors.css.map
 
-htdocsplayercssdir := $(htdocsdir)/player/css
+@COND_WEBINTERFACE_TRUE@htdocsplayerfontsdir := $(htdocsdir)/player/fonts
+@COND_WEBINTERFACE_TRUE@dist_htdocsplayerfonts_DATA := \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/fonts/materialdesignicons-webfont.ttf \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/fonts/materialdesignicons-webfont.woff2 \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/fonts/materialdesignicons-webfont.woff \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/fonts/materialdesignicons-webfont.eot
 
-dist_htdocsplayercss_DATA := \
-	htdocs/player/css/app.css \
-	htdocs/player/css/app.css.map \
-	htdocs/player/css/chunk-vendors.css \
-	htdocs/player/css/chunk-vendors.css.map
+@COND_WEBINTERFACE_TRUE@htdocsplayerjsdir := $(htdocsdir)/player/js
+@COND_WEBINTERFACE_TRUE@dist_htdocsplayerjs_DATA := \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/app.js \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/app.js.map \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/chunk-vendors.js \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/chunk-vendors.js.map \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/app-legacy.js \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/app-legacy.js.map \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/chunk-vendors-legacy.js \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/js/chunk-vendors-legacy.js.map
 
-htdocsplayerfontsdir := $(htdocsdir)/player/fonts
-
-dist_htdocsplayerfonts_DATA := \
-	htdocs/player/fonts/materialdesignicons-webfont.ttf \
-	htdocs/player/fonts/materialdesignicons-webfont.woff2 \
-	htdocs/player/fonts/materialdesignicons-webfont.woff \
-	htdocs/player/fonts/materialdesignicons-webfont.eot
-
-htdocsplayerjsdir := $(htdocsdir)/player/js
-
-dist_htdocsplayerjs_DATA := \
-	htdocs/player/js/app.js \
-	htdocs/player/js/app.js.map \
-	htdocs/player/js/chunk-vendors.js \
-	htdocs/player/js/chunk-vendors.js.map \
-	htdocs/player/js/app-legacy.js \
-	htdocs/player/js/app-legacy.js.map \
-	htdocs/player/js/chunk-vendors-legacy.js \
-	htdocs/player/js/chunk-vendors-legacy.js.map
-
-htdocsplayerimgdir := $(htdocsdir)/player/img
-
-dist_htdocsplayerimg_DATA := \
-	htdocs/player/img/materialdesignicons-webfont.svg
+@COND_WEBINTERFACE_TRUE@htdocsplayerimgdir := $(htdocsdir)/player/img
+@COND_WEBINTERFACE_TRUE@dist_htdocsplayerimg_DATA := \
+@COND_WEBINTERFACE_TRUE@	htdocs/player/img/materialdesignicons-webfont.svg
 
 
 $(EMPTY_AUTOMAKE_TARGETS):
@@ -82,30 +96,143 @@ build: htdocs
 
 distdir:
 	cp -p -r \
-		htdocs \
+		$(htdocs_src_dir) \
 		public \
 		src \
-		$(conf_src) \
+		$(web_conf) \
+		$(package_json_src) \
 		$(distdir)
 
 install: install-data
 
-install-data: htdocs installdirs
-	$(INSTALL_DATA) -D -t $(htdocsdir) $(dist_htdocs_DATA)
-	$(INSTALL_DATA) -D -t $(htdocsplayercssdir) $(dist_htdocsplayercss_DATA)
-	$(INSTALL_DATA) -D -t $(htdocsplayerfontsdir) $(dist_htdocsplayerfonts_DATA)
-	$(INSTALL_DATA) -D -t $(htdocsplayerjsdir) $(dist_htdocsplayerjs_DATA)
-	$(INSTALL_DATA) -D -t $(htdocsplayerimgdir) $(dist_htdocsplayerimg_DATA)
+install-data: install-dist_htdocsDATA \
+	install-dist_htdocsplayercssDATA \
+	install-dist_htdocsplayerfontsDATA \
+	install-dist_htdocsplayerjsDATA \
+	install-dist_htdocsplayerimgDATA
 
-uninstall:
-	-rm -rf $(htdocsdir)
+install-dist_htdocsDATA: $(dist_htdocs_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_htdocs_DATA)'; test -n "$(htdocsdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(htdocsdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(htdocsdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(htdocsdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(htdocsdir)" || exit $$?; \
+	done
+
+uninstall-dist_htdocsDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_htdocs_DATA)'; test -n "$(htdocsdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(htdocsdir)'; $(am__uninstall_files_from_dir)
+
+install-dist_htdocsplayercssDATA: $(dist_htdocsplayercss_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_htdocsplayercss_DATA)'; test -n "$(htdocsplayercssdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(htdocsplayercssdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(htdocsplayercssdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(htdocsplayercssdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(htdocsplayercssdir)" || exit $$?; \
+	done
+
+uninstall-dist_htdocsplayercssDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_htdocsplayercss_DATA)'; test -n "$(htdocsplayercssdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(htdocsplayercssdir)'; $(am__uninstall_files_from_dir)
+
+install-dist_htdocsplayerfontsDATA: $(dist_htdocsplayerfonts_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_htdocsplayerfonts_DATA)'; test -n "$(htdocsplayerfontsdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(htdocsplayerfontsdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(htdocsplayerfontsdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(htdocsplayerfontsdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(htdocsplayerfontsdir)" || exit $$?; \
+	done
+
+uninstall-dist_htdocsplayerfontsDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_htdocsplayerfonts_DATA)'; test -n "$(htdocsplayerfontsdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(htdocsplayerfontsdir)'; $(am__uninstall_files_from_dir)
+
+install-dist_htdocsplayerimgDATA: $(dist_htdocsplayerimg_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_htdocsplayerimg_DATA)'; test -n "$(htdocsplayerimgdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(htdocsplayerimgdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(htdocsplayerimgdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(htdocsplayerimgdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(htdocsplayerimgdir)" || exit $$?; \
+	done
+
+uninstall-dist_htdocsplayerimgDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_htdocsplayerimg_DATA)'; test -n "$(htdocsplayerimgdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(htdocsplayerimgdir)'; $(am__uninstall_files_from_dir)
+
+install-dist_htdocsplayerjsDATA: $(dist_htdocsplayerjs_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_htdocsplayerjs_DATA)'; test -n "$(htdocsplayerjsdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(htdocsplayerjsdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(htdocsplayerjsdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(htdocsplayerjsdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(htdocsplayerjsdir)" || exit $$?; \
+	done
+
+uninstall-dist_htdocsplayerjsDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_htdocsplayerjs_DATA)'; test -n "$(htdocsplayerjsdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(htdocsplayerjsdir)'; $(am__uninstall_files_from_dir)
+
+uninstall: uninstall-dist_htdocsDATA \
+	uninstall-dist_htdocsplayercssDATA \
+	uninstall-dist_htdocsplayerfontsDATA \
+	uninstall-dist_htdocsplayerimgDATA \
+	uninstall-dist_htdocsplayerjsDATA
 
 installdirs:
-	$(MKDIR_P) $(htdocsdir)
-	$(MKDIR_P) $(htdocsplayercssdir)
-	$(MKDIR_P) $(htdocsplayerfontsdir)
-	$(MKDIR_P) $(htdocsplayerjsdir)
-	$(MKDIR_P) $(htdocsplayerimgdir)
+	$(MKDIR_P) $(DESTDIR)$(htdocsdir)
+	$(MKDIR_P) $(DESTDIR)$(htdocsplayercssdir)
+	$(MKDIR_P) $(DESTDIR)$(htdocsplayerfontsdir)
+	$(MKDIR_P) $(DESTDIR)$(htdocsplayerjsdir)
+	$(MKDIR_P) $(DESTDIR)$(htdocsplayerimgdir)
 
 mostlyclean:
 	-rm -rf htdocs
@@ -125,10 +252,10 @@ serve: node_modules
 # This rule informs `make` that the `node_modules/` directory is out-of-date
 # after changes to `package.json` or `package-lock.json`, and instructs `make` 
 # on how to install modules to get back up-to-date.
-node_modules: $(conf_src)
-	$(if $(NPM),$(NPM) install)
+node_modules: $(package_json_src)
+@COND_WEBINTERFACE_TRUE@	$(if $(NPM),$(NPM) install)
 
 htdocs: node_modules $(web_src)
-	$(if $(NPM),$(NPM) run build)
+@COND_WEBINTERFACE_TRUE@	$(if $(NPM),$(NPM) run build)
 
 
