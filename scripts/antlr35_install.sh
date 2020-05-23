@@ -25,32 +25,38 @@ usage() {
   echo "This script will download, build and install antlr $ANTLR_VERSION"
   echo "  (and matching libantlrc) on your computer."
   echo
-  echo "Usage: ${0##*/} -h | [ -p <prefix> ] [ <build-dir> ]"
+  echo "Usage: ${0##*/} -h | [ -p <prefix> ] [ -y ] [ <build-dir> ]"
   echo
   echo "Parameters:"
   echo "  -h           Show this help"
   echo "  -p <prefix>  Install to prefix (default: choose /usr or /usr/local)"
+  echo "  -y           Automatic yes to prompts (run non-interactively with -p)"
   echo "  <build-dir>  Build directory (default: $WORKDIR)"
   exit 0
 }
 
 GIVEN_PREFIX=
-case $1 in
-  -h|--help) usage;;
-  -p)
-    shift
-    [ -n "$1" ] || {
-      echo "Option -p requires a argument (try -h for usage)"
+ALWAYS_YES=
+while [ "$1" != "" ]; do
+  case $1 in
+    -p | --prefix )
+      shift
+      GIVEN_PREFIX=$1
+      ;;
+    -y | --yes )
+      ALWAYS_YES=1
+      ;;
+    -h | --help )
+      usage
+      exit
+      ;;
+    * )
+      echo "Unrecognized option $1 (try -h for usage)"
       exit 1
-    }
-    GIVEN_PREFIX=$1
-    shift
-    ;;
-  -*)
-    echo "Unrecognized option $1 (try -h for usage)"
-    exit 1
-    ;;
-esac
+      ;;
+  esac
+  shift
+done
 
 # override build directory? (support ~ expansion)
 [ -n "$1" ] && WORKDIR=$1
@@ -75,8 +81,16 @@ is_yes() {
   return 0
 }
 
+ask_yn() {
+  if [ "$ALWAYS_YES" = "1" ]; then
+    yn="y"
+  else
+    read -p "$1" yn
+  fi
+}
+
 prog_install() {
-  read -p "Would you like to install into $PREFIX now? [Y/n] " yn
+  ask_yn "Would you like to install into $PREFIX now? [Y/n] "
   if ! is_yes "$yn"; then
     echo "Build left ready to install from $WORKDIR"
     echo "You can re-run the script (eg. as root) to install into"
@@ -84,11 +98,10 @@ prog_install() {
     exit
   fi
   if [ `id -u` -ne 0 ]; then
-    echo "Would you like to install with sudo?"
-    read -p "NOTE: You WILL be asked for your password! [Y/n] " yn
+    ask_yn "Would you like to install with sudo? NOTE: You WILL be asked for your password! [Y/n] "
     if ! is_yes "$yn"; then
       SUDO=
-      read -p "Continue to install as non-root user? [Y/n] " yn
+      ask_yn "Continue to install as non-root user? [Y/n] "
       is_yes "$yn" || err "Install cancelled"
     fi
   else
@@ -130,12 +143,12 @@ if [ -f "$WORKDIR/install_env" ]; then
   [ -n "$PREFIX" ] || err "PREFIX is missing in file 'install_env'"
   if [ -n "$GIVEN_PREFIX" ] && [ "$GIVEN_PREFIX" != "$PREFIX" ]; then
     echo "You must rebuild to install into $GIVEN_PREFIX (current build for $PREFIX)"
-    read -p "Would you like to rebuild for ${GIVEN_PREFIX}? [Y/n] " yn
+    ask_yn "Would you like to rebuild for ${GIVEN_PREFIX}? [Y/n] "
     if is_yes "$yn"; then
       rm -f install_env
       PREFIX=
     else
-      read -p "Would you like to install to ${PREFIX}? [Y/n] " yn
+      ask_yn "Would you like to install to ${PREFIX}? [Y/n] "
       ! is_yes "$yn" && err "Install cancelled"
     fi
   fi
@@ -147,7 +160,7 @@ if [ -f "$WORKDIR/install_env" ]; then
 fi
 
 if [ ! -d "$WORKDIR" ]; then
-  read -p "Should the script create $WORKDIR and use it for building? [Y/n] " yn
+  ask_yn "Should the script create $WORKDIR and use it for building? [Y/n] "
   is_yes "$yn" || exit
 fi
 
@@ -165,7 +178,7 @@ PREFIX_JAVA=$PREFIX/share/java
 
 MACHBITS=`getconf LONG_BIT 2>/dev/null`
 [ "$MACHBITS" = "64" ] && DEF_AN="[Y/n]" || DEF_AN="[y/N]"
-read -p "Should the script build libantlr3c for 64 bit? $DEF_AN " yn
+ask_yn "Should the script build libantlr3c for 64 bit? $DEF_AN "
 [ -z "$yn" -a "$MACHBITS" != "64" ] && yn=n
 is_yes "$yn" && ENABLE64BIT="--enable-64bit"
 
@@ -211,10 +224,10 @@ antlr_download() {
 # retrieve the source
 if [ -f "$ANTLR3_JAR" -a -f "$LIBANTLR3C_TAR" ]; then
   FILES_EXIST=1
-  read -p "Files appear to already be downloaded, use them? [Y/n] " yn
+  ask_yn "Files appear to already be downloaded, use them? [Y/n] "
   ! is_yes "$yn" && antlr_download reset
 else
-  read -p "Should the script download and build antlr and libantlr3c? [Y/n] " yn
+  ask_yn "Should the script download and build antlr and libantlr3c? [Y/n] "
   is_yes "$yn" || exit
   antlr_download
 fi
