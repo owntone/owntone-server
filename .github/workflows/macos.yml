@@ -18,7 +18,7 @@ jobs:
       run: brew install automake autoconf libtool pkg-config
 
     - name: Install libinotify-kqueue
-      # brew package does not have unlock-notify
+      # brew does not have libinotify package
       run: |
         git clone https://github.com/libinotify-kqueue/libinotify-kqueue
         cd libinotify-kqueue
@@ -40,18 +40,17 @@ jobs:
         sudo make install
         cd ..
 
+    - name: Install gperf and antlr3
+      run: |
+        brew install gperf
+        chmod +x ./scripts/antlr35_install.sh
+        ./scripts/antlr35_install.sh -y -p /usr/local
+
     - name: Install ffmpeg
       # The libbluray ffmpeg dependency fails without the chown (source: stackoverflow)
       run: |
         sudo chown -R $(whoami) $(brew --prefix)/*
         brew install ffmpeg
-
-    - name: Install gperf and antlr3
-      run: |
-        brew install gperf
-        wget https://raw.githubusercontent.com/ejurgensen/actionstest/master/antlr35_install.sh
-        chmod +x ./antlr35_install.sh
-        ./antlr35_install.sh -p /usr/local
 
     - name: Install other dependencies
       run: brew install libunistring libmxml confuse libplist sqlite libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio
