@@ -49,7 +49,8 @@ jobs:
     - name: Install gperf and antlr3
       run: |
         brew install gperf
-        wget https://github.com/ejurgensen/actionstest/blob/master/antlr35_install.sh
+        wget https://raw.githubusercontent.com/ejurgensen/actionstest/master/antlr35_install.sh
+        chmod +x ./antlr35_install.sh
         ./antlr35_install.sh -p /usr/local
 
     - name: Install other dependencies
@@ -61,7 +62,13 @@ jobs:
         ./configure --enable-chromecast --enable-lastfm --with-pulseaudio
 
     - name: Build forked-daapd
-      run: make
+      run: |
+        # Without setting these env vars the build fails with "fatal error: 'openssl/ssl.h' file not found"
+        # (Solution taken from https://github.com/libimobiledevice/libimobiledevice/issues/389#issuecomment-289284190)
+        export LD_LIBRARY_PATH=$(brew --prefix openssl)/lib
+        export CPATH=$(brew --prefix openssl)/include
+        export PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig
+        make
 
     - name: Install forked-daapd
       run: sudo make install
