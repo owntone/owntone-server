@@ -140,8 +140,6 @@ worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
   struct worker_arg *cmdarg;
   void *argcpy;
 
-  DPRINTF(E_DBG, L_MAIN, "Got worker execute request\n");
-
   cmdarg = calloc(1, sizeof(struct worker_arg));
   if (!cmdarg)
     {
