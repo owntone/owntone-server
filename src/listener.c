@@ -80,15 +80,15 @@ listener_remove(notify notify_cb)
 }
 
 void
-listener_notify(enum listener_event_type type)
+listener_notify(short event_mask)
 {
   struct listener *listener;
 
   listener = listener_list;
   while (listener)
     {
-      if (type & listener->events)
-	listener->notify_cb(type);
+      if (event_mask & listener->events)
+	listener->notify_cb(event_mask & listener->events);
       listener = listener->next;
     }
 }
