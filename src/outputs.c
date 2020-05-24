@@ -772,8 +772,6 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 
   device->advertised = 1;
 
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
-
   return device;
 }
 
@@ -817,8 +815,6 @@ outputs_device_remove(struct output_device *remove)
   outputs_device_free(remove);
 
   vol_adjust();
-
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 }
 
 void
@@ -915,8 +911,6 @@ outputs_device_volume_register(struct output_device *device, int absvol, int rel
     device->volume = rel_to_vol(relvol, outputs_master_volume);
 
   vol_adjust();
-
-  listener_notify(LISTENER_VOLUME);
 }
 
 int
@@ -1098,8 +1092,6 @@ outputs_volume_set(int volume, output_status_cb cb)
 
       pending += ret;
     }
-
-  listener_notify(LISTENER_VOLUME);
 
   return pending;
 }
