@@ -1755,10 +1755,6 @@ raop_status(struct raop_session *rs)
 
   outputs_cb(rs->callback_id, rs->device_id, state);
   rs->callback_id = -1;
-
-  // Ugly... fixme...
-  if (rs->state == RAOP_STATE_UNVERIFIED)
-    outputs_listener_notify();
 }
 
 static struct raop_master_session *
@@ -4202,8 +4198,6 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
   rs->state = RAOP_STATE_STARTUP;
 
   raop_send_req_options(rs, raop_cb_startup_options, "verify_step2");
-
-  outputs_listener_notify();
 
   return;
 

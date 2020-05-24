@@ -34,7 +34,6 @@
 #include "logger.h"
 #include "misc.h"
 #include "transcode.h"
-#include "listener.h"
 #include "db.h"
 #include "player.h" //TODO remove me when player_pmap is removed again
 #include "worker.h"
@@ -681,14 +680,6 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state state)
   outputs_cb_register[callback_id].device_id = device_id;
   outputs_cb_register[callback_id].state = state;
   event_active(outputs_deferredev, 0, 0);
-}
-
-// Maybe not so great, seems it would be better if integrated into the callback
-// mechanism so that the notifications where at least deferred
-void
-outputs_listener_notify(void)
-{
-  listener_notify(LISTENER_SPEAKER);
 }
 
 

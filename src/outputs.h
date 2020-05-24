@@ -275,9 +275,6 @@ outputs_quality_unsubscribe(struct media_quality *quality);
 void
 outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
 
-void
-outputs_listener_notify(void);
-
 /* ---------------------------- Called by player ---------------------------- */
 
 int
