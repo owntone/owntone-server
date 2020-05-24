@@ -37,10 +37,10 @@
  * ---------------
  * Events will be signaled via listener_notify(). The following rules apply to
  * how this must be done in the code:
- * - always use trigger_listener_notify() to make sure the callbacks that the listener
+ * - always use status_update() to make sure the callbacks that the listener
  *   makes do not block the player thread, and to avoid any risk of deadlocks
  * - if the event is a result of an external command then trigger it when the
- *   command is completed, so generally after commands_exec_sync()
+ *   command is completed, so generally in a bottom half
  *
  */
 
@@ -376,25 +376,16 @@ scrobble_cb(void *arg)
 }
 #endif
 
-// Callback from the worker thread (async operation as it may block)
+// This is just to be able to log the caller in a simple way
+#define status_update(x, y) status_update_impl((x), (y), __func__)
 static void
-trigger_listener_notify_cb(void *arg)
+status_update_impl(enum play_status status, short listener_events, const char *caller)
 {
-  short *events = arg;
+  DPRINTF(E_DBG, L_PLAYER, "Status update - status: %d, events: %d, caller: %s\n", status, listener_events, caller);
 
-  DPRINTF(E_DBG, L_PLAYER, "Executing listener notification %d\n", *events);
+  player_state = status;
 
-  listener_notify(*events);
-}
-
-#define trigger_listener_notify(x) trigger_listener((x), __func__)
-
-static void
-trigger_listener(short events, const char *who)
-{
-  DPRINTF(E_DBG, L_PLAYER, "Scheduling listener notification %d from %s\n", events, who);
-
-  worker_execute(trigger_listener_notify_cb, &events, sizeof(events), 0);
+  listener_notify(listener_events);
 }
 
 /*
@@ -486,13 +477,6 @@ queue_item_prev(uint32_t item_id)
   return db_queue_fetch_prev(item_id, shuffle);
 }
 
-static void
-status_update(enum play_status status)
-{
-  player_state = status;
-
-  trigger_listener_notify(LISTENER_PLAYER);
-}
 
 /* ------ All this is for dealing with metadata received from the input ----- */
 
@@ -569,7 +553,7 @@ metadata_finalize(void *arg, int *retval)
 
   outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
 
-  status_update(player_state);
+  status_update(player_state, LISTENER_PLAYER);
 
   return COMMAND_END;
 }
@@ -1103,7 +1087,7 @@ event_play_start()
 
   session_update_play_start();
 
-  status_update(PLAY_PLAYING);
+  status_update(PLAY_PLAYING, LISTENER_PLAYER);
 }
 
 static void
@@ -1384,7 +1368,7 @@ device_add(void *arg, int *retval)
       return COMMAND_END;
     }
 
-  trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
 
   *retval = 0;
   return COMMAND_END;
@@ -1438,7 +1422,7 @@ device_remove_family(void *arg, int *retval)
 
   outputs_device_free(remove);
 
-  trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
 
   *retval = 0;
   return COMMAND_END;
@@ -1486,9 +1470,9 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
     }
 
   // We don't do this in the other cb's because they are triggered by a command
-  // and thus the caller is responsible for making the notification when the
-  // command is completed
-  trigger_listener_notify(LISTENER_SPEAKER);
+  // and thus the update should be done as part of the command completion (which
+  // can better determine which type of listener event to use)
+  status_update(player_state, LISTENER_SPEAKER);
 }
 
 static void
@@ -1736,7 +1720,7 @@ pb_session_stop(void)
 
   session_stop();
 
-  status_update(PLAY_STOPPED);
+  status_update(PLAY_STOPPED, LISTENER_PLAYER);
 }
 
 static void
@@ -1831,7 +1815,7 @@ pb_suspend(void)
 
   pb_timer_stop();
 
-  status_update(PLAY_PAUSED);
+  status_update(PLAY_PAUSED, LISTENER_PLAYER);
 
   seek_save();
 
@@ -1940,7 +1924,7 @@ playback_stop(void *arg, int *retval)
   // Stops the input
   pb_session_stop();
 
-  status_update(PLAY_STOPPED);
+  status_update(PLAY_STOPPED, LISTENER_PLAYER);
 
   // We're async if we need to flush devices
   if (*retval > 0)
@@ -1967,7 +1951,9 @@ playback_start_bh(void *arg, int *retval)
   if (ret < 0)
     goto error;
 
-  status_update(PLAY_PLAYING);
+  // We also ask listeners to update speaker/volume state, since it is possible
+  // some of the speakers we tried to start responded with failure
+  status_update(PLAY_PLAYING, LISTENER_PLAYER | LISTENER_SPEAKER | LISTENER_VOLUME);
 
   *retval = 0;
   return COMMAND_END;
@@ -1991,7 +1977,7 @@ playback_start_item(void *arg, int *retval)
     {
       DPRINTF(E_DBG, L_PLAYER, "Player is already playing, ignoring call to playback start\n");
 
-      status_update(player_state);
+      status_update(player_state, LISTENER_PLAYER);
 
       *retval = 1; // Value greater 0 will prevent execution of the bottom half function
       return COMMAND_END;
@@ -2382,7 +2368,7 @@ playback_pause_bh(void *arg, int *retval)
       goto error;
     }
 
-  status_update(PLAY_PAUSED);
+  status_update(PLAY_PAUSED, LISTENER_PLAYER);
 
   *retval = 0;
   return COMMAND_END;
@@ -2613,6 +2599,13 @@ speaker_disable(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static enum command_state
+speaker_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
+  return COMMAND_END;
+}
+
 /*
  * Airplay speakers can via DACP set the "busy" + "prevent-playback" properties,
  * which we handle below. We try to do this like iTunes, except we need to
@@ -2667,6 +2660,8 @@ speaker_prevent_playback_set_bh(void *arg, int *retval)
       DPRINTF(E_INFO, L_PLAYER, "Ending playback, speaker (id=%" PRIu64 ") set 'busy' or 'prevent-playback' flag\n", param->spk_id);
       pb_abort(); // TODO Would be better for the user if we paused, but we don't have a handy function for that
     }
+  else
+    status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
 
   *retval = 0;
   return COMMAND_END;
@@ -2750,6 +2745,8 @@ speaker_resurrect_bh(void *arg, int *retval)
   // top half, now we have to start the playback timer and update status
   if (player_state == PLAY_PAUSED)
     return playback_start_bh(arg, retval);
+
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
 
   *retval = 0;
   return COMMAND_END;
@@ -2850,6 +2847,13 @@ volume_update_speaker(void *arg, int *retval)
 }
 
 static enum command_state
+volume_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_VOLUME);
+  return COMMAND_END;
+}
+
+static enum command_state
 repeat_set(void *arg, int *retval)
 {
   enum repeat_mode *mode = arg;
@@ -2922,6 +2926,13 @@ consume_set(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static enum command_state
+options_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_OPTIONS);
+  return COMMAND_END;
+}
+
 /*
  * Removes all items from the history
  */
@@ -2946,6 +2957,12 @@ playerqueue_plid(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static enum command_state
+playerqueue_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_QUEUE);
+  return COMMAND_END;
+}
 
 /* ------------------------------- Player API ------------------------------- */
 
@@ -2992,6 +3009,7 @@ player_playback_start(void)
   int ret;
 
   ret = commands_exec_sync(cmdbase, playback_start, playback_start_bh, NULL);
+
   return ret;
 }
 
@@ -3011,6 +3029,7 @@ player_playback_start_byitem(struct db_queue_item *queue_item)
   int ret;
 
   ret = commands_exec_sync(cmdbase, playback_start_item, playback_start_bh, queue_item);
+
   return ret;
 }
 
@@ -3023,6 +3042,7 @@ player_playback_start_byid(uint32_t id)
   cmdarg.id = id;
 
   ret = commands_exec_sync(cmdbase, playback_start_id, playback_start_bh, &cmdarg);
+
   return ret;
 }
 
@@ -3118,9 +3138,7 @@ player_speaker_set(uint64_t *ids)
 
   speaker_set_param.device_ids = ids;
 
-  ret = commands_exec_sync(cmdbase, speaker_set, NULL, &speaker_set_param);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, speaker_set, speaker_generic_bh, &speaker_set_param);
 
   return ret;
 }
@@ -3156,9 +3174,7 @@ player_speaker_enable(uint64_t id)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, speaker_enable, NULL, &id);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, speaker_enable, speaker_generic_bh, &id);
 
   return ret;
 }
@@ -3168,9 +3184,7 @@ player_speaker_disable(uint64_t id)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, speaker_disable, NULL, &id);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, speaker_disable, speaker_generic_bh, &id);
 
   return ret;
 }
@@ -3185,8 +3199,6 @@ player_speaker_prevent_playback_set(uint64_t id, bool prevent_playback)
   param.prevent_playback = prevent_playback;
 
   ret = commands_exec_sync(cmdbase, speaker_prevent_playback_set, speaker_prevent_playback_set_bh, &param);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 
   return ret;
 }
@@ -3201,8 +3213,6 @@ player_speaker_busy_set(uint64_t id, bool busy)
   param.busy = busy;
 
   ret = commands_exec_sync(cmdbase, speaker_busy_set, speaker_prevent_playback_set_bh, &param);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 
   return ret;
 }
@@ -3211,13 +3221,10 @@ void
 player_speaker_resurrect(void *arg)
 {
   struct speaker_set_param param;
-  int ret;
 
   param.device_ids = (uint64_t *)arg;
 
-  ret = commands_exec_sync(cmdbase, speaker_resurrect, speaker_resurrect_bh, &param);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  commands_exec_sync(cmdbase, speaker_resurrect, speaker_resurrect_bh, &param);
 }
 
 int
@@ -3234,9 +3241,7 @@ player_volume_set(int vol)
 
   cmdarg.intval = vol;
 
-  ret = commands_exec_sync(cmdbase, volume_set, NULL, &cmdarg);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, volume_set, volume_generic_bh, &cmdarg);
 
   return ret;
 }
@@ -3256,9 +3261,7 @@ player_volume_setrel_speaker(uint64_t id, int relvol)
   vol_param.spk_id = id;
   vol_param.volume = relvol;
 
-  ret = commands_exec_sync(cmdbase, volume_setrel_speaker, NULL, &vol_param);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, volume_setrel_speaker, volume_generic_bh, &vol_param);
 
   return ret;
 }
@@ -3278,9 +3281,7 @@ player_volume_setabs_speaker(uint64_t id, int vol)
   vol_param.spk_id = id;
   vol_param.volume = vol;
 
-  ret = commands_exec_sync(cmdbase, volume_setabs_speaker, NULL, &vol_param);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, volume_setabs_speaker, volume_generic_bh, &vol_param);
 
   return ret;
 }
@@ -3294,9 +3295,7 @@ player_volume_update_speaker(uint64_t id, const char *volstr)
   vol_param.spk_id = id;
   vol_param.volstr  = volstr;
 
-  ret = commands_exec_sync(cmdbase, volume_update_speaker, NULL, &vol_param);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, volume_update_speaker, volume_generic_bh, &vol_param);
 
   return ret;
 }
@@ -3306,9 +3305,7 @@ player_repeat_set(enum repeat_mode mode)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, repeat_set, NULL, &mode);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_OPTIONS);
+  ret = commands_exec_sync(cmdbase, repeat_set, options_generic_bh, &mode);
 
   return ret;
 }
@@ -3321,9 +3318,7 @@ player_shuffle_set(int enable)
 
   cmdarg.intval = enable;
 
-  ret = commands_exec_sync(cmdbase, shuffle_set, NULL, &cmdarg);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_OPTIONS);
+  ret = commands_exec_sync(cmdbase, shuffle_set, options_generic_bh, &cmdarg);
 
   return ret;
 }
@@ -3336,9 +3331,7 @@ player_consume_set(int enable)
 
   cmdarg.intval = enable;
 
-  ret = commands_exec_sync(cmdbase, consume_set, NULL, &cmdarg);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_OPTIONS);
+  ret = commands_exec_sync(cmdbase, consume_set, options_generic_bh, &cmdarg);
 
   return ret;
 }
@@ -3346,11 +3339,7 @@ player_consume_set(int enable)
 void
 player_queue_clear_history()
 {
-  int ret;
-
-  ret = commands_exec_sync(cmdbase, playerqueue_clear_history, NULL, NULL);
-  if (ret >= 0)
-    trigger_listener_notify(LISTENER_QUEUE);
+  commands_exec_sync(cmdbase, playerqueue_clear_history, playerqueue_generic_bh, NULL);
 }
 
 void
