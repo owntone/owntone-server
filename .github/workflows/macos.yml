@@ -29,7 +29,7 @@ jobs:
         cd ..
 
     - name: Install sqlite
-      # brew package does not have unlock-notify
+      # Brew package does not have unlock-notify
       run: |
         wget https://www.sqlite.org/2020/sqlite-autoconf-3310100.tar.gz
         tar xzf sqlite-autoconf-3310100.tar.gz
