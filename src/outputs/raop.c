@@ -4382,26 +4382,6 @@ raop_verification_setup(struct raop_session *rs, const char *pin)
   return -1;
 }
 
-static void
-raop_authorize(const char *pin)
-{
-  struct raop_session *rs;
-
-  for (rs = raop_sessions; rs; rs = rs->next)
-    {
-      if (rs->state == RAOP_STATE_UNVERIFIED)
-	break;
-    }
-
-  if (!rs)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Got a PIN for device verification, but no device is awaiting verification\n");
-      return;
-    }
-
-  raop_verification_setup(rs, pin);
-}
-
 static int
 raop_device_authorize(struct output_device *device, const char *pin, int callback_id)
 {
@@ -5046,6 +5026,5 @@ struct output_definition output_raop =
   .metadata_purge = raop_metadata_purge,
 #ifdef RAOP_VERIFICATION
   .device_authorize = raop_device_authorize,
-  .authorize = raop_authorize,
 #endif
 };

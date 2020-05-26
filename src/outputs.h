@@ -238,9 +238,6 @@ struct output_definition
   // Write stream data to the output devices
   void (*write)(struct output_buffer *buffer);
 
-  // Authorize an output with a pin-code (probably coming from the filescanner)
-  void (*authorize)(const char *pin);
-
   // Called from worker thread for async preparation of metadata (e.g. getting
   // artwork, which might involce downloading image data). The prepared data is
   // saved to metadata->data, which metadata_send() can use.
@@ -357,9 +354,6 @@ outputs_metadata_send(uint32_t item_id, bool startup, output_metadata_finalize_c
 
 void
 outputs_metadata_purge(void);
-
-void
-outputs_authorize(enum output_types type, const char *pin);
 
 int
 outputs_priority(struct output_device *device);

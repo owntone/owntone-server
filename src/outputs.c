@@ -1160,16 +1160,6 @@ outputs_metadata_purge(void)
     }
 }
 
-void
-outputs_authorize(enum output_types type, const char *pin)
-{
-  if (outputs[type]->disabled)
-    return;
-
-  if (outputs[type]->authorize)
-    outputs[type]->authorize(pin);
-}
-
 int
 outputs_priority(struct output_device *device)
 {
