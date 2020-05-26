@@ -317,7 +317,7 @@ curl -X PUT "http://localhost:3689/api/player/seek?seek_ms=-30000"
 | GET       | [/api/outputs](#get-a-list-of-available-outputs) | Get a list of available outputs      |
 | PUT       | [/api/outputs/set](#set-enabled-outputs)         | Set enabled outputs                  |
 | GET       | [/api/outputs/{id}](#get-an-output)              | Get an output                        |
-| PUT       | [/api/outputs/{id}](#change-an-output)           | Change an output (enable/disable or volume) |
+| PUT       | [/api/outputs/{id}](#change-an-output)           | Change an output setting             |
 | PUT       | [/api/outputs/{id}/toggle](#toggle-an-output)    | Enable or disable an output, depending on the current state |
 
 
@@ -482,6 +482,7 @@ PUT /api/outputs/{id}
 | --------------- | --------- | -------------------- |
 | selected        | boolean   | *(Optional)* `true` to enable and `false` to disable the output |
 | volume          | integer   | *(Optional)* Volume in percent (0 - 100)  |
+| pin             | string    | *(Optional)* PIN for device verification  |
 
 **Response**
 

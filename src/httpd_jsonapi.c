@@ -1530,6 +1530,7 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   json_object* request;
   bool selected;
   int volume;
+  const char *pin;
   int ret;
 
   ret = safe_atou64(hreq->uri_parsed->path_parts[2], &output_id);
@@ -1564,6 +1565,13 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
     {
       volume = jparse_int_from_obj(request, "volume");
       ret = player_volume_setabs_speaker(output_id, volume);
+    }
+
+  if (ret == 0 && jparse_contains_key(request, "pin", json_type_string))
+    {
+      pin = jparse_str_from_obj(request, "pin");
+      if (pin)
+	ret = player_speaker_authorize(output_id, pin);
     }
 
   jparse_free(request);
