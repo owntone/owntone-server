@@ -1434,8 +1434,23 @@ static enum command_state
 device_auth_kickoff(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
+  struct output_device *device;
 
-  outputs_authorize(cmdarg->auth.type, cmdarg->auth.pin);
+  // First find the device requiring verification
+  for (device = output_device_list; device; device = device->next)
+    {
+      if (device->type == cmdarg->auth.type && device->state == OUTPUT_STATE_PASSWORD)
+	break;
+    }
+
+  if (!device)
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  // We're async, so we don't care about return values or callbacks with result
+  outputs_device_authorize(device, cmdarg->auth.pin, NULL);
 
   *retval = 0;
   return COMMAND_END;
@@ -1565,10 +1580,10 @@ device_activate_cb(struct output_device *device, enum output_device_state status
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
-      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' requires a valid password\n", device->type_name, device->name);
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' requires a valid PIN or password\n", device->type_name, device->name);
 
-      status = OUTPUT_STATE_FAILED;
       retval = -2;
+      goto out;
     }
 
   if (status == OUTPUT_STATE_FAILED)
@@ -1580,7 +1595,8 @@ device_activate_cb(struct output_device *device, enum output_device_state status
       goto out;
     }
 
-  // If we were just probing this is a no-op
+  // If we were just probing or doing device verification this is a no-op, since
+  // there is no session any more
   outputs_device_cb_set(device, device_streaming_cb);
 
  out:
@@ -3433,8 +3449,11 @@ player_device_remove(void *device)
   return ret;
 }
 
-static void
-player_device_auth_kickoff(enum output_types type, char **arglist)
+
+/* ----------------------- Thread: filescanner/httpd ------------------------ */
+
+void
+player_raop_verification_kickoff(char **arglist)
 {
   union player_arg *cmdarg;
 
@@ -3445,19 +3464,11 @@ player_device_auth_kickoff(enum output_types type, char **arglist)
       return;
     }
 
-  cmdarg->auth.type = type;
+  cmdarg->auth.type = OUTPUT_TYPE_RAOP;
   memcpy(cmdarg->auth.pin, arglist[0], 4);
 
   commands_exec_async(cmdbase, device_auth_kickoff, cmdarg);
-}
 
-
-/* --------------------------- Thread: filescanner -------------------------- */
-
-void
-player_raop_verification_kickoff(char **arglist)
-{
-  player_device_auth_kickoff(OUTPUT_TYPE_RAOP, arglist);
 }
 
 
