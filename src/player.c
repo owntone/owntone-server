@@ -147,6 +147,8 @@ struct speaker_attr_param
 
   bool prevent_playback;
   bool busy;
+
+  const char *pin;
 };
 
 struct speaker_get_param
@@ -1552,7 +1554,7 @@ device_activate_cb(struct output_device *device, enum output_device_state status
   retval = commands_exec_returnvalue(cmdbase);
   if (!device)
     {
-      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during startup!\n");
+      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during activation!\n");
 
       if (retval != -2)
 	retval = -1;
@@ -2753,6 +2755,24 @@ speaker_resurrect_bh(void *arg, int *retval)
 }
 
 static enum command_state
+speaker_authorize(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    return COMMAND_END;
+
+  *retval = outputs_device_authorize(device, param->pin, device_activate_cb);
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  return COMMAND_END;
+}
+
+static enum command_state
 volume_set(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
@@ -3225,6 +3245,20 @@ player_speaker_resurrect(void *arg)
   param.device_ids = (uint64_t *)arg;
 
   commands_exec_sync(cmdbase, speaker_resurrect, speaker_resurrect_bh, &param);
+}
+
+int
+player_speaker_authorize(uint64_t id, const char *pin)
+{
+  struct speaker_attr_param param;
+  int ret;
+
+  param.spk_id = id;
+  param.pin = pin;
+
+  ret = commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
+
+  return ret;
 }
 
 int

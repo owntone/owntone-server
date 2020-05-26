@@ -115,6 +115,9 @@ void
 player_speaker_resurrect(void *arg);
 
 int
+player_speaker_authorize(uint64_t id, const char *pin);
+
+int
 player_playback_start(void);
 
 int
