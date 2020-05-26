@@ -942,6 +942,19 @@ outputs_device_quality_set(struct output_device *device, struct media_quality *q
   return device_state_update(device, ret);
 }
 
+int
+outputs_device_authorize(struct output_device *device, const char *pin, output_status_cb cb)
+{
+  int ret;
+
+  if (outputs[device->type]->disabled || !outputs[device->type]->device_authorize)
+    return -1;
+
+  ret = outputs[device->type]->device_authorize(device, pin, callback_add(device, cb));
+
+  return device_state_update(device, ret);
+}
+
 void
 outputs_device_cb_set(struct output_device *device, output_status_cb cb)
 {

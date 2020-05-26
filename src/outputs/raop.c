@@ -4278,20 +4278,20 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
 
   ret = raop_verification_response_process(3, req, rs);
   if (ret < 0)
-    goto error;
+    goto out;
 
   ret = verification_setup_result(&authorization_key, rs->verification_setup_ctx);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Verification setup result error: %s\n", verification_setup_errmsg(rs->verification_setup_ctx));
-      goto error;
+      goto out;
     }
 
   DPRINTF(E_LOG, L_RAOP, "Verification setup stage complete, saving authorization key\n");
 
   device = outputs_device_get(rs->device_id);
   if (!device)
-    goto error;
+    goto out;
 
   free(device->auth_key);
   device->auth_key = strdup(authorization_key);
@@ -4299,14 +4299,19 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
   // A blocking db call... :-~
   db_speaker_save(device);
 
-  // The player considers this session failed, so we don't need it any more
-  session_cleanup(rs);
+  // No longer UNVERIFIED
+  rs->state = RAOP_STATE_STOPPED;
 
-  /* Fallthrough */
-
- error:
+ out:
   verification_setup_free(rs->verification_setup_ctx);
   rs->verification_setup_ctx = NULL;
+
+  // Callback to player with result
+  raop_status(rs);
+
+  // We are telling the player that the device is now stopped, so we don't need
+  // the session any more
+  session_cleanup(rs);
 }
 
 static void
@@ -4328,6 +4333,7 @@ raop_cb_verification_setup_step2(struct evrtsp_request *req, void *arg)
  error:
   verification_setup_free(rs->verification_setup_ctx);
   rs->verification_setup_ctx = NULL;
+  raop_status(rs);
 }
 
 static void
@@ -4349,13 +4355,37 @@ raop_cb_verification_setup_step1(struct evrtsp_request *req, void *arg)
  error:
   verification_setup_free(rs->verification_setup_ctx);
   rs->verification_setup_ctx = NULL;
+  raop_status(rs);
+}
+
+static int
+raop_verification_setup(struct raop_session *rs, const char *pin)
+{
+  int ret;
+
+  rs->verification_setup_ctx = verification_setup_new(pin);
+  if (!rs->verification_setup_ctx)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for verification setup context\n");
+      return -1;
+    }
+
+  ret = raop_verification_request_send(1, rs, raop_cb_verification_setup_step1);
+  if (ret < 0)
+    goto error;
+
+  return 0;
+
+ error:
+  verification_setup_free(rs->verification_setup_ctx);
+  rs->verification_setup_ctx = NULL;
+  return -1;
 }
 
 static void
-raop_verification_setup(const char *pin)
+raop_authorize(const char *pin)
 {
   struct raop_session *rs;
-  int ret;
 
   for (rs = raop_sessions; rs; rs = rs->next)
     {
@@ -4369,23 +4399,27 @@ raop_verification_setup(const char *pin)
       return;
     }
 
-  rs->verification_setup_ctx = verification_setup_new(pin);
-  if (!rs->verification_setup_ctx)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for verification setup context\n");
-      return;
-    }
-
-  ret = raop_verification_request_send(1, rs, raop_cb_verification_setup_step1);
-  if (ret < 0)
-    goto error;
-
-  return;
-
- error:
-  verification_setup_free(rs->verification_setup_ctx);
-  rs->verification_setup_ctx = NULL;
+  raop_verification_setup(rs, pin);
 }
+
+static int
+raop_device_authorize(struct output_device *device, const char *pin, int callback_id)
+{
+  struct raop_session *rs = device->session;
+  int ret;
+
+  if (!rs)
+    return -1;
+
+  ret = raop_verification_setup(rs, pin);
+  if (ret < 0)
+    return -1;
+
+  rs->callback_id = callback_id;
+
+  return 1;
+}
+
 #else
 static int
 raop_verification_verify(struct raop_session *rs)
@@ -5011,6 +5045,7 @@ struct output_definition output_raop =
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,
 #ifdef RAOP_VERIFICATION
-  .authorize = raop_verification_setup,
+  .device_authorize = raop_device_authorize,
+  .authorize = raop_authorize,
 #endif
 };
