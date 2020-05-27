@@ -950,6 +950,9 @@ outputs_device_authorize(struct output_device *device, const char *pin, output_s
   if (outputs[device->type]->disabled || !outputs[device->type]->device_authorize)
     return -1;
 
+  if (device->session)
+    return 0; // We are already connected to the device - no auth required
+
   ret = outputs[device->type]->device_authorize(device, pin, callback_add(device, cb));
 
   return device_state_update(device, ret);
