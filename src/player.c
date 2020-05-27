@@ -1582,6 +1582,8 @@ device_activate_cb(struct output_device *device, enum output_device_state status
     {
       DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' requires a valid PIN or password\n", device->type_name, device->name);
 
+      outputs_device_deselect(device);
+
       retval = -2;
       goto out;
     }
@@ -1589,6 +1591,8 @@ device_activate_cb(struct output_device *device, enum output_device_state status
   if (status == OUTPUT_STATE_FAILED)
     {
       DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed to activate\n", device->type_name, device->name);
+
+      outputs_device_deselect(device);
 
       if (retval != -2)
 	retval = -1;
@@ -2453,11 +2457,7 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
 
-  // We can't map device->selected directly to spk->selected, since the former
-  // means "has the user selected the device" (even if it isn't working or is
-  // unavailable), while clients that get the latter just want to know if the
-  // speaker plays or will be playing.
-  spk->selected = (device->selected && device->state >= OUTPUT_STATE_STOPPED && !device->busy && !device->prevent_playback);
+  spk->selected = OUTPUTS_DEVICE_DISPLAY_SELECTED(device);
 
   spk->has_password = device->has_password;
   spk->has_video = device->has_video;

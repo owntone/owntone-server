@@ -515,7 +515,7 @@ vol_adjust(void)
 
   for (device = output_device_list; device; device = device->next)
     {
-      if (device->selected && (device->volume > selected_highest))
+      if (OUTPUTS_DEVICE_DISPLAY_SELECTED(device) && (device->volume > selected_highest))
 	selected_highest = device->volume;
 
       if (device->volume > all_highest)
@@ -526,7 +526,7 @@ vol_adjust(void)
 
   for (device = output_device_list; device; device = device->next)
     {
-      if (!device->selected && (device->volume > outputs_master_volume))
+      if (!OUTPUTS_DEVICE_DISPLAY_SELECTED(device) && (device->volume > outputs_master_volume))
 	device->volume = outputs_master_volume;
 
       device->relvol = vol_to_rel(device->volume, outputs_master_volume);
@@ -537,7 +537,7 @@ vol_adjust(void)
 
   for (device = output_device_list; device; device = device->next)
     {
-      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d selected %d\n", device->name, device->volume, device->relvol, device->selected);
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d selected %d\n", device->name, device->volume, device->relvol, OUTPUTS_DEVICE_DISPLAY_SELECTED(device));
     }
 #endif
 }

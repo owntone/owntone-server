@@ -41,6 +41,12 @@
 // different values can only do so within a limited range (maybe max 3 secs)
 #define OUTPUTS_BUFFER_DURATION 2
 
+// Whether the device should be *displayed* as selected is not given by
+// device->selected, since that means "has the user selected the device",
+// without taking into account whether it is working or available. This macro
+// is a compound of the factors that determine how to display speaker selection.
+#define OUTPUTS_DEVICE_DISPLAY_SELECTED(device) ((device)->selected && (device)->state >= OUTPUT_STATE_STOPPED && !(device)->busy && !(device)->prevent_playback)
+
 // Forward declarations
 struct output_device;
 struct output_metadata;
