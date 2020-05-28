@@ -108,6 +108,15 @@ the work for you. And should the script not work for you, you can still look
 through it and use it as an installation guide.
 
 
+Quick version for macOS (using Homebrew)
+----------------------------------------
+
+This workflow file used for building forked-daapd via Github actions includes
+all the steps that you need to execute:
+
+  https://github.com/ejurgensen/forked-daapd/blob/master/.github/workflows/macos.yml
+
+
 "Quick" version for macOS (using macports)
 ------------------------------------------
 
