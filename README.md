@@ -253,8 +253,7 @@ This is currently the only way of listening to your audio on iOS devices, since
 Apple does not allow AirPlay receiver apps, and because Apple Home Sharing
 cannot be supported by forked-daapd. So what you can do instead is install a
 music player app like VLC, connect to the stream and control playback with
-Remote. You can also use MPoD in "On the go"-mode, where control and playback is
-integrated in one app.
+Remote.
 
 Note that MP3 encoding must be supported by ffmpeg/libav for this to work. If
 it is not available you will see a message in the log file. In Debian/Ubuntu you
