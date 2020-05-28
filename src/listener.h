@@ -36,7 +36,8 @@ typedef void (*notify)(short event_mask);
  * Registers the given callback function to the given event types.
  * This function is not thread safe. Listeners must be added once at startup.
  *
- * @param notify_cb Callback function
+ * @param notify_cb Callback function (should be a non-blocking function,
+ *        especially when the event is from the player)
  * @param event_mask Event mask, one or more of LISTENER_*
  * @return 0 on success, -1 on failure
  */
@@ -57,10 +58,10 @@ listener_remove(notify notify_cb);
  * Calls the callback function of the registered listeners listening for the
  * given type of event.
  *
- * @param type The event type, on of the LISTENER_* values
+ * @param event_mask Event mask, one or more of LISTENER_*
  *
  */
 void
-listener_notify(enum listener_event_type type);
+listener_notify(short event_mask);
 
 #endif /* !__LISTENER_H__ */

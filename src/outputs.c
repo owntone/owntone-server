@@ -34,7 +34,6 @@
 #include "logger.h"
 #include "misc.h"
 #include "transcode.h"
-#include "listener.h"
 #include "db.h"
 #include "player.h" //TODO remove me when player_pmap is removed again
 #include "worker.h"
@@ -516,7 +515,7 @@ vol_adjust(void)
 
   for (device = output_device_list; device; device = device->next)
     {
-      if (device->selected && (device->volume > selected_highest))
+      if (OUTPUTS_DEVICE_DISPLAY_SELECTED(device) && (device->volume > selected_highest))
 	selected_highest = device->volume;
 
       if (device->volume > all_highest)
@@ -527,7 +526,7 @@ vol_adjust(void)
 
   for (device = output_device_list; device; device = device->next)
     {
-      if (!device->selected && (device->volume > outputs_master_volume))
+      if (!OUTPUTS_DEVICE_DISPLAY_SELECTED(device) && (device->volume > outputs_master_volume))
 	device->volume = outputs_master_volume;
 
       device->relvol = vol_to_rel(device->volume, outputs_master_volume);
@@ -538,7 +537,7 @@ vol_adjust(void)
 
   for (device = output_device_list; device; device = device->next)
     {
-      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d selected %d\n", device->name, device->volume, device->relvol, device->selected);
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d selected %d\n", device->name, device->volume, device->relvol, OUTPUTS_DEVICE_DISPLAY_SELECTED(device));
     }
 #endif
 }
@@ -683,14 +682,6 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state state)
   event_active(outputs_deferredev, 0, 0);
 }
 
-// Maybe not so great, seems it would be better if integrated into the callback
-// mechanism so that the notifications where at least deferred
-void
-outputs_listener_notify(void)
-{
-  listener_notify(LISTENER_SPEAKER);
-}
-
 
 /* ---------------------------- Called by player ---------------------------- */
 
@@ -772,8 +763,6 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 
   device->advertised = 1;
 
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
-
   return device;
 }
 
@@ -817,8 +806,6 @@ outputs_device_remove(struct output_device *remove)
   outputs_device_free(remove);
 
   vol_adjust();
-
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
 }
 
 void
@@ -915,8 +902,6 @@ outputs_device_volume_register(struct output_device *device, int absvol, int rel
     device->volume = rel_to_vol(relvol, outputs_master_volume);
 
   vol_adjust();
-
-  listener_notify(LISTENER_VOLUME);
 }
 
 int
@@ -953,6 +938,22 @@ outputs_device_quality_set(struct output_device *device, struct media_quality *q
     return -1;
 
   ret = outputs[device->type]->device_quality_set(device, quality, callback_add(device, cb));
+
+  return device_state_update(device, ret);
+}
+
+int
+outputs_device_authorize(struct output_device *device, const char *pin, output_status_cb cb)
+{
+  int ret;
+
+  if (outputs[device->type]->disabled || !outputs[device->type]->device_authorize)
+    return -1;
+
+  if (device->session)
+    return 0; // We are already connected to the device - no auth required
+
+  ret = outputs[device->type]->device_authorize(device, pin, callback_add(device, cb));
 
   return device_state_update(device, ret);
 }
@@ -1099,8 +1100,6 @@ outputs_volume_set(int volume, output_status_cb cb)
       pending += ret;
     }
 
-  listener_notify(LISTENER_VOLUME);
-
   return pending;
 }
 
@@ -1162,16 +1161,6 @@ outputs_metadata_purge(void)
 
       outputs[i]->metadata_purge();
     }
-}
-
-void
-outputs_authorize(enum output_types type, const char *pin)
-{
-  if (outputs[type]->disabled)
-    return;
-
-  if (outputs[type]->authorize)
-    outputs[type]->authorize(pin);
 }
 
 int

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 Espen Jürgensen <espenjurgensen@gmail.com>
+ * Copyright (C) 2012-2020 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * RAOP AirTunes v2
@@ -152,10 +152,8 @@ enum raop_state {
   RAOP_STATE_TEARDOWN  = RAOP_STATE_F_CONNECTED | 0x03,
   // Session is failed, couldn't startup or error occurred
   RAOP_STATE_FAILED    = RAOP_STATE_F_FAILED | 0x01,
-  // Password issue: unknown password or bad password
+  // Password issue: unknown password or bad password, or pending PIN from user
   RAOP_STATE_PASSWORD  = RAOP_STATE_F_FAILED | 0x02,
-  // Device requires verification, pending PIN from user
-  RAOP_STATE_UNVERIFIED= RAOP_STATE_F_FAILED | 0x03,
 };
 
 // Info about the device, which is not required by the player, only internally
@@ -1726,7 +1724,7 @@ raop_status(struct raop_session *rs)
 
   switch (rs->state)
     {
-      case RAOP_STATE_PASSWORD ... RAOP_STATE_UNVERIFIED:
+      case RAOP_STATE_PASSWORD:
 	state = OUTPUT_STATE_PASSWORD;
 	break;
       case RAOP_STATE_FAILED:
@@ -1755,10 +1753,6 @@ raop_status(struct raop_session *rs)
 
   outputs_cb(rs->callback_id, rs->device_id, state);
   rs->callback_id = -1;
-
-  // Ugly... fixme...
-  if (rs->state == RAOP_STATE_UNVERIFIED)
-    outputs_listener_notify();
 }
 
 static struct raop_master_session *
@@ -1854,28 +1848,26 @@ session_free(struct raop_session *rs)
   if (!rs)
     return;
 
-  master_session_cleanup(rs->master_session);
+  if (rs->master_session)
+    master_session_cleanup(rs->master_session);
 
-  evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
+  if (rs->ctrl)
+    {
+      evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
+      evrtsp_connection_free(rs->ctrl);
+    }
 
-  evrtsp_connection_free(rs->ctrl);
+  if (rs->deferredev)
+    event_free(rs->deferredev);
 
-  event_free(rs->deferredev);
+  if (rs->server_fd >= 0)
+    close(rs->server_fd);
 
-  close(rs->server_fd);
-
-  if (rs->realm)
-    free(rs->realm);
-  if (rs->nonce)
-    free(rs->nonce);
-
-  if (rs->session)
-    free(rs->session);
-
-  if (rs->address)
-    free(rs->address);
-  if (rs->devname)
-    free(rs->devname);
+  free(rs->realm);
+  free(rs->nonce);
+  free(rs->session);
+  free(rs->address);
+  free(rs->devname);
 
   free(rs);
 }
@@ -1990,43 +1982,105 @@ deferredev_cb(int fd, short what, void *arg)
     }
 }
 
-static struct raop_session *
-session_make(struct output_device *rd, int family, int callback_id, bool only_probe)
+static int
+session_connection_setup(struct raop_session *rs, struct output_device *rd, int family)
 {
-  struct raop_session *rs;
-  struct raop_extra *re;
   char *address;
   char *intf;
   unsigned short port;
   int ret;
 
-  re = rd->extra_device_info;
-
+  rs->sa.ss.ss_family = family;
   switch (family)
     {
       case AF_INET:
 	/* We always have the v4 services, so no need to check */
 	if (!rd->v4_address)
-	  return NULL;
+	  return -1;
 
 	address = rd->v4_address;
 	port = rd->v4_port;
+
+	rs->timing_svc = &timing_4svc;
+	rs->control_svc = &control_4svc;
+
+	ret = inet_pton(AF_INET, address, &rs->sa.sin.sin_addr);
 	break;
 
       case AF_INET6:
 	if (!rd->v6_address || rd->v6_disabled || (timing_6svc.fd < 0) || (control_6svc.fd < 0))
-	  return NULL;
+	  return -1;
 
 	address = rd->v6_address;
 	port = rd->v6_port;
+
+	rs->timing_svc = &timing_6svc;
+	rs->control_svc = &control_6svc;
+
+	intf = strchr(address, '%');
+	if (intf)
+	  *intf = '\0';
+
+	ret = inet_pton(AF_INET6, address, &rs->sa.sin6.sin6_addr);
+
+	if (intf)
+	  {
+	    *intf = '%';
+
+	    intf++;
+
+	    rs->sa.sin6.sin6_scope_id = if_nametoindex(intf);
+	    if (rs->sa.sin6.sin6_scope_id == 0)
+	      {
+		DPRINTF(E_LOG, L_RAOP, "Could not find interface %s\n", intf);
+
+		ret = -1;
+		break;
+	      }
+	  }
+
 	break;
 
       default:
-	return NULL;
+	return -1;
     }
+
+  if (ret <= 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Device '%s' has invalid address (%s) for %s\n", rd->name, address, (family == AF_INET) ? "ipv4" : "ipv6");
+      return -1;
+    }
+
+  rs->ctrl = evrtsp_connection_new(address, port);
+  if (!rs->ctrl)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not create control connection to '%s' (%s)\n", rd->name, address);
+      return -1;
+    }
+
+  evrtsp_connection_set_base(rs->ctrl, evbase_player);
+
+  rs->address = strdup(address);
+  rs->family = family;
+
+  return 0;
+}
+
+static struct raop_session *
+session_make(struct output_device *rd, int callback_id, bool only_probe)
+{
+  struct raop_session *rs;
+  struct raop_extra *re;
+  int ret;
+
+  re = rd->extra_device_info;
+
 
   CHECK_NULL(L_RAOP, rs = calloc(1, sizeof(struct raop_session)));
   CHECK_NULL(L_RAOP, rs->deferredev = evtimer_new(evbase_player, deferredev_cb, rs));
+
+  rs->devname = strdup(rd->name);
+  rs->volume = rd->volume;
 
   rs->state = RAOP_STATE_STOPPED;
   rs->only_probe = only_probe;
@@ -2076,77 +2130,19 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
 	break;
     }
 
-  rs->ctrl = evrtsp_connection_new(address, port);
-  if (!rs->ctrl)
+  ret = session_connection_setup(rs, rd, AF_INET6);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not create control connection to '%s' (%s)\n", rd->name, address);
-
-      goto out_free_event;
+      ret = session_connection_setup(rs, rd, AF_INET);
+      if (ret < 0)
+	goto error;
     }
-
-  evrtsp_connection_set_base(rs->ctrl, evbase_player);
-
-  rs->sa.ss.ss_family = family;
-  switch (family)
-    {
-      case AF_INET:
-	rs->timing_svc = &timing_4svc;
-	rs->control_svc = &control_4svc;
-
-	ret = inet_pton(AF_INET, address, &rs->sa.sin.sin_addr);
-	break;
-
-      case AF_INET6:
-	rs->timing_svc = &timing_6svc;
-	rs->control_svc = &control_6svc;
-
-	intf = strchr(address, '%');
-	if (intf)
-	  *intf = '\0';
-
-	ret = inet_pton(AF_INET6, address, &rs->sa.sin6.sin6_addr);
-
-	if (intf)
-	  {
-	    *intf = '%';
-
-	    intf++;
-
-	    rs->sa.sin6.sin6_scope_id = if_nametoindex(intf);
-	    if (rs->sa.sin6.sin6_scope_id == 0)
-	      {
-		DPRINTF(E_LOG, L_RAOP, "Could not find interface %s\n", intf);
-
-		ret = -1;
-		break;
-	      }
-	  }
-
-	break;
-
-      default:
-	ret = -1;
-	break;
-    }
-
-  if (ret <= 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Device '%s' has invalid address (%s) for %s\n", rd->name, address, (family == AF_INET) ? "ipv4" : "ipv6");
-
-      goto out_free_evcon;
-    }
-
-  rs->devname = strdup(rd->name);
-  rs->address = strdup(address);
-  rs->family = family;
-
-  rs->volume = rd->volume;
 
   rs->master_session = master_session_make(&rd->quality, rs->encrypt);
   if (!rs->master_session)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not attach a master session for device '%s'\n", rd->name);
-      goto out_free_evcon;
+      goto error;
     }
 
   // Attach to list of sessions
@@ -2158,11 +2154,8 @@ session_make(struct output_device *rd, int family, int callback_id, bool only_pr
 
   return rs;
 
- out_free_evcon:
-  evrtsp_connection_free(rs->ctrl);
- out_free_event:
-  event_free(rs->deferredev);
-  free(rs);
+ error:
+  session_free(rs);
 
   return NULL;
 }
@@ -3557,13 +3550,7 @@ raop_cb_pin_start(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto error;
 
-  rs->state = RAOP_STATE_UNVERIFIED;
-
-  raop_status(rs);
-
-  // TODO If the user never verifies the session will remain stale
-
-  return;
+  rs->state = RAOP_STATE_PASSWORD;
 
  error:
   session_failure(rs);
@@ -4203,13 +4190,11 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
 
   raop_send_req_options(rs, raop_cb_startup_options, "verify_step2");
 
-  outputs_listener_notify();
-
   return;
 
  error:
-  rs->state = RAOP_STATE_UNVERIFIED;
-  raop_status(rs);
+  rs->state = RAOP_STATE_PASSWORD;
+  session_failure(rs);
 }
 
 static void
@@ -4239,11 +4224,11 @@ raop_cb_verification_verify_step1(struct evrtsp_request *req, void *arg)
   return;
 
  error:
-  rs->state = RAOP_STATE_UNVERIFIED;
-  raop_status(rs);
-
   verification_verify_free(rs->verification_verify_ctx);
   rs->verification_verify_ctx = NULL;
+
+  rs->state = RAOP_STATE_PASSWORD;
+  session_failure(rs);
 }
 
 static int
@@ -4265,9 +4250,6 @@ raop_verification_verify(struct raop_session *rs)
   return 0;
 
  error:
-  rs->state = RAOP_STATE_UNVERIFIED;
-  raop_status(rs);
-
   verification_verify_free(rs->verification_verify_ctx);
   rs->verification_verify_ctx = NULL;
   return -1;
@@ -4284,20 +4266,20 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
 
   ret = raop_verification_response_process(3, req, rs);
   if (ret < 0)
-    goto error;
+    goto out;
 
   ret = verification_setup_result(&authorization_key, rs->verification_setup_ctx);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Verification setup result error: %s\n", verification_setup_errmsg(rs->verification_setup_ctx));
-      goto error;
+      goto out;
     }
 
   DPRINTF(E_LOG, L_RAOP, "Verification setup stage complete, saving authorization key\n");
 
   device = outputs_device_get(rs->device_id);
   if (!device)
-    goto error;
+    goto out;
 
   free(device->auth_key);
   device->auth_key = strdup(authorization_key);
@@ -4305,14 +4287,19 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
   // A blocking db call... :-~
   db_speaker_save(device);
 
-  // The player considers this session failed, so we don't need it any more
-  session_cleanup(rs);
+  // No longer RAOP_STATE_PASSWORD
+  rs->state = RAOP_STATE_STOPPED;
 
-  /* Fallthrough */
-
- error:
+ out:
   verification_setup_free(rs->verification_setup_ctx);
   rs->verification_setup_ctx = NULL;
+
+  // Callback to player with result
+  raop_status(rs);
+
+  // We are telling the player that the device is now stopped, so we don't need
+  // the session any more
+  session_cleanup(rs);
 }
 
 static void
@@ -4334,6 +4321,7 @@ raop_cb_verification_setup_step2(struct evrtsp_request *req, void *arg)
  error:
   verification_setup_free(rs->verification_setup_ctx);
   rs->verification_setup_ctx = NULL;
+  session_failure(rs);
 }
 
 static void
@@ -4355,43 +4343,57 @@ raop_cb_verification_setup_step1(struct evrtsp_request *req, void *arg)
  error:
   verification_setup_free(rs->verification_setup_ctx);
   rs->verification_setup_ctx = NULL;
+  session_failure(rs);
 }
 
-static void
-raop_verification_setup(const char *pin)
+static int
+raop_verification_setup(struct raop_session *rs, const char *pin)
 {
-  struct raop_session *rs;
   int ret;
-
-  for (rs = raop_sessions; rs; rs = rs->next)
-    {
-      if (rs->state == RAOP_STATE_UNVERIFIED)
-	break;
-    }
-
-  if (!rs)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Got a PIN for device verification, but no device is awaiting verification\n");
-      return;
-    }
 
   rs->verification_setup_ctx = verification_setup_new(pin);
   if (!rs->verification_setup_ctx)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for verification setup context\n");
-      return;
+      return -1;
     }
 
   ret = raop_verification_request_send(1, rs, raop_cb_verification_setup_step1);
   if (ret < 0)
     goto error;
 
-  return;
+  rs->state = RAOP_STATE_PASSWORD;
+
+  return 0;
 
  error:
   verification_setup_free(rs->verification_setup_ctx);
   rs->verification_setup_ctx = NULL;
+  return -1;
 }
+
+static int
+raop_device_authorize(struct output_device *device, const char *pin, int callback_id)
+{
+  struct raop_session *rs;
+  int ret;
+
+  // Make a session so we can communicate with the device
+  rs = session_make(device, callback_id, true);
+  if (!rs)
+    return -1;
+
+  ret = raop_verification_setup(rs, pin);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not send verification setup request to '%s' (address %s)\n", device->name, rs->address);
+      session_cleanup(rs);
+      return -1;
+    }
+
+  return 1;
+}
+
 #else
 static int
 raop_verification_verify(struct raop_session *rs)
@@ -4698,26 +4700,7 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
    * address and build our session URL for all subsequent requests.
    */
 
-  rs = session_make(device, AF_INET6, callback_id, only_probe);
-  if (rs)
-    {
-      if (device->auth_key)
-	ret = raop_verification_verify(rs);
-      else if (device->requires_auth)
-	ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "device_start");
-      else
-	ret = raop_send_req_options(rs, raop_cb_startup_options, "device_start");
-
-      if (ret == 0)
-	return 1;
-      else
-	{
-	  DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv6\n");
-	  session_cleanup(rs);
-	}
-    }
-
-  rs = session_make(device, AF_INET, callback_id, only_probe);
+  rs = session_make(device, callback_id, only_probe);
   if (!rs)
     return -1;
 
@@ -4730,7 +4713,7 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
 
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request on IPv4\n");
+      DPRINTF(E_WARN, L_RAOP, "Could not send verification or OPTIONS request to '%s' (address %s)\n", device->name, rs->address);
       session_cleanup(rs);
       return -1;
     }
@@ -5017,6 +5000,6 @@ struct output_definition output_raop =
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,
 #ifdef RAOP_VERIFICATION
-  .authorize = raop_verification_setup,
+  .device_authorize = raop_device_authorize,
 #endif
 };

@@ -41,6 +41,12 @@
 // different values can only do so within a limited range (maybe max 3 secs)
 #define OUTPUTS_BUFFER_DURATION 2
 
+// Whether the device should be *displayed* as selected is not given by
+// device->selected, since that means "has the user selected the device",
+// without taking into account whether it is working or available. This macro
+// is a compound of the factors that determine how to display speaker selection.
+#define OUTPUTS_DEVICE_DISPLAY_SELECTED(device) ((device)->selected && (device)->state >= OUTPUT_STATE_STOPPED && !(device)->busy && !(device)->prevent_playback)
+
 // Forward declarations
 struct output_device;
 struct output_metadata;
@@ -226,6 +232,9 @@ struct output_definition
   // Request a change of quality from the device
   int (*device_quality_set)(struct output_device *device, struct media_quality *quality, int callback_id);
 
+  // Authorize forked-daapd to use the device
+  int (*device_authorize)(struct output_device *device, const char *pin, int callback_id);
+
   // Change the call back associated with a device
   void (*device_cb_set)(struct output_device *device, int callback_id);
 
@@ -234,9 +243,6 @@ struct output_definition
 
   // Write stream data to the output devices
   void (*write)(struct output_buffer *buffer);
-
-  // Authorize an output with a pin-code (probably coming from the filescanner)
-  void (*authorize)(const char *pin);
 
   // Called from worker thread for async preparation of metadata (e.g. getting
   // artwork, which might involce downloading image data). The prepared data is
@@ -274,9 +280,6 @@ outputs_quality_unsubscribe(struct media_quality *quality);
 
 void
 outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
-
-void
-outputs_listener_notify(void);
 
 /* ---------------------------- Called by player ---------------------------- */
 
@@ -322,6 +325,9 @@ outputs_device_volume_to_pct(struct output_device *device, const char *value);
 int
 outputs_device_quality_set(struct output_device *device, struct media_quality *quality, output_status_cb cb);
 
+int
+outputs_device_authorize(struct output_device *device, const char *pin, output_status_cb cb);
+
 void
 outputs_device_cb_set(struct output_device *device, output_status_cb cb);
 
@@ -354,9 +360,6 @@ outputs_metadata_send(uint32_t item_id, bool startup, output_metadata_finalize_c
 
 void
 outputs_metadata_purge(void);
-
-void
-outputs_authorize(enum output_types type, const char *pin);
 
 int
 outputs_priority(struct output_device *device);

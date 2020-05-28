@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -38,6 +39,10 @@
 #include "logger.h"
 #include "player.h"
 #include "outputs.h"
+
+// If you set this to 1 you can mock device verification with the dummy output,
+// use 1234 as PIN
+#define DUMMY_DEVICE_VERIFICATION_TEST 0
 
 struct dummy_session
 {
@@ -97,7 +102,7 @@ dummy_status(struct dummy_session *ds)
 {
   outputs_cb(ds->callback_id, ds->device_id, ds->state);
 
-  if (ds->state == OUTPUT_STATE_STOPPED)
+  if (ds->state <= OUTPUT_STATE_STOPPED)
     dummy_session_cleanup(ds);
 }
 
@@ -112,6 +117,10 @@ dummy_device_start(struct output_device *device, int callback_id)
   ds = dummy_session_make(device, callback_id);
   if (!ds)
     return -1;
+
+  // Mock a denied connection
+  if (device->requires_auth && !device->auth_key)
+    ds->state = OUTPUT_STATE_PASSWORD;
 
   dummy_status(ds);
 
@@ -156,6 +165,10 @@ dummy_device_probe(struct output_device *device, int callback_id)
   ds->callback_id = callback_id;
   ds->state = OUTPUT_STATE_STOPPED;
 
+  // Mock a denied connection
+  if (device->requires_auth && !device->auth_key)
+    ds->state = OUTPUT_STATE_PASSWORD;
+
   dummy_status(ds);
 
   return 1;
@@ -168,6 +181,32 @@ dummy_device_volume_set(struct output_device *device, int callback_id)
 
   if (!ds)
     return 0;
+
+  ds->callback_id = callback_id;
+  dummy_status(ds);
+
+  return 1;
+}
+
+static int
+dummy_device_authorize(struct output_device *device, const char *pin, int callback_id)
+{
+  struct dummy_session *ds;
+
+  ds = dummy_session_make(device, callback_id);
+  if (!ds)
+    return -1;
+
+  if (strcmp(pin, "1234") == 0)
+    {
+      free(device->auth_key);
+      device->auth_key = strdup("test");
+      ds->state = OUTPUT_STATE_STOPPED;
+    }
+  else
+    {
+      ds->state = OUTPUT_STATE_PASSWORD;
+    }
 
   ds->callback_id = callback_id;
   dummy_status(ds);
@@ -205,6 +244,7 @@ dummy_init(void)
   device->type = OUTPUT_TYPE_DUMMY;
   device->type_name = outputs_name(device->type);
   device->has_video = 0;
+  device->requires_auth = DUMMY_DEVICE_VERIFICATION_TEST;
 
   DPRINTF(E_INFO, L_LAUDIO, "Adding dummy output device '%s'\n", nickname);
 
@@ -232,5 +272,6 @@ struct output_definition output_dummy =
   .device_flush = dummy_device_flush,
   .device_probe = dummy_device_probe,
   .device_volume_set = dummy_device_volume_set,
+  .device_authorize = dummy_device_authorize,
   .device_cb_set = dummy_device_cb_set,
 };

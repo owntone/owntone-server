@@ -23,7 +23,7 @@
  * - handle playback commands, status checks and events from other threads
  * - receive audio from the input thread and to own the playback buffer
  * - feed the outputs at the appropriate rate (controlled by the playback timer)
- * - output device handling (partly outsourced to outputs.c)
+ * - output device handling (outsourced to outputs.c)
  * - notify about playback status changes
  * - maintain the playback queue
  * 
@@ -32,6 +32,15 @@
  * unresponsive) and it could also starve the outputs. In practice this rule is
  * not always obeyed, for instance some outputs do their setup in ways that
  * could block.
+ *
+ * Listener events
+ * ---------------
+ * Events will be signaled via listener_notify(). The following rules apply to
+ * how this must be done in the code:
+ * - always use status_update() to make sure the callbacks that the listener
+ *   makes do not block the player thread, and to avoid any risk of deadlocks
+ * - if the event is a result of an external command then trigger it when the
+ *   command is completed, so generally in a bottom half
  *
  */
 
@@ -138,6 +147,8 @@ struct speaker_attr_param
 
   bool prevent_playback;
   bool busy;
+
+  const char *pin;
 };
 
 struct speaker_get_param
@@ -367,6 +378,18 @@ scrobble_cb(void *arg)
 }
 #endif
 
+// This is just to be able to log the caller in a simple way
+#define status_update(x, y) status_update_impl((x), (y), __func__)
+static void
+status_update_impl(enum play_status status, short listener_events, const char *caller)
+{
+  DPRINTF(E_DBG, L_PLAYER, "Status update - status: %d, events: %d, caller: %s\n", status, listener_events, caller);
+
+  player_state = status;
+
+  listener_notify(listener_events);
+}
+
 /*
  * Add the song with the given id to the list of previously played songs
  */
@@ -456,13 +479,6 @@ queue_item_prev(uint32_t item_id)
   return db_queue_fetch_prev(item_id, shuffle);
 }
 
-static void
-status_update(enum play_status status)
-{
-  player_state = status;
-
-  listener_notify(LISTENER_PLAYER);
-}
 
 /* ------ All this is for dealing with metadata received from the input ----- */
 
@@ -539,7 +555,7 @@ metadata_finalize(void *arg, int *retval)
 
   outputs_metadata_send(pb_session.playing_now->item_id, false, metadata_finalize_cb);
 
-  status_update(player_state);
+  status_update(player_state, LISTENER_PLAYER);
 
   return COMMAND_END;
 }
@@ -1073,7 +1089,7 @@ event_play_start()
 
   session_update_play_start();
 
-  status_update(PLAY_PLAYING);
+  status_update(PLAY_PLAYING, LISTENER_PLAYER);
 }
 
 static void
@@ -1348,8 +1364,15 @@ device_add(void *arg, int *retval)
   new_deselect = (player_state == PLAY_PLAYING);
 
   device = outputs_device_add(device, new_deselect);
-  *retval = device ? 0 : -1;
+  if (!device)
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
 
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
+
+  *retval = 0;
   return COMMAND_END;
 }
 
@@ -1401,6 +1424,8 @@ device_remove_family(void *arg, int *retval)
 
   outputs_device_free(remove);
 
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
+
   *retval = 0;
   return COMMAND_END;
 }
@@ -1409,8 +1434,23 @@ static enum command_state
 device_auth_kickoff(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
+  struct output_device *device;
 
-  outputs_authorize(cmdarg->auth.type, cmdarg->auth.pin);
+  // First find the device requiring verification
+  for (device = output_device_list; device; device = device->next)
+    {
+      if (device->type == cmdarg->auth.type && device->state == OUTPUT_STATE_PASSWORD)
+	break;
+    }
+
+  if (!device)
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  // We're async, so we don't care about return values or callbacks with result
+  outputs_device_authorize(device, cmdarg->auth.pin, NULL);
 
   *retval = 0;
   return COMMAND_END;
@@ -1425,12 +1465,8 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
   if (!device)
     {
       DPRINTF(E_LOG, L_PLAYER, "Output device disappeared during streaming!\n");
-      return;
     }
-
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_streaming_cb (status %d)\n", device->type_name, device->name, status);
-
-  if (status == OUTPUT_STATE_FAILED)
+  else if (status == OUTPUT_STATE_FAILED)
     {
       DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed - attempting reconnect in %d sec\n", device->type_name, device->name, PLAYER_SPEAKER_RESURRECT_TIME);
 
@@ -1445,11 +1481,19 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
       DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' stopped\n", device->type_name, device->name);
     }
   else
-    outputs_device_cb_set(device, device_streaming_cb);
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_streaming_cb (status %d)\n", device->type_name, device->name, status);
+      outputs_device_cb_set(device, device_streaming_cb);
+    }
+
+  // We don't do this in the other cb's because they are triggered by a command
+  // and thus the update should be done as part of the command completion (which
+  // can better determine which type of listener event to use)
+  status_update(player_state, LISTENER_SPEAKER);
 }
 
 static void
-device_command_cb(struct output_device *device, enum output_device_state status)
+device_volume_cb(struct output_device *device, enum output_device_state status)
 {
   if (!device)
     {
@@ -1457,7 +1501,7 @@ device_command_cb(struct output_device *device, enum output_device_state status)
       goto out;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_command_cb (status %d)\n", device->type_name, device->name, status);
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_volume_cb (status %d)\n", device->type_name, device->name, status);
 
   outputs_device_cb_set(device, device_streaming_cb);
 
@@ -1525,7 +1569,7 @@ device_activate_cb(struct output_device *device, enum output_device_state status
   retval = commands_exec_returnvalue(cmdbase);
   if (!device)
     {
-      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during startup!\n");
+      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during activation!\n");
 
       if (retval != -2)
 	retval = -1;
@@ -1536,22 +1580,27 @@ device_activate_cb(struct output_device *device, enum output_device_state status
 
   if (status == OUTPUT_STATE_PASSWORD)
     {
-      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' requires a valid password\n", device->type_name, device->name);
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' requires a valid PIN or password\n", device->type_name, device->name);
 
-      status = OUTPUT_STATE_FAILED;
+      outputs_device_deselect(device);
+
       retval = -2;
+      goto out;
     }
 
   if (status == OUTPUT_STATE_FAILED)
     {
       DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed to activate\n", device->type_name, device->name);
 
+      outputs_device_deselect(device);
+
       if (retval != -2)
 	retval = -1;
       goto out;
     }
 
-  // If we were just probing this is a no-op
+  // If we were just probing or doing device verification this is a no-op, since
+  // there is no session any more
   outputs_device_cb_set(device, device_streaming_cb);
 
  out:
@@ -1565,8 +1614,8 @@ player_pmap(void *p)
     return "device_activate_cb";
   else if (p == device_streaming_cb)
     return "device_streaming_cb";
-  else if (p == device_command_cb)
-    return "device_command_cb";
+  else if (p == device_volume_cb)
+    return "device_volume_cb";
   else if (p == device_flush_cb)
     return "device_flush_cb";
   else if (p == device_shutdown_cb)
@@ -1693,7 +1742,7 @@ pb_session_stop(void)
 
   session_stop();
 
-  status_update(PLAY_STOPPED);
+  status_update(PLAY_STOPPED, LISTENER_PLAYER);
 }
 
 static void
@@ -1788,7 +1837,7 @@ pb_suspend(void)
 
   pb_timer_stop();
 
-  status_update(PLAY_PAUSED);
+  status_update(PLAY_PAUSED, LISTENER_PLAYER);
 
   seek_save();
 
@@ -1897,7 +1946,7 @@ playback_stop(void *arg, int *retval)
   // Stops the input
   pb_session_stop();
 
-  status_update(PLAY_STOPPED);
+  status_update(PLAY_STOPPED, LISTENER_PLAYER);
 
   // We're async if we need to flush devices
   if (*retval > 0)
@@ -1924,7 +1973,9 @@ playback_start_bh(void *arg, int *retval)
   if (ret < 0)
     goto error;
 
-  status_update(PLAY_PLAYING);
+  // We also ask listeners to update speaker/volume state, since it is possible
+  // some of the speakers we tried to start responded with failure
+  status_update(PLAY_PLAYING, LISTENER_PLAYER | LISTENER_SPEAKER | LISTENER_VOLUME);
 
   *retval = 0;
   return COMMAND_END;
@@ -1948,7 +1999,7 @@ playback_start_item(void *arg, int *retval)
     {
       DPRINTF(E_DBG, L_PLAYER, "Player is already playing, ignoring call to playback start\n");
 
-      status_update(player_state);
+      status_update(player_state, LISTENER_PLAYER);
 
       *retval = 1; // Value greater 0 will prevent execution of the bottom half function
       return COMMAND_END;
@@ -2339,7 +2390,7 @@ playback_pause_bh(void *arg, int *retval)
       goto error;
     }
 
-  status_update(PLAY_PAUSED);
+  status_update(PLAY_PAUSED, LISTENER_PLAYER);
 
   *retval = 0;
   return COMMAND_END;
@@ -2406,11 +2457,7 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
 
-  // We can't map device->selected directly to spk->selected, since the former
-  // means "has the user selected the device" (even if it isn't working or is
-  // unavailable), while clients that get the latter just want to know if the
-  // speaker plays or will be playing.
-  spk->selected = (device->selected && device->state >= OUTPUT_STATE_STOPPED && !device->busy && !device->prevent_playback);
+  spk->selected = OUTPUTS_DEVICE_DISPLAY_SELECTED(device);
 
   spk->has_password = device->has_password;
   spk->has_video = device->has_video;
@@ -2570,6 +2617,13 @@ speaker_disable(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static enum command_state
+speaker_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
+  return COMMAND_END;
+}
+
 /*
  * Airplay speakers can via DACP set the "busy" + "prevent-playback" properties,
  * which we handle below. We try to do this like iTunes, except we need to
@@ -2624,6 +2678,8 @@ speaker_prevent_playback_set_bh(void *arg, int *retval)
       DPRINTF(E_INFO, L_PLAYER, "Ending playback, speaker (id=%" PRIu64 ") set 'busy' or 'prevent-playback' flag\n", param->spk_id);
       pb_abort(); // TODO Would be better for the user if we paused, but we don't have a handy function for that
     }
+  else
+    status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
 
   *retval = 0;
   return COMMAND_END;
@@ -2708,7 +2764,27 @@ speaker_resurrect_bh(void *arg, int *retval)
   if (player_state == PLAY_PAUSED)
     return playback_start_bh(arg, retval);
 
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
+
   *retval = 0;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_authorize(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    return COMMAND_END;
+
+  *retval = outputs_device_authorize(device, param->pin, device_activate_cb);
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
   return COMMAND_END;
 }
 
@@ -2720,7 +2796,7 @@ volume_set(void *arg, int *retval)
 
   volume = cmdarg->intval;
 
-  *retval = outputs_volume_set(volume, device_command_cb);
+  *retval = outputs_volume_set(volume, device_volume_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2744,7 +2820,7 @@ volume_setrel_speaker(void *arg, int *retval)
 
   outputs_device_volume_register(device, -1, vol_param->volume);
 
-  *retval = outputs_device_volume_set(device, device_command_cb);
+  *retval = outputs_device_volume_set(device, device_volume_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2768,7 +2844,7 @@ volume_setabs_speaker(void *arg, int *retval)
 
   outputs_device_volume_register(device, vol_param->volume, -1);
 
-  *retval = outputs_device_volume_set(device, device_command_cb);
+  *retval = outputs_device_volume_set(device, device_volume_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2807,6 +2883,13 @@ volume_update_speaker(void *arg, int *retval)
 }
 
 static enum command_state
+volume_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_VOLUME);
+  return COMMAND_END;
+}
+
+static enum command_state
 repeat_set(void *arg, int *retval)
 {
   enum repeat_mode *mode = arg;
@@ -2830,8 +2913,6 @@ repeat_set(void *arg, int *retval)
 	*retval = -1;
 	return COMMAND_END;
     }
-
-  listener_notify(LISTENER_OPTIONS);
 
   *retval = 0;
   return COMMAND_END;
@@ -2862,9 +2943,8 @@ shuffle_set(void *arg, int *retval)
       db_queue_inc_version();
     }
 
-  // Update shuffle mode and notify listeners
+  // Update shuffle mode
   shuffle = new_shuffle;
-  listener_notify(LISTENER_OPTIONS);
 
  out:
   *retval = 0;
@@ -2878,9 +2958,14 @@ consume_set(void *arg, int *retval)
 
   consume = cmdarg->intval;
 
-  listener_notify(LISTENER_OPTIONS);
-
   *retval = 0;
+  return COMMAND_END;
+}
+
+static enum command_state
+options_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_OPTIONS);
   return COMMAND_END;
 }
 
@@ -2893,8 +2978,6 @@ playerqueue_clear_history(void *arg, int *retval)
   memset(history, 0, sizeof(struct player_history));
 
   cur_plversion++; // TODO [db_queue] need to update db queue version
-
-  listener_notify(LISTENER_QUEUE);
 
   *retval = 0;
   return COMMAND_END;
@@ -2910,6 +2993,12 @@ playerqueue_plid(void *arg, int *retval)
   return COMMAND_END;
 }
 
+static enum command_state
+playerqueue_generic_bh(void *arg, int *retval)
+{
+  status_update(player_state, LISTENER_QUEUE);
+  return COMMAND_END;
+}
 
 /* ------------------------------- Player API ------------------------------- */
 
@@ -2956,6 +3045,7 @@ player_playback_start(void)
   int ret;
 
   ret = commands_exec_sync(cmdbase, playback_start, playback_start_bh, NULL);
+
   return ret;
 }
 
@@ -2975,6 +3065,7 @@ player_playback_start_byitem(struct db_queue_item *queue_item)
   int ret;
 
   ret = commands_exec_sync(cmdbase, playback_start_item, playback_start_bh, queue_item);
+
   return ret;
 }
 
@@ -2987,6 +3078,7 @@ player_playback_start_byid(uint32_t id)
   cmdarg.id = id;
 
   ret = commands_exec_sync(cmdbase, playback_start_id, playback_start_bh, &cmdarg);
+
   return ret;
 }
 
@@ -3082,9 +3174,7 @@ player_speaker_set(uint64_t *ids)
 
   speaker_set_param.device_ids = ids;
 
-  ret = commands_exec_sync(cmdbase, speaker_set, NULL, &speaker_set_param);
-
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, speaker_set, speaker_generic_bh, &speaker_set_param);
 
   return ret;
 }
@@ -3120,9 +3210,7 @@ player_speaker_enable(uint64_t id)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, speaker_enable, NULL, &id);
-
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, speaker_enable, speaker_generic_bh, &id);
 
   return ret;
 }
@@ -3132,9 +3220,7 @@ player_speaker_disable(uint64_t id)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, speaker_disable, NULL, &id);
-
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+  ret = commands_exec_sync(cmdbase, speaker_disable, speaker_generic_bh, &id);
 
   return ret;
 }
@@ -3150,8 +3236,6 @@ player_speaker_prevent_playback_set(uint64_t id, bool prevent_playback)
 
   ret = commands_exec_sync(cmdbase, speaker_prevent_playback_set, speaker_prevent_playback_set_bh, &param);
 
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
-
   return ret;
 }
 
@@ -3166,8 +3250,6 @@ player_speaker_busy_set(uint64_t id, bool busy)
 
   ret = commands_exec_sync(cmdbase, speaker_busy_set, speaker_prevent_playback_set_bh, &param);
 
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
-
   return ret;
 }
 
@@ -3179,8 +3261,20 @@ player_speaker_resurrect(void *arg)
   param.device_ids = (uint64_t *)arg;
 
   commands_exec_sync(cmdbase, speaker_resurrect, speaker_resurrect_bh, &param);
+}
 
-  listener_notify(LISTENER_SPEAKER | LISTENER_VOLUME);
+int
+player_speaker_authorize(uint64_t id, const char *pin)
+{
+  struct speaker_attr_param param;
+  int ret;
+
+  param.spk_id = id;
+  param.pin = pin;
+
+  ret = commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
+
+  return ret;
 }
 
 int
@@ -3197,7 +3291,8 @@ player_volume_set(int vol)
 
   cmdarg.intval = vol;
 
-  ret = commands_exec_sync(cmdbase, volume_set, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, volume_set, volume_generic_bh, &cmdarg);
+
   return ret;
 }
 
@@ -3216,7 +3311,8 @@ player_volume_setrel_speaker(uint64_t id, int relvol)
   vol_param.spk_id = id;
   vol_param.volume = relvol;
 
-  ret = commands_exec_sync(cmdbase, volume_setrel_speaker, NULL, &vol_param);
+  ret = commands_exec_sync(cmdbase, volume_setrel_speaker, volume_generic_bh, &vol_param);
+
   return ret;
 }
 
@@ -3235,7 +3331,8 @@ player_volume_setabs_speaker(uint64_t id, int vol)
   vol_param.spk_id = id;
   vol_param.volume = vol;
 
-  ret = commands_exec_sync(cmdbase, volume_setabs_speaker, NULL, &vol_param);
+  ret = commands_exec_sync(cmdbase, volume_setabs_speaker, volume_generic_bh, &vol_param);
+
   return ret;
 }
 
@@ -3248,7 +3345,8 @@ player_volume_update_speaker(uint64_t id, const char *volstr)
   vol_param.spk_id = id;
   vol_param.volstr  = volstr;
 
-  ret = commands_exec_sync(cmdbase, volume_update_speaker, NULL, &vol_param);
+  ret = commands_exec_sync(cmdbase, volume_update_speaker, volume_generic_bh, &vol_param);
+
   return ret;
 }
 
@@ -3257,7 +3355,8 @@ player_repeat_set(enum repeat_mode mode)
 {
   int ret;
 
-  ret = commands_exec_sync(cmdbase, repeat_set, NULL, &mode);
+  ret = commands_exec_sync(cmdbase, repeat_set, options_generic_bh, &mode);
+
   return ret;
 }
 
@@ -3269,7 +3368,8 @@ player_shuffle_set(int enable)
 
   cmdarg.intval = enable;
 
-  ret = commands_exec_sync(cmdbase, shuffle_set, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, shuffle_set, options_generic_bh, &cmdarg);
+
   return ret;
 }
 
@@ -3281,14 +3381,15 @@ player_consume_set(int enable)
 
   cmdarg.intval = enable;
 
-  ret = commands_exec_sync(cmdbase, consume_set, NULL, &cmdarg);
+  ret = commands_exec_sync(cmdbase, consume_set, options_generic_bh, &cmdarg);
+
   return ret;
 }
 
 void
 player_queue_clear_history()
 {
-  commands_exec_sync(cmdbase, playerqueue_clear_history, NULL, NULL);
+  commands_exec_sync(cmdbase, playerqueue_clear_history, playerqueue_generic_bh, NULL);
 }
 
 void
@@ -3348,8 +3449,11 @@ player_device_remove(void *device)
   return ret;
 }
 
-static void
-player_device_auth_kickoff(enum output_types type, char **arglist)
+
+/* ----------------------- Thread: filescanner/httpd ------------------------ */
+
+void
+player_raop_verification_kickoff(char **arglist)
 {
   union player_arg *cmdarg;
 
@@ -3360,19 +3464,11 @@ player_device_auth_kickoff(enum output_types type, char **arglist)
       return;
     }
 
-  cmdarg->auth.type = type;
+  cmdarg->auth.type = OUTPUT_TYPE_RAOP;
   memcpy(cmdarg->auth.pin, arglist[0], 4);
 
   commands_exec_async(cmdbase, device_auth_kickoff, cmdarg);
-}
 
-
-/* --------------------------- Thread: filescanner -------------------------- */
-
-void
-player_raop_verification_kickoff(char **arglist)
-{
-  player_device_auth_kickoff(OUTPUT_TYPE_RAOP, arglist);
 }
 
 
