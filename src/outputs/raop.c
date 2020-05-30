@@ -4752,7 +4752,7 @@ raop_device_flush(struct output_device *device, int callback_id)
   int ret;
 
   if (rs->state != RAOP_STATE_STREAMING)
-    return -1;
+    return 0; // No-op, nothing to flush
 
   ret = raop_send_req_flush(rs, raop_cb_flush, "flush");
   if (ret < 0)

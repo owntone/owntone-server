@@ -890,7 +890,7 @@ outputs_device_flush(struct output_device *device, output_status_cb cb)
 
   ret = outputs[device->type]->device_flush(device, callback_add(device, cb));
 
-  return device_state_update(device, ret);
+  return ret; // We don't change device state just because of a failed flush
 }
 
 void
@@ -917,7 +917,7 @@ outputs_device_volume_set(struct output_device *device, output_status_cb cb)
 
   ret = outputs[device->type]->device_volume_set(device, callback_add(device, cb));
 
-  return device_state_update(device, ret);
+  return ret; // We don't change device state just because of a failed volume change
 }
 
 int
@@ -955,7 +955,7 @@ outputs_device_authorize(struct output_device *device, const char *pin, output_s
 
   ret = outputs[device->type]->device_authorize(device, pin, callback_add(device, cb));
 
-  return device_state_update(device, ret);
+  return device_state_update(device, ret); // If ret < 0 then we couldn't reach the speaker
 }
 
 void
