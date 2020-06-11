@@ -222,6 +222,7 @@ streaming_meta_cb(evutil_socket_t fd, short event, void *arg)
     {
       DPRINTF(E_LOG, L_STREAMING, "Will not be able to stream MP3, libav does not support MP3 encoding: %d/%d/%d @ %d\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate);
       streaming_not_supported = 1;
+      streaming_end();
       return;
     }
 
