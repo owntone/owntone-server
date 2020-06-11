@@ -372,10 +372,6 @@ export default {
     return axios.post('/api/pairing', pairingReq)
   },
 
-  verification_kickoff (verificationReq) {
-    return axios.post('/api/verification', verificationReq)
-  },
-
   artwork_url_append_size_params (artworkUrl, maxwidth = 600, maxheight = 600) {
     if (artworkUrl && artworkUrl.startsWith('/')) {
       if (artworkUrl.includes('?')) {

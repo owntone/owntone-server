@@ -49,7 +49,7 @@
               </label>
             </div>
           </div>
-          <form @submit.prevent="kickoff_verification" v-if="output.needs_auth_key" class="fd-has-margin-bottom">
+          <form @submit.prevent="kickoff_verification(output.id)" v-if="output.needs_auth_key" class="fd-has-margin-bottom">
             <div class="field is-grouped">
               <div class="control">
                 <input class="input" type="text" placeholder="Enter verification code" v-model="verification_req.pin">
@@ -100,8 +100,8 @@ export default {
       webapi.output_toggle(outputId)
     },
 
-    kickoff_verification () {
-      webapi.verification_kickoff(this.verification_req)
+    kickoff_verification (outputId) {
+      webapi.output_update(outputId, this.verification_req)
     }
   },
 
