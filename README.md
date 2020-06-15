@@ -29,8 +29,7 @@ match the version of forked-daapd that you are using. Go to
 forked-daapd.
 
 If you are looking for help on building forked-daapd (not using it), then
-please see the
-[INSTALL](https://github.com/ejurgensen/forked-daapd/blob/master/INSTALL) file.
+please see the [INSTALL.md](INSTALL.md) file.
 
 
 ## Contents
@@ -58,8 +57,7 @@ please see the
 
 ## Getting started
 
-After installation (see [INSTALL](https://github.com/ejurgensen/forked-daapd/blob/master/INSTALL))
-do the following:
+After installation (see [INSTALL.md](INSTALL.md)) do the following:
 
  1. Edit the configuration file (usually `/etc/forked-daapd.conf`) to suit your
     needs
