@@ -96,7 +96,7 @@ parse_disc(struct media_file_info *mfi, char *disc_string)
 static int
 parse_date(struct media_file_info *mfi, char *date_string)
 {
-  char year_string[21];
+  char year_string[32];
   uint32_t *year = (uint32_t *) ((char *) mfi + mfi_offsetof(year));
   uint32_t *date_released = (uint32_t *) ((char *) mfi + mfi_offsetof(date_released));
   struct tm tm = { 0 };
