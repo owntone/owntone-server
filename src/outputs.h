@@ -182,7 +182,7 @@ struct output_buffer
   // holds the original, untranscoded, data (which might not have any
   // subscribers, and the last element is a zero terminator.
   struct output_data data[OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS + 2];
-} output_buffer;
+};
 
 struct output_definition
 {
@@ -256,9 +256,6 @@ struct output_definition
   void (*metadata_purge)(void);
 };
 
-// Our main list of devices, not for use by backend modules
-struct output_device *output_device_list;
-
 /* ------------------------------- General use ------------------------------ */
 
 struct output_device *
@@ -282,9 +279,6 @@ void
 outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
 
 /* ---------------------------- Called by player ---------------------------- */
-
-int
-outputs_master_volume;
 
 // Ownership of *add is transferred, so don't address after calling. Instead you
 // can address the return value (which is not the same if the device was already
@@ -344,6 +338,9 @@ int
 outputs_flush(output_status_cb cb);
 
 int
+outputs_volume_get(void);
+
+int
 outputs_volume_set(int volume, output_status_cb cb);
 
 int
@@ -366,6 +363,9 @@ outputs_priority(struct output_device *device);
 
 const char *
 outputs_name(enum output_types type);
+
+struct output_device *
+outputs_list(void);
 
 int
 outputs_init(void);

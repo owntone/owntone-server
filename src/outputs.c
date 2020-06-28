@@ -105,6 +105,12 @@ struct output_quality_subscription
   struct encode_ctx *encode_ctx;
 };
 
+// Buffer used to pass data to the backends
+static struct output_buffer output_buffer;
+
+static struct output_device *outputs_device_list;
+static int outputs_master_volume;
+
 static struct outputs_callback_register outputs_cb_register[OUTPUTS_MAX_CALLBACKS];
 static struct event *outputs_deferredev;
 static struct timeval outputs_stop_timeout = { OUTPUTS_STOP_TIMEOUT, 0 };
@@ -392,14 +398,14 @@ device_list_sort(void)
     {
       swaps = 0;
       prev = NULL;
-      for (device = output_device_list; device && device->next; device = device->next)
+      for (device = outputs_device_list; device && device->next; device = device->next)
 	{
 	  next = device->next;
 	  if ( (outputs_priority(device) > outputs_priority(next)) ||
 	       (outputs_priority(device) == outputs_priority(next) && strcasecmp(device->name, next->name) > 0) )
 	    {
-	      if (device == output_device_list)
-		output_device_list = next;
+	      if (device == outputs_device_list)
+		outputs_device_list = next;
 	      if (prev)
 		prev->next = next;
 
@@ -513,7 +519,7 @@ vol_adjust(void)
   int selected_highest = -1;
   int all_highest = -1;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (OUTPUTS_DEVICE_DISPLAY_SELECTED(device) && (device->volume > selected_highest))
 	selected_highest = device->volume;
@@ -524,7 +530,7 @@ vol_adjust(void)
 
   outputs_master_volume = (selected_highest >= 0) ? selected_highest : all_highest;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (!OUTPUTS_DEVICE_DISPLAY_SELECTED(device) && (device->volume > outputs_master_volume))
 	device->volume = outputs_master_volume;
@@ -535,7 +541,7 @@ vol_adjust(void)
 #ifdef DEBUG_VOLUME
   DPRINTF(E_DBG, L_PLAYER, "*** Master: %d\n", outputs_master_volume);
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d selected %d\n", device->name, device->volume, device->relvol, OUTPUTS_DEVICE_DISPLAY_SELECTED(device));
     }
@@ -549,7 +555,7 @@ outputs_device_get(uint64_t device_id)
 {
   struct output_device *device;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (device_id == device->id)
 	return device;
@@ -692,7 +698,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   char *keep_name;
   int ret;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (device->id == add->id)
 	break;
@@ -719,8 +725,8 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       if (new_deselect)
 	device->selected = 0;
 
-      device->next = output_device_list;
-      output_device_list = device;
+      device->next = outputs_device_list;
+      outputs_device_list = device;
     }
   // Update to a device already in the list
   else
@@ -780,7 +786,7 @@ outputs_device_remove(struct output_device *remove)
     outputs_device_stop(remove, device_stop_cb);
 
   prev = NULL;
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (device == remove)
 	break;
@@ -799,7 +805,7 @@ outputs_device_remove(struct output_device *remove)
   DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
 
   if (!prev)
-    output_device_list = remove->next;
+    outputs_device_list = remove->next;
   else
     prev->next = remove->next;
 
@@ -1006,7 +1012,7 @@ outputs_start(output_status_cb started_cb, output_status_cb stopped_cb, bool onl
   int pending = 0;
   int ret = -1;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (device->selected)
 	ret = outputs_device_start(device, started_cb, only_probe);
@@ -1029,7 +1035,7 @@ outputs_stop(output_status_cb cb)
   int pending = 0;
   int ret;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (!device->session)
 	continue;
@@ -1049,7 +1055,7 @@ outputs_stop_delayed_cancel(void)
 {
   struct output_device *device;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     event_del(device->stop_timer);
 
   return 0;
@@ -1062,7 +1068,7 @@ outputs_flush(output_status_cb cb)
   int pending = 0;
   int ret;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       ret = outputs_device_flush(device, cb);
       if (ret < 0)
@@ -1072,6 +1078,12 @@ outputs_flush(output_status_cb cb)
     }
 
   return pending;
+}
+
+int
+outputs_volume_get(void)
+{
+  return outputs_master_volume;
 }
 
 int
@@ -1086,7 +1098,7 @@ outputs_volume_set(int volume, output_status_cb cb)
 
   outputs_master_volume = volume;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     {
       if (!device->selected)
 	continue;
@@ -1109,7 +1121,7 @@ outputs_sessions_count(void)
   struct output_device *device;
   int count = 0;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_device_list; device; device = device->next)
     if (device->session)
       count++;
 
@@ -1173,6 +1185,12 @@ const char *
 outputs_name(enum output_types type)
 {
   return outputs[type]->name;
+}
+
+struct output_device *
+outputs_list(void)
+{
+  return outputs_device_list;
 }
 
 int

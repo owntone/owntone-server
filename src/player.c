@@ -1437,7 +1437,7 @@ device_auth_kickoff(void *arg, int *retval)
   struct output_device *device;
 
   // First find the device requiring verification
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_list(); device; device = device->next)
     {
       if (device->type == cmdarg->auth.type && device->state == OUTPUT_STATE_PASSWORD)
 	break;
@@ -1858,7 +1858,7 @@ get_status(void *arg, int *retval)
   status->consume = consume;
   status->repeat = repeat;
 
-  status->volume = outputs_master_volume;
+  status->volume = outputs_volume_get();
 
   status->plid = cur_plid;
 
@@ -2055,7 +2055,7 @@ playback_start_item(void *arg, int *retval)
       DPRINTF(E_LOG, L_PLAYER, "All selected speakers failed to start\n");
 
       // All selected devices failed, autoselect an unselected (if enabled)
-      for (device = output_device_list; (*retval < 0) && speaker_autoselect && device; device = device->next)
+      for (device = outputs_list(); (*retval < 0) && speaker_autoselect && device; device = device->next)
 	{
 	  if (!device->selected && outputs_priority(device) != 0 && !device->session)
 	    *retval = outputs_device_start(device, device_activate_cb, false);
@@ -2474,7 +2474,7 @@ speaker_enumerate(void *arg, int *retval)
   struct output_device *device;
   struct player_speaker_info spk;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_list(); device; device = device->next)
     {
       device_to_speaker_info(&spk, device);
       spk_enum->cb(&spk, spk_enum->arg);
@@ -2490,7 +2490,7 @@ speaker_get_byid(void *arg, int *retval)
   struct speaker_get_param *spk_param = arg;
   struct output_device *device;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_list(); device; device = device->next)
     {
       if ((device->advertised || device->selected)
 	  && device->id == spk_param->spk_id)
@@ -2512,7 +2512,7 @@ speaker_get_byactiveremote(void *arg, int *retval)
   struct speaker_get_param *spk_param = arg;
   struct output_device *device;
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_list(); device; device = device->next)
     {
       if ((uint32_t)device->id == spk_param->active_remote)
 	{
@@ -2547,7 +2547,7 @@ speaker_set(void *arg, int *retval)
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker set: %d speakers\n", nspk);
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_list(); device; device = device->next)
     {
       for (i = 1; i <= nspk; i++)
 	{
@@ -3495,7 +3495,7 @@ player(void *arg)
 
   db_speaker_clear_all();
 
-  for (device = output_device_list; device; device = device->next)
+  for (device = outputs_list(); device; device = device->next)
     {
       ret = db_speaker_save(device);
       if (ret < 0)
