@@ -2133,7 +2133,7 @@ playback_start(void *arg, int *retval)
 static enum command_state
 playback_prev_bh(void *arg, int *retval)
 {
-  struct db_queue_item *queue_item;
+  struct db_queue_item *queue_item = NULL;
   int ret;
 
   // outputs_flush() in playback_pause() may have a caused a failure callback
@@ -2147,11 +2147,11 @@ playback_prev_bh(void *arg, int *retval)
   if (pb_session.playing_now->pos_ms > 0)
     history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
 
-  // Only skip to the previous song if the playing time is less than 3 seconds,
-  // otherwise restart the current song.
+  // Only skip to the previous song if the playing time is less than 3 seconds
   if (pb_session.playing_now->pos_ms < 3000)
     queue_item = queue_item_prev(pb_session.playing_now->item_id);
-  else
+  // If there is no previous item in the queue or playing time is greater than 3 seconds, restart the current item
+  if (!queue_item)
     queue_item = db_queue_fetch_byitemid(pb_session.playing_now->item_id);
   if (!queue_item)
     {
@@ -2203,14 +2203,15 @@ playback_next_bh(void *arg, int *retval)
     }
 
   queue_item = queue_item_next(pb_session.playing_now->item_id);
-  if (!queue_item)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Error finding next source, queue item has disappeared\n");
-      goto error;
-    }
 
   if (consume)
     db_queue_delete_byitemid(pb_session.playing_now->item_id);
+
+  if (!queue_item)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Error finding next source, end of queue reached or queue item has disappeared\n");
+      goto error;
+    }
 
   ret = pb_session_start(queue_item, 0);
   free_queue_item(queue_item, 0);
