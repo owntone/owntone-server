@@ -4319,7 +4319,6 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 #undef Q_TMPL
 }
 
-#ifdef HAVE_SPOTIFY_H
 /* Spotify */
 void
 db_spotify_purge(void)
@@ -4399,7 +4398,6 @@ db_spotify_files_delete(void)
     DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));
 #undef Q_TMPL
 }
-#endif
 
 /* Admin */
 int
@@ -4540,7 +4538,7 @@ db_admin_getint64(int64_t *int64val, const char *key)
 int
 db_admin_delete(const char *key)
 {
-#define Q_TMPL "DELETE FROM admin where key='%q';"
+#define Q_TMPL "DELETE FROM admin WHERE key='%q';"
   char *query;
 
   query = sqlite3_mprintf(Q_TMPL, key);
