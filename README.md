@@ -497,8 +497,9 @@ forked-daapd will not store your password, but will still be able to log you in
 automatically afterwards, because libspotify saves a login token. You can
 configure the location of your Spotify user data in the configuration file.
 
-To permanently logout and remove credentials, delete the contents of
-`/var/cache/forked-daapd/libspotify` (while forked-daapd is stopped).
+To permanently logout and remove Spotify tracks + credentials make a request to
+[http://[your_server_address_here]:3689/api/spotify-logout](http://[your_server_address_here]:3689/api/spotify-logout)
+and also delete the contents of `/var/cache/forked-daapd/libspotify`.
 
 Limitations:
 You will not be able to do any playlist management through forked-daapd - use

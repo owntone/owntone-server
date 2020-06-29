@@ -94,14 +94,19 @@ struct spotify_playlist
 };
 
 // Credentials for the web api
-static char *spotify_access_token;
-static char *spotify_refresh_token;
-static char *spotify_granted_scope;
-static char *spotify_user_country;
-static char *spotify_user;
+struct spotify_credentials
+{
+  char *access_token;
+  char *refresh_token;
+  char *granted_scope;
+  char *user_country;
+  char *user;
 
-static int32_t expires_in = 3600;
-static time_t token_requested = 0;
+  int32_t token_expires_in;
+  time_t token_time_requested;
+};
+
+static struct spotify_credentials spotify_credentials;
 
 // Mutex to avoid conflicting requests for access tokens and protects accessing the credentials from different threads
 static pthread_mutex_t token_lck;
@@ -135,6 +140,17 @@ static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/pla
 static const char *spotify_artist_albums_uri = "https://api.spotify.com/v1/artists/%s/albums?include_groups=album,single";
 
 
+static void
+free_credentials(void)
+{
+  free(spotify_credentials.access_token);
+  free(spotify_credentials.refresh_token);
+  free(spotify_credentials.granted_scope);
+  free(spotify_credentials.user_country);
+  free(spotify_credentials.user);
+
+  memset(&spotify_credentials, 0, sizeof(struct spotify_credentials));
+}
 
 static void
 free_http_client_ctx(struct http_client_ctx *ctx)
@@ -155,7 +171,7 @@ free_http_client_ctx(struct http_client_ctx *ctx)
 static bool
 token_valid(void)
 {
-  return spotify_access_token != NULL;
+  return spotify_credentials.access_token != NULL;
 }
 
 static int
@@ -209,34 +225,34 @@ request_access_tokens(struct keyval *kv, const char **err)
       goto out_free_input_body;
     }
 
-  free(spotify_access_token);
-  spotify_access_token = NULL;
+  free(spotify_credentials.access_token);
+  spotify_credentials.access_token = NULL;
 
   tmp = jparse_str_from_obj(haystack, "access_token");
   if (tmp)
-    spotify_access_token = strdup(tmp);
+    spotify_credentials.access_token = strdup(tmp);
 
   tmp = jparse_str_from_obj(haystack, "refresh_token");
   if (tmp)
     {
-      free(spotify_refresh_token);
-      spotify_refresh_token = strdup(tmp);
+      free(spotify_credentials.refresh_token);
+      spotify_credentials.refresh_token = strdup(tmp);
     }
 
   tmp = jparse_str_from_obj(haystack, "scope");
   if (tmp)
     {
-      free(spotify_granted_scope);
-      spotify_granted_scope = strdup(tmp);
+      free(spotify_credentials.granted_scope);
+      spotify_credentials.granted_scope = strdup(tmp);
     }
 
-  expires_in = jparse_int_from_obj(haystack, "expires_in");
-  if (expires_in == 0)
-    expires_in = 3600;
+  spotify_credentials.token_expires_in = jparse_int_from_obj(haystack, "expires_in");
+  if (spotify_credentials.token_expires_in == 0)
+    spotify_credentials.token_expires_in = 3600;
 
   jparse_free(haystack);
 
-  if (!spotify_access_token)
+  if (!spotify_credentials.access_token)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not find access token in reply: %s\n", body);
 
@@ -245,10 +261,10 @@ request_access_tokens(struct keyval *kv, const char **err)
       goto out_free_input_body;
     }
 
-  token_requested = time(NULL);
+  spotify_credentials.token_time_requested = time(NULL);
 
-  if (spotify_refresh_token)
-    db_admin_set(DB_ADMIN_SPOTIFY_REFRESH_TOKEN, spotify_refresh_token);
+  if (spotify_credentials.refresh_token)
+    db_admin_set(DB_ADMIN_SPOTIFY_REFRESH_TOKEN, spotify_credentials.refresh_token);
 
   ret = 0;
 
@@ -281,7 +297,7 @@ request_endpoint(const char *uri)
   ctx->input_body = evbuffer_new();
   ctx->url = uri;
 
-  snprintf(bearer_token, sizeof(bearer_token), "Bearer %s", spotify_access_token);
+  snprintf(bearer_token, sizeof(bearer_token), "Bearer %s", spotify_credentials.access_token);
   if (keyval_add(ctx->output_headers, "Authorization", bearer_token) < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Add bearer_token to keyval failed for request '%s'\n", uri);
@@ -331,21 +347,21 @@ request_user_info(void)
 {
   json_object *response;
 
-  free(spotify_user_country);
-  spotify_user_country = NULL;
-  free(spotify_user);
-  spotify_user = NULL;
+  free(spotify_credentials.user_country);
+  spotify_credentials.user_country = NULL;
+  free(spotify_credentials.user);
+  spotify_credentials.user = NULL;
 
   response = request_endpoint(spotify_me_uri);
 
   if (response)
     {
-      spotify_user = safe_strdup(jparse_str_from_obj(response, "id"));
-      spotify_user_country = safe_strdup(jparse_str_from_obj(response, "country"));
+      spotify_credentials.user = safe_strdup(jparse_str_from_obj(response, "id"));
+      spotify_credentials.user_country = safe_strdup(jparse_str_from_obj(response, "country"));
 
       jparse_free(response);
 
-      DPRINTF(E_DBG, L_SPOTIFY, "User '%s', country '%s'\n", spotify_user, spotify_user_country);
+      DPRINTF(E_DBG, L_SPOTIFY, "User '%s', country '%s'\n", spotify_credentials.user, spotify_credentials.user_country);
     }
 
   return 0;
@@ -411,7 +427,7 @@ token_refresh(void)
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&token_lck));
 
-  if (token_requested && difftime(time(NULL), token_requested) < expires_in)
+  if (spotify_credentials.token_time_requested && difftime(time(NULL), spotify_credentials.token_time_requested) < spotify_credentials.token_expires_in)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Spotify token still valid\n");
 
@@ -524,16 +540,16 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
   int total;
   int ret;
 
-  if (!with_market || !spotify_user_country)
+  if (!with_market || !spotify_credentials.user_country)
     {
       next_href = safe_strdup(href);
     }
   else
     {
       if (strchr(href, '?'))
-	next_href = safe_asprintf("%s&market=%s", href, spotify_user_country);
+	next_href = safe_asprintf("%s&market=%s", href, spotify_credentials.user_country);
       else
-	next_href = safe_asprintf("%s?market=%s", href, spotify_user_country);
+	next_href = safe_asprintf("%s?market=%s", href, spotify_credentials.user_country);
     }
 
   while (next_href)
@@ -1817,6 +1833,19 @@ webapi_rescan(void *arg, int *ret)
 
 /* Thread: library */
 static enum command_state
+webapi_purge(void *arg, int *ret)
+{
+  free_credentials();
+
+  db_spotify_purge();
+  db_admin_delete(DB_ADMIN_SPOTIFY_REFRESH_TOKEN);
+
+  *ret = 0;
+  return COMMAND_END;
+}
+
+/* Thread: library */
+static enum command_state
 webapi_pl_save(void *arg, int *ret)
 {
   const char *uri;
@@ -1888,6 +1917,12 @@ spotifywebapi_rescan(void)
 }
 
 void
+spotifywebapi_purge(void)
+{
+  library_exec_async(webapi_purge, NULL);
+}
+
+void
 spotifywebapi_pl_save(const char *uri)
 {
   if (scanning || !token_valid())
@@ -1942,17 +1977,17 @@ spotifywebapi_status_info_get(struct spotifywebapi_status_info *info)
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&token_lck));
 
   info->token_valid = token_valid();
-  if (spotify_user)
+  if (spotify_credentials.user)
     {
-      strncpy(info->user, spotify_user, (sizeof(info->user) - 1));
+      strncpy(info->user, spotify_credentials.user, (sizeof(info->user) - 1));
     }
-  if (spotify_user_country)
+  if (spotify_credentials.user_country)
     {
-      strncpy(info->country, spotify_user_country, (sizeof(info->country) - 1));
+      strncpy(info->country, spotify_credentials.user_country, (sizeof(info->country) - 1));
     }
-  if (spotify_granted_scope)
+  if (spotify_credentials.granted_scope)
     {
-      strncpy(info->granted_scope, spotify_granted_scope, (sizeof(info->granted_scope) - 1));
+      strncpy(info->granted_scope, spotify_credentials.granted_scope, (sizeof(info->granted_scope) - 1));
     }
   if (spotify_scope)
     {
@@ -1971,12 +2006,12 @@ spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&token_lck));
 
-  if (token_requested > 0)
-    info->expires_in = expires_in - difftime(time(NULL), token_requested);
+  if (spotify_credentials.token_time_requested > 0)
+    info->expires_in = spotify_credentials.token_expires_in - difftime(time(NULL), spotify_credentials.token_time_requested);
   else
     info->expires_in = 0;
 
-  info->token = safe_strdup(spotify_access_token);
+  info->token = safe_strdup(spotify_credentials.access_token);
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
 }
@@ -1999,11 +2034,7 @@ spotifywebapi_deinit()
 
   spotify_deinit();
 
-  free(spotify_access_token);
-  free(spotify_refresh_token);
-  free(spotify_granted_scope);
-  free(spotify_user_country);
-  free(spotify_user);
+  free_credentials();
 }
 
 struct library_source spotifyscanner =

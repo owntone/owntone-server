@@ -1342,6 +1342,40 @@ spotify_status_info_get(struct spotify_status_info *info)
 
 /* Thread: library, httpd */
 static int
+logout(char **errmsg)
+{
+  sp_error err;
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
+
+  if (SP_CONNECTION_STATE_LOGGED_IN != fptr_sp_session_connectionstate(g_sess))
+    {
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
+      return 0;
+    }
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Logging out of Spotify (current state is %d)\n", g_state);
+
+  fptr_sp_session_player_unload(g_sess);
+  err = fptr_sp_session_logout(g_sess);
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not logout of Spotify: %s\n", fptr_sp_error_message(err));
+      if (errmsg)
+	*errmsg = safe_asprintf("Could not logout of Spotify: %s", fptr_sp_error_message(err));
+
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
+      return -1;
+    }
+
+  CHECK_ERR(L_SPOTIFY, pthread_cond_wait(&login_cond, &login_lck)); // Wait for logged_out()
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
+
+  return 0;
+}
+
+/* Thread: library, httpd */
+static int
 login_user(const char *user, const char *password, char **errmsg)
 {
   sp_error err;
@@ -1365,28 +1399,9 @@ login_user(const char *user, const char *password, char **errmsg)
       return -1;
     }
 
-  if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(g_sess))
-    {
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
-
-      DPRINTF(E_LOG, L_SPOTIFY, "Logging out of Spotify (current state is %d)\n", g_state);
-
-      fptr_sp_session_player_unload(g_sess);
-      err = fptr_sp_session_logout(g_sess);
-
-      if (SP_ERROR_OK != err)
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Could not logout of Spotify: %s\n", fptr_sp_error_message(err));
-	  if (errmsg)
-	    *errmsg = safe_asprintf("Could not logout of Spotify: %s", fptr_sp_error_message(err));
-
-	  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
-	  return -1;
-	}
-
-      CHECK_ERR(L_SPOTIFY, pthread_cond_wait(&login_cond, &login_lck));
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
-    }
+  ret = logout(errmsg);
+  if (ret < 0)
+    return -1;
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&login_lck));
 
@@ -1455,6 +1470,14 @@ spotify_login(char **arglist)
     spotify_login_user(arglist[0], arglist[1], NULL);
   else
     spotify_login_user(NULL, NULL, NULL);
+}
+
+void
+spotify_logout(void)
+{
+  logout(NULL);
+
+  spotifywebapi_purge();
 }
 
 /* Thread: main */
