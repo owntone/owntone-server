@@ -255,6 +255,17 @@ export default {
     })
   },
 
+  library_radio_streams () {
+    var params = {
+      type: 'tracks',
+      media_kind: 'music',
+      expression: 'data_kind is url and song_length = 0'
+    }
+    return axios.get('/api/search', {
+      params: params
+    })
+  },
+
   library_artist_tracks (artist) {
     if (artist) {
       var artistParams = {
