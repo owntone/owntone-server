@@ -14,11 +14,12 @@
       </div>
     </template>
     <template slot="heading-right">
-      <p class="image is-square fd-has-shadow">
+      <p class="image is-square fd-has-shadow fd-has-action">
         <cover-artwork
           :artwork_url="album.artwork_url"
           :artist="album.artist"
-          :album="album.name" />
+          :album="album.name"
+          @click="show_album_details_modal = true" />
       </p>
     </template>
     <template slot="content">

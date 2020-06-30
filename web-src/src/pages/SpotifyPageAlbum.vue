@@ -1,9 +1,8 @@
 <template>
   <content-with-hero>
     <template slot="heading-left">
-      <h1 class="title is-4 fd-has-margin-top">{{ album.name }}</h1>
-      <h2 class="subtitle is-4 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artists[0].name }}</a></h2>
-      <p class="heading has-text-centered-mobile">{{ album.tracks.total }} tracks</p>
+      <h1 class="title is-5">{{ album.name }}</h1>
+      <h2 class="subtitle is-6 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artists[0].name }}</a></h2>
 
       <div class="buttons fd-is-centered-mobile fd-has-margin-top">
         <a class="button is-small is-dark is-rounded" @click="play">
@@ -14,15 +13,19 @@
         </a>
       </div>
     </template>
+
     <template slot="heading-right">
-      <p class="image is-square fd-has-shadow">
+      <p class="image is-square fd-has-shadow fd-has-action">
         <cover-artwork
           :artwork_url="artwork_url"
           :artist="album.artist"
-          :album="album.name" />
+          :album="album.name"
+          @click="show_album_details_modal = true" />
       </p>
     </template>
+
     <template slot="content">
+      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">{{ album.tracks.total }} tracks</p>
       <spotify-list-item-track v-for="(track, index) in album.tracks.items" :key="track.id" :track="track" :position="index" :album="album" :context_uri="album.uri">
         <template slot="actions">
           <a @click="open_track_dialog(track)">
