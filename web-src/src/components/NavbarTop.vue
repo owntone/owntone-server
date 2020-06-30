@@ -57,9 +57,6 @@
             <navbar-item-link to="/search"><span class="icon"><i class="mdi mdi-magnify"></i></span> <b>Search</b></navbar-item-link>
             <hr class="fd-navbar-divider">
 
-            <a class="navbar-item" href="/admin.html">Admin</a>
-            <hr class="fd-navbar-divider">
-
             <navbar-item-link to="/settings/webinterface">Settings</navbar-item-link>
             <navbar-item-link to="/about">About</navbar-item-link>
 
