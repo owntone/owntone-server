@@ -2058,8 +2058,6 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   json_object *item;
   char uri[100];
   char artwork_url[100];
-  char chbuf[6];
-  const char *ch;
   int ret;
 
   item = json_object_new_object();
@@ -2139,15 +2137,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   safe_json_add_string(item, "type", queue_item->type);
   json_object_object_add(item, "bitrate", json_object_new_int(queue_item->bitrate));
   json_object_object_add(item, "samplerate", json_object_new_int(queue_item->samplerate));
-  switch (queue_item->channels)
-    {
-      case 1:  ch = "mono";   break;
-      case 2:  ch = "stereo"; break;
-      default:
-        snprintf(chbuf, sizeof(chbuf), "%d ch", queue_item->channels);
-        ch = chbuf;
-    }
-  safe_json_add_string(item, "channels", ch);
+  json_object_object_add(item, "channels", json_object_new_int(queue_item->channels));
 
   return item;
 }
