@@ -59,7 +59,12 @@
                 </p>
                 <p>
                   <span class="heading">Quality</span>
-                  <span class="title is-6">{{ track.type}} | {{ track.samplerate}} Hz | {{ track.channels }} channels | {{ track.bitrate}} Kb/s</span>
+                  <span class="title is-6">
+                    {{ track.type }}
+                    <span v-if="track.samplerate"> | {{ track.samplerate }} Hz</span>
+                    <span v-if="track.channels"> | {{ track.channels | channels }}</span>
+                    <span v-if="track.bitrate"> | {{ track.bitrate }} Kb/s</span>
+                  </span>
                 </p>
                 <p>
                   <span class="heading">Added at</span>

@@ -24,3 +24,16 @@ Vue.filter('timeFromNow', function (value, withoutSuffix) {
 Vue.filter('number', function (value) {
   return value.toLocaleString()
 })
+
+Vue.filter('channels', function (value) {
+  if (value === 1) {
+    return 'mono'
+  }
+  if (value === 2) {
+    return 'stereo'
+  }
+  if (!value) {
+    return ''
+  }
+  return value + ' channels'
+})

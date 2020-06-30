@@ -53,7 +53,12 @@
                 </p>
                 <p>
                   <span class="heading">Quality</span>
-                  <span class="title is-6">{{ item.type}} | {{ item.samplerate }} Hz | {{ item.channels }} | {{ item.bitrate }} Kb/s</span>
+                  <span class="title is-6">
+                    {{ item.type }}
+                    <span v-if="item.samplerate"> | {{ item.samplerate }} Hz</span>
+                    <span v-if="item.channels"> | {{ item.channels | channels }}</span>
+                    <span v-if="item.bitrate"> | {{ item.bitrate }} Kb/s</span>
+                  </span>
                 </p>
               </div>
             </div>
