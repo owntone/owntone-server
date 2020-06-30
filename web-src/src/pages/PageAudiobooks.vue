@@ -28,7 +28,7 @@ import webapi from '@/webapi'
 
 const albumsData = {
   load: function (to) {
-    return webapi.library_audiobooks()
+    return webapi.library_albums('audiobook')
   },
 
   set: function (vm, response) {

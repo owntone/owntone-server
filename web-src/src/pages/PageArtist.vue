@@ -40,7 +40,7 @@ const artistData = {
   load: function (to) {
     return Promise.all([
       webapi.library_artist(to.params.artist_id),
-      webapi.library_albums(to.params.artist_id)
+      webapi.library_artist_albums(to.params.artist_id)
     ])
   },
 

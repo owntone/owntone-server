@@ -101,7 +101,7 @@ import webapi from '@/webapi'
 const albumsData = {
   load: function (to) {
     return Promise.all([
-      webapi.library_podcasts(),
+      webapi.library_albums('podcast'),
       webapi.library_podcasts_new_episodes()
     ])
   },
@@ -195,7 +195,7 @@ export default {
     },
 
     reload_podcasts: function () {
-      webapi.library_podcasts().then(({ data }) => {
+      webapi.library_albums('podcast').then(({ data }) => {
         this.albums = data
         this.reload_new_episodes()
       })

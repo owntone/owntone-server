@@ -7,8 +7,8 @@
         <index-button-list :index="index_list"></index-button-list>
       </template>
       <template slot="heading-left">
-        <p class="title is-4">Albums</p>
-        <p class="heading">{{ albums.total }} albums</p>
+        <p class="title is-4">Artists</p>
+        <p class="heading">{{ artists.total }} artists</p>
       </template>
       <template slot="heading-right">
         <a class="button is-small" :class="{ 'is-info': hide_singles }" @click="update_hide_singles">
@@ -19,17 +19,17 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in albums_filtered"
-          :key="album.id"
-          :album="album"
-          @click="open_album(album)">
+        <list-item-artist v-for="artist in artists_filtered"
+          :key="artist.id"
+          :artist="artist"
+          @click="open_artist(artist)">
             <template slot="actions">
-              <a @click="open_dialog(album)">
+              <a @click="open_dialog(artist)">
                 <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
               </a>
             </template>
-        </list-item-album>
-        <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
+        </list-item-artist>
+        <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -40,36 +40,32 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemAlbum from '@/components/ListItemAlbum'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ListItemArtist from '@/components/ListItemArtist'
+import ModalDialogArtist from '@/components/ModalDialogArtist'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
-const albumsData = {
+const artistsData = {
   load: function (to) {
-    return webapi.library_albums('music')
+    return webapi.library_artists()
   },
 
   set: function (vm, response) {
-    vm.albums = response.data
-    vm.index_list = [...new Set(vm.albums.items
-      .filter(album => !vm.$store.state.hide_singles || album.track_count > 2)
-      .map(album => album.name_sort.charAt(0).toUpperCase()))]
+    vm.artists = response.data
   }
 }
 
 export default {
-  name: 'PageAlbums',
-  mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbum, ModalDialogAlbum },
+  name: 'PageArtists',
+  mixins: [LoadDataBeforeEnterMixin(artistsData)],
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist, ModalDialogArtist },
 
   data () {
     return {
-      albums: { items: [] },
-      index_list: [],
+      artists: { items: [] },
 
       show_details_modal: false,
-      selected_album: {}
+      selected_artist: {}
     }
   },
 
@@ -78,8 +74,14 @@ export default {
       return this.$store.state.hide_singles
     },
 
-    albums_filtered () {
-      return this.albums.items.filter(album => !this.hide_singles || album.track_count > 2)
+    index_list () {
+      return [...new Set(this.artists.items
+        .filter(artist => !this.$store.state.hide_singles || artist.track_count > (artist.album_count * 2))
+        .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
+    },
+
+    artists_filtered () {
+      return this.artists.items.filter(artist => !this.hide_singles || artist.track_count > (artist.album_count * 2))
     }
   },
 
@@ -88,21 +90,13 @@ export default {
       this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
     },
 
-    open_album: function (album) {
-      this.$router.push({ path: '/music/albums/' + album.id })
+    open_artist: function (artist) {
+      this.$router.push({ path: '/music/artists/' + artist.id })
     },
 
-    open_dialog: function (album) {
-      this.selected_album = album
+    open_dialog: function (artist) {
+      this.selected_artist = artist
       this.show_details_modal = true
-    }
-  },
-
-  watch: {
-    'hide_singles' () {
-      this.index_list = [...new Set(this.albums.items
-        .filter(album => !this.$store.state.hide_singles || album.track_count > 2)
-        .map(album => album.name_sort.charAt(0).toUpperCase()))]
     }
   }
 }

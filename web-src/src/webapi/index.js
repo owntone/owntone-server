@@ -208,11 +208,12 @@ export default {
     return axios.get('/api/library/artists/' + artistId)
   },
 
-  library_albums (artistId) {
-    if (artistId) {
-      return axios.get('/api/library/artists/' + artistId + '/albums')
-    }
-    return axios.get('/api/library/albums?media_kind=music')
+  library_artist_albums (artistId) {
+    return axios.get('/api/library/artists/' + artistId + '/albums')
+  },
+
+  library_albums (media_kind = undefined) {
+    return axios.get('/api/library/albums', { params: { media_kind: media_kind } })
   },
 
   library_album (albumId) {
@@ -278,10 +279,6 @@ export default {
     }
   },
 
-  library_podcasts () {
-    return axios.get('/api/library/albums?media_kind=podcast')
-  },
-
   library_podcasts_new_episodes () {
     var episodesParams = {
       type: 'tracks',
@@ -308,10 +305,6 @@ export default {
 
   library_playlist_delete (playlistId) {
     return axios.delete('/api/library/playlists/' + playlistId, undefined)
-  },
-
-  library_audiobooks () {
-    return axios.get('/api/library/albums?media_kind=audiobook')
   },
 
   library_playlists () {
