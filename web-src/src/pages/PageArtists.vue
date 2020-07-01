@@ -47,7 +47,7 @@ import * as types from '@/store/mutation_types'
 
 const artistsData = {
   load: function (to) {
-    return webapi.library_artists()
+    return webapi.library_artists('music')
   },
 
   set: function (vm, response) {

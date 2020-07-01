@@ -18,6 +18,7 @@ import PageArtistTracks from '@/pages/PageArtistTracks'
 import PagePodcasts from '@/pages/PagePodcasts'
 import PagePodcast from '@/pages/PagePodcast'
 import PageAudiobooks from '@/pages/PageAudiobooks'
+import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists'
 import PageAudiobook from '@/pages/PageAudiobook'
 import PagePlaylists from '@/pages/PagePlaylists'
 import PagePlaylist from '@/pages/PagePlaylist'
@@ -146,9 +147,19 @@ export const router = new VueRouter({
     },
     {
       path: '/audiobooks',
-      name: 'Audiobooks',
+      redirect: '/audiobooks/artists'
+    },
+    {
+      path: '/audiobooks/artists',
+      name: 'AudiobooksArtists',
+      component: PageAudiobooksArtists,
+      meta: { show_progress: true, has_tabs: true }
+    },
+    {
+      path: '/audiobooks/albums',
+      name: 'AudiobooksAlbums',
       component: PageAudiobooks,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/audiobooks/:album_id',

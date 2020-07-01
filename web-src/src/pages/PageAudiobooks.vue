@@ -1,5 +1,7 @@
 <template>
   <div>
+    <tabs-audiobooks></tabs-audiobooks>
+
     <content-with-heading>
       <template slot="heading-left">
         <p class="title is-4">Audiobooks</p>
@@ -21,6 +23,7 @@
 
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
+import TabsAudiobooks from '@/components/TabsAudiobooks'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemAlbum from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
@@ -39,7 +42,7 @@ const albumsData = {
 export default {
   name: 'PageAudiobooks',
   mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { ContentWithHeading, ListItemAlbum, ModalDialogAlbum },
+  components: { TabsAudiobooks, ContentWithHeading, ListItemAlbum, ModalDialogAlbum },
 
   data () {
     return {

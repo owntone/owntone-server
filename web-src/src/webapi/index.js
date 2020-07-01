@@ -200,8 +200,8 @@ export default {
     return axios.put('/api/outputs/' + outputId + '/toggle')
   },
 
-  library_artists () {
-    return axios.get('/api/library/artists?media_kind=music')
+  library_artists (media_kind = undefined) {
+    return axios.get('/api/library/artists', { params: { media_kind: media_kind } })
   },
 
   library_artist (artistId) {
