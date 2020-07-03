@@ -2332,7 +2332,7 @@ queue_tracks_add_byuris(const char *param, int pos, int *total_count)
 }
 
 static int
-queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
+queue_tracks_add_byexpression(const char *param, int pos, int limit, int *total_count)
 {
   char *expression;
   struct smartpl smartpl_expression;
@@ -2344,7 +2344,6 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
 
   query_params.type = Q_ITEMS;
   query_params.sort = S_NAME;
-  query_params.idx_type = I_NONE;
 
   memset(&smartpl_expression, 0, sizeof(struct smartpl));
   expression = safe_asprintf("\"query\" { %s }", param);
@@ -2356,9 +2355,12 @@ queue_tracks_add_byexpression(const char *param, int pos, int *total_count)
 
   query_params.filter = strdup(smartpl_expression.query_where);
   query_params.order = safe_strdup(smartpl_expression.order);
+  query_params.limit = limit > 0 ? limit : smartpl_expression.limit;
   free_smartpl(&smartpl_expression, 1);
 
   player_get_status(&status);
+
+  query_params.idx_type = query_params.limit > 0 ?  I_FIRST : I_NONE;
 
   ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, NULL);
 
@@ -2376,6 +2378,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *param_expression;
   const char *param;
   int pos = -1;
+  int limit = -1;
   bool shuffle;
   int total_count = 0;
   json_object *reply;
@@ -2427,7 +2430,11 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
     }
   else
     {
-      ret = queue_tracks_add_byexpression(param_expression, pos, &total_count);
+      // This overrides the value specified in query
+      param = evhttp_find_header(hreq->query, "limit");
+      if (param)
+        safe_atoi32(param, &limit);
+      ret = queue_tracks_add_byexpression(param_expression, pos, limit, &total_count);
     }
 
   if (ret == 0)
