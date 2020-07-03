@@ -132,6 +132,9 @@
   "   type           INTEGER NOT NULL,"					\
   "   name           VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
   "   persistentid   INTEGER NOT NULL,"					\
+  "   date_released  INTEGER DEFAULT 0,"				\
+  "   data_kind      INTEGER DEFAULT NULL,"				\
+  "   media_kind     INTEGER DEFAULT NULL,"				\
   "CONSTRAINT groups_type_unique_persistentid UNIQUE (type, persistentid)" \
   ");"
 
@@ -414,15 +417,19 @@ static const struct db_init_query db_init_index_queries[] =
 #define TRG_GROUPS_INSERT										\
   "CREATE TRIGGER trg_groups_insert AFTER INSERT ON files FOR EACH ROW"					\
   " BEGIN"												\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);"	\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);"	\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid, date_released, data_kind, media_kind)"	\
+  "     VALUES (1, NEW.album, NEW.songalbumid, NEW.date_released, NEW.data_kind, NEW.media_kind);"	\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid, date_released, data_kind, media_kind)"	\
+  "     VALUES (2, NEW.album_artist, NEW.songartistid, NULL, NULL, NEW.media_kind);"			\
   " END;"
 
 #define TRG_GROUPS_UPDATE										\
   "CREATE TRIGGER trg_groups_update AFTER UPDATE OF songartistid, songalbumid ON files FOR EACH ROW"	\
   " BEGIN"												\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);"	\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);"	\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid, date_released, data_kind, media_kind)"	\
+  "     VALUES (1, NEW.album, NEW.songalbumid, NEW.date_released, NEW.data_kind, NEW.media_kind);"	\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid, date_released, data_kind, media_kind)"	\
+  "     VALUES (2, NEW.album_artist, NEW.songartistid, NULL, NULL, NEW.media_kind);"			\
   " END;"
 
 static const struct db_init_query db_init_trigger_queries[] =

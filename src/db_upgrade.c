@@ -1060,6 +1060,24 @@ static const struct db_upgrade_query db_upgrade_v2104_queries[] =
     { U_v2104_SCVER_MINOR,    "set schema_version_minor to 04" },
   };
 
+#define U_v2105_ALTER_GROUPS_ADD_DATE_RELEASED \
+  "ALTER TABLE groups ADD COLUMN date_released INTEGER DEFAULT 0;"
+#define U_v2105_ALTER_GROUPS_ADD_DATA_KIND \
+  "ALTER TABLE groups ADD COLUMN data_kind INTEGER DEFAULT NULL;"
+#define U_v2105_ALTER_GROUPS_ADD_MEDIA_KIND \
+  "ALTER TABLE groups ADD COLUMN media_kind INTEGER DEFAULT NULL;"
+#define U_v2105_SCVER_MINOR                    \
+  "UPDATE admin SET value = '05' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2105_queries[] =
+  {
+    { U_v2105_ALTER_GROUPS_ADD_DATE_RELEASED, "alter table groups add column date_released" },
+    { U_v2105_ALTER_GROUPS_ADD_DATA_KIND, "alter table groups add column data_kind" },
+    { U_v2105_ALTER_GROUPS_ADD_MEDIA_KIND, "alter table groups add column media_kind" },
+
+    { U_v2105_SCVER_MINOR,    "set schema_version_minor to 05" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1235,6 +1253,14 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       ret = db_generic_upgrade(hdl, db_upgrade_v2104_queries, ARRAY_SIZE(db_upgrade_v2104_queries));
       if (ret < 0)
 	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2104:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2105_queries, ARRAY_SIZE(db_upgrade_v2105_queries));
+      if (ret < 0)
+	return -1;
+
       break;
 
     default:
