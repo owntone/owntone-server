@@ -290,6 +290,9 @@ struct db_playlist_info {
 struct group_info {
   uint32_t id;           /* integer id (miid) */
   uint64_t persistentid; /* ulonglong id (mper) */
+  uint32_t date_released;
+  uint32_t data_kind;
+  uint32_t media_kind;
   char *itemname;        /* album or album_artist (minm) */
   char *itemname_sort;   /* album_sort or album_artist_sort (~mshc) */
   uint32_t itemcount;    /* number of items (mimc) */
@@ -304,6 +307,9 @@ struct group_info {
 struct db_group_info {
   char *id;
   char *persistentid;
+  char *date_released;
+  char *data_kind;
+  char *media_kind;
   char *itemname;
   char *itemname_sort;
   char *itemcount;

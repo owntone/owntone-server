@@ -791,14 +791,14 @@ djb_hash(const void *data, size_t len)
 }
 
 int64_t
-two_str_hash(const char *a, const char *b)
+persistentid_hash(const char *a, const char *b, int data_kind, int media_kind)
 {
   char hashbuf[2048];
   int64_t hash;
   int i;
   int ret;
 
-  ret = snprintf(hashbuf, sizeof(hashbuf), "%s==%s", (a) ? a : "", (b) ? b : "");
+  ret = snprintf(hashbuf, sizeof(hashbuf), "%s==%s==%d==%d", (a) ? a : "", (b) ? b : "", data_kind, media_kind);
   if (ret < 0 || ret == sizeof(hashbuf))
     {
       DPRINTF(E_LOG, L_MISC, "Buffer too large to calculate hash: '%s==%s'\n", a, b);

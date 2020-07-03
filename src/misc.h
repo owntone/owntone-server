@@ -134,7 +134,7 @@ uint32_t
 djb_hash(const void *data, size_t len);
 
 int64_t
-two_str_hash(const char *a, const char *b);
+persistentid_hash(const char *a, const char *b, int data_kind, int media_kind);
 
 uint8_t *
 b64_decode(int *dstlen, const char *src);

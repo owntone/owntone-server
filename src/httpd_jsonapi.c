@@ -151,6 +151,7 @@ static json_object *
 artist_to_json(struct db_group_info *dbgri)
 {
   json_object *item;
+  int intval;
   char uri[100];
   char artwork_url[100];
   int ret;
@@ -158,6 +159,14 @@ artist_to_json(struct db_group_info *dbgri)
   item = json_object_new_object();
 
   safe_json_add_string(item, "id", dbgri->persistentid);
+
+  if (dbgri->media_kind)
+    {
+      ret = safe_atoi32(dbgri->media_kind, &intval);
+      if (ret == 0)
+	safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
+    }
+
   safe_json_add_string(item, "name", dbgri->itemname);
   safe_json_add_string(item, "name_sort", dbgri->itemname_sort);
   safe_json_add_int_from_string(item, "album_count", dbgri->groupalbumcount);
@@ -179,6 +188,7 @@ static json_object *
 album_to_json(struct db_group_info *dbgri)
 {
   json_object *item;
+  int intval;
   char uri[100];
   char artwork_url[100];
   int ret;
@@ -186,6 +196,22 @@ album_to_json(struct db_group_info *dbgri)
   item = json_object_new_object();
 
   safe_json_add_string(item, "id", dbgri->persistentid);
+  safe_json_add_time_from_string(item, "date_released", dbgri->date_released, false);
+
+  if (dbgri->media_kind)
+    {
+      ret = safe_atoi32(dbgri->media_kind, &intval);
+      if (ret == 0)
+	safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
+    }
+
+  if (dbgri->data_kind)
+    {
+      ret = safe_atoi32(dbgri->data_kind, &intval);
+      if (ret == 0)
+	safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
+    }
+
   safe_json_add_string(item, "name", dbgri->itemname);
   safe_json_add_string(item, "name_sort", dbgri->itemname_sort);
   safe_json_add_string(item, "artist", dbgri->songalbumartist);
