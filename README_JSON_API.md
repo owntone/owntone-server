@@ -640,6 +640,7 @@ POST /api/queue/items/add
 | playback_from_position | *(Optional)* If the `playback` parameter is set to `start`, playback will be started with the queue item at the position given in `playback_from_position`. |
 | clear           | *(Optional)* If the `clear` parameter is set to `true`, the queue will be cleared before adding the new items.    |
 | shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.    |
+| limit           | *(Optional)* Maximum number of tracks to add |
 
 Either the `uris` or the `expression` parameter must be set. If both are set the `uris` parameter takes presedence and the `expression` parameter will be ignored.
 
@@ -678,6 +679,16 @@ curl -X POST "http://localhost:3689/api/queue/items/add?expression=media_kind+is
 }
 ```
 
+Clear current queue, add 10 new random tracks of `genre` _Pop_ and start playback
+```
+curl -X POST "http://localhost:3689/api/queue/items/add?limit=10&clear=true&playback=start&expression=genre+is+%22Pop%22+order+by+random+desc"
+```
+
+```json
+{
+  "count": 10
+}
+```
 
 ### Moving a queue item
 

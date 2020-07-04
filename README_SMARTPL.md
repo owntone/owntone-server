@@ -46,6 +46,7 @@ Where valid field-names (with their types) are:
 * `time_modified` (date)
 * `time_played` (date)
 * `time_skipped` (date)
+* `random` (special)
 
 Valid operators include:
 * `is`, `includes`, `starts with` (string)
@@ -85,6 +86,8 @@ It is possible to define the sort order and limit the number of items by adding 
 ```
 
 "sort-direction" is either `ASC` (ascending) or `DESC` (descending). "limit" is the maximum number of items.
+
+There is additionally a special `random` _field-name_ that can be used in conjunction with `limit` to select a random number of items based on current expression.
 
 
 ## Examples
@@ -136,6 +139,16 @@ This would match any podcast and audiobook file that was never played with forke
 ```
 This would match the last 10 music files added to the library.
 
+```
+"Random 10 Rated Pop songs" {
+  rating > 0 and
+  genre is "Pop" and
+  media_kind is music
+  order by random desc
+  limit 10
+}
+```
+This generates a random set of, maximum of 10, rated Pop music tracks every time the playlist is queried.
 
 ## Date operand syntax
 
