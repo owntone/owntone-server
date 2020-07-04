@@ -26,7 +26,8 @@ sudo apt-get install \
   gperf antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
-  libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev
+  libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev \
+  libcurl*-dev
 ```
 
 Optional packages:
@@ -34,8 +35,7 @@ Optional packages:
  Feature             | Configure argument       | Packages
  --------------------|--------------------------|------------------------------------------------
  Chromecast          | `--enable-chromecast`    | libgnutls*-dev libprotobuf-c-dev
- LastFM              | `--enable-lastfm`        | libcurl4-\[gnutls\|openssl\]-dev
- Spotify             | `--enable-spotify`       | libcurl4-\[gnutls\|openssl\]-dev libspotify-dev
+ Spotify             | `--enable-spotify`       | libspotify-dev
  iTunes XML          | `--disable-itunes`       | libplist-dev
  Device verification | `--disable-verification` | libplist-dev libsodium-dev
  Player web UI       | `--disable-webinterface` | libwebsockets-dev
@@ -136,7 +136,7 @@ Afterwards, you can optionally install Oracle's newer version, and then
 ```bash
 sudo port install \
   autoconf automake libtool pkgconfig git gperf libgcrypt \
-  libunistring libconfuse ffmpeg libevent json-c libwebsockets
+  libunistring libconfuse ffmpeg libevent json-c libwebsockets curl
 ```
 
 Download, configure, build and install the Mini-XML library:
@@ -160,7 +160,6 @@ Optional features require the following additional ports:
  Feature             | Configure argument       | Ports
  --------------------|--------------------------|-------------------
  Chromecast          | `--enable-chromecast`    | gnutls protobuf-c
- LastFM              | `--enable-lastfm`        | curl
  iTunes XML          | `--disable-itunes`       | libplist
  Device verification | `--disable-verification` | libplist libsodium
  Pulseaudio          | `--with-pulseaudio`      | pulseaudio
@@ -252,6 +251,8 @@ Libraries:
   from <http://www.gnu.org/software/libunistring/#downloading>
 - libjson-c  
   from <https://github.com/json-c/json-c/wiki>
+- libcurl
+  from <http://curl.haxx.se/libcurl/>
 - libasound (optional - ALSA local audio)  
   often already installed as part of your distro
 - libpulse (optional - Pulseaudio local audio)  
@@ -262,8 +263,6 @@ Libraries:
   from <https://download.libsodium.org/doc/>
 - libspotify (optional - Spotify support)  
   from <https://developer.spotify.com>
-- libcurl (optional - LastFM support)  
-  from <http://curl.haxx.se/libcurl/>
 - libgnutls (optional - Chromecast support)  
   from <http://www.gnutls.org/>
 - libprotobuf-c (optional - Chromecast support)  

@@ -113,6 +113,7 @@ FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
 FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse >= 3.0], [cfg_init], [confuse.h])
+FORK_MODULES_CHECK([FORKED], [LIBCURL], [libcurl], [curl_global_init], [curl/curl.h])
 
 FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml],
 	[mxmlNewElement], [mxml.h],
@@ -248,10 +249,6 @@ FORK_ARG_WITH_CHECK([FORKED_OPTS], [Pulseaudio support], [pulseaudio], [LIBPULSE
 	[AC_CHECK_FUNCS([pa_threaded_mainloop_set_name])])
 AM_CONDITIONAL([COND_PULSEAUDIO], [[test "x$with_pulseaudio" = "xyes"]])
 
-dnl Build with libcurl
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [libcurl support], [libcurl], [LIBCURL],
-	[libcurl], [curl_global_init], [curl/curl.h])
-
 dnl Build with libwebsockets
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
 	[libwebsockets >= 2.0.2])
@@ -284,9 +281,7 @@ AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
 dnl Spotify with dynamic linking to libspotify
 FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
-	[AS_IF([[test "x$with_libcurl" = "xno"]],
-		[AC_MSG_ERROR([[Spotify support requires libcurl]])])
-	 AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
+	[AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
 		[AC_MSG_ERROR([[Spotify support requires libevent_pthreads]])])
 	 FORK_MODULES_CHECK([SPOTIFY], [LIBSPOTIFY], [libspotify],
 		[], [libspotify/api.h])
@@ -300,11 +295,8 @@ FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
 	])
 AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
 
-dnl LastFM support with libcurl
-FORK_ARG_ENABLE([LastFM support], [lastfm], [LASTFM],
-	[AS_IF([[test "x$with_libcurl" = "xno"]],
-		[AC_MSG_ERROR([[LastFM support requires libcurl]])])
-	])
+dnl LastFM support
+FORK_ARG_DISABLE([LastFM support], [lastfm], [LASTFM])
 AM_CONDITIONAL([COND_LASTFM], [[test "x$enable_lastfm" = "xyes"]])
 
 dnl ChromeCast support with libprotobuf-c

@@ -54,6 +54,7 @@
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
+#include <curl/curl.h>
 
 #include <pthread.h>
 #include <gcrypt.h>
@@ -73,10 +74,6 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "library.h"
 #ifdef LASTFM
 # include "lastfm.h"
-#endif
-
-#ifdef HAVE_LIBCURL
-# include <curl/curl.h>
 #endif
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
@@ -684,10 +681,8 @@ main(int argc, char **argv)
 #endif
   av_log_set_callback(logger_ffmpeg);
 
-#ifdef HAVE_LIBCURL
   /* Initialize libcurl */
   curl_global_init(CURL_GLOBAL_DEFAULT);
-#endif
 
   /* Initialize libgcrypt */
   gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
@@ -991,9 +986,7 @@ main(int argc, char **argv)
 
  signal_block_fail:
  gcrypt_init_fail:
-#ifdef HAVE_LIBCURL
   curl_global_cleanup();
-#endif
 #if HAVE_DECL_AVFORMAT_NETWORK_INIT
   avformat_network_deinit();
 #endif
