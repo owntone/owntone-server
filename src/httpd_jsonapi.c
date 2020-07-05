@@ -1889,8 +1889,10 @@ jsonapi_reply_player_next(struct httpd_request *hreq)
   ret = player_playback_next();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Error switching to next item.\n");
-      return HTTP_INTERNAL;
+      // If skipping to the next song failed, it is most likely we reached the end of the queue,
+      // ignore the error (play status change will be reported to the client over the websocket)
+      DPRINTF(E_DBG, L_WEB, "Error switching to next item (possibly end of queue reached).\n");
+      return HTTP_NOCONTENT;
     }
 
   ret = player_playback_start();
