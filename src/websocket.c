@@ -393,6 +393,9 @@ websocket_init(void)
   info.gid = -1;
   info.uid = -1;
 
+  // Set header space to avoid "LWS Ran out of header data space" error
+  info.max_http_header_data = 4096;
+
   // Log levels below NOTICE are only emmited if libwebsockets was built with DEBUG defined
   lws_set_log_level(LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO | LLL_DEBUG,
 		    logger_libwebsockets);
