@@ -49,14 +49,12 @@
             <navbar-item-link to="/music/artists"><span class="fd-navbar-item-level2">Artists</span></navbar-item-link>
             <navbar-item-link to="/music/albums"><span class="fd-navbar-item-level2">Albums</span></navbar-item-link>
             <navbar-item-link to="/music/genres"><span class="fd-navbar-item-level2">Genres</span></navbar-item-link>
+            <navbar-item-link to="/music/radio"><span class="fd-navbar-item-level2">Radio</span></navbar-item-link>
             <navbar-item-link to="/music/spotify" v-if="spotify_enabled"><span class="fd-navbar-item-level2">Spotify</span></navbar-item-link>
             <navbar-item-link to="/podcasts"><span class="icon"><i class="mdi mdi-microphone"></i></span> <b>Podcasts</b></navbar-item-link>
             <navbar-item-link to="/audiobooks"><span class="icon"><i class="mdi mdi-book-open-variant"></i></span> <b>Audiobooks</b></navbar-item-link>
             <navbar-item-link to="/files"><span class="icon"><i class="mdi mdi-folder-open"></i></span> <b>Files</b></navbar-item-link>
             <navbar-item-link to="/search"><span class="icon"><i class="mdi mdi-magnify"></i></span> <b>Search</b></navbar-item-link>
-            <hr class="fd-navbar-divider">
-
-            <a class="navbar-item" href="/admin.html">Admin</a>
             <hr class="fd-navbar-divider">
 
             <navbar-item-link to="/settings/webinterface">Settings</navbar-item-link>

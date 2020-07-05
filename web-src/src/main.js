@@ -7,14 +7,14 @@ import store from './store'
 import './filter'
 import './progress'
 import vClickOutside from 'v-click-outside'
-import 'bulma/css/bulma.css'
+import VueTinyLazyloadImg from 'vue-tiny-lazyload-img'
 import 'mdi/css/materialdesignicons.css'
 import 'vue-range-slider/dist/vue-range-slider.css'
-import './mystyles.css'
-
+import './mystyles.scss'
 Vue.config.productionTip = false
 
 Vue.use(vClickOutside)
+Vue.use(VueTinyLazyloadImg)
 
 /* eslint-disable no-new */
 new Vue({

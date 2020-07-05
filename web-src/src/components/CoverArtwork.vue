@@ -1,15 +1,9 @@
 <template>
   <figure>
-    <img
-      v-show="artwork_visible"
-      :src="artwork_url_with_size"
-      @load="artwork_loaded"
-      @error="artwork_error"
-      @click="$emit('click')">
-    <img
-      v-show="!artwork_visible"
+    <img v-lazyload
       :src="dataURI"
-      :alt="alt_text"
+      :data-src="artwork_url_with_size"
+      :data-err="dataURI"
       @click="$emit('click')">
   </figure>
 </template>
@@ -30,9 +24,7 @@ export default {
       height: 600,
       font_family: 'sans-serif',
       font_size: 200,
-      font_weight: 600,
-
-      artwork_visible: false
+      font_weight: 600
     }
   },
 
@@ -94,16 +86,6 @@ export default {
 
     dataURI () {
       return this.svg.render(this.rendererParams)
-    }
-  },
-
-  methods: {
-    artwork_loaded: function () {
-      this.artwork_visible = true
-    },
-
-    artwork_error: function () {
-      this.artwork_visible = false
     }
   }
 }

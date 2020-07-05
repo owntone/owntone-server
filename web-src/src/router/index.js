@@ -22,6 +22,7 @@ import PageAudiobook from '@/pages/PageAudiobook'
 import PagePlaylists from '@/pages/PagePlaylists'
 import PagePlaylist from '@/pages/PagePlaylist'
 import PageFiles from '@/pages/PageFiles'
+import PageRadioStreams from '@/pages/PageRadioStreams'
 import PageSearch from '@/pages/PageSearch'
 import PageAbout from '@/pages/PageAbout'
 import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse'
@@ -124,6 +125,12 @@ export const router = new VueRouter({
       name: 'GenreTracks',
       component: PageGenreTracks,
       meta: { show_progress: true, has_index: true }
+    },
+    {
+      path: '/music/radio',
+      name: 'Radio',
+      component: PageRadioStreams,
+      meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/podcasts',

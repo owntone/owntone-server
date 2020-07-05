@@ -1,4 +1,7 @@
 
+@import 'bulma';
+
+
 .slider {
   min-width: 250px;
   width: 100%;
@@ -98,6 +101,10 @@ a.navbar-item {
 
 section.fd-tabs-section + section.fd-content {
   margin-top: 24px;
+}
+
+section.hero + section.fd-content {
+  padding-top: 0;
 }
 
 .fd-progress-bar {
@@ -246,4 +253,43 @@ hr.fd-navbar-divider {
 .fd-bottom-navbar .navbar-menu {
   max-height: calc(100vh - 3.25rem - 3.25rem - 1rem);
   overflow: scroll;
+}
+
+
+.buttons {
+  @include mobile {
+      &.fd-is-centered-mobile {
+        justify-content: center;
+        &:not(.has-addons) {
+          .button:not(.is-fullwidth) {
+            margin-left: 0.25rem;
+            margin-right: 0.25rem;
+          }
+        }
+      }
+  }
+}
+
+.column {
+  &.fd-has-cover {
+    max-height: 150px;
+    max-width: 150px;
+    @include mobile {
+      margin: auto;
+    }
+    @include from($tablet) {
+      margin: auto 0 auto auto;
+    }
+  }
+}
+
+.fd-overlay-fullscreen {
+  @extend .is-overlay;
+  z-index:25;
+  background-color: rgba(10, 10, 10, 0.2);
+  position: fixed;
+}
+
+.hero-body {
+  padding: 1.5rem !important;
 }
