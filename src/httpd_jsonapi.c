@@ -1252,6 +1252,15 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_spotify_logout(struct httpd_request *hreq)
+{
+#ifdef HAVE_SPOTIFY_H
+  spotify_logout();
+#endif
+  return HTTP_NOCONTENT;
+}
+
+static int
 jsonapi_reply_lastfm(struct httpd_request *hreq)
 {
   json_object *jreply;
@@ -4217,6 +4226,7 @@ static struct httpd_uri_map adm_handlers[] =
       EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },
     { EVHTTP_REQ_PUT,    "^/api/rescan$",                                jsonapi_reply_meta_rescan },
     { EVHTTP_REQ_POST,   "^/api/spotify-login$",                         jsonapi_reply_spotify_login },
+    { EVHTTP_REQ_GET,    "^/api/spotify-logout$",                        jsonapi_reply_spotify_logout },
     { EVHTTP_REQ_GET,    "^/api/spotify$",                               jsonapi_reply_spotify },
     { EVHTTP_REQ_GET,    "^/api/pairing$",                               jsonapi_reply_pairing_get },
     { EVHTTP_REQ_POST,   "^/api/pairing$",                               jsonapi_reply_pairing_pair },

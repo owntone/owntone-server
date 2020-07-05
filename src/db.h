@@ -762,7 +762,6 @@ db_pairing_add(struct pairing_info *pi);
 int
 db_pairing_fetch_byguid(struct pairing_info *pi);
 
-#ifdef HAVE_SPOTIFY_H
 /* Spotify */
 void
 db_spotify_purge(void);
@@ -772,7 +771,6 @@ db_spotify_pl_delete(int id);
 
 void
 db_spotify_files_delete(void);
-#endif
 
 /* Admin */
 int

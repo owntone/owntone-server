@@ -51,6 +51,9 @@ void
 spotify_login(char **arglist);
 
 void
+spotify_logout(void);
+
+void
 spotify_status_info_get(struct spotify_status_info *info);
 
 void
