@@ -39,6 +39,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
@@ -366,7 +367,7 @@ handle_progress(struct input_metadata *m, char *progress)
   m->pos_ms = (pos - start) * 1000 / pipe_sample_rate;
   m->len_ms = (end > start) ? (end - start) * 1000 / pipe_sample_rate : 0;
 
-  DPRINTF(E_DBG, L_PLAYER, "Received Shairport metadata progress: %ld/%ld/%ld => %d/%u ms\n", start, pos, end, m->pos_ms, m->len_ms);
+  DPRINTF(E_DBG, L_PLAYER, "Received Shairport metadata progress: %" PRIi64 "/%" PRIi64 "/%" PRIi64 " => %d/%u ms\n", start, pos, end, m->pos_ms, m->len_ms);
 }
 
 static void
