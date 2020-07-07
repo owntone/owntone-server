@@ -17,7 +17,7 @@
     "mdi": "^2.2.43",
     "moment": "^2.27.0",
     "moment-duration-format": "^2.3.2",
-    "npm": "^6.14.5",
+    "npm": "^6.14.6",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.4.0",
     "string-to-color": "^2.1.4",
