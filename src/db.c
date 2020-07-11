@@ -6947,6 +6947,67 @@ db_statements_prepare(void)
 }
 
 int
+db_backup()
+{
+  int ret;
+  sqlite3 *backup_hdl;
+  sqlite3_backup *backup;
+  const char *backup_path;
+
+  char resolved_bp[PATH_MAX];
+  char resolved_dbp[PATH_MAX];
+
+  backup_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_backup_path");
+  if (!backup_path)
+    {
+      DPRINTF(E_LOG, L_DB, "Backup not enabled, 'db_backup_path' is unset\n");
+      return -2;
+    }
+
+  if (realpath(db_path, resolved_dbp) == NULL || realpath(backup_path, resolved_bp) == NULL)
+    {
+      DPRINTF(E_LOG, L_DB, "Failed to resolve real path of db/backup path: %s\n", strerror(errno));
+      goto error;
+    }
+
+  if (strcmp(resolved_bp, resolved_dbp) == 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Backup path same as main db path, ignoring\n");
+      return -2;
+    }
+
+  DPRINTF(E_INFO, L_DB, "Backup starting...\n");
+
+  ret = sqlite3_open(backup_path, &backup_hdl);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_WARN, L_DB, "Failed to create backup '%s': %s\n", backup_path, sqlite3_errmsg(backup_hdl));
+      goto error;
+    }
+
+  backup = sqlite3_backup_init(backup_hdl, "main", hdl, "main");
+  if (!backup)
+    {
+      DPRINTF(E_WARN, L_DB, "Failed to initiate backup '%s': %s\n", backup_path, sqlite3_errmsg(backup_hdl));
+      goto error;
+    }
+
+  ret = sqlite3_backup_step(backup, -1);
+  sqlite3_backup_finish(backup);
+  sqlite3_close(backup_hdl);
+
+  if (ret == SQLITE_DONE || ret == SQLITE_OK)
+    DPRINTF(E_INFO, L_DB, "Backup complete to '%s'\n", backup_path);
+  else
+    DPRINTF(E_WARN, L_DB, "Failed to complete backup '%s': %s (%d)\n", backup_path, sqlite3_errstr(ret), ret);
+
+  return ret;
+
+error:
+  return -1;
+}
+
+int
 db_perthread_init(void)
 {
   int ret;
