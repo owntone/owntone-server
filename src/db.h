@@ -938,6 +938,8 @@ db_watch_enum_end(struct watch_enum *we);
 int
 db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd);
 
+int
+db_backup();
 
 int
 db_perthread_init(void);
