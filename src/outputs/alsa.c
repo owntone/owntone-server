@@ -247,7 +247,7 @@ dump_card(int card, snd_ctl_card_info_t *info)
   if (mixerstr[0] == '\0')
     sprintf(mixerstr, " (no mixers found)");
 
-  DPRINTF(E_INFO, L_LAUDIO, "Available ALSA playback mixer(s) on '%s' (%s):%s\n", hwdev, snd_ctl_card_info_get_name(info), mixerstr);
+  DPRINTF(E_INFO, L_LAUDIO, "Available ALSA playback mixer(s) on %s CARD=%s (%s):%s\n", hwdev, snd_ctl_card_info_get_id(info), snd_ctl_card_info_get_name(info), mixerstr);
 
 errormixer:
   snd_mixer_close(mixer);
