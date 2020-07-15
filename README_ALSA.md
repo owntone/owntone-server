@@ -2,8 +2,29 @@
 
 ALSA is one of the main output configuration options for local audio; when using ALSA you will typically let the system select the soundcard on your machine as the `default` device/sound card - a mixer associated with the ALSA device is used for volume control.  However if your machine has multiple sound cards and your system chooses the wrong playback device, you will need to manually select the card and mixer to complete the `forked daapd` configuration.
 
+## Quick introduction to ALSA devices
+ALSA devices can be addressed in a number ways but traditionally we have referred to them using the hardware prefix, card number and optionally device number with something like `hw:0` or `hw:0,1`.  In ALSA configuration terms `card X, device Y` is known as `hw:X,Y`.
+
+ALSA has other _prefixes_ for each card and most importantly `plughw`.  The `plughw` performs transparent sample format and sample rate conversions and maybe a better choice for many users rather than `hw:` which would fail when provided unsupported audio formats/sample rates.
+
+Alternative ALSA names can be used to refer to physical ALSA devices and can be useful in a number of ways:
+* more descriptive rather than being a card number
+* consistent for USB numeration - USB ALSA devices may not have the same card number across reboots/reconnects
+
+The ALSA device information required for configuration the server can be deterined using `aplay`, as described in the rest of this document, but `forked-daapd` can also assist; when configured to log at `INFO` level the following information is provided during startup:
 ```
-# example audio section for server
+laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
+laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
+laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwire 3210 Seri): 'Sidetone' 'Headset'
+```
+The `CARD=` string is the alternate ALSA name for the device and can be used in place of the traditional `hw:x` name.
+
+On this machine the server reports that it can see the onboard HDA Intel sound card and two additional sound cards: a Topping E30 DAC and a Plantronics Headset which are both USB devices.  We can address the first ALSA device as `hw:0` or `hw:CARD=Intel` or `hw:Intel` or `plughw:Intel`, the second ALSA device as `hw:1` or `hw:E30` and so forth.  The latter 2 devices being on USB will mean that `hw:1` may not always refer to `hw:E30` and thus in such a case using the alternate name is useful.
+
+## Configuring the server
+`forked-daapd` can support a single ALSA device or multiple ALSA devices.
+```
+# example audio section for server for a single soundcard
 audio {
     nickname = "Computer"
     type = "alsa"
@@ -13,8 +34,25 @@ audio {
     mixer_device = "hw:1"   # defaults to same as 'card' value
 }
 ```
+Multiple devices can be made available to `forked-daapd` using seperate `alsa { .. }` sections.
+```
+audio {
+    type = "alsa"
+}
 
-To verify if the `default` sound device is correct for playback, we will use the `aplay` utility.
+alsa "hw:1" {
+    nickname = "Computer"
+    mixer = "Analogue"
+    mixer_device = "hw:1"
+}
+
+alsa "hw:2" {
+    nickname = "Second ALSA device"
+}
+```
+NB: When introducing `alsa { .. }` section(s) the ALSA specific configuration in the `audio { .. }` section will be ignored.
+
+If there is only one sound card, verify if the `default` sound device is correct for playback, we will use the `aplay` utility.
 
 ```
 # generate some audio if you don't have a wav file to hand
@@ -24,10 +62,40 @@ $ aplay -Ddefault /tmp/sine441.wav
 ```
 If you can hear music played then you are good to use `default` for the server configuration.  If you can not hear anything from the `aplay` firstly verify (using `alsamixer`) that the sound card is not muted.  If the card is not muted AND there is no sound you can try the options below to determine the card and mixer for configuring the server.
 
-The example below is how I determined the correct sound card and mixer values for a Raspberry Pi that has an additional DAC card (hat) mounted.
+## Automatically Determine ALL relevant the sound card information
+As shown above, `forked-daapd` can help, consider the information that logged:
+```
+laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
+laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
+laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwire 3210 Seri): 'Sidetone' 'Headset'
+```
+Using the information above, we can see 3 soundcards that we could use with `forked-daap` with the first soundcard having a number of seperate mixer devices (volume control) for headphone and the interal speakers - we'll configure the server to use both these and also the E30 device.  The server configuration for theese multiple outputs would be:
+```
+# using ALSA device alias where possible
 
+alsa "hw:Intel" {
+    nickname = "Computer - Speaker"
+    mixer = "Speaker"
+}
 
-## Determining the sound cards you have / ALSA can see
+alsa "hw:Intel" {
+    nickname = "Computer - Headphones"
+    mixer = "Headphone"
+}
+
+alsa "plughw:E30" {
+    # this E30 device only support S32_LE so we can use the 'plughw' prefix to
+    # add transparent conversion support of more common S16/S24_LE formats
+
+    nickname = "E30 DAC"
+    mixer = "E30 "
+    mixer_device = "hw:E30"
+}
+```
+NB: it is troublesome to use `hw` or `plughw` ALSA addressing when running `forked-daapd` on a machine with `pulseaudio` and if you wish to use refer to ALSA devices directly that you stop `pulseaudio`.
+
+## Manually Determining the sound cards you have / ALSA can see
+The example below is how I determined the correct sound card and mixer values for a Raspberry Pi that has an additional DAC card (hat) mounted.  Of course using the log output from the server would have given the same results.
 
 Use `aplay -l` to list all the sound cards and their order as known to the system - you can have multiple `card X, device Y` entries; some cards can also have multiple playback devices such as the RPI's onboard soundcard which feeds both headphone (card 0, device 0) and HDMI (card 0, device 1).
 ```
@@ -51,7 +119,7 @@ card 1: IQaudIODAC [IQaudIODAC], device 0: IQaudIO DAC HiFi pcm512x-hifi-0 []
 ```
 On this machine we see the second sound card installed, an IQaudIODAC dac hat, and identified as `card 1 device 0`.  This is the playback device we want to be used by the server.
 
-In ALSA configuration terms `card X, device Y` is known as `hw:X,Y` which is the format used for the server configuration: `hw:1,0` is the IQaudIODAC that we want to use - we verify audiable playback through that sound card using `aplay -Dhw:1 /tmp/sine441.wav`.  If the card has only one device, we can simply refer to the sound card using `hw:X` so in this case where the IQaudIODAC only has one device, we can refer to this card as `hw:1` or `hw:1,0`.
+`hw:1,0` is the IQaudIODAC that we want to use - we verify audiable playback through that sound card using `aplay -Dhw:1 /tmp/sine441.wav`.  If the card has only one device, we can simply refer to the sound card using `hw:X` so in this case where the IQaudIODAC only has one device, we can refer to this card as `hw:1` or `hw:1,0`.
 
 Use `aplay -L` to get more information about the PCM devices defined on the system.
 ```
@@ -272,30 +340,6 @@ audio {
     card="dac"
     mixer="Analogue"
     mixer_device="hw:1"
-}
-```
-
-## Multiple devices
-
-If your machine has multiple physical devices like our Raspberry Pi example above (the DAC hat and the onboard headphone jack), we can make all these devices available to `forked-daapd` using seperate `alsa { .. }` sections.
-
-NB: When introducing `alsa { .. }` section(s) the ALSA specific configuration in the `audio { .. }` section will be ignored.
-
-For example:
-```
-audio {
-    type = "alsa"
-}
-
-alsa "dac" {
-    mixer="Analogue"
-    mixer_device="hw:1"
-}
-
-alsa "hw:0,0" {
-    nickname = "headphones"
-    mixer = "PCM"
-    mixer_device = "hw:0"
 }
 ```
 
