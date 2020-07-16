@@ -48,11 +48,19 @@ static struct settings_option misc_options[] =
       { "streamurl_keywords_length", SETTINGS_TYPE_STR },
   };
 
+static struct settings_option player_options[] =
+  {
+      { "player_mode_repeat", SETTINGS_TYPE_INT },
+      { "player_mode_shuffle", SETTINGS_TYPE_BOOL },
+      { "player_mode_consume", SETTINGS_TYPE_BOOL },
+  };
+
 static struct settings_category categories[] =
   {
       { "webinterface", webinterface_options, ARRAY_SIZE(webinterface_options) },
       { "artwork", artwork_options, ARRAY_SIZE(artwork_options) },
       { "misc", misc_options, ARRAY_SIZE(misc_options) },
+      { "player", player_options, ARRAY_SIZE(player_options) },
   };
 
 
@@ -104,7 +112,7 @@ artwork_coverartarchive_default_getbool(struct settings_option *option)
 /* ------------------------------ IMPLEMENTATION -----------------------------*/
 
 int
-settings_categories_count()
+settings_categories_count(void)
 {
   return ARRAY_SIZE(categories);
 }
@@ -138,15 +146,6 @@ settings_option_count(struct settings_category *category)
 }
 
 struct settings_option *
-settings_option_get_byindex(struct settings_category *category, int index)
-{
-  if (index < 0 || !category || category->count_options <= index)
-    return NULL;
-
-  return &category->options[index];
-}
-
-struct settings_option *
 settings_option_get(struct settings_category *category, const char *name)
 {
   int i;
@@ -161,6 +160,15 @@ settings_option_get(struct settings_category *category, const char *name)
     }
 
   return NULL;
+}
+
+struct settings_option *
+settings_option_get_byindex(struct settings_category *category, int index)
+{
+  if (index < 0 || !category || category->count_options <= index)
+    return NULL;
+
+  return &category->options[index];
 }
 
 
@@ -221,6 +229,7 @@ settings_option_getstr(struct settings_option *option)
   return NULL;
 }
 
+
 int
 settings_option_setint(struct settings_option *option, int value)
 {
@@ -247,6 +256,7 @@ settings_option_setstr(struct settings_option *option, const char *value)
 
   return db_admin_set(option->name, value);
 }
+
 
 int
 settings_option_delete(struct settings_option *option)

@@ -77,6 +77,7 @@
 #include "db.h"
 #include "logger.h"
 #include "conffile.h"
+#include "settings.h"
 #include "misc.h"
 #include "player.h"
 #include "worker.h"
@@ -124,6 +125,11 @@
 // Shorthand condition for outputs_start and outputs_device_start, both need to
 // know if they should only probe the device, or fully start it.
 #define PLAYER_ONLY_PROBE (player_state != PLAY_PLAYING)
+
+// Name of settings used by player
+#define PLAYER_SETTINGS_MODE_REPEAT "player_mode_repeat"
+#define PLAYER_SETTINGS_MODE_SHUFFLE "player_mode_shuffle"
+#define PLAYER_SETTINGS_MODE_CONSUME "player_mode_consume"
 
 //#define DEBUG_PLAYER 1
 
@@ -294,9 +300,10 @@ static struct commands_base *cmdbase;
 // from the player thread (where we can't use player_playback_pause)
 static int player_flush_pending;
 
-// Config values
+// Config values and player settings category
 static int speaker_autoselect;
 static int clear_queue_on_stop_disabled;
+static struct settings_category *player_settings_category;
 
 // Player status
 static enum play_status player_state;
@@ -2935,6 +2942,9 @@ repeat_set(void *arg, int *retval)
 	return COMMAND_END;
     }
 
+  // Persist
+  SETTINGS_SETINT(player_settings_category, PLAYER_SETTINGS_MODE_REPEAT, repeat);
+
   *retval = 0;
   return COMMAND_END;
 }
@@ -2967,6 +2977,9 @@ shuffle_set(void *arg, int *retval)
   // Update shuffle mode
   shuffle = new_shuffle;
 
+  // Persist
+  SETTINGS_SETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_SHUFFLE, shuffle);
+
  out:
   *retval = 0;
   return COMMAND_END;
@@ -2978,6 +2991,9 @@ consume_set(void *arg, int *retval)
   union player_arg *cmdarg = arg;
 
   consume = cmdarg->intval;
+
+  // Persist
+  SETTINGS_SETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_CONSUME, consume);
 
   *retval = 0;
   return COMMAND_END;
@@ -3540,8 +3556,13 @@ player_init(void)
   speaker_autoselect = cfg_getbool(cfg_getsec(cfg, "general"), "speaker_autoselect");
   clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
 
+  CHECK_NULL(L_PLAYER, player_settings_category = settings_category_get("player"));
+  ret = SETTINGS_GETINT(player_settings_category, PLAYER_SETTINGS_MODE_REPEAT);
+  repeat = (ret > 0) ? ret : REPEAT_OFF;
+  shuffle = SETTINGS_GETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_SHUFFLE);
+  consume = SETTINGS_GETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_CONSUME);
+
   player_state = PLAY_STOPPED;
-  repeat = REPEAT_OFF;
 
   CHECK_NULL(L_PLAYER, history = calloc(1, sizeof(struct player_history)));
 
