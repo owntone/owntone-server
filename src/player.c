@@ -1466,15 +1466,21 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
     {
       DPRINTF(E_LOG, L_PLAYER, "Output device disappeared during streaming!\n");
     }
-  else if (status == OUTPUT_STATE_FAILED)
+  else if (status == OUTPUT_STATE_FAILED && player_state == PLAY_PLAYING)
     {
-      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed - attempting reconnect in %d sec\n", device->type_name, device->name, PLAYER_SPEAKER_RESURRECT_TIME);
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed during playback - attempting reconnect in %d sec\n", device->type_name, device->name, PLAYER_SPEAKER_RESURRECT_TIME);
 
       if (outputs_sessions_count() == 0)
 	pb_suspend();
 
       // TODO do this internally instead of through the worker
       worker_execute(player_speaker_resurrect, &(device->id), sizeof(device->id), PLAYER_SPEAKER_RESURRECT_TIME);
+    }
+  else if (status == OUTPUT_STATE_FAILED)
+    {
+      // The device can fail outside of playback, e.g. if it disconnects after a
+      // flush command
+      DPRINTF(E_WARN, L_PLAYER, "The %s device '%s' failed\n", device->type_name, device->name);
     }
   else if (status == OUTPUT_STATE_STOPPED)
     {
@@ -1500,15 +1506,22 @@ device_volume_cb(struct output_device *device, enum output_device_state status)
       DPRINTF(E_LOG, L_PLAYER, "Output device disappeared before command completion!\n");
       goto out;
     }
+  else if (status == OUTPUT_STATE_FAILED)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed during execution of volume command\n", device->type_name, device->name);
+      goto out;
+    }
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_volume_cb (status %d)\n", device->type_name, device->name, status);
 
   outputs_device_cb_set(device, device_streaming_cb);
 
-  if (status == OUTPUT_STATE_FAILED)
-    device_streaming_cb(device, status);
-
  out:
+  // If a failure occurred when setting the volume, and we also don't have other
+  // active sessions, then we suspend playback
+  if (outputs_sessions_count() == 0)
+    pb_suspend();
+
   commands_exec_end(cmdbase, 0);
 }
 
@@ -1520,11 +1533,13 @@ device_flush_cb(struct output_device *device, enum output_device_state status)
       DPRINTF(E_LOG, L_PLAYER, "Output device disappeared before flush completion!\n");
       goto out;
     }
+  else if (status == OUTPUT_STATE_FAILED)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed during execution of flush command\n", device->type_name, device->name);
+      goto out;
+    }
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_flush_cb (status %d)\n", device->type_name, device->name, status);
-
-  if (status == OUTPUT_STATE_FAILED)
-    device_streaming_cb(device, status);
 
   // Used by pb_suspend - is basically the bottom half
   if (player_flush_pending > 0)
