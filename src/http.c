@@ -115,8 +115,7 @@ http_client_request(struct http_client_ctx *ctx)
   curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
   curl_easy_setopt(curl, CURLOPT_URL, ctx->url);
 
-  snprintf(header, sizeof(header), "Icy-MetaData: 1");
-  headers = curl_slist_append(NULL, header);
+  headers = NULL;
   if (ctx->output_headers)
     {
       for (okv = ctx->output_headers->head; okv; okv = okv->next)
@@ -124,8 +123,9 @@ http_client_request(struct http_client_ctx *ctx)
 	  snprintf(header, sizeof(header), "%s: %s", okv->name, okv->value);
 	  headers = curl_slist_append(headers, header);
         }
+
+      curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
   if (ctx->headers_only)
     curl_easy_setopt(curl, CURLOPT_NOBODY, 1L); // Makes curl make a HEAD request
@@ -348,7 +348,6 @@ http_stream_setup(char **stream, const char *url)
 /* ======================= ICY metadata handling =============================*/
 
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
 static int
 metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 {
@@ -496,96 +495,6 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 */
   return metadata;
 }
-
-#elif defined(HAVE_LIBEVENT2_OLD)
-struct http_icy_metadata *
-http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
-{
-  DPRINTF(E_INFO, L_HTTP, "Skipping Shoutcast metadata request for %s (requires libevent>=2.1.4 or libav 10)\n", fmtctx->filename);
-  return NULL;
-}
-
-#else
-/* Earlier versions of ffmpeg/libav do not seem to allow access to the http
- * headers, so we must instead open the stream ourselves to get the metadata.
- * Sorry about the extra connections, you radio streaming people!
- *
- * It is not possible to get the packet metadata with these versions of ffmpeg
- */
-struct http_icy_metadata *
-http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
-{
-  struct http_icy_metadata *metadata;
-  struct http_client_ctx ctx;
-  struct keyval *kv;
-  const char *value;
-  int got_header;
-  int ret;
-
-  /* Can only get header metadata */
-  if (packet_only)
-    return NULL;
-
-  kv = keyval_alloc();
-  if (!kv)
-    return NULL;
-
-  memset(&ctx, 0, sizeof(struct http_client_ctx));
-  ctx.url = fmtctx->filename;
-  ctx.input_headers = kv;
-  ctx.headers_only = 1;
-  ctx.input_body = NULL;
-
-  ret = http_client_request(&ctx);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_HTTP, "Error fetching %s\n", fmtctx->filename);
-
-      free(kv);
-      return NULL;
-    }
-
-  CHECK_NULL(L_HTTP, metadata = calloc(1, sizeof(struct http_icy_metadata)));
-
-  got_header = 0;
-  if ( (value = keyval_get(ctx.input_headers, "icy-name")) && value[0] != '\0' )
-    {
-      metadata->name = strdup(value);
-      got_header = 1;
-    }
-  if ( (value = keyval_get(ctx.input_headers, "icy-description")) && value[0] != '\0' )
-    {
-      metadata->description = strdup(value);
-      got_header = 1;
-    }
-  if ( (value = keyval_get(ctx.input_headers, "icy-genre")) && value[0] != '\0' )
-    {
-      metadata->genre = strdup(value);
-      got_header = 1;
-    }
-
-  keyval_clear(kv);
-  free(kv);
-
-  if (!got_header)
-   {
-     free(metadata);
-     return NULL;
-   }
-
-/*  DPRINTF(E_DBG, L_HTTP, "Found ICY: N %s, D %s, G %s, T %s, A %s, U %s, I %" PRIu32 "\n",
-	metadata->name,
-	metadata->description,
-	metadata->genre,
-	metadata->title,
-	metadata->artist,
-	metadata->url,
-	metadata->hash
-	);*/
-
-  return metadata;
-}
-#endif
 
 void
 http_icy_metadata_free(struct http_icy_metadata *metadata, int content_only)
