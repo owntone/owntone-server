@@ -3005,7 +3005,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
 
   if ((req[0] != 0x80) || (req[1] != 0xd2))
     {
-      DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match timing request\n");
+      DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match timing request (got 0x%02x%02x, expected 0x80d2)\n", req[0], req[1]);
 
       goto readd;
     }
@@ -3295,7 +3295,7 @@ raop_v2_control_cb(int fd, short what, void *arg)
 
   if ((req[0] != 0x80) || (req[1] != 0xd5))
     {
-      DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match retransmit request\n");
+      DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match retransmit request (got 0x%02x%02x, expected 0x80d5)\n", req[0], req[1]);
 
       goto readd;
     }
