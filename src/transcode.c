@@ -233,7 +233,15 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
       case XCODE_JPEG:
 	settings->encode_video = 1;
 	settings->silent = 1;
+// With ffmpeg 4.3 (> libavformet 58.29) "image2" only works for actual file
+// output. It's possible we should have used "image2pipe" all along, but since
+// "image2" has been working we only replace it going forward.
+#if (LIBAVFORMAT_VERSION_MAJOR > 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR > 29))
+	settings->format = "image2pipe";
+#else
 	settings->format = "image2";
+#endif
+
 	settings->in_format = "mjpeg";
 	settings->pix_fmt = AV_PIX_FMT_YUVJ420P;
 	settings->video_codec = AV_CODEC_ID_MJPEG;
@@ -242,7 +250,12 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
       case XCODE_PNG:
 	settings->encode_video = 1;
 	settings->silent = 1;
+// See explanation above
+#if (LIBAVFORMAT_VERSION_MAJOR > 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR > 29))
+	settings->format = "image2pipe";
+#else
 	settings->format = "image2";
+#endif
 	settings->pix_fmt = AV_PIX_FMT_RGB24;
 	settings->video_codec = AV_CODEC_ID_PNG;
 	break;
@@ -572,7 +585,10 @@ encode_write(struct encode_ctx *ctx, struct stream_ctx *s, AVFrame *filt_frame)
 
       ret = av_interleaved_write_frame(ctx->ofmt_ctx, ctx->encoded_pkt);
       if (ret < 0)
-	break;
+        {
+	  DPRINTF(E_WARN, L_XCODE, "av_interleaved_write_frame() failed: %s\n", err2str(ret));
+	  break;
+        }
     }
 
   return ret;
