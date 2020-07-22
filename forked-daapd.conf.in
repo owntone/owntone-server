@@ -300,6 +300,11 @@ audio {
 	# present. The speaker will remain until restart of forked-daapd.
 #	permanent = false
 
+	# Some devices spuriously disconnect during playback, and based on the
+	# device type forked-daapd may attempt to reconnect. Setting this option
+	# overrides this so reconnecting is either always enabled or disabled.
+#	reconnect = false
+
 	# AirPlay password
 #	password = "s1kr3t"
 #}

@@ -1466,21 +1466,25 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
     {
       DPRINTF(E_LOG, L_PLAYER, "Output device disappeared during streaming!\n");
     }
-  else if (status == OUTPUT_STATE_FAILED && player_state == PLAY_PLAYING)
+  else if (status == OUTPUT_STATE_FAILED)
     {
-      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' failed during playback - attempting reconnect in %d sec\n", device->type_name, device->name, PLAYER_SPEAKER_RESURRECT_TIME);
+      DPRINTF(E_WARN, L_PLAYER, "The %s device '%s' failed\n", device->type_name, device->name);
+
+      // The device can fail outside of playback, e.g. if it disconnects after a
+      // flush command
+      if (player_state != PLAY_PLAYING)
+	goto out;
 
       if (outputs_sessions_count() == 0)
 	pb_suspend();
 
+      if (!device->resurrect)
+	goto out;
+
+      DPRINTF(E_LOG, L_PLAYER, "Attempting reconnection in %d sec to the %s device '%s'\n", PLAYER_SPEAKER_RESURRECT_TIME, device->type_name, device->name);
+
       // TODO do this internally instead of through the worker
       worker_execute(player_speaker_resurrect, &(device->id), sizeof(device->id), PLAYER_SPEAKER_RESURRECT_TIME);
-    }
-  else if (status == OUTPUT_STATE_FAILED)
-    {
-      // The device can fail outside of playback, e.g. if it disconnects after a
-      // flush command
-      DPRINTF(E_WARN, L_PLAYER, "The %s device '%s' failed\n", device->type_name, device->name);
     }
   else if (status == OUTPUT_STATE_STOPPED)
     {
@@ -1492,6 +1496,7 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
       outputs_device_cb_set(device, device_streaming_cb);
     }
 
+ out:
   // We don't do this in the other cb's because they are triggered by a command
   // and thus the update should be done as part of the command completion (which
   // can better determine which type of listener event to use)

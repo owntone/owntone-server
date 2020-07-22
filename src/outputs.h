@@ -119,6 +119,7 @@ struct output_device
   unsigned v6_disabled:1;
   unsigned prevent_playback:1;
   unsigned busy:1;
+  unsigned resurrect:1;
 
   // Credentials if relevant
   const char *password;

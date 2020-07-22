@@ -123,6 +123,7 @@ enum raop_devtype {
   RAOP_DEV_APEX3_80211N,
   RAOP_DEV_APPLETV,
   RAOP_DEV_APPLETV4,
+  RAOP_DEV_HOMEPOD,
   RAOP_DEV_OTHER,
 };
 
@@ -307,6 +308,7 @@ static const char *raop_devtype[] =
   "AirPort Express 3 - 802.11n",
   "AppleTV",
   "AppleTV4",
+  "HomePod",
   "Other",
 };
 
@@ -2124,10 +2126,9 @@ session_make(struct output_device *rd, int callback_id, bool only_probe)
 	rs->auth_quirk_itunes = 0;
 	break;
 
-      case RAOP_DEV_OTHER:
+      default:
 	rs->encrypt = re->encrypt;
 	rs->auth_quirk_itunes = 0;
-	break;
     }
 
   ret = session_connection_setup(rs, rd, AF_INET6);
@@ -4408,7 +4409,10 @@ raop_verification_verify(struct raop_session *rs)
 /* ------------------ RAOP devices discovery - mDNS callback ---------------- */
 /*                              Thread: main (mdns)                           */
 
+
 /* Examples of txt content:
+ * HomePod
+     ["cn=0,1,2,3" "da=true" "et=0,3,5" "ft=0x4A7FCA00,0x56BD0" "sf=0x404" "md=0,1,2" "am=AudioAccessory1,1" "pk=1...f" "tp=UDP" "vn=65537" "vs=356.19" "ov=11.2.5" "vv=2"]
  * Apple TV 2:
      ["sf=0x4" "am=AppleTV2,1" "vs=130.14" "vn=65537" "tp=UDP" "ss=16" "sr=4 4100" "sv=false" "pw=false" "md=0,1,2" "et=0,3,5" "da=true" "cn=0,1,2,3" "ch=2"]
      ["sf=0x4" "am=AppleTV2,1" "vs=105.5" "md=0,1,2" "tp=TCP,UDP" "vn=65537" "pw=false" "ss=16" "sr=44100" "da=true" "sv=false" "et=0,3" "cn=0,1" "ch=2" "txtvers=1"]
@@ -4440,7 +4444,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 {
   struct output_device *rd;
   struct raop_extra *re;
-  cfg_t *airplay;
+  cfg_t *devcfg;
+  cfg_opt_t *cfgopt;
   const char *p;
   char *at_name;
   char *password;
@@ -4470,14 +4475,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device '%s' (port %d, id %" PRIx64 ")\n", at_name, port, id);
 
-  airplay = cfg_gettsec(cfg, "airplay", at_name);
-  if (airplay && cfg_getbool(airplay, "exclude"))
+  devcfg = cfg_gettsec(cfg, "airplay", at_name);
+  if (devcfg && cfg_getbool(devcfg, "exclude"))
     {
       DPRINTF(E_LOG, L_RAOP, "Excluding AirPlay device '%s' as set in config\n", at_name);
 
       return;
     }
-  if (airplay && cfg_getbool(airplay, "permanent") && (port < 0))
+  if (devcfg && cfg_getbool(devcfg, "permanent") && (port < 0))
     {
       DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' disappeared, but set as permanent in config\n", at_name);
 
@@ -4559,9 +4564,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s' is password-protected\n", at_name);
 
-      airplay = cfg_gettsec(cfg, "airplay", at_name);
-      if (airplay)
-	password = cfg_getstr(airplay, "password");
+      if (devcfg)
+	password = cfg_getstr(devcfg, "password");
 
       if (!password)
 	DPRINTF(E_LOG, L_RAOP, "No password given in config for AirPlay device '%s'\n", at_name);
@@ -4610,8 +4614,18 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     re->devtype = RAOP_DEV_APPLETV4; // Stream to ATV with tvOS 10 needs to be kept alive
   else if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
     re->devtype = RAOP_DEV_APPLETV;
+  else if (strncmp(p, "AudioAccessory", strlen("AudioAccessory")) == 0)
+    re->devtype = RAOP_DEV_HOMEPOD;
   else if (*p == '\0')
     DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s': am has no value\n", at_name);
+
+  // If the user didn't set any reconnect setting we enable for Apple TV and
+  // HomePods due to https://github.com/ejurgensen/forked-daapd/issues/734
+  cfgopt = devcfg ? cfg_getopt(devcfg, "reconnect") : NULL;
+  if (cfgopt && cfgopt->nvalues == 1)
+    rd->resurrect = cfg_opt_getnbool(cfgopt, 0);
+  else
+    rd->resurrect = (re->devtype == RAOP_DEV_APPLETV4) || (re->devtype == RAOP_DEV_HOMEPOD);
 
   // Encrypt stream
   p = keyval_get(txt, "ek");
