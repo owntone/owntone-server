@@ -1,6 +1,42 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 27.2
+	- web UI upgraded to v0.7.2:
+		show cover artwork in album pages and lazy loading of artwork
+		show playlist folders
+		use sass/scss for css files
+		add "Radio" tab to the music section
+		add settings for artwork sources
+		add pop up dialog for Remote pairing requests
+		support adding/removing podcast subscriptions
+		support marking all new podcast episodes/all episodes as played
+		support searching by smart pl queries
+		skip buttons for audiobooks and podcasts
+		show localized times/dates
+		generate colored placeholder image if cover artwork is missing
+		show "cast" icon for Chromecast outputs
+		styling changes of the navbars and moving the volume controls
+	- new speaker selection logic (persist user choice even after failure)
+	- speaker autoselect no longer enabled by default
+	- removed old admin page, not necessary any more
+	- fix/workaround for Apple TV's and HomePods that disconnect
+	- support for RSS feeds
+	- support for nested smart playlists (playlist folders)
+	- support for online artwork sources e.g. Discogs, Coverartarchive
+	- support for radio StreamUrl's that point to json with metadata
+	- fix incorrect artwork shown for unknown album/artists
+	- fix issue parsing shairport-sync progress metadata
+	- fix missing Spofity logout option
+	- fix for embedded artwork not working with ffmpeg 4.3+
+	- some smart PL improvements, e.g. support for more tags
+	- config option for Airplay timing/control ports (eases firewalling)
+	- quicker loading of radio streams (smaller probing)
+	- workaround for mxml 2.10 significant memleak
+	- some fixes for Roku (RSP)
+	- drop libspotify for artwork, doesn't work any more
+	- documentation improvements
+
 version 27.1
 	- web UI upgraded to v0.6.0: settings page, display more Spotify data
 	- support for volumeup, volumedown and mutetoggle DACP commands
