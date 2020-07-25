@@ -1032,6 +1032,7 @@ bulk_scan(int flags)
   dirstack = NULL;
 
   lib = cfg_getsec(cfg, "library");
+  counter = 0;
 
   ndirs = cfg_size(lib, "directories");
   for (i = 0; i < ndirs; i++)
@@ -1061,7 +1062,6 @@ bulk_scan(int flags)
 	  continue;
 	}
 
-      counter = 0;
       db_transaction_begin();
 
       process_directories(deref, parent_id, flags);
