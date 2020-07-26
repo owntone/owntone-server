@@ -23,6 +23,16 @@
           :key="album.id"
           :album="album"
           @click="open_album(album)">
+            <template slot="artwork">
+              <p class="image is-64x64 fd-has-shadow fd-has-action">
+                <cover-artwork
+                  :artwork_url="album.artwork_url"
+                  :artist="album.artist"
+                  :album="album.name"
+                  :maxwidth="64"
+                  :maxheight="64" />
+              </p>
+            </template>
             <template slot="actions">
               <a @click="open_dialog(album)">
                 <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -42,6 +52,7 @@ import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListItemAlbum from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
@@ -61,7 +72,7 @@ const albumsData = {
 export default {
   name: 'PageAlbums',
   mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbum, ModalDialogAlbum },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbum, ModalDialogAlbum, CoverArtwork },
 
   data () {
     return {

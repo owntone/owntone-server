@@ -85,6 +85,16 @@
       </template>
       <template slot="content">
         <list-item-album v-for="album in albums.items" :key="album.id" :album="album" @click="open_album(album)">
+          <template slot="artwork">
+            <p class="image is-64x64 fd-has-shadow fd-has-action">
+              <cover-artwork
+                :artwork_url="album.artwork_url"
+                :artist="album.artist"
+                :album="album.name"
+                :maxwidth="64"
+                :maxheight="64" />
+            </p>
+          </template>
           <template slot="actions">
             <a @click="open_album_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -141,12 +151,13 @@ import ModalDialogTrack from '@/components/ModalDialogTrack'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import ModalDialogArtist from '@/components/ModalDialogArtist'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
+import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageSearch',
-  components: { ContentWithHeading, TabsSearch, ListItemTrack, ListItemArtist, ListItemAlbum, ListItemPlaylist, ModalDialogTrack, ModalDialogAlbum, ModalDialogArtist, ModalDialogPlaylist },
+  components: { ContentWithHeading, TabsSearch, ListItemTrack, ListItemArtist, ListItemAlbum, ListItemPlaylist, ModalDialogTrack, ModalDialogAlbum, ModalDialogArtist, ModalDialogPlaylist, CoverArtwork },
 
   data () {
     return {

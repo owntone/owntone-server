@@ -16,6 +16,16 @@
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
       <list-item-album v-for="album in albums.items" :key="album.id" :album="album" @click="open_album(album)">
+        <template slot="artwork">
+          <p class="image is-64x64 fd-has-shadow fd-has-action">
+            <cover-artwork
+              :artwork_url="album.artwork_url"
+              :artist="album.artist"
+              :album="album.name"
+              :maxwidth="64"
+              :maxheight="64" />
+          </p>
+        </template>
         <template slot="actions">
           <a @click="open_dialog(album)">
             <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -34,6 +44,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemAlbum from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import ModalDialogArtist from '@/components/ModalDialogArtist'
+import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 
 const artistData = {
@@ -53,7 +64,7 @@ const artistData = {
 export default {
   name: 'PageArtist',
   mixins: [LoadDataBeforeEnterMixin(artistData)],
-  components: { ContentWithHeading, ListItemAlbum, ModalDialogAlbum, ModalDialogArtist },
+  components: { ContentWithHeading, ListItemAlbum, ModalDialogAlbum, ModalDialogArtist, CoverArtwork },
 
   data () {
     return {

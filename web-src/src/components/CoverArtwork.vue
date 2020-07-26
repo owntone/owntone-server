@@ -15,7 +15,7 @@ import stringToColor from 'string-to-color'
 
 export default {
   name: 'CoverArtwork',
-  props: ['artist', 'album', 'artwork_url'],
+  props: ['artist', 'album', 'artwork_url', 'maxwidth', 'maxheight'],
 
   data () {
     return {
@@ -30,6 +30,9 @@ export default {
 
   computed: {
     artwork_url_with_size: function () {
+      if (this.maxwidth > 0 && this.maxheight > 0) {
+        return webapi.artwork_url_append_size_params(this.artwork_url, this.maxwidth, this.maxheight)
+      }
       return webapi.artwork_url_append_size_params(this.artwork_url)
     },
 

@@ -20,6 +20,16 @@
       <template slot="content">
         <p class="heading has-text-centered-mobile">{{ genre_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
         <list-item-albums v-for="album in genre_albums.items" :key="album.id" :album="album" @click="open_album(album)">
+          <template slot="artwork">
+            <p class="image is-64x64 fd-has-shadow fd-has-action">
+              <cover-artwork
+                :artwork_url="album.artwork_url"
+                :artist="album.artist"
+                :album="album.name"
+                :maxwidth="64"
+                :maxheight="64" />
+            </p>
+          </template>
           <template slot="actions">
             <a @click="open_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -40,6 +50,7 @@ import IndexButtonList from '@/components/IndexButtonList'
 import ListItemAlbums from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import ModalDialogGenre from '@/components/ModalDialogGenre'
+import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 
 const genreData = {
@@ -56,7 +67,7 @@ const genreData = {
 export default {
   name: 'PageGenre',
   mixins: [LoadDataBeforeEnterMixin(genreData)],
-  components: { ContentWithHeading, IndexButtonList, ListItemAlbums, ModalDialogAlbum, ModalDialogGenre },
+  components: { ContentWithHeading, IndexButtonList, ListItemAlbums, ModalDialogAlbum, ModalDialogGenre, CoverArtwork },
 
   data () {
     return {

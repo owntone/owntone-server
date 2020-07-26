@@ -1,6 +1,10 @@
 <template functional>
   <div class="media" :id="'index_' + props.album.name_sort.charAt(0).toUpperCase()">
-    <slot name="artwork"></slot>
+    <div class="media-left fd-has-action"
+        v-if="$slots['artwork']"
+        @click="listeners.click">
+      <slot name="artwork"></slot>
+    </div>
     <div class="media-content fd-has-action is-clipped" @click="listeners.click">
       <div style="margin-top:0.7rem;">
         <h1 class="title is-6">{{ props.album.name }}</h1>
