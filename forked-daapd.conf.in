@@ -16,6 +16,11 @@ general {
 	# Database location
 #	db_path = "@localstatedir@/cache/@PACKAGE@/songs3.db"
 
+	# Database backup location
+	# Uncomment and specify a full path to enable abilty to use REST endpoint
+	# to initiate backup of songs3.db
+#	db_backup_path = "@localstatedir@/cache/@PACKAGE@/songs3.bak"
+
 	# Log file and level
 	# Available levels: fatal, log, warning, info, debug, spam
 	logfile = "@localstatedir@/log/@PACKAGE@.log"
