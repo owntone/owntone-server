@@ -778,6 +778,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | POST      | [/api/library/add](#add-an-item-to-the-library)             | Add an item to the library           |
 | PUT       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
 | PUT       | [/api/rescan](#trigger-meta-rescan)                         | Trigger a library metadata rescan    |
+| PUT       | [/api/library/backup](#backup-db)                           | Request library backup db            |
 
 
 
@@ -1940,6 +1941,27 @@ On success returns the HTTP `204 No Content` success status response code.
 curl -X PUT "http://localhost:3689/api/rescan"
 ```
 
+### Backup DB
+
+Request a library backup - configuration must be enabled and point to a valid writable path. Maintenance method.
+
+**Endpoint**
+
+```http
+PUT /api/library/backup
+```
+
+**Response**
+
+On success returns the HTTP `200 OK` success status response code.
+If backups are not enabled returns HTTP `503 Service Unavailable` response code.
+Otherwise a HTTP `500 Internal Server Error` response is returned.
+
+**Example**
+
+```shell
+curl -X PUT "http://localhost:3689/api/library/backup"
+```
 
 ## Search
 
