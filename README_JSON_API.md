@@ -777,7 +777,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
 | POST      | [/api/library/add](#add-an-item-to-the-library)             | Add an item to the library           |
 | PUT       | [/api/update](#trigger-rescan)                              | Trigger a library rescan             |
-| PUT       | [/api/rescan](#trigger-meta-rescan)                         | Trigger a library metadata rescan    |
+| PUT       | [/api/rescan](#trigger-metadata-rescan)                     | Trigger a library metadata rescan    |
 | PUT       | [/api/library/backup](#backup-db)                           | Request library backup db            |
 
 
