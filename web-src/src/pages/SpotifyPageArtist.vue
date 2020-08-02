@@ -15,7 +15,20 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ total }} albums</p>
-      <spotify-list-item-album v-for="album in albums" :key="album.id" :album="album">
+      <spotify-list-item-album v-for="album in albums"
+          :key="album.id"
+          :album="album"
+          @click="open_album(album)">
+        <template slot="artwork">
+          <p class="image is-64x64 fd-has-shadow fd-has-action">
+            <cover-artwork
+              :artwork_url="artwork_url(album)"
+              :artist="album.artist"
+              :album="album.name"
+              :maxwidth="64"
+              :maxheight="64" />
+          </p>
+        </template>
         <template slot="actions">
           <a @click="open_dialog(album)">
             <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -35,6 +48,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
 import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist'
+import CoverArtwork from '@/components/CoverArtwork'
 import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -63,7 +77,7 @@ const artistData = {
 export default {
   name: 'SpotifyPageArtist',
   mixins: [LoadDataBeforeEnterMixin(artistData)],
-  components: { ContentWithHeading, SpotifyListItemAlbum, SpotifyModalDialogAlbum, SpotifyModalDialogArtist, InfiniteLoading },
+  components: { ContentWithHeading, SpotifyListItemAlbum, SpotifyModalDialogAlbum, SpotifyModalDialogArtist, InfiniteLoading, CoverArtwork },
 
   data () {
     return {
@@ -106,9 +120,20 @@ export default {
       webapi.player_play_uri(this.artist.uri, true)
     },
 
+    open_album: function (album) {
+      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+    },
+
     open_dialog: function (album) {
       this.selected_album = album
       this.show_details_modal = true
+    },
+
+    artwork_url: function (album) {
+      if (album.images && album.images.length > 0) {
+        return album.images[0].url
+      }
+      return ''
     }
   }
 }

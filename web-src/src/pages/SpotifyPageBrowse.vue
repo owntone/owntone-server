@@ -8,7 +8,20 @@
         <p class="title is-4">New Releases</p>
       </template>
       <template slot="content">
-        <spotify-list-item-album v-for="album in new_releases" :key="album.id" :album="album">
+        <spotify-list-item-album v-for="album in new_releases"
+            :key="album.id"
+            :album="album"
+            @click="open_album(album)">
+          <template slot="artwork">
+            <p class="image is-64x64 fd-has-shadow fd-has-action">
+              <cover-artwork
+                :artwork_url="artwork_url(album)"
+                :artist="album.artist"
+                :album="album.name"
+                :maxwidth="64"
+                :maxheight="64" />
+            </p>
+          </template>
           <template slot="actions">
             <a @click="open_album_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -64,6 +77,7 @@ import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
 import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
 import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
+import CoverArtwork from '@/components/CoverArtwork'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -93,7 +107,7 @@ const browseData = {
 export default {
   name: 'SpotifyPageBrowse',
   mixins: [LoadDataBeforeEnterMixin(browseData)],
-  components: { ContentWithHeading, TabsMusic, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist },
+  components: { ContentWithHeading, TabsMusic, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, CoverArtwork },
 
   data () {
     return {
@@ -116,6 +130,11 @@ export default {
   },
 
   methods: {
+
+    open_album: function (album) {
+      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+    },
+
     open_album_dialog: function (album) {
       this.selected_album = album
       this.show_album_details_modal = true
@@ -124,6 +143,13 @@ export default {
     open_playlist_dialog: function (playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
+    },
+
+    artwork_url: function (album) {
+      if (album.images && album.images.length > 0) {
+        return album.images[0].url
+      }
+      return ''
     }
   }
 }
