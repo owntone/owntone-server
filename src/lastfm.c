@@ -230,7 +230,7 @@ request_post(const char *url, struct keyval *kv, char **errmsg)
   memset(&ctx, 0, sizeof(struct http_client_ctx));
 
   ctx.output_body = http_form_urlencode(kv);
-  if (ret < 0)
+  if (!ctx.output_body)
     {
       DPRINTF(E_LOG, L_LASTFM, "Aborting request, http_form_urlencode failed\n");
       return -1;
