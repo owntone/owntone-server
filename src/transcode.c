@@ -750,13 +750,15 @@ open_decoder(unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaTyp
   AVCodec *decoder;
   int ret;
 
-  *stream_index = av_find_best_stream(ctx->ifmt_ctx, type, -1, -1, &decoder, 0);
-  if ((*stream_index < 0) || (!decoder))
+  ret = av_find_best_stream(ctx->ifmt_ctx, type, -1, -1, &decoder, 0);
+  if ((ret < 0) || (!decoder))
     {
       if (!ctx->settings.silent)
-	DPRINTF(E_LOG, L_XCODE, "No stream data or decoder for stream #%d\n", *stream_index);
+	DPRINTF(E_LOG, L_XCODE, "No stream data or decoder found: %s\n", err2str(ret));
       return NULL;
     }
+
+  *stream_index = (unsigned int)ret;
 
   CHECK_NULL(L_XCODE, dec_ctx = avcodec_alloc_context3(decoder));
 
