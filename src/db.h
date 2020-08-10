@@ -192,7 +192,7 @@ struct media_file_info {
   char *description;     /* daap.songdescription */
 
   uint32_t db_timestamp;
-  uint32_t time_added;   /* FIXME: time_t */
+  uint32_t time_added;
   uint32_t time_modified;
   uint32_t time_played;
   uint32_t time_skipped;
