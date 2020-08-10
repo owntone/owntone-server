@@ -249,12 +249,12 @@ gid_t runas_gid;
 
 
 static void
-logger_confuse(cfg_t *cfg, const char *format, va_list args)
+logger_confuse(cfg_t *config, const char *format, va_list args)
 {
   char fmt[80];
 
-  if (cfg && cfg->name && cfg->line)
-    snprintf(fmt, sizeof(fmt), "[%s:%d] %s\n", cfg->name, cfg->line, format);
+  if (config && config->name && config->line)
+    snprintf(fmt, sizeof(fmt), "[%s:%d] %s\n", config->name, config->line, format);
   else
     snprintf(fmt, sizeof(fmt), "%s\n", format);
 
@@ -262,7 +262,7 @@ logger_confuse(cfg_t *cfg, const char *format, va_list args)
 }
 
 static int
-cb_loglevel(cfg_t *cfg, cfg_opt_t *opt, const char *value, void *result)
+cb_loglevel(cfg_t *config, cfg_opt_t *opt, const char *value, void *result)
 {
   if (strcasecmp(value, "fatal") == 0)
     *(long int *)result = E_FATAL;
