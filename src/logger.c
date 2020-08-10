@@ -117,6 +117,7 @@ vlogger_writer(int severity, int domain, const char *fmt, va_list args)
   char content[2048];
   char stamp[32];
   time_t t;
+  struct tm timebuf;
   int ret;
 
   va_copy(ap, args);
@@ -136,7 +137,7 @@ vlogger_writer(int severity, int domain, const char *fmt, va_list args)
   if (logfile)
     {
       t = time(NULL);
-      ret = strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime(&t));
+      ret = strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime_r(&t, &timebuf));
       if (ret == 0)
 	stamp[0] = '\0';
 

@@ -325,11 +325,12 @@ httpd_request_not_modified_since(struct evhttp_request *req, time_t mtime)
   struct evkeyvalq *output_headers;
   char last_modified[1000];
   const char *modified_since;
+  struct tm timebuf;
 
   input_headers = evhttp_request_get_input_headers(req);
   modified_since = evhttp_find_header(input_headers, "If-Modified-Since");
 
-  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", gmtime(&mtime));
+  strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", gmtime_r(&mtime, &timebuf));
 
   // Return not modified, if given timestamp matches "If-Modified-Since" request header
   if (modified_since && (strcasecmp(last_modified, modified_since) == 0))
