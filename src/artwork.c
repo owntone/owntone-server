@@ -554,13 +554,13 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
       *target_h = max_h;
     }
 
-  if ((*target_h > max_h) && (max_h > 0))
+  if (*target_h > max_h)
     *target_h = max_h;
 
   /* PNG prefers even row count */
   *target_w += *target_w % 2;
 
-  if ((*target_w > max_w) && (max_w > 0))
+  if (*target_w > max_w)
     *target_w = max_w - (max_w % 2);
 
   DPRINTF(E_DBG, L_ART, "Rescale required, destination width %d height %d\n", *target_w, *target_h);
@@ -2033,9 +2033,6 @@ artwork_file_is_artwork(const char *filename)
 	  if (strcmp(artwork, filename) == 0)
 	    return true;
 	}
-
-      if (j < ARRAY_SIZE(cover_extension))
-	break;
     }
 
   return false;
