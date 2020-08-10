@@ -410,6 +410,9 @@ setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms
   if ((type < 0) || (inputs[type]->disabled))
     goto setup_error;
 
+  // Avoids memleaks in cases where stop() is not called
+  clear(source);
+
   source->type       = type;
   source->data_kind  = queue_item->data_kind;
   source->media_kind = queue_item->media_kind;
