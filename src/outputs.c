@@ -532,9 +532,6 @@ vol_adjust(void)
 
   for (device = outputs_device_list; device; device = device->next)
     {
-      if (!OUTPUTS_DEVICE_DISPLAY_SELECTED(device) && (device->volume > outputs_master_volume))
-	device->volume = outputs_master_volume;
-
       device->relvol = vol_to_rel(device->volume, outputs_master_volume);
     }
 
@@ -815,11 +812,22 @@ outputs_device_remove(struct output_device *remove)
 }
 
 void
-outputs_device_select(struct output_device *device)
+outputs_device_select(struct output_device *device, int max_volume)
 {
   device->selected = 1;
   device->prevent_playback = 0;
   device->busy = 0;
+
+  // The purpose of this is to cap the volume for a newly selected device. It is
+  // used by the player to avoid this scenario:
+  // 1 Play on two speakers, say Kitchen (100) and Office (75), master is 100
+  // 2 Disable Office, reduce master to 25, Kitchen is now 25, Office is still 75
+  // 3 Turn on Office, it now blasts at 75
+  // We could avoid this by reducing the unselected Office in step 2, but that
+  // leads to issue #1077, where volumes of unselected devices go to 0 (e.g. by
+  // reducing master to 0 and then increasing again -> unselected stays at 0).
+  if (max_volume >= 0 && device->volume > max_volume)
+    device->volume = max_volume;
 
   vol_adjust();
 }

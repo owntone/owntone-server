@@ -291,7 +291,7 @@ void
 outputs_device_remove(struct output_device *remove);
 
 void
-outputs_device_select(struct output_device *device);
+outputs_device_select(struct output_device *device, int max_volume);
 
 void
 outputs_device_deselect(struct output_device *device);

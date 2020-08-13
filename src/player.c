@@ -2091,7 +2091,7 @@ playback_start_item(void *arg, int *retval)
       if (*retval >= 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Autoselected %s device '%s'\n", device->type_name, device->name);
-	  outputs_device_select(device);
+	  outputs_device_select(device, -1);
 	}
     }
 
@@ -2561,6 +2561,7 @@ speaker_set(void *arg, int *retval)
   struct speaker_set_param *speaker_set_param = arg;
   struct output_device *device;
   uint64_t *ids;
+  int max_volume;
   int nspk;
   int i;
 
@@ -2575,6 +2576,11 @@ speaker_set(void *arg, int *retval)
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker set: %d speakers\n", nspk);
 
+  // Save the current master volume before we start selecting/unselecting, as
+  // that will affect master volume. See comment in outputs_device_select() for
+  // why we want to provide a max_volume.
+  max_volume = (player_state != PLAY_STOPPED) ? outputs_volume_get() : -1;
+
   for (device = outputs_list(); device; device = device->next)
     {
       for (i = 1; i <= nspk; i++)
@@ -2584,7 +2590,7 @@ speaker_set(void *arg, int *retval)
 	}
 
       if (i <= nspk)
-	outputs_device_select(device);
+	outputs_device_select(device, max_volume);
       else
 	outputs_device_deselect(device);
     }
@@ -2602,6 +2608,7 @@ speaker_enable(void *arg, int *retval)
 {
   uint64_t *id = arg;
   struct output_device *device;
+  int max_volume;
 
   *retval = -1;
 
@@ -2611,7 +2618,9 @@ speaker_enable(void *arg, int *retval)
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker enable: '%s' (id=%" PRIu64 ")\n", device->name, *id);
 
-  outputs_device_select(device);
+  max_volume = (player_state != PLAY_STOPPED) ? outputs_volume_get() : -1;
+
+  outputs_device_select(device, max_volume);
 
   *retval = outputs_device_start(device, device_activate_cb, PLAYER_ONLY_PROBE);
 
