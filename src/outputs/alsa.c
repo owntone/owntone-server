@@ -2,6 +2,12 @@
  * Copyright (C) 2015-2019 Espen Jürgensen <espenjurgensen@gmail.com>
  * Copyright (C) 2010 Julien BLACHE <jb@jblache.org>
  *
+ * Copyright (c) 2010 Clemens Ladisch <clemens@ladisch.de>
+ *   from alsa-utils/alsamixer/volume_mapping.c
+ *     use_linear_dB_scale()
+ *     lrint_dir()
+ *     set_normalized_volume()
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -37,6 +43,10 @@
 #include "logger.h"
 #include "player.h"
 #include "outputs.h"
+
+
+// For setting volume, treat everything below this as linear scale
+#define MAX_LINEAR_DB_SCALE 24
 
 // We measure latency each second, and after a number of measurements determined
 // by adjust_period_seconds we try to determine drift and latency. If both are
@@ -288,35 +298,94 @@ bps2format(int bits_per_sample)
     return SND_PCM_FORMAT_UNKNOWN;
 }
 
+
+/* from alsa-utils/alsamixer/volume_mapping.c
+ *
+ * The mapping is designed so that the position in the interval is proportional
+ * to the volume as a human ear would perceive it (i.e., the position is the
+ * cubic root of the linear sample multiplication factor).  For controls with
+ * a small range (24 dB or less), the mapping is linear in the dB values so
+ * that each step has the same size visually.  Only for controls without dB
+ * information, a linear mapping of the hardware volume register values is used
+ * (this is the same algorithm as used in the old alsamixer).
+ *
+ * When setting the volume, 'dir' is the rounding direction:
+ * -1/0/1 = down/nearest/up.
+ */
+static inline bool
+use_linear_dB_scale(long dBmin, long dBmax)
+{
+  return dBmax - dBmin <= MAX_LINEAR_DB_SCALE * 100;
+}
+
+static long lrint_dir(double x, int dir)
+{
+  if (dir > 0)
+    return lrint(ceil(x));
+  else if (dir < 0)
+    return lrint(floor(x));
+  else
+    return lrint(x);
+}
+
+// from alsamixer/volume-mapping.c, sets volume in line with human perception
+static int
+set_normalized_volume(snd_mixer_elem_t *elem, double volume, int dir)
+{
+  long min, max, value;
+  double min_norm;
+  int err;
+
+  err = snd_mixer_selem_get_playback_dB_range(elem, &min, &max);
+  if (err < 0 || min >= max)
+    {
+      err = snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
+      if (err < 0)
+	return err;
+
+      value = lrint_dir(volume * (max - min), dir) + min;
+      return snd_mixer_selem_set_playback_volume_all(elem, value);
+    }
+
+  // Corner case from mpd - log10() expects non-zero
+  if (volume <= 0)
+    return snd_mixer_selem_set_playback_dB_all(elem, min, dir);
+  else if (volume >= 1)
+    return snd_mixer_selem_set_playback_dB_all(elem, max, dir);
+
+  if (use_linear_dB_scale(min, max))
+    {
+      value = lrint_dir(volume * (max - min), dir) + min;
+      return snd_mixer_selem_set_playback_dB_all(elem, value, dir);
+    }
+
+  if (min != SND_CTL_TLV_DB_GAIN_MUTE)
+    {
+      min_norm = pow(10, (min - max) / 6000.0);
+      volume = volume * (1 - min_norm) + min_norm;
+    }
+  value = lrint_dir(6000.0 * log10(volume), dir) + max;
+  return snd_mixer_selem_set_playback_dB_all(elem, value, dir);
+}
+
 static int
 volume_set(struct alsa_mixer *mixer, int volume)
 {
-  int pcm_vol;
+  int ret;
 
   snd_mixer_handle_events(mixer->hdl);
 
   if (!snd_mixer_selem_is_active(mixer->vol_elem))
     return -1;
 
-  switch (volume)
+  DPRINTF(E_DBG, L_LAUDIO, "Setting ALSA volume to %d\n", volume);
+
+  ret = set_normalized_volume(mixer->vol_elem, volume >= 0 && volume <= 100 ? volume/100.0 : 0.75, 0);
+  if (ret < 0)
     {
-      case 0:
-	pcm_vol = mixer->vol_min;
-	break;
-
-      case 100:
-	pcm_vol = mixer->vol_max;
-	break;
-
-      default:
-	pcm_vol = mixer->vol_min + (volume * (mixer->vol_max - mixer->vol_min)) / 100;
-	break;
+      DPRINTF(E_LOG, L_LAUDIO, "Failed to set ALSA volume to %d\n: %s", volume, snd_strerror(ret));
+      return -1;
     }
-
-  DPRINTF(E_DBG, L_LAUDIO, "Setting ALSA volume to %d (%d)\n", pcm_vol, volume);
-
-  snd_mixer_selem_set_playback_volume_all(mixer->vol_elem, pcm_vol);
-
   return 0;
 }
 
