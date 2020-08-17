@@ -89,6 +89,10 @@ AC_SEARCH_LIBS([pthread_setname_np], [pthread],
 	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
 		[AC_CHECK_FUNCS([pthread_set_name_np])])])
 
+AC_SEARCH_LIBS([log10], [m])
+AC_SEARCH_LIBS([lrint], [m])
+AC_SEARCH_LIBS([fabs], [m])
+
 dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
