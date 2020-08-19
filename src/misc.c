@@ -59,33 +59,56 @@ static char *buildopts[] =
 #endif
 #ifdef ITUNES
     "iTunes XML",
+#else
+    "Without iTunes XML",
 #endif
 #ifdef SPOTIFY
     "Spotify",
+#else
+    "Without Spotify",
 #endif
 #ifdef LASTFM
     "LastFM",
+#else
+    "Without LastFM",
 #endif
 #ifdef CHROMECAST
     "Chromecast",
+#else
+    "Without Chromecast",
 #endif
 #ifdef MPD
     "MPD",
+#else
+    "Without MPD",
 #endif
 #ifdef RAOP_VERIFICATION
     "Device verification",
+#else
+    "Without device verification",
 #endif
 #ifdef HAVE_LIBWEBSOCKETS
     "Websockets",
+#else
+    "Without websockets",
 #endif
 #ifdef HAVE_ALSA
     "ALSA",
+#else
+    "Without ALSA",
 #endif
 #ifdef HAVE_LIBPULSE
     "Pulseaudio",
 #endif
 #ifdef WEBINTERFACE
     "Webinterface",
+#else
+    "Without webinterface",
+#endif
+#ifdef HAVE_REGEX_H
+    "Regex",
+#else
+    "Without regex",
 #endif
     NULL
   };
