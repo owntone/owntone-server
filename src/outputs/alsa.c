@@ -6,7 +6,7 @@
  *   from alsa-utils/alsamixer/volume_mapping.c
  *     use_linear_dB_scale()
  *     lrint_dir()
- *     set_normalized_volume()
+ *     volume_normalized_set()
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -318,7 +318,8 @@ use_linear_dB_scale(long dBmin, long dBmax)
   return dBmax - dBmin <= MAX_LINEAR_DB_SCALE * 100;
 }
 
-static long lrint_dir(double x, int dir)
+static long
+lrint_dir(double x, int dir)
 {
   if (dir > 0)
     return lrint(ceil(x));
@@ -330,7 +331,7 @@ static long lrint_dir(double x, int dir)
 
 // from alsamixer/volume-mapping.c, sets volume in line with human perception
 static int
-set_normalized_volume(snd_mixer_elem_t *elem, double volume, int dir)
+volume_normalized_set(snd_mixer_elem_t *elem, double volume, int dir)
 {
   long min, max, value;
   double min_norm;
@@ -364,6 +365,7 @@ set_normalized_volume(snd_mixer_elem_t *elem, double volume, int dir)
       min_norm = pow(10, (min - max) / 6000.0);
       volume = volume * (1 - min_norm) + min_norm;
     }
+
   value = lrint_dir(6000.0 * log10(volume), dir) + max;
   return snd_mixer_selem_set_playback_dB_all(elem, value, dir);
 }
@@ -380,12 +382,13 @@ volume_set(struct alsa_mixer *mixer, int volume)
 
   DPRINTF(E_DBG, L_LAUDIO, "Setting ALSA volume to %d\n", volume);
 
-  ret = set_normalized_volume(mixer->vol_elem, volume >= 0 && volume <= 100 ? volume/100.0 : 0.75, 0);
+  ret = volume_normalized_set(mixer->vol_elem, volume >= 0 && volume <= 100 ? volume/100.0 : 0.75, 0);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Failed to set ALSA volume to %d\n: %s", volume, snd_strerror(ret));
       return -1;
     }
+
   return 0;
 }
 
