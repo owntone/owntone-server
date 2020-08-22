@@ -398,6 +398,10 @@ static const ssize_t dbgri_cols_map[] =
     dbgri_offsetof(songalbumartist),
     dbgri_offsetof(songartistid),
     dbgri_offsetof(song_length),
+    dbgri_offsetof(data_kind),
+    dbgri_offsetof(media_kind),
+    dbgri_offsetof(year),
+    dbgri_offsetof(date_released),
   };
 
 /* This list must be kept in sync with
@@ -1903,7 +1907,7 @@ db_build_query_group_albums(struct query_params *qp, struct query_clause *qc)
   char *query;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songalbumid) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, 1 as album_count, f.album_artist, f.songartistid, SUM(f.song_length) FROM files f JOIN groups g ON f.songalbumid = g.persistentid %s GROUP BY f.songalbumid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
+  query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, 1 as album_count, f.album_artist, f.songartistid, SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released) FROM files f JOIN groups g ON f.songalbumid = g.persistentid %s GROUP BY f.songalbumid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
   return db_build_query_check(qp, count, query);
 }
@@ -1915,7 +1919,7 @@ db_build_query_group_artists(struct query_params *qp, struct query_clause *qc)
   char *query;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songartistid) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, SUM(f.song_length) FROM files f JOIN groups g ON f.songartistid = g.persistentid %s GROUP BY f.songartistid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
+  query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released) FROM files f JOIN groups g ON f.songartistid = g.persistentid %s GROUP BY f.songartistid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
   return db_build_query_check(qp, count, query);
 }

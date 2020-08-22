@@ -297,6 +297,10 @@ struct group_info {
   char *songalbumartist; /* song album artist (asaa) */
   uint64_t songartistid; /* song artist id (asri) */
   uint32_t song_length;
+  uint32_t data_kind;
+  uint32_t media_kind;
+  uint32_t year;
+  uint32_t date_released;
 };
 
 #define gri_offsetof(field) offsetof(struct group_info, field)
@@ -311,6 +315,10 @@ struct db_group_info {
   char *songalbumartist;
   char *songartistid;
   char *song_length;
+  char *data_kind;
+  char *media_kind;
+  char *year;
+  char *date_released;
 };
 
 #define dbgri_offsetof(field) offsetof(struct db_group_info, field)
