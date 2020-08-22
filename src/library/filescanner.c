@@ -640,12 +640,12 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
 
 /* Thread: scan */
 static void
-process_file(char *file, struct stat *sb, int type, int flags, int dir_id)
+process_file(char *file, struct stat *sb, enum file_type file_type, int scan_type, int flags, int dir_id)
 {
-  switch (file_type_get(file))
+  switch (file_type)
     {
       case FILE_REGULAR:
-	process_regular_file(file, sb, type, flags, dir_id);
+	process_regular_file(file, sb, scan_type, flags, dir_id);
 
 	counter++;
 
@@ -826,7 +826,8 @@ process_directory(char *path, int parent_id, int flags)
   int is_link;
   int follow_symlinks;
   struct watch_info wi;
-  int type;
+  int scan_type;
+  enum file_type file_type;
   char virtual_path[PATH_MAX];
   int dir_id;
   int ret;
@@ -854,13 +855,13 @@ process_directory(char *path, int parent_id, int flags)
     }
 
   /* Check if compilation and/or podcast directory */
-  type = 0;
+  scan_type = 0;
   if (check_speciallib(path, "compilations"))
-    type |= F_SCAN_TYPE_COMPILATION;
+    scan_type |= F_SCAN_TYPE_COMPILATION;
   if (check_speciallib(path, "podcasts"))
-    type |= F_SCAN_TYPE_PODCAST;
+    scan_type |= F_SCAN_TYPE_PODCAST;
   if (check_speciallib(path, "audiobooks"))
-    type |= F_SCAN_TYPE_AUDIOBOOK;
+    scan_type |= F_SCAN_TYPE_AUDIOBOOK;
 
   follow_symlinks = cfg_getbool(cfg_getsec(cfg, "library"), "follow_symlinks");
 
@@ -892,6 +893,10 @@ process_directory(char *path, int parent_id, int flags)
 	  continue;
 	}
 
+      file_type = file_type_get(entry);
+      if (file_type == FILE_IGNORE)
+	continue;
+
       ret = read_attributes(resolved_path, entry, &sb, &is_link);
       if (ret < 0)
 	{
@@ -913,7 +918,7 @@ process_directory(char *path, int parent_id, int flags)
       else if (!(flags & F_SCAN_FAST))
 	{
 	  if (S_ISREG(sb.st_mode) || S_ISFIFO(sb.st_mode))
-	    process_file(resolved_path, &sb, type, flags, dir_id);
+	    process_file(resolved_path, &sb, file_type, scan_type, flags, dir_id);
 	  else
 	    DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", entry);
 	}
@@ -1245,7 +1250,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	}
       else if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' achieved\n", path);
+	  DPRINTF(E_INFO, L_SCAN, "Directory access to '%s' achieved\n", path);
 
 	  ie->mask |= IN_CREATE;
 	}
@@ -1278,7 +1283,8 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   char *file = path;
   char resolved_path[PATH_MAX];
   char dir_vpath[PATH_MAX];
-  int type;
+  enum file_type file_type;
+  int scan_type;
   int i;
   int dir_id;
   int fd;
@@ -1286,6 +1292,10 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   int ret;
 
   DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+
+  file_type = file_type_get(path);
+  if (file_type == FILE_IGNORE)
+    return;
 
   path_hash = djb_hash(path, strlen(path));
 
@@ -1423,13 +1433,13 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
           return;
         }
 
-      type = 0;
+      scan_type = 0;
       if (check_speciallib(path, "compilations"))
-	type |= F_SCAN_TYPE_COMPILATION;
+	scan_type |= F_SCAN_TYPE_COMPILATION;
       if (check_speciallib(path, "podcasts"))
-	type |= F_SCAN_TYPE_PODCAST;
+	scan_type |= F_SCAN_TYPE_PODCAST;
       if (check_speciallib(path, "audiobooks"))
-	type |= F_SCAN_TYPE_AUDIOBOOK;
+	scan_type |= F_SCAN_TYPE_AUDIOBOOK;
 
       dir_id = get_parent_dir_id(file);
 
@@ -1441,7 +1451,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	}
       else if (S_ISREG(sb.st_mode) || S_ISFIFO(sb.st_mode))
 	{
-	  process_file(resolved_path, &sb, type, 0, dir_id);
+	  process_file(resolved_path, &sb, file_type, scan_type, 0, dir_id);
 	}
       else
 	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", resolved_path);
