@@ -1,22 +1,25 @@
 <template>
   <nav class="fd-top-navbar navbar is-light is-fixed-top" :style="zindex" role="navigation" aria-label="main navigation">
     <div class="navbar-brand">
-      <navbar-item-link to="/playlists">
+      <navbar-item-link to="/playlists" v-if="is_visible_playlists">
         <span class="icon"><i class="mdi mdi-library-music"></i></span>
       </navbar-item-link>
-      <navbar-item-link to="/music">
+      <navbar-item-link to="/music" v-if="is_visible_music">
         <span class="icon"><i class="mdi mdi-music"></i></span>
       </navbar-item-link>
-      <navbar-item-link to="/podcasts">
+      <navbar-item-link to="/podcasts" v-if="is_visible_podcasts">
         <span class="icon"><i class="mdi mdi-microphone"></i></span>
       </navbar-item-link>
-      <navbar-item-link to="/audiobooks" v-if="audiobooks.tracks > 0">
+      <navbar-item-link to="/audiobooks" v-if="is_visible_audiobooks">
         <span class="icon"><i class="mdi mdi-book-open-variant"></i></span>
       </navbar-item-link>
-      <navbar-item-link to="/files">
+      <navbar-item-link to="/radio" v-if="is_visible_radio">
+        <span class="icon"><i class="mdi mdi-radio"></i></span>
+      </navbar-item-link>
+      <navbar-item-link to="/files" v-if="is_visible_files">
         <span class="icon"><i class="mdi mdi-folder-open"></i></span>
       </navbar-item-link>
-      <navbar-item-link to="/search">
+      <navbar-item-link to="/search" v-if="is_visible_search">
         <span class="icon"><i class="mdi mdi-magnify"></i></span>
       </navbar-item-link>
 
@@ -49,10 +52,10 @@
             <navbar-item-link to="/music/artists"><span class="fd-navbar-item-level2">Artists</span></navbar-item-link>
             <navbar-item-link to="/music/albums"><span class="fd-navbar-item-level2">Albums</span></navbar-item-link>
             <navbar-item-link to="/music/genres"><span class="fd-navbar-item-level2">Genres</span></navbar-item-link>
-            <navbar-item-link to="/music/radio"><span class="fd-navbar-item-level2">Radio</span></navbar-item-link>
             <navbar-item-link to="/music/spotify" v-if="spotify_enabled"><span class="fd-navbar-item-level2">Spotify</span></navbar-item-link>
             <navbar-item-link to="/podcasts"><span class="icon"><i class="mdi mdi-microphone"></i></span> <b>Podcasts</b></navbar-item-link>
             <navbar-item-link to="/audiobooks"><span class="icon"><i class="mdi mdi-book-open-variant"></i></span> <b>Audiobooks</b></navbar-item-link>
+            <navbar-item-link to="/radio"><span class="icon"><i class="mdi mdi-radio"></i></span> <b>Radio</b></navbar-item-link>
             <navbar-item-link to="/files"><span class="icon"><i class="mdi mdi-folder-open"></i></span> <b>Files</b></navbar-item-link>
             <navbar-item-link to="/search"><span class="icon"><i class="mdi mdi-magnify"></i></span> <b>Search</b></navbar-item-link>
             <hr class="fd-navbar-divider">
@@ -87,6 +90,28 @@ export default {
   },
 
   computed: {
+    is_visible_playlists () {
+      return this.$store.getters.settings_option('webinterface', 'show_menu_item_playlists').value
+    },
+    is_visible_music () {
+      return this.$store.getters.settings_option('webinterface', 'show_menu_item_music').value
+    },
+    is_visible_podcasts () {
+      return this.$store.getters.settings_option('webinterface', 'show_menu_item_podcasts').value
+    },
+    is_visible_audiobooks () {
+      return this.$store.getters.settings_option('webinterface', 'show_menu_item_audiobooks').value
+    },
+    is_visible_radio () {
+      return this.$store.getters.settings_option('webinterface', 'show_menu_item_radio').value
+    },
+    is_visible_files () {
+      return this.$store.getters.settings_option('webinterface', 'show_menu_item_files').value
+    },
+    is_visible_search () {
+      return this.$store.getters.settings_option('webinterface', 'show_menu_item_search').value
+    },
+
     player () {
       return this.$store.state.player
     },

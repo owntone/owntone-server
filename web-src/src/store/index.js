@@ -91,6 +91,18 @@ export default new Vuex.Store({
         }
       }
       return null
+    },
+
+    settings_category: (state) => (categoryName) => {
+      return state.settings.categories.find(elem => elem.name === categoryName)
+    },
+
+    settings_option: (state) => (categoryName, optionName) => {
+      const category = state.settings.categories.find(elem => elem.name === categoryName)
+      if (!category) {
+        return {}
+      }
+      return category.options.find(elem => elem.name === optionName)
     }
   },
 

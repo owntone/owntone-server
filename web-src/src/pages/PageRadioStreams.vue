@@ -1,7 +1,5 @@
 <template>
   <div>
-    <tabs-music></tabs-music>
-
     <content-with-heading>
       <template slot="heading-left">
         <p class="title is-4">Radio</p>
@@ -23,7 +21,6 @@
 
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
-import TabsMusic from '@/components/TabsMusic'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListItemTrack from '@/components/ListItemTrack'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
@@ -42,7 +39,7 @@ const streamsData = {
 export default {
   name: 'PageRadioStreams',
   mixins: [LoadDataBeforeEnterMixin(streamsData)],
-  components: { TabsMusic, ContentWithHeading, ListItemTrack, ModalDialogTrack },
+  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack },
 
   data () {
     return {

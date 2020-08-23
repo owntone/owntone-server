@@ -128,12 +128,6 @@ export const router = new VueRouter({
       meta: { show_progress: true, has_index: true }
     },
     {
-      path: '/music/radio',
-      name: 'Radio',
-      component: PageRadioStreams,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
       path: '/podcasts',
       name: 'Podcasts',
       component: PagePodcasts,
@@ -165,6 +159,12 @@ export const router = new VueRouter({
       path: '/audiobooks/:album_id',
       name: 'Audiobook',
       component: PageAudiobook,
+      meta: { show_progress: true }
+    },
+    {
+      path: '/radio',
+      name: 'Radio',
+      component: PageRadioStreams,
       meta: { show_progress: true }
     },
     {
