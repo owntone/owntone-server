@@ -83,7 +83,20 @@
         <p class="title is-4">Albums</p>
       </template>
       <template slot="content">
-        <spotify-list-item-album v-for="album in albums.items" :key="album.id" :album="album">
+        <spotify-list-item-album v-for="album in albums.items"
+            :key="album.id"
+            :album="album"
+            @click="open_album(album)">
+          <template slot="artwork" v-if="is_visible_artwork">
+            <p class="image is-64x64 fd-has-shadow fd-has-action">
+              <cover-artwork
+                :artwork_url="artwork_url(album)"
+                :artist="album.artist"
+                :album="album.name"
+                :maxwidth="64"
+                :maxheight="64" />
+            </p>
+          </template>
           <template slot="actions">
             <a @click="open_album_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
@@ -142,6 +155,7 @@ import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack'
 import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
 import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
+import CoverArtwork from '@/components/CoverArtwork'
 import SpotifyWebApi from 'spotify-web-api-js'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
@@ -149,7 +163,7 @@ import InfiniteLoading from 'vue-infinite-loading'
 
 export default {
   name: 'SpotifyPageSearch',
-  components: { ContentWithHeading, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogTrack, SpotifyModalDialogArtist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, InfiniteLoading },
+  components: { ContentWithHeading, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogTrack, SpotifyModalDialogArtist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, InfiniteLoading, CoverArtwork },
 
   data () {
     return {
@@ -207,6 +221,10 @@ export default {
     },
     show_all_playlists_button () {
       return this.playlists.total > this.playlists.items.length
+    },
+
+    is_visible_artwork () {
+      return this.$store.getters.settings_option('webinterface', 'show_cover_artwork_in_album_lists').value
     }
   },
 
@@ -390,6 +408,17 @@ export default {
     open_playlist_dialog: function (playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
+    },
+
+    open_album: function (album) {
+      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+    },
+
+    artwork_url: function (album) {
+      if (album.images && album.images.length > 0) {
+        return album.images[0].url
+      }
+      return ''
     }
   },
 

@@ -12,7 +12,7 @@
             :key="album.id"
             :album="album"
             @click="open_album(album)">
-          <template slot="artwork">
+          <template slot="artwork" v-if="is_visible_artwork">
             <p class="image is-64x64 fd-has-shadow fd-has-action">
               <cover-artwork
                 :artwork_url="artwork_url(album)"
@@ -126,6 +126,10 @@ export default {
 
     featured_playlists () {
       return this.$store.state.spotify_featured_playlists.slice(0, 3)
+    },
+
+    is_visible_artwork () {
+      return this.$store.getters.settings_option('webinterface', 'show_cover_artwork_in_album_lists').value
     }
   },
 

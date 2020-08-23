@@ -10,7 +10,7 @@
       </template>
       <template slot="content">
         <list-item-album v-for="album in recently_added.items" :key="album.id" :album="album" @click="open_album(album)">
-          <template slot="artwork">
+          <template slot="artwork" v-if="is_visible_artwork">
             <p class="image is-64x64 fd-has-shadow fd-has-action">
               <cover-artwork
                 :artwork_url="album.artwork_url"
@@ -104,6 +104,12 @@ export default {
 
       show_album_details_modal: false,
       selected_album: {}
+    }
+  },
+
+  computed: {
+    is_visible_artwork () {
+      return this.$store.getters.settings_option('webinterface', 'show_cover_artwork_in_album_lists').value
     }
   },
 

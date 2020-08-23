@@ -16,7 +16,7 @@
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
       <list-item-album v-for="album in albums.items" :key="album.id" :album="album" @click="open_album(album)">
-        <template slot="artwork">
+        <template slot="artwork" v-if="is_visible_artwork">
           <p class="image is-64x64 fd-has-shadow fd-has-action">
             <cover-artwork
               :artwork_url="album.artwork_url"
@@ -94,6 +94,10 @@ export default {
     open_dialog: function (album) {
       this.selected_album = album
       this.show_details_modal = true
+    },
+
+    is_visible_artwork () {
+      return this.$store.getters.settings_option('webinterface', 'show_cover_artwork_in_album_lists').value
     }
   }
 }

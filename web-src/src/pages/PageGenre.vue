@@ -20,7 +20,7 @@
       <template slot="content">
         <p class="heading has-text-centered-mobile">{{ genre_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
         <list-item-albums v-for="album in genre_albums.items" :key="album.id" :album="album" @click="open_album(album)">
-          <template slot="artwork">
+          <template slot="artwork" v-if="is_visible_artwork">
             <p class="image is-64x64 fd-has-shadow fd-has-action">
               <cover-artwork
                 :artwork_url="album.artwork_url"
@@ -85,6 +85,10 @@ export default {
     index_list () {
       return [...new Set(this.genre_albums.items
         .map(album => album.name.charAt(0).toUpperCase()))]
+    },
+
+    is_visible_artwork () {
+      return this.$store.getters.settings_option('webinterface', 'show_cover_artwork_in_album_lists').value
     }
   },
 
