@@ -69,11 +69,11 @@ export default {
 
   methods: {
     play: function () {
-      webapi.player_play_uri(this.playlist.uri, true)
+      webapi.player_play_uri(this.tracks.map(a => a.uri).join(','), true)
     },
 
     play_track: function (position) {
-      webapi.player_play_uri(this.playlist.uri, false, position)
+      webapi.player_play_uri(this.tracks.map(a => a.uri).join(','), false, position)
     },
 
     open_dialog: function (track) {
