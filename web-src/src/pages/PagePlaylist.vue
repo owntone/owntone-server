@@ -69,11 +69,19 @@ export default {
 
   methods: {
     play: function () {
-      webapi.player_play_uri(this.tracks.map(a => a.uri).join(','), true)
+      if (this.playlist.random) {
+        webapi.player_play_uri(this.tracks.map(a => a.uri).join(','), true)
+      } else {
+        webapi.player_play_uri(this.playlist.uri, true)
+      }
     },
 
     play_track: function (position) {
-      webapi.player_play_uri(this.tracks.map(a => a.uri).join(','), false, position)
+      if (this.playlist.random) {
+        webapi.player_play_uri(this.tracks.map(a => a.uri).join(','), false, position)
+      } else {
+        webapi.player_play_uri(this.playlist.uri, false, position)
+      }
     },
 
     open_dialog: function (track) {
