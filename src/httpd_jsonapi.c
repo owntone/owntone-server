@@ -338,6 +338,7 @@ playlist_to_json(struct db_playlist_info *dbpli)
   json_object *item;
   char uri[100];
   int intval;
+  bool boolval;
   int ret;
 
   item = json_object_new_object();
@@ -351,6 +352,10 @@ playlist_to_json(struct db_playlist_info *dbpli)
     {
       safe_json_add_string(item, "type", db_pl_type_label(intval));
       json_object_object_add(item, "smart_playlist", json_object_new_boolean(intval == PL_SMART));
+
+      boolval = dbpli->query_order && strcasestr(dbpli->query_order, "random");
+      json_object_object_add(item, "random", json_object_new_boolean(boolval));
+
       json_object_object_add(item, "folder", json_object_new_boolean(intval == PL_FOLDER));
     }
 
