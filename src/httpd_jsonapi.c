@@ -3516,8 +3516,8 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
-    return HTTP_NOTMODIFIED;
+  // Due to smart playlists possibly changing their tracks between rescans, disable caching in clients
+  httpd_response_not_cachable(hreq->req);
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
   if (ret < 0)

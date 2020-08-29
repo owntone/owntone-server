@@ -107,6 +107,9 @@ httpd_request_not_modified_since(struct evhttp_request *req, time_t mtime);
 bool
 httpd_request_etag_matches(struct evhttp_request *req, const char *etag);
 
+void
+httpd_response_not_cachable(struct evhttp_request *req);
+
 /*
  * Gzips an evbuffer
  *

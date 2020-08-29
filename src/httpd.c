@@ -344,6 +344,22 @@ httpd_request_not_modified_since(struct evhttp_request *req, time_t mtime)
   return false;
 }
 
+void
+httpd_response_not_cachable(struct evhttp_request *req)
+{
+  struct evkeyvalq *output_headers;
+
+  output_headers = evhttp_request_get_output_headers(req);
+
+  // Remove potentially set cache control headers
+  evhttp_remove_header(output_headers, "Cache-Control");
+  evhttp_remove_header(output_headers, "Last-Modified");
+  evhttp_remove_header(output_headers, "ETag");
+
+  // Tell clients that they are not allowed to cache this response
+  evhttp_add_header(output_headers, "Cache-Control", "no-store");
+}
+
 static void
 serve_file(struct evhttp_request *req, const char *uri)
 {
