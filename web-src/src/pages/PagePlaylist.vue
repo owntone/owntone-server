@@ -23,7 +23,7 @@
         </template>
       </list-item-track>
       <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
-      <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" @close="show_playlist_details_modal = false" />
+      <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" :tracks="playlist.random ? tracks : undefined" @close="show_playlist_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
