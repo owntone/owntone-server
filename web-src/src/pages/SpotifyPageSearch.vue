@@ -44,7 +44,7 @@
       <template slot="footer">
         <nav v-if="show_all_tracks_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" v-on:click="open_search_tracks">Show all {{ tracks.total }} tracks</a>
+            <a class="button is-light is-small is-rounded" v-on:click="open_search_tracks">Show all {{ tracks.total.toLocaleString() }} tracks</a>
           </p>
         </nav>
         <p v-if="!tracks.total">No results</p>
@@ -70,7 +70,7 @@
       <template slot="footer">
         <nav v-if="show_all_artists_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" v-on:click="open_search_artists">Show all {{ artists.total }} artists</a>
+            <a class="button is-light is-small is-rounded" v-on:click="open_search_artists">Show all {{ artists.total.toLocaleString() }} artists</a>
           </p>
         </nav>
         <p v-if="!artists.total">No results</p>
@@ -109,7 +109,7 @@
       <template slot="footer">
         <nav v-if="show_all_albums_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" v-on:click="open_search_albums">Show all {{ albums.total }} albums</a>
+            <a class="button is-light is-small is-rounded" v-on:click="open_search_albums">Show all {{ albums.total.toLocaleString() }} albums</a>
           </p>
         </nav>
         <p v-if="!albums.total">No results</p>
@@ -135,7 +135,7 @@
       <template slot="footer">
         <nav v-if="show_all_playlists_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" v-on:click="open_search_playlists">Show all {{ playlists.total }} playlists</a>
+            <a class="button is-light is-small is-rounded" v-on:click="open_search_playlists">Show all {{ playlists.total.toLocaleString() }} playlists</a>
           </p>
         </nav>
         <p v-if="!playlists.total">No results</p>
@@ -186,7 +186,9 @@ export default {
       selected_artist: {},
 
       show_playlist_details_modal: false,
-      selected_playlist: {}
+      selected_playlist: {},
+
+      validSearchTypes: ['track', 'artist', 'album', 'playlist']
     }
   },
 
@@ -263,7 +265,8 @@ export default {
         var spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)
 
-        return spotifyApi.search(this.query.query, this.query.type.split(','), this.search_param)
+        var types = this.query.type.split(',').filter(type => this.validSearchTypes.includes(type))
+        return spotifyApi.search(this.query.query, types, this.search_param)
       })
     },
 
@@ -336,7 +339,7 @@ export default {
       this.$router.push({
         path: '/search/spotify',
         query: {
-          type: 'track,artist,album,playlist',
+          type: 'track,artist,album,playlist,audiobook,podcast',
           query: this.search_query,
           limit: 3,
           offset: 0
