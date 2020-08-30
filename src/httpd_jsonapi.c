@@ -151,6 +151,7 @@ static json_object *
 artist_to_json(struct db_group_info *dbgri)
 {
   json_object *item;
+  int intval;
   char uri[100];
   char artwork_url[100];
   int ret;
@@ -163,6 +164,21 @@ artist_to_json(struct db_group_info *dbgri)
   safe_json_add_int_from_string(item, "album_count", dbgri->groupalbumcount);
   safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
   safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
+
+  safe_json_add_time_from_string(item, "time_played", dbgri->time_played, true);
+  safe_json_add_time_from_string(item, "time_added", dbgri->time_added, true);
+
+  ret = safe_atoi32(dbgri->seek, &intval);
+  if (ret == 0)
+    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
+
+  ret = safe_atoi32(dbgri->media_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
+
+  ret = safe_atoi32(dbgri->data_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
 
   ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "artist", dbgri->persistentid);
   if (ret < sizeof(uri))
@@ -179,6 +195,7 @@ static json_object *
 album_to_json(struct db_group_info *dbgri)
 {
   json_object *item;
+  int intval;
   char uri[100];
   char artwork_url[100];
   int ret;
@@ -192,6 +209,24 @@ album_to_json(struct db_group_info *dbgri)
   safe_json_add_string(item, "artist_id", dbgri->songartistid);
   safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
   safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
+
+  safe_json_add_time_from_string(item, "time_played", dbgri->time_played, true);
+  safe_json_add_time_from_string(item, "time_added", dbgri->time_added, true);
+
+  ret = safe_atoi32(dbgri->seek, &intval);
+  if (ret == 0)
+    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
+
+  ret = safe_atoi32(dbgri->media_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
+
+  ret = safe_atoi32(dbgri->data_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
+
+  safe_json_add_time_from_string(item, "date_released", dbgri->date_released, false);
+  safe_json_add_int_from_string(item, "year", dbgri->year);
 
   ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "album", dbgri->persistentid);
   if (ret < sizeof(uri))
