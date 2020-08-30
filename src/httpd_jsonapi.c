@@ -165,6 +165,13 @@ artist_to_json(struct db_group_info *dbgri)
   safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
   safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
 
+  safe_json_add_time_from_string(item, "time_played", dbgri->time_played, true);
+  safe_json_add_time_from_string(item, "time_added", dbgri->time_added, true);
+
+  ret = safe_atoi32(dbgri->seek, &intval);
+  if (ret == 0)
+    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
+
   ret = safe_atoi32(dbgri->media_kind, &intval);
   if (ret == 0)
     safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
@@ -202,6 +209,13 @@ album_to_json(struct db_group_info *dbgri)
   safe_json_add_string(item, "artist_id", dbgri->songartistid);
   safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
   safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
+
+  safe_json_add_time_from_string(item, "time_played", dbgri->time_played, true);
+  safe_json_add_time_from_string(item, "time_added", dbgri->time_added, true);
+
+  ret = safe_atoi32(dbgri->seek, &intval);
+  if (ret == 0)
+    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
 
   ret = safe_atoi32(dbgri->media_kind, &intval);
   if (ret == 0)
