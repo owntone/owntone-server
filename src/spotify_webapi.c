@@ -52,6 +52,7 @@ struct spotify_album
   const char *name;
   const char *release_date;
   const char *release_date_precision;
+  time_t release_date_time;
   int release_year;
   const char *uri;
   const char *artwork_url;
@@ -728,6 +729,8 @@ parse_metadata_album(json_object *jsonalbum, struct spotify_album *album, int ma
 
   album->release_date = jparse_str_from_obj(jsonalbum, "release_date");
   album->release_date_precision = jparse_str_from_obj(jsonalbum, "release_date_precision");
+  if (strcmp(album->release_date_precision, "day") == 0)
+    album->release_date_time = jparse_time_from_obj(jsonalbum, "release_date");
   album->release_year = get_year_from_date(album->release_date);
 
   if (max_w > 0)
@@ -1389,6 +1392,7 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
       mfi->album = safe_strdup(album->name);
       mfi->genre = safe_strdup(album->genre);
       mfi->compilation = album->is_compilation;
+      mfi->date_released = album->release_date_time;
       mfi->year = album->release_year;
     }
   else
