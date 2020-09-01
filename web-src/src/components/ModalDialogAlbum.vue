@@ -27,9 +27,29 @@
                   <span class="heading">Album artist</span>
                   <span class="title is-6">{{ album.artist }}</span>
                 </p>
+                <p v-if="album.date_released">
+                  <span class="heading">Release date</span>
+                  <span class="title is-6">{{ album.date_released | time('L') }}</span>
+                </p>
+                <p v-else-if="album.year > 0">
+                  <span class="heading">Year</span>
+                  <span class="title is-6">{{ album.year }}</span>
+                </p>
                 <p>
                   <span class="heading">Tracks</span>
                   <span class="title is-6">{{ album.track_count }}</span>
+                </p>
+                <p>
+                  <span class="heading">Length</span>
+                  <span class="title is-6">{{ album.length_ms | duration }}</span>
+                </p>
+                <p>
+                  <span class="heading">Type</span>
+                  <span class="title is-6">{{ album.media_kind }} - {{ album.data_kind }}</span>
+                </p>
+                <p>
+                  <span class="heading">Added at</span>
+                  <span class="title is-6">{{ album.time_added | time('L LT') }}</span>
                 </p>
               </div>
             </div>
