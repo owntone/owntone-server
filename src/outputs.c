@@ -1018,19 +1018,27 @@ outputs_start(output_status_cb started_cb, output_status_cb stopped_cb, bool onl
 {
   struct output_device *device;
   int pending = 0;
-  int ret = -1;
+  int ret;
 
   for (device = outputs_device_list; device; device = device->next)
     {
       if (device->selected)
-	ret = outputs_device_start(device, started_cb, only_probe);
-      else
-	ret = outputs_device_stop(device, stopped_cb);
-
-      if (ret < 0)
 	continue;
 
-      pending += ret;
+      ret = outputs_device_stop(device, stopped_cb);
+      if (ret > 0)
+	pending += ret;
+    }
+
+  ret = 0; // We don't care about devices that returned an error on stop
+  for (device = outputs_device_list; device; device = device->next)
+    {
+      if (!device->selected)
+	continue;
+
+      ret = outputs_device_start(device, started_cb, only_probe);
+      if (ret > 0)
+	pending += ret;
     }
 
   return (pending > 0) ? pending : ret;
@@ -1045,9 +1053,6 @@ outputs_stop(output_status_cb cb)
 
   for (device = outputs_device_list; device; device = device->next)
     {
-      if (!device->session)
-	continue;
-
       ret = outputs_device_stop(device, cb);
       if (ret < 0)
 	continue;
