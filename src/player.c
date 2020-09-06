@@ -2078,7 +2078,7 @@ playback_start_item(void *arg, int *retval)
   // device_shutdown_cb, since the unselected devices shouldn't have sessions.
   *retval = outputs_start(device_activate_cb, device_shutdown_cb, false);
   if (*retval < 0)
-    DPRINTF(E_LOG, L_PLAYER, "All selected speakers failed to start\n");
+    DPRINTF(E_WARN, L_PLAYER, "All selected speakers failed to start\n");
 
   // autoselect also applies in non-error cases (if no devices were selected)
   if (speaker_autoselect && outputs_sessions_count() == 0)
