@@ -43,6 +43,12 @@
       </template>
       <template slot="heading-right">
         <div class="buttons is-centered">
+          <a class="button is-small" v-if='albums.items.length > 0' @click="update_podcasts">
+            <span class="icon">
+              <i class="mdi mdi-rss"></i>
+            </span>
+            <span>Update</span>
+          </a>
           <a class="button is-small" @click="open_add_podcast_dialog">
             <span class="icon">
               <i class="mdi mdi-rss"></i>
@@ -133,11 +139,34 @@ export default {
       })
     },
 
+    update_podcasts: function () {
+      webapi.library_podcast_update()
+    },
+
     reload_podcasts: function () {
       webapi.library_albums('podcast').then(({ data }) => {
         this.albums = data
         this.reload_new_episodes()
       })
+    }
+  },
+
+  computed: {
+    podcasts_tracks () {
+      return this.$store.state.podcasts_count.tracks
+    },
+    podcasts () {
+      return this.$store.state.podcasts_count
+    }
+  },
+
+  watch: {
+    'podcasts' () {
+      this.reload_podcasts()
+    },
+
+    'podcasts_tracks' () {
+      this.reload_new_episodes()
     }
   }
 }
