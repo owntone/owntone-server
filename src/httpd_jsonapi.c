@@ -4358,6 +4358,13 @@ jsonapi_reply_library_backup(struct httpd_request *hreq)
   return HTTP_OK;
 }
 
+extern struct library_source rssscanner;
+static int
+jsonapi_reply_update_rss(struct httpd_request *hreq)
+{
+  rssscanner.rescan();
+  return HTTP_OK;
+}
 
 static struct httpd_uri_map adm_handlers[] =
   {
@@ -4370,6 +4377,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library$",                               jsonapi_reply_library },
     { EVHTTP_REQ_GET |
       EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },
+    { EVHTTP_REQ_PUT,    "^/api/update/rss$",                            jsonapi_reply_update_rss },
     { EVHTTP_REQ_PUT,    "^/api/rescan$",                                jsonapi_reply_meta_rescan },
     { EVHTTP_REQ_POST,   "^/api/spotify-login$",                         jsonapi_reply_spotify_login },
     { EVHTTP_REQ_GET,    "^/api/spotify-logout$",                        jsonapi_reply_spotify_logout },
