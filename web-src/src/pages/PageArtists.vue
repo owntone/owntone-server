@@ -67,7 +67,10 @@ export default {
     },
 
     artists_filtered () {
-      return this.artists.items.filter(artist => !this.hide_singles || artist.track_count > (artist.album_count * 2))
+      if (this.hide_singles) {
+        return this.artists.items.filter(artist => artist.track_count > (artist.album_count * 2))
+      }
+      return this.artists.items
     }
   },
 

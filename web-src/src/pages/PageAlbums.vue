@@ -65,7 +65,10 @@ export default {
     },
 
     albums_filtered () {
-      return this.albums.items.filter(album => !this.hide_singles || album.track_count > 2)
+      if (this.hide_singles) {
+        return this.albums.items.filter(album => album.track_count > 2)
+      }
+      return this.albums.items
     }
   },
 
