@@ -59,14 +59,7 @@
         <p class="title is-4">Artists</p>
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists.items" :key="artist.id" :artist="artist" @click="open_artist(artist)">
-          <template slot="actions">
-            <a @click="open_artist_dialog(artist)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-artist>
-        <modal-dialog-artist :show="show_artist_details_modal" :artist="selected_artist" @close="show_artist_details_modal = false" />
+        <list-artists :artists="artists.items"></list-artists>
       </template>
       <template slot="footer">
         <nav v-if="show_all_artists_button" class="level">
@@ -84,24 +77,7 @@
         <p class="title is-4">Albums</p>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in albums.items" :key="album.id" :album="album" @click="open_album(album)">
-          <template slot="artwork" v-if="is_visible_artwork">
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork
-                :artwork_url="album.artwork_url"
-                :artist="album.artist"
-                :album="album.name"
-                :maxwidth="64"
-                :maxheight="64" />
-            </p>
-          </template>
-          <template slot="actions">
-            <a @click="open_album_dialog(album)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-album>
-        <modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
+        <list-albums :albums="albums.items"></list-albums>
       </template>
       <template slot="footer">
         <nav v-if="show_all_albums_button" class="level">
@@ -144,24 +120,7 @@
         <p class="title is-4">Podcasts</p>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in podcasts.items" :key="album.id" :album="album" :media_kind="'podcast'" @click="open_podcast(album)">
-          <template slot="artwork" v-if="is_visible_artwork">
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork
-                :artwork_url="album.artwork_url"
-                :artist="album.artist"
-                :album="album.name"
-                :maxwidth="64"
-                :maxheight="64" />
-            </p>
-          </template>
-          <template slot="actions">
-            <a @click="open_podcast_dialog(album)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-album>
-        <modal-dialog-album :show="show_podcast_details_modal" :album="selected_podcast" :media_kind="'podcast'" @close="show_podcast_details_modal = false" />
+        <list-albums :albums="podcasts.items"></list-albums>
       </template>
       <template slot="footer">
         <nav v-if="show_all_podcasts_button" class="level">
@@ -179,24 +138,7 @@
         <p class="title is-4">Audiobooks</p>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in audiobooks.items" :key="album.id" :album="album" :media_kind="'audiobook'" @click="open_audiobook(album)">
-          <template slot="artwork" v-if="is_visible_artwork">
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork
-                :artwork_url="album.artwork_url"
-                :artist="album.artist"
-                :album="album.name"
-                :maxwidth="64"
-                :maxheight="64" />
-            </p>
-          </template>
-          <template slot="actions">
-            <a @click="open_audiobook_dialog(album)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-album>
-        <modal-dialog-album :show="show_audiobook_details_modal" :album="selected_audiobook" :media_kind="'audiobook'" @close="show_audiobook_details_modal = false" />
+        <list-albums :albums="audiobooks.items"></list-albums>
       </template>
       <template slot="footer">
         <nav v-if="show_all_audiobooks_button" class="level">
@@ -214,20 +156,17 @@
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsSearch from '@/components/TabsSearch'
 import ListItemTrack from '@/components/ListItemTrack'
-import ListItemArtist from '@/components/ListItemArtist'
-import ListItemAlbum from '@/components/ListItemAlbum'
+import ListArtists from '@/components/ListArtists'
+import ListAlbums from '@/components/ListAlbums'
 import ListItemPlaylist from '@/components/ListItemPlaylist'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
-import ModalDialogArtist from '@/components/ModalDialogArtist'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
-import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageSearch',
-  components: { ContentWithHeading, TabsSearch, ListItemTrack, ListItemArtist, ListItemAlbum, ListItemPlaylist, ModalDialogTrack, ModalDialogAlbum, ModalDialogArtist, ModalDialogPlaylist, CoverArtwork },
+  components: { ContentWithHeading, TabsSearch, ListItemTrack, ListArtists, ListAlbums, ListItemPlaylist, ModalDialogTrack, ModalDialogPlaylist },
 
   data () {
     return {
@@ -243,20 +182,8 @@ export default {
       show_track_details_modal: false,
       selected_track: {},
 
-      show_album_details_modal: false,
-      selected_album: {},
-
-      show_artist_details_modal: false,
-      selected_artist: {},
-
       show_playlist_details_modal: false,
-      selected_playlist: {},
-
-      show_audiobook_details_modal: false,
-      selected_audiobook: {},
-
-      show_podcast_details_modal: false,
-      selected_podcast: {}
+      selected_playlist: {}
     }
   },
 
@@ -327,7 +254,7 @@ export default {
     },
 
     searchMusic: function (query) {
-      if (query.type.indexOf('track') < 0 && query.type.indexOf('track') < 0 && query.type.indexOf('album') < 0 && query.type.indexOf('playlist') < 0) {
+      if (query.type.indexOf('track') < 0 && query.type.indexOf('artist') < 0 && query.type.indexOf('album') < 0 && query.type.indexOf('playlist') < 0) {
         return
       }
 
@@ -488,24 +415,8 @@ export default {
       webapi.player_play_uri(track.uri, false)
     },
 
-    open_artist: function (artist) {
-      this.$router.push({ path: '/music/artists/' + artist.id })
-    },
-
-    open_album: function (album) {
-      this.$router.push({ path: '/music/albums/' + album.id })
-    },
-
     open_playlist: function (playlist) {
       this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
-    },
-
-    open_audiobook: function (album) {
-      this.$router.push({ path: '/audiobooks/' + album.id })
-    },
-
-    open_podcast: function (album) {
-      this.$router.push({ path: '/podcasts/' + album.id })
     },
 
     open_recent_search: function (query) {
@@ -518,29 +429,9 @@ export default {
       this.show_track_details_modal = true
     },
 
-    open_album_dialog: function (album) {
-      this.selected_album = album
-      this.show_album_details_modal = true
-    },
-
-    open_artist_dialog: function (artist) {
-      this.selected_artist = artist
-      this.show_artist_details_modal = true
-    },
-
     open_playlist_dialog: function (playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
-    },
-
-    open_audiobook_dialog: function (album) {
-      this.selected_audiobook = album
-      this.show_audiobook_details_modal = true
-    },
-
-    open_podcast_dialog: function (album) {
-      this.selected_podcast = album
-      this.show_podcast_details_modal = true
     }
   },
 

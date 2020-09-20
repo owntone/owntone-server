@@ -16,7 +16,7 @@
               </p>
               <div class="buttons" v-if="media_kind_resolved === 'podcast'">
                 <a class="button is-small" @click="mark_played">Mark as played</a>
-                <a class="button is-small" @click="$emit('remove_podcast')">Remove podcast</a>
+                <a class="button is-small" @click="$emit('remove-podcast')">Remove podcast</a>
               </div>
               <div class="content is-small">
                 <p v-if="album.artist">

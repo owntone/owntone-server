@@ -4,41 +4,62 @@
         :key="album.id"
         :album="album"
         @click="open_album(album)">
-        <template slot="artwork" v-if="is_visible_artwork">
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
-            <cover-artwork
-                :artwork_url="album.artwork_url"
-                :artist="album.artist"
-                :album="album.name"
-                :maxwidth="64"
-                :maxheight="64" />
-            </p>
-        </template>
-        <template slot="actions">
-            <a @click="open_dialog(album)">
-            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-        </template>
+      <template slot="artwork" v-if="is_visible_artwork">
+        <p class="image is-64x64 fd-has-shadow fd-has-action">
+        <cover-artwork
+            :artwork_url="album.artwork_url"
+            :artist="album.artist"
+            :album="album.name"
+            :maxwidth="64"
+            :maxheight="64" />
+        </p>
+      </template>
+      <template slot="actions">
+        <a @click="open_dialog(album)">
+          <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+        </a>
+      </template>
     </list-item-album>
-    <modal-dialog-album :show="show_details_modal" :album="selected_album" :media_kind="media_kind" @close="show_details_modal = false" />
+    <modal-dialog-album
+        :show="show_details_modal"
+        :album="selected_album"
+        :media_kind="media_kind"
+        @remove-podcast="open_remove_podcast_dialog()"
+        @close="show_details_modal = false" />
+    <modal-dialog
+        :show="show_remove_podcast_modal"
+        title="Remove podcast"
+        delete_action="Remove"
+        @close="show_remove_podcast_modal = false"
+        @delete="remove_podcast">
+      <template slot="modal-content">
+        <p>Permanently remove this podcast from your library?</p>
+        <p class="is-size-7">(This will also remove the RSS playlist <b>{{ rss_playlist_to_remove.name }}</b>.)</p>
+      </template>
+    </modal-dialog>
   </div>
 </template>
 
 <script>
 import ListItemAlbum from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ModalDialog from '@/components/ModalDialog'
 import CoverArtwork from '@/components/CoverArtwork'
+import webapi from '@/webapi'
 
 export default {
   name: 'ListAlbums',
-  components: { ListItemAlbum, ModalDialogAlbum, CoverArtwork },
+  components: { ListItemAlbum, ModalDialogAlbum, ModalDialog, CoverArtwork },
 
   props: ['albums', 'media_kind'],
 
   data () {
     return {
       show_details_modal: false,
-      selected_album: {}
+      selected_album: {},
+
+      show_remove_podcast_modal: false,
+      rss_playlist_to_remove: {}
     }
   },
 
@@ -67,6 +88,29 @@ export default {
     open_dialog: function (album) {
       this.selected_album = album
       this.show_details_modal = true
+    },
+
+    open_remove_podcast_dialog: function () {
+      webapi.library_album_tracks(this.selected_album.id, { limit: 1 }).then(({ data }) => {
+        webapi.library_track_playlists(data.items[0].id).then(({ data }) => {
+          const rssPlaylists = data.items.filter(pl => pl.type === 'rss')
+          if (rssPlaylists.length !== 1) {
+            this.$store.dispatch('add_notification', { text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.', type: 'danger' })
+            return
+          }
+
+          this.rss_playlist_to_remove = rssPlaylists[0]
+          this.show_remove_podcast_modal = true
+          this.show_details_modal = false
+        })
+      })
+    },
+
+    remove_podcast: function () {
+      this.show_remove_podcast_modal = false
+      webapi.library_playlist_delete(this.rss_playlist_to_remove.id).then(() => {
+        this.$emit('podcast-deleted')
+      })
     }
   }
 }
