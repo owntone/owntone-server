@@ -1,24 +1,29 @@
 <template>
-  <content-with-heading>
+  <content-with-hero>
     <template slot="heading-left">
-      <div class="title is-4">{{ album.name }}</div>
-      <div class="title is-4 has-text-grey has-text-weight-normal">{{ album.artist }}</div>
-    </template>
-    <template slot="heading-right">
-      <div class="buttons is-centered">
+      <h1 class="title is-5">{{ album.name }}</h1>
+      <h2 class="subtitle is-6 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artist }}</a></h2>
+
+      <div class="buttons fd-is-centered-mobile fd-has-margin-top">
+        <a class="button is-small is-dark is-rounded" @click="play">
+          <span class="icon"><i class="mdi mdi-play"></i></span> <span>Play</span>
+        </a>
         <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
           <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
         </a>
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon">
-            <i class="mdi mdi-play"></i>
-          </span>
-          <span>Play</span>
-        </a>
       </div>
     </template>
+    <template slot="heading-right">
+      <p class="image is-square fd-has-shadow fd-has-action">
+        <cover-artwork
+          :artwork_url="album.artwork_url"
+          :artist="album.artist"
+          :album="album.name"
+          @click="show_album_details_modal = true" />
+      </p>
+    </template>
     <template slot="content">
-      <p class="heading has-text-centered-mobile">{{ album.track_count }} tracks</p>
+      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">{{ album.track_count }} tracks</p>
       <list-item-track v-for="(track, index) in tracks" :key="track.id" :track="track" @click="play_track(index)">
         <template slot="actions">
           <a @click="open_dialog(track)">
@@ -29,15 +34,16 @@
       <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
       <modal-dialog-album :show="show_album_details_modal" :album="album" :media_kind="'audiobook'" @close="show_album_details_modal = false" />
     </template>
-  </content-with-heading>
+  </content-with-hero>
 </template>
 
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
+import ContentWithHero from '@/templates/ContentWithHero'
 import ListItemTrack from '@/components/ListItemTrack'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
 
 const albumData = {
@@ -57,7 +63,7 @@ const albumData = {
 export default {
   name: 'PageAudiobooksAlbum',
   mixins: [LoadDataBeforeEnterMixin(albumData)],
-  components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, ModalDialogAlbum },
+  components: { ContentWithHero, ListItemTrack, ModalDialogTrack, ModalDialogAlbum, CoverArtwork },
 
   data () {
     return {
@@ -72,6 +78,11 @@ export default {
   },
 
   methods: {
+    open_artist: function () {
+      this.show_details_modal = false
+      this.$router.push({ path: '/audiobooks/artists/' + this.album.artist_id })
+    },
+
     play: function () {
       webapi.player_play_uri(this.album.uri, false)
     },
