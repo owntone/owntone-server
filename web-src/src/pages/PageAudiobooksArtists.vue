@@ -13,17 +13,7 @@
       <template slot="heading-right">
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists_filtered"
-          :key="artist.id"
-          :artist="artist"
-          @click="open_artist(artist)">
-            <template slot="actions">
-              <a @click="open_dialog(artist)">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-              </a>
-            </template>
-        </list-item-artist>
-        <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" @close="show_details_modal = false" />
+        <list-artists :artists="artists.items"></list-artists>
       </template>
     </content-with-heading>
   </div>
@@ -34,10 +24,8 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsAudiobooks from '@/components/TabsAudiobooks'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemArtist from '@/components/ListItemArtist'
-import ModalDialogArtist from '@/components/ModalDialogArtist'
+import ListArtists from '@/components/ListArtists'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
 
 const artistsData = {
   load: function (to) {
@@ -52,46 +40,23 @@ const artistsData = {
 export default {
   name: 'PageAudiobooksArtists',
   mixins: [LoadDataBeforeEnterMixin(artistsData)],
-  components: { ContentWithHeading, TabsAudiobooks, IndexButtonList, ListItemArtist, ModalDialogArtist },
+  components: { ContentWithHeading, TabsAudiobooks, IndexButtonList, ListArtists },
 
   data () {
     return {
-      artists: { items: [] },
-
-      show_details_modal: false,
-      selected_artist: {}
+      artists: { items: [] }
     }
   },
 
   computed: {
-    hide_singles () {
-      return this.$store.state.hide_singles
-    },
-
     index_list () {
       return [...new Set(this.artists.items
         .filter(artist => !this.$store.state.hide_singles || artist.track_count > (artist.album_count * 2))
         .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
-    },
-
-    artists_filtered () {
-      return this.artists.items.filter(artist => !this.hide_singles || artist.track_count > (artist.album_count * 2))
     }
   },
 
   methods: {
-    update_hide_singles: function (e) {
-      this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
-    },
-
-    open_artist: function (artist) {
-      this.$router.push({ path: '/music/artists/' + artist.id })
-    },
-
-    open_dialog: function (artist) {
-      this.selected_artist = artist
-      this.show_details_modal = true
-    }
   }
 }
 </script>

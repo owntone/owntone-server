@@ -19,17 +19,7 @@
         </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists_filtered"
-          :key="artist.id"
-          :artist="artist"
-          @click="open_artist(artist)">
-            <template slot="actions">
-              <a @click="open_dialog(artist)">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-              </a>
-            </template>
-        </list-item-artist>
-        <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" @close="show_details_modal = false" />
+        <list-artists :artists="artists_filtered"></list-artists>
       </template>
     </content-with-heading>
   </div>
@@ -40,8 +30,7 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemArtist from '@/components/ListItemArtist'
-import ModalDialogArtist from '@/components/ModalDialogArtist'
+import ListArtists from '@/components/ListArtists'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
@@ -58,14 +47,11 @@ const artistsData = {
 export default {
   name: 'PageArtists',
   mixins: [LoadDataBeforeEnterMixin(artistsData)],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist, ModalDialogArtist },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListArtists },
 
   data () {
     return {
-      artists: { items: [] },
-
-      show_details_modal: false,
-      selected_artist: {}
+      artists: { items: [] }
     }
   },
 
@@ -88,15 +74,6 @@ export default {
   methods: {
     update_hide_singles: function (e) {
       this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
-    },
-
-    open_artist: function (artist) {
-      this.$router.push({ path: '/music/artists/' + artist.id })
-    },
-
-    open_dialog: function (artist) {
-      this.selected_artist = artist
-      this.show_details_modal = true
     }
   }
 }

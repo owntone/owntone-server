@@ -19,6 +19,7 @@ import PagePodcasts from '@/pages/PagePodcasts'
 import PagePodcast from '@/pages/PagePodcast'
 import PageAudiobooks from '@/pages/PageAudiobooks'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists'
+import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist'
 import PageAudiobook from '@/pages/PageAudiobook'
 import PagePlaylists from '@/pages/PagePlaylists'
 import PagePlaylist from '@/pages/PagePlaylist'
@@ -148,6 +149,12 @@ export const router = new VueRouter({
       name: 'AudiobooksArtists',
       component: PageAudiobooksArtists,
       meta: { show_progress: true, has_tabs: true, has_index: true }
+    },
+    {
+      path: '/audiobooks/artists/:artist_id',
+      name: 'AudiobooksArtist',
+      component: PageAudiobooksArtist,
+      meta: { show_progress: true }
     },
     {
       path: '/audiobooks/albums',

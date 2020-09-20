@@ -9,12 +9,12 @@
           <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+          <span class="icon"><i class="mdi mdi-play"></i></span> <span>Shuffle</span>
         </a>
       </div>
     </template>
     <template slot="content">
-      <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
+      <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums</p>
       <list-albums :albums="albums.items"></list-albums>
       <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
     </template>
@@ -43,7 +43,7 @@ const artistData = {
 }
 
 export default {
-  name: 'PageArtist',
+  name: 'PageAudiobooksArtist',
   mixins: [LoadDataBeforeEnterMixin(artistData)],
   components: { ContentWithHeading, ListAlbums, ModalDialogArtist },
 
@@ -57,12 +57,8 @@ export default {
   },
 
   methods: {
-    open_tracks: function () {
-      this.$router.push({ path: '/music/artists/' + this.artist.id + '/tracks' })
-    },
-
     play: function () {
-      webapi.player_play_uri(this.albums.items.map(a => a.uri).join(','), true)
+      webapi.player_play_uri(this.albums.items.map(a => a.uri).join(','), false)
     }
   }
 }

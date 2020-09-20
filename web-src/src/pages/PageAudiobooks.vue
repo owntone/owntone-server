@@ -8,14 +8,7 @@
         <p class="heading">{{ albums.total }} audiobooks</p>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in albums.items" :key="album.id" :album="album" :media_kind="'audiobook'" @click="open_album(album)">
-          <template slot="actions">
-            <a @click="open_dialog(album)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-album>
-        <modal-dialog-album :show="show_details_modal" :album="selected_album" :media_kind="'audiobook'" @close="show_details_modal = false" />
+        <list-albums :albums="albums.items"></list-albums>
       </template>
     </content-with-heading>
   </div>
@@ -25,8 +18,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import TabsAudiobooks from '@/components/TabsAudiobooks'
 import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemAlbum from '@/components/ListItemAlbum'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ListAlbums from '@/components/ListAlbums'
 import webapi from '@/webapi'
 
 const albumsData = {
@@ -42,26 +34,15 @@ const albumsData = {
 export default {
   name: 'PageAudiobooks',
   mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { TabsAudiobooks, ContentWithHeading, ListItemAlbum, ModalDialogAlbum },
+  components: { TabsAudiobooks, ContentWithHeading, ListAlbums },
 
   data () {
     return {
-      albums: {},
-
-      show_details_modal: false,
-      selected_album: {}
+      albums: { items: [] }
     }
   },
 
   methods: {
-    open_album: function (album) {
-      this.$router.push({ path: '/audiobooks/' + album.id })
-    },
-
-    open_dialog: function (album) {
-      this.selected_album = album
-      this.show_details_modal = true
-    }
   }
 }
 </script>
