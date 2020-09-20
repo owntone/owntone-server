@@ -17,10 +17,10 @@ import PageGenreTracks from '@/pages/PageGenreTracks'
 import PageArtistTracks from '@/pages/PageArtistTracks'
 import PagePodcasts from '@/pages/PagePodcasts'
 import PagePodcast from '@/pages/PagePodcast'
-import PageAudiobooks from '@/pages/PageAudiobooks'
+import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist'
-import PageAudiobook from '@/pages/PageAudiobook'
+import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum'
 import PagePlaylists from '@/pages/PagePlaylists'
 import PagePlaylist from '@/pages/PagePlaylist'
 import PageFiles from '@/pages/PageFiles'
@@ -159,13 +159,13 @@ export const router = new VueRouter({
     {
       path: '/audiobooks/albums',
       name: 'AudiobooksAlbums',
-      component: PageAudiobooks,
+      component: PageAudiobooksAlbums,
       meta: { show_progress: true, has_tabs: true }
     },
     {
       path: '/audiobooks/:album_id',
       name: 'Audiobook',
-      component: PageAudiobook,
+      component: PageAudiobooksAlbum,
       meta: { show_progress: true }
     },
     {

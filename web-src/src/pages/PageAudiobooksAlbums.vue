@@ -32,7 +32,7 @@ const albumsData = {
 }
 
 export default {
-  name: 'PageAudiobooks',
+  name: 'PageAudiobooksAlbums',
   mixins: [LoadDataBeforeEnterMixin(albumsData)],
   components: { TabsAudiobooks, ContentWithHeading, ListAlbums },
 
