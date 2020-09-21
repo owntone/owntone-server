@@ -2091,9 +2091,6 @@ playback_start_item(void *arg, int *retval)
 	  if (device->selected || outputs_priority(device) == 0 || device->session)
 	    continue;
 
-	  if (strcmp(device->name, "Stuen") != 0)
-	    continue;
-
 	  *retval = outputs_device_start(device, device_activate_cb, false);
 	  if (*retval < 0)
 	    continue;
