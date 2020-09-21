@@ -2080,19 +2080,27 @@ playback_start_item(void *arg, int *retval)
   if (*retval < 0)
     DPRINTF(E_WARN, L_PLAYER, "All selected speakers failed to start\n");
 
-  // autoselect also applies in non-error cases (if no devices were selected)
-  if (speaker_autoselect && outputs_sessions_count() == 0)
+  // autoselect also applies in non-error cases (if no devices were selected).
+  // Note that if session count is 0 then retval should never be positive,
+  // because that would mean we are initiating a session. Just to be safe, we
+  // check anyway.
+  if (speaker_autoselect && outputs_sessions_count() == 0 && *retval <= 0)
     {
-      for (device = outputs_list(); (*retval < 0) && device; device = device->next)
+      for (device = outputs_list(); device; device = device->next)
 	{
-	  if (!device->selected && outputs_priority(device) != 0 && !device->session)
-	    *retval = outputs_device_start(device, device_activate_cb, false);
-	}
+	  if (device->selected || outputs_priority(device) == 0 || device->session)
+	    continue;
 
-      if (*retval >= 0)
-	{
+	  if (strcmp(device->name, "Stuen") != 0)
+	    continue;
+
+	  *retval = outputs_device_start(device, device_activate_cb, false);
+	  if (*retval < 0)
+	    continue;
+
 	  DPRINTF(E_LOG, L_PLAYER, "Autoselected %s device '%s'\n", device->type_name, device->name);
 	  outputs_device_select(device, -1);
+	  break;
 	}
     }
 
