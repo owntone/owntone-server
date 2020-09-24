@@ -52,6 +52,7 @@ struct spotify_album
   const char *name;
   const char *release_date;
   const char *release_date_precision;
+  time_t release_date_time;
   int release_year;
   const char *uri;
   const char *artwork_url;
@@ -72,6 +73,10 @@ struct spotify_track
   const char *id;
   const char *name;
   int track_number;
+  const char *release_date;
+  const char *release_date_precision;
+  time_t release_date_time;
+  int release_year;
   const char *uri;
   const char *artwork_url;
 
@@ -728,6 +733,8 @@ parse_metadata_album(json_object *jsonalbum, struct spotify_album *album, int ma
 
   album->release_date = jparse_str_from_obj(jsonalbum, "release_date");
   album->release_date_precision = jparse_str_from_obj(jsonalbum, "release_date_precision");
+  if (album->release_date_precision && strcmp(album->release_date_precision, "day") == 0)
+    album->release_date_time = jparse_time_from_obj(jsonalbum, "release_date");
   album->release_year = get_year_from_date(album->release_date);
 
   if (max_w > 0)
@@ -1383,12 +1390,13 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
   mfi->time_modified = track->mtime;
   mfi->time_added = track->mtime;
 
-  if (album)
+  if (album && album->uri)
     {
       mfi->album_artist = safe_strdup(album->artist);
       mfi->album = safe_strdup(album->name);
       mfi->genre = safe_strdup(album->genre);
       mfi->compilation = album->is_compilation;
+      mfi->date_released = album->release_date_time;
       mfi->year = album->release_year;
     }
   else
@@ -1445,7 +1453,7 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
 
   spotify_uri_register(track->uri);
 
-  if (album)
+  if (album && album->uri)
     cache_artwork_ping(track->uri, album->mtime, 0);
   else
     cache_artwork_ping(track->uri, 1, 0);
@@ -1560,7 +1568,9 @@ static int
 saved_playlist_tracks_add(json_object *item, int index, int total, void *arg)
 {
   struct spotify_track track;
+  struct spotify_album album;
   json_object *jsontrack;
+  json_object *jsonalbum;
   int *plid;
   int dir_id;
   int ret;
@@ -1583,8 +1593,17 @@ saved_playlist_tracks_add(json_object *item, int index, int total, void *arg)
       return 0;
     }
 
+  if (json_object_object_get_ex(jsontrack, "album", &jsonalbum))
+    {
+      parse_metadata_album(jsonalbum, &album, 0);
+    }
+  else
+    {
+      memset(&album, 0, sizeof(struct spotify_album));
+    }
+
   dir_id = prepare_directories(track.album_artist, track.album);
-  ret = track_add(&track, NULL, NULL, dir_id);
+  ret = track_add(&track, &album, NULL, dir_id);
   if (ret == 0)
     db_pl_add_item_bypath(*plid, track.uri);
 

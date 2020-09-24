@@ -113,7 +113,7 @@ safe_json_add_int_from_string(json_object *obj, const char *key, const char *val
 }
 
 static inline void
-safe_json_add_time_from_string(json_object *obj, const char *key, const char *value, bool with_time)
+safe_json_add_time_from_string(json_object *obj, const char *key, const char *value)
 {
   uint32_t tmp;
   time_t timestamp;
@@ -139,10 +139,39 @@ safe_json_add_time_from_string(json_object *obj, const char *key, const char *va
       return;
     }
 
-  if (with_time)
-    strftime(result, sizeof(result), "%FT%TZ", &tm);
-  else
-    strftime(result, sizeof(result), "%F", &tm);
+  strftime(result, sizeof(result), "%FT%TZ", &tm);
+
+  json_object_object_add(obj, key, json_object_new_string(result));
+}
+
+static inline void
+safe_json_add_date_from_string(json_object *obj, const char *key, const char *value)
+{
+  uint32_t tmp;
+  time_t timestamp;
+  struct tm tm;
+  char result[32];
+
+  if (!value)
+    return;
+
+  if (safe_atou32(value, &tmp) != 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error converting timestamp to uint32_t: %s\n", value);
+      return;
+    }
+
+  if (!tmp)
+    return;
+
+  timestamp = tmp;
+  if (localtime_r(&timestamp, &tm) == NULL)
+    {
+      DPRINTF(E_LOG, L_WEB, "Error converting timestamp to localtime: %s\n", value);
+      return;
+    }
+
+  strftime(result, sizeof(result), "%F", &tm);
 
   json_object_object_add(obj, key, json_object_new_string(result));
 }
@@ -165,8 +194,8 @@ artist_to_json(struct db_group_info *dbgri)
   safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
   safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
 
-  safe_json_add_time_from_string(item, "time_played", dbgri->time_played, true);
-  safe_json_add_time_from_string(item, "time_added", dbgri->time_added, true);
+  safe_json_add_time_from_string(item, "time_played", dbgri->time_played);
+  safe_json_add_time_from_string(item, "time_added", dbgri->time_added);
 
   ret = safe_atoi32(dbgri->seek, &intval);
   if (ret == 0)
@@ -210,8 +239,8 @@ album_to_json(struct db_group_info *dbgri)
   safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
   safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
 
-  safe_json_add_time_from_string(item, "time_played", dbgri->time_played, true);
-  safe_json_add_time_from_string(item, "time_added", dbgri->time_added, true);
+  safe_json_add_time_from_string(item, "time_played", dbgri->time_played);
+  safe_json_add_time_from_string(item, "time_added", dbgri->time_added);
 
   ret = safe_atoi32(dbgri->seek, &intval);
   if (ret == 0)
@@ -225,7 +254,7 @@ album_to_json(struct db_group_info *dbgri)
   if (ret == 0)
     safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
 
-  safe_json_add_time_from_string(item, "date_released", dbgri->date_released, false);
+  safe_json_add_date_from_string(item, "date_released", dbgri->date_released);
   safe_json_add_int_from_string(item, "year", dbgri->year);
 
   ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "album", dbgri->persistentid);
@@ -271,10 +300,10 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "rating", dbmfi->rating);
   safe_json_add_int_from_string(item, "play_count", dbmfi->play_count);
   safe_json_add_int_from_string(item, "skip_count", dbmfi->skip_count);
-  safe_json_add_time_from_string(item, "time_played", dbmfi->time_played, true);
-  safe_json_add_time_from_string(item, "time_skipped", dbmfi->time_skipped, true);
-  safe_json_add_time_from_string(item, "time_added", dbmfi->time_added, true);
-  safe_json_add_time_from_string(item, "date_released", dbmfi->date_released, false);
+  safe_json_add_time_from_string(item, "time_played", dbmfi->time_played);
+  safe_json_add_time_from_string(item, "time_skipped", dbmfi->time_skipped);
+  safe_json_add_time_from_string(item, "time_added", dbmfi->time_added);
+  safe_json_add_date_from_string(item, "date_released", dbmfi->date_released);
   safe_json_add_int_from_string(item, "seek_ms", dbmfi->seek);
 
   safe_json_add_string(item, "type", dbmfi->type);
@@ -1113,14 +1142,14 @@ jsonapi_reply_library(struct httpd_request *hreq)
   ret = db_admin_get(&s, DB_ADMIN_START_TIME);
   if (ret == 0)
     {
-      safe_json_add_time_from_string(jreply, "started_at", s, true);
+      safe_json_add_time_from_string(jreply, "started_at", s);
       free(s);
     }
 
   ret = db_admin_get(&s, DB_ADMIN_DB_UPDATE);
   if (ret == 0)
     {
-      safe_json_add_time_from_string(jreply, "updated_at", s, true);
+      safe_json_add_time_from_string(jreply, "updated_at", s);
       free(s);
     }
 
