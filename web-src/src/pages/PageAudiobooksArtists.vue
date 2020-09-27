@@ -51,7 +51,6 @@ export default {
   computed: {
     index_list () {
       return [...new Set(this.artists.items
-        .filter(artist => !this.$store.state.hide_singles || artist.track_count > (artist.album_count * 2))
         .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
     }
   },

@@ -160,7 +160,7 @@ export const router = new VueRouter({
       path: '/audiobooks/albums',
       name: 'AudiobooksAlbums',
       component: PageAudiobooksAlbums,
-      meta: { show_progress: true, has_tabs: true }
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/audiobooks/:album_id',

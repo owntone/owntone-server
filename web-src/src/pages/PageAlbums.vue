@@ -80,8 +80,7 @@ export default {
 
   watch: {
     'hide_singles' () {
-      this.index_list = [...new Set(this.albums.items
-        .filter(album => !this.$store.state.hide_singles || album.track_count > 2)
+      this.index_list = [...new Set(this.albums_filtered
         .map(album => album.name_sort.charAt(0).toUpperCase()))]
     }
   }

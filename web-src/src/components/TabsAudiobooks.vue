@@ -14,7 +14,7 @@
               <router-link tag="li" to="/audiobooks/albums" active-class="is-active">
                 <a>
                   <span class="icon is-small"><i class="mdi mdi-album"></i></span>
-                  <span class="">Albums</span>
+                  <span class="">Audiobooks</span>
                 </a>
               </router-link>
             </ul>

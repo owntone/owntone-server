@@ -3,6 +3,9 @@
     <tabs-audiobooks></tabs-audiobooks>
 
     <content-with-heading>
+      <template slot="options">
+        <index-button-list :index="index_list"></index-button-list>
+      </template>
       <template slot="heading-left">
         <p class="title is-4">Audiobooks</p>
         <p class="heading">{{ albums.total }} audiobooks</p>
@@ -17,6 +20,7 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import TabsAudiobooks from '@/components/TabsAudiobooks'
+import IndexButtonList from '@/components/IndexButtonList'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListAlbums from '@/components/ListAlbums'
 import webapi from '@/webapi'
@@ -34,11 +38,18 @@ const albumsData = {
 export default {
   name: 'PageAudiobooksAlbums',
   mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { TabsAudiobooks, ContentWithHeading, ListAlbums },
+  components: { TabsAudiobooks, ContentWithHeading, IndexButtonList, ListAlbums },
 
   data () {
     return {
       albums: { items: [] }
+    }
+  },
+
+  computed: {
+    index_list () {
+      return [...new Set(this.albums.items
+        .map(album => album.name_sort.charAt(0).toUpperCase()))]
     }
   },
 
