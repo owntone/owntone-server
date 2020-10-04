@@ -19,14 +19,7 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_genre">albums</a> | {{ tracks.total }} tracks</p>
-        <list-item-track v-for="(track, index) in tracks.items" :key="track.id" :track="track" @click="play_track(index)">
-          <template slot="actions">
-            <a @click="open_dialog(track)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-track>
-        <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
+        <list-tracks :tracks="tracks.items" :expression="expression"></list-tracks>
         <modal-dialog-genre :show="show_genre_details_modal" :genre="{ 'name': genre }" @close="show_genre_details_modal = false" />
       </template>
     </content-with-heading>
@@ -37,8 +30,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemTrack from '@/components/ListItemTrack'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
+import ListTracks from '@/components/ListTracks'
 import ModalDialogGenre from '@/components/ModalDialogGenre'
 import webapi from '@/webapi'
 
@@ -56,15 +48,12 @@ const tracksData = {
 export default {
   name: 'PageGenreTracks',
   mixins: [LoadDataBeforeEnterMixin(tracksData)],
-  components: { ContentWithHeading, ListItemTrack, IndexButtonList, ModalDialogTrack, ModalDialogGenre },
+  components: { ContentWithHeading, ListTracks, IndexButtonList, ModalDialogGenre },
 
   data () {
     return {
       tracks: { items: [] },
       genre: '',
-
-      show_details_modal: false,
-      selected_track: {},
 
       show_genre_details_modal: false
     }
@@ -74,6 +63,10 @@ export default {
     index_list () {
       return [...new Set(this.tracks.items
         .map(track => track.title_sort.charAt(0).toUpperCase()))]
+    },
+
+    expression () {
+      return 'genre is "' + this.genre + '" and media_kind is music'
     }
   },
 
@@ -84,16 +77,7 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_expression('genre is "' + this.genre + '" and media_kind is music', true)
-    },
-
-    play_track: function (position) {
-      webapi.player_play_expression('genre is "' + this.genre + '" and media_kind is music', false, position)
-    },
-
-    open_dialog: function (track) {
-      this.selected_track = track
-      this.show_details_modal = true
+      webapi.player_play_expression(this.expression, true)
     }
   }
 }

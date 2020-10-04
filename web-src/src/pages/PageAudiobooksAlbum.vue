@@ -24,14 +24,7 @@
     </template>
     <template slot="content">
       <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">{{ album.track_count }} tracks</p>
-      <list-item-track v-for="(track, index) in tracks" :key="track.id" :track="track" @click="play_track(index)">
-        <template slot="actions">
-          <a @click="open_dialog(track)">
-            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-          </a>
-        </template>
-      </list-item-track>
-      <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
+      <list-tracks :tracks="tracks" :uris="album.uri"></list-tracks>
       <modal-dialog-album :show="show_album_details_modal" :album="album" :media_kind="'audiobook'" @close="show_album_details_modal = false" />
     </template>
   </content-with-hero>
@@ -40,8 +33,7 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHero from '@/templates/ContentWithHero'
-import ListItemTrack from '@/components/ListItemTrack'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
+import ListTracks from '@/components/ListTracks'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
@@ -63,15 +55,12 @@ const albumData = {
 export default {
   name: 'PageAudiobooksAlbum',
   mixins: [LoadDataBeforeEnterMixin(albumData)],
-  components: { ContentWithHero, ListItemTrack, ModalDialogTrack, ModalDialogAlbum, CoverArtwork },
+  components: { ContentWithHero, ListTracks, ModalDialogAlbum, CoverArtwork },
 
   data () {
     return {
       album: {},
       tracks: [],
-
-      show_details_modal: false,
-      selected_track: {},
 
       show_album_details_modal: false
     }

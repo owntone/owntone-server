@@ -34,14 +34,7 @@
         <p class="title is-4">Tracks</p>
       </template>
       <template slot="content">
-        <list-item-track v-for="track in tracks.items" :key="track.id" :track="track" @click="play_track(track)">
-          <template slot="actions">
-            <a @click="open_track_dialog(track)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-track>
-        <modal-dialog-track :show="show_track_details_modal" :track="selected_track" @close="show_track_details_modal = false" />
+        <list-tracks :tracks="tracks.items"></list-tracks>
       </template>
       <template slot="footer">
         <nav v-if="show_all_tracks_button" class="level">
@@ -95,14 +88,7 @@
         <p class="title is-4">Playlists</p>
       </template>
       <template slot="content">
-        <list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist" @click="open_playlist(playlist)">
-          <template slot="actions">
-            <a @click="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-playlist>
-        <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
+        <list-playlists :playlists="playlists.items"></list-playlists>
       </template>
       <template slot="footer">
         <nav v-if="show_all_playlists_button" class="level">
@@ -155,18 +141,16 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsSearch from '@/components/TabsSearch'
-import ListItemTrack from '@/components/ListItemTrack'
+import ListTracks from '@/components/ListTracks'
 import ListArtists from '@/components/ListArtists'
 import ListAlbums from '@/components/ListAlbums'
-import ListItemPlaylist from '@/components/ListItemPlaylist'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
-import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
+import ListPlaylists from '@/components/ListPlaylists'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageSearch',
-  components: { ContentWithHeading, TabsSearch, ListItemTrack, ListArtists, ListAlbums, ListItemPlaylist, ModalDialogTrack, ModalDialogPlaylist },
+  components: { ContentWithHeading, TabsSearch, ListTracks, ListArtists, ListAlbums, ListPlaylists },
 
   data () {
     return {
@@ -177,13 +161,7 @@ export default {
       albums: { items: [], total: 0 },
       playlists: { items: [], total: 0 },
       audiobooks: { items: [], total: 0 },
-      podcasts: { items: [], total: 0 },
-
-      show_track_details_modal: false,
-      selected_track: {},
-
-      show_playlist_details_modal: false,
-      selected_playlist: {}
+      podcasts: { items: [], total: 0 }
     }
   },
 
@@ -411,27 +389,9 @@ export default {
       })
     },
 
-    play_track: function (track) {
-      webapi.player_play_uri(track.uri, false)
-    },
-
-    open_playlist: function (playlist) {
-      this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
-    },
-
     open_recent_search: function (query) {
       this.search_query = query
       this.new_search()
-    },
-
-    open_track_dialog: function (track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
-    },
-
-    open_playlist_dialog: function (playlist) {
-      this.selected_playlist = playlist
-      this.show_playlist_details_modal = true
     }
   },
 
