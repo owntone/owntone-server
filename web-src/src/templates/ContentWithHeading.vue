@@ -3,7 +3,12 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <slot name="options"></slot>
+          <section v-if="$slots['options']">
+            <slot name="options"></slot>
+            <nav class="buttons is-centered" style="margin-bottom: 6px; margin-top: 16px;">
+              <a class="button is-small is-white" @click="scroll_to_top"><span class="icon is-small"><i class="mdi mdi-chevron-up"></i></span></a>
+            </nav>
+          </section>
           <nav class="level" id="top">
             <!-- Left side -->
             <div class="level-left">
@@ -30,6 +35,15 @@
 </template>
 
 <script>
+export default {
+  name: 'ContentWithHeading',
+
+  methods: {
+    scroll_to_top: function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+}
 </script>
 
 <style>
