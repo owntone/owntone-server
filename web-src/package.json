@@ -24,9 +24,11 @@
     "v-click-outside": "^3.1.2",
     "vue": "^2.6.12",
     "vue-infinite-loading": "^2.4.5",
+    "vue-observe-visibility": "^0.4.6",
     "vue-progressbar": "^0.7.5",
     "vue-range-slider": "^0.6.0",
     "vue-router": "^3.4.3",
+    "vue-scrollto": "^2.18.2",
     "vue-tiny-lazyload-img": "^0.1.0",
     "vuedraggable": "^2.24.1",
     "vuex": "^3.5.1"
