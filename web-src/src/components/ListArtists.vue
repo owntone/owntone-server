@@ -1,15 +1,32 @@
 <template>
   <div>
-    <list-item-artist v-for="artist in artists"
-        :key="artist.id"
-        :artist="artist"
-        @click="open_artist(artist)">
-        <template slot="actions">
-            <a @click="open_dialog(artist)">
-            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-        </template>
-    </list-item-artist>
+    <div v-if="is_grouped">
+      <div v-for="idx in artists.indexList" :key="idx" class="mb-6">
+        <span class="tag is-info is-light is-small has-text-weight-bold" :id="'index_' + idx">{{ idx }}</span>
+        <list-item-artist v-for="artist in artists.grouped[idx]"
+            :key="artist.id"
+            :artist="artist"
+            @click="open_artist(artist)">
+            <template slot="actions">
+                <a @click="open_dialog(artist)">
+                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+                </a>
+            </template>
+        </list-item-artist>
+      </div>
+    </div>
+    <div v-else>
+      <list-item-artist v-for="artist in artists_list"
+          :key="artist.id"
+          :artist="artist"
+          @click="open_artist(artist)">
+          <template slot="actions">
+              <a @click="open_dialog(artist)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+              </a>
+          </template>
+      </list-item-artist>
+    </div>
     <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" :media_kind="media_kind" @close="show_details_modal = false" />
   </div>
 </template>
@@ -17,6 +34,7 @@
 <script>
 import ListItemArtist from '@/components/ListItemArtist'
 import ModalDialogArtist from '@/components/ModalDialogArtist'
+import Artists from '@/lib/Artists'
 
 export default {
   name: 'ListArtists',
@@ -34,6 +52,17 @@ export default {
   computed: {
     media_kind_resolved: function () {
       return this.media_kind ? this.media_kind : this.selected_artist.media_kind
+    },
+
+    artists_list: function () {
+      if (Array.isArray(this.artists)) {
+        return this.artists
+      }
+      return this.artists.sortedAndFiltered
+    },
+
+    is_grouped: function () {
+      return (this.artists instanceof Artists && this.artists.options.group)
     }
   },
 

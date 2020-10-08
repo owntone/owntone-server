@@ -276,11 +276,11 @@ export const router = new VueRouter({
         }, 10)
       })
     } else if (to.path === from.path && to.hash) {
-      return { selector: to.hash, offset: { x: 0, y: 90 } }
+      return { selector: to.hash, offset: { x: 0, y: 120 } }
     } else if (to.hash) {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          resolve({ selector: to.hash, offset: { x: 0, y: 90 } })
+          resolve({ selector: to.hash, offset: { x: 0, y: 120 } })
         }, 10)
       })
     } else if (to.meta.has_index) {

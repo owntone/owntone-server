@@ -4,16 +4,16 @@
 
     <content-with-heading>
       <template slot="options">
-        <index-button-list :index="index_list"></index-button-list>
+        <index-button-list :index="artists_list.indexList"></index-button-list>
       </template>
       <template slot="heading-left">
         <p class="title is-4">Authors</p>
-        <p class="heading">{{ artists.total }} authors</p>
+        <p class="heading">{{ artists_list.sortedAndFiltered.length }} Authors</p>
       </template>
       <template slot="heading-right">
       </template>
       <template slot="content">
-        <list-artists :artists="artists.items"></list-artists>
+        <list-artists :artists="artists_list"></list-artists>
       </template>
     </content-with-heading>
   </div>
@@ -26,6 +26,7 @@ import TabsAudiobooks from '@/components/TabsAudiobooks'
 import IndexButtonList from '@/components/IndexButtonList'
 import ListArtists from '@/components/ListArtists'
 import webapi from '@/webapi'
+import Artists from '@/lib/Artists'
 
 const artistsData = {
   load: function (to) {
@@ -49,9 +50,11 @@ export default {
   },
 
   computed: {
-    index_list () {
-      return [...new Set(this.artists.items
-        .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
+    artists_list () {
+      return new Artists(this.artists.items, {
+        sort: 'Name',
+        group: true
+      })
     }
   },
 

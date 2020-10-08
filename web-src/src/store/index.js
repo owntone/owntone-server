@@ -53,6 +53,9 @@ export default new Vuex.Store({
     recent_searches: [],
 
     hide_singles: false,
+    hide_spotify: false,
+    artists_sort: 'Name',
+    albums_sort: 'Name',
     show_only_next_items: false,
     show_burger_menu: false,
     show_player_menu: false
@@ -182,6 +185,15 @@ export default new Vuex.Store({
     },
     [types.HIDE_SINGLES] (state, hideSingles) {
       state.hide_singles = hideSingles
+    },
+    [types.HIDE_SPOTIFY] (state, hideSpotify) {
+      state.hide_spotify = hideSpotify
+    },
+    [types.ARTISTS_SORT] (state, sort) {
+      state.artists_sort = sort
+    },
+    [types.ALBUMS_SORT] (state, sort) {
+      state.albums_sort = sort
     },
     [types.SHOW_ONLY_NEXT_ITEMS] (state, showOnlyNextItems) {
       state.show_only_next_items = showOnlyNextItems

@@ -4,14 +4,14 @@
 
     <content-with-heading>
       <template slot="options">
-        <index-button-list :index="index_list"></index-button-list>
+        <index-button-list :index="albums_list.indexList"></index-button-list>
       </template>
       <template slot="heading-left">
         <p class="title is-4">Audiobooks</p>
-        <p class="heading">{{ albums.total }} audiobooks</p>
+        <p class="heading">{{ albums_list.sortedAndFiltered.length }} Audiobooks</p>
       </template>
       <template slot="content">
-        <list-albums :albums="albums.items"></list-albums>
+        <list-albums :albums="albums_list"></list-albums>
       </template>
     </content-with-heading>
   </div>
@@ -24,6 +24,7 @@ import IndexButtonList from '@/components/IndexButtonList'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListAlbums from '@/components/ListAlbums'
 import webapi from '@/webapi'
+import Albums from '@/lib/Albums'
 
 const albumsData = {
   load: function (to) {
@@ -47,9 +48,11 @@ export default {
   },
 
   computed: {
-    index_list () {
-      return [...new Set(this.albums.items
-        .map(album => album.name_sort.charAt(0).toUpperCase()))]
+    albums_list () {
+      return new Albums(this.albums.items, {
+        sort: 'Name',
+        group: true
+      })
     }
   },
 

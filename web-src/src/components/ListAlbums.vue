@@ -1,25 +1,52 @@
 <template>
   <div>
-    <list-item-album v-for="album in albums"
-        :key="album.id"
-        :album="album"
-        @click="open_album(album)">
-      <template slot="artwork" v-if="is_visible_artwork">
-        <p class="image is-64x64 fd-has-shadow fd-has-action">
-        <cover-artwork
-            :artwork_url="album.artwork_url"
-            :artist="album.artist"
-            :album="album.name"
-            :maxwidth="64"
-            :maxheight="64" />
-        </p>
-      </template>
-      <template slot="actions">
-        <a @click="open_dialog(album)">
-          <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-        </a>
-      </template>
-    </list-item-album>
+    <div v-if="is_grouped">
+      <div v-for="idx in albums.indexList" :key="idx" class="mb-6">
+        <span class="tag is-info is-light is-small has-text-weight-bold" :id="'index_' + idx">{{ idx }}</span>
+        <list-item-album v-for="album in albums.grouped[idx]"
+            :key="album.id"
+            :album="album"
+            @click="open_album(album)">
+          <template slot="artwork" v-if="is_visible_artwork">
+            <p class="image is-64x64 fd-has-shadow fd-has-action">
+            <cover-artwork
+                :artwork_url="album.artwork_url"
+                :artist="album.artist"
+                :album="album.name"
+                :maxwidth="64"
+                :maxheight="64" />
+            </p>
+          </template>
+          <template slot="actions">
+            <a @click="open_dialog(album)">
+              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            </a>
+          </template>
+        </list-item-album>
+      </div>
+    </div>
+    <div v-else>
+      <list-item-album v-for="album in albums_list"
+          :key="album.id"
+          :album="album"
+          @click="open_album(album)">
+        <template slot="artwork" v-if="is_visible_artwork">
+          <p class="image is-64x64 fd-has-shadow fd-has-action">
+          <cover-artwork
+              :artwork_url="album.artwork_url"
+              :artist="album.artist"
+              :album="album.name"
+              :maxwidth="64"
+              :maxheight="64" />
+          </p>
+        </template>
+        <template slot="actions">
+          <a @click="open_dialog(album)">
+            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+          </a>
+        </template>
+      </list-item-album>
+    </div>
     <modal-dialog-album
         :show="show_details_modal"
         :album="selected_album"
@@ -46,6 +73,7 @@ import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import ModalDialog from '@/components/ModalDialog'
 import CoverArtwork from '@/components/CoverArtwork'
 import webapi from '@/webapi'
+import Albums from '@/lib/Albums'
 
 export default {
   name: 'ListAlbums',
@@ -70,6 +98,17 @@ export default {
 
     media_kind_resolved: function () {
       return this.media_kind ? this.media_kind : this.selected_album.media_kind
+    },
+
+    albums_list: function () {
+      if (Array.isArray(this.albums)) {
+        return this.albums
+      }
+      return this.albums.sortedAndFiltered
+    },
+
+    is_grouped: function () {
+      return (this.albums instanceof Albums && this.albums.options.group)
     }
   },
 

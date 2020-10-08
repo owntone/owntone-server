@@ -13,6 +13,7 @@ import VueScrollTo from 'vue-scrollto'
 import 'mdi/css/materialdesignicons.css'
 import 'vue-range-slider/dist/vue-range-slider.css'
 import './mystyles.scss'
+
 Vue.config.productionTip = false
 
 Vue.use(vClickOutside)
