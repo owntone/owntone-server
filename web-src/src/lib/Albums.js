@@ -20,7 +20,7 @@ export default class Albums {
     if (this.options.sort === 'Recently added') {
       return album.time_added.substring(0, 4)
     } else if (this.options.sort === 'Recently released') {
-      return album.date_released ? album.date_released.substring(0, 4) : 'n/a'
+      return album.date_released ? album.date_released.substring(0, 4) : '0000'
     }
     return album.name_sort.charAt(0).toUpperCase()
   }
