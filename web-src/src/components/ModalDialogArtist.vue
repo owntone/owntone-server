@@ -18,6 +18,14 @@
                   <span class="heading">Tracks</span>
                   <span class="title is-6">{{ artist.track_count }}</span>
                 </p>
+                <p>
+                  <span class="heading">Type</span>
+                  <span class="title is-6">{{ artist.data_kind }}</span>
+                </p>
+                <p>
+                  <span class="heading">Added at</span>
+                  <span class="title is-6">{{ artist.time_added | time('L LT') }}</span>
+                </p>
               </div>
             </div>
             <footer class="card-footer">
