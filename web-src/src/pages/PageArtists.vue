@@ -16,7 +16,7 @@
               </div>
               <p class="help">If active, hides artists that only appear on singles or playlists.</p>
             </div>
-            <div class="field">
+            <div class="field" v-if="spotify_enabled">
               <div class="control">
                 <input id="switchHideSpotify" type="checkbox" name="switchHideSpotify" class="switch" v-model="hide_spotify">
                 <label for="switchHideSpotify">Hide artists from Spotify</label>
@@ -84,6 +84,10 @@ export default {
         sort: this.sort,
         group: true
       })
+    },
+
+    spotify_enabled () {
+      return this.$store.state.spotify.webapi_token_valid
     },
 
     hide_singles: {
