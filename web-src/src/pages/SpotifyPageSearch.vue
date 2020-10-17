@@ -26,7 +26,7 @@
     <tabs-search></tabs-search>
 
     <!-- Tracks -->
-    <content-with-heading v-if="show_tracks">
+    <content-with-heading v-if="show_tracks && tracks.total">
       <template slot="heading-left">
         <p class="title is-4">Tracks</p>
       </template>
@@ -47,12 +47,16 @@
             <a class="button is-light is-small is-rounded" v-on:click="open_search_tracks">Show all {{ tracks.total.toLocaleString() }} tracks</a>
           </p>
         </nav>
-        <p v-if="!tracks.total">No results</p>
       </template>
     </content-with-heading>
+    <content-text v-if="show_tracks && !tracks.total" class="mt-6">
+      <template slot="content">
+        <p><i>No tracks found</i></p>
+      </template>
+    </content-text>
 
     <!-- Artists -->
-    <content-with-heading v-if="show_artists">
+    <content-with-heading v-if="show_artists && artists.total">
       <template slot="heading-left">
         <p class="title is-4">Artists</p>
       </template>
@@ -73,12 +77,16 @@
             <a class="button is-light is-small is-rounded" v-on:click="open_search_artists">Show all {{ artists.total.toLocaleString() }} artists</a>
           </p>
         </nav>
-        <p v-if="!artists.total">No results</p>
       </template>
     </content-with-heading>
+    <content-text v-if="show_artists && !artists.total">
+      <template slot="content">
+        <p><i>No artists found</i></p>
+      </template>
+    </content-text>
 
     <!-- Albums -->
-    <content-with-heading v-if="show_albums">
+    <content-with-heading v-if="show_albums && albums.total">
       <template slot="heading-left">
         <p class="title is-4">Albums</p>
       </template>
@@ -112,12 +120,16 @@
             <a class="button is-light is-small is-rounded" v-on:click="open_search_albums">Show all {{ albums.total.toLocaleString() }} albums</a>
           </p>
         </nav>
-        <p v-if="!albums.total">No results</p>
       </template>
     </content-with-heading>
+    <content-text v-if="show_albums && !albums.total">
+      <template slot="content">
+        <p><i>No albums found</i></p>
+      </template>
+    </content-text>
 
     <!-- Playlists -->
-    <content-with-heading v-if="show_playlists">
+    <content-with-heading v-if="show_playlists && playlists.total">
       <template slot="heading-left">
         <p class="title is-4">Playlists</p>
       </template>
@@ -138,14 +150,19 @@
             <a class="button is-light is-small is-rounded" v-on:click="open_search_playlists">Show all {{ playlists.total.toLocaleString() }} playlists</a>
           </p>
         </nav>
-        <p v-if="!playlists.total">No results</p>
       </template>
     </content-with-heading>
+    <content-text v-if="show_playlists && !playlists.total">
+      <template slot="content">
+        <p><i>No playlists found</i></p>
+      </template>
+    </content-text>
   </div>
 </template>
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading'
+import ContentText from '@/templates/ContentText'
 import TabsSearch from '@/components/TabsSearch'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack'
 import SpotifyListItemArtist from '@/components/SpotifyListItemArtist'
@@ -163,7 +180,7 @@ import InfiniteLoading from 'vue-infinite-loading'
 
 export default {
   name: 'SpotifyPageSearch',
-  components: { ContentWithHeading, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogTrack, SpotifyModalDialogArtist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, InfiniteLoading, CoverArtwork },
+  components: { ContentWithHeading, ContentText, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogTrack, SpotifyModalDialogArtist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, InfiniteLoading, CoverArtwork },
 
   data () {
     return {
