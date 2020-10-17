@@ -1,6 +1,6 @@
 {
   "name": "forked-daapd-web",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "forked-daapd web interface",
   "author": "chme <christian.meffert@googlemail.com>",
