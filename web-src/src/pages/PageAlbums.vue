@@ -14,14 +14,14 @@
                 <input id="switchHideSingles" type="checkbox" name="switchHideSingles" class="switch" v-model="hide_singles">
                 <label for="switchHideSingles">Hide singles</label>
               </div>
-              <p class="help">If active, hides artists that only appear on singles or playlists.</p>
+              <p class="help">If active, hides singles and albums with tracks that only appear in playlists.</p>
             </div>
             <div class="field" v-if="spotify_enabled">
               <div class="control">
                 <input id="switchHideSpotify" type="checkbox" name="switchHideSpotify" class="switch" v-model="hide_spotify">
-                <label for="switchHideSpotify">Hide artists from Spotify</label>
+                <label for="switchHideSpotify">Hide albums from Spotify</label>
               </div>
-              <p class="help">If active, hides artists that only appear in your Spotify library.</p>
+              <p class="help">If active, hides albums that only appear in your Spotify library.</p>
             </div>
           </div>
           <div class="column">
