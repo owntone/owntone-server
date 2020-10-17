@@ -49,7 +49,8 @@ export default {
       observer_options: {
         callback: this.visibilityChanged,
         intersection: {
-          rootMargin: '-100px'
+          rootMargin: '-100px',
+          threshold: 0.3
         }
       }
     }
