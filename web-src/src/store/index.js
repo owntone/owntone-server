@@ -55,6 +55,7 @@ export default new Vuex.Store({
     hide_singles: false,
     hide_spotify: false,
     artists_sort: 'Name',
+    artist_albums_sort: 'Name',
     albums_sort: 'Name',
     show_only_next_items: false,
     show_burger_menu: false,
@@ -191,6 +192,9 @@ export default new Vuex.Store({
     },
     [types.ARTISTS_SORT] (state, sort) {
       state.artists_sort = sort
+    },
+    [types.ARTIST_ALBUMS_SORT] (state, sort) {
+      state.artist_albums_sort = sort
     },
     [types.ALBUMS_SORT] (state, sort) {
       state.albums_sort = sort

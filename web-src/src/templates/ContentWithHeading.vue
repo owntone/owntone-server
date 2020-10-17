@@ -4,7 +4,7 @@
       <div class="columns is-centered">
         <div class="column is-four-fifths">
           <section v-if="$slots['options']">
-            <div v-observe-visibility="observer_options"></div>
+            <div v-observe-visibility="observer_options" style="height:2px;"></div>
             <slot name="options"></slot>
             <nav class="buttons is-centered" style="margin-bottom: 6px; margin-top: 16px;">
               <a v-if="!options_visible" class="button is-small is-white" @click="scroll_to_top"><span class="icon is-small"><i class="mdi mdi-chevron-up"></i></span></a>

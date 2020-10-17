@@ -90,7 +90,7 @@ export const router = new VueRouter({
       path: '/music/artists/:artist_id',
       name: 'Artist',
       component: PageArtist,
-      meta: { show_progress: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/artists/:artist_id/tracks',
