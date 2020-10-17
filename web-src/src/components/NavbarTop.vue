@@ -61,7 +61,7 @@
             <hr class="fd-navbar-divider">
 
             <navbar-item-link to="/settings/webinterface">Settings</navbar-item-link>
-            <navbar-item-link to="/about">About</navbar-item-link>
+            <navbar-item-link to="/about">Update Library</navbar-item-link>
 
             <div class="navbar-item is-hidden-desktop" style="margin-bottom: 2.5rem;"></div>
           </div>
