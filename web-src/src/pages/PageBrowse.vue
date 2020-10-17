@@ -69,8 +69,8 @@ export default {
 
   data () {
     return {
-      recently_added: {},
-      recently_played: {},
+      recently_added: { items: [] },
+      recently_played: { items: [] },
 
       show_track_details_modal: false,
       selected_track: {}
