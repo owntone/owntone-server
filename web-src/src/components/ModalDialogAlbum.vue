@@ -14,22 +14,38 @@
               <p class="title is-4">
                 <a class="has-text-link" @click="open_album">{{ album.name }}</a>
               </p>
-              <div class="buttons" v-if="media_kind === 'podcast'">
+              <div class="buttons" v-if="media_kind_resolved === 'podcast'">
                 <a class="button is-small" @click="mark_played">Mark as played</a>
-                <a class="button is-small" @click="$emit('remove_podcast')">Remove podcast</a>
+                <a class="button is-small" @click="$emit('remove-podcast')">Remove podcast</a>
               </div>
               <div class="content is-small">
-                <p v-if="album.artist && media_kind !== 'audiobook'">
+                <p v-if="album.artist">
                   <span class="heading">Album artist</span>
                   <a class="title is-6 has-text-link" @click="open_artist">{{ album.artist }}</a>
                 </p>
-                <p v-if="album.artist && media_kind === 'audiobook'">
-                  <span class="heading">Album artist</span>
-                  <span class="title is-6">{{ album.artist }}</span>
+                <p v-if="album.date_released">
+                  <span class="heading">Release date</span>
+                  <span class="title is-6">{{ album.date_released | time('L') }}</span>
+                </p>
+                <p v-else-if="album.year > 0">
+                  <span class="heading">Year</span>
+                  <span class="title is-6">{{ album.year }}</span>
                 </p>
                 <p>
                   <span class="heading">Tracks</span>
                   <span class="title is-6">{{ album.track_count }}</span>
+                </p>
+                <p>
+                  <span class="heading">Length</span>
+                  <span class="title is-6">{{ album.length_ms | duration }}</span>
+                </p>
+                <p>
+                  <span class="heading">Type</span>
+                  <span class="title is-6">{{ album.media_kind }} - {{ album.data_kind }}</span>
+                </p>
+                <p>
+                  <span class="heading">Added at</span>
+                  <span class="title is-6">{{ album.time_added | time('L LT') }}</span>
                 </p>
               </div>
             </div>
@@ -70,6 +86,10 @@ export default {
   computed: {
     artwork_url: function () {
       return webapi.artwork_url_append_size_params(this.album.artwork_url)
+    },
+
+    media_kind_resolved: function () {
+      return this.media_kind ? this.media_kind : this.album.media_kind
     }
   },
 
@@ -90,9 +110,9 @@ export default {
     },
 
     open_album: function () {
-      if (this.media_kind === 'podcast') {
+      if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ path: '/podcasts/' + this.album.id })
-      } else if (this.media_kind === 'audiobook') {
+      } else if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({ path: '/audiobooks/' + this.album.id })
       } else {
         this.$router.push({ path: '/music/albums/' + this.album.id })
@@ -100,7 +120,13 @@ export default {
     },
 
     open_artist: function () {
-      this.$router.push({ path: '/music/artists/' + this.album.artist_id })
+      if (this.media_kind_resolved === 'podcast') {
+        // No artist page for podcasts
+      } else if (this.media_kind_resolved === 'audiobook') {
+        this.$router.push({ path: '/audiobooks/artists/' + this.album.artist_id })
+      } else {
+        this.$router.push({ path: '/music/artists/' + this.album.artist_id })
+      }
     },
 
     mark_played: function () {

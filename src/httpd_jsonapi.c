@@ -213,7 +213,7 @@ artist_to_json(struct db_group_info *dbgri)
   if (ret < sizeof(uri))
     json_object_object_add(item, "uri", json_object_new_string(uri));
 
-  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/group/%s", dbgri->id);
+  ret = snprintf(artwork_url, sizeof(artwork_url), "./artwork/group/%s", dbgri->id);
   if (ret < sizeof(artwork_url))
     json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
 
@@ -261,7 +261,7 @@ album_to_json(struct db_group_info *dbgri)
   if (ret < sizeof(uri))
     json_object_object_add(item, "uri", json_object_new_string(uri));
 
-  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/group/%s", dbgri->id);
+  ret = snprintf(artwork_url, sizeof(artwork_url), "./artwork/group/%s", dbgri->id);
   if (ret < sizeof(artwork_url))
     json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
 
@@ -338,6 +338,7 @@ playlist_to_json(struct db_playlist_info *dbpli)
   json_object *item;
   char uri[100];
   int intval;
+  bool boolval;
   int ret;
 
   item = json_object_new_object();
@@ -351,6 +352,10 @@ playlist_to_json(struct db_playlist_info *dbpli)
     {
       safe_json_add_string(item, "type", db_pl_type_label(intval));
       json_object_object_add(item, "smart_playlist", json_object_new_boolean(intval == PL_SMART));
+
+      boolval = dbpli->query_order && strcasestr(dbpli->query_order, "random");
+      json_object_object_add(item, "random", json_object_new_boolean(boolval));
+
       json_object_object_add(item, "folder", json_object_new_boolean(intval == PL_FOLDER));
     }
 
@@ -2099,7 +2104,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
       json_object_object_add(reply, "item_id", json_object_new_int(status.item_id));
       json_object_object_add(reply, "item_length_ms", json_object_new_int(status.len_ms));
       json_object_object_add(reply, "item_progress_ms", json_object_new_int(status.pos_ms));
-      json_object_object_add(reply, "artwork_url", json_object_new_string("/artwork/nowplaying"));
+      json_object_object_add(reply, "artwork_url", json_object_new_string("./artwork/nowplaying"));
     }
   else
     {
@@ -2194,7 +2199,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 	{
 	  // Queue item does not have a valid artwork url, construct artwork url to
 	  // get the image through the httpd_artworkapi (uses the artwork handlers).
-	  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d", queue_item->file_id);
+	  ret = snprintf(artwork_url, sizeof(artwork_url), "./artwork/item/%d", queue_item->file_id);
 	  if (ret < sizeof(artwork_url))
 	    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
 	}
@@ -2203,7 +2208,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 	  // Pipe and stream metadata can change if the queue version changes. Construct artwork url
 	  // similar to non-pipe items, but append the queue version to the url to force
 	  // clients to reload image if the queue version changes (additional metadata was found).
-	  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%d?v=%d", queue_item->file_id, queue_item->queue_version);
+	  ret = snprintf(artwork_url, sizeof(artwork_url), "./artwork/item/%d?v=%d", queue_item->file_id, queue_item->queue_version);
 	  if (ret < sizeof(artwork_url))
 	    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
 	}
@@ -3516,8 +3521,8 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
-    return HTTP_NOTMODIFIED;
+  // Due to smart playlists possibly changing their tracks between rescans, disable caching in clients
+  httpd_response_not_cachable(hreq->req);
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
   if (ret < 0)

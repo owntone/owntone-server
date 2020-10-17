@@ -4,32 +4,40 @@
 
     <content-with-heading>
       <template slot="options">
-        <index-button-list :index="index_list"></index-button-list>
+        <index-button-list :index="albums_list.indexList"></index-button-list>
+
+        <div class="columns">
+          <div class="column">
+            <p class="heading" style="margin-bottom: 24px;">Filter</p>
+            <div class="field">
+              <div class="control">
+                <input id="switchHideSingles" type="checkbox" name="switchHideSingles" class="switch" v-model="hide_singles">
+                <label for="switchHideSingles">Hide singles</label>
+              </div>
+              <p class="help">If active, hides singles and albums with tracks that only appear in playlists.</p>
+            </div>
+            <div class="field" v-if="spotify_enabled">
+              <div class="control">
+                <input id="switchHideSpotify" type="checkbox" name="switchHideSpotify" class="switch" v-model="hide_spotify">
+                <label for="switchHideSpotify">Hide albums from Spotify</label>
+              </div>
+              <p class="help">If active, hides albums that only appear in your Spotify library.</p>
+            </div>
+          </div>
+          <div class="column">
+            <p class="heading" style="margin-bottom: 24px;">Sort by</p>
+            <dropdown-menu v-model="sort" :options="sort_options"></dropdown-menu>
+          </div>
+        </div>
       </template>
       <template slot="heading-left">
         <p class="title is-4">Albums</p>
-        <p class="heading">{{ albums.total }} albums</p>
+        <p class="heading">{{ albums_list.sortedAndFiltered.length }} Albums</p>
       </template>
       <template slot="heading-right">
-        <a class="button is-small" :class="{ 'is-info': hide_singles }" @click="update_hide_singles">
-          <span class="icon">
-            <i class="mdi mdi-numeric-1-box-multiple-outline"></i>
-          </span>
-          <span>Hide singles</span>
-        </a>
       </template>
       <template slot="content">
-        <list-item-album v-for="album in albums_filtered"
-          :key="album.id"
-          :album="album"
-          @click="open_album(album)">
-            <template slot="actions">
-              <a @click="open_dialog(album)">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-              </a>
-            </template>
-        </list-item-album>
-        <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
+        <list-albums :albums="albums_list"></list-albums>
       </template>
     </content-with-heading>
   </div>
@@ -40,10 +48,11 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemAlbum from '@/components/ListItemAlbum'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ListAlbums from '@/components/ListAlbums'
+import DropdownMenu from '@/components/DropdownMenu'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
+import Albums from '@/lib/Albums'
 
 const albumsData = {
   load: function (to) {
@@ -61,48 +70,60 @@ const albumsData = {
 export default {
   name: 'PageAlbums',
   mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemAlbum, ModalDialogAlbum },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListAlbums, DropdownMenu },
 
   data () {
     return {
       albums: { items: [] },
-      index_list: [],
-
-      show_details_modal: false,
-      selected_album: {}
+      sort_options: ['Name', 'Recently added', 'Recently released']
     }
   },
 
   computed: {
-    hide_singles () {
-      return this.$store.state.hide_singles
+    albums_list () {
+      return new Albums(this.albums.items, {
+        hideSingles: this.hide_singles,
+        hideSpotify: this.hide_spotify,
+        sort: this.sort,
+        group: true
+      })
     },
 
-    albums_filtered () {
-      return this.albums.items.filter(album => !this.hide_singles || album.track_count > 2)
+    spotify_enabled () {
+      return this.$store.state.spotify.webapi_token_valid
+    },
+
+    hide_singles: {
+      get () {
+        return this.$store.state.hide_singles
+      },
+      set (value) {
+        this.$store.commit(types.HIDE_SINGLES, value)
+      }
+    },
+
+    hide_spotify: {
+      get () {
+        return this.$store.state.hide_spotify
+      },
+      set (value) {
+        this.$store.commit(types.HIDE_SPOTIFY, value)
+      }
+    },
+
+    sort: {
+      get () {
+        return this.$store.state.albums_sort
+      },
+      set (value) {
+        this.$store.commit(types.ALBUMS_SORT, value)
+      }
     }
   },
 
   methods: {
-    update_hide_singles: function (e) {
-      this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
-    },
-
-    open_album: function (album) {
-      this.$router.push({ path: '/music/albums/' + album.id })
-    },
-
-    open_dialog: function (album) {
-      this.selected_album = album
-      this.show_details_modal = true
-    }
-  },
-
-  watch: {
-    'hide_singles' () {
-      this.index_list = [...new Set(this.albums.items
-        .filter(album => !this.$store.state.hide_singles || album.track_count > 2)
-        .map(album => album.name_sort.charAt(0).toUpperCase()))]
+    scrollToTop: function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 }

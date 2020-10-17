@@ -1,35 +1,19 @@
 <template>
   <div>
-    <tabs-music></tabs-music>
+    <tabs-audiobooks></tabs-audiobooks>
 
     <content-with-heading>
       <template slot="options">
-        <index-button-list :index="index_list"></index-button-list>
+        <index-button-list :index="artists_list.indexList"></index-button-list>
       </template>
       <template slot="heading-left">
-        <p class="title is-4">Artists</p>
-        <p class="heading">{{ artists.total }} artists</p>
+        <p class="title is-4">Authors</p>
+        <p class="heading">{{ artists_list.sortedAndFiltered.length }} Authors</p>
       </template>
       <template slot="heading-right">
-        <a class="button is-small" :class="{ 'is-info': hide_singles }" @click="update_hide_singles">
-          <span class="icon">
-            <i class="mdi mdi-numeric-1-box-multiple-outline"></i>
-          </span>
-          <span>Hide singles</span>
-        </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists_filtered"
-          :key="artist.id"
-          :artist="artist"
-          @click="open_artist(artist)">
-            <template slot="actions">
-              <a @click="open_dialog(artist)">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-              </a>
-            </template>
-        </list-item-artist>
-        <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" @close="show_details_modal = false" />
+        <list-artists :artists="artists_list"></list-artists>
       </template>
     </content-with-heading>
   </div>
@@ -38,16 +22,15 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
+import TabsAudiobooks from '@/components/TabsAudiobooks'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemArtist from '@/components/ListItemArtist'
-import ModalDialogArtist from '@/components/ModalDialogArtist'
+import ListArtists from '@/components/ListArtists'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
+import Artists from '@/lib/Artists'
 
 const artistsData = {
   load: function (to) {
-    return webapi.library_artists()
+    return webapi.library_artists('audiobook')
   },
 
   set: function (vm, response) {
@@ -56,48 +39,26 @@ const artistsData = {
 }
 
 export default {
-  name: 'PageArtists',
+  name: 'PageAudiobooksArtists',
   mixins: [LoadDataBeforeEnterMixin(artistsData)],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist, ModalDialogArtist },
+  components: { ContentWithHeading, TabsAudiobooks, IndexButtonList, ListArtists },
 
   data () {
     return {
-      artists: { items: [] },
-
-      show_details_modal: false,
-      selected_artist: {}
+      artists: { items: [] }
     }
   },
 
   computed: {
-    hide_singles () {
-      return this.$store.state.hide_singles
-    },
-
-    index_list () {
-      return [...new Set(this.artists.items
-        .filter(artist => !this.$store.state.hide_singles || artist.track_count > (artist.album_count * 2))
-        .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
-    },
-
-    artists_filtered () {
-      return this.artists.items.filter(artist => !this.hide_singles || artist.track_count > (artist.album_count * 2))
+    artists_list () {
+      return new Artists(this.artists.items, {
+        sort: 'Name',
+        group: true
+      })
     }
   },
 
   methods: {
-    update_hide_singles: function (e) {
-      this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
-    },
-
-    open_artist: function (artist) {
-      this.$router.push({ path: '/music/artists/' + artist.id })
-    },
-
-    open_dialog: function (artist) {
-      this.selected_artist = artist
-      this.show_details_modal = true
-    }
   }
 }
 </script>

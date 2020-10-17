@@ -17,8 +17,10 @@ import PageGenreTracks from '@/pages/PageGenreTracks'
 import PageArtistTracks from '@/pages/PageArtistTracks'
 import PagePodcasts from '@/pages/PagePodcasts'
 import PagePodcast from '@/pages/PagePodcast'
-import PageAudiobooks from '@/pages/PageAudiobooks'
-import PageAudiobook from '@/pages/PageAudiobook'
+import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums'
+import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists'
+import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist'
+import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum'
 import PagePlaylists from '@/pages/PagePlaylists'
 import PagePlaylist from '@/pages/PagePlaylist'
 import PageFiles from '@/pages/PageFiles'
@@ -127,12 +129,6 @@ export const router = new VueRouter({
       meta: { show_progress: true, has_index: true }
     },
     {
-      path: '/music/radio',
-      name: 'Radio',
-      component: PageRadioStreams,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
       path: '/podcasts',
       name: 'Podcasts',
       component: PagePodcasts,
@@ -146,14 +142,36 @@ export const router = new VueRouter({
     },
     {
       path: '/audiobooks',
-      name: 'Audiobooks',
-      component: PageAudiobooks,
+      redirect: '/audiobooks/artists'
+    },
+    {
+      path: '/audiobooks/artists',
+      name: 'AudiobooksArtists',
+      component: PageAudiobooksArtists,
+      meta: { show_progress: true, has_tabs: true, has_index: true }
+    },
+    {
+      path: '/audiobooks/artists/:artist_id',
+      name: 'AudiobooksArtist',
+      component: PageAudiobooksArtist,
       meta: { show_progress: true }
+    },
+    {
+      path: '/audiobooks/albums',
+      name: 'AudiobooksAlbums',
+      component: PageAudiobooksAlbums,
+      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       path: '/audiobooks/:album_id',
       name: 'Audiobook',
-      component: PageAudiobook,
+      component: PageAudiobooksAlbum,
+      meta: { show_progress: true }
+    },
+    {
+      path: '/radio',
+      name: 'Radio',
+      component: PageRadioStreams,
       meta: { show_progress: true }
     },
     {
@@ -258,11 +276,11 @@ export const router = new VueRouter({
         }, 10)
       })
     } else if (to.path === from.path && to.hash) {
-      return { selector: to.hash, offset: { x: 0, y: 90 } }
+      return { selector: to.hash, offset: { x: 0, y: 120 } }
     } else if (to.hash) {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          resolve({ selector: to.hash, offset: { x: 0, y: 90 } })
+          resolve({ selector: to.hash, offset: { x: 0, y: 120 } })
         }, 10)
       })
     } else if (to.meta.has_index) {

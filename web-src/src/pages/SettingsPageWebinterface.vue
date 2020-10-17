@@ -4,6 +4,54 @@
 
     <content-with-heading>
       <template slot="heading-left">
+        <div class="title is-4">Navbar items</div>
+      </template>
+
+      <template slot="content">
+        <p class="content">
+          Select the top navigation bar menu items
+        </p>
+        <div class="notification is-size-7">
+          Be aware that if you select more items than can be shown on your screen will result in the burger menu item to disapear.
+        </div>
+        <settings-checkbox category_name="webinterface" option_name="show_menu_item_playlists">
+          <template slot="label"> Playlists</template>
+        </settings-checkbox>
+        <settings-checkbox category_name="webinterface" option_name="show_menu_item_music">
+          <template slot="label"> Music</template>
+        </settings-checkbox>
+        <settings-checkbox category_name="webinterface" option_name="show_menu_item_podcasts">
+          <template slot="label"> Podcasts</template>
+        </settings-checkbox>
+        <settings-checkbox category_name="webinterface" option_name="show_menu_item_audiobooks">
+          <template slot="label"> Audiobooks</template>
+        </settings-checkbox>
+        <settings-checkbox category_name="webinterface" option_name="show_menu_item_radio">
+          <template slot="label"> Radio</template>
+        </settings-checkbox>
+        <settings-checkbox category_name="webinterface" option_name="show_menu_item_files">
+          <template slot="label"> Files</template>
+        </settings-checkbox>
+        <settings-checkbox category_name="webinterface" option_name="show_menu_item_search">
+          <template slot="label"> Search</template>
+        </settings-checkbox>
+      </template>
+    </content-with-heading>
+
+    <content-with-heading>
+      <template slot="heading-left">
+        <div class="title is-4">Album lists</div>
+      </template>
+
+      <template slot="content">
+        <settings-checkbox category_name="webinterface" option_name="show_cover_artwork_in_album_lists">
+          <template slot="label"> Show cover artwork in album list</template>
+        </settings-checkbox>
+      </template>
+    </content-with-heading>
+
+    <content-with-heading>
+      <template slot="heading-left">
         <div class="title is-4">Now playing page</div>
       </template>
 

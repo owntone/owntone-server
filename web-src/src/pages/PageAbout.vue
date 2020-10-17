@@ -26,7 +26,7 @@
                 <!-- Right side -->
                 <div class="level-right">
                   <div v-if="library.updating"><a class="button is-small is-loading">Update</a></div>
-                  <div v-else class="dropdown is-right" :class="{ 'is-active': show_update_dropdown }">
+                  <div v-else class="dropdown is-right" :class="{ 'is-active': show_update_dropdown }" v-click-outside="onClickOutside">
                     <div class="dropdown-trigger">
                       <div class="buttons has-addons">
                         <a @click="update" class="button is-small">Update</a>
@@ -126,6 +126,10 @@ export default {
   },
 
   methods: {
+    onClickOutside (event) {
+      this.show_update_dropdown = false
+    },
+
     update: function () {
       this.show_update_dropdown = false
       webapi.library_update()

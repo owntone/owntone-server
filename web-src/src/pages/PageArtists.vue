@@ -4,32 +4,40 @@
 
     <content-with-heading>
       <template slot="options">
-        <index-button-list :index="index_list"></index-button-list>
+        <index-button-list :index="artists_list.indexList"></index-button-list>
+
+        <div class="columns">
+          <div class="column">
+            <p class="heading" style="margin-bottom: 24px;">Filter</p>
+            <div class="field">
+              <div class="control">
+                <input id="switchHideSingles" type="checkbox" name="switchHideSingles" class="switch" v-model="hide_singles">
+                <label for="switchHideSingles">Hide singles</label>
+              </div>
+              <p class="help">If active, hides artists that only appear on singles or playlists.</p>
+            </div>
+            <div class="field" v-if="spotify_enabled">
+              <div class="control">
+                <input id="switchHideSpotify" type="checkbox" name="switchHideSpotify" class="switch" v-model="hide_spotify">
+                <label for="switchHideSpotify">Hide artists from Spotify</label>
+              </div>
+              <p class="help">If active, hides artists that only appear in your Spotify library.</p>
+            </div>
+          </div>
+          <div class="column">
+            <p class="heading" style="margin-bottom: 24px;">Sort by</p>
+            <dropdown-menu v-model="sort" :options="sort_options"></dropdown-menu>
+          </div>
+        </div>
       </template>
       <template slot="heading-left">
         <p class="title is-4">Artists</p>
-        <p class="heading">{{ artists.total }} artists</p>
+        <p class="heading">{{ artists_list.sortedAndFiltered.length }} Artists</p>
       </template>
       <template slot="heading-right">
-        <a class="button is-small" :class="{ 'is-info': hide_singles }" @click="update_hide_singles">
-          <span class="icon">
-            <i class="mdi mdi-numeric-1-box-multiple-outline"></i>
-          </span>
-          <span>Hide singles</span>
-        </a>
       </template>
       <template slot="content">
-        <list-item-artist v-for="artist in artists_filtered"
-          :key="artist.id"
-          :artist="artist"
-          @click="open_artist(artist)">
-            <template slot="actions">
-              <a @click="open_dialog(artist)">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-              </a>
-            </template>
-        </list-item-artist>
-        <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" @close="show_details_modal = false" />
+        <list-artists :artists="artists_list"></list-artists>
       </template>
     </content-with-heading>
   </div>
@@ -40,14 +48,15 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemArtist from '@/components/ListItemArtist'
-import ModalDialogArtist from '@/components/ModalDialogArtist'
+import ListArtists from '@/components/ListArtists'
+import DropdownMenu from '@/components/DropdownMenu'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
+import Artists from '@/lib/Artists'
 
 const artistsData = {
   load: function (to) {
-    return webapi.library_artists()
+    return webapi.library_artists('music')
   },
 
   set: function (vm, response) {
@@ -58,45 +67,60 @@ const artistsData = {
 export default {
   name: 'PageArtists',
   mixins: [LoadDataBeforeEnterMixin(artistsData)],
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListItemArtist, ModalDialogArtist },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListArtists, DropdownMenu },
 
   data () {
     return {
       artists: { items: [] },
-
-      show_details_modal: false,
-      selected_artist: {}
+      sort_options: ['Name', 'Recently added']
     }
   },
 
   computed: {
-    hide_singles () {
-      return this.$store.state.hide_singles
+    artists_list () {
+      return new Artists(this.artists.items, {
+        hideSingles: this.hide_singles,
+        hideSpotify: this.hide_spotify,
+        sort: this.sort,
+        group: true
+      })
     },
 
-    index_list () {
-      return [...new Set(this.artists.items
-        .filter(artist => !this.$store.state.hide_singles || artist.track_count > (artist.album_count * 2))
-        .map(artist => artist.name_sort.charAt(0).toUpperCase()))]
+    spotify_enabled () {
+      return this.$store.state.spotify.webapi_token_valid
     },
 
-    artists_filtered () {
-      return this.artists.items.filter(artist => !this.hide_singles || artist.track_count > (artist.album_count * 2))
+    hide_singles: {
+      get () {
+        return this.$store.state.hide_singles
+      },
+      set (value) {
+        this.$store.commit(types.HIDE_SINGLES, value)
+      }
+    },
+
+    hide_spotify: {
+      get () {
+        return this.$store.state.hide_spotify
+      },
+      set (value) {
+        this.$store.commit(types.HIDE_SPOTIFY, value)
+      }
+    },
+
+    sort: {
+      get () {
+        return this.$store.state.artists_sort
+      },
+      set (value) {
+        this.$store.commit(types.ARTISTS_SORT, value)
+      }
     }
   },
 
   methods: {
-    update_hide_singles: function (e) {
-      this.$store.commit(types.HIDE_SINGLES, !this.hide_singles)
-    },
-
-    open_artist: function (artist) {
-      this.$router.push({ path: '/music/artists/' + artist.id })
-    },
-
-    open_dialog: function (artist) {
-      this.selected_artist = artist
-      this.show_details_modal = true
+    scrollToTop: function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 }

@@ -12,12 +12,16 @@ enum settings_type {
   SETTINGS_TYPE_CATEGORY,
 };
 
+union settings_default_value {
+  int intval;
+  bool boolval;
+  char *strval;
+};
+
 struct settings_option {
   const char *name;
   enum settings_type type;
-  int (*default_getint)(struct settings_option *option);
-  bool (*default_getbool)(struct settings_option *option);
-  char *(*default_getstr)(struct settings_option *option);
+  union settings_default_value default_value;
 };
 
 struct settings_category {

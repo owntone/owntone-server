@@ -19,14 +19,7 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile">{{ genre_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
-        <list-item-albums v-for="album in genre_albums.items" :key="album.id" :album="album" @click="open_album(album)">
-          <template slot="actions">
-            <a @click="open_dialog(album)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-albums>
-        <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
+        <list-albums :albums="genre_albums.items"></list-albums>
         <modal-dialog-genre :show="show_genre_details_modal" :genre="{ 'name': name }" @close="show_genre_details_modal = false" />
       </template>
     </content-with-heading>
@@ -37,8 +30,7 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import IndexButtonList from '@/components/IndexButtonList'
-import ListItemAlbums from '@/components/ListItemAlbum'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
+import ListAlbums from '@/components/ListAlbums'
 import ModalDialogGenre from '@/components/ModalDialogGenre'
 import webapi from '@/webapi'
 
@@ -56,15 +48,12 @@ const genreData = {
 export default {
   name: 'PageGenre',
   mixins: [LoadDataBeforeEnterMixin(genreData)],
-  components: { ContentWithHeading, IndexButtonList, ListItemAlbums, ModalDialogAlbum, ModalDialogGenre },
+  components: { ContentWithHeading, IndexButtonList, ListAlbums, ModalDialogGenre },
 
   data () {
     return {
       name: '',
       genre_albums: { items: [] },
-
-      show_details_modal: false,
-      selected_album: {},
 
       show_genre_details_modal: false
     }
@@ -85,10 +74,6 @@ export default {
 
     play: function () {
       webapi.player_play_expression('genre is "' + this.name + '" and media_kind is music', true)
-    },
-
-    open_album: function (album) {
-      this.$router.push({ path: '/music/albums/' + album.id })
     },
 
     open_dialog: function (album) {

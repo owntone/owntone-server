@@ -1,5 +1,6 @@
 
 @import 'bulma';
+@import '~bulma-switch';
 
 
 .slider {
@@ -80,7 +81,9 @@ a.navbar-item {
 
 .fd-is-square .button {
   height: 27px;
-  width: 27px;
+  min-width: 27px;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
 }
 
 .fd-is-text-clipped {
@@ -113,6 +116,11 @@ section.hero + section.fd-content {
 
 .fd-has-shadow {
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+/* Set minimum height to hide "option" section */
+.fd-content-with-option {
+  min-height: calc(100vh - 3.25rem - 3.25rem - 5rem);
 }
 
 /* Now playing page */

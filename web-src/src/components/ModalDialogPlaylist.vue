@@ -44,7 +44,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogPlaylist',
-  props: ['show', 'playlist'],
+  props: ['show', 'playlist', 'tracks'],
 
   methods: {
     play: function () {

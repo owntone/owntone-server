@@ -24,22 +24,29 @@
 #include "db.h"
 #include "conffile.h"
 
-// Forward - setting initializers
-static bool artwork_spotify_default_getbool(struct settings_option *option);
-static bool artwork_discogs_default_getbool(struct settings_option *option);
-static bool artwork_coverartarchive_default_getbool(struct settings_option *option);
 
 static struct settings_option webinterface_options[] =
   {
       { "show_composer_now_playing", SETTINGS_TYPE_BOOL },
       { "show_composer_for_genre", SETTINGS_TYPE_STR },
+      { "show_cover_artwork_in_album_lists", SETTINGS_TYPE_BOOL, { true } },
+      { "show_menu_item_playlists", SETTINGS_TYPE_BOOL, { true } },
+      { "show_menu_item_music", SETTINGS_TYPE_BOOL, { true } },
+      { "show_menu_item_podcasts", SETTINGS_TYPE_BOOL, { true } },
+      { "show_menu_item_audiobooks", SETTINGS_TYPE_BOOL, { true } },
+      { "show_menu_item_radio", SETTINGS_TYPE_BOOL, { false } },
+      { "show_menu_item_files", SETTINGS_TYPE_BOOL, { true } },
+      { "show_menu_item_search", SETTINGS_TYPE_BOOL, { true } },
   };
 
 static struct settings_option artwork_options[] =
   {
-      { "use_artwork_source_spotify", SETTINGS_TYPE_BOOL, NULL, artwork_spotify_default_getbool, NULL },
-      { "use_artwork_source_discogs", SETTINGS_TYPE_BOOL, NULL, artwork_discogs_default_getbool, NULL },
-      { "use_artwork_source_coverartarchive", SETTINGS_TYPE_BOOL, NULL, artwork_coverartarchive_default_getbool, NULL },
+      // Spotify source enabled by default, it will only work for premium users anyway.
+      // So Spotify probably won't mind, and the user probably also won't mind that we
+      // share data with Spotify, since he is already doing it.
+      { "use_artwork_source_spotify", SETTINGS_TYPE_BOOL, { true } },
+      { "use_artwork_source_discogs", SETTINGS_TYPE_BOOL, { false } },
+      { "use_artwork_source_coverartarchive", SETTINGS_TYPE_BOOL, { false } },
   };
 
 static struct settings_option misc_options[] =
@@ -63,51 +70,6 @@ static struct settings_category categories[] =
       { "player", player_options, ARRAY_SIZE(player_options) },
   };
 
-
-/* ---------------------------- DEFAULT SETTERS ------------------------------*/
-
-static bool
-artwork_default_getbool(bool no_cfg_default, const char *cfg_name)
-{
-  cfg_t *lib = cfg_getsec(cfg, "library");
-  const char *name;
-  int n_cfg;
-  int i;
-
-  n_cfg = cfg_size(lib, "artwork_online_sources");
-  if (n_cfg == 0)
-    return no_cfg_default;
-
-  for (i = 0; i < n_cfg; i++)
-    {
-      name = cfg_getnstr(lib, "artwork_online_sources", i);
-      if (strcasecmp(name, cfg_name) == 0)
-        return true;
-    }
-
-  return false;
-}
-
-static bool
-artwork_spotify_default_getbool(struct settings_option *option)
-{
-  // Enabled by default, it will only work for premium users anyway. So Spotify
-  // probably won't mind, and the user probably also won't mind that we share
-  // data with Spotify, since he is already doing it.
-  return artwork_default_getbool(true, "spotify");
-}
-
-static bool
-artwork_discogs_default_getbool(struct settings_option *option)
-{
-  return artwork_default_getbool(false, "discogs");
-}
-
-static bool
-artwork_coverartarchive_default_getbool(struct settings_option *option)
-{
-  return artwork_default_getbool(false, "coverartarchive");
-}
 
 /* ------------------------------ IMPLEMENTATION -----------------------------*/
 
@@ -185,8 +147,8 @@ settings_option_getint(struct settings_option *option)
   if (ret == 0)
     return intval;
 
-  if (option->default_getint)
-    return option->default_getint(option);
+  if (option->default_value.intval)
+    return option->default_value.intval;
 
   return 0;
 }
@@ -204,8 +166,8 @@ settings_option_getbool(struct settings_option *option)
   if (ret == 0)
     return (intval != 0);
 
-  if (option->default_getbool)
-    return option->default_getbool(option);
+  if (option->default_value.boolval)
+    return option->default_value.boolval;
 
   return false;
 }
@@ -223,8 +185,8 @@ settings_option_getstr(struct settings_option *option)
   if (ret == 0)
     return s;
 
-  if (option->default_getstr)
-    return option->default_getstr(option);
+  if (option->default_value.strval)
+    return option->default_value.strval;
 
   return NULL;
 }

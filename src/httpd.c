@@ -301,7 +301,7 @@ httpd_request_etag_matches(struct evhttp_request *req, const char *etag)
 
   // Add cache headers to allow client side caching
   output_headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(output_headers, "Cache-Control", "private no-cache");
+  evhttp_add_header(output_headers, "Cache-Control", "private,no-cache,max-age=0");
   evhttp_add_header(output_headers, "ETag", etag);
 
   return false;
@@ -338,10 +338,26 @@ httpd_request_not_modified_since(struct evhttp_request *req, time_t mtime)
 
   // Add cache headers to allow client side caching
   output_headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(output_headers, "Cache-Control", "private no-cache");
+  evhttp_add_header(output_headers, "Cache-Control", "private,no-cache,max-age=0");
   evhttp_add_header(output_headers, "Last-Modified", last_modified);
 
   return false;
+}
+
+void
+httpd_response_not_cachable(struct evhttp_request *req)
+{
+  struct evkeyvalq *output_headers;
+
+  output_headers = evhttp_request_get_output_headers(req);
+
+  // Remove potentially set cache control headers
+  evhttp_remove_header(output_headers, "Cache-Control");
+  evhttp_remove_header(output_headers, "Last-Modified");
+  evhttp_remove_header(output_headers, "ETag");
+
+  // Tell clients that they are not allowed to cache this response
+  evhttp_add_header(output_headers, "Cache-Control", "no-store");
 }
 
 static void
