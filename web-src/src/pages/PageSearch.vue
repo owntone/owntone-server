@@ -250,6 +250,7 @@ export default {
         return
       }
 
+      this.search_query = route.query.query
       this.searchMusic(route.query)
       this.searchAudiobooks(route.query)
       this.searchPodcasts(route.query)

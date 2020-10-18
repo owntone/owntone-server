@@ -265,6 +265,7 @@ export default {
         return
       }
 
+      this.search_query = this.query.query
       this.search_param.limit = this.query.limit ? this.query.limit : 50
       this.search_param.offset = this.query.offset ? this.query.offset : 0
 
