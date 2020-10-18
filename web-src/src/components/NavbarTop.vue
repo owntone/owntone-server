@@ -61,7 +61,7 @@
             <hr class="fd-navbar-divider">
 
             <navbar-item-link to="/settings/webinterface">Settings</navbar-item-link>
-            <a class="navbar-item" @click.stop.prevent="show_update_library = true">
+            <a class="navbar-item" @click.stop.prevent="show_update_library = true; show_settings_menu = false; show_burger_menu = false">
               Update Library
             </a>
             <navbar-item-link to="/about">About</navbar-item-link>
