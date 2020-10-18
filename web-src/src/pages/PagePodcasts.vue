@@ -96,7 +96,7 @@ export default {
 
   data () {
     return {
-      albums: {},
+      albums: { items: [] },
       new_episodes: { items: [] },
 
       show_url_modal: false,
