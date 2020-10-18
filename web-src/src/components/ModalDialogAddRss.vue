@@ -60,7 +60,7 @@ export default {
       this.loading = true
       webapi.library_add(this.url).then(() => {
         this.$emit('close')
-        this.$emit('podcast_added')
+        this.$emit('podcast-added')
         this.url = ''
       }).catch(() => {
         this.loading = false

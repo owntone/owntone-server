@@ -32,7 +32,7 @@
             </a>
           </template>
         </list-item-track>
-        <modal-dialog-track :show="show_track_details_modal" :track="selected_track" @close="show_track_details_modal = false" @play_count_changed="reload_new_episodes" />
+        <modal-dialog-track :show="show_track_details_modal" :track="selected_track" @close="show_track_details_modal = false" @play-count-changed="reload_new_episodes" />
       </template>
     </content-with-heading>
 
@@ -53,13 +53,13 @@
       </template>
       <template slot="content">
         <list-albums :albums="albums.items"
-            @play_count_changed="reload_new_episodes()"
+            @play-count-changed="reload_new_episodes()"
             @podcast-deleted="reload_podcasts()">
         </list-albums>
         <modal-dialog-add-rss
             :show="show_url_modal"
             @close="show_url_modal = false"
-            @podcast_added="reload_podcasts()" />
+            @podcast-added="reload_podcasts()" />
       </template>
     </content-with-heading>
   </div>
