@@ -36,7 +36,7 @@
 
       <div class="navbar-end">
 
-        <!-- Settings drop down -->
+        <!-- Burger menu entries -->
         <div class="navbar-item has-dropdown is-hoverable"
             :class="{ 'is-active': show_settings_menu }"
             @click="on_click_outside_settings">
@@ -61,13 +61,39 @@
             <hr class="fd-navbar-divider">
 
             <navbar-item-link to="/settings/webinterface">Settings</navbar-item-link>
-            <navbar-item-link to="/about">Update Library</navbar-item-link>
+            <a class="navbar-item" @click.stop.prevent="show_update_library = true">
+              Update Library
+            </a>
+            <navbar-item-link to="/about">About</navbar-item-link>
 
             <div class="navbar-item is-hidden-desktop" style="margin-bottom: 2.5rem;"></div>
           </div>
         </div>
       </div>
     </div>
+
+    <modal-dialog
+        :show="show_update_library"
+        title="Update library"
+        :ok_action="library.updating ? '' : 'Rescan'"
+        close_action="Close"
+        @ok="update_library"
+        @close="show_update_library = false">
+      <template slot="modal-content">
+        <div v-if="!library.updating">
+          <p class="mb-3">Scan for new, deleted and modified files</p>
+          <div class="field">
+            <label class="checkbox is-size-7 is-small">
+              <input type="checkbox" v-model="rescan_metadata">
+              Rescan metadata for unmodified files
+            </label>
+          </div>
+        </div>
+        <div v-else>
+          <p class="mb-3">Library update in progress ...</p>
+        </div>
+      </template>
+    </modal-dialog>
 
     <div class="is-overlay" v-show="show_settings_menu"
         style="z-index:10; width: 100vw; height:100vh;"
@@ -77,15 +103,19 @@
 
 <script>
 import NavbarItemLink from './NavbarItemLink'
+import ModalDialog from '@/components/ModalDialog'
 import * as types from '@/store/mutation_types'
+import webapi from '@/webapi'
 
 export default {
   name: 'NavbarTop',
-  components: { NavbarItemLink },
+  components: { NavbarItemLink, ModalDialog },
 
   data () {
     return {
-      show_settings_menu: false
+      show_settings_menu: false,
+      show_update_library: false,
+      rescan_metadata: false
     }
   },
 
@@ -160,6 +190,14 @@ export default {
   methods: {
     on_click_outside_settings () {
       this.show_settings_menu = !this.show_settings_menu
+    },
+
+    update_library () {
+      if (this.rescan_metadata) {
+        webapi.library_rescan()
+      } else {
+        webapi.library_update()
+      }
     }
   },
 
