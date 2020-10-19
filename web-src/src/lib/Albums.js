@@ -21,6 +21,8 @@ export default class Albums {
       return album.time_added.substring(0, 4)
     } else if (this.options.sort === 'Recently released') {
       return album.date_released ? album.date_released.substring(0, 4) : '0000'
+    } else if (this.options.sort === 'Release date') {
+      return album.date_released ? album.date_released.substring(0, 4) : '0000'
     }
     return album.name_sort.charAt(0).toUpperCase()
   }
@@ -56,6 +58,16 @@ export default class Albums {
           return -1
         }
         return b.date_released.localeCompare(a.date_released)
+      })
+    } else if (this.options.sort === 'Release date') {
+      albumsSorted = [...albumsSorted].sort((a, b) => {
+        if (!a.date_released) {
+          return -1
+        }
+        if (!b.date_released) {
+          return 1
+        }
+        return a.date_released.localeCompare(b.date_released)
       })
     }
     this.sortedAndFiltered = albumsSorted

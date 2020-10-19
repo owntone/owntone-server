@@ -12,7 +12,7 @@
           Select the top navigation bar menu items
         </p>
         <div class="notification is-size-7">
-          Be aware that if you select more items than can be shown on your screen will result in the burger menu item to disapear.
+          If you select more items than can be shown on your screen then the burger menu will disappear.
         </div>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_playlists">
           <template slot="label"> Playlists</template>

@@ -151,6 +151,9 @@ section.hero + section.fd-content {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+
+  /* Padding matches the drop-shadow size of the image */
+  padding: 10px;
 }
 
 .fd-cover-image img {

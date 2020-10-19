@@ -13,7 +13,7 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="$emit('close')">
-                <span class="icon"><i class="mdi mdi-cancel"></i></span> <span class="is-size-7">Cancel</span>
+                <span class="icon"><i class="mdi mdi-cancel"></i></span> <span class="is-size-7">{{ close_action ? close_action : 'Cancel' }}</span>
               </a>
               <a v-if="delete_action" class="card-footer-item has-background-danger has-text-white has-text-weight-bold" @click="$emit('delete')">
                 <span class="icon"><i class="mdi mdi-delete"></i></span> <span class="is-size-7">{{ delete_action }}</span>
@@ -33,7 +33,7 @@
 <script>
 export default {
   name: 'ModalDialog',
-  props: ['show', 'title', 'ok_action', 'delete_action']
+  props: ['show', 'title', 'ok_action', 'delete_action', 'close_action']
 }
 </script>
 

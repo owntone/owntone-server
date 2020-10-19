@@ -40,14 +40,14 @@
         :show="show_details_modal"
         :track="selected_track"
         @close="show_details_modal = false"
-        @play_count_changed="reload_tracks" />
+        @play-count-changed="reload_tracks" />
       <modal-dialog-album
         :show="show_album_details_modal"
         :album="album"
         :media_kind="'podcast'"
         :new_tracks="new_tracks"
         @close="show_album_details_modal = false"
-        @play_count_changed="reload_tracks"
+        @play-count-changed="reload_tracks"
         @remove_podcast="open_remove_podcast_dialog" />
       <modal-dialog
         :show="show_remove_podcast_modal"

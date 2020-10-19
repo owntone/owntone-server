@@ -1,5 +1,13 @@
 <template>
   <content-with-heading>
+      <template slot="options">
+        <div class="columns">
+          <div class="column">
+            <p class="heading" style="margin-bottom: 24px;">Sort by</p>
+            <dropdown-menu v-model="sort" :options="sort_options"></dropdown-menu>
+          </div>
+        </div>
+      </template>
     <template slot="heading-left">
       <p class="title is-4">{{ artist.name }}</p>
     </template>
@@ -15,7 +23,7 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums | <a class="has-text-link" @click="open_tracks">{{ artist.track_count }} tracks</a></p>
-      <list-albums :albums="albums.items"></list-albums>
+      <list-albums :albums="albums_list"></list-albums>
       <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
     </template>
   </content-with-heading>
@@ -26,7 +34,10 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import ListAlbums from '@/components/ListAlbums'
 import ModalDialogArtist from '@/components/ModalDialogArtist'
+import DropdownMenu from '@/components/DropdownMenu'
 import webapi from '@/webapi'
+import * as types from '@/store/mutation_types'
+import Albums from '@/lib/Albums'
 
 const artistData = {
   load: function (to) {
@@ -45,14 +56,33 @@ const artistData = {
 export default {
   name: 'PageArtist',
   mixins: [LoadDataBeforeEnterMixin(artistData)],
-  components: { ContentWithHeading, ListAlbums, ModalDialogArtist },
+  components: { ContentWithHeading, ListAlbums, ModalDialogArtist, DropdownMenu },
 
   data () {
     return {
       artist: {},
-      albums: {},
+      albums: { items: [] },
 
+      sort_options: ['Name', 'Release date'],
       show_artist_details_modal: false
+    }
+  },
+
+  computed: {
+    albums_list () {
+      return new Albums(this.albums.items, {
+        sort: this.sort,
+        group: false
+      })
+    },
+
+    sort: {
+      get () {
+        return this.$store.state.artist_albums_sort
+      },
+      set (value) {
+        this.$store.commit(types.ARTIST_ALBUMS_SORT, value)
+      }
     }
   },
 
