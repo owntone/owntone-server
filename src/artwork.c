@@ -923,8 +923,11 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   CHECK_NULL(L_ART, raw = evbuffer_new());
 
   ret = cache_artwork_read(raw, url, &format);
-  if (ret == 0 && format > 0)
+  if (ret == 0)
     {
+      if (format <= 0)
+	goto error;
+
       ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
       if (ret < 0)
 	goto error;
