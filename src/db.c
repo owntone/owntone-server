@@ -4641,11 +4641,6 @@ db_speaker_get(struct output_device *device, uint64_t id)
 #undef Q_TMPL
 }
 
-void
-db_speaker_clear_all(void)
-{
-  db_query_run("UPDATE speakers SET selected = 0;", 0, 0);
-}
 
 /* Queue */
 

@@ -815,9 +815,6 @@ db_speaker_save(struct output_device *device);
 int
 db_speaker_get(struct output_device *device, uint64_t id);
 
-void
-db_speaker_clear_all(void);
-
 /* Queue */
 int
 db_queue_update_item(struct db_queue_item *queue_item);
