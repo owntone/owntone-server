@@ -3545,8 +3545,6 @@ player(void *arg)
   if (!player_exit)
     DPRINTF(E_LOG, L_PLAYER, "Player event loop terminated ahead of time!\n");
 
-  db_speaker_clear_all();
-
   for (device = outputs_list(); device; device = device->next)
     {
       ret = db_speaker_save(device);
