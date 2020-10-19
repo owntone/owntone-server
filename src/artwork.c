@@ -925,6 +925,7 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   ret = cache_artwork_read(raw, url, &format);
   if (ret == 0)
     {
+      // If we have cached a negative result from the last attempt we stop now
       if (format <= 0)
 	goto error;
 
@@ -1167,10 +1168,9 @@ online_source_request_url_make(char *url, size_t url_size, struct online_source 
   return -1;
 }
 
-static char *
-online_source_search_check_last(struct online_source *src, uint32_t hash, int max_w, int max_h)
+static int
+online_source_search_check_last(char **last_artwork_url, struct online_source *src, uint32_t hash, int max_w, int max_h)
 {
-  char *last_artwork_url = NULL;
   bool is_same;
 
   pthread_mutex_lock(&src->search_history.mutex);
@@ -1179,12 +1179,13 @@ online_source_search_check_last(struct online_source *src, uint32_t hash, int ma
             (max_w == src->search_history.last_max_w) &&
             (max_h == src->search_history.last_max_h);
 
+  // Copy this to the caller while we have the lock anyway
   if (is_same)
-    last_artwork_url = safe_strdup(src->search_history.last_artwork_url);
+    *last_artwork_url = safe_strdup(src->search_history.last_artwork_url);
 
   pthread_mutex_unlock(&src->search_history.mutex);
 
-  return last_artwork_url;
+  return is_same ? 0 : -1;
 }
 
 static bool
@@ -1258,9 +1259,11 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
 
   // Be nice to our peer + improve response times by not repeating search requests
   hash = djb_hash(url, strlen(url));
-  artwork_url = online_source_search_check_last(src, hash, ctx->max_w, ctx->max_h);
-  if (artwork_url)
-    return artwork_url;
+  ret = online_source_search_check_last(&artwork_url, src, hash, ctx->max_w, ctx->max_h);
+  if (ret == 0)
+    {
+      return artwork_url; // Will be NULL if we are repeating a search that failed
+    }
 
   // If our recent searches have been futile we may give the source a break
   if (online_source_is_failing(src, ctx->id))
