@@ -1141,7 +1141,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
   int parent_id;
   int fd;
 
-  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%08x, cookie 0x%08x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & IN_UNMOUNT)
     {
@@ -1291,7 +1291,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   char *ptr;
   int ret;
 
-  DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_DBG, L_SCAN, "File event: 0x%08x, cookie 0x%08x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   file_type = file_type_get(path);
   if (file_type == FILE_IGNORE)
