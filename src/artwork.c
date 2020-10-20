@@ -79,7 +79,6 @@ enum artwork_cache
   NEVER = 0,       // No caching of any results
   ON_SUCCESS = 1,  // Cache if artwork found
   ON_FAILURE = 2,  // Cache if artwork not found (so we don't keep asking)
-  STASH = 4,  // Only cache "short term": Cache holds just one image, useful for streams
 };
 
 /* This struct contains the data available to the handler, as well as a char
@@ -258,7 +257,7 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_artwork_url_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
       .media_kinds = MEDIA_KIND_MUSIC,
-      .cache = STASH,
+      .cache = NEVER,
     },
     {
       .name = "pipe",
@@ -275,14 +274,15 @@ static struct artwork_source artwork_item_source[] =
       .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
-      // Here we must use STASH because this handler must always just be a
-      // backup when artwork_url_get fails. If we used ON_SUCCESS this image
-      // would go in permanent cache, and artwork_url_get not get called again.
+      // Note that even though caching is set for this handler, it will in most
+      // cases not happen because source_item_artwork_url_get() comes before
+      // and has NEVER. This is intentional because this handler is also a
+      // backup for when we don't get anything from the stream.
       .name = "playlist own",
       .handler = source_item_ownpl_get,
       .data_kinds = (1 << DATA_KIND_HTTP),
       .media_kinds = MEDIA_KIND_ALL,
-      .cache = STASH,
+      .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = "Spotify search web api (files)",
@@ -296,7 +296,7 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_spotifywebapi_search_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
       .media_kinds = MEDIA_KIND_MUSIC,
-      .cache = STASH,
+      .cache = NEVER,
     },
     {
       .name = "Discogs (files)",
@@ -310,7 +310,7 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_discogs_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
       .media_kinds = MEDIA_KIND_MUSIC,
-      .cache = STASH,
+      .cache = NEVER,
     },
     {
       // The Cover Art Archive seems rather slow, so low priority
@@ -326,7 +326,7 @@ static struct artwork_source artwork_item_source[] =
       .handler = source_item_coverartarchive_get,
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
       .media_kinds = MEDIA_KIND_MUSIC,
-      .cache = STASH,
+      .cache = NEVER,
     },
     {
       .name = NULL,
@@ -403,7 +403,7 @@ static struct online_source musicbrainz_source =
  *
  * @out evbuf     Image data
  * @in  url       URL for the image
- * @return        ART_FMT_* on success, ART_E_ERROR otherwise
+ * @return        ART_FMT_* on success, ART_E_NONE on 404, ART_E_ERROR otherwise
  */
 static int
 artwork_read_byurl(struct evbuffer *evbuf, const char *url)
@@ -412,17 +412,19 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
   struct keyval *kv;
   const char *content_type;
   size_t len;
+  int format;
   int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying internet artwork in %s\n", url);
 
+  format = ART_E_ERROR;
   CHECK_NULL(L_ART, kv = keyval_alloc());
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
     {
       DPRINTF(E_LOG, L_ART, "Artwork request URL is invalid (len=%zu): '%s'\n", len, url);
-      goto error;
+      goto out;
     }
 
   memset(&client, 0, sizeof(struct http_client_ctx));
@@ -434,34 +436,33 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_ART, "Request to '%s' failed with return value %d\n", url, ret);
-      goto error;
+      goto out;
     }
 
-  if (client.response_code != HTTP_OK)
+  if (client.response_code == HTTP_NOTFOUND)
+    {
+      DPRINTF(E_INFO, L_ART, "No artwork found at '%s' (code %d)\n", url, client.response_code);
+      format = ART_E_NONE;
+      goto out;
+    }
+  else if (client.response_code != HTTP_OK)
     {
       DPRINTF(E_LOG, L_ART, "Request to '%s' failed with code %d\n", url, client.response_code);
-      goto error;
+      goto out;
     }
 
   content_type = keyval_get(kv, "Content-Type");
   if (content_type && (strcasecmp(content_type, "image/jpeg") == 0 || strcasecmp(content_type, "image/jpg") == 0))
-    ret = ART_FMT_JPEG;
+    format = ART_FMT_JPEG;
   else if (content_type && strcasecmp(content_type, "image/png") == 0)
-    ret = ART_FMT_PNG;
+    format = ART_FMT_PNG;
   else
-    {
-      DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
-      goto error;
-    }
+    DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
 
+ out:
   keyval_clear(kv);
   free(kv);
-  return ret;
-
- error:
-  keyval_clear(kv);
-  free(kv);
-  return ART_E_ERROR;
+  return format;
 }
 
 /* Reads an artwork file from the filesystem straight into an evbuf
@@ -905,13 +906,13 @@ artwork_get_bydir(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char 
 }
 
 /* Retrieves artwork from an URL, will rescale if needed. Checks the cache stash
- * before making a request.
+ * before making a request. Stashes result in cache, also if negative.
  *
  * @out artwork   Image data
  * @in  url       URL of the artwork
  * @in  max_w     Requested max width
  * @in  max_h     Requested max height
- * @return        ART_FMT_* on success, ART_E_ERROR on error
+ * @return        ART_FMT_* on success, ART_E_NONE or ART_E_ERROR
  */
 static int
 artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_h)
@@ -921,36 +922,26 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, int max_w, int max_
   int ret;
 
   CHECK_NULL(L_ART, raw = evbuffer_new());
+  format = ART_E_ERROR;
 
   ret = cache_artwork_read(raw, url, &format);
-  if (ret == 0)
+  if (ret < 0)
     {
-      // If we have cached a negative result from the last attempt we stop now
-      if (format <= 0)
-	goto error;
-
-      ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
-      if (ret < 0)
-	goto error;
-
-      evbuffer_free(raw);
-      return format;
+      format = artwork_read_byurl(raw, url);
+      cache_artwork_stash(raw, url, format);
     }
 
-  format = artwork_read_byurl(raw, url);
-  if (format < 0)
-    goto error;
+  // If we couldn't read, or we have cached a negative result from the last attempt, we stop now
+  if (format <= 0)
+    goto out;
 
   ret = artwork_evbuf_rescale(artwork, raw, max_w, max_h);
   if (ret < 0)
-    goto error;
+    format = ART_E_ERROR;
 
+ out:
   evbuffer_free(raw);
   return format;
-
- error:
-  evbuffer_free(raw);
-  return ART_E_ERROR;
 }
 
 /* ------------------------- ONLINE SOURCE HANDLING  ----------------------- */
@@ -1330,7 +1321,7 @@ online_source_is_enabled(struct online_source *src)
   enabled = settings_option_getbool(settings_option_get(category, src->setting_name));
 
   if (!enabled)
-    DPRINTF(E_DBG, L_ART, "Source %s is disabled\n", src->name);
+    DPRINTF(E_SPAM, L_ART, "Source %s is disabled\n", src->name);
 
   return enabled;
 }
@@ -1938,8 +1929,6 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
     {
       if (ctx.cache & ON_SUCCESS)
 	cache_artwork_add(CACHE_ARTWORK_INDIVIDUAL, id, max_w, max_h, ret, ctx.path, evbuf);
-      if (ctx.cache & STASH)
-	cache_artwork_stash(evbuf, ctx.path, ret);
 
       return ret;
     }
@@ -1952,8 +1941,6 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
     {
       if (ctx.cache & ON_SUCCESS)
 	cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, ret, ctx.path, evbuf);
-      if (ctx.cache & STASH)
-	cache_artwork_stash(evbuf, ctx.path, ret);
 
       return ret;
     }
@@ -1997,8 +1984,6 @@ artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h)
     {
       if (ctx.cache & ON_SUCCESS)
 	cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, ret, ctx.path, evbuf);
-      if (ctx.cache & STASH)
-	cache_artwork_stash(evbuf, ctx.path, ret);
 
       return ret;
     }
