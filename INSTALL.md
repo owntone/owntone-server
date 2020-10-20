@@ -27,8 +27,15 @@ sudo apt-get install \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
   libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev \
-  libcurl*-dev
+  libcurl4-openssl-dev
 ```
+
+Note that forked-daapd will also work with other versions and flavours of
+libgcrypt and libcurl, so the above are just suggestions.
+
+While forked-daapd will work with versions of libevent between 2.0.0 and 2.1.3,
+it is recommended to use 2.1.4+. Otherwise you may not have support for
+simultaneous streaming to multiple DAAP clients.
 
 Optional packages:
 
@@ -41,10 +48,6 @@ Optional packages:
  Player web UI       | `--disable-webinterface` | libwebsockets-dev
  Live web UI         | `--with-libwebsockets`   | libwebsockets-dev
  Pulseaudio          | `--with-pulseaudio`      | libpulse-dev
-
-Note that while forked-daapd will work with versions of libevent between 2.0.0
-and 2.1.3, it is recommended to use 2.1.4+. Otherwise you may not have support
-for Shoutcast metadata and simultaneous streaming to multiple clients.
 
 Then run the following (adding configure arguments for optional features):
 
