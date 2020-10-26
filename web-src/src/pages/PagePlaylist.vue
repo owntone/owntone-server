@@ -16,7 +16,7 @@
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ tracks.length }} tracks</p>
       <list-tracks :tracks="tracks" :uris="uris"></list-tracks>
-      <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" :tracks="playlist.random ? tracks : undefined" @close="show_playlist_details_modal = false" />
+      <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" :uris="uris" @close="show_playlist_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
