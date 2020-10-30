@@ -59,6 +59,16 @@
 #include "cast_channel.pb-c.h"
 #endif
 
+// This implementation of Chromecast uses the same mirroring app that Chromium
+// uses. This app supports RTP-streaming, which has the advantage of quick
+// startup and similarity with Airplay. However, I have not found much
+// documentation for it, so the reference is Chromium itself. Here's how to
+// start a Chromium mirroring session with verbose logging:
+//
+// 1) chromium --user-data-dir=~/chromium --enable-logging --v=1 ~/Music/test.mp3
+// 2) right-click, select Cast, select device
+// 3) log will now be in ~/chromium/chrome_debug.log
+
 // Number of bytes to request from TLS connection
 #define MAX_BUF 4096
 // CA file location (not very portable...?)
