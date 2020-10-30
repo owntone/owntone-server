@@ -225,7 +225,7 @@ struct cast_session
   // callback is registered. The callback is called when an incoming message
   // from the peer with that request id arrives. If nothing arrives within
   // REPLY_TIMEOUT we make the callback with a NULL payload pointer.
-  int request_id;
+  unsigned int request_id;
   cast_reply_cb callback_register[CALLBACK_REGISTER_SIZE];
   struct event *reply_timeout;
 
@@ -237,7 +237,7 @@ struct cast_session
   // Session info from the Chromecast
   char *transport_id;
   char *session_id;
-  int media_session_id;
+  unsigned int media_session_id;
 
   int udp_fd;
   unsigned short udp_port;
@@ -287,13 +287,13 @@ struct cast_msg_basic
 struct cast_msg_payload
 {
   enum cast_msg_types type;
-  int request_id;
+  unsigned int request_id;
   const char *app_id;
   const char *session_id;
   const char *transport_id;
   const char *player_state;
   const char *result;
-  int media_session_id;
+  unsigned int media_session_id;
   unsigned short udp_port;
 };
 
@@ -332,7 +332,7 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = GET_STATUS,
     .namespace = NS_RECEIVER,
-    .payload = "{'type':'GET_STATUS','requestId':%d}",
+    .payload = "{'type':'GET_STATUS','requestId':%u}",
     .flags = USE_REQUEST_ID_ONLY,
   },
   {
@@ -342,13 +342,13 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = LAUNCH,
     .namespace = NS_RECEIVER,
-    .payload = "{'type':'LAUNCH','requestId':%d,'appId':'" CAST_APP_ID "'}",
+    .payload = "{'type':'LAUNCH','requestId':%u,'appId':'" CAST_APP_ID "'}",
     .flags = USE_REQUEST_ID_ONLY,
   },
   {
     .type = LAUNCH_OLD,
     .namespace = NS_RECEIVER,
-    .payload = "{'type':'LAUNCH','requestId':%d,'appId':'" CAST_APP_ID_OLD "'}",
+    .payload = "{'type':'LAUNCH','requestId':%u,'appId':'" CAST_APP_ID_OLD "'}",
     .flags = USE_REQUEST_ID_ONLY,
   },
   {
@@ -358,7 +358,7 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = STOP,
     .namespace = NS_RECEIVER,
-    .payload = "{'type':'STOP','sessionId':'%s','requestId':%d}",
+    .payload = "{'type':'STOP','sessionId':'%s','requestId':%u}",
     .flags = USE_REQUEST_ID,
   },
   {
@@ -381,7 +381,7 @@ struct cast_msg_basic cast_msg[] =
     // sampleRate seems to be ignored
     // storeTime unknown meaning - perhaps size of buffer?
     // targetDelay - should be RTP delay in ms, but doesn't seem to change anything?
-    .payload = "{'type':'OFFER','seqNum':%d,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%d,'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false}]}}",
+    .payload = "{'type':'OFFER','seqNum':%u,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%" PRIu32 ",'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false}]}}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
@@ -391,7 +391,7 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = MEDIA_GET_STATUS,
     .namespace = NS_MEDIA,
-    .payload = "{'type':'GET_STATUS','requestId':%d}",
+    .payload = "{'type':'GET_STATUS','requestId':%u}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID_ONLY,
   },
   {
@@ -401,25 +401,25 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = MEDIA_LOAD,
     .namespace = NS_MEDIA,
-    .payload = "{'currentTime':0,'media':{'contentId':'%s','streamType':'LIVE','contentType':'audio/mp3'},'customData':{},'sessionId':'%s','requestId':%d,'type':'LOAD','autoplay':1}",
+    .payload = "{'currentTime':0,'media':{'contentId':'%s','streamType':'LIVE','contentType':'audio/mp3'},'customData':{},'sessionId':'%s','requestId':%u,'type':'LOAD','autoplay':1}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
     .type = MEDIA_PLAY,
     .namespace = NS_MEDIA,
-    .payload = "{'mediaSessionId':%d,'sessionId':'%s','type':'PLAY','requestId':%d}",
+    .payload = "{'mediaSessionId':%u,'sessionId':'%s','type':'PLAY','requestId':%u}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
     .type = MEDIA_PAUSE,
     .namespace = NS_MEDIA,
-    .payload = "{'mediaSessionId':%d,'sessionId':'%s','type':'PAUSE','requestId':%d}",
+    .payload = "{'mediaSessionId':%u,'sessionId':'%s','type':'PAUSE','requestId':%u}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
     .type = MEDIA_STOP,
     .namespace = NS_MEDIA,
-    .payload = "{'mediaSessionId':%d,'sessionId':'%s','type':'STOP','requestId':%d}",
+    .payload = "{'mediaSessionId':%u,'sessionId':'%s','type':'STOP','requestId':%u}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
@@ -433,13 +433,13 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = SET_VOLUME,
     .namespace = NS_RECEIVER,
-    .payload = "{'type':'SET_VOLUME','volume':{'level':%.2f,'muted':0},'requestId':%d}",
+    .payload = "{'type':'SET_VOLUME','volume':{'level':%.2f,'muted':0},'requestId':%u}",
     .flags = USE_REQUEST_ID,
   },
   {
     .type = PRESENTATION,
     .namespace = NS_WEBRTC,
-    .payload = "{'type':'PRESENTATION','sessionId':'%s',seqnum:%d,'title':'forked-daapd','icons':[{'url':'http://www.gyfgafguf.dk/images/fugl.jpg'}] }",
+    .payload = "{'type':'PRESENTATION','sessionId':'%s','seqNum':%u,'title':'forked-daapd','icons':[{'url':'http://www.gyfgafguf.dk/images/fugl.jpg'}] }",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
