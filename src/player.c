@@ -65,7 +65,7 @@
 
 #ifdef HAVE_TIMERFD
 # include <sys/timerfd.h>
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#else
 # include <signal.h>
 #endif
 
