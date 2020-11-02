@@ -1248,8 +1248,21 @@ static int
 alsa_device_probe(struct output_device *device, int callback_id)
 {
   struct alsa_session *as;
+  struct alsa_extra *ae;
+  snd_pcm_t *hdl;
+  int ret;
+
+  ae = device->extra_device_info;
+  ret = snd_pcm_open(&hdl, ae->card_name, SND_PCM_STREAM_PLAYBACK, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Could not open playback device '%s': %s\n", ae->card_name, snd_strerror(ret));
+      return -1;
+    }
 
   as = alsa_session_make(device, callback_id);
+  snd_pcm_close(hdl);
+
   if (!as)
     return -1;
 
