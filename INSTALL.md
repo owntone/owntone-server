@@ -109,10 +109,17 @@ Also see the README for usage information.
 
 ## Quick version for FreeBSD
 
-The build process for FreeBSD is rather complicated, but the good news is that
-there is a script in the 'scripts' folder that will at least attempt to do all
-the work for you. And should the script not work for you, you can still look
-through it and use it as an installation guide.
+You can use the ports framework to handle dependencies and build options, so
+the following is sufficient to build from source on FreeBSD:
+
+```sh
+cd /usr/ports/audio/forked-daapd
+make install
+```
+
+Otherwise, there is a script in the 'scripts' folder that will at least attempt
+to do all the work for you. And should the script not work for you,
+you can still look through it and use it as an installation guide.
 
 ## Quick version for macOS (using Homebrew)
 
