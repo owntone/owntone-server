@@ -283,7 +283,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 
   if (quality && quality->bits_per_sample && (quality->bits_per_sample != 8 * av_get_bytes_per_sample(settings->sample_format)))
     {
-      DPRINTF(E_LOG, L_XCODE, "Bug! Mismatch between profile and media quality\n");
+      DPRINTF(E_LOG, L_XCODE, "Bug! Mismatch between profile (%d bps) and media quality (%d bps)\n", 8 * av_get_bytes_per_sample(settings->sample_format), quality->bits_per_sample);
       return -1;
     }
 
@@ -448,6 +448,12 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   // With ffmpeg 3.4, jpeg encoding with optimal huffman tables will segfault, see issue #502
   if (codec_id == AV_CODEC_ID_MJPEG)
     av_dict_set(&options, "huffman", "default", 0);
+
+  // 20 ms frames is the current ffmpeg default, but we set it anyway, so that
+  // we don't risk issues if future versions change the default (it would become
+  // an issue because outputs/cast.c relies on 20 ms frames)
+  if (codec_id == AV_CODEC_ID_OPUS)
+    av_dict_set(&options, "frame_duration", "20", 0);
 
   ret = avcodec_open2(s->codec, NULL, &options);
   if (ret < 0)
