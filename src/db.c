@@ -1269,9 +1269,10 @@ db_blocking_prepare_v2(const char *query, int len, sqlite3_stmt **stmt, const ch
 }
 
 static int
-db_statement_run(sqlite3_stmt *stmt)
+db_statement_run(sqlite3_stmt *stmt, short update_events)
 {
   int ret;
+  int changes = 0;
 
 #ifdef HAVE_SQLITE3_EXPANDED_SQL
   char *query;
@@ -1296,7 +1297,11 @@ db_statement_run(sqlite3_stmt *stmt)
   sqlite3_reset(stmt);
   sqlite3_clear_bindings(stmt);
 
-  return (ret == SQLITE_DONE) ? sqlite3_changes(hdl) : -1;
+  changes = sqlite3_changes(hdl);
+  if (update_events && changes > 0)
+    library_update_trigger(update_events);
+
+  return (ret == SQLITE_DONE) ? changes : -1;
 }
 
 
@@ -2694,7 +2699,7 @@ db_file_ping_bypath(const char *path, time_t mtime_max)
   sqlite3_bind_text(db_statements.files_ping, 2, path, -1, SQLITE_STATIC);
   sqlite3_bind_int64(db_statements.files_ping, 3, (int64_t)mtime_max);
 
-  return db_statement_run(db_statements.files_ping);
+  return db_statement_run(db_statements.files_ping, 0);
 }
 
 void
@@ -3092,7 +3097,7 @@ db_file_add(struct media_file_info *mfi)
   if (ret < 0)
     return -1;
 
-  ret = db_statement_run(db_statements.files_insert);
+  ret = db_statement_run(db_statements.files_insert, 0);
   if (ret < 0)
     return -1;
 
@@ -3120,7 +3125,7 @@ db_file_update(struct media_file_info *mfi)
   if (ret < 0)
     return -1;
 
-  ret = db_statement_run(db_statements.files_update);
+  ret = db_statement_run(db_statements.files_update, 0);
   if (ret < 0)
     return -1;
 
@@ -3572,7 +3577,7 @@ db_pl_add(struct playlist_info *pli)
   if (ret < 0)
     return -1;
 
-  ret = db_statement_run(db_statements.playlists_insert);
+  ret = db_statement_run(db_statements.playlists_insert, 0);
   if (ret < 0)
     return -1;
 
@@ -3604,7 +3609,7 @@ db_pl_update(struct playlist_info *pli)
   if (ret < 0)
     return -1;
 
-  ret = db_statement_run(db_statements.playlists_update);
+  ret = db_statement_run(db_statements.playlists_update, 0);
   if (ret < 0)
     return -1;
 
