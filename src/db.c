@@ -3609,7 +3609,7 @@ db_pl_update(struct playlist_info *pli)
   if (ret < 0)
     return -1;
 
-  ret = db_statement_run(db_statements.playlists_update, 0);
+  ret = db_statement_run(db_statements.playlists_update, LISTENER_DATABASE);
   if (ret < 0)
     return -1;
 
@@ -3624,7 +3624,7 @@ db_pl_add_item_bypath(int plid, const char *path)
 
   query = sqlite3_mprintf(Q_TMPL, plid, path);
 
-  return db_query_run(query, 1, 0);
+  return db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
@@ -3636,7 +3636,7 @@ db_pl_add_item_byid(int plid, int fileid)
 
   query = sqlite3_mprintf(Q_TMPL, plid, fileid);
 
-  return db_query_run(query, 1, 0);
+  return db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL
 }
 
@@ -3651,7 +3651,7 @@ db_pl_clear_items(int id)
   db_query_run(query, 1, 0);
 
   query = sqlite3_mprintf(Q_TMPL_NESTED, id);
-  db_query_run(query, 1, 0);
+  db_query_run(query, 1, LISTENER_DATABASE);
 #undef Q_TMPL_NESTED
 #undef Q_TMPL_ITEMS
 }
@@ -3672,7 +3672,7 @@ db_pl_delete(int id)
 
   query = sqlite3_mprintf(Q_TMPL, id);
 
-  ret = db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
   if (ret < 0)
     {
       db_transaction_rollback();
@@ -3685,7 +3685,7 @@ db_pl_delete(int id)
   // TODO find a cleaner way of identifying tracks added by a playlist
   query = sqlite3_mprintf(Q_FILES, DATA_KIND_HTTP, id, id);
 
-  ret = db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
   if (ret < 0)
     {
       db_transaction_rollback();
