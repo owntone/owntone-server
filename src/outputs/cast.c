@@ -128,7 +128,7 @@
  * OPUS encoded
  */
 
-//#define DEBUG_CONNECTION 1
+//#define DEBUG_CHROMECAST 1
 
 union sockaddr_all
 {
@@ -272,6 +272,8 @@ enum cast_msg_types
   MEDIA_LOAD_CANCELLED,
   SET_VOLUME,
   PRESENTATION,
+  GET_CAPABILITIES,
+  CAPABILITIES_RESPONSE,
 };
 
 struct cast_msg_basic
@@ -441,6 +443,18 @@ struct cast_msg_basic cast_msg[] =
     .namespace = NS_WEBRTC,
     .payload = "{'type':'PRESENTATION','sessionId':'%s','seqNum':%u,'title':'forked-daapd','icons':[{'url':'http://www.gyfgafguf.dk/images/fugl.jpg'}] }",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
+  },
+  {
+    // This message is useful for diagnostics, since it will return the
+    // codecs that the device supports, but doesn't work for all devices
+    .type = GET_CAPABILITIES,
+    .namespace = NS_WEBRTC,
+    .payload = "{'type':'GET_CAPABILITIES','seqNum':%u}",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID_ONLY,
+  },
+  {
+    .type = CAPABILITIES_RESPONSE,
+    .tag = "CAPABILITIES_RESPONSE",
   },
   {
     .type = 0,
@@ -648,7 +662,7 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   size_t len;
   int ret;
 
-#ifdef DEBUG_CONNECTION
+#ifdef DEBUG_CHROMECAST
   DPRINTF(E_DBG, L_CAST, "Preparing to send message type %d to '%s'\n", type, cs->devname);
 #endif
 
@@ -830,7 +844,7 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
   int unknown_session_id;
   int i;
 
-#ifdef DEBUG_CONNECTION
+#ifdef DEBUG_CHROMECAST
   char *b64 = b64_encode(data, len);
   if (b64)
     {
@@ -1046,6 +1060,35 @@ cast_cb_startup_offer(struct cast_session *cs, struct cast_msg_payload *payload)
   cast_session_shutdown(cs, CAST_STATE_FAILED);
 }
 
+#ifdef DEBUG_CHROMECAST
+// Not all Chromecast devices support this request, so only use for debug
+static void
+cast_cb_startup_get_capabilities(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  int ret;
+
+  if (!payload)
+    {
+      DPRINTF(E_LOG, L_CAST, "No reply to our GET_CAPABILITIES - aborting\n");
+      goto error;
+    }
+  else if (payload->type != CAPABILITIES_RESPONSE)
+    {
+      DPRINTF(E_LOG, L_CAST, "No CAPABILITIES_RESPONSE reply to our GET_CAPABILITIES (got type: %d) - aborting\n", payload->type);
+      goto error;
+    }
+
+  ret = cast_msg_send(cs, OFFER, cast_cb_startup_offer);
+  if (ret < 0)
+    goto error;
+
+  return;
+
+ error:
+  cast_session_shutdown(cs, CAST_STATE_FAILED);
+}
+#endif
+
 static void
 cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
 {
@@ -1062,7 +1105,11 @@ cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
       goto error;
     }
 
+#ifdef DEBUG_CHROMECAST
+  ret = cast_msg_send(cs, GET_CAPABILITIES, cast_cb_startup_get_capabilities);
+#else
   ret = cast_msg_send(cs, OFFER, cast_cb_startup_offer);
+#endif
   if (ret < 0)
     goto error;
 
@@ -1254,7 +1301,7 @@ cast_listen_cb(int fd, short what, void *arg)
       goto fail;
     }
 
-#ifdef DEBUG_CONNECTION
+#ifdef DEBUG_CHROMECAST
   DPRINTF(E_DBG, L_CAST, "New data from '%s'\n", cs->devname);
 #endif
 
@@ -1281,7 +1328,7 @@ cast_listen_cb(int fd, short what, void *arg)
 
       received += ret;
 
-#ifdef DEBUG_CONNECTION
+#ifdef DEBUG_CHROMECAST
       DPRINTF(E_DBG, L_CAST, "Received %d bytes out of expected %zu bytes\n", received, len);
 #endif
     }
