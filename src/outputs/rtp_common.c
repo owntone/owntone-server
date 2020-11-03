@@ -204,8 +204,11 @@ rtp_packet_get(struct rtp_session *session, uint16_t seqnum)
   uint16_t delta;
   size_t idx;
 
-  if (!session->seqnum || !session->pktbuf_len)
-    return NULL;
+  if (session->pktbuf_len == 0)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Seqnum %" PRIu16 " requested, but buffer is empty\n", seqnum);
+      return NULL;
+    }
 
   last = session->seqnum - 1;
   first = session->seqnum - session->pktbuf_len;
