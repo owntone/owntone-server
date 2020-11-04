@@ -120,6 +120,12 @@
 // See cast_packet_header_make()
 #define CAST_HEADER_SIZE 11
 
+// These limits are defined in components/mirroring/service/session.cc
+#define CAST_SSRC_AUDIO_MIN 1
+#define CAST_SSRC_AUDIO_MAX 500000
+#define CAST_SSRC_VIDEO_MIN 500001
+#define CAST_SSRC_VIDEO_MAX 1000000
+
 /* Notes
  * OFFER/ANSWER <-webrtc
  * RTCP/RTP
@@ -383,7 +389,7 @@ struct cast_msg_basic cast_msg[] =
     // sampleRate seems to be ignored
     // storeTime unknown meaning - perhaps size of buffer?
     // targetDelay - should be RTP delay in ms, but doesn't seem to change anything?
-    .payload = "{'type':'OFFER','seqNum':%u,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%" PRIu32 ",'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false}]}}",
+    .payload = "{'type':'OFFER','seqNum':%u,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%" PRIu32 ",'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false},{'codecName':'vp8','index':1,'maxBitRate':5000000,'maxFrameRate':'30000/1000','receiverRtcpEventLog':false,'renderMode':'video','resolutions':[{'height':900,'width':1600}],'rtpPayloadType':96,'rtpProfile':'cast','ssrc':999999,'targetDelay':400,'timeBase':'1/90000','type':'video_source'}]}}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
@@ -1502,6 +1508,9 @@ master_session_make(struct media_quality *quality)
       free(cms);
       return NULL;
     }
+
+  // Change the SSRC to be in the interval [CAST_SSRC_AUDIO_MIN, CAST_SSRC_AUDIO_MAX]
+  cms->rtp_session->ssrc_id = ((cms->rtp_session->ssrc_id + CAST_SSRC_AUDIO_MIN) % CAST_SSRC_AUDIO_MAX) + CAST_SSRC_AUDIO_MIN;
 
   cms->quality = *quality;
   cms->samples_per_packet = CAST_SAMPLES_PER_PACKET;
