@@ -62,12 +62,36 @@ rtp_session_free(struct rtp_session *session);
 void
 rtp_session_flush(struct rtp_session *session);
 
-struct rtp_packet *
-rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char type);
 
+/* Gets the next packet from the packet buffer, pkt->payload will be allocated
+ * to a size of payload_len (or larger).
+ *
+ * @in  session       RTP session
+ * @in  payload_len   Length of payload the packet needs to hold
+ * @in  samples       Number of samples in packet
+ * @in  payload_type  RTP payload type
+ * @in  marker_bit    Marker bit, see RFC3551
+ * @return            Pointer to the next packet in the packet buffer
+ */
+struct rtp_packet *
+rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type, char marker_bit);
+
+/* Call this after finalizing a packet, i.e. writing the payload and possibly
+ * sending. Registers the packet as final, i.e. it can now be retrieved with
+ * rtp_packet_get() for retransmission, if required. Also advances RTP position
+ * (seqnum and RTP time).
+ *
+ * @in  session       RTP session
+ * @in  pkt           RTP packet to commit
+ */
 void
 rtp_packet_commit(struct rtp_session *session, struct rtp_packet *pkt);
 
+/* Get a previously committed packet from the packet buffer
+ *
+ * @in  session       RTP session
+ * @in  seqnum        Packet sequence number
+ */
 struct rtp_packet *
 rtp_packet_get(struct rtp_session *session, uint16_t seqnum);
 

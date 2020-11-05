@@ -92,14 +92,15 @@ rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_ns
   gcry_randomize(&session->pos, sizeof(session->pos), GCRY_STRONG_RANDOM);
   gcry_randomize(&session->seqnum, sizeof(session->seqnum), GCRY_STRONG_RANDOM);
 
-  session->quality = *quality;
+  if (quality)
+    session->quality = *quality;
 
   session->pktbuf_size = pktbuf_size;
   CHECK_NULL(L_PLAYER, session->pktbuf = calloc(session->pktbuf_size, sizeof(struct rtp_packet)));
 
   if (sync_each_nsamples > 0)
     session->sync_each_nsamples = sync_each_nsamples;
-  else if (sync_each_nsamples == 0)
+  else if (sync_each_nsamples == 0 && quality)
     session->sync_each_nsamples = quality->sample_rate;
 
   return session;
@@ -128,7 +129,7 @@ rtp_session_flush(struct rtp_session *session)
 // We don't want the caller to malloc payload for every packet, so instead we
 // will get him a packet from the ring buffer, thus in most cases reusing memory
 struct rtp_packet *
-rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char type)
+rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type, char marker_bit)
 {
   struct rtp_packet *pkt;
   uint16_t seq;
@@ -168,7 +169,7 @@ rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, ch
   //   |           synchronization source (SSRC) identifier            |
   //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   pkt->header[0] = 0x80; // Version = 2, P, X and CC are 0
-  pkt->header[1] = type; // RTP payload type
+  pkt->header[1] = (marker_bit << 7) | payload_type; // M and payload type
 
   seq = htobe16(session->seqnum);
   memcpy(pkt->header + 2, &seq, 2);

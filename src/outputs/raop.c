@@ -91,6 +91,8 @@
 // alignment, which improves performance of some encoders
 #define RAOP_SAMPLES_PER_PACKET              352
 
+#define RAOP_RTP_PAYLOADTYPE                 0x60
+
 // How many RTP packets keep in a buffer for retransmission
 #define RAOP_PACKET_BUFFER_SIZE    1000
 
@@ -2859,7 +2861,7 @@ packets_send(struct raop_master_session *rms)
   struct raop_session *rs;
   int ret;
 
-  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet, 0x60);
+  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
 
   ret = packet_prepare(pkt, rms->rawbuf, rms->rawbuf_size, rms->encrypt);
   if (ret < 0)
