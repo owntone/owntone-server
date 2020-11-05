@@ -53,8 +53,6 @@
 #include "rng.h"
 
 
-#define STR(x) ((x) ? (x) : "")
-
 // Inotify cookies are uint32_t
 #define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)
 
