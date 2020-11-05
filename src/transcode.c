@@ -260,6 +260,19 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->video_codec = AV_CODEC_ID_PNG;
 	break;
 
+      case XCODE_VP8:
+	settings->encode_video = 1;
+	settings->silent = 1;
+// See explanation above
+#if (LIBAVFORMAT_VERSION_MAJOR > 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR > 29))
+	settings->format = "image2pipe";
+#else
+	settings->format = "image2";
+#endif
+	settings->pix_fmt = AV_PIX_FMT_YUVJ420P;
+	settings->video_codec = AV_CODEC_ID_VP8;
+	break;
+
       default:
 	DPRINTF(E_LOG, L_XCODE, "Bug! Unknown transcoding profile\n");
 	return -1;
