@@ -1044,8 +1044,8 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 	  evbuffer_add_printf(evbuf,
 	      "nextsong: %d\n"
 	      "nextsongid: %d\n",
-	      queue_item->id,
-	      queue_item->pos);
+	      queue_item->pos,
+	      queue_item->id);
 
 	  free_queue_item(queue_item, 0);
 	}
