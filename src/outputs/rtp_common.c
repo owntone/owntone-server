@@ -31,17 +31,6 @@
 #include <limits.h>
 #include <sys/param.h>
 
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#elif defined(HAVE_SYS_ENDIAN_H)
-# include <sys/endian.h>
-#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
-#include <libkern/OSByteOrder.h>
-#define htobe16(x) OSSwapHostToBigInt16(x)
-#define be16toh(x) OSSwapBigToHostInt16(x)
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#endif
-
 #include <gcrypt.h>
 
 #include "logger.h"
@@ -54,12 +43,6 @@
 // NTP timestamp definitions
 #define FRAC             4294967296. // 2^32 as a double
 #define NTP_EPOCH_DELTA  0x83aa7e80  // 2208988800 - that's 1970 - 1900 in seconds
-
-struct ntp_timestamp
-{
-  uint32_t sec;
-  uint32_t frac;
-};
 
 
 static inline void
@@ -289,3 +272,78 @@ rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stam
   return &session->sync_packet_next;
 }
 
+int
+rtcp_packet_parse(struct rtcp_packet *pkt, uint8_t *data, size_t size)
+{
+  if (size < 8) // Must be large enough for at least SSRC
+    goto packet_malformed;
+
+  memset(pkt, 0, sizeof(struct rtcp_packet));
+
+  pkt->version = (data[0] & 0xc0) >> 6; // AND 11000000
+  if (pkt->version != 2)
+    goto packet_malformed;
+
+  pkt->padding = (data[0] & 0x20) >> 5; // AND 00100000
+  memcpy(&pkt->len, data + 2, 2);
+  pkt->len = 4 * (be16toh(pkt->len) + 1); // Input len is 32-bit words excl. the 32-bit header
+  memcpy(&pkt->ssrc, data + 4, 4);
+  pkt->ssrc = be32toh(pkt->ssrc);
+
+  if (size < pkt->len)
+    goto packet_malformed; // Possibly a partial read?
+
+  pkt->payload = data + pkt->len;
+  pkt->payload_len = size - pkt->len;
+
+  pkt->packet_type = data[1];
+  //  TODO use a switch()
+  if (pkt->packet_type == RTCP_PACKET_RR) // 201, see RFC 1889
+    {
+      pkt->rr.report_count = data[0] & 0x1f; // AND 00011111
+      // TODO check total size of reports is smaller than size?
+    }
+  else if (pkt->packet_type == RTCP_PACKET_APP && size >= 12) // 204, see RFC 1889
+    {
+      pkt->app.subtype = data[0] & 0x1f; // AND 00011111
+      memcpy(pkt->app.name, data + 8, 4);
+    }
+  else if (pkt->packet_type == RTCP_PACKET_PSFB && size >= 12) // 206, see RFC 4585, payload specific feedback
+    {
+      pkt->psfb.message_type = data[0] & 0x1f; // AND 00011111
+      memcpy(&pkt->psfb.media_src, data + 8, 4);
+      pkt->psfb.media_src = be32toh(pkt->psfb.media_src);
+      pkt->psfb.fci = data + 12;
+      pkt->psfb.fci_len = size - 12;
+    }
+  else if (pkt->packet_type == RTCP_PACKET_XR && size >= 24) // 207, see RFC 3611, however we can handle only 1 block
+    {
+      pkt->xr.block_type = data[8];
+      pkt->xr.block_specific = data[9];
+      memcpy(&pkt->xr.block_len, data + 10, 2);
+      pkt->xr.block_len = 4 * be16toh(pkt->xr.block_len);
+      if (pkt->xr.block_type != 4 || pkt->xr.block_len != 8)
+	return 0; // We can only parse handle Receiver Reference Time Report with 8 byte NTP timestamp
+
+      memcpy(&pkt->xr.ntp.sec, data + 12, 4);
+      pkt->xr.ntp.sec = be32toh(pkt->xr.ntp.sec);
+      memcpy(&pkt->xr.ntp.frac, data + 16, 4);
+      pkt->xr.ntp.frac = be32toh(pkt->xr.ntp.frac);
+    }
+  else
+    return -1; // Don't know how to parse
+
+/*
+  DPRINTF(E_DBG, L_PLAYER, "RTCP PACKET vers=%d, padding=%d, len=%" PRIu16 ", payload_len=%zu, ssrc=%" PRIu32 "\n", pkt->version, pkt->padding, pkt->len, pkt->payload_len, pkt->ssrc);
+  if (pkt->packet_type == RTCP_PACKET_APP)
+    DPRINTF(E_DBG, L_PLAYER, "RTCP APP PACKET subtype=%d, name=%s\n", pkt->app.subtype, pkt->app.name);
+  else if (pkt->packet_type == RTCP_PACKET_XR)
+    DPRINTF(E_DBG, L_PLAYER, "RTCP XR PACKET block_type=%d, block_len=%" PRIu16 "\n", pkt->xr.block_type, pkt->xr.block_len);
+*/
+
+  return 0;
+
+ packet_malformed:
+  DPRINTF(E_SPAM, L_PLAYER, "Ignoring incoming packet, packet is non-RTCP, malformed or partial (size=%zu)\n", size);
+  return -1;
+}
