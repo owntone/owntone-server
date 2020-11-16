@@ -29,8 +29,9 @@ BuildRequires: pkgconfig(libavformat), pkgconfig(libavcodec)
 BuildRequires: pkgconfig(libswscale), pkgconfig(libavutil)
 BuildRequires: pkgconfig(libavfilter), pkgconfig(libcurl)
 BuildRequires: pkgconfig(openssl), pkgconfig(libwebsockets) > 2.0.2
-BuildRequires: pkgconfig(libsodium), libplist-devel >= 0.16
-BuildRequires: pkgconfig(avahi-client) >= 0.6.24
+BuildRequires: pkgconfig(libsodium), pkgconfig(avahi-client) >= 0.6.24
+# pkgconfig(libplist) not used universally, so require libplist-devel instead
+BuildRequires: libplist-devel >= 0.16
 Requires(pre): shadow-utils
 %if %{with alsa}
 BuildRequires: pkgconfig(alsa)
