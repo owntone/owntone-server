@@ -108,6 +108,9 @@
 #define CAST_QUALITY_BITS_PER_SAMPLE_DEFAULT 16
 #define CAST_QUALITY_CHANNELS_DEFAULT        2
 
+// This is an arbitrary value which just needs to be kept in sync with the config
+#define CAST_CONFIG_MAX_VOLUME 11
+
 // This makes the rtp session buffer 4 seconds of audio (4 sec * 50 pkts/sec),
 // which can be used for delayed transmission (and retransmission)
 #define CAST_PACKET_BUFFER_SIZE 200
@@ -666,15 +669,10 @@ cast_session_free(struct cast_session *cs)
 
   gnutls_deinit(cs->tls_session);
 
-  if (cs->address)
-    free(cs->address);
-  if (cs->devname)
-    free(cs->devname);
-
-  if (cs->session_id)
-    free(cs->session_id);
-  if (cs->transport_id)
-    free(cs->transport_id);
+  free(cs->address);
+  free(cs->devname);
+  free(cs->session_id);
+  free(cs->transport_id);
 
   free(cs);
 }
@@ -1148,12 +1146,13 @@ packet_send(struct cast_session *cs, uint16_t seqnum)
       DPRINTF(E_WARN, L_CAST, "Partial send (%d) for '%s'\n", ret, cs->devname);
     }
 
-//  DPRINTF(E_DBG, L_CAST, "Sent RTP PACKET seqnum %u, rtptime %u, payload 0x%x, pktbuf_s %zu\n",
-//    cs->master_session->rtp_session->seqnum,
-//    cs->master_session->rtp_session->pos,
-//    pkt->header[1],
-//    cs->master_session->rtp_session->pktbuf_len
-
+/*
+  DPRINTF(E_DBG, L_CAST, "Sent RTP PACKET seqnum %u, have until %u, payload 0x%x, pktbuf_s %zu\n",
+    seqnum,
+    cs->master_session->rtp_session->seqnum,
+    pkt->header[1],
+    cs->master_session->rtp_session->pktbuf_len);
+*/
   return 0;
 }
 
@@ -1978,6 +1977,8 @@ master_session_make(struct media_quality *quality)
   // Change the SSRC to be in the interval [CAST_SSRC_AUDIO_MIN, CAST_SSRC_AUDIO_MAX]
   cms->rtp_session->ssrc_id = ((cms->rtp_session->ssrc_id + CAST_SSRC_AUDIO_MIN) % CAST_SSRC_AUDIO_MAX) + CAST_SSRC_AUDIO_MIN;
 
+  cms->rtp_session->seqnum = 0; // TODO test
+
   cms->quality = *quality;
   cms->samples_per_packet = CAST_SAMPLES_PER_PACKET;
   cms->rawbuf_size = STOB(cms->samples_per_packet, quality->bits_per_sample, quality->channels);
@@ -2318,12 +2319,22 @@ static int
 cast_device_volume_set(struct output_device *device, int callback_id)
 {
   struct cast_session *cs = device->session;
+  cfg_t *cast_cfg;
+  int max_volume;
   int ret;
 
   if (!cs || !(cs->state & CAST_STATE_F_MEDIA_CONNECTED))
     return 0;
 
-  cs->volume = 0.01 * device->volume;
+  cast_cfg = cfg_gettsec(cfg, "chromecast", device->name);
+  max_volume = cast_cfg ? cfg_getint(cast_cfg, "max_volume") : CAST_CONFIG_MAX_VOLUME;
+  if ((max_volume < 1) || (max_volume > CAST_CONFIG_MAX_VOLUME))
+    {
+      DPRINTF(E_LOG, L_CAST, "Config has bad max_volume (%d) for device '%s', using default instead\n", max_volume, device->name);
+      max_volume = CAST_CONFIG_MAX_VOLUME;
+    }
+
+  cs->volume = ((float)max_volume * (float)device->volume * 1.0) / (100.0 * CAST_CONFIG_MAX_VOLUME);
 
   ret = cast_msg_send(cs, SET_VOLUME, cast_cb_volume);
   if (ret < 0)
@@ -2391,7 +2402,7 @@ cast_write(struct output_buffer *obuf)
 	  cs->state = CAST_STATE_MEDIA_STREAMING;
 	}
 
-//      DPRINTF(E_DBG, L_CAST, "RTCP rtp %" PRIu16 ", next %" PRIu16 ", ack %" PRIu16 "\n", cast_master_session->rtp_session->seqnum, cs->seqnum_next, cs->ack_last);
+//      DPRINTF(E_DBG, L_CAST, "RTP last %u, have %u, ack %u\n", cs->seqnum_next - 1, cast_master_session->rtp_session->seqnum, cs->ack_last);
 
       // We send packets to the device ping-pong style, meaning that we send the
       // first packet, wait for an ack, then send the next, wait etc. This can
