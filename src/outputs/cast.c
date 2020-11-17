@@ -286,12 +286,6 @@ enum cast_msg_types
   ANSWER,
   MEDIA_GET_STATUS,
   MEDIA_STATUS,
-  MEDIA_LOAD,
-  MEDIA_PLAY,
-  MEDIA_PAUSE,
-  MEDIA_STOP,
-  MEDIA_LOAD_FAILED,
-  MEDIA_LOAD_CANCELLED,
   SET_VOLUME,
   PRESENTATION,
   GET_CAPABILITIES,
@@ -443,38 +437,6 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = MEDIA_STATUS,
     .tag = "MEDIA_STATUS",
-  },
-  {
-    .type = MEDIA_LOAD,
-    .namespace = NS_MEDIA,
-    .payload = "{'currentTime':0,'media':{'contentId':'%s','streamType':'LIVE','contentType':'audio/mp3'},'customData':{},'sessionId':'%s','requestId':%u,'type':'LOAD','autoplay':1}",
-    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
-  },
-  {
-    .type = MEDIA_PLAY,
-    .namespace = NS_MEDIA,
-    .payload = "{'mediaSessionId':%u,'sessionId':'%s','type':'PLAY','requestId':%u}",
-    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
-  },
-  {
-    .type = MEDIA_PAUSE,
-    .namespace = NS_MEDIA,
-    .payload = "{'mediaSessionId':%u,'sessionId':'%s','type':'PAUSE','requestId':%u}",
-    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
-  },
-  {
-    .type = MEDIA_STOP,
-    .namespace = NS_MEDIA,
-    .payload = "{'mediaSessionId':%u,'sessionId':'%s','type':'STOP','requestId':%u}",
-    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
-  },
-  {
-    .type = MEDIA_LOAD_FAILED,
-    .tag = "LOAD_FAILED",
-  },
-  {
-    .type = MEDIA_LOAD_CANCELLED,
-    .tag = "LOAD_CANCELLED",
   },
   {
     .type = SET_VOLUME,
@@ -1470,22 +1432,6 @@ cast_cb_stop(struct cast_session *cs, struct cast_msg_payload *payload)
     cast_session_shutdown(cs, cs->wanted_state);
 }
 
-static void
-cast_cb_stop_media(struct cast_session *cs, struct cast_msg_payload *payload)
-{
-  if (!payload)
-    DPRINTF(E_LOG, L_CAST, "No MEDIA_STATUS reply to our STOP - will continue anyway\n");
-  else if (payload->type != MEDIA_STATUS)
-    DPRINTF(E_LOG, L_CAST, "No MEDIA_STATUS reply to our STOP (got type: %d) - will continue anyway\n", payload->type);
-
-  cs->state = CAST_STATE_APP_READY;
-
-  if (cs->state == cs->wanted_state)
-    cast_status(cs);
-  else
-    cast_session_shutdown(cs, cs->wanted_state);
-}
-
 
 /* cast_cb_startup*: Callback chain for starting a session */
 static void
@@ -2165,10 +2111,6 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
   switch (cs->state)
     {
       case CAST_STATE_STREAMING:
-	ret = cast_msg_send(cs, MEDIA_STOP, cast_cb_stop_media);
-	pending = 1;
-	break;
-
       case CAST_STATE_BUFFERING:
       case CAST_STATE_APP_READY:
 	cast_disconnect(cs->udp_fd);
