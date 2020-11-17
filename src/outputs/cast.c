@@ -52,6 +52,8 @@
 #include "player.h"
 #include "rtp_common.h"
 #include "outputs.h"
+#include "db.h"
+#include "artwork.h"
 
 #ifdef HAVE_PROTOBUF_OLD
 #include "cast_channel.v0.pb-c.h"
@@ -110,6 +112,9 @@
 // which can be used for delayed transmission (and retransmission)
 #define CAST_PACKET_BUFFER_SIZE 200
 
+// Max number of RTP packets for one artwork image
+#define CAST_PACKET_ARTWORK_SIZE 200
+
 // Max (absolute) value the user is allowed to set offset_ms in the config file
 #define CAST_OFFSET_MAX 1000
 
@@ -120,11 +125,14 @@
 // See cast_packet_header_make()
 #define CAST_HEADER_SIZE 11
 
-// These limits are defined in components/mirroring/service/session.cc
+// These limits are from components/mirroring/service/session.cc
 #define CAST_SSRC_AUDIO_MIN 1
 #define CAST_SSRC_AUDIO_MAX 500000
 #define CAST_SSRC_VIDEO_MIN 500001
 #define CAST_SSRC_VIDEO_MAX 1000000
+
+#define CAST_RTP_PAYLOADTYPE_AUDIO 127
+#define CAST_RTP_PAYLOADTYPE_VIDEO 96
 
 /* Notes
  * OFFER/ANSWER <-webrtc
@@ -192,6 +200,8 @@ struct cast_master_session
   uint8_t *rawbuf;
   size_t rawbuf_size;
   int samples_per_packet;
+
+  struct rtp_session *rtp_artwork;
 };
 
 struct cast_session
@@ -227,6 +237,8 @@ struct cast_session
   struct timespec offset_ts;
   uint16_t seqnum_next;
 
+  uint16_t ack_last;
+
   // Outgoing request which have the USE_REQUEST_ID flag get a new id, and a
   // callback is registered. The callback is called when an incoming message
   // from the peer with that request id arrives. If nothing arrives within
@@ -247,6 +259,7 @@ struct cast_session
 
   int udp_fd;
   unsigned short udp_port;
+  struct event *rtcp_ev;
 
   struct cast_session *next;
 };
@@ -303,6 +316,26 @@ struct cast_msg_payload
   const char *result;
   unsigned int media_session_id;
   unsigned short udp_port;
+};
+
+struct cast_rtcp_packet_feedback
+{
+  uint8_t frame_id_last;
+  uint8_t num_lost_fields;
+  struct cast_rtcp_lost_fields
+    {
+      uint8_t frame_id;
+      uint16_t packet_id;
+      uint8_t bitmask;
+    } lost_fields[32]; // From observation we normally get just 1 or 2 elements, so 32 should be plenty
+  uint16_t target_delay_ms;
+  uint8_t count;
+  uint8_t recv_fields;
+};
+
+struct cast_metadata
+{
+  struct evbuffer *artwork;
 };
 
 // Array of the cast messages that we use. Must be in sync with cast_msg_types.
@@ -387,9 +420,11 @@ struct cast_msg_basic cast_msg[] =
     // codecName can be aac or opus, ssrc should be random
     // We don't set 'aesKey' and 'aesIvMask'
     // sampleRate seems to be ignored
+    // TODO calculate bitrate, result should be 102000, ref. Chromium
     // storeTime unknown meaning - perhaps size of buffer?
     // targetDelay - should be RTP delay in ms, but doesn't seem to change anything?
-    .payload = "{'type':'OFFER','seqNum':%u,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':127,'ssrc':%" PRIu32 ",'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':48000,'timeBase':'1/48000','channels':2,'receiverRtcpEventLog':false},{'codecName':'vp8','index':1,'maxBitRate':5000000,'maxFrameRate':'30000/1000','receiverRtcpEventLog':false,'renderMode':'video','resolutions':[{'height':900,'width':1600}],'rtpPayloadType':96,'rtpProfile':'cast','ssrc':999999,'targetDelay':400,'timeBase':'1/90000','type':'video_source'}]}}",
+    // vp8 timebase - see rfc7741
+    .payload = "{'type':'OFFER','seqNum':%u,'offer':{'castMode':'mirroring','supportedStreams':[{'index':0,'type':'audio_source','codecName':'opus','rtpProfile':'cast','rtpPayloadType':" NTOSTR(CAST_RTP_PAYLOADTYPE_AUDIO) ",'ssrc':%" PRIu32 ",'storeTime':400,'targetDelay':400,'bitRate':128000,'sampleRate':" NTOSTR(CAST_QUALITY_SAMPLE_RATE_DEFAULT) ",'timeBase':'1/" NTOSTR(CAST_QUALITY_SAMPLE_RATE_DEFAULT) "','channels':" NTOSTR(CAST_QUALITY_CHANNELS_DEFAULT) ",'receiverRtcpEventLog':false},{'codecName':'vp8','index':1,'maxBitRate':5000000,'maxFrameRate':'30000/1000','receiverRtcpEventLog':false,'renderMode':'video','resolutions':[{'height':900,'width':1600}],'rtpPayloadType':" NTOSTR(CAST_RTP_PAYLOADTYPE_VIDEO) ",'rtpProfile':'cast','ssrc':999999,'targetDelay':400,'timeBase':'1/90000','type':'video_source'}]}}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
@@ -552,6 +587,19 @@ cast_disconnect(int fd)
   close(fd);
 }
 
+/*static void
+cast_metadata_free(struct cast_metadata *cmd)
+{
+  if (!cmd)
+    return;
+
+  if (cmd->artwork)
+    evbuffer_free(cmd->artwork);
+
+  free(cmd);
+}
+*/
+
 static char *
 squote_to_dquote(char *buf)
 {
@@ -574,6 +622,7 @@ master_session_free(struct cast_master_session *cms)
 
   outputs_quality_unsubscribe(&cms->rtp_session->quality);
   rtp_session_free(cms->rtp_session);
+  rtp_session_free(cms->rtp_artwork);
   evbuffer_free(cms->evbuf);
   free(cms->rawbuf);
   free(cms);
@@ -610,6 +659,8 @@ cast_session_free(struct cast_session *cs)
 
   if (cs->server_fd >= 0)
     cast_disconnect(cs->server_fd);
+  if (cs->rtcp_ev)
+    event_free(cs->rtcp_ev);
   if (cs->udp_fd >= 0)
     cast_disconnect(cs->udp_fd);
 
@@ -945,6 +996,230 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 }
 
 
+/* ------------------ PREPARING AND SENDING CAST RTP PACKETS ---------------- */
+
+// Makes a Cast RTP packet (source: Chromium's media/cast/net/rtp/rtp_packetizer.cc)
+//
+// A Cast RTP packet is made of:
+//   RTP header (12 bytes)
+//   Cast header (7 bytes)
+//   Extension data (4 bytes)
+//   Packet data
+//
+// The Cast header + extension (optional?) consists of:
+//    0                   1                   2                   3
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |k|r|   n_ext   |   frame_id    |          packet id            |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |         max_packet_id         | ref_frame_id  |   ext_type    |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |   ext_size    |      new_playout_delay_ms     |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+// k: Is the frame a key frame?
+// r: Is there a reference frame id?
+// n_ext: Number of Cast extensions (Chromium uses 1: Adaptive Latency)
+// ext_type: 0x04 Adaptive Latency extension
+// ext_size: 0x02 -> 2 bytes
+// new_playout_delay_ms: ??
+
+// OPUS encodes the rawbuf payload
+static int
+payload_encode(struct evbuffer *evbuf, uint8_t *rawbuf, size_t rawbuf_size, int nsamples, struct media_quality *quality)
+{
+  transcode_frame *frame;
+  int len;
+
+  frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality);
+  if (!frame)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not convert raw PCM to frame (bufsize=%zu)\n", rawbuf_size);
+      return -1;
+    }
+
+  len = transcode_encode(evbuf, cast_encode_ctx, frame, 0);
+  transcode_frame_free(frame);
+  if (len < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not Opus encode frame\n");
+      return -1;
+    }
+
+  return len;
+}
+
+static int
+packet_prepare(struct rtp_packet *pkt, struct evbuffer *evbuf)
+{
+
+  // Cast header
+  memset(pkt->payload, 0, CAST_HEADER_SIZE);
+  pkt->payload[0] = 0xc1; // k = 1, r = 1 and one extension
+  // frame_id - this is the value that is returned when the packet is ack'ed
+  // Chromecasts possibly expect this to start at zero, sinze when we start
+  // non-zero we get ack's all the way from zero to our value. We don't start at
+  // zero because we can't do that for devices that join anyway.
+  pkt->payload[1] = (char)pkt->seqnum;
+  // packet_id and max_packet_id don't seem to be used, so leave them at 0
+  pkt->payload[6] = (char)pkt->seqnum;
+  pkt->payload[7] = 0x04; // kCastRtpExtensionAdaptiveLatency has id (1 << 2)
+  pkt->payload[8] = 0x02; // Extension will use two bytes
+  // leave extension values at 0, but Chromium sets them to:
+  //   (frame.new_playout_delay_ms >> 8) and frame.new_playout_delay_ms (normal byte values are 0x03 0x20)
+
+  // Copy payload
+  return evbuffer_remove(evbuf, pkt->payload + CAST_HEADER_SIZE, pkt->payload_len - CAST_HEADER_SIZE);
+}
+
+static int
+packet_make(struct cast_master_session *cms)
+{
+  struct rtp_packet *pkt;
+  int len;
+  int ret;
+
+  // Encode payload into cast_encoded_data
+  len = payload_encode(cast_encoded_data, cms->rawbuf, cms->rawbuf_size, cms->samples_per_packet, &cms->quality);
+  if (len < 0)
+    return -1;
+
+  // For audio it is always a complete frame, so marker bit is 1 (like Chromium does)
+  pkt = rtp_packet_next(cms->rtp_session, CAST_HEADER_SIZE + len, cms->samples_per_packet, CAST_RTP_PAYLOADTYPE_AUDIO, 1);
+
+  // Creates Cast header + adds payload
+  ret = packet_prepare(pkt, cast_encoded_data);
+  if (ret < 0)
+    return -1;
+
+  // Commits packet to retransmit buffer, and prepares the session for the next packet
+  rtp_packet_commit(cms->rtp_session, pkt);
+
+  return 0;
+}
+
+static inline int
+packets_make(struct cast_master_session *cms, struct output_data *odata)
+{
+  int ret;
+  int npkts;
+
+  // TODO avoid this copy
+  evbuffer_add(cms->evbuf, odata->buffer, odata->bufsize);
+  cms->evbuf_samples += odata->samples;
+
+  // Make as many packets as we have data for (one packet requires rawbuf_size bytes)
+  npkts = 0;
+  while (evbuffer_get_length(cms->evbuf) >= cms->rawbuf_size)
+    {
+      evbuffer_remove(cms->evbuf, cms->rawbuf, cms->rawbuf_size);
+      cms->evbuf_samples -= cms->samples_per_packet;
+
+      ret = packet_make(cms);
+      if (ret == 0)
+	npkts++;
+    }
+
+  return npkts;
+}
+
+static int
+packet_send(struct cast_session *cs, uint16_t seqnum)
+{
+  struct rtp_session *rtp_session = cs->master_session->rtp_session;
+  struct rtp_packet *pkt;
+  int ret;
+
+  pkt = rtp_packet_get(rtp_session, seqnum);
+  if (!pkt)
+    {
+      DPRINTF(E_WARN, L_CAST, "Packet to '%s' is missing in our buffer\n", cs->devname);
+      return 0; // Don't fail session over a missing packet (or should we?)
+    }
+
+  ret = send(cs->udp_fd, pkt->data, pkt->data_len, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Send error for '%s': %s\n", cs->devname, strerror(errno));
+      return -1;
+    }
+  else if (ret != pkt->data_len)
+    {
+      DPRINTF(E_WARN, L_CAST, "Partial send (%d) for '%s'\n", ret, cs->devname);
+    }
+
+//  DPRINTF(E_DBG, L_CAST, "Sent RTP PACKET seqnum %u, rtptime %u, payload 0x%x, pktbuf_s %zu\n",
+//    cs->master_session->rtp_session->seqnum,
+//    cs->master_session->rtp_session->pos,
+//    pkt->header[1],
+//    cs->master_session->rtp_session->pktbuf_len
+
+  return 0;
+}
+
+static int
+packet_send_next(struct cast_session *cs)
+{
+  int ret;
+
+  if (cs->seqnum_next == cs->master_session->rtp_session->seqnum)
+    return 0; // Nothing to send right now
+
+  ret = packet_send(cs, cs->seqnum_next);
+  if (ret < 0)
+    return ret;
+
+  cs->seqnum_next++;
+
+  return 0;
+}
+
+/* TODO This does not currently work - need to investigate what sync the devices support
+static void
+packets_sync_send(struct cast_master_session *cms, struct timespec pts)
+{
+  struct rtp_packet *sync_pkt;
+  struct cast_session *cs;
+  struct rtcp_timestamp cur_stamp;
+  struct timespec ts;
+  bool is_sync_time;
+
+  // Check if it is time send a sync packet to sessions that are already running
+  is_sync_time = rtp_sync_is_time(cms->rtp_session);
+
+  // (See raop.c for more comments on sync packets)
+  cur_stamp.ts.tv_sec = pts.tv_sec;
+  cur_stamp.ts.tv_nsec = pts.tv_nsec;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+
+  cur_stamp.pos = cms->rtp_session->pos + cms->evbuf_samples - cms->output_buffer_samples;
+
+  for (cs = cast_sessions; cs; cs = cs->next)
+    {
+      if (cs->master_session != cms)
+	continue;
+
+      // A device has joined and should get an init sync packet
+      if (cs->state == CAST_STATE_MEDIA_CONNECTED)
+	{
+	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
+	  packet_send(cs, sync_pkt);
+
+	  DPRINTF(E_DBG, L_CAST, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%lu:%lu, now=%lu:%lu, rtptime=%" PRIu32 ",\n",
+	    cs->devname, cur_stamp.pos, cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, cms->rtp_session->pos);
+	}
+      else if (is_sync_time && cs->state == CAST_STATE_MEDIA_STREAMING)
+	{
+	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
+	  packet_send(cs, sync_pkt);
+	}
+    }
+}
+*/
+
+
+
 /* -------------------------------- CALLBACKS ------------------------------- */
 
 /* Maps our internal state to the generic output state and then makes a callback
@@ -979,6 +1254,204 @@ cast_status(struct cast_session *cs)
 
   outputs_cb(cs->callback_id, cs->device_id, state);
   cs->callback_id = -1;
+}
+
+
+/* Process CAST feedback content, which looks like this:
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                            "CAST"                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| last frame id |  lost fields  |        target delay ms        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                +
+                          x lost fields
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|    frame id   |           packet id           |    bitmask    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                +
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                            "CST2"                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|feedback count |  recv fields  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                +
+                          x recv fields
++-+-+-+-+-+-+-+-+
+|    bitmask    |
++-+-+-+-+-+-+-+-+
+*/
+
+// Let's say short_id is 0xbd and last seqnum was 0x22 0xbf then we can guess
+// that the expansion of the short id is 0x22 0xbd. However, the guessing also
+// most work for 0xff and last seqnum 0x23 0x01, where the correct answer would
+// be 0x22 0xff, and of course also for wrap around, e.g. 0x00 0x00. So if the
+// result is higher than last seqnum we decrease the high order byte.
+// See media/cast/common/expanded_value_base.h for Chromium's C++ method.
+static inline uint16_t
+frame_id_expand(uint8_t short_id, uint16_t seqnum_last)
+{
+  uint16_t short_max = UINT8_MAX;
+  uint16_t retval = (seqnum_last & ~short_max) | short_id;
+  if (retval > seqnum_last)
+    retval -= short_max + 1;
+
+//  DPRINTF(E_DBG, L_CAST, "RTCP EXPAND ACK is %" PRIu16 " = %02x, seqnum %02x %02x\n", retval, short_id, seqnum_last >> 8, seqnum_last & 0xff);
+
+  return retval;
+}
+
+static int
+feedback_packet_parse(struct cast_rtcp_packet_feedback *feedback, uint8_t *data, size_t len)
+{
+  size_t require_len;
+  int i;
+
+  memset(feedback, 0, sizeof(struct cast_rtcp_packet_feedback));
+
+  // Check that we have enough data to read the header and calc length
+  require_len = 8;
+  if (len < require_len)
+    return -1;
+
+  if (memcmp(data, "CAST", 4) != 0)
+    return -1;
+
+  // This is normally the last seqnum received truncated to 8 bit, but when we
+  // start the stream we will get a series of ACKs going from data[4] = 0 ->
+  // last seqnum. However, we also get the actual seqnum of the last frame
+  // received by the peer  via CST2's frame_id below. Not sure what the logic
+  // behind all that is...
+  feedback->frame_id_last = data[4];
+  feedback->num_lost_fields = data[5];
+  memcpy(&feedback->target_delay_ms, data + 6, 2);
+  feedback->target_delay_ms = be16toh(feedback->target_delay_ms);
+
+  // Check len again, now we can calculate required size for next step
+  require_len += 4 * feedback->num_lost_fields;
+  if (len < require_len)
+    return -1;
+
+  for (i = 0; i < feedback->num_lost_fields && i < ARRAY_SIZE(feedback->lost_fields); i++)
+    {
+      feedback->lost_fields[i].frame_id = data[8 + (4 * i)];    
+      memcpy(&feedback->lost_fields[i].packet_id, data + 9 + (4 * i), 2);
+      feedback->lost_fields[i].packet_id = be16toh(feedback->lost_fields[i].packet_id);
+      feedback->lost_fields[i].bitmask = data[11 + (4 * i)];
+    }
+
+/* Reading the CST2 data is disabled because we don't know what to use the data for right now
+  uint8_t *cst2_data;
+  uint16_t starting_frame_id;
+  uint16_t frame_id;
+  uint8_t bitmask;
+
+  // Check len again, now check if we have enough data to read the CST2 header
+  require_len += 6;
+  if (len < require_len)
+    return -1;
+
+  cst2_data = data + 8 + 4 * feedback->num_lost_fields;
+  if (memcmp(cst2_data, "CST2", 4) != 0)
+    return -1;
+
+  feedback->count = cst2_data[4];
+  feedback->recv_fields = cst2_data[5];
+
+  require_len += feedback->recv_fields;
+  if (len < require_len)
+    return -1;
+
+  starting_frame_id = cs->ack_last + 2;
+  for (i = 0; i < feedback->recv_fields; i++)
+    {
+      frame_id = starting_frame_id;
+      for (bitmask = cst2_data[6 + i]; bitmask; bitmask >>= 1)
+	{
+	  // Here the peer seems to be telling us what the latest frame it has
+	  // received is after the ack'ed frame + 2 (?). Chromium stores these
+	  // in an array, but not sure what the use actually is.
+	  if (bitmask & 1)
+	   DPRINTF(E_SPAM, L_CAST, "RTCP later frame ID is %" PRIu16 "\n", frame_id);
+
+	  frame_id++;
+	}
+      starting_frame_id += 8;
+    }
+
+  // TODO what is the final byte?
+*/
+  return 0;
+}
+
+// Process an extended report RTCP packet type (PT=207)
+static void
+xr_packet_process(struct cast_session *cs, uint8_t *data, size_t len)
+{
+  struct rtcp_packet xrpkt;
+  struct cast_rtcp_packet_feedback feedback;
+  uint16_t seqnum;
+  int ret;
+  int i;
+
+  // The CAST payload is an RTCP packet with packet type 206
+  ret = rtcp_packet_parse(&xrpkt, data, len);
+  if (ret < 0)
+    return;
+
+  if (xrpkt.packet_type == RTCP_PACKET_PSFB && xrpkt.psfb.message_type == 15)
+    {
+      ret = feedback_packet_parse(&feedback, xrpkt.psfb.fci, xrpkt.psfb.fci_len);
+      if (ret < 0)
+	return;
+
+      // Retransmission
+      for (i = 0; i < feedback.num_lost_fields; i++)
+        {
+	  seqnum = frame_id_expand(feedback.lost_fields[i].frame_id, cs->seqnum_next - 1);
+
+	  DPRINTF(E_DBG, L_CAST, "Retransmitting lost RTCP frame_id %" PRIu8", packet_id %" PRIu16 ", bitmask %02x\n",
+	    seqnum, feedback.lost_fields[i].packet_id, feedback.lost_fields[i].bitmask);
+	  packet_send(cs, seqnum);
+	}
+
+      // Expand the 8 bit value into a seqnum by comparing with last sent seqnum
+      cs->ack_last = frame_id_expand(feedback.frame_id_last, cs->seqnum_next - 1);
+      if (cs->ack_last + 1 == cs->seqnum_next)
+	{
+	  packet_send_next(cs); // Last packet was ack'ed, let's send a new packet
+	}
+    }
+/*  else if (xrpkt.packet_type == CAST_RTCP_PT_FEEDBACK && xrpkt.ic == 1)
+    picturelost_packet_process(&xrpkt);
+  else if (xrpkt.packet_type == CAST_RTCP_PT_RECVREPORT)
+    recvreport_packet_process(&xrpkt);*/
+}
+
+static void
+cast_rtcp_cb(int fd, short what, void *arg)
+{
+  struct cast_session *cs = arg;
+  struct rtcp_packet pkt;
+  ssize_t got;
+  int ret;
+  uint8_t buf[512];
+
+  got = recv(fd, buf, sizeof(buf), 0);
+  if (got == sizeof(buf))
+    return; // Longer than expected, give up
+
+  ret = rtcp_packet_parse(&pkt, buf, got);
+  if (ret < 0)
+    return;
+
+  if (pkt.packet_type == RTCP_PACKET_XR)
+    {
+      xr_packet_process(cs, pkt.payload, pkt.payload_len);
+    }
+/*  else if (pkt.packet_type == RTCP_PACKET_APP)
+    app_packet_process(cs, &pkt);
+*/
 }
 
 /* cast_cb_stop*: Callback chain for shutting down a session */
@@ -1053,6 +1526,16 @@ cast_cb_startup_offer(struct cast_session *cs, struct cast_msg_payload *payload)
   cs->udp_fd = cast_connect(cs->address, cs->udp_port, cs->family, SOCK_DGRAM);
   if (cs->udp_fd < 0)
     goto error;
+
+  cs->rtcp_ev = event_new(evbase_player, cs->udp_fd, EV_READ | EV_PERSIST, cast_rtcp_cb, cs);
+  if (!cs->rtcp_ev)
+    {
+      DPRINTF(E_LOG, L_CAST, "Out of memory for UDP read event\n");
+      goto error;
+    }
+
+  event_add(cs->rtcp_ev, NULL);
+
 
   ret = cast_msg_send(cs, SET_VOLUME, cast_cb_startup_volume);
   if (ret < 0)
@@ -1469,16 +1952,6 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 }
 
 
-/* --------------------------------- METADATA ------------------------------- */
-
-/*
-static void
-metadata_send(struct cast_session *cs)
-{
-  cast_msg_send(cs, PRESENTATION, cast_cb_presentation);
-}
-*/
-
 /* --------------------- SESSION CONSTRUCTION AND SHUTDOWN ------------------ */
 
 static struct cast_master_session *
@@ -1501,14 +1974,7 @@ master_session_make(struct media_quality *quality)
 
   CHECK_NULL(L_CAST, cms = calloc(1, sizeof(struct cast_master_session)));
 
-  cms->rtp_session = rtp_session_new(quality, CAST_PACKET_BUFFER_SIZE, 0);
-  if (!cms->rtp_session)
-    {
-      outputs_quality_unsubscribe(quality);
-      free(cms);
-      return NULL;
-    }
-
+  CHECK_NULL(L_CAST, cms->rtp_session = rtp_session_new(quality, CAST_PACKET_BUFFER_SIZE, 0));
   // Change the SSRC to be in the interval [CAST_SSRC_AUDIO_MIN, CAST_SSRC_AUDIO_MAX]
   cms->rtp_session->ssrc_id = ((cms->rtp_session->ssrc_id + CAST_SSRC_AUDIO_MIN) % CAST_SSRC_AUDIO_MAX) + CAST_SSRC_AUDIO_MIN;
 
@@ -1518,6 +1984,10 @@ master_session_make(struct media_quality *quality)
 
   CHECK_NULL(L_CAST, cms->rawbuf = malloc(cms->rawbuf_size));
   CHECK_NULL(L_CAST, cms->evbuf = evbuffer_new());
+
+  CHECK_NULL(L_CAST, cms->rtp_artwork = rtp_session_new(NULL, CAST_PACKET_ARTWORK_SIZE, 0));
+  // Change the SSRC to be in the interval [CAST_SSRC_VIDEO_MIN, CAST_SSRC_VIDEO_MAX]
+  cms->rtp_artwork->ssrc_id = ((cms->rtp_artwork->ssrc_id + CAST_SSRC_VIDEO_MIN) % CAST_SSRC_VIDEO_MAX) + CAST_SSRC_VIDEO_MIN;
 
   cast_master_session = cms;
 
@@ -1758,225 +2228,6 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
 }
 
 
-/* ------------------ PREPARING AND SENDING CAST RTP PACKETS ---------------- */
-
-// Makes a Cast RTP packet (source: Chromium's media/cast/net/rtp/rtp_packetizer.cc)
-//
-// A Cast RTP packet is made of:
-//   RTP header (12 bytes)
-//   Cast header (7 bytes)
-//   Extension data (4 bytes)
-//   Packet data
-//
-// The Cast header + extension (optional?) consists of:
-//    0                   1                   2                   3
-//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |k|r|   n_ext   |   frame_id    |          packet id            |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |         max_packet_id         | ref_frame_id  |   ext_type    |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |   ext_size    |      new_playout_delay_ms     |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//
-// k: Is the frame a key frame?
-// r: Is there a reference frame id?
-// n_ext: Number of Cast extensions (Chromium uses 1: Adaptive Latency)
-// ext_type: 0x04 Adaptive Latency extension
-// ext_size: 0x02 -> 2 bytes
-// new_playout_delay_ms: ??
-
-// OPUS encodes the rawbuf payload
-static int
-payload_encode(struct evbuffer *evbuf, uint8_t *rawbuf, size_t rawbuf_size, int nsamples, struct media_quality *quality)
-{
-  transcode_frame *frame;
-  int len;
-
-  frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality);
-  if (!frame)
-    {
-      DPRINTF(E_LOG, L_CAST, "Could not convert raw PCM to frame (bufsize=%zu)\n", rawbuf_size);
-      return -1;
-    }
-
-  len = transcode_encode(evbuf, cast_encode_ctx, frame, 0);
-  transcode_frame_free(frame);
-  if (len < 0)
-    {
-      DPRINTF(E_LOG, L_CAST, "Could not Opus encode frame\n");
-      return -1;
-    }
-
-  return len;
-}
-
-static int
-packet_prepare(struct rtp_packet *pkt, struct evbuffer *evbuf)
-{
-
-  // Cast header
-  memset(pkt->payload, 0, CAST_HEADER_SIZE);
-  pkt->payload[0] = 0xc1; // k = 1, r = 1 and one extension
-  pkt->payload[1] = (char)pkt->seqnum;
-  // packet_id and max_packet_id don't seem to be used, so leave them at 0
-  pkt->payload[6] = (char)pkt->seqnum;
-  pkt->payload[7] = 0x04; // kCastRtpExtensionAdaptiveLatency has id (1 << 2)
-  pkt->payload[8] = 0x02; // Extension will use two bytes
-  // leave extension values at 0, but Chromium sets them to:
-  //   (frame.new_playout_delay_ms >> 8) and frame.new_playout_delay_ms (normal byte values are 0x03 0x20)
-
-  // Copy payload
-  return evbuffer_remove(evbuf, pkt->payload + CAST_HEADER_SIZE, pkt->payload_len - CAST_HEADER_SIZE);
-}
-
-static int
-packet_send(struct cast_session *cs, struct rtp_packet *pkt)
-{
-  int ret;
-
-  ret = send(cs->udp_fd, pkt->data, pkt->data_len, 0);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_CAST, "Send error for '%s': %s\n", cs->devname, strerror(errno));
-      return -1;
-    }
-  else if (ret != pkt->data_len)
-    {
-      DPRINTF(E_WARN, L_CAST, "Partial send (%d) for '%s'\n", ret, cs->devname);
-      return 0;
-    }
-
-/*  DPRINTF(E_DBG, L_CAST, "RTP PACKET seqnum %u, rtptime %u, payload 0x%x, pktbuf_s %zu\n",
-    cs->master_session->rtp_session->seqnum,
-    cs->master_session->rtp_session->pos,
-    pkt->header[1],
-    cs->master_session->rtp_session->pktbuf_len
-    );
-*/
-  return 0;
-}
-
-static inline int
-packets_send(struct cast_session *cs, struct rtp_session *rtp_session)
-{
-  struct rtp_packet *pkt;
-  int ret;
-
-  // Note that the loop must work even though seqnum wraps around, so we use !=, not <
-  for (; cs->seqnum_next != rtp_session->seqnum; cs->seqnum_next++)
-    {
-      pkt = rtp_packet_get(rtp_session, cs->seqnum_next);
-      if (!pkt)
-	{
-	  DPRINTF(E_WARN, L_CAST, "Packet to '%s' is missing in our buffer\n", cs->devname);
-	  return 0; // Don't fail session over a missing packet (or should we?)
-	}
-
-      ret = packet_send(cs, pkt);
-      if (ret < 0)
-	return -1;
-    }
-
-  return 0;
-}
-
-static int
-packet_make(struct cast_master_session *cms)
-{
-  struct rtp_packet *pkt;
-  int len;
-  int ret;
-
-  // Encode payload into cast_encoded_data
-  len = payload_encode(cast_encoded_data, cms->rawbuf, cms->rawbuf_size, cms->samples_per_packet, &cms->quality);
-  if (len < 0)
-    return -1;
-
-  // Chromium uses a RTP payload type that is 0xff
-  pkt = rtp_packet_next(cms->rtp_session, CAST_HEADER_SIZE + len, cms->samples_per_packet, 0xff);
-
-  // Creates Cast header + adds payload
-  ret = packet_prepare(pkt, cast_encoded_data);
-  if (ret < 0)
-    return -1;
-
-  // Commits packet to retransmit buffer, and prepares the session for the next packet
-  rtp_packet_commit(cms->rtp_session, pkt);
-
-  return 0;
-}
-
-static inline int
-packets_make(struct cast_master_session *cms, struct output_data *odata)
-{
-  int ret;
-  int npkts;
-
-  // TODO avoid this copy
-  evbuffer_add(cms->evbuf, odata->buffer, odata->bufsize);
-  cms->evbuf_samples += odata->samples;
-
-  // Make as many packets as we have data for (one packet requires rawbuf_size bytes)
-  npkts = 0;
-  while (evbuffer_get_length(cms->evbuf) >= cms->rawbuf_size)
-    {
-      evbuffer_remove(cms->evbuf, cms->rawbuf, cms->rawbuf_size);
-      cms->evbuf_samples -= cms->samples_per_packet;
-
-      ret = packet_make(cms);
-      if (ret == 0)
-	npkts++;
-    }
-
-  return npkts;
-}
-
-
-/* TODO This does not currently work - need to investigate what sync the devices support
-static void
-packets_sync_send(struct cast_master_session *cms, struct timespec pts)
-{
-  struct rtp_packet *sync_pkt;
-  struct cast_session *cs;
-  struct rtcp_timestamp cur_stamp;
-  struct timespec ts;
-  bool is_sync_time;
-
-  // Check if it is time send a sync packet to sessions that are already running
-  is_sync_time = rtp_sync_is_time(cms->rtp_session);
-
-  // (See raop.c for more comments on sync packets)
-  cur_stamp.ts.tv_sec = pts.tv_sec;
-  cur_stamp.ts.tv_nsec = pts.tv_nsec;
-
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-
-  cur_stamp.pos = cms->rtp_session->pos + cms->evbuf_samples - cms->output_buffer_samples;
-
-  for (cs = cast_sessions; cs; cs = cs->next)
-    {
-      if (cs->master_session != cms)
-	continue;
-
-      // A device has joined and should get an init sync packet
-      if (cs->state == CAST_STATE_MEDIA_CONNECTED)
-	{
-	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
-	  packet_send(cs, sync_pkt);
-
-	  DPRINTF(E_DBG, L_CAST, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%lu:%lu, now=%lu:%lu, rtptime=%" PRIu32 ",\n",
-	    cs->devname, cur_stamp.pos, cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, cms->rtp_session->pos);
-	}
-      else if (is_sync_time && cs->state == CAST_STATE_MEDIA_STREAMING)
-	{
-	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
-	  packet_send(cs, sync_pkt);
-	}
-    }
-}
-*/
-
 /* ------------------ INTERFACE FUNCTIONS CALLED BY OUTPUTS.C --------------- */
 
 static int
@@ -2140,7 +2391,20 @@ cast_write(struct output_buffer *obuf)
 	  cs->state = CAST_STATE_MEDIA_STREAMING;
 	}
 
-      ret = packets_send(cs, cast_master_session->rtp_session);
+//      DPRINTF(E_DBG, L_CAST, "RTCP rtp %" PRIu16 ", next %" PRIu16 ", ack %" PRIu16 "\n", cast_master_session->rtp_session->seqnum, cs->seqnum_next, cs->ack_last);
+
+      // We send packets to the device ping-pong style, meaning that we send the
+      // first packet, wait for an ack, then send the next, wait etc. This can
+      // be broken by "no ping", meaning cb_rtcp_cb() didn't have a packet to
+      // send, or "no pong", meaning the ack is late or lost. To keep going we
+      // must send a packet from here, so this condition is an inverse check for
+      // such a state. The first part will be false if we didn't get an ACK,
+      // or when sending first packet, and the second will be false if we were
+      // out of packets.
+      if (cs->ack_last + 1 == cs->seqnum_next && cs->seqnum_next + 1 != cast_master_session->rtp_session->seqnum)
+        continue;
+
+      ret = packet_send_next(cs);
       if (ret < 0)
         {
 	  // Downgrade state immediately to avoid further write attempts (session shutdown is async)
@@ -2150,24 +2414,77 @@ cast_write(struct output_buffer *obuf)
     }
 }
 
-/* Doesn't work, but left here so it can be fixed
+/*
+// *** Thread: worker ***
+static void *
+cast_metadata_prepare(struct output_metadata *metadata)
+{
+  struct db_queue_item *queue_item;
+  struct cast_metadata *cmd;
+  int ret;
+
+  if (!cast_sessions)
+    return NULL;
+
+  queue_item = db_queue_fetch_byitemid(metadata->item_id);
+  if (!queue_item)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not fetch queue item\n");
+      return NULL;
+    }
+
+  CHECK_NULL(L_CAST, cmd = calloc(1, sizeof(struct cast_metadata)));
+  CHECK_NULL(L_CAST, cmd->artwork = evbuffer_new());
+
+  ret = artwork_get_item2(cmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, ART_FMT_VP8);
+  if (ret < 0)
+    {
+      DPRINTF(E_INFO, L_CAST, "Failed to retrieve artwork for file '%s'; no artwork will be sent\n", queue_item->path);
+      cast_metadata_free(cmd);
+      return NULL;
+    }
+
+  return cmd;
+}
+
 static void
 cast_metadata_send(struct output_metadata *metadata)
 {
+  struct cast_metadata *cmd = metadata->priv;
   struct cast_session *cs;
   struct cast_session *next;
+
+  struct rtp_packet *pkt;
+  size_t artwork_size;
+  int ret;
+
+  artwork_size = evbuffer_get_length(cmd->artwork);
+  if (artwork_size == 0)
+    return;
 
   for (cs = cast_sessions; cs; cs = next)
     {
       next = cs->next;
 
-      if (cs->state != CAST_STATE_MEDIA_CONNECTED)
+      if (! (cs->state & CAST_STATE_MEDIA_CONNECTED))
 	continue;
 
-      metadata_send(cs);
+      // Marker bit is 1 because we send a complete frame
+      pkt = rtp_packet_next(cs->master_session->rtp_artwork, CAST_HEADER_SIZE + artwork_size, 1, CAST_RTP_PAYLOADTYPE_VIDEO, 1);
+      if (!pkt)
+	continue;
+
+      ret = packet_prepare(pkt, cmd->artwork);
+      if (ret < 0)
+	continue;
+
+      packet_send(cs, pkt);
+// TODO Handle partial send
+
+      rtp_packet_commit(cs->master_session->rtp_artwork, pkt);
     }
 
-  // TODO free the metadata
+  cast_metadata_free(cmd);
 }
 */
 
