@@ -45,17 +45,6 @@
 #include <fcntl.h>
 #include <time.h>
 
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#elif defined(HAVE_SYS_ENDIAN_H)
-# include <sys/endian.h>
-#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
-#include <libkern/OSByteOrder.h>
-#define htobe16(x) OSSwapHostToBigInt16(x)
-#define be16toh(x) OSSwapBigToHostInt16(x)
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#endif
-
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <netinet/in.h>
