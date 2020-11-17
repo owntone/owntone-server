@@ -166,9 +166,9 @@ typedef void (*cast_reply_cb)(struct cast_session *cs, struct cast_msg_payload *
 // Session is starting up
 #define CAST_STATE_F_STARTUP         (1 << 13)
 // The receiver app is ready
-#define CAST_STATE_F_MEDIA_CONNECTED (1 << 14)
+#define CAST_STATE_F_APP_READY       (1 << 14)
 // Media is playing in the receiver app
-#define CAST_STATE_F_MEDIA_STREAMING (1 << 15)
+#define CAST_STATE_F_STREAMING       (1 << 15)
 
 // Beware, the order of this enum has meaning
 enum cast_state
@@ -182,13 +182,13 @@ enum cast_state
   // TCP connect, TLS handshake, CONNECT and GET_STATUS request
   CAST_STATE_CONNECTED       = CAST_STATE_F_STARTUP | 0x02,
   // Receiver app has been launched
-  CAST_STATE_MEDIA_LAUNCHED  = CAST_STATE_F_STARTUP | 0x03,
+  CAST_STATE_APP_LAUNCHED    = CAST_STATE_F_STARTUP | 0x03,
   // CONNECT, GET_STATUS and OFFER made to receiver app
-  CAST_STATE_MEDIA_CONNECTED = CAST_STATE_F_MEDIA_CONNECTED,
+  CAST_STATE_APP_READY       = CAST_STATE_F_APP_READY,
   // Buffering packets (playback not started yet)
-  CAST_STATE_MEDIA_BUFFERING = CAST_STATE_F_MEDIA_CONNECTED | 0x01,
+  CAST_STATE_BUFFERING       = CAST_STATE_F_APP_READY | 0x01,
   // Streaming (playback started)
-  CAST_STATE_MEDIA_STREAMING = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_STREAMING,
+  CAST_STATE_STREAMING       = CAST_STATE_F_APP_READY | CAST_STATE_F_STREAMING,
 };
 
 struct cast_master_session
@@ -952,7 +952,7 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 
   // TODO Should we read volume and playerstate changes from the Chromecast?
 
-  if (payload.type == RECEIVER_STATUS && (cs->state & CAST_STATE_F_MEDIA_CONNECTED))
+  if (payload.type == RECEIVER_STATUS && (cs->state & CAST_STATE_F_APP_READY))
     {
       unknown_session_id = payload.session_id && (strcmp(payload.session_id, cs->session_id) != 0);
       if (unknown_session_id)
@@ -966,7 +966,7 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 	}
     }
 
-  if (payload.type == CLOSE && (cs->state & CAST_STATE_F_MEDIA_CONNECTED))
+  if (payload.type == CLOSE && (cs->state & CAST_STATE_F_APP_READY))
     {
       // Downgrade state, we can't write any more
       cs->state = CAST_STATE_CONNECTED;
@@ -974,13 +974,13 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
       goto out_free_parsed;
     }
 
-  if (payload.type == MEDIA_STATUS && (cs->state & CAST_STATE_F_MEDIA_STREAMING))
+  if (payload.type == MEDIA_STATUS && (cs->state & CAST_STATE_F_STREAMING))
     {
       if (payload.player_state && (strcmp(payload.player_state, "PAUSED") == 0))
 	{
 	  DPRINTF(E_WARN, L_CAST, "Something paused our session on '%s'\n", cs->devname);
 
-/*	  cs->state = CAST_STATE_MEDIA_CONNECTED;
+/*	  cs->state = CAST_STATE_APP_READY;
 	  // Kill the session, the player will need to restart it
 	  cast_session_shutdown(cs, CAST_STATE_NONE);
 	  goto out_free_parsed;
@@ -1200,7 +1200,7 @@ packets_sync_send(struct cast_master_session *cms, struct timespec pts)
 	continue;
 
       // A device has joined and should get an init sync packet
-      if (cs->state == CAST_STATE_MEDIA_CONNECTED)
+      if (cs->state == CAST_STATE_APP_READY)
 	{
 	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
 	  packet_send(cs, sync_pkt);
@@ -1208,7 +1208,7 @@ packets_sync_send(struct cast_master_session *cms, struct timespec pts)
 	  DPRINTF(E_DBG, L_CAST, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%lu:%lu, now=%lu:%lu, rtptime=%" PRIu32 ",\n",
 	    cs->devname, cur_stamp.pos, cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, cms->rtp_session->pos);
 	}
-      else if (is_sync_time && cs->state == CAST_STATE_MEDIA_STREAMING)
+      else if (is_sync_time && cs->state == CAST_STATE_STREAMING)
 	{
 	  sync_pkt = rtp_sync_packet_next(cms->rtp_session, &cur_stamp, 0x80);
 	  packet_send(cs, sync_pkt);
@@ -1237,13 +1237,13 @@ cast_status(struct cast_session *cs)
       case CAST_STATE_NONE:
 	state = OUTPUT_STATE_STOPPED;
 	break;
-      case CAST_STATE_DISCONNECTED ... CAST_STATE_MEDIA_LAUNCHED:
+      case CAST_STATE_DISCONNECTED ... CAST_STATE_APP_LAUNCHED:
 	state = OUTPUT_STATE_STARTUP;
 	break;
-      case CAST_STATE_MEDIA_CONNECTED ... CAST_STATE_MEDIA_BUFFERING:
+      case CAST_STATE_APP_READY ... CAST_STATE_BUFFERING:
 	state = OUTPUT_STATE_CONNECTED;
 	break;
-      case CAST_STATE_MEDIA_STREAMING:
+      case CAST_STATE_STREAMING:
 	state = OUTPUT_STATE_STREAMING;
 	break;
       default:
@@ -1333,7 +1333,7 @@ feedback_packet_parse(struct cast_rtcp_packet_feedback *feedback, uint8_t *data,
 
   for (i = 0; i < feedback->num_lost_fields && i < ARRAY_SIZE(feedback->lost_fields); i++)
     {
-      feedback->lost_fields[i].frame_id = data[8 + (4 * i)];    
+      feedback->lost_fields[i].frame_id = data[8 + (4 * i)];
       memcpy(&feedback->lost_fields[i].packet_id, data + 9 + (4 * i), 2);
       feedback->lost_fields[i].packet_id = be16toh(feedback->lost_fields[i].packet_id);
       feedback->lost_fields[i].bitmask = data[11 + (4 * i)];
@@ -1478,7 +1478,7 @@ cast_cb_stop_media(struct cast_session *cs, struct cast_msg_payload *payload)
   else if (payload->type != MEDIA_STATUS)
     DPRINTF(E_LOG, L_CAST, "No MEDIA_STATUS reply to our STOP (got type: %d) - will continue anyway\n", payload->type);
 
-  cs->state = CAST_STATE_MEDIA_CONNECTED;
+  cs->state = CAST_STATE_APP_READY;
 
   if (cs->state == cs->wanted_state)
     cast_status(cs);
@@ -1540,7 +1540,7 @@ cast_cb_startup_offer(struct cast_session *cs, struct cast_msg_payload *payload)
   if (ret < 0)
     goto error;
 
-  cs->state = CAST_STATE_MEDIA_CONNECTED;
+  cs->state = CAST_STATE_APP_READY;
 
   return;
 
@@ -1676,7 +1676,7 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
   if (ret < 0)
     goto error;
 
-  cs->state = CAST_STATE_MEDIA_LAUNCHED;
+  cs->state = CAST_STATE_APP_LAUNCHED;
 
   return;
 
@@ -2164,23 +2164,23 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
   pending = 0;
   switch (cs->state)
     {
-      case CAST_STATE_MEDIA_STREAMING:
+      case CAST_STATE_STREAMING:
 	ret = cast_msg_send(cs, MEDIA_STOP, cast_cb_stop_media);
 	pending = 1;
 	break;
 
-      case CAST_STATE_MEDIA_BUFFERING:
-      case CAST_STATE_MEDIA_CONNECTED:
+      case CAST_STATE_BUFFERING:
+      case CAST_STATE_APP_READY:
 	cast_disconnect(cs->udp_fd);
 	cs->udp_fd = -1;
 	ret = cast_msg_send(cs, MEDIA_CLOSE, NULL);
-	cs->state = CAST_STATE_MEDIA_LAUNCHED;
-	if ((ret < 0) || (wanted_state >= CAST_STATE_MEDIA_LAUNCHED))
+	cs->state = CAST_STATE_APP_LAUNCHED;
+	if ((ret < 0) || (wanted_state >= CAST_STATE_APP_LAUNCHED))
 	  break;
 
 	/* FALLTHROUGH */
 
-      case CAST_STATE_MEDIA_LAUNCHED:
+      case CAST_STATE_APP_LAUNCHED:
 	ret = cast_msg_send(cs, STOP, cast_cb_stop);
 	pending = 1;
 	break;
@@ -2301,7 +2301,7 @@ cast_device_flush(struct output_device *device, int callback_id)
   struct cast_session *cs = device->session;
 
   cs->callback_id = callback_id;
-  cs->state = CAST_STATE_MEDIA_CONNECTED;
+  cs->state = CAST_STATE_APP_READY;
   cast_status(cs);
 
   return 1;
@@ -2323,7 +2323,7 @@ cast_device_volume_set(struct output_device *device, int callback_id)
   int max_volume;
   int ret;
 
-  if (!cs || !(cs->state & CAST_STATE_F_MEDIA_CONNECTED))
+  if (!cs || !(cs->state & CAST_STATE_F_APP_READY))
     return 0;
 
   cast_cfg = cfg_gettsec(cfg, "chromecast", device->name);
@@ -2380,26 +2380,26 @@ cast_write(struct output_buffer *obuf)
     {
       next = cs->next;
 
-      if (!(cs->state & CAST_STATE_F_MEDIA_CONNECTED))
+      if (!(cs->state & CAST_STATE_F_APP_READY))
 	continue;
 
-      if (cs->state == CAST_STATE_MEDIA_CONNECTED)
+      if (cs->state == CAST_STATE_APP_READY)
 	{
 	  // Sets that playback will start at time = start_pts with the packet that comes after seqnum_last
 	  cs->start_pts = timespec_add(obuf->pts, cs->offset_ts);
 	  cs->seqnum_next = cast_master_session->rtp_session->seqnum;
-	  cs->state = CAST_STATE_MEDIA_BUFFERING;
+	  cs->state = CAST_STATE_BUFFERING;
 
 	  clock_gettime(CLOCK_MONOTONIC, &ts);
 	  DPRINTF(E_DBG, L_CAST, "Start time is %lu:%lu, current time is %lu:%lu\n", cs->start_pts.tv_sec, cs->start_pts.tv_nsec, ts.tv_sec, ts.tv_nsec);
 	}
 
-      if (cs->state == CAST_STATE_MEDIA_BUFFERING)
+      if (cs->state == CAST_STATE_BUFFERING)
 	{
 	  clock_gettime(CLOCK_MONOTONIC, &ts);
 	  if (timespec_cmp(cs->start_pts, ts) > 0)
 	    continue; // Keep buffering
-	  cs->state = CAST_STATE_MEDIA_STREAMING;
+	  cs->state = CAST_STATE_STREAMING;
 	}
 
 //      DPRINTF(E_DBG, L_CAST, "RTP last %u, have %u, ack %u\n", cs->seqnum_next - 1, cast_master_session->rtp_session->seqnum, cs->ack_last);
@@ -2419,7 +2419,7 @@ cast_write(struct output_buffer *obuf)
       if (ret < 0)
         {
 	  // Downgrade state immediately to avoid further write attempts (session shutdown is async)
-	  cs->state = CAST_STATE_MEDIA_LAUNCHED;
+	  cs->state = CAST_STATE_APP_LAUNCHED;
 	  cast_session_shutdown(cs, CAST_STATE_FAILED);
 	}
     }
@@ -2477,7 +2477,7 @@ cast_metadata_send(struct output_metadata *metadata)
     {
       next = cs->next;
 
-      if (! (cs->state & CAST_STATE_MEDIA_CONNECTED))
+      if (! (cs->state & CAST_STATE_APP_READY))
 	continue;
 
       // Marker bit is 1 because we send a complete frame
