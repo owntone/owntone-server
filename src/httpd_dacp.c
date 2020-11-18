@@ -2363,7 +2363,7 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
   if (ret < 0)
     goto no_artwork;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h);
+  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
   len = evbuffer_get_length(hreq->reply);
 
   switch (ret)

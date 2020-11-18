@@ -25,6 +25,11 @@
 # define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
+// If you have something like "#define MYNUMBER 3" then NTOSTR(MYNUMBER) will be
+// the string value, so "3".
+#define NTOSTR_HELPER(x) #x
+#define NTOSTR(x) NTOSTR_HELPER(x)
+
 
 // Remember to adjust quality_is_equal() if adding elements
 struct media_quality {

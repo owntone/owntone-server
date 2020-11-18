@@ -23,9 +23,10 @@ enum transcode_profile
   XCODE_MP3,
   // Transcodes the best audio stream into OPUS
   XCODE_OPUS,
-  // Transcodes the best video stream into JPEG/PNG
+  // Transcodes the best video stream into JPEG/PNG/VP8
   XCODE_JPEG,
   XCODE_PNG,
+  XCODE_VP8,
 };
 
 struct decode_ctx;

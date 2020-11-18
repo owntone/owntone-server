@@ -92,7 +92,7 @@ artworkapi_reply_nowplaying(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_NOTFOUND;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h);
+  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -113,7 +113,7 @@ artworkapi_reply_item(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h);
+  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -134,7 +134,7 @@ artworkapi_reply_group(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_group(hreq->reply, id, max_w, max_h);
+  ret = artwork_get_group(hreq->reply, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }

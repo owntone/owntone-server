@@ -317,6 +317,10 @@ audio {
 # Chromecast settings
 # (make sure you get the capitalization of the device name right)
 #chromecast "My Chromecast device" {
+	# forked-daapd's volume goes to 11! If that's more than you can handle
+	# you can set a lower value here
+#	max_volume = 11
+
 	# Enable this option to exclude a particular device from the speaker
 	# list
 #	exclude = false

@@ -45,17 +45,6 @@
 #include <fcntl.h>
 #include <time.h>
 
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#elif defined(HAVE_SYS_ENDIAN_H)
-# include <sys/endian.h>
-#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
-#include <libkern/OSByteOrder.h>
-#define htobe16(x) OSSwapHostToBigInt16(x)
-#define be16toh(x) OSSwapBigToHostInt16(x)
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#endif
-
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -90,6 +79,8 @@
 // Probably using this value because 44100/352 and 48000/352 has good 32 byte
 // alignment, which improves performance of some encoders
 #define RAOP_SAMPLES_PER_PACKET              352
+
+#define RAOP_RTP_PAYLOADTYPE                 0x60
 
 // How many RTP packets keep in a buffer for retransmission
 #define RAOP_PACKET_BUFFER_SIZE    1000
@@ -2210,7 +2201,7 @@ raop_metadata_prepare(struct output_metadata *metadata)
   CHECK_NULL(L_RAOP, rmd->metadata = evbuffer_new());
   CHECK_NULL(L_RAOP, tmp = evbuffer_new());
 
-  ret = artwork_get_item(rmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT);
+  ret = artwork_get_item(rmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (ret < 0)
     {
       DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file '%s'; no artwork will be sent\n", queue_item->path);
@@ -2859,7 +2850,7 @@ packets_send(struct raop_master_session *rms)
   struct raop_session *rs;
   int ret;
 
-  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet, 0x60);
+  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
 
   ret = packet_prepare(pkt, rms->rawbuf, rms->rawbuf_size, rms->encrypt);
   if (ret < 0)
