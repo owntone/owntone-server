@@ -19,13 +19,11 @@
  * @in  id       The mfi item id
  * @in  max_w    Requested maximum image width (may not be obeyed)
  * @in  max_h    Requested maximum image height (may not be obeyed)
- * @in  format   Requested format (may not be obeyed)
+ * @in  format   Requested format (may not be obeyed), 0 for default
  * @return       ART_FMT_* on success, -1 on error or no artwork found
  */
 int
-artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h);
-int
-artwork_get_item2(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
+artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
 
 /*
  * Get the artwork image for a group (an album or an artist)
@@ -34,13 +32,11 @@ artwork_get_item2(struct evbuffer *evbuf, int id, int max_w, int max_h, int form
  * @in  id       The group id (not the persistentid)
  * @in  max_w    Requested maximum image width (may not be obeyed)
  * @in  max_h    Requested maximum image height (may not be obeyed)
- * @in  format   Requested format (may not be obeyed)
+ * @in  format   Requested format (may not be obeyed), 0 for default
  * @return       ART_FMT_* on success, -1 on error or no artwork found
  */
 int
-artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h);
-int
-artwork_get_group2(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
+artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
 
 /*
  * Checks if the file is an artwork file (based on user config)

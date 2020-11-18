@@ -1903,13 +1903,7 @@ process_group(struct artwork_ctx *ctx)
 /* ------------------------------ ARTWORK API ------------------------------ */
 
 int
-artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
-{
-  return artwork_get_item2(evbuf, id, max_w, max_h, 0);
-}
-
-int
-artwork_get_item2(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
+artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
 {
   struct artwork_ctx ctx;
   char filter[32];
@@ -1970,13 +1964,7 @@ artwork_get_item2(struct evbuffer *evbuf, int id, int max_w, int max_h, int form
 }
 
 int
-artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h)
-{
-  return artwork_get_group2(evbuf, id, max_w, max_h, 0);
-}
-
-int
-artwork_get_group2(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
+artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
 {
   struct artwork_ctx ctx;
   int ret;

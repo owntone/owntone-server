@@ -2201,7 +2201,7 @@ raop_metadata_prepare(struct output_metadata *metadata)
   CHECK_NULL(L_RAOP, rmd->metadata = evbuffer_new());
   CHECK_NULL(L_RAOP, tmp = evbuffer_new());
 
-  ret = artwork_get_item(rmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT);
+  ret = artwork_get_item(rmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (ret < 0)
     {
       DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file '%s'; no artwork will be sent\n", queue_item->path);

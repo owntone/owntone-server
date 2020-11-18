@@ -2387,7 +2387,7 @@ cast_metadata_prepare(struct output_metadata *metadata)
   CHECK_NULL(L_CAST, cmd = calloc(1, sizeof(struct cast_metadata)));
   CHECK_NULL(L_CAST, cmd->artwork = evbuffer_new());
 
-  ret = artwork_get_item2(cmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, ART_FMT_VP8);
+  ret = artwork_get_item(cmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, ART_FMT_VP8);
   if (ret < 0)
     {
       DPRINTF(E_INFO, L_CAST, "Failed to retrieve artwork for file '%s'; no artwork will be sent\n", queue_item->path);

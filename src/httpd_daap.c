@@ -2020,9 +2020,9 @@ daap_reply_extra_data(struct httpd_request *hreq)
     }
 
   if (strcmp(hreq->uri_parsed->path_parts[2], "groups") == 0)
-    ret = artwork_get_group(hreq->reply, id, max_w, max_h);
+    ret = artwork_get_group(hreq->reply, id, max_w, max_h, 0);
   else if (strcmp(hreq->uri_parsed->path_parts[2], "items") == 0)
-    ret = artwork_get_item(hreq->reply, id, max_w, max_h);
+    ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
 
   len = evbuffer_get_length(hreq->reply);
 
