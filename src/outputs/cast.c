@@ -111,9 +111,9 @@
 // This is an arbitrary value which just needs to be kept in sync with the config
 #define CAST_CONFIG_MAX_VOLUME 11
 
-// This makes the rtp session buffer 4 seconds of audio (4 sec * 50 pkts/sec),
+// This makes the rtp session buffer 6 seconds of audio (6 sec * 50 pkts/sec),
 // which can be used for delayed transmission (and retransmission)
-#define CAST_PACKET_BUFFER_SIZE 200
+#define CAST_PACKET_BUFFER_SIZE 300
 
 // Max number of RTP packets for one artwork image
 #define CAST_PACKET_ARTWORK_SIZE 200
@@ -1107,13 +1107,13 @@ packet_send(struct cast_session *cs, uint16_t seqnum)
     {
       DPRINTF(E_WARN, L_CAST, "Partial send (%d) for '%s'\n", ret, cs->devname);
     }
-
 /*
-  DPRINTF(E_DBG, L_CAST, "Sent RTP PACKET seqnum %u, have until %u, payload 0x%x, pktbuf_s %zu\n",
+  DPRINTF(E_DBG, L_CAST, "Sent RTP PACKET seqnum %u, have until %u, payload 0x%x, pktbuf_s %zu to '%s'\n",
     seqnum,
     cs->master_session->rtp_session->seqnum,
     pkt->header[1],
-    cs->master_session->rtp_session->pktbuf_len);
+    cs->master_session->rtp_session->pktbuf_len,
+    cs->devname);
 */
   return 0;
 }
@@ -1371,8 +1371,8 @@ xr_packet_process(struct cast_session *cs, uint8_t *data, size_t len)
         {
 	  seqnum = frame_id_expand(feedback.lost_fields[i].frame_id, cs->seqnum_next - 1);
 
-	  DPRINTF(E_DBG, L_CAST, "Retransmitting lost RTCP frame_id %" PRIu8", packet_id %" PRIu16 ", bitmask %02x\n",
-	    seqnum, feedback.lost_fields[i].packet_id, feedback.lost_fields[i].bitmask);
+	  DPRINTF(E_DBG, L_CAST, "Retransmission to '%s' of lost RTCP frame_id %" PRIu8", packet_id %" PRIu16 ", bitmask %02x\n",
+	    cs->devname, seqnum, feedback.lost_fields[i].packet_id, feedback.lost_fields[i].bitmask);
 	  packet_send(cs, seqnum);
 	}
 
@@ -2344,11 +2344,9 @@ cast_write(struct output_buffer *obuf)
 	  cs->state = CAST_STATE_STREAMING;
 	}
 
-//      DPRINTF(E_DBG, L_CAST, "RTP last %u, have %u, ack %u\n", cs->seqnum_next - 1, cast_master_session->rtp_session->seqnum, cs->ack_last);
-
       // We send packets to the device ping-pong style, meaning that we send the
       // first packet, wait for an ack, then send the next, wait etc. This can
-      // be broken by "no ping", meaning cb_rtcp_cb() didn't have a packet to
+      // be broken by "no ping", meaning cast_rtcp_cb() didn't have a packet to
       // send, or "no pong", meaning the ack is late or lost. To keep going we
       // must send a packet from here, so this condition is an inverse check for
       // such a state. The first part will be false if we didn't get an ACK,
