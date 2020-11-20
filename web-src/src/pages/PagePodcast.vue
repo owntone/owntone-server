@@ -48,7 +48,7 @@
         :new_tracks="new_tracks"
         @close="show_album_details_modal = false"
         @play-count-changed="reload_tracks"
-        @remove_podcast="open_remove_podcast_dialog" />
+        @remove-podcast="open_remove_podcast_dialog" />
       <modal-dialog
         :show="show_remove_podcast_modal"
         title="Remove podcast"
