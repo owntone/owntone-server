@@ -271,9 +271,7 @@ export default {
 
       this.$store.commit(types.ADD_RECENT_SEARCH, this.query.query)
 
-      if (this.query.type.includes(',')) {
-        this.search_all()
-      }
+      this.search_all()
     },
 
     spotify_search: function () {
