@@ -3099,9 +3099,16 @@ db_file_add(struct media_file_info *mfi)
   if (ret < 0)
     return -1;
 
+  ret = (int)sqlite3_last_insert_rowid(hdl);
+  if (ret == 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Successful file insert but no last_insert_rowid!\n");
+      return -1;
+    }
+
   library_update_trigger(LISTENER_DATABASE);
 
-  return 0;
+  return ret;
 }
 
 int
@@ -3129,7 +3136,7 @@ db_file_update(struct media_file_info *mfi)
 
   library_update_trigger(LISTENER_DATABASE);
 
-  return 0;
+  return mfi->id;
 }
 
 void

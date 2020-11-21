@@ -120,7 +120,7 @@ struct library_source
  * Adds a mfi if mfi->id == 0, otherwise updates.
  *
  * @param mfi Media to save
- * @return    0 if operation succeeded, -1 on failure.
+ * @return    mfi id if operation succeeded, -1 on failure.
  */
 int
 library_media_save(struct media_file_info *mfi);
