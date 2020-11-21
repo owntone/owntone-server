@@ -852,7 +852,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
       if (!ifmt)
 	{
 	  DPRINTF(E_LOG, L_XCODE, "Could not find input format: '%s'\n", ctx->settings.in_format);
-	  return -1;
+	  goto out_fail;
 	}
 
       CHECK_NULL(L_XCODE, ctx->avio = avio_input_evbuffer_open(evbuf));
@@ -871,7 +871,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Cannot open '%s': %s\n", path, err2str(ret));
-      return -1;
+      goto out_fail;
     }
 
   ret = avformat_find_stream_info(ctx->ifmt_ctx, NULL);
