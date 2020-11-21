@@ -204,7 +204,6 @@ playlist_fetch(bool *is_new, const char *path)
   pli = db_pl_fetch_bypath(path);
   if (pli)
     {
-      db_pl_clear_items(pli->id);
       *is_new = false;
       return pli;
     }
@@ -453,6 +452,7 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
   // Walk through the xml, saving each item
   *count = 0;
   db_transaction_begin();
+  db_pl_clear_items(pli->id);
   while ((ret = rss_xml_parse_item(&ri, xml, &ptr)) == 0 && (*count < pli->query_limit))
     {
       if (library_is_exiting())
@@ -509,7 +509,7 @@ rss_scan(const char *path, enum rss_scan_type scan_type)
   int count;
   int ret;
 
-  // Fetches or creates playlist, clears playlistitems
+  // Fetches or creates playlist
   pli = playlist_fetch(&pl_is_new, path);
   if (!pli)
     return -1;
@@ -517,6 +517,8 @@ rss_scan(const char *path, enum rss_scan_type scan_type)
   // Retrieves the RSS and reads the feed, saving each item as a track, and also
   // adds the relationship to playlistitems. The pli will also be updated with
   // metadata from the RSS.
+  //
+  // playlistitems are only cleared if we are ready to add entries
   ret = rss_save(pli, &count, scan_type);
   if (ret < 0)
     goto error;
@@ -612,7 +614,6 @@ static int
 rss_fullscan(void)
 {
   DPRINTF(E_LOG, L_LIB, "RSS feeds removed during full-rescan\n");
-
   return LIBRARY_OK;
 }
 
