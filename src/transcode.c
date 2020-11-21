@@ -178,6 +178,11 @@ struct encode_ctx
   uint8_t header[44];
 };
 
+enum probe_type
+{
+  PROBE_TYPE_DEFAULT,
+  PROBE_TYPE_QUICK,
+};
 
 /* -------------------------- PROFILE CONFIGURATION ------------------------ */
 
@@ -809,7 +814,7 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
 }
 
 static int
-open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
+open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf, enum probe_type probe_type)
 {
   AVDictionary *options = NULL;
   AVCodecContext *dec_ctx;
@@ -820,14 +825,18 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
 
   CHECK_NULL(L_XCODE, ctx->ifmt_ctx = avformat_alloc_context());
 
-  if (ctx->data_kind == DATA_KIND_HTTP)
+  // Caller can ask for small probe to start quicker + search for embedded
+  // artwork quicker. Especially useful for http sources. The standard probe
+  // size takes around 5 sec for an mp3, while the below only takes around a
+  // second. The improved performance comes at the cost of possible inaccuracy.
+  if (probe_type == PROBE_TYPE_QUICK)
     {
-      // We take the chance of a small probe size to start quicker + search for
-      // embedded artwork quicker. The standard probe size takes around 5 sec
-      // for an mp3, while the below only takes around a second.
       ctx->ifmt_ctx->probesize = 65536;
       ctx->ifmt_ctx->format_probesize = 65536;
+    }
 
+  if (ctx->data_kind == DATA_KIND_HTTP)
+    {
       av_dict_set(&options, "icy", "1", 0);
 
       user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
@@ -1232,7 +1241,17 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
   if (ret < 0)
     goto fail_free;
 
-  ret = open_input(ctx, path, evbuf);
+  if (data_kind == DATA_KIND_HTTP)
+    {
+      ret = open_input(ctx, path, evbuf, PROBE_TYPE_QUICK);
+
+      // Retry with a default, slower probe size
+      if (ret == AVERROR_STREAM_NOT_FOUND)
+	ret = open_input(ctx, path, evbuf, PROBE_TYPE_DEFAULT);
+    }
+  else
+    ret = open_input(ctx, path, evbuf, PROBE_TYPE_DEFAULT);
+
   if (ret < 0)
     goto fail_free;
 
