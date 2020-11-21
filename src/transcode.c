@@ -762,51 +762,50 @@ read_decode_filter_encode_write(struct transcode_ctx *ctx)
 
 /* --------------------------- INPUT/OUTPUT INIT --------------------------- */
 
-static AVCodecContext *
-open_decoder(unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaType type)
+static int
+open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaType type)
 {
-  AVCodecContext *dec_ctx;
   AVCodec *decoder;
   int ret;
 
   ret = av_find_best_stream(ctx->ifmt_ctx, type, -1, -1, &decoder, 0);
-  if ((ret < 0) || (!decoder))
+  if (ret < 0)
     {
       if (!ctx->settings.silent)
-	DPRINTF(E_LOG, L_XCODE, "No stream data or decoder found: %s\n", err2str(ret));
-      return NULL;
+	DPRINTF(E_LOG, L_XCODE, "Error finding best stream: %s\n", err2str(ret));
+      return ret;
     }
 
   *stream_index = (unsigned int)ret;
 
-  CHECK_NULL(L_XCODE, dec_ctx = avcodec_alloc_context3(decoder));
+  CHECK_NULL(L_XCODE, *dec_ctx = avcodec_alloc_context3(decoder));
 
   // In open_filter() we need to tell the sample rate and format that the decoder
   // is giving us - however sample rate of dec_ctx will be 0 if we don't prime it
   // with the streams codecpar data.
-  ret = avcodec_parameters_to_context(dec_ctx, ctx->ifmt_ctx->streams[*stream_index]->codecpar);
+  ret = avcodec_parameters_to_context(*dec_ctx, ctx->ifmt_ctx->streams[*stream_index]->codecpar);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Failed to copy codecpar for stream #%d: %s\n", *stream_index, err2str(ret));
-      avcodec_free_context(&dec_ctx);
-      return NULL;
+      avcodec_free_context(dec_ctx);
+      return ret;
     }
 
   if (type == AVMEDIA_TYPE_AUDIO)
     {
-      dec_ctx->request_sample_fmt = ctx->settings.sample_format;
-      dec_ctx->request_channel_layout = ctx->settings.channel_layout;
+      (*dec_ctx)->request_sample_fmt = ctx->settings.sample_format;
+      (*dec_ctx)->request_channel_layout = ctx->settings.channel_layout;
     }
 
-  ret = avcodec_open2(dec_ctx, NULL, NULL);
+  ret = avcodec_open2(*dec_ctx, NULL, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d: %s\n", *stream_index, err2str(ret));
-      avcodec_free_context(&dec_ctx);
-      return NULL;
+      avcodec_free_context(dec_ctx);
+      return ret;
     }
 
-  return dec_ctx;
+  return 0;
 }
 
 static int
@@ -817,7 +816,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
   AVInputFormat *ifmt;
   unsigned int stream_index;
   const char *user_agent;
-  int ret;
+  int ret = 0;
 
   CHECK_NULL(L_XCODE, ctx->ifmt_ctx = avformat_alloc_context());
 
@@ -889,8 +888,8 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
 
   if (ctx->settings.encode_audio)
     {
-      dec_ctx = open_decoder(&stream_index, ctx, AVMEDIA_TYPE_AUDIO);
-      if (!dec_ctx)
+      ret = open_decoder(&dec_ctx, &stream_index, ctx, AVMEDIA_TYPE_AUDIO);
+      if (ret < 0)
 	goto out_fail;
 
       ctx->audio_stream.codec = dec_ctx;
@@ -899,8 +898,8 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
 
   if (ctx->settings.encode_video)
     {
-      dec_ctx = open_decoder(&stream_index, ctx, AVMEDIA_TYPE_VIDEO);
-      if (!dec_ctx)
+      ret = open_decoder(&dec_ctx, &stream_index, ctx, AVMEDIA_TYPE_VIDEO);
+      if (ret < 0)
 	goto out_fail;
 
       ctx->video_stream.codec = dec_ctx;
@@ -915,7 +914,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf)
   avcodec_free_context(&ctx->video_stream.codec);
   avformat_close_input(&ctx->ifmt_ctx);
 
-  return -1;
+  return (ret < 0 ? ret : -1); // If we got an error code from ffmpeg then return that
 }
 
 static void
@@ -1220,6 +1219,7 @@ struct decode_ctx *
 transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length)
 {
   struct decode_ctx *ctx;
+  int ret;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct decode_ctx)));
   CHECK_NULL(L_XCODE, ctx->decoded_frame = av_frame_alloc());
@@ -1228,7 +1228,12 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
   ctx->duration = song_length;
   ctx->data_kind = data_kind;
 
-  if ((init_settings(&ctx->settings, profile, quality) < 0) || (open_input(ctx, path, evbuf) < 0))
+  ret = init_settings(&ctx->settings, profile, quality);
+  if (ret < 0)
+    goto fail_free;
+
+  ret = open_input(ctx, path, evbuf);
+  if (ret < 0)
     goto fail_free;
 
   return ctx;
