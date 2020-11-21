@@ -486,6 +486,8 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
 	    time_added = 0;
 	}
 
+      // This will also probe the url with ffmpeg, which gives us additional
+      // metadata, plus information about existence of embedded artwork
       scan_metadata_stream(&mfi, ri.url);
 
       mfi_metadata_fixup(&mfi, &ri, feed_title, feed_author, time_added);

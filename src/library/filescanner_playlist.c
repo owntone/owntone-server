@@ -141,10 +141,41 @@ exttag_read(struct media_file_info *mfi, const char *tag)
   return -1;
 }
 
+enum command_state
+probe_async(void *arg, int *retval)
+{
+  char *vpath = arg;
+  struct media_file_info *mfi;
+  int ret;
+
+  mfi = db_file_fetch_byvirtualpath(vpath);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Item '%s' disappeared from the database before probe\n", vpath);
+      goto out;
+    }
+
+  ret = scan_metadata_ffmpeg(mfi, mfi->path);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Item '%s' is unavailable for probe/metadata, using defaults\n", vpath);
+      goto out;
+    }
+
+  library_media_save(mfi);
+
+ out:
+  free_mfi(mfi, 0);
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
 void
 scan_metadata_stream(struct media_file_info *mfi, const char *path)
 {
   char *pos;
+  char *vpathcpy;
   int ret;
 
   mfi->path = strdup(path);
@@ -160,13 +191,20 @@ scan_metadata_stream(struct media_file_info *mfi, const char *path)
   mfi->time_modified = time(NULL);
   mfi->directory_id = DIR_HTTP;
 
-  ret = scan_metadata_ffmpeg(mfi, path);
+  // Assume MP3 encoding, the async probe should give the real encoding
+  mfi->type = strdup("mp3");
+  mfi->codectype = strdup("mpeg");
+  mfi->description = strdup("Assumed MPEG audio file");
+
+  // If this is a new item then the mfi->id is not known yet, so instead we pass
+  // the virtual path to the async scan, thus serving as a key so we can find
+  // and update the item in the db.
+  vpathcpy = strdup(mfi->virtual_path);
+  ret = library_exec_async(probe_async, vpathcpy); // Will free vpathcpy after exec via command_cb_async()
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Playlist URL '%s' is unavailable for probe/metadata, assuming MP3 encoding\n", path);
-      mfi->type = strdup("mp3");
-      mfi->codectype = strdup("mpeg");
-      mfi->description = strdup("MPEG audio file");
+      free(vpathcpy);
+      DPRINTF(E_LOG, L_SCAN, "Async probe of '%s' failed, using defaults\n", path);
     }
 
   if (!mfi->title)
