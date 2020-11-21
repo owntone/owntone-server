@@ -262,14 +262,13 @@ httpd_fixup_uri(struct evhttp_request *req)
 /* --------------------------- REQUEST HELPERS ------------------------------ */
 
 
-
 void
-httpd_redirect_to_admin(struct evhttp_request *req)
+httpd_redirect_to(struct evhttp_request *req, const char *path)
 {
   struct evkeyvalq *headers;
 
   headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "Location", "/admin.html");
+  evhttp_add_header(headers, "Location", path);
 
   httpd_send_reply(req, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
@@ -451,17 +450,9 @@ serve_file(struct evhttp_request *req, const char *uri)
       ret = stat(path, &sb);
       if (ret < 0)
         {
-	  if (strcmp(uri, "/") == 0)
-	    {
-	      httpd_redirect_to_admin(req);
-	      return;
-	    }
-	  else
-	    {
-	      DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
-	      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
-	      return;
-	    }
+	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
+	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
+	  return;
 	}
     }
 
@@ -833,14 +824,14 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   if (!uri)
     {
       DPRINTF(E_WARN, L_HTTPD, "No URI in request\n");
-      httpd_redirect_to_admin(req);
+      httpd_redirect_to(req, "/");
       return;
     }
 
   parsed = httpd_uri_parse(uri);
   if (!parsed || !parsed->path)
     {
-      httpd_redirect_to_admin(req);
+      httpd_redirect_to(req, "/");
       goto out;
     }
 

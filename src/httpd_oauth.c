@@ -60,7 +60,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
       return -1;
     }
 
-  httpd_redirect_to_admin(hreq->req);
+  httpd_redirect_to(hreq->req, "/#/settings/online-services");
 
   return 0;
 }
