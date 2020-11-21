@@ -5,18 +5,18 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small is-toggle is-toggle-rounded">
             <ul>
-              <router-link tag="li" :to="{ path: '/search/library', query: $route.query }" active-class="is-active">
-                <a>
+              <li :class="{ 'is-active': $route.path === '/search/library' }">
+                <a @click="search_library">
                   <span class="icon is-small"><i class="mdi mdi-library-books"></i></span>
                   <span class="">Library</span>
                 </a>
-              </router-link>
-              <router-link tag="li" :to="{ path: '/search/spotify', query: $route.query }" active-class="is-active">
-                <a>
+              </li>
+              <li :class="{ 'is-active': $route.path === '/search/spotify' }">
+                <a @click="search_spotify">
                   <span class="icon is-small"><i class="mdi mdi-spotify"></i></span>
                   <span class="">Spotify</span>
                 </a>
-              </router-link>
+              </li>
             </ul>
           </div>
         </div>
@@ -29,9 +29,45 @@
 export default {
   name: 'TabsSearch',
 
+  props: ['query'],
+
   computed: {
     spotify_enabled () {
       return this.$store.state.spotify.webapi_token_valid
+    }
+  },
+
+  methods: {
+    search_library: function () {
+      if (!this.query) {
+        return
+      }
+
+      this.$router.push({
+        path: '/search/library',
+        query: {
+          type: 'track,artist,album,playlist,audiobook,podcast',
+          query: this.query,
+          limit: 3,
+          offset: 0
+        }
+      })
+    },
+
+    search_spotify: function () {
+      if (!this.query) {
+        return
+      }
+
+      this.$router.push({
+        path: '/search/spotify',
+        query: {
+          type: 'track,artist,album,playlist,audiobook,podcast',
+          query: this.query,
+          limit: 3,
+          offset: 0
+        }
+      })
     }
   }
 }
