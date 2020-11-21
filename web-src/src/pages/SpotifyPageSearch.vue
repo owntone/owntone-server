@@ -23,7 +23,7 @@
       </div>
     </section>
 
-    <tabs-search></tabs-search>
+    <tabs-search :query="search_query"></tabs-search>
 
     <!-- Tracks -->
     <content-with-heading v-if="show_tracks && tracks.total">
@@ -271,9 +271,7 @@ export default {
 
       this.$store.commit(types.ADD_RECENT_SEARCH, this.query.query)
 
-      if (this.query.type.includes(',')) {
-        this.search_all()
-      }
+      this.search_all()
     },
 
     spotify_search: function () {

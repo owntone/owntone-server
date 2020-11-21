@@ -3,6 +3,7 @@
     <img v-lazyload
       :data-src="artwork_url_with_size"
       :data-err="dataURI"
+      :key="artwork_url_with_size"
       @click="$emit('click')">
   </figure>
 </template>
