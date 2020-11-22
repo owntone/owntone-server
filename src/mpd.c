@@ -108,7 +108,8 @@ enum command_list_type
 {
   COMMAND_LIST = 1,
   COMMAND_LIST_OK = 2,
-  COMMAND_LIST_NONE = 3
+  COMMAND_LIST_END = 3,
+  COMMAND_LIST_NONE = 4
 };
 
 /**
@@ -1044,8 +1045,8 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 	  evbuffer_add_printf(evbuf,
 	      "nextsong: %d\n"
 	      "nextsongid: %d\n",
-	      queue_item->id,
-	      queue_item->pos);
+	      queue_item->pos,
+	      queue_item->id);
 
 	  free_queue_item(queue_item, 0);
 	}
@@ -4273,6 +4274,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	}
       else if (0 == strcmp(argv[0], "command_list_end"))
 	{
+	  listtype = COMMAND_LIST_END;
 	  free(line);
 	  break;
 	}
@@ -4331,7 +4333,13 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	{
 	  evbuffer_add(output, "list_OK\n", 8);
 	}
-
+      /*
+       * If everything was successful add OK line to signal clients end of command message.
+       */
+      else if (listtype == COMMAND_LIST_NONE && idle_cmd == 0 && close_cmd == 0)
+	{
+	  evbuffer_add(output, "OK\n", 3);
+	}
       free(line);
       ncmd++;
     }
@@ -4339,10 +4347,11 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   DPRINTF(E_SPAM, L_MPD, "Finished MPD command sequence: %d\n", ret);
 
   /*
-   * If everything was successful add OK line to signal clients end of message.
-   * If an error occured the necessary ACK line should already be added to the response buffer.
+   * If everything was successful and we are processing a command list, add OK line to signal
+   * clients end of message.
+   * If an error occurred the necessary ACK line should already be added to the response buffer.
    */
-  if (ret == 0 && idle_cmd == 0 && close_cmd == 0)
+  if (ret == 0 && close_cmd == 0 && listtype == COMMAND_LIST_END)
     {
       evbuffer_add(output, "OK\n", 3);
     }
