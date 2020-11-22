@@ -553,6 +553,16 @@ item_add(void *arg, int *retval)
 	}
     }
 
+  scanning = false;
+
+  if (ret == LIBRARY_OK)
+    {
+      if (handle_deferred_update_notifications())
+	listener_notify(LISTENER_UPDATE | LISTENER_DATABASE);
+      else
+	listener_notify(LISTENER_UPDATE);
+    }
+
   *retval = ret;
   return COMMAND_END;
 }
@@ -762,8 +772,13 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 int
 library_item_add(const char *path)
 {
-  if (library_is_scanning())
-    return -1;
+  if (scanning)
+    {
+      DPRINTF(E_INFO, L_LIB, "Scan already running, ignoring request to add item '%s'\n", path);
+      return -1;
+    }
+
+  scanning = true; // TODO Guard "scanning" with a mutex
 
   return commands_exec_sync(cmdbase, item_add, NULL, (char *)path);
 }
