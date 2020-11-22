@@ -34,39 +34,34 @@ export default {
   computed: {
     spotify_enabled () {
       return this.$store.state.spotify.webapi_token_valid
+    },
+
+    route_query: function () {
+      if (!this.query) {
+        return null
+      }
+
+      return {
+        type: 'track,artist,album,playlist,audiobook,podcast',
+        query: this.query,
+        limit: 3,
+        offset: 0
+      }
     }
   },
 
   methods: {
     search_library: function () {
-      if (!this.query) {
-        return
-      }
-
       this.$router.push({
         path: '/search/library',
-        query: {
-          type: 'track,artist,album,playlist,audiobook,podcast',
-          query: this.query,
-          limit: 3,
-          offset: 0
-        }
+        query: this.route_query
       })
     },
 
     search_spotify: function () {
-      if (!this.query) {
-        return
-      }
-
       this.$router.push({
         path: '/search/spotify',
-        query: {
-          type: 'track,artist,album,playlist,audiobook,podcast',
-          query: this.query,
-          limit: 3,
-          offset: 0
-        }
+        query: this.route_query
       })
     }
   }
