@@ -352,10 +352,8 @@ This will build the web interface and update the `htdocs` folder.
 (See [README_PLAYER_WEBINTERFACE.md](README_PLAYER_WEBINTERFACE.md) for more
 informations)
 
-Building with libwebsockets is optional, but required if you want the player
-web interface (so not required for the admin web interface, where websockets
-only improve the UI). It will be enabled if the library is present (with
-headers). Use `--without-libwebsockets` to disable.
+Building with libwebsockets is required if you want the web interface. It will be enabled
+if the library is present (with headers). Use `--without-libwebsockets` to disable.
 
 Building with Pulseaudio is optional. It will be enabled if the library is
 present (with headers). Use `--without-pulseaudio` to disable.
