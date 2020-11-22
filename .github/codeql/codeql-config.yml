@@ -1,0 +1,4 @@
+name: "forked-daapd CodeQL config"
+
+paths-ignore: 
+  - htdocs
