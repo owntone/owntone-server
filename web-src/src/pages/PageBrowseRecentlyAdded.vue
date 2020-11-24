@@ -25,8 +25,8 @@ const browseData = {
   load: function (to) {
     return webapi.search({
       type: 'album',
-      expression: 'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
-      limit: 50
+      expression: 'media_kind is music having track_count > 3 order by time_added desc',
+      limit: 500
     })
   },
 
