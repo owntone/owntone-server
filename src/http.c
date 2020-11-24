@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <uniconv.h>
+#include <unistr.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -352,6 +353,7 @@ static int
 metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 {
   uint8_t *buffer;
+  uint8_t *utf;
   char *icy_token;
   char *save_pr;
   char *ptr;
@@ -361,7 +363,18 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
   if (!buffer)
     return -1;
 
-  icy_token = strtok_r((char *)buffer, ";", &save_pr);
+  /* Some servers send ISO-8859-1 instead of UTF-8 */
+  if (u8_check(buffer, strlen((char *)buffer)))
+    {
+      utf = u8_strconv_from_encoding((char *)buffer, "ISO−8859−1", iconveh_question_mark);
+      av_free(buffer);
+      if (utf == NULL)
+        return -1;
+    }
+  else
+    utf = buffer;
+
+  icy_token = strtok_r((char *)utf, ";", &save_pr);
   while (icy_token != NULL)
     {
       ptr = strchr(icy_token, '=');
@@ -408,7 +421,7 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 
       icy_token = strtok_r(NULL, ";", &save_pr);
     }
-  av_free(buffer);
+  av_free(utf);
 
   if (metadata->title)
     metadata->hash = djb_hash(metadata->title, strlen(metadata->title));
