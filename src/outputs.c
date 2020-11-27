@@ -40,6 +40,7 @@
 #include "outputs.h"
 
 extern struct output_definition output_raop;
+extern struct output_definition output_airplay;
 extern struct output_definition output_streaming;
 extern struct output_definition output_dummy;
 extern struct output_definition output_fifo;
@@ -59,6 +60,7 @@ extern struct event_base *evbase_player;
 // Must be in sync with enum output_types
 static struct output_definition *outputs[] = {
     &output_raop,
+    &output_airplay,
     &output_streaming,
     &output_dummy,
     &output_fifo,
@@ -1224,6 +1226,11 @@ outputs_init(void)
 	{
 	  DPRINTF(E_FATAL, L_PLAYER, "BUG! Output definitions are misaligned with output enum\n");
 	  return -1;
+	}
+
+      if (outputs[i]->disabled)
+	{
+	  continue;
 	}
 
       if (!outputs[i]->init)

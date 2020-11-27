@@ -26,7 +26,8 @@ MPD_SRC=mpd.c mpd.h
 endif
 
 if COND_RAOP_VERIFICATION
-RAOP_VERIFICATION_SRC=outputs/raop_verification.c outputs/raop_verification.h
+RAOP_VERIFICATION_SRC=outputs/pair_fruit.c outputs/pair_homekit.c outputs/pair.c outputs/pair-internal.h outputs/pair.h
+AM_CPPFLAGS += -DCONFIG_GCRYPT
 endif
 
 if COND_ALSA
@@ -134,6 +135,7 @@ forked_daapd_SOURCES = main.c \
 	outputs.h outputs.c \
 	outputs/rtp_common.h outputs/rtp_common.c \
 	outputs/raop.c $(RAOP_VERIFICATION_SRC) \
+	outputs/airplay.c \
 	outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
