@@ -3581,7 +3581,7 @@ jsonapi_reply_library_playlist_delete(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
-  db_pl_delete(pl_id);
+  library_playlist_remove_byid(pl_id);
 
   return HTTP_NOCONTENT;
 }

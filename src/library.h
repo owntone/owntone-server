@@ -190,6 +190,9 @@ int
 library_playlist_remove(char *virtual_path);
 
 int
+library_playlist_remove_byid(int plid);
+
+int
 library_queue_save(char *path);
 
 int
