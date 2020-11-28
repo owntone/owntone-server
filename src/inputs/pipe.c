@@ -453,6 +453,8 @@ handle_picture(struct input_metadata *m, uint8_t *data, int data_len)
       return;
     }
 
+  DPRINTF(E_DBG, L_PLAYER, "Wrote pipe artwork to '%s'\n", pipe_metadata.pict_tmpfile_path);
+
   m->artwork_url = safe_asprintf("file:%s", pipe_metadata.pict_tmpfile_path);
 }
 
