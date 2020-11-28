@@ -523,58 +523,70 @@ artwork_read_bypath(struct evbuffer *evbuf, char *path)
   return -1;
 }
 
-/* Will the source image fit inside requested size. If not, what size should it
- * be rescaled to to maintain aspect ratio.
+/* Calculates new size if the source image will not fit inside the requested
+ * size. If the original fits then dst_w/h will equal src_w/h.
  *
- * @out target_w  Rescaled width
- * @out target_h  Rescaled height
- * @in  width     Actual width
- * @in  height    Actual height
- * @in  max_w     Requested width
- * @in  max_h     Requested height
- * @return        -1 no rescaling needed, otherwise 0
+ * @out dst_w  Rescaled width
+ * @out dst_h  Rescaled height
+ * @in  src_w  Actual width
+ * @in  src_h  Actual height
+ * @in  max_w  Requested width
+ * @in  max_h  Requested height
  */
-static int
-rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w, int max_h)
+static void
+size_calculate(int *dst_w, int *dst_h, int src_w, int src_h, int max_w, int max_h)
 {
-  DPRINTF(E_DBG, L_ART, "Original image dimensions: w %d h %d\n", width, height);
+  DPRINTF(E_DBG, L_ART, "Original image dimensions: w %d h %d\n", src_w, src_h);
 
-  *target_w = width;
-  *target_h = height;
+  *dst_w = src_w;
+  *dst_h = src_h;
 
-  if ((width == 0) || (height == 0))                   /* Unknown source size, can't rescale */
-    return -1;
+  // No valid target dimensions, use original
+  if ((max_w <= 0) || (max_h <= 0))
+    return;
 
-  if ((max_w <= 0) || (max_h <= 0))                    /* No valid target dimensions, use original */
-    return -1;
+  // Smaller than target, use original
+  if ((src_w <= max_w) && (src_h <= max_h))
+    return;
 
-  if ((width <= max_w) && (height <= max_h))           /* Smaller than target */
-    return -1;
-
-  if (width * max_h > height * max_w)                  /* Wider aspect ratio than target */
+  // Wider aspect ratio than target
+  if (src_w * max_h > src_h * max_w)
     {
-      *target_w = max_w;
-      *target_h = (double)max_w * ((double)height / (double)width);
+      *dst_w = max_w;
+      *dst_h = (double)max_w * ((double)src_h / (double)src_w);
     }
-  else                                                 /* Taller or equal aspect ratio */
+  // Taller or equal aspect ratio
+  else
     {
-      *target_w = (double)max_h * ((double)width / (double)height);
-      *target_h = max_h;
+      *dst_w = (double)max_h * ((double)src_w / (double)src_h);
+      *dst_h = max_h;
     }
 
-  if (*target_h > max_h)
-    *target_h = max_h;
+  if (*dst_h > max_h)
+    *dst_h = max_h;
 
-  /* PNG prefers even row count */
-  *target_w += *target_w % 2;
+  // PNG prefers even row count
+  *dst_w += *dst_w % 2;
 
-  if (*target_w > max_w)
-    *target_w = max_w - (max_w % 2);
+  if (*dst_w > max_w)
+    *dst_w = max_w - (max_w % 2);
 
-  DPRINTF(E_DBG, L_ART, "Rescale required, destination width %d height %d\n", *target_w, *target_h);
-
-  return 0;
+  DPRINTF(E_DBG, L_ART, "Rescale required, destination width %d height %d\n", *dst_w, *dst_h);
 }
+
+#ifdef HAVE_LIBEVENT2_OLD
+// This is not how this function is actually defined in libevent 2.1+, but it
+// works as a less optimal stand-in
+int
+evbuffer_add_buffer_reference(struct evbuffer *outbuf, struct evbuffer *inbuf)
+{
+  uint8_t *buf = evbuffer_pullup(inbuf, -1);
+  if (!buf)
+    return -1;
+
+  return evbuffer_add_reference(outbuf, buf, evbuffer_get_length(inbuf), NULL, NULL);
+}
+#endif
 
 /*
  * Either gets the artwork file given in "path" (rescaled if needed) or rescales
@@ -582,17 +594,18 @@ rescale_calculate(int *target_w, int *target_h, int width, int height, int max_w
  *
  * @out evbuf        Image data (rescaled if needed)
  * @in  path         Path to the artwork file (alternative to inbuf)
- * @in  inbuf        Buffer with the artwork (alternative to path)
+ * @in  in_buf       Buffer with the artwork (alternative to path)
  * @in  is_embedded  Whether the artwork in file is embedded or raw jpeg/png
  * @in  data_kind    Used by the transcode module to determine e.g. probe size
  * @in  req_params   Requested max size/format
  * @return           ART_FMT_* on success, ART_E_ERROR on error
  */
 static int
-artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, bool is_embedded, enum data_kind data_kind, struct artwork_req_params req_params)
+artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *in_buf, bool is_embedded, enum data_kind data_kind, struct artwork_req_params req_params)
 {
-  struct decode_ctx *xcode_decode;
-  struct encode_ctx *xcode_encode;
+  struct decode_ctx *xcode_decode = NULL;
+  struct encode_ctx *xcode_encode = NULL;
+  struct evbuffer *xcode_buf = NULL;
   void *frame;
   int src_width;
   int src_height;
@@ -604,60 +617,83 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, bool is_
 
   DPRINTF(E_SPAM, L_ART, "Getting artwork (max destination width %d height %d)\n", req_params.max_w, req_params.max_h);
 
-  xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, path, inbuf, 0); // Covers XCODE_PNG too
+  // At this point we don't know if we will need to rescale/reformat, and we
+  // won't know until probing the source (which the transcode module does). The
+  // act of probing uses evbuffer_remove(), thus consuming some of the buffer.
+  // So that means that if rescaling/reformating turns out not to be required,
+  // we could no longer just add in_buf to the evbuf buffer and return to the
+  // caller. The below makes that possible (with no copying).
+  if (in_buf)
+    {
+      CHECK_NULL(L_ART, xcode_buf = evbuffer_new());
+      ret = evbuffer_add_buffer_reference(xcode_buf, in_buf);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "Could not copy/ref raw image for rescaling (ret=%d)\n", ret);
+	  ret = ART_E_ERROR;
+	  goto out;
+	}
+    }
+
+  xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, path, xcode_buf, 0); // Covers XCODE_PNG too
   if (!xcode_decode)
     {
       if (path)
 	DPRINTF(E_DBG, L_ART, "No artwork found in '%s'\n", path);
       else
 	DPRINTF(E_DBG, L_ART, "No artwork provided to artwork_get()\n");
-      return ART_E_NONE;
+
+      ret = ART_E_NONE;
+      goto out;
     }
 
+  // Determine source and destination format
   if (transcode_decode_query(xcode_decode, "is_jpeg"))
     src_format = ART_FMT_JPEG;
   else if (transcode_decode_query(xcode_decode, "is_png"))
     src_format = ART_FMT_PNG;
   else
     {
-      if (is_embedded)
+      if (path)
 	DPRINTF(E_DBG, L_ART, "File '%s' has no PNG or JPEG artwork\n", path);
-      else if (path)
-	DPRINTF(E_LOG, L_ART, "Artwork file '%s' not a PNG or JPEG file\n", path);
       else
 	DPRINTF(E_LOG, L_ART, "Artwork data provided to artwork_get() is not PNG or JPEG\n");
 
-      goto fail_free_decode;
-    }
-
-  src_width = transcode_decode_query(xcode_decode, "width");
-  src_height = transcode_decode_query(xcode_decode, "height");
-
-  ret = rescale_calculate(&dst_width, &dst_height, src_width, src_height, req_params.max_w, req_params.max_h);
-  if (ret < 0)
-    {
-      if (is_embedded)
-	{
-	  dst_width  = src_width;
-	  dst_height = src_height;
-	}
-      else if (path && src_format == req_params.format)
-	{
-	  // No rescaling required, just read the raw file into the evbuf
-	  ret = artwork_read_bypath(evbuf, path);
-	  if (ret < 0)
-	    goto fail_free_decode;
-
-	  transcode_decode_cleanup(&xcode_decode);
-	  return src_format;
-	}
-      else
-	{
-	  goto fail_free_decode;
-	}
+      ret = ART_E_ERROR;
+      goto out;
     }
 
   dst_format = req_params.format ? req_params.format : src_format;
+
+  // Determine source and destination size
+  src_width = transcode_decode_query(xcode_decode, "width");
+  src_height = transcode_decode_query(xcode_decode, "height");
+  if (src_width <= 0 || src_height <= 0)
+    {
+      if (path)
+	DPRINTF(E_DBG, L_ART, "File '%s' has unknown artwork dimensions\n", path);
+      else
+	DPRINTF(E_LOG, L_ART, "Artwork data provided to artwork_get() has unknown dimensions\n");
+
+      ret = ART_E_ERROR;
+      goto out;
+    }
+
+  size_calculate(&dst_width, &dst_height, src_width, src_height, req_params.max_w, req_params.max_h);
+
+  // Fast path. Won't work for embedded, since we need to extract the image from
+  // the file.
+  if (!is_embedded && dst_format == src_format && dst_width == src_width && dst_height == src_height)
+    {
+      if (path)
+	ret = artwork_read_bypath(evbuf, path);
+      else
+        ret = evbuffer_add_buffer(evbuf, in_buf);
+
+      ret = (ret < 0) ? ART_E_ERROR : src_format;
+      goto out;
+    }
+
   if (dst_format == ART_FMT_JPEG)
     xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, NULL, dst_width, dst_height);
   else if (dst_format == ART_FMT_PNG)
@@ -673,88 +709,37 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *inbuf, bool is_
 	DPRINTF(E_WARN, L_ART, "Error preparing rescaling of '%s'\n", path);
       else
 	DPRINTF(E_WARN, L_ART, "Error preparing rescaling of artwork data\n");
-      goto fail_free_decode;
+
+      ret = ART_E_ERROR;
+      goto out;
     }
 
   // We don't use transcode() because we just want to process one frame
   ret = transcode_decode(&frame, xcode_decode);
   if (ret < 0)
-    goto fail_free_encode;
+    {
+      ret = ART_E_ERROR;
+      goto out;
+    }
 
   ret = transcode_encode(evbuf, xcode_encode, frame, 1);
-
-  transcode_encode_cleanup(&xcode_encode);
-  transcode_decode_cleanup(&xcode_decode);
-
   if (ret < 0)
     {
       evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
-      return ART_E_ERROR;
+      ret = ART_E_ERROR;
+      goto out;
     }
 
-  return dst_format;
+  ret = dst_format;
 
- fail_free_encode:
+ out:
   transcode_encode_cleanup(&xcode_encode);
- fail_free_decode:
   transcode_decode_cleanup(&xcode_decode);
-  return ART_E_ERROR;
-}
 
-/* Rescales and reformats an image in an evbuf (if required)
- *
- * @out artwork   Rescaled image data (or original, if not rescaled)
- * @in  raw       Original image data
- * @in  req_params Requested max size/format
- * @return        0 on success, -1 on error
- */
-static int
-artwork_evbuf_rescale(struct evbuffer *artwork, struct evbuffer *raw, struct artwork_req_params req_params)
-{
-  struct evbuffer *refbuf;
-  int ret;
+  if (xcode_buf)
+    evbuffer_free(xcode_buf);
 
-  CHECK_NULL(L_ART, refbuf = evbuffer_new());
-
-  // Make a refbuf of raw for ffmpeg image size probing and possibly rescaling.
-  // We keep raw around in case rescaling is not necessary.
-#ifdef HAVE_LIBEVENT2_OLD
-  uint8_t *buf = evbuffer_pullup(raw, -1);
-  if (!buf)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not pullup raw artwork\n");
-      goto error;
-    }
-
-  ret = evbuffer_add_reference(refbuf, buf, evbuffer_get_length(raw), NULL, NULL);
-#else
-  ret = evbuffer_add_buffer_reference(refbuf, raw);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_ART, "Could not copy/ref raw image for rescaling (ret=%d)\n", ret);
-      goto error;
-    }
-
-  // For non-file input, artwork_get() will also fail if no rescaling is required
-  ret = artwork_get(artwork, NULL, refbuf, false, 0, req_params);
-  if (ret == ART_E_ERROR)
-    {
-      DPRINTF(E_DBG, L_ART, "No rescaling required\n");
-      ret = evbuffer_add_buffer(artwork, raw);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf (ret=%d)\n", ret);
-	  goto error;
-	}
-    }
-
-  evbuffer_free(refbuf);
-  return 0;
-
- error:
-  evbuffer_free(refbuf);
-  return -1;
+  return ret;
 }
 
 /*
@@ -944,7 +929,8 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, struct artwork_req_
   if (format <= 0)
     goto out;
 
-  ret = artwork_evbuf_rescale(artwork, raw, req_params);
+  // Takes care of resizing
+  ret = artwork_get(artwork, NULL, raw, false, 0, req_params);
   if (ret < 0)
     format = ART_E_ERROR;
 
@@ -1550,6 +1536,7 @@ source_item_pipe_get(struct artwork_ctx *ctx)
   struct db_queue_item *queue_item;
   const char *proto = "file:";
   char *path;
+  int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying pipe metadata from %s.metadata\n", ctx->dbmfi->path);
 
@@ -1561,6 +1548,14 @@ source_item_pipe_get(struct artwork_ctx *ctx)
     }
 
   path = queue_item->artwork_url + strlen(proto);
+
+  // Sometimes the file has been replaced, but queue_item->artwork_url hasn't
+  // been updated yet. In that case just stop now.
+  ret = access(path, F_OK);
+  if (ret != 0)
+    {
+      return ART_E_NONE;
+    }
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
