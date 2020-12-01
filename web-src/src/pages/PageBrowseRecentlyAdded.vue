@@ -90,10 +90,11 @@ import TabsMusic from '@/components/TabsMusic'
 import ListAlbums from '@/components/ListAlbums'
 import ModalDialogAlbums from '@/components/ModalDialogAlbums'
 import webapi from '@/webapi'
+import store from '@/store'
 
 const browseData = {
   load: function (to) {
-    const recentlyAddedLimit = 100
+    const recentlyAddedLimit = store.getters.settings_option_recently_added_limit
     return Promise.all([
       webapi.search({
         type: 'album',
