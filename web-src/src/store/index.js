@@ -77,6 +77,16 @@ export default new Vuex.Store({
       return null
     },
 
+    settings_option_recently_added_limit: (state, getters) => {
+      if (getters.settings_webinterface) {
+        const option = getters.settings_webinterface.options.find(elem => elem.name === 'recently_added_limit')
+        if (option) {
+          return option.value
+        }
+      }
+      return 100
+    },
+
     settings_option_show_composer_now_playing: (state, getters) => {
       if (getters.settings_webinterface) {
         const option = getters.settings_webinterface.options.find(elem => elem.name === 'show_composer_now_playing')
