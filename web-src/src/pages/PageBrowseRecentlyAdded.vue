@@ -14,8 +14,16 @@
         <p class="title is-6">Today</p>
         <p class="heading">{{ recently_added_today.items.length }} albums</p>
       </template>
+      <template slot="heading-right">
+        <div class="buttons is-centered">
+          <a class="button is-small is-light is-rounded" @click="show_modal_today = true">
+            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          </a>
+        </div>
+      </template>
       <template slot="content">
         <list-albums :albums="recently_added_today.items"></list-albums>
+        <modal-dialog-albums :show="show_modal_today" title='Recently Added - Today' :albums="recently_added_today" @close="show_modal_today = false" />
       </template>
     </content-with-heading>
 
@@ -24,8 +32,16 @@
         <p class="title is-6">This Week</p>
         <p class="heading">{{ recently_added_week.items.length }} albums</p>
       </template>
+      <template slot="heading-right">
+        <div class="buttons is-centered">
+          <a class="button is-small is-light is-rounded" @click="show_modal_week = true">
+            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          </a>
+        </div>
+      </template>
       <template slot="content">
         <list-albums :albums="recently_added_week.items"></list-albums>
+        <modal-dialog-albums :show="show_modal_week" title='Recently Added - Past Week' :albums="recently_added_week" @close="show_modal_week = false" />
       </template>
     </content-with-heading>
 
@@ -34,8 +50,16 @@
         <p class="title is-6">This Month </p>
         <p class="heading">{{ recently_added_month.items.length }} albums</p>
       </template>
+      <template slot="heading-right">
+        <div class="buttons is-centered">
+          <a class="button is-small is-light is-rounded" @click="show_modal_month = true">
+            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          </a>
+        </div>
+      </template>
       <template slot="content">
         <list-albums :albums="recently_added_month.items"></list-albums>
+        <modal-dialog-albums :show="show_modal_month" title='Recently Added - Past Month' :albums="recently_added_month" @close="show_modal_month = false" />
       </template>
     </content-with-heading>
 
@@ -44,8 +68,16 @@
         <p class="title is-6">Older</p>
         <p class="heading">{{ recently_added_older.items.length }} albums</p>
       </template>
+      <template slot="heading-right">
+        <div class="buttons is-centered">
+          <a class="button is-small is-light is-rounded" @click="show_modal_older = true">
+            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          </a>
+        </div>
+      </template>
       <template slot="content">
         <list-albums :albums="recently_added_older.items"></list-albums>
+        <modal-dialog-albums :show="show_modal_older" title='Recently Added - Older than Month' :albums="recently_added_older" @close="show_modal_older = false" />
       </template>
     </content-with-heading>
   </div>
@@ -56,6 +88,7 @@ import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
 import ListAlbums from '@/components/ListAlbums'
+import ModalDialogAlbums from '@/components/ModalDialogAlbums'
 import webapi from '@/webapi'
 
 const browseData = {
@@ -75,16 +108,19 @@ const browseData = {
 export default {
   name: 'PageBrowseType',
   mixins: [LoadDataBeforeEnterMixin(browseData)],
-  components: { ContentWithHeading, TabsMusic, ListAlbums },
-
+  components: { ContentWithHeading, TabsMusic, ListAlbums, ModalDialogAlbums },
   data () {
     return {
       recently_added_today: { items: [] },
       recently_added_week: { items: [] },
       recently_added_month: { items: [] },
       recently_added_older: { items: [] },
+      limit: 100,
 
-      limit: 100
+      show_modal_today: false,
+      show_modal_week: false,
+      show_modal_month: false,
+      show_modal_older: false
     }
   },
 
