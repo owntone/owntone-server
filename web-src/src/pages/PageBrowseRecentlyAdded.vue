@@ -93,15 +93,36 @@ import webapi from '@/webapi'
 
 const browseData = {
   load: function (to) {
-    return webapi.search({
-      type: 'album',
-      expression: 'time_added after today and media_kind is music order by time_added desc',
-      limit: 100
-    })
+    const recentlyAddedLimit = 100
+    return Promise.all([
+      webapi.search({
+        type: 'album',
+        expression: 'time_added after today and media_kind is music order by time_added desc',
+        limit: recentlyAddedLimit
+      }),
+      webapi.search({
+        type: 'album',
+        expression: 'time_added after this week and media_kind is music order by time_added desc',
+        limit: recentlyAddedLimit
+      }),
+      webapi.search({
+        type: 'album',
+        expression: 'time_added after last month and media_kind is music order by time_added desc',
+        limit: recentlyAddedLimit
+      }),
+      webapi.search({
+        type: 'album',
+        expression: 'time_added before last month and media_kind is music order by time_added desc',
+        limit: recentlyAddedLimit
+      })
+    ])
   },
 
   set: function (vm, response) {
-    vm.recently_added_today = response.data.albums
+    vm.recently_added_today = response[0].data.albums
+    vm.recently_added_week = response[1].data.albums
+    vm.recently_added_month = response[2].data.albums
+    vm.recently_added_older = response[3].data.albums
   }
 }
 
@@ -109,50 +130,18 @@ export default {
   name: 'PageBrowseType',
   mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, ListAlbums, ModalDialogAlbums },
+
   data () {
     return {
       recently_added_today: { items: [] },
       recently_added_week: { items: [] },
       recently_added_month: { items: [] },
       recently_added_older: { items: [] },
-      limit: 100,
 
       show_modal_today: false,
       show_modal_week: false,
       show_modal_month: false,
       show_modal_older: false
-    }
-  },
-
-  created () {
-    if (this.recently_added < this.limit) {
-      webapi.search({
-        type: 'album',
-        expression: 'time_added after this week and media_kind is music order by time_added desc',
-        limit: this.limit - this.recently_added
-      }).then(({ data }) => {
-        this.recently_added_week = data.albums
-
-        if (this.recently_added < this.limit) {
-          webapi.search({
-            type: 'album',
-            expression: 'time_added after last month and media_kind is music order by time_added desc',
-            limit: this.limit - this.recently_added
-          }).then(({ data }) => {
-            this.recently_added_month = data.albums
-
-            if (this.recently_added < this.limit) {
-              webapi.search({
-                type: 'album',
-                expression: 'time_added before last month and media_kind is music order by time_added desc',
-                limit: this.limit - this.recently_added
-              }).then(({ data }) => {
-                this.recently_added_older = data.albums
-              })
-            }
-          })
-        }
-      })
     }
   },
 
