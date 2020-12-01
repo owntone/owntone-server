@@ -124,6 +124,12 @@ const browseData = {
     vm.recently_added_week = response[1].data.albums
     vm.recently_added_month = response[2].data.albums
     vm.recently_added_older = response[3].data.albums
+
+    if (vm.recently_added_older.items.length) {
+      const keep = vm.recently_added_older.items.length - store.getters.settings_option_recently_added_limit - vm.recently_added_month.items.length
+      vm.recently_added_older.items.splice(keep)
+      vm.recently_added_older.total = keep
+    }
   }
 }
 
@@ -160,7 +166,7 @@ export default {
       return this.recently_added_older.items.length > 0
     },
     recently_added () {
-      return this.recently_added_today.items.length + this.recently_added_week.items.length + this.recently_added_month.items.length + this.recently_added_older.items.length
+      return this.recently_added_older.items.length + this.recently_added_month.items.length
     }
   }
 }
