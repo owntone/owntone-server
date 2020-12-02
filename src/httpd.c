@@ -136,6 +136,8 @@ static pthread_t tid_httpd;
 
 static const char *allow_origin;
 static int httpd_port;
+static const char *httpd_interface;
+static const char *httpd_interface6;
 
 #ifdef HAVE_LIBEVENT2_OLD
 struct stream_ctx *g_st;
@@ -1770,6 +1772,8 @@ httpd_init(const char *webroot)
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
   httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+  httpd_interface = cfg_getstr(cfg_getsec(cfg, "library"), "interface");
+  httpd_interface6 = cfg_getstr(cfg_getsec(cfg, "library"), "interface6");
 
   // For CORS headers
   allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
@@ -1783,7 +1787,7 @@ httpd_init(const char *webroot)
 
   if (v6enabled)
     {
-      ret = evhttp_bind_socket(evhttpd, "::", httpd_port);
+      ret = evhttp_bind_socket(evhttpd, httpd_interface6, httpd_port);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
@@ -1791,7 +1795,7 @@ httpd_init(const char *webroot)
 	}
     }
 
-  ret = evhttp_bind_socket(evhttpd, "0.0.0.0", httpd_port);
+  ret = evhttp_bind_socket(evhttpd, httpd_interface, httpd_port);
   if (ret < 0)
     {
       if (!v6enabled)

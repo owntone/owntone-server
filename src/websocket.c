@@ -40,6 +40,7 @@ static struct lws_context *context;
 static pthread_t tid_websocket;
 
 static int websocket_port;
+static const char *websocket_interface;
 static bool websocket_exit = false;
 
 // Event mask of events to notify websocket clients
@@ -384,10 +385,13 @@ websocket_init(void)
       DPRINTF(E_LOG, L_WEB, "Websocket disabled. To enable it, set websocket_port in config to a valid port number.\n");
       return 0;
     }
+  
+  websocket_interface = cfg_getstr(cfg_getsec(cfg, "general"), "websocket_interface");
 
   memset(&info, 0, sizeof(info));
   info.port = websocket_port;
   info.protocols = protocols;
+  info.iface = websocket_interface;
   if (!cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
     info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
   info.gid = -1;
