@@ -34,6 +34,12 @@ general {
 	# Websocket port for the web interface.
 #	websocket_port = 3688
 
+	# Websocket interface for the web interface.
+	# Options are interace names e.g. "lo" for loopback or an ipv4 address
+	# "127.0.0.1". The default is any interface "0.0.0.0".
+	# Useful with Nginx as SSL proxy on the same port as forked-daapd.
+#	websocket_interface = "0.0.0.0"
+
 	# Sets who is allowed to connect without authorisation. This applies to
 	# client types like Remotes, DAAP clients (iTunes) and to the web
 	# interface. Options are "any", "localhost" or the prefix to one or
@@ -68,6 +74,14 @@ library {
 
 	# TCP port to listen on. Default port is 3689 (daap)
 	port = 3689
+
+	# ipv4 interface to listen on. Options are an ipv4 address. 
+	# Defaults to 0.0.0.0 (any)
+#	interface = "0.0.0.0"
+
+	# ipv6 interface to listen on. Options are an ipv6 address.
+	# Defaults to :: (any)
+#	interface6 = "::"
 
 	# Password for the library. Optional.
 #	password = ""
