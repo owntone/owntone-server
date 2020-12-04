@@ -7,6 +7,7 @@
 #
 # In all likelihood, that's all you need to do!
 
+# General configuration
 general {
 	# Username
 	# Make sure the user has read access to the library directories you set
@@ -77,12 +78,13 @@ library {
 	port = 3689
 
 	# ipv4 interface to listen on. Options are an ipv4 address. 
-	# Defaults to 0.0.0.0 (any)
-#	interface = "0.0.0.0"
+	# Defaults to unset "" for any interface.
+#	interface = ""
 
 	# ipv6 interface to listen on. Options are an ipv6 address.
-	# Defaults to :: (any)
-#	interface6 = "::"
+	# Only used when IPv6 is enabled in general configuration.
+	# Defaults to unset "" for any interface.
+#	interface6 = ""
 
 	# Password for the library. Optional.
 #	password = ""
