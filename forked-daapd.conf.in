@@ -32,15 +32,13 @@ general {
 	# "trusted_network" (see below) does not require password
 #	admin_password = ""
 
-	# Websocket port for the web interface.
+	# Websocket port for the web interface
 #	websocket_port = 3688
 
-	# Websocket interface for the web interface.
-	# Options are interface names e.g. "lo" for loopback or an
-	# ipv4 address "127.0.0.1". Defaults to 0.0.0.0 (any).
-	# Useful for Nginx with SSL as a reverse proxy on the same
-	# port as forked-daapd.
-#	websocket_interface = "0.0.0.0"
+	# Websocket interface for the web interface
+	# Options are interface names e.g. "lo" for loopback.
+	# Defaults to unset "" for any interface.
+#	websocket_interface = ""
 
 	# Sets who is allowed to connect without authorisation. This applies to
 	# client types like Remotes, DAAP clients (iTunes) and to the web
