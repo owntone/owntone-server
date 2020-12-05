@@ -1848,8 +1848,8 @@ httpd_init(const char *webroot)
   return 0;
  
  bind_fail_ipv4:
-	DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
-	evhttp_free(evhttpd);
+  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
+  evhttp_free(evhttpd);
  bind_fail_ipv6:
   DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
   v6enabled = 0;
