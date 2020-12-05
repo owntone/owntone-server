@@ -1792,8 +1792,7 @@ httpd_init(const char *webroot)
           ret = evhttp_bind_socket(evhttpd, httpd_interface6, httpd_port);
           if (ret < 0)
             {
-              DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
-              v6enabled = 0;
+              goto bind_fail_ipv6;
             }
         }       
       else 
@@ -1801,8 +1800,7 @@ httpd_init(const char *webroot)
           ret = evhttp_bind_socket(evhttpd, "::", httpd_port);
           if (ret < 0)
             {
-              DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
-              v6enabled = 0;
+              goto bind_fail_ipv6;
             }
         }
     }
@@ -1812,8 +1810,7 @@ httpd_init(const char *webroot)
       ret = evhttp_bind_socket(evhttpd, httpd_interface, httpd_port);
       if (ret < 0)
         {
-          DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
-          goto bind_fail;
+          goto bind_fail_ipv4;
         }
     }       
   else 
@@ -1823,8 +1820,7 @@ httpd_init(const char *webroot)
         {  
           if (!v6enabled)
             {
-              DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
-              goto bind_fail;
+              goto bind_fail_ipv4;
             }
           #ifndef __linux__
           // Linux will listen on both ipv6 and ipv4, but FreeBSD won't
@@ -1850,10 +1846,14 @@ httpd_init(const char *webroot)
 #endif
 
   return 0;
-
+ 
+ bind_fail_ipv4:
+	DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
+	evhttp_free(evhttpd);
+ bind_fail_ipv6:
+  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
+  v6enabled = 0;
  thread_fail:
- bind_fail:
-  evhttp_free(evhttpd);
  evhttpd_fail:
   event_free(exitev);
  exitev_fail:
