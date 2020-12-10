@@ -264,6 +264,14 @@ evrtsp_method(enum evrtsp_cmd_type type)
 	  method = "POST";
 	  break;
 
+	case EVRTSP_REQ_GET:
+	  method = "GET";
+	  break;
+
+	case EVRTSP_REQ_SETPEERS:
+	  method = "SETPEERS";
+	  break;
+
 	default:
 	  method = NULL;
 	  break;
