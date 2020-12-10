@@ -388,7 +388,7 @@ Note however, the equalizer appears to require a `plughw` device which means you
 # Troubleshooting
 
 * Errors in log `Failed to open configured mixer element` when selecting output device
-* Errors in log `Invalid CTL` or `Failed to attach mixer` when playing/adjusting volumne
+* Errors in log `Invalid CTL` or `Failed to attach mixer` when playing/adjusting volume
 `mixer` value is wrong.  Verify name of `mixer` value in server config against the names from all devices capable of playback using `amixer -c <card number>`.  Assume the device is card 1:
 ```
 (IFS=$'\n'
