@@ -56,6 +56,9 @@ void
 DVPRINTF(int severity, int domain, const char *fmt, va_list ap);
 
 void
+DHEXDUMP(int severity, int domain, const unsigned char *data, int data_len, const char *heading);
+
+void
 logger_ffmpeg(void *ptr, int level, const char *fmt, va_list ap);
 
 void

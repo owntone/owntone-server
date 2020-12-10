@@ -30,6 +30,7 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <ctype.h> // for isprint()
 
 #include <event2/event.h>
 
@@ -111,13 +112,47 @@ repeat_count(const char *fmt)
 }
 
 static void
+logger_write(const char *fmt, ...)
+{
+  va_list ap;
+
+  if (logfile)
+    {
+      va_start(ap, fmt);
+      vfprintf(logfile, fmt, ap);
+      va_end(ap);
+
+      fflush(logfile);
+    }
+  if (console)
+    {
+      va_start(ap, fmt);
+      vfprintf(stderr, fmt, ap);
+      va_end(ap);
+    }
+}
+
+static void
+logger_write_with_label(int severity, int domain, const char *content)
+{
+  char stamp[32];
+  time_t t;
+  struct tm timebuf;
+  int ret;
+
+  t = time(NULL);
+  ret = strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime_r(&t, &timebuf));
+  if (ret == 0)
+    stamp[0] = '\0';
+
+  logger_write("[%s] [%5s] %8s: %s", stamp, severities[severity], labels[domain], content);
+}
+
+static void
 vlogger_writer(int severity, int domain, const char *fmt, va_list args)
 {
   va_list ap;
   char content[2048];
-  char stamp[32];
-  time_t t;
-  struct tm timebuf;
   int ret;
 
   va_copy(ap, args);
@@ -134,22 +169,7 @@ vlogger_writer(int severity, int domain, const char *fmt, va_list args)
   else if (ret > LOGGER_REPEAT_MAX)
     return;
 
-  if (logfile)
-    {
-      t = time(NULL);
-      ret = strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime_r(&t, &timebuf));
-      if (ret == 0)
-	stamp[0] = '\0';
-
-      fprintf(logfile, "[%s] [%5s] %8s: %s", stamp, severities[severity], labels[domain], content);
-
-      fflush(logfile);
-    }
-
-  if (console)
-    {
-      fprintf(stderr, "[%5s] %8s: %s", severities[severity], labels[domain], content);
-    }
+  logger_write_with_label(severity, domain, content);
 }
 
 static void
@@ -189,6 +209,52 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
   LOGGER_CHECK_ERR(pthread_mutex_unlock(&logger_lck));
 }
 
+static void
+hexdump(int severity, int domain, const unsigned char *data, int len, const char *heading)
+{
+  int i;
+  unsigned char buff[17];
+  const unsigned char *pc = data;
+
+  if (len <= 0)
+    return;
+
+  LOGGER_CHECK_ERR(pthread_mutex_lock(&logger_lck));
+
+  if (heading)
+    logger_write_with_label(severity, domain, heading);
+
+  for (i = 0; i < len; i++)
+    {
+      if ((i % 16) == 0)
+	{
+	  if (i != 0)
+	    logger_write("  %s\n", buff);
+
+	  logger_write(" %04x ", i);
+	}
+
+	logger_write(" %02x", pc[i]);
+
+	if (isprint(pc[i]))
+	  buff[i % 16] = pc[i];
+	else
+	  buff[i % 16] = '.';
+
+	buff[(i % 16) + 1] = '\0';
+    }
+
+  while ((i % 16) != 0)
+    {
+      logger_write("   ");
+      i++;
+    }
+
+  logger_write("  %s\n", buff);
+
+  LOGGER_CHECK_ERR(pthread_mutex_unlock(&logger_lck));
+}
+
 void
 DPRINTF(int severity, int domain, const char *fmt, ...)
 {
@@ -213,6 +279,17 @@ DVPRINTF(int severity, int domain, const char *fmt, va_list ap)
     return;
 
   vlogger(severity, domain, fmt, ap);
+}
+
+void
+DHEXDUMP(int severity, int domain, const unsigned char *data, int data_len, const char *heading)
+{
+  // If domain and severity do not match the current log configuration, return early to
+  // save some unnecessary code execution (tiny performance gain)
+  if (logger_initialized && (!((1 << domain) & logdomains) || (severity > threshold)))
+    return;
+
+  hexdump(severity, domain, data, data_len, heading);
 }
 
 void
