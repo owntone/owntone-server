@@ -160,6 +160,7 @@ static cfg_opt_t sec_airplay[] =
     CFG_BOOL("permanent", cfg_false, CFGF_NONE),
     CFG_BOOL("reconnect", cfg_false, CFGF_NODEFAULT),
     CFG_STR("password", NULL, CFGF_NONE),
+    CFG_STR("nickname", NULL, CFGF_NONE),
     CFG_END()
   };
 
@@ -169,6 +170,7 @@ static cfg_opt_t sec_chromecast[] =
     CFG_INT("max_volume", 11, CFGF_NONE),
     CFG_BOOL("exclude", cfg_false, CFGF_NONE),
     CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_STR("nickname", NULL, CFGF_NONE),
     CFG_END()
   };
 

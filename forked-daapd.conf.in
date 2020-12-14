@@ -261,8 +261,7 @@ audio {
 # README about ALSA for details. Note that these settings will override the ALSA
 # settings in the "audio" section above.
 #alsa "card name" {
-	# Name - used in the speaker list in Remote
-	# If not set, the card name will be used
+	# Name used in the speaker list. If not set, the card name will be used.
 #	nickname = "Computer"
 
 	# Mixer channel to use for volume control
@@ -312,6 +311,9 @@ audio {
 
 	# AirPlay password
 #	password = "s1kr3t"
+
+	# Name used in the speaker list, overrides name from the device
+#	nickname = "My speaker name"
 #}
 
 # Chromecast settings
@@ -324,6 +326,9 @@ audio {
 	# Enable this option to exclude a particular device from the speaker
 	# list
 #	exclude = false
+
+	# Name used in the speaker list, overrides name from the device
+#	nickname = "My speaker name"
 #}
 
 # Spotify settings (only have effect if Spotify enabled - see README/INSTALL)

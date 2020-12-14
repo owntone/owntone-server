@@ -128,6 +128,7 @@ struct output_device
   // Device volume
   int volume;
   int relvol;
+  int max_volume;
 
   // Quality of audio output
   struct media_quality quality;

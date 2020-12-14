@@ -2488,31 +2488,16 @@ raop_metadata_send(struct output_metadata *metadata)
 /* ------------------------------ Volume handling --------------------------- */
 
 static float
-raop_volume_from_pct(int volume, char *name)
+raop_volume_from_pct(int volume, struct output_device *device)
 {
   float raop_volume;
-  cfg_t *airplay;
-  int max_volume;
-
-  max_volume = RAOP_CONFIG_MAX_VOLUME;
-
-  airplay = cfg_gettsec(cfg, "airplay", name);
-  if (airplay)
-    max_volume = cfg_getint(airplay, "max_volume");
-
-  if ((max_volume < 1) || (max_volume > RAOP_CONFIG_MAX_VOLUME))
-    {
-      DPRINTF(E_LOG, L_RAOP, "Config has bad max_volume (%d) for device '%s', using default instead\n", max_volume, name);
-
-      max_volume = RAOP_CONFIG_MAX_VOLUME;
-    }
 
   /* RAOP volume
    *  -144.0 is off
    *  0 - 100 maps to -30.0 - 0
    */
   if (volume > 0 && volume <= 100)
-    raop_volume = -30.0 + ((float)max_volume * (float)volume * 30.0) / (100.0 * RAOP_CONFIG_MAX_VOLUME);
+    raop_volume = -30.0 + ((float)device->max_volume * (float)volume * 30.0) / (100.0 * RAOP_CONFIG_MAX_VOLUME);
   else
     raop_volume = -144.0;
 
@@ -2520,11 +2505,9 @@ raop_volume_from_pct(int volume, char *name)
 }
 
 static int
-raop_volume_to_pct(struct output_device *rd, const char *volume)
+raop_volume_to_pct(struct output_device *device, const char *volume)
 {
   float raop_volume;
-  cfg_t *airplay;
-  int max_volume;
 
   raop_volume = atof(volume);
 
@@ -2535,21 +2518,9 @@ raop_volume_to_pct(struct output_device *rd, const char *volume)
       return -1;
     }
 
-  max_volume = RAOP_CONFIG_MAX_VOLUME;
-
-  airplay = cfg_gettsec(cfg, "airplay", rd->name);
-  if (airplay)
-    max_volume = cfg_getint(airplay, "max_volume");
-
-  if ((max_volume < 1) || (max_volume > RAOP_CONFIG_MAX_VOLUME))
-    {
-      DPRINTF(E_LOG, L_RAOP, "Config has bad max_volume (%d) for device '%s', using default instead\n", max_volume, rd->name);
-      max_volume = RAOP_CONFIG_MAX_VOLUME;
-    }
-
   // RAOP volume: -144.0 is off, -30.0 - 0 scaled by max_volume maps to 0 - 100
   if (raop_volume > -30.0 && raop_volume <= 0.0)
-    return (int)(100.0 * (raop_volume / 30.0 + 1.0) * RAOP_CONFIG_MAX_VOLUME / (float)max_volume);
+    return (int)(100.0 * (raop_volume / 30.0 + 1.0) * RAOP_CONFIG_MAX_VOLUME / (float)device->max_volume);
   else
     return 0;
 }
@@ -2557,9 +2528,18 @@ raop_volume_to_pct(struct output_device *rd, const char *volume)
 static int
 raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
 {
+  struct output_device *device;
   struct evbuffer *evbuf;
   float raop_volume;
   int ret;
+
+  device = outputs_device_get(rs->device_id);
+  if (!device)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not set volume, device with id %" PRIu64 " not in out list\n", rs->device_id);
+
+      return -1;
+    }
 
   evbuf = evbuffer_new();
   if (!evbuf)
@@ -2569,7 +2549,7 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
       return -1;
     }
 
-  raop_volume = raop_volume_from_pct(volume, rs->devname);
+  raop_volume = raop_volume_from_pct(volume, device);
 
   /* Don't let locales get in the way here */
   /* We use -%d and -(int)raop_volume so -0.3 won't become 0.3 */
@@ -4438,7 +4418,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   cfg_t *devcfg;
   cfg_opt_t *cfgopt;
   const char *p;
-  char *at_name;
+  const char *device_name;
   char *password;
   char *s;
   char *token;
@@ -4455,36 +4435,40 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       return;
     }
 
-  at_name = strchr(name, '@');
-  if (!at_name)
+  device_name = strchr(name, '@');
+  if (!device_name)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not extract AirPlay device name ('%s')\n", name);
 
       return;
     }
-  at_name++;
+  device_name++;
 
-  DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device '%s' (port %d, id %" PRIx64 ")\n", at_name, port, id);
+  DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device '%s' (port %d, id %" PRIx64 ")\n", device_name, port, id);
 
-  devcfg = cfg_gettsec(cfg, "airplay", at_name);
+  devcfg = cfg_gettsec(cfg, "airplay", device_name);
   if (devcfg && cfg_getbool(devcfg, "exclude"))
     {
-      DPRINTF(E_LOG, L_RAOP, "Excluding AirPlay device '%s' as set in config\n", at_name);
+      DPRINTF(E_LOG, L_RAOP, "Excluding AirPlay device '%s' as set in config\n", device_name);
 
       return;
     }
   if (devcfg && cfg_getbool(devcfg, "permanent") && (port < 0))
     {
-      DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' disappeared, but set as permanent in config\n", at_name);
+      DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' disappeared, but set as permanent in config\n", device_name);
 
       return;
+    }
+  if (devcfg && cfg_getstr(devcfg, "nickname"))
+    {
+      device_name = cfg_getstr(devcfg, "nickname");
     }
 
   CHECK_NULL(L_RAOP, rd = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_RAOP, re = calloc(1, sizeof(struct raop_extra)));
 
   rd->id = id;
-  rd->name = strdup(at_name);
+  rd->name = strdup(device_name);
   rd->type = OUTPUT_TYPE_RAOP;
   rd->type_name = outputs_name(rd->type);
   rd->extra_device_info = re;
@@ -4514,21 +4498,21 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "tp");
   if (!p)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': no tp field in TXT record!\n", at_name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': no tp field in TXT record!\n", device_name);
 
       goto free_rd;
     }
 
   if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': tp has no value\n", at_name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': tp has no value\n", device_name);
 
       goto free_rd;
     }
 
   if (!strstr(p, "UDP"))
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': device does not support AirTunes v2 (tp=%s), discarding\n", at_name, p);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': device does not support AirTunes v2 (tp=%s), discarding\n", device_name, p);
 
       goto free_rd;
     }
@@ -4542,7 +4526,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   else if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': pw has no value\n", at_name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': pw has no value\n", device_name);
 
       goto free_rd;
     }
@@ -4553,13 +4537,13 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (rd->has_password)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s' is password-protected\n", at_name);
+      DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s' is password-protected\n", device_name);
 
       if (devcfg)
 	password = cfg_getstr(devcfg, "password");
 
       if (!password)
-	DPRINTF(E_LOG, L_RAOP, "No password given in config for AirPlay device '%s'\n", at_name);
+	DPRINTF(E_LOG, L_RAOP, "No password given in config for AirPlay device '%s'\n", device_name);
     }
 
   rd->password = password;
@@ -4591,6 +4575,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   if (!quality_is_equal(&rd->quality, &raop_quality_default))
     DPRINTF(E_LOG, L_RAOP, "Device '%s' requested non-default audio quality (%d/%d/%d)\n", rd->name, rd->quality.sample_rate, rd->quality.bits_per_sample, rd->quality.channels);
 
+  // Max volume
+  rd->max_volume = devcfg ? cfg_getint(devcfg, "max_volume") : RAOP_CONFIG_MAX_VOLUME;
+  if ((rd->max_volume < 1) || (rd->max_volume > RAOP_CONFIG_MAX_VOLUME))
+    {
+      DPRINTF(E_LOG, L_RAOP, "Config has bad max_volume (%d) for device '%s', using default instead\n", rd->max_volume, device_name);
+      rd->max_volume = RAOP_CONFIG_MAX_VOLUME;
+    }
+
   // Device type
   re->devtype = RAOP_DEV_OTHER;
   p = keyval_get(txt, "am");
@@ -4608,7 +4600,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else if (strncmp(p, "AudioAccessory", strlen("AudioAccessory")) == 0)
     re->devtype = RAOP_DEV_HOMEPOD;
   else if (*p == '\0')
-    DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s': am has no value\n", at_name);
+    DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s': am has no value\n", device_name);
 
   // If the user didn't set any reconnect setting we enable for Apple TV and
   // HomePods due to https://github.com/ejurgensen/forked-daapd/issues/734
@@ -4665,18 +4657,18 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	rd->v4_address = strdup(address);
 	rd->v4_port = port;
 	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device '%s': password: %u, verification: %u, encrypt: %u, authsetup: %u, metadata: %u, type %s, address %s:%d\n", 
-	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wanted_metadata, raop_devtype[re->devtype], address, port);
+	  device_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wanted_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       case AF_INET6:
 	rd->v6_address = strdup(address);
 	rd->v6_port = port;
 	DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device '%s': password: %u, verification: %u, encrypt: %u, authsetup: %u, metadata: %u, type %s, address [%s]:%d\n", 
-	  at_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wanted_metadata, raop_devtype[re->devtype], address, port);
+	  device_name, rd->has_password, rd->requires_auth, re->encrypt, re->supports_auth_setup, re->wanted_metadata, raop_devtype[re->devtype], address, port);
 	break;
 
       default:
-	DPRINTF(E_LOG, L_RAOP, "Error: AirPlay device '%s' has neither ipv4 og ipv6 address\n", at_name);
+	DPRINTF(E_LOG, L_RAOP, "Error: AirPlay device '%s' has neither ipv4 og ipv6 address\n", device_name);
 	goto free_rd;
     }
 

@@ -1822,7 +1822,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 {
   struct output_device *device;
   const char *friendly_name;
-  cfg_t *chromecast;
+  cfg_t *devcfg;
   uint32_t id;
 
   id = djb_hash(name, strlen(name));
@@ -1838,11 +1838,15 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 
   DPRINTF(E_DBG, L_CAST, "Event for Chromecast device '%s' (port %d, id %" PRIu32 ")\n", name, port, id);
 
-  chromecast = cfg_gettsec(cfg, "chromecast", name);
-  if (chromecast && cfg_getbool(chromecast, "exclude"))
+  devcfg = cfg_gettsec(cfg, "chromecast", name);
+  if (devcfg && cfg_getbool(devcfg, "exclude"))
     {
       DPRINTF(E_LOG, L_CAST, "Excluding Chromecast device '%s' as set in config\n", name);
       return;
+    }
+  if (devcfg && cfg_getstr(devcfg, "nickname"))
+    {
+      name = cfg_getstr(devcfg, "nickname");
     }
 
   device = calloc(1, sizeof(struct output_device));
@@ -1874,6 +1878,14 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
       player_device_remove(device);
 
       return;
+    }
+
+  // Max volume
+  device->max_volume = devcfg ? cfg_getint(devcfg, "max_volume") : CAST_CONFIG_MAX_VOLUME;
+  if ((device->max_volume < 1) || (device->max_volume > CAST_CONFIG_MAX_VOLUME))
+    {
+      DPRINTF(E_LOG, L_CAST, "Config has bad max_volume (%d) for device '%s', using default instead\n", device->max_volume, name);
+      device->max_volume = CAST_CONFIG_MAX_VOLUME;
     }
 
   DPRINTF(E_INFO, L_CAST, "Adding Chromecast device '%s'\n", name);
@@ -2261,22 +2273,12 @@ static int
 cast_device_volume_set(struct output_device *device, int callback_id)
 {
   struct cast_session *cs = device->session;
-  cfg_t *cast_cfg;
-  int max_volume;
   int ret;
 
   if (!cs || !(cs->state & CAST_STATE_F_APP_READY))
     return 0;
 
-  cast_cfg = cfg_gettsec(cfg, "chromecast", device->name);
-  max_volume = cast_cfg ? cfg_getint(cast_cfg, "max_volume") : CAST_CONFIG_MAX_VOLUME;
-  if ((max_volume < 1) || (max_volume > CAST_CONFIG_MAX_VOLUME))
-    {
-      DPRINTF(E_LOG, L_CAST, "Config has bad max_volume (%d) for device '%s', using default instead\n", max_volume, device->name);
-      max_volume = CAST_CONFIG_MAX_VOLUME;
-    }
-
-  cs->volume = ((float)max_volume * (float)device->volume * 1.0) / (100.0 * CAST_CONFIG_MAX_VOLUME);
+  cs->volume = ((float)device->max_volume * (float)device->volume * 1.0) / (100.0 * CAST_CONFIG_MAX_VOLUME);
 
   ret = cast_msg_send(cs, SET_VOLUME, cast_cb_volume);
   if (ret < 0)
