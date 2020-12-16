@@ -162,6 +162,14 @@ FORK_MODULES_CHECK([FORKED], [JSON_C], [json-c],
 			[Define to 1 if you have json-c < 0.11])])
 	])
 
+dnl Build with libplist (2.2.0 does not ship libplist.pc, only libplist-2.0.pc)
+PKG_CHECK_EXISTS([libplist],
+	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist >= 0.16],
+		[plist_dict_get_item], [plist/plist.h])],
+	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist-2.0],
+		[plist_dict_get_item], [plist/plist.h])])
+
+
 FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	[antlr3BaseRecognizerNew], [antlr3.h],
 	[AC_CHECK_FUNC([[antlr3NewAsciiStringInPlaceStream]],
@@ -261,13 +269,6 @@ AM_CONDITIONAL([COND_LIBWEBSOCKETS], [[test "x$with_libwebsockets" = "xyes"]])
 dnl Build with libsodium
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libsodium support], [libsodium], [LIBSODIUM],
 	[libsodium], [sodium_init], [sodium.h])
-
-dnl Build with libplist (2.2.0 does not ship libplist.pc, only libplist-2.0.pc)
-PKG_CHECK_EXISTS([libplist],
-	[FORK_ARG_WITH_CHECK([FORKED_OPTS], [libplist support], [libplist], [LIBPLIST],
-		[libplist >= 0.16], [plist_dict_get_item], [plist/plist.h])],
-	[FORK_ARG_WITH_CHECK([FORKED_OPTS], [libplist support], [libplist], [LIBPLIST],
-		[libplist-2.0], [plist_dict_get_item], [plist/plist.h])])
 
 dnl Build with libevent_pthreads
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libevent_pthreads support],
