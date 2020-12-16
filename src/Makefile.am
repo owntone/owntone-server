@@ -143,6 +143,7 @@ forked_daapd_SOURCES = main.c \
 	listener.c listener.h \
 	commands.c commands.h \
 	mxml-compat.h \
+	outputs/plist_wrap.h \
 	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
 	$(ANTLR_SRC) 
