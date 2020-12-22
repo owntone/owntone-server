@@ -35,6 +35,7 @@ struct rtp_packet
   int samples;         // Number of samples in the packet
 
   uint8_t *header;     // Pointer to the RTP header
+  size_t header_len;   // Length of RTP header (12 bytes)
 
   uint8_t *payload;    // Pointer to the RTP payload
   size_t payload_size; // Size of allocated memory for RTP payload
