@@ -1465,6 +1465,8 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 	{
 	  if (strncmp(user_agent, "iTunes", strlen("iTunes")) == 0)
 	    client_codecs = itunes_codecs;
+	  else if (strncmp(user_agent, "Music/", strlen("Music/")) == 0) // Apple Music, include slash because the name is generic
+	    client_codecs = itunes_codecs;
 	  else if (strncmp(user_agent, "QuickTime", strlen("QuickTime")) == 0)
 	    client_codecs = itunes_codecs; // Use iTunes codecs
 	  else if (strncmp(user_agent, "Front%20Row", strlen("Front%20Row")) == 0)
