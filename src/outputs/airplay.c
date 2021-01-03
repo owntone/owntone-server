@@ -3116,6 +3116,26 @@ start_retry(struct airplay_session *rs)
   airplay_device_start(device, callback_id);
 }
 
+static void
+probe_failure(struct airplay_session *rs)
+{
+  struct output_device *device;
+
+  device = outputs_device_get(rs->device_id);
+  if (!device)
+    {
+      session_failure(rs);
+      return;
+    }
+
+  // If we have an auth_key we will send encrypted requests to the device, but
+  // if the key is incorrect it will not be able to read the request, which will
+  // lead to a timeout error -> probe_failure
+  free(device->auth_key);
+  device->auth_key = NULL;
+
+  session_failure(rs);
+}
 
 /* ---------------------------- RTSP response handlers ---------------------- */
 
@@ -3664,7 +3684,7 @@ static struct airplay_seq_definition airplay_seq_definition[] =
   { AIRPLAY_SEQ_START, NULL, start_retry },
   { AIRPLAY_SEQ_START_RERUN, NULL, start_retry },
   { AIRPLAY_SEQ_START_AP2, session_connected, start_failure },
-  { AIRPLAY_SEQ_PROBE, session_success, session_failure },
+  { AIRPLAY_SEQ_PROBE, session_success, probe_failure },
   { AIRPLAY_SEQ_FLUSH, session_status, session_failure },
   { AIRPLAY_SEQ_STOP, session_success, session_failure },
   { AIRPLAY_SEQ_FAILURE, session_success, session_failure},
