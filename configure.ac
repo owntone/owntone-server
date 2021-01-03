@@ -322,6 +322,9 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
+dnl Prefer AirPlay 2
+FORK_ARG_ENABLE([preference for AirPlay 2 for devices that support both 1 and 2], [preferairplay2], [PREFER_AIRPLAY2])
+
 dnl DB profiling support
 FORK_ARG_ENABLE([DB profiling support], [dbprofile], [DB_PROFILE])
 

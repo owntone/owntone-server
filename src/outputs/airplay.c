@@ -4413,7 +4413,11 @@ struct output_definition output_airplay =
 {
   .name = "AirPlay 2",
   .type = OUTPUT_TYPE_AIRPLAY,
-  .priority = 2, // AirPlay 1 has priority for the time being
+#ifdef PREFER_AIRPLAY2
+  .priority = 1,
+#else
+  .priority = 2,
+#endif
   .disabled = 0,
   .init = airplay_init,
   .deinit = airplay_deinit,
