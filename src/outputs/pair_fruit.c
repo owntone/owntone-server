@@ -634,11 +634,12 @@ pair_setup_free(struct pair_setup_context *sctx)
 }
 
 static uint8_t *
-pair_setup_request1(uint32_t *len, struct pair_setup_context *sctx)
+pair_setup_request1(size_t *len, struct pair_setup_context *sctx)
 {
   plist_t dict;
   plist_t method;
   plist_t user;
+  uint32_t uint32;
   char *data = NULL; // Necessary to initialize because plist_to_bin() uses value
 
   sctx->user = srp_user_new(HASH_SHA1, SRP_NG_2048, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin), 0, 0);
@@ -650,19 +651,21 @@ pair_setup_request1(uint32_t *len, struct pair_setup_context *sctx)
 
   plist_dict_set_item(dict, "method", method);
   plist_dict_set_item(dict, "user", user);
-  plist_to_bin(dict, &data, len);
+  plist_to_bin(dict, &data, &uint32);
   plist_free(dict);
 
+  *len = (size_t)uint32;
   return (uint8_t *)data;
 }
 
 static uint8_t *
-pair_setup_request2(uint32_t *len, struct pair_setup_context *sctx)
+pair_setup_request2(size_t *len, struct pair_setup_context *sctx)
 {
   plist_t dict;
   plist_t pk;
   plist_t proof;
   const char *auth_username = NULL;
+  uint32_t uint32;
   char *data = NULL;
 
   // Calculate A
@@ -677,18 +680,20 @@ pair_setup_request2(uint32_t *len, struct pair_setup_context *sctx)
   dict = plist_new_dict();
   plist_dict_set_item(dict, "pk", pk);
   plist_dict_set_item(dict, "proof", proof);
-  plist_to_bin(dict, &data, len);
+  plist_to_bin(dict, &data, &uint32);
   plist_free(dict);
 
+  *len = (size_t)uint32;
   return (uint8_t *)data;
 }
 
 static uint8_t *
-pair_setup_request3(uint32_t *len, struct pair_setup_context *sctx)
+pair_setup_request3(size_t *len, struct pair_setup_context *sctx)
 {
   plist_t dict;
   plist_t epk;
   plist_t authtag;
+  uint32_t uint32;
   char *data = NULL;
   const unsigned char *session_key;
   int session_key_len;
@@ -740,14 +745,15 @@ pair_setup_request3(uint32_t *len, struct pair_setup_context *sctx)
   dict = plist_new_dict();
   plist_dict_set_item(dict, "epk", epk);
   plist_dict_set_item(dict, "authTag", authtag);
-  plist_to_bin(dict, &data, len);
+  plist_to_bin(dict, &data, &uint32);
   plist_free(dict);
 
+  *len = (size_t)uint32;
   return (uint8_t *)data;
 }
 
 static int
-pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len)
+pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
 {
   plist_t dict;
   plist_t pk;
@@ -773,7 +779,7 @@ pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, uint3
 }
 
 static int
-pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len)
+pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
 {
   plist_t dict;
   plist_t proof;
@@ -804,7 +810,7 @@ pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, uint3
 }
 
 static int
-pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len)
+pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
 {
   plist_t dict;
   plist_t epk;
@@ -855,7 +861,7 @@ pair_setup_result(const uint8_t **key, size_t *key_len, struct pair_setup_contex
 
 
 static uint8_t *
-pair_verify_request1(uint32_t *len, struct pair_verify_context *vctx)
+pair_verify_request1(size_t *len, struct pair_verify_context *vctx)
 {
   const uint8_t basepoint[32] = {9};
   uint8_t *data;
@@ -884,7 +890,7 @@ pair_verify_request1(uint32_t *len, struct pair_verify_context *vctx)
 }
 
 static uint8_t *
-pair_verify_request2(uint32_t *len, struct pair_verify_context *vctx)
+pair_verify_request2(size_t *len, struct pair_verify_context *vctx)
 {
   uint8_t shared_secret[crypto_scalarmult_BYTES];
   uint8_t key[SHA512_DIGEST_LENGTH];
@@ -952,9 +958,9 @@ pair_verify_request2(uint32_t *len, struct pair_verify_context *vctx)
 }
 
 static int
-pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len)
+pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len)
 {
-  uint32_t wanted;
+  size_t wanted;
 
   wanted = sizeof(vctx->server_eph_public_key) + sizeof(vctx->server_public_key);
   if (data_len < wanted)
@@ -970,7 +976,7 @@ pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, uin
 }
 
 static int
-pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len)
+pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len)
 {
   // TODO actually check response
   return 0;

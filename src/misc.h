@@ -150,6 +150,9 @@ b64_encode(const uint8_t *src, int srclen);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
+void
+uuid_make(char *str);
+
 int
 linear_regression(double *m, double *b, double *r, const double *x, const double *y, int n);
 

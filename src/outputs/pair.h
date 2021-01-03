@@ -35,18 +35,18 @@ const char *
 pair_setup_errmsg(struct pair_setup_context *sctx);
 
 uint8_t *
-pair_setup_request1(uint32_t *len, struct pair_setup_context *sctx);
+pair_setup_request1(size_t *len, struct pair_setup_context *sctx);
 uint8_t *
-pair_setup_request2(uint32_t *len, struct pair_setup_context *sctx);
+pair_setup_request2(size_t *len, struct pair_setup_context *sctx);
 uint8_t *
-pair_setup_request3(uint32_t *len, struct pair_setup_context *sctx);
+pair_setup_request3(size_t *len, struct pair_setup_context *sctx);
 
 int
-pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len);
+pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
 int
-pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len);
+pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
 int
-pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len);
+pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
 
 /* Returns a 0-terminated string that is the authorisation key, along with a
  * pointer to the binary representation. The string can be used to initialize
@@ -73,14 +73,14 @@ const char *
 pair_verify_errmsg(struct pair_verify_context *vctx);
 
 uint8_t *
-pair_verify_request1(uint32_t *len, struct pair_verify_context *vctx);
+pair_verify_request1(size_t *len, struct pair_verify_context *vctx);
 uint8_t *
-pair_verify_request2(uint32_t *len, struct pair_verify_context *vctx);
+pair_verify_request2(size_t *len, struct pair_verify_context *vctx);
 
 int
-pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len);
+pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len);
 int
-pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len);
+pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len);
 
 /* Returns a pointer to the shared secret that is the result of the pairing.
  * Note that the pointers become invalid when you free vctx.

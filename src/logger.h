@@ -36,8 +36,9 @@
 #define L_FIFO        27
 #define L_LIB         28
 #define L_WEB         29
+#define L_AIRPLAY     30
 
-#define N_LOGDOMAINS  30
+#define N_LOGDOMAINS  31
 
 /* Severities */
 #define E_FATAL   0

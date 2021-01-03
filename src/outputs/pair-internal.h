@@ -81,19 +81,19 @@ struct pair_definition
   void (*pair_setup_free)(struct pair_setup_context *sctx);
   int (*pair_setup_result)(const uint8_t **key, size_t *key_len, struct pair_setup_context *sctx);
 
-  uint8_t *(*pair_setup_request1)(uint32_t *len, struct pair_setup_context *sctx);
-  uint8_t *(*pair_setup_request2)(uint32_t *len, struct pair_setup_context *sctx);
-  uint8_t *(*pair_setup_request3)(uint32_t *len, struct pair_setup_context *sctx);
+  uint8_t *(*pair_setup_request1)(size_t *len, struct pair_setup_context *sctx);
+  uint8_t *(*pair_setup_request2)(size_t *len, struct pair_setup_context *sctx);
+  uint8_t *(*pair_setup_request3)(size_t *len, struct pair_setup_context *sctx);
 
-  int (*pair_setup_response1)(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len);
-  int (*pair_setup_response2)(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len);
-  int (*pair_setup_response3)(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len);
+  int (*pair_setup_response1)(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
+  int (*pair_setup_response2)(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
+  int (*pair_setup_response3)(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
 
-  uint8_t *(*pair_verify_request1)(uint32_t *len, struct pair_verify_context *vctx);
-  uint8_t *(*pair_verify_request2)(uint32_t *len, struct pair_verify_context *vctx);
+  uint8_t *(*pair_verify_request1)(size_t *len, struct pair_verify_context *vctx);
+  uint8_t *(*pair_verify_request2)(size_t *len, struct pair_verify_context *vctx);
 
-  int (*pair_verify_response1)(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len);
-  int (*pair_verify_response2)(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len);
+  int (*pair_verify_response1)(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len);
+  int (*pair_verify_response2)(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len);
 
   struct pair_cipher_context *(*pair_cipher_new)(struct pair_definition *type, int channel, const uint8_t *shared_secret, size_t shared_secret_len);
   void (*pair_cipher_free)(struct pair_cipher_context *cctx);

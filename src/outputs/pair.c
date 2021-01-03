@@ -299,7 +299,7 @@ pair_setup_errmsg(struct pair_setup_context *sctx)
 }
 
 uint8_t *
-pair_setup_request1(uint32_t *len, struct pair_setup_context *sctx)
+pair_setup_request1(size_t *len, struct pair_setup_context *sctx)
 {
   if (!sctx->type->pair_setup_request1)
     return NULL;
@@ -313,7 +313,7 @@ pair_setup_request1(uint32_t *len, struct pair_setup_context *sctx)
 }
 
 uint8_t *
-pair_setup_request2(uint32_t *len, struct pair_setup_context *sctx)
+pair_setup_request2(size_t *len, struct pair_setup_context *sctx)
 {
   if (!sctx->type->pair_setup_request2)
     return NULL;
@@ -322,7 +322,7 @@ pair_setup_request2(uint32_t *len, struct pair_setup_context *sctx)
 }
 
 uint8_t *
-pair_setup_request3(uint32_t *len, struct pair_setup_context *sctx)
+pair_setup_request3(size_t *len, struct pair_setup_context *sctx)
 {
   if (!sctx->type->pair_setup_request3)
     return NULL;
@@ -331,7 +331,7 @@ pair_setup_request3(uint32_t *len, struct pair_setup_context *sctx)
 }
 
 int
-pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len)
+pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
 {
   if (!sctx->type->pair_setup_response1)
     return -1;
@@ -340,7 +340,7 @@ pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, uint3
 }
 
 int
-pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len)
+pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
 {
   if (!sctx->type->pair_setup_response2)
     return -1;
@@ -349,7 +349,7 @@ pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, uint3
 }
 
 int
-pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, uint32_t data_len)
+pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
 {
   if (!sctx->type->pair_setup_response3)
     return -1;
@@ -466,7 +466,7 @@ pair_verify_errmsg(struct pair_verify_context *vctx)
 }
 
 uint8_t *
-pair_verify_request1(uint32_t *len, struct pair_verify_context *vctx)
+pair_verify_request1(size_t *len, struct pair_verify_context *vctx)
 {
   if (!vctx->type->pair_verify_request1)
     return NULL;
@@ -475,7 +475,7 @@ pair_verify_request1(uint32_t *len, struct pair_verify_context *vctx)
 }
 
 uint8_t *
-pair_verify_request2(uint32_t *len, struct pair_verify_context *vctx)
+pair_verify_request2(size_t *len, struct pair_verify_context *vctx)
 {
   if (!vctx->type->pair_verify_request2)
     return NULL;
@@ -484,7 +484,7 @@ pair_verify_request2(uint32_t *len, struct pair_verify_context *vctx)
 }
 
 int
-pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len)
+pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len)
 {
   if (!vctx->type->pair_verify_response1)
     return -1;
@@ -493,7 +493,7 @@ pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, uin
 }
 
 int
-pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, uint32_t data_len)
+pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len)
 {
   if (!vctx->type->pair_verify_response2)
     return -1;
