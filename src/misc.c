@@ -57,11 +57,6 @@ static char *buildopts[] =
 #else
     "libav",
 #endif
-#ifdef ITUNES
-    "iTunes XML",
-#else
-    "Without iTunes XML",
-#endif
 #ifdef SPOTIFY
     "Spotify",
 #else
@@ -81,11 +76,6 @@ static char *buildopts[] =
     "MPD",
 #else
     "Without MPD",
-#endif
-#ifdef RAOP_VERIFICATION
-    "Device verification",
-#else
-    "Without device verification",
 #endif
 #ifdef HAVE_LIBWEBSOCKETS
     "Websockets",

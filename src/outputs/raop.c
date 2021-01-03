@@ -64,10 +64,7 @@
 #include "dmap_common.h"
 #include "rtp_common.h"
 #include "outputs.h"
-
-#ifdef RAOP_VERIFICATION
 #include "pair.h"
-#endif
 
 #define ALAC_HEADER_LEN                      3
 
@@ -222,11 +219,9 @@ struct raop_session
   unsigned short control_port;
   unsigned short timing_port; // ATV4 has this set to 0, but it is not used by forked-daapd anyway
 
-#ifdef RAOP_VERIFICATION
   /* Device verification, see pair.h */
   struct pair_verify_context *pair_verify_ctx;
   struct pair_setup_context *pair_setup_ctx;
-#endif
 
   int server_fd;
 
@@ -1658,7 +1653,6 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb, const char *log
   return 0;
 }
 
-#ifdef RAOP_VERIFICATION
 static int
 raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
 {
@@ -1696,14 +1690,6 @@ raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *l
 
   return 0;
 }
-#else
-static int
-raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
-{
-  DPRINTF(E_LOG, L_RAOP, "Device '%s' requires verification, but forked-daapd was built with --disable-verification\n", rs->devname);
-  return -1;
-}
-#endif
 
 
 /* ------------------------------ Session handling -------------------------- */
@@ -3987,7 +3973,6 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 /* ------------------------- tvOS device verification ----------------------- */
 /*                 e.g. for the ATV4 (read it from the bottom and up)         */
 
-#ifdef RAOP_VERIFICATION
 static int
 raop_pair_response_process(int step, struct evrtsp_request *req, struct raop_session *rs)
 {
@@ -4364,16 +4349,6 @@ raop_device_authorize(struct output_device *device, const char *pin, int callbac
 
   return 1;
 }
-
-#else
-static int
-raop_pair_verify(struct raop_session *rs)
-{
-  DPRINTF(E_LOG, L_RAOP, "Device '%s' requires verification, but forked-daapd was built with --disable-verification\n", rs->devname);
-
-  return -1;
-}
-#endif /* RAOP_VERIFICATION */
 
 
 /* ------------------ RAOP devices discovery - mDNS callback ---------------- */
@@ -4995,7 +4970,5 @@ struct output_definition output_raop =
   .metadata_prepare = raop_metadata_prepare,
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,
-#ifdef RAOP_VERIFICATION
   .device_authorize = raop_device_authorize,
-#endif
 };

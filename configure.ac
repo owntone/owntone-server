@@ -118,6 +118,7 @@ FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
 FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse >= 3.0], [cfg_init], [confuse.h])
 FORK_MODULES_CHECK([FORKED], [LIBCURL], [libcurl], [curl_global_init], [curl/curl.h])
+FORK_MODULES_CHECK([FORKED], [LIBSODIUM], [libsodium], [sodium_init], [sodium.h])
 
 FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml],
 	[mxmlNewElement], [mxml.h],
@@ -185,6 +186,7 @@ FORK_FUNC_REQUIRE([FORKED], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
 AM_PATH_GPG_ERROR([1.6])
 FORK_FUNC_REQUIRE([FORKED], [GNUPG Error Values], [GPG_ERROR_MT], [gpg-error],
 	[gpg_err_init], [gpg-error.h])
+
 
 AC_CHECK_HEADER([sys/eventfd.h], [AC_CHECK_FUNCS([eventfd])])
 
@@ -266,10 +268,6 @@ FORK_ARG_WITH_CHECK([FORKED_OPTS], [libwebsockets support], [libwebsockets], [LI
 	[libwebsockets >= 2.0.2])
 AM_CONDITIONAL([COND_LIBWEBSOCKETS], [[test "x$with_libwebsockets" = "xyes"]])
 
-dnl Build with libsodium
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [libsodium support], [libsodium], [LIBSODIUM],
-	[libsodium], [sodium_init], [sodium.h])
-
 dnl Build with libevent_pthreads
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libevent_pthreads support],
 	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
@@ -327,26 +325,9 @@ AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 dnl DB profiling support
 FORK_ARG_ENABLE([DB profiling support], [dbprofile], [DB_PROFILE])
 
-dnl iTunes playlists with libplist
-FORK_ARG_DISABLE([iTunes Music Library XML support], [itunes], [ITUNES],
-	[AS_IF([[test "x$with_libplist" = "xno"]],
-		[AC_MSG_ERROR([[iTunes Music Library XML support requires libplist]])])
-	])
-AM_CONDITIONAL([COND_ITUNES], [[test "x$enable_itunes" = "xyes"]])
-
 dnl MPD support
 FORK_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
 AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
-
-dnl Apple device verification
-FORK_ARG_DISABLE([Apple TV device verification], [verification], [RAOP_VERIFICATION],
-	[
-	 AS_IF([[test "x$with_libsodium" = "xno"]],
-		[AC_MSG_ERROR([[Apple TV device verification requires libsodium]])])
-	 AS_IF([[test "x$with_libplist" = "xno"]],
-		[AC_MSG_ERROR([[Apple TV device verification requires libplist]])])
-	])
-AM_CONDITIONAL([COND_RAOP_VERIFICATION], [[test "x$enable_verification" = "xyes"]])
 
 dnl Include default webinterface
 FORK_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE],
