@@ -816,7 +816,7 @@ outputs_device_remove(struct output_device *remove)
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
-  DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
+  DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'\n", remove->type_name, remove->name);
 
   if (!prev)
     outputs_device_list = remove->next;
