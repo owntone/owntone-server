@@ -703,6 +703,21 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 	break;
     }
 
+  // This is relevant for Airplay 1 and 2 where the same device can support both
+  if (device && device->type != add->type)
+    {
+      if (outputs_priority(device) < outputs_priority(add))
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Ignoring type %s for device '%s', will use type %s\n", add->type_name, add->name, device->type_name);
+	  outputs_device_free(add);
+	  return NULL;
+	}
+
+      // Remove existing device, higher priority device will be added below
+      outputs_device_remove(device);
+      device = NULL;
+    }
+
   // New device
   if (!device)
     {

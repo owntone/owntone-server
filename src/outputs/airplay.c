@@ -2690,22 +2690,6 @@ Bit 	Value 	Type
 31 	0x80000000 	AAC-ELD/44100/1
 32 	0x100000000 	AAC-ELD/48000/1
 */
-
-
-// {'streams': [{'audioFormat': 262144,
-//           'audioMode': 'default',
-//           'controlPort': 60242,
-//           'ct': 2,
-//           'isMedia': True,
-//           'latencyMax': 88200,
-//           'latencyMin': 11025,
-//           'shk': b'\xdbc\x9b,\xdb\x15\x82\x19\x0b\xbf\xd3\xd0\x81\xc5\x7f7'
-//                  b'\xaf\x7f\xb2l\xec\xca\xc8\xd0\x8d\x9d\x1d\xa8'
-//                  b'\xda\xa2\xf7\xd0',
-//           'spf': 352,
-//           'supportsDynamicStreamID': True,
-//           'type': 96}]}
-
 static int
 payload_make_setup_stream(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
@@ -4409,7 +4393,7 @@ struct output_definition output_airplay =
 {
   .name = "AirPlay 2",
   .type = OUTPUT_TYPE_AIRPLAY,
-  .priority = 1,
+  .priority = 2, // AirPlay 1 has priority for the time being
   .disabled = 0,
   .init = airplay_init,
   .deinit = airplay_deinit,
