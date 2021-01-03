@@ -4207,21 +4207,13 @@ static int
 raop_pair_verify(struct raop_session *rs)
 {
   struct output_device *device;
-  const char *auth_key;
   int ret;
 
   device = outputs_device_get(rs->device_id);
   if (!device)
     goto error;
 
-  // Backwards compat - older versions saved the key as concat of public key and
-  // private key, but the pair_verify_new only wants the private key
-  if (strlen(device->auth_key) == (32 + 64) * 2)
-    auth_key = device->auth_key + 32;
-  else
-    auth_key = device->auth_key;
-
-  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_FRUIT, auth_key, NULL));
+  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_FRUIT, device->auth_key, NULL));
 
   ret = raop_pair_request_send(4, rs, raop_cb_pair_verify_step1);
   if (ret < 0)
