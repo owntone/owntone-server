@@ -73,7 +73,7 @@
 #define AIRPLAY_USE_STREAMID                 0
 #define AIRPLAY_USE_PAIRING_TRANSIENT        1
 
-// Full traffic dumps in the log
+// Full traffic dumps in the log in debug mode
 #define AIRPLAY_DUMP_TRAFFIC                 1
 
 
@@ -249,7 +249,7 @@ struct airplay_session
 
   int reqs_in_flight;
   int cseq;
-  char *session;
+
   uint32_t session_id;
   char session_url[128];
   char session_uuid[37];
@@ -923,9 +923,6 @@ request_headers_add(struct evrtsp_request *req, struct airplay_session *rs, enum
   snprintf(buf, sizeof(buf), "%" PRIu32, (uint32_t)rs->device_id);
   evrtsp_add_header(req->output_headers, "Active-Remote", buf);
 
-  if (rs->session)
-    evrtsp_add_header(req->output_headers, "Session", rs->session);
-
 #if AIRPLAY_USE_STREAMID
   evrtsp_add_header(req->output_headers, "X-Apple-StreamID", "1");
 #endif
@@ -1223,7 +1220,6 @@ session_free(struct airplay_session *rs)
   free(rs->local_address);
   free(rs->realm);
   free(rs->nonce);
-  free(rs->session);
   free(rs->address);
   free(rs->devname);
 
@@ -3159,7 +3155,7 @@ start_retry(struct airplay_session *rs)
   int callback_id = rs->callback_id;
 
   device = outputs_device_get(rs->device_id);
-  if (!device || !rs->session)
+  if (!device)
     {
       session_failure(rs);
       return;
@@ -3251,7 +3247,7 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
       goto error;
     }
 
-  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated AirTunes v2 UDP streaming session %s; ports d=%u c=%u t=%u e=%u\n", rs->session, rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
+  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated AirTunes v2 UDP streaming session; ports d=%u c=%u t=%u e=%u\n", rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
 
   rs->server_fd = device_connect(rs, rs->data_port, SOCK_DGRAM);
   if (rs->server_fd < 0)
