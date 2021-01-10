@@ -1776,6 +1776,7 @@ pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, s
       if (ret < 0)
 	{
 	  cctx->errmsg = "Encryption with chacha poly1305 failed";
+	  cctx->encryption_counter = cctx->encryption_counter_prev;
 	  free(*ciphertext);
 	  return -1;
 	}
@@ -1820,9 +1821,10 @@ pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, si
       memcpy(&block_len, cipher_block, sizeof(block_len)); // TODO BE or LE?
       if (cipher_block + block_len + sizeof(block_len) + AUTHTAG_LENGTH > ciphertext + ciphertext_len)
 	{
-	  cctx->errmsg = "Corrupt block length in encrypted data";
+	  cctx->errmsg = "Insufficient encrypted data or corrupt block length";
+	  cctx->decryption_counter = cctx->decryption_counter_prev;
 	  free(*plaintext);
-	  return -1; // Corrupt block_len, stop before we read over the end
+	  return -2; // Corrupt block_len, stop before we read over the end
 	}
 
       memcpy(tag, cipher_block + sizeof(block_len) + block_len, sizeof(tag));
@@ -1832,6 +1834,7 @@ pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, si
       if (ret < 0)
 	{
 	  cctx->errmsg = "Decryption with chacha poly1305 failed";
+	  cctx->decryption_counter = cctx->decryption_counter_prev;
 	  free(*plaintext);
 	  return -1;
 	}

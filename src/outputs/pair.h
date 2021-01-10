@@ -102,6 +102,9 @@ pair_cipher_free(struct pair_cipher_context *cctx);
 const char *
 pair_cipher_errmsg(struct pair_cipher_context *cctx);
 
+/* Return 0 is success, -1 is general error, -2 is ciphertext_len shorter than
+ * blocklen in payload
+ */
 int
 pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx);
 int
