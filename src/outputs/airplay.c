@@ -74,7 +74,7 @@
 #define AIRPLAY_USE_PAIRING_TRANSIENT        1
 
 // Full traffic dumps in the log in debug mode
-#define AIRPLAY_DUMP_TRAFFIC                 1
+#define AIRPLAY_DUMP_TRAFFIC                 0
 
 
 #define ALAC_HEADER_LEN                      3
