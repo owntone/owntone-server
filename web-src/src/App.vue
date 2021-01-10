@@ -107,18 +107,18 @@ export default {
 
       const vm = this
 
-      var protocol = 'ws://'
+      let protocol = 'ws://'
       if (window.location.protocol === 'https:') {
         protocol = 'wss://'
       }
 
-      var wsUrl = protocol + window.location.hostname + ':' + vm.$store.state.config.websocket_port
+      let wsUrl = protocol + window.location.hostname + ':' + vm.$store.state.config.websocket_port
       if (process.env.NODE_ENV === 'development' && process.env.VUE_APP_WEBSOCKET_SERVER) {
         // If we are running in the development server, use the websocket url configured in .env.development
         wsUrl = process.env.VUE_APP_WEBSOCKET_SERVER
       }
 
-      var socket = new ReconnectingWebSocket(
+      const socket = new ReconnectingWebSocket(
         wsUrl,
         'notify',
         { reconnectInterval: 3000 }
@@ -146,7 +146,7 @@ export default {
         vm.$store.dispatch('add_notification', { text: 'Connection lost. Reconnecting ... (' + vm.reconnect_attempts + ')', type: 'danger', topic: 'connection' })
       }
       socket.onmessage = function (response) {
-        var data = JSON.parse(response.data)
+        const data = JSON.parse(response.data)
         if (data.notify.includes('update') || data.notify.includes('database')) {
           vm.update_library_stats()
         }

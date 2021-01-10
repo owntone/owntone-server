@@ -39,7 +39,7 @@ export default class Artists {
   }
 
   createSortedAndFilteredList () {
-    var artistsSorted = this.items
+    let artistsSorted = this.items
     if (this.options.hideSingles || this.options.hideSpotify || this.options.hideOther) {
       artistsSorted = artistsSorted.filter(artist => this.isArtistVisible(artist))
     }
