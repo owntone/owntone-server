@@ -19,12 +19,31 @@ export default class Albums {
   getAlbumIndex (album) {
     if (this.options.sort === 'Recently added') {
       return album.time_added.substring(0, 4)
+    } else if (this.options.sort === 'Recently added (browse)') {
+      return this.getRecentlyAddedBrowseIndex(album.time_added)
     } else if (this.options.sort === 'Recently released') {
       return album.date_released ? album.date_released.substring(0, 4) : '0000'
     } else if (this.options.sort === 'Release date') {
       return album.date_released ? album.date_released.substring(0, 4) : '0000'
     }
     return album.name_sort.charAt(0).toUpperCase()
+  }
+
+  getRecentlyAddedBrowseIndex (recentlyAdded) {
+    if (!recentlyAdded) {
+      return '0000'
+    }
+
+    const diff = new Date().getTime() - new Date(recentlyAdded).getTime()
+
+    if (diff < 86400000) { // 24h
+      return 'Today'
+    } else if (diff < 604800000) { // 7 days
+      return 'Last week'
+    } else if (diff < 2592000000) { // 30 days
+      return 'Last month'
+    }
+    return recentlyAdded.substring(0, 4)
   }
 
   isAlbumVisible (album) {
@@ -47,7 +66,7 @@ export default class Albums {
     if (this.options.hideSingles || this.options.hideSpotify || this.options.hideOther) {
       albumsSorted = albumsSorted.filter(album => this.isAlbumVisible(album))
     }
-    if (this.options.sort === 'Recently added') {
+    if (this.options.sort === 'Recently added' || this.options.sort === 'Recently added (browse)') {
       albumsSorted = [...albumsSorted].sort((a, b) => b.time_added.localeCompare(a.time_added))
     } else if (this.options.sort === 'Recently released') {
       albumsSorted = [...albumsSorted].sort((a, b) => {

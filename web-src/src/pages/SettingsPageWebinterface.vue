@@ -83,12 +83,12 @@
 
     <content-with-heading>
       <template slot="heading-left">
-        <div class="title is-4">Recently Added</div>
+        <div class="title is-4">Recently added page</div>
       </template>
 
       <template slot="content">
         <settings-intfield category_name="webinterface" option_name="recently_added_limit">
-          <template slot="label"> Limit on number of albums to show on 'Recently Added' page</template>
+          <template slot="label">Limit the number of albums shown on the "Recently Added" page</template>
         </settings-intfield>
       </template>
     </content-with-heading>

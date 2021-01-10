@@ -10,7 +10,11 @@
             }"> {{ info }}</i>
       </label>
       <div class="control">
-        <input class="input" type="number" min="0" :placeholder="placeholder"
+        <input class="input"
+            type="number"
+            min="0"
+            style="width: 10em;"
+            :placeholder="placeholder"
             :value="value"
             @input="set_update_timer"
             ref="settings_number">
