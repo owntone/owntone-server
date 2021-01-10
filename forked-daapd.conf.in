@@ -312,6 +312,9 @@ audio {
 	# AirPlay password
 #	password = "s1kr3t"
 
+	# Disable AirPlay 1 (RAOP)
+#	raop_disable = false
+
 	# Name used in the speaker list, overrides name from the device
 #	nickname = "My speaker name"
 #}

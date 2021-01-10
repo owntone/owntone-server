@@ -160,6 +160,7 @@ static cfg_opt_t sec_airplay[] =
     CFG_BOOL("permanent", cfg_false, CFGF_NONE),
     CFG_BOOL("reconnect", cfg_false, CFGF_NODEFAULT),
     CFG_STR("password", NULL, CFGF_NONE),
+    CFG_BOOL("raop_disable", cfg_false, CFGF_NONE),
     CFG_STR("nickname", NULL, CFGF_NONE),
     CFG_END()
   };
