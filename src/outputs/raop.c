@@ -64,10 +64,7 @@
 #include "dmap_common.h"
 #include "rtp_common.h"
 #include "outputs.h"
-
-#ifdef RAOP_VERIFICATION
-#include "raop_verification.h"
-#endif
+#include "pair.h"
 
 #define ALAC_HEADER_LEN                      3
 
@@ -222,11 +219,9 @@ struct raop_session
   unsigned short control_port;
   unsigned short timing_port; // ATV4 has this set to 0, but it is not used by forked-daapd anyway
 
-#ifdef RAOP_VERIFICATION
-  /* Device verification, see raop_verification.h */
-  struct verification_verify_context *verification_verify_ctx;
-  struct verification_setup_context *verification_setup_ctx;
-#endif
+  /* Device verification, see pair.h */
+  struct pair_verify_context *pair_verify_ctx;
+  struct pair_setup_context *pair_setup_ctx;
 
   int server_fd;
 
@@ -1658,7 +1653,6 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb, const char *log
   return 0;
 }
 
-#ifdef RAOP_VERIFICATION
 static int
 raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
 {
@@ -1696,14 +1690,6 @@ raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *l
 
   return 0;
 }
-#else
-static int
-raop_send_req_pin_start(struct raop_session *rs, evrtsp_req_cb cb, const char *log_caller)
-{
-  DPRINTF(E_LOG, L_RAOP, "Device '%s' requires verification, but forked-daapd was built with --disable-verification\n", rs->devname);
-  return -1;
-}
-#endif
 
 
 /* ------------------------------ Session handling -------------------------- */
@@ -3987,9 +3973,8 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 /* ------------------------- tvOS device verification ----------------------- */
 /*                 e.g. for the ATV4 (read it from the bottom and up)         */
 
-#ifdef RAOP_VERIFICATION
 static int
-raop_verification_response_process(int step, struct evrtsp_request *req, struct raop_session *rs)
+raop_pair_response_process(int step, struct evrtsp_request *req, struct raop_session *rs)
 {
   uint8_t *response;
   const char *errmsg;
@@ -4016,20 +4001,20 @@ raop_verification_response_process(int step, struct evrtsp_request *req, struct 
   switch (step)
     {
       case 1:
-	ret = verification_setup_response1(rs->verification_setup_ctx, response, len);
-	errmsg = verification_setup_errmsg(rs->verification_setup_ctx);
+	ret = pair_setup_response1(rs->pair_setup_ctx, response, len);
+	errmsg = pair_setup_errmsg(rs->pair_setup_ctx);
 	break;
       case 2:
-	ret = verification_setup_response2(rs->verification_setup_ctx, response, len);
-	errmsg = verification_setup_errmsg(rs->verification_setup_ctx);
+	ret = pair_setup_response2(rs->pair_setup_ctx, response, len);
+	errmsg = pair_setup_errmsg(rs->pair_setup_ctx);
 	break;
       case 3:
-	ret = verification_setup_response3(rs->verification_setup_ctx, response, len);
-	errmsg = verification_setup_errmsg(rs->verification_setup_ctx);
+	ret = pair_setup_response3(rs->pair_setup_ctx, response, len);
+	errmsg = pair_setup_errmsg(rs->pair_setup_ctx);
 	break;
       case 4:
-	ret = verification_verify_response1(rs->verification_verify_ctx, response, len);
-	errmsg = verification_verify_errmsg(rs->verification_verify_ctx);
+	ret = pair_verify_response1(rs->pair_verify_ctx, response, len);
+	errmsg = pair_verify_errmsg(rs->pair_verify_ctx);
 	break;
       case 5:
 	ret = 0;
@@ -4046,11 +4031,11 @@ raop_verification_response_process(int step, struct evrtsp_request *req, struct 
 }
 
 static int
-raop_verification_request_send(int step, struct raop_session *rs, void (*cb)(struct evrtsp_request *, void *))
+raop_pair_request_send(int step, struct raop_session *rs, void (*cb)(struct evrtsp_request *, void *))
 {
   struct evrtsp_request *req;
   uint8_t *body;
-  uint32_t len;
+  size_t len;
   const char *errmsg;
   const char *url;
   const char *ctype;
@@ -4059,32 +4044,32 @@ raop_verification_request_send(int step, struct raop_session *rs, void (*cb)(str
   switch (step)
     {
       case 1:
-	body    = verification_setup_request1(&len, rs->verification_setup_ctx);
-	errmsg  = verification_setup_errmsg(rs->verification_setup_ctx);
+	body    = pair_setup_request1(&len, rs->pair_setup_ctx);
+	errmsg  = pair_setup_errmsg(rs->pair_setup_ctx);
 	url     = "/pair-setup-pin";
 	ctype   = "application/x-apple-binary-plist";
 	break;
       case 2:
-	body    = verification_setup_request2(&len, rs->verification_setup_ctx);
-	errmsg  = verification_setup_errmsg(rs->verification_setup_ctx);
+	body    = pair_setup_request2(&len, rs->pair_setup_ctx);
+	errmsg  = pair_setup_errmsg(rs->pair_setup_ctx);
 	url     = "/pair-setup-pin";
 	ctype   = "application/x-apple-binary-plist";
 	break;
       case 3:
-	body    = verification_setup_request3(&len, rs->verification_setup_ctx);
-	errmsg  = verification_setup_errmsg(rs->verification_setup_ctx);
+	body    = pair_setup_request3(&len, rs->pair_setup_ctx);
+	errmsg  = pair_setup_errmsg(rs->pair_setup_ctx);
 	url     = "/pair-setup-pin";
 	ctype   = "application/x-apple-binary-plist";
 	break;
       case 4:
-	body    = verification_verify_request1(&len, rs->verification_verify_ctx);
-	errmsg  = verification_verify_errmsg(rs->verification_verify_ctx);
+	body    = pair_verify_request1(&len, rs->pair_verify_ctx);
+	errmsg  = pair_verify_errmsg(rs->pair_verify_ctx);
 	url     = "/pair-verify";
 	ctype   = "application/octet-stream";
 	break;
       case 5:
-	body    = verification_verify_request2(&len, rs->verification_verify_ctx);
-	errmsg  = verification_verify_errmsg(rs->verification_verify_ctx);
+	body    = pair_verify_request2(&len, rs->pair_verify_ctx);
+	errmsg  = pair_verify_errmsg(rs->pair_verify_ctx);
 	url     = "/pair-verify";
 	ctype   = "application/octet-stream";
 	break;
@@ -4135,15 +4120,15 @@ raop_verification_request_send(int step, struct raop_session *rs, void (*cb)(str
 }
 
 static void
-raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
+raop_cb_pair_verify_step2(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
   struct output_device *device;
   int ret;
 
-  verification_verify_free(rs->verification_verify_ctx);
+  pair_verify_free(rs->pair_verify_ctx);
 
-  ret = raop_verification_response_process(5, req, rs);
+  ret = raop_pair_response_process(5, req, rs);
   if (ret < 0)
     {
       device = outputs_device_get(rs->device_id);
@@ -4170,13 +4155,13 @@ raop_cb_verification_verify_step2(struct evrtsp_request *req, void *arg)
 }
 
 static void
-raop_cb_verification_verify_step1(struct evrtsp_request *req, void *arg)
+raop_cb_pair_verify_step1(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
   struct output_device *device;
   int ret;
 
-  ret = raop_verification_response_process(4, req, rs);
+  ret = raop_pair_response_process(4, req, rs);
   if (ret < 0)
     {
       device = outputs_device_get(rs->device_id);
@@ -4189,22 +4174,22 @@ raop_cb_verification_verify_step1(struct evrtsp_request *req, void *arg)
       goto error;
     }
 
-  ret = raop_verification_request_send(5, rs, raop_cb_verification_verify_step2);
+  ret = raop_pair_request_send(5, rs, raop_cb_pair_verify_step2);
   if (ret < 0)
     goto error;
 
   return;
 
  error:
-  verification_verify_free(rs->verification_verify_ctx);
-  rs->verification_verify_ctx = NULL;
+  pair_verify_free(rs->pair_verify_ctx);
+  rs->pair_verify_ctx = NULL;
 
   rs->state = RAOP_STATE_PASSWORD;
   session_failure(rs);
 }
 
 static int
-raop_verification_verify(struct raop_session *rs)
+raop_pair_verify(struct raop_session *rs)
 {
   struct output_device *device;
   int ret;
@@ -4213,37 +4198,36 @@ raop_verification_verify(struct raop_session *rs)
   if (!device)
     goto error;
 
-  CHECK_NULL(L_RAOP, rs->verification_verify_ctx = verification_verify_new(device->auth_key));
+  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_FRUIT, device->auth_key, NULL));
 
-  ret = raop_verification_request_send(4, rs, raop_cb_verification_verify_step1);
+  ret = raop_pair_request_send(4, rs, raop_cb_pair_verify_step1);
   if (ret < 0)
     goto error;
 
   return 0;
 
  error:
-  verification_verify_free(rs->verification_verify_ctx);
-  rs->verification_verify_ctx = NULL;
+  pair_verify_free(rs->pair_verify_ctx);
+  rs->pair_verify_ctx = NULL;
   return -1;
 }
 
-
 static void
-raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
+raop_cb_pair_setup_step3(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
   struct output_device *device;
   const char *authorization_key;
   int ret;
 
-  ret = raop_verification_response_process(3, req, rs);
+  ret = raop_pair_response_process(3, req, rs);
   if (ret < 0)
     goto out;
 
-  ret = verification_setup_result(&authorization_key, rs->verification_setup_ctx);
+  ret = pair_setup_result(&authorization_key, NULL, NULL, rs->pair_setup_ctx);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Verification setup result error: %s\n", verification_setup_errmsg(rs->verification_setup_ctx));
+      DPRINTF(E_LOG, L_RAOP, "Verification setup result error: %s\n", pair_setup_errmsg(rs->pair_setup_ctx));
       goto out;
     }
 
@@ -4263,8 +4247,8 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
   rs->state = RAOP_STATE_STOPPED;
 
  out:
-  verification_setup_free(rs->verification_setup_ctx);
-  rs->verification_setup_ctx = NULL;
+  pair_setup_free(rs->pair_setup_ctx);
+  rs->pair_setup_ctx = NULL;
 
   // Callback to player with result
   raop_status(rs);
@@ -4275,62 +4259,62 @@ raop_cb_verification_setup_step3(struct evrtsp_request *req, void *arg)
 }
 
 static void
-raop_cb_verification_setup_step2(struct evrtsp_request *req, void *arg)
+raop_cb_pair_setup_step2(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
   int ret;
 
-  ret = raop_verification_response_process(2, req, rs);
+  ret = raop_pair_response_process(2, req, rs);
   if (ret < 0)
     goto error;
 
-  ret = raop_verification_request_send(3, rs, raop_cb_verification_setup_step3);
+  ret = raop_pair_request_send(3, rs, raop_cb_pair_setup_step3);
   if (ret < 0)
     goto error;
 
   return;
 
  error:
-  verification_setup_free(rs->verification_setup_ctx);
-  rs->verification_setup_ctx = NULL;
+  pair_setup_free(rs->pair_setup_ctx);
+  rs->pair_setup_ctx = NULL;
   session_failure(rs);
 }
 
 static void
-raop_cb_verification_setup_step1(struct evrtsp_request *req, void *arg)
+raop_cb_pair_setup_step1(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs = arg;
   int ret;
 
-  ret = raop_verification_response_process(1, req, rs);
+  ret = raop_pair_response_process(1, req, rs);
   if (ret < 0)
     goto error;
 
-  ret = raop_verification_request_send(2, rs, raop_cb_verification_setup_step2);
+  ret = raop_pair_request_send(2, rs, raop_cb_pair_setup_step2);
   if (ret < 0)
     goto error;
 
   return;
 
  error:
-  verification_setup_free(rs->verification_setup_ctx);
-  rs->verification_setup_ctx = NULL;
+  pair_setup_free(rs->pair_setup_ctx);
+  rs->pair_setup_ctx = NULL;
   session_failure(rs);
 }
 
 static int
-raop_verification_setup(struct raop_session *rs, const char *pin)
+raop_pair_setup(struct raop_session *rs, const char *pin)
 {
   int ret;
 
-  rs->verification_setup_ctx = verification_setup_new(pin);
-  if (!rs->verification_setup_ctx)
+  rs->pair_setup_ctx = pair_setup_new(PAIR_FRUIT, pin, NULL);
+  if (!rs->pair_setup_ctx)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for verification setup context\n");
       return -1;
     }
 
-  ret = raop_verification_request_send(1, rs, raop_cb_verification_setup_step1);
+  ret = raop_pair_request_send(1, rs, raop_cb_pair_setup_step1);
   if (ret < 0)
     goto error;
 
@@ -4339,8 +4323,8 @@ raop_verification_setup(struct raop_session *rs, const char *pin)
   return 0;
 
  error:
-  verification_setup_free(rs->verification_setup_ctx);
-  rs->verification_setup_ctx = NULL;
+  pair_setup_free(rs->pair_setup_ctx);
+  rs->pair_setup_ctx = NULL;
   return -1;
 }
 
@@ -4355,7 +4339,7 @@ raop_device_authorize(struct output_device *device, const char *pin, int callbac
   if (!rs)
     return -1;
 
-  ret = raop_verification_setup(rs, pin);
+  ret = raop_pair_setup(rs, pin);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send verification setup request to '%s' (address %s)\n", device->name, rs->address);
@@ -4365,16 +4349,6 @@ raop_device_authorize(struct output_device *device, const char *pin, int callbac
 
   return 1;
 }
-
-#else
-static int
-raop_verification_verify(struct raop_session *rs)
-{
-  DPRINTF(E_LOG, L_RAOP, "Device '%s' requires verification, but forked-daapd was built with --disable-verification\n", rs->devname);
-
-  return -1;
-}
-#endif /* RAOP_VERIFICATION */
 
 
 /* ------------------ RAOP devices discovery - mDNS callback ---------------- */
@@ -4702,7 +4676,7 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
     return -1;
 
   if (device->auth_key)
-    ret = raop_verification_verify(rs);
+    ret = raop_pair_verify(rs);
   else if (device->requires_auth)
     ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "device_start");
   else
@@ -4978,9 +4952,13 @@ raop_deinit(void)
 
 struct output_definition output_raop =
 {
-  .name = "AirPlay",
+  .name = "AirPlay 1",
   .type = OUTPUT_TYPE_RAOP,
+#ifdef PREFER_AIRPLAY2
+  .priority = 2,
+#else
   .priority = 1,
+#endif
   .disabled = 0,
   .init = raop_init,
   .deinit = raop_deinit,
@@ -4996,7 +4974,5 @@ struct output_definition output_raop =
   .metadata_prepare = raop_metadata_prepare,
   .metadata_send = raop_metadata_send,
   .metadata_purge = raop_metadata_purge,
-#ifdef RAOP_VERIFICATION
   .device_authorize = raop_device_authorize,
-#endif
 };

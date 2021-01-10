@@ -264,6 +264,14 @@ evrtsp_method(enum evrtsp_cmd_type type)
 	  method = "POST";
 	  break;
 
+	case EVRTSP_REQ_GET:
+	  method = "GET";
+	  break;
+
+	case EVRTSP_REQ_SETPEERS:
+	  method = "SETPEERS";
+	  break;
+
 	default:
 	  method = NULL;
 	  break;
@@ -612,6 +620,9 @@ evrtsp_read(int fd, short what, void *arg)
 		return;
 	}
 
+	if (evcon->ciphercb)
+		evcon->ciphercb(evcon->input_buffer, evcon->ciphercb_arg, 0);
+
 	switch (evcon->state) {
 	case EVCON_READING_FIRSTLINE:
 		evrtsp_read_firstline(evcon, req);
@@ -716,6 +727,10 @@ evrtsp_request_dispatch(struct evrtsp_connection* evcon)
 
 	/* Create the header from the store arguments */
 	evrtsp_make_header(evcon, req);
+
+	/* forked-daapd customisation for encryption */
+	if (evcon->ciphercb)
+		evcon->ciphercb(evcon->output_buffer, evcon->ciphercb_arg, 1);
 
 	evrtsp_write_buffer(evcon, evrtsp_write_connectioncb, NULL);
 }
@@ -1302,6 +1317,14 @@ evrtsp_connection_set_closecb(struct evrtsp_connection *evcon,
 {
 	evcon->closecb = cb;
 	evcon->closecb_arg = cbarg;
+}
+
+void
+evrtsp_connection_set_ciphercb(struct evrtsp_connection *evcon,
+    void (*cb)(struct evbuffer *, void *, int encrypt), void *cbarg)
+{
+	evcon->ciphercb = cb;
+	evcon->ciphercb_arg = cbarg;
 }
 
 void

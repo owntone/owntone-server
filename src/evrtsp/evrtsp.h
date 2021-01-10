@@ -45,8 +45,9 @@ extern "C" {
 
 /* Response codes */
 #define RTSP_OK			200
-#define RTSP_UNAUTHORIZED       401
-#define RTSP_FORBIDDEN          403
+#define RTSP_UNAUTHORIZED              401
+#define RTSP_FORBIDDEN                 403
+#define RTSP_CONNECTION_AUTH_REQUIRED  470
 
 struct evrtsp_connection;
 
@@ -64,6 +65,8 @@ enum evrtsp_cmd_type {
   EVRTSP_REQ_FLUSH,
   EVRTSP_REQ_TEARDOWN,
   EVRTSP_REQ_POST,
+  EVRTSP_REQ_GET,
+  EVRTSP_REQ_SETPEERS,
 };
 
 enum evrtsp_request_kind { EVRTSP_REQUEST, EVRTSP_RESPONSE };
@@ -132,6 +135,10 @@ void evrtsp_connection_free(struct evrtsp_connection *evcon);
 /** Set a callback for connection close. */
 void evrtsp_connection_set_closecb(struct evrtsp_connection *evcon,
     void (*)(struct evrtsp_connection *, void *), void *);
+
+/** Set a callback for encryption/decryption. */
+void evrtsp_connection_set_ciphercb(struct evrtsp_connection *evcon,
+    void (*)(struct evbuffer *, void *, int encrypt), void *);
 
 /**
  * Associates an event base with the connection - can only be called

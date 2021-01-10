@@ -89,6 +89,10 @@ AC_SEARCH_LIBS([pthread_setname_np], [pthread],
 	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
 		[AC_CHECK_FUNCS([pthread_set_name_np])])])
 
+AC_SEARCH_LIBS([uuid_generate_random], [uuid],
+	[AC_DEFINE([HAVE_UUID], 1,
+		[Define to 1 if you have uuid_generate_random function])])
+
 AC_SEARCH_LIBS([log10], [m])
 AC_SEARCH_LIBS([lrint], [m])
 AC_SEARCH_LIBS([fabs], [m])
@@ -118,6 +122,7 @@ FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
 FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse >= 3.0], [cfg_init], [confuse.h])
 FORK_MODULES_CHECK([FORKED], [LIBCURL], [libcurl], [curl_global_init], [curl/curl.h])
+FORK_MODULES_CHECK([FORKED], [LIBSODIUM], [libsodium], [sodium_init], [sodium.h])
 
 FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml],
 	[mxmlNewElement], [mxml.h],
@@ -162,6 +167,14 @@ FORK_MODULES_CHECK([FORKED], [JSON_C], [json-c],
 			[Define to 1 if you have json-c < 0.11])])
 	])
 
+dnl Build with libplist (2.2.0 does not ship libplist.pc, only libplist-2.0.pc)
+PKG_CHECK_EXISTS([libplist],
+	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist >= 0.16],
+		[plist_dict_get_item], [plist/plist.h])],
+	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist-2.0],
+		[plist_dict_get_item], [plist/plist.h])])
+
+
 FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	[antlr3BaseRecognizerNew], [antlr3.h],
 	[AC_CHECK_FUNC([[antlr3NewAsciiStringInPlaceStream]],
@@ -177,6 +190,7 @@ FORK_FUNC_REQUIRE([FORKED], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
 AM_PATH_GPG_ERROR([1.6])
 FORK_FUNC_REQUIRE([FORKED], [GNUPG Error Values], [GPG_ERROR_MT], [gpg-error],
 	[gpg_err_init], [gpg-error.h])
+
 
 AC_CHECK_HEADER([sys/eventfd.h], [AC_CHECK_FUNCS([eventfd])])
 
@@ -258,17 +272,6 @@ FORK_ARG_WITH_CHECK([FORKED_OPTS], [libwebsockets support], [libwebsockets], [LI
 	[libwebsockets >= 2.0.2])
 AM_CONDITIONAL([COND_LIBWEBSOCKETS], [[test "x$with_libwebsockets" = "xyes"]])
 
-dnl Build with libsodium
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [libsodium support], [libsodium], [LIBSODIUM],
-	[libsodium], [sodium_init], [sodium.h])
-
-dnl Build with libplist (2.2.0 does not ship libplist.pc, only libplist-2.0.pc)
-PKG_CHECK_EXISTS([libplist],
-	[FORK_ARG_WITH_CHECK([FORKED_OPTS], [libplist support], [libplist], [LIBPLIST],
-		[libplist >= 0.16], [plist_dict_get_item], [plist/plist.h])],
-	[FORK_ARG_WITH_CHECK([FORKED_OPTS], [libplist support], [libplist], [LIBPLIST],
-		[libplist-2.0], [plist_dict_get_item], [plist/plist.h])])
-
 dnl Build with libevent_pthreads
 FORK_ARG_WITH_CHECK([FORKED_OPTS], [libevent_pthreads support],
 	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
@@ -323,29 +326,15 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
+dnl Prefer AirPlay 2
+FORK_ARG_ENABLE([preference for AirPlay 2 for devices that support both 1 and 2], [preferairplay2], [PREFER_AIRPLAY2])
+
 dnl DB profiling support
 FORK_ARG_ENABLE([DB profiling support], [dbprofile], [DB_PROFILE])
-
-dnl iTunes playlists with libplist
-FORK_ARG_DISABLE([iTunes Music Library XML support], [itunes], [ITUNES],
-	[AS_IF([[test "x$with_libplist" = "xno"]],
-		[AC_MSG_ERROR([[iTunes Music Library XML support requires libplist]])])
-	])
-AM_CONDITIONAL([COND_ITUNES], [[test "x$enable_itunes" = "xyes"]])
 
 dnl MPD support
 FORK_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
 AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
-
-dnl Apple device verification
-FORK_ARG_DISABLE([Apple TV device verification], [verification], [RAOP_VERIFICATION],
-	[
-	 AS_IF([[test "x$with_libsodium" = "xno"]],
-		[AC_MSG_ERROR([[Apple TV device verification requires libsodium]])])
-	 AS_IF([[test "x$with_libplist" = "xno"]],
-		[AC_MSG_ERROR([[Apple TV device verification requires libplist]])])
-	])
-AM_CONDITIONAL([COND_RAOP_VERIFICATION], [[test "x$enable_verification" = "xyes"]])
 
 dnl Include default webinterface
 FORK_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE],

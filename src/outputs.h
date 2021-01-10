@@ -59,6 +59,7 @@ typedef int (*output_metadata_finalize_cb)(struct output_metadata *metadata);
 enum output_types
 {
   OUTPUT_TYPE_RAOP,
+  OUTPUT_TYPE_AIRPLAY,
   OUTPUT_TYPE_STREAMING,
   OUTPUT_TYPE_DUMMY,
   OUTPUT_TYPE_FIFO,
@@ -194,7 +195,9 @@ struct output_definition
   // Type of output
   enum output_types type;
 
-  // Priority to give this output when autoselecting an output, 1 is highest
+  // Priority to give this output when autoselecting an output, or when
+  // selectinga which output definition to use for a device that has multiple,
+  // e.g. AirPlay 1 and 2.
   // 1 = highest priority, 0 = don't autoselect
   int priority;
 
@@ -284,7 +287,7 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
 
 // Ownership of *add is transferred, so don't address after calling. Instead you
 // can address the return value (which is not the same if the device was already
-// in the list.
+// in the list).
 struct output_device *
 outputs_device_add(struct output_device *add, bool new_deselect);
 

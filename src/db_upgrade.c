@@ -1060,6 +1060,19 @@ static const struct db_upgrade_query db_upgrade_v2104_queries[] =
     { U_v2104_SCVER_MINOR,    "set schema_version_minor to 04" },
   };
 
+// Previously, the auth_key contained the public key twice
+#define U_v2105_UPDATE_SPEAKERS_AUTH_KEY \
+  "UPDATE speakers SET auth_key = SUBSTR(auth_key, LENGTH(auth_key) - 128 + 1, LENGTH(auth_key) + 1) WHERE LENGTH(auth_key) = 128 + 64;"
+#define U_v2105_SCVER_MINOR                    \
+  "UPDATE admin SET value = '05' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2105_queries[] =
+  {
+    { U_v2105_UPDATE_SPEAKERS_AUTH_KEY, "update table speakers auth_key length" },
+
+    { U_v2105_SCVER_MINOR,    "set schema_version_minor to 05" },
+  };
+
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
@@ -1233,6 +1246,14 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2103:
       ret = db_generic_upgrade(hdl, db_upgrade_v2104_queries, ARRAY_SIZE(db_upgrade_v2104_queries));
+      if (ret < 0)
+	return -1;
+      break;
+
+      /* FALLTHROUGH */
+
+    case 2104:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2105_queries, ARRAY_SIZE(db_upgrade_v2105_queries));
       if (ret < 0)
 	return -1;
       break;

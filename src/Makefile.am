@@ -1,10 +1,6 @@
 
 sbin_PROGRAMS = forked-daapd
 
-if COND_ITUNES
-ITUNES_SRC=library/filescanner_itunes.c
-endif
-
 if COND_SPOTIFY
 SPOTIFY_SRC=spotify.c spotify.h spotify_webapi.c spotify_webapi.h inputs/spotify.c
 endif
@@ -25,9 +21,8 @@ if COND_MPD
 MPD_SRC=mpd.c mpd.h
 endif
 
-if COND_RAOP_VERIFICATION
-RAOP_VERIFICATION_SRC=outputs/raop_verification.c outputs/raop_verification.h
-endif
+PAIR_AP_SRC=outputs/pair_fruit.c outputs/pair_homekit.c outputs/pair.c outputs/pair-internal.h outputs/pair.h
+AM_CPPFLAGS += -DCONFIG_GCRYPT
 
 if COND_ALSA
 ALSA_SRC=outputs/alsa.c
@@ -102,7 +97,7 @@ forked_daapd_SOURCES = main.c \
 	cache.c cache.h \
 	library/filescanner.c library/filescanner.h \
 	library/filescanner_ffmpeg.c library/filescanner_playlist.c \
-	library/filescanner_smartpl.c $(ITUNES_SRC) \
+	library/filescanner_smartpl.c library/filescanner_itunes.c \
 	library/rssscanner.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
@@ -133,7 +128,7 @@ forked_daapd_SOURCES = main.c \
 	inputs/file.c inputs/http.c inputs/pipe.c inputs/timer.c \
 	outputs.h outputs.c \
 	outputs/rtp_common.h outputs/rtp_common.c \
-	outputs/raop.c $(RAOP_VERIFICATION_SRC) \
+	outputs/raop.c outputs/airplay.c $(PAIR_AP_SRC) \
 	outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
@@ -143,6 +138,7 @@ forked_daapd_SOURCES = main.c \
 	listener.c listener.h \
 	commands.c commands.h \
 	mxml-compat.h \
+	outputs/plist_wrap.h \
 	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
 	$(ANTLR_SRC) 

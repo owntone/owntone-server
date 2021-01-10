@@ -40,6 +40,7 @@
 #include "outputs.h"
 
 extern struct output_definition output_raop;
+extern struct output_definition output_airplay;
 extern struct output_definition output_streaming;
 extern struct output_definition output_dummy;
 extern struct output_definition output_fifo;
@@ -59,6 +60,7 @@ extern struct event_base *evbase_player;
 // Must be in sync with enum output_types
 static struct output_definition *outputs[] = {
     &output_raop,
+    &output_airplay,
     &output_streaming,
     &output_dummy,
     &output_fifo,
@@ -701,6 +703,21 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 	break;
     }
 
+  // This is relevant for Airplay 1 and 2 where the same device can support both
+  if (device && device->type != add->type)
+    {
+      if (outputs_priority(device) < outputs_priority(add))
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Ignoring type %s for device '%s', will use type %s\n", add->type_name, add->name, device->type_name);
+	  outputs_device_free(add);
+	  return NULL;
+	}
+
+      // Remove existing device, higher priority device will be added below
+      outputs_device_remove(device);
+      device = NULL;
+    }
+
   // New device
   if (!device)
     {
@@ -799,7 +816,7 @@ outputs_device_remove(struct output_device *remove)
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
-  DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
+  DPRINTF(E_INFO, L_PLAYER, "Removing %s device '%s'\n", remove->type_name, remove->name);
 
   if (!prev)
     outputs_device_list = remove->next;
@@ -1224,6 +1241,11 @@ outputs_init(void)
 	{
 	  DPRINTF(E_FATAL, L_PLAYER, "BUG! Output definitions are misaligned with output enum\n");
 	  return -1;
+	}
+
+      if (outputs[i]->disabled)
+	{
+	  continue;
 	}
 
       if (!outputs[i]->init)

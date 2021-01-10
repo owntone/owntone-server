@@ -43,8 +43,6 @@ Optional packages:
  --------------------|--------------------------|------------------------------------------------
  Chromecast          | `--enable-chromecast`    | libgnutls*-dev libprotobuf-c-dev
  Spotify             | `--enable-spotify`       | libspotify-dev
- iTunes XML          | `--disable-itunes`       | libplist-dev
- Device verification | `--disable-verification` | libplist-dev libsodium-dev
  Player web UI       | `--disable-webinterface` | libwebsockets-dev
  Live web UI         | `--with-libwebsockets`   | libwebsockets-dev
  Pulseaudio          | `--with-pulseaudio`      | libpulse-dev
@@ -146,7 +144,8 @@ Afterwards, you can optionally install Oracle's newer version, and then
 ```bash
 sudo port install \
   autoconf automake libtool pkgconfig git gperf libgcrypt \
-  libunistring libconfuse ffmpeg libevent json-c libwebsockets curl
+  libunistring libconfuse ffmpeg libevent json-c libwebsockets curl \
+  libplist libsodium
 ```
 
 Download, configure, build and install the Mini-XML library:
@@ -170,8 +169,6 @@ Optional features require the following additional ports:
  Feature             | Configure argument       | Ports
  --------------------|--------------------------|-------------------
  Chromecast          | `--enable-chromecast`    | gnutls protobuf-c
- iTunes XML          | `--disable-itunes`       | libplist
- Device verification | `--disable-verification` | libplist libsodium
  Pulseaudio          | `--with-pulseaudio`      | pulseaudio
 
 Clone the forked-daapd repo:
@@ -263,21 +260,21 @@ Libraries:
   from <https://github.com/json-c/json-c/wiki>
 - libcurl
   from <http://curl.haxx.se/libcurl/>
-- libasound (optional - ALSA local audio)  
-  often already installed as part of your distro
-- libpulse (optional - Pulseaudio local audio)  
-  from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
-- libplist 0.16+ (optional - iTunes XML support and Apple TV device verification)  
+- libplist 0.16+
   from <http://github.com/JonathanBeck/libplist/downloads>
-- libsodium (optional - Apple TV device verification)  
+- libsodium
   from <https://download.libsodium.org/doc/>
-- libspotify (optional - Spotify support)  
+- libasound (optional - ALSA local audio)
+  often already installed as part of your distro
+- libpulse (optional - Pulseaudio local audio)
+  from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
+- libspotify (optional - Spotify support)
   from <https://developer.spotify.com>
-- libgnutls (optional - Chromecast support)  
+- libgnutls (optional - Chromecast support)
   from <http://www.gnutls.org/>
-- libprotobuf-c (optional - Chromecast support)  
+- libprotobuf-c (optional - Chromecast support)
   from <https://github.com/protobuf-c/protobuf-c/wiki>
-- libwebsockets 2.0.2+ (optional - websocket support)  
+- libwebsockets 2.0.2+ (optional - websocket support)
   from <https://libwebsockets.org/>
 
 If using binary packages, remember that you need the development packages to
@@ -325,14 +322,8 @@ to run on systems without libspotify (the Spotify features will then be disabled
 Support for LastFM scrobbling is optional. Use `--enable-lastfm` to enable this
 feature.
 
-Support for iTunes Music Library XML format is optional. Use `--disable-itunes`
-to disable this feature.
-
 Support for the MPD protocol is optional. Use `--disable-mpd` to disable this
 feature.
-
-Support for Apple TV device verification is optional. Use `--disable-verification`
-to disable this feature.
 
 Support for Chromecast devices is optional. Use `--enable-chromecast` to enable
 this feature.

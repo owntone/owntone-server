@@ -85,6 +85,9 @@ struct evrtsp_connection {
 	void (*closecb)(struct evrtsp_connection *, void *);
 	void *closecb_arg;
 
+	void (*ciphercb)(struct evbuffer *evbuf, void *, int encrypt);
+	void *ciphercb_arg;
+
 	struct event_base *base;
 };
 

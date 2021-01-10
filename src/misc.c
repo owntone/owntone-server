@@ -34,10 +34,14 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <sys/param.h>
 #ifndef CLOCK_REALTIME
 #include <sys/time.h>
+#endif
+#ifdef HAVE_UUID
+#include <uuid/uuid.h>
 #endif
 
 #include <unistr.h>
@@ -56,11 +60,6 @@ static char *buildopts[] =
     "ffmpeg",
 #else
     "libav",
-#endif
-#ifdef ITUNES
-    "iTunes XML",
-#else
-    "Without iTunes XML",
 #endif
 #ifdef SPOTIFY
     "Spotify",
@@ -81,11 +80,6 @@ static char *buildopts[] =
     "MPD",
 #else
     "Without MPD",
-#endif
-#ifdef RAOP_VERIFICATION
-    "Device verification",
-#else
-    "Without device verification",
 #endif
 #ifdef HAVE_LIBWEBSOCKETS
     "Websockets",
@@ -1021,6 +1015,46 @@ murmur_hash64(const void *key, int len, uint32_t seed)
 # error Platform not supported
 #endif
 
+#ifdef HAVE_UUID
+void
+uuid_make(char *str)
+{
+  uuid_t uu;
+
+  uuid_generate_random(uu);
+  uuid_unparse_upper(uu, str);
+}
+#else
+void
+uuid_make(char *str)
+{
+  uint16_t uuid[8];
+  time_t now;
+  int i;
+
+  now = time(NULL);
+
+  srand((unsigned int)now);
+
+  for (i = 0; i < ARRAY_SIZE(uuid); i++)
+    {
+      uuid[i] = (uint16_t)rand();
+
+      // time_hi_and_version, set version to 4 (=random)
+      if (i == 3)
+	uuid[i] = (uuid[i] & 0x0FFF) | 0x4000;
+      // clock_seq, variant 1
+      if (i == 4)
+	uuid[i] = (uuid[i] & 0x3FFF) | 0x8000;
+
+
+      if (i == 2 || i == 3 || i == 4 || i == 5)
+	str += sprintf(str, "-");
+
+      str += sprintf(str, "%04" PRIX16, uuid[i]);
+    }
+}
+#endif
 
 int
 linear_regression(double *m, double *b, double *r2, const double *x, const double *y, int n)

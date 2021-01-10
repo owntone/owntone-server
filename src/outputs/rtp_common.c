@@ -136,6 +136,7 @@ rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, ch
     }
 
   pkt->samples     = samples;
+  pkt->header_len  = RTP_HEADER_LEN;
   pkt->payload_len = payload_len;
   pkt->data_len    = RTP_HEADER_LEN + payload_len;
   pkt->seqnum      = session->seqnum;
