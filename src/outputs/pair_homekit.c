@@ -1761,6 +1761,8 @@ pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, s
   *ciphertext_len = nblocks * (sizeof(block_len) + AUTHTAG_LENGTH) + plaintext_len;
   *ciphertext = malloc(*ciphertext_len);
 
+  cctx->encryption_counter_prev = cctx->encryption_counter;
+
   for (i = 0, plain_block = plaintext, cipher_block = *ciphertext; i < nblocks; i++)
     {
       // If it is the last block we will encrypt only the remaining data
@@ -1810,6 +1812,8 @@ pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, si
   // This will allocate more than we need. Since we don't know the number of
   // blocks in the ciphertext yet we can't calculate the exact required length.
   *plaintext = malloc(ciphertext_len);
+
+  cctx->decryption_counter_prev = cctx->decryption_counter;
 
   for (plain_block = *plaintext, cipher_block = ciphertext; cipher_block < ciphertext + ciphertext_len; )
     {
@@ -1876,4 +1880,29 @@ const struct pair_definition pair_homekit_normal =
   .pair_decrypt = pair_decrypt,
 };
 
-const struct pair_definition pair_homekit_transient = pair_homekit_normal;
+const struct pair_definition pair_homekit_transient =
+{
+  .pair_setup_new = pair_setup_new,
+  .pair_setup_free = pair_setup_free,
+  .pair_setup_result = pair_setup_result,
+
+  .pair_setup_request1 = pair_setup_request1,
+  .pair_setup_request2 = pair_setup_request2,
+  .pair_setup_request3 = pair_setup_request3,
+
+  .pair_setup_response1 = pair_setup_response1,
+  .pair_setup_response2 = pair_setup_response2,
+  .pair_setup_response3 = pair_setup_response3,
+
+  .pair_verify_request1 = pair_verify_request1,
+  .pair_verify_request2 = pair_verify_request2,
+
+  .pair_verify_response1 = pair_verify_response1,
+  .pair_verify_response2 = pair_verify_response2,
+
+  .pair_cipher_new = pair_cipher_new,
+  .pair_cipher_free = pair_cipher_free,
+
+  .pair_encrypt = pair_encrypt,
+  .pair_decrypt = pair_decrypt,
+};

@@ -568,11 +568,11 @@ pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, si
 void
 pair_encrypt_rollback(struct pair_cipher_context *cctx)
 {
-  cctx->encryption_counter--;
+  cctx->encryption_counter = cctx->encryption_counter_prev;
 }
 
 void
 pair_decrypt_rollback(struct pair_cipher_context *cctx)
 {
-  cctx->decryption_counter--;
+  cctx->decryption_counter = cctx->decryption_counter_prev;
 }

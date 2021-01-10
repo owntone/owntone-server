@@ -72,6 +72,10 @@ struct pair_cipher_context
   uint64_t encryption_counter;
   uint64_t decryption_counter;
 
+  // For rollback
+  uint64_t encryption_counter_prev;
+  uint64_t decryption_counter_prev;
+
   const char *errmsg;
 };
 
