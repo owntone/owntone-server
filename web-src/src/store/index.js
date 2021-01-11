@@ -64,7 +64,7 @@ export default new Vuex.Store({
 
   getters: {
     now_playing: state => {
-      var item = state.queue.items.find(function (item) {
+      const item = state.queue.items.find(function (item) {
         return item.id === state.player.item_id
       })
       return (item === undefined) ? {} : item
@@ -75,6 +75,16 @@ export default new Vuex.Store({
         return state.settings.categories.find(elem => elem.name === 'webinterface')
       }
       return null
+    },
+
+    settings_option_recently_added_limit: (state, getters) => {
+      if (getters.settings_webinterface) {
+        const option = getters.settings_webinterface.options.find(elem => elem.name === 'recently_added_limit')
+        if (option) {
+          return option.value
+        }
+      }
+      return 100
     },
 
     settings_option_show_composer_now_playing: (state, getters) => {
@@ -157,7 +167,7 @@ export default new Vuex.Store({
     },
     [types.ADD_NOTIFICATION] (state, notification) {
       if (notification.topic) {
-        var index = state.notifications.list.findIndex(elem => elem.topic === notification.topic)
+        const index = state.notifications.list.findIndex(elem => elem.topic === notification.topic)
         if (index >= 0) {
           state.notifications.list.splice(index, 1, notification)
           return
@@ -173,7 +183,7 @@ export default new Vuex.Store({
       }
     },
     [types.ADD_RECENT_SEARCH] (state, query) {
-      var index = state.recent_searches.findIndex(elem => elem === query)
+      const index = state.recent_searches.findIndex(elem => elem === query)
       if (index >= 0) {
         state.recent_searches.splice(index, 1)
       }

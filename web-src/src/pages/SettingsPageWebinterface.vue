@@ -80,6 +80,18 @@
         </settings-textfield>
       </template>
     </content-with-heading>
+
+    <content-with-heading>
+      <template slot="heading-left">
+        <div class="title is-4">Recently added page</div>
+      </template>
+
+      <template slot="content">
+        <settings-intfield category_name="webinterface" option_name="recently_added_limit">
+          <template slot="label">Limit the number of albums shown on the "Recently Added" page</template>
+        </settings-intfield>
+      </template>
+    </content-with-heading>
   </div>
 </template>
 
@@ -88,10 +100,11 @@ import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsSettings from '@/components/TabsSettings'
 import SettingsCheckbox from '@/components/SettingsCheckbox'
 import SettingsTextfield from '@/components/SettingsTextfield'
+import SettingsIntfield from '@/components/SettingsIntfield'
 
 export default {
   name: 'SettingsPageWebinterface',
-  components: { ContentWithHeading, TabsSettings, SettingsCheckbox, SettingsTextfield },
+  components: { ContentWithHeading, TabsSettings, SettingsCheckbox, SettingsTextfield, SettingsIntfield },
 
   computed: {
     settings_option_show_composer_now_playing () {

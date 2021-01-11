@@ -135,7 +135,7 @@ export default {
 
   methods: {
     open_parent_directory: function () {
-      var parent = this.current_directory.slice(0, this.current_directory.lastIndexOf('/'))
+      const parent = this.current_directory.slice(0, this.current_directory.lastIndexOf('/'))
       if (parent === '' || this.$store.state.config.directories.includes(this.current_directory)) {
         this.$router.push({ path: '/files' })
       } else {

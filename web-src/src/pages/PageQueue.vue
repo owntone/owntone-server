@@ -124,9 +124,9 @@ export default {
     },
 
     move_item: function (e) {
-      var oldPosition = !this.show_only_next_items ? e.oldIndex : e.oldIndex + this.current_position
-      var item = this.queue_items[oldPosition]
-      var newPosition = item.position + (e.newIndex - e.oldIndex)
+      const oldPosition = !this.show_only_next_items ? e.oldIndex : e.oldIndex + this.current_position
+      const item = this.queue_items[oldPosition]
+      const newPosition = item.position + (e.newIndex - e.oldIndex)
       if (newPosition !== oldPosition) {
         webapi.queue_move(item.id, newPosition)
       }

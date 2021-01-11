@@ -37,6 +37,7 @@ static struct settings_option webinterface_options[] =
       { "show_menu_item_radio", SETTINGS_TYPE_BOOL, { false } },
       { "show_menu_item_files", SETTINGS_TYPE_BOOL, { true } },
       { "show_menu_item_search", SETTINGS_TYPE_BOOL, { true } },
+      { "recently_added_limit", SETTINGS_TYPE_INT, { 100 } },
   };
 
 static struct settings_option artwork_options[] =

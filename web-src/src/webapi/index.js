@@ -63,7 +63,7 @@ export default {
   },
 
   queue_add_next (uri) {
-    var position = 0
+    let position = 0
     if (store.getters.now_playing && store.getters.now_playing.id) {
       position = store.getters.now_playing.position + 1
     }
@@ -74,7 +74,7 @@ export default {
   },
 
   queue_expression_add (expression) {
-    var options = {}
+    const options = {}
     options.expression = expression
 
     return axios.post('./api/queue/items/add', undefined, { params: options }).then((response) => {
@@ -84,7 +84,7 @@ export default {
   },
 
   queue_expression_add_next (expression) {
-    var options = {}
+    const options = {}
     options.expression = expression
     options.position = 0
     if (store.getters.now_playing && store.getters.now_playing.id) {
@@ -109,7 +109,7 @@ export default {
   },
 
   player_play_uri (uris, shuffle, position = undefined) {
-    var options = {}
+    const options = {}
     options.uris = uris
     options.shuffle = shuffle ? 'true' : 'false'
     options.clear = 'true'
@@ -120,7 +120,7 @@ export default {
   },
 
   player_play_expression (expression, shuffle, position = undefined) {
-    var options = {}
+    const options = {}
     options.expression = expression
     options.shuffle = shuffle ? 'true' : 'false'
     options.clear = 'true'
@@ -159,12 +159,12 @@ export default {
   },
 
   player_shuffle (newState) {
-    var shuffle = newState ? 'true' : 'false'
+    const shuffle = newState ? 'true' : 'false'
     return axios.put('./api/player/shuffle?state=' + shuffle)
   },
 
   player_consume (newState) {
-    var consume = newState ? 'true' : 'false'
+    const consume = newState ? 'true' : 'false'
     return axios.put('./api/player/consume?state=' + consume)
   },
 
@@ -235,7 +235,7 @@ export default {
   },
 
   library_genre (genre) {
-    var genreParams = {
+    const genreParams = {
       type: 'albums',
       media_kind: 'music',
       expression: 'genre is "' + genre + '"'
@@ -246,7 +246,7 @@ export default {
   },
 
   library_genre_tracks (genre) {
-    var genreParams = {
+    const genreParams = {
       type: 'tracks',
       media_kind: 'music',
       expression: 'genre is "' + genre + '"'
@@ -257,7 +257,7 @@ export default {
   },
 
   library_radio_streams () {
-    var params = {
+    const params = {
       type: 'tracks',
       media_kind: 'music',
       expression: 'data_kind is url and song_length = 0'
@@ -269,7 +269,7 @@ export default {
 
   library_artist_tracks (artist) {
     if (artist) {
-      var artistParams = {
+      const artistParams = {
         type: 'tracks',
         expression: 'songartistid is "' + artist + '"'
       }
@@ -280,7 +280,7 @@ export default {
   },
 
   library_podcasts_new_episodes () {
-    var episodesParams = {
+    const episodesParams = {
       type: 'tracks',
       expression: 'media_kind is podcast and play_count = 0 ORDER BY time_added DESC'
     }
@@ -290,7 +290,7 @@ export default {
   },
 
   library_podcast_episodes (albumId) {
-    var episodesParams = {
+    const episodesParams = {
       type: 'tracks',
       expression: 'media_kind is podcast and songalbumid is "' + albumId + '" ORDER BY date_released DESC'
     }
@@ -336,7 +336,7 @@ export default {
   },
 
   library_files (directory = undefined) {
-    var filesParams = { directory: directory }
+    const filesParams = { directory: directory }
     return axios.get('./api/library/files', {
       params: filesParams
     })

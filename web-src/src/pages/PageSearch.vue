@@ -262,7 +262,7 @@ export default {
         return
       }
 
-      var searchParams = {
+      const searchParams = {
         type: query.type,
         media_kind: 'music'
       }
@@ -291,7 +291,7 @@ export default {
         return
       }
 
-      var searchParams = {
+      const searchParams = {
         type: 'album',
         media_kind: 'audiobook'
       }
@@ -317,7 +317,7 @@ export default {
         return
       }
 
-      var searchParams = {
+      const searchParams = {
         type: 'album',
         media_kind: 'podcast'
       }

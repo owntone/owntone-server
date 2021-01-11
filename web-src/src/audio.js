@@ -10,7 +10,7 @@ export default {
 
   // setup audio routing
   setupAudio () {
-    var AudioContext = window.AudioContext || window.webkitAudioContext
+    const AudioContext = window.AudioContext || window.webkitAudioContext
     this._context = new AudioContext()
     this._source = this._context.createMediaElementSource(this._audio)
     this._gain = this._context.createGain()
