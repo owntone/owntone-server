@@ -7,7 +7,7 @@
             <span class="icon fd-has-action"
                 :class="{ 'has-text-grey-light': !output.selected }"
                 v-on:click="set_enabled">
-              <i class="mdi mdi-18px" :class="type_class"></i>
+              <i class="mdi mdi-18px" :class="type_class" :title="output.type"></i>
             </span>
           </a>
         </div>
@@ -42,7 +42,7 @@ export default {
 
   computed: {
     type_class () {
-      if (this.output.type === 'AirPlay') {
+      if (this.output.type.startsWith('AirPlay')) {
         return 'mdi-airplay'
       } else if (this.output.type === 'Chromecast') {
         return 'mdi-cast'
