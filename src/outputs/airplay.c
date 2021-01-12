@@ -3138,7 +3138,7 @@ start_failure(struct airplay_session *rs)
   // function was called because the encrypted request (SETUP) timed out
   if (device->auth_key)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "Clearing '%s' pairing keys, you need to pair again\n", rs->address);
+      DPRINTF(E_LOG, L_AIRPLAY, "Clearing '%s' pairing keys, you need to pair again\n", rs->devname);
 
       free(device->auth_key);
       device->auth_key = NULL;

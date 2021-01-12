@@ -519,15 +519,6 @@ typedef enum {
 
 
 typedef enum {
-  TLVMethod_PairSetup = 1,
-  TLVMethod_PairVerify = 2,
-  TLVMethod_AddPairing = 3,
-  TLVMethod_RemovePairing = 4,
-  TLVMethod_ListPairings = 5,
-} TLVMethod;
-
-
-typedef enum {
   TLVError_Unknown = 1,         // Generic error to handle unexpected errors
   TLVError_Authentication = 2,  // Setup code or signature verification failed
   TLVError_Backoff = 3,         // Client must look at the retry delay TLV item and
