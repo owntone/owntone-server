@@ -494,6 +494,13 @@ Once the above is in order you can login to Spotify via the web interface. The
 procedure for logging in to Spotify is a two-step procedure due to the current
 state of libspotify, but the web interface makes both steps available to you.
 
+Note that the address [http://forked-daapd.local:3689](http://forked-daapd.local:3689)
+must be working on your local network to complete the Spotify OAuth web login.
+The address is announced automatically via mDNS, but if that for some reason
+doesn't work then configure it via router or .hosts file. You can remove it
+again after completing the login. This is needed because the redirect_uri
+parameter of the Spotify token request is to this address.
+
 Spotify no longer automatically notifies clients about playlist updates, so you
 have to trigger updates manually. You can for instance set up a cron job that
 runs `/usr/bin/curl http://localhost:3689/api/update`
