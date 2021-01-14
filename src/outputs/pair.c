@@ -547,7 +547,7 @@ pair_cipher_errmsg(struct pair_cipher_context *cctx)
   return cctx->errmsg;
 }
 
-int
+ssize_t
 pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx)
 {
   if (!cctx->type->pair_encrypt)
@@ -556,7 +556,7 @@ pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, s
   return cctx->type->pair_encrypt(ciphertext, ciphertext_len, plaintext, plaintext_len, cctx);
 }
 
-int
+ssize_t
 pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx)
 {
   if (!cctx->type->pair_decrypt)

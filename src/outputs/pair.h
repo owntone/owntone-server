@@ -102,12 +102,18 @@ pair_cipher_free(struct pair_cipher_context *cctx);
 const char *
 pair_cipher_errmsg(struct pair_cipher_context *cctx);
 
-/* Return 0 is success, -1 is general error, -2 is ciphertext_len shorter than
- * blocklen in payload
+/* The return value equals length of plaintext that was encrypted, so if the
+ * return value == plaintext_len then everything was encrypted. On error -1 is
+ * returned.
  */
-int
+ssize_t
 pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx);
-int
+
+/* The return value equals length of ciphertext that was decrypted, so if the
+ * return value == ciphertext_len then everything was decrypted. On error -1 is
+ * returned.
+ */
+ssize_t
 pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx);
 
 /* Rolls back the nonce

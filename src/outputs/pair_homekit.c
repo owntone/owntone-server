@@ -1729,7 +1729,7 @@ pair_cipher_new(struct pair_definition *type, int channel, const uint8_t *shared
   return NULL;
 }
 
-static int
+static ssize_t
 pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx)
 {
   uint8_t nonce[NONCE_LENGTH] = { 0 };
@@ -1778,17 +1778,14 @@ pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, s
       cctx->encryption_counter++;
     }
 
-  assert(plain_block == plaintext + plaintext_len);
-  assert(cipher_block == *ciphertext + *ciphertext_len);
-
 #ifdef DEBUG_PAIR
   hexdump("Encrypted:\n", *ciphertext, *ciphertext_len);
 #endif
 
-  return 0;
+  return plain_block - plaintext;
 }
 
-static int
+static ssize_t
 pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx)
 {
   uint8_t nonce[NONCE_LENGTH] = { 0 };
@@ -1812,10 +1809,8 @@ pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, si
       memcpy(&block_len, cipher_block, sizeof(block_len)); // TODO BE or LE?
       if (cipher_block + block_len + sizeof(block_len) + AUTHTAG_LENGTH > ciphertext + ciphertext_len)
 	{
-	  cctx->errmsg = "Insufficient encrypted data or corrupt block length";
-	  cctx->decryption_counter = cctx->decryption_counter_prev;
-	  free(*plaintext);
-	  return -2; // Corrupt block_len, stop before we read over the end
+	  // The remaining ciphertext doesn't contain an entire block, so stop
+	  break;
 	}
 
       memcpy(tag, cipher_block + sizeof(block_len) + block_len, sizeof(tag));
@@ -1835,16 +1830,13 @@ pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, si
       cctx->decryption_counter++;
     }
 
-  assert(plain_block < *plaintext + ciphertext_len);
-  assert(cipher_block == ciphertext + ciphertext_len);
-
   *plaintext_len = plain_block - *plaintext;
 
 #ifdef DEBUG_PAIR
   hexdump("Decrypted:\n", *plaintext, *plaintext_len);
 #endif
 
-  return 0;
+  return cipher_block - ciphertext;
 }
 
 const struct pair_definition pair_homekit_normal =
