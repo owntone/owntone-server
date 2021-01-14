@@ -59,8 +59,11 @@ struct evrtsp_connection {
 	int fd;
 	struct event ev;
 	struct event close_ev;
-	struct evbuffer *input_buffer;
-	struct evbuffer *output_buffer;
+	struct evbuffer *input_buffer;  /* Always plaintext */
+	struct evbuffer *output_buffer; /* Always plaintext */
+
+	struct evbuffer *input_raw;     /* Possibly ciphered */
+	struct evbuffer *output_raw;    /* Possibly ciphered */
 	
 	char *bind_address;		/* address to use for binding the src */
 	u_short bind_port;		/* local port for binding the src */
@@ -85,7 +88,7 @@ struct evrtsp_connection {
 	void (*closecb)(struct evrtsp_connection *, void *);
 	void *closecb_arg;
 
-	void (*ciphercb)(struct evbuffer *evbuf, void *, int encrypt);
+	int (*ciphercb)(struct evbuffer *out, struct evbuffer *in, void *, int encrypt);
 	void *ciphercb_arg;
 
 	struct event_base *base;

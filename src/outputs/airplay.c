@@ -1000,18 +1000,18 @@ rtpinfo_header_add(struct evrtsp_request *req, struct airplay_session *rs, struc
   return 0;
 }
 
-static void
-rtsp_cipher(struct evbuffer *evbuf, void *arg, int encrypt)
+static int
+rtsp_cipher(struct evbuffer *outbuf, struct evbuffer *inbuf, void *arg, int encrypt)
 {
   struct airplay_session *rs = arg;
   uint8_t *in;
   size_t in_len;
   uint8_t *out = NULL;
   size_t out_len = 0;
-  int ret;
+  ssize_t processed;
 
-  in = evbuffer_pullup(evbuf, -1);
-  in_len = evbuffer_get_length(evbuf);
+  in = evbuffer_pullup(inbuf, -1);
+  in_len = evbuffer_get_length(inbuf);
 
   if (encrypt)
     {
@@ -1022,14 +1022,14 @@ rtsp_cipher(struct evbuffer *evbuf, void *arg, int encrypt)
 	DPRINTF(E_DBG, L_AIRPLAY, "Encrypting outgoing request (size %zu)\n", in_len);
 #endif
 
-      ret = pair_encrypt(&out, &out_len, in, in_len, rs->control_cipher_ctx);
-      if (ret < 0)
+      processed = pair_encrypt(&out, &out_len, in, in_len, rs->control_cipher_ctx);
+      if (processed < 0)
 	goto error;
     }
   else
     {
-      ret = pair_decrypt(&out, &out_len, in, in_len, rs->control_cipher_ctx);
-      if (ret < 0)
+      processed = pair_decrypt(&out, &out_len, in, in_len, rs->control_cipher_ctx);
+      if (processed < 0)
 	goto error;
 
 #if AIRPLAY_DUMP_TRAFFIC
@@ -1040,18 +1040,15 @@ rtsp_cipher(struct evbuffer *evbuf, void *arg, int encrypt)
 #endif
     }
 
-  evbuffer_drain(evbuf, in_len);
-  evbuffer_add(evbuf, out, out_len);
+  evbuffer_drain(inbuf, processed);
+  evbuffer_add(outbuf, out, out_len);
 
-  return;
+  return 0;
 
  error:
   DPRINTF(E_LOG, L_AIRPLAY, "Error while %s (len=%zu): %s\n", encrypt ? "encrypting" : "decrypting", in_len, pair_cipher_errmsg(rs->control_cipher_ctx));
 
-  // This will lead evrtsp to timeout the request, which takes a while, so we
-  // should consider some quicker error handling instead
-  evbuffer_drain(evbuf, in_len);
-  return;
+  return -1;
 }
 
 

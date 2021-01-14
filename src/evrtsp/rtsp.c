@@ -474,7 +474,7 @@ evrtsp_write(int fd, short what, void *arg)
 		return;
 	}
 
-	n = evbuffer_write(evcon->output_buffer, fd);
+	n = evbuffer_write(evcon->output_raw, fd);
 	if (n == -1) {
 		event_warn("%s: evbuffer_write", __func__);
 		evrtsp_connection_fail(evcon, EVCON_RTSP_EOF);
@@ -487,7 +487,7 @@ evrtsp_write(int fd, short what, void *arg)
 		return;
 	}
 
-	if (evbuffer_get_length(evcon->output_buffer) != 0) {
+	if (evbuffer_get_length(evcon->output_raw) != 0) {
 		evrtsp_add_event(&evcon->ev, 
 		    evcon->timeout, RTSP_WRITE_TIMEOUT);
 		return;
@@ -581,48 +581,9 @@ evrtsp_read_body(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 	evrtsp_add_event(&evcon->ev, evcon->timeout, RTSP_READ_TIMEOUT);
 }
 
-/*
- * Reads data into a buffer structure until no more data
- * can be read on the file descriptor or we have read all
- * the data that we wanted to read.
- * Execute callback when done.
- */
-
-void
-evrtsp_read(int fd, short what, void *arg)
+static void
+evrtsp_read_message(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 {
-	struct evrtsp_connection *evcon = arg;
-	struct evrtsp_request *req = TAILQ_FIRST(&evcon->requests);
-	struct evbuffer *buf = evcon->input_buffer;
-	int n;
-
-	if (what == EV_TIMEOUT) {
-		event_warn("%s: read timeout", __func__);
-		evrtsp_connection_fail(evcon, EVCON_RTSP_TIMEOUT);
-		return;
-	}
-	n = evbuffer_read(buf, fd, -1);
-	event_debug(("%s: got %d on %d", __func__, n, fd));
-	
-	if (n == -1) {
-		if (errno != EINTR && errno != EAGAIN) {
-			event_warn("%s: evbuffer_read", __func__);
-			evrtsp_connection_fail(evcon, EVCON_RTSP_EOF);
-		} else {
-			evrtsp_add_event(&evcon->ev, evcon->timeout,
-			    RTSP_READ_TIMEOUT);	       
-		}
-		return;
-	} else if (n == 0) {
-		/* Connection closed */
-		evcon->state = EVCON_DISCONNECTED;
-		evrtsp_connection_done(evcon);
-		return;
-	}
-
-	if (evcon->ciphercb)
-		evcon->ciphercb(evcon->input_buffer, evcon->ciphercb_arg, 0);
-
 	switch (evcon->state) {
 	case EVCON_READING_FIRSTLINE:
 		evrtsp_read_firstline(evcon, req);
@@ -644,6 +605,64 @@ evrtsp_read(int fd, short what, void *arg)
 		event_errx(1, "%s: illegal connection state %d",
 			   __func__, evcon->state);
 	}
+}
+
+/*
+ * Reads data into a buffer structure until no more data
+ * can be read on the file descriptor or we have read all
+ * the data that we wanted to read.
+ * Execute callback when done.
+ */
+
+void
+evrtsp_read(int fd, short what, void *arg)
+{
+	struct evrtsp_connection *evcon = arg;
+	struct evrtsp_request *req = TAILQ_FIRST(&evcon->requests);
+	int ret;
+	int n;
+
+	if (what == EV_TIMEOUT) {
+		event_warn("%s: read timeout", __func__);
+		evrtsp_connection_fail(evcon, EVCON_RTSP_TIMEOUT);
+		return;
+	}
+	n = evbuffer_read(evcon->input_raw, fd, -1);
+	event_debug(("%s: got %d on %d", __func__, n, fd));
+	
+	if (n == -1) {
+		if (errno != EINTR && errno != EAGAIN) {
+			event_warn("%s: evbuffer_read", __func__);
+			evrtsp_connection_fail(evcon, EVCON_RTSP_EOF);
+		} else {
+			evrtsp_add_event(&evcon->ev, evcon->timeout,
+			    RTSP_READ_TIMEOUT);	       
+		}
+		return;
+	} else if (n == 0) {
+		/* Connection closed */
+		evcon->state = EVCON_DISCONNECTED;
+		evrtsp_connection_done(evcon);
+		return;
+	}
+
+	if (!evcon->ciphercb) {
+		evbuffer_add_buffer(evcon->input_buffer, evcon->input_raw);
+	} else {
+		// May get an incomplete ciphered messages, in which case
+		// input_buffer will be filled with only the part that could be
+		// decrypted, and the callback will drain input_raw so that only
+		// any remaining undecryptable seqment is left. Next read should
+		// then add what is missing.
+		ret = evcon->ciphercb(evcon->input_buffer, evcon->input_raw, evcon->ciphercb_arg, 0);
+		if (ret < 0) {
+			event_warn("%s: evbuffer_read", __func__);
+			evrtsp_connection_fail(evcon, EVCON_RTSP_EOF);
+			return;
+		}
+	}
+
+	evrtsp_read_message(evcon, req);
 }
 
 static void
@@ -705,6 +724,12 @@ evrtsp_connection_free(struct evrtsp_connection *evcon)
 	if (evcon->output_buffer != NULL)
 		evbuffer_free(evcon->output_buffer);
 
+	if (evcon->input_raw != NULL)
+		evbuffer_free(evcon->input_raw);
+
+	if (evcon->output_raw != NULL)
+		evbuffer_free(evcon->output_raw);
+
 	free(evcon);
 }
 
@@ -729,8 +754,10 @@ evrtsp_request_dispatch(struct evrtsp_connection* evcon)
 	evrtsp_make_header(evcon, req);
 
 	/* forked-daapd customisation for encryption */
-	if (evcon->ciphercb)
-		evcon->ciphercb(evcon->output_buffer, evcon->ciphercb_arg, 1);
+	if (!evcon->ciphercb)
+		evbuffer_add_buffer(evcon->output_raw, evcon->output_buffer);
+	else
+		evcon->ciphercb(evcon->output_raw, evcon->output_buffer, evcon->ciphercb_arg, 1);
 
 	evrtsp_write_buffer(evcon, evrtsp_write_connectioncb, NULL);
 }
@@ -756,6 +783,10 @@ evrtsp_connection_reset(struct evrtsp_connection *evcon)
 	    evbuffer_get_length(evcon->input_buffer));
 	evbuffer_drain(evcon->output_buffer,
 	    evbuffer_get_length(evcon->output_buffer));
+	evbuffer_drain(evcon->input_raw,
+	    evbuffer_get_length(evcon->input_raw));
+	evbuffer_drain(evcon->output_raw,
+	    evbuffer_get_length(evcon->output_raw));
 }
 
 static void
@@ -1285,6 +1316,16 @@ evrtsp_connection_new(const char *address, unsigned short port)
 		goto error;
 	}
 	
+	if ((evcon->input_raw = evbuffer_new()) == NULL) {
+		event_warn("%s: evbuffer_new failed", __func__);
+		goto error;
+	}
+
+	if ((evcon->output_raw = evbuffer_new()) == NULL) {
+		event_warn("%s: evbuffer_new failed", __func__);
+		goto error;
+	}
+
 	evcon->state = EVCON_DISCONNECTED;
 	TAILQ_INIT(&evcon->requests);
 
@@ -1321,7 +1362,8 @@ evrtsp_connection_set_closecb(struct evrtsp_connection *evcon,
 
 void
 evrtsp_connection_set_ciphercb(struct evrtsp_connection *evcon,
-    void (*cb)(struct evbuffer *, void *, int encrypt), void *cbarg)
+    int (*cb)(struct evbuffer *, struct evbuffer *, void *, int encrypt),
+    void *cbarg)
 {
 	evcon->ciphercb = cb;
 	evcon->ciphercb_arg = cbarg;
@@ -1482,42 +1524,6 @@ evrtsp_start_read(struct evrtsp_connection *evcon)
 	evcon->state = EVCON_READING_FIRSTLINE;
 }
 
-static void
-evrtsp_send_done(struct evrtsp_connection *evcon, void *arg)
-{
-	struct evrtsp_request *req = TAILQ_FIRST(&evcon->requests);
-	TAILQ_REMOVE(&evcon->requests, req, next);
-
-	/* delete possible close detection events */
-	evrtsp_connection_stop_detectclose(evcon);
-	
-	assert(req->flags & EVRTSP_REQ_OWN_CONNECTION);
-	evrtsp_request_free(req);
-}
-
-/* Requires that headers and response code are already set up */
-
-static inline void
-evrtsp_send(struct evrtsp_request *req, struct evbuffer *databuf)
-{
-	struct evrtsp_connection *evcon = req->evcon;
-
-	if (evcon == NULL) {
-		evrtsp_request_free(req);
-		return;
-	}
-
-	assert(TAILQ_FIRST(&evcon->requests) == req);
-
-	/* xxx: not sure if we really should expose the data buffer this way */
-	if (databuf != NULL)
-		evbuffer_add_buffer(req->output_buffer, databuf);
-	
-	/* Adds headers to the response */
-	evrtsp_make_header(evcon, req);
-
-	evrtsp_write_buffer(evcon, evrtsp_send_done, NULL);
-}
 
 /*
  * Request related functions

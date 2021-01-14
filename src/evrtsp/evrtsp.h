@@ -136,9 +136,15 @@ void evrtsp_connection_free(struct evrtsp_connection *evcon);
 void evrtsp_connection_set_closecb(struct evrtsp_connection *evcon,
     void (*)(struct evrtsp_connection *, void *), void *);
 
-/** Set a callback for encryption/decryption. */
+/**
+ * Set a callback for encryption/decryption. Callback must return -1 on error,
+ * and the callback must drain the part of *in that has been encrypted/decrypted.
+ * If the callback receives an incomplete ciphertext were nothing can be
+ * decrypted it should just leave the buffers and return 0.
+ *
+ */
 void evrtsp_connection_set_ciphercb(struct evrtsp_connection *evcon,
-    void (*)(struct evbuffer *, void *, int encrypt), void *);
+    int (*)(struct evbuffer *out, struct evbuffer *in, void *, int encrypt), void *);
 
 /**
  * Associates an event base with the connection - can only be called
