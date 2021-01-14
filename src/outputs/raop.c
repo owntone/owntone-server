@@ -4435,7 +4435,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   if (devcfg && cfg_getbool(devcfg, "raop_disable"))
     {
-      DPRINTF(E_LOG, L_RAOP, "Disabling AirPlay 1 (RAOP) for device '%s' as set in config\n", device_name);
+      DPRINTF(E_INFO, L_RAOP, "Disabling AirPlay 1 (RAOP) for device '%s' as set in config\n", device_name);
 
       return;
     }
