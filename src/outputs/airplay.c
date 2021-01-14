@@ -72,6 +72,7 @@
 // below it is possible to easily try different variations.
 #define AIRPLAY_USE_STREAMID                 0
 #define AIRPLAY_USE_PAIRING_TRANSIENT        1
+#define AIRPLAY_USE_AUTH_SETUP               0
 
 // Full traffic dumps in the log in debug mode
 #define AIRPLAY_DUMP_TRAFFIC                 0
@@ -356,11 +357,11 @@ struct airplay_seq_ctx
 
 /* ------------------------------ MISC GLOBALS ------------------------------ */
 
-/*
+#if AIRPLAY_USE_AUTH_SETUP
 static const uint8_t airplay_auth_setup_pubkey[] =
   "\x59\x02\xed\xe9\x0d\x4e\xf2\xbd\x4c\xb6\x8a\x63\x30\x03\x82\x07"
   "\xa9\x4d\xbd\x50\xd8\xaa\x46\x5b\x5d\x8c\x01\x2a\x0c\x7e\x1d\x4e";
-*/
+#endif
 
 struct features_type_map
 {
@@ -2930,11 +2931,12 @@ Good to know (source Apple's MFi Accessory Interface Specification):
 
 Since we don't do auth or encryption, we currently just ignore the reponse.
 */
-/*
+
+#if AIRPLAY_USE_AUTH_SETUP
 static int
 payload_make_auth_setup(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
-  if (!(rs->supports_post && rs->supports_auth_setup))
+  if (!rs->supports_auth_setup)
     return 1; // skip this request
 
   // Flag for no encryption. 0x10 may mean encryption.
@@ -2944,7 +2946,8 @@ payload_make_auth_setup(struct evrtsp_request *req, struct airplay_session *rs, 
 
   return 0;
 }
-*/
+#endif
+
 static int
 payload_make_pin_start(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
@@ -3731,7 +3734,9 @@ static struct airplay_seq_request airplay_seq_request[][7] =
     { AIRPLAY_SEQ_START, "GET /info", EVRTSP_REQ_GET, NULL, response_handler_info_start, NULL, "/info", false },
   },
   {
-//    { AIRPLAY_SEQ_START_PLAYBACK, "auth-setup", EVRTSP_REQ_POST, payload_make_auth_setup, NULL, "application/octet-stream", "/auth-setup", true },
+#if AIRPLAY_USE_AUTH_SETUP
+    { AIRPLAY_SEQ_START_PLAYBACK, "auth-setup", EVRTSP_REQ_POST, payload_make_auth_setup, NULL, "application/octet-stream", "/auth-setup", true },
+#endif
     { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (session)", EVRTSP_REQ_SETUP, payload_make_setup_session, response_handler_setup_session, "application/x-apple-binary-plist", NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETPEERS", EVRTSP_REQ_SETPEERS, payload_make_setpeers, NULL, "/peer-list-changed", NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (stream)", EVRTSP_REQ_SETUP, payload_make_setup_stream, response_handler_setup_stream, "application/x-apple-binary-plist", NULL, false },
