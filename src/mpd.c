@@ -192,6 +192,7 @@ static struct mpd_tagtype tagtypes[] =
     { "file",             NULL,                   NULL,                                  NULL,             MPD_TYPE_SPECIAL,  -1,                                true, },
     { "base",             NULL,                   NULL,                                  NULL,             MPD_TYPE_SPECIAL,  -1,                                true, },
     { "any",              NULL,                   NULL,                                  NULL,             MPD_TYPE_SPECIAL,  -1,                                true, },
+    { "modified-since",   NULL,                   NULL,                                  NULL,             MPD_TYPE_SPECIAL,  -1,                                true, },
 
   };
 
@@ -737,6 +738,14 @@ parse_filter_window_params(int argc, char **argv, bool exact_match, struct query
 	      else if (0 == strcasecmp(tagtype->tag, "base"))
 	        {
 		  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
+		}
+	      else if (0 == strcasecmp(tagtype->tag, "modified-since"))
+	        {
+		  // according to the mpd protocol specification the value can be a unix timestamp or ISO 8601
+		  if (strchr(argv[i + 1], '-') == NULL)
+		    c1 = db_mprintf("(f.time_modified > strftime('%%s', datetime('%q', 'unixepoch')))", argv[i + 1]);
+		  else
+		    c1 = db_mprintf("(f.time_modified > strftime('%%s', datetime('%q', 'utc')))", argv[i + 1]);
 		}
 	      else
 	        {
