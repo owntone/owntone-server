@@ -33,12 +33,12 @@
 
     <content-with-heading>
       <template slot="heading-left">
-        <div class="title is-4">Device Verification</div>
+        <div class="title is-4">Speaker pairing and device verification</div>
       </template>
 
       <template slot="content">
         <p class="content">
-          If your Apple TV requires device verification then activate the device below and enter the PIN that the Apple TV displays.
+          If your speaker requires pairing then activate it below and enter the PIN that it displays.
         </p>
 
         <div v-for="output in outputs" :key="output.id">
