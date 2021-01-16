@@ -620,6 +620,9 @@ db_file_ping_bypath(const char *path, time_t mtime_max);
 void
 db_file_ping_bymatch(const char *path, int isdir);
 
+void
+db_file_artwork_ping_bymatch(const char *path);
+
 char *
 db_file_path_byid(int id);
 

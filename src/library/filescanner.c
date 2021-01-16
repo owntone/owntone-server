@@ -638,6 +638,20 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
   free_mfi(&mfi, 1);
 }
 
+static void
+process_artwork_file(const char *file, struct stat *sb, int type, int flags, int dir_id)
+{
+  char *path;
+  path = dirname(strdup(file));
+  db_file_artwork_ping_bymatch(path);
+  free(path);
+
+  cache_artwork_ping(file, sb->st_mtime, !(flags & F_SCAN_BULK));
+
+  // TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
+
+}
+
 /* Thread: scan */
 static void
 process_file(char *file, struct stat *sb, enum file_type file_type, int scan_type, int flags, int dir_id)
@@ -673,10 +687,7 @@ process_file(char *file, struct stat *sb, enum file_type file_type, int scan_typ
 
       case FILE_ARTWORK:
 	DPRINTF(E_DBG, L_SCAN, "Artwork file: %s\n", file);
-	cache_artwork_ping(file, sb->st_mtime, !(flags & F_SCAN_BULK));
-
-	// TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
-
+        process_artwork_file(file, sb, scan_type, flags, dir_id);
 	break;
 
       case FILE_CTRL_REMOTE:
