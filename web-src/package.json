@@ -1,6 +1,6 @@
 {
   "name": "forked-daapd-web",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "private": true,
   "description": "forked-daapd web interface",
   "author": "chme <christian.meffert@googlemail.com>",
@@ -40,14 +40,14 @@
     "@vue/cli-service": "^4.5.10",
     "@vue/eslint-config-standard": "^6.0.0",
     "babel-eslint": "^10.1.0",
-    "eslint": "^7.17.0",
+    "eslint": "^7.18.0",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^5.0.0",
     "eslint-plugin-vue": "^7.4.1",
-    "sass": "^1.32.2",
-    "sass-loader": "^10.1.0",
+    "sass": "^1.32.4",
+    "sass-loader": "^10.1.1",
     "vue-template-compiler": "^2.6.12"
   },
   "license": "GPL-2.0"
