@@ -304,6 +304,7 @@ struct group_info {
   uint32_t time_added;
   uint32_t time_played;
   uint32_t seek;
+  uint32_t db_timestamp;
 };
 
 #define gri_offsetof(field) offsetof(struct group_info, field)
@@ -325,6 +326,7 @@ struct db_group_info {
   char *time_added;
   char *time_played;
   char *seek;
+  char *db_timestamp;
 };
 
 #define dbgri_offsetof(field) offsetof(struct db_group_info, field)

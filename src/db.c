@@ -403,6 +403,7 @@ static const ssize_t dbgri_cols_map[] =
     dbgri_offsetof(time_added),
     dbgri_offsetof(time_played),
     dbgri_offsetof(seek),
+    dbgri_offsetof(db_timestamp),
   };
 
 /* This list must be kept in sync with
@@ -1917,7 +1918,7 @@ db_build_query_group_albums(struct query_params *qp, struct query_clause *qc)
 			  "  g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, " \
 			  "  1 as album_count, f.album_artist, f.songartistid, " \
 			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), " \
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) " \
+			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek), MAX(f.db_timestamp) " \
 			  "FROM files f JOIN groups g ON f.songalbumid = g.persistentid %s " \
 			  "GROUP BY f.songalbumid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
@@ -1935,7 +1936,7 @@ db_build_query_group_artists(struct query_params *qp, struct query_clause *qc)
 			  "  g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, " \
 			  "  COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, " \
 			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), " \
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) " \
+			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek), MAX(f.db_timestamp) " \
 			  "FROM files f JOIN groups g ON f.songartistid = g.persistentid %s " \
 			  "GROUP BY f.songartistid %s %s %s;",
 			  qc->where, qc->having, qc->order, qc->index);
