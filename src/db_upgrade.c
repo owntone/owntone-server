@@ -1093,6 +1093,7 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       ret = db_generic_upgrade(hdl, db_upgrade_v18_queries, ARRAY_SIZE(db_upgrade_v18_queries));
       if (ret < 0)
 	return -1;
+	/* no break */
 
       /* FALLTHROUGH */
 
