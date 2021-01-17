@@ -202,6 +202,8 @@ struct airplay_extra
 {
   enum airplay_devtype devtype;
 
+  char *mdns_name;
+
   uint16_t wanted_metadata;
   bool supports_auth_setup;
   bool supports_pairing_transient;
@@ -607,6 +609,53 @@ device_id_colon_make(char *id_str, int size, uint64_t id)
     }
 
   id_str[size - 1] = 0; // Zero terminate
+}
+
+// Converts AA:BB:CC:DD:EE:FF -> AABBCCDDEEFF -> uint64 id
+static int
+device_id_colon_parse(uint64_t *id, const char *id_str)
+{
+  char *s;
+  char *ptr;
+  int ret;
+
+  s = calloc(1, strlen(id_str) + 1);
+  for (ptr = s; *id_str != '\0'; id_str++)
+    {
+      if (*id_str == ':')
+	continue;
+
+      *ptr = *id_str;
+      ptr++;
+    }
+
+  ret = safe_hextou64(s, id);
+  free(s);
+
+  return ret;
+}
+
+static int
+device_id_find_byname(uint64_t *id, const char *name)
+{
+  struct output_device *device;
+  struct airplay_extra *re;
+
+  for (device = outputs_list(); device; device = device->next)
+    {
+      if (device->type != OUTPUT_TYPE_AIRPLAY)
+	continue;
+
+      re = device->extra_device_info;
+      if (strcmp(name, re->mdns_name) == 0)
+	break;
+    }
+
+  if (!device)
+    return -1;
+
+  *id = device->id;
+  return 0;
 }
 
 
@@ -3987,6 +4036,7 @@ features_parse(struct keyval *features_kv, const char *fs1, const char *fs2, con
   return 0;
 }
 
+
 /* Examples of txt content:
  * Airport Express 2:
      ["pk=7de...39" "gcgl=0" "gid=0fd...4" "pi=0fd...a4" "srcvers=366.0" "protovers=1.1" "serialNumber=C8...R" "manufacturer=Apple Inc." "model=AirPort10,115" "flags=0x4" "fv=p20.78100.3" "rsf=0x0" "features=0x445D0A00,0x1C340" "deviceid=74:1B:B2:D1:1A:B7" "acl=0"]
@@ -4008,36 +4058,35 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   cfg_t *devcfg;
   cfg_opt_t *cfgopt;
   const char *p;
+  const char *nickname = NULL;
   const char *features;
-  char *s;
-  char *ptr;
   uint64_t id;
   int ret;
 
-  p = keyval_get(txt, "deviceid");
-  if (!p)
+  if (port > 0)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "AirPlay device '%s' is missing a device ID\n", name);
-      return;
+      p = keyval_get(txt, "deviceid");
+      if (!p)
+	{
+	  DPRINTF(E_LOG, L_AIRPLAY, "AirPlay device '%s' is missing a device ID\n", name);
+	  return;
+	}
+
+      ret = device_id_colon_parse(&id, p);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_AIRPLAY, "Could not extract AirPlay device ID ('%s'): %s\n", name, p);
+	  return;
+	}
     }
-
-  // Convert AA:BB:CC:DD:EE:FF -> AABBCCDDEEFF -> uint64 id
-  s = calloc(1, strlen(p) + 1);
-  for (ptr = s; *p != '\0'; p++)
+  else
     {
-      if (*p == ':')
-	continue;
-
-      *ptr = *p;
-      ptr++;
-    }
-
-  ret = safe_hextou64(s, &id);
-  free(s);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not extract AirPlay device ID ('%s')\n", name);
-      return;
+      ret = device_id_find_byname(&id, name);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_AIRPLAY, "Could not remove, AirPlay device '%s' not in our list\n", name);
+	  return;
+	}
     }
 
   DPRINTF(E_DBG, L_AIRPLAY, "Event for AirPlay device '%s' (port %d, id %" PRIx64 ")\n", name, port, id);
@@ -4053,12 +4102,17 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
       DPRINTF(E_INFO, L_AIRPLAY, "AirPlay device '%s' disappeared, but set as permanent in config\n", name);
       return;
     }
+  if (devcfg && cfg_getstr(devcfg, "nickname"))
+    {
+      nickname = cfg_getstr(devcfg, "nickname");
+    }
 
   CHECK_NULL(L_AIRPLAY, rd = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_AIRPLAY, re = calloc(1, sizeof(struct airplay_extra)));
 
   rd->id = id;
-  rd->name = strdup(name);
+  rd->name = nickname ? strdup(nickname) : strdup(name);
+  re->mdns_name = strdup(name); // Used for identifying device when it disappears
   rd->type = OUTPUT_TYPE_AIRPLAY;
   rd->type_name = outputs_name(rd->type);
   rd->extra_device_info = re;
@@ -4257,6 +4311,7 @@ airplay_device_free_extra(struct output_device *device)
 {
   struct airplay_extra *re = device->extra_device_info;
 
+  free(re->mdns_name);
   free(re);
 }
 
