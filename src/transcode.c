@@ -235,6 +235,13 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->sample_format = AV_SAMPLE_FMT_S16; // Only libopus support
 	break;
 
+      case XCODE_ALAC:
+	settings->encode_audio = 1;
+	settings->format = "data"; // Means we get the raw packet from the encoder, no muxing
+	settings->audio_codec = AV_CODEC_ID_ALAC;
+	settings->sample_format = AV_SAMPLE_FMT_S16P;
+	break;
+
       case XCODE_JPEG:
 	settings->encode_video = 1;
 	settings->silent = 1;
