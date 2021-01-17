@@ -1,8 +1,4 @@
 /*
- * ALAC encoding adapted from airplay_play
- *   Copyright (C) 2005 Shiro Ninomiya <shiron@snino.com>
- *   GPLv2+
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -55,6 +51,7 @@
 #include "artwork.h"
 #include "dmap_common.h"
 #include "rtp_common.h"
+#include "transcode.h"
 #include "outputs.h"
 
 #include "pair.h"
@@ -64,7 +61,6 @@
  * inplace encryption
  * latency needs different handling
  * support ipv6, e.g. in SETPEERS
- * ffmpeg alac encoding
  *
  */
 
@@ -76,9 +72,6 @@
 
 // Full traffic dumps in the log in debug mode
 #define AIRPLAY_DUMP_TRAFFIC                 0
-
-
-#define ALAC_HEADER_LEN                      3
 
 #define AIRPLAY_QUALITY_SAMPLE_RATE_DEFAULT     44100
 #define AIRPLAY_QUALITY_BITS_PER_SAMPLE_DEFAULT 16
@@ -211,8 +204,12 @@ struct airplay_extra
 
 struct airplay_master_session
 {
-  struct evbuffer *evbuf;
-  int evbuf_samples;
+  struct evbuffer *input_buffer;
+  int input_buffer_samples;
+
+  // ALAC encoder and buffer for encoded data
+  struct encode_ctx *encode_ctx;
+  struct evbuffer *encoded_buffer;
 
   struct rtp_session *rtp_session;
 
@@ -221,6 +218,8 @@ struct airplay_master_session
   uint8_t *rawbuf;
   size_t rawbuf_size;
   int samples_per_packet;
+
+  struct media_quality quality;
 
   // Number of samples that we tell the output to buffer (this will mean that
   // the position that we send in the sync packages are offset by this amount
@@ -474,82 +473,28 @@ sequence_continue(struct airplay_seq_ctx *seq_ctx);
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
 
-/* ALAC bits writer - big endian
- * p    outgoing buffer pointer
- * val  bitfield value
- * blen bitfield length, max 8 bits
- * bpos bit position in the current byte (pointed by *p)
- */
-static inline void
-alac_write_bits(uint8_t **p, uint8_t val, int blen, int *bpos)
+static inline int
+alac_encode(struct evbuffer *evbuf, struct encode_ctx *encode_ctx, uint8_t *rawbuf, size_t rawbuf_size, int nsamples, struct media_quality *quality)
 {
-  int lb;
-  int rb;
-  int bd;
+  transcode_frame *frame;
+  int len;
 
-  /* Remaining bits in the current byte */
-  lb = 7 - *bpos + 1;
-
-  /* Number of bits overflowing */
-  rb = lb - blen;
-
-  if (rb >= 0)
+  frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality);
+  if (!frame)
     {
-      bd = val << rb;
-      if (*bpos == 0)
-	**p = bd;
-      else
-	**p |= bd;
-
-      /* No over- nor underflow, we're done with this byte */
-      if (rb == 0)
-	{
-	  *p += 1;
-	  *bpos = 0;
-	}
-      else
-	*bpos += blen;
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not convert raw PCM to frame (bufsize=%zu)\n", rawbuf_size);
+      return -1;
     }
-  else
+
+  len = transcode_encode(evbuf, encode_ctx, frame, 0);
+  transcode_frame_free(frame);
+  if (len < 0)
     {
-      /* Fill current byte */
-      bd = val >> -rb;
-      **p |= bd;
-
-      /* Overflow goes to the next byte */
-      *p += 1;
-      **p = val << (8 + rb);
-      *bpos = -rb;
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not ALAC encode frame\n");
+      return -1;
     }
-}
 
-/* Raw data must be little endian */
-static void
-alac_encode(uint8_t *dst, uint8_t *raw, int len)
-{
-  uint8_t *maxraw;
-  int bpos;
-
-  bpos = 0;
-  maxraw = raw + len;
-
-  alac_write_bits(&dst, 1, 3, &bpos); /* channel=1, stereo */
-  alac_write_bits(&dst, 0, 4, &bpos); /* unknown */
-  alac_write_bits(&dst, 0, 8, &bpos); /* unknown */
-  alac_write_bits(&dst, 0, 4, &bpos); /* unknown */
-  alac_write_bits(&dst, 0, 1, &bpos); /* hassize */
-
-  alac_write_bits(&dst, 0, 2, &bpos); /* unused */
-  alac_write_bits(&dst, 1, 1, &bpos); /* is-not-compressed */
-
-  for (; raw < maxraw; raw += 4)
-    {
-      /* Byteswap to big endian */
-      alac_write_bits(&dst, *(raw + 1), 8, &bpos);
-      alac_write_bits(&dst, *raw, 8, &bpos);
-      alac_write_bits(&dst, *(raw + 3), 8, &bpos);
-      alac_write_bits(&dst, *(raw + 2), 8, &bpos);
-    }
+  return len;
 }
 
 /* AirTunes v2 time synchronization helpers */
@@ -1144,50 +1089,6 @@ session_status(struct airplay_session *rs)
   rs->callback_id = -1;
 }
 
-static struct airplay_master_session *
-master_session_make(struct media_quality *quality)
-{
-  struct airplay_master_session *rms;
-  int ret;
-
-  // First check if we already have a suitable session
-  for (rms = airplay_master_sessions; rms; rms = rms->next)
-    {
-      if (quality_is_equal(quality, &rms->rtp_session->quality))
-	return rms;
-    }
-
-  // Let's create a master session
-  ret = outputs_quality_subscribe(quality);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not subscribe to required audio quality (%d/%d/%d)\n", quality->sample_rate, quality->bits_per_sample, quality->channels);
-      return NULL;
-    }
-
-  CHECK_NULL(L_AIRPLAY, rms = calloc(1, sizeof(struct airplay_master_session)));
-
-  rms->rtp_session = rtp_session_new(quality, AIRPLAY_PACKET_BUFFER_SIZE, 0);
-  if (!rms->rtp_session)
-    {
-      outputs_quality_unsubscribe(quality);
-      free(rms);
-      return NULL;
-    }
-
-  rms->samples_per_packet = AIRPLAY_SAMPLES_PER_PACKET;
-  rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
-  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
-
-  CHECK_NULL(L_AIRPLAY, rms->rawbuf = malloc(rms->rawbuf_size));
-  CHECK_NULL(L_AIRPLAY, rms->evbuf = evbuffer_new());
-
-  rms->next = airplay_master_sessions;
-  airplay_master_sessions = rms;
-
-  return rms;
-}
-
 static void
 master_session_free(struct airplay_master_session *rms)
 {
@@ -1196,7 +1097,14 @@ master_session_free(struct airplay_master_session *rms)
 
   outputs_quality_unsubscribe(&rms->rtp_session->quality);
   rtp_session_free(rms->rtp_session);
-  evbuffer_free(rms->evbuf);
+
+  transcode_encode_cleanup(&rms->encode_ctx);
+
+  if (rms->input_buffer)
+    evbuffer_free(rms->input_buffer);
+  if (rms->encoded_buffer)
+    evbuffer_free(rms->encoded_buffer);
+
   free(rms->rawbuf);
   free(rms);
 }
@@ -1228,6 +1136,70 @@ master_session_cleanup(struct airplay_master_session *rms)
     }
 
   master_session_free(rms);
+}
+
+static struct airplay_master_session *
+master_session_make(struct media_quality *quality)
+{
+  struct airplay_master_session *rms;
+  struct decode_ctx *decode_ctx;
+  int ret;
+
+  // First check if we already have a suitable session
+  for (rms = airplay_master_sessions; rms; rms = rms->next)
+    {
+      if (quality_is_equal(quality, &rms->rtp_session->quality))
+	return rms;
+    }
+
+  // Let's create a master session
+  ret = outputs_quality_subscribe(quality);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not subscribe to required audio quality (%d/%d/%d)\n", quality->sample_rate, quality->bits_per_sample, quality->channels);
+      return NULL;
+    }
+
+  CHECK_NULL(L_AIRPLAY, rms = calloc(1, sizeof(struct airplay_master_session)));
+
+  rms->rtp_session = rtp_session_new(quality, AIRPLAY_PACKET_BUFFER_SIZE, 0);
+  if (!rms->rtp_session)
+    {
+      goto error;
+    }
+
+  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
+  if (!decode_ctx)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not create decoding context\n");
+      goto error;
+    }
+
+  rms->encode_ctx = transcode_encode_setup(XCODE_ALAC, quality, decode_ctx, NULL, 0, 0);
+  transcode_decode_cleanup(&decode_ctx);
+  if (!rms->encode_ctx)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Will not be able to stream AirPlay 2, ffmpeg has no ALAC encoder\n");
+      goto error;
+    }
+
+  rms->quality = *quality;
+  rms->samples_per_packet = AIRPLAY_SAMPLES_PER_PACKET;
+  rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
+  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+
+  CHECK_NULL(L_AIRPLAY, rms->rawbuf = malloc(rms->rawbuf_size));
+  CHECK_NULL(L_AIRPLAY, rms->input_buffer = evbuffer_new());
+  CHECK_NULL(L_AIRPLAY, rms->encoded_buffer = evbuffer_new());
+
+  rms->next = airplay_master_sessions;
+  airplay_master_sessions = rms;
+
+  return rms;
+
+ error:
+  master_session_free(rms);
+  return NULL;
 }
 
 static void
@@ -2005,10 +1977,15 @@ packets_send(struct airplay_master_session *rms)
 {
   struct rtp_packet *pkt;
   struct airplay_session *rs;
+  int len;
 
-  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet, AIRPLAY_RTP_PAYLOADTYPE, 0);
+  len = alac_encode(rms->encoded_buffer, rms->encode_ctx, rms->rawbuf, rms->rawbuf_size, rms->samples_per_packet, &rms->quality);
+  if (len < 0)
+    return -1;
 
-  alac_encode(pkt->payload, rms->rawbuf, rms->rawbuf_size);
+  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, AIRPLAY_RTP_PAYLOADTYPE, 0);
+
+  evbuffer_remove(rms->encoded_buffer, pkt->payload, pkt->payload_len);
 
   for (rs = airplay_sessions; rs; rs = rs->next)
     {
@@ -2061,15 +2038,15 @@ timestamp_set(struct airplay_master_session *rms, struct timespec ts)
   //   -> we should be playing rtptime X + 600
   //
   // So how do we measure samples received from player? We know that from the
-  // pos, which says how much has been sent to the device, and from rms->evbuf,
+  // pos, which says how much has been sent to the device, and from rms->input_buffer,
   // which is the unsent stuff being buffered:
-  //   - received = (pos - X) + rms->evbuf_samples
+  //   - received = (pos - X) + rms->input_buffer_samples
   //
   // This means the rtptime is computed as:
   //   - rtptime = X + received - rms->output_buffer_samples
-  //   -> rtptime = X + (pos - X) + rms->evbuf_samples - rms->out_buffer_samples
-  //   -> rtptime = pos + rms->evbuf_samples - rms->output_buffer_samples
-  rms->cur_stamp.pos = rms->rtp_session->pos + rms->evbuf_samples - rms->output_buffer_samples;
+  //   -> rtptime = X + (pos - X) + rms->input_buffer_samples - rms->out_buffer_samples
+  //   -> rtptime = pos + rms->input_buffer_samples - rms->output_buffer_samples
+  rms->cur_stamp.pos = rms->rtp_session->pos + rms->input_buffer_samples - rms->output_buffer_samples;
 }
 
 static void
@@ -4352,14 +4329,14 @@ airplay_write(struct output_buffer *obuf)
 	  packets_sync_send(rms);
 
 	  // TODO avoid this copy
-	  evbuffer_add(rms->evbuf, obuf->data[i].buffer, obuf->data[i].bufsize);
-	  rms->evbuf_samples += obuf->data[i].samples;
+	  evbuffer_add(rms->input_buffer, obuf->data[i].buffer, obuf->data[i].bufsize);
+	  rms->input_buffer_samples += obuf->data[i].samples;
 
 	  // Send as many packets as we have data for (one packet requires rawbuf_size bytes)
-	  while (evbuffer_get_length(rms->evbuf) >= rms->rawbuf_size)
+	  while (evbuffer_get_length(rms->input_buffer) >= rms->rawbuf_size)
 	    {
-	      evbuffer_remove(rms->evbuf, rms->rawbuf, rms->rawbuf_size);
-	      rms->evbuf_samples -= rms->samples_per_packet;
+	      evbuffer_remove(rms->input_buffer, rms->rawbuf, rms->rawbuf_size);
+	      rms->input_buffer_samples -= rms->samples_per_packet;
 
 	      packets_send(rms);
 	    }
