@@ -2533,33 +2533,15 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 }
 
 static int
-jsonapi_reply_queue_tracks_move(struct httpd_request *hreq)
+update_pos(uint32_t item_id, const char *new)
 {
-  uint32_t item_id;
   uint32_t new_position;
-  const char *param;
   struct player_status status;
   int ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
-  if (ret < 0)
+  if (safe_atou32(new, &new_position) < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid item id given '%s'\n", hreq->uri_parsed->path);
-
-      return HTTP_BADREQUEST;
-    }
-
-  param = evhttp_find_header(hreq->query, "new_position");
-  if (!param)
-    {
-      DPRINTF(E_LOG, L_WEB, "Missing parameter 'new_position'\n");
-
-      return HTTP_BADREQUEST;
-    }
-  if (safe_atou32(param, &new_position) < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "No valid item new_position '%s'\n", param);
-
+      DPRINTF(E_LOG, L_WEB, "No valid item new_position '%s'\n", new);
       return HTTP_BADREQUEST;
     }
 
@@ -2568,9 +2550,59 @@ jsonapi_reply_queue_tracks_move(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Moving item '%d' to new position %d failed\n", item_id, new_position);
-
       return HTTP_INTERNAL;
     }
+
+  return HTTP_OK;
+}
+
+static inline void
+update_str(char **str, const char *new)
+{
+  free(*str);
+  *str = strdup(new);
+}
+
+static int
+jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
+{
+  struct db_queue_item *queue_item;
+  uint32_t item_id;
+  const char *param;
+  bool is_changed;
+  int ret;
+
+  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
+  if (ret < 0 || !(queue_item = db_queue_fetch_byitemid(item_id)))
+    {
+      DPRINTF(E_LOG, L_WEB, "No valid item id given '%s'\n", hreq->uri_parsed->path);
+      return HTTP_BADREQUEST;
+    }
+
+  ret = HTTP_OK;
+  is_changed = false;
+  if ((param = evhttp_find_header(hreq->query, "new_position")))
+    ret = update_pos(item_id, param);
+  if ((param = evhttp_find_header(hreq->query, "title")) && (is_changed = true))
+    update_str(&queue_item->title, param);
+  if ((param = evhttp_find_header(hreq->query, "album")) && (is_changed = true))
+    update_str(&queue_item->album, param);
+  if ((param = evhttp_find_header(hreq->query, "artist")) && (is_changed = true))
+    update_str(&queue_item->artist, param);
+  if ((param = evhttp_find_header(hreq->query, "album_artist")) && (is_changed = true))
+    update_str(&queue_item->album_artist, param);
+  if ((param = evhttp_find_header(hreq->query, "composer")) && (is_changed = true))
+    update_str(&queue_item->composer, param);
+  if ((param = evhttp_find_header(hreq->query, "genre")) && (is_changed = true))
+    update_str(&queue_item->genre, param);
+  if ((param = evhttp_find_header(hreq->query, "artwork_url")) && (is_changed = true))
+    update_str(&queue_item->artwork_url, param);
+
+  if (ret != HTTP_OK)
+    return ret;
+
+  if (is_changed)
+    db_queue_update_item(queue_item);
 
   return HTTP_NOCONTENT;
 }
@@ -4345,7 +4377,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/queue$",                                 jsonapi_reply_queue },
     { EVHTTP_REQ_PUT,    "^/api/queue/clear$",                           jsonapi_reply_queue_clear },
     { EVHTTP_REQ_POST,   "^/api/queue/items/add$",                       jsonapi_reply_queue_tracks_add },
-    { EVHTTP_REQ_PUT,    "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_move },
+    { EVHTTP_REQ_PUT,    "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_update },
     { EVHTTP_REQ_DELETE, "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_delete },
     { EVHTTP_REQ_POST,   "^/api/queue/save$",                            jsonapi_reply_queue_save},
 

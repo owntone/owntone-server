@@ -529,7 +529,7 @@ curl -X PUT "http://localhost:3689/api/outputs/0/toggle"
 | GET       | [/api/queue](#list-queue-items)                             | Get a list of queue items            |
 | PUT       | [/api/queue/clear](#clearing-the-queue)                     | Remove all items from the queue      |
 | POST      | [/api/queue/items/add](#adding-items-to-the-queue)          | Add items to the queue               |
-| PUT       | [/api/queue/items/{id}](#moving-a-queue-item)               | Move a queue item in the queue       |
+| PUT       | [/api/queue/items/{id}](#updating-a-queue-item)             | Updating a queue item in the queue   |
 | DELETE    | [/api/queue/items/{id}](#removing-a-queue-item)             | Remove a queue item form the queue   |
 
 
@@ -690,9 +690,9 @@ curl -X POST "http://localhost:3689/api/queue/items/add?limit=10&clear=true&play
 }
 ```
 
-### Moving a queue item
+### Updating a queue item
 
-Move a queue item in the current queue
+Update or move a queue item in the current queue
 
 **Endpoint**
 
@@ -711,6 +711,13 @@ PUT /api/queue/items/{id}
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | new_position    | The new position for the queue item in the current queue.   |
+| title           | New track title                                             |
+| album           | New album title                                             |
+| artist          | New artist                                                  |
+| album_artist    | New album artist                                            |
+| composer        | New composer                                                |
+| genre           | New genre                                                   |
+| artwork_url     | New URL to track artwork                                    |
 
 **Response**
 
@@ -722,6 +729,9 @@ On success returns the HTTP `204 No Content` success status response code.
 curl -X PUT "http://localhost:3689/api/queue/items/3?new_position=0"
 ```
 
+```shell
+curl -X PUT "http://localhost:3689/api/queue/items/3?title=Awesome%20title&artwork_url=http%3A%2F%2Fgyfgafguf.dk%2Fimages%2Fpige3.jpg"
+```
 
 ### Removing a queue item
 

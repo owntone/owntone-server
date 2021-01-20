@@ -760,14 +760,7 @@ sort_tag_create(char **sort_tag, const char *src_tag)
 
   /* Note: include terminating NUL in string length for u8_normalize */
 
-  if (*sort_tag)
-    {
-      DPRINTF(E_DBG, L_DB, "Existing sort tag will be normalized: %s\n", *sort_tag);
-      o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
-      free(*sort_tag);
-      *sort_tag = (char *)o_ptr;
-      return;
-    }
+  free(*sort_tag);
 
   if (!src_tag || ((len = strlen(src_tag)) == 0))
     {
@@ -4774,7 +4767,7 @@ db_queue_update_item(struct db_queue_item *qi)
 		    "file_id = %d, song_length = %d, data_kind = %d, media_kind = %d, "	\
 		    "pos = %d, shuffle_pos = %d, path = '%q', virtual_path = %Q, "	\
 		    "title = %Q, artist = %Q, album_artist = %Q, album = %Q, "		\
-		    "composer = %Q,"                                                    \
+		    "composer = %Q, "                                                    \
 		    "genre = %Q, time_modified = %d, "					\
 		    "songalbumid = %" PRIi64 ", songartistid = %" PRIi64 ", "		\
 		    "artist_sort = %Q, album_sort = %Q, album_artist_sort = %Q, "	\
@@ -4785,6 +4778,8 @@ db_queue_update_item(struct db_queue_item *qi)
   int queue_version;
   char *query;
   int ret;
+
+  fixup_tags_queue_item(qi);
 
   queue_version = queue_transaction_begin();
 
