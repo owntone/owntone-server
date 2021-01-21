@@ -529,8 +529,8 @@ curl -X PUT "http://localhost:3689/api/outputs/0/toggle"
 | GET       | [/api/queue](#list-queue-items)                             | Get a list of queue items            |
 | PUT       | [/api/queue/clear](#clearing-the-queue)                     | Remove all items from the queue      |
 | POST      | [/api/queue/items/add](#adding-items-to-the-queue)          | Add items to the queue               |
-| PUT       | [/api/queue/items/{id}](#updating-a-queue-item)             | Updating a queue item in the queue   |
-| DELETE    | [/api/queue/items/{id}](#removing-a-queue-item)             | Remove a queue item form the queue   |
+| PUT       | [/api/queue/items/{id}|now_playing](#updating-a-queue-item) | Updating a queue item in the queue   |
+| DELETE    | [/api/queue/items/{id}](#removing-a-queue-item)             | Remove a queue item from the queue   |
 
 
 
@@ -699,12 +699,18 @@ Update or move a queue item in the current queue
 ```http
 PUT /api/queue/items/{id}
 ```
+or
+```http
+PUT /api/queue/items/now_playing
+```
 
 **Path parameters**
 
 | Parameter       | Value                |
 | --------------- | -------------------- |
 | id              | Queue item id        |
+
+(or use now_playing to update the currenly playing track)
 
 **Query parameters**
 
@@ -731,6 +737,10 @@ curl -X PUT "http://localhost:3689/api/queue/items/3?new_position=0"
 
 ```shell
 curl -X PUT "http://localhost:3689/api/queue/items/3?title=Awesome%20title&artwork_url=http%3A%2F%2Fgyfgafguf.dk%2Fimages%2Fpige3.jpg"
+```
+
+```shell
+curl -X PUT "http://localhost:3689/api/queue/items/now_playing?title=Awesome%20title&artwork_url=http%3A%2F%2Fgyfgafguf.dk%2Fimages%2Fpige3.jpg"
 ```
 
 ### Removing a queue item

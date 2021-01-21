@@ -43,7 +43,8 @@ Metadata:
 ```
 
 In the above, first fix is the blank name, second is the image artwork.
-### 1) Stream Name/Title
+
+### 1) Set stream name/title via the M3U file
 Set the name with an EXTINF tag in the m3u playlist file:
 
 ```
@@ -57,7 +58,7 @@ Length is -1 since it's a stream, `<Artist Name>` was left blank since
 `StreamTitle` is accurate in the Metadata but `<Artist Title>` was set to
 `My Radio Stream Name` since `icy-name` was blank.
 
-### 2) Artwork (and track duration)
+### 2) StreamUrl is a JSON file with metadata
 If `StreamUrl` does not point directly to an artwork file then the link may be
 to a json file that contains an artwork link. If so, you can make forked-daapd
 download the file automatically and search for an artwork link, and also track
@@ -91,6 +92,15 @@ curl -X PUT "http://localhost:3689/api/settings/misc/streamurl_keywords_artwork_
 
 If you want multiple search phrases then comma separate, e.g. "duration,length".
 
+### 3) Set metadata with a custom script
+If your radio station publishes metadata via another method than the above, e.g.
+just on their web site, then you will have to write a script that pulls the
+metadata and then pushes it to forked-daapd. To update metadata for the
+currently playing radio station use something like this JSON API request:
+
+```shell
+curl -X PUT "http://localhost:3689/api/queue/items/now_playing?title=Awesome%20title&artwork_url=http%3A%2F%2Fgyfgafguf.dk%2Fimages%2Fpige3.jpg"
+```
 
 If your radio station is not returning any artwork links, you can also just make
 a static artwork by placing a png/jpg in the same directory as the m3u, and with

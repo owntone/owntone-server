@@ -2533,10 +2533,9 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 }
 
 static int
-update_pos(uint32_t item_id, const char *new)
+update_pos(uint32_t item_id, const char *new, char shuffle)
 {
   uint32_t new_position;
-  struct player_status status;
   int ret;
 
   if (safe_atou32(new, &new_position) < 0)
@@ -2545,8 +2544,7 @@ update_pos(uint32_t item_id, const char *new)
       return HTTP_BADREQUEST;
     }
 
-  player_get_status(&status);
-  ret = db_queue_move_byitemid(item_id, new_position, status.shuffle);
+  ret = db_queue_move_byitemid(item_id, new_position, shuffle);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Moving item '%d' to new position %d failed\n", item_id, new_position);
@@ -2567,22 +2565,29 @@ static int
 jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
 {
   struct db_queue_item *queue_item;
-  uint32_t item_id;
+  struct player_status status;
+  uint32_t item_id = 0;
   const char *param;
   bool is_changed;
   int ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
-  if (ret < 0 || !(queue_item = db_queue_fetch_byitemid(item_id)))
+  player_get_status(&status);
+
+  if (strcmp(hreq->uri_parsed->path_parts[3], "now_playing") != 0)
+    safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
+  else
+    item_id = status.item_id;
+
+  if (!item_id || !(queue_item = db_queue_fetch_byitemid(item_id)))
     {
-      DPRINTF(E_LOG, L_WEB, "No valid item id given '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid item id given, or now_playing given but not playing: '%s'\n", hreq->uri_parsed->path);
       return HTTP_BADREQUEST;
     }
 
   ret = HTTP_OK;
   is_changed = false;
   if ((param = evhttp_find_header(hreq->query, "new_position")))
-    ret = update_pos(item_id, param);
+    ret = update_pos(item_id, param, status.shuffle);
   if ((param = evhttp_find_header(hreq->query, "title")) && (is_changed = true))
     update_str(&queue_item->title, param);
   if ((param = evhttp_find_header(hreq->query, "album")) && (is_changed = true))
@@ -4378,6 +4383,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_PUT,    "^/api/queue/clear$",                           jsonapi_reply_queue_clear },
     { EVHTTP_REQ_POST,   "^/api/queue/items/add$",                       jsonapi_reply_queue_tracks_add },
     { EVHTTP_REQ_PUT,    "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_update },
+    { EVHTTP_REQ_PUT,    "^/api/queue/items/now_playing$",               jsonapi_reply_queue_tracks_update },
     { EVHTTP_REQ_DELETE, "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_delete },
     { EVHTTP_REQ_POST,   "^/api/queue/save$",                            jsonapi_reply_queue_save},
 
