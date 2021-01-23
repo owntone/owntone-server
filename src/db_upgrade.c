@@ -1249,7 +1249,6 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       ret = db_generic_upgrade(hdl, db_upgrade_v2104_queries, ARRAY_SIZE(db_upgrade_v2104_queries));
       if (ret < 0)
 	return -1;
-      break;
 
       /* FALLTHROUGH */
 
@@ -1257,6 +1256,8 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       ret = db_generic_upgrade(hdl, db_upgrade_v2105_queries, ARRAY_SIZE(db_upgrade_v2105_queries));
       if (ret < 0)
 	return -1;
+
+      /* Last case statement is the only one that ends with a break statement! */
       break;
 
     default:
