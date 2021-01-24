@@ -56,10 +56,6 @@
 // Inotify cookies are uint32_t
 #define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)
 
-#define DB_TYPE_INT      1
-#define DB_TYPE_INT64    2
-#define DB_TYPE_STRING   3
-
 // Flags that the field will not be bound to prepared statements, which is relevant if the field has no
 // matching column, or if the the column value is set automatically by the db, e.g. by a trigger
 #define DB_FLAG_NO_BIND  (1 << 0)
@@ -73,6 +69,12 @@
 enum group_type {
   G_ALBUMS = 1,
   G_ARTISTS = 2,
+};
+
+enum field_type {
+  DB_TYPE_INT,
+  DB_TYPE_INT64,
+  DB_TYPE_STRING,
 };
 
 enum fixup_type {
@@ -120,7 +122,7 @@ struct db_statements
 struct col_type_map {
   char *name;
   ssize_t offset;
-  short type;
+  enum field_type type;
   enum fixup_type fixup;
   short flag;
 };
@@ -800,38 +802,92 @@ free_queue_item(struct db_queue_item *qi, int content_only)
 //   because src is not a struct, caller wants to strdup the string so
 //   must_strdup is true
 static inline void
-struct_set(void *dst_struct, ssize_t dst_offset, int dst_type, const void *src_struct, ssize_t src_offset, bool must_strdup, bool parse_integers)
+struct_field_set_str(void *dst, const void *src, bool must_strdup)
+{
+  char *srcstr;
+  char **dstptr;
+
+  srcstr = *(char **)(src);
+  dstptr = (char **)(dst);
+  *dstptr = must_strdup ? safe_strdup(srcstr) : srcstr;
+}
+
+static inline void
+struct_field_set_uint32(void *dst, const void *src, bool parse_integers)
 {
   char *srcstr;
   uint32_t srcu32val;
-  int64_t srci64val;
-  char **dstptr;
 
-  srcstr = *(char **)(src_struct + src_offset);
+  if (parse_integers)
+    {
+      srcstr = *(char **)(src);
+      safe_atou32(srcstr, &srcu32val);
+    }
+  else
+    srcu32val = *(uint32_t *)(src);
+
+  memcpy(dst, &srcu32val, sizeof(srcu32val));
+}
+
+static inline void
+struct_field_set_int64(void *dst, const void *src, bool parse_integers)
+{
+  char *srcstr;
+  int64_t srci64val;
+
+  if (parse_integers)
+    {
+      srcstr = *(char **)(src);
+      safe_atoi64(srcstr, &srci64val);
+    }
+  else
+    srci64val = *(int64_t *)(src);
+
+  memcpy(dst, &srci64val, sizeof(srci64val));
+}
+
+static void
+struct_field_from_field(void *dst_struct, ssize_t dst_offset, enum field_type dst_type, const void *src_struct, ssize_t src_offset, bool must_strdup, bool parse_integers)
+{
+  switch (dst_type)
+    {
+      case DB_TYPE_STRING:
+	struct_field_set_str(dst_struct + dst_offset, src_struct + src_offset, must_strdup);
+	break;
+
+      case DB_TYPE_INT:
+	struct_field_set_uint32(dst_struct + dst_offset, src_struct + src_offset, parse_integers);
+	break;
+
+      case DB_TYPE_INT64:
+	struct_field_set_int64(dst_struct + dst_offset, src_struct + src_offset, parse_integers);
+	break;
+    }
+}
+
+static void
+struct_field_from_statement(void *dst_struct, ssize_t dst_offset, enum field_type dst_type, sqlite3_stmt *stmt, int col, bool must_strdup, bool parse_integers)
+{
+  const char *str;
+  uint32_t u32;
+  int64_t i64;
 
   switch (dst_type)
     {
       case DB_TYPE_STRING:
-	dstptr = (char **)(dst_struct + dst_offset);
-	*dstptr = must_strdup ? safe_strdup(srcstr) : srcstr;
+        str = (const char *)sqlite3_column_text(stmt, col);
+	struct_field_set_str(dst_struct + dst_offset, &str, must_strdup);
 	break;
 
       case DB_TYPE_INT:
-	if (parse_integers)
-	  safe_atou32(srcstr, &srcu32val);
-	else
-	  srcu32val = *(uint32_t *)(src_struct + src_offset);
-
-	memcpy(dst_struct + dst_offset, &srcu32val, sizeof(srcu32val));
+        u32 = (uint32_t)sqlite3_column_int64(stmt, col); // _int64() because _int() wouldn't be enough for uint32
+	// TODO add a check that we aren't truncating int64 !=0 to uint32 == 0?
+	struct_field_set_uint32(dst_struct + dst_offset, &u32, parse_integers);
 	break;
 
       case DB_TYPE_INT64:
-	if (parse_integers)
-	  safe_atoi64(srcstr, &srci64val);
-	else
-	  srci64val = *(int64_t *)(src_struct + src_offset);
-
-	memcpy(dst_struct + dst_offset, &srci64val, sizeof(srci64val));
+        i64 = sqlite3_column_int64(stmt, col);
+	struct_field_set_int64(dst_struct + dst_offset, &i64, parse_integers);
 	break;
     }
 }
@@ -3011,11 +3067,6 @@ db_file_fetch_byquery(char *query)
   struct media_file_info *mfi;
   sqlite3_stmt *stmt;
   int ncols;
-  char *cval;
-  uint32_t *ival;
-  uint64_t *i64val;
-  char **strval;
-  uint64_t disabled;
   int i;
   int ret;
 
@@ -3068,41 +3119,7 @@ db_file_fetch_byquery(char *query)
 
   for (i = 0; i < ARRAY_SIZE(mfi_cols_map); i++)
     {
-      switch (mfi_cols_map[i].type)
-	{
-	  case DB_TYPE_INT:
-	    ival = (uint32_t *) ((char *)mfi + mfi_cols_map[i].offset);
-
-	    if (mfi_cols_map[i].offset == mfi_offsetof(disabled))
-	      {
-		disabled = sqlite3_column_int64(stmt, i);
-		*ival = (disabled != 0);
-	      }
-	    else
-	      *ival = sqlite3_column_int(stmt, i);
-	    break;
-
-	  case DB_TYPE_INT64:
-	    i64val = (uint64_t *) ((char *)mfi + mfi_cols_map[i].offset);
-
-	    *i64val = sqlite3_column_int64(stmt, i);
-	    break;
-
-	  case DB_TYPE_STRING:
-	    strval = (char **) ((char *)mfi + mfi_cols_map[i].offset);
-
-	    cval = (char *)sqlite3_column_text(stmt, i);
-	    if (cval)
-	      *strval = strdup(cval);
-	    break;
-
-	  default:
-	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in mfi column map\n", mfi_cols_map[i].type);
-
-	    free_mfi(mfi, 0);
-	    sqlite3_finalize(stmt);
-	    return NULL;
-	}
+      struct_field_from_statement(mfi, mfi_cols_map[i].offset, mfi_cols_map[i].type, stmt, i, true, false);
     }
 
 #ifdef DB_PROFILE
@@ -3464,10 +3481,6 @@ db_pl_fetch_byquery(const char *query)
   struct playlist_info *pli;
   sqlite3_stmt *stmt;
   int ncols;
-  char *cval;
-  uint32_t *ival;
-  char **strval;
-  uint64_t disabled;
   int i;
   int ret;
 
@@ -3518,35 +3531,7 @@ db_pl_fetch_byquery(const char *query)
 
   for (i = 0; i < ARRAY_SIZE(pli_cols_map); i++)
     {
-      switch (pli_cols_map[i].type)
-	{
-	  case DB_TYPE_INT:
-	    ival = (uint32_t *) ((char *)pli + pli_cols_map[i].offset);
-
-	    if (pli_cols_map[i].offset == pli_offsetof(disabled))
-	      {
-		disabled = sqlite3_column_int64(stmt, i);
-		*ival = (disabled != 0);
-	      }
-	    else
-	      *ival = sqlite3_column_int(stmt, i);
-	    break;
-
-	  case DB_TYPE_STRING:
-	    strval = (char **) ((char *)pli + pli_cols_map[i].offset);
-
-	    cval = (char *)sqlite3_column_text(stmt, i);
-	    if (cval)
-	      *strval = strdup(cval);
-	    break;
-
-	  default:
-	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in pli column map\n", pli_cols_map[i].type);
-
-	    sqlite3_finalize(stmt);
-	    free_pli(pli, 0);
-	    return NULL;
-	}
+      struct_field_from_statement(pli, pli_cols_map[i].offset, pli_cols_map[i].type, stmt, i, true, false);
     }
 
   ret = db_blocking_step(stmt);
@@ -4556,10 +4541,6 @@ admin_get(void *value, const char *key, short type)
 #define Q_TMPL "SELECT value FROM admin a WHERE a.key = '%q';"
   char *query;
   sqlite3_stmt *stmt;
-  char *cval;
-  int32_t *ival;
-  int64_t *i64val;
-  char **strval;
   int ret;
 
   CHECK_NULL(L_DB, query = sqlite3_mprintf(Q_TMPL, key));
@@ -4588,35 +4569,7 @@ admin_get(void *value, const char *key, short type)
       return -1;
     }
 
-  switch (type)
-    {
-      case DB_TYPE_INT:
-	ival = (int32_t *) value;
-
-	*ival = sqlite3_column_int(stmt, 0);
-	break;
-
-      case DB_TYPE_INT64:
-	i64val = (int64_t *) value;
-
-	*i64val = sqlite3_column_int64(stmt, 0);
-	break;
-
-      case DB_TYPE_STRING:
-	strval = (char **) value;
-
-	cval = (char *)sqlite3_column_text(stmt, 0);
-	if (cval)
-	  *strval = strdup(cval);
-	break;
-
-      default:
-	DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in admin_set\n", type);
-
-	sqlite3_finalize(stmt);
-	sqlite3_free(query);
-	return -1;
-    }
+  struct_field_from_statement(value, 0, type, stmt, 0, true, false);
 
 #ifdef DB_PROFILE
   while (db_blocking_step(stmt) == SQLITE_ROW)
@@ -4879,7 +4832,7 @@ db_queue_item_from_mfi(struct db_queue_item *qi, struct media_file_info *mfi)
       if (qi_mfi_map[i].mfi_offset < 0)
 	continue;
 
-      struct_set(qi, qi_cols_map[i].offset, qi_cols_map[i].type, mfi, qi_mfi_map[i].mfi_offset, true, false);
+      struct_field_from_field(qi, qi_cols_map[i].offset, qi_cols_map[i].type, mfi, qi_mfi_map[i].mfi_offset, true, false);
     }
 
   if (!qi->file_id)
@@ -4898,7 +4851,7 @@ db_queue_item_from_dbmfi(struct db_queue_item *qi, struct db_media_file_info *db
       if (qi_mfi_map[i].dbmfi_offset < 0)
 	continue;
 
-      struct_set(qi, qi_cols_map[i].offset, qi_cols_map[i].type, dbmfi, qi_mfi_map[i].dbmfi_offset, false, true);
+      struct_field_from_field(qi, qi_cols_map[i].offset, qi_cols_map[i].type, dbmfi, qi_mfi_map[i].dbmfi_offset, false, true);
     }
 
   if (!qi->file_id)
@@ -5257,10 +5210,6 @@ strdup_if(char *str, int cond)
 static int
 queue_enum_fetch(struct query_params *qp, struct db_queue_item *qi, int must_strdup)
 {
-  const void *srcptr;
-  const char *str;
-  int32_t i32;
-  int64_t i64;
   int ret;
   int i;
 
@@ -5286,29 +5235,7 @@ queue_enum_fetch(struct query_params *qp, struct db_queue_item *qi, int must_str
 
   for (i = 0; i < ARRAY_SIZE(qi_cols_map); i++)
     {
-      switch (qi_cols_map[i].type)
-	{
-	  case DB_TYPE_STRING:
-	    str = (const char *)sqlite3_column_text(qp->stmt, i);
-	    srcptr = &str;
-	    break;
-
-	  case DB_TYPE_INT:
-	    i32 = sqlite3_column_int(qp->stmt, i);
-	    srcptr = &i32;
-	    break;
-
-	  case DB_TYPE_INT64:
-	    i64 = sqlite3_column_int64(qp->stmt, i);
-	    srcptr = &i64;
-	    break;
-
-	  default:
-	    DPRINTF(E_LOG, L_DB, "BUG! Unknown data type (%d) in queue_enum_fetch()\n", qi_cols_map[i].type);
-	    return -1;
-	}
-
-      struct_set(qi, qi_cols_map[i].offset, qi_cols_map[i].type, srcptr, 0, must_strdup, false);
+      struct_field_from_statement(qi, qi_cols_map[i].offset, qi_cols_map[i].type, qp->stmt, i, must_strdup, false);
     }
 
   return 0;
@@ -6274,9 +6201,6 @@ static int
 db_watch_get_byquery(struct watch_info *wi, char *query)
 {
   sqlite3_stmt *stmt;
-  char **strval;
-  char *cval;
-  uint32_t *ival;
   int64_t cookie;
   int ncols;
   int i;
@@ -6314,33 +6238,12 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
 
   for (i = 0; i < ARRAY_SIZE(wi_cols_map); i++)
     {
-      switch (wi_cols_map[i].type)
+      struct_field_from_statement(wi, wi_cols_map[i].offset, wi_cols_map[i].type, stmt, i, true, false);
+
+      if (wi_cols_map[i].offset == wi_offsetof(cookie))
 	{
-	  case DB_TYPE_INT:
-	    ival = (uint32_t *) ((char *)wi + wi_cols_map[i].offset);
-
-	    if (wi_cols_map[i].offset == wi_offsetof(cookie))
-	      {
-		cookie = sqlite3_column_int64(stmt, i);
-		*ival = (cookie == INOTIFY_FAKE_COOKIE) ? 0 : cookie;
-	      }
-	    else
-	      *ival = sqlite3_column_int(stmt, i);
-	    break;
-
-	  case DB_TYPE_STRING:
-	    strval = (char **) ((char *)wi + wi_cols_map[i].offset);
-
-	    cval = (char *)sqlite3_column_text(stmt, i);
-	    if (cval)
-	      *strval = strdup(cval);
-	    break;
-
-	  default:
-	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in wi column map\n", wi_cols_map[i].type);
-	    sqlite3_finalize(stmt);
-	    sqlite3_free(query);
-	    return -1;
+	  cookie = sqlite3_column_int64(stmt, i);
+	  wi->cookie = (cookie == INOTIFY_FAKE_COOKIE) ? 0 : cookie;
 	}
     }
 
