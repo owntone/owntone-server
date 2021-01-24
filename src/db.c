@@ -3056,6 +3056,18 @@ db_file_ping_bymatch(const char *path, int isdir)
 #undef Q_TMPL_NODIR
 }
 
+void
+db_file_ping_excl_bymatch(const char *path)
+{
+#define Q_TMPL_DIR "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path NOT LIKE '%q/%%';"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path);
+  db_query_run(query, 1, 0);
+
+#undef Q_TMPL_DIR
+}
+
 char *
 db_file_path_byid(int id)
 {
@@ -3637,6 +3649,18 @@ db_pl_ping_bymatch(const char *path, int isdir)
   db_query_run(query, 1, 0);
 #undef Q_TMPL_DIR
 #undef Q_TMPL_NODIR
+}
+
+void
+db_pl_ping_excl_bymatch(const char *path)
+{
+#define Q_TMPL_DIR "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path NOT LIKE '%q/%%';"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path);
+  db_query_run(query, 1, 0);
+
+#undef Q_TMPL_DIR
 }
 
 void
@@ -4445,6 +4469,18 @@ void
 db_directory_ping_bymatch(char *virtual_path)
 {
 #define Q_TMPL_DIR "UPDATE directories SET db_timestamp = %" PRIi64 " WHERE virtual_path = '%q' OR virtual_path LIKE '%q/%%';"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), virtual_path, virtual_path);
+
+  db_query_run(query, 1, 0);
+#undef Q_TMPL_DIR
+}
+
+void
+db_directory_ping_excl_bymatch(const char *virtual_path)
+{
+#define Q_TMPL_DIR "UPDATE directories SET db_timestamp = %" PRIi64 " WHERE virtual_path <> '%q' OR virtual_path NOT LIKE '%q/%%';"
   char *query;
 
   query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), virtual_path, virtual_path);
