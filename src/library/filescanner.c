@@ -1742,47 +1742,11 @@ filescanner_fullrescan()
   return 0;
 }
 
-static void
-map_media_file_to_queue_item(struct db_queue_item *queue_item, struct media_file_info *mfi)
-{
-  memset(queue_item, 0, sizeof(struct db_queue_item));
-
-  if (mfi->id)
-    queue_item->file_id = mfi->id;
-  else
-    queue_item->file_id = DB_MEDIA_FILE_NON_PERSISTENT_ID;
-
-  queue_item->title = safe_strdup(mfi->title);
-  queue_item->artist = safe_strdup(mfi->artist);
-  queue_item->album_artist = safe_strdup(mfi->album_artist);
-  queue_item->album = safe_strdup(mfi->album);
-  queue_item->genre = safe_strdup(mfi->genre);
-  queue_item->artist_sort = safe_strdup(mfi->artist_sort);
-  queue_item->album_artist_sort = safe_strdup(mfi->album_artist_sort);
-  queue_item->album_sort = safe_strdup(mfi->album_sort);
-  queue_item->path = safe_strdup(mfi->path);
-  queue_item->virtual_path = safe_strdup(mfi->virtual_path);
-  queue_item->data_kind = mfi->data_kind;
-  queue_item->media_kind = mfi->media_kind;
-  queue_item->song_length = mfi->song_length;
-  queue_item->seek = mfi->seek;
-  queue_item->songalbumid = mfi->songalbumid;
-  queue_item->time_modified = mfi->time_modified;
-  queue_item->year = mfi->year;
-  queue_item->track = mfi->track;
-  queue_item->disc = mfi->disc;
-  //queue_item->artwork_url
-  queue_item->type = safe_strdup(mfi->type);
-  queue_item->channels = mfi->channels;
-  queue_item->samplerate = mfi->samplerate;
-  queue_item->bitrate = mfi->bitrate;
-}
-
 static int
 queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct media_file_info mfi;
-  struct db_queue_item item;
+  struct db_queue_item qi;
   struct db_queue_add_info queue_add_info;
   int ret;
 
@@ -1790,12 +1754,12 @@ queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t i
 
   scan_metadata_stream(&mfi, path);
 
-  map_media_file_to_queue_item(&item, &mfi);
+  db_queue_item_from_mfi(&qi, &mfi);
 
   ret = db_queue_add_start(&queue_add_info, position);
   if (ret == 0)
     {
-      ret = db_queue_add_item(&queue_add_info, &item);
+      ret = db_queue_add_next(&queue_add_info, &qi);
       ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
       if (ret == 0)
 	{
@@ -1806,7 +1770,7 @@ queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t i
 	}
     }
 
-  free_queue_item(&item, 1);
+  free_queue_item(&qi, 1);
   free_mfi(&mfi, 1);
 
   return 0;

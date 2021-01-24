@@ -1080,7 +1080,7 @@ queue_add_track(const char *uri, int position, char reshuffle, uint32_t item_id,
   ret = db_queue_add_start(&queue_add_info, position);
   if (ret == 0)
     {
-      ret = db_queue_add_item(&queue_add_info, &item);
+      ret = db_queue_add_next(&queue_add_info, &item);
       ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
       if (ret == 0)
 	{
@@ -1122,7 +1122,7 @@ queue_add_album_tracks(json_object *item, int index, int total, enum spotify_req
 
   map_track_to_queueitem(&queue_item, &track, &param->album);
 
-  ret = db_queue_add_item(&param->queue_add_info, &queue_item);
+  ret = db_queue_add_next(&param->queue_add_info, &queue_item);
 
   free_queue_item(&queue_item, 1);
 
@@ -1236,7 +1236,7 @@ queue_add_playlist_tracks(json_object *item, int index, int total, enum spotify_
 
   map_track_to_queueitem(&queue_item, &track, NULL);
 
-  ret = db_queue_add_item(queue_add_info, &queue_item);
+  ret = db_queue_add_next(queue_add_info, &queue_item);
 
   free_queue_item(&queue_item, 1);
 

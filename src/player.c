@@ -601,7 +601,7 @@ metadata_update_queue_cb(void *arg)
       if (metadata->len_ms)
 	queue_item->song_length = metadata->len_ms;
 
-      ret = db_queue_update_item(queue_item);
+      ret = db_queue_item_update(queue_item);
       if (ret < 0)
 	DPRINTF(E_LOG, L_PLAYER, "Database error while updating queue with new metadata\n");
     }
