@@ -1285,7 +1285,7 @@ bind_generic(sqlite3_stmt *stmt, void *data, const struct col_type_map *map, siz
 	    break;
 
 	  case DB_TYPE_INT64:
-	    sqlite3_bind_int64(stmt, n, *((uint64_t *)ptr));
+	    sqlite3_bind_int64(stmt, n, *((int64_t *)ptr));
 	    break;
 
 	  case DB_TYPE_STRING:
