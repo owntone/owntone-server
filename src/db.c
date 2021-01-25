@@ -207,7 +207,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "time_modified",      mfi_offsetof(time_modified),      DB_TYPE_INT,    DB_FIXUP_TIME_MODIFIED },
     { "time_played",        mfi_offsetof(time_played),        DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
     { "time_skipped",       mfi_offsetof(time_skipped),       DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_ZERO },
-    { "disabled",           mfi_offsetof(disabled),           DB_TYPE_INT },
+    { "disabled",           mfi_offsetof(disabled),           DB_TYPE_INT64 },
     { "sample_count",       mfi_offsetof(sample_count),       DB_TYPE_INT64 },
     { "codectype",          mfi_offsetof(codectype),          DB_TYPE_STRING, DB_FIXUP_CODECTYPE },
     { "idx",                mfi_offsetof(idx),                DB_TYPE_INT },
@@ -240,7 +240,7 @@ static const struct col_type_map pli_cols_map[] =
     { "type",               pli_offsetof(type),               DB_TYPE_INT },
     { "query",              pli_offsetof(query),              DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
     { "db_timestamp",       pli_offsetof(db_timestamp),       DB_TYPE_INT },
-    { "disabled",           pli_offsetof(disabled),           DB_TYPE_INT },
+    { "disabled",           pli_offsetof(disabled),           DB_TYPE_INT64 },
     { "path",               pli_offsetof(path),               DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
     { "idx",                pli_offsetof(index),              DB_TYPE_INT },
     { "special_id",         pli_offsetof(special_id),         DB_TYPE_INT },
@@ -881,7 +881,6 @@ struct_field_from_statement(void *dst_struct, ssize_t dst_offset, enum field_typ
 
       case DB_TYPE_INT:
         u32 = (uint32_t)sqlite3_column_int64(stmt, col); // _int64() because _int() wouldn't be enough for uint32
-	// TODO add a check that we aren't truncating int64 !=0 to uint32 == 0?
 	struct_field_set_uint32(dst_struct + dst_offset, &u32, parse_integers);
 	break;
 
@@ -4104,7 +4103,6 @@ db_directory_enum_start(struct directory_enum *de)
 int
 db_directory_enum_fetch(struct directory_enum *de, struct directory_info *di)
 {
-  uint64_t disabled;
   int ret;
 
   memset(di, 0, sizeof(struct directory_info));
@@ -4130,8 +4128,7 @@ db_directory_enum_fetch(struct directory_enum *de, struct directory_info *di)
   di->id = sqlite3_column_int(de->stmt, 0);
   di->virtual_path = (char *)sqlite3_column_text(de->stmt, 1);
   di->db_timestamp = sqlite3_column_int(de->stmt, 2);
-  disabled = sqlite3_column_int64(de->stmt, 3);
-  di->disabled = (disabled != 0);
+  di->disabled = sqlite3_column_int64(de->stmt, 3);
   di->parent_id = sqlite3_column_int(de->stmt, 4);
   di->path = (char *)sqlite3_column_text(de->stmt, 5);
 
@@ -4152,7 +4149,7 @@ static int
 db_directory_add(struct directory_info *di, int *id)
 {
 #define QADD_TMPL "INSERT INTO directories (virtual_path, db_timestamp, disabled, parent_id, path)" \
-                  " VALUES (TRIM(%Q), %d, %d, %d, TRIM(%Q));"
+                  " VALUES (TRIM(%Q), %d, %" PRIi64 ", %d, TRIM(%Q));"
 
   char *query;
   char *errmsg;
@@ -4206,7 +4203,7 @@ db_directory_add(struct directory_info *di, int *id)
 static int
 db_directory_update(struct directory_info *di)
 {
-#define QADD_TMPL "UPDATE directories SET virtual_path = TRIM(%Q), db_timestamp = %d, disabled = %d, parent_id = %d, path = TRIM(%Q)" \
+#define QADD_TMPL "UPDATE directories SET virtual_path = TRIM(%Q), db_timestamp = %d, disabled = %" PRIi64 ", parent_id = %d, path = TRIM(%Q)" \
                   " WHERE id = %d;"
   char *query;
   char *errmsg;

@@ -197,7 +197,7 @@ struct media_file_info {
   uint32_t time_played;
   uint32_t time_skipped;
 
-  uint32_t disabled;
+  int64_t disabled;      // Long because it stores up to INOTIFY_FAKE_COOKIE
 
   uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
   char *codectype;       /* song.codectype, 4 chars max (32 bits) */
@@ -247,7 +247,7 @@ struct playlist_info {
   enum pl_type type;     /* see PL_ types */
   char *query;           /* where clause if type 1 (MSPS) */
   uint32_t db_timestamp; /* time last updated */
-  uint32_t disabled;
+  int64_t disabled;      /* long because it stores up to INOTIFY_FAKE_COOKIE */
   char *path;            /* path of underlying playlist */
   uint32_t index;        /* index of playlist for paths with multiple playlists */
   uint32_t special_id;   /* iTunes identifies certain 'special' playlists with special meaning */
@@ -439,7 +439,7 @@ struct directory_info {
   char *virtual_path;
   char *path;
   uint32_t db_timestamp;
-  uint32_t disabled;
+  int64_t disabled;
   uint32_t parent_id;
 };
 
