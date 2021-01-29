@@ -53,7 +53,7 @@
 #define READ_TIMEOUT 30000000
 
 static const char *default_codecs = "mpeg,wav";
-static const char *roku_codecs = "mpeg,mp4a,wma,wav";
+static const char *roku_codecs = "mpeg,mp4a,wma,alac,wav";
 static const char *itunes_codecs = "mpeg,mp4a,mp4v,alac,wav";
 
 // Used for passing errors to DPRINTF (can't count on av_err2str being present)
