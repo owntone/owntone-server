@@ -3,7 +3,7 @@
  *    <https://github.com/ViktoriiaKh/ap2-sender>
  *
  * To test, it is useful to try with this receiver:
- *    <https://github.com/Argyropus/airplay2-receiver>
+ *    <https://github.com/ckdo/airplay2-receiver>
  *
  * The Secure Remote Password 6a implementation is adapted from:
  *  - Tom Cocagne
