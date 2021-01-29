@@ -1126,6 +1126,59 @@ watches_clear(uint32_t wd, char *path)
   return 0;
 }
 
+static int
+watches_clear_bypath(char *path)
+{
+  struct watch_info wi;
+  struct watch_enum we;
+  int ret;
+
+  memset(&wi, 0, sizeof(struct watch_info));
+
+  wi.path = path;
+  db_watch_get_bypath(&wi, path);
+  watches_clear(wi.wd, path);
+  free(wi.path);
+
+  memset(&we, 0, sizeof(struct watch_enum));
+  we.match = "";  // get everything
+
+  ret = db_watch_enum_start(&we);
+  if (ret < 0)
+    return -1;
+
+  memset(&wi, 0, sizeof(struct watch_info));
+  wi.path = malloc(PATH_MAX);
+  while (db_watch_enum_fetch(&we, &wi) == 0 && wi.wd)
+    {
+      inotify_rm_watch(inofd, wi.wd);
+      db_watch_delete_bypath(wi.path);
+
+#ifdef __linux__
+      wi.wd = inotify_add_watch(inofd, wi.path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
+#else
+      wi.wd = inotify_add_watch(inofd, wi.path, IN_CREATE | IN_DELETE | IN_MOVE);
+#endif
+      if (wi.wd < 0)
+        {
+          DPRINTF(E_LOG, L_SCAN, "Failed to obtain watch: '%s' - %s\n", wi.path, strerror(errno));
+        }
+      else
+        {
+          wi.cookie = 0;
+          db_watch_add(&wi);
+        }
+
+      wi.wd = 0;
+      wi.path[0] = '\0';
+    }
+
+  db_watch_enum_end(&we);
+
+  free(wi.path);
+  return 0;
+}
+
 /* Thread: scan */
 static void
 process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
@@ -1711,8 +1764,11 @@ filescanner_rescan_path(const char *path)
 {
   DPRINTF(E_LOG, L_SCAN, "rescan triggered for '%s'\n", path);
 
-  db_watch_delete_bypath((char*)path);
-  db_watch_delete_bymatch((char*)path);
+  inofd_event_unset(); // Clears all inotify watches, closing hdl
+  inofd_event_set();   // and get a new inotify hdl
+
+  // readd watchers but exclude path and let the bulk_scan to readd
+  watches_clear_bypath((char*)path);
   bulk_scan(path, F_SCAN_BULK | F_SCAN_RESCAN);
 
   if (!library_is_exiting())
