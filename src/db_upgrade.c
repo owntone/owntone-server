@@ -262,7 +262,8 @@ db_table_upgrade(sqlite3 *hdl, const char *name, const char *newtablequery)
   return -1;
 }
 
-/* Upgrade from schema v17.00 to v18.00 */
+/* ---------------------------- 17.00 -> 18.00 ------------------------------ */
+
 /* Change playlist type enumeration and recreate filelist view (include smart
  * playlists in view)
  */
@@ -300,7 +301,7 @@ static const struct db_upgrade_query db_upgrade_v18_queries[] =
     { U_V18_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
-/* Upgrade from schema v18.00 to v18.01 */
+/* ---------------------------- 18.00 -> 18.01 ------------------------------ */
 /* Change virtual_path for playlists: remove file extension
  */
 
@@ -326,7 +327,7 @@ static const struct db_upgrade_query db_upgrade_v1801_queries[] =
     { U_V1801_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
-/* Upgrade from schema v18.01 to v19.00 */
+/* ---------------------------- 18.01 -> 19.00 ------------------------------ */
 /* Replace 'filelist' view with new table 'directories'
  */
 
@@ -601,7 +602,7 @@ db_upgrade_v19(sqlite3 *hdl)
   return 0;
 }
 
-/* Upgrade from schema v19.00 to v19.01 */
+/* ---------------------------- 19.00 -> 19.01 ------------------------------ */
 /* Create new table queue for persistent playqueue
  */
 
@@ -648,7 +649,7 @@ static const struct db_upgrade_query db_upgrade_v1901_queries[] =
     { U_V1901_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
-/* Upgrade from schema v19.01 to v19.02 */
+/* ---------------------------- 19.01 -> 19.02 ------------------------------ */
 /* Set key column as primary key in the admin table
  */
 
@@ -690,6 +691,8 @@ static const struct db_upgrade_query db_upgrade_v1902_queries[] =
   };
 
 
+/* ---------------------------- 19.02 -> 19.03 ------------------------------ */
+
 #define U_V1903_ALTER_QUEUE_ADD_ARTWORKURL \
   "ALTER TABLE queue ADD COLUMN artwork_url VARCHAR(4096) DEFAULT NULL;"
 
@@ -706,6 +709,8 @@ static const struct db_upgrade_query db_upgrade_v1903_queries[] =
     { U_V1903_SCVER_MINOR,    "set schema_version_minor to 03" },
   };
 
+
+/* ---------------------------- 19.03 -> 19.04 ------------------------------ */
 
 #define U_V1904_ALTER_SPEAKERS_ADD_AUTHKEY \
   "ALTER TABLE speakers ADD COLUMN auth_key VARCHAR(2048) DEFAULT NULL;"
@@ -724,6 +729,8 @@ static const struct db_upgrade_query db_upgrade_v1904_queries[] =
   };
 
 
+/* ---------------------------- 19.04 -> 19.05 ------------------------------ */
+
 #define U_V1905_SCVER_MINOR \
   "UPDATE admin SET value = '05' WHERE key = 'schema_version_minor';"
 
@@ -733,6 +740,8 @@ static const struct db_upgrade_query db_upgrade_v1905_queries[] =
     { U_V1905_SCVER_MINOR,    "set schema_version_minor to 05" },
   };
 
+
+/* ---------------------------- 19.05 -> 19.06 ------------------------------ */
 
 #define U_V1906_DROP_TABLE_QUEUE					\
   "DROP TABLE queue;"
@@ -784,6 +793,8 @@ static const struct db_upgrade_query db_upgrade_V1906_queries[] =
   };
 
 
+/* ---------------------------- 19.06 -> 19.07 ------------------------------ */
+
 #define U_V1907_SCVER_MINOR			\
   "UPDATE admin SET value = '07' WHERE key = 'schema_version_minor';"
 
@@ -793,6 +804,8 @@ static const struct db_upgrade_query db_upgrade_V1907_queries[] =
     { U_V1907_SCVER_MINOR,    "set schema_version_minor to 07" },
   };
 
+
+/* ---------------------------- 19.07 -> 19.08 ------------------------------ */
 
 #define U_V1908_ALTER_PL_ADD_ORDER \
   "ALTER TABLE playlists ADD COLUMN query_order VARCHAR(1024);"
@@ -811,6 +824,8 @@ static const struct db_upgrade_query db_upgrade_v1908_queries[] =
   };
 
 
+/* ---------------------------- 19.08 -> 19.09 ------------------------------ */
+
 #define U_V1909_ALTER_FILES_ADD_SKIP_COUNT \
   "ALTER TABLE files ADD COLUMN skip_count INTEGER DEFAULT 0;"
 #define U_V1909_ALTER_FILES_ADD_TIME_SKIPPED \
@@ -828,6 +843,8 @@ static const struct db_upgrade_query db_upgrade_v1909_queries[] =
   };
 
 
+/* ---------------------------- 19.09 -> 19.10 ------------------------------ */
+
 // Clean up after bug in commit fde0a281 (schema 19.09)
 #define U_V1910_CLEANUP_TIME_SKIPPED \
   "UPDATE files SET time_skipped = 0 WHERE time_skipped > 2000000000;"
@@ -842,6 +859,8 @@ static const struct db_upgrade_query db_upgrade_v1910_queries[] =
     { U_V1910_SCVER_MINOR,    "set schema_version_minor to 10" },
   };
 
+
+/* ---------------------------- 19.10 -> 19.11 ------------------------------ */
 
 #define U_v1911_ALTER_QUEUE_ADD_COMPOSER \
   "ALTER TABLE queue ADD COLUMN composer VARCHAR(1024) DEFAULT NULL;"
@@ -859,6 +878,8 @@ static const struct db_upgrade_query db_upgrade_v1911_queries[] =
     { U_v1911_SCVER_MINOR,    "set schema_version_minor to 11" },
   };
 
+
+/* ---------------------------- 19.11 -> 19.12 ------------------------------ */
 
 #define U_V1912_ALTER_DIRECTORIES_ADD_PATH \
   "ALTER TABLE directories ADD COLUMN path VARCHAR(4096) DEFAULT NULL;"
@@ -880,6 +901,8 @@ static const struct db_upgrade_query db_upgrade_v1912_queries[] =
     { U_V1912_SCVER_MINOR,    "set schema_version_minor to 12" },
   };
 
+
+/* ---------------------------- 19.12 -> 20.00 ------------------------------ */
 
 #define U_V20_NEW_FILES_TABLE				\
   "CREATE TABLE new_files ("				\
@@ -972,6 +995,9 @@ static const struct db_upgrade_query db_upgrade_v2000_queries[] =
     { U_V2000_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
+
+/* ---------------------------- 20.00 -> 20.01 ------------------------------ */
+
 #define U_V2001_ALTER_QUEUE_ADD_SONGARTISTID \
   "ALTER TABLE queue ADD COLUMN songartistid INTEGER NOT NULL default 0;"
 #define U_V2001_SCVER_MINOR \
@@ -982,6 +1008,9 @@ static const struct db_upgrade_query db_upgrade_v2001_queries[] =
     { U_V2001_ALTER_QUEUE_ADD_SONGARTISTID, "add songartistid to queue" },
     { U_V2001_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
+
+
+/* ---------------------------- 20.01 -> 21.00 ------------------------------ */
 
 #define U_V2100_SCVER_MAJOR \
   "UPDATE admin SET value = '21' WHERE key = 'schema_version_major';"
@@ -994,6 +1023,9 @@ static const struct db_upgrade_query db_upgrade_v2100_queries[] =
     { U_V2100_SCVER_MAJOR,    "set schema_version_major to 21" },
     { U_V2100_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
+
+
+/* ---------------------------- 21.00 -> 21.01 ------------------------------ */
 
 #define U_v2101_ALTER_QUEUE_ADD_TYPE \
   "ALTER TABLE queue ADD COLUMN type VARCHAR(8) DEFAULT NULL;"
@@ -1020,6 +1052,9 @@ static const struct db_upgrade_query db_upgrade_v2101_queries[] =
     { U_v2101_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
+
+/* ---------------------------- 21.01 -> 21.02 ------------------------------ */
+
 // This column added because Apple Music makes a DAAP request for playlists
 // that has a query condition on extended-media-kind. We set the default value
 // to 1 to signify music.
@@ -1036,6 +1071,9 @@ static const struct db_upgrade_query db_upgrade_v2102_queries[] =
     { U_v2102_SCVER_MINOR,    "set schema_version_minor to 02" },
   };
 
+
+/* ---------------------------- 21.02 -> 21.03 ------------------------------ */
+
 #define U_V2103_SCVER_MAJOR \
   "UPDATE admin SET value = '21' WHERE key = 'schema_version_major';"
 #define U_V2103_SCVER_MINOR \
@@ -1048,6 +1086,9 @@ static const struct db_upgrade_query db_upgrade_v2103_queries[] =
     { U_V2103_SCVER_MINOR,    "set schema_version_minor to 03" },
   };
 
+
+/* ---------------------------- 21.03 -> 21.04 ------------------------------ */
+
 #define U_v2104_ALTER_PLAYLISTS_ADD_ARTWORK_URL \
   "ALTER TABLE playlists ADD COLUMN artwork_url VARCHAR(4096) DEFAULT NULL;"
 #define U_v2104_SCVER_MINOR                    \
@@ -1059,6 +1100,9 @@ static const struct db_upgrade_query db_upgrade_v2104_queries[] =
 
     { U_v2104_SCVER_MINOR,    "set schema_version_minor to 04" },
   };
+
+
+/* ---------------------------- 21.04 -> 21.05 ------------------------------ */
 
 // Previously, the auth_key contained the public key twice
 #define U_v2105_UPDATE_SPEAKERS_AUTH_KEY \
@@ -1116,6 +1160,8 @@ static const struct db_upgrade_query db_upgrade_v2106_queries[] =
     { U_v2106_SCVER_MINOR,    "set schema_version_minor to 06" },
   };
 
+
+/* -------------------------- Main upgrade handler -------------------------- */
 
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
