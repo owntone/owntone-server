@@ -1074,6 +1074,49 @@ static const struct db_upgrade_query db_upgrade_v2105_queries[] =
   };
 
 
+/* ---------------------------- 21.05 -> 21.06 ------------------------------ */
+
+// Reload table, required for changing the default of query_limit from -1 to 0
+#define U_V2106_NEW_PLAYLISTS_TABLE					\
+  "CREATE TABLE new_playlists ("		\
+  "   id             INTEGER PRIMARY KEY NOT NULL,"	\
+  "   title          VARCHAR(255) NOT NULL COLLATE DAAP,"	\
+  "   type           INTEGER NOT NULL,"			\
+  "   query          VARCHAR(1024),"			\
+  "   db_timestamp   INTEGER NOT NULL,"			\
+  "   disabled       INTEGER DEFAULT 0,"		\
+  "   path           VARCHAR(4096),"			\
+  "   idx            INTEGER NOT NULL,"			\
+  "   special_id     INTEGER DEFAULT 0,"		\
+  "   virtual_path   VARCHAR(4096),"			\
+  "   parent_id      INTEGER DEFAULT 0,"		\
+  "   directory_id   INTEGER DEFAULT 0,"		\
+  "   query_order    VARCHAR(1024),"			\
+  "   query_limit    INTEGER DEFAULT 0,"		\
+  "   media_kind     INTEGER DEFAULT 1,"		\
+  "   artwork_url    VARCHAR(4096) DEFAULT NULL"	\
+  ");"
+
+static int
+db_upgrade_v2106(sqlite3 *hdl)
+{
+  return db_table_upgrade(hdl, "playlists", U_V2106_NEW_PLAYLISTS_TABLE);
+}
+
+// Previously, query_limit had multiple defaults: -1, 0 and UINT32_MAX
+#define U_v2106_UPDATE_PLAYLISTS_QUERY_LIMIT \
+  "UPDATE playlists SET query_limit = 0 WHERE query_limit = -1 OR query_limit = 4294967295;"
+#define U_v2106_SCVER_MINOR                    \
+  "UPDATE admin SET value = '06' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2106_queries[] =
+  {
+    { U_v2106_UPDATE_PLAYLISTS_QUERY_LIMIT, "update table playlists query_limit default" },
+
+    { U_v2106_SCVER_MINOR,    "set schema_version_minor to 06" },
+  };
+
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1256,6 +1299,18 @@ db_upgrade(sqlite3 *hdl, int db_ver)
       ret = db_generic_upgrade(hdl, db_upgrade_v2105_queries, ARRAY_SIZE(db_upgrade_v2105_queries));
       if (ret < 0)
 	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2105:
+      ret = db_upgrade_v2106(hdl);
+      if (ret < 0)
+	return -1;
+
+      ret = db_generic_upgrade(hdl, db_upgrade_v2106_queries, ARRAY_SIZE(db_upgrade_v2106_queries));
+      if (ret < 0)
+	return -1;
+
 
       /* Last case statement is the only one that ends with a break statement! */
       break;

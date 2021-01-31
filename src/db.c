@@ -1849,7 +1849,10 @@ db_build_query_clause(struct query_params *qp)
   switch (qp->idx_type)
     {
       case I_FIRST:
-	qc->index = sqlite3_mprintf("LIMIT %d", qp->limit);
+	if (qp->limit)
+	  qc->index = sqlite3_mprintf("LIMIT %d", qp->limit);
+	else
+	  qc->index = sqlite3_mprintf("");
 	break;
 
       case I_LAST:
@@ -2004,7 +2007,7 @@ db_build_query_plitems_smart(struct query_params *qp, struct playlist_info *pli)
   if (!qc)
     return NULL;
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND %s LIMIT %d;", qc->where, pli->query, pli->query_limit);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND %s LIMIT %d;", qc->where, pli->query, pli->query_limit ? pli->query_limit : -1);
   query = sqlite3_mprintf("SELECT f.* FROM files f %s AND %s %s %s;", qc->where, pli->query, qc->order, qc->index);
 
   db_free_query_clause(qc);

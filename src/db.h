@@ -255,7 +255,7 @@ struct playlist_info {
   uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
   uint32_t directory_id; /* Id of directory */
   char *query_order;     /* order by clause, used by e.g. a smart playlists */
-  int32_t query_limit;   /* limit, used by e.g. smart playlists */
+  uint32_t query_limit;  /* limit, used by e.g. smart playlists */
   uint32_t media_kind;
   char *artwork_url;     /* optional artwork */
   uint32_t items;        /* number of items (mimc) */
