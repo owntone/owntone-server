@@ -197,7 +197,7 @@ struct media_file_info {
   uint32_t time_played;
   uint32_t time_skipped;
 
-  uint32_t disabled;
+  int64_t disabled;      // Long because it stores up to INOTIFY_FAKE_COOKIE
 
   uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
   char *codectype;       /* song.codectype, 4 chars max (32 bits) */
@@ -247,7 +247,7 @@ struct playlist_info {
   enum pl_type type;     /* see PL_ types */
   char *query;           /* where clause if type 1 (MSPS) */
   uint32_t db_timestamp; /* time last updated */
-  uint32_t disabled;
+  int64_t disabled;      /* long because it stores up to INOTIFY_FAKE_COOKIE */
   char *path;            /* path of underlying playlist */
   uint32_t index;        /* index of playlist for paths with multiple playlists */
   uint32_t special_id;   /* iTunes identifies certain 'special' playlists with special meaning */
@@ -255,7 +255,7 @@ struct playlist_info {
   uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
   uint32_t directory_id; /* Id of directory */
   char *query_order;     /* order by clause, used by e.g. a smart playlists */
-  int32_t query_limit;   /* limit, used by e.g. smart playlists */
+  uint32_t query_limit;  /* limit, used by e.g. smart playlists */
   uint32_t media_kind;
   char *artwork_url;     /* optional artwork */
   uint32_t items;        /* number of items (mimc) */
@@ -439,7 +439,7 @@ struct directory_info {
   char *virtual_path;
   char *path;
   uint32_t db_timestamp;
-  uint32_t disabled;
+  int64_t disabled;
   uint32_t parent_id;
 };
 
@@ -543,7 +543,7 @@ void
 free_query_params(struct query_params *qp, int content_only);
 
 void
-free_queue_item(struct db_queue_item *queue_item, int content_only);
+free_queue_item(struct db_queue_item *qi, int content_only);
 
 /* Maintenance and DB hygiene */
 void
@@ -816,8 +816,14 @@ int
 db_speaker_get(struct output_device *device, uint64_t id);
 
 /* Queue */
+void
+db_queue_item_from_mfi(struct db_queue_item *qi, struct media_file_info *mfi); // Use free_queue_item(qi, 0) to free
+
+void
+db_queue_item_from_dbmfi(struct db_queue_item *qi, struct db_media_file_info *dbmfi); // Do not free qi content
+
 int
-db_queue_update_item(struct db_queue_item *queue_item);
+db_queue_item_update(struct db_queue_item *qi);
 
 int
 db_queue_add_by_queryafteritemid(struct query_params *qp, uint32_t item_id);
@@ -838,7 +844,7 @@ int
 db_queue_add_end(struct db_queue_add_info *queue_add_info, char reshuffle, uint32_t item_id, int ret);
 
 int
-db_queue_add_item(struct db_queue_add_info *queue_add_info, struct db_queue_item *item);
+db_queue_add_next(struct db_queue_add_info *queue_add_info, struct db_queue_item *qi);
 
 int
 db_queue_enum_start(struct query_params *qp);
@@ -847,7 +853,7 @@ void
 db_queue_enum_end(struct query_params *qp);
 
 int
-db_queue_enum_fetch(struct query_params *qp, struct db_queue_item *queue_item);
+db_queue_enum_fetch(struct query_params *qp, struct db_queue_item *qi);
 
 struct db_queue_item *
 db_queue_fetch_byitemid(uint32_t item_id);

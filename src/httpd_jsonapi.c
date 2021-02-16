@@ -2607,7 +2607,7 @@ jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
     return ret;
 
   if (is_changed)
-    db_queue_update_item(queue_item);
+    db_queue_item_update(queue_item);
 
   return HTTP_NOCONTENT;
 }
