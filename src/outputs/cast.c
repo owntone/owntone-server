@@ -725,7 +725,7 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   msg.payload_utf8 = msg_buf;
 
   len = extensions__core_api__cast_channel__cast_message__get_packed_size(&msg);
-  if (len <= 0)
+  if (len <= 0 || len >= sizeof(buf) - 4)
     {
       DPRINTF(E_LOG, L_CAST, "Could not send message (type %d), invalid length: %zu\n", type, len);
       return -1;
