@@ -50,6 +50,7 @@
 #endif
 
 #include "logger.h"
+#include "conffile.h"
 
 /* Main event base, from main.c */
 extern struct event_base *evbase_main;
@@ -872,10 +873,11 @@ mdns_browse_callback(DNSServiceRef sdRef, DNSServiceFlags flags,
 }
 
 int
-mdns_browse(char *regtype, int family, mdns_browse_cb cb, enum mdns_options flags)
+mdns_browse(char *regtype, mdns_browse_cb cb, enum mdns_options flags)
 {
   struct mdns_browser *mb;
   DNSServiceErrorType err;
+  int family;
 
   DPRINTF(E_DBG, L_MDNS, "Adding service browser for type %s\n", regtype);
 
@@ -883,6 +885,11 @@ mdns_browse(char *regtype, int family, mdns_browse_cb cb, enum mdns_options flag
 
   mb->flags = flags;
   mb->cb = cb;
+
+  if (flags & MDNS_IPV4ONLY || !cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
+    family = AF_INET;
+  else
+    family = AF_UNSPEC;
 
   /* flags are ignored in DNS-SD implementation */
   switch(family) {

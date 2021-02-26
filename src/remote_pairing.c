@@ -783,7 +783,7 @@ remote_pairing_init(void)
   cmdbase = commands_base_new(evbase_main, NULL);
 
   // No ipv6 for remote at the moment
-  ret = mdns_browse("_touch-remote._tcp", AF_INET, touch_remote_cb, 0);
+  ret = mdns_browse("_touch-remote._tcp", touch_remote_cb, MDNS_IPV4ONLY);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_REMOTE, "Could not browse for Remote services\n");
