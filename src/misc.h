@@ -34,7 +34,7 @@ int
 net_port_get(short unsigned *port, union net_sockaddr *naddr);
 
 int
-net_connect(const char *addr, unsigned short port, int type);
+net_connect(const char *addr, unsigned short port, int type, const char *log_service_name);
 
 int
 net_bind(short unsigned *port, int type, const char *log_service_name);

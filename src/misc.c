@@ -181,7 +181,7 @@ net_port_get(short unsigned *port, union net_sockaddr *naddr)
 }
 
 int
-net_connect(const char *addr, unsigned short port, int type)
+net_connect(const char *addr, unsigned short port, int type, const char *log_service_name)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
@@ -190,7 +190,7 @@ net_connect(const char *addr, unsigned short port, int type)
   int fd;
   int ret;
 
-  DPRINTF(E_DBG, L_MISC, "Connecting to %s, port %u\n", addr, port);
+  DPRINTF(E_DBG, L_MISC, "Connecting to '%s' at %s (port %u)\n", log_service_name, addr, port);
 
   hints.ai_socktype = type;
   hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_UNSPEC : AF_INET;
@@ -225,7 +225,7 @@ net_connect(const char *addr, unsigned short port, int type)
 
   if (!ptr)
     {
-      DPRINTF(E_LOG, L_MISC, "Failed to connect to %s, port %u: %s\n", addr, port, strerror(errno));
+      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, strerror(errno));
       return -1;
     }
 
