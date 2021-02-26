@@ -147,14 +147,6 @@
 
 //#define DEBUG_CHROMECAST 1
 
-union sockaddr_all
-{
-  struct sockaddr_in sin;
-  struct sockaddr_in6 sin6;
-  struct sockaddr sa;
-  struct sockaddr_storage ss;
-};
-
 struct cast_session;
 struct cast_msg_payload;
 
@@ -480,69 +472,6 @@ static struct media_quality cast_quality_default = { CAST_QUALITY_SAMPLE_RATE_DE
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
-
-static int
-cast_connect(const char *address, unsigned short port, int family, int type)
-{
-  union sockaddr_all sa;
-  int fd;
-  int len;
-  int ret;
-
-  DPRINTF(E_DBG, L_CAST, "Connecting to %s (family=%d), port %u\n", address, family, port);
-
-  // TODO Open non-block right away so we don't block the player while connecting
-  // and during TLS handshake (we would probably need to introduce a deferredev)
-#ifdef SOCK_CLOEXEC
-  fd = socket(family, type | SOCK_CLOEXEC, 0);
-#else
-  fd = socket(family, type, 0);
-#endif
-  if (fd < 0)
-    {
-      DPRINTF(E_LOG, L_CAST, "Could not create socket: %s\n", strerror(errno));
-      return -1;
-    }
-
-  switch (family)
-    {
-      case AF_INET:
-	sa.sin.sin_port = htons(port);
-	ret = inet_pton(AF_INET, address, &sa.sin.sin_addr);
-	len = sizeof(sa.sin);
-	break;
-
-      case AF_INET6:
-	sa.sin6.sin6_port = htons(port);
-	ret = inet_pton(AF_INET6, address, &sa.sin6.sin6_addr);
-	len = sizeof(sa.sin6);
-	break;
-
-      default:
-	DPRINTF(E_WARN, L_CAST, "Unknown family %d\n", family);
-	close(fd);
-	return -1;
-    }
-
-  if (ret <= 0)
-    {
-      DPRINTF(E_LOG, L_CAST, "Device address not valid (%s)\n", address);
-      close(fd);
-      return -1;
-    }
-
-  sa.ss.ss_family = family;
-
-  ret = connect(fd, &sa.sa, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_CAST, "connect() to [%s]:%u failed: %s\n", address, port, strerror(errno));
-      close(fd);
-      return -1;
-    }
-
-  return fd;
-}
 
 static void
 cast_disconnect(int fd)
@@ -1468,7 +1397,7 @@ cast_cb_startup_offer(struct cast_session *cs, struct cast_msg_payload *payload)
 
   cs->udp_port = payload->udp_port;
 
-  cs->udp_fd = cast_connect(cs->address, cs->udp_port, cs->family, SOCK_DGRAM);
+  cs->udp_fd = net_connect(cs->address, cs->udp_port, SOCK_DGRAM, "Chromecast data");
   if (cs->udp_fd < 0)
     goto error;
 
@@ -2013,7 +1942,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
       goto out_free_master_session;
     }
 
-  cs->server_fd = cast_connect(address, port, family, SOCK_STREAM);
+  cs->server_fd = net_connect(address, port, SOCK_STREAM, "Chomecast control");
   if (cs->server_fd < 0)
     {
       DPRINTF(E_LOG, L_CAST, "Could not connect to %s\n", device->name);
