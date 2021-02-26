@@ -4815,7 +4815,6 @@ raop_init(void)
   char *ptr;
   gpg_error_t gc_err;
   int v6enabled;
-  int family;
   int ret;
 
   timing_4svc.fd = -1;
@@ -4900,15 +4899,7 @@ raop_init(void)
       goto out_stop_timing;
     }
 
-  if (v6enabled)
-    v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
-
-  if (v6enabled)
-    family = AF_UNSPEC;
-  else
-    family = AF_INET;
-
-  ret = mdns_browse("_raop._tcp", family, raop_device_cb, MDNS_CONNECTION_TEST);
+  ret = mdns_browse("_raop._tcp", raop_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices\n");

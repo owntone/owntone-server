@@ -4363,7 +4363,6 @@ static int
 airplay_init(void)
 {
   int v6enabled;
-  int family;
   int ret;
   int i;
 
@@ -4412,15 +4411,7 @@ airplay_init(void)
       goto out_stop_timing;
     }
 
-  if (v6enabled)
-    v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
-
-  if (v6enabled)
-    family = AF_UNSPEC;
-  else
-    family = AF_INET;
-
-  ret = mdns_browse("_airplay._tcp", family, airplay_device_cb, MDNS_CONNECTION_TEST);
+  ret = mdns_browse("_airplay._tcp", airplay_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not add mDNS browser for AirPlay devices\n");

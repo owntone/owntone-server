@@ -2445,7 +2445,6 @@ static int
 cast_init(void)
 {
   struct decode_ctx *decode_ctx;
-  int family;
   int i;
   int ret;
 
@@ -2484,12 +2483,7 @@ cast_init(void)
       goto out_tls_deinit;
     }
 
-  if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
-    family = AF_UNSPEC;
-  else
-    family = AF_INET;
-
-  ret = mdns_browse("_googlecast._tcp", family, cast_device_cb, 0);
+  ret = mdns_browse("_googlecast._tcp", cast_device_cb, 0);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CAST, "Could not add mDNS browser for Chromecast devices\n");
