@@ -1,4 +1,3 @@
-
 #ifndef __MISC_H__
 #define __MISC_H__
 
@@ -7,11 +6,43 @@
 #endif
 
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
-#include <time.h>
-#include <pthread.h>
 
-/* Samples to bytes, bytes to samples */
+
+/* ------------------------ Network utility functions ----------------------- */
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+union net_sockaddr
+{
+  struct sockaddr_in sin;
+  struct sockaddr_in6 sin6;
+  struct sockaddr sa;
+  struct sockaddr_storage ss;
+};
+
+// Checks if the address is in a network that is configured as trusted
+bool
+net_peer_address_is_trusted(const char *addr);
+
+int
+net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr);
+
+int
+net_port_get(short unsigned *port, union net_sockaddr *naddr);
+
+int
+net_connect(const char *addr, unsigned short port, int type);
+
+int
+net_bind(short unsigned *port, int type, const char *log_service_name);
+
+
+/* ----------------------- Conversion/hashing/sanitizers -------------------- */
+
+// Samples to bytes, bytes to samples
 #define STOB(s, bits, c) ((s) * (c) * (bits) / 8)
 #define BTOS(b, bits, c) ((b) / ((c) * (bits) / 8))
 
@@ -29,41 +60,6 @@
 // the string value, so "3".
 #define NTOSTR_HELPER(x) #x
 #define NTOSTR(x) NTOSTR_HELPER(x)
-
-
-// Remember to adjust quality_is_equal() if adding elements
-struct media_quality {
-  int sample_rate;
-  int bits_per_sample;
-  int channels;
-  int bit_rate;
-};
-
-struct onekeyval {
-  char *name;
-  char *value;
-
-  struct onekeyval *next;
-  struct onekeyval *sort;
-};
-
-struct keyval {
-  struct onekeyval *head;
-  struct onekeyval *tail;
-};
-
-struct ringbuffer {
-  uint8_t *buffer;
-  size_t size;
-  size_t write_avail;
-  size_t read_avail;
-  size_t write_pos;
-  size_t read_pos;
-};
-
-
-char **
-buildopts_get(void);
 
 int
 safe_atoi32(const char *str, int32_t *val);
@@ -95,32 +91,6 @@ safe_snprintf_cat(char *dst, size_t n, const char *fmt, ...) __attribute__ ((for
 int
 safe_snreplace(char *s, size_t sz, const char *pattern, const char *replacement);
 
-/* Key/value functions */
-struct keyval *
-keyval_alloc(void);
-
-int
-keyval_add(struct keyval *kv, const char *name, const char *value);
-
-int
-keyval_add_size(struct keyval *kv, const char *name, const char *value, size_t size);
-
-void
-keyval_remove(struct keyval *kv, const char *name);
-
-const char *
-keyval_get(struct keyval *kv, const char *name);
-
-void
-keyval_clear(struct keyval *kv);
-
-void
-keyval_sort(struct keyval *kv);
-
-
-char **
-m_readfile(const char *path, int num_lines);
-
 char *
 unicode_fixup_string(char *str, const char *fromcode);
 
@@ -150,18 +120,54 @@ b64_encode(const uint8_t *src, int srclen);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
-void
-uuid_make(char *str);
+
+/* --------------------------- Key/value functions -------------------------- */
+
+struct onekeyval {
+  char *name;
+  char *value;
+
+  struct onekeyval *next;
+  struct onekeyval *sort;
+};
+
+struct keyval {
+  struct onekeyval *head;
+  struct onekeyval *tail;
+};
+
+struct keyval *
+keyval_alloc(void);
 
 int
-linear_regression(double *m, double *b, double *r, const double *x, const double *y, int n);
+keyval_add(struct keyval *kv, const char *name, const char *value);
 
-bool
-quality_is_equal(struct media_quality *a, struct media_quality *b);
+int
+keyval_add_size(struct keyval *kv, const char *name, const char *value, size_t size);
 
-// Checks if the address is in a network that is configured as trusted
-bool
-peer_address_is_trusted(const char *addr);
+void
+keyval_remove(struct keyval *kv, const char *name);
+
+const char *
+keyval_get(struct keyval *kv, const char *name);
+
+void
+keyval_clear(struct keyval *kv);
+
+void
+keyval_sort(struct keyval *kv);
+
+
+/* ------------------------------- Ringbuffer ------------------------------- */
+
+struct ringbuffer {
+  uint8_t *buffer;
+  size_t size;
+  size_t write_avail;
+  size_t read_avail;
+  size_t write_pos;
+  size_t read_pos;
+};
 
 int
 ringbuffer_init(struct ringbuffer *buf, size_t size);
@@ -175,6 +181,10 @@ ringbuffer_write(struct ringbuffer *buf, const void* src, size_t srclen);
 size_t
 ringbuffer_read(uint8_t **dst, size_t dstlen, struct ringbuffer *buf);
 
+
+/* ------------------------- Clock utility functions ------------------------ */
+
+#include <time.h>
 
 #ifndef HAVE_CLOCK_GETTIME
 
@@ -217,7 +227,7 @@ timer_getoverrun(timer_t timer_id);
 
 #endif
 
-/* Timer function for platforms without hi-res timers */
+// Timer function for platforms without hi-res timers
 int
 clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res);
 
@@ -230,9 +240,43 @@ timespec_cmp(struct timespec time1, struct timespec time2);
 struct timespec
 timespec_reltoabs(struct timespec relative);
 
-/* initialize mutex with error checking (not default on all platforms) */
+
+/* ------------------------------- Media quality ---------------------------- */
+
+// Remember to adjust quality_is_equal() if adding elements
+struct media_quality {
+  int sample_rate;
+  int bits_per_sample;
+  int channels;
+  int bit_rate;
+};
+
+bool
+quality_is_equal(struct media_quality *a, struct media_quality *b);
+
+
+/* -------------------------- Misc utility functions ------------------------ */
+
+#include <pthread.h>
+
+char **
+buildopts_get(void);
+
+// initialize mutex with error checking (not default on all platforms)
 int
 mutex_init(pthread_mutex_t *mutex);
+
+void
+uuid_make(char *str);
+
+int
+linear_regression(double *m, double *b, double *r, const double *x, const double *y, int n);
+
+char **
+m_readfile(const char *path, int num_lines);
+
+
+/* -------------------------------- Assertion ------------------------------- */
 
 /* Check that the function returns 0, logging a fatal error referencing
    returned error (type errno) if it fails, and aborts the process.

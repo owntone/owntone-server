@@ -43,6 +43,11 @@ general {
 	# Enable/disable IPv6
 	ipv6 = yes
 
+	# Set this if you want the server to bind to a specific IP address. Can
+	# be ipv6 or ipv4. Default (commented out or "::") is to listen on all
+	# IP addresses.
+#	bind_address = "::"
+
 	# Location of cache database
 #	cache_path = "@localstatedir@/cache/@PACKAGE@/cache.db"
 

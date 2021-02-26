@@ -1499,7 +1499,7 @@ httpd_admin_check_auth(struct evhttp_request *req)
 
   evhttp_connection_get_peer(evcon, &addr, &port);
 
-  if (peer_address_is_trusted(addr))
+  if (net_peer_address_is_trusted(addr))
     return true;
 
   passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");

@@ -4511,7 +4511,7 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
   if (!client_ctx->authenticated)
     {
       sockaddr_to_string(address, addr_str, sizeof(addr_str));
-      client_ctx->authenticated = peer_address_is_trusted(addr_str);
+      client_ctx->authenticated = net_peer_address_is_trusted(addr_str);
     }
 
   client_ctx->next = mpd_clients;
