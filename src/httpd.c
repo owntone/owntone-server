@@ -1631,7 +1631,6 @@ int
 httpd_init(const char *webroot)
 {
   struct stat sb;
-  int v6enabled;
   int ret;
 
   httpd_exit = 0;
@@ -1761,9 +1760,6 @@ httpd_init(const char *webroot)
       goto evhttpd_fail;
     }
 
-  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
-  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-
   // For CORS headers
   allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
   if (allow_origin)
@@ -1774,29 +1770,13 @@ httpd_init(const char *webroot)
 	allow_origin = NULL;
     }
 
-  if (v6enabled)
-    {
-      ret = evhttp_bind_socket(evhttpd, "::", httpd_port);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
-	  v6enabled = 0;
-	}
-    }
+  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
-  ret = evhttp_bind_socket(evhttpd, "0.0.0.0", httpd_port);
+  ret = net_evhttp_bind(evhttpd, httpd_port, "httpd");
   if (ret < 0)
     {
-      if (!v6enabled)
-	{
-	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
-	  goto bind_fail;
-	}
-
-#ifndef __linux__
-      // Linux will listen on both ipv6 and ipv4, but FreeBSD won't
-      DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv4, listening on IPv6 only\n", httpd_port);
-#endif
+      DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
+      goto bind_fail;
     }
 
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
