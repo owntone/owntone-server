@@ -14,6 +14,7 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <event2/http.h>
 
 union net_sockaddr
 {
@@ -33,11 +34,16 @@ net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr);
 int
 net_port_get(short unsigned *port, union net_sockaddr *naddr);
 
+// Returns the socket fd from socket(), -1 on error
 int
 net_connect(const char *addr, unsigned short port, int type, const char *log_service_name);
 
+// Returns the socket fd from socket(), -1 on error
 int
 net_bind(short unsigned *port, int type, const char *log_service_name);
+
+int
+net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_service_name);
 
 
 /* ----------------------- Conversion/hashing/sanitizers -------------------- */

@@ -192,27 +192,27 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 
   DPRINTF(E_DBG, L_MISC, "Connecting to '%s' at %s (port %u)\n", log_service_name, addr, port);
 
-  hints.ai_socktype = type;
+  hints.ai_socktype = (type & (SOCK_STREAM | SOCK_DGRAM)); // filter since type can be SOCK_STREAM | SOCK_NONBLOCK
   hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_UNSPEC : AF_INET;
 
   snprintf(strport, sizeof(strport), "%hu", port);
   ret = getaddrinfo(addr, strport, &hints, &servinfo);
   if (ret < 0)
     {
-      gai_strerror(ret);
+      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, gai_strerror(ret));
       return -1;
     }
 
   for (ptr = servinfo; ptr; ptr = ptr->ai_next)
     {
-      fd = socket(ptr->ai_family, ptr->ai_socktype | SOCK_CLOEXEC, ptr->ai_protocol);
+      fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
       if (fd < 0)
 	{
 	  continue;
 	}
 
       ret = connect(fd, ptr->ai_addr, ptr->ai_addrlen);
-      if (ret < 0)
+      if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of SOCK_NONBLOCK
 	{
 	  close(fd);
 	  continue;
@@ -252,7 +252,7 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
 
   cfgaddr = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
 
-  hints.ai_socktype = type;
+  hints.ai_socktype = (type & (SOCK_STREAM | SOCK_DGRAM)); // filter since type can be SOCK_STREAM | SOCK_NONBLOCK
   hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_INET6 : AF_INET;
   hints.ai_flags = cfgaddr ? 0 : AI_PASSIVE;
 
@@ -269,7 +269,7 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
       if (fd >= 0)
 	close(fd);
 
-      fd = socket(ptr->ai_family, ptr->ai_socktype | SOCK_CLOEXEC, ptr->ai_protocol);
+      fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
       if (fd < 0)
 	continue;
 
@@ -324,6 +324,44 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
   close(fd);
   return -1;
 }
+
+int
+net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_service_name)
+{
+  const char *bind_address;
+
+  bind_address = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+  if (!bind_address)
+    bind_address = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6") ? "::" : "0.0.0.0";
+
+  return evhttp_bind_socket(evhttp, bind_address, port);
+}
+/* TODO check if the below is required for FreeBSD
+  if (v6enabled)
+    {
+      ret = evhttp_bind_socket(evhttpd, "::", httpd_port);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
+	  v6enabled = 0;
+	}
+    }
+
+  ret = evhttp_bind_socket(evhttpd, "0.0.0.0", httpd_port);
+  if (ret < 0)
+    {
+      if (!v6enabled)
+	{
+	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
+	  goto bind_fail;
+	}
+
+#ifndef __linux__
+      // Linux will listen on both ipv6 and ipv4, but FreeBSD won't
+      DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv4, listening on IPv6 only\n", httpd_port);
+#endif
+    }
+*/
 
 
 /* ----------------------- Conversion/hashing/sanitizers -------------------- */
