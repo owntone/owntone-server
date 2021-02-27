@@ -39,6 +39,7 @@
 static struct lws_context *context;
 static pthread_t tid_websocket;
 
+static const char *websocket_interface;
 static int websocket_port;
 static bool websocket_exit = false;
 
@@ -377,6 +378,7 @@ websocket_init(void)
   struct lws_context_creation_info info;
   int ret;
 
+  websocket_interface = cfg_getstr(cfg_getsec(cfg, "general"), "websocket_interface");
   websocket_port = cfg_getint(cfg_getsec(cfg, "general"), "websocket_port");
 
   if (websocket_port <= 0)
@@ -387,6 +389,7 @@ websocket_init(void)
 
   memset(&info, 0, sizeof(info));
   info.port = websocket_port;
+  info.iface = websocket_interface;
   info.protocols = protocols;
   if (!cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
     info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
