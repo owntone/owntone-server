@@ -338,10 +338,8 @@ file_type_get(const char *path) {
   if ((strcasecmp(ext, ".jpg") == 0) || (strcasecmp(ext, ".png") == 0))
     return FILE_IGNORE;
 
-#ifdef ITUNES
   if (strcasecmp(ext, ".xml") == 0)
     return FILE_ITUNES;
-#endif
 
   if (strcasecmp(ext, ".remote") == 0)
     return FILE_CTRL_REMOTE;
@@ -486,10 +484,8 @@ process_playlist(char *file, time_t mtime, int dir_id)
   ft = file_type_get(file);
   if (ft == FILE_PLAYLIST)
     scan_playlist(file, mtime, dir_id);
-#ifdef ITUNES
   else if (ft == FILE_ITUNES)
     scan_itunes_itml(file, mtime, dir_id);
-#endif
 }
 
 /* If we found a control file we want to kickoff some action */
