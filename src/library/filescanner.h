@@ -19,10 +19,8 @@ scan_playlist(const char *file, time_t mtime, int dir_id);
 void
 scan_smartpl(const char *file, time_t mtime, int dir_id);
 
-#ifdef ITUNES
 void
 scan_itunes_itml(const char *file, time_t mtime, int dir_id);
-#endif
 
 
 /* ------------  Common utility functions used by the scanners ------------ */
