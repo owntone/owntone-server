@@ -2,11 +2,10 @@
 #include <sodium.h>
 
 struct SRPUser;
+struct SRPVerifier;
 
-struct pair_setup_context
+struct pair_client_setup_context
 {
-  struct pair_definition *type;
-
   struct SRPUser *user;
 
   char pin[4];
@@ -28,23 +27,62 @@ struct pair_setup_context
   uint64_t salt_len;
   uint8_t public_key[crypto_sign_PUBLICKEYBYTES];
   uint8_t private_key[crypto_sign_SECRETKEYBYTES];
-  // Hex-formatet concatenation of public + private, 0-terminated
-  char auth_key[2 * (crypto_sign_PUBLICKEYBYTES + crypto_sign_SECRETKEYBYTES) + 1];
 
   // We don't actually use the server's epk and authtag for anything
   uint8_t *epk;
   uint64_t epk_len;
   uint8_t *authtag;
   uint64_t authtag_len;
-
-  int setup_is_completed;
-  const char *errmsg;
 };
 
-struct pair_verify_context
+struct pair_server_setup_context
+{
+  struct SRPVerifier *verifier;
+
+  char pin[4];
+  char device_id[17]; // Incl. zero term
+
+  uint8_t *pkA;
+  uint64_t pkA_len;
+
+  uint8_t *pkB;
+  int pkB_len;
+
+  uint8_t *b;
+  int b_len;
+
+  uint8_t *M1;
+  uint64_t M1_len;
+
+  const uint8_t *M2;
+  int M2_len;
+
+  uint8_t *v;
+  int v_len;
+
+  uint8_t *salt;
+  int salt_len;
+};
+
+struct pair_setup_context
 {
   struct pair_definition *type;
 
+  int setup_is_completed;
+  const char *errmsg;
+
+  // Hex-formatet concatenation of public + private, 0-terminated
+  char auth_key[2 * (crypto_sign_PUBLICKEYBYTES + crypto_sign_SECRETKEYBYTES) + 1];
+
+  union pair_setup_union
+  {
+    struct pair_client_setup_context client;
+    struct pair_server_setup_context server;
+  } sctx;
+};
+
+struct pair_client_verify_context
+{
   char device_id[17]; // Incl. zero term
 
   uint8_t server_eph_public_key[32];
@@ -57,9 +95,19 @@ struct pair_verify_context
   uint8_t client_eph_private_key[32];
 
   uint8_t shared_secret[32];
+};
+
+struct pair_verify_context
+{
+  struct pair_definition *type;
 
   int verify_is_completed;
   const char *errmsg;
+
+  union pair_verify_union
+  {
+    struct pair_client_verify_context client;
+  } vctx;
 };
 
 struct pair_cipher_context
@@ -81,7 +129,7 @@ struct pair_cipher_context
 
 struct pair_definition
 {
-  struct pair_setup_context *(*pair_setup_new)(struct pair_definition *type, const char *pin, const char *device_id);
+  int (*pair_setup_new)(struct pair_setup_context *sctx, const char *pin, const char *device_id);
   void (*pair_setup_free)(struct pair_setup_context *sctx);
   int (*pair_setup_result)(const uint8_t **key, size_t *key_len, struct pair_setup_context *sctx);
 
@@ -92,6 +140,10 @@ struct pair_definition
   int (*pair_setup_response1)(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
   int (*pair_setup_response2)(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
   int (*pair_setup_response3)(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len);
+
+  int (*pair_verify_new)(struct pair_verify_context *vctx, const char *hexkey, const char *device_id);
+  void (*pair_verify_free)(struct pair_verify_context *vctx);
+  int (*pair_verify_result)(const uint8_t **key, size_t *key_len, struct pair_verify_context *vctx);
 
   uint8_t *(*pair_verify_request1)(size_t *len, struct pair_verify_context *vctx);
   uint8_t *(*pair_verify_request2)(size_t *len, struct pair_verify_context *vctx);
@@ -104,6 +156,8 @@ struct pair_definition
 
   ssize_t (*pair_encrypt)(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx);
   ssize_t (*pair_decrypt)(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx);
+
+  int (*pair_state_get)(const char **errmsg, const uint8_t *data, size_t data_len);
 };
 
 
@@ -133,10 +187,15 @@ struct pair_definition
 #define bnum_add(bn, a, b)            gcry_mpi_add(bn, a, b)
 #define bnum_sub(bn, a, b)            gcry_mpi_sub(bn, a, b)
 #define bnum_mul(bn, a, b)            gcry_mpi_mul(bn, a, b)
+#define bnum_mod(bn, a, b)            gcry_mpi_mod(bn, a, b)
 typedef gcry_mpi_t bnum;
 __attribute__((unused)) static void bnum_modexp(bnum bn, bnum y, bnum q, bnum p)
 {
   gcry_mpi_powm(bn, y, q, p);
+}
+__attribute__((unused)) static void bnum_modadd(bnum bn, bnum a, bnum b, bnum m)
+{
+  gcry_mpi_addm(bn, a, b, m);
 }
 #elif CONFIG_OPENSSL
 #include <openssl/crypto.h>
@@ -162,11 +221,25 @@ __attribute__((unused)) static void bnum_mul(bnum bn, bnum a, bnum b)
   BN_mul(bn, a, b, ctx);
   BN_CTX_free(ctx);
 }
+__attribute__((unused)) static void bnum_mod(bnum bn, bnum a, bnum b)
+{
+  // No error handling
+  BN_CTX *ctx = BN_CTX_new();
+  BN_mod(bn, a, b, ctx);
+  BN_CTX_free(ctx);
+}
 __attribute__((unused)) static void bnum_modexp(bnum bn, bnum y, bnum q, bnum p)
 {
   // No error handling
   BN_CTX *ctx = BN_CTX_new();
   BN_mod_exp(bn, y, q, p, ctx);
+  BN_CTX_free(ctx);
+}
+__attribute__((unused)) static void bnum_modadd(bnum bn, bnum a, bnum b, bnum m)
+{
+  // No error handling
+  BN_CTX *ctx = BN_CTX_new();
+  BN_mod_add(bn, a, b, m, ctx);
   BN_CTX_free(ctx);
 }
 #endif

@@ -54,7 +54,7 @@
 #include "transcode.h"
 #include "outputs.h"
 
-#include "pair.h"
+#include "pair_ap/pair.h"
 
 /* List of TODO's for AirPlay 2
  *
@@ -3025,9 +3025,9 @@ payload_make_pair_generic(int step, struct evrtsp_request *req, struct airplay_s
   free(body);
 
   // Required!!
-  if (rs->pair_type == PAIR_HOMEKIT_NORMAL)
+  if (rs->pair_type == PAIR_CLIENT_HOMEKIT_NORMAL)
     evrtsp_add_header(req->output_headers, "X-Apple-HKP", "3");
-  else if (rs->pair_type == PAIR_HOMEKIT_TRANSIENT)
+  else if (rs->pair_type == PAIR_CLIENT_HOMEKIT_TRANSIENT)
     evrtsp_add_header(req->output_headers, "X-Apple-HKP", "4");
 
   return 0;
@@ -3040,7 +3040,7 @@ payload_make_pair_setup1(struct evrtsp_request *req, struct airplay_session *rs,
   char device_id_hex[16 + 1];
 
   if (pin)
-    rs->pair_type = PAIR_HOMEKIT_NORMAL;
+    rs->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
 
   snprintf(device_id_hex, sizeof(device_id_hex), "%016" PRIX64, airplay_device_id);
 
@@ -3420,7 +3420,7 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
   // Evaluate what next sequence based on response
   if (rs->statusflags & AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED)
     {
-      rs->pair_type = PAIR_HOMEKIT_NORMAL;
+      rs->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
 
       if (!device->auth_key)
 	{
@@ -3438,7 +3438,7 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
       device->auth_key = NULL;
       device->requires_auth = 1;
 
-      rs->pair_type = PAIR_HOMEKIT_NORMAL;
+      rs->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
       rs->state = AIRPLAY_STATE_AUTH;
       return AIRPLAY_SEQ_PIN_START;
     }
@@ -3449,7 +3449,7 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
       return AIRPLAY_SEQ_ABORT;
     }
 
-  rs->pair_type = PAIR_HOMEKIT_TRANSIENT;
+  rs->pair_type = PAIR_CLIENT_HOMEKIT_TRANSIENT;
   rs->state = AIRPLAY_STATE_INFO;
   return AIRPLAY_SEQ_PAIR_TRANSIENT;
 }
@@ -3535,14 +3535,14 @@ response_handler_pair_setup1(struct evrtsp_request *req, struct airplay_session 
 {
   struct output_device *device;
 
-  if (rs->pair_type == PAIR_HOMEKIT_TRANSIENT && req->response_code == RTSP_CONNECTION_AUTH_REQUIRED)
+  if (rs->pair_type == PAIR_CLIENT_HOMEKIT_TRANSIENT && req->response_code == RTSP_CONNECTION_AUTH_REQUIRED)
     {
       device = outputs_device_get(rs->device_id);
       if (!device)
 	return AIRPLAY_SEQ_ABORT;
 
       device->requires_auth = 1; // FIXME might be reset by mdns announcement
-      rs->pair_type = PAIR_HOMEKIT_NORMAL;
+      rs->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
 
       return AIRPLAY_SEQ_PIN_START;
     }
@@ -3562,7 +3562,7 @@ response_handler_pair_setup2(struct evrtsp_request *req, struct airplay_session 
   if (seq_type != AIRPLAY_SEQ_CONTINUE)
     return seq_type;
 
-  if (rs->pair_type != PAIR_HOMEKIT_TRANSIENT)
+  if (rs->pair_type != PAIR_CLIENT_HOMEKIT_TRANSIENT)
     return seq_type;
 
   ret = pair_setup_result(NULL, &shared_secret, &shared_secret_len, rs->pair_setup_ctx);

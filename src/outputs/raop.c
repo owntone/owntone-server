@@ -64,7 +64,7 @@
 #include "dmap_common.h"
 #include "rtp_common.h"
 #include "outputs.h"
-#include "pair.h"
+#include "pair_ap/pair.h"
 
 #define ALAC_HEADER_LEN                      3
 
@@ -4198,7 +4198,7 @@ raop_pair_verify(struct raop_session *rs)
   if (!device)
     goto error;
 
-  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_FRUIT, device->auth_key, NULL));
+  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_CLIENT_FRUIT, device->auth_key, NULL));
 
   ret = raop_pair_request_send(4, rs, raop_cb_pair_verify_step1);
   if (ret < 0)
@@ -4307,7 +4307,7 @@ raop_pair_setup(struct raop_session *rs, const char *pin)
 {
   int ret;
 
-  rs->pair_setup_ctx = pair_setup_new(PAIR_FRUIT, pin, NULL);
+  rs->pair_setup_ctx = pair_setup_new(PAIR_CLIENT_FRUIT, pin, NULL);
   if (!rs->pair_setup_ctx)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for verification setup context\n");

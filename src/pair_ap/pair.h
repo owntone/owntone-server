@@ -3,26 +3,37 @@
 
 #include <stdint.h>
 
+#define PAIR_AP_VERSION_MAJOR 0
+#define PAIR_AP_VERSION_MINOR 2
+
 enum pair_type
 {
   // This is the pairing type required for Apple TV device verification, which
   // became mandatory with tvOS 10.2.
-  PAIR_FRUIT,
+  PAIR_CLIENT_FRUIT,
   // This is the Homekit type required for AirPlay 2 with both PIN setup and
   // verification
-  PAIR_HOMEKIT_NORMAL,
+  PAIR_CLIENT_HOMEKIT_NORMAL,
   // Same as normal except PIN is fixed to 3939 and stops after setup step 2,
-  // when session key is established
-  PAIR_HOMEKIT_TRANSIENT,
+  // when session key is established. This is the only mode where the server
+  // side is also supported.
+  PAIR_CLIENT_HOMEKIT_TRANSIENT,
+  PAIR_SERVER_HOMEKIT_TRANSIENT,
 };
 
 struct pair_setup_context;
 struct pair_verify_context;
 struct pair_cipher_context;
 
-/* When you have the pin-code (must be 4 bytes), create a new context with this
+/* Client
+ * When you have the pin-code (must be 4 bytes), create a new context with this
  * function and then call pair_setup_request1(). device_id is only
  * required for homekit pairing, where it should have length 16.
+ *
+ * Server
+ * Create a new context with the pin-code to verify with, then when the request
+ * is received use pair_setup_response1() to read it, and then reply with using
+ * pair_setup_request1().
  */
 struct pair_setup_context *
 pair_setup_new(enum pair_type type, const char *pin, const char *device_id);
@@ -33,6 +44,7 @@ pair_setup_free(struct pair_setup_context *sctx);
  */
 const char *
 pair_setup_errmsg(struct pair_setup_context *sctx);
+
 
 uint8_t *
 pair_setup_request1(size_t *len, struct pair_setup_context *sctx);
@@ -88,6 +100,7 @@ pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, siz
 int
 pair_verify_result(const uint8_t **shared_secret, size_t *shared_secret_len, struct pair_verify_context *vctx);
 
+
 /* When you have completed the verification you can extract a key with
  * pair_verify_result(). Give the shared secret as input to this function to
  * create a ciphering context.
@@ -122,5 +135,11 @@ void
 pair_encrypt_rollback(struct pair_cipher_context *cctx);
 void
 pair_decrypt_rollback(struct pair_cipher_context *cctx);
+
+/* For parsing an incoming message to see what type ("state") it is. Mostly
+ * useful for servers. Returns 1-6 for pair-setup and 1-4 for pair-verify.
+ */
+int
+pair_state_get(enum pair_type type, const char **errmsg, const uint8_t *data, size_t data_len);
 
 #endif  /* !__PAIR_AP_H__ */

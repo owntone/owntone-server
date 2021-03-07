@@ -21,7 +21,9 @@ if COND_MPD
 MPD_SRC=mpd.c mpd.h
 endif
 
-PAIR_AP_SRC=outputs/pair_fruit.c outputs/pair_homekit.c outputs/pair.c outputs/pair-internal.h outputs/pair.h
+PAIR_AP_SRC = \
+	pair_ap/pair_fruit.c pair_ap/pair_homekit.c pair_ap/pair-tlv.c \
+	pair_ap/pair.c pair_ap/pair-tlv.h pair_ap/pair-internal.h pair_ap/pair.h
 AM_CPPFLAGS += -DCONFIG_GCRYPT
 
 if COND_ALSA
