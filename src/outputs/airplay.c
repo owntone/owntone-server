@@ -1446,7 +1446,7 @@ session_cipher_setup(struct airplay_session *rs, const uint8_t *key, size_t key_
       goto error;
     }
 
-  DPRINTF(E_INFO, L_AIRPLAY, "Ciphering setup of '%s' completed succesfully, now using encrypted mode\n", rs->devname);
+  DPRINTF(E_DBG, L_AIRPLAY, "Ciphering setup of '%s' completed succesfully, now using encrypted mode\n", rs->devname);
 
   rs->state = AIRPLAY_STATE_ENCRYPTED;
   rs->control_cipher_ctx = control_cipher_ctx;
@@ -2884,6 +2884,8 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
   uint64_t uintval;
   int ret;
 
+  DPRINTF(E_INFO, L_AIRPLAY, "Setting up AirPlay session %u (%s -> %s)\n", rs->session_id, rs->local_address, rs->address);
+
   ret = wplist_from_evbuf(&response, req->input_buffer);
   if (ret < 0)
     {
@@ -2925,7 +2927,7 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
       goto error;
     }
 
-  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated AirTunes v2 UDP streaming session; ports d=%u c=%u t=%u e=%u\n", rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
+  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated UDP streaming session; ports d=%u c=%u t=%u e=%u\n", rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
 
   rs->server_fd = net_connect(rs->address, rs->data_port, SOCK_DGRAM, "AirPlay data");
   if (rs->server_fd < 0)
@@ -3065,7 +3067,7 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
 
   plist_free(response);
 
-  DPRINTF(E_INFO, L_AIRPLAY, "Status flags from '%s' was %" PRIu64 ": cable attached %d, one time pairing %d, password %d, PIN %d\n",
+  DPRINTF(E_DBG, L_AIRPLAY, "Status flags from '%s' was %" PRIu64 ": cable attached %d, one time pairing %d, password %d, PIN %d\n",
     rs->devname, rs->statusflags, (bool)(rs->statusflags & AIRPLAY_FLAG_AUDIO_CABLE_ATTACHED), (bool)(rs->statusflags & AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED),
     (bool)(rs->statusflags & AIRPLAY_FLAG_PASSWORD_REQUIRED), (bool)(rs->statusflags & AIRPLAY_FLAG_PIN_REQUIRED));
 
