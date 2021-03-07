@@ -476,6 +476,8 @@ curl "http://localhost:3689/logout?session-id=50"
 
 ## Spotify
 
+### Via libspotify
+
 forked-daapd has support for playback of the tracks in your Spotify library.
 
 1. Go to the [web interface](http://forked-daapd.local:3689) and check that your
@@ -519,11 +521,29 @@ a Spotify client for that. You also can only listen to your music by letting
 forked-daapd do the playback - so that means you can't stream from forked-daapd
 to DAAP clients (e.g. iTunes) and RSP clients.
 
-Alternatives:
-If you want forked-daapd to be a selectable metaspeaker in Spotify's client, you
-can use [librespot](https://github.com/librespot-org/librespot) to write audio
-to a pipe in your library. There will be some lag with volume adjustments, and
-getting metadata to work also requires extra tinkering.
+### Via librespot/spocon
+
+You can also use forked-daapd with one of the various incarnations of
+[librespot](https://github.com/librespot-org/librespot). This adds librespot as
+a selectable metaspeaker in Spotify's client, and when you start playback,
+librespot can be configured to start writing audio to a pipe that you have added
+to your library. This will be detected by forked-daapd that then starts
+playback. You can also have a pipe for metadata and playback events, e.g. volume
+changes.
+
+The easiest way of accomplishing this may be with [Spocon](https://github.com/spocon/spocon),
+since it requires minimal configuration. After installing, create two pipes
+(with mkfifo) and set the configuration in the player section:
+
+```
+# Audio output device (MIXER, PIPE, STDOUT)
+output = "PIPE"
+# Output raw (signed) PCM to this file (`player.output` must be PIPE)
+pipe = "/srv/music/spotify"
+# Output metadata in Shairport Sync format (https://github.com/mikebrady/shairport-sync-metadata-reader)
+metadataPipe = "/srv/music/spotify.metadata"
+```
+
 
 ## LastFM
 
