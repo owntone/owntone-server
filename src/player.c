@@ -2464,6 +2464,33 @@ playback_pause(void *arg, int *retval)
 }
 
 static enum command_state
+playback_flush(void *arg, int *retval)
+{
+  if (player_state == PLAY_STOPPED)
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
+
+  if (player_state == PLAY_PAUSED)
+    {
+      *retval = 0;
+      return COMMAND_END;
+    }
+
+  input_flush(NULL);
+
+  *retval = outputs_flush(device_flush_cb);
+  outputs_metadata_purge();
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  // Otherwise we are done
+  return COMMAND_END;
+}
+
+static enum command_state
 playback_seek(void *arg, int *retval)
 {
   // Only check if the current playing track is seekable, other checks will be done in playback_pause()
@@ -2832,6 +2859,20 @@ speaker_authorize(void *arg, int *retval)
 }
 
 static enum command_state
+speaker_start_all(void *arg, int *retval)
+{
+  outputs_stop_delayed_cancel();
+
+  *retval = outputs_start(device_activate_cb, device_shutdown_cb, false);
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  // Otherwise we are done
+  return COMMAND_END;
+}
+
+static enum command_state
 volume_set(void *arg, int *retval)
 {
   union player_arg *cmdarg = arg;
@@ -3158,6 +3199,27 @@ player_playback_pause(void)
   int ret;
 
   ret = commands_exec_sync(cmdbase, playback_pause, playback_pause_bh, NULL);
+  return ret;
+}
+
+/**
+ * Flushes outputs and input buffer, but does not stop the input read loop. Used
+ * by the pipe input when a track change is registered. Flushing outputs will
+ * stop them, so the command is two-step, i.e. it starts them again.
+ *
+ * @return Returns 0 on success and a negative value on error
+ */
+
+int
+player_playback_flush(void)
+{
+  int ret;
+
+  ret = commands_exec_sync(cmdbase, playback_flush, NULL, NULL);
+  if (ret < 0)
+    return ret;
+
+  ret = commands_exec_sync(cmdbase, speaker_start_all, NULL, NULL);
   return ret;
 }
 

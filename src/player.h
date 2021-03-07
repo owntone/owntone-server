@@ -133,6 +133,9 @@ int
 player_playback_pause(void);
 
 int
+player_playback_flush(void);
+
+int
 player_playback_seek(int seek_ms, enum player_seek_mode seek_mode);
 
 int

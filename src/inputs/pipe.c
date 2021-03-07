@@ -371,6 +371,12 @@ handle_progress(struct input_metadata *m, char *progress)
 }
 
 static void
+handle_flush(void)
+{
+  player_playback_flush();
+}
+
+static void
 handle_volume(const char *volume)
 {
   char *volume_next;
@@ -504,6 +510,12 @@ handle_item(struct input_metadata *m, const char *item)
     {
       DPRINTF(E_LOG, L_PLAYER, "No type (%d) or code (%d) in pipe metadata, aborting\n", type, code);
       goto out_error;
+    }
+
+  if (code == dmapval("pfls"))
+    {
+      handle_flush();
+      goto out_nothing;
     }
 
   if (code == dmapval("asal"))
