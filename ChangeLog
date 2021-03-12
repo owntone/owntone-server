@@ -1,6 +1,35 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 27.3
+	- support for AirPlay 2 speakers, incl. compressed ALAC
+	- web UI upgraded, now v0.8.5:
+		new design/layout
+		optimize "Recently added"
+		Spotify search dialogue improvements
+		drop separate admin web page, now integrated in main web
+		podcast deletion
+		make Radio a top level item
+		show release dates
+		new sorting options
+		prevent browser caching of playlists
+		additional settings
+	- improved Chromecast streaming (retransmisson, adaptive etc.)
+	- JSON api support for updating metadata of queue items
+	- JSON api new fields, e.g. time_added, time_played and seek
+	- fix for some Chromecasts disconnecting
+	- new algorithm for more natural ALSA volume adjustments
+	- new nickname option for AirPlay and Chromecast
+	- mpd fixes (nextsong, multiple commands)
+	- charset flexibility when getting ICY metadata from streams
+	- adaptive probing of radio streams
+	- libplist and libsodium now required
+	- fixes for library update events
+	- fixes to speaker selection and unintentional volume changes
+	- fix some minor memleaks
+	- support shairport-sync metadata pipe flush event
+	- misc logging fixup
+
 version 27.2
 	- web UI upgraded to v0.7.2:
 		show cover artwork in album pages and lazy loading of artwork
