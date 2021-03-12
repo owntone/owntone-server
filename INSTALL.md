@@ -73,7 +73,8 @@ sudo yum install \
   git automake autoconf gettext-devel gperf gawk libtool \
   sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
-  libplist-devel libsodium-devel json-c-devel libwebsockets-devel
+  libplist-devel libsodium-devel json-c-devel libwebsockets-devel \
+  libcurl-devel
 ```
 
 Clone the forked-daapd repo:
