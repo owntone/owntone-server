@@ -529,7 +529,7 @@ curl -X PUT "http://localhost:3689/api/outputs/0/toggle"
 | GET       | [/api/queue](#list-queue-items)                             | Get a list of queue items            |
 | PUT       | [/api/queue/clear](#clearing-the-queue)                     | Remove all items from the queue      |
 | POST      | [/api/queue/items/add](#adding-items-to-the-queue)          | Add items to the queue               |
-| PUT       | [/api/queue/items/{id}|now_playing](#updating-a-queue-item) | Updating a queue item in the queue   |
+| PUT       | [/api/queue/items/{id}\|now_playing](#updating-a-queue-item)| Updating a queue item in the queue   |
 | DELETE    | [/api/queue/items/{id}](#removing-a-queue-item)             | Remove a queue item from the queue   |
 
 
