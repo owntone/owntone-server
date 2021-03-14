@@ -389,65 +389,57 @@ serve_file(struct evhttp_request *req, const char *uri)
       return;
     }
 
-  ret = lstat(path, &sb);
-  if (ret < 0)
+
+  if (!realpath(path, deref))
     {
-      DPRINTF(E_WARN, L_HTTPD, "Could not lstat() %s: %s\n", path, strerror(errno));
+      DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
+
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
+      return;
+    }
+
+  if (strlen(deref) >= PATH_MAX)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Dereferenced path exceeds PATH_MAX: %s\n", path);
 
       httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
       return;
     }
 
-  if (S_ISLNK(sb.st_mode))
+  ret = lstat(deref, &sb);
+  if (ret < 0)
     {
-      if (!realpath(path, deref))
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
+      DPRINTF(E_WARN, L_HTTPD, "Could not lstat() %s: %s\n", deref, strerror(errno));
 
-	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
 
-	  return;
-	}
-
-      if (strlen(deref) + 1 > PATH_MAX)
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Dereferenced path exceeds PATH_MAX: %s\n", path);
-
-	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
-
-	  return;
-	}
-
-      strcpy(path, deref);
-
-      ret = stat(path, &sb);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
-
-	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
-
-	  return;
-	}
+      return;
     }
 
   if (S_ISDIR(sb.st_mode))
     {
       slashed = (path[strlen(path) - 1] == '/');
+      strncat(path, ((slashed) ? "index.html" : "/index.html"), sizeof(path) - strlen(path));
 
-      ret = snprintf(deref, sizeof(deref), "%s%sindex.html", path, (slashed) ? "" : "/");
-      if ((ret < 0) || (ret >= sizeof(deref)))
+      if (!realpath(path, deref))
         {
-	  DPRINTF(E_LOG, L_HTTPD, "Redirection URL exceeds buffer length\n");
+          DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
 
-	  httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
-	  return;
-	}
+          httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
+          return;
+        }
 
-      strcpy(path, deref);
+      if (strlen(deref) >= PATH_MAX)
+        {
+          DPRINTF(E_LOG, L_HTTPD, "Dereferenced path exceeds PATH_MAX: %s\n", path);
 
-      ret = stat(path, &sb);
+          httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
+
+          return;
+        }
+
+      ret = stat(deref, &sb);
       if (ret < 0)
         {
 	  DPRINTF(E_LOG, L_HTTPD, "Could not stat() %s: %s\n", path, strerror(errno));
@@ -456,8 +448,10 @@ serve_file(struct evhttp_request *req, const char *uri)
 	}
     }
 
-  if (path_is_legal(path) != 0)
+  if (path_is_legal(deref) != 0)
     {
+      DPRINTF(E_WARN, L_HTTPD, "Access to file outside the web root dir forbidden: %s\n", deref);
+
       httpd_send_error(req, 403, "Forbidden");
 
       return;
@@ -478,10 +472,10 @@ serve_file(struct evhttp_request *req, const char *uri)
       return;
     }
 
-  fd = open(path, O_RDONLY);
+  fd = open(deref, O_RDONLY);
   if (fd < 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", path, strerror(errno));
+      DPRINTF(E_LOG, L_HTTPD, "Could not open %s: %s\n", deref, strerror(errno));
 
       httpd_send_error(req, HTTP_NOTFOUND, "Not Found");
       evbuffer_free(evbuf);
