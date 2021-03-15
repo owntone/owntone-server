@@ -1,6 +1,9 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 27.4
+	- fix web server path traversal vulnerability
+
 version 27.3
 	- support for AirPlay 2 speakers, incl. compressed ALAC
 	- web UI upgraded, now v0.8.5:

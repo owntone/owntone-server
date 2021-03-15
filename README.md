@@ -588,7 +588,7 @@ The source for this version of forked-daapd can be found here:
 
 README's for previous versions of forked-daapd:
 
-  [forked-daapd version 27.3](https://github.com/ejurgensen/forked-daapd/blob/27.3/README.md)
+  [forked-daapd version 27.4](https://github.com/ejurgensen/forked-daapd/blob/27.4/README.md)
 
   [forked-daapd version 27.2](https://github.com/ejurgensen/forked-daapd/blob/27.2/README.md)
 
