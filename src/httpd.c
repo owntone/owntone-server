@@ -389,7 +389,6 @@ serve_file(struct evhttp_request *req, const char *uri)
       return;
     }
 
-
   if (!realpath(path, deref))
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not dereference %s: %s\n", path, strerror(errno));
@@ -420,7 +419,7 @@ serve_file(struct evhttp_request *req, const char *uri)
   if (S_ISDIR(sb.st_mode))
     {
       slashed = (path[strlen(path) - 1] == '/');
-      strncat(path, ((slashed) ? "index.html" : "/index.html"), sizeof(path) - strlen(path));
+      strncat(path, ((slashed) ? "index.html" : "/index.html"), sizeof(path) - strlen(path) - 1);
 
       if (!realpath(path, deref))
         {
