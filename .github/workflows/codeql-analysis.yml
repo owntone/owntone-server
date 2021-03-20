@@ -17,15 +17,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
-      with:
-        # We must fetch at least the immediate parents so that if this is
-        # a pull request then we can checkout the head.
-        fetch-depth: 2
-
-    # If this run was triggered by a pull request event, then checkout
-    # the head of the pull request instead of the merge commit.
-    - run: git checkout HEAD^2
-      if: ${{ github.event_name == 'pull_request' }}
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -51,8 +42,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yq build-essential clang clang-tools git autotools-dev autoconf libtool gettext gawk gperf antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev libevent-dev libplist-dev libsodium-dev libcurl4-openssl-dev libjson-c-dev libprotobuf-c-dev libpulse-dev libwebsockets-dev libgnutls28-dev
         autoreconf -vi
-        ./configure
-        make
+        ./configure --enable-lastfm --enable-chromecast
+        scan-build --status-bugs -disable-checker deadcode.DeadStores make
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
