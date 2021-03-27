@@ -25,6 +25,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <pthread.h>
+
 #include "logger.h"
 #include "misc.h"
 
