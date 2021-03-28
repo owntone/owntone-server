@@ -19,13 +19,15 @@ enum transcode_profile
   XCODE_PCM16,
   XCODE_PCM24,
   XCODE_PCM32,
-  // Transcodes the best audio stream into MP3
+  // Transcodes the best audio stream to MP3
   XCODE_MP3,
-  // Transcodes the best audio stream into OPUS
+  // Transcodes the best audio stream to OPUS
   XCODE_OPUS,
-  // Transcodes the best audio stream into ALAC
+  // Transcodes the best audio stream to ALAC
   XCODE_ALAC,
-  // Transcodes the best video stream into JPEG/PNG/VP8
+  // Transcodes the best audio stream from OGG
+  XCODE_OGG,
+  // Transcodes the best video stream to JPEG/PNG/VP8
   XCODE_JPEG,
   XCODE_PNG,
   XCODE_VP8,

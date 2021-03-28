@@ -45,8 +45,8 @@
 
 #include "artwork.h"
 
-#ifdef HAVE_SPOTIFY_H
-# include "spotify_webapi.h"
+#ifdef SPOTIFY
+# include "library/spotify_webapi.h"
 #endif
 
 /* This artwork module will look for artwork by consulting a set of sources one
@@ -1608,7 +1608,7 @@ source_item_coverartarchive_get(struct artwork_ctx *ctx)
   return ret;
 }
 
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 static int
 source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
 {

@@ -86,6 +86,9 @@ struct artwork_get_param
   int is_loaded;
 };
 
+static void
+spotify_playback_stop_nonblock(void);
+
 /* --- Globals --- */
 // Spotify thread
 static pthread_t tid_spotify;

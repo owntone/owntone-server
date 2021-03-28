@@ -242,6 +242,11 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->sample_format = AV_SAMPLE_FMT_S16P;
 	break;
 
+      case XCODE_OGG:
+	settings->encode_audio = 1;
+	settings->in_format = "ogg";
+	break;
+
       case XCODE_JPEG:
 	settings->encode_video = 1;
 	settings->silent = 1;

@@ -286,19 +286,22 @@ AS_IF([[test "x$with_avahi" = "xno"]],
 		[AC_MSG_ERROR([[Avahi client or Bonjour DNS_SD required, please install one.]])])])
 AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
-dnl Spotify with dynamic linking to libspotify
+dnl Spotify support
 OWNTONE_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
 	[AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
 		[AC_MSG_ERROR([[Spotify support requires libevent_pthreads]])])
-	 OWNTONE_MODULES_CHECK([SPOTIFY], [LIBSPOTIFY], [libspotify],
-		[], [libspotify/api.h])
-	 AC_DEFINE([HAVE_SPOTIFY_H], 1,
-		[Define to 1 if you have the <libspotify/api.h> header file.])
-	 dnl Don't link with libspotify, use dynamic linking
-	 AC_SEARCH_LIBS([dlopen], [dl], [],
-		[AC_MSG_ERROR([[Spotify support requires dlopen]])])
-	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_CPPFLAGS], [$SPOTIFY_CPPFLAGS])
-	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_LIBS], [-rdynamic])
+	 OWNTONE_MODULES_CHECK([OWNTONE_OPTS], [LIBPROTOBUF_C],
+		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
+		[protobuf-c/protobuf-c.h], [],
+		[OWNTONE_FUNC_REQUIRE([OWNTONE_OPTS], [v0 libprotobuf-c],
+			[LIBPROTOBUF_OLD], [protobuf-c],
+			[protobuf_c_message_pack],
+			[google/protobuf-c/protobuf-c.h],
+			[AC_DEFINE([HAVE_PROTOBUF_OLD], 1,
+				[Define to 1 if you have libprotobuf < 1.0.0])
+			 [protobuf_old=yes]],
+			[AC_MSG_ERROR([[Spotify support requires protobuf-c]])])
+		])
 	])
 AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
 

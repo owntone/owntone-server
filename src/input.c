@@ -58,7 +58,7 @@ extern struct input_definition input_file;
 extern struct input_definition input_http;
 extern struct input_definition input_pipe;
 extern struct input_definition input_timer;
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 extern struct input_definition input_spotify;
 #endif
 
@@ -68,7 +68,7 @@ static struct input_definition *inputs[] = {
     &input_http,
     &input_pipe,
     &input_timer,
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
     &input_spotify,
 #endif
     NULL
@@ -171,7 +171,7 @@ map_data_kind(int data_kind)
       case DATA_KIND_PIPE:
 	return INPUT_TYPE_PIPE;
 
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
       case DATA_KIND_SPOTIFY:
 	return INPUT_TYPE_SPOTIFY;
 #endif
@@ -420,6 +420,7 @@ setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms
   source->id         = queue_item->file_id;
   source->len_ms     = queue_item->song_length;
   source->path       = safe_strdup(queue_item->path);
+  source->evbase     = evbase_input;
 
   DPRINTF(E_DBG, L_PLAYER, "Setting up input item '%s' (item id %" PRIu32 ")\n", source->path, source->item_id);
 
