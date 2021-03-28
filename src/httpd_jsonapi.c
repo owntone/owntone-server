@@ -56,8 +56,8 @@
 #include "settings.h"
 #include "smartpl_query.h"
 #ifdef HAVE_SPOTIFY_H
-# include "spotify_webapi.h"
-# include "spotify.h"
+# include "library/spotify_webapi.h"
+# include "inputs/spotify.h"
 #endif
 
 

@@ -33,7 +33,7 @@
 #include "misc.h"
 #include "conffile.h"
 #ifdef HAVE_SPOTIFY_H
-# include "spotify_webapi.h"
+# include "library/spotify_webapi.h"
 #endif
 
 
