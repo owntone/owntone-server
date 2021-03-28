@@ -26,20 +26,20 @@ spotify_playback_play();
 int
 spotify_playback_pause();
 
-void
-spotify_playback_pause_nonblock(void);
+//void
+//spotify_playback_pause_nonblock(void);
 
 int
 spotify_playback_stop(void);
 
-void
-spotify_playback_stop_nonblock(void);
+//void
+//spotify_playback_stop_nonblock(void);
 
 int
 spotify_playback_seek(int ms);
 
-int
-spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h);
+//int
+//spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h);
 
 int
 spotify_relogin();
