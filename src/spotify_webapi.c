@@ -35,7 +35,6 @@
 #include "listener.h"
 #include "logger.h"
 #include "misc_json.h"
-#include "spotify.h"
 
 
 enum spotify_request_type {
@@ -1457,8 +1456,6 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
       free_mfi(&mfi, 1);
     }
 
-  spotify_uri_register(track->uri);
-
   if (album && album->uri)
     cache_artwork_ping(track->uri, album->mtime, 0);
   else
@@ -1801,21 +1798,6 @@ initscan()
   spotify_saved_plid = 0;
 
   /*
-   * Login to spotify needs to be done before scanning tracks from the web api.
-   * (Scanned tracks need to be registered with libspotify for playback)
-   */
-  ret = spotify_relogin();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "libspotify-login failed. In order to use Spotify, "
-	"provide valid credentials for libspotify by visiting http://owntone.local:3689\n");
-
-      db_spotify_purge();
-
-      return 0;
-    }
-
-  /*
    * Scan saved tracks from the web api
    */
   scan(SPOTIFY_REQUEST_TYPE_RESCAN);
@@ -2052,20 +2034,15 @@ spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
 static int
 spotifywebapi_init()
 {
-  int ret;
-
   CHECK_ERR(L_SPOTIFY, mutex_init(&token_lck));
-  ret = spotify_init();
 
-  return ret;
+  return 0;
 }
 
 static void
 spotifywebapi_deinit()
 {
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&token_lck));
-
-  spotify_deinit();
 
   free_credentials();
 }
