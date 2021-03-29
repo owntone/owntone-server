@@ -2137,7 +2137,7 @@ curl -X GET "http://localhost:3689/api/search?type=tracks,artists,albums,playlis
 
 ### Search by query language
 
-Search for artists, albums, tracks by a smart playlist query expression (see [README_SMARTPL.md](https://github.com/owntone/forked-daapd/blob/master/README_SMARTPL.md) for the expression syntax).
+Search for artists, albums, tracks by a smart playlist query expression (see [README_SMARTPL.md](https://github.com/owntone/owntone-server/blob/master/README_SMARTPL.md) for the expression syntax).
 
 **Endpoint**
 

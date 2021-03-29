@@ -17,7 +17,7 @@ Version: @PACKAGE_VERSION@
 Release: 1%{?dist}
 License: GPLv2+
 Group: Applications/Multimedia
-Url: https://github.com/owntone/forked-daapd
+Url: https://github.com/owntone/owntone-server
 Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 %{?systemd_ordering}
 BuildRequires: gcc, make, systemd, pkgconfig, libunistring-devel

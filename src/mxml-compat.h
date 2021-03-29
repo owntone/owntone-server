@@ -91,7 +91,7 @@ compat_mxmlDelete(mxml_node_t *node)
 
 // Debian 10.x amd64 w/mxml 2.12 has a mxmlNewTextf that causes segfault when
 // mxmlSaveString or mxmlSaveAllocString is called,
-// ref https://github.com/owntone/forked-daapd/issues/938
+// ref https://github.com/owntone/owntone-server/issues/938
 #if (MXML_MAJOR_VERSION == 2) && (MXML_MINOR_VERSION == 12)
 
 #include <stdarg.h>

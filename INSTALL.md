@@ -4,10 +4,7 @@ This document contains instructions for installing forked-daapd from the git
 tree.
 
 The source for this version of forked-daapd can be found here:
-[owntone/forked-daapd](https://github.com/owntone/forked-daapd.git)
-
-The original (now unmaintained) source can be found here:
-[jblache/forked-daapd](http://git.debian.org/?p=users/jblache/forked-daapd.git)
+[owntone/owntone-server](https://github.com/owntone/owntone-server.git)
 
 ## Quick version for Raspbian (Raspberry Pi)
 
@@ -50,7 +47,7 @@ Optional packages:
 Then run the following (adding configure arguments for optional features):
 
 ```bash
-git clone https://github.com/owntone/forked-daapd.git
+git clone https://github.com/owntone/owntone-server.git
 cd forked-daapd
 autoreconf -i
 ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
@@ -80,7 +77,7 @@ sudo yum install \
 Clone the forked-daapd repo:
 
 ```bash
-git clone https://github.com/owntone/forked-daapd.git
+git clone https://github.com/owntone/owntone-server.git
 cd forked-daapd
 ```
 
@@ -175,7 +172,7 @@ Optional features require the following additional ports:
 Clone the forked-daapd repo:
 
 ```bash
-git clone https://github.com/owntone/forked-daapd.git
+git clone https://github.com/owntone/owntone-server.git
 cd forked-daapd
 ```
 
