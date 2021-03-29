@@ -67,7 +67,7 @@
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 # include "spotify.h"
 #endif
 
@@ -701,7 +701,7 @@ process_file(char *file, struct stat *sb, enum file_type file_type, int scan_typ
 	break;
 
       case FILE_CTRL_SPOTIFY:
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 	if (flags & F_SCAN_BULK)
 	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
 	else

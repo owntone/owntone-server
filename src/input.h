@@ -16,7 +16,7 @@ enum input_types
   INPUT_TYPE_HTTP,
   INPUT_TYPE_PIPE,
   INPUT_TYPE_TIMER,
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
   INPUT_TYPE_SPOTIFY,
 #endif
 };

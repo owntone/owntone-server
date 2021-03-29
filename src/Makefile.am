@@ -2,7 +2,16 @@
 sbin_PROGRAMS = owntone
 
 if COND_SPOTIFY
-SPOTIFY_SRC=library/spotify_webapi.c library/spotify_webapi.h inputs/spotify.c inputs/spotify.h
+SPOTIFY_SRC = \
+	library/spotify_webapi.c library/spotify_webapi.h \
+	inputs/spotify.c inputs/spotify.h \
+	inputs/spotifyc/spotifyc.c inputs/spotifyc/spotifyc.h \
+	inputs/spotifyc/shannon/ShannonFast.c \
+	inputs/spotifyc/shannon/ShannonInternal.h inputs/spotifyc/shannon/Shannon.h \
+	inputs/spotifyc/proto/keyexchange.pb-c.c inputs/spotifyc/proto/keyexchange.pb-c.h \
+	inputs/spotifyc/proto/authentication.pb-c.c inputs/spotifyc/proto/authentication.pb-c.h \
+	inputs/spotifyc/proto/mercury.pb-c.c inputs/spotifyc/proto/mercury.pb-c.h \
+	inputs/spotifyc/proto/metadata.pb-c.c inputs/spotifyc/proto/metadata.pb-c.h
 endif
 
 if COND_LASTFM

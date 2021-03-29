@@ -79,14 +79,14 @@ static pthread_t tid_library;
 struct event_base *evbase_lib;
 
 extern struct library_source filescanner;
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 extern struct library_source spotifyscanner;
 #endif
 extern struct library_source rssscanner;
 
 static struct library_source *sources[] = {
     &filescanner,
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
     &spotifyscanner,
 #endif
     &rssscanner,

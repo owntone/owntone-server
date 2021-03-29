@@ -55,7 +55,7 @@
 #include "remote_pairing.h"
 #include "settings.h"
 #include "smartpl_query.h"
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 # include "library/spotify_webapi.h"
 # include "inputs/spotify.h"
 #endif
@@ -1201,7 +1201,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
   int httpd_port;
   char redirect_uri[256];
   char *oauth_uri;
@@ -1255,7 +1255,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
 static int
 jsonapi_reply_spotify_login(struct httpd_request *hreq)
 {
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
   struct evbuffer *in_evbuf;
   json_object* request;
   const char *user;
@@ -1323,7 +1323,7 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
 static int
 jsonapi_reply_spotify_logout(struct httpd_request *hreq)
 {
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
   spotify_logout();
 #endif
   return HTTP_NOCONTENT;
