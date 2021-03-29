@@ -32,14 +32,14 @@
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 # include "library/spotify_webapi.h"
 #endif
 
 
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 static int
 oauth_reply_spotify(struct httpd_request *hreq)
 {
