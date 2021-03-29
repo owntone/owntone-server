@@ -91,7 +91,7 @@
 // ATV4 and Homepod disconnect for reasons that are not clear, but sending them
 // progress metadata at regular intervals reduces the problem. The below
 // interval was determined via testing, see:
-// https://github.com/ejurgensen/forked-daapd/issues/734#issuecomment-622959334
+// https://github.com/owntone/forked-daapd/issues/734#issuecomment-622959334
 #define RAOP_KEEP_ALIVE_INTERVAL   25
 
 // This is an arbitrary value which just needs to be kept in sync with the config
@@ -4583,7 +4583,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s': am has no value\n", device_name);
 
   // If the user didn't set any reconnect setting we enable for Apple TV and
-  // HomePods due to https://github.com/ejurgensen/forked-daapd/issues/734
+  // HomePods due to https://github.com/owntone/forked-daapd/issues/734
   cfgopt = devcfg ? cfg_getopt(devcfg, "reconnect") : NULL;
   if (cfgopt && cfgopt->nvalues == 1)
     rd->resurrect = cfg_opt_getnbool(cfgopt, 0);

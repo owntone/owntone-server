@@ -71,7 +71,7 @@ fi
 
 read -p "Should the script build forked-daapd? [y/N] " yn
 if [ "$yn" = "y" ]; then
-	git clone https://github.com/ejurgensen/forked-daapd.git
+	git clone https://github.com/owntone/forked-daapd.git
 	cd forked-daapd
 
 	#Cleanup in case this is a re-run

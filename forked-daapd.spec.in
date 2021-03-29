@@ -17,8 +17,8 @@ Version: @PACKAGE_VERSION@
 Release: 1%{?dist}
 License: GPLv2+
 Group: Applications/Multimedia
-Url: https://github.com/ejurgensen/forked-daapd
-Source0: https://github.com/ejurgensen/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
+Url: https://github.com/owntone/forked-daapd
+Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 %{?systemd_ordering}
 BuildRequires: gcc, make, systemd, pkgconfig, libunistring-devel
 BuildRequires: pkgconfig(zlib), pkgconfig(libconfuse), pkgconfig(mxml)

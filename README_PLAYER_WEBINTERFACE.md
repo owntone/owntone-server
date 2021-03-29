@@ -1,6 +1,6 @@
 # forked-daapd player web interface
 
-Mobile friendly player web interface for [forked-daapd](http://ejurgensen.github.io/forked-daapd/) build with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
+Mobile friendly player web interface for [forked-daapd](http://owntone.github.io/forked-daapd/) build with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
 
 ## Screenshots
 

@@ -126,7 +126,7 @@ with remotes, select speakers, authenticate with Spotify, etc.
 The Debian forked-daapd package does not include the web interface due to Debian
 packaging rules.
 
-You can find some screenshots and build instructions in [README_PLAYER_WEBINTERFACE.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_PLAYER_WEBINTERFACE.md).
+You can find some screenshots and build instructions in [README_PLAYER_WEBINTERFACE.md](https://github.com/owntone/forked-daapd/blob/master/README_PLAYER_WEBINTERFACE.md).
 
 ## Using Remote
 
@@ -228,7 +228,7 @@ When using ALSA, the server will try to syncronize playback with AirPlay. You
 can adjust the syncronization in the config file.
 
 For most setups the default values in the config file should work. If they
-don't, there is help here: [README_ALSA.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_ALSA.md)
+don't, there is help here: [README_ALSA.md](https://github.com/owntone/forked-daapd/blob/master/README_ALSA.md)
 
 
 ## Local audio, Bluetooth and more through Pulseaudio
@@ -236,7 +236,7 @@ don't, there is help here: [README_ALSA.md](https://github.com/ejurgensen/forked
 In the config file, you can select Pulseaudio for local audio. In addition to
 local audio, Pulseaudio also supports an array of other targets, e.g. Bluetooth
 or DLNA. However, Pulseaudio does require some setup, so here is a separate page
-with some help on that: [README_PULSE.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_PULSE.md)
+with some help on that: [README_PULSE.md](https://github.com/owntone/forked-daapd/blob/master/README_PULSE.md)
 
 Note that if you select Pulseaudio the "card" setting in the config file has
 no effect. Instead all soundcards detected by Pulseaudio will be listed as
@@ -323,11 +323,11 @@ the iTunes DB; use itunes_overrides = true if you prefer iTunes' metadata.
 
 forked-daapd has support for smart playlists. How to create a smart playlist is
 documented in
-[README_SMARTPL.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md).
+[README_SMARTPL.md](https://github.com/owntone/forked-daapd/blob/master/README_SMARTPL.md).
 
 If you're not satisfied with internet radio metadata that forked-daapd shows,
 then you can read about tweaking it in
-[README_RADIO_STREAMS.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_RADIO_STREAMS.md).
+[README_RADIO_STREAMS.md](https://github.com/owntone/forked-daapd/blob/master/README_RADIO_STREAMS.md).
 
 
 ## Artwork
@@ -452,7 +452,7 @@ not necessary during normal operation.
 You can choose between:
 
 - a [MPD command line client](#mpd-clients) (easiest) like `mpc`
-- curl with forked-daapd's JSON API (see [README_JSON_API.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_JSON_API.md))
+- curl with forked-daapd's JSON API (see [README_JSON_API.md](https://github.com/owntone/forked-daapd/blob/master/README_JSON_API.md))
 - curl with DAAP/DACP commands (hardest)
 
 Here is an example of how to use curl with DAAP/DACP. Say you have a playlist
@@ -584,32 +584,32 @@ The following table shows what is working for a selection of MPD clients:
 
 The source for this version of forked-daapd can be found here:
 
-  [https://github.com/ejurgensen/forked-daapd.git](https://github.com/ejurgensen/forked-daapd.git)
+  [https://github.com/owntone/forked-daapd.git](https://github.com/owntone/forked-daapd.git)
 
 README's for previous versions of forked-daapd:
 
-  [forked-daapd version 27.4](https://github.com/ejurgensen/forked-daapd/blob/27.4/README.md)
+  [forked-daapd version 27.4](https://github.com/owntone/forked-daapd/blob/27.4/README.md)
 
-  [forked-daapd version 27.2](https://github.com/ejurgensen/forked-daapd/blob/27.2/README.md)
+  [forked-daapd version 27.2](https://github.com/owntone/forked-daapd/blob/27.2/README.md)
 
-  [forked-daapd version 27.1](https://github.com/ejurgensen/forked-daapd/blob/27.1/README.md)
+  [forked-daapd version 27.1](https://github.com/owntone/forked-daapd/blob/27.1/README.md)
 
-  [forked-daapd version 27.0](https://github.com/ejurgensen/forked-daapd/blob/27.0/README.md)
+  [forked-daapd version 27.0](https://github.com/owntone/forked-daapd/blob/27.0/README.md)
 
-  [forked-daapd version 26.5](https://github.com/ejurgensen/forked-daapd/blob/26.5/README.md)
+  [forked-daapd version 26.5](https://github.com/owntone/forked-daapd/blob/26.5/README.md)
 
-  [forked-daapd version 26.4](https://github.com/ejurgensen/forked-daapd/blob/26.4/README.md)
+  [forked-daapd version 26.4](https://github.com/owntone/forked-daapd/blob/26.4/README.md)
 
-  [forked-daapd version 26.3](https://github.com/ejurgensen/forked-daapd/blob/26.3/README.md)
+  [forked-daapd version 26.3](https://github.com/owntone/forked-daapd/blob/26.3/README.md)
 
-  [forked-daapd version 26.2](https://github.com/ejurgensen/forked-daapd/blob/26.2/README.md)
+  [forked-daapd version 26.2](https://github.com/owntone/forked-daapd/blob/26.2/README.md)
 
-  [forked-daapd version 26.1](https://github.com/ejurgensen/forked-daapd/blob/26.1/README.md)
+  [forked-daapd version 26.1](https://github.com/owntone/forked-daapd/blob/26.1/README.md)
 
-  [forked-daapd version 26.0](https://github.com/ejurgensen/forked-daapd/blob/26.0/README.md)
+  [forked-daapd version 26.0](https://github.com/owntone/forked-daapd/blob/26.0/README.md)
 
-  [forked-daapd version 25.0](https://github.com/ejurgensen/forked-daapd/blob/25.0/README.md)
+  [forked-daapd version 25.0](https://github.com/owntone/forked-daapd/blob/25.0/README.md)
 
-  [forked-daapd version 24.2](https://github.com/ejurgensen/forked-daapd/blob/24.2/README.md)
+  [forked-daapd version 24.2](https://github.com/owntone/forked-daapd/blob/24.2/README.md)
 
-  [forked-daapd version 24.1](https://github.com/ejurgensen/forked-daapd/blob/24.1/README.md)
+  [forked-daapd version 24.1](https://github.com/owntone/forked-daapd/blob/24.1/README.md)
