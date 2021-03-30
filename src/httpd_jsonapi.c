@@ -1205,7 +1205,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   int httpd_port;
   char redirect_uri[256];
   char *oauth_uri;
-  struct spotify_status_info info;
+  struct spotify_status sp_status;
   struct spotifywebapi_status_info webapi_info;
   struct spotifywebapi_access_token webapi_token;
 
@@ -1225,10 +1225,10 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   json_object_object_add(jreply, "oauth_uri", json_object_new_string(oauth_uri));
   free(oauth_uri);
 
-  spotify_status_info_get(&info);
-  json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(info.libspotify_installed));
-  json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(info.libspotify_logged_in));
-  safe_json_add_string(jreply, "libspotify_user", info.libspotify_user);
+  spotify_status_get(&sp_status);
+  json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(sp_status.installed));
+  json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(sp_status.logged_in));
+  safe_json_add_string(jreply, "libspotify_user", sp_status.username);
 
   spotifywebapi_status_info_get(&webapi_info);
   json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(webapi_info.token_valid));
@@ -1260,7 +1260,7 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
   json_object* request;
   const char *user;
   const char *password;
-  char *errmsg = NULL;
+  const char *errmsg;
   json_object* jreply;
   json_object* errors;
   int ret;
@@ -1294,7 +1294,6 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
 	{
 	  json_object_object_add(jreply, "success", json_object_new_boolean(true));
 	}
-      free(errmsg);
     }
   else
     {
