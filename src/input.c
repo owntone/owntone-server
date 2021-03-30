@@ -420,6 +420,7 @@ setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms
   source->id         = queue_item->file_id;
   source->len_ms     = queue_item->song_length;
   source->path       = safe_strdup(queue_item->path);
+  source->evbase     = evbase_input;
 
   DPRINTF(E_DBG, L_PLAYER, "Setting up input item '%s' (item id %" PRIu32 ")\n", source->path, source->item_id);
 

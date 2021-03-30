@@ -3,16 +3,16 @@
 
 #include <stdbool.h>
 
-
-struct spotify_status_info
+struct spotify_status
 {
-  bool libspotify_installed;
-  bool libspotify_logged_in;
-  char libspotify_user[100];
+  bool installed;
+  bool logged_in;
+  bool track_opened;
+  char username[100];
 };
 
 int
-spotify_login_user(const char *user, const char *password, char **errmsg);
+spotify_login_user(const char *user, const char *password, const char **errmsg);
 
 void
 spotify_login(char **arglist);
@@ -21,6 +21,6 @@ void
 spotify_logout(void);
 
 void
-spotify_status_info_get(struct spotify_status_info *info);
+spotify_status_get(struct spotify_status *status);
 
 #endif /* !__SPOTIFY_H__ */
