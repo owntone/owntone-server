@@ -205,7 +205,11 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 
   for (ptr = servinfo; ptr; ptr = ptr->ai_next)
     {
+#ifdef SOCK_CLOEXEC
       fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
+#else
+      fd = socket(ptr->ai_family, type, ptr->ai_protocol);
+#endif
       if (fd < 0)
 	{
 	  continue;
@@ -269,7 +273,11 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
       if (fd >= 0)
 	close(fd);
 
+#ifdef SOCK_CLOEXEC
       fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
+#else
+      fd = socket(ptr->ai_family, type, ptr->ai_protocol);
+#endif
       if (fd < 0)
 	continue;
 
