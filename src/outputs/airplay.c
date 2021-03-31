@@ -2241,7 +2241,7 @@ static void
 control_svc_cb(int fd, short what, void *arg)
 {
   struct airplay_service *svc = arg;
-  union net_sockaddr peer_addr;
+  union net_sockaddr peer_addr = { 0 };
   socklen_t peer_addrlen = sizeof(peer_addr);
   char address[INET6_ADDRSTRLEN];
   struct airplay_session *rs;
