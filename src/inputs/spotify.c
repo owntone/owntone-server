@@ -45,8 +45,7 @@ struct global_ctx
 struct playback_ctx
 {
   struct input_source *source;
-  bool xcode_is_ready;
-  struct transcode_ctx xcode;
+  struct transcode_ctx *xcode;
 
   int read_fd;
   struct event *read_ev;
@@ -272,17 +271,25 @@ read_cb(int fd, short what, void *arg);
 static int
 playback_xcode_setup(struct playback_ctx *playback)
 {
-  playback->xcode.decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, playback->read_buf, 0);
-  if (!playback->xcode.decode_ctx)
-    return -1;;
+  struct transcode_ctx *xcode;
 
-  playback->xcode.encode_ctx = transcode_encode_setup(XCODE_PCM16, NULL, playback->xcode.decode_ctx, NULL, 0, 0);
-  if (!playback->xcode.encode_ctx)
-    return -1;
+  CHECK_NULL(L_SPOTIFY, xcode = malloc(sizeof(struct transcode_ctx)));
 
-  playback->xcode_is_ready = true;
+  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, playback->read_buf, 0);
+  if (!xcode->decode_ctx)
+    goto error;
+
+  xcode->encode_ctx = transcode_encode_setup(XCODE_PCM16, NULL, xcode->decode_ctx, NULL, 0, 0);
+  if (!xcode->encode_ctx)
+    goto error;
+
+  playback->xcode = xcode;
 
   return 0;
+
+ error:
+  transcode_cleanup(&xcode);
+  return -1;
 }
 
 static void
@@ -298,8 +305,7 @@ playback_free(struct playback_ctx *playback)
   if (playback->read_fd >= 0)
     close(playback->read_fd);
 
-  transcode_decode_cleanup(&playback->xcode.decode_ctx);
-  transcode_encode_cleanup(&playback->xcode.encode_ctx);
+  transcode_cleanup(&playback->xcode);
   free(playback);
 }
 
@@ -410,7 +416,6 @@ read_cb(int fd, short what, void *arg)
 {
   struct playback_ctx *playback_ctx = arg;
   struct input_source *source = playback_ctx->source;
-  struct transcode_ctx *xcode_ctx = &playback_ctx->xcode;
   int got;
   int ret;
 
@@ -422,7 +427,7 @@ read_cb(int fd, short what, void *arg)
   if (playback_ctx->read_bytes < SPOTIFY_PROBE_SIZE_MIN)
     return; // ffmpeg requires more data to be able to probe the Ogg
 
-  if (!playback_ctx->xcode_is_ready)
+  if (!playback_ctx->xcode)
     {
       ret = playback_xcode_setup(playback_ctx);
       if (ret < 0)
@@ -430,7 +435,7 @@ read_cb(int fd, short what, void *arg)
     }
 
   // Decode the Ogg Vorbis to PCM
-  ret = transcode(source->evbuf, NULL, xcode_ctx, 1);
+  ret = transcode(source->evbuf, NULL, playback_ctx->xcode, 1);
   if (ret == 0)
     {
       input_write(source->evbuf, &source->quality, INPUT_FLAG_EOF);
