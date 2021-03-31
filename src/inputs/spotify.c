@@ -44,11 +44,9 @@ struct global_ctx
 
 struct playback_ctx
 {
-  struct input_source *source;
   struct transcode_ctx *xcode;
 
   int read_fd;
-  struct event *read_ev;
   struct evbuffer *read_buf;
   size_t read_bytes;
 };
@@ -262,10 +260,6 @@ struct sp_callbacks callbacks = {
   .logmsg   = logmsg_cb,
 };
 
-// Forward
-static void
-read_cb(int fd, short what, void *arg);
-
 // Has to be called after we have started receiving data, since ffmpeg needs to
 // probe the data to find the audio streams
 static int
@@ -298,8 +292,6 @@ playback_free(struct playback_ctx *playback)
   if (!playback)
     return;
 
-  if (playback->read_ev)
-    event_free(playback->read_ev);
   if (playback->read_buf)
     evbuffer_free(playback->read_buf);
   if (playback->read_fd >= 0)
@@ -315,31 +307,27 @@ playback_new(struct input_source *source, int fd)
   struct playback_ctx *playback;
 
   CHECK_NULL(L_SPOTIFY, playback = calloc(1, sizeof(struct playback_ctx)));
-  playback->read_fd = fd;
-  playback->source = source;
-
   CHECK_NULL(L_SPOTIFY, playback->read_buf = evbuffer_new());
-  playback->read_ev = event_new(source->evbase, fd, EV_READ | EV_PERSIST, read_cb, playback);
-  if (!playback->read_ev)
-    goto error;
 
-  event_add(playback->read_ev, NULL);
+  playback->read_fd = fd;
 
   return playback;
-
- error:
-  playback_free(playback);
-  return NULL;
 }
 
 static int
 stop(struct input_source *source)
 {
+  struct global_ctx *ctx = &spotify_ctx;
   struct playback_ctx *playback = source->input_ctx;
+
+  pthread_mutex_lock(&ctx->lock);
 
   if (playback)
     {
-      spotifyc_stop(playback->read_fd);
+      // Only need to request stop if spotifyc still has the track open
+      if (ctx->status.track_opened)
+	spotifyc_stop(playback->read_fd);
+
       playback_free(playback);
     }
 
@@ -349,7 +337,9 @@ stop(struct input_source *source)
   source->input_ctx = NULL;
   source->evbuf = NULL;
 
-  spotify_ctx.status.track_opened = false;
+  ctx->status.track_opened = false;
+
+  pthread_mutex_unlock(&ctx->lock);
 
   return 0;
 }
@@ -361,7 +351,6 @@ setup(struct input_source *source)
   int ret;
   int fd;
 
-  // First try to open the source (no downloading yet)
   pthread_mutex_lock(&ctx->lock);
 
   fd = spotifyc_open(source->path, ctx->session);
@@ -406,36 +395,33 @@ setup(struct input_source *source)
 }
 
 static int
-seek(struct input_source *source, int seek_ms)
+play(struct input_source *source)
 {
-  return -1;
-}
-
-static void
-read_cb(int fd, short what, void *arg)
-{
-  struct playback_ctx *playback_ctx = arg;
-  struct input_source *source = playback_ctx->source;
+  struct playback_ctx *playback = source->input_ctx;
   int got;
   int ret;
 
-  got = evbuffer_read(playback_ctx->read_buf, fd, -1);
+  got = evbuffer_read(playback->read_buf, playback->read_fd, -1);
   if (got < 0)
     goto error;
 
-  playback_ctx->read_bytes += got;
-  if (playback_ctx->read_bytes < SPOTIFY_PROBE_SIZE_MIN)
-    return; // ffmpeg requires more data to be able to probe the Ogg
-
-  if (!playback_ctx->xcode)
+  // ffmpeg requires enough data to be able to probe the Ogg
+  playback->read_bytes += got;
+  if (playback->read_bytes < SPOTIFY_PROBE_SIZE_MIN)
     {
-      ret = playback_xcode_setup(playback_ctx);
+      input_wait();
+      return 0;
+    }
+
+  if (!playback->xcode)
+    {
+      ret = playback_xcode_setup(playback);
       if (ret < 0)
 	goto error;
     }
 
   // Decode the Ogg Vorbis to PCM
-  ret = transcode(source->evbuf, NULL, playback_ctx->xcode, 1);
+  ret = transcode(source->evbuf, NULL, playback->xcode, 1);
   if (ret == 0)
     {
       input_write(source->evbuf, &source->quality, INPUT_FLAG_EOF);
@@ -446,11 +432,18 @@ read_cb(int fd, short what, void *arg)
 
   input_write(source->evbuf, &source->quality, 0);
 
-  return;
+  return 0;
 
  error:
   input_write(NULL, NULL, INPUT_FLAG_ERROR);
   stop(source);
+  return -1;
+}
+
+static int
+seek(struct input_source *source, int seek_ms)
+{
+  return -1;
 }
 
 static int
@@ -511,6 +504,7 @@ struct input_definition input_spotify =
   .disabled = 0,
   .setup = setup,
   .stop = stop,
+  .play = play,
   .seek = seek,
   .init = init,
   .deinit = deinit,
