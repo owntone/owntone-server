@@ -102,14 +102,6 @@
 // This is an arbitrary value which just needs to be kept in sync with the config
 #define AIRPLAY_CONFIG_MAX_VOLUME     11
 
-union sockaddr_all
-{
-  struct sockaddr_in sin;
-  struct sockaddr_in6 sin6;
-  struct sockaddr sa;
-  struct sockaddr_storage ss;
-};
-
 /* Keep in sync with const char *airplay_devtype */
 enum airplay_devtype {
   AIRPLAY_DEV_APEX2_80211N,
@@ -264,6 +256,8 @@ struct airplay_session
   char *address;
   int family;
 
+  union net_sockaddr naddr;
+
   int volume;
 
   char *local_address;
@@ -286,8 +280,6 @@ struct airplay_session
 
   int events_fd;
   struct event *eventsev;
-
-  union sockaddr_all sa;
 
   struct airplay_service *timing_svc;
   struct airplay_service *control_svc;
@@ -441,12 +433,10 @@ static struct media_quality airplay_quality_default =
 extern struct event_base *evbase_player;
 
 /* AirTunes v2 time synchronization */
-static struct airplay_service timing_4svc;
-static struct airplay_service timing_6svc;
+static struct airplay_service airplay_timing_svc;
 
 /* AirTunes v2 playback synchronization / control */
-static struct airplay_service control_4svc;
-static struct airplay_service control_6svc;
+static struct airplay_service airplay_control_svc;
 
 /* Metadata */
 static struct output_metadata *airplay_cur_metadata;
@@ -517,7 +507,7 @@ ntp_to_timespec(struct ntp_stamp *ns, struct timespec *ts)
 }
 
 static inline int
-airplay_timing_get_clock_ntp(struct ntp_stamp *ns)
+timing_get_clock_ntp(struct ntp_stamp *ns)
 {
   struct timespec ts;
   int ret;
@@ -1348,38 +1338,33 @@ session_connection_setup(struct airplay_session *rs, struct output_device *rd, i
   unsigned short port;
   int ret;
 
-  rs->sa.ss.ss_family = family;
+  rs->naddr.ss.ss_family = family;
+
   switch (family)
     {
       case AF_INET:
-	/* We always have the v4 services, so no need to check */
 	if (!rd->v4_address)
 	  return -1;
 
 	address = rd->v4_address;
 	port = rd->v4_port;
 
-	rs->timing_svc = &timing_4svc;
-	rs->control_svc = &control_4svc;
 
-	ret = inet_pton(AF_INET, address, &rs->sa.sin.sin_addr);
+	ret = inet_pton(AF_INET, address, &rs->naddr.sin.sin_addr);
 	break;
 
       case AF_INET6:
-	if (!rd->v6_address || rd->v6_disabled || (timing_6svc.fd < 0) || (control_6svc.fd < 0))
+	if (!rd->v6_address)
 	  return -1;
 
 	address = rd->v6_address;
 	port = rd->v6_port;
 
-	rs->timing_svc = &timing_6svc;
-	rs->control_svc = &control_6svc;
-
 	intf = strchr(address, '%');
 	if (intf)
 	  *intf = '\0';
 
-	ret = inet_pton(AF_INET6, address, &rs->sa.sin6.sin6_addr);
+	ret = inet_pton(AF_INET6, address, &rs->naddr.sin6.sin6_addr);
 
 	if (intf)
 	  {
@@ -1387,8 +1372,8 @@ session_connection_setup(struct airplay_session *rs, struct output_device *rd, i
 
 	    intf++;
 
-	    rs->sa.sin6.sin6_scope_id = if_nametoindex(intf);
-	    if (rs->sa.sin6.sin6_scope_id == 0)
+	    rs->naddr.sin6.sin6_scope_id = if_nametoindex(intf);
+	    if (rs->naddr.sin6.sin6_scope_id == 0)
 	      {
 		DPRINTF(E_LOG, L_AIRPLAY, "Could not find interface %s\n", intf);
 
@@ -1461,7 +1446,7 @@ session_cipher_setup(struct airplay_session *rs, const uint8_t *key, size_t key_
       goto error;
     }
 
-  DPRINTF(E_INFO, L_AIRPLAY, "Ciphering setup of '%s' completed succesfully, now using encrypted mode\n", rs->devname);
+  DPRINTF(E_DBG, L_AIRPLAY, "Ciphering setup of '%s' completed succesfully, now using encrypted mode\n", rs->devname);
 
   rs->state = AIRPLAY_STATE_ENCRYPTED;
   rs->control_cipher_ctx = control_cipher_ctx;
@@ -1529,6 +1514,35 @@ session_ids_set(struct airplay_session *rs)
 }
 
 static struct airplay_session *
+session_find_by_address(union net_sockaddr *peer_addr)
+{
+  struct airplay_session *rs;
+  uint32_t *addr_ptr;
+  int family = peer_addr->sa.sa_family;
+
+  for (rs = airplay_sessions; rs; rs = rs->next)
+    {
+      if (family == rs->family)
+	{
+	  if (family == AF_INET && peer_addr->sin.sin_addr.s_addr == rs->naddr.sin.sin_addr.s_addr)
+	    break;
+
+	  if (family == AF_INET6 && IN6_ARE_ADDR_EQUAL(&peer_addr->sin6.sin6_addr, &rs->naddr.sin6.sin6_addr))
+	    break;
+	}
+      else if (family == AF_INET6 && IN6_IS_ADDR_V4MAPPED(&peer_addr->sin6.sin6_addr))
+	{
+	  // ipv4 mapped to ipv6 consists of 16 bytes/4 words: 0x00000000 0x00000000 0x0000ffff 0x[IPv4]
+	  addr_ptr = (uint32_t *)(&peer_addr->sin6.sin6_addr);
+	  if (addr_ptr[3] == rs->naddr.sin.sin_addr.s_addr)
+	    break;
+	}
+    }
+
+  return rs;
+}
+
+static struct airplay_session *
 session_make(struct output_device *rd, int callback_id)
 {
   struct airplay_session *rs;
@@ -1560,6 +1574,9 @@ session_make(struct output_device *rd, int callback_id)
   rs->wanted_metadata = re->wanted_metadata;
 
   rs->next_seq = AIRPLAY_SEQ_CONTINUE;
+
+  rs->timing_svc = &airplay_timing_svc;
+  rs->control_svc = &airplay_control_svc;
 
   ret = session_connection_setup(rs, rd, AF_INET6);
   if (ret < 0)
@@ -1918,27 +1935,27 @@ packet_send(struct airplay_session *rs, struct rtp_packet *pkt)
 static void
 control_packet_send(struct airplay_session *rs, struct rtp_packet *pkt)
 {
-  int len;
+  socklen_t addrlen;
   int ret;
 
-  switch (rs->sa.ss.ss_family)
+  switch (rs->family)
     {
       case AF_INET:
-	rs->sa.sin.sin_port = htons(rs->control_port);
-	len = sizeof(rs->sa.sin);
+	rs->naddr.sin.sin_port = htons(rs->control_port);
+	addrlen = sizeof(rs->naddr.sin);
 	break;
 
       case AF_INET6:
-	rs->sa.sin6.sin6_port = htons(rs->control_port);
-	len = sizeof(rs->sa.sin6);
+	rs->naddr.sin6.sin6_port = htons(rs->control_port);
+	addrlen = sizeof(rs->naddr.sin6);
 	break;
 
       default:
-	DPRINTF(E_WARN, L_AIRPLAY, "Unknown family %d\n", rs->sa.ss.ss_family);
+	DPRINTF(E_WARN, L_AIRPLAY, "Unknown family %d\n", rs->family);
 	return;
     }
 
-  ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->sa.sa, len);
+  ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->naddr.sa, addrlen);
   if (ret < 0)
     DPRINTF(E_LOG, L_AIRPLAY, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
 }
@@ -2086,51 +2103,93 @@ packets_sync_send(struct airplay_master_session *rms)
 }
 
 
-/* ------------------------------ Time service ------------------------------ */
+/* ------------------------- Time and control service ----------------------- */
 
 static void
-airplay_timing_cb(int fd, short what, void *arg)
+service_stop(struct airplay_service *svc)
 {
-  union sockaddr_all sa;
+  if (svc->ev)
+    event_free(svc->ev);
+
+  if (svc->fd >= 0)
+    close(svc->fd);
+
+  svc->ev = NULL;
+  svc->fd = -1;
+  svc->port = 0;
+}
+
+static int
+service_start(struct airplay_service *svc, event_callback_fn cb, unsigned short port, const char *log_service_name)
+{
+  memset(svc, 0, sizeof(struct airplay_service));
+
+  svc->fd = net_bind(&port, SOCK_DGRAM, log_service_name);
+  if (svc->fd < 0)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not start '%s' service\n", log_service_name);
+      goto error;
+    }
+
+  svc->ev = event_new(evbase_player, svc->fd, EV_READ | EV_PERSIST, cb, svc);
+  if (!svc->ev)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not create event for '%s' service\n", log_service_name);
+      goto error;
+    }
+
+  event_add(svc->ev, NULL);
+
+  svc->port = port;
+
+  return 0;
+
+ error:
+  service_stop(svc);
+  return -1;
+}
+
+static void
+timing_svc_cb(int fd, short what, void *arg)
+{
+  struct airplay_service *svc = arg;
+  union net_sockaddr peer_addr;
+  socklen_t peer_addrlen = sizeof(peer_addr);
+  char address[INET6_ADDRSTRLEN];
   uint8_t req[32];
   uint8_t res[32];
   struct ntp_stamp recv_stamp;
   struct ntp_stamp xmit_stamp;
-  struct airplay_service *svc;
-  int len;
   int ret;
 
-  svc = (struct airplay_service *)arg;
-
-  ret = airplay_timing_get_clock_ntp(&recv_stamp);
+  ret = timing_get_clock_ntp(&recv_stamp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Couldn't get receive timestamp\n");
-
-      goto readd;
+      return;
     }
 
-  len = sizeof(sa.ss);
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
+  peer_addrlen = sizeof(peer_addr);
+  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "Error reading timing request: %s\n", strerror(errno));
-
-      goto readd;
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_LOG, L_AIRPLAY, "Error reading timing request from %s: %s\n", address, strerror(errno));
+      return;
     }
 
   if (ret != 32)
     {
-      DPRINTF(E_DBG, L_AIRPLAY, "Got timing request with size %d\n", ret);
-
-      goto readd;
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_WARN, L_AIRPLAY, "Got timing request from %s with size %d\n", address, ret);
+      return;
     }
 
   if ((req[0] != 0x80) || (req[1] != 0xd2))
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "Packet header doesn't match timing request (got 0x%02x%02x, expected 0x80d2)\n", req[0], req[1]);
-
-      goto readd;
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_WARN, L_AIRPLAY, "Packet header from %s doesn't match timing request (got 0x%02x%02x, expected 0x80d2)\n", address, req[0], req[1]);
+      return;
     }
 
   memset(res, 0, sizeof(res));
@@ -2150,7 +2209,7 @@ airplay_timing_cb(int fd, short what, void *arg)
   memcpy(res + 20, &recv_stamp.frac, 4);
 
   /* Transmit timestamp */
-  ret = airplay_timing_get_clock_ntp(&xmit_stamp);
+  ret = timing_get_clock_ntp(&xmit_stamp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Couldn't get transmit timestamp, falling back to receive timestamp\n");
@@ -2169,258 +2228,55 @@ airplay_timing_cb(int fd, short what, void *arg)
       memcpy(res + 28, &xmit_stamp.frac, 4);
     }
 
-  ret = sendto(svc->fd, res, sizeof(res), 0, &sa.sa, len);
+  ret = sendto(svc->fd, res, sizeof(res), 0, &peer_addr.sa, peer_addrlen);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not send timing reply: %s\n", strerror(errno));
-
-      goto readd;
-    }
-
- readd:
-  ret = event_add(svc->ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't re-add event for timing requests\n");
-
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not send timing reply to %s: %s\n", address, strerror(errno));
       return;
     }
 }
 
-static int
-airplay_timing_start_one(struct airplay_service *svc, int family)
-{
-  union sockaddr_all sa;
-  int on;
-  int len;
-  int ret;
-  int timing_port;
-
-#ifdef SOCK_CLOEXEC
-  svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-#else
-  svc->fd = socket(family, SOCK_DGRAM, 0);
-#endif
-  if (svc->fd < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't make timing socket: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  if (family == AF_INET6)
-    {
-      on = 1;
-      ret = setsockopt(svc->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_AIRPLAY, "Could not set IPV6_V6ONLY on timing socket: %s\n", strerror(errno));
-
-	  goto out_fail;
-	}
-    }
-
-  memset(&sa, 0, sizeof(union sockaddr_all));
-  sa.ss.ss_family = family;
-
-  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
-  switch (family)
-    {
-      case AF_INET:
-	sa.sin.sin_addr.s_addr = INADDR_ANY;
-	sa.sin.sin_port = htons(timing_port);
-	len = sizeof(sa.sin);
-	break;
-
-      case AF_INET6:
-	sa.sin6.sin6_addr = in6addr_any;
-	sa.sin6.sin6_port = htons(timing_port);
-	len = sizeof(sa.sin6);
-	break;
-    }
-
-  ret = bind(svc->fd, &sa.sa, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't bind timing socket: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  len = sizeof(sa.ss);
-  ret = getsockname(svc->fd, &sa.sa, (socklen_t *)&len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't get timing socket name: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  switch (family)
-    {
-      case AF_INET:
-	svc->port = ntohs(sa.sin.sin_port);
-	DPRINTF(E_DBG, L_AIRPLAY, "Timing IPv4 port: %d\n", svc->port);
-	break;
-
-      case AF_INET6:
-	svc->port = ntohs(sa.sin6.sin6_port);
-	DPRINTF(E_DBG, L_AIRPLAY, "Timing IPv6 port: %d\n", svc->port);
-	break;
-    }
-
-  svc->ev = event_new(evbase_player, svc->fd, EV_READ, airplay_timing_cb, svc);
-  if (!svc->ev)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for airplay_service event\n");
-
-      goto out_fail;
-    }
-
-  event_add(svc->ev, NULL);
-
-  return 0;
-
- out_fail:
-  close(svc->fd);
-  svc->fd = -1;
-  svc->port = 0;
-
-  return -1;
-}
-
 static void
-airplay_timing_stop(void)
+control_svc_cb(int fd, short what, void *arg)
 {
-  if (timing_4svc.ev)
-    event_free(timing_4svc.ev);
-
-  if (timing_6svc.ev)
-    event_free(timing_6svc.ev);
-
-  close(timing_4svc.fd);
-
-  timing_4svc.fd = -1;
-  timing_4svc.port = 0;
-
-  close(timing_6svc.fd);
-
-  timing_6svc.fd = -1;
-  timing_6svc.port = 0;
-}
-
-static int
-airplay_timing_start(int v6enabled)
-{
-  int ret;
-
-  if (v6enabled)
-    {
-      ret = airplay_timing_start_one(&timing_6svc, AF_INET6);
-      if (ret < 0)
-	DPRINTF(E_WARN, L_AIRPLAY, "Could not start timing service on IPv6\n");
-    }
-
-  ret = airplay_timing_start_one(&timing_4svc, AF_INET);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not start timing service on IPv4\n");
-
-      airplay_timing_stop();
-      return -1;
-    }
-
-  return 0;
-}
-
-
-/* ----------------- Control service (retransmission and sync) ---------------*/
-
-static void
-airplay_control_cb(int fd, short what, void *arg)
-{
+  struct airplay_service *svc = arg;
+  union net_sockaddr peer_addr;
+  socklen_t peer_addrlen = sizeof(peer_addr);
   char address[INET6_ADDRSTRLEN];
-  union sockaddr_all sa;
-  uint8_t req[8];
   struct airplay_session *rs;
-  struct airplay_service *svc;
+  uint8_t req[8];
   uint16_t seq_start;
   uint16_t seq_len;
-  int len;
   int ret;
 
-  svc = (struct airplay_service *)arg;
-
-  len = sizeof(sa.ss);
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
+  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Error reading control request: %s\n", strerror(errno));
-
-      goto readd;
+      return;
     }
 
   if (ret != 8)
     {
-      DPRINTF(E_DBG, L_AIRPLAY, "Got control request with size %d\n", ret);
-
-      goto readd;
-    }
-
-  switch (sa.ss.ss_family)
-    {
-      case AF_INET:
-	if (svc != &control_4svc)
-	  goto readd;
-
-	for (rs = airplay_sessions; rs; rs = rs->next)
-	  {
-	    if ((rs->sa.ss.ss_family == AF_INET)
-		&& (sa.sin.sin_addr.s_addr == rs->sa.sin.sin_addr.s_addr))
-	      break;
-	  }
-
-	if (!rs)
-	  ret = (inet_ntop(AF_INET, &sa.sin.sin_addr.s_addr, address, sizeof(address)) != NULL);
-
-	break;
-
-      case AF_INET6:
-	if (svc != &control_6svc)
-	  goto readd;
-
-	for (rs = airplay_sessions; rs; rs = rs->next)
-	  {
-	    if ((rs->sa.ss.ss_family == AF_INET6)
-		&& IN6_ARE_ADDR_EQUAL(&sa.sin6.sin6_addr, &rs->sa.sin6.sin6_addr))
-	      break;
-	  }
-
-	if (!rs)
-	  ret = (inet_ntop(AF_INET6, &sa.sin6.sin6_addr.s6_addr, address, sizeof(address)) != NULL);
-
-	break;
-
-      default:
-	DPRINTF(E_LOG, L_AIRPLAY, "Control svc: Unknown address family %d\n", sa.ss.ss_family);
-	goto readd;
-    }
-
-  if (!rs)
-    {
-      if (!ret)
-	DPRINTF(E_LOG, L_AIRPLAY, "Control request from [error: %s]; not an AirPlay client\n", strerror(errno));
-      else
-	DPRINTF(E_LOG, L_AIRPLAY, "Control request from %s; not an AirPlay client\n", address);
-
-      goto readd;
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_WARN, L_AIRPLAY, "Got control request from %s with size %d\n", address, ret);
+      return;
     }
 
   if ((req[0] != 0x80) || (req[1] != 0xd5))
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "Packet header doesn't match retransmit request (got 0x%02x%02x, expected 0x80d5)\n", req[0], req[1]);
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_WARN, L_AIRPLAY, "Packet header from %s doesn't match retransmit request (got 0x%02x%02x, expected 0x80d5)\n", address, req[0], req[1]);
+      return;
+    }
 
-      goto readd;
+  rs = session_find_by_address(&peer_addr);
+  if (!rs)
+    {
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_WARN, L_AIRPLAY, "Control request from %s; not a AirPlay client\n", address);
+      return;
     }
 
   memcpy(&seq_start, req + 4, 2);
@@ -2430,161 +2286,6 @@ airplay_control_cb(int fd, short what, void *arg)
   seq_len = be16toh(seq_len);
 
   packets_resend(rs, seq_start, seq_len);
-
- readd:
-  ret = event_add(svc->ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't re-add event for control requests\n");
-
-      return;
-    }
-}
-
-static int
-airplay_control_start_one(struct airplay_service *svc, int family)
-{
-  union sockaddr_all sa;
-  int on;
-  int len;
-  int ret;
-  int control_port;
-
-#ifdef SOCK_CLOEXEC
-  svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-#else
-  svc->fd = socket(family, SOCK_DGRAM, 0);
-#endif
-  if (svc->fd < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't make control socket: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  if (family == AF_INET6)
-    {
-      on = 1;
-      ret = setsockopt(svc->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_AIRPLAY, "Could not set IPV6_V6ONLY on control socket: %s\n", strerror(errno));
-
-	  goto out_fail;
-	}
-    }
-
-  memset(&sa, 0, sizeof(union sockaddr_all));
-  sa.ss.ss_family = family;
-
-  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
-  switch (family)
-    {
-      case AF_INET:
-	sa.sin.sin_addr.s_addr = INADDR_ANY;
-	sa.sin.sin_port = htons(control_port);
-	len = sizeof(sa.sin);
-	break;
-
-      case AF_INET6:
-	sa.sin6.sin6_addr = in6addr_any;
-	sa.sin6.sin6_port = htons(control_port);
-	len = sizeof(sa.sin6);
-	break;
-    }
-
-  ret = bind(svc->fd, &sa.sa, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't bind control socket: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  len = sizeof(sa.ss);
-  ret = getsockname(svc->fd, &sa.sa, (socklen_t *)&len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't get control socket name: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  switch (family)
-    {
-      case AF_INET:
-	svc->port = ntohs(sa.sin.sin_port);
-	DPRINTF(E_DBG, L_AIRPLAY, "Control IPv4 port: %d\n", svc->port);
-	break;
-
-      case AF_INET6:
-	svc->port = ntohs(sa.sin6.sin6_port);
-	DPRINTF(E_DBG, L_AIRPLAY, "Control IPv6 port: %d\n", svc->port);
-	break;
-    }
-
-  svc->ev = event_new(evbase_player, svc->fd, EV_READ, airplay_control_cb, svc);
-  if (!svc->ev)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for control event\n");
-
-      goto out_fail;
-    }
-
-  event_add(svc->ev, NULL);
-
-  return 0;
-
- out_fail:
-  close(svc->fd);
-  svc->fd = -1;
-  svc->port = 0;
-
-  return -1;
-}
-
-static void
-airplay_control_stop(void)
-{
-  if (control_4svc.ev)
-    event_free(control_4svc.ev);
-
-  if (control_6svc.ev)
-    event_free(control_6svc.ev);
-
-  close(control_4svc.fd);
-
-  control_4svc.fd = -1;
-  control_4svc.port = 0;
-
-  close(control_6svc.fd);
-
-  control_6svc.fd = -1;
-  control_6svc.port = 0;
-}
-
-static int
-airplay_control_start(int v6enabled)
-{
-  int ret;
-
-  if (v6enabled)
-    {
-      ret = airplay_control_start_one(&control_6svc, AF_INET6);
-      if (ret < 0)
-	DPRINTF(E_WARN, L_AIRPLAY, "Could not start control service on IPv6\n");
-    }
-
-  ret = airplay_control_start_one(&control_4svc, AF_INET);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not start control service on IPv4\n");
-
-      airplay_control_stop();
-      return -1;
-    }
-
-  return 0;
 }
 
 
@@ -3099,55 +2800,6 @@ payload_make_pair_verify2(struct evrtsp_request *req, struct airplay_session *rs
 
 /* ------------------------------ Session startup --------------------------- */
 
-static int
-device_connect(struct airplay_session *rs, unsigned short port, int type)
-{
-  int len;
-  int fd;
-  int ret;
-
-  DPRINTF(E_DBG, L_AIRPLAY, "Connecting to %s (family=%d), port %u\n", rs->address, rs->family, port);
-
-#ifdef SOCK_CLOEXEC
-  fd = socket(rs->sa.ss.ss_family, type | SOCK_CLOEXEC, 0);
-#else
-  fd = socket(rs->sa.ss.ss_family, type, 0);
-#endif
-  if (fd < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not create socket: %s\n", strerror(errno));
-      return -1;
-    }
-
-  switch (rs->sa.ss.ss_family)
-    {
-      case AF_INET:
-	rs->sa.sin.sin_port = htons(port);
-	len = sizeof(rs->sa.sin);
-	break;
-
-      case AF_INET6:
-	rs->sa.sin6.sin6_port = htons(port);
-	len = sizeof(rs->sa.sin6);
-	break;
-
-      default:
-	DPRINTF(E_WARN, L_AIRPLAY, "Unknown family %d\n", rs->sa.ss.ss_family);
-	close(fd);
-	return -1;
-    }
-
-  ret = connect(fd, &rs->sa.sa, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "connect() to [%s]:%u failed: %s\n", rs->address, port, strerror(errno));
-      close(fd);
-      return -1;
-    }
-
-  return fd;
-}
-
 static void
 start_failure(struct airplay_session *rs)
 {
@@ -3232,6 +2884,8 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
   uint64_t uintval;
   int ret;
 
+  DPRINTF(E_INFO, L_AIRPLAY, "Setting up AirPlay session %u (%s -> %s)\n", rs->session_id, rs->local_address, rs->address);
+
   ret = wplist_from_evbuf(&response, req->input_buffer);
   if (ret < 0)
     {
@@ -3273,9 +2927,9 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
       goto error;
     }
 
-  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated AirTunes v2 UDP streaming session; ports d=%u c=%u t=%u e=%u\n", rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
+  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated UDP streaming session; ports d=%u c=%u t=%u e=%u\n", rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
 
-  rs->server_fd = device_connect(rs, rs->data_port, SOCK_DGRAM);
+  rs->server_fd = net_connect(rs->address, rs->data_port, SOCK_DGRAM, "AirPlay data");
   if (rs->server_fd < 0)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to data port\n");
@@ -3283,7 +2937,7 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
     }
 
   // Reverse connection, used to receive playback events from device
-  rs->events_fd = device_connect(rs, rs->events_port, SOCK_STREAM);
+  rs->events_fd = net_connect(rs->address, rs->events_port, SOCK_STREAM, "AirPlay events");
   if (rs->events_fd < 0)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
@@ -3413,7 +3067,7 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
 
   plist_free(response);
 
-  DPRINTF(E_INFO, L_AIRPLAY, "Status flags from '%s' was %" PRIu64 ": cable attached %d, one time pairing %d, password %d, PIN %d\n",
+  DPRINTF(E_DBG, L_AIRPLAY, "Status flags from '%s' was %" PRIu64 ": cable attached %d, one time pairing %d, password %d, PIN %d\n",
     rs->devname, rs->statusflags, (bool)(rs->statusflags & AIRPLAY_FLAG_AUDIO_CABLE_ATTACHED), (bool)(rs->statusflags & AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED),
     (bool)(rs->statusflags & AIRPLAY_FLAG_PASSWORD_REQUIRED), (bool)(rs->statusflags & AIRPLAY_FLAG_PIN_REQUIRED));
 
@@ -4362,22 +4016,10 @@ airplay_write(struct output_buffer *obuf)
 static int
 airplay_init(void)
 {
-  int v6enabled;
-  int family;
   int ret;
   int i;
-
-  timing_4svc.fd = -1;
-  timing_4svc.port = 0;
-
-  timing_6svc.fd = -1;
-  timing_6svc.port = 0;
-
-  control_4svc.fd = -1;
-  control_4svc.port = 0;
-
-  control_6svc.fd = -1;
-  control_6svc.port = 0;
+  int timing_port;
+  int control_port;
 
   airplay_device_id = libhash;
 
@@ -4394,46 +4036,35 @@ airplay_init(void)
 
   CHECK_NULL(L_AIRPLAY, keep_alive_timer = evtimer_new(evbase_player, airplay_keep_alive_timer_cb, NULL));
 
-  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
-
-  ret = airplay_timing_start(v6enabled);
+  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
+  ret = service_start(&airplay_timing_svc, timing_svc_cb, timing_port, "AirPlay timing");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "AirPlay time synchronization failed to start\n");
-
       goto out_free_timer;
     }
 
-  ret = airplay_control_start(v6enabled);
+  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
+  ret = service_start(&airplay_control_svc, control_svc_cb, control_port, "AirPlay control");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "AirPlay playback control failed to start\n");
-
       goto out_stop_timing;
     }
 
-  if (v6enabled)
-    v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
-
-  if (v6enabled)
-    family = AF_UNSPEC;
-  else
-    family = AF_INET;
-
-  ret = mdns_browse("_airplay._tcp", family, airplay_device_cb, MDNS_CONNECTION_TEST);
+  ret = mdns_browse("_airplay._tcp", airplay_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not add mDNS browser for AirPlay devices\n");
-
       goto out_stop_control;
     }
 
   return 0;
 
  out_stop_control:
-  airplay_control_stop();
+  service_stop(&airplay_control_svc);
  out_stop_timing:
-  airplay_timing_stop();
+  service_stop(&airplay_timing_svc);
  out_free_timer:
   event_free(keep_alive_timer);
 
@@ -4445,17 +4076,17 @@ airplay_deinit(void)
 {
   struct airplay_session *rs;
 
+  service_stop(&airplay_control_svc);
+  service_stop(&airplay_timing_svc);
+
+  event_free(keep_alive_timer);
+
   for (rs = airplay_sessions; airplay_sessions; rs = airplay_sessions)
     {
       airplay_sessions = rs->next;
 
       session_free(rs);
     }
-
-  airplay_control_stop();
-  airplay_timing_stop();
-
-  event_free(keep_alive_timer);
 }
 
 struct output_definition output_airplay =

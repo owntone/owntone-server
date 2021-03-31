@@ -52,6 +52,7 @@
 #endif
 
 #include "logger.h"
+#include "conffile.h"
 #include "mdns.h"
 
 #define MDNSERR avahi_strerror(avahi_client_errno(mdns_client))
@@ -1160,14 +1161,20 @@ mdns_cname(char *name)
 }
 
 int
-mdns_browse(char *type, int family, mdns_browse_cb cb, enum mdns_options flags)
+mdns_browse(char *type, mdns_browse_cb cb, enum mdns_options flags)
 {
   struct mdns_browser *mb;
   AvahiServiceBrowser *b;
+  int family;
 
   DPRINTF(E_DBG, L_MDNS, "Adding service browser for type %s\n", type);
 
   CHECK_NULL(L_MDNS, mb = calloc(1, sizeof(struct mdns_browser)));
+
+  if (flags & MDNS_IPV4ONLY || !cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
+    family = AF_INET;
+  else
+    family = AF_UNSPEC;
 
   mb->protocol = avahi_af_to_proto(family);
   mb->type = strdup(type);

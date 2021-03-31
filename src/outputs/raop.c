@@ -97,14 +97,6 @@
 // This is an arbitrary value which just needs to be kept in sync with the config
 #define RAOP_CONFIG_MAX_VOLUME     11
 
-union sockaddr_all
-{
-  struct sockaddr_in sin;
-  struct sockaddr_in6 sin6;
-  struct sockaddr sa;
-  struct sockaddr_storage ss;
-};
-
 enum raop_devtype {
   RAOP_DEV_APEX1_80211G,
   RAOP_DEV_APEX2_80211N,
@@ -212,6 +204,8 @@ struct raop_session
   char *address;
   int family;
 
+  union net_sockaddr naddr;
+
   int volume;
 
   /* AirTunes v2 */
@@ -224,8 +218,6 @@ struct raop_session
   struct pair_setup_context *pair_setup_ctx;
 
   int server_fd;
-
-  union sockaddr_all sa;
 
   struct raop_service *timing_svc;
   struct raop_service *control_svc;
@@ -319,12 +311,10 @@ static char *raop_aes_key_b64;
 static char *raop_aes_iv_b64;
 
 /* AirTunes v2 time synchronization */
-static struct raop_service timing_4svc;
-static struct raop_service timing_6svc;
+static struct raop_service raop_timing_svc;
 
 /* AirTunes v2 playback synchronization / control */
-static struct raop_service control_4svc;
-static struct raop_service control_6svc;
+static struct raop_service raop_control_svc;
 
 /* Metadata */
 static struct output_metadata *raop_cur_metadata;
@@ -442,7 +432,7 @@ ntp_to_timespec(struct ntp_stamp *ns, struct timespec *ts)
 }
 
 static inline int
-raop_v2_timing_get_clock_ntp(struct ntp_stamp *ns)
+timing_get_clock_ntp(struct ntp_stamp *ns)
 {
   struct timespec ts;
   int ret;
@@ -1969,38 +1959,32 @@ session_connection_setup(struct raop_session *rs, struct output_device *rd, int 
   unsigned short port;
   int ret;
 
-  rs->sa.ss.ss_family = family;
+  rs->naddr.ss.ss_family = family;
+
   switch (family)
     {
       case AF_INET:
-	/* We always have the v4 services, so no need to check */
 	if (!rd->v4_address)
 	  return -1;
 
 	address = rd->v4_address;
 	port = rd->v4_port;
 
-	rs->timing_svc = &timing_4svc;
-	rs->control_svc = &control_4svc;
-
-	ret = inet_pton(AF_INET, address, &rs->sa.sin.sin_addr);
+	ret = inet_pton(AF_INET, address, &rs->naddr.sin.sin_addr);
 	break;
 
       case AF_INET6:
-	if (!rd->v6_address || rd->v6_disabled || (timing_6svc.fd < 0) || (control_6svc.fd < 0))
+	if (!rd->v6_address)
 	  return -1;
 
 	address = rd->v6_address;
 	port = rd->v6_port;
 
-	rs->timing_svc = &timing_6svc;
-	rs->control_svc = &control_6svc;
-
 	intf = strchr(address, '%');
 	if (intf)
 	  *intf = '\0';
 
-	ret = inet_pton(AF_INET6, address, &rs->sa.sin6.sin6_addr);
+	ret = inet_pton(AF_INET6, address, &rs->naddr.sin6.sin6_addr);
 
 	if (intf)
 	  {
@@ -2008,8 +1992,8 @@ session_connection_setup(struct raop_session *rs, struct output_device *rd, int 
 
 	    intf++;
 
-	    rs->sa.sin6.sin6_scope_id = if_nametoindex(intf);
-	    if (rs->sa.sin6.sin6_scope_id == 0)
+	    rs->naddr.sin6.sin6_scope_id = if_nametoindex(intf);
+	    if (rs->naddr.sin6.sin6_scope_id == 0)
 	      {
 		DPRINTF(E_LOG, L_RAOP, "Could not find interface %s\n", intf);
 
@@ -2043,6 +2027,35 @@ session_connection_setup(struct raop_session *rs, struct output_device *rd, int 
   rs->family = family;
 
   return 0;
+}
+
+static struct raop_session *
+session_find_by_address(union net_sockaddr *peer_addr)
+{
+  struct raop_session *rs;
+  uint32_t *addr_ptr;
+  int family = peer_addr->sa.sa_family;
+
+  for (rs = raop_sessions; rs; rs = rs->next)
+    {
+      if (family == rs->family)
+	{
+	  if (family == AF_INET && peer_addr->sin.sin_addr.s_addr == rs->naddr.sin.sin_addr.s_addr)
+	    break;
+
+	  if (family == AF_INET6 && IN6_ARE_ADDR_EQUAL(&peer_addr->sin6.sin6_addr, &rs->naddr.sin6.sin6_addr))
+	    break;
+	}
+      else if (family == AF_INET6 && IN6_IS_ADDR_V4MAPPED(&peer_addr->sin6.sin6_addr))
+	{
+	  // ipv4 mapped to ipv6 consists of 16 bytes/4 words: 0x00000000 0x00000000 0x0000ffff 0x[IPv4]
+	  addr_ptr = (uint32_t *)(&peer_addr->sin6.sin6_addr);
+	  if (addr_ptr[3] == rs->naddr.sin.sin_addr.s_addr)
+	    break;
+	}
+    }
+
+  return rs;
 }
 
 static struct raop_session *
@@ -2107,6 +2120,9 @@ session_make(struct output_device *rd, int callback_id, bool only_probe)
 	rs->encrypt = re->encrypt;
 	rs->auth_quirk_itunes = 0;
     }
+
+  rs->timing_svc = &raop_timing_svc;
+  rs->control_svc = &raop_control_svc;
 
   ret = session_connection_setup(rs, rd, AF_INET6);
   if (ret < 0)
@@ -2755,27 +2771,27 @@ packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 static void
 control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 {
-  int len;
+  socklen_t addrlen;
   int ret;
 
-  switch (rs->sa.ss.ss_family)
+  switch (rs->family)
     {
       case AF_INET:
-	rs->sa.sin.sin_port = htons(rs->control_port);
-	len = sizeof(rs->sa.sin);
+	rs->naddr.sin.sin_port = htons(rs->control_port);
+	addrlen = sizeof(rs->naddr.sin);
 	break;
 
       case AF_INET6:
-	rs->sa.sin6.sin6_port = htons(rs->control_port);
-	len = sizeof(rs->sa.sin6);
+	rs->naddr.sin6.sin6_port = htons(rs->control_port);
+	addrlen = sizeof(rs->naddr.sin6);
 	break;
 
       default:
-	DPRINTF(E_WARN, L_RAOP, "Unknown family %d\n", rs->sa.ss.ss_family);
+	DPRINTF(E_WARN, L_RAOP, "Unknown family %d\n", rs->family);
 	return;
     }
 
-  ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->sa.sa, len);
+  ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->naddr.sa, addrlen);
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
 }
@@ -2921,51 +2937,91 @@ packets_sync_send(struct raop_master_session *rms)
 }
 
 
-/* ------------------------------ Time service ------------------------------ */
+/* ------------------------- Time and control service ----------------------- */
 
 static void
-raop_v2_timing_cb(int fd, short what, void *arg)
+service_stop(struct raop_service *svc)
 {
-  union sockaddr_all sa;
+  if (svc->ev)
+    event_free(svc->ev);
+
+  if (svc->fd >= 0)
+    close(svc->fd);
+
+  svc->ev = NULL;
+  svc->fd = -1;
+  svc->port = 0;
+}
+
+static int
+service_start(struct raop_service *svc, event_callback_fn cb, unsigned short port, const char *log_service_name)
+{
+  memset(svc, 0, sizeof(struct raop_service));
+
+  svc->fd = net_bind(&port, SOCK_DGRAM, log_service_name);
+  if (svc->fd < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not start '%s' service\n", log_service_name);
+      goto error;
+    }
+
+  svc->ev = event_new(evbase_player, svc->fd, EV_READ | EV_PERSIST, cb, svc);
+  if (!svc->ev)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not create event for '%s' service\n", log_service_name);
+      goto error;
+    }
+
+  event_add(svc->ev, NULL);
+
+  svc->port = port;
+
+  return 0;
+
+ error:
+  service_stop(svc);
+  return -1;
+}
+
+static void
+timing_svc_cb(int fd, short what, void *arg)
+{
+  struct raop_service *svc;
+  union net_sockaddr peer_addr;
+  socklen_t peer_addrlen = sizeof(peer_addr);
   uint8_t req[32];
   uint8_t res[32];
   struct ntp_stamp recv_stamp;
   struct ntp_stamp xmit_stamp;
-  struct raop_service *svc;
-  int len;
   int ret;
 
   svc = (struct raop_service *)arg;
 
-  ret = raop_v2_timing_get_clock_ntp(&recv_stamp);
+  ret = timing_get_clock_ntp(&recv_stamp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't get receive timestamp\n");
-
-      goto readd;
+      return;
     }
 
-  len = sizeof(sa.ss);
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
+  peer_addrlen = sizeof(peer_addr);
+  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading timing request: %s\n", strerror(errno));
-
-      goto readd;
+      return;
     }
 
   if (ret != 32)
     {
-      DPRINTF(E_DBG, L_RAOP, "Got timing request with size %d\n", ret);
-
-      goto readd;
+      DPRINTF(E_WARN, L_RAOP, "Got timing request with size %d\n", ret);
+      return;
     }
 
   if ((req[0] != 0x80) || (req[1] != 0xd2))
     {
-      DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match timing request (got 0x%02x%02x, expected 0x80d2)\n", req[0], req[1]);
-
-      goto readd;
+      DPRINTF(E_WARN, L_RAOP, "Packet header doesn't match timing request (got 0x%02x%02x, expected 0x80d2)\n", req[0], req[1]);
+      return;
     }
 
   memset(res, 0, sizeof(res));
@@ -2985,7 +3041,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
   memcpy(res + 20, &recv_stamp.frac, 4);
 
   /* Transmit timestamp */
-  ret = raop_v2_timing_get_clock_ntp(&xmit_stamp);
+  ret = timing_get_clock_ntp(&xmit_stamp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't get transmit timestamp, falling back to receive timestamp\n");
@@ -3004,258 +3060,54 @@ raop_v2_timing_cb(int fd, short what, void *arg)
       memcpy(res + 28, &xmit_stamp.frac, 4);
     }
 
-  ret = sendto(svc->fd, res, sizeof(res), 0, &sa.sa, len);
+  ret = sendto(svc->fd, res, sizeof(res), 0, &peer_addr.sa, peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send timing reply: %s\n", strerror(errno));
-
-      goto readd;
-    }
-
- readd:
-  ret = event_add(svc->ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't re-add event for timing requests\n");
-
       return;
     }
 }
 
-static int
-raop_v2_timing_start_one(struct raop_service *svc, int family)
-{
-  union sockaddr_all sa;
-  int on;
-  int len;
-  int ret;
-  int timing_port;
-
-#ifdef SOCK_CLOEXEC
-  svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-#else
-  svc->fd = socket(family, SOCK_DGRAM, 0);
-#endif
-  if (svc->fd < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't make timing socket: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  if (family == AF_INET6)
-    {
-      on = 1;
-      ret = setsockopt(svc->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Could not set IPV6_V6ONLY on timing socket: %s\n", strerror(errno));
-
-	  goto out_fail;
-	}
-    }
-
-  memset(&sa, 0, sizeof(union sockaddr_all));
-  sa.ss.ss_family = family;
-
-  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
-  switch (family)
-    {
-      case AF_INET:
-	sa.sin.sin_addr.s_addr = INADDR_ANY;
-	sa.sin.sin_port = htons(timing_port);
-	len = sizeof(sa.sin);
-	break;
-
-      case AF_INET6:
-	sa.sin6.sin6_addr = in6addr_any;
-	sa.sin6.sin6_port = htons(timing_port);
-	len = sizeof(sa.sin6);
-	break;
-    }
-
-  ret = bind(svc->fd, &sa.sa, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't bind timing socket: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  len = sizeof(sa.ss);
-  ret = getsockname(svc->fd, &sa.sa, (socklen_t *)&len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't get timing socket name: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  switch (family)
-    {
-      case AF_INET:
-	svc->port = ntohs(sa.sin.sin_port);
-	DPRINTF(E_DBG, L_RAOP, "Timing IPv4 port: %d\n", svc->port);
-	break;
-
-      case AF_INET6:
-	svc->port = ntohs(sa.sin6.sin6_port);
-	DPRINTF(E_DBG, L_RAOP, "Timing IPv6 port: %d\n", svc->port);
-	break;
-    }
-
-  svc->ev = event_new(evbase_player, svc->fd, EV_READ, raop_v2_timing_cb, svc);
-  if (!svc->ev)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for raop_service event\n");
-
-      goto out_fail;
-    }
-
-  event_add(svc->ev, NULL);
-
-  return 0;
-
- out_fail:
-  close(svc->fd);
-  svc->fd = -1;
-  svc->port = 0;
-
-  return -1;
-}
-
 static void
-raop_v2_timing_stop(void)
+control_svc_cb(int fd, short what, void *arg)
 {
-  if (timing_4svc.ev)
-    event_free(timing_4svc.ev);
-
-  if (timing_6svc.ev)
-    event_free(timing_6svc.ev);
-
-  close(timing_4svc.fd);
-
-  timing_4svc.fd = -1;
-  timing_4svc.port = 0;
-
-  close(timing_6svc.fd);
-
-  timing_6svc.fd = -1;
-  timing_6svc.port = 0;
-}
-
-static int
-raop_v2_timing_start(int v6enabled)
-{
-  int ret;
-
-  if (v6enabled)
-    {
-      ret = raop_v2_timing_start_one(&timing_6svc, AF_INET6);
-      if (ret < 0)
-	DPRINTF(E_WARN, L_RAOP, "Could not start timing service on IPv6\n");
-    }
-
-  ret = raop_v2_timing_start_one(&timing_4svc, AF_INET);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not start timing service on IPv4\n");
-
-      raop_v2_timing_stop();
-      return -1;
-    }
-
-  return 0;
-}
-
-
-/* ----------------- Control service (retransmission and sync) ---------------*/
-
-static void
-raop_v2_control_cb(int fd, short what, void *arg)
-{
-  char address[INET6_ADDRSTRLEN];
-  union sockaddr_all sa;
-  uint8_t req[8];
-  struct raop_session *rs;
   struct raop_service *svc;
+  union net_sockaddr peer_addr;
+  socklen_t peer_addrlen = sizeof(peer_addr);
+  char address[INET6_ADDRSTRLEN];
+  struct raop_session *rs;
+  uint8_t req[8];
   uint16_t seq_start;
   uint16_t seq_len;
-  int len;
   int ret;
 
   svc = (struct raop_service *)arg;
 
-  len = sizeof(sa.ss);
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
+  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading control request: %s\n", strerror(errno));
-
-      goto readd;
+      return;
     }
 
   if (ret != 8)
     {
-      DPRINTF(E_DBG, L_RAOP, "Got control request with size %d\n", ret);
-
-      goto readd;
-    }
-
-  switch (sa.ss.ss_family)
-    {
-      case AF_INET:
-	if (svc != &control_4svc)
-	  goto readd;
-
-	for (rs = raop_sessions; rs; rs = rs->next)
-	  {
-	    if ((rs->sa.ss.ss_family == AF_INET)
-		&& (sa.sin.sin_addr.s_addr == rs->sa.sin.sin_addr.s_addr))
-	      break;
-	  }
-
-	if (!rs)
-	  ret = (inet_ntop(AF_INET, &sa.sin.sin_addr.s_addr, address, sizeof(address)) != NULL);
-
-	break;
-
-      case AF_INET6:
-	if (svc != &control_6svc)
-	  goto readd;
-
-	for (rs = raop_sessions; rs; rs = rs->next)
-	  {
-	    if ((rs->sa.ss.ss_family == AF_INET6)
-		&& IN6_ARE_ADDR_EQUAL(&sa.sin6.sin6_addr, &rs->sa.sin6.sin6_addr))
-	      break;
-	  }
-
-	if (!rs)
-	  ret = (inet_ntop(AF_INET6, &sa.sin6.sin6_addr.s6_addr, address, sizeof(address)) != NULL);
-
-	break;
-
-      default:
-	DPRINTF(E_LOG, L_RAOP, "Control svc: Unknown address family %d\n", sa.ss.ss_family);
-	goto readd;
-    }
-
-  if (!rs)
-    {
-      if (!ret)
-	DPRINTF(E_LOG, L_RAOP, "Control request from [error: %s]; not a RAOP client\n", strerror(errno));
-      else
-	DPRINTF(E_LOG, L_RAOP, "Control request from %s; not a RAOP client\n", address);
-
-      goto readd;
+      DPRINTF(E_WARN, L_RAOP, "Got control request with size %d\n", ret);
+      return;
     }
 
   if ((req[0] != 0x80) || (req[1] != 0xd5))
     {
-      DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match retransmit request (got 0x%02x%02x, expected 0x80d5)\n", req[0], req[1]);
+      DPRINTF(E_WARN, L_RAOP, "Packet header doesn't match retransmit request (got 0x%02x%02x, expected 0x80d5)\n", req[0], req[1]);
+      return;
+    }
 
-      goto readd;
+  rs = session_find_by_address(&peer_addr);
+  if (!rs)
+    {
+      net_address_get(address, sizeof(address), &peer_addr);
+      DPRINTF(E_WARN, L_RAOP, "Control request from %s; not a RAOP client\n", address);
+      return;
     }
 
   memcpy(&seq_start, req + 4, 2);
@@ -3265,161 +3117,6 @@ raop_v2_control_cb(int fd, short what, void *arg)
   seq_len = be16toh(seq_len);
 
   packets_resend(rs, seq_start, seq_len);
-
- readd:
-  ret = event_add(svc->ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't re-add event for control requests\n");
-
-      return;
-    }
-}
-
-static int
-raop_v2_control_start_one(struct raop_service *svc, int family)
-{
-  union sockaddr_all sa;
-  int on;
-  int len;
-  int ret;
-  int control_port;
-
-#ifdef SOCK_CLOEXEC
-  svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-#else
-  svc->fd = socket(family, SOCK_DGRAM, 0);
-#endif
-  if (svc->fd < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't make control socket: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  if (family == AF_INET6)
-    {
-      on = 1;
-      ret = setsockopt(svc->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Could not set IPV6_V6ONLY on control socket: %s\n", strerror(errno));
-
-	  goto out_fail;
-	}
-    }
-
-  memset(&sa, 0, sizeof(union sockaddr_all));
-  sa.ss.ss_family = family;
-
-  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
-  switch (family)
-    {
-      case AF_INET:
-	sa.sin.sin_addr.s_addr = INADDR_ANY;
-	sa.sin.sin_port = htons(control_port);
-	len = sizeof(sa.sin);
-	break;
-
-      case AF_INET6:
-	sa.sin6.sin6_addr = in6addr_any;
-	sa.sin6.sin6_port = htons(control_port);
-	len = sizeof(sa.sin6);
-	break;
-    }
-
-  ret = bind(svc->fd, &sa.sa, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't bind control socket: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  len = sizeof(sa.ss);
-  ret = getsockname(svc->fd, &sa.sa, (socklen_t *)&len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't get control socket name: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  switch (family)
-    {
-      case AF_INET:
-	svc->port = ntohs(sa.sin.sin_port);
-	DPRINTF(E_DBG, L_RAOP, "Control IPv4 port: %d\n", svc->port);
-	break;
-
-      case AF_INET6:
-	svc->port = ntohs(sa.sin6.sin6_port);
-	DPRINTF(E_DBG, L_RAOP, "Control IPv6 port: %d\n", svc->port);
-	break;
-    }
-
-  svc->ev = event_new(evbase_player, svc->fd, EV_READ, raop_v2_control_cb, svc);
-  if (!svc->ev)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for control event\n");
-
-      goto out_fail;
-    }
-
-  event_add(svc->ev, NULL);
-
-  return 0;
-
- out_fail:
-  close(svc->fd);
-  svc->fd = -1;
-  svc->port = 0;
-
-  return -1;
-}
-
-static void
-raop_v2_control_stop(void)
-{
-  if (control_4svc.ev)
-    event_free(control_4svc.ev);
-
-  if (control_6svc.ev)
-    event_free(control_6svc.ev);
-
-  close(control_4svc.fd);
-
-  control_4svc.fd = -1;
-  control_4svc.port = 0;
-
-  close(control_6svc.fd);
-
-  control_6svc.fd = -1;
-  control_6svc.port = 0;
-}
-
-static int
-raop_v2_control_start(int v6enabled)
-{
-  int ret;
-
-  if (v6enabled)
-    {
-      ret = raop_v2_control_start_one(&control_6svc, AF_INET6);
-      if (ret < 0)
-	DPRINTF(E_WARN, L_RAOP, "Could not start control service on IPv6\n");
-    }
-
-  ret = raop_v2_control_start_one(&control_4svc, AF_INET);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not start control service on IPv4\n");
-
-      raop_v2_control_stop();
-      return -1;
-    }
-
-  return 0;
 }
 
 
@@ -3514,60 +3211,6 @@ raop_cb_pin_start(struct evrtsp_request *req, void *arg)
   session_failure(rs);
 }
 
-static int
-raop_v2_stream_open(struct raop_session *rs)
-{
-  int len;
-  int ret;
-
-#ifdef SOCK_CLOEXEC
-  rs->server_fd = socket(rs->sa.ss.ss_family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-#else
-  rs->server_fd = socket(rs->sa.ss.ss_family, SOCK_DGRAM, 0);
-#endif
-  if (rs->server_fd < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not create socket for streaming: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  switch (rs->sa.ss.ss_family)
-    {
-      case AF_INET:
-	rs->sa.sin.sin_port = htons(rs->server_port);
-	len = sizeof(rs->sa.sin);
-	break;
-
-      case AF_INET6:
-	rs->sa.sin6.sin6_port = htons(rs->server_port);
-	len = sizeof(rs->sa.sin6);
-	break;
-
-      default:
-	DPRINTF(E_WARN, L_RAOP, "Unknown family %d\n", rs->sa.ss.ss_family);
-	goto out_fail;
-    }
-
-  ret = connect(rs->server_fd, &rs->sa.sa, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "connect() to [%s]:%u failed: %s\n", rs->address, rs->server_port, strerror(errno));
-
-      goto out_fail;
-    }
-
-  rs->state = RAOP_STATE_CONNECTED;
-
-  return 0;
-
- out_fail:
-  close(rs->server_fd);
-  rs->server_fd = -1;
-
-  return -1;
-}
-
 static void
 raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
 {
@@ -3594,9 +3237,11 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto cleanup;
 
-  ret = raop_v2_stream_open(rs);
-  if (ret < 0)
+  rs->server_fd = net_connect(rs->address, rs->server_port, SOCK_DGRAM, "RAOP data");
+  if (rs->server_fd < 0)
     goto cleanup;
+
+  rs->state = RAOP_STATE_CONNECTED;
 
   /* Session startup and setup is done, tell our user */
   raop_status(rs);
@@ -4814,21 +4459,9 @@ raop_init(void)
   char ebuf[64];
   char *ptr;
   gpg_error_t gc_err;
-  int v6enabled;
-  int family;
+  int timing_port;
+  int control_port;
   int ret;
-
-  timing_4svc.fd = -1;
-  timing_4svc.port = 0;
-
-  timing_6svc.fd = -1;
-  timing_6svc.port = 0;
-
-  control_4svc.fd = -1;
-  control_4svc.port = 0;
-
-  control_6svc.fd = -1;
-  control_6svc.port = 0;
 
   // Generate AES key and IV
   gcry_randomize(raop_aes_key, sizeof(raop_aes_key), GCRY_STRONG_RANDOM);
@@ -4882,9 +4515,8 @@ raop_init(void)
 
   CHECK_NULL(L_RAOP, keep_alive_timer = evtimer_new(evbase_player, raop_keep_alive_timer_cb, NULL));
 
-  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
-
-  ret = raop_v2_timing_start(v6enabled);
+  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
+  ret = service_start(&raop_timing_svc, timing_svc_cb, timing_port, "RAOP timing");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay time synchronization failed to start\n");
@@ -4892,7 +4524,8 @@ raop_init(void)
       goto out_free_timer;
     }
 
-  ret = raop_v2_control_start(v6enabled);
+  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
+  ret = service_start(&raop_control_svc, control_svc_cb, control_port, "RAOP control");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay playback control failed to start\n");
@@ -4900,15 +4533,7 @@ raop_init(void)
       goto out_stop_timing;
     }
 
-  if (v6enabled)
-    v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
-
-  if (v6enabled)
-    family = AF_UNSPEC;
-  else
-    family = AF_INET;
-
-  ret = mdns_browse("_raop._tcp", family, raop_device_cb, MDNS_CONNECTION_TEST);
+  ret = mdns_browse("_raop._tcp", raop_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices\n");
@@ -4919,9 +4544,9 @@ raop_init(void)
   return 0;
 
  out_stop_control:
-  raop_v2_control_stop();
+  service_stop(&raop_control_svc);
  out_stop_timing:
-  raop_v2_timing_stop();
+  service_stop(&raop_timing_svc);
  out_free_timer:
   event_free(keep_alive_timer);
   free(raop_aes_iv_b64);
@@ -4938,17 +4563,17 @@ raop_deinit(void)
 {
   struct raop_session *rs;
 
+  service_stop(&raop_control_svc);
+  service_stop(&raop_timing_svc);
+
+  event_free(keep_alive_timer);
+
   for (rs = raop_sessions; raop_sessions; rs = raop_sessions)
     {
       raop_sessions = rs->next;
 
       session_free(rs);
     }
-
-  raop_v2_control_stop();
-  raop_v2_timing_stop();
-
-  event_free(keep_alive_timer);
 
   gcry_cipher_close(raop_aes_ctx);
 

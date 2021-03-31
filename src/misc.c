@@ -37,12 +37,16 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <sys/param.h>
+#include <sys/types.h>
 #ifndef CLOCK_REALTIME
 #include <sys/time.h>
 #endif
 #ifdef HAVE_UUID
 #include <uuid/uuid.h>
 #endif
+
+#include <netdb.h>
+#include <arpa/inet.h>
 
 #include <unistr.h>
 #include <uniconv.h>
@@ -107,11 +111,260 @@ static char *buildopts[] =
     NULL
   };
 
-char **
-buildopts_get()
+
+/* ------------------------ Network utility functions ----------------------- */
+
+bool
+net_peer_address_is_trusted(const char *addr)
 {
-  return buildopts;
+  cfg_t *section;
+  const char *network;
+  int i;
+  int n;
+
+  if (!addr)
+    return false;
+
+  if (strncmp(addr, "::ffff:", strlen("::ffff:")) == 0)
+    addr += strlen("::ffff:");
+
+  section = cfg_getsec(cfg, "general");
+
+  n = cfg_size(section, "trusted_networks");
+  for (i = 0; i < n; i++)
+    {
+      network = cfg_getnstr(section, "trusted_networks", i);
+
+      if (!network || network[0] == '\0')
+	return false;
+
+      if (strncmp(network, addr, strlen(network)) == 0)
+	return true;
+
+      if ((strcmp(network, "localhost") == 0) && (strcmp(addr, "127.0.0.1") == 0 || strcmp(addr, "::1") == 0))
+	return true;
+
+      if (strcmp(network, "any") == 0)
+	return true;
+    }
+
+  return false;
 }
+
+int
+net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr)
+{
+  const char *s;
+
+  memset(addr, 0, addr_len); // Just in case caller doesn't check for errors
+
+  if (naddr->sa.sa_family == AF_INET6)
+     s = inet_ntop(AF_INET6, &naddr->sin6.sin6_addr, addr, addr_len);
+  else
+     s = inet_ntop(AF_INET, &naddr->sin.sin_addr, addr, addr_len);
+
+  if (!s)
+    return -1;
+
+  return 0;
+}
+
+int
+net_port_get(short unsigned *port, union net_sockaddr *naddr)
+{
+  if (naddr->sa.sa_family == AF_INET6)
+     *port = ntohs(naddr->sin6.sin6_port);
+  else
+     *port = ntohs(naddr->sin.sin_port);
+
+  return 0;
+}
+
+int
+net_connect(const char *addr, unsigned short port, int type, const char *log_service_name)
+{
+  struct addrinfo hints = { 0 };
+  struct addrinfo *servinfo;
+  struct addrinfo *ptr;
+  char strport[8];
+  int fd;
+  int ret;
+
+  DPRINTF(E_DBG, L_MISC, "Connecting to '%s' at %s (port %u)\n", log_service_name, addr, port);
+
+  hints.ai_socktype = (type & (SOCK_STREAM | SOCK_DGRAM)); // filter since type can be SOCK_STREAM | SOCK_NONBLOCK
+  hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_UNSPEC : AF_INET;
+
+  snprintf(strport, sizeof(strport), "%hu", port);
+  ret = getaddrinfo(addr, strport, &hints, &servinfo);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, gai_strerror(ret));
+      return -1;
+    }
+
+  for (ptr = servinfo; ptr; ptr = ptr->ai_next)
+    {
+      fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
+      if (fd < 0)
+	{
+	  continue;
+	}
+
+      ret = connect(fd, ptr->ai_addr, ptr->ai_addrlen);
+      if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of SOCK_NONBLOCK
+	{
+	  close(fd);
+	  continue;
+	}
+
+      break;
+    }
+
+  freeaddrinfo(servinfo);
+
+  if (!ptr)
+    {
+      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, strerror(errno));
+      return -1;
+    }
+
+  // net_address_get(ipaddr, sizeof(ipaddr), (union net_sockaddr *)ptr->ai-addr);
+
+  return fd;
+}
+
+// If *port is 0 then a random port will be assigned, and *port will be updated
+// with the port number
+int
+net_bind(short unsigned *port, int type, const char *log_service_name)
+{
+  struct addrinfo hints = { 0 };
+  struct addrinfo *servinfo;
+  struct addrinfo *ptr;
+  const char *cfgaddr;
+  char addr[INET6_ADDRSTRLEN];
+  char strport[8];
+  int yes = 1;
+  int no = 0;
+  int fd;
+  int ret;
+
+  cfgaddr = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+
+  hints.ai_socktype = (type & (SOCK_STREAM | SOCK_DGRAM)); // filter since type can be SOCK_STREAM | SOCK_NONBLOCK
+  hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_INET6 : AF_INET;
+  hints.ai_flags = cfgaddr ? 0 : AI_PASSIVE;
+
+  snprintf(strport, sizeof(strport), "%hu", *port);
+  ret = getaddrinfo(cfgaddr, strport, &hints, &servinfo);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MISC, "Failure creating '%s' service, could not resolve '%s' (port %s): %s\n", log_service_name, cfgaddr ? cfgaddr : "(ANY)", strport, gai_strerror(ret));
+      return -1;
+    }
+
+  for (ptr = servinfo, fd = -1; ptr != NULL; ptr = ptr->ai_next)
+    {
+      if (fd >= 0)
+	close(fd);
+
+      fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
+      if (fd < 0)
+	continue;
+
+      // TODO libevent sets this, we do the same?
+      ret = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
+      if (ret < 0)
+	continue;
+
+      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+      if (ret < 0)
+	continue;
+
+      if (ptr->ai_family == AF_INET6)
+	{
+	  // We want to be sure the service is dual stack
+	  ret = setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no));
+	  if (ret < 0)
+	    continue;
+	}
+
+      ret = bind(fd, ptr->ai_addr, ptr->ai_addrlen);
+      if (ret < 0)
+	continue;
+
+      break;
+    }
+
+  freeaddrinfo(servinfo);
+
+  if (!ptr)
+    {
+      DPRINTF(E_LOG, L_MISC, "Could not create service '%s' with address %s, port %hu: %s\n", log_service_name, cfgaddr ? cfgaddr : "(ANY)", *port, strerror(errno));
+      goto error;
+    }
+
+  // Get the port that was assigned
+  ret = getsockname(fd, ptr->ai_addr, &ptr->ai_addrlen);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MISC, "Could not find address of service '%s': %s\n", log_service_name, strerror(errno));
+      goto error;
+    }
+
+  net_port_get(port, (union net_sockaddr *)ptr->ai_addr);
+  net_address_get(addr, sizeof(addr), (union net_sockaddr *)ptr->ai_addr);
+
+  DPRINTF(E_DBG, L_MISC, "Service '%s' bound to %s, port %hu, socket %d\n", log_service_name, addr, *port, fd);
+
+  return fd;
+
+ error:
+  close(fd);
+  return -1;
+}
+
+int
+net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_service_name)
+{
+  const char *bind_address;
+
+  bind_address = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+  if (!bind_address)
+    bind_address = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6") ? "::" : "0.0.0.0";
+
+  return evhttp_bind_socket(evhttp, bind_address, port);
+}
+/* TODO check if the below is required for FreeBSD
+  if (v6enabled)
+    {
+      ret = evhttp_bind_socket(evhttpd, "::", httpd_port);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", httpd_port);
+	  v6enabled = 0;
+	}
+    }
+
+  ret = evhttp_bind_socket(evhttpd, "0.0.0.0", httpd_port);
+  if (ret < 0)
+    {
+      if (!v6enabled)
+	{
+	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
+	  goto bind_fail;
+	}
+
+#ifndef __linux__
+      // Linux will listen on both ipv6 and ipv4, but FreeBSD won't
+      DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv4, listening on IPv6 only\n", httpd_port);
+#endif
+    }
+*/
+
+
+/* ----------------------- Conversion/hashing/sanitizers -------------------- */
 
 int
 safe_atoi32(const char *str, int32_t *val)
@@ -441,259 +694,6 @@ safe_snreplace(char *s, size_t sz, const char *pattern, const char *replacement)
 }
 
 
-/* Key/value functions */
-struct keyval *
-keyval_alloc(void)
-{
-  struct keyval *kv;
-
-  kv = calloc(1, sizeof(struct keyval));
-  if (!kv)
-    {
-      DPRINTF(E_LOG, L_MISC, "Out of memory for keyval alloc\n");
-
-      return NULL;
-    }
-
-  return kv;
-}
-
-int
-keyval_add_size(struct keyval *kv, const char *name, const char *value, size_t size)
-{
-  struct onekeyval *okv;
-  const char *val;
-
-  if (!kv)
-    return -1;
-
-  /* Check for duplicate key names */
-  val = keyval_get(kv, name);
-  if (val)
-    {
-      /* Same value, fine */
-      if (strcmp(val, value) == 0)
-        return 0;
-      else /* Different value, bad */
-        return -1;
-    }
-
-  okv = (struct onekeyval *)malloc(sizeof(struct onekeyval));
-  if (!okv)
-    {
-      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval\n");
-
-      return -1;
-    }
-
-  okv->name = strdup(name);
-  if (!okv->name)
-    {
-      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval name\n");
-
-      free(okv);
-      return -1;
-    }
-
-  okv->value = (char *)malloc(size + 1);
-  if (!okv->value)
-    {
-      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval value\n");
-
-      free(okv->name);
-      free(okv);
-      return -1;
-    }
-
-  memcpy(okv->value, value, size);
-  okv->value[size] = '\0';
-
-  okv->next = NULL;
-
-  if (!kv->head)
-    kv->head = okv;
-
-  if (kv->tail)
-    kv->tail->next = okv;
-
-  kv->tail = okv;
-
-  return 0;
-}
-
-int
-keyval_add(struct keyval *kv, const char *name, const char *value)
-{
-  return keyval_add_size(kv, name, value, strlen(value));
-}
-
-void
-keyval_remove(struct keyval *kv, const char *name)
-{
-  struct onekeyval *okv;
-  struct onekeyval *pokv;
-
-  if (!kv)
-    return;
-
-  for (pokv = NULL, okv = kv->head; okv; pokv = okv, okv = okv->next)
-    {
-      if (strcasecmp(okv->name, name) == 0)
-        break;
-    }
-
-  if (!okv)
-    return;
-
-  if (okv == kv->head)
-    kv->head = okv->next;
-
-  if (okv == kv->tail)
-    kv->tail = pokv;
-
-  if (pokv)
-    pokv->next = okv->next;
-
-  free(okv->name);
-  free(okv->value);
-  free(okv);
-}
-
-const char *
-keyval_get(struct keyval *kv, const char *name)
-{
-  struct onekeyval *okv;
-
-  if (!kv)
-    return NULL;
-
-  for (okv = kv->head; okv; okv = okv->next)
-    {
-      if (strcasecmp(okv->name, name) == 0)
-        return okv->value;
-    }
-
-  return NULL;
-}
-
-void
-keyval_clear(struct keyval *kv)
-{
-  struct onekeyval *hokv;
-  struct onekeyval *okv;
-
-  if (!kv)
-    return;
-
-  hokv = kv->head;
-
-  for (okv = hokv; hokv; okv = hokv)
-    {
-      hokv = okv->next;
-
-      free(okv->name);
-      free(okv->value);
-      free(okv);
-    }
-
-  kv->head = NULL;
-  kv->tail = NULL;
-}
-
-void
-keyval_sort(struct keyval *kv)
-{
-  struct onekeyval *head;
-  struct onekeyval *okv;
-  struct onekeyval *sokv;
-
-  if (!kv || !kv->head)
-    return;
-
-  head = kv->head;
-  for (okv = kv->head; okv; okv = okv->next)
-    {
-      okv->sort = NULL;
-      for (sokv = kv->head; sokv; sokv = sokv->next)
-	{
-	  // We try to find a name which is greater than okv->name
-	  // but less than our current candidate (okv->sort->name)
-	  if ( (strcmp(sokv->name, okv->name) > 0) &&
-	       ((okv->sort == NULL) || (strcmp(sokv->name, okv->sort->name) < 0)) )
-	    okv->sort = sokv;
-	}
-
-      // Find smallest name, which will be the new head
-      if (strcmp(okv->name, head->name) < 0)
-	head = okv;
-    }
-
-  while ((okv = kv->head))
-    {
-      kv->head  = okv->next;
-      okv->next = okv->sort;
-    }
-
-  kv->head = head;
-  for (okv = kv->head; okv; okv = okv->next)
-    kv->tail = okv;
-
-  DPRINTF(E_DBG, L_MISC, "Keyval sorted. New head: %s. New tail: %s.\n", kv->head->name, kv->tail->name);
-}
-
-
-char **
-m_readfile(const char *path, int num_lines)
-{
-  char buf[256];
-  FILE *fp;
-  char **lines;
-  char *line;
-  int i;
-
-  // Alloc array of char pointers
-  lines = calloc(num_lines, sizeof(char *));
-  if (!lines)
-    return NULL;
-
-  fp = fopen(path, "rb");
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_MISC, "Could not open file '%s' for reading: %s\n", path, strerror(errno));
-      free(lines);
-      return NULL;
-    }
-
-  for (i = 0; i < num_lines; i++)
-    {
-      line = fgets(buf, sizeof(buf), fp);
-      if (!line)
-	{
-	  DPRINTF(E_LOG, L_MISC, "File '%s' has fewer lines than expected (found %d, expected %d)\n", path, i, num_lines);
-	  goto error;
-	}
-
-      lines[i] = atrim(line);
-      if (!lines[i] || (strlen(lines[i]) == 0))
-	{
-	  DPRINTF(E_LOG, L_MISC, "Line %d in '%s' is invalid\n", i+1, path);
-	  goto error;
-	}
-    }
-
-  fclose(fp);
-
-  return lines;
-
- error:
-  for (i = 0; i < num_lines; i++)
-    free(lines[i]);
-
-  free(lines);
-  fclose(fp);
-  return NULL;
-}
-
 char *
 unicode_fixup_string(char *str, const char *fromcode)
 {
@@ -1015,123 +1015,210 @@ murmur_hash64(const void *key, int len, uint32_t seed)
 # error Platform not supported
 #endif
 
-#ifdef HAVE_UUID
-void
-uuid_make(char *str)
+
+/* --------------------------- Key/value functions -------------------------- */
+
+struct keyval *
+keyval_alloc(void)
 {
-  uuid_t uu;
+  struct keyval *kv;
 
-  uuid_generate_random(uu);
-  uuid_unparse_upper(uu, str);
-}
-#else
-void
-uuid_make(char *str)
-{
-  uint16_t uuid[8];
-  time_t now;
-  int i;
-
-  now = time(NULL);
-
-  srand((unsigned int)now);
-
-  for (i = 0; i < ARRAY_SIZE(uuid); i++)
+  kv = calloc(1, sizeof(struct keyval));
+  if (!kv)
     {
-      uuid[i] = (uint16_t)rand();
+      DPRINTF(E_LOG, L_MISC, "Out of memory for keyval alloc\n");
 
-      // time_hi_and_version, set version to 4 (=random)
-      if (i == 3)
-	uuid[i] = (uuid[i] & 0x0FFF) | 0x4000;
-      // clock_seq, variant 1
-      if (i == 4)
-	uuid[i] = (uuid[i] & 0x3FFF) | 0x8000;
-
-
-      if (i == 2 || i == 3 || i == 4 || i == 5)
-	str += sprintf(str, "-");
-
-      str += sprintf(str, "%04" PRIX16, uuid[i]);
+      return NULL;
     }
+
+  return kv;
 }
-#endif
 
 int
-linear_regression(double *m, double *b, double *r2, const double *x, const double *y, int n)
+keyval_add_size(struct keyval *kv, const char *name, const char *value, size_t size)
 {
-  double x_val;
-  double sum_x  = 0;
-  double sum_x2 = 0;
-  double sum_y  = 0;
-  double sum_y2 = 0;
-  double sum_xy = 0;
-  double denom;
-  int i;
+  struct onekeyval *okv;
+  const char *val;
 
-  for (i = 0; i < n; i++)
-    {
-      x_val   = x ? x[i] : (double)i;
-      sum_x  += x_val;
-      sum_x2 += x_val * x_val;
-      sum_y  += y[i];
-      sum_y2 += y[i] * y[i];
-      sum_xy += x_val * y[i];
-    }
-
-  denom = (n * sum_x2 - sum_x * sum_x);
-  if (denom == 0)
+  if (!kv)
     return -1;
 
-  *m = (n * sum_xy - sum_x * sum_y) / denom;
-  *b = (sum_y * sum_x2 - sum_x * sum_xy) / denom;
-  if (r2)
-    *r2 = (sum_xy - (sum_x * sum_y)/n) * (sum_xy - (sum_x * sum_y)/n) / ((sum_x2 - (sum_x * sum_x)/n) * (sum_y2 - (sum_y * sum_y)/n));
+  /* Check for duplicate key names */
+  val = keyval_get(kv, name);
+  if (val)
+    {
+      /* Same value, fine */
+      if (strcmp(val, value) == 0)
+        return 0;
+      else /* Different value, bad */
+        return -1;
+    }
+
+  okv = (struct onekeyval *)malloc(sizeof(struct onekeyval));
+  if (!okv)
+    {
+      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval\n");
+
+      return -1;
+    }
+
+  okv->name = strdup(name);
+  if (!okv->name)
+    {
+      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval name\n");
+
+      free(okv);
+      return -1;
+    }
+
+  okv->value = (char *)malloc(size + 1);
+  if (!okv->value)
+    {
+      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval value\n");
+
+      free(okv->name);
+      free(okv);
+      return -1;
+    }
+
+  memcpy(okv->value, value, size);
+  okv->value[size] = '\0';
+
+  okv->next = NULL;
+
+  if (!kv->head)
+    kv->head = okv;
+
+  if (kv->tail)
+    kv->tail->next = okv;
+
+  kv->tail = okv;
 
   return 0;
 }
 
-bool
-quality_is_equal(struct media_quality *a, struct media_quality *b)
+int
+keyval_add(struct keyval *kv, const char *name, const char *value)
 {
-  return (a->sample_rate == b->sample_rate && a->bits_per_sample == b->bits_per_sample && a->channels == b->channels && a->bit_rate == b->bit_rate);
+  return keyval_add_size(kv, name, value, strlen(value));
 }
 
-bool
-peer_address_is_trusted(const char *addr)
+void
+keyval_remove(struct keyval *kv, const char *name)
 {
-  cfg_t *section;
-  const char *network;
-  int i;
-  int n;
+  struct onekeyval *okv;
+  struct onekeyval *pokv;
 
-  if (!addr)
-    return false;
+  if (!kv)
+    return;
 
-  if (strncmp(addr, "::ffff:", strlen("::ffff:")) == 0)
-    addr += strlen("::ffff:");
-
-  section = cfg_getsec(cfg, "general");
-
-  n = cfg_size(section, "trusted_networks");
-  for (i = 0; i < n; i++)
+  for (pokv = NULL, okv = kv->head; okv; pokv = okv, okv = okv->next)
     {
-      network = cfg_getnstr(section, "trusted_networks", i);
-
-      if (!network || network[0] == '\0')
-	return false;
-
-      if (strncmp(network, addr, strlen(network)) == 0)
-	return true;
-
-      if ((strcmp(network, "localhost") == 0) && (strcmp(addr, "127.0.0.1") == 0 || strcmp(addr, "::1") == 0))
-	return true;
-
-      if (strcmp(network, "any") == 0)
-	return true;
+      if (strcasecmp(okv->name, name) == 0)
+        break;
     }
 
-  return false;
+  if (!okv)
+    return;
+
+  if (okv == kv->head)
+    kv->head = okv->next;
+
+  if (okv == kv->tail)
+    kv->tail = pokv;
+
+  if (pokv)
+    pokv->next = okv->next;
+
+  free(okv->name);
+  free(okv->value);
+  free(okv);
 }
+
+const char *
+keyval_get(struct keyval *kv, const char *name)
+{
+  struct onekeyval *okv;
+
+  if (!kv)
+    return NULL;
+
+  for (okv = kv->head; okv; okv = okv->next)
+    {
+      if (strcasecmp(okv->name, name) == 0)
+        return okv->value;
+    }
+
+  return NULL;
+}
+
+void
+keyval_clear(struct keyval *kv)
+{
+  struct onekeyval *hokv;
+  struct onekeyval *okv;
+
+  if (!kv)
+    return;
+
+  hokv = kv->head;
+
+  for (okv = hokv; hokv; okv = hokv)
+    {
+      hokv = okv->next;
+
+      free(okv->name);
+      free(okv->value);
+      free(okv);
+    }
+
+  kv->head = NULL;
+  kv->tail = NULL;
+}
+
+void
+keyval_sort(struct keyval *kv)
+{
+  struct onekeyval *head;
+  struct onekeyval *okv;
+  struct onekeyval *sokv;
+
+  if (!kv || !kv->head)
+    return;
+
+  head = kv->head;
+  for (okv = kv->head; okv; okv = okv->next)
+    {
+      okv->sort = NULL;
+      for (sokv = kv->head; sokv; sokv = sokv->next)
+	{
+	  // We try to find a name which is greater than okv->name
+	  // but less than our current candidate (okv->sort->name)
+	  if ( (strcmp(sokv->name, okv->name) > 0) &&
+	       ((okv->sort == NULL) || (strcmp(sokv->name, okv->sort->name) < 0)) )
+	    okv->sort = sokv;
+	}
+
+      // Find smallest name, which will be the new head
+      if (strcmp(okv->name, head->name) < 0)
+	head = okv;
+    }
+
+  while ((okv = kv->head))
+    {
+      kv->head  = okv->next;
+      okv->next = okv->sort;
+    }
+
+  kv->head = head;
+  for (okv = kv->head; okv; okv = okv->next)
+    kv->tail = okv;
+
+  DPRINTF(E_DBG, L_MISC, "Keyval sorted. New head: %s. New tail: %s.\n", kv->head->name, kv->tail->name);
+}
+
+
+/* ------------------------------- Ringbuffer ------------------------------- */
 
 int
 ringbuffer_init(struct ringbuffer *buf, size_t size)
@@ -1213,6 +1300,9 @@ ringbuffer_read(uint8_t **dst, size_t dstlen, struct ringbuffer *buf)
 
   return dstlen;
 }
+
+
+/* ------------------------- Clock utility functions ------------------------ */
 
 int
 clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res)
@@ -1411,6 +1501,24 @@ timer_getoverrun(timer_t timer_id)
 
 #endif /* HAVE_MACH_CLOCK */
 
+
+/* ------------------------------- Media quality ---------------------------- */
+
+bool
+quality_is_equal(struct media_quality *a, struct media_quality *b)
+{
+  return (a->sample_rate == b->sample_rate && a->bits_per_sample == b->bits_per_sample && a->channels == b->channels && a->bit_rate == b->bit_rate);
+}
+
+
+/* -------------------------- Misc utility functions ------------------------ */
+
+char **
+buildopts_get()
+{
+  return buildopts;
+}
+
 int
 mutex_init(pthread_mutex_t *mutex)
 {
@@ -1424,6 +1532,136 @@ mutex_init(pthread_mutex_t *mutex)
 
   return err;
 }
+
+#ifdef HAVE_UUID
+void
+uuid_make(char *str)
+{
+  uuid_t uu;
+
+  uuid_generate_random(uu);
+  uuid_unparse_upper(uu, str);
+}
+#else
+void
+uuid_make(char *str)
+{
+  uint16_t uuid[8];
+  time_t now;
+  int i;
+
+  now = time(NULL);
+
+  srand((unsigned int)now);
+
+  for (i = 0; i < ARRAY_SIZE(uuid); i++)
+    {
+      uuid[i] = (uint16_t)rand();
+
+      // time_hi_and_version, set version to 4 (=random)
+      if (i == 3)
+	uuid[i] = (uuid[i] & 0x0FFF) | 0x4000;
+      // clock_seq, variant 1
+      if (i == 4)
+	uuid[i] = (uuid[i] & 0x3FFF) | 0x8000;
+
+
+      if (i == 2 || i == 3 || i == 4 || i == 5)
+	str += sprintf(str, "-");
+
+      str += sprintf(str, "%04" PRIX16, uuid[i]);
+    }
+}
+#endif
+
+int
+linear_regression(double *m, double *b, double *r2, const double *x, const double *y, int n)
+{
+  double x_val;
+  double sum_x  = 0;
+  double sum_x2 = 0;
+  double sum_y  = 0;
+  double sum_y2 = 0;
+  double sum_xy = 0;
+  double denom;
+  int i;
+
+  for (i = 0; i < n; i++)
+    {
+      x_val   = x ? x[i] : (double)i;
+      sum_x  += x_val;
+      sum_x2 += x_val * x_val;
+      sum_y  += y[i];
+      sum_y2 += y[i] * y[i];
+      sum_xy += x_val * y[i];
+    }
+
+  denom = (n * sum_x2 - sum_x * sum_x);
+  if (denom == 0)
+    return -1;
+
+  *m = (n * sum_xy - sum_x * sum_y) / denom;
+  *b = (sum_y * sum_x2 - sum_x * sum_xy) / denom;
+  if (r2)
+    *r2 = (sum_xy - (sum_x * sum_y)/n) * (sum_xy - (sum_x * sum_y)/n) / ((sum_x2 - (sum_x * sum_x)/n) * (sum_y2 - (sum_y * sum_y)/n));
+
+  return 0;
+}
+
+char **
+m_readfile(const char *path, int num_lines)
+{
+  char buf[256];
+  FILE *fp;
+  char **lines;
+  char *line;
+  int i;
+
+  // Alloc array of char pointers
+  lines = calloc(num_lines, sizeof(char *));
+  if (!lines)
+    return NULL;
+
+  fp = fopen(path, "rb");
+  if (!fp)
+    {
+      DPRINTF(E_LOG, L_MISC, "Could not open file '%s' for reading: %s\n", path, strerror(errno));
+      free(lines);
+      return NULL;
+    }
+
+  for (i = 0; i < num_lines; i++)
+    {
+      line = fgets(buf, sizeof(buf), fp);
+      if (!line)
+	{
+	  DPRINTF(E_LOG, L_MISC, "File '%s' has fewer lines than expected (found %d, expected %d)\n", path, i, num_lines);
+	  goto error;
+	}
+
+      lines[i] = atrim(line);
+      if (!lines[i] || (strlen(lines[i]) == 0))
+	{
+	  DPRINTF(E_LOG, L_MISC, "Line %d in '%s' is invalid\n", i+1, path);
+	  goto error;
+	}
+    }
+
+  fclose(fp);
+
+  return lines;
+
+ error:
+  for (i = 0; i < num_lines; i++)
+    free(lines[i]);
+
+  free(lines);
+  fclose(fp);
+  return NULL;
+}
+
+
+/* -------------------------------- Assertion ------------------------------- */
 
 void
 log_fatal_err(int domain, const char *func, int line, int err)
