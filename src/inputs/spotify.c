@@ -26,8 +26,11 @@
 #include "logger.h"
 #include "http.h"
 #include "db.h"
+#include "transcode.h"
 #include "spotify.h"
 #include "spotifyc/spotifyc.h"
+
+#define SPOTIFY_PROBE_SIZE_MIN 65536
 
 struct global_ctx
 {
@@ -37,13 +40,24 @@ struct global_ctx
   struct sp_session *session;
   bool response_pending; // waiting for a response from spotifyc
   struct spotify_status status;
+};
 
+struct playback_ctx
+{
+  struct input_source *source;
+  bool xcode_is_ready;
+  struct transcode_ctx xcode;
+
+  int read_fd;
   struct event *read_ev;
+  struct evbuffer *read_buf;
+  size_t read_bytes;
 };
 
 static struct global_ctx spotify_ctx;
 
 static bool db_is_initialized;
+static struct media_quality spotify_quality = { 44100, 16, 2, 0 };
 
 
 /* ------------------------------ Utility funcs ----------------------------- */
@@ -172,6 +186,8 @@ track_closed_cb(struct sp_session *session, void *cb_arg, int fd)
 {
   struct global_ctx *ctx = cb_arg;
 
+  DPRINTF(E_DBG, L_SPOTIFY, "track_closed_cb()\n");
+
   pthread_mutex_lock(&ctx->lock);
 
   ctx->response_pending = false;
@@ -218,17 +234,18 @@ https_get_cb(char **out, const char *url)
 static void
 logmsg_cb(const char *fmt, ...)
 {
-  va_list ap;
+/*  va_list ap;
 
   va_start(ap, fmt);
   DVPRINTF(E_DBG, L_SPOTIFY, fmt, ap);
   va_end(ap);
+*/
 }
 
 static void
 hexdump_cb(const char *msg, uint8_t *data, size_t data_len)
 {
-  DHEXDUMP(E_DBG, L_SPOTIFY, data, data_len, msg);
+//  DHEXDUMP(E_DBG, L_SPOTIFY, data, data_len, msg);
 }
 
 
@@ -246,26 +263,99 @@ struct sp_callbacks callbacks = {
   .logmsg   = logmsg_cb,
 };
 
-/*
+// Forward
 static void
-read_cb(int fd, short what, void *arg)
-{
-  struct input_source *source = arg;
-  int got;
+read_cb(int fd, short what, void *arg);
 
-  got = evbuffer_read(source->evbuf, fd, -1);
-  if (got <= 0)
+// Has to be called after we have started receiving data, since ffmpeg needs to
+// probe the data to find the audio streams
+static int
+playback_xcode_setup(struct playback_ctx *playback)
+{
+  playback->xcode.decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, playback->read_buf, 0);
+  if (!playback->xcode.decode_ctx)
+    return -1;;
+
+  playback->xcode.encode_ctx = transcode_encode_setup(XCODE_PCM16, NULL, playback->xcode.decode_ctx, NULL, 0, 0);
+  if (!playback->xcode.encode_ctx)
+    return -1;
+
+  playback->xcode_is_ready = true;
+
+  return 0;
+}
+
+static void
+playback_free(struct playback_ctx *playback)
+{
+  if (!playback)
     return;
 
-  evbuffer_write(audio_buf, test_file);
+  if (playback->read_ev)
+    event_free(playback->read_ev);
+  if (playback->read_buf)
+    evbuffer_free(playback->read_buf);
+  if (playback->read_fd >= 0)
+    close(playback->read_fd);
+
+  transcode_decode_cleanup(&playback->xcode.decode_ctx);
+  transcode_encode_cleanup(&playback->xcode.encode_ctx);
+  free(playback);
 }
-*/
+
+static struct playback_ctx *
+playback_new(struct input_source *source, int fd)
+{
+  struct playback_ctx *playback;
+
+  CHECK_NULL(L_SPOTIFY, playback = calloc(1, sizeof(struct playback_ctx)));
+  playback->read_fd = fd;
+  playback->source = source;
+
+  CHECK_NULL(L_SPOTIFY, playback->read_buf = evbuffer_new());
+  playback->read_ev = event_new(source->evbase, fd, EV_READ | EV_PERSIST, read_cb, playback);
+  if (!playback->read_ev)
+    goto error;
+
+  event_add(playback->read_ev, NULL);
+
+  return playback;
+
+ error:
+  playback_free(playback);
+  return NULL;
+}
+
+static int
+stop(struct input_source *source)
+{
+  struct playback_ctx *playback = source->input_ctx;
+
+  if (playback)
+    {
+      spotifyc_stop(playback->read_fd);
+      playback_free(playback);
+    }
+
+  if (source->evbuf)
+    evbuffer_free(source->evbuf);
+
+  source->input_ctx = NULL;
+  source->evbuf = NULL;
+
+  spotify_ctx.status.track_opened = false;
+
+  return 0;
+}
+
 static int
 setup(struct input_source *source)
 {
   struct global_ctx *ctx = &spotify_ctx;
-  int fd = -1;
+  int ret;
+  int fd;
 
+  // First try to open the source (no downloading yet)
   pthread_mutex_lock(&ctx->lock);
 
   fd = spotifyc_open(source->path, ctx->session);
@@ -280,45 +370,31 @@ setup(struct input_source *source)
     pthread_cond_wait(&ctx->cond, &ctx->lock);
 
   if (!ctx->status.track_opened)
+    {
+      close(fd);
+      goto error;
+    }
+
+  // Seems we have a valid source, now setup a read + decoding context. The
+  // closing of the fd is from now on part of closing the playback_ctx, which is
+  // done in stop().
+  source->evbuf = evbuffer_new();
+  source->input_ctx = playback_new(source, fd);
+  if (!source->evbuf || !source->input_ctx)
     goto error;
 
-  /*
-struct decode_ctx *decode;
-  source->evbuf = evbuffer_new();
-  source->input_ctx = event_new(source->evbase, fd, EV_READ | EV_PERSIST, read_cb, source);
-
-  decode = transcode_decode_setup(PROFILE, NULL, source->data_kind, NULL, source->evbuf, 0);
-
-  // This is a one time operation to kick off playing. spotifyc has it's own
-  // event loop that will start writing audio to fd when spotifyc_play() is
-  // called
-  event_add(read_ev, NULL);
+  source->quality = spotify_quality;
 
   ret = spotifyc_play(fd);
   if (ret < 0)
     goto error;
-*/
+
   pthread_mutex_unlock(&ctx->lock);
   return 0;
 
  error:
   pthread_mutex_unlock(&ctx->lock);
-  if (fd >= 0)
-    close(fd);
-
-  return -1;
-}
-
-static int
-stop(struct input_source *source)
-{
-//  event_del();
-
-  if (source->evbuf)
-    evbuffer_free(source->evbuf);
-
-  source->input_ctx = NULL;
-  source->evbuf = NULL;
+  stop(source);
 
   return -1;
 }
@@ -327,6 +403,49 @@ static int
 seek(struct input_source *source, int seek_ms)
 {
   return -1;
+}
+
+static void
+read_cb(int fd, short what, void *arg)
+{
+  struct playback_ctx *playback_ctx = arg;
+  struct input_source *source = playback_ctx->source;
+  struct transcode_ctx *xcode_ctx = &playback_ctx->xcode;
+  int got;
+  int ret;
+
+  got = evbuffer_read(playback_ctx->read_buf, fd, -1);
+  if (got < 0)
+    goto error;
+
+  playback_ctx->read_bytes += got;
+  if (playback_ctx->read_bytes < SPOTIFY_PROBE_SIZE_MIN)
+    return; // ffmpeg requires more data to be able to probe the Ogg
+
+  if (!playback_ctx->xcode_is_ready)
+    {
+      ret = playback_xcode_setup(playback_ctx);
+      if (ret < 0)
+	goto error;
+    }
+
+  // Decode the Ogg Vorbis to PCM
+  ret = transcode(source->evbuf, NULL, xcode_ctx, 1);
+  if (ret == 0)
+    {
+      input_write(source->evbuf, &source->quality, INPUT_FLAG_EOF);
+      stop(source);
+    }
+  else if (ret < 0)
+    goto error;
+
+  input_write(source->evbuf, &source->quality, 0);
+
+  return;
+
+ error:
+  input_write(NULL, NULL, INPUT_FLAG_ERROR);
+  stop(source);
 }
 
 static int
@@ -430,7 +549,6 @@ spotify_login(char **arglist)
 {
   return;
 }
-
 
 void
 spotify_logout(void)
