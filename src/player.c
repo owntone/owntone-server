@@ -1179,13 +1179,15 @@ source_read(int *nbytes, int *nsamples, uint8_t *buf, int len)
   // We can get into this condition if a) we finished reading, but are still
   // playing (playing_now is non-null), or b) the calling loop tries to catch up
   // with an overrun or a deficit, but playback ended in the first iteration (in
-  // which case playing_now is null)
+  // which case playing_now is null). Note that a) also can occur if the input
+  // starts with input_write(NULL, NULL, INPUT_FLAG_ERROR).
   if (!pb_session.reading_now)
     {
       // This is only for case a). If we are in case b) the session was zeroed,
-      // which means nsamples will become zero.
+      // which means nsamples will become zero. Quality can be zero if the input
+      // failed immediately, i.e. never passed INPUT_FLAG_QUALITY.
       *nbytes = len;
-      *nsamples = BTOS(*nbytes, pb_session.quality.bits_per_sample, pb_session.quality.channels);
+      *nsamples = (len != 0) ? BTOS(*nbytes, pb_session.quality.bits_per_sample, pb_session.quality.channels) : 0;
 
       // In case a) this advances playback position and possibly ends playback,
       // i.e. sets playing_now to null
