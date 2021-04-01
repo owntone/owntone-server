@@ -548,7 +548,7 @@ GET /api/queue
 
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
-| id              | *(Optional)* If a queue item id is given, only the item with the id will be returend. |
+| id              | *(Optional)* If a queue item id is given, only the item with the id will be returend. Use id=now_playing to get the currently playing item. |
 | start           | *(Optional)* If a `start`and an `end` position is given, only the items from `start` (included) to `end` (excluded) will be returned. If only a `start` position is given, only the item at this position will be returned. |
 | end             | *(Optional)* See `start` parameter |
 
