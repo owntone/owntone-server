@@ -2682,7 +2682,11 @@ jsonapi_reply_queue(struct httpd_request *hreq)
     query_params.sort = S_SHUFFLE_POS;
 
   param = evhttp_find_header(hreq->query, "id");
-  if (param && safe_atou32(param, &item_id) == 0)
+  if (param && strcmp(param, "now_playing") == 0)
+    {
+      query_params.filter = db_mprintf("id = %d", status.item_id);
+    }
+  else if (param && safe_atou32(param, &item_id) == 0)
     {
       query_params.filter = db_mprintf("id = %d", item_id);
     }
