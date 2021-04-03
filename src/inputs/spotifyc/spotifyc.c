@@ -39,10 +39,18 @@
  - don't memleak e.g. track
  - protect against DOS
  - identify as forked-daapd
+ - web api token (scope streaming)
+ - shutdown not working if msg_send hangs (httpd waiting for player/input)
 */
 
 #define SP_AP_RESOLVE_URL "https://APResolve.spotify.com/"
 #define SP_AP_RESOLVE_KEY "ap_list"
+
+// Disconnect from AP after this number of secs idle
+#define SP_AP_DISCONNECT_SECS 60
+
+// Max wait for AP to respond
+#define SP_AP_TIMEOUT_SECS 10
 
 // A "mercury" response may contain multiple parts (e.g. multiple tracks), even
 // though this implenentation currently expects just one.
@@ -162,6 +170,34 @@ struct crypto_keys
   size_t shared_secret_len;
 };
 
+struct sp_connection
+{
+  // Where we receive data from Spotify
+  int receive_fd;
+  struct event *receive_ev;
+
+  // Resolved access point
+  char *ap_address;
+  unsigned short ap_port;
+
+  struct evbuffer *incoming;
+
+  struct event *idle_ev;
+  struct event *timeout_ev;
+
+  // Buffer holding client hello and ap response, since they are needed for
+  // MAC calculation
+  bool handshake_completed;
+  struct evbuffer *handshake_packets;
+
+  bool is_encrypted;
+  struct crypto_keys keys;
+  struct crypto_cipher encrypt;
+  struct crypto_cipher decrypt;
+
+  struct event *msg_next_ev;
+};
+
 struct sp_mercury
 {
   char *uri;
@@ -227,16 +263,12 @@ struct sp_channel_header
 // Linked list of sessions
 struct sp_session
 {
+  struct sp_connection conn;
+
   struct sp_credentials credentials;
+  bool logged_in;
 
   enum sp_bitrates bitrate_preferred;
-
-  char country[3]; // Incl null term
-
-  // Where we receive data from Spotify
-  bool connected;
-  int receive_fd;
-  struct event *receive_ev;
 
   struct sp_channel channels[8];
 
@@ -244,23 +276,11 @@ struct sp_session
   // the current track is also available
   struct sp_channel *now_streaming_channel;
 
-  bool is_encrypted;
-  struct crypto_keys keys;
-  struct crypto_cipher encrypt;
-  struct crypto_cipher decrypt;
-
-  struct evbuffer *incoming;
-  struct evbuffer *in_plain;
-
-  // Buffer holding client hello and ap response, since they are needed for
-  // MAC calculation
-  struct evbuffer *handshake_packets;
-  bool handshake_completed;
+  char country[3]; // Incl null term
 
   enum sp_msg_type msg_type;
-
+  enum sp_msg_type msg_type_queued;
   enum sp_msg_type msg_type_next;
-  struct event *msg_next_ev;
   int (*msg_handler)(uint8_t *, size_t, struct sp_session *);
 
   struct sp_session *next;
@@ -287,6 +307,9 @@ static pthread_t sp_tid;
 static struct event_base *sp_evbase;
 static struct commands_base *sp_cmdbase;
 
+static struct timeval sp_idle_tv = { SP_AP_DISCONNECT_SECS, 0 };
+static struct timeval sp_timeout_tv = { SP_AP_TIMEOUT_SECS, 0 };
+
 static const char *sp_errmsg;
 
 static uint8_t sp_aes_iv[] = { 0x72, 0xe0, 0x67, 0xfb, 0xdd, 0xcb, 0xcf, 0x77, 0xeb, 0xe8, 0xbc, 0x64, 0x3f, 0x63, 0x0d, 0x93 };
@@ -312,6 +335,9 @@ msg_send(enum sp_msg_type type, struct sp_session *session);
 static void
 msg_receive(int fd, short what, void *arg);
 
+static void
+msg_next_cb(int fd, short what, void *arg);
+
 
 /* ---------------------------------- MOCKING ------------------------------- */
 
@@ -333,7 +359,7 @@ debug_mock_response(struct sp_session *session)
 	write(debug_mock_pipe[1], mock_resp_apresponse, sizeof(mock_resp_apresponse));
 	break;
       case MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED:
-        memcpy(session->decrypt.key, mock_recv_key, sizeof(session->decrypt.key));
+        memcpy(session->conn.decrypt.key, mock_recv_key, sizeof(session->conn.decrypt.key));
 	// Spotify will send the replies split in these 6 packets
 	write(debug_mock_pipe[1], mock_resp_client_encrypted1, sizeof(mock_resp_client_encrypted1));
 	write(debug_mock_pipe[1], mock_resp_client_encrypted2, sizeof(mock_resp_client_encrypted2));
@@ -347,7 +373,7 @@ debug_mock_response(struct sp_session *session)
 	write(debug_mock_pipe[1], mock_resp_mercury_req2, sizeof(mock_resp_mercury_req2));
 	break;
       case MSG_TYPE_AUDIO_KEY_GET:
-        memset(session->decrypt.key, 0, sizeof(session->decrypt.key)); // Tells msg_read_one() to skip decryption
+        memset(session->conn.decrypt.key, 0, sizeof(session->conn.decrypt.key)); // Tells msg_read_one() to skip decryption
 	write(debug_mock_pipe[1], mock_resp_aeskey, sizeof(mock_resp_aeskey));
 	break;
       case MSG_TYPE_CHUNK_REQUEST:
@@ -363,137 +389,6 @@ debug_mock_response(struct sp_session *session)
 }
 #endif
 
-
-/* ------------------------------- MISC HELPERS ----------------------------- */
-
-int
-net_connect(const char *addr, unsigned short port, int type, const char *log_service_name)
-{
-  struct addrinfo hints = { 0 };
-  struct addrinfo *servinfo;
-  struct addrinfo *ptr;
-  char strport[8];
-  int fd;
-  int ret;
-
-  sp_cb.logmsg("Connecting to '%s' at %s (port %u)\n", log_service_name, addr, port);
-
-  hints.ai_socktype = (type & (SOCK_STREAM | SOCK_DGRAM)); // filter since type can be SOCK_STREAM | SOCK_NONBLOCK
-  hints.ai_family = AF_UNSPEC;
-
-  snprintf(strport, sizeof(strport), "%hu", port);
-  ret = getaddrinfo(addr, strport, &hints, &servinfo);
-  if (ret < 0)
-    {
-      sp_cb.logmsg("Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, gai_strerror(ret));
-      return -1;
-    }
-
-  for (ptr = servinfo; ptr; ptr = ptr->ai_next)
-    {
-      fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
-      if (fd < 0)
-	{
-	  continue;
-	}
-
-      ret = connect(fd, ptr->ai_addr, ptr->ai_addrlen);
-      if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of SOCK_NONBLOCK
-	{
-	  close(fd);
-	  continue;
-	}
-
-      break;
-    }
-
-  freeaddrinfo(servinfo);
-
-  if (!ptr)
-    {
-      sp_cb.logmsg("Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, strerror(errno));
-      return -1;
-    }
-
-  // net_address_get(ipaddr, sizeof(ipaddr), (union net_sockaddr *)ptr->ai-addr);
-
-  return fd;
-}
-
-static int
-ap_connect(struct sp_session *session)
-{
-  char *body;
-  json_object *jresponse = NULL;
-  json_object *ap_list;
-  json_object *ap;
-  char *ap_address = NULL;
-  char *ap_port;
-  int ap_num;
-  int ret;
-
-  ret = sp_cb.https_get(&body, SP_AP_RESOLVE_URL);
-  if (ret < 0)
-    RETURN_ERROR(SP_NOCONNECTION, "Could not connect to access point resolver");
-
-  jresponse = json_tokener_parse(body);
-  if (!jresponse)
-    RETURN_ERROR(SP_NOCONNECTION, "Could not parse reply from access point resolver");
-
-  if (! (json_object_object_get_ex(jresponse, SP_AP_RESOLVE_KEY, &ap_list) || json_object_get_type(ap_list) == json_type_array))
-    RETURN_ERROR(SP_NOCONNECTION, "Unexpected reply from access point resolver");
-
-  ap_num = json_object_array_length(ap_list);
-  ap = json_object_array_get_idx(ap_list, rand() % ap_num);
-  if (! (ap && json_object_get_type(ap) == json_type_string))
-    RETURN_ERROR(SP_NOCONNECTION, "Unexpected reply from access point resolver");
-
-  ap_address = strdup(json_object_get_string(ap));
-
-  if (! (ap_port = strchr(ap_address, ':')))
-    RETURN_ERROR(SP_NOCONNECTION, "Unexpected reply from access point resolver, missing port");
-  *ap_port = '\0';
-  ap_port += 1;
-
-#ifndef DEBUG_MOCK
-  session->receive_fd = net_connect(ap_address, atoi(ap_port), SOCK_STREAM, "spotifyc");
-  if (session->receive_fd < 0)
-    RETURN_ERROR(SP_NOCONNECTION, "Could not connect to access point");
-#else
-  pipe(debug_mock_pipe);
-  session->receive_fd = debug_mock_pipe[0];
-#endif
-
-  // Reply event
-  session->receive_ev = event_new(sp_evbase, session->receive_fd, EV_READ | EV_PERSIST, msg_receive, session);
-  if (!session->receive_ev)
-    RETURN_ERROR(SP_OOM, "Could not create receive event");
-
-  event_add(session->receive_ev, NULL);
-
-  free(ap_address);
-  json_object_put(jresponse);
-  free(body);
-
-  return 0;
-
- error:
-  free(ap_address);
-  json_object_put(jresponse);
-  free(body);
-  return ret;
-}
-
-static void
-password_zerofree(struct sp_credentials *credentials)
-{
-  if (!credentials->password)
-    return;
-
-  memset(credentials->password, 0, strlen(credentials->password));
-  free(credentials->password);
-  credentials->password = NULL;
-}
 
 /* ----------------------------------- Crypto ------------------------------- */
 
@@ -735,8 +630,8 @@ crypto_decrypt(uint8_t *encrypted, size_t encrypted_len, struct crypto_cipher *c
 
       payload_len = payload_len_get(cipher->last_header);
 
-      sp_cb.logmsg("Payload len is %zu\n", payload_len);
-      sp_cb.hexdump("Decrypted header\n", encrypted, header_len);
+//      sp_cb.logmsg("Payload len is %zu\n", payload_len);
+//      sp_cb.hexdump("Decrypted header\n", encrypted, header_len);
     }
 
   // At this point the header is already decrypted, so now decrypt the payload
@@ -759,7 +654,7 @@ crypto_decrypt(uint8_t *encrypted, size_t encrypted_len, struct crypto_cipher *c
 //  sp_cb.hexdump("mac our\n", mac, sizeof(mac));
   if (memcmp(mac, encrypted + payload_len, sizeof(mac)) != 0)
     {
-      sp_cb.logmsg("MAC VALIDATION FAILED\n");
+      sp_cb.logmsg("MAC VALIDATION FAILED\n"); // TODO
       memset(cipher->last_header, 0, header_len);
       return -1;
     }
@@ -877,6 +772,225 @@ crypto_aes_decrypt(uint8_t *encrypted, size_t encrypted_len, struct crypto_aes_c
 }
 
 
+/* --------------------------- Connection handling -------------------------- */
+
+static int
+ap_resolve(char **address, unsigned short *port)
+{
+  char *body;
+  json_object *jresponse = NULL;
+  json_object *ap_list;
+  json_object *ap;
+  char *ap_address = NULL;
+  char *ap_port;
+  int ap_num;
+  int ret;
+
+  free(*address);
+  *address = NULL;
+
+  ret = sp_cb.https_get(&body, SP_AP_RESOLVE_URL);
+  if (ret < 0)
+    RETURN_ERROR(SP_NOCONNECTION, "Could not connect to access point resolver");
+
+  jresponse = json_tokener_parse(body);
+  if (!jresponse)
+    RETURN_ERROR(SP_NOCONNECTION, "Could not parse reply from access point resolver");
+
+  if (! (json_object_object_get_ex(jresponse, SP_AP_RESOLVE_KEY, &ap_list) || json_object_get_type(ap_list) == json_type_array))
+    RETURN_ERROR(SP_NOCONNECTION, "Unexpected reply from access point resolver");
+
+  ap_num = json_object_array_length(ap_list);
+  ap = json_object_array_get_idx(ap_list, rand() % ap_num);
+  if (! (ap && json_object_get_type(ap) == json_type_string))
+    RETURN_ERROR(SP_NOCONNECTION, "Unexpected reply from access point resolver");
+
+  ap_address = strdup(json_object_get_string(ap));
+
+  if (! (ap_port = strchr(ap_address, ':')))
+    RETURN_ERROR(SP_NOCONNECTION, "Unexpected reply from access point resolver, missing port");
+  *ap_port = '\0';
+  ap_port += 1;
+
+  *address = ap_address;
+  *port = (unsigned short)atoi(ap_port);
+
+  json_object_put(jresponse);
+  free(body);
+  return 0;
+
+ error:
+  free(ap_address);
+  json_object_put(jresponse);
+  free(body);
+  return ret;
+}
+
+static bool
+is_handshake(enum sp_msg_type type)
+{
+  return ( type == MSG_TYPE_CLIENT_HELLO ||
+           type == MSG_TYPE_CLIENT_RESPONSE_PLAINTEXT ||
+           type == MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED );
+}
+
+static bool
+is_connected(struct sp_connection *conn)
+{
+  return (conn->receive_fd >= 0);
+}
+
+static void
+connection_clear(struct sp_connection *conn)
+{
+  if (!conn)
+    return;
+
+  if (conn->receive_ev)
+    event_free(conn->receive_ev);
+  if (conn->idle_ev)
+    event_free(conn->idle_ev);
+  if (conn->timeout_ev)
+    event_free(conn->timeout_ev);
+  if (conn->msg_next_ev)
+    event_free(conn->msg_next_ev);
+
+  if (conn->handshake_packets)
+    evbuffer_free(conn->handshake_packets);
+  if (conn->incoming)
+    evbuffer_free(conn->incoming);
+
+  free(conn->ap_address);
+  free(conn->keys.shared_secret);
+
+  memset(conn, 0, sizeof(struct sp_connection));
+  conn->receive_fd = -1;
+}
+
+static void
+ap_disconnect(struct sp_connection *conn)
+{
+  if (conn->receive_fd >= 0)
+    sp_cb.tcp_disconnect(conn->receive_fd);
+
+  connection_clear(conn);
+}
+
+static void
+connection_timeout_cb(int fd, short what, void *arg)
+{
+  struct sp_connection *conn = arg;
+
+  ap_disconnect(conn);
+
+  if (sp_cb.error)
+    sp_cb.error(sp_cb_arg, SP_NOCONNECTION, "Timeout waiting for reply from access point");
+}
+
+static void
+connection_idle_cb(int fd, short what, void *arg)
+{
+  struct sp_connection *conn = arg;
+
+  ap_disconnect(conn);
+
+  sp_cb.logmsg("Connection is idle, auto-disconnected\n");
+}
+
+static void
+connection_init(struct sp_connection *conn, int receive_fd, struct sp_session *session)
+{
+  connection_clear(conn);
+
+  conn->receive_fd = receive_fd;
+  conn->receive_ev = event_new(sp_evbase, receive_fd, EV_READ | EV_PERSIST, msg_receive, session);
+  conn->idle_ev = evtimer_new(sp_evbase, connection_idle_cb, conn);
+  conn->timeout_ev = evtimer_new(sp_evbase, connection_timeout_cb, conn);
+  conn->msg_next_ev = event_new(sp_evbase, -1, 0, msg_next_cb, session);
+
+  conn->handshake_packets = evbuffer_new();
+  conn->incoming = evbuffer_new();
+
+  crypto_keys_set(&conn->keys);
+}
+
+static int
+ap_connect(struct sp_connection *conn, struct sp_session *session)
+{
+  int receive_fd;
+  int ret;
+
+  if (!conn->ap_address || !conn->ap_port)
+    {
+      ret = ap_resolve(&conn->ap_address, &conn->ap_port);
+      if (ret < 0)
+	RETURN_ERROR(ret, sp_errmsg);
+    }
+
+#ifndef DEBUG_MOCK
+  receive_fd = sp_cb.tcp_connect(conn->ap_address, conn->ap_port);
+  if (receive_fd < 0)
+    RETURN_ERROR(SP_NOCONNECTION, "Could not connect to access point");
+#else
+  pipe(debug_mock_pipe);
+  receive_fd = debug_mock_pipe[0];
+#endif
+
+  connection_init(conn, receive_fd, session);
+  event_add(conn->receive_ev, NULL);
+
+  return 0;
+
+ error:
+  return ret;
+}
+
+static int
+ap_connection_prepare(enum sp_msg_type type, struct sp_session *session)
+{
+  int ret;
+
+  if (!is_connected(&session->conn))
+    {
+      ret = ap_connect(&session->conn, session);
+      if (ret < 0)
+	RETURN_ERROR(ret, sp_errmsg);
+    }
+
+  if (is_handshake(type) || session->conn.handshake_completed)
+    return 1; // Proceed right away
+
+  if (session->msg_type_queued != MSG_TYPE_NONE)
+    RETURN_ERROR(SP_NOCONNECTION, "Cannot send message, another request is waiting for handshake");
+
+  ret = msg_send(MSG_TYPE_CLIENT_HELLO, session);
+  if (ret < 0)
+    RETURN_ERROR(ret, sp_errmsg);
+
+  // In case we lost connection to the AP we have to make a new handshake for
+  // the non-handshake message types. So queue the message until the handshake
+  // is complete.
+  session->msg_type_queued = type;
+
+  return 0; // Caller must wait for handshake to complete
+
+ error:
+  ap_disconnect(&session->conn);
+  return ret;
+}
+
+static void
+password_zerofree(struct sp_credentials *credentials)
+{
+  if (!credentials->password)
+    return;
+
+  memset(credentials->password, 0, strlen(credentials->password));
+  free(credentials->password);
+  credentials->password = NULL;
+}
+
+
 /* -------------------------------- Session --------------------------------- */
 
 static void
@@ -885,20 +999,7 @@ session_free(struct sp_session *session)
   if (!session)
     return;
 
-  if (session->receive_fd > 0)
-    close(session->receive_fd);
-
-  if (session->receive_ev)
-    event_free(session->receive_ev);
-
-  if (session->incoming)
-    evbuffer_free(session->incoming);
-
-  if (session->handshake_packets)
-    evbuffer_free(session->handshake_packets);
-
-  if (session->msg_next_ev)
-    event_free(session->msg_next_ev);
+  ap_disconnect(&session->conn);
 
   free(session->credentials.username);
   password_zerofree(&session->credentials);
@@ -1457,13 +1558,14 @@ file_select(uint8_t *out, size_t out_len, Track *track, enum sp_bitrates bitrate
 static int
 response_client_hello(uint8_t *msg, size_t msg_len, struct sp_session *session)
 {
+  struct sp_connection *conn = &session->conn;
   APResponseMessage *apresponse;
   size_t header_len = 4; // TODO make a define
   int ret;
 
   apresponse = apresponse_message__unpack(NULL, msg_len - header_len, msg + header_len);
   if (!apresponse)
-    RETURN_ERROR(SP_INVALID, "Could not unpack response from access point");
+    RETURN_ERROR(SP_INVALID, "Could not unpack apresponse from access point");
 
   // TODO check APLoginFailed
 
@@ -1472,13 +1574,13 @@ response_client_hello(uint8_t *msg, size_t msg_len, struct sp_session *session)
     RETURN_ERROR(SP_INVALID, "Missing challenge in response from access point");
 
   crypto_shared_secret(
-    &session->keys.shared_secret, &session->keys.shared_secret_len,
-    session->keys.private_key, sizeof(session->keys.private_key),
+    &conn->keys.shared_secret, &conn->keys.shared_secret_len,
+    conn->keys.private_key, sizeof(conn->keys.private_key),
     apresponse->challenge->login_crypto_challenge->diffie_hellman->gs.data, apresponse->challenge->login_crypto_challenge->diffie_hellman->gs.len);
 
   apresponse_message__free_unpacked(apresponse, NULL);
 
-  session->handshake_completed = true;
+  conn->handshake_completed = true;
 
   return 1; // 1 will make msg_receive continue
 
@@ -1493,6 +1595,8 @@ response_apwelcome(uint8_t *payload, size_t payload_len, struct sp_session *sess
   int ret;
 
   apwelcome = apwelcome__unpack(NULL, payload_len, payload);
+  if (!apwelcome)
+    RETURN_ERROR(SP_INVALID, "Could not unpack apwelcome response from access point");
 
   if (apwelcome->reusable_auth_credentials_type == AUTHENTICATION_TYPE__AUTHENTICATION_STORED_SPOTIFY_CREDENTIALS)
     {
@@ -1505,9 +1609,14 @@ response_apwelcome(uint8_t *payload, size_t payload_len, struct sp_session *sess
 
   apwelcome__free_unpacked(apwelcome, NULL);
 
-  sp_cb.logged_in(session, sp_cb_arg, &session->credentials);
+  // Only notify caller if this is first login (as opposed to a reconnection)
+  if (sp_cb.logged_in && !session->logged_in)
+    {
+      sp_cb.logged_in(session, sp_cb_arg, &session->credentials);
+      session->logged_in = true;
+    }
 
-  return 0;
+  return 1;
 
  error:
   return ret;
@@ -1519,9 +1628,13 @@ response_aplogin_failed(uint8_t *payload, size_t payload_len, struct sp_session 
   APLoginFailed *aplogin_failed;
 
   aplogin_failed = aplogin_failed__unpack(NULL, payload_len, payload);
+  if (!aplogin_failed)
+    {
+      sp_errmsg = "Could not unpack login failure from access point";
+      return SP_LOGINFAILED;
+    }
 
   sp_errmsg = "(unknown login error)";
-
   for (int i = 0; i < sizeof(sp_login_errors); i++)
     {
       if (sp_login_errors[i].errorcode != aplogin_failed->error_code)
@@ -1551,7 +1664,9 @@ response_chunk_res(uint8_t *payload, size_t payload_len, struct sp_session *sess
 
   if (channel->file.end_of_file || (channel->stop_requested && channel->file.end_of_chunk))
     {
-      sp_cb.track_closed(session, sp_cb_arg, channel->audio_fd[0]);
+      if (sp_cb.track_closed)
+	sp_cb.track_closed(session, sp_cb_arg, channel->audio_fd[0]);
+      session->now_streaming_channel = NULL;
       channel_reset(channel);
     }
   else if (channel->file.end_of_chunk)
@@ -1594,9 +1709,10 @@ response_aes_key(uint8_t *payload, size_t payload_len, struct sp_session *sessio
     RETURN_ERROR(SP_DECRYPTION, errmsg);
 
   // Caller reads from audio_fd[0]
-  sp_cb.track_opened(session, sp_cb_arg, channel->audio_fd[0]);
+  if (sp_cb.track_opened)
+    sp_cb.track_opened(session, sp_cb_arg, channel->audio_fd[0]);
 
-  return 0;
+  return 1;
 
  error:
   return ret;
@@ -1618,7 +1734,13 @@ response_mercury_req(uint8_t *payload, size_t payload_len, struct sp_session *se
   uint32_t channel_id;
   int ret;
 
-  mercury_parse(&mercury, payload, payload_len);
+  ret = mercury_parse(&mercury, payload, payload_len);
+  if (ret < 0)
+    {
+      sp_errmsg = "Could not parse message from Spotify";
+      return SP_INVALID;
+    }
+
   if (mercury.parts_num != 1 || !mercury.parts[0].track)
     RETURN_ERROR(SP_INVALID, "Unexpected track response from Spotify");
 
@@ -1641,6 +1763,7 @@ response_mercury_req(uint8_t *payload, size_t payload_len, struct sp_session *se
   return 1; // Continue to get AES key
 
  error:
+  mercury_free(&mercury, 1);
   return ret;
 }
 
@@ -1710,6 +1833,9 @@ msg_next_cb(int fd, short what, void *arg)
   struct sp_session *session = arg;
   enum sp_msg_type type;
 
+  // type_next has priority, since this is what we use to chain a sequence, e.g.
+  // the handshake sequence. type_queued is what comes after, e.g. first a
+  // handshake (type_next) and then a chunk request (type_queued)
   if (session->msg_type_next != MSG_TYPE_NONE)
     {
       sp_cb.logmsg(">>> msg_next >>>\n");
@@ -1718,17 +1844,25 @@ msg_next_cb(int fd, short what, void *arg)
       session->msg_type_next = MSG_TYPE_NONE;
       msg_send(type, session);
     }
+  else if (session->msg_type_queued != MSG_TYPE_NONE)
+    {
+      sp_cb.logmsg(">>> msg_queued >>>\n");
+
+      type = session->msg_type_queued;
+      session->msg_type_queued = MSG_TYPE_NONE;
+      msg_send(type, session);
+    }
 }
 
 static int
-msg_read_one(uint8_t **out, size_t *out_len, uint8_t *in, size_t in_len, struct sp_session *session)
+msg_read_one(uint8_t **out, size_t *out_len, uint8_t *in, size_t in_len, struct sp_connection *conn)
 {
   uint32_t be32;
   ssize_t msg_len;
   int ret;
 
 #ifdef DEBUG_MOCK
-  if (session->is_encrypted && !session->decrypt.key[0] && !session->decrypt.key[1])
+  if (conn->is_encrypted && !conn->decrypt.key[0] && !conn->decrypt.key[1])
     {
       uint16_t be;
       memcpy(&be, in + 1, sizeof(be));
@@ -1738,15 +1872,15 @@ msg_read_one(uint8_t **out, size_t *out_len, uint8_t *in, size_t in_len, struct 
 
       *out = malloc(msg_len);
       *out_len = msg_len;
-      evbuffer_remove(session->incoming, *out, msg_len);
+      evbuffer_remove(conn->incoming, *out, msg_len);
 
       return msg_len;
     }
 #endif
 
-  if (session->is_encrypted)
+  if (conn->is_encrypted)
     {
-      msg_len = crypto_decrypt(in, in_len, &session->decrypt);
+      msg_len = crypto_decrypt(in, in_len, &conn->decrypt);
       if (msg_len < 0)
 	RETURN_ERROR(SP_DECRYPTION, "Decryption error");
       if (msg_len == 0)
@@ -1764,14 +1898,14 @@ msg_read_one(uint8_t **out, size_t *out_len, uint8_t *in, size_t in_len, struct 
       if (msg_len > in_len)
 	return 0; // Wait for more data
 
-      if (!session->handshake_completed)
-	evbuffer_add(session->handshake_packets, in, msg_len);
+      if (!conn->handshake_completed)
+	evbuffer_add(conn->handshake_packets, in, msg_len);
     }
 
   // At this point we have a complete, decrypted message.
   *out = malloc(msg_len);
   *out_len = msg_len;
-  evbuffer_remove(session->incoming, *out, msg_len);
+  evbuffer_remove(conn->incoming, *out, msg_len);
 
   return msg_len;
 
@@ -1783,6 +1917,7 @@ static void
 msg_receive(int fd, short what, void *arg)
 {
   struct sp_session *session = arg;
+  struct sp_connection *conn = &session->conn;
   uint8_t *in;
   size_t in_len;
   uint8_t *msg;
@@ -1790,20 +1925,24 @@ msg_receive(int fd, short what, void *arg)
   bool proceed_next = false;
   int ret;
 
-  ret = evbuffer_read(session->incoming, fd, -1);
-  if (ret < 0)
-    RETURN_ERROR(SP_NOCONNECTION, "Error reading Spotify data");
+  ret = evbuffer_read(conn->incoming, fd, -1);
   if (ret == 0)
-    goto wait;
+    {
+      sp_cb.logmsg("The access point disconnected");
+      ap_disconnect(conn);
+      goto wait;
+    }
+  else if (ret < 0)
+    RETURN_ERROR(SP_NOCONNECTION, "Connection to Spotify returned an error");
 
-  sp_cb.logmsg("Read data len %d\n", ret);
+  sp_cb.logmsg("Received data len %d\n", ret);
 
   // Incoming may be encrypted and may consist of multiple messages
-  while ((in_len = evbuffer_get_length(session->incoming)))
+  while ((in_len = evbuffer_get_length(conn->incoming)))
     {
-      in = evbuffer_pullup(session->incoming, -1);
+      in = evbuffer_pullup(conn->incoming, -1);
 
-      ret = msg_read_one(&msg, &msg_len, in, in_len, session);
+      ret = msg_read_one(&msg, &msg_len, in, in_len, conn);
       if (ret == 0)
 	goto wait;
       else if (ret < 0)
@@ -1814,6 +1953,8 @@ msg_receive(int fd, short what, void *arg)
       else
 	sp_cb.hexdump("Received message (truncated)\n", msg, 128);
 
+      event_del(conn->timeout_ev);
+
       ret = session->msg_handler(msg, msg_len, session);
       free(msg);
       if (ret < 0)
@@ -1821,19 +1962,20 @@ msg_receive(int fd, short what, void *arg)
       else if (ret == 1)
 	proceed_next = true;
 
-      sp_cb.logmsg("ret %d, next %d\n", ret, session->msg_type_next);
+//      sp_cb.logmsg("ret %d, next %d\n", ret, session->msg_type_next);
     }
 
  wait:
   if (proceed_next)
-    msg_next_cb(fd, what, arg);
+    msg_next_cb(fd, 0, session);
 
   return;
 
  error:
-  evbuffer_drain(session->incoming, evbuffer_get_length(session->incoming));
+  evbuffer_drain(conn->incoming, evbuffer_get_length(conn->incoming));
 
-  sp_cb.error(session, sp_cb_arg, ret, sp_errmsg);
+  if (sp_cb.error)
+    sp_cb.error(sp_cb_arg, ret, sp_errmsg);
   return;
 }
 
@@ -1857,8 +1999,8 @@ msg_make_client_hello(uint8_t *out, size_t out_len, struct sp_session *session)
   build_info.platform = PLATFORM__PLATFORM_LINUX_X86;
   build_info.version = 109800078;
 
-  diffie_hellman.gc.len = sizeof(session->keys.public_key);
-  diffie_hellman.gc.data = session->keys.public_key;
+  diffie_hellman.gc.len = sizeof(session->conn.keys.public_key);
+  diffie_hellman.gc.data = session->conn.keys.public_key;
   diffie_hellman.server_keys_known = 1;
 
   login_crypto.diffie_hellman = &diffie_hellman;
@@ -1883,20 +2025,23 @@ msg_make_client_hello(uint8_t *out, size_t out_len, struct sp_session *session)
 }
 
 static int
-client_response_crypto(uint8_t **challenge, size_t *challenge_len, struct sp_session *session)
+client_response_crypto(uint8_t **challenge, size_t *challenge_len, struct sp_connection *conn)
 {
   uint8_t *packets;
   size_t packets_len;
   int ret;
 
-  packets = evbuffer_pullup(session->handshake_packets, -1);
-  packets_len = evbuffer_get_length(session->handshake_packets);
+  packets_len = evbuffer_get_length(conn->handshake_packets);
+  packets = malloc(packets_len);
+  evbuffer_remove(conn->handshake_packets, packets, packets_len);
 
   ret = crypto_challenge(challenge, challenge_len,
-                         session->encrypt.key, sizeof(session->encrypt.key),
-                         session->decrypt.key, sizeof(session->decrypt.key),
+                         conn->encrypt.key, sizeof(conn->encrypt.key),
+                         conn->decrypt.key, sizeof(conn->decrypt.key),
                          packets, packets_len,
-                         session->keys.shared_secret, session->keys.shared_secret_len);
+                         conn->keys.shared_secret, conn->keys.shared_secret_len);
+
+  free(packets);
 
   return ret;
 }
@@ -1912,7 +2057,7 @@ msg_make_client_response_plaintext(uint8_t *out, size_t out_len, struct sp_sessi
   ssize_t len;
   int ret;
 
-  ret = client_response_crypto(&challenge, &challenge_len, session);
+  ret = client_response_crypto(&challenge, &challenge_len, &session->conn);
   if (ret < 0)
     return -1;
 
@@ -1991,7 +2136,7 @@ msg_make_client_response_encrypted(uint8_t *out, size_t out_len, struct sp_sessi
 }
 
 // From librespot-golang:
-// Mercury is the protocol implementation for Spotify Connect playback control and metadata fetching.It works as a
+// Mercury is the protocol implementation for Spotify Connect playback control and metadata fetching. It works as a
 // PUB/SUB system, where you, as an audio sink, subscribes to the events of a specified user (playlist changes) but
 // also access various metadata normally fetched by external players (tracks metadata, playlists, artists, etc).
 static ssize_t
@@ -2179,112 +2324,126 @@ msg_make_chunk_request(uint8_t *out, size_t out_len, struct sp_session *session)
   return required_len;
 }
 
-static int
-msg_send(enum sp_msg_type type, struct sp_session *session)
+static ssize_t
+msg_make(enum sp_cmd_type *outcmd, uint8_t *out, size_t out_len, enum sp_msg_type type, struct sp_session *session)
 {
-  uint8_t pkt[4096];
-  ssize_t pkt_len;
-  uint8_t msg[4096];
-  ssize_t msg_len;
-  bool with_version_header = false;
   enum sp_cmd_type cmd = 0;
-  int ret;
-
-  session->msg_type = type;
+  ssize_t msg_len;
 
   switch (type)
     {
       case MSG_TYPE_CLIENT_HELLO:
-	msg_len = msg_make_client_hello(msg, sizeof(msg), session);
-	with_version_header = true;
+	msg_len = msg_make_client_hello(out, out_len, session);
 	session->msg_handler = response_client_hello;
 	session->msg_type_next = MSG_TYPE_CLIENT_RESPONSE_PLAINTEXT;
 	break;
       case MSG_TYPE_CLIENT_RESPONSE_PLAINTEXT:
-	msg_len = msg_make_client_response_plaintext(msg, sizeof(msg), session);
+	msg_len = msg_make_client_response_plaintext(out, out_len, session);
 	session->msg_handler = response_dummy;
 	session->msg_type_next = MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED;
 
 	// No response expected here, so add event to trigger sending next msg
-	event_active(session->msg_next_ev, 0, 0);
+	event_active(session->conn.msg_next_ev, 0, 0);
 	break;
       case MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED:
-	msg_len = msg_make_client_response_encrypted(msg, sizeof(msg), session);
+	msg_len = msg_make_client_response_encrypted(out, out_len, session);
 	password_zerofree(&session->credentials); // Should be done with it now, so zero it
 	cmd = CmdLogin;
 
-	sp_cb.hexdump("Key\n", session->decrypt.key, sizeof(session->decrypt.key));
+	sp_cb.hexdump("Key\n", session->conn.decrypt.key, sizeof(session->conn.decrypt.key));
 
-	session->is_encrypted = true;
+	session->conn.is_encrypted = true;
 	session->msg_handler = response_generic;
 	break;
       case MSG_TYPE_MERCURY_TRACK_GET:
-	msg_len = msg_make_mercury_track_get(msg, sizeof(msg), session);
+	msg_len = msg_make_mercury_track_get(out, out_len, session);
 	cmd = CmdMercuryReq;
 	session->msg_handler = response_generic;
 	session->msg_type_next = MSG_TYPE_AUDIO_KEY_GET;
 	break;
       case MSG_TYPE_AUDIO_KEY_GET:
-	msg_len = msg_make_audio_key_get(msg, sizeof(msg), session);
+	msg_len = msg_make_audio_key_get(out, out_len, session);
 	cmd = CmdRequestKey;
 	session->msg_handler = response_generic;
 	break;
       case MSG_TYPE_CHUNK_REQUEST:
-	msg_len = msg_make_chunk_request(msg, sizeof(msg), session);
+	msg_len = msg_make_chunk_request(out, out_len, session);
 	cmd = CmdStreamChunk;
 	session->msg_handler = response_generic;
 	break;
       case MSG_TYPE_PONG:
 	msg_len = 4;
-	memset(msg, 0, msg_len); // librespot just replies with zeroes
+	memset(out, 0, msg_len); // librespot just replies with zeroes
 	cmd = CmdPong;
 	break;
       default:
 	msg_len = -1;
     }
 
-  if (msg_len < 0)
-    {
-      sp_cb.logmsg("Could not construct message\n");
-      return -1;
-    }
+  *outcmd = cmd;
+  return msg_len;
+}
 
-  if (session->is_encrypted)
-    pkt_len = packet_make_encrypted(pkt, sizeof(pkt), cmd, msg, msg_len, &session->encrypt);
+static int
+msg_send(enum sp_msg_type type, struct sp_session *session)
+{
+  struct sp_connection *conn = &session->conn;
+  uint8_t pkt[4096];
+  ssize_t pkt_len;
+  uint8_t msg[4096];
+  ssize_t msg_len;
+  bool with_version_header;
+  enum sp_cmd_type cmd;
+  int ret;
+
+  // Makes sure the connection is in a state suitable for sending this message
+  ret = ap_connection_prepare(type, session);
+  if (ret < 0)
+    RETURN_ERROR(ret, sp_errmsg);
+  else if (ret == 0)
+    return 0; // Can't proceed right now, the handshake needs to complete first
+
+  session->msg_type = type;
+
+  msg_len = msg_make(&cmd, msg, sizeof(msg), type, session);
+  if (msg_len < 0)
+    RETURN_ERROR(SP_INVALID, "Error constructing message to Spotify");
+
+  with_version_header = (type == MSG_TYPE_CLIENT_HELLO);
+  if (conn->is_encrypted)
+    pkt_len = packet_make_encrypted(pkt, sizeof(pkt), cmd, msg, msg_len, &conn->encrypt);
   else
     pkt_len = packet_make_plain(pkt, sizeof(pkt), msg, msg_len, with_version_header);
 
   if (pkt_len < 0)
-    {
-      sp_cb.logmsg("Could not construct packet\n");
-      return -1;
-    }
+    RETURN_ERROR(SP_INVALID, "Error constructing packet to Spotify");
+
+  // Reset the disconnect timer, start the timeout timer
+  event_add(conn->idle_ev, &sp_idle_tv);
+  event_add(conn->timeout_ev, &sp_timeout_tv);
 
 #ifndef DEBUG_MOCK
-  sp_cb.logmsg("\nSending pkt type %d (cmd=0x%02x) with size %zu\n", type, cmd, pkt_len);
-
-  ret = send(session->receive_fd, pkt, pkt_len, 0);
+  ret = send(conn->receive_fd, pkt, pkt_len, 0);
   if (ret != pkt_len)
-    {
-      sp_cb.logmsg("Could not send\n");
-      return -1;
-    }
-#else
-  sp_cb.logmsg("\nMocking send/response pkt type %d (cmd=0x%02x) with size %zu\n", type, cmd, pkt_len);
+    RETURN_ERROR(SP_NOCONNECTION, "Error sending packet to Spotify");
 
+  sp_cb.logmsg("Sent pkt type %d (cmd=0x%02x) with size %zu (fd=%d)\n", type, cmd, pkt_len, conn->receive_fd);
+#else
   ret = debug_mock_response(session);
   if (ret < 0)
-    {
-      sp_cb.logmsg("Could not mock send\n");
-      return -1;
-    }
+    RETURN_ERROR(SP_NOCONNECTION, "Error mocking send packet to Spotify");
+
+  sp_cb.logmsg("Mocked send/response pkt type %d (cmd=0x%02x) with size %zu\n", type, cmd, pkt_len);
 #endif
 
   // Save sent packet for MAC calculation later
-  if (!session->handshake_completed)
-    evbuffer_add(session->handshake_packets, pkt, pkt_len);
+  if (!conn->handshake_completed)
+    evbuffer_add(conn->handshake_packets, pkt, pkt_len);
 
   return 0;
+
+ error:
+  return ret;
 }
 
 
@@ -2464,20 +2623,14 @@ login(struct sp_session *session, struct sp_cmdargs *cmdargs)
 
   session->bitrate_preferred = SP_BITRATE_320;
 
-  session->incoming = evbuffer_new();
-  session->handshake_packets = evbuffer_new();
-  session->msg_next_ev = event_new(sp_evbase, -1, 0, msg_next_cb, session);
-
-  crypto_keys_set(&session->keys);
-
-  ret = ap_connect(session);
+  // Now check if we can login by attempting connection to an access point
+  ret = ap_connect(&session->conn, session);
   if (ret < 0)
     RETURN_ERROR(ret, sp_errmsg);
 
-  // Send login request
   ret = msg_send(MSG_TYPE_CLIENT_HELLO, session);
   if (ret < 0)
-    RETURN_ERROR(SP_NOCONNECTION, "Could not send request");
+    RETURN_ERROR(ret, sp_errmsg);
 
   // Add to linked list
   session->next = sp_sessions;
@@ -2492,6 +2645,17 @@ login(struct sp_session *session, struct sp_cmdargs *cmdargs)
   free(cmdargs->token);
   session_free(session);
   return ret;
+}
+
+static int
+logout(struct sp_session *session, struct sp_cmdargs *cmdargs)
+{
+  session_cleanup(session);
+
+  if (sp_cb.logged_out)
+    sp_cb.logged_out(sp_cb_arg);
+
+  return 0;
 }
 
 // Covers all the boiler-plate
@@ -2524,7 +2688,8 @@ command_receive(void *arg, int *retval)
   return COMMAND_END;
 
  error:
-  sp_cb.error(session, sp_cb_arg, ret, sp_errmsg);
+  if (sp_cb.error)
+    sp_cb.error(sp_cb_arg, ret, sp_errmsg);
 
   *retval = ret;
   return COMMAND_END;
@@ -2673,7 +2838,13 @@ spotifyc_login_token(const char *username, uint8_t *token, size_t token_len)
 void
 spotifyc_logout(struct sp_session *session)
 {
-  // TODO
+  struct sp_cmdargs *cmdargs = calloc(1, sizeof(struct sp_cmdargs));
+
+  cmdargs->session         = session;
+  cmdargs->handler         = logout;
+
+  commands_exec_async(sp_cmdbase, command_receive, cmdargs);
+
   return;
 }
 
@@ -2726,8 +2897,16 @@ spotifyc_init(struct sp_callbacks *callbacks, void *callback_arg)
 void
 spotifyc_deinit()
 {
+  struct sp_session *session;
+
   commands_base_destroy(sp_cmdbase);
   sp_cmdbase = NULL;
+
+  for (session = sp_sessions; sp_sessions; session = sp_sessions)
+    {
+      sp_sessions = session->next;
+      session_free(session);
+    }
 
   event_base_free(sp_evbase);
   sp_evbase = NULL;

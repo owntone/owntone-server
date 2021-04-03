@@ -95,7 +95,7 @@ got_reply(struct global_ctx *ctx)
 }
 
 static void
-error_cb(struct sp_session *session, void *cb_arg, int err, const char *errmsg)
+error_cb(void *cb_arg, int err, const char *errmsg)
 {
   struct global_ctx *ctx = cb_arg;
 
@@ -153,7 +153,7 @@ logged_in_cb(struct sp_session *session, void *cb_arg, struct sp_credentials *cr
 }
 
 static void
-logged_out_cb(struct sp_session *session, void *cb_arg, struct sp_credentials *credentials)
+logged_out_cb(void *cb_arg)
 {
   db_admin_delete("spotify_username");
   db_admin_delete("spotify_stored_cred");
@@ -168,6 +168,8 @@ static void
 track_opened_cb(struct sp_session *session, void *cb_arg, int fd)
 {
   struct global_ctx *ctx = cb_arg;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "track_opened_cb()\n");
 
   pthread_mutex_lock(&ctx->lock);
 
@@ -228,10 +230,23 @@ https_get_cb(char **out, const char *url)
   return -1;
 }
 
+static int
+tcp_connect(const char *address, unsigned short port)
+{
+  return net_connect(address, port, SOCK_STREAM, "spotify");
+}
+
+static void
+tcp_disconnect(int fd)
+{
+  close(fd);
+}
+
 static void
 logmsg_cb(const char *fmt, ...)
 {
-/*  va_list ap;
+/*
+  va_list ap;
 
   va_start(ap, fmt);
   DVPRINTF(E_DBG, L_SPOTIFY, fmt, ap);
@@ -254,7 +269,10 @@ struct sp_callbacks callbacks = {
   .logged_out   = logged_out_cb,
   .track_opened = track_opened_cb,
   .track_closed = track_closed_cb,
+
   .https_get    = https_get_cb,
+  .tcp_connect  = tcp_connect,
+  .tcp_disconnect = tcp_disconnect,
 
   .hexdump  = hexdump_cb,
   .logmsg   = logmsg_cb,
@@ -426,6 +444,7 @@ play(struct input_source *source)
     {
       input_write(source->evbuf, &source->quality, INPUT_FLAG_EOF);
       stop(source);
+      return -1;
     }
   else if (ret < 0)
     goto error;

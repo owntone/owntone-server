@@ -26,14 +26,16 @@ struct sp_credentials
 struct sp_callbacks
 {
   void (*logged_in)(struct sp_session *session, void *cb_arg, struct sp_credentials *credentials);
-  void (*logged_out)(struct sp_session *session, void *cb_arg, struct sp_credentials *credentials);
+  void (*logged_out)(void *cb_arg);
   void (*track_opened)(struct sp_session *session, void *cb_arg, int fd);
   void (*track_closed)(struct sp_session *session, void *cb_arg, int fd);
   void (*track_seeked)(struct sp_session *session, void *cb_arg, int fd);
-  void (*error)(struct sp_session *session, void *cb_arg, int err, const char *errmsg);
+  void (*error)(void *cb_arg, int err, const char *errmsg);
 
-  // Bring your own https client
+  // Bring your own https client and tcp connector
   int (*https_get)(char **body, const char *url);
+  int (*tcp_connect)(const char *address, unsigned short port);
+  void (*tcp_disconnect)(int fd);
 
   // Debugging
   void (*hexdump)(const char *msg, uint8_t *data, size_t data_len);
