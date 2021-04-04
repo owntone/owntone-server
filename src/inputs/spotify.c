@@ -49,6 +49,8 @@ struct playback_ctx
   int read_fd;
   struct evbuffer *read_buf;
   size_t read_bytes;
+
+  uint32_t len_ms;
 };
 
 static struct global_ctx spotify_ctx;
@@ -287,7 +289,7 @@ playback_xcode_setup(struct playback_ctx *playback)
 
   CHECK_NULL(L_SPOTIFY, xcode = malloc(sizeof(struct transcode_ctx)));
 
-  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, playback->read_buf, 0);
+  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, playback->read_buf, playback->len_ms);
   if (!xcode->decode_ctx)
     goto error;
 
@@ -328,6 +330,7 @@ playback_new(struct input_source *source, int fd)
   CHECK_NULL(L_SPOTIFY, playback->read_buf = evbuffer_new());
 
   playback->read_fd = fd;
+  playback->len_ms = source->len_ms;
 
   return playback;
 }
