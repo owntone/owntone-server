@@ -769,7 +769,7 @@ input_read(void *data, size_t size, short *flag, void **flagdata)
   if (*flag || (debug_elapsed > 10 * one_sec_size))
     {
       debug_elapsed = 0;
-      DPRINTF(E_DBG, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), SIZE %zu (=%zu), FLAGS %04x\n",
+      DPRINTF(E_DBG, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), DIFF %zu, SIZE %zu/%d, FLAGS %04x\n",
         input_buffer.bytes_read,
         input_buffer.cur_read_quality.sample_rate,
         input_buffer.cur_read_quality.bits_per_sample,
@@ -778,8 +778,9 @@ input_read(void *data, size_t size, short *flag, void **flagdata)
         input_buffer.cur_write_quality.sample_rate,
         input_buffer.cur_write_quality.bits_per_sample,
         input_buffer.cur_write_quality.channels,
-        evbuffer_get_length(input_buffer.evbuf),
         input_buffer.bytes_written - input_buffer.bytes_read,
+        evbuffer_get_length(input_buffer.evbuf),
+        INPUT_BUFFER_THRESHOLD,
         *flag);
     }
 #endif
