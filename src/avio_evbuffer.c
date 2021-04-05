@@ -48,7 +48,8 @@ avio_evbuffer_read(void *opaque, uint8_t *buf, int size)
 
   ret = evbuffer_remove(ae->evbuf, buf, size);
 
-  return ret;
+  // Must return AVERROR, see avio.h: avio_alloc_context()
+  return (ret > 0) ? ret : AVERROR_EOF;
 }
 
 static int
