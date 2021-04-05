@@ -401,6 +401,8 @@ setup(struct input_source *source)
 
   source->quality = spotify_quality;
 
+  // FIXME This makes sure we get the beginning of the file for ffmpeg to probe,
+  // but it doesn't work well if the player seeks after setup()
   ret = spotifyc_play(fd);
   if (ret < 0)
     goto error;
@@ -441,8 +443,9 @@ play(struct input_source *source)
 	goto error;
     }
 
-  // Decode the Ogg Vorbis to PCM
-  ret = transcode(source->evbuf, NULL, playback->xcode, 1);
+  // Decode the Ogg Vorbis to PCM in chunks of 16 packets, which seems to keep
+  // the input buffer nice and full
+  ret = transcode(source->evbuf, NULL, playback->xcode, 16);
   if (ret == 0)
     {
       input_write(source->evbuf, &source->quality, INPUT_FLAG_EOF);
@@ -451,6 +454,11 @@ play(struct input_source *source)
     }
   else if (ret < 0)
     goto error;
+
+//  debug_count++;
+//  if (debug_count % 100 == 0)
+//    DPRINTF(E_DBG, L_SPOTIFY, "source->evbuf is %zu, playback->read_buf %zu, got is %d\n",
+//      evbuffer_get_length(source->evbuf), evbuffer_get_length(playback->read_buf), got);
 
   input_write(source->evbuf, &source->quality, 0);
 
