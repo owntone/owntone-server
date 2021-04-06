@@ -188,6 +188,8 @@ enum probe_type
 struct avio_evbuffer {
   struct evbuffer *evbuf;
   uint8_t *buffer;
+  transcode_seekfn seekfn;
+  void *seekfn_arg;
 };
 
 
@@ -809,8 +811,27 @@ avio_evbuffer_write(void *opaque, uint8_t *buf, int size)
   return (ret == 0) ? size : -1;
 }
 
+static int64_t
+avio_evbuffer_seek(void *opaque, int64_t offset, int whence)
+{
+  struct avio_evbuffer *ae = (struct avio_evbuffer *)opaque;
+  enum transcode_seek_type seek_type;
+
+  // Caller shouldn't need to know about ffmpeg defines
+  if (whence & AVSEEK_SIZE)
+    seek_type = XCODE_SEEK_SIZE;
+  else if (whence == SEEK_SET)
+    seek_type = XCODE_SEEK_SET;
+  else if (whence == SEEK_CUR)
+    seek_type = XCODE_SEEK_CUR;
+  else
+    return -1;
+
+  return ae->seekfn(ae->seekfn_arg, offset, seek_type);
+}
+
 static AVIOContext *
-avio_evbuffer_open(struct evbuffer *evbuf, int is_output)
+avio_evbuffer_open(struct transcode_evbuf_io *evbuf_io, int is_output)
 {
   struct avio_evbuffer *ae;
   AVIOContext *s;
@@ -832,12 +853,14 @@ avio_evbuffer_open(struct evbuffer *evbuf, int is_output)
       return NULL;
     }
 
-  ae->evbuf = evbuf;
+  ae->evbuf = evbuf_io->evbuf;
+  ae->seekfn = evbuf_io->seekfn;
+  ae->seekfn_arg = evbuf_io->seekfn_arg;
 
   if (is_output)
     s = avio_alloc_context(ae->buffer, AVIO_BUFFER_SIZE, 1, ae, NULL, avio_evbuffer_write, NULL);
   else
-    s = avio_alloc_context(ae->buffer, AVIO_BUFFER_SIZE, 0, ae, avio_evbuffer_read, NULL, NULL);
+    s = avio_alloc_context(ae->buffer, AVIO_BUFFER_SIZE, 0, ae, avio_evbuffer_read, NULL, (evbuf_io->seekfn ? avio_evbuffer_seek : NULL));
 
   if (!s)
     {
@@ -848,21 +871,30 @@ avio_evbuffer_open(struct evbuffer *evbuf, int is_output)
       return NULL;
     }
 
+  // 0 here does not seem to mean not seekable, because ffmpeg will still call
+  // avio_evbuffer_seek. If set to AVIO_SEEKABLE_NORMAL then ffmpeg seems to
+  // make random access seek requests during input_open (i.e. asking for start
+  // and end of file), which are hard to fulfill when the source is something
+  // that is downloaded.
   s->seekable = 0;
 
   return s;
 }
 
 static AVIOContext *
-avio_input_evbuffer_open(struct evbuffer *evbuf)
+avio_input_evbuffer_open(struct transcode_evbuf_io *evbuf_io)
 {
-  return avio_evbuffer_open(evbuf, 0);
+  return avio_evbuffer_open(evbuf_io, 0);
 }
 
 static AVIOContext *
 avio_output_evbuffer_open(struct evbuffer *evbuf)
 {
-  return avio_evbuffer_open(evbuf, 1);
+  struct transcode_evbuf_io evbuf_io = { 0 };
+
+  evbuf_io.evbuf = evbuf;
+
+  return avio_evbuffer_open(&evbuf_io, 1);
 }
 
 static void
@@ -933,7 +965,7 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
 }
 
 static int
-open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf, enum probe_type probe_type)
+open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *evbuf_io, enum probe_type probe_type)
 {
   AVDictionary *options = NULL;
   AVCodecContext *dec_ctx;
@@ -973,7 +1005,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf, enu
   ctx->ifmt_ctx->interrupt_callback.opaque = ctx;
   ctx->timestamp = av_gettime();
 
-  if (evbuf)
+  if (evbuf_io)
     {
       ifmt = av_find_input_format(ctx->settings.in_format);
       if (!ifmt)
@@ -982,7 +1014,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf, enu
 	  goto out_fail;
 	}
 
-      CHECK_NULL(L_XCODE, ctx->avio = avio_input_evbuffer_open(evbuf));
+      CHECK_NULL(L_XCODE, ctx->avio = avio_input_evbuffer_open(evbuf_io));
 
       ctx->ifmt_ctx->pb = ctx->avio;
       ret = avformat_open_input(&ctx->ifmt_ctx, NULL, ifmt, &options);
@@ -1344,7 +1376,7 @@ close_filters(struct encode_ctx *ctx)
 /*                                  Setup                                    */
 
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length)
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t song_length)
 {
   struct decode_ctx *ctx;
   int ret;
@@ -1362,14 +1394,14 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
 
   if (data_kind == DATA_KIND_HTTP)
     {
-      ret = open_input(ctx, path, evbuf, PROBE_TYPE_QUICK);
+      ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_QUICK);
 
       // Retry with a default, slower probe size
       if (ret == AVERROR_STREAM_NOT_FOUND)
-	ret = open_input(ctx, path, evbuf, PROBE_TYPE_DEFAULT);
+	ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_DEFAULT);
     }
   else
-    ret = open_input(ctx, path, evbuf, PROBE_TYPE_DEFAULT);
+    ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_DEFAULT);
 
   if (ret < 0)
     goto fail_free;
