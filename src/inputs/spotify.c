@@ -46,8 +46,10 @@ struct playback_ctx
 {
   struct transcode_ctx *xcode;
 
-  int read_fd;
+  // This buffer gets fairly large, since it reads and holds the Ogg track that
+  // spotifyc downloads. It has no write limit, unlike the input buffer.
   struct evbuffer *read_buf;
+  int read_fd;
   size_t read_bytes;
 
   uint32_t len_ms;
@@ -286,10 +288,13 @@ static int
 playback_xcode_setup(struct playback_ctx *playback)
 {
   struct transcode_ctx *xcode;
+  struct transcode_evbuf_io xcode_evbuf_io = { 0 };
 
   CHECK_NULL(L_SPOTIFY, xcode = malloc(sizeof(struct transcode_ctx)));
 
-  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, playback->read_buf, playback->len_ms);
+  xcode_evbuf_io.evbuf = playback->read_buf;
+
+  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, &xcode_evbuf_io, playback->len_ms);
   if (!xcode->decode_ctx)
     goto error;
 
