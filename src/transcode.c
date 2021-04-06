@@ -39,7 +39,6 @@
 #include "logger.h"
 #include "conffile.h"
 #include "db.h"
-#include "avio_evbuffer.h"
 #include "misc.h"
 #include "transcode.h"
 
@@ -51,6 +50,8 @@
 #define MAX_BAD_PACKETS 5
 // How long to wait (in microsec) before interrupting av_read_frame
 #define READ_TIMEOUT 30000000
+// Buffer size for reading/writing input and output evbuffers
+#define AVIO_BUFFER_SIZE 4096
 
 static const char *default_codecs = "mpeg,wav";
 static const char *roku_codecs = "mpeg,mp4a,wma,alac,wav";
@@ -183,6 +184,12 @@ enum probe_type
   PROBE_TYPE_DEFAULT,
   PROBE_TYPE_QUICK,
 };
+
+struct avio_evbuffer {
+  struct evbuffer *evbuf;
+  uint8_t *buffer;
+};
+
 
 /* -------------------------- PROFILE CONFIGURATION ------------------------ */
 
@@ -774,6 +781,106 @@ read_decode_filter_encode_write(struct transcode_ctx *ctx)
     ret = decode_filter_encode_write(ctx, &dec_ctx->video_stream, dec_ctx->packet, type);
 
   return ret;
+}
+
+/* ------------------------------- CUSTOM I/O ------------------------------ */
+/*      For using ffmpeg with evbuffer input/output instead of files         */
+
+static int
+avio_evbuffer_read(void *opaque, uint8_t *buf, int size)
+{
+  struct avio_evbuffer *ae = (struct avio_evbuffer *)opaque;
+  int ret;
+
+  ret = evbuffer_remove(ae->evbuf, buf, size);
+
+  // Must return AVERROR, see avio.h: avio_alloc_context()
+  return (ret > 0) ? ret : AVERROR_EOF;
+}
+
+static int
+avio_evbuffer_write(void *opaque, uint8_t *buf, int size)
+{
+  struct avio_evbuffer *ae = (struct avio_evbuffer *)opaque;
+  int ret;
+
+  ret = evbuffer_add(ae->evbuf, buf, size);
+
+  return (ret == 0) ? size : -1;
+}
+
+static AVIOContext *
+avio_evbuffer_open(struct evbuffer *evbuf, int is_output)
+{
+  struct avio_evbuffer *ae;
+  AVIOContext *s;
+
+  ae = calloc(1, sizeof(struct avio_evbuffer));
+  if (!ae)
+    {
+      DPRINTF(E_LOG, L_FFMPEG, "Out of memory for avio_evbuffer\n");
+
+      return NULL;
+    }
+
+  ae->buffer = av_mallocz(AVIO_BUFFER_SIZE);
+  if (!ae->buffer)
+    {
+      DPRINTF(E_LOG, L_FFMPEG, "Out of memory for avio buffer\n");
+
+      free(ae);
+      return NULL;
+    }
+
+  ae->evbuf = evbuf;
+
+  if (is_output)
+    s = avio_alloc_context(ae->buffer, AVIO_BUFFER_SIZE, 1, ae, NULL, avio_evbuffer_write, NULL);
+  else
+    s = avio_alloc_context(ae->buffer, AVIO_BUFFER_SIZE, 0, ae, avio_evbuffer_read, NULL, NULL);
+
+  if (!s)
+    {
+      DPRINTF(E_LOG, L_FFMPEG, "Could not allocate AVIOContext\n");
+
+      av_free(ae->buffer);
+      free(ae);
+      return NULL;
+    }
+
+  s->seekable = 0;
+
+  return s;
+}
+
+static AVIOContext *
+avio_input_evbuffer_open(struct evbuffer *evbuf)
+{
+  return avio_evbuffer_open(evbuf, 0);
+}
+
+static AVIOContext *
+avio_output_evbuffer_open(struct evbuffer *evbuf)
+{
+  return avio_evbuffer_open(evbuf, 1);
+}
+
+static void
+avio_evbuffer_close(AVIOContext *s)
+{
+  struct avio_evbuffer *ae;
+
+  if (!s)
+    return;
+
+  ae = (struct avio_evbuffer *)s->opaque;
+
+  avio_flush(s);
+
+  av_free(s->buffer);
+  free(ae);
+
+  av_free(s);
 }
 
 
