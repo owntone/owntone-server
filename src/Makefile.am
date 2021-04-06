@@ -113,7 +113,6 @@ owntone_SOURCES = main.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
 	remote_pairing.c remote_pairing.h \
-	avio_evbuffer.c avio_evbuffer.h \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \
