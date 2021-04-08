@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <stdint.h>
 
+#include <fcntl.h>
+
 #include <event2/event.h>
 
 #include "input.h"
@@ -30,7 +32,16 @@
 #include "spotify.h"
 #include "spotifyc/spotifyc.h"
 
-#define SPOTIFY_PROBE_SIZE_MIN 65536
+// Haven't actually studied ffmpeg's probe size requirements, this is just a
+// guess
+#define SPOTIFY_PROBE_SIZE_MIN 16384
+
+// The transcoder will say EOF if too little data is provided to it
+#define SPOTIFY_BUF_MIN 4096
+
+// Limits how much of the Spotify Ogg file we fetch and buffer (in read_buf).
+// This will also in effect throttle spotifyc.
+#define SPOTIFY_BUF_MAX (512 * 1024)
 
 struct global_ctx
 {
@@ -42,22 +53,21 @@ struct global_ctx
   struct spotify_status status;
 };
 
-struct playback_ctx
+struct download_ctx
 {
+  bool is_started;
+  bool is_ended;
   struct transcode_ctx *xcode;
 
-  // This buffer gets fairly large, since it reads and holds the Ogg track that
-  // spotifyc downloads. It has no write limit, unlike the input buffer.
   struct evbuffer *read_buf;
   int read_fd;
-  size_t read_bytes;
 
   uint32_t len_ms;
+  size_t len_bytes;
 };
 
 static struct global_ctx spotify_ctx;
 
-static bool db_is_initialized;
 static struct media_quality spotify_quality = { 44100, 16, 2, 0 };
 
 
@@ -84,120 +94,45 @@ hextobin(uint8_t *data, size_t data_len, const char *hexstr, size_t hexstr_len)
     }
 }
 
+// If there is evbuf size is below max, reads from a non-blocking fd until error,
+// EAGAIN or evbuf full
+static int
+fd_read(bool *eofptr, struct evbuffer *evbuf, int fd)
+{
+  size_t len = evbuffer_get_length(evbuf);
+  bool eof = false;
+  int total = 0;
+  int ret = 0;
+
+  while (len + total < SPOTIFY_BUF_MAX && !eof)
+    {
+      ret = evbuffer_read(evbuf, fd, -1); // Each read is 4096 bytes (EVBUFFER_READ_MAX)
+      if (ret == 0)
+	eof = true;
+      else if (ret < 0)
+	break;
+
+      total += ret;
+    }
+
+  if (eofptr)
+    *eofptr = eof;
+
+  if (eof)
+    DPRINTF(E_DBG, L_SPOTIFY, "fd_read said eof, ret is %d, total is %d\n", ret, total);
+
+  if (ret < 0 && errno != EAGAIN)
+    return ret;
+
+  return total;
+}
 
 /* -------------------- Callbacks from spotifyc thread ---------------------- */
 
 static void
-got_reply(struct global_ctx *ctx)
+progress_cb(int fd, void *cb_arg, size_t received, size_t len)
 {
-  pthread_mutex_lock(&ctx->lock);
-
-  ctx->response_pending = false;
-
-  pthread_cond_signal(&ctx->cond);
-  pthread_mutex_unlock(&ctx->lock);
-}
-
-static void
-error_cb(void *cb_arg, int err, const char *errmsg)
-{
-  struct global_ctx *ctx = cb_arg;
-
-  got_reply(ctx);
-
-  DPRINTF(E_LOG, L_SPOTIFY, "%s (error code %d)\n", errmsg, err);
-}
-
-static void
-logged_in_cb(struct sp_session *session, void *cb_arg, struct sp_credentials *credentials)
-{
-  struct global_ctx *ctx = cb_arg;
-  char *db_stored_cred;
-  char *ptr;
-  int ret;
-  int i;
-
-  if (!db_is_initialized)
-    {
-      ret = db_perthread_init();
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Error: DB init failed (spotify thread)\n");
-	  return;
-	}
-
-      db_is_initialized = true;
-    }
-
-  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully\n");
-
-  if (!credentials->username || !credentials->stored_cred)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "No credentials returned by Spotify, automatic login will not be possible\n");
-      return;
-    }
-
-  db_stored_cred = malloc(2 * credentials->stored_cred_len +1);
-  for (i = 0, ptr = db_stored_cred; i < credentials->stored_cred_len; i++)
-    ptr += sprintf(ptr, "%02x", credentials->stored_cred[i]);
-
-  db_admin_set("spotify_username", credentials->username);
-  db_admin_set("spotify_stored_cred", db_stored_cred);
-
-  free(db_stored_cred);
-
-  pthread_mutex_lock(&ctx->lock);
-
-  ctx->response_pending = false;
-  ctx->status.logged_in = true;
-  snprintf(ctx->status.username, sizeof(ctx->status.username), "%s", credentials->username);
-
-  pthread_cond_signal(&ctx->cond);
-  pthread_mutex_unlock(&ctx->lock);
-}
-
-static void
-logged_out_cb(void *cb_arg)
-{
-  db_admin_delete("spotify_username");
-  db_admin_delete("spotify_stored_cred");
-
-  if (db_is_initialized)
-    db_perthread_deinit();
-
-  db_is_initialized = false;
-}
-
-static void
-track_opened_cb(struct sp_session *session, void *cb_arg, int fd)
-{
-  struct global_ctx *ctx = cb_arg;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "track_opened_cb()\n");
-
-  pthread_mutex_lock(&ctx->lock);
-
-  ctx->response_pending = false;
-  ctx->status.track_opened = true;
-
-  pthread_cond_signal(&ctx->cond);
-  pthread_mutex_unlock(&ctx->lock);
-}
-
-static void
-track_closed_cb(struct sp_session *session, void *cb_arg, int fd)
-{
-  struct global_ctx *ctx = cb_arg;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "track_closed_cb()\n");
-
-  pthread_mutex_lock(&ctx->lock);
-
-  ctx->response_pending = false;
-  ctx->status.track_opened = false;
-
-  pthread_cond_signal(&ctx->cond);
-  pthread_mutex_unlock(&ctx->lock);
+  DPRINTF(E_DBG, L_SPOTIFY, "Progress %zu/%zu\n", received, len);
 }
 
 static int
@@ -249,13 +184,11 @@ tcp_disconnect(int fd)
 static void
 logmsg_cb(const char *fmt, ...)
 {
-/*
   va_list ap;
 
   va_start(ap, fmt);
   DVPRINTF(E_DBG, L_SPOTIFY, fmt, ap);
   va_end(ap);
-*/
 }
 
 static void
@@ -268,33 +201,73 @@ hexdump_cb(const char *msg, uint8_t *data, size_t data_len)
 /* --------------------- Implementation (input thread) ---------------------- */
 
 struct sp_callbacks callbacks = {
-  .error        = error_cb,
-  .logged_in    = logged_in_cb,
-  .logged_out   = logged_out_cb,
-  .track_opened = track_opened_cb,
-  .track_closed = track_closed_cb,
-
-  .https_get    = https_get_cb,
-  .tcp_connect  = tcp_connect,
+  .https_get      = https_get_cb,
+  .tcp_connect    = tcp_connect,
   .tcp_disconnect = tcp_disconnect,
 
   .hexdump  = hexdump_cb,
   .logmsg   = logmsg_cb,
 };
 
+static int64_t
+download_seek(void *arg, int64_t offset, enum transcode_seek_type type)
+{
+  struct global_ctx *ctx = &spotify_ctx;
+  struct download_ctx *download = arg;
+  int64_t out;
+  int ret;
+
+  pthread_mutex_lock(&ctx->lock);
+
+  switch (type)
+    {
+      case XCODE_SEEK_SIZE:
+	out = download->len_bytes;
+	break;
+      case XCODE_SEEK_SET:
+	// Flush read buffer
+	evbuffer_drain(download->read_buf, -1);
+
+	ret = spotifyc_seek(download->read_fd, offset);
+	if (ret < 0)
+	  goto error;
+
+	fd_read(NULL, download->read_buf, download->read_fd);
+
+	out = offset;
+	break;
+      default:
+	goto error;
+    }
+
+  pthread_mutex_unlock(&ctx->lock);
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Seek to offset %" PRIi64 " requested, type %d, returning %" PRIi64 "\n", offset, type, out);
+
+  return out;
+
+ error:
+  DPRINTF(E_WARN, L_SPOTIFY, "Seek error\n");
+
+  pthread_mutex_unlock(&ctx->lock);
+  return -1;
+}
+
 // Has to be called after we have started receiving data, since ffmpeg needs to
 // probe the data to find the audio streams
 static int
-playback_xcode_setup(struct playback_ctx *playback)
+download_xcode_setup(struct download_ctx *download)
 {
   struct transcode_ctx *xcode;
   struct transcode_evbuf_io xcode_evbuf_io = { 0 };
 
   CHECK_NULL(L_SPOTIFY, xcode = malloc(sizeof(struct transcode_ctx)));
 
-  xcode_evbuf_io.evbuf = playback->read_buf;
+  xcode_evbuf_io.evbuf = download->read_buf;
+  xcode_evbuf_io.seekfn = download_seek;
+  xcode_evbuf_io.seekfn_arg = download;
 
-  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, &xcode_evbuf_io, playback->len_ms);
+  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, &xcode_evbuf_io, download->len_ms);
   if (!xcode->decode_ctx)
     goto error;
 
@@ -302,7 +275,7 @@ playback_xcode_setup(struct playback_ctx *playback)
   if (!xcode->encode_ctx)
     goto error;
 
-  playback->xcode = xcode;
+  download->xcode = xcode;
 
   return 0;
 
@@ -312,58 +285,53 @@ playback_xcode_setup(struct playback_ctx *playback)
 }
 
 static void
-playback_free(struct playback_ctx *playback)
+download_free(struct download_ctx *download)
 {
-  if (!playback)
+  if (!download)
     return;
 
-  if (playback->read_buf)
-    evbuffer_free(playback->read_buf);
-  if (playback->read_fd >= 0)
-    close(playback->read_fd);
+  if (download->read_fd >= 0)
+    spotifyc_close(download->read_fd);
 
-  transcode_cleanup(&playback->xcode);
-  free(playback);
+  if (download->read_buf)
+    evbuffer_free(download->read_buf);
+
+  transcode_cleanup(&download->xcode);
+  free(download);
 }
 
-static struct playback_ctx *
-playback_new(struct input_source *source, int fd)
+static struct download_ctx *
+download_new(int fd, uint32_t len_ms, size_t len_bytes)
 {
-  struct playback_ctx *playback;
+  struct download_ctx *download;
 
-  CHECK_NULL(L_SPOTIFY, playback = calloc(1, sizeof(struct playback_ctx)));
-  CHECK_NULL(L_SPOTIFY, playback->read_buf = evbuffer_new());
+  CHECK_NULL(L_SPOTIFY, download = calloc(1, sizeof(struct download_ctx)));
+  CHECK_NULL(L_SPOTIFY, download->read_buf = evbuffer_new());
 
-  playback->read_fd = fd;
-  playback->len_ms = source->len_ms;
+  download->read_fd = fd;
+  download->len_ms = len_ms;
+  download->len_bytes = len_bytes;
 
-  return playback;
+  return download;
 }
 
 static int
 stop(struct input_source *source)
 {
   struct global_ctx *ctx = &spotify_ctx;
-  struct playback_ctx *playback = source->input_ctx;
+  struct download_ctx *download = source->input_ctx;
+
+  DPRINTF(E_LOG, L_SPOTIFY, "stop()\n");
 
   pthread_mutex_lock(&ctx->lock);
 
-  if (playback)
-    {
-      // Only need to request stop if spotifyc still has the track open
-      if (ctx->status.track_opened)
-	spotifyc_stop(playback->read_fd);
-
-      playback_free(playback);
-    }
+  download_free(download);
 
   if (source->evbuf)
     evbuffer_free(source->evbuf);
 
   source->input_ctx = NULL;
   source->evbuf = NULL;
-
-  ctx->status.track_opened = false;
 
   pthread_mutex_unlock(&ctx->lock);
 
@@ -374,41 +342,49 @@ static int
 setup(struct input_source *source)
 {
   struct global_ctx *ctx = &spotify_ctx;
-  int ret;
+  struct download_ctx *download;
+  struct sp_metadata metadata;
+  int probe_bytes;
   int fd;
+  int ret;
+
+  DPRINTF(E_LOG, L_SPOTIFY, "setup()\n");
 
   pthread_mutex_lock(&ctx->lock);
 
   fd = spotifyc_open(source->path, ctx->session);
   if (fd < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create fd for Spotify playback\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Eror opening source: %s\n", spotifyc_last_errmsg());
       goto error;
     }
 
-  ctx->response_pending = true;
-  while (ctx->response_pending)
-    pthread_cond_wait(&ctx->cond, &ctx->lock);
-
-  if (!ctx->status.track_opened)
+  ret = spotifyc_metadata_get(&metadata, fd);
+  if (ret < 0)
     {
-      close(fd);
+      DPRINTF(E_LOG, L_SPOTIFY, "Error getting track metadata: %s\n", spotifyc_last_errmsg());
       goto error;
     }
 
   // Seems we have a valid source, now setup a read + decoding context. The
-  // closing of the fd is from now on part of closing the playback_ctx, which is
+  // closing of the fd is from now on part of closing the download_ctx, which is
   // done in stop().
-  source->evbuf = evbuffer_new();
-  source->input_ctx = playback_new(source, fd);
-  if (!source->evbuf || !source->input_ctx)
-    goto error;
+  download = download_new(fd, source->len_ms, metadata.file_len);
+
+  CHECK_NULL(L_SPOTIFY, source->evbuf = evbuffer_new());
+  CHECK_NULL(L_SPOTIFY, source->input_ctx = download);
 
   source->quality = spotify_quality;
 
-  // FIXME This makes sure we get the beginning of the file for ffmpeg to probe,
-  // but it doesn't work well if the player seeks after setup()
-  ret = spotifyc_play(fd);
+  // At this point enough bytes should be ready for transcode setup (ffmpeg probing)
+  probe_bytes = fd_read(NULL, download->read_buf, fd);
+  if (probe_bytes < SPOTIFY_PROBE_SIZE_MIN)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Not enough audio data for ffmpeg probing (%d)\n", probe_bytes);
+      goto error;
+    }
+
+  ret = download_xcode_setup(download);
   if (ret < 0)
     goto error;
 
@@ -425,32 +401,32 @@ setup(struct input_source *source)
 static int
 play(struct input_source *source)
 {
-  struct playback_ctx *playback = source->input_ctx;
-  int got;
+  struct download_ctx *download = source->input_ctx;
+  size_t buflen;
   int ret;
 
-  got = evbuffer_read(playback->read_buf, playback->read_fd, -1);
-  if (got < 0)
-    goto error;
-
-  // ffmpeg requires enough data to be able to probe the Ogg
-  playback->read_bytes += got;
-  if (playback->read_bytes < SPOTIFY_PROBE_SIZE_MIN)
+  // Starts the download. We don't do that in setup because the player/input
+  // might run seek() before starting download.
+  if (!download->is_started)
     {
-      input_wait();
-      return 0;
+      spotifyc_write(download->read_fd, progress_cb, download);
+      download->is_started = true;
     }
 
-  if (!playback->xcode)
+  if (!download->is_ended)
     {
-      ret = playback_xcode_setup(playback);
+      ret = fd_read(&download->is_ended, download->read_buf, download->read_fd);
       if (ret < 0)
-	goto error;
+        goto error;
+
+      buflen = evbuffer_get_length(download->read_buf);
+      if (buflen < SPOTIFY_BUF_MIN)
+	goto wait;
     }
 
-  // Decode the Ogg Vorbis to PCM in chunks of 16 packets, which seems to keep
-  // the input buffer nice and full
-  ret = transcode(source->evbuf, NULL, playback->xcode, 16);
+  // Decode the Ogg Vorbis to PCM in chunks of 16 packets, which is pretty much
+  // a randomly chosen chunk size
+  ret = transcode(source->evbuf, NULL, download->xcode, 16);
   if (ret == 0)
     {
       input_write(source->evbuf, &source->quality, INPUT_FLAG_EOF);
@@ -460,12 +436,9 @@ play(struct input_source *source)
   else if (ret < 0)
     goto error;
 
-//  debug_count++;
-//  if (debug_count % 100 == 0)
-//    DPRINTF(E_DBG, L_SPOTIFY, "source->evbuf is %zu, playback->read_buf %zu, got is %d\n",
-//      evbuffer_get_length(source->evbuf), evbuffer_get_length(playback->read_buf), got);
-
-  input_write(source->evbuf, &source->quality, 0);
+  ret = input_write(source->evbuf, &source->quality, 0);
+  if (ret == EAGAIN)
+    goto wait;
 
   return 0;
 
@@ -473,12 +446,21 @@ play(struct input_source *source)
   input_write(NULL, NULL, INPUT_FLAG_ERROR);
   stop(source);
   return -1;
+
+ wait:
+  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for data\n");
+  input_wait();
+  return 0;
 }
 
 static int
 seek(struct input_source *source, int seek_ms)
 {
-  return -1;
+  struct download_ctx *download = source->input_ctx;
+
+  // This will make transcode call back to download_seek(), but with a byte
+  // offset instead of a ms position, which is what spotifyc requires
+  return transcode_seek(download->xcode, seek_ms);
 }
 
 static int
@@ -489,14 +471,18 @@ init(void)
   size_t db_stored_cred_len;
   uint8_t *stored_cred = NULL;
   size_t stored_cred_len;
+  struct sp_credentials credentials;
   int ret;
 
   CHECK_ERR(L_SPOTIFY, mutex_init(&spotify_ctx.lock));
   CHECK_ERR(L_SPOTIFY, pthread_cond_init(&spotify_ctx.cond, NULL));
 
-  ret = spotifyc_init(&callbacks, &spotify_ctx);
+  ret = spotifyc_init(&callbacks);
   if (ret < 0)
-    goto error;
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error initializing Spotify: %s\n", spotifyc_last_errmsg());
+      goto error;
+    }
 
   if ( db_admin_get(&username, "spotify_username") < 0 ||
        db_admin_get(&db_stored_cred, "spotify_stored_cred") < 0 ||
@@ -511,7 +497,22 @@ init(void)
 
   spotify_ctx.session = spotifyc_login_stored_cred(username, stored_cred, stored_cred_len);
   if (!spotify_ctx.session)
-    goto error;
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error logging into Spotify: %s\n", spotifyc_last_errmsg());
+      goto error;
+    }
+
+  ret = spotifyc_credentials_get(&credentials, spotify_ctx.session);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error getting Spotify credentials: %s\n", spotifyc_last_errmsg());
+      goto error;
+    }
+
+  spotify_ctx.status.logged_in = true;
+  snprintf(spotify_ctx.status.username, sizeof(spotify_ctx.status.username), "%s", credentials.username);
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s\n", spotify_ctx.status.username);
 
  end:
   free(username);
@@ -552,30 +553,50 @@ int
 spotify_login_user(const char *user, const char *password, const char **errmsg)
 {
   struct global_ctx *ctx = &spotify_ctx;
+  struct sp_credentials credentials;
+  char *db_stored_cred;
+  char *ptr;
+  int i;
   int ret;
 
   pthread_mutex_lock(&ctx->lock);
 
-  ctx->response_pending = true;
-
   ctx->session = spotifyc_login_password(user, password);
   if (!ctx->session)
-    {
-      pthread_mutex_unlock(&ctx->lock);
-      *errmsg = "Error creating Spotify session";
-      return -1;
-    }
+    goto error;
 
-  while (ctx->response_pending)
-    pthread_cond_wait(&ctx->cond, &ctx->lock);
-
-  ret = ctx->status.logged_in ? 0 : -1;
+  ret = spotifyc_credentials_get(&credentials, ctx->session);
   if (ret < 0)
-    *errmsg = spotifyc_last_errmsg();
+    goto error;
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s\n", credentials.username);
+
+  db_stored_cred = malloc(2 * credentials.stored_cred_len +1);
+  for (i = 0, ptr = db_stored_cred; i < credentials.stored_cred_len; i++)
+    ptr += sprintf(ptr, "%02x", credentials.stored_cred[i]);
+
+  db_admin_set("spotify_username", credentials.username);
+  db_admin_set("spotify_stored_cred", db_stored_cred);
+
+  free(db_stored_cred);
+
+  ctx->status.logged_in = true;
+  snprintf(ctx->status.username, sizeof(ctx->status.username), "%s", credentials.username);
 
   pthread_mutex_unlock(&ctx->lock);
 
-  return ret;
+  return 0;
+
+ error:
+  if (ctx->session)
+    spotifyc_logout(ctx->session);
+  ctx->session = NULL;
+
+  *errmsg = spotifyc_last_errmsg();
+
+  pthread_mutex_unlock(&ctx->lock);
+
+  return -1;
 }
 
 void
@@ -587,7 +608,17 @@ spotify_login(char **arglist)
 void
 spotify_logout(void)
 {
-  return;
+  struct global_ctx *ctx = &spotify_ctx;
+
+  db_admin_delete("spotify_username");
+  db_admin_delete("spotify_stored_cred");
+
+  pthread_mutex_lock(&ctx->lock);
+
+  spotifyc_logout(ctx->session);
+  ctx->session = NULL;
+
+  pthread_mutex_unlock(&ctx->lock);
 }
 
 void

@@ -5,7 +5,10 @@ if COND_SPOTIFY
 SPOTIFY_SRC = \
 	library/spotify_webapi.c library/spotify_webapi.h \
 	inputs/spotify.c inputs/spotify.h \
-	inputs/spotifyc/spotifyc.c inputs/spotifyc/spotifyc.h \
+	inputs/spotifyc/spotifyc.c inputs/spotifyc/spotifyc.h inputs/spotifyc/spotifyc-internal.h \
+	inputs/spotifyc/connection.c inputs/spotifyc/connection.h \
+	inputs/spotifyc/channel.c inputs/spotifyc/channel.h \
+	inputs/spotifyc/crypto.c inputs/spotifyc/crypto.h \
 	inputs/spotifyc/shannon/ShannonFast.c \
 	inputs/spotifyc/shannon/ShannonInternal.h inputs/spotifyc/shannon/Shannon.h \
 	inputs/spotifyc/proto/keyexchange.pb-c.c inputs/spotifyc/proto/keyexchange.pb-c.h \

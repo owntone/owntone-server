@@ -458,6 +458,8 @@ start(void *arg, int *retval)
   struct db_queue_item *queue_item;
   int ret;
 
+  DPRINTF(E_WARN, L_PLAYER, "now %d, item_id %d, now item_id %d\n", input_now_reading.open, cmdarg->item_id, input_now_reading.item_id);
+
   // If we are asked to start the item that is currently open we can just seek
   if (input_now_reading.open && cmdarg->item_id == input_now_reading.item_id)
     {
