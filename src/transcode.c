@@ -871,12 +871,7 @@ avio_evbuffer_open(struct transcode_evbuf_io *evbuf_io, int is_output)
       return NULL;
     }
 
-  // 0 here does not seem to mean not seekable, because ffmpeg will still call
-  // avio_evbuffer_seek. If set to AVIO_SEEKABLE_NORMAL then ffmpeg seems to
-  // make random access seek requests during input_open (i.e. asking for start
-  // and end of file), which are hard to fulfill when the source is something
-  // that is downloaded.
-  s->seekable = 0;
+  s->seekable = (evbuf_io->seekfn ? AVIO_SEEKABLE_NORMAL : 0);
 
   return s;
 }

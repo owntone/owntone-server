@@ -1282,7 +1282,7 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
   password = jparse_str_from_obj(request, "password");
   if (user && strlen(user) > 0 && password && strlen(password) > 0)
     {
-      ret = spotify_login_user(user, password, &errmsg);
+      ret = spotify_login(user, password, &errmsg);
       if (ret < 0)
 	{
 	  json_object_object_add(jreply, "success", json_object_new_boolean(false));
@@ -1323,6 +1323,7 @@ static int
 jsonapi_reply_spotify_logout(struct httpd_request *hreq)
 {
 #ifdef SPOTIFY
+  spotifywebapi_purge();
   spotify_logout();
 #endif
   return HTTP_NOCONTENT;

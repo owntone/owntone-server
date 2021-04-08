@@ -58,8 +58,11 @@ extern struct input_definition input_file;
 extern struct input_definition input_http;
 extern struct input_definition input_pipe;
 extern struct input_definition input_timer;
-#ifdef SPOTIFY
+#ifdef SPOTIFY_LIBRESPOTC
 extern struct input_definition input_spotify;
+#endif
+#ifdef SPOTIFY_LIBSPOTIFY
+extern struct input_definition input_libspotify;
 #endif
 
 // Must be in sync with enum input_types
@@ -68,8 +71,11 @@ static struct input_definition *inputs[] = {
     &input_http,
     &input_pipe,
     &input_timer,
-#ifdef SPOTIFY
+#ifdef SPOTIFY_LIBRESPOTC
     &input_spotify,
+#endif
+#ifdef SPOTIFY_LIBSPOTIFY
+    &input_libspotify,
 #endif
     NULL
 };
@@ -171,10 +177,16 @@ map_data_kind(int data_kind)
       case DATA_KIND_PIPE:
 	return INPUT_TYPE_PIPE;
 
-#ifdef SPOTIFY
       case DATA_KIND_SPOTIFY:
-	return INPUT_TYPE_SPOTIFY;
+#ifdef SPOTIFY_LIBRESPOTC
+	if (!inputs[INPUT_TYPE_SPOTIFY]->disabled)
+	  return INPUT_TYPE_SPOTIFY;
 #endif
+#ifdef SPOTIFY_LIBSPOTIFY
+	if (!inputs[INPUT_TYPE_LIBSPOTIFY]->disabled)
+	  return INPUT_TYPE_LIBSPOTIFY;
+#endif
+	return -1;
 
       default:
 	return -1;
@@ -457,6 +469,8 @@ start(void *arg, int *retval)
   struct input_arg *cmdarg = arg;
   struct db_queue_item *queue_item;
   int ret;
+
+  DPRINTF(E_WARN, L_PLAYER, "now %d, item_id %d, now item_id %d\n", input_now_reading.open, cmdarg->item_id, input_now_reading.item_id);
 
   // If we are asked to start the item that is currently open we can just seek
   if (input_now_reading.open && cmdarg->item_id == input_now_reading.item_id)
