@@ -117,7 +117,7 @@ enum command_list_type
  * This lists for ffmpeg suffixes and mime types are taken from the ffmpeg decoder plugin from mpd
  * (FfmpegDecoderPlugin.cxx, git revision 9fb351a139a56fc7b1ece549894f8fc31fa887cd).
  *
- * forked-daapd does not support different decoders and always uses ffmpeg or libav for decoding.
+ * The server does not support different decoders and always uses ffmpeg or libav for decoding.
  * Some clients rely on a response for the decoder commands (e.g. ncmpccp) therefor return something
  * valid for this command.
  */
@@ -704,7 +704,7 @@ parse_filter_window_params(int argc, char **argv, bool exact_match, struct query
 
 	  if (!tagtype)
 	    {
-	      DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported by forked-daapd and will be ignored\n", argv[i]);
+	      DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported and will be ignored\n", argv[i]);
 	      continue;
 	    }
 
@@ -1210,8 +1210,8 @@ mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 /*
  * Command handler function for 'single'
  * Sets the repeat mode, expects argument argv[1] to be an integer.
- * forked-daapd only allows single-mode in combination with repeat, therefor the command
- * single translates (depending on the current repeat mode) into:
+ * The server only allows single-mode in combination with repeat, therefore
+ * the command single translates (depending on the current repeat mode) into:
  * a) if repeat off:
  *   0 = repeat off
  *   1 = repeat song
@@ -1250,7 +1250,7 @@ mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 
 /*
  * Command handler function for 'replay_gain_status'
- * forked-daapd does not support replay gain, therefor this function returns always
+ * The server does not support replay gain, therefor this function returns always
  * "replay_gain_mode: off".
  */
 static int
@@ -1441,7 +1441,7 @@ mpd_command_playid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   id = 0;
   if (argc > 1)
     {
-      //TODO [mpd] mpd allows passing "-1" as argument and simply ignores it, forked-daapd fails to convert "-1" to an unsigned int
+      //TODO [mpd] mpd allows passing "-1" as argument and simply ignores it, the server fails to convert "-1" to an unsigned int
       ret = safe_atou32(argv[1], &id);
       if (ret < 0)
 	{
@@ -3932,7 +3932,7 @@ mpd_command_sendmessage(struct evbuffer *evbuf, int argc, char **argv, char **er
 }
 
 /*
- * Dummy function to handle commands that are not supported by forked-daapd and should
+ * Dummy function to handle commands that are not supported and should
  * not raise an error.
  */
 static int
@@ -4000,7 +4000,7 @@ mpd_command_urlhandlers(struct evbuffer *evbuf, int argc, char **argv, char **er
  * Command handler function for 'decoders'
  * MPD returns the decoder plugins with their supported suffix and mime types.
  *
- * forked-daapd only uses libav/ffmepg for decoding and does not support decoder plugins,
+ * The server only uses libav/ffmepg for decoding and does not support decoder plugins,
  * therefor the function reports only ffmpeg as available.
  */
 static int
@@ -4166,7 +4166,7 @@ static struct mpd_command mpd_handlers[] =
     { "readmessages",               mpd_command_ignore,                     -1 },
     { "sendmessage",                mpd_command_sendmessage,                -1 },
 
-    // Forked-daapd commands (not supported by mpd)
+    // Custom commands (not supported by mpd)
     { "outputvolume",               mpd_command_outputvolume,                3 },
 
     // NULL command to terminate loop
@@ -4637,7 +4637,7 @@ mpd_listener_cb(short event_mask)
  *
  * Artwork is found by taking the uri and removing everything after the last '/'. The first
  * item in the library with a virtual path that matches *path/to* is used to read the artwork
- * file through the default forked-daapd artwork logic.
+ * file through the default artwork logic.
  */
 static void
 artwork_cb(struct evhttp_request *req, void *arg)

@@ -28,7 +28,7 @@
  * - maintain the playback queue
  * 
  * The player thread should never be making operations that may block, since
- * that could block callers requesting status (effectively making forked-daapd
+ * that could block callers requesting status (effectively making the server
  * unresponsive) and it could also starve the outputs. In practice this rule is
  * not always obeyed, for instance some outputs do their setup in ways that
  * could block.

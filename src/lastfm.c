@@ -49,8 +49,8 @@
 static bool lastfm_disabled = false;
 
 /**
- * The API key and secret (not so secret being open source) is specific to 
- * forked-daapd, and is used to identify forked-daapd and to sign requests
+ * The API key and secret (not so secret being open source) is specific to us,
+ * and is used to identify client and to sign requests.
  */
 static const char *lastfm_api_key = "579593f2ed3f49673c7364fd1c9c829b";
 static const char *lastfm_secret = "ce45a1d275c10b3edf0ecfa27791cb2b";

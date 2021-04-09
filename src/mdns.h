@@ -49,7 +49,7 @@ mdns_register(char *name, char *type, int port, char **txt);
  * Register a CNAME record, it will be an alias for hostname
  * Call only from the main thread!
  *
- * @in  name     The CNAME alias, e.g. "forked-daapd.local"
+ * @in  name     The CNAME alias, e.g. "myserver.local"
  * @return       0 on success, -1 on error
  */
 int

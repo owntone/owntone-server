@@ -211,7 +211,7 @@ struct raop_session
   /* AirTunes v2 */
   unsigned short server_port;
   unsigned short control_port;
-  unsigned short timing_port; // ATV4 has this set to 0, but it is not used by forked-daapd anyway
+  unsigned short timing_port; // ATV4 has this set to 0, but it is not used by us anyway
 
   /* Device verification, see pair.h */
   struct pair_verify_context *pair_verify_ctx;

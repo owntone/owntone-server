@@ -816,7 +816,7 @@ library(void *arg)
 #ifdef __linux__
   struct sched_param param;
 
-  /* Lower the priority of the thread so forked-daapd may still respond
+  /* Lower the priority of the thread so the server may still respond
    * during library scan on low power devices. Param must be 0 for the SCHED_BATCH
    * policy.
    */

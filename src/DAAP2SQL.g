@@ -214,7 +214,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 					goto STR_result_valid_0; /* ABORT */
 				}
 
-				/* No need to exclude empty artist and album, as forked-daapd makes sure there always exists an artist/album. */
+				/* No need to exclude empty artist and album, as the server makes sure there always exists an artist/album. */
 				if (neg_op && (op == ':' || op == '@')
 					&& (strcmp((char *)field, "daap.songalbumartist") == 0 
 						|| strcmp((char *)field, "daap.songartist") == 0 
@@ -255,7 +255,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 
 				*end = '\0'; /* Cut out potential garbage - we're being kind */
 
-				/* forked-daapd only has media_kind = 1 for music - so remove media_kind = 32 to imporve select query performance. */
+				/* The server only has media_kind = 1 for music - so remove media_kind = 32 to imporve select query performance. */
 				if (llval == 32
 					&& (strcmp((char *)field, "com.apple.itunes.mediakind") == 0 
 						|| strcmp((char *)field, "com.apple.itunes.extended-media-kind") == 0))

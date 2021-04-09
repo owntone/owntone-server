@@ -769,7 +769,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
 #endif
   json_object_object_add(jreply, "websocket_port", json_object_new_int(websocket_port));
 
-  // forked-daapd version
+  // server version
   json_object_object_add(jreply, "version", json_object_new_string(VERSION));
 
   // enabled build options
@@ -1212,7 +1212,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   json_object_object_add(jreply, "enabled", json_object_new_boolean(true));
 
   httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-  snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
+  snprintf(redirect_uri, sizeof(redirect_uri), "http://owntone.local:%d/oauth/spotify", httpd_port);
 
   oauth_uri = spotifywebapi_oauth_uri_get(redirect_uri);
   if (!oauth_uri)
@@ -2189,7 +2189,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 	  || strncmp(queue_item->artwork_url, "https://", strlen("https://")) == 0))
     {
       // The queue item contains a valid http url for an artwork image, there is no need
-      // for the client to request the image through the forked-daapd artwork handler.
+      // for the client to request the image through the server artwork handler.
       // Directly pass the artwork url to the client.
       safe_json_add_string(item, "artwork_url", queue_item->artwork_url);
     }

@@ -2700,7 +2700,7 @@ db_file_inc_playcount_byfilter(const char *filter)
 #define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0 WHERE %s;"
   /*
    * Rating calculation is taken from from the beets plugin "mpdstats" (see https://beets.readthedocs.io/en/latest/plugins/mpdstats.html)
-   * and adapted to the forked-daapd rating rage (0 to 100).
+   * and adapted to this servers rating rage (0 to 100).
    *
    * Rating consist of the stable rating and a rolling rating.
    * The stable rating is calculated based on the number was played and skipped:
@@ -6807,7 +6807,7 @@ db_open(void)
     }
 
   errmsg = NULL;
-  ret = sqlite3_load_extension(hdl, PKGLIBDIR "/forked-daapd-sqlext.so", NULL, &errmsg);
+  ret = sqlite3_load_extension(hdl, PKGLIBDIR "/" PACKAGE_NAME "-sqlext.so", NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
       if (errmsg)

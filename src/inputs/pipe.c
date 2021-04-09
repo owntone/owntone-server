@@ -76,7 +76,7 @@
 // Ignore pictures with larger size than this
 #define PIPE_PICTURE_SIZE_MAX 1048576
 // Where we store pictures for the artwork module to read
-#define PIPE_TMPFILE_TEMPLATE "/tmp/forked-daapd.XXXXXX.ext"
+#define PIPE_TMPFILE_TEMPLATE "/tmp/" PACKAGE_NAME ".XXXXXX.ext"
 #define PIPE_TMPFILE_TEMPLATE_EXTLEN 4
 
 enum pipetype

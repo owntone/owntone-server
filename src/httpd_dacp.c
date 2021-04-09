@@ -2868,7 +2868,7 @@ dacp_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
     }
 
   headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "DAAP-Server", "forked-daapd/" VERSION);
+  evhttp_add_header(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   /* Content-Type for all DACP replies; can be overriden as needed */
   evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
 

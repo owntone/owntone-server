@@ -753,7 +753,7 @@ evrtsp_request_dispatch(struct evrtsp_connection* evcon)
 	/* Create the header from the store arguments */
 	evrtsp_make_header(evcon, req);
 
-	/* forked-daapd customisation for encryption */
+	/* owntone customisation for encryption */
 	if (!evcon->ciphercb)
 		evbuffer_add_buffer(evcon->output_raw, evcon->output_buffer);
 	else
