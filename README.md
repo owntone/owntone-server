@@ -1,6 +1,6 @@
-# OwnTone Server (previously forked-daapd)
+# owntone-server (previously forked-daapd)
 
-OwnTone Server is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
+owntone-server is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
 RSP (Roku) media server.
 
 It supports AirPlay devices/speakers, Apple Remote (and compatibles),
@@ -11,7 +11,7 @@ It does not support streaming video by AirPlay nor Chromecast.
 DAAP stands for Digital Audio Access Protocol which is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
 
-OwnTone Server was previously called forked-daapd, which again was a rewrite of
+owntone-server was previously called forked-daapd, which again was a rewrite of
 mt-daapd (Firefly Media Server).
 
 
@@ -20,9 +20,9 @@ mt-daapd (Firefly Media Server).
 Before you continue, make sure you know what version of OwnTone you have,
 and what features it was built with (e.g. Spotify support).
 
-How to find out? Go to the [web interface](http://forked-daapd.local:3689) and
+How to find out? Go to the [web interface](http://owntone-server.local:3689) and
 check. No web interface? Then check the top of the log file (usually
-/var/log/forked-daapd.log).
+/var/log/owntone-server.log).
 
 Note that you are viewing a snapshot of the instructions that may or may not
 match the version that you are using. Go to [references](#references) to find
@@ -59,10 +59,10 @@ please see the [INSTALL.md](INSTALL.md) file.
 
 After installation (see [INSTALL.md](INSTALL.md)) do the following:
 
- 1. Edit the configuration file (usually `/etc/forked-daapd.conf`) to suit your
+ 1. Edit the configuration file (usually `/etc/owntone-server.conf`) to suit your
     needs
- 2. Start or restart the server (usually `/etc/init.d/forked-daapd restart`)
- 3. Go to the web interface [http://forked-daapd.local:3689](http://forked-daapd.local:3689),
+ 2. Start or restart the server (usually `/etc/init.d/owntone-server restart`)
+ 3. Go to the web interface [http://owntone-server.local:3689](http://owntone-server.local:3689),
     or, if that won't work, to [http://[your_server_address_here]:3689](http://[your_server_address_here]:3689)
  4. Wait for the library scan to complete
  5. If you will be using a remote, e.g. Apple Remote: Start the remote, go to
@@ -117,14 +117,11 @@ probably obsolete when you read it :-)
 
 ## Web interface
 
-You can find the web interface at [http://forked-daapd.local:3689](http://forked-daapd.local:3689)
+You can find the web interface at [http://owntone-server.local:3689](http://owntone-server.local:3689)
 or alternatively at [http://[your_server_address_here]:3689](http://[your_server_address_here]:3689).
 
 Use the web interface to control playback, trigger manual library rescans, pair
 with remotes, select speakers, authenticate with Spotify, etc.
-
-The Debian forked-daapd package does not include the web interface due to Debian
-packaging rules.
 
 You can find some screenshots and build instructions in [README_PLAYER_WEBINTERFACE.md](https://github.com/owntone/owntone-server/blob/master/README_PLAYER_WEBINTERFACE.md).
 
@@ -144,7 +141,7 @@ they return online during playback.
 
 ### Pairing
 
- 1. Open the [web interface](http://forked-daapd.local:3689)
+ 1. Open the [web interface](http://owntone-server.local:3689)
  2. Start Remote, go to Settings, Add Library
  3. Enter the pair code in the web interface (update the page with F5 if it does
     not automatically pick up the pairing request)
@@ -359,7 +356,7 @@ the list, OwnTone will look for /foo/bar.{jpg,png}.
 You can use symlinks for the artwork files.
 
 OwnTone caches artwork in a separate cache file. The default path is 
-`/var/cache/forked-daapd/cache.db` and can be configured in the configuration 
+`/var/cache/owntone-server/cache.db` and can be configured in the configuration 
 file. The cache.db file can be deleted without losing the library and pairing 
 informations.
 
@@ -419,7 +416,7 @@ is changed. So that means OwnTone cannot update its database in real time.
 Instead you can schedule a cron job to update the database.
 
 The first step in doing this is to add two entries to the 'directories'
-configuration item in forked-daapd.conf:
+configuration item in owntone-server.conf:
 
 ```
   directories = { "/some/local/dir", "/your/network/mount/library" }
@@ -480,7 +477,7 @@ curl "http://localhost:3689/logout?session-id=50"
 
 OwnTone has support for playback of the tracks in your Spotify library.
 
-1. Go to the [web interface](http://forked-daapd.local:3689) and check that your
+1. Go to the [web interface](http://owntone-server.local:3689) and check that your
    version of OwnTone was built with Spotify support.
 2. You must have a Spotify premium account. If you normally log into Spotify
    with your Facebook account you must first go to Spotify's web site where you
@@ -496,7 +493,7 @@ Once the above is in order you can login to Spotify via the web interface. The
 procedure for logging in to Spotify is a two-step procedure due to the current
 state of libspotify, but the web interface makes both steps available to you.
 
-Note that the address [http://forked-daapd.local:3689](http://forked-daapd.local:3689)
+Note that the address [http://owntone-server.local:3689](http://owntone-server.local:3689)
 must be working on your local network to complete the Spotify OAuth web login.
 The address is announced automatically via mDNS, but if that for some reason
 doesn't work then configure it via router or .hosts file. You can remove it
@@ -513,7 +510,7 @@ configure the location of your Spotify user data in the configuration file.
 
 To permanently logout and remove Spotify tracks + credentials make a request to
 [http://[your_server_address_here]:3689/api/spotify-logout](http://[your_server_address_here]:3689/api/spotify-logout)
-and also delete the contents of `/var/cache/forked-daapd/libspotify`.
+and also delete the contents of `/var/cache/owntone-server/libspotify`.
 
 Limitations:
 You will not be able to do any playlist management through OwnTone - use

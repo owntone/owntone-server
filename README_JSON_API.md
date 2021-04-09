@@ -1,4 +1,4 @@
-# forked-daapd API Endpoint Reference
+# owntone-server API Endpoint Reference
 
 Available API endpoints:
 
@@ -395,7 +395,7 @@ curl -X GET "http://localhost:3689/api/outputs"
 
 ### Set enabled outputs
 
-Set the enabled outputs by passing an array of output ids. forked-daapd enables all outputs
+Set the enabled outputs by passing an array of output ids. The server enables all outputs
 with the given ids and disables the remaining outputs.
 
 **Endpoint**
@@ -2192,9 +2192,9 @@ GET /api/config
 
 | Key             | Type     | Value                                     |
 | --------------- | -------- | ----------------------------------------- |
-| version         | string   | forked-daapd server version               |
+| version         | string   | Server version                            |
 | websocket_port  | integer  | Port number for the [websocket](#push-notifications) (or `0` if websocket is disabled) |
-| buildoptions    | array    | Array of strings indicating which features are supported by the forked-daapd server |
+| buildoptions    | array    | Array of strings indicating which features are supported by the server |
 
 
 **Example**
@@ -2402,10 +2402,10 @@ curl -X DELETE "http://localhost:3689/api/settings/webinterface/show_composer_no
 
 ## Push notifications
 
-If forked-daapd was built with websocket support, forked-daapd exposes a websocket at `localhost:3688` to inform clients of changes (e. g. player state or library updates).
-The port depends on the forked-daapd configuration and can be read using the [`/api/config`](#config) endpoint.
+If the server was built with websocket support it exposes a websocket at `localhost:3688` to inform clients of changes (e. g. player state or library updates).
+The port depends on the server configuration and can be read using the [`/api/config`](#config) endpoint.
 
-After connecting to the websocket, the client should send a message containing the event types it is interested in. After that forked-daapd
+After connecting to the websocket, the client should send a message containing the event types it is interested in. After that the server
 will send a message each time one of the events occurred.
 
 **Message**
@@ -2610,8 +2610,8 @@ curl --include \
 ### Artwork urls
 
 Artwork urls in `queue item`, `artist`, `album` and `track` objects can be either relative urls or absolute urls to the artwork image.
-Absolute artwork urls are pointing to external artwork images (e. g. for radio streams that provide artwork metadata), while relative artwork urls are served from forked-daapd. 
+Absolute artwork urls are pointing to external artwork images (e. g. for radio streams that provide artwork metadata), while relative artwork urls are served from the server. 
 
-It is possible to add the query parameters `maxwidth` and/or `maxheight` to relative artwork urls, in order to get a smaller image (forked-daapd only scales down never up).
+It is possible to add the query parameters `maxwidth` and/or `maxheight` to relative artwork urls, in order to get a smaller image (the server only scales down never up).
 
 Note that even if a relative artwork url attribute is present, it is not guaranteed to exist.

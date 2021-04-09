@@ -1,7 +1,7 @@
-# forked-daapd smart playlists
+# owntone-server smart playlists
 
 
-To add a smart playlist to forked-daapd, create a new text file with a filename ending with .smartpl; 
+To add a smart playlist to the server, create a new text file with a filename ending with .smartpl; 
 the filename doesn't matter, only the .smartpl ending does. The file must be placed somewhere in your
 library folder.
 
@@ -128,7 +128,7 @@ This would match all songs added as files to the library that are not placed und
 }
 ```
 
-This would match any podcast and audiobook file that was never played with forked-daapd.
+This would match any podcast and audiobook file that was never played.
 
 ```
 "Recently added music" {
@@ -190,7 +190,7 @@ This matches all songs added in the last 2 weeks.
 
 This matches all audiobooks played since the start of the last Monday 00:00AM.
 
-All dates, except for `YYYY-DD-HH`, are relative to the day of when `forked-daapd` evaluates the smartpl query; `time_added after today` run on a Monday would match against items added since Monday 00:00hrs and evaluating the same smartpl on Friday would only match against added on Friday 00:00hrs.
+All dates, except for `YYYY-DD-HH`, are relative to the day of when `owntone-server` evaluates the smartpl query; `time_added after today` run on a Monday would match against items added since Monday 00:00hrs and evaluating the same smartpl on Friday would only match against added on Friday 00:00hrs.
 
 Note that `time_added after 4 weeks ago` and `time_added after last month` are subtly different; the former is exactly 4 weeks ago (from today) whereas the latter is the first day of the previous month.
 

@@ -1,12 +1,13 @@
-forked-daapd is a fork/rewrite of mt-daapd (Firefly Media Server)
-written by Julien BLACHE <jb@jblache.org>.
+owntone-server is maintained by:
 
-mt-daapd (Firefly Media Server) was originally written by
-Ron Pedde <ron@pedde.com> and a handful of contributors.
-
-Contributors to forked-daapd include:
- - Ace Jones <ace.jones1@yahoo.com>
- - Dustin King <daking@rescomp.stanford.edu>
- - Kai Elwert <elwertk@googlemail.com>
  - Espen Jürgensen <espenjurgensen@gmail.com>
  - Christian Meffert <christian.meffert@googlemail.com>
+
+Up until version 27.4 it was called forked-daapd.
+
+forked-daapd up until 0.19 was written by Julien BLACHE <jb@jblache.org>. It was
+build on mt-daapd (Firefly Media Server), which was originally written by Ron
+Pedde <ron@pedde.com> and a handful of contributors.
+
+For a complete list of contributers, please see:
+https://github.com/owntone/owntone-server/graphs/contributors

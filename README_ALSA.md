@@ -1,6 +1,6 @@
-# forked-daapd and ALSA
+# owntone-server and ALSA
 
-ALSA is one of the main output configuration options for local audio; when using ALSA you will typically let the system select the soundcard on your machine as the `default` device/sound card - a mixer associated with the ALSA device is used for volume control.  However if your machine has multiple sound cards and your system chooses the wrong playback device, you will need to manually select the card and mixer to complete the `forked daapd` configuration.
+ALSA is one of the main output configuration options for local audio; when using ALSA you will typically let the system select the soundcard on your machine as the `default` device/sound card - a mixer associated with the ALSA device is used for volume control.  However if your machine has multiple sound cards and your system chooses the wrong playback device, you will need to manually select the card and mixer to complete the `owntone-server` configuration.
 
 ## Quick introduction to ALSA devices
 ALSA devices can be addressed in a number ways but traditionally we have referred to them using the hardware prefix, card number and optionally device number with something like `hw:0` or `hw:0,1`.  In ALSA configuration terms `card X, device Y` is known as `hw:X,Y`.
@@ -11,7 +11,7 @@ Alternative ALSA names can be used to refer to physical ALSA devices and can be 
 * more descriptive rather than being a card number
 * consistent for USB numeration - USB ALSA devices may not have the same card number across reboots/reconnects
 
-The ALSA device information required for configuration the server can be deterined using `aplay`, as described in the rest of this document, but `forked-daapd` can also assist; when configured to log at `INFO` level the following information is provided during startup:
+The ALSA device information required for configuration the server can be deterined using `aplay`, as described in the rest of this document, but `owntone-server` can also assist; when configured to log at `INFO` level the following information is provided during startup:
 ```
 laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
 laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
@@ -22,7 +22,7 @@ The `CARD=` string is the alternate ALSA name for the device and can be used in 
 On this machine the server reports that it can see the onboard HDA Intel sound card and two additional sound cards: a Topping E30 DAC and a Plantronics Headset which are both USB devices.  We can address the first ALSA device as `hw:0` or `hw:CARD=Intel` or `hw:Intel` or `plughw:Intel`, the second ALSA device as `hw:1` or `hw:E30` and so forth.  The latter 2 devices being on USB will mean that `hw:1` may not always refer to `hw:E30` and thus in such a case using the alternate name is useful.
 
 ## Configuring the server
-`forked-daapd` can support a single ALSA device or multiple ALSA devices.
+`owntone-server` can support a single ALSA device or multiple ALSA devices.
 ```
 # example audio section for server for a single soundcard
 audio {
@@ -34,7 +34,7 @@ audio {
     mixer_device = "hw:1"   # defaults to same as 'card' value
 }
 ```
-Multiple devices can be made available to `forked-daapd` using seperate `alsa { .. }` sections.
+Multiple devices can be made available to `owntone-server` using seperate `alsa { .. }` sections.
 ```
 audio {
     type = "alsa"
@@ -63,13 +63,13 @@ $ aplay -Ddefault /tmp/sine441.wav
 If you can hear music played then you are good to use `default` for the server configuration.  If you can not hear anything from the `aplay` firstly verify (using `alsamixer`) that the sound card is not muted.  If the card is not muted AND there is no sound you can try the options below to determine the card and mixer for configuring the server.
 
 ## Automatically Determine ALL relevant the sound card information
-As shown above, `forked-daapd` can help, consider the information that logged:
+As shown above, `owntone-server` can help, consider the information that logged:
 ```
 laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
 laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
 laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwire 3210 Seri): 'Sidetone' 'Headset'
 ```
-Using the information above, we can see 3 soundcards that we could use with `forked-daap` with the first soundcard having a number of seperate mixer devices (volume control) for headphone and the interal speakers - we'll configure the server to use both these and also the E30 device.  The server configuration for theese multiple outputs would be:
+Using the information above, we can see 3 soundcards that we could use with `owntone-server` with the first soundcard having a number of seperate mixer devices (volume control) for headphone and the interal speakers - we'll configure the server to use both these and also the E30 device.  The server configuration for theese multiple outputs would be:
 ```
 # using ALSA device alias where possible
 
@@ -92,7 +92,7 @@ alsa "plughw:E30" {
     mixer_device = "hw:E30"
 }
 ```
-NB: it is troublesome to use `hw` or `plughw` ALSA addressing when running `forked-daapd` on a machine with `pulseaudio` and if you wish to use refer to ALSA devices directly that you stop `pulseaudio`.
+NB: it is troublesome to use `hw` or `plughw` ALSA addressing when running `owntone-server` on a machine with `pulseaudio` and if you wish to use refer to ALSA devices directly that you stop `pulseaudio`.
 
 ## Manually Determining the sound cards you have / ALSA can see
 The example below is how I determined the correct sound card and mixer values for a Raspberry Pi that has an additional DAC card (hat) mounted.  Of course using the log output from the server would have given the same results.
@@ -271,13 +271,13 @@ $ aplay -v -Dhw:1 /tmp/sine441.wav
 aplay: main:788: audio open error: Device or resource busy
 ```
 
-In this instance this device cannot open multiple streams - `forked-daapd` can handle this situation transparently with some audio being truncated from the end of the current file as the server prepares to play the following track. If this handling is causing you problems you may wish to use [ALSA's `dmix` functionally](https://www.alsa-project.org/main/index.php/Asoundrc#Software_mixing) which provides a software mixing module. We will need to define a `dmix` component and configure the server to use that as it's sound card.
+In this instance this device cannot open multiple streams - `owntone-server` can handle this situation transparently with some audio being truncated from the end of the current file as the server prepares to play the following track. If this handling is causing you problems you may wish to use [ALSA's `dmix` functionally](https://www.alsa-project.org/main/index.php/Asoundrc#Software_mixing) which provides a software mixing module. We will need to define a `dmix` component and configure the server to use that as it's sound card.
 
 The downside to the `dmix` approach will be the need to fix a samplerate (48000 being the default) for this software mixing module meaning any files that have a mismatched samplerate will be resampled.
 
 ## ALSA dmix configuration/setup
 
-A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc` for the same user running `forked-daapd`.  We will need to know the underlying physical soundcard to be used: in our examples above, `hw:1,0` / `card 1, device 0` representing our IQaudIODAC as per output of `aplay -l`.  We also take the `buffer_size` and `period_size` from the output of playing a sound file via `aplay -v`.
+A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc` for the same user running `owntone-server`.  We will need to know the underlying physical soundcard to be used: in our examples above, `hw:1,0` / `card 1, device 0` representing our IQaudIODAC as per output of `aplay -l`.  We also take the `buffer_size` and `period_size` from the output of playing a sound file via `aplay -v`.
 
 ```
 # use 'dac' as the name of the device: "aplay -Ddac ...."
@@ -328,7 +328,7 @@ At this point we are able to rerun the concurrent `aplay` commands (adding `-Dda
 
 If there is only one card on the machine you may use `pcm.!default` instead of `pcm.!dac` - there is less configuration to be done later since many ALSA applications will use the device called `default` by default.  Furthermore on RPI you can explicitly disable the onboard sound card to leave us with only the IQaudIODAC board enabled (won't affect HDMI sound output) by commenting out `#dtparam=audio=on` in `/boot/config.txt` and rebooting.
 
-### forked-daapd config with dmix
+### owntone-server config with dmix
 
 We will use the newly defined card named `dac` which uses the underlying `hw:1` device as per `/etc/asound.conf` or `~/.asoundrc` configuration.  Note that the `mixer_device` is now required and must refer to the real device (see the `slave.pcm` value) and not the named device (ie `dac`) that we created and are using for the `card` configuration value.
 
@@ -370,7 +370,7 @@ pcm.equal {
   hint.description "equalised device"
 }
 ```
-and in `forked-daapd.conf`
+and in `owntone-server.conf`
 ```
 alsa "equal" {
     nickname = "Equalised Output"
