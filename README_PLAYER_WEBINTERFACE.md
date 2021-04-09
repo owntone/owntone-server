@@ -1,6 +1,6 @@
-# forked-daapd player web interface
+# OwnTone player web interface
 
-Mobile friendly player web interface for [forked-daapd](http://owntone.github.io/forked-daapd/) build with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
+Mobile friendly player web interface for [OwnTone](http://owntone.github.io/owntone-server/) build with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
 
 ## Screenshots
 
@@ -9,7 +9,7 @@ Mobile friendly player web interface for [forked-daapd](http://owntone.github.io
 
 ## Usage
 
-You can find forked-daapd's web interface at [http://forked-daapd.local:3689](http://forked-daapd.local:3689)
+You can find OwnTone's web interface at [http://owntone.local:3689](http://owntone.local:3689)
 or alternatively at [http://[your_server_address_here]:3689](http://[your_server_address_here]:3689).
 
 
@@ -37,4 +37,4 @@ npm run build
 npm run build --report
 ```
 
-After running `npm run dev` the web interface is reachable at [localhost:8080](http://localhost:8080). By default it expects **forked-daapd** to be running at [localhost:3689](http://localhost:3689) and proxies all JSON API calls to this location. If **forked-daapd** is running at a different location you need to modify the `proxyTable` configuration in `config/index.js`
+After running `npm run dev` the web interface is reachable at [localhost:8080](http://localhost:8080). By default it expects **owntone** to be running at [localhost:3689](http://localhost:3689) and proxies all JSON API calls to this location. If the server is running at a different location you need to modify the `proxyTable` configuration in `config/index.js`
