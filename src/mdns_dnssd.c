@@ -516,7 +516,7 @@ mdns_cname(char *name)
       return -1;
     }
 
-  // Convert to dns string: .forked-daapd.local -> \12forked-daapd\6local
+  // Convert to dns string: .owntone-server.local -> \12owntone-server\6local
   count = 0;
   for (i = ret - 1; i >= 0; i--)
     {

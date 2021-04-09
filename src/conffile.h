@@ -7,7 +7,7 @@
 
 #include <confuse.h>
 
-#define CONFFILE   CONFDIR "/forked-daapd.conf"
+#define CONFFILE   CONFDIR "/owntone-server.conf"
 
 // Some shorthand macros for poor man's
 #define CFG_NAME_UNKNOWN_TITLE (cfg_getstr(cfg_getsec(cfg, "library"), "name_unknown_title"))

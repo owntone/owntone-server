@@ -18,7 +18,7 @@
 
 
 /* This file includes much of the boilerplate code required for making an 
- * audio output for forked-daapd.
+ * audio output.
  */
 
 #ifdef HAVE_CONFIG_H

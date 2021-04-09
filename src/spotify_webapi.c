@@ -1790,8 +1790,8 @@ initscan()
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
-	"In order to use the web api, authorize forked-daapd to access "
-	"your saved tracks by visiting http://forked-daapd.local:3689\n");
+	"In order to use the web api, authorize the server to access "
+	"your saved tracks by visiting http://owntone-server.local:3689\n");
 
       db_spotify_purge();
 
@@ -1808,7 +1808,7 @@ initscan()
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "libspotify-login failed. In order to use Spotify, "
-	"provide valid credentials for libspotify by visiting http://forked-daapd.local:3689\n");
+	"provide valid credentials for libspotify by visiting http://owntone-server.local:3689\n");
 
       db_spotify_purge();
 

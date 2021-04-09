@@ -21,10 +21,10 @@
 
 #include <sqlite3.h>
 
-/* Rule of thumb: Will the current version of forked-daapd work with the new
+/* Rule of thumb: Will the current version of the server work with the new
  * version of the database? If yes, then it is a minor upgrade, if no, then it
  * is a major upgrade. In other words minor version upgrades permit downgrading
- * forked-daapd after the database was upgraded. */
+ * the server after the database was upgraded. */
 #define SCHEMA_VERSION_MAJOR 21
 #define SCHEMA_VERSION_MINOR 06
 

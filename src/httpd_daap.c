@@ -2301,7 +2301,7 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   // Set reply headers
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "Accept-Ranges", "bytes");
-  evhttp_add_header(headers, "DAAP-Server", "forked-daapd/" VERSION);
+  evhttp_add_header(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   // Content-Type for all replies, even the actual audio streaming. Note that
   // video streaming will override this Content-Type with a more appropriate
   // video/<type> Content-Type as expected by clients like Front Row.

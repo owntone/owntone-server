@@ -1775,7 +1775,7 @@ httpd_init(const char *webroot)
   ret = net_evhttp_bind(evhttpd, httpd_port, "httpd");
   if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", httpd_port);
+      DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (server already running?)\n", httpd_port);
       goto bind_fail;
     }
 

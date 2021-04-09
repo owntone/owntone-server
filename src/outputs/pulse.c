@@ -595,7 +595,7 @@ stream_open(struct pulse_session *ps, struct media_quality *quality, pa_stream_n
 
   pa_threaded_mainloop_lock(pulse.mainloop);
 
-  if (!(ps->stream = pa_stream_new(pulse.context, "forked-daapd audio", &ss, NULL)))
+  if (!(ps->stream = pa_stream_new(pulse.context, "owntone-server audio", &ss, NULL)))
     goto unlock_and_fail;
 
   pa_stream_set_state_callback(ps->stream, cb, ps);
@@ -932,7 +932,7 @@ pulse_init(void)
   pa_threaded_mainloop_set_name(pulse.mainloop, "pulseaudio");
 #endif
 
-  if (!(pulse.context = pa_context_new(pa_threaded_mainloop_get_api(pulse.mainloop), "forked-daapd")))
+  if (!(pulse.context = pa_context_new(pa_threaded_mainloop_get_api(pulse.mainloop), "owntone-server")))
     goto fail;
 
   pa_context_set_state_callback(pulse.context, context_state_cb, NULL);

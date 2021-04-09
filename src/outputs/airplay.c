@@ -264,7 +264,7 @@ struct airplay_session
   unsigned short data_port;
   unsigned short control_port;
   unsigned short events_port;
-  unsigned short timing_port; // ATV4 has this set to 0, but it is not used by forked-daapd anyway
+  unsigned short timing_port; // ATV4 has this set to 0, but it is not used by us anyway
 
   /* Pairing, see pair.h */
   enum pair_type pair_type;

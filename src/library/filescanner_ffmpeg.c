@@ -224,7 +224,7 @@ static const struct metadata_map md_map_vorbis[] =
  * Update 20180131: Removed tags supported by ffmpeg 2.5.4 (around 3 years old)
  * + added some tags used for grouping
  * Update 20200114: Removed TDA, TDAT, TYE, TYER, TDR since the they are
- * well supported by ffmpeg, and forked-daapd was parsing TDA/TDAT incorrectly
+ * well supported by ffmpeg, and the server was parsing TDA/TDAT incorrectly
  *
  */
 static const struct metadata_map md_map_id3[] =

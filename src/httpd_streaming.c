@@ -568,7 +568,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
 
   output_headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(output_headers, "Content-Type", "audio/mpeg");
-  evhttp_add_header(output_headers, "Server", "forked-daapd/" VERSION);
+  evhttp_add_header(output_headers, "Server", PACKAGE_NAME "/" VERSION);
   evhttp_add_header(output_headers, "Cache-Control", "no-cache");
   evhttp_add_header(output_headers, "Pragma", "no-cache");
   evhttp_add_header(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
