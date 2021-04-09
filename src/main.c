@@ -637,7 +637,7 @@ main(int argc, char **argv)
   /* Set up libevent logging callback */
   event_set_log_callback(logger_libevent);
 
-  DPRINTF(E_LOG, L_MAIN, "Forked Media Server Version %s taking off\n", VERSION);
+  DPRINTF(E_LOG, L_MAIN, "OwnTone version %s taking off\n", VERSION);
 
   DPRINTF(E_LOG, L_MAIN, "Built with:\n");
   buildopts = buildopts_get();
@@ -858,7 +858,9 @@ main(int argc, char **argv)
 
   /* Register this CNAME with mDNS for OAuth */
   if (!mdns_no_cname)
-    mdns_cname("forked-daapd.local");
+    {
+      mdns_cname("owntone.local");
+    }
 
 #ifdef HAVE_SIGNALFD
   /* Set up signal fd */
