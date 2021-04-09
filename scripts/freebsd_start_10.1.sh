@@ -1,25 +1,25 @@
 #!/bin/sh
  
-# PROVIDE: forked-daapd
+# PROVIDE: owntone-server
 # REQUIRE: avahi_daemon dbus
  
-# Add the following lines to /etc/rc.conf to enable `forked-daapd':
+# Add the following lines to /etc/rc.conf to enable `owntone-server':
 #
-# forked_daapd_enable="YES"
-# forked_daapd_flags="<set as needed>"
+# owntone_server_enable="YES"
+# owntone_server_flags="<set as needed>"
  
 . /etc/rc.subr
  
-name="forked_daapd"
+name="owntone_server"
 rcvar=`set_rcvar`
  
-command="/usr/local/sbin/forked-daapd"
-command_args="-P /var/run/forked-daapd.pid"
-pidfile="/var/run/forked-daapd.pid"
-required_files="/usr/local/etc/forked-daapd.conf"
+command="/usr/local/sbin/owntone-server"
+command_args="-P /var/run/owntone-server.pid"
+pidfile="/var/run/owntone-server.pid"
+required_files="/usr/local/etc/owntone-server.conf"
  
 # read configuration and set defaults
 load_rc_config "$name"
-: ${forked_daapd_enable="NO"}
+: ${owntone_server_enable="NO"}
  
 run_rc_command "$1"

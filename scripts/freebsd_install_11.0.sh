@@ -2,7 +2,7 @@
 # Credit thorsteneckel who made the how-to that is the basis for this
 # script, see https://gist.github.com/thorsteneckel/c0610fb415c8d0486bce
 
-echo "This script will install forked-daapd in FreeBSD 11.0. The script is not"
+echo "This script will install owntone-server in FreeBSD 11.0. The script is not"
 echo "very polished, so you might want to look through it before running it."
 read -p "Continue? [y/N] " yn
 if [ "$yn" != "y" ]; then
@@ -32,8 +32,8 @@ if [ "$yn" = "y" ]; then
 	fi
 fi
 
-WORKDIR=~/forked-daapd_build
-CONFIG=/usr/local/etc/forked-daapd.conf
+WORKDIR=~/owntone-server_build
+CONFIG=/usr/local/etc/owntone-server.conf
 read -p "Should the script create $WORKDIR and use it for building? [Y/n] " yn
 if [ "$yn" = "n" ]; then
 	exit
@@ -69,10 +69,10 @@ CLASSPATH=\$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/local/sh
 	cd $WORKDIR
 fi
 
-read -p "Should the script build forked-daapd? [y/N] " yn
+read -p "Should the script build owntone-server? [y/N] " yn
 if [ "$yn" = "y" ]; then
 	git clone https://github.com/owntone/owntone-server.git
-	cd forked-daapd
+	cd owntone-server
 
 	#Cleanup in case this is a re-run
 	gmake clean
@@ -90,7 +90,7 @@ if [ "$yn" = "y" ]; then
 	export LDFLAGS="-L/usr/local/lib -L/usr/lib"
 	./configure && gmake
 
-	read -p "Should the script install forked-daapd and add service startup scripts? [y/N] " yn
+	read -p "Should the script install owntone-server and add service startup scripts? [y/N] " yn
 	if [ "$yn" = "y" ]; then
 		if [ -f $CONFIG ]; then
 			echo "Backing up old config file to $CONFIG.bak"
@@ -100,17 +100,17 @@ if [ "$yn" = "y" ]; then
 
 		sudo sed -i -- 's/\/var\/cache/\/usr\/local\/var\/cache/g' $CONFIG
 		# Setup user and startup scripts
-		echo "daapd::::::forked-daapd:/nonexistent:/usr/sbin/nologin:" | sudo adduser -w no -D -f -
-		sudo chown -R daapd:daapd /usr/local/var/cache/forked-daapd
+		echo "owntone::::::owntone-server:/nonexistent:/usr/sbin/nologin:" | sudo adduser -w no -D -f -
+		sudo chown -R owntone:owntone /usr/local/var/cache/owntone-server
 		if [ ! -f scripts/freebsd_start_10.1.sh ]; then
 			echo "Could not find FreeBSD startup script"
 			exit
 		fi
-		sudo install -m 755 scripts/freebsd_start_10.1.sh /usr/local/etc/rc.d/forked-daapd
+		sudo install -m 755 scripts/freebsd_start_10.1.sh /usr/local/etc/rc.d/owntone-server
 
-		service forked-daapd enabled
+		service owntone-server enabled
 		if [ $? -ne 0 ]; then
-			sudo sh -c 'echo "forked_daapd_enable=\"YES\"" >> /etc/rc.conf'
+			sudo sh -c 'echo "owntone_server_enable=\"YES\"" >> /etc/rc.conf'
 		fi
 	fi
 
@@ -132,8 +132,8 @@ if [ "$yn" = "y" ]; then
 	sudo service avahi-daemon start
 fi
 
-read -p "Should the script (re)start forked-daapd and display the log output? [y/N] " yn
+read -p "Should the script (re)start owntone-server and display the log output? [y/N] " yn
 if [ "$yn" = "y" ]; then
-	sudo service forked-daapd restart
-	tail -f /usr/local/var/log/forked-daapd.log
+	sudo service owntone-server restart
+	tail -f /usr/local/var/log/owntone-server.log
 fi
