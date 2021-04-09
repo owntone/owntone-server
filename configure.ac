@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.60])
-AC_INIT([forked-daapd], [27.4])
+AC_INIT([owntone-server], [27.4])
 
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -50,12 +50,12 @@ AC_SUBST([AM_CPPFLAGS])
 dnl Checks for header files.
 AC_CHECK_HEADERS_ONCE([regex.h pthread_np.h])
 AC_CHECK_HEADERS([sys/wait.h sys/param.h dirent.h getopt.h stdint.h], [],
-	[AC_MSG_ERROR([[Missing header required to build forked-daapd]])])
+	[AC_MSG_ERROR([[Missing header required to build owntone-server]])])
 AC_CHECK_HEADERS([time.h], [],
-	[AC_MSG_ERROR([[Missing header required to build forked-daapd]])])
+	[AC_MSG_ERROR([[Missing header required to build owntone-server]])])
 AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2])
 AC_CHECK_FUNCS([strptime strtok_r], [],
-	[AC_MSG_ERROR([[Missing function required to build forked-daapd]])])
+	[AC_MSG_ERROR([[Missing function required to build owntone-server]])])
 
 dnl check for clock_gettime or replace it
 AC_SEARCH_LIBS([clock_gettime], [rt],
@@ -344,19 +344,19 @@ FORK_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE]
 AM_CONDITIONAL([COND_WEBINTERFACE], [[test "x$enable_webinterface" = "xyes"]])
 
 dnl Defining users and groups
-AC_ARG_WITH([daapd_user],
-	[AS_HELP_STRING([--with-daapd-user=USER],
-		[User for running forked-daapd (default=daapd)])],
+AC_ARG_WITH([owntone_user],
+	[AS_HELP_STRING([--with-user=USER],
+		[User for running owntone-server (default=owntone)])],
 	[[test x"$withval" = xyes && withval=]], [[withval=]])
-DAAPD_USER=${withval:-daapd}
-AC_SUBST([DAAPD_USER])
+OWNTONE_USER=${withval:-owntone}
+AC_SUBST([OWNTONE_USER])
 
-AC_ARG_WITH([daapd_group],
-	[AS_HELP_STRING([--with-daapd-group=GROUP],
-		[Group for daapd user (default=USER)])],
+AC_ARG_WITH([owntone_group],
+	[AS_HELP_STRING([--with-group=GROUP],
+		[Group for owntone user (default=USER)])],
 	[[test x"$withval" = xyes && withval=]], [[withval=]])
-DAAPD_GROUP=${withval:-$DAAPD_USER}
-AC_SUBST([DAAPD_GROUP])
+OWNTONE_GROUP=${withval:-$OWNTONE_USER}
+AC_SUBST([OWNTONE_GROUP])
 dnl --- End options ---
 
 AC_CONFIG_FILES([
@@ -364,6 +364,6 @@ AC_CONFIG_FILES([
 	sqlext/Makefile
 	htdocs/Makefile
 	Makefile
-	forked-daapd.spec
+	owntone-server.spec
 ])
 AC_OUTPUT

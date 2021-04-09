@@ -1,5 +1,5 @@
 
-sbin_PROGRAMS = forked-daapd
+sbin_PROGRAMS = owntone-server
 
 if COND_SPOTIFY
 SPOTIFY_SRC=spotify.c spotify.h spotify_webapi.c spotify_webapi.h inputs/spotify.c
@@ -85,12 +85,12 @@ AM_CPPFLAGS += \
 	-DSTATEDIR=\"$(localstatedir)\" \
 	-DPKGLIBDIR=\"$(pkglibdir)\"
 
-forked_daapd_LDADD = \
+owntone_server_LDADD = \
 	$(FORKED_LIBS) \
 	$(FORKED_OPTS_LIBS) \
 	$(COMMON_LIBS)
 
-forked_daapd_SOURCES = main.c \
+owntone_server_SOURCES = main.c \
 	db.c db.h \
 	db_init.c db_init.h \
 	db_upgrade.c db_upgrade.h \

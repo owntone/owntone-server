@@ -29,9 +29,9 @@ missing
 stamp-h1
 autotools-stamp
 build-stamp
-forked-daapd.spec
-forked-daapd.conf
-forked-daapd.service
+owntone-server.spec
+owntone-server.conf
+owntone-server.service
 
 # ignore debian packaging for convenience
 debian/
