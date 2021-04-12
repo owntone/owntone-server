@@ -388,7 +388,7 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *info, int eol, void *userdata)
   int i;
   int pos;
 
-  if (eol > 0)
+  if (eol > 0 || !info)
     return;
 
   DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio sink '%s' (id %" PRIu32 ")\n", info->name, info->index);
