@@ -842,6 +842,12 @@ input_stop(void)
   commands_exec_async(cmdbase, stop_cmd, NULL);
 }
 
+static void
+input_stop_sync(void)
+{
+  commands_exec_sync(cmdbase, stop_cmd, NULL, NULL);
+}
+
 void
 input_flush(short *flags)
 {
@@ -929,8 +935,7 @@ input_deinit(void)
   int i;
   int ret;
 
-// TODO ok to do from here?
-  input_stop();
+  input_stop_sync();
 
   for (i = 0; inputs[i]; i++)
     {
