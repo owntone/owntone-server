@@ -67,9 +67,6 @@
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
-#ifdef SPOTIFY
-# include "spotify.h"
-#endif
 
 
 #define F_SCAN_BULK    (1 << 0)
@@ -95,7 +92,6 @@ enum file_type {
   FILE_CTRL_REMOTE,
   FILE_CTRL_RAOP_VERIFICATION,
   FILE_CTRL_LASTFM,
-  FILE_CTRL_SPOTIFY,
   FILE_CTRL_INITSCAN,
   FILE_CTRL_METASCAN, // forced scan for meta, preserves existing db records
   FILE_CTRL_FULLSCAN,
@@ -349,9 +345,6 @@ file_type_get(const char *path) {
 
   if (strcasecmp(ext, ".lastfm") == 0)
     return FILE_CTRL_LASTFM;
-
-  if (strcasecmp(ext, ".spotify") == 0)
-    return FILE_CTRL_SPOTIFY;
 
   if (strcasecmp(ext, ".init-rescan") == 0)
     return FILE_CTRL_INITSCAN;
@@ -697,17 +690,6 @@ process_file(char *file, struct stat *sb, enum file_type file_type, int scan_typ
 	  kickoff(lastfm_login, file, 2);
 #else
 	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without LastFM support\n", file);
-#endif
-	break;
-
-      case FILE_CTRL_SPOTIFY:
-#ifdef SPOTIFY
-	if (flags & F_SCAN_BULK)
-	  DPRINTF(E_LOG, L_SCAN, "Bulk scan will ignore '%s' (to process, add it after startup)\n", file);
-	else
-	  kickoff(spotify_login, file, 2);
-#else
-	DPRINTF(E_LOG, L_SCAN, "Found '%s', but this version was built without Spotify support\n", file);
 #endif
 	break;
 

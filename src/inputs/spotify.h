@@ -11,10 +11,7 @@ struct spotify_status
 };
 
 int
-spotify_login_user(const char *user, const char *password, const char **errmsg);
-
-void
-spotify_login(char **arglist);
+spotify_login(const char *user, const char *password, const char **errmsg);
 
 void
 spotify_logout(void);
