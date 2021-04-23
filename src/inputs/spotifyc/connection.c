@@ -211,8 +211,6 @@ connection_clear(struct sp_connection *conn)
 
   if (conn->response_ev)
     event_free(conn->response_ev);
-  if (conn->continue_ev)
-    event_free(conn->continue_ev);
   if (conn->idle_ev)
     event_free(conn->idle_ev);
   if (conn->timeout_ev)
@@ -274,7 +272,6 @@ connection_make(struct sp_connection *conn, struct sp_conn_callbacks *cb, struct
   conn->response_fd = response_fd;
   conn->response_ev = event_new(cb->evbase, response_fd, EV_READ | EV_PERSIST, cb->response_cb, session);
   conn->timeout_ev = evtimer_new(cb->evbase, cb->timeout_cb, conn);
-  conn->continue_ev = evtimer_new(cb->evbase, cb->continue_cb, session);
 
   conn->idle_ev = evtimer_new(cb->evbase, connection_idle_cb, conn);
 

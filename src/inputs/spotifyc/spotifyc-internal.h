@@ -145,7 +145,6 @@ struct sp_conn_callbacks
   struct event_base *evbase;
 
   event_callback_fn response_cb;
-  event_callback_fn continue_cb;
   event_callback_fn timeout_cb;
 };
 
@@ -178,9 +177,6 @@ struct sp_connection
   // Where we receive data from Spotify
   int response_fd;
   struct event *response_ev;
-
-  // Go to next step in a request sequence
-  struct event *continue_ev;
 
   // Connection timers
   struct event *idle_ev;
@@ -289,7 +285,7 @@ struct sp_session
 {
   struct sp_connection conn;
 
-  bool logged_in;
+  bool is_logged_in;
   struct sp_credentials credentials;
   char country[3]; // Incl null term
 
@@ -300,6 +296,9 @@ struct sp_session
   // Points to the channel that is streaming, and via this information about
   // the current track is also available
   struct sp_channel *now_streaming_channel;
+
+  // Go to next step in a request sequence
+  struct event *continue_ev;
 
   // Current (or last) message being processed
   enum sp_msg_type msg_type_queued;
