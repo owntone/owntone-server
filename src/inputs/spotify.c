@@ -639,7 +639,7 @@ struct input_definition input_spotify =
 /* ------------ Functions exposed via spotify.h (foreign threads) ----------- */
 
 int
-spotify_login_user(const char *user, const char *password, const char **errmsg)
+spotify_login(const char *user, const char *password, const char **errmsg)
 {
   struct global_ctx *ctx = &spotify_ctx;
   int ret;
@@ -669,13 +669,6 @@ spotify_login_user(const char *user, const char *password, const char **errmsg)
   pthread_mutex_unlock(&ctx->lock);
 
   return -1;
-}
-
-/* Thread: library */
-void
-spotify_login(char **arglist)
-{
-  spotify_login_user(arglist[0], arglist[1], NULL);
 }
 
 void
