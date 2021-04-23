@@ -30,8 +30,8 @@
 // Max wait for AP to respond
 #define SP_AP_TIMEOUT_SECS 10
 
-#define SP_CLIENT_NAME "librespot"
-#define SP_CLIENT_VERSION "a2f832d"
+// If client hasn't requested anything in particular
+#define SP_BITRATE_DEFAULT SP_BITRATE_320
 
 // A "mercury" response may contain multiple parts (e.g. multiple tracks), even
 // though this implenentation currently expects just one.
@@ -315,6 +315,7 @@ struct sp_err_map
 };
 
 extern struct sp_callbacks sp_cb;
+extern struct sp_sysinfo sp_sysinfo;
 extern const char *sp_errmsg;
 
 #endif // __SPOTIFYC_INTERNAL_H__

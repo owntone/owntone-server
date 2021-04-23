@@ -18,14 +18,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
-
 #include <fcntl.h>
+#include <pthread.h>
+#ifdef HAVE_PTHREAD_NP_H
+# include <pthread_np.h>
+#endif
 
 #include <event2/event.h>
 
 #include "input.h"
 #include "misc.h"
 #include "logger.h"
+#include "conffile.h"
+#include "listener.h"
 #include "http.h"
 #include "db.h"
 #include "transcode.h"
@@ -48,9 +53,10 @@ struct global_ctx
   pthread_mutex_t lock;
   pthread_cond_t cond;
 
-  struct sp_session *session;
-  bool response_pending; // waiting for a response from spotifyc
   struct spotify_status status;
+
+  struct sp_session *session;
+  enum sp_bitrates bitrate_preferred;
 };
 
 struct download_ctx
@@ -92,6 +98,43 @@ hextobin(uint8_t *data, size_t data_len, const char *hexstr, size_t hexstr_len)
       memcpy(hex, ptr, 2);
       data[i] = strtol(hex, NULL, 16);
     }
+}
+
+static int
+postlogin(struct global_ctx *ctx)
+{
+  struct sp_credentials credentials;
+  char *db_stored_cred;
+  char *ptr;
+  int i;
+  int ret;
+
+  ret = spotifyc_credentials_get(&credentials, ctx->session);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error getting Spotify credentials: %s\n", spotifyc_last_errmsg());
+      return -1;
+    }
+
+  CHECK_NULL(L_SPOTIFY, db_stored_cred = malloc(2 * credentials.stored_cred_len + 1));
+  for (i = 0, ptr = db_stored_cred; i < credentials.stored_cred_len; i++)
+    ptr += sprintf(ptr, "%02x", credentials.stored_cred[i]);
+
+  db_admin_set("spotify_username", credentials.username);
+  db_admin_set("spotify_stored_cred", db_stored_cred);
+
+  free(db_stored_cred);
+
+  ctx->status.logged_in = true;
+  snprintf(ctx->status.username, sizeof(ctx->status.username), "%s", credentials.username);
+
+  spotifyc_bitrate_set(ctx->session, ctx->bitrate_preferred);
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s\n", credentials.username);
+
+  listener_notify(LISTENER_SPOTIFY);
+
+  return 0;
 }
 
 // If there is evbuf size is below max, reads from a non-blocking fd until error,
@@ -180,6 +223,16 @@ tcp_disconnect(int fd)
 }
 
 static void
+thread_name_set(pthread_t thread)
+{
+#if defined(HAVE_PTHREAD_SETNAME_NP)
+  pthread_setname_np(thread, "spotify");
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+  pthread_set_name_np(thread, "spotify");
+#endif
+}
+
+static void
 logmsg_cb(const char *fmt, ...)
 {
   va_list ap;
@@ -202,6 +255,8 @@ struct sp_callbacks callbacks = {
   .https_get      = https_get_cb,
   .tcp_connect    = tcp_connect,
   .tcp_disconnect = tcp_disconnect,
+
+  .thread_name_set = thread_name_set,
 
   .hexdump  = hexdump_cb,
   .logmsg   = logmsg_cb,
@@ -462,30 +517,12 @@ seek(struct input_source *source, int seek_ms)
 }
 
 static int
-init(void)
+relogin(struct global_ctx *ctx, const char *username, const char *db_stored_cred)
 {
-  char *username = NULL;
-  char *db_stored_cred = NULL;
   size_t db_stored_cred_len;
   uint8_t *stored_cred = NULL;
   size_t stored_cred_len;
-  struct sp_credentials credentials;
   int ret;
-
-  CHECK_ERR(L_SPOTIFY, mutex_init(&spotify_ctx.lock));
-  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&spotify_ctx.cond, NULL));
-
-  ret = spotifyc_init(&callbacks);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error initializing Spotify: %s\n", spotifyc_last_errmsg());
-      goto error;
-    }
-
-  if ( db_admin_get(&username, "spotify_username") < 0 ||
-       db_admin_get(&db_stored_cred, "spotify_stored_cred") < 0 ||
-       !username || !db_stored_cred )
-    goto end; // User not logged in yet
 
   db_stored_cred_len = strlen(db_stored_cred);
   stored_cred_len = db_stored_cred_len / 2;
@@ -493,35 +530,86 @@ init(void)
   CHECK_NULL(L_SPOTIFY, stored_cred = malloc(stored_cred_len));
   hextobin(stored_cred, stored_cred_len, db_stored_cred, db_stored_cred_len);
 
-  spotify_ctx.session = spotifyc_login_stored_cred(username, stored_cred, stored_cred_len);
-  if (!spotify_ctx.session)
+  ctx->session = spotifyc_login_stored_cred(username, stored_cred, stored_cred_len);
+  if (!ctx->session)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Error logging into Spotify: %s\n", spotifyc_last_errmsg());
       goto error;
     }
 
-  ret = spotifyc_credentials_get(&credentials, spotify_ctx.session);
+  ret = postlogin(ctx);
+  if (ret < 0)
+    goto error;
+
+  free(stored_cred);
+  return 0;
+
+ error:
+  free(stored_cred);
+  if (ctx->session)
+    spotifyc_logout(ctx->session);
+  ctx->session = NULL;
+  return -1;
+}
+
+
+static int
+init(void)
+{
+  struct sp_sysinfo sysinfo;
+  cfg_t *spotify_cfg;
+  char *username = NULL;
+  char *db_stored_cred = NULL;
+  int ret;
+
+  CHECK_ERR(L_SPOTIFY, mutex_init(&spotify_ctx.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&spotify_ctx.cond, NULL));
+
+  snprintf(sysinfo.client_name, sizeof(sysinfo.client_name), PACKAGE_NAME);
+  snprintf(sysinfo.client_version, sizeof(sysinfo.client_version), PACKAGE_VERSION);
+  snprintf(sysinfo.client_build_id, sizeof(sysinfo.client_build_id), "0");
+  snprintf(sysinfo.device_id, sizeof(sysinfo.device_id), "%" PRIx64, libhash); // TODO use a UUID instead
+
+  ret = spotifyc_init(&sysinfo, &callbacks);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error getting Spotify credentials: %s\n", spotifyc_last_errmsg());
+      DPRINTF(E_LOG, L_SPOTIFY, "Error initializing Spotify: %s\n", spotifyc_last_errmsg());
       goto error;
     }
 
-  spotify_ctx.status.logged_in = true;
-  snprintf(spotify_ctx.status.username, sizeof(spotify_ctx.status.username), "%s", credentials.username);
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  switch (cfg_getint(spotify_cfg, "bitrate"))
+    {
+      case 1:
+	spotify_ctx.bitrate_preferred = SP_BITRATE_96;
+	break;
+      case 2:
+	spotify_ctx.bitrate_preferred = SP_BITRATE_160;
+	break;
+      case 3:
+	spotify_ctx.bitrate_preferred = SP_BITRATE_320;
+	break;
+      default:
+	spotify_ctx.bitrate_preferred = SP_BITRATE_ANY;
+    }
 
-  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s\n", spotify_ctx.status.username);
+  // Re-login if we have stored credentials
+  db_admin_get(&username, "spotify_username");
+  db_admin_get(&db_stored_cred, "spotify_stored_cred");
+  if (username && db_stored_cred)
+    {
+      ret = relogin(&spotify_ctx, username, db_stored_cred);
+      if (ret < 0)
+	goto error;
+    }
 
- end:
   free(username);
   free(db_stored_cred);
-  free(stored_cred);
   return 0;
 
  error:
   free(username);
   free(db_stored_cred);
-  free(stored_cred);
   return -1;
 }
 
@@ -529,6 +617,9 @@ static void
 deinit(void)
 {
   spotifyc_deinit();
+
+  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&spotify_ctx.cond));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&spotify_ctx.lock));
 }
 
 struct input_definition input_spotify =
@@ -551,10 +642,6 @@ int
 spotify_login_user(const char *user, const char *password, const char **errmsg)
 {
   struct global_ctx *ctx = &spotify_ctx;
-  struct sp_credentials credentials;
-  char *db_stored_cred;
-  char *ptr;
-  int i;
   int ret;
 
   pthread_mutex_lock(&ctx->lock);
@@ -563,23 +650,9 @@ spotify_login_user(const char *user, const char *password, const char **errmsg)
   if (!ctx->session)
     goto error;
 
-  ret = spotifyc_credentials_get(&credentials, ctx->session);
+  ret = postlogin(ctx);
   if (ret < 0)
     goto error;
-
-  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s\n", credentials.username);
-
-  db_stored_cred = malloc(2 * credentials.stored_cred_len +1);
-  for (i = 0, ptr = db_stored_cred; i < credentials.stored_cred_len; i++)
-    ptr += sprintf(ptr, "%02x", credentials.stored_cred[i]);
-
-  db_admin_set("spotify_username", credentials.username);
-  db_admin_set("spotify_stored_cred", db_stored_cred);
-
-  free(db_stored_cred);
-
-  ctx->status.logged_in = true;
-  snprintf(ctx->status.username, sizeof(ctx->status.username), "%s", credentials.username);
 
   pthread_mutex_unlock(&ctx->lock);
 
@@ -590,17 +663,19 @@ spotify_login_user(const char *user, const char *password, const char **errmsg)
     spotifyc_logout(ctx->session);
   ctx->session = NULL;
 
-  *errmsg = spotifyc_last_errmsg();
+  if (errmsg)
+    *errmsg = spotifyc_last_errmsg();
 
   pthread_mutex_unlock(&ctx->lock);
 
   return -1;
 }
 
+/* Thread: library */
 void
 spotify_login(char **arglist)
 {
-  return;
+  spotify_login_user(arglist[0], arglist[1], NULL);
 }
 
 void

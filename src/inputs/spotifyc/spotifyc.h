@@ -3,11 +3,13 @@
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <pthread.h>
 
 struct sp_session;
 
 enum sp_bitrates
 {
+  SP_BITRATE_ANY,
   SP_BITRATE_96,
   SP_BITRATE_160,
   SP_BITRATE_320,
@@ -17,7 +19,7 @@ typedef void (*sp_progress_cb)(int fd, void *arg, size_t received, size_t len);
 
 struct sp_credentials
 {
-  char username[32];
+  char username[64];
   char password[32];
 
   uint8_t stored_cred[256]; // Actual size is 146, but leave room for some more
@@ -31,12 +33,23 @@ struct sp_metadata
   size_t file_len;
 };
 
+struct sp_sysinfo
+{
+  char client_name[16];
+  char client_version[16];
+  char client_build_id[16];
+  char device_id[41]; // librespot gives a 20 byte id (so 40 char hex + 1 zero term)
+};
+
 struct sp_callbacks
 {
   // Bring your own https client and tcp connector
   int (*https_get)(char **body, const char *url);
   int (*tcp_connect)(const char *address, unsigned short port);
   void (*tcp_disconnect)(int fd);
+
+  // Optional - set name of thread
+  void (*thread_name_set)(pthread_t thread);
 
   // Debugging
   void (*hexdump)(const char *msg, uint8_t *data, size_t data_len);
@@ -58,7 +71,7 @@ int
 spotifyc_logout(struct sp_session *session);
 
 int
-spotifyc_bitrate_set(enum sp_bitrates bitrate, struct sp_session *session);
+spotifyc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate);
 
 int
 spotifyc_credentials_get(struct sp_credentials *credentials, struct sp_session *session);
@@ -91,7 +104,7 @@ const char *
 spotifyc_last_errmsg(void);
 
 int
-spotifyc_init(struct sp_callbacks *callbacks);
+spotifyc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks);
 
 void
 spotifyc_deinit(void);
