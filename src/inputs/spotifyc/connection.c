@@ -109,6 +109,8 @@ format_is_preferred(AudioFile *a, AudioFile *b, enum sp_bitrates bitrate_preferr
 	  return (a->format < b->format); // Prefer lowest
       case SP_BITRATE_320:
 	return (a->format > b->format); // Prefer highest
+      case SP_BITRATE_ANY:
+	return (a->format > b->format); // This case shouldn't happen, so this is mostly to avoid compiler warnings
     }
 
   return false;
@@ -953,6 +955,8 @@ msg_make_client_response_encrypted(uint8_t *out, size_t out_len, struct sp_sessi
   ClientResponseEncrypted client_response = CLIENT_RESPONSE_ENCRYPTED__INIT;
   LoginCredentials login_credentials = LOGIN_CREDENTIALS__INIT;
   SystemInfo system_info = SYSTEM_INFO__INIT;
+  char system_information_string[64];
+  char version_string[64];
   ssize_t len;
 
   login_credentials.has_auth_data = 1;
@@ -981,22 +985,21 @@ msg_make_client_response_encrypted(uint8_t *out, size_t out_len, struct sp_sessi
 
   system_info.cpu_family = CPU_FAMILY__CPU_UNKNOWN;
   system_info.os = OS__OS_UNKNOWN;
-  system_info.system_information_string = SP_CLIENT_NAME "_" SP_CLIENT_VERSION "_vTEFD7FD";
-  system_info.device_id = "e2ae20d9ae7fcacb605c03c198e0a1c51d446f50";
+  snprintf(system_information_string, sizeof(system_information_string), "%s_%s_%s",
+    sp_sysinfo.client_name, sp_sysinfo.client_version, sp_sysinfo.client_build_id);
+  system_info.system_information_string = system_information_string;
+  system_info.device_id = sp_sysinfo.device_id;
 
   client_response.login_credentials = &login_credentials;
   client_response.system_info = &system_info;
-  client_response.version_string = SP_CLIENT_NAME "-" SP_CLIENT_VERSION;
+  snprintf(version_string, sizeof(version_string), "%s-%s", sp_sysinfo.client_name, sp_sysinfo.client_version);
+  client_response.version_string = version_string;
 
   len = client_response_encrypted__get_packed_size(&client_response);
   if (len > out_len)
     return -1;
 
-  sp_cb.logmsg("Size of encrypted payload is %ld\n", len);
-
   client_response_encrypted__pack(&client_response, out);
-
-//  sp_cb.hexdump("our client_response_enc\n", out, len);
 
   return len;
 }

@@ -56,9 +56,6 @@ events for proceeding are activated directly.
 
 /* TODO list
 
- - session cleanup on failure
- - connect/disconnect/reconnect
- - don't memleak e.g. track
  - protect against DOS
  - use correct user-agent etc
  - web api token (scope streaming)
@@ -69,6 +66,7 @@ events for proceeding are activated directly.
 
 // Shared
 struct sp_callbacks sp_cb;
+struct sp_sysinfo sp_sysinfo;
 const char *sp_errmsg;
 
 static struct sp_session *sp_sessions;
@@ -162,7 +160,7 @@ session_new(struct sp_session **out, struct sp_cmdargs *cmdargs, event_callback_
       snprintf(session->credentials.password, sizeof(session->credentials.password), "%s", cmdargs->password);
     }
 
-  session->bitrate_preferred = SP_BITRATE_320;
+  session->bitrate_preferred = SP_BITRATE_DEFAULT;
 
   // Add to linked list
   session->next = sp_sessions;
@@ -720,6 +718,9 @@ bitrate_set(void *arg, int *retval)
   struct sp_session *session = cmdargs->session;
   int ret;
 
+  if (cmdargs->bitrate == SP_BITRATE_ANY)
+    cmdargs->bitrate = SP_BITRATE_DEFAULT;
+
   ret = session_check(session);
   if (ret < 0)
     RETURN_ERROR(SP_ERR_NOSESSION, "Session has disappeared, cannot set bitrate");
@@ -874,7 +875,7 @@ spotifyc_metadata_get(struct sp_metadata *metadata, int fd)
 }
 
 int
-spotifyc_bitrate_set(enum sp_bitrates bitrate, struct sp_session *session)
+spotifyc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -902,7 +903,7 @@ spotifyc_last_errmsg(void)
 }
 
 int
-spotifyc_init(struct sp_callbacks *callbacks)
+spotifyc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
 {
   int ret;
 
@@ -911,6 +912,8 @@ spotifyc_init(struct sp_callbacks *callbacks)
 
   sp_cb     = *callbacks;
   sp_initialized = true;
+
+  memcpy(&sp_sysinfo, sysinfo, sizeof(struct sp_sysinfo));
 
   sp_evbase = event_base_new();
   if (!sp_evbase)
@@ -924,11 +927,8 @@ spotifyc_init(struct sp_callbacks *callbacks)
   if (ret < 0)
     RETURN_ERROR(SP_ERR_OOM, "Could not start thread");
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(sp_tid, "spotifyc");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(sp_tid, "spotifyc");
-#endif
+  if (sp_cb.thread_name_set)
+    sp_cb.thread_name_set(sp_tid);
 
   return 0;
 
@@ -951,10 +951,10 @@ spotifyc_deinit()
       session_free(session);
     }
 
+  pthread_join(sp_tid, NULL);
+
   event_base_free(sp_evbase);
   sp_evbase = NULL;
-
-  pthread_join(sp_tid, NULL);
 
   sp_initialized = false;
   memset(&sp_cb, 0, sizeof(struct sp_callbacks));

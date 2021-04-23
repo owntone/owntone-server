@@ -7,7 +7,7 @@ struct spotify_status
 {
   bool installed;
   bool logged_in;
-  char username[100];
+  char username[64];
 };
 
 int
