@@ -107,6 +107,7 @@ fd_read(bool *eofptr, struct evbuffer *evbuf, int fd)
   while (len + total < SPOTIFY_BUF_MAX && !eof)
     {
       ret = evbuffer_read(evbuf, fd, -1); // Each read is 4096 bytes (EVBUFFER_READ_MAX)
+
       if (ret == 0)
 	eof = true;
       else if (ret < 0)
@@ -117,9 +118,6 @@ fd_read(bool *eofptr, struct evbuffer *evbuf, int fd)
 
   if (eofptr)
     *eofptr = eof;
-
-  if (eof)
-    DPRINTF(E_DBG, L_SPOTIFY, "fd_read said eof, ret is %d, total is %d\n", ret, total);
 
   if (ret < 0 && errno != EAGAIN)
     return ret;

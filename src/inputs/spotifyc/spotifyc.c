@@ -40,7 +40,7 @@ events for proceeding are activated directly.
 |---reconnect---*            |------wait------*       |------wait------*
                 |                             |                        |
                 v                             v                        v
-           done/error                done/error/timeout       done/error/timeout
+           done/error                done/error/timeout           done/error
 
 "next": on success, continue with next command
 "wait": waiting for more data or for write to become possible
@@ -60,7 +60,6 @@ events for proceeding are activated directly.
  - connect/disconnect/reconnect
  - don't memleak e.g. track
  - protect against DOS
- - limit track download speed
  - use correct user-agent etc
  - web api token (scope streaming)
 */
@@ -81,7 +80,6 @@ static struct event_base *sp_evbase;
 static struct commands_base *sp_cmdbase;
 
 static struct timeval sp_response_timeout_tv = { SP_AP_TIMEOUT_SECS, 0 };
-static struct timeval sp_write_timeout_tv = { SP_AP_TIMEOUT_SECS, 0 };
 
 
 // Forwards
@@ -101,6 +99,7 @@ session_free(struct sp_session *session)
 
   ap_disconnect(&session->conn);
 
+  event_free(session->continue_ev);
   free(session);
 }
 
@@ -127,7 +126,7 @@ session_cleanup(struct sp_session *session)
 }
 
 static int
-session_new(struct sp_session **out, struct sp_cmdargs *cmdargs)
+session_new(struct sp_session **out, struct sp_cmdargs *cmdargs, event_callback_fn cb)
 {
   struct sp_session *session;
   int ret;
@@ -135,6 +134,10 @@ session_new(struct sp_session **out, struct sp_cmdargs *cmdargs)
   session = calloc(1, sizeof(struct sp_session));
   if (!session)
     RETURN_ERROR(SP_ERR_OOM, "Out of memory creating session");
+
+  session->continue_ev = evtimer_new(sp_evbase, cb, session);
+  if (!session->continue_ev)
+    RETURN_ERROR(SP_ERR_OOM, "Out of memory creating session event");
 
   snprintf(session->credentials.username, sizeof(session->credentials.username), "%s", cmdargs->username);
 
@@ -221,12 +224,26 @@ session_return(struct sp_session *session, enum sp_error err)
   commands_exec_end(sp_cmdbase, err);
 }
 
+// Rolls back from an error situation. If it is a failed login then the session
+// will be closed, but if it just a connection timeout we keep the session, but
+// drop the ongoing download.
 static void
-session_fail(struct sp_session *session, enum sp_error err)
+session_error(struct sp_session *session, enum sp_error err)
 {
+  struct sp_channel *channel = session->now_streaming_channel;
+
+  sp_cb.logmsg("Session error: %d\n", err);
+
   session_return(session, err);
 
-  session_cleanup(session);
+  if (!session->is_logged_in)
+    {
+      session_cleanup(session);
+      return;
+    }
+
+  channel_free(channel);
+  session->now_streaming_channel = NULL;
 }
 
 
@@ -263,7 +280,7 @@ continue_cb(int fd, short what, void *arg)
     {
       ret = request_make(type, session);
       if (ret < 0)
-	session_fail(session, ret);
+	session_error(session, ret);
     }
   else
     session_return(session, SP_OK_DONE); // All done, yay!
@@ -279,19 +296,17 @@ audio_write_cb(int fd, short what, void *arg)
   struct sp_channel *channel = session->now_streaming_channel;
   int ret;
 
-  if (what == EV_TIMEOUT)
-    RETURN_ERROR(SP_ERR_TIMEOUT, "Timeout waiting for write access");
-  else if (!channel)
+  if (!channel)
     RETURN_ERROR(SP_ERR_INVALID, "Write result request, but not streaming right now");
 
   ret = channel_data_write(channel);
   switch (ret)
     {
       case SP_OK_WAIT:
-	event_add(channel->audio_write_ev, &sp_write_timeout_tv);
+	event_add(channel->audio_write_ev, NULL);
 	break;
       case SP_OK_DONE:
-	event_active(session->conn.continue_ev, 0, 0);
+	event_active(session->continue_ev, 0, 0);
 	break;
       default:
 	goto error;
@@ -300,7 +315,7 @@ audio_write_cb(int fd, short what, void *arg)
   return;
 
  error:
-  session_fail(session, ret);
+  session_error(session, ret);
 }
 
 static void
@@ -310,7 +325,7 @@ timeout_cb(int fd, short what, void *arg)
 
   sp_errmsg = "Timeout waiting for Spotify response";
 
-  session_fail(session, SP_ERR_TIMEOUT);
+  session_error(session, SP_ERR_TIMEOUT);
 }
 
 static void
@@ -344,14 +359,14 @@ response_cb(int fd, short what, void *arg)
 	  channel->progress_cb(channel->audio_fd[0], channel->cb_arg, 4 * channel->file.received_words - SP_OGG_HEADER_LEN, 4 * channel->file.len_words - SP_OGG_HEADER_LEN);
 
 	event_del(conn->timeout_ev);
-	event_add(channel->audio_write_ev, &sp_write_timeout_tv);
+	event_add(channel->audio_write_ev, NULL);
 	break;
       case SP_OK_DONE: // Got the response we expected, but possibly more to process
 	if (evbuffer_get_length(conn->incoming) > 0)
 	  event_active(conn->response_ev, 0, 0);
 
 	event_del(conn->timeout_ev);
-	event_active(conn->continue_ev, 0, 0);
+	event_active(session->continue_ev, 0, 0);
 	break;
       case SP_OK_OTHER: // Not the response we were waiting for, check for other
 	if (evbuffer_get_length(conn->incoming) > 0)
@@ -365,7 +380,7 @@ response_cb(int fd, short what, void *arg)
   return;
 
  error:
-  session_fail(session, ret);
+  session_error(session, ret);
 }
 
 static int
@@ -395,7 +410,7 @@ request_make(enum sp_msg_type type, struct sp_session *session)
 {
   struct sp_message msg;
   struct sp_connection *conn = &session->conn;
-  struct sp_conn_callbacks cb = { sp_evbase, response_cb, continue_cb, timeout_cb };
+  struct sp_conn_callbacks cb = { sp_evbase, response_cb, timeout_cb };
   int ret;
 
   // Make sure the connection is in a state suitable for sending this message
@@ -423,7 +438,7 @@ request_make(enum sp_msg_type type, struct sp_session *session)
   if (msg.response_handler)
     event_add(conn->timeout_ev, &sp_response_timeout_tv);
   else
-    event_active(conn->continue_ev, 0, 0);
+    event_active(session->continue_ev, 0, 0);
 
   session->msg_type_next = msg.type_next;
   session->response_handler = msg.response_handler;
@@ -627,7 +642,7 @@ login(void *arg, int *retval)
   struct sp_session *session = NULL;
   int ret;
 
-  ret = session_new(&session, cmdargs);
+  ret = session_new(&session, cmdargs, continue_cb);
   if (ret < 0)
     goto error;
 
@@ -652,7 +667,9 @@ login_bh(void *arg, int *retval)
 {
   struct sp_cmdargs *cmdargs = arg;
 
-  if (*retval != SP_OK_DONE)
+  if (*retval == SP_OK_DONE)
+    cmdargs->session->is_logged_in = true;
+  else
     cmdargs->session = NULL;
 
   return COMMAND_END;
