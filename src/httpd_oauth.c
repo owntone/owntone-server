@@ -50,7 +50,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
 
   httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
-  snprintf(redirect_uri, sizeof(redirect_uri), "http://forked-daapd.local:%d/oauth/spotify", httpd_port);
+  snprintf(redirect_uri, sizeof(redirect_uri), "http://owntone.local:%d/oauth/spotify", httpd_port);
   ret = spotifywebapi_oauth_callback(hreq->query, redirect_uri, &errmsg);
   if (ret < 0)
     {
@@ -68,9 +68,9 @@ oauth_reply_spotify(struct httpd_request *hreq)
 static int
 oauth_reply_spotify(struct httpd_request *hreq)
 {
-  DPRINTF(E_LOG, L_WEB, "This version of forked-daapd was built without support for Spotify\n");
+  DPRINTF(E_LOG, L_WEB, "This version was built without support for Spotify\n");
 
-  httpd_send_error(hreq->req, HTTP_NOTFOUND, "This version of forked-daapd was built without support for Spotify");
+  httpd_send_error(hreq->req, HTTP_NOTFOUND, "This version was built without support for Spotify");
 
   return -1;
 }

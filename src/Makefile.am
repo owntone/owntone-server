@@ -1,5 +1,5 @@
 
-sbin_PROGRAMS = forked-daapd
+sbin_PROGRAMS = owntone
 
 if COND_SPOTIFY
 SPOTIFY_SRC=spotify.c spotify.h spotify_webapi.c spotify_webapi.h inputs/spotify.c
@@ -75,8 +75,8 @@ ANTLR_OBJECTS = \
 	SMARTPLLexer.$(OBJEXT) SMARTPLParser.$(OBJEXT) SMARTPL2SQL.$(OBJEXT)
 
 AM_CPPFLAGS += \
-	$(FORKED_CPPFLAGS) \
-	$(FORKED_OPTS_CPPFLAGS) \
+	$(OWNTONE_CPPFLAGS) \
+	$(OWNTONE_OPTS_CPPFLAGS) \
 	$(COMMON_CPPFLAGS) \
 	\
 	-D_GNU_SOURCE \
@@ -85,12 +85,12 @@ AM_CPPFLAGS += \
 	-DSTATEDIR=\"$(localstatedir)\" \
 	-DPKGLIBDIR=\"$(pkglibdir)\"
 
-forked_daapd_LDADD = \
-	$(FORKED_LIBS) \
-	$(FORKED_OPTS_LIBS) \
+owntone_LDADD = \
+	$(OWNTONE_LIBS) \
+	$(OWNTONE_OPTS_LIBS) \
 	$(COMMON_LIBS)
 
-forked_daapd_SOURCES = main.c \
+owntone_SOURCES = main.c \
 	db.c db.h \
 	db_init.c db_init.h \
 	db_upgrade.c db_upgrade.h \

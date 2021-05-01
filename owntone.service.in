@@ -1,13 +1,13 @@
 [Unit]
 Description=DAAP/DACP (iTunes), RSP and MPD server, supports AirPlay and Remote
-Documentation=man:forked-daapd(8)
+Documentation=man:owntone(8)
 After=network.target sound.target remote-fs.target pulseaudio.service avahi-daemon.service
 
 [Service]
-ExecStart=@sbindir@/forked-daapd -f
+ExecStart=@sbindir@/owntone -f
 
 # Constrain the upper limit of memory/swap that can be used; this prevents 
-# forked-daapd from consuming all system memory (in event of bug/malformed user
+# the server from consuming all system memory (in event of bug/malformed user
 # curl/SMARTPL query etc) that would hang/freeze low resource and headless (ie 
 # RPi) machines
 #

@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.60])
-AC_INIT([forked-daapd], [27.4])
+AC_INIT([owntone], [27.4])
 
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -50,12 +50,12 @@ AC_SUBST([AM_CPPFLAGS])
 dnl Checks for header files.
 AC_CHECK_HEADERS_ONCE([regex.h pthread_np.h])
 AC_CHECK_HEADERS([sys/wait.h sys/param.h dirent.h getopt.h stdint.h], [],
-	[AC_MSG_ERROR([[Missing header required to build forked-daapd]])])
+	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
 AC_CHECK_HEADERS([time.h], [],
-	[AC_MSG_ERROR([[Missing header required to build forked-daapd]])])
+	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
 AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2])
 AC_CHECK_FUNCS([strptime strtok_r], [],
-	[AC_MSG_ERROR([[Missing function required to build forked-daapd]])])
+	[AC_MSG_ERROR([[Missing function required to build OwnTone]])])
 
 dnl check for clock_gettime or replace it
 AC_SEARCH_LIBS([clock_gettime], [rt],
@@ -105,33 +105,33 @@ dnl Checks for libraries.
 
 AC_SUBST([COMMON_LIBS])
 AC_SUBST([COMMON_CPPFLAGS])
-AC_SUBST([FORKED_LIBS])
-AC_SUBST([FORKED_CPPFLAGS])
-AC_SUBST([FORKED_OPTS_LIBS])
-AC_SUBST([FORKED_OPTS_CPPFLAGS])
+AC_SUBST([OWNTONE_LIBS])
+AC_SUBST([OWNTONE_CPPFLAGS])
+AC_SUBST([OWNTONE_OPTS_LIBS])
+AC_SUBST([OWNTONE_OPTS_CPPFLAGS])
 
 AM_ICONV
-dnl All FORK_ macros defined in m4/fork_checks.m4
-FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
+dnl All OWNTONE_ macros defined in m4/owntone_checks.m4
+OWNTONE_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING], [unistring],
 	[u8_strconv_from_locale], [uniconv.h], [],
 	[dnl Retry test with iconv library
-	 FORK_VARS_PREPEND([COMMON], [LIBICONV], [INCICONV])
-	 FORK_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING],
+	 OWNTONE_VARS_PREPEND([COMMON], [LIBICONV], [INCICONV])
+	 OWNTONE_FUNC_REQUIRE([COMMON], [GNU libunistring], [LIBUNISTRING],
 		[unistring], [u8_strconv_from_locale], [uniconv.h])])
 
-FORK_MODULES_CHECK([FORKED], [ZLIB], [zlib], [deflate], [zlib.h])
-FORK_MODULES_CHECK([FORKED], [CONFUSE], [libconfuse >= 3.0], [cfg_init], [confuse.h])
-FORK_MODULES_CHECK([FORKED], [LIBCURL], [libcurl], [curl_global_init], [curl/curl.h])
-FORK_MODULES_CHECK([FORKED], [LIBSODIUM], [libsodium], [sodium_init], [sodium.h])
+OWNTONE_MODULES_CHECK([OWNTONE], [ZLIB], [zlib], [deflate], [zlib.h])
+OWNTONE_MODULES_CHECK([OWNTONE], [CONFUSE], [libconfuse >= 3.0], [cfg_init], [confuse.h])
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBCURL], [libcurl], [curl_global_init], [curl/curl.h])
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBSODIUM], [libsodium], [sodium_init], [sodium.h])
 
-FORK_MODULES_CHECK([FORKED], [MINIXML], [mxml],
+OWNTONE_MODULES_CHECK([OWNTONE], [MINIXML], [mxml],
 	[mxmlNewElement], [mxml.h],
 	[
 	 dnl See mxml-compat.h
 	 AC_CHECK_FUNCS([mxmlGetOpaque] [mxmlGetText] [mxmlGetType] [mxmlGetFirstChild])
 	])
 
-FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
+OWNTONE_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 	[sqlite3_initialize], [sqlite3.h],
 	[dnl Check that SQLite3 has the unlock notify API built-in
 	 AC_CHECK_FUNC([[sqlite3_unlock_notify]], [],
@@ -151,7 +151,7 @@ FORK_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 		[AC_MSG_RESULT([[runtime will tell]])])
 	])
 
-FORK_MODULES_CHECK([FORKED], [LIBEVENT], [libevent >= 2],
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT], [libevent >= 2],
 	[event_base_new], [event2/event.h],
 	[dnl check for old version
 	 PKG_CHECK_EXISTS([libevent >= 2.1.4], [],
@@ -159,7 +159,7 @@ FORK_MODULES_CHECK([FORKED], [LIBEVENT], [libevent >= 2],
 			[Define to 1 if you have libevent 2 (<2.1.4)])])
 	])
 
-FORK_MODULES_CHECK([FORKED], [JSON_C], [json-c],
+OWNTONE_MODULES_CHECK([OWNTONE], [JSON_C], [json-c],
 	[json_tokener_parse], [json.h],
 	[dnl check for old version
 	 PKG_CHECK_EXISTS([json-c >= 0.11], [],
@@ -169,13 +169,13 @@ FORK_MODULES_CHECK([FORKED], [JSON_C], [json-c],
 
 dnl Build with libplist (2.2.0 does not ship libplist.pc, only libplist-2.0.pc)
 PKG_CHECK_EXISTS([libplist],
-	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist >= 0.16],
+	[OWNTONE_MODULES_CHECK([OWNTONE], [LIBPLIST], [libplist >= 0.16],
 		[plist_dict_get_item], [plist/plist.h])],
-	[FORK_MODULES_CHECK([FORKED], [LIBPLIST], [libplist-2.0],
+	[OWNTONE_MODULES_CHECK([OWNTONE], [LIBPLIST], [libplist-2.0],
 		[plist_dict_get_item], [plist/plist.h])])
 
 
-FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
+OWNTONE_FUNC_REQUIRE([OWNTONE], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	[antlr3BaseRecognizerNew], [antlr3.h],
 	[AC_CHECK_FUNC([[antlr3NewAsciiStringInPlaceStream]],
 		[AC_DEFINE([ANTLR3C_NEW_INPUT], 0,
@@ -185,10 +185,10 @@ FORK_FUNC_REQUIRE([FORKED], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
 	])
 
 AM_PATH_LIBGCRYPT([1:1.2.0])
-FORK_FUNC_REQUIRE([FORKED], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
+OWNTONE_FUNC_REQUIRE([OWNTONE], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
 	[gcry_control], [gcrypt.h])
 AM_PATH_GPG_ERROR([1.6])
-FORK_FUNC_REQUIRE([FORKED], [GNUPG Error Values], [GPG_ERROR_MT], [gpg-error],
+OWNTONE_FUNC_REQUIRE([OWNTONE], [GNUPG Error Values], [GPG_ERROR_MT], [gpg-error],
 	[gpg_err_init], [gpg-error.h])
 
 
@@ -197,7 +197,7 @@ AC_CHECK_HEADER([sys/eventfd.h], [AC_CHECK_FUNCS([eventfd])])
 AC_CHECK_HEADER([sys/timerfd.h], [AC_CHECK_FUNC([timerfd_create],
 	[AC_DEFINE([HAVE_TIMERFD], 1, [Define to 1 if you have timerfd])])])
 
-FORK_FUNC_REQUIRE([FORKED], [inotify], [INOTIFY], [inotify],
+OWNTONE_FUNC_REQUIRE([OWNTONE], [inotify], [INOTIFY], [inotify],
 	[inotify_add_watch], [sys/inotify.h])
 
 have_signal=no
@@ -229,7 +229,7 @@ AC_ARG_WITH([libav], [AS_HELP_STRING([--with-libav],
 	[choose libav even if ffmpeg present (default=no)])],
 	[[LIBAV=-libav]], [[LIBAV=]])
 dnl libav/ffmpeg requires many feature checks
-FORK_MODULES_CHECK([FORKED], [LIBAV],
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBAV],
 	[libavformat$LIBAV libavcodec$LIBAV libavutil$LIBAV libavfilter$LIBAV],
 	[av_init_packet], [libavcodec/avcodec.h],
 	[dnl Checks for misc libav and ffmpeg API differences
@@ -247,9 +247,9 @@ FORK_MODULES_CHECK([FORKED], [LIBAV],
 		[Define to 1 if you have ffmpeg (not libav)])],
 	 [[is_ffmpeg=no]])
 	 AC_MSG_RESULT([$is_ffmpeg])
-	 FORK_CHECK_DECLS([av_version_info],
+	 OWNTONE_CHECK_DECLS([av_version_info],
 		[libavutil/avutil.h])
-	 FORK_CHECK_DECLS([avformat_network_init],
+	 OWNTONE_CHECK_DECLS([avformat_network_init],
 		[libavformat/avformat.h])
 	])
 
@@ -257,61 +257,61 @@ AC_CHECK_SIZEOF([void *])
 
 dnl --- Begin configuring the options ---
 dnl ALSA
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [ALSA support], [alsa], [ALSA],
+OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [ALSA support], [alsa], [ALSA],
 	[alsa], [snd_mixer_open], [alsa/asoundlib.h])
 AM_CONDITIONAL([COND_ALSA], [[test "x$with_alsa" = "xyes"]])
 
 dnl PULSEAUDIO
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [Pulseaudio support], [pulseaudio], [LIBPULSE],
+OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [Pulseaudio support], [pulseaudio], [LIBPULSE],
 	[libpulse], [pa_stream_get_state], [pulse/pulseaudio.h],
 	[AC_CHECK_FUNCS([pa_threaded_mainloop_set_name])])
 AM_CONDITIONAL([COND_PULSEAUDIO], [[test "x$with_pulseaudio" = "xyes"]])
 
 dnl Build with libwebsockets
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
+OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
 	[libwebsockets >= 2.0.2])
 AM_CONDITIONAL([COND_LIBWEBSOCKETS], [[test "x$with_libwebsockets" = "xyes"]])
 
 dnl Build with libevent_pthreads
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [libevent_pthreads support],
+OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libevent_pthreads support],
 	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
 	[evthread_use_pthreads], [event2/thread.h])
 
 dnl Build with Avahi (or Bonjour if not)
-FORK_ARG_WITH_CHECK([FORKED_OPTS], [Avahi mDNS], [avahi], [AVAHI],
+OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [Avahi mDNS], [avahi], [AVAHI],
 	[avahi-client >= 0.6.24], [avahi_client_new], [avahi-client/client.h])
 AS_IF([[test "x$with_avahi" = "xno"]],
-	[FORK_FUNC_REQUIRE([FORKED_OPTS], [Bonjour DNS_SD], [DNSSD], [dns_sd],
+	[OWNTONE_FUNC_REQUIRE([OWNTONE_OPTS], [Bonjour DNS_SD], [DNSSD], [dns_sd],
 		[DNSServiceGetAddrInfo], [dns_sd.h], [],
 		[AC_MSG_ERROR([[Avahi client or Bonjour DNS_SD required, please install one.]])])])
 AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
 dnl Spotify with dynamic linking to libspotify
-FORK_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
+OWNTONE_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
 	[AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
 		[AC_MSG_ERROR([[Spotify support requires libevent_pthreads]])])
-	 FORK_MODULES_CHECK([SPOTIFY], [LIBSPOTIFY], [libspotify],
+	 OWNTONE_MODULES_CHECK([SPOTIFY], [LIBSPOTIFY], [libspotify],
 		[], [libspotify/api.h])
 	 AC_DEFINE([HAVE_SPOTIFY_H], 1,
 		[Define to 1 if you have the <libspotify/api.h> header file.])
 	 dnl Don't link with libspotify, use dynamic linking
 	 AC_SEARCH_LIBS([dlopen], [dl], [],
 		[AC_MSG_ERROR([[Spotify support requires dlopen]])])
-	 FORK_VAR_PREPEND([FORKED_OPTS_CPPFLAGS], [$SPOTIFY_CPPFLAGS])
-	 FORK_VAR_PREPEND([FORKED_OPTS_LIBS], [-rdynamic])
+	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_CPPFLAGS], [$SPOTIFY_CPPFLAGS])
+	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_LIBS], [-rdynamic])
 	])
 AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
 
 dnl LastFM support
-FORK_ARG_DISABLE([LastFM support], [lastfm], [LASTFM])
+OWNTONE_ARG_DISABLE([LastFM support], [lastfm], [LASTFM])
 AM_CONDITIONAL([COND_LASTFM], [[test "x$enable_lastfm" = "xyes"]])
 
 dnl ChromeCast support with libprotobuf-c
-FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
-	[FORK_MODULES_CHECK([FORKED_OPTS], [LIBPROTOBUF_C],
+OWNTONE_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
+	[OWNTONE_MODULES_CHECK([OWNTONE_OPTS], [LIBPROTOBUF_C],
 		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
 		[protobuf-c/protobuf-c.h], [],
-		[FORK_FUNC_REQUIRE([FORKED_OPTS], [v0 libprotobuf-c],
+		[OWNTONE_FUNC_REQUIRE([OWNTONE_OPTS], [v0 libprotobuf-c],
 			[LIBPROTOBUF_OLD], [protobuf-c],
 			[protobuf_c_message_pack],
 			[google/protobuf-c/protobuf-c.h],
@@ -320,43 +320,43 @@ FORK_ARG_ENABLE([Chromecast support], [chromecast], [CHROMECAST],
 			 [protobuf_old=yes]],
 			[AC_MSG_ERROR([[Chromecast support requires protobuf-c]])])
 		])
-	 FORK_MODULES_CHECK([FORKED_OPTS], [GNUTLS], [gnutls], [gnutls_init],
+	 OWNTONE_MODULES_CHECK([OWNTONE_OPTS], [GNUTLS], [gnutls], [gnutls_init],
 		[gnutls/gnutls.h])
 	])
 AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
 dnl Prefer AirPlay 2
-FORK_ARG_ENABLE([preference for AirPlay 2 for devices that support both 1 and 2], [preferairplay2], [PREFER_AIRPLAY2])
+OWNTONE_ARG_ENABLE([preference for AirPlay 2 for devices that support both 1 and 2], [preferairplay2], [PREFER_AIRPLAY2])
 
 dnl DB profiling support
-FORK_ARG_ENABLE([DB profiling support], [dbprofile], [DB_PROFILE])
+OWNTONE_ARG_ENABLE([DB profiling support], [dbprofile], [DB_PROFILE])
 
 dnl MPD support
-FORK_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
+OWNTONE_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
 AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
 
 dnl Include default webinterface
-FORK_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE],
+OWNTONE_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE],
 	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
 		[AC_MSG_ERROR([[Web interface requires libwebsockets >= 2.0.2 (or use --disable-webinterface)]])])
 	])
 AM_CONDITIONAL([COND_WEBINTERFACE], [[test "x$enable_webinterface" = "xyes"]])
 
 dnl Defining users and groups
-AC_ARG_WITH([daapd_user],
-	[AS_HELP_STRING([--with-daapd-user=USER],
-		[User for running forked-daapd (default=daapd)])],
+AC_ARG_WITH([owntone_user],
+	[AS_HELP_STRING([--with-user=USER],
+		[User for running OwnTone (default=owntone)])],
 	[[test x"$withval" = xyes && withval=]], [[withval=]])
-DAAPD_USER=${withval:-daapd}
-AC_SUBST([DAAPD_USER])
+OWNTONE_USER=${withval:-owntone}
+AC_SUBST([OWNTONE_USER])
 
-AC_ARG_WITH([daapd_group],
-	[AS_HELP_STRING([--with-daapd-group=GROUP],
-		[Group for daapd user (default=USER)])],
+AC_ARG_WITH([owntone_group],
+	[AS_HELP_STRING([--with-group=GROUP],
+		[Group for owntone user (default=USER)])],
 	[[test x"$withval" = xyes && withval=]], [[withval=]])
-DAAPD_GROUP=${withval:-$DAAPD_USER}
-AC_SUBST([DAAPD_GROUP])
+OWNTONE_GROUP=${withval:-$OWNTONE_USER}
+AC_SUBST([OWNTONE_GROUP])
 dnl --- End options ---
 
 AC_CONFIG_FILES([
@@ -364,6 +364,6 @@ AC_CONFIG_FILES([
 	sqlext/Makefile
 	htdocs/Makefile
 	Makefile
-	forked-daapd.spec
+	owntone.spec
 ])
 AC_OUTPUT

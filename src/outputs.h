@@ -237,7 +237,7 @@ struct output_definition
   // Request a change of quality from the device
   int (*device_quality_set)(struct output_device *device, struct media_quality *quality, int callback_id);
 
-  // Authorize forked-daapd to use the device
+  // Authorize the server to use the device
   int (*device_authorize)(struct output_device *device, const char *pin, int callback_id);
 
   // Change the call back associated with a device

@@ -1,15 +1,15 @@
 .\"  -*- nroff -*-
-.TH FORKED-DAAPD "8" "2018-01-14" "forked-daapd" "DAAP, MPD, Chromecast & RSP media server"
+.TH OWNTONE "8" "2018-01-14" "owntone" "DAAP, MPD, Chromecast & RSP media server"
 .SH NAME
-forked\-daapd \- iTunes\-compatible DAAP server with MPD, Chromecast and RSP support
+OwnTone \- iTunes\-compatible DAAP server with MPD, Chromecast and RSP support
 .SH SYNOPSIS
-.B forked-daapd
+.B OwnTone
 [\fIoptions\fR]
 .SH DESCRIPTION
-\fBforked\-daapd\fP is a Linux/FreeBSD DAAP (iTunes) media server with support
+\fBOwnTone\fP is a Linux/FreeBSD DAAP (iTunes) media server with support
 for AirPlay devices, Apple Remote (and compatibles), MPD, Spotify, Chromecast,
-mp3 streaming and internet radio. It allows you to share your music collection over
-the local network.
+mp3 streaming and internet radio. It allows you to share your music collection
+over the local network.
 .SH OPTIONS
 .TP
 \fB\-d, \-\-debug=\fR\fIlevel\fP
@@ -46,15 +46,15 @@ Don't announce RSP service via mDNS.
 Don't announce DAAP service via mDNS.
 .TP
 \fB\-\-mdns-no-cname\fR
-Don't register forked-daapd.local as CNAME via mDNS.
+Don't register owntone.local as CNAME via mDNS.
 .TP
 \fB\-\-mdns-no-web\fR
 Don't announce web interface via mDNS.
 .SH FILES
 .nf
- \fI/etc/forked\-daapd.conf\fR
- \fI/var/cache/forked\-daapd\fR
+ \fI/etc/owntone.conf\fR
+ \fI/var/cache/owntone\fR
 .fi
 .SH SEE ALSO
-See \fIhttp://owntone.github.io/forked-daapd/\fR for more in-depth information
-about using \fBforked-daapd\fP.
+See \fIhttp://owntone.github.io/owntone-server/\fR for more in-depth information
+about using \fBOwnTone\fP.

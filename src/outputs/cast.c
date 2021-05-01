@@ -351,7 +351,7 @@ struct cast_msg_basic cast_msg[] =
     .type = CONNECT,
     .namespace = NS_CONNECTION,
     .payload = "{'type':'CONNECT'}",
-//	msg.payload_utf8 = "{\"origin\":{},\"userAgent\":\"forked-daapd\",\"type\":\"CONNECT\",\"senderInfo\":{\"browserVersion\":\"44.0.2403.30\",\"version\":\"15.605.1.3\",\"connectionType\":1,\"platform\":4,\"sdkType\":2,\"systemVersion\":\"Macintosh; Intel Mac OS X10_10_3\"}}";
+//	msg.payload_utf8 = "{\"origin\":{},\"userAgent\":\"owntone\",\"type\":\"CONNECT\",\"senderInfo\":{\"browserVersion\":\"44.0.2403.30\",\"version\":\"15.605.1.3\",\"connectionType\":1,\"platform\":4,\"sdkType\":2,\"systemVersion\":\"Macintosh; Intel Mac OS X10_10_3\"}}";
   },
   {
     .type = CLOSE,
@@ -439,7 +439,7 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = PRESENTATION,
     .namespace = NS_WEBRTC,
-    .payload = "{'type':'PRESENTATION','sessionId':'%s','seqNum':%u,'title':'forked-daapd','icons':[{'url':'http://www.gyfgafguf.dk/images/fugl.jpg'}] }",
+    .payload = "{'type':'PRESENTATION','sessionId':'%s','seqNum':%u,'title':'" PACKAGE_NAME "','icons':[{'url':'http://www.gyfgafguf.dk/images/fugl.jpg'}] }",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {

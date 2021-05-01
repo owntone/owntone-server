@@ -1,7 +1,7 @@
 # @configure_input@
 # -*- Mode:rpm-spec -*-
-%global username @DAAPD_USER@
-%global groupname @DAAPD_GROUP@
+%global username @OWNTONE_USER@
+%global groupname @OWNTONE_GROUP@
 
 %bcond_without alsa
 %bcond_without pulseaudio
@@ -12,7 +12,7 @@
 %global _hardened_build 1
 
 Summary: iTunes-compatible DAAP server with MPD and RSP support
-Name: forked-daapd
+Name: owntone
 Version: @PACKAGE_VERSION@
 Release: 1%{?dist}
 License: GPLv2+
@@ -51,8 +51,8 @@ BuildRequires: pkgconfig(gnutls)
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 %description
-forked-daapd is a DAAP/DACP (iTunes), MPD (Music Player Daemon)
-and RSP (Roku) media server.
+OwnTone is a DAAP/DACP (iTunes), MPD (Music Player Daemon) and RSP (Roku) media
+server.
 
 It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
 MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
@@ -61,8 +61,6 @@ It does not support streaming video by AirPlay nor Chromecast.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
-
-forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 
 %prep
 %setup -q
@@ -83,7 +81,7 @@ mkdir -p %{buildroot}%{homedir}
 mkdir -p %{buildroot}%{_localstatedir}/log
 touch %{buildroot}%{_localstatedir}/log/%{name}.log
 mkdir -p %{buildroot}%{_unitdir}
-install -m 0644 forked-daapd.service %{buildroot}%{_unitdir}/%{name}.service
+install -m 0644 owntone.service %{buildroot}%{_unitdir}/%{name}.service
 rm -f %{buildroot}%{_libdir}/%{name}/*.la
 
 %pre
@@ -106,8 +104,8 @@ exit 0
 %{!?_licensedir:%global license %%doc}
 %license COPYING
 %{_pkgdocdir}
-%config(noreplace) %{_sysconfdir}/forked-daapd.conf
-%{_sbindir}/forked-daapd
+%config(noreplace) %{_sysconfdir}/owntone.conf
+%{_sbindir}/owntone
 %{_libdir}/%{name}/
 %{_datarootdir}/%{name}/
 %{_unitdir}/%{name}.service
