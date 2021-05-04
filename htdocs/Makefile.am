@@ -4,7 +4,7 @@ WEBINTERFACE_SRC = \
 endif
 
 
-htdocsdir = $(datadir)/forked-daapd/htdocs
+htdocsdir = $(datadir)/owntone/htdocs
 
 dist_htdocs_DATA = \
 	$(WEBINTERFACE_SRC) \
@@ -19,7 +19,7 @@ dist_htdocs_DATA = \
 	site.webmanifest
 
 if COND_WEBINTERFACE
-htdocsplayercssdir = $(datadir)/forked-daapd/htdocs/player/css
+htdocsplayercssdir = $(datadir)/owntone/htdocs/player/css
 
 dist_htdocsplayercss_DATA = \
 	player/css/app.css \
@@ -27,7 +27,7 @@ dist_htdocsplayercss_DATA = \
 	player/css/chunk-vendors.css \
 	player/css/chunk-vendors.css.map
 
-htdocsplayerfontsdir = $(datadir)/forked-daapd/htdocs/player/fonts
+htdocsplayerfontsdir = $(datadir)/owntone/htdocs/player/fonts
 
 dist_htdocsplayerfonts_DATA = \
 	player/fonts/materialdesignicons-webfont.ttf \
@@ -35,7 +35,7 @@ dist_htdocsplayerfonts_DATA = \
 	player/fonts/materialdesignicons-webfont.woff \
 	player/fonts/materialdesignicons-webfont.eot
 
-htdocsplayerjsdir = $(datadir)/forked-daapd/htdocs/player/js
+htdocsplayerjsdir = $(datadir)/owntone/htdocs/player/js
 
 dist_htdocsplayerjs_DATA = \
 	player/js/app.js \
@@ -47,7 +47,7 @@ dist_htdocsplayerjs_DATA = \
 	player/js/chunk-vendors-legacy.js \
 	player/js/chunk-vendors-legacy.js.map
 
-htdocsplayerimgdir = $(datadir)/forked-daapd/htdocs/player/img
+htdocsplayerimgdir = $(datadir)/owntone/htdocs/player/img
 
 dist_htdocsplayerimg_DATA = \
 	player/img/materialdesignicons-webfont.svg
