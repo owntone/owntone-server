@@ -374,7 +374,7 @@ stop(struct input_source *source)
   struct global_ctx *ctx = &spotify_ctx;
   struct download_ctx *download = source->input_ctx;
 
-  DPRINTF(E_LOG, L_SPOTIFY, "stop()\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "stop()\n");
 
   pthread_mutex_lock(&ctx->lock);
 
@@ -401,7 +401,7 @@ setup(struct input_source *source)
   int fd;
   int ret;
 
-  DPRINTF(E_LOG, L_SPOTIFY, "setup()\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "setup()\n");
 
   pthread_mutex_lock(&ctx->lock);
 
