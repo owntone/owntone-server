@@ -127,7 +127,7 @@ export default {
       socket.onopen = function () {
         vm.$store.dispatch('add_notification', { text: 'Connection to server established', type: 'primary', topic: 'connection', timeout: 2000 })
         vm.reconnect_attempts = 0
-        socket.send(JSON.stringify({ notify: ['update', 'database', 'player', 'options', 'outputs', 'volume', 'spotify', 'lastfm', 'pairing'] }))
+        socket.send(JSON.stringify({ notify: ['update', 'database', 'player', 'options', 'outputs', 'volume', 'queue', 'spotify', 'lastfm', 'pairing'] }))
 
         vm.update_outputs()
         vm.update_player_status()
