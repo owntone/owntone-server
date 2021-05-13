@@ -9,7 +9,7 @@
 
       <template slot="content">
         <div class="notification is-size-7" v-if="!spotify.libspotify_installed">
-          <p>forked-daapd was either built without support for Spotify or libspotify is not installed.</p>
+          <p>OwnTone was either built without support for Spotify or libspotify is not installed.</p>
         </div>
         <div v-if="spotify.libspotify_installed">
           <div class="notification is-size-7">
@@ -40,10 +40,10 @@
             </form>
             <p class="help is-danger">{{ libspotify.errors.error }}</p>
             <p class="help">
-              libspotify enables forked-daapd to play Spotify tracks.
+              libspotify enables OwnTone to play Spotify tracks.
             </p>
             <p class="help">
-              forked-daapd will not store your password, but will still be able to log you in automatically afterwards, because libspotify saves a login token.
+              OwnTone will not store your password, but will still be able to log you in automatically afterwards, because libspotify saves a login token.
             </p>
           </div>
 
@@ -55,7 +55,7 @@
               Access granted for <b><code>{{ spotify.webapi_user }}</code></b>
             </p>
             <p class="help is-danger" v-if="spotify_missing_scope.length > 0">
-              Please reauthorize Web API access to grant forked-daapd the following additional access rights:
+              Please reauthorize Web API access to grant OwnTone the following additional access rights:
               <b><code>{{ spotify_missing_scope | join }}</code></b>
             </p>
             <div class="field fd-has-margin-top ">
@@ -79,7 +79,7 @@
 
       <template slot="content">
         <div class="notification is-size-7" v-if="!lastfm.enabled">
-          <p>forked-daapd was built without support for Last.fm.</p>
+          <p>OwnTone was built without support for Last.fm.</p>
         </div>
         <div v-if="lastfm.enabled">
           <p class="content">
@@ -105,7 +105,7 @@
               </div>
               <p class="help is-danger">{{ lastfm_login.errors.error }}</p>
               <p class="help">
-                forked-daapd will not store your Last.fm username/password, only the session key. The session key does not expire.
+                OwnTone will not store your Last.fm username/password, only the session key. The session key does not expire.
               </p>
             </form>
           </div>

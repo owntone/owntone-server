@@ -15,7 +15,7 @@
                       <i class="mdi mdi-rss"></i>
                     </span>
                   </p>
-                  <p class="help">Adding a podcast includes creating an RSS playlist, that will allow forked-daapd to manage the podcast subscription.
+                  <p class="help">Adding a podcast includes creating an RSS playlist, that will allow OwnTone to manage the podcast subscription.
                   </p>
                 </div>
               </form>
