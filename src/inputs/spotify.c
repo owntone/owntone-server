@@ -671,6 +671,39 @@ spotify_login(const char *user, const char *password, const char **errmsg)
   return -1;
 }
 
+int
+spotify_login_token(const char *username, uint8_t *token, size_t token_len, const char **errmsg)
+{
+  struct global_ctx *ctx = &spotify_ctx;
+  int ret;
+
+  pthread_mutex_lock(&ctx->lock);
+
+  ctx->session = spotifyc_login_token(username, token, token_len);
+  if (!ctx->session)
+    goto error;
+
+  ret = postlogin(ctx);
+  if (ret < 0)
+    goto error;
+
+  pthread_mutex_unlock(&ctx->lock);
+
+  return 0;
+
+ error:
+  if (ctx->session)
+    spotifyc_logout(ctx->session);
+  ctx->session = NULL;
+
+  if (errmsg)
+    *errmsg = spotifyc_last_errmsg();
+
+  pthread_mutex_unlock(&ctx->lock);
+
+  return -1;
+}
+
 void
 spotify_logout(void)
 {

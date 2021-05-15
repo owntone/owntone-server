@@ -12,6 +12,8 @@ struct spotify_status
 
 int
 spotify_login(const char *user, const char *password, const char **errmsg);
+int
+spotify_login_token(const char *username, uint8_t *token, size_t token_len, const char **errmsg);
 
 void
 spotify_logout(void);

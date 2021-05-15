@@ -35,6 +35,7 @@
 #include "listener.h"
 #include "logger.h"
 #include "misc_json.h"
+#include "inputs/spotify.h"
 
 
 enum spotify_request_type {
@@ -134,7 +135,7 @@ static bool scanning;
 // Endpoints and credentials for the web api
 static const char *spotify_client_id     = "0e684a5422384114a8ae7ac020f01789";
 static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
-static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private";
+static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private streaming";
 
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
@@ -409,7 +410,11 @@ token_get(const char *code, const char *redirect_uri, const char **err)
   keyval_clear(&kv);
 
   if (ret == 0)
-    request_user_info();
+    {
+      request_user_info();
+      const char *errmsg;
+      spotify_login_token(spotify_credentials.user, (uint8_t *) spotify_credentials.access_token, strlen(spotify_credentials.access_token), &errmsg);
+    }
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&token_lck));
 
