@@ -1,10 +1,15 @@
 {
-    "name": "forked-daapd",
-    "short_name": "forked-daapd",
+    "name": "OwnTone",
+    "short_name": "OwnTone",
     "icons": [
         {
-            "src": "/android-chrome-96x96.png",
-            "sizes": "96x96",
+            "src": "/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/android-chrome-512x512.png",
+            "sizes": "512x512",
             "type": "image/png"
         }
     ],
