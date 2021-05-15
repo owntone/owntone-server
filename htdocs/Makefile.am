@@ -8,7 +8,8 @@ htdocsdir = $(datadir)/owntone/htdocs
 
 dist_htdocs_DATA = \
 	$(WEBINTERFACE_SRC) \
-	android-chrome-96x96.png \
+	android-chrome-192x192.png \
+	android-chrome-512x512.png \
 	apple-touch-icon.png \
 	browserconfig.xml \
 	favicon.ico \

@@ -42,7 +42,7 @@
             @click="on_click_outside_settings">
           <a class="navbar-link is-arrowless">
             <span class="icon is-hidden-touch"><i class="mdi mdi-24px mdi-menu"></i></span>
-            <span class="is-hidden-desktop has-text-weight-bold">forked-daapd</span>
+            <span class="is-hidden-desktop has-text-weight-bold">OwnTone</span>
           </a>
 
           <div class="navbar-dropdown is-right">

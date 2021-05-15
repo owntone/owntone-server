@@ -4,7 +4,7 @@
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths has-text-centered-mobile">
-            <p class="heading"><b>forked-daapd</b> - version {{ config.version }}</p>
+            <p class="heading"><b>OwnTone</b> - version {{ config.version }}</p>
             <h1 class="title is-4">{{ config.library_name }}</h1>
           </div>
         </div>
@@ -95,7 +95,7 @@
           <div class="column is-four-fifths">
             <div class="content has-text-centered-mobile">
               <p class="is-size-7">Compiled with support for {{ config.buildoptions | join }}.</p>
-              <p class="is-size-7">Web interface built with <a href="http://bulma.io">Bulma</a>, <a href="https://materialdesignicons.com/">Material Design Icons</a>, <a href="https://vuejs.org/">Vue.js</a>, <a href="https://github.com/mzabriskie/axios">axios</a> and <a href="https://github.com/ejurgensen/forked-daapd/network/dependencies">more</a>.</p>
+              <p class="is-size-7">Web interface built with <a href="http://bulma.io">Bulma</a>, <a href="https://materialdesignicons.com/">Material Design Icons</a>, <a href="https://vuejs.org/">Vue.js</a>, <a href="https://github.com/mzabriskie/axios">axios</a> and <a href="https://github.com/ejurgensen/OwnTone/network/dependencies">more</a>.</p>
             </div>
           </div>
         </div>

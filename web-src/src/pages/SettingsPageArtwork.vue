@@ -10,7 +10,7 @@
       <template slot="content">
         <div class="content">
           <p>
-            forked-daapd supports PNG and JPEG artwork which is either placed as separate image files in the library,
+            OwnTone supports PNG and JPEG artwork which is either placed as separate image files in the library,
             embedded in the media files or made available online by radio stations.
           </p>
           <p>In addition to that, you can enable fetching artwork from the following artwork providers:</p>

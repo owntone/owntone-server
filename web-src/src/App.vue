@@ -85,7 +85,7 @@ export default {
 
   methods: {
     connect: function () {
-      this.$store.dispatch('add_notification', { text: 'Connecting to forked-daapd', type: 'info', topic: 'connection', timeout: 2000 })
+      this.$store.dispatch('add_notification', { text: 'Connecting to OwnTone server', type: 'info', topic: 'connection', timeout: 2000 })
 
       webapi.config().then(({ data }) => {
         this.$store.commit(types.UPDATE_CONFIG, data)
@@ -95,7 +95,7 @@ export default {
         this.open_ws()
         this.$Progress.finish()
       }).catch(() => {
-        this.$store.dispatch('add_notification', { text: 'Failed to connect to forked-daapd', type: 'danger', topic: 'connection' })
+        this.$store.dispatch('add_notification', { text: 'Failed to connect to OwnTone server', type: 'danger', topic: 'connection' })
       })
     },
 
