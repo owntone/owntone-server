@@ -1,10 +1,9 @@
 # Building from Source
 
-This document contains instructions for installing forked-daapd from the git
-tree.
+This document contains instructions for installing OwnTone from the git tree.
 
-The source for this version of forked-daapd can be found here:
-[ejurgensen/forked-daapd](https://github.com/ejurgensen/forked-daapd.git)
+The source for this version of OwnTone can be found here:
+[owntone/owntone-server](https://github.com/owntone/owntone-server.git)
 
 The original (now unmaintained) source can be found here:
 [jblache/forked-daapd](http://git.debian.org/?p=users/jblache/forked-daapd.git)
@@ -24,10 +23,10 @@ sudo apt-get install \
   libcurl4-openssl-dev
 ```
 
-Note that forked-daapd will also work with other versions and flavours of
+Note that OwnTone will also work with other versions and flavours of
 libgcrypt and libcurl, so the above are just suggestions.
 
-While forked-daapd will work with versions of libevent between 2.0.0 and 2.1.3,
+While OwnTone will work with versions of libevent between 2.0.0 and 2.1.3,
 it is recommended to use 2.1.4+. Otherwise you may not have support for
 simultaneous streaming to multiple DAAP clients.
 
@@ -37,8 +36,6 @@ Optional packages:
 | ------------------- | ------------------------ | --------------------------------- |
 | Chromecast          | `--enable-chromecast`    | libgnutls\*-dev libprotobuf-c-dev |
 | Spotify             | `--enable-spotify`       | libspotify-dev                    |
-| iTunes XML          | `--disable-itunes`       | libplist-dev                      |
-| Device verification | `--disable-verification` | libplist-dev libsodium-dev        |
 | Player web UI       | `--disable-webinterface` | libwebsockets-dev                 |
 | Live web UI         | `--with-libwebsockets`   | libwebsockets-dev                 |
 | Pulseaudio          | `--with-pulseaudio`      | libpulse-dev                      |
@@ -46,8 +43,8 @@ Optional packages:
 Then run the following (adding configure arguments for optional features):
 
 ```bash
-git clone https://github.com/ejurgensen/forked-daapd.git
-cd forked-daapd
+git clone https://github.com/owntone/owntone-server.git
+cd owntone-server
 autoreconf -i
 ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
 make
@@ -68,14 +65,15 @@ sudo yum install \
   git automake autoconf gettext-devel gperf gawk libtool \
   sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
-  libplist-devel libsodium-devel json-c-devel libwebsockets-devel
+  libplist-devel libsodium-devel json-c-devel libwebsockets-devel \
+  libcurl-devel
 ```
 
-Clone the forked-daapd repo:
+Clone the OwnTone repo:
 
 ```bash
-git clone https://github.com/ejurgensen/forked-daapd.git
-cd forked-daapd
+git clone https://github.com/owntone/owntone-server.git
+cd owntone-server
 ```
 
 Now you need to install ANTLR3, but you probably can't use the version that
@@ -117,10 +115,10 @@ you can still look through it and use it as an installation guide.
 
 ### Homebrew
 
-This workflow file used for building forked-daapd via Github actions includes
+This workflow file used for building OwnTone via Github actions includes
 all the steps that you need to execute:
 
-[.github/workflows/macos.yml](https://github.com/ejurgensen/forked-daapd/blob/master/.github/workflows/macos.yml)
+[.github/workflows/macos.yml](https://github.com/owntone/owntone-server/blob/master/.github/workflows/macos.yml)
 
 ### macports
 
@@ -141,7 +139,8 @@ choose it using the Java pref in the System Preferences:
 ```bash
 sudo port install \
   autoconf automake libtool pkgconfig git gperf libgcrypt \
-  libunistring libconfuse ffmpeg libevent json-c libwebsockets curl
+  libunistring libconfuse ffmpeg libevent json-c libwebsockets curl \
+  libplist libsodium
 ```
 
 Download, configure, build and install the Mini-XML library:
@@ -165,15 +164,13 @@ Optional features require the following additional ports:
 | Feature             | Configure argument       | Ports              |
 | ------------------- | ------------------------ | ------------------ |
 | Chromecast          | `--enable-chromecast`    | gnutls protobuf-c  |
-| iTunes XML          | `--disable-itunes`       | libplist           |
-| Device verification | `--disable-verification` | libplist libsodium |
 | Pulseaudio          | `--with-pulseaudio`      | pulseaudio         |
 
-Clone the forked-daapd repo:
+Clone the OwnTone repo:
 
 ```bash
-git clone https://github.com/ejurgensen/forked-daapd.git
-cd forked-daapd
+git clone https://github.com/owntone/owntone-server.git
+cd owntone-server
 ```
 
 Install antlr3 and library using the included script:
@@ -195,19 +192,19 @@ sudo make install
 Note: if for some reason you've installed the avahi port, you need to
 add `--without-avahi` to configure above.
 
-Edit `/usr/local/etc/forked-daapd.conf` and change the `uid` to a nice
+Edit `/usr/local/etc/owntone.conf` and change the `uid` to a nice
 system daemon (eg: unknown), and run the following:
 
 ```bash
 sudo mkdir -p /usr/local/var/run
 sudo mkdir -p /usr/local/var/log # or change logfile in conf
-sudo chown unknown /usr/local/var/cache/forked-daapd # or change conf
+sudo chown unknown /usr/local/var/cache/owntone # or change conf
 ```
 
-Run forked-daapd:
+Run OwnTone:
 
 ```bash
-sudo /usr/local/sbin/forked-daapd
+sudo /usr/local/sbin/owntone
 ```
 
 Verify it's running (you need to ++ctrl+c++ to stop dns-sd):
@@ -220,7 +217,7 @@ dns-sd -B _daap._tcp
 
 Required tools:
 
-- ANTLR v3 is required to build forked-daapd, along with its C runtime
+- ANTLR v3 is required to build OwnTone, along with its C runtime
   (libantlr3c). Use a version between 3.1.3 and 3.5 of ANTLR v3 and the
   matching C runtime version. Get it from <http://www.antlr3.org/>
 - Java runtime: ANTLR is written in Java and as such a JRE is required to
@@ -257,25 +254,25 @@ Libraries:
   from <https://github.com/json-c/json-c/wiki>
 - libcurl
   from <http://curl.haxx.se/libcurl/>
-- libasound (optional - ALSA local audio)  
-  often already installed as part of your distro
-- libpulse (optional - Pulseaudio local audio)  
-  from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
-- libplist 0.16+ (optional - iTunes XML support and Apple TV device verification)
+- libplist 0.16+
   from <http://github.com/JonathanBeck/libplist/downloads>
-- libsodium (optional - Apple TV device verification)  
+- libsodium
   from <https://download.libsodium.org/doc/>
-- libspotify (optional - Spotify support)  
+- libasound (optional - ALSA local audio)
+  often already installed as part of your distro
+- libpulse (optional - Pulseaudio local audio)
+  from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
+- libspotify (optional - Spotify support)
   from <https://developer.spotify.com>
-- libgnutls (optional - Chromecast support)  
+- libgnutls (optional - Chromecast support)
   from <http://www.gnutls.org/>
-- libprotobuf-c (optional - Chromecast support)  
+- libprotobuf-c (optional - Chromecast support)
   from <https://github.com/protobuf-c/protobuf-c/wiki>
-- libwebsockets 2.0.2+ (optional - websocket support)  
+- libwebsockets 2.0.2+ (optional - websocket support)
   from <https://libwebsockets.org/>
 
 If using binary packages, remember that you need the development packages to
-build forked-daapd (usually named -dev or -devel).
+build OwnTone (usually named -dev or -devel).
 
 sqlite3 needs to be built with support for the unlock notify API; this isn't
 always the case in binary packages, so you may need to rebuild sqlite3 to
@@ -283,9 +280,9 @@ enable the unlock notify API (you can check for the presence of the
 sqlite3_unlock_notify symbol in the sqlite3 library). Refer to the sqlite3
 documentation, look for `SQLITE_ENABLE_UNLOCK_NOTIFY`.
 
-libav (or ffmpeg) is a central piece of forked-daapd and most other FLOSS
+libav (or ffmpeg) is a central piece of OwnTone and most other FLOSS
 multimedia applications. The version of libav you use will potentially have a
-great influence on your experience with forked-daapd.
+great influence on your experience with OwnTone.
 
 ## Building and Installing
 
@@ -328,14 +325,8 @@ to run on systems without libspotify (the Spotify features will then be disabled
 Support for LastFM scrobbling is optional. Use `--enable-lastfm` to enable this
 feature.
 
-Support for iTunes Music Library XML format is optional. Use `--disable-itunes`
-to disable this feature.
-
 Support for the MPD protocol is optional. Use `--disable-mpd` to disable this
 feature.
-
-Support for Apple TV device verification is optional. Use `--disable-verification`
-to disable this feature.
 
 Support for Chromecast devices is optional. Use `--enable-chromecast` to enable
 this feature.
@@ -392,31 +383,31 @@ You can safely ignore all of these warnings.
 
 After installation:
 
-- edit the configuration file, `/etc/forked-daapd.conf`
+- edit the configuration file, `/etc/owntone.conf`
 - make sure the Avahi daemon is installed and running (Debian:
   `apt install avahi-daemon`)
 
 Note that `sudo make install` will not install any system files to start the
 service after boot, and it will not setup a system user.
 
-forked-daapd will drop privileges to any user you'll specify in the
+OwnTone will drop privileges to any user you'll specify in the
 configuration file if it's started as root.
 
 This user must have read permission on your library (you can create a group for
 this and make the user a member of the group, for instance) and read/write
-permissions on the database location (`$localstatedir/cache/forked-daapd` by
+permissions on the database location (`$localstatedir/cache/owntone` by
 default).
 
 If your system uses systemd then you might be able to use the service file
-included, see `forked-daapd.service`.
+included, see `owntone.service`.
 
-Otherwise you might need an init script to start forked-daapd at boot. A simple
-init script will do, forked-daapd daemonizes all by itself and creates a
+Otherwise you might need an init script to start OwnTone at boot. A simple
+init script will do, OwnTone daemonizes all by itself and creates a
 pidfile under `/var/run`. Different distributions have different standards for
 init scripts and some do not use init scripts anymore; check the documentation
 for your distribution.
 
-For dependency-based boot systems, here are the forked-daapd dependencies:
+For dependency-based boot systems, here are the OwnTone dependencies:
 
 - local filesystems
 - network filesystems, if needed in your setup (library on NFS, ...)
@@ -428,7 +419,7 @@ The LSB header below sums it up:
 
 ```bash
 ### BEGIN INIT INFO
-# Provides:          forked-daapd
+# Provides:          owntone
 # Required-Start:    $local_fs $remote_fs $network $time
 # Required-Stop:     $local_fs $remote_fs $network $time
 # Should-Start:      avahi
@@ -436,8 +427,8 @@ The LSB header below sums it up:
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: DAAP/DACP (iTunes) server, support for AirPlay and Spotify
-# Description:       forked-daapd is an iTunes-compatible media server for
-#                    sharing your media library over the local network with DAAP
+# Description:       OwnTone is an iTunes-compatible media server for sharing
+#                    your media library over the local network with DAAP/DACP
 #                    clients like iTunes. Like iTunes, it can be controlled by
 #                    Apple Remote (and compatibles) and stream music directly to
 #                    AirPlay devices. It also supports streaming to RSP clients

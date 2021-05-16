@@ -1,21 +1,21 @@
-# forked-daapd
+# OwnTone
 
-![forked-daapd](images/alphacolor-r6RCPk1X91c-unsplash-cropped.jpg)
+![OwnTone](images/alphacolor-r6RCPk1X91c-unsplash-cropped.jpg)
 
-**forked-daapd** is an open source (audio) media server for GNU/Linux, FreeBSD
+**OwnTone** is an open source (audio) media server for GNU/Linux, FreeBSD
 and MacOS.
 
 It allows sharing and/or streaming your media library to iTunes (DAAP[^1]),
 Roku (RSP), AirPlay devices (multiroom), Chromecast and also supports local playback.
 
-You can control forked-daapd via its web interface, Apple Remote (and compatible
+You can control OwnTone via its web interface, Apple Remote (and compatible
 DAAP/DACP clients), MPD clients or via its JSON API.
 
 Besides serving your local music, podcast and audiobook media files,
-forked-daapd supports internet radios and Spotify (requires Spotify premium account).
+OwnTone supports internet radios and Spotify (requires Spotify premium account).
 
-forked-daapd is a complete rewrite of [mt-daapd](https://www.fireflymediaserver.net/)
-(Firefly Media Server). It is written in C with a web interface written in Vue.js.
+OwnTone was previously called forked-daapd, which again was a rewrite of
+mt-daapd (Firefly Media Server). It is written in C with a web interface written in Vue.js.
 
 [^1]:
     DAAP stands for Digital Audio Access Protocol which is the protocol used by
@@ -52,28 +52,28 @@ forked-daapd is a complete rewrite of [mt-daapd](https://www.fireflymediaserver.
 ![Music browse](images/screenshot-music-browse.png){: class="zoom" }
 ![Music album](images/screenshot-music-album.png){: class="zoom" }
 
-_(You can find more screenshots from forked-daapd's web interface [here](webinterface.md))_
+_(You can find more screenshots from OwnTone's web interface [here](webinterface.md))_
 {: class="text-center" }
 
 ---
 
 ## Looking for help?
 
-Before you continue, make sure you know what version of forked-daapd you have,
+Before you continue, make sure you know what version of OwnTone you have,
 and what features it was built with (e.g. Spotify support).
 
-How to find out? Go to the [web interface](http://forked-daapd.local:3689) and
-check. No web interface? Then check the top of forked-daapd's log file (usually
-/var/log/forked-daapd.log).
+How to find out? Go to the [web interface](http://owntone.local:3689) and
+check. No web interface? Then check the top of OwnTone's log file (usually
+/var/log/owntone.log).
 
 Note that you are viewing a snapshot of the instructions that may or may not
-match the version of forked-daapd that you are using.
+match the version of OwnTone that you are using.
 
-If you are looking for help on building forked-daapd (not using it), then
+If you are looking for help on building OwnTone (not using it), then
 please see the documentation on [Building from Source](install.md).
 
 ## References
 
-The source for this version of forked-daapd can be found here:
+The source for this version of OwnTone can be found here:
 
-[https://github.com/ejurgensen/forked-daapd.git](https://github.com/ejurgensen/forked-daapd.git)
+[https://github.com/owntone/owntone-server.git](https://github.com/owntone/owntone-server.git)

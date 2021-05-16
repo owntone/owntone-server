@@ -26,64 +26,64 @@
         deb http://www.gyfgafguf.dk/raspbian/forked-daapd/ stretch contrib
         ```
 
-    3. Install forked-daapd and its dependencies:
+    3. Install OwnTone and its dependencies:
 
         ``` bash
         sudo apt update
-        sudo apt install forked-daapd
+        sudo apt install owntone
         ```
 
     For further informations and RPi related support visit:
-    [Improved forked-daapd (iTunes server) - Raspberry Pi Forums](https://www.raspberrypi.org/forums/viewtopic.php?t=49928)
+    [owntone server (iTunes server) - Raspberry Pi Forums](https://www.raspberrypi.org/forums/viewtopic.php?t=49928)
 
 === "Debian/Ubuntu"
 
     !!! warning "Web interface and Spotify"
-        The forked-daapd package in Debian and Ubuntu comes __without support
-        for Spotify__ ([Issue #34](https://github.com/ejurgensen/forked-daapd/issues/34))
-        and __without the web interface__ ([Issue #552](https://github.com/ejurgensen/forked-daapd/issues/552)).
+        The OwnTone package in Debian and Ubuntu comes __without support
+        for Spotify__ ([Issue #34](https://github.com/owntone/owntone-server/issues/34))
+        and __without the web interface__ ([Issue #552](https://github.com/owntone/owntone-server/issues/552)).
 
         It is possible to install the web interface manually by copying the files from
-        the `htdocs` folder to `/usr/share/forked-daapd/htdocs`.
+        the `htdocs` folder to `/usr/share/owntone/htdocs`.
 
     ``` bash
-    sudo apt install forked-daapd
+    sudo apt install owntone
     ```
 
 ### Building from source
 
-Detailed instructions for building forked-daapd from source for different
+Detailed instructions for building OwnTone from source for different
 distributions / operating systems can be found under [Building from Source](install.md).
 
 ### Docker images
 
-Community maintained docker images for forked-daapd can be found on [linuxserver/docker-daapd](https://github.com/linuxserver/docker-daapd).
+Community maintained docker images for OwnTone can be found on [linuxserver/docker-daapd](https://github.com/linuxserver/docker-daapd).
 
 ## Setup / configuration
 
-Edit the configuration file (usually `/etc/forked-daapd.conf`) to suit your needs,
+Edit the configuration file (usually `/etc/owntone.conf`) to suit your needs,
 e.g.:
 
 1. Add your local music folder to `library.directories`
 
 ## First run
 
-After modifying the configuration file restart forked-daapd (usually done with
-`sudo systemctl restart forked-daapd.service`).
+After modifying the configuration file restart OwnTone (usually done with
+`sudo systemctl restart owntone.service`).
 
-forked-daapd scans the configured folders which can take a while. You can follow
+OwnTone scans the configured folders which can take a while. You can follow
 the progress in the log file:
 
 ```bash
-tail -f /var/log/forked-daapd.log
+tail -f /var/log/owntone.log
 ```
 
-You can access forked-daapd's web interface by visiting [http://forked-daapd.local:3689](http://forked-daapd.local:3689)
+You can access OwnTone's web interface by visiting [http://owntone.local:3689](http://owntone.local:3689)
 or, if that won't work, by visiting `http://[your_server_address_here]:3689`.
 
 ### AirPlay and Chromecast
 
-forked-daapd should automatically discover AirPlay and Chromecast devices on
+OwnTone should automatically discover AirPlay and Chromecast devices on
 your network.
 
 If your speaker requires pairing / device verification  (e. g. required by Apple
@@ -100,6 +100,6 @@ If you want to use a [remote app](remote.md), e.g. Apple Remote:
 - Open the web interface
 - Open the app on your mobile phone and go to `Settings`, `Add Library`. The app
   will now display a 4 digit pin
-- After a few seconds a modal dialog will appear in forked-daapds web interface.
+- After a few seconds a modal dialog will appear in OwnTone's web interface.
   Enter the pin from the app there.
   The pairing should now complete and your remote app should show your media library

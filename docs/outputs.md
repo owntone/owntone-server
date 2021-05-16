@@ -2,7 +2,7 @@
 
 ## AirPlay devices/speakers
 
-forked-daapd will discover the AirPlay devices available on your network. For
+OwnTone will discover the AirPlay devices available on your network. For
 devices that are password-protected, the device's AirPlay name and password
 must be given in the configuration file. See the sample configuration file
 for the syntax.
@@ -23,7 +23,7 @@ the Apple Home app > Allow Speakers & TV Access > Anyone On the Same Network
 
 ## Chromecast
 
-forked-daapd will discover Chromecast devices available on your network, and you
+OwnTone will discover Chromecast devices available on your network, and you
 can then select the device as a speaker. There is no configuration required.
 
 ## Local audio
@@ -47,20 +47,20 @@ with some help on that: [Pulse Audio](pulse.md)
 
 Note that if you select Pulseaudio the "card" setting in the config file has
 no effect. Instead all soundcards detected by Pulseaudio will be listed as
-speakers by forked-daapd.
+speakers by OwnTone.
 
 You can adjust the latency of Pulseaudio playback in the config file.
 
 ## MP3 network streaming (streaming to iOS)
 
-You can listen to audio being played by forked-daapd by opening this network
+You can listen to audio being played by OwnTone by opening this network
 stream address in pretty much any music player:
 
 `http://[your hostname/ip address]:3689/stream.mp3`
 
 This is currently the only way of listening to your audio on iOS devices, since
 Apple does not allow AirPlay receiver apps, and because Apple Home Sharing
-cannot be supported by forked-daapd. So what you can do instead is install a
+cannot be supported by OwnTone. So what you can do instead is install a
 music player app like VLC, connect to the stream and control playback with
 Remote.
 

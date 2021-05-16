@@ -1,8 +1,8 @@
-# forked-daapd and Radio Stream tweaking
+# Radio Stream tweaking
 
 Radio streams have many different ways in how metadata is sent. Many should
 just work as expected, but a few may require some tweaking. If you are not
-seeing expected title, track, artist, artwork in forked-daapd clients or web UI,
+seeing expected title, track, artist, artwork in clients or web UI,
 the following may help.
 
 First, understand what and how the particular stream is sending information.
@@ -23,10 +23,10 @@ look at the Metadata section, below is an example.
 ```
 
 In the example above, all tags are populated with correct information, no
-modifications to forked-daapd configuration should be needed. Note that
+modifications to the server configuration should be needed. Note that
 StreamUrl points to the artwork image file.
 
-Below is another example that will require some tweaks to forked-daapd, Notice
+Below is another example that will require some tweaks to the server, Notice
 `icy-name` is blank and `StreamUrl` doesn't point to an image.
 
 ```
@@ -58,10 +58,10 @@ Length is -1 since it's a stream, `<Artist Name>` was left blank since
 `StreamTitle` is accurate in the Metadata but `<Artist Title>` was set to
 `My Radio Stream Name` since `icy-name` was blank.
 
-## Artwork (and track duration)
+## Configure additional Metadata (Artwork, track duration)
 
 If `StreamUrl` does not point directly to an artwork file then the link may be
-to a json file that contains an artwork link. If so, you can make forked-daapd
+to a json file that contains an artwork link. If so, you can make the server
 download the file automatically and search for an artwork link, and also track
 duration.
 
@@ -83,7 +83,7 @@ Let's assume you get something like this:
 }
 ```
 
-In this case, you would need to tell forked-daapd to look for "eventDuration"
+In this case, you would need to tell the server to look for "eventDuration"
 and "eventImageUrl" (or just "duration" and "url"). You can do that like this:
 
 ```
@@ -92,6 +92,19 @@ curl -X PUT "http://localhost:3689/api/settings/misc/streamurl_keywords_artwork_
 ```
 
 If you want multiple search phrases then comma separate, e.g. "duration,length".
+
+## Custom Script for additional Metadata
+
+If your radio station publishes metadata via another method than the above, e.g.
+just on their web site, then you will have to write a script that pulls the
+metadata and then pushes it to the server. To update metadata for the
+currently playing radio station use something like this JSON API request:
+
+```shell
+curl -X PUT "http://localhost:3689/api/queue/items/now_playing?title=Awesome%20title&artwork_url=http%3A%2F%2Fgyfgafguf.dk%2Fimages%2Fpige3.jpg"
+```
+
+## Static Artwork
 
 If your radio station is not returning any artwork links, you can also just make
 a static artwork by placing a png/jpg in the same directory as the m3u, and with

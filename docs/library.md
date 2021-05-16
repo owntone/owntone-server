@@ -27,7 +27,7 @@ the iTunes DB; use itunes_overrides = true if you prefer iTunes' metadata.
 
 ## Supported formats
 
-forked-daapd should support pretty much all audio formats. It relies on libav
+OwnTone should support pretty much all audio formats. It relies on libav
 (or ffmpeg) to extract metadata and decode the files on the fly when the client
 doesn't support the format.
 
@@ -48,13 +48,13 @@ added. Currently supported:
 ## Pipes (for e.g. multiroom with Shairport-sync)
 
 Some programs, like for instance Shairport-sync, can be configured to output
-audio to a named pipe. If this pipe is placed in the library, forked-daapd will
+audio to a named pipe. If this pipe is placed in the library, OwnTone will
 automatically detect that it is there, and when there is audio being written to
 it, playback of the audio will be autostarted (and stopped).
 
-Using this feature, forked-daapd can act as an AirPlay multiroom "router": You
-can have an AirPlay source (e.g. your iPhone) send audio Shairport-sync, which
-forwards it to forked-daapd through the pipe, which then plays it on whatever
+Using this feature, OwnTone can act as an AirPlay multiroom "router": You can
+have an AirPlay source (e.g. your iPhone) send audio Shairport-sync, which
+forwards it to OwnTone through the pipe, which then plays it on whatever
 speakers you have selected (through Remote).
 
 The format of the audio being written to the pipe must be PCM16.
@@ -63,7 +63,7 @@ You can also start playback of pipes manually. You will find them in remotes
 listed under "Unknown artist" and "Unknown album". The track title will be the
 name of the pipe.
 
-Shairport-sync can write metadata to a pipe, and forked-daapd can read this.
+Shairport-sync can write metadata to a pipe, and OwnTone can read this.
 This requires that the metadata pipe has the same filename as the audio pipe
 plus a ".metadata" suffix. Say Shairport-sync is configured to write audio to
 "/foo/bar/pipe", then the metadata pipe should be "/foo/bar/pipe.metadata".
@@ -71,11 +71,11 @@ plus a ".metadata" suffix. Say Shairport-sync is configured to write audio to
 ## Libraries on network mounts
 
 Most network filesharing protocols do not offer notifications when the library
-is changed. So that means forked-daapd cannot update its database in real time.
+is changed. So that means OwnTone cannot update its database in real time.
 Instead you can schedule a cron job to update the database.
 
 The first step in doing this is to add two entries to the 'directories'
-configuration item in forked-daapd.conf:
+configuration item in owntone.conf:
 
 ```
   directories = { "/some/local/dir", "/your/network/mount/library" }
@@ -87,7 +87,7 @@ Now you can make a cron job that runs this command:
   touch /some/local/dir/trigger.init-rescan
 ```
 
-When forked-daapd detects a file with filename ending .init-rescan it will
+When OwnTone detects a file with filename ending .init-rescan it will
 perform a bulk scan similar to the startup scan.
 
 Alternatively, you can force a metadata scan of the library even if the
@@ -97,6 +97,6 @@ files have not changed by creating a filename ending `.meta-rescan`.
 
 If you place a file with the filename ending .full-rescan in your library,
 you can trigger a full rescan of your library. This will clear all music and
-playlists from forked-daapd's database and initiate a fresh bulk scan. Pairing
+playlists from OwnTone's database and initiate a fresh bulk scan. Pairing
 and speaker information will be kept. Only use this for troubleshooting, it is
 not necessary during normal operation.

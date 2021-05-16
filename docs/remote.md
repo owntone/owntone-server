@@ -5,23 +5,23 @@ and all devices on the network we know of that advertise AirPlay: AirPort
 Express, Apple TV, ... It also includes the local audio output, that is, the
 sound card on the server (even if there is no soundcard).
 
-If no output is selected when playback starts, forked-daapd will try to
+If no output is selected when playback starts, OwnTone will try to
 autoselect a device.
 
-forked-daapd remembers your selection and the individual volume for each
+OwnTone remembers your selection and the individual volume for each
 output device; selected devices will be automatically re-selected, except if
 they return online during playback.
 
 ## Pairing
 
-1. Open the [web interface](http://forked-daapd.local:3689)
+1. Open the [web interface](http://owntone.local:3689)
 2. Start Remote, go to Settings, Add Library
 3. Enter the pair code in the web interface (update the page with F5 if it does
    not automatically pick up the pairing request)
 
 ## Troubleshooting
 
-If Remote doesn't connect to forked-daapd after you entered the pairing code
+If Remote doesn't connect to OwnTone after you entered the pairing code
 something went wrong. Check the log file to see the error message. Here are
 some common reasons:
 
@@ -37,9 +37,9 @@ some common reasons:
     - a HTTP response code that is 0
     - "Empty pairing request callback"
 
-    it means that forked-daapd could not establish a connection to Remote. This
+    it means that OwnTone could not establish a connection to Remote. This
     might be a network issue, your router may not be allowing multicast between the
-    Remote device and the host forked-daapd is running on.
+    Remote device and the host OwnTone is running on.
 
     **Solution 1**: Sometimes it resolves the issue if you force Remote to quit, restart
     it and do the pairing proces again. Another trick is to establish some other

@@ -1,12 +1,12 @@
 # Artwork
 
-forked-daapd has support for PNG and JPEG artwork which is either:
+OwnTone has support for PNG and JPEG artwork which is either:
 
 - embedded in the media files
 - placed as separate image files in the library
 - made available online by the radio station
 
-For media in your library, forked-daapd will try to locate album and artist
+For media in your library, OwnTone will try to locate album and artist
 artwork (group artwork) by the following procedure:
 
 - if a file {artwork,cover,Folder}.{png,jpg} is found in one of the directories
@@ -24,11 +24,11 @@ file artwork (instead of using the same artwork for all tracks in an entire
 album).
 
 For playlists in your library, say /foo/bar.m3u, then for any http streams in
-the list, forked-daapd will look for /foo/bar.{jpg,png}.
+the list, OwnTone will look for /foo/bar.{jpg,png}.
 
 You can use symlinks for the artwork files.
 
-forked-daapd caches artwork in a separate cache file. The default path is
-`/var/cache/forked-daapd/cache.db` and can be configured in the configuration
+OwnTone caches artwork in a separate cache file. The default path is 
+`/var/cache/owntone/cache.db` and can be configured in the configuration 
 file. The cache.db file can be deleted without losing the library and pairing
 informations.

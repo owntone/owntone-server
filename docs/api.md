@@ -1,4 +1,4 @@
-# forked-daapd API Endpoint Reference
+# OwnTone API Endpoint Reference
 
 Available API endpoints:
 
@@ -379,7 +379,7 @@ curl -X GET "http://localhost:3689/api/outputs"
 
 ### Set enabled outputs
 
-Set the enabled outputs by passing an array of output ids. forked-daapd enables
+Set the enabled outputs by passing an array of output ids. The server enables
 all outputs with the given ids and disables the remaining outputs.
 
 **Endpoint**
@@ -511,8 +511,8 @@ curl -X PUT "http://localhost:3689/api/outputs/0/toggle"
 | GET    | [/api/queue](#list-queue-items)                    | Get a list of queue items          |
 | PUT    | [/api/queue/clear](#clearing-the-queue)            | Remove all items from the queue    |
 | POST   | [/api/queue/items/add](#adding-items-to-the-queue) | Add items to the queue             |
-| PUT    | [/api/queue/items/{id}](#moving-a-queue-item)      | Move a queue item in the queue     |
-| DELETE | [/api/queue/items/{id}](#removing-a-queue-item)    | Remove a queue item form the queue |
+| PUT    | [/api/queue/items/{id}](#updating-a-queue-item)    | Updating a queue item in the queue |
+| DELETE | [/api/queue/items/{id}](#removing-a-queue-item)    | Remove a queue item from the queue |
 
 ### List queue items
 
@@ -669,14 +669,20 @@ curl -X POST "http://localhost:3689/api/queue/items/add?limit=10&clear=true&play
 }
 ```
 
-### Moving a queue item
+### Updating a queue item
 
-Move a queue item in the current queue
+Update or move a queue item in the current queue
 
 **Endpoint**
 
 ```http
 PUT /api/queue/items/{id}
+```
+
+or
+
+```http
+PUT /api/queue/items/now_playing
 ```
 
 **Path parameters**
@@ -685,11 +691,20 @@ PUT /api/queue/items/{id}
 | --------- | ------------- |
 | id        | Queue item id |
 
+(or use now_playing to update the currenly playing track)
+
 **Query parameters**
 
 | Parameter    | Value                                                     |
 | ------------ | --------------------------------------------------------- |
 | new_position | The new position for the queue item in the current queue. |
+| title           | New track title                                        |
+| album           | New album title                                        |
+| artist          | New artist                                             |
+| album_artist    | New album artist                                       |
+| composer        | New composer                                           |
+| genre           | New genre                                              |
+| artwork_url     | New URL to track artwork                               |
 
 **Response**
 
@@ -699,6 +714,14 @@ On success returns the HTTP `204 No Content` success status response code.
 
 ```shell
 curl -X PUT "http://localhost:3689/api/queue/items/3?new_position=0"
+```
+
+```shell
+curl -X PUT "http://localhost:3689/api/queue/items/3?title=Awesome%20title&artwork_url=http%3A%2F%2Fgyfgafguf.dk%2Fimages%2Fpige3.jpg"
+```
+
+```shell
+curl -X PUT "http://localhost:3689/api/queue/items/now_playing?title=Awesome%20title&artwork_url=http%3A%2F%2Fgyfgafguf.dk%2Fimages%2Fpige3.jpg"
 ```
 
 ### Removing a queue item
@@ -2059,8 +2082,7 @@ curl -X GET "http://localhost:3689/api/search?type=tracks,artists,albums,playlis
 ### Search by query language
 
 Search for artists, albums, tracks by a smart playlist query expression (see
-[README_SMARTPL.md](https://github.com/ejurgensen/forked-daapd/blob/master/README_SMARTPL.md)
-for the expression syntax).
+[smart playlists](smartpl.md) for the expression syntax).
 
 **Endpoint**
 
@@ -2114,7 +2136,7 @@ GET /api/config
 | -------------- | ------- | -------------------------------------------------------------------------------------- |
 | version        | string  | forked-daapd server version                                                            |
 | websocket_port | integer | Port number for the [websocket](#push-notifications) (or `0` if websocket is disabled) |
-| buildoptions   | array   | Array of strings indicating which features are supported by the forked-daapd server    |
+| buildoptions   | array   | Array of strings indicating which features are supported by the server    |
 
 **Example**
 
@@ -2308,14 +2330,14 @@ curl -X DELETE "http://localhost:3689/api/settings/webinterface/show_composer_no
 
 ## Push notifications
 
-If forked-daapd was built with websocket support, forked-daapd exposes a
+If the server was built with websocket support, it exposes a
 websocket at `localhost:3688` to inform clients of changes (e. g. player state
 or library updates).
-The port depends on the forked-daapd configuration and can be read using the
+The port depends on the server configuration and can be read using the
 [`/api/config`](#config) endpoint.
 
 After connecting to the websocket, the client should send a message containing
-the event types it is interested in. After that forked-daapd will send a message
+the event types it is interested in. After that the server will send a message
 each time one of the events occurred.
 
 **Message**
@@ -2509,10 +2531,10 @@ Artwork urls in `queue item`, `artist`, `album` and `track` objects can be
 either relative urls or absolute urls to the artwork image.
 Absolute artwork urls are pointing to external artwork images (e. g. for radio
 streams that provide artwork metadata), while relative artwork urls are served
-from forked-daapd.
+from the server.
 
 It is possible to add the query parameters `maxwidth` and/or `maxheight` to
-relative artwork urls, in order to get a smaller image (forked-daapd only scales
+relative artwork urls, in order to get a smaller image (the server only scales
 down never up).
 
 Note that even if a relative artwork url attribute is present, it is not

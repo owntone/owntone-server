@@ -3,14 +3,14 @@
 You can choose between:
 
 - a [MPD command line client](mpd.md) (easiest) like `mpc`
-- curl with forked-daapd's JSON API (see [API Reference](api.md))
+- curl with OwnTone's JSON API (see [API Reference](api.md))
 - curl with DAAP/DACP commands (hardest)
 
 Here is an example of how to use curl with DAAP/DACP. Say you have a playlist
 with a radio station, and you want to make a script that starts playback of that
 station:
 
-1. Run `sqlite3 [your forked-daapd db]`. Use `select id,title from files` to get
+1. Run `sqlite3 [your OwnTone db]`. Use `select id,title from files` to get
    the id of the radio station, and use `select id,title from playlists` to get
    the id of the playlist.
 2. Convert the two ids to hex.

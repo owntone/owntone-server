@@ -1,6 +1,6 @@
 # Supported clients
 
-forked-daapd supports these kinds of clients:
+OwnTone supports these kinds of clients:
 
 - DAAP clients, like iTunes or Rhythmbox
 - Remote clients, like Apple Remote or compatibles for Android/Windows Phone
@@ -10,11 +10,11 @@ forked-daapd supports these kinds of clients:
 - MP3 network stream clients, like VLC and almost any other music player
 - RSP clients, like Roku Soundbridge
 
-Like iTunes, you can control forked-daapd with Remote and stream your music
-to AirPlay devices.
+Like iTunes, you can control OwnTone with Remote and stream your music to
+AirPlay devices.
 
-A single forked-daapd instance can handle several clients concurrently,
-regardless of the protocol.
+A single OwnTone instance can handle several clients concurrently, regardless of
+the protocol.
 
 By default all clients on 192.168.\* (and the ipv6 equivalent) are allowed to
 connect without authentication. You can change that in the configuration file.

@@ -5,7 +5,7 @@ ALSA you will typically let the system select the soundcard on your machine as
 the `default` device/sound card - a mixer associated with the ALSA device is
 used for volume control. However if your machine has multiple sound cards and
 your system chooses the wrong playback device, you will need to manually select
-the card and mixer to complete the `forked daapd` configuration.
+the card and mixer to complete the OwnTone configuration.
 
 ## Introduction to ALSA devices
 
@@ -48,9 +48,9 @@ or `hw:E30` and so forth. The latter 2 devices being on USB will mean that `hw:1
 may not always refer to `hw:E30` and thus in such a case using the alternate
 name is useful.
 
-## Configuring forked-daapd
+## Configuring OwnTone
 
-`forked-daapd` can support a single ALSA device or multiple ALSA devices.
+OwnTone can support a single ALSA device or multiple ALSA devices.
 
 ```
 # example audio section for server for a single soundcard
@@ -64,7 +64,7 @@ audio {
 }
 ```
 
-Multiple devices can be made available to `forked-daapd` using seperate
+Multiple devices can be made available to OwnTone using seperate
 `alsa { .. }` sections.
 
 ```
@@ -106,7 +106,7 @@ mixer for configuring the server.
 
 ### Automatically
 
-As shown above, `forked-daapd` can help, consider the information that logged:
+As shown above, OwnTone can help, consider the information that logged:
 
 ```
 laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
@@ -115,7 +115,7 @@ laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwir
 ```
 
 Using the information above, we can see 3 soundcards that we could use with
-`forked-daap` with the first soundcard having a number of seperate mixer devices
+OwnTone with the first soundcard having a number of seperate mixer devices
 (volume control) for headphone and the interal speakers - we'll configure the
 server to use both these and also the E30 device. The server configuration for
 theese multiple outputs would be:
@@ -144,7 +144,7 @@ alsa "plughw:E30" {
 ```
 
 NB: it is troublesome to use `hw` or `plughw` ALSA addressing when running
-`forked-daapd` on a machine with `pulseaudio` and if you wish to use refer to
+OwnTone on a machine with `pulseaudio` and if you wish to use refer to
 ALSA devices directly that you stop `pulseaudio`.
 
 ### Manually
@@ -355,7 +355,7 @@ $ aplay -v -Dhw:1 /tmp/sine441.wav
 aplay: main:788: audio open error: Device or resource busy
 ```
 
-In this instance this device cannot open multiple streams - `forked-daapd` can
+In this instance this device cannot open multiple streams - OwnTone can
 handle this situation transparently with some audio being truncated from the end
 of the current file as the server prepares to play the following track. If this
 handling is causing you problems you may wish to use [ALSA's `dmix` functionally](https://www.alsa-project.org/main/index.php/Asoundrc#Software_mixing)
@@ -369,7 +369,7 @@ a mismatched samplerate will be resampled.
 ## ALSA dmix configuration/setup
 
 A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc` for the
-same user running `forked-daapd`. We will need to know the underlying physical
+same user running OwnTone. We will need to know the underlying physical
 soundcard to be used: in our examples above, `hw:1,0` / `card 1, device 0`
 representing our IQaudIODAC as per output of `aplay -l`. We also take the
 `buffer_size` and `period_size` from the output of playing a sound file via
@@ -390,11 +390,11 @@ pcm.dmixer  {
     ipc_perm 0666            # multi-user sharing permissions
 
     slave {
- pcm "hw:1,0"         # points at the underlying device - could also simply be hw:1
- period_time 0
- period_size 4096     # from the output of aplay -v
- buffer_size 22052    # from the output of aplay -v
- rate 44100           # locked in sample rate for resampling on dmix device
+        pcm "hw:1,0"         # points at the underlying device - could also simply be hw:1
+        period_time 0
+        period_size 4096     # from the output of aplay -v
+        buffer_size 22052    # from the output of aplay -v
+        rate 44100           # locked in sample rate for resampling on dmix device
     }
     hint.description "IQAudio DAC s/w dmix device"
 }
@@ -487,7 +487,7 @@ pcm.equal {
 }
 ```
 
-and in `forked-daapd.conf`
+and in `owntone.conf`
 
 ```
 alsa "equal" {

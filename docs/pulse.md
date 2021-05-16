@@ -22,7 +22,7 @@ instructions will require that you are root.
 
 ### Step 1: Setting up Pulseaudio
 
-If you see a "Connection refused" error when starting forked-daapd, then you
+If you see a "Connection refused" error when starting the server, then you
 will probably need to setup Pulseaudio to run in system mode [1]. This means
 that the Pulseaudio daemon will be started during boot and be available to all
 users.
@@ -70,16 +70,16 @@ Phew, almost done with Pulseaudio! Now you should:
 2. reboot (or at least restart dbus and pulseaudio)
 3. check that the Bluetooth module is loaded with `pactl list modules short`
 
-### Step 2: Setting up forked-daapd
+### Step 2: Setting up the server
 
-Add the user forked-daapd is running as (typically "daapd") to the
+Add the user the server is running as (typically "owntone") to the
 "pulse-access" group:
 
 ```
 adduser daapd pulse-access
 ```
 
-Now (re)start forked-daapd.
+Now (re)start the server.
 
 ### Step 3: Adding a Bluetooth device
 
@@ -96,8 +96,8 @@ trust [MAC address]
 connect [MAC address]
 ```
 
-Now the speaker should appear in forked-daapd. You can also verify that
-Pulseaudio has detected the speaker with `pactl list sinks short`.
+Now the speaker should appear. You can also verify that Pulseaudio has detected
+the speaker with `pactl list sinks short`.
 
 ## User Mode with Network Access
 
@@ -128,7 +128,7 @@ pulseaudio -D
 
 ### Step 4: Adjust configuration file
 
-In the `audio` section of `/etc/forked-daapd.conf`, set `server` to `localhost`:
+In the `audio` section of `/etc/owntone.conf`, set `server` to `localhost`:
 
 ```
 server = "localhost"
