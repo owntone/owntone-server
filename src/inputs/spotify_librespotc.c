@@ -749,5 +749,7 @@ struct spotify_backend spotify_librespotc =
   .logout = logout,
   .relogin = relogin,
   .status_get = status_get,
+
+  .has_podcast_support = true,
 };
 

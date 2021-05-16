@@ -62,6 +62,7 @@ struct spotify_album
   int release_year;
   const char *uri;
   const char *artwork_url;
+  const char *type;
 };
 
 struct spotify_track
@@ -89,6 +90,7 @@ struct spotify_track
   bool is_playable;
   const char *restrictions;
   const char *linked_from_uri;
+  const char *type;
 };
 
 struct spotify_playlist
@@ -149,6 +151,8 @@ static const char *spotify_album_tracks_uri = "https://api.spotify.com/v1/albums
 static const char *spotify_playlists_uri = "https://api.spotify.com/v1/me/playlists?limit=50";
 static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/playlists/%s/tracks";
 static const char *spotify_artist_albums_uri = "https://api.spotify.com/v1/artists/%s/albums?include_groups=album,single";
+static const char *spotify_shows_uri    = "https://api.spotify.com/v1/me/shows?limit=50";
+static const char *spotify_shows_episodes_uri = "https://api.spotify.com/v1/shows/%s/episodes";
 
 
 static void
@@ -687,6 +691,7 @@ parse_metadata_track(json_object *jsontrack, struct spotify_track *track, int ma
   track->track_number = jparse_int_from_obj(jsontrack, "track_number");
   track->uri = jparse_str_from_obj(jsontrack, "uri");
   track->id = jparse_str_from_obj(jsontrack, "id");
+  track->type = jparse_str_from_obj(jsontrack, "type");
 
   // "is_playable" is only returned for a request with a market parameter, default to true if it is not in the response
   track->is_playable = true;
@@ -731,6 +736,7 @@ parse_metadata_album(json_object *jsonalbum, struct spotify_album *album, int ma
   album->name = jparse_str_from_obj(jsonalbum, "name");
   album->uri = jparse_str_from_obj(jsonalbum, "uri");
   album->id = jparse_str_from_obj(jsonalbum, "id");
+  album->type = jparse_str_from_obj(jsonalbum, "type");
 
   album->album_type = jparse_str_from_obj(jsonalbum, "album_type");
   album->is_compilation = (album->album_type && 0 == strcmp(album->album_type, "compilation"));
@@ -769,6 +775,44 @@ parse_metadata_playlist(json_object *jsonplaylist, struct spotify_playlist *play
     {
       playlist->tracks_href = jparse_str_from_obj(needle, "href");
       playlist->tracks_count = jparse_int_from_obj(needle, "total");
+    }
+}
+
+static void
+parse_metadata_show(json_object *jsonshow, struct spotify_album *show)
+{
+  memset(show, 0, sizeof(struct spotify_album));
+
+  show->name = jparse_str_from_obj(jsonshow, "name");
+  show->artist = jparse_str_from_obj(jsonshow, "publisher");
+  show->uri = jparse_str_from_obj(jsonshow, "uri");
+  show->id = jparse_str_from_obj(jsonshow, "id");
+  show->type = jparse_str_from_obj(jsonshow, "type");
+}
+
+static void
+parse_metadata_episode(json_object *jsonepisode, struct spotify_track *episode)
+{
+  memset(episode, 0, sizeof(struct spotify_track));
+
+  episode->name = jparse_str_from_obj(jsonepisode, "name");
+  episode->uri = jparse_str_from_obj(jsonepisode, "uri");
+  episode->id = jparse_str_from_obj(jsonepisode, "id");
+  episode->type = jparse_str_from_obj(jsonepisode, "type");
+  episode->duration_ms = jparse_int_from_obj(jsonepisode, "duration_ms");
+
+  episode->release_date = jparse_str_from_obj(jsonepisode, "release_date");
+  episode->release_date_precision = jparse_str_from_obj(jsonepisode, "release_date_precision");
+  if (episode->release_date_precision && strcmp(episode->release_date_precision, "day") == 0)
+    episode->release_date_time = jparse_time_from_obj(jsonepisode, "release_date");
+  episode->release_year = get_year_from_date(episode->release_date);
+  episode->mtime = episode->release_date_time;
+
+  // "is_playable" is only returned for a request with a market parameter, default to true if it is not in the response
+  episode->is_playable = true;
+  if (json_object_object_get_ex(jsonepisode, "is_playable", NULL))
+    {
+      episode->is_playable = jparse_bool_from_obj(jsonepisode, "is_playable");
     }
 }
 
@@ -1399,7 +1443,10 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
   mfi->track = track->track_number;
 
   mfi->data_kind   = DATA_KIND_SPOTIFY;
-  mfi->media_kind  = MEDIA_KIND_MUSIC;
+  if (strcmp(track->type, "episode") == 0)
+    mfi->media_kind  = MEDIA_KIND_PODCAST;
+  else
+    mfi->media_kind  = MEDIA_KIND_MUSIC;
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
   mfi->description = strdup("Spotify audio");
@@ -1433,6 +1480,12 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
 	mfi->compilation = track->is_compilation;
     }
 
+  if (mfi->media_kind == MEDIA_KIND_PODCAST)
+    {
+      // For podcasts we want the tracks/episodes release date
+      mfi->date_released = track->release_date_time;
+      mfi->year = track->release_year;
+    }
   snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi->album_artist, mfi->album, mfi->title);
   mfi->virtual_path = strdup(virtual_path);
 }
@@ -1577,6 +1630,83 @@ scan_saved_albums(enum spotify_request_type request_type)
   int ret;
 
   ret = request_pagingobject_endpoint(spotify_albums_uri, saved_album_add, NULL, NULL, true, request_type, NULL);
+
+  return ret;
+}
+
+/*
+ * Add a saved podcast show to the library
+ */
+static int
+saved_episodes_add(json_object *item, int index, int total, enum spotify_request_type request_type, void *arg)
+{
+  struct spotify_album *show = arg;
+  struct spotify_track episode;
+  int dir_id;
+  int ret;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "saved_episodes_add: %s\n", json_object_to_json_string(item));
+
+  // Map episode information
+  parse_metadata_episode(item, &episode);
+
+  // Get or create the directory structure for this album
+  dir_id = prepare_directories(show->artist, show->name);
+
+  ret = track_add(&episode, show, NULL, dir_id, request_type);
+
+  if (ret == 0 && spotify_saved_plid)
+	db_pl_add_item_bypath(spotify_saved_plid, episode.uri);
+
+  return 0;
+}
+
+/*
+ * Add a saved podcast show to the library
+ */
+static int
+saved_show_add(json_object *item, int index, int total, enum spotify_request_type request_type, void *arg)
+{
+  json_object *jsonshow;
+  struct spotify_album show;
+  char *endpoint_uri;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "saved_show_add: %s\n", json_object_to_json_string(item));
+
+  if (!json_object_object_get_ex(item, "show", &jsonshow))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: Item %d is missing the 'show' field\n", index);
+      return -1;
+    }
+
+  // Map show information
+  parse_metadata_show(jsonshow, &show);
+  show.added_at = jparse_str_from_obj(item, "added_at");
+  show.mtime = jparse_time_from_obj(item, "added_at");
+
+
+  // Now map the show episodes and insert/update them in the files database
+  endpoint_uri = safe_asprintf(spotify_shows_episodes_uri, show.id);
+  request_pagingobject_endpoint(endpoint_uri, saved_episodes_add, transaction_start, transaction_end, true, request_type, &show);
+  free(endpoint_uri);
+
+  if ((index + 1) >= total || ((index + 1) % 10 == 0))
+    DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved albums\n", (index + 1), total);
+
+  return 0;
+}
+
+/*
+ * Thread: library
+ *
+ * Scan users saved podcast shows into the library
+ */
+static int
+scan_saved_shows(enum spotify_request_type request_type)
+{
+  int ret;
+
+  ret = request_pagingobject_endpoint(spotify_shows_uri, saved_show_add, NULL, NULL, true, request_type, NULL);
 
   return ret;
 }
@@ -1787,6 +1917,8 @@ scan(enum spotify_request_type request_type)
   create_saved_tracks_playlist();
   scan_saved_albums(request_type);
   scan_playlists(request_type);
+  if (spotify_podcast_support())
+    scan_saved_shows(request_type);
 
   scanning = false;
   end = time(NULL);

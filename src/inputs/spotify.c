@@ -144,3 +144,14 @@ spotify_status_get(struct spotify_status *status)
 
   backend->status_get(status);
 }
+
+bool
+spotify_podcast_support()
+{
+  struct spotify_backend *backend = backend_set();
+
+  if (!backend)
+    return false;
+
+  return backend->has_podcast_support;
+}

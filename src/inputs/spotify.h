@@ -21,6 +21,8 @@ struct spotify_backend
   int (*relogin)(void);
   void (*uri_register)(const char *uri);
   void (*status_get)(struct spotify_status *status);
+
+  bool has_podcast_support;
 };
 
 int
@@ -46,5 +48,8 @@ spotify_uri_register(const char *uri);
 
 void
 spotify_status_get(struct spotify_status *status);
+
+bool
+spotify_podcast_support();
 
 #endif /* !__SPOTIFY_H__ */

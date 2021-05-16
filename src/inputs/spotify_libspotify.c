@@ -129,5 +129,7 @@ struct spotify_backend spotify_libspotify =
   .relogin = libspotify_relogin,
   .uri_register = libspotify_uri_register,
   .status_get = status_get,
+
+  .has_podcast_support = false,
 };
 
