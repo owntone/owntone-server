@@ -1,10 +1,10 @@
-site_name: forked-daapd
-site_url: https://ejurgensen.github.io/forked-daapd/
+site_name: OwnTone
+site_url: https://owntone.github.io/owntone-server/
 site_description: >-
   Linux/FreeBSD DAAP (iTunes) and MPD media server with support for AirPlay devices (multiroom), Apple Remote (and compatibles), Chromecast, Spotify and internet radio. 
 # Repository
-repo_name: ejurgensen/forked-daapd
-repo_url: https://github.com/ejurgensen/forked-daapd
+repo_name: owntone/owntone-server
+repo_url: https://github.com/owntone/owntone-server
 
 nav:
     - Home: index.md
@@ -50,7 +50,7 @@ theme:
 extra:
     social:
         - icon: fontawesome/brands/github
-          link: https://github.com/ejurgensen/forked-daapd
+          link: https://github.com/owntone/owntone-server
 
 extra_css:
     - stylesheets/extra.css
