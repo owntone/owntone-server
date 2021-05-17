@@ -346,10 +346,16 @@ audio {
 
 # Spotify settings (only have effect if Spotify enabled - see README/INSTALL)
 spotify {
+	# The server can stream from Spotify using either its own implementation
+	# or using Spotify's libspotify (which was deprecated many years ago)
+#	use_libspotify = false
+
 	# Directory where user settings should be stored (credentials)
+	# (only has effect with libspotify)
 #	settings_dir = "@localstatedir@/cache/@PACKAGE@/libspotify"
 
 	# Cache directory
+	# (only has effect with libspotify)
 #	cache_dir = "/tmp"
 
 	# Set preferred bitrate for music streaming

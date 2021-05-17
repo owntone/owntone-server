@@ -44,7 +44,7 @@ static int
 oauth_reply_spotify(struct httpd_request *hreq)
 {
   char redirect_uri[256];
-  char *errmsg;
+  const char *errmsg;
   int httpd_port;
   int ret;
 
@@ -56,7 +56,6 @@ oauth_reply_spotify(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback: '%s'\n", hreq->uri_parsed->uri);
       httpd_send_error(hreq->req, HTTP_INTERNAL, errmsg);
-      free(errmsg);
       return -1;
     }
 

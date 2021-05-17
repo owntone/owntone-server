@@ -43,15 +43,15 @@
 #include <libspotify/api.h>
 #include <json.h>
 
-#include "spotify.h"
-#include "spotify_webapi.h"
+#include "libspotify.h"
+#include "library.h"
+#include "library/spotify_webapi.h"
 #include "logger.h"
 #include "misc.h"
 #include "http.h"
 #include "conffile.h"
 #include "cache.h"
 #include "commands.h"
-#include "library.h"
 #include "input.h"
 #include "listener.h"
 
@@ -87,7 +87,7 @@ struct artwork_get_param
 };
 
 static void
-spotify_playback_stop_nonblock(void);
+libspotify_playback_stop_nonblock(void);
 
 /* --- Globals --- */
 // Spotify thread
@@ -607,7 +607,7 @@ playback_setup(void *arg, int *retval)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed: %s\n", fptr_sp_error_message(err));
-      *retval = (SP_ERROR_IS_LOADING == err) ? SPOTIFY_SETUP_ERROR_IS_LOADING : -1;
+      *retval = (SP_ERROR_IS_LOADING == err) ? LIBSPOTIFY_SETUP_ERROR_IS_LOADING : -1;
       return COMMAND_END;
     }
 
@@ -1017,7 +1017,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   if ((format->sample_type != SP_SAMPLETYPE_INT16_NATIVE_ENDIAN) || (format->channels != 2))
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Got music with unsupported sample format or number of channels, stopping playback\n");
-      spotify_playback_stop_nonblock();
+      libspotify_playback_stop_nonblock();
       return num_frames;
     }
 
@@ -1084,7 +1084,7 @@ static void play_token_lost(sp_session *sess)
 {
   DPRINTF(E_LOG, L_SPOTIFY, "Music interrupted - some other session is playing on the account\n");
 
-  spotify_playback_stop_nonblock();
+  libspotify_playback_stop_nonblock();
 }
 
 static void connectionstate_updated(sp_session *session)
@@ -1096,7 +1096,7 @@ static void connectionstate_updated(sp_session *session)
   else if (g_state == SPOTIFY_STATE_PLAYING)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Music interrupted - connection error or logged out\n");
-      spotify_playback_stop_nonblock();
+      libspotify_playback_stop_nonblock();
     }
 }
 
@@ -1217,7 +1217,7 @@ notify_cb(int fd, short what, void *arg)
 
 /* Thread: player */
 int
-spotify_playback_setup(const char *path)
+libspotify_playback_setup(const char *path)
 {
   sp_link *link;
 
@@ -1234,7 +1234,7 @@ spotify_playback_setup(const char *path)
 }
 
 int
-spotify_playback_play()
+libspotify_playback_play()
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Playback request\n");
 
@@ -1242,7 +1242,7 @@ spotify_playback_play()
 }
 
 int
-spotify_playback_pause()
+libspotify_playback_pause()
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Pause request\n");
 
@@ -1251,7 +1251,7 @@ spotify_playback_pause()
 
 /* Thread: libspotify */
 void
-spotify_playback_pause_nonblock(void)
+libspotify_playback_pause_nonblock(void)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Nonblock pause request\n");
 
@@ -1260,7 +1260,7 @@ spotify_playback_pause_nonblock(void)
 
 /* Thread: player and libspotify */
 int
-spotify_playback_stop(void)
+libspotify_playback_stop(void)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Stop request\n");
 
@@ -1269,7 +1269,7 @@ spotify_playback_stop(void)
 
 /* Thread: player and libspotify */
 void
-spotify_playback_stop_nonblock(void)
+libspotify_playback_stop_nonblock(void)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Nonblock stop request\n");
 
@@ -1278,7 +1278,7 @@ spotify_playback_stop_nonblock(void)
 
 /* Thread: player */
 int
-spotify_playback_seek(int ms)
+libspotify_playback_seek(int ms)
 {
   int ret;
 
@@ -1292,7 +1292,7 @@ spotify_playback_seek(int ms)
 
 /* Thread: httpd (artwork) and worker */
 int
-spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
+libspotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 {
   struct artwork_get_param artwork;
   struct timespec ts;
@@ -1327,7 +1327,7 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 
 /* Thread: httpd */
 void
-spotify_uri_register(const char *uri)
+libspotify_uri_register(const char *uri)
 {
   char *tmp;
 
@@ -1336,7 +1336,7 @@ spotify_uri_register(const char *uri)
 }
 
 void
-spotify_status_info_get(struct spotify_status_info *info)
+libspotify_status_info_get(struct spotify_status_info *info)
 {
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&status_lck));
   memcpy(info, &spotify_status_info, sizeof(struct spotify_status_info));
@@ -1345,7 +1345,7 @@ spotify_status_info_get(struct spotify_status_info *info)
 
 /* Thread: library, httpd */
 static int
-logout(char **errmsg)
+logout(const char **errmsg)
 {
   sp_error err;
 
@@ -1365,7 +1365,7 @@ logout(char **errmsg)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not logout of Spotify: %s\n", fptr_sp_error_message(err));
       if (errmsg)
-	*errmsg = safe_asprintf("Could not logout of Spotify: %s", fptr_sp_error_message(err));
+	*errmsg = fptr_sp_error_message(err);
 
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
       return -1;
@@ -1379,7 +1379,7 @@ logout(char **errmsg)
 
 /* Thread: library, httpd */
 static int
-login_user(const char *user, const char *password, char **errmsg)
+login_user(const char *user, const char *password, const char **errmsg)
 {
   sp_error err;
   int ret;
@@ -1390,13 +1390,13 @@ login_user(const char *user, const char *password, char **errmsg)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - could not find libspotify\n");
 	  if (errmsg)
-	    *errmsg = safe_asprintf("Could not find libspotify");
+	    *errmsg = "Could not find libspotify";
 	}
       else
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - no valid Spotify session\n");
 	  if (errmsg)
-	    *errmsg = safe_asprintf("No valid Spotify session");
+	    *errmsg = "No valid Spotify session";
 	}
 
       return -1;
@@ -1423,7 +1423,7 @@ login_user(const char *user, const char *password, char **errmsg)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not login into Spotify: %s\n", fptr_sp_error_message(err));
       if (errmsg)
-	*errmsg = safe_asprintf("Could not login into Spotify: %s", fptr_sp_error_message(err));
+	*errmsg = fptr_sp_error_message(err);
 
       CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&login_lck));
       return -1;
@@ -1437,14 +1437,14 @@ login_user(const char *user, const char *password, char **errmsg)
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&status_lck));
 
   if (ret < 0 && errmsg)
-    *errmsg = safe_asprintf("Login failed");
+    *errmsg = "Login failed";
 
   return ret;
 }
 
 /* Thread: httpd, library */
 int
-spotify_login_user(const char *user, const char *password, char **errmsg)
+libspotify_login(const char *user, const char *password, const char **errmsg)
 {
   int ret;
 
@@ -1460,23 +1460,13 @@ spotify_login_user(const char *user, const char *password, char **errmsg)
 
 /* Thread: library */
 int
-spotify_relogin()
+libspotify_relogin(void)
 {
   return login_user(NULL, NULL, NULL);
 }
 
-/* Thread: library */
 void
-spotify_login(char **arglist)
-{
-  if (arglist)
-    spotify_login_user(arglist[0], arglist[1], NULL);
-  else
-    spotify_login_user(NULL, NULL, NULL);
-}
-
-void
-spotify_logout(void)
+libspotify_logout(void)
 {
   logout(NULL);
 
@@ -1485,7 +1475,7 @@ spotify_logout(void)
 
 /* Thread: main */
 int
-spotify_init(void)
+libspotify_init(void)
 {
   cfg_t *spotify_cfg;
   sp_session *sp;
@@ -1628,7 +1618,7 @@ spotify_init(void)
 }
 
 void
-spotify_deinit(void)
+libspotify_deinit(void)
 {
   int ret;
 

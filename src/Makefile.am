@@ -3,8 +3,11 @@ sbin_PROGRAMS = owntone
 
 if COND_SPOTIFY
 SPOTIFY_SRC = \
-	library/spotify_webapi.c library/spotify_webapi.h \
-	inputs/spotify.c inputs/spotify.h \
+	library/spotify_webapi.c library/spotify_webapi.h inputs/spotify.c inputs/spotify.h
+endif
+if COND_SPOTIFYC
+SPOTIFYC_SRC = \
+	inputs/spotify_spotifyc.c \
 	inputs/spotifyc/spotifyc.c inputs/spotifyc/spotifyc.h inputs/spotifyc/spotifyc-internal.h \
 	inputs/spotifyc/connection.c inputs/spotifyc/connection.h \
 	inputs/spotifyc/channel.c inputs/spotifyc/channel.h \
@@ -15,6 +18,11 @@ SPOTIFY_SRC = \
 	inputs/spotifyc/proto/authentication.pb-c.c inputs/spotifyc/proto/authentication.pb-c.h \
 	inputs/spotifyc/proto/mercury.pb-c.c inputs/spotifyc/proto/mercury.pb-c.h \
 	inputs/spotifyc/proto/metadata.pb-c.c inputs/spotifyc/proto/metadata.pb-c.h
+endif
+if COND_LIBSPOTIFY
+LIBSPOTIFY_SRC = \
+	inputs/spotify_libspotify.c \
+	inputs/libspotify/libspotify.c inputs/libspotify/libspotify.h
 endif
 
 if COND_LASTFM
@@ -145,7 +153,7 @@ owntone_SOURCES = main.c \
 	outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
-	$(SPOTIFY_SRC) \
+	$(SPOTIFY_SRC) $(SPOTIFYC_SRC) $(LIBSPOTIFY_SRC) \
 	$(LASTFM_SRC) \
 	$(MPD_SRC) \
 	listener.c listener.h \
