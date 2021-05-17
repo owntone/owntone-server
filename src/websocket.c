@@ -268,7 +268,16 @@ static int
 callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
   struct per_session_data *pss = user;
-  struct per_vhost_data *vhd = lws_protocol_vh_priv_get(lws_get_vhost(wsi), lws_get_protocol(wsi));
+#if LWS_LIBRARY_VERSION_MAJOR < 3
+  struct per_session_data **ppss = NULL;
+#endif
+  struct per_vhost_data *vhd = lws_protocol_vh_priv_get(
+#if LWS_LIBRARY_VERSION_MAJOR >= 3
+    lws_get_vhost(wsi),
+#else
+    lws_vhost_get(wsi),
+#endif
+    lws_get_protocol(wsi));
   short events = 0;
   int ret = 0;
 
@@ -277,9 +286,14 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
   switch (reason)
   {
     case LWS_CALLBACK_PROTOCOL_INIT:
-      vhd = lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
-                                        lws_get_protocol(wsi),
-                                        sizeof(struct per_vhost_data));
+      vhd = lws_protocol_vh_priv_zalloc(
+#if LWS_LIBRARY_VERSION_MAJOR >= 3
+        lws_get_vhost(wsi),
+#else
+        lws_vhost_get(wsi),
+#endif
+        lws_get_protocol(wsi),
+        sizeof(struct per_vhost_data));
       if (!vhd)
       {
         DPRINTF(E_LOG, L_WEB, "Failed to allocate websocket per-vhoststorage\n");
@@ -289,16 +303,52 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
 
     case LWS_CALLBACK_ESTABLISHED:
       /* add ourselves to the list of live pss held in the vhd */
-      lws_ll_fwd_insert(pss, pss_list, vhd->pss_list);
-      pss->wsi = wsi;
+      if (vhd)
+      {
+#if LWS_LIBRARY_VERSION_MAJOR >= 3
+        lws_ll_fwd_insert(pss, pss_list, vhd->pss_list);
+#else
+        pss->pss_list = vhd->pss_list;
+        vhd->pss_list = pss;
+#endif
+        pss->wsi = wsi;
+      }
       break;
 
     case LWS_CALLBACK_CLOSED:
       /* remove our closing pss from the list of live pss */
-      lws_ll_fwd_remove(struct per_session_data, pss_list, pss, vhd->pss_list);
+      if (vhd)
+      {
+#if LWS_LIBRARY_VERSION_MAJOR >= 3
+        lws_ll_fwd_remove(struct per_session_data, pss_list, pss, vhd->pss_list);
+#else
+        ppss = &(vhd->pss_list);
+        while (*ppss) {
+          if (*ppss == pss) {
+            *ppss = pss->pss_list;
+            break;
+          }
+          ppss = &(*ppss)->pss_list;
+        }
+#endif
+      }
       break;
 
     case LWS_CALLBACK_SERVER_WRITEABLE:
+#if LWS_LIBRARY_VERSION_MAJOR < 3
+      pthread_mutex_lock(&websocket_write_event_lock);
+      events = websocket_write_events;
+      websocket_write_events = 0;
+      pthread_mutex_unlock(&websocket_write_event_lock);
+      if (vhd && events)
+      {
+        ppss = &(vhd->pss_list);
+        while (*ppss) {
+          (*ppss)->write_events |= events;
+          ppss = &(*ppss)->pss_list;
+        }
+      }
+#endif
       if (pss->requested_events & pss->write_events)
       {
         events = pss->requested_events & pss->write_events;
@@ -311,6 +361,7 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
       ret = process_notify_request(&pss->requested_events, in, len);
       break;
 
+#if LWS_LIBRARY_VERSION_MAJOR >= 3
     case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
       if (vhd)
       {
@@ -320,11 +371,12 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
         pthread_mutex_unlock(&websocket_write_event_lock);
         lws_start_foreach_llp(struct per_session_data **, ppss, vhd->pss_list)
         {
-          (*ppss)->write_events = events;
+          (*ppss)->write_events |= events;
           lws_callback_on_writable((*ppss)->wsi);
         } lws_end_foreach_llp(ppss, pss_list);
       }
       break;
+#endif
 
     default:
       break;
@@ -332,6 +384,15 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
 
   return ret;
 }
+
+/*
+ * Supported protocols of the websocket, needs to be in line with the protocols array
+ */
+enum ws_protocols
+{
+  WS_PROTOCOL_HTTP = 0,
+  WS_PROTOCOL_NOTIFY,
+};
 
 static struct lws_protocols protocols[] =
 {
@@ -361,8 +422,14 @@ websocket(void *arg)
 
   while(!websocket_exit)
   {
+#if LWS_LIBRARY_VERSION_MAJOR >= 3
     if (lws_service(context, 0))
       websocket_exit = true;
+#else
+    lws_service(context, 10000);
+    if (websocket_write_events)
+      lws_callback_on_writable_all_protocol(context, &protocols[WS_PROTOCOL_NOTIFY]);
+#endif
   }
 
   lws_context_destroy(context);
@@ -460,5 +527,6 @@ websocket_deinit(void)
     {
       websocket_exit = true;
       pthread_join(tid_websocket, NULL);
+      pthread_mutex_destroy(&websocket_write_event_lock);
     }
 }

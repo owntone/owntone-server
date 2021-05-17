@@ -269,7 +269,7 @@ AM_CONDITIONAL([COND_PULSEAUDIO], [[test "x$with_pulseaudio" = "xyes"]])
 
 dnl Build with libwebsockets
 OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
-	[libwebsockets >= 3.0.0])
+	[libwebsockets >= 2.0.2])
 AM_CONDITIONAL([COND_LIBWEBSOCKETS], [[test "x$with_libwebsockets" = "xyes"]])
 
 dnl Build with libevent_pthreads
