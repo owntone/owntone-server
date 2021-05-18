@@ -16,7 +16,7 @@ struct spotify_backend
   int (*init)(void);
   void (*deinit)(void);
   int (*login)(const char *username, const char *password, const char **errmsg);
-  int (*login_token)(const char *username, uint8_t *token, size_t token_len, const char **errmsg);
+  int (*login_token)(const char *username, const char *token, const char **errmsg);
   void (*logout)(void);
   int (*relogin)(void);
   void (*uri_register)(const char *uri);
@@ -33,7 +33,7 @@ int
 spotify_login(const char *username, const char *password, const char **errmsg);
 
 int
-spotify_login_token(const char *username, uint8_t *token, size_t token_len, const char **errmsg);
+spotify_login_token(const char *username, const char *token, const char **errmsg);
 
 void
 spotify_logout(void);

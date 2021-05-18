@@ -49,7 +49,7 @@ events for proceeding are activated directly.
 
 #include <pthread.h>
 
-#include "spotifyc-internal.h"
+#include "librespot-c-internal.h"
 #include "commands.h"
 #include "connection.h"
 #include "channel.h"
@@ -57,8 +57,6 @@ events for proceeding are activated directly.
 /* TODO list
 
  - protect against DOS
- - use correct user-agent etc
- - web api token (scope streaming)
 */
 
 
@@ -149,11 +147,7 @@ session_new(struct sp_session **out, struct sp_cmdargs *cmdargs, event_callback_
     }
   else if (cmdargs->token)
     {
-      if (cmdargs->token_len > sizeof(session->credentials.token))
-	RETURN_ERROR(SP_ERR_INVALID, "Invalid token");
-
-      session->credentials.token_len = cmdargs->token_len;
-      memcpy(session->credentials.token, cmdargs->token, session->credentials.token_len);
+      snprintf(session->credentials.token, sizeof(session->credentials.token), "%s", cmdargs->token);
     }
   else
     {
@@ -578,19 +572,20 @@ track_close(void *arg, int *retval)
 }
 
 static enum command_state
-track_open(void *arg, int *retval)
+media_open(void *arg, int *retval)
 {
   struct sp_cmdargs *cmdargs = arg;
   struct sp_session *session = cmdargs->session;
   struct sp_channel *channel = NULL;
+  enum sp_msg_type type;
   int ret;
 
   ret = session_check(session);
   if (ret < 0)
-    RETURN_ERROR(SP_ERR_NOSESSION, "Cannot open track, session is invalid");
+    RETURN_ERROR(SP_ERR_NOSESSION, "Cannot open media, session is invalid");
 
   if (session->now_streaming_channel)
-    RETURN_ERROR(SP_ERR_OCCUPIED, "Already getting a track");
+    RETURN_ERROR(SP_ERR_OCCUPIED, "Already getting media");
 
   ret = channel_new(&channel, session, cmdargs->path, sp_evbase, audio_write_cb);
   if (ret < 0)
@@ -602,11 +597,18 @@ track_open(void *arg, int *retval)
   // making the request
   session->now_streaming_channel = channel;
 
+  if (channel->file.media_type == SP_MEDIA_TRACK)
+    type = MSG_TYPE_MERCURY_TRACK_GET;
+  else if (channel->file.media_type == SP_MEDIA_EPISODE)
+    type = MSG_TYPE_MERCURY_EPISODE_GET;
+  else
+    RETURN_ERROR(SP_ERR_INVALID, "Unknown media type in Spotify path");
+
   // Kicks of a sequence where we first get file info, then get the AES key and
   // then the first chunk (incl. headers)
-  ret = request_make(MSG_TYPE_MERCURY_TRACK_GET, session);
+  ret = request_make(type, session);
   if (ret < 0)
-    RETURN_ERROR(SP_ERR_NOCONNECTION, "Could not send track request");
+    RETURN_ERROR(SP_ERR_NOCONNECTION, "Could not send media request");
 
   *retval = 1;
   return COMMAND_PENDING;
@@ -623,7 +625,7 @@ track_open(void *arg, int *retval)
 }
 
 static enum command_state
-track_open_bh(void *arg, int *retval)
+media_open_bh(void *arg, int *retval)
 {
   struct sp_cmdargs *cmdargs = arg;
 
@@ -755,7 +757,7 @@ credentials_get(void *arg, int *retval)
 /* ------------------------------ Event loop -------------------------------- */
 
 static void *
-spotifyc(void *arg)
+librespotc(void *arg)
 {
   event_base_dispatch(sp_evbase);
 
@@ -766,18 +768,18 @@ spotifyc(void *arg)
 /* ---------------------------------- API ----------------------------------- */
 
 int
-spotifyc_open(const char *path, struct sp_session *session)
+librespotc_open(const char *path, struct sp_session *session)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
   cmdargs.session  = session;
   cmdargs.path     = path;
 
-  return commands_exec_sync(sp_cmdbase, track_open, track_open_bh, &cmdargs);
+  return commands_exec_sync(sp_cmdbase, media_open, media_open_bh, &cmdargs);
 }
 
 int
-spotifyc_seek(int fd, size_t pos)
+librespotc_seek(int fd, size_t pos)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -789,7 +791,7 @@ spotifyc_seek(int fd, size_t pos)
 
 // Starts writing audio for the caller to read from the file descriptor
 void
-spotifyc_write(int fd, sp_progress_cb progress_cb, void *cb_arg)
+librespotc_write(int fd, sp_progress_cb progress_cb, void *cb_arg)
 {
   struct sp_cmdargs *cmdargs;
 
@@ -803,7 +805,7 @@ spotifyc_write(int fd, sp_progress_cb progress_cb, void *cb_arg)
 }
 
 int
-spotifyc_close(int fd)
+librespotc_close(int fd)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -813,7 +815,7 @@ spotifyc_close(int fd)
 }
 
 struct sp_session *
-spotifyc_login_password(const char *username, const char *password)
+librespotc_login_password(const char *username, const char *password)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -826,7 +828,7 @@ spotifyc_login_password(const char *username, const char *password)
 }
 
 struct sp_session *
-spotifyc_login_stored_cred(const char *username, uint8_t *stored_cred, size_t stored_cred_len)
+librespotc_login_stored_cred(const char *username, uint8_t *stored_cred, size_t stored_cred_len)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -840,13 +842,12 @@ spotifyc_login_stored_cred(const char *username, uint8_t *stored_cred, size_t st
 }
 
 struct sp_session *
-spotifyc_login_token(const char *username, uint8_t *token, size_t token_len)
+librespotc_login_token(const char *username, const char *token)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
   cmdargs.username        = username;
   cmdargs.token           = token;
-  cmdargs.token_len       = token_len;
 
   commands_exec_sync(sp_cmdbase, login, login_bh, &cmdargs);
 
@@ -854,7 +855,7 @@ spotifyc_login_token(const char *username, uint8_t *token, size_t token_len)
 }
 
 int
-spotifyc_logout(struct sp_session *session)
+librespotc_logout(struct sp_session *session)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -864,7 +865,7 @@ spotifyc_logout(struct sp_session *session)
 }
 
 int
-spotifyc_metadata_get(struct sp_metadata *metadata, int fd)
+librespotc_metadata_get(struct sp_metadata *metadata, int fd)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -875,7 +876,7 @@ spotifyc_metadata_get(struct sp_metadata *metadata, int fd)
 }
 
 int
-spotifyc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate)
+librespotc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -886,7 +887,7 @@ spotifyc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate)
 }
 
 int
-spotifyc_credentials_get(struct sp_credentials *credentials, struct sp_session *session)
+librespotc_credentials_get(struct sp_credentials *credentials, struct sp_session *session)
 {
   struct sp_cmdargs cmdargs = { 0 };
 
@@ -897,18 +898,18 @@ spotifyc_credentials_get(struct sp_credentials *credentials, struct sp_session *
 }
 
 const char *
-spotifyc_last_errmsg(void)
+librespotc_last_errmsg(void)
 {
   return sp_errmsg ? sp_errmsg : "(no error)";
 }
 
 int
-spotifyc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
+librespotc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
 {
   int ret;
 
   if (sp_initialized)
-    RETURN_ERROR(SP_ERR_INVALID, "spotifyc already initialized");
+    RETURN_ERROR(SP_ERR_INVALID, "librespot-c already initialized");
 
   sp_cb     = *callbacks;
   sp_initialized = true;
@@ -923,7 +924,7 @@ spotifyc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
   if (!sp_cmdbase)
     RETURN_ERROR(SP_ERR_OOM, "commands_base_new() failed");
 
-  ret = pthread_create(&sp_tid, NULL, spotifyc, NULL);
+  ret = pthread_create(&sp_tid, NULL, librespotc, NULL);
   if (ret < 0)
     RETURN_ERROR(SP_ERR_OOM, "Could not start thread");
 
@@ -933,17 +934,20 @@ spotifyc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
   return 0;
 
  error:
-  spotifyc_deinit();
+  librespotc_deinit();
   return ret;
 }
 
 void
-spotifyc_deinit()
+librespotc_deinit()
 {
   struct sp_session *session;
 
-  commands_base_destroy(sp_cmdbase);
-  sp_cmdbase = NULL;
+  if (sp_cmdbase)
+    {
+      commands_base_destroy(sp_cmdbase);
+      sp_cmdbase = NULL;
+    }
 
   for (session = sp_sessions; sp_sessions; session = sp_sessions)
     {
@@ -951,10 +955,16 @@ spotifyc_deinit()
       session_free(session);
     }
 
-  pthread_join(sp_tid, NULL);
+  if (sp_tid)
+    {
+      pthread_join(sp_tid, NULL);
+    }
 
-  event_base_free(sp_evbase);
-  sp_evbase = NULL;
+  if (sp_evbase)
+    {
+      event_base_free(sp_evbase);
+      sp_evbase = NULL;
+    }
 
   sp_initialized = false;
   memset(&sp_cb, 0, sizeof(struct sp_callbacks));

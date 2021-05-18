@@ -1,5 +1,5 @@
-#ifndef __SPOTIFYC_H__
-#define __SPOTIFYC_H__
+#ifndef __LIBRESPOT_C_H__
+#define __LIBRESPOT_C_H__
 
 #include <inttypes.h>
 #include <stddef.h>
@@ -24,7 +24,7 @@ struct sp_credentials
 
   uint8_t stored_cred[256]; // Actual size is 146, but leave room for some more
   size_t stored_cred_len;
-  uint8_t token[256]; // Actual size is 190, but leave room for some more
+  uint8_t token[256]; // Actual size is ?
   size_t token_len;
 };
 
@@ -59,54 +59,54 @@ struct sp_callbacks
 
 
 struct sp_session *
-spotifyc_login_password(const char *username, const char *password);
+librespotc_login_password(const char *username, const char *password);
 
 struct sp_session *
-spotifyc_login_stored_cred(const char *username, uint8_t *stored_cred, size_t stored_cred_len);
+librespotc_login_stored_cred(const char *username, uint8_t *stored_cred, size_t stored_cred_len);
 
 struct sp_session *
-spotifyc_login_token(const char *username, uint8_t *token, size_t token_len);
+librespotc_login_token(const char *username, const char *token);
 
 int
-spotifyc_logout(struct sp_session *session);
+librespotc_logout(struct sp_session *session);
 
 int
-spotifyc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate);
+librespotc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate);
 
 int
-spotifyc_credentials_get(struct sp_credentials *credentials, struct sp_session *session);
+librespotc_credentials_get(struct sp_credentials *credentials, struct sp_session *session);
 
 // Returns a file descriptor (in non-blocking mode) from which caller can read
 // one chunk of data. To get more data written/start playback loop, call
-// spotifyc_play().
+// librespotc_play().
 int
-spotifyc_open(const char *path, struct sp_session *session);
+librespotc_open(const char *path, struct sp_session *session);
 
 // Continues writing data to the file descriptor until error or end of track.
 // A read of the fd that returns 0 means end of track, and a negative read
 // return value means error. progress_cb and cb_arg optional.
 void
-spotifyc_write(int fd, sp_progress_cb progress_cb, void *cb_arg);
+librespotc_write(int fd, sp_progress_cb progress_cb, void *cb_arg);
 
 // Seeks to pos (measured in bytes, so must not exceed file_len), flushes old
 // data from the fd and prepares one chunk of data for reading.
 int
-spotifyc_seek(int fd, size_t pos);
+librespotc_seek(int fd, size_t pos);
 
 // Closes a track download, incl. the fd.
 int
-spotifyc_close(int fd);
+librespotc_close(int fd);
 
 int
-spotifyc_metadata_get(struct sp_metadata *metadata, int fd);
+librespotc_metadata_get(struct sp_metadata *metadata, int fd);
 
 const char *
-spotifyc_last_errmsg(void);
+librespotc_last_errmsg(void);
 
 int
-spotifyc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks);
+librespotc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks);
 
 void
-spotifyc_deinit(void);
+librespotc_deinit(void);
 
-#endif /* !__SPOTIFYC_H__ */
+#endif /* !__LIBRESPOT_C_H__ */

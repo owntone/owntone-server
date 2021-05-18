@@ -102,7 +102,7 @@ struct input_definition input_libspotify =
 
 // No-op for libspotify since it doesn't support logging in with the web api token
 static int
-login_token(const char *username, uint8_t *token, size_t token_len, const char **errmsg)
+login_token(const char *username, const char *token, const char **errmsg)
 {
   return 0;
 }

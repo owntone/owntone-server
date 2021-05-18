@@ -1,6 +1,6 @@
 #include <fcntl.h>
 
-#include "spotifyc-internal.h"
+#include "librespot-c-internal.h"
 
 /* -------------------------------- Channels -------------------------------- */
 
@@ -28,15 +28,23 @@ Here is my current understanding of the channel concept:
 */
 
 static int
-path_to_track_id(struct sp_file *file)
+path_to_media_id_and_type(struct sp_file *file)
 {
   char *ptr;
 
-  ptr = strrchr(file->track_path, ':');
+  file->media_type = SP_MEDIA_UNKNOWN;
+  if (strstr(file->path, ":track:"))
+    file->media_type = SP_MEDIA_TRACK;
+  else if (strstr(file->path, ":episode:"))
+    file->media_type = SP_MEDIA_EPISODE;
+  else
+    return -1;
+
+  ptr = strrchr(file->path, ':');
   if (!ptr || strlen(ptr + 1) != 22)
     return -1;
 
-  return crypto_base62_to_bin(file->track_id, sizeof(file->track_id), ptr + 1);
+  return crypto_base62_to_bin(file->media_id, sizeof(file->media_id), ptr + 1);
 }
 
 struct sp_channel *
@@ -71,7 +79,7 @@ channel_free(struct sp_channel *channel)
 
   crypto_aes_free(&channel->file.decrypt);
 
-  free(channel->file.track_path);
+  free(channel->file.path);
 
   memset(channel, 0, sizeof(struct sp_channel));
 
@@ -101,8 +109,8 @@ channel_new(struct sp_channel **new_channel, struct sp_session *session, const c
   channel->id = i;
   channel->is_allocated = true;
 
-  channel->file.track_path = strdup(path);
-  path_to_track_id(&channel->file); // Sets file->track_id from file->path
+  channel->file.path = strdup(path);
+  path_to_media_id_and_type(&channel->file);
 
   // Set up the audio I/O
   ret = pipe(channel->audio_fd);
@@ -167,7 +175,7 @@ channel_stop(struct sp_channel *channel)
   channel->is_writing = false;
 
   // This will tell the reader that there is no more to read. He should then
-  // call spotifyc_close(), which will clean up the rest of the channel via
+  // call librespotc_close(), which will clean up the rest of the channel via
   // channel_free().
   close(channel->audio_fd[1]);
   channel->audio_fd[1] = -1;

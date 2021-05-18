@@ -995,7 +995,7 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
   if (ret < 0)
     return -1;
 
-  ret = spotify_login_token(spotify_credentials.user, (uint8_t *) spotify_credentials.access_token, strlen(spotify_credentials.access_token), errmsg);
+  ret = spotify_login_token(spotify_credentials.user, spotify_credentials.access_token, errmsg);
   if (ret < 0)
     return -1;
 

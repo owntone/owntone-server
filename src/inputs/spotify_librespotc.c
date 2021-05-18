@@ -35,7 +35,7 @@
 #include "db.h"
 #include "transcode.h"
 #include "spotify.h"
-#include "spotifyc/spotifyc.h"
+#include "librespot-c/librespot-c.h"
 
 // Haven't actually studied ffmpeg's probe size requirements, this is just a
 // guess
@@ -45,7 +45,7 @@
 #define SPOTIFY_BUF_MIN 4096
 
 // Limits how much of the Spotify Ogg file we fetch and buffer (in read_buf).
-// This will also in effect throttle spotifyc.
+// This will also in effect throttle in librespot-c.
 #define SPOTIFY_BUF_MAX (512 * 1024)
 
 struct global_ctx
@@ -109,10 +109,10 @@ postlogin(struct global_ctx *ctx)
   int i;
   int ret;
 
-  ret = spotifyc_credentials_get(&credentials, ctx->session);
+  ret = librespotc_credentials_get(&credentials, ctx->session);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error getting Spotify credentials: %s\n", spotifyc_last_errmsg());
+      DPRINTF(E_LOG, L_SPOTIFY, "Error getting Spotify credentials: %s\n", librespotc_last_errmsg());
       return -1;
     }
 
@@ -128,7 +128,7 @@ postlogin(struct global_ctx *ctx)
   ctx->status.logged_in = true;
   snprintf(ctx->status.username, sizeof(ctx->status.username), "%s", credentials.username);
 
-  spotifyc_bitrate_set(ctx->session, ctx->bitrate_preferred);
+  librespotc_bitrate_set(ctx->session, ctx->bitrate_preferred);
 
   DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s\n", credentials.username);
 
@@ -168,7 +168,7 @@ fd_read(bool *eofptr, struct evbuffer *evbuf, int fd)
   return total;
 }
 
-/* -------------------- Callbacks from spotifyc thread ---------------------- */
+/* ------------------ Callbacks from librespot-c thread --------------------- */
 
 static void
 progress_cb(int fd, void *cb_arg, size_t received, size_t len)
@@ -281,7 +281,7 @@ download_seek(void *arg, int64_t offset, enum transcode_seek_type type)
 	// Flush read buffer
 	evbuffer_drain(download->read_buf, -1);
 
-	ret = spotifyc_seek(download->read_fd, offset);
+	ret = librespotc_seek(download->read_fd, offset);
 	if (ret < 0)
 	  goto error;
 
@@ -344,7 +344,7 @@ download_free(struct download_ctx *download)
     return;
 
   if (download->read_fd >= 0)
-    spotifyc_close(download->read_fd);
+    librespotc_close(download->read_fd);
 
   if (download->read_buf)
     evbuffer_free(download->read_buf);
@@ -405,17 +405,17 @@ setup(struct input_source *source)
 
   pthread_mutex_lock(&ctx->lock);
 
-  fd = spotifyc_open(source->path, ctx->session);
+  fd = librespotc_open(source->path, ctx->session);
   if (fd < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Eror opening source: %s\n", spotifyc_last_errmsg());
+      DPRINTF(E_LOG, L_SPOTIFY, "Eror opening source: %s\n", librespotc_last_errmsg());
       goto error;
     }
 
-  ret = spotifyc_metadata_get(&metadata, fd);
+  ret = librespotc_metadata_get(&metadata, fd);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error getting track metadata: %s\n", spotifyc_last_errmsg());
+      DPRINTF(E_LOG, L_SPOTIFY, "Error getting track metadata: %s\n", librespotc_last_errmsg());
       goto error;
     }
 
@@ -462,7 +462,7 @@ play(struct input_source *source)
   // might run seek() before starting download.
   if (!download->is_started)
     {
-      spotifyc_write(download->read_fd, progress_cb, download);
+      librespotc_write(download->read_fd, progress_cb, download);
       download->is_started = true;
     }
 
@@ -512,7 +512,7 @@ seek(struct input_source *source, int seek_ms)
   struct download_ctx *download = source->input_ctx;
 
   // This will make transcode call back to download_seek(), but with a byte
-  // offset instead of a ms position, which is what spotifyc requires
+  // offset instead of a ms position, which is what librespot-c requires
   return transcode_seek(download->xcode, seek_ms);
 }
 
@@ -530,10 +530,10 @@ login_stored_cred(struct global_ctx *ctx, const char *username, const char *db_s
   CHECK_NULL(L_SPOTIFY, stored_cred = malloc(stored_cred_len));
   hextobin(stored_cred, stored_cred_len, db_stored_cred, db_stored_cred_len);
 
-  ctx->session = spotifyc_login_stored_cred(username, stored_cred, stored_cred_len);
+  ctx->session = librespotc_login_stored_cred(username, stored_cred, stored_cred_len);
   if (!ctx->session)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error logging into Spotify: %s\n", spotifyc_last_errmsg());
+      DPRINTF(E_LOG, L_SPOTIFY, "Error logging into Spotify: %s\n", librespotc_last_errmsg());
       goto error;
     }
 
@@ -547,7 +547,7 @@ login_stored_cred(struct global_ctx *ctx, const char *username, const char *db_s
  error:
   free(stored_cred);
   if (ctx->session)
-    spotifyc_logout(ctx->session);
+    librespotc_logout(ctx->session);
   ctx->session = NULL;
   return -1;
 }
@@ -575,10 +575,10 @@ init(void)
   snprintf(sysinfo.client_build_id, sizeof(sysinfo.client_build_id), "0");
   snprintf(sysinfo.device_id, sizeof(sysinfo.device_id), "%" PRIx64, libhash); // TODO use a UUID instead
 
-  ret = spotifyc_init(&sysinfo, &callbacks);
+  ret = librespotc_init(&sysinfo, &callbacks);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error initializing Spotify: %s\n", spotifyc_last_errmsg());
+      DPRINTF(E_LOG, L_SPOTIFY, "Error initializing Spotify: %s\n", librespotc_last_errmsg());
       goto error;
     }
 
@@ -620,7 +620,7 @@ init(void)
 static void
 deinit(void)
 {
-  spotifyc_deinit();
+  librespotc_deinit();
 
   CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&spotify_ctx.cond));
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&spotify_ctx.lock));
@@ -651,7 +651,7 @@ login(const char *username, const char *password, const char **errmsg)
 
   pthread_mutex_lock(&ctx->lock);
 
-  ctx->session = spotifyc_login_password(username, password);
+  ctx->session = librespotc_login_password(username, password);
   if (!ctx->session)
     goto error;
 
@@ -665,11 +665,11 @@ login(const char *username, const char *password, const char **errmsg)
 
  error:
   if (ctx->session)
-    spotifyc_logout(ctx->session);
+    librespotc_logout(ctx->session);
   ctx->session = NULL;
 
   if (errmsg)
-    *errmsg = spotifyc_last_errmsg();
+    *errmsg = librespotc_last_errmsg();
 
   pthread_mutex_unlock(&ctx->lock);
 
@@ -677,14 +677,14 @@ login(const char *username, const char *password, const char **errmsg)
 }
 
 static int
-login_token(const char *username, uint8_t *token, size_t token_len, const char **errmsg)
+login_token(const char *username, const char *token, const char **errmsg)
 {
   struct global_ctx *ctx = &spotify_ctx;
   int ret;
 
   pthread_mutex_lock(&ctx->lock);
 
-  ctx->session = spotifyc_login_token(username, token, token_len);
+  ctx->session = librespotc_login_token(username, token);
   if (!ctx->session)
     goto error;
 
@@ -698,11 +698,11 @@ login_token(const char *username, uint8_t *token, size_t token_len, const char *
 
  error:
   if (ctx->session)
-    spotifyc_logout(ctx->session);
+    librespotc_logout(ctx->session);
   ctx->session = NULL;
 
   if (errmsg)
-    *errmsg = spotifyc_last_errmsg();
+    *errmsg = librespotc_last_errmsg();
 
   pthread_mutex_unlock(&ctx->lock);
 
@@ -719,7 +719,7 @@ logout(void)
 
   pthread_mutex_lock(&ctx->lock);
 
-  spotifyc_logout(ctx->session);
+  librespotc_logout(ctx->session);
   ctx->session = NULL;
 
   pthread_mutex_unlock(&ctx->lock);
@@ -745,7 +745,7 @@ status_get(struct spotify_status *status)
   pthread_mutex_unlock(&ctx->lock);
 }
 
-struct spotify_backend spotify_spotifyc =
+struct spotify_backend spotify_librespotc =
 {
   .login = login,
   .login_token = login_token,

@@ -1,5 +1,5 @@
-#ifndef __SPOTIFYC_INTERNAL_H__
-#define __SPOTIFYC_INTERNAL_H__
+#ifndef __LIBRESPOT_C_INTERNAL_H__
+#define __LIBRESPOT_C_INTERNAL_H__
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +13,7 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 
-#include "spotifyc.h"
+#include "librespot-c.h"
 #include "crypto.h"
 
 #include "proto/keyexchange.pb-c.h"
@@ -37,8 +37,9 @@
 // though this implenentation currently expects just one.
 #define SP_MERCURY_MAX_PARTS 32
 
-// librespot-golang uses /4 ... not sure what that means?
-#define SP_MERCURY_ENDPOINT "hm://metadata/3/track/"
+// librespot uses /3, but -golang and -java use /4
+#define SP_MERCURY_URI_TRACK "hm://metadata/4/track/"
+#define SP_MERCURY_URI_EPISODE "hm://metadata/4/episode/"
 
 // Special Spotify header that comes before the actual Ogg data
 #define SP_OGG_HEADER_LEN 167
@@ -80,8 +81,16 @@ enum sp_msg_type
   MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED,
   MSG_TYPE_PONG,
   MSG_TYPE_MERCURY_TRACK_GET,
+  MSG_TYPE_MERCURY_EPISODE_GET,
   MSG_TYPE_AUDIO_KEY_GET,
   MSG_TYPE_CHUNK_REQUEST,
+};
+
+enum sp_media_type
+{
+  SP_MEDIA_UNKNOWN,
+  SP_MEDIA_TRACK,
+  SP_MEDIA_EPISODE,
 };
 
 // From librespot-golang
@@ -128,8 +137,7 @@ struct sp_cmdargs
   const char *password;
   uint8_t *stored_cred;
   size_t stored_cred_len;
-  uint8_t *token;
-  size_t token_len;
+  const char *token;
   const char *path;
   int fd_read;
   int fd_write;
@@ -217,10 +225,11 @@ struct sp_file
 {
   uint8_t id[20];
 
-//  Track *track; // TODO free this
-  char *track_path;
-  uint8_t track_id[16];
-  uint8_t track_key[16];
+  char *path; // The Spotify URI, e.g. spotify:episode:3KRjRyqv5ou5SilNMYBR4E
+  uint8_t media_id[16]; // Decoded value of the URIs base62
+  enum sp_media_type media_type; // track or episode from URI
+
+  uint8_t key[16];
 
   uint16_t channel_id;
 
@@ -318,4 +327,4 @@ extern struct sp_callbacks sp_cb;
 extern struct sp_sysinfo sp_sysinfo;
 extern const char *sp_errmsg;
 
-#endif // __SPOTIFYC_INTERNAL_H__
+#endif // __LIBRESPOT_C_INTERNAL_H__

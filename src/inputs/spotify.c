@@ -28,8 +28,8 @@
 #include "conffile.h"
 #include "spotify.h"
 
-#ifdef SPOTIFY_SPOTIFYC
-extern struct spotify_backend spotify_spotifyc;
+#ifdef SPOTIFY_LIBRESPOTC
+extern struct spotify_backend spotify_librespotc;
 #endif
 #ifdef SPOTIFY_LIBSPOTIFY
 extern struct spotify_backend spotify_libspotify;
@@ -38,9 +38,9 @@ extern struct spotify_backend spotify_libspotify;
 static struct spotify_backend *
 backend_set(void)
 {
-#ifdef SPOTIFY_SPOTIFYC
+#ifdef SPOTIFY_LIBRESPOTC
   if (!cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify"))
-    return &spotify_spotifyc;
+    return &spotify_librespotc;
 #endif
 #ifdef SPOTIFY_LIBSPOTIFY
   if (cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify"))
@@ -89,14 +89,14 @@ spotify_login(const char *username, const char *password, const char **errmsg)
 }
 
 int
-spotify_login_token(const char *username, uint8_t *token, size_t token_len, const char **errmsg)
+spotify_login_token(const char *username, const char *token, const char **errmsg)
 {
   struct spotify_backend *backend = backend_set();
 
   if (!backend || !backend->login_token)
     return -1;
 
-  return backend->login_token(username, token, token_len, errmsg);
+  return backend->login_token(username, token, errmsg);
 }
 
 void

@@ -8,7 +8,7 @@
 
 #include <json-c/json.h>
 
-#include "spotifyc-internal.h"
+#include "librespot-c-internal.h"
 #include "connection.h"
 #include "channel.h"
 
@@ -635,9 +635,9 @@ response_aes_key(uint8_t *payload, size_t payload_len, struct sp_session *sessio
   if (!channel)
     RETURN_ERROR(SP_ERR_INVALID, "Unexpected channel received");
 
-  memcpy(channel->file.track_key, payload + 4, 16);
+  memcpy(channel->file.key, payload + 4, 16);
 
-  ret = crypto_aes_new(&channel->file.decrypt, channel->file.track_key, sizeof(channel->file.track_key), sp_aes_iv, sizeof(sp_aes_iv), &errmsg);
+  ret = crypto_aes_new(&channel->file.decrypt, channel->file.key, sizeof(channel->file.key), sp_aes_iv, sizeof(sp_aes_iv), &errmsg);
   if (ret < 0)
     RETURN_ERROR(SP_ERR_DECRYPTION, errmsg);
 
@@ -1089,13 +1089,37 @@ msg_make_mercury_track_get(uint8_t *out, size_t out_len, struct sp_session *sess
   char *ptr;
   int i;
 
-  assert(sizeof(uri) > sizeof(SP_MERCURY_ENDPOINT) + 2 * sizeof(channel->file.track_id));
+  assert(sizeof(uri) > sizeof(SP_MERCURY_URI_TRACK) + 2 * sizeof(channel->file.media_id));
 
   ptr = uri;
-  ptr += sprintf(ptr, "%s", SP_MERCURY_ENDPOINT);
+  ptr += sprintf(ptr, "%s", SP_MERCURY_URI_TRACK);
 
-  for (i = 0; i < sizeof(channel->file.track_id); i++)
-    ptr += sprintf(ptr, "%02x", channel->file.track_id[i]);
+  for (i = 0; i < sizeof(channel->file.media_id); i++)
+    ptr += sprintf(ptr, "%02x", channel->file.media_id[i]);
+
+  mercury.method = "GET";
+  mercury.seq    = channel->id;
+  mercury.uri    = uri;
+
+  return msg_make_mercury_req(out, out_len, &mercury);
+}
+
+static ssize_t
+msg_make_mercury_episode_get(uint8_t *out, size_t out_len, struct sp_session *session)
+{
+  struct sp_mercury mercury = { 0 };
+  struct sp_channel *channel = session->now_streaming_channel;
+  char uri[256];
+  char *ptr;
+  int i;
+
+  assert(sizeof(uri) > sizeof(SP_MERCURY_URI_EPISODE) + 2 * sizeof(channel->file.media_id));
+
+  ptr = uri;
+  ptr += sprintf(ptr, "%s", SP_MERCURY_URI_EPISODE);
+
+  for (i = 0; i < sizeof(channel->file.media_id); i++)
+    ptr += sprintf(ptr, "%02x", channel->file.media_id[i]);
 
   mercury.method = "GET";
   mercury.seq    = channel->id;
@@ -1113,7 +1137,7 @@ msg_make_audio_key_get(uint8_t *out, size_t out_len, struct sp_session *session)
   uint16_t be;
   uint8_t *ptr;
 
-  required_len = sizeof(channel->file.id) + sizeof(channel->file.track_id) + sizeof(be32) + sizeof(be);
+  required_len = sizeof(channel->file.id) + sizeof(channel->file.media_id) + sizeof(be32) + sizeof(be);
 
   if (required_len > out_len)
     return -1;
@@ -1123,8 +1147,8 @@ msg_make_audio_key_get(uint8_t *out, size_t out_len, struct sp_session *session)
   memcpy(ptr, channel->file.id, sizeof(channel->file.id));
   ptr += sizeof(channel->file.id);
 
-  memcpy(ptr, channel->file.track_id, sizeof(channel->file.track_id));
-  ptr += sizeof(channel->file.track_id);
+  memcpy(ptr, channel->file.media_id, sizeof(channel->file.media_id));
+  ptr += sizeof(channel->file.media_id);
 
   be32 = htobe32(channel->id);
   memcpy(ptr, &be32, sizeof(be32));
@@ -1223,6 +1247,13 @@ msg_make(struct sp_message *msg, enum sp_msg_type type, struct sp_session *sessi
 	break;
       case MSG_TYPE_MERCURY_TRACK_GET:
 	msg->len = msg_make_mercury_track_get(msg->data, sizeof(msg->data), session);
+	msg->cmd = CmdMercuryReq;
+        msg->encrypt = true;
+	msg->type_next = MSG_TYPE_AUDIO_KEY_GET;
+	msg->response_handler = response_generic;
+	break;
+      case MSG_TYPE_MERCURY_EPISODE_GET:
+	msg->len = msg_make_mercury_episode_get(msg->data, sizeof(msg->data), session);
 	msg->cmd = CmdMercuryReq;
         msg->encrypt = true;
 	msg->type_next = MSG_TYPE_AUDIO_KEY_GET;

@@ -58,7 +58,7 @@ extern struct input_definition input_file;
 extern struct input_definition input_http;
 extern struct input_definition input_pipe;
 extern struct input_definition input_timer;
-#ifdef SPOTIFY_SPOTIFYC
+#ifdef SPOTIFY_LIBRESPOTC
 extern struct input_definition input_spotify;
 #endif
 #ifdef SPOTIFY_LIBSPOTIFY
@@ -71,7 +71,7 @@ static struct input_definition *inputs[] = {
     &input_http,
     &input_pipe,
     &input_timer,
-#ifdef SPOTIFY_SPOTIFYC
+#ifdef SPOTIFY_LIBRESPOTC
     &input_spotify,
 #endif
 #ifdef SPOTIFY_LIBSPOTIFY
@@ -178,7 +178,7 @@ map_data_kind(int data_kind)
 	return INPUT_TYPE_PIPE;
 
       case DATA_KIND_SPOTIFY:
-#ifdef SPOTIFY_SPOTIFYC
+#ifdef SPOTIFY_LIBRESPOTC
 	if (!inputs[INPUT_TYPE_SPOTIFY]->disabled)
 	  return INPUT_TYPE_SPOTIFY;
 #endif

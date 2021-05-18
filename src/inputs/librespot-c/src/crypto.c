@@ -417,6 +417,7 @@ crypto_base62_digit(char c)
 
 // base 62 to bin: 4gtj0ZuMWRw8WioT9SXsC2 -> 8c283882b29346829b8d021f52f5c2ce
 //                 00AdHZ94Jb7oVdHVJmJsIU -> 004f421c7e934635aaf778180a8fd068
+// (note that the function prefixes with zeroes)
 int
 crypto_base62_to_bin(uint8_t *out, size_t out_len, const char *in)
 {
@@ -453,7 +454,7 @@ crypto_base62_to_bin(uint8_t *out, size_t out_len, const char *in)
   bnum_free(n);
   bnum_free(base);
 
-  return 0;
+  return (int)out_len;
 
  error:
   bnum_free(n);
