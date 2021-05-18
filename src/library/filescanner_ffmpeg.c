@@ -164,6 +164,13 @@ static const struct metadata_map md_map_generic[] =
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
     { "compilation",  1, mfi_offsetof(compilation),        NULL },
 
+    // ALAC sort tags
+    { "sort_name",           0, mfi_offsetof(title_sort),         NULL },
+    { "sort_artist",         0, mfi_offsetof(artist_sort),        NULL },
+    { "sort_album",          0, mfi_offsetof(album_sort),         NULL },
+    { "sort_album_artist",   0, mfi_offsetof(album_artist_sort),  NULL },
+    { "sort_composer",       0, mfi_offsetof(composer_sort),      NULL },
+
     // These tags are used to determine if files belong to a common compilation
     // or album, ref. https://picard.musicbrainz.org/docs/tags
     { "MusicBrainz Album Id",         1, mfi_offsetof(songalbumid), parse_albumid },
