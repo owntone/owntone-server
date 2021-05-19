@@ -319,7 +319,7 @@ http_stream_setup(char **stream, const char *url)
 	  line = pos;
 	}
 
-      if (strncasecmp(line, "http://", strlen("http://")) == 0)
+      if (net_is_http_or_https(line))
 	{
 	  DPRINTF(E_DBG, L_HTTP, "Found internet playlist stream (line %d): %s\n", n, line);
 

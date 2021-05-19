@@ -622,7 +622,7 @@ rss_add(const char *path)
 {
   int ret;
 
-  if (strncmp(path, "http://", 7) != 0 && strncmp(path, "https://", 8) != 0)
+  if (!net_is_http_or_https(path))
     {
       DPRINTF(E_SPAM, L_LIB, "Invalid RSS path '%s'\n", path);
       return LIBRARY_PATH_INVALID;

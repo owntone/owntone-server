@@ -2184,9 +2184,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
       safe_json_add_string(item, "uri", queue_item->path);
     }
 
-  if (queue_item->artwork_url
-      && (strncmp(queue_item->artwork_url, "http://", strlen("http://")) == 0
-	  || strncmp(queue_item->artwork_url, "https://", strlen("https://")) == 0))
+  if (queue_item->artwork_url && net_is_http_or_https(queue_item->artwork_url))
     {
       // The queue item contains a valid http url for an artwork image, there is no need
       // for the client to request the image through the server artwork handler.

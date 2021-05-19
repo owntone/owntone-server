@@ -485,7 +485,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 	continue;
 
       // URLs and playlists will be added to library, tracks should already be there
-      if (strncasecmp(path, "http://", 7) == 0 || strncasecmp(path, "https://", 8) == 0)
+      if (net_is_http_or_https(path))
 	ret = process_url(pl_id, path, &mfi);
       else if (playlist_type(path) != PLAYLIST_UNKNOWN)
 	ret = process_nested_playlist(pl_id, path);

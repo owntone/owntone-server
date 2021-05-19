@@ -54,6 +54,9 @@ net_bind(short unsigned *port, int type, const char *log_service_name);
 int
 net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_service_name);
 
+// Just checks if the protocol is http or https
+bool
+net_is_http_or_https(const char *url);
 
 /* ----------------------- Conversion/hashing/sanitizers -------------------- */
 
