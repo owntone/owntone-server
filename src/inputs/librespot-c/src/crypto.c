@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <ctype.h> // for isdigit(), isupper(), islower()
 
+#include "librespot-c-internal.h" // For endian compat functions
 #include "crypto.h"
 
 

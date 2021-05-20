@@ -291,7 +291,7 @@ OWNTONE_ARG_DISABLE([Spotify support], [spotify], [SPOTIFY_LIBRESPOTC],
 	[OWNTONE_MODULES_CHECK([OWNTONE_OPTS], [LIBPROTOBUF_C],
 		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
 		[protobuf-c/protobuf-c.h])
-	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_LIBS], [inputs/librespot-c/src/librespot-c.a])
+	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_LIBS], [inputs/librespot-c/librespot-c.a])
 	 AC_DEFINE([SPOTIFY], 1,
 		[Define to 1 to enable Spotify])
 	])

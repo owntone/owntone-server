@@ -8,10 +8,23 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <endian.h>
 
 #include <event2/event.h>
 #include <event2/buffer.h>
+
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif defined(HAVE_SYS_ENDIAN_H)
+# include <sys/endian.h>
+#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
+#include <libkern/OSByteOrder.h>
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#endif
 
 #include "librespot-c.h"
 #include "crypto.h"
