@@ -49,15 +49,14 @@ static pthread_mutex_t websocket_write_event_lock;
 static short websocket_write_events;
 
 
-
 /* Thread: library (the thread the event occurred) */
 static void
 listener_cb(short event_mask)
 {
-  DPRINTF(E_INFO, L_WEB, "listener_cb: %d\n", event_mask);
   pthread_mutex_lock(&websocket_write_event_lock);
   websocket_write_events |= event_mask;
   pthread_mutex_unlock(&websocket_write_event_lock);
+
   lws_cancel_service(context);
 }
 
