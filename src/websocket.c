@@ -487,10 +487,15 @@ websocket_init(void)
   info.port = websocket_port;
   info.iface = websocket_interface;
   info.protocols = protocols;
+#ifdef LWS_SERVER_OPTION_IPV6_V6ONLY_MODIFY // Debian Buster's libwebsockets does not have this flag
   if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
     info.options |= LWS_SERVER_OPTION_IPV6_V6ONLY_MODIFY; // Assures dual stack is enabled by switching off IPV6_V6ONLY
   else
     info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
+#else
+  if (!cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
+    info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
+#endif
   info.gid = -1;
   info.uid = -1;
 
