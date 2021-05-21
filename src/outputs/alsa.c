@@ -1418,14 +1418,14 @@ alsa_init(void)
   alsa_cfg_secn = cfg_size(cfg, "alsa");
   if (alsa_cfg_secn == 0)
     {
-      alsa_device_add(cfg_audio, 0);
+      alsa_device_add(cfg_audio, 1);
     }
   else
     {
       for (i = 0; i < alsa_cfg_secn; ++i)
         {
           cfg_alsasec = cfg_getnsec(cfg, "alsa", i);
-          alsa_device_add(cfg_alsasec, i);
+          alsa_device_add(cfg_alsasec, i + 1);
         }
     }
 
