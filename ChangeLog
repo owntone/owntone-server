@@ -1,5 +1,17 @@
-ChangeLog for forked-daapd
---------------------------
+ChangeLog for OwnTone
+---------------------
+
+version 28.0
+	- rename forked-daapd to OwnTone + new logo
+	- fix web UI slow updates due to websockets 3.x changes
+	- support for ALAC sort tags
+	- support for remote pls/m3u with https streams
+	- add /api/queue?id=now_playing json API shortcut
+	- fix possible crash on Pulseaudio error callback
+	- fix possible segfault-on-exit
+	- fix websockets not working on FreeBSD
+	- refactor how the server binds to sockets (use dual stack ipv4/6)
+	- configurable interface/address binding
 
 version 27.4
 	- fix web server path traversal vulnerability

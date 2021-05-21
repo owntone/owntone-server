@@ -582,7 +582,11 @@ The source for this version of OwnTone can be found here:
 
   [https://github.com/owntone/owntone-server.git](https://github.com/owntone/owntone-server.git)
 
-README's for previous versions of OwnTone (when it was forked-daapd):
+README's for current and previous versions of OwnTone:
+
+  [OwnTone version 28.0](https://github.com/owntone/owntone-server/blob/28.0/README.md)
+
+Older versions from when OwnTone was forked-daapd:
 
   [forked-daapd version 27.4](https://github.com/owntone/owntone-server/blob/27.4/README.md)
 
