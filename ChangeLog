@@ -1,6 +1,9 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.1
+	- fix incompability in 28.0 with Debian Buster's libwebsockets 2.0
+
 version 28.0
 	- rename forked-daapd to OwnTone + new logo
 	- fix web UI slow updates due to websockets 3.x changes
