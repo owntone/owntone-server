@@ -4943,20 +4943,21 @@ db_queue_add_end(struct db_queue_add_info *queue_add_info, char reshuffle, uint3
 {
   char *query;
 
+  if (ret < 0)
+    goto end;
+
   // Update pos for all items from the given position
-  if (ret == 0)
-    {
-      query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos >= %d AND queue_version < %d;",
-			      queue_add_info->count, queue_add_info->queue_version, queue_add_info->start_pos, queue_add_info->queue_version);
-      ret = db_query_run(query, 1, 0);
-    }
+  query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos >= %d AND queue_version < %d;",
+                          queue_add_info->count, queue_add_info->queue_version, queue_add_info->start_pos, queue_add_info->queue_version);
+  ret = db_query_run(query, 1, 0);
+  if (ret < 0)
+    goto end;
 
   // Reshuffle after adding new items
-  if (ret == 0 && reshuffle)
-    {
-      ret = queue_reshuffle(item_id, queue_add_info->queue_version);
-    }
+  if (reshuffle)
+    ret = queue_reshuffle(item_id, queue_add_info->queue_version);
 
+ end:
   queue_transaction_end(ret, queue_add_info->queue_version);
   return ret;
 }
