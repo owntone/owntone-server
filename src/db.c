@@ -907,7 +907,21 @@ sort_tag_create(char **sort_tag, const char *src_tag)
 
   /* Note: include terminating NUL in string length for u8_normalize */
 
-  free(*sort_tag);
+  // If the source provides a source tag then we rely on a normalized version of
+  // that instead of creating our own (see issue #1257). FIXME this produces the
+  // following bug:
+  // - Track with no sort tags, assume queue_item->artist is "A", then
+  //   queue_item->artist_sort will be created and set to "A".
+  // - Update the artist name of the queue item with JSON API to "B".
+  // - queue_item->artist_sort will still be "A".
+  if (*sort_tag)
+    {
+      DPRINTF(E_DBG, L_DB, "Existing sort tag will be normalized: %s\n", *sort_tag);
+      o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
+      free(*sort_tag);
+      *sort_tag = (char *)o_ptr;
+      return;
+    }
 
   if (!src_tag || ((len = strlen(src_tag)) == 0))
     {
