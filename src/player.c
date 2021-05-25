@@ -2938,9 +2938,8 @@ volume_setabs_speaker(void *arg, int *retval)
   return COMMAND_END;
 }
 
-// Just updates internal volume params (does not make actual requests to the speaker)
 static enum command_state
-volume_update_speaker(void *arg, int *retval)
+volume_setraw_speaker(void *arg, int *retval)
 {
   struct speaker_attr_param *vol_param = arg;
   struct output_device *device;
@@ -2964,7 +2963,11 @@ volume_update_speaker(void *arg, int *retval)
 
   outputs_device_volume_register(device, volume, -1);
 
-  *retval = 0;
+  *retval = outputs_device_volume_set(device, device_volume_cb);
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
   return COMMAND_END;
 }
 
@@ -3453,7 +3456,7 @@ player_volume_setabs_speaker(uint64_t id, int vol)
 }
 
 int
-player_volume_update_speaker(uint64_t id, const char *volstr)
+player_volume_setraw_speaker(uint64_t id, const char *volstr)
 {
   struct speaker_attr_param vol_param;
   int ret;
@@ -3461,7 +3464,7 @@ player_volume_update_speaker(uint64_t id, const char *volstr)
   vol_param.spk_id = id;
   vol_param.volstr  = volstr;
 
-  ret = commands_exec_sync(cmdbase, volume_update_speaker, volume_generic_bh, &vol_param);
+  ret = commands_exec_sync(cmdbase, volume_setraw_speaker, volume_generic_bh, &vol_param);
 
   return ret;
 }

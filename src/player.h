@@ -154,7 +154,7 @@ int
 player_volume_setabs_speaker(uint64_t id, int vol);
 
 int
-player_volume_update_speaker(uint64_t id, const char *volstr);
+player_volume_setraw_speaker(uint64_t id, const char *volstr);
 
 int
 player_repeat_set(enum repeat_mode mode);

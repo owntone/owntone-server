@@ -2495,10 +2495,10 @@ raop_volume_from_pct(int volume, struct output_device *device)
   float raop_volume;
 
   /* RAOP volume
-   *  -144.0 is off
-   *  0 - 100 maps to -30.0 - 0
+   *  -144.0 is off (not really used since we have no concept of muted/off)
+   *  0 - 100 maps to -30.0 - 0 (if no max_volume set)
    */
-  if (volume > 0 && volume <= 100)
+  if (volume >= 0 && volume <= 100)
     raop_volume = -30.0 + ((float)device->max_volume * (float)volume * 30.0) / (100.0 * RAOP_CONFIG_MAX_VOLUME);
   else
     raop_volume = -144.0;
@@ -2507,24 +2507,27 @@ raop_volume_from_pct(int volume, struct output_device *device)
 }
 
 static int
-raop_volume_to_pct(struct output_device *device, const char *volume)
+raop_volume_to_pct(struct output_device *device, const char *volstr)
 {
   float raop_volume;
+  float volume;
 
-  raop_volume = atof(volume);
+  raop_volume = atof(volstr);
 
-  // Basic sanity check
-  if (raop_volume == 0.0 && volume[0] != '0')
+  if ((raop_volume == 0.0 && volstr[0] != '0') || raop_volume > 0.0)
     {
-      DPRINTF(E_LOG, L_RAOP, "RAOP device volume is invalid: '%s'\n", volume);
+      DPRINTF(E_LOG, L_RAOP, "RAOP device volume is invalid: '%s'\n", volstr);
       return -1;
     }
 
+  if (raop_volume <= -30.0)
+    {
+      return 0;
+    }
+
   // RAOP volume: -144.0 is off, -30.0 - 0 scaled by max_volume maps to 0 - 100
-  if (raop_volume > -30.0 && raop_volume <= 0.0)
-    return (int)(100.0 * (raop_volume / 30.0 + 1.0) * RAOP_CONFIG_MAX_VOLUME / (float)device->max_volume);
-  else
-    return 0;
+  volume = (100.0 * (raop_volume / 30.0 + 1.0) * RAOP_CONFIG_MAX_VOLUME / (float)device->max_volume);
+  return MAX(0, MIN(100, (int)volume));
 }
 
 static int

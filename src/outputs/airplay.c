@@ -1744,14 +1744,11 @@ airplay_metadata_send(struct output_metadata *metadata)
 
 /* ------------------------------ Volume handling --------------------------- */
 
-static float
-airplay_volume_from_pct(int volume, char *name)
+static int
+volume_max_get(const char *name)
 {
-  float airplay_volume;
+  int max_volume = AIRPLAY_CONFIG_MAX_VOLUME;
   cfg_t *airplay;
-  int max_volume;
-
-  max_volume = AIRPLAY_CONFIG_MAX_VOLUME;
 
   airplay = cfg_gettsec(cfg, "airplay", name);
   if (airplay)
@@ -1760,15 +1757,25 @@ airplay_volume_from_pct(int volume, char *name)
   if ((max_volume < 1) || (max_volume > AIRPLAY_CONFIG_MAX_VOLUME))
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Config has bad max_volume (%d) for device '%s', using default instead\n", max_volume, name);
-
-      max_volume = AIRPLAY_CONFIG_MAX_VOLUME;
+      return AIRPLAY_CONFIG_MAX_VOLUME;
     }
 
+  return max_volume;
+}
+
+static float
+airplay_volume_from_pct(int volume, const char *name)
+{
+  float airplay_volume;
+  int max_volume;
+
+  max_volume = volume_max_get(name);
+
   /* RAOP volume
-   *  -144.0 is off
-   *  0 - 100 maps to -30.0 - 0
+   *  -144.0 is off (not really used since we have no concept of muted/off)
+   *  0 - 100 maps to -30.0 - 0 (if no max_volume set)
    */
-  if (volume > 0 && volume <= 100)
+  if (volume >= 0 && volume <= 100)
     airplay_volume = -30.0 + ((float)max_volume * (float)volume * 30.0) / (100.0 * AIRPLAY_CONFIG_MAX_VOLUME);
   else
     airplay_volume = -144.0;
@@ -1777,38 +1784,52 @@ airplay_volume_from_pct(int volume, char *name)
 }
 
 static int
-airplay_volume_to_pct(struct output_device *rd, const char *volume)
+airplay_volume_to_pct(struct output_device *rd, const char *volstr)
 {
   float airplay_volume;
-  cfg_t *airplay;
+  float volume;
   int max_volume;
 
-  airplay_volume = atof(volume);
+  airplay_volume = atof(volstr);
 
-  // Basic sanity check
-  if (airplay_volume == 0.0 && volume[0] != '0')
+  if ((airplay_volume == 0.0 && volstr[0] != '0') || airplay_volume > 0.0)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "AirPlay device volume is invalid: '%s'\n", volume);
+      DPRINTF(E_LOG, L_AIRPLAY, "AirPlay device volume is invalid: '%s'\n", volstr);
       return -1;
     }
 
-  max_volume = AIRPLAY_CONFIG_MAX_VOLUME;
-
-  airplay = cfg_gettsec(cfg, "airplay", rd->name);
-  if (airplay)
-    max_volume = cfg_getint(airplay, "max_volume");
-
-  if ((max_volume < 1) || (max_volume > AIRPLAY_CONFIG_MAX_VOLUME))
+  if (airplay_volume <= -30.0)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "Config has bad max_volume (%d) for device '%s', using default instead\n", max_volume, rd->name);
-      max_volume = AIRPLAY_CONFIG_MAX_VOLUME;
+      return 0; // -144.0 is muted
     }
 
+  max_volume = volume_max_get(rd->name);
+
+/*
+  This is an attempt at scaling the input volume that didn't really work for all
+  speakers (e.g. my Sony), but I'm leaving it here in case it should be a config
+  option some time
+
+  // If the input volume is -25 and we are playing at -20, then we only want the
+  // resulting volume to be -25 if there is no volume scaling. If the scaling is
+  // set to say 20% then we want the resulting volume to be -21, i.e. 20% of the
+  // change. Expressed as an equation:
+  //   a_r = a_0 + m/M * (a_i - a_0)     - where a_0 is the current airplay volume, a_i is the input and a_r is the scaled result
+  //
+  // Since current volume (rd->volume) is measured on the 0-100 scale, and the
+  // result of this func should also be on that scale, we have the following two
+  // relationships (the first is also found in _from_pct() above):
+  //   a_0 = -30 + m/M * 30/100 * v_0    - where v_0 is rd->volume
+  //   v_r = M/m * 100 * (1 + a_r / 30)  - converts a_r to v_r which is [0-100]
+  //
+  // Solving these three equations gives this:
+  volume_base = 100.0 * (1.0 + airplay_volume / 30.0);
+  volume = (float)rd->volume * (1.0 - (float)max_volume/AIRPLAY_CONFIG_MAX_VOLUME) + volume_base;
+
+*/
   // RAOP volume: -144.0 is off, -30.0 - 0 scaled by max_volume maps to 0 - 100
-  if (airplay_volume > -30.0 && airplay_volume <= 0.0)
-    return (int)(100.0 * (airplay_volume / 30.0 + 1.0) * AIRPLAY_CONFIG_MAX_VOLUME / (float)max_volume);
-  else
-    return 0;
+  volume = (100.0 * (airplay_volume / 30.0 + 1.0) * AIRPLAY_CONFIG_MAX_VOLUME / (float)max_volume);
+  return MAX(0, MIN(100, (int)volume));
 }
 
 /* Volume in [0 - 100] */
@@ -2359,13 +2380,18 @@ static int
 payload_make_set_volume(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
   float raop_volume;
+  char volstr[32];
   int ret;
 
   raop_volume = airplay_volume_from_pct(rs->volume, rs->devname);
 
   /* Don't let locales get in the way here */
   /* We use -%d and -(int)raop_volume so -0.3 won't become 0.3 */
-  ret = evbuffer_add_printf(req->output_buffer, "volume: -%d.%06d\r\n", -(int)raop_volume, -(int)(1000000.0 * (raop_volume - (int)raop_volume)));
+  snprintf(volstr, sizeof(volstr), "-%d.%06d", -(int)raop_volume, -(int)(1000000.0 * (raop_volume - (int)raop_volume)));
+
+  DPRINTF(E_DBG, L_AIRPLAY, "Sending volume %s to '%s'\n", volstr, rs->devname);
+
+  ret = evbuffer_add_printf(req->output_buffer, "volume: %s\r\n", volstr);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for SET_PARAMETER payload (volume)\n");
@@ -3408,7 +3434,7 @@ static struct airplay_seq_definition airplay_seq_definition[] =
 
 // The size of the second array dimension MUST at least be the size of largest
 // sequence + 1, because then we can count on a zero terminator when iterating
-static struct airplay_seq_request airplay_seq_request[][7] = 
+static struct airplay_seq_request airplay_seq_request[][7] =
 {
   {
     { AIRPLAY_SEQ_START, "GET /info", EVRTSP_REQ_GET, NULL, response_handler_info_start, NULL, "/info", false },
@@ -3420,8 +3446,9 @@ static struct airplay_seq_request airplay_seq_request[][7] =
     { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (session)", EVRTSP_REQ_SETUP, payload_make_setup_session, response_handler_setup_session, "application/x-apple-binary-plist", NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETPEERS", EVRTSP_REQ_SETPEERS, payload_make_setpeers, NULL, "/peer-list-changed", NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (stream)", EVRTSP_REQ_SETUP, payload_make_setup_stream, response_handler_setup_stream, "application/x-apple-binary-plist", NULL, false },
-    { AIRPLAY_SEQ_START_PLAYBACK, "SET_PARAMETER (volume)", EVRTSP_REQ_SET_PARAMETER, payload_make_set_volume, response_handler_volume_start, "text/parameters", NULL, true },
     { AIRPLAY_SEQ_START_PLAYBACK, "RECORD", EVRTSP_REQ_RECORD, payload_make_record, response_handler_record, NULL, NULL, false },
+    // Some devices (e.g. Sonos Symfonisk) don't register the volume if it isn't last
+    { AIRPLAY_SEQ_START_PLAYBACK, "SET_PARAMETER (volume)", EVRTSP_REQ_SET_PARAMETER, payload_make_set_volume, response_handler_volume_start, "text/parameters", NULL, true },
   },
   {
     { AIRPLAY_SEQ_PROBE, "GET /info (probe)", EVRTSP_REQ_GET, NULL, response_handler_info_probe, NULL, "/info", false },
