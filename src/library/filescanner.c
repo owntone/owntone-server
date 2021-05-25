@@ -1741,35 +1741,37 @@ filescanner_fullrescan()
 static int
 queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
-  struct media_file_info mfi;
+  struct media_file_info mfi = { 0 };
   struct db_queue_item qi;
   struct db_queue_add_info queue_add_info;
   int ret;
-
-  memset(&mfi, 0, sizeof(struct media_file_info));
 
   scan_metadata_stream(&mfi, path);
 
   db_queue_item_from_mfi(&qi, &mfi);
 
   ret = db_queue_add_start(&queue_add_info, position);
-  if (ret == 0)
-    {
-      ret = db_queue_add_next(&queue_add_info, &qi);
-      ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
-      if (ret == 0)
-	{
-	  if (count)
-	    *count = queue_add_info.count;
-	  if (new_item_id)
-	    *new_item_id = queue_add_info.new_item_id;
-	}
-    }
+  if (ret < 0)
+    goto error;
+
+  ret = db_queue_add_next(&queue_add_info, &qi);
+  ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
+  if (ret < 0)
+    goto error;
+
+  if (count)
+    *count = queue_add_info.count;
+  if (new_item_id)
+    *new_item_id = queue_add_info.new_item_id;
 
   free_queue_item(&qi, 1);
   free_mfi(&mfi, 1);
-
   return 0;
+
+ error:
+  free_queue_item(&qi, 1);
+  free_mfi(&mfi, 1);
+  return -1;
 }
 
 static int
