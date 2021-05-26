@@ -1002,7 +1002,7 @@ dacp_propset_devicevolume(const char *value, struct httpd_request *hreq)
   if (speaker_get(&speaker_info, hreq, "device-volume") < 0)
     return;
 
-  player_volume_update_speaker(speaker_info.id, value);
+  player_volume_setraw_speaker(speaker_info.id, value);
 }
 
 // See player.c:speaker_prevent_playback_set() for comments regarding
