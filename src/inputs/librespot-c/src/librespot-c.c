@@ -147,7 +147,11 @@ session_new(struct sp_session **out, struct sp_cmdargs *cmdargs, event_callback_
     }
   else if (cmdargs->token)
     {
-      snprintf(session->credentials.token, sizeof(session->credentials.token), "%s", cmdargs->token);
+      if (strlen(cmdargs->token) > sizeof(session->credentials.token))
+	RETURN_ERROR(SP_ERR_INVALID, "Invalid token");
+
+      session->credentials.token_len = strlen(cmdargs->token);
+      memcpy(session->credentials.token, cmdargs->token, session->credentials.token_len);
     }
   else
     {

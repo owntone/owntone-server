@@ -5,6 +5,10 @@
 #include <stddef.h>
 #include <pthread.h>
 
+#define LIBRESPOT_C_VERSION_MAJOR 0
+#define LIBRESPOT_C_VERSION_MINOR 1
+
+
 struct sp_session;
 
 enum sp_bitrates
