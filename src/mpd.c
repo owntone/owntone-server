@@ -786,7 +786,6 @@ parse_filter_window_params(int argc, char **argv, bool exact_match, struct query
         {
 	  DPRINTF(E_LOG, L_MPD, "Window argument doesn't convert to integer or range: '%s'\n", argv[i + 1]);
 	}
-      i += 2;
     }
 
   return 0;
@@ -4740,7 +4739,8 @@ artwork_cb(struct evhttp_request *req, void *arg)
 }
 
 /* Thread: main */
-static int mpd_httpd_init(void)
+static int
+mpd_httpd_init(void)
 {
   unsigned short http_port;
   int ret;
@@ -4767,7 +4767,8 @@ static int mpd_httpd_init(void)
 }
 
 /* Thread: main */
-static void mpd_httpd_deinit(void)
+static void
+mpd_httpd_deinit(void)
 {
   if (evhttpd)
     evhttp_free(evhttpd);
@@ -4776,7 +4777,8 @@ static void mpd_httpd_deinit(void)
 }
 
 /* Thread: main */
-int mpd_init(void)
+int
+mpd_init(void)
 {
   unsigned short port;
   const char *pl_dir;
@@ -4839,7 +4841,7 @@ int mpd_init(void)
   ret = pthread_create(&tid_mpd, NULL, mpd, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_MPD, "Could not spawn cache thread: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_MPD, "Could not spawn MPD thread: %s\n", strerror(errno));
 
       goto thread_fail;
     }
@@ -4870,7 +4872,8 @@ int mpd_init(void)
 }
 
 /* Thread: main */
-void mpd_deinit(void)
+void
+mpd_deinit(void)
 {
   unsigned short port;
   int ret;
@@ -4887,7 +4890,7 @@ void mpd_deinit(void)
   ret = pthread_join(tid_mpd, NULL);
   if (ret != 0)
     {
-      DPRINTF(E_FATAL, L_MPD, "Could not join cache thread: %s\n", strerror(errno));
+      DPRINTF(E_FATAL, L_MPD, "Could not join MPD thread: %s\n", strerror(errno));
       return;
     }
 
