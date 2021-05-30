@@ -130,7 +130,7 @@ owntone_SOURCES = main.c \
 	inputs/file.c inputs/http.c inputs/pipe.c inputs/timer.c \
 	outputs.h outputs.c \
 	outputs/rtp_common.h outputs/rtp_common.c \
-	outputs/raop.c outputs/airplay.c $(PAIR_AP_SRC) \
+	outputs/raop.c outputs/airplay.c outputs/airplay_events.c $(PAIR_AP_SRC) \
 	outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \

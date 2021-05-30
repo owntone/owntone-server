@@ -54,6 +54,7 @@
 #include "transcode.h"
 #include "outputs.h"
 
+#include "airplay_events.h"
 #include "pair_ap/pair.h"
 
 /* List of TODO's for AirPlay 2
@@ -83,6 +84,10 @@
 #define AIRPLAY_SAMPLES_PER_PACKET              352
 
 #define AIRPLAY_RTP_PAYLOADTYPE                 0x60
+
+// For transient pairing the key_len will be 64 bytes, but only 32 are used for
+// audio payload encryption. For normal pairing the key is 32 bytes.
+#define AIRPLAY_AUDIO_KEY_LEN 32
 
 // How many RTP packets keep in a buffer for retransmission
 #define AIRPLAY_PACKET_BUFFER_SIZE    1000
@@ -269,17 +274,15 @@ struct airplay_session
   /* Pairing, see pair.h */
   enum pair_type pair_type;
   struct pair_cipher_context *control_cipher_ctx;
-  struct pair_cipher_context *events_cipher_ctx;
   struct pair_verify_context *pair_verify_ctx;
   struct pair_setup_context *pair_setup_ctx;
 
-  uint8_t shared_secret[32];
+  uint8_t shared_secret[64];
+  size_t shared_secret_len; // 32 or 64, see AIRPLAY_AUDIO_KEY_LEN for comment
+
   gcry_cipher_hd_t packet_cipher_hd;
 
   int server_fd;
-
-  int events_fd;
-  struct event *eventsev;
 
   struct airplay_service *timing_svc;
   struct airplay_service *control_svc;
@@ -1210,21 +1213,14 @@ session_free(struct airplay_session *rs)
   if (rs->deferredev)
     event_free(rs->deferredev);
 
-  if (rs->eventsev)
-    event_free(rs->eventsev);
-
   if (rs->server_fd >= 0)
     close(rs->server_fd);
-
-  if (rs->events_fd >= 0)
-    close(rs->events_fd);
 
   chacha_close(rs->packet_cipher_hd);
 
   pair_setup_free(rs->pair_setup_ctx);
   pair_verify_free(rs->pair_verify_ctx);
   pair_cipher_free(rs->control_cipher_ctx);
-  pair_cipher_free(rs->events_cipher_ctx);
 
   free(rs->local_address);
   free(rs->realm);
@@ -1413,14 +1409,17 @@ static int
 session_cipher_setup(struct airplay_session *rs, const uint8_t *key, size_t key_len)
 {
   struct pair_cipher_context *control_cipher_ctx = NULL;
-  struct pair_cipher_context *events_cipher_ctx = NULL;
   gcry_cipher_hd_t packet_cipher_hd = NULL;
 
-  if (key_len < sizeof(rs->shared_secret)) // For transient pairing the key_len will be 64 bytes, and rs->shared_secret is 32 bytes
+  // For transient pairing the key_len will be 64 bytes, and rs->shared_secret is 32 bytes
+  if (key_len < AIRPLAY_AUDIO_KEY_LEN || key_len > sizeof(rs->shared_secret))
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Ciphering setup error: Unexpected key length (%zu)\n", key_len);
       goto error;
     }
+
+  rs->shared_secret_len = key_len;
+  memcpy(rs->shared_secret, key, key_len);
 
   control_cipher_ctx = pair_cipher_new(rs->pair_type, 0, key, key_len);
   if (!control_cipher_ctx)
@@ -1429,17 +1428,7 @@ session_cipher_setup(struct airplay_session *rs, const uint8_t *key, size_t key_
       goto error;
     }
 
-  events_cipher_ctx = pair_cipher_new(rs->pair_type, 1, key, key_len);
-  if (!events_cipher_ctx)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not create events ciphering context\n");
-      goto error;
-    }
-
-  // Copy the first 32 bytes, will be used for encrypting audio payload
-  memcpy(rs->shared_secret, key, sizeof(rs->shared_secret));
-
-  packet_cipher_hd = chacha_open(rs->shared_secret, sizeof(rs->shared_secret));
+  packet_cipher_hd = chacha_open(rs->shared_secret, AIRPLAY_AUDIO_KEY_LEN);
   if (!packet_cipher_hd)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not create packet ciphering handle\n");
@@ -1450,7 +1439,6 @@ session_cipher_setup(struct airplay_session *rs, const uint8_t *key, size_t key_
 
   rs->state = AIRPLAY_STATE_ENCRYPTED;
   rs->control_cipher_ctx = control_cipher_ctx;
-  rs->events_cipher_ctx = events_cipher_ctx;
   rs->packet_cipher_hd = packet_cipher_hd;
 
   evrtsp_connection_set_ciphercb(rs->ctrl, rtsp_cipher, rs);
@@ -1459,7 +1447,6 @@ session_cipher_setup(struct airplay_session *rs, const uint8_t *key, size_t key_
 
  error:
   pair_cipher_free(control_cipher_ctx);
-  pair_cipher_free(events_cipher_ctx);
   chacha_close(packet_cipher_hd);
   return -1;
 }
@@ -1566,7 +1553,6 @@ session_make(struct output_device *rd, int callback_id)
   rs->callback_id = callback_id;
 
   rs->server_fd = -1;
-  rs->events_fd = -1;
 
   rs->password = rd->password;
 
@@ -2310,42 +2296,6 @@ control_svc_cb(int fd, short what, void *arg)
 }
 
 
-/* ----------------------------- Event receiver ------------------------------*/
-
-// TODO actually handle events...
-static void
-event_channel_cb(int fd, short what, void *arg)
-{
-  struct airplay_session *rs = arg;
-  ssize_t in_len;
-  int ret;
-  uint8_t in[4096]; //TODO
-  uint8_t *out;
-  size_t out_len = 0;
-
-  in_len = recv(fd, in, sizeof(in), 0);
-  if (in_len < 0)
-    DPRINTF(E_WARN, L_AIRPLAY, "Event channel to '%s' returned an error: %s\n", rs->devname, strerror(errno));
-
-  if (in_len <= 0)
-    return;
-
-  DPRINTF(E_DBG, L_AIRPLAY, "Received an event from '%s' (len=%zd)\n", rs->devname, in_len);
-
-  if (in_len == sizeof(in))
-    return; // Longer than expected, give up
-
-  ret = pair_decrypt(&out, &out_len, in, in_len, rs->events_cipher_ctx);
-  if (ret < 0)
-    {
-      DPRINTF(E_DBG, L_AIRPLAY, "Error decrypting event from '%s', error was: %s\n", rs->devname, pair_cipher_errmsg(rs->events_cipher_ctx));
-      return;
-    }
-
-  DHEXDUMP(E_DBG, L_AIRPLAY, out, out_len, "Decrypted incoming event\n");
-}
-
-
 /* -------------------- Handlers for sending RTSP requests ------------------ */
 
 static int
@@ -2552,7 +2502,7 @@ payload_make_setup_stream(struct evrtsp_request *req, struct airplay_session *rs
   wplist_dict_add_bool(stream, "isMedia", true); // ?
   wplist_dict_add_uint(stream, "latencyMax", 88200); // TODO how do these latencys work?
   wplist_dict_add_uint(stream, "latencyMin", 11025);
-  wplist_dict_add_data(stream, "shk", rs->shared_secret, sizeof(rs->shared_secret));
+  wplist_dict_add_data(stream, "shk", rs->shared_secret, AIRPLAY_AUDIO_KEY_LEN);
   wplist_dict_add_uint(stream, "spf", AIRPLAY_SAMPLES_PER_PACKET); // frames per packet
   wplist_dict_add_uint(stream, "sr", AIRPLAY_QUALITY_SAMPLE_RATE_DEFAULT); // sample rate
   wplist_dict_add_uint(stream, "type", AIRPLAY_RTP_PAYLOADTYPE); // RTP type, 0x60 = 96 real time, 103 buffered
@@ -2963,15 +2913,10 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
     }
 
   // Reverse connection, used to receive playback events from device
-  rs->events_fd = net_connect(rs->address, rs->events_port, SOCK_STREAM, "AirPlay events");
-  if (rs->events_fd < 0)
+  ret = airplay_events_listen(rs->devname, rs->address, rs->events_port, rs->shared_secret, rs->shared_secret_len);
+  if (ret < 0)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
-    }
-  else
-    {
-      rs->eventsev = event_new(evbase_player, rs->events_fd, EV_READ | EV_PERSIST, event_channel_cb, rs);
-      event_add(rs->eventsev, NULL);
     }
 
   rs->state = AIRPLAY_STATE_SETUP;
@@ -3252,12 +3197,6 @@ response_handler_pair_setup2(struct evrtsp_request *req, struct airplay_session 
       goto error;
     }
 
-  if (shared_secret_len < sizeof(rs->shared_secret)) // We expect 64 bytes, and rs->shared_secret is 32 bytes
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Transient setup result error: Unexpected key length (%zu)\n", shared_secret_len);
-      goto error;
-    }
-
   ret = session_cipher_setup(rs, shared_secret, shared_secret_len);
   if (ret < 0)
     {
@@ -3351,12 +3290,6 @@ response_handler_pair_verify2(struct evrtsp_request *req, struct airplay_session
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Pair verify result error: %s\n", pair_verify_errmsg(rs->pair_verify_ctx));
-      goto error;
-    }
-
-  if (sizeof(rs->shared_secret) != shared_secret_len)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Pair verify result error: Unexpected key length (%zu)\n", shared_secret_len);
       goto error;
     }
 
@@ -4081,15 +4014,24 @@ airplay_init(void)
       goto out_stop_timing;
     }
 
+  ret = airplay_events_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "AirPlay events failed to start\n");
+      goto out_stop_control;
+    }
+
   ret = mdns_browse("_airplay._tcp", airplay_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not add mDNS browser for AirPlay devices\n");
-      goto out_stop_control;
+      goto out_stop_events;
     }
 
   return 0;
 
+ out_stop_events:
+  airplay_events_deinit();
  out_stop_control:
   service_stop(&airplay_control_svc);
  out_stop_timing:
@@ -4105,6 +4047,7 @@ airplay_deinit(void)
 {
   struct airplay_session *rs;
 
+  airplay_events_deinit();
   service_stop(&airplay_control_svc);
   service_stop(&airplay_timing_svc);
 
