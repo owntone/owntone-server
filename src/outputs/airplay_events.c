@@ -294,13 +294,18 @@ rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
       plist_get_string_val(item, &value);
     }
 
-  DPRINTF(E_INFO, L_AIRPLAY, "Received event type '%s', value '%s'\n", type, value);
-
-  if (strcmp(type, "sendMediaRemoteCommand") != 0)
+  if (!type || !value)
+    {
+      DPRINTF(E_DBG, L_AIRPLAY, "AirPlay event has no type/value: type=%s, value=%s\n", type, value);
+      goto error;
+    }
+  else if (strcmp(type, "sendMediaRemoteCommand") != 0)
     {
       DPRINTF(E_DBG, L_AIRPLAY, "Incoming event not of type sendMediaRemoteCommand\n");
       goto error;
     }
+
+  DPRINTF(E_INFO, L_AIRPLAY, "Received event type '%s', value '%s'\n", type, value);
 
   if (strcmp(value, "paus") == 0)
     *event = AIRPLAY_EVENT_PAUSE;
@@ -430,9 +435,9 @@ incoming_cb(int fd, short what, void *arg)
   plain_len = evbuffer_get_length(client->pending);
 
   ret = rtsp_parse(&event, plain, plain_len);
-  if (ret < 0)
+  if (ret < 0) // A message type we don't know about, so ignore
     {
-      DPRINTF(E_WARN, L_AIRPLAY, "Could not parse RTSP event message\n");
+      evbuffer_drain(client->pending, -1);
       return;
     }
   else if (ret == 1)
@@ -440,6 +445,8 @@ incoming_cb(int fd, short what, void *arg)
       DPRINTF(E_SPAM, L_AIRPLAY, "Incomplete RTSP event message, waiting for more data\n");
       return;
     }
+
+  evbuffer_drain(client->pending, -1);
 
   handle_event(event);
 
