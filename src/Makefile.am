@@ -2,7 +2,17 @@
 sbin_PROGRAMS = owntone
 
 if COND_SPOTIFY
-SPOTIFY_SRC=spotify.c spotify.h spotify_webapi.c spotify_webapi.h inputs/spotify.c
+SPOTIFY_SRC = \
+	library/spotify_webapi.c library/spotify_webapi.h inputs/spotify.c inputs/spotify.h
+endif
+if COND_LIBRESPOTC
+LIBRESPOTC_SRC = \
+	inputs/spotify_librespotc.c
+endif
+if COND_LIBSPOTIFY
+LIBSPOTIFY_SRC = \
+	inputs/spotify_libspotify.c \
+	inputs/libspotify/libspotify.c inputs/libspotify/libspotify.h
 endif
 
 if COND_LASTFM
@@ -104,7 +114,6 @@ owntone_SOURCES = main.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
 	remote_pairing.c remote_pairing.h \
-	avio_evbuffer.c avio_evbuffer.h \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \
@@ -134,7 +143,7 @@ owntone_SOURCES = main.c \
 	outputs/streaming.c outputs/dummy.c outputs/fifo.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
-	$(SPOTIFY_SRC) \
+	$(SPOTIFY_SRC) $(LIBRESPOTC_SRC) $(LIBSPOTIFY_SRC) \
 	$(LASTFM_SRC) \
 	$(MPD_SRC) \
 	listener.c listener.h \

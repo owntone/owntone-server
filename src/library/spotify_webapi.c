@@ -35,7 +35,7 @@
 #include "listener.h"
 #include "logger.h"
 #include "misc_json.h"
-#include "spotify.h"
+#include "inputs/spotify.h"
 
 
 enum spotify_request_type {
@@ -135,7 +135,7 @@ static bool scanning;
 // Endpoints and credentials for the web api
 static const char *spotify_client_id     = "0e684a5422384114a8ae7ac020f01789";
 static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
-static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private";
+static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private streaming";
 
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
@@ -975,10 +975,9 @@ spotifywebapi_oauth_uri_get(const char *redirect_uri)
 
 /* Thread: httpd */
 int
-spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, char **errmsg)
+spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, const char **errmsg)
 {
   const char *code;
-  const char *err;
   int ret;
 
   *errmsg = NULL;
@@ -986,18 +985,19 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
   code = evhttp_find_header(param, "code");
   if (!code)
     {
-      *errmsg = safe_asprintf("Error: Didn't receive a code from Spotify");
+      *errmsg = "Error: Didn't receive a code from Spotify";
       return -1;
     }
 
   DPRINTF(E_DBG, L_SPOTIFY, "Received OAuth code: %s\n", code);
 
-  ret = token_get(code, redirect_uri, &err);
+  ret = token_get(code, redirect_uri, errmsg);
   if (ret < 0)
-    {
-      *errmsg = safe_asprintf("Error: %s", err);
-      return -1;
-    }
+    return -1;
+
+  ret = spotify_login_token(spotify_credentials.user, spotify_credentials.access_token, errmsg);
+  if (ret < 0)
+    return -1;
 
   // Trigger scan after successful access to spotifywebapi
   spotifywebapi_fullrescan();
@@ -1471,6 +1471,7 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
       free_mfi(&mfi, 1);
     }
 
+  // This is only required for the libspotify backend
   spotify_uri_register(track->uri);
 
   if (album && album->uri)
@@ -1712,7 +1713,7 @@ scan_playlists(enum spotify_request_type request_type)
 }
 
 static void
-create_saved_tracks_playlist()
+create_saved_tracks_playlist(void)
 {
   struct playlist_info pli =
     {
@@ -1738,7 +1739,7 @@ create_saved_tracks_playlist()
  * Add or update playlist folder for all spotify playlists (if enabled in config)
  */
 static void
-create_base_playlist()
+create_base_playlist(void)
 {
   cfg_t *spotify_cfg;
   struct playlist_info pli =
@@ -1795,17 +1796,17 @@ scan(enum spotify_request_type request_type)
 
 /* Thread: library */
 static int
-initscan()
+initscan(void)
 {
   int ret;
 
   /* Refresh access token for the spotify webapi */
-  ret =  token_refresh();
+  ret = token_refresh();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
-	"In order to use the web api, authorize the server to access "
-	"your saved tracks by visiting http://owntone.local:3689\n");
+	"In order to use Spotify, authorize the server to access your saved "
+	"tracks by visiting http://owntone.local:3689\n");
 
       db_spotify_purge();
 
@@ -1815,8 +1816,8 @@ initscan()
   spotify_saved_plid = 0;
 
   /*
-   * Login to spotify needs to be done before scanning tracks from the web api.
-   * (Scanned tracks need to be registered with libspotify for playback)
+   * libspotify needs to be logged in before before scanning tracks from the web
+   * since scanned tracks need to be registered for playback
    */
   ret = spotify_relogin();
   if (ret < 0)
@@ -1839,7 +1840,7 @@ initscan()
 
 /* Thread: library */
 static int
-rescan()
+rescan(void)
 {
   scan(SPOTIFY_REQUEST_TYPE_RESCAN);
   return 0;
@@ -1847,7 +1848,7 @@ rescan()
 
 /* Thread: library */
 static int
-metarescan()
+metarescan(void)
 {
   scan(SPOTIFY_REQUEST_TYPE_METARESCAN);
   return 0;
@@ -1855,7 +1856,7 @@ metarescan()
 
 /* Thread: library */
 static int
-fullrescan()
+fullrescan(void)
 {
   db_spotify_purge();
   scan(SPOTIFY_REQUEST_TYPE_RESCAN);
@@ -2066,12 +2067,10 @@ spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
 static int
 spotifywebapi_init()
 {
-  int ret;
-
   CHECK_ERR(L_SPOTIFY, mutex_init(&token_lck));
-  ret = spotify_init();
 
-  return ret;
+  // Required for libspotify backend
+  return spotify_init();
 }
 
 static void

@@ -45,8 +45,8 @@
 
 #include "artwork.h"
 
-#ifdef HAVE_SPOTIFY_H
-# include "spotify_webapi.h"
+#ifdef SPOTIFY
+# include "library/spotify_webapi.h"
 #endif
 
 /* This artwork module will look for artwork by consulting a set of sources one
@@ -605,6 +605,7 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *in_buf, bool is
 {
   struct decode_ctx *xcode_decode = NULL;
   struct encode_ctx *xcode_encode = NULL;
+  struct transcode_evbuf_io xcode_evbuf_io = { 0 };
   struct evbuffer *xcode_buf = NULL;
   void *frame;
   int src_width;
@@ -633,9 +634,15 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *in_buf, bool is
 	  ret = ART_E_ERROR;
 	  goto out;
 	}
+
+      xcode_evbuf_io.evbuf = xcode_buf;
+      xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, NULL, &xcode_evbuf_io, 0); // Covers XCODE_PNG too
+    }
+  else
+    {
+      xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, path, NULL, 0); // Covers XCODE_PNG too
     }
 
-  xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, path, xcode_buf, 0); // Covers XCODE_PNG too
   if (!xcode_decode)
     {
       if (path)
@@ -1608,7 +1615,7 @@ source_item_coverartarchive_get(struct artwork_ctx *ctx)
   return ret;
 }
 
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
 static int
 source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
 {

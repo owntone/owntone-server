@@ -58,8 +58,11 @@ extern struct input_definition input_file;
 extern struct input_definition input_http;
 extern struct input_definition input_pipe;
 extern struct input_definition input_timer;
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY_LIBRESPOTC
 extern struct input_definition input_spotify;
+#endif
+#ifdef SPOTIFY_LIBSPOTIFY
+extern struct input_definition input_libspotify;
 #endif
 
 // Must be in sync with enum input_types
@@ -68,8 +71,11 @@ static struct input_definition *inputs[] = {
     &input_http,
     &input_pipe,
     &input_timer,
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY_LIBRESPOTC
     &input_spotify,
+#endif
+#ifdef SPOTIFY_LIBSPOTIFY
+    &input_libspotify,
 #endif
     NULL
 };
@@ -171,10 +177,16 @@ map_data_kind(int data_kind)
       case DATA_KIND_PIPE:
 	return INPUT_TYPE_PIPE;
 
-#ifdef HAVE_SPOTIFY_H
       case DATA_KIND_SPOTIFY:
-	return INPUT_TYPE_SPOTIFY;
+#ifdef SPOTIFY_LIBRESPOTC
+	if (!inputs[INPUT_TYPE_SPOTIFY]->disabled)
+	  return INPUT_TYPE_SPOTIFY;
 #endif
+#ifdef SPOTIFY_LIBSPOTIFY
+	if (!inputs[INPUT_TYPE_LIBSPOTIFY]->disabled)
+	  return INPUT_TYPE_LIBSPOTIFY;
+#endif
+	return -1;
 
       default:
 	return -1;
@@ -420,6 +432,7 @@ setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms
   source->id         = queue_item->file_id;
   source->len_ms     = queue_item->song_length;
   source->path       = safe_strdup(queue_item->path);
+  source->evbase     = evbase_input;
 
   DPRINTF(E_DBG, L_PLAYER, "Setting up input item '%s' (item id %" PRIu32 ")\n", source->path, source->item_id);
 
@@ -456,6 +469,8 @@ start(void *arg, int *retval)
   struct input_arg *cmdarg = arg;
   struct db_queue_item *queue_item;
   int ret;
+
+  DPRINTF(E_WARN, L_PLAYER, "now %d, item_id %d, now item_id %d\n", input_now_reading.open, cmdarg->item_id, input_now_reading.item_id);
 
   // If we are asked to start the item that is currently open we can just seek
   if (input_now_reading.open && cmdarg->item_id == input_now_reading.item_id)
@@ -768,7 +783,7 @@ input_read(void *data, size_t size, short *flag, void **flagdata)
   if (*flag || (debug_elapsed > 10 * one_sec_size))
     {
       debug_elapsed = 0;
-      DPRINTF(E_DBG, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), SIZE %zu (=%zu), FLAGS %04x\n",
+      DPRINTF(E_DBG, L_PLAYER, "READ %zu bytes (%d/%d/%d), WROTE %zu bytes (%d/%d/%d), DIFF %zu, SIZE %zu/%d, FLAGS %04x\n",
         input_buffer.bytes_read,
         input_buffer.cur_read_quality.sample_rate,
         input_buffer.cur_read_quality.bits_per_sample,
@@ -777,8 +792,9 @@ input_read(void *data, size_t size, short *flag, void **flagdata)
         input_buffer.cur_write_quality.sample_rate,
         input_buffer.cur_write_quality.bits_per_sample,
         input_buffer.cur_write_quality.channels,
-        evbuffer_get_length(input_buffer.evbuf),
         input_buffer.bytes_written - input_buffer.bytes_read,
+        evbuffer_get_length(input_buffer.evbuf),
+        INPUT_BUFFER_THRESHOLD,
         *flag);
     }
 #endif

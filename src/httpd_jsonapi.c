@@ -55,9 +55,9 @@
 #include "remote_pairing.h"
 #include "settings.h"
 #include "smartpl_query.h"
-#ifdef HAVE_SPOTIFY_H
-# include "spotify_webapi.h"
-# include "spotify.h"
+#ifdef SPOTIFY
+# include "library/spotify_webapi.h"
+# include "inputs/spotify.h"
 #endif
 
 
@@ -1201,11 +1201,11 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
   int httpd_port;
   char redirect_uri[256];
   char *oauth_uri;
-  struct spotify_status_info info;
+  struct spotify_status sp_status;
   struct spotifywebapi_status_info webapi_info;
   struct spotifywebapi_access_token webapi_token;
 
@@ -1225,10 +1225,10 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   json_object_object_add(jreply, "oauth_uri", json_object_new_string(oauth_uri));
   free(oauth_uri);
 
-  spotify_status_info_get(&info);
-  json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(info.libspotify_installed));
-  json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(info.libspotify_logged_in));
-  safe_json_add_string(jreply, "libspotify_user", info.libspotify_user);
+  spotify_status_get(&sp_status);
+  json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(sp_status.installed));
+  json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(sp_status.logged_in));
+  safe_json_add_string(jreply, "libspotify_user", sp_status.username);
 
   spotifywebapi_status_info_get(&webapi_info);
   json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(webapi_info.token_valid));
@@ -1255,12 +1255,12 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
 static int
 jsonapi_reply_spotify_login(struct httpd_request *hreq)
 {
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
   struct evbuffer *in_evbuf;
   json_object* request;
   const char *user;
   const char *password;
-  char *errmsg = NULL;
+  const char *errmsg;
   json_object* jreply;
   json_object* errors;
   int ret;
@@ -1282,7 +1282,7 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
   password = jparse_str_from_obj(request, "password");
   if (user && strlen(user) > 0 && password && strlen(password) > 0)
     {
-      ret = spotify_login_user(user, password, &errmsg);
+      ret = spotify_login(user, password, &errmsg);
       if (ret < 0)
 	{
 	  json_object_object_add(jreply, "success", json_object_new_boolean(false));
@@ -1294,7 +1294,6 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
 	{
 	  json_object_object_add(jreply, "success", json_object_new_boolean(true));
 	}
-      free(errmsg);
     }
   else
     {
@@ -1323,7 +1322,8 @@ jsonapi_reply_spotify_login(struct httpd_request *hreq)
 static int
 jsonapi_reply_spotify_logout(struct httpd_request *hreq)
 {
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY
+  spotifywebapi_purge();
   spotify_logout();
 #endif
   return HTTP_NOCONTENT;

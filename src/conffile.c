@@ -188,6 +188,7 @@ static cfg_opt_t sec_fifo[] =
 /* Spotify section structure */
 static cfg_opt_t sec_spotify[] =
   {
+    CFG_BOOL("use_libspotify", cfg_false, CFGF_NONE),
     CFG_STR("settings_dir", STATEDIR "/cache/" PACKAGE "/libspotify", CFGF_NONE),
     CFG_STR("cache_dir", "/tmp", CFGF_NONE),
     CFG_INT("bitrate", 0, CFGF_NONE),

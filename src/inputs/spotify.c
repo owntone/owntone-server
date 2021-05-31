@@ -1,6 +1,4 @@
 /*
- * Copyright (C) 2017 Espen Jurgensen
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,77 +14,133 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <string.h>
 
-#include "input.h"
 #include "logger.h"
+#include "conffile.h"
 #include "spotify.h"
 
-// How many retries to start playback if resource is still loading
-#define SPOTIFY_SETUP_RETRIES 5
-// How long to wait between retries in microseconds (500000 = 0.5 seconds)
-#define SPOTIFY_SETUP_RETRY_WAIT 500000
+#ifdef SPOTIFY_LIBRESPOTC
+extern struct spotify_backend spotify_librespotc;
+#endif
+#ifdef SPOTIFY_LIBSPOTIFY
+extern struct spotify_backend spotify_libspotify;
+#endif
 
-static int
-setup(struct input_source *source)
+static struct spotify_backend *
+backend_set(void)
 {
-  int i = 0;
-  int ret;
-
-  while((ret = spotify_playback_setup(source->path)) == SPOTIFY_SETUP_ERROR_IS_LOADING)
-    {
-      if (i >= SPOTIFY_SETUP_RETRIES)
-	break;
-
-      DPRINTF(E_DBG, L_SPOTIFY, "Resource still loading (%d)\n", i);
-      usleep(SPOTIFY_SETUP_RETRY_WAIT);
-      i++;
-    }
-
-  if (ret < 0)
-    return -1;
-
-  ret = spotify_playback_play();
-  if (ret < 0)
-    return -1;
-
-  return 0;
+#ifdef SPOTIFY_LIBRESPOTC
+  if (!cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify"))
+    return &spotify_librespotc;
+#endif
+#ifdef SPOTIFY_LIBSPOTIFY
+  if (cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify"))
+    return &spotify_libspotify;
+#endif
+  DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify configuration (not built with the configured backend)\n");
+  return NULL;
 }
 
-static int
-stop(struct input_source *source)
+
+/* -------------- Dispatches functions exposed via spotify.h ---------------- */
+/*           (probably not necessary when libspotify is removed)              */
+/*             Called from other threads than the input thread                */
+
+int
+spotify_init(void)
 {
-  int ret;
+  struct spotify_backend *backend = backend_set();
 
-  ret = spotify_playback_stop();
-  if (ret < 0)
-    return -1;
+  if (!backend || !backend->init)
+    return 0; // Just a no-op
 
-  return 0;
+  return backend->init();
 }
 
-static int
-seek(struct input_source *source, int seek_ms)
+void
+spotify_deinit(void)
 {
-  int ret;
+  struct spotify_backend *backend = backend_set();
 
-  ret = spotify_playback_seek(seek_ms);
-  if (ret < 0)
-    return -1;
+  if (!backend || !backend->deinit)
+    return;
 
-  return ret;
+  backend->deinit();
 }
 
-struct input_definition input_spotify =
+int
+spotify_login(const char *username, const char *password, const char **errmsg)
 {
-  .name = "Spotify",
-  .type = INPUT_TYPE_SPOTIFY,
-  .disabled = 0,
-  .setup = setup,
-  .stop = stop,
-  .seek = seek,
-};
+  struct spotify_backend *backend = backend_set();
 
+  if (!backend || !backend->login)
+    return -1;
+
+  return backend->login(username, password, errmsg);
+}
+
+int
+spotify_login_token(const char *username, const char *token, const char **errmsg)
+{
+  struct spotify_backend *backend = backend_set();
+
+  if (!backend || !backend->login_token)
+    return -1;
+
+  return backend->login_token(username, token, errmsg);
+}
+
+void
+spotify_logout(void)
+{
+  struct spotify_backend *backend = backend_set();
+
+  if (!backend || !backend->logout)
+    return;
+
+  backend->logout();
+}
+
+int
+spotify_relogin(void)
+{
+  struct spotify_backend *backend = backend_set();
+
+  if (!backend || !backend->relogin)
+    return -1;
+
+  return backend->relogin();
+}
+
+void
+spotify_uri_register(const char *uri)
+{
+  struct spotify_backend *backend = backend_set();
+
+  if (!backend || !backend->uri_register)
+    return;
+
+  backend->uri_register(uri);
+}
+
+void
+spotify_status_get(struct spotify_status *status)
+{
+  struct spotify_backend *backend = backend_set();
+
+  memset(status, 0, sizeof(struct spotify_status));
+
+  if (!backend || !backend->status_get)
+    return;
+
+  backend->status_get(status);
+}

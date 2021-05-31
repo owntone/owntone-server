@@ -16,8 +16,11 @@ enum input_types
   INPUT_TYPE_HTTP,
   INPUT_TYPE_PIPE,
   INPUT_TYPE_TIMER,
-#ifdef HAVE_SPOTIFY_H
+#ifdef SPOTIFY_LIBRESPOTC
   INPUT_TYPE_SPOTIFY,
+#endif
+#ifdef SPOTIFY_LIBSPOTIFY
+  INPUT_TYPE_LIBSPOTIFY,
 #endif
 };
 
@@ -62,6 +65,10 @@ struct input_source
   // Opaque pointer to data that the input backend sets up when start() is
   // called, and that is cleaned up by the backend when stop() is called
   void *input_ctx;
+
+  // The input's event base that the input backend can use for own events
+  struct event_base *evbase;
+
   // Private evbuf. Alloc'ed by backend at start() and free'd at stop()
   struct evbuffer *evbuf;
   // Private source quality storage
@@ -128,7 +135,7 @@ struct input_definition
 
 
 /* ---------------------- Interface towards input backends ------------------ */
-/*                           Thread: input and spotify                        */
+/*                                Thread: input                               */
 
 /*
  * Transfer stream data to the player's input buffer. Data must be PCM-LE

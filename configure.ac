@@ -286,21 +286,34 @@ AS_IF([[test "x$with_avahi" = "xno"]],
 		[AC_MSG_ERROR([[Avahi client or Bonjour DNS_SD required, please install one.]])])])
 AM_CONDITIONAL([COND_AVAHI], [[test "x$with_avahi" = "xyes"]])
 
-dnl Spotify with dynamic linking to libspotify
-OWNTONE_ARG_ENABLE([Spotify support], [spotify], [SPOTIFY],
+dnl Spotify support
+OWNTONE_ARG_DISABLE([Spotify support], [spotify], [SPOTIFY_LIBRESPOTC],
+	[OWNTONE_MODULES_CHECK([OWNTONE_OPTS], [LIBPROTOBUF_C],
+		[libprotobuf-c >= 1.0.0], [protobuf_c_message_pack],
+		[protobuf-c/protobuf-c.h])
+	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_LIBS], [inputs/librespot-c/librespot-c.a])
+	 AC_DEFINE([SPOTIFY], 1,
+		[Define to 1 to enable Spotify])
+	])
+AM_CONDITIONAL([COND_LIBRESPOTC], [[test "x$enable_spotify" = "xyes"]])
+
+dnl Spotify with dynamic linking to libspotify (legacy)
+OWNTONE_ARG_ENABLE([legacy libspotify support], [libspotify], [SPOTIFY_LIBSPOTIFY],
 	[AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
-		[AC_MSG_ERROR([[Spotify support requires libevent_pthreads]])])
-	 OWNTONE_MODULES_CHECK([SPOTIFY], [LIBSPOTIFY], [libspotify],
+		[AC_MSG_ERROR([[libspotify support requires libevent_pthreads]])])
+	 OWNTONE_MODULES_CHECK([SPOTIFY_LIBSPOTIFY], [LIBSPOTIFY], [libspotify],
 		[], [libspotify/api.h])
-	 AC_DEFINE([HAVE_SPOTIFY_H], 1,
-		[Define to 1 if you have the <libspotify/api.h> header file.])
 	 dnl Don't link with libspotify, use dynamic linking
 	 AC_SEARCH_LIBS([dlopen], [dl], [],
-		[AC_MSG_ERROR([[Spotify support requires dlopen]])])
-	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_CPPFLAGS], [$SPOTIFY_CPPFLAGS])
+		[AC_MSG_ERROR([[libspotify support requires dlopen]])])
+	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_CPPFLAGS], [$SPOTIFY_LIBSPOTIFY_CPPFLAGS])
 	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_LIBS], [-rdynamic])
+	 AC_DEFINE([SPOTIFY], 1,
+		[Define to 1 to enable Spotify])
 	])
-AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
+AM_CONDITIONAL([COND_LIBSPOTIFY], [[test "x$enable_libspotify" = "xyes"]])
+
+AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes" -o "x$enable_libspotify" = "xyes"]])
 
 dnl LastFM support
 OWNTONE_ARG_DISABLE([LastFM support], [lastfm], [LASTFM])
@@ -358,6 +371,11 @@ AC_ARG_WITH([owntone_group],
 OWNTONE_GROUP=${withval:-$OWNTONE_USER}
 AC_SUBST([OWNTONE_GROUP])
 dnl --- End options ---
+
+dnl Unconditional since we always want to produce Makefiles for dist targets
+AC_CONFIG_SUBDIRS([
+	src/inputs/librespot-c
+])
 
 AC_CONFIG_FILES([
 	src/Makefile

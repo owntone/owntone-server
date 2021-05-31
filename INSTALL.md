@@ -35,13 +35,14 @@ simultaneous streaming to multiple DAAP clients.
 
 Optional packages:
 
- Feature             | Configure argument       | Packages
- --------------------|--------------------------|------------------------------------------------
- Chromecast          | `--enable-chromecast`    | libgnutls*-dev libprotobuf-c-dev
- Spotify             | `--enable-spotify`       | libspotify-dev
- Player web UI       | `--disable-webinterface` | libwebsockets-dev
- Live web UI         | `--with-libwebsockets`   | libwebsockets-dev
- Pulseaudio          | `--with-pulseaudio`      | libpulse-dev
+ Feature              | Configure argument       | Packages
+ ---------------------|--------------------------|------------------------------------------------
+ Chromecast           | `--enable-chromecast`    | libgnutls*-dev libprotobuf-c-dev
+ Spotify (built-in)   | `--disable-spotify`      | libprotobuf-c-dev
+ Spotify (libspotify) | `--enable-libspotify`    | libspotify-dev
+ Player web UI        | `--disable-webinterface` | libwebsockets-dev
+ Live web UI          | `--with-libwebsockets`   | libwebsockets-dev
+ Pulseaudio           | `--with-pulseaudio`      | libpulse-dev
 
 Then run the following (adding configure arguments for optional features):
 
@@ -266,7 +267,7 @@ Libraries:
 - libpulse (optional - Pulseaudio local audio)
   from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
 - libspotify (optional - Spotify support)
-  from <https://developer.spotify.com>
+  (deprecated by Spotify)
 - libgnutls (optional - Chromecast support)
   from <http://www.gnutls.org/>
 - libprotobuf-c (optional - Chromecast support)
@@ -310,11 +311,16 @@ needed.
 
 To display the configure options `run ./configure --help`.
 
-Support for Spotify is optional. Use `--enable-spotify` to enable this feature.
-If you enable this feature `libspotify/api.h` is required at compile time.
-Forked-daapd uses runtime dynamic linking to the libspotify library, so even
-though you compiled with `--enable-spotify`, the executable will still be able
-to run on systems without libspotify (the Spotify features will then be disabled).
+Support for Spotify is optional. Use `--disable-spotify` to disable this feature.
+OwnTone supports two ways of integrating with Spotify: Using its own, built-in
+integration layer (which is the default), or to use Spotify's deprecated
+libspotify. To enable the latter, you must configure with `--enable-libspotify`
+and also make sure libspotify's `libspotify/api.h` is installed at compile time.
+At runtime, libspotify must be installed, and `use_libspotify` must be enabled
+in owntone.conf. OwnTone uses runtime dynamic linking to the libspotify library,
+so even though you compiled with `--enable-libspotify`, the executable will
+still be able to run on systems without libspotify. If you only want libspotify
+integration, you can use `--disable-spotify` and `--enable-libspotify`.
 
 Support for LastFM scrobbling is optional. Use `--enable-lastfm` to enable this
 feature.

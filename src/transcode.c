@@ -39,7 +39,6 @@
 #include "logger.h"
 #include "conffile.h"
 #include "db.h"
-#include "avio_evbuffer.h"
 #include "misc.h"
 #include "transcode.h"
 
@@ -51,6 +50,8 @@
 #define MAX_BAD_PACKETS 5
 // How long to wait (in microsec) before interrupting av_read_frame
 #define READ_TIMEOUT 30000000
+// Buffer size for reading/writing input and output evbuffers
+#define AVIO_BUFFER_SIZE 4096
 
 static const char *default_codecs = "mpeg,wav";
 static const char *roku_codecs = "mpeg,mp4a,wma,alac,wav";
@@ -184,6 +185,14 @@ enum probe_type
   PROBE_TYPE_QUICK,
 };
 
+struct avio_evbuffer {
+  struct evbuffer *evbuf;
+  uint8_t *buffer;
+  transcode_seekfn seekfn;
+  void *seekfn_arg;
+};
+
+
 /* -------------------------- PROFILE CONFIGURATION ------------------------ */
 
 static int
@@ -240,6 +249,11 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->format = "data"; // Means we get the raw packet from the encoder, no muxing
 	settings->audio_codec = AV_CODEC_ID_ALAC;
 	settings->sample_format = AV_SAMPLE_FMT_S16P;
+	break;
+
+      case XCODE_OGG:
+	settings->encode_audio = 1;
+	settings->in_format = "ogg";
 	break;
 
       case XCODE_JPEG:
@@ -771,6 +785,131 @@ read_decode_filter_encode_write(struct transcode_ctx *ctx)
   return ret;
 }
 
+/* ------------------------------- CUSTOM I/O ------------------------------ */
+/*      For using ffmpeg with evbuffer input/output instead of files         */
+
+static int
+avio_evbuffer_read(void *opaque, uint8_t *buf, int size)
+{
+  struct avio_evbuffer *ae = (struct avio_evbuffer *)opaque;
+  int ret;
+
+  ret = evbuffer_remove(ae->evbuf, buf, size);
+
+  // Must return AVERROR, see avio.h: avio_alloc_context()
+  return (ret > 0) ? ret : AVERROR_EOF;
+}
+
+static int
+avio_evbuffer_write(void *opaque, uint8_t *buf, int size)
+{
+  struct avio_evbuffer *ae = (struct avio_evbuffer *)opaque;
+  int ret;
+
+  ret = evbuffer_add(ae->evbuf, buf, size);
+
+  return (ret == 0) ? size : -1;
+}
+
+static int64_t
+avio_evbuffer_seek(void *opaque, int64_t offset, int whence)
+{
+  struct avio_evbuffer *ae = (struct avio_evbuffer *)opaque;
+  enum transcode_seek_type seek_type;
+
+  // Caller shouldn't need to know about ffmpeg defines
+  if (whence & AVSEEK_SIZE)
+    seek_type = XCODE_SEEK_SIZE;
+  else if (whence == SEEK_SET)
+    seek_type = XCODE_SEEK_SET;
+  else if (whence == SEEK_CUR)
+    seek_type = XCODE_SEEK_CUR;
+  else
+    return -1;
+
+  return ae->seekfn(ae->seekfn_arg, offset, seek_type);
+}
+
+static AVIOContext *
+avio_evbuffer_open(struct transcode_evbuf_io *evbuf_io, int is_output)
+{
+  struct avio_evbuffer *ae;
+  AVIOContext *s;
+
+  ae = calloc(1, sizeof(struct avio_evbuffer));
+  if (!ae)
+    {
+      DPRINTF(E_LOG, L_FFMPEG, "Out of memory for avio_evbuffer\n");
+
+      return NULL;
+    }
+
+  ae->buffer = av_mallocz(AVIO_BUFFER_SIZE);
+  if (!ae->buffer)
+    {
+      DPRINTF(E_LOG, L_FFMPEG, "Out of memory for avio buffer\n");
+
+      free(ae);
+      return NULL;
+    }
+
+  ae->evbuf = evbuf_io->evbuf;
+  ae->seekfn = evbuf_io->seekfn;
+  ae->seekfn_arg = evbuf_io->seekfn_arg;
+
+  if (is_output)
+    s = avio_alloc_context(ae->buffer, AVIO_BUFFER_SIZE, 1, ae, NULL, avio_evbuffer_write, NULL);
+  else
+    s = avio_alloc_context(ae->buffer, AVIO_BUFFER_SIZE, 0, ae, avio_evbuffer_read, NULL, (evbuf_io->seekfn ? avio_evbuffer_seek : NULL));
+
+  if (!s)
+    {
+      DPRINTF(E_LOG, L_FFMPEG, "Could not allocate AVIOContext\n");
+
+      av_free(ae->buffer);
+      free(ae);
+      return NULL;
+    }
+
+  s->seekable = (evbuf_io->seekfn ? AVIO_SEEKABLE_NORMAL : 0);
+
+  return s;
+}
+
+static AVIOContext *
+avio_input_evbuffer_open(struct transcode_evbuf_io *evbuf_io)
+{
+  return avio_evbuffer_open(evbuf_io, 0);
+}
+
+static AVIOContext *
+avio_output_evbuffer_open(struct evbuffer *evbuf)
+{
+  struct transcode_evbuf_io evbuf_io = { 0 };
+
+  evbuf_io.evbuf = evbuf;
+
+  return avio_evbuffer_open(&evbuf_io, 1);
+}
+
+static void
+avio_evbuffer_close(AVIOContext *s)
+{
+  struct avio_evbuffer *ae;
+
+  if (!s)
+    return;
+
+  ae = (struct avio_evbuffer *)s->opaque;
+
+  avio_flush(s);
+
+  av_free(s->buffer);
+  free(ae);
+
+  av_free(s);
+}
+
 
 /* --------------------------- INPUT/OUTPUT INIT --------------------------- */
 
@@ -821,7 +960,7 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
 }
 
 static int
-open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf, enum probe_type probe_type)
+open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *evbuf_io, enum probe_type probe_type)
 {
   AVDictionary *options = NULL;
   AVCodecContext *dec_ctx;
@@ -861,7 +1000,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf, enu
   ctx->ifmt_ctx->interrupt_callback.opaque = ctx;
   ctx->timestamp = av_gettime();
 
-  if (evbuf)
+  if (evbuf_io)
     {
       ifmt = av_find_input_format(ctx->settings.in_format);
       if (!ifmt)
@@ -870,7 +1009,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct evbuffer *evbuf, enu
 	  goto out_fail;
 	}
 
-      CHECK_NULL(L_XCODE, ctx->avio = avio_input_evbuffer_open(evbuf));
+      CHECK_NULL(L_XCODE, ctx->avio = avio_input_evbuffer_open(evbuf_io));
 
       ctx->ifmt_ctx->pb = ctx->avio;
       ret = avformat_open_input(&ctx->ifmt_ctx, NULL, ifmt, &options);
@@ -1232,7 +1371,7 @@ close_filters(struct encode_ctx *ctx)
 /*                                  Setup                                    */
 
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length)
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t song_length)
 {
   struct decode_ctx *ctx;
   int ret;
@@ -1250,14 +1389,14 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
 
   if (data_kind == DATA_KIND_HTTP)
     {
-      ret = open_input(ctx, path, evbuf, PROBE_TYPE_QUICK);
+      ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_QUICK);
 
       // Retry with a default, slower probe size
       if (ret == AVERROR_STREAM_NOT_FOUND)
-	ret = open_input(ctx, path, evbuf, PROBE_TYPE_DEFAULT);
+	ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_DEFAULT);
     }
   else
-    ret = open_input(ctx, path, evbuf, PROBE_TYPE_DEFAULT);
+    ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_DEFAULT);
 
   if (ret < 0)
     goto fail_free;

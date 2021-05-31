@@ -19,17 +19,29 @@ enum transcode_profile
   XCODE_PCM16,
   XCODE_PCM24,
   XCODE_PCM32,
-  // Transcodes the best audio stream into MP3
+  // Transcodes the best audio stream to MP3
   XCODE_MP3,
-  // Transcodes the best audio stream into OPUS
+  // Transcodes the best audio stream to OPUS
   XCODE_OPUS,
-  // Transcodes the best audio stream into ALAC
+  // Transcodes the best audio stream to ALAC
   XCODE_ALAC,
-  // Transcodes the best video stream into JPEG/PNG/VP8
+  // Transcodes the best audio stream from OGG
+  XCODE_OGG,
+  // Transcodes the best video stream to JPEG/PNG/VP8
   XCODE_JPEG,
   XCODE_PNG,
   XCODE_VP8,
 };
+
+enum transcode_seek_type
+{
+  XCODE_SEEK_SIZE,
+  XCODE_SEEK_SET,
+  XCODE_SEEK_CUR,
+};
+
+typedef void transcode_frame;
+typedef int64_t(*transcode_seekfn)(void *arg, int64_t offset, enum transcode_seek_type seek_type);
 
 struct decode_ctx;
 struct encode_ctx;
@@ -39,11 +51,18 @@ struct transcode_ctx
   struct encode_ctx *encode_ctx;
 };
 
-typedef void transcode_frame;
+struct transcode_evbuf_io
+{
+  struct evbuffer *evbuf;
+
+  // Set to null if no seek support required
+  transcode_seekfn seekfn;
+  void *seekfn_arg;
+};
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct evbuffer *evbuf, uint32_t song_length);
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t song_length);
 
 struct encode_ctx *
 transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, off_t *est_size, int width, int height);
