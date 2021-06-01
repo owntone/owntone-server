@@ -14,7 +14,9 @@ AC_SEARCH_LIBS([pthread_exit], [pthread], [], [AC_MSG_ERROR([[pthreads library i
 
 PKG_CHECK_MODULES([LIBEVENT], [libevent])
 PKG_CHECK_MODULES([JSON_C], [json-c])
-PKG_CHECK_MODULES([LIBGCRYPT], [libgcrypt])
+PKG_CHECK_MODULES([LIBGCRYPT], [libgcrypt], [], [
+	AM_PATH_LIBGCRYPT([], [], [AC_MSG_ERROR([[libgcrypt is required]])])
+])
 PKG_CHECK_MODULES([LIBCURL], [libcurl])
 PKG_CHECK_MODULES([LIBPROTOBUF_C], [libprotobuf-c])
 
