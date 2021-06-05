@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 
 #include "librespot-c-internal.h"
