@@ -8,6 +8,10 @@
 
 #include <json-c/json.h>
 
+#ifdef HAVE_SYS_UTSNAME_H
+# include <sys/utsname.h>
+#endif
+
 #include "librespot-c-internal.h"
 #include "connection.h"
 #include "channel.h"
@@ -82,6 +86,45 @@ debug_mock_response(struct sp_message *msg, struct sp_connection *conn)
 
 
 /* --------------------------------- Helpers -------------------------------- */
+
+#ifdef HAVE_SYS_UTSNAME_H
+static void
+system_info_from_uname(SystemInfo *system_info)
+{
+  struct utsname uts = { 0 };
+
+  if (uname(&uts) < 0)
+    return;
+
+  if (strcmp(uts.sysname, "Linux") == 0)
+    system_info->os = OS__OS_LINUX;
+  else if (strcmp(uts.sysname, "Darwin") == 0)
+    system_info->os = OS__OS_OSX;
+  else if (strcmp(uts.sysname, "FreeBSD") == 0)
+    system_info->os = OS__OS_FREEBSD;
+
+  if (strcmp(uts.machine, "x86_64") == 0)
+    system_info->cpu_family = CPU_FAMILY__CPU_X86_64;
+  else if (strncmp(uts.machine, "arm", 3) == 0)
+    system_info->cpu_family = CPU_FAMILY__CPU_ARM;
+  else if (strcmp(uts.machine, "aarch64") == 0)
+    system_info->cpu_family = CPU_FAMILY__CPU_ARM;
+  else if (strcmp(uts.machine, "i386") == 0)
+    system_info->cpu_family = CPU_FAMILY__CPU_X86;
+  else if (strcmp(uts.machine, "i686") == 0)
+    system_info->cpu_family = CPU_FAMILY__CPU_X86;
+  else if (strcmp(uts.machine, "ppc") == 0)
+    system_info->cpu_family = CPU_FAMILY__CPU_PPC;
+  else if (strcmp(uts.machine, "ppc64") == 0)
+    system_info->cpu_family = CPU_FAMILY__CPU_PPC_64;
+}
+#else
+static void
+system_info_from_uname(SystemInfo *system_info)
+{
+  return;
+}
+#endif
 
 // Returns true if format of a is preferred over b (and is valid). According to
 // librespot comment most podcasts are 96 kbit.
@@ -983,6 +1026,8 @@ msg_make_client_response_encrypted(uint8_t *out, size_t out_len, struct sp_sessi
     sp_sysinfo.client_name, sp_sysinfo.client_version, sp_sysinfo.client_build_id);
   system_info.system_information_string = system_information_string;
   system_info.device_id = sp_sysinfo.device_id;
+
+  system_info_from_uname(&system_info);
 
   client_response.login_credentials = &login_credentials;
   client_response.system_info = &system_info;

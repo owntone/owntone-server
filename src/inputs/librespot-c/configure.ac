@@ -5,7 +5,7 @@ AC_PROG_CC
 AM_PROG_AR
 AC_PROG_RANLIB
 
-AC_CHECK_HEADERS_ONCE([endian.h sys/endian.h])
+AC_CHECK_HEADERS_ONCE([endian.h sys/endian.h sys/utsname.h])
 AC_CHECK_DECL([htobe16], [],
 	[AC_CHECK_HEADERS([libkern/OSByteOrder.h], [], [AC_MSG_ERROR([[Missing functions to swap byte order]])])],
 )
