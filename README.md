@@ -277,6 +277,10 @@ The `ffid` key is required but its value does not matter.
 
 Your library will now appear as 'iTunesServer' in iTunes.
 
+You can also access your library remotely using something like Zerotier. See [this
+guide](https://github.com/owntone/owntone-server/wiki/Accessing-Owntone-remotely-through-iTunes-Music-with-Zerotier)
+for details.
+
 
 ## Supported formats
 
