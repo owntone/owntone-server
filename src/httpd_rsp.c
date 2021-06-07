@@ -210,6 +210,7 @@ static int
 query_params_set(struct query_params *qp, struct httpd_request *hreq)
 {
   const char *param;
+  char query[1024];
   char *filter;
   int ret;
 
@@ -245,9 +246,24 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
   param = evhttp_find_header(hreq->query, "query");
   if (param)
     {
-      DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
+      ret = snprintf(query, sizeof(query), "%s", param);
+      if (ret < 0 || ret >= sizeof(query))
+	{
+	  DPRINTF(E_LOG, L_RSP, "RSP query is too large for buffer: %s\n", param);
+	  return -1;
+	}
 
-      qp->filter = rsp_query_parse_sql(param);
+      // This is hack to work around the fact that we return album artists in
+      // the artist lists, but the query from the speaker will just be artist.
+      // It would probably be better to do this in the RSP lexer/parser.
+      ret = safe_snreplace(query, sizeof(query), "artist=\"", "album_artist=\"");
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_RSP, "RSP query is too large for buffer: %s\n", param);
+	  return -1;
+	}
+
+      qp->filter = rsp_query_parse_sql(query);
       if (!qp->filter)
 	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
     }

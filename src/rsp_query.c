@@ -125,7 +125,6 @@ rsp_query_parse_sql(const char *rsp_query)
 
   if (sql)
     {
-      DPRINTF(E_DBG, L_RSP, "RSP SQL query: -%s-\n", sql->chars);
       ret = strdup((char *)sql->chars);
     }
   else
