@@ -82,8 +82,8 @@ extern struct event_base *evbase_player;
 // Globals
 static struct pulse_session *sessions;
 
-// Internal list with indeces of the Pulseaudio devices (sinks) we have registered
-static uint32_t pulse_known_devices[PULSE_MAX_DEVICES];
+// Internal list with id's of the Pulseaudio devices (sinks) we have registered
+static uint32_t pulse_sink_id_map[PULSE_MAX_DEVICES];
 
 static struct media_quality pulse_last_quality;
 static struct media_quality pulse_fallback_quality = { 44100, 16, 2, 0 };
@@ -385,27 +385,16 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *info, int eol, void *userdata)
 {
   struct output_device *device;
   const char *name;
-  int i;
-  int pos;
+  uint32_t id;
 
   if (eol > 0 || !info)
     return;
 
   DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio sink '%s' (id %" PRIu32 ")\n", info->name, info->index);
 
-  pos = -1;
-  for (i = 0; i < PULSE_MAX_DEVICES; i++)
+  if (info->index >= PULSE_MAX_DEVICES)
     {
-      if (pulse_known_devices[i] == (info->index + 1))
-	return;
-
-      if (pulse_known_devices[i] == 0)
-	pos = i;
-    }
-
-  if (pos == -1)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Maximum number of Pulseaudio devices reached (%d), cannot add '%s'\n", PULSE_MAX_DEVICES, info->name);
+      DPRINTF(E_LOG, L_LAUDIO, "Index %d of Pulseaudio device '%s' is out of range\n", info->index, info->name);
       return;
     }
 
@@ -418,20 +407,25 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *info, int eol, void *userdata)
 
   if (info->index == 0)
     {
+      id = 0;
       name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
 
       DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s) with name '%s'\n", info->description, info->name, name);
     }
   else
     {
+      // Don't use info->index as id because if it is e.g. a Bluetooth speaker
+      // that is switched off and then on may get a new info->index. It will,
+      // however, have the same name, so use that to derive an id
+      id = djb_hash(info->name, strlen(info->name));
       name = info->description;
 
-      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s)\n", info->description, info->name);
+      DPRINTF(E_LOG, L_LAUDIO, "Adding Pulseaudio sink '%s' (%s, id %" PRIu32 ")\n", info->description, info->name, id);
     }
 
-  pulse_known_devices[pos] = info->index + 1; // Array values of 0 mean no device, so we add 1 to make sure the value is > 0
+  pulse_sink_id_map[info->index] = id;
 
-  device->id = info->index;
+  device->id = id;
   device->name = strdup(name);
   device->type = OUTPUT_TYPE_PULSE;
   device->type_name = outputs_name(device->type);
@@ -445,9 +439,14 @@ subscribe_cb(pa_context *c, pa_subscription_event_type_t t, uint32_t index, void
 {
   struct output_device *device;
   pa_operation *o;
-  int i;
 
   DPRINTF(E_DBG, L_LAUDIO, "Callback for Pulseaudio subscribe (id %" PRIu32 ", event %d)\n", index, t);
+
+  if (index >= PULSE_MAX_DEVICES)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Index %d of Pulseaudio subscribe cb is out of range\n", index);
+      return;
+    }
 
   if ((t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK) != PA_SUBSCRIPTION_EVENT_SINK)
     {
@@ -464,15 +463,9 @@ subscribe_cb(pa_context *c, pa_subscription_event_type_t t, uint32_t index, void
 	  return;
 	}
 
-      device->id = index;
+      device->id = pulse_sink_id_map[index];
 
-      DPRINTF(E_LOG, L_LAUDIO, "Removing Pulseaudio sink with id %" PRIu32 "\n", index);
-
-      for (i = 0; i < PULSE_MAX_DEVICES; i++)
-	{
-	  if (pulse_known_devices[i] == index)
-	    pulse_known_devices[i] = 0;
-	}
+      DPRINTF(E_LOG, L_LAUDIO, "Removing Pulseaudio sink with index %" PRIu32", id %" PRIu64 "\n", index, device->id);
 
       player_device_remove(device);
       return;
