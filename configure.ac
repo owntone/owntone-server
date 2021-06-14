@@ -350,26 +350,54 @@ OWNTONE_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
 AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
 
 dnl Include default webinterface
-OWNTONE_ARG_DISABLE([Include default web interface], [webinterface], [WEBINTERFACE],
+OWNTONE_ARG_DISABLE([include default web interface], [webinterface], [WEBINTERFACE],
 	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
 		[AC_MSG_ERROR([[Web interface requires libwebsockets >= 2.0.2 (or use --disable-webinterface)]])])
 	])
 AM_CONDITIONAL([COND_WEBINTERFACE], [[test "x$enable_webinterface" = "xyes"]])
 
-dnl Defining users and groups
+dnl Creating and defining users and groups
+OWNTONE_ARG_ENABLE([having 'make install' add user/group and 'make uninstall' delete], [install_user], [INSTALL_USER],
+	[AC_PATH_PROG([GETENT], [[getent]], [], [$PATH$PATH_SEPARATOR/usr/sbin])
+	 AC_PATH_PROG([USERADD], [[useradd]], [], [$PATH$PATH_SEPARATOR/usr/sbin])
+	 AC_PATH_PROG([USERDEL], [[userdel]], [], [$PATH$PATH_SEPARATOR/usr/sbin])
+	 AC_PATH_PROG([USERMOD], [[usermod]], [], [$PATH$PATH_SEPARATOR/usr/sbin])
+	 AC_PATH_PROG([GROUPADD], [[groupadd]], [], [$PATH$PATH_SEPARATOR/usr/sbin])
+	 AC_PATH_PROG([CHOWN], [[chown]], [], [$PATH$PATH_SEPARATOR/usr/sbin])
+	 AS_IF([[test -z "$GETENT" -o -z "$USERADD" -o -z "$USERDEL" -o -z "$USERMOD" -o -z "$GROUPADD" -o -z "$CHOWN"]],
+		[AC_MSG_ERROR([[Required program for --enable-install-user not found]])])
+	])
+AM_CONDITIONAL([COND_INSTALL_USER], [[test "x$enable_install_user" = "xyes"]])
+
 AC_ARG_WITH([owntone_user],
-	[AS_HELP_STRING([--with-user=USER],
-		[User for running OwnTone (default=owntone)])],
+	[AS_HELP_STRING([--with-user=USER], [User for running OwnTone (default=owntone)])],
 	[[test x"$withval" = xyes && withval=]], [[withval=]])
 OWNTONE_USER=${withval:-owntone}
 AC_SUBST([OWNTONE_USER])
 
 AC_ARG_WITH([owntone_group],
-	[AS_HELP_STRING([--with-group=GROUP],
-		[Group for owntone user (default=USER)])],
+	[AS_HELP_STRING([--with-group=GROUP], [Group for owntone user (default=USER)])],
 	[[test x"$withval" = xyes && withval=]], [[withval=]])
 OWNTONE_GROUP=${withval:-$OWNTONE_USER}
 AC_SUBST([OWNTONE_GROUP])
+
+dnl Install config file
+OWNTONE_ARG_DISABLE([install configuration file], [install_conf_file], [INSTALL_CONF_FILE])
+AM_CONDITIONAL([COND_INSTALL_CONF_FILE], [[test "x$enable_install_conf_file" = "xyes"]])
+
+# Service files are not installed like https://www.freedesktop.org/software/systemd/man/daemon.html
+# instructs, because that means they go to /lib/systemd/system (the destination
+# for package service files!) instead of /usr/local/etc/systemd/system with a
+# default ./configure, and I don't want that on my machine. Also, the suggested
+# approach is incredibly ugly.
+OWNTONE_ARG_DISABLE([install systemd service file], [install_systemd], [INSTALL_SYSTEMD])
+AM_CONDITIONAL([COND_INSTALL_SYSTEMD], [[test "x$enable_install_systemd" = "xyes"]])
+AC_ARG_WITH([systemddir],
+	[AS_HELP_STRING([--with-systemddir=DIR], [Directory for systemd service files (default=SYSCONFDIR/systemd/system)])],
+	[[test x"$withval" = xyes && withval=]], [[withval=]])
+SYSTEMD_DIR=${withval:-$sysconfdir/systemd/system}
+AC_SUBST([SYSTEMD_DIR])
+
 dnl --- End options ---
 
 dnl Unconditional since we always want to produce Makefiles for dist targets
