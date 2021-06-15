@@ -78,7 +78,7 @@ Add the user the server is running as (typically "owntone") to the
 "pulse-access" group:
 
 ```
-adduser daapd pulse-access
+adduser owntone pulse-access
 ```
 
 Now (re)start the server.

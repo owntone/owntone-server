@@ -23,7 +23,7 @@ sudo apt-get install \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
   libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev \
-  libcurl4-openssl-dev
+  libcurl4-openssl-dev libprotobuf-c-dev
 ```
 
 Note that OwnTone will also work with other versions and flavours of
@@ -71,7 +71,7 @@ sudo yum install \
   sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
   libplist-devel libsodium-devel json-c-devel libwebsockets-devel \
-  libcurl-devel
+  libcurl-devel protobuf-c-devel
 ```
 
 Clone the OwnTone repo:
@@ -143,7 +143,7 @@ Afterwards, you can optionally install Oracle's newer version, and then
 sudo port install \
   autoconf automake libtool pkgconfig git gperf libgcrypt \
   libunistring libconfuse ffmpeg libevent json-c libwebsockets curl \
-  libplist libsodium
+  libplist libsodium protobuf-c
 ```
 
 Download, configure, build and install the Mini-XML library:
@@ -166,7 +166,7 @@ Optional features require the following additional ports:
 
  Feature             | Configure argument       | Ports
  --------------------|--------------------------|-------------------
- Chromecast          | `--enable-chromecast`    | gnutls protobuf-c
+ Chromecast          | `--enable-chromecast`    | gnutls
  Pulseaudio          | `--with-pulseaudio`      | pulseaudio
 
 Clone the OwnTone repo:
@@ -262,6 +262,8 @@ Libraries:
   from <http://github.com/JonathanBeck/libplist/downloads>
 - libsodium
   from <https://download.libsodium.org/doc/>
+- libprotobuf-c
+  from <https://github.com/protobuf-c/protobuf-c/wiki>
 - libasound (optional - ALSA local audio)
   often already installed as part of your distro
 - libpulse (optional - Pulseaudio local audio)
@@ -270,8 +272,6 @@ Libraries:
   (deprecated by Spotify)
 - libgnutls (optional - Chromecast support)
   from <http://www.gnutls.org/>
-- libprotobuf-c (optional - Chromecast support)
-  from <https://github.com/protobuf-c/protobuf-c/wiki>
 - libwebsockets 2.0.2+ (optional - websocket support)
   from <https://libwebsockets.org/>
 
