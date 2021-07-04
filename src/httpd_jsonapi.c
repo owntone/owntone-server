@@ -292,6 +292,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_string(item, "album_artist_id", dbmfi->songartistid);
   safe_json_add_string(item, "composer", dbmfi->composer);
   safe_json_add_string(item, "genre", dbmfi->genre);
+  safe_json_add_string(item, "comment", dbmfi->comment);
   safe_json_add_int_from_string(item, "year", dbmfi->year);
   safe_json_add_int_from_string(item, "track_number", dbmfi->track);
   safe_json_add_int_from_string(item, "disc_number", dbmfi->disc);
