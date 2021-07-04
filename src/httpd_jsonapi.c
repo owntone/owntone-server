@@ -807,6 +807,9 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(allow_modifying_stored_playlists));
   safe_json_add_string(jreply, "default_playlist_directory", default_playlist_directory);
 
+  // Wether libspotify should be used instead of librespot
+  json_object_object_add(jreply, "use_libspotify", json_object_new_boolean(cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify")));
+
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
@@ -1226,8 +1229,8 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   free(oauth_uri);
 
   spotify_status_get(&sp_status);
-  json_object_object_add(jreply, "libspotify_installed", json_object_new_boolean(sp_status.installed));
-  json_object_object_add(jreply, "libspotify_logged_in", json_object_new_boolean(sp_status.logged_in));
+  json_object_object_add(jreply, "spotify_installed", json_object_new_boolean(sp_status.installed));
+  json_object_object_add(jreply, "spotify_logged_in", json_object_new_boolean(sp_status.logged_in));
   safe_json_add_string(jreply, "libspotify_user", sp_status.username);
 
   spotifywebapi_status_info_get(&webapi_info);
