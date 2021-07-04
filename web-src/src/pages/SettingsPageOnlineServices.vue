@@ -8,22 +8,22 @@
       </template>
 
       <template slot="content">
-        <div class="notification is-size-7" v-if="!spotify.libspotify_installed">
+        <div class="notification is-size-7" v-if="!spotify.spotify_installed">
           <p>OwnTone was either built without support for Spotify or libspotify is not installed.</p>
         </div>
-        <div v-if="spotify.libspotify_installed">
+        <div v-if="spotify.spotify_installed">
           <div class="notification is-size-7">
-            <b>You must have a Spotify premium account</b>. If you normally log into Spotify with your Facebook account you must first go to Spotify's web site where you can get the Spotify username and password that matches your account.
+            <b>You must have a Spotify premium account</b>. <span v-if="use_libspotity">If you normally log into Spotify with your Facebook account you must first go to Spotify's web site where you can get the Spotify username and password that matches your account.</span>
           </div>
 
-          <div>
+          <div v-if="use_libspotity">
             <p class="content">
               <b>libspotify</b> - Login with your Spotify username and password
             </p>
             <p v-if="spotify.libspotify_logged_in" class="fd-has-margin-bottom">
               Logged in as <b><code>{{ spotify.libspotify_user }}</code></b>
             </p>
-            <form v-if="spotify.libspotify_installed && !spotify.libspotify_logged_in" @submit.prevent="login_libspotify">
+            <form v-if="spotify.spotify_installed && !spotify.libspotify_logged_in" @submit.prevent="login_libspotify">
               <div class="field is-grouped">
                 <div class="control is-expanded">
                   <input class="input" type="text" placeholder="Username" v-model="libspotify.user">
@@ -152,6 +152,10 @@ export default {
         return this.spotify.webapi_required_scope.split(' ').filter(scope => this.spotify.webapi_granted_scope.indexOf(scope) < 0)
       }
       return []
+    },
+
+    use_libspotify () {
+      return this.$store.state.config.use_libspotify
     }
   },
 
