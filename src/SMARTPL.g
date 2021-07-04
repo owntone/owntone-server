@@ -88,6 +88,7 @@ STRTAG		:	'artist'
 			|	'songartistid'
 			|	'songalbumid'
 			|	'codectype'
+			|	'comment'
 			;
 
 INTTAG		:	'play_count'
