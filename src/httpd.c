@@ -28,9 +28,6 @@
 #include <limits.h>
 #include <errno.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 #include <time.h>
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -1789,11 +1786,7 @@ httpd_init(const char *webroot)
       goto thread_fail;
     }
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_httpd, "httpd");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_httpd, "httpd");
-#endif
+  thread_setname(tid_httpd, "httpd");
 
   return 0;
 

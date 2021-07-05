@@ -29,9 +29,6 @@
 #include <limits.h>
 #include <errno.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/types.h>
@@ -4846,11 +4843,7 @@ mpd_init(void)
       goto thread_fail;
     }
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_mpd, "mpd");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_mpd, "mpd");
-#endif
+  thread_setname(tid_mpd, "mpd");
 
   mpd_clients = NULL;
   listener_add(mpd_listener_cb, MPD_ALL_IDLE_LISTENER_EVENTS);

@@ -284,6 +284,10 @@ buildopts_get(void);
 int
 mutex_init(pthread_mutex_t *mutex);
 
+// wrapper for pthread_setname_np/pthread_set_name_np
+void
+thread_setname(pthread_t thread, const char *name);
+
 void
 uuid_make(char *str);
 

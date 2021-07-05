@@ -59,9 +59,6 @@
 #include <errno.h>
 #include <time.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 
 #ifdef HAVE_TIMERFD
 # include <sys/timerfd.h>
@@ -3708,11 +3705,8 @@ player_init(void)
       DPRINTF(E_FATAL, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
       goto error_input_deinit;
     }
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_player, "player");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_player, "player");
-#endif
+
+  thread_setname(tid_player, "player");
 
   return 0;
 

@@ -45,9 +45,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -854,11 +851,7 @@ pipe_thread_start(void)
   CHECK_NULL(L_PLAYER, cmdbase = commands_base_new(evbase_pipe, NULL));
   CHECK_ERR(L_PLAYER, pthread_create(&tid_pipe, NULL, pipe_thread_run, NULL));
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_pipe, "pipe");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_pipe, "pipe");
-#endif
+  thread_setname(tid_pipe, "pipe");
 }
 
 static void

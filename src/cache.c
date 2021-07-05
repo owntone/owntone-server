@@ -30,9 +30,6 @@
 #include <time.h>
 #include <string.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 
 #include <event2/event.h>
 #include <sqlite3.h>
@@ -1640,11 +1637,7 @@ cache_init(void)
       goto thread_fail;
     }
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_cache, "cache");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_cache, "cache");
-#endif
+  thread_setname(tid_cache, "cache");
 
   return 0;
   

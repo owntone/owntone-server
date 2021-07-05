@@ -30,9 +30,6 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 
 #include <event2/event.h>
 
@@ -40,6 +37,7 @@
 #include "logger.h"
 #include "worker.h"
 #include "commands.h"
+#include "misc.h"
 
 
 struct worker_arg
@@ -191,11 +189,7 @@ worker_init(void)
       goto thread_fail;
     }
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_worker, "worker");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_worker, "worker");
-#endif
+  thread_setname(tid_worker, "worker");
 
   return 0;
   

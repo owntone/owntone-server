@@ -44,6 +44,9 @@
 #ifdef HAVE_UUID
 #include <uuid/uuid.h>
 #endif
+#ifdef HAVE_PTHREAD_NP_H
+# include <pthread_np.h>
+#endif
 
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -1543,6 +1546,16 @@ mutex_init(pthread_mutex_t *mutex)
   CHECK_ERR(L_MISC, pthread_mutexattr_destroy(&mattr));
 
   return err;
+}
+
+void
+thread_setname(pthread_t thread, const char *name)
+{
+#if defined(HAVE_PTHREAD_SETNAME_NP)
+  pthread_setname_np(thread, name);
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+  pthread_set_name_np(thread, name);
+#endif
 }
 
 #ifdef HAVE_UUID

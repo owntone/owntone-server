@@ -19,12 +19,10 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
+
 #include <json.h>
 #include <libwebsockets.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -34,6 +32,7 @@
 #include "conffile.h"
 #include "listener.h"
 #include "logger.h"
+#include "misc.h"
 
 
 static struct lws_context *context;
@@ -522,6 +521,8 @@ websocket_init(void)
       lws_context_destroy(context);
       return -1;
     }
+
+  thread_setname(tid_websocket, "websocket");
 
   return 0;
 }

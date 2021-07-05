@@ -26,9 +26,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -882,11 +879,7 @@ library_init(void)
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_library, "library");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_library, "library");
-#endif
+  thread_setname(tid_library, "library");
 
   return 0;
 }

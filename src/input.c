@@ -32,9 +32,6 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 
 #include "misc.h"
 #include "logger.h"
@@ -927,11 +924,7 @@ input_init(void)
       goto thread_fail;
     }
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_input, "input");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_input, "input");
-#endif
+  thread_setname(tid_input, "input");
 
   return 0;
 

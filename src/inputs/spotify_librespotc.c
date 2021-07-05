@@ -24,9 +24,6 @@
 #include <stdint.h>
 #include <fcntl.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 
 #include <event2/event.h>
 
@@ -229,11 +226,7 @@ tcp_disconnect(int fd)
 static void
 thread_name_set(pthread_t thread)
 {
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(thread, "spotify");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(thread, "spotify");
-#endif
+  thread_setname(thread, "spotify");
 }
 
 static void

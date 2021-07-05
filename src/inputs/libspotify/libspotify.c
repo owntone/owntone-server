@@ -35,9 +35,6 @@
 #include <sys/ioctl.h>
 #include <sys/queue.h>
 #include <pthread.h>
-#ifdef HAVE_PTHREAD_NP_H
-# include <pthread_np.h>
-#endif
 
 #include <dlfcn.h>
 #include <libspotify/api.h>
@@ -1575,11 +1572,7 @@ libspotify_init(void)
       goto thread_fail;
     }
 
-#if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(tid_spotify, "spotify");
-#elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(tid_spotify, "spotify");
-#endif
+  thread_setname(tid_spotify, "spotify");
 
   DPRINTF(E_DBG, L_SPOTIFY, "Spotify init complete\n");
   return 0;
