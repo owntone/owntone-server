@@ -118,7 +118,7 @@ static const struct content_type_map ext2ctype[] =
 
 static const char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
 
-static const char *webroot_directory;
+static char webroot_directory[PATH_MAX];
 struct event_base *evbase_httpd;
 
 #ifdef HAVE_EVENTFD
@@ -1646,7 +1646,12 @@ httpd_init(const char *webroot)
 
       return -1;
     }
-  webroot_directory = webroot;
+  if (!realpath(webroot, webroot_directory))
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Web root directory '%s' could not be dereferenced: %s\n", webroot, strerror(errno));
+
+      return -1;
+    }
 
   evbase_httpd = event_base_new();
   if (!evbase_httpd)
