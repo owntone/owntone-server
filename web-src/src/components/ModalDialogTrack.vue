@@ -74,6 +74,10 @@
                   <span class="heading">Rating</span>
                   <span class="title is-6">{{ Math.floor(track.rating / 10) }} / 10</span>
                 </p>
+                <p v-if="track.comment">
+                  <span class="heading">Comment</span>
+                  <span class="title is-6">{{ track.comment }}</span>
+                </p>
               </div>
             </div>
             <footer class="card-footer">
