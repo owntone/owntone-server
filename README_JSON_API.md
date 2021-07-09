@@ -2547,6 +2547,7 @@ curl --include \
 | album_artist_id    | string   | Album artist id                           |
 | composer           | string   | Track composer                            |
 | genre              | string   | Genre                                     |
+| comment            | string   | Comment                                   |
 | year               | integer  | Release year                              |
 | track_number       | integer  | Track number                              |
 | disc_number        | integer  | Disc number                               |

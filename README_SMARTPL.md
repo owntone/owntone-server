@@ -30,6 +30,7 @@ Where valid field-names (with their types) are:
 * `title` (string)
 * `genre` (string)
 * `composer` (string)
+* `comment` (string)
 * `path` (string)
 * `type` (string)
 * `grouping` (string)
