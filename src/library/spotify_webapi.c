@@ -1989,6 +1989,7 @@ create_base_playlist(void)
 static void
 scan(enum spotify_request_type request_type)
 {
+  struct spotify_status sp_status;
   time_t start;
   time_t end;
 
@@ -2006,7 +2007,8 @@ scan(enum spotify_request_type request_type)
   create_saved_tracks_playlist();
   scan_saved_albums(request_type);
   scan_playlists(request_type);
-  if (spotify_podcast_support())
+  spotify_status_get(&sp_status);
+  if (sp_status.has_podcast_support)
     scan_saved_shows(request_type);
 
   scanning = false;

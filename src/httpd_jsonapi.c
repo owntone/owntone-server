@@ -1232,6 +1232,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   spotify_status_get(&sp_status);
   json_object_object_add(jreply, "spotify_installed", json_object_new_boolean(sp_status.installed));
   json_object_object_add(jreply, "spotify_logged_in", json_object_new_boolean(sp_status.logged_in));
+  json_object_object_add(jreply, "has_podcast_support", json_object_new_boolean(sp_status.has_podcast_support));
   safe_json_add_string(jreply, "libspotify_user", sp_status.username);
 
   spotifywebapi_status_info_get(&webapi_info);

@@ -116,6 +116,7 @@ status_get(struct spotify_status *status)
 
   status->installed = info.libspotify_installed;
   status->logged_in = info.libspotify_logged_in;
+  status->has_podcast_support = false;
   snprintf(status->username, sizeof(status->username), "%s", info.libspotify_user);
 }
 
@@ -129,7 +130,5 @@ struct spotify_backend spotify_libspotify =
   .relogin = libspotify_relogin,
   .uri_register = libspotify_uri_register,
   .status_get = status_get,
-
-  .has_podcast_support = false,
 };
 
