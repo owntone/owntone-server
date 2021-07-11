@@ -44,6 +44,17 @@ enum spotify_request_type {
   SPOTIFY_REQUEST_TYPE_METARESCAN,
 };
 
+enum spotify_item_type {
+  SPOTIFY_ITEM_TYPE_ALBUM,
+  SPOTIFY_ITEM_TYPE_ARTIST,
+  SPOTIFY_ITEM_TYPE_TRACK,
+  SPOTIFY_ITEM_TYPE_PLAYLIST,
+  SPOTIFY_ITEM_TYPE_SHOW,
+  SPOTIFY_ITEM_TYPE_EPISODE,
+
+  SPOTIFY_ITEM_TYPE_UNKNOWN,
+};
+
 struct spotify_album
 {
   const char *added_at;
@@ -153,7 +164,40 @@ static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/pla
 static const char *spotify_artist_albums_uri = "https://api.spotify.com/v1/artists/%s/albums?include_groups=album,single";
 static const char *spotify_shows_uri    = "https://api.spotify.com/v1/me/shows?limit=50";
 static const char *spotify_shows_episodes_uri = "https://api.spotify.com/v1/shows/%s/episodes";
+static const char *spotify_episode_uri     = "https://api.spotify.com/v1/episodes/%s";
 
+
+static enum spotify_item_type
+parse_type_from_uri(const char *uri)
+{
+  if (strncasecmp(uri, "spotify:track:", strlen("spotify:track:")) == 0)
+    {
+      return SPOTIFY_ITEM_TYPE_TRACK;
+    }
+  else if (strncasecmp(uri, "spotify:artist:", strlen("spotify:artist:")) == 0)
+    {
+      return SPOTIFY_ITEM_TYPE_ARTIST;
+    }
+  else if (strncasecmp(uri, "spotify:album:", strlen("spotify:album:")) == 0)
+    {
+      return SPOTIFY_ITEM_TYPE_ALBUM;
+    }
+  else if (strncasecmp(uri, "spotify:show:", strlen("spotify:show:")) == 0)
+    {
+      return SPOTIFY_ITEM_TYPE_SHOW;
+    }
+  else if (strncasecmp(uri, "spotify:episode:", strlen("spotify:episode:")) == 0)
+    {
+      return SPOTIFY_ITEM_TYPE_EPISODE;
+    }
+  else if (strncasecmp(uri, "spotify:", strlen("spotify:")) == 0 && strstr(uri, "playlist:"))
+    {
+      return SPOTIFY_ITEM_TYPE_PLAYLIST;
+    }
+
+  DPRINTF(E_WARN, L_SPOTIFY, "Could not parse item type from Spotify uri: %s\n", uri);
+  return SPOTIFY_ITEM_TYPE_UNKNOWN;
+}
 
 static void
 free_credentials(void)
@@ -791,9 +835,17 @@ parse_metadata_show(json_object *jsonshow, struct spotify_album *show)
 }
 
 static void
-parse_metadata_episode(json_object *jsonepisode, struct spotify_track *episode)
+parse_metadata_episode(json_object *jsonepisode, struct spotify_track *episode, int max_w)
 {
+  json_object *jsonshow;
+
   memset(episode, 0, sizeof(struct spotify_track));
+
+  if (json_object_object_get_ex(jsonepisode, "show", &jsonshow))
+    {
+      episode->album = jparse_str_from_obj(jsonshow, "name");
+      episode->artwork_url = get_album_image(jsonshow, max_w);
+    }
 
   episode->name = jparse_str_from_obj(jsonepisode, "name");
   episode->uri = jparse_str_from_obj(jsonepisode, "uri");
@@ -965,6 +1017,27 @@ get_artist_albums_endpoint_uri(const char *uri)
   return endpoint_uri;
 }
 
+static char *
+get_episode_endpoint_uri(const char *uri)
+{
+  char *endpoint_uri = NULL;
+  char *id = NULL;
+  int ret;
+
+  ret = get_id_from_uri(uri, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from track uri '%s'\n", uri);
+      goto out;
+    }
+
+  endpoint_uri = safe_asprintf(spotify_episode_uri, id);
+
+ out:
+  free(id);
+  return endpoint_uri;
+}
+
 static json_object *
 request_track(const char *path)
 {
@@ -972,6 +1045,19 @@ request_track(const char *path)
   json_object *response;
 
   endpoint_uri = get_track_endpoint_uri(path);
+  response = request_endpoint_with_token_refresh(endpoint_uri);
+  free(endpoint_uri);
+
+  return response;
+}
+
+static json_object *
+request_episode(const char *path)
+{
+  char *endpoint_uri;
+  json_object *response;
+
+  endpoint_uri = get_episode_endpoint_uri(path);
   response = request_endpoint_with_token_refresh(endpoint_uri);
   free(endpoint_uri);
 
@@ -1328,22 +1414,25 @@ queue_add_playlist(const char *uri, int position, char reshuffle, uint32_t item_
 static int
 queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
-  if (strncasecmp(uri, "spotify:track:", strlen("spotify:track:")) == 0)
+  enum spotify_item_type type;
+
+  type = parse_type_from_uri(uri);
+  if (type == SPOTIFY_ITEM_TYPE_TRACK)
     {
       queue_add_track(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
-  else if (strncasecmp(uri, "spotify:artist:", strlen("spotify:artist:")) == 0)
+  else if (type == SPOTIFY_ITEM_TYPE_ARTIST)
     {
       queue_add_artist(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
-  else if (strncasecmp(uri, "spotify:album:", strlen("spotify:album:")) == 0)
+  else if (type == SPOTIFY_ITEM_TYPE_ALBUM)
     {
       queue_add_album(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
     }
-  else if (strncasecmp(uri, "spotify:", strlen("spotify:")) == 0)
+  else if (type == SPOTIFY_ITEM_TYPE_PLAYLIST)
     {
       queue_add_playlist(uri, position, reshuffle, item_id, count, new_item_id);
       return LIBRARY_OK;
@@ -1648,7 +1737,7 @@ saved_episodes_add(json_object *item, int index, int total, enum spotify_request
   DPRINTF(E_DBG, L_SPOTIFY, "saved_episodes_add: %s\n", json_object_to_json_string(item));
 
   // Map episode information
-  parse_metadata_episode(item, &episode);
+  parse_metadata_episode(item, &episode, 0);
 
   // Get or create the directory structure for this album
   dir_id = prepare_directories(show->artist, show->name);
@@ -2129,17 +2218,34 @@ spotifywebapi_pl_remove(const char *uri)
 char *
 spotifywebapi_artwork_url_get(const char *uri, int max_w, int max_h)
 {
+  enum spotify_item_type type;
   json_object *response;
   struct spotify_track track;
   char *artwork_url;
 
-  response = request_track(uri);
+  type = parse_type_from_uri(uri);
+  if (type == SPOTIFY_ITEM_TYPE_TRACK)
+    {
+      response = request_track(uri);
+      if (response)
+	parse_metadata_track(response, &track, max_w);
+    }
+  else if (type == SPOTIFY_ITEM_TYPE_EPISODE)
+    {
+      response = request_episode(uri);
+      if (response)
+	parse_metadata_episode(response, &track, max_w);
+    }
+  else
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Unsupported Spotify type for artwork request: '%s'\n", uri);
+      return NULL;
+    }
+
   if (!response)
     {
       return NULL;
     }
-
-  parse_metadata_track(response, &track, max_w);
 
   DPRINTF(E_DBG, L_SPOTIFY, "Got track artwork url: '%s' (%s) \n", track.artwork_url, track.uri);
 
