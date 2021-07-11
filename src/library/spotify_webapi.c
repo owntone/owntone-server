@@ -153,18 +153,18 @@ static const char *spotify_scope         = "playlist-read-private playlist-read-
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
 
-static const char *spotify_playlist_uri	 = "https://api.spotify.com/v1/playlists/%s";
-static const char *spotify_track_uri     = "https://api.spotify.com/v1/tracks/%s";
-static const char *spotify_me_uri        = "https://api.spotify.com/v1/me";
-static const char *spotify_albums_uri    = "https://api.spotify.com/v1/me/albums?limit=50";
-static const char *spotify_album_uri = "https://api.spotify.com/v1/albums/%s";
-static const char *spotify_album_tracks_uri = "https://api.spotify.com/v1/albums/%s/tracks";
-static const char *spotify_playlists_uri = "https://api.spotify.com/v1/me/playlists?limit=50";
+static const char *spotify_playlist_uri	       = "https://api.spotify.com/v1/playlists/%s";
+static const char *spotify_track_uri           = "https://api.spotify.com/v1/tracks/%s";
+static const char *spotify_me_uri              = "https://api.spotify.com/v1/me";
+static const char *spotify_albums_uri          = "https://api.spotify.com/v1/me/albums?limit=50";
+static const char *spotify_album_uri           = "https://api.spotify.com/v1/albums/%s";
+static const char *spotify_album_tracks_uri    = "https://api.spotify.com/v1/albums/%s/tracks";
+static const char *spotify_playlists_uri       = "https://api.spotify.com/v1/me/playlists?limit=50";
 static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/playlists/%s/tracks";
-static const char *spotify_artist_albums_uri = "https://api.spotify.com/v1/artists/%s/albums?include_groups=album,single";
-static const char *spotify_shows_uri    = "https://api.spotify.com/v1/me/shows?limit=50";
-static const char *spotify_shows_episodes_uri = "https://api.spotify.com/v1/shows/%s/episodes";
-static const char *spotify_episode_uri     = "https://api.spotify.com/v1/episodes/%s";
+static const char *spotify_artist_albums_uri   = "https://api.spotify.com/v1/artists/%s/albums?include_groups=album,single";
+static const char *spotify_shows_uri           = "https://api.spotify.com/v1/me/shows?limit=50";
+static const char *spotify_shows_episodes_uri  = "https://api.spotify.com/v1/shows/%s/episodes";
+static const char *spotify_episode_uri         = "https://api.spotify.com/v1/episodes/%s";
 
 
 static enum spotify_item_type
