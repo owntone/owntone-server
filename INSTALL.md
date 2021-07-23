@@ -23,7 +23,7 @@ sudo apt-get install \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
   libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev \
-  libcurl4-openssl-dev libprotobuf-c-dev
+  libcurl4-openssl-dev libprotobuf-c-dev libgnutls28-dev
 ```
 
 Note that OwnTone will also work with other versions and flavours of
