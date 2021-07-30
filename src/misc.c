@@ -251,6 +251,8 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
   struct addrinfo *ptr;
+  union net_sockaddr naddr = { 0 };
+  socklen_t naddr_len = sizeof(naddr);
   const char *cfgaddr;
   char addr[INET6_ADDRSTRLEN];
   char strport[8];
@@ -314,16 +316,22 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
       goto error;
     }
 
-  // Get the port that was assigned
-  ret = getsockname(fd, ptr->ai_addr, &ptr->ai_addrlen);
+  // Get our address (as string) and the port that was assigned (necessary when
+  // caller didn't specify a port)
+  ret = getsockname(fd, &naddr.sa, &naddr_len);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not find address of service '%s': %s\n", log_service_name, strerror(errno));
+      DPRINTF(E_LOG, L_MISC, "Error finding address of service '%s': %s\n", log_service_name, strerror(errno));
+      goto error;
+    }
+  else if (naddr_len > sizeof(naddr))
+    {
+      DPRINTF(E_LOG, L_MISC, "Unexpected address length of service '%s'\n", log_service_name);
       goto error;
     }
 
-  net_port_get(port, (union net_sockaddr *)ptr->ai_addr);
-  net_address_get(addr, sizeof(addr), (union net_sockaddr *)ptr->ai_addr);
+  net_port_get(port, &naddr);
+  net_address_get(addr, sizeof(addr), &naddr);
 
   DPRINTF(E_DBG, L_MISC, "Service '%s' bound to %s, port %hu, socket %d\n", log_service_name, addr, *port, fd);
 
