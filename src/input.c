@@ -416,8 +416,16 @@ setup(struct input_source *source, struct db_queue_item *queue_item, int seek_ms
   int ret;
 
   type = map_data_kind(queue_item->data_kind);
-  if ((type < 0) || (inputs[type]->disabled))
-    goto setup_error;
+  if (type < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Unknown data kind (%d)\n", queue_item->data_kind);
+      goto setup_error;
+    }
+  else if (inputs[type]->disabled)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Input backend for type %d (data kind %d) is disabled\n", type, queue_item->data_kind);
+      goto setup_error;
+    }
 
   // Avoids memleaks in cases where stop() is not called
   clear(source);
@@ -467,8 +475,6 @@ start(void *arg, int *retval)
   struct db_queue_item *queue_item;
   int ret;
 
-  DPRINTF(E_WARN, L_PLAYER, "now %d, item_id %d, now item_id %d\n", input_now_reading.open, cmdarg->item_id, input_now_reading.item_id);
-
   // If we are asked to start the item that is currently open we can just seek
   if (input_now_reading.open && cmdarg->item_id == input_now_reading.item_id)
     {
@@ -507,6 +513,8 @@ start(void *arg, int *retval)
   return COMMAND_END;
 
  error:
+  DPRINTF(E_WARN, L_PLAYER, "Error starting input read loop (now %d, item_id %d, now item_id %d)\n", input_now_reading.open, cmdarg->item_id, input_now_reading.item_id);
+
   input_write(NULL, NULL, INPUT_FLAG_ERROR);
   clear(&input_now_reading);
   *retval = -1;
