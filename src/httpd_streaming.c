@@ -97,7 +97,7 @@ static int streaming_meta[2];
 #define STREAMING_ICY_METAINT_DEFAULT  16384
 static unsigned short streaming_icy_metaint = STREAMING_ICY_METAINT_DEFAULT;
 static unsigned streaming_icy_clients;
-static char *streaming_icy_title;
+static char streaming_icy_title[STREAMING_ICY_METATITLELEN_MAX];
 
 
 static void
@@ -283,8 +283,8 @@ encode_buffer(uint8_t *buffer, size_t size)
 static uint8_t *
 streaming_icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], const char *title, unsigned *buflen)
 {
-  unsigned titlelen = 0;
-  unsigned metalen = 0;
+  unsigned titlelen;
+  unsigned metalen;
   uint8_t no16s;
 
   *buflen = 0;
@@ -346,38 +346,27 @@ streaming_icy_meta_splice(const uint8_t *data, size_t datalen, off_t offset, siz
 }
 
 static void
-streaming_player_status_update()
+streaming_player_status_update(void)
 {
-  unsigned x, y;
-  struct db_queue_item *queue_item = NULL;
-  struct player_status  tmp;
+  struct db_queue_item *queue_item;
+  uint32_t prev_id;
 
-  tmp.id = streaming_player_status.id;
+  prev_id = streaming_player_status.id;
   player_get_status(&streaming_player_status);
 
-  if (tmp.id != streaming_player_status.id && streaming_icy_clients)
+  if (prev_id == streaming_player_status.id || !streaming_icy_clients)
     {
-      free(streaming_icy_title);
-      if ( (queue_item = db_queue_fetch_byfileid(streaming_player_status.id)) == NULL)
-	{
-	  streaming_icy_title = NULL;
-	}
-      else
-	{
-	  x = strlen(queue_item->title);
-	  y = strlen(queue_item->artist);
-	  if (x && y)
-	    {
-	      streaming_icy_title = malloc(x+y+4);
-	      snprintf(streaming_icy_title, x+y+4, "%s - %s", queue_item->title, queue_item->artist);
-	    }
-	  else
-	    {
-	      streaming_icy_title = strdup( x ? queue_item->title : queue_item->artist);
-	    }
-	  free_queue_item(queue_item, 0);
-	}
+      return;
     }
+
+  queue_item = db_queue_fetch_byfileid(streaming_player_status.id);
+  if (!queue_item)
+    {
+      streaming_icy_title[0] = '\0';
+      return;
+    }
+
+  snprintf(streaming_icy_title, sizeof(streaming_icy_title), "%s - %s", queue_item->title, queue_item->artist);
 }
 
 static void
@@ -715,7 +704,6 @@ streaming_init(void)
   CHECK_NULL(L_STREAMING, metaev = event_new(evbase_httpd, streaming_meta[0], EV_READ | EV_PERSIST, streaming_meta_cb, NULL));
 
   streaming_icy_clients = 0;
-  streaming_icy_title = NULL;
 
   return 0;
 
@@ -746,7 +734,6 @@ streaming_deinit(void)
 
   transcode_encode_cleanup(&streaming_encode_ctx);
   evbuffer_free(streaming_encoded_data);
-  free(streaming_icy_title);
 
   pthread_mutex_destroy(&streaming_sessions_lck);
 }
