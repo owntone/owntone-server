@@ -350,8 +350,11 @@ net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_serv
   int ret;
 
   bind_address = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
-  if (bind_address)
-    evhttp_bind_socket(evhttp, bind_address, port);
+
+  // Normally comply with config, except for "::" where we want to listen on
+  // both ipv4 and ipv6 (as the comment in the config file says)
+  if (bind_address && strcmp(bind_address, "::") != 0)
+    return evhttp_bind_socket(evhttp, bind_address, port);
 
   // For Linux, we could just do evhttp_bind_socket() for "::", and both the
   // ipv4 and v6 port would be bound. However, for bsd it seems it is necessary
