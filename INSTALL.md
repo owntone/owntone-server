@@ -29,10 +29,6 @@ sudo apt-get install \
 Note that OwnTone will also work with other versions and flavours of
 libgcrypt and libcurl, so the above are just suggestions.
 
-While OwnTone will work with versions of libevent between 2.0.0 and 2.1.3,
-it is recommended to use 2.1.4+. Otherwise you may not have support for
-simultaneous streaming to multiple DAAP clients.
-
 Optional packages:
 
  Feature              | Configure argument       | Packages
