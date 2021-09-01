@@ -414,7 +414,6 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
 {
   FILE *fp;
   struct media_file_info mfi;
-  struct stat sb;
   char buf[PATH_MAX];
   char *path;
   size_t len;
@@ -432,13 +431,6 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
   pl_id = playlist_prepare(file, mtime);
   if (pl_id < 0)
     return; // Not necessarily an error, could also be that the playlist hasn't changed
-
-  ret = stat(file, &sb);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
-      return;
-    }
 
   fp = fopen(file, "r");
   if (!fp)
