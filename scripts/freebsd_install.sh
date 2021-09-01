@@ -2,8 +2,8 @@
 # Credit thorsteneckel who made the how-to that is the basis for this
 # script, see https://gist.github.com/thorsteneckel/c0610fb415c8d0486bce
 
-echo "This script will install OwnTone in FreeBSD 11.0. The script is not"
-echo "very polished, so you might want to look through it before running it."
+echo "This script will install OwnTone in FreeBSD. The script is not very polished,"
+echo "so you might want to look through it before running it."
 read -p "Continue? [y/N] " yn
 if [ "$yn" != "y" ]; then
 	exit
@@ -11,7 +11,8 @@ fi
 
 DEPS="gmake autoconf automake libtool gettext gperf glib pkgconf wget git \
      ffmpeg libconfuse libevent mxml libgcrypt libunistring libiconv curl \
-     libplist libinotify avahi sqlite3 alsa-lib libsodium json-c libwebsockets"
+     libplist libinotify avahi sqlite3 alsa-lib libsodium json-c libwebsockets
+     protobuf-c"
 echo "The script can install the following dependency packages for you:"
 echo $DEPS
 read -p "Should the script install these packages? [y/N] " yn
@@ -102,11 +103,11 @@ if [ "$yn" = "y" ]; then
 		# Setup user and startup scripts
 		echo "owntone::::::owntone:/nonexistent:/usr/sbin/nologin:" | sudo adduser -w no -D -f -
 		sudo chown -R owntone:owntone /usr/local/var/cache/owntone
-		if [ ! -f scripts/freebsd_start_10.1.sh ]; then
+		if [ ! -f scripts/freebsd_start.sh ]; then
 			echo "Could not find FreeBSD startup script"
 			exit
 		fi
-		sudo install -m 755 scripts/freebsd_start_10.1.sh /usr/local/etc/rc.d/owntone
+		sudo install -m 755 scripts/freebsd_start.sh /usr/local/etc/rc.d/owntone
 
 		service owntone enabled
 		if [ $? -ne 0 ]; then
