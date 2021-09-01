@@ -5,10 +5,10 @@ AC_PROG_CC
 AM_PROG_AR
 AC_PROG_RANLIB
 
-AC_CHECK_HEADERS_ONCE([endian.h sys/endian.h sys/utsname.h])
-AC_CHECK_DECL([htobe16], [],
-	[AC_CHECK_HEADERS([libkern/OSByteOrder.h], [], [AC_MSG_ERROR([[Missing functions to swap byte order]])])],
-)
+AC_CHECK_HEADERS_ONCE([sys/utsname.h])
+
+AC_CHECK_HEADERS([endian.h sys/endian.h libkern/OSByteOrder.h], [found_endian_headers=yes; break;])
+AS_IF([test "x$found_endian_headers" != "xyes"], [AC_MSG_ERROR([[Missing functions to swap byte order]])])
 
 AC_SEARCH_LIBS([pthread_exit], [pthread], [], [AC_MSG_ERROR([[pthreads library is required]])])
 
