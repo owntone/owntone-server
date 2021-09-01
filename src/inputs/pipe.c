@@ -170,27 +170,33 @@ pipe_open(const char *path, bool silent)
 
   DPRINTF(E_DBG, L_PLAYER, "(Re)opening pipe: '%s'\n", path);
 
-  if (lstat(path, &sb) < 0)
+  fd = open(path, O_RDONLY | O_NONBLOCK);
+  if (fd < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not open pipe for reading '%s': %s\n", path, strerror(errno));
+      goto error;
+    }
+
+  if (fstat(fd, &sb) < 0)
     {
       if (!silent)
-	DPRINTF(E_LOG, L_PLAYER, "Could not lstat() '%s': %s\n", path, strerror(errno));
-      return -1;
+	DPRINTF(E_LOG, L_PLAYER, "Could not fstat() '%s': %s\n", path, strerror(errno));
+      goto error;
     }
 
   if (!S_ISFIFO(sb.st_mode))
     {
       DPRINTF(E_LOG, L_PLAYER, "Source type is pipe, but path is not a fifo: %s\n", path);
-      return -1;
-    }
-
-  fd = open(path, O_RDONLY | O_NONBLOCK);
-  if (fd < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not open pipe for reading '%s': %s\n", path, strerror(errno));
-      return -1;
+      goto error;
     }
 
   return fd;
+
+ error:
+  if (fd >= 0)
+    close(fd);
+
+  return -1;
 }
 
 static void
