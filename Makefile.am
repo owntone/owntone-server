@@ -8,7 +8,10 @@ RPM_SPEC_FILE = owntone.spec
 CONF_FILE = owntone.conf
 SYSTEMD_SERVICE_FILE = owntone.service
 
-sysconf_DATA = $(CONF_FILE)
+if COND_INSTALL_SYSTEMD
+systemddir = $(SYSTEMD_DIR)
+systemd_DATA = $(SYSTEMD_SERVICE_FILE)
+endif
 
 BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE)
 
@@ -33,9 +36,34 @@ EXTRA_DIST = \
 	$(RPM_SPEC_FILE)
 
 install-data-hook:
-	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)/libspotify"
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/log"
 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run"
+	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)"
+if COND_INSTALL_USER
+	( $(GETENT) group $(OWNTONE_GROUP) &> /dev/null || $(GROUPADD) --system $(OWNTONE_GROUP) )
+	( $(GETENT) passwd $(OWNTONE_USER) &> /dev/null || $(USERADD) --system --no-create-home --gid $(OWNTONE_GROUP) --groups audio --shell /usr/sbin/nologin $(OWNTONE_USER) )
+	( ! $(GETENT) group pulse-access &> /dev/null || $(USERMOD) --append --groups pulse-access $(OWNTONE_USER) )
+	$(CHOWN) $(OWNTONE_USER).$(OWNTONE_GROUP) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)"
+endif
+if COND_LIBSPOTIFY
+	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)/libspotify"
+endif
+# we do this manually instead of using sysconf_DATA because it overwrites existing config
+if COND_INSTALL_CONF_FILE
+	$(MKDIR_P) "$(DESTDIR)$(sysconfdir)"
+	[ -f $(DESTDIR)$(sysconfdir)/$(CONF_FILE) ] || $(INSTALL_DATA) $(CONF_FILE) $(DESTDIR)$(sysconfdir)/$(CONF_FILE)
+endif
+
+uninstall-hook:
+	( cd "$(DESTDIR)$(localstatedir)/cache" && rm -rf $(PACKAGE) )
+	( cd "$(DESTDIR)$(localstatedir)/log" && rm -f "$(PACKAGE).log*" )
+	( cd "$(DESTDIR)$(localstatedir)/run" && rm -f "$(PACKAGE).pid" )
+if COND_INSTALL_USER
+	( ! $(GETENT) passwd $(OWNTONE_USER) &> /dev/null || $(USERDEL) $(OWNTONE_USER) )
+endif
+if COND_INSTALL_CONF_FILE
+	( cd "$(DESTDIR)$(sysconfdir)" && rm -f $(CONF_FILE) )
+endif
 
 CLEANFILES = $(BUILT_SOURCES)
 

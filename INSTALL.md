@@ -29,20 +29,22 @@ sudo apt-get install \
 Note that OwnTone will also work with other versions and flavours of
 libgcrypt and libcurl, so the above are just suggestions.
 
-While OwnTone will work with versions of libevent between 2.0.0 and 2.1.3,
-it is recommended to use 2.1.4+. Otherwise you may not have support for
-simultaneous streaming to multiple DAAP clients.
-
-Optional packages:
+The following features require extra packages, and that you add a configure
+argument when you run ./configure:
 
  Feature              | Configure argument       | Packages
- ---------------------|--------------------------|------------------------------------------------
- Chromecast           | `--enable-chromecast`    | libgnutls*-dev libprotobuf-c-dev
- Spotify (built-in)   | `--disable-spotify`      | libprotobuf-c-dev
+ ---------------------|--------------------------|-------------------------------------
+ Chromecast           | `--enable-chromecast`    | libgnutls*-dev
  Spotify (libspotify) | `--enable-libspotify`    | libspotify-dev
- Player web UI        | `--disable-webinterface` | libwebsockets-dev
- Live web UI          | `--with-libwebsockets`   | libwebsockets-dev
  Pulseaudio           | `--with-pulseaudio`      | libpulse-dev
+
+These features can be disabled saving you package dependencies:
+
+ Feature              | Configure argument       | Packages
+ ---------------------|--------------------------|-------------------------------------
+ Spotify (built-in)   | `--disable-spotify`      | libprotobuf-c-dev
+ Player web UI        | `--disable-webinterface` | libwebsockets-dev
+ Live web UI          | `--without-libwebsockets`| libwebsockets-dev
 
 Then run the following (adding configure arguments for optional features):
 
@@ -50,15 +52,25 @@ Then run the following (adding configure arguments for optional features):
 git clone https://github.com/owntone/owntone-server.git
 cd owntone-server
 autoreconf -i
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-install-user
 make
 sudo make install
 ```
 
-Finally, read the section [Long version - after installation
-](#Long-version---after-installation) in the bottom of this document, which
-describes configuration, setting up init scripts and adding a system user.
-Also see the [README.md](README.md) for usage information.
+Using `--enable-install-user` means that `make install` will also add system
+user and group for owntone.
+
+With the above configure arguments, a systemd service file will be installed to
+`/etc/systemd/system/owntone.service` so that the server will start on boot.
+Use `--disable-install-systemd` if you don't want that.
+
+Now edit `/etc/owntone.conf`. Note the guide at the top highlighting which
+settings that normally require modification.
+
+Start the server with `sudo systemctl start owntone` and check that it is
+running with `sudo systemctl status owntone`.
+
+See the [README.md](README.md) for usage information.
 
 ## Quick version for Fedora
 
@@ -93,29 +105,31 @@ Then run the following:
 
 ```bash
 autoreconf -i
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-install-user
 make
 sudo make install
 ```
 
-Finally, read the section [Long version - after installation
-](#Long-version---after-installation) in the bottom of this document, which
-describes configuration, setting up init scripts and adding a system user.
-Also see the README for usage information.
+Using `--enable-install-user` means that `make install` will also add system
+user and group for owntone.
+
+With the above configure arguments, a systemd service file will be installed to
+`/etc/systemd/system/owntone.service` so that the server will start on boot.
+Use `--disable-install-systemd` if you don't want that.
+
+Now edit `/etc/owntone.conf`. Note the guide at the top highlighting which
+settings that normally require modification.
+
+Start the server with `sudo systemctl start owntone` and check that it is
+running with `sudo systemctl status owntone`.
+
+See the [README.md](README.md) for usage information.
 
 ## Quick version for FreeBSD
 
-You can use the ports framework to handle dependencies and build options, so
-the following is sufficient to build from source on FreeBSD:
-
-```sh
-cd /usr/ports/audio/forked-daapd
-make install
-```
-
-Otherwise, there is a script in the 'scripts' folder that will at least attempt
-to do all the work for you. And should the script not work for you,
-you can still look through it and use it as an installation guide.
+There is a script in the 'scripts' folder that will at least attempt to do all
+the work for you. And should the script not work for you, you can still look
+through it and use it as an installation guide.
 
 ## Quick version for macOS (using Homebrew)
 
@@ -125,9 +139,11 @@ all the steps that you need to execute:
 
 ## "Quick" version for macOS (using macports)
 
-Caution: macports requires many downloads and lots of time to install
-(and sometimes build) ports... you'll want a decent network connection
-and some patience!
+Caution:
+1) this approach may be out of date, consider using the Homebrew method above
+since it is continuously tested.
+2) macports requires many downloads and lots of time to install (and sometimes
+build) ports... you'll want a decent network connection and some patience!
 
 Install macports (which requires Xcode):
   https://www.macports.org/install.php
@@ -240,8 +256,8 @@ Libraries:
   from <http://avahi.org/>
 - sqlite3 3.5.0+ with unlock notify API enabled (read below)  
   from <http://sqlite.org/download.html>
-- libav 9+ or ffmpeg 0.11+  
-  from <http://libav.org/> or <http://ffmpeg.org/>
+- ffmpeg (libav)
+  from <http://ffmpeg.org/>
 - libconfuse  
   from <http://www.nongnu.org/confuse/>
 - libevent 2.0+ (best with 2.1.4+)  
@@ -283,10 +299,6 @@ always the case in binary packages, so you may need to rebuild sqlite3 to
 enable the unlock notify API (you can check for the presence of the
 sqlite3_unlock_notify symbol in the sqlite3 library). Refer to the sqlite3
 documentation, look for `SQLITE_ENABLE_UNLOCK_NOTIFY`.
-
-libav (or ffmpeg) is a central piece of OwnTone and most other FLOSS
-multimedia applications. The version of libav you use will potentially have a
-great influence on your experience with OwnTone.
 
 ## Long version - building and installing
 
@@ -355,10 +367,17 @@ present (with headers). Use `--without-pulseaudio` to disable.
 Recommended build settings:
 
 ```bash
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-install-user
 ```
 
 After configure run the usual make, and if that went well, `sudo make install`.
+
+With the above configure arguments, a systemd service file will be installed to
+`/etc/systemd/system/owntone.service` so that the server will start on boot.
+Use `--disable-install-systemd` if you don't want that.
+
+Using `--enable-install-user` means that `make install` will also add a system
+user and group for owntone.
 
 You may see two kinds of warnings during make.
 First, `/usr/bin/antlr3` may generate a long series of warnings that
@@ -379,59 +398,15 @@ RSPLexer.c:2674:16: warning: unused variable `_type' [-Wunused-variable]
 
 You can safely ignore all of these warnings.
 
-## Long version - after installation
-
 After installation:
 
 - edit the configuration file, `/etc/owntone.conf`
 - make sure the Avahi daemon is installed and running (Debian:
   `apt install avahi-daemon`)
 
-Note that `sudo make install` will not install any system files to start the
-service after boot, and it will not setup a system user.
+OwnTone will drop privileges to any user you specify in the configuration file
+if it's started as root.
 
-OwnTone will drop privileges to any user you'll specify in the
-configuration file if it's started as root.
+This user must have read permission to your library and read/write permissions
+to the database location (`$localstatedir/cache/owntone` by default).
 
-This user must have read permission on your library (you can create a group for
-this and make the user a member of the group, for instance) and read/write
-permissions on the database location (`$localstatedir/cache/owntone` by
-default).
-
-If your system uses systemd then you might be able to use the service file
-included, see `owntone.service`.
-
-Otherwise you might need an init script to start OwnTone at boot. A simple
-init script will do, OwnTone daemonizes all by itself and creates a
-pidfile under `/var/run`. Different distributions have different standards for
-init scripts and some do not use init scripts anymore; check the documentation
-for your distribution.
-
-For dependency-based boot systems, here are the OwnTone dependencies:
-
-- local filesystems
-- network filesystems, if needed in your setup (library on NFS, ...)
-- networking
-- NTP
-- Avahi daemon
-
-The LSB header below sums it up:
-
-```bash
-### BEGIN INIT INFO
-# Provides:          owntone
-# Required-Start:    $local_fs $remote_fs $network $time
-# Required-Stop:     $local_fs $remote_fs $network $time
-# Should-Start:      avahi
-# Should-Stop:       avahi
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: DAAP/DACP (iTunes) server, support for AirPlay and Spotify
-# Description:       OwnTone is an iTunes-compatible media server for sharing
-#                    your media library over the local network with DAAP/DACP
-#                    clients like iTunes. Like iTunes, it can be controlled by
-#                    Apple Remote (and compatibles) and stream music directly to
-#                    AirPlay devices. It also supports streaming to RSP clients
-#                    (Roku devices) and streaming from Spotify.
-### END INIT INFO
-```

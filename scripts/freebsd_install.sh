@@ -89,14 +89,10 @@ if [ "$yn" = "y" ]; then
 
 	export CFLAGS="-march=native -g -I/usr/local/include -I/usr/include"
 	export LDFLAGS="-L/usr/local/lib -L/usr/lib"
-	./configure && gmake
+	./configure --disable-install-systemd && gmake
 
 	read -p "Should the script install owntone and add service startup scripts? [y/N] " yn
 	if [ "$yn" = "y" ]; then
-		if [ -f $CONFIG ]; then
-			echo "Backing up old config file to $CONFIG.bak"
-			sudo cp "$CONFIG" "$CONFIG.bak"
-		fi
 		sudo gmake install
 
 		sudo sed -i -- 's/\/var\/cache/\/usr\/local\/var\/cache/g' $CONFIG
