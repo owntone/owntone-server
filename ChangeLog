@@ -1,6 +1,22 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.2
+	- add Spotify integration that doesn't depend on libspotify
+	- partial support for AirPlay events (Homepod buttons)
+	- web UI upgraded, now 1.1.0:
+		show "comment" field in track details
+		drop double login to Spotify when not using libspotify
+	- easier install by letting 'make install' add user and service files
+	- preserve existing conf file when running 'make install'
+	- support for "comment" field when making smart playlists
+	- fix support for dacp device-volume
+	- fix issue where source file sort tags where ignored
+	- fix for Roku (RSP) artist display issue
+	- fix bug when 'bind_address' option is used
+	- fix for CVE-2021-38383
+	- fix some minor time-of-check time-of-use bugs
+
 version 28.1
 	- fix incompability in 28.0 with Debian Buster's libwebsockets 2.0
 
