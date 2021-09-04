@@ -116,6 +116,7 @@ status_get(struct spotify_status *status)
 
   status->installed = info.libspotify_installed;
   status->logged_in = info.libspotify_logged_in;
+  status->has_podcast_support = false;
   snprintf(status->username, sizeof(status->username), "%s", info.libspotify_user);
 }
 

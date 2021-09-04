@@ -738,6 +738,7 @@ status_get(struct spotify_status *status)
   memcpy(status->username, ctx->status.username, sizeof(status->username));
   status->logged_in = ctx->status.logged_in;
   status->installed = true;
+  status->has_podcast_support = true;
 
   pthread_mutex_unlock(&ctx->lock);
 }

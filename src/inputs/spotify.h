@@ -9,6 +9,7 @@ struct spotify_status
   bool installed;
   bool logged_in;
   char username[128];
+  bool has_podcast_support;
 };
 
 struct spotify_backend
