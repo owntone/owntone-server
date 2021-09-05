@@ -227,6 +227,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "album_artist_sort",  mfi_offsetof(album_artist_sort),  DB_TYPE_STRING, DB_FIXUP_ALBUM_ARTIST_SORT },
     { "composer_sort",      mfi_offsetof(composer_sort),      DB_TYPE_STRING, DB_FIXUP_COMPOSER_SORT },
     { "channels",           mfi_offsetof(channels),           DB_TYPE_INT },
+    { "flag",               mfi_offsetof(flag),               DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -294,6 +295,7 @@ static const struct col_type_map qi_cols_map[] =
     { "bitrate",            qi_offsetof(bitrate),             DB_TYPE_INT },
     { "samplerate",         qi_offsetof(samplerate),          DB_TYPE_INT },
     { "channels",           qi_offsetof(channels),            DB_TYPE_INT },
+    { "flag",               qi_offsetof(flag),                DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -365,6 +367,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(album_artist_sort),
     dbmfi_offsetof(composer_sort),
     dbmfi_offsetof(channels),
+    dbmfi_offsetof(flag),
   };
 
 /* This list must be kept in sync with
@@ -453,6 +456,7 @@ static const struct qi_mfi_map qi_mfi_map[] =
     { qi_offsetof(bitrate),             mfi_offsetof(bitrate),             dbmfi_offsetof(bitrate) },
     { qi_offsetof(samplerate),          mfi_offsetof(samplerate),          dbmfi_offsetof(samplerate) },
     { qi_offsetof(channels),            mfi_offsetof(channels),            dbmfi_offsetof(channels) },
+    { qi_offsetof(flag),                mfi_offsetof(flag),                dbmfi_offsetof(flag) },
   };
 
 /* This list must be kept in sync with

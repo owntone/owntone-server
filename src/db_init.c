@@ -96,7 +96,8 @@
   "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   channels           INTEGER DEFAULT 0"		\
+  "   channels           INTEGER DEFAULT 0,"		\
+  "   flag               INTEGER DEFAULT 0"		\
   ");"
 
 #define T_PL					\
@@ -199,7 +200,8 @@
   "   type                VARCHAR(8) DEFAULT NULL,"			\
   "   bitrate             INTEGER DEFAULT 0,"				\
   "   samplerate          INTEGER DEFAULT 0,"				\
-  "   channels            INTEGER DEFAULT 0"				\
+  "   channels            INTEGER DEFAULT 0,"				\
+  "   flag                INTEGER DEFAULT 0"				\
   ");"
 
 #define Q_PL1								\

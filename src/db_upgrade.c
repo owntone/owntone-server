@@ -1160,6 +1160,22 @@ static const struct db_upgrade_query db_upgrade_v2106_queries[] =
     { U_v2106_SCVER_MINOR,    "set schema_version_minor to 06" },
   };
 
+/* ---------------------------- 21.06 -> 21.07 ------------------------------ */
+#define U_v2107_ALTER_FILES_PENDING_DELETE \
+  "ALTER TABLE files ADD COLUMN flag INTEGER DEFAULT 0;"
+#define U_v2107_ALTER_QUEUE_PENDING_DELETE \
+  "ALTER TABLE queue ADD COLUMN flag INTEGER DEFAULT 0;"
+#define U_v2107_SCVER_MINOR                    \
+  "UPDATE admin SET value = '07' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2107_queries[] =
+  {
+    { U_v2107_ALTER_FILES_PENDING_DELETE, "update files adding flag" },
+    { U_v2107_ALTER_QUEUE_PENDING_DELETE, "update queue adding flag" },
+
+    { U_v2107_SCVER_MINOR,    "set schema_version_minor to 07" },
+  };
+
 
 /* -------------------------- Main upgrade handler -------------------------- */
 
@@ -1354,6 +1370,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 	return -1;
 
       ret = db_generic_upgrade(hdl, db_upgrade_v2106_queries, ARRAY_SIZE(db_upgrade_v2106_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2106:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2107_queries, ARRAY_SIZE(db_upgrade_v2107_queries));
       if (ret < 0)
 	return -1;
 

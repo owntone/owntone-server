@@ -198,6 +198,7 @@ struct media_file_info {
   uint32_t time_skipped;
 
   int64_t disabled;      // Long because it stores up to INOTIFY_FAKE_COOKIE
+  uint32_t flag;
 
   uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
   char *codectype;       /* song.codectype, 4 chars max (32 bits) */
@@ -393,6 +394,7 @@ struct db_media_file_info {
   char *album_artist_sort;
   char *composer_sort;
   char *channels;
+  char *flag;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
@@ -501,6 +503,8 @@ struct db_queue_item {
   uint32_t channels;
 
   int64_t songartistid;
+
+  uint32_t flag;
 
   /* Not saved in queue table */
   uint32_t seek;
