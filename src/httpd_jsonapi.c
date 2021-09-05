@@ -311,6 +311,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "samplerate", dbmfi->samplerate);
   safe_json_add_int_from_string(item, "bitrate", dbmfi->bitrate);
   safe_json_add_int_from_string(item, "channels", dbmfi->channels);
+  safe_json_add_int_from_string(item, "flag", dbmfi->flag);
 
   ret = safe_atoi32(dbmfi->media_kind, &intval);
   if (ret == 0)
@@ -2221,6 +2222,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   json_object_object_add(item, "bitrate", json_object_new_int(queue_item->bitrate));
   json_object_object_add(item, "samplerate", json_object_new_int(queue_item->samplerate));
   json_object_object_add(item, "channels", json_object_new_int(queue_item->channels));
+  json_object_object_add(item, "flag", json_object_new_int(queue_item->flag));
 
   return item;
 }
@@ -3334,6 +3336,20 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
       	ret = db_file_rating_update_byid(track_id, val);
       else
       	DPRINTF(E_WARN, L_WEB, "Ignoring invalid rating value '%d' for track '%d'.\n", val, track_id);
+
+      if (ret < 0)
+        return HTTP_INTERNAL;
+    }
+
+  // retreive via "/api/search?type=tracks&expression=flag+=+1"
+  param = evhttp_find_header(hreq->query, "flag");
+  if (param)
+    {
+      ret = safe_atoi32(param, &val);
+      if (ret < 0 || (ret == 0 && (val < FLAG_KIND_NA || val >= FLAG_KIND_MAX)) )
+	return HTTP_BADREQUEST;
+
+      ret = db_file_flag_update_byid(track_id, val);
 
       if (ret < 0)
         return HTTP_INTERNAL;

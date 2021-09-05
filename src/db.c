@@ -3324,6 +3324,27 @@ db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating)
 #undef Q_TMPL
 }
 
+int
+db_file_flag_update_byid(uint32_t id, uint32_t flag)
+{
+#define Q_TMPL "UPDATE files SET flag = %d WHERE id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, flag, id);
+
+  ret = db_query_run(query, 1, 0);
+
+  if (ret == 0)
+    {
+      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
+      listener_notify(LISTENER_RATING);
+    }
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
 void
 db_file_delete_bypath(const char *path)
 {

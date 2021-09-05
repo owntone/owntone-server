@@ -141,6 +141,13 @@ enum data_kind {
 const char *
 db_data_kind_label(enum data_kind data_kind);
 
+enum flag_kind {
+  FLAG_KIND_NA = 0,     // unset
+  FLAG_KIND_DELETE = 1, // delete
+
+  FLAG_KIND_MAX         // unused
+};
+
 /* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
 struct media_file_info {
   uint32_t id;
@@ -654,6 +661,9 @@ db_file_seek_update(int id, uint32_t seek);
 
 int
 db_file_rating_update_byid(uint32_t id, uint32_t rating);
+
+int
+db_file_flag_update_byid(uint32_t id, uint32_t rating);
 
 int
 db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating);
