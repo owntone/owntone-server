@@ -60,6 +60,16 @@
                     <span v-if="item.bitrate"> | {{ item.bitrate }} Kb/s</span>
                   </span>
                 </p>
+                <p>
+                  <span class="heading">Usermark</span>
+                  <span class="title is-6">{{ this.usermark }}</span>
+                </p>
+                <div class="buttons">
+                  <a class="button is-small is-danger" @click="usermark_update(1)">Mark to delete</a>
+                  <a class="button is-small is-warning" @click="usermark_update(2)">Mark to rexcode</a>
+                  <a class="button is-small is-warning" @click="usermark_update(4)">Mark to review</a>
+                  <a v-if="this.usermark > 0" class="button is-small is-success" @click="usermark_update(0)">Mark reset</a>
+                </div>
               </div>
             </div>
             <footer class="card-footer">
@@ -88,6 +98,7 @@ export default {
 
   data () {
     return {
+      usermark: -1,
       spotify_track: {}
     }
   },
@@ -129,6 +140,20 @@ export default {
     open_spotify_album: function () {
       this.$emit('close')
       this.$router.push({ path: '/music/spotify/albums/' + this.spotify_track.album.id })
+    },
+
+    usermark_update (value) {
+      const newvalue = value === 0 ? 0 : value | this.usermark
+      webapi.library_track_set_usermark(this.track_id, newvalue).then(() => {
+        this.usermark = newvalue
+      })
+    }
+  },
+
+  computed: {
+    track_id () {
+      const item = this.$store.state.queue.items.find((elem) => elem.id === this.item.id)
+      return (item === undefined) ? -1 : item.track_id
     }
   },
 
@@ -142,6 +167,11 @@ export default {
         })
       } else {
         this.spotify_track = {}
+        webapi.library_track(this.track_id).then((response) => {
+          this.usermark = response.data.usermark
+        }).catch(() => {
+          this.usermark = -1
+        })
       }
     }
   }

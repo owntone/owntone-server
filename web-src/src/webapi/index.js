@@ -335,6 +335,13 @@ export default {
     return axios.put('./api/library/tracks/' + trackId, undefined, { params: attributes })
   },
 
+  library_track_set_usermark (trackId, flag) {
+    return axios.put('/api/library/tracks/' + trackId, undefined, { params: { usermark: flag } }).then((response) => {
+      store.dispatch('add_notification', { text: flag === 0 ? 'Track Review Reset' : 'Track Review Updated', type: flag === 0 ? 'success' : 'info', timeout: 1500 })
+      return Promise.resolve(response)
+    })
+  },
+
   library_files (directory = undefined) {
     const filesParams = { directory: directory }
     return axios.get('./api/library/files', {
