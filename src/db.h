@@ -141,11 +141,15 @@ enum data_kind {
 const char *
 db_data_kind_label(enum data_kind data_kind);
 
+
+/* Indicates user marked status on a track */
 enum flag_kind {
   FLAG_KIND_NA = 0,     // unset
-  FLAG_KIND_DELETE = 1, // delete
+  FLAG_KIND_DELETE,
+  FLAG_KIND_REXCODE,
+  FLAG_KIND_REVIEW,
 
-  FLAG_KIND_MAX         // unused
+  FLAG_KIND_MAX         // unused - keep last in enum
 };
 
 /* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
@@ -205,7 +209,7 @@ struct media_file_info {
   uint32_t time_skipped;
 
   int64_t disabled;      // Long because it stores up to INOTIFY_FAKE_COOKIE
-  uint32_t flag;
+  uint32_t flag;         // See enum flag_kind { }
 
   uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
   char *codectype;       /* song.codectype, 4 chars max (32 bits) */
