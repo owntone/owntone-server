@@ -311,7 +311,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "samplerate", dbmfi->samplerate);
   safe_json_add_int_from_string(item, "bitrate", dbmfi->bitrate);
   safe_json_add_int_from_string(item, "channels", dbmfi->channels);
-  safe_json_add_int_from_string(item, "flag", dbmfi->flag);
+  safe_json_add_int_from_string(item, "usermark", dbmfi->usermark);
 
   ret = safe_atoi32(dbmfi->media_kind, &intval);
   if (ret == 0)
@@ -2222,7 +2222,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   json_object_object_add(item, "bitrate", json_object_new_int(queue_item->bitrate));
   json_object_object_add(item, "samplerate", json_object_new_int(queue_item->samplerate));
   json_object_object_add(item, "channels", json_object_new_int(queue_item->channels));
-  json_object_object_add(item, "flag", json_object_new_int(queue_item->flag));
+  json_object_object_add(item, "usermark", json_object_new_int(queue_item->usermark));
 
   return item;
 }
@@ -3300,6 +3300,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   int track_id;
   const char *param;
   int val;
+  uint32_t uval;
   int ret;
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &track_id);
@@ -3341,15 +3342,19 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
         return HTTP_INTERNAL;
     }
 
-  // retreive via "/api/search?type=tracks&expression=flag+=+1"
-  param = evhttp_find_header(hreq->query, "flag");
+  // Update usermark
+  // retreive via "/api/search?type=tracks&expression=usermark+=+1"
+  param = evhttp_find_header(hreq->query, "usermark");
   if (param)
     {
-      ret = safe_atoi32(param, &val);
-      if (ret < 0 || (ret == 0 && (val < FLAG_KIND_NA || val >= FLAG_KIND_MAX)) )
+      ret = safe_atou32(param, &uval);
+      if (ret < 0)
 	return HTTP_BADREQUEST;
 
-      ret = db_file_flag_update_byid(track_id, val);
+      if (uval >= 0 && uval <= DB_FILES_USERMARK_MAX)
+        ret = db_file_usermark_update_byid(track_id, uval);
+      else
+        DPRINTF(E_WARN, L_WEB, "Ignoring invalid usermark value '%u' for track '%d'.\n", uval, track_id);
 
       if (ret < 0)
         return HTTP_INTERNAL;

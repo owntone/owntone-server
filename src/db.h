@@ -142,15 +142,16 @@ const char *
 db_data_kind_label(enum data_kind data_kind);
 
 
-/* Indicates user marked status on a track */
-enum flag_kind {
-  FLAG_KIND_NA = 0,     // unset
-  FLAG_KIND_DELETE,
-  FLAG_KIND_REXCODE,
-  FLAG_KIND_REVIEW,
-
-  FLAG_KIND_MAX         // unused - keep last in enum
+/* Indicates user marked status on a track  - values can be bitwise enumerated */
+enum user_mark {
+  USER_MARK_NA  = 0,
+  USER_MARK_DELETE = 1,
+  USER_MARK_REXCODE = 2,
+  USER_MARK_REVIEW = 4
 };
+
+#define DB_FILES_USERMARK_MAX  UINT_MAX
+
 
 /* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
 struct media_file_info {
@@ -209,7 +210,7 @@ struct media_file_info {
   uint32_t time_skipped;
 
   int64_t disabled;      // Long because it stores up to INOTIFY_FAKE_COOKIE
-  uint32_t flag;         // See enum flag_kind { }
+  uint32_t usermark;     // See enum user_mark { }
 
   uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
   char *codectype;       /* song.codectype, 4 chars max (32 bits) */
@@ -405,7 +406,7 @@ struct db_media_file_info {
   char *album_artist_sort;
   char *composer_sort;
   char *channels;
-  char *flag;
+  char *usermark;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
@@ -515,7 +516,7 @@ struct db_queue_item {
 
   int64_t songartistid;
 
-  uint32_t flag;
+  uint32_t usermark;
 
   /* Not saved in queue table */
   uint32_t seek;
@@ -667,7 +668,7 @@ int
 db_file_rating_update_byid(uint32_t id, uint32_t rating);
 
 int
-db_file_flag_update_byid(uint32_t id, uint32_t rating);
+db_file_usermark_update_byid(uint32_t id, uint32_t usermark);
 
 int
 db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating);

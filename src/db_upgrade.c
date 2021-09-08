@@ -1161,17 +1161,17 @@ static const struct db_upgrade_query db_upgrade_v2106_queries[] =
   };
 
 /* ---------------------------- 21.06 -> 21.07 ------------------------------ */
-#define U_v2107_ALTER_FILES_PENDING_DELETE \
-  "ALTER TABLE files ADD COLUMN flag INTEGER DEFAULT 0;"
-#define U_v2107_ALTER_QUEUE_PENDING_DELETE \
-  "ALTER TABLE queue ADD COLUMN flag INTEGER DEFAULT 0;"
+#define U_v2107_ALTER_FILES_USERMARK \
+  "ALTER TABLE files ADD COLUMN usermark INTEGER DEFAULT 0;"
+#define U_v2107_ALTER_QUEUE_USERMARK \
+  "ALTER TABLE queue ADD COLUMN usermark INTEGER DEFAULT 0;"
 #define U_v2107_SCVER_MINOR                    \
   "UPDATE admin SET value = '07' WHERE key = 'schema_version_minor';"
 
 static const struct db_upgrade_query db_upgrade_v2107_queries[] =
   {
-    { U_v2107_ALTER_FILES_PENDING_DELETE, "update files adding flag" },
-    { U_v2107_ALTER_QUEUE_PENDING_DELETE, "update queue adding flag" },
+    { U_v2107_ALTER_FILES_USERMARK, "update files adding usermark" },
+    { U_v2107_ALTER_QUEUE_USERMARK, "update queue adding usermark" },
 
     { U_v2107_SCVER_MINOR,    "set schema_version_minor to 07" },
   };
