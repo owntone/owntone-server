@@ -3351,10 +3351,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
       if (ret < 0)
 	return HTTP_BADREQUEST;
 
-      if (uval >= 0 && uval <= DB_FILES_USERMARK_MAX)
-        ret = db_file_usermark_update_byid(track_id, uval);
-      else
-        DPRINTF(E_WARN, L_WEB, "Ignoring invalid usermark value '%u' for track '%d'.\n", uval, track_id);
+      ret = db_file_usermark_update_byid(track_id, uval);
 
       if (ret < 0)
         return HTTP_INTERNAL;

@@ -150,8 +150,6 @@ enum user_mark {
   USER_MARK_REVIEW = 4
 };
 
-#define DB_FILES_USERMARK_MAX  UINT_MAX
-
 
 /* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
 struct media_file_info {
