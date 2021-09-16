@@ -3299,8 +3299,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 {
   int track_id;
   const char *param;
-  int val;
-  uint32_t uval;
+  uint32_t val;
   int ret;
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &track_id);
@@ -3329,7 +3328,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   param = evhttp_find_header(hreq->query, "rating");
   if (param)
     {
-      ret = safe_atoi32(param, &val);
+      ret = safe_atou32(param, &val);
       if (ret < 0)
 	return HTTP_BADREQUEST;
 
@@ -3347,11 +3346,11 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   param = evhttp_find_header(hreq->query, "usermark");
   if (param)
     {
-      ret = safe_atou32(param, &uval);
+      ret = safe_atou32(param, &val);
       if (ret < 0)
 	return HTTP_BADREQUEST;
 
-      ret = db_file_usermark_update_byid(track_id, uval);
+      ret = db_file_usermark_update_byid(track_id, val);
 
       if (ret < 0)
         return HTTP_INTERNAL;
