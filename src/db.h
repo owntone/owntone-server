@@ -514,8 +514,6 @@ struct db_queue_item {
 
   int64_t songartistid;
 
-  uint32_t usermark;
-
   /* Not saved in queue table */
   uint32_t seek;
 };

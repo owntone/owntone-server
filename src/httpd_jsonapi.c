@@ -2222,7 +2222,6 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
   json_object_object_add(item, "bitrate", json_object_new_int(queue_item->bitrate));
   json_object_object_add(item, "samplerate", json_object_new_int(queue_item->samplerate));
   json_object_object_add(item, "channels", json_object_new_int(queue_item->channels));
-  json_object_object_add(item, "usermark", json_object_new_int(queue_item->usermark));
 
   return item;
 }

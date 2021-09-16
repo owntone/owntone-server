@@ -200,8 +200,7 @@
   "   type                VARCHAR(8) DEFAULT NULL,"			\
   "   bitrate             INTEGER DEFAULT 0,"				\
   "   samplerate          INTEGER DEFAULT 0,"				\
-  "   channels            INTEGER DEFAULT 0,"				\
-  "   usermark            INTEGER DEFAULT 0"				\
+  "   channels            INTEGER DEFAULT 0"				\
   ");"
 
 #define Q_PL1								\
