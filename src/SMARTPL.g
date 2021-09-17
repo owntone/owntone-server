@@ -102,6 +102,7 @@ INTTAG		:	'play_count'
 			|	'bits_per_sample'
 			|	'samplerate'
 			|	'song_length'
+			|	'usermark'
 			;
 
 DATETAG		:	'time_added'

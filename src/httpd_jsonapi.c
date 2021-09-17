@@ -311,6 +311,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "samplerate", dbmfi->samplerate);
   safe_json_add_int_from_string(item, "bitrate", dbmfi->bitrate);
   safe_json_add_int_from_string(item, "channels", dbmfi->channels);
+  safe_json_add_int_from_string(item, "usermark", dbmfi->usermark);
 
   ret = safe_atoi32(dbmfi->media_kind, &intval);
   if (ret == 0)
@@ -3297,14 +3298,13 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 {
   int track_id;
   const char *param;
-  int val;
+  uint32_t val;
   int ret;
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &track_id);
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  // Update play_count/skip_count
   param = evhttp_find_header(hreq->query, "play_count");
   if (param)
     {
@@ -3319,22 +3319,37 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
       else
 	{
 	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
+	  return HTTP_BADREQUEST;
 	}
     }
 
-  // Update rating
   param = evhttp_find_header(hreq->query, "rating");
   if (param)
     {
-      ret = safe_atoi32(param, &val);
+      ret = safe_atou32(param, &val);
+      if (ret < 0 || val > DB_FILES_RATING_MAX)
+	{
+	  DPRINTF(E_WARN, L_WEB, "Invalid rating value '%s' for track '%d'.\n", param, track_id);
+	  return HTTP_BADREQUEST;
+	}
+
+      ret = db_file_rating_update_byid(track_id, val);
       if (ret < 0)
-	return HTTP_BADREQUEST;
+        return HTTP_INTERNAL;
+    }
 
-      if (val >= 0 && val <= DB_FILES_RATING_MAX)
-      	ret = db_file_rating_update_byid(track_id, val);
-      else
-      	DPRINTF(E_WARN, L_WEB, "Ignoring invalid rating value '%d' for track '%d'.\n", val, track_id);
+  // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+=+1"
+  param = evhttp_find_header(hreq->query, "usermark");
+  if (param)
+    {
+      ret = safe_atou32(param, &val);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_WEB, "Invalid usermark value '%s' for track '%d'.\n", param, track_id);
+	  return HTTP_BADREQUEST;
+	}
 
+      ret = db_file_usermark_update_byid(track_id, val);
       if (ret < 0)
         return HTTP_INTERNAL;
     }

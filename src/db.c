@@ -227,6 +227,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "album_artist_sort",  mfi_offsetof(album_artist_sort),  DB_TYPE_STRING, DB_FIXUP_ALBUM_ARTIST_SORT },
     { "composer_sort",      mfi_offsetof(composer_sort),      DB_TYPE_STRING, DB_FIXUP_COMPOSER_SORT },
     { "channels",           mfi_offsetof(channels),           DB_TYPE_INT },
+    { "usermark",           mfi_offsetof(usermark),           DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -365,6 +366,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(album_artist_sort),
     dbmfi_offsetof(composer_sort),
     dbmfi_offsetof(channels),
+    dbmfi_offsetof(usermark),
   };
 
 /* This list must be kept in sync with
@@ -3317,6 +3319,27 @@ db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating)
   query = sqlite3_mprintf(Q_TMPL, rating, virtual_path);
 
   return db_file_rating_update(query);
+#undef Q_TMPL
+}
+
+int
+db_file_usermark_update_byid(uint32_t id, uint32_t usermark)
+{
+#define Q_TMPL "UPDATE files SET usermark = %d WHERE id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, usermark, id);
+
+  ret = db_query_run(query, 1, 0);
+
+  if (ret == 0)
+    {
+      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
+      listener_notify(LISTENER_UPDATE);
+    }
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
 }
 

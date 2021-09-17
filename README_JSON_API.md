@@ -791,7 +791,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 | GET       | [/api/library/tracks/{id}](#get-a-track)                    | Get a track                          |
 | GET       | [/api/library/tracks/{id}/playlists](#list-playlists-for-a-track) | Get list of playlists for a track |
-| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update a tracks properties (rating, play_count) |
+| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update track properties              |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
@@ -1528,6 +1528,7 @@ curl -X GET "http://localhost:3689/api/library/track/1"
   "disc_number": 1,
   "length_ms": 223170,
   "rating": 0,
+  "usermark": 0,
   "play_count": 0,
   "skip_count": 0,
   "time_added": "2019-01-20T11:58:29Z",
@@ -1601,7 +1602,7 @@ curl -X GET "http://localhost:3689/api/library/tracks/27/playlists"
 
 ### Update track properties
 
-Change properties of a specific track (supported properties are "rating" and "play_count")
+Change properties of a specific track (supported properties are "rating", "play_count" and "usermark")
 
 **Endpoint**
 
@@ -1621,6 +1622,7 @@ PUT /api/library/tracks/{id}
 | --------------- | ----------------------------------------------------------- |
 | rating          | The new rating (0 - 100)                                    |
 | play_count      | Either `increment` or `reset`. `increment` will increment `play_count` and update `time_played`, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped` |
+| usermark        | The new usermark (>= 0)                                     |
 
 
 **Response**
@@ -2565,6 +2567,7 @@ curl --include \
 | path               | string   | Path                                      |
 | uri                | string   | Resource identifier                       |
 | artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
+| usermark           | integer  | User review marking of track (ranges from 0) |
 
 
 ### `paging` object
