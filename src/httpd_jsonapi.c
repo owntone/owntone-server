@@ -3305,7 +3305,6 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  // Update play_count/skip_count
   param = evhttp_find_header(hreq->query, "play_count");
   if (param)
     {
@@ -3320,37 +3319,37 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
       else
 	{
 	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
+	  return HTTP_BADREQUEST;
 	}
     }
 
-  // Update rating
   param = evhttp_find_header(hreq->query, "rating");
   if (param)
     {
       ret = safe_atou32(param, &val);
-      if (ret < 0)
-	return HTTP_BADREQUEST;
+      if (ret < 0 || val > DB_FILES_RATING_MAX)
+	{
+	  DPRINTF(E_WARN, L_WEB, "Invalid rating value '%s' for track '%d'.\n", param, track_id);
+	  return HTTP_BADREQUEST;
+	}
 
-      if (val >= 0 && val <= DB_FILES_RATING_MAX)
-      	ret = db_file_rating_update_byid(track_id, val);
-      else
-      	DPRINTF(E_WARN, L_WEB, "Ignoring invalid rating value '%d' for track '%d'.\n", val, track_id);
-
+      ret = db_file_rating_update_byid(track_id, val);
       if (ret < 0)
         return HTTP_INTERNAL;
     }
 
-  // Update usermark
-  // retreive via "/api/search?type=tracks&expression=usermark+=+1"
+  // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+=+1"
   param = evhttp_find_header(hreq->query, "usermark");
   if (param)
     {
       ret = safe_atou32(param, &val);
       if (ret < 0)
-	return HTTP_BADREQUEST;
+	{
+	  DPRINTF(E_WARN, L_WEB, "Invalid usermark value '%s' for track '%d'.\n", param, track_id);
+	  return HTTP_BADREQUEST;
+	}
 
       ret = db_file_usermark_update_byid(track_id, val);
-
       if (ret < 0)
         return HTTP_INTERNAL;
     }

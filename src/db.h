@@ -143,11 +143,11 @@ db_data_kind_label(enum data_kind data_kind);
 
 
 /* Indicates user marked status on a track  - values can be bitwise enumerated */
-enum user_mark {
-  USER_MARK_NA  = 0,
-  USER_MARK_DELETE = 1,
-  USER_MARK_REXCODE = 2,
-  USER_MARK_REVIEW = 4
+enum usermark {
+  USERMARK_NA  = 0,
+  USERMARK_DELETE = 1,
+  USERMARK_REXCODE = 2,
+  USERMARK_REVIEW = 4,
 };
 
 

@@ -791,7 +791,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 | GET       | [/api/library/tracks/{id}](#get-a-track)                    | Get a track                          |
 | GET       | [/api/library/tracks/{id}/playlists](#list-playlists-for-a-track) | Get list of playlists for a track |
-| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update a tracks properties (rating, play_count,usermark) |
+| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update track properties              |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
