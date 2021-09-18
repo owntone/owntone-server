@@ -4,7 +4,7 @@
       <slot name="icon"></slot>
     </figure>
     <div class="media-content fd-has-action is-clipped" @click="listeners.click">
-      <h1 class="title is-6" :class="{ 'has-text-grey': props.track.media_kind === 'podcast' && props.track.play_count > 0 }">{{ props.track.title }}</h1>
+      <h1 class="title is-6" :class="{ 'has-text-grey': props.track.usermark > 0 || props.track.media_kind === 'podcast' && props.track.play_count > 0, 'is-italic': props.track.usermark > 0 }">{{ props.track.title }}</h1>
       <h2 class="subtitle is-7 has-text-grey"><b>{{ props.track.artist }}</b></h2>
       <h2 class="subtitle is-7 has-text-grey">{{ props.track.album }}</h2>
       <slot name="progress"></slot>

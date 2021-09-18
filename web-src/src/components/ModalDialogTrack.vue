@@ -74,6 +74,17 @@
                   <span class="heading">Rating</span>
                   <span class="title is-6">{{ Math.floor(track.rating / 10) }} / 10</span>
                 </p>
+                <div v-if="this.track.data_kind === 'file'">
+                  <p>
+                    <span class="heading">Usermark</span>
+                  </p>
+                  <div class="buttons">
+                    <a :disabled="this.usermark_is_set(1)" class="button is-small is-danger" @click="usermark_update(1)">Mark to delete</a>
+                    <a :disabled="this.usermark_is_set(2)" class="button is-small is-warning" @click="usermark_update(2)">Mark to rexcode</a>
+                    <a :disabled="this.usermark_is_set(4)" class="button is-small is-warning" @click="usermark_update(4)">Mark to review</a>
+                    <a :disabled="this.usermark === 0" class="button is-small is-success" @click="usermark_update(0)">Mark reset</a>
+                  </div>
+                </div>
                 <p v-if="track.comment">
                   <span class="heading">Comment</span>
                   <span class="title is-6">{{ track.comment }}</span>
@@ -110,6 +121,7 @@ export default {
 
   data () {
     return {
+      usermark: -1,
       spotify_track: {}
     }
   },
@@ -160,6 +172,17 @@ export default {
       this.$router.push({ path: '/music/spotify/albums/' + this.spotify_track.album.id })
     },
 
+    usermark_is_set: function (value) {
+      return (this.usermark & value) > 0
+    },
+
+    usermark_update (value) {
+      const newvalue = value === 0 ? 0 : value | this.usermark
+      webapi.library_track_set_usermark(this.track.id, newvalue).then(() => {
+        this.usermark = newvalue
+      })
+    },
+
     mark_new: function () {
       webapi.library_track_update(this.track.id, { play_count: 'reset' }).then(() => {
         this.$emit('play-count-changed')
@@ -185,6 +208,13 @@ export default {
         })
       } else {
         this.spotify_track = {}
+        if (this.track.data_kind === 'file') {
+          webapi.library_track(this.track.id).then((response) => {
+            this.usermark = response.data.usermark
+          }).catch(() => {
+            this.usermark = -1
+          })
+        }
       }
     }
   }

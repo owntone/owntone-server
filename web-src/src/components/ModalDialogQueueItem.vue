@@ -60,15 +60,16 @@
                     <span v-if="item.bitrate"> | {{ item.bitrate }} Kb/s</span>
                   </span>
                 </p>
-                <p>
-                  <span class="heading">Usermark</span>
-                  <span class="title is-6">{{ this.usermark }}</span>
-                </p>
-                <div class="buttons">
-                  <a :disabled="this.usermark_is_set(1)" class="button is-small is-danger" @click="usermark_update(1)">Mark to delete</a>
-                  <a :disabled="this.usermark_is_set(2)" class="button is-small is-warning" @click="usermark_update(2)">Mark to rexcode</a>
-                  <a :disabled="this.usermark_is_set(4)" class="button is-small is-warning" @click="usermark_update(4)">Mark to review</a>
-                  <a :disabled="this.usermark === 0" class="button is-small is-success" @click="usermark_update(0)">Mark reset</a>
+                <div v-if="this.item.data_kind === 'file'">
+                  <p>
+                    <span class="heading">Usermark</span>
+                  </p>
+                  <div class="buttons">
+                    <a :disabled="this.usermark_is_set(1)" class="button is-small is-danger" @click="usermark_update(1)">Mark to delete</a>
+                    <a :disabled="this.usermark_is_set(2)" class="button is-small is-warning" @click="usermark_update(2)">Mark to rexcode</a>
+                    <a :disabled="this.usermark_is_set(4)" class="button is-small is-warning" @click="usermark_update(4)">Mark to review</a>
+                    <a :disabled="this.usermark === 0" class="button is-small is-success" @click="usermark_update(0)">Mark reset</a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -94,7 +95,7 @@ import SpotifyWebApi from 'spotify-web-api-js'
 
 export default {
   name: 'ModalDialogQueueItem',
-  props: ['show', 'item'],
+  props: ['show', 'item', 'np_usermark'],
 
   data () {
     return {
@@ -148,16 +149,10 @@ export default {
 
     usermark_update (value) {
       const newvalue = value === 0 ? 0 : value | this.usermark
-      webapi.library_track_set_usermark(this.track_id, newvalue).then(() => {
+      webapi.library_track_set_usermark(this.item.track_id, newvalue).then(() => {
         this.usermark = newvalue
+        this.$emit('close_usermark', { value: this.usermark })
       })
-    }
-  },
-
-  computed: {
-    track_id () {
-      const item = this.$store.state.queue.items.find((elem) => elem.id === this.item.id)
-      return (item === undefined) ? -1 : item.track_id
     }
   },
 
@@ -171,11 +166,15 @@ export default {
         })
       } else {
         this.spotify_track = {}
-        webapi.library_track(this.track_id).then((response) => {
-          this.usermark = response.data.usermark
-        }).catch(() => {
-          this.usermark = -1
-        })
+        if (this.np_usermark !== undefined) {
+          this.usermark = this.np_usermark
+        } else if (this.item.data_kind === 'file') {
+          webapi.library_track(this.item.track_id).then((response) => {
+            this.usermark = response.data.usermark
+          }).catch(() => {
+            this.usermark = -1
+          })
+        }
       }
     }
   }
