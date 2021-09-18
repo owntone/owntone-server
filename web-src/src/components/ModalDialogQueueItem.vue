@@ -65,10 +65,10 @@
                   <span class="title is-6">{{ this.usermark }}</span>
                 </p>
                 <div class="buttons">
-                  <a class="button is-small is-danger" @click="usermark_update(1)">Mark to delete</a>
-                  <a class="button is-small is-warning" @click="usermark_update(2)">Mark to rexcode</a>
-                  <a class="button is-small is-warning" @click="usermark_update(4)">Mark to review</a>
-                  <a v-if="this.usermark > 0" class="button is-small is-success" @click="usermark_update(0)">Mark reset</a>
+                  <a :disabled="this.usermark_is_set(1)" class="button is-small is-danger" @click="usermark_update(1)">Mark to delete</a>
+                  <a :disabled="this.usermark_is_set(2)" class="button is-small is-warning" @click="usermark_update(2)">Mark to rexcode</a>
+                  <a :disabled="this.usermark_is_set(4)" class="button is-small is-warning" @click="usermark_update(4)">Mark to review</a>
+                  <a :disabled="this.usermark === 0" class="button is-small is-success" @click="usermark_update(0)">Mark reset</a>
                 </div>
               </div>
             </div>
@@ -140,6 +140,10 @@ export default {
     open_spotify_album: function () {
       this.$emit('close')
       this.$router.push({ path: '/music/spotify/albums/' + this.spotify_track.album.id })
+    },
+
+    usermark_is_set: function (value) {
+      return (this.usermark & value) > 0
     },
 
     usermark_update (value) {
