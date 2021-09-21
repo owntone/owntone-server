@@ -791,7 +791,7 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 | GET       | [/api/library/tracks/{id}](#get-a-track)                    | Get a track                          |
 | GET       | [/api/library/tracks/{id}/playlists](#list-playlists-for-a-track) | Get list of playlists for a track |
-| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update track properties              |
+| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update track(s) properties           |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
@@ -1607,7 +1607,7 @@ Change properties of a specific track (supported properties are "rating", "play_
 **Endpoint**
 
 ```http
-PUT /api/library/tracks/{id}
+PUT /api/library/tracks/{id}[,{id1}]
 ```
 
 **Path parameters**
@@ -1639,6 +1639,9 @@ curl -X PUT "http://localhost:3689/api/library/tracks/1?rating=100"
 curl -X PUT "http://localhost:3689/api/library/tracks/1?play_count=increment"
 ```
 
+```shell
+curl -X PUT "http://localhost:3689/api/library/tracks/1,2,3?rating=5"
+```
 
 ### List genres
 

@@ -3296,63 +3296,73 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 {
+  char *ptr;
+  char *saveptr;
   int track_id;
   const char *param;
   uint32_t val;
   int ret;
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &track_id);
-  if (ret < 0)
-    return HTTP_INTERNAL;
+  ptr = strtok_r(hreq->uri_parsed->path_parts[3], ",", &saveptr);
+  if (!ptr)
+    ptr = hreq->uri_parsed->path_parts[3];
 
-  param = evhttp_find_header(hreq->query, "play_count");
-  if (param)
+  do
     {
-      if (strcmp(param, "increment") == 0)
+      ret = safe_atoi32(ptr, &track_id);
+      if (ret < 0)
+	return HTTP_INTERNAL;
+
+      param = evhttp_find_header(hreq->query, "play_count");
+      if (param)
 	{
-	  db_file_inc_playcount(track_id);
+	  if (strcmp(param, "increment") == 0)
+	    {
+	      db_file_inc_playcount(track_id);
+	    }
+	  else if (strcmp(param, "reset") == 0)
+	    {
+	      db_file_reset_playskip_count(track_id);
+	    }
+	  else
+	    {
+	      DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
+	      return HTTP_BADREQUEST;
+	    }
 	}
-      else if (strcmp(param, "reset") == 0)
+
+      param = evhttp_find_header(hreq->query, "rating");
+      if (param)
 	{
-	  db_file_reset_playskip_count(track_id);
+	  ret = safe_atou32(param, &val);
+	  if (ret < 0 || val > DB_FILES_RATING_MAX)
+	    {
+	      DPRINTF(E_WARN, L_WEB, "Invalid rating value '%s' for track '%d'.\n", param, track_id);
+	      return HTTP_BADREQUEST;
+	    }
+
+	  ret = db_file_rating_update_byid(track_id, val);
+	  if (ret < 0)
+	    return HTTP_INTERNAL;
 	}
-      else
+
+      // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+=+1"
+      param = evhttp_find_header(hreq->query, "usermark");
+      if (param)
 	{
-	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
-	  return HTTP_BADREQUEST;
+	  ret = safe_atou32(param, &val);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_WARN, L_WEB, "Invalid usermark value '%s' for track '%d'.\n", param, track_id);
+	      return HTTP_BADREQUEST;
+	    }
+
+	  ret = db_file_usermark_update_byid(track_id, val);
+	  if (ret < 0)
+	    return HTTP_INTERNAL;
 	}
     }
-
-  param = evhttp_find_header(hreq->query, "rating");
-  if (param)
-    {
-      ret = safe_atou32(param, &val);
-      if (ret < 0 || val > DB_FILES_RATING_MAX)
-	{
-	  DPRINTF(E_WARN, L_WEB, "Invalid rating value '%s' for track '%d'.\n", param, track_id);
-	  return HTTP_BADREQUEST;
-	}
-
-      ret = db_file_rating_update_byid(track_id, val);
-      if (ret < 0)
-        return HTTP_INTERNAL;
-    }
-
-  // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+=+1"
-  param = evhttp_find_header(hreq->query, "usermark");
-  if (param)
-    {
-      ret = safe_atou32(param, &val);
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_WEB, "Invalid usermark value '%s' for track '%d'.\n", param, track_id);
-	  return HTTP_BADREQUEST;
-	}
-
-      ret = db_file_usermark_update_byid(track_id, val);
-      if (ret < 0)
-        return HTTP_INTERNAL;
-    }
+  while ((ptr = strtok_r(NULL, ",", &saveptr)));
 
   return HTTP_OK;
 }
@@ -4425,7 +4435,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
     { EVHTTP_REQ_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
-    { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
+    { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+(,[[:digit:]]+)*$",           jsonapi_reply_library_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+/playlists$", jsonapi_reply_library_track_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
