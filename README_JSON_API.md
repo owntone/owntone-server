@@ -1602,12 +1602,12 @@ curl -X GET "http://localhost:3689/api/library/tracks/27/playlists"
 
 ### Update track properties
 
-Change properties of a specific track (supported properties are "rating", "play_count" and "usermark")
+Change properties of a specific track(s) (supported properties are "rating", "play_count" and "usermark")
 
 **Endpoint**
 
 ```http
-PUT /api/library/tracks/{id}[,{id1}]
+PUT /api/library/tracks/{id}
 ```
 
 **Path parameters**
@@ -1615,6 +1615,18 @@ PUT /api/library/tracks/{id}[,{id1}]
 | Parameter       | Value                |
 | --------------- | -------------------- |
 | id              | Track id             |
+
+**Endpoint**
+
+```http
+PUT /api/library/tracks
+```
+
+**Path parameters**
+
+| Parameter       | Type     | Value                |
+| --------------- | -------- | -------------------- |
+| tracks          | array    | Array of track ids   |
 
 **Query parameters**
 
@@ -1640,7 +1652,7 @@ curl -X PUT "http://localhost:3689/api/library/tracks/1?play_count=increment"
 ```
 
 ```shell
-curl -X PUT "http://localhost:3689/api/library/tracks/1,2,3?rating=5"
+curl -X PUT -d '{ "tracks": [ 1,2,3 ] }' "http://localhost:3689/api/library/tracks?rating=5"
 ```
 
 ### List genres
