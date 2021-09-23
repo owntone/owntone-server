@@ -1616,18 +1616,6 @@ PUT /api/library/tracks/{id}
 | --------------- | -------------------- |
 | id              | Track id             |
 
-**Endpoint**
-
-```http
-PUT /api/library/tracks
-```
-
-**Path parameters**
-
-| Parameter       | Type     | Value                |
-| --------------- | -------- | -------------------- |
-| tracks          | array    | Array of track ids   |
-
 **Query parameters**
 
 | Parameter       | Value                                                       |
@@ -1651,8 +1639,27 @@ curl -X PUT "http://localhost:3689/api/library/tracks/1?rating=100"
 curl -X PUT "http://localhost:3689/api/library/tracks/1?play_count=increment"
 ```
 
+**Endpoint**
+
+```http
+PUT /api/library/tracks
+```
+
+**Body parameters**
+
+| Parameter       | Type     | Value                |
+| --------------- | -------- | -------------------- |
+| tracks          | array    | Array of track objs  |
+
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code; '501 Not Implemented' is returned when `play_count` updates are requested.
+
+**Example**
+
 ```shell
-curl -X PUT -d '{ "tracks": [ 1,2,3 ] }' "http://localhost:3689/api/library/tracks?rating=5"
+curl -X PUT -d '{ "tracks": [ { "id": 1, "rating": 100, "usermark": 2 }, { "id": 2, "usermark": 0 } ] }' "http://localhost:3689/api/library/tracks
 ```
 
 ### List genres

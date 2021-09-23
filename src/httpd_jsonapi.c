@@ -3294,19 +3294,17 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 }
 
 static int
-tracks_put_byid(struct httpd_request *hreq, const char* tiparam)
+tracks_put_byid(const char* tid, const char* action, const char* param)
 {
-  const char *param;
   int track_id;
   uint32_t val;
   int ret;
 
-  ret = safe_atoi32(tiparam, &track_id);
+  ret = safe_atoi32(tid, &track_id);
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  param = evhttp_find_header(hreq->query, "play_count");
-  if (param)
+  if (param && strcmp(action, "play_count") == 0)
     {
       if (strcmp(param, "increment") == 0)
 	{
@@ -3323,8 +3321,7 @@ tracks_put_byid(struct httpd_request *hreq, const char* tiparam)
 	}
     }
 
-  param = evhttp_find_header(hreq->query, "rating");
-  if (param)
+  if (param && strcmp(action, "rating") == 0)
     {
       ret = safe_atou32(param, &val);
       if (ret < 0 || val > DB_FILES_RATING_MAX)
@@ -3335,12 +3332,11 @@ tracks_put_byid(struct httpd_request *hreq, const char* tiparam)
 
       ret = db_file_rating_update_byid(track_id, val);
       if (ret < 0)
-	return HTTP_INTERNAL;
+        return HTTP_INTERNAL;
     }
 
   // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+>+0"
-  param = evhttp_find_header(hreq->query, "usermark");
-  if (param)
+  if (param && strcmp(action, "usermark") == 0)
     {
       ret = safe_atou32(param, &val);
       if (ret < 0)
@@ -3351,53 +3347,106 @@ tracks_put_byid(struct httpd_request *hreq, const char* tiparam)
 
       ret = db_file_usermark_update_byid(track_id, val);
       if (ret < 0)
-	return HTTP_INTERNAL;
+        return HTTP_INTERNAL;
     }
 
   return HTTP_OK;
 }
+
+static struct track_prop_update_ctx
+{
+  const char* action;
+  bool json_supported;
+};
+
+static const struct track_prop_update_ctx track_prop_upd_ctx[] =
+  {
+    { "play_count", false },
+    { "rating",     true  },
+    { "usermark",   true  },
+    { NULL,         false }
+  };
 
 static int
 jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 {
   struct evbuffer *in_evbuf;
   json_object *request;
-  json_object *track_ids;
+  json_object *tracks;
+  json_object *track;
   json_object *elem;
+  bool found;
 
+  const char *param;
+  const struct track_prop_update_ctx *tpd_ctx;
   char *track_id;
-  int ret, nids, i;
+  int ret, ntracks, i;
 
   track_id = hreq->uri_parsed->path_parts[3];
   if (track_id)
     {
-      // this is the canonical form /api/.../tracks/1234?foo=bar
-      // construct single elem json to simply processing below
-      return tracks_put_byid(hreq, track_id);
+      // This is the canonical form /api/.../tracks/1234?foo=bar
+      tpd_ctx = track_prop_upd_ctx;
+      while (tpd_ctx->action)
+	{
+	  param = evhttp_find_header(hreq->query, tpd_ctx->action);
+	  if (param)
+	    {
+	      ret = tracks_put_byid(track_id, tpd_ctx->action, param);
+	      if (ret != HTTP_OK)
+		return ret;
+	    }
+	  ++tpd_ctx;
+	}
+      return HTTP_OK;
     }
 
+  // This is the data form /api/.../tracks with payload
+  // { "tracks": [ { "id": .., "rating": 5, "usermark": 1 } ] }
   in_evbuf = evhttp_request_get_input_buffer(hreq->req);
   request = jparse_obj_from_evbuffer(in_evbuf);
   if (!request)
     return HTTP_BADREQUEST;
 
-  // this is the data form /api/.../tracks?foo=bar with { "tracks": [ ..] }
-  ret = jparse_array_from_obj(request, "tracks", &track_ids);
+  ret = jparse_array_from_obj(request, "tracks", &tracks);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_WEB, "Failed to parse incoming tracks request\n");
+      DPRINTF(E_WARN, L_WEB, "Failed to parse incoming json tracks request\n");
       return HTTP_BADREQUEST;
     }
 
-  nids = json_object_array_length(track_ids);
+  ntracks = json_object_array_length(tracks);
 
-  for (i = 0; i < nids; ++i)
+  for (i = 0; i < ntracks; ++i)
     {
-      elem = json_object_array_get_idx(track_ids, i);
-      ret = tracks_put_byid(hreq, json_object_get_string(elem));
+      track = json_object_array_get_idx(tracks, i);
+      found = json_object_object_get_ex(track, "id", &elem);
+      if (!found)
+	{
+	  DPRINTF(E_WARN, L_WEB, "Failed to parse incoming json tracks request, no 'id' (%s)\n", json_object_to_json_string(track));
+	  ret = HTTP_BADREQUEST;
+	  goto error;
+	}
+      track_id = json_object_get_string(elem);
 
-      if (ret != HTTP_OK)
-	goto error;
+      for (tpd_ctx = track_prop_upd_ctx; tpd_ctx->action; ++tpd_ctx)
+	{
+	  found = json_object_object_get_ex(track, tpd_ctx->action, &elem);
+	  if (!found)
+	    continue;
+
+	  if (!tpd_ctx->json_supported)
+	    {
+	      DPRINTF(E_WARN, L_WEB, "Unsupported '%s' json tracks request (%s)\n", tpd_ctx->action, json_object_to_json_string(track));
+	      ret = HTTP_NOTIMPLEMENTED;
+	      goto error;
+	    }
+
+	  ret = tracks_put_byid(track_id, tpd_ctx->action, json_object_to_json_string(elem));
+
+	  if (ret != HTTP_OK)
+	    goto error;
+	}
     }
 
 error:
@@ -4473,7 +4522,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
     { EVHTTP_REQ_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
-    { EVHTTP_REQ_PUT,    "^/api/library/tracks(/[[:digit:]]*)?$",           jsonapi_reply_library_tracks_put_byid },
+    { EVHTTP_REQ_PUT,    "^/api/library/tracks(/[[:digit:]]+)?$",           jsonapi_reply_library_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+/playlists$", jsonapi_reply_library_track_playlists },
     { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
