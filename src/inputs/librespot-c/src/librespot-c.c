@@ -471,7 +471,7 @@ track_write(void *arg, int *retval)
 
   ret = request_make(MSG_TYPE_CHUNK_REQUEST, session);
   if (ret < 0)
-    RETURN_ERROR(SP_ERR_NOCONNECTION, "Could not send request for audio chunk");
+    RETURN_ERROR(ret, sp_errmsg);
 
   channel->progress_cb = cmdargs->progress_cb;
   channel->cb_arg = cmdargs->cb_arg;
@@ -543,7 +543,7 @@ track_seek(void *arg, int *retval)
 
   ret = request_make(MSG_TYPE_CHUNK_REQUEST, session);
   if (ret < 0)
-    RETURN_ERROR(SP_ERR_NOCONNECTION, "Could not send track seek request");
+    RETURN_ERROR(ret, sp_errmsg);
 
   *retval = 1;
   return COMMAND_PENDING;
@@ -612,7 +612,7 @@ media_open(void *arg, int *retval)
   // then the first chunk (incl. headers)
   ret = request_make(type, session);
   if (ret < 0)
-    RETURN_ERROR(SP_ERR_NOCONNECTION, "Could not send media request");
+    RETURN_ERROR(ret, sp_errmsg);
 
   *retval = 1;
   return COMMAND_PENDING;
