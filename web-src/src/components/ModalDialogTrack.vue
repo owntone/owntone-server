@@ -180,6 +180,7 @@ export default {
       const newvalue = value === 0 ? 0 : value | this.usermark
       webapi.library_track_set_usermark(this.track.id, newvalue).then(() => {
         this.usermark = newvalue
+        this.$emit('usermark-updated', { value: this.usermark, track_id: this.track.id })
       })
     },
 

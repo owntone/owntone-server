@@ -7,7 +7,7 @@
         </a>
       </template>
     </list-item-track>
-    <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
+    <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" @usermark-updated="usermark_upd" />
   </div>
 </template>
 
@@ -38,6 +38,10 @@ export default {
       } else {
         webapi.player_play_uri(track.uri, false)
       }
+    },
+
+    usermark_upd: function (args) {
+      this.$emit('usermark-updated', args)
     },
 
     open_dialog: function (track) {
