@@ -15,7 +15,7 @@
     </template>
     <template slot="content">
       <p class="heading has-text-centered-mobile">{{ tracks.length }} tracks</p>
-      <list-tracks :tracks="tracks" :uris="uris"></list-tracks>
+      <list-tracks :tracks="tracks" :uris="uris" @usermark-updated="usermark_upd"></list-tracks>
       <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" :uris="uris" @close="show_playlist_details_modal = false" />
     </template>
   </content-with-heading>
@@ -66,6 +66,10 @@ export default {
   },
 
   methods: {
+    usermark_upd: function (args) {
+      this.tracks.find(e => e.id === args.track_id).usermark = args.value
+    },
+
     play: function () {
       webapi.player_play_uri(this.uris, true)
     }

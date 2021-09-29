@@ -19,8 +19,9 @@
       </template>
       <template slot="content">
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_artist">{{ artist.album_count }} albums</a> | {{ artist.track_count }} tracks</p>
-        <list-tracks :tracks="tracks.items" :uris="track_uris"></list-tracks>
+        <list-tracks :tracks="tracks.items" :uris="track_uris" @usermark-updated="usermark_upd"></list-tracks>
         <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
+        <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
       </template>
     </content-with-heading>
   </div>
@@ -77,6 +78,10 @@ export default {
     open_artist: function () {
       this.show_details_modal = false
       this.$router.push({ path: '/music/artists/' + this.artist.id })
+    },
+
+    usermark_upd: function (args) {
+      this.tracks.items.find(e => e.id === args.track_id).usermark = args.value
     },
 
     play: function () {

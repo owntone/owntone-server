@@ -34,7 +34,7 @@
         <p class="title is-4">Tracks</p>
       </template>
       <template slot="content">
-        <list-tracks :tracks="tracks.items"></list-tracks>
+        <list-tracks :tracks="tracks.items" @usermark-updated="usermark_upd"></list-tracks>
       </template>
       <template slot="footer">
         <nav v-if="show_all_tracks_button" class="level">
@@ -353,6 +353,10 @@ export default {
         }
       })
       this.$refs.search_field.blur()
+    },
+
+    usermark_upd: function (args) {
+      this.tracks.items.find(e => e.id === args.track_id).usermark = args.value
     },
 
     open_search_tracks: function () {
