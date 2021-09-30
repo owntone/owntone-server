@@ -132,9 +132,6 @@ and all devices on the network we know of that advertise AirPlay: AirPort
 Express, Apple TV, ... It also includes the local audio output, that is, the
 sound card on the server (even if there is no soundcard).
 
-If no output is selected when playback starts, OwnTone will try to
-autoselect a device.
-
 OwnTone remembers your selection and the individual volume for each
 output device; selected devices will be automatically re-selected, except if
 they return online during playback.
