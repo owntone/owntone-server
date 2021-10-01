@@ -5233,18 +5233,6 @@ queue_enum_start(struct query_params *qp)
 #undef Q_TMPL
 }
 
-static inline char *
-strdup_if(char *str, int cond)
-{
-  if (str == NULL)
-    return NULL;
-
-  if (cond)
-    return strdup(str);
-
-  return str;
-}
-
 static int
 queue_enum_fetch(struct query_params *qp, struct db_queue_item *qi, int must_strdup)
 {
