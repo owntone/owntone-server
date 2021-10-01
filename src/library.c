@@ -230,7 +230,7 @@ library_callback_schedule(library_cb cb, void *arg, struct timeval *wait, enum l
 
   event_add(cbreg->ev, wait);
 
-  DPRINTF(E_DBG, L_LIB, "Added library callback to %p (id %d), wait %ld.%06ld\n", cbreg->cb, idx_available, wait->tv_sec, wait->tv_usec);
+  DPRINTF(E_DBG, L_LIB, "Added library callback to %p (id %d), wait %ld.%06ld\n", cbreg->cb, idx_available, (long) wait->tv_sec, (long) wait->tv_usec);
 
   return idx_available;
 }
