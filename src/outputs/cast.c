@@ -1300,7 +1300,7 @@ xr_packet_process(struct cast_session *cs, uint8_t *data, size_t len)
         {
 	  seqnum = frame_id_expand(feedback.lost_fields[i].frame_id, cs->seqnum_next - 1);
 
-	  DPRINTF(E_DBG, L_CAST, "Retransmission to '%s' of lost RTCP frame_id %" PRIu8", packet_id %" PRIu16 ", bitmask %02x\n",
+	  DPRINTF(E_DBG, L_CAST, "Retransmission to '%s' of lost RTCP frame_id %" PRIu16", packet_id %" PRIu16 ", bitmask %02x\n",
 	    cs->devname, seqnum, feedback.lost_fields[i].packet_id, feedback.lost_fields[i].bitmask);
 	  packet_send(cs, seqnum);
 	}
@@ -1891,7 +1891,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
   const char *err;
   char *address;
   unsigned short port;
-  uint64_t offset_ms;
+  int offset_ms;
   int flags;
   int ret;
 
@@ -1954,7 +1954,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
   offset_ms = chromecast ? cfg_getint(chromecast, "offset_ms") : 0;
   if (abs(offset_ms) > CAST_OFFSET_MAX)
     {
-      DPRINTF(E_LOG, L_CAST, "Ignoring invalid configuration of Chromecast offset (%" PRIu64 " ms)\n", offset_ms);
+      DPRINTF(E_LOG, L_CAST, "Ignoring invalid configuration of Chromecast offset (%d ms)\n", offset_ms);
       offset_ms = 0;
     }
 
@@ -1963,7 +1963,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
   cs->offset_ts.tv_sec  = (offset_ms / 1000);
   cs->offset_ts.tv_nsec = (offset_ms % 1000) * 1000000UL;
 
-  DPRINTF(E_DBG, L_CAST, "Offset is set to %lu:%lu\n", cs->offset_ts.tv_sec, cs->offset_ts.tv_nsec);
+  DPRINTF(E_DBG, L_CAST, "Offset is set to %lu:%09lu\n", cs->offset_ts.tv_sec, cs->offset_ts.tv_nsec);
 
   cs->ev = event_new(evbase_player, cs->server_fd, EV_READ | EV_PERSIST, cast_listen_cb, cs);
   if (!cs->ev)
