@@ -55,12 +55,12 @@ jobs:
     - name: Install other dependencies
       run: brew install libunistring libmxml confuse libplist sqlite libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio
 
-    - name: Configure forked-daapd
+    - name: Configure
       run: |
         autoreconf -fi
         ./configure --enable-chromecast --enable-lastfm --with-pulseaudio
 
-    - name: Build forked-daapd
+    - name: Build
       run: |
         # Without setting these env vars the build fails with "fatal error: 'openssl/ssl.h' file not found"
         # (Solution taken from https://github.com/libimobiledevice/libimobiledevice/issues/389#issuecomment-289284190)
@@ -69,5 +69,5 @@ jobs:
         export PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig
         make
 
-    - name: Install forked-daapd
+    - name: Install
       run: sudo make install
