@@ -53,7 +53,7 @@ jobs:
         brew install ffmpeg
 
     - name: Install other dependencies
-      run: brew install libunistring libmxml confuse libplist sqlite libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio
+      run: brew install libunistring libmxml confuse libplist sqlite libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
 
     - name: Configure
       run: |
