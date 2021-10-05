@@ -719,6 +719,8 @@ logout(void)
   librespotc_logout(ctx->session);
   ctx->session = NULL;
 
+  memset(&ctx->status, 0, sizeof(ctx->status));
+
   pthread_mutex_unlock(&ctx->lock);
 }
 
