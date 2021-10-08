@@ -398,7 +398,11 @@ safe_atoi32(const char *str, int32_t *val)
   char *end;
   long intval;
 
-  *val = 0;
+  if (str == NULL)
+    {
+      DPRINTF(E_SPAM, L_MISC, "Input to safe_atoi32 is NULL\n");
+      return -1;
+    }
 
   errno = 0;
   intval = strtol(str, &end, 10);
@@ -407,21 +411,18 @@ safe_atoi32(const char *str, int32_t *val)
       || ((errno != 0) && (intval == 0)))
     {
       DPRINTF(E_DBG, L_MISC, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
       return -1;
     }
 
   if (end == str)
     {
       DPRINTF(E_DBG, L_MISC, "No integer found in string (%s)\n", str);
-
       return -1;
     }
 
   if (intval > INT32_MAX)
     {
       DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
-
       return -1;
     }
 
@@ -436,7 +437,11 @@ safe_atou32(const char *str, uint32_t *val)
   char *end;
   unsigned long intval;
 
-  *val = 0;
+  if (str == NULL)
+    {
+      DPRINTF(E_SPAM, L_MISC, "Input to safe_atou32 is NULL\n");
+      return -1;
+    }
 
   errno = 0;
   intval = strtoul(str, &end, 10);
@@ -445,21 +450,18 @@ safe_atou32(const char *str, uint32_t *val)
       || ((errno != 0) && (intval == 0)))
     {
       DPRINTF(E_DBG, L_MISC, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
       return -1;
     }
 
   if (end == str)
     {
       DPRINTF(E_DBG, L_MISC, "No integer found in string (%s)\n", str);
-
       return -1;
     }
 
   if (intval > UINT32_MAX)
     {
       DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
-
       return -1;
     }
 
@@ -474,7 +476,11 @@ safe_hextou32(const char *str, uint32_t *val)
   char *end;
   unsigned long intval;
 
-  *val = 0;
+  if (str == NULL)
+    {
+      DPRINTF(E_SPAM, L_MISC, "Input to safe_hextou32 is NULL\n");
+      return -1;
+    }
 
   errno = 0;
   intval = strtoul(str, &end, 16);
@@ -483,21 +489,18 @@ safe_hextou32(const char *str, uint32_t *val)
       || ((errno != 0) && (intval == 0)))
     {
       DPRINTF(E_DBG, L_MISC, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
       return -1;
     }
 
   if (end == str)
     {
       DPRINTF(E_DBG, L_MISC, "No integer found in string (%s)\n", str);
-
       return -1;
     }
 
   if (intval > UINT32_MAX)
     {
       DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
-
       return -1;
     }
 
@@ -512,7 +515,11 @@ safe_atoi64(const char *str, int64_t *val)
   char *end;
   long long intval;
 
-  *val = 0;
+  if (str == NULL)
+    {
+      DPRINTF(E_SPAM, L_MISC, "Input to safe_atoi64 is NULL\n");
+      return -1;
+    }
 
   errno = 0;
   intval = strtoll(str, &end, 10);
@@ -521,21 +528,18 @@ safe_atoi64(const char *str, int64_t *val)
       || ((errno != 0) && (intval == 0)))
     {
       DPRINTF(E_DBG, L_MISC, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
       return -1;
     }
 
   if (end == str)
     {
       DPRINTF(E_DBG, L_MISC, "No integer found in string (%s)\n", str);
-
       return -1;
     }
 
   if (intval > INT64_MAX)
     {
       DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
-
       return -1;
     }
 
@@ -550,7 +554,11 @@ safe_atou64(const char *str, uint64_t *val)
   char *end;
   unsigned long long intval;
 
-  *val = 0;
+  if (str == NULL)
+    {
+      DPRINTF(E_SPAM, L_MISC, "Input to safe_atou64 is NULL\n");
+      return -1;
+    }
 
   errno = 0;
   intval = strtoull(str, &end, 10);
@@ -573,7 +581,6 @@ safe_atou64(const char *str, uint64_t *val)
   if (intval > UINT64_MAX)
     {
       DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
-
       return -1;
     }
 
@@ -588,7 +595,11 @@ safe_hextou64(const char *str, uint64_t *val)
   char *end;
   unsigned long long intval;
 
-  *val = 0;
+  if (str == NULL)
+    {
+      DPRINTF(E_SPAM, L_MISC, "Input to safe_hextou64 is NULL\n");
+      return -1;
+    }
 
   errno = 0;
   intval = strtoull(str, &end, 16);
@@ -597,21 +608,18 @@ safe_hextou64(const char *str, uint64_t *val)
       || ((errno != 0) && (intval == 0)))
     {
       DPRINTF(E_DBG, L_MISC, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
       return -1;
     }
 
   if (end == str)
     {
       DPRINTF(E_DBG, L_MISC, "No integer found in string (%s)\n", str);
-
       return -1;
     }
 
   if (intval > UINT64_MAX)
     {
       DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
-
       return -1;
     }
 

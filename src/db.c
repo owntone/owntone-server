@@ -819,11 +819,14 @@ struct_field_set_uint32(void *dst, const void *src, bool parse_integers)
 {
   char *srcstr;
   uint32_t srcu32val;
+  int ret;
 
   if (parse_integers)
     {
       srcstr = *(char **)(src);
-      safe_atou32(srcstr, &srcu32val);
+      ret = safe_atou32(srcstr, &srcu32val);
+      if (ret < 0)
+	srcu32val = 0;
     }
   else
     srcu32val = *(uint32_t *)(src);
@@ -836,11 +839,14 @@ struct_field_set_int64(void *dst, const void *src, bool parse_integers)
 {
   char *srcstr;
   int64_t srci64val;
+  int ret;
 
   if (parse_integers)
     {
       srcstr = *(char **)(src);
-      safe_atoi64(srcstr, &srci64val);
+      ret = safe_atoi64(srcstr, &srci64val);
+      if (ret < 0)
+	srci64val = 0;
     }
   else
     srci64val = *(int64_t *)(src);
