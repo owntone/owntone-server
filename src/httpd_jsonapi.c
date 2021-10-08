@@ -334,6 +334,25 @@ track_to_json(struct db_media_file_info *dbmfi)
   return item;
 }
 
+// TODO Only partially implemented. A full implementation should use a mapping
+// table, which should also be used above in track_to_json(). It should also
+// return errors if there are incorrect/mispelled fields, but not sure how to
+// walk a json object with json-c.
+static int
+json_to_track(struct media_file_info *mfi, json_object *json)
+{
+  if (jparse_contains_key(json, "id", json_type_int))
+    mfi->id = jparse_int_from_obj(json, "id");
+  if (jparse_contains_key(json, "usermark", json_type_int))
+    mfi->usermark = jparse_int_from_obj(json, "usermark");
+  if (jparse_contains_key(json, "rating", json_type_int))
+    mfi->rating = jparse_int_from_obj(json, "rating");
+  if (jparse_contains_key(json, "play_count", json_type_int))
+    mfi->play_count = jparse_int_from_obj(json, "play_count");
+
+  return HTTP_OK;
+}
+
 static json_object *
 playlist_to_json(struct db_playlist_info *dbpli)
 {
@@ -3294,6 +3313,87 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 }
 
 static int
+jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
+{
+  struct evbuffer *in_evbuf;
+  json_object *request = NULL;
+  json_object *tracks;
+  json_object *track = NULL;
+  struct media_file_info *mfi = NULL;
+  int ret;
+  int err;
+  int32_t track_id;
+  int i;
+
+  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
+  request = jparse_obj_from_evbuffer(in_evbuf);
+  if (!request)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to read json tracks request\n");
+      err = HTTP_BADREQUEST;
+      goto error;
+    }
+
+  ret = jparse_array_from_obj(request, "tracks", &tracks);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to parse json tracks request\n");
+      err = HTTP_BADREQUEST;
+      goto error;
+    }
+
+  db_transaction_begin();
+  i = 0;
+  while ((track = json_object_array_get_idx(tracks, i)))
+    {
+      track_id = jparse_int_from_obj(track, "id");
+      if (track_id == 0)
+	{
+	  DPRINTF(E_LOG, L_WEB, "Invalid or missing track id in json tracks request\n");
+	  err = HTTP_BADREQUEST;
+	  goto error;
+	}
+
+      mfi = db_file_fetch_byid(track_id);
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_WEB, "Unknown track_id %d in json tracks request\n", track_id);
+	  err = HTTP_NOTFOUND;
+	  goto error;
+	}
+
+      ret = json_to_track(mfi, track);
+      if (ret != HTTP_OK)
+	{
+	  err = ret;
+	  goto error;
+	}
+
+      ret = library_media_save(mfi);
+      if (ret < 0)
+	{
+	  err = HTTP_INTERNAL;
+	  goto error;
+	}
+
+      free_mfi(mfi, 0);
+      mfi = NULL;
+      i++;
+    }
+
+  jparse_free(request);
+  db_transaction_end();
+  return HTTP_OK;
+
+ error:
+  jparse_free(request);
+  if (track)
+    db_transaction_rollback();
+  free_mfi(mfi, 0);
+  return err;
+}
+
+static int
 jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 {
   int track_id;
@@ -4424,6 +4524,7 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
     { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
     { EVHTTP_REQ_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
+    { EVHTTP_REQ_PUT,    "^/api/library/tracks$",                        jsonapi_reply_library_tracks_put },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
     { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+/playlists$", jsonapi_reply_library_track_playlists },

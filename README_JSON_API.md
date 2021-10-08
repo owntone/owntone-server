@@ -791,7 +791,8 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | GET       | [/api/library/albums/{id}/tracks](#list-album-tracks)       | Get list of tracks for an album      |
 | GET       | [/api/library/tracks/{id}](#get-a-track)                    | Get a track                          |
 | GET       | [/api/library/tracks/{id}/playlists](#list-playlists-for-a-track) | Get list of playlists for a track |
-| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update track properties              |
+| PUT       | [/api/library/tracks](#update-track-properties)             | Update multiple track properties     |
+| PUT       | [/api/library/tracks/{id}](#update-track-properties)        | Update single track properties       |
 | GET       | [/api/library/genres](#list-genres)                         | Get list of genres                   |
 | GET       | [/api/library/count](#get-count-of-tracks-artists-and-albums) | Get count of tracks, artists and albums |
 | GET       | [/api/library/files](#list-local-directories)               | Get list of directories in the local library    |
@@ -1602,7 +1603,30 @@ curl -X GET "http://localhost:3689/api/library/tracks/27/playlists"
 
 ### Update track properties
 
-Change properties of a specific track (supported properties are "rating", "play_count" and "usermark")
+Change properties of one or more tracks (supported properties are "rating", "play_count" and "usermark")
+
+**Endpoint**
+
+```http
+PUT /api/library/tracks
+```
+
+**Body parameters**
+
+| Parameter       | Type     | Value                   |
+| --------------- | -------- | ----------------------- |
+| tracks          | array    | Array of track objects  |
+
+
+**Response**
+
+On success returns the HTTP `204 No Content` success status response code.
+
+**Example**
+
+```shell
+curl -X PUT -d '{ "tracks": [ { "id": 1, "rating": 100, "usermark": 4 }, { "id": 2, "usermark": 3 } ] }' "http://localhost:3689/api/library/tracks"
+```
 
 **Endpoint**
 
@@ -2536,7 +2560,7 @@ curl --include \
 
 | Key                | Type     | Value                                     |
 | ------------------ | -------- | ----------------------------------------- |
-| id                 | string   | Track id                                  |
+| id                 | integer  | Track id                                  |
 | title              | string   | Title                                     |
 | title_sort         | string   | Sort title                                |
 | artist             | string   | Track artist name                         |
