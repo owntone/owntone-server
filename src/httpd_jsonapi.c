@@ -472,13 +472,14 @@ fetch_artists(struct query_params *query_params, json_object *items, int *total)
 }
 
 static json_object *
-fetch_artist(const char *artist_id)
+fetch_artist(const char *artist_id, bool *notfound)
 {
   struct query_params query_params;
   json_object *artist;
   struct db_group_info dbgri;
   int ret = 0;
 
+  *notfound = true;
   memset(&query_params, 0, sizeof(struct query_params));
   artist = NULL;
 
@@ -493,6 +494,7 @@ fetch_artist(const char *artist_id)
   if ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
     {
       artist = artist_to_json(&dbgri);
+      notfound = false;
     }
 
  error:
@@ -539,12 +541,14 @@ fetch_albums(struct query_params *query_params, json_object *items, int *total)
 }
 
 static json_object *
-fetch_album(const char *album_id)
+fetch_album(const char *album_id, bool *notfound)
 {
   struct query_params query_params;
   json_object *album;
   struct db_group_info dbgri;
   int ret = 0;
+
+  *notfound = true;
 
   memset(&query_params, 0, sizeof(struct query_params));
   album = NULL;
@@ -560,6 +564,7 @@ fetch_album(const char *album_id)
   if ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
     {
       album = album_to_json(&dbgri);
+      *notfound = false;
     }
 
  error:
@@ -602,12 +607,14 @@ fetch_playlists(struct query_params *query_params, json_object *items, int *tota
 }
 
 static json_object *
-fetch_playlist(uint32_t playlist_id)
+fetch_playlist(uint32_t playlist_id, bool *notfound)
 {
   struct query_params query_params;
   json_object *playlist;
   struct db_playlist_info dbpli;
   int ret = 0;
+
+  *notfound = true;
 
   memset(&query_params, 0, sizeof(struct query_params));
   playlist = NULL;
@@ -623,6 +630,7 @@ fetch_playlist(uint32_t playlist_id)
   if (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
     {
       playlist = playlist_to_json(&dbpli);
+      *notfound = false;
     }
 
  error:
@@ -2984,13 +2992,14 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
   const char *artist_id;
   json_object *reply;
   int ret = 0;
+  bool notfound;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   artist_id = hreq->uri_parsed->path_parts[3];
 
-  reply = fetch_artist(artist_id);
+  reply = fetch_artist(artist_id, &notfound);
   if (!reply)
     {
       ret = -1;
@@ -3005,7 +3014,7 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
   jparse_free(reply);
 
   if (ret < 0)
-    return HTTP_INTERNAL;
+    return notfound ? HTTP_NOTFOUND : HTTP_INTERNAL;
 
   return HTTP_OK;
 }
@@ -3132,13 +3141,14 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
   const char *album_id;
   json_object *reply;
   int ret = 0;
+  bool notfound;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   album_id = hreq->uri_parsed->path_parts[3];
 
-  reply = fetch_album(album_id);
+  reply = fetch_album(album_id, &notfound);
   if (!reply)
     {
       ret = -1;
@@ -3153,7 +3163,7 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
   jparse_free(reply);
 
   if (ret < 0)
-    return HTTP_INTERNAL;
+    return notfound ? HTTP_NOTFOUND : HTTP_INTERNAL;
 
   return HTTP_OK;
 }
@@ -3250,7 +3260,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   struct db_media_file_info dbmfi;
   json_object *reply = NULL;
   int ret = 0;
-  int errcode = HTTP_INTERNAL;
+  bool notfound = false;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
@@ -3274,7 +3284,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_WEB, "Track with id '%s' not found.\n", track_id);
       ret = -1;
-      errcode = HTTP_NOTFOUND;
+      notfound = true;
       goto error;
     }
 
@@ -3290,7 +3300,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   jparse_free(reply);
 
   if (ret < 0)
-    return errcode;
+    return notfound ? HTTP_NOTFOUND : HTTP_INTERNAL;
 
   return HTTP_OK;
 }
@@ -3479,6 +3489,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
   uint32_t playlist_id;
   json_object *reply = NULL;
   int ret = 0;
+  bool notfound;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
@@ -3501,7 +3512,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
     }
   else
     {
-      reply = fetch_playlist(playlist_id);
+      reply = fetch_playlist(playlist_id, &notfound);
     }
 
   if (!reply)
@@ -3518,7 +3529,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
   jparse_free(reply);
 
   if (ret < 0)
-    return HTTP_INTERNAL;
+    return notfound ? HTTP_NOTFOUND : HTTP_INTERNAL;
 
   return HTTP_OK;
 }
