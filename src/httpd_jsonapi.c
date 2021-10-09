@@ -3250,6 +3250,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   struct db_media_file_info dbmfi;
   json_object *reply = NULL;
   int ret = 0;
+  int errcode = HTTP_INTERNAL;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
@@ -3273,6 +3274,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_WEB, "Track with id '%s' not found.\n", track_id);
       ret = -1;
+      errcode = HTTP_NOTFOUND;
       goto error;
     }
 
@@ -3288,7 +3290,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   jparse_free(reply);
 
   if (ret < 0)
-    return HTTP_INTERNAL;
+    return errcode;
 
   return HTTP_OK;
 }
