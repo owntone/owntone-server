@@ -2992,7 +2992,7 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
   const char *artist_id;
   json_object *reply;
   int ret = 0;
-  bool notfound;
+  bool notfound = false;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
@@ -3141,7 +3141,7 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
   const char *album_id;
   json_object *reply;
   int ret = 0;
-  bool notfound;
+  bool notfound = false;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
@@ -3489,7 +3489,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
   uint32_t playlist_id;
   json_object *reply = NULL;
   int ret = 0;
-  bool notfound;
+  bool notfound = false;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
