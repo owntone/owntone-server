@@ -60,6 +60,21 @@
 # include "inputs/spotify.h"
 #endif
 
+struct convert_map
+{
+  const char *key;
+
+  // Function that adds a json object with input key/val. src_offset is the
+  // offset to where value is stored, e.g. dbmfi_offsetof(id).
+  void (*to_json_fn)(json_object *obj, const char *key, const char *val);
+  size_t src_offset;
+
+  // Function that retrieves a value from a json object, checks it and writes
+  // it to the memory pointed to by ptr. dst_offset is the offset to where the
+  // value should be written, e.g. mfi_offsetof(id)
+  int (*from_json_fn)(void *ptr, const char *key, json_object *obj);
+  size_t dst_offset;
+};
 
 static bool allow_modifying_stored_playlists;
 static char *default_playlist_directory;
@@ -176,94 +191,235 @@ safe_json_add_date_from_string(json_object *obj, const char *key, const char *va
   json_object_object_add(obj, key, json_object_new_string(result));
 }
 
-static json_object *
-artist_to_json(struct db_group_info *dbgri)
+static void
+json_add_in_progress(json_object *obj, const char *key, const char *val)
 {
-  json_object *item;
-  int intval;
-  char uri[100];
-  char artwork_url[100];
+  int32_t intval;
   int ret;
 
-  item = json_object_new_object();
+  ret = safe_atoi32(val, &intval);
+  if (ret < 0)
+    return;
 
-  safe_json_add_string(item, "id", dbgri->persistentid);
-  safe_json_add_string(item, "name", dbgri->itemname);
-  safe_json_add_string(item, "name_sort", dbgri->itemname_sort);
-  safe_json_add_int_from_string(item, "album_count", dbgri->groupalbumcount);
-  safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
-  safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
-
-  safe_json_add_time_from_string(item, "time_played", dbgri->time_played);
-  safe_json_add_time_from_string(item, "time_added", dbgri->time_added);
-
-  ret = safe_atoi32(dbgri->seek, &intval);
-  if (ret == 0)
-    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
-
-  ret = safe_atoi32(dbgri->media_kind, &intval);
-  if (ret == 0)
-    safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
-
-  ret = safe_atoi32(dbgri->data_kind, &intval);
-  if (ret == 0)
-    safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
-
-  ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "artist", dbgri->persistentid);
-  if (ret < sizeof(uri))
-    json_object_object_add(item, "uri", json_object_new_string(uri));
-
-  ret = snprintf(artwork_url, sizeof(artwork_url), "./artwork/group/%s", dbgri->id);
-  if (ret < sizeof(artwork_url))
-    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
-
-  return item;
+  json_object_object_add(obj, key, json_object_new_boolean(intval > 0));
 }
 
-static json_object *
-album_to_json(struct db_group_info *dbgri)
+static void
+json_add_label(json_object *obj, const char *key, const char *val)
 {
-  json_object *item;
-  int intval;
+  int32_t intval;
+  int ret;
+
+  ret = safe_atoi32(val, &intval);
+  if (ret < 0)
+    return;
+
+  if (strcmp(key, "media_kind") == 0)
+    safe_json_add_string(obj, key, db_media_kind_label(intval));
+  else if (strcmp(key, "data_kind") == 0)
+    safe_json_add_string(obj, key, db_data_kind_label(intval));
+}
+
+static void
+json_generic_add_uri(json_object *obj, const char *key, const char *val, const char *type)
+{
   char uri[100];
+  int ret;
+
+  ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", type, val);
+  if (ret < 0 || ret >= sizeof(uri))
+    return;
+
+  json_object_object_add(obj, key, json_object_new_string(uri));
+}
+
+static void
+json_artist_add_uri(json_object *obj, const char *key, const char *val)
+{
+  json_generic_add_uri(obj, key, val, "artist");
+}
+
+static void
+json_track_add_uri(json_object *obj, const char *key, const char *val)
+{
+  json_generic_add_uri(obj, key, val, "track");
+}
+
+static void
+json_playlist_add_uri(json_object *obj, const char *key, const char *val)
+{
+  json_generic_add_uri(obj, key, val, "playlist");
+}
+
+static void
+json_generic_add_artwork_url(json_object *obj, const char *key, const char *val, const char *type)
+{
   char artwork_url[100];
   int ret;
 
+  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/%s/%s", type, val);
+  if (ret < 0 || ret >= sizeof(artwork_url))
+    return;
+
+  json_object_object_add(obj, key, json_object_new_string(artwork_url));
+}
+
+static void
+json_item_add_artwork_url(json_object *obj, const char *key, const char *val)
+{
+  json_generic_add_artwork_url(obj, key, val, "item");
+}
+
+static void
+json_group_add_artwork_url(json_object *obj, const char *key, const char *val)
+{
+  json_generic_add_artwork_url(obj, key, val, "group");
+}
+
+static void
+json_playlist_add_playlist_type(json_object *obj, const char *key, const char *val)
+{
+  int32_t intval;
+  int ret;
+
+  ret = safe_atoi32(val, &intval);
+  if (ret < 0)
+    return;
+
+  if (strcmp(key, "type") == 0)
+    safe_json_add_string(obj, key, db_pl_type_label(intval));
+  else if (strcmp(key, "smart_playlist") == 0)
+    json_object_object_add(obj, key, json_object_new_boolean(intval == PL_SMART));
+  else if (strcmp(key, "folder") == 0)
+    json_object_object_add(obj, key, json_object_new_boolean(intval == PL_FOLDER));
+}
+
+static void
+json_playlist_add_query_order(json_object *obj, const char *key, const char *val)
+{
+  bool boolval = val && strcasestr(val, "random");
+  json_object_object_add(obj, key, json_object_new_boolean(boolval));
+}
+
+
+static int
+safe_json_get_uint(void *ptr, const char *key, json_object *obj)
+{
+  uint32_t *uintval = ptr;
+
+  if (json_object_get_type(obj) != json_type_int)
+    return -1;
+
+  *uintval = (uint32_t)json_object_get_int(obj);
+
+  return 0;
+}
+
+
+struct convert_map track_map[] =
+{
+  { "id",                 safe_json_add_int_from_string,    dbmfi_offsetof(id),               safe_json_get_uint,       mfi_offsetof(id) },
+  { "title",              safe_json_add_string,             dbmfi_offsetof(title),            NULL,                     mfi_offsetof(title) },
+  { "title_sort",         safe_json_add_string,             dbmfi_offsetof(title_sort),       NULL,                     mfi_offsetof(title_sort) },
+  { "artist",             safe_json_add_string,             dbmfi_offsetof(artist),           NULL,                     mfi_offsetof(artist) },
+  { "artist_sort",        safe_json_add_string,             dbmfi_offsetof(artist_sort),      NULL,                     mfi_offsetof(artist_sort) },
+  { "album",              safe_json_add_string,             dbmfi_offsetof(album),            NULL,                     mfi_offsetof(album) },
+  { "album_sort",         safe_json_add_string,             dbmfi_offsetof(album_sort),       NULL,                     mfi_offsetof(album_sort) },
+  { "album_id",           safe_json_add_string,             dbmfi_offsetof(songalbumid),      NULL,                     mfi_offsetof(songalbumid) },
+  { "album_artist",       safe_json_add_string,             dbmfi_offsetof(album_artist),     NULL,                     mfi_offsetof(album_artist) },
+  { "album_artist_sort",  safe_json_add_string,             dbmfi_offsetof(album_artist_sort),NULL,                     mfi_offsetof(album_artist_sort) },
+  { "album_artist_id",    safe_json_add_string,             dbmfi_offsetof(songartistid),     NULL,                     mfi_offsetof(songartistid) },
+  { "composer",           safe_json_add_string,             dbmfi_offsetof(composer),         NULL,                     mfi_offsetof(composer) },
+  { "genre",              safe_json_add_string,             dbmfi_offsetof(genre),            NULL,                     mfi_offsetof(genre) },
+  { "comment",            safe_json_add_string,             dbmfi_offsetof(comment),          NULL,                     mfi_offsetof(comment) },
+  { "year",               safe_json_add_int_from_string,    dbmfi_offsetof(year),             safe_json_get_uint,       mfi_offsetof(year) },
+  { "track_number",       safe_json_add_int_from_string,    dbmfi_offsetof(track),            safe_json_get_uint,       mfi_offsetof(track) },
+  { "disc_number",        safe_json_add_int_from_string,    dbmfi_offsetof(disc),             safe_json_get_uint,       mfi_offsetof(disc) },
+  { "length_ms",          safe_json_add_int_from_string,    dbmfi_offsetof(song_length),      safe_json_get_uint,       mfi_offsetof(song_length) },
+  { "rating",             safe_json_add_int_from_string,    dbmfi_offsetof(rating),           safe_json_get_uint,       mfi_offsetof(rating) },
+  { "play_count",         safe_json_add_int_from_string,    dbmfi_offsetof(play_count),       safe_json_get_uint,       mfi_offsetof(play_count) },
+  { "skip_count",         safe_json_add_int_from_string,    dbmfi_offsetof(skip_count),       safe_json_get_uint,       mfi_offsetof(skip_count) },
+  { "time_played",        safe_json_add_time_from_string,   dbmfi_offsetof(time_played),      NULL,                     mfi_offsetof(time_played) },
+  { "time_skipped",       safe_json_add_time_from_string,   dbmfi_offsetof(time_skipped),     NULL,                     mfi_offsetof(time_skipped) },
+  { "time_added",         safe_json_add_time_from_string,   dbmfi_offsetof(time_added),       NULL,                     mfi_offsetof(time_added) },
+  { "date_released",      safe_json_add_time_from_string,   dbmfi_offsetof(date_released),    NULL,                     mfi_offsetof(date_released) },
+  { "seek_ms",            safe_json_add_int_from_string,    dbmfi_offsetof(seek),             safe_json_get_uint,       mfi_offsetof(seek) },
+  { "type",               safe_json_add_string,             dbmfi_offsetof(type),             NULL,                     mfi_offsetof(type) },
+  { "samplerate",         safe_json_add_int_from_string,    dbmfi_offsetof(samplerate),       safe_json_get_uint,       mfi_offsetof(samplerate) },
+  { "bitrate",            safe_json_add_int_from_string,    dbmfi_offsetof(bitrate),          safe_json_get_uint,       mfi_offsetof(bitrate) },
+  { "channels",           safe_json_add_int_from_string,    dbmfi_offsetof(channels),         safe_json_get_uint,       mfi_offsetof(channels) },
+  { "usermark",           safe_json_add_int_from_string,    dbmfi_offsetof(usermark),         safe_json_get_uint,       mfi_offsetof(usermark) },
+  { "media_kind",         json_add_label,                   dbmfi_offsetof(media_kind),       NULL,                     mfi_offsetof(media_kind) },
+  { "data_kind",          json_add_label,                   dbmfi_offsetof(data_kind),        NULL,                     mfi_offsetof(data_kind) },
+  { "path",               safe_json_add_string,             dbmfi_offsetof(path),             NULL,                     mfi_offsetof(path) },
+  { "uri",                json_track_add_uri,               dbmfi_offsetof(id),               NULL, 0 },
+  { "artwork_url",        json_item_add_artwork_url,        dbmfi_offsetof(id),               NULL, 0 },
+};
+
+struct convert_map artist_map[] =
+{
+  { "id",                 safe_json_add_string,             dbgri_offsetof(persistentid),     NULL, 0 },
+  { "name",               safe_json_add_string,             dbgri_offsetof(itemname),         NULL, 0 },
+  { "name_sort",          safe_json_add_string,             dbgri_offsetof(itemname_sort),    NULL, 0 },
+  { "album_count",        safe_json_add_int_from_string,    dbgri_offsetof(groupalbumcount),  NULL, 0 },
+  { "track_count",        safe_json_add_int_from_string,    dbgri_offsetof(itemcount),        NULL, 0 },
+  { "length_ms",          safe_json_add_int_from_string,    dbgri_offsetof(song_length),      NULL, 0 },
+  { "time_played",        safe_json_add_int_from_string,    dbgri_offsetof(time_played),      NULL, 0 },
+  { "time_added",         safe_json_add_int_from_string,    dbgri_offsetof(time_added),       NULL, 0 },
+  { "in_progress",        json_add_in_progress,             dbgri_offsetof(seek),             NULL, 0 },
+  { "media_kind",         json_add_label,                   dbgri_offsetof(media_kind),       NULL, 0 },
+  { "data_kind",          json_add_label,                   dbgri_offsetof(data_kind),        NULL, 0 },
+  { "uri",                json_artist_add_uri,              dbgri_offsetof(persistentid),     NULL, 0 },
+  { "artwork_url",        json_group_add_artwork_url,       dbgri_offsetof(id),               NULL, 0 },
+};
+
+struct convert_map album_map[] =
+{
+  { "id",                 safe_json_add_string,             dbgri_offsetof(persistentid),     NULL, 0 },
+  { "name",               safe_json_add_string,             dbgri_offsetof(itemname),         NULL, 0 },
+  { "name_sort",          safe_json_add_string,             dbgri_offsetof(itemname_sort),    NULL, 0 },
+  { "artist",             safe_json_add_string,             dbgri_offsetof(songalbumartist),  NULL, 0 },
+  { "artist_id",          safe_json_add_string,             dbgri_offsetof(songartistid),     NULL, 0 },
+  { "track_count",        safe_json_add_int_from_string,    dbgri_offsetof(itemcount),        NULL, 0 },
+  { "length_ms",          safe_json_add_int_from_string,    dbgri_offsetof(song_length),      NULL, 0 },
+  { "time_played",        safe_json_add_int_from_string,    dbgri_offsetof(time_played),      NULL, 0 },
+  { "time_added",         safe_json_add_int_from_string,    dbgri_offsetof(time_added),       NULL, 0 },
+  { "in_progress",        json_add_in_progress,             dbgri_offsetof(seek),             NULL, 0 },
+  { "media_kind",         json_add_label,                   dbgri_offsetof(media_kind),       NULL, 0 },
+  { "data_kind",          json_add_label,                   dbgri_offsetof(data_kind),        NULL, 0 },
+  { "date_released",      safe_json_add_date_from_string,   dbgri_offsetof(date_released),    NULL, 0 },
+  { "year",               safe_json_add_int_from_string,    dbgri_offsetof(year),             NULL, 0 },
+  { "uri",                json_artist_add_uri,              dbgri_offsetof(persistentid),     NULL, 0 },
+  { "artwork_url",        json_group_add_artwork_url,       dbgri_offsetof(id),               NULL, 0 },
+};
+
+struct convert_map playlist_map[] =
+{
+  { "id",                 safe_json_add_int_from_string,    dbpli_offsetof(id),               NULL, 0 },
+  { "name",               safe_json_add_string,             dbpli_offsetof(title),            NULL, 0 },
+  { "path",               safe_json_add_string,             dbpli_offsetof(path),             NULL, 0 },
+  { "parent_id",          safe_json_add_string,             dbpli_offsetof(parent_id),        NULL, 0 },
+  { "type",               json_playlist_add_playlist_type,  dbpli_offsetof(type),             NULL, 0 },
+  { "smart_playlist",     json_playlist_add_playlist_type,  dbpli_offsetof(type),             NULL, 0 },
+  { "random",             json_playlist_add_query_order,    dbpli_offsetof(query_order),      NULL, 0 },
+  { "folder",             json_playlist_add_playlist_type,  dbpli_offsetof(type),             NULL, 0 },
+  { "uri",                json_playlist_add_uri,            dbpli_offsetof(id),               NULL, 0 },
+};
+
+static json_object *
+generic_to_json(void *src, struct convert_map *map, size_t map_size)
+{
+  json_object *item;
+  char **strptr;
+  int i;
+
   item = json_object_new_object();
 
-  safe_json_add_string(item, "id", dbgri->persistentid);
-  safe_json_add_string(item, "name", dbgri->itemname);
-  safe_json_add_string(item, "name_sort", dbgri->itemname_sort);
-  safe_json_add_string(item, "artist", dbgri->songalbumartist);
-  safe_json_add_string(item, "artist_id", dbgri->songartistid);
-  safe_json_add_int_from_string(item, "track_count", dbgri->itemcount);
-  safe_json_add_int_from_string(item, "length_ms", dbgri->song_length);
-
-  safe_json_add_time_from_string(item, "time_played", dbgri->time_played);
-  safe_json_add_time_from_string(item, "time_added", dbgri->time_added);
-
-  ret = safe_atoi32(dbgri->seek, &intval);
-  if (ret == 0)
-    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
-
-  ret = safe_atoi32(dbgri->media_kind, &intval);
-  if (ret == 0)
-    safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
-
-  ret = safe_atoi32(dbgri->data_kind, &intval);
-  if (ret == 0)
-    safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
-
-  safe_json_add_date_from_string(item, "date_released", dbgri->date_released);
-  safe_json_add_int_from_string(item, "year", dbgri->year);
-
-  ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "album", dbgri->persistentid);
-  if (ret < sizeof(uri))
-    json_object_object_add(item, "uri", json_object_new_string(uri));
-
-  ret = snprintf(artwork_url, sizeof(artwork_url), "./artwork/group/%s", dbgri->id);
-  if (ret < sizeof(artwork_url))
-    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
+  for (i = 0; i < map_size; i++)
+    {
+      strptr = (char **)(src + map[i].src_offset);
+      map[i].to_json_fn(item, map[i].key, *strptr);
+    }
 
   return item;
 }
@@ -271,120 +427,25 @@ album_to_json(struct db_group_info *dbgri)
 static json_object *
 track_to_json(struct db_media_file_info *dbmfi)
 {
-  json_object *item;
-  char uri[100];
-  char artwork_url[100];
-  int intval;
-  int ret;
-
-  item = json_object_new_object();
-
-  safe_json_add_int_from_string(item, "id", dbmfi->id);
-  safe_json_add_string(item, "title", dbmfi->title);
-  safe_json_add_string(item, "title_sort", dbmfi->title_sort);
-  safe_json_add_string(item, "artist", dbmfi->artist);
-  safe_json_add_string(item, "artist_sort", dbmfi->artist_sort);
-  safe_json_add_string(item, "album", dbmfi->album);
-  safe_json_add_string(item, "album_sort", dbmfi->album_sort);
-  safe_json_add_string(item, "album_id", dbmfi->songalbumid);
-  safe_json_add_string(item, "album_artist", dbmfi->album_artist);
-  safe_json_add_string(item, "album_artist_sort", dbmfi->album_artist_sort);
-  safe_json_add_string(item, "album_artist_id", dbmfi->songartistid);
-  safe_json_add_string(item, "composer", dbmfi->composer);
-  safe_json_add_string(item, "genre", dbmfi->genre);
-  safe_json_add_string(item, "comment", dbmfi->comment);
-  safe_json_add_int_from_string(item, "year", dbmfi->year);
-  safe_json_add_int_from_string(item, "track_number", dbmfi->track);
-  safe_json_add_int_from_string(item, "disc_number", dbmfi->disc);
-  safe_json_add_int_from_string(item, "length_ms", dbmfi->song_length);
-
-  safe_json_add_int_from_string(item, "rating", dbmfi->rating);
-  safe_json_add_int_from_string(item, "play_count", dbmfi->play_count);
-  safe_json_add_int_from_string(item, "skip_count", dbmfi->skip_count);
-  safe_json_add_time_from_string(item, "time_played", dbmfi->time_played);
-  safe_json_add_time_from_string(item, "time_skipped", dbmfi->time_skipped);
-  safe_json_add_time_from_string(item, "time_added", dbmfi->time_added);
-  safe_json_add_date_from_string(item, "date_released", dbmfi->date_released);
-  safe_json_add_int_from_string(item, "seek_ms", dbmfi->seek);
-
-  safe_json_add_string(item, "type", dbmfi->type);
-  safe_json_add_int_from_string(item, "samplerate", dbmfi->samplerate);
-  safe_json_add_int_from_string(item, "bitrate", dbmfi->bitrate);
-  safe_json_add_int_from_string(item, "channels", dbmfi->channels);
-  safe_json_add_int_from_string(item, "usermark", dbmfi->usermark);
-
-  ret = safe_atoi32(dbmfi->media_kind, &intval);
-  if (ret == 0)
-    safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
-
-  ret = safe_atoi32(dbmfi->data_kind, &intval);
-  if (ret == 0)
-    safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
-
-  safe_json_add_string(item, "path", dbmfi->path);
-
-  ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "track", dbmfi->id);
-  if (ret < sizeof(uri))
-    json_object_object_add(item, "uri", json_object_new_string(uri));
-
-  ret = snprintf(artwork_url, sizeof(artwork_url), "/artwork/item/%s", dbmfi->id);
-  if (ret < sizeof(artwork_url))
-    json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
-
-  return item;
+  return generic_to_json(dbmfi, track_map, ARRAY_SIZE(track_map));
 }
 
-// TODO Only partially implemented. A full implementation should use a mapping
-// table, which should also be used above in track_to_json(). It should also
-// return errors if there are incorrect/mispelled fields, but not sure how to
-// walk a json object with json-c.
-static int
-json_to_track(struct media_file_info *mfi, json_object *json)
+static json_object *
+artist_to_json(struct db_group_info *dbgri)
 {
-  if (jparse_contains_key(json, "id", json_type_int))
-    mfi->id = jparse_int_from_obj(json, "id");
-  if (jparse_contains_key(json, "usermark", json_type_int))
-    mfi->usermark = jparse_int_from_obj(json, "usermark");
-  if (jparse_contains_key(json, "rating", json_type_int))
-    mfi->rating = jparse_int_from_obj(json, "rating");
-  if (jparse_contains_key(json, "play_count", json_type_int))
-    mfi->play_count = jparse_int_from_obj(json, "play_count");
+  return generic_to_json(dbgri, artist_map, ARRAY_SIZE(artist_map));
+}
 
-  return HTTP_OK;
+static json_object *
+album_to_json(struct db_group_info *dbgri)
+{
+  return generic_to_json(dbgri, album_map, ARRAY_SIZE(album_map));
 }
 
 static json_object *
 playlist_to_json(struct db_playlist_info *dbpli)
 {
-  json_object *item;
-  char uri[100];
-  int intval;
-  bool boolval;
-  int ret;
-
-  item = json_object_new_object();
-
-  safe_json_add_int_from_string(item, "id", dbpli->id);
-  safe_json_add_string(item, "name", dbpli->title);
-  safe_json_add_string(item, "path", dbpli->path);
-  safe_json_add_string(item, "parent_id", dbpli->parent_id);
-  ret = safe_atoi32(dbpli->type, &intval);
-  if (ret == 0)
-    {
-      safe_json_add_string(item, "type", db_pl_type_label(intval));
-      json_object_object_add(item, "smart_playlist", json_object_new_boolean(intval == PL_SMART));
-
-      boolval = dbpli->query_order && strcasestr(dbpli->query_order, "random");
-      json_object_object_add(item, "random", json_object_new_boolean(boolval));
-
-      json_object_object_add(item, "folder", json_object_new_boolean(intval == PL_FOLDER));
-    }
-
-  ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "playlist", dbpli->id);
-  if (ret < sizeof(uri))
-    json_object_object_add(item, "uri", json_object_new_string(uri));
-
-  return item;
+  return generic_to_json(dbpli, playlist_map, ARRAY_SIZE(playlist_map));
 }
 
 static json_object *
@@ -419,6 +480,47 @@ directory_to_json(struct directory_info *directory_info)
 //  json_object_object_add(item, "parent_id", json_object_new_int(directory_info->parent_id));
 
   return item;
+}
+
+static int
+json_to_track(struct media_file_info *mfi, json_object *json)
+{
+  struct json_object_iterator obj;
+  struct json_object_iterator end;
+  const char *key;
+  struct json_object *item;
+  void *ptr;
+  int ret;
+  int i;
+
+  end = json_object_iter_end(json);
+  for (obj = json_object_iter_begin(json); !json_object_iter_equal(&obj, &end); json_object_iter_next(&obj))
+    {
+      key = json_object_iter_peek_name(&obj);
+      item = json_object_iter_peek_value(&obj);
+    
+      for (i = 0; i < ARRAY_SIZE(track_map); i++)
+        {
+	  if (strcmp(key, track_map[i].key) == 0)
+	    break;
+	}
+
+      if (i == ARRAY_SIZE(track_map))
+	goto error_unknown_key;
+
+      ptr = (void *)mfi + track_map[i].dst_offset;
+
+      ret = track_map[i].from_json_fn(ptr, track_map[i].key, item);
+      if (ret < 0)
+	goto error_value;
+    }
+
+  return HTTP_OK;
+
+ error_unknown_key:
+  return HTTP_NOTIMPLEMENTED;
+ error_value:
+  return HTTP_BADREQUEST;
 }
 
 
@@ -3270,8 +3372,8 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   json_object *reply = NULL;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
-    return HTTP_NOTMODIFIED;
+//  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
+//    return HTTP_NOTMODIFIED;
 
   track_id = hreq->uri_parsed->path_parts[3];
 
