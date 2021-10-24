@@ -472,7 +472,7 @@ fetch_artists(struct query_params *query_params, json_object *items, int *total)
 }
 
 static json_object *
-fetch_artist(const char *artist_id, bool *notfound)
+fetch_artist(bool *notfound, const char *artist_id)
 {
   struct query_params query_params;
   json_object *artist;
@@ -541,7 +541,7 @@ fetch_albums(struct query_params *query_params, json_object *items, int *total)
 }
 
 static json_object *
-fetch_album(const char *album_id, bool *notfound)
+fetch_album(bool *notfound, const char *album_id)
 {
   struct query_params query_params;
   json_object *album;
@@ -607,7 +607,7 @@ fetch_playlists(struct query_params *query_params, json_object *items, int *tota
 }
 
 static json_object *
-fetch_playlist(uint32_t playlist_id, bool *notfound)
+fetch_playlist(bool *notfound, uint32_t playlist_id)
 {
   struct query_params query_params;
   json_object *playlist;
@@ -2999,7 +2999,7 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
 
   artist_id = hreq->uri_parsed->path_parts[3];
 
-  reply = fetch_artist(artist_id, &notfound);
+  reply = fetch_artist(&notfound, artist_id);
   if (!reply)
     {
       ret = -1;
@@ -3148,7 +3148,7 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
 
   album_id = hreq->uri_parsed->path_parts[3];
 
-  reply = fetch_album(album_id, &notfound);
+  reply = fetch_album(&notfound, album_id);
   if (!reply)
     {
       ret = -1;
@@ -3512,7 +3512,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
     }
   else
     {
-      reply = fetch_playlist(playlist_id, &notfound);
+      reply = fetch_playlist(&notfound, playlist_id);
     }
 
   if (!reply)
