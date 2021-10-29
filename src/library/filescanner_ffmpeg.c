@@ -400,6 +400,12 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 
       av_dict_set(&options, "icy", "1", 0);
     }
+  else if (mfi->data_kind == DATA_KIND_FILE && mfi->file_size == 0)
+    {
+      // a 0-byte mp3 will make ffmpeg die with arithmetic exception (with 3.2.15-0+deb9u4)
+      free(path);
+      return -1;
+    }
 
   ret = avformat_open_input(&ctx, path, NULL, &options);
 
