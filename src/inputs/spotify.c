@@ -52,7 +52,6 @@ backend_set(void)
 
 
 /* -------------- Dispatches functions exposed via spotify.h ---------------- */
-/*           (probably not necessary when libspotify is removed)              */
 /*             Called from other threads than the input thread                */
 
 int
