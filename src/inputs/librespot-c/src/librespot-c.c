@@ -220,15 +220,12 @@ session_return(struct sp_session *session, enum sp_error err)
   commands_exec_end(sp_cmdbase, err);
 }
 
-// Rolls back from an error situation. If it is a failed login then the session
-// will be closed, but if it just a connection timeout we keep the session, but
-// drop the ongoing download.
+// Disconnects after an error situation. If it is a failed login then the
+// session, otherwise we end download and disconnect.
 static void
 session_error(struct sp_session *session, enum sp_error err)
 {
-  struct sp_channel *channel = session->now_streaming_channel;
-
-  sp_cb.logmsg("Session error: %d\n", err);
+  sp_cb.logmsg("Session error: %d (occurred before msg %d, queue %d)\n", err, session->msg_type_next, session->msg_type_queued);
 
   session_return(session, err);
 
@@ -238,8 +235,10 @@ session_error(struct sp_session *session, enum sp_error err)
       return;
     }
 
-  channel_free(channel);
+  channel_free_all(session);
   session->now_streaming_channel = NULL;
+
+  ap_disconnect(&session->conn);
 }
 
 
