@@ -51,9 +51,7 @@
 
 struct global_ctx
 {
-  pthread_mutex_t lock;
-  pthread_cond_t cond;
-
+  bool is_initialized;
   struct spotify_status status;
 
   struct sp_session *session;
@@ -74,6 +72,12 @@ struct download_ctx
 };
 
 static struct global_ctx spotify_ctx;
+
+// Must be initialized statically since we don't have anywhere to do it at
+// runtime. We are in the special situation that multiple threads can result in
+// calls to initialize(), e.g. input_init() and library init scan, thus it must
+// have the lock ready to use to be thread safe.
+static pthread_mutex_t spotify_ctx_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static struct media_quality spotify_quality = { 44100, 16, 2, 0 };
 
@@ -136,6 +140,42 @@ postlogin(struct global_ctx *ctx)
   listener_notify(LISTENER_SPOTIFY);
 
   return 0;
+}
+
+static int
+login_stored_cred(struct global_ctx *ctx, const char *username, const char *db_stored_cred)
+{
+  size_t db_stored_cred_len;
+  uint8_t *stored_cred = NULL;
+  size_t stored_cred_len;
+  int ret;
+
+  db_stored_cred_len = strlen(db_stored_cred);
+  stored_cred_len = db_stored_cred_len / 2;
+
+  CHECK_NULL(L_SPOTIFY, stored_cred = malloc(stored_cred_len));
+  hextobin(stored_cred, stored_cred_len, db_stored_cred, db_stored_cred_len);
+
+  ctx->session = librespotc_login_stored_cred(username, stored_cred, stored_cred_len);
+  if (!ctx->session)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error logging into Spotify: %s\n", librespotc_last_errmsg());
+      goto error;
+    }
+
+  ret = postlogin(ctx);
+  if (ret < 0)
+    goto error;
+
+  free(stored_cred);
+  return 0;
+
+ error:
+  free(stored_cred);
+  if (ctx->session)
+    librespotc_logout(ctx->session);
+  ctx->session = NULL;
+  return -1;
 }
 
 // If there is evbuf size is below max, reads from a non-blocking fd until error,
@@ -246,7 +286,7 @@ hexdump_cb(const char *msg, uint8_t *data, size_t data_len)
 }
 
 
-/* --------------------- Implementation (input thread) ---------------------- */
+/* ----------------------- libresport-c initialization ---------------------- */
 
 struct sp_callbacks callbacks = {
   .https_get      = https_get_cb,
@@ -259,15 +299,67 @@ struct sp_callbacks callbacks = {
   .logmsg   = logmsg_cb,
 };
 
+// Called from main thread as part of player_init, or from library thread as
+// part of relogin. Caller must use mutex for thread safety.
+static int
+initialize(struct global_ctx *ctx)
+{
+  struct sp_sysinfo sysinfo;
+  cfg_t *spotify_cfg;
+  int ret;
+
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+
+  if (cfg_getbool(spotify_cfg, "use_libspotify"))
+    return -1;
+
+  if (ctx->is_initialized)
+    return 0;
+
+  snprintf(sysinfo.client_name, sizeof(sysinfo.client_name), PACKAGE_NAME);
+  snprintf(sysinfo.client_version, sizeof(sysinfo.client_version), PACKAGE_VERSION);
+  snprintf(sysinfo.client_build_id, sizeof(sysinfo.client_build_id), "0");
+  snprintf(sysinfo.device_id, sizeof(sysinfo.device_id), "%" PRIx64, libhash); // TODO use a UUID instead
+
+  ret = librespotc_init(&sysinfo, &callbacks);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error initializing Spotify: %s\n", librespotc_last_errmsg());
+      goto error;
+    }
+
+  switch (cfg_getint(spotify_cfg, "bitrate"))
+    {
+      case 1:
+	ctx->bitrate_preferred = SP_BITRATE_96;
+	break;
+      case 2:
+	ctx->bitrate_preferred = SP_BITRATE_160;
+	break;
+      case 3:
+	ctx->bitrate_preferred = SP_BITRATE_320;
+	break;
+      default:
+	ctx->bitrate_preferred = SP_BITRATE_ANY;
+    }
+
+  ctx->is_initialized = true;
+  return 0;
+
+ error:
+  ctx->is_initialized = false;
+  return -1;
+}
+
+
+/* --------------------- Implementation (input thread) ---------------------- */
+
 static int64_t
 download_seek(void *arg, int64_t offset, enum transcode_seek_type type)
 {
-  struct global_ctx *ctx = &spotify_ctx;
   struct download_ctx *download = arg;
   int64_t out;
   int ret;
-
-  pthread_mutex_lock(&ctx->lock);
 
   switch (type)
     {
@@ -290,8 +382,6 @@ download_seek(void *arg, int64_t offset, enum transcode_seek_type type)
 	goto error;
     }
 
-  pthread_mutex_unlock(&ctx->lock);
-
   DPRINTF(E_DBG, L_SPOTIFY, "Seek to offset %" PRIi64 " requested, type %d, returning %" PRIi64 "\n", offset, type, out);
 
   return out;
@@ -299,7 +389,6 @@ download_seek(void *arg, int64_t offset, enum transcode_seek_type type)
  error:
   DPRINTF(E_WARN, L_SPOTIFY, "Seek error\n");
 
-  pthread_mutex_unlock(&ctx->lock);
   return -1;
 }
 
@@ -368,12 +457,11 @@ download_new(int fd, uint32_t len_ms, size_t len_bytes)
 static int
 stop(struct input_source *source)
 {
-  struct global_ctx *ctx = &spotify_ctx;
   struct download_ctx *download = source->input_ctx;
 
   DPRINTF(E_DBG, L_SPOTIFY, "stop()\n");
 
-  pthread_mutex_lock(&ctx->lock);
+  pthread_mutex_lock(&spotify_ctx_lock);
 
   download_free(download);
 
@@ -383,7 +471,7 @@ stop(struct input_source *source)
   source->input_ctx = NULL;
   source->evbuf = NULL;
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
 
   return 0;
 }
@@ -400,7 +488,7 @@ setup(struct input_source *source)
 
   DPRINTF(E_DBG, L_SPOTIFY, "setup()\n");
 
-  pthread_mutex_lock(&ctx->lock);
+  pthread_mutex_lock(&spotify_ctx_lock);
 
   fd = librespotc_open(source->path, ctx->session);
   if (fd < 0)
@@ -438,11 +526,11 @@ setup(struct input_source *source)
   if (ret < 0)
     goto error;
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
   return 0;
 
  error:
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
   stop(source);
 
   return -1;
@@ -507,120 +595,41 @@ static int
 seek(struct input_source *source, int seek_ms)
 {
   struct download_ctx *download = source->input_ctx;
+  int ret;
+
+  pthread_mutex_lock(&spotify_ctx_lock);
 
   // This will make transcode call back to download_seek(), but with a byte
   // offset instead of a ms position, which is what librespot-c requires
-  return transcode_seek(download->xcode, seek_ms);
+  ret = transcode_seek(download->xcode, seek_ms);
+
+  pthread_mutex_unlock(&spotify_ctx_lock);
+
+  return ret;
 }
-
-static int
-login_stored_cred(struct global_ctx *ctx, const char *username, const char *db_stored_cred)
-{
-  size_t db_stored_cred_len;
-  uint8_t *stored_cred = NULL;
-  size_t stored_cred_len;
-  int ret;
-
-  db_stored_cred_len = strlen(db_stored_cred);
-  stored_cred_len = db_stored_cred_len / 2;
-
-  CHECK_NULL(L_SPOTIFY, stored_cred = malloc(stored_cred_len));
-  hextobin(stored_cred, stored_cred_len, db_stored_cred, db_stored_cred_len);
-
-  ctx->session = librespotc_login_stored_cred(username, stored_cred, stored_cred_len);
-  if (!ctx->session)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error logging into Spotify: %s\n", librespotc_last_errmsg());
-      goto error;
-    }
-
-  ret = postlogin(ctx);
-  if (ret < 0)
-    goto error;
-
-  free(stored_cred);
-  return 0;
-
- error:
-  free(stored_cred);
-  if (ctx->session)
-    librespotc_logout(ctx->session);
-  ctx->session = NULL;
-  return -1;
-}
-
 
 static int
 init(void)
 {
-  struct sp_sysinfo sysinfo;
-  cfg_t *spotify_cfg;
-  char *username = NULL;
-  char *db_stored_cred = NULL;
   int ret;
 
-  spotify_cfg = cfg_getsec(cfg, "spotify");
+  pthread_mutex_lock(&spotify_ctx_lock);
 
-  if (cfg_getbool(spotify_cfg, "use_libspotify"))
-    return -1;
+  ret = initialize(&spotify_ctx);
 
-  CHECK_ERR(L_SPOTIFY, mutex_init(&spotify_ctx.lock));
-  CHECK_ERR(L_SPOTIFY, pthread_cond_init(&spotify_ctx.cond, NULL));
+  pthread_mutex_unlock(&spotify_ctx_lock);
 
-  snprintf(sysinfo.client_name, sizeof(sysinfo.client_name), PACKAGE_NAME);
-  snprintf(sysinfo.client_version, sizeof(sysinfo.client_version), PACKAGE_VERSION);
-  snprintf(sysinfo.client_build_id, sizeof(sysinfo.client_build_id), "0");
-  snprintf(sysinfo.device_id, sizeof(sysinfo.device_id), "%" PRIx64, libhash); // TODO use a UUID instead
-
-  ret = librespotc_init(&sysinfo, &callbacks);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error initializing Spotify: %s\n", librespotc_last_errmsg());
-      goto error;
-    }
-
-  switch (cfg_getint(spotify_cfg, "bitrate"))
-    {
-      case 1:
-	spotify_ctx.bitrate_preferred = SP_BITRATE_96;
-	break;
-      case 2:
-	spotify_ctx.bitrate_preferred = SP_BITRATE_160;
-	break;
-      case 3:
-	spotify_ctx.bitrate_preferred = SP_BITRATE_320;
-	break;
-      default:
-	spotify_ctx.bitrate_preferred = SP_BITRATE_ANY;
-    }
-
-  // Re-login if we have stored credentials
-  db_admin_get(&username, "spotify_username");
-  db_admin_get(&db_stored_cred, "spotify_stored_cred");
-  if (username && db_stored_cred)
-    {
-      ret = login_stored_cred(&spotify_ctx, username, db_stored_cred);
-      if (ret < 0)
-	goto error;
-    }
-
-  free(username);
-  free(db_stored_cred);
-  return 0;
-
- error:
-  free(username);
-  free(db_stored_cred);
-  return -1;
+  return ret;
 }
 
 static void
 deinit(void)
 {
+  pthread_mutex_lock(&spotify_ctx_lock);
+
   librespotc_deinit();
 
-  CHECK_ERR(L_SPOTIFY, pthread_cond_destroy(&spotify_ctx.cond));
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&spotify_ctx.lock));
+  pthread_mutex_unlock(&spotify_ctx_lock);
 }
 
 struct input_definition input_spotify =
@@ -646,7 +655,7 @@ login(const char *username, const char *password, const char **errmsg)
   struct global_ctx *ctx = &spotify_ctx;
   int ret;
 
-  pthread_mutex_lock(&ctx->lock);
+  pthread_mutex_lock(&spotify_ctx_lock);
 
   ctx->session = librespotc_login_password(username, password);
   if (!ctx->session)
@@ -656,7 +665,7 @@ login(const char *username, const char *password, const char **errmsg)
   if (ret < 0)
     goto error;
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
 
   return 0;
 
@@ -668,7 +677,7 @@ login(const char *username, const char *password, const char **errmsg)
   if (errmsg)
     *errmsg = librespotc_last_errmsg();
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
 
   return -1;
 }
@@ -679,7 +688,7 @@ login_token(const char *username, const char *token, const char **errmsg)
   struct global_ctx *ctx = &spotify_ctx;
   int ret;
 
-  pthread_mutex_lock(&ctx->lock);
+  pthread_mutex_lock(&spotify_ctx_lock);
 
   ctx->session = librespotc_login_token(username, token);
   if (!ctx->session)
@@ -689,7 +698,7 @@ login_token(const char *username, const char *token, const char **errmsg)
   if (ret < 0)
     goto error;
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
 
   return 0;
 
@@ -701,7 +710,7 @@ login_token(const char *username, const char *token, const char **errmsg)
   if (errmsg)
     *errmsg = librespotc_last_errmsg();
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
 
   return -1;
 }
@@ -714,20 +723,52 @@ logout(void)
   db_admin_delete("spotify_username");
   db_admin_delete("spotify_stored_cred");
 
-  pthread_mutex_lock(&ctx->lock);
+  pthread_mutex_lock(&spotify_ctx_lock);
 
   librespotc_logout(ctx->session);
   ctx->session = NULL;
 
   memset(&ctx->status, 0, sizeof(ctx->status));
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
 }
 
 static int
 relogin(void)
 {
-  return 0; // re-login is only relevant for libspotify, here it is just a no-op
+  struct global_ctx *ctx = &spotify_ctx;
+  char *username = NULL;
+  char *db_stored_cred = NULL;
+  int ret;
+
+  pthread_mutex_lock(&spotify_ctx_lock);
+
+  ret = initialize(ctx);
+  if (ret < 0)
+    goto error;
+
+  // Re-login if we have stored credentials
+  db_admin_get(&username, "spotify_username");
+  db_admin_get(&db_stored_cred, "spotify_stored_cred");
+  if (username && db_stored_cred)
+    {
+      ret = login_stored_cred(ctx, username, db_stored_cred);
+      if (ret < 0)
+	goto error;
+    }
+
+  free(username);
+  free(db_stored_cred);
+
+  pthread_mutex_unlock(&spotify_ctx_lock);
+  return 0;
+
+ error:
+  free(username);
+  free(db_stored_cred);
+
+  pthread_mutex_unlock(&spotify_ctx_lock);
+  return -1;
 }
 
 static void
@@ -735,14 +776,14 @@ status_get(struct spotify_status *status)
 {
   struct global_ctx *ctx = &spotify_ctx;
 
-  pthread_mutex_lock(&ctx->lock);
+  pthread_mutex_lock(&spotify_ctx_lock);
 
   memcpy(status->username, ctx->status.username, sizeof(status->username));
   status->logged_in = ctx->status.logged_in;
   status->installed = true;
   status->has_podcast_support = true;
 
-  pthread_mutex_unlock(&ctx->lock);
+  pthread_mutex_unlock(&spotify_ctx_lock);
 }
 
 struct spotify_backend spotify_librespotc =

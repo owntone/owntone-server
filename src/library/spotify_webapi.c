@@ -2039,14 +2039,16 @@ initscan(void)
   spotify_saved_plid = 0;
 
   /*
-   * libspotify needs to be logged in before before scanning tracks from the web
-   * since scanned tracks need to be registered for playback
+   * Check that the playback Spotify backend can log in, so we don't add tracks
+   * to the library that can't be played. Also, libspotify needs to be logged in
+   * before before scanning tracks from the web since scanned tracks need to be
+   * registered for playback.
    */
   ret = spotify_relogin();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "libspotify-login failed. In order to use Spotify, "
-	"provide valid credentials for libspotify by visiting http://owntone.local:3689\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify playback library could not log in. In order to use Spotify, "
+	"provide valid credentials by visiting http://owntone.local:3689\n");
 
       db_spotify_purge();
 
