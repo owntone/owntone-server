@@ -1549,10 +1549,7 @@ source_item_pipe_get(struct artwork_ctx *ctx)
 
   queue_item = db_queue_fetch_byfileid(ctx->id);
   if (!queue_item || !queue_item->artwork_url || strncmp(queue_item->artwork_url, proto, strlen(proto)) != 0)
-    {
-      free_queue_item(queue_item, 0);
-      return ART_E_NONE;
-    }
+    goto notfound;
 
   path = queue_item->artwork_url + strlen(proto);
 
@@ -1560,15 +1557,16 @@ source_item_pipe_get(struct artwork_ctx *ctx)
   // been updated yet. In that case just stop now.
   ret = access(path, F_OK);
   if (ret != 0)
-    {
-      return ART_E_NONE;
-    }
+    goto notfound;
 
   snprintf(ctx->path, sizeof(ctx->path), "%s", path);
 
   free_queue_item(queue_item, 0);
-
   return artwork_get(ctx->evbuf, ctx->path, NULL, false, ctx->data_kind, ctx->req_params);
+
+ notfound:
+  free_queue_item(queue_item, 0);
+  return ART_E_NONE;
 }
 
 static int
