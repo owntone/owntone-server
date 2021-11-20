@@ -54,7 +54,7 @@ channel_get(uint32_t channel_id, struct sp_session *session)
   if (channel_id > sizeof(session->channels)/sizeof(session->channels)[0])
     return NULL;
 
-  if (!session->channels[channel_id].is_allocated)
+  if (session->channels[channel_id].state == SP_CHANNEL_STATE_UNALLOCATED)
     return NULL;
 
   return &session->channels[channel_id];
@@ -63,7 +63,7 @@ channel_get(uint32_t channel_id, struct sp_session *session)
 void
 channel_free(struct sp_channel *channel)
 {
-  if (!channel || !channel->is_allocated)
+  if (!channel || channel->state == SP_CHANNEL_STATE_UNALLOCATED)
     return;
 
   if (channel->audio_buf)
@@ -108,7 +108,7 @@ channel_new(struct sp_channel **new_channel, struct sp_session *session, const c
 
   channel_free(channel);
   channel->id = i;
-  channel->is_allocated = true;
+  channel->state = SP_CHANNEL_STATE_OPENED;
 
   channel->file.path = strdup(path);
   path_to_media_id_and_type(&channel->file);
@@ -141,15 +141,18 @@ channel_new(struct sp_channel **new_channel, struct sp_session *session, const c
   return -1;
 }
 
-// Set the fd to non-blocking in case the caller changed that, and then read
-// until empty
 static int
-channel_flush(int fd)
+channel_flush(struct sp_channel *channel)
 {
   uint8_t buf[4096];
+  int fd = channel->audio_fd[0];
   int flags;
   int got;
 
+  evbuffer_drain(channel->audio_buf, -1);
+
+  // Note that we flush the read side. We set the fd to non-blocking in case
+  // the caller changed that, and then read until empty
   flags = fcntl(fd, F_GETFL, 0);
   if (flags == -1)
     return -1;
@@ -167,13 +170,13 @@ channel_flush(int fd)
 void
 channel_play(struct sp_channel *channel)
 {
-  channel->is_writing = true;
+  channel->state = SP_CHANNEL_STATE_PLAYING;
 }
 
 void
 channel_stop(struct sp_channel *channel)
 {
-  channel->is_writing = false;
+  channel->state = SP_CHANNEL_STATE_STOPPED;
 
   // This will tell the reader that there is no more to read. He should then
   // call librespotc_close(), which will clean up the rest of the channel via
@@ -182,15 +185,19 @@ channel_stop(struct sp_channel *channel)
   channel->audio_fd[1] = -1;
 }
 
-int
-channel_seek(struct sp_channel *channel, size_t pos)
+static int
+channel_seek_internal(struct sp_channel *channel, size_t pos, bool do_flush)
 {
   uint32_t seek_words;
   int ret;
 
-  ret = channel_flush(channel->audio_fd[0]);
-  if (ret < 0)
-    RETURN_ERROR(SP_ERR_INVALID, "Could not flush read fd before seeking");
+  if (do_flush)
+    {
+      ret = channel_flush(channel);
+      if (ret < 0)
+        RETURN_ERROR(SP_ERR_INVALID, "Could not flush read fd before seeking");
+
+    }
 
   channel->seek_pos = pos;
 
@@ -214,12 +221,38 @@ channel_seek(struct sp_channel *channel, size_t pos)
   return ret;
 }
 
+int
+channel_seek(struct sp_channel *channel, size_t pos)
+{
+  channel_seek_internal(channel, pos, true); // true -> request flush
+}
+
 void
 channel_pause(struct sp_channel *channel)
 {
-  channel_flush(channel->audio_fd[0]);
+  channel_flush(channel);
 
-  channel->is_writing = false;
+  channel->state = SP_CHANNEL_STATE_PAUSED;
+}
+
+// After a disconnect we connect to another one and try to resume. To make that
+// work some data elements need to be reset.
+void
+channel_retry(struct sp_channel *channel)
+{
+  size_t pos;
+
+  if (!channel)
+    return;
+
+  channel->is_data_mode = false;
+
+  memset(&channel->header, 0, sizeof(struct sp_channel_header));
+  memset(&channel->body, 0, sizeof(struct sp_channel_body));
+
+  pos = 4 * channel->file.received_words - SP_OGG_HEADER_LEN;
+
+  channel_seek_internal(channel, pos, false); // false => don't flush
 }
 
 // Always returns number of byte read so caller can advance read pointer. If
@@ -379,6 +412,9 @@ channel_data_write(struct sp_channel *channel)
 {
   ssize_t wrote;
   int ret;
+
+  if (channel->state == SP_CHANNEL_STATE_PAUSED || channel->state == SP_CHANNEL_STATE_STOPPED)
+    return SP_OK_DONE;
 
   wrote = evbuffer_write(channel->audio_buf, channel->audio_fd[1]);
   if (wrote < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))

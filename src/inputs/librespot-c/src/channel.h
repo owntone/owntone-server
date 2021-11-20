@@ -25,5 +25,8 @@ channel_seek(struct sp_channel *channel, size_t pos);
 void
 channel_pause(struct sp_channel *channel);
 
+void
+channel_retry(struct sp_channel *channel);
+
 int
 channel_msg_read(uint16_t *channel_id, uint8_t *msg, size_t msg_len, struct sp_session *session);

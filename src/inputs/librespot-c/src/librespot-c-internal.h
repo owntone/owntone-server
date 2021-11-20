@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <event2/event.h>
 #include <event2/buffer.h>
@@ -42,6 +43,10 @@
 
 // Max wait for AP to respond
 #define SP_AP_TIMEOUT_SECS 10
+
+// After a disconnect we try to reconnect, but if we are disconnected yet again
+// we get the hint and won't try reconnecting again until after this cooldown
+#define SP_AP_COOLDOWN_SECS 30
 
 // If client hasn't requested anything in particular
 #define SP_BITRATE_DEFAULT SP_BITRATE_320
@@ -104,6 +109,15 @@ enum sp_media_type
   SP_MEDIA_UNKNOWN,
   SP_MEDIA_TRACK,
   SP_MEDIA_EPISODE,
+};
+
+enum sp_channel_state
+{
+  SP_CHANNEL_STATE_UNALLOCATED = 0,
+  SP_CHANNEL_STATE_OPENED,
+  SP_CHANNEL_STATE_PLAYING,
+  SP_CHANNEL_STATE_PAUSED,
+  SP_CHANNEL_STATE_STOPPED,
 };
 
 // From librespot-golang
@@ -275,8 +289,8 @@ struct sp_channel
 {
   int id;
 
-  bool is_allocated;
-  bool is_writing;
+  enum sp_channel_state state;
+
   bool is_data_mode;
   bool is_spotify_header_received;
   size_t seek_pos;
@@ -306,6 +320,7 @@ struct sp_channel
 struct sp_session
 {
   struct sp_connection conn;
+  time_t cooldown_ts;
 
   bool is_logged_in;
   struct sp_credentials credentials;
@@ -322,9 +337,10 @@ struct sp_session
   // Go to next step in a request sequence
   struct event *continue_ev;
 
-  // Current (or last) message being processed
-  enum sp_msg_type msg_type_queued;
+  // Current, next and subsequent message being processed
+  enum sp_msg_type msg_type_last;
   enum sp_msg_type msg_type_next;
+  enum sp_msg_type msg_type_queued;
   int (*response_handler)(uint8_t *, size_t, struct sp_session *);
 
   struct sp_session *next;

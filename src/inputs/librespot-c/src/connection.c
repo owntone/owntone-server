@@ -240,14 +240,6 @@ ap_resolve(char **address, unsigned short *port)
   return ret;
 }
 
-static bool
-is_handshake(enum sp_msg_type type)
-{
-  return ( type == MSG_TYPE_CLIENT_HELLO ||
-           type == MSG_TYPE_CLIENT_RESPONSE_PLAINTEXT ||
-           type == MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED );
-}
-
 static void
 connection_clear(struct sp_connection *conn)
 {
@@ -293,7 +285,7 @@ connection_idle_cb(int fd, short what, void *arg)
 }
 
 static int
-connection_make(struct sp_connection *conn, struct sp_conn_callbacks *cb, struct sp_session *session)
+connection_make(struct sp_connection *conn, struct sp_conn_callbacks *cb, void *response_cb_arg)
 {
   int response_fd;
   int ret;
@@ -315,7 +307,7 @@ connection_make(struct sp_connection *conn, struct sp_conn_callbacks *cb, struct
 #endif
 
   conn->response_fd = response_fd;
-  conn->response_ev = event_new(cb->evbase, response_fd, EV_READ | EV_PERSIST, cb->response_cb, session);
+  conn->response_ev = event_new(cb->evbase, response_fd, EV_READ | EV_PERSIST, cb->response_cb, response_cb_arg);
   conn->timeout_ev = evtimer_new(cb->evbase, cb->timeout_cb, conn);
 
   conn->idle_ev = evtimer_new(cb->evbase, connection_idle_cb, conn);
@@ -338,24 +330,36 @@ connection_make(struct sp_connection *conn, struct sp_conn_callbacks *cb, struct
 }
 
 enum sp_error
-ap_connect(enum sp_msg_type type, struct sp_conn_callbacks *cb, struct sp_session *session)
+ap_connect(struct sp_connection *conn, enum sp_msg_type type, time_t *cooldown_ts, struct sp_conn_callbacks *cb, void *cb_arg)
 {
   int ret;
+  time_t now;
 
-  if (!session->conn.is_connected)
+  if (!conn->is_connected)
     {
-      ret = connection_make(&session->conn, cb, session);
+      // Protection against flooding the access points with reconnection attempts
+      // Note that cooldown_ts can't be part of the connection struct because
+      // the struct is reset between connection attempts.
+      now = time(NULL);
+      if (now > *cooldown_ts + SP_AP_COOLDOWN_SECS) // Last attempt was a long time ago
+	*cooldown_ts = now;
+      else if (now >= *cooldown_ts) // Last attempt was recent, so disallow more attempts for a while
+	*cooldown_ts = now + SP_AP_COOLDOWN_SECS;
+      else
+	RETURN_ERROR(SP_ERR_NOCONNECTION, "Cannot connect to access point, cooldown after disconnect is in effect");
+
+      ret = connection_make(conn, cb, cb_arg);
       if (ret < 0)
 	RETURN_ERROR(ret, sp_errmsg);
     }
 
-  if (is_handshake(type) || session->conn.handshake_completed)
+  if (msg_is_handshake(type) || conn->handshake_completed)
     return SP_OK_DONE; // Proceed right away
 
   return SP_OK_WAIT; // Caller must login again
 
  error:
-  ap_disconnect(&session->conn);
+  ap_disconnect(conn);
   return ret;
 }
 
@@ -590,6 +594,9 @@ response_apwelcome(uint8_t *payload, size_t payload_len, struct sp_session *sess
 
       session->credentials.stored_cred_len = apwelcome->reusable_auth_credentials.len;
       memcpy(session->credentials.stored_cred, apwelcome->reusable_auth_credentials.data, session->credentials.stored_cred_len);
+
+      // No need for this any more
+      memset(session->credentials.password, 0, sizeof(session->credentials.password));
     }
 
   apwelcome__free_unpacked(apwelcome, NULL);
@@ -1257,6 +1264,14 @@ msg_make_chunk_request(uint8_t *out, size_t out_len, struct sp_session *session)
   assert(required_len == 46);
 
   return required_len;
+}
+
+bool
+msg_is_handshake(enum sp_msg_type type)
+{
+  return ( type == MSG_TYPE_CLIENT_HELLO ||
+           type == MSG_TYPE_CLIENT_RESPONSE_PLAINTEXT ||
+           type == MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED );
 }
 
 int

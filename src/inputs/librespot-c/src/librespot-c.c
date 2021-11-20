@@ -54,11 +54,7 @@ events for proceeding are activated directly.
 #include "connection.h"
 #include "channel.h"
 
-/* TODO list
-
- - protect against DOS
-*/
-
+// #define DEBUG_DISCONNECT 1
 
 /* -------------------------------- Globals --------------------------------- */
 
@@ -77,6 +73,9 @@ static struct commands_base *sp_cmdbase;
 
 static struct timeval sp_response_timeout_tv = { SP_AP_TIMEOUT_SECS, 0 };
 
+#ifdef DEBUG_DISCONNECT
+static int debug_disconnect_counter;
+#endif
 
 // Forwards
 static int
@@ -212,7 +211,7 @@ session_return(struct sp_session *session, enum sp_error err)
     {
       // track_write() completed, close the write end which means reader will
       // get an EOF
-      if (channel && channel->is_writing && err == SP_OK_DONE)
+      if (channel && channel->state == SP_CHANNEL_STATE_PLAYING && err == SP_OK_DONE)
 	channel_stop(channel);
       return;
     }
@@ -241,6 +240,29 @@ session_error(struct sp_session *session, enum sp_error err)
   ap_disconnect(&session->conn);
 }
 
+// Called if an access point disconnects. Will clear current connection and
+// start a flow where the same request will be made to another access point.
+static void
+session_retry(struct sp_session *session)
+{
+  struct sp_channel *channel = session->now_streaming_channel;
+  enum sp_msg_type type = session->msg_type_last;
+  int ret;
+
+  sp_cb.logmsg("Retrying after disconnect (occurred at msg %d)\n", type);
+
+  channel_retry(channel);
+
+  ap_disconnect(&session->conn);
+
+  // If we were in the middle of a handshake when disconnected we must restart
+  if (msg_is_handshake(type))
+    type = MSG_TYPE_CLIENT_HELLO;
+
+  ret = request_make(type, session);
+  if (ret < 0)
+    session_error(session, ret);
+}
 
 /* ------------------------ Main sequence control --------------------------- */
 
@@ -334,6 +356,15 @@ response_cb(int fd, short what, void *arg)
   if (what == EV_READ)
     {
       ret = evbuffer_read(conn->incoming, fd, -1);
+#ifdef DEBUG_DISCONNECT
+      debug_disconnect_counter++;
+      if (debug_disconnect_counter == 1000)
+	{
+	  sp_cb.logmsg("Simulating a disconnection from the access point (last request type was %d)\n", session->msg_type_last);
+	  ret = 0;
+	}
+#endif
+
       if (ret == 0)
 	RETURN_ERROR(SP_ERR_NOCONNECTION, "The access point disconnected");
       else if (ret < 0)
@@ -348,7 +379,7 @@ response_cb(int fd, short what, void *arg)
       case SP_OK_WAIT: // Incomplete, wait for more data
 	break;
       case SP_OK_DATA:
-        if (channel->is_writing && !channel->file.end_of_file)
+        if (channel->state == SP_CHANNEL_STATE_PLAYING && !channel->file.end_of_file)
 	  session->msg_type_next = MSG_TYPE_CHUNK_REQUEST;
 	if (channel->progress_cb)
 	  channel->progress_cb(channel->audio_fd[0], channel->cb_arg, 4 * channel->file.received_words - SP_OGG_HEADER_LEN, 4 * channel->file.len_words - SP_OGG_HEADER_LEN);
@@ -375,16 +406,16 @@ response_cb(int fd, short what, void *arg)
   return;
 
  error:
-  session_error(session, ret);
+  if (ret == SP_ERR_NOCONNECTION)
+    session_retry(session);
+  else
+    session_error(session, ret);
 }
 
 static int
 relogin(enum sp_msg_type type, struct sp_session *session)
 {
   int ret;
-
-  if (session->msg_type_queued != MSG_TYPE_NONE)
-    RETURN_ERROR(SP_ERR_NOCONNECTION, "Cannot send message, another request is waiting for handshake");
 
   ret = request_make(MSG_TYPE_CLIENT_HELLO, session);
   if (ret < 0)
@@ -408,16 +439,16 @@ request_make(enum sp_msg_type type, struct sp_session *session)
   struct sp_conn_callbacks cb = { sp_evbase, response_cb, timeout_cb };
   int ret;
 
+//  sp_cb.logmsg("Making request %d\n", type);
+
   // Make sure the connection is in a state suitable for sending this message
-  ret = ap_connect(type, &cb, session);
+  ret = ap_connect(&session->conn, type, &session->cooldown_ts, &cb, session);
   if (ret == SP_OK_WAIT)
     return relogin(type, session); // Can't proceed right now, the handshake needs to complete first
   else if (ret < 0)
     RETURN_ERROR(ret, sp_errmsg);
 
   ret = msg_make(&msg, type, session);
-  if (type == MSG_TYPE_CLIENT_RESPONSE_ENCRYPTED)
-    memset(session->credentials.password, 0, sizeof(session->credentials.password));
   if (ret < 0)
     RETURN_ERROR(SP_ERR_INVALID, "Error constructing message to Spotify");
 
@@ -435,6 +466,7 @@ request_make(enum sp_msg_type type, struct sp_session *session)
   else
     event_active(session->continue_ev, 0, 0);
 
+  session->msg_type_last = type;
   session->msg_type_next = msg.type_next;
   session->response_handler = msg.response_handler;
 
@@ -463,7 +495,7 @@ track_write(void *arg, int *retval)
     RETURN_ERROR(SP_ERR_NOSESSION, "Cannot play track, no valid session found");
 
   channel = session->now_streaming_channel;
-  if (!channel || !channel->is_allocated)
+  if (!channel || channel->state == SP_CHANNEL_STATE_UNALLOCATED)
     RETURN_ERROR(SP_ERR_INVALID, "No active channel to play, has track been opened?");
 
   channel_play(channel);
@@ -496,19 +528,20 @@ track_pause(void *arg, int *retval)
     RETURN_ERROR(SP_ERR_NOSESSION, "Cannot pause track, no valid session found");
 
   channel = session->now_streaming_channel;
-  if (!channel || !channel->is_allocated)
+  if (!channel || channel->state == SP_CHANNEL_STATE_UNALLOCATED)
     RETURN_ERROR(SP_ERR_INVALID, "No active channel to pause, has track been opened?");
 
   // If we are playing we are in the process of downloading a chunk, and in that
   // case we need that to complete before doing anything else with the channel,
   // e.g. reset it as track_close() does.
-  if (!channel->is_writing)
+  if (channel->state != SP_CHANNEL_STATE_PLAYING)
     {
       *retval = 0;
       return COMMAND_END;
     }
 
   channel_pause(channel);
+  session->msg_type_next = MSG_TYPE_NONE;
 
   *retval = 1;
   return COMMAND_PENDING;
@@ -531,9 +564,9 @@ track_seek(void *arg, int *retval)
     RETURN_ERROR(SP_ERR_NOSESSION, "Cannot seek, no valid session found");
 
   channel = session->now_streaming_channel;
-  if (!channel || !channel->is_allocated)
+  if (!channel)
     RETURN_ERROR(SP_ERR_INVALID, "No active channel to seek, has track been opened?");
-  else if (channel->is_writing)
+  else if (channel->state != SP_CHANNEL_STATE_OPENED)
     RETURN_ERROR(SP_ERR_INVALID, "Seeking during playback not currently supported");
 
   // This operation is not safe during chunk downloading because it changes the
