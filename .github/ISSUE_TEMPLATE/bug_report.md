@@ -1,6 +1,6 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: Bug or problem report
+about: Use this if OwnTone isn't working the way it should
 title: ''
 labels: ''
 assignees: ''
