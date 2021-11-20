@@ -493,7 +493,7 @@ setup(struct input_source *source)
   fd = librespotc_open(source->path, ctx->session);
   if (fd < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Eror opening source: %s\n", librespotc_last_errmsg());
+      DPRINTF(E_LOG, L_SPOTIFY, "Error opening source: %s\n", librespotc_last_errmsg());
       goto error;
     }
 
