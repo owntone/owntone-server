@@ -18,7 +18,7 @@ Release: 1%{?dist}
 License: GPLv2+
 Group: Applications/Multimedia
 Url: https://github.com/owntone/owntone-server
-Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
+Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.xz
 %{?systemd_ordering}
 BuildRequires: gcc, make, systemd, pkgconfig, libunistring-devel
 BuildRequires: pkgconfig(zlib), pkgconfig(libconfuse), pkgconfig(mxml)
@@ -30,6 +30,7 @@ BuildRequires: pkgconfig(libswscale), pkgconfig(libavutil)
 BuildRequires: pkgconfig(libavfilter), pkgconfig(libcurl)
 BuildRequires: pkgconfig(openssl), pkgconfig(libwebsockets) > 2.0.2
 BuildRequires: pkgconfig(libsodium), pkgconfig(avahi-client) >= 0.6.24
+BuildRequires: pkgconfig(libprotobuf-c)
 # pkgconfig(libplist) not used universally, so require libplist-devel instead
 BuildRequires: libplist-devel >= 0.16
 Requires(pre): shadow-utils
@@ -43,7 +44,6 @@ BuildRequires: pkgconfig(libpulse)
 BuildRequires: libspotify-devel
 %endif
 %if %{with chromecast}
-BuildRequires: pkgconfig(libprotobuf-c)
 BuildRequires: pkgconfig(gnutls)
 %endif
 
@@ -113,8 +113,14 @@ exit 0
 %attr(0750,%{username},%{groupname}) %{homedir}
 %ghost %{_localstatedir}/log/%{name}.log
 %{_mandir}/man?/*
+%exclude /etc/systemd/system/%{name}.service
 
 %changelog
+* Mon Nov 22 2021 Derek Atkins <derek@ihtfp.com> - 28.2-1
+   - Release tarball is a XZ not GZ file
+   - Configure always needs protobuf-c, not just for chromecast
+   - Exclude build-system-installed service file and use system location
+
 * Sat Mar 17 2018 Scott Shambarger <devel@shambarger.net> - 26.0-1
    - 26.0 release.
    - Update spec file to handle new feature defaults.
