@@ -46,6 +46,7 @@ BuildRequires: libspotify-devel
 %if %{with chromecast}
 BuildRequires: pkgconfig(gnutls)
 %endif
+Requires: avahi
 
 %global homedir %{_localstatedir}/lib/%{name}
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
