@@ -69,10 +69,9 @@ by iTunes and friends to share/stream media libraries over the network.
 %build
 %configure \
   --with%{!?with_alsa:out}-alsa --with%{!?with_pulseaudio:out}-pulseaudio \
-  --with-libcurl --with-libwebsockets --with-libsodium --with-libplist \
-  --with-avahi %{?with_spotify:--enable-spotify} \
+  --with-libwebsockets --with-avahi %{?with_spotify:--enable-spotify} \
   %{?with_lastfm:--enable-lastfm} %{?with_chromecast:--enable-chromecast} \
-  --with-daapd-user=%{username} --with-daapd-group=%{groupname}
+  --with-user=%{username} --with-group=%{groupname}
 %make_build
 
 %install
