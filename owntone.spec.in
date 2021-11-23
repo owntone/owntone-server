@@ -65,7 +65,8 @@ by iTunes and friends to share/stream media libraries over the network.
 %configure \
   --with%{!?with_alsa:out}-alsa --with%{!?with_pulseaudio:out}-pulseaudio \
   --with-libwebsockets --with-avahi %{?with_chromecast:--enable-chromecast} \
-  --with-user=%{username} --with-group=%{groupname} --disable-install_systemd
+  --with-user=%{username} --with-group=%{groupname} \
+  --with-systemddir=%{_unitdir}
 %make_build
 
 %install
@@ -74,8 +75,6 @@ rm -f %{buildroot}%{_pkgdocdir}/INSTALL
 mkdir -p %{buildroot}%{homedir}
 mkdir -p %{buildroot}%{_localstatedir}/log
 touch %{buildroot}%{_localstatedir}/log/%{name}.log
-mkdir -p %{buildroot}%{_unitdir}
-install -m 0644 owntone.service %{buildroot}%{_unitdir}/%{name}.service
 rm -f %{buildroot}%{_libdir}/%{name}/*.la
 
 %pre
