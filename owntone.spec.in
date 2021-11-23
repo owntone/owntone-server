@@ -65,7 +65,7 @@ by iTunes and friends to share/stream media libraries over the network.
 %configure \
   --with%{!?with_alsa:out}-alsa --with%{!?with_pulseaudio:out}-pulseaudio \
   --with-libwebsockets --with-avahi %{?with_chromecast:--enable-chromecast} \
-  --with-user=%{username} --with-group=%{groupname}
+  --with-user=%{username} --with-group=%{groupname} --disable-install_systemd
 %make_build
 
 %install
@@ -107,7 +107,6 @@ exit 0
 %attr(0750,%{username},%{groupname}) %{homedir}
 %ghost %{_localstatedir}/log/%{name}.log
 %{_mandir}/man?/*
-%exclude /etc/systemd/system/%{name}.service
 
 %changelog
 * Mon Nov 22 2021 Derek Atkins <derek@ihtfp.com> - 28.2-1
