@@ -5,8 +5,6 @@
 
 %bcond_without alsa
 %bcond_without pulseaudio
-%bcond_with spotify
-%bcond_with lastfm
 %bcond_with chromecast
 
 %global _hardened_build 1
@@ -18,7 +16,7 @@ Release: 1%{?dist}
 License: GPLv2+
 Group: Applications/Multimedia
 Url: https://github.com/owntone/owntone-server
-Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
+Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.xz
 %{?systemd_ordering}
 BuildRequires: gcc, make, systemd, pkgconfig, libunistring-devel
 BuildRequires: pkgconfig(zlib), pkgconfig(libconfuse), pkgconfig(mxml)
@@ -30,6 +28,7 @@ BuildRequires: pkgconfig(libswscale), pkgconfig(libavutil)
 BuildRequires: pkgconfig(libavfilter), pkgconfig(libcurl)
 BuildRequires: pkgconfig(openssl), pkgconfig(libwebsockets) > 2.0.2
 BuildRequires: pkgconfig(libsodium), pkgconfig(avahi-client) >= 0.6.24
+BuildRequires: pkgconfig(libprotobuf-c)
 # pkgconfig(libplist) not used universally, so require libplist-devel instead
 BuildRequires: libplist-devel >= 0.16
 Requires(pre): shadow-utils
@@ -39,13 +38,10 @@ BuildRequires: pkgconfig(alsa)
 %if %{with pulseaudio}
 BuildRequires: pkgconfig(libpulse)
 %endif
-%if %{with spotify}
-BuildRequires: libspotify-devel
-%endif
 %if %{with chromecast}
-BuildRequires: pkgconfig(libprotobuf-c)
 BuildRequires: pkgconfig(gnutls)
 %endif
+Requires: avahi
 
 %global homedir %{_localstatedir}/lib/%{name}
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
@@ -68,10 +64,9 @@ by iTunes and friends to share/stream media libraries over the network.
 %build
 %configure \
   --with%{!?with_alsa:out}-alsa --with%{!?with_pulseaudio:out}-pulseaudio \
-  --with-libcurl --with-libwebsockets --with-libsodium --with-libplist \
-  --with-avahi %{?with_spotify:--enable-spotify} \
-  %{?with_lastfm:--enable-lastfm} %{?with_chromecast:--enable-chromecast} \
-  --with-daapd-user=%{username} --with-daapd-group=%{groupname}
+  --with-libwebsockets --with-avahi %{?with_chromecast:--enable-chromecast} \
+  --with-user=%{username} --with-group=%{groupname} \
+  --with-systemddir=%{_unitdir}
 %make_build
 
 %install
@@ -80,8 +75,6 @@ rm -f %{buildroot}%{_pkgdocdir}/INSTALL
 mkdir -p %{buildroot}%{homedir}
 mkdir -p %{buildroot}%{_localstatedir}/log
 touch %{buildroot}%{_localstatedir}/log/%{name}.log
-mkdir -p %{buildroot}%{_unitdir}
-install -m 0644 owntone.service %{buildroot}%{_unitdir}/%{name}.service
 rm -f %{buildroot}%{_libdir}/%{name}/*.la
 
 %pre
@@ -115,6 +108,11 @@ exit 0
 %{_mandir}/man?/*
 
 %changelog
+* Mon Nov 22 2021 Derek Atkins <derek@ihtfp.com> - 28.2-1
+   - Release tarball is a XZ not GZ file
+   - Configure always needs protobuf-c, not just for chromecast
+   - Exclude build-system-installed service file and use system location
+
 * Sat Mar 17 2018 Scott Shambarger <devel@shambarger.net> - 26.0-1
    - 26.0 release.
    - Update spec file to handle new feature defaults.
