@@ -5,8 +5,6 @@
 
 %bcond_without alsa
 %bcond_without pulseaudio
-%bcond_with spotify
-%bcond_with lastfm
 %bcond_with chromecast
 
 %global _hardened_build 1
@@ -40,9 +38,6 @@ BuildRequires: pkgconfig(alsa)
 %if %{with pulseaudio}
 BuildRequires: pkgconfig(libpulse)
 %endif
-%if %{with spotify}
-BuildRequires: libspotify-devel
-%endif
 %if %{with chromecast}
 BuildRequires: pkgconfig(gnutls)
 %endif
@@ -69,8 +64,7 @@ by iTunes and friends to share/stream media libraries over the network.
 %build
 %configure \
   --with%{!?with_alsa:out}-alsa --with%{!?with_pulseaudio:out}-pulseaudio \
-  --with-libwebsockets --with-avahi %{?with_spotify:--enable-spotify} \
-  %{?with_lastfm:--enable-lastfm} %{?with_chromecast:--enable-chromecast} \
+  --with-libwebsockets --with-avahi %{?with_chromecast:--enable-chromecast} \
   --with-user=%{username} --with-group=%{groupname}
 %make_build
 
