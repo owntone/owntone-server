@@ -7,13 +7,14 @@ ACLOCAL_AMFLAGS = -I m4
 RPM_SPEC_FILE = owntone.spec
 CONF_FILE = owntone.conf
 SYSTEMD_SERVICE_FILE = owntone.service
+SYSTEMD_TSERVICE_FILE = owntone@.service
 
 if COND_INSTALL_SYSTEMD
 systemddir = $(SYSTEMD_DIR)
-systemd_DATA = $(SYSTEMD_SERVICE_FILE)
+systemd_DATA = $(SYSTEMD_SERVICE_FILE) $(SYSTEMD_TSERVICE_FILE)
 endif
 
-BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE)
+BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE) $(SYSTEMD_TSERVICE_FILE)
 
 SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src htdocs
 
@@ -33,6 +34,7 @@ nobase_dist_doc_DATA = \
 EXTRA_DIST = \
 	$(CONF_FILE).in \
 	$(SYSTEMD_SERVICE_FILE).in \
+	$(SYSTEMD_TSERVICE_FILE).in \
 	$(RPM_SPEC_FILE)
 
 install-data-hook:
@@ -73,7 +75,7 @@ do_subst = $(SED) -e 's|@sbindir[@]|$(sbindir)|g' \
              -e 's|@OWNTONE_USER[@]|$(OWNTONE_USER)|g'
 
 # these files use $prefix, which is determined at build (not configure) time
-$(CONF_FILE) $(SYSTEMD_SERVICE_FILE): Makefile
+$(CONF_FILE) $(SYSTEMD_SERVICE_FILE) $(SYSTEMD_TSERVICE_FILE): Makefile
 	$(AM_V_at)rm -f $@ $@-t
 	$(AM_V_GEN)$(do_subst) "$(srcdir)/$@.in" > $@-t
 	$(AM_V_at)mv $@-t $@
@@ -81,3 +83,5 @@ $(CONF_FILE) $(SYSTEMD_SERVICE_FILE): Makefile
 $(CONF_FILE): $(srcdir)/$(CONF_FILE).in
 
 $(SYSTEMD_SERVICE_FILE): $(srcdir)/$(SYSTEMD_SERVICE_FILE).in
+
+$(SYSTEMD_TSERVICE_FILE): $(srcdir)/$(SYSTEMD_TSERVICE_FILE).in

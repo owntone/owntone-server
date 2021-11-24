@@ -1,25 +1,26 @@
-# Note: Please keep this file in sync with owntone@.service.in
+# Note: Please keep this file in sync with owntone.service.in
 
 [Unit]
-Description=DAAP/DACP (iTunes), RSP and MPD server, supports AirPlay and Remote
+Description=DAAP/DACP (iTunes), RSP, MPD server, with AirPlay and Remote - %I
 Documentation=man:owntone(8)
 Requires=network.target local-fs.target avahi-daemon.socket
 After=network.target sound.target remote-fs.target pulseaudio.service
 
 [Service]
-ExecStart=@sbindir@/owntone -f
+ExecStart=@sbindir@/owntone -f -c /etc/owntone-%I.conf
+SyslogIdentifier=owntone-%I
 
-# Constrain the upper limit of memory/swap that can be used; this prevents 
+# Constrain the upper limit of memory/swap that can be used; this prevents
 # the server from consuming all system memory (in event of bug/malformed user
-# curl/SMARTPL query etc) that would hang/freeze low resource and headless (ie 
+# curl/SMARTPL query etc) that would hang/freeze low resource and headless (ie
 # RPi) machines
 #
 # systemd will kill the process in such an event but would be auto-restarted as
 # per 'Restart' directive below
 #
 # Values derived from obersvations on rpi3 under load - limits are >50% above
-# seen high watermarks 
-# 
+# seen high watermarks
+#
 # https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html
 MemoryMax=256M
 MemorySwapMax=32M
@@ -34,4 +35,3 @@ StartLimitInterval=600
 
 [Install]
 WantedBy=multi-user.target
-

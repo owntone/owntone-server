@@ -52,6 +52,7 @@ please see the [INSTALL.md](INSTALL.md) file.
 - [Spotify](#spotify)
 - [LastFM](#lastfm)
 - [MPD clients](#mpd-clients)
+- [Running Multiple Instances](#running-multiple-instances)
 - [References](#references)
 
 
@@ -569,6 +570,21 @@ The following table shows what is working for a selection of MPD clients:
 | [mpc](http://www.musicpd.org/clients/mpc/)    | CLI    | Working commands: mpc, add, crop, current, del (ranges are not yet supported), play, next, prev (behaves like cdprev), pause, toggle, cdprev, seek, clear, outputs, enable, disable, playlist, ls, load, volume, repeat, random, single, search, find, list, update (initiates an init-rescan, the path argument is not supported)   |
 | [ympd](http://www.ympd.org/)                  | Web    | Everything except "add stream" should work |
 
+## Running Multiple Instances
+
+To run multiple instances of owntone on a server, you should copy
+`/etc/owntone.conf` to `/etc/owntone-zone.conf`, modify the three port
+settings to be unique (`general` -> `websocket_port`, `library` ->
+`port`, and `mpd` -> `port`), modify the database paths to be unique
+(`general` -> `db_path`, `db_backup_path`, and `db_cache_path`), and
+change the service name to be unique (`library` -> `name`).  You
+probably also want to disable local output (set `audio` -> `type =
+"disabled"`).
+
+Then run `owntone -c /etc/owntone-zone.conf` to run owntone with the new
+zone configuration.  Owntone has a `systemd` template which lets you
+run this automatically on systems that use systemd, where you can
+run `systemctl enable owntone@zone` to enable the `zone` template.
 
 ## References
 
