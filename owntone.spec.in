@@ -102,6 +102,7 @@ exit 0
 %{_libdir}/%{name}/
 %{_datarootdir}/%{name}/
 %{_unitdir}/%{name}.service
+%{_unitdir}/%{name}@.service
 %attr(0750,%{username},%{groupname}) %{_localstatedir}/cache/%{name}
 %attr(0750,%{username},%{groupname}) %{homedir}
 %ghost %{_localstatedir}/log/%{name}.log
