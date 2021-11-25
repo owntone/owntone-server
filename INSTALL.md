@@ -70,10 +70,6 @@ settings that normally require modification.
 Start the server with `sudo systemctl start owntone` and check that it is
 running with `sudo systemctl status owntone`.
 
-You can start or enable the service for a "zone" by `sudo systemctl
-start owntone@zone` and check that it is running with `sudo systemctl
-status owntone@zone`.
-
 See the [README.md](README.md) for usage information.
 
 ## Quick version for Fedora
@@ -126,10 +122,6 @@ settings that normally require modification.
 
 Start the server with `sudo systemctl start owntone` and check that it is
 running with `sudo systemctl status owntone`.
-
-You can start or enable the service for a "zone" by `sudo systemctl
-start owntone@zone` and check that it is running with `sudo systemctl
-status owntone@zone`.
 
 See the [README.md](README.md) for usage information.
 
