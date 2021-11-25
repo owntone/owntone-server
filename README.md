@@ -573,8 +573,8 @@ The following table shows what is working for a selection of MPD clients:
 ## Running Multiple Instances
 
 To run multiple instances of owntone on a server, you should copy
-`/etc/owntone.conf` to `/etc/owntone-zone.conf` and modify the
-following to be unique across all instances:
+`/etc/owntone.conf` to `/etc/owntone-zone.conf` (for each `zone`) and
+modify the following to be unique across all instances:
 
 * the three port settings (`general` -> `websocket_port`,
   `library` -> `port`, and `mpd` -> `port`)
