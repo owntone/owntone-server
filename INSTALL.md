@@ -83,7 +83,7 @@ sudo yum install \
   sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
   libplist-devel libsodium-devel json-c-devel libwebsockets-devel \
-  libcurl-devel protobuf-c-devel
+  libcurl-devel protobuf-c-devel antlr3 antlr3-C-devel
 ```
 
 Clone the OwnTone repo:
@@ -91,14 +91,6 @@ Clone the OwnTone repo:
 ```bash
 git clone https://github.com/owntone/owntone-server.git
 cd owntone-server
-```
-
-Now you need to install ANTLR3, but you probably can't use the version that
-comes with the package manager (but do try that first). Instead you can install
-it by running this script:
-
-```bash
-scripts/antlr35_install.sh
 ```
 
 Then run the following:
