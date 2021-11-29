@@ -32,6 +32,7 @@ build-stamp
 owntone.spec
 owntone.conf
 owntone.service
+owntone@.service
 
 # ignore debian packaging for convenience
 debian/
