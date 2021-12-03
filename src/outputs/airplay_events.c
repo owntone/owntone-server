@@ -337,18 +337,13 @@ rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
 static void
 handle_event(enum airplay_events event)
 {
-  struct player_status status;
-
-  player_get_status(&status);
-
   switch (event)
     {
       case AIRPLAY_EVENT_PLAY:
+	player_playback_start();
+	break;
       case AIRPLAY_EVENT_PAUSE:
-	if (status.status == PLAY_PLAYING)
-	  player_playback_pause();
-	else
-	  player_playback_start();
+	player_playback_pause();
 	break;
       case AIRPLAY_EVENT_NEXT:
 	player_playback_next();
