@@ -63,7 +63,8 @@ enum pair_keys
   PAIR_SETUP_MSG04,
   PAIR_SETUP_MSG05,
   PAIR_SETUP_MSG06,
-  PAIR_SETUP_SIGN,
+  PAIR_SETUP_CONTROLLER_SIGN,
+  PAIR_SETUP_ACCESSORY_SIGN,
   PAIR_VERIFY_MSG01,
   PAIR_VERIFY_MSG02,
   PAIR_VERIFY_MSG03,
@@ -92,6 +93,7 @@ static struct pair_keys_map pair_keys_map[] =
   { 0x05, "Pair-Setup-Encrypt-Salt", "Pair-Setup-Encrypt-Info", "PS-Msg05" },
   { 0x06, "Pair-Setup-Encrypt-Salt", "Pair-Setup-Encrypt-Info", "PS-Msg06" },
   { 0, "Pair-Setup-Controller-Sign-Salt", "Pair-Setup-Controller-Sign-Info", "" },
+  { 0, "Pair-Setup-Accessory-Sign-Salt", "Pair-Setup-Accessory-Sign-Info", "" },
 
   // Used for /pair-verify
   { 0x01, NULL, NULL, "" },
@@ -124,7 +126,7 @@ enum pair_flags {
 // Forwards
 const struct pair_definition pair_client_homekit_normal;
 const struct pair_definition pair_client_homekit_transient;
-const struct pair_definition pair_server_homekit_transient;
+const struct pair_definition pair_server_homekit;
 
 
 /* ---------------------------------- SRP ----------------------------------- */
@@ -140,6 +142,7 @@ typedef struct
 {
   bnum N;
   bnum g;
+  int N_len;
 } NGConstant;
 
 struct SRPUser
@@ -230,6 +233,8 @@ new_ng(SRP_NGType ng_type, const char *n_hex, const char *g_hex)
 
   bnum_hex2bn(ng->N, n_hex);
   bnum_hex2bn(ng->g, g_hex);
+
+  ng->N_len = bnum_num_bytes(ng->N);
 
   return ng;
 }
@@ -404,8 +409,11 @@ static void
 srp_user_start_authentication(struct SRPUser *usr, const char **username,
                               const unsigned char **bytes_A, int *len_A)
 {
-  bnum_random(usr->a, 256);
 //  BN_hex2bn(&(usr->a), "D929DFB605687233C9E9030C2280156D03BDB9FDCF3CCE3BC27D9CCFCB5FF6A1");
+  bnum_random(usr->a, 256);
+#ifdef DEBUG_PAIR
+  bnum_dump("Random value of usr->a:\n", usr->a);
+#endif
 
   bnum_modexp(usr->A, usr->ng->g, usr->a, usr->ng->N);
     
@@ -441,7 +449,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
-  k    = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g);
+  k    = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g, usr->ng->N_len);
 
   bnum_new(v);
   bnum_new(tmp1);
@@ -451,7 +459,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
   if (!s || !B || !k || !v || !tmp1 || !tmp2 || !tmp3)
     goto cleanup1;
 
-  u = H_nn_pad(usr->alg, usr->A, B);
+  u = H_nn_pad(usr->alg, usr->A, B, usr->ng->N_len);
   x = calculate_x(usr->alg, s, usr->username, usr->password, usr->password_len);
   if (!u || !x)
     goto cleanup2;
@@ -533,6 +541,9 @@ srp_create_salted_verification_key(enum hash_alg alg,
     goto error;
 
   bnum_random(s, 128); // MODIFIED from csrp's BN_rand(s, 32, -1, 0)
+#ifdef DEBUG_PAIR
+  bnum_dump("Random value of s:\n", s);
+#endif
 
   x = calculate_x(alg, s, username, password, len_password);
   if (!x)
@@ -597,8 +608,11 @@ srp_verifier_start_authentication(enum hash_alg alg, SRP_NGType ng_type,
   bnum_bin2bn(v, bytes_v, len_v);
 
   bnum_random(b, 256); // MODIFIED from BN_rand(b, 256, -1, 0)
+#ifdef DEBUG_PAIR
+  bnum_dump("Random value of b:\n", b);
+#endif
 
-  k = H_nn_pad(alg, ng->N, ng->g); // MODIFIED from H_nn(alg, ng->N, ng->g)
+  k = H_nn_pad(alg, ng->N, ng->g, ng->N_len); // MODIFIED from H_nn(alg, ng->N, ng->g)
   if (!k)
     goto error;
 
@@ -706,8 +720,8 @@ srp_verifier_new(enum hash_alg alg, SRP_NGType ng_type, const char *username,
   if (bnum_is_zero(tmp1))
     goto error;
 
-  k = H_nn_pad(alg, ng->N, ng->g); // MODIFIED from H_nn(alg, ng->N, ng->g)
-  u = H_nn_pad(alg, A, B); // MODIFIED from H_nn(alg, A, B)
+  k = H_nn_pad(alg, ng->N, ng->g, ng->N_len); // MODIFIED from H_nn(alg, ng->N, ng->g)
+  u = H_nn_pad(alg, A, B, ng->N_len); // MODIFIED from H_nn(alg, A, B)
 
   // S = (A *(v^u)) ^ b
   bnum_modexp(tmp1, v, u, ng->N);
@@ -772,6 +786,20 @@ srp_verifier_get_session_key(struct SRPVerifier *ver, int *key_length)
 }
 
 /* -------------------------------- HELPERS --------------------------------- */
+
+static void
+hexread(uint8_t *out, size_t out_len, const char *in)
+{
+  char hex[] = { 0, 0, 0 };
+  int i;
+
+  for (i = 0; i < out_len; i++, in+=2)
+    {
+      hex[0] = in[0];
+      hex[1] = in[1];
+      out[i] = strtol(hex, NULL, 16);
+    }
+}
 
 static pair_tlv_values_t *
 message_process(const uint8_t *data, size_t data_len, const char **errmsg)
@@ -893,7 +921,7 @@ hkdf_extract_expand(uint8_t *okm, size_t okm_len, const uint8_t *ikm, size_t ikm
 }
 
 static int
-encrypt_chacha(uint8_t *cipher, uint8_t *plain, size_t plain_len, const uint8_t *key, size_t key_len, const void *ad, size_t ad_len, uint8_t *tag, size_t tag_len, const uint8_t nonce[NONCE_LENGTH])
+encrypt_chacha(uint8_t *cipher, const uint8_t *plain, size_t plain_len, const uint8_t *key, size_t key_len, const void *ad, size_t ad_len, uint8_t *tag, size_t tag_len, const uint8_t nonce[NONCE_LENGTH])
 {
 #ifdef CONFIG_OPENSSL
   EVP_CIPHER_CTX *ctx;
@@ -908,7 +936,7 @@ encrypt_chacha(uint8_t *cipher, uint8_t *plain, size_t plain_len, const uint8_t 
   if (EVP_CIPHER_CTX_set_padding(ctx, 0) != 1) // Maybe not necessary
     goto error;
 
-  if (EVP_EncryptUpdate(ctx, NULL, &len, ad, ad_len) != 1)
+  if (ad_len > 0 && EVP_EncryptUpdate(ctx, NULL, &len, ad, ad_len) != 1)
     goto error;
 
   if (EVP_EncryptUpdate(ctx, cipher, &len, plain, plain_len) != 1)
@@ -940,7 +968,7 @@ encrypt_chacha(uint8_t *cipher, uint8_t *plain, size_t plain_len, const uint8_t 
   if (gcry_cipher_setiv(hd, nonce, NONCE_LENGTH) != GPG_ERR_NO_ERROR)
     goto error;
 
-  if (gcry_cipher_authenticate(hd, ad, ad_len) != GPG_ERR_NO_ERROR)
+  if (ad_len > 0 && gcry_cipher_authenticate(hd, ad, ad_len) != GPG_ERR_NO_ERROR)
     goto error;
 
   if (gcry_cipher_encrypt(hd, cipher, plain_len, plain, plain_len) != GPG_ERR_NO_ERROR)
@@ -961,7 +989,7 @@ encrypt_chacha(uint8_t *cipher, uint8_t *plain, size_t plain_len, const uint8_t 
 }
 
 static int
-decrypt_chacha(uint8_t *plain, uint8_t *cipher, size_t cipher_len, const uint8_t *key, size_t key_len, const void *ad, size_t ad_len, uint8_t *tag, size_t tag_len, const uint8_t nonce[NONCE_LENGTH])
+decrypt_chacha(uint8_t *plain, const uint8_t *cipher, size_t cipher_len, const uint8_t *key, size_t key_len, const void *ad, size_t ad_len, uint8_t *tag, size_t tag_len, const uint8_t nonce[NONCE_LENGTH])
 {
 #ifdef CONFIG_OPENSSL
   EVP_CIPHER_CTX *ctx;
@@ -979,13 +1007,11 @@ decrypt_chacha(uint8_t *plain, uint8_t *cipher, size_t cipher_len, const uint8_t
   if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, tag_len, tag) != 1)
     goto error;
 
-  if (EVP_DecryptUpdate(ctx, NULL, &len, ad, ad_len) != 1)
+  if (ad_len > 0 && EVP_DecryptUpdate(ctx, NULL, &len, ad, ad_len) != 1)
     goto error;
 
   if (EVP_DecryptUpdate(ctx, plain, &len, cipher, cipher_len) != 1)
     goto error;
-
-  assert(len == cipher_len);
 
   if (EVP_DecryptFinal_ex(ctx, NULL, &len) != 1)
     goto error;
@@ -1008,7 +1034,7 @@ decrypt_chacha(uint8_t *plain, uint8_t *cipher, size_t cipher_len, const uint8_t
   if (gcry_cipher_setiv(hd, nonce, NONCE_LENGTH) != GPG_ERR_NO_ERROR)
     goto error;
 
-  if (gcry_cipher_authenticate(hd, ad, ad_len) != GPG_ERR_NO_ERROR)
+  if (ad_len > 0 && gcry_cipher_authenticate(hd, ad, ad_len) != GPG_ERR_NO_ERROR)
     goto error;
 
   if (gcry_cipher_decrypt(hd, plain, cipher_len, cipher, cipher_len) != GPG_ERR_NO_ERROR)
@@ -1029,46 +1055,101 @@ decrypt_chacha(uint8_t *plain, uint8_t *cipher, size_t cipher_len, const uint8_t
 }
 
 static int
-create_and_sign_device_info(uint8_t *data, size_t *data_len, const char *device_id, uint8_t *device_pk, size_t device_pk_len, uint8_t *pk, size_t pk_len, uint8_t *sk)
+create_info(uint8_t *info, size_t *info_len, uint8_t *a, size_t a_len, uint8_t *b, size_t b_len, uint8_t *c, size_t c_len)
+{
+  if (a_len + b_len + c_len > *info_len)
+    return -1;
+
+  *info_len = a_len + b_len + c_len;
+  memcpy(info, a, a_len);
+  memcpy(info + a_len, b, b_len);
+  memcpy(info + a_len + b_len, c, c_len);
+
+  return 0;
+}
+
+static int
+create_and_sign_device_info(uint8_t *msg, size_t *msg_len, const char *device_id, uint8_t *device_x, size_t device_x_len, uint8_t *pk, size_t pk_len, uint8_t *sk)
 {
   pair_tlv_values_t *tlv;
-  uint8_t *device_info;
-  uint32_t device_info_len;
+  uint8_t device_info[256];
+  size_t device_info_len;
   size_t device_id_len;
   uint8_t signature[crypto_sign_BYTES];
   int ret;
 
   device_id_len = strlen(device_id);
+  device_info_len = sizeof(device_info);
 
-  device_info_len = device_pk_len + device_id_len + pk_len;
-  device_info = malloc(device_info_len);
-
-  memcpy(device_info, device_pk, device_pk_len);
-  memcpy(device_info + device_pk_len, device_id, device_id_len);
-  memcpy(device_info + device_pk_len + device_id_len, pk, pk_len);
+  ret = create_info(device_info, &device_info_len, device_x, device_x_len, (uint8_t *)device_id, device_id_len, pk, pk_len);
+  if (ret < 0)
+    return -1;
 
   crypto_sign_detached(signature, NULL, device_info, device_info_len, sk);
-  free(device_info);
 
   tlv = pair_tlv_new();
   pair_tlv_add_value(tlv, TLVType_Identifier, (unsigned char *)device_id, device_id_len);
   pair_tlv_add_value(tlv, TLVType_Signature, signature, sizeof(signature));
 
-  ret = pair_tlv_format(tlv, data, data_len);
+  ret = pair_tlv_format(tlv, msg, msg_len);
 
   pair_tlv_free(tlv);
   return ret;
+}
+
+static int
+create_and_sign_accessory_info(uint8_t *msg, size_t *msg_len, uint8_t *server_pk, size_t server_pk_len, const char *accessory_id, uint8_t *client_pk, size_t client_pk_len, uint8_t *sk)
+{
+  pair_tlv_values_t *tlv;
+  uint8_t accessory_info[256];
+  size_t accessory_info_len;
+  size_t accessory_id_len;
+  uint8_t signature[crypto_sign_BYTES];
+  int ret;
+
+  accessory_id_len = strlen(accessory_id);
+  accessory_info_len = sizeof(accessory_info);
+
+  ret = create_info(accessory_info, &accessory_info_len, server_pk, server_pk_len, (uint8_t *)accessory_id, accessory_id_len, client_pk, client_pk_len);
+  if (ret < 0)
+    return -1;
+
+  crypto_sign_detached(signature, NULL, accessory_info, accessory_info_len, sk);
+
+  tlv = pair_tlv_new();
+  pair_tlv_add_value(tlv, TLVType_Identifier, (unsigned char *)accessory_id, accessory_id_len);
+  pair_tlv_add_value(tlv, TLVType_Signature, signature, sizeof(signature));
+
+  ret = pair_tlv_format(tlv, msg, msg_len);
+
+  pair_tlv_free(tlv);
+  return ret;
+}
+
+static int
+verify_info(uint8_t *signature, uint8_t *pk, uint8_t *a, size_t a_len, uint8_t *b, size_t b_len, uint8_t *c, size_t c_len)
+{
+  uint8_t info[256];
+  size_t info_len;
+  int ret;
+
+  info_len = sizeof(info);
+  ret = create_info(info, &info_len, a, a_len, b, b_len, c, c_len);
+  if (ret < 0)
+    return -1;
+
+  return crypto_sign_verify_detached(signature, info, info_len, pk);
 }
 
 
 /* ------------------------- CLIENT IMPLEMENTATION -------------------------- */
 
 static int
-pair_client_setup_new(struct pair_setup_context *handle, const char *pin, const char *device_id)
+client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add_cb, void *cb_arg, const char *device_id)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
   if (handle->type == &pair_client_homekit_normal)
@@ -1081,19 +1162,29 @@ pair_client_setup_new(struct pair_setup_context *handle, const char *pin, const 
       pin = "3939";
     }
 
-  if (device_id && strlen(device_id) != 16)
+  if (device_id && strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
     return -1;
 
   memcpy(sctx->pin, pin, sizeof(sctx->pin));
 
+  sctx->add_cb = add_cb;
+  sctx->add_cb_arg = cb_arg;
+
   if (device_id)
     memcpy(sctx->device_id, device_id, strlen(device_id));
+
+  crypto_sign_keypair(sctx->public_key, sctx->private_key);
+
+#ifdef DEBUG_PAIR
+  hexdump("Client public key:\n", sctx->public_key, sizeof(sctx->public_key));
+  hexdump("Client private key:\n", sctx->private_key, sizeof(sctx->private_key));
+#endif
 
   return 0;
 }
 
 static void
-pair_client_setup_free(struct pair_setup_context *handle)
+client_setup_free(struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
 
@@ -1107,7 +1198,7 @@ pair_client_setup_free(struct pair_setup_context *handle)
 }
 
 static uint8_t *
-pair_client_setup_request1(size_t *len, struct pair_setup_context *handle)
+client_setup_request1(size_t *len, struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   pair_tlv_values_t *request;
@@ -1165,7 +1256,7 @@ pair_client_setup_request1(size_t *len, struct pair_setup_context *handle)
 }
 
 static uint8_t *
-pair_client_setup_request2(size_t *len, struct pair_setup_context *handle)
+client_setup_request2(size_t *len, struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   pair_tlv_values_t *request;
@@ -1207,7 +1298,7 @@ pair_client_setup_request2(size_t *len, struct pair_setup_context *handle)
 }
 
 static uint8_t *
-pair_client_setup_request3(size_t *len, struct pair_setup_context *handle)
+client_setup_request3(size_t *len, struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   pair_tlv_values_t *request;
@@ -1236,14 +1327,12 @@ pair_client_setup_request3(size_t *len, struct pair_setup_context *handle)
       goto error;
     }
 
-  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_SIGN);
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_CONTROLLER_SIGN);
   if (ret < 0)
     {
       handle->errmsg = "Setup request 3: hkdf error getting device_x";
       goto error;
     }
-
-  crypto_sign_keypair(sctx->public_key, sctx->private_key);
 
   ret = create_and_sign_device_info(data, &data_len, sctx->device_id, device_x, sizeof(device_x), sctx->public_key, sizeof(sctx->public_key), sctx->private_key);
   if (ret < 0)
@@ -1252,7 +1341,7 @@ pair_client_setup_request3(size_t *len, struct pair_setup_context *handle)
       goto error;
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, 64, PAIR_SETUP_MSG05); // TODO is session_key_len always 64?
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, PAIR_SETUP_MSG05);
   if (ret < 0)
     {
       handle->errmsg = "Setup request 3: hkdf error getting derived_key";
@@ -1311,7 +1400,7 @@ pair_client_setup_request3(size_t *len, struct pair_setup_context *handle)
 }
 
 static int
-pair_client_setup_response1(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+client_setup_response1(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   pair_tlv_values_t *response;
@@ -1349,11 +1438,13 @@ pair_client_setup_response1(struct pair_setup_context *handle, const uint8_t *da
 }
 
 static int
-pair_client_setup_response2(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+client_setup_response2(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   pair_tlv_values_t *response;
   pair_tlv_t *proof;
+  const uint8_t *session_key;
+  int session_key_len;
 
   response = message_process(data, data_len, &handle->errmsg);
   if (!response)
@@ -1380,11 +1471,24 @@ pair_client_setup_response2(struct pair_setup_context *handle, const uint8_t *da
       goto error;
     }
 
-  pair_tlv_free(response);
-
   if (handle->type == &pair_client_homekit_transient)
-    handle->setup_is_completed = 1;
+    {
+      session_key = srp_user_get_session_key(sctx->user, &session_key_len);
+      if (!session_key)
+        {
+	  handle->errmsg = "Setup response 2: Could not compute session key";
+	  goto error;
+	}
 
+      assert(sizeof(handle->result.shared_secret) >= session_key_len);
+
+      memcpy(handle->result.shared_secret, session_key, session_key_len);
+      handle->result.shared_secret_len = session_key_len;
+
+      handle->status = PAIR_STATUS_COMPLETED;
+    }
+
+  pair_tlv_free(response);
   return 0;
 
  error:
@@ -1393,11 +1497,14 @@ pair_client_setup_response2(struct pair_setup_context *handle, const uint8_t *da
 }
 
 static int
-pair_client_setup_response3(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+client_setup_response3(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   pair_tlv_values_t *response;
   pair_tlv_t *encrypted_data;
+  pair_tlv_t *device_id;
+  pair_tlv_t *pk;
+  pair_tlv_t *signature;
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
   uint8_t derived_key[32];
@@ -1405,6 +1512,7 @@ pair_client_setup_response3(struct pair_setup_context *handle, const uint8_t *da
   uint8_t *decrypted_data = NULL;
   const uint8_t *session_key;
   int session_key_len;
+  uint8_t device_x[32];
   int ret;
 
   response = message_process(data, data_len, &handle->errmsg);
@@ -1427,7 +1535,7 @@ pair_client_setup_response3(struct pair_setup_context *handle, const uint8_t *da
       goto error;
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, 64, PAIR_SETUP_MSG06); // TODO is session_key_len always 64?
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, PAIR_SETUP_MSG06);
   if (ret < 0)
     {
       handle->errmsg = "Setup response 3: hkdf error getting derived_key";
@@ -1461,12 +1569,45 @@ pair_client_setup_response3(struct pair_setup_context *handle, const uint8_t *da
       goto error;
     }
 
-  // TODO check identifier and signature - we get an identifier (36), a public key (32) and a signature (64)
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_ACCESSORY_SIGN);
+  if (ret < 0)
+    {
+      handle->errmsg = "Setup response 3: hkdf error getting device_x";
+      goto error;
+    }
+
+  device_id = pair_tlv_get_value(response, TLVType_Identifier);
+  pk = pair_tlv_get_value(response, TLVType_PublicKey);
+  signature = pair_tlv_get_value(response, TLVType_Signature);
+  if (!device_id || device_id->size >= sizeof(handle->result.device_id) || !pk || pk->size != crypto_sign_PUBLICKEYBYTES || !signature || signature->size != crypto_sign_BYTES)
+    {
+      handle->errmsg = "Setup response 3: Missing/invalid device ID, public key or signature";
+      goto error;
+    }
+
+  ret = verify_info(signature->value, pk->value, device_x, sizeof(device_x), device_id->value, device_id->size, pk->value, pk->size);
+  if (ret < 0)
+    {
+      handle->errmsg = "Setup request 3: Invalid signature";
+      goto error;
+    }
+
+  assert(sizeof(handle->result.client_private_key) == sizeof(sctx->private_key));
+  assert(sizeof(handle->result.client_public_key) == sizeof(sctx->public_key));
+  assert(sizeof(handle->result.server_public_key) == pk->size);
+
+  memcpy(handle->result.client_private_key, sctx->private_key, sizeof(sctx->private_key));
+  memcpy(handle->result.client_public_key, sctx->public_key, sizeof(sctx->public_key));
+  memcpy(handle->result.server_public_key, pk->value, pk->size);
+  memcpy(handle->result.device_id, device_id->value, device_id->size);
+
+  if (sctx->add_cb)
+    sctx->add_cb(handle->result.server_public_key, handle->result.device_id, sctx->add_cb_arg);
+
+  handle->status = PAIR_STATUS_COMPLETED;
 
   free(decrypted_data);
   pair_tlv_free(response);
-
-  handle->setup_is_completed = 1;
   return 0;
 
  error:
@@ -1476,85 +1617,67 @@ pair_client_setup_response3(struct pair_setup_context *handle, const uint8_t *da
 }
 
 static int
-pair_client_setup_result(const uint8_t **key, size_t *key_len, struct pair_setup_context *handle)
+client_setup_result(struct pair_setup_context *handle)
 {
-  struct pair_client_setup_context *sctx = &handle->sctx.client;
-  const uint8_t *session_key;
-  int session_key_len;
+  char *ptr;
+  int i;
 
-  if (handle->type == &pair_client_homekit_normal)
-    {
-      // Last 32 bytes of private key should match public key, but check assumption
-      if (memcmp(sctx->private_key + sizeof(sctx->private_key) - sizeof(sctx->public_key), sctx->public_key, sizeof(sctx->public_key)) != 0)
-	{
-	  handle->errmsg = "Pair setup result: Unexpected keys, private key does not match public key";
-	  return -1;
-	}
-      *key = sctx->private_key;
-      *key_len = sizeof(sctx->private_key);
-      return 0;
-    }
-  if (handle->type == &pair_client_homekit_transient)
-    {
-      session_key = srp_user_get_session_key(sctx->user, &session_key_len);
-      *key = session_key;
-      *key_len = session_key_len;
-      return 0;
-    }
+  assert(sizeof(handle->result_str) >= 2 * sizeof(handle->result.client_private_key) + 2 * sizeof(handle->result.server_public_key) + 1);
 
-  return -1;
+  // It is enough to export the private key, since the public key can be
+  // extracted from that with crypto_sign_ed25519_sk_to_pk (it is the last 32
+  // bytes)
+  ptr = handle->result_str;
+  for (i = 0; i < sizeof(handle->result.client_private_key); i++)
+    ptr += sprintf(ptr, "%02x", handle->result.client_private_key[i]); // 2 x 64 bytes
+  for (i = 0; i < sizeof(handle->result.server_public_key); i++)
+    ptr += sprintf(ptr, "%02x", handle->result.server_public_key[i]); // 2 x 32 bytes
+  *ptr = '\0';
+
+  return 0;
 }
 
 static int
-pair_client_verify_new(struct pair_verify_context *handle, const char *hexkey, const char *device_id)
+client_verify_new(struct pair_verify_context *handle, const char *client_setup_keys, pair_cb cb, void *cb_arg, const char *device_id)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
-  char hex[] = { 0, 0, 0 };
   size_t hexkey_len;
-  const char *ptr;
-  int i;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
-  if (!hexkey)
+  if (!device_id || strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
     return -1;
 
-  hexkey_len = strlen(hexkey);
-
-  if (hexkey_len != 2 * sizeof(vctx->client_private_key))
+  if (!client_setup_keys)
     return -1;
 
-  if (device_id && strlen(device_id) != 16)
-    return -1;
-
-  if (device_id)
-    memcpy(vctx->device_id, device_id, strlen(device_id));
-
-  ptr = hexkey;
-  for (i = 0; i < sizeof(vctx->client_private_key); i++, ptr+=2)
+  hexkey_len = strlen(client_setup_keys);
+  if (hexkey_len == 2 * sizeof(vctx->client_private_key) + 2 * sizeof(vctx->server_public_key))
     {
-      hex[0] = ptr[0];
-      hex[1] = ptr[1];
-      vctx->client_private_key[i] = strtol(hex, NULL, 16);
+      hexread(vctx->client_private_key, sizeof(vctx->client_private_key), client_setup_keys);
+      hexread(vctx->server_public_key, sizeof(vctx->server_public_key), client_setup_keys + 2 * sizeof(vctx->client_private_key));
+      vctx->verify_server_signature = true;
     }
-
-  ptr = hexkey + hexkey_len - 2 * sizeof(vctx->client_public_key);
-  for (i = 0; i < sizeof(vctx->client_public_key); i++, ptr+=2)
+  else if (hexkey_len == 2 * sizeof(vctx->client_private_key)) // No server public key known, so signature validation will be skipped
     {
-      hex[0] = ptr[0];
-      hex[1] = ptr[1];
-      vctx->client_public_key[i] = strtol(hex, NULL, 16);
+      hexread(vctx->client_private_key, sizeof(vctx->client_private_key), client_setup_keys);
     }
+  else
+    return -1;
+
+  crypto_sign_ed25519_sk_to_pk(vctx->client_public_key, vctx->client_private_key);
+
+  snprintf(vctx->device_id, sizeof(vctx->device_id), "%s", device_id);
 
   return 0;
 }
 
 static uint8_t *
-pair_client_verify_request1(size_t *len, struct pair_verify_context *handle)
+client_verify_request1(size_t *len, struct pair_verify_context *handle)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
-  const uint8_t basepoint[32] = {9};
+//  const uint8_t basepoint[crypto_scalarmult_BYTES] = {9}; // 32 bytes
   pair_tlv_values_t *request;
   uint8_t *data;
   size_t data_len;
@@ -1564,12 +1687,17 @@ pair_client_verify_request1(size_t *len, struct pair_verify_context *handle)
   data = malloc(data_len);
   request = pair_tlv_new();
 
+  crypto_box_keypair(vctx->client_eph_public_key, vctx->client_eph_private_key);
+
+/*
+  // TODO keep around in case box_keypair doesn't work
   ret = crypto_scalarmult(vctx->client_eph_public_key, vctx->client_eph_private_key, basepoint);
   if (ret < 0)
     {
       handle->errmsg = "Verify request 1: Curve 25519 returned an error";
       goto error;
     }
+*/
 
   pair_tlv_add_value(request, TLVType_State, &pair_keys_map[PAIR_VERIFY_MSG01].state, sizeof(pair_keys_map[PAIR_VERIFY_MSG01].state));
   pair_tlv_add_value(request, TLVType_PublicKey, vctx->client_eph_public_key, sizeof(vctx->client_eph_public_key));
@@ -1593,7 +1721,7 @@ pair_client_verify_request1(size_t *len, struct pair_verify_context *handle)
 }
 
 static uint8_t *
-pair_client_verify_request2(size_t *len, struct pair_verify_context *handle)
+client_verify_request2(size_t *len, struct pair_verify_context *handle)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   pair_tlv_values_t *request;
@@ -1664,12 +1792,14 @@ pair_client_verify_request2(size_t *len, struct pair_verify_context *handle)
 }
 
 static int
-pair_client_verify_response1(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
+client_verify_response1(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   pair_tlv_values_t *response;
   pair_tlv_t *encrypted_data;
   pair_tlv_t *public_key;
+  pair_tlv_t *device_id;
+  pair_tlv_t *signature;
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
   uint8_t derived_key[32];
@@ -1739,7 +1869,24 @@ pair_client_verify_response1(struct pair_verify_context *handle, const uint8_t *
       goto error;
     }
 
-  // TODO check identifier and signature
+  device_id = pair_tlv_get_value(response, TLVType_Identifier);
+  signature = pair_tlv_get_value(response, TLVType_Signature);
+  if (!device_id || !signature || signature->size != crypto_sign_BYTES)
+    {
+      handle->errmsg = "Verify response 1: Missing device ID or signature";
+      goto error;
+    }
+
+  if (vctx->verify_server_signature)
+    {
+      ret = verify_info(signature->value, vctx->server_public_key, vctx->server_eph_public_key, sizeof(vctx->server_eph_public_key),
+                        device_id->value, device_id->size, vctx->client_eph_public_key, sizeof(vctx->client_eph_public_key));
+      if (ret < 0)
+        {
+          handle->errmsg = "Verify response 1: Invalid signature";
+          goto error;
+        }
+    }
 
   free(decrypted_data);
   pair_tlv_free(response);
@@ -1752,19 +1899,21 @@ pair_client_verify_response1(struct pair_verify_context *handle, const uint8_t *
 }
 
 static int
-pair_client_verify_response2(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
-{
-  // TODO actually check response
-  return 0;
-}
-
-static int
-pair_client_verify_result(const uint8_t **key, size_t *key_len, struct pair_verify_context *handle)
+client_verify_response2(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
+  pair_tlv_values_t *response;
 
-  *key = vctx->shared_secret;
-  *key_len = sizeof(vctx->shared_secret);
+  response = message_process(data, data_len, &handle->errmsg);
+  if (!response)
+    {
+      return -1;
+    }
+
+  memcpy(handle->result.shared_secret, vctx->shared_secret, sizeof(vctx->shared_secret));
+  handle->result.shared_secret_len = sizeof(vctx->shared_secret);
+
+  handle->status = PAIR_STATUS_COMPLETED;
 
   return 0;
 }
@@ -1772,34 +1921,75 @@ pair_client_verify_result(const uint8_t **key, size_t *key_len, struct pair_veri
 
 /* ------------------------- SERVER IMPLEMENTATION -------------------------- */
 
+// Use (unsecure) keys seeded from device_id. We need the keys to always be the
+// same during pair setup and pair verify, since the client saves them after
+// pair-setup 3, so that the signature in pair-verify 1 can be checked.
+static void
+server_keypair(uint8_t *public_key, uint8_t *private_key, const char *device_id)
+{
+  uint8_t seed[crypto_sign_SEEDBYTES] = { 0 };
+  size_t len;
+
+  len = strlen(device_id);
+  if (len > sizeof(seed))
+    len = sizeof(seed);
+
+  memcpy(seed, device_id, len);
+
+  crypto_sign_seed_keypair(public_key, private_key, seed);
+}
+
+static uint8_t *
+server_auth_failed_response(size_t *len, enum pair_keys msg_state)
+{
+  pair_tlv_values_t *response;
+  uint8_t *data;
+  size_t data_len;
+  uint8_t error = TLVError_Authentication;
+
+  data_len = REQUEST_BUFSIZE;
+  data = malloc(data_len);
+  response = pair_tlv_new();
+
+  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[msg_state].state, sizeof(pair_keys_map[msg_state].state));
+  pair_tlv_add_value(response, TLVType_Error, &error, sizeof(error));
+
+  pair_tlv_format(response, data, &data_len);
+  pair_tlv_free(response);
+
+  *len = data_len;
+
+  return data;
+}
+
 static int
-pair_server_setup_new(struct pair_setup_context *handle, const char *pin, const char *device_id)
+server_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add_cb, void *cb_arg, const char *device_id)
 {
   struct pair_server_setup_context *sctx = &handle->sctx.server;
 
-  if (sodium_init() == -1)
-    return -1;
-
-  // Only transient pairing currently implemented
-  if (handle->type != &pair_server_homekit_transient)
+  if (!is_initialized())
     return -1;
 
   if (!pin)
     pin = "3939";
 
-  if (device_id && strlen(device_id) != 16)
+  if (!device_id || strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
     return -1;
 
   memcpy(sctx->pin, pin, sizeof(sctx->pin));
 
-  if (device_id)
-    memcpy(sctx->device_id, device_id, strlen(device_id));
+  sctx->add_cb = add_cb;
+  sctx->add_cb_arg = cb_arg;
+
+  snprintf(sctx->device_id, sizeof(sctx->device_id), "%s", device_id);
+
+  server_keypair(sctx->public_key, sctx->private_key, sctx->device_id);
 
   return 0;
 }
 
 static void
-pair_server_setup_free(struct pair_setup_context *handle)
+server_setup_free(struct pair_setup_context *handle)
 {
   struct pair_server_setup_context *sctx = &handle->sctx.server;
 
@@ -1814,9 +2004,10 @@ pair_server_setup_free(struct pair_setup_context *handle)
 }
 
 static int
-pair_server_setup_request1(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+server_setup_request1(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_server_setup_context *sctx = &handle->sctx.server;
+//  enum pair_keys msg_state = PAIR_SETUP_MSG01;
   pair_tlv_values_t *request;
   pair_tlv_t *method;
   pair_tlv_t *type;
@@ -1825,38 +2016,31 @@ pair_server_setup_request1(struct pair_setup_context *handle, const uint8_t *dat
   request = message_process(data, data_len, &handle->errmsg);
   if (!request)
     {
-      goto error;
+      RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
     }
 
   method = pair_tlv_get_value(request, TLVType_Method);
   if (!method || method->size != 1 || method->value[0] != 0)
     {
-      handle->errmsg = "Setup request 1: Missing or unexpected pairing method in TLV";
-      goto error;
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 1: Missing or unexpected pairing method in TLV");
     }
 
   type = pair_tlv_get_value(request, TLVType_Flags);
-  if (!type || type->size != 1 || type->value[0] != PairingFlagsTransient)
-    {
-      handle->errmsg = "Setup request 1: No support for the non-transient pairing requested by client";
-      goto error;
-    }
+  sctx->is_transient = (type && type->size == 1 && type->value[0] == PairingFlagsTransient);
 
   // Note this is modified to return a 16 byte salt
   ret = srp_create_salted_verification_key(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin),
     &sctx->salt, &sctx->salt_len, &sctx->v, &sctx->v_len, NULL, NULL);
   if (ret < 0)
     {
-      handle->errmsg = "Setup request 1: Could not create verification key";
-      goto error;
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 1: Could not create verification key");
     }
 
   ret = srp_verifier_start_authentication(HASH_SHA512, SRP_NG_3072, sctx->v, sctx->v_len,
     &sctx->b, &sctx->b_len, &sctx->pkB, &sctx->pkB_len, NULL, NULL);
   if (ret < 0)
     {
-      handle->errmsg = "Setup request 1: Could not compute B";
-      goto error;
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 1: Could not compute B");
     }
 
   pair_tlv_free(request);
@@ -1868,9 +2052,10 @@ pair_server_setup_request1(struct pair_setup_context *handle, const uint8_t *dat
 }
 
 static int
-pair_server_setup_request2(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+server_setup_request2(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_server_setup_context *sctx = &handle->sctx.server;
+//  enum pair_keys msg_state = PAIR_SETUP_MSG03;
   pair_tlv_values_t *request;
   pair_tlv_t *pk;
   pair_tlv_t *proof;
@@ -1878,15 +2063,14 @@ pair_server_setup_request2(struct pair_setup_context *handle, const uint8_t *dat
   request = message_process(data, data_len, &handle->errmsg);
   if (!request)
     {
-      goto error;
+      RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
     }
 
   pk = pair_tlv_get_value(request, TLVType_PublicKey);
   proof = pair_tlv_get_value(request, TLVType_Proof);
   if (!pk || !proof)
     {
-      handle->errmsg = "Setup request 2: Missing pkA or proof";
-      goto error;
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Missing pkA or proof");
     }
 
   sctx->pkA_len = pk->size; // 384
@@ -1901,19 +2085,642 @@ pair_server_setup_request2(struct pair_setup_context *handle, const uint8_t *dat
     sctx->pkA, sctx->pkA_len, sctx->b, sctx->b_len, sctx->pkB, sctx->pkB_len, NULL, NULL);
   if (!sctx->verifier)
     {
-      handle->errmsg = "Setup request 2: Incorrect verifier";
-      goto error;
+      handle->status = PAIR_STATUS_AUTH_FAILED;
+      goto out;
     }
 
   sctx->M2_len = 64; // 512 bit hash
   srp_verifier_verify_session(sctx->verifier, sctx->M1, &sctx->M2);
   if (!sctx->M2)
     {
-      handle->errmsg = "Setup request 2: Incorrect M2";
+      handle->status = PAIR_STATUS_AUTH_FAILED;
+      goto out; // Not an error, server should give proper TLV-formatet reply
+    }
+
+ out:
+  pair_tlv_free(request);
+  return 0;
+
+ error:
+  pair_tlv_free(request);
+  return -1;
+}
+
+static int
+server_setup_request3(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+{
+  struct pair_server_setup_context *sctx = &handle->sctx.server;
+  enum pair_keys msg_state = PAIR_SETUP_MSG05;
+  pair_tlv_values_t *request;
+  pair_tlv_t *encrypted_data;
+  pair_tlv_t *device_id;
+  pair_tlv_t *pk;
+  pair_tlv_t *signature;
+  const uint8_t *session_key;
+  int session_key_len;
+  uint8_t nonce[NONCE_LENGTH] = { 0 };
+  uint8_t tag[AUTHTAG_LENGTH];
+  uint8_t derived_key[32];
+  size_t encrypted_len;
+  uint8_t *decrypted_data = NULL;
+  uint8_t device_x[32];
+  int ret;
+
+  request = message_process(data, data_len, &handle->errmsg);
+  if (!request)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
+    }
+
+  session_key = srp_verifier_get_session_key(sctx->verifier, &session_key_len);
+  if (!session_key)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: No valid session key");
+    }
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, msg_state);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: hkdf error getting derived_key");
+    }
+
+  encrypted_data = pair_tlv_get_value(request, TLVType_EncryptedData);
+  if (!encrypted_data)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: Missing encrypted_data");
+    }
+
+  // encrypted_data->value consists of the encrypted payload + the auth tag
+  if (encrypted_data->size < AUTHTAG_LENGTH)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: Invalid encrypted data");
+    }
+
+  encrypted_len = encrypted_data->size - AUTHTAG_LENGTH;
+  memcpy(tag, encrypted_data->value + encrypted_len, AUTHTAG_LENGTH);
+  memcpy(nonce + 4, pair_keys_map[msg_state].nonce, NONCE_LENGTH - 4);
+
+  decrypted_data = malloc(encrypted_len);
+
+  ret = decrypt_chacha(decrypted_data, encrypted_data->value, encrypted_len, derived_key, sizeof(derived_key), NULL, 0, tag, sizeof(tag), nonce);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: Decryption error");
+    }
+
+  pair_tlv_free(request);
+  request = message_process(decrypted_data, encrypted_len, &handle->errmsg);
+  if (!request)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
+    }
+
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_CONTROLLER_SIGN);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: hkdf error getting device_x");
+    }
+
+  device_id = pair_tlv_get_value(request, TLVType_Identifier);
+  pk = pair_tlv_get_value(request, TLVType_PublicKey);
+  signature = pair_tlv_get_value(request, TLVType_Signature);
+  if (!device_id || device_id->size >= sizeof(handle->result.device_id) || !pk || pk->size != crypto_sign_PUBLICKEYBYTES || !signature || signature->size != crypto_sign_BYTES)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: Missing/invalid device ID, public key or signature");
+    }
+
+  ret = verify_info(signature->value, pk->value, device_x, sizeof(device_x), device_id->value, device_id->size, pk->value, pk->size);
+  if (ret < 0)
+    {
+      handle->status = PAIR_STATUS_AUTH_FAILED;
+      goto out;
+    }
+
+  memcpy(handle->result.device_id, device_id->value, device_id->size);
+  memcpy(handle->result.client_public_key, pk->value, pk->size);
+
+ out:
+  free(decrypted_data);
+  pair_tlv_free(request);
+  return 0;
+
+ error:
+  free(decrypted_data);
+  pair_tlv_free(request);
+  return -1;
+}
+
+static uint8_t *
+server_setup_response1(size_t *len, struct pair_setup_context *handle)
+{
+  struct pair_server_setup_context *sctx = &handle->sctx.server;
+  enum pair_keys msg_state = PAIR_SETUP_MSG02;
+  pair_tlv_values_t *response;
+  uint8_t *data;
+  size_t data_len;
+  int ret;
+
+  if (handle->status == PAIR_STATUS_AUTH_FAILED)
+    return server_auth_failed_response(len, msg_state);
+
+  data_len = REQUEST_BUFSIZE;
+  data = malloc(data_len);
+  response = pair_tlv_new();
+
+  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[msg_state].state, sizeof(pair_keys_map[msg_state].state));
+  pair_tlv_add_value(response, TLVType_Salt, sctx->salt, sctx->salt_len); // 16
+  pair_tlv_add_value(response, TLVType_PublicKey, sctx->pkB, sctx->pkB_len); // 384
+
+  ret = pair_tlv_format(response, data, &data_len);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 1: pair_tlv_format returned an error");
+    }
+
+  *len = data_len;
+
+  pair_tlv_free(response);
+  return data;
+
+ error:
+  free(data);
+  pair_tlv_free(response);
+  return NULL;
+}
+
+static uint8_t *
+server_setup_response2(size_t *len, struct pair_setup_context *handle)
+{
+  struct pair_server_setup_context *sctx = &handle->sctx.server;
+  enum pair_keys msg_state = PAIR_SETUP_MSG04;
+  pair_tlv_values_t *response;
+  uint8_t *data;
+  size_t data_len;
+  const uint8_t *session_key;
+  int session_key_len;
+  int ret;
+
+  if (handle->status == PAIR_STATUS_AUTH_FAILED)
+    return server_auth_failed_response(len, msg_state);
+
+  data_len = REQUEST_BUFSIZE;
+  data = malloc(data_len);
+  response = pair_tlv_new();
+
+  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[msg_state].state, sizeof(pair_keys_map[msg_state].state));
+  pair_tlv_add_value(response, TLVType_Proof, sctx->M2, sctx->M2_len); // 384
+
+  ret = pair_tlv_format(response, data, &data_len);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 2: pair_tlv_format returned an error");
+    }
+
+  if (sctx->is_transient)
+    {
+      session_key = srp_verifier_get_session_key(sctx->verifier, &session_key_len);
+      if (!session_key)
+        {
+	  RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Could not compute session key");
+	}
+
+      assert(sizeof(handle->result.shared_secret) >= session_key_len);
+
+      memcpy(handle->result.shared_secret, session_key, session_key_len);
+      handle->result.shared_secret_len = session_key_len;
+
+      handle->status = PAIR_STATUS_COMPLETED;
+    }
+
+  *len = data_len;
+
+  pair_tlv_free(response);
+  return data;
+
+ error:
+  free(data);
+  pair_tlv_free(response);
+  return NULL;
+}
+
+static uint8_t *
+server_setup_response3(size_t *len, struct pair_setup_context *handle)
+{
+  struct pair_server_setup_context *sctx = &handle->sctx.server;
+  enum pair_keys msg_state = PAIR_SETUP_MSG06;
+  const uint8_t *session_key;
+  int session_key_len;
+  pair_tlv_values_t *response;
+  uint8_t nonce[NONCE_LENGTH] = { 0 };
+  uint8_t tag[AUTHTAG_LENGTH];
+  uint8_t derived_key[32];
+  pair_tlv_values_t *append;
+  size_t append_len;
+  uint8_t *encrypted_data = NULL;
+  size_t encrypted_data_len;
+  uint8_t *data;
+  size_t data_len;
+  uint8_t device_x[32];
+  int ret;
+
+  if (handle->status == PAIR_STATUS_AUTH_FAILED)
+    return server_auth_failed_response(len, msg_state);
+
+  data_len = REQUEST_BUFSIZE;
+  data = malloc(data_len);
+  response = pair_tlv_new();
+
+  session_key = srp_verifier_get_session_key(sctx->verifier, &session_key_len);
+  if (!session_key)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: No valid session key");
+    }
+
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_ACCESSORY_SIGN);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: hkdf error getting device_x");
+    }
+
+  ret = create_and_sign_device_info(data, &data_len, sctx->device_id, device_x, sizeof(device_x), sctx->public_key, sizeof(sctx->public_key), sctx->private_key);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: create device info returned an error");
+    }
+
+  // Append TLV-encoded public key to *data, which already has identifier and signature
+  append = pair_tlv_new();
+  append_len = REQUEST_BUFSIZE - data_len;
+  pair_tlv_add_value(append, TLVType_PublicKey, sctx->public_key, sizeof(sctx->public_key));
+  ret = pair_tlv_format(append, data + data_len, &append_len);
+  pair_tlv_free(append);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: error appending public key to TLV");
+    }
+  data_len += append_len;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, msg_state);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: hkdf error getting derived_key");
+    }
+
+  memcpy(nonce + 4, pair_keys_map[msg_state].nonce, NONCE_LENGTH - 4);
+
+  encrypted_data_len = data_len + sizeof(tag); // Space for ciphered payload and authtag
+  encrypted_data = malloc(encrypted_data_len);
+
+  ret = encrypt_chacha(encrypted_data, data, data_len, derived_key, sizeof(derived_key), NULL, 0, tag, sizeof(tag), nonce);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: Could not encrypt");
+    }
+
+  memcpy(encrypted_data + data_len, tag, sizeof(tag));
+
+  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[msg_state].state, sizeof(pair_keys_map[msg_state].state));
+  pair_tlv_add_value(response, TLVType_EncryptedData, encrypted_data, encrypted_data_len);
+
+  data_len = REQUEST_BUFSIZE; // Re-using *data, so pass original length to pair_tlv_format
+  ret = pair_tlv_format(response, data, &data_len);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: error appending public key to TLV");
+    }
+
+  if (sctx->add_cb)
+    sctx->add_cb(handle->result.client_public_key, handle->result.device_id, sctx->add_cb_arg);
+
+  handle->status = PAIR_STATUS_COMPLETED;
+
+  *len = data_len;
+
+  free(encrypted_data);
+  pair_tlv_free(response);
+  return data;
+
+ error:
+  free(encrypted_data);
+  free(data);
+  pair_tlv_free(response);
+  return NULL;
+}
+
+
+static int
+server_verify_new(struct pair_verify_context *handle, const char *client_setup_keys, pair_cb cb, void *cb_arg, const char *device_id)
+{
+  struct pair_server_verify_context *vctx = &handle->vctx.server;
+
+  if (!is_initialized())
+    return -1;
+
+  if (client_setup_keys)
+    return -1;
+
+  if (!device_id || strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
+    return -1;
+
+  snprintf(vctx->device_id, sizeof(vctx->device_id), "%s", device_id);
+
+  vctx->get_cb = cb;
+  vctx->get_cb_arg = cb_arg;
+  vctx->verify_client_signature = cb;
+
+  server_keypair(vctx->server_public_key, vctx->server_private_key, vctx->device_id);
+
+  return 0;
+}
+
+static int
+server_verify_request1(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
+{
+  struct pair_server_verify_context *vctx = &handle->vctx.server;
+//  enum pair_keys msg_state = PAIR_VERIFY_MSG01;
+  pair_tlv_values_t *request;
+  pair_tlv_t *pk;
+
+  request = message_process(data, data_len, &handle->errmsg);
+  if (!request)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
+    }
+
+  pk = pair_tlv_get_value(request, TLVType_PublicKey);
+  if (!pk || pk->size != sizeof(vctx->client_eph_public_key))
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 1: Missing or invalid public_key");
+    }
+
+  memcpy(vctx->client_eph_public_key, pk->value, sizeof(vctx->client_eph_public_key));
+
+  pair_tlv_free(request);
+  return 0;
+
+ error:
+  pair_tlv_free(request);
+  return -1;
+}
+
+static int
+server_verify_request2(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
+{
+  struct pair_server_verify_context *vctx = &handle->vctx.server;
+  enum pair_keys msg_state = PAIR_VERIFY_MSG03;
+  pair_tlv_values_t *request;
+  pair_tlv_t *encrypted_data;
+  pair_tlv_t *device_id;
+  pair_tlv_t *signature;
+  uint8_t nonce[NONCE_LENGTH] = { 0 };
+  uint8_t tag[AUTHTAG_LENGTH];
+  uint8_t derived_key[32];
+  size_t encrypted_len;
+  uint8_t *decrypted_data = NULL;
+  char id_str[PAIR_AP_DEVICE_ID_LEN_MAX] = { 0 };
+  uint8_t client_public_key[crypto_sign_PUBLICKEYBYTES];
+  int ret;
+
+  request = message_process(data, data_len, &handle->errmsg);
+  if (!request)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
+    }
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), msg_state);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 2: hkdf error getting derived_key");
+    }
+
+  encrypted_data = pair_tlv_get_value(request, TLVType_EncryptedData);
+  if (!encrypted_data)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 2: Missing encrypted_data");
+    }
+
+  // encrypted_data->value consists of the encrypted payload + the auth tag
+  if (encrypted_data->size < AUTHTAG_LENGTH)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 2: Invalid encrypted data");
+    }
+
+  encrypted_len = encrypted_data->size - AUTHTAG_LENGTH;
+  memcpy(tag, encrypted_data->value + encrypted_len, AUTHTAG_LENGTH);
+  memcpy(nonce + 4, pair_keys_map[msg_state].nonce, NONCE_LENGTH - 4);
+
+  decrypted_data = malloc(encrypted_len);
+
+  ret = decrypt_chacha(decrypted_data, encrypted_data->value, encrypted_len, derived_key, sizeof(derived_key), NULL, 0, tag, sizeof(tag), nonce);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 2: Decryption error");
+    }
+
+  pair_tlv_free(request);
+  request = message_process(decrypted_data, encrypted_len, &handle->errmsg);
+  if (!request)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
+    }
+
+  device_id = pair_tlv_get_value(request, TLVType_Identifier);
+  signature = pair_tlv_get_value(request, TLVType_Signature);
+  if (!device_id || !signature || signature->size != crypto_sign_BYTES)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 2: Missing identifier or signature");
+    }
+
+  if (vctx->verify_client_signature)
+    {
+      if (device_id->size >= sizeof(id_str))
+        {
+          RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 2: Device ID from peer is too long");
+        }
+
+      memcpy(id_str, device_id->value, device_id->size);
+
+      ret = vctx->get_cb(client_public_key, id_str, vctx->get_cb_arg);
+      if (ret < 0)
+        {
+          handle->status = PAIR_STATUS_AUTH_FAILED;
+          goto out;
+        }
+
+      ret = verify_info(signature->value, client_public_key, vctx->client_eph_public_key, sizeof(vctx->client_eph_public_key),
+                        device_id->value, device_id->size, vctx->server_eph_public_key, sizeof(vctx->server_eph_public_key));
+      if (ret < 0)
+        {
+          handle->status = PAIR_STATUS_AUTH_FAILED;
+          goto out;
+        }
+    }
+
+ out:
+  free(decrypted_data);
+  pair_tlv_free(request);
+  return 0;
+
+ error:
+  free(decrypted_data);
+  pair_tlv_free(request);
+  return -1;
+}
+
+static uint8_t *
+server_verify_response1(size_t *len, struct pair_verify_context *handle)
+{
+  struct pair_server_verify_context *vctx = &handle->vctx.server;
+  enum pair_keys msg_state = PAIR_VERIFY_MSG02;
+  pair_tlv_values_t *response;
+  uint8_t nonce[NONCE_LENGTH] = { 0 };
+  uint8_t tag[AUTHTAG_LENGTH];
+  uint8_t derived_key[32];
+  uint8_t *encrypted_data = NULL;
+  size_t encrypted_data_len;
+  uint8_t *data;
+  size_t data_len;
+  int ret;
+
+  if (handle->status == PAIR_STATUS_AUTH_FAILED)
+    return server_auth_failed_response(len, msg_state);
+
+  data_len = REQUEST_BUFSIZE;
+  data = malloc(data_len);
+  response = pair_tlv_new();
+
+  crypto_box_keypair(vctx->server_eph_public_key, vctx->server_eph_private_key);
+
+  ret = crypto_scalarmult(vctx->shared_secret, vctx->server_eph_private_key, vctx->client_eph_public_key);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 1: Error generating shared secret");
+    }
+
+  ret = create_and_sign_accessory_info(data, &data_len, vctx->server_eph_public_key, sizeof(vctx->server_eph_public_key), vctx->device_id,
+                                       vctx->client_eph_public_key, sizeof(vctx->client_eph_public_key), vctx->server_private_key);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 1: Error creating device info");
+    }
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), msg_state);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 1: hkdf error getting derived_key");
+    }
+
+  memcpy(nonce + 4, pair_keys_map[msg_state].nonce, NONCE_LENGTH - 4);
+
+  encrypted_data_len = data_len + sizeof(tag); // Space for ciphered payload and authtag
+  encrypted_data = malloc(encrypted_data_len);
+
+  ret = encrypt_chacha(encrypted_data, data, data_len, derived_key, sizeof(derived_key), NULL, 0, tag, sizeof(tag), nonce);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 1: Could not encrypt");
+    }
+
+  memcpy(encrypted_data + data_len, tag, sizeof(tag));
+
+  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[msg_state].state, sizeof(pair_keys_map[msg_state].state));
+  pair_tlv_add_value(response, TLVType_PublicKey, vctx->server_eph_public_key, sizeof(vctx->server_eph_public_key));
+  pair_tlv_add_value(response, TLVType_EncryptedData, encrypted_data, encrypted_data_len);
+
+  data_len = REQUEST_BUFSIZE; // Re-using *data, so pass original length to pair_tlv_format
+  ret = pair_tlv_format(response, data, &data_len);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 1: pair_tlv_format returned an error");
+    }
+
+  *len = data_len;
+
+  free(encrypted_data);
+  pair_tlv_free(response);
+  return data;
+
+ error:
+  free(encrypted_data);
+  free(data);
+  pair_tlv_free(response);
+  return NULL;
+}
+
+static uint8_t *
+server_verify_response2(size_t *len, struct pair_verify_context *handle)
+{
+  struct pair_server_verify_context *vctx = &handle->vctx.server;
+  enum pair_keys msg_state = PAIR_VERIFY_MSG04;
+  pair_tlv_values_t *response;
+  uint8_t *data;
+  size_t data_len;
+  int ret;
+
+  if (handle->status == PAIR_STATUS_AUTH_FAILED)
+    return server_auth_failed_response(len, msg_state);
+
+  data_len = REQUEST_BUFSIZE;
+  data = malloc(data_len);
+  response = pair_tlv_new();
+
+  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[msg_state].state, sizeof(pair_keys_map[msg_state].state));
+
+  ret = pair_tlv_format(response, data, &data_len);
+  if (ret < 0)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 2: pair_tlv_format returned an error");
+    }
+
+  *len = data_len;
+
+  memcpy(handle->result.shared_secret, vctx->shared_secret, sizeof(vctx->shared_secret));
+  handle->result.shared_secret_len = sizeof(vctx->shared_secret);
+
+  handle->status = PAIR_STATUS_COMPLETED;
+
+  pair_tlv_free(response);
+  return data;
+
+ error:
+  free(data);
+  pair_tlv_free(response);
+  return NULL;
+}
+
+static int
+server_add_remove_request(pair_cb cb, void *cb_arg, const uint8_t *in, size_t in_len)
+{
+  const char *errmsg;
+  pair_tlv_values_t *request;
+  pair_tlv_t *device_id;
+  pair_tlv_t *pk;
+  char id_str[PAIR_AP_DEVICE_ID_LEN_MAX] = { 0 };
+  uint8_t *public_key = NULL;
+
+  request = message_process(in, in_len, &errmsg);
+  if (!request)
+    {
       goto error;
     }
 
-  handle->setup_is_completed = 1;
+  device_id = pair_tlv_get_value(request, TLVType_Identifier);
+  if (!device_id || device_id->size >= sizeof(id_str))
+    {
+      goto error;
+    }
+
+  // Only present when adding
+  pk = pair_tlv_get_value(request, TLVType_PublicKey);
+  if (pk && pk->size == crypto_sign_PUBLICKEYBYTES)
+    {
+      public_key = pk->value;
+    }
+
+  memcpy(id_str, device_id->value, device_id->size);
+
+  cb(public_key, id_str, cb_arg);
+
   pair_tlv_free(request);
   return 0;
 
@@ -1923,11 +2730,11 @@ pair_server_setup_request2(struct pair_setup_context *handle, const uint8_t *dat
 }
 
 static uint8_t *
-pair_server_setup_response1(size_t *len, struct pair_setup_context *handle)
+server_add_remove_response(size_t *len)
 {
-  struct pair_server_setup_context *sctx = &handle->sctx.server;
   pair_tlv_values_t *response;
   uint8_t *data;
+  uint8_t state = 2;
   size_t data_len;
   int ret;
 
@@ -1935,14 +2742,11 @@ pair_server_setup_response1(size_t *len, struct pair_setup_context *handle)
   data = malloc(data_len);
   response = pair_tlv_new();
 
-  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[PAIR_SETUP_MSG02].state, sizeof(pair_keys_map[PAIR_SETUP_MSG02].state));
-  pair_tlv_add_value(response, TLVType_Salt, sctx->salt, sctx->salt_len); // 16
-  pair_tlv_add_value(response, TLVType_PublicKey, sctx->pkB, sctx->pkB_len); // 384
+  pair_tlv_add_value(response, TLVType_State, &state, sizeof(state));
 
   ret = pair_tlv_format(response, data, &data_len);
   if (ret < 0)
     {
-      handle->errmsg = "Setup response 1: pair_tlv_format returned an error";
       goto error;
     }
 
@@ -1952,61 +2756,90 @@ pair_server_setup_response1(size_t *len, struct pair_setup_context *handle)
   return data;
 
  error:
-  pair_tlv_free(response);
   free(data);
-  return NULL;
-}
-
-static uint8_t *
-pair_server_setup_response2(size_t *len, struct pair_setup_context *handle)
-{
-  struct pair_server_setup_context *sctx = &handle->sctx.server;
-  pair_tlv_values_t *response;
-  uint8_t *data;
-  size_t data_len;
-  int ret;
-
-  data_len = REQUEST_BUFSIZE;
-  data = malloc(data_len);
-  response = pair_tlv_new();
-
-  pair_tlv_add_value(response, TLVType_State, &pair_keys_map[PAIR_SETUP_MSG04].state, sizeof(pair_keys_map[PAIR_SETUP_MSG04].state));
-  pair_tlv_add_value(response, TLVType_Proof, sctx->M2, sctx->M2_len); // 384
-
-  ret = pair_tlv_format(response, data, &data_len);
-  if (ret < 0)
-    {
-      handle->errmsg = "Setup response 2: pair_tlv_format returned an error";
-      goto error;
-    }
-
-  *len = data_len;
-
   pair_tlv_free(response);
-  return data;
-
- error:
-  pair_tlv_free(response);
-  free(data);
   return NULL;
 }
 
 static int
-pair_server_setup_result(const uint8_t **key, size_t *key_len, struct pair_setup_context *handle)
+server_add_remove(uint8_t **out, size_t *out_len, pair_cb cb, void *cb_arg, const uint8_t *in, size_t in_len)
 {
-  struct pair_server_setup_context *sctx = &handle->sctx.server;
-  const uint8_t *session_key;
-  int session_key_len;
+  int ret;
 
-  session_key = srp_verifier_get_session_key(sctx->verifier, &session_key_len);
-  if (!session_key)
+  ret = server_add_remove_request(cb, cb_arg, in, in_len);
+  if (ret < 0)
+    return -1;
+
+  *out = server_add_remove_response(out_len);
+  if (!*out)
+    return -1;
+
+  return 0;
+}
+
+static int
+server_list_cb(uint8_t public_key[crypto_sign_PUBLICKEYBYTES], const char *device_id, void *cb_arg)
+{
+  pair_tlv_values_t *response = cb_arg;
+  pair_tlv_t *previous_id;
+  uint8_t permissions = 1; // Means admin (TODO don't hardcode - let caller set)
+
+  // If this isn't the first iteration (item) then we must add a separator
+  previous_id = pair_tlv_get_value(response, TLVType_Identifier);
+  if (previous_id)
+    pair_tlv_add_value(response, TLVType_Separator, NULL, 0);
+
+  pair_tlv_add_value(response, TLVType_Identifier, (unsigned char *)device_id, strlen(device_id));
+  pair_tlv_add_value(response, TLVType_PublicKey, public_key, crypto_sign_PUBLICKEYBYTES);
+  pair_tlv_add_value(response, TLVType_Permissions, &permissions, sizeof(permissions));
+
+  return 0;
+}
+
+static uint8_t *
+server_list_response(size_t *len, pair_list_cb cb, void *cb_arg)
+{
+  pair_tlv_values_t *response;
+  uint8_t *data;
+  uint8_t state = 2;
+  size_t data_len;
+  int ret;
+
+  data_len = REQUEST_BUFSIZE;
+  data = malloc(data_len);
+  response = pair_tlv_new();
+
+  pair_tlv_add_value(response, TLVType_State, &state, sizeof(state));
+
+  cb(server_list_cb, response, cb_arg);
+
+  ret = pair_tlv_format(response, data, &data_len);
+  if (ret < 0)
     {
-      handle->errmsg = "Pair setup result: Could not compute session key";
-      return -1;
+      goto error;
     }
 
-  *key = session_key;
-  *key_len = session_key_len;
+  *len = data_len;
+
+  pair_tlv_free(response);
+  return data;
+
+ error:
+  free(data);
+  pair_tlv_free(response);
+  return NULL;
+}
+
+static int
+server_list(uint8_t **out, size_t *out_len, pair_list_cb cb, void *cb_arg, const uint8_t *in, size_t in_len)
+{
+  // Skip reading the request, it just has state = 1 and pair method =
+  // PairingMethodListPairings
+
+  *out = server_list_response(out_len, cb, cb_arg);
+  if (!*out)
+    return -1;
+
   return 0;
 }
 
@@ -2014,7 +2847,7 @@ pair_server_setup_result(const uint8_t **key, size_t *key_len, struct pair_setup
 /* ----------------------- CIPHERING IMPLEMENTATION ------------------------- */
 
 static void
-pair_cipher_free(struct pair_cipher_context *cctx)
+cipher_free(struct pair_cipher_context *cctx)
 {
   if (!cctx)
     return;
@@ -2023,7 +2856,7 @@ pair_cipher_free(struct pair_cipher_context *cctx)
 }
 
 static struct pair_cipher_context *
-pair_cipher_new(struct pair_definition *type, int channel, const uint8_t *shared_secret, size_t shared_secret_len)
+cipher_new(struct pair_definition *type, int channel, const uint8_t *shared_secret, size_t shared_secret_len)
 {
   struct pair_cipher_context *cctx;
   enum pair_keys write_key;
@@ -2075,11 +2908,11 @@ pair_cipher_new(struct pair_definition *type, int channel, const uint8_t *shared
 }
 
 static ssize_t
-pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx)
+encrypt(uint8_t **ciphertext, size_t *ciphertext_len, const uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx)
 {
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
-  uint8_t *plain_block;
+  const uint8_t *plain_block;
   uint8_t *cipher_block;
   uint16_t block_len;
   int nblocks;
@@ -2131,12 +2964,12 @@ pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, s
 }
 
 static ssize_t
-pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx)
+decrypt(uint8_t **plaintext, size_t *plaintext_len, const uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx)
 {
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
   uint8_t *plain_block;
-  uint8_t *cipher_block;
+  const uint8_t *cipher_block;
   uint16_t block_len;
   int ret;
 
@@ -2185,11 +3018,16 @@ pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, si
 }
 
 static int
-pair_state_get(const char **errmsg, const uint8_t *data, size_t data_len)
+state_get(const char **errmsg, const uint8_t *data, size_t data_len)
 {
   pair_tlv_values_t *message;
   pair_tlv_t *state;
   int ret;
+
+  if (!data || data_len == 0)
+    {
+      return 0; // state 0 = no incoming data yet -> first request
+    }
 
   message = message_process(data, data_len, errmsg);
   if (!message)
@@ -2214,87 +3052,105 @@ pair_state_get(const char **errmsg, const uint8_t *data, size_t data_len)
   return -1;
 }
 
+static void
+public_key_get(uint8_t server_public_key[crypto_sign_PUBLICKEYBYTES], const char *device_id)
+{
+  uint8_t private_key[crypto_sign_SECRETKEYBYTES];
+  server_keypair(server_public_key, private_key, device_id);
+}
+
 const struct pair_definition pair_client_homekit_normal =
 {
-  .pair_setup_new = pair_client_setup_new,
-  .pair_setup_free = pair_client_setup_free,
-  .pair_setup_result = pair_client_setup_result,
+  .pair_setup_new = client_setup_new,
+  .pair_setup_free = client_setup_free,
+  .pair_setup_result = client_setup_result,
 
-  .pair_setup_request1 = pair_client_setup_request1,
-  .pair_setup_request2 = pair_client_setup_request2,
-  .pair_setup_request3 = pair_client_setup_request3,
+  .pair_setup_request1 = client_setup_request1,
+  .pair_setup_request2 = client_setup_request2,
+  .pair_setup_request3 = client_setup_request3,
 
-  .pair_setup_response1 = pair_client_setup_response1,
-  .pair_setup_response2 = pair_client_setup_response2,
-  .pair_setup_response3 = pair_client_setup_response3,
+  .pair_setup_response1 = client_setup_response1,
+  .pair_setup_response2 = client_setup_response2,
+  .pair_setup_response3 = client_setup_response3,
 
-  .pair_verify_new = pair_client_verify_new,
-  .pair_verify_result = pair_client_verify_result,
+  .pair_verify_new = client_verify_new,
 
-  .pair_verify_request1 = pair_client_verify_request1,
-  .pair_verify_request2 = pair_client_verify_request2,
+  .pair_verify_request1 = client_verify_request1,
+  .pair_verify_request2 = client_verify_request2,
 
-  .pair_verify_response1 = pair_client_verify_response1,
-  .pair_verify_response2 = pair_client_verify_response2,
+  .pair_verify_response1 = client_verify_response1,
+  .pair_verify_response2 = client_verify_response2,
 
-  .pair_cipher_new = pair_cipher_new,
-  .pair_cipher_free = pair_cipher_free,
+  .pair_cipher_new = cipher_new,
+  .pair_cipher_free = cipher_free,
 
-  .pair_encrypt = pair_encrypt,
-  .pair_decrypt = pair_decrypt,
+  .pair_encrypt = encrypt,
+  .pair_decrypt = decrypt,
 
-  .pair_state_get = pair_state_get,
+  .pair_state_get = state_get,
 };
 
 const struct pair_definition pair_client_homekit_transient =
 {
-  .pair_setup_new = pair_client_setup_new,
-  .pair_setup_free = pair_client_setup_free,
-  .pair_setup_result = pair_client_setup_result,
+  .pair_setup_new = client_setup_new,
+  .pair_setup_free = client_setup_free,
 
-  .pair_setup_request1 = pair_client_setup_request1,
-  .pair_setup_request2 = pair_client_setup_request2,
-  .pair_setup_request3 = pair_client_setup_request3,
+  .pair_setup_request1 = client_setup_request1,
+  .pair_setup_request2 = client_setup_request2,
+  .pair_setup_request3 = client_setup_request3,
 
-  .pair_setup_response1 = pair_client_setup_response1,
-  .pair_setup_response2 = pair_client_setup_response2,
-  .pair_setup_response3 = pair_client_setup_response3,
+  .pair_setup_response1 = client_setup_response1,
+  .pair_setup_response2 = client_setup_response2,
+  .pair_setup_response3 = client_setup_response3,
 
-  .pair_verify_new = pair_client_verify_new,
-  .pair_verify_result = pair_client_verify_result,
+  .pair_verify_new = client_verify_new,
 
-  .pair_verify_request1 = pair_client_verify_request1,
-  .pair_verify_request2 = pair_client_verify_request2,
+  .pair_verify_request1 = client_verify_request1,
+  .pair_verify_request2 = client_verify_request2,
 
-  .pair_verify_response1 = pair_client_verify_response1,
-  .pair_verify_response2 = pair_client_verify_response2,
+  .pair_verify_response1 = client_verify_response1,
+  .pair_verify_response2 = client_verify_response2,
 
-  .pair_cipher_new = pair_cipher_new,
-  .pair_cipher_free = pair_cipher_free,
+  .pair_cipher_new = cipher_new,
+  .pair_cipher_free = cipher_free,
 
-  .pair_encrypt = pair_encrypt,
-  .pair_decrypt = pair_decrypt,
+  .pair_encrypt = encrypt,
+  .pair_decrypt = decrypt,
 
-  .pair_state_get = pair_state_get,
+  .pair_state_get = state_get,
 };
 
-const struct pair_definition pair_server_homekit_transient =
+const struct pair_definition pair_server_homekit =
 {
-  .pair_setup_new = pair_server_setup_new,
-  .pair_setup_free = pair_server_setup_free,
-  .pair_setup_result = pair_server_setup_result,
+  .pair_setup_new = server_setup_new,
+  .pair_setup_free = server_setup_free,
 
-  .pair_setup_request1 = pair_server_setup_response1,
-  .pair_setup_request2 = pair_server_setup_response2,
+  .pair_setup_request1 = server_setup_response1,
+  .pair_setup_request2 = server_setup_response2,
+  .pair_setup_request3 = server_setup_response3,
 
-  .pair_setup_response1 = pair_server_setup_request1,
-  .pair_setup_response2 = pair_server_setup_request2,
+  .pair_setup_response1 = server_setup_request1,
+  .pair_setup_response2 = server_setup_request2,
+  .pair_setup_response3 = server_setup_request3,
 
-  .pair_cipher_new = pair_cipher_new,
-  .pair_cipher_free = pair_cipher_free,
+  .pair_verify_new = server_verify_new,
 
-  .pair_encrypt = pair_encrypt,
-  .pair_decrypt = pair_decrypt,
+  .pair_verify_request1 = server_verify_response1,
+  .pair_verify_request2 = server_verify_response2,
 
-  .pair_state_get = pair_state_get,
+  .pair_verify_response1 = server_verify_request1,
+  .pair_verify_response2 = server_verify_request2,
+
+  .pair_add = server_add_remove,
+  .pair_remove = server_add_remove,
+  .pair_list = server_list,
+
+  .pair_cipher_new = cipher_new,
+  .pair_cipher_free = cipher_free,
+
+  .pair_encrypt = encrypt,
+  .pair_decrypt = decrypt,
+
+  .pair_state_get = state_get,
+  .pair_public_key_get = public_key_get,
 };

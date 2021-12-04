@@ -33,6 +33,8 @@
 #include <plist/plist.h>
 #include <sodium.h>
 
+#include <assert.h>
+
 #include "pair-internal.h"
 
 /* ----------------------------- DEFINES ETC ------------------------------- */
@@ -58,6 +60,7 @@ typedef struct
 {
   bnum N;
   bnum g;
+  int N_len;
 } NGConstant;
 
 struct SRPUser
@@ -119,6 +122,8 @@ new_ng(SRP_NGType ng_type, const char *n_hex, const char *g_hex)
 
   bnum_hex2bn(ng->N, n_hex);
   bnum_hex2bn(ng->g, g_hex);
+
+  ng->N_len = bnum_num_bytes(ng->N);
 
   return ng;
 }
@@ -346,7 +351,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
-  k    = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g);
+  k    = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g, usr->ng->N_len);
   bnum_new(v);
   bnum_new(tmp1);
   bnum_new(tmp2);
@@ -355,7 +360,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
   if (!s || !B || !k || !v || !tmp1 || !tmp2 || !tmp3)
     goto cleanup1;
 
-  u = H_nn_pad(usr->alg, usr->A, B);
+  u = H_nn_pad(usr->alg, usr->A, B, usr->ng->N_len);
   x = calculate_x(usr->alg, s, usr->username, usr->password, usr->password_len);
   if (!u || !x)
     goto cleanup2;
@@ -595,11 +600,11 @@ encrypt_ctr(unsigned char *ciphertext, int ciphertext_len,
 /* -------------------------- IMPLEMENTATION -------------------------------- */
 
 static int
-pair_client_setup_new(struct pair_setup_context *handle, const char *pin, const char *device_id)
+client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add_cb, void *cb_arg, const char *device_id)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
   if (!pin || strlen(pin) < 4)
@@ -611,7 +616,7 @@ pair_client_setup_new(struct pair_setup_context *handle, const char *pin, const 
 }
 
 static void
-pair_client_setup_free(struct pair_setup_context *handle)
+client_setup_free(struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
 
@@ -625,7 +630,7 @@ pair_client_setup_free(struct pair_setup_context *handle)
 }
 
 static uint8_t *
-pair_client_setup_request1(size_t *len, struct pair_setup_context *handle)
+client_setup_request1(size_t *len, struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   plist_t dict;
@@ -651,7 +656,7 @@ pair_client_setup_request1(size_t *len, struct pair_setup_context *handle)
 }
 
 static uint8_t *
-pair_client_setup_request2(size_t *len, struct pair_setup_context *handle)
+client_setup_request2(size_t *len, struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   plist_t dict;
@@ -681,7 +686,7 @@ pair_client_setup_request2(size_t *len, struct pair_setup_context *handle)
 }
 
 static uint8_t *
-pair_client_setup_request3(size_t *len, struct pair_setup_context *handle)
+client_setup_request3(size_t *len, struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   plist_t dict;
@@ -747,7 +752,7 @@ pair_client_setup_request3(size_t *len, struct pair_setup_context *handle)
 }
 
 static int
-pair_client_setup_response1(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+client_setup_response1(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   plist_t dict;
@@ -774,7 +779,7 @@ pair_client_setup_response1(struct pair_setup_context *handle, const uint8_t *da
 }
 
 static int
-pair_client_setup_response2(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+client_setup_response2(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   plist_t dict;
@@ -806,7 +811,7 @@ pair_client_setup_response2(struct pair_setup_context *handle, const uint8_t *da
 }
 
 static int
-pair_client_setup_response3(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
+client_setup_response3(struct pair_setup_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   plist_t dict;
@@ -837,30 +842,36 @@ pair_client_setup_response3(struct pair_setup_context *handle, const uint8_t *da
 
   plist_free(dict);
 
-  handle->setup_is_completed = 1;
+  assert(sizeof(handle->result.client_private_key) == sizeof(sctx->private_key));
+  assert(sizeof(handle->result.client_public_key) == sizeof(sctx->public_key));
+
+  memcpy(handle->result.client_private_key, sctx->private_key, sizeof(sctx->private_key));
+  memcpy(handle->result.client_public_key, sctx->public_key, sizeof(sctx->public_key));
+
+  handle->status = PAIR_STATUS_COMPLETED;
   return 0;
 }
 
 static int
-pair_client_setup_result(const uint8_t **key, size_t *key_len, struct pair_setup_context *handle)
+client_setup_result(struct pair_setup_context *handle)
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
+  char *ptr;
+  int i;
 
-  // Last 32 bytes of private key should match public key, but check assumption
-  if (memcmp(sctx->private_key + sizeof(sctx->private_key) - sizeof(sctx->public_key), sctx->public_key, sizeof(sctx->public_key)) != 0)
-    {
-      handle->errmsg = "Pair setup result: Unexpected keys, private key does not match public key";
-      return -1;
-    }
+  // Last 32 bytes of the private key is the public key, so we don't need to
+  // explicitly export that
+  ptr = handle->result_str;
+  for (i = 0; i < sizeof(sctx->private_key); i++)
+    ptr += sprintf(ptr, "%02x", sctx->private_key[i]); // 2 x 64 bytes
+  *ptr = '\0';
 
-  *key = sctx->private_key;
-  *key_len = sizeof(sctx->private_key);
   return 0;
 }
 
 
 static int
-pair_client_verify_new(struct pair_verify_context *handle, const char *hexkey, const char *device_id)
+client_verify_new(struct pair_verify_context *handle, const char *client_setup_keys, pair_cb cb, void *cb_arg, const char *device_id)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   char hex[] = { 0, 0, 0 };
@@ -868,13 +879,13 @@ pair_client_verify_new(struct pair_verify_context *handle, const char *hexkey, c
   const char *ptr;
   int i;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
-  if (!hexkey)
+  if (!client_setup_keys)
     return -1;
 
-  hexkey_len = strlen(hexkey);
+  hexkey_len = strlen(client_setup_keys);
 
   if (hexkey_len != 2 * sizeof(vctx->client_private_key))
     return -1;
@@ -885,7 +896,7 @@ pair_client_verify_new(struct pair_verify_context *handle, const char *hexkey, c
   if (device_id)
     memcpy(vctx->device_id, device_id, strlen(device_id));
 
-  ptr = hexkey;
+  ptr = client_setup_keys;
   for (i = 0; i < sizeof(vctx->client_private_key); i++, ptr+=2)
     {
       hex[0] = ptr[0];
@@ -893,19 +904,13 @@ pair_client_verify_new(struct pair_verify_context *handle, const char *hexkey, c
       vctx->client_private_key[i] = strtol(hex, NULL, 16);
     }
 
-  ptr = hexkey + hexkey_len - 2 * sizeof(vctx->client_public_key);
-  for (i = 0; i < sizeof(vctx->client_public_key); i++, ptr+=2)
-    {
-      hex[0] = ptr[0];
-      hex[1] = ptr[1];
-      vctx->client_public_key[i] = strtol(hex, NULL, 16);
-    }
+  crypto_sign_ed25519_sk_to_pk(vctx->client_public_key, vctx->client_private_key);
 
   return 0;
 }
 
 static uint8_t *
-pair_client_verify_request1(size_t *len, struct pair_verify_context *handle)
+client_verify_request1(size_t *len, struct pair_verify_context *handle)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   const uint8_t basepoint[32] = {9};
@@ -935,7 +940,7 @@ pair_client_verify_request1(size_t *len, struct pair_verify_context *handle)
 }
 
 static uint8_t *
-pair_client_verify_request2(size_t *len, struct pair_verify_context *handle)
+client_verify_request2(size_t *len, struct pair_verify_context *handle)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   uint8_t shared_secret[crypto_scalarmult_BYTES];
@@ -983,14 +988,14 @@ pair_client_verify_request2(size_t *len, struct pair_verify_context *handle)
       return NULL;
     }
 
-  ret = encrypt_ctr(encrypted, sizeof(encrypted), vctx->server_public_key, sizeof(vctx->server_public_key), signature, sizeof(signature), key, iv, &errmsg);
+  ret = encrypt_ctr(encrypted, sizeof(encrypted), vctx->server_fruit_public_key, sizeof(vctx->server_fruit_public_key), signature, sizeof(signature), key, iv, &errmsg);
   if (ret < 0)
     {
       handle->errmsg = errmsg;
       return NULL;
     }
 
-  *len = 4 + sizeof(vctx->server_public_key);
+  *len = 4 + sizeof(vctx->server_fruit_public_key);
   data = calloc(1, *len);
   if (!data)
     {
@@ -998,18 +1003,18 @@ pair_client_verify_request2(size_t *len, struct pair_verify_context *handle)
       return NULL;
     }
 
-  memcpy(data + 4, encrypted, sizeof(vctx->server_public_key));
+  memcpy(data + 4, encrypted, sizeof(vctx->server_fruit_public_key));
 
   return data;
 }
 
 static int
-pair_client_verify_response1(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
+client_verify_response1(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   size_t wanted;
 
-  wanted = sizeof(vctx->server_eph_public_key) + sizeof(vctx->server_public_key);
+  wanted = sizeof(vctx->server_eph_public_key) + sizeof(vctx->server_fruit_public_key);
   if (data_len < wanted)
     {
       handle->errmsg = "Verify response 2: Unexpected response (too short)";
@@ -1017,25 +1022,21 @@ pair_client_verify_response1(struct pair_verify_context *handle, const uint8_t *
     }
 
   memcpy(vctx->server_eph_public_key, data, sizeof(vctx->server_eph_public_key));
-  memcpy(vctx->server_public_key, data + sizeof(vctx->server_eph_public_key), sizeof(vctx->server_public_key));
+  memcpy(vctx->server_fruit_public_key, data + sizeof(vctx->server_eph_public_key), sizeof(vctx->server_fruit_public_key));
 
   return 0;
 }
 
 static int
-pair_client_verify_response2(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
-{
-  // TODO actually check response
-  return 0;
-}
-
-static int
-pair_client_verify_result(const uint8_t **key, size_t *key_len, struct pair_verify_context *handle)
+client_verify_response2(struct pair_verify_context *handle, const uint8_t *data, size_t data_len)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
+  // TODO actually check response
 
-  *key = vctx->shared_secret;
-  *key_len = sizeof(vctx->shared_secret);
+  memcpy(handle->result.shared_secret, vctx->shared_secret, sizeof(vctx->shared_secret));
+  handle->result.shared_secret_len = sizeof(vctx->shared_secret);
+
+  handle->status = PAIR_STATUS_COMPLETED;
 
   return 0;
 }
@@ -1043,24 +1044,23 @@ pair_client_verify_result(const uint8_t **key, size_t *key_len, struct pair_veri
 
 struct pair_definition pair_client_fruit =
 {
-  .pair_setup_new = pair_client_setup_new,
-  .pair_setup_free = pair_client_setup_free,
-  .pair_setup_result = pair_client_setup_result,
+  .pair_setup_new = client_setup_new,
+  .pair_setup_free = client_setup_free,
+  .pair_setup_result = client_setup_result,
 
-  .pair_setup_request1 = pair_client_setup_request1,
-  .pair_setup_request2 = pair_client_setup_request2,
-  .pair_setup_request3 = pair_client_setup_request3,
+  .pair_setup_request1 = client_setup_request1,
+  .pair_setup_request2 = client_setup_request2,
+  .pair_setup_request3 = client_setup_request3,
 
-  .pair_setup_response1 = pair_client_setup_response1,
-  .pair_setup_response2 = pair_client_setup_response2,
-  .pair_setup_response3 = pair_client_setup_response3,
+  .pair_setup_response1 = client_setup_response1,
+  .pair_setup_response2 = client_setup_response2,
+  .pair_setup_response3 = client_setup_response3,
 
-  .pair_verify_new = pair_client_verify_new,
-  .pair_verify_result = pair_client_verify_result,
+  .pair_verify_new = client_verify_new,
 
-  .pair_verify_request1 = pair_client_verify_request1,
-  .pair_verify_request2 = pair_client_verify_request2,
+  .pair_verify_request1 = client_verify_request1,
+  .pair_verify_request2 = client_verify_request2,
 
-  .pair_verify_response1 = pair_client_verify_response1,
-  .pair_verify_response2 = pair_client_verify_response2,
+  .pair_verify_response1 = client_verify_response1,
+  .pair_verify_response2 = client_verify_response2,
 };

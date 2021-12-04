@@ -2721,7 +2721,7 @@ payload_make_pair_setup1(struct evrtsp_request *req, struct airplay_session *rs,
 
   snprintf(device_id_hex, sizeof(device_id_hex), "%016" PRIX64, airplay_device_id);
 
-  rs->pair_setup_ctx = pair_setup_new(rs->pair_type, pin, device_id_hex);
+  rs->pair_setup_ctx = pair_setup_new(rs->pair_type, pin, NULL, NULL, device_id_hex);
   if (!rs->pair_setup_ctx)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for verification setup context\n");
@@ -2757,7 +2757,7 @@ payload_make_pair_verify1(struct evrtsp_request *req, struct airplay_session *rs
 
   snprintf(device_id_hex, sizeof(device_id_hex), "%016" PRIX64, airplay_device_id);
 
-  rs->pair_verify_ctx = pair_verify_new(rs->pair_type, device->auth_key, device_id_hex);
+  rs->pair_verify_ctx = pair_verify_new(rs->pair_type, device->auth_key, NULL, NULL, device_id_hex);
   if (!rs->pair_verify_ctx)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for verification verify context\n");
@@ -3179,8 +3179,7 @@ static enum airplay_seq_type
 response_handler_pair_setup2(struct evrtsp_request *req, struct airplay_session *rs)
 {
   enum airplay_seq_type seq_type;
-  const uint8_t *shared_secret;
-  size_t shared_secret_len;
+  struct pair_result *result;
   int ret;
 
   seq_type = response_handler_pair_generic(2, req, rs);
@@ -3190,14 +3189,14 @@ response_handler_pair_setup2(struct evrtsp_request *req, struct airplay_session 
   if (rs->pair_type != PAIR_CLIENT_HOMEKIT_TRANSIENT)
     return seq_type;
 
-  ret = pair_setup_result(NULL, &shared_secret, &shared_secret_len, rs->pair_setup_ctx);
+  ret = pair_setup_result(NULL, &result, rs->pair_setup_ctx);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Transient setup result error: %s\n", pair_setup_errmsg(rs->pair_setup_ctx));
       goto error;
     }
 
-  ret = session_cipher_setup(rs, shared_secret, shared_secret_len);
+  ret = session_cipher_setup(rs, result->shared_secret, result->shared_secret_len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Pair transient error setting up encryption for '%s'\n", rs->devname);
@@ -3223,7 +3222,7 @@ response_handler_pair_setup3(struct evrtsp_request *req, struct airplay_session 
   if (seq_type != AIRPLAY_SEQ_CONTINUE)
     return seq_type;
 
-  ret = pair_setup_result(&authorization_key, NULL, NULL, rs->pair_setup_ctx);
+  ret = pair_setup_result(&authorization_key, NULL, rs->pair_setup_ctx);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Pair setup result error: %s\n", pair_setup_errmsg(rs->pair_setup_ctx));
@@ -3278,22 +3277,21 @@ response_handler_pair_verify2(struct evrtsp_request *req, struct airplay_session
 {
   struct output_device *device;
   enum airplay_seq_type seq_type;
-  const uint8_t *shared_secret;
-  size_t shared_secret_len;
+  struct pair_result *result;
   int ret;
 
   seq_type = response_handler_pair_generic(5, req, rs);
   if (seq_type != AIRPLAY_SEQ_CONTINUE)
     goto error;
 
-  ret = pair_verify_result(&shared_secret, &shared_secret_len, rs->pair_verify_ctx);
+  ret = pair_verify_result(&result, rs->pair_verify_ctx);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Pair verify result error: %s\n", pair_verify_errmsg(rs->pair_verify_ctx));
       goto error;
     }
 
-  ret = session_cipher_setup(rs, shared_secret, shared_secret_len);
+  ret = session_cipher_setup(rs, result->shared_secret, result->shared_secret_len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Pair verify error setting up encryption for '%s'\n", rs->devname);

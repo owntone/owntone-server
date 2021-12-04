@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h> // for isprint()
+#include <assert.h>
 
 #include <sodium.h>
 
@@ -34,15 +35,36 @@
 extern struct pair_definition pair_client_fruit;
 extern struct pair_definition pair_client_homekit_normal;
 extern struct pair_definition pair_client_homekit_transient;
-extern struct pair_definition pair_server_homekit_transient;
+extern struct pair_definition pair_server_homekit;
 
 // Must be in sync with enum pair_type
 static struct pair_definition *pair[] = {
     &pair_client_fruit,
     &pair_client_homekit_normal,
     &pair_client_homekit_transient,
-    &pair_server_homekit_transient,
+    &pair_server_homekit,
 };
+
+/* ------------------------------ INITIALIZATION ---------------------------- */
+
+bool
+is_initialized(void)
+{
+  if (sodium_init() == -1)
+    return false;
+
+#if CONFIG_GCRYPT
+  // According to libgcrypt documentation: "It is important that these
+  // initialization steps are not done by a library but by the actual
+  // application. A library using Libgcrypt might want to check for finished
+  // initialization using:"
+  if (!gcry_control (GCRYCTL_INITIALIZATION_FINISHED_P))
+    return false;
+#endif
+
+  return true;
+}
+
 
 /* -------------------------- SHARED HASHING HELPERS ------------------------ */
 
@@ -167,24 +189,27 @@ hash_ab(enum hash_alg alg, unsigned char *md, const unsigned char *m1, int m1_le
   return hash_final(alg, &ctx, md);
 }
 
+// See rfc5054 PAD()
 bnum
-H_nn_pad(enum hash_alg alg, const bnum n1, const bnum n2)
+H_nn_pad(enum hash_alg alg, const bnum n1, const bnum n2, int padded_len)
 {
   bnum          bn;
   unsigned char *bin;
   unsigned char buff[SHA512_DIGEST_LENGTH];
   int           len_n1 = bnum_num_bytes(n1);
   int           len_n2 = bnum_num_bytes(n2);
-  int           nbytes = 2 * len_n1;
+  int           nbytes = 2 * padded_len;
+  int           offset_n1 = padded_len - len_n1;
+  int           offset_n2 = nbytes - len_n2;
 
-  if ((len_n2 < 1) || (len_n2 > len_n1))
-    return 0;
+  assert(len_n1 <= padded_len);
+  assert(len_n2 <= padded_len);
 
-  bin = calloc( 1, nbytes );
+  bin = calloc(1, nbytes);
 
-  bnum_bn2bin(n1, bin, len_n1);
-  bnum_bn2bin(n2, bin + nbytes - len_n2, len_n2);
-  hash( alg, bin, nbytes, buff );
+  bnum_bn2bin(n1, bin + offset_n1, len_n1);
+  bnum_bn2bin(n2, bin + offset_n2, len_n2);
+  hash(alg, bin, nbytes, buff);
   free(bin);
   bnum_bin2bn(bn, buff, hash_length(alg));
   return bn;
@@ -200,8 +225,8 @@ H_ns(enum hash_alg alg, const bnum n, const unsigned char *bytes, int len_bytes)
   unsigned char *bin   = malloc(nbytes);
 
   bnum_bn2bin(n, bin, len_n);
-  memcpy( bin + len_n, bytes, len_bytes );
-  hash( alg, bin, nbytes, buff );
+  memcpy(bin + len_n, bytes, len_bytes);
+  hash(alg, bin, nbytes, buff);
   free(bin);
   bnum_bin2bn(bn, buff, hash_length(alg));
   return bn;
@@ -268,13 +293,23 @@ hexdump(const char *msg, uint8_t *mem, size_t len)
 	}
     }
 }
+
+void
+bnum_dump(const char *msg, bnum n)
+{
+  int len_n = bnum_num_bytes(n);
+  uint8_t *bin = calloc(1, len_n);
+  bnum_bn2bin(n, bin, len_n);
+  hexdump(msg, bin, len_n);
+  free(bin);
+}
 #endif
 
 
 /* ----------------------------------- API -----------------------------------*/
 
 struct pair_setup_context *
-pair_setup_new(enum pair_type type, const char *pin, const char *device_id)
+pair_setup_new(enum pair_type type, const char *pin, pair_cb add_cb, void *cb_arg, const char *device_id)
 {
   struct pair_setup_context *sctx;
 
@@ -287,7 +322,7 @@ pair_setup_new(enum pair_type type, const char *pin, const char *device_id)
 
   sctx->type = pair[type];
 
-  if (pair[type]->pair_setup_new(sctx, pin, device_id) < 0)
+  if (pair[type]->pair_setup_new(sctx, pin, add_cb, cb_arg, device_id) < 0)
     {
       free(sctx);
       return NULL;
@@ -312,6 +347,76 @@ const char *
 pair_setup_errmsg(struct pair_setup_context *sctx)
 {
   return sctx->errmsg;
+}
+
+int
+pair_setup(uint8_t **out, size_t *out_len, struct pair_setup_context *sctx, const uint8_t *in, size_t in_len)
+{
+  int state;
+  int ret = -1;
+
+  if (!sctx->type->pair_state_get)
+    {
+      sctx->errmsg = "Getting pair state unsupported";
+      return -1;
+    }
+
+  *out = NULL;
+  *out_len = 0;
+
+  state = sctx->type->pair_state_get(&sctx->errmsg, in, in_len);
+  if (state < 0)
+    return -1;
+
+  switch (state)
+    {
+      case 0:
+        *out = pair_setup_request1(out_len, sctx);
+        break;
+      case 1:
+        ret = pair_setup_response1(sctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_setup_request1(out_len, sctx);
+        break;
+      case 2:
+        ret = pair_setup_response1(sctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_setup_request2(out_len, sctx);
+        break;
+      case 3:
+        ret = pair_setup_response2(sctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_setup_request2(out_len, sctx);
+        break;
+      case 4:
+        ret = pair_setup_response2(sctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_setup_request3(out_len, sctx);
+        break;
+      case 5:
+        ret = pair_setup_response3(sctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_setup_request3(out_len, sctx);
+        break;
+      case 6:
+        ret = pair_setup_response3(sctx, in, in_len);
+        if (ret < 0)
+          break;
+        break;
+      default:
+        sctx->errmsg = "Setup: Unsupported state";
+        ret = -1;
+    }
+
+  if (ret < 0 || !(*out))
+    return -1;
+
+  return 0;
 }
 
 uint8_t *
@@ -351,7 +456,7 @@ pair_setup_request3(size_t *len, struct pair_setup_context *sctx)
 }
 
 int
-pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
+pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *in, size_t in_len)
 {
   if (!sctx->type->pair_setup_response1)
     {
@@ -359,11 +464,11 @@ pair_setup_response1(struct pair_setup_context *sctx, const uint8_t *data, size_
       return -1;
     }
 
-  return sctx->type->pair_setup_response1(sctx, data, data_len);
+  return sctx->type->pair_setup_response1(sctx, in, in_len);
 }
 
 int
-pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
+pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *in, size_t in_len)
 {
   if (!sctx->type->pair_setup_response2)
     {
@@ -371,11 +476,11 @@ pair_setup_response2(struct pair_setup_context *sctx, const uint8_t *data, size_
       return -1;
     }
 
-  return sctx->type->pair_setup_response2(sctx, data, data_len);
+  return sctx->type->pair_setup_response2(sctx, in, in_len);
 }
 
 int
-pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, size_t data_len)
+pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *in, size_t in_len)
 {
   if (!sctx->type->pair_setup_response3)
     {
@@ -383,61 +488,36 @@ pair_setup_response3(struct pair_setup_context *sctx, const uint8_t *data, size_
       return -1;
     }
 
-  if (sctx->type->pair_setup_response3(sctx, data, data_len) != 0)
+  if (sctx->type->pair_setup_response3(sctx, in, in_len) != 0)
     return -1;
 
   return 0;
 }
 
 int
-pair_setup_result(const char **hexkey, const uint8_t **key, size_t *key_len, struct pair_setup_context *sctx)
+pair_setup_result(const char **client_setup_keys, struct pair_result **result, struct pair_setup_context *sctx)
 {
-  const uint8_t *out_key;
-  size_t out_len;
-  char *ptr;
-  int i;
-
-  if (!sctx->setup_is_completed)
+  if (sctx->status != PAIR_STATUS_COMPLETED)
     {
-      sctx->errmsg = "Setup result: The pair setup has not been completed";
+      sctx->errmsg = "Setup result: Pair setup has not been completed";
       return -1;
     }
 
-  if (!sctx->type->pair_setup_result)
+  if (sctx->type->pair_setup_result)
     {
-      sctx->errmsg = "Setup result: Unsupported";
-      return -1;
+      if (sctx->type->pair_setup_result(sctx) != 0)
+	return -1;
     }
 
-  if (sctx->type->pair_setup_result(&out_key, &out_len, sctx) != 0)
-    {
-      return -1;
-    }
-
-  if (2 * out_len + 1 > sizeof(sctx->auth_key))
-    {
-      sctx->errmsg = "Setup result: Invalid key length";
-      return -1;
-    }
-
-  ptr = sctx->auth_key;
-  for (i = 0; i < out_len; i++)
-    ptr += sprintf(ptr, "%02x", out_key[i]);
-  *ptr = '\0';
-
-  if (key)
-    *key = out_key;
-  if (key_len)
-    *key_len = out_len;
-  if (hexkey)
-    *hexkey = sctx->auth_key;
-
+  if (client_setup_keys)
+    *client_setup_keys = sctx->result_str;
+  if (result)
+    *result = &sctx->result;
   return 0;
 }
 
-
 struct pair_verify_context *
-pair_verify_new(enum pair_type type, const char *hexkey, const char *device_id)
+pair_verify_new(enum pair_type type, const char *client_setup_keys, pair_cb get_cb, void *cb_arg, const char *device_id)
 {
   struct pair_verify_context *vctx;
 
@@ -450,7 +530,7 @@ pair_verify_new(enum pair_type type, const char *hexkey, const char *device_id)
 
   vctx->type = pair[type];
 
-  if (pair[type]->pair_verify_new(vctx, hexkey, device_id) < 0)
+  if (pair[type]->pair_verify_new(vctx, client_setup_keys, get_cb, cb_arg, device_id) < 0)
     {
       free(vctx);
       return NULL;
@@ -475,6 +555,64 @@ const char *
 pair_verify_errmsg(struct pair_verify_context *vctx)
 {
   return vctx->errmsg;
+}
+
+int
+pair_verify(uint8_t **out, size_t *out_len, struct pair_verify_context *vctx, const uint8_t *in, size_t in_len)
+{
+  int state;
+  int ret = -1;
+
+  if (!vctx->type->pair_state_get)
+    {
+      vctx->errmsg = "Getting pair state unsupported";
+      return -1;
+    }
+
+  *out = NULL;
+  *out_len = 0;
+
+  state = vctx->type->pair_state_get(&vctx->errmsg, in, in_len);
+  if (state < 0)
+    return -1;
+
+  switch (state)
+    {
+      case 0:
+        *out = pair_verify_request1(out_len, vctx);
+        break;
+      case 1:
+        ret = pair_verify_response1(vctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_verify_request1(out_len, vctx);
+        break;
+      case 2:
+        ret = pair_verify_response1(vctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_verify_request2(out_len, vctx);
+        break;
+      case 3:
+        ret = pair_verify_response2(vctx, in, in_len);
+        if (ret < 0)
+          break;
+        *out = pair_verify_request2(out_len, vctx);
+        break;
+      case 4:
+        ret = pair_verify_response2(vctx, in, in_len);
+        if (ret < 0)
+          break;
+        break;
+      default:
+        vctx->errmsg = "Verify: Unsupported state";
+        ret = -1;
+    }
+
+  if (ret < 0 || !(*out))
+    return -1;
+
+  return 0;
 }
 
 uint8_t *
@@ -502,7 +640,7 @@ pair_verify_request2(size_t *len, struct pair_verify_context *vctx)
 }
 
 int
-pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len)
+pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *in, size_t in_len)
 {
   if (!vctx->type->pair_verify_response1)
     {
@@ -510,11 +648,11 @@ pair_verify_response1(struct pair_verify_context *vctx, const uint8_t *data, siz
       return -1;
     }
 
-  return vctx->type->pair_verify_response1(vctx, data, data_len);
+  return vctx->type->pair_verify_response1(vctx, in, in_len);
 }
 
 int
-pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, size_t data_len)
+pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *in, size_t in_len)
 {
   if (!vctx->type->pair_verify_response2)
     {
@@ -522,28 +660,29 @@ pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *data, siz
       return -1;
     }
 
-  if (vctx->type->pair_verify_response2(vctx, data, data_len) != 0)
+  if (vctx->type->pair_verify_response2(vctx, in, in_len) != 0)
     return -1;
 
-  vctx->verify_is_completed = 1;
   return 0;
 }
 
 int
-pair_verify_result(const uint8_t **shared_secret, size_t *shared_secret_len, struct pair_verify_context *vctx)
+pair_verify_result(struct pair_result **result, struct pair_verify_context *vctx)
 {
-  if (!vctx->verify_is_completed)
+  if (vctx->status != PAIR_STATUS_COMPLETED)
     {
       vctx->errmsg = "Verify result: The pairing verification did not complete";
       return -1;
     }
 
-  if (!vctx->type->pair_verify_result)
-    return -1;
+  if (vctx->type->pair_verify_result)
+    {
+      if (vctx->type->pair_verify_result(vctx) != 0)
+	return -1;
+    }
 
-  if (vctx->type->pair_verify_result(shared_secret, shared_secret_len, vctx) != 0)
-    return -1;
-
+  if (result)
+    *result = &vctx->result;
   return 0;
 }
 
@@ -575,7 +714,7 @@ pair_cipher_errmsg(struct pair_cipher_context *cctx)
 }
 
 ssize_t
-pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx)
+pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, const uint8_t *plaintext, size_t plaintext_len, struct pair_cipher_context *cctx)
 {
   if (!cctx->type->pair_encrypt)
     {
@@ -587,7 +726,7 @@ pair_encrypt(uint8_t **ciphertext, size_t *ciphertext_len, uint8_t *plaintext, s
 }
 
 ssize_t
-pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx)
+pair_decrypt(uint8_t **plaintext, size_t *plaintext_len, const uint8_t *ciphertext, size_t ciphertext_len, struct pair_cipher_context *cctx)
 {
   if (!cctx->type->pair_decrypt)
     {
@@ -611,7 +750,40 @@ pair_decrypt_rollback(struct pair_cipher_context *cctx)
 }
 
 int
-pair_state_get(enum pair_type type, const char **errmsg, const uint8_t *data, size_t data_len)
+pair_add(enum pair_type type, uint8_t **out, size_t *out_len, pair_cb add_cb, void *cb_arg, const uint8_t *in, size_t in_len)
+{
+  if (!pair[type]->pair_add)
+    {
+      return -1;
+    }
+
+  return pair[type]->pair_add(out, out_len, add_cb, cb_arg, in, in_len);
+}
+
+int
+pair_remove(enum pair_type type, uint8_t **out, size_t *out_len, pair_cb remove_cb, void *cb_arg, const uint8_t *in, size_t in_len)
+{
+  if (!pair[type]->pair_remove)
+    {
+      return -1;
+    }
+
+  return pair[type]->pair_remove(out, out_len, remove_cb, cb_arg, in, in_len);
+}
+
+int
+pair_list(enum pair_type type, uint8_t **out, size_t *out_len, pair_list_cb list_cb, void *cb_arg, const uint8_t *in, size_t in_len)
+{
+  if (!pair[type]->pair_list)
+    {
+      return -1;
+    }
+
+  return pair[type]->pair_list(out, out_len, list_cb, cb_arg, in, in_len);
+}
+
+int
+pair_state_get(enum pair_type type, const char **errmsg, const uint8_t *in, size_t in_len)
 {
   if (!pair[type]->pair_state_get)
     {
@@ -619,5 +791,16 @@ pair_state_get(enum pair_type type, const char **errmsg, const uint8_t *data, si
       return -1;
     }
 
-  return pair[type]->pair_state_get(errmsg, data, data_len);
+  return pair[type]->pair_state_get(errmsg, in, in_len);
+}
+
+void
+pair_public_key_get(enum pair_type type, uint8_t server_public_key[32], const char *device_id)
+{
+  if (!pair[type]->pair_public_key_get)
+    {
+      return;
+    }
+
+  pair[type]->pair_public_key_get(server_public_key, device_id);
 }
