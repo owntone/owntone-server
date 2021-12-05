@@ -3846,7 +3846,7 @@ raop_pair_verify(struct raop_session *rs)
   if (!device)
     goto error;
 
-  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_CLIENT_FRUIT, device->auth_key, NULL));
+  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_CLIENT_FRUIT, device->auth_key, NULL, NULL, NULL));
 
   ret = raop_pair_request_send(4, rs, raop_cb_pair_verify_step1);
   if (ret < 0)
@@ -3872,7 +3872,7 @@ raop_cb_pair_setup_step3(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto out;
 
-  ret = pair_setup_result(&authorization_key, NULL, NULL, rs->pair_setup_ctx);
+  ret = pair_setup_result(&authorization_key, NULL, rs->pair_setup_ctx);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Verification setup result error: %s\n", pair_setup_errmsg(rs->pair_setup_ctx));
@@ -3955,7 +3955,7 @@ raop_pair_setup(struct raop_session *rs, const char *pin)
 {
   int ret;
 
-  rs->pair_setup_ctx = pair_setup_new(PAIR_CLIENT_FRUIT, pin, NULL);
+  rs->pair_setup_ctx = pair_setup_new(PAIR_CLIENT_FRUIT, pin, NULL, NULL, NULL);
   if (!rs->pair_setup_ctx)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for verification setup context\n");
