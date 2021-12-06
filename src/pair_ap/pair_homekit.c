@@ -140,9 +140,9 @@ typedef enum
 
 typedef struct
 {
+  int N_len;
   bnum N;
   bnum g;
-  int N_len;
 } NGConstant;
 
 struct SRPUser
@@ -185,6 +185,7 @@ struct SRPVerifier
 
 struct NGHex
 {
+  int N_len;
   const char *n_hex;
   const char *g_hex;
 };
@@ -193,6 +194,7 @@ struct NGHex
 static struct NGHex global_Ng_constants[] =
 {
   { /* 2048 */
+    256,
     "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4"
     "A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF60"
     "95179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF"
@@ -203,6 +205,7 @@ static struct NGHex global_Ng_constants[] =
     "2"
   },
   { /* 3072 */
+    384,
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B"
     "139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485"
     "B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1F"
@@ -216,7 +219,7 @@ static struct NGHex global_Ng_constants[] =
     "D120A93AD2CAFFFFFFFFFFFFFFFF",
     "5"
   },
-  {0,0} /* null sentinel */
+  {0} /* null sentinel */
 };
 
 
@@ -227,14 +230,16 @@ new_ng(SRP_NGType ng_type, const char *n_hex, const char *g_hex)
 
   if ( ng_type != SRP_NG_CUSTOM )
     {
-      n_hex = global_Ng_constants[ ng_type ].n_hex;
-      g_hex = global_Ng_constants[ ng_type ].g_hex;
+      n_hex = global_Ng_constants[ng_type].n_hex;
+      g_hex = global_Ng_constants[ng_type].g_hex;
     }
 
   bnum_hex2bn(ng->N, n_hex);
   bnum_hex2bn(ng->g, g_hex);
 
   ng->N_len = bnum_num_bytes(ng->N);
+
+  assert(ng_type == SRP_NG_CUSTOM || ng->N_len == global_Ng_constants[ng_type].N_len);
 
   return ng;
 }
@@ -248,6 +253,15 @@ free_ng(NGConstant * ng)
   bnum_free(ng->N);
   bnum_free(ng->g);
   free(ng);
+}
+
+static int
+N_len(SRP_NGType ng_type)
+{
+  if (ng_type == SRP_NG_CUSTOM)
+    return -1;
+
+  return global_Ng_constants[ng_type].N_len;
 }
 
 static bnum
@@ -449,7 +463,8 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
-  k    = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g, usr->ng->N_len);
+
+  k = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g, usr->ng->N_len);
 
   bnum_new(v);
   bnum_new(tmp1);
@@ -1414,18 +1429,24 @@ client_setup_response1(struct pair_setup_context *handle, const uint8_t *data, s
     }
 
   pk = pair_tlv_get_value(response, TLVType_PublicKey);
-  salt = pair_tlv_get_value(response, TLVType_Salt);
-  if (!pk || !salt)
+  if (!pk || pk->size > N_len(SRP_NG_3072)) // max 384 bytes
     {
-      handle->errmsg = "Setup response 1: Missing or invalid pk/salt";
+      handle->errmsg = "Setup response 1: Missing or invalid public key";
       goto error;
     }
 
-  sctx->pkB_len = pk->size; // 384
+  salt = pair_tlv_get_value(response, TLVType_Salt);
+  if (!salt || salt->size != 16)
+    {
+      handle->errmsg = "Setup response 1: Missing or invalid salt";
+      goto error;
+    }
+
+  sctx->pkB_len = pk->size;
   sctx->pkB = malloc(sctx->pkB_len);
   memcpy(sctx->pkB, pk->value, sctx->pkB_len);
 
-  sctx->salt_len = salt->size; // 16
+  sctx->salt_len = salt->size;
   sctx->salt = malloc(sctx->salt_len);
   memcpy(sctx->salt, salt->value, sctx->salt_len);
 
@@ -1453,13 +1474,13 @@ client_setup_response2(struct pair_setup_context *handle, const uint8_t *data, s
     }
 
   proof = pair_tlv_get_value(response, TLVType_Proof);
-  if (!proof)
+  if (!proof || proof->size != SHA512_DIGEST_LENGTH)
     {
-      handle->errmsg = "Setup response 2: Missing proof";
+      handle->errmsg = "Setup response 2: Missing or invalid proof";
       goto error;
     }
 
-  sctx->M2_len = proof->size; // 64
+  sctx->M2_len = proof->size;
   sctx->M2 = malloc(sctx->M2_len);
   memcpy(sctx->M2, proof->value, sctx->M2_len);
 
@@ -2067,17 +2088,22 @@ server_setup_request2(struct pair_setup_context *handle, const uint8_t *data, si
     }
 
   pk = pair_tlv_get_value(request, TLVType_PublicKey);
-  proof = pair_tlv_get_value(request, TLVType_Proof);
-  if (!pk || !proof)
+  if (!pk || pk->size > N_len(SRP_NG_3072)) // 384 bytes or less
     {
-      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Missing pkA or proof");
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Missing og invalid public key");
     }
 
-  sctx->pkA_len = pk->size; // 384
+  proof = pair_tlv_get_value(request, TLVType_Proof);
+  if (!proof || proof->size != SHA512_DIGEST_LENGTH)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Missing or invalid proof");
+    }
+
+  sctx->pkA_len = pk->size;
   sctx->pkA = malloc(sctx->pkA_len);
   memcpy(sctx->pkA, pk->value, sctx->pkA_len);
 
-  sctx->M1_len = proof->size; // 64
+  sctx->M1_len = proof->size;
   sctx->M1 = malloc(sctx->M1_len);
   memcpy(sctx->M1, proof->value, sctx->M1_len);
 
@@ -2089,7 +2115,7 @@ server_setup_request2(struct pair_setup_context *handle, const uint8_t *data, si
       goto out;
     }
 
-  sctx->M2_len = 64; // 512 bit hash
+  sctx->M2_len = SHA512_DIGEST_LENGTH;
   srp_verifier_verify_session(sctx->verifier, sctx->M1, &sctx->M2);
   if (!sctx->M2)
     {
