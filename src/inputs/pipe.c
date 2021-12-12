@@ -376,7 +376,7 @@ pict_tmpfile_recreate(char *path, size_t path_size, int fd, const char *ext)
   return fd;
 }
 
-static void
+static int
 parse_progress(struct pipe_metadata_prepared *prepared, char *progress)
 {
   struct input_metadata *m = &prepared->input_metadata;
@@ -388,19 +388,19 @@ parse_progress(struct pipe_metadata_prepared *prepared, char *progress)
   int64_t end;
 
   if (!(s = strtok_r(progress, "/", &ptr)))
-    return;
+    goto error;
   safe_atoi64(s, &start);
 
   if (!(s = strtok_r(NULL, "/", &ptr)))
-    return;
+    goto error;
   safe_atoi64(s, &pos);
 
   if (!(s = strtok_r(NULL, "/", &ptr)))
-    return;
+    goto error;
   safe_atoi64(s, &end);
 
   if (!start || !pos || !end)
-    return;
+    goto error;
 
   // Note that negative positions are allowed and supported. A negative position
   // of e.g. -1000 means that the track will start in one second.
@@ -409,9 +409,15 @@ parse_progress(struct pipe_metadata_prepared *prepared, char *progress)
   m->len_ms = (end > start) ? (end - start) * 1000 / pipe_sample_rate : 0;
 
   DPRINTF(E_DBG, L_PLAYER, "Received Shairport metadata progress: %" PRIi64 "/%" PRIi64 "/%" PRIi64 " => %d/%u ms\n", start, pos, end, m->pos_ms, m->len_ms);
+
+  return 0;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Received unexpected Shairport metadata progress: %s\n", progress);
+  return -1;
 }
 
-static void
+static int
 parse_volume(struct pipe_metadata_prepared *prepared, const char *volume)
 {
   char *volume_next;
@@ -425,13 +431,13 @@ parse_volume(struct pipe_metadata_prepared *prepared, const char *volume)
     {
       DPRINTF(E_LOG, L_PLAYER, "Invalid Shairport airplay volume in string (%s): %s\n", volume,
 	      (errno == ERANGE ? strerror(errno) : "First token is not a number."));
-      return;
+      goto error;
     }
 
   if (strcmp(volume_next, ",0.00,0.00,0.00") != 0)
     {
       DPRINTF(E_DBG, L_PLAYER, "Not applying Shairport airplay volume while software volume control is enabled (%s)\n", volume);
-      return;
+      goto error; // Not strictly an error but goes through same flow
     }
 
   if (((int) airplay_volume) == -144)
@@ -447,10 +453,18 @@ parse_volume(struct pipe_metadata_prepared *prepared, const char *volume)
       prepared->volume = local_volume;
     }
   else
-    DPRINTF(E_LOG, L_PLAYER, "Shairport airplay volume out of range (-144.0, [-30.0 - 0.0]): %.2f\n", airplay_volume);
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Shairport airplay volume out of range (-144.0, [-30.0 - 0.0]): %.2f\n", airplay_volume);
+      goto error;
+    }
+
+  return 0;
+
+ error:
+  return -1;
 }
 
-static void
+static int
 parse_picture(struct pipe_metadata_prepared *prepared, uint8_t *data, int data_len)
 {
   struct input_metadata *m = &prepared->input_metadata;
@@ -463,7 +477,7 @@ parse_picture(struct pipe_metadata_prepared *prepared, uint8_t *data, int data_l
   if (data_len < 2 || data_len > PIPE_PICTURE_SIZE_MAX)
     {
       DPRINTF(E_WARN, L_PLAYER, "Unsupported picture size (%d) from Shairport metadata pipe\n", data_len);
-      return;
+      goto error;
     }
 
   if (data[0] == 0xff && data[1] == 0xd8)
@@ -473,31 +487,36 @@ parse_picture(struct pipe_metadata_prepared *prepared, uint8_t *data, int data_l
   else
     {
       DPRINTF(E_LOG, L_PLAYER, "Unsupported picture format from Shairport metadata pipe\n");
-      return;
+      goto error;
     }
 
   prepared->pict_tmpfile_fd = pict_tmpfile_recreate(prepared->pict_tmpfile_path, sizeof(prepared->pict_tmpfile_path), prepared->pict_tmpfile_fd, ext);
   if (prepared->pict_tmpfile_fd < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not open tmpfile for pipe artwork '%s': %s\n", prepared->pict_tmpfile_path, strerror(errno));
-      return;
+      goto error;
     }
 
   ret = write(prepared->pict_tmpfile_fd, data, data_len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Error writing artwork from metadata pipe to '%s': %s\n", prepared->pict_tmpfile_path, strerror(errno));
-      return;
+      goto error;
     }
   else if (ret != data_len)
     {
       DPRINTF(E_LOG, L_PLAYER, "Incomplete write of artwork to '%s' (%zd/%d)\n", prepared->pict_tmpfile_path, ret, data_len);
-      return;
+      goto error;
     }
 
   DPRINTF(E_DBG, L_PLAYER, "Wrote pipe artwork to '%s'\n", prepared->pict_tmpfile_path);
 
   m->artwork_url = safe_asprintf("file:%s", prepared->pict_tmpfile_path);
+
+  return 9;
+
+ error:
+  return -1;
 }
 
 static void
@@ -616,16 +635,20 @@ parse_item(enum pipe_metadata_msg *out_msg, struct pipe_metadata_prepared *prepa
       goto ignore;
     }
 
-  log_incoming(E_DBG, "Applying Shairport metadata", type, code, data_len);
-
+  ret = 0;
   if (message == PIPE_METADATA_MSG_PROGRESS)
-    parse_progress(prepared, (char *)data);
+    ret = parse_progress(prepared, (char *)data);
   else if (message == PIPE_METADATA_MSG_VOLUME)
-    parse_volume(prepared, (char *)data);
+    ret = parse_volume(prepared, (char *)data);
   else if (message == PIPE_METADATA_MSG_PICTURE)
-    parse_picture(prepared, data, data_len);
+    ret= parse_picture(prepared, data, data_len);
   else if (dstptr)
     swap_pointers(dstptr, (char **)&data);
+
+  if (ret < 0)
+    goto ignore;
+
+  log_incoming(E_DBG, "Applying Shairport metadata", type, code, data_len);
 
   *out_msg = message;
   free(data);
