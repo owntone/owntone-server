@@ -102,6 +102,7 @@ http_client_request(struct http_client_ctx *ctx)
   struct curl_slist *headers;
   struct onekeyval *okv;
   const char *user_agent;
+  long verifypeer;
   char header[1024];
   long response_code;
 
@@ -115,6 +116,9 @@ http_client_request(struct http_client_ctx *ctx)
   user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
   curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
   curl_easy_setopt(curl, CURLOPT_URL, ctx->url);
+
+  verifypeer = cfg_getbool(cfg_getsec(cfg, "general"), "ssl_verifypeer");
+  curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, verifypeer);
 
   headers = NULL;
   if (ctx->output_headers)
