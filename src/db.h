@@ -409,6 +409,24 @@ struct db_media_file_info {
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
 
+struct db_browse_info {
+  char *itemname;
+  char *itemname_sort;
+  char *track_count;
+  char *album_count;
+  char *artist_count;
+  char *song_length;
+  char *data_kind;
+  char *media_kind;
+  char *year;
+  char *date_released;
+  char *time_added;
+  char *time_played;
+  char *seek;
+};
+
+#define dbbi_offsetof(field) offsetof(struct db_browse_info, field)
+
 enum strip_type {
   STRIP_NONE,
   STRIP_PATH,
@@ -592,6 +610,9 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli);
 
 int
 db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
+
+int
+db_query_fetch_browse(struct query_params *qp, struct db_browse_info *dbbi);
 
 int
 db_query_fetch_count(struct query_params *qp, struct filecount_info *fci);

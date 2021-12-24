@@ -388,17 +388,42 @@ playlist_to_json(struct db_playlist_info *dbpli)
 }
 
 static json_object *
-genre_to_json(const char *genre)
+browse_info_to_json(struct db_browse_info *dbbi)
 {
   json_object *item;
+  int intval;
+  int ret;
 
-  if (genre == NULL)
+  if (dbbi == NULL)
     {
       return NULL;
     }
 
   item = json_object_new_object();
-  safe_json_add_string(item, "name", genre);
+  safe_json_add_string(item, "name", dbbi->itemname);
+  safe_json_add_string(item, "name_sort", dbbi->itemname_sort);
+  safe_json_add_int_from_string(item, "track_count", dbbi->track_count);
+  safe_json_add_int_from_string(item, "album_count", dbbi->album_count);
+  safe_json_add_int_from_string(item, "artist_count", dbbi->artist_count);
+  safe_json_add_int_from_string(item, "length_ms", dbbi->song_length);
+
+  safe_json_add_time_from_string(item, "time_played", dbbi->time_played);
+  safe_json_add_time_from_string(item, "time_added", dbbi->time_added);
+
+  ret = safe_atoi32(dbbi->seek, &intval);
+  if (ret == 0)
+    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
+
+  ret = safe_atoi32(dbbi->media_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
+
+  ret = safe_atoi32(dbbi->data_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
+
+  safe_json_add_date_from_string(item, "date_released", dbbi->date_released);
+  safe_json_add_int_from_string(item, "year", dbbi->year);
 
   return item;
 }
@@ -662,18 +687,17 @@ fetch_playlist(bool *notfound, uint32_t playlist_id)
 static int
 fetch_genres(struct query_params *query_params, json_object *items, int *total)
 {
+  struct db_browse_info dbbi;
   json_object *item;
   int ret;
-  char *genre;
-  char *sort_item;
 
   ret = db_query_start(query_params);
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_string_sort(query_params, &genre, &sort_item)) == 0) && (genre))
+  while (((ret = db_query_fetch_browse(query_params, &dbbi)) == 0) && (dbbi.track_count))
     {
-      item = genre_to_json(genre);
+      item = browse_info_to_json(&dbbi);
       if (!item)
 	{
 	  ret = -1;

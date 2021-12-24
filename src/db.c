@@ -421,6 +421,27 @@ static const ssize_t dbgri_cols_map[] =
   };
 
 /* This list must be kept in sync with
+ * - the order of fields in the Q_BROWSE_INFO query
+ * - the name of the fields in struct db_browse_info
+ */
+static const ssize_t dbbi_cols_map[] =
+  {
+    dbbi_offsetof(itemname),
+    dbbi_offsetof(itemname_sort),
+    dbbi_offsetof(track_count),
+    dbbi_offsetof(album_count),
+    dbbi_offsetof(artist_count),
+    dbbi_offsetof(song_length),
+    dbbi_offsetof(data_kind),
+    dbbi_offsetof(media_kind),
+    dbbi_offsetof(year),
+    dbbi_offsetof(date_released),
+    dbbi_offsetof(time_added),
+    dbbi_offsetof(time_played),
+    dbbi_offsetof(seek),
+  };
+
+/* This list must be kept in sync with
  * - qi_cols_map
  */
 static const struct qi_mfi_map qi_mfi_map[] =
@@ -2188,7 +2209,10 @@ db_build_query_browse(struct query_params *qp, struct query_clause *qc)
   where  = browse_clause[qp->type & ~Q_F_BROWSE].where;
 
   count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT %s FROM files f %s AND %s != '' %s);", select, qc->where, where, qc->group);
-  query = sqlite3_mprintf("SELECT %s FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
+  query = sqlite3_mprintf("SELECT %s, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, COUNT(DISTINCT f.songartistid) as artist_count, "
+			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), "
+			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) FROM files f %s AND %s != '' %s %s %s;",
+			  select, qc->where, where, qc->group, qc->order, qc->index);
 
   return db_build_query_check(qp, count, query);
 }
@@ -2515,6 +2539,59 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
   for (i = 0; i < ARRAY_SIZE(dbgri_cols_map); i++)
     {
       strcol = (char **) ((char *)dbgri + dbgri_cols_map[i]);
+
+      *strcol = (char *)sqlite3_column_text(qp->stmt, i);
+    }
+
+  return 0;
+}
+
+int
+db_query_fetch_browse(struct query_params *qp, struct db_browse_info *dbbi)
+{
+  int ncols;
+  char **strcol;
+  int i;
+  int ret;
+
+  memset(dbbi, 0, sizeof(struct db_browse_info));
+
+  if (!qp->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Query not started!\n");
+      return -1;
+    }
+
+  if (!(qp->type & Q_F_BROWSE))
+    {
+      DPRINTF(E_LOG, L_DB, "Not a browse query!\n");
+      return -1;
+    }
+
+  ret = db_blocking_step(qp->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
+      return 1;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  ncols = sqlite3_column_count(qp->stmt);
+
+  // We allow more cols in db than in map because the db may be a future schema
+  if (ncols < ARRAY_SIZE(dbbi_cols_map))
+    {
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbbi column map (%u)\n", ncols, ARRAY_SIZE(dbbi_cols_map));
+      return -1;
+    }
+
+  for (i = 0; i < ARRAY_SIZE(dbbi_cols_map); i++)
+    {
+      strcol = (char **) ((char *)dbbi + dbbi_cols_map[i]);
 
       *strcol = (char *)sqlite3_column_text(qp->stmt, i);
     }
