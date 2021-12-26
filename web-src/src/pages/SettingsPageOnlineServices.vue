@@ -67,6 +67,11 @@
               Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are
               <code>{{ spotify_required_scope | join }}</code>.
             </p>
+            <div v-if="spotify.webapi_token_valid" class="field fd-has-margin-top ">
+              <div class="control">
+                <a class="button is-danger" @click="logout_spotify">Logout</a>
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -141,7 +146,7 @@ export default {
     },
 
     spotify_required_scope () {
-      if (this.spotify.webapi_token_valid && this.spotify.webapi_granted_scope && this.spotify.webapi_required_scope) {
+      if (this.spotify.webapi_required_scope) {
         return this.spotify.webapi_required_scope.split(' ')
       }
       return []
@@ -174,6 +179,10 @@ export default {
           this.libspotify.errors.error = response.data.errors.error
         }
       })
+    },
+
+    logout_spotify () {
+      webapi.spotify_logout()
     },
 
     login_lastfm () {
