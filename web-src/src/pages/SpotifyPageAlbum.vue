@@ -54,7 +54,7 @@ const albumData = {
   load: function (to) {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    return spotifyApi.getAlbum(to.params.album_id)
+    return spotifyApi.getAlbum(to.params.album_id, { market: store.state.spotify.webapi_country })
   },
 
   set: function (vm, response) {
