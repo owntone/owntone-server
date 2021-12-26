@@ -52,6 +52,7 @@
         :album="selected_album"
         :media_kind="media_kind"
         @remove-podcast="open_remove_podcast_dialog()"
+        @play-count-changed="play_count_changed()"
         @close="show_details_modal = false" />
     <modal-dialog
         :show="show_remove_podcast_modal"
@@ -143,6 +144,10 @@ export default {
           this.show_details_modal = false
         })
       })
+    },
+
+    play_count_changed: function () {
+      this.$emit('play-count-changed')
     },
 
     remove_podcast: function () {
