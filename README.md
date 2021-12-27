@@ -253,6 +253,9 @@ cannot be supported by OwnTone. So what you can do instead is install a
 music player app like VLC, connect to the stream and control playback with
 Remote.
 
+In the speaker selection list, clicking on the icon should start the stream playing
+in the background on browsers that support that.
+
 Note that MP3 encoding must be supported by ffmpeg/libav for this to work. If
 it is not available you will see a message in the log file. In Debian/Ubuntu you
 get MP3 encoding support by installing the package "libavcodec-extra".
