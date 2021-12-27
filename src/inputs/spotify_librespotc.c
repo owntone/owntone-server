@@ -731,6 +731,8 @@ logout(void)
   memset(&ctx->status, 0, sizeof(ctx->status));
 
   pthread_mutex_unlock(&spotify_ctx_lock);
+
+  listener_notify(LISTENER_SPOTIFY);
 }
 
 static int

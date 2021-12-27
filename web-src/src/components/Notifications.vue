@@ -1,5 +1,5 @@
 <template>
-  <section class="fd-notifications">
+  <section class="fd-notifications" v-if="notifications.length > 0">
     <div class="columns is-centered">
       <div class="column is-half">
         <div class="notification has-shadow " v-for="notification in notifications" :key="notification.id" :class="['notification', notification.type ? `is-${notification.type}` : '']">

@@ -60,7 +60,7 @@ const artistData = {
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return Promise.all([
       spotifyApi.getArtist(to.params.artist_id),
-      spotifyApi.getArtistAlbums(to.params.artist_id, { limit: 50, offset: 0, include_groups: 'album,single' })
+      spotifyApi.getArtistAlbums(to.params.artist_id, { limit: 50, offset: 0, include_groups: 'album,single', market: store.state.spotify.webapi_country })
     ])
   },
 
