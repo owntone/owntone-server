@@ -228,6 +228,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "composer_sort",      mfi_offsetof(composer_sort),      DB_TYPE_STRING, DB_FIXUP_COMPOSER_SORT },
     { "channels",           mfi_offsetof(channels),           DB_TYPE_INT },
     { "usermark",           mfi_offsetof(usermark),           DB_TYPE_INT },
+    { "scan_kind",          mfi_offsetof(scan_kind),          DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -252,6 +253,7 @@ static const struct col_type_map pli_cols_map[] =
     { "query_limit",        pli_offsetof(query_limit),        DB_TYPE_INT },
     { "media_kind",         pli_offsetof(media_kind),         DB_TYPE_INT,    DB_FIXUP_MEDIA_KIND },
     { "artwork_url",        pli_offsetof(artwork_url),        DB_TYPE_STRING, DB_FIXUP_NO_SANITIZE },
+    { "scan_kind",          pli_offsetof(scan_kind),          DB_TYPE_INT },
 
     // Not in the database, but returned via the query's COUNT()/SUM()
     { "items",              pli_offsetof(items),              DB_TYPE_INT,    DB_FIXUP_STANDARD, DB_FLAG_NO_BIND },
@@ -367,6 +369,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(composer_sort),
     dbmfi_offsetof(channels),
     dbmfi_offsetof(usermark),
+    dbmfi_offsetof(scan_kind),
   };
 
 /* This list must be kept in sync with
@@ -391,6 +394,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(query_limit),
     dbpli_offsetof(media_kind),
     dbpli_offsetof(artwork_url),
+    dbpli_offsetof(scan_kind),
 
     dbpli_offsetof(items),
     dbpli_offsetof(streams),
@@ -528,14 +532,14 @@ static const struct browse_clause browse_clause[] =
   };
 
 
-struct media_kind_label {
-  enum media_kind type;
+struct enum_label {
+  int type;
   const char *label;
 };
 
 
 /* Keep in sync with enum media_kind */
-static const struct media_kind_label media_kind_labels[] =
+static const struct enum_label media_kind_labels[] =
   {
     { MEDIA_KIND_MUSIC,      "music" },
     { MEDIA_KIND_MOVIE,      "movie" },
@@ -588,6 +592,43 @@ db_data_kind_label(enum data_kind data_kind)
     }
 
   return NULL;
+}
+
+/* Keep in sync with enum scan_kind */
+static const struct enum_label scan_kind_labels[] =
+  {
+    { SCAN_KIND_UNKNOWN,    "unknown" },
+    { SCAN_KIND_FILES,      "files" },
+    { SCAN_KIND_SPOTIFY,    "spotify" },
+    { SCAN_KIND_RSS,        "rss" },
+  };
+
+const char *
+db_scan_kind_label(enum scan_kind scan_kind)
+{
+  if (scan_kind < ARRAY_SIZE(scan_kind_labels))
+    {
+      return scan_kind_labels[scan_kind].label;
+    }
+
+  return NULL;
+}
+
+enum scan_kind
+db_scan_kind_enum(const char *name)
+{
+  int i;
+
+  if (!name)
+    return 0;
+
+  for (i = 0; i < ARRAY_SIZE(scan_kind_labels); i++)
+    {
+      if (strcmp(name, scan_kind_labels[i].label) == 0)
+	return scan_kind_labels[i].type;
+    }
+
+  return 0;
 }
 
 /* Keep in sync with enum pl_type */
@@ -767,6 +808,7 @@ free_di(struct directory_info *di, int content_only)
   if (!di)
     return;
 
+  free(di->path);
   free(di->virtual_path);
 
   if (!content_only)
@@ -1657,6 +1699,59 @@ db_purge_cruft(time_t ref)
     }
 
   query = sqlite3_mprintf(Q_TMPL, DIR_MAX, (int64_t)ref);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      db_transaction_end();
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
+
+  ret = db_query_run(query, 1, LISTENER_DATABASE);
+  if (ret == 0)
+    DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+
+  db_transaction_end();
+
+#undef Q_TMPL
+}
+
+void
+db_purge_cruft_bysource(time_t ref, enum scan_kind scan_kind)
+{
+#define Q_TMPL "DELETE FROM directories WHERE id >= %d AND db_timestamp < %" PRIi64 " AND scan_kind = %d;"
+  int i;
+  int ret;
+  char *query;
+  char *queries_tmpl[4] =
+    {
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT p.id FROM playlists p WHERE p.type <> %d AND p.db_timestamp < %" PRIi64 " AND scan_kind = %d);",
+      "DELETE FROM playlistitems WHERE filepath IN (SELECT f.path FROM files f WHERE -1 <> %d AND f.db_timestamp < %" PRIi64 " AND scan_kind = %d);",
+      "DELETE FROM playlists WHERE type <> %d AND db_timestamp < %" PRIi64 " AND scan_kind = %d;",
+      "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 " AND scan_kind = %d;",
+    };
+
+  db_transaction_begin();
+
+  for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
+    {
+      query = sqlite3_mprintf(queries_tmpl[i], PL_SPECIAL, (int64_t)ref, scan_kind);
+      if (!query)
+	{
+	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+	  db_transaction_end();
+	  return;
+	}
+
+      DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
+
+      ret = db_query_run(query, 1, 0);
+      if (ret == 0)
+	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+    }
+
+  query = sqlite3_mprintf(Q_TMPL, DIR_MAX, (int64_t)ref, scan_kind);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -4218,6 +4313,7 @@ db_directory_enum_fetch(struct directory_enum *de, struct directory_info *di)
   di->disabled = sqlite3_column_int64(de->stmt, 3);
   di->parent_id = sqlite3_column_int(de->stmt, 4);
   di->path = (char *)sqlite3_column_text(de->stmt, 5);
+  di->scan_kind = sqlite3_column_int(de->stmt, 6);
 
   return 0;
 }
@@ -4232,11 +4328,11 @@ db_directory_enum_end(struct directory_enum *de)
   de->stmt = NULL;
 }
 
-static int
+int
 db_directory_add(struct directory_info *di, int *id)
 {
-#define QADD_TMPL "INSERT INTO directories (virtual_path, db_timestamp, disabled, parent_id, path)" \
-                  " VALUES (TRIM(%Q), %d, %" PRIi64 ", %d, TRIM(%Q));"
+#define QADD_TMPL "INSERT INTO directories (virtual_path, db_timestamp, disabled, parent_id, path, scan_kind)" \
+                  " VALUES (TRIM(%Q), %d, %" PRIi64 ", %d, TRIM(%Q), %d);"
 
   char *query;
   char *errmsg;
@@ -4251,7 +4347,7 @@ db_directory_add(struct directory_info *di, int *id)
       DPRINTF(E_LOG, L_DB, "Directory name ends with space: '%s'\n", di->virtual_path);
     }
 
-  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->path);
+  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->path, di->scan_kind);
 
   if (!query)
     {
@@ -4287,17 +4383,17 @@ db_directory_add(struct directory_info *di, int *id)
 #undef QADD_TMPL
 }
 
-static int
+int
 db_directory_update(struct directory_info *di)
 {
-#define QADD_TMPL "UPDATE directories SET virtual_path = TRIM(%Q), db_timestamp = %d, disabled = %" PRIi64 ", parent_id = %d, path = TRIM(%Q)" \
+#define QADD_TMPL "UPDATE directories SET virtual_path = TRIM(%Q), db_timestamp = %d, disabled = %" PRIi64 ", parent_id = %d, path = TRIM(%Q), scan_kind = %d" \
                   " WHERE id = %d;"
   char *query;
   char *errmsg;
   int ret;
 
   /* Add */
-  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->path, di->id);
+  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->path, di->scan_kind, di->id);
 
   if (!query)
     {
@@ -4326,36 +4422,6 @@ db_directory_update(struct directory_info *di)
 #undef QADD_TMPL
 }
 
-int
-db_directory_addorupdate(char *virtual_path, char *path, int disabled, int parent_id)
-{
-  struct directory_info di;
-  int id;
-  int ret;
-
-  id = db_directory_id_byvirtualpath(virtual_path);
-
-  di.id = id;
-  di.parent_id = parent_id;
-  di.virtual_path = virtual_path;
-  di.path = path;
-  di.disabled = disabled;
-  di.db_timestamp = (uint64_t)time(NULL);
-
-  if (di.id == 0)
-    ret = db_directory_add(&di, &id);
-  else
-    ret = db_directory_update(&di);
-
-  if (ret < 0 || id <= 0)
-  {
-    DPRINTF(E_LOG, L_DB, "Insert or update of directory failed '%s'\n", virtual_path);
-    return -1;
-  }
-
-  return id;
-}
-
 void
 db_directory_ping_bymatch(char *virtual_path)
 {
@@ -4369,7 +4435,7 @@ db_directory_ping_bymatch(char *virtual_path)
 }
 
 void
-db_directory_disable_bymatch(char *path, enum strip_type strip, uint32_t cookie)
+db_directory_disable_bymatch(const char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE directories SET virtual_path = substr(virtual_path, %d)," \
                " disabled = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
@@ -4388,7 +4454,7 @@ db_directory_disable_bymatch(char *path, enum strip_type strip, uint32_t cookie)
 }
 
 int
-db_directory_enable_bycookie(uint32_t cookie, char *path)
+db_directory_enable_bycookie(uint32_t cookie, const char *path)
 {
 #define Q_TMPL "UPDATE directories SET virtual_path = ('/file:%q' || virtual_path)," \
                " disabled = 0 WHERE disabled = %" PRIi64 ";"

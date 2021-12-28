@@ -1181,6 +1181,10 @@ jsonapi_reply_library(struct httpd_request *hreq)
   json_object *jreply;
   int ret;
   char *s;
+  int i;
+  struct library_source **sources;
+  json_object *jscanners;
+  json_object *jsource;
 
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -1216,6 +1220,19 @@ jsonapi_reply_library(struct httpd_request *hreq)
 
   json_object_object_add(jreply, "updating", json_object_new_boolean(library_is_scanning()));
 
+  jscanners = json_object_new_array();
+  json_object_object_add(jreply, "scanners", jscanners);
+  sources = library_sources();
+  for (i = 0; sources[i]; i++)
+    {
+      if (!sources[i]->disabled)
+	{
+	  jsource = json_object_new_object();
+	  safe_json_add_string(jsource, "name", db_scan_kind_label(sources[i]->scan_kind));
+	  json_object_array_add(jscanners, jsource);
+	}
+    }
+
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
   jparse_free(jreply);
 
@@ -1228,14 +1245,22 @@ jsonapi_reply_library(struct httpd_request *hreq)
 static int
 jsonapi_reply_update(struct httpd_request *hreq)
 {
-  library_rescan();
+  const char *param;
+
+  param = evhttp_find_header(hreq->query, "scan_kind");
+
+  library_rescan(db_scan_kind_enum(param));
   return HTTP_NOCONTENT;
 }
 
 static int
 jsonapi_reply_meta_rescan(struct httpd_request *hreq)
 {
-  library_metarescan();
+  const char *param;
+
+  param = evhttp_find_header(hreq->query, "scan_kind");
+
+  library_metarescan(db_scan_kind_enum(param));
   return HTTP_NOCONTENT;
 }
 

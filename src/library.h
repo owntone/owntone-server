@@ -54,7 +54,7 @@ enum library_cb_action
  */
 struct library_source
 {
-  char *name;
+  enum scan_kind scan_kind;
   int disabled;
 
   /*
@@ -134,6 +134,9 @@ library_media_save(struct media_file_info *mfi);
 int
 library_playlist_save(struct playlist_info *pli);
 
+int
+library_directory_save(char *virtual_path, char *path, int disabled, int parent_id, enum scan_kind library_source);
+
 /*
  * @param cb      Callback to call
  * @param arg     Argument to call back with
@@ -153,12 +156,27 @@ library_is_exiting();
 
 /* ------------------------ Library external interface --------------------- */
 
+/*
+ * Rescan library: find new, remove deleted and update modified tracks and playlists
+ * If a "source_name" is given, only tracks / playlists belonging to that source are
+ * updated.
+ *
+ * Update is done asynchronously in the library thread.
+ *
+ * @param library_source 0 to update everything, one of LIBRARY_SOURCE_xxx to only update specific source
+ */
 void
-library_rescan();
+library_rescan(enum scan_kind library_source);
 
+/*
+ * Same as library_rescan but also updates unmodified tracks and playlists
+ */
 void
-library_metarescan();
+library_metarescan(enum scan_kind library_source);
 
+/*
+ * Wipe library and do a full rescan of all library sources
+ */
 void
 library_fullrescan();
 
@@ -201,6 +219,8 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 int
 library_item_add(const char *path);
 
+struct library_source **
+library_sources(void);
 
 /*
  * Execute the function 'func' with the given argument 'arg' in the library thread.

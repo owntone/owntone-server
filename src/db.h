@@ -141,6 +141,18 @@ enum data_kind {
 const char *
 db_data_kind_label(enum data_kind data_kind);
 
+enum scan_kind {
+  SCAN_KIND_UNKNOWN = 0,
+  SCAN_KIND_FILES = 1,
+  SCAN_KIND_SPOTIFY = 2,
+  SCAN_KIND_RSS = 3,
+};
+
+const char *
+db_scan_kind_label(enum scan_kind scan_kind);
+
+enum scan_kind
+db_scan_kind_enum(const char *label);
 
 /* Indicates user marked status on a track  - values can be bitwise enumerated */
 enum usermark {
@@ -234,6 +246,8 @@ struct media_file_info {
   char *album_sort;
   char *album_artist_sort;
   char *composer_sort;
+
+  uint32_t scan_kind; /* Identifies the library_source that created/updates this item */
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -269,6 +283,7 @@ struct playlist_info {
   uint32_t query_limit;  /* limit, used by e.g. smart playlists */
   uint32_t media_kind;
   char *artwork_url;     /* optional artwork */
+  uint32_t scan_kind; /* Identifies the library_source that created/updates this item */
   uint32_t items;        /* number of items (mimc) */
   uint32_t streams;      /* number of internet streams */
 };
@@ -292,6 +307,7 @@ struct db_playlist_info {
   char *query_limit;
   char *media_kind;
   char *artwork_url;
+  char *scan_kind;
   char *items;
   char *streams;
 };
@@ -405,6 +421,7 @@ struct db_media_file_info {
   char *composer_sort;
   char *channels;
   char *usermark;
+  char *scan_kind;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
@@ -475,6 +492,7 @@ struct directory_info {
   uint32_t db_timestamp;
   int64_t disabled;
   uint32_t parent_id;
+  uint32_t scan_kind; /* Identifies the library_source that created/updates this item */
 };
 
 struct directory_enum {
@@ -588,6 +606,9 @@ db_hook_post_scan(void);
 
 void
 db_purge_cruft(time_t ref);
+
+void
+db_purge_cruft_bysource(time_t ref, enum scan_kind scan_kind);
 
 void
 db_purge_all(void);
@@ -798,16 +819,19 @@ void
 db_directory_enum_end(struct directory_enum *de);
 
 int
-db_directory_addorupdate(char *virtual_path, char *path, int disabled, int parent_id);
+db_directory_add(struct directory_info *di, int *id);
+
+int
+db_directory_update(struct directory_info *di);
 
 void
 db_directory_ping_bymatch(char *virtual_path);
 
 void
-db_directory_disable_bymatch(char *path, enum strip_type strip, uint32_t cookie);
+db_directory_disable_bymatch(const char *path, enum strip_type strip, uint32_t cookie);
 
 int
-db_directory_enable_bycookie(uint32_t cookie, char *path);
+db_directory_enable_bycookie(uint32_t cookie, const char *path);
 
 int
 db_directory_enable_bypath(char *path);

@@ -438,6 +438,7 @@ playlist_fill(struct playlist_info *pli, const char *path)
   pli->path  = strdup(path);
   pli->title = strip_extension(filename); // Will alloc
   pli->virtual_path = strip_extension(virtual_path); // Will alloc
+  pli->scan_kind = SCAN_KIND_FILES;
 
   pli->directory_id = get_parent_dir_id(path);
 
@@ -586,6 +587,7 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
   mfi.virtual_path = strdup(virtual_path);
 
   mfi.directory_id = dir_id;
+  mfi.scan_kind = SCAN_KIND_FILES;
 
   if (S_ISFIFO(sb->st_mode))
     {
@@ -699,7 +701,7 @@ process_file(char *file, struct stat *sb, enum file_type file_type, int scan_typ
 
 	DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered, found init-rescan file: %s\n", file);
 
-	library_rescan();
+	library_rescan(0);
 	break;
 
       case FILE_CTRL_METASCAN:
@@ -708,7 +710,7 @@ process_file(char *file, struct stat *sb, enum file_type file_type, int scan_typ
 
 	DPRINTF(E_LOG, L_SCAN, "Meta rescan triggered, found meta-rescan file: %s\n", file);
 
-	library_metarescan();
+	library_metarescan(0);
 	break;
 
       case FILE_CTRL_FULLSCAN:
@@ -828,7 +830,7 @@ process_directory(char *path, int parent_id, int flags)
       return;
     }
 
-  dir_id = db_directory_addorupdate(virtual_path, path, 0, parent_id);
+  dir_id = library_directory_save(virtual_path, path, 0, parent_id, SCAN_KIND_FILES);
   if (dir_id <= 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '%s'\n", virtual_path);
@@ -956,7 +958,7 @@ process_parent_directories(char *path)
       if (ret < 0)
 	return 0;
 
-      dir_id = db_directory_addorupdate(virtual_path, buf, 0, dir_id);
+      dir_id = library_directory_save(virtual_path, buf, 0, dir_id, SCAN_KIND_FILES);
       if (dir_id <= 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '%s'\n", virtual_path);
@@ -2154,7 +2156,7 @@ filescanner_deinit(void)
 
 struct library_source filescanner =
 {
-  .name = "filescanner",
+  .scan_kind = SCAN_KIND_FILES,
   .disabled = 0,
   .init = filescanner_init,
   .deinit = filescanner_deinit,
