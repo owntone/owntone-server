@@ -458,7 +458,7 @@ fetch_tracks(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while ((ret = db_query_fetch_file(query_params, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, query_params)) == 0)
     {
       item = track_to_json(&dbmfi);
       if (!item)
@@ -490,7 +490,7 @@ fetch_artists(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while ((ret = db_query_fetch_group(query_params, &dbgri)) == 0)
+  while ((ret = db_query_fetch_group(&dbgri, query_params)) == 0)
     {
       /* Don't add item if no name (eg blank album name) */
       if (strlen(dbgri.itemname) == 0)
@@ -535,7 +535,7 @@ fetch_artist(bool *notfound, const char *artist_id)
   if (ret < 0)
     goto error;
 
-  if ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
+  if ((ret = db_query_fetch_group(&dbgri, &query_params)) == 0)
     {
       artist = artist_to_json(&dbgri);
       notfound = false;
@@ -559,7 +559,7 @@ fetch_albums(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while ((ret = db_query_fetch_group(query_params, &dbgri)) == 0)
+  while ((ret = db_query_fetch_group(&dbgri, query_params)) == 0)
     {
       /* Don't add item if no name (eg blank album name) */
       if (strlen(dbgri.itemname) == 0)
@@ -605,7 +605,7 @@ fetch_album(bool *notfound, const char *album_id)
   if (ret < 0)
     goto error;
 
-  if ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
+  if ((ret = db_query_fetch_group(&dbgri, &query_params)) == 0)
     {
       album = album_to_json(&dbgri);
       *notfound = false;
@@ -629,7 +629,7 @@ fetch_playlists(struct query_params *query_params, json_object *items, int *tota
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_pl(query_params, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&dbpli, query_params)) == 0) && (dbpli.id))
     {
       item = playlist_to_json(&dbpli);
       if (!item)
@@ -671,7 +671,7 @@ fetch_playlist(bool *notfound, uint32_t playlist_id)
   if (ret < 0)
     goto error;
 
-  if (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
+  if (((ret = db_query_fetch_pl(&dbpli, &query_params)) == 0) && (dbpli.id))
     {
       playlist = playlist_to_json(&dbpli);
       *notfound = false;
@@ -695,7 +695,7 @@ fetch_genres(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_browse(query_params, &dbbi)) == 0) && (dbbi.track_count))
+  while ((ret = db_query_fetch_browse(&dbbi, query_params)) == 0)
     {
       item = browse_info_to_json(&dbbi);
       if (!item)
@@ -3319,7 +3319,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   if (ret < 0)
     goto error;
 
-  ret = db_query_fetch_file(&query_params, &dbmfi);
+  ret = db_query_fetch_file(&dbmfi, &query_params);
   if (ret < 0)
     goto error;
   else if (ret == 1)

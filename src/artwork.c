@@ -1377,7 +1377,7 @@ source_group_dir_get(struct artwork_ctx *ctx)
       return ART_E_ERROR;
     }
 
-  while (((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
+  while (((ret = db_query_fetch_string(&dir, &qp)) == 0) && (dir))
     {
       /* The db query may return non-directories (eg if item is an internet stream or Spotify) */
       if (access(dir, F_OK) < 0)
@@ -1718,7 +1718,7 @@ source_item_ownpl_get(struct artwork_ctx *ctx)
   mfi_path = ctx->dbmfi->path;
 
   format = ART_E_NONE;
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id) && (format == ART_E_NONE))
+  while (((ret = db_query_fetch_pl(&dbpli, &qp)) == 0) && (dbpli.id) && (format == ART_E_NONE))
     {
       if (!dbpli.path)
 	continue;
@@ -1766,7 +1766,7 @@ process_items(struct artwork_ctx *ctx, int item_mode)
       return -1;
     }
 
-  while ((ret = db_query_fetch_file(&ctx->qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &ctx->qp)) == 0)
     {
       // Save the first songalbumid, might need it for process_group() if this search doesn't give anything
       if (!ctx->persistentid)
@@ -1859,7 +1859,7 @@ process_group(struct artwork_ctx *ctx)
       goto invalid_group;
     }
 
-  is_valid = (db_query_fetch_file(&ctx->qp, &dbmfi) == 0 && strcmp(dbmfi.album, CFG_NAME_UNKNOWN_ALBUM) != 0 && strcmp(dbmfi.album_artist, CFG_NAME_UNKNOWN_ARTIST) != 0);
+  is_valid = (db_query_fetch_file(&dbmfi, &ctx->qp) == 0 && strcmp(dbmfi.album, CFG_NAME_UNKNOWN_ALBUM) != 0 && strcmp(dbmfi.album_artist, CFG_NAME_UNKNOWN_ARTIST) != 0);
   db_query_end(&ctx->qp);
   if (!is_valid)
     {

@@ -390,7 +390,7 @@ mfi_id_find(const char *path)
 
   winner = NULL;
   score = 0;
-  while ((db_query_fetch_string(&qp, &dbpath) == 0) && dbpath)
+  while ((db_query_fetch_string(&dbpath, &qp) == 0) && dbpath)
     {
       if (qp.results == 1)
 	{

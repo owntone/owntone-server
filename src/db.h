@@ -603,25 +603,25 @@ void
 db_query_end(struct query_params *qp);
 
 int
-db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi);
+db_query_fetch_file(struct db_media_file_info *dbmfi, struct query_params *qp);
 
 int
-db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli);
+db_query_fetch_pl(struct db_playlist_info *dbpli, struct query_params *qp);
 
 int
-db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
+db_query_fetch_group(struct db_group_info *dbgri, struct query_params *qp);
 
 int
-db_query_fetch_browse(struct query_params *qp, struct db_browse_info *dbbi);
+db_query_fetch_browse(struct db_browse_info *dbbi, struct query_params *qp);
 
 int
-db_query_fetch_count(struct query_params *qp, struct filecount_info *fci);
+db_query_fetch_count(struct filecount_info *fci, struct query_params *qp);
 
 int
-db_query_fetch_string(struct query_params *qp, char **string);
+db_query_fetch_string(char **string, struct query_params *qp);
 
 int
-db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortstring);
+db_query_fetch_string_sort(char **string, char **sortstring, struct query_params *qp);
 
 /* Files */
 int

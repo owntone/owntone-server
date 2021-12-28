@@ -253,7 +253,7 @@ find_first_song_id(const char *query)
       goto no_query_start;
     }
 
-  if ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  if ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       ret = safe_atoi32(dbmfi.id, &id);
       if (ret < 0)

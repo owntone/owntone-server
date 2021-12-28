@@ -2317,7 +2317,7 @@ mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **e
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       evbuffer_add_printf(evbuf,
 	  "file: %s\n",
@@ -2380,7 +2380,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
       if (ret < 0)
@@ -2426,7 +2426,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
       return ACK_ERROR_UNKNOWN;
     }
 
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&dbpli, &qp)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
 	{
@@ -2672,7 +2672,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
       if (ret < 0)
@@ -2777,7 +2777,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       strval = (char **) ((char *)&dbmfi + tagtype->mfi_offset);
 
@@ -2843,7 +2843,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&dbpli, &qp)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
 	{
@@ -2917,7 +2917,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       if (listinfo)
 	{
@@ -3140,7 +3140,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
       if (ret < 0)
@@ -3392,7 +3392,7 @@ mpd_sticker_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, c
       return ret;
     }
 
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       ret = safe_atou32(dbmfi.rating, &rating);
       if (ret < 0)

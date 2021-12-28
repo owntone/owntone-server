@@ -982,7 +982,7 @@ pipelist_create(void)
     return NULL;
 
   head = NULL;
-  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       ret = safe_atoi32(dbmfi.id, &id);
       if (ret < 0)

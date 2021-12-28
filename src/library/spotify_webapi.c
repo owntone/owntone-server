@@ -1508,7 +1508,7 @@ cleanup_spotify_files(void)
       return -1;
     }
 
-  while (((ret = db_query_fetch_string(&qp, &path)) == 0) && (path))
+  while (((ret = db_query_fetch_string(&path, &qp)) == 0) && (path))
     {
       cache_artwork_delete_by_path(path);
     }
