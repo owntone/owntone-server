@@ -1909,7 +1909,7 @@ playlist_add_files(FILE *fp, int pl_id, const char *virtual_path)
 
   if (qp.results > 0)
     {
-      while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+      while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
         {
 	  if ((safe_atou32(dbmfi.data_kind, &data_kind) < 0)
 	      || (data_kind == DATA_KIND_PIPE))

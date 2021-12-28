@@ -1271,7 +1271,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
   nsongs = 0;
   last_codectype = NULL;
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
     {
       nsongs++;
 

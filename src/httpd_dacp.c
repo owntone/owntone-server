@@ -253,7 +253,7 @@ find_first_song_id(const char *query)
       goto no_query_start;
     }
 
-  if (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  if ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
     {
       ret = safe_atoi32(dbmfi.id, &id);
       if (ret < 0)
@@ -264,7 +264,6 @@ find_first_song_id(const char *query)
 	}
 
       DPRINTF(E_DBG, L_DACP, "Found index song (id %d)\n", id);
-      ret = 1;
     }
   else
     {
@@ -280,7 +279,7 @@ find_first_song_id(const char *query)
   if (qp.filter)
     free(qp.filter);
 
-  if (ret == 1)
+  if (id > 0)
     return id;
   else
     return -1;

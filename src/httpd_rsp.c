@@ -588,7 +588,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Items block (all items) */
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  while ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0)
     {
       headers = evhttp_request_get_input_headers(hreq->req);
 

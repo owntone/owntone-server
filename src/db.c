@@ -2372,15 +2372,13 @@ db_query_run(char *query, int free, short update_events)
   return ((ret != SQLITE_OK) ? -1 : 0);
 }
 
-int
-db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
+static int
+db_query_fetch(void *item, struct query_params *qp, const ssize_t cols_map[], int size)
 {
   int ncols;
   char **strcol;
   int i;
   int ret;
-
-  memset(dbmfi, 0, sizeof(struct db_media_file_info));
 
   if (!qp->stmt)
     {
@@ -2388,42 +2386,55 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
       return -1;
     }
 
-  if ((qp->type != Q_ITEMS) && (qp->type != Q_PLITEMS) && (qp->type != Q_GROUP_ITEMS))
-    {
-      DPRINTF(E_LOG, L_DB, "Not an items, playlist or group items query!\n");
-      return -1;
-    }
-
   ret = db_blocking_step(qp->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
-      dbmfi->id = NULL;
-      return 0;
+      return 1;
     }
   else if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
       return -1;
     }
 
   ncols = sqlite3_column_count(qp->stmt);
 
   // We allow more cols in db than in map because the db may be a future schema
-  if (ncols < ARRAY_SIZE(dbmfi_cols_map))
+  if (ncols < size)
     {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbmfi column map (%u)\n", ncols, ARRAY_SIZE(dbmfi_cols_map));
+      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than column map (%u)\n", ncols, size);
       return -1;
     }
 
-  for (i = 0; i < ARRAY_SIZE(dbmfi_cols_map); i++)
+  for (i = 0; i < size; i++)
     {
-      strcol = (char **) ((char *)dbmfi + dbmfi_cols_map[i]);
+      strcol = (char **) ((char *)item + cols_map[i]);
 
       *strcol = (char *)sqlite3_column_text(qp->stmt, i);
     }
 
   return 0;
+}
+
+int
+db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
+{
+  int ret;
+
+  memset(dbmfi, 0, sizeof(struct db_media_file_info));
+
+  if ((qp->type != Q_ITEMS) && (qp->type != Q_PLITEMS) && (qp->type != Q_GROUP_ITEMS))
+    {
+      DPRINTF(E_LOG, L_DB, "Not an items, playlist or group items query!\n");
+      return -1;
+    }
+
+  ret = db_query_fetch(dbmfi, qp, dbmfi_cols_map, ARRAY_SIZE(dbmfi_cols_map));
+  if (ret < 0) {
+      DPRINTF(E_LOG, L_DB, "Failed to fetch db_media_file_info\n");
+  }
+  return ret;
 }
 
 int
@@ -2496,18 +2507,9 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
 int
 db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
 {
-  int ncols;
-  char **strcol;
-  int i;
   int ret;
 
   memset(dbgri, 0, sizeof(struct db_group_info));
-
-  if (!qp->stmt)
-    {
-      DPRINTF(E_LOG, L_DB, "Query not started!\n");
-      return -1;
-    }
 
   if ((qp->type != Q_GROUP_ALBUMS) && (qp->type != Q_GROUP_ARTISTS))
     {
@@ -2515,52 +2517,19 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
       return -1;
     }
 
-  ret = db_blocking_step(qp->stmt);
-  if (ret == SQLITE_DONE)
-    {
-      DPRINTF(E_DBG, L_DB, "End of query results\n");
-      return 1;
-    }
-  else if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-      return -1;
-    }
-
-  ncols = sqlite3_column_count(qp->stmt);
-
-  // We allow more cols in db than in map because the db may be a future schema
-  if (ncols < ARRAY_SIZE(dbgri_cols_map))
-    {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbgri column map (%u)\n", ncols, ARRAY_SIZE(dbgri_cols_map));
-      return -1;
-    }
-
-  for (i = 0; i < ARRAY_SIZE(dbgri_cols_map); i++)
-    {
-      strcol = (char **) ((char *)dbgri + dbgri_cols_map[i]);
-
-      *strcol = (char *)sqlite3_column_text(qp->stmt, i);
-    }
-
-  return 0;
+  ret = db_query_fetch(dbgri, qp, dbgri_cols_map, ARRAY_SIZE(dbgri_cols_map));
+  if (ret < 0) {
+      DPRINTF(E_LOG, L_DB, "Failed to fetch db_group_info\n");
+  }
+  return ret;
 }
 
 int
 db_query_fetch_browse(struct query_params *qp, struct db_browse_info *dbbi)
 {
-  int ncols;
-  char **strcol;
-  int i;
   int ret;
 
   memset(dbbi, 0, sizeof(struct db_browse_info));
-
-  if (!qp->stmt)
-    {
-      DPRINTF(E_LOG, L_DB, "Query not started!\n");
-      return -1;
-    }
 
   if (!(qp->type & Q_F_BROWSE))
     {
@@ -2568,35 +2537,11 @@ db_query_fetch_browse(struct query_params *qp, struct db_browse_info *dbbi)
       return -1;
     }
 
-  ret = db_blocking_step(qp->stmt);
-  if (ret == SQLITE_DONE)
-    {
-      DPRINTF(E_DBG, L_DB, "End of query results\n");
-      return 1;
-    }
-  else if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-      return -1;
-    }
-
-  ncols = sqlite3_column_count(qp->stmt);
-
-  // We allow more cols in db than in map because the db may be a future schema
-  if (ncols < ARRAY_SIZE(dbbi_cols_map))
-    {
-      DPRINTF(E_LOG, L_DB, "BUG: database has fewer columns (%d) than dbbi column map (%u)\n", ncols, ARRAY_SIZE(dbbi_cols_map));
-      return -1;
-    }
-
-  for (i = 0; i < ARRAY_SIZE(dbbi_cols_map); i++)
-    {
-      strcol = (char **) ((char *)dbbi + dbbi_cols_map[i]);
-
-      *strcol = (char *)sqlite3_column_text(qp->stmt, i);
-    }
-
-  return 0;
+  ret = db_query_fetch(dbbi, qp, dbbi_cols_map, ARRAY_SIZE(dbbi_cols_map));
+  if (ret < 0) {
+      DPRINTF(E_LOG, L_DB, "Failed to fetch db_browse_info\n");
+  }
+  return ret;
 }
 
 int
@@ -5174,7 +5119,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
 	goto end_transaction;
     }
 
-  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
+  while ((ret = db_query_fetch_file(qp, &dbmfi)) == 0)
     {
       ret = queue_item_add_from_file(&dbmfi, pos, queue_count, queue_version);
 
@@ -5194,6 +5139,9 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
       pos++;
       queue_count++;
     }
+
+  if (ret > 0)
+    ret = 0;
 
   db_query_end(qp);
 

@@ -458,7 +458,7 @@ fetch_tracks(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_file(query_params, &dbmfi)) == 0) && (dbmfi.id))
+  while ((ret = db_query_fetch_file(query_params, &dbmfi)) == 0)
     {
       item = track_to_json(&dbmfi);
       if (!item)
@@ -3322,8 +3322,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   ret = db_query_fetch_file(&query_params, &dbmfi);
   if (ret < 0)
     goto error;
-
-  if (dbmfi.id == 0)
+  else if (ret == 1)
     {
       DPRINTF(E_LOG, L_WEB, "Track with id '%s' not found.\n", track_id);
       ret = -1;
