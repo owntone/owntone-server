@@ -388,17 +388,42 @@ playlist_to_json(struct db_playlist_info *dbpli)
 }
 
 static json_object *
-genre_to_json(const char *genre)
+browse_info_to_json(struct db_browse_info *dbbi)
 {
   json_object *item;
+  int intval;
+  int ret;
 
-  if (genre == NULL)
+  if (dbbi == NULL)
     {
       return NULL;
     }
 
   item = json_object_new_object();
-  safe_json_add_string(item, "name", genre);
+  safe_json_add_string(item, "name", dbbi->itemname);
+  safe_json_add_string(item, "name_sort", dbbi->itemname_sort);
+  safe_json_add_int_from_string(item, "track_count", dbbi->track_count);
+  safe_json_add_int_from_string(item, "album_count", dbbi->album_count);
+  safe_json_add_int_from_string(item, "artist_count", dbbi->artist_count);
+  safe_json_add_int_from_string(item, "length_ms", dbbi->song_length);
+
+  safe_json_add_time_from_string(item, "time_played", dbbi->time_played);
+  safe_json_add_time_from_string(item, "time_added", dbbi->time_added);
+
+  ret = safe_atoi32(dbbi->seek, &intval);
+  if (ret == 0)
+    json_object_object_add(item, "in_progress", json_object_new_boolean(intval > 0));
+
+  ret = safe_atoi32(dbbi->media_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
+
+  ret = safe_atoi32(dbbi->data_kind, &intval);
+  if (ret == 0)
+    safe_json_add_string(item, "data_kind", db_data_kind_label(intval));
+
+  safe_json_add_date_from_string(item, "date_released", dbbi->date_released);
+  safe_json_add_int_from_string(item, "year", dbbi->year);
 
   return item;
 }
@@ -433,7 +458,7 @@ fetch_tracks(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_file(query_params, &dbmfi)) == 0) && (dbmfi.id))
+  while ((ret = db_query_fetch_file(&dbmfi, query_params)) == 0)
     {
       item = track_to_json(&dbmfi);
       if (!item)
@@ -465,7 +490,7 @@ fetch_artists(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while ((ret = db_query_fetch_group(query_params, &dbgri)) == 0)
+  while ((ret = db_query_fetch_group(&dbgri, query_params)) == 0)
     {
       /* Don't add item if no name (eg blank album name) */
       if (strlen(dbgri.itemname) == 0)
@@ -510,7 +535,7 @@ fetch_artist(bool *notfound, const char *artist_id)
   if (ret < 0)
     goto error;
 
-  if ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
+  if ((ret = db_query_fetch_group(&dbgri, &query_params)) == 0)
     {
       artist = artist_to_json(&dbgri);
       notfound = false;
@@ -534,7 +559,7 @@ fetch_albums(struct query_params *query_params, json_object *items, int *total)
   if (ret < 0)
     goto error;
 
-  while ((ret = db_query_fetch_group(query_params, &dbgri)) == 0)
+  while ((ret = db_query_fetch_group(&dbgri, query_params)) == 0)
     {
       /* Don't add item if no name (eg blank album name) */
       if (strlen(dbgri.itemname) == 0)
@@ -580,7 +605,7 @@ fetch_album(bool *notfound, const char *album_id)
   if (ret < 0)
     goto error;
 
-  if ((ret = db_query_fetch_group(&query_params, &dbgri)) == 0)
+  if ((ret = db_query_fetch_group(&dbgri, &query_params)) == 0)
     {
       album = album_to_json(&dbgri);
       *notfound = false;
@@ -604,7 +629,7 @@ fetch_playlists(struct query_params *query_params, json_object *items, int *tota
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_pl(query_params, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&dbpli, query_params)) == 0) && (dbpli.id))
     {
       item = playlist_to_json(&dbpli);
       if (!item)
@@ -646,7 +671,7 @@ fetch_playlist(bool *notfound, uint32_t playlist_id)
   if (ret < 0)
     goto error;
 
-  if (((ret = db_query_fetch_pl(&query_params, &dbpli)) == 0) && (dbpli.id))
+  if (((ret = db_query_fetch_pl(&dbpli, &query_params)) == 0) && (dbpli.id))
     {
       playlist = playlist_to_json(&dbpli);
       *notfound = false;
@@ -662,18 +687,17 @@ fetch_playlist(bool *notfound, uint32_t playlist_id)
 static int
 fetch_genres(struct query_params *query_params, json_object *items, int *total)
 {
+  struct db_browse_info dbbi;
   json_object *item;
   int ret;
-  char *genre;
-  char *sort_item;
 
   ret = db_query_start(query_params);
   if (ret < 0)
     goto error;
 
-  while (((ret = db_query_fetch_string_sort(query_params, &genre, &sort_item)) == 0) && (genre))
+  while ((ret = db_query_fetch_browse(&dbbi, query_params)) == 0)
     {
-      item = genre_to_json(genre);
+      item = browse_info_to_json(&dbbi);
       if (!item)
 	{
 	  ret = -1;
@@ -3295,11 +3319,10 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   if (ret < 0)
     goto error;
 
-  ret = db_query_fetch_file(&query_params, &dbmfi);
+  ret = db_query_fetch_file(&dbmfi, &query_params);
   if (ret < 0)
     goto error;
-
-  if (dbmfi.id == 0)
+  else if (ret == 1)
     {
       DPRINTF(E_LOG, L_WEB, "Track with id '%s' not found.\n", track_id);
       ret = -1;

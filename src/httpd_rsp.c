@@ -441,7 +441,7 @@ rsp_reply_db(struct httpd_request *hreq)
   mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Playlists block (all playlists) */
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&dbpli, &qp)) == 0) && (dbpli.id))
     {
       // Skip non-local playlists, can't be streamed to the device
       if (!dbpli.path || dbpli.path[0] != '/')
@@ -588,7 +588,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Items block (all items) */
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       headers = evhttp_request_get_input_headers(hreq->req);
 
@@ -772,7 +772,7 @@ rsp_reply_browse(struct httpd_request *hreq)
   mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Items block (all items) */
-  while (((ret = db_query_fetch_string(&qp, &browse_item)) == 0) && (browse_item))
+  while (((ret = db_query_fetch_string(&browse_item, &qp)) == 0) && (browse_item))
     {
       node = mxmlNewElement(items, "item");
       mxmlNewText(node, 0, browse_item);

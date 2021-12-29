@@ -1677,7 +1677,7 @@ GET /api/library/genres
 
 | Key             | Type     | Value                                     |
 | --------------- | -------- | ----------------------------------------- |
-| items           | array    | Array of [`genre`](#genre-object) objects |
+| items           | array    | Array of [`browse-info`](#browse-info-object) objects |
 | total           | integer  | Total number of genres in the library     |
 | offset          | integer  | Requested offset of the first genre       |
 | limit           | integer  | Requested maximum number of genres        |
@@ -2604,11 +2604,17 @@ curl --include \
 | limit           | integer  | Requested maximum number of items         |
 
 
-### `genre` object
+### `browse-info` object
 
 | Key             | Type     | Value                                     |
 | --------------- | -------- | ----------------------------------------- |
-| name            | string   | Name of genre                             |
+| name            | string   | Name (depends on the type of the query)   |
+| name_sort       | string   | Sort name                                 |
+| artist_count    | integer  | Number of artists                         |
+| album_count     | integer  | Number of albums                          |
+| track_count     | integer  | Number of tracks                          |
+| time_played     | string   | Timestamp in `ISO 8601` format           |
+| time_added      | string   | Timestamp in `ISO 8601` format           |
 
 
 ### `directory` object

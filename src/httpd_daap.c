@@ -1271,7 +1271,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
   nsongs = 0;
   last_codectype = NULL;
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       nsongs++;
 
@@ -1479,7 +1479,7 @@ daap_reply_playlists(struct httpd_request *hreq)
     }
 
   npls = 0;
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&dbpli, &qp)) == 0) && (dbpli.id))
     {
       plid = 1;
       if (safe_atoi32(dbpli.id, &plid) != 0)
@@ -1705,7 +1705,7 @@ daap_reply_groups(struct httpd_request *hreq)
     }
 
   ngrp = 0;
-  while ((ret = db_query_fetch_group(&qp, &dbgri)) == 0)
+  while ((ret = db_query_fetch_group(&dbgri, &qp)) == 0)
     {
       /* Don't add item if no name (eg blank album name) */
       if (strlen(dbgri.itemname) == 0)
@@ -1901,7 +1901,7 @@ daap_reply_browse(struct httpd_request *hreq)
     }
 
   nitems = 0;
-  while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+  while (((ret = db_query_fetch_string_sort(&browse_item, &sort_item, &qp)) == 0) && (browse_item))
     {
       nitems++;
 

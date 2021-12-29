@@ -409,6 +409,28 @@ struct db_media_file_info {
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
 
+/* Info object for generic browse queries that want more info than just
+ * the item string and sort string (e. g. for genre or compose queries
+ * that want to display the total track / album count).
+ */
+struct db_browse_info {
+  char *itemname;
+  char *itemname_sort;
+  char *track_count;
+  char *album_count;
+  char *artist_count;
+  char *song_length;
+  char *data_kind;
+  char *media_kind;
+  char *year;
+  char *date_released;
+  char *time_added;
+  char *time_played;
+  char *seek;
+};
+
+#define dbbi_offsetof(field) offsetof(struct db_browse_info, field)
+
 enum strip_type {
   STRIP_NONE,
   STRIP_PATH,
@@ -585,22 +607,25 @@ void
 db_query_end(struct query_params *qp);
 
 int
-db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi);
+db_query_fetch_file(struct db_media_file_info *dbmfi, struct query_params *qp);
 
 int
-db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli);
+db_query_fetch_pl(struct db_playlist_info *dbpli, struct query_params *qp);
 
 int
-db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
+db_query_fetch_group(struct db_group_info *dbgri, struct query_params *qp);
 
 int
-db_query_fetch_count(struct query_params *qp, struct filecount_info *fci);
+db_query_fetch_browse(struct db_browse_info *dbbi, struct query_params *qp);
 
 int
-db_query_fetch_string(struct query_params *qp, char **string);
+db_query_fetch_count(struct filecount_info *fci, struct query_params *qp);
 
 int
-db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortstring);
+db_query_fetch_string(char **string, struct query_params *qp);
+
+int
+db_query_fetch_string_sort(char **string, char **sortstring, struct query_params *qp);
 
 /* Files */
 int

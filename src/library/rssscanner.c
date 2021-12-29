@@ -568,7 +568,7 @@ rss_scan_all(enum rss_scan_type scan_type)
     }
 
   count = 0;
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.path))
+  while (((ret = db_query_fetch_pl(&dbpli, &qp)) == 0) && (dbpli.path))
     {
       ret = rss_scan(dbpli.path, scan_type);
       if (ret == 0)
