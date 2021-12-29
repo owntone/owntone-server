@@ -409,6 +409,10 @@ struct db_media_file_info {
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
 
+/* Info object for generic browse queries that want more info than just
+ * the item string and sort string (e. g. for genre or compose queries
+ * that want to display the total track / album count).
+ */
 struct db_browse_info {
   char *itemname;
   char *itemname_sort;
