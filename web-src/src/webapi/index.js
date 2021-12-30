@@ -271,9 +271,20 @@ export default {
     return axios.get('/api/library/composers')
   },
 
-  library_composer (composer, type) {
-    var params = {
-      type: type,
+  library_composer (composer) {
+    const params = {
+      type: 'albums',
+      media_kind: 'music',
+      expression: 'composer is "' + composer + '"'
+    }
+    return axios.get('/api/search', {
+      params: params
+    })
+  },
+
+  library_composer_tracks (composer) {
+    const params = {
+      type: 'tracks',
       media_kind: 'music',
       expression: 'composer is "' + composer + '"'
     }

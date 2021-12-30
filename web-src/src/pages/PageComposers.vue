@@ -3,6 +3,9 @@
     <tabs-music></tabs-music>
 
     <content-with-heading>
+      <template slot="options">
+        <index-button-list :index="composers_list.indexList"></index-button-list>
+      </template>
       <template slot="heading-left">
         <p class="title is-4">{{ heading }}</p>
         <p class="heading">{{ composers.total }} composers</p>
@@ -18,18 +21,14 @@
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
 import TabsMusic from '@/components/TabsMusic'
+import IndexButtonList from '@/components/IndexButtonList'
 import ListComposers from '@/components/ListComposers'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
 import Composers from '@/lib/Composers'
 
 const composersData = {
   load: function (to) {
-    if (to.params.genre) {
-      return webapi.library_genre_composers(to.params.genre)
-    } else {
-      return webapi.library_composers()
-    }
+    return webapi.library_composers()
   },
 
   set: function (vm, response) {
@@ -46,7 +45,7 @@ const composersData = {
 export default {
   name: 'PageComposers',
   mixins: [LoadDataBeforeEnterMixin(composersData)],
-  components: { ContentWithHeading, TabsMusic, ListComposers },
+  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListComposers },
 
   data () {
     return {
@@ -66,35 +65,9 @@ export default {
 
     composers_list () {
       return new Composers(this.composers.items, {
-        hideSingles: this.hide_singles,
-        hideSpotify: this.hide_spotify,
-        sort: this.sort,
+        sort: 'Name',
         group: true
       })
-    },
-
-    hide_singles: {
-      get () {
-        return this.$store.state.hide_singles
-      },
-      set (value) {
-        this.$store.commit(types.HIDE_SINGLES, value)
-      }
-    },
-
-    hide_spotify: {
-      get () {
-        return this.$store.state.hide_spotify
-      },
-      set (value) {
-        this.$store.commit(types.HIDE_SPOTIFY, value)
-      }
-    },
-
-    sort: {
-      get () {
-        return 'Name'
-      }
     }
   },
 

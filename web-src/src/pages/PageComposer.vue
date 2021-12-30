@@ -1,7 +1,5 @@
 <template>
   <div>
-    <tabs-music></tabs-music>
-
     <content-with-heading>
       <template slot="heading-left">
         <p class="title is-4">{{ name }}</p>
@@ -35,7 +33,6 @@
 <script>
 import { LoadDataBeforeEnterMixin } from './mixin'
 import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
 import ListItemAlbums from '@/components/ListItemAlbum'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum'
 import ModalDialogComposer from '@/components/ModalDialogComposer'
@@ -43,7 +40,7 @@ import webapi from '@/webapi'
 
 const composerData = {
   load: function (to) {
-    return webapi.library_composer(to.params.composer, 'albums')
+    return webapi.library_composer(to.params.composer)
   },
 
   set: function (vm, response) {
@@ -55,7 +52,7 @@ const composerData = {
 export default {
   name: 'PageComposer',
   mixins: [LoadDataBeforeEnterMixin(composerData)],
-  components: { ContentWithHeading, TabsMusic, ListItemAlbums, ModalDialogAlbum, ModalDialogComposer },
+  components: { ContentWithHeading, ListItemAlbums, ModalDialogAlbum, ModalDialogComposer },
 
   data () {
     return {
