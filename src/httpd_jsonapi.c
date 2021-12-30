@@ -717,18 +717,6 @@ fetch_browse_info(struct query_params *query_params, json_object *items, int *to
 }
 
 static int
-fetch_genres(struct query_params *query_params, json_object *items, int *total)
-{
-  return fetch_browse_info(query_params, items, total);
-}
-
-static int
-fetch_composers(struct query_params *query_params, json_object *items, int *total)
-{
-  return fetch_browse_info(query_params, items, total);
-}
-
-static int
 fetch_directories(int parent_id, json_object *items)
 {
   json_object *item;
@@ -3972,11 +3960,9 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
   if (media_kind)
     query_params.filter = db_mprintf("(f.media_kind = %d)", media_kind);
 
-  ret = fetch_genres(&query_params, items, NULL);
+  ret = fetch_browse_info(&query_params, items, &total);
   if (ret < 0)
     goto error;
-  else
-    total = json_object_array_length(items);
 
   json_object_object_add(reply, "total", json_object_new_int(total));
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
@@ -4001,8 +3987,6 @@ jsonapi_reply_library_composers(struct httpd_request *hreq)
 {
   struct query_params query_params;
   const char *param;
-  const char *genre_param;
-  char *tmp;
   enum media_kind media_kind;
   json_object *reply;
   json_object *items;
@@ -4024,8 +4008,6 @@ jsonapi_reply_library_composers(struct httpd_request *hreq)
 	}
     }
 
-  genre_param = evhttp_find_header(hreq->query, "genre");
-
   reply = json_object_new_object();
   items = json_object_new_array();
   json_object_object_add(reply, "items", items);
@@ -4043,21 +4025,7 @@ jsonapi_reply_library_composers(struct httpd_request *hreq)
   if (media_kind)
     query_params.filter = db_mprintf("(f.media_kind = %d)", media_kind);
 
-  if (genre_param)
-    {
-      if (query_params.filter == NULL)
-        {
-	  query_params.filter = db_mprintf("(f.genre = '%s')", genre_param);
-        }
-      else 
-        {
-	  tmp = query_params.filter;
-	  query_params.filter = db_mprintf("(%s AND f.genre = '%s')", tmp, genre_param);
-	  free(tmp);
-        }
-    }
-
-  ret = fetch_composers(&query_params, items, &total);
+  ret = fetch_browse_info(&query_params, items, &total);
   if (ret < 0)
     goto error;
 
@@ -4282,9 +4250,9 @@ search_tracks(json_object *reply, struct httpd_request *hreq, const char *param_
   if (param_query)
     {
       if (media_kind)
-	query_params.filter = db_mprintf("(f.title LIKE '%%%q%%' AND f.media_kind = %d) OR (f.composer LIKE '%%%q%%')", param_query, media_kind, param_query);
+	query_params.filter = db_mprintf("(f.title LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
       else
-	query_params.filter = db_mprintf("(f.title LIKE '%%%q%%') OR (f.composer LIKE '%%%q%%')", param_query, param_query);
+	query_params.filter = db_mprintf("(f.title LIKE '%%%q%%')", param_query);
     }
   else
     {
@@ -4405,9 +4373,9 @@ search_albums(json_object *reply, struct httpd_request *hreq, const char *param_
   if (param_query)
     {
       if (media_kind)
-	query_params.filter = db_mprintf("(f.album LIKE '%%%q%%' AND f.media_kind = %d) OR (f.composer LIKE '%%%q%%')", param_query, media_kind, param_query);
+	query_params.filter = db_mprintf("(f.album LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
       else
-	query_params.filter = db_mprintf("(f.album LIKE '%%%q%%') OR (f.composer LIKE '%%%q%%')", param_query, param_query);
+	query_params.filter = db_mprintf("(f.album LIKE '%%%q%%')", param_query);
     }
   else
     {
@@ -4485,7 +4453,7 @@ search_composers(json_object *reply, struct httpd_request *hreq, const char *par
 	}
     }
 
-  ret = fetch_genres(&query_params, items, &total);
+  ret = fetch_browse_info(&query_params, items, &total);
   if (ret < 0)
     goto out;
 
