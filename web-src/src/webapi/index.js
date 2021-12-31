@@ -267,6 +267,32 @@ export default {
     })
   },
 
+  library_composers () {
+    return axios.get('/api/library/composers')
+  },
+
+  library_composer (composer) {
+    const params = {
+      type: 'albums',
+      media_kind: 'music',
+      expression: 'composer is "' + composer + '"'
+    }
+    return axios.get('/api/search', {
+      params: params
+    })
+  },
+
+  library_composer_tracks (composer) {
+    const params = {
+      type: 'tracks',
+      media_kind: 'music',
+      expression: 'composer is "' + composer + '"'
+    }
+    return axios.get('/api/search', {
+      params: params
+    })
+  },
+
   library_artist_tracks (artist) {
     if (artist) {
       const artistParams = {

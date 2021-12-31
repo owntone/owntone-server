@@ -94,6 +94,28 @@
       </template>
     </content-text>
 
+    <!-- Composers -->
+    <content-with-heading v-if="show_composers && composers.total">
+      <template slot="heading-left">
+        <p class="title is-4">Composers</p>
+      </template>
+      <template slot="content">
+        <list-composers :composers="composers.items"></list-composers>
+      </template>
+      <template slot="footer">
+        <nav v-if="show_all_composers_button" class="level">
+          <p class="level-item">
+            <a class="button is-light is-small is-rounded" v-on:click="open_search_composers">Show all {{ composers.total }} composers</a>
+          </p>
+        </nav>
+      </template>
+    </content-with-heading>
+    <content-text v-if="show_composers && !composers.total">
+      <template slot="content">
+        <p><i>No composers found</i></p>
+      </template>
+    </content-text>
+
     <!-- Playlists -->
     <content-with-heading v-if="show_playlists && playlists.total">
       <template slot="heading-left">
@@ -169,13 +191,14 @@ import TabsSearch from '@/components/TabsSearch'
 import ListTracks from '@/components/ListTracks'
 import ListArtists from '@/components/ListArtists'
 import ListAlbums from '@/components/ListAlbums'
+import ListComposers from '@/components/ListComposers'
 import ListPlaylists from '@/components/ListPlaylists'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageSearch',
-  components: { ContentWithHeading, ContentText, TabsSearch, ListTracks, ListArtists, ListAlbums, ListPlaylists },
+  components: { ContentWithHeading, ContentText, TabsSearch, ListTracks, ListArtists, ListAlbums, ListPlaylists, ListComposers },
 
   data () {
     return {
@@ -184,6 +207,7 @@ export default {
       tracks: { items: [], total: 0 },
       artists: { items: [], total: 0 },
       albums: { items: [], total: 0 },
+      composers: { items: [], total: 0 },
       playlists: { items: [], total: 0 },
       audiobooks: { items: [], total: 0 },
       podcasts: { items: [], total: 0 }
@@ -214,6 +238,13 @@ export default {
     },
     show_all_albums_button () {
       return this.albums.total > this.albums.items.length
+    },
+
+    show_composers () {
+      return this.$route.query.type && this.$route.query.type.includes('composer')
+    },
+    show_all_composers_button () {
+      return this.composers.total > this.composers.items.length
     },
 
     show_playlists () {
@@ -282,6 +313,7 @@ export default {
         this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
         this.artists = data.artists ? data.artists : { items: [], total: 0 }
         this.albums = data.albums ? data.albums : { items: [], total: 0 }
+        this.composers = data.composers ? data.composers : { items: [], total: 0 }
         this.playlists = data.playlists ? data.playlists : { items: [], total: 0 }
       })
     },
@@ -346,7 +378,7 @@ export default {
       this.$router.push({
         path: '/search/library',
         query: {
-          type: 'track,artist,album,playlist,audiobook,podcast',
+          type: 'track,artist,album,playlist,audiobook,podcast,composer',
           query: this.search_query,
           limit: 3,
           offset: 0
@@ -385,6 +417,16 @@ export default {
       })
     },
 
+    open_search_composers: function () {
+      this.$router.push({
+        path: '/search/library',
+        query: {
+          type: 'tracks',
+          query: this.$route.query.query
+        }
+      })
+    },
+
     open_search_playlists: function () {
       this.$router.push({
         path: '/search/library',
@@ -415,9 +457,42 @@ export default {
       })
     },
 
+    open_composer: function (composer) {
+      this.$router.push({ name: 'ComposerAlbums', params: { composer: composer.name } })
+    },
+
+    open_playlist: function (playlist) {
+      this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
+    },
+
     open_recent_search: function (query) {
       this.search_query = query
       this.new_search()
+    },
+
+    open_track_dialog: function (track) {
+      this.selected_track = track
+      this.show_track_details_modal = true
+    },
+
+    open_album_dialog: function (album) {
+      this.selected_album = album
+      this.show_album_details_modal = true
+    },
+
+    open_artist_dialog: function (artist) {
+      this.selected_artist = artist
+      this.show_artist_details_modal = true
+    },
+
+    open_composer_dialog: function (composer) {
+      this.selected_composer = composer
+      this.show_composer_details_modal = true
+    },
+
+    open_playlist_dialog: function (playlist) {
+      this.selected_playlist = playlist
+      this.show_playlist_details_modal = true
     }
   },
 
