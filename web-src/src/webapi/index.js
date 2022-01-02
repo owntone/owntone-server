@@ -268,7 +268,7 @@ export default {
   },
 
   library_composers () {
-    return axios.get('/api/library/composers')
+    return axios.get('./api/library/composers')
   },
 
   library_composer (composer) {
@@ -277,7 +277,7 @@ export default {
       media_kind: 'music',
       expression: 'composer is "' + composer + '"'
     }
-    return axios.get('/api/search', {
+    return axios.get('./api/search', {
       params: params
     })
   },
@@ -288,7 +288,7 @@ export default {
       media_kind: 'music',
       expression: 'composer is "' + composer + '"'
     }
-    return axios.get('/api/search', {
+    return axios.get('./api/search', {
       params: params
     })
   },
