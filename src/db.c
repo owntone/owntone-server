@@ -5160,6 +5160,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
   int queue_version;
   uint32_t queue_count;
   int pos;
+  int shuffle_pos;
   int ret;
 
   if (new_item_id)
@@ -5192,13 +5193,21 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
   if (position < 0 || position > queue_count)
     {
       pos = queue_count;
+      shuffle_pos = queue_count;
     }
   else
     {
       pos = position;
+      shuffle_pos = position;
 
       // Update pos for all items from the given position (make room for the new items in the queue)
       query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos >= %d;", qp->results, queue_version, pos);
+      ret = db_query_run(query, 1, 0);
+      if (ret < 0)
+	goto end_transaction;
+
+      // and similary update on shuffle_pos
+      query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = shuffle_pos + %d, queue_version = %d WHERE shuffle_pos >= %d;", qp->results, queue_version, pos);
       ret = db_query_run(query, 1, 0);
       if (ret < 0)
 	goto end_transaction;
@@ -5206,7 +5215,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
 
   while ((ret = db_query_fetch_file(&dbmfi, qp)) == 0)
     {
-      ret = queue_item_add_from_file(&dbmfi, pos, queue_count, queue_version);
+      ret = queue_item_add_from_file(&dbmfi, pos, shuffle_pos, queue_version);
 
       if (ret < 0)
 	{
@@ -5214,7 +5223,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
 	  break;
 	}
 
-      DPRINTF(E_DBG, L_DB, "Added song id %s (%s) to queue with item id %d\n", dbmfi.id, dbmfi.title, ret);
+      DPRINTF(E_DBG, L_DB, "Added (pos=%d shuffle_pos=%d reshuffle=%d req position=%d) song id %s (%s) to queue with item id %d\n", pos, shuffle_pos, reshuffle, position, dbmfi.id, dbmfi.title, ret);
 
       if (new_item_id && *new_item_id == 0)
 	*new_item_id = ret;
@@ -5222,7 +5231,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
 	(*count)++;
 
       pos++;
-      queue_count++;
+      shuffle_pos++;
     }
 
   if (ret > 0)
@@ -5234,7 +5243,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
     goto end_transaction;
 
   // Reshuffle after adding new items
-  if (reshuffle)
+  if (position == -1 && reshuffle)
     {
       ret = queue_reshuffle(item_id, queue_version);
     }
