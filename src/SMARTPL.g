@@ -114,6 +114,7 @@ DATETAG		:	'time_added'
 
 ENUMTAG		:	'data_kind'
 			|	'media_kind'
+			|	'scan_kind'
 			;
 
 GROUPTAG	:	'track_count'
@@ -205,6 +206,8 @@ ENUMVAL		:	'music'
 			|	'url'
 			|	'spotify'
 			|	'pipe'
+			|	'files'
+			|	'rss'
 			;
 
 ORDERBY		:	'order by'
