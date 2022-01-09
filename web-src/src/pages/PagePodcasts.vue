@@ -43,6 +43,12 @@
       </template>
       <template slot="heading-right">
         <div class="buttons is-centered">
+          <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
+            <span class="icon">
+              <i class="mdi mdi-refresh"></i>
+            </span>
+            <span>Update</span>
+          </a>
           <a class="button is-small" @click="open_add_podcast_dialog">
             <span class="icon">
               <i class="mdi mdi-rss"></i>
@@ -72,6 +78,7 @@ import ListItemTrack from '@/components/ListItemTrack'
 import ListAlbums from '@/components/ListAlbums'
 import ModalDialogTrack from '@/components/ModalDialogTrack'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss'
+import * as types from '@/store/mutation_types'
 import RangeSlider from 'vue-range-slider'
 import webapi from '@/webapi'
 
@@ -103,6 +110,12 @@ export default {
 
       show_track_details_modal: false,
       selected_track: {}
+    }
+  },
+
+  computed: {
+    rss () {
+      return this.$store.state.rss_count
     }
   },
 
@@ -138,6 +151,11 @@ export default {
         this.albums = data
         this.reload_new_episodes()
       })
+    },
+
+    update_rss: function () {
+      this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, 'rss')
+      this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
     }
   }
 }

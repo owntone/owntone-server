@@ -23,6 +23,7 @@ export default new Vuex.Store({
     },
     audiobooks_count: { },
     podcasts_count: { },
+    rss_count: { },
     outputs: [],
     player: {
       state: 'stop',
@@ -59,7 +60,9 @@ export default new Vuex.Store({
     albums_sort: 'Name',
     show_only_next_items: false,
     show_burger_menu: false,
-    show_player_menu: false
+    show_player_menu: false,
+    show_update_dialog: false,
+    update_dialog_scan_kind: ''
   },
 
   getters: {
@@ -141,6 +144,9 @@ export default new Vuex.Store({
     [types.UPDATE_LIBRARY_PODCASTS_COUNT] (state, count) {
       state.podcasts_count = count
     },
+    [types.UPDATE_LIBRARY_RSS_COUNT] (state, count) {
+      state.rss_count = count
+    },
     [types.UPDATE_OUTPUTS] (state, outputs) {
       state.outputs = outputs
     },
@@ -217,6 +223,12 @@ export default new Vuex.Store({
     },
     [types.SHOW_PLAYER_MENU] (state, showPlayerMenu) {
       state.show_player_menu = showPlayerMenu
+    },
+    [types.SHOW_UPDATE_DIALOG] (state, showUpdateDialog) {
+      state.show_update_dialog = showUpdateDialog
+    },
+    [types.UPDATE_DIALOG_SCAN_KIND] (state, scanKind) {
+      state.update_dialog_scan_kind = scanKind
     }
   },
 

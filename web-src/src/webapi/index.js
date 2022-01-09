@@ -27,12 +27,20 @@ export default {
     return axios.get('./api/library')
   },
 
-  library_update () {
-    return axios.put('./api/update')
+  library_update (scanKind) {
+    const params = {}
+    if (scanKind) {
+      params.scan_kind = scanKind
+    }
+    return axios.put('./api/update', undefined, { params: params })
   },
 
-  library_rescan () {
-    return axios.put('./api/rescan')
+  library_rescan (scanKind) {
+    const params = {}
+    if (scanKind) {
+      params.scan_kind = scanKind
+    }
+    return axios.put('./api/rescan', undefined, { params: params })
   },
 
   library_count (expression) {

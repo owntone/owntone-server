@@ -7,6 +7,9 @@
       <router-view v-show="true" />
     </transition>
     <modal-dialog-remote-pairing :show="pairing_active" @close="pairing_active = false" />
+    <modal-dialog-update
+        :show="show_update_dialog"
+        @close="show_update_dialog = false" />
     <notifications v-show="!show_burger_menu" />
     <navbar-bottom />
     <div class="fd-overlay-fullscreen" v-show="show_burger_menu || show_player_menu"
@@ -19,6 +22,7 @@ import NavbarTop from '@/components/NavbarTop'
 import NavbarBottom from '@/components/NavbarBottom'
 import Notifications from '@/components/Notifications'
 import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing'
+import ModalDialogUpdate from '@/components/ModalDialogUpdate'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
@@ -26,7 +30,7 @@ import moment from 'moment'
 
 export default {
   name: 'App',
-  components: { NavbarTop, NavbarBottom, Notifications, ModalDialogRemotePairing },
+  components: { NavbarTop, NavbarBottom, Notifications, ModalDialogRemotePairing, ModalDialogUpdate },
   template: '<App/>',
 
   data () {
@@ -52,6 +56,14 @@ export default {
       },
       set (value) {
         this.$store.commit(types.SHOW_PLAYER_MENU, value)
+      }
+    },
+    show_update_dialog: {
+      get () {
+        return this.$store.state.show_update_dialog
+      },
+      set (value) {
+        this.$store.commit(types.SHOW_UPDATE_DIALOG, value)
       }
     }
   },
@@ -180,6 +192,9 @@ export default {
       })
       webapi.library_count('media_kind is podcast').then(({ data }) => {
         this.$store.commit(types.UPDATE_LIBRARY_PODCASTS_COUNT, data)
+      })
+      webapi.library_count('scan_kind is rss').then(({ data }) => {
+        this.$store.commit(types.UPDATE_LIBRARY_RSS_COUNT, data)
       })
     },
 
