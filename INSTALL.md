@@ -19,11 +19,11 @@ libraries:
 ```bash
 sudo apt-get install \
   build-essential git autotools-dev autoconf automake libtool gettext gawk \
-  gperf antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
+  gperf libconfuse-dev libunistring-dev libsqlite3-dev libprotobuf-c-dev \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
   libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev \
-  libcurl4-openssl-dev libprotobuf-c-dev
+  libcurl4-openssl-dev
 ```
 
 Note that OwnTone will also work with other versions and flavours of
@@ -83,7 +83,7 @@ sudo yum install \
   sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
   libplist-devel libsodium-devel json-c-devel libwebsockets-devel \
-  libcurl-devel protobuf-c-devel antlr3 antlr3-C-devel
+  libcurl-devel protobuf-c-devel
 ```
 
 Clone the OwnTone repo:
@@ -184,12 +184,6 @@ git clone https://github.com/owntone/owntone-server.git
 cd owntone-server
 ```
 
-Install antlr3 and library using the included script:
-
-```bash
-scripts/antlr35_install.sh -p /usr/local
-```
-
 Finally, configure, build and install, adding configure arguments for
 optional features:
 
@@ -229,11 +223,6 @@ dns-sd -B _daap._tcp
 
 Required tools:
 
-- ANTLR v3 is required to build OwnTone, along with its C runtime
-  (libantlr3c). Use a version between 3.1.3 and 3.5 of ANTLR v3 and the
-  matching C runtime version. Get it from <http://www.antlr3.org/>
-- Java runtime: ANTLR is written in Java and as such a JRE is required to
-  run the tool. The JRE is enough, you don't need a full JDK.
 - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run `autoreconf -i`
   at the top of the source tree to generate the build system.
 - gettext: libunistring requires iconv and gettext provides the autotools
@@ -242,8 +231,6 @@ Required tools:
 
 Libraries:
 
-- libantlr3c (ANTLR3 C runtime, use the same version as antlr3)  
-  from <https://github.com/antlr/website-antlr3/tree/gh-pages/download/C>
 - Avahi client libraries (avahi-client), 0.6.24 minimum  
   from <http://avahi.org/>
 - sqlite3 3.5.0+ with unlock notify API enabled (read below)  
@@ -296,22 +283,6 @@ documentation, look for `SQLITE_ENABLE_UNLOCK_NOTIFY`.
 
 Start by generating the build system by running `autoreconf -i`. This will
 generate the configure script and `Makefile.in`.
-
-The configure script will look for a wrapper called antlr3 in the PATH to
-invoke ANTLR3. If your installation of ANTLR3 does not come with such a
-wrapper, create one as follows:
-
-```bash
-#!/bin/sh
-CLASSPATH=...
-exec /path/to/java -cp $CLASSPATH org.antlr.Tool "$@"
-```
-
-Adjust the `CLASSPATH` as needed so that Java will find all the jars needed
-by ANTLR3.
-
-The parsers will be generated during the build, no manual intervention is
-needed.
 
 To display the configure options `run ./configure --help`.
 
@@ -370,25 +341,6 @@ Use `--disable-install-systemd` if you don't want that.
 
 Using `--enable-install-user` means that `make install` will also add a system
 user and group for owntone.
-
-You may see two kinds of warnings during make.
-First, `/usr/bin/antlr3` may generate a long series of warnings that
-begin like this:
-
-```log
-warning(24):  template error: context ...
-```
-
-Second, you may see compiler warnings that look like this:
-
-```log
-RSPLexer.c: In function `mESCAPED':
-RSPLexer.c:2674:16: warning: unused variable `_type' [-Wunused-variable]
-  ANTLR3_UINT32 _type;
-                ^~~~~
-```
-
-You can safely ignore all of these warnings.
 
 After installation:
 

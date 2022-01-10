@@ -62,28 +62,6 @@ GPERF_FILES = \
 
 GPERF_SRC = $(GPERF_FILES:.gperf=_hash.h)
 
-ANTLR_GRAMMARS = \
-	RSP.g RSP2SQL.g \
-	DAAP.g DAAP2SQL.g \
-	SMARTPL.g SMARTPL2SQL.g 
-
-ANTLR_TOKENS = $(ANTLR_GRAMMARS:.g=.tokens)
-
-ANTLR_DEPS = $(ANTLR_GRAMMARS:%.g=$(srcdir)/%.u)
-
-ANTLR_SRC = \
-	RSPLexer.c RSPLexer.h RSPParser.c RSPParser.h \
-	RSP2SQL.c RSP2SQL.h \
-	DAAPLexer.c DAAPLexer.h DAAPParser.c DAAPParser.h \
-	DAAP2SQL.c DAAP2SQL.h \
-	SMARTPLLexer.c SMARTPLLexer.h SMARTPLParser.c SMARTPLParser.h  \
-	SMARTPL2SQL.c SMARTPL2SQL.h
-
-ANTLR_OBJECTS = \
-	RSPLexer.$(OBJEXT) RSPParser.$(OBJEXT) RSP2SQL.$(OBJEXT) \
-	DAAPLexer.$(OBJEXT) DAAPParser.$(OBJEXT) DAAP2SQL.$(OBJEXT) \
-	SMARTPLLexer.$(OBJEXT) SMARTPLParser.$(OBJEXT) SMARTPL2SQL.$(OBJEXT)
-
 AM_CPPFLAGS += \
 	$(OWNTONE_CPPFLAGS) \
 	$(OWNTONE_OPTS_CPPFLAGS) \
@@ -152,42 +130,16 @@ owntone_SOURCES = main.c \
 	mxml-compat.h \
 	outputs/plist_wrap.h \
 	$(LIBWEBSOCKETS_SRC) \
-	$(GPERF_SRC) \
-	$(ANTLR_SRC) 
+	$(GPERF_SRC) 
 
 # built by maintainers, and distributed. Clean with maintainer-clean
 BUILT_SOURCES = \
-	$(GPERF_SRC) \
-	$(ANTLR_SRC) \
-	$(ANTLR_TOKENS) \
-	$(ANTLR_DEPS)
+	$(GPERF_SRC)
 
 EXTRA_DIST = \
-	$(GPERF_FILES) \
-	$(ANTLR_GRAMMARS) \
-	$(ANTLR_TOKENS) \
-	$(ANTLR_DEPS)
-
-# silence unused warnings from antlr generated files
-$(ANTLR_OBJECTS): AM_CPPFLAGS += -Wno-unused
+	$(GPERF_FILES)
 
 # gperf construction rules
 %_hash.h: %.gperf
 	$(AM_V_GEN)$(GPERF) --output-file=$@ $<
 
-# silent rules for antlr
-antlr_verbose = $(antlr_verbose_@AM_V@)
-antlr_verbose_ = $(antlr_verbose_@AM_DEFAULT_V@)
-antlr_verbose_0 = @echo "  GEN     " $< "products";
-
-# ANTLR grammar products
-%.tokens %.c %Lexer.c %Parser.c %Lexer.h %Parser.h %.h: %.g
-	$(antlr_verbose)$(ANTLR) -Xconversiontimeout 30000 $(ANTLR_OPTIONS) -fo . $<
-
-# ANTLR dependency files (bypass circular dependency of .g on .tokens)
-%.u: %.g
-	$(AM_V_GEN)$(ANTLR) -depend -fo . $< > $@
-	$(AM_V_at)$(SED) -n -e '/^.*\.g[ ]*:\(.*\)/ { s//\1/;h;d; }' -e '/\.tokens.*:/ { p;d; }' -e '/:/ { G;s/\n/ /;p; }' $@ > $@-t
-	$(AM_V_at)mv $@-t $@
-
--include $(ANTLR_DEPS)

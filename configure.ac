@@ -27,20 +27,8 @@ AS_IF([[test -z "$GPERF"]],
 		AC_MSG_NOTICE([[
 
 GNU gperf not found, but it's output appears to be present.
-If you modify any gperf or ANTLR grammar files (.g), you will need
-to install it.]])],
+If you modify any .gperf files, you will need to install it.]])],
 		[AC_MSG_ERROR([[GNU gperf required, please install it.]])])
-	])
-
-AC_PATH_PROG([ANTLR], [[antlr3]])
-AS_IF([[test -z "$ANTLR"]],
-	[AS_IF([[test -f "$srcdir/src/SMARTPLLexer.h"]],
-		[AM_MISSING_PROG([ANTLR], [[antlr3]])
-		AC_MSG_NOTICE([[
-
-antlr3 not found, but it's output appears to be present.
-If you modify any ANTLR grammar files (.g), you will need to install it.]])],
-		[AC_MSG_ERROR([[antlr3 wrapper required, please install it.]])])
 	])
 
 dnl Enable all warnings by default.
@@ -173,16 +161,6 @@ PKG_CHECK_EXISTS([libplist],
 		[plist_dict_get_item], [plist/plist.h])],
 	[OWNTONE_MODULES_CHECK([OWNTONE], [LIBPLIST], [libplist-2.0],
 		[plist_dict_get_item], [plist/plist.h])])
-
-
-OWNTONE_FUNC_REQUIRE([OWNTONE], [ANTLR3 C runtime], [ANTLR3C], [antlr3c],
-	[antlr3BaseRecognizerNew], [antlr3.h],
-	[AC_CHECK_FUNC([[antlr3NewAsciiStringInPlaceStream]],
-		[AC_DEFINE([ANTLR3C_NEW_INPUT], 0,
-			[define if antlr3 C runtime uses new input routines])],
-		[AC_DEFINE([ANTLR3C_NEW_INPUT], 1,
-			[define if antlr3 C runtime uses new input routines])])
-	])
 
 AM_PATH_LIBGCRYPT([1:1.2.0])
 OWNTONE_FUNC_REQUIRE([OWNTONE], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
