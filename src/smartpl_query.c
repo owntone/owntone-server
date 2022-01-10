@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Christian Meffert <christian.meffert@googlemail.com>
+ * Copyright (C) 2021-2022 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@
 #include <errno.h>
 
 #include "smartpl_query.h"
+#include "smartpl_parser.h"
 #include "logger.h"
 #include "misc.h"
 
@@ -45,7 +46,29 @@ smartpl_query_parse_file(struct smartpl *smartpl, const char *file)
 int
 smartpl_query_parse_string(struct smartpl *smartpl, const char *expression)
 {
-  return -1;
+  struct smartpl_result result;
+
+  if (smartpl_lex_parse(&result, expression) != 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not parse '%s': %s\n", expression, result.errmsg);
+      return -1;
+    }
+
+  if (!result.title || !result.where)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Missing title or filter when parsing '%s'\n", expression);
+      return -1;
+    }
+
+  free_smartpl(smartpl, 1);
+
+  smartpl->title = strdup(result.title);
+  smartpl->query_where = strdup(result.where);
+  smartpl->having = safe_strdup(result.having);
+  smartpl->order = safe_strdup(result.order);
+  smartpl->limit = result.limit;
+
+  return 0;
 }
 
 

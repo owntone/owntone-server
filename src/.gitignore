@@ -1,5 +1,8 @@
 owntone
 
+*_lexer.[ch]
+*_parser.[ch]
+
 daap_query_hash.h
 rsp_query_hash.h
 dacp_prop_hash.h

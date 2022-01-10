@@ -1,14 +1,21 @@
 %language=ANSI-C
 %readonly-tables
 %enum
+enum rsp_field_types {
+  RSP_TYPE_STRING,
+  RSP_TYPE_INT,
+  RSP_TYPE_DATE,
+};
 %switch=1
 %compare-lengths
 %define hash-function-name rsp_query_field_hash
 %define lookup-function-name rsp_query_field_lookup
 %define slot-name rsp_field
 %struct-type
-%omit-struct-type
-struct rsp_query_field_map;
+struct rsp_query_field_map {
+  char *rsp_field;
+  int field_type;
+};
 %%
 "id",                    RSP_TYPE_INT
 "path",                  RSP_TYPE_STRING

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2021-2022 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,13 +25,22 @@
 #include <string.h>
 #include <errno.h>
 
+#include "daap_query.h"
+#include "daap_parser.h"
 #include "logger.h"
 #include "misc.h"
-#include "daap_query.h"
 
 
 char *
 daap_query_parse_sql(const char *daap_query)
 {
-  return NULL;
+  struct daap_result result;
+
+  if (daap_lex_parse(&result, daap_query) != 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not parse '%s': %s\n", daap_query, result.errmsg);
+      return NULL;
+    }
+
+  return safe_strdup(result.str);
 }

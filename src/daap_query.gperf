@@ -7,8 +7,11 @@
 %define lookup-function-name daap_query_field_lookup
 %define slot-name dmap_field
 %struct-type
-%omit-struct-type
-struct dmap_query_field_map;
+struct dmap_query_field_map {
+  char *dmap_field;
+  char *db_col;
+  int as_int;
+};
 %%
 "dmap.itemname",              "f.title",            0
 "dmap.itemid",                "f.id",               1

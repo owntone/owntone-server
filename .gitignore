@@ -29,6 +29,7 @@ missing
 stamp-h1
 autotools-stamp
 build-stamp
+ylwrap
 owntone.spec
 owntone.conf
 owntone.service
