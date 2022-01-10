@@ -16,7 +16,7 @@ jobs:
     - name: install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yq build-essential clang clang-tools git autotools-dev autoconf libtool gettext gawk gperf antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev libevent-dev libplist-dev libsodium-dev libcurl4-openssl-dev libjson-c-dev libprotobuf-c-dev libpulse-dev libwebsockets-dev libgnutls28-dev
+        sudo apt-get install -yq build-essential clang clang-tools git autotools-dev autoconf libtool gettext gawk gperf bison flex libconfuse-dev libunistring-dev libsqlite3-dev libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev libevent-dev libplist-dev libsodium-dev libcurl4-openssl-dev libjson-c-dev libprotobuf-c-dev libpulse-dev libwebsockets-dev libgnutls28-dev
     - name: build and check
       run: |
         autoreconf -vi

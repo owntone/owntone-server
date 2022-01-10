@@ -40,11 +40,9 @@ jobs:
         sudo make install
         cd ..
 
-    - name: Install gperf and antlr3
+    - name: Install gperf, bison and flex
       run: |
-        brew install gperf
-        chmod +x ./scripts/antlr35_install.sh
-        ./scripts/antlr35_install.sh -y -p /usr/local
+        brew install gperf bison flex
 
     - name: Install ffmpeg
       # The libbluray ffmpeg dependency fails without the chown (source: stackoverflow)
