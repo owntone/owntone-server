@@ -36,10 +36,52 @@
 #include "logger.h"
 #include "misc.h"
 
+#define SMARTPL_SIZE_MAX 8192
 
 int
 smartpl_query_parse_file(struct smartpl *smartpl, const char *file)
 {
+  char *expression = NULL;
+  size_t size;
+  size_t got;
+  int ret;
+  FILE *f;
+
+  f = fopen(file, "rb");
+  if (!f)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not open smart playlist '%s'\n", file);
+      goto error;
+    }
+
+  fseek(f, 0, SEEK_END);
+  size = ftell(f);
+  if (size <= 0 || size > SMARTPL_SIZE_MAX)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Smart playlist '%s' is zero bytes or too large (max size is %d)\n", file, SMARTPL_SIZE_MAX);
+      goto error;
+    }
+
+  fseek(f, 0, SEEK_SET);
+  expression = calloc(1, size + 1);
+
+  got = fread(expression, 1, size, f);
+  if (got != size)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Unknown error reading smart playlist '%s'\n", file);
+      goto error;
+    }
+
+  fclose(f);
+
+  ret = smartpl_query_parse_string(smartpl, expression);
+  free(expression);
+  return ret;
+
+ error:
+  free(expression);
+  if (f)
+    fclose(f);
   return -1;
 }
 
