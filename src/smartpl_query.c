@@ -32,7 +32,7 @@
 #include <errno.h>
 
 #include "smartpl_query.h"
-#include "smartpl_parser.h"
+#include "parsers/smartpl_parser.h"
 #include "logger.h"
 #include "misc.h"
 

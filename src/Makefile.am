@@ -62,14 +62,8 @@ GPERF_FILES = \
 
 GPERF_SRC = $(GPERF_FILES:.gperf=_hash.h)
 
-LEXER_SRC  = daap_lexer.l smartpl_lexer.l
-PARSER_SRC = daap_parser.y smartpl_parser.y
-
-# This flag is given to flex and tells it to produce headers. automake's ylwrap
-# doesn't seem to rename the header like it does with the .c flex output, so
-# here we give it the final name. The "$(@:.c=.h)" uses substitution reference
-# and means 'change .c to .h in $@' (the target name, e.g. calc_lexer.c).
-AM_LFLAGS = --header-file=$(@:.c=.h)
+LEXER_SRC  = parsers/daap_lexer.l parsers/smartpl_lexer.l
+PARSER_SRC = parsers/daap_parser.y parsers/smartpl_parser.y
 
 # This flag is given to Bison and tells it to produce headers. Note that
 # automake recognizes this flag too, and has special logic around it, so don't
@@ -153,7 +147,7 @@ owntone_SOURCES = main.c \
 # the C files as target, as the AM_LFLAGS will make sure headers are produced.
 BUILT_SOURCES = \
 	$(GPERF_SRC) \
-	$(LEXER_SRC:.l=.c) $(PARSER_SRC:.y=.h)
+	$(LEXER_SRC:.l=.h) $(PARSER_SRC:.y=.h)
 
 # automake doesn't know how to make lexer headers, nor does it automatically
 # include them, so need to specify them as EXTRA_DIST.
@@ -164,6 +158,11 @@ EXTRA_DIST = \
 # gperf construction rules
 %_hash.h: %.gperf
 	$(AM_V_GEN)$(GPERF) --output-file=$@ $<
+
+# Rule for generating lexer headers. $@ is an automatic variable that is equal
+# to the particular target name, so a header file name.
+$(LEXER_SRC:.l=.h): $(LEXER_SRC)
+	$(LEX) --header-file=$@ --stdout $(@:.h=.l) > /dev/null
 
 # Anything built by make should be cleaned by make clean, but when it comes to
 # flex/bison automake's support leaves something to be desired

@@ -26,7 +26,7 @@
 #include <errno.h>
 
 #include "daap_query.h"
-#include "daap_parser.h"
+#include "parsers/daap_parser.h"
 #include "logger.h"
 #include "misc.h"
 

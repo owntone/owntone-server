@@ -32,11 +32,11 @@ If you modify any .gperf files, you will need to install it.]])],
 	])
 
 AX_PROG_FLEX([AC_DEFINE([LEX], [flex], [flex found])],
-	[AS_IF([test ! -f "$srcdir/src/smartpl_lexer.c"],
+	[AS_IF([test ! -f "$srcdir/src/parsers/smartpl_lexer.c"],
 		[AC_MSG_ERROR([flex required, please install it])])
 	])
 AX_PROG_BISON([AC_DEFINE([YACC], [bison], [GNU bison found])],
-	[AS_IF([test ! -f "$srcdir/src/smartpl_parser.c"],
+	[AS_IF([test ! -f "$srcdir/src/parsers/smartpl_parser.c"],
 		[AC_MSG_ERROR([GNU bison required, please install it])])
 	])
 
