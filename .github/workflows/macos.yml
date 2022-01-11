@@ -17,6 +17,15 @@ jobs:
     - name: Install build tools
       run: brew install automake autoconf libtool pkg-config
 
+    - name: Install gperf, bison and flex
+      # MacOS comes with an ancient bison, we need a newer version. Homebrew's
+      # bison and flex are keg-only, which means they are not symlinked into
+      # /usr/local because macOS already provides this software.
+      run: |
+        brew install gperf bison flex
+        echo 'export PATH="/usr/local/opt/bison/bin:/usr/local/opt/flex/bin:$PATH"' >> /Users/runner/.bash_profile
+        export PATH="/usr/local/opt/bison/bin:/usr/local/opt/flex/bin:$PATH"
+
     - name: Install libinotify-kqueue
       # brew does not have libinotify package
       run: |
@@ -39,10 +48,6 @@ jobs:
         make
         sudo make install
         cd ..
-
-    - name: Install gperf, bison and flex
-      run: |
-        brew install gperf bison flex
 
     - name: Install ffmpeg
       # The libbluray ffmpeg dependency fails without the chown (source: stackoverflow)
