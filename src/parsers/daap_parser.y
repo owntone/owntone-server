@@ -216,7 +216,6 @@ static char * db_escape_string(const char *str)
 struct daap_result {
   char str[1024];
   int offset;
-  char escape_char; // Character used to escape _ and % in a LIKE result str
   int err;
   char errmsg[128];
 };
@@ -350,6 +349,7 @@ static void sql_append_dmap_clause(struct daap_result *result, struct ast *a)
   struct ast *k = a->l;
   struct ast *v = a->r;
   bool is_equal = (a->type == DAAP_T_EQUAL);
+  char escape_char;
   char *key;
 
   if (!k || k->type != DAAP_T_KEY || !(key = (char *)k->data))
@@ -394,11 +394,13 @@ static void sql_append_dmap_clause(struct daap_result *result, struct ast *a)
     }
   else if (!dqfm->as_int && v->type == DAAP_T_WILDCARD)
     {
-      sql_like_escape((char **)&v->data, &result->escape_char);
+      sql_like_escape((char **)&v->data, &escape_char);
       sql_str_escape((char **)&v->data);
       sql_append(result, "%s", dqfm->db_col);
       sql_append(result, is_equal ? " LIKE " : " NOT LIKE ");
       sql_append(result, "'%s'", (char *)v->data);
+      if (escape_char)
+        sql_append(result, " ESCAPE '%c'", escape_char);
       return;
     }
   else if (!v->data)
@@ -453,8 +455,6 @@ static int result_set(struct daap_result *result, struct ast *a)
   memset(result, 0, sizeof(struct daap_result));
   sql_from_ast(result, a);
   ast_free(a);
-  if (result->escape_char)
-    sql_append(result, " ESCAPE '%c'", result->escape_char);
   return result->err;
 }
 }
