@@ -224,7 +224,7 @@ channel_seek_internal(struct sp_channel *channel, size_t pos, bool do_flush)
 int
 channel_seek(struct sp_channel *channel, size_t pos)
 {
-  channel_seek_internal(channel, pos, true); // true -> request flush
+  return channel_seek_internal(channel, pos, true); // true -> request flush
 }
 
 void
