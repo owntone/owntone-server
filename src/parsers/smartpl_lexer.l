@@ -73,7 +73,7 @@ path           { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
 type           { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
 grouping       { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
 artist_id      { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
-songartistid   { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; } /* TODO isn't this an int? */
+songartistid   { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
 songalbumid    { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
 codectype      { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
 comment        { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
@@ -103,17 +103,16 @@ album_count    { yylval->str = strdup(yytext); return SMARTPL_T_GROUPTAG; }
 data_kind      { yylval->str = strdup(yytext); return SMARTPL_T_DATAKINDTAG; }
 media_kind     { yylval->str = strdup(yytext); return SMARTPL_T_MEDIAKINDTAG; }
 
-               /* TODO include db.h and use real values */
-file           { yylval->ival = 0; return SMARTPL_T_DATAKIND; }
-url            { yylval->ival = 1; return SMARTPL_T_DATAKIND; }
-spotify        { yylval->ival = 2; return SMARTPL_T_DATAKIND; }
-pipe           { yylval->ival = 3; return SMARTPL_T_DATAKIND; }
+file           { return SMARTPL_T_DATAKIND_FILE; }
+url            { return SMARTPL_T_DATAKIND_URL; }
+spotify        { return SMARTPL_T_DATAKIND_SPOTIFY; }
+pipe           { return SMARTPL_T_DATAKIND_PIPE; }
 
-music          { yylval->ival = 0; return SMARTPL_T_MEDIAKIND; }
-movie          { yylval->ival = 1; return SMARTPL_T_MEDIAKIND; }
-podcast        { yylval->ival = 2; return SMARTPL_T_MEDIAKIND; }
-audiobook      { yylval->ival = 3; return SMARTPL_T_MEDIAKIND; }
-tvshow         { yylval->ival = 4; return SMARTPL_T_MEDIAKIND; }
+music          { return SMARTPL_T_MEDIAKIND_MUSIC; }
+movie          { return SMARTPL_T_MEDIAKIND_MOVIE; }
+podcast        { return SMARTPL_T_MEDIAKIND_PODCAST; }
+audiobook      { return SMARTPL_T_MEDIAKIND_AUDIOBOOK; }
+tvshow         { return SMARTPL_T_MEDIAKIND_TVSHOW; }
 
 having         { return SMARTPL_T_HAVING; }
 order\ by      { return SMARTPL_T_ORDERBY; }
