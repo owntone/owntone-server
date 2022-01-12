@@ -3592,14 +3592,18 @@ sequence_start(enum airplay_seq_type seq_type, struct airplay_session *rs, void 
 /*                              Thread: main (mdns)                           */
 
 static int
-features_parse(struct keyval *features_kv, const char *fs1, const char *fs2, const char *name)
+features_parse(struct keyval *features_kv, const char *features_txt, const char *name)
 {
-  uint64_t features;
+  uint64_t features = 0;
+  const char *delim_ptr;
   int i, j;
 
-  if (safe_hextou32(fs1, (uint32_t *)&features) < 0 || safe_hextou32(fs2, ((uint32_t *)&features) + 1) < 0)
+  // Even though features_txt may be two commaseparated values we can pass it to
+  // safe_hextou32() which will only convert the first value.
+  if ( safe_hextou32(features_txt, (uint32_t *)&features) < 0 ||
+       ((delim_ptr = strchr(features_txt, ',')) && safe_hextou32(delim_ptr + 1, ((uint32_t *)&features) + 1) < 0) )
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "AirPlay '%s': unexpected features field in TXT record!\n", name);
+      DPRINTF(E_LOG, L_AIRPLAY, "AirPlay '%s': unexpected features field '%s' in TXT record\n", name, features_txt);
       return -1;
     }
 
@@ -3733,19 +3737,19 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
 
   // Features, see features_map[]
   features = keyval_get(txt, "features");
-  if (!features || !strchr(features, ','))
+  if (!features)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Not using AirPlay 2 for device '%s' as it does not have required 'features' in TXT field\n", name);
       goto free_rd;
     }
 
-  ret = features_parse(&features_kv, features, strchr(features, ',') + 1, name);
+  ret = features_parse(&features_kv, features, name);
   if (ret < 0)
     goto free_rd;
 
   if (!keyval_get(&features_kv, "SupportsAirPlayAudio"))
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "AirPlay device '%s' does not support audio\n", name);
+      DPRINTF(E_DBG, L_AIRPLAY, "AirPlay device '%s' does not support audio\n", name);
       goto free_rd;
     }
 
@@ -3771,7 +3775,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   rd->quality.channels = AIRPLAY_QUALITY_CHANNELS_DEFAULT;
 
   if (!quality_is_equal(&rd->quality, &airplay_quality_default))
-    DPRINTF(E_LOG, L_AIRPLAY, "Device '%s' requested non-default audio quality (%d/%d/%d)\n", rd->name, rd->quality.sample_rate, rd->quality.bits_per_sample, rd->quality.channels);
+    DPRINTF(E_INFO, L_AIRPLAY, "Device '%s' requested non-default audio quality (%d/%d/%d)\n", rd->name, rd->quality.sample_rate, rd->quality.bits_per_sample, rd->quality.channels);
 
   // Device type
   re->devtype = AIRPLAY_DEV_OTHER;
@@ -3790,7 +3794,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   else if (strncmp(p, "AudioAccessory", strlen("AudioAccessory")) == 0)
     re->devtype = AIRPLAY_DEV_HOMEPOD;
   else if (*p == '\0')
-    DPRINTF(E_LOG, L_AIRPLAY, "AirPlay device '%s': am has no value\n", name);
+    DPRINTF(E_WARN, L_AIRPLAY, "AirPlay device '%s': am has no value\n", name);
 
   // If the user didn't set any reconnect setting we enable for Apple TV and
   // HomePods due to https://github.com/owntone/owntone-server/issues/734
