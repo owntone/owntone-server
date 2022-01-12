@@ -163,6 +163,8 @@ EXTRA_DIST = \
 # to the particular target name, so a header file name.
 $(LEXER_SRC:.l=.h): $(LEXER_SRC)
 	$(LEX) --header-file=$@ --stdout $(@:.h=.l) > /dev/null
+	$(YACC) --version
+	which $(YACC)
 
 # Anything built by make should be cleaned by make clean, but when it comes to
 # flex/bison automake's support leaves something to be desired

@@ -23,8 +23,8 @@ jobs:
       # /usr/local because macOS already provides this software.
       run: |
         brew install gperf bison flex
-        echo 'export PATH="/usr/local/opt/bison/bin:/usr/local/opt/flex/bin:$PATH"' >> /Users/runner/.bash_profile
-        export PATH="/usr/local/opt/bison/bin:/usr/local/opt/flex/bin:$PATH"
+        sudo ln -s /usr/local/opt/bison/bin/bison /usr/local/bin/bison
+        sudo ln -s /usr/local/opt/flex/bin/flex /usr/local/bin/flex
 
     - name: Install libinotify-kqueue
       # brew does not have libinotify package
