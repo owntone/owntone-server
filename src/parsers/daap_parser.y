@@ -283,7 +283,7 @@ static void sql_append(struct daap_result *result, const char *fmt, ...)
   return;
 
  nospace:
-  snprintf(result->errmsg, sizeof(result->errmsg), "Parser output buffer too small (%lu bytes)", sizeof(result->str));
+  snprintf(result->errmsg, sizeof(result->errmsg), "Parser output buffer too small (%zu bytes)", sizeof(result->str));
   result->err = -2;
 }
 

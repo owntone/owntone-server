@@ -263,7 +263,7 @@ static void sql_append(struct smartpl_result *result, struct result_part *part, 
   return;
 
  nospace:
-  snprintf(result->errmsg, sizeof(result->errmsg), "Parser output buffer too small (%lu bytes)", sizeof(part->str));
+  snprintf(result->errmsg, sizeof(result->errmsg), "Parser output buffer too small (%zu bytes)", sizeof(part->str));
   result->err = -2;
 }
 
