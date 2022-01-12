@@ -184,6 +184,22 @@ int smartpl_lex_parse(struct smartpl_result *result, const char *input);
 #define INVERT_MASK 0x80000000
 }
 
+/* Dependencies, mocked or real */
+%code top {
+#ifndef DEBUG_PARSER_MOCK
+#include "db.h"
+#else
+static char * db_escape_string(const char *str)
+{
+  char *new = strdup(str);
+  char *ptr;
+  while ((ptr = strpbrk(new, "\\'")))
+   *ptr = 'X';
+  return new;
+}
+#endif
+}
+
 /* Definition of struct that will hold the parsing result */
 %code requires {
 struct result_part {
@@ -220,6 +236,13 @@ enum sql_append_type {
 };
 
 static void sql_from_ast(struct smartpl_result *, struct result_part *, struct ast *);
+
+static void sql_str_escape(char **value)
+{
+  char *old = *value;
+  *value = db_escape_string(old);
+  free(old);
+}
 
 static void sql_append(struct smartpl_result *result, struct result_part *part, const char *fmt, ...)
 {
@@ -273,6 +296,7 @@ static void sql_append_recursive(struct smartpl_result *result, struct result_pa
     case SQL_APPEND_STR:
       assert(a->l == NULL);
       assert(a->r == NULL);
+      sql_str_escape((char **)&a->data);
       sql_append(result, part, "%s", (char *)a->data);
       break;
     case SQL_APPEND_INT:
