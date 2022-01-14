@@ -56,14 +56,13 @@ endif
 
 GPERF_FILES = \
 	daap_query.gperf \
-	rsp_query.gperf \
 	dacp_prop.gperf \
 	dmap_fields.gperf
 
 GPERF_SRC = $(GPERF_FILES:.gperf=_hash.h)
 
-LEXER_SRC  = parsers/daap_lexer.l parsers/smartpl_lexer.l
-PARSER_SRC = parsers/daap_parser.y parsers/smartpl_parser.y
+LEXER_SRC  = parsers/daap_lexer.l parsers/smartpl_lexer.l parsers/rsp_lexer.l
+PARSER_SRC = parsers/daap_parser.y parsers/smartpl_parser.y parsers/rsp_parser.y
 
 # This flag is given to Bison and tells it to produce headers. Note that
 # automake recognizes this flag too, and has special logic around it, so don't
@@ -116,7 +115,6 @@ owntone_SOURCES = main.c \
 	misc.c misc.h \
 	misc_json.c misc_json.h \
 	rng.c rng.h \
-	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
 	smartpl_query.c smartpl_query.h \
 	player.c player.h \
