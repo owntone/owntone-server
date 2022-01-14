@@ -36,11 +36,15 @@ daap_query_parse_sql(const char *daap_query)
 {
   struct daap_result result;
 
+  DPRINTF(E_SPAM, L_DAAP, "Parse DAAP query input '%s'\n", daap_query);
+
   if (daap_lex_parse(&result, daap_query) != 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not parse '%s': %s\n", daap_query, result.errmsg);
       return NULL;
     }
+
+  DPRINTF(E_SPAM, L_DAAP, "Parse DAAP query output '%s'\n", result.str);
 
   return safe_strdup(result.str);
 }
