@@ -188,31 +188,9 @@ int smartpl_lex_parse(struct smartpl_result *result, const char *input);
 %code top {
 #ifndef DEBUG_PARSER_MOCK
 #include "db.h"
+#include "misc.h"
 #else
-enum data_kind {
-  DATA_KIND_FILE = 0,
-  DATA_KIND_HTTP = 1,
-  DATA_KIND_SPOTIFY = 2,
-  DATA_KIND_PIPE = 3,
-};
-
-enum media_kind {
-  MEDIA_KIND_MUSIC = 1,
-  MEDIA_KIND_MOVIE = 2,
-  MEDIA_KIND_PODCAST = 4,
-  MEDIA_KIND_AUDIOBOOK = 8,
-  MEDIA_KIND_MUSICVIDEO = 32,
-  MEDIA_KIND_TVSHOW = 64,
-};
-
-static char * db_escape_string(const char *str)
-{
-  char *new = strdup(str);
-  char *ptr;
-  while ((ptr = strpbrk(new, "\\'")))
-   *ptr = 'X';
-  return new;
-}
+#include "owntonefunctions.h"
 #endif
 }
 
@@ -253,6 +231,27 @@ enum sql_append_type {
 
 static void sql_from_ast(struct smartpl_result *, struct result_part *, struct ast *);
 
+// Escapes any '%' or '_' that might be in the string
+static void sql_like_escape(char **value, char *escape_char)
+{
+  char *s = *value;
+  size_t len = strlen(s);
+  char *new;
+
+  *escape_char = 0;
+
+  // Fast path, nothing to escape
+  if (!strpbrk(s, "_%"))
+    return;
+
+  len = 2 * len; // Enough for every char to be escaped
+  new = realloc(s, len);
+  safe_snreplace(new, len, "%", "\\%");
+  safe_snreplace(new, len, "_", "\\_");
+  *escape_char = '\\';
+  *value = new;
+}
+
 static void sql_str_escape(char **value)
 {
   char *old = *value;
@@ -285,6 +284,8 @@ static void sql_append(struct smartpl_result *result, struct result_part *part, 
 
 static void sql_append_recursive(struct smartpl_result *result, struct result_part *part, struct ast *a, const char *op, const char *op_not, bool is_not, enum sql_append_type append_type)
 {
+  char escape_char;
+
   switch (append_type)
   {
     case SQL_APPEND_OPERATOR:
@@ -301,8 +302,11 @@ static void sql_append_recursive(struct smartpl_result *result, struct result_pa
     case SQL_APPEND_OPERATOR_LIKE:
       sql_from_ast(result, part, a->l);
       sql_append(result, part, " %s '%%", is_not ? op_not : op);
+      sql_like_escape((char **)(&a->r->data), &escape_char);
       sql_from_ast(result, part, a->r);
       sql_append(result, part, "%%'");
+      if (escape_char)
+        sql_append(result, part, " ESCAPE '%c'", escape_char);
       break;
     case SQL_APPEND_FIELD:
       assert(a->l == NULL);

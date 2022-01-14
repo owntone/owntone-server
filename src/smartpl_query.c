@@ -90,6 +90,8 @@ smartpl_query_parse_string(struct smartpl *smartpl, const char *expression)
 {
   struct smartpl_result result;
 
+  DPRINTF(E_SPAM, L_SCAN, "Parse smartpl query input '%s'\n", expression);
+
   if (smartpl_lex_parse(&result, expression) != 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not parse '%s': %s\n", expression, result.errmsg);
@@ -109,6 +111,9 @@ smartpl_query_parse_string(struct smartpl *smartpl, const char *expression)
   smartpl->having = safe_strdup(result.having);
   smartpl->order = safe_strdup(result.order);
   smartpl->limit = result.limit;
+
+  DPRINTF(E_SPAM, L_SCAN, "Parse smartpl query output '%s': WHERE %s HAVING %s ORDER BY %s LIMIT %d\n",
+    smartpl->title, smartpl->query_where, smartpl->having, smartpl->order, smartpl->limit);
 
   return 0;
 }
