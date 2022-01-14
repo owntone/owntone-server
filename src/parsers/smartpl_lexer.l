@@ -48,11 +48,6 @@
 
 /* ========================= NON-BOILERPLATE SECTION =========================*/
 
-%{
-time_t l_converttime(int day, int month, int year);
-time_t l_convertyyyymmdd(char *date);
-%}
-
 %option case-insensitive
 
 quoted \"[^\"\n]*[\"\n]
@@ -139,8 +134,7 @@ after          { return (yylval->ival = SMARTPL_T_AFTER); }
 
 is             { return (yylval->ival = SMARTPL_T_IS); }
 includes       { return (yylval->ival = SMARTPL_T_INCLUDES); }
-=              { return (yylval->ival = SMARTPL_T_EQUALS); }
-
+=              { return (yylval->ival = SMARTPL_T_EQUAL); }
 \<=            { return (yylval->ival = SMARTPL_T_LESSEQUAL); }
 \<             { return (yylval->ival = SMARTPL_T_LESS); }
 \>=            { return (yylval->ival = SMARTPL_T_GREATEREQUAL); }
@@ -153,7 +147,7 @@ not            { return SMARTPL_T_NOT; }
 {quoted}       { yylval->str=strdup(yytext+1);
                  if(yylval->str[strlen(yylval->str)-1] == '"')
                    yylval->str[strlen(yylval->str)-1] = '\0';
-                 return SMARTPL_T_UNQUOTED; }
+                 return SMARTPL_T_STRING; }
 
 [0-9]+         { yylval->ival=atoi(yytext); return SMARTPL_T_NUM; }
 
@@ -161,31 +155,3 @@ not            { return SMARTPL_T_NOT; }
 
 %%
 
-time_t l_convertyyyymmdd(char *date)
-{
-  char year[5];
-  char month[3];
-  char day[3];
-
-  memset(year, 0, sizeof(year));
-  memset(month, 0, sizeof(month));
-  memset(day, 0, sizeof(day));
-
-  strncpy(year, date, 4);
-  strncpy(month, date + 5, 2);
-  strncpy(day, date + 8, 2);
-
-  return l_converttime(atoi(day), atoi(month), atoi(year));
-}
-
-time_t l_converttime(int day, int month, int year)
-{
-  struct tm tm;
-
-  memset(&tm, 0, sizeof(tm));
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month-1;
-  tm.tm_mday = day;
-
-  return mktime(&tm);
-}

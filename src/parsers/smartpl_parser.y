@@ -362,7 +362,7 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
 
   switch (a->type)
   {
-    case SMARTPL_T_EQUALS:
+    case SMARTPL_T_EQUAL:
       sql_append_recursive(result, part, a, "=", "!=", is_not, SQL_APPEND_OPERATOR); break;
     case SMARTPL_T_LESS:
       sql_append_recursive(result, part, a, "<", ">=", is_not, SQL_APPEND_OPERATOR); break;
@@ -400,7 +400,7 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
       sql_append_recursive(result, part, a, "now', 'start of year', '-1 year", NULL, 0, SQL_APPEND_DATE_FIELD); break;
     case SMARTPL_T_INTERVAL:
       sql_append_recursive(result, part, a, "-", "+", is_not, SQL_APPEND_DATE_FIELD); break;
-    case SMARTPL_T_UNQUOTED:
+    case SMARTPL_T_STRING:
     case SMARTPL_T_GROUPTAG:
       sql_append_recursive(result, part, a, NULL, NULL, 0, SQL_APPEND_STR); break;
     case SMARTPL_T_STRTAG:
@@ -453,7 +453,10 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 }
 
 /* A string that was quoted. Quotes were stripped by lexer. */
-%token <str> SMARTPL_T_UNQUOTED
+%token <str> SMARTPL_T_STRING
+
+/* Numbers (integers) */
+%token <ival> SMARTPL_T_NUM
 
 /* The semantic value holds the actual name of the field */
 %token <str> SMARTPL_T_STRTAG
@@ -499,18 +502,16 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %token <ival> SMARTPL_T_DATE_LASTMONTH
 %token <ival> SMARTPL_T_DATE_LASTYEAR
 
-%token <ival> SMARTPL_T_NUM
-
 /* The below are only ival so we can set intbool, datebool and strbool via the
    default rule for semantic values, i.e. $$ = $1. The semantic value (ival) is
    set to the token value by the lexer. */
-%token <ival> SMARTPL_T_EQUALS
+%token <ival> SMARTPL_T_IS
+%token <ival> SMARTPL_T_INCLUDES
+%token <ival> SMARTPL_T_EQUAL
 %token <ival> SMARTPL_T_LESS
 %token <ival> SMARTPL_T_LESSEQUAL
 %token <ival> SMARTPL_T_GREATER
 %token <ival> SMARTPL_T_GREATEREQUAL
-%token <ival> SMARTPL_T_IS
-%token <ival> SMARTPL_T_INCLUDES
 %token <ival> SMARTPL_T_BEFORE
 %token <ival> SMARTPL_T_AFTER
 %token <ival> SMARTPL_T_AGO
@@ -535,14 +536,14 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %%
 
 playlist:
-  SMARTPL_T_UNQUOTED '{' criteria having order limit '}'    { return result_set(result, $1, $3, $4, $5, $6); }
-| SMARTPL_T_UNQUOTED '{' criteria having order '}'          { return result_set(result, $1, $3, $4, $5, NULL); }
-| SMARTPL_T_UNQUOTED '{' criteria having limit '}'          { return result_set(result, $1, $3, $4, NULL, $5); }
-| SMARTPL_T_UNQUOTED '{' criteria having '}'                { return result_set(result, $1, $3, $4, NULL, NULL); }
-| SMARTPL_T_UNQUOTED '{' criteria order limit '}'           { return result_set(result, $1, $3, NULL, $4, $5); }
-| SMARTPL_T_UNQUOTED '{' criteria order '}'                 { return result_set(result, $1, $3, NULL, $4, NULL); }
-| SMARTPL_T_UNQUOTED '{' criteria limit '}'                 { return result_set(result, $1, $3, NULL, NULL, $4); }
-| SMARTPL_T_UNQUOTED '{' criteria '}'                       { return result_set(result, $1, $3, NULL, NULL, NULL); }
+  SMARTPL_T_STRING '{' criteria having order limit '}'      { return result_set(result, $1, $3, $4, $5, $6); }
+| SMARTPL_T_STRING '{' criteria having order '}'            { return result_set(result, $1, $3, $4, $5, NULL); }
+| SMARTPL_T_STRING '{' criteria having limit '}'            { return result_set(result, $1, $3, $4, NULL, $5); }
+| SMARTPL_T_STRING '{' criteria having '}'                  { return result_set(result, $1, $3, $4, NULL, NULL); }
+| SMARTPL_T_STRING '{' criteria order limit '}'             { return result_set(result, $1, $3, NULL, $4, $5); }
+| SMARTPL_T_STRING '{' criteria order '}'                   { return result_set(result, $1, $3, NULL, $4, NULL); }
+| SMARTPL_T_STRING '{' criteria limit '}'                   { return result_set(result, $1, $3, NULL, NULL, $4); }
+| SMARTPL_T_STRING '{' criteria '}'                         { return result_set(result, $1, $3, NULL, NULL, NULL); }
 ;
 
 criteria: criteria SMARTPL_T_AND criteria                   { $$ = ast_new(SMARTPL_T_AND, $1, $3); }
@@ -551,11 +552,11 @@ criteria: criteria SMARTPL_T_AND criteria                   { $$ = ast_new(SMART
 | predicate
 ;
 
-predicate: SMARTPL_T_STRTAG strbool SMARTPL_T_UNQUOTED      { $$ = ast_new($2, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_UNQUOTED, $3)); }
+predicate: SMARTPL_T_STRTAG strbool SMARTPL_T_STRING        { $$ = ast_new($2, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_STRING, $3)); }
 | SMARTPL_T_INTTAG intbool SMARTPL_T_NUM                    { $$ = ast_new($2, ast_data(SMARTPL_T_INTTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
 | SMARTPL_T_DATETAG datebool dateexpr                       { $$ = ast_new($2, ast_data(SMARTPL_T_DATETAG, $1), $3); }
-| SMARTPL_T_DATAKINDTAG SMARTPL_T_IS datakind               { $$ = ast_new(SMARTPL_T_EQUALS, ast_data(SMARTPL_T_DATAKINDTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
-| SMARTPL_T_MEDIAKINDTAG SMARTPL_T_IS mediakind             { $$ = ast_new(SMARTPL_T_EQUALS, ast_data(SMARTPL_T_MEDIAKINDTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
+| SMARTPL_T_DATAKINDTAG SMARTPL_T_IS datakind               { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_DATAKINDTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
+| SMARTPL_T_MEDIAKINDTAG SMARTPL_T_IS mediakind             { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_MEDIAKINDTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
 | SMARTPL_T_NOT predicate                                   { struct ast *a = $2; a->type |= INVERT_MASK; $$ = $2; }
 ;
 
@@ -617,7 +618,7 @@ strbool: SMARTPL_T_IS
 | SMARTPL_T_INCLUDES
 ;
 
-intbool: SMARTPL_T_EQUALS
+intbool: SMARTPL_T_EQUAL
 | SMARTPL_T_LESS
 | SMARTPL_T_LESSEQUAL
 | SMARTPL_T_GREATER
