@@ -1650,7 +1650,7 @@ daap_reply_groups(struct httpd_request *hreq)
   int ret;
 
   param = evhttp_find_header(hreq->query, "group-type");
-  if (strcmp(param, "artists") == 0)
+  if (param && strcmp(param, "artists") == 0)
     {
       // Request from Remote may have the form:
       //  groups?meta=dmap.xxx,dma...&type=music&group-type=artists&sort=album&include-sort-headers=1&query=('...')&session-id=...
