@@ -58,7 +58,7 @@ static uint32_t logger_repeat_counter;
 static uint32_t logger_last_hash;
 static char *logfilename;
 static FILE *logfile;
-static char *labels[] = { "config", "daap", "db", "httpd", "http", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache", "mpd", "stream", "cast", "fifo", "lib", "web", "airplay" };
+static char *labels[] = { "config", "daap", "db", "httpd", "http", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache", "mpd", "stream", "cast", "fifo", "lib", "web", "airplay", "rcp" };
 static char *severities[] = { "FATAL", "LOG", "WARN", "INFO", "DEBUG", "SPAM" };
 
 

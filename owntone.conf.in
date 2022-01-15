@@ -383,6 +383,23 @@ spotify {
 #	album_override = false
 }
 
+# RCP/Roku Soundbridge output settings
+# (make sure you get the capitalization of the device name right)
+#rcp "My SoundBridge device" {
+	# Enable this option to exclude a particular device from the speaker
+	# list
+#	exclude = false
+
+	# A Roku/SoundBridge can power up in 2 modes: (default) reconnect to the 
+	# previously used library (ie OwnTone) or in a 'cleared library' mode.
+	# The Roku power up behaviour is affected by how OwnTone disconnects
+	# from the Roku device.
+	#
+	# Set to false to maintain default Roku power on behaviour
+#	clear_on_close = false
+#}
+
+
 # MPD configuration (only have effect if MPD enabled - see README/INSTALL)
 mpd {
 	# TCP port to listen on for MPD client requests.

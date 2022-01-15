@@ -44,6 +44,7 @@ extern struct output_definition output_airplay;
 extern struct output_definition output_streaming;
 extern struct output_definition output_dummy;
 extern struct output_definition output_fifo;
+extern struct output_definition output_rcp;
 #ifdef HAVE_ALSA
 extern struct output_definition output_alsa;
 #endif
@@ -64,6 +65,7 @@ static struct output_definition *outputs[] = {
     &output_streaming,
     &output_dummy,
     &output_fifo,
+    &output_rcp,
 #ifdef HAVE_ALSA
     &output_alsa,
 #endif
