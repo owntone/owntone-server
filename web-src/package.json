@@ -1,6 +1,6 @@
 {
   "name": "owntone-web",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": true,
   "description": "OwnTone web interface",
   "author": "chme <christian.meffert@googlemail.com>",
@@ -15,6 +15,7 @@
     "bulma": "^0.9.3",
     "bulma-switch": "^2.0.0",
     "core-js": "^3.15.2",
+    "follow-redirects": "^1.14.7",
     "mdi": "^2.2.43",
     "moment": "^2.29.1",
     "moment-duration-format": "^2.3.2",

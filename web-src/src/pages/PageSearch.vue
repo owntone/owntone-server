@@ -13,7 +13,7 @@
                     <i class="mdi mdi-magnify"></i>
                   </span>
                 </p>
-                <p class="help has-text-centered">Tip: you can search by a smart playlist query language <a href="https://github.com/ejurgensen/OwnTone/blob/master/README_SMARTPL.md" target="_blank">expression</a> if you prefix it
+                <p class="help has-text-centered">Tip: you can search by a smart playlist query language <a href="https://github.com/owntone/owntone-server/blob/master/README_SMARTPL.md" target="_blank">expression</a> if you prefix it
                   with <code>query:</code>.
                 </p>
               </div>

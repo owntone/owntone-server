@@ -1,10 +1,10 @@
 <template>
   <div class="media">
     <div class="media-content fd-has-action is-clipped" v-on:click="play">
-      <h1 class="title is-6" :class="{ 'has-text-grey-light': !track.is_playable }">{{ track.name }}</h1>
-      <h2 class="subtitle is-7" :class="{ 'has-text-grey': track.is_playable, 'has-text-grey-light': !track.is_playable }"><b>{{ track.artists[0].name }}</b></h2>
-      <h2 class="subtitle is-7" v-if="!track.is_playable">
-        (Track is not playable, restriction reason: {{ track.restrictions.reason }})
+      <h1 class="title is-6" :class="{ 'has-text-grey-light': track.is_playable === false }">{{ track.name }}</h1>
+      <h2 class="subtitle is-7" :class="{ 'has-text-grey': track.is_playable, 'has-text-grey-light': track.is_playable === false }"><b>{{ track.artists[0].name }}</b></h2>
+      <h2 class="subtitle is-7" v-if="track.is_playable === false">
+        (Track is not playable<span v-if="track.restrictions && track.restrictions.reason">, restriction reason: {{ track.restrictions.reason }}</span>)
       </h2>
     </div>
     <div class="media-right">
