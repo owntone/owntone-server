@@ -53,14 +53,31 @@ yyyymmdd  [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]
 
 [\n\t ]+       /* Ignore whitespace */
 
+               /* This selection of tags is based on what is actually seen from
+                  current Soundsbridges and then some extra that seem plausible
+                  it might use. Add more if needed.
+                */
 artist         { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
 album_artist   { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
 album          { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
 title          { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
 genre          { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
 composer       { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
+path           { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
+fname          { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
+type           { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
+orchestra      { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
+grouping       { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
+url            { yylval->str = strdup(yytext); return RSP_T_STRTAG; }
 
 id             { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
+bitrate        { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
+samplerate     { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
+song_length    { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
+track          { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
+disc           { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
+compilation    { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
+rating         { yylval->str = strdup(yytext); return RSP_T_INTTAG; }
 
 includes       { return RSP_T_INCLUDES; }
 =              { return RSP_T_EQUAL; }
