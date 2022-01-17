@@ -1,6 +1,9 @@
 # Installation instructions for OwnTone
 
-This document contains instructions for installing OwnTone from the git tree.
+This document contains instructions for installing OwnTone from the git tree. If
+you just want to install from a release tarball, you don't need the build tools
+(git, autotools, autoconf, automake, gawk, gperf, gettext, bison and flex), and
+you can skip the autoreconf step.
 
 The source for this version of OwnTone can be found here:
 [owntone/owntone-server](https://github.com/owntone/owntone-server.git)
@@ -19,11 +22,11 @@ libraries:
 ```bash
 sudo apt-get install \
   build-essential git autotools-dev autoconf automake libtool gettext gawk \
-  gperf libconfuse-dev libunistring-dev libsqlite3-dev libprotobuf-c-dev \
+  gperf bison flex libconfuse-dev libunistring-dev libsqlite3-dev \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
   libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
   libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev \
-  libcurl4-openssl-dev
+  libcurl4-openssl-dev libprotobuf-c-dev
 ```
 
 Note that OwnTone will also work with other versions and flavours of
@@ -79,7 +82,7 @@ will need ffmpeg. You can google how to do that. Then run:
 
 ```bash
 sudo yum install \
-  git automake autoconf gettext-devel gperf gawk libtool \
+  git automake autoconf gettext-devel gperf gawk libtool bison flex \
   sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
   libplist-devel libsodium-devel json-c-devel libwebsockets-devel \
@@ -140,16 +143,9 @@ build) ports... you'll want a decent network connection and some patience!
 Install macports (which requires Xcode):
   https://www.macports.org/install.php
 
-Install Apple's Java (this enables java command on OSX 10.7+):
-  https://support.apple.com/kb/DL1572?locale=en_US
-
-Afterwards, you can optionally install Oracle's newer version, and then
-  choose it using the Java pref in the System Preferences:
-  http://www.oracle.com/technetwork/java/javase/downloads/index.html
-
 ```bash
 sudo port install \
-  autoconf automake libtool pkgconfig git gperf libgcrypt \
+  autoconf automake libtool pkgconfig git gperf bison flex libgcrypt \
   libunistring libconfuse ffmpeg libevent json-c libwebsockets curl \
   libplist libsodium protobuf-c
 ```
@@ -228,6 +224,8 @@ Required tools:
 - gettext: libunistring requires iconv and gettext provides the autotools
   macro definitions for iconv.
 - gperf
+- bison 3.0+ (yacc is not sufficient)
+- flex (lex is not sufficient)
 
 Libraries:
 
