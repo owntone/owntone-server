@@ -88,4 +88,7 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
 int
 dmap_encode_queue_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_queue_item *queue_item);
 
+char *
+dmap_query_parse_sql(const char *dmap_query);
+
 #endif /* !__DMAP_HELPERS_H__ */

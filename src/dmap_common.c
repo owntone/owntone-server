@@ -28,7 +28,7 @@
 #include "httpd.h"
 #include "logger.h"
 #include "dmap_common.h"
-
+#include "parsers/daap_parser.h"
 
 /* gperf static hash, dmap_fields.gperf */
 #include "dmap_fields_hash.h"
@@ -635,4 +635,22 @@ dmap_encode_queue_metadata(struct evbuffer *songlist, struct evbuffer *song, str
     }
 
   return 0;
+}
+
+char *
+dmap_query_parse_sql(const char *dmap_query)
+{
+  struct daap_result result;
+
+  DPRINTF(E_SPAM, L_DAAP, "Parse DMAP query input '%s'\n", dmap_query);
+
+  if (daap_lex_parse(&result, dmap_query) != 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not parse '%s': %s\n", dmap_query, result.errmsg);
+      return NULL;
+    }
+
+  DPRINTF(E_SPAM, L_DAAP, "Parse DMAP query output '%s'\n", result.str);
+
+  return safe_strdup(result.str);
 }

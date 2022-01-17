@@ -115,7 +115,6 @@ owntone_SOURCES = main.c \
 	misc.c misc.h \
 	misc_json.c misc_json.h \
 	rng.c rng.h \
-	daap_query.c daap_query.h \
 	smartpl_query.c smartpl_query.h \
 	player.c player.h \
 	worker.c worker.h \
