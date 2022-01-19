@@ -170,10 +170,10 @@ virtual_path_make(char *virtual_path, int virtual_path_len, const char *path)
 
   ret = snprintf(virtual_path, virtual_path_len, "/file:%s", path);
   if ((ret < 0) || (ret >= virtual_path_len))
-  {
-    DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", path, ret, virtual_path_len);
-    return -1;
-  }
+    {
+      DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", path, ret, virtual_path_len);
+      return -1;
+    }
 
   return 0;
 }
@@ -816,7 +816,6 @@ process_directory(char *path, int parent_id, int flags)
   if (!dirp)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not open directory %s: %s\n", path, strerror(errno));
-
       return;
     }
 
@@ -824,7 +823,10 @@ process_directory(char *path, int parent_id, int flags)
 
   ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
   if (ret < 0)
-    return;
+    {
+      closedir(dirp);
+      return;
+    }
 
   dir_id = db_directory_addorupdate(virtual_path, path, 0, parent_id);
   if (dir_id <= 0)
@@ -853,7 +855,6 @@ process_directory(char *path, int parent_id, int flags)
       if (errno)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "readdir error in %s: %s\n", path, strerror(errno));
-
 	  break;
 	}
 
@@ -879,7 +880,6 @@ process_directory(char *path, int parent_id, int flags)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Skipping %s, read_attributes() failed\n", entry);
-
 	  continue;
 	}
 
@@ -916,7 +916,6 @@ process_directory(char *path, int parent_id, int flags)
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
-
       return;
     }
 
@@ -1112,8 +1111,8 @@ static void
 process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
   struct watch_enum we;
+  struct watch_info dummy_wi;
   uint32_t rm_wd;
-  char *s;
   int flags = 0;
   int ret;
   int parent_id;
@@ -1204,12 +1203,9 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
       DPRINTF(E_DBG, L_SCAN, "Directory permissions changed (%s): %s\n", wi->path, path);
 
       // Find out if we are already watching the dir (ret will be 0)
-      s = wi->path;
-      wi->path = path;
-      ret = db_watch_get_bypath(wi);
+      ret = db_watch_get_bypath(&dummy_wi, path);
       if (ret == 0)
-	free(wi->path);
-      wi->path = s;
+	free_wi(&dummy_wi, 1);
 
       // We don't use access() or euidaccess() because they don't work with ACL's
       // - this also means we can't check for executable permission, which stat()
@@ -1237,7 +1233,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  DPRINTF(E_INFO, L_SCAN, "Directory event, but '%s' already being watched\n", path);
 	}
 
-      if (fd > 0)
+      if (fd >= 0)
 	close(fd);
     }
 
@@ -1321,7 +1317,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	  ie->mask |= IN_CLOSE_WRITE;
 	}
 
-      if (fd > 0)
+      if (fd >= 0)
 	close(fd);
     }
 
@@ -1336,7 +1332,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	  ret = virtual_path_make(dir_vpath, sizeof(dir_vpath), path);
 	  if (ret >= 0)
 	    {
-	      ptr = strrchr(dir_vpath, '/');
+	      CHECK_NULL(L_SCAN, ptr = strrchr(dir_vpath, '/'));
 	      *ptr = '\0';
 
 	      dir_id = db_directory_id_byvirtualpath(dir_vpath);
@@ -1539,8 +1535,7 @@ inotify_cb(int fd, short event, void *arg)
        * the memory space for ie[1+] contains the name of the file
        * see the inotify documentation
        */
-      wi.wd = ie->wd;
-      ret = db_watch_get_bywd(&wi);
+      ret = db_watch_get_bywd(&wi, ie->wd);
       if (ret < 0)
 	{
 	  if (!(ie->mask & IN_IGNORED))
@@ -1554,30 +1549,30 @@ inotify_cb(int fd, short event, void *arg)
 	  DPRINTF(E_DBG, L_SCAN, "%s deleted or backing filesystem unmounted!\n", wi.path);
 
 	  db_watch_delete_bywd(ie->wd);
-	  free(wi.path);
+	  free_wi(&wi, 1);
 	  continue;
 	}
 
       path[0] = '\0';
 
-      ret = snprintf(path, PATH_MAX, "%s", wi.path);
-      if ((ret < 0) || (ret >= PATH_MAX))
+      ret = snprintf(path, sizeof(path), "%s", wi.path);
+      if ((ret < 0) || (ret >= sizeof(path)))
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Skipping event under %s, PATH_MAX exceeded\n", wi.path);
 
-	  free(wi.path);
+	  free_wi(&wi, 1);
 	  continue;
 	}
 
       if (ie->len > 0)
 	{
-	  namelen = PATH_MAX - ret;
+	  namelen = sizeof(path) - ret;
 	  ret = snprintf(path + ret, namelen, "/%s", ie->name);
 	  if ((ret < 0) || (ret >= namelen))
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Skipping %s/%s, PATH_MAX exceeded\n", wi.path, ie->name);
 
-	      free(wi.path);
+	      free_wi(&wi, 1);
 	      continue;
 	    }
 	}
@@ -1595,7 +1590,7 @@ inotify_cb(int fd, short event, void *arg)
 #else
 	process_inotify_file_defer(&wi, path, ie);
 #endif
-      free(wi.path);
+      free_wi(&wi, 1);
     }
 
   free(buf);
