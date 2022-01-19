@@ -1310,9 +1310,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
   if (!transcode)
     {
       /* Hint the OS */
-      posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_WILLNEED);
-      posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_SEQUENTIAL);
-      posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_NOREUSE);
+      if ( (ret = posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_WILLNEED)) != 0 ||
+           (ret = posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_SEQUENTIAL)) != 0 ||
+           (ret = posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_NOREUSE)) != 0 )
+	DPRINTF(E_DBG, L_HTTPD, "posix_fadvise() failed with error %d\n", ret);
     }
 #endif
 
@@ -1352,6 +1353,10 @@ httpd_gzip_deflate(struct evbuffer *in)
   strm.zalloc = Z_NULL;
   strm.zfree = Z_NULL;
   strm.opaque = Z_NULL;
+
+  // Just to keep Coverity from complaining about uninitialized values
+  strm.total_in = 0;
+  strm.total_out = 0;
 
   // Set up a gzip stream (the "+ 16" in 15 + 16), instead of a zlib stream (default)
   ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
