@@ -1829,7 +1829,7 @@ jsonapi_reply_outputs_set(struct httpd_request *hreq)
     {
       nspk = json_object_array_length(outputs);
 
-      ids = calloc((nspk + 1), sizeof(uint64_t));
+      CHECK_NULL(L_WEB, ids = calloc((nspk + 1), sizeof(uint64_t)));
       ids[0] = nspk;
 
       ret = 0;
@@ -2502,8 +2502,8 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *param_uris;
   const char *param_expression;
   const char *param;
-  int pos = -1;
-  int limit = -1;
+  int pos;
+  int limit;
   bool shuffle;
   int total_count = 0;
   json_object *reply;
@@ -2522,6 +2522,8 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
       DPRINTF(E_DBG, L_WEB, "Add tracks starting at position '%d\n", pos);
     }
+  else
+    pos = -1;
 
   param_uris = evhttp_find_header(hreq->query, "uris");
   param_expression = evhttp_find_header(hreq->query, "expression");
@@ -2557,9 +2559,10 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
     {
       // This overrides the value specified in query
       param = evhttp_find_header(hreq->query, "limit");
-      if (param)
-        safe_atoi32(param, &limit);
-      ret = queue_tracks_add_byexpression(param_expression, pos, limit, &total_count);
+      if (param && safe_atoi32(param, &limit) == 0)
+	ret = queue_tracks_add_byexpression(param_expression, pos, limit, &total_count);
+      else
+	ret = queue_tracks_add_byexpression(param_expression, pos, -1, &total_count);
     }
 
   if (ret == 0)
@@ -2579,9 +2582,12 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   if (param && strcmp(param, "start") == 0)
     {
       if ((param = evhttp_find_header(hreq->query, "playback_from_position")))
-	play_item_at_position(param);
+	ret = (play_item_at_position(param) == HTTP_NOCONTENT) ? 0 : -1;
       else
-	player_playback_start();
+	ret = player_playback_start();
+
+      if (ret < 0)
+	return HTTP_INTERNAL;
     }
 
   return HTTP_OK;
@@ -2610,10 +2616,11 @@ update_pos(uint32_t item_id, const char *new, char shuffle)
 }
 
 static inline void
-update_str(char **str, const char *new)
+update_str(bool *is_changed, char **str, const char *new)
 {
   free(*str);
   *str = strdup(new);
+  *is_changed = true;
 }
 
 static int
@@ -2629,11 +2636,19 @@ jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
   player_get_status(&status);
 
   if (strcmp(hreq->uri_parsed->path_parts[3], "now_playing") != 0)
-    safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
+    {
+      ret = safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_WEB, "No valid item id given: '%s'\n", hreq->uri_parsed->path);
+	  return HTTP_BADREQUEST;
+	}
+    }
   else
     item_id = status.item_id;
 
-  if (!item_id || !(queue_item = db_queue_fetch_byitemid(item_id)))
+  queue_item = db_queue_fetch_byitemid(item_id);
+  if (!queue_item)
     {
       DPRINTF(E_LOG, L_WEB, "No valid item id given, or now_playing given but not playing: '%s'\n", hreq->uri_parsed->path);
       return HTTP_BADREQUEST;
@@ -2643,20 +2658,20 @@ jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
   is_changed = false;
   if ((param = evhttp_find_header(hreq->query, "new_position")))
     ret = update_pos(item_id, param, status.shuffle);
-  if ((param = evhttp_find_header(hreq->query, "title")) && (is_changed = true))
-    update_str(&queue_item->title, param);
-  if ((param = evhttp_find_header(hreq->query, "album")) && (is_changed = true))
-    update_str(&queue_item->album, param);
-  if ((param = evhttp_find_header(hreq->query, "artist")) && (is_changed = true))
-    update_str(&queue_item->artist, param);
-  if ((param = evhttp_find_header(hreq->query, "album_artist")) && (is_changed = true))
-    update_str(&queue_item->album_artist, param);
-  if ((param = evhttp_find_header(hreq->query, "composer")) && (is_changed = true))
-    update_str(&queue_item->composer, param);
-  if ((param = evhttp_find_header(hreq->query, "genre")) && (is_changed = true))
-    update_str(&queue_item->genre, param);
-  if ((param = evhttp_find_header(hreq->query, "artwork_url")) && (is_changed = true))
-    update_str(&queue_item->artwork_url, param);
+  if ((param = evhttp_find_header(hreq->query, "title")))
+    update_str(&is_changed, &queue_item->title, param);
+  if ((param = evhttp_find_header(hreq->query, "album")))
+    update_str(&is_changed, &queue_item->album, param);
+  if ((param = evhttp_find_header(hreq->query, "artist")))
+    update_str(&is_changed, &queue_item->artist, param);
+  if ((param = evhttp_find_header(hreq->query, "album_artist")))
+    update_str(&is_changed, &queue_item->album_artist, param);
+  if ((param = evhttp_find_header(hreq->query, "composer")))
+    update_str(&is_changed, &queue_item->composer, param);
+  if ((param = evhttp_find_header(hreq->query, "genre")))
+    update_str(&is_changed, &queue_item->genre, param);
+  if ((param = evhttp_find_header(hreq->query, "artwork_url")))
+    update_str(&is_changed, &queue_item->artwork_url, param);
 
   if (ret != HTTP_OK)
     return ret;
