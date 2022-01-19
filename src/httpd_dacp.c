@@ -1410,7 +1410,12 @@ dacp_reply_play(struct httpd_request *hreq)
   if (ret < 0)
     return -1;
 
-  player_playback_start();
+  ret = player_playback_start();
+  if (ret < 0)
+    {
+      httpd_send_error(hreq->req, 500, "Internal Server Error");
+      return -1;
+    }
 
   /* 204 No Content is the canonical reply */
   httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
@@ -2731,10 +2736,12 @@ dacp_reply_mutetoggle(struct httpd_request *hreq)
     }
 
   // We don't actually mute, because the player doesn't currently support unmuting
-  if (speaker_info.selected)
-    player_speaker_disable(speaker_info.id);
-  else
-    player_speaker_enable(speaker_info.id);
+  ret = speaker_info.selected ? player_speaker_disable(speaker_info.id) : player_speaker_enable(speaker_info.id);
+  if (ret < 0)
+    {
+      httpd_send_error(hreq->req, 500, "Internal Server Error");
+      return -1;
+    }
 
   /* 204 No Content is the canonical reply */
   httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);

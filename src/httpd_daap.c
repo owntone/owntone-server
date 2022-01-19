@@ -136,9 +136,6 @@ static struct timeval daap_update_refresh_tv = { DAAP_UPDATE_REFRESH, 0 };
 static void
 daap_session_free(struct daap_session *s)
 {
-  if (!s)
-    return;
-
   free(s);
 }
 
@@ -637,7 +634,7 @@ parse_meta(const struct dmap_field ***out_meta, const char *param)
   CHECK_NULL(L_DAAP, meta = calloc(nmeta, sizeof(const struct dmap_field *)));
 
   field = strtok_r(metastr, ",", &ptr);
-  for (i = 0; i < nmeta; i++)
+  for (i = 0; field != NULL && i < nmeta; i++)
     {
       for (n = 0; (n < i) && (strcmp(field, meta[n]->desc) != 0); n++);
 
@@ -662,8 +659,6 @@ parse_meta(const struct dmap_field ***out_meta, const char *param)
 	}
 
       field = strtok_r(NULL, ",", &ptr);
-      if (!field)
-	break;
     }
 
   free(metastr);
@@ -1185,14 +1180,14 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   struct evbuffer *songlist;
   struct evkeyvalq *headers;
   struct daap_session *s;
-  const struct dmap_field **meta;
+  const struct dmap_field **meta = NULL;
   struct sort_ctx *sctx;
   const char *param;
   const char *client_codecs;
   const char *tag;
   char *last_codectype;
   size_t len;
-  int nmeta;
+  int nmeta = 0;
   int sort_headers;
   int nsongs;
   int transcode;
@@ -1246,18 +1241,12 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 	  goto error;
 	}
     }
-  else
-    {
-      meta = NULL;
-      nmeta = 0;
-    }
 
   ret = db_query_start(&qp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      free(meta);
       dmap_error_make(hreq->reply, tag, "Could not start query");
       goto error;
     }
@@ -1320,7 +1309,6 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   DPRINTF(E_DBG, L_DAAP, "Done with song list, %d songs\n", nsongs);
 
   free(last_codectype);
-  free(meta);
   db_query_end(&qp);
 
   if (ret == -100)
@@ -1361,6 +1349,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
       CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
     }
 
+  free(meta);
   daap_sort_context_free(sctx);
   evbuffer_free(song);
   evbuffer_free(songlist);
@@ -1369,6 +1358,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   return DAAP_REPLY_OK;
 
  error:
+  free(meta);
   daap_sort_context_free(sctx);
   evbuffer_free(song);
   evbuffer_free(songlist);
@@ -1417,7 +1407,7 @@ daap_reply_playlists(struct httpd_request *hreq)
   struct evbuffer *playlist;
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
-  const struct dmap_field **meta;
+  const struct dmap_field **meta = NULL;
   const char *param;
   char **strval;
   size_t len;
@@ -1473,7 +1463,6 @@ daap_reply_playlists(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      free(meta);
       dmap_error_make(hreq->reply, "aply", "Could not start query");
       goto error;
     }
@@ -1585,7 +1574,6 @@ daap_reply_playlists(struct httpd_request *hreq)
     }
 
   db_query_end(&qp);
-  free(meta);
 
   DPRINTF(E_DBG, L_DAAP, "Done with playlist list, %d playlists\n", npls);
 
@@ -1612,6 +1600,7 @@ daap_reply_playlists(struct httpd_request *hreq)
 
   CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, playlistlist));
 
+  free(meta);
   evbuffer_free(playlist);
   evbuffer_free(playlistlist);
   free_query_params(&qp, 1);
@@ -1619,6 +1608,7 @@ daap_reply_playlists(struct httpd_request *hreq)
   return DAAP_REPLY_OK;
 
  error:
+  free(meta);
   evbuffer_free(playlist);
   evbuffer_free(playlistlist);
   free_query_params(&qp, 1);
@@ -1635,7 +1625,7 @@ daap_reply_groups(struct httpd_request *hreq)
   struct evbuffer *grouplist;
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
-  const struct dmap_field **meta;
+  const struct dmap_field **meta = NULL;
   struct sort_ctx *sctx;
   cfg_t *lib;
   const char *param;
@@ -1699,7 +1689,6 @@ daap_reply_groups(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      free(meta);
       dmap_error_make(hreq->reply, tag, "Could not start query");
       goto error;
     }
@@ -1787,7 +1776,6 @@ daap_reply_groups(struct httpd_request *hreq)
     }
 
   db_query_end(&qp);
-  free(meta);
 
   DPRINTF(E_DBG, L_DAAP, "Done with group list, %d groups\n", ngrp);
 
@@ -1829,6 +1817,7 @@ daap_reply_groups(struct httpd_request *hreq)
       CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
     }
 
+  free(meta);
   daap_sort_context_free(sctx);
   evbuffer_free(group);
   evbuffer_free(grouplist);
@@ -1837,6 +1826,7 @@ daap_reply_groups(struct httpd_request *hreq)
   return DAAP_REPLY_OK;
 
  error:
+  free(meta);
   daap_sort_context_free(sctx);
   evbuffer_free(group);
   evbuffer_free(grouplist);
