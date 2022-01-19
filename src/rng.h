@@ -19,7 +19,7 @@ int32_t
 rng_rand_range(struct rng_ctx *ctx, int32_t min, int32_t max);
 
 void
-shuffle_int(struct rng_ctx *ctx, int *values, int len);
+rng_shuffle_int(struct rng_ctx *ctx, int *values, int len);
 
 #endif /* !__RNG_H__ */
 
