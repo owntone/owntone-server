@@ -258,7 +258,7 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
   char strport[8];
   int yes = 1;
   int no = 0;
-  int fd;
+  int fd = -1;
   int ret;
 
   cfgaddr = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
@@ -275,7 +275,7 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
       return -1;
     }
 
-  for (ptr = servinfo, fd = -1; ptr != NULL; ptr = ptr->ai_next)
+  for (ptr = servinfo; ptr != NULL; ptr = ptr->ai_next)
     {
       if (fd >= 0)
 	close(fd);
@@ -338,7 +338,8 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
   return fd;
 
  error:
-  close(fd);
+  if (fd >= 0)
+    close(fd);
   return -1;
 }
 
