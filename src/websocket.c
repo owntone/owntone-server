@@ -23,7 +23,6 @@
 #include <json.h>
 #include <libwebsockets.h>
 #include <pthread.h>
-#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -511,13 +510,19 @@ websocket_init(void)
       return -1;
     }
 
-  pthread_mutex_init(&websocket_write_event_lock, NULL);
-  websocket_write_events = 0;
+  ret = mutex_init(&websocket_write_event_lock);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to initialize mutex: %s\n", strerror(ret));
+      lws_context_destroy(context);
+      return -1;
+    }
+
   ret = pthread_create(&tid_websocket, NULL, websocket, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Could not spawn websocket thread: %s\n", strerror(errno));
-
+      DPRINTF(E_LOG, L_WEB, "Could not spawn websocket thread (%d): %s\n", ret, strerror(ret));
+      pthread_mutex_destroy(&websocket_write_event_lock);
       lws_context_destroy(context);
       return -1;
     }
@@ -530,10 +535,15 @@ websocket_init(void)
 void
 websocket_deinit(void)
 {
-  if (websocket_port > 0)
-    {
-      websocket_exit = true;
-      pthread_join(tid_websocket, NULL);
-      pthread_mutex_destroy(&websocket_write_event_lock);
-    }
+  int ret;
+
+  if (websocket_port <= 0)
+    return;
+
+  websocket_exit = true;
+  ret = pthread_join(tid_websocket, NULL);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_WEB, "Error joining websocket thread (%d): %s\n", ret, strerror(ret));
+
+  pthread_mutex_destroy(&websocket_write_event_lock);
 }
