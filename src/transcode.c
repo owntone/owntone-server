@@ -452,7 +452,12 @@ static int
 stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id)
 {
   const AVCodecDescriptor *codec_desc;
+#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+  const AVCodec *encoder;
+#else
+  // Not const before ffmpeg 5.0
   AVCodec *encoder;
+#endif
   AVDictionary *options = NULL;
   int ret;
 
@@ -916,7 +921,12 @@ avio_evbuffer_close(AVIOContext *s)
 static int
 open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaType type)
 {
+#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+  const AVCodec *decoder;
+#else
+  // Not const before ffmpeg 5.0
   AVCodec *decoder;
+#endif
   int ret;
 
   ret = av_find_best_stream(ctx->ifmt_ctx, type, -1, -1, &decoder, 0);
@@ -964,7 +974,12 @@ open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *
 {
   AVDictionary *options = NULL;
   AVCodecContext *dec_ctx;
+#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+  const AVInputFormat *ifmt;
+#else
+  // Not const before ffmpeg 5.0
   AVInputFormat *ifmt;
+#endif
   unsigned int stream_index;
   const char *user_agent;
   int ret = 0;
@@ -1084,7 +1099,12 @@ close_input(struct decode_ctx *ctx)
 static int
 open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
 {
+#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+  const AVOutputFormat *oformat;
+#else
+  // Not const before ffmpeg 5.0
   AVOutputFormat *oformat;
+#endif
   int ret;
 
   oformat = av_guess_format(ctx->settings.format, NULL, NULL);
@@ -1094,12 +1114,17 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       return -1;
     }
 
-  // Clear AVFMT_NOFILE bit, it is not allowed as we will set our own AVIOContext
+#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+  CHECK_ERRNO(L_XCODE, avformat_alloc_output_context2(&ctx->ofmt_ctx, oformat, NULL, NULL));
+#else
+  // Clear AVFMT_NOFILE bit, it is not allowed as we will set our own AVIOContext.
+  // If this is not done with e.g. ffmpeg 3.4 then artwork rescaling will fail.
   oformat->flags &= ~AVFMT_NOFILE;
 
   CHECK_NULL(L_XCODE, ctx->ofmt_ctx = avformat_alloc_context());
 
   ctx->ofmt_ctx->oformat = oformat;
+#endif
 
   ctx->obuf = evbuffer_new();
   if (!ctx->obuf)
@@ -1513,7 +1538,12 @@ transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality 
 {
   const AVCodecDescriptor *codec_desc;
   struct decode_ctx *ctx;
+#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+  const AVCodec *decoder;
+#else
+  // Not const before ffmpeg 5.0
   AVCodec *decoder;
+#endif
   int ret;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct decode_ctx)));
