@@ -55,6 +55,8 @@
 #define REQUEST_BUFSIZE 4096
 #define ENCRYPTED_LEN_MAX 0x400
 
+// #define DEBUG_SHORT_A 1
+
 enum pair_keys
 {
   PAIR_SETUP_MSG01 = 0,
@@ -418,6 +420,14 @@ srp_user_get_session_key(struct SRPUser *usr, int *key_length)
   return usr->session_key;
 }
 
+#ifdef DEBUG_SHORT_A
+// This value of "a" will yield a 383 byte A
+static uint8_t short_a[] = {
+ 0xef, 0xb5, 0x93, 0xf5, 0x03, 0x97, 0x69, 0x8e, 0x15, 0xed, 0xee, 0x5b, 0xf2, 0xf9, 0x23, 0x6c,
+ 0xf0, 0x59, 0x6c, 0xe2, 0x77, 0xf2, 0x14, 0x16, 0xac, 0x99, 0xfa, 0x31, 0xae, 0x2b, 0xd3, 0x41,
+};
+#endif
+
 /* Output: username, bytes_A, len_A */
 static void
 srp_user_start_authentication(struct SRPUser *usr, const char **username,
@@ -425,6 +435,9 @@ srp_user_start_authentication(struct SRPUser *usr, const char **username,
 {
 //  BN_hex2bn(&(usr->a), "D929DFB605687233C9E9030C2280156D03BDB9FDCF3CCE3BC27D9CCFCB5FF6A1");
   bnum_random(usr->a, 256);
+#ifdef DEBUG_SHORT_A
+  bnum_bin2bn(usr->a, short_a, sizeof(short_a));
+#endif
 #ifdef DEBUG_PAIR
   bnum_dump("Random value of usr->a:\n", usr->a);
 #endif
@@ -459,7 +472,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
   bnum u, x;
 
   *len_M = 0;
-  *bytes_M = 0;
+  *bytes_M = NULL;
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
@@ -499,14 +512,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
       calculate_H_AMK(usr->alg, usr->H_AMK, usr->A, usr->M, usr->session_key, usr->session_key_len);
 
       *bytes_M = usr->M;
-      if (len_M)
-        *len_M = hash_length(usr->alg);
-    }
-  else
-    {
-      *bytes_M = NULL;
-      if (len_M)
-        *len_M   = 0;
+      *len_M = hash_length(usr->alg);
     }
 
  cleanup2:
@@ -1936,6 +1942,7 @@ client_verify_response2(struct pair_verify_context *handle, const uint8_t *data,
 
   handle->status = PAIR_STATUS_COMPLETED;
 
+  pair_tlv_free(response);
   return 0;
 }
 
