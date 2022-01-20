@@ -207,6 +207,10 @@ commands_base_new(struct event_base *evbase, command_exit_cb exit_cb)
   int ret;
 
   cmdbase = calloc(1, sizeof(struct commands_base));
+  if (!cmdbase)
+    {
+      return NULL;
+    }
 
 #ifdef HAVE_PIPE2
   ret = pipe2(cmdbase->command_pipe, O_CLOEXEC);
@@ -370,6 +374,9 @@ commands_exec_async(struct commands_base *cmdbase, command_function func, void *
   int ret;
 
   cmd = calloc(1, sizeof(struct command));
+  if (!cmd)
+    return -1;
+
   cmd->func = func;
   cmd->func_bh = NULL;
   cmd->arg = arg;

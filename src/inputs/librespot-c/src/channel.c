@@ -51,7 +51,7 @@ path_to_media_id_and_type(struct sp_file *file)
 struct sp_channel *
 channel_get(uint32_t channel_id, struct sp_session *session)
 {
-  if (channel_id > sizeof(session->channels)/sizeof(session->channels)[0])
+  if (channel_id >= sizeof(session->channels)/sizeof(session->channels)[0])
     return NULL;
 
   if (session->channels[channel_id].state == SP_CHANNEL_STATE_UNALLOCATED)
@@ -148,6 +148,7 @@ channel_flush(struct sp_channel *channel)
   int fd = channel->audio_fd[0];
   int flags;
   int got;
+  int ret;
 
   evbuffer_drain(channel->audio_buf, -1);
 
@@ -157,13 +158,18 @@ channel_flush(struct sp_channel *channel)
   if (flags == -1)
     return -1;
 
-  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  if (ret < 0)
+    return -1;
 
   do
     got = read(fd, buf, sizeof(buf));
   while (got > 0);
 
-  fcntl(fd, F_SETFL, flags);
+  ret = fcntl(fd, F_SETFL, flags);
+  if (ret < 0)
+    return -1;
+
   return 0;
 }
 

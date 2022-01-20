@@ -351,9 +351,10 @@ request_endpoint(const char *uri)
   json_object *json_response = NULL;
   int ret;
 
-  ctx = calloc(1, sizeof(struct http_client_ctx));
-  ctx->output_headers = calloc(1, sizeof(struct keyval));
-  ctx->input_body = evbuffer_new();
+  CHECK_NULL(L_SPOTIFY, ctx = calloc(1, sizeof(struct http_client_ctx)));
+  CHECK_NULL(L_SPOTIFY, ctx->output_headers = calloc(1, sizeof(struct keyval)));
+  CHECK_NULL(L_SPOTIFY, ctx->input_body = evbuffer_new());
+
   ctx->url = uri;
 
   snprintf(bearer_token, sizeof(bearer_token), "Bearer %s", spotify_credentials.access_token);
@@ -1091,7 +1092,9 @@ spotifywebapi_oauth_uri_get(const char *redirect_uri)
   if (param)
     {
       uri_len = strlen(spotify_auth_uri) + strlen(param) + 3;
-      uri = calloc(uri_len, sizeof(char));
+
+      CHECK_NULL(L_SPOTIFY, uri = calloc(uri_len, sizeof(char)));
+
       snprintf(uri, uri_len, "%s/?%s", spotify_auth_uri, param);
 
       free(param);

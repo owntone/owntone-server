@@ -48,6 +48,7 @@ events for proceeding are activated directly.
 */
 
 #include <pthread.h>
+#include <assert.h>
 
 #include "librespot-c-internal.h"
 #include "commands.h"
@@ -832,6 +833,8 @@ librespotc_write(int fd, sp_progress_cb progress_cb, void *cb_arg)
   struct sp_cmdargs *cmdargs;
 
   cmdargs = calloc(1, sizeof(struct sp_cmdargs));
+
+  assert(cmdargs);
 
   cmdargs->fd_read     = fd;
   cmdargs->progress_cb = progress_cb;
