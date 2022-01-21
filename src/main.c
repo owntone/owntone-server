@@ -364,7 +364,7 @@ signal_signalfd_cb(int fd, short event, void *arg)
   struct signalfd_siginfo info;
   int status;
 
-  while (read(fd, &info, sizeof(struct signalfd_siginfo)) > 0)
+  while (read(fd, &info, sizeof(struct signalfd_siginfo)) == sizeof(struct signalfd_siginfo))
     {
       switch (info.ssi_signo)
 	{

@@ -749,40 +749,40 @@ process_pl_items(plist_t items, int pl_id, const char *name, struct itml_to_db_m
   db_transaction_end();
 }
 
-static int 
+static bool
 ignore_pl(plist_t pl, const char *name)
 {
   uint64_t kind;
-  int smart;
   uint8_t master;
   uint8_t party;
 
-  kind = 0;
-  smart = 0;
-  master = 0;
-  party = 0;
+  if (get_dictval_int_from_key(pl, "Distinguished Kind", &kind) == 0 && kind > 0)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Ignoring iTunes builtin playlist '%s' (k %" PRIu64 ")\n", name, kind);
+      return true;
+    }
 
-  /* Special (builtin) playlists */
-  get_dictval_int_from_key(pl, "Distinguished Kind", &kind);
+  if (get_dictval_bool_from_key(pl, "Master", &master) == 0 && master)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Ignoring iTunes Master playlist '%s'\n", name);
+      return true;
+    }
+
+  if (get_dictval_bool_from_key(pl, "Party Shuffle", &party) == 0 && party)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Ignoring iTunes Party Shuffle playlist '%s'\n", name);
+      return true;
+    }
 
   /* Import smart playlists (optional) */
   if (!cfg_getbool(cfg_getsec(cfg, "library"), "itunes_smartpl")
       && (plist_dict_get_item(pl, "Smart Info") || plist_dict_get_item(pl, "Smart Criteria")))
-    smart = 1;
-
-  /* Not interested in the Master playlist */
-  get_dictval_bool_from_key(pl, "Master", &master);
-  /* Not interested in Party Shuffle playlists */
-  get_dictval_bool_from_key(pl, "Party Shuffle", &party);
-
-  if ((kind > 0) || smart || party || master)
     {
-      DPRINTF(E_INFO, L_SCAN, "Ignoring playlist '%s' (k %" PRIu64 " s%d p%d m%d)\n", name, kind, smart, party, master);
-
-      return 1;
+      DPRINTF(E_INFO, L_SCAN, "Ignoring iTunes smart playlist as set in config '%s'\n", name);
+      return true;
     }
 
-  return 0;
+  return false;
 }
 
 static void

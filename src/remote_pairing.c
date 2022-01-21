@@ -764,7 +764,7 @@ remote_pairing_pair(const char *pin)
       return REMOTE_INVALID_PIN;
     }
 
-  strncpy(cmdarg, pin, sizeof(cmdarg));
+  snprintf(cmdarg, sizeof(cmdarg), "%s", pin);
 
   return commands_exec_sync(cmdbase, pairing_pair, NULL, &cmdarg);
 }

@@ -1702,13 +1702,23 @@ bind_socket_ai(int family, struct addrinfo *ai, int reuse)
         }
 #endif
 
-	if (family == AF_INET6)
-	  setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+	if (family == AF_INET6) {
+		r = setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+		if (r == -1) {
+			event_warn("IPV6_V6ONLY");
+		}
+	}
 
-        setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&on, sizeof(on));
+        r = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&on, sizeof(on));
+	if (r == -1) {
+		event_warn("SO_KEEPALIVE");
+	}
+
 	if (reuse) {
-		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
-		    (void *)&on, sizeof(on));
+		r = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on));
+		if (r == -1) {
+			event_warn("SO_REUSEADDR");
+		}
 	}
 
 	if (ai != NULL) {

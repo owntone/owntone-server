@@ -88,22 +88,21 @@ command_cb_sync(struct commands_base *cmdbase, struct command *cmd)
       // Command execution is waiting for pending events before returning to the caller
       cmdbase->current_cmd = cmd;
       cmd->pending = cmd->ret;
+      return;
     }
-  else
-    {
-      // Command execution finished, execute the bottom half function
-      if (cmd->ret == 0 && cmd->func_bh)
-	cmd->func_bh(cmd->arg, &cmd->ret);
 
-      event_add(cmdbase->command_event, NULL);
+  // Command execution finished, execute the bottom half function
+  if (cmd->ret == 0 && cmd->func_bh)
+    cmd->func_bh(cmd->arg, &cmd->ret);
 
-      // Signal the calling thread that the command execution finished
-      CHECK_ERR(L_MAIN, pthread_cond_signal(&cmd->cond));
-      CHECK_ERR(L_MAIN, pthread_mutex_unlock(&cmd->lck));
+  event_add(cmdbase->command_event, NULL);
 
-      // Note if cmd->func was cmdloop_exit then cmdbase may be invalid now,
-      // because commands_base_destroy() may have freed it
-    }
+  // Signal the calling thread that the command execution finished
+  CHECK_ERR(L_MAIN, pthread_cond_signal(&cmd->cond));
+  CHECK_ERR(L_MAIN, pthread_mutex_unlock(&cmd->lck));
+
+  // Note if cmd->func was cmdloop_exit then cmdbase may be invalid now,
+  // because commands_base_destroy() may have freed it
 }
 
 /*
@@ -357,7 +356,7 @@ commands_exec_async(struct commands_base *cmdbase, command_function func, void *
   struct command *cmd;
   int ret;
 
-  cmd = calloc(1, sizeof(struct command));
+  CHECK_NULL(L_MAIN, cmd = calloc(1, sizeof(struct command)));
   cmd->func = func;
   cmd->func_bh = NULL;
   cmd->arg = arg;

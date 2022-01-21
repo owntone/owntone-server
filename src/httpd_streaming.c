@@ -645,6 +645,7 @@ streaming_init(void)
     default:
       DPRINTF(E_LOG, L_STREAMING, "Unsuppported streaming bit_rate=%d, supports: 64/96/128/192/320, defaulting\n", val);
   }
+
   DPRINTF(E_INFO, L_STREAMING, "Streaming quality: %d/%d/%d @ %dkbps\n", streaming_quality_out.sample_rate, streaming_quality_out.bits_per_sample, streaming_quality_out.channels, streaming_quality_out.bit_rate/1000);
 
   val = cfg_getint(cfgsec, "icy_metaint");
@@ -654,7 +655,12 @@ streaming_init(void)
   else
     DPRINTF(E_INFO, L_STREAMING, "Unsupported icy_metaint=%d, supported range: 4096..131072, defaulting to %d\n", val, streaming_icy_metaint);
 
-  pthread_mutex_init(&streaming_sessions_lck, NULL);
+  ret = mutex_init(&streaming_sessions_lck);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_STREAMING, "Could not initialize mutex (%d): %s\n", ret, strerror(ret));
+      goto error;
+    }
 
   // Non-blocking because otherwise httpd and player thread may deadlock
 #ifdef HAVE_PIPE2

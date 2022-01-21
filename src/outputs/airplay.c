@@ -559,7 +559,8 @@ device_id_colon_parse(uint64_t *id, const char *id_str)
   char *ptr;
   int ret;
 
-  s = calloc(1, strlen(id_str) + 1);
+  CHECK_NULL(L_AIRPLAY, s = calloc(1, strlen(id_str) + 1));
+
   for (ptr = s; *id_str != '\0'; id_str++)
     {
       if (*id_str == ':')

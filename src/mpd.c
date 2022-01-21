@@ -811,7 +811,8 @@ parse_group_params(int argc, char **argv, bool group_in_listcommand, struct quer
     return 0;
 
   *groupsize = (argc - first_group) / 2;
-  *group = calloc(*groupsize, sizeof(struct mpd_tagtype *));
+
+  CHECK_NULL(L_MPD, *group = calloc(*groupsize, sizeof(struct mpd_tagtype *)));
 
   // Now process all group/field arguments
   for (j = 0; j < (*groupsize); j++)
@@ -3557,7 +3558,7 @@ output_get_cb(struct player_speaker_info *spk, void *arg)
   if (!param->output
       && param->shortid == (unsigned short) spk->id)
     {
-      param->output =  calloc(1, sizeof(struct output));
+      CHECK_NULL(L_MPD, param->output = calloc(1, sizeof(struct output)));
 
       param->output->id = spk->id;
       param->output->shortid = (unsigned short) spk->id;

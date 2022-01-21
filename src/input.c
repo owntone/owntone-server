@@ -217,7 +217,7 @@ metadata_get(struct input_source *source)
   if (!inputs[source->type]->metadata_get)
     return NULL;
 
-  metadata = calloc(1, sizeof(struct input_metadata));
+  CHECK_NULL(L_PLAYER, metadata = calloc(1, sizeof(struct input_metadata)));
 
   ret = inputs[source->type]->metadata_get(metadata, source);
   if (ret < 0)
@@ -890,8 +890,8 @@ input_init(void)
   int i;
 
   // Prepare input buffer
-  pthread_mutex_init(&input_buffer.mutex, NULL);
-  pthread_cond_init(&input_buffer.cond, NULL);
+  CHECK_ERR(L_PLAYER, mutex_init(&input_buffer.mutex));
+  CHECK_ERR(L_PLAYER, pthread_cond_init(&input_buffer.cond, NULL));
 
   CHECK_NULL(L_PLAYER, evbase_input = event_base_new());
   CHECK_NULL(L_PLAYER, input_buffer.evbuf = evbuffer_new());

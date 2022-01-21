@@ -620,7 +620,7 @@ response_aplogin_failed(uint8_t *payload, size_t payload_len, struct sp_session 
     }
 
   sp_errmsg = "(unknown login error)";
-  for (int i = 0; i < sizeof(sp_login_errors); i++)
+  for (int i = 0; i < sizeof(sp_login_errors)/sizeof(sp_login_errors[0]); i++)
     {
       if (sp_login_errors[i].errorcode != aplogin_failed->error_code)
 	continue;

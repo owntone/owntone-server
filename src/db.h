@@ -574,6 +574,9 @@ void
 free_di(struct directory_info *di, int content_only);
 
 void
+free_wi(struct watch_info *wi, int content_only);
+
+void
 free_query_params(struct query_params *qp, int content_only);
 
 void
@@ -960,28 +963,28 @@ int
 db_watch_delete_bywd(uint32_t wd);
 
 int
-db_watch_delete_bypath(char *path);
+db_watch_delete_bypath(const char *path);
 
 int
-db_watch_delete_bymatch(char *path);
+db_watch_delete_bymatch(const char *path);
 
 int
 db_watch_delete_bycookie(uint32_t cookie);
 
 int
-db_watch_get_bywd(struct watch_info *wi);
+db_watch_get_bywd(struct watch_info *wi, int wd);
 
 int
-db_watch_get_bypath(struct watch_info *wi);
+db_watch_get_bypath(struct watch_info *wi, const char *path);
 
 void
-db_watch_mark_bypath(char *path, enum strip_type strip, uint32_t cookie);
+db_watch_mark_bypath(const char *path, enum strip_type strip, uint32_t cookie);
 
 void
-db_watch_mark_bymatch(char *path, enum strip_type strip, uint32_t cookie);
+db_watch_mark_bymatch(const char *path, enum strip_type strip, uint32_t cookie);
 
 void
-db_watch_move_bycookie(uint32_t cookie, char *path);
+db_watch_move_bycookie(uint32_t cookie, const char *path);
 
 int
 db_watch_cookie_known(uint32_t cookie);

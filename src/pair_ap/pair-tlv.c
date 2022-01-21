@@ -70,6 +70,9 @@ pair_tlv_new() {
 
 void
 pair_tlv_free(pair_tlv_values_t *values) {
+    if (!values)
+        return;
+
     pair_tlv_t *t = values->head;
     while (t) {
         pair_tlv_t *t2 = t;

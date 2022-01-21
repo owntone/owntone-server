@@ -851,7 +851,13 @@ parent_dir_image_find(char *out_path, size_t len, const char *dir)
       DPRINTF(E_LOG, L_ART, "Could not find parent dir name (%s)\n", path);
       return -1;
     }
-  strcpy(parentdir, ptr + 1);
+
+  ret = snprintf(parentdir, sizeof(parentdir), "%s", ptr + 1);
+  if ((ret < 0) || (ret >= sizeof(parentdir)))
+    {
+      DPRINTF(E_LOG, L_ART, "Impossible error occured in parent_dir_image_find(), cause was: %s\n", ptr + 1);
+      return -1;
+    }
 
   path_len = strlen(path);
   nextensions = ARRAY_SIZE(cover_extension);

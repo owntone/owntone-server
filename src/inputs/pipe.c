@@ -180,7 +180,7 @@ pipe_create(const char *path, int id, enum pipetype type, event_callback_fn cb)
 {
   struct pipe *pipe;
 
-  pipe = calloc(1, sizeof(struct pipe));
+  CHECK_NULL(L_PLAYER, pipe = calloc(1, sizeof(struct pipe)));
   pipe->path  = strdup(path);
   pipe->id    = id;
   pipe->fd    = -1;
@@ -916,9 +916,6 @@ pipe_metadata_watch_add(void *arg)
   pipe_metadata_watch_del(NULL); // Just in case we somehow already have a metadata pipe open
 
   pipe_metadata.pipe = pipe_create(path, 0, PIPE_METADATA, pipe_metadata_read_cb);
-  if (!pipe_metadata.pipe)
-    return;
-
   pipe_metadata.evbuf = evbuffer_new();
 
   ret = watch_add(pipe_metadata.pipe);
@@ -948,13 +945,18 @@ pipe_thread_start(void)
 static void
 pipe_thread_stop(void)
 {
+  int ret;
+
   if (!tid_pipe)
     return;
 
   commands_exec_sync(cmdbase, pipe_watch_update, NULL, NULL);
-
   commands_base_destroy(cmdbase);
-  pthread_join(tid_pipe, NULL);
+
+  ret = pthread_join(tid_pipe, NULL);
+  if (ret != 0)
+    DPRINTF(E_LOG, L_PLAYER, "Could not join pipe thread: %s\n", strerror(errno));
+
   event_base_free(evbase_pipe);
   tid_pipe = 0;
 }
@@ -1037,8 +1039,9 @@ setup(struct input_source *source)
   if (fd < 0)
     return -1;
 
-  CHECK_NULL(L_PLAYER, pipe = pipe_create(source->path, source->id, PIPE_PCM, NULL));
   CHECK_NULL(L_PLAYER, source->evbuf = evbuffer_new());
+
+  pipe = pipe_create(source->path, source->id, PIPE_PCM, NULL);
 
   pipe->fd = fd;
   pipe->is_autostarted = (source->id == pipe_autostart_id);

@@ -948,6 +948,7 @@ sync_correct(struct alsa_playback_session *pb, double drift, double latency, str
 {
   int step;
   int sign;
+  int ret;
 
   // We change the sample_rate in steps that are a multiple of 50. So we might
   // step 44100 -> 44000 -> 40900 -> 44000 -> 44100. If we used percentages to
@@ -975,7 +976,14 @@ sync_correct(struct alsa_playback_session *pb, double drift, double latency, str
   pb->quality.sample_rate += sign * step;
 
   if (pb->sync_resample_step != 0)
-    outputs_quality_subscribe(&pb->quality);
+    {
+      ret = outputs_quality_subscribe(&pb->quality);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Error adjusting sample rate to %d to maintain sync\n", pb->quality.sample_rate);
+	  return;
+	}
+    }
 
   // Reset position so next sync_correct latency correction is only based on
   // what has elapsed since our correction

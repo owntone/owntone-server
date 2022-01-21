@@ -776,6 +776,20 @@ free_di(struct directory_info *di, int content_only)
 }
 
 void
+free_wi(struct watch_info *wi, int content_only)
+{
+  if (!wi)
+    return;
+
+  free(wi->path);
+
+  if (!content_only)
+    free(wi);
+  else
+    memset(wi, 0, sizeof(struct watch_info));
+}
+
+void
 free_query_params(struct query_params *qp, int content_only)
 {
   if (!qp)
@@ -2682,8 +2696,8 @@ db_query_fetch_string_sort(char **string, char **sortstring, struct query_params
 int
 db_files_get_count(uint32_t *nitems, uint32_t *nstreams, const char *filter)
 {
-  sqlite3_stmt *stmt;
-  char *query;
+  sqlite3_stmt *stmt = NULL;
+  char *query = NULL;
   int ret;
 
   if (!filter && !nstreams)
@@ -2698,17 +2712,16 @@ db_files_get_count(uint32_t *nitems, uint32_t *nstreams, const char *filter)
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
+      goto error;
     }
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
   ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
-  sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-      return -1;
+      goto error;
     }
 
   ret = db_blocking_step(stmt);
@@ -2719,8 +2732,7 @@ db_files_get_count(uint32_t *nitems, uint32_t *nstreams, const char *filter)
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s (%s)\n", sqlite3_errmsg(hdl), query);
 
-      sqlite3_finalize(stmt);
-      return -1;
+      goto error;
     }
 
   if (nitems)
@@ -2733,9 +2745,16 @@ db_files_get_count(uint32_t *nitems, uint32_t *nstreams, const char *filter)
     ; /* EMPTY */
 #endif
 
+  sqlite3_free(query);
   sqlite3_finalize(stmt);
-
   return 0;
+
+ error:
+  if (query)
+    sqlite3_free(query);
+  if (stmt)
+    sqlite3_finalize(stmt);
+  return -1;
 }
 
 static void
@@ -6059,10 +6078,10 @@ queue_reshuffle(uint32_t item_id, int queue_version)
   int pos;
   uint32_t count;
   struct db_queue_item queue_item;
-  int *shuffle_pos;
+  int *shuffle_pos = NULL;
   int len;
   int i;
-  struct query_params qp;
+  struct query_params qp = { 0 };
   int ret;
 
   DPRINTF(E_DBG, L_DB, "Reshuffle queue after item with item-id: %d\n", item_id);
@@ -6071,43 +6090,39 @@ queue_reshuffle(uint32_t item_id, int queue_version)
   query = sqlite3_mprintf("UPDATE queue SET shuffle_pos = pos, queue_version = %d;", queue_version);
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
-    return -1;
+    goto error;
 
   pos = 0;
   if (item_id > 0)
     {
       pos = db_queue_get_pos(item_id, 0);
       if (pos < 0)
-	return -1;
+	goto error;
 
       pos++; // Do not reshuffle the base item
     }
 
   ret = db_queue_get_count(&count);
   if (ret < 0)
-    return -1;
+    goto error;
 
   len = count - pos;
 
   DPRINTF(E_DBG, L_DB, "Reshuffle %d items off %" PRIu32 " total items, starting from pos %d\n", len, count, pos);
 
-  shuffle_pos = malloc(len * sizeof(int));
+  CHECK_NULL(L_DB, shuffle_pos = malloc(len * sizeof(int)));
   for (i = 0; i < len; i++)
     {
       shuffle_pos[i] = i + pos;
     }
 
-  shuffle_int(&shuffle_rng, shuffle_pos, len);
+  rng_shuffle_int(&shuffle_rng, shuffle_pos, len);
 
-  memset(&qp, 0, sizeof(struct query_params));
   qp.filter = sqlite3_mprintf("pos >= %d", pos);
 
   ret = queue_enum_start(&qp);
   if (ret < 0)
-    {
-      sqlite3_free(qp.filter);
-      return -1;
-    }
+    goto error;
 
   i = 0;
   while ((ret = queue_enum_fetch(&qp, &queue_item, 0)) == 0 && (queue_item.id > 0) && (i < len))
@@ -6124,12 +6139,18 @@ queue_reshuffle(uint32_t item_id, int queue_version)
     }
 
   db_query_end(&qp);
-  sqlite3_free(qp.filter);
 
   if (ret < 0)
-    return -1;
+    goto error;
 
+  sqlite3_free(qp.filter);
+  free(shuffle_pos);
   return 0;
+
+ error:
+  sqlite3_free(qp.filter);
+  free(shuffle_pos);
+  return -1;
 }
 
 /*
@@ -6216,7 +6237,7 @@ db_watch_delete_bywd(uint32_t wd)
 }
 
 int
-db_watch_delete_bypath(char *path)
+db_watch_delete_bypath(const char *path)
 {
 #define Q_TMPL "DELETE FROM inotify WHERE path = '%q';"
   char *query;
@@ -6228,7 +6249,7 @@ db_watch_delete_bypath(char *path)
 }
 
 int
-db_watch_delete_bymatch(char *path)
+db_watch_delete_bymatch(const char *path)
 {
 #define Q_TMPL "DELETE FROM inotify WHERE path LIKE '%q/%%';"
   char *query;
@@ -6316,12 +6337,12 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
 }
 
 int
-db_watch_get_bywd(struct watch_info *wi)
+db_watch_get_bywd(struct watch_info *wi, int wd)
 {
 #define Q_TMPL "SELECT * FROM inotify WHERE wd = %d;"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, wi->wd);
+  query = sqlite3_mprintf(Q_TMPL, wd);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -6333,12 +6354,12 @@ db_watch_get_bywd(struct watch_info *wi)
 }
 
 int
-db_watch_get_bypath(struct watch_info *wi)
+db_watch_get_bypath(struct watch_info *wi, const char *path)
 {
 #define Q_TMPL "SELECT * FROM inotify WHERE path = '%q';"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, wi->path);
+  query = sqlite3_mprintf(Q_TMPL, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -6350,7 +6371,7 @@ db_watch_get_bypath(struct watch_info *wi)
 }
 
 void
-db_watch_mark_bypath(char *path, enum strip_type strip, uint32_t cookie)
+db_watch_mark_bypath(const char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE inotify SET path = substr(path, %d), cookie = %" PRIi64 " WHERE path = '%q';"
   char *query;
@@ -6368,7 +6389,7 @@ db_watch_mark_bypath(char *path, enum strip_type strip, uint32_t cookie)
 }
 
 void
-db_watch_mark_bymatch(char *path, enum strip_type strip, uint32_t cookie)
+db_watch_mark_bymatch(const char *path, enum strip_type strip, uint32_t cookie)
 {
 #define Q_TMPL "UPDATE inotify SET path = substr(path, %d), cookie = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
@@ -6386,7 +6407,7 @@ db_watch_mark_bymatch(char *path, enum strip_type strip, uint32_t cookie)
 }
 
 void
-db_watch_move_bycookie(uint32_t cookie, char *path)
+db_watch_move_bycookie(uint32_t cookie, const char *path)
 {
 #define Q_TMPL "UPDATE inotify SET path = '%q' || path, cookie = 0 WHERE cookie = %" PRIi64 ";"
   char *query;
@@ -6611,8 +6632,6 @@ db_pragma_get_cache_size()
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
       return 0;
     }
 
@@ -6620,13 +6639,11 @@ db_pragma_get_cache_size()
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
-      sqlite3_free(query);
       return 0;
     }
   else if (ret != SQLITE_ROW)
     {
       DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-      sqlite3_free(query);
       return -1;
     }
 
@@ -6717,8 +6734,6 @@ db_pragma_get_synchronous()
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
       return 0;
     }
 
@@ -6726,13 +6741,11 @@ db_pragma_get_synchronous()
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
-      sqlite3_free(query);
       return 0;
     }
   else if (ret != SQLITE_ROW)
     {
       DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-      sqlite3_free(query);
       return -1;
     }
 
@@ -6781,8 +6794,6 @@ db_pragma_get_mmap_size()
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
       return 0;
     }
 
@@ -6790,13 +6801,11 @@ db_pragma_get_mmap_size()
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
-      sqlite3_free(query);
       return 0;
     }
   else if (ret != SQLITE_ROW)
     {
       DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-      sqlite3_free(query);
       return -1;
     }
 

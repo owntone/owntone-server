@@ -347,7 +347,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
   bnum u, x;
 
   *len_M = 0;
-  *bytes_M = 0;
+  *bytes_M = NULL;
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
@@ -384,14 +384,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
       calculate_H_AMK(usr->alg, usr->H_AMK, usr->A, usr->M, usr->session_key, usr->session_key_len);
 
       *bytes_M = usr->M;
-      if (len_M)
-        *len_M = hash_length(usr->alg);
-    }
-  else
-    {
-      *bytes_M = NULL;
-      if (len_M)
-        *len_M   = 0;
+      *len_M = hash_length(usr->alg);
     }
 
  cleanup2:

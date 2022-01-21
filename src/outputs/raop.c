@@ -931,7 +931,7 @@ static int
 raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
 {
   const char *param;
-  char *auth;
+  char *auth = NULL;
   char *token;
   char *ptr;
 
@@ -951,8 +951,7 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
   if (!param)
     {
       DPRINTF(E_LOG, L_RAOP, "WWW-Authenticate header not found\n");
-
-      return -1;
+      goto error;
     }
 
   DPRINTF(E_DBG, L_RAOP, "WWW-Authenticate: %s\n", param);
@@ -960,19 +959,23 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
   if (strncmp(param, "Digest ", strlen("Digest ")) != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Unsupported authentication method: %s\n", param);
-
-      return -1;
+      goto error;
     }
 
   auth = strdup(param);
   if (!auth)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for WWW-Authenticate header copy\n");
-
-      return -1;
+      goto error;
     }
 
   token = strchr(auth, ' ');
+  if (!token)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Unexpected WWW-Authenticate auth\n");
+      goto error;
+    }
+
   token++;
 
   token = strtok_r(token, " =", &ptr);
@@ -998,8 +1001,6 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
       token = strtok_r(NULL, " =", &ptr);
     }
 
-  free(auth);
-
   if (!rs->realm || !rs->nonce)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not find realm/nonce in WWW-Authenticate header\n");
@@ -1016,12 +1017,17 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
 	  rs->nonce = NULL;
 	}
 
-      return -1;
+      goto error;
     }
 
   DPRINTF(E_DBG, L_RAOP, "Found realm: [%s], nonce: [%s]\n", rs->realm, rs->nonce);
 
+  free(auth);
   return 0;
+
+ error:
+  free(auth);
+  return -1;
 }
 
 static int
@@ -3363,6 +3369,14 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
     }
 
   token = strchr(transport, ';');
+  if (!token)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Missing semicolon in Transport header: %s\n", transport);
+
+      free(transport);
+      goto cleanup;
+    }
+
   token++;
 
   token = strtok_r(token, ";=", &ptr);
