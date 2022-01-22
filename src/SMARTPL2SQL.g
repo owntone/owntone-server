@@ -304,6 +304,21 @@ expression	returns [ pANTLR3_STRING result, pANTLR3_STRING orderby, pANTLR3_STRI
 					sprintf(str, "f.data_kind = \%d", DATA_KIND_PIPE);
 				}
 			}
+			else if (strcmp((char *)tag, "scan_kind") == 0)
+			{
+				if (strcmp((char *)val, "files") == 0)
+				{
+					sprintf(str, "f.scan_kind = \%d", SCAN_KIND_FILES);
+				}
+				else if (strcmp((char *)val, "spotify") == 0)
+				{
+					sprintf(str, "f.scan_kind = \%d", SCAN_KIND_SPOTIFY);
+				}
+				else if (strcmp((char *)val, "rss") == 0)
+				{
+					sprintf(str, "f.scan_kind = \%d", SCAN_KIND_RSS);
+				}
+			}
 			
 			$result = $ENUMTAG.text->factory->newRaw($ENUMTAG.text->factory);
 			$result->append8($result, str);
