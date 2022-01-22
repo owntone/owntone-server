@@ -11,11 +11,10 @@
     "dev": "vue-cli-service serve"
   },
   "dependencies": {
-    "axios": "^0.24.0",
+    "axios": "^0.25.0",
     "bulma": "^0.9.3",
-    "bulma-switch": "^2.0.0",
+    "bulma-switch": "^2.0.4",
     "core-js": "^3.15.2",
-    "follow-redirects": "^1.14.7",
     "mdi": "^2.2.43",
     "moment": "^2.29.1",
     "moment-duration-format": "^2.3.2",
