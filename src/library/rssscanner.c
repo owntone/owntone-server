@@ -217,6 +217,7 @@ playlist_fetch(bool *is_new, const char *path)
   pli->directory_id = DIR_HTTP;
   pli->type = PL_RSS;
   pli->query_limit = RSS_LIMIT_DEFAULT;
+  pli->scan_kind = SCAN_KIND_RSS;
 
   ret = library_playlist_save(pli);
   if (ret < 0)
@@ -487,6 +488,7 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
 	}
 
       scan_metadata_stream(&mfi, ri.url);
+      mfi.scan_kind = SCAN_KIND_RSS;
 
       mfi_metadata_fixup(&mfi, &ri, feed_title, feed_author, time_added);
 
@@ -641,7 +643,7 @@ rss_add(const char *path)
 
 struct library_source rssscanner =
 {
-  .name = "RSS feeds",
+  .scan_kind = SCAN_KIND_RSS,
   .disabled = 0,
   .initscan = rss_rescan,
   .rescan = rss_rescan,

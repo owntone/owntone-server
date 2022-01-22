@@ -159,6 +159,7 @@ scan_metadata_stream(struct media_file_info *mfi, const char *path)
   mfi->data_kind = DATA_KIND_HTTP;
   mfi->time_modified = time(NULL);
   mfi->directory_id = DIR_HTTP;
+  mfi->scan_kind = SCAN_KIND_FILES;
 
   ret = scan_metadata_ffmpeg(mfi, path);
   if (ret < 0)
@@ -186,6 +187,7 @@ process_nested_playlist(int parent_id, const char *path)
     goto error;
 
   pli->type = PL_FOLDER;
+  pli->scan_kind = SCAN_KIND_FILES;
   ret = library_playlist_save(pli);
   if (ret < 0)
     goto error;

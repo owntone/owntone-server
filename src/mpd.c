@@ -3203,7 +3203,7 @@ mpd_command_update(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
       return ACK_ERROR_ARG;
     }
 
-  library_rescan();
+  library_rescan(0);
 
   evbuffer_add(evbuf, "updating_db: 1\n", 15);
 
