@@ -606,34 +606,12 @@ The source for this version of OwnTone can be found here:
 
 README's for current and previous versions of OwnTone:
 
+  [OwnTone version 28.3](https://github.com/owntone/owntone-server/blob/28.3/README.md)
+
   [OwnTone version 28.2](https://github.com/owntone/owntone-server/blob/28.2/README.md)
 
   [OwnTone version 28.1](https://github.com/owntone/owntone-server/blob/28.1/README.md)
 
-Older versions from when OwnTone was forked-daapd:
+README from when OwnTone was forked-daapd:
 
   [forked-daapd version 27.4](https://github.com/owntone/owntone-server/blob/27.4/README.md)
-
-  [forked-daapd version 27.2](https://github.com/owntone/owntone-server/blob/27.2/README.md)
-
-  [forked-daapd version 27.1](https://github.com/owntone/owntone-server/blob/27.1/README.md)
-
-  [forked-daapd version 27.0](https://github.com/owntone/owntone-server/blob/27.0/README.md)
-
-  [forked-daapd version 26.5](https://github.com/owntone/owntone-server/blob/26.5/README.md)
-
-  [forked-daapd version 26.4](https://github.com/owntone/owntone-server/blob/26.4/README.md)
-
-  [forked-daapd version 26.3](https://github.com/owntone/owntone-server/blob/26.3/README.md)
-
-  [forked-daapd version 26.2](https://github.com/owntone/owntone-server/blob/26.2/README.md)
-
-  [forked-daapd version 26.1](https://github.com/owntone/owntone-server/blob/26.1/README.md)
-
-  [forked-daapd version 26.0](https://github.com/owntone/owntone-server/blob/26.0/README.md)
-
-  [forked-daapd version 25.0](https://github.com/owntone/owntone-server/blob/25.0/README.md)
-
-  [forked-daapd version 24.2](https://github.com/owntone/owntone-server/blob/24.2/README.md)
-
-  [forked-daapd version 24.1](https://github.com/owntone/owntone-server/blob/24.1/README.md)

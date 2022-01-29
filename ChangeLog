@@ -1,6 +1,24 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.3
+	- web UI improvements, e.g.:
+		composer views
+		partial scan (e.g. only update RSS feeds)
+		fix http stream button not clickable in mobile view
+		fix Spotify playlists not showing
+		handling of not playable Spotify tracks
+		handling of podcast play counts
+	- support for Spotify podcasts
+	- updates for ffmpeg 5
+	- better Spotify logout
+	- user "usermark" field for user flagging of various track states
+	- fix for 0-byte files crashing ffmpeg
+	- fix metadata pipe deadlock and artwork memleak-on-error
+	- better handling of Spotify disconnects
+	- fix rare Airplay pairing error
+	- many minor error handling fixes
+
 version 28.2
 	- add Spotify integration that doesn't depend on libspotify
 	- partial support for AirPlay events (Homepod buttons)
