@@ -398,7 +398,7 @@ static int result_set(struct rsp_result *result, struct ast *a)
 %%
 
 query:
-  criteria                                              { return result_set(result, $1); }
+  criteria                                              { if (result_set(result, $1) < 0) YYABORT; }
 ;
 
 criteria: criteria RSP_T_AND criteria                   { $$ = ast_new(RSP_T_AND, $1, $3); }

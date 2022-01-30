@@ -425,8 +425,8 @@ static int result_set(struct daap_result *result, struct ast *a)
 %%
 
 query:
-  expr                           { return result_set(result, $1); }
-| expr DAAP_T_NEWLINE            { return result_set(result, $1); }
+  expr                           { if (result_set(result, $1) < 0) YYABORT; }
+| expr DAAP_T_NEWLINE            { if (result_set(result, $1) < 0) YYABORT; }
 ;
 
 expr:

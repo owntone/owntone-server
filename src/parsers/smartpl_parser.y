@@ -542,14 +542,14 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %%
 
 playlist:
-  SMARTPL_T_STRING '{' criteria having order limit '}'      { return result_set(result, $1, $3, $4, $5, $6); }
-| SMARTPL_T_STRING '{' criteria having order '}'            { return result_set(result, $1, $3, $4, $5, NULL); }
-| SMARTPL_T_STRING '{' criteria having limit '}'            { return result_set(result, $1, $3, $4, NULL, $5); }
-| SMARTPL_T_STRING '{' criteria having '}'                  { return result_set(result, $1, $3, $4, NULL, NULL); }
-| SMARTPL_T_STRING '{' criteria order limit '}'             { return result_set(result, $1, $3, NULL, $4, $5); }
-| SMARTPL_T_STRING '{' criteria order '}'                   { return result_set(result, $1, $3, NULL, $4, NULL); }
-| SMARTPL_T_STRING '{' criteria limit '}'                   { return result_set(result, $1, $3, NULL, NULL, $4); }
-| SMARTPL_T_STRING '{' criteria '}'                         { return result_set(result, $1, $3, NULL, NULL, NULL); }
+  SMARTPL_T_STRING '{' criteria having order limit '}'      { if (result_set(result, $1, $3, $4, $5, $6) < 0) YYABORT; }
+| SMARTPL_T_STRING '{' criteria having order '}'            { if (result_set(result, $1, $3, $4, $5, NULL) < 0) YYABORT; }
+| SMARTPL_T_STRING '{' criteria having limit '}'            { if (result_set(result, $1, $3, $4, NULL, $5) < 0) YYABORT; }
+| SMARTPL_T_STRING '{' criteria having '}'                  { if (result_set(result, $1, $3, $4, NULL, NULL) < 0) YYABORT; }
+| SMARTPL_T_STRING '{' criteria order limit '}'             { if (result_set(result, $1, $3, NULL, $4, $5) < 0) YYABORT; }
+| SMARTPL_T_STRING '{' criteria order '}'                   { if (result_set(result, $1, $3, NULL, $4, NULL) < 0) YYABORT; }
+| SMARTPL_T_STRING '{' criteria limit '}'                   { if (result_set(result, $1, $3, NULL, NULL, $4) < 0) YYABORT; }
+| SMARTPL_T_STRING '{' criteria '}'                         { if (result_set(result, $1, $3, NULL, NULL, NULL) < 0) YYABORT; }
 ;
 
 criteria: criteria SMARTPL_T_AND criteria                   { $$ = ast_new(SMARTPL_T_AND, $1, $3); }
