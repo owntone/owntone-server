@@ -90,6 +90,12 @@ smartpl_query_parse_string(struct smartpl *smartpl, const char *expression)
 {
   struct smartpl_result result;
 
+  if (!expression)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Parse smartpl query input is null\n");
+      return -1;
+    }
+
   DPRINTF(E_SPAM, L_SCAN, "Parse smartpl query input '%s'\n", expression);
 
   if (smartpl_lex_parse(&result, expression) != 0)
@@ -98,7 +104,7 @@ smartpl_query_parse_string(struct smartpl *smartpl, const char *expression)
       return -1;
     }
 
-  if (!result.title || !result.where)
+  if (result.title[0] == '\0' || !result.where)
     {
       DPRINTF(E_LOG, L_SCAN, "Missing title or filter when parsing '%s'\n", expression);
       return -1;

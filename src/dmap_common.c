@@ -642,6 +642,9 @@ dmap_query_parse_sql(const char *dmap_query)
 {
   struct daap_result result;
 
+  if (!dmap_query)
+    return NULL;
+
   DPRINTF(E_SPAM, L_DAAP, "Parse DMAP query input '%s'\n", dmap_query);
 
   if (daap_lex_parse(&result, dmap_query) != 0)
