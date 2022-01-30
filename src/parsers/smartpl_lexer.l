@@ -122,6 +122,7 @@ limit          { return SMARTPL_T_LIMIT; }
 {yyyymmdd}     { yylval->str = strdup(yytext); return SMARTPL_T_DATE; }
 today          { return (yylval->ival = SMARTPL_T_DATE_TODAY); }
 yesterday      { return (yylval->ival = SMARTPL_T_DATE_YESTERDAY); }
+this\ week     { return (yylval->ival = SMARTPL_T_DATE_THISWEEK); }
 last\ week     { return (yylval->ival = SMARTPL_T_DATE_LASTWEEK); }
 last\ month    { return (yylval->ival = SMARTPL_T_DATE_LASTMONTH); }
 last\ year     { return (yylval->ival = SMARTPL_T_DATE_LASTYEAR); }
