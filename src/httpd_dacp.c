@@ -46,7 +46,6 @@
 #include "artwork.h"
 #include "dmap_common.h"
 #include "db.h"
-#include "daap_query.h"
 #include "player.h"
 #include "listener.h"
 
@@ -237,7 +236,7 @@ find_first_song_id(const char *query)
   qp.sort = S_NONE;
   qp.offset = 0;
   qp.limit = 1;
-  qp.filter = daap_query_parse_sql(query);
+  qp.filter = dmap_query_parse_sql(query);
   if (!qp.filter)
     {
       DPRINTF(E_LOG, L_DACP, "Improper DAAP query!\n");
@@ -378,7 +377,7 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
 
 	      return -1;
 	    }
-	  qp.filter = daap_query_parse_sql(buf);
+	  qp.filter = dmap_query_parse_sql(buf);
 	}
       else
 	{
@@ -387,14 +386,14 @@ dacp_queueitem_add(const char *query, const char *queuefilter, const char *sort,
 	  // If the queuefilter is unkown, ignore it and use the query parameter instead to build the sql query
 	  id = 0;
 	  qp.type = Q_ITEMS;
-	  qp.filter = daap_query_parse_sql(query);
+	  qp.filter = dmap_query_parse_sql(query);
 	}
     }
   else
     {
       id = 0;
       qp.type = Q_ITEMS;
-      qp.filter = daap_query_parse_sql(query);
+      qp.filter = dmap_query_parse_sql(query);
     }
 
   if (sort)

@@ -12,7 +12,7 @@ fi
 DEPS="gmake autoconf automake libtool gettext gperf glib pkgconf wget git \
      ffmpeg libconfuse libevent mxml libgcrypt libunistring libiconv curl \
      libplist libinotify avahi sqlite3 alsa-lib libsodium json-c libwebsockets
-     protobuf-c"
+     protobuf-c bison flex"
 echo "The script can install the following dependency packages for you:"
 echo $DEPS
 read -p "Should the script install these packages? [y/N] " yn
@@ -45,30 +45,6 @@ if [ ! -d $WORKDIR ]; then
 	exit
 fi
 cd $WORKDIR
-
-read -p "Should the script install antlr and libantlr3c? [y/N] " yn
-if [ "$yn" = "y" ]; then
-	read -p "Should the script build libantlr3c for 64 bit? [Y/n] " yn
-	if [ "$yn" != "n" ]; then
-		ENABLE64BIT="--enable-64bit"
-	fi
-
-	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/antlr-3.4-complete.jar
-	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/C/libantlr3c-3.4.tar.gz
-
-	sudo install antlr-3.4-complete.jar /usr/local/share/java
-	printf "#!/bin/sh
-export CLASSPATH
-CLASSPATH=\$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/local/share/java
-/usr/local/bin/java org.antlr.Tool \$*
-" > antlr3
-	sudo install -m 755 antlr3 /usr/local/bin
-
-	tar xzf libantlr3c-3.4.tar.gz
-	cd libantlr3c-3.4
-	./configure $ENABLE64BIT && gmake && sudo gmake install
-	cd $WORKDIR
-fi
 
 read -p "Should the script build owntone? [y/N] " yn
 if [ "$yn" = "y" ]; then

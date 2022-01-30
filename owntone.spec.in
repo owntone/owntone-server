@@ -18,10 +18,10 @@ Group: Applications/Multimedia
 Url: https://github.com/owntone/owntone-server
 Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.xz
 %{?systemd_ordering}
-BuildRequires: gcc, make, systemd, pkgconfig, libunistring-devel
+BuildRequires: gcc, make, bison, flex, systemd, pkgconfig, libunistring-devel
 BuildRequires: pkgconfig(zlib), pkgconfig(libconfuse), pkgconfig(mxml)
 BuildRequires: pkgconfig(sqlite3) >= 3.5.0, pkgconfig(libevent) >= 2.0.0
-BuildRequires: pkgconfig(json-c), antlr3-C-devel, libgcrypt-devel >= 1.2.0
+BuildRequires: pkgconfig(json-c), libgcrypt-devel >= 1.2.0
 BuildRequires: libgpg-error-devel >= 1.6
 BuildRequires: pkgconfig(libavformat), pkgconfig(libavcodec)
 BuildRequires: pkgconfig(libswscale), pkgconfig(libavutil)
@@ -109,6 +109,10 @@ exit 0
 %{_mandir}/man?/*
 
 %changelog
+* Mon Jan 17 2022 Espen Jürgensen <espen.jurgensen@gmail.com> - 28.3-1
+   - Remove antlr dependency
+   - Add bison/flex dependency
+
 * Mon Nov 22 2021 Derek Atkins <derek@ihtfp.com> - 28.2-1
    - Release tarball is a XZ not GZ file
    - Configure always needs protobuf-c, not just for chromecast

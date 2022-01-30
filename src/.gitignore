@@ -1,11 +1,5 @@
 owntone
 
-*.tokens
-*Lexer.[ch]
-*Parser.[ch]
-*2SQL.[ch]
-*.u
-
 daap_query_hash.h
 rsp_query_hash.h
 dacp_prop_hash.h

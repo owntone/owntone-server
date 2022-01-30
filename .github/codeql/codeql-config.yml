@@ -1,4 +1,4 @@
-name: "forked-daapd CodeQL config"
+name: "OwnTone CodeQL config"
 
 paths-ignore: 
   - htdocs

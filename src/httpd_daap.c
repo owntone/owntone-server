@@ -51,7 +51,6 @@
 #include "misc.h"
 #include "transcode.h"
 #include "artwork.h"
-#include "daap_query.h"
 #include "dmap_common.h"
 #include "cache.h"
 
@@ -597,7 +596,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
     {
       DPRINTF(E_DBG, L_DAAP, "DAAP browse query filter: %s\n", param);
 
-      qp->filter = daap_query_parse_sql(param);
+      qp->filter = dmap_query_parse_sql(param);
       if (!qp->filter)
 	DPRINTF(E_LOG, L_DAAP, "Ignoring improper DAAP query: %s\n", param);
 

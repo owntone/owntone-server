@@ -56,33 +56,19 @@ endif
 
 GPERF_FILES = \
 	daap_query.gperf \
-	rsp_query.gperf \
 	dacp_prop.gperf \
 	dmap_fields.gperf
 
 GPERF_SRC = $(GPERF_FILES:.gperf=_hash.h)
 
-ANTLR_GRAMMARS = \
-	RSP.g RSP2SQL.g \
-	DAAP.g DAAP2SQL.g \
-	SMARTPL.g SMARTPL2SQL.g 
+LEXER_SRC  = parsers/daap_lexer.l parsers/smartpl_lexer.l parsers/rsp_lexer.l
+PARSER_SRC = parsers/daap_parser.y parsers/smartpl_parser.y parsers/rsp_parser.y
 
-ANTLR_TOKENS = $(ANTLR_GRAMMARS:.g=.tokens)
-
-ANTLR_DEPS = $(ANTLR_GRAMMARS:%.g=$(srcdir)/%.u)
-
-ANTLR_SRC = \
-	RSPLexer.c RSPLexer.h RSPParser.c RSPParser.h \
-	RSP2SQL.c RSP2SQL.h \
-	DAAPLexer.c DAAPLexer.h DAAPParser.c DAAPParser.h \
-	DAAP2SQL.c DAAP2SQL.h \
-	SMARTPLLexer.c SMARTPLLexer.h SMARTPLParser.c SMARTPLParser.h  \
-	SMARTPL2SQL.c SMARTPL2SQL.h
-
-ANTLR_OBJECTS = \
-	RSPLexer.$(OBJEXT) RSPParser.$(OBJEXT) RSP2SQL.$(OBJEXT) \
-	DAAPLexer.$(OBJEXT) DAAPParser.$(OBJEXT) DAAP2SQL.$(OBJEXT) \
-	SMARTPLLexer.$(OBJEXT) SMARTPLParser.$(OBJEXT) SMARTPL2SQL.$(OBJEXT)
+# This flag is given to Bison and tells it to produce headers. Note that
+# automake recognizes this flag too, and has special logic around it, so don't
+# change it to compound arguments (so for instance no "-dv"). I'm also not sure
+# --defines will work instead of -d.
+AM_YFLAGS = -d
 
 AM_CPPFLAGS += \
 	$(OWNTONE_CPPFLAGS) \
@@ -129,8 +115,6 @@ owntone_SOURCES = main.c \
 	misc.c misc.h \
 	misc_json.c misc_json.h \
 	rng.c rng.h \
-	rsp_query.c rsp_query.h \
-	daap_query.c daap_query.h \
 	smartpl_query.c smartpl_query.h \
 	player.c player.h \
 	worker.c worker.h \
@@ -153,41 +137,31 @@ owntone_SOURCES = main.c \
 	outputs/plist_wrap.h \
 	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
-	$(ANTLR_SRC) 
+	$(LEXER_SRC) $(PARSER_SRC)
 
-# built by maintainers, and distributed. Clean with maintainer-clean
+# This should ensure the headers are built first. automake knows how to make
+# parser headers, but doesn't know how to do that for flex. So instead we set
+# the C files as target, as the AM_LFLAGS will make sure headers are produced.
 BUILT_SOURCES = \
 	$(GPERF_SRC) \
-	$(ANTLR_SRC) \
-	$(ANTLR_TOKENS) \
-	$(ANTLR_DEPS)
+	$(LEXER_SRC:.l=.h) $(PARSER_SRC:.y=.h)
 
+# automake doesn't know how to make lexer headers, nor does it automatically
+# include them, so need to specify them as EXTRA_DIST.
 EXTRA_DIST = \
 	$(GPERF_FILES) \
-	$(ANTLR_GRAMMARS) \
-	$(ANTLR_TOKENS) \
-	$(ANTLR_DEPS)
-
-# silence unused warnings from antlr generated files
-$(ANTLR_OBJECTS): AM_CPPFLAGS += -Wno-unused
+	$(LEXER_SRC:.l=.h)
 
 # gperf construction rules
 %_hash.h: %.gperf
 	$(AM_V_GEN)$(GPERF) --output-file=$@ $<
 
-# silent rules for antlr
-antlr_verbose = $(antlr_verbose_@AM_V@)
-antlr_verbose_ = $(antlr_verbose_@AM_DEFAULT_V@)
-antlr_verbose_0 = @echo "  GEN     " $< "products";
+# Rule for generating lexer headers. $@ is an automatic variable that is equal
+# to the particular target name, so a header file name.
+$(LEXER_SRC:.l=.h): $(LEXER_SRC)
+	$(LEX) --header-file=$@ --stdout $(@:.h=.l) > /dev/null
 
-# ANTLR grammar products
-%.tokens %.c %Lexer.c %Parser.c %Lexer.h %Parser.h %.h: %.g
-	$(antlr_verbose)$(ANTLR) -Xconversiontimeout 30000 $(ANTLR_OPTIONS) -fo . $<
-
-# ANTLR dependency files (bypass circular dependency of .g on .tokens)
-%.u: %.g
-	$(AM_V_GEN)$(ANTLR) -depend -fo . $< > $@
-	$(AM_V_at)$(SED) -n -e '/^.*\.g[ ]*:\(.*\)/ { s//\1/;h;d; }' -e '/\.tokens.*:/ { p;d; }' -e '/:/ { G;s/\n/ /;p; }' $@ > $@-t
-	$(AM_V_at)mv $@-t $@
-
--include $(ANTLR_DEPS)
+# Anything built by make should be cleaned by make clean, but when it comes to
+# flex/bison automake's support leaves something to be desired
+clean-local:
+	rm -f $(LEXER_SRC:.l=.[ch]) $(PARSER_SRC:.y=.[ch])

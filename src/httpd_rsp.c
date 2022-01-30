@@ -39,7 +39,7 @@
 #include "misc.h"
 #include "httpd.h"
 #include "transcode.h"
-#include "rsp_query.h"
+#include "parsers/rsp_parser.h"
 
 #define RSP_VERSION "1.0"
 #define RSP_XML_ROOT "?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?"
@@ -209,9 +209,9 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
 static int
 query_params_set(struct query_params *qp, struct httpd_request *hreq)
 {
+  struct rsp_result parse_result;
   const char *param;
   char query[1024];
-  char *filter;
   int ret;
 
   qp->offset = 0;
@@ -243,6 +243,7 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
   else
     qp->idx_type = I_NONE;
 
+  qp->filter = NULL;
   param = evhttp_find_header(hreq->query, "query");
   if (param)
     {
@@ -263,19 +264,15 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
 	  return -1;
 	}
 
-      qp->filter = rsp_query_parse_sql(query);
-      if (!qp->filter)
-	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
+      if (rsp_lex_parse(&parse_result, query) != 0)
+	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query: %s\n", query);
+      else
+	qp->filter = safe_asprintf("(%s) AND %s", parse_result.str, rsp_filter_files);
     }
 
   // Always filter to include only files (not streams and Spotify)
-  if (qp->filter)
-    filter = safe_asprintf("%s AND %s", qp->filter, rsp_filter_files);
-  else
-    filter = strdup(rsp_filter_files);
-
-  free(qp->filter);
-  qp->filter = filter;
+  if (!qp->filter)
+    qp->filter = strdup(rsp_filter_files);
 
   return 0;
 }
