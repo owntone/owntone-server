@@ -96,19 +96,22 @@ date_released  { yylval->str = strdup(yytext); return SMARTPL_T_DATETAG; }
 track_count    { yylval->str = strdup(yytext); return SMARTPL_T_GROUPTAG; }
 album_count    { yylval->str = strdup(yytext); return SMARTPL_T_GROUPTAG; }
 
-data_kind      { yylval->str = strdup(yytext); return SMARTPL_T_DATAKINDTAG; }
-media_kind     { yylval->str = strdup(yytext); return SMARTPL_T_MEDIAKINDTAG; }
+data_kind      { yylval->str = strdup(yytext); return SMARTPL_T_ENUMTAG_DATAKIND; }
+media_kind     { yylval->str = strdup(yytext); return SMARTPL_T_ENUMTAG_MEDIAKIND; }
+scan_kind      { yylval->str = strdup(yytext); return SMARTPL_T_ENUMTAG_SCANKIND; }
 
-file           { return SMARTPL_T_DATAKIND_FILE; }
-url            { return SMARTPL_T_DATAKIND_URL; }
-spotify        { return SMARTPL_T_DATAKIND_SPOTIFY; }
-pipe           { return SMARTPL_T_DATAKIND_PIPE; }
+file           { return SMARTPL_T_FILE; }
+files          { return SMARTPL_T_FILE; }
+url            { return SMARTPL_T_URL; }
+spotify        { return SMARTPL_T_SPOTIFY; }
+pipe           { return SMARTPL_T_PIPE; }
+rss            { return SMARTPL_T_RSS; }
 
-music          { return SMARTPL_T_MEDIAKIND_MUSIC; }
-movie          { return SMARTPL_T_MEDIAKIND_MOVIE; }
-podcast        { return SMARTPL_T_MEDIAKIND_PODCAST; }
-audiobook      { return SMARTPL_T_MEDIAKIND_AUDIOBOOK; }
-tvshow         { return SMARTPL_T_MEDIAKIND_TVSHOW; }
+music          { return SMARTPL_T_MUSIC; }
+movie          { return SMARTPL_T_MOVIE; }
+podcast        { return SMARTPL_T_PODCAST; }
+audiobook      { return SMARTPL_T_AUDIOBOOK; }
+tvshow         { return SMARTPL_T_TVSHOW; }
 
 having         { return SMARTPL_T_HAVING; }
 order\ by      { return SMARTPL_T_ORDERBY; }

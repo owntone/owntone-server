@@ -410,8 +410,7 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
     case SMARTPL_T_STRTAG:
     case SMARTPL_T_INTTAG:
     case SMARTPL_T_DATETAG:
-    case SMARTPL_T_DATAKINDTAG:
-    case SMARTPL_T_MEDIAKINDTAG:
+    case SMARTPL_T_ENUMTAG:
       sql_append_recursive(result, part, a, NULL, NULL, 0, SQL_APPEND_FIELD); break;
     case SMARTPL_T_NUM:
       sql_append_recursive(result, part, a, NULL, NULL, 0, SQL_APPEND_INT); break;
@@ -466,20 +465,24 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %token <str> SMARTPL_T_STRTAG
 %token <str> SMARTPL_T_INTTAG
 %token <str> SMARTPL_T_DATETAG
-%token <str> SMARTPL_T_DATAKINDTAG
-%token <str> SMARTPL_T_MEDIAKINDTAG
 %token <str> SMARTPL_T_GROUPTAG
 
-%token SMARTPL_T_DATAKIND_FILE;
-%token SMARTPL_T_DATAKIND_URL;
-%token SMARTPL_T_DATAKIND_SPOTIFY;
-%token SMARTPL_T_DATAKIND_PIPE;
+%token SMARTPL_T_ENUMTAG
+%token <str> SMARTPL_T_ENUMTAG_DATAKIND
+%token <str> SMARTPL_T_ENUMTAG_MEDIAKIND
+%token <str> SMARTPL_T_ENUMTAG_SCANKIND
 
-%token SMARTPL_T_MEDIAKIND_MUSIC;
-%token SMARTPL_T_MEDIAKIND_MOVIE;
-%token SMARTPL_T_MEDIAKIND_PODCAST;
-%token SMARTPL_T_MEDIAKIND_AUDIOBOOK;
-%token SMARTPL_T_MEDIAKIND_TVSHOW;
+%token SMARTPL_T_FILE;
+%token SMARTPL_T_URL;
+%token SMARTPL_T_SPOTIFY;
+%token SMARTPL_T_PIPE;
+%token SMARTPL_T_RSS;
+
+%token SMARTPL_T_MUSIC;
+%token SMARTPL_T_MOVIE;
+%token SMARTPL_T_PODCAST;
+%token SMARTPL_T_AUDIOBOOK;
+%token SMARTPL_T_TVSHOW;
 
 %token SMARTPL_T_DATEEXPR
 %token SMARTPL_T_HAVING
@@ -524,6 +527,7 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 
 %type <ast> criteria
 %type <ast> predicate
+%type <ast> enumexpr
 %type <ast> dateexpr
 %type <ast> interval
 %type <ast> having
@@ -534,8 +538,6 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %type <ival> strbool
 %type <ival> intbool
 %type <ival> datebool
-%type <ival> datakind
-%type <ival> mediakind
 
 %%
 
@@ -559,24 +561,26 @@ criteria: criteria SMARTPL_T_AND criteria                   { $$ = ast_new(SMART
 predicate: SMARTPL_T_STRTAG strbool SMARTPL_T_STRING        { $$ = ast_new($2, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_STRING, $3)); }
 | SMARTPL_T_INTTAG intbool SMARTPL_T_NUM                    { $$ = ast_new($2, ast_data(SMARTPL_T_INTTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
 | SMARTPL_T_DATETAG datebool dateexpr                       { $$ = ast_new($2, ast_data(SMARTPL_T_DATETAG, $1), $3); }
-| SMARTPL_T_DATAKINDTAG SMARTPL_T_IS datakind               { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_DATAKINDTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
-| SMARTPL_T_MEDIAKINDTAG SMARTPL_T_IS mediakind             { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_MEDIAKINDTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
 | SMARTPL_T_NOT predicate                                   { struct ast *a = $2; a->type |= INVERT_MASK; $$ = $2; }
+| enumexpr
 ;
 
-/* We could have let the lexer set these values, but don't want it to depend on db.h */
-datakind: SMARTPL_T_DATAKIND_FILE                           { $$ = DATA_KIND_FILE; }
-| SMARTPL_T_DATAKIND_URL                                    { $$ = DATA_KIND_HTTP; }
-| SMARTPL_T_DATAKIND_SPOTIFY                                { $$ = DATA_KIND_SPOTIFY; }
-| SMARTPL_T_DATAKIND_PIPE                                   { $$ = DATA_KIND_PIPE; }
-;
-
-/* We could have let the lexer set these values, but don't want it to depend on db.h */
-mediakind: SMARTPL_T_MEDIAKIND_MUSIC                        { $$ = MEDIA_KIND_MUSIC; }
-| SMARTPL_T_MEDIAKIND_MOVIE                                 { $$ = MEDIA_KIND_MOVIE; }
-| SMARTPL_T_MEDIAKIND_PODCAST                               { $$ = MEDIA_KIND_PODCAST; }
-| SMARTPL_T_MEDIAKIND_AUDIOBOOK                             { $$ = MEDIA_KIND_AUDIOBOOK; }
-| SMARTPL_T_MEDIAKIND_TVSHOW                                { $$ = MEDIA_KIND_TVSHOW; }
+enumexpr:
+/* DATA_KIND */
+  SMARTPL_T_ENUMTAG_DATAKIND SMARTPL_T_IS SMARTPL_T_FILE        { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, DATA_KIND_FILE)); }
+| SMARTPL_T_ENUMTAG_DATAKIND SMARTPL_T_IS SMARTPL_T_URL         { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, DATA_KIND_HTTP)); }
+| SMARTPL_T_ENUMTAG_DATAKIND SMARTPL_T_IS SMARTPL_T_SPOTIFY     { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, DATA_KIND_SPOTIFY)); }
+| SMARTPL_T_ENUMTAG_DATAKIND SMARTPL_T_IS SMARTPL_T_PIPE        { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, DATA_KIND_PIPE)); }
+/* MEDIA_KIND */
+| SMARTPL_T_ENUMTAG_MEDIAKIND SMARTPL_T_IS SMARTPL_T_MUSIC      { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, MEDIA_KIND_MUSIC)); }
+| SMARTPL_T_ENUMTAG_MEDIAKIND SMARTPL_T_IS SMARTPL_T_MOVIE      { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, MEDIA_KIND_MOVIE)); }
+| SMARTPL_T_ENUMTAG_MEDIAKIND SMARTPL_T_IS SMARTPL_T_PODCAST    { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, MEDIA_KIND_PODCAST)); }
+| SMARTPL_T_ENUMTAG_MEDIAKIND SMARTPL_T_IS SMARTPL_T_AUDIOBOOK  { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, MEDIA_KIND_AUDIOBOOK)); }
+| SMARTPL_T_ENUMTAG_MEDIAKIND SMARTPL_T_IS SMARTPL_T_TVSHOW     { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, MEDIA_KIND_TVSHOW)); }
+/* SCAN_KIND */
+| SMARTPL_T_ENUMTAG_SCANKIND SMARTPL_T_IS SMARTPL_T_FILE        { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, SCAN_KIND_FILES)); }
+| SMARTPL_T_ENUMTAG_SCANKIND SMARTPL_T_IS SMARTPL_T_SPOTIFY     { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, SCAN_KIND_SPOTIFY)); }
+| SMARTPL_T_ENUMTAG_SCANKIND SMARTPL_T_IS SMARTPL_T_RSS         { $$ = ast_new(SMARTPL_T_EQUAL, ast_data(SMARTPL_T_ENUMTAG, $1), ast_int(SMARTPL_T_NUM, SCAN_KIND_RSS)); }
 ;
 
 dateexpr: SMARTPL_T_DATE                                    { $$ = ast_new(SMARTPL_T_DATEEXPR, ast_data(SMARTPL_T_DATE, $1), NULL); }
@@ -608,8 +612,9 @@ having: SMARTPL_T_HAVING SMARTPL_T_GROUPTAG intbool SMARTPL_T_NUM { $$ = ast_new
 order: SMARTPL_T_ORDERBY SMARTPL_T_STRTAG                   { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
 | SMARTPL_T_ORDERBY SMARTPL_T_INTTAG                        { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
 | SMARTPL_T_ORDERBY SMARTPL_T_DATETAG                       { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
-| SMARTPL_T_ORDERBY SMARTPL_T_DATAKINDTAG                   { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
-| SMARTPL_T_ORDERBY SMARTPL_T_MEDIAKINDTAG                  { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
+| SMARTPL_T_ORDERBY SMARTPL_T_ENUMTAG_DATAKIND              { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
+| SMARTPL_T_ORDERBY SMARTPL_T_ENUMTAG_MEDIAKIND             { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
+| SMARTPL_T_ORDERBY SMARTPL_T_ENUMTAG_SCANKIND              { $$ = ast_data(SMARTPL_T_ORDERBY, $2); }
 | SMARTPL_T_ORDERBY SMARTPL_T_RANDOM                        { $$ = ast_data(SMARTPL_T_RANDOM, NULL); }
 | order SMARTPL_T_ORDER_ASC                                 { struct ast *a = $1; a->type = SMARTPL_T_ORDERBY; $$ = $1; }
 | order SMARTPL_T_ORDER_DESC                                { struct ast *a = $1; a->type |= INVERT_MASK; $$ = $1; }
