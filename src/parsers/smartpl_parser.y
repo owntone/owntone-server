@@ -396,6 +396,8 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
       sql_append_recursive(result, part, a, "now', 'start of day", NULL, 0, SQL_APPEND_DATE_FIELD); break;
     case SMARTPL_T_DATE_YESTERDAY:
       sql_append_recursive(result, part, a, "now', 'start of day', '-1 day", NULL, 0, SQL_APPEND_DATE_FIELD); break;
+    case SMARTPL_T_DATE_THISWEEK:
+      sql_append_recursive(result, part, a, "now', 'start of day', 'weekday 0', '-7 days", NULL, 0, SQL_APPEND_DATE_FIELD); break;
     case SMARTPL_T_DATE_LASTWEEK:
       sql_append_recursive(result, part, a, "now', 'start of day', 'weekday 0', '-13 days", NULL, 0, SQL_APPEND_DATE_FIELD); break;
     case SMARTPL_T_DATE_LASTMONTH:
@@ -505,6 +507,7 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %token <str> SMARTPL_T_DATE
 %token <ival> SMARTPL_T_DATE_TODAY
 %token <ival> SMARTPL_T_DATE_YESTERDAY
+%token <ival> SMARTPL_T_DATE_THISWEEK
 %token <ival> SMARTPL_T_DATE_LASTWEEK
 %token <ival> SMARTPL_T_DATE_LASTMONTH
 %token <ival> SMARTPL_T_DATE_LASTYEAR
@@ -592,6 +595,7 @@ dateexpr: SMARTPL_T_DATE                                    { $$ = ast_new(SMART
 
 daterelative: SMARTPL_T_DATE_TODAY
 | SMARTPL_T_DATE_YESTERDAY
+| SMARTPL_T_DATE_THISWEEK
 | SMARTPL_T_DATE_LASTWEEK
 | SMARTPL_T_DATE_LASTMONTH
 | SMARTPL_T_DATE_LASTYEAR

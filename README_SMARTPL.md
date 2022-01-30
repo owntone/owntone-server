@@ -162,9 +162,9 @@ One example of a valid date is a date in yyyy-mm-dd format:
 ```
 
 There are also some special date keywords:
-* `today`, `yesterday`, `last week`, `last month`, `last year`
+* `today`, `yesterday`, `this week`, `last week`, `last month`, `last year`
 
-These dates refer to the _start_ of that period; `today` means 00:00hrs of today, `last week` means the previous Monday 00:00hrs, `last month` is the first day of the previous month at 00:00hrs etc.
+These dates refer to the _start_ of that period; `today` means 00:00hrs of today, `this week` means current Monday 00:00hrs, `last week` means the previous Monday 00:00hrs, `last month` is the first day of the previous month at 00:00hrs etc.
 
 A valid date can also be made by applying an interval to a date. Intervals can be defined as `days`, `weeks`, `months`, `years`.
 As an example, a valid date might be:
