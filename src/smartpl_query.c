@@ -63,7 +63,8 @@ smartpl_query_parse_file(struct smartpl *smartpl, const char *file)
     }
 
   fseek(f, 0, SEEK_SET);
-  expression = calloc(1, size + 1);
+
+  CHECK_NULL(L_SCAN, expression = calloc(1, size + 1));
 
   got = fread(expression, 1, size, f);
   if (got != size)
