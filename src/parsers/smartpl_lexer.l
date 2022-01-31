@@ -100,8 +100,7 @@ data_kind      { yylval->str = strdup(yytext); return SMARTPL_T_ENUMTAG_DATAKIND
 media_kind     { yylval->str = strdup(yytext); return SMARTPL_T_ENUMTAG_MEDIAKIND; }
 scan_kind      { yylval->str = strdup(yytext); return SMARTPL_T_ENUMTAG_SCANKIND; }
 
-file           { return SMARTPL_T_FILE; }
-files          { return SMARTPL_T_FILE; }
+files?         { return SMARTPL_T_FILE; }
 url            { return SMARTPL_T_URL; }
 spotify        { return SMARTPL_T_SPOTIFY; }
 pipe           { return SMARTPL_T_PIPE; }
