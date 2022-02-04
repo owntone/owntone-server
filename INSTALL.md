@@ -8,7 +8,7 @@ you can skip the autoreconf step.
 The source for this version of OwnTone can be found here:
 [owntone/owntone-server](https://github.com/owntone/owntone-server.git)
 
-## Quick version for Raspbian (Raspberry Pi)
+## Quick version for Raspberry Pi OS
 
 See the instructions here:
 [OwnTone server (iTunes server) -
