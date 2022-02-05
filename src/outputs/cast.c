@@ -1755,11 +1755,6 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
   uint32_t id;
 
   id = djb_hash(name, strlen(name));
-  if (!id)
-    {
-      DPRINTF(E_LOG, L_CAST, "Could not hash ChromeCast device name (%s)\n", name);
-      return;
-    }
 
   friendly_name = keyval_get(txt, "fn");
   if (friendly_name)
