@@ -21,6 +21,7 @@
 # include <config.h>
 #endif
 
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -30,6 +31,78 @@
 
 #include <sqlite3ext.h>
 SQLITE_EXTENSION_INIT1
+
+
+// --- diacritic handling from GNOME tracker project --- ///////////////////////
+
+// from GNOME traker, libtracker-common/tracker-parser-utils.h 8d148676
+// (c) Aleksander Morgado
+
+/* Combining diacritical mark?
+ * Basic range: [0x0300,0x036F]
+ * Supplement:  [0x1DC0,0x1DFF]
+ * For Symbols: [0x20D0,0x20FF]
+ * Half marks:  [0xFE20,0xFE2F]
+ */
+#define IS_CDM_UCS4(c) \
+  (((c) >= 0x0300 && (c) <= 0x036F)  ||	\
+   ((c) >= 0x1DC0 && (c) <= 0x1DFF)  ||	\
+   ((c) >= 0x20D0 && (c) <= 0x20FF)  ||	\
+   ((c) >= 0xFE20 && (c) <= 0xFE2F))
+
+// adapted from GNOME traker, libtracker-common/tracker-parser-libunistring.c 1714a4c1
+// (c) Aleksander Morgado 
+static void
+unaccent_nfkd_string(void *str, size_t *str_length)
+{
+  uint8_t *word;
+  size_t word_length;
+  size_t i;
+  size_t j;
+
+  word = (uint8_t*)str;
+  word_length = *str_length;
+
+  i = 0;  j = 0;
+
+  while (i < word_length)
+    {
+      ucs4_t unichar;
+      int8_t utf8_len;
+
+      /* Get next character of the word as UCS4 */
+      utf8_len = u8_strmbtouc (&unichar, &word[i]);
+
+      /* Invalid UTF-8 character or end of original string. */
+      if (utf8_len <= 0)
+	break;
+
+      /* If the given unichar is a combining diacritical mark,
+       * just update the original index, not the output one
+       */
+      if (IS_CDM_UCS4 ((uint32_t) unichar))
+	{
+	  i += utf8_len;
+	  continue;
+	}
+
+      /* If already found a previous combining
+       * diacritical mark, indexes are different so
+       * need to copy characters. As output and input
+       * buffers may overlap, need to use memmove
+       * instead of memcpy
+       */
+      if (i != j) {
+	memmove (&word[j], &word[i], utf8_len);
+      }
+      /* Update both indexes */
+      i += utf8_len;
+      j += utf8_len;
+    }
+  /* Set new output length */
+  *str_length = j;
+}
+
 
 static void
 sqlext_daap_no_zero_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
@@ -69,6 +142,10 @@ sqlext_daap_unicode_xcollation(void *notused, int llen, const void *left, int rl
   int rpp;
   int ret;
 
+  uint8_t *lnorm;
+  uint8_t *rnorm;
+  size_t lsz, rsz;
+
   /* Extract first utf-8 character */
   ret = u8_mbtoucr(&lch, (const uint8_t *)left, llen);
   if (ret < 0)
@@ -87,8 +164,17 @@ sqlext_daap_unicode_xcollation(void *notused, int llen, const void *left, int rl
   else if (lalpha && !ralpha)
     return -1;
 
+  lnorm = u8_normalize(UNINORM_NFKD, left, llen, NULL, &lsz);
+  unaccent_nfkd_string(lnorm, &lsz);
+
+  rnorm = u8_normalize(UNINORM_NFKD, right, rlen, NULL, &rsz);
+  unaccent_nfkd_string(rnorm, &rsz);
+
   /* Compare case and normalization insensitive */
-  ret = u8_casecmp((const uint8_t *)left, llen, (const uint8_t*)right, rlen, NULL, UNINORM_NFD, &rpp);
+  ret = u8_casecmp((const uint8_t *)lnorm, lsz, (const uint8_t*)rnorm, rsz, NULL, UNINORM_NFD, &rpp);
+  free(lnorm);
+  free(rnorm);
+
   if (ret < 0)
     return 0;
 
