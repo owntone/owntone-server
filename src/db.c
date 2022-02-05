@@ -38,6 +38,7 @@
 #include <unistr.h>
 #include <sys/mman.h>
 #include <limits.h>
+#include <assert.h>
 
 #include <sqlite3.h>
 
@@ -7363,32 +7364,13 @@ db_init(void)
   int ret;
   int i;
 
-  // Consistency checks
-  if (ARRAY_SIZE(dbmfi_cols_map) != ARRAY_SIZE(mfi_cols_map))
-    {
-      DPRINTF(E_FATAL, L_DB, "BUG: mfi column maps are not in sync\n");
-      return -1;
-    }
-
-  if (ARRAY_SIZE(dbpli_cols_map) != ARRAY_SIZE(pli_cols_map))
-    {
-      DPRINTF(E_FATAL, L_DB, "BUG: pli column maps are not in sync\n");
-      return -1;
-    }
-
-  if (ARRAY_SIZE(qi_cols_map) != ARRAY_SIZE(qi_mfi_map))
-    {
-      DPRINTF(E_FATAL, L_DB, "BUG: queue_item column maps are not in sync\n");
-      return -1;
-    }
+  static_assert(ARRAY_SIZE(dbmfi_cols_map) == ARRAY_SIZE(mfi_cols_map), "mfi column maps are not in sync");
+  static_assert(ARRAY_SIZE(dbpli_cols_map) == ARRAY_SIZE(pli_cols_map), "pli column maps are not in sync");
+  static_assert(ARRAY_SIZE(qi_cols_map) == ARRAY_SIZE(qi_mfi_map), "queue_item column maps are not in sync");
 
   for (i = 0; i < ARRAY_SIZE(qi_cols_map); i++)
     {
-      if (qi_cols_map[i].offset == qi_mfi_map[i].qi_offset)
-	continue;
-
-      DPRINTF(E_FATAL, L_DB, "BUG: queue_item offset maps are not in sync (at %d)\n", i);
-      return -1;
+      assert(qi_cols_map[i].offset == qi_mfi_map[i].qi_offset);
     }
 
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
