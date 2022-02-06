@@ -186,6 +186,14 @@ static cfg_opt_t sec_fifo[] =
     CFG_END()
   };
 
+/* RCP/Soundbridge section structure */
+static cfg_opt_t sec_rcp[] =
+  {
+    CFG_BOOL("exclude", cfg_false, CFGF_NONE),
+    CFG_BOOL("clear_on_close", cfg_false, CFGF_NONE),
+    CFG_END()
+  };
+
 /* Spotify section structure */
 static cfg_opt_t sec_spotify[] =
   {
@@ -243,6 +251,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("chromecast", sec_chromecast, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("fifo", sec_fifo, CFGF_NONE),
+    CFG_SEC("rcp", sec_rcp, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("spotify", sec_spotify, CFGF_NONE),
     CFG_SEC("sqlite", sec_sqlite, CFGF_NONE),
     CFG_SEC("mpd", sec_mpd, CFGF_NONE),
