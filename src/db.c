@@ -5161,6 +5161,7 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
   uint32_t queue_count;
   int pos;
   int shuffle_pos;
+  bool append_to_queue;
   int ret;
 
   if (new_item_id)
@@ -5190,7 +5191,9 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
       return 0;
     }
 
-  if (position < 0 || position > queue_count)
+  append_to_queue = (position < 0 || position > queue_count);
+
+  if (append_to_queue)
     {
       pos = queue_count;
       shuffle_pos = queue_count;
@@ -5242,8 +5245,10 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
   if (ret < 0)
     goto end_transaction;
 
-  // Reshuffle after adding new items
-  if (position == -1 && reshuffle)
+  // Reshuffle after adding new items, if no queue position was specified - this
+  // case would indicate an 'add next' condition where if shuffling invalidates
+  // the tracks added to 'next'
+  if (append_to_queue && reshuffle)
     {
       ret = queue_reshuffle(item_id, queue_version);
     }
