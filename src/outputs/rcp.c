@@ -686,7 +686,7 @@ rcp_send(struct rcp_session* s, enum rcp_state next_state, const char *arg)
 	iov[2].iov_len  = arg ? strlen(arg) : 0;
       }
 
-    DPRINTF(E_DBG, L_RCP, "%ld state %d   send '%s%s%s'\n", s->device->id, s->state, (char*)(iov[0].iov_base), (char*)(iov[1].iov_base), (char*)(iov[2].iov_base));
+//    DPRINTF(E_DBG, L_RCP, "Device %" PRIu64 " state %d send '%s%s%s'\n", s->device->id, s->state, (char*)(iov[0].iov_base), (char*)(iov[1].iov_base), (char*)(iov[2].iov_base));
 
     if (s->sock <= 0) {
 	DPRINTF(E_LOG, L_RCP, "Ignoring send request on %s, state = %d\n", s->address, s->state);
@@ -727,7 +727,7 @@ rcp_recv(struct rcp_session *s)
 
   if (avail == 0)
     {
-      DPRINTF(E_WARN, L_RCP, "protocol BUG, cmd buf (%d) exhausted %ld state %d\n", RCP_RESP_BUF_SIZE, s->device->id, s->state);
+      DPRINTF(E_WARN, L_RCP, "Protocol BUG, cmd buf (%d) exhausted %" PRIu64 " state %d\n", RCP_RESP_BUF_SIZE, s->device->id, s->state);
 
       s->state = RCP_STATE_FAILED;
       return -1;
@@ -735,7 +735,7 @@ rcp_recv(struct rcp_session *s)
 
   recvd = read(s->sock, s->respptr, avail);
 
-  DPRINTF(E_DBG,  L_RCP, "%ld state %d recv'd %ld bytes '%s'\n", s->device->id, s->state, recvd, s->respptr);
+//  DPRINTF(E_DBG,  L_RCP, "Device %" PRIu64 " state %d recv'd %zd bytes '%s'\n", s->device->id, s->state, recvd, s->respptr);
   if (recvd <= 0)
     {
       DPRINTF(E_LOG,  L_RCP, "Failed to read response from '%s' - %s\n", s->devname, strerror(recvd == 0 ? ECONNRESET : errno));
@@ -1057,7 +1057,7 @@ rcp_session_make(struct output_device *device, int callback_id)
   s->next = rcp_sessions;
   rcp_sessions = s;
 
-  DPRINTF(E_DBG, L_RCP, "Make session %ld %s at %s stream url '%s'\n", s->device->id, s->devname, s->address, s->stream_url);
+  DPRINTF(E_DBG, L_RCP, "Make session device %" PRIu64 " %s at %s stream url '%s'\n", s->device->id, s->devname, s->address, s->stream_url);
 
   // s is now the official device session
   outputs_device_session_add(device->id, s);
