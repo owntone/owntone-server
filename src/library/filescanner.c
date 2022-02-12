@@ -42,10 +42,6 @@
 # include <pthread_np.h>
 #endif
 
-#include <unistr.h>
-#include <unictype.h>
-#include <uninorm.h>
-
 #include <event2/event.h>
 
 #ifdef HAVE_REGEX_H

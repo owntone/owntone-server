@@ -29,9 +29,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unictype.h>
-#include <uninorm.h>
-#include <unistr.h>
 
 #include <event2/event.h>
 
