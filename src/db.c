@@ -1015,13 +1015,15 @@ sort_tag_create(char **sort_tag, const char *src_tag)
       return;
     }
 
-  // Set input pointer past article if present
+  // Set input pointer past article if present and disregard certain special chars
   if ((strncasecmp(src_tag, "a ", 2) == 0) && (len > 2))
     i_ptr = (uint8_t *)(src_tag + 2);
   else if ((strncasecmp(src_tag, "an ", 3) == 0) && (len > 3))
     i_ptr = (uint8_t *)(src_tag + 3);
   else if ((strncasecmp(src_tag, "the ", 4) == 0) && (len > 4))
     i_ptr = (uint8_t *)(src_tag + 4);
+  else if (strchr("[('\"", src_tag[0]) && (len > 1))
+    i_ptr = (uint8_t *)(src_tag + 1);
   else
     i_ptr = (uint8_t *)src_tag;
 
@@ -6953,18 +6955,12 @@ db_open(void)
       return -1;
     }
 
-  errmsg = NULL;
   ret = sqlite3_load_extension(hdl, PKGLIBDIR "/" PACKAGE_NAME "-sqlext.so", NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      if (errmsg)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not load SQLite extension: %s\n", errmsg);
-	  sqlite3_free(errmsg);
-	}
-      else
-	DPRINTF(E_LOG, L_DB, "Could not load SQLite extension: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not load SQLite extension: %s\n", errmsg);
 
+      sqlite3_free(errmsg);
       sqlite3_close(hdl);
       return -1;
     }
