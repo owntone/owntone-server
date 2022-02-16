@@ -2001,6 +2001,14 @@ db_build_query_clause(struct query_params *qp)
   else
     qc->order = sqlite3_mprintf("");
 
+  // Ugly fix solving the issue that Q_GROUP_X have calculated columns and thus
+  // a qp->order of eg. "f.time_played" won't sort by the calculation result, as
+  // it is not in the "f" namespace. An example of this happening is if the JSON
+  // API search is called with type=album and the smartpl expression has
+  // "order+by+time_played+desc".
+  if (qp->order && qp->type & (Q_GROUP_ALBUMS | Q_GROUP_ARTISTS))
+    safe_snreplace(qc->order, strlen(qc->order) + 1, "f.", "");
+
   switch (qp->idx_type)
     {
       case I_FIRST:
@@ -2217,11 +2225,12 @@ db_build_query_group_albums(struct query_params *qp, struct query_clause *qc)
   char *query;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songalbumid) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT " \
-			  "  g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, " \
-			  "  1 as album_count, f.album_artist, f.songartistid, " \
-			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), " \
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) " \
+  query = sqlite3_mprintf("SELECT" \
+			  " g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) AS track_count," \
+			  " 1 AS album_count, f.album_artist, f.songartistid," \
+			  " SUM(f.song_length) AS song_length, MIN(f.data_kind) AS data_kind, MIN(f.media_kind) AS media_kind," \
+			  " MAX(f.year) AS year, MAX(f.date_released) AS date_released," \
+			  " MAX(f.time_added) AS time_added, MAX(f.time_played) AS time_played, MAX(f.seek) AS seek " \
 			  "FROM files f JOIN groups g ON f.songalbumid = g.persistentid %s " \
 			  "GROUP BY f.songalbumid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
@@ -2235,11 +2244,12 @@ db_build_query_group_artists(struct query_params *qp, struct query_clause *qc)
   char *query;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songartistid) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT " \
-			  "  g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, " \
-			  "  COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, " \
-			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), " \
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) " \
+  query = sqlite3_mprintf("SELECT" \
+			  " g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) AS track_count," \
+			  " COUNT(DISTINCT f.songalbumid) AS album_count, f.album_artist, f.songartistid," \
+			  " SUM(f.song_length) AS song_length, MIN(f.data_kind) AS data_kind, MIN(f.media_kind) AS media_kind," \
+			  " MAX(f.year) AS year, MAX(f.date_released) AS date_released," \
+			  " MAX(f.time_added) AS time_added, MAX(f.time_played) AS time_played, MAX(f.seek) AS seek " \
 			  "FROM files f JOIN groups g ON f.songartistid = g.persistentid %s " \
 			  "GROUP BY f.songartistid %s %s %s;",
 			  qc->where, qc->having, qc->order, qc->index);
