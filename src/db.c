@@ -2001,14 +2001,6 @@ db_build_query_clause(struct query_params *qp)
   else
     qc->order = sqlite3_mprintf("");
 
-  // Ugly fix solving the issue that Q_GROUP_X have calculated columns and thus
-  // a qp->order of eg. "f.time_played" won't sort by the calculation result, as
-  // it is not in the "f" namespace. An example of this happening is if the JSON
-  // API search is called with type=album and the smartpl expression has
-  // "order+by+time_played+desc".
-  if (qp->order && qp->type & (Q_GROUP_ALBUMS | Q_GROUP_ARTISTS))
-    safe_snreplace(qc->order, strlen(qc->order) + 1, "f.", "");
-
   switch (qp->idx_type)
     {
       case I_FIRST:
@@ -2331,9 +2323,11 @@ db_build_query_browse(struct query_params *qp, struct query_clause *qc)
   where  = browse_clause[qp->type & ~Q_F_BROWSE].where;
 
   count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT %s FROM files f %s AND %s != '' %s);", select, qc->where, where, qc->group);
-  query = sqlite3_mprintf("SELECT %s, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, COUNT(DISTINCT f.songartistid) as artist_count, "
-			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), "
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) FROM files f %s AND %s != '' %s %s %s;",
+  query = sqlite3_mprintf("SELECT %s, COUNT(f.id) AS track_count, COUNT(DISTINCT f.songalbumid) AS album_count, COUNT(DISTINCT f.songartistid) AS artist_count,"
+			  " SUM(f.song_length) AS song_length, MIN(f.data_kind) AS data_kind, MIN(f.media_kind) AS media_kind,"
+			  " MAX(f.year) AS year, MAX(f.date_released) AS date_released,"
+			  " MAX(f.time_added) AS time_added, MAX(f.time_played) AS time_played, MAX(f.seek) AS seek "
+			  "FROM files f %s AND %s != '' %s %s %s;",
 			  select, qc->where, where, qc->group, qc->order, qc->index);
 
   return db_build_query_check(qp, count, query);

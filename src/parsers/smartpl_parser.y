@@ -311,7 +311,7 @@ static void sql_append_recursive(struct smartpl_result *result, struct result_pa
     case SQL_APPEND_FIELD:
       assert(a->l == NULL);
       assert(a->r == NULL);
-      sql_append(result, part, "f.%s", (char *)a->data);
+      sql_append(result, part, "%s", (char *)a->data);
       break;
     case SQL_APPEND_STR:
       assert(a->l == NULL);
@@ -328,7 +328,7 @@ static void sql_append_recursive(struct smartpl_result *result, struct result_pa
       assert(a->l == NULL);
       assert(a->r == NULL);
       if (a->data)
-        sql_append(result, part, "f.%s ", (char *)a->data);
+        sql_append(result, part, "%s ", (char *)a->data);
       sql_append(result, part, "%s", is_not ? op_not : op);
       break;
     case SQL_APPEND_PARENS:
