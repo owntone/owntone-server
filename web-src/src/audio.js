@@ -50,12 +50,18 @@ export default {
   stopAudio() {
     try {
       this._audio.pause()
-    } catch (e) {}
+    } catch (e) {
+      // continue regardless of error
+    }
     try {
       this._audio.stop()
-    } catch (e) {}
+    } catch (e) {
+      // continue regardless of error
+    }
     try {
       this._audio.close()
-    } catch (e) {}
+    } catch (e) {
+      // continue regardless of error
+    }
   }
 }

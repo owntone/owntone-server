@@ -56,6 +56,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogComposer',
   props: ['show', 'composer'],
+  emits: ['close'],
 
   methods: {
     play: function () {

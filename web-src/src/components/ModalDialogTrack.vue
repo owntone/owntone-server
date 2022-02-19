@@ -156,6 +156,7 @@ export default {
   name: 'ModalDialogTrack',
 
   props: ['show', 'track'],
+  emits: ['close', 'play-count-changed'],
 
   data() {
     return {

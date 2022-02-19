@@ -65,6 +65,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogPlaylistSave',
   props: ['show'],
+  emits: ['close'],
 
   data() {
     return {

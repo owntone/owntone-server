@@ -44,6 +44,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogGenre',
   props: ['show', 'genre'],
+  emits: ['close'],
 
   methods: {
     play: function () {

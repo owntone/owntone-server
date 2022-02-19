@@ -49,6 +49,7 @@ export default {
   name: 'ModalDialogUpdate',
   components: { ModalDialog },
   props: ['show'],
+  emits: ['close'],
 
   data() {
     return {

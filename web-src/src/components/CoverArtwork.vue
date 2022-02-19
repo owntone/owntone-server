@@ -14,6 +14,7 @@ import { renderSVG } from '@/lib/SVGRenderer'
 export default {
   name: 'CoverArtwork',
   props: ['artist', 'album', 'artwork_url', 'maxwidth', 'maxheight'],
+  emits: ['click'],
 
   data() {
     return {

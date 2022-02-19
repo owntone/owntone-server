@@ -14,7 +14,7 @@
       :show="show_update_dialog"
       @close="show_update_dialog = false"
     />
-    <notifications v-show="!show_burger_menu" />
+    <notification-list v-show="!show_burger_menu" />
     <navbar-bottom />
     <div
       v-show="show_burger_menu || show_player_menu"
@@ -27,7 +27,7 @@
 <script>
 import NavbarTop from '@/components/NavbarTop.vue'
 import NavbarBottom from '@/components/NavbarBottom.vue'
-import Notifications from '@/components/Notifications.vue'
+import NotificationList from '@/components/NotificationList.vue'
 import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
 import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
 import webapi from '@/webapi'
@@ -40,7 +40,7 @@ export default {
   components: {
     NavbarTop,
     NavbarBottom,
-    Notifications,
+    NotificationList,
     ModalDialogRemotePairing,
     ModalDialogUpdate
   },

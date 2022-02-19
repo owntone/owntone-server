@@ -42,6 +42,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogDirectory',
   props: ['show', 'directory'],
+  emits: ['close'],
 
   methods: {
     play: function () {

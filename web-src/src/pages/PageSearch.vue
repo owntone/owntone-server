@@ -127,13 +127,13 @@
 
     <!-- Composers -->
     <content-with-heading v-if="show_composers && composers.total">
-      <template slot:heading-left>
+      <template #heading-left>
         <p class="title is-4">Composers</p>
       </template>
-      <template slot:content>
+      <template #content>
         <list-composers :composers="composers.items" />
       </template>
-      <template slot:footer>
+      <template #footer>
         <nav v-if="show_all_composers_button" class="level">
           <p class="level-item">
             <a
@@ -146,7 +146,7 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_composers && !composers.total">
-      <template slot:content>
+      <template #content>
         <p><i>No composers found</i></p>
       </template>
     </content-text>

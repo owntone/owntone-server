@@ -119,6 +119,7 @@ export default {
   components: { ListItemAlbum, ModalDialogAlbum, ModalDialog, CoverArtwork },
 
   props: ['albums', 'media_kind'],
+  emits: ['play-count-changed', 'podcast-deleted'],
 
   data() {
     return {

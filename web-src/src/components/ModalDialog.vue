@@ -50,7 +50,8 @@
 <script>
 export default {
   name: 'ModalDialog',
-  props: ['show', 'title', 'ok_action', 'delete_action', 'close_action']
+  props: ['show', 'title', 'ok_action', 'delete_action', 'close_action'],
+  emits: ['delete', 'close', 'ok']
 }
 </script>
 

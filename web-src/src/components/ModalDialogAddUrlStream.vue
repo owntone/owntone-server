@@ -69,6 +69,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogAddUrlStream',
   props: ['show'],
+  emits: ['close'],
 
   data() {
     return {

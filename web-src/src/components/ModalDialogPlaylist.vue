@@ -54,6 +54,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogPlaylist',
   props: ['show', 'playlist', 'uris'],
+  emits: ['close'],
 
   methods: {
     play: function () {

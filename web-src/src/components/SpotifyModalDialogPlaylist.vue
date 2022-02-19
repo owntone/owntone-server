@@ -60,6 +60,7 @@ import webapi from '@/webapi'
 export default {
   name: 'SpotifyModalDialogPlaylist',
   props: ['show', 'playlist'],
+  emits: ['close'],
 
   methods: {
     play: function () {

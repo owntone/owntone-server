@@ -37,6 +37,7 @@
 export default {
   name: 'DropdownMenu',
 
+  // eslint-disable-next-line vue/prop-name-casing
   props: ['modelValue', 'options'],
   emits: ['update:modelValue'],
 

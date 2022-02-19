@@ -119,6 +119,7 @@ import SpotifyWebApi from 'spotify-web-api-js'
 export default {
   name: 'ModalDialogQueueItem',
   props: ['show', 'item'],
+  emits: ['close'],
 
   data() {
     return {

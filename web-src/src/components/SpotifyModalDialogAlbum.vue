@@ -73,6 +73,7 @@ import webapi from '@/webapi'
 export default {
   name: 'SpotifyModalDialogAlbum',
   props: ['show', 'album'],
+  emits: ['close'],
 
   data() {
     return {

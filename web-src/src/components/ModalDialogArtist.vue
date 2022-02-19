@@ -64,6 +64,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogArtist',
   props: ['show', 'artist'],
+  emits: ['close'],
 
   methods: {
     play: function () {

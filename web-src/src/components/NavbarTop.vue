@@ -102,14 +102,7 @@
             <navbar-item-link to="/settings/webinterface">
               Settings
             </navbar-item-link>
-            <a
-              class="navbar-item"
-              @click.stop.prevent="
-                show_update_dialog = true
-                show_settings_menu = false
-                show_burger_menu = false
-              "
-            >
+            <a class="navbar-item" @click.stop.prevent="open_update_dialog()">
               Update Library
             </a>
             <navbar-item-link to="/about"> About </navbar-item-link>
@@ -253,6 +246,12 @@ export default {
   methods: {
     on_click_outside_settings() {
       this.show_settings_menu = !this.show_settings_menu
+    },
+
+    open_update_dialog() {
+      this.show_update_dialog = true
+      this.show_settings_menu = false
+      this.show_burger_menu = false
     }
   }
 }

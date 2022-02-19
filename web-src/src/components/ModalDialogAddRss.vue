@@ -69,6 +69,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogAddRss',
   props: ['show'],
+  emits: ['close', 'podcast-added'],
 
   data() {
     return {

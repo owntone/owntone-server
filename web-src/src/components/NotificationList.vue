@@ -23,7 +23,7 @@
 import * as types from '@/store/mutation_types'
 
 export default {
-  name: 'Notifications',
+  name: 'NotificationList',
   components: {},
 
   data() {

@@ -57,6 +57,7 @@ import webapi from '@/webapi'
 export default {
   name: 'SpotifyModalDialogArtist',
   props: ['show', 'artist'],
+  emits: ['close'],
 
   methods: {
     play: function () {
