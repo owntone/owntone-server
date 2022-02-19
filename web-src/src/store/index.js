@@ -1,9 +1,8 @@
 import { createStore } from 'vuex'
 import * as types from './mutation_types'
 
-
 export default createStore({
-  state () {
+  state() {
     return {
       config: {
         websocket_port: 0,
@@ -20,9 +19,9 @@ export default createStore({
         db_playtime: 0,
         updating: false
       },
-      audiobooks_count: { },
-      podcasts_count: { },
-      rss_count: { },
+      audiobooks_count: {},
+      podcasts_count: {},
+      rss_count: {},
       outputs: [],
       player: {
         state: 'stop',
@@ -42,16 +41,16 @@ export default createStore({
       lastfm: {},
       spotify: {},
       pairing: {},
-  
+
       spotify_new_releases: [],
       spotify_featured_playlists: [],
-  
+
       notifications: {
         next_id: 1,
         list: []
       },
       recent_searches: [],
-  
+
       hide_singles: false,
       hide_spotify: false,
       artists_sort: 'Name',
@@ -66,23 +65,27 @@ export default createStore({
   },
 
   getters: {
-    now_playing: state => {
+    now_playing: (state) => {
       const item = state.queue.items.find(function (item) {
         return item.id === state.player.item_id
       })
-      return (item === undefined) ? {} : item
+      return item === undefined ? {} : item
     },
 
-    settings_webinterface: state => {
+    settings_webinterface: (state) => {
       if (state.settings) {
-        return state.settings.categories.find(elem => elem.name === 'webinterface')
+        return state.settings.categories.find(
+          (elem) => elem.name === 'webinterface'
+        )
       }
       return null
     },
 
     settings_option_recently_added_limit: (state, getters) => {
       if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(elem => elem.name === 'recently_added_limit')
+        const option = getters.settings_webinterface.options.find(
+          (elem) => elem.name === 'recently_added_limit'
+        )
         if (option) {
           return option.value
         }
@@ -92,7 +95,9 @@ export default createStore({
 
     settings_option_show_composer_now_playing: (state, getters) => {
       if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(elem => elem.name === 'show_composer_now_playing')
+        const option = getters.settings_webinterface.options.find(
+          (elem) => elem.name === 'show_composer_now_playing'
+        )
         if (option) {
           return option.value
         }
@@ -102,7 +107,9 @@ export default createStore({
 
     settings_option_show_composer_for_genre: (state, getters) => {
       if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(elem => elem.name === 'show_composer_for_genre')
+        const option = getters.settings_webinterface.options.find(
+          (elem) => elem.name === 'show_composer_for_genre'
+        )
         if (option) {
           return option.value
         }
@@ -111,69 +118,79 @@ export default createStore({
     },
 
     settings_category: (state) => (categoryName) => {
-      return state.settings.categories.find(elem => elem.name === categoryName)
+      return state.settings.categories.find(
+        (elem) => elem.name === categoryName
+      )
     },
 
     settings_option: (state) => (categoryName, optionName) => {
-      const category = state.settings.categories.find(elem => elem.name === categoryName)
+      const category = state.settings.categories.find(
+        (elem) => elem.name === categoryName
+      )
       if (!category) {
         return {}
       }
-      return category.options.find(elem => elem.name === optionName)
+      return category.options.find((elem) => elem.name === optionName)
     }
   },
 
   mutations: {
-    [types.UPDATE_CONFIG] (state, config) {
+    [types.UPDATE_CONFIG](state, config) {
       state.config = config
     },
-    [types.UPDATE_SETTINGS] (state, settings) {
+    [types.UPDATE_SETTINGS](state, settings) {
       state.settings = settings
     },
-    [types.UPDATE_SETTINGS_OPTION] (state, option) {
-      const settingCategory = state.settings.categories.find(elem => elem.name === option.category)
-      const settingOption = settingCategory.options.find(elem => elem.name === option.name)
+    [types.UPDATE_SETTINGS_OPTION](state, option) {
+      const settingCategory = state.settings.categories.find(
+        (elem) => elem.name === option.category
+      )
+      const settingOption = settingCategory.options.find(
+        (elem) => elem.name === option.name
+      )
       settingOption.value = option.value
     },
-    [types.UPDATE_LIBRARY_STATS] (state, libraryStats) {
+    [types.UPDATE_LIBRARY_STATS](state, libraryStats) {
       state.library = libraryStats
     },
-    [types.UPDATE_LIBRARY_AUDIOBOOKS_COUNT] (state, count) {
+    [types.UPDATE_LIBRARY_AUDIOBOOKS_COUNT](state, count) {
       state.audiobooks_count = count
     },
-    [types.UPDATE_LIBRARY_PODCASTS_COUNT] (state, count) {
+    [types.UPDATE_LIBRARY_PODCASTS_COUNT](state, count) {
       state.podcasts_count = count
     },
-    [types.UPDATE_LIBRARY_RSS_COUNT] (state, count) {
+    [types.UPDATE_LIBRARY_RSS_COUNT](state, count) {
       state.rss_count = count
     },
-    [types.UPDATE_OUTPUTS] (state, outputs) {
+    [types.UPDATE_OUTPUTS](state, outputs) {
       state.outputs = outputs
     },
-    [types.UPDATE_PLAYER_STATUS] (state, playerStatus) {
+    [types.UPDATE_PLAYER_STATUS](state, playerStatus) {
       state.player = playerStatus
     },
-    [types.UPDATE_QUEUE] (state, queue) {
+    [types.UPDATE_QUEUE](state, queue) {
       state.queue = queue
     },
-    [types.UPDATE_LASTFM] (state, lastfm) {
+    [types.UPDATE_LASTFM](state, lastfm) {
       state.lastfm = lastfm
     },
-    [types.UPDATE_SPOTIFY] (state, spotify) {
+    [types.UPDATE_SPOTIFY](state, spotify) {
       state.spotify = spotify
     },
-    [types.UPDATE_PAIRING] (state, pairing) {
+    [types.UPDATE_PAIRING](state, pairing) {
       state.pairing = pairing
     },
-    [types.SPOTIFY_NEW_RELEASES] (state, newReleases) {
+    [types.SPOTIFY_NEW_RELEASES](state, newReleases) {
       state.spotify_new_releases = newReleases
     },
-    [types.SPOTIFY_FEATURED_PLAYLISTS] (state, featuredPlaylists) {
+    [types.SPOTIFY_FEATURED_PLAYLISTS](state, featuredPlaylists) {
       state.spotify_featured_playlists = featuredPlaylists
     },
-    [types.ADD_NOTIFICATION] (state, notification) {
+    [types.ADD_NOTIFICATION](state, notification) {
       if (notification.topic) {
-        const index = state.notifications.list.findIndex(elem => elem.topic === notification.topic)
+        const index = state.notifications.list.findIndex(
+          (elem) => elem.topic === notification.topic
+        )
         if (index >= 0) {
           state.notifications.list.splice(index, 1, notification)
           return
@@ -181,15 +198,15 @@ export default createStore({
       }
       state.notifications.list.push(notification)
     },
-    [types.DELETE_NOTIFICATION] (state, notification) {
+    [types.DELETE_NOTIFICATION](state, notification) {
       const index = state.notifications.list.indexOf(notification)
 
       if (index !== -1) {
         state.notifications.list.splice(index, 1)
       }
     },
-    [types.ADD_RECENT_SEARCH] (state, query) {
-      const index = state.recent_searches.findIndex(elem => elem === query)
+    [types.ADD_RECENT_SEARCH](state, query) {
+      const index = state.recent_searches.findIndex((elem) => elem === query)
       if (index >= 0) {
         state.recent_searches.splice(index, 1)
       }
@@ -200,40 +217,40 @@ export default createStore({
         state.recent_searches.pop()
       }
     },
-    [types.HIDE_SINGLES] (state, hideSingles) {
+    [types.HIDE_SINGLES](state, hideSingles) {
       state.hide_singles = hideSingles
     },
-    [types.HIDE_SPOTIFY] (state, hideSpotify) {
+    [types.HIDE_SPOTIFY](state, hideSpotify) {
       state.hide_spotify = hideSpotify
     },
-    [types.ARTISTS_SORT] (state, sort) {
+    [types.ARTISTS_SORT](state, sort) {
       state.artists_sort = sort
     },
-    [types.ARTIST_ALBUMS_SORT] (state, sort) {
+    [types.ARTIST_ALBUMS_SORT](state, sort) {
       state.artist_albums_sort = sort
     },
-    [types.ALBUMS_SORT] (state, sort) {
+    [types.ALBUMS_SORT](state, sort) {
       state.albums_sort = sort
     },
-    [types.SHOW_ONLY_NEXT_ITEMS] (state, showOnlyNextItems) {
+    [types.SHOW_ONLY_NEXT_ITEMS](state, showOnlyNextItems) {
       state.show_only_next_items = showOnlyNextItems
     },
-    [types.SHOW_BURGER_MENU] (state, showBurgerMenu) {
+    [types.SHOW_BURGER_MENU](state, showBurgerMenu) {
       state.show_burger_menu = showBurgerMenu
     },
-    [types.SHOW_PLAYER_MENU] (state, showPlayerMenu) {
+    [types.SHOW_PLAYER_MENU](state, showPlayerMenu) {
       state.show_player_menu = showPlayerMenu
     },
-    [types.SHOW_UPDATE_DIALOG] (state, showUpdateDialog) {
+    [types.SHOW_UPDATE_DIALOG](state, showUpdateDialog) {
       state.show_update_dialog = showUpdateDialog
     },
-    [types.UPDATE_DIALOG_SCAN_KIND] (state, scanKind) {
+    [types.UPDATE_DIALOG_SCAN_KIND](state, scanKind) {
       state.update_dialog_scan_kind = scanKind
     }
   },
 
   actions: {
-    add_notification ({ commit, state }, notification) {
+    add_notification({ commit, state }, notification) {
       const newNotification = {
         id: state.notifications.next_id++,
         type: notification.type,

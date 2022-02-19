@@ -1,7 +1,9 @@
 <template>
   <figure>
-    <img v-lazy="{ src: artwork_url_with_size, lifecycle: lazy_lifecycle }"
-      @click="$emit('click')">
+    <img
+      v-lazy="{ src: artwork_url_with_size, lifecycle: lazy_lifecycle }"
+      @click="$emit('click')"
+    />
   </figure>
 </template>
 
@@ -13,7 +15,7 @@ export default {
   name: 'CoverArtwork',
   props: ['artist', 'album', 'artwork_url', 'maxwidth', 'maxheight'],
 
-  data () {
+  data() {
     return {
       width: 600,
       height: 600,
@@ -31,16 +33,20 @@ export default {
   computed: {
     artwork_url_with_size: function () {
       if (this.maxwidth > 0 && this.maxheight > 0) {
-        return webapi.artwork_url_append_size_params(this.artwork_url, this.maxwidth, this.maxheight)
+        return webapi.artwork_url_append_size_params(
+          this.artwork_url,
+          this.maxwidth,
+          this.maxheight
+        )
       }
       return webapi.artwork_url_append_size_params(this.artwork_url)
     },
 
-    alt_text () {
+    alt_text() {
       return this.artist + ' - ' + this.album
     },
 
-    caption () {
+    caption() {
       if (this.album) {
         return this.album.substring(0, 2)
       }

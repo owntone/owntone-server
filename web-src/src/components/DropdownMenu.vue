@@ -1,19 +1,31 @@
 <template>
-  <div class="dropdown" :class="{ 'is-active': is_active }" v-click-away="onClickOutside">
+  <div
+    v-click-away="onClickOutside"
+    class="dropdown"
+    :class="{ 'is-active': is_active }"
+  >
     <div class="dropdown-trigger">
-      <button class="button" aria-haspopup="true" aria-controls="dropdown-menu" @click="is_active = !is_active">
+      <button
+        class="button"
+        aria-haspopup="true"
+        aria-controls="dropdown-menu"
+        @click="is_active = !is_active"
+      >
         <span>{{ modelValue }}</span>
         <span class="icon is-small">
-            <i class="mdi mdi-chevron-down" aria-hidden="true"></i>
+          <i class="mdi mdi-chevron-down" aria-hidden="true" />
         </span>
       </button>
     </div>
-    <div class="dropdown-menu" id="dropdown-menu" role="menu">
+    <div id="dropdown-menu" class="dropdown-menu" role="menu">
       <div class="dropdown-content">
-        <a class="dropdown-item"
-            v-for="option in options" :key="option"
-            :class="{'is-active': modelValue === option}"
-            @click="select(option)">
+        <a
+          v-for="option in options"
+          :key="option"
+          class="dropdown-item"
+          :class="{ 'is-active': modelValue === option }"
+          @click="select(option)"
+        >
           {{ option }}
         </a>
       </div>
@@ -28,18 +40,18 @@ export default {
   props: ['modelValue', 'options'],
   emits: ['update:modelValue'],
 
-  data () {
+  data() {
     return {
       is_active: false
     }
   },
 
   methods: {
-    onClickOutside (event) {
+    onClickOutside(event) {
       this.is_active = false
     },
 
-    select (option) {
+    select(option) {
       this.is_active = false
       this.$emit('update:modelValue', option)
     }
@@ -47,5 +59,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

@@ -1,22 +1,36 @@
 <template>
   <content-with-heading>
-    <template v-slot:heading-left>
-      <p class="title is-4">{{ artist.name }}</p>
+    <template #heading-left>
+      <p class="title is-4">
+        {{ artist.name }}
+      </p>
     </template>
-    <template v-slot:heading-right>
+    <template #heading-right>
       <div class="buttons is-centered">
-        <a class="button is-small is-light is-rounded" @click="show_artist_details_modal = true">
-          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_artist_details_modal = true"
+        >
+          <span class="icon"
+            ><i class="mdi mdi-dots-horizontal mdi-18px"
+          /></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-play"></i></span> <span>Shuffle</span>
+          <span class="icon"><i class="mdi mdi-play" /></span>
+          <span>Shuffle</span>
         </a>
       </div>
     </template>
-    <template v-slot:content>
-      <p class="heading has-text-centered-mobile">{{ artist.album_count }} albums</p>
-      <list-albums :albums="albums.items"></list-albums>
-      <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
+    <template #content>
+      <p class="heading has-text-centered-mobile">
+        {{ artist.album_count }} albums
+      </p>
+      <list-albums :albums="albums.items" />
+      <modal-dialog-artist
+        :show="show_artist_details_modal"
+        :artist="artist"
+        @close="show_artist_details_modal = false"
+      />
     </template>
   </content-with-heading>
 </template>
@@ -45,7 +59,20 @@ export default {
   name: 'PageAudiobooksArtist',
   components: { ContentWithHeading, ListAlbums, ModalDialogArtist },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       artist: {},
       albums: {},
@@ -56,24 +83,13 @@ export default {
 
   methods: {
     play: function () {
-      webapi.player_play_uri(this.albums.items.map(a => a.uri).join(','), false)
+      webapi.player_play_uri(
+        this.albums.items.map((a) => a.uri).join(','),
+        false
+      )
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

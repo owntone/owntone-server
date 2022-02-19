@@ -1,6 +1,8 @@
 <template>
-  <a @click="play_previous" :disabled="disabled">
-    <span class="icon"><i class="mdi mdi-skip-backward" :class="icon_style"></i></span>
+  <a :disabled="disabled" @click="play_previous">
+    <span class="icon"
+      ><i class="mdi mdi-skip-backward" :class="icon_style"
+    /></span>
   </a>
 </template>
 
@@ -15,7 +17,7 @@ export default {
   },
 
   computed: {
-    disabled () {
+    disabled() {
       return !this.$store.state.queue || this.$store.state.queue.count <= 0
     }
   },
@@ -32,5 +34,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

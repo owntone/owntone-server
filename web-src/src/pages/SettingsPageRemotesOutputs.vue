@@ -1,22 +1,27 @@
 <template>
   <div class="fd-page-with-tabs">
-    <tabs-settings></tabs-settings>
+    <tabs-settings />
 
     <content-with-heading>
-      <template v-slot:heading-left>
+      <template #heading-left>
         <div class="title is-4">Remote Pairing</div>
       </template>
 
-      <template v-slot:content>
+      <template #content>
         <!-- Paring request active -->
-        <div class="notification" v-if="pairing.active">
-          <form v-on:submit.prevent="kickoff_pairing">
+        <div v-if="pairing.active" class="notification">
+          <form @submit.prevent="kickoff_pairing">
             <label class="label has-text-weight-normal">
               Remote pairing request from <b>{{ pairing.remote }}</b>
             </label>
             <div class="field is-grouped">
               <div class="control">
-                <input class="input" type="text" placeholder="Enter pairing code" v-model="pairing_req.pin">
+                <input
+                  v-model="pairing_req.pin"
+                  class="input"
+                  type="text"
+                  placeholder="Enter pairing code"
+                />
               </div>
               <div class="control">
                 <button class="button is-info" type="submit">Send</button>
@@ -25,34 +30,49 @@
           </form>
         </div>
         <!-- No pairing requests -->
-        <div class="content" v-if="!pairing.active">
+        <div v-if="!pairing.active" class="content">
           <p>No active pairing request.</p>
         </div>
       </template>
     </content-with-heading>
 
     <content-with-heading>
-      <template v-slot:heading-left>
+      <template #heading-left>
         <div class="title is-4">Speaker pairing and device verification</div>
       </template>
 
-      <template v-slot:content>
+      <template #content>
         <p class="content">
-          If your speaker requires pairing then activate it below and enter the PIN that it displays.
+          If your speaker requires pairing then activate it below and enter the
+          PIN that it displays.
         </p>
 
         <div v-for="output in outputs" :key="output.id">
           <div class="field">
             <div class="control">
               <label class="checkbox">
-                <input type="checkbox" v-model="output.selected" @change="output_toggle(output.id)"> {{ output.name }}
+                <input
+                  v-model="output.selected"
+                  type="checkbox"
+                  @change="output_toggle(output.id)"
+                />
+                {{ output.name }}
               </label>
             </div>
           </div>
-          <form @submit.prevent="kickoff_verification(output.id)" v-if="output.needs_auth_key" class="fd-has-margin-bottom">
+          <form
+            v-if="output.needs_auth_key"
+            class="fd-has-margin-bottom"
+            @submit.prevent="kickoff_verification(output.id)"
+          >
             <div class="field is-grouped">
               <div class="control">
-                <input class="input" type="text" placeholder="Enter verification code" v-model="verification_req.pin">
+                <input
+                  v-model="verification_req.pin"
+                  class="input"
+                  type="text"
+                  placeholder="Enter verification code"
+                />
               </div>
               <div class="control">
                 <button class="button is-info" type="submit">Verify</button>
@@ -74,7 +94,9 @@ export default {
   name: 'SettingsPageRemotesOutputs',
   components: { ContentWithHeading, TabsSettings },
 
-  data () {
+  filters: {},
+
+  data() {
     return {
       pairing_req: { pin: '' },
       verification_req: { pin: '' }
@@ -82,33 +104,29 @@ export default {
   },
 
   computed: {
-    pairing () {
+    pairing() {
       return this.$store.state.pairing
     },
 
-    outputs () {
+    outputs() {
       return this.$store.state.outputs
     }
   },
 
   methods: {
-    kickoff_pairing () {
+    kickoff_pairing() {
       webapi.pairing_kickoff(this.pairing_req)
     },
 
-    output_toggle (outputId) {
+    output_toggle(outputId) {
       webapi.output_toggle(outputId)
     },
 
-    kickoff_verification (outputId) {
+    kickoff_verification(outputId) {
       webapi.output_update(outputId, this.verification_req)
     }
-  },
-
-  filters: {
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

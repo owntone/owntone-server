@@ -1,18 +1,36 @@
 <template>
   <div>
-    <list-item-playlist v-for="playlist in playlists" :key="playlist.id" :playlist="playlist" @click="open_playlist(playlist)">
-      <template v-slot:icon>
+    <list-item-playlist
+      v-for="playlist in playlists"
+      :key="playlist.id"
+      :playlist="playlist"
+      @click="open_playlist(playlist)"
+    >
+      <template #icon>
         <span class="icon">
-          <i class="mdi" :class="{ 'mdi-library-music': playlist.type !== 'folder', 'mdi-rss': playlist.type === 'rss', 'mdi-folder': playlist.type === 'folder' }"></i>
+          <i
+            class="mdi"
+            :class="{
+              'mdi-library-music': playlist.type !== 'folder',
+              'mdi-rss': playlist.type === 'rss',
+              'mdi-folder': playlist.type === 'folder'
+            }"
+          />
         </span>
       </template>
-      <template v-slot:actions>
+      <template #actions>
         <a @click.prevent.stop="open_dialog(playlist)">
-          <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+          <span class="icon has-text-dark"
+            ><i class="mdi mdi-dots-vertical mdi-18px"
+          /></span>
         </a>
       </template>
     </list-item-playlist>
-    <modal-dialog-playlist :show="show_details_modal" :playlist="selected_playlist" @close="show_details_modal = false" />
+    <modal-dialog-playlist
+      :show="show_details_modal"
+      :playlist="selected_playlist"
+      @close="show_details_modal = false"
+    />
   </div>
 </template>
 
@@ -26,7 +44,7 @@ export default {
 
   props: ['playlists'],
 
-  data () {
+  data() {
     return {
       show_details_modal: false,
       selected_playlist: {}
@@ -50,5 +68,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

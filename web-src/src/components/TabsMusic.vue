@@ -5,50 +5,85 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small">
             <ul>
-              <router-link to="/music/browse" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/music/browse"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-web"></i></span>
+                    <span class="icon is-small"><i class="mdi mdi-web" /></span>
                     <span class="">Browse</span>
                   </a>
                 </li>
               </router-link>
-              <router-link to="/music/artists" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/music/artists"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-artist"></i></span>
+                    <span class="icon is-small"
+                      ><i class="mdi mdi-artist"
+                    /></span>
                     <span class="">Artists</span>
                   </a>
                 </li>
               </router-link>
-              <router-link to="/music/albums" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/music/albums"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-album"></i></span>
+                    <span class="icon is-small"
+                      ><i class="mdi mdi-album"
+                    /></span>
                     <span class="">Albums</span>
                   </a>
                 </li>
               </router-link>
-              <router-link to="/music/genres" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/music/genres"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-speaker"></i></span>
+                    <span class="icon is-small"
+                      ><i class="mdi mdi-speaker"
+                    /></span>
                     <span class="">Genres</span>
                   </a>
                 </li>
               </router-link>
-              <router-link to="/music/composers" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/music/composers"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-book-open-page-variant"></i></span>
+                    <span class="icon is-small"
+                      ><i class="mdi mdi-book-open-page-variant"
+                    /></span>
                     <span class="">Composers</span>
                   </a>
                 </li>
               </router-link>
-              <router-link to="/music/spotify" v-if="spotify_enabled" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-if="spotify_enabled"
+                v-slot="{ navigate, isActive }"
+                to="/music/spotify"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-spotify"></i></span>
+                    <span class="icon is-small"
+                      ><i class="mdi mdi-spotify"
+                    /></span>
                     <span class="">Spotify</span>
                   </a>
                 </li>
@@ -66,12 +101,11 @@ export default {
   name: 'TabsMusic',
 
   computed: {
-    spotify_enabled () {
+    spotify_enabled() {
       return this.$store.state.spotify.webapi_token_valid
     }
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

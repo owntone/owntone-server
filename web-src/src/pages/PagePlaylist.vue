@@ -1,22 +1,35 @@
 <template>
   <content-with-heading>
-    <template v-slot:heading-left>
-      <div class="title is-4">{{ playlist.name }}</div>
+    <template #heading-left>
+      <div class="title is-4">
+        {{ playlist.name }}
+      </div>
     </template>
-    <template v-slot:heading-right>
+    <template #heading-right>
       <div class="buttons is-centered">
-        <a class="button is-small is-light is-rounded" @click="show_playlist_details_modal = true">
-          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_playlist_details_modal = true"
+        >
+          <span class="icon"
+            ><i class="mdi mdi-dots-horizontal mdi-18px"
+          /></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+          <span class="icon"><i class="mdi mdi-shuffle" /></span>
+          <span>Shuffle</span>
         </a>
       </div>
     </template>
-    <template v-slot:content>
+    <template #content>
       <p class="heading has-text-centered-mobile">{{ tracks.length }} tracks</p>
-      <list-tracks :tracks="tracks" :uris="uris"></list-tracks>
-      <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" :uris="uris" @close="show_playlist_details_modal = false" />
+      <list-tracks :tracks="tracks" :uris="uris" />
+      <modal-dialog-playlist
+        :show="show_playlist_details_modal"
+        :playlist="playlist"
+        :uris="uris"
+        @close="show_playlist_details_modal = false"
+      />
     </template>
   </content-with-heading>
 </template>
@@ -45,7 +58,20 @@ export default {
   name: 'PagePlaylist',
   components: { ContentWithHeading, ListTracks, ModalDialogPlaylist },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       playlist: {},
       tracks: [],
@@ -55,9 +81,9 @@ export default {
   },
 
   computed: {
-    uris () {
+    uris() {
       if (this.playlist.random) {
-        return this.tracks.map(a => a.uri).join(',')
+        return this.tracks.map((a) => a.uri).join(',')
       }
       return this.playlist.uri
     }
@@ -67,22 +93,8 @@ export default {
     play: function () {
       webapi.player_play_uri(this.uris, true)
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

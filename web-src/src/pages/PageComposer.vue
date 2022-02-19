@@ -1,33 +1,59 @@
 <template>
   <div>
     <content-with-heading>
-      <template v-slot:options>
-        <index-button-list :index="index_list"></index-button-list>
+      <template #options>
+        <index-button-list :index="index_list" />
       </template>
-      <template v-slot:heading-left>
-        <p class="title is-4">{{ name }}</p>
+      <template #heading-left>
+        <p class="title is-4">
+          {{ name }}
+        </p>
       </template>
-      <template v-slot:heading-right>
+      <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small is-light is-rounded" @click="show_composer_details_modal = true">
-            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_composer_details_modal = true"
+          >
+            <span class="icon"
+              ><i class="mdi mdi-dots-horizontal mdi-18px"
+            /></span>
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+            <span class="icon"><i class="mdi mdi-shuffle" /></span>
+            <span>Shuffle</span>
           </a>
         </div>
       </template>
-      <template v-slot:content>
-        <p class="heading has-text-centered-mobile">{{ composer_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
-        <list-item-albums v-for="album in composer_albums.items" :key="album.id" :album="album" @click="open_album(album)">
+      <template #content>
+        <p class="heading has-text-centered-mobile">
+          {{ composer_albums.total }} albums |
+          <a class="has-text-link" @click="open_tracks">tracks</a>
+        </p>
+        <list-item-albums
+          v-for="album in composer_albums.items"
+          :key="album.id"
+          :album="album"
+          @click="open_album(album)"
+        >
           <template slot:actions>
             <a @click="open_dialog(album)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+              <span class="icon has-text-dark"
+                ><i class="mdi mdi-dots-vertical mdi-18px"
+              /></span>
             </a>
           </template>
         </list-item-albums>
-        <modal-dialog-album :show="show_details_modal" :album="selected_album" @close="show_details_modal = false" />
-        <modal-dialog-composer :show="show_composer_details_modal" :composer="{ 'name': name }" @close="show_composer_details_modal = false" />
+        <modal-dialog-album
+          :show="show_details_modal"
+          :album="selected_album"
+          @close="show_details_modal = false"
+        />
+        <modal-dialog-composer
+          :show="show_composer_details_modal"
+          :composer="{ name: name }"
+          @close="show_composer_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>
@@ -53,9 +79,27 @@ const dataObject = {
 
 export default {
   name: 'PageComposer',
-  components: { ContentWithHeading, ListItemAlbums, ModalDialogAlbum, ModalDialogComposer },
+  components: {
+    ContentWithHeading,
+    ListItemAlbums,
+    ModalDialogAlbum,
+    ModalDialogComposer
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       name: '',
       composer_albums: { items: [] },
@@ -67,20 +111,31 @@ export default {
   },
 
   computed: {
-    index_list () {
-      return [...new Set(this.composer_albums.items
-        .map(album => album.name_sort.charAt(0).toUpperCase()))]
+    index_list() {
+      return [
+        ...new Set(
+          this.composer_albums.items.map((album) =>
+            album.name_sort.charAt(0).toUpperCase()
+          )
+        )
+      ]
     }
   },
 
   methods: {
     open_tracks: function () {
       this.show_details_modal = false
-      this.$router.push({ name: 'ComposerTracks', params: { composer: this.name } })
+      this.$router.push({
+        name: 'ComposerTracks',
+        params: { composer: this.name }
+      })
     },
 
     play: function () {
-      webapi.player_play_expression('composer is "' + this.name + '" and media_kind is music', true)
+      webapi.player_play_expression(
+        'composer is "' + this.name + '" and media_kind is music',
+        true
+      )
     },
 
     open_album: function (album) {
@@ -91,22 +146,8 @@ export default {
       this.selected_album = album
       this.show_details_modal = true
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

@@ -1,6 +1,6 @@
 <template>
-  <a @click="toggle_consume_mode" :class="{ 'is-warning': is_consume }">
-    <span class="icon"><i class="mdi mdi-fire" :class="icon_style"></i></span>
+  <a :class="{ 'is-warning': is_consume }" @click="toggle_consume_mode">
+    <span class="icon"><i class="mdi mdi-fire" :class="icon_style" /></span>
   </a>
 </template>
 
@@ -15,7 +15,7 @@ export default {
   },
 
   computed: {
-    is_consume () {
+    is_consume() {
       return this.$store.state.player.consume
     }
   },
@@ -28,5 +28,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

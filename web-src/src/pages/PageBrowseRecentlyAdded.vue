@@ -1,14 +1,14 @@
 <template>
   <div class="fd-page-with-tabs">
-    <tabs-music></tabs-music>
+    <tabs-music />
 
     <content-with-heading>
-      <template v-slot:heading-left>
+      <template #heading-left>
         <p class="title is-4">Recently added</p>
         <p class="heading">albums</p>
       </template>
-      <template v-slot:content>
-        <list-albums :albums="albums_list"></list-albums>
+      <template #content>
+        <list-albums :albums="albums_list" />
       </template>
     </content-with-heading>
   </div>
@@ -27,7 +27,8 @@ const dataObject = {
     const limit = store.getters.settings_option_recently_added_limit
     return webapi.search({
       type: 'album',
-      expression: 'media_kind is music having track_count > 3 order by time_added desc',
+      expression:
+        'media_kind is music having track_count > 3 order by time_added desc',
       limit: limit
     })
   },
@@ -41,14 +42,27 @@ export default {
   name: 'PageBrowseType',
   components: { ContentWithHeading, TabsMusic, ListAlbums },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       recently_added: { items: [] }
     }
   },
 
   computed: {
-    albums_list () {
+    albums_list() {
       return new Albums(this.recently_added.items, {
         hideSingles: false,
         hideSpotify: false,
@@ -56,22 +70,8 @@ export default {
         group: true
       })
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

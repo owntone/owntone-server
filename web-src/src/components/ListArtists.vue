@@ -2,32 +2,49 @@
   <div>
     <div v-if="is_grouped">
       <div v-for="idx in artists.indexList" :key="idx" class="mb-6">
-        <span class="tag is-info is-light is-small has-text-weight-bold" :id="'index_' + idx">{{ idx }}</span>
-        <list-item-artist v-for="artist in artists.grouped[idx]"
-            :key="artist.id"
-            :artist="artist"
-            @click="open_artist(artist)">
-            <template v-slot:actions>
-                <a @click.prevent.stop="open_dialog(artist)">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-                </a>
-            </template>
+        <span
+          :id="'index_' + idx"
+          class="tag is-info is-light is-small has-text-weight-bold"
+          >{{ idx }}</span
+        >
+        <list-item-artist
+          v-for="artist in artists.grouped[idx]"
+          :key="artist.id"
+          :artist="artist"
+          @click="open_artist(artist)"
+        >
+          <template #actions>
+            <a @click.prevent.stop="open_dialog(artist)">
+              <span class="icon has-text-dark"
+                ><i class="mdi mdi-dots-vertical mdi-18px"
+              /></span>
+            </a>
+          </template>
         </list-item-artist>
       </div>
     </div>
     <div v-else>
-      <list-item-artist v-for="artist in artists_list"
-          :key="artist.id"
-          :artist="artist"
-          @click="open_artist(artist)">
-          <template v-slot:actions>
-              <a @click.prevent.stop="open_dialog(artist)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-              </a>
-          </template>
+      <list-item-artist
+        v-for="artist in artists_list"
+        :key="artist.id"
+        :artist="artist"
+        @click="open_artist(artist)"
+      >
+        <template #actions>
+          <a @click.prevent.stop="open_dialog(artist)">
+            <span class="icon has-text-dark"
+              ><i class="mdi mdi-dots-vertical mdi-18px"
+            /></span>
+          </a>
+        </template>
       </list-item-artist>
     </div>
-    <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" :media_kind="media_kind" @close="show_details_modal = false" />
+    <modal-dialog-artist
+      :show="show_details_modal"
+      :artist="selected_artist"
+      :media_kind="media_kind"
+      @close="show_details_modal = false"
+    />
   </div>
 </template>
 
@@ -42,7 +59,7 @@ export default {
 
   props: ['artists', 'media_kind'],
 
-  data () {
+  data() {
     return {
       show_details_modal: false,
       selected_artist: {}
@@ -62,7 +79,7 @@ export default {
     },
 
     is_grouped: function () {
-      return (this.artists instanceof Artists && this.artists.options.group)
+      return this.artists instanceof Artists && this.artists.options.group
     }
   },
 
@@ -86,5 +103,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

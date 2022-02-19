@@ -1,12 +1,14 @@
 <template>
   <div>
     <content-with-heading>
-      <template v-slot:heading-left>
+      <template #heading-left>
         <p class="title is-4">Radio</p>
       </template>
-      <template v-slot:content>
-        <p class="heading has-text-centered-mobile">{{ tracks.total }} tracks</p>
-        <list-tracks :tracks="tracks.items"></list-tracks>
+      <template #content>
+        <p class="heading has-text-centered-mobile">
+          {{ tracks.total }} tracks
+        </p>
+        <list-tracks :tracks="tracks.items" />
       </template>
     </content-with-heading>
   </div>
@@ -31,26 +33,25 @@ export default {
   name: 'PageRadioStreams',
   components: { ContentWithHeading, ListTracks },
 
-  data () {
-    return {
-      tracks: { items: [] }
-    }
-  },
-
-  beforeRouteEnter (to, from, next) {
+  beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
+      next((vm) => dataObject.set(vm, response))
     })
   },
-  beforeRouteUpdate (to, from, next) {
+  beforeRouteUpdate(to, from, next) {
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
       next()
     })
+  },
+
+  data() {
+    return {
+      tracks: { items: [] }
+    }
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

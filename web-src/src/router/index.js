@@ -286,7 +286,7 @@ export const router = createRouter({
       component: SettingsPageRemotesOutputs
     }
   ],
-  scrollBehavior (to, from, savedPosition) {
+  scrollBehavior(to, from, savedPosition) {
     const wait_ms = 0
     // console.log(to.path + '_' + from.path + '__' + to.hash + ' savedPosition:' + savedPosition)
     if (savedPosition) {

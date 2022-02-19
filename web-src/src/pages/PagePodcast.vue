@@ -1,31 +1,46 @@
 <template>
   <content-with-heading>
-    <template v-slot:heading-left>
-      <div class="title is-4">{{ album.name }}
+    <template #heading-left>
+      <div class="title is-4">
+        {{ album.name }}
       </div>
-     </template>
-    <template v-slot:heading-right>
+    </template>
+    <template #heading-right>
       <div class="buttons is-centered">
-        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
-          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_album_details_modal = true"
+        >
+          <span class="icon"
+            ><i class="mdi mdi-dots-horizontal mdi-18px"
+          /></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
           <span class="icon">
-            <i class="mdi mdi-play"></i>
+            <i class="mdi mdi-play" />
           </span>
           <span>Play</span>
         </a>
       </div>
     </template>
-    <template v-slot:content>
-      <p class="heading has-text-centered-mobile">{{ album.track_count }} tracks</p>
-      <list-item-track v-for="track in tracks" :key="track.id" :track="track" @click="play_track(track)">
-        <template v-slot:progress>
+    <template #content>
+      <p class="heading has-text-centered-mobile">
+        {{ album.track_count }} tracks
+      </p>
+      <list-item-track
+        v-for="track in tracks"
+        :key="track.id"
+        :track="track"
+        @click="play_track(track)"
+      >
+        <template #progress>
           <progress-bar :max="track.length_ms" :value="track.seek_ms" />
         </template>
-        <template v-slot:actions>
+        <template #actions>
           <a @click.prevent.stop="open_dialog(track)">
-            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            <span class="icon has-text-dark"
+              ><i class="mdi mdi-dots-vertical mdi-18px"
+            /></span>
           </a>
         </template>
       </list-item-track>
@@ -33,7 +48,8 @@
         :show="show_details_modal"
         :track="selected_track"
         @close="show_details_modal = false"
-        @play-count-changed="reload_tracks" />
+        @play-count-changed="reload_tracks"
+      />
       <modal-dialog-album
         :show="show_album_details_modal"
         :album="album"
@@ -41,16 +57,22 @@
         :new_tracks="new_tracks"
         @close="show_album_details_modal = false"
         @play-count-changed="reload_tracks"
-        @remove-podcast="open_remove_podcast_dialog" />
+        @remove-podcast="open_remove_podcast_dialog"
+      />
       <modal-dialog
         :show="show_remove_podcast_modal"
         title="Remove podcast"
         delete_action="Remove"
         @close="show_remove_podcast_modal = false"
-        @delete="remove_podcast">
-        <template v-slot:modal-content>
+        @delete="remove_podcast"
+      >
+        <template #modal-content>
           <p>Permanently remove this podcast from your library?</p>
-          <p class="is-size-7">(This will also remove the RSS playlist <b>{{ rss_playlist_to_remove.name }}</b>.)</p>
+          <p class="is-size-7">
+            (This will also remove the RSS playlist
+            <b>{{ rss_playlist_to_remove.name }}</b
+            >.)
+          </p>
         </template>
       </modal-dialog>
     </template>
@@ -91,7 +113,20 @@ export default {
     ProgressBar
   },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       album: {},
       tracks: [],
@@ -107,8 +142,8 @@ export default {
   },
 
   computed: {
-    new_tracks () {
-      return this.tracks.filter(track => track.play_count === 0).length
+    new_tracks() {
+      return this.tracks.filter((track) => track.play_count === 0).length
     }
   },
 
@@ -129,9 +164,12 @@ export default {
     open_remove_podcast_dialog: function () {
       this.show_album_details_modal = false
       webapi.library_track_playlists(this.tracks[0].id).then(({ data }) => {
-        const rssPlaylists = data.items.filter(pl => pl.type === 'rss')
+        const rssPlaylists = data.items.filter((pl) => pl.type === 'rss')
         if (rssPlaylists.length !== 1) {
-          this.$store.dispatch('add_notification', { text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.', type: 'danger' })
+          this.$store.dispatch('add_notification', {
+            text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.',
+            type: 'danger'
+          })
           return
         }
 
@@ -142,9 +180,11 @@ export default {
 
     remove_podcast: function () {
       this.show_remove_podcast_modal = false
-      webapi.library_playlist_delete(this.rss_playlist_to_remove.id).then(() => {
-        this.$router.replace({ path: '/podcasts' })
-      })
+      webapi
+        .library_playlist_delete(this.rss_playlist_to_remove.id)
+        .then(() => {
+          this.$router.replace({ path: '/podcasts' })
+        })
     },
 
     reload_tracks: function () {
@@ -152,22 +192,8 @@ export default {
         this.tracks = data.tracks.items
       })
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

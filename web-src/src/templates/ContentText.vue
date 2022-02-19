@@ -3,7 +3,7 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <slot name="content"></slot>
+          <slot name="content" />
         </div>
       </div>
     </div>
@@ -16,5 +16,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

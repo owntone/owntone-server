@@ -1,20 +1,30 @@
 <template>
   <div class="fd-page-with-tabs">
-    <tabs-music></tabs-music>
+    <tabs-music />
 
     <content-with-heading>
-      <template v-slot:heading-left>
+      <template #heading-left>
         <p class="title is-4">Featured Playlists</p>
       </template>
-      <template v-slot:content>
-        <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist">
-          <template v-slot:actions>
+      <template #content>
+        <spotify-list-item-playlist
+          v-for="playlist in featured_playlists"
+          :key="playlist.id"
+          :playlist="playlist"
+        >
+          <template #actions>
             <a @click="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+              <span class="icon has-text-dark"
+                ><i class="mdi mdi-dots-vertical mdi-18px"
+              /></span>
             </a>
           </template>
         </spotify-list-item-playlist>
-        <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
+        <spotify-modal-dialog-playlist
+          :show="show_playlist_details_modal"
+          :playlist="selected_playlist"
+          @close="show_playlist_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>
@@ -37,7 +47,10 @@ const dataObject = {
 
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    spotifyApi.getFeaturedPlaylists({ country: store.state.spotify.webapi_country, limit: 50 })
+    spotifyApi.getFeaturedPlaylists({
+      country: store.state.spotify.webapi_country,
+      limit: 50
+    })
   },
 
   set: function (vm, response) {
@@ -49,9 +62,27 @@ const dataObject = {
 
 export default {
   name: 'SpotifyPageBrowseFeaturedPlaylists',
-  components: { ContentWithHeading, TabsMusic, SpotifyListItemPlaylist, SpotifyModalDialogPlaylist },
+  components: {
+    ContentWithHeading,
+    TabsMusic,
+    SpotifyListItemPlaylist,
+    SpotifyModalDialogPlaylist
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       show_playlist_details_modal: false,
       selected_playlist: {}
@@ -59,7 +90,7 @@ export default {
   },
 
   computed: {
-    featured_playlists () {
+    featured_playlists() {
       return this.$store.state.spotify_featured_playlists
     }
   },
@@ -69,22 +100,8 @@ export default {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

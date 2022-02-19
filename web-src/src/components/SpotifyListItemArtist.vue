@@ -1,10 +1,12 @@
 <template>
   <div class="media">
-    <div class="media-content fd-has-action is-clipped" v-on:click="open_artist">
-      <h1 class="title is-6">{{ artist.name }}</h1>
+    <div class="media-content fd-has-action is-clipped" @click="open_artist">
+      <h1 class="title is-6">
+        {{ artist.name }}
+      </h1>
     </div>
     <div class="media-right">
-      <slot name="actions"></slot>
+      <slot name="actions" />
     </div>
   </div>
 </template>
@@ -22,5 +24,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

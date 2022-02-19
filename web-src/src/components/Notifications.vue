@@ -1,9 +1,17 @@
 <template>
-  <section class="fd-notifications" v-if="notifications.length > 0">
+  <section v-if="notifications.length > 0" class="fd-notifications">
     <div class="columns is-centered">
       <div class="column is-half">
-        <div class="notification has-shadow " v-for="notification in notifications" :key="notification.id" :class="['notification', notification.type ? `is-${notification.type}` : '']">
-          <button class="delete" v-on:click="remove(notification)"></button>
+        <div
+          v-for="notification in notifications"
+          :key="notification.id"
+          class="notification has-shadow"
+          :class="[
+            'notification',
+            notification.type ? `is-${notification.type}` : ''
+          ]"
+        >
+          <button class="delete" @click="remove(notification)" />
           {{ notification.text }}
         </div>
       </div>
@@ -16,14 +24,14 @@ import * as types from '@/store/mutation_types'
 
 export default {
   name: 'Notifications',
-  components: { },
+  components: {},
 
-  data () {
+  data() {
     return { showNav: false }
   },
 
   computed: {
-    notifications () {
+    notifications() {
       return this.$store.state.notifications.list
     }
   },

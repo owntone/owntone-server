@@ -2,7 +2,7 @@ import { createApp } from 'vue'
 import store from './store'
 import { router } from './router'
 import VueProgressBar from '@aacassandra/vue3-progressbar'
-import VueClickAway from "vue3-click-away"
+import VueClickAway from 'vue3-click-away'
 import VueLazyLoad from 'vue3-lazyload'
 import VueScrollTo from 'vue-scrollto'
 import { filters } from './filter'

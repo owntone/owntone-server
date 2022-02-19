@@ -1,30 +1,60 @@
 <template>
   <content-with-heading>
-    <template v-slot:heading-left>
-      <div class="title is-4">{{ playlist.name }}</div>
+    <template #heading-left>
+      <div class="title is-4">
+        {{ playlist.name }}
+      </div>
     </template>
-    <template v-slot:heading-right>
+    <template #heading-right>
       <div class="buttons is-centered">
-        <a class="button is-small is-light is-rounded" @click="show_playlist_details_modal = true">
-          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_playlist_details_modal = true"
+        >
+          <span class="icon"
+            ><i class="mdi mdi-dots-horizontal mdi-18px"
+          /></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+          <span class="icon"><i class="mdi mdi-shuffle" /></span>
+          <span>Shuffle</span>
         </a>
       </div>
     </template>
-    <template v-slot:content>
-      <p class="heading has-text-centered-mobile">{{ playlist.tracks.total }} tracks</p>
-      <spotify-list-item-track v-for="(item, index) in tracks" :key="item.track.id" :track="item.track" :album="item.track.album" :position="index" :context_uri="playlist.uri">
-        <template v-slot:actions>
+    <template #content>
+      <p class="heading has-text-centered-mobile">
+        {{ playlist.tracks.total }} tracks
+      </p>
+      <spotify-list-item-track
+        v-for="(item, index) in tracks"
+        :key="item.track.id"
+        :track="item.track"
+        :album="item.track.album"
+        :position="index"
+        :context_uri="playlist.uri"
+      >
+        <template #actions>
           <a @click="open_track_dialog(item.track)">
-            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            <span class="icon has-text-dark"
+              ><i class="mdi mdi-dots-vertical mdi-18px"
+            /></span>
           </a>
         </template>
       </spotify-list-item-track>
-      <VueEternalLoading v-if="offset < total" :load="load_next"><template #no-more>.</template></VueEternalLoading>
-      <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="selected_track.album" @close="show_track_details_modal = false" />
-      <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" @close="show_playlist_details_modal = false" />
+      <VueEternalLoading v-if="offset < total" :load="load_next">
+        <template #no-more> . </template>
+      </VueEternalLoading>
+      <spotify-modal-dialog-track
+        :show="show_track_details_modal"
+        :track="selected_track"
+        :album="selected_track.album"
+        @close="show_track_details_modal = false"
+      />
+      <spotify-modal-dialog-playlist
+        :show="show_playlist_details_modal"
+        :playlist="playlist"
+        @close="show_playlist_details_modal = false"
+      />
     </template>
   </content-with-heading>
 </template>
@@ -47,7 +77,10 @@ const dataObject = {
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return Promise.all([
       spotifyApi.getPlaylist(to.params.playlist_id),
-      spotifyApi.getPlaylistTracks(to.params.playlist_id, { limit: PAGE_SIZE, offset: 0 })
+      spotifyApi.getPlaylistTracks(to.params.playlist_id, {
+        limit: PAGE_SIZE,
+        offset: 0
+      })
     ])
   },
 
@@ -62,9 +95,28 @@ const dataObject = {
 
 export default {
   name: 'SpotifyPagePlaylist',
-  components: { ContentWithHeading, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogPlaylist, VueEternalLoading },
+  components: {
+    ContentWithHeading,
+    SpotifyListItemTrack,
+    SpotifyModalDialogTrack,
+    SpotifyModalDialogPlaylist,
+    VueEternalLoading
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       playlist: { tracks: {} },
       tracks: [],
@@ -82,10 +134,15 @@ export default {
     load_next: function ({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
-      spotifyApi.getPlaylistTracks(this.playlist.id, { limit: PAGE_SIZE, offset: this.offset }).then(data => {
-        this.append_tracks(data)
-        loaded(data.items.length, PAGE_SIZE)
-      })
+      spotifyApi
+        .getPlaylistTracks(this.playlist.id, {
+          limit: PAGE_SIZE,
+          offset: this.offset
+        })
+        .then((data) => {
+          this.append_tracks(data)
+          loaded(data.items.length, PAGE_SIZE)
+        })
     },
 
     append_tracks: function (data) {
@@ -103,22 +160,8 @@ export default {
       this.selected_track = track
       this.show_track_details_modal = true
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

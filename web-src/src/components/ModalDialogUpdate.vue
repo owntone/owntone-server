@@ -1,29 +1,34 @@
 <template>
   <modal-dialog
-      :show="show"
-      title="Update library"
-      :ok_action="library.updating ? '' : 'Rescan'"
-      close_action="Close"
-      @ok="update_library"
-      @close="close()">
-    <template v-slot:modal-content>
+    :show="show"
+    title="Update library"
+    :ok_action="library.updating ? '' : 'Rescan'"
+    close_action="Close"
+    @ok="update_library"
+    @close="close()"
+  >
+    <template #modal-content>
       <div v-if="!library.updating">
         <p class="mb-3">Scan for new, deleted and modified files</p>
-        <div class="field" v-if="spotify_enabled || rss.tracks > 0">
+        <div v-if="spotify_enabled || rss.tracks > 0" class="field">
           <div class="control">
             <div class="select is-small">
               <select v-model="update_dialog_scan_kind">
                 <option value="">Update everything</option>
                 <option value="files">Only update local library</option>
-                <option value="spotify" v-if="spotify_enabled">Only update Spotify</option>
-                <option value="rss" v-if="rss.tracks > 0">Only update RSS feeds</option>
+                <option v-if="spotify_enabled" value="spotify">
+                  Only update Spotify
+                </option>
+                <option v-if="rss.tracks > 0" value="rss">
+                  Only update RSS feeds
+                </option>
               </select>
             </div>
           </div>
         </div>
         <div class="field">
           <label class="checkbox is-size-7 is-small">
-            <input type="checkbox" v-model="rescan_metadata">
+            <input v-model="rescan_metadata" type="checkbox" />
             Rescan metadata for unmodified files
           </label>
         </div>
@@ -45,37 +50,37 @@ export default {
   components: { ModalDialog },
   props: ['show'],
 
-  data () {
+  data() {
     return {
       rescan_metadata: false
     }
   },
 
   computed: {
-    library () {
+    library() {
       return this.$store.state.library
     },
 
-    rss () {
+    rss() {
       return this.$store.state.rss_count
     },
 
-    spotify_enabled () {
+    spotify_enabled() {
       return this.$store.state.spotify.webapi_token_valid
     },
 
     update_dialog_scan_kind: {
-      get () {
+      get() {
         return this.$store.state.update_dialog_scan_kind
       },
-      set (value) {
+      set(value) {
         this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, value)
       }
     }
   },
 
   methods: {
-    update_library () {
+    update_library() {
       if (this.rescan_metadata) {
         webapi.library_rescan(this.update_dialog_scan_kind)
       } else {
@@ -83,7 +88,7 @@ export default {
       }
     },
 
-    close () {
+    close() {
       this.update_dialog_scan_kind = ''
       this.$emit('close')
     }
@@ -91,5 +96,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

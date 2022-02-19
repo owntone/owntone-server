@@ -1,11 +1,13 @@
 <template>
   <content-with-heading>
-    <template v-slot:heading-left>
-      <p class="title is-4">{{ playlist.name }}</p>
+    <template #heading-left>
+      <p class="title is-4">
+        {{ playlist.name }}
+      </p>
       <p class="heading">{{ playlists.total }} playlists</p>
     </template>
-    <template v-slot:content>
-      <list-playlists :playlists="playlists.items"></list-playlists>
+    <template #content>
+      <list-playlists :playlists="playlists.items" />
     </template>
   </content-with-heading>
 </template>
@@ -33,27 +35,26 @@ export default {
   name: 'PagePlaylists',
   components: { ContentWithHeading, ListPlaylists },
 
-  data () {
-    return {
-      playlist: {},
-      playlists: {}
-    }
-  },
-
-  beforeRouteEnter (to, from, next) {
+  beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
+      next((vm) => dataObject.set(vm, response))
     })
   },
-  beforeRouteUpdate (to, from, next) {
+  beforeRouteUpdate(to, from, next) {
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
       next()
     })
+  },
+
+  data() {
+    return {
+      playlist: {},
+      playlists: {}
+    }
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

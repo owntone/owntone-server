@@ -1,6 +1,17 @@
 <template>
-  <a @click="toggle_play_pause" :disabled="disabled">
-    <span class="icon"><i class="mdi" :class="[icon_style, { 'mdi-play': !is_playing, 'mdi-pause': is_playing && is_pause_allowed, 'mdi-stop': is_playing && !is_pause_allowed }]"></i></span>
+  <a :disabled="disabled" @click="toggle_play_pause">
+    <span class="icon"
+      ><i
+        class="mdi"
+        :class="[
+          icon_style,
+          {
+            'mdi-play': !is_playing,
+            'mdi-pause': is_playing && is_pause_allowed,
+            'mdi-stop': is_playing && !is_pause_allowed
+          }
+        ]"
+    /></span>
   </a>
 </template>
 
@@ -16,16 +27,18 @@ export default {
   },
 
   computed: {
-    is_playing () {
+    is_playing() {
       return this.$store.state.player.state === 'play'
     },
 
-    is_pause_allowed () {
-      return (this.$store.getters.now_playing &&
-        this.$store.getters.now_playing.data_kind !== 'pipe')
+    is_pause_allowed() {
+      return (
+        this.$store.getters.now_playing &&
+        this.$store.getters.now_playing.data_kind !== 'pipe'
+      )
     },
 
-    disabled () {
+    disabled() {
       return !this.$store.state.queue || this.$store.state.queue.count <= 0
     }
   },
@@ -34,7 +47,12 @@ export default {
     toggle_play_pause: function () {
       if (this.disabled) {
         if (this.show_disabled_message) {
-          this.$store.dispatch('add_notification', { text: 'Queue is empty', type: 'info', topic: 'connection', timeout: 2000 })
+          this.$store.dispatch('add_notification', {
+            text: 'Queue is empty',
+            type: 'info',
+            topic: 'connection',
+            timeout: 2000
+          })
         }
         return
       }
@@ -51,5 +69,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

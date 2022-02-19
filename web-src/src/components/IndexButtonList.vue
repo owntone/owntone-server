@@ -1,7 +1,13 @@
 <template>
   <section>
-    <nav class="buttons is-centered fd-is-square" style="margin-bottom: 16px;">
-      <a v-for="char in filtered_index" :key="char" class="button is-small" @click="nav(char)">{{ char }}</a>
+    <nav class="buttons is-centered fd-is-square" style="margin-bottom: 16px">
+      <a
+        v-for="char in filtered_index"
+        :key="char"
+        class="button is-small"
+        @click="nav(char)"
+        >{{ char }}</a
+      >
     </nav>
   </section>
 </template>
@@ -13,9 +19,9 @@ export default {
   props: ['index'],
 
   computed: {
-    filtered_index () {
+    filtered_index() {
       const specialChars = '!"#$%&\'()*+,-./:;<=>?@[\\]^`{|}~'
-      return this.index.filter(c => !specialChars.includes(c))
+      return this.index.filter((c) => !specialChars.includes(c))
     }
   },
 
@@ -31,5 +37,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

@@ -1,6 +1,13 @@
-
 export default class Albums {
-  constructor (items, options = { hideSingles: false, hideSpotify: false, sort: 'Name', group: false }) {
+  constructor(
+    items,
+    options = {
+      hideSingles: false,
+      hideSpotify: false,
+      sort: 'Name',
+      group: false
+    }
+  ) {
     this.items = items
     this.options = options
     this.grouped = {}
@@ -10,13 +17,13 @@ export default class Albums {
     this.init()
   }
 
-  init () {
+  init() {
     this.createSortedAndFilteredList()
     this.createGroupedList()
     this.createIndexList()
   }
 
-  getAlbumIndex (album) {
+  getAlbumIndex(album) {
     if (this.options.sort === 'Recently added') {
       return album.time_added.substring(0, 4)
     } else if (this.options.sort === 'Recently added (browse)') {
@@ -29,24 +36,27 @@ export default class Albums {
     return album.name_sort.charAt(0).toUpperCase()
   }
 
-  getRecentlyAddedBrowseIndex (recentlyAdded) {
+  getRecentlyAddedBrowseIndex(recentlyAdded) {
     if (!recentlyAdded) {
       return '0000'
     }
 
     const diff = new Date().getTime() - new Date(recentlyAdded).getTime()
 
-    if (diff < 86400000) { // 24h
+    if (diff < 86400000) {
+      // 24h
       return 'Today'
-    } else if (diff < 604800000) { // 7 days
+    } else if (diff < 604800000) {
+      // 7 days
       return 'Last week'
-    } else if (diff < 2592000000) { // 30 days
+    } else if (diff < 2592000000) {
+      // 30 days
       return 'Last month'
     }
     return recentlyAdded.substring(0, 4)
   }
 
-  isAlbumVisible (album) {
+  isAlbumVisible(album) {
     if (this.options.hideSingles && album.track_count <= 2) {
       return false
     }
@@ -56,18 +66,30 @@ export default class Albums {
     return true
   }
 
-  createIndexList () {
-    this.indexList = [...new Set(this.sortedAndFiltered
-      .map(album => this.getAlbumIndex(album)))]
+  createIndexList() {
+    this.indexList = [
+      ...new Set(
+        this.sortedAndFiltered.map((album) => this.getAlbumIndex(album))
+      )
+    ]
   }
 
-  createSortedAndFilteredList () {
+  createSortedAndFilteredList() {
     let albumsSorted = this.items
-    if (this.options.hideSingles || this.options.hideSpotify || this.options.hideOther) {
-      albumsSorted = albumsSorted.filter(album => this.isAlbumVisible(album))
+    if (
+      this.options.hideSingles ||
+      this.options.hideSpotify ||
+      this.options.hideOther
+    ) {
+      albumsSorted = albumsSorted.filter((album) => this.isAlbumVisible(album))
     }
-    if (this.options.sort === 'Recently added' || this.options.sort === 'Recently added (browse)') {
-      albumsSorted = [...albumsSorted].sort((a, b) => b.time_added.localeCompare(a.time_added))
+    if (
+      this.options.sort === 'Recently added' ||
+      this.options.sort === 'Recently added (browse)'
+    ) {
+      albumsSorted = [...albumsSorted].sort((a, b) =>
+        b.time_added.localeCompare(a.time_added)
+      )
     } else if (this.options.sort === 'Recently released') {
       albumsSorted = [...albumsSorted].sort((a, b) => {
         if (!a.date_released) {
@@ -92,13 +114,13 @@ export default class Albums {
     this.sortedAndFiltered = albumsSorted
   }
 
-  createGroupedList () {
+  createGroupedList() {
     if (!this.options.group) {
       this.grouped = {}
     }
     this.grouped = this.sortedAndFiltered.reduce((r, album) => {
       const idx = this.getAlbumIndex(album)
-      r[idx] = [...r[idx] || [], album]
+      r[idx] = [...(r[idx] || []), album]
       return r
     }, {})
   }

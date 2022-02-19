@@ -1,64 +1,78 @@
 <template>
   <div>
     <content-with-heading v-if="new_episodes.items.length > 0">
-      <template v-slot:heading-left>
+      <template #heading-left>
         <p class="title is-4">New episodes</p>
       </template>
-      <template v-slot:heading-right>
-      <div class="buttons is-centered">
-        <a class="button is-small" @click="mark_all_played">
-          <span class="icon">
-            <i class="mdi mdi-pencil"></i>
-          </span>
-          <span>Mark All Played</span>
-        </a>
-      </div>
-    </template>
-    <template v-slot:content>
-        <list-item-track v-for="track in new_episodes.items" :key="track.id" :track="track" @click="play_track(track)">
-          <template v-slot:progress>
+      <template #heading-right>
+        <div class="buttons is-centered">
+          <a class="button is-small" @click="mark_all_played">
+            <span class="icon">
+              <i class="mdi mdi-pencil" />
+            </span>
+            <span>Mark All Played</span>
+          </a>
+        </div>
+      </template>
+      <template #content>
+        <list-item-track
+          v-for="track in new_episodes.items"
+          :key="track.id"
+          :track="track"
+          @click="play_track(track)"
+        >
+          <template #progress>
             <progress-bar :max="track.length_ms" :value="track.seek_ms" />
           </template>
-          <template v-slot:actions>
+          <template #actions>
             <a @click="open_track_dialog(track)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+              <span class="icon has-text-dark"
+                ><i class="mdi mdi-dots-vertical mdi-18px"
+              /></span>
             </a>
           </template>
         </list-item-track>
-        <modal-dialog-track :show="show_track_details_modal" :track="selected_track" @close="show_track_details_modal = false" @play-count-changed="reload_new_episodes" />
+        <modal-dialog-track
+          :show="show_track_details_modal"
+          :track="selected_track"
+          @close="show_track_details_modal = false"
+          @play-count-changed="reload_new_episodes"
+        />
       </template>
     </content-with-heading>
 
     <content-with-heading>
-      <template v-slot:heading-left>
+      <template #heading-left>
         <p class="title is-4">Podcasts</p>
         <p class="heading">{{ albums.total }} podcasts</p>
       </template>
-      <template v-slot:heading-right>
+      <template #heading-right>
         <div class="buttons is-centered">
           <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
             <span class="icon">
-              <i class="mdi mdi-refresh"></i>
+              <i class="mdi mdi-refresh" />
             </span>
             <span>Update</span>
           </a>
           <a class="button is-small" @click="open_add_podcast_dialog">
             <span class="icon">
-              <i class="mdi mdi-rss"></i>
+              <i class="mdi mdi-rss" />
             </span>
             <span>Add Podcast</span>
           </a>
         </div>
       </template>
-      <template v-slot:content>
-        <list-albums :albums="albums.items"
-            @play-count-changed="reload_new_episodes()"
-            @podcast-deleted="reload_podcasts()">
-        </list-albums>
+      <template #content>
+        <list-albums
+          :albums="albums.items"
+          @play-count-changed="reload_new_episodes()"
+          @podcast-deleted="reload_podcasts()"
+        />
         <modal-dialog-add-rss
-            :show="show_url_modal"
-            @close="show_url_modal = false"
-            @podcast-added="reload_podcasts()" />
+          :show="show_url_modal"
+          @close="show_url_modal = false"
+          @podcast-added="reload_podcasts()"
+        />
       </template>
     </content-with-heading>
   </div>
@@ -99,7 +113,20 @@ export default {
     ProgressBar
   },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       albums: { items: [] },
       new_episodes: { items: [] },
@@ -112,7 +139,7 @@ export default {
   },
 
   computed: {
-    rss () {
+    rss() {
       return this.$store.state.rss_count
     }
   },
@@ -128,10 +155,10 @@ export default {
     },
 
     mark_all_played: function () {
-      this.new_episodes.items.forEach(ep => {
+      this.new_episodes.items.forEach((ep) => {
         webapi.library_track_update(ep.id, { play_count: 'increment' })
       })
-      this.new_episodes.items = { }
+      this.new_episodes.items = {}
     },
 
     open_add_podcast_dialog: function (item) {
@@ -155,22 +182,8 @@ export default {
       this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, 'rss')
       this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

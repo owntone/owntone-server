@@ -5,18 +5,30 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small">
             <ul>
-              <router-link to="/audiobooks/artists" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/audiobooks/artists"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-artist"></i></span>
+                    <span class="icon is-small"
+                      ><i class="mdi mdi-artist"
+                    /></span>
                     <span class="">Authors</span>
                   </a>
                 </li>
               </router-link>
-              <router-link to="/audiobooks/albums" custom v-slot="{ navigate, isActive }">
-                <li :class="{'is-active': isActive}">
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/audiobooks/albums"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-album"></i></span>
+                    <span class="icon is-small"
+                      ><i class="mdi mdi-album"
+                    /></span>
                     <span class="">Audiobooks</span>
                   </a>
                 </li>
@@ -35,5 +47,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

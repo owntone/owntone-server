@@ -1,40 +1,73 @@
 <template>
   <content-with-hero>
-    <template v-slot:heading-left>
-      <h1 class="title is-5">{{ album.name }}</h1>
-      <h2 class="subtitle is-6 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artists[0].name }}</a></h2>
+    <template #heading-left>
+      <h1 class="title is-5">
+        {{ album.name }}
+      </h1>
+      <h2 class="subtitle is-6 has-text-link has-text-weight-normal">
+        <a class="has-text-link" @click="open_artist">{{
+          album.artists[0].name
+        }}</a>
+      </h2>
 
       <div class="buttons fd-is-centered-mobile fd-has-margin-top">
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+          <span class="icon"><i class="mdi mdi-shuffle" /></span>
+          <span>Shuffle</span>
         </a>
-        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
-          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_album_details_modal = true"
+        >
+          <span class="icon"
+            ><i class="mdi mdi-dots-horizontal mdi-18px"
+          /></span>
         </a>
       </div>
     </template>
 
-    <template v-slot:heading-right>
+    <template #heading-right>
       <p class="image is-square fd-has-shadow fd-has-action">
         <cover-artwork
           :artwork_url="artwork_url"
           :artist="album.artist"
           :album="album.name"
-          @click="show_album_details_modal = true" />
+          @click="show_album_details_modal = true"
+        />
       </p>
     </template>
 
-    <template v-slot:content>
-      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">{{ album.tracks.total }} tracks</p>
-      <spotify-list-item-track v-for="(track, index) in album.tracks.items" :key="track.id" :track="track" :position="index" :album="album" :context_uri="album.uri">
-        <template v-slot:actions>
+    <template #content>
+      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">
+        {{ album.tracks.total }} tracks
+      </p>
+      <spotify-list-item-track
+        v-for="(track, index) in album.tracks.items"
+        :key="track.id"
+        :track="track"
+        :position="index"
+        :album="album"
+        :context_uri="album.uri"
+      >
+        <template #actions>
           <a @click="open_track_dialog(track)">
-            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            <span class="icon has-text-dark"
+              ><i class="mdi mdi-dots-vertical mdi-18px"
+            /></span>
           </a>
         </template>
       </spotify-list-item-track>
-      <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="album" @close="show_track_details_modal = false" />
-      <spotify-modal-dialog-album :show="show_album_details_modal" :album="album" @close="show_album_details_modal = false" />
+      <spotify-modal-dialog-track
+        :show="show_track_details_modal"
+        :track="selected_track"
+        :album="album"
+        @close="show_track_details_modal = false"
+      />
+      <spotify-modal-dialog-album
+        :show="show_album_details_modal"
+        :album="album"
+        @close="show_album_details_modal = false"
+      />
     </template>
   </content-with-hero>
 </template>
@@ -53,7 +86,9 @@ const dataObject = {
   load: function (to) {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    return spotifyApi.getAlbum(to.params.album_id, { market: store.state.spotify.webapi_country })
+    return spotifyApi.getAlbum(to.params.album_id, {
+      market: store.state.spotify.webapi_country
+    })
   },
 
   set: function (vm, response) {
@@ -63,9 +98,28 @@ const dataObject = {
 
 export default {
   name: 'PageAlbum',
-  components: { ContentWithHero, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogAlbum, CoverArtwork },
+  components: {
+    ContentWithHero,
+    SpotifyListItemTrack,
+    SpotifyModalDialogTrack,
+    SpotifyModalDialogAlbum,
+    CoverArtwork
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       album: { artists: [{}], tracks: {} },
 
@@ -87,7 +141,9 @@ export default {
 
   methods: {
     open_artist: function () {
-      this.$router.push({ path: '/music/spotify/artists/' + this.album.artists[0].id })
+      this.$router.push({
+        path: '/music/spotify/artists/' + this.album.artists[0].id
+      })
     },
 
     play: function () {
@@ -99,22 +155,8 @@ export default {
       this.selected_track = track
       this.show_track_details_modal = true
     }
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

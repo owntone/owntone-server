@@ -6,14 +6,21 @@
       <component :is="Component" class="fd-page" />
     </router-view>
 
-    <modal-dialog-remote-pairing :show="pairing_active" @close="pairing_active = false" />
+    <modal-dialog-remote-pairing
+      :show="pairing_active"
+      @close="pairing_active = false"
+    />
     <modal-dialog-update
-        :show="show_update_dialog"
-        @close="show_update_dialog = false" />
+      :show="show_update_dialog"
+      @close="show_update_dialog = false"
+    />
     <notifications v-show="!show_burger_menu" />
     <navbar-bottom />
-    <div class="fd-overlay-fullscreen" v-show="show_burger_menu || show_player_menu"
-        @click="show_burger_menu = show_player_menu = false"></div>
+    <div
+      v-show="show_burger_menu || show_player_menu"
+      class="fd-overlay-fullscreen"
+      @click="show_burger_menu = show_player_menu = false"
+    />
   </div>
 </template>
 
@@ -30,10 +37,15 @@ import moment from 'moment'
 
 export default {
   name: 'App',
-  components: { NavbarTop, NavbarBottom, Notifications, ModalDialogRemotePairing, ModalDialogUpdate },
-  template: '<App/>',
+  components: {
+    NavbarTop,
+    NavbarBottom,
+    Notifications,
+    ModalDialogRemotePairing,
+    ModalDialogUpdate
+  },
 
-  data () {
+  data() {
     return {
       token_timer_id: 0,
       reconnect_attempts: 0,
@@ -43,28 +55,37 @@ export default {
 
   computed: {
     show_burger_menu: {
-      get () {
+      get() {
         return this.$store.state.show_burger_menu
       },
-      set (value) {
+      set(value) {
         this.$store.commit(types.SHOW_BURGER_MENU, value)
       }
     },
     show_player_menu: {
-      get () {
+      get() {
         return this.$store.state.show_player_menu
       },
-      set (value) {
+      set(value) {
         this.$store.commit(types.SHOW_PLAYER_MENU, value)
       }
     },
     show_update_dialog: {
-      get () {
+      get() {
         return this.$store.state.show_update_dialog
       },
-      set (value) {
+      set(value) {
         this.$store.commit(types.SHOW_UPDATE_DIALOG, value)
       }
+    }
+  },
+
+  watch: {
+    show_burger_menu() {
+      this.update_is_clipped()
+    },
+    show_player_menu() {
+      this.update_is_clipped()
     }
   },
 
@@ -97,23 +118,38 @@ export default {
 
   methods: {
     connect: function () {
-      this.$store.dispatch('add_notification', { text: 'Connecting to OwnTone server', type: 'info', topic: 'connection', timeout: 2000 })
-
-      webapi.config().then(({ data }) => {
-        this.$store.commit(types.UPDATE_CONFIG, data)
-        this.$store.commit(types.HIDE_SINGLES, data.hide_singles)
-        document.title = data.library_name
-
-        this.open_ws()
-        this.$Progress.finish()
-      }).catch(() => {
-        this.$store.dispatch('add_notification', { text: 'Failed to connect to OwnTone server', type: 'danger', topic: 'connection' })
+      this.$store.dispatch('add_notification', {
+        text: 'Connecting to OwnTone server',
+        type: 'info',
+        topic: 'connection',
+        timeout: 2000
       })
+
+      webapi
+        .config()
+        .then(({ data }) => {
+          this.$store.commit(types.UPDATE_CONFIG, data)
+          this.$store.commit(types.HIDE_SINGLES, data.hide_singles)
+          document.title = data.library_name
+
+          this.open_ws()
+          this.$Progress.finish()
+        })
+        .catch(() => {
+          this.$store.dispatch('add_notification', {
+            text: 'Failed to connect to OwnTone server',
+            type: 'danger',
+            topic: 'connection'
+          })
+        })
     },
 
     open_ws: function () {
       if (this.$store.state.config.websocket_port <= 0) {
-        this.$store.dispatch('add_notification', { text: 'Missing websocket port', type: 'danger' })
+        this.$store.dispatch('add_notification', {
+          text: 'Missing websocket port',
+          type: 'danger'
+        })
         return
       }
 
@@ -124,22 +160,47 @@ export default {
         protocol = 'wss://'
       }
 
-      let wsUrl = protocol + window.location.hostname + ':' + vm.$store.state.config.websocket_port
-      if (import.meta.env.NODE_ENV === 'development' && import.meta.env.VUE_APP_WEBSOCKET_SERVER) {
+      let wsUrl =
+        protocol +
+        window.location.hostname +
+        ':' +
+        vm.$store.state.config.websocket_port
+      if (
+        import.meta.env.NODE_ENV === 'development' &&
+        import.meta.env.VUE_APP_WEBSOCKET_SERVER
+      ) {
         // If we are running in the development server, use the websocket url configured in .env.development
         wsUrl = import.meta.env.VUE_APP_WEBSOCKET_SERVER
       }
 
-      const socket = new ReconnectingWebSocket(
-        wsUrl,
-        'notify',
-        { reconnectInterval: 3000 }
-      )
+      const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
+        reconnectInterval: 3000
+      })
 
       socket.onopen = function () {
-        vm.$store.dispatch('add_notification', { text: 'Connection to server established', type: 'primary', topic: 'connection', timeout: 2000 })
+        vm.$store.dispatch('add_notification', {
+          text: 'Connection to server established',
+          type: 'primary',
+          topic: 'connection',
+          timeout: 2000
+        })
         vm.reconnect_attempts = 0
-        socket.send(JSON.stringify({ notify: ['update', 'database', 'player', 'options', 'outputs', 'volume', 'queue', 'spotify', 'lastfm', 'pairing'] }))
+        socket.send(
+          JSON.stringify({
+            notify: [
+              'update',
+              'database',
+              'player',
+              'options',
+              'outputs',
+              'volume',
+              'queue',
+              'spotify',
+              'lastfm',
+              'pairing'
+            ]
+          })
+        )
 
         vm.update_outputs()
         vm.update_player_status()
@@ -155,14 +216,26 @@ export default {
       }
       socket.onerror = function () {
         vm.reconnect_attempts++
-        vm.$store.dispatch('add_notification', { text: 'Connection lost. Reconnecting ... (' + vm.reconnect_attempts + ')', type: 'danger', topic: 'connection' })
+        vm.$store.dispatch('add_notification', {
+          text:
+            'Connection lost. Reconnecting ... (' + vm.reconnect_attempts + ')',
+          type: 'danger',
+          topic: 'connection'
+        })
       }
       socket.onmessage = function (response) {
         const data = JSON.parse(response.data)
-        if (data.notify.includes('update') || data.notify.includes('database')) {
+        if (
+          data.notify.includes('update') ||
+          data.notify.includes('database')
+        ) {
           vm.update_library_stats()
         }
-        if (data.notify.includes('player') || data.notify.includes('options') || data.notify.includes('volume')) {
+        if (
+          data.notify.includes('player') ||
+          data.notify.includes('options') ||
+          data.notify.includes('volume')
+        ) {
           vm.update_player_status()
         }
         if (data.notify.includes('outputs') || data.notify.includes('volume')) {
@@ -237,7 +310,10 @@ export default {
           this.token_timer_id = 0
         }
         if (data.webapi_token_expires_in > 0 && data.webapi_token) {
-          this.token_timer_id = window.setTimeout(this.update_spotify, 1000 * data.webapi_token_expires_in)
+          this.token_timer_id = window.setTimeout(
+            this.update_spotify,
+            1000 * data.webapi_token_expires_in
+          )
         }
       })
     },
@@ -257,17 +333,8 @@ export default {
       }
     }
   },
-
-  watch: {
-    'show_burger_menu' () {
-      this.update_is_clipped()
-    },
-    'show_player_menu' () {
-      this.update_is_clipped()
-    }
-  }
+  template: '<App/>'
 }
 </script>
 
-<style>
-</style>
+<style></style>

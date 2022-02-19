@@ -1,13 +1,24 @@
 <template>
   <div>
-    <list-item-track v-for="(track, index) in tracks" :key="track.id" :track="track" @click="play_track(index, track)">
-      <template v-slot:actions>
+    <list-item-track
+      v-for="(track, index) in tracks"
+      :key="track.id"
+      :track="track"
+      @click="play_track(index, track)"
+    >
+      <template #actions>
         <a @click.prevent.stop="open_dialog(track)">
-          <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+          <span class="icon has-text-dark"
+            ><i class="mdi mdi-dots-vertical mdi-18px"
+          /></span>
         </a>
       </template>
     </list-item-track>
-    <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" />
+    <modal-dialog-track
+      :show="show_details_modal"
+      :track="selected_track"
+      @close="show_details_modal = false"
+    />
   </div>
 </template>
 
@@ -22,7 +33,7 @@ export default {
 
   props: ['tracks', 'uris', 'expression'],
 
-  data () {
+  data() {
     return {
       show_details_modal: false,
       selected_track: {}
@@ -48,5 +59,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

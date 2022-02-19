@@ -1,17 +1,19 @@
 <template>
   <div class="fd-page-with-tabs">
-    <tabs-audiobooks></tabs-audiobooks>
+    <tabs-audiobooks />
 
     <content-with-heading>
-      <template v-slot:options>
-        <index-button-list :index="albums_list.indexList"></index-button-list>
+      <template #options>
+        <index-button-list :index="albums_list.indexList" />
       </template>
-      <template v-slot:heading-left>
+      <template #heading-left>
         <p class="title is-4">Audiobooks</p>
-        <p class="heading">{{ albums_list.sortedAndFiltered.length }} Audiobooks</p>
+        <p class="heading">
+          {{ albums_list.sortedAndFiltered.length }} Audiobooks
+        </p>
       </template>
-      <template v-slot:content>
-        <list-albums :albums="albums_list"></list-albums>
+      <template #content>
+        <list-albums :albums="albums_list" />
       </template>
     </content-with-heading>
   </div>
@@ -37,16 +39,34 @@ const dataObject = {
 
 export default {
   name: 'PageAudiobooksAlbums',
-  components: { TabsAudiobooks, ContentWithHeading, IndexButtonList, ListAlbums },
+  components: {
+    TabsAudiobooks,
+    ContentWithHeading,
+    IndexButtonList,
+    ListAlbums
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       albums: { items: [] }
     }
   },
 
   computed: {
-    albums_list () {
+    albums_list() {
       return new Albums(this.albums.items, {
         sort: 'Name',
         group: true
@@ -54,23 +74,8 @@ export default {
     }
   },
 
-  methods: {
-  },
-
-  beforeRouteEnter (to, from, next) {
-    dataObject.load(to).then((response) => {
-      next(vm => dataObject.set(vm, response))
-    })
-  },
-  beforeRouteUpdate (to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
-  }
+  methods: {}
 }
 </script>
 
-<style>
-</style>
+<style></style>

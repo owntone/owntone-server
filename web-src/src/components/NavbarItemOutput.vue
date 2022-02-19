@@ -2,26 +2,39 @@
   <div class="navbar-item">
     <div class="level is-mobile">
       <div class="level-left fd-expanded">
-        <div class="level-item" style="flex-grow: 0;">
+        <div class="level-item" style="flex-grow: 0">
           <a class="button is-white is-small">
-            <span class="icon fd-has-action"
-                :class="{ 'has-text-grey-light': !output.selected }"
-                v-on:click="set_enabled">
-              <i class="mdi mdi-18px" :class="type_class" :title="output.type"></i>
+            <span
+              class="icon fd-has-action"
+              :class="{ 'has-text-grey-light': !output.selected }"
+              @click="set_enabled"
+            >
+              <i
+                class="mdi mdi-18px"
+                :class="type_class"
+                :title="output.type"
+              />
             </span>
           </a>
         </div>
         <div class="level-item fd-expanded">
           <div class="fd-expanded">
-            <p class="heading" :class="{ 'has-text-grey-light': !output.selected }">{{ output.name }}</p>
-            <Slider v-model="volume"
+            <p
+              class="heading"
+              :class="{ 'has-text-grey-light': !output.selected }"
+            >
+              {{ output.name }}
+            </p>
+            <Slider
+              v-model="volume"
               :min="0"
               :max="100"
               :step="1"
               :tooltips="false"
               :disabled="!output.selected"
+              :classes="{ target: 'slider' }"
               @change="set_volume"
-              :classes="{ target: 'slider'}" />
+            />
             <!--range-slider
               class="slider fd-has-action"
               min="0"
@@ -45,15 +58,15 @@ import webapi from '@/webapi'
 
 export default {
   name: 'NavbarItemOutput',
-  components: { 
-//    RangeSlider
+  components: {
+    //    RangeSlider
     Slider
- },
+  },
 
   props: ['output'],
 
   computed: {
-    type_class () {
+    type_class() {
       if (this.output.type.startsWith('AirPlay')) {
         return 'mdi-airplay'
       } else if (this.output.type === 'Chromecast') {
@@ -65,7 +78,7 @@ export default {
       }
     },
 
-    volume () {
+    volume() {
       return this.output.selected ? this.output.volume : 0
     }
   },
@@ -89,5 +102,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

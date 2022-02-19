@@ -1,6 +1,11 @@
 <template>
-  <a class="navbar-item" :class="{ 'is-active': is_active }" @click.stop.prevent="open_link()" :href="full_path()">
-    <slot></slot>
+  <a
+    class="navbar-item"
+    :class="{ 'is-active': is_active }"
+    :href="full_path()"
+    @click.stop.prevent="open_link()"
+  >
+    <slot />
   </a>
 </template>
 
@@ -15,7 +20,7 @@ export default {
   },
 
   computed: {
-    is_active () {
+    is_active() {
       if (this.exact) {
         return this.$route.path === this.to
       }
@@ -23,19 +28,19 @@ export default {
     },
 
     show_player_menu: {
-      get () {
+      get() {
         return this.$store.state.show_player_menu
       },
-      set (value) {
+      set(value) {
         this.$store.commit(types.SHOW_PLAYER_MENU, value)
       }
     },
 
     show_burger_menu: {
-      get () {
+      get() {
         return this.$store.state.show_burger_menu
       },
-      set (value) {
+      set(value) {
         this.$store.commit(types.SHOW_BURGER_MENU, value)
       }
     }

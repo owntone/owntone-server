@@ -1,6 +1,13 @@
 <template>
-  <a @click="toggle_shuffle_mode" :class="{ 'is-warning': is_shuffle }">
-    <span class="icon"><i class="mdi" :class="[icon_style, { 'mdi-shuffle': is_shuffle, 'mdi-shuffle-disabled': !is_shuffle }]"></i></span>
+  <a :class="{ 'is-warning': is_shuffle }" @click="toggle_shuffle_mode">
+    <span class="icon"
+      ><i
+        class="mdi"
+        :class="[
+          icon_style,
+          { 'mdi-shuffle': is_shuffle, 'mdi-shuffle-disabled': !is_shuffle }
+        ]"
+    /></span>
   </a>
 </template>
 
@@ -15,7 +22,7 @@ export default {
   },
 
   computed: {
-    is_shuffle () {
+    is_shuffle() {
       return this.$store.state.player.shuffle
     }
   },
@@ -28,5 +35,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

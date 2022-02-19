@@ -2,84 +2,105 @@
   <div>
     <div v-if="is_grouped">
       <div v-for="idx in albums.indexList" :key="idx" class="mb-6">
-        <span class="tag is-info is-light is-small has-text-weight-bold" :id="'index_' + idx">{{ idx }}</span>
+        <span
+          :id="'index_' + idx"
+          class="tag is-info is-light is-small has-text-weight-bold"
+          >{{ idx }}</span
+        >
 
-  <div class="media" v-for="album in albums.grouped[idx]"
-            :key="album.id"
-            :album="album"
-            @click="open_album(album)">
-    <div class="media-left fd-has-action"
-        v-if="is_visible_artwork">
-      <p class="image is-64x64 fd-has-shadow fd-has-action">
-            <cover-artwork
+        <div
+          v-for="album in albums.grouped[idx]"
+          :key="album.id"
+          class="media"
+          :album="album"
+          @click="open_album(album)"
+        >
+          <div v-if="is_visible_artwork" class="media-left fd-has-action">
+            <p class="image is-64x64 fd-has-shadow fd-has-action">
+              <cover-artwork
                 :artwork_url="album.artwork_url"
                 :artist="album.artist"
                 :album="album.name"
                 :maxwidth="64"
-                :maxheight="64" />
+                :maxheight="64"
+              />
             </p>
-    </div>
-    <div class="media-content fd-has-action is-clipped">
-      <div style="margin-top:0.7rem;">
-        <h1 class="title is-6">{{ album.name }}</h1>
-        <h2 class="subtitle is-7 has-text-grey"><b>{{ album.artist }}</b></h2>
-        <h2 class="subtitle is-7 has-text-grey has-text-weight-normal"
-            v-if="album.date_released && album.media_kind === 'music'">
-          {{ $filters.time(album.date_released, 'L') }}
-        </h2>
-      </div>
-    </div>
-    <div class="media-right" style="padding-top:0.7rem;">
-      <a @click.prevent.stop="open_dialog(album)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+          </div>
+          <div class="media-content fd-has-action is-clipped">
+            <div style="margin-top: 0.7rem">
+              <h1 class="title is-6">
+                {{ album.name }}
+              </h1>
+              <h2 class="subtitle is-7 has-text-grey">
+                <b>{{ album.artist }}</b>
+              </h2>
+              <h2
+                v-if="album.date_released && album.media_kind === 'music'"
+                class="subtitle is-7 has-text-grey has-text-weight-normal"
+              >
+                {{ $filters.time(album.date_released, 'L') }}
+              </h2>
+            </div>
+          </div>
+          <div class="media-right" style="padding-top: 0.7rem">
+            <a @click.prevent.stop="open_dialog(album)">
+              <span class="icon has-text-dark"
+                ><i class="mdi mdi-dots-vertical mdi-18px"
+              /></span>
             </a>
-    </div>
-  </div>
-
-
-
-
-
+          </div>
+        </div>
       </div>
     </div>
     <div v-else>
-      <list-item-album v-for="album in albums_list"
-          :key="album.id"
-          :album="album"
-          @click="open_album(album)">
-        <template v-slot:artwork v-if="is_visible_artwork">
+      <list-item-album
+        v-for="album in albums_list"
+        :key="album.id"
+        :album="album"
+        @click="open_album(album)"
+      >
+        <template v-if="is_visible_artwork" #artwork>
           <p class="image is-64x64 fd-has-shadow fd-has-action">
-          <cover-artwork
+            <cover-artwork
               :artwork_url="album.artwork_url"
               :artist="album.artist"
               :album="album.name"
               :maxwidth="64"
-              :maxheight="64" />
+              :maxheight="64"
+            />
           </p>
         </template>
-        <template v-slot:actions>
+        <template #actions>
           <a @click.prevent.stop="open_dialog(album)">
-            <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+            <span class="icon has-text-dark"
+              ><i class="mdi mdi-dots-vertical mdi-18px"
+            /></span>
           </a>
         </template>
       </list-item-album>
     </div>
     <modal-dialog-album
-        :show="show_details_modal"
-        :album="selected_album"
-        :media_kind="media_kind"
-        @remove-podcast="open_remove_podcast_dialog()"
-        @play-count-changed="play_count_changed()"
-        @close="show_details_modal = false" />
+      :show="show_details_modal"
+      :album="selected_album"
+      :media_kind="media_kind"
+      @remove-podcast="open_remove_podcast_dialog()"
+      @play-count-changed="play_count_changed()"
+      @close="show_details_modal = false"
+    />
     <modal-dialog
-        :show="show_remove_podcast_modal"
-        title="Remove podcast"
-        delete_action="Remove"
-        @close="show_remove_podcast_modal = false"
-        @delete="remove_podcast">
-      <template v-slot:modal-content>
+      :show="show_remove_podcast_modal"
+      title="Remove podcast"
+      delete_action="Remove"
+      @close="show_remove_podcast_modal = false"
+      @delete="remove_podcast"
+    >
+      <template #modal-content>
         <p>Permanently remove this podcast from your library?</p>
-        <p class="is-size-7">(This will also remove the RSS playlist <b>{{ rss_playlist_to_remove.name }}</b>.)</p>
+        <p class="is-size-7">
+          (This will also remove the RSS playlist
+          <b>{{ rss_playlist_to_remove.name }}</b
+          >.)
+        </p>
       </template>
     </modal-dialog>
   </div>
@@ -99,7 +120,7 @@ export default {
 
   props: ['albums', 'media_kind'],
 
-  data () {
+  data() {
     return {
       show_details_modal: false,
       selected_album: {},
@@ -110,8 +131,11 @@ export default {
   },
 
   computed: {
-    is_visible_artwork () {
-      return this.$store.getters.settings_option('webinterface', 'show_cover_artwork_in_album_lists').value
+    is_visible_artwork() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_cover_artwork_in_album_lists'
+      ).value
     },
 
     media_kind_resolved: function () {
@@ -129,7 +153,7 @@ export default {
     },
 
     is_grouped: function () {
-      return (this.albums instanceof Albums && this.albums.options.group)
+      return this.albums instanceof Albums && this.albums.options.group
     }
   },
 
@@ -151,19 +175,24 @@ export default {
     },
 
     open_remove_podcast_dialog: function () {
-      webapi.library_album_tracks(this.selected_album.id, { limit: 1 }).then(({ data }) => {
-        webapi.library_track_playlists(data.items[0].id).then(({ data }) => {
-          const rssPlaylists = data.items.filter(pl => pl.type === 'rss')
-          if (rssPlaylists.length !== 1) {
-            this.$store.dispatch('add_notification', { text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.', type: 'danger' })
-            return
-          }
+      webapi
+        .library_album_tracks(this.selected_album.id, { limit: 1 })
+        .then(({ data }) => {
+          webapi.library_track_playlists(data.items[0].id).then(({ data }) => {
+            const rssPlaylists = data.items.filter((pl) => pl.type === 'rss')
+            if (rssPlaylists.length !== 1) {
+              this.$store.dispatch('add_notification', {
+                text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.',
+                type: 'danger'
+              })
+              return
+            }
 
-          this.rss_playlist_to_remove = rssPlaylists[0]
-          this.show_remove_podcast_modal = true
-          this.show_details_modal = false
+            this.rss_playlist_to_remove = rssPlaylists[0]
+            this.show_remove_podcast_modal = true
+            this.show_details_modal = false
+          })
         })
-      })
     },
 
     play_count_changed: function () {
@@ -172,13 +201,14 @@ export default {
 
     remove_podcast: function () {
       this.show_remove_podcast_modal = false
-      webapi.library_playlist_delete(this.rss_playlist_to_remove.id).then(() => {
-        this.$emit('podcast-deleted')
-      })
+      webapi
+        .library_playlist_delete(this.rss_playlist_to_remove.id)
+        .then(() => {
+          this.$emit('podcast-deleted')
+        })
     }
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>
