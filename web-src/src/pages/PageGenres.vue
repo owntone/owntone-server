@@ -4,32 +4,14 @@
 
     <content-with-heading>
       <template #options>
-        <index-button-list :index="index_list" />
+        <index-button-list :index="genres.indexList" />
       </template>
       <template #heading-left>
         <p class="title is-4">Genres</p>
         <p class="heading">{{ genres.total }} genres</p>
       </template>
       <template #content>
-        <list-item-genre
-          v-for="genre in genres.items"
-          :key="genre.name"
-          :genre="genre"
-          @click="open_genre(genre)"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_dialog(genre)">
-              <span class="icon has-text-dark"
-                ><i class="mdi mdi-dots-vertical mdi-18px"
-              /></span>
-            </a>
-          </template>
-        </list-item-genre>
-        <modal-dialog-genre
-          :show="show_details_modal"
-          :genre="selected_genre"
-          @close="show_details_modal = false"
-        />
+        <list-genres :genres="genres" />
       </template>
     </content-with-heading>
   </div>
@@ -39,9 +21,9 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
-import ListItemGenre from '@/components/ListItemGenre.vue'
-import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
+import ListGenres from '@/components/ListGenres.vue'
 import webapi from '@/webapi'
+import { byName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -50,6 +32,8 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.genres = response.data
+    vm.genres = new GroupByList(response.data)
+    vm.genres.group(byName('name_sort'))
   }
 }
 
@@ -59,8 +43,7 @@ export default {
     ContentWithHeading,
     TabsMusic,
     IndexButtonList,
-    ListItemGenre,
-    ModalDialogGenre
+    ListGenres
   },
 
   beforeRouteEnter(to, from, next) {
@@ -78,33 +61,13 @@ export default {
 
   data() {
     return {
-      genres: { items: [] },
-
-      show_details_modal: false,
-      selected_genre: {}
+      genres: new GroupByList()
     }
   },
 
-  computed: {
-    index_list() {
-      return [
-        ...new Set(
-          this.genres.items.map((genre) => genre.name.charAt(0).toUpperCase())
-        )
-      ]
-    }
-  },
+  computed: {},
 
-  methods: {
-    open_genre: function (genre) {
-      this.$router.push({ name: 'Genre', params: { genre: genre.name } })
-    },
-
-    open_dialog: function (genre) {
-      this.selected_genre = genre
-      this.show_details_modal = true
-    }
-  }
+  methods: {}
 }
 </script>
 

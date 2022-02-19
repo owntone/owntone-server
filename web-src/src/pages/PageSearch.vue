@@ -79,7 +79,7 @@
         <p class="title is-4">Artists</p>
       </template>
       <template #content>
-        <list-artists :artists="artists.items" />
+        <list-artists :artists="artists" :hide_group_title="true" />
       </template>
       <template #footer>
         <nav v-if="show_all_artists_button" class="level">
@@ -105,7 +105,7 @@
         <p class="title is-4">Albums</p>
       </template>
       <template #content>
-        <list-albums :albums="albums.items" />
+        <list-albums :albums="albums" :hide_group_title="true" />
       </template>
       <template #footer>
         <nav v-if="show_all_albums_button" class="level">
@@ -183,7 +183,7 @@
         <p class="title is-4">Podcasts</p>
       </template>
       <template #content>
-        <list-albums :albums="podcasts.items" />
+        <list-albums :albums="podcasts" />
       </template>
       <template #footer>
         <nav v-if="show_all_podcasts_button" class="level">
@@ -209,7 +209,7 @@
         <p class="title is-4">Audiobooks</p>
       </template>
       <template #content>
-        <list-albums :albums="audiobooks.items" />
+        <list-albums :albums="audiobooks" />
       </template>
       <template #footer>
         <nav v-if="show_all_audiobooks_button" class="level">
@@ -242,6 +242,7 @@ import ListComposers from '@/components/ListComposers.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
+import { GroupByList } from '@/lib/GroupByList'
 
 export default {
   name: 'PageSearch',
@@ -261,12 +262,12 @@ export default {
       search_query: '',
 
       tracks: { items: [], total: 0 },
-      artists: { items: [], total: 0 },
-      albums: { items: [], total: 0 },
+      artists: new GroupByList(),
+      albums: new GroupByList(),
       composers: { items: [], total: 0 },
       playlists: { items: [], total: 0 },
-      audiobooks: { items: [], total: 0 },
-      podcasts: { items: [], total: 0 }
+      audiobooks: new GroupByList(),
+      podcasts: new GroupByList()
     }
   },
 
@@ -393,8 +394,8 @@ export default {
 
       webapi.search(searchParams).then(({ data }) => {
         this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
-        this.artists = data.artists ? data.artists : { items: [], total: 0 }
-        this.albums = data.albums ? data.albums : { items: [], total: 0 }
+        this.artists = new GroupByList(data.artists)
+        this.albums = new GroupByList(data.albums)
         this.composers = data.composers
           ? data.composers
           : { items: [], total: 0 }
@@ -431,7 +432,7 @@ export default {
       }
 
       webapi.search(searchParams).then(({ data }) => {
-        this.audiobooks = data.albums ? data.albums : { items: [], total: 0 }
+        this.audiobooks = new GroupByList(data.albums)
       })
     },
 
@@ -462,7 +463,7 @@ export default {
       }
 
       webapi.search(searchParams).then(({ data }) => {
-        this.podcasts = data.albums ? data.albums : { items: [], total: 0 }
+        this.podcasts = new GroupByList(data.albums)
       })
     },
 

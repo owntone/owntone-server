@@ -4,7 +4,7 @@
 
     <content-with-heading>
       <template #options>
-        <index-button-list :index="artists_list.indexList" />
+        <index-button-list :index="artists.indexList" />
 
         <div class="columns">
           <div class="column">
@@ -44,19 +44,20 @@
           </div>
           <div class="column">
             <p class="heading" style="margin-bottom: 24px">Sort by</p>
-            <dropdown-menu v-model="sort" :options="sort_options" />
+            <dropdown-menu
+              v-model="selected_groupby_option_name"
+              :options="groupby_option_names"
+            />
           </div>
         </div>
       </template>
       <template #heading-left>
         <p class="title is-4">Artists</p>
-        <p class="heading">
-          {{ artists_list.sortedAndFiltered.length }} Artists
-        </p>
+        <p class="heading">{{ artists.count }} Artists</p>
       </template>
       <template #heading-right />
       <template #content>
-        <list-artists :artists="artists_list" />
+        <list-artists :artists="artists" />
       </template>
     </content-with-heading>
   </div>
@@ -70,7 +71,7 @@ import ListArtists from '@/components/ListArtists.vue'
 import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import Artists from '@/lib/Artists'
+import { bySortName, byYear, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -78,7 +79,7 @@ const dataObject = {
   },
 
   set: function (vm, response) {
-    vm.artists = response.data
+    vm.artists_list = new GroupByList(response.data)
   }
 }
 
@@ -97,8 +98,9 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
+
   beforeRouteUpdate(to, from, next) {
-    if (this.artists.items.length > 0) {
+    if (!this.artists_list.isEmpty()) {
       next()
       return
     }
@@ -111,19 +113,54 @@ export default {
 
   data() {
     return {
-      artists: { items: [] },
-      sort_options: ['Name', 'Recently added']
+      // Original data from API call
+      artists_list: new GroupByList(),
+
+      // List of group by/sort options for itemsGroupByList
+      groupby_options: [
+        { name: 'Name', options: bySortName('name_sort') },
+        {
+          name: 'Recently added',
+          options: byYear('time_added', {
+            direction: 'desc',
+            defaultValue: '0000'
+          })
+        }
+      ]
     }
   },
 
   computed: {
-    artists_list() {
-      return new Artists(this.artists.items, {
-        hideSingles: this.hide_singles,
-        hideSpotify: this.hide_spotify,
-        sort: this.sort,
-        group: true
-      })
+    // Wraps GroupByList and updates it if filter or sort changes
+    artists() {
+      if (!this.artists_list) {
+        return []
+      }
+
+      const groupBy = this.groupby_options.find(
+        (o) => o.name === this.selected_groupby_option_name
+      )
+      this.artists_list.group(groupBy.options, [
+        (artist) =>
+          !this.hide_singles || artist.track_count <= artist.album_count * 2,
+        (artist) => !this.hide_spotify || artist.data_kind !== 'spotify'
+      ])
+
+      return this.artists_list
+    },
+
+    // List for the drop down menu
+    groupby_option_names() {
+      return [...this.groupby_options].map((o) => o.name)
+    },
+
+    selected_groupby_option_name: {
+      get() {
+        return this.$store.state.artists_sort
+      },
+      set(value) {
+        this.$store.commit(types.ARTISTS_SORT, value)
+      }
     },
 
     spotify_enabled() {
@@ -146,23 +183,10 @@ export default {
       set(value) {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
-    },
-
-    sort: {
-      get() {
-        return this.$store.state.artists_sort
-      },
-      set(value) {
-        this.$store.commit(types.ARTISTS_SORT, value)
-      }
     }
   },
 
-  methods: {
-    scrollToTop: function () {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
+  methods: {}
 }
 </script>
 

@@ -1,63 +1,51 @@
 <template>
-  <div>
-    <div v-if="is_grouped">
-      <div v-for="idx in composers.indexList" :key="idx" class="mb-6">
+  <template v-for="composer in composers" :key="composer.itemId">
+    <div v-if="!composer.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
+      <div class="media-content is-clipped">
         <span
-          :id="'index_' + idx"
+          :id="'index_' + composer.groupKey"
           class="tag is-info is-light is-small has-text-weight-bold"
-          >{{ idx }}</span
+          >{{ composer.groupKey }}</span
         >
-        <list-item-composer
-          v-for="composer in composers.grouped[idx]"
-          :key="composer.id"
-          :composer="composer"
-          @click="open_composer(composer)"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_dialog(composer)">
-              <span class="icon has-text-dark"
-                ><i class="mdi mdi-dots-vertical mdi-18px"
-              /></span>
-            </a>
-          </template>
-        </list-item-composer>
       </div>
     </div>
-    <div v-else>
-      <list-item-composer
-        v-for="composer in composers_list"
-        :key="composer.id"
-        :composer="composer"
-        @click="open_composer(composer)"
-      >
-        <template #actions>
-          <a @click.prevent.stop="open_dialog(composer)">
-            <span class="icon has-text-dark"
-              ><i class="mdi mdi-dots-vertical mdi-18px"
-            /></span>
-          </a>
-        </template>
-      </list-item-composer>
+    <div
+      v-else-if="composer.isItem"
+      class="media"
+      @click="open_composer(composer.item)"
+    >
+      <div class="media-content fd-has-action is-clipped">
+        <h1 class="title is-6">
+          {{ composer.item.name }}
+        </h1>
+      </div>
+      <div class="media-right">
+        <a @click.prevent.stop="open_dialog(composer.item)">
+          <span class="icon has-text-dark"
+            ><i class="mdi mdi-dots-vertical mdi-18px"
+          /></span>
+        </a>
+      </div>
     </div>
+  </template>
+  <teleport to="#app">
     <modal-dialog-composer
       :show="show_details_modal"
       :composer="selected_composer"
       :media_kind="media_kind"
       @close="show_details_modal = false"
     />
-  </div>
+  </teleport>
 </template>
 
 <script>
-import ListItemComposer from '@/components/ListItemComposer.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
-import Composers from '@/lib/Composers'
 
 export default {
   name: 'ListComposers',
-  components: { ListItemComposer, ModalDialogComposer },
+  components: { ModalDialogComposer },
 
-  props: ['composers', 'media_kind'],
+  props: ['composers', 'media_kind', 'hide_group_title'],
 
   data() {
     return {
@@ -71,17 +59,6 @@ export default {
       return this.media_kind
         ? this.media_kind
         : this.selected_composer.media_kind
-    },
-
-    composers_list: function () {
-      if (Array.isArray(this.composers)) {
-        return this.composers
-      }
-      return this.composers.sortedAndFiltered
-    },
-
-    is_grouped: function () {
-      return this.composers instanceof Composers && this.composers.options.group
     }
   },
 

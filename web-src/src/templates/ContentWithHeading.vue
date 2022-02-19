@@ -90,7 +90,7 @@ export default {
       if (this.$route.meta.has_tabs) {
         this.$scrollTo('#top', { offset: -140 })
       } else {
-        this.$scrollTo('#top', { offset: -100 })
+        this.$scrollTo('#top', { offset: -110 })
       }
     },
 

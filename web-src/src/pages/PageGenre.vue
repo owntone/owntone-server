@@ -2,7 +2,7 @@
   <div>
     <content-with-heading>
       <template #options>
-        <index-button-list :index="index_list" />
+        <index-button-list :index="albums_list.indexList" />
       </template>
       <template #heading-left>
         <p class="title is-4">
@@ -27,10 +27,10 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          {{ genre_albums.total }} albums |
+          {{ albums_list.total }} albums |
           <a class="has-text-link" @click="open_tracks">tracks</a>
         </p>
-        <list-albums :albums="genre_albums.items" />
+        <list-albums :albums="albums_list" />
         <modal-dialog-genre
           :show="show_genre_details_modal"
           :genre="{ name: name }"
@@ -47,6 +47,7 @@ import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
+import { bySortName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -55,7 +56,8 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.name = vm.$route.params.genre
-    vm.genre_albums = response.data.albums
+    vm.albums_list = new GroupByList(response.data.albums)
+    vm.albums_list.group(bySortName('name_sort'))
   }
 }
 
@@ -74,6 +76,10 @@ export default {
     })
   },
   beforeRouteUpdate(to, from, next) {
+    if (!this.albums_list.isEmpty()) {
+      next()
+      return
+    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -84,21 +90,9 @@ export default {
   data() {
     return {
       name: '',
-      genre_albums: { items: [] },
+      albums_list: new GroupByList(),
 
       show_genre_details_modal: false
-    }
-  },
-
-  computed: {
-    index_list() {
-      return [
-        ...new Set(
-          this.genre_albums.items.map((album) =>
-            album.name.charAt(0).toUpperCase()
-          )
-        )
-      ]
     }
   },
 
@@ -113,11 +107,6 @@ export default {
         'genre is "' + this.name + '" and media_kind is music',
         true
       )
-    },
-
-    open_dialog: function (album) {
-      this.selected_album = album
-      this.show_details_modal = true
     }
   }
 }

@@ -27,27 +27,9 @@
       <p class="heading has-text-centered-mobile">
         {{ album.track_count }} tracks
       </p>
-      <list-item-track
-        v-for="track in tracks"
-        :key="track.id"
-        :track="track"
-        @click="play_track(track)"
-      >
-        <template #progress>
-          <progress-bar :max="track.length_ms" :value="track.seek_ms" />
-        </template>
-        <template #actions>
-          <a @click.prevent.stop="open_dialog(track)">
-            <span class="icon has-text-dark"
-              ><i class="mdi mdi-dots-vertical mdi-18px"
-            /></span>
-          </a>
-        </template>
-      </list-item-track>
-      <modal-dialog-track
-        :show="show_details_modal"
-        :track="selected_track"
-        @close="show_details_modal = false"
+      <list-tracks
+        :tracks="tracks"
+        :show_progress="true"
         @play-count-changed="reload_tracks"
       />
       <modal-dialog-album
@@ -81,11 +63,9 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemTrack from '@/components/ListItemTrack.vue'
-import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
+import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
-import ProgressBar from '@/components/ProgressBar.vue'
 import webapi from '@/webapi'
 
 const dataObject = {
@@ -106,11 +86,9 @@ export default {
   name: 'PagePodcast',
   components: {
     ContentWithHeading,
-    ListItemTrack,
-    ModalDialogTrack,
+    ListTracks,
     ModalDialogAlbum,
-    ModalDialog,
-    ProgressBar
+    ModalDialog
   },
 
   beforeRouteEnter(to, from, next) {
@@ -131,9 +109,6 @@ export default {
       album: {},
       tracks: [],
 
-      show_details_modal: false,
-      selected_track: {},
-
       show_album_details_modal: false,
 
       show_remove_podcast_modal: false,
@@ -150,15 +125,6 @@ export default {
   methods: {
     play: function () {
       webapi.player_play_uri(this.album.uri, false)
-    },
-
-    play_track: function (track) {
-      webapi.player_play_uri(track.uri, false)
-    },
-
-    open_dialog: function (track) {
-      this.selected_track = track
-      this.show_details_modal = true
     },
 
     open_remove_podcast_dialog: function () {

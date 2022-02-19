@@ -4,7 +4,10 @@
       <div class="columns">
         <div class="column">
           <p class="heading" style="margin-bottom: 24px">Sort by</p>
-          <dropdown-menu v-model="sort" :options="sort_options" />
+          <dropdown-menu
+            v-model="selected_groupby_option_name"
+            :options="groupby_option_names"
+          />
         </div>
       </div>
     </template>
@@ -36,7 +39,7 @@
           >{{ artist.track_count }} tracks</a
         >
       </p>
-      <list-albums :albums="albums_list" />
+      <list-albums :albums="albums" :hide_group_title="true" />
       <modal-dialog-artist
         :show="show_artist_details_modal"
         :artist="artist"
@@ -53,7 +56,7 @@ import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import Albums from '@/lib/Albums'
+import { bySortName, byYear, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -65,7 +68,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.artist = response[0].data
-    vm.albums = response[1].data
+    vm.albums_list = new GroupByList(response[1].data)
   }
 }
 
@@ -94,22 +97,39 @@ export default {
   data() {
     return {
       artist: {},
-      albums: { items: [] },
+      albums_list: new GroupByList(),
 
-      sort_options: ['Name', 'Release date'],
+      // List of group by/sort options for itemsGroupByList
+      groupby_options: [
+        { name: 'Name', options: bySortName('name_sort') },
+        {
+          name: 'Release date',
+          options: byYear('date_released', {
+            direction: 'asc',
+            defaultValue: '0000'
+          })
+        }
+      ],
+
       show_artist_details_modal: false
     }
   },
 
   computed: {
-    albums_list() {
-      return new Albums(this.albums.items, {
-        sort: this.sort,
-        group: false
-      })
+    albums() {
+      const groupBy = this.groupby_options.find(
+        (o) => o.name === this.selected_groupby_option_name
+      )
+      this.albums_list.group(groupBy.options)
+
+      return this.albums_list
     },
 
-    sort: {
+    groupby_option_names() {
+      return [...this.groupby_options].map((o) => o.name)
+    },
+
+    selected_groupby_option_name: {
       get() {
         return this.$store.state.artist_albums_sort
       },

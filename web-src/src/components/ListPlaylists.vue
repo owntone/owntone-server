@@ -1,46 +1,51 @@
 <template>
-  <div>
-    <list-item-playlist
-      v-for="playlist in playlists"
-      :key="playlist.id"
-      :playlist="playlist"
-      @click="open_playlist(playlist)"
-    >
-      <template #icon>
-        <span class="icon">
-          <i
-            class="mdi"
-            :class="{
-              'mdi-library-music': playlist.type !== 'folder',
-              'mdi-rss': playlist.type === 'rss',
-              'mdi-folder': playlist.type === 'folder'
-            }"
-          />
-        </span>
-      </template>
-      <template #actions>
-        <a @click.prevent.stop="open_dialog(playlist)">
-          <span class="icon has-text-dark"
-            ><i class="mdi mdi-dots-vertical mdi-18px"
-          /></span>
-        </a>
-      </template>
-    </list-item-playlist>
+  <div
+    v-for="playlist in playlists"
+    :key="playlist.id"
+    class="media"
+    :playlist="playlist"
+    @click="open_playlist(playlist)"
+  >
+    <figure class="media-left fd-has-action">
+      <span class="icon">
+        <i
+          class="mdi"
+          :class="{
+            'mdi-library-music': playlist.type !== 'folder',
+            'mdi-rss': playlist.type === 'rss',
+            'mdi-folder': playlist.type === 'folder'
+          }"
+        />
+      </span>
+    </figure>
+    <div class="media-content fd-has-action is-clipped">
+      <h1 class="title is-6">
+        {{ playlist.name }}
+      </h1>
+    </div>
+    <div class="media-right">
+      <a @click.prevent.stop="open_dialog(playlist)">
+        <span class="icon has-text-dark"
+          ><i class="mdi mdi-dots-vertical mdi-18px"
+        /></span>
+      </a>
+    </div>
+  </div>
+  <teleport to="#app">
     <modal-dialog-playlist
       :show="show_details_modal"
       :playlist="selected_playlist"
       @close="show_details_modal = false"
     />
-  </div>
+  </teleport>
 </template>
 
 <script>
-import ListItemPlaylist from '@/components/ListItemPlaylist.vue'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 
 export default {
   name: 'ListPlaylists',
-  components: { ListItemPlaylist, ModalDialogPlaylist },
+  components: { ModalDialogPlaylist },
 
   props: ['playlists'],
 

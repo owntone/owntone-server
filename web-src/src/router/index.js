@@ -321,7 +321,7 @@ export const router = createRouter({
           if (to.meta.has_tabs) {
             resolve({ el: '#top', top: 140 })
           } else {
-            resolve({ el: '#top', top: 100 })
+            resolve({ el: '#top', top: 110 })
           }
         }, wait_ms)
       })

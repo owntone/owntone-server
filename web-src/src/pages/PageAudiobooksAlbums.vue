@@ -4,16 +4,14 @@
 
     <content-with-heading>
       <template #options>
-        <index-button-list :index="albums_list.indexList" />
+        <index-button-list :index="albums.indexList" />
       </template>
       <template #heading-left>
         <p class="title is-4">Audiobooks</p>
-        <p class="heading">
-          {{ albums_list.sortedAndFiltered.length }} Audiobooks
-        </p>
+        <p class="heading">{{ albums.count }} Audiobooks</p>
       </template>
       <template #content>
-        <list-albums :albums="albums_list" />
+        <list-albums :albums="albums" />
       </template>
     </content-with-heading>
   </div>
@@ -25,7 +23,7 @@ import IndexButtonList from '@/components/IndexButtonList.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import webapi from '@/webapi'
-import Albums from '@/lib/Albums'
+import { bySortName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -33,7 +31,8 @@ const dataObject = {
   },
 
   set: function (vm, response) {
-    vm.albums = response.data
+    vm.albums = new GroupByList(response.data)
+    vm.albums.group(bySortName('name_sort'))
   }
 }
 
@@ -51,7 +50,12 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
+
   beforeRouteUpdate(to, from, next) {
+    if (!this.albums.isEmpty()) {
+      next()
+      return
+    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -61,16 +65,7 @@ export default {
 
   data() {
     return {
-      albums: { items: [] }
-    }
-  },
-
-  computed: {
-    albums_list() {
-      return new Albums(this.albums.items, {
-        sort: 'Name',
-        group: true
-      })
+      albums: new GroupByList()
     }
   },
 

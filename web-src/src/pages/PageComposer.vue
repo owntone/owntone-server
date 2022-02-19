@@ -1,9 +1,6 @@
 <template>
   <div>
     <content-with-heading>
-      <template #options>
-        <index-button-list :index="index_list" />
-      </template>
       <template #heading-left>
         <p class="title is-4">
           {{ name }}
@@ -27,28 +24,11 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          {{ composer_albums.total }} albums |
+          {{ albums_list.total }} albums |
           <a class="has-text-link" @click="open_tracks">tracks</a>
         </p>
-        <list-item-albums
-          v-for="album in composer_albums.items"
-          :key="album.id"
-          :album="album"
-          @click="open_album(album)"
-        >
-          <template #actions>
-            <a @click="open_dialog(album)">
-              <span class="icon has-text-dark"
-                ><i class="mdi mdi-dots-vertical mdi-18px"
-              /></span>
-            </a>
-          </template>
-        </list-item-albums>
-        <modal-dialog-album
-          :show="show_details_modal"
-          :album="selected_album"
-          @close="show_details_modal = false"
-        />
+        <list-albums :albums="albums_list" :hide_group_title="true" />
+
         <modal-dialog-composer
           :show="show_composer_details_modal"
           :composer="{ name: name }"
@@ -61,10 +41,10 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemAlbums from '@/components/ListItemAlbum.vue'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -73,7 +53,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.name = vm.$route.params.composer
-    vm.composer_albums = response.data.albums
+    vm.albums_list = new GroupByList(response.data.albums)
   }
 }
 
@@ -81,8 +61,7 @@ export default {
   name: 'PageComposer',
   components: {
     ContentWithHeading,
-    ListItemAlbums,
-    ModalDialogAlbum,
+    ListAlbums,
     ModalDialogComposer
   },
 
@@ -102,29 +81,13 @@ export default {
   data() {
     return {
       name: '',
-      composer_albums: { items: [] },
-      show_details_modal: false,
-      selected_album: {},
-
+      albums_list: new GroupByList(),
       show_composer_details_modal: false
-    }
-  },
-
-  computed: {
-    index_list() {
-      return [
-        ...new Set(
-          this.composer_albums.items.map((album) =>
-            album.name_sort.charAt(0).toUpperCase()
-          )
-        )
-      ]
     }
   },
 
   methods: {
     open_tracks: function () {
-      this.show_details_modal = false
       this.$router.push({
         name: 'ComposerTracks',
         params: { composer: this.name }
@@ -136,15 +99,6 @@ export default {
         'composer is "' + this.name + '" and media_kind is music',
         true
       )
-    },
-
-    open_album: function (album) {
-      this.$router.push({ path: '/music/albums/' + album.id })
-    },
-
-    open_dialog: function (album) {
-      this.selected_album = album
-      this.show_details_modal = true
     }
   }
 }

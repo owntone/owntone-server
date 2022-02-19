@@ -8,7 +8,7 @@
         <p class="heading">albums</p>
       </template>
       <template #content>
-        <list-albums :albums="albums_list" />
+        <list-albums :albums="recently_added" />
       </template>
     </content-with-heading>
   </div>
@@ -20,7 +20,7 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import webapi from '@/webapi'
 import store from '@/store'
-import Albums from '@/lib/Albums'
+import { byDateSinceToday, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -34,7 +34,13 @@ const dataObject = {
   },
 
   set: function (vm, response) {
-    vm.recently_added = response.data.albums
+    vm.recently_added = new GroupByList(response.data.albums)
+    vm.recently_added.group(
+      byDateSinceToday('time_added', {
+        direction: 'desc',
+        defaultValue: '0000'
+      })
+    )
   }
 }
 
@@ -47,7 +53,12 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
+
   beforeRouteUpdate(to, from, next) {
+    if (!this.recently_added.isEmpty()) {
+      next()
+      return
+    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -57,18 +68,7 @@ export default {
 
   data() {
     return {
-      recently_added: { items: [] }
-    }
-  },
-
-  computed: {
-    albums_list() {
-      return new Albums(this.recently_added.items, {
-        hideSingles: false,
-        hideSpotify: false,
-        sort: 'Recently added (browse)',
-        group: true
-      })
+      recently_added: new GroupByList()
     }
   }
 }

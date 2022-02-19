@@ -1,9 +1,6 @@
 <template>
   <div>
     <content-with-heading>
-      <template #options>
-        <index-button-list :index="index_list" />
-      </template>
       <template #heading-left>
         <p class="title is-4">
           {{ composer }}
@@ -30,25 +27,7 @@
           <a class="has-text-link" @click="open_albums">albums</a> |
           {{ tracks.total }} tracks
         </p>
-        <list-item-track
-          v-for="(track, index) in rated_tracks"
-          :key="track.id"
-          :track="track"
-          @click="play_track(index)"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_dialog(track)">
-              <span class="icon has-text-dark"
-                ><i class="mdi mdi-dots-vertical mdi-18px"
-              /></span>
-            </a>
-          </template>
-        </list-item-track>
-        <modal-dialog-track
-          :show="show_details_modal"
-          :track="selected_track"
-          @close="show_details_modal = false"
-        />
+        <list-tracks :tracks="tracks.items" :expression="play_expression" />
         <modal-dialog-composer
           :show="show_composer_details_modal"
           :composer="{ name: composer }"
@@ -61,8 +40,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemTrack from '@/components/ListItemTrack.vue'
-import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
+import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
 
@@ -81,8 +59,7 @@ export default {
   name: 'PageComposerTracks',
   components: {
     ContentWithHeading,
-    ListItemTrack,
-    ModalDialogTrack,
+    ListTracks,
     ModalDialogComposer
   },
 
@@ -104,30 +81,13 @@ export default {
       tracks: { items: [] },
       composer: '',
 
-      min_rating: 0,
-
-      show_details_modal: false,
-      selected_track: {},
-
       show_composer_details_modal: false
     }
   },
 
   computed: {
-    index_list() {
-      return [
-        ...new Set(
-          this.tracks.items.map((track) =>
-            track.title_sort.charAt(0).toUpperCase()
-          )
-        )
-      ]
-    },
-
-    rated_tracks() {
-      return this.tracks.items.filter(
-        (track) => track.rating >= this.min_rating
-      )
+    play_expression() {
+      return 'composer is "' + this.composer + '" and media_kind is music'
     }
   },
 
@@ -141,30 +101,7 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_expression(
-        'composer is "' + this.composer + '" and media_kind is music',
-        true
-      )
-    },
-
-    play_track: function (position) {
-      webapi.player_play_expression(
-        'composer is "' + this.composer + '" and media_kind is music',
-        false,
-        position
-      )
-    },
-
-    show_rating: function (rating) {
-      if (rating === 0.5) {
-        rating = 0
-      }
-      this.min_rating = Math.ceil(rating) * 20
-    },
-
-    open_dialog: function (track) {
-      this.selected_track = track
-      this.show_details_modal = true
+      webapi.player_play_expression(this.play_expression, true)
     }
   }
 }

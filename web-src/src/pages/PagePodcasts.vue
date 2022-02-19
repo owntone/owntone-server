@@ -15,27 +15,9 @@
         </div>
       </template>
       <template #content>
-        <list-item-track
-          v-for="track in new_episodes.items"
-          :key="track.id"
-          :track="track"
-          @click="play_track(track)"
-        >
-          <template #progress>
-            <progress-bar :max="track.length_ms" :value="track.seek_ms" />
-          </template>
-          <template #actions>
-            <a @click="open_track_dialog(track)">
-              <span class="icon has-text-dark"
-                ><i class="mdi mdi-dots-vertical mdi-18px"
-              /></span>
-            </a>
-          </template>
-        </list-item-track>
-        <modal-dialog-track
-          :show="show_track_details_modal"
-          :track="selected_track"
-          @close="show_track_details_modal = false"
+        <list-tracks
+          :tracks="new_episodes.items"
+          :show_progress="true"
           @play-count-changed="reload_new_episodes"
         />
       </template>
@@ -64,7 +46,7 @@
       </template>
       <template #content>
         <list-albums
-          :albums="albums.items"
+          :albums="albums"
           @play-count-changed="reload_new_episodes()"
           @podcast-deleted="reload_podcasts()"
         />
@@ -80,13 +62,12 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemTrack from '@/components/ListItemTrack.vue'
+import ListTracks from '@/components/ListTracks.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
-import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
-import ProgressBar from '@/components/ProgressBar.vue'
 import * as types from '@/store/mutation_types'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -97,7 +78,7 @@ const dataObject = {
   },
 
   set: function (vm, response) {
-    vm.albums = response[0].data
+    vm.albums = new GroupByList(response[0].data)
     vm.new_episodes = response[1].data.tracks
   }
 }
@@ -106,11 +87,9 @@ export default {
   name: 'PagePodcasts',
   components: {
     ContentWithHeading,
-    ListItemTrack,
+    ListTracks,
     ListAlbums,
-    ModalDialogTrack,
-    ModalDialogAddRss,
-    ProgressBar
+    ModalDialogAddRss
   },
 
   beforeRouteEnter(to, from, next) {
@@ -118,6 +97,7 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
+
   beforeRouteUpdate(to, from, next) {
     const vm = this
     dataObject.load(to).then((response) => {
@@ -128,13 +108,10 @@ export default {
 
   data() {
     return {
-      albums: { items: [] },
+      albums: [],
       new_episodes: { items: [] },
 
-      show_url_modal: false,
-
-      show_track_details_modal: false,
-      selected_track: {}
+      show_url_modal: false
     }
   },
 
@@ -145,15 +122,6 @@ export default {
   },
 
   methods: {
-    play_track: function (track) {
-      webapi.player_play_uri(track.uri, false)
-    },
-
-    open_track_dialog: function (track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
-    },
-
     mark_all_played: function () {
       this.new_episodes.items.forEach((ep) => {
         webapi.library_track_update(ep.id, { play_count: 'increment' })
@@ -173,7 +141,7 @@ export default {
 
     reload_podcasts: function () {
       webapi.library_albums('podcast').then(({ data }) => {
-        this.albums = data
+        this.albums = new GroupByList(data)
         this.reload_new_episodes()
       })
     },

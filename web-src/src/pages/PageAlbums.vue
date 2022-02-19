@@ -4,7 +4,7 @@
 
     <content-with-heading>
       <template #options>
-        <index-button-list :index="albums_list.indexList" />
+        <index-button-list :index="albums.indexList" />
 
         <div class="columns">
           <div class="column">
@@ -44,17 +44,20 @@
           </div>
           <div class="column">
             <p class="heading" style="margin-bottom: 24px">Sort by</p>
-            <dropdown-menu v-model="sort" :options="sort_options" />
+            <dropdown-menu
+              v-model="selected_groupby_option_name"
+              :options="groupby_option_names"
+            />
           </div>
         </div>
       </template>
       <template #heading-left>
         <p class="title is-4">Albums</p>
-        <p class="heading">{{ albums_list.sortedAndFiltered.length }} Albums</p>
+        <p class="heading">{{ albums.count }} Albums</p>
       </template>
       <template #heading-right />
       <template #content>
-        <list-albums :albums="albums_list" />
+        <list-albums :albums="albums" />
       </template>
     </content-with-heading>
   </div>
@@ -68,7 +71,7 @@ import ListAlbums from '@/components/ListAlbums.vue'
 import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import Albums from '@/lib/Albums'
+import { bySortName, byYear, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -76,16 +79,7 @@ const dataObject = {
   },
 
   set: function (vm, response) {
-    vm.albums = response.data
-    vm.index_list = [
-      ...new Set(
-        vm.albums.items
-          .filter(
-            (album) => !vm.$store.state.hide_singles || album.track_count > 2
-          )
-          .map((album) => album.name_sort.charAt(0).toUpperCase())
-      )
-    ]
+    vm.albums_list = new GroupByList(response.data)
   }
 }
 
@@ -104,8 +98,9 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
+
   beforeRouteUpdate(to, from, next) {
-    if (this.albums.items.length > 0) {
+    if (!this.albums_list.isEmpty()) {
       next()
       return
     }
@@ -118,19 +113,53 @@ export default {
 
   data() {
     return {
-      albums: { items: [] },
-      sort_options: ['Name', 'Recently added', 'Recently released']
+      albums_list: new GroupByList(),
+
+      // List of group by/sort options for itemsGroupByList
+      groupby_options: [
+        { name: 'Name', options: bySortName('name_sort') },
+        {
+          name: 'Recently added',
+          options: byYear('time_added', {
+            direction: 'desc',
+            defaultValue: '0000'
+          })
+        },
+        {
+          name: 'Recently released',
+          options: byYear('date_released', {
+            direction: 'desc',
+            defaultValue: '0000'
+          })
+        }
+      ]
     }
   },
 
   computed: {
-    albums_list() {
-      return new Albums(this.albums.items, {
-        hideSingles: this.hide_singles,
-        hideSpotify: this.hide_spotify,
-        sort: this.sort,
-        group: true
-      })
+    albums() {
+      const groupBy = this.groupby_options.find(
+        (o) => o.name === this.selected_groupby_option_name
+      )
+      this.albums_list.group(groupBy.options, [
+        (album) => !this.hide_singles || album.track_count <= 2,
+        (album) => !this.hide_spotify || album.data_kind !== 'spotify'
+      ])
+
+      return this.albums_list
+    },
+
+    groupby_option_names() {
+      return [...this.groupby_options].map((o) => o.name)
+    },
+
+    selected_groupby_option_name: {
+      get() {
+        return this.$store.state.albums_sort
+      },
+      set(value) {
+        this.$store.commit(types.ALBUMS_SORT, value)
+      }
     },
 
     spotify_enabled() {
@@ -152,15 +181,6 @@ export default {
       },
       set(value) {
         this.$store.commit(types.HIDE_SPOTIFY, value)
-      }
-    },
-
-    sort: {
-      get() {
-        return this.$store.state.albums_sort
-      },
-      set(value) {
-        this.$store.commit(types.ALBUMS_SORT, value)
       }
     }
   },

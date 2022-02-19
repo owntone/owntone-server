@@ -25,7 +25,7 @@
       <p class="heading has-text-centered-mobile">
         {{ artist.album_count }} albums
       </p>
-      <list-albums :albums="albums.items" />
+      <list-albums :albums="albums" />
       <modal-dialog-artist
         :show="show_artist_details_modal"
         :artist="artist"
@@ -40,6 +40,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '../lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -51,7 +52,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.artist = response[0].data
-    vm.albums = response[1].data
+    vm.albums = new GroupByList(response[1].data)
   }
 }
 
@@ -64,7 +65,12 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
+
   beforeRouteUpdate(to, from, next) {
+    if (!this.albums.isEmpty()) {
+      next()
+      return
+    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -75,7 +81,7 @@ export default {
   data() {
     return {
       artist: {},
-      albums: {},
+      albums: new GroupByList(),
 
       show_artist_details_modal: false
     }

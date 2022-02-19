@@ -1,63 +1,51 @@
 <template>
-  <div>
-    <div v-if="is_grouped">
-      <div v-for="idx in artists.indexList" :key="idx" class="mb-6">
+  <template v-for="artist in artists" :key="artist.itemId">
+    <div v-if="!artist.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
+      <div class="media-content is-clipped">
         <span
-          :id="'index_' + idx"
+          :id="'index_' + artist.groupKey"
           class="tag is-info is-light is-small has-text-weight-bold"
-          >{{ idx }}</span
+          >{{ artist.groupKey }}</span
         >
-        <list-item-artist
-          v-for="artist in artists.grouped[idx]"
-          :key="artist.id"
-          :artist="artist"
-          @click="open_artist(artist)"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_dialog(artist)">
-              <span class="icon has-text-dark"
-                ><i class="mdi mdi-dots-vertical mdi-18px"
-              /></span>
-            </a>
-          </template>
-        </list-item-artist>
       </div>
     </div>
-    <div v-else>
-      <list-item-artist
-        v-for="artist in artists_list"
-        :key="artist.id"
-        :artist="artist"
-        @click="open_artist(artist)"
-      >
-        <template #actions>
-          <a @click.prevent.stop="open_dialog(artist)">
-            <span class="icon has-text-dark"
-              ><i class="mdi mdi-dots-vertical mdi-18px"
-            /></span>
-          </a>
-        </template>
-      </list-item-artist>
+    <div
+      v-else-if="artist.isItem"
+      class="media"
+      @click="open_artist(artist.item)"
+    >
+      <div class="media-content fd-has-action is-clipped">
+        <h1 class="title is-6">
+          {{ artist.item.name }}
+        </h1>
+      </div>
+      <div class="media-right">
+        <a @click.prevent.stop="open_dialog(artist.item)">
+          <span class="icon has-text-dark"
+            ><i class="mdi mdi-dots-vertical mdi-18px"
+          /></span>
+        </a>
+      </div>
     </div>
+  </template>
+  <teleport to="#app">
     <modal-dialog-artist
       :show="show_details_modal"
       :artist="selected_artist"
       :media_kind="media_kind"
       @close="show_details_modal = false"
     />
-  </div>
+  </teleport>
 </template>
 
 <script>
-import ListItemArtist from '@/components/ListItemArtist.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
-import Artists from '@/lib/Artists'
 
 export default {
   name: 'ListArtists',
-  components: { ListItemArtist, ModalDialogArtist },
+  components: { ModalDialogArtist },
 
-  props: ['artists', 'media_kind'],
+  props: ['artists', 'media_kind', 'hide_group_title'],
 
   data() {
     return {
@@ -69,17 +57,6 @@ export default {
   computed: {
     media_kind_resolved: function () {
       return this.media_kind ? this.media_kind : this.selected_artist.media_kind
-    },
-
-    artists_list: function () {
-      if (Array.isArray(this.artists)) {
-        return this.artists
-      }
-      return this.artists.sortedAndFiltered
-    },
-
-    is_grouped: function () {
-      return this.artists instanceof Artists && this.artists.options.group
     }
   },
 

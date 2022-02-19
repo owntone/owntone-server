@@ -1,7 +1,5 @@
 # Vue 3 + Vite Migration
 
-- Vue Dev Tools required in version 6 (currently only released as beta versions): <https://devtools.vuejs.org/guide/installation.html#beta>
-
 - [ ] vite does not support env vars in `vite.config.js` from `.env` files
 
   - <https://stackoverflow.com/questions/66389043/how-can-i-use-vite-env-variables-in-vite-config-js>
@@ -9,7 +7,7 @@
 
 - [ ] Documentation update
 
-- [ ] Add linting (ESLint) ?
+- [x] Add linting (ESLint)
 
 - [x] Update dialog is missing scan options
 
@@ -17,22 +15,22 @@
 
   - [ ] Do not reload data, if using the index-nav
     - [x] PageAlbums
-    - [ ] PageArtists
+    - [x] PageArtists
+    - [ ] PageGenres
     - [ ] ...
-  - [ ] Albums page is slow to load (because of the number of vue components?)
-    - [ ] Evaluate virtual scroller <https://github.com/Akryum/vue-virtual-scroller/tree/next/packages/vue-virtual-scroller>
+  - [ ] Albums page is slow to load (because of the number of vue components - ListItem+CoverArtwork)
+    - [ ] Evaluate removing ListItem and CoverArtwork component
 
 - [x] JS error on Podacst page
 
   - Problem caused by the Slider component
   - Replace with plain html
 
-- [ ] vue-router scroll-behavior
+- [x] vue-router scroll-behavior
 
   - [x] Index list not always hidden
   - [x] Check transitions
-  - [ ] Page display is "jumpy"
-    - Workaround is removing the page transition effect
+  - [x] Page display is "jumpy" - "fixed" by removing the page transition effect
 
 - [x] Index navigation "scroll up/down" button does not scroll down, if index is visible
 
@@ -54,7 +52,7 @@
 
 - [x] vue-router does not support navigation guards in mixins: <https://github.com/vuejs/vue-router-next/issues/454>
 
-  - replace mixin with composition api? <https://next.router.vuejs.org/guide/advanced/composition-api.html#navigation-guards>
+  - Replace mixin with composition api? <https://next.router.vuejs.org/guide/advanced/composition-api.html#navigation-guards>
   - Copied nav guards into each component
 
 - [x] vue-router link does not support `tag` and `active-class` properties: <https://next.router.vuejs.org/guide/migration/index.html#removal-of-event-and-tag-props-in-router-link>

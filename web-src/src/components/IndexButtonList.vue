@@ -20,6 +20,9 @@ export default {
 
   computed: {
     filtered_index() {
+      if (!this.index) {
+        return []
+      }
       const specialChars = '!"#$%&\'()*+,-./:;<=>?@[\\]^`{|}~'
       return this.index.filter((c) => !specialChars.includes(c))
     }

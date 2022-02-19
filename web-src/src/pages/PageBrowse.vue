@@ -9,7 +9,7 @@
         <p class="heading">albums</p>
       </template>
       <template #content>
-        <list-albums :albums="recently_added.items" />
+        <list-albums :albums="recently_added" />
       </template>
       <template #footer>
         <nav class="level">
@@ -54,6 +54,7 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -74,7 +75,7 @@ const dataObject = {
   },
 
   set: function (vm, response) {
-    vm.recently_added = response[0].data.albums
+    vm.recently_added = new GroupByList(response[0].data.albums)
     vm.recently_played = response[1].data.tracks
   }
 }
@@ -88,6 +89,7 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
+
   beforeRouteUpdate(to, from, next) {
     const vm = this
     dataObject.load(to).then((response) => {
@@ -98,7 +100,7 @@ export default {
 
   data() {
     return {
-      recently_added: { items: [] },
+      recently_added: [],
       recently_played: { items: [] },
 
       show_track_details_modal: false,
