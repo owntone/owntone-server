@@ -1,31 +1,31 @@
-// The Vue build version to load with the `import` command
-// (runtime-only or standalone) has been set in webpack.base.conf with an alias.
-import Vue from 'vue'
-import App from './App'
-import { router } from './router'
+import { createApp } from 'vue'
 import store from './store'
-import './filter'
-import './progress'
-import vClickOutside from 'v-click-outside'
-import VueTinyLazyloadImg from 'vue-tiny-lazyload-img'
-import VueObserveVisibility from 'vue-observe-visibility'
+import { router } from './router'
+import VueProgressBar from '@aacassandra/vue3-progressbar'
+import VueClickAway from "vue3-click-away"
+import VueLazyLoad from 'vue3-lazyload'
 import VueScrollTo from 'vue-scrollto'
-import 'mdi/css/materialdesignicons.css'
-import 'vue-range-slider/dist/vue-range-slider.css'
+import { filters } from './filter'
+import App from './App.vue'
+
 import './mystyles.scss'
+import 'mdi/css/materialdesignicons.css'
+import '@vueform/slider/themes/default.css'
 
-Vue.config.productionTip = false
+const app = createApp(App)
+  .use(store)
+  .use(router)
+  .use(VueProgressBar, {
+    color: 'hsl(204, 86%, 53%)',
+    failedColor: 'red',
+    height: '1px'
+  })
+  .use(VueClickAway)
+  .use(VueLazyLoad, {
+    // Do not log errors, if image does not exist
+    log: false
+  })
+  .use(VueScrollTo)
 
-Vue.use(vClickOutside)
-Vue.use(VueTinyLazyloadImg)
-Vue.use(VueObserveVisibility)
-Vue.use(VueScrollTo)
-
-/* eslint-disable no-new */
-new Vue({
-  el: '#app',
-  router,
-  store,
-  components: { App },
-  template: '<App/>'
-})
+app.config.globalProperties.$filters = filters
+app.mount('#app')

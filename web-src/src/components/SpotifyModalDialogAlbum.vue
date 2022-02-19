@@ -19,7 +19,7 @@
                 </p>
                 <p>
                   <span class="heading">Release date</span>
-                  <span class="title is-6">{{ album.release_date | time('L') }}</span>
+                  <span class="title is-6">{{ $filters.time(album.release_date, 'L') }}</span>
                 </p>
                 <p>
                   <span class="heading">Type</span>

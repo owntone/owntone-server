@@ -11,7 +11,15 @@
       <div class="fd-has-padding-left-right">
         <div class="container has-text-centered">
           <p class="control has-text-centered fd-progress-now-playing">
-            <range-slider
+            <Slider v-model="item_progress_ms"
+              :min="0"
+              :max="state.item_length_ms"
+              :step="1000"
+              :tooltips="false"
+              :disabled="state.state === 'stop'"
+              @change="seek"
+              :classes="{ target: 'seek-slider'}" />
+            <!--range-slider
               class="seek-slider fd-has-action"
               min="0"
               :max="state.item_length_ms"
@@ -19,10 +27,10 @@
               :disabled="state.state === 'stop'"
               step="1000"
               @change="seek" >
-            </range-slider>
+            </range-slider-->
           </p>
           <p class="content">
-            <span>{{ item_progress_ms | duration }} / {{ now_playing.length_ms | duration }}</span>
+            <span>{{ $filters.duration(item_progress_ms) }} / {{ $filters.duration(now_playing.length_ms) }}</span>
           </p>
         </div>
       </div>
@@ -60,15 +68,21 @@
 </template>
 
 <script>
-import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
-import RangeSlider from 'vue-range-slider'
-import CoverArtwork from '@/components/CoverArtwork'
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+//import RangeSlider from 'vue-range-slider'
+import Slider from '@vueform/slider'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
 export default {
   name: 'PageNowPlaying',
-  components: { ModalDialogQueueItem, RangeSlider, CoverArtwork },
+  components: {
+    ModalDialogQueueItem,
+//    RangeSlider,
+    Slider,
+    CoverArtwork
+  },
 
   data () {
     return {

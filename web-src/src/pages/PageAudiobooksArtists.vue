@@ -1,18 +1,18 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-audiobooks></tabs-audiobooks>
 
     <content-with-heading>
-      <template slot="options">
+      <template v-slot:options>
         <index-button-list :index="artists_list.indexList"></index-button-list>
       </template>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Authors</p>
         <p class="heading">{{ artists_list.sortedAndFiltered.length }} Authors</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-artists :artists="artists_list"></list-artists>
       </template>
     </content-with-heading>
@@ -20,15 +20,14 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsAudiobooks from '@/components/TabsAudiobooks'
-import IndexButtonList from '@/components/IndexButtonList'
-import ListArtists from '@/components/ListArtists'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
+import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListArtists from '@/components/ListArtists.vue'
 import webapi from '@/webapi'
 import Artists from '@/lib/Artists'
 
-const artistsData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_artists('audiobook')
   },
@@ -40,7 +39,6 @@ const artistsData = {
 
 export default {
   name: 'PageAudiobooksArtists',
-  mixins: [LoadDataBeforeEnterMixin(artistsData)],
   components: { ContentWithHeading, TabsAudiobooks, IndexButtonList, ListArtists },
 
   data () {
@@ -59,6 +57,19 @@ export default {
   },
 
   methods: {
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

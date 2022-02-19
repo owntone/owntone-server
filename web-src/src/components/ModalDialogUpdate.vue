@@ -6,7 +6,7 @@
       close_action="Close"
       @ok="update_library"
       @close="close()">
-    <template slot="modal-content">
+    <template v-slot:modal-content>
       <div v-if="!library.updating">
         <p class="mb-3">Scan for new, deleted and modified files</p>
         <div class="field" v-if="spotify_enabled || rss.tracks > 0">
@@ -36,7 +36,7 @@
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog'
+import ModalDialog from '@/components/ModalDialog.vue'
 import * as types from '@/store/mutation_types'
 import webapi from '@/webapi'
 

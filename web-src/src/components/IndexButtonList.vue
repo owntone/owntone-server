@@ -21,7 +21,7 @@ export default {
 
   methods: {
     nav: function (id) {
-      this.$router.push({ path: this.$router.currentRoute.path + '#index_' + id })
+      this.$router.push({ hash: '#index_' + id })
     },
 
     scroll_to_top: function () {

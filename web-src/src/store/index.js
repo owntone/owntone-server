@@ -1,68 +1,68 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
+import { createStore } from 'vuex'
 import * as types from './mutation_types'
 
-Vue.use(Vuex)
 
-export default new Vuex.Store({
-  state: {
-    config: {
-      websocket_port: 0,
-      version: '',
-      buildoptions: []
-    },
-    settings: {
-      categories: []
-    },
-    library: {
-      artists: 0,
-      albums: 0,
-      songs: 0,
-      db_playtime: 0,
-      updating: false
-    },
-    audiobooks_count: { },
-    podcasts_count: { },
-    rss_count: { },
-    outputs: [],
-    player: {
-      state: 'stop',
-      repeat: 'off',
-      consume: false,
-      shuffle: false,
-      volume: 0,
-      item_id: 0,
-      item_length_ms: 0,
-      item_progress_ms: 0
-    },
-    queue: {
-      version: 0,
-      count: 0,
-      items: []
-    },
-    lastfm: {},
-    spotify: {},
-    pairing: {},
-
-    spotify_new_releases: [],
-    spotify_featured_playlists: [],
-
-    notifications: {
-      next_id: 1,
-      list: []
-    },
-    recent_searches: [],
-
-    hide_singles: false,
-    hide_spotify: false,
-    artists_sort: 'Name',
-    artist_albums_sort: 'Name',
-    albums_sort: 'Name',
-    show_only_next_items: false,
-    show_burger_menu: false,
-    show_player_menu: false,
-    show_update_dialog: false,
-    update_dialog_scan_kind: ''
+export default createStore({
+  state () {
+    return {
+      config: {
+        websocket_port: 0,
+        version: '',
+        buildoptions: []
+      },
+      settings: {
+        categories: []
+      },
+      library: {
+        artists: 0,
+        albums: 0,
+        songs: 0,
+        db_playtime: 0,
+        updating: false
+      },
+      audiobooks_count: { },
+      podcasts_count: { },
+      rss_count: { },
+      outputs: [],
+      player: {
+        state: 'stop',
+        repeat: 'off',
+        consume: false,
+        shuffle: false,
+        volume: 0,
+        item_id: 0,
+        item_length_ms: 0,
+        item_progress_ms: 0
+      },
+      queue: {
+        version: 0,
+        count: 0,
+        items: []
+      },
+      lastfm: {},
+      spotify: {},
+      pairing: {},
+  
+      spotify_new_releases: [],
+      spotify_featured_playlists: [],
+  
+      notifications: {
+        next_id: 1,
+        list: []
+      },
+      recent_searches: [],
+  
+      hide_singles: false,
+      hide_spotify: false,
+      artists_sort: 'Name',
+      artist_albums_sort: 'Name',
+      albums_sort: 'Name',
+      show_only_next_items: false,
+      show_burger_menu: false,
+      show_player_menu: false,
+      show_update_dialog: false,
+      update_dialog_scan_kind: ''
+    }
   },
 
   getters: {

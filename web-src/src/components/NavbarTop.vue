@@ -79,7 +79,7 @@
 </template>
 
 <script>
-import NavbarItemLink from './NavbarItemLink'
+import NavbarItemLink from './NavbarItemLink.vue'
 import * as types from '@/store/mutation_types'
 
 export default {

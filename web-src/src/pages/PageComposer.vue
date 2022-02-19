@@ -1,10 +1,13 @@
 <template>
   <div>
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:options>
+        <index-button-list :index="index_list"></index-button-list>
+      </template>
+      <template v-slot:heading-left>
         <p class="title is-4">{{ name }}</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
         <div class="buttons is-centered">
           <a class="button is-small is-light is-rounded" @click="show_composer_details_modal = true">
             <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
@@ -14,10 +17,10 @@
           </a>
         </div>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <p class="heading has-text-centered-mobile">{{ composer_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
         <list-item-albums v-for="album in composer_albums.items" :key="album.id" :album="album" @click="open_album(album)">
-          <template slot="actions">
+          <template slot:actions>
             <a @click="open_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -31,14 +34,13 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemAlbums from '@/components/ListItemAlbum'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
-import ModalDialogComposer from '@/components/ModalDialogComposer'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemAlbums from '@/components/ListItemAlbum.vue'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
 
-const composerData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_composer(to.params.composer)
   },
@@ -51,7 +53,6 @@ const composerData = {
 
 export default {
   name: 'PageComposer',
-  mixins: [LoadDataBeforeEnterMixin(composerData)],
   components: { ContentWithHeading, ListItemAlbums, ModalDialogAlbum, ModalDialogComposer },
 
   data () {
@@ -90,6 +91,19 @@ export default {
       this.selected_album = album
       this.show_details_modal = true
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

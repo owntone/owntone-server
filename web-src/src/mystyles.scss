@@ -1,34 +1,47 @@
+@charset "utf-8";
 
-@import 'bulma';
-@import '~bulma-switch';
+@import 'bulma/bulma.sass';
+@import 'bulma-switch';
 
 
+/* Volume slider */
 .slider {
   min-width: 250px;
   width: 100%;
-}
-.range-slider-fill {
-  background-color: hsl(0, 0%, 21%);
+  margin-top: 16px;
+  margin-bottom: 16px;
+  --slider-height: 4px;
+  --slider-connect-bg: hsl(0, 0%, 21%);
+  --slider-tooltip-bg: hsl(0, 0%, 21%);
+  --slider-handle-ring-color: #3B82F630;
+  --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0,0,0,.32);
+  --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0,0,0,.42);
 }
 
-.track-progress {
-  margin: 0;
-  padding: 0;
+/* Now playing progress bar */
+.seek-slider {
   min-width: 250px;
-  width: 100%;
+  max-width: 500px;
+  width: 100% !important;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+  margin: 0 auto 16px auto;
+  --slider-height: 4px;
+  --slider-connect-bg: hsl(171, 100%, 41%);
+  --slider-tooltip-bg: hsl(171, 100%, 41%);
+  --slider-handle-bg: hsl(171, 100%, 41%);
+  --slider-handle-border: 0;
+  --slider-handle-width: 10px;
+  --slider-handle-height: 10px;
+  --slider-handle-radius: 9999px;
+  --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0,0,0,.32);
+  --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0,0,0,.42);
+  --slider-handle-ring-width: 3px;
 }
 
-.track-progress .range-slider-knob {
-  visibility: hidden;
-}
-
-.track-progress .range-slider-fill {
-  background-color: hsl(217, 71%, 53%);
-  height: 2px;
-}
-
-.track-progress .range-slider-rail {
-  background-color: hsl(0, 0%, 100%);
+.progress-bar {
+  background-color: $info;
+  border-radius: 9999px;
+  height: 4px;
 }
 
 .media.with-progress h2:last-of-type {
@@ -118,6 +131,14 @@ section.hero + section.fd-content {
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
+.fd-page {
+  margin-top: 3.25rem;
+}
+
+.fd-page-with-tabs {
+  margin-top: 6.25rem !important;
+}
+
 /* Set minimum height to hide "option" section */
 .fd-content-with-option {
   min-height: calc(100vh - 3.25rem - 3.25rem - 5rem);
@@ -192,28 +213,17 @@ section.hero + section.fd-content {
 }
 
 /* Transition effect */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity .4s;
+.fade-leave-active {
+  transition: opacity .2s ease;
 }
-.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+.fade-enter-active {
+  transition: opacity .5s ease;
+}
+.fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
-
-/* Now playing progress bar */
-.seek-slider {
-  min-width: 250px;
-  max-width: 500px;
-  width: 100% !important;
-}
-.seek-slider .range-slider-fill {
-  background-color: hsl(171, 100%, 41%);
-  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-}
-.seek-slider .range-slider-knob {
-  width: 10px;
-  height: 10px;
-  background-color: hsl(171, 100%, 41%);
-  border-color: hsl(171, 100%, 41%);
+.fade-enter-to, .fade-leave-from {
+  opacity: 1;
 }
 
 /* Add a little bit of spacing between title and subtitle */

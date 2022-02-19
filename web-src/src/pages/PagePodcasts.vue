@@ -1,10 +1,10 @@
 <template>
   <div>
     <content-with-heading v-if="new_episodes.items.length > 0">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">New episodes</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
       <div class="buttons is-centered">
         <a class="button is-small" @click="mark_all_played">
           <span class="icon">
@@ -14,19 +14,12 @@
         </a>
       </div>
     </template>
-    <template slot="content">
+    <template v-slot:content>
         <list-item-track v-for="track in new_episodes.items" :key="track.id" :track="track" @click="play_track(track)">
-          <template slot="progress">
-            <range-slider
-              class="track-progress"
-              min="0"
-              :max="track.length_ms"
-              step="1"
-              :disabled="true"
-              :value="track.seek_ms" >
-            </range-slider>
+          <template v-slot:progress>
+            <progress-bar :max="track.length_ms" :value="track.seek_ms" />
           </template>
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_track_dialog(track)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -37,11 +30,11 @@
     </content-with-heading>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Podcasts</p>
         <p class="heading">{{ albums.total }} podcasts</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
         <div class="buttons is-centered">
           <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
             <span class="icon">
@@ -57,7 +50,7 @@
           </a>
         </div>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-albums :albums="albums.items"
             @play-count-changed="reload_new_episodes()"
             @podcast-deleted="reload_podcasts()">
@@ -72,17 +65,16 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemTrack from '@/components/ListItemTrack'
-import ListAlbums from '@/components/ListAlbums'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
-import ModalDialogAddRss from '@/components/ModalDialogAddRss'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemTrack from '@/components/ListItemTrack.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
+import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
+import ProgressBar from '@/components/ProgressBar.vue'
 import * as types from '@/store/mutation_types'
-import RangeSlider from 'vue-range-slider'
 import webapi from '@/webapi'
 
-const albumsData = {
+const dataObject = {
   load: function (to) {
     return Promise.all([
       webapi.library_albums('podcast'),
@@ -98,8 +90,14 @@ const albumsData = {
 
 export default {
   name: 'PagePodcasts',
-  mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { ContentWithHeading, ListItemTrack, ListAlbums, ModalDialogTrack, ModalDialogAddRss, RangeSlider },
+  components: {
+    ContentWithHeading,
+    ListItemTrack,
+    ListAlbums,
+    ModalDialogTrack,
+    ModalDialogAddRss,
+    ProgressBar
+  },
 
   data () {
     return {
@@ -157,6 +155,19 @@ export default {
       this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, 'rss')
       this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

@@ -3,12 +3,14 @@
     <div v-if="is_grouped">
       <div v-for="idx in albums.indexList" :key="idx" class="mb-6">
         <span class="tag is-info is-light is-small has-text-weight-bold" :id="'index_' + idx">{{ idx }}</span>
-        <list-item-album v-for="album in albums.grouped[idx]"
+
+  <div class="media" v-for="album in albums.grouped[idx]"
             :key="album.id"
             :album="album"
             @click="open_album(album)">
-          <template slot="artwork" v-if="is_visible_artwork">
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
+    <div class="media-left fd-has-action"
+        v-if="is_visible_artwork">
+      <p class="image is-64x64 fd-has-shadow fd-has-action">
             <cover-artwork
                 :artwork_url="album.artwork_url"
                 :artist="album.artist"
@@ -16,13 +18,28 @@
                 :maxwidth="64"
                 :maxheight="64" />
             </p>
-          </template>
-          <template slot="actions">
-            <a @click="open_dialog(album)">
+    </div>
+    <div class="media-content fd-has-action is-clipped">
+      <div style="margin-top:0.7rem;">
+        <h1 class="title is-6">{{ album.name }}</h1>
+        <h2 class="subtitle is-7 has-text-grey"><b>{{ album.artist }}</b></h2>
+        <h2 class="subtitle is-7 has-text-grey has-text-weight-normal"
+            v-if="album.date_released && album.media_kind === 'music'">
+          {{ $filters.time(album.date_released, 'L') }}
+        </h2>
+      </div>
+    </div>
+    <div class="media-right" style="padding-top:0.7rem;">
+      <a @click.prevent.stop="open_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
-          </template>
-        </list-item-album>
+    </div>
+  </div>
+
+
+
+
+
       </div>
     </div>
     <div v-else>
@@ -30,7 +47,7 @@
           :key="album.id"
           :album="album"
           @click="open_album(album)">
-        <template slot="artwork" v-if="is_visible_artwork">
+        <template v-slot:artwork v-if="is_visible_artwork">
           <p class="image is-64x64 fd-has-shadow fd-has-action">
           <cover-artwork
               :artwork_url="album.artwork_url"
@@ -40,8 +57,8 @@
               :maxheight="64" />
           </p>
         </template>
-        <template slot="actions">
-          <a @click="open_dialog(album)">
+        <template v-slot:actions>
+          <a @click.prevent.stop="open_dialog(album)">
             <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
           </a>
         </template>
@@ -60,7 +77,7 @@
         delete_action="Remove"
         @close="show_remove_podcast_modal = false"
         @delete="remove_podcast">
-      <template slot="modal-content">
+      <template v-slot:modal-content>
         <p>Permanently remove this podcast from your library?</p>
         <p class="is-size-7">(This will also remove the RSS playlist <b>{{ rss_playlist_to_remove.name }}</b>.)</p>
       </template>
@@ -69,10 +86,10 @@
 </template>
 
 <script>
-import ListItemAlbum from '@/components/ListItemAlbum'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
-import ModalDialog from '@/components/ModalDialog'
-import CoverArtwork from '@/components/CoverArtwork'
+import ListItemAlbum from '@/components/ListItemAlbum.vue'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
 import Albums from '@/lib/Albums'
 
@@ -105,7 +122,10 @@ export default {
       if (Array.isArray(this.albums)) {
         return this.albums
       }
-      return this.albums.sortedAndFiltered
+      if (this.albums) {
+        return this.albums.sortedAndFiltered
+      }
+      return []
     },
 
     is_grouped: function () {

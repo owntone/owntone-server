@@ -2,10 +2,10 @@
   <div id="app">
     <navbar-top />
     <vue-progress-bar class="fd-progress-bar" />
-    <transition name="fade">
-      <!-- Setting v-show to true on the router-view tag avoids jumpiness during transitions -->
-      <router-view v-show="true" />
-    </transition>
+    <router-view v-slot="{ Component }">
+      <component :is="Component" class="fd-page" />
+    </router-view>
+
     <modal-dialog-remote-pairing :show="pairing_active" @close="pairing_active = false" />
     <modal-dialog-update
         :show="show_update_dialog"
@@ -18,11 +18,11 @@
 </template>
 
 <script>
-import NavbarTop from '@/components/NavbarTop'
-import NavbarBottom from '@/components/NavbarBottom'
-import Notifications from '@/components/Notifications'
-import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing'
-import ModalDialogUpdate from '@/components/ModalDialogUpdate'
+import NavbarTop from '@/components/NavbarTop.vue'
+import NavbarBottom from '@/components/NavbarBottom.vue'
+import Notifications from '@/components/Notifications.vue'
+import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
+import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
@@ -125,9 +125,9 @@ export default {
       }
 
       let wsUrl = protocol + window.location.hostname + ':' + vm.$store.state.config.websocket_port
-      if (process.env.NODE_ENV === 'development' && process.env.VUE_APP_WEBSOCKET_SERVER) {
+      if (import.meta.env.NODE_ENV === 'development' && import.meta.env.VUE_APP_WEBSOCKET_SERVER) {
         // If we are running in the development server, use the websocket url configured in .env.development
-        wsUrl = process.env.VUE_APP_WEBSOCKET_SERVER
+        wsUrl = import.meta.env.VUE_APP_WEBSOCKET_SERVER
       }
 
       const socket = new ReconnectingWebSocket(

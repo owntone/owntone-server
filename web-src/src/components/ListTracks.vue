@@ -1,8 +1,8 @@
 <template>
   <div>
     <list-item-track v-for="(track, index) in tracks" :key="track.id" :track="track" @click="play_track(index, track)">
-      <template slot="actions">
-        <a @click="open_dialog(track)">
+      <template v-slot:actions>
+        <a @click.prevent.stop="open_dialog(track)">
           <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
         </a>
       </template>
@@ -12,8 +12,8 @@
 </template>
 
 <script>
-import ListItemTrack from '@/components/ListItemTrack'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
+import ListItemTrack from '@/components/ListItemTrack.vue'
+import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
 import webapi from '@/webapi'
 
 export default {

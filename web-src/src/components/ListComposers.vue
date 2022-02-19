@@ -7,8 +7,8 @@
             :key="composer.id"
             :composer="composer"
             @click="open_composer(composer)">
-            <template slot="actions">
-                <a @click="open_dialog(composer)">
+            <template v-slot:actions>
+                <a @click.prevent.stop="open_dialog(composer)">
                 <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
                 </a>
             </template>
@@ -20,8 +20,8 @@
           :key="composer.id"
           :composer="composer"
           @click="open_composer(composer)">
-          <template slot="actions">
-              <a @click="open_dialog(composer)">
+          <template v-slot:actions>
+              <a @click.prevent.stop="open_dialog(composer)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
               </a>
           </template>
@@ -32,8 +32,8 @@
 </template>
 
 <script>
-import ListItemComposer from '@/components/ListItemComposer'
-import ModalDialogComposer from '@/components/ModalDialogComposer'
+import ListItemComposer from '@/components/ListItemComposer.vue'
+import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import Composers from '@/lib/Composers'
 
 export default {

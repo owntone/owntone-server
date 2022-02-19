@@ -1,11 +1,11 @@
 <template>
   <div>
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Files</p>
         <p class="title is-7 has-text-grey">{{ current_directory }}</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
         <div class="buttons is-centered">
           <a class="button is-small is-light is-rounded" @click="open_directory_dialog({ 'path': current_directory })">
             <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
@@ -15,7 +15,7 @@
           </a>
         </div>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <div class="media" v-if="$route.query.directory" @click="open_parent_directory()">
           <figure class="media-left fd-has-action">
             <span class="icon">
@@ -31,7 +31,7 @@
         </div>
 
         <list-item-directory v-for="directory in files.directories" :key="directory.path" :directory="directory" @click="open_directory(directory)">
-        <template slot="actions">
+        <template v-slot:actions>
           <a @click="open_directory_dialog(directory)">
             <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
           </a>
@@ -39,12 +39,12 @@
         </list-item-directory>
 
         <list-item-playlist v-for="playlist in files.playlists.items" :key="playlist.id" :playlist="playlist" @click="open_playlist(playlist)">
-          <template slot="icon">
+          <template v-slot:icon>
             <span class="icon">
               <i class="mdi mdi-library-music"></i>
             </span>
           </template>
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -52,12 +52,12 @@
         </list-item-playlist>
 
         <list-item-track v-for="(track, index) in files.tracks.items" :key="track.id" :track="track" @click="play_track(index)">
-          <template slot="icon">
+          <template v-slot:icon>
             <span class="icon">
               <i class="mdi mdi-file-outline"></i>
             </span>
           </template>
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_track_dialog(track)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -73,17 +73,16 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemDirectory from '@/components/ListItemDirectory'
-import ListItemPlaylist from '@/components/ListItemPlaylist'
-import ListItemTrack from '@/components/ListItemTrack'
-import ModalDialogDirectory from '@/components/ModalDialogDirectory'
-import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemDirectory from '@/components/ListItemDirectory.vue'
+import ListItemPlaylist from '@/components/ListItemPlaylist.vue'
+import ListItemTrack from '@/components/ListItemTrack.vue'
+import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
+import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
+import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
 import webapi from '@/webapi'
 
-const filesData = {
+const dataObject = {
   load: function (to) {
     if (to.query.directory) {
       return webapi.library_files(to.query.directory)
@@ -106,7 +105,6 @@ const filesData = {
 
 export default {
   name: 'PageFiles',
-  mixins: [LoadDataBeforeEnterMixin(filesData)],
   components: { ContentWithHeading, ListItemDirectory, ListItemPlaylist, ListItemTrack, ModalDialogDirectory, ModalDialogPlaylist, ModalDialogTrack },
 
   data () {
@@ -173,6 +171,19 @@ export default {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

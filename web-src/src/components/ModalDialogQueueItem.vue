@@ -41,7 +41,7 @@
                 </p>
                 <p>
                   <span class="heading">Length</span>
-                  <span class="title is-6">{{ item.length_ms | duration }}</span>
+                  <span class="title is-6">{{ $filters.duration(item.length_ms) }}</span>
                 </p>
                 <p>
                   <span class="heading">Path</span>
@@ -56,7 +56,7 @@
                   <span class="title is-6">
                     {{ item.type }}
                     <span v-if="item.samplerate"> | {{ item.samplerate }} Hz</span>
-                    <span v-if="item.channels"> | {{ item.channels | channels }}</span>
+                    <span v-if="item.channels"> | {{ $filters.channels(item.channels) }}</span>
                     <span v-if="item.bitrate"> | {{ item.bitrate }} Kb/s</span>
                   </span>
                 </p>

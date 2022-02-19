@@ -1,9 +1,9 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music></tabs-music>
 
     <content-with-heading>
-      <template slot="options">
+      <template v-slot:options>
         <index-button-list :index="artists_list.indexList"></index-button-list>
 
         <div class="columns">
@@ -30,13 +30,13 @@
           </div>
         </div>
       </template>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Artists</p>
         <p class="heading">{{ artists_list.sortedAndFiltered.length }} Artists</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-artists :artists="artists_list"></list-artists>
       </template>
     </content-with-heading>
@@ -44,17 +44,16 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import IndexButtonList from '@/components/IndexButtonList'
-import ListArtists from '@/components/ListArtists'
-import DropdownMenu from '@/components/DropdownMenu'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListArtists from '@/components/ListArtists.vue'
+import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import Artists from '@/lib/Artists'
 
-const artistsData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_artists('music')
   },
@@ -66,7 +65,6 @@ const artistsData = {
 
 export default {
   name: 'PageArtists',
-  mixins: [LoadDataBeforeEnterMixin(artistsData)],
   components: { ContentWithHeading, TabsMusic, IndexButtonList, ListArtists, DropdownMenu },
 
   data () {
@@ -122,6 +120,23 @@ export default {
     scrollToTop: function () {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    if (this.artists.items.length  > 0) {
+      next()
+      return
+    }
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

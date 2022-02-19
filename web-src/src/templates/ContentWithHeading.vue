@@ -4,7 +4,7 @@
       <div class="columns is-centered">
         <div class="column is-four-fifths">
           <section v-if="$slots['options']">
-            <div v-observe-visibility="observer_options" style="height:2px;"></div>
+            <div style="height: 1px;" ref="options_ref" />
             <slot name="options"></slot>
             <nav class="buttons is-centered" style="margin-bottom: 6px; margin-top: 16px;">
               <a v-if="!options_visible" class="button is-small is-white" @click="scroll_to_top"><span class="icon is-small"><i class="mdi mdi-chevron-up"></i></span></a>
@@ -45,18 +45,30 @@ export default {
 
   data () {
     return {
-      options_visible: false,
-      observer_options: {
-        callback: this.visibilityChanged,
-        intersection: {
-          rootMargin: '-100px',
-          threshold: 0.3
+      options_visible: false
+    }
+  },
+
+  mounted() {
+    if (this.$slots['options']) {
+      this.observer = new IntersectionObserver(
+        this.onElementObserved, 
+        {
+          rootMargin: '-82px 0px 0px 0px',
+          threshold: 1.0
         }
-      }
+      )
+      this.observer.observe(this.$refs.options_ref)
     }
   },
 
   methods: {
+    onElementObserved(entries) {
+      entries.forEach(({ target, isIntersecting}) => {
+        this.options_visible = isIntersecting
+      });
+    },
+
     scroll_to_top: function () {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     },

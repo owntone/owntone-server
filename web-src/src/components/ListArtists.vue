@@ -7,8 +7,8 @@
             :key="artist.id"
             :artist="artist"
             @click="open_artist(artist)">
-            <template slot="actions">
-                <a @click="open_dialog(artist)">
+            <template v-slot:actions>
+                <a @click.prevent.stop="open_dialog(artist)">
                 <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
                 </a>
             </template>
@@ -20,8 +20,8 @@
           :key="artist.id"
           :artist="artist"
           @click="open_artist(artist)">
-          <template slot="actions">
-              <a @click="open_dialog(artist)">
+          <template v-slot:actions>
+              <a @click.prevent.stop="open_dialog(artist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
               </a>
           </template>
@@ -32,8 +32,8 @@
 </template>
 
 <script>
-import ListItemArtist from '@/components/ListItemArtist'
-import ModalDialogArtist from '@/components/ModalDialogArtist'
+import ListItemArtist from '@/components/ListItemArtist.vue'
+import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import Artists from '@/lib/Artists'
 
 export default {

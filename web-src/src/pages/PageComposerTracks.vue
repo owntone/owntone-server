@@ -1,12 +1,15 @@
 <template>
   <div>
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:options>
+        <index-button-list :index="index_list"></index-button-list>
+      </template>
+      <template v-slot:heading-left>
         <p class="title is-4">{{ composer }}</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
         <div class="buttons is-centered">
-         <a class="button is-small is-light is-rounded" @click="show_composer_details_modal = true">
+          <a class="button is-small is-light is-rounded" @click="show_composer_details_modal = true">
             <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
@@ -14,11 +17,11 @@
           </a>
         </div>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <p class="heading has-text-centered-mobile"><a class="has-text-link" @click="open_albums">albums</a> | {{ tracks.total }} tracks</p>
         <list-item-track v-for="(track, index) in rated_tracks" :key="track.id" :track="track" @click="play_track(index)">
-          <template slot="actions">
-            <a @click="open_dialog(track)">
+          <template v-slot:actions>
+            <a @click.prevent.stop="open_dialog(track)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
           </template>
@@ -31,14 +34,13 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemTrack from '@/components/ListItemTrack'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
-import ModalDialogComposer from '@/components/ModalDialogComposer'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemTrack from '@/components/ListItemTrack.vue'
+import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
+import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
 
-const tracksData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_composer_tracks(to.params.composer)
   },
@@ -51,7 +53,6 @@ const tracksData = {
 
 export default {
   name: 'PageComposerTracks',
-  mixins: [LoadDataBeforeEnterMixin(tracksData)],
   components: { ContentWithHeading, ListItemTrack, ModalDialogTrack, ModalDialogComposer },
 
   data () {
@@ -104,6 +105,19 @@ export default {
       this.selected_track = track
       this.show_details_modal = true
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

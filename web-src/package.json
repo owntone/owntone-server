@@ -1,54 +1,36 @@
 {
   "name": "owntone-web",
-  "version": "1.2.0",
-  "private": true,
-  "description": "OwnTone web interface",
-  "author": "chme <christian.meffert@googlemail.com>",
+  "version": "2.0.0",
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build --no-clean --modern",
-    "lint": "vue-cli-service lint",
-    "dev": "vue-cli-service serve"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite"
   },
   "dependencies": {
+    "@aacassandra/vue3-progressbar": "^1.0.3",
+    "@ts-pro/vue-eternal-loading": "^1.2.0",
+    "@vueform/slider": "^2.0.8",
     "axios": "^0.25.0",
     "bulma": "^0.9.3",
     "bulma-switch": "^2.0.4",
-    "core-js": "^3.15.2",
     "mdi": "^2.2.43",
     "moment": "^2.29.1",
     "moment-duration-format": "^2.3.2",
-    "npm": "^7.19.1",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.5.2",
     "string-to-color": "^2.2.2",
-    "v-click-outside": "^3.1.2",
-    "vue": "^2.6.14",
-    "vue-infinite-loading": "^2.4.5",
-    "vue-observe-visibility": "^1.0.0",
-    "vue-progressbar": "^0.7.5",
-    "vue-range-slider": "^0.6.0",
-    "vue-router": "^3.5.3",
+    "vue": "^3.2.31",
+    "vue-router": "^4.0.12",
     "vue-scrollto": "^2.20.0",
-    "vue-tiny-lazyload-img": "^0.1.0",
-    "vuedraggable": "^2.24.3",
-    "vuex": "^3.6.2"
+    "vue3-click-away": "^1.2.1",
+    "vue3-lazyload": "^0.2.5-beta",
+    "vuedraggable": "^4.1.0",
+    "vuex": "^4.0.2"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^4.5.15",
-    "@vue/cli-plugin-eslint": "^5.0.0-rc.1",
-    "@vue/cli-service": "^4.5.15",
-    "@vue/eslint-config-standard": "^6.1.0",
-    "babel-eslint": "^10.1.0",
-    "eslint": "^7.30.0",
-    "eslint-plugin-import": "^2.23.4",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^5.1.0",
-    "eslint-plugin-standard": "^5.0.0",
-    "eslint-plugin-vue": "^7.12.1",
-    "sass": "^1.35.1",
-    "sass-loader": "^10",
-    "vue-template-compiler": "^2.6.14"
-  },
-  "license": "GPL-2.0"
+    "@vitejs/plugin-vue": "^2.2.0",
+    "sass": "^1.49.7",
+    "vite": "^2.8.1"
+  }
 }

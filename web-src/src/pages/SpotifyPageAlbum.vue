@@ -1,6 +1,6 @@
 <template>
   <content-with-hero>
-    <template slot="heading-left">
+    <template v-slot:heading-left>
       <h1 class="title is-5">{{ album.name }}</h1>
       <h2 class="subtitle is-6 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artists[0].name }}</a></h2>
 
@@ -14,7 +14,7 @@
       </div>
     </template>
 
-    <template slot="heading-right">
+    <template v-slot:heading-right>
       <p class="image is-square fd-has-shadow fd-has-action">
         <cover-artwork
           :artwork_url="artwork_url"
@@ -24,10 +24,10 @@
       </p>
     </template>
 
-    <template slot="content">
+    <template v-slot:content>
       <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">{{ album.tracks.total }} tracks</p>
       <spotify-list-item-track v-for="(track, index) in album.tracks.items" :key="track.id" :track="track" :position="index" :album="album" :context_uri="album.uri">
-        <template slot="actions">
+        <template v-slot:actions>
           <a @click="open_track_dialog(track)">
             <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
           </a>
@@ -40,17 +40,16 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHero from '@/templates/ContentWithHero'
-import SpotifyListItemTrack from '@/components/SpotifyListItemTrack'
-import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
-import CoverArtwork from '@/components/CoverArtwork'
+import ContentWithHero from '@/templates/ContentWithHero.vue'
+import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
+import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
 
-const albumData = {
+const dataObject = {
   load: function (to) {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
@@ -64,7 +63,6 @@ const albumData = {
 
 export default {
   name: 'PageAlbum',
-  mixins: [LoadDataBeforeEnterMixin(albumData)],
   components: { ContentWithHero, SpotifyListItemTrack, SpotifyModalDialogTrack, SpotifyModalDialogAlbum, CoverArtwork },
 
   data () {
@@ -101,6 +99,19 @@ export default {
       this.selected_track = track
       this.show_track_details_modal = true
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

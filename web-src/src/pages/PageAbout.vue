@@ -34,27 +34,27 @@
                 <tbody>
                   <tr>
                     <th>Artists</th>
-                    <td class="has-text-right">{{ library.artists | number }}</td>
+                    <td class="has-text-right">{{ $filters.number(library.artists) }}</td>
                   </tr>
                   <tr>
                     <th>Albums</th>
-                    <td class="has-text-right">{{ library.albums | number }}</td>
+                    <td class="has-text-right">{{ $filters.number(library.albums) }}</td>
                   </tr>
                   <tr>
                     <th>Tracks</th>
-                    <td class="has-text-right">{{ library.songs | number }}</td>
+                    <td class="has-text-right">{{ $filters.number(library.songs) }}</td>
                   </tr>
                   <tr>
                     <th>Total playtime</th>
-                    <td class="has-text-right">{{ library.db_playtime * 1000 | duration('y [years], d [days], h [hours], m [minutes]') }}</td>
+                    <td class="has-text-right">{{ $filters.duration(library.db_playtime * 1000, 'y [years], d [days], h [hours], m [minutes]') }}</td>
                   </tr>
                   <tr>
                     <th>Library updated</th>
-                    <td class="has-text-right">{{ library.updated_at | timeFromNow }} <span class="has-text-grey">({{ library.updated_at | time('lll') }})</span></td>
+                    <td class="has-text-right">{{ $filters.timeFromNow(library.updated_at) }} <span class="has-text-grey">({{ $filters.time(library.updated_at, 'lll') }})</span></td>
                   </tr>
                   <tr>
                     <th>Uptime</th>
-                    <td class="has-text-right">{{ library.started_at | timeFromNow(true) }} <span class="has-text-grey">({{ library.started_at | time('ll') }})</span></td>
+                    <td class="has-text-right">{{ $filters.timeFromNow(library.started_at, true) }} <span class="has-text-grey">({{ $filters.time(library.started_at, 'll') }})</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -68,7 +68,7 @@
         <div class="columns is-centered">
           <div class="column is-four-fifths">
             <div class="content has-text-centered-mobile">
-              <p class="is-size-7">Compiled with support for {{ config.buildoptions | join }}.</p>
+              <p class="is-size-7">Compiled with support for {{ config.buildoptions.join(', ') }}.</p>
               <p class="is-size-7">Web interface built with <a href="http://bulma.io">Bulma</a>, <a href="https://materialdesignicons.com/">Material Design Icons</a>, <a href="https://vuejs.org/">Vue.js</a>, <a href="https://github.com/mzabriskie/axios">axios</a> and <a href="https://github.com/owntone/owntone-server/network/dependencies">more</a>.</p>
             </div>
           </div>
@@ -106,12 +106,6 @@ export default {
     },
     showUpdateDialog () {
       this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
-    }
-  },
-
-  filters: {
-    join: function (array) {
-      return array.join(', ')
     }
   }
 }

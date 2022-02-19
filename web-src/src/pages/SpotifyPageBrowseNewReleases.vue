@@ -1,17 +1,17 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music></tabs-music>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">New Releases</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-album v-for="album in new_releases"
             :key="album.id"
             :album="album"
             @click="open_album(album)">
-          <template slot="artwork" v-if="is_visible_artwork">
+          <template v-slot:artwork v-if="is_visible_artwork">
             <p class="image is-64x64 fd-has-shadow fd-has-action">
               <cover-artwork
                 :artwork_url="artwork_url(album)"
@@ -21,7 +21,7 @@
                 :maxheight="64" />
             </p>
           </template>
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_album_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -34,17 +34,16 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
-import CoverArtwork from '@/components/CoverArtwork'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
 
-const browseData = {
+const dataObject = {
   load: function (to) {
     if (store.state.spotify_new_releases.length > 0) {
       return Promise.resolve()
@@ -64,7 +63,6 @@ const browseData = {
 
 export default {
   name: 'SpotifyPageBrowseNewReleases',
-  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, SpotifyListItemAlbum, SpotifyModalDialogAlbum, CoverArtwork },
 
   data () {
@@ -101,6 +99,19 @@ export default {
       }
       return ''
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

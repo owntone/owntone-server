@@ -81,6 +81,7 @@ export default {
       this.timerId = -1
 
       const newValue = this.$refs.settings_checkbox.checked
+      console.log(this.$refs.settings_checkbox)
       if (newValue === this.value) {
         this.statusUpdate = ''
         return

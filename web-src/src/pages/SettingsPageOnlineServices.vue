@@ -1,13 +1,13 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-settings></tabs-settings>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <div class="title is-4">Spotify</div>
       </template>
 
-      <template slot="content">
+      <template v-slot:content>
         <div class="notification is-size-7" v-if="!spotify.spotify_installed">
           <p>OwnTone was either built without support for Spotify or libspotify is not installed.</p>
         </div>
@@ -56,7 +56,7 @@
             </p>
             <p class="help is-danger" v-if="spotify_missing_scope.length > 0">
               Please reauthorize Web API access to grant OwnTone the following additional access rights:
-              <b><code>{{ spotify_missing_scope | join }}</code></b>
+              <b><code>{{ spotify_missing_scope.join() }}</code></b>
             </p>
             <div class="field fd-has-margin-top ">
               <div class="control">
@@ -65,7 +65,7 @@
             </div>
             <p class="help">
               Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are
-              <code>{{ spotify_required_scope | join }}</code>.
+              <code>{{ spotify_required_scope.join() }}</code>.
             </p>
             <div v-if="spotify.webapi_token_valid" class="field fd-has-margin-top ">
               <div class="control">
@@ -78,11 +78,11 @@
     </content-with-heading>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <div class="title is-4">Last.fm</div>
       </template>
 
-      <template slot="content">
+      <template v-slot:content>
         <div class="notification is-size-7" v-if="!lastfm.enabled">
           <p>OwnTone was built without support for Last.fm.</p>
         </div>
@@ -121,8 +121,8 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsSettings from '@/components/TabsSettings'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsSettings from '@/components/TabsSettings.vue'
 import webapi from '@/webapi'
 
 export default {

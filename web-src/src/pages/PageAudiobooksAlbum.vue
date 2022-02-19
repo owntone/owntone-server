@@ -1,6 +1,6 @@
 <template>
   <content-with-hero>
-    <template slot="heading-left">
+    <template v-slot:heading-left>
       <h1 class="title is-5">{{ album.name }}</h1>
       <h2 class="subtitle is-6 has-text-link has-text-weight-normal"><a class="has-text-link" @click="open_artist">{{ album.artist }}</a></h2>
 
@@ -13,7 +13,7 @@
         </a>
       </div>
     </template>
-    <template slot="heading-right">
+    <template v-slot:heading-right>
       <p class="image is-square fd-has-shadow fd-has-action">
         <cover-artwork
           :artwork_url="album.artwork_url"
@@ -22,7 +22,7 @@
           @click="show_album_details_modal = true" />
       </p>
     </template>
-    <template slot="content">
+    <template v-slot:content>
       <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">{{ album.track_count }} tracks</p>
       <list-tracks :tracks="tracks" :uris="album.uri"></list-tracks>
       <modal-dialog-album :show="show_album_details_modal" :album="album" :media_kind="'audiobook'" @close="show_album_details_modal = false" />
@@ -31,14 +31,13 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHero from '@/templates/ContentWithHero'
-import ListTracks from '@/components/ListTracks'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum'
-import CoverArtwork from '@/components/CoverArtwork'
+import ContentWithHero from '@/templates/ContentWithHero.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
 
-const albumData = {
+const dataObject = {
   load: function (to) {
     return Promise.all([
       webapi.library_album(to.params.album_id),
@@ -54,7 +53,6 @@ const albumData = {
 
 export default {
   name: 'PageAudiobooksAlbum',
-  mixins: [LoadDataBeforeEnterMixin(albumData)],
   components: { ContentWithHero, ListTracks, ModalDialogAlbum, CoverArtwork },
 
   data () {
@@ -84,6 +82,19 @@ export default {
       this.selected_track = track
       this.show_details_modal = true
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

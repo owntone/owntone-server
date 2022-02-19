@@ -1,14 +1,14 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music></tabs-music>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Featured Playlists</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist">
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -21,16 +21,15 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
 
-const browseData = {
+const dataObject = {
   load: function (to) {
     if (store.state.spotify_featured_playlists.length > 0) {
       return Promise.resolve()
@@ -50,7 +49,6 @@ const browseData = {
 
 export default {
   name: 'SpotifyPageBrowseFeaturedPlaylists',
-  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, SpotifyListItemPlaylist, SpotifyModalDialogPlaylist },
 
   data () {
@@ -71,6 +69,19 @@ export default {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

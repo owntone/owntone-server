@@ -1,18 +1,18 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music></tabs-music>
 
     <!-- New Releases -->
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">New Releases</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-album v-for="album in new_releases"
             :key="album.id"
             :album="album"
             @click="open_album(album)">
-          <template slot="artwork" v-if="is_visible_artwork">
+          <template v-slot:artwork v-if="is_visible_artwork">
             <p class="image is-64x64 fd-has-shadow fd-has-action">
               <cover-artwork
                 :artwork_url="artwork_url(album)"
@@ -22,7 +22,7 @@
                 :maxheight="64" />
             </p>
           </template>
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_album_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -30,7 +30,7 @@
         </spotify-list-item-album>
         <spotify-modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav class="level">
           <p class="level-item">
             <router-link to="/music/spotify/new-releases" class="button is-light is-small is-rounded">
@@ -43,12 +43,12 @@
 
     <!-- Featured Playlists -->
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Featured Playlists</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist">
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
@@ -56,7 +56,7 @@
         </spotify-list-item-playlist>
         <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav class="level">
           <p class="level-item">
             <router-link to="/music/spotify/featured-playlists" class="button is-light is-small is-rounded">
@@ -70,19 +70,18 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
-import CoverArtwork from '@/components/CoverArtwork'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
+import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
 
-const browseData = {
+const dataObject = {
   load: function (to) {
     if (store.state.spotify_new_releases.length > 0 && store.state.spotify_featured_playlists.length > 0) {
       return Promise.resolve()
@@ -106,7 +105,6 @@ const browseData = {
 
 export default {
   name: 'SpotifyPageBrowse',
-  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, CoverArtwork },
 
   data () {
@@ -155,6 +153,19 @@ export default {
       }
       return ''
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

@@ -27,21 +27,21 @@
 
     <!-- Tracks -->
     <content-with-heading v-if="show_tracks && tracks.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Tracks</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-track v-for="track in tracks.items" :key="track.id" :track="track" :album="track.album" :position="0" :context_uri="track.uri">
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_track_dialog(track)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
           </template>
         </spotify-list-item-track>
-        <infinite-loading v-if="query.type === 'track'" @infinite="search_tracks_next"><span slot="no-more">.</span></infinite-loading>
+        <VueEternalLoading v-if="query.type === 'track'" :load="search_tracks_next"><template #no-more>.</template></VueEternalLoading>
         <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="selected_track.album" @close="show_track_details_modal = false" />
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_tracks_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_tracks">Show all {{ tracks.total.toLocaleString() }} tracks</a>
@@ -50,28 +50,28 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_tracks && !tracks.total" class="mt-6">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No tracks found</i></p>
       </template>
     </content-text>
 
     <!-- Artists -->
     <content-with-heading v-if="show_artists && artists.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Artists</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-artist v-for="artist in artists.items" :key="artist.id" :artist="artist">
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_artist_dialog(artist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
           </template>
         </spotify-list-item-artist>
-        <infinite-loading v-if="query.type === 'artist'" @infinite="search_artists_next"><span slot="no-more">.</span></infinite-loading>
+        <VueEternalLoading v-if="query.type === 'artist'" :load="search_artists_next"><template #no-more>.</template></VueEternalLoading>
         <spotify-modal-dialog-artist :show="show_artist_details_modal" :artist="selected_artist" @close="show_artist_details_modal = false" />
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_artists_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_artists">Show all {{ artists.total.toLocaleString() }} artists</a>
@@ -80,22 +80,22 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_artists && !artists.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No artists found</i></p>
       </template>
     </content-text>
 
     <!-- Albums -->
     <content-with-heading v-if="show_albums && albums.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Albums</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-album v-for="album in albums.items"
             :key="album.id"
             :album="album"
             @click="open_album(album)">
-          <template slot="artwork" v-if="is_visible_artwork">
+          <template v-slot:artwork v-if="is_visible_artwork">
             <p class="image is-64x64 fd-has-shadow fd-has-action">
               <cover-artwork
                 :artwork_url="artwork_url(album)"
@@ -105,16 +105,16 @@
                 :maxheight="64" />
             </p>
           </template>
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_album_dialog(album)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
           </template>
         </spotify-list-item-album>
-        <infinite-loading v-if="query.type === 'album'" @infinite="search_albums_next"><span slot="no-more">.</span></infinite-loading>
+        <VueEternalLoading v-if="query.type === 'album'" :load="search_albums_next"><template #no-more>.</template></VueEternalLoading>
         <spotify-modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_albums_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_albums">Show all {{ albums.total.toLocaleString() }} albums</a>
@@ -123,28 +123,28 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_albums && !albums.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No albums found</i></p>
       </template>
     </content-text>
 
     <!-- Playlists -->
     <content-with-heading v-if="show_playlists && playlists.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Playlists</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <spotify-list-item-playlist v-for="playlist in playlists.items" :key="playlist.id" :playlist="playlist">
-          <template slot="actions">
+          <template v-slot:actions>
             <a @click="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
             </a>
           </template>
         </spotify-list-item-playlist>
-        <infinite-loading v-if="query.type === 'playlist'" @infinite="search_playlists_next"><span slot="no-more">.</span></infinite-loading>
+        <VueEternalLoading v-if="query.type === 'playlist'" :load="search_playlists_next"><template #no-more>.</template></VueEternalLoading>
         <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_playlists_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_playlists">Show all {{ playlists.total.toLocaleString() }} playlists</a>
@@ -153,7 +153,7 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_playlists && !playlists.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No playlists found</i></p>
       </template>
     </content-text>
@@ -161,26 +161,28 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ContentText from '@/templates/ContentText'
-import TabsSearch from '@/components/TabsSearch'
-import SpotifyListItemTrack from '@/components/SpotifyListItemTrack'
-import SpotifyListItemArtist from '@/components/SpotifyListItemArtist'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist'
-import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack'
-import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
-import CoverArtwork from '@/components/CoverArtwork'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ContentText from '@/templates/ContentText.vue'
+import TabsSearch from '@/components/TabsSearch.vue'
+import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
+import SpotifyListItemArtist from '@/components/SpotifyListItemArtist.vue'
+import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
+import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
+import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
+import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import InfiniteLoading from 'vue-infinite-loading'
+import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+
+const PAGE_SIZE = 50
 
 export default {
   name: 'SpotifyPageSearch',
-  components: { ContentWithHeading, ContentText, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogTrack, SpotifyModalDialogArtist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, InfiniteLoading, CoverArtwork },
+  components: { ContentWithHeading, ContentText, TabsSearch, SpotifyListItemTrack, SpotifyListItemArtist, SpotifyListItemAlbum, SpotifyListItemPlaylist, SpotifyModalDialogTrack, SpotifyModalDialogArtist, SpotifyModalDialogAlbum, SpotifyModalDialogPlaylist, VueEternalLoading, CoverArtwork },
 
   data () {
     return {
@@ -266,7 +268,7 @@ export default {
       }
 
       this.search_query = this.query.query
-      this.search_param.limit = this.query.limit ? this.query.limit : 50
+      this.search_param.limit = this.query.limit ? this.query.limit : PAGE_SIZE
       this.search_param.offset = this.query.offset ? this.query.offset : 0
 
       this.$store.commit(types.ADD_RECENT_SEARCH, this.query.query)
@@ -295,55 +297,43 @@ export default {
       })
     },
 
-    search_tracks_next: function ($state) {
+    search_tracks_next: function ({ loaded }) {
       this.spotify_search().then(data => {
         this.tracks.items = this.tracks.items.concat(data.tracks.items)
         this.tracks.total = data.tracks.total
         this.search_param.offset += data.tracks.limit
-
-        $state.loaded()
-        if (this.search_param.offset >= this.tracks.total) {
-          $state.complete()
-        }
+        
+        loaded(data.tracks.items.length, PAGE_SIZE)
       })
     },
 
-    search_artists_next: function ($state) {
+    search_artists_next: function ({ loaded }) {
       this.spotify_search().then(data => {
         this.artists.items = this.artists.items.concat(data.artists.items)
         this.artists.total = data.artists.total
         this.search_param.offset += data.artists.limit
-
-        $state.loaded()
-        if (this.search_param.offset >= this.artists.total) {
-          $state.complete()
-        }
+        
+        loaded(data.artists.items.length, PAGE_SIZE)
       })
     },
 
-    search_albums_next: function ($state) {
+    search_albums_next: function ({ loaded }) {
       this.spotify_search().then(data => {
         this.albums.items = this.albums.items.concat(data.albums.items)
         this.albums.total = data.albums.total
         this.search_param.offset += data.albums.limit
-
-        $state.loaded()
-        if (this.search_param.offset >= this.albums.total) {
-          $state.complete()
-        }
+        
+        loaded(data.albums.items.length, PAGE_SIZE)
       })
     },
 
-    search_playlists_next: function ($state) {
+    search_playlists_next: function ({ loaded }) {
       this.spotify_search().then(data => {
         this.playlists.items = this.playlists.items.concat(data.playlists.items)
         this.playlists.total = data.playlists.total
         this.search_param.offset += data.playlists.limit
-
-        $state.loaded()
-        if (this.search_param.offset >= this.playlists.total) {
-          $state.complete()
-        }
+        
+        loaded(data.playlists.items.length, PAGE_SIZE)
       })
     },
 

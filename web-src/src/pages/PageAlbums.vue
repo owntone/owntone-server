@@ -1,9 +1,9 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music></tabs-music>
 
     <content-with-heading>
-      <template slot="options">
+      <template v-slot:options>
         <index-button-list :index="albums_list.indexList"></index-button-list>
 
         <div class="columns">
@@ -30,13 +30,13 @@
           </div>
         </div>
       </template>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Albums</p>
         <p class="heading">{{ albums_list.sortedAndFiltered.length }} Albums</p>
       </template>
-      <template slot="heading-right">
+      <template v-slot:heading-right>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-albums :albums="albums_list"></list-albums>
       </template>
     </content-with-heading>
@@ -44,17 +44,16 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import IndexButtonList from '@/components/IndexButtonList'
-import ListAlbums from '@/components/ListAlbums'
-import DropdownMenu from '@/components/DropdownMenu'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import Albums from '@/lib/Albums'
 
-const albumsData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_albums('music')
   },
@@ -69,7 +68,6 @@ const albumsData = {
 
 export default {
   name: 'PageAlbums',
-  mixins: [LoadDataBeforeEnterMixin(albumsData)],
   components: { ContentWithHeading, TabsMusic, IndexButtonList, ListAlbums, DropdownMenu },
 
   data () {
@@ -125,6 +123,23 @@ export default {
     scrollToTop: function () {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+  },
+
+  beforeRouteEnter (to, from, next) {
+    dataObject.load(to).then((response) => {
+      next(vm => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate (to, from, next) {
+    if (this.albums.items.length  > 0) {
+      next()
+      return
+    }
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
   }
 }
 </script>

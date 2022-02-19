@@ -31,7 +31,7 @@
                 </p>
                 <p v-if="track.date_released">
                   <span class="heading">Release date</span>
-                  <span class="title is-6">{{ track.date_released | time('L') }}</span>
+                  <span class="title is-6">{{ $filters.time(track.date_released, 'L') }}</span>
                 </p>
                 <p v-else-if="track.year > 0">
                   <span class="heading">Year</span>
@@ -47,7 +47,7 @@
                 </p>
                 <p>
                   <span class="heading">Length</span>
-                  <span class="title is-6">{{ track.length_ms | duration }}</span>
+                  <span class="title is-6">{{ $filters.duration(track.length_ms) }}</span>
                 </p>
                 <p>
                   <span class="heading">Path</span>
@@ -62,13 +62,13 @@
                   <span class="title is-6">
                     {{ track.type }}
                     <span v-if="track.samplerate"> | {{ track.samplerate }} Hz</span>
-                    <span v-if="track.channels"> | {{ track.channels | channels }}</span>
+                    <span v-if="track.channels"> | {{ $filters.channels(track.channels) }}</span>
                     <span v-if="track.bitrate"> | {{ track.bitrate }} Kb/s</span>
                   </span>
                 </p>
                 <p>
                   <span class="heading">Added at</span>
-                  <span class="title is-6">{{ track.time_added | time('L LT') }}</span>
+                  <span class="title is-6">{{ $filters.time(track.time_added, 'L LT') }}</span>
                 </p>
                 <p>
                   <span class="heading">Rating</span>

@@ -1,10 +1,10 @@
 <template>
   <content-with-heading>
-    <template slot="heading-left">
+    <template v-slot:heading-left>
       <p class="heading">{{ queue.count }} tracks</p>
       <p class="title is-4">Queue</p>
     </template>
-    <template slot="heading-right">
+    <template v-slot:heading-right>
       <div class="buttons is-centered">
         <a class="button is-small" :class="{ 'is-info': show_only_next_items }" @click="update_show_next_items">
           <span class="icon">
@@ -38,22 +38,25 @@
         </a>
       </div>
     </template>
-    <template slot="content">
-      <draggable v-model="queue_items" handle=".handle" @end="move_item">
-        <list-item-queue-item v-for="(item, index) in queue_items"
-          :key="item.id" :item="item" :position="index"
-          :current_position="current_position"
-          :show_only_next_items="show_only_next_items"
-          :edit_mode="edit_mode">
-            <template slot="actions">
-              <a @click="open_dialog(item)" v-if="!edit_mode">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-              </a>
-              <a @click="remove(item)" v-if="item.id !== state.item_id && edit_mode">
-                <span class="icon has-text-grey"><i class="mdi mdi-delete mdi-18px"></i></span>
-              </a>
-            </template>
-          </list-item-queue-item>
+    <template v-slot:content>
+      <draggable v-model="queue_items" handle=".handle" item-key="id" @end="move_item">
+        <template #item="{ element, index }">
+          <list-item-queue-item
+            :item="element"
+            :position="index"
+            :current_position="current_position"
+            :show_only_next_items="show_only_next_items"
+            :edit_mode="edit_mode">
+              <template v-slot:actions>
+                <a @click.prevent.stop="open_dialog(element)" v-if="!edit_mode">
+                  <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+                </a>
+                <a @click.prevent.stop="remove(element)" v-if="element.id !== state.item_id && edit_mode">
+                  <span class="icon has-text-grey"><i class="mdi mdi-delete mdi-18px"></i></span>
+                </a>
+              </template>
+            </list-item-queue-item>
+        </template>
       </draggable>
       <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
       <modal-dialog-add-url-stream :show="show_url_modal" @close="show_url_modal = false" />
@@ -63,11 +66,11 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemQueueItem from '@/components/ListItemQueueItem'
-import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
-import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream'
-import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream.vue'
+import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import draggable from 'vuedraggable'

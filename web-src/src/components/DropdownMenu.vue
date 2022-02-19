@@ -1,8 +1,8 @@
 <template>
-  <div class="dropdown" :class="{ 'is-active': is_active }" v-click-outside="onClickOutside">
+  <div class="dropdown" :class="{ 'is-active': is_active }" v-click-away="onClickOutside">
     <div class="dropdown-trigger">
       <button class="button" aria-haspopup="true" aria-controls="dropdown-menu" @click="is_active = !is_active">
-        <span>{{ value }}</span>
+        <span>{{ modelValue }}</span>
         <span class="icon is-small">
             <i class="mdi mdi-chevron-down" aria-hidden="true"></i>
         </span>
@@ -12,7 +12,7 @@
       <div class="dropdown-content">
         <a class="dropdown-item"
             v-for="option in options" :key="option"
-            :class="{'is-active': value === option}"
+            :class="{'is-active': modelValue === option}"
             @click="select(option)">
           {{ option }}
         </a>
@@ -25,7 +25,8 @@
 export default {
   name: 'DropdownMenu',
 
-  props: ['value', 'options'],
+  props: ['modelValue', 'options'],
+  emits: ['update:modelValue'],
 
   data () {
     return {
@@ -40,7 +41,7 @@ export default {
 
     select (option) {
       this.is_active = false
-      this.$emit('input', option)
+      this.$emit('update:modelValue', option)
     }
   }
 }

@@ -30,13 +30,13 @@
 
     <!-- Tracks -->
     <content-with-heading v-if="show_tracks && tracks.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Tracks</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-tracks :tracks="tracks.items"></list-tracks>
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_tracks_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_tracks">Show all {{ tracks.total.toLocaleString() }} tracks</a>
@@ -45,20 +45,20 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_tracks && !tracks.total" class="mt-6">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No tracks found</i></p>
       </template>
     </content-text>
 
     <!-- Artists -->
     <content-with-heading v-if="show_artists && artists.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Artists</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-artists :artists="artists.items"></list-artists>
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_artists_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_artists">Show all {{ artists.total.toLocaleString() }} artists</a>
@@ -67,20 +67,20 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_artists && !artists.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No artists found</i></p>
       </template>
     </content-text>
 
     <!-- Albums -->
     <content-with-heading v-if="show_albums && albums.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Albums</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-albums :albums="albums.items"></list-albums>
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_albums_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_albums">Show all {{ albums.total.toLocaleString() }} albums</a>
@@ -89,20 +89,20 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_albums && !albums.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No albums found</i></p>
       </template>
     </content-text>
 
     <!-- Composers -->
     <content-with-heading v-if="show_composers && composers.total">
-      <template slot="heading-left">
+      <template slot:heading-left>
         <p class="title is-4">Composers</p>
       </template>
-      <template slot="content">
+      <template slot:content>
         <list-composers :composers="composers.items"></list-composers>
       </template>
-      <template slot="footer">
+      <template slot:footer>
         <nav v-if="show_all_composers_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_composers">Show all {{ composers.total }} composers</a>
@@ -111,20 +111,20 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_composers && !composers.total">
-      <template slot="content">
+      <template slot:content>
         <p><i>No composers found</i></p>
       </template>
     </content-text>
 
     <!-- Playlists -->
     <content-with-heading v-if="show_playlists && playlists.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Playlists</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-playlists :playlists="playlists.items"></list-playlists>
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_playlists_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_playlists">Show all {{ playlists.total.toLocaleString() }} playlists</a>
@@ -133,20 +133,20 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_playlists && !playlists.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No playlists found</i></p>
       </template>
     </content-text>
 
     <!-- Podcasts -->
     <content-with-heading v-if="show_podcasts && podcasts.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Podcasts</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-albums :albums="podcasts.items"></list-albums>
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_podcasts_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_podcasts">Show all {{ podcasts.total.toLocaleString() }} podcasts</a>
@@ -155,20 +155,20 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_podcasts && !podcasts.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No podcasts found</i></p>
       </template>
     </content-text>
 
     <!-- Audiobooks -->
     <content-with-heading v-if="show_audiobooks && audiobooks.total">
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <p class="title is-4">Audiobooks</p>
       </template>
-      <template slot="content">
+      <template v-slot:content>
         <list-albums :albums="audiobooks.items"></list-albums>
       </template>
-      <template slot="footer">
+      <template v-slot:footer>
         <nav v-if="show_all_audiobooks_button" class="level">
           <p class="level-item">
             <a class="button is-light is-small is-rounded" v-on:click="open_search_audiobooks">Show all {{ audiobooks.total.toLocaleString() }} audiobooks</a>
@@ -177,7 +177,7 @@
       </template>
     </content-with-heading>
     <content-text v-if="show_audiobooks && !audiobooks.total">
-      <template slot="content">
+      <template v-slot:content>
         <p><i>No audiobooks found</i></p>
       </template>
     </content-text>
@@ -185,14 +185,14 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ContentText from '@/templates/ContentText'
-import TabsSearch from '@/components/TabsSearch'
-import ListTracks from '@/components/ListTracks'
-import ListArtists from '@/components/ListArtists'
-import ListAlbums from '@/components/ListAlbums'
-import ListComposers from '@/components/ListComposers'
-import ListPlaylists from '@/components/ListPlaylists'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ContentText from '@/templates/ContentText.vue'
+import TabsSearch from '@/components/TabsSearch.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import ListArtists from '@/components/ListArtists.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import ListComposers from '@/components/ListComposers.vue'
+import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 

@@ -1,13 +1,13 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-settings></tabs-settings>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <div class="title is-4">Navbar items</div>
       </template>
 
-      <template slot="content">
+      <template v-slot:content>
         <p class="content">
           Select the top navigation bar menu items
         </p>
@@ -15,56 +15,56 @@
           If you select more items than can be shown on your screen then the burger menu will disappear.
         </div>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_playlists">
-          <template slot="label"> Playlists</template>
+          <template v-slot:label> Playlists</template>
         </settings-checkbox>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_music">
-          <template slot="label"> Music</template>
+          <template v-slot:label> Music</template>
         </settings-checkbox>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_podcasts">
-          <template slot="label"> Podcasts</template>
+          <template v-slot:label> Podcasts</template>
         </settings-checkbox>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_audiobooks">
-          <template slot="label"> Audiobooks</template>
+          <template v-slot:label> Audiobooks</template>
         </settings-checkbox>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_radio">
-          <template slot="label"> Radio</template>
+          <template v-slot:label> Radio</template>
         </settings-checkbox>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_files">
-          <template slot="label"> Files</template>
+          <template v-slot:label> Files</template>
         </settings-checkbox>
         <settings-checkbox category_name="webinterface" option_name="show_menu_item_search">
-          <template slot="label"> Search</template>
+          <template v-slot:label> Search</template>
         </settings-checkbox>
       </template>
     </content-with-heading>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <div class="title is-4">Album lists</div>
       </template>
 
-      <template slot="content">
+      <template v-slot:content>
         <settings-checkbox category_name="webinterface" option_name="show_cover_artwork_in_album_lists">
-          <template slot="label"> Show cover artwork in album list</template>
+          <template v-slot:label> Show cover artwork in album list</template>
         </settings-checkbox>
       </template>
     </content-with-heading>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <div class="title is-4">Now playing page</div>
       </template>
 
-      <template slot="content">
+      <template v-slot:content>
         <settings-checkbox category_name="webinterface" option_name="show_composer_now_playing">
-          <template slot="label"> Show composer</template>
-          <template slot="info">If enabled the composer of the current playing track is shown on the &quot;now playing page&quot;</template>
+          <template v-slot:label> Show composer</template>
+          <template v-slot:info>If enabled the composer of the current playing track is shown on the &quot;now playing page&quot;</template>
         </settings-checkbox>
         <settings-textfield category_name="webinterface" option_name="show_composer_for_genre"
             :disabled="!settings_option_show_composer_now_playing"
             placeholder="Genres">
-          <template slot="label">Show composer only for listed genres</template>
-          <template slot="info">
+          <template v-slot:label>Show composer only for listed genres</template>
+          <template v-slot:info>
             <p class="help">
               Comma separated list of genres the composer should be displayed on the &quot;now playing page&quot;.
             </p>
@@ -82,13 +82,13 @@
     </content-with-heading>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template v-slot:heading-left>
         <div class="title is-4">Recently added page</div>
       </template>
 
-      <template slot="content">
+      <template v-slot:content>
         <settings-intfield category_name="webinterface" option_name="recently_added_limit">
-          <template slot="label">Limit the number of albums shown on the "Recently Added" page</template>
+          <template v-slot:label>Limit the number of albums shown on the "Recently Added" page</template>
         </settings-intfield>
       </template>
     </content-with-heading>
@@ -96,11 +96,11 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsSettings from '@/components/TabsSettings'
-import SettingsCheckbox from '@/components/SettingsCheckbox'
-import SettingsTextfield from '@/components/SettingsTextfield'
-import SettingsIntfield from '@/components/SettingsIntfield'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsSettings from '@/components/TabsSettings.vue'
+import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
+import SettingsTextfield from '@/components/SettingsTextfield.vue'
+import SettingsIntfield from '@/components/SettingsIntfield.vue'
 
 export default {
   name: 'SettingsPageWebinterface',

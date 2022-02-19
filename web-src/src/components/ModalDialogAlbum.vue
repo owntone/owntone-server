@@ -25,7 +25,7 @@
                 </p>
                 <p v-if="album.date_released">
                   <span class="heading">Release date</span>
-                  <span class="title is-6">{{ album.date_released | time('L') }}</span>
+                  <span class="title is-6">{{ $filters.time(album.date_released, 'L') }}</span>
                 </p>
                 <p v-else-if="album.year > 0">
                   <span class="heading">Year</span>
@@ -37,7 +37,7 @@
                 </p>
                 <p>
                   <span class="heading">Length</span>
-                  <span class="title is-6">{{ album.length_ms | duration }}</span>
+                  <span class="title is-6">{{ $filters.duration(album.length_ms) }}</span>
                 </p>
                 <p>
                   <span class="heading">Type</span>
@@ -45,7 +45,7 @@
                 </p>
                 <p>
                   <span class="heading">Added at</span>
-                  <span class="title is-6">{{ album.time_added | time('L LT') }}</span>
+                  <span class="title is-6">{{ $filters.time(album.time_added, 'L LT') }}</span>
                 </p>
               </div>
             </div>
@@ -69,7 +69,7 @@
 </template>
 
 <script>
-import CoverArtwork from '@/components/CoverArtwork'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
 
 export default {

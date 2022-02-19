@@ -1,50 +1,48 @@
-import Vue from 'vue'
-import VueRouter from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
-import PageQueue from '@/pages/PageQueue'
-import PageNowPlaying from '@/pages/PageNowPlaying'
-import PageBrowse from '@/pages/PageBrowse'
-import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded'
-import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed'
-import PageArtists from '@/pages/PageArtists'
-import PageArtist from '@/pages/PageArtist'
-import PageAlbums from '@/pages/PageAlbums'
-import PageAlbum from '@/pages/PageAlbum'
-import PageGenres from '@/pages/PageGenres'
-import PageGenre from '@/pages/PageGenre'
-import PageGenreTracks from '@/pages/PageGenreTracks'
-import PageArtistTracks from '@/pages/PageArtistTracks'
-import PageComposers from '@/pages/PageComposers'
-import PageComposer from '@/pages/PageComposer'
-import PageComposerTracks from '@/pages/PageComposerTracks'
-import PagePodcasts from '@/pages/PagePodcasts'
-import PagePodcast from '@/pages/PagePodcast'
-import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums'
-import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists'
-import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist'
-import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum'
-import PagePlaylists from '@/pages/PagePlaylists'
-import PagePlaylist from '@/pages/PagePlaylist'
-import PageFiles from '@/pages/PageFiles'
-import PageRadioStreams from '@/pages/PageRadioStreams'
-import PageSearch from '@/pages/PageSearch'
-import PageAbout from '@/pages/PageAbout'
-import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse'
-import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases'
-import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists'
-import SpotifyPageArtist from '@/pages/SpotifyPageArtist'
-import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum'
-import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist'
-import SpotifyPageSearch from '@/pages/SpotifyPageSearch'
-import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface'
-import SettingsPageArtwork from '@/pages/SettingsPageArtwork'
-import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices'
-import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs'
+import PageQueue from '@/pages/PageQueue.vue'
+import PageNowPlaying from '@/pages/PageNowPlaying.vue'
+import PageBrowse from '@/pages/PageBrowse.vue'
+import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
+import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
+import PageArtists from '@/pages/PageArtists.vue'
+import PageArtist from '@/pages/PageArtist.vue'
+import PageAlbums from '@/pages/PageAlbums.vue'
+import PageAlbum from '@/pages/PageAlbum.vue'
+import PageGenres from '@/pages/PageGenres.vue'
+import PageGenre from '@/pages/PageGenre.vue'
+import PageGenreTracks from '@/pages/PageGenreTracks.vue'
+import PageArtistTracks from '@/pages/PageArtistTracks.vue'
+import PageComposers from '@/pages/PageComposers.vue'
+import PageComposer from '@/pages/PageComposer.vue'
+import PageComposerTracks from '@/pages/PageComposerTracks.vue'
+import PagePodcasts from '@/pages/PagePodcasts.vue'
+import PagePodcast from '@/pages/PagePodcast.vue'
+import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
+import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
+import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
+import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
+import PagePlaylists from '@/pages/PagePlaylists.vue'
+import PagePlaylist from '@/pages/PagePlaylist.vue'
+import PageFiles from '@/pages/PageFiles.vue'
+import PageRadioStreams from '@/pages/PageRadioStreams.vue'
+import PageSearch from '@/pages/PageSearch.vue'
+import PageAbout from '@/pages/PageAbout.vue'
+import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse.vue'
+import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.vue'
+import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
+import SpotifyPageArtist from '@/pages/SpotifyPageArtist.vue'
+import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum.vue'
+import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist.vue'
+import SpotifyPageSearch from '@/pages/SpotifyPageSearch.vue'
+import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface.vue'
+import SettingsPageArtwork from '@/pages/SettingsPageArtwork.vue'
+import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices.vue'
+import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs.vue'
 
-Vue.use(VueRouter)
-
-export const router = new VueRouter({
+export const router = createRouter({
+  history: createWebHashHistory(),
   routes: [
     {
       path: '/',
@@ -289,34 +287,47 @@ export const router = new VueRouter({
     }
   ],
   scrollBehavior (to, from, savedPosition) {
+    const wait_ms = 0
     // console.log(to.path + '_' + from.path + '__' + to.hash + ' savedPosition:' + savedPosition)
     if (savedPosition) {
+      // We have saved scroll position (browser back/forward navigation), use this position
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve(savedPosition)
-        }, 10)
+        }, wait_ms)
       })
-    } else if (to.path === from.path && to.hash) {
-      return { selector: to.hash, offset: { x: 0, y: 120 } }
-    } else if (to.hash) {
+    }
+
+    if (to.path === from.path && to.hash) {
+      // We are staying on the same page and are jumping to an anker (e. g. index nav)
+      // We don't have a transition, so don't add a timeout!
+      return { el: to.hash, top: 120 }
+    }
+
+    if (to.hash) {
+      // We are navigating to an anker of a new page, add a timeout to let the transition effect finish before scrolling
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          resolve({ selector: to.hash, offset: { x: 0, y: 120 } })
-        }, 10)
+          resolve({ el: to.hash, top: 120 })
+        }, wait_ms)
       })
-    } else if (to.meta.has_index) {
+    }
+
+    if (to.meta.has_index) {
+      // We are navigating to a page with index nav, that should be hidden automatically
+      // Dependending on wether we have a tab navigation, add an offset to the "top" anker
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (to.meta.has_tabs) {
-            resolve({ selector: '#top', offset: { x: 0, y: 140 } })
+            resolve({ el: '#top', top: 140 })
           } else {
-            resolve({ selector: '#top', offset: { x: 0, y: 100 } })
+            resolve({ el: '#top', top: 100 })
           }
-        }, 10)
+        }, wait_ms)
       })
-    } else {
-      return { x: 0, y: 0 }
     }
+
+    return { left: 0, top: 0 }
   }
 })
 
