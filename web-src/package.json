@@ -3,9 +3,11 @@
   "version": "2.0.0",
   "scripts": {
     "dev": "vite",
+    "serve": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "serve": "vite"
+    "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
+    "format": "prettier .  --write"
   },
   "dependencies": {
     "@aacassandra/vue3-progressbar": "^1.0.3",
@@ -30,6 +32,10 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^2.2.0",
+    "eslint": "^8.9.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-vue": "^8.4.1",
+    "prettier": "2.5.1",
     "sass": "^1.49.7",
     "vite": "^2.8.1"
   }
