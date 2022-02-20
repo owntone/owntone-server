@@ -113,6 +113,12 @@ smartpl_query_parse_string(struct smartpl *smartpl, const char *expression)
 
   free_smartpl(smartpl, 1);
 
+  // Note the fields returned by the smartpl parser will not be prefixed with
+  // "f." (unlike the daap parser results and most other queries). The reason is
+  // that the smartpl syntax allows the user to request ordering by a calculated
+  // field in a group query, and calculated fields are not in the "f" namespace.
+  // An example of this happening is if the JSON API search is called with
+  // type=album and the smartpl expression has "order+by+time_played+desc".
   smartpl->title = strdup(result.title);
   smartpl->query_where = strdup(result.where);
   smartpl->having = safe_strdup(result.having);

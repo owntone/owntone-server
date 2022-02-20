@@ -2217,11 +2217,12 @@ db_build_query_group_albums(struct query_params *qp, struct query_clause *qc)
   char *query;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songalbumid) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT " \
-			  "  g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) as track_count, " \
-			  "  1 as album_count, f.album_artist, f.songartistid, " \
-			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), " \
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) " \
+  query = sqlite3_mprintf("SELECT" \
+			  " g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id) AS track_count," \
+			  " 1 AS album_count, f.album_artist, f.songartistid," \
+			  " SUM(f.song_length) AS song_length, MIN(f.data_kind) AS data_kind, MIN(f.media_kind) AS media_kind," \
+			  " MAX(f.year) AS year, MAX(f.date_released) AS date_released," \
+			  " MAX(f.time_added) AS time_added, MAX(f.time_played) AS time_played, MAX(f.seek) AS seek " \
 			  "FROM files f JOIN groups g ON f.songalbumid = g.persistentid %s " \
 			  "GROUP BY f.songalbumid %s %s %s;", qc->where, qc->having, qc->order, qc->index);
 
@@ -2235,11 +2236,12 @@ db_build_query_group_artists(struct query_params *qp, struct query_clause *qc)
   char *query;
 
   count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.songartistid) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT " \
-			  "  g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) as track_count, " \
-			  "  COUNT(DISTINCT f.songalbumid) as album_count, f.album_artist, f.songartistid, " \
-			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), " \
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) " \
+  query = sqlite3_mprintf("SELECT" \
+			  " g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id) AS track_count," \
+			  " COUNT(DISTINCT f.songalbumid) AS album_count, f.album_artist, f.songartistid," \
+			  " SUM(f.song_length) AS song_length, MIN(f.data_kind) AS data_kind, MIN(f.media_kind) AS media_kind," \
+			  " MAX(f.year) AS year, MAX(f.date_released) AS date_released," \
+			  " MAX(f.time_added) AS time_added, MAX(f.time_played) AS time_played, MAX(f.seek) AS seek " \
 			  "FROM files f JOIN groups g ON f.songartistid = g.persistentid %s " \
 			  "GROUP BY f.songartistid %s %s %s;",
 			  qc->where, qc->having, qc->order, qc->index);
@@ -2321,9 +2323,11 @@ db_build_query_browse(struct query_params *qp, struct query_clause *qc)
   where  = browse_clause[qp->type & ~Q_F_BROWSE].where;
 
   count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT %s FROM files f %s AND %s != '' %s);", select, qc->where, where, qc->group);
-  query = sqlite3_mprintf("SELECT %s, COUNT(f.id) as track_count, COUNT(DISTINCT f.songalbumid) as album_count, COUNT(DISTINCT f.songartistid) as artist_count, "
-			  "  SUM(f.song_length), MIN(f.data_kind), MIN(f.media_kind), MAX(f.year), MAX(f.date_released), "
-			  "  MAX(f.time_added), MAX(f.time_played), MAX(f.seek) FROM files f %s AND %s != '' %s %s %s;",
+  query = sqlite3_mprintf("SELECT %s, COUNT(f.id) AS track_count, COUNT(DISTINCT f.songalbumid) AS album_count, COUNT(DISTINCT f.songartistid) AS artist_count,"
+			  " SUM(f.song_length) AS song_length, MIN(f.data_kind) AS data_kind, MIN(f.media_kind) AS media_kind,"
+			  " MAX(f.year) AS year, MAX(f.date_released) AS date_released,"
+			  " MAX(f.time_added) AS time_added, MAX(f.time_played) AS time_played, MAX(f.seek) AS seek "
+			  "FROM files f %s AND %s != '' %s %s %s;",
 			  select, qc->where, where, qc->group, qc->order, qc->index);
 
   return db_build_query_check(qp, count, query);
