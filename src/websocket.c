@@ -429,7 +429,6 @@ websocket(void *arg)
 #endif
   }
 
-  lws_context_destroy(context);
   pthread_exit(NULL);
 }
 
@@ -541,9 +540,11 @@ websocket_deinit(void)
     return;
 
   websocket_exit = true;
+  lws_cancel_service(context);
   ret = pthread_join(tid_websocket, NULL);
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "Error joining websocket thread (%d): %s\n", ret, strerror(ret));
 
+  lws_context_destroy(context);
   pthread_mutex_destroy(&websocket_write_event_lock);
 }
