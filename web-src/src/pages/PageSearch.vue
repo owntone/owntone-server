@@ -473,7 +473,7 @@ export default {
       }
 
       this.$router.push({
-        path: '/search/library',
+        path: this.$store.state.search_path,
         query: {
           type: 'track,artist,album,playlist,audiobook,podcast,composer',
           query: this.search_query,

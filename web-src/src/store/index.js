@@ -49,6 +49,8 @@ export default createStore({
         next_id: 1,
         list: []
       },
+
+      search_path: '/search/library',
       recent_searches: [],
 
       hide_singles: false,

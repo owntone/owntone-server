@@ -5,7 +5,7 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small is-toggle is-toggle-rounded">
             <ul>
-              <li :class="{ 'is-active': $route.path === '/search/library' }">
+              <li :class="{ 'is-active': $store.state.search_path === '/search/library' }">
                 <a @click="search_library">
                   <span class="icon is-small"
                     ><i class="mdi mdi-library-books"
@@ -13,7 +13,7 @@
                   <span class="">Library</span>
                 </a>
               </li>
-              <li :class="{ 'is-active': $route.path === '/search/spotify' }">
+              <li :class="{ 'is-active': $store.state.search_path === '/search/spotify' }">
                 <a @click="search_spotify">
                   <span class="icon is-small"
                     ><i class="mdi mdi-spotify"
@@ -56,15 +56,17 @@ export default {
 
   methods: {
     search_library: function () {
+      this.$store.state.search_path = '/search/library'
       this.$router.push({
-        path: '/search/library',
+        path: this.$store.state.search_path,
         query: this.route_query
       })
     },
 
     search_spotify: function () {
+      this.$store.state.search_path = '/search/spotify'
       this.$router.push({
-        path: '/search/spotify',
+        path: this.$store.state.search_path,
         query: this.route_query
       })
     }
