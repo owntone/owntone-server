@@ -256,7 +256,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("spotify", sec_spotify, CFGF_NONE),
     CFG_SEC("sqlite", sec_sqlite, CFGF_NONE),
     CFG_SEC("mpd", sec_mpd, CFGF_NONE),
-    CFG_SEC("streaming", sec_streaming, CFGF_NONE),
+    CFG_SEC("streaming", sec_streaming, CFGF_MULTI | CFGF_TITLE),
     CFG_END()
   };
 
