@@ -174,7 +174,8 @@ export default {
       }
 
       const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
-        reconnectInterval: 3000
+        reconnectInterval: 1000,
+        maxReconnectInterval: 2000
       })
 
       socket.onopen = function () {
