@@ -93,8 +93,6 @@ export default {
     moment.locale(navigator.language)
     this.connect()
 
-    window.addEventListener(focus, () => this.connect())
-
     //  Start the progress bar on app start
     this.$Progress.start()
 
@@ -225,6 +223,40 @@ export default {
           topic: 'connection'
         })
       }
+
+      // When the app becomes active, force an update of all information, because we
+      // may have missed notifications while the app was inactive.
+      // There are two relevant events (focus and visibilitychange), so we throttle
+      // the updates to avoid multiple redundant updates
+      var update_throttled = false
+
+      function update_info() {
+        if ( update_throttled ) {
+          return
+        }
+
+        vm.update_outputs()
+        vm.update_player_status()
+        vm.update_library_stats()
+        vm.update_settings()
+        vm.update_queue()
+        vm.update_spotify()
+        vm.update_lastfm()
+        vm.update_pairing()
+
+        update_throttled = true
+        setTimeout(function () { update_throttled = false }, 500)
+      }
+
+      // These events are fired when the window becomes active in different ways
+      // When this happens, we should update 'now playing' info etc
+      window.addEventListener('focus', update_info)
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          update_info()
+        }
+      })
+
       socket.onmessage = function (response) {
         const data = JSON.parse(response.data)
         if (
