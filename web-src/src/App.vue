@@ -118,12 +118,14 @@ export default {
 
   methods: {
     connect: function () {
+      /*
       this.$store.dispatch('add_notification', {
         text: 'Connecting to OwnTone server',
         type: 'info',
         topic: 'connection',
         timeout: 2000
       })
+      */
 
       webapi
         .config()
@@ -179,12 +181,14 @@ export default {
       })
 
       socket.onopen = function () {
+        /*
         vm.$store.dispatch('add_notification', {
           text: 'Connection to server established',
           type: 'primary',
           topic: 'connection',
           timeout: 2000
         })
+        */
         vm.reconnect_attempts = 0
         socket.send(
           JSON.stringify({
@@ -215,6 +219,7 @@ export default {
       socket.onclose = function () {
         // vm.$store.dispatch('add_notification', { text: 'Connection closed', type: 'danger', timeout: 2000 })
       }
+      /*
       socket.onerror = function () {
         vm.reconnect_attempts++
         vm.$store.dispatch('add_notification', {
@@ -224,6 +229,7 @@ export default {
           topic: 'connection'
         })
       }
+      */
 
       // When the app becomes active, force an update of all information, because we
       // may have missed notifications while the app was inactive.
