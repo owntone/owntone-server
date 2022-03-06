@@ -219,6 +219,12 @@ library {
 	# playlist directory. OwnTone creates new playlists in this directory if only
 	# a playlist name is provided (requires "allow_modify_stored_playlists" set to true).
 #	default_playlist_directory = ""
+
+	# By default OwnTone will - like iTunes - clear the playqueue if
+	# playback stops. Setting clear_queue_on_stop_disable to true will keep
+	# the playlist like MPD does. Note that some dacp clients do not show
+	# the playqueue if playback is stopped.
+#	clear_queue_on_stop_disable = false
 }
 
 # Local audio output
@@ -410,12 +416,6 @@ mpd {
 	# clients and will need additional configuration in the MPD client to
 	# work). Set to 0 to disable serving artwork over http.
 #	http_port = 0
-
-	# By default OwnTone will - like iTunes - clear the playqueue if
-	# playback stops. Setting clear_queue_on_stop_disable to true will keep
-	# the playlist like MPD does. Note that some dacp clients do not show
-	# the playqueue if playback is stopped.
-#	clear_queue_on_stop_disable = false
 }
 
 # SQLite configuration (allows to modify the operation of the SQLite databases)
