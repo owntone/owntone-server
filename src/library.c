@@ -715,7 +715,15 @@ initscan()
   listener_notify(LISTENER_UPDATE);
 
   // Only clear the queue if enabled (default) in config
-  clear_queue_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
+  clear_queue_disabled = cfg_getbool(cfg_getsec(cfg, "library"), "clear_queue_on_stop_disable");
+
+  /* Handle deprecated config options */
+  if (0 < cfg_opt_size(cfg_getopt(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable")))
+    {
+      DPRINTF(E_LOG, L_MPD, "Found deprecated option 'clear_queue_on_stop_disable' in section 'mpd', please update configuration file (move option to section 'library').\n");
+      clear_queue_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
+    }
+
   if (!clear_queue_disabled)
     {
       db_queue_clear(0);
