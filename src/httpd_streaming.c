@@ -367,6 +367,7 @@ streaming_player_status_update(void)
     }
 
   snprintf(streaming_icy_title, sizeof(streaming_icy_title), "%s - %s", queue_item->title, queue_item->artist);
+  free_queue_item(queue_item, 0);
 }
 
 static void
