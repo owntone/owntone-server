@@ -50,14 +50,14 @@ Where valid field-names (with their types) are:
 * `random` (special)
 
 Valid operators include:
-* `is`, `includes`, `starts with` (string)
+* `is`, `includes`, `starts with`, `ends with` (string)
 * `>`, `<`, `<=`, `>=`, `=` (int)
 * `after`, `before` (date)
 * `is` (enumeration)
 
 The `is` operator must exactly match the field value, while the `includes` operator matches a substring.
-The `starts with` operator matches, if the value starts with the given prefix.
-All three matches are case-insensitive.
+The `starts with` operator matches, if the value starts with the given prefix,
+and `ends with` matches the opposite. All these matches are case-insensitive.
 
 Valid operands include:
 * "string value" (string)

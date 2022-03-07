@@ -301,10 +301,10 @@ static void sql_append_recursive(struct smartpl_result *result, struct result_pa
       break;
     case SQL_APPEND_OPERATOR_LIKE:
       sql_from_ast(result, part, a->l);
-      sql_append(result, part, " %s '%%", is_not ? op_not : op);
+      sql_append(result, part, " %s '%s", is_not ? op_not : op, a->type == SMARTPL_T_STARTSWITH ? "" : "%");
       sql_like_escape((char **)(&a->r->data), &escape_char);
       sql_from_ast(result, part, a->r);
-      sql_append(result, part, "%%'");
+      sql_append(result, part, "%s'", a->type == SMARTPL_T_ENDSWITH ? "" : "%");
       if (escape_char)
         sql_append(result, part, " ESCAPE '%c'", escape_char);
       break;
@@ -379,6 +379,8 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
     case SMARTPL_T_IS:
       sql_append_recursive(result, part, a, "=", "!=", is_not, SQL_APPEND_OPERATOR_STR); break;
     case SMARTPL_T_INCLUDES:
+    case SMARTPL_T_STARTSWITH:
+    case SMARTPL_T_ENDSWITH:
       sql_append_recursive(result, part, a, "LIKE", "NOT LIKE", is_not, SQL_APPEND_OPERATOR_LIKE); break;
     case SMARTPL_T_BEFORE:
       sql_append_recursive(result, part, a, "<", ">=", is_not, SQL_APPEND_OPERATOR); break;
@@ -517,6 +519,8 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
    set to the token value by the lexer. */
 %token <ival> SMARTPL_T_IS
 %token <ival> SMARTPL_T_INCLUDES
+%token <ival> SMARTPL_T_STARTSWITH
+%token <ival> SMARTPL_T_ENDSWITH
 %token <ival> SMARTPL_T_EQUAL
 %token <ival> SMARTPL_T_LESS
 %token <ival> SMARTPL_T_LESSEQUAL
@@ -629,6 +633,8 @@ limit: SMARTPL_T_LIMIT SMARTPL_T_NUM                        { $$ = ast_int(SMART
 
 strbool: SMARTPL_T_IS
 | SMARTPL_T_INCLUDES
+| SMARTPL_T_STARTSWITH
+| SMARTPL_T_ENDSWITH
 ;
 
 intbool: SMARTPL_T_EQUAL
