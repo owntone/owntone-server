@@ -207,6 +207,9 @@ export default createStore({
         state.notifications.list.splice(index, 1)
       }
     },
+    [types.SEARCH_PATH](state, searchPath) {
+      state.search_path = searchPath
+    },
     [types.ADD_RECENT_SEARCH](state, query) {
       const index = state.recent_searches.findIndex((elem) => elem === query)
       if (index >= 0) {

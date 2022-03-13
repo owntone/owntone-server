@@ -30,6 +30,8 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
+
 export default {
   name: 'TabsSearch',
 
@@ -56,7 +58,7 @@ export default {
 
   methods: {
     search_library: function () {
-      this.$store.state.search_path = '/search/library'
+      this.$store.commit(types.SEARCH_PATH, '/search/library')
       this.$router.push({
         path: this.$store.state.search_path,
         query: this.route_query
@@ -64,7 +66,7 @@ export default {
     },
 
     search_spotify: function () {
-      this.$store.state.search_path = '/search/spotify'
+      this.$store.commit(types.SEARCH_PATH, '/search/spotify')
       this.$router.push({
         path: this.$store.state.search_path,
         query: this.route_query
