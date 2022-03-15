@@ -699,6 +699,18 @@ response_aes_key_error(uint8_t *payload, size_t payload_len, struct sp_session *
   return SP_ERR_DECRYPTION;
 }
 
+// AP in bad state may return a channel error after chunk request. In that case
+// we error with NOCONNECTION, because that will make the main session handler
+// (see response_cb) retry with another access point. An example of this issue
+// is here https://github.com/librespot-org/librespot/issues/972
+static enum sp_error
+response_channel_error(uint8_t *payload, size_t payload_len, struct sp_session *session)
+{
+  sp_errmsg = "The accces point returned a channel error";
+
+  return SP_ERR_NOCONNECTION;
+}
+
 static enum sp_error
 response_mercury_req(uint8_t *payload, size_t payload_len, struct sp_session *session)
 {
@@ -783,6 +795,9 @@ response_generic(uint8_t *msg, size_t msg_len, struct sp_session *session)
       case CmdMercuryReq:
 	ret = response_mercury_req(payload, payload_len, session);
 	break;
+      case CmdChannelError:
+        ret = response_channel_error(payload, payload_len, session);
+        break;
       case CmdLegacyWelcome: // 0 bytes, ignored by librespot
       case CmdSecretBlock: // ignored by librespot
       case 0x50: // XML received after login, ignored by librespot
