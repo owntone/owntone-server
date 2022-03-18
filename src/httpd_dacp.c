@@ -785,10 +785,6 @@ dacp_playstatus_update_handler(short event_mask)
 {
   int ret;
 
-  // Only send status update on player change events
-  if (!(event_mask & (LISTENER_PLAYER | LISTENER_VOLUME)))
-    return;
-
 #ifdef HAVE_EVENTFD
   ret = eventfd_write(update_efd, 1);
   if (ret < 0)
@@ -2973,7 +2969,7 @@ dacp_init(void)
       return -1;
     }
 
-  listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER | LISTENER_VOLUME);
+  listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER | LISTENER_VOLUME | LISTENER_QUEUE);
 
   return 0;
 
