@@ -3959,10 +3959,11 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
 }
 
 static int
-jsonapi_reply_library_genres(struct httpd_request *hreq)
+jsonapi_reply_library_browse(struct httpd_request *hreq)
 {
   struct query_params query_params;
   const char *param;
+  const char *browse_type;
   enum media_kind media_kind;
   json_object *reply;
   json_object *items;
@@ -3971,6 +3972,9 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
+
+  browse_type = hreq->uri_parsed->path_parts[2];
+  DPRINTF(E_DBG, L_WEB, "Browse query with type '%s'\n", browse_type);
 
   media_kind = 0;
   param = evhttp_find_header(hreq->query, "media_kind");
@@ -3994,8 +3998,23 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
   if (ret < 0)
     goto error;
 
-  query_params.type = Q_BROWSE_GENRES;
-  query_params.idx_type = I_NONE;
+  if (strcmp(browse_type, "genres") == 0)
+    {
+      query_params.type = Q_BROWSE_GENRES;
+      query_params.sort = S_GENRE;
+      query_params.idx_type = I_NONE;
+    }
+  else if (strcmp(browse_type, "composers") == 0)
+    {
+      query_params.type = Q_BROWSE_COMPOSERS;
+      query_params.sort = S_COMPOSER;
+      query_params.idx_type = I_NONE;
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid browse type '%s'\n", browse_type);
+      goto error;
+    }
 
   if (media_kind)
     query_params.filter = db_mprintf("(f.media_kind = %d)", media_kind);
@@ -4010,7 +4029,7 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
 
   ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
   if (ret < 0)
-    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add genres to response buffer.\n");
+    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add browse items to response buffer.\n");
 
  error:
   jparse_free(reply);
@@ -4023,34 +4042,23 @@ jsonapi_reply_library_genres(struct httpd_request *hreq)
 }
 
 static int
-jsonapi_reply_library_composers(struct httpd_request *hreq)
+jsonapi_reply_library_browseitem(struct httpd_request *hreq)
 {
   struct query_params query_params;
-  const char *param;
-  enum media_kind media_kind;
+  const char *browse_type;
+  const char *item_name;
+  struct db_browse_info dbbi;
   json_object *reply;
-  json_object *items;
-  int total;
   int ret;
 
   if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  media_kind = 0;
-  param = evhttp_find_header(hreq->query, "media_kind");
-  if (param)
-    {
-      media_kind = db_media_kind_enum(param);
-      if (!media_kind)
-	{
-	  DPRINTF(E_LOG, L_WEB, "Invalid media kind '%s'\n", param);
-	  return HTTP_BADREQUEST;
-	}
-    }
+  browse_type = hreq->uri_parsed->path_parts[2];
+  item_name = hreq->uri_parsed->path_parts[3];
+  DPRINTF(E_DBG, L_WEB, "Browse item query with type '%s'\n", browse_type);
 
   reply = json_object_new_object();
-  items = json_object_new_array();
-  json_object_object_add(reply, "items", items);
 
   memset(&query_params, 0, sizeof(struct query_params));
 
@@ -4058,26 +4066,46 @@ jsonapi_reply_library_composers(struct httpd_request *hreq)
   if (ret < 0)
     goto error;
 
-  query_params.type = Q_BROWSE_COMPOSERS;
-  query_params.sort = S_COMPOSER;
-  query_params.idx_type = I_NONE;
+  if (strcmp(browse_type, "genres") == 0)
+    {
+      query_params.type = Q_BROWSE_GENRES;
+      query_params.sort = S_GENRE;
+      query_params.idx_type = I_NONE;
+      query_params.filter = db_mprintf("(f.genre = %Q)", item_name);
+    }
+  else if (strcmp(browse_type, "composers") == 0)
+    {
+      query_params.type = Q_BROWSE_COMPOSERS;
+      query_params.sort = S_COMPOSER;
+      query_params.idx_type = I_NONE;
+      query_params.filter = db_mprintf("(f.composer = %Q)", item_name);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_WEB, "Invalid browse type '%s'\n", browse_type);
+      goto error;
+    }
 
-  if (media_kind)
-    query_params.filter = db_mprintf("(f.media_kind = %d)", media_kind);
-
-  ret = fetch_browse_info(&query_params, items, &total);
+  ret = db_query_start(&query_params);
   if (ret < 0)
     goto error;
 
-  json_object_object_add(reply, "total", json_object_new_int(total));
-  json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
-  json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
+  if ((ret = db_query_fetch_browse(&dbbi, &query_params)) == 0)
+    {
+      reply = browse_info_to_json(&dbbi);
+    }
+  if (!reply)
+    {
+      ret = -1;
+      goto error;
+    }
 
   ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
   if (ret < 0)
-    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add composers to response buffer.\n");
+    DPRINTF(E_LOG, L_WEB, "browse: Couldn't add browse item to response buffer.\n");
 
  error:
+  db_query_end(&query_params);
   jparse_free(reply);
   free_query_params(&query_params, 1);
 
@@ -4086,7 +4114,6 @@ jsonapi_reply_library_composers(struct httpd_request *hreq)
 
   return HTTP_OK;
 }
-
 
 static int
 jsonapi_reply_library_count(struct httpd_request *hreq)
@@ -4737,8 +4764,8 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
     { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
     { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+/playlists$", jsonapi_reply_library_track_playlists },
-    { EVHTTP_REQ_GET,    "^/api/library/genres$",                        jsonapi_reply_library_genres},
-    { EVHTTP_REQ_GET,    "^/api/library/composers$",                     jsonapi_reply_library_composers },
+    { EVHTTP_REQ_GET,    "^/api/library/(genres|composers)$",            jsonapi_reply_library_browse },
+    { EVHTTP_REQ_GET,    "^/api/library/(genres|composers)/.*$",         jsonapi_reply_library_browseitem },
     { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
     { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
     { EVHTTP_REQ_POST,   "^/api/library/add$",                           jsonapi_reply_library_add },
