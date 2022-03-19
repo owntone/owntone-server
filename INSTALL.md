@@ -38,7 +38,7 @@ argument when you run ./configure:
  Feature              | Configure argument       | Packages
  ---------------------|--------------------------|-------------------------------------
  Chromecast           | `--enable-chromecast`    | libgnutls*-dev
- Spotify (libspotify) | `--enable-libspotify`    | libspotify-dev
+ Legacy libspotify    | `--enable-libspotify`    | libspotify-dev
  Pulseaudio           | `--with-pulseaudio`      | libpulse-dev
 
 These features can be disabled saving you package dependencies:
