@@ -262,7 +262,7 @@ static struct artwork_source artwork_item_source[] =
     {
       .name = "stream",
       .handler = source_item_artwork_url_get,
-      .data_kinds = (1 << DATA_KIND_HTTP),
+      .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
       .media_kinds = MEDIA_KIND_MUSIC,
       .cache = NEVER,
     },
