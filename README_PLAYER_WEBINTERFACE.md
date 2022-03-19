@@ -1,6 +1,7 @@
-# OwnTone player web interface
+# OwnTone web interface
 
-Mobile friendly player web interface for [OwnTone](http://owntone.github.io/owntone-server/) build with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
+Mobile friendly player web interface for [OwnTone](http://owntone.github.io/owntone-server/) build
+with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
 
 ## Screenshots
 
@@ -21,20 +22,34 @@ The source is located in the `web-src` folder.
 cd web-src
 ```
 
-It is based on the Vue.js webpack template. For a detailed explanation on how things work, check out the [guide](http://vuejs-templates.github.io/webpack/) and [docs for vue-loader](http://vuejs.github.io/vue-loader).
+The web interface is built with [Vite](https://vitejs.dev/), makes use of Prettier for code formatting
+and ESLint for code linting (the project was set up following the guide [ESLint and Prettier with Vite and Vue.js 3](https://vueschool.io/articles/vuejs-tutorials/eslint-and-prettier-with-vite-and-vue-js-3/)
 
 ``` bash
 # install dependencies
 npm install
 
-# serve with hot reload at localhost:8080
-npm run dev
+# Serve with hot reload at localhost:3000
+# (assumes that OwnTone server is running on localhost:3689)
+npm run serve
 
-# build for production with minification (will update player web interface in "../htdocs")
+# Serve with hot reload at localhost:3000
+# (with remote OwnTone server reachable under owntone.local:3689)
+VITE_OWNTONE_URL=http://owntone.local:3689 npm run serve
+
+
+# Build for production with minification (will update web interface in "../htdocs")
 npm run build
 
-# build for production and view the bundle analyzer report
-npm run build --report
+# Format code
+npm run format
+
+# Lint code (and fix errors that can be automatically fixed)
+npm run lint
 ```
 
-After running `npm run dev` the web interface is reachable at [localhost:8080](http://localhost:8080). By default it expects **owntone** to be running at [localhost:3689](http://localhost:3689) and proxies all JSON API calls to this location. If the server is running at a different location you need to modify the `proxyTable` configuration in `config/index.js`
+After running `npm run serve` the web interface is reachable at [localhost:3000](http://localhost:3000).
+By default it expects **owntone** to be running at [localhost:3689](http://localhost:3689) and proxies all
+JSON API calls to this location.
+
+If the server is running at a different location you have to set the env variable `VITE_OWNTONE_URL`.

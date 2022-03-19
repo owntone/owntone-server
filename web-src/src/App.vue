@@ -167,12 +167,16 @@ export default {
         window.location.hostname +
         ':' +
         vm.$store.state.config.websocket_port
-      if (
-        import.meta.env.NODE_ENV === 'development' &&
-        import.meta.env.VUE_APP_WEBSOCKET_SERVER
-      ) {
-        // If we are running in the development server, use the websocket url configured in .env.development
-        wsUrl = import.meta.env.VUE_APP_WEBSOCKET_SERVER
+
+      if (import.meta.env.DEV && import.meta.env.VITE_OWNTONE_URL) {
+        // If we are running in development mode, construct the websocket url
+        // from the host of the environment variable VITE_OWNTONE_URL
+        const owntoneUrl = new URL(import.meta.env.VITE_OWNTONE_URL)
+        wsUrl =
+          protocol +
+          owntoneUrl.hostname +
+          ':' +
+          vm.$store.state.config.websocket_port
       }
 
       const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
@@ -238,7 +242,7 @@ export default {
       var update_throttled = false
 
       function update_info() {
-        if ( update_throttled ) {
+        if (update_throttled) {
           return
         }
 
@@ -252,7 +256,9 @@ export default {
         vm.update_pairing()
 
         update_throttled = true
-        setTimeout(function () { update_throttled = false }, 500)
+        setTimeout(function () {
+          update_throttled = false
+        }, 500)
       }
 
       // These events are fired when the window becomes active in different ways
