@@ -12,8 +12,8 @@
   "dependencies": {
     "@aacassandra/vue3-progressbar": "^1.0.3",
     "@ts-pro/vue-eternal-loading": "^1.2.0",
-    "@vueform/slider": "^2.0.8",
-    "axios": "^0.25.0",
+    "@vueform/slider": "^2.0.9",
+    "axios": "^0.26.1",
     "bulma": "^0.9.3",
     "bulma-switch": "^2.0.4",
     "mdi": "^2.2.43",
@@ -23,20 +23,20 @@
     "spotify-web-api-js": "^1.5.2",
     "string-to-color": "^2.2.2",
     "vue": "^3.2.31",
-    "vue-router": "^4.0.12",
+    "vue-router": "^4.0.14",
     "vue-scrollto": "^2.20.0",
-    "vue3-click-away": "^1.2.1",
+    "vue3-click-away": "^1.2.4",
     "vue3-lazyload": "^0.2.5-beta",
     "vuedraggable": "^4.1.0",
     "vuex": "^4.0.2"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^2.2.0",
-    "eslint": "^8.9.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-vue": "^8.4.1",
-    "prettier": "2.5.1",
-    "sass": "^1.49.7",
-    "vite": "^2.8.1"
+    "@vitejs/plugin-vue": "^2.2.4",
+    "eslint": "^8.11.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-vue": "^8.5.0",
+    "prettier": "2.6.0",
+    "sass": "^1.49.9",
+    "vite": "^2.8.6"
   }
 }
