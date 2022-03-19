@@ -188,8 +188,10 @@ file_select(uint8_t *out, size_t out_len, Track *track, enum sp_bitrates bitrate
 
 /* --------------------------- Connection handling -------------------------- */
 
+// Connects to access point resolver and selects the first access point (unless
+// it matches "avoid", i.e. an access point that previously failed)
 static int
-ap_resolve(char **address, unsigned short *port)
+ap_resolve(char **address, unsigned short *port, const char *avoid)
 {
   char *body;
   json_object *jresponse = NULL;
@@ -199,6 +201,7 @@ ap_resolve(char **address, unsigned short *port)
   char *ap_port;
   int ap_num;
   int ret;
+  int i;
 
   free(*address);
   *address = NULL;
@@ -215,12 +218,22 @@ ap_resolve(char **address, unsigned short *port)
     RETURN_ERROR(SP_ERR_NOCONNECTION, "Unexpected reply from access point resolver");
 
   ap_num = json_object_array_length(ap_list);
-  ap = json_object_array_get_idx(ap_list, rand() % ap_num);
-  if (! (ap && json_object_get_type(ap) == json_type_string))
-    RETURN_ERROR(SP_ERR_NOCONNECTION, "Unexpected reply from access point resolver");
 
-  ap_address = strdup(json_object_get_string(ap));
+  for (i = 0; i < ap_num; i++)
+    {
+      ap = json_object_array_get_idx(ap_list, i);
+      if (! (ap && json_object_get_type(ap) == json_type_string))
+        RETURN_ERROR(SP_ERR_NOCONNECTION, "Unexpected reply from access point resolver");
 
+      if (avoid && strncmp(avoid, json_object_get_string(ap), strlen(avoid)) == 0)
+        continue; // This AP has failed on us previously, so avoid
+
+      ap_address = strdup(json_object_get_string(ap));
+      break;
+    }
+
+  if (!ap_address)
+    RETURN_ERROR(SP_ERR_NOCONNECTION, "Unexpected reply from access point resolver, no suitable access point");
   if (! (ap_port = strchr(ap_address, ':')))
     RETURN_ERROR(SP_ERR_NOCONNECTION, "Unexpected reply from access point resolver, missing port");
   *ap_port = '\0';
@@ -285,14 +298,14 @@ connection_idle_cb(int fd, short what, void *arg)
 }
 
 static int
-connection_make(struct sp_connection *conn, struct sp_conn_callbacks *cb, void *response_cb_arg)
+connection_make(struct sp_connection *conn, const char *ap_avoid, struct sp_conn_callbacks *cb, void *response_cb_arg)
 {
   int response_fd;
   int ret;
 
   if (!conn->ap_address || !conn->ap_port)
     {
-      ret = ap_resolve(&conn->ap_address, &conn->ap_port);
+      ret = ap_resolve(&conn->ap_address, &conn->ap_port, ap_avoid);
       if (ret < 0)
 	RETURN_ERROR(ret, sp_errmsg);
     }
@@ -330,7 +343,7 @@ connection_make(struct sp_connection *conn, struct sp_conn_callbacks *cb, void *
 }
 
 enum sp_error
-ap_connect(struct sp_connection *conn, enum sp_msg_type type, time_t *cooldown_ts, struct sp_conn_callbacks *cb, void *cb_arg)
+ap_connect(struct sp_connection *conn, enum sp_msg_type type, time_t *cooldown_ts, const char *ap_avoid, struct sp_conn_callbacks *cb, void *cb_arg)
 {
   int ret;
   time_t now;
@@ -348,7 +361,7 @@ ap_connect(struct sp_connection *conn, enum sp_msg_type type, time_t *cooldown_t
       else
 	RETURN_ERROR(SP_ERR_NOCONNECTION, "Cannot connect to access point, cooldown after disconnect is in effect");
 
-      ret = connection_make(conn, cb, cb_arg);
+      ret = connection_make(conn, ap_avoid, cb, cb_arg);
       if (ret < 0)
 	RETURN_ERROR(ret, sp_errmsg);
     }
@@ -361,6 +374,12 @@ ap_connect(struct sp_connection *conn, enum sp_msg_type type, time_t *cooldown_t
  error:
   ap_disconnect(conn);
   return ret;
+}
+
+const char *
+ap_address_get(struct sp_connection *conn)
+{
+  return conn->ap_address;
 }
 
 /* ------------------------------ Raw packets ------------------------------- */

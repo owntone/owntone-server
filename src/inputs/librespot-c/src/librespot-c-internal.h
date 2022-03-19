@@ -322,6 +322,9 @@ struct sp_session
   struct sp_connection conn;
   time_t cooldown_ts;
 
+  // Address of an access point we want to avoid due to previous failure
+  char *ap_avoid;
+
   bool is_logged_in;
   struct sp_credentials credentials;
   char country[3]; // Incl null term

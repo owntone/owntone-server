@@ -180,6 +180,8 @@ tcp_connect(const char *address, unsigned short port)
       return -1;
     }
 
+  printf("Connected to %s (port %u)\n", address, port);
+
   return fd;
 }
 
