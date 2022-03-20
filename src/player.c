@@ -3631,7 +3631,7 @@ player_init(void)
   int ret;
 
   speaker_autoselect = cfg_getbool(cfg_getsec(cfg, "general"), "speaker_autoselect");
-  clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
+  clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "library"), "clear_queue_on_stop_disable");
 
   CHECK_NULL(L_PLAYER, player_settings_category = settings_category_get("player"));
   ret = SETTINGS_GETINT(player_settings_category, PLAYER_SETTINGS_MODE_REPEAT);
