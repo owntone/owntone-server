@@ -1,3 +1,9 @@
+---
+hide:
+  - navigation
+  - toc
+---
+
 # OwnTone
 
 **OwnTone** is an open source (audio) media server for GNU/Linux, FreeBSD
@@ -41,11 +47,11 @@ mt-daapd (Firefly Media Server). It is written in C with a web interface written
 
 ---
 
-![Now playing](images/screenshot-now-playing.png){: class="zoom" }
-![Music browse](images/screenshot-music-browse.png){: class="zoom" }
-![Music album](images/screenshot-music-album.png){: class="zoom" }
+![Now playing](assets/images/screenshot-now-playing.png){: class="zoom" }
+![Music browse](assets/images/screenshot-music-browse.png){: class="zoom" }
+![Music album](assets/images/screenshot-music-album.png){: class="zoom" }
 
-_(You can find more screenshots from OwnTone's web interface [here](web-interface.md))_
+_(You can find more screenshots from OwnTone's web interface [here](clients/web-interface.md))_
 {: class="text-center" }
 
 ---
@@ -69,4 +75,16 @@ please see the documentation on [Building from Source](installation.md).
 
 The source for this version of OwnTone can be found here:
 
-[https://github.com/owntone/owntone-server.git](https://github.com/owntone/owntone-server.git)
+- [https://github.com/owntone/owntone-server.git](https://github.com/owntone/owntone-server.git)
+
+README's for current and previous versions of OwnTone:
+
+- [OwnTone version 28.3](https://github.com/owntone/owntone-server/blob/28.3/README.md)
+
+- [OwnTone version 28.2](https://github.com/owntone/owntone-server/blob/28.2/README.md)
+
+- [OwnTone version 28.1](https://github.com/owntone/owntone-server/blob/28.1/README.md)
+
+README from when OwnTone was forked-daapd:
+
+- [forked-daapd version 27.4](https://github.com/owntone/owntone-server/blob/27.4/README.md)

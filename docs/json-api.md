@@ -1,3 +1,8 @@
+---
+hide:
+  - navigation
+---
+
 # OwnTone API Endpoint Reference
 
 Available API endpoints:

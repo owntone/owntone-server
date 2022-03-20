@@ -14,6 +14,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+
+# OwnTone configuration file for MkDocs with the theme "Material for MkDocs"
+# 
+# Documentation for the different conig options:
+# - https://squidfunk.github.io/mkdocs-material/
+# - https://www.mkdocs.org/
+
+
 # Project information
 site_name: OwnTone
 site_url: https://owntone.github.io/owntone-server/
@@ -33,8 +41,10 @@ theme:
   name: 'material'
   language: en
   features:
-#    - navigation.tabs
-    - navigation.sections
+    - navigation.tabs
+#    - navigation.sections
+#    - navigation.indexes
+    - navigation.top
   palette:
     - scheme: default
       primary: white
@@ -116,11 +126,31 @@ markdown_extensions:
 # Page tree
 nav:
   - Home: index.md
-  - Documentation: documentation.md
-  - Installation: installation.md
-  - Smart playlists: smart-playlists.md
+  - Documentation:
+    - Getting started: getting-started.md
+    - Installation: installation.md
+    - Library: library.md
+    - Artwork: artwork.md
+    - Playlists & radio: playlists.md
+    - Smart playlists: smart-playlists.md
+    - Clients:
+      - Supported clients: clients/supported-clients.md
+      - Remote: clients/remote.md
+      - Web interface: clients/web-interface.md
+      - MPD clients: clients/mpd.md
+      - CLI: clients/cli.md
+    - Outputs:
+      - Local audio: outputs/local-audio.md
+      - Airplay: outputs/airplay.md
+      - Chromecast: outputs/chromecast.md
+      - Streaming: outputs/streaming.md
+    - Services integration:
+      - Spotify: integrations/spotify.md
+      - LastFM: integrations/lastfm.md
+    - Advanced setups:
+      - Alsa: advanced/outputs-alsa.md
+      - Pulse audio: advanced/outputs-pulse.md
+      - Radio streams: advanced/radio-streams.md
+      - Remote access: advanced/remote-access.md
+      - Multiple instances: advanced/multiple-instances.md
   - JSON API: json-api.md
-  - Web interface: web-interface.md
-  - Alsa: outputs-alsa.md
-  - Pulse audio: outputs-pulse.md
-  - Radio streams: radio-streams.md

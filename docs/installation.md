@@ -73,7 +73,7 @@ settings that normally require modification.
 Start the server with `sudo systemctl start owntone` and check that it is
 running with `sudo systemctl status owntone`.
 
-See the [Documentation](documentation.md) for usage information.
+See the [Documentation](getting-started.md) for usage information.
 
 ## Quick version for Fedora
 
@@ -118,7 +118,7 @@ settings that normally require modification.
 Start the server with `sudo systemctl start owntone` and check that it is
 running with `sudo systemctl status owntone`.
 
-See the [Documentation](documentation.md) for usage information.
+See the [Documentation](getting-started.md) for usage information.
 
 ## Quick version for FreeBSD
 
@@ -313,7 +313,7 @@ The source for the player web interface is located under the `web-src` folder an
 requires nodejs >= 6.0 to be built. In the `web-src` folder run `npm install` to
 install all dependencies for the player web interface. After that run `npm run build`.
 This will build the web interface and update the `htdocs` folder.
-(See [Web interface](web-interface.md) for more
+(See [Web interface](clients/web-interface.md) for more
 informations)
 
 Building with libwebsockets is required if you want the web interface. It will be enabled

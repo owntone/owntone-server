@@ -43,3 +43,6 @@ debian/
 /.project
 /.autotools
 /.vscode
+
+# ignore MkDocs generated documentation
+/site/

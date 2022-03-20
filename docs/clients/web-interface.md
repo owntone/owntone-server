@@ -3,25 +3,31 @@
 Mobile friendly player web interface for [OwnTone](http://owntone.github.io/owntone-server/) build
 with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
 
+You can find the web interface at [http://owntone.local:3689](http://owntone.local:3689)
+or alternatively at [http://[your_server_address_here]:3689](http://[your_server_address_here]:3689).
+
+Use the web interface to control playback, trigger manual library rescans, pair
+with remotes, select speakers, authenticate with Spotify, etc.
+
 ## Screenshots
 
-![Now playing](images/screenshot-now-playing.png){: class="zoom" }
-![Queue](images/screenshot-queue.png){: class="zoom" }
-![Music browse](images/screenshot-music-browse.png){: class="zoom" }
-![Music artists](images/screenshot-music-artists.png){: class="zoom" }
-![Music artist](images/screenshot-music-artist.png){: class="zoom" }
-![Music albums](images/screenshot-music-albums.png){: class="zoom" }
-![Music albums options](images/screenshot-music-albums-options.png){: class="zoom" }
-![Music album](images/screenshot-music-album.png){: class="zoom" }
-![Spotiy](images/screenshot-music-spotify.png){: class="zoom" }
-![Audiobooks authors](images/screenshot-audiobooks-authors.png){: class="zoom" }
-![Audiobooks](images/screenshot-audiobooks-books.png){: class="zoom" }
-![Podcasts](images/screenshot-podcasts.png){: class="zoom" }
-![Podcast](images/screenshot-podcast.png){: class="zoom" }
-![Files](images/screenshot-files.png){: class="zoom" }
-![Search](images/screenshot-search.png){: class="zoom" }
-![Menu](images/screenshot-menu.png){: class="zoom" }
-![Outputs](images/screenshot-outputs.png){: class="zoom" }
+![Now playing](../assets/images/screenshot-now-playing.png){: class="zoom" }
+![Queue](../assets/images/screenshot-queue.png){: class="zoom" }
+![Music browse](../assets/images/screenshot-music-browse.png){: class="zoom" }
+![Music artists](../assets/images/screenshot-music-artists.png){: class="zoom" }
+![Music artist](../assets/images/screenshot-music-artist.png){: class="zoom" }
+![Music albums](../assets/images/screenshot-music-albums.png){: class="zoom" }
+![Music albums options](../assets/images/screenshot-music-albums-options.png){: class="zoom" }
+![Music album](../assets/images/screenshot-music-album.png){: class="zoom" }
+![Spotiy](../assets/images/screenshot-music-spotify.png){: class="zoom" }
+![Audiobooks authors](../assets/images/screenshot-audiobooks-authors.png){: class="zoom" }
+![Audiobooks](../assets/images/screenshot-audiobooks-books.png){: class="zoom" }
+![Podcasts](../assets/images/screenshot-podcasts.png){: class="zoom" }
+![Podcast](../assets/images/screenshot-podcast.png){: class="zoom" }
+![Files](../assets/images/screenshot-files.png){: class="zoom" }
+![Search](../assets/images/screenshot-search.png){: class="zoom" }
+![Menu](../assets/images/screenshot-menu.png){: class="zoom" }
+![Outputs](../assets/images/screenshot-outputs.png){: class="zoom" }
 
 
 ## Usage
