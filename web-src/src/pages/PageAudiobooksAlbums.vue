@@ -1,65 +1,76 @@
 <template>
-  <div>
-    <tabs-audiobooks></tabs-audiobooks>
+  <div class="fd-page-with-tabs">
+    <tabs-audiobooks />
 
     <content-with-heading>
-      <template slot="options">
-        <index-button-list :index="albums_list.indexList"></index-button-list>
+      <template #options>
+        <index-button-list :index="albums.indexList" />
       </template>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Audiobooks</p>
-        <p class="heading">{{ albums_list.sortedAndFiltered.length }} Audiobooks</p>
+        <p class="heading">{{ albums.count }} Audiobooks</p>
       </template>
-      <template slot="content">
-        <list-albums :albums="albums_list"></list-albums>
+      <template #content>
+        <list-albums :albums="albums" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import TabsAudiobooks from '@/components/TabsAudiobooks'
-import IndexButtonList from '@/components/IndexButtonList'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListAlbums from '@/components/ListAlbums'
+import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
+import IndexButtonList from '@/components/IndexButtonList.vue'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
 import webapi from '@/webapi'
-import Albums from '@/lib/Albums'
+import { bySortName, GroupByList } from '@/lib/GroupByList'
 
-const albumsData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_albums('audiobook')
   },
 
   set: function (vm, response) {
-    vm.albums = response.data
+    vm.albums = new GroupByList(response.data)
+    vm.albums.group(bySortName('name_sort'))
   }
 }
 
 export default {
   name: 'PageAudiobooksAlbums',
-  mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { TabsAudiobooks, ContentWithHeading, IndexButtonList, ListAlbums },
+  components: {
+    TabsAudiobooks,
+    ContentWithHeading,
+    IndexButtonList,
+    ListAlbums
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+
+  beforeRouteUpdate(to, from, next) {
+    if (!this.albums.isEmpty()) {
+      next()
+      return
+    }
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
-      albums: { items: [] }
+      albums: new GroupByList()
     }
   },
 
-  computed: {
-    albums_list () {
-      return new Albums(this.albums.items, {
-        sort: 'Name',
-        group: true
-      })
-    }
-  },
-
-  methods: {
-  }
+  methods: {}
 }
 </script>
 
-<style>
-</style>
+<style></style>

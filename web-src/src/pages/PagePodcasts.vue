@@ -1,88 +1,75 @@
 <template>
   <div>
     <content-with-heading v-if="new_episodes.items.length > 0">
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">New episodes</p>
       </template>
-      <template slot="heading-right">
-      <div class="buttons is-centered">
-        <a class="button is-small" @click="mark_all_played">
-          <span class="icon">
-            <i class="mdi mdi-pencil"></i>
-          </span>
-          <span>Mark All Played</span>
-        </a>
-      </div>
-    </template>
-    <template slot="content">
-        <list-item-track v-for="track in new_episodes.items" :key="track.id" :track="track" @click="play_track(track)">
-          <template slot="progress">
-            <range-slider
-              class="track-progress"
-              min="0"
-              :max="track.length_ms"
-              step="1"
-              :disabled="true"
-              :value="track.seek_ms" >
-            </range-slider>
-          </template>
-          <template slot="actions">
-            <a @click="open_track_dialog(track)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
-            </a>
-          </template>
-        </list-item-track>
-        <modal-dialog-track :show="show_track_details_modal" :track="selected_track" @close="show_track_details_modal = false" @play-count-changed="reload_new_episodes" />
+      <template #heading-right>
+        <div class="buttons is-centered">
+          <a class="button is-small" @click="mark_all_played">
+            <span class="icon">
+              <i class="mdi mdi-pencil" />
+            </span>
+            <span>Mark All Played</span>
+          </a>
+        </div>
+      </template>
+      <template #content>
+        <list-tracks
+          :tracks="new_episodes.items"
+          :show_progress="true"
+          @play-count-changed="reload_new_episodes"
+        />
       </template>
     </content-with-heading>
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Podcasts</p>
         <p class="heading">{{ albums.total }} podcasts</p>
       </template>
-      <template slot="heading-right">
+      <template #heading-right>
         <div class="buttons is-centered">
           <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
             <span class="icon">
-              <i class="mdi mdi-refresh"></i>
+              <i class="mdi mdi-refresh" />
             </span>
             <span>Update</span>
           </a>
           <a class="button is-small" @click="open_add_podcast_dialog">
             <span class="icon">
-              <i class="mdi mdi-rss"></i>
+              <i class="mdi mdi-rss" />
             </span>
             <span>Add Podcast</span>
           </a>
         </div>
       </template>
-      <template slot="content">
-        <list-albums :albums="albums.items"
-            @play-count-changed="reload_new_episodes()"
-            @podcast-deleted="reload_podcasts()">
-        </list-albums>
+      <template #content>
+        <list-albums
+          :albums="albums"
+          @play-count-changed="reload_new_episodes()"
+          @podcast-deleted="reload_podcasts()"
+        />
         <modal-dialog-add-rss
-            :show="show_url_modal"
-            @close="show_url_modal = false"
-            @podcast-added="reload_podcasts()" />
+          :show="show_url_modal"
+          @close="show_url_modal = false"
+          @podcast-added="reload_podcasts()"
+        />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemTrack from '@/components/ListItemTrack'
-import ListAlbums from '@/components/ListAlbums'
-import ModalDialogTrack from '@/components/ModalDialogTrack'
-import ModalDialogAddRss from '@/components/ModalDialogAddRss'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
 import * as types from '@/store/mutation_types'
-import RangeSlider from 'vue-range-slider'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
-const albumsData = {
+const dataObject = {
   load: function (to) {
     return Promise.all([
       webapi.library_albums('podcast'),
@@ -91,49 +78,55 @@ const albumsData = {
   },
 
   set: function (vm, response) {
-    vm.albums = response[0].data
+    vm.albums = new GroupByList(response[0].data)
     vm.new_episodes = response[1].data.tracks
   }
 }
 
 export default {
   name: 'PagePodcasts',
-  mixins: [LoadDataBeforeEnterMixin(albumsData)],
-  components: { ContentWithHeading, ListItemTrack, ListAlbums, ModalDialogTrack, ModalDialogAddRss, RangeSlider },
+  components: {
+    ContentWithHeading,
+    ListTracks,
+    ListAlbums,
+    ModalDialogAddRss
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
-      albums: { items: [] },
+      albums: [],
       new_episodes: { items: [] },
 
-      show_url_modal: false,
-
-      show_track_details_modal: false,
-      selected_track: {}
+      show_url_modal: false
     }
   },
 
   computed: {
-    rss () {
+    rss() {
       return this.$store.state.rss_count
     }
   },
 
   methods: {
-    play_track: function (track) {
-      webapi.player_play_uri(track.uri, false)
-    },
-
-    open_track_dialog: function (track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
-    },
-
     mark_all_played: function () {
-      this.new_episodes.items.forEach(ep => {
+      this.new_episodes.items.forEach((ep) => {
         webapi.library_track_update(ep.id, { play_count: 'increment' })
       })
-      this.new_episodes.items = { }
+      this.new_episodes.items = {}
     },
 
     open_add_podcast_dialog: function (item) {
@@ -148,7 +141,7 @@ export default {
 
     reload_podcasts: function () {
       webapi.library_albums('podcast').then(({ data }) => {
-        this.albums = data
+        this.albums = new GroupByList(data)
         this.reload_new_episodes()
       })
     },
@@ -161,5 +154,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

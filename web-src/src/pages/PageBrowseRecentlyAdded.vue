@@ -1,66 +1,77 @@
 <template>
-  <div>
-    <tabs-music></tabs-music>
+  <div class="fd-page-with-tabs">
+    <tabs-music />
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Recently added</p>
         <p class="heading">albums</p>
       </template>
-      <template slot="content">
-        <list-albums :albums="albums_list"></list-albums>
+      <template #content>
+        <list-albums :albums="recently_added" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import ListAlbums from '@/components/ListAlbums'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
 import webapi from '@/webapi'
 import store from '@/store'
-import Albums from '@/lib/Albums'
+import { byDateSinceToday, GroupByList } from '@/lib/GroupByList'
 
-const browseData = {
+const dataObject = {
   load: function (to) {
     const limit = store.getters.settings_option_recently_added_limit
     return webapi.search({
       type: 'album',
-      expression: 'media_kind is music having track_count > 3 order by time_added desc',
+      expression:
+        'media_kind is music having track_count > 3 order by time_added desc',
       limit: limit
     })
   },
 
   set: function (vm, response) {
-    vm.recently_added = response.data.albums
+    vm.recently_added = new GroupByList(response.data.albums)
+    vm.recently_added.group(
+      byDateSinceToday('time_added', {
+        direction: 'desc',
+        defaultValue: '0000'
+      })
+    )
   }
 }
 
 export default {
   name: 'PageBrowseType',
-  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, ListAlbums },
 
-  data () {
-    return {
-      recently_added: { items: [] }
-    }
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
   },
 
-  computed: {
-    albums_list () {
-      return new Albums(this.recently_added.items, {
-        hideSingles: false,
-        hideSpotify: false,
-        sort: 'Recently added (browse)',
-        group: true
-      })
+  beforeRouteUpdate(to, from, next) {
+    if (!this.recently_added.isEmpty()) {
+      next()
+      return
+    }
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
+    return {
+      recently_added: new GroupByList()
     }
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

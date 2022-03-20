@@ -1,82 +1,129 @@
 <template>
   <content-with-heading>
-    <template slot="heading-left">
+    <template #heading-left>
       <p class="heading">{{ queue.count }} tracks</p>
       <p class="title is-4">Queue</p>
     </template>
-    <template slot="heading-right">
+    <template #heading-right>
       <div class="buttons is-centered">
-        <a class="button is-small" :class="{ 'is-info': show_only_next_items }" @click="update_show_next_items">
+        <a
+          class="button is-small"
+          :class="{ 'is-info': show_only_next_items }"
+          @click="update_show_next_items"
+        >
           <span class="icon">
-            <i class="mdi mdi-arrow-collapse-down"></i>
+            <i class="mdi mdi-arrow-collapse-down" />
           </span>
           <span>Hide previous</span>
         </a>
         <a class="button is-small" @click="open_add_stream_dialog">
           <span class="icon">
-            <i class="mdi mdi-web"></i>
+            <i class="mdi mdi-web" />
           </span>
           <span>Add Stream</span>
         </a>
-        <a class="button is-small" :class="{ 'is-info': edit_mode }" @click="edit_mode = !edit_mode">
+        <a
+          class="button is-small"
+          :class="{ 'is-info': edit_mode }"
+          @click="edit_mode = !edit_mode"
+        >
           <span class="icon">
-            <i class="mdi mdi-pencil"></i>
+            <i class="mdi mdi-pencil" />
           </span>
           <span>Edit</span>
         </a>
         <a class="button is-small" @click="queue_clear">
           <span class="icon">
-            <i class="mdi mdi-delete-empty"></i>
+            <i class="mdi mdi-delete-empty" />
           </span>
           <span>Clear</span>
         </a>
-        <a class="button is-small" v-if="is_queue_save_allowed" :disabled="queue_items.length === 0" @click="save_dialog">
+        <a
+          v-if="is_queue_save_allowed"
+          class="button is-small"
+          :disabled="queue_items.length === 0"
+          @click="save_dialog"
+        >
           <span class="icon">
-            <i class="mdi mdi-content-save"></i>
+            <i class="mdi mdi-content-save" />
           </span>
           <span>Save</span>
         </a>
       </div>
     </template>
-    <template slot="content">
-      <draggable v-model="queue_items" handle=".handle" @end="move_item">
-        <list-item-queue-item v-for="(item, index) in queue_items"
-          :key="item.id" :item="item" :position="index"
-          :current_position="current_position"
-          :show_only_next_items="show_only_next_items"
-          :edit_mode="edit_mode">
-            <template slot="actions">
-              <a @click="open_dialog(item)" v-if="!edit_mode">
-                <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+    <template #content>
+      <draggable
+        v-model="queue_items"
+        handle=".handle"
+        item-key="id"
+        @end="move_item"
+      >
+        <template #item="{ element, index }">
+          <list-item-queue-item
+            :item="element"
+            :position="index"
+            :current_position="current_position"
+            :show_only_next_items="show_only_next_items"
+            :edit_mode="edit_mode"
+          >
+            <template #actions>
+              <a v-if="!edit_mode" @click.prevent.stop="open_dialog(element)">
+                <span class="icon has-text-dark"
+                  ><i class="mdi mdi-dots-vertical mdi-18px"
+                /></span>
               </a>
-              <a @click="remove(item)" v-if="item.id !== state.item_id && edit_mode">
-                <span class="icon has-text-grey"><i class="mdi mdi-delete mdi-18px"></i></span>
+              <a
+                v-if="element.id !== state.item_id && edit_mode"
+                @click.prevent.stop="remove(element)"
+              >
+                <span class="icon has-text-grey"
+                  ><i class="mdi mdi-delete mdi-18px"
+                /></span>
               </a>
             </template>
           </list-item-queue-item>
+        </template>
       </draggable>
-      <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
-      <modal-dialog-add-url-stream :show="show_url_modal" @close="show_url_modal = false" />
-      <modal-dialog-playlist-save v-if="is_queue_save_allowed" :show="show_pls_save_modal" @close="show_pls_save_modal = false" />
+      <modal-dialog-queue-item
+        :show="show_details_modal"
+        :item="selected_item"
+        @close="show_details_modal = false"
+      />
+      <modal-dialog-add-url-stream
+        :show="show_url_modal"
+        @close="show_url_modal = false"
+      />
+      <modal-dialog-playlist-save
+        v-if="is_queue_save_allowed"
+        :show="show_pls_save_modal"
+        @close="show_pls_save_modal = false"
+      />
     </template>
   </content-with-heading>
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListItemQueueItem from '@/components/ListItemQueueItem'
-import ModalDialogQueueItem from '@/components/ModalDialogQueueItem'
-import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream'
-import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream.vue'
+import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import draggable from 'vuedraggable'
 
 export default {
   name: 'PageQueue',
-  components: { ContentWithHeading, ListItemQueueItem, draggable, ModalDialogQueueItem, ModalDialogAddUrlStream, ModalDialogPlaylistSave },
+  components: {
+    ContentWithHeading,
+    ListItemQueueItem,
+    draggable,
+    ModalDialogQueueItem,
+    ModalDialogAddUrlStream,
+    ModalDialogPlaylistSave
+  },
 
-  data () {
+  data() {
     return {
       edit_mode: false,
 
@@ -88,24 +135,33 @@ export default {
   },
 
   computed: {
-    state () {
+    state() {
       return this.$store.state.player
     },
-    is_queue_save_allowed () {
-      return this.$store.state.config.allow_modifying_stored_playlists && this.$store.state.config.default_playlist_directory
+    is_queue_save_allowed() {
+      return (
+        this.$store.state.config.allow_modifying_stored_playlists &&
+        this.$store.state.config.default_playlist_directory
+      )
     },
-    queue () {
+    queue() {
       return this.$store.state.queue
     },
     queue_items: {
-      get () { return this.$store.state.queue.items },
-      set (value) { /* Do nothing? Send move request in @end event */ }
+      get() {
+        return this.$store.state.queue.items
+      },
+      set(value) {
+        /* Do nothing? Send move request in @end event */
+      }
     },
-    current_position () {
+    current_position() {
       const nowPlaying = this.$store.getters.now_playing
-      return nowPlaying === undefined || nowPlaying.position === undefined ? -1 : this.$store.getters.now_playing.position
+      return nowPlaying === undefined || nowPlaying.position === undefined
+        ? -1
+        : this.$store.getters.now_playing.position
     },
-    show_only_next_items () {
+    show_only_next_items() {
       return this.$store.state.show_only_next_items
     }
   },
@@ -124,7 +180,9 @@ export default {
     },
 
     move_item: function (e) {
-      const oldPosition = !this.show_only_next_items ? e.oldIndex : e.oldIndex + this.current_position
+      const oldPosition = !this.show_only_next_items
+        ? e.oldIndex
+        : e.oldIndex + this.current_position
       const item = this.queue_items[oldPosition]
       const newPosition = item.position + (e.newIndex - e.oldIndex)
       if (newPosition !== oldPosition) {
@@ -150,5 +208,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

@@ -1,34 +1,46 @@
 <template>
   <content-with-heading>
-    <template slot="heading-left">
-      <div class="title is-4">{{ playlist.name }}</div>
+    <template #heading-left>
+      <div class="title is-4">
+        {{ playlist.name }}
+      </div>
     </template>
-    <template slot="heading-right">
+    <template #heading-right>
       <div class="buttons is-centered">
-        <a class="button is-small is-light is-rounded" @click="show_playlist_details_modal = true">
-          <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_playlist_details_modal = true"
+        >
+          <span class="icon"
+            ><i class="mdi mdi-dots-horizontal mdi-18px"
+          /></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+          <span class="icon"><i class="mdi mdi-shuffle" /></span>
+          <span>Shuffle</span>
         </a>
       </div>
     </template>
-    <template slot="content">
+    <template #content>
       <p class="heading has-text-centered-mobile">{{ tracks.length }} tracks</p>
-      <list-tracks :tracks="tracks" :uris="uris"></list-tracks>
-      <modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" :uris="uris" @close="show_playlist_details_modal = false" />
+      <list-tracks :tracks="tracks" :uris="uris" />
+      <modal-dialog-playlist
+        :show="show_playlist_details_modal"
+        :playlist="playlist"
+        :uris="uris"
+        @close="show_playlist_details_modal = false"
+      />
     </template>
   </content-with-heading>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListTracks from '@/components/ListTracks'
-import ModalDialogPlaylist from '@/components/ModalDialogPlaylist'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 import webapi from '@/webapi'
 
-const playlistData = {
+const dataObject = {
   load: function (to) {
     return Promise.all([
       webapi.library_playlist(to.params.playlist_id),
@@ -44,10 +56,22 @@ const playlistData = {
 
 export default {
   name: 'PagePlaylist',
-  mixins: [LoadDataBeforeEnterMixin(playlistData)],
   components: { ContentWithHeading, ListTracks, ModalDialogPlaylist },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       playlist: {},
       tracks: [],
@@ -57,9 +81,9 @@ export default {
   },
 
   computed: {
-    uris () {
+    uris() {
       if (this.playlist.random) {
-        return this.tracks.map(a => a.uri).join(',')
+        return this.tracks.map((a) => a.uri).join(',')
       }
       return this.playlist.uri
     }
@@ -73,5 +97,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

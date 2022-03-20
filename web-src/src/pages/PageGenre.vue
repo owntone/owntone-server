@@ -1,68 +1,98 @@
 <template>
   <div>
     <content-with-heading>
-      <template slot="options">
-        <index-button-list :index="index_list"></index-button-list>
+      <template #options>
+        <index-button-list :index="albums_list.indexList" />
       </template>
-      <template slot="heading-left">
-        <p class="title is-4">{{ name }}</p>
+      <template #heading-left>
+        <p class="title is-4">
+          {{ name }}
+        </p>
       </template>
-      <template slot="heading-right">
+      <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small is-light is-rounded" @click="show_genre_details_modal = true">
-            <span class="icon"><i class="mdi mdi-dots-horizontal mdi-18px"></i></span>
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_genre_details_modal = true"
+          >
+            <span class="icon"
+              ><i class="mdi mdi-dots-horizontal mdi-18px"
+            /></span>
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><i class="mdi mdi-shuffle"></i></span> <span>Shuffle</span>
+            <span class="icon"><i class="mdi mdi-shuffle" /></span>
+            <span>Shuffle</span>
           </a>
         </div>
       </template>
-      <template slot="content">
-        <p class="heading has-text-centered-mobile">{{ genre_albums.total }} albums | <a class="has-text-link" @click="open_tracks">tracks</a></p>
-        <list-albums :albums="genre_albums.items"></list-albums>
-        <modal-dialog-genre :show="show_genre_details_modal" :genre="{ 'name': name }" @close="show_genre_details_modal = false" />
+      <template #content>
+        <p class="heading has-text-centered-mobile">
+          {{ albums_list.total }} albums |
+          <a class="has-text-link" @click="open_tracks">tracks</a>
+        </p>
+        <list-albums :albums="albums_list" />
+        <modal-dialog-genre
+          :show="show_genre_details_modal"
+          :genre="{ name: name }"
+          @close="show_genre_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import IndexButtonList from '@/components/IndexButtonList'
-import ListAlbums from '@/components/ListAlbums'
-import ModalDialogGenre from '@/components/ModalDialogGenre'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
+import { bySortName, GroupByList } from '@/lib/GroupByList'
 
-const genreData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_genre(to.params.genre)
   },
 
   set: function (vm, response) {
     vm.name = vm.$route.params.genre
-    vm.genre_albums = response.data.albums
+    vm.albums_list = new GroupByList(response.data.albums)
+    vm.albums_list.group(bySortName('name_sort'))
   }
 }
 
 export default {
   name: 'PageGenre',
-  mixins: [LoadDataBeforeEnterMixin(genreData)],
-  components: { ContentWithHeading, IndexButtonList, ListAlbums, ModalDialogGenre },
-
-  data () {
-    return {
-      name: '',
-      genre_albums: { items: [] },
-
-      show_genre_details_modal: false
-    }
+  components: {
+    ContentWithHeading,
+    IndexButtonList,
+    ListAlbums,
+    ModalDialogGenre
   },
 
-  computed: {
-    index_list () {
-      return [...new Set(this.genre_albums.items
-        .map(album => album.name.charAt(0).toUpperCase()))]
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    if (!this.albums_list.isEmpty()) {
+      next()
+      return
+    }
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
+    return {
+      name: '',
+      albums_list: new GroupByList(),
+
+      show_genre_details_modal: false
     }
   },
 
@@ -73,16 +103,13 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_expression('genre is "' + this.name + '" and media_kind is music', true)
-    },
-
-    open_dialog: function (album) {
-      this.selected_album = album
-      this.show_details_modal = true
+      webapi.player_play_expression(
+        'genre is "' + this.name + '" and media_kind is music',
+        true
+      )
     }
   }
 }
 </script>
 
-<style>
-</style>
+<style></style>

@@ -2,25 +2,31 @@
   <fieldset :disabled="disabled">
     <div class="field">
       <label class="label has-text-weight-normal">
-        <slot name="label"></slot>
-        <i class="is-size-7"
-            :class="{
-              'has-text-info': statusUpdate === 'success',
-              'has-text-danger': statusUpdate === 'error'
-            }"> {{ info }}</i>
+        <slot name="label" />
+        <i
+          class="is-size-7"
+          :class="{
+            'has-text-info': statusUpdate === 'success',
+            'has-text-danger': statusUpdate === 'error'
+          }"
+        >
+          {{ info }}</i
+        >
       </label>
       <div class="control">
-        <input class="input"
-            type="number"
-            min="0"
-            style="width: 10em;"
-            :placeholder="placeholder"
-            :value="value"
-            @input="set_update_timer"
-            ref="settings_number">
+        <input
+          ref="settings_number"
+          class="input"
+          type="number"
+          min="0"
+          style="width: 10em"
+          :placeholder="placeholder"
+          :value="value"
+          @input="set_update_timer"
+        />
       </div>
-      <p class="help" v-if="$slots['info']">
-        <slot name="info"></slot>
+      <p v-if="$slots['info']" class="help">
+        <slot name="info" />
       </p>
     </div>
   </fieldset>
@@ -35,7 +41,7 @@ export default {
 
   props: ['category_name', 'option_name', 'placeholder', 'disabled'],
 
-  data () {
+  data() {
     return {
       timerDelay: 2000,
       timerId: -1,
@@ -45,22 +51,26 @@ export default {
   },
 
   computed: {
-    category () {
-      return this.$store.state.settings.categories.find(elem => elem.name === this.category_name)
+    category() {
+      return this.$store.state.settings.categories.find(
+        (elem) => elem.name === this.category_name
+      )
     },
 
-    option () {
+    option() {
       if (!this.category) {
         return {}
       }
-      return this.category.options.find(elem => elem.name === this.option_name)
+      return this.category.options.find(
+        (elem) => elem.name === this.option_name
+      )
     },
 
-    value () {
+    value() {
       return this.option.value
     },
 
-    info () {
+    info() {
       if (this.statusUpdate === 'success') {
         return '(setting saved)'
       } else if (this.statusUpdate === 'error') {
@@ -71,7 +81,7 @@ export default {
   },
 
   methods: {
-    set_update_timer () {
+    set_update_timer() {
       if (this.timerId > 0) {
         window.clearTimeout(this.timerId)
         this.timerId = -1
@@ -84,7 +94,7 @@ export default {
       }
     },
 
-    update_setting () {
+    update_setting() {
       this.timerId = -1
 
       const newValue = this.$refs.settings_number.value
@@ -98,15 +108,19 @@ export default {
         name: this.option_name,
         value: parseInt(newValue, 10)
       }
-      webapi.settings_update(this.category.name, option).then(() => {
-        this.$store.commit(types.UPDATE_SETTINGS_OPTION, option)
-        this.statusUpdate = 'success'
-      }).catch(() => {
-        this.statusUpdate = 'error'
-        this.$refs.settings_number.value = this.value
-      }).finally(() => {
-        this.timerId = window.setTimeout(this.clear_status, this.timerDelay)
-      })
+      webapi
+        .settings_update(this.category.name, option)
+        .then(() => {
+          this.$store.commit(types.UPDATE_SETTINGS_OPTION, option)
+          this.statusUpdate = 'success'
+        })
+        .catch(() => {
+          this.statusUpdate = 'error'
+          this.$refs.settings_number.value = this.value
+        })
+        .finally(() => {
+          this.timerId = window.setTimeout(this.clear_status, this.timerDelay)
+        })
     },
 
     clear_status: function () {
@@ -116,5 +130,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

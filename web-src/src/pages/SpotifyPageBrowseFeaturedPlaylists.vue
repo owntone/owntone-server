@@ -1,36 +1,45 @@
 <template>
-  <div>
-    <tabs-music></tabs-music>
+  <div class="fd-page-with-tabs">
+    <tabs-music />
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Featured Playlists</p>
       </template>
-      <template slot="content">
-        <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist">
-          <template slot="actions">
+      <template #content>
+        <spotify-list-item-playlist
+          v-for="playlist in featured_playlists"
+          :key="playlist.id"
+          :playlist="playlist"
+        >
+          <template #actions>
             <a @click="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"><i class="mdi mdi-dots-vertical mdi-18px"></i></span>
+              <span class="icon has-text-dark"
+                ><i class="mdi mdi-dots-vertical mdi-18px"
+              /></span>
             </a>
           </template>
         </spotify-list-item-playlist>
-        <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
+        <spotify-modal-dialog-playlist
+          :show="show_playlist_details_modal"
+          :playlist="selected_playlist"
+          @close="show_playlist_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
 
-const browseData = {
+const dataObject = {
   load: function (to) {
     if (store.state.spotify_featured_playlists.length > 0) {
       return Promise.resolve()
@@ -38,7 +47,10 @@ const browseData = {
 
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    spotifyApi.getFeaturedPlaylists({ country: store.state.spotify.webapi_country, limit: 50 })
+    spotifyApi.getFeaturedPlaylists({
+      country: store.state.spotify.webapi_country,
+      limit: 50
+    })
   },
 
   set: function (vm, response) {
@@ -50,10 +62,27 @@ const browseData = {
 
 export default {
   name: 'SpotifyPageBrowseFeaturedPlaylists',
-  mixins: [LoadDataBeforeEnterMixin(browseData)],
-  components: { ContentWithHeading, TabsMusic, SpotifyListItemPlaylist, SpotifyModalDialogPlaylist },
+  components: {
+    ContentWithHeading,
+    TabsMusic,
+    SpotifyListItemPlaylist,
+    SpotifyModalDialogPlaylist
+  },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       show_playlist_details_modal: false,
       selected_playlist: {}
@@ -61,7 +90,7 @@ export default {
   },
 
   computed: {
-    featured_playlists () {
+    featured_playlists() {
       return this.$store.state.spotify_featured_playlists
     }
   },
@@ -75,5 +104,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

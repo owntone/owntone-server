@@ -1,31 +1,31 @@
 <template>
-  <div>
-    <tabs-music></tabs-music>
+  <div class="fd-page-with-tabs">
+    <tabs-music />
 
     <content-with-heading>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Recently played</p>
         <p class="heading">tracks</p>
       </template>
-      <template slot="content">
-        <list-tracks :tracks="recently_played.items"></list-tracks>
+      <template #content>
+        <list-tracks :tracks="recently_played.items" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import ListTracks from '@/components/ListTracks'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
 
-const browseData = {
+const dataObject = {
   load: function (to) {
     return webapi.search({
       type: 'track',
-      expression: 'time_played after 8 weeks ago and media_kind is music order by time_played desc',
+      expression:
+        'time_played after 8 weeks ago and media_kind is music order by time_played desc',
       limit: 50
     })
   },
@@ -37,10 +37,22 @@ const browseData = {
 
 export default {
   name: 'PageBrowseType',
-  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, ListTracks },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       recently_played: {}
     }
@@ -48,5 +60,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

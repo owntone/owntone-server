@@ -5,25 +5,49 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small">
             <ul>
-              <router-link tag="li" to="/settings/webinterface" active-class="is-active">
-                <a>
-                  <span class="">Webinterface</span>
-                </a>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/webinterface"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
+                  <a @click="navigate" @keypress.enter="navigate">
+                    <span class="">Webinterface</span>
+                  </a>
+                </li>
               </router-link>
-              <router-link tag="li" to="/settings/remotes-outputs" active-class="is-active">
-                <a>
-                  <span class="">Remotes &amp; Outputs</span>
-                </a>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/remotes-outputs"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
+                  <a @click="navigate" @keypress.enter="navigate">
+                    <span class="">Remotes &amp; Outputs</span>
+                  </a>
+                </li>
               </router-link>
-              <router-link tag="li" to="/settings/artwork" active-class="is-active">
-                <a>
-                  <span class="">Artwork</span>
-                </a>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/artwork"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
+                  <a @click="navigate" @keypress.enter="navigate">
+                    <span class="">Artwork</span>
+                  </a>
+                </li>
               </router-link>
-              <router-link tag="li" to="/settings/online-services" active-class="is-active">
-                <a>
-                  <span class="">Online Services</span>
-                </a>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/online-services"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
+                  <a @click="navigate" @keypress.enter="navigate">
+                    <span class="">Online Services</span>
+                  </a>
+                </li>
               </router-link>
             </ul>
           </div>
@@ -37,10 +61,8 @@
 export default {
   name: 'TabsSettings',
 
-  computed: {
-  }
+  computed: {}
 }
 </script>
 
-<style>
-</style>
+<style></style>

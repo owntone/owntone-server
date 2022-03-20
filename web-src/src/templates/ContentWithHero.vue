@@ -5,14 +5,17 @@
         <div class="container">
           <div class="columns is-centered">
             <div class="column is-four-fifths">
-              <div class="columns" style="flex-direction: row-reverse;">
+              <div class="columns" style="flex-direction: row-reverse">
                 <div class="column fd-has-cover">
                   <!-- Slot heading right -->
-                  <slot name="heading-right"></slot>
+                  <slot name="heading-right" />
                 </div>
-                <div class="column is-three-fifths has-text-centered-mobile" style="margin: auto 0;">
-                    <!-- Slot heading left -->
-                    <slot name="heading-left"></slot>
+                <div
+                  class="column is-three-fifths has-text-centered-mobile"
+                  style="margin: auto 0"
+                >
+                  <!-- Slot heading left -->
+                  <slot name="heading-left" />
                 </div>
               </div>
             </div>
@@ -25,10 +28,10 @@
         <div class="columns is-centered">
           <div class="column is-four-fifths">
             <!-- Slot content -->
-            <slot name="content"></slot>
-            <div style="margin-top: 16px;">
+            <slot name="content" />
+            <div style="margin-top: 16px">
               <!-- Slot footer -->
-              <slot name="footer"></slot>
+              <slot name="footer" />
             </div>
           </div>
         </div>
@@ -37,8 +40,6 @@
   </div>
 </template>
 
-<script>
-</script>
+<script></script>
 
-<style>
-</style>
+<style></style>

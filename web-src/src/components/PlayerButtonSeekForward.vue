@@ -1,6 +1,8 @@
 <template>
-  <a @click="seek" :disabled="disabled" v-if="visible">
-    <span class="icon"><i class="mdi mdi-fast-forward" :class="icon_style"></i></span>
+  <a v-if="visible" :disabled="disabled" @click="seek">
+    <span class="icon"
+      ><i class="mdi mdi-fast-forward" :class="icon_style"
+    /></span>
   </a>
 </template>
 
@@ -12,17 +14,21 @@ export default {
   props: ['seek_ms', 'icon_style'],
 
   computed: {
-    now_playing () {
+    now_playing() {
       return this.$store.getters.now_playing
     },
-    is_stopped () {
+    is_stopped() {
       return this.$store.state.player.state === 'stop'
     },
-    disabled () {
-      return !this.$store.state.queue || this.$store.state.queue.count <= 0 || this.is_stopped ||
-          this.now_playing.data_kind === 'pipe'
+    disabled() {
+      return (
+        !this.$store.state.queue ||
+        this.$store.state.queue.count <= 0 ||
+        this.is_stopped ||
+        this.now_playing.data_kind === 'pipe'
+      )
     },
-    visible () {
+    visible() {
       return ['podcast', 'audiobook'].includes(this.now_playing.media_kind)
     }
   },

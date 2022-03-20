@@ -1,20 +1,24 @@
 <template>
-  <div>
-    <tabs-music></tabs-music>
+  <div class="fd-page-with-tabs">
+    <tabs-music />
 
     <!-- Recently added -->
     <content-with-heading>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Recently added</p>
         <p class="heading">albums</p>
       </template>
-      <template slot="content">
-        <list-albums :albums="recently_added.items"></list-albums>
+      <template #content>
+        <list-albums :albums="recently_added" />
       </template>
-      <template slot="footer">
+      <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" v-on:click="open_browse('recently_added')">Show more</a>
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_browse('recently_added')"
+              >Show more</a
+            >
           </p>
         </nav>
       </template>
@@ -22,17 +26,21 @@
 
     <!-- Recently played -->
     <content-with-heading>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Recently played</p>
         <p class="heading">tracks</p>
       </template>
-      <template slot="content">
-        <list-tracks :tracks="recently_played.items"></list-tracks>
+      <template #content>
+        <list-tracks :tracks="recently_played.items" />
       </template>
-      <template slot="footer">
+      <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" v-on:click="open_browse('recently_played')">Show more</a>
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_browse('recently_played')"
+              >Show more</a
+            >
           </p>
         </nav>
       </template>
@@ -41,35 +49,58 @@
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import TabsMusic from '@/components/TabsMusic'
-import ListAlbums from '@/components/ListAlbums'
-import ListTracks from '@/components/ListTracks'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
-const browseData = {
+const dataObject = {
   load: function (to) {
     return Promise.all([
-      webapi.search({ type: 'album', expression: 'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc', limit: 3 }),
-      webapi.search({ type: 'track', expression: 'time_played after 8 weeks ago and media_kind is music order by time_played desc', limit: 3 })
+      webapi.search({
+        type: 'album',
+        expression:
+          'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
+        limit: 3
+      }),
+      webapi.search({
+        type: 'track',
+        expression:
+          'time_played after 8 weeks ago and media_kind is music order by time_played desc',
+        limit: 3
+      })
     ])
   },
 
   set: function (vm, response) {
-    vm.recently_added = response[0].data.albums
+    vm.recently_added = new GroupByList(response[0].data.albums)
     vm.recently_played = response[1].data.tracks
   }
 }
 
 export default {
   name: 'PageBrowse',
-  mixins: [LoadDataBeforeEnterMixin(browseData)],
   components: { ContentWithHeading, TabsMusic, ListAlbums, ListTracks },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
-      recently_added: { items: [] },
+      recently_added: [],
       recently_played: { items: [] },
 
       show_track_details_modal: false,
@@ -85,5 +116,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

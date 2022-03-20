@@ -1,6 +1,17 @@
 <template>
-  <a @click="toggle_repeat_mode" :class="{ 'is-warning': !is_repeat_off }">
-    <span class="icon"><i class="mdi" :class="[icon_style, { 'mdi-repeat': is_repeat_all, 'mdi-repeat-once': is_repeat_single, 'mdi-repeat-off': is_repeat_off }]"></i></span>
+  <a :class="{ 'is-warning': !is_repeat_off }" @click="toggle_repeat_mode">
+    <span class="icon"
+      ><i
+        class="mdi"
+        :class="[
+          icon_style,
+          {
+            'mdi-repeat': is_repeat_all,
+            'mdi-repeat-once': is_repeat_single,
+            'mdi-repeat-off': is_repeat_off
+          }
+        ]"
+    /></span>
   </a>
 </template>
 
@@ -15,13 +26,13 @@ export default {
   },
 
   computed: {
-    is_repeat_all () {
+    is_repeat_all() {
       return this.$store.state.player.repeat === 'all'
     },
-    is_repeat_single () {
+    is_repeat_single() {
       return this.$store.state.player.repeat === 'single'
     },
-    is_repeat_off () {
+    is_repeat_off() {
       return !this.is_repeat_all && !this.is_repeat_single
     }
   },
@@ -40,5 +51,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

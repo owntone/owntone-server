@@ -1,24 +1,25 @@
 <template>
   <div>
     <content-with-heading>
-      <template slot="heading-left">
+      <template #heading-left>
         <p class="title is-4">Radio</p>
       </template>
-      <template slot="content">
-        <p class="heading has-text-centered-mobile">{{ tracks.total }} tracks</p>
-        <list-tracks :tracks="tracks.items"></list-tracks>
+      <template #content>
+        <p class="heading has-text-centered-mobile">
+          {{ tracks.total }} tracks
+        </p>
+        <list-tracks :tracks="tracks.items" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListTracks from '@/components/ListTracks'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
 
-const streamsData = {
+const dataObject = {
   load: function (to) {
     return webapi.library_radio_streams()
   },
@@ -30,10 +31,22 @@ const streamsData = {
 
 export default {
   name: 'PageRadioStreams',
-  mixins: [LoadDataBeforeEnterMixin(streamsData)],
   components: { ContentWithHeading, ListTracks },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       tracks: { items: [] }
     }
@@ -41,5 +54,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>

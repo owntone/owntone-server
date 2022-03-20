@@ -1,22 +1,23 @@
 <template>
   <content-with-heading>
-    <template slot="heading-left">
-      <p class="title is-4">{{ playlist.name }}</p>
+    <template #heading-left>
+      <p class="title is-4">
+        {{ playlist.name }}
+      </p>
       <p class="heading">{{ playlists.total }} playlists</p>
     </template>
-    <template slot="content">
-      <list-playlists :playlists="playlists.items"></list-playlists>
+    <template #content>
+      <list-playlists :playlists="playlists.items" />
     </template>
   </content-with-heading>
 </template>
 
 <script>
-import { LoadDataBeforeEnterMixin } from './mixin'
-import ContentWithHeading from '@/templates/ContentWithHeading'
-import ListPlaylists from '@/components/ListPlaylists'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
 
-const playlistsData = {
+const dataObject = {
   load: function (to) {
     return Promise.all([
       webapi.library_playlist(to.params.playlist_id),
@@ -32,10 +33,22 @@ const playlistsData = {
 
 export default {
   name: 'PagePlaylists',
-  mixins: [LoadDataBeforeEnterMixin(playlistsData)],
   components: { ContentWithHeading, ListPlaylists },
 
-  data () {
+  beforeRouteEnter(to, from, next) {
+    dataObject.load(to).then((response) => {
+      next((vm) => dataObject.set(vm, response))
+    })
+  },
+  beforeRouteUpdate(to, from, next) {
+    const vm = this
+    dataObject.load(to).then((response) => {
+      dataObject.set(vm, response)
+      next()
+    })
+  },
+
+  data() {
     return {
       playlist: {},
       playlists: {}
@@ -44,5 +57,4 @@ export default {
 }
 </script>
 
-<style>
-</style>
+<style></style>
