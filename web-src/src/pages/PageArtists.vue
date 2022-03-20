@@ -142,7 +142,7 @@ export default {
       )
       this.artists_list.group(groupBy.options, [
         (artist) =>
-          !this.hide_singles || artist.track_count <= artist.album_count * 2,
+          !this.hide_singles || artist.track_count > artist.album_count * 2,
         (artist) => !this.hide_spotify || artist.data_kind !== 'spotify'
       ])
 

@@ -142,7 +142,7 @@ export default {
         (o) => o.name === this.selected_groupby_option_name
       )
       this.albums_list.group(groupBy.options, [
-        (album) => !this.hide_singles || album.track_count <= 2,
+        (album) => !this.hide_singles || album.track_count > 2,
         (album) => !this.hide_spotify || album.data_kind !== 'spotify'
       ])
 
