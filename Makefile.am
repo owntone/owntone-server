@@ -23,12 +23,14 @@ dist_man_MANS = owntone.8
 nobase_dist_doc_DATA = \
 	UPGRADING \
 	README.md \
-	README_JSON_API.md \
-	README_PULSE.md \
-	README_ALSA.md \
-	README_SMARTPL.md \
-	README_PLAYER_WEBINTERFACE.md \
-	README_RADIO_STREAMS.md \
+	docs/index.md \
+	docs/documentation.md \
+	docs/installation.md \
+	docs/outputs-pulse.md \
+	docs/outputs-alsa.md \
+	docs/smart-playlists.md \
+	docs/web-interface.md \
+	docs/radio-streams.md \
 	scripts/pairinghelper.sh
 
 EXTRA_DIST = \
