@@ -194,10 +194,13 @@ int smartpl_lex_parse(struct smartpl_result *result, const char *input);
 #endif
 }
 
-/* Definition of struct that will hold the parsing result */
+/* Definition of struct that will hold the parsing result
+ * Some users have sizeable smart playlists, e.g. listing many artist names,
+ * which translate to sizeable sql queries.
+ */
 %code requires {
 struct result_part {
-  char str[512];
+  char str[4096];
   int offset;
 };
 
