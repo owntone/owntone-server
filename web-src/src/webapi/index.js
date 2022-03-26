@@ -297,6 +297,10 @@ export default {
   },
 
   library_genre(genre) {
+    return axios.get(`./api/library/genres/${encodeURIComponent(genre)}`)
+  },
+
+  library_genre_albums(genre) {
     const genreParams = {
       type: 'albums',
       media_kind: 'music',

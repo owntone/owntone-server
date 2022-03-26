@@ -6,7 +6,7 @@
       </template>
       <template #heading-left>
         <p class="title is-4">
-          {{ genre }}
+          {{ genre.name }}
         </p>
       </template>
       <template #heading-right>
@@ -27,13 +27,15 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          <a class="has-text-link" @click="open_genre">albums</a> |
-          {{ tracks.total }} tracks
+          <a class="has-text-link" @click="open_genre"
+            >{{ genre.album_count }} albums</a
+          >
+          | {{ genre.track_count }} tracks
         </p>
         <list-tracks :tracks="tracks.items" :expression="expression" />
         <modal-dialog-genre
           :show="show_genre_details_modal"
-          :genre="{ name: genre }"
+          :genre="genre"
           @close="show_genre_details_modal = false"
         />
       </template>
@@ -50,12 +52,15 @@ import webapi from '@/webapi'
 
 const dataObject = {
   load: function (to) {
-    return webapi.library_genre_tracks(to.params.genre)
+    return Promise.all([
+      webapi.library_genre(to.params.genre),
+      webapi.library_genre_tracks(to.params.genre)
+    ])
   },
 
   set: function (vm, response) {
-    vm.genre = vm.$route.params.genre
-    vm.tracks = response.data.tracks
+    vm.genre = response[0].data
+    vm.tracks = response[1].data.tracks
   }
 }
 
@@ -102,14 +107,14 @@ export default {
     },
 
     expression() {
-      return 'genre is "' + this.genre + '" and media_kind is music'
+      return 'genre is "' + this.genre.name + '" and media_kind is music'
     }
   },
 
   methods: {
     open_genre: function () {
       this.show_details_modal = false
-      this.$router.push({ name: 'Genre', params: { genre: this.genre } })
+      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
     },
 
     play: function () {

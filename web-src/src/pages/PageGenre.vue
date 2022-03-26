@@ -6,7 +6,7 @@
       </template>
       <template #heading-left>
         <p class="title is-4">
-          {{ name }}
+          {{ genre.name }}
         </p>
       </template>
       <template #heading-right>
@@ -27,13 +27,15 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          {{ albums_list.total }} albums |
-          <a class="has-text-link" @click="open_tracks">tracks</a>
+          {{ genre.album_count }} albums |
+          <a class="has-text-link" @click="open_tracks"
+            >{{ genre.track_count }} tracks</a
+          >
         </p>
         <list-albums :albums="albums_list" />
         <modal-dialog-genre
           :show="show_genre_details_modal"
-          :genre="{ name: name }"
+          :genre="genre"
           @close="show_genre_details_modal = false"
         />
       </template>
@@ -51,12 +53,15 @@ import { bySortName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
-    return webapi.library_genre(to.params.genre)
+    return Promise.all([
+      webapi.library_genre(to.params.genre),
+      webapi.library_genre_albums(to.params.genre)
+    ])
   },
 
   set: function (vm, response) {
-    vm.name = vm.$route.params.genre
-    vm.albums_list = new GroupByList(response.data.albums)
+    vm.genre = response[0].data
+    vm.albums_list = new GroupByList(response[1].data.albums)
     vm.albums_list.group(bySortName('name_sort'))
   }
 }
@@ -89,7 +94,7 @@ export default {
 
   data() {
     return {
-      name: '',
+      genre: {},
       albums_list: new GroupByList(),
 
       show_genre_details_modal: false
@@ -99,12 +104,15 @@ export default {
   methods: {
     open_tracks: function () {
       this.show_details_modal = false
-      this.$router.push({ name: 'GenreTracks', params: { genre: this.name } })
+      this.$router.push({
+        name: 'GenreTracks',
+        params: { genre: this.genre.name }
+      })
     },
 
     play: function () {
       webapi.player_play_expression(
-        'genre is "' + this.name + '" and media_kind is music',
+        'genre is "' + this.genre.name + '" and media_kind is music',
         true
       )
     }

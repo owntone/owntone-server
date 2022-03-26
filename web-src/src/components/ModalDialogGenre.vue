@@ -11,6 +11,22 @@
                   genre.name
                 }}</a>
               </p>
+              <div class="content is-small">
+                <p>
+                  <span class="heading">Albums</span>
+                  <span class="title is-6">{{ genre.album_count }}</span>
+                </p>
+                <p>
+                  <span class="heading">Tracks</span>
+                  <span class="title is-6">{{ genre.track_count }}</span>
+                </p>
+                <p>
+                  <span class="heading">Length</span>
+                  <span class="title is-6">{{
+                    $filters.duration(genre.length_ms)
+                  }}</span>
+                </p>
+              </div>
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
