@@ -27,7 +27,7 @@ import { byName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
-    return webapi.library_composers()
+    return webapi.library_composers('music')
   },
 
   set: function (vm, response) {

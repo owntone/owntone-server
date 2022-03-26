@@ -9,7 +9,7 @@
     </div>
     <div v-else-if="album.isItem" class="media" @click="open_album(album.item)">
       <div v-if="is_visible_artwork" class="media-left fd-has-action">
-        <p class="image is-64x64 fd-has-shadow fd-has-action">
+        <div class="image is-64x64 fd-has-shadow fd-has-action">
           <figure>
             <img
               v-lazy="{
@@ -20,7 +20,7 @@
               :artist="album.item.artist"
             />
           </figure>
-        </p>
+        </div>
       </div>
       <div class="media-content fd-has-action is-clipped">
         <div style="margin-top: 0.7rem">

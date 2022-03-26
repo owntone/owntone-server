@@ -292,8 +292,10 @@ export default {
     })
   },
 
-  library_genres() {
-    return axios.get('./api/library/genres')
+  library_genres(media_kind = undefined) {
+    return axios.get('./api/library/genres', {
+      params: { media_kind: media_kind }
+    })
   },
 
   library_genre(genre) {
@@ -303,8 +305,7 @@ export default {
   library_genre_albums(genre) {
     const genreParams = {
       type: 'albums',
-      media_kind: 'music',
-      expression: 'genre is "' + genre + '"'
+      expression: `genre is "${genre}" and media_kind is music`
     }
     return axios.get('./api/search', {
       params: genreParams
@@ -314,8 +315,7 @@ export default {
   library_genre_tracks(genre) {
     const genreParams = {
       type: 'tracks',
-      media_kind: 'music',
-      expression: 'genre is "' + genre + '"'
+      expression: `genre is "${genre}" and media_kind is music`
     }
     return axios.get('./api/search', {
       params: genreParams
@@ -333,8 +333,10 @@ export default {
     })
   },
 
-  library_composers() {
-    return axios.get('./api/library/composers')
+  library_composers(media_kind = undefined) {
+    return axios.get('./api/library/composers', {
+      params: { media_kind: media_kind }
+    })
   },
 
   library_composer(composer) {
@@ -344,8 +346,7 @@ export default {
   library_composer_albums(composer) {
     const params = {
       type: 'albums',
-      media_kind: 'music',
-      expression: 'composer is "' + composer + '"'
+      expression: `composer is "${composer}" and media_kind is music`
     }
     return axios.get('./api/search', {
       params: params
@@ -355,8 +356,7 @@ export default {
   library_composer_tracks(composer) {
     const params = {
       type: 'tracks',
-      media_kind: 'music',
-      expression: 'composer is "' + composer + '"'
+      expression: `composer is "${composer}" and media_kind is music`
     }
     return axios.get('./api/search', {
       params: params
