@@ -3,7 +3,7 @@
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4">
-          {{ name }}
+          {{ composer.name }}
         </p>
       </template>
       <template #heading-right>
@@ -24,14 +24,16 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          {{ albums_list.total }} albums |
-          <a class="has-text-link" @click="open_tracks">tracks</a>
+          {{ composer.album_count }} albums |
+          <a class="has-text-link" @click="open_tracks"
+            >{{ composer.track_count }} tracks</a
+          >
         </p>
         <list-albums :albums="albums_list" :hide_group_title="true" />
 
         <modal-dialog-composer
           :show="show_composer_details_modal"
-          :composer="{ name: name }"
+          :composer="composer"
           @close="show_composer_details_modal = false"
         />
       </template>
@@ -48,12 +50,15 @@ import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
-    return webapi.library_composer(to.params.composer)
+    return Promise.all([
+      webapi.library_composer(to.params.composer),
+      webapi.library_composer_albums(to.params.composer)
+    ])
   },
 
   set: function (vm, response) {
-    vm.name = vm.$route.params.composer
-    vm.albums_list = new GroupByList(response.data.albums)
+    vm.composer = response[0].data
+    vm.albums_list = new GroupByList(response[1].data.albums)
   }
 }
 
@@ -80,7 +85,7 @@ export default {
 
   data() {
     return {
-      name: '',
+      composer: {},
       albums_list: new GroupByList(),
       show_composer_details_modal: false
     }
@@ -90,13 +95,13 @@ export default {
     open_tracks: function () {
       this.$router.push({
         name: 'ComposerTracks',
-        params: { composer: this.name }
+        params: { composer: this.composer.name }
       })
     },
 
     play: function () {
       webapi.player_play_expression(
-        'composer is "' + this.name + '" and media_kind is music',
+        'composer is "' + this.composer.name + '" and media_kind is music',
         true
       )
     }

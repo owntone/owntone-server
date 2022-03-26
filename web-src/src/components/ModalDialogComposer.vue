@@ -23,6 +23,12 @@
                   composer.track_count
                 }}</a>
               </p>
+              <p>
+                <span class="heading">Length</span>
+                <span class="title is-6">{{
+                  $filters.duration(composer.length_ms)
+                }}</span>
+              </p>
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">

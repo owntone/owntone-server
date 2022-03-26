@@ -338,6 +338,10 @@ export default {
   },
 
   library_composer(composer) {
+    return axios.get(`./api/library/composers/${encodeURIComponent(composer)}`)
+  },
+
+  library_composer_albums(composer) {
     const params = {
       type: 'albums',
       media_kind: 'music',
