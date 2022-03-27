@@ -883,12 +883,17 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 void
 httpd_uri_free(struct httpd_uri_parsed *parsed)
 {
+  int i;
+
   if (!parsed)
     return;
 
   free(parsed->uri_decoded);
   free(parsed->path);
-  free(parsed->path_parts[0]);
+  for (i = 0; i < ARRAY_SIZE(parsed->path_parts); i++)
+    {
+      free(parsed->path_parts[i]);
+    }
 
   evhttp_clear_headers(&(parsed->ev_query));
 
@@ -902,8 +907,9 @@ struct httpd_uri_parsed *
 httpd_uri_parse(const char *uri)
 {
   struct httpd_uri_parsed *parsed;
-  const char *path;
+  char *path = NULL;
   const char *query;
+  char *path_part;
   char *ptr;
   int i;
   int ret;
@@ -937,7 +943,7 @@ httpd_uri_parse(const char *uri)
 	}
     }
 
-  path = evhttp_uri_get_path(parsed->ev_uri);
+  path = strdup(evhttp_uri_get_path(parsed->ev_uri));
   if (!path)
     {
       DPRINTF(E_WARN, L_HTTPD, "No path in request: '%s'\n", parsed->uri);
@@ -951,23 +957,26 @@ httpd_uri_parse(const char *uri)
       goto error;
     }
 
-  CHECK_NULL(L_HTTPD, parsed->path_parts[0] = strdup(parsed->path));
-
-  strtok_r(parsed->path_parts[0], "/", &ptr);
-  for (i = 1; (i < sizeof(parsed->path_parts) / sizeof(parsed->path_parts[0])) && parsed->path_parts[i - 1]; i++)
+  path_part = strtok_r(path, "/", &ptr);
+  for (i = 0; (i < ARRAY_SIZE(parsed->path_parts) && path_part); i++)
     {
-      parsed->path_parts[i] = strtok_r(NULL, "/", &ptr);
+      parsed->path_parts[i] = evhttp_uridecode(path_part, 0, NULL);
+      path_part = strtok_r(NULL, "/", &ptr);
     }
 
-  if (!parsed->path_parts[0] || parsed->path_parts[i - 1] || (i < 2))
+  if (path_part)
     {
-      DPRINTF(E_LOG, L_HTTPD, "URI path has too many/few components (%d): '%s'\n", (parsed->path_parts[0]) ? i : 0, parsed->path);
+      // If "path_part" is not NULL, we have path tokens that could not be parsed into the "parsed->path_parts" array
+      DPRINTF(E_LOG, L_HTTPD, "URI path has too many components (%d): '%s'\n", i, parsed->path);
       goto error;
     }
+
+  free(path);
 
   return parsed;
 
  error:
+  free(path);
   httpd_uri_free(parsed);
   return NULL;
 }

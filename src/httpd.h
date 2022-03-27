@@ -23,10 +23,9 @@ enum httpd_send_flags
  *
  * We are interested in the path and the query, so they are disassembled to
  * path_parts and ev_query. If the request is http://x:3689/foo/bar?key1=val1,
- * then part_parts[1] is "foo", [2] is "bar" and the rest is null (the first
- * element points to the copy of the path so it can be freed).
+ * then part_parts[0] is "foo", [1] is "bar" and the rest is null.
  *
- * The allocated strings are URI decoded.
+ * Each path_part is an allocated URI decoded string.
  */
 struct httpd_uri_parsed
 {
