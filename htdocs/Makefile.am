@@ -21,9 +21,4 @@ htdocsassetsdir = $(datadir)/owntone/htdocs/assets
 
 dist_htdocsassets_DATA = \
 	assets/index.css \
-	assets/index.js \
-	assets/materialdesignicons-webfont.svg \
-	assets/materialdesignicons-webfont.ttf \
-	assets/materialdesignicons-webfont.woff2 \
-	assets/materialdesignicons-webfont.woff \
-	assets/materialdesignicons-webfont.eot
+	assets/index.js
