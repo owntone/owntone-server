@@ -26,7 +26,7 @@
             </p>
           </template>
           <template #actions>
-            <a @click="open_album_dialog(album)">
+            <a @click.prevent.stop="open_album_dialog(album)">
               <span class="icon has-text-dark"
                 ><i class="mdi mdi-dots-vertical mdi-18px"
               /></span>
@@ -65,7 +65,7 @@
           :playlist="playlist"
         >
           <template #actions>
-            <a @click="open_playlist_dialog(playlist)">
+            <a @click.prevent.stop="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"
                 ><i class="mdi mdi-dots-vertical mdi-18px"
               /></span>

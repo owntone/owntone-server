@@ -53,7 +53,7 @@
           :context_uri="track.uri"
         >
           <template #actions>
-            <a @click="open_track_dialog(track)">
+            <a @click.prevent.stop="open_track_dialog(track)">
               <span class="icon has-text-dark"
                 ><i class="mdi mdi-dots-vertical mdi-18px"
               /></span>
@@ -103,7 +103,7 @@
           :artist="artist"
         >
           <template #actions>
-            <a @click="open_artist_dialog(artist)">
+            <a @click.prevent.stop="open_artist_dialog(artist)">
               <span class="icon has-text-dark"
                 ><i class="mdi mdi-dots-vertical mdi-18px"
               /></span>
@@ -164,7 +164,7 @@
             </p>
           </template>
           <template #actions>
-            <a @click="open_album_dialog(album)">
+            <a @click.prevent.stop="open_album_dialog(album)">
               <span class="icon has-text-dark"
                 ><i class="mdi mdi-dots-vertical mdi-18px"
               /></span>
@@ -213,7 +213,7 @@
           :playlist="playlist"
         >
           <template #actions>
-            <a @click="open_playlist_dialog(playlist)">
+            <a @click.prevent.stop="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"
                 ><i class="mdi mdi-dots-vertical mdi-18px"
               /></span>
