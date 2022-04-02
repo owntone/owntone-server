@@ -378,6 +378,7 @@ AC_CONFIG_FILES([
 	src/Makefile
 	sqlext/Makefile
 	htdocs/Makefile
+	web-src/Makefile
 	Makefile
 	owntone.spec
 ])

@@ -58,7 +58,7 @@ jobs:
         brew install ffmpeg
 
     - name: Install other dependencies
-      run: brew install libunistring libmxml confuse libplist sqlite libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
+      run: brew install libunistring libmxml confuse libplist sqlite libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl node
 
     - name: Configure
       run: |
@@ -72,6 +72,7 @@ jobs:
         export LD_LIBRARY_PATH=$(brew --prefix openssl)/lib
         export CPATH=$(brew --prefix openssl)/include
         export PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig
+        make web-build
         make
 
     - name: Install

@@ -16,7 +16,13 @@ endif
 
 BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE) $(SYSTEMD_TSERVICE_FILE)
 
-SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src htdocs
+if COND_WEBINTERFACE
+WEBINTERFACE_HTDOCS_SUBDIR = htdocs
+WEBINTERFACE_SRC_SUBDIR = web-src
+endif
+
+SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src $(WEBINTERFACE_HTDOCS_SUBDIR)
+DIST_SUBDIRS = $(SUBDIRS) $(WEBINTERFACE_SRC_SUBDIR)
 
 dist_man_MANS = owntone.8
 
@@ -100,3 +106,18 @@ $(CONF_FILE): $(srcdir)/$(CONF_FILE).in
 $(SYSTEMD_SERVICE_FILE): $(srcdir)/$(SYSTEMD_SERVICE_FILE).in
 
 $(SYSTEMD_TSERVICE_FILE): $(srcdir)/$(SYSTEMD_TSERVICE_FILE).in
+
+web-build:
+	$(MAKE) web-build -C web-src
+
+web-clean:
+	$(MAKE) web-clean -C web-src
+
+web-serve:
+	$(MAKE) web-serve -C web-src
+
+web-dist: web-build
+	tar -czf owntone-web-$(PACKAGE_VERSION).tar.gz htdocs
+
+.PHONY: web-build web-clean web-serve web-dist
+
