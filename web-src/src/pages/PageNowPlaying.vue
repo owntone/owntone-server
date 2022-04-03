@@ -14,6 +14,7 @@
         <div class="container has-text-centered">
           <p class="control has-text-centered fd-progress-now-playing">
             <Slider
+              ref="slider"
               v-model="item_progress_ms"
               :min="0"
               :max="state.item_length_ms"
@@ -22,6 +23,8 @@
               :disabled="state.state === 'stop'"
               :classes="{ target: 'seek-slider' }"
               @change="seek"
+              @start="start_dragging"
+              @end="end_dragging"
             />
             <!--range-slider
               class="seek-slider fd-has-action"
@@ -101,6 +104,7 @@ export default {
     return {
       item_progress_ms: 0,
       interval_id: 0,
+      is_dragged: false,
 
       show_details_modal: false,
       selected_item: {}
@@ -157,6 +161,10 @@ export default {
     }
   },
 
+  mounted: function () {
+    console.log(this.$refs.slider)
+  },
+
   created() {
     this.item_progress_ms = this.state.item_progress_ms
     webapi.player_status().then(({ data }) => {
@@ -176,7 +184,19 @@ export default {
 
   methods: {
     tick: function () {
-      this.item_progress_ms += 1000
+      if (!this.is_dragged) {
+        this.item_progress_ms += 1000
+      }
+    },
+
+    start_dragging: function () {
+      console.log('@start')
+      this.is_dragged = true
+    },
+
+    end_dragging: function () {
+      console.log('@end')
+      this.is_dragged = false
     },
 
     seek: function (newPosition) {

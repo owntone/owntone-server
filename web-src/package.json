@@ -12,7 +12,7 @@
   "dependencies": {
     "@aacassandra/vue3-progressbar": "^1.0.3",
     "@ts-pro/vue-eternal-loading": "^1.2.0",
-    "@vueform/slider": "^2.0.9",
+    "@vueform/slider": "github:chme/slider#feat/events-start-end-dist",
     "axios": "^0.26.1",
     "bulma": "^0.9.3",
     "bulma-switch": "^2.0.4",
