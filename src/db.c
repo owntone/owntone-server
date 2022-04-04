@@ -1192,12 +1192,16 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 	    *tag = strdup("");
 	  }
 
+	if (ctx->mfi && ctx->mfi->compilation && (ca = cfg_getstr(cfg_getsec(cfg, "library"), "compilation_artist")))
+	  {
+	    free(*tag);
+	    *tag = strdup(ca); // If ca is empty string then the artist will not be shown in artist view
+	  }
+
 	if (*tag)
 	  break;
 
-	if (ctx->mfi && ctx->mfi->compilation && (ca = cfg_getstr(cfg_getsec(cfg, "library"), "compilation_artist")))
-	  *tag = strdup(ca); // If ca is empty string then the artist will not be shown in artist view
-	else if (ctx->mfi && ctx->mfi->artist)
+	if (ctx->mfi && ctx->mfi->artist)
 	  *tag = strdup(ctx->mfi->artist);
 	else if (ctx->qi && ctx->qi->artist)
 	  *tag = strdup(ctx->qi->artist);
