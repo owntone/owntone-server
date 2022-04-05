@@ -1561,15 +1561,18 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
   else
     {
       mfi->album_artist = safe_strdup(track->album_artist);
-      if (cfg_getbool(cfg_getsec(cfg, "spotify"), "album_override") && pl_name)
-	mfi->album = safe_strdup(pl_name);
-      else
-	mfi->album = safe_strdup(track->album);
+      mfi->album = safe_strdup(track->album);
+      mfi->compilation = track->is_compilation;
+    }
 
-      if (cfg_getbool(cfg_getsec(cfg, "spotify"), "artist_override") && pl_name)
-	mfi->compilation =  true;
-      else
-	mfi->compilation = track->is_compilation;
+  if (cfg_getbool(cfg_getsec(cfg, "spotify"), "album_override") && pl_name)
+    {
+      free(mfi->album);
+      mfi->album = safe_strdup(pl_name);
+    }
+  if (cfg_getbool(cfg_getsec(cfg, "spotify"), "artist_override") && pl_name)
+    {
+      mfi->compilation = true;
     }
 
   if (mfi->media_kind == MEDIA_KIND_PODCAST)
@@ -1815,11 +1818,11 @@ saved_playlist_tracks_add(json_object *item, int index, int total, enum spotify_
   struct spotify_album album;
   json_object *jsontrack;
   json_object *jsonalbum;
-  int *plid;
+  struct playlist_info *pli;
   int dir_id;
   int ret;
 
-  plid = arg;
+  pli = arg;
 
   if (!(item && json_object_object_get_ex(item, "track", &jsontrack)))
     {
@@ -1837,7 +1840,8 @@ saved_playlist_tracks_add(json_object *item, int index, int total, enum spotify_
       return 0;
     }
 
-  if (json_object_object_get_ex(jsontrack, "album", &jsonalbum))
+  if (!cfg_getbool(cfg_getsec(cfg, "spotify"), "album_override")
+      && json_object_object_get_ex(jsontrack, "album", &jsonalbum))
     {
       parse_metadata_album(jsonalbum, &album, 0);
     }
@@ -1847,20 +1851,20 @@ saved_playlist_tracks_add(json_object *item, int index, int total, enum spotify_
     }
 
   dir_id = prepare_directories(track.album_artist, track.album);
-  ret = track_add(&track, &album, NULL, dir_id, request_type);
+  ret = track_add(&track, &album, pli->title, dir_id, request_type);
   if (ret == 0)
-    db_pl_add_item_bypath(*plid, track.uri);
+    db_pl_add_item_bypath(pli->id, track.uri);
 
   return 0;
 }
 
 /* Thread: library */
 static int
-scan_playlist_tracks(const char *playlist_tracks_endpoint_uri, int plid, enum spotify_request_type request_type)
+scan_playlist_tracks(const char *playlist_tracks_endpoint_uri, struct playlist_info *pli, enum spotify_request_type request_type)
 {
   int ret;
 
-  ret = request_pagingobject_endpoint(playlist_tracks_endpoint_uri, saved_playlist_tracks_add, transaction_start, transaction_end, true, request_type, &plid);
+  ret = request_pagingobject_endpoint(playlist_tracks_endpoint_uri, saved_playlist_tracks_add, transaction_start, transaction_end, true, request_type, pli);
 
   return ret;
 }
@@ -1908,13 +1912,14 @@ saved_playlist_add(json_object *item, int index, int total, enum spotify_request
   map_playlist_to_pli(&pli, &playlist);
 
   pl_id = playlist_add_or_update(&pli);
-
-  free_pli(&pli, 1);
+  pli.id = pl_id;
 
   if (pl_id > 0)
-    scan_playlist_tracks(playlist.tracks_href, pl_id, request_type);
+    scan_playlist_tracks(playlist.tracks_href, &pli, request_type);
   else
     DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist: '%s' (%s) \n", playlist.name, playlist.uri);
+
+  free_pli(&pli, 1);
 
   DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved playlists\n", (index + 1), total);
 
