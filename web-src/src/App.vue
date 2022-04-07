@@ -32,7 +32,7 @@ import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
 import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import ReconnectingWebSocket from 'reconnectingwebsocket'
+import ReconnectingWebSocket from 'reconnecting-websocket'
 import moment from 'moment'
 
 export default {
@@ -180,8 +180,8 @@ export default {
       }
 
       const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
-        reconnectInterval: 1000,
-        maxReconnectInterval: 2000
+        minReconnectionDelay: 1000,
+        maxReconnectionDelay: 2000
       })
 
       socket.onopen = function () {
@@ -245,6 +245,8 @@ export default {
         if (update_throttled) {
           return
         }
+
+        socket.reconnect()
 
         vm.update_outputs()
         vm.update_player_status()
