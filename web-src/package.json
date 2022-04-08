@@ -19,7 +19,7 @@
     "mdi": "^2.2.43",
     "moment": "^2.29.1",
     "moment-duration-format": "^2.3.2",
-    "reconnectingwebsocket": "^1.0.0",
+    "reconnecting-websocket": "^4.4.0",
     "spotify-web-api-js": "^1.5.2",
     "string-to-color": "^2.2.2",
     "vue": "^3.2.31",
