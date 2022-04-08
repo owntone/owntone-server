@@ -378,6 +378,12 @@ playlist_to_json(struct db_playlist_info *dbpli)
       json_object_object_add(item, "random", json_object_new_boolean(boolval));
 
       json_object_object_add(item, "folder", json_object_new_boolean(intval == PL_FOLDER));
+
+      if (intval != PL_FOLDER)
+	{
+	  safe_json_add_int_from_string(item, "item_count", dbpli->items);
+	  safe_json_add_int_from_string(item, "stream_count", dbpli->streams);
+	}
     }
 
   ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "playlist", dbpli->id);
@@ -855,6 +861,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
 	}
     }
   json_object_object_add(jreply, "directories", directories);
+  json_object_object_add(jreply, "radio_playlists", json_object_new_boolean(cfg_getbool(lib, "radio_playlists")));
 
   // Config for creating/modifying stored playlists
   json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(allow_modifying_stored_playlists));
