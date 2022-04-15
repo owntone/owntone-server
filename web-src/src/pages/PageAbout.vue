@@ -61,20 +61,15 @@
                   <tr>
                     <th>Total playtime</th>
                     <td class="has-text-right">
-                      {{
-                        $filters.duration(
-                          library.db_playtime * 1000,
-                          'y [years], d [days], h [hours], m [minutes]'
-                        )
-                      }}
+                      {{ $filters.durationInDays(library.db_playtime * 1000) }}
                     </td>
                   </tr>
                   <tr>
                     <th>Library updated</th>
                     <td class="has-text-right">
-                      {{ $filters.timeFromNow(library.updated_at) }}
+                      {{ $filters.timeFromNow(library.updated_at) }} ago
                       <span class="has-text-grey"
-                        >({{ $filters.time(library.updated_at, 'lll') }})</span
+                        >({{ $filters.datetime(library.updated_at) }})</span
                       >
                     </td>
                   </tr>
@@ -83,7 +78,7 @@
                     <td class="has-text-right">
                       {{ $filters.timeFromNow(library.started_at, true) }}
                       <span class="has-text-grey"
-                        >({{ $filters.time(library.started_at, 'll') }})</span
+                        >({{ $filters.datetime(library.started_at) }})</span
                       >
                     </td>
                   </tr>

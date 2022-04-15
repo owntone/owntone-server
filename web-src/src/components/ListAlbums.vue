@@ -34,7 +34,7 @@
             v-if="album.item.date_released && album.item.media_kind === 'music'"
             class="subtitle is-7 has-text-grey has-text-weight-normal"
           >
-            {{ $filters.time(album.item.date_released, 'L') }}
+            {{ $filters.date(album.item.date_released) }}
           </h2>
         </div>
       </div>

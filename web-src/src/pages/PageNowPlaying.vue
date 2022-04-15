@@ -38,8 +38,8 @@
           </p>
           <p class="content">
             <span
-              >{{ $filters.duration(item_progress_ms) }} /
-              {{ $filters.duration(now_playing.length_ms) }}</span
+              >{{ $filters.durationInHours(item_progress_ms) }} /
+              {{ $filters.durationInHours(now_playing.length_ms) }}</span
             >
           </p>
         </div>

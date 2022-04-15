@@ -1,25 +1,47 @@
-import moment from 'moment'
-import momentDurationFormatSetup from 'moment-duration-format'
-
-momentDurationFormatSetup(moment)
+import { DateTime, Duration } from 'luxon'
 
 export const filters = {
-  duration: function (value, format) {
-    if (format) {
-      return moment.duration(value).format(format)
+  durationInHours: function (value_ms) {
+    const seconds = Math.floor(value_ms / 1000)
+    if (seconds > 3600) {
+      return Duration.fromObject({ seconds: seconds })
+        .shiftTo('hours', 'minutes', 'seconds')
+        .toFormat('hh:mm:ss')
     }
-    return moment.duration(value).format('hh:*mm:ss')
+    return Duration.fromObject({ seconds: seconds })
+      .shiftTo('minutes', 'seconds')
+      .toFormat('mm:ss')
   },
 
-  time: function (value, format) {
-    if (format) {
-      return moment(value).format(format)
+  durationInDays: function (value_ms) {
+    const minutes = Math.floor(value_ms / 60000)
+    if (minutes > 1440) {
+      // 60 * 24
+      return Duration.fromObject({ minutes: minutes })
+        .shiftTo('days', 'hours', 'minutes')
+        .toHuman()
+    } else if (minutes > 60) {
+      return Duration.fromObject({ minutes: minutes })
+        .shiftTo('hours', 'minutes')
+        .toHuman()
     }
-    return moment(value).format()
+    return Duration.fromObject({ minutes: minutes })
+      .shiftTo('minutes')
+      .toHuman()
   },
 
-  timeFromNow: function (value, withoutSuffix) {
-    return moment(value).fromNow(withoutSuffix)
+  date: function (value) {
+    return DateTime.fromISO(value).toLocaleString(DateTime.DATE_FULL)
+  },
+
+  datetime: function (value) {
+    return DateTime.fromISO(value).toLocaleString(DateTime.DATETIME_MED)
+  },
+
+  timeFromNow: function (value) {
+    var diff = DateTime.now().diff(DateTime.fromISO(value))
+
+    return this.durationInDays(diff.as('milliseconds'))
   },
 
   number: function (value) {

@@ -23,7 +23,7 @@
                 <p>
                   <span class="heading">Length</span>
                   <span class="title is-6">{{
-                    $filters.duration(genre.length_ms)
+                    $filters.durationInHours(genre.length_ms)
                   }}</span>
                 </p>
               </div>
