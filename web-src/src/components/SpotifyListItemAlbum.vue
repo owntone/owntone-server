@@ -11,7 +11,7 @@
         <b>{{ album.artists[0].name }}</b>
       </h2>
       <h2 class="subtitle is-7 has-text-grey has-text-weight-normal">
-        ({{ album.album_type }}, {{ $filters.time(album.release_date, 'L') }})
+        ({{ album.album_type }}, {{ $filters.date(album.release_date) }})
       </h2>
     </div>
     <div class="media-right">

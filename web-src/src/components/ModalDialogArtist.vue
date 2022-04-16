@@ -27,7 +27,7 @@
                 <p>
                   <span class="heading">Added at</span>
                   <span class="title is-6">{{
-                    $filters.time(artist.time_added, 'L LT')
+                    $filters.datetime(artist.time_added)
                   }}</span>
                 </p>
               </div>

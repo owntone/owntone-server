@@ -28,7 +28,7 @@
                 <p>
                   <span class="heading">Release date</span>
                   <span class="title is-6">{{
-                    $filters.time(album.release_date, 'L')
+                    $filters.date(album.release_date)
                   }}</span>
                 </p>
                 <p>
@@ -40,7 +40,7 @@
                 <p>
                   <span class="heading">Length</span>
                   <span class="title is-6">{{
-                    $filters.duration(track.duration_ms)
+                    $filters.durationInHours(track.duration_ms)
                   }}</span>
                 </p>
                 <p>

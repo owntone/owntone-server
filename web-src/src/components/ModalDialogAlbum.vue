@@ -35,7 +35,7 @@
                 <p v-if="album.date_released">
                   <span class="heading">Release date</span>
                   <span class="title is-6">{{
-                    $filters.time(album.date_released, 'L')
+                    $filters.date(album.date_released)
                   }}</span>
                 </p>
                 <p v-else-if="album.year > 0">
@@ -49,7 +49,7 @@
                 <p>
                   <span class="heading">Length</span>
                   <span class="title is-6">{{
-                    $filters.duration(album.length_ms)
+                    $filters.durationInHours(album.length_ms)
                   }}</span>
                 </p>
                 <p>
@@ -61,7 +61,7 @@
                 <p>
                   <span class="heading">Added at</span>
                   <span class="title is-6">{{
-                    $filters.time(album.time_added, 'L LT')
+                    $filters.datetime(album.time_added)
                   }}</span>
                 </p>
               </div>

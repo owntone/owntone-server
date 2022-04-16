@@ -50,7 +50,7 @@
         :context_uri="album.uri"
       >
         <template #actions>
-          <a @click="open_track_dialog(track)">
+          <a @click.prevent.stop="open_track_dialog(track)">
             <span class="icon has-text-dark"
               ><i class="mdi mdi-dots-vertical mdi-18px"
             /></span>

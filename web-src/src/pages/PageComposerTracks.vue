@@ -3,7 +3,7 @@
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4">
-          {{ composer }}
+          {{ composer.name }}
         </p>
       </template>
       <template #heading-right>
@@ -24,13 +24,15 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          <a class="has-text-link" @click="open_albums">albums</a> |
-          {{ tracks.total }} tracks
+          <a class="has-text-link" @click="open_albums"
+            >{{ composer.album_count }} albums</a
+          >
+          | {{ composer.track_count }} tracks
         </p>
         <list-tracks :tracks="tracks.items" :expression="play_expression" />
         <modal-dialog-composer
           :show="show_composer_details_modal"
-          :composer="{ name: composer }"
+          :composer="composer"
           @close="show_composer_details_modal = false"
         />
       </template>
@@ -46,12 +48,15 @@ import webapi from '@/webapi'
 
 const dataObject = {
   load: function (to) {
-    return webapi.library_composer_tracks(to.params.composer)
+    return Promise.all([
+      webapi.library_composer(to.params.composer),
+      webapi.library_composer_tracks(to.params.composer)
+    ])
   },
 
   set: function (vm, response) {
-    vm.composer = vm.$route.params.composer
-    vm.tracks = response.data.tracks
+    vm.composer = response[0].data
+    vm.tracks = response[1].data.tracks
   }
 }
 
@@ -79,7 +84,7 @@ export default {
   data() {
     return {
       tracks: { items: [] },
-      composer: '',
+      composer: {},
 
       show_composer_details_modal: false
     }
@@ -87,7 +92,7 @@ export default {
 
   computed: {
     play_expression() {
-      return 'composer is "' + this.composer + '" and media_kind is music'
+      return 'composer is "' + this.composer.name + '" and media_kind is music'
     }
   },
 
@@ -96,7 +101,7 @@ export default {
       this.show_details_modal = false
       this.$router.push({
         name: 'ComposerAlbums',
-        params: { composer: this.composer }
+        params: { composer: this.composer.name }
       })
     },
 

@@ -9,7 +9,7 @@
     </div>
     <div v-else-if="album.isItem" class="media" @click="open_album(album.item)">
       <div v-if="is_visible_artwork" class="media-left fd-has-action">
-        <p class="image is-64x64 fd-has-shadow fd-has-action">
+        <div class="image is-64x64 fd-has-shadow fd-has-action">
           <figure>
             <img
               v-lazy="{
@@ -20,7 +20,7 @@
               :artist="album.item.artist"
             />
           </figure>
-        </p>
+        </div>
       </div>
       <div class="media-content fd-has-action is-clipped">
         <div style="margin-top: 0.7rem">
@@ -34,7 +34,7 @@
             v-if="album.item.date_released && album.item.media_kind === 'music'"
             class="subtitle is-7 has-text-grey has-text-weight-normal"
           >
-            {{ $filters.time(album.item.date_released, 'L') }}
+            {{ $filters.date(album.item.date_released) }}
           </h2>
         </div>
       </div>
