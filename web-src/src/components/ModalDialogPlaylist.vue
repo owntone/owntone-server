@@ -20,6 +20,10 @@
                   <span class="heading">Type</span>
                   <span class="title is-6">{{ playlist.type }}</span>
                 </p>
+                <p v-if="!playlist.folder">
+                  <span class="heading">Track count</span>
+                  <span class="title is-6">{{ playlist.item_count }}</span>
+                </p>
               </div>
             </div>
             <footer v-if="!playlist.folder" class="card-footer">
