@@ -8,7 +8,7 @@
         <div class="buttons is-centered">
           <a class="button is-small" @click="mark_all_played">
             <span class="icon">
-              <i class="mdi mdi-pencil" />
+              <mdicon name="pencil" size="16" />
             </span>
             <span>Mark All Played</span>
           </a>
@@ -32,13 +32,13 @@
         <div class="buttons is-centered">
           <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
             <span class="icon">
-              <i class="mdi mdi-refresh" />
+              <mdicon name="refresh" size="16" />
             </span>
             <span>Update</span>
           </a>
           <a class="button is-small" @click="open_add_podcast_dialog">
             <span class="icon">
-              <i class="mdi mdi-rss" />
+              <mdicon name="rss" size="16" />
             </span>
             <span>Add Podcast</span>
           </a>

@@ -29,14 +29,14 @@
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><i class="mdi mdi-cancel" /></span>
+                <span class="icon"><mdicon name="cancel" size="16" /></span>
                 <span class="is-size-7">Cancel</span>
               </a>
               <a
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="kickoff_pairing"
               >
-                <span class="icon"><i class="mdi mdi-cellphone-iphone" /></span>
+                <span class="icon"><mdicon name="cellphone" size="16" /></span>
                 <span class="is-size-7">Pair Remote</span>
               </a>
             </footer>

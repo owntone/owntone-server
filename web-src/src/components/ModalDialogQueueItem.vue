@@ -92,11 +92,11 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="remove">
-                <span class="icon"><i class="mdi mdi-delete" /></span>
+                <span class="icon"><mdicon name="delete" size="16" /></span>
                 <span class="is-size-7">Remove</span>
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><i class="mdi mdi-play" /></span>
+                <span class="icon"><mdicon name="play" size="16" /></span>
                 <span class="is-size-7">Play</span>
               </a>
             </footer>

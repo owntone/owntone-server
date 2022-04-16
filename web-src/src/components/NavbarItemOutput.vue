@@ -9,11 +9,7 @@
               :class="{ 'has-text-grey-light': !output.selected }"
               @click="set_enabled"
             >
-              <i
-                class="mdi mdi-18px"
-                :class="type_class"
-                :title="output.type"
-              />
+              <mdicon :name="type_class" size="18" :title="output.type" />
             </span>
           </a>
         </div>
@@ -68,13 +64,13 @@ export default {
   computed: {
     type_class() {
       if (this.output.type.startsWith('AirPlay')) {
-        return 'mdi-airplay'
+        return 'cast-variant'
       } else if (this.output.type === 'Chromecast') {
-        return 'mdi-cast'
+        return 'cast'
       } else if (this.output.type === 'fifo') {
-        return 'mdi-pipe'
+        return 'pipe'
       } else {
-        return 'mdi-server'
+        return 'server'
       }
     },
 

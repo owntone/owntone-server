@@ -12,8 +12,8 @@
         @click="is_active = !is_active"
       >
         <span>{{ modelValue }}</span>
-        <span class="icon is-small">
-          <i class="mdi mdi-chevron-down" aria-hidden="true" />
+        <span class="icon">
+          <mdicon name="chevron-down" size="16" />
         </span>
       </button>
     </div>

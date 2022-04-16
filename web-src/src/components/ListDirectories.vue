@@ -6,7 +6,7 @@
   >
     <figure class="media-left fd-has-action">
       <span class="icon">
-        <i class="mdi mdi-subdirectory-arrow-left" />
+        <mdicon name="subdirectory-arrow-left" size="16" />
       </span>
     </figure>
     <div class="media-content fd-has-action is-clipped">
@@ -20,7 +20,7 @@
     <div class="media" @click="open_directory(directory)">
       <figure class="media-left fd-has-action">
         <span class="icon">
-          <i class="mdi mdi-folder" />
+          <mdicon name="folder" size="16" />
         </span>
       </figure>
       <div class="media-content fd-has-action is-clipped">
@@ -34,7 +34,7 @@
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(directory)">
           <span class="icon has-text-dark"
-            ><i class="mdi mdi-dots-vertical mdi-18px"
+            ><mdicon name="dots-vertical" size="16"
           /></span>
         </a>
       </div>

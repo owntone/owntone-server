@@ -1,17 +1,6 @@
 <template>
   <a :class="{ 'is-warning': !is_repeat_off }" @click="toggle_repeat_mode">
-    <span class="icon"
-      ><i
-        class="mdi"
-        :class="[
-          icon_style,
-          {
-            'mdi-repeat': is_repeat_all,
-            'mdi-repeat-once': is_repeat_single,
-            'mdi-repeat-off': is_repeat_off
-          }
-        ]"
-    /></span>
+    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
   </a>
 </template>
 
@@ -22,7 +11,10 @@ export default {
   name: 'PlayerButtonRepeat',
 
   props: {
-    icon_style: String
+    icon_size: {
+      type: Number,
+      default: 16
+    }
   },
 
   computed: {
@@ -34,6 +26,14 @@ export default {
     },
     is_repeat_off() {
       return !this.is_repeat_all && !this.is_repeat_single
+    },
+    icon_name() {
+      if (this.is_repeat_all) {
+        return 'repeat'
+      } else if (this.is_repeat_single) {
+        return 'repeat-once'
+      }
+      return 'repeat-off'
     }
   },
 

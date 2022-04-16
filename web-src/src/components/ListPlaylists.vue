@@ -8,14 +8,7 @@
   >
     <figure class="media-left fd-has-action">
       <span class="icon">
-        <i
-          class="mdi"
-          :class="{
-            'mdi-library-music': playlist.type !== 'folder',
-            'mdi-rss': playlist.type === 'rss',
-            'mdi-folder': playlist.type === 'folder'
-          }"
-        />
+        <mdicon :name="icon_name(playlist)" size="16" />
       </span>
     </figure>
     <div class="media-content fd-has-action is-clipped">
@@ -26,7 +19,7 @@
     <div class="media-right">
       <a @click.prevent.stop="open_dialog(playlist)">
         <span class="icon has-text-dark"
-          ><i class="mdi mdi-dots-vertical mdi-18px"
+          ><mdicon name="dots-vertical" size="16"
         /></span>
       </a>
     </div>
@@ -68,6 +61,16 @@ export default {
     open_dialog: function (playlist) {
       this.selected_playlist = playlist
       this.show_details_modal = true
+    },
+
+    icon_name: function (playlist) {
+      if (playlist.type === 'folder') {
+        return 'folder'
+      } else if (playlist.type === 'rss') {
+        return 'rss'
+      } else {
+        return 'music-box-multiple'
+      }
     }
   }
 }

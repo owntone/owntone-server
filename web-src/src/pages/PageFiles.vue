@@ -14,11 +14,11 @@
             @click="open_directory_dialog({ path: current_directory })"
           >
             <span class="icon"
-              ><i class="mdi mdi-dots-horizontal mdi-18px"
+              ><mdicon name="dots-horizontal" size="16"
             /></span>
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><i class="mdi mdi-play" /></span>
+            <span class="icon"><mdicon name="play" size="16" /></span>
             <span>Play</span>
           </a>
         </div>

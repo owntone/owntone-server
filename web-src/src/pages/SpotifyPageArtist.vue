@@ -11,12 +11,10 @@
           class="button is-small is-light is-rounded"
           @click="show_artist_details_modal = true"
         >
-          <span class="icon"
-            ><i class="mdi mdi-dots-horizontal mdi-18px"
-          /></span>
+          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><i class="mdi mdi-shuffle" /></span>
+          <span class="icon"><mdicon name="shuffle" size="16" /></span>
           <span>Shuffle</span>
         </a>
       </div>
@@ -43,7 +41,7 @@
         <template #actions>
           <a @click.prevent.stop="open_dialog(album)">
             <span class="icon has-text-dark"
-              ><i class="mdi mdi-dots-vertical mdi-18px"
+              ><mdicon name="dots-vertical" size="16"
             /></span>
           </a>
         </template>

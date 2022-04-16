@@ -41,7 +41,7 @@
       <div class="media-right" style="padding-top: 0.7rem">
         <a @click.prevent.stop="open_dialog(album.item)">
           <span class="icon has-text-dark"
-            ><i class="mdi mdi-dots-vertical mdi-18px"
+            ><mdicon name="dots-vertical" size="16"
           /></span>
         </a>
       </div>

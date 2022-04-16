@@ -1,6 +1,6 @@
 <template>
   <a :class="{ 'is-warning': is_consume }" @click="toggle_consume_mode">
-    <span class="icon"><i class="mdi mdi-fire" :class="icon_style" /></span>
+    <span class="icon"><mdicon name="fire" :size="icon_size" /></span>
   </a>
 </template>
 
@@ -11,7 +11,10 @@ export default {
   name: 'PlayerButtonConsume',
 
   props: {
-    icon_style: String
+    icon_size: {
+      type: Number,
+      default: 16
+    }
   },
 
   computed: {

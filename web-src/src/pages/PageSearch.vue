@@ -17,7 +17,7 @@
                     autocomplete="off"
                   />
                   <span class="icon is-left">
-                    <i class="mdi mdi-magnify" />
+                    <mdicon name="magnify" size="16" />
                   </span>
                 </p>
                 <p class="help has-text-centered">

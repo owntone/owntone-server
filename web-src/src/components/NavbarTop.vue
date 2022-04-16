@@ -7,25 +7,25 @@
   >
     <div class="navbar-brand">
       <navbar-item-link v-if="is_visible_playlists" to="/playlists">
-        <span class="icon"><i class="mdi mdi-library-music" /></span>
+        <span class="icon"><mdicon name="music-box-multiple" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_music" to="/music">
-        <span class="icon"><i class="mdi mdi-music" /></span>
+        <span class="icon"><mdicon name="music" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_podcasts" to="/podcasts">
-        <span class="icon"><i class="mdi mdi-microphone" /></span>
+        <span class="icon"><mdicon name="microphone" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_audiobooks" to="/audiobooks">
-        <span class="icon"><i class="mdi mdi-book-open-variant" /></span>
+        <span class="icon"><mdicon name="book-open-variant" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_radio" to="/radio">
-        <span class="icon"><i class="mdi mdi-radio" /></span>
+        <span class="icon"><mdicon name="radio" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_files" to="/files">
-        <span class="icon"><i class="mdi mdi-folder-open" /></span>
+        <span class="icon"><mdicon name="folder-open" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_search" to="/search">
-        <span class="icon"><i class="mdi mdi-magnify" /></span>
+        <span class="icon"><mdicon name="magnify" size="16" /></span>
       </navbar-item-link>
 
       <div
@@ -51,18 +51,20 @@
         >
           <a class="navbar-link is-arrowless">
             <span class="icon is-hidden-touch"
-              ><i class="mdi mdi-24px mdi-menu"
+              ><mdicon name="menu" size="24"
             /></span>
             <span class="is-hidden-desktop has-text-weight-bold">OwnTone</span>
           </a>
 
           <div class="navbar-dropdown is-right">
             <navbar-item-link to="/playlists">
-              <span class="icon"><i class="mdi mdi-library-music" /></span>
+              <span class="icon"
+                ><mdicon name="music-box-multiple" size="16"
+              /></span>
               <b>Playlists</b>
             </navbar-item-link>
             <navbar-item-link to="/music" exact>
-              <span class="icon"><i class="mdi mdi-music" /></span>
+              <span class="icon"><mdicon name="music" size="16" /></span>
               <b>Music</b>
             </navbar-item-link>
             <navbar-item-link to="/music/artists">
@@ -78,23 +80,25 @@
               <span class="fd-navbar-item-level2">Spotify</span>
             </navbar-item-link>
             <navbar-item-link to="/podcasts">
-              <span class="icon"><i class="mdi mdi-microphone" /></span>
+              <span class="icon"><mdicon name="microphone" size="16" /></span>
               <b>Podcasts</b>
             </navbar-item-link>
             <navbar-item-link to="/audiobooks">
-              <span class="icon"><i class="mdi mdi-book-open-variant" /></span>
+              <span class="icon"
+                ><mdicon name="book-open-variant" size="16"
+              /></span>
               <b>Audiobooks</b>
             </navbar-item-link>
             <navbar-item-link to="/radio">
-              <span class="icon"><i class="mdi mdi-radio" /></span>
+              <span class="icon"><mdicon name="radio" size="16" /></span>
               <b>Radio</b>
             </navbar-item-link>
             <navbar-item-link to="/files">
-              <span class="icon"><i class="mdi mdi-folder-open" /></span>
+              <span class="icon"><mdicon name="folder-open" size="16" /></span>
               <b>Files</b>
             </navbar-item-link>
             <navbar-item-link to="/search">
-              <span class="icon"><i class="mdi mdi-magnify" /></span>
+              <span class="icon"><mdicon name="magnify" size="16" /></span>
               <b>Search</b>
             </navbar-item-link>
             <hr class="fd-navbar-divider" />

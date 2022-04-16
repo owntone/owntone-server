@@ -13,11 +13,11 @@
             @click="show_composer_details_modal = true"
           >
             <span class="icon"
-              ><i class="mdi mdi-dots-horizontal mdi-18px"
+              ><mdicon name="dots-horizontal" size="16"
             /></span>
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><i class="mdi mdi-shuffle" /></span>
+            <span class="icon"><mdicon name="shuffle" size="16" /></span>
             <span>Shuffle</span>
           </a>
         </div>

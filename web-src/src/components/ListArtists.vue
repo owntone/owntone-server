@@ -22,7 +22,7 @@
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(artist.item)">
           <span class="icon has-text-dark"
-            ><i class="mdi mdi-dots-vertical mdi-18px"
+            ><mdicon name="dots-vertical" size="16"
           /></span>
         </a>
       </div>

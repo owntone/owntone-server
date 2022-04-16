@@ -1,17 +1,6 @@
 <template>
   <a :disabled="disabled" @click="toggle_play_pause">
-    <span class="icon"
-      ><i
-        class="mdi"
-        :class="[
-          icon_style,
-          {
-            'mdi-play': !is_playing,
-            'mdi-pause': is_playing && is_pause_allowed,
-            'mdi-stop': is_playing && !is_pause_allowed
-          }
-        ]"
-    /></span>
+    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
   </a>
 </template>
 
@@ -22,7 +11,10 @@ export default {
   name: 'PlayerButtonPlayPause',
 
   props: {
-    icon_style: String,
+    icon_size: {
+      type: Number,
+      default: 16
+    },
     show_disabled_message: Boolean
   },
 
@@ -40,6 +32,15 @@ export default {
 
     disabled() {
       return !this.$store.state.queue || this.$store.state.queue.count <= 0
+    },
+
+    icon_name() {
+      if (!this.is_playing) {
+        return 'play'
+      } else if (this.is_pause_allowed) {
+        return 'pause'
+      }
+      return 'stop'
     }
   },
 

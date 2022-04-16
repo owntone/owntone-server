@@ -12,13 +12,13 @@
           @click="update_show_next_items"
         >
           <span class="icon">
-            <i class="mdi mdi-arrow-collapse-down" />
+            <mdicon name="arrow-collapse-down" size="16" />
           </span>
           <span>Hide previous</span>
         </a>
         <a class="button is-small" @click="open_add_stream_dialog">
           <span class="icon">
-            <i class="mdi mdi-web" />
+            <mdicon name="web" size="16" />
           </span>
           <span>Add Stream</span>
         </a>
@@ -28,13 +28,13 @@
           @click="edit_mode = !edit_mode"
         >
           <span class="icon">
-            <i class="mdi mdi-pencil" />
+            <mdicon name="pencil" size="16" />
           </span>
           <span>Edit</span>
         </a>
         <a class="button is-small" @click="queue_clear">
           <span class="icon">
-            <i class="mdi mdi-delete-empty" />
+            <mdicon name="delete-empty" size="16" />
           </span>
           <span>Clear</span>
         </a>
@@ -45,7 +45,7 @@
           @click="save_dialog"
         >
           <span class="icon">
-            <i class="mdi mdi-content-save" />
+            <mdicon name="content-save" size="16" />
           </span>
           <span>Save</span>
         </a>
@@ -69,7 +69,7 @@
             <template #actions>
               <a v-if="!edit_mode" @click.prevent.stop="open_dialog(element)">
                 <span class="icon has-text-dark"
-                  ><i class="mdi mdi-dots-vertical mdi-18px"
+                  ><mdicon name="dots-vertical" size="16"
                 /></span>
               </a>
               <a
@@ -77,7 +77,7 @@
                 @click.prevent.stop="remove(element)"
               >
                 <span class="icon has-text-grey"
-                  ><i class="mdi mdi-delete mdi-18px"
+                  ><mdicon name="delete" size="18"
                 /></span>
               </a>
             </template>

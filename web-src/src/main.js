@@ -5,11 +5,12 @@ import VueProgressBar from '@aacassandra/vue3-progressbar'
 import VueClickAway from 'vue3-click-away'
 import VueLazyLoad from 'vue3-lazyload'
 import VueScrollTo from 'vue-scrollto'
+import mdiVue from 'mdi-vue/v3'
 import { filters } from './filter'
+import { icons } from './icons'
 import App from './App.vue'
 
 import './mystyles.scss'
-import 'mdi/css/materialdesignicons.css'
 import '@vueform/slider/themes/default.css'
 
 const app = createApp(App)
@@ -26,6 +27,9 @@ const app = createApp(App)
     log: false
   })
   .use(VueScrollTo)
+  .use(mdiVue, {
+    icons: icons
+  })
 
 app.config.globalProperties.$filters = filters
 app.mount('#app')

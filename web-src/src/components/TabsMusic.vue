@@ -12,7 +12,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"><i class="mdi mdi-web" /></span>
+                    <span class="icon is-small"
+                      ><mdicon name="web" size="16"
+                    /></span>
                     <span class="">Browse</span>
                   </a>
                 </li>
@@ -25,7 +27,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span class="icon is-small"
-                      ><i class="mdi mdi-artist"
+                      ><mdicon name="account-music" size="16"
                     /></span>
                     <span class="">Artists</span>
                   </a>
@@ -39,7 +41,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span class="icon is-small"
-                      ><i class="mdi mdi-album"
+                      ><mdicon name="album" size="16"
                     /></span>
                     <span class="">Albums</span>
                   </a>
@@ -53,7 +55,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span class="icon is-small"
-                      ><i class="mdi mdi-speaker"
+                      ><mdicon name="speaker" size="16"
                     /></span>
                     <span class="">Genres</span>
                   </a>
@@ -67,7 +69,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span class="icon is-small"
-                      ><i class="mdi mdi-book-open-page-variant"
+                      ><mdicon name="book-open-page-variant" size="16"
                     /></span>
                     <span class="">Composers</span>
                   </a>
@@ -82,7 +84,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span class="icon is-small"
-                      ><i class="mdi mdi-spotify"
+                      ><mdicon name="spotify" size="16"
                     /></span>
                     <span class="">Spotify</span>
                   </a>

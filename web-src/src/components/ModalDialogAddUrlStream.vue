@@ -19,7 +19,7 @@
                       :disabled="loading"
                     />
                     <span class="icon is-left">
-                      <i class="mdi mdi-web" />
+                      <mdicon name="web" size="16" />
                     </span>
                   </p>
                 </div>
@@ -27,7 +27,7 @@
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item has-text-dark">
-                <span class="icon"><i class="mdi mdi-web" /></span>
+                <span class="icon"><mdicon name="web" size="16" /></span>
                 <span class="is-size-7">Loading ...</span>
               </a>
             </footer>
@@ -36,18 +36,20 @@
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><i class="mdi mdi-cancel" /></span>
+                <span class="icon"><mdicon name="cancel" size="16" /></span>
                 <span class="is-size-7">Cancel</span>
               </a>
               <a class="card-footer-item has-text-dark" @click="add_stream">
-                <span class="icon"><i class="mdi mdi-playlist-plus" /></span>
+                <span class="icon"
+                  ><mdicon name="playlist-plus" size="16"
+                /></span>
                 <span class="is-size-7">Add</span>
               </a>
               <a
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="play"
               >
-                <span class="icon"><i class="mdi mdi-play" /></span>
+                <span class="icon"><mdicon name="play" size="16" /></span>
                 <span class="is-size-7">Play</span>
               </a>
             </footer>
