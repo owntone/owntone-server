@@ -131,7 +131,7 @@
         <p class="title is-4">Composers</p>
       </template>
       <template #content>
-        <list-composers :composers="composers.items" />
+        <list-composers :composers="composers" />
       </template>
       <template #footer>
         <nav v-if="show_all_composers_button" class="level">
@@ -139,7 +139,7 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_composers"
-              >Show all {{ composers.total }} composers</a
+              >Show all {{ composers.total.toLocaleString() }} composers</a
             >
           </p>
         </nav>
@@ -157,7 +157,7 @@
         <p class="title is-4">Playlists</p>
       </template>
       <template #content>
-        <list-playlists :playlists="playlists.items" />
+        <list-playlists :playlists="playlists" />
       </template>
       <template #footer>
         <nav v-if="show_all_playlists_button" class="level">
@@ -264,8 +264,8 @@ export default {
       tracks: { items: [], total: 0 },
       artists: new GroupByList(),
       albums: new GroupByList(),
-      composers: { items: [], total: 0 },
-      playlists: { items: [], total: 0 },
+      composers: new GroupByList(),
+      playlists: new GroupByList(),
       audiobooks: new GroupByList(),
       podcasts: new GroupByList()
     }
@@ -396,12 +396,8 @@ export default {
         this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
         this.artists = new GroupByList(data.artists)
         this.albums = new GroupByList(data.albums)
-        this.composers = data.composers
-          ? data.composers
-          : { items: [], total: 0 }
-        this.playlists = data.playlists
-          ? data.playlists
-          : { items: [], total: 0 }
+        this.composers = new GroupByList(data.composers)
+        this.playlists = new GroupByList(data.playlists)
       })
     },
 
