@@ -1,8 +1,6 @@
 <template>
   <a :disabled="disabled" @click="play_next">
-    <span class="icon"
-      ><i class="mdi mdi-skip-forward" :class="icon_style"
-    /></span>
+    <span class="icon"><mdicon name="skip-forward" :size="icon_size" /></span>
   </a>
 </template>
 
@@ -13,7 +11,10 @@ export default {
   name: 'PlayerButtonNext',
 
   props: {
-    icon_style: String
+    icon_size: {
+      type: Number,
+      default: 16
+    }
   },
 
   computed: {

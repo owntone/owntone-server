@@ -13,7 +13,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span class="icon is-small"
-                      ><i class="mdi mdi-artist"
+                      ><mdicon name="account-music" size="16"
                     /></span>
                     <span class="">Authors</span>
                   </a>
@@ -27,7 +27,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span class="icon is-small"
-                      ><i class="mdi mdi-album"
+                      ><mdicon name="album" size="16"
                     /></span>
                     <span class="">Audiobooks</span>
                   </a>

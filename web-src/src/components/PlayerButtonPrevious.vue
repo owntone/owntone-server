@@ -1,8 +1,6 @@
 <template>
   <a :disabled="disabled" @click="play_previous">
-    <span class="icon"
-      ><i class="mdi mdi-skip-backward" :class="icon_style"
-    /></span>
+    <span class="icon"><mdicon name="skip-backward" :size="icon_size" /></span>
   </a>
 </template>
 
@@ -13,7 +11,10 @@ export default {
   name: 'PlayerButtonPrevious',
 
   props: {
-    icon_style: String
+    icon_size: {
+      type: Number,
+      default: 16
+    }
   },
 
   computed: {

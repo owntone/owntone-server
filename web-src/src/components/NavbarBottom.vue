@@ -12,7 +12,7 @@
     <div class="navbar-brand fd-expanded">
       <!-- Link to queue -->
       <navbar-item-link to="/" exact>
-        <span class="icon"><i class="mdi mdi-24px mdi-playlist-play" /></span>
+        <span class="icon"><mdicon name="playlist-play" size="24" /></span>
       </navbar-item-link>
 
       <!-- Now playing artist/title (not visible on "now playing" page) -->
@@ -39,31 +39,31 @@
       <player-button-previous
         v-if="is_now_playing_page"
         class="navbar-item fd-margin-left-auto"
-        icon_style="mdi-24px"
+        :icon_size="24"
       />
       <player-button-seek-back
         v-if="is_now_playing_page"
-        seek_ms="10000"
+        :seek_ms="10000"
         class="navbar-item"
-        icon_style="mdi-24px"
+        :icon_size="24"
       />
       <!-- Play/pause -->
       <player-button-play-pause
         class="navbar-item"
-        icon_style="mdi-36px"
+        :icon_size="36"
         show_disabled_message
       />
       <player-button-seek-forward
         v-if="is_now_playing_page"
-        seek_ms="30000"
+        :seek_ms="30000"
         class="navbar-item"
-        icon_style="mdi-24px"
+        :icon_size="24"
       />
       <!-- Skip next (not visible on "now playing" page) -->
       <player-button-next
         v-if="is_now_playing_page"
         class="navbar-item"
-        icon_style="mdi-24px"
+        :icon_size="24"
       />
 
       <!-- Player menu button (only visible on mobile and tablet) -->
@@ -72,12 +72,9 @@
         @click="show_player_menu = !show_player_menu"
       >
         <span class="icon"
-          ><i
-            class="mdi mdi-18px"
-            :class="{
-              'mdi-chevron-up': !show_player_menu,
-              'mdi-chevron-down': show_player_menu
-            }"
+          ><mdicon
+            :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+            size="18"
         /></span>
       </a>
 
@@ -91,12 +88,9 @@
           @click="show_player_menu = !show_player_menu"
         >
           <span class="icon"
-            ><i
-              class="mdi mdi-18px"
-              :class="{
-                'mdi-chevron-up': !show_player_menu,
-                'mdi-chevron-down': show_player_menu
-              }"
+            ><mdicon
+              :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+              size="18"
           /></span>
         </a>
 
@@ -114,12 +108,9 @@
                     @click="toggle_mute_volume"
                   >
                     <span class="icon"
-                      ><i
-                        class="mdi mdi-18px"
-                        :class="{
-                          'mdi-volume-off': player.volume <= 0,
-                          'mdi-volume-high': player.volume > 0
-                        }"
+                      ><mdicon
+                        :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                        size="18"
                     /></span>
                   </a>
                 </div>
@@ -173,7 +164,7 @@
                         'is-loading': loading
                       }"
                       @click="togglePlay"
-                      ><i class="mdi mdi-18px mdi-radio-tower" /></span
+                      ><mdicon name="radio-tower" size="18" /></span
                   ></a>
                 </div>
                 <div class="level-item fd-expanded">
@@ -239,9 +230,9 @@
         <!-- Repeat/shuffle/consume -->
         <div class="navbar-item">
           <div class="buttons is-centered">
-            <player-button-repeat class="button" icon_style="mdi-18px" />
-            <player-button-shuffle class="button" icon_style="mdi-18px" />
-            <player-button-consume class="button" icon_style="mdi-18px" />
+            <player-button-repeat class="button" :icon_size="18" />
+            <player-button-shuffle class="button" :icon_size="18" />
+            <player-button-consume class="button" :icon_size="18" />
           </div>
         </div>
 
@@ -254,12 +245,9 @@
               <div class="level-item" style="flex-grow: 0">
                 <a class="button is-white is-small" @click="toggle_mute_volume">
                   <span class="icon"
-                    ><i
-                      class="mdi mdi-18px"
-                      :class="{
-                        'mdi-volume-off': player.volume <= 0,
-                        'mdi-volume-high': player.volume > 0
-                      }"
+                    ><mdicon
+                      :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                      size="18"
                   /></span>
                 </a>
               </div>
@@ -313,7 +301,7 @@
                       'is-loading': loading
                     }"
                     @click="togglePlay"
-                    ><i class="mdi mdi-18px mdi-radio-tower" />
+                    ><mdicon name="radio-tower" size="16" />
                   </span>
                 </a>
               </div>

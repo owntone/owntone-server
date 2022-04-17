@@ -2,7 +2,7 @@
   <div v-if="is_next || !show_only_next_items" class="media">
     <div v-if="edit_mode" class="media-left">
       <span class="icon has-text-grey fd-is-movable handle"
-        ><i class="mdi mdi-drag-horizontal mdi-18px"
+        ><mdicon name="drag-horizontal" size="16"
       /></span>
     </div>
 

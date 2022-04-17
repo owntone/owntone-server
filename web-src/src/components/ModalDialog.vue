@@ -13,7 +13,7 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="$emit('close')">
-                <span class="icon"><i class="mdi mdi-cancel" /></span>
+                <span class="icon"><mdicon name="cancel" size="16" /></span>
                 <span class="is-size-7">{{
                   close_action ? close_action : 'Cancel'
                 }}</span>
@@ -23,7 +23,7 @@
                 class="card-footer-item has-background-danger has-text-white has-text-weight-bold"
                 @click="$emit('delete')"
               >
-                <span class="icon"><i class="mdi mdi-delete" /></span>
+                <span class="icon"><mdicon name="delete" size="16" /></span>
                 <span class="is-size-7">{{ delete_action }}</span>
               </a>
               <a
@@ -31,7 +31,7 @@
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="$emit('ok')"
               >
-                <span class="icon"><i class="mdi mdi-check" /></span>
+                <span class="icon"><mdicon name="check" size="16" /></span>
                 <span class="is-size-7">{{ ok_action }}</span>
               </a>
             </footer>

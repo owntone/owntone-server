@@ -19,7 +19,7 @@
                       :disabled="loading"
                     />
                     <span class="icon is-left">
-                      <i class="mdi mdi-file-music" />
+                      <mdicon name="file-music" size="16" />
                     </span>
                   </p>
                 </div>
@@ -27,7 +27,7 @@
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item has-text-dark">
-                <span class="icon"><i class="mdi mdi-web" /></span>
+                <span class="icon"><mdicon name="web" size="16" /></span>
                 <span class="is-size-7">Saving ...</span>
               </a>
             </footer>
@@ -36,14 +36,16 @@
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><i class="mdi mdi-cancel" /></span>
+                <span class="icon"><mdicon name="cancel" size="16" /></span>
                 <span class="is-size-7">Cancel</span>
               </a>
               <a
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="save"
               >
-                <span class="icon"><i class="mdi mdi-content-save" /></span>
+                <span class="icon"
+                  ><mdicon name="content-save" size="16"
+                /></span>
                 <span class="is-size-7">Save</span>
               </a>
             </footer>

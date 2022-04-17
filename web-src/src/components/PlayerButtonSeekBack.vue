@@ -1,6 +1,6 @@
 <template>
   <a v-if="visible" :disabled="disabled" @click="seek">
-    <span class="icon"><i class="mdi mdi-rewind" :class="icon_style" /></span>
+    <span class="icon"><mdicon name="rewind" :size="icon_size" /></span>
   </a>
 </template>
 
@@ -9,7 +9,13 @@ import webapi from '@/webapi'
 
 export default {
   name: 'PlayerButtonSeekBack',
-  props: ['seek_ms', 'icon_style'],
+  props: {
+    seek_ms: Number,
+    icon_size: {
+      type: Number,
+      default: 16
+    }
+  },
 
   computed: {
     now_playing() {

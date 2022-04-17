@@ -15,7 +15,7 @@
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
               <span class="icon has-text-dark"
-                ><i class="mdi mdi-dots-vertical mdi-18px"
+                ><mdicon name="dots-vertical" size="16"
               /></span>
             </a>
           </template>

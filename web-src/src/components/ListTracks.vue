@@ -9,7 +9,7 @@
   >
     <figure v-if="show_icon" class="media-left fd-has-action">
       <span class="icon">
-        <i class="mdi mdi-file-outline" />
+        <mdicon name="file-outline" size="16" />
       </span>
     </figure>
     <div class="media-content fd-has-action is-clipped">
@@ -37,7 +37,7 @@
     <div class="media-right">
       <a @click.prevent.stop="open_dialog(track)">
         <span class="icon has-text-dark"
-          ><i class="mdi mdi-dots-vertical mdi-18px"
+          ><mdicon name="dots-vertical" size="16"
         /></span>
       </a>
     </div>

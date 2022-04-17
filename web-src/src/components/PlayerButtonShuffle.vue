@@ -1,13 +1,6 @@
 <template>
   <a :class="{ 'is-warning': is_shuffle }" @click="toggle_shuffle_mode">
-    <span class="icon"
-      ><i
-        class="mdi"
-        :class="[
-          icon_style,
-          { 'mdi-shuffle': is_shuffle, 'mdi-shuffle-disabled': !is_shuffle }
-        ]"
-    /></span>
+    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
   </a>
 </template>
 
@@ -18,12 +11,21 @@ export default {
   name: 'PlayerButtonShuffle',
 
   props: {
-    icon_style: String
+    icon_size: {
+      type: Number,
+      default: 16
+    }
   },
 
   computed: {
     is_shuffle() {
       return this.$store.state.player.shuffle
+    },
+    icon_name() {
+      if (this.is_shuffle) {
+        return 'shuffle'
+      }
+      return 'shuffle-disabled'
     }
   },
 
