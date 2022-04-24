@@ -1198,7 +1198,7 @@ rcp_device_stop(struct output_device *device, int callback_id)
    * these need use to select (and cause the device probe to start connection to
    * remote side
    */
-  device->prevent_playback = 0;
+  device->prevent_playback = 1;
 
   s->callback_id = callback_id;
   // tear this session down, incl free'ing it
@@ -1269,6 +1269,7 @@ static void
 rcp_mdns_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
   struct output_device *device;
+  struct player_speaker_info si;
   bool exclude;
   int ret;
 
@@ -1314,6 +1315,16 @@ rcp_mdns_device_cb(const char *name, const char *type, const char *domain, const
       DPRINTF(E_INFO, L_RCP, "Adding RCP output device '%s' at '%s'\n", name, address);
 
       ret = player_device_add(device);
+
+      if (ret == 0)
+	{
+	  ret = player_speaker_get_byid(&si, device->id);
+	  if (ret == 0 && si.selected)
+	    {
+	      // device previously selected, it's seen on network, force connection
+	      rcp_session_make(device, -1);
+	    }
+	}
     }
 
   if (ret < 0)
