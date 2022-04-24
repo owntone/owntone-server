@@ -110,7 +110,7 @@ enum rcp_state
   RCP_STATE_SETUP_SERVER_CONNECT_TRANS_END,
   RCP_STATE_SETUP_SERVER_CONNECT,			// 15
 
-  RCP_STATE_SETUP_VOL_GET,
+  RCP_STATE_SETUP_VOL_SET,
 
   RCP_STATE_QUEUING_CLEAR,
   RCP_STATE_QUEUING_SET_TITLE,
@@ -168,7 +168,7 @@ static const struct rcp_state_map  rcp_state_send_map[] =
   { RCP_STATE_SETUP_SERVER_CONNECT_TRANS_END, NULL },
   { RCP_STATE_SETUP_SERVER_CONNECT, NULL },
 
-  { RCP_STATE_SETUP_VOL_GET, "GetVolume" },
+  { RCP_STATE_SETUP_VOL_SET, "SetVolume", true },
 
   { RCP_STATE_QUEUING_CLEAR, "ClearWorkingSong" },
   { RCP_STATE_QUEUING_SET_TITLE, "SetWorkingSongInfo title", true },
@@ -420,7 +420,6 @@ rcp_state_verify(struct rcp_session *s, const char *resp)
 	return 0;
       goto resp_err;
 
-    case RCP_STATE_SETUP_VOL_GET:
     case RCP_STATE_VOL_GET:
       if (strncmp(resp, "GetVolume: ", strlen("GetVolume: ")) == 0)
 	{
@@ -433,6 +432,7 @@ rcp_state_verify(struct rcp_session *s, const char *resp)
 	}
       goto resp_err;
 
+    case RCP_STATE_SETUP_VOL_SET:
     case RCP_STATE_VOL_SET:
       if (strcmp(resp, "SetVolume: OK\r\n") == 0 ||
           strcmp(resp, "SetVolume: ParameterError\r\n")  == 0)
@@ -464,6 +464,7 @@ rcp_session_shutdown(struct rcp_session* s, enum rcp_state state);
 static int
 rcp_state_transition(struct rcp_session *s)
 {
+  char buf[128];
   switch (s->state)
     {
       case RCP_STATE_SETUP:
@@ -582,10 +583,11 @@ rcp_state_transition(struct rcp_session *s)
 	break;
 
       case RCP_STATE_SETUP_SERVER_CONNECT:
-	rcp_send(s, RCP_STATE_SETUP_VOL_GET, NULL);
+	snprintf(buf, sizeof(buf), "%d", s->device->volume);
+	rcp_send(s, RCP_STATE_SETUP_VOL_SET, buf);
 	break;
 
-      case RCP_STATE_SETUP_VOL_GET:
+      case RCP_STATE_SETUP_VOL_SET:
 	rcp_send(s, RCP_STATE_QUEUING_CLEAR, NULL);
 	break;
 
@@ -1052,7 +1054,7 @@ rcp_session_make(struct output_device *device, int callback_id)
 
   s->devname = strdup(device->name);
   s->address = strdup(device->v4_address);
-  s->volume = 0;
+  s->volume = device->volume;
 
   s->next = rcp_sessions;
   rcp_sessions = s;
@@ -1145,7 +1147,7 @@ rcp_status(struct rcp_session *s)
 	state = OUTPUT_STATE_STARTUP;
 	break;
 
-      case RCP_STATE_SETUP_GET_CONNECTED_SERVER ... RCP_STATE_SETUP_VOL_GET:
+      case RCP_STATE_SETUP_GET_CONNECTED_SERVER ... RCP_STATE_SETUP_VOL_SET:
       case RCP_STATE_QUEUING_CLEAR ... RCP_STATE_QUEUING_PLAY:
       case RCP_STATE_VOL_GET:
       case RCP_STATE_VOL_SET:
@@ -1245,7 +1247,6 @@ rcp_device_volume_set(struct output_device *device, int callback_id)
     return 0;
 
   s->callback_id = callback_id;
-
 
   ret = snprintf(cmd, sizeof(cmd), "%d", device->volume);
   if (ret < 0) {
