@@ -1100,10 +1100,14 @@ rcp_session_free(struct rcp_session *s)
   free(s);
 }
 
+
 static void
 rcp_session_cleanup(struct rcp_session *rs)
 {
   struct rcp_session *s;
+
+  if (!rs)
+    return;
 
   if (rs == rcp_sessions)
     rcp_sessions = rcp_sessions->next;
@@ -1113,9 +1117,12 @@ rcp_session_cleanup(struct rcp_session *rs)
 	; /* EMPTY */
 
       if (!s)
-	DPRINTF(E_WARN, L_RCP, "WARNING: struct rcp_session not found in list; BUG!\n");
-      else
-	s->next = rs->next;
+	{
+	  DPRINTF(E_WARN, L_RCP, "WARNING: struct rcp_session (%s at %s) not found in list; BUG!\n", rs->devname, rs->address);
+	  return;
+	}
+
+      s->next = rs->next;
     }
 
   outputs_device_session_remove(rs->device->id);
@@ -1354,10 +1361,7 @@ rcp_deinit(void)
   struct rcp_session *s;
 
   for (s = rcp_sessions; rcp_sessions; s = rcp_sessions)
-    {
-      rcp_sessions = s->next;
-      rcp_session_cleanup(s);
-    }
+    rcp_session_cleanup(s);
 }
 
 struct output_definition output_rcp =
