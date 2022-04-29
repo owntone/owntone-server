@@ -1506,7 +1506,7 @@ device_streaming_cb(struct output_device *device, enum output_device_state statu
   // We don't do this in the other cb's because they are triggered by a command
   // and thus the update should be done as part of the command completion (which
   // can better determine which type of listener event to use)
-  status_update(player_state, LISTENER_SPEAKER);
+  status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
 }
 
 static void
