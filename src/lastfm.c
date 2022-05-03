@@ -239,7 +239,7 @@ request_post(const char *url, struct keyval *kv, char **errmsg)
   ctx.url = url;
   ctx.input_body = evbuffer_new();
 
-  ret = http_client_request(&ctx);
+  ret = http_client_request(&ctx, NULL);
   if (ret < 0)
     goto out_free_ctx;
 

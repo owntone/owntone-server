@@ -144,7 +144,7 @@ apple_rss_feedurl_get(const char *rss_url)
   ctx.url = url;
   ctx.input_body = evbuf;
 
-  ret = http_client_request(&ctx);
+  ret = http_client_request(&ctx, NULL);
   if (ret < 0 || ctx.response_code != HTTP_OK)
     {
       evbuffer_free(evbuf);
@@ -256,7 +256,7 @@ rss_xml_get(const char *url)
   CHECK_NULL(L_LIB, ctx.input_body = evbuffer_new());
   ctx.url = feedurl;
 
-  ret = http_client_request(&ctx);
+  ret = http_client_request(&ctx, NULL);
   if (ret < 0 || ctx.response_code != HTTP_OK)
     {
       DPRINTF(E_LOG, L_LIB, "Failed to fetch RSS from '%s' (return %d, error code %d)\n", ctx.url, ret, ctx.response_code);

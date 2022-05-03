@@ -194,7 +194,7 @@ streamurl_process(struct input_metadata *metadata, const char *url)
   client.input_headers = &kv;
   client.input_body = evbuf;
 
-  ret = http_client_request(&client);
+  ret = http_client_request(&client, NULL);
   if (ret < 0 || client.response_code != HTTP_OK)
     {
       DPRINTF(E_WARN, L_PLAYER, "Request for StreamUrl resource '%s' failed, response code %d\n", url, client.response_code);

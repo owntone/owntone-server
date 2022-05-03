@@ -55,6 +55,19 @@
 // Number of seconds the client will wait for a response before aborting
 #define HTTP_CLIENT_TIMEOUT 8
 
+
+void
+http_client_session_init(struct http_client_session *session)
+{
+  session->curl = curl_easy_init();
+}
+
+void
+http_client_session_deinit(struct http_client_session *session)
+{
+  curl_easy_cleanup(session->curl);
+}
+
 static void
 curl_headers_save(struct keyval *kv, CURL *curl)
 {
@@ -95,7 +108,7 @@ curl_request_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
 }
 
 int
-http_client_request(struct http_client_ctx *ctx)
+http_client_request(struct http_client_ctx *ctx, struct http_client_session *session)
 {
   CURL *curl;
   CURLcode res;
@@ -106,7 +119,15 @@ http_client_request(struct http_client_ctx *ctx)
   char header[1024];
   long response_code;
 
-  curl = curl_easy_init();
+  if (session)
+    {
+      curl = session->curl;
+      curl_easy_reset(curl);
+    }
+  else
+    {
+      curl = curl_easy_init();
+    }
   if (!curl)
     {
       DPRINTF(E_LOG, L_HTTP, "Error: Could not get curl handle\n");
@@ -153,7 +174,10 @@ http_client_request(struct http_client_ctx *ctx)
     {
       DPRINTF(E_LOG, L_HTTP, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
       curl_slist_free_all(headers);
-      curl_easy_cleanup(curl);
+      if (!session)
+	{
+	  curl_easy_cleanup(curl);
+	}
       return -1;
     }
 
@@ -162,7 +186,10 @@ http_client_request(struct http_client_ctx *ctx)
   curl_headers_save(ctx->input_headers, curl);
 
   curl_slist_free_all(headers);
-  curl_easy_cleanup(curl);
+  if (!session)
+    {
+      curl_easy_cleanup(curl);
+    }
 
   return 0;
 }
@@ -262,7 +289,7 @@ http_stream_setup(char **stream, const char *url)
   ctx.url = url;
   ctx.input_body = evbuf;
 
-  ret = http_client_request(&ctx);
+  ret = http_client_request(&ctx, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTP, "Couldn't fetch internet playlist: %s\n", url);

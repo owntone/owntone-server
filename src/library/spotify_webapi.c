@@ -166,6 +166,7 @@ static const char *spotify_shows_uri           = "https://api.spotify.com/v1/me/
 static const char *spotify_shows_episodes_uri  = "https://api.spotify.com/v1/shows/%s/episodes";
 static const char *spotify_episode_uri         = "https://api.spotify.com/v1/episodes/%s";
 
+static struct http_client_session session = { 0 };
 
 static enum spotify_item_type
 parse_type_from_uri(const char *uri)
@@ -256,7 +257,7 @@ request_access_tokens(struct keyval *kv, const char **err)
   ctx.output_body = param;
   ctx.input_body = evbuffer_new();
 
-  ret = http_client_request(&ctx);
+  ret = http_client_request(&ctx, NULL);
   if (ret < 0)
     {
       *err = "Did not get a reply from Spotify";
@@ -366,7 +367,7 @@ request_endpoint(const char *uri)
 
   DPRINTF(E_DBG, L_SPOTIFY, "Request Spotify API endpoint: '%s')\n", uri);
 
-  ret = http_client_request(ctx);
+  ret = http_client_request(ctx, &session);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Request for '%s' failed\n", uri);
@@ -2321,10 +2322,15 @@ spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
 static int
 spotifywebapi_init()
 {
-  CHECK_ERR(L_SPOTIFY, mutex_init(&token_lck));
+  int ret;
 
-  // Required for libspotify backend
-  return spotify_init();
+  CHECK_ERR(L_SPOTIFY, mutex_init(&token_lck));
+  ret = spotify_init();
+  if (ret < 0)
+    return -1;
+
+  http_client_session_init(&session);
+  return 0;
 }
 
 static void
@@ -2333,6 +2339,7 @@ spotifywebapi_deinit()
   CHECK_ERR(L_SPOTIFY, pthread_mutex_destroy(&token_lck));
 
   spotify_deinit();
+  http_client_session_deinit(&session);
 
   free_credentials();
 }
