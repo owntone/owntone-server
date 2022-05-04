@@ -809,8 +809,6 @@ rcp_session_shutdown(struct rcp_session* s, enum rcp_state state)
   event_del(s->ev);
   event_del(s->reply_timeout);
 
-  s->device->prevent_playback = 1;
-
   rcp_disconnect(s->sock);
   s->sock = -1;
 
@@ -951,7 +949,6 @@ rcp_listen_cb(int fd, short what, void *arg)
   // Downgrade state to make rcp_session_shutdown perform an exit which is
   // quick and won't require a reponse from remote
   s->state = RCP_STATE_FAILED;
-  s->device->prevent_playback = 1;
   rcp_session_shutdown(s, RCP_STATE_FAILED);
 }
 
@@ -966,7 +963,6 @@ rcp_reply_timeout_cb(int fd, short what, void *arg)
       DPRINTF(E_LOG, L_RCP, "Slow response from '%s' (state %d), shutting down\n", s->devname, s->state);
 
       s->state = RCP_STATE_FAILED;
-      s->device->prevent_playback = 1;
       rcp_session_shutdown(s, RCP_STATE_FAILED);
 
       event_del(s->reply_timeout);
@@ -1200,7 +1196,6 @@ rcp_device_stop(struct output_device *device, int callback_id)
    * these need use to select (and cause the device probe to start connection to
    * remote side
    */
-  device->prevent_playback = 0;
 
   s->callback_id = callback_id;
   // tear this session down, incl free'ing it
@@ -1215,7 +1210,6 @@ rcp_device_flush(struct output_device *device, int callback_id)
   struct rcp_session *s = device->session;
 
   s->callback_id = callback_id;
-  s->state = OUTPUT_STATE_STOPPED;
 
   rcp_status(s);
 
