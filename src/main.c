@@ -58,7 +58,6 @@
 
 #include <pthread.h>
 #include <gcrypt.h>
-GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
 #include "conffile.h"
 #include "db.h"
@@ -683,9 +682,6 @@ main(int argc, char **argv)
 
   /* Initialize libcurl */
   curl_global_init(CURL_GLOBAL_DEFAULT);
-
-  /* Initialize libgcrypt */
-  gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
 
   gcry_version = gcry_check_version(GCRYPT_VERSION);
   if (!gcry_version)

@@ -171,7 +171,7 @@ PKG_CHECK_EXISTS([libplist],
 	[OWNTONE_MODULES_CHECK([OWNTONE], [LIBPLIST], [libplist-2.0],
 		[plist_dict_get_item], [plist/plist.h])])
 
-AM_PATH_LIBGCRYPT([1:1.2.0])
+AM_PATH_LIBGCRYPT([1:1.7.0])
 OWNTONE_FUNC_REQUIRE([OWNTONE], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
 	[gcry_control], [gcrypt.h])
 AM_PATH_GPG_ERROR([1.6])
