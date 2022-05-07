@@ -154,7 +154,7 @@ process_notify_request(short *requested_events, void *in, size_t len)
 		{
 		  *requested_events |= LISTENER_LASTFM;
 		}
-	      else if (0 == strcmp(event_type, "ouputs"))
+	      else if (0 == strcmp(event_type, "outputs"))
 		{
 		  *requested_events |= LISTENER_SPEAKER;
 		}
