@@ -23,12 +23,30 @@ dist_man_MANS = owntone.8
 nobase_dist_doc_DATA = \
 	UPGRADING \
 	README.md \
-	README_JSON_API.md \
-	README_PULSE.md \
-	README_ALSA.md \
-	README_SMARTPL.md \
-	README_PLAYER_WEBINTERFACE.md \
-	README_RADIO_STREAMS.md \
+	docs/playlists.md \
+	docs/integrations/spotify.md \
+	docs/integrations/lastfm.md \
+	docs/index.md \
+	docs/outputs/streaming.md \
+	docs/outputs/chromecast.md \
+	docs/outputs/airplay.md \
+	docs/outputs/local-audio.md \
+	docs/installation.md \
+	docs/clients/web-interface.md \
+	docs/clients/remote.md \
+	docs/clients/cli.md \
+	docs/clients/supported-clients.md \
+	docs/clients/mpd.md \
+	docs/smart-playlists.md \
+	docs/artwork.md \
+	docs/library.md \
+	docs/getting-started.md \
+	docs/advanced/radio-streams.md \
+	docs/advanced/multiple-instances.md \
+	docs/advanced/outputs-alsa.md \
+	docs/advanced/remote-access.md \
+	docs/advanced/outputs-pulse.md \
+	docs/json-api.md \
 	scripts/pairinghelper.sh
 
 EXTRA_DIST = \

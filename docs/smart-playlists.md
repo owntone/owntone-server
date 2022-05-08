@@ -24,6 +24,7 @@ field-name operator operand
 ```
 
 Where valid field-names (with their types) are:
+
 * `artist` (string)
 * `album_artist` (string)
 * `album` (string)
@@ -50,6 +51,7 @@ Where valid field-names (with their types) are:
 * `random` (special)
 
 Valid operators include:
+
 * `is`, `includes`, `starts with`, `ends with` (string)
 * `>`, `<`, `<=`, `>=`, `=` (int)
 * `after`, `before` (date)
@@ -60,16 +62,19 @@ The `starts with` operator matches, if the value starts with the given prefix,
 and `ends with` matches the opposite. All these matches are case-insensitive.
 
 Valid operands include:
+
 * "string value" (string)
 * integer (int)
 
 Valid operands for the enumeration `data_kind` are:
+
 * `file`
 * `url`
 * `spotify`
 * `pipe`
 
 Valid operands for the enumeration `media_kind` are:
+
 * `music`
 * `movie`
 * `podcast`
@@ -162,6 +167,7 @@ One example of a valid date is a date in yyyy-mm-dd format:
 ```
 
 There are also some special date keywords:
+
 * `today`, `yesterday`, `this week`, `last week`, `last month`, `last year`
 
 These dates refer to the _start_ of that period; `today` means 00:00hrs of today, `this week` means current Monday 00:00hrs, `last week` means the previous Monday 00:00hrs, `last month` is the first day of the previous month at 00:00hrs etc.
@@ -204,8 +210,9 @@ http://sourceforge.net/p/mt-daapd/code/HEAD/tree/tags/release-0.2.4.2/contrib/mt
 Even this documentation is based on the file linked above.
 
 Some differences are:
+
 * only one smart playlist per file
 * the not operator must be placed before an expression and not before the operator
-* "||", "&&", "!" are not supported (use "or", "and", "not")
+* `||`, `&&`, `!` are not supported (use `or`, `and`, `not`)
 * comments are not supported
 

@@ -63,10 +63,10 @@ daemon through D-Bus. On Raspbian this is already enabled, and you can skip this
 step. Otherwise do one of the following:
 
 1. Add the pulse user to the bluetooth group: `adduser pulse bluetooth`
-2. Edit /etc/dbus-1/system.d/bluetooth.conf and change the policy for
-\<policy context="default"\> to "allow"
+2. Edit /etc/dbus-1/system.d/bluetooth.conf and change the policy for `<policy context="default"\>` to "allow"
 
 Phew, almost done with Pulseaudio! Now you should:
+
 1. enable system mode on boot with `systemctl enable pulseaudio`
 2. reboot (or at least restart dbus and pulseaudio)
 3. check that the Bluetooth module is loaded with `pactl list modules short`

@@ -1,9 +1,14 @@
+---
+hide:
+  - navigation
+---
+
 # OwnTone API Endpoint Reference
 
 Available API endpoints:
 
 * [Player](#player): control playback, volume, shuffle/repeat modes
-* [Outputs / Speakers](#outputs--speakers): list available outputs and enable/disable outputs
+* [Outputs / Speakers](#outputs-speakers): list available outputs and enable/disable outputs
 * [Queue](#queue): list, add or modify the current queue
 * [Library](#library): list playlists, artists, albums and tracks from your library or trigger library rescan
 * [Search](#search): search for playlists, artists, albums and tracks
