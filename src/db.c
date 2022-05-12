@@ -2344,7 +2344,7 @@ db_build_query_count_items(struct query_params *qp, struct query_clause *qc)
 
   qp->results = 1;
 
-  query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length), COUNT(DISTINCT songartistid), COUNT(DISTINCT songalbumid) FROM files f %s;", qc->where);
+  query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length), COUNT(DISTINCT songartistid), COUNT(DISTINCT songalbumid), SUM(file_size) FROM files f %s;", qc->where);
   if (!query)
     DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
@@ -2699,6 +2699,7 @@ db_query_fetch_count(struct filecount_info *fci, struct query_params *qp)
   fci->length = sqlite3_column_int64(qp->stmt, 1);
   fci->artist_count = sqlite3_column_int(qp->stmt, 2);
   fci->album_count = sqlite3_column_int(qp->stmt, 3);
+  fci->file_size = sqlite3_column_int64(qp->stmt, 4);
 
   return 0;
 }

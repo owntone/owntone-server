@@ -474,6 +474,7 @@ struct filecount_info {
   uint64_t length;
   uint32_t artist_count;
   uint32_t album_count;
+  uint64_t file_size;
 };
 
 /* Directory ids must be in sync with the ids in Q_DIR* in db_init.c */
