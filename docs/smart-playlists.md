@@ -49,6 +49,7 @@ Where valid field-names (with their types) are:
 * `time_played` (date)
 * `time_skipped` (date)
 * `random` (special)
+* `file_size` (integer)
 
 Valid operators include:
 
