@@ -86,6 +86,7 @@ bits_per_sample { yylval->str = strdup(yytext); return SMARTPL_T_INTTAG; }
 samplerate     { yylval->str = strdup(yytext); return SMARTPL_T_INTTAG; }
 song_length    { yylval->str = strdup(yytext); return SMARTPL_T_INTTAG; }
 usermark       { yylval->str = strdup(yytext); return SMARTPL_T_INTTAG; }
+file_size      { yylval->str = strdup(yytext); return SMARTPL_T_INTTAG; }
 
 time_added     { yylval->str = strdup(yytext); return SMARTPL_T_DATETAG; }
 time_modified  { yylval->str = strdup(yytext); return SMARTPL_T_DATETAG; }

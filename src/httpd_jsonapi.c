@@ -1205,6 +1205,7 @@ jsonapi_reply_library(struct httpd_request *hreq)
       json_object_object_add(jreply, "db_playtime", json_object_new_int64((fci.length / 1000)));
       json_object_object_add(jreply, "artists", json_object_new_int(fci.artist_count));
       json_object_object_add(jreply, "albums", json_object_new_int(fci.album_count));
+      json_object_object_add(jreply, "file_size", json_object_new_int64(fci.file_size));
     }
   else
     {
@@ -4163,6 +4164,7 @@ jsonapi_reply_library_count(struct httpd_request *hreq)
       json_object_object_add(jreply, "artists", json_object_new_int(fci.artist_count));
       json_object_object_add(jreply, "albums", json_object_new_int(fci.album_count));
       json_object_object_add(jreply, "db_playtime", json_object_new_int64((fci.length / 1000)));
+      json_object_object_add(jreply, "file_size", json_object_new_int64((fci.file_size)));
     }
   else
     {
