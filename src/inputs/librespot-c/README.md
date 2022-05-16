@@ -1,3 +1,6 @@
+Limited C version of librespot. No Spotify Connect support. Library only. Used
+by [OwnTone](https://github.com/owntone/owntone-server).
+
 Build:
 - autoreconf -i && ./configure && make
 
