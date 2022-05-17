@@ -258,9 +258,7 @@ main(int argc, char * argv[])
       goto error;
     }
 
-  snprintf(sysinfo.client_name, sizeof(sysinfo.client_name), "myclient");
-  snprintf(sysinfo.client_version, sizeof(sysinfo.client_version), "0.1");
-  snprintf(sysinfo.client_build_id, sizeof(sysinfo.client_build_id), "a");
+  memset(&sysinfo, 0, sizeof(struct sp_sysinfo));
   snprintf(sysinfo.device_id, sizeof(sysinfo.device_id), "aabbccddeeff");
 
   ret = librespotc_init(&sysinfo, &callbacks);

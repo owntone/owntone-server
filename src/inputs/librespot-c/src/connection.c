@@ -1033,6 +1033,9 @@ msg_make_client_response_encrypted(uint8_t *out, size_t out_len, struct sp_sessi
   ClientResponseEncrypted client_response = CLIENT_RESPONSE_ENCRYPTED__INIT;
   LoginCredentials login_credentials = LOGIN_CREDENTIALS__INIT;
   SystemInfo system_info = SYSTEM_INFO__INIT;
+  const char *client_name;
+  const char *client_version;
+  const char *client_build_id;
   char system_information_string[64];
   char version_string[64];
   ssize_t len;
@@ -1061,18 +1064,21 @@ msg_make_client_response_encrypted(uint8_t *out, size_t out_len, struct sp_sessi
   else
     return -1;
 
+  // Note that Spotify seems to have whitelisting of client_name
+  client_name = (sp_sysinfo.client_name[0] != '\0') ? sp_sysinfo.client_name : "librespot";
+  client_version = (sp_sysinfo.client_version[0] != '\0') ? sp_sysinfo.client_version : "000000";
+  client_build_id = (sp_sysinfo.client_build_id[0] != '\0') ? sp_sysinfo.client_build_id : "0";
+  snprintf(system_information_string, sizeof(system_information_string), "%s_%s_%s", client_name, client_version, client_build_id);
+  snprintf(version_string, sizeof(version_string), "%s-%s", client_name, client_version);
+
   system_info.cpu_family = CPU_FAMILY__CPU_UNKNOWN;
   system_info.os = OS__OS_UNKNOWN;
-  snprintf(system_information_string, sizeof(system_information_string), "%s_%s_%s",
-    sp_sysinfo.client_name, sp_sysinfo.client_version, sp_sysinfo.client_build_id);
   system_info.system_information_string = system_information_string;
   system_info.device_id = sp_sysinfo.device_id;
-
-  system_info_from_uname(&system_info);
+  system_info_from_uname(&system_info); // Sets cpu_family and os to actual values
 
   client_response.login_credentials = &login_credentials;
   client_response.system_info = &system_info;
-  snprintf(version_string, sizeof(version_string), "%s-%s", sp_sysinfo.client_name, sp_sysinfo.client_version);
   client_response.version_string = version_string;
 
   len = client_response_encrypted__get_packed_size(&client_response);

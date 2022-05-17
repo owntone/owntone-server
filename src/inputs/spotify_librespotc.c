@@ -304,7 +304,7 @@ struct sp_callbacks callbacks = {
 static int
 initialize(struct global_ctx *ctx)
 {
-  struct sp_sysinfo sysinfo;
+  struct sp_sysinfo sysinfo = { 0 };
   cfg_t *spotify_cfg;
   int ret;
 
@@ -316,9 +316,6 @@ initialize(struct global_ctx *ctx)
   if (ctx->is_initialized)
     return 0;
 
-  snprintf(sysinfo.client_name, sizeof(sysinfo.client_name), PACKAGE_NAME);
-  snprintf(sysinfo.client_version, sizeof(sysinfo.client_version), PACKAGE_VERSION);
-  snprintf(sysinfo.client_build_id, sizeof(sysinfo.client_build_id), "0");
   snprintf(sysinfo.device_id, sizeof(sysinfo.device_id), "%" PRIx64, libhash); // TODO use a UUID instead
 
   ret = librespotc_init(&sysinfo, &callbacks);
