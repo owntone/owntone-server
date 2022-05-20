@@ -7,52 +7,40 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_genre">{{
-                  genre.name
-                }}</a>
+                <a class="has-text-link" @click="open_genre" v-text="genre.name" />
               </p>
               <div class="content is-small">
                 <p>
-                  <span class="heading">Albums</span>
-                  <span class="title is-6">{{ genre.album_count }}</span>
+                  <span class="heading" v-text="$t('dialog.genre.albums')" />
+                  <span class="title is-6" v-text="genre.album_count" />
                 </p>
                 <p>
-                  <span class="heading">Tracks</span>
-                  <span class="title is-6">{{ genre.track_count }}</span>
+                  <span class="heading" v-text="$t('dialog.genre.tracks')" />
+                  <span class="title is-6" v-text="genre.track_count" />
                 </p>
                 <p>
-                  <span class="heading">Length</span>
-                  <span class="title is-6">{{
-                    $filters.durationInHours(genre.length_ms)
-                  }}</span>
+                  <span class="heading" v-text="$t('dialog.genre.duration')" />
+                  <span class="title is-6" v-text="$filters.durationInHours(genre.length_ms)" />
                 </p>
               </div>
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
-                <span class="is-size-7">Add</span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.genre.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
-                <span class="is-size-7">Add Next</span>
+                <mdicon class="icon" name="playlist-play" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.genre.add-next')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
-                <span class="is-size-7">Play</span>
+                <mdicon class="icon" name="play" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.genre.play')" />
               </a>
             </footer>
           </div>
         </div>
-        <button
-          class="modal-close is-large"
-          aria-label="close"
-          @click="$emit('close')"
-        />
+        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
       </div>
     </transition>
   </div>

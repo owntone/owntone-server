@@ -1,11 +1,10 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Recently added</p>
-        <p class="heading">albums</p>
+        <p class="title is-4" v-text="$t('page.browse.recently.added.title')" />
+        <p class="heading" v-text="$t('page.browse.recently.added.albums')" />
       </template>
       <template #content>
         <list-albums :albums="recently_added" />

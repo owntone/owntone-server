@@ -2,17 +2,9 @@
   <section v-if="notifications.length > 0" class="fd-notifications">
     <div class="columns is-centered">
       <div class="column is-half">
-        <div
-          v-for="notification in notifications"
-          :key="notification.id"
-          class="notification has-shadow"
-          :class="[
-            'notification',
-            notification.type ? `is-${notification.type}` : ''
-          ]"
-        >
+        <div v-for="notification in notifications" :key="notification.id" class="notification has-shadow" :class="[ 'notification', notification.type ? `is-${notification.type}` : '' ]">
           <button class="delete" @click="remove(notification)" />
-          {{ notification.text }}
+          <span v-text="notification.text" />
         </div>
       </div>
     </div>

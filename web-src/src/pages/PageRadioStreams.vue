@@ -2,12 +2,10 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Radio</p>
+        <p class="title is-4" v-text="$t('page.radio.title')" />
       </template>
       <template #content>
-        <p class="heading has-text-centered-mobile">
-          {{ tracks.total }} tracks
-        </p>
+        <p class="heading has-text-centered-mobile" v-text="$t('page.radio.count', { count: tracks.total })" />
         <list-tracks :tracks="tracks.items" />
       </template>
     </content-with-heading>

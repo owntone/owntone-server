@@ -1,55 +1,22 @@
 <template>
-  <div
-    v-for="(track, index) in tracks"
-    :id="'index_' + track.title_sort.charAt(0).toUpperCase()"
-    :key="track.id"
-    class="media"
-    :class="{ 'with-progress': show_progress }"
-    @click="play_track(index, track)"
-  >
+  <div v-for="(track, index) in tracks" :id="'index_' + track.title_sort.charAt(0).toUpperCase()" :key="track.id" class="media" :class="{ 'with-progress': show_progress }" @click="play_track(index, track)">
     <figure v-if="show_icon" class="media-left fd-has-action">
-      <span class="icon">
-        <mdicon name="file-outline" size="16" />
-      </span>
+      <mdicon class="icon" name="file-outline" size="16" />
     </figure>
     <div class="media-content fd-has-action is-clipped">
-      <h1
-        class="title is-6"
-        :class="{
-          'has-text-grey':
-            track.media_kind === 'podcast' && track.play_count > 0
-        }"
-      >
-        {{ track.title }}
-      </h1>
-      <h2 class="subtitle is-7 has-text-grey">
-        <b>{{ track.artist }}</b>
-      </h2>
-      <h2 class="subtitle is-7 has-text-grey">
-        {{ track.album }}
-      </h2>
-      <progress-bar
-        v-if="show_progress"
-        :max="track.length_ms"
-        :value="track.seek_ms"
-      />
+      <h1 class="title is-6" :class="{ 'has-text-grey': track.media_kind === 'podcast' && track.play_count > 0 }" v-text="track.title" />
+      <h2 class="subtitle is-7 has-text-grey" v-text="track.artist" />
+      <h2 class="subtitle is-7 has-text-grey" v-text="track.album" />
+      <progress-bar v-if="show_progress" :max="track.length_ms" :value="track.seek_ms" />
     </div>
     <div class="media-right">
       <a @click.prevent.stop="open_dialog(track)">
-        <span class="icon has-text-dark"
-          ><mdicon name="dots-vertical" size="16"
-        /></span>
+        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
       </a>
     </div>
   </div>
-
   <teleport to="#app">
-    <modal-dialog-track
-      :show="show_details_modal"
-      :track="selected_track"
-      @close="show_details_modal = false"
-      @play-count-changed="$emit('play-count-changed')"
-    />
+    <modal-dialog-track :show="show_details_modal" :track="selected_track" @close="show_details_modal = false" @play-count-changed="$emit('play-count-changed')" />
   </teleport>
 </template>
 

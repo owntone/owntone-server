@@ -2,90 +2,41 @@
   <section>
     <div v-if="now_playing.id > 0" class="fd-is-fullheight">
       <div class="fd-is-expanded">
-        <cover-artwork
-          :artwork_url="now_playing.artwork_url"
-          :artist="now_playing.artist"
-          :album="now_playing.album"
-          class="fd-cover-image fd-has-action"
-          @click="open_dialog(now_playing)"
-        />
+        <cover-artwork :artwork_url="now_playing.artwork_url" :artist="now_playing.artist" :album="now_playing.album" class="fd-cover-image fd-has-action" @click="open_dialog(now_playing)" />
       </div>
       <div class="fd-has-padding-left-right">
         <div class="container has-text-centered">
           <p class="control has-text-centered fd-progress-now-playing">
-            <Slider
-              ref="slider"
-              v-model="item_progress_ms"
-              :min="0"
-              :max="state.item_length_ms"
-              :step="1000"
-              :tooltips="false"
-              :disabled="state.state === 'stop'"
-              :classes="{ target: 'seek-slider' }"
-              @change="seek"
-              @start="start_dragging"
-              @end="end_dragging"
-            />
-            <!--range-slider
-              class="seek-slider fd-has-action"
-              min="0"
-              :max="state.item_length_ms"
-              :value="item_progress_ms"
-              :disabled="state.state === 'stop'"
-              step="1000"
-              @change="seek" >
-            </range-slider-->
+            <Slider ref="slider" v-model="item_progress_ms" :min="0" :max="state.item_length_ms" :step="1000" :tooltips="false" :disabled="state.state === 'stop'" :classes="{ target: 'seek-slider' }" @change="seek" @start="start_dragging" @end="end_dragging" />
           </p>
           <p class="content">
-            <span
-              >{{ $filters.durationInHours(item_progress_ms) }} /
-              {{ $filters.durationInHours(now_playing.length_ms) }}</span
-            >
+            <span v-text="[$filters.durationInHours(item_progress_ms), $filters.durationInHours(now_playing.length_ms)].join(' / ')" />
           </p>
         </div>
       </div>
       <div class="fd-has-padding-left-right">
         <div class="container has-text-centered fd-has-margin-top">
-          <h1 class="title is-5">
-            {{ now_playing.title }}
-          </h1>
-          <h2 class="title is-6">
-            {{ now_playing.artist }}
-          </h2>
-          <h2
-            v-if="composer"
-            class="subtitle is-6 has-text-grey has-text-weight-bold"
-          >
-            {{ composer }}
-          </h2>
-          <h3 class="subtitle is-6">
-            {{ now_playing.album }}
-          </h3>
+          <h1 class="title is-5" v-text="now_playing.title" />
+          <h2 class="title is-6" v-text="now_playing.artist" />
+          <h2 v-if="composer" class="subtitle is-6 has-text-grey has-text-weight-bold" v-text="composer" />
+          <h3 class="subtitle is-6" v-text="now_playing.album" />
         </div>
       </div>
     </div>
     <div v-else class="fd-is-fullheight">
-      <div
-        class="fd-is-expanded fd-has-padding-left-right"
-        style="flex-direction: column"
-      >
+      <div class="fd-is-expanded fd-has-padding-left-right" style="flex-direction: column">
         <div class="content has-text-centered">
-          <h1 class="title is-5">Your play queue is empty</h1>
-          <p>Add some tracks by browsing your library</p>
+          <h1 class="title is-5" v-text="$('page.now-playing.title')" />
+          <p v-text="$('page.now-playing.info')" />
         </div>
       </div>
     </div>
-    <modal-dialog-queue-item
-      :show="show_details_modal"
-      :item="selected_item"
-      @close="show_details_modal = false"
-    />
+    <modal-dialog-queue-item :show="show_details_modal" :item="selected_item" @close="show_details_modal = false" />
   </section>
 </template>
 
 <script>
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
-//import RangeSlider from 'vue-range-slider'
 import Slider from '@vueform/slider'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
@@ -95,7 +46,6 @@ export default {
   name: 'PageNowPlaying',
   components: {
     ModalDialogQueueItem,
-    //    RangeSlider,
     Slider,
     CoverArtwork
   },

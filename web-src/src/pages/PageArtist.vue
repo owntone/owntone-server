@@ -3,46 +3,32 @@
     <template #options>
       <div class="columns">
         <div class="column">
-          <p class="heading" style="margin-bottom: 24px">Sort by</p>
-          <dropdown-menu
-            v-model="selected_groupby_option_name"
-            :options="groupby_option_names"
-          />
+          <p class="heading" style="margin-bottom: 24px" v-text="$t('page.artist.sort-by.title')" />
+          <dropdown-menu v-model="selected_groupby_option_id" :options="groupby_options"/>
         </div>
       </div>
     </template>
     <template #heading-left>
-      <p class="title is-4">
-        {{ artist.name }}
-      </p>
+      <p class="title is-4"  v-text="artist.name" />
     </template>
     <template #heading-right>
       <div class="buttons is-centered">
-        <a
-          class="button is-small is-light is-rounded"
-          @click="show_artist_details_modal = true"
-        >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
+        <a class="button is-small is-light is-rounded" @click="show_artist_details_modal = true">
+          <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="shuffle" size="16" /></span>
-          <span>Shuffle</span>
+          <mdicon class="icon" name="shuffle" size="16" />
+          <span v-text="$t('page.artist.shuffle')" />
         </a>
       </div>
     </template>
     <template #content>
       <p class="heading has-text-centered-mobile">
-        {{ artist.album_count }} albums |
-        <a class="has-text-link" @click="open_tracks"
-          >{{ artist.track_count }} tracks</a
-        >
+        <span v-text="$t('page.artist.album-count', { count: artist.album_count })" />
+        <a class="has-text-link" @click="open_tracks" v-text="$t('page.artist.track-count', { count: artist.track_count })" />
       </p>
       <list-albums :albums="albums" :hide_group_title="true" />
-      <modal-dialog-artist
-        :show="show_artist_details_modal"
-        :artist="artist"
-        @close="show_artist_details_modal = false"
-      />
+      <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
     </template>
   </content-with-heading>
 </template>
@@ -99,9 +85,14 @@ export default {
 
       // List of group by/sort options for itemsGroupByList
       groupby_options: [
-        { name: 'Name', options: bySortName('name_sort') },
         {
-          name: 'Release date',
+          id: 1,
+          name: this.$t('page.artist.sort-by.name'),
+          options: bySortName('name_sort')
+        },
+        {
+          id: 2,
+          name: this.$t('page.artist.sort-by.release-date'),
           options: byYear('date_released', {
             direction: 'asc',
             defaultValue: '0000'
@@ -116,18 +107,14 @@ export default {
   computed: {
     albums() {
       const groupBy = this.groupby_options.find(
-        (o) => o.name === this.selected_groupby_option_name
+        (o) => o.name === this.selected_groupby_option_id
       )
       this.albums_list.group(groupBy.options)
 
       return this.albums_list
     },
 
-    groupby_option_names() {
-      return [...this.groupby_options].map((o) => o.name)
-    },
-
-    selected_groupby_option_name: {
+    selected_groupby_option_id: {
       get() {
         return this.$store.state.artist_albums_sort
       },

@@ -1,58 +1,33 @@
 <template>
   <content-with-heading>
     <template #heading-left>
-      <div class="title is-4">
-        {{ playlist.name }}
-      </div>
+      <div class="title is-4" v-text="playlist.name" />
     </template>
     <template #heading-right>
       <div class="buttons is-centered">
-        <a
-          class="button is-small is-light is-rounded"
-          @click="show_playlist_details_modal = true"
-        >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
+        <a class="button is-small is-light is-rounded" @click="show_playlist_details_modal = true">
+          <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="shuffle" size="16" /></span>
-          <span>Shuffle</span>
+          <mdicon class="icon" name="shuffle" size="16" />
+          <span v-text="$t('page.spotify.playlist.shuffle')" />
         </a>
       </div>
     </template>
     <template #content>
-      <p class="heading has-text-centered-mobile">
-        {{ playlist.tracks.total }} tracks
-      </p>
-      <spotify-list-item-track
-        v-for="(item, index) in tracks"
-        :key="item.track.id"
-        :track="item.track"
-        :album="item.track.album"
-        :position="index"
-        :context_uri="playlist.uri"
-      >
+      <p class="heading has-text-centered-mobile" v-text="$t('page.spotify.playlist.count', {count: playlist.tracks.total})" />
+      <spotify-list-item-track v-for="(item, index) in tracks" :key="item.track.id" :track="item.track" :album="item.track.album" :position="index" :context_uri="playlist.uri">
         <template #actions>
           <a @click.prevent.stop="open_track_dialog(item.track)">
-            <span class="icon has-text-dark"
-              ><mdicon name="dots-vertical" size="16"
-            /></span>
+            <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
           </a>
         </template>
       </spotify-list-item-track>
       <VueEternalLoading v-if="offset < total" :load="load_next">
         <template #no-more> . </template>
       </VueEternalLoading>
-      <spotify-modal-dialog-track
-        :show="show_track_details_modal"
-        :track="selected_track"
-        :album="selected_track.album"
-        @close="show_track_details_modal = false"
-      />
-      <spotify-modal-dialog-playlist
-        :show="show_playlist_details_modal"
-        :playlist="playlist"
-        @close="show_playlist_details_modal = false"
-      />
+      <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="selected_track.album" @close="show_track_details_modal = false" />
+      <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="playlist" @close="show_playlist_details_modal = false" />
     </template>
   </content-with-heading>
 </template>

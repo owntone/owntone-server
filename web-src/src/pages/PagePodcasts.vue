@@ -2,59 +2,40 @@
   <div>
     <content-with-heading v-if="new_episodes.items.length > 0">
       <template #heading-left>
-        <p class="title is-4">New episodes</p>
+        <p class="title is-4" v-text="$t('page.podcasts.new-episodes')" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
           <a class="button is-small" @click="mark_all_played">
-            <span class="icon">
-              <mdicon name="pencil" size="16" />
-            </span>
-            <span>Mark All Played</span>
+            <mdicon class="icon" name="pencil" size="16" />
+            <span v-text="$t('page.podcasts.mark-all-played')" />
           </a>
         </div>
       </template>
       <template #content>
-        <list-tracks
-          :tracks="new_episodes.items"
-          :show_progress="true"
-          @play-count-changed="reload_new_episodes"
-        />
+        <list-tracks :tracks="new_episodes.items" :show_progress="true" @play-count-changed="reload_new_episodes" />
       </template>
     </content-with-heading>
-
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Podcasts</p>
-        <p class="heading">{{ albums.total }} podcasts</p>
+        <p class="title is-4" v-text="$t('page.podcasts.title')" />
+        <p class="heading" v-text="$t('page.podcasts.count', { count: albums.total })" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
           <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
-            <span class="icon">
-              <mdicon name="refresh" size="16" />
-            </span>
-            <span>Update</span>
+            <mdicon class="icon" name="refresh" size="16" />
+            <span v-text="$t('page.podcasts.update')" />
           </a>
           <a class="button is-small" @click="open_add_podcast_dialog">
-            <span class="icon">
-              <mdicon name="rss" size="16" />
-            </span>
-            <span>Add Podcast</span>
+            <mdicon class="icon" name="rss" size="16" />
+            <span v-text="$t('page.podcasts.add')" />
           </a>
         </div>
       </template>
       <template #content>
-        <list-albums
-          :albums="albums"
-          @play-count-changed="reload_new_episodes()"
-          @podcast-deleted="reload_podcasts()"
-        />
-        <modal-dialog-add-rss
-          :show="show_url_modal"
-          @close="show_url_modal = false"
-          @podcast-added="reload_podcasts()"
-        />
+        <list-albums :albums="albums" @play-count-changed="reload_new_episodes()" @podcast-deleted="reload_podcasts()" />
+        <modal-dialog-add-rss :show="show_url_modal" @close="show_url_modal = false" @podcast-added="reload_podcasts()" />
       </template>
     </content-with-heading>
   </div>

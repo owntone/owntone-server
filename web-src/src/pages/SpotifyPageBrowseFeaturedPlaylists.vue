@@ -1,30 +1,19 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4">Featured Playlists</p>
       </template>
       <template #content>
-        <spotify-list-item-playlist
-          v-for="playlist in featured_playlists"
-          :key="playlist.id"
-          :playlist="playlist"
-        >
+        <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist">
           <template #actions>
-            <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+            <a @click.prevent.stop="open_playlist_dialog(playlist)"> 
+              <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
             </a>
           </template>
         </spotify-list-item-playlist>
-        <spotify-modal-dialog-playlist
-          :show="show_playlist_details_modal"
-          :playlist="selected_playlist"
-          @close="show_playlist_details_modal = false"
-        />
+        <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
       </template>
     </content-with-heading>
   </div>

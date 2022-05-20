@@ -1,14 +1,13 @@
 <template>
   <div>
     <tabs-music />
-
     <content-with-heading>
       <template #options>
         <index-button-list :index="composers.indexList" />
       </template>
       <template #heading-left>
-        <p class="title is-4">Composers</p>
-        <p class="heading">{{ composers.total }} composers</p>
+        <p class="title is-4" v-text="$t('page.composers.title')" />
+        <p class="heading" v-text="$t('page.composers.count', { count: composers.total })" />
       </template>
       <template #content>
         <list-composers :composers="composers" />

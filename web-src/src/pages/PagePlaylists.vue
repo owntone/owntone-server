@@ -1,10 +1,8 @@
 <template>
   <content-with-heading>
     <template #heading-left>
-      <p class="title is-4">
-        {{ playlist.name }}
-      </p>
-      <p class="heading">{{ playlists.count }} playlists</p>
+      <p class="title is-4" v-text="playlist.name" />
+      <p class="heading" v-text="$t('page.playlists.count', { count: playlists.count })" />
     </template>
     <template #content>
       <list-playlists :playlists="playlists" />

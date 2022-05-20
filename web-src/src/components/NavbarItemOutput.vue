@@ -4,42 +4,15 @@
       <div class="level-left fd-expanded">
         <div class="level-item" style="flex-grow: 0">
           <a class="button is-white is-small">
-            <span
-              class="icon fd-has-action"
-              :class="{ 'has-text-grey-light': !output.selected }"
-              @click="set_enabled"
-            >
+            <span class="icon fd-has-action" :class="{ 'has-text-grey-light': !output.selected }" @click="set_enabled">
               <mdicon :name="type_class" size="18" :title="output.type" />
             </span>
           </a>
         </div>
         <div class="level-item fd-expanded">
           <div class="fd-expanded">
-            <p
-              class="heading"
-              :class="{ 'has-text-grey-light': !output.selected }"
-            >
-              {{ output.name }}
-            </p>
-            <Slider
-              v-model="volume"
-              :min="0"
-              :max="100"
-              :step="1"
-              :tooltips="false"
-              :disabled="!output.selected"
-              :classes="{ target: 'slider' }"
-              @change="set_volume"
-            />
-            <!--range-slider
-              class="slider fd-has-action"
-              min="0"
-              max="100"
-              step="1"
-              :disabled="!output.selected"
-              :value="volume"
-              @change="set_volume" >
-            </range-slider-->
+            <p class="heading" :class="{ 'has-text-grey-light': !output.selected }" v-text="output.name" />
+            <Slider v-model="volume" :min="0" :max="100" :step="1" :tooltips="false" :disabled="!output.selected" :classes="{ target: 'slider' }" @change="set_volume" />
           </div>
         </div>
       </div>
@@ -48,14 +21,12 @@
 </template>
 
 <script>
-//import RangeSlider from 'vue-range-slider'
 import Slider from '@vueform/slider'
 import webapi from '@/webapi'
 
 export default {
   name: 'NavbarItemOutput',
   components: {
-    //    RangeSlider
     Slider
   },
 

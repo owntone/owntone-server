@@ -1,9 +1,6 @@
 <template>
   <figure>
-    <img
-      v-lazy="{ src: artwork_url_with_size, lifecycle: lazy_lifecycle }"
-      @click="$emit('click')"
-    />
+    <img v-lazy="{ src: artwork_url_with_size, lifecycle: lazy_lifecycle }" @click="$emit('click')" />
   </figure>
 </template>
 

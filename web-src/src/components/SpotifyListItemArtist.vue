@@ -1,9 +1,7 @@
 <template>
   <div class="media">
     <div class="media-content fd-has-action is-clipped" @click="open_artist">
-      <h1 class="title is-6">
-        {{ artist.name }}
-      </h1>
+      <h1 class="title is-6" v-text="artist.name" />
     </div>
     <div class="media-right">
       <slot name="actions" />

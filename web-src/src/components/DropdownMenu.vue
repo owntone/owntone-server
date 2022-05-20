@@ -1,33 +1,14 @@
 <template>
-  <div
-    v-click-away="onClickOutside"
-    class="dropdown"
-    :class="{ 'is-active': is_active }"
-  >
+  <div v-click-away="onClickOutside" class="dropdown" :class="{ 'is-active': is_active }">
     <div class="dropdown-trigger">
-      <button
-        class="button"
-        aria-haspopup="true"
-        aria-controls="dropdown-menu"
-        @click="is_active = !is_active"
-      >
-        <span>{{ modelValue }}</span>
-        <span class="icon">
-          <mdicon name="chevron-down" size="16" />
-        </span>
+      <button class="button" aria-haspopup="true" aria-controls="dropdown-menu" @click="is_active = !is_active">
+        <span v-text="option.name" />
+        <mdicon class="icon" name="chevron-down" size="16" />
       </button>
     </div>
     <div id="dropdown-menu" class="dropdown-menu" role="menu">
       <div class="dropdown-content">
-        <a
-          v-for="option in options"
-          :key="option"
-          class="dropdown-item"
-          :class="{ 'is-active': modelValue === option }"
-          @click="select(option)"
-        >
-          {{ option }}
-        </a>
+        <a v-for="option in options" :key="option.id" class="dropdown-item" :class="{ 'is-active': modelValue === option.id }" @click="select(option)" v-text="option.name" />
       </div>
     </div>
   </div>
@@ -36,14 +17,20 @@
 <script>
 export default {
   name: 'DropdownMenu',
-
-  // eslint-disable-next-line vue/prop-name-casing
   props: ['modelValue', 'options'],
   emits: ['update:modelValue'],
 
   data() {
     return {
       is_active: false
+    }
+  },
+
+  computed: {
+    option: {
+      get() {
+        return this.options.find((option) => option.id === this.modelValue)
+      }
     }
   },
 
@@ -54,7 +41,7 @@ export default {
 
     select(option) {
       this.is_active = false
-      this.$emit('update:modelValue', option)
+      this.$emit('update:modelValue', option.id)
     }
   }
 }

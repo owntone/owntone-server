@@ -1,6 +1,6 @@
 <template>
   <a v-if="visible" :disabled="disabled" @click="seek">
-    <span class="icon"><mdicon name="fast-forward" :size="icon_size" /></span>
+    <mdicon class="icon" name="fast-forward" :size="icon_size" />
   </a>
 </template>
 

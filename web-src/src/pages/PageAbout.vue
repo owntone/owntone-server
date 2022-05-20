@@ -4,10 +4,8 @@
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths has-text-centered-mobile">
-            <p class="heading"><b>OwnTone</b> - version {{ config.version }}</p>
-            <h1 class="title is-4">
-              {{ config.library_name }}
-            </h1>
+            <p class="heading" v-html="$t('page.about.version', {version: config.version})" />
+            <h1 class="title is-4" v-text="config.library_name" />
           </div>
         </div>
       </div>
@@ -21,65 +19,49 @@
                 <!-- Left side -->
                 <div class="level-left">
                   <div class="level-item">
-                    <h2 class="title is-5">Library</h2>
+                    <h2 class="title is-5" v-text="$t('page.about.library')" />
                   </div>
                 </div>
-
                 <!-- Right side -->
                 <div class="level-right">
                   <div v-if="library.updating">
-                    <a class="button is-small is-loading">Update</a>
+                    <a class="button is-small is-loading" v-text="$t('page.about.update')" />
                   </div>
                   <div v-else>
-                    <a class="button is-small" @click="showUpdateDialog()"
-                      >Update</a
-                    >
+                    <a class="button is-small" @click="showUpdateDialog()" v-text="$t('page.about.update')" />
                   </div>
                 </div>
               </nav>
-
               <table class="table">
                 <tbody>
                   <tr>
-                    <th>Artists</th>
+                    <th v-text="$t('page.about.artists')" />
+                    <td class="has-text-right" v-text="$filters.number(library.artists)" />
+                  </tr>
+                  <tr>
+                    <th v-text="$t('page.about.albums')" />
+                    <td class="has-text-right" v-text="$filters.number(library.albums)" />
+                  </tr>
+                  <tr>
+                    <th v-text="$t('page.about.tracks')" />
+                    <td class="has-text-right" v-text="$filters.number(library.songs)" />
+                  </tr>
+                  <tr>
+                    <th v-text="$t('page.about.total-playtime')" />
+                    <td class="has-text-right" v-text="$filters.durationInDays(library.db_playtime * 1000)" />
+                  </tr>
+                  <tr>
+                    <th v-text="$t('page.about.updated')" />
                     <td class="has-text-right">
-                      {{ $filters.number(library.artists) }}
+                      <span v-text="$t('page.about.updated-on', { time: $filters.timeFromNow(library.updated_at) })" />
+                      (<span class="has-text-grey" v-text="$filters.datetime(library.updated_at)" />)
                     </td>
                   </tr>
                   <tr>
-                    <th>Albums</th>
+                    <th v-text="$t('page.about.uptime')" />
                     <td class="has-text-right">
-                      {{ $filters.number(library.albums) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Tracks</th>
-                    <td class="has-text-right">
-                      {{ $filters.number(library.songs) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Total playtime</th>
-                    <td class="has-text-right">
-                      {{ $filters.durationInDays(library.db_playtime * 1000) }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Library updated</th>
-                    <td class="has-text-right">
-                      {{ $filters.timeFromNow(library.updated_at) }} ago
-                      <span class="has-text-grey"
-                        >({{ $filters.datetime(library.updated_at) }})</span
-                      >
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Uptime</th>
-                    <td class="has-text-right">
-                      {{ $filters.timeFromNow(library.started_at, true) }}
-                      <span class="has-text-grey"
-                        >({{ $filters.datetime(library.started_at) }})</span
-                      >
+                      <span v-text="$filters.timeFromNow(library.started_at, true)" />
+                      (<span class="has-text-grey" v-text="$filters.datetime(library.started_at)" />)
                     </td>
                   </tr>
                 </tbody>
@@ -94,20 +76,8 @@
         <div class="columns is-centered">
           <div class="column is-four-fifths">
             <div class="content has-text-centered-mobile">
-              <p class="is-size-7">
-                Compiled with support for {{ config.buildoptions.join(', ') }}.
-              </p>
-              <p class="is-size-7">
-                Web interface built with <a href="http://bulma.io">Bulma</a>,
-                <a href="https://materialdesignicons.com/"
-                  >Material Design Icons</a
-                >, <a href="https://vuejs.org/">Vue.js</a>,
-                <a href="https://github.com/mzabriskie/axios">axios</a> and
-                <a
-                  href="https://github.com/owntone/owntone-server/network/dependencies"
-                  >more</a
-                >.
-              </p>
+              <p class="is-size-7" v-text="$t('page.about.compiled-with', { options: config.buildoptions.join(', ') })" />
+              <p class="is-size-7" v-html="$t('page.about.built-with')" />
             </div>
           </div>
         </div>

@@ -6,91 +6,62 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <cover-artwork
-                :artwork_url="album.artwork_url"
-                :artist="album.artist"
-                :album="album.name"
-                class="image is-square fd-has-margin-bottom fd-has-shadow"
-              />
+              <cover-artwork :artwork_url="album.artwork_url" :artist="album.artist" :album="album.name" class="image is-square fd-has-margin-bottom fd-has-shadow" />
               <p class="title is-4">
-                <a class="has-text-link" @click="open_album">{{
-                  album.name
-                }}</a>
+                <a class="has-text-link" @click="open_album" v-text="album.name" />
               </p>
               <div v-if="media_kind_resolved === 'podcast'" class="buttons">
-                <a class="button is-small" @click="mark_played"
-                  >Mark as played</a
-                >
-                <a class="button is-small" @click="$emit('remove-podcast')"
-                  >Remove podcast</a
-                >
+                <a class="button is-small" @click="mark_played" v-text="$t('dialog.album.mark-as-played')" />
+                <a class="button is-small" @click="$emit('remove-podcast')" v-text="$t('dialog.album.remove-podcast')" />
               </div>
               <div class="content is-small">
                 <p v-if="album.artist">
-                  <span class="heading">Album artist</span>
-                  <a class="title is-6 has-text-link" @click="open_artist">{{
-                    album.artist
-                  }}</a>
+                  <span class="heading" v-text="$t('dialog.album.artist')" />
+                  <a class="title is-6 has-text-link" @click="open_artist" v-text="album.artist" />
                 </p>
                 <p v-if="album.date_released">
-                  <span class="heading">Release date</span>
-                  <span class="title is-6">{{
-                    $filters.date(album.date_released)
-                  }}</span>
+                  <span class="heading" v-text="$t('dialog.album.release-date')" />
+                  <span class="title is-6" v-text="$filters.date(album.date_released)" />
                 </p>
                 <p v-else-if="album.year > 0">
-                  <span class="heading">Year</span>
-                  <span class="title is-6">{{ album.year }}</span>
+                  <span class="heading" v-text="$t('dialog.album.year')" />
+                  <span class="title is-6" v-text="album.year" />
                 </p>
                 <p>
-                  <span class="heading">Tracks</span>
-                  <span class="title is-6">{{ album.track_count }}</span>
+                  <span class="heading" v-text="$t('dialog.album.tracks')" />
+                  <span class="title is-6" v-text="album.track_count" />
                 </p>
                 <p>
-                  <span class="heading">Length</span>
-                  <span class="title is-6">{{
-                    $filters.durationInHours(album.length_ms)
-                  }}</span>
+                  <span class="heading" v-text="$t('dialog.album.duration')" />
+                  <span class="title is-6" v-text="$filters.durationInHours(album.length_ms)" />
                 </p>
                 <p>
-                  <span class="heading">Type</span>
-                  <span class="title is-6"
-                    >{{ album.media_kind }} - {{ album.data_kind }}</span
-                  >
+                  <span class="heading" v-text="$t('dialog.album.type')" />
+                  <span class="title is-6" v-text="[t('media.kind.' + album.media_kind), t('data.kind.' + album.data_kind)].join(' - ')" />
                 </p>
                 <p>
-                  <span class="heading">Added at</span>
-                  <span class="title is-6">{{
-                    $filters.datetime(album.time_added)
-                  }}</span>
+                  <span class="heading" v-text="$t('dialog.album.added-on')" />
+                  <span class="title is-6" v-text="$filters.datetime(album.time_added)" />
                 </p>
               </div>
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
-                <span class="is-size-7">Add</span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.album.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
-                <span class="is-size-7">Add Next</span>
+                <mdicon class="icon" name="playlist-play" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.album.add-next')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
-                <span class="is-size-7">Play</span>
+                <mdicon class="icon" name="play" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.album.play')" />
               </a>
             </footer>
           </div>
         </div>
-        <button
-          class="modal-close is-large"
-          aria-label="close"
-          @click="$emit('close')"
-        />
+        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
       </div>
     </transition>
   </div>

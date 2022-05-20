@@ -6,24 +6,13 @@
           <section v-if="$slots['options']">
             <div ref="options_ref" style="height: 1px" />
             <slot name="options" />
-            <nav
-              class="buttons is-centered"
-              style="margin-bottom: 6px; margin-top: 16px"
-            >
-              <a
-                v-if="!options_visible"
-                class="button is-small is-white"
-                @click="scroll_to_top"
-                ><span class="icon is-small"
-                  ><mdicon name="chevron-up" size="16" /></span
-              ></a>
-              <a
-                v-else
-                class="button is-small is-white"
-                @click="scroll_to_content"
-                ><span class="icon is-small"
-                  ><mdicon name="chevron-down" size="16" /></span
-              ></a>
+            <nav class="buttons is-centered" style="margin-bottom: 6px; margin-top: 16px">
+              <a v-if="!options_visible" class="button is-small is-white" @click="scroll_to_top">
+                <mdicon class="icon is-small" name="chevron-down" size="16" />
+              </a>
+              <a v-else class="button is-small is-white" @click="scroll_to_content">
+                <mdicon class="icon is-small" name="chevron-up" size="16" />
+              </a>
             </nav>
           </section>
           <div :class="{ 'fd-content-with-option': $slots['options'] }">
@@ -36,13 +25,11 @@
                   </div>
                 </div>
               </div>
-
               <!-- Right side -->
               <div class="level-right has-text-centered-mobile">
                 <slot name="heading-right" />
               </div>
             </nav>
-
             <slot name="content" />
             <div style="margin-top: 16px">
               <slot name="footer" />
@@ -86,7 +73,6 @@ export default {
     },
 
     scroll_to_content: function () {
-      // window.scrollTo({ top: 80, behavior: 'smooth' })
       if (this.$route.meta.has_tabs) {
         this.$scrollTo('#top', { offset: -140 })
       } else {

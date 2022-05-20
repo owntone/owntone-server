@@ -55,9 +55,9 @@ export default createStore({
 
       hide_singles: false,
       hide_spotify: false,
-      artists_sort: 'Name',
-      artist_albums_sort: 'Name',
-      albums_sort: 'Name',
+      artists_sort: 1,
+      artist_albums_sort: 1,
+      albums_sort: 1,
       show_only_next_items: false,
       show_burger_menu: false,
       show_player_menu: false,

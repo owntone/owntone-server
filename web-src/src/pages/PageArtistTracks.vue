@@ -5,39 +5,25 @@
         <index-button-list :index="index_list" />
       </template>
       <template #heading-left>
-        <p class="title is-4">
-          {{ artist.name }}
-        </p>
+        <p class="title is-4" v-text="artist.name" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
-            class="button is-small is-light is-rounded"
-            @click="show_artist_details_modal = true"
-          >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+          <a class="button is-small is-light is-rounded" @click="show_artist_details_modal = true">
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="shuffle" size="16" /></span>
-            <span>Shuffle</span>
+            <mdicon class="icon" name="shuffle" size="16" />
+            <span v-text="$t('page.artist.shuffle')" />
           </a>
         </div>
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          <a class="has-text-link" @click="open_artist"
-            >{{ artist.album_count }} albums</a
-          >
-          | {{ artist.track_count }} tracks
+          <a class="has-text-link" @click="open_artist" v-text="$t('page.artist.track-count', { albums: artist.album_count, tracks: artist.track_count})" />
         </p>
         <list-tracks :tracks="tracks.items" :uris="track_uris" />
-        <modal-dialog-artist
-          :show="show_artist_details_modal"
-          :artist="artist"
-          @close="show_artist_details_modal = false"
-        />
+        <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
       </template>
     </content-with-heading>
   </div>

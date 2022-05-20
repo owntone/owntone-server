@@ -6,60 +6,36 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <p class="title is-4">Add Podcast RSS feed URL</p>
+              <p class="title is-4" v-text="$t('dialog.add.rss.title')" />
               <form @submit.prevent="add_stream">
                 <div class="field">
                   <p class="control is-expanded has-icons-left">
-                    <input
-                      ref="url_field"
-                      v-model="url"
-                      class="input is-shadowless"
-                      type="text"
-                      placeholder="http://url-to-rss"
-                      :disabled="loading"
-                    />
-                    <span class="icon is-left">
-                      <mdicon name="rss" size="16" />
-                    </span>
+                    <input ref="url_field" v-model="url" class="input is-shadowless" type="text" :placeholder="$t('dialog.add.rss.placeholder')" :disabled="loading" />
+                    <mdicon class="icon is-left" name="rss" size="16" />
                   </p>
-                  <p class="help">
-                    Adding a podcast includes creating an RSS playlist, that
-                    will allow OwnTone to manage the podcast subscription.
-                  </p>
+                  <p class="help" v-text="$t('dialog.add.rss.help')" />
                 </div>
               </form>
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item button is-loading">
-                <span class="icon"><mdicon name="web" size="16" /></span>
-                <span class="is-size-7">Processing ...</span>
+                <mdicon class="icon" name="web" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.add.rss.processing')" />
               </a>
             </footer>
             <footer v-else class="card-footer">
-              <a
-                class="card-footer-item has-text-danger"
-                @click="$emit('close')"
-              >
-                <span class="icon"><mdicon name="cancel" size="16" /></span>
-                <span class="is-size-7">Cancel</span>
+              <a class="card-footer-item has-text-danger" @click="$emit('close')">
+                <mdicon class="icon" name="cancel" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.add.rss.cancel')" />
               </a>
-              <a
-                class="card-footer-item has-background-info has-text-white has-text-weight-bold"
-                @click="add_stream"
-              >
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
-                <span class="is-size-7">Add</span>
+              <a class="card-footer-item has-background-info has-text-white has-text-weight-bold" @click="add_stream">
+                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.add.rss.add')" />
               </a>
             </footer>
           </div>
         </div>
-        <button
-          class="modal-close is-large"
-          aria-label="close"
-          @click="$emit('close')"
-        />
+        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
       </div>
     </transition>
   </div>

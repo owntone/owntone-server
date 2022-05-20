@@ -1,12 +1,8 @@
 <template>
   <div class="media">
     <div class="media-content fd-has-action is-clipped" @click="open_playlist">
-      <h1 class="title is-6">
-        {{ playlist.name }}
-      </h1>
-      <h2 class="subtitle is-7">
-        {{ playlist.owner.display_name }}
-      </h2>
+      <h1 class="title is-6" v-text="playlist.name" />
+      <h2 class="subtitle is-7" v-text="playlist.owner.display_name" />
     </div>
     <div class="media-right">
       <slot name="actions" />

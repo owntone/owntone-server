@@ -1,81 +1,53 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-settings />
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Remote Pairing</div>
+        <div class="title is-4" v-text="$t('page.settings.devices.pairing')" />
       </template>
-
       <template #content>
         <!-- Paring request active -->
         <div v-if="pairing.active" class="notification">
           <form @submit.prevent="kickoff_pairing">
-            <label class="label has-text-weight-normal">
-              Remote pairing request from <b>{{ pairing.remote }}</b>
-            </label>
+            <label class="label has-text-weight-normal" v-html="$t('page.settings.devices.pairing-request', { remote: pairing.remote})" />
             <div class="field is-grouped">
               <div class="control">
-                <input
-                  v-model="pairing_req.pin"
-                  class="input"
-                  type="text"
-                  placeholder="Enter pairing code"
-                />
+                <input v-model="pairing_req.pin" class="input" type="text" placeholder="Enter pairing code" />
               </div>
               <div class="control">
-                <button class="button is-info" type="submit">Send</button>
+                <button class="button is-info" type="submit" v-text="$t('page.settings.devices.send')" />
               </div>
             </div>
           </form>
         </div>
         <!-- No pairing requests -->
         <div v-if="!pairing.active" class="content">
-          <p>No active pairing request.</p>
+          <p v-text="$t('page.settings.devices.no-active-pairing')" />
         </div>
       </template>
     </content-with-heading>
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Speaker pairing and device verification</div>
+        <div class="title is-4" v-text="$t('page.settings.devices.speaker-pairing')" />
       </template>
-
       <template #content>
-        <p class="content">
-          If your speaker requires pairing then activate it below and enter the
-          PIN that it displays.
-        </p>
-
+        <p class="content" v-text="$t('page.settings.devices.speaker-pairing-info')" />
         <div v-for="output in outputs" :key="output.id">
           <div class="field">
             <div class="control">
               <label class="checkbox">
-                <input
-                  v-model="output.selected"
-                  type="checkbox"
-                  @change="output_toggle(output.id)"
-                />
-                {{ output.name }}
+                <input v-model="output.selected" type="checkbox" style="margin-right: 5px" @change="output_toggle(output.id)"/>
+                <span v-text="output.name" />
               </label>
             </div>
           </div>
-          <form
-            v-if="output.needs_auth_key"
-            class="fd-has-margin-bottom"
-            @submit.prevent="kickoff_verification(output.id)"
-          >
+          <form v-if="output.needs_auth_key" class="fd-has-margin-bottom" @submit.prevent="kickoff_verification(output.id)">
             <div class="field is-grouped">
               <div class="control">
-                <input
-                  v-model="verification_req.pin"
-                  class="input"
-                  type="text"
-                  placeholder="Enter verification code"
-                />
+                <input v-model="verification_req.pin" class="input" type="text" :placeholder="$t('page.settings.devices.verification-code')" />
               </div>
               <div class="control">
-                <button class="button is-info" type="submit">Verify</button>
+                <button class="button is-info" type="submit" v-text="$t('page.settings.devices.verify')" />
               </div>
             </div>
           </form>

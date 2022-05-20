@@ -1,187 +1,105 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-settings />
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Spotify</div>
+        <div class="title is-4" v-text="$t('page.settings.services.spotify.title')" />
       </template>
-
       <template #content>
         <div v-if="!spotify.spotify_installed" class="notification is-size-7">
-          <p>
-            OwnTone was either built without support for Spotify or libspotify
-            is not installed.
-          </p>
+          <p v-text="$t('page.settings.services.spotify.no-support')" />
         </div>
         <div v-if="spotify.spotify_installed">
           <div class="notification is-size-7">
-            <b>You must have a Spotify premium account</b>.
-            <span v-if="use_libspotity"
-              >If you normally log into Spotify with your Facebook account you
-              must first go to Spotify's web site where you can get the Spotify
-              username and password that matches your account.</span
-            >
+            <b v-text="$t('page.settings.services.spotify.requirements')" />
+            <span v-if="use_libspotity" v-text="$t('page.settings.services.spotify.help')" />
           </div>
-
           <div v-if="use_libspotity">
             <p class="content">
-              <b>libspotify</b> - Login with your Spotify username and password
+              <b v-text="$t('page.settings.services.spotify')" />
+              <span v-text="$t('page.settings.services.spotify.credentials')" />
             </p>
             <p v-if="spotify.libspotify_logged_in" class="fd-has-margin-bottom">
-              Logged in as
-              <b
-                ><code>{{ spotify.libspotify_user }}</code></b
-              >
+              <span v-text="$t('page.settings.services.spotify.logged-as')" />
+              <b><code v-text="spotify.libspotify_user" /></b>
             </p>
-            <form
-              v-if="spotify.spotify_installed && !spotify.libspotify_logged_in"
-              @submit.prevent="login_libspotify"
-            >
+            <form v-if="spotify.spotify_installed && !spotify.libspotify_logged_in" @submit.prevent="login_libspotify">
               <div class="field is-grouped">
                 <div class="control is-expanded">
-                  <input
-                    v-model="libspotify.user"
-                    class="input"
-                    type="text"
-                    placeholder="Username"
-                  />
-                  <p class="help is-danger">
-                    {{ libspotify.errors.user }}
-                  </p>
+                  <input v-model="libspotify.user" class="input" type="text" placeholder="Username" />
+                  <p class="help is-danger" v-text="libspotify.errors.user" />
                 </div>
                 <div class="control is-expanded">
-                  <input
-                    v-model="libspotify.password"
-                    class="input"
-                    type="password"
-                    placeholder="Password"
-                  />
-                  <p class="help is-danger">
-                    {{ libspotify.errors.password }}
-                  </p>
+                  <input v-model="libspotify.password" class="input" type="password" placeholder="Password" />
+                  <p class="help is-danger" v-text="libspotify.errors.password" />
                 </div>
                 <div class="control">
-                  <button class="button is-info">Login</button>
+                  <button class="button is-info" v-text="$t('page.settings.services.login')" />
                 </div>
               </div>
             </form>
-            <p class="help is-danger">
-              {{ libspotify.errors.error }}
-            </p>
-            <p class="help">
-              libspotify enables OwnTone to play Spotify tracks.
-            </p>
-            <p class="help">
-              OwnTone will not store your password, but will still be able to
-              log you in automatically afterwards, because libspotify saves a
-              login token.
-            </p>
+            <p class="help is-danger" v-text="libspotify.errors.error" />
+            <p class="help" v-text="$t('page.settings.services.spotify.help-1')" />
+            <p class="help" v-text="$t('page.settings.services.spotify.help-2')" />
           </div>
-
           <div class="fd-has-margin-top">
-            <p class="content">
-              <b>Spotify Web API</b> - Grant access to the Spotify Web API
-            </p>
+            <p class="content" v-html="$t('page.settings.services.spotify.grant-access')" />
             <p v-if="spotify.webapi_token_valid">
-              Access granted for
-              <b
-                ><code>{{ spotify.webapi_user }}</code></b
-              >
+              <span v-text="$t('page.settings.services.spotify.user')" />
+              <code v-text="spotify.webapi_user" />
             </p>
             <p v-if="spotify_missing_scope.length > 0" class="help is-danger">
-              Please reauthorize Web API access to grant OwnTone the following
-              additional access rights:
-              <b
-                ><code>{{ spotify_missing_scope.join() }}</code></b
-              >
+              <span v-text="$t('page.settings.services.spotify.reauthorize')" />
+              <code v-text="spotify_missing_scope.join()" />
             </p>
             <div class="field fd-has-margin-top">
               <div class="control">
-                <a
-                  class="button"
-                  :class="{
-                    'is-info':
-                      !spotify.webapi_token_valid ||
-                      spotify_missing_scope.length > 0
-                  }"
-                  :href="spotify.oauth_uri"
-                  >Authorize Web API access</a
-                >
+                <a class="button" :class="{ 'is-info': !spotify.webapi_token_valid || spotify_missing_scope.length > 0 }" :href="spotify.oauth_uri" v-text="$t('page.settings.services.spotify.authorize')" />
               </div>
             </div>
             <p class="help">
-              Access to the Spotify Web API enables scanning of your Spotify
-              library. Required scopes are
-              <code>{{ spotify_required_scope.join() }}</code
-              >.
+              <span v-text="$t('page.settings.services.spotify.scopes')" />
+              <code v-text="spotify_required_scope.join()" />
             </p>
-            <div
-              v-if="spotify.webapi_token_valid"
-              class="field fd-has-margin-top"
-            >
+            <div v-if="spotify.webapi_token_valid" class="field fd-has-margin-top">
               <div class="control">
-                <a class="button is-danger" @click="logout_spotify">Logout</a>
+                <a class="button is-danger" @click="logout_spotify" v-text="$t('page.settings.services.logout')" />
               </div>
             </div>
           </div>
         </div>
       </template>
     </content-with-heading>
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Last.fm</div>
+        <div class="title is-4" v-text="$t('page.settings.services.lastfm.title')" />
       </template>
-
       <template #content>
         <div v-if="!lastfm.enabled" class="notification is-size-7">
-          <p>OwnTone was built without support for Last.fm.</p>
+          <p v-text="$t('page.settings.services.lastfm.no-support')" />
         </div>
         <div v-if="lastfm.enabled">
-          <p class="content">
-            <b>Last.fm</b> - Login with your Last.fm username and password to
-            enable scrobbling
-          </p>
+          <p class="content" v-html="$t('page.settings.services.lastfm.grant-access')" />
           <div v-if="lastfm.scrobbling_enabled">
-            <a class="button" @click="logoutLastfm">Stop scrobbling</a>
+            <a class="button" @click="logoutLastfm" v-text="$t('page.settings.services.lastfm.stop-scrobbling')" />
           </div>
           <div v-if="!lastfm.scrobbling_enabled">
             <form @submit.prevent="login_lastfm">
               <div class="field is-grouped">
                 <div class="control is-expanded">
-                  <input
-                    v-model="lastfm_login.user"
-                    class="input"
-                    type="text"
-                    placeholder="Username"
-                  />
-                  <p class="help is-danger">
-                    {{ lastfm_login.errors.user }}
-                  </p>
+                  <input v-model="lastfm_login.user" class="input" type="text" placeholder="Username" />
+                  <p class="help is-danger" v-text="lastfm_login.errors.user" />
                 </div>
                 <div class="control is-expanded">
-                  <input
-                    v-model="lastfm_login.password"
-                    class="input"
-                    type="password"
-                    placeholder="Password"
-                  />
-                  <p class="help is-danger">
-                    {{ lastfm_login.errors.password }}
-                  </p>
+                  <input v-model="lastfm_login.password" class="input" type="password" placeholder="Password" />
+                  <p class="help is-danger" v-text="lastfm_login.errors.password" />
                 </div>
                 <div class="control">
-                  <button class="button is-info" type="submit">Login</button>
+                  <button class="button is-info" type="submit" v-text="$t('page.settings.services.login')" />
                 </div>
               </div>
-              <p class="help is-danger">
-                {{ lastfm_login.errors.error }}
-              </p>
-              <p class="help">
-                OwnTone will not store your Last.fm username/password, only the
-                session key. The session key does not expire.
-              </p>
+              <p class="help is-danger" v-text="lastfm_login.errors.error" />
+              <p class="help" v-text="$t('page.settings.services.lastfm.info')" />
             </form>
           </div>
         </div>

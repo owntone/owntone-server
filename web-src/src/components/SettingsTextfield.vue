@@ -3,25 +3,10 @@
     <div class="field">
       <label class="label has-text-weight-normal">
         <slot name="label" />
-        <i
-          class="is-size-7"
-          :class="{
-            'has-text-info': statusUpdate === 'success',
-            'has-text-danger': statusUpdate === 'error'
-          }"
-        >
-          {{ info }}</i
-        >
+        <i class="is-size-7" :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }" v-text="info" />
       </label>
       <div class="control">
-        <input
-          ref="settings_text"
-          class="input"
-          type="text"
-          :placeholder="placeholder"
-          :value="value"
-          @input="set_update_timer"
-        />
+        <input ref="setting" class="input" type="text" :placeholder="placeholder" :value="value" @input="set_update_timer" />
       </div>
       <p v-if="$slots['info']" class="help">
         <slot name="info" />
@@ -43,8 +28,6 @@ export default {
     return {
       timerDelay: 2000,
       timerId: -1,
-
-      // <empty>: default/no changes, 'success': update succesful, 'error': update failed
       statusUpdate: ''
     }
   },
@@ -71,11 +54,19 @@ export default {
 
     info() {
       if (this.statusUpdate === 'success') {
-        return '(setting saved)'
+        return this.$t('setting.saved')
       } else if (this.statusUpdate === 'error') {
-        return '(error saving setting)'
+        return this.$t('setting.not-saved')
       }
       return ''
+    },
+
+    is_success() {
+      return this.statusUpdate === 'success'
+    },
+
+    is_error() {
+      return this.statusUpdate === 'error'
     }
   },
 
@@ -87,7 +78,7 @@ export default {
       }
 
       this.statusUpdate = ''
-      const newValue = this.$refs.settings_text.value
+      const newValue = this.$refs.setting.value
       if (newValue !== this.value) {
         this.timerId = window.setTimeout(this.update_setting, this.timerDelay)
       }
@@ -96,7 +87,7 @@ export default {
     update_setting() {
       this.timerId = -1
 
-      const newValue = this.$refs.settings_text.value
+      const newValue = this.$refs.setting.value
       if (newValue === this.value) {
         this.statusUpdate = ''
         return
@@ -115,7 +106,7 @@ export default {
         })
         .catch(() => {
           this.statusUpdate = 'error'
-          this.$refs.settings_text.value = this.value
+          this.$refs.setting.value = this.value
         })
         .finally(() => {
           this.timerId = window.setTimeout(this.clear_status, this.timerDelay)

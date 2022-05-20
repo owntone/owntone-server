@@ -2,17 +2,19 @@
   "name": "owntone-web",
   "version": "2.0.0",
   "scripts": {
-    "dev": "vite",
     "serve": "vite",
     "build": "vite build",
-    "preview": "vite preview",
     "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
-    "format": "prettier .  --write"
+    "dev": "vite",
+    "format": "prettier .  --write",
+    "i18n:report": "vue-cli-service i18n:report --src \"./src/**/*.?(js|vue)\" --locales \"./src/locales/**/*.json\"",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@aacassandra/vue3-progressbar": "^1.0.3",
     "@mdi/js": "^6.6.96",
     "@ts-pro/vue-eternal-loading": "^1.2.0",
+    "@vue/cli-shared-utils": "^5.0.4",
     "@vueform/slider": "github:chme/slider#faff83ed8a77f2cdbcb7252505ef734301efd139",
     "axios": "^0.26.1",
     "bulma": "^0.9.3",
@@ -23,6 +25,7 @@
     "spotify-web-api-js": "^1.5.2",
     "string-to-color": "^2.2.2",
     "vue": "^3.2.33",
+    "vue-i18n": "^9.1.0",
     "vue-router": "^4.0.14",
     "vue-scrollto": "^2.20.0",
     "vue3-click-away": "^1.2.4",
@@ -31,12 +34,15 @@
     "vuex": "^4.0.2"
   },
   "devDependencies": {
+    "@intlify/vite-plugin-vue-i18n": "^3.4.0",
+    "@intlify/vue-i18n-loader": "^3.0.0",
     "@vitejs/plugin-vue": "^2.3.1",
     "eslint": "^8.13.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-vue": "^8.6.0",
     "prettier": "2.6.2",
     "sass": "^1.50.0",
-    "vite": "^2.9.5"
+    "vite": "^2.9.8",
+    "vue-cli-plugin-i18n": "~2.3.1"
   }
 }

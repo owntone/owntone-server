@@ -8,14 +8,7 @@ axios.interceptors.response.use(
   function (error) {
     if (error.request.status && error.request.responseURL) {
       store.dispatch('add_notification', {
-        text:
-          'Request failed (status: ' +
-          error.request.status +
-          ' ' +
-          error.request.statusText +
-          ', url: ' +
-          error.request.responseURL +
-          ')',
+        text: this.$t('server.request-failed', { status: error.request.status, cause: error.request.statusText, url: error.request.responseURL }),
         type: 'danger'
       })
     }
@@ -84,7 +77,7 @@ export default {
   queue_add(uri) {
     return axios.post('./api/queue/items/add?uris=' + uri).then((response) => {
       store.dispatch('add_notification', {
-        text: response.data.count + ' tracks appended to queue',
+        text: this.$t('server.appended-tracks', { count: response.data.count }),
         type: 'info',
         timeout: 2000
       })
@@ -101,7 +94,7 @@ export default {
       .post('./api/queue/items/add?uris=' + uri + '&position=' + position)
       .then((response) => {
         store.dispatch('add_notification', {
-          text: response.data.count + ' tracks appended to queue',
+          text: this.$t('server.appended-tracks', { count: response.data.count }),
           type: 'info',
           timeout: 2000
         })
@@ -117,7 +110,7 @@ export default {
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: response.data.count + ' tracks appended to queue',
+          text: this.$t('server.appended-tracks', { count: response.data.count }),
           type: 'info',
           timeout: 2000
         })
@@ -137,7 +130,7 @@ export default {
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: response.data.count + ' tracks appended to queue',
+          text: this.$t('server.appended-tracks', { count: response.data.count }),
           type: 'info',
           timeout: 2000
         })
@@ -150,7 +143,7 @@ export default {
       .post('./api/queue/save', undefined, { params: { name: name } })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: 'Queue saved to playlist "' + name + '"',
+          text: this.$t('server.queue-saved', { name: name }),
           type: 'info',
           timeout: 2000
         })
