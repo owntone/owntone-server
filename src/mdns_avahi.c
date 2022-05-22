@@ -1044,7 +1044,7 @@ mdns_init(void)
 				 client_callback, NULL, &error);
   if (!mdns_client)
     {
-      DPRINTF(E_WARN, L_MDNS, "mdns_init: Could not create Avahi client: %s\n", MDNSERR);
+      DPRINTF(E_WARN, L_MDNS, "mdns_init: Could not create Avahi client: %s\n", avahi_strerror(error));
 
       return -1;
     }
