@@ -948,6 +948,19 @@ librespotc_last_errmsg(void)
   return sp_errmsg ? sp_errmsg : "(no error)";
 }
 
+static void
+system_info_set(struct sp_sysinfo *si_out, struct sp_sysinfo *si_user)
+{
+  memcpy(si_out, si_user, sizeof(struct sp_sysinfo));
+
+  if (si_out->client_name[9] == '\0')
+    snprintf(si_out->client_name, sizeof(si_out->client_name), SP_CLIENT_NAME_DEFAULT);
+  if (si_out->client_version[9] == '\0')
+    snprintf(si_out->client_version, sizeof(si_out->client_version), SP_CLIENT_VERSION_DEFAULT);
+  if (si_out->client_build_id[9] == '\0')
+    snprintf(si_out->client_build_id, sizeof(si_out->client_build_id), SP_CLIENT_BUILD_ID_DEFAULT);
+}
+
 int
 librespotc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
 {
@@ -959,7 +972,7 @@ librespotc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
   sp_cb     = *callbacks;
   sp_initialized = true;
 
-  memcpy(&sp_sysinfo, sysinfo, sizeof(struct sp_sysinfo));
+  system_info_set(&sp_sysinfo, sysinfo);
 
   sp_evbase = event_base_new();
   if (!sp_evbase)

@@ -70,6 +70,13 @@
 // large enough that the file can be probed from the first chunk.
 #define SP_CHUNK_LEN_WORDS 1024 * 8
 
+// Used to create default sysinfo, which should be librespot_[short sha]_[random 8 characters build id],
+// ref https://github.com/plietar/librespot/pull/218. User may override, but
+// as of 20220516 Spotify seems to have whitelisting of client name.
+#define SP_CLIENT_NAME_DEFAULT "librespot"
+#define SP_CLIENT_VERSION_DEFAULT "000000"
+#define SP_CLIENT_BUILD_ID_DEFAULT "aabbccdd"
+
 // Shorthand for error handling
 #define RETURN_ERROR(r, m) \
   do { ret = (r); sp_errmsg = (m); goto error; } while(0)
