@@ -1,4 +1,4 @@
-if COND_LIBRESPOTC
+if COND_SPOTIFY
 LIBRESPOTC_SUBDIR=src/inputs/librespot-c
 endif
 
@@ -64,9 +64,6 @@ if COND_INSTALL_USER
 	( $(GETENT) passwd $(OWNTONE_USER) &> /dev/null || $(USERADD) --system --no-create-home --gid $(OWNTONE_GROUP) --groups audio --shell /usr/sbin/nologin $(OWNTONE_USER) )
 	( ! $(GETENT) group pulse-access &> /dev/null || $(USERMOD) --append --groups pulse-access $(OWNTONE_USER) )
 	$(CHOWN) $(OWNTONE_USER).$(OWNTONE_GROUP) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)"
-endif
-if COND_LIBSPOTIFY
-	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/cache/$(PACKAGE)/libspotify"
 endif
 # we do this manually instead of using sysconf_DATA because it overwrites existing config
 if COND_INSTALL_CONF_FILE

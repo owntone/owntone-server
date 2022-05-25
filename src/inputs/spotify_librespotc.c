@@ -286,7 +286,7 @@ hexdump_cb(const char *msg, uint8_t *data, size_t data_len)
 }
 
 
-/* ----------------------- libresport-c initialization ---------------------- */
+/* ------------------------ librespot-c initialization ---------------------- */
 
 struct sp_callbacks callbacks = {
   .https_get      = https_get_cb,
@@ -309,9 +309,6 @@ initialize(struct global_ctx *ctx)
   int ret;
 
   spotify_cfg = cfg_getsec(cfg, "spotify");
-
-  if (cfg_getbool(spotify_cfg, "use_libspotify"))
-    return -1;
 
   if (ctx->is_initialized)
     return 0;

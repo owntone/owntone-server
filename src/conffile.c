@@ -198,9 +198,9 @@ static cfg_opt_t sec_rcp[] =
 /* Spotify section structure */
 static cfg_opt_t sec_spotify[] =
   {
-    CFG_BOOL("use_libspotify", cfg_false, CFGF_NONE),
-    CFG_STR("settings_dir", STATEDIR "/cache/" PACKAGE "/libspotify", CFGF_NONE),
-    CFG_STR("cache_dir", "/tmp", CFGF_NONE),
+    CFG_BOOL("use_libspotify", cfg_false, CFGF_DEPRECATED),
+    CFG_STR("settings_dir", STATEDIR "/cache/" PACKAGE "/libspotify", CFGF_DEPRECATED),
+    CFG_STR("cache_dir", "/tmp", CFGF_DEPRECATED),
     CFG_INT("bitrate", 0, CFGF_NONE),
     CFG_BOOL("base_playlist_disable", cfg_false, CFGF_NONE),
     CFG_BOOL("artist_override", cfg_false, CFGF_NONE),
