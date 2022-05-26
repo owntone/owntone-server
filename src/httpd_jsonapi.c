@@ -867,8 +867,8 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(allow_modifying_stored_playlists));
   safe_json_add_string(jreply, "default_playlist_directory", default_playlist_directory);
 
-  // Wether libspotify should be used instead of librespot
-  json_object_object_add(jreply, "use_libspotify", json_object_new_boolean(cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify")));
+  // libspotify is sunset, so always return false. TODO: remove this parameter.
+  json_object_object_add(jreply, "use_libspotify", json_object_new_boolean(false));
 
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 

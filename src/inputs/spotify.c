@@ -25,26 +25,21 @@
 #include <string.h>
 
 #include "logger.h"
-#include "conffile.h"
 #include "spotify.h"
+
+// With just one backend the abstraction implemented here is a bit overkill, but
+// it was added back when there was also libspotify. Keep it around for a while
+// and then consider removing.
 
 #ifdef SPOTIFY_LIBRESPOTC
 extern struct spotify_backend spotify_librespotc;
-#endif
-#ifdef SPOTIFY_LIBSPOTIFY
-extern struct spotify_backend spotify_libspotify;
 #endif
 
 static struct spotify_backend *
 backend_set(void)
 {
 #ifdef SPOTIFY_LIBRESPOTC
-  if (!cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify"))
-    return &spotify_librespotc;
-#endif
-#ifdef SPOTIFY_LIBSPOTIFY
-  if (cfg_getbool(cfg_getsec(cfg, "spotify"), "use_libspotify"))
-    return &spotify_libspotify;
+  return &spotify_librespotc;
 #endif
   DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify configuration (not built with the configured backend)\n");
   return NULL;

@@ -52,10 +52,3 @@ pipe = "/srv/music/spotify"
 # Output metadata in Shairport Sync format (https://github.com/mikebrady/shairport-sync-metadata-reader)
 metadataPipe = "/srv/music/spotify.metadata"
 ```
-
-## Via libspotify
-
-This method is being deprecated, but is still available if the server was built
-with it, libspotify is installed and `use_libspotify` is enabled in the config
-file. Please consult [previous README versions](#references) for details on
-using libspotify.

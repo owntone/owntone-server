@@ -38,7 +38,6 @@ argument when you run ./configure:
  Feature              | Configure argument       | Packages
  ---------------------|--------------------------|-------------------------------------
  Chromecast           | `--enable-chromecast`    | libgnutls*-dev
- Legacy libspotify    | `--enable-libspotify`    | libspotify-dev
  Pulseaudio           | `--with-pulseaudio`      | libpulse-dev
 
 These features can be disabled saving you package dependencies:
@@ -258,8 +257,6 @@ Libraries:
   often already installed as part of your distro
 - libpulse (optional - Pulseaudio local audio)
   from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
-- libspotify (optional - Spotify support)
-  (deprecated by Spotify)
 - libgnutls (optional - Chromecast support)
   from <http://www.gnutls.org/>
 - libwebsockets 2.0.2+ (optional - websocket support)
@@ -282,15 +279,6 @@ generate the configure script and `Makefile.in`.
 To display the configure options `run ./configure --help`.
 
 Support for Spotify is optional. Use `--disable-spotify` to disable this feature.
-OwnTone supports two ways of integrating with Spotify: Using its own, built-in
-integration layer (which is the default), or to use Spotify's deprecated
-libspotify. To enable the latter, you must configure with `--enable-libspotify`
-and also make sure libspotify's `libspotify/api.h` is installed at compile time.
-At runtime, libspotify must be installed, and `use_libspotify` must be enabled
-in owntone.conf. OwnTone uses runtime dynamic linking to the libspotify library,
-so even though you compiled with `--enable-libspotify`, the executable will
-still be able to run on systems without libspotify. If you only want libspotify
-integration, you can use `--disable-spotify` and `--enable-libspotify`.
 
 Support for LastFM scrobbling is optional. Use `--enable-lastfm` to enable this
 feature.

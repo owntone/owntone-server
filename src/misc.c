@@ -76,9 +76,6 @@ static char *buildopts[] =
 #ifdef SPOTIFY_LIBRESPOTC
     "librespot-c",
 #endif
-#ifdef SPOTIFY_LIBSPOTIFY
-    "libspotify",
-#endif
 #ifdef LASTFM
     "LastFM",
 #else

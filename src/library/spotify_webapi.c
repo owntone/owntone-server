@@ -1621,9 +1621,6 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
       free_mfi(&mfi, 1);
     }
 
-  // This is only required for the libspotify backend
-  spotify_uri_register(track->uri);
-
   if (album && album->uri)
     cache_artwork_ping(track->uri, album->mtime, 0);
   else
@@ -2053,9 +2050,7 @@ initscan(void)
 
   /*
    * Check that the playback Spotify backend can log in, so we don't add tracks
-   * to the library that can't be played. Also, libspotify needs to be logged in
-   * before before scanning tracks from the web since scanned tracks need to be
-   * registered for playback.
+   * to the library that can't be played.
    */
   ret = spotify_relogin();
   if (ret < 0)

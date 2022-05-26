@@ -282,25 +282,7 @@ OWNTONE_ARG_DISABLE([Spotify support], [spotify], [SPOTIFY_LIBRESPOTC],
 	 AC_DEFINE([SPOTIFY], 1,
 		[Define to 1 to enable Spotify])
 	])
-AM_CONDITIONAL([COND_LIBRESPOTC], [[test "x$enable_spotify" = "xyes"]])
-
-dnl Spotify with dynamic linking to libspotify (legacy)
-OWNTONE_ARG_ENABLE([legacy libspotify support], [libspotify], [SPOTIFY_LIBSPOTIFY],
-	[AS_IF([[test "x$with_libevent_pthreads" = "xno"]],
-		[AC_MSG_ERROR([[libspotify support requires libevent_pthreads]])])
-	 OWNTONE_MODULES_CHECK([SPOTIFY_LIBSPOTIFY], [LIBSPOTIFY], [libspotify],
-		[], [libspotify/api.h])
-	 dnl Don't link with libspotify, use dynamic linking
-	 AC_SEARCH_LIBS([dlopen], [dl], [],
-		[AC_MSG_ERROR([[libspotify support requires dlopen]])])
-	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_CPPFLAGS], [$SPOTIFY_LIBSPOTIFY_CPPFLAGS])
-	 OWNTONE_VAR_PREPEND([OWNTONE_OPTS_LIBS], [-rdynamic])
-	 AC_DEFINE([SPOTIFY], 1,
-		[Define to 1 to enable Spotify])
-	])
-AM_CONDITIONAL([COND_LIBSPOTIFY], [[test "x$enable_libspotify" = "xyes"]])
-
-AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes" -o "x$enable_libspotify" = "xyes"]])
+AM_CONDITIONAL([COND_SPOTIFY], [[test "x$enable_spotify" = "xyes"]])
 
 dnl LastFM support
 OWNTONE_ARG_DISABLE([LastFM support], [lastfm], [LASTFM])
