@@ -2976,9 +2976,13 @@ volume_generic_bh(void *arg, int *retval)
 }
 
 static enum command_state
+consume_set(void *arg, int *retval);
+
+static enum command_state
 repeat_set(void *arg, int *retval)
 {
   enum repeat_mode *mode = arg;
+  union player_arg consume_arg;
 
   if (*mode == repeat)
     {
@@ -3002,6 +3006,13 @@ repeat_set(void *arg, int *retval)
 
   // Persist
   SETTINGS_SETINT(player_settings_category, PLAYER_SETTINGS_MODE_REPEAT, repeat);
+
+  if (repeat == REPEAT_ALL || repeat == REPEAT_SONG)
+    {
+      // Activating repeat requires repeat consume mode to be off
+      consume_arg.intval = 0;
+      consume_set(&consume_arg, retval);
+    }
 
   *retval = 0;
   return COMMAND_END;
@@ -3046,12 +3057,20 @@ shuffle_set(void *arg, int *retval)
 static enum command_state
 consume_set(void *arg, int *retval)
 {
+  enum repeat_mode repeat_mode;
   union player_arg *cmdarg = arg;
 
   consume = cmdarg->intval;
 
   // Persist
   SETTINGS_SETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_CONSUME, consume);
+
+  if (consume)
+    {
+      // Activating cosume mode requires repeat mode to be off
+      repeat_mode = REPEAT_OFF;
+      repeat_set(&repeat_mode, retval);
+    }
 
   *retval = 0;
   return COMMAND_END;
