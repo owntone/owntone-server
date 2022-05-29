@@ -5,7 +5,10 @@
     </template>
     <template #heading-right>
       <div class="buttons is-centered">
-        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_album_details_modal = true"
+        >
           <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
@@ -15,10 +18,31 @@
       </div>
     </template>
     <template #content>
-      <p class="heading has-text-centered-mobile" v-text="$t('page.podcast.track-count', { count: album.track_count })" />
-      <list-tracks :tracks="tracks" :show_progress="true" @play-count-changed="reload_tracks" />
-      <modal-dialog-album :show="show_album_details_modal" :album="album" :media_kind="'podcast'" :new_tracks="new_tracks" @close="show_album_details_modal = false" @play-count-changed="reload_tracks" @remove-podcast="open_remove_podcast_dialog" />
-      <modal-dialog :show="show_remove_podcast_modal" title="Remove podcast" delete_action="Remove" @close="show_remove_podcast_modal = false" @delete="remove_podcast">
+      <p
+        class="heading has-text-centered-mobile"
+        v-text="$t('page.podcast.track-count', { count: album.track_count })"
+      />
+      <list-tracks
+        :tracks="tracks"
+        :show_progress="true"
+        @play-count-changed="reload_tracks"
+      />
+      <modal-dialog-album
+        :show="show_album_details_modal"
+        :album="album"
+        :media_kind="'podcast'"
+        :new_tracks="new_tracks"
+        @close="show_album_details_modal = false"
+        @play-count-changed="reload_tracks"
+        @remove-podcast="open_remove_podcast_dialog"
+      />
+      <modal-dialog
+        :show="show_remove_podcast_modal"
+        title="Remove podcast"
+        delete_action="Remove"
+        @close="show_remove_podcast_modal = false"
+        @delete="remove_podcast"
+      >
         <template #modal-content>
           <p v-text="$t('page.podcast.remove-info-1')" />
           <p class="is-size-7">

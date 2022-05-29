@@ -4,7 +4,6 @@
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths has-text-centered-mobile">
-            <p class="heading" v-html="$t('page.about.version', {version: config.version})" />
             <h1 class="title is-4" v-text="config.library_name" />
           </div>
         </div>
@@ -25,43 +24,78 @@
                 <!-- Right side -->
                 <div class="level-right">
                   <div v-if="library.updating">
-                    <a class="button is-small is-loading" v-text="$t('page.about.update')" />
+                    <a
+                      class="button is-small is-loading"
+                      v-text="$t('page.about.update')"
+                    />
                   </div>
                   <div v-else>
-                    <a class="button is-small" @click="showUpdateDialog()" v-text="$t('page.about.update')" />
+                    <a
+                      class="button is-small"
+                      @click="showUpdateDialog()"
+                      v-text="$t('page.about.update')"
+                    />
                   </div>
                 </div>
               </nav>
               <table class="table">
                 <tbody>
                   <tr>
-                    <th v-text="$t('page.about.artists')" />
-                    <td class="has-text-right" v-text="$filters.number(library.artists)" />
+                    <th class="has-text-left" v-text="$t('page.about.artists')" />
+                    <td
+                      class="has-text-right"
+                      v-text="$filters.number(library.artists)"
+                    />
                   </tr>
                   <tr>
-                    <th v-text="$t('page.about.albums')" />
-                    <td class="has-text-right" v-text="$filters.number(library.albums)" />
+                    <th class="has-text-left" v-text="$t('page.about.albums')" />
+                    <td
+                      class="has-text-right"
+                      v-text="$filters.number(library.albums)"
+                    />
                   </tr>
                   <tr>
-                    <th v-text="$t('page.about.tracks')" />
-                    <td class="has-text-right" v-text="$filters.number(library.songs)" />
+                    <th class="has-text-left" v-text="$t('page.about.tracks')" />
+                    <td
+                      class="has-text-right"
+                      v-text="$filters.number(library.songs)"
+                    />
                   </tr>
                   <tr>
-                    <th v-text="$t('page.about.total-playtime')" />
-                    <td class="has-text-right" v-text="$filters.durationInDays(library.db_playtime * 1000)" />
+                    <th class="has-text-left" v-text="$t('page.about.total-playtime')" />
+                    <td
+                      class="has-text-right"
+                      v-text="
+                        $filters.durationInDays(library.db_playtime * 1000)
+                      "
+                    />
                   </tr>
                   <tr>
-                    <th v-text="$t('page.about.updated')" />
+                    <th class="has-text-left" v-text="$t('page.about.updated')" />
                     <td class="has-text-right">
-                      <span v-text="$t('page.about.updated-on', { time: $filters.timeFromNow(library.updated_at) })" />
-                      (<span class="has-text-grey" v-text="$filters.datetime(library.updated_at)" />)
+                      <span
+                        v-text="
+                          $t('page.about.updated-on', {
+                            time: $filters.timeFromNow(library.updated_at)
+                          })
+                        "
+                      />
+                      (<span
+                        class="has-text-grey"
+                        v-text="$filters.datetime(library.updated_at)"
+                      />)
                     </td>
                   </tr>
                   <tr>
-                    <th v-text="$t('page.about.uptime')" />
+                    <th class="has-text-left" v-text="$t('page.about.uptime')" />
                     <td class="has-text-right">
-                      <span v-text="$filters.timeFromNow(library.started_at, true)" />
-                      (<span class="has-text-grey" v-text="$filters.datetime(library.started_at)" />)
+                      <span
+                        v-text="$filters.timeFromNow(library.started_at, true)"
+                      />
+                      (<span
+                        class="has-text-grey"
+                        v-text="$filters.datetime(library.started_at)"
+                      />)
                     </td>
                   </tr>
                 </tbody>
@@ -76,7 +110,15 @@
         <div class="columns is-centered">
           <div class="column is-four-fifths">
             <div class="content has-text-centered-mobile">
-              <p class="is-size-7" v-text="$t('page.about.compiled-with', { options: config.buildoptions.join(', ') })" />
+              <p class="is-size-7" v-text="$t('page.about.version', { version: config.version })" />
+              <p
+                class="is-size-7"
+                v-text="
+                  $t('page.about.compiled-with', {
+                    options: config.buildoptions.join(', ')
+                  })
+                "
+              />
               <p class="is-size-7" v-html="$t('page.about.built-with')" />
             </div>
           </div>

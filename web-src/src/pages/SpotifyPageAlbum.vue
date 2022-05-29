@@ -3,34 +3,67 @@
     <template #heading-left>
       <h1 class="title is-5" v-text="album.name" />
       <h2 class="subtitle is-6 has-text-link has-text-weight-normal">
-        <a class="has-text-link" @click="open_artist" v-text="album.artists[0].name" />
+        <a
+          class="has-text-link"
+          @click="open_artist"
+          v-text="album.artists[0].name"
+        />
       </h2>
       <div class="buttons fd-is-centered-mobile fd-has-margin-top">
         <a class="button is-small is-dark is-rounded" @click="play">
           <mdicon class="icon" name="shuffle" size="16" />
           <span v-text="$t('page.spotify.album.shuffle')" />
         </a>
-        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_album_details_modal = true"
+        >
           <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
       </div>
     </template>
     <template #heading-right>
       <p class="image is-square fd-has-shadow fd-has-action">
-        <cover-artwork :artwork_url="artwork_url" :artist="album.artist" :album="album.name" @click="show_album_details_modal = true" />
+        <cover-artwork
+          :artwork_url="artwork_url"
+          :artist="album.artist"
+          :album="album.name"
+          @click="show_album_details_modal = true"
+        />
       </p>
     </template>
     <template #content>
-      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top" v-text="$t('page.spotify.album.track-count', { count: album.tracks.total })" />
-      <spotify-list-item-track v-for="(track, index) in album.tracks.items" :key="track.id" :track="track" :position="index" :album="album" :context_uri="album.uri">
+      <p
+        class="heading is-7 has-text-centered-mobile fd-has-margin-top"
+        v-text="
+          $t('page.spotify.album.track-count', { count: album.tracks.total })
+        "
+      />
+      <spotify-list-item-track
+        v-for="(track, index) in album.tracks.items"
+        :key="track.id"
+        :track="track"
+        :position="index"
+        :album="album"
+        :context_uri="album.uri"
+      >
         <template #actions>
           <a @click.prevent.stop="open_track_dialog(track)">
             <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
           </a>
         </template>
       </spotify-list-item-track>
-      <spotify-modal-dialog-track :show="show_track_details_modal" :track="selected_track" :album="album" @close="show_track_details_modal = false" />
-      <spotify-modal-dialog-album :show="show_album_details_modal" :album="album" @close="show_album_details_modal = false" />
+      <spotify-modal-dialog-track
+        :show="show_track_details_modal"
+        :track="selected_track"
+        :album="album"
+        @close="show_track_details_modal = false"
+      />
+      <spotify-modal-dialog-album
+        :show="show_album_details_modal"
+        :album="album"
+        @close="show_album_details_modal = false"
+      />
     </template>
   </content-with-hero>
 </template>

@@ -13,13 +13,20 @@
         </div>
       </template>
       <template #content>
-        <list-tracks :tracks="new_episodes.items" :show_progress="true" @play-count-changed="reload_new_episodes" />
+        <list-tracks
+          :tracks="new_episodes.items"
+          :show_progress="true"
+          @play-count-changed="reload_new_episodes"
+        />
       </template>
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.podcasts.title')" />
-        <p class="heading" v-text="$t('page.podcasts.count', { count: albums.total })" />
+        <p
+          class="heading"
+          v-text="$t('page.podcasts.count', { count: albums.total })"
+        />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -34,8 +41,16 @@
         </div>
       </template>
       <template #content>
-        <list-albums :albums="albums" @play-count-changed="reload_new_episodes()" @podcast-deleted="reload_podcasts()" />
-        <modal-dialog-add-rss :show="show_url_modal" @close="show_url_modal = false" @podcast-added="reload_podcasts()" />
+        <list-albums
+          :albums="albums"
+          @play-count-changed="reload_new_episodes()"
+          @podcast-deleted="reload_podcasts()"
+        />
+        <modal-dialog-add-rss
+          :show="show_url_modal"
+          @close="show_url_modal = false"
+          @podcast-added="reload_podcasts()"
+        />
       </template>
     </content-with-heading>
   </div>

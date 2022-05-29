@@ -8,7 +8,11 @@ axios.interceptors.response.use(
   function (error) {
     if (error.request.status && error.request.responseURL) {
       store.dispatch('add_notification', {
-        text: this.$t('server.request-failed', { status: error.request.status, cause: error.request.statusText, url: error.request.responseURL }),
+        text: this.$t('server.request-failed', {
+          status: error.request.status,
+          cause: error.request.statusText,
+          url: error.request.responseURL
+        }),
         type: 'danger'
       })
     }
@@ -94,7 +98,9 @@ export default {
       .post('./api/queue/items/add?uris=' + uri + '&position=' + position)
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', { count: response.data.count }),
+          text: this.$t('server.appended-tracks', {
+            count: response.data.count
+          }),
           type: 'info',
           timeout: 2000
         })
@@ -110,7 +116,9 @@ export default {
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', { count: response.data.count }),
+          text: this.$t('server.appended-tracks', {
+            count: response.data.count
+          }),
           type: 'info',
           timeout: 2000
         })
@@ -130,7 +138,9 @@ export default {
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', { count: response.data.count }),
+          text: this.$t('server.appended-tracks', {
+            count: response.data.count
+          }),
           type: 'info',
           timeout: 2000
         })

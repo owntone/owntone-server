@@ -6,23 +6,51 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <figure v-show="artwork_visible" class="image is-square fd-has-margin-bottom">
-                <img :src="artwork_url" class="fd-has-shadow" @load="artwork_loaded" @error="artwork_error" />
+              <figure
+                v-show="artwork_visible"
+                class="image is-square fd-has-margin-bottom"
+              >
+                <img
+                  :src="artwork_url"
+                  class="fd-has-shadow"
+                  @load="artwork_loaded"
+                  @error="artwork_error"
+                />
               </figure>
               <p class="title is-4">
-                <a class="has-text-link" @click="open_album" v-text="album.name" />
+                <a
+                  class="has-text-link"
+                  @click="open_album"
+                  v-text="album.name"
+                />
               </p>
               <div class="content is-small">
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.album.album-artist')" />
-                  <a class="title is-6 has-text-link" @click="open_artist" v-text="album.artists[0].name" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.album.album-artist')"
+                  />
+                  <a
+                    class="title is-6 has-text-link"
+                    @click="open_artist"
+                    v-text="album.artists[0].name"
+                  />
                 </p>
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.album.release-date')" />
-                  <span class="title is-6" v-text="$filters.date(album.release_date)" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.album.release-date')"
+                  />
+                  <span
+                    class="title is-6"
+                    v-text="$filters.date(album.release_date)"
+                  />
                 </p>
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.album.type')" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.album.type')"
+                  />
                   <span class="title is-6" v-text="album.album_type" />
                 </p>
               </div>
@@ -30,20 +58,33 @@
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
                 <mdicon class="icon" name="playlist-plus" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.spotify.album.add')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.album.add')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
                 <mdicon class="icon" name="playlist-play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.spotify.album.add-next')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.album.add-next')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
                 <mdicon class="icon" name="play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.spotify.album.play')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.album.play')"
+                />
               </a>
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>

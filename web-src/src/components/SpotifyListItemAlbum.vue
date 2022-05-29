@@ -8,7 +8,12 @@
       <h2 class="subtitle is-7 has-text-grey">
         <b v-text="album.artists[0].name" />
       </h2>
-      <h2 class="subtitle is-7 has-text-grey has-text-weight-normal" v-text="[album.album_type, $filters.date(album.release_date)].join(', ')" />
+      <h2
+        class="subtitle is-7 has-text-grey has-text-weight-normal"
+        v-text="
+          [album.album_type, $filters.date(album.release_date)].join(', ')
+        "
+      />
     </div>
     <div class="media-right">
       <slot name="actions" />

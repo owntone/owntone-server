@@ -7,8 +7,11 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small is-light is-rounded" @click="open_directory_dialog({ path: current_directory })">
-            <mdicon class="icon" name="dots-horizontal" size="16"/>
+          <a
+            class="button is-small is-light is-rounded"
+            @click="open_directory_dialog({ path: current_directory })"
+          >
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
@@ -19,8 +22,16 @@
       <template #content>
         <list-directories :directories="files.directories" />
         <list-playlists :playlists="files.playlists.items" />
-        <list-tracks :tracks="files.tracks.items" :expression="play_expression" :show_icon="true" />
-        <modal-dialog-directory :show="show_directory_details_modal" :directory="selected_directory" @close="show_directory_details_modal = false" />
+        <list-tracks
+          :tracks="files.tracks.items"
+          :expression="play_expression"
+          :show_icon="true"
+        />
+        <modal-dialog-directory
+          :show="show_directory_details_modal"
+          :directory="selected_directory"
+          @close="show_directory_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>

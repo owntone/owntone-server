@@ -191,7 +191,7 @@
   "list": {
     "albums": {
       "info-1": "Permanently remove this podcast from your library?",
-      "info-2": "(This will also remove the RSS playlist <b>{name}</b>).",
+      "info-2": "This will also remove the RSS playlist ",
       "notification": "Podcast cannot be removed. Probably it was not added as an RSS playlist."
     },
     "spotify": {
@@ -201,10 +201,10 @@
   },
   "media": {
     "kind": {
-      "album":"Album",
+      "album": "Album",
       "audiobook": "Audiobook",
-      "music":"Music",
-      "podcast":"Podcast"
+      "music": "Music",
+      "podcast": "Podcast"
     }
   },
   "navigation": {
@@ -241,10 +241,10 @@
       "updated-on": "{time} ago",
       "updated": "Updated",
       "uptime": "Uptime",
-      "version": "<b>OwnTone</b> - version {version}"  
+      "version": "Version {version}"
     },
     "album": {
-      "shuffle": "Shuffle", 
+      "shuffle": "Shuffle",
       "track-count": "{count} tracks"
     },
     "albums": {
@@ -279,7 +279,7 @@
         "title": "Sort by",
         "name": "Name",
         "recently-added": "Rencently added"
-      } ,
+      },
       "hide-singles-help": "If active, hides artists that only appear on singles or playlists.",
       "hide-singles": "Hide singles",
       "hide-spotify-help": "If active, hides artists that only appear in your Spotify library.",
@@ -421,7 +421,7 @@
       },
       "devices": {
         "no-active-pairing": "No active pairing request.",
-        "pairing-request": "Remote pairing request from <b>{remote}</b>",
+        "pairing-request": "Remote pairing request from ",
         "pairing": "Remote Pairing",
         "send": "Send",
         "speaker-pairing-info": "If your speaker requires pairing then activate it below and enter the PIN that it displays.",
@@ -477,7 +477,7 @@
           "title": "Spotify"
         },
         "login": "Login",
-        "logout": "Logout"  
+        "logout": "Logout"
       },
       "tabs": {
         "music": {
@@ -545,5 +545,10 @@
     "queue-saved": "Queue saved to playlist {name}",
     "appended-tracks": "{count} tracks appended to the queue",
     "empty-queue": "Queue is empty"
+  },
+  "group-by-list": {
+    "today": "Today",
+    "last-week": "Last week",
+    "last-month": "Last month"
   }
 }

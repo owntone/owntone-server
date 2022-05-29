@@ -7,24 +7,47 @@
         <p class="title is-4" v-text="$t('page.spotify.browse.new-releases')" />
       </template>
       <template #content>
-        <spotify-list-item-album v-for="album in new_releases" :key="album.id" :album="album" @click="open_album(album)">
+        <spotify-list-item-album
+          v-for="album in new_releases"
+          :key="album.id"
+          :album="album"
+          @click="open_album(album)"
+        >
           <template v-if="is_visible_artwork" #artwork>
             <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork :artwork_url="artwork_url(album)" :artist="album.artist" :album="album.name" :maxwidth="64" :maxheight="64" />
+              <cover-artwork
+                :artwork_url="artwork_url(album)"
+                :artist="album.artist"
+                :album="album.name"
+                :maxwidth="64"
+                :maxheight="64"
+              />
             </p>
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-album>
-        <spotify-modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
+        <spotify-modal-dialog-album
+          :show="show_album_details_modal"
+          :album="selected_album"
+          @close="show_album_details_modal = false"
+        />
       </template>
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <router-link to="/music/spotify/new-releases" class="button is-light is-small is-rounded" v-text="$t('page.spotify.browse.show-more')" />
+            <router-link
+              to="/music/spotify/new-releases"
+              class="button is-light is-small is-rounded"
+              v-text="$t('page.spotify.browse.show-more')"
+            />
           </p>
         </nav>
       </template>
@@ -32,22 +55,41 @@
     <!-- Featured Playlists -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.browse.featured-playlists')" />
+        <p
+          class="title is-4"
+          v-text="$t('page.spotify.browse.featured-playlists')"
+        />
       </template>
       <template #content>
-        <spotify-list-item-playlist v-for="playlist in featured_playlists" :key="playlist.id" :playlist="playlist">
+        <spotify-list-item-playlist
+          v-for="playlist in featured_playlists"
+          :key="playlist.id"
+          :playlist="playlist"
+        >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-playlist>
-        <spotify-modal-dialog-playlist :show="show_playlist_details_modal" :playlist="selected_playlist" @close="show_playlist_details_modal = false" />
+        <spotify-modal-dialog-playlist
+          :show="show_playlist_details_modal"
+          :playlist="selected_playlist"
+          @close="show_playlist_details_modal = false"
+        />
       </template>
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <router-link to="/music/spotify/featured-playlists" class="button is-light is-small is-rounded" v-text="$t('page.spotify.browse.show-more')" />
+            <router-link
+              to="/music/spotify/featured-playlists"
+              class="button is-light is-small is-rounded"
+              v-text="$t('page.spotify.browse.show-more')"
+            />
           </p>
         </nav>
       </template>

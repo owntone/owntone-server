@@ -6,31 +6,63 @@
         <index-button-list :index="artists.indexList" />
         <div class="columns">
           <div class="column">
-            <p class="heading" style="margin-bottom: 24px" v-text="$t('page.artists.filter')" />
+            <p
+              class="heading"
+              style="margin-bottom: 24px"
+              v-text="$t('page.artists.filter')"
+            />
             <div class="field">
               <div class="control">
-                <input id="switchHideSingles" v-model="hide_singles" type="checkbox" name="switchHideSingles" class="switch" />
-                <label for="switchHideSingles" v-text="$t('page.artists.hide-singles')" />
+                <input
+                  id="switchHideSingles"
+                  v-model="hide_singles"
+                  type="checkbox"
+                  name="switchHideSingles"
+                  class="switch"
+                />
+                <label
+                  for="switchHideSingles"
+                  v-text="$t('page.artists.hide-singles')"
+                />
               </div>
               <p class="help" v-text="$t('page.artists.hide-singles-help')" />
             </div>
             <div v-if="spotify_enabled" class="field">
               <div class="control">
-                <input id="switchHideSpotify" v-model="hide_spotify" type="checkbox" name="switchHideSpotify" class="switch" />
-                <label for="switchHideSpotify" v-text="$t('page.artists.hide-spotify')" />
+                <input
+                  id="switchHideSpotify"
+                  v-model="hide_spotify"
+                  type="checkbox"
+                  name="switchHideSpotify"
+                  class="switch"
+                />
+                <label
+                  for="switchHideSpotify"
+                  v-text="$t('page.artists.hide-spotify')"
+                />
               </div>
               <p class="help" v-text="$t('page.artists.hide-spotify-help')" />
             </div>
           </div>
           <div class="column">
-            <p class="heading" style="margin-bottom: 24px" v-text="$t('page.artists.sort-by.title')" />
-            <dropdown-menu v-model="selected_groupby_option_id" :options="groupby_options" />
+            <p
+              class="heading"
+              style="margin-bottom: 24px"
+              v-text="$t('page.artists.sort-by.title')"
+            />
+            <dropdown-menu
+              v-model="selected_groupby_option_id"
+              :options="groupby_options"
+            />
           </div>
         </div>
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.artists.title')" />
-        <p class="heading" v-text="$t('page.artists.count', { count: artists.count })" />
+        <p
+          class="heading"
+          v-text="$t('page.artists.count', { count: artists.count })"
+        />
       </template>
       <template #heading-right />
       <template #content>

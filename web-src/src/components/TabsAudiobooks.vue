@@ -5,15 +5,27 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small">
             <ul>
-              <router-link v-slot="{ navigate, isActive }" to="/audiobooks/artists" custom>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/audiobooks/artists"
+                custom
+              >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon class="icon is-small" name="account-music" size="16" />
+                    <mdicon
+                      class="icon is-small"
+                      name="account-music"
+                      size="16"
+                    />
                     <span v-text="$t('tabs.audiobooks.authors')" />
                   </a>
                 </li>
               </router-link>
-              <router-link v-slot="{ navigate, isActive }" to="/audiobooks/albums" custom>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/audiobooks/albums"
+                custom
+              >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <mdicon class="icon is-small" name="album" size="16" />

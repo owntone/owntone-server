@@ -1,5 +1,10 @@
 <template>
-  <nav class="fd-top-navbar navbar is-light is-fixed-top" :style="zindex" role="navigation" aria-label="main navigation">
+  <nav
+    class="fd-top-navbar navbar is-light is-fixed-top"
+    :style="zindex"
+    role="navigation"
+    aria-label="main navigation"
+  >
     <div class="navbar-brand">
       <navbar-item-link v-if="is_visible_playlists" to="/playlists">
         <mdicon class="icon" name="music-box-multiple" size="16" />
@@ -22,7 +27,11 @@
       <navbar-item-link v-if="is_visible_search" to="/search">
         <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
-      <div class="navbar-burger" :class="{ 'is-active': show_burger_menu }" @click="show_burger_menu = !show_burger_menu">
+      <div
+        class="navbar-burger"
+        :class="{ 'is-active': show_burger_menu }"
+        @click="show_burger_menu = !show_burger_menu"
+      >
         <span />
         <span />
         <span />
@@ -32,10 +41,17 @@
       <div class="navbar-start" />
       <div class="navbar-end">
         <!-- Burger menu entries -->
-        <div class="navbar-item has-dropdown is-hoverable" :class="{ 'is-active': show_settings_menu }" @click="on_click_outside_settings">
+        <div
+          class="navbar-item has-dropdown is-hoverable"
+          :class="{ 'is-active': show_settings_menu }"
+          @click="on_click_outside_settings"
+        >
           <a class="navbar-link is-arrowless">
             <mdicon class="icon is-hidden-touch" name="menu" size="24" />
-            <span class="is-hidden-desktop has-text-weight-bold" v-text="$t('navigation.title')" />
+            <span
+              class="is-hidden-desktop has-text-weight-bold"
+              v-text="$t('navigation.title')"
+            />
           </a>
           <div class="navbar-dropdown is-right">
             <navbar-item-link to="/playlists">
@@ -47,16 +63,28 @@
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>
             <navbar-item-link to="/music/artists">
-              <span class="fd-navbar-item-level2" v-text="$t('navigation.artists')" />
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.artists')"
+              />
             </navbar-item-link>
             <navbar-item-link to="/music/albums">
-              <span class="fd-navbar-item-level2" v-text="$t('navigation.albums')" />
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.albums')"
+              />
             </navbar-item-link>
             <navbar-item-link to="/music/genres">
-              <span class="fd-navbar-item-level2" v-text="$t('navigation.genres')" />
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.genres')"
+              />
             </navbar-item-link>
             <navbar-item-link v-if="spotify_enabled" to="/music/spotify">
-              <span class="fd-navbar-item-level2" v-text="$t('navigation.spotify')" />
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.spotify')"
+              />
             </navbar-item-link>
             <navbar-item-link to="/podcasts">
               <mdicon class="icon" name="podcast" size="16" />
@@ -79,15 +107,30 @@
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
             <hr class="fd-navbar-divider" />
-            <navbar-item-link to="/settings/webinterface" v-text="$t('navigation.settings')" />
-            <a class="navbar-item" @click.stop.prevent="open_update_dialog()" v-text="$t('navigation.update-library')" />
+            <navbar-item-link
+              to="/settings/webinterface"
+              v-text="$t('navigation.settings')"
+            />
+            <a
+              class="navbar-item"
+              @click.stop.prevent="open_update_dialog()"
+              v-text="$t('navigation.update-library')"
+            />
             <navbar-item-link to="/about" v-text="$t('navigation.about')" />
-            <div class="navbar-item is-hidden-desktop" style="margin-bottom: 2.5rem" />
+            <div
+              class="navbar-item is-hidden-desktop"
+              style="margin-bottom: 2.5rem"
+            />
           </div>
         </div>
       </div>
     </div>
-    <div v-show="show_settings_menu" class="is-overlay" style="z-index: 10; width: 100vw; height: 100vh" @click="show_settings_menu = false" />
+    <div
+      v-show="show_settings_menu"
+      class="is-overlay"
+      style="z-index: 10; width: 100vw; height: 100vh"
+      @click="show_settings_menu = false"
+    />
   </nav>
 </template>
 

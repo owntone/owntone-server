@@ -10,7 +10,14 @@
               <form @submit.prevent="add_stream">
                 <div class="field">
                   <p class="control is-expanded has-icons-left">
-                    <input ref="url_field" v-model="url" class="input is-shadowless" type="text" :placeholder="$t('dialog.add.rss.placeholder')" :disabled="loading" />
+                    <input
+                      ref="url_field"
+                      v-model="url"
+                      class="input is-shadowless"
+                      type="text"
+                      :placeholder="$t('dialog.add.rss.placeholder')"
+                      :disabled="loading"
+                    />
                     <mdicon class="icon is-left" name="rss" size="16" />
                   </p>
                   <p class="help" v-text="$t('dialog.add.rss.help')" />
@@ -20,22 +27,35 @@
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item button is-loading">
                 <mdicon class="icon" name="web" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.add.rss.processing')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.add.rss.processing')"
+                />
               </a>
             </footer>
             <footer v-else class="card-footer">
-              <a class="card-footer-item has-text-danger" @click="$emit('close')">
+              <a
+                class="card-footer-item has-text-danger"
+                @click="$emit('close')"
+              >
                 <mdicon class="icon" name="cancel" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.add.rss.cancel')" />
               </a>
-              <a class="card-footer-item has-background-info has-text-white has-text-weight-bold" @click="add_stream">
+              <a
+                class="card-footer-item has-background-info has-text-white has-text-weight-bold"
+                @click="add_stream"
+              >
                 <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.add.rss.add')" />
               </a>
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>

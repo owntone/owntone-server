@@ -7,7 +7,10 @@
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.audiobooks.albums.title')" />
-        <p class="heading" v-text="$t('page.audiobooks.albums.count', { count: albums.count })" />
+        <p
+          class="heading"
+          v-text="$t('page.audiobooks.albums.count', { count: albums.count })"
+        />
       </template>
       <template #content>
         <list-albums :albums="albums" />

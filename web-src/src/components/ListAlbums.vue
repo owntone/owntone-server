@@ -1,13 +1,24 @@
 <template>
   <template v-for="album in albums" :key="album.itemId">
     <div v-if="!album.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
-      <span :id="'index_' + album.groupKey" class="tag is-info is-light is-small has-text-weight-bold" v-text="album.groupKey" />
+      <span
+        :id="'index_' + album.groupKey"
+        class="tag is-info is-light is-small has-text-weight-bold"
+        v-text="album.groupKey"
+      />
     </div>
     <div v-else-if="album.isItem" class="media" @click="open_album(album.item)">
       <div v-if="is_visible_artwork" class="media-left fd-has-action">
         <div class="image is-64x64 fd-has-shadow fd-has-action">
           <figure>
-            <img v-lazy="{ src: artwork_url_with_size(album.item.artwork_url), lifecycle: artwork_options.lazy_lifecycle }" :album="album.item.name" :artist="album.item.artist" />
+            <img
+              v-lazy="{
+                src: artwork_url_with_size(album.item.artwork_url),
+                lifecycle: artwork_options.lazy_lifecycle
+              }"
+              :album="album.item.name"
+              :artist="album.item.artist"
+            />
           </figure>
         </div>
       </div>
@@ -17,7 +28,11 @@
           <h2 class="subtitle is-7 has-text-grey">
             <b v-text="album.item.artist" />
           </h2>
-          <h2 v-if="album.item.date_released && album.item.media_kind === 'music'" class="subtitle is-7 has-text-grey has-text-weight-normal" v-text="$filters.date(album.item.date_released)" />
+          <h2
+            v-if="album.item.date_released && album.item.media_kind === 'music'"
+            class="subtitle is-7 has-text-grey has-text-weight-normal"
+            v-text="$filters.date(album.item.date_released)"
+          />
         </div>
       </div>
       <div class="media-right" style="padding-top: 0.7rem">
@@ -28,11 +43,27 @@
     </div>
   </template>
   <teleport to="#app">
-    <modal-dialog-album :show="show_details_modal" :album="selected_album" :media_kind="media_kind" @remove-podcast="open_remove_podcast_dialog()" @play-count-changed="play_count_changed()" @close="show_details_modal = false" />
-    <modal-dialog :show="show_remove_podcast_modal" title="Remove podcast" delete_action="Remove" @close="show_remove_podcast_modal = false" @delete="remove_podcast">
+    <modal-dialog-album
+      :show="show_details_modal"
+      :album="selected_album"
+      :media_kind="media_kind"
+      @remove-podcast="open_remove_podcast_dialog()"
+      @play-count-changed="play_count_changed()"
+      @close="show_details_modal = false"
+    />
+    <modal-dialog
+      :show="show_remove_podcast_modal"
+      title="Remove podcast"
+      delete_action="Remove"
+      @close="show_remove_podcast_modal = false"
+      @delete="remove_podcast"
+    >
       <template #modal-content>
         <p v-text="$t('list.albums.info-1')" />
-        <p class="is-size-7" v-html="$t('list.albums.info-2', { name: rss_playlist_to_remove.name })" />
+        <p class="is-size-7">
+          (<span v-text="$t('list.albums.info-2')" />
+          <b v-text="rss_playlist_to_remove.name" />)
+        </p>
       </template>
     </modal-dialog>
   </teleport>

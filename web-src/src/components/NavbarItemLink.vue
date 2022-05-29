@@ -1,5 +1,10 @@
 <template>
-  <a class="navbar-item" :class="{ 'is-active': is_active }" :href="full_path()" @click.stop.prevent="open_link()">
+  <a
+    class="navbar-item"
+    :class="{ 'is-active': is_active }"
+    :href="full_path()"
+    @click.stop.prevent="open_link()"
+  >
     <slot />
   </a>
 </template>

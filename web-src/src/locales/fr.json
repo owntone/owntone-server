@@ -14,7 +14,7 @@
         "add": "Ajouter",
         "cancel": "Annuler",
         "help": "L’ajout d’un podcast inclut la création d’une liste de lecture RSS, qui permettra à OwnTone de gérer l’abonnement au podcast.",
-        "placeholder": "https://url-vers-le-flux-rss",
+        "placeholder": "https://url-du-flux-rss",
         "processing": "Traitement en cours…",
         "title": "Ajouter l’URL du flux RSS du podcast"
       },
@@ -22,7 +22,7 @@
         "add": "Ajouter",
         "cancel": "Annuler",
         "loading": "Chargement…",
-        "placeholder": "https://url-to-stream",
+        "placeholder": "https://url-du-flux",
         "play": "Lire",
         "title": "Ajouter l’URL du flux"
       }
@@ -33,7 +33,7 @@
       "added-on": "Ajouté le",
       "artiste": "Album artist",
       "duration": "Durée",
-      "mark-as-played": "Mark as played",
+      "mark-as-played": "Marquer comme lu",
       "play": "Lire",
       "release-date": "Date de sortie",
       "remove-podcast": "Supprimer le podcast",
@@ -106,7 +106,7 @@
     "remote-pairing": {
       "cancel": "Annuler",
       "pair": "Jumeler la télécommande",
-      "title": "Demande de jumelage de la télécommande"
+      "title": "Demande de jumelage de télécommande"
     },
     "spotify": {
       "album": {
@@ -192,11 +192,11 @@
     "albums": {
       "info-1": "Supprimer définitivement ce podcast de votre bibliothèque ?",
       "info-2": "Cela supprimera également la liste de lecture RSS ",
-      "notification": "Le podcast ne peut être supprimé. Il n’avait probablement pas été ajouté comme une liste de lecture RSS.",
+      "notification": "Le podcast ne peut être supprimé. Il n’avait probablement pas été ajouté comme une liste de lecture RSS."
     },
     "spotify": {
       "not-playable-track": "La piste ne peut pas être lue",
-      "restriction-reason": ", raison de la restriction : {reason}",
+      "restriction-reason": ", raison de la restriction : {reason}"
     }
   },
   "media": {
@@ -241,10 +241,10 @@
       "updated-on": "il y a {time}",
       "updated": "Mis à jour",
       "uptime": "Temps de fonctionnement",
-      "version": "<b>OwnTone</b> - version {version}"  
+      "name": "Version {version}"
     },
     "album": {
-      "shuffle": "Lecture aléatoire", 
+      "shuffle": "Lecture aléatoire",
       "track-count": "{count} pistes"
     },
     "albums": {
@@ -279,7 +279,7 @@
         "title": "Trier par",
         "name": "Nom",
         "recently-added": "Ajouts récents"
-      } ,
+      },
       "hide-singles-help": "Si actif, masque les artistes qui n’apparaissent que dans des singles ou des listes de lecture.",
       "hide-singles": "Masquer les singles",
       "hide-spotify-help": "Si actif, masque les artistes qui n’apparaissent que dans votre bibliothèque Spotify.",
@@ -363,7 +363,7 @@
       "play": "Lire",
       "remove-error": "Le podcast ne peut pas être supprimé. Il n’a probablement pas été ajouté en tant que liste de lecture RSS.",
       "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
-      "remove-info-2": "(Cela supprimera également la liste de lecture RSS <b>{name}</b>).",
+      "remove-info-2": "Cela supprimera également la liste de lecture RSS ",
       "track-count": "{count} pistes"
     },
     "podcasts": {
@@ -421,11 +421,11 @@
       },
       "devices": {
         "no-active-pairing": "Aucune demande de jumelage active.",
-        "pairing-request": "Demande de jumelage de la télécommande <b>{remote}</b>",
-        "pairing": "Jumelage de la télécommande",
+        "pairing-request": "Demande de jumelage de télécommande ",
+        "pairing": "Jumelage de télécommande",
         "send": "Envoyer",
-        "speaker-pairing-info": "Si votre enceinte nécessite un jumelage, activez-le ci-dessous et entrez le code PIN qu’il affiche.",
-        "speaker-pairing": "Jumelage de l’enceinte et vérification de l’appareil",
+        "speaker-pairing-info": "Si votre enceinte nécessite un jumelage, activez-la ci-dessous et entrez le code PIN qu’elle affiche.",
+        "speaker-pairing": "Jumelage d’enceinte et vérification d’appareil",
         "verification-code": "Code de vérification",
         "verify": "Vérifier"
       },
@@ -451,7 +451,7 @@
         "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
         "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page \"lecture en cours\"",
         "show-composer": "Afficher le compositeur",
-        "show-coverart": "Afficher les illustration dans la liste d’albums",
+        "show-coverart": "Afficher les illustration dans la liste d’albums"
       },
       "services": {
         "lastfm": {
@@ -477,7 +477,7 @@
           "title": "Spotify"
         },
         "login": "Se connecter",
-        "logout": "Se déconnecter"  
+        "logout": "Se déconnecter"
       },
       "tabs": {
         "music": {
@@ -536,7 +536,7 @@
   },
   "setting": {
     "not-saved": " (erreur à l’enregistrement du réglage)",
-    "saved": " (réglage enregistré)",
+    "saved": " (réglage enregistré)"
   },
   "server": {
     "connection-failed": "Échec de connexion au serveur",
@@ -545,5 +545,10 @@
     "queue-saved": "La file d’attente enregistrée dans la liste de lecture {name}",
     "appended-tracks": "{count} pistes ajoutées à la file d’attente",
     "empty-queue": "La file d’attente est vide"
+  },
+  "group-by-list": {
+    "today": "Aujourd’hui",
+    "last-week": "La semaine dernière",
+    "last-month": "Le mois dernier"
   }
 }

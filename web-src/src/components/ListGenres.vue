@@ -2,7 +2,11 @@
   <template v-for="genre in genres" :key="genre.itemId">
     <div v-if="!genre.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
-        <span :id="'index_' + genre.groupKey" class="tag is-info is-light is-small has-text-weight-bold" v-text="genre.groupKey" />
+        <span
+          :id="'index_' + genre.groupKey"
+          class="tag is-info is-light is-small has-text-weight-bold"
+          v-text="genre.groupKey"
+        />
       </div>
     </div>
     <div v-else-if="genre.isItem" class="media" @click="open_genre(genre.item)">
@@ -17,7 +21,11 @@
     </div>
   </template>
   <teleport to="#app">
-    <modal-dialog-genre :show="show_details_modal" :genre="selected_genre" @close="show_details_modal = false" />
+    <modal-dialog-genre
+      :show="show_details_modal"
+      :genre="selected_genre"
+      @close="show_details_modal = false"
+    />
   </teleport>
 </template>
 

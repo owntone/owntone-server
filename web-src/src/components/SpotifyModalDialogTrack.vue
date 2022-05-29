@@ -10,27 +10,62 @@
               <p class="subtitle" v-text="track.artists[0].name" />
               <div class="content is-small">
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.track.album')" />
-                  <a class="title is-6 has-text-link" @click="open_album" v-text="album.name" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.track.album')"
+                  />
+                  <a
+                    class="title is-6 has-text-link"
+                    @click="open_album"
+                    v-text="album.name"
+                  />
                 </p>
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.track.album-artist')" />
-                  <a class="title is-6 has-text-link" @click="open_artist" v-text="album.artists[0].name" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.track.album-artist')"
+                  />
+                  <a
+                    class="title is-6 has-text-link"
+                    @click="open_artist"
+                    v-text="album.artists[0].name"
+                  />
                 </p>
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.track.release-date')" />
-                  <span class="title is-6" v-text="$filters.date(album.release_date)" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.track.release-date')"
+                  />
+                  <span
+                    class="title is-6"
+                    v-text="$filters.date(album.release_date)"
+                  />
                 </p>
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.track.position')" />
-                  <span class="title is-6" v-text="[ track.disc_number, track.track_number ].join(' / ')" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.track.position')"
+                  />
+                  <span
+                    class="title is-6"
+                    v-text="[track.disc_number, track.track_number].join(' / ')"
+                  />
                 </p>
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.track.duration')" />
-                  <span class="title is-6" v-text="$filters.durationInHours(track.duration_ms)" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.track.duration')"
+                  />
+                  <span
+                    class="title is-6"
+                    v-text="$filters.durationInHours(track.duration_ms)"
+                  />
                 </p>
                 <p>
-                  <span class="heading" v-text="$t('dialog.spotify.track.path')" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.track.path')"
+                  />
                   <span class="title is-6" v-text="track.uri" />
                 </p>
               </div>
@@ -38,20 +73,33 @@
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
                 <mdicon class="icon" name="playlist-plus" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.spotify.track.add')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.track.add')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
                 <mdicon class="icon" name="playlist-play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.spotify.track.add-next')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.track.add-next')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
                 <mdicon class="icon" name="play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.spotify.track.play')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.track.play')"
+                />
               </a>
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>

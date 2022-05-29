@@ -7,7 +7,11 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_genre" v-text="genre.name" />
+                <a
+                  class="has-text-link"
+                  @click="open_genre"
+                  v-text="genre.name"
+                />
               </p>
               <div class="content is-small">
                 <p>
@@ -20,7 +24,10 @@
                 </p>
                 <p>
                   <span class="heading" v-text="$t('dialog.genre.duration')" />
-                  <span class="title is-6" v-text="$filters.durationInHours(genre.length_ms)" />
+                  <span
+                    class="title is-6"
+                    v-text="$filters.durationInHours(genre.length_ms)"
+                  />
                 </p>
               </div>
             </div>
@@ -40,7 +47,11 @@
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>

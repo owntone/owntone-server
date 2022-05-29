@@ -1,5 +1,11 @@
 <template>
-  <div v-for="playlist in playlists" :key="playlist.itemId" class="media" :playlist="playlist" @click="open_playlist(playlist.item)">
+  <div
+    v-for="playlist in playlists"
+    :key="playlist.itemId"
+    class="media"
+    :playlist="playlist"
+    @click="open_playlist(playlist.item)"
+  >
     <figure class="media-left fd-has-action">
       <mdicon class="icon" :name="icon_name(playlist.item)" size="16" />
     </figure>
@@ -13,7 +19,11 @@
     </div>
   </div>
   <teleport to="#app">
-    <modal-dialog-playlist :show="show_details_modal" :playlist="selected_playlist" @close="show_details_modal = false" />
+    <modal-dialog-playlist
+      :show="show_details_modal"
+      :playlist="selected_playlist"
+      @close="show_details_modal = false"
+    />
   </teleport>
 </template>
 

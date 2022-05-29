@@ -9,13 +9,25 @@
         <!-- Paring request active -->
         <div v-if="pairing.active" class="notification">
           <form @submit.prevent="kickoff_pairing">
-            <label class="label has-text-weight-normal" v-html="$t('page.settings.devices.pairing-request', { remote: pairing.remote})" />
+            <label class="label has-text-weight-normal">
+              <span v-text="$t('page.settings.devices.pairing-request')" />
+              <b v-text="pairing.remote" />
+            </label>
             <div class="field is-grouped">
               <div class="control">
-                <input v-model="pairing_req.pin" class="input" type="text" placeholder="Enter pairing code" />
+                <input
+                  v-model="pairing_req.pin"
+                  class="input"
+                  type="text"
+                  placeholder="Enter pairing code"
+                />
               </div>
               <div class="control">
-                <button class="button is-info" type="submit" v-text="$t('page.settings.devices.send')" />
+                <button
+                  class="button is-info"
+                  type="submit"
+                  v-text="$t('page.settings.devices.send')"
+                />
               </div>
             </div>
           </form>
@@ -28,26 +40,50 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.devices.speaker-pairing')" />
+        <div
+          class="title is-4"
+          v-text="$t('page.settings.devices.speaker-pairing')"
+        />
       </template>
       <template #content>
-        <p class="content" v-text="$t('page.settings.devices.speaker-pairing-info')" />
+        <p
+          class="content"
+          v-text="$t('page.settings.devices.speaker-pairing-info')"
+        />
         <div v-for="output in outputs" :key="output.id">
           <div class="field">
             <div class="control">
               <label class="checkbox">
-                <input v-model="output.selected" type="checkbox" style="margin-right: 5px" @change="output_toggle(output.id)"/>
+                <input
+                  v-model="output.selected"
+                  type="checkbox"
+                  style="margin-right: 5px"
+                  @change="output_toggle(output.id)"
+                />
                 <span v-text="output.name" />
               </label>
             </div>
           </div>
-          <form v-if="output.needs_auth_key" class="fd-has-margin-bottom" @submit.prevent="kickoff_verification(output.id)">
+          <form
+            v-if="output.needs_auth_key"
+            class="fd-has-margin-bottom"
+            @submit.prevent="kickoff_verification(output.id)"
+          >
             <div class="field is-grouped">
               <div class="control">
-                <input v-model="verification_req.pin" class="input" type="text" :placeholder="$t('page.settings.devices.verification-code')" />
+                <input
+                  v-model="verification_req.pin"
+                  class="input"
+                  type="text"
+                  :placeholder="$t('page.settings.devices.verification-code')"
+                />
               </div>
               <div class="control">
-                <button class="button is-info" type="submit" v-text="$t('page.settings.devices.verify')" />
+                <button
+                  class="button is-info"
+                  type="submit"
+                  v-text="$t('page.settings.devices.verify')"
+                />
               </div>
             </div>
           </form>

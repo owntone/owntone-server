@@ -15,7 +15,10 @@
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
                 <mdicon class="icon" name="playlist-play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.directory.add-next')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.directory.add-next')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
                 <mdicon class="icon" name="play" size="16" />
@@ -24,7 +27,11 @@
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>

@@ -10,20 +10,38 @@
           <mdicon class="icon" name="play" size="16" />
           <span v-text="$t('page.audiobooks.album.play')" />
         </a>
-        <a class="button is-small is-light is-rounded" @click="show_album_details_modal = true">
+        <a
+          class="button is-small is-light is-rounded"
+          @click="show_album_details_modal = true"
+        >
           <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
       </div>
     </template>
     <template #heading-right>
       <p class="image is-square fd-has-shadow fd-has-action">
-        <cover-artwork :artwork_url="album.artwork_url" :artist="album.artist" :album="album.name" @click="show_album_details_modal = true" />
+        <cover-artwork
+          :artwork_url="album.artwork_url"
+          :artist="album.artist"
+          :album="album.name"
+          @click="show_album_details_modal = true"
+        />
       </p>
     </template>
     <template #content>
-      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top" v-text="$t('page.audiobooks.album.track-count', { count: album.track_count })" />
+      <p
+        class="heading is-7 has-text-centered-mobile fd-has-margin-top"
+        v-text="
+          $t('page.audiobooks.album.track-count', { count: album.track_count })
+        "
+      />
       <list-tracks :tracks="tracks" :uris="album.uri" />
-      <modal-dialog-album :show="show_album_details_modal" :album="album" :media_kind="'audiobook'" @close="show_album_details_modal = false" />
+      <modal-dialog-album
+        :show="show_album_details_modal"
+        :album="album"
+        :media_kind="'audiobook'"
+        @close="show_album_details_modal = false"
+      />
     </template>
   </content-with-hero>
 </template>

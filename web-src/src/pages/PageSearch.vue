@@ -8,7 +8,14 @@
             <form @submit.prevent="new_search">
               <div class="field">
                 <p class="control is-expanded has-icons-left">
-                  <input ref="search_field" v-model="search_query" class="input is-rounded is-shadowless" type="text" placeholder="Search" autocomplete="off" />
+                  <input
+                    ref="search_field"
+                    v-model="search_query"
+                    class="input is-rounded is-shadowless"
+                    type="text"
+                    placeholder="Search"
+                    autocomplete="off"
+                  />
                   <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
                 <p class="help has-text-centered">
@@ -17,7 +24,13 @@
               </div>
             </form>
             <div class="tags" style="margin-top: 16px">
-              <a v-for="recent_search in recent_searches" :key="recent_search" class="tag" @click="open_recent_search(recent_search)" v-text="recent_search" />
+              <a
+                v-for="recent_search in recent_searches"
+                :key="recent_search"
+                class="tag"
+                @click="open_recent_search(recent_search)"
+                v-text="recent_search"
+              />
             </div>
           </div>
         </div>
@@ -35,7 +48,15 @@
       <template #footer>
         <nav v-if="show_all_tracks_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded"  @click="open_search_tracks" v-text="$t('page.search.show.tracks', { count: tracks.total.toLocaleString() })" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_search_tracks"
+              v-text="
+                $t('page.search.show.tracks', {
+                  count: tracks.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
@@ -56,7 +77,15 @@
       <template #footer>
         <nav v-if="show_all_artists_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_search_artists" v-text="$t('page.search.show.artists', { count:artists.total.toLocaleString() })" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_search_artists"
+              v-text="
+                $t('page.search.show.artists', {
+                  count: artists.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
@@ -77,7 +106,15 @@
       <template #footer>
         <nav v-if="show_all_albums_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_search_albums" v-text="$t('page.search.show-albums', { count: albums.total.toLocaleString()})" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_search_albums"
+              v-text="
+                $t('page.search.show-albums', {
+                  count: albums.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
@@ -98,7 +135,15 @@
       <template #footer>
         <nav v-if="show_all_composers_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_search_composers" v-text="$t('page.search.show.composers', { count: composers.total.toLocaleString() })" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_search_composers"
+              v-text="
+                $t('page.search.show.composers', {
+                  count: composers.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
@@ -119,7 +164,15 @@
       <template #footer>
         <nav v-if="show_all_playlists_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_search_playlists" v-text="$t('page.search.show.playlists', { count: playlists.total.toLocaleString() })" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_search_playlists"
+              v-text="
+                $t('page.search.show.playlists', {
+                  count: playlists.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
@@ -140,7 +193,15 @@
       <template #footer>
         <nav v-if="show_all_podcasts_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_search_podcasts" v-text="$t('page.search.show.podcasts', { count: podcasts.total.toLocaleString() })" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_search_podcasts"
+              v-text="
+                $t('page.search.show.podcasts', {
+                  count: podcasts.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
@@ -162,7 +223,15 @@
       <template #footer>
         <nav v-if="show_all_audiobooks_button" class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_search_audiobooks" v-text="$t('page.search.show.audiobooks', { count: audiobooks.total.toLocaleString() })" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_search_audiobooks"
+              v-text="
+                $t('page.search.show.audiobooks', {
+                  count: audiobooks.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>

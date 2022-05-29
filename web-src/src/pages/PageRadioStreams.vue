@@ -5,7 +5,10 @@
         <p class="title is-4" v-text="$t('page.radio.title')" />
       </template>
       <template #content>
-        <p class="heading has-text-centered-mobile" v-text="$t('page.radio.count', { count: tracks.total })" />
+        <p
+          class="heading has-text-centered-mobile"
+          v-text="$t('page.radio.count', { count: tracks.total })"
+        />
         <list-tracks :tracks="tracks.items" />
       </template>
     </content-with-heading>

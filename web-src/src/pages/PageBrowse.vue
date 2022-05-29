@@ -5,7 +5,7 @@
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.browse.recently-added.title')" />
-        <p class="heading" v-text="$t('page.browse.albums')"/>
+        <p class="heading" v-text="$t('page.browse.albums')" />
       </template>
       <template #content>
         <list-albums :albums="recently_added" />
@@ -13,7 +13,11 @@
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_browse('recently_added')" v-text="$t('page.browse.show-more')" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_browse('recently_added')"
+              v-text="$t('page.browse.show-more')"
+            />
           </p>
         </nav>
       </template>
@@ -21,7 +25,10 @@
     <!-- Recently played -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.browse.recently-played.title')" />
+        <p
+          class="title is-4"
+          v-text="$t('page.browse.recently-played.title')"
+        />
         <p class="heading" v-text="$t('page.browse.tracks')" />
       </template>
       <template #content>
@@ -30,7 +37,11 @@
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a class="button is-light is-small is-rounded" @click="open_browse('recently_played')" v-text="$t('page.browse.show-more')" />
+            <a
+              class="button is-light is-small is-rounded"
+              @click="open_browse('recently_played')"
+              v-text="$t('page.browse.show-more')"
+            />
           </p>
         </nav>
       </template>

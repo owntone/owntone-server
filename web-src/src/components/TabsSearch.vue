@@ -5,13 +5,21 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small is-toggle is-toggle-rounded">
             <ul>
-              <li :class="{ 'is-active': $store.state.search_path === '/search/library' }">
+              <li
+                :class="{
+                  'is-active': $store.state.search_path === '/search/library'
+                }"
+              >
                 <a @click="search_library">
                   <mdicon class="icon is-small" name="bookshelf" size="16" />
                   <span v-text="$t('tabs.search.library')" />
                 </a>
               </li>
-              <li :class="{ 'is-active': $store.state.search_path === '/search/spotify' }">
+              <li
+                :class="{
+                  'is-active': $store.state.search_path === '/search/spotify'
+                }"
+              >
                 <a @click="search_spotify">
                   <mdicon class="icon is-small" name="spotify" size="16" />
                   <span v-text="$t('tabs.search.spotify')" />

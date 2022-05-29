@@ -1,5 +1,9 @@
 <template>
-  <div v-if="$route.query.directory" class="media" @click="open_parent_directory()">
+  <div
+    v-if="$route.query.directory"
+    class="media"
+    @click="open_parent_directory()"
+  >
     <figure class="media-left fd-has-action">
       <mdicon class="icon" name="subdirectory-arrow-left" size="16" />
     </figure>
@@ -16,7 +20,10 @@
         <mdicon class="icon" name="folder" size="16" />
       </figure>
       <div class="media-content fd-has-action is-clipped">
-        <h1 class="title is-6" v-text="directory.path.substring(directory.path.lastIndexOf('/') + 1)" />
+        <h1
+          class="title is-6"
+          v-text="directory.path.substring(directory.path.lastIndexOf('/') + 1)"
+        />
         <h2 class="subtitle is-7 has-text-grey-light" v-text="directory.path" />
       </div>
       <div class="media-right">
@@ -27,7 +34,11 @@
     </div>
   </template>
   <teleport to="#app">
-    <modal-dialog-directory :show="show_details_modal" :directory="selected_directory" @close="show_details_modal = false" />
+    <modal-dialog-directory
+      :show="show_details_modal"
+      :directory="selected_directory"
+      @close="show_details_modal = false"
+    />
   </teleport>
 </template>
 

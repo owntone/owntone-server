@@ -1,9 +1,19 @@
 <template>
   <div class="field">
     <label class="switch">
-      <input ref="setting" type="checkbox" :checked="value" style="margin-right: 5px" @change="set_update_timer"/>
+      <input
+        ref="setting"
+        type="checkbox"
+        :checked="value"
+        style="margin-right: 5px"
+        @change="set_update_timer"
+      />
       <slot name="label" />
-      <i class="is-size-7" :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }" v-text="info" />
+      <i
+        class="is-size-7"
+        :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }"
+        v-text="info"
+      />
     </label>
     <p v-if="$slots['info']" class="help">
       <slot name="info" />

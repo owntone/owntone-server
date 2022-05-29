@@ -7,7 +7,10 @@
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.composers.title')" />
-        <p class="heading" v-text="$t('page.composers.count', { count: composers.total })" />
+        <p
+          class="heading"
+          v-text="$t('page.composers.count', { count: composers.total })"
+        />
       </template>
       <template #content>
         <list-composers :composers="composers" />

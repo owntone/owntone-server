@@ -9,7 +9,10 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small is-light is-rounded" @click="show_artist_details_modal = true">
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_artist_details_modal = true"
+          >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
@@ -20,10 +23,23 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          <a class="has-text-link" @click="open_artist" v-text="$t('page.artist.track-count', { albums: artist.album_count, tracks: artist.track_count})" />
+          <a
+            class="has-text-link"
+            @click="open_artist"
+            v-text="
+              $t('page.artist.track-count', {
+                albums: artist.album_count,
+                tracks: artist.track_count
+              })
+            "
+          />
         </p>
         <list-tracks :tracks="tracks.items" :uris="track_uris" />
-        <modal-dialog-artist :show="show_artist_details_modal" :artist="artist" @close="show_artist_details_modal = false" />
+        <modal-dialog-artist
+          :show="show_artist_details_modal"
+          :artist="artist"
+          @close="show_artist_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>

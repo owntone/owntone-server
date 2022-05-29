@@ -1,5 +1,12 @@
 <template>
-  <modal-dialog :show="show" :title="$t('dialog.update.title')" :ok_action="library.updating ? '' : $t('dialog.update.rescan')" :close_action="$t('dialog.update.cancel')" @ok="update_library" @close="close()">
+  <modal-dialog
+    :show="show"
+    :title="$t('dialog.update.title')"
+    :ok_action="library.updating ? '' : $t('dialog.update.rescan')"
+    :close_action="$t('dialog.update.cancel')"
+    @ok="update_library"
+    @close="close()"
+  >
     <template #modal-content>
       <div v-if="!library.updating">
         <p class="mb-3" v-text="$t('dialog.update.info')" />
@@ -9,15 +16,27 @@
               <select v-model="update_dialog_scan_kind">
                 <option value="" v-text="$t('dialog.update.all')" />
                 <option value="files" v-text="$t('dialog.update.local')" />
-                <option v-if="spotify_enabled" value="spotify" v-text="$t('dialog.update.spotify')" />
-                <option v-if="rss.tracks > 0" value="rss" v-text="$t('dialog.update.feeds')" />
+                <option
+                  v-if="spotify_enabled"
+                  value="spotify"
+                  v-text="$t('dialog.update.spotify')"
+                />
+                <option
+                  v-if="rss.tracks > 0"
+                  value="rss"
+                  v-text="$t('dialog.update.feeds')"
+                />
               </select>
             </div>
           </div>
         </div>
         <div class="field">
           <label class="checkbox is-size-7 is-small">
-            <input v-model="rescan_metadata" type="checkbox" style="margin-right: 5px" />
+            <input
+              v-model="rescan_metadata"
+              type="checkbox"
+              style="margin-right: 5px"
+            />
             <span v-text="$t('dialog.update.rescan-metadata')" />
           </label>
         </div>

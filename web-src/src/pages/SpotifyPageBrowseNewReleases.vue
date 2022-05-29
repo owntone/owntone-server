@@ -6,19 +6,38 @@
         <p class="title is-4">New Releases</p>
       </template>
       <template #content>
-        <spotify-list-item-album v-for="album in new_releases" :key="album.id" :album="album" @click="open_album(album)">
+        <spotify-list-item-album
+          v-for="album in new_releases"
+          :key="album.id"
+          :album="album"
+          @click="open_album(album)"
+        >
           <template v-if="is_visible_artwork" #artwork>
             <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork :artwork_url="artwork_url(album)" :artist="album.artist" :album="album.name" :maxwidth="64" :maxheight="64" />
+              <cover-artwork
+                :artwork_url="artwork_url(album)"
+                :artist="album.artist"
+                :album="album.name"
+                :maxwidth="64"
+                :maxheight="64"
+              />
             </p>
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-album>
-        <spotify-modal-dialog-album :show="show_album_details_modal" :album="selected_album" @close="show_album_details_modal = false" />
+        <spotify-modal-dialog-album
+          :show="show_album_details_modal"
+          :album="selected_album"
+          @close="show_album_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>

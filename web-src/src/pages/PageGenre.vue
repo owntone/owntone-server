@@ -9,8 +9,11 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small is-light is-rounded" @click="show_genre_details_modal = true">
-            <mdicon class="icon" name="dots-horizontal" size="16"/>
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_genre_details_modal = true"
+          >
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
@@ -20,11 +23,21 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          <span v-text="$t('page.genre.album-count', { count: genre.album_count })" />
-          <a class="has-text-link" @click="open_tracks" v-text="$t('page.genre.track-count', { count: genre.track_count })" />
+          <span
+            v-text="$t('page.genre.album-count', { count: genre.album_count })"
+          />
+          <a
+            class="has-text-link"
+            @click="open_tracks"
+            v-text="$t('page.genre.track-count', { count: genre.track_count })"
+          />
         </p>
         <list-albums :albums="albums_list" />
-        <modal-dialog-genre :show="show_genre_details_modal" :genre="genre" @close="show_genre_details_modal = false" />
+        <modal-dialog-genre
+          :show="show_genre_details_modal"
+          :genre="genre"
+          @close="show_genre_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>

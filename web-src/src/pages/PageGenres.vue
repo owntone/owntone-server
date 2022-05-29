@@ -7,7 +7,10 @@
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.genres.title')" />
-        <p class="heading" v-text="$t('page.genres.count', { count: genres.total })" />
+        <p
+          class="heading"
+          v-text="$t('page.genres.count', { count: genres.total })"
+        />
       </template>
       <template #content>
         <list-genres :genres="genres" />

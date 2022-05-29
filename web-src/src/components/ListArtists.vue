@@ -2,10 +2,18 @@
   <template v-for="artist in artists" :key="artist.itemId">
     <div v-if="!artist.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
-        <span :id="'index_' + artist.groupKey" class="tag is-info is-light is-small has-text-weight-bold" v-text="artist.groupKey" />
+        <span
+          :id="'index_' + artist.groupKey"
+          class="tag is-info is-light is-small has-text-weight-bold"
+          v-text="artist.groupKey"
+        />
       </div>
     </div>
-    <div v-else-if="artist.isItem" class="media" @click="open_artist(artist.item)">
+    <div
+      v-else-if="artist.isItem"
+      class="media"
+      @click="open_artist(artist.item)"
+    >
       <div class="media-content fd-has-action is-clipped">
         <h1 class="title is-6" v-text="artist.item.name" />
       </div>
@@ -17,7 +25,12 @@
     </div>
   </template>
   <teleport to="#app">
-    <modal-dialog-artist :show="show_details_modal" :artist="selected_artist" :media_kind="media_kind" @close="show_details_modal = false" />
+    <modal-dialog-artist
+      :show="show_details_modal"
+      :artist="selected_artist"
+      :media_kind="media_kind"
+      @close="show_details_modal = false"
+    />
   </teleport>
 </template>
 

@@ -7,7 +7,11 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_playlist" v-text="playlist.name" />
+                <a
+                  class="has-text-link"
+                  @click="open_playlist"
+                  v-text="playlist.name"
+                />
               </p>
               <div class="content is-small">
                 <p>
@@ -19,7 +23,10 @@
                   <span class="title is-6" v-text="playlist.type" />
                 </p>
                 <p v-if="!playlist.folder">
-                  <span class="heading" v-text="$t('dialog.playlist.track-count')" />
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.playlist.track-count')"
+                  />
                   <span class="title is-6" v-text="playlist.item_count" />
                 </p>
               </div>
@@ -31,7 +38,10 @@
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
                 <mdicon class="icon" name="playlist-play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.playlist.add-next')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.playlist.add-next')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
                 <mdicon class="icon" name="play" size="16" />
@@ -40,7 +50,11 @@
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>

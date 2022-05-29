@@ -12,20 +12,35 @@
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="$emit('close')">
                 <mdicon class="icon" name="cancel" size="16" />
-                <span class="is-size-7" v-text="close_action ? close_action : t('dialog.cancel')" />
+                <span
+                  class="is-size-7"
+                  v-text="close_action ? close_action : t('dialog.cancel')"
+                />
               </a>
-              <a v-if="delete_action" class="card-footer-item has-background-danger has-text-white has-text-weight-bold" @click="$emit('delete')">
+              <a
+                v-if="delete_action"
+                class="card-footer-item has-background-danger has-text-white has-text-weight-bold"
+                @click="$emit('delete')"
+              >
                 <mdicon class="icon" name="delete" size="16" />
                 <span class="is-size-7" v-text="delete_action" />
               </a>
-              <a v-if="ok_action" class="card-footer-item has-background-info has-text-white has-text-weight-bold" @click="$emit('ok')">
+              <a
+                v-if="ok_action"
+                class="card-footer-item has-background-info has-text-white has-text-weight-bold"
+                @click="$emit('ok')"
+              >
                 <mdicon class="icon" name="check" size="16" />
                 <span class="is-size-7" v-text="ok_action" />
               </a>
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>

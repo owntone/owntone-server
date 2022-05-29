@@ -6,7 +6,10 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small is-light is-rounded" @click="show_composer_details_modal = true">
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_composer_details_modal = true"
+          >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
@@ -17,11 +20,25 @@
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          <span v-text="$t('page.composer.album-count', { count: composer.album_count })" />
-          <a class="has-text-link" @click="open_tracks" v-text="$t('page.composer.track-count', { count: composer.track_count })" />
+          <span
+            v-text="
+              $t('page.composer.album-count', { count: composer.album_count })
+            "
+          />
+          <a
+            class="has-text-link"
+            @click="open_tracks"
+            v-text="
+              $t('page.composer.track-count', { count: composer.track_count })
+            "
+          />
         </p>
         <list-albums :albums="albums_list" :hide_group_title="true" />
-        <modal-dialog-composer :show="show_composer_details_modal" :composer="composer" @close="show_composer_details_modal = false" />
+        <modal-dialog-composer
+          :show="show_composer_details_modal"
+          :composer="composer"
+          @close="show_composer_details_modal = false"
+        />
       </template>
     </content-with-heading>
   </div>

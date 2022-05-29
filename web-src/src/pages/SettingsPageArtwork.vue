@@ -6,9 +6,19 @@
         <div class="title is-4" v-text="$t('page.settings.artwork.artwork')" />
       </template>
       <template #content>
-        <div class="content" v-text="$t('page.settings.artwork.explanation-1')" />
-        <div class="content" v-text="$t('page.settings.artwork.explanation-2')" />
-        <settings-checkbox v-if="spotify.libspotify_logged_in" category_name="artwork" option_name="use_artwork_source_spotify">
+        <div
+          class="content"
+          v-text="$t('page.settings.artwork.explanation-1')"
+        />
+        <div
+          class="content"
+          v-text="$t('page.settings.artwork.explanation-2')"
+        />
+        <settings-checkbox
+          v-if="spotify.libspotify_logged_in"
+          category_name="artwork"
+          option_name="use_artwork_source_spotify"
+        >
           <template #label>
             <span v-text="$t('page.settings.artwork.spotify')" />
             <a href="https://www.spotify.com/" target="_blank">
@@ -16,7 +26,10 @@
             </a>
           </template>
         </settings-checkbox>
-        <settings-checkbox category_name="artwork" option_name="use_artwork_source_discogs">
+        <settings-checkbox
+          category_name="artwork"
+          option_name="use_artwork_source_discogs"
+        >
           <template #label>
             <span v-text="$t('page.settings.artwork.discogs')" />
             <a href="https://www.discogs.com/" target="_blank">
@@ -24,7 +37,10 @@
             </a>
           </template>
         </settings-checkbox>
-        <settings-checkbox category_name="artwork" option_name="use_artwork_source_coverartarchive">
+        <settings-checkbox
+          category_name="artwork"
+          option_name="use_artwork_source_coverartarchive"
+        >
           <template #label>
             <span v-text="$t('page.settings.artwork.coverartarchive')" />
             <a href="https://coverartarchive.org/" target="_blank">

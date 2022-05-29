@@ -3,7 +3,10 @@
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.services.spotify.title')" />
+        <div
+          class="title is-4"
+          v-text="$t('page.settings.services.spotify.title')"
+        />
       </template>
       <template #content>
         <div v-if="!spotify.spotify_installed" class="notification is-size-7">
@@ -12,7 +15,10 @@
         <div v-if="spotify.spotify_installed">
           <div class="notification is-size-7">
             <b v-text="$t('page.settings.services.spotify.requirements')" />
-            <span v-if="use_libspotity" v-text="$t('page.settings.services.spotify.help')" />
+            <span
+              v-if="use_libspotity"
+              v-text="$t('page.settings.services.spotify.help')"
+            />
           </div>
           <div v-if="use_libspotity">
             <p class="content">
@@ -23,27 +29,55 @@
               <span v-text="$t('page.settings.services.spotify.logged-as')" />
               <b><code v-text="spotify.libspotify_user" /></b>
             </p>
-            <form v-if="spotify.spotify_installed && !spotify.libspotify_logged_in" @submit.prevent="login_libspotify">
+            <form
+              v-if="spotify.spotify_installed && !spotify.libspotify_logged_in"
+              @submit.prevent="login_libspotify"
+            >
               <div class="field is-grouped">
                 <div class="control is-expanded">
-                  <input v-model="libspotify.user" class="input" type="text" placeholder="Username" />
+                  <input
+                    v-model="libspotify.user"
+                    class="input"
+                    type="text"
+                    placeholder="Username"
+                  />
                   <p class="help is-danger" v-text="libspotify.errors.user" />
                 </div>
                 <div class="control is-expanded">
-                  <input v-model="libspotify.password" class="input" type="password" placeholder="Password" />
-                  <p class="help is-danger" v-text="libspotify.errors.password" />
+                  <input
+                    v-model="libspotify.password"
+                    class="input"
+                    type="password"
+                    placeholder="Password"
+                  />
+                  <p
+                    class="help is-danger"
+                    v-text="libspotify.errors.password"
+                  />
                 </div>
                 <div class="control">
-                  <button class="button is-info" v-text="$t('page.settings.services.login')" />
+                  <button
+                    class="button is-info"
+                    v-text="$t('page.settings.services.login')"
+                  />
                 </div>
               </div>
             </form>
             <p class="help is-danger" v-text="libspotify.errors.error" />
-            <p class="help" v-text="$t('page.settings.services.spotify.help-1')" />
-            <p class="help" v-text="$t('page.settings.services.spotify.help-2')" />
+            <p
+              class="help"
+              v-text="$t('page.settings.services.spotify.help-1')"
+            />
+            <p
+              class="help"
+              v-text="$t('page.settings.services.spotify.help-2')"
+            />
           </div>
           <div class="fd-has-margin-top">
-            <p class="content" v-html="$t('page.settings.services.spotify.grant-access')" />
+            <p
+              class="content"
+              v-html="$t('page.settings.services.spotify.grant-access')"
+            />
             <p v-if="spotify.webapi_token_valid">
               <span v-text="$t('page.settings.services.spotify.user')" />
               <code v-text="spotify.webapi_user" />
@@ -54,16 +88,32 @@
             </p>
             <div class="field fd-has-margin-top">
               <div class="control">
-                <a class="button" :class="{ 'is-info': !spotify.webapi_token_valid || spotify_missing_scope.length > 0 }" :href="spotify.oauth_uri" v-text="$t('page.settings.services.spotify.authorize')" />
+                <a
+                  class="button"
+                  :class="{
+                    'is-info':
+                      !spotify.webapi_token_valid ||
+                      spotify_missing_scope.length > 0
+                  }"
+                  :href="spotify.oauth_uri"
+                  v-text="$t('page.settings.services.spotify.authorize')"
+                />
               </div>
             </div>
             <p class="help">
               <span v-text="$t('page.settings.services.spotify.scopes')" />
               <code v-text="spotify_required_scope.join()" />
             </p>
-            <div v-if="spotify.webapi_token_valid" class="field fd-has-margin-top">
+            <div
+              v-if="spotify.webapi_token_valid"
+              class="field fd-has-margin-top"
+            >
               <div class="control">
-                <a class="button is-danger" @click="logout_spotify" v-text="$t('page.settings.services.logout')" />
+                <a
+                  class="button is-danger"
+                  @click="logout_spotify"
+                  v-text="$t('page.settings.services.logout')"
+                />
               </div>
             </div>
           </div>
@@ -72,34 +122,64 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.services.lastfm.title')" />
+        <div
+          class="title is-4"
+          v-text="$t('page.settings.services.lastfm.title')"
+        />
       </template>
       <template #content>
         <div v-if="!lastfm.enabled" class="notification is-size-7">
           <p v-text="$t('page.settings.services.lastfm.no-support')" />
         </div>
         <div v-if="lastfm.enabled">
-          <p class="content" v-html="$t('page.settings.services.lastfm.grant-access')" />
+          <p
+            class="content"
+            v-html="$t('page.settings.services.lastfm.grant-access')"
+          />
           <div v-if="lastfm.scrobbling_enabled">
-            <a class="button" @click="logoutLastfm" v-text="$t('page.settings.services.lastfm.stop-scrobbling')" />
+            <a
+              class="button"
+              @click="logoutLastfm"
+              v-text="$t('page.settings.services.lastfm.stop-scrobbling')"
+            />
           </div>
           <div v-if="!lastfm.scrobbling_enabled">
             <form @submit.prevent="login_lastfm">
               <div class="field is-grouped">
                 <div class="control is-expanded">
-                  <input v-model="lastfm_login.user" class="input" type="text" placeholder="Username" />
+                  <input
+                    v-model="lastfm_login.user"
+                    class="input"
+                    type="text"
+                    placeholder="Username"
+                  />
                   <p class="help is-danger" v-text="lastfm_login.errors.user" />
                 </div>
                 <div class="control is-expanded">
-                  <input v-model="lastfm_login.password" class="input" type="password" placeholder="Password" />
-                  <p class="help is-danger" v-text="lastfm_login.errors.password" />
+                  <input
+                    v-model="lastfm_login.password"
+                    class="input"
+                    type="password"
+                    placeholder="Password"
+                  />
+                  <p
+                    class="help is-danger"
+                    v-text="lastfm_login.errors.password"
+                  />
                 </div>
                 <div class="control">
-                  <button class="button is-info" type="submit" v-text="$t('page.settings.services.login')" />
+                  <button
+                    class="button is-info"
+                    type="submit"
+                    v-text="$t('page.settings.services.login')"
+                  />
                 </div>
               </div>
               <p class="help is-danger" v-text="lastfm_login.errors.error" />
-              <p class="help" v-text="$t('page.settings.services.lastfm.info')" />
+              <p
+                class="help"
+                v-text="$t('page.settings.services.lastfm.info')"
+              />
             </form>
           </div>
         </div>

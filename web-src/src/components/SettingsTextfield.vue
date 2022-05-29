@@ -3,10 +3,21 @@
     <div class="field">
       <label class="label has-text-weight-normal">
         <slot name="label" />
-        <i class="is-size-7" :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }" v-text="info" />
+        <i
+          class="is-size-7"
+          :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }"
+          v-text="info"
+        />
       </label>
       <div class="control">
-        <input ref="setting" class="input" type="text" :placeholder="placeholder" :value="value" @input="set_update_timer" />
+        <input
+          ref="setting"
+          class="input"
+          type="text"
+          :placeholder="placeholder"
+          :value="value"
+          @input="set_update_timer"
+        />
       </div>
       <p v-if="$slots['info']" class="help">
         <slot name="info" />

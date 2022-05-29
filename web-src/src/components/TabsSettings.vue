@@ -5,31 +5,53 @@
         <div class="column is-four-fifths">
           <div class="tabs is-centered is-small">
             <ul>
-              <router-link v-slot="{ navigate, isActive }" to="/settings/webinterface" custom>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/webinterface"
+                custom
+              >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span v-text="$t('page.settings.tabs.settings.general')" />
                   </a>
                 </li>
               </router-link>
-              <router-link v-slot="{ navigate, isActive }" to="/settings/remotes-outputs" custom>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/remotes-outputs"
+                custom
+              >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span v-text="$t('page.settings.tabs.settings.remotes-and-outputs')" />
+                    <span
+                      v-text="
+                        $t('page.settings.tabs.settings.remotes-and-outputs')
+                      "
+                    />
                   </a>
                 </li>
               </router-link>
-              <router-link v-slot="{ navigate, isActive }" to="/settings/artwork" custom>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/artwork"
+                custom
+              >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span v-text="$t('page.settings.tabs.settings.artwork')" />
                   </a>
                 </li>
               </router-link>
-              <router-link v-slot="{ navigate, isActive }" to="/settings/online-services" custom>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                to="/settings/online-services"
+                custom
+              >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span v-text="$t('page.settings.tabs.settings.online-services')" />
+                    <span
+                      v-text="$t('page.settings.tabs.settings.online-services')"
+                    />
                   </a>
                 </li>
               </router-link>

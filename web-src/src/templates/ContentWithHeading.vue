@@ -6,11 +6,22 @@
           <section v-if="$slots['options']">
             <div ref="options_ref" style="height: 1px" />
             <slot name="options" />
-            <nav class="buttons is-centered" style="margin-bottom: 6px; margin-top: 16px">
-              <a v-if="!options_visible" class="button is-small is-white" @click="scroll_to_top">
+            <nav
+              class="buttons is-centered"
+              style="margin-bottom: 6px; margin-top: 16px"
+            >
+              <a
+                v-if="!options_visible"
+                class="button is-small is-white"
+                @click="scroll_to_top"
+              >
                 <mdicon class="icon is-small" name="chevron-down" size="16" />
               </a>
-              <a v-else class="button is-small is-white" @click="scroll_to_content">
+              <a
+                v-else
+                class="button is-small is-white"
+                @click="scroll_to_content"
+              >
                 <mdicon class="icon is-small" name="chevron-up" size="16" />
               </a>
             </nav>

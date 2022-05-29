@@ -7,19 +7,34 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_albums" v-text="composer.name" />
+                <a
+                  class="has-text-link"
+                  @click="open_albums"
+                  v-text="composer.name"
+                />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.composer.albums')" />
-                <a class="has-text-link is-6" @click="open_albums" v-text="composer.album_count" />
+                <a
+                  class="has-text-link is-6"
+                  @click="open_albums"
+                  v-text="composer.album_count"
+                />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.composer.tracks')" />
-                <a class="has-text-link is-6" @click="open_tracks" v-text="composer.track_count" />
+                <a
+                  class="has-text-link is-6"
+                  @click="open_tracks"
+                  v-text="composer.track_count"
+                />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.composer.duration')" />
-                <span class="title is-6" v-text="$filters.durationInHours(composer.length_ms)" />
+                <span
+                  class="title is-6"
+                  v-text="$filters.durationInHours(composer.length_ms)"
+                />
               </p>
             </div>
             <footer class="card-footer">
@@ -29,7 +44,10 @@
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
                 <mdicon class="icon" name="playlist-play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.composer.add-next')" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.composer.add-next')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
                 <mdicon class="icon" name="play" size="16" />
@@ -38,7 +56,11 @@
             </footer>
           </div>
         </div>
-        <button class="modal-close is-large" aria-label="close" @click="$emit('close')" />
+        <button
+          class="modal-close is-large"
+          aria-label="close"
+          @click="$emit('close')"
+        />
       </div>
     </transition>
   </div>
