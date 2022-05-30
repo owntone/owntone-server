@@ -20,19 +20,6 @@ if [ "$yn" = "y" ]; then
 	sudo pkg install $DEPS;
 fi
 
-JRE="openjdk8-jre"
-read -p "Should the script install $JRE for you? [y/N] " yn
-if [ "$yn" = "y" ]; then
-	sudo pkg install $JRE;
-	read -p "Should the script add the mount points to /etc/fstab that $JRE requests? [y/N] " yn
-	if [ "$yn" = "y" ]; then
-		sudo sh -c 'echo "fdesc	/dev/fd	fdescfs	rw	0	0" >> /etc/fstab'
-		sudo sh -c 'echo "proc	/proc	procfs	rw	0	0" >> /etc/fstab'
-		sudo mount /dev/fd
-		sudo mount /proc
-	fi
-fi
-
 WORKDIR=~/owntone_build
 CONFIG=/usr/local/etc/owntone.conf
 read -p "Should the script create $WORKDIR and use it for building? [Y/n] " yn
