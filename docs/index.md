@@ -10,7 +10,8 @@ hide:
 and MacOS.
 
 It allows sharing and streaming your media library to iTunes (DAAP[^1]),
-Roku (RSP), AirPlay devices (multiroom), Chromecast and also supports local playback.
+Roku (RSP), AirPlay devices (multiroom), Chromecast and also supports local
+playback.
 
 You can control OwnTone via its web interface, Apple Remote (and compatible
 DAAP/DACP clients), MPD clients or via its JSON API.
@@ -18,8 +19,10 @@ DAAP/DACP clients), MPD clients or via its JSON API.
 Besides serving your local music, podcast and audiobook media files,
 OwnTone supports internet radios and Spotify (requires Spotify premium account).
 
-OwnTone was previously called forked-daapd, which again was a rewrite of
-mt-daapd (Firefly Media Server). It is written in C with a web interface written in Vue.js.
+Prior to version 28, OwnTone was called forked-daapd, which again was a rewrite
+of mt-daapd (Firefly Media Server).
+
+OwnTone is written in C with a web interface written in Vue.js.
 
 [^1]:
     DAAP stands for Digital Audio Access Protocol which is the protocol used by
@@ -73,18 +76,6 @@ please see the documentation on [Building from Source](installation.md).
 
 ## References
 
-The source for this version of OwnTone can be found here:
+You can find source and documentation, also for older versions, here:
 
 - [https://github.com/owntone/owntone-server.git](https://github.com/owntone/owntone-server.git)
-
-README's for current and previous versions of OwnTone:
-
-- [OwnTone version 28.3](https://github.com/owntone/owntone-server/blob/28.3/README.md)
-
-- [OwnTone version 28.2](https://github.com/owntone/owntone-server/blob/28.2/README.md)
-
-- [OwnTone version 28.1](https://github.com/owntone/owntone-server/blob/28.1/README.md)
-
-README from when OwnTone was forked-daapd:
-
-- [forked-daapd version 27.4](https://github.com/owntone/owntone-server/blob/27.4/README.md)
