@@ -1,6 +1,26 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.4
+	- fix broken Spotify after libspotify sunset
+	- remove antlr3 dependency, use bison/flex instead
+	- improve search by supporting diacritics and Unicode case folding
+	- add support for new output: Roku/Soundbridge RCP
+	- switch to MkDocs for documentation
+	- smart playlists fixups and new "this week" param
+	- fix 'add next' when in queue shuffle mode
+	- web UI improvements:
+		migration to Vue 3 and Vite
+		honor "radio_playlists" config setting
+		display of search results for composers and playlists
+		add album / track count to genre and composer pages
+		fix incorrect sorting of album/artist searches
+		minor UI fixes
+	- fix for Spotify config option album_override
+	- improved Spotify scan performance
+	- generic browse endpoints for the json api
+	- fix slow shutdown with some libwebsocket versions
+
 version 28.3
 	- web UI improvements, e.g.:
 		composer views
