@@ -80,7 +80,7 @@ If you haven't already enabled the free RPM fusion packages do that, since you
 will need ffmpeg. You can google how to do that. Then run:
 
 ```bash
-sudo yum install \
+sudo dnf install \
   git automake autoconf gettext-devel gperf gawk libtool bison flex \
   sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
