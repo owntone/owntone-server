@@ -218,6 +218,8 @@ library {
 	# A directory in one of the library directories that will be used as the default
 	# playlist directory. OwnTone creates new playlists in this directory if only
 	# a playlist name is provided (requires "allow_modify_stored_playlists" set to true).
+	# This directory is relative to the first library directory
+	# /srv/music/Playlists, you can set this to "/Playlists".
 #	default_playlist_directory = ""
 
 	# By default OwnTone will - like iTunes - clear the playqueue if
