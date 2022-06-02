@@ -2709,6 +2709,10 @@ speaker_generic_bh(void *arg, int *retval)
  * device-busy=0             | Playback does not resume, device not grayed    | Playback resumes on device, device not grayed
  * (same if vice versa, ie busy=1 first)
  *
+ * Special cases:
+ *  a) Denon Home 150: User deselects speaker, we send TEARDOWN, speaker then
+ *     sends prevent-playback=1 and then shortly after prevent-play-playback=0.
+ *     In this case we never want to resume playback.
  */
 static enum command_state
 speaker_prevent_playback_set(void *arg, int *retval)
@@ -2720,16 +2724,20 @@ speaker_prevent_playback_set(void *arg, int *retval)
   if (!device)
     return COMMAND_END;
 
-  device->prevent_playback = param->prevent_playback;
+  DPRINTF(E_DBG, L_PLAYER, "Speaker prevent playback change %u -> %u: '%s' (id=%" PRIu64 ")\n",
+    device->prevent_playback, param->prevent_playback, device->name, device->id);
 
-  DPRINTF(E_DBG, L_PLAYER, "Speaker prevent playback: '%s' (id=%" PRIu64 ")\n", device->name, device->id);
-
-  if (device->prevent_playback)
+  if (param->prevent_playback && device->state == OUTPUT_STATE_STOPPED)
+    *retval = -1; // Means we won't set device->prevent_playback below, so that special case a) will work
+  else if (param->prevent_playback)
     *retval = outputs_device_stop(device, device_shutdown_cb);
-  else if (!device->busy)
+  else if (!device->busy && device->prevent_playback) // Only start if previously prevented
     *retval = outputs_device_start(device, device_activate_cb, PLAYER_ONLY_PROBE);
   else
     *retval = 0;
+
+  if (*retval >= 0)
+    device->prevent_playback = param->prevent_playback;
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -2764,16 +2772,20 @@ speaker_busy_set(void *arg, int *retval)
   if (!device)
     return COMMAND_END;
 
-  device->busy = param->busy;
+  DPRINTF(E_DBG, L_PLAYER, "Speaker busy change %u -> %u: '%s' (id=%" PRIu64 ")\n",
+    device->busy, param->busy, device->name, device->id);
 
-  DPRINTF(E_DBG, L_PLAYER, "Speaker busy: '%s' (id=%" PRIu64 ")\n", device->name, device->id);
-
-  if (device->busy)
+  if (param->busy && device->state == OUTPUT_STATE_STOPPED)
+    *retval = -1; // Means we won't set device->busy below, so that special case a) will work
+  else if (param->busy)
     *retval = outputs_device_stop(device, device_shutdown_cb);
-  else if (!device->prevent_playback)
+  else if (!device->prevent_playback && device->busy) // Only start if previously busy
     *retval = outputs_device_start(device, device_activate_cb, PLAYER_ONLY_PROBE);
   else
     *retval = 0;
+
+  if (*retval >= 0)
+    device->busy = param->busy;
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
