@@ -54,7 +54,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
   ret = spotifywebapi_oauth_callback(hreq->query, redirect_uri, &errmsg);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback: '%s'\n", hreq->uri_parsed->uri);
+      DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback '%s': %s\n", hreq->uri_parsed->uri, errmsg);
       httpd_send_error(hreq->req, HTTP_INTERNAL, errmsg);
       return -1;
     }
