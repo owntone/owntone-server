@@ -11,10 +11,8 @@
                 }"
               >
                 <a @click="search_library">
-                  <span class="icon is-small"
-                    ><mdicon name="bookshelf" size="16"
-                  /></span>
-                  <span class="">Library</span>
+                  <mdicon class="icon is-small" name="bookshelf" size="16" />
+                  <span v-text="$t('tabs.search.library')" />
                 </a>
               </li>
               <li
@@ -23,10 +21,8 @@
                 }"
               >
                 <a @click="search_spotify">
-                  <span class="icon is-small"
-                    ><mdicon name="spotify" size="16"
-                  /></span>
-                  <span class="">Spotify</span>
+                  <mdicon class="icon is-small" name="spotify" size="16" />
+                  <span v-text="$t('tabs.search.spotify')" />
                 </a>
               </li>
             </ul>

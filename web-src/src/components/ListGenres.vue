@@ -5,21 +5,17 @@
         <span
           :id="'index_' + genre.groupKey"
           class="tag is-info is-light is-small has-text-weight-bold"
-          >{{ genre.groupKey }}</span
-        >
+          v-text="genre.groupKey"
+        />
       </div>
     </div>
     <div v-else-if="genre.isItem" class="media" @click="open_genre(genre.item)">
       <div class="media-content fd-has-action is-clipped">
-        <h1 class="title is-6">
-          {{ genre.item.name }}
-        </h1>
+        <h1 class="title is-6" v-text="genre.item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(genre.item)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>

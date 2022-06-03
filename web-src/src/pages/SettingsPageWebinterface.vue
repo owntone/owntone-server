@@ -1,92 +1,123 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-settings />
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Navbar items</div>
+        <div class="title is-4" v-text="$t('page.settings.general.language')" />
       </template>
-
       <template #content>
-        <p class="content">Select the top navigation bar menu items</p>
-        <div class="notification is-size-7">
-          If you select more items than can be shown on your screen then the
-          burger menu will disappear.
-        </div>
+        <dropdown-menu v-model="locale" :options="locales" />
+      </template>
+    </content-with-heading>
+    <content-with-heading>
+      <template #heading-left>
+        <div
+          class="title is-4"
+          v-text="$t('page.settings.general.navigation-items')"
+        />
+      </template>
+      <template #content>
+        <p
+          class="content"
+          v-text="$t('page.settings.general.navigation-item-selection')"
+        />
+        <div
+          class="notification is-size-7"
+          v-text="$t('page.settings.general.navigation-item-selection-info')"
+        />
         <settings-checkbox
           category_name="webinterface"
           option_name="show_menu_item_playlists"
         >
-          <template #label> Playlists </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.playlists')" />
+          </template>
         </settings-checkbox>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_menu_item_music"
         >
-          <template #label> Music </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.music')" />
+          </template>
         </settings-checkbox>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_menu_item_podcasts"
         >
-          <template #label> Podcasts </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.podcasts')" />
+          </template>
         </settings-checkbox>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_menu_item_audiobooks"
         >
-          <template #label> Audiobooks </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.audiobooks')" />
+          </template>
         </settings-checkbox>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_menu_item_radio"
         >
-          <template #label> Radio </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.radio')" />
+          </template>
         </settings-checkbox>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_menu_item_files"
         >
-          <template #label> Files </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.files')" />
+          </template>
         </settings-checkbox>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_menu_item_search"
         >
-          <template #label> Search </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.search')" />
+          </template>
         </settings-checkbox>
       </template>
     </content-with-heading>
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Album lists</div>
+        <div
+          class="title is-4"
+          v-text="$t('page.settings.general.album-lists')"
+        />
       </template>
-
       <template #content>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_cover_artwork_in_album_lists"
         >
-          <template #label> Show cover artwork in album list </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.show-coverart')" />
+          </template>
         </settings-checkbox>
       </template>
     </content-with-heading>
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Now playing page</div>
+        <div
+          class="title is-4"
+          v-text="$t('page.settings.general.now-playing-page')"
+        />
       </template>
-
       <template #content>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_composer_now_playing"
         >
-          <template #label> Show composer </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.show-composer')" />
+          </template>
           <template #info>
-            If enabled the composer of the current playing track is shown on the
-            &quot;now playing page&quot;
+            <span v-text="$t('page.settings.general.show-composer-info')" />
           </template>
         </settings-checkbox>
         <settings-textfield
@@ -95,36 +126,42 @@
           :disabled="!settings_option_show_composer_now_playing"
           placeholder="Genres"
         >
-          <template #label> Show composer only for listed genres </template>
+          <template #label>
+            <span v-text="$t('page.settings.general.show-composer-genres')" />
+          </template>
           <template #info>
-            <p class="help">
-              Comma separated list of genres the composer should be displayed on
-              the &quot;now playing page&quot;.
-            </p>
-            <p class="help">Leave empty to always show the composer.</p>
-            <p class="help">
-              The genre tag of the current track is matched by checking, if one
-              of the defined genres are included. For example setting to
-              <code>classical, soundtrack</code> will show the composer for
-              tracks with a genre tag of &quot;Contemporary Classical&quot;.<br />
-            </p>
+            <p
+              class="help"
+              v-text="$t('page.settings.general.show-composer-genres-info-1')"
+            />
+            <p
+              class="help"
+              v-text="$t('page.settings.general.show-composer-genres-info-2')"
+            />
+            <p
+              class="help"
+              v-text="$t('page.settings.general.show-composer-genres-info-3')"
+            />
           </template>
         </settings-textfield>
       </template>
     </content-with-heading>
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Recently added page</div>
+        <div
+          class="title is-4"
+          v-text="$t('page.settings.general.recently-added-page')"
+        />
       </template>
-
       <template #content>
         <settings-intfield
           category_name="webinterface"
           option_name="recently_added_limit"
         >
           <template #label>
-            Limit the number of albums shown on the "Recently Added" page
+            <span
+              v-text="$t('page.settings.general.recently-added-page-info')"
+            />
           </template>
         </settings-intfield>
       </template>
@@ -138,6 +175,7 @@ import TabsSettings from '@/components/TabsSettings.vue'
 import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
 import SettingsTextfield from '@/components/SettingsTextfield.vue'
 import SettingsIntfield from '@/components/SettingsIntfield.vue'
+import DropdownMenu from '@/components/DropdownMenu.vue'
 
 export default {
   name: 'SettingsPageWebinterface',
@@ -146,12 +184,28 @@ export default {
     TabsSettings,
     SettingsCheckbox,
     SettingsTextfield,
-    SettingsIntfield
+    SettingsIntfield,
+    DropdownMenu
   },
 
   computed: {
     settings_option_show_composer_now_playing() {
       return this.$store.getters.settings_option_show_composer_now_playing
+    },
+    locale: {
+      get() {
+        return this.$i18n.locale
+      },
+      set(locale) {
+        this.$i18n.locale = locale
+      }
+    },
+    locales: {
+      get() {
+        return this.$i18n.availableLocales.map((item) => {
+          return { id: item, name: this.$t('language.' + item) }
+        })
+      }
     }
   }
 }

@@ -16,9 +16,7 @@
                     placeholder="Search"
                     autocomplete="off"
                   />
-                  <span class="icon is-left">
-                    <mdicon name="magnify" size="16" />
-                  </span>
+                  <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
               </div>
             </form>
@@ -28,20 +26,18 @@
                 :key="recent_search"
                 class="tag"
                 @click="open_recent_search(recent_search)"
-                >{{ recent_search }}</a
-              >
+                v-text="recent_search"
+              />
             </div>
           </div>
         </div>
       </div>
     </section>
-
     <tabs-search :query="search_query" />
-
     <!-- Tracks -->
     <content-with-heading v-if="show_tracks && tracks.total">
       <template #heading-left>
-        <p class="title is-4">Tracks</p>
+        <p class="title is-4" v-text="$t('page.spotify.search.tracks')" />
       </template>
       <template #content>
         <spotify-list-item-track
@@ -54,9 +50,11 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_track_dialog(track)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-track>
@@ -79,22 +77,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_tracks"
-              >Show all {{ tracks.total.toLocaleString() }} tracks</a
-            >
+              v-text="
+                $t('page.spotify.search.show-all-tracks', {
+                  count: tracks.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_tracks && !tracks.total" class="mt-6">
       <template #content>
-        <p><i>No tracks found</i></p>
+        <p><i v-text="$t('page.spotify.search.no-tracks')" /></p>
       </template>
     </content-text>
-
     <!-- Artists -->
     <content-with-heading v-if="show_artists && artists.total">
       <template #heading-left>
-        <p class="title is-4">Artists</p>
+        <p class="title is-4" v-text="$t('page.spotify.search.artists')" />
       </template>
       <template #content>
         <spotify-list-item-artist
@@ -104,9 +105,11 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_artist_dialog(artist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-artist>
@@ -128,22 +131,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_artists"
-              >Show all {{ artists.total.toLocaleString() }} artists</a
-            >
+              v-text="
+                $t('page.spotify.search.show-all-artists', {
+                  count: artists.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_artists && !artists.total">
       <template #content>
-        <p><i>No artists found</i></p>
+        <p><i v-text="$t('page.spotify.search.no-artists')" /></p>
       </template>
     </content-text>
-
     <!-- Albums -->
     <content-with-heading v-if="show_albums && albums.total">
       <template #heading-left>
-        <p class="title is-4">Albums</p>
+        <p class="title is-4" v-text="$t('page.spotify.search.albums')" />
       </template>
       <template #content>
         <spotify-list-item-album
@@ -165,9 +171,11 @@
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-album>
@@ -189,22 +197,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_albums"
-              >Show all {{ albums.total.toLocaleString() }} albums</a
-            >
+              v-text="
+                $t('page.spotify.search.show-all-albums', {
+                  count: albums.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_albums && !albums.total">
       <template #content>
-        <p><i>No albums found</i></p>
+        <p><i v-text="$t('page.spotify.search.no-albums')" /></p>
       </template>
     </content-text>
-
     <!-- Playlists -->
     <content-with-heading v-if="show_playlists && playlists.total">
       <template #heading-left>
-        <p class="title is-4">Playlists</p>
+        <p class="title is-4" v-text="$t('page.spotify.search.playlists')" />
       </template>
       <template #content>
         <spotify-list-item-playlist
@@ -214,9 +225,11 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-playlist>
@@ -238,15 +251,19 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_playlists"
-              >Show all {{ playlists.total.toLocaleString() }} playlists</a
-            >
+              v-text="
+                $t('page.spotify.search.show-all-playlists', {
+                  count: playlists.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_playlists && !playlists.total">
       <template #content>
-        <p><i>No playlists found</i></p>
+        <p><i v-text="$t('page.spotify.search.no-playlists')" /></p>
       </template>
     </content-text>
   </div>

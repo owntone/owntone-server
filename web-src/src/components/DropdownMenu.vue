@@ -11,23 +11,20 @@
         aria-controls="dropdown-menu"
         @click="is_active = !is_active"
       >
-        <span>{{ modelValue }}</span>
-        <span class="icon">
-          <mdicon name="chevron-down" size="16" />
-        </span>
+        <span v-text="option.name" />
+        <mdicon class="icon" name="chevron-down" size="16" />
       </button>
     </div>
     <div id="dropdown-menu" class="dropdown-menu" role="menu">
       <div class="dropdown-content">
         <a
-          v-for="option in options"
-          :key="option"
+          v-for="o in options"
+          :key="o.id"
           class="dropdown-item"
-          :class="{ 'is-active': modelValue === option }"
-          @click="select(option)"
-        >
-          {{ option }}
-        </a>
+          :class="{ 'is-active': modelValue === o.id }"
+          @click="select(o)"
+          v-text="o.name"
+        />
       </div>
     </div>
   </div>
@@ -36,14 +33,20 @@
 <script>
 export default {
   name: 'DropdownMenu',
-
-  // eslint-disable-next-line vue/prop-name-casing
   props: ['modelValue', 'options'],
   emits: ['update:modelValue'],
 
   data() {
     return {
       is_active: false
+    }
+  },
+
+  computed: {
+    option: {
+      get() {
+        return this.options.find((option) => option.id === this.modelValue)
+      }
     }
   },
 
@@ -54,7 +57,7 @@ export default {
 
     select(option) {
       this.is_active = false
-      this.$emit('update:modelValue', option)
+      this.$emit('update:modelValue', option.id)
     }
   }
 }

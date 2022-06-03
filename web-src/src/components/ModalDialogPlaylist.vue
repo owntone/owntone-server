@@ -7,41 +7,45 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_playlist">{{
-                  playlist.name
-                }}</a>
+                <a
+                  class="has-text-link"
+                  @click="open_playlist"
+                  v-text="playlist.name"
+                />
               </p>
               <div class="content is-small">
                 <p>
                   <span class="heading">Path</span>
-                  <span class="title is-6">{{ playlist.path }}</span>
+                  <span class="title is-6" v-text="playlist.path" />
                 </p>
                 <p>
-                  <span class="heading">Type</span>
-                  <span class="title is-6">{{ playlist.type }}</span>
+                  <span class="heading" v-text="$t('dialog.playlist.type')" />
+                  <span class="title is-6" v-text="playlist.type" />
                 </p>
                 <p v-if="!playlist.folder">
-                  <span class="heading">Track count</span>
-                  <span class="title is-6">{{ playlist.item_count }}</span>
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.playlist.track-count')"
+                  />
+                  <span class="title is-6" v-text="playlist.item_count" />
                 </p>
               </div>
             </div>
             <footer v-if="!playlist.folder" class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
-                <span class="is-size-7">Add</span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.playlist.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
-                <span class="is-size-7">Add Next</span>
+                <mdicon class="icon" name="playlist-play" size="16" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.playlist.add-next')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
-                <span class="is-size-7">Play</span>
+                <mdicon class="icon" name="play" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.playlist.play')" />
               </a>
             </footer>
           </div>

@@ -5,8 +5,8 @@
         <span
           :id="'index_' + composer.groupKey"
           class="tag is-info is-light is-small has-text-weight-bold"
-          >{{ composer.groupKey }}</span
-        >
+          v-text="composer.groupKey"
+        />
       </div>
     </div>
     <div
@@ -15,15 +15,11 @@
       @click="open_composer(composer.item)"
     >
       <div class="media-content fd-has-action is-clipped">
-        <h1 class="title is-6">
-          {{ composer.item.name }}
-        </h1>
+        <h1 class="title is-6" v-text="composer.item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(composer.item)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
@@ -44,7 +40,6 @@ import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 export default {
   name: 'ListComposers',
   components: { ModalDialogComposer },
-
   props: ['composers', 'media_kind', 'hide_group_title'],
 
   data() {

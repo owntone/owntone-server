@@ -5,9 +5,7 @@
         <index-button-list :index="albums_list.indexList" />
       </template>
       <template #heading-left>
-        <p class="title is-4">
-          {{ genre.name }}
-        </p>
+        <p class="title is-4" v-text="genre.name" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -15,22 +13,24 @@
             class="button is-small is-light is-rounded"
             @click="show_genre_details_modal = true"
           >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="shuffle" size="16" /></span>
-            <span>Shuffle</span>
+            <mdicon class="icon" name="shuffle" size="16" />
+            <span v-text="$t('page.genre.shuffle')" />
           </a>
         </div>
       </template>
       <template #content>
         <p class="heading has-text-centered-mobile">
-          {{ genre.album_count }} albums |
-          <a class="has-text-link" @click="open_tracks"
-            >{{ genre.track_count }} tracks</a
-          >
+          <span
+            v-text="$t('page.genre.album-count', { count: genre.album_count })"
+          />
+          <a
+            class="has-text-link"
+            @click="open_tracks"
+            v-text="$t('page.genre.track-count', { count: genre.track_count })"
+          />
         </p>
         <list-albums :albums="albums_list" />
         <modal-dialog-genre

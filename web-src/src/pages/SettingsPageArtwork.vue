@@ -1,39 +1,40 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-settings />
-
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4">Artwork</div>
+        <div class="title is-4" v-text="$t('page.settings.artwork.artwork')" />
       </template>
-
       <template #content>
-        <div class="content">
-          <p>
-            OwnTone supports PNG and JPEG artwork which is either placed as
-            separate image files in the library, embedded in the media files or
-            made available online by radio stations.
-          </p>
-          <p>
-            In addition to that, you can enable fetching artwork from the
-            following artwork providers:
-          </p>
-        </div>
+        <div
+          class="content"
+          v-text="$t('page.settings.artwork.explanation-1')"
+        />
+        <div
+          class="content"
+          v-text="$t('page.settings.artwork.explanation-2')"
+        />
         <settings-checkbox
           v-if="spotify.libspotify_logged_in"
           category_name="artwork"
           option_name="use_artwork_source_spotify"
         >
-          <template #label> Spotify </template>
+          <template #label>
+            <span v-text="$t('page.settings.artwork.spotify')" />
+            <a href="https://www.spotify.com/" target="_blank">
+              <mdicon class="icon" name="open-in-new" size="16" />
+            </a>
+          </template>
         </settings-checkbox>
         <settings-checkbox
           category_name="artwork"
           option_name="use_artwork_source_discogs"
         >
           <template #label>
-            Discogs (<a href="https://www.discogs.com/"
-              >https://www.discogs.com/</a
-            >)
+            <span v-text="$t('page.settings.artwork.discogs')" />
+            <a href="https://www.discogs.com/" target="_blank">
+              <mdicon class="icon" name="open-in-new" size="16" />
+            </a>
           </template>
         </settings-checkbox>
         <settings-checkbox
@@ -41,9 +42,10 @@
           option_name="use_artwork_source_coverartarchive"
         >
           <template #label>
-            Cover Art Archive (<a href="https://coverartarchive.org/"
-              >https://coverartarchive.org/</a
-            >)
+            <span v-text="$t('page.settings.artwork.coverartarchive')" />
+            <a href="https://coverartarchive.org/" target="_blank">
+              <mdicon class="icon" name="open-in-new" size="16" />
+            </a>
           </template>
         </settings-checkbox>
       </template>

@@ -18,45 +18,64 @@
                 />
               </figure>
               <p class="title is-4">
-                <a class="has-text-link" @click="open_album">{{
-                  album.name
-                }}</a>
+                <a
+                  class="has-text-link"
+                  @click="open_album"
+                  v-text="album.name"
+                />
               </p>
               <div class="content is-small">
                 <p>
-                  <span class="heading">Album artist</span>
-                  <a class="title is-6 has-text-link" @click="open_artist">{{
-                    album.artists[0].name
-                  }}</a>
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.album.album-artist')"
+                  />
+                  <a
+                    class="title is-6 has-text-link"
+                    @click="open_artist"
+                    v-text="album.artists[0].name"
+                  />
                 </p>
                 <p>
-                  <span class="heading">Release date</span>
-                  <span class="title is-6">{{
-                    $filters.date(album.release_date)
-                  }}</span>
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.album.release-date')"
+                  />
+                  <span
+                    class="title is-6"
+                    v-text="$filters.date(album.release_date)"
+                  />
                 </p>
                 <p>
-                  <span class="heading">Type</span>
-                  <span class="title is-6">{{ album.album_type }}</span>
+                  <span
+                    class="heading"
+                    v-text="$t('dialog.spotify.album.type')"
+                  />
+                  <span class="title is-6" v-text="album.album_type" />
                 </p>
               </div>
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
-                <span class="is-size-7">Add</span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.album.add')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
-                <span class="is-size-7">Add Next</span>
+                <mdicon class="icon" name="playlist-play" size="16" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.album.add-next')"
+                />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
-                <span class="is-size-7">Play</span>
+                <mdicon class="icon" name="play" size="16" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.spotify.album.play')"
+                />
               </a>
             </footer>
           </div>

@@ -6,8 +6,8 @@
         :key="char"
         class="button is-small"
         @click="nav(char)"
-        >{{ char }}</a
-      >
+        v-text="char"
+      />
     </nav>
   </section>
 </template>
@@ -15,9 +15,7 @@
 <script>
 export default {
   name: 'IndexButtonList',
-
   props: ['index'],
-
   computed: {
     filtered_index() {
       if (!this.index) {
@@ -27,7 +25,6 @@ export default {
       return this.index.filter((c) => !specialChars.includes(c))
     }
   },
-
   methods: {
     nav: function (id) {
       this.$router.push({ hash: '#index_' + id })

@@ -1,9 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading-left>
-      <div class="title is-4">
-        {{ album.name }}
-      </div>
+      <div class="title is-4" v-text="album.name" />
     </template>
     <template #heading-right>
       <div class="buttons is-centered">
@@ -11,20 +9,19 @@
           class="button is-small is-light is-rounded"
           @click="show_album_details_modal = true"
         >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
+          <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon">
-            <mdicon name="play" size="16" />
-          </span>
-          <span>Play</span>
+          <mdicon class="icon" name="play" size="16" />
+          <span v-text="$t('page.podcast.play')" />
         </a>
       </div>
     </template>
     <template #content>
-      <p class="heading has-text-centered-mobile">
-        {{ album.track_count }} tracks
-      </p>
+      <p
+        class="heading has-text-centered-mobile"
+        v-text="$t('page.podcast.track-count', { count: album.track_count })"
+      />
       <list-tracks
         :tracks="tracks"
         :show_progress="true"
@@ -47,11 +44,10 @@
         @delete="remove_podcast"
       >
         <template #modal-content>
-          <p>Permanently remove this podcast from your library?</p>
+          <p v-text="$t('page.podcast.remove-info-1')" />
           <p class="is-size-7">
-            (This will also remove the RSS playlist
-            <b>{{ rss_playlist_to_remove.name }}</b
-            >.)
+            (<span v-text="$t('page.podcast.remove-info-2')" />
+            <b v-text="rss_playlist_to_remove.name" />)
           </p>
         </template>
       </modal-dialog>
@@ -131,7 +127,7 @@ export default {
         const rssPlaylists = data.items.filter((pl) => pl.type === 'rss')
         if (rssPlaylists.length !== 1) {
           this.$store.dispatch('add_notification', {
-            text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.',
+            text: this.$t('page.podcast.remove-error'),
             type: 'danger'
           })
           return

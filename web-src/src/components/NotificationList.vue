@@ -12,7 +12,7 @@
           ]"
         >
           <button class="delete" @click="remove(notification)" />
-          {{ notification.text }}
+          <span v-text="notification.text" />
         </div>
       </div>
     </div>

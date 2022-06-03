@@ -4,8 +4,8 @@
       <span
         :id="'index_' + album.groupKey"
         class="tag is-info is-light is-small has-text-weight-bold"
-        >{{ album.groupKey }}</span
-      >
+        v-text="album.groupKey"
+      />
     </div>
     <div v-else-if="album.isItem" class="media" @click="open_album(album.item)">
       <div v-if="is_visible_artwork" class="media-left fd-has-action">
@@ -24,25 +24,20 @@
       </div>
       <div class="media-content fd-has-action is-clipped">
         <div style="margin-top: 0.7rem">
-          <h1 class="title is-6">
-            {{ album.item.name }}
-          </h1>
+          <h1 class="title is-6" v-text="album.item.name" />
           <h2 class="subtitle is-7 has-text-grey">
-            <b>{{ album.item.artist }}</b>
+            <b v-text="album.item.artist" />
           </h2>
           <h2
             v-if="album.item.date_released && album.item.media_kind === 'music'"
             class="subtitle is-7 has-text-grey has-text-weight-normal"
-          >
-            {{ $filters.date(album.item.date_released) }}
-          </h2>
+            v-text="$filters.date(album.item.date_released)"
+          />
         </div>
       </div>
       <div class="media-right" style="padding-top: 0.7rem">
         <a @click.prevent.stop="open_dialog(album.item)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
@@ -64,11 +59,10 @@
       @delete="remove_podcast"
     >
       <template #modal-content>
-        <p>Permanently remove this podcast from your library?</p>
+        <p v-text="$t('list.albums.info-1')" />
         <p class="is-size-7">
-          (This will also remove the RSS playlist
-          <b>{{ rss_playlist_to_remove.name }}</b
-          >.)
+          (<span v-text="$t('list.albums.info-2')" />
+          <b v-text="rss_playlist_to_remove.name" />)
         </p>
       </template>
     </modal-dialog>
@@ -152,7 +146,7 @@ export default {
             const rssPlaylists = data.items.filter((pl) => pl.type === 'rss')
             if (rssPlaylists.length !== 1) {
               this.$store.dispatch('add_notification', {
-                text: 'Podcast cannot be removed. Probably it was not added as an RSS playlist.',
+                text: this.$t('list.albums.notification'),
                 type: 'danger'
               })
               return

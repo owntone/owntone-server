@@ -1,40 +1,48 @@
 <template>
   <modal-dialog
     :show="show"
-    title="Update library"
-    :ok_action="library.updating ? '' : 'Rescan'"
-    close_action="Close"
+    :title="$t('dialog.update.title')"
+    :ok_action="library.updating ? '' : $t('dialog.update.rescan')"
+    :close_action="$t('dialog.update.cancel')"
     @ok="update_library"
     @close="close()"
   >
     <template #modal-content>
       <div v-if="!library.updating">
-        <p class="mb-3">Scan for new, deleted and modified files</p>
+        <p class="mb-3" v-text="$t('dialog.update.info')" />
         <div v-if="spotify_enabled || rss.tracks > 0" class="field">
           <div class="control">
             <div class="select is-small">
               <select v-model="update_dialog_scan_kind">
-                <option value="">Update everything</option>
-                <option value="files">Only update local library</option>
-                <option v-if="spotify_enabled" value="spotify">
-                  Only update Spotify
-                </option>
-                <option v-if="rss.tracks > 0" value="rss">
-                  Only update RSS feeds
-                </option>
+                <option value="" v-text="$t('dialog.update.all')" />
+                <option value="files" v-text="$t('dialog.update.local')" />
+                <option
+                  v-if="spotify_enabled"
+                  value="spotify"
+                  v-text="$t('dialog.update.spotify')"
+                />
+                <option
+                  v-if="rss.tracks > 0"
+                  value="rss"
+                  v-text="$t('dialog.update.feeds')"
+                />
               </select>
             </div>
           </div>
         </div>
         <div class="field">
           <label class="checkbox is-size-7 is-small">
-            <input v-model="rescan_metadata" type="checkbox" />
-            Rescan metadata for unmodified files
+            <input
+              v-model="rescan_metadata"
+              type="checkbox"
+              style="margin-right: 5px"
+            />
+            <span v-text="$t('dialog.update.rescan-metadata')" />
           </label>
         </div>
       </div>
       <div v-else>
-        <p class="mb-3">Library update in progress ...</p>
+        <p class="mb-3" v-text="$t('dialog.update.progress')" />
       </div>
     </template>
   </modal-dialog>

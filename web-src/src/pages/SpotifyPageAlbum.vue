@@ -1,29 +1,27 @@
 <template>
   <content-with-hero>
     <template #heading-left>
-      <h1 class="title is-5">
-        {{ album.name }}
-      </h1>
+      <h1 class="title is-5" v-text="album.name" />
       <h2 class="subtitle is-6 has-text-link has-text-weight-normal">
-        <a class="has-text-link" @click="open_artist">{{
-          album.artists[0].name
-        }}</a>
+        <a
+          class="has-text-link"
+          @click="open_artist"
+          v-text="album.artists[0].name"
+        />
       </h2>
-
       <div class="buttons fd-is-centered-mobile fd-has-margin-top">
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="shuffle" size="16" /></span>
-          <span>Shuffle</span>
+          <mdicon class="icon" name="shuffle" size="16" />
+          <span v-text="$t('page.spotify.album.shuffle')" />
         </a>
         <a
           class="button is-small is-light is-rounded"
           @click="show_album_details_modal = true"
         >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
+          <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
       </div>
     </template>
-
     <template #heading-right>
       <p class="image is-square fd-has-shadow fd-has-action">
         <cover-artwork
@@ -34,11 +32,13 @@
         />
       </p>
     </template>
-
     <template #content>
-      <p class="heading is-7 has-text-centered-mobile fd-has-margin-top">
-        {{ album.tracks.total }} tracks
-      </p>
+      <p
+        class="heading is-7 has-text-centered-mobile fd-has-margin-top"
+        v-text="
+          $t('page.spotify.album.track-count', { count: album.tracks.total })
+        "
+      />
       <spotify-list-item-track
         v-for="(track, index) in album.tracks.items"
         :key="track.id"
@@ -49,9 +49,7 @@
       >
         <template #actions>
           <a @click.prevent.stop="open_track_dialog(track)">
-            <span class="icon has-text-dark"
-              ><mdicon name="dots-vertical" size="16"
-            /></span>
+            <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
           </a>
         </template>
       </spotify-list-item-track>

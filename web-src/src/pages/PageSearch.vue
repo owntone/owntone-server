@@ -16,18 +16,10 @@
                     placeholder="Search"
                     autocomplete="off"
                   />
-                  <span class="icon is-left">
-                    <mdicon name="magnify" size="16" />
-                  </span>
+                  <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
                 <p class="help has-text-centered">
-                  Tip: you can search by a smart playlist query language
-                  <a
-                    href="https://github.com/owntone/owntone-server/blob/master/README_SMARTPL.md"
-                    target="_blank"
-                    >expression</a
-                  >
-                  if you prefix it with <code>query:</code>.
+                  <span v-html="$t('page.search.help')" />
                 </p>
               </div>
             </form>
@@ -37,20 +29,18 @@
                 :key="recent_search"
                 class="tag"
                 @click="open_recent_search(recent_search)"
-                >{{ recent_search }}</a
-              >
+                v-text="recent_search"
+              />
             </div>
           </div>
         </div>
       </div>
     </section>
-
     <tabs-search :query="search_query" />
-
     <!-- Tracks -->
     <content-with-heading v-if="show_tracks && tracks.total">
       <template #heading-left>
-        <p class="title is-4">Tracks</p>
+        <p class="title is-4" v-text="$t('page.search.tracks')" />
       </template>
       <template #content>
         <list-tracks :tracks="tracks.items" />
@@ -61,22 +51,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_tracks"
-              >Show all {{ tracks.total.toLocaleString() }} tracks</a
-            >
+              v-text="
+                $t('page.search.show.tracks', {
+                  count: tracks.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_tracks && !tracks.total" class="mt-6">
       <template #content>
-        <p><i>No tracks found</i></p>
+        <p><i v-text="$t('page.search.no-tracks')" /></p>
       </template>
     </content-text>
-
     <!-- Artists -->
     <content-with-heading v-if="show_artists && artists.total">
       <template #heading-left>
-        <p class="title is-4">Artists</p>
+        <p class="title is-4" v-text="$t('page.search.artists')" />
       </template>
       <template #content>
         <list-artists :artists="artists" :hide_group_title="true" />
@@ -87,22 +80,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_artists"
-              >Show all {{ artists.total.toLocaleString() }} artists</a
-            >
+              v-text="
+                $t('page.search.show.artists', {
+                  count: artists.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_artists && !artists.total">
       <template #content>
-        <p><i>No artists found</i></p>
+        <p><i v-text="$t('page.search.no-artists')" /></p>
       </template>
     </content-text>
-
     <!-- Albums -->
     <content-with-heading v-if="show_albums && albums.total">
       <template #heading-left>
-        <p class="title is-4">Albums</p>
+        <p class="title is-4" v-text="$t('page.search.albums')" />
       </template>
       <template #content>
         <list-albums :albums="albums" :hide_group_title="true" />
@@ -113,22 +109,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_albums"
-              >Show all {{ albums.total.toLocaleString() }} albums</a
-            >
+              v-text="
+                $t('page.search.show-albums', {
+                  count: albums.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_albums && !albums.total">
       <template #content>
-        <p><i>No albums found</i></p>
+        <p><i v-text="$t('page.search.no-albums')" /></p>
       </template>
     </content-text>
-
     <!-- Composers -->
     <content-with-heading v-if="show_composers && composers.total">
       <template #heading-left>
-        <p class="title is-4">Composers</p>
+        <p class="title is-4" v-text="$t('page.search.composers')" />
       </template>
       <template #content>
         <list-composers :composers="composers" />
@@ -139,22 +138,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_composers"
-              >Show all {{ composers.total.toLocaleString() }} composers</a
-            >
+              v-text="
+                $t('page.search.show.composers', {
+                  count: composers.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_composers && !composers.total">
       <template #content>
-        <p><i>No composers found</i></p>
+        <p><i v-text="$t('page.search.no-composers')" /></p>
       </template>
     </content-text>
-
     <!-- Playlists -->
     <content-with-heading v-if="show_playlists && playlists.total">
       <template #heading-left>
-        <p class="title is-4">Playlists</p>
+        <p class="title is-4" v-text="$t('page.search.playlists')" />
       </template>
       <template #content>
         <list-playlists :playlists="playlists" />
@@ -165,22 +167,25 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_playlists"
-              >Show all {{ playlists.total.toLocaleString() }} playlists</a
-            >
+              v-text="
+                $t('page.search.show.playlists', {
+                  count: playlists.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_playlists && !playlists.total">
       <template #content>
-        <p><i>No playlists found</i></p>
+        <p><i v-text="$t('page.search.no-playlists')" /></p>
       </template>
     </content-text>
-
     <!-- Podcasts -->
     <content-with-heading v-if="show_podcasts && podcasts.total">
       <template #heading-left>
-        <p class="title is-4">Podcasts</p>
+        <p class="title is-4" v-text="$t('page.search.podcasts')" />
       </template>
       <template #content>
         <list-albums :albums="podcasts" />
@@ -191,22 +196,26 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_podcasts"
-              >Show all {{ podcasts.total.toLocaleString() }} podcasts</a
-            >
+              v-text="
+                $t('page.search.show.podcasts', {
+                  count: podcasts.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_podcasts && !podcasts.total">
       <template #content>
-        <p><i>No podcasts found</i></p>
+        <p><i v-text="$t('page.search.no-podcasts')" /></p>
       </template>
     </content-text>
 
     <!-- Audiobooks -->
     <content-with-heading v-if="show_audiobooks && audiobooks.total">
       <template #heading-left>
-        <p class="title is-4">Audiobooks</p>
+        <p class="title is-4" v-text="$t('page.search.audiobooks')" />
       </template>
       <template #content>
         <list-albums :albums="audiobooks" />
@@ -217,15 +226,19 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_search_audiobooks"
-              >Show all {{ audiobooks.total.toLocaleString() }} audiobooks</a
-            >
+              v-text="
+                $t('page.search.show.audiobooks', {
+                  count: audiobooks.total.toLocaleString()
+                })
+              "
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
     <content-text v-if="show_audiobooks && !audiobooks.total">
       <template #content>
-        <p><i>No audiobooks found</i></p>
+        <p><i v-text="$t('page.search.no-audiobooks')" /></p>
       </template>
     </content-text>
   </div>
@@ -260,7 +273,6 @@ export default {
   data() {
     return {
       search_query: '',
-
       tracks: { items: [], total: 0 },
       artists: new GroupByList(),
       albums: new GroupByList(),

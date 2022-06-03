@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import i18n from './i18n'
 import store from './store'
 import { router } from './router'
 import VueProgressBar from '@aacassandra/vue3-progressbar'
@@ -30,6 +31,7 @@ const app = createApp(App)
   .use(mdiVue, {
     icons: icons
   })
+  .use(i18n)
 
 app.config.globalProperties.$filters = filters
 app.mount('#app')

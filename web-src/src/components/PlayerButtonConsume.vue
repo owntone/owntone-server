@@ -1,6 +1,6 @@
 <template>
   <a :class="{ 'is-warning': is_consume }" @click="toggle_consume_mode">
-    <span class="icon"><mdicon name="fire" :size="icon_size" /></span>
+    <mdicon class="icon" name="fire" :size="icon_size" />
   </a>
 </template>
 

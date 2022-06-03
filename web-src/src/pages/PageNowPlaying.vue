@@ -26,41 +26,29 @@
               @start="start_dragging"
               @end="end_dragging"
             />
-            <!--range-slider
-              class="seek-slider fd-has-action"
-              min="0"
-              :max="state.item_length_ms"
-              :value="item_progress_ms"
-              :disabled="state.state === 'stop'"
-              step="1000"
-              @change="seek" >
-            </range-slider-->
           </p>
           <p class="content">
             <span
-              >{{ $filters.durationInHours(item_progress_ms) }} /
-              {{ $filters.durationInHours(now_playing.length_ms) }}</span
-            >
+              v-text="
+                [
+                  $filters.durationInHours(item_progress_ms),
+                  $filters.durationInHours(now_playing.length_ms)
+                ].join(' / ')
+              "
+            />
           </p>
         </div>
       </div>
       <div class="fd-has-padding-left-right">
         <div class="container has-text-centered fd-has-margin-top">
-          <h1 class="title is-5">
-            {{ now_playing.title }}
-          </h1>
-          <h2 class="title is-6">
-            {{ now_playing.artist }}
-          </h2>
+          <h1 class="title is-5" v-text="now_playing.title" />
+          <h2 class="title is-6" v-text="now_playing.artist" />
           <h2
             v-if="composer"
             class="subtitle is-6 has-text-grey has-text-weight-bold"
-          >
-            {{ composer }}
-          </h2>
-          <h3 class="subtitle is-6">
-            {{ now_playing.album }}
-          </h3>
+            v-text="composer"
+          />
+          <h3 class="subtitle is-6" v-text="now_playing.album" />
         </div>
       </div>
     </div>
@@ -70,8 +58,8 @@
         style="flex-direction: column"
       >
         <div class="content has-text-centered">
-          <h1 class="title is-5">Your play queue is empty</h1>
-          <p>Add some tracks by browsing your library</p>
+          <h1 class="title is-5" v-text="$('page.now-playing.title')" />
+          <p v-text="$('page.now-playing.info')" />
         </div>
       </div>
     </div>
@@ -85,7 +73,6 @@
 
 <script>
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
-//import RangeSlider from 'vue-range-slider'
 import Slider from '@vueform/slider'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
@@ -95,7 +82,6 @@ export default {
   name: 'PageNowPlaying',
   components: {
     ModalDialogQueueItem,
-    //    RangeSlider,
     Slider,
     CoverArtwork
   },

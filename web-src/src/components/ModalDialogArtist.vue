@@ -7,47 +7,49 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4">
-                <a class="has-text-link" @click="open_artist">{{
-                  artist.name
-                }}</a>
+                <a
+                  class="has-text-link"
+                  @click="open_artist"
+                  v-text="artist.name"
+                />
               </p>
               <div class="content is-small">
                 <p>
-                  <span class="heading">Albums</span>
-                  <span class="title is-6">{{ artist.album_count }}</span>
+                  <span class="heading" v-text="$t('dialog.artist.albums')" />
+                  <span class="title is-6" v-text="artist.album_count" />
                 </p>
                 <p>
-                  <span class="heading">Tracks</span>
-                  <span class="title is-6">{{ artist.track_count }}</span>
+                  <span class="heading" v-text="$t('dialog.artist.tracks')" />
+                  <span class="title is-6" v-text="artist.track_count" />
                 </p>
                 <p>
-                  <span class="heading">Type</span>
-                  <span class="title is-6">{{ artist.data_kind }}</span>
+                  <span class="heading" v-text="$t('dialog.artist.type')" />
+                  <span
+                    class="title is-6"
+                    v-text="$t('data.kind.' + artist.data_kind)"
+                  />
                 </p>
                 <p>
-                  <span class="heading">Added at</span>
-                  <span class="title is-6">{{
-                    $filters.datetime(artist.time_added)
-                  }}</span>
+                  <span class="heading" v-text="$t('dialog.artist.added-on')" />
+                  <span
+                    class="title is-6"
+                    v-text="$filters.datetime(artist.time_added)"
+                  />
                 </p>
               </div>
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
-                <span class="is-size-7">Add</span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.artist.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
-                <span class="is-size-7">Add Next</span>
+                <mdicon class="icon" name="playlist-play" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.artist.add-next')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
-                <span class="is-size-7">Play</span>
+                <mdicon class="icon" name="play" size="16" />
+                <span class="is-size-7" v-text="$t('dialog.artist.play')" />
               </a>
             </footer>
           </div>

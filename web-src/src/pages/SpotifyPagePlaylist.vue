@@ -1,9 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading-left>
-      <div class="title is-4">
-        {{ playlist.name }}
-      </div>
+      <div class="title is-4" v-text="playlist.name" />
     </template>
     <template #heading-right>
       <div class="buttons is-centered">
@@ -11,18 +9,21 @@
           class="button is-small is-light is-rounded"
           @click="show_playlist_details_modal = true"
         >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
+          <mdicon class="icon" name="dots-horizontal" size="16" />
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="shuffle" size="16" /></span>
-          <span>Shuffle</span>
+          <mdicon class="icon" name="shuffle" size="16" />
+          <span v-text="$t('page.spotify.playlist.shuffle')" />
         </a>
       </div>
     </template>
     <template #content>
-      <p class="heading has-text-centered-mobile">
-        {{ playlist.tracks.total }} tracks
-      </p>
+      <p
+        class="heading has-text-centered-mobile"
+        v-text="
+          $t('page.spotify.playlist.count', { count: playlist.tracks.total })
+        "
+      />
       <spotify-list-item-track
         v-for="(item, index) in tracks"
         :key="item.track.id"
@@ -33,9 +34,7 @@
       >
         <template #actions>
           <a @click.prevent.stop="open_track_dialog(item.track)">
-            <span class="icon has-text-dark"
-              ><mdicon name="dots-vertical" size="16"
-            /></span>
+            <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
           </a>
         </template>
       </spotify-list-item-track>

@@ -14,16 +14,16 @@
                 v-if="!options_visible"
                 class="button is-small is-white"
                 @click="scroll_to_top"
-                ><span class="icon is-small"
-                  ><mdicon name="chevron-up" size="16" /></span
-              ></a>
+              >
+                <mdicon class="icon is-small" name="chevron-down" size="16" />
+              </a>
               <a
                 v-else
                 class="button is-small is-white"
                 @click="scroll_to_content"
-                ><span class="icon is-small"
-                  ><mdicon name="chevron-down" size="16" /></span
-              ></a>
+              >
+                <mdicon class="icon is-small" name="chevron-up" size="16" />
+              </a>
             </nav>
           </section>
           <div :class="{ 'fd-content-with-option': $slots['options'] }">
@@ -36,13 +36,11 @@
                   </div>
                 </div>
               </div>
-
               <!-- Right side -->
               <div class="level-right has-text-centered-mobile">
                 <slot name="heading-right" />
               </div>
             </nav>
-
             <slot name="content" />
             <div style="margin-top: 16px">
               <slot name="footer" />
@@ -86,7 +84,6 @@ export default {
     },
 
     scroll_to_content: function () {
-      // window.scrollTo({ top: 80, behavior: 'smooth' })
       if (this.$route.meta.has_tabs) {
         this.$scrollTo('#top', { offset: -140 })
       } else {

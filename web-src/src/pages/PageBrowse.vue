@@ -1,12 +1,11 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-
     <!-- Recently added -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Recently added</p>
-        <p class="heading">albums</p>
+        <p class="title is-4" v-text="$t('page.browse.recently-added.title')" />
+        <p class="heading" v-text="$t('page.browse.albums')" />
       </template>
       <template #content>
         <list-albums :albums="recently_added" />
@@ -17,18 +16,20 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_browse('recently_added')"
-              >Show more</a
-            >
+              v-text="$t('page.browse.show-more')"
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
-
     <!-- Recently played -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Recently played</p>
-        <p class="heading">tracks</p>
+        <p
+          class="title is-4"
+          v-text="$t('page.browse.recently-played.title')"
+        />
+        <p class="heading" v-text="$t('page.browse.tracks')" />
       </template>
       <template #content>
         <list-tracks :tracks="recently_played.items" />
@@ -39,8 +40,8 @@
             <a
               class="button is-light is-small is-rounded"
               @click="open_browse('recently_played')"
-              >Show more</a
-            >
+              v-text="$t('page.browse.show-more')"
+            />
           </p>
         </nav>
       </template>

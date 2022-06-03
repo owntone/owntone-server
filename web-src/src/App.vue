@@ -116,15 +116,6 @@ export default {
 
   methods: {
     connect: function () {
-      /*
-      this.$store.dispatch('add_notification', {
-        text: 'Connecting to OwnTone server',
-        type: 'info',
-        topic: 'connection',
-        timeout: 2000
-      })
-      */
-
       webapi
         .config()
         .then(({ data }) => {
@@ -137,7 +128,7 @@ export default {
         })
         .catch(() => {
           this.$store.dispatch('add_notification', {
-            text: 'Failed to connect to OwnTone server',
+            text: this.$t('server.connection.failed'),
             type: 'danger',
             topic: 'connection'
           })
@@ -147,7 +138,7 @@ export default {
     open_ws: function () {
       if (this.$store.state.config.websocket_port <= 0) {
         this.$store.dispatch('add_notification', {
-          text: 'Missing websocket port',
+          text: this.$t('server.missing-port'),
           type: 'danger'
         })
         return
@@ -183,14 +174,6 @@ export default {
       })
 
       socket.onopen = function () {
-        /*
-        vm.$store.dispatch('add_notification', {
-          text: 'Connection to server established',
-          type: 'primary',
-          topic: 'connection',
-          timeout: 2000
-        })
-        */
         vm.reconnect_attempts = 0
         socket.send(
           JSON.stringify({
@@ -221,17 +204,6 @@ export default {
       socket.onclose = function () {
         // vm.$store.dispatch('add_notification', { text: 'Connection closed', type: 'danger', timeout: 2000 })
       }
-      /*
-      socket.onerror = function () {
-        vm.reconnect_attempts++
-        vm.$store.dispatch('add_notification', {
-          text:
-            'Connection lost. Reconnecting ... (' + vm.reconnect_attempts + ')',
-          type: 'danger',
-          topic: 'connection'
-        })
-      }
-      */
 
       // When the app becomes active, force an update of all information, because we
       // may have missed notifications while the app was inactive.

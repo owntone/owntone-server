@@ -1,14 +1,16 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-audiobooks />
-
     <content-with-heading>
       <template #options>
         <index-button-list :index="artists.indexList" />
       </template>
       <template #heading-left>
-        <p class="title is-4">Authors</p>
-        <p class="heading">{{ artists.count }} Authors</p>
+        <p class="title is-4" v-text="$t('page.audiobooks.artists.title')" />
+        <p
+          class="heading"
+          v-text="$t('page.audiobooks.artists.count', { count: tists.count })"
+        />
       </template>
       <template #heading-right />
       <template #content>

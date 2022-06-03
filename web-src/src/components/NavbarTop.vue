@@ -7,27 +7,26 @@
   >
     <div class="navbar-brand">
       <navbar-item-link v-if="is_visible_playlists" to="/playlists">
-        <span class="icon"><mdicon name="music-box-multiple" size="16" /></span>
+        <mdicon class="icon" name="music-box-multiple" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_music" to="/music">
-        <span class="icon"><mdicon name="music" size="16" /></span>
+        <mdicon class="icon" name="music" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_podcasts" to="/podcasts">
-        <span class="icon"><mdicon name="microphone" size="16" /></span>
+        <mdicon class="icon" name="podcast" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_audiobooks" to="/audiobooks">
-        <span class="icon"><mdicon name="book-open-variant" size="16" /></span>
+        <mdicon class="icon" name="book-open-variant" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_radio" to="/radio">
-        <span class="icon"><mdicon name="radio" size="16" /></span>
+        <mdicon class="icon" name="radio-tower" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_files" to="/files">
-        <span class="icon"><mdicon name="folder-open" size="16" /></span>
+        <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_search" to="/search">
-        <span class="icon"><mdicon name="magnify" size="16" /></span>
+        <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
-
       <div
         class="navbar-burger"
         :class="{ 'is-active': show_burger_menu }"
@@ -38,10 +37,8 @@
         <span />
       </div>
     </div>
-
     <div class="navbar-menu" :class="{ 'is-active': show_burger_menu }">
       <div class="navbar-start" />
-
       <div class="navbar-end">
         <!-- Burger menu entries -->
         <div
@@ -50,67 +47,76 @@
           @click="on_click_outside_settings"
         >
           <a class="navbar-link is-arrowless">
-            <span class="icon is-hidden-touch"
-              ><mdicon name="menu" size="24"
-            /></span>
-            <span class="is-hidden-desktop has-text-weight-bold">OwnTone</span>
+            <mdicon class="icon is-hidden-touch" name="menu" size="24" />
+            <span
+              class="is-hidden-desktop has-text-weight-bold"
+              v-text="$t('navigation.title')"
+            />
           </a>
-
           <div class="navbar-dropdown is-right">
             <navbar-item-link to="/playlists">
-              <span class="icon"
-                ><mdicon name="music-box-multiple" size="16"
-              /></span>
-              <b>Playlists</b>
+              <mdicon class="icon" name="music-box-multiple" size="16" />
+              <b v-text="$t('navigation.playlists')" />
             </navbar-item-link>
             <navbar-item-link to="/music" exact>
-              <span class="icon"><mdicon name="music" size="16" /></span>
-              <b>Music</b>
+              <mdicon class="icon" name="music" size="16" />
+              <b v-text="$t('navigation.music')" />
             </navbar-item-link>
             <navbar-item-link to="/music/artists">
-              <span class="fd-navbar-item-level2">Artists</span>
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.artists')"
+              />
             </navbar-item-link>
             <navbar-item-link to="/music/albums">
-              <span class="fd-navbar-item-level2">Albums</span>
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.albums')"
+              />
             </navbar-item-link>
             <navbar-item-link to="/music/genres">
-              <span class="fd-navbar-item-level2">Genres</span>
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.genres')"
+              />
             </navbar-item-link>
             <navbar-item-link v-if="spotify_enabled" to="/music/spotify">
-              <span class="fd-navbar-item-level2">Spotify</span>
+              <span
+                class="fd-navbar-item-level2"
+                v-text="$t('navigation.spotify')"
+              />
             </navbar-item-link>
             <navbar-item-link to="/podcasts">
-              <span class="icon"><mdicon name="microphone" size="16" /></span>
-              <b>Podcasts</b>
+              <mdicon class="icon" name="podcast" size="16" />
+              <b v-text="$t('navigation.podcasts')" />
             </navbar-item-link>
             <navbar-item-link to="/audiobooks">
-              <span class="icon"
-                ><mdicon name="book-open-variant" size="16"
-              /></span>
-              <b>Audiobooks</b>
+              <mdicon class="icon" name="book-open-variant" size="16" />
+              <b v-text="$t('navigation.audiobooks')" />
             </navbar-item-link>
             <navbar-item-link to="/radio">
-              <span class="icon"><mdicon name="radio" size="16" /></span>
-              <b>Radio</b>
+              <mdicon class="icon" name="radio-tower" size="16" />
+              <b v-text="$t('navigation.radio')" />
             </navbar-item-link>
             <navbar-item-link to="/files">
-              <span class="icon"><mdicon name="folder-open" size="16" /></span>
-              <b>Files</b>
+              <mdicon class="icon" name="folder-open" size="16" />
+              <b v-text="$t('navigation.files')" />
             </navbar-item-link>
             <navbar-item-link to="/search">
-              <span class="icon"><mdicon name="magnify" size="16" /></span>
-              <b>Search</b>
+              <mdicon class="icon" name="magnify" size="16" />
+              <b v-text="$t('navigation.search')" />
             </navbar-item-link>
             <hr class="fd-navbar-divider" />
-
-            <navbar-item-link to="/settings/webinterface">
-              Settings
-            </navbar-item-link>
-            <a class="navbar-item" @click.stop.prevent="open_update_dialog()">
-              Update Library
-            </a>
-            <navbar-item-link to="/about"> About </navbar-item-link>
-
+            <navbar-item-link
+              to="/settings/webinterface"
+              v-text="$t('navigation.settings')"
+            />
+            <a
+              class="navbar-item"
+              @click.stop.prevent="open_update_dialog()"
+              v-text="$t('navigation.update-library')"
+            />
+            <navbar-item-link to="/about" v-text="$t('navigation.about')" />
             <div
               class="navbar-item is-hidden-desktop"
               style="margin-bottom: 2.5rem"
@@ -119,7 +125,6 @@
         </div>
       </div>
     </div>
-
     <div
       v-show="show_settings_menu"
       class="is-overlay"

@@ -1,11 +1,13 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Recently played</p>
-        <p class="heading">tracks</p>
+        <p
+          class="title is-4"
+          v-text="$t('page.browse.recently.played.title')"
+        />
+        <p class="heading" v-text="$t('page.browse.recently.played.tracks')" />
       </template>
       <template #content>
         <list-tracks :tracks="recently_played.items" />

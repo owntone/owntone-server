@@ -1,11 +1,10 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-
     <!-- New Releases -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">New Releases</p>
+        <p class="title is-4" v-text="$t('page.spotify.browse.new-releases')" />
       </template>
       <template #content>
         <spotify-list-item-album
@@ -27,9 +26,11 @@
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-album>
@@ -45,18 +46,19 @@
             <router-link
               to="/music/spotify/new-releases"
               class="button is-light is-small is-rounded"
-            >
-              Show more
-            </router-link>
+              v-text="$t('page.spotify.browse.show-more')"
+            />
           </p>
         </nav>
       </template>
     </content-with-heading>
-
     <!-- Featured Playlists -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Featured Playlists</p>
+        <p
+          class="title is-4"
+          v-text="$t('page.spotify.browse.featured-playlists')"
+        />
       </template>
       <template #content>
         <spotify-list-item-playlist
@@ -66,9 +68,11 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-playlist>
@@ -84,9 +88,8 @@
             <router-link
               to="/music/spotify/featured-playlists"
               class="button is-light is-small is-rounded"
-            >
-              Show more
-            </router-link>
+              v-text="$t('page.spotify.browse.show-more')"
+            />
           </p>
         </nav>
       </template>

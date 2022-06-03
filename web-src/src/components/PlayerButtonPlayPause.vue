@@ -1,6 +1,6 @@
 <template>
   <a :disabled="disabled" @click="toggle_play_pause">
-    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
+    <mdicon class="icon" :name="icon_name" :size="icon_size" />
   </a>
 </template>
 
@@ -49,7 +49,7 @@ export default {
       if (this.disabled) {
         if (this.show_disabled_message) {
           this.$store.dispatch('add_notification', {
-            text: 'Queue is empty',
+            text: this.$t('server.empty-queue'),
             type: 'info',
             topic: 'connection',
             timeout: 2000

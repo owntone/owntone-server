@@ -6,11 +6,12 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <p class="title is-4">Remote pairing request</p>
+              <p
+                class="title is-4"
+                v-text="$t('dialog.remote-pairing.title')"
+              />
               <form @submit.prevent="kickoff_pairing">
-                <label class="label">
-                  {{ pairing.remote }}
-                </label>
+                <label class="label" v-text="pairing.remote" />
                 <div class="field">
                   <div class="control">
                     <input
@@ -29,15 +30,21 @@
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><mdicon name="cancel" size="16" /></span>
-                <span class="is-size-7">Cancel</span>
+                <mdicon class="icon" name="cancel" size="16" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.remote-pairing.cancel')"
+                />
               </a>
               <a
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="kickoff_pairing"
               >
-                <span class="icon"><mdicon name="cellphone" size="16" /></span>
-                <span class="is-size-7">Pair Remote</span>
+                <mdicon class="icon" name="cellphone" size="16" />
+                <span
+                  class="is-size-7"
+                  v-text="$t('dialog.remote-pairing.pair')"
+                />
               </a>
             </footer>
           </div>

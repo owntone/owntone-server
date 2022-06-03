@@ -12,7 +12,7 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="">Webinterface</span>
+                    <span v-text="$t('page.settings.tabs.settings.general')" />
                   </a>
                 </li>
               </router-link>
@@ -23,7 +23,11 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="">Remotes &amp; Outputs</span>
+                    <span
+                      v-text="
+                        $t('page.settings.tabs.settings.remotes-and-outputs')
+                      "
+                    />
                   </a>
                 </li>
               </router-link>
@@ -34,7 +38,7 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="">Artwork</span>
+                    <span v-text="$t('page.settings.tabs.settings.artwork')" />
                   </a>
                 </li>
               </router-link>
@@ -45,7 +49,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="">Online Services</span>
+                    <span
+                      v-text="$t('page.settings.tabs.settings.online-services')"
+                    />
                   </a>
                 </li>
               </router-link>
@@ -59,9 +65,7 @@
 
 <script>
 export default {
-  name: 'TabsSettings',
-
-  computed: {}
+  name: 'TabsSettings'
 }
 </script>
 

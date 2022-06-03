@@ -12,10 +12,12 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"
-                      ><mdicon name="account-music" size="16"
-                    /></span>
-                    <span class="">Authors</span>
+                    <mdicon
+                      class="icon is-small"
+                      name="account-music"
+                      size="16"
+                    />
+                    <span v-text="$t('tabs.audiobooks.authors')" />
                   </a>
                 </li>
               </router-link>
@@ -26,10 +28,8 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"
-                      ><mdicon name="album" size="16"
-                    /></span>
-                    <span class="">Audiobooks</span>
+                    <mdicon class="icon is-small" name="album" size="16" />
+                    <span v-text="$t('tabs.audiobooks.audiobooks')" />
                   </a>
                 </li>
               </router-link>

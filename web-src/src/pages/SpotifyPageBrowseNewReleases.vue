@@ -1,7 +1,6 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4">New Releases</p>
@@ -26,9 +25,11 @@
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-album>

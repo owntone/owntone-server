@@ -1,14 +1,16 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-
     <content-with-heading>
       <template #options>
         <index-button-list :index="genres.indexList" />
       </template>
       <template #heading-left>
-        <p class="title is-4">Genres</p>
-        <p class="heading">{{ genres.total }} genres</p>
+        <p class="title is-4" v-text="$t('page.genres.title')" />
+        <p
+          class="heading"
+          v-text="$t('page.genres.count', { count: genres.total })"
+        />
       </template>
       <template #content>
         <list-genres :genres="genres" />
