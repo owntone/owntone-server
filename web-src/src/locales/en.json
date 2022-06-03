@@ -380,7 +380,8 @@
       "count": "{count} tracks",
       "edit": "Edit",
       "hide-previous": "Hide previous",
-      "title": "Queue"
+      "title": "Queue",
+      "save": "Save"
     },
     "radio": {
       "count": "{count} stations",
