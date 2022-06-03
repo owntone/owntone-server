@@ -20,59 +20,6 @@
               v-text="$t('page.settings.services.spotify.help')"
             />
           </div>
-          <div v-if="use_libspotity">
-            <p class="content">
-              <b v-text="$t('page.settings.services.spotify')" />
-              <span v-text="$t('page.settings.services.spotify.credentials')" />
-            </p>
-            <p v-if="spotify.libspotify_logged_in" class="fd-has-margin-bottom">
-              <span v-text="$t('page.settings.services.spotify.logged-as')" />
-              <b><code v-text="spotify.libspotify_user" /></b>
-            </p>
-            <form
-              v-if="spotify.spotify_installed && !spotify.libspotify_logged_in"
-              @submit.prevent="login_libspotify"
-            >
-              <div class="field is-grouped">
-                <div class="control is-expanded">
-                  <input
-                    v-model="libspotify.user"
-                    class="input"
-                    type="text"
-                    placeholder="Username"
-                  />
-                  <p class="help is-danger" v-text="libspotify.errors.user" />
-                </div>
-                <div class="control is-expanded">
-                  <input
-                    v-model="libspotify.password"
-                    class="input"
-                    type="password"
-                    placeholder="Password"
-                  />
-                  <p
-                    class="help is-danger"
-                    v-text="libspotify.errors.password"
-                  />
-                </div>
-                <div class="control">
-                  <button
-                    class="button is-info"
-                    v-text="$t('page.settings.services.login')"
-                  />
-                </div>
-              </div>
-            </form>
-            <p class="help is-danger" v-text="libspotify.errors.error" />
-            <p
-              class="help"
-              v-text="$t('page.settings.services.spotify.help-1')"
-            />
-            <p
-              class="help"
-              v-text="$t('page.settings.services.spotify.help-2')"
-            />
-          </div>
           <div class="fd-has-margin-top">
             <p
               class="content"
@@ -205,11 +152,6 @@ export default {
 
   data() {
     return {
-      libspotify: {
-        user: '',
-        password: '',
-        errors: { user: '', password: '', error: '' }
-      },
       lastfm_login: {
         user: '',
         password: '',
@@ -247,30 +189,10 @@ export default {
           )
       }
       return []
-    },
-
-    use_libspotify() {
-      return this.$store.state.config.use_libspotify
     }
   },
 
   methods: {
-    login_libspotify() {
-      webapi.spotify_login(this.libspotify).then((response) => {
-        this.libspotify.user = ''
-        this.libspotify.password = ''
-        this.libspotify.errors.user = ''
-        this.libspotify.errors.password = ''
-        this.libspotify.errors.error = ''
-
-        if (!response.data.success) {
-          this.libspotify.errors.user = response.data.errors.user
-          this.libspotify.errors.password = response.data.errors.password
-          this.libspotify.errors.error = response.data.errors.error
-        }
-      })
-    },
-
     logout_spotify() {
       webapi.spotify_logout()
     },
