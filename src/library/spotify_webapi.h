@@ -53,10 +53,6 @@ void
 spotifywebapi_rescan(void);
 void
 spotifywebapi_purge(void);
-void
-spotifywebapi_pl_save(const char *uri);
-void
-spotifywebapi_pl_remove(const char *uri);
 char *
 spotifywebapi_artwork_url_get(const char *uri, int max_w, int max_h);
 

@@ -867,9 +867,6 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(allow_modifying_stored_playlists));
   safe_json_add_string(jreply, "default_playlist_directory", default_playlist_directory);
 
-  // libspotify is sunset, so always return false. TODO: remove this parameter.
-  json_object_object_add(jreply, "use_libspotify", json_object_new_boolean(false));
-
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
@@ -1318,7 +1315,6 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   json_object_object_add(jreply, "spotify_installed", json_object_new_boolean(sp_status.installed));
   json_object_object_add(jreply, "spotify_logged_in", json_object_new_boolean(sp_status.logged_in));
   json_object_object_add(jreply, "has_podcast_support", json_object_new_boolean(sp_status.has_podcast_support));
-  safe_json_add_string(jreply, "libspotify_user", sp_status.username);
 
   spotifywebapi_status_info_get(&webapi_info);
   json_object_object_add(jreply, "webapi_token_valid", json_object_new_boolean(webapi_info.token_valid));
@@ -1338,73 +1334,6 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
-
-  return HTTP_OK;
-}
-
-static int
-jsonapi_reply_spotify_login(struct httpd_request *hreq)
-{
-#ifdef SPOTIFY
-  struct evbuffer *in_evbuf;
-  json_object* request;
-  const char *user;
-  const char *password;
-  const char *errmsg;
-  json_object* jreply;
-  json_object* errors;
-  int ret;
-
-  DPRINTF(E_DBG, L_WEB, "Received Spotify login request\n");
-
-  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
-
-  request = jparse_obj_from_evbuffer(in_evbuf);
-  if (!request)
-    {
-      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-      return HTTP_BADREQUEST;
-    }
-
-  CHECK_NULL(L_WEB, jreply = json_object_new_object());
-
-  user = jparse_str_from_obj(request, "user");
-  password = jparse_str_from_obj(request, "password");
-  if (user && strlen(user) > 0 && password && strlen(password) > 0)
-    {
-      ret = spotify_login(user, password, &errmsg);
-      if (ret < 0)
-	{
-	  json_object_object_add(jreply, "success", json_object_new_boolean(false));
-	  errors = json_object_new_object();
-	  json_object_object_add(errors, "error", json_object_new_string(errmsg));
-	  json_object_object_add(jreply, "errors", errors);
-	}
-      else
-	{
-	  json_object_object_add(jreply, "success", json_object_new_boolean(true));
-	}
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_WEB, "No user or password in spotify login post request\n");
-
-      json_object_object_add(jreply, "success", json_object_new_boolean(false));
-      errors = json_object_new_object();
-      if (!user || strlen(user) == 0)
-	json_object_object_add(errors, "user", json_object_new_string("Username is required"));
-      if (!password || strlen(password) == 0)
-	json_object_object_add(errors, "password", json_object_new_string("Password is required"));
-      json_object_object_add(jreply, "errors", errors);
-    }
-
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
-
-  jparse_free(jreply);
-
-#else
-  DPRINTF(E_LOG, L_WEB, "Received spotify login request but was not compiled with enable-spotify\n");
-#endif
 
   return HTTP_OK;
 }
@@ -4716,7 +4645,6 @@ static struct httpd_uri_map adm_handlers[] =
     { EVHTTP_REQ_GET |
       EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },
     { EVHTTP_REQ_PUT,    "^/api/rescan$",                                jsonapi_reply_meta_rescan },
-    { EVHTTP_REQ_POST,   "^/api/spotify-login$",                         jsonapi_reply_spotify_login },
     { EVHTTP_REQ_GET,    "^/api/spotify-logout$",                        jsonapi_reply_spotify_logout },
     { EVHTTP_REQ_GET,    "^/api/spotify$",                               jsonapi_reply_spotify },
     { EVHTTP_REQ_GET,    "^/api/pairing$",                               jsonapi_reply_pairing_get },

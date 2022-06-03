@@ -15,7 +15,7 @@
           v-text="$t('page.settings.artwork.explanation-2')"
         />
         <settings-checkbox
-          v-if="spotify.libspotify_logged_in"
+          v-if="spotify.spotify_logged_in"
           category_name="artwork"
           option_name="use_artwork_source_spotify"
         >

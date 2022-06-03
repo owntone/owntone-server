@@ -138,8 +138,6 @@ static pthread_mutex_t token_lck;
 
 // The base playlist id for all Spotify playlists in the db
 static int spotify_base_plid;
-// The base playlist id for Spotify saved tracks in the db
-static int spotify_saved_plid;
 
 // Flag to avoid triggering playlist change events while the (re)scan is running
 static bool scanning;
@@ -153,7 +151,6 @@ static const char *spotify_scope         = "playlist-read-private playlist-read-
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
 
-static const char *spotify_playlist_uri	       = "https://api.spotify.com/v1/playlists/%s";
 static const char *spotify_track_uri           = "https://api.spotify.com/v1/tracks/%s";
 static const char *spotify_me_uri              = "https://api.spotify.com/v1/me";
 static const char *spotify_albums_uri          = "https://api.spotify.com/v1/me/albums?limit=50";
@@ -894,27 +891,6 @@ get_id_from_uri(const char *uri, char **id)
 }
 
 static char *
-get_playlist_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting owner and id from playlist uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_playlist_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
 get_playlist_tracks_endpoint_uri(const char *uri)
 {
   char *endpoint_uri = NULL;
@@ -1488,42 +1464,6 @@ prepare_directories(const char *artist, const char *album)
   return dir_id;
 }
 
-/*
- * Purges all Spotify files from the library that are not in a playlist
- * (Note: all files from saved albums are in the spotify:savedtracks playlist)
- */
-static int
-cleanup_spotify_files(void)
-{
-  struct query_params qp;
-  char *path;
-  int ret;
-
-  memset(&qp, 0, sizeof(struct query_params));
-
-  qp.type = Q_BROWSE_PATH;
-  qp.sort = S_NONE;
-  qp.filter = "f.path LIKE 'spotify:%%' AND NOT f.path IN (SELECT filepath FROM playlistitems)";
-
-  ret = db_query_start(&qp);
-  if (ret < 0)
-    {
-      db_query_end(&qp);
-      return -1;
-    }
-
-  while (((ret = db_query_fetch_string(&path, &qp)) == 0) && (path))
-    {
-      cache_artwork_delete_by_path(path);
-    }
-
-  db_query_end(&qp);
-
-  db_spotify_files_delete();
-
-  return 0;
-}
-
 static void
 map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track, const struct spotify_album *album, const char *pl_name)
 {
@@ -1660,7 +1600,6 @@ saved_album_add(json_object *item, int index, int total, enum spotify_request_ty
   int track_count;
   int dir_id;
   int i;
-  int ret;
 
   if (!json_object_object_get_ex(item, "album", &jsonalbum))
     {
@@ -1699,10 +1638,7 @@ saved_album_add(json_object *item, int index, int total, enum spotify_request_ty
       parse_metadata_track(jsontrack, &track, 0);
       track.mtime = album.mtime;
 
-      ret = track_add(&track, &album, NULL, dir_id, request_type);
-
-      if (ret == 0 && spotify_saved_plid)
-	db_pl_add_item_bypath(spotify_saved_plid, track.uri);
+      track_add(&track, &album, NULL, dir_id, request_type);
     }
 
   db_transaction_end();
@@ -1737,7 +1673,6 @@ saved_episodes_add(json_object *item, int index, int total, enum spotify_request
   struct spotify_album *show = arg;
   struct spotify_track episode;
   int dir_id;
-  int ret;
 
   DPRINTF(E_DBG, L_SPOTIFY, "saved_episodes_add: %s\n", json_object_to_json_string(item));
 
@@ -1747,10 +1682,7 @@ saved_episodes_add(json_object *item, int index, int total, enum spotify_request
   // Get or create the directory structure for this album
   dir_id = prepare_directories(show->artist, show->name);
 
-  ret = track_add(&episode, show, NULL, dir_id, request_type);
-
-  if (ret == 0 && spotify_saved_plid)
-	db_pl_add_item_bypath(spotify_saved_plid, episode.uri);
+  track_add(&episode, show, NULL, dir_id, request_type);
 
   return 0;
 }
@@ -1939,30 +1871,6 @@ scan_playlists(enum spotify_request_type request_type)
   return ret;
 }
 
-static void
-create_saved_tracks_playlist(void)
-{
-  struct playlist_info pli =
-    {
-      .path = strdup("spotify:savedtracks"),
-      .title = strdup("Spotify Saved"),
-      .virtual_path = strdup("/spotify:/Spotify Saved"),
-      .type = PL_PLAIN,
-      .parent_id = spotify_base_plid,
-      .directory_id = DIR_SPOTIFY,
-      .scan_kind = SCAN_KIND_SPOTIFY,
-    };
-
-  spotify_saved_plid = playlist_add_or_update(&pli);
-  if (spotify_saved_plid < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist for saved tracks\n");
-      spotify_saved_plid = 0;
-    }
-
-  free_pli(&pli, 1);
-}
-
 /*
  * Add or update playlist folder for all spotify playlists (if enabled in config)
  */
@@ -2014,7 +1922,6 @@ scan(enum spotify_request_type request_type)
 
   db_directory_enable_bypath("/spotify:");
   create_base_playlist();
-  create_saved_tracks_playlist();
   scan_saved_albums(request_type);
   scan_playlists(request_type);
   spotify_status_get(&sp_status);
@@ -2045,8 +1952,6 @@ initscan(void)
 
       return 0;
     }
-
-  spotify_saved_plid = 0;
 
   /*
    * Check that the playback Spotify backend can log in, so we don't add tracks
@@ -2125,66 +2030,6 @@ webapi_purge(void *arg, int *ret)
   return COMMAND_END;
 }
 
-/* Thread: library */
-static enum command_state
-webapi_pl_save(void *arg, int *ret)
-{
-  const char *uri;
-  char *endpoint_uri;
-  json_object *response;
-
-  uri = arg;
-  endpoint_uri = get_playlist_endpoint_uri(uri);
-
-  response = request_endpoint_with_token_refresh(endpoint_uri);
-  if (!response)
-    {
-      *ret = -1;
-      goto out;
-    }
-
-  *ret = saved_playlist_add(response, 0, 1, SPOTIFY_REQUEST_TYPE_DEFAULT, NULL);
-
-  jparse_free(response);
-
- out:
-  free(endpoint_uri);
-
-  return COMMAND_END;
-}
-
-/* Thread: library */
-static enum command_state
-webapi_pl_remove(void *arg, int *ret)
-{
-  const char *uri;
-  struct playlist_info *pli;
-  int plid;
-
-  uri = arg;
-  pli = db_pl_fetch_bypath(uri);
-
-  if (!pli)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playlist '%s' not found, can't delete\n", uri);
-
-      *ret = -1;
-      return COMMAND_END;
-    }
-
-  DPRINTF(E_LOG, L_SPOTIFY, "Removing playlist '%s' (%s)\n", pli->title, uri);
-
-  plid = pli->id;
-
-  free_pli(pli, 0);
-
-  db_spotify_pl_delete(plid);
-  cleanup_spotify_files();
-  *ret = 0;
-
-  return COMMAND_END;
-}
-
 void
 spotifywebapi_fullrescan(void)
 {
@@ -2201,30 +2046,6 @@ void
 spotifywebapi_purge(void)
 {
   library_exec_async(webapi_purge, NULL);
-}
-
-void
-spotifywebapi_pl_save(const char *uri)
-{
-  if (scanning || !token_valid())
-    {
-      DPRINTF(E_DBG, L_SPOTIFY, "Scanning spotify saved tracks still in progress, ignoring update trigger for single playlist '%s'\n", uri);
-      return;
-    }
-
-  library_exec_async(webapi_pl_save, strdup(uri));
-}
-
-void
-spotifywebapi_pl_remove(const char *uri)
-{
-  if (scanning || !token_valid())
-    {
-      DPRINTF(E_DBG, L_SPOTIFY, "Scanning spotify saved tracks still in progress, ignoring remove trigger for single playlist '%s'\n", uri);
-      return;
-    }
-
-  library_exec_async(webapi_pl_remove, strdup(uri));
 }
 
 char *
