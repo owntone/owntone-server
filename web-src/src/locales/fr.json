@@ -380,7 +380,8 @@
       "count": "{count} pistes",
       "edit": "Éditer",
       "hide-previous": "Masquer l’historique",
-      "queue": "File d’attente"
+      "queue": "File d’attente",
+      "save": "Enregistrer"
     },
     "radio": {
       "count": "{count} stations",

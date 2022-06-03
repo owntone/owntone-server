@@ -14,7 +14,8 @@
             <img
               v-lazy="{
                 src: artwork_url_with_size(album.item.artwork_url),
-                lifecycle: artwork_options.lazy_lifecycle
+                lifecycle: artwork_options.lazy_lifecycle,
+                delay: 500
               }"
               :album="album.item.name"
               :artist="album.item.artist"
