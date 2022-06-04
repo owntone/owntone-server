@@ -395,7 +395,7 @@
       "artists": "Artistes",
       "audiobooks": "Livres audio",
       "composers": "Compositeurs",
-      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://github.com/owntone/owntone-server/blob/master/README_SMARTPL.md\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
+      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
       "no-albums": "Aucun album trouvé",
       "no-artists": "Aucun artiste trouvé",
       "no-audiobooks": "Aucun livre audio trouvé",
