@@ -14,7 +14,7 @@
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
-            <span v-text="$t('page.composer.tracks.shuffle')" />
+            <span v-text="$t('page.composer.shuffle')" />
           </a>
         </div>
       </template>
@@ -24,11 +24,12 @@
             class="has-text-link"
             @click="open_albums"
             v-text="
-              $t('page.composer.tracks.album-count', {
+              $t('page.composer.album-count', {
                 count: composer.album_count
               })
             "
           />
+          <span>&nbsp;|&nbsp;</span>
           <span
             v-text="
               $t('page.composer.track-count', { count: composer.track_count })

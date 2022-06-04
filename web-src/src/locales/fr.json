@@ -263,7 +263,7 @@
       }
     },
     "artist": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
       "track-count": "{count} pistes",
       "sort-by": {
@@ -330,14 +330,9 @@
       }
     },
     "composer": {
-      "album-count": "{count} albums {'|'}",
+      "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes",
-      "pistes": {
-        "album-count": "{count} albums",
-        "track-count": " {'|'} {count} pistes",
-        "shuffle": "Lecture aléatoire"
-      }
+      "track-count": "{count} pistes"
     },
     "composers": {
       "count": "{count} compositeurs",
@@ -348,13 +343,9 @@
       "title": "Fichiers"
     },
     "genre": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
-      "pistes": {
-        "album-count": "{count} albums {'|'} ",
-        "count": " {count} pistes",
-        "shuffle": "Lecture aléatoire"
-      }
+      "track-count": "{count} pistes"
     },
     "genres": {
       "count": "{count} genres",

@@ -25,6 +25,7 @@
               $t('page.composer.album-count', { count: composer.album_count })
             "
           />
+          <span>&nbsp;|&nbsp;</span>
           <a
             class="has-text-link"
             @click="open_tracks"

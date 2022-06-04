@@ -37,6 +37,7 @@
         <span
           v-text="$t('page.artist.album-count', { count: artist.album_count })"
         />
+        <span>&nbsp;|&nbsp;</span>
         <a
           class="has-text-link"
           @click="open_tracks"

@@ -17,7 +17,7 @@
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
-            <span v-text="$t('page.genre.tracks.shuffle')" />
+            <span v-text="$t('page.genre.shuffle')" />
           </a>
         </div>
       </template>
@@ -27,11 +27,12 @@
             class="has-text-link"
             @click="open_genre"
             v-text="
-              $t('page.genre.tracks.album-count', { count: genre.album_count })
+              $t('page.genre.album-count', { count: genre.album_count })
             "
           />
+          <span>&nbsp;|&nbsp;</span>
           <span
-            v-text="$t('page.genre.tracks.count', { count: genre.track_count })"
+            v-text="$t('page.genre.track-count', { count: genre.track_count })"
           />
         </p>
         <list-tracks :tracks="tracks.items" :expression="expression" />
