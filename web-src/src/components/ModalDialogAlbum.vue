@@ -71,8 +71,8 @@
                     class="title is-6"
                     v-text="
                       [
-                        t('media.kind.' + album.media_kind),
-                        t('data.kind.' + album.data_kind)
+                        $t('media.kind.' + album.media_kind),
+                        $t('data.kind.' + album.data_kind)
                       ].join(' - ')
                     "
                   />
