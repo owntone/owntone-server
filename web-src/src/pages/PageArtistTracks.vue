@@ -26,12 +26,11 @@
           <a
             class="has-text-link"
             @click="open_artist"
-            v-text="
-              $t('page.artist.track-count', {
-                albums: artist.album_count,
-                tracks: artist.track_count
-              })
-            "
+            v-text="$t('page.artist.album-count', { count: artist.album_count })"
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <span
+            v-text="$t('page.artist.track-count', { count: artist.track_count })"
           />
         </p>
         <list-tracks :tracks="tracks.items" :uris="track_uris" />

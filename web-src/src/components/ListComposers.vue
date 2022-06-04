@@ -61,7 +61,7 @@ export default {
     open_composer: function (composer) {
       this.selected_composer = composer
       this.$router.push({
-        name: 'ComposerTracks',
+        name: 'ComposerAlbums',
         params: { composer: composer.name }
       })
     },

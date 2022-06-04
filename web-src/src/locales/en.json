@@ -263,7 +263,7 @@
       }
     },
     "artist": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Shuffle",
       "track-count": "{count} tracks",
       "sort-by": {
@@ -330,14 +330,9 @@
       }
     },
     "composer": {
-      "album-count": "{count} albums {'|'}",
+      "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks",
-      "tracks": {
-        "album-count": "{count} albums",
-        "track-count": " {'|'} {count} tracks",
-        "shuffle": "Shuffle"
-      }
+      "track-count": "{count} tracks"
     },
     "composers": {
       "count": "{count} composers",
@@ -348,13 +343,9 @@
       "title": "Files"
     },
     "genre": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "tracks": {
-        "album-count": "{count} albums {'|'} ",
-        "count": " {count} tracks",
-        "shuffle": "Shuffle"
-      }
+      "track-count": "{count} tracks"
     },
     "genres": {
       "count": "{count} genres",
