@@ -127,7 +127,7 @@ export default {
   computed: {
     albums() {
       const groupBy = this.groupby_options.find(
-        (o) => o.name === this.selected_groupby_option_id
+        (o) => o.id === this.selected_groupby_option_id
       )
       this.albums_list.group(groupBy.options)
 
