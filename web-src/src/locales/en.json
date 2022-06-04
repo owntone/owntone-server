@@ -395,7 +395,7 @@
       "artists": "Artists",
       "audiobooks": "Audiobooks",
       "composers": "Composers",
-      "help": "Tip: you can search by a smart playlist query language <a href=\"https://github.com/owntone/owntone-server/blob/master/README_SMARTPL.md\" target=\"_blank\">expression</a> if you prefix it with <code>query:</code>.",
+      "help": "Tip: you can search by a smart playlist query language <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> if you prefix it with <code>query:</code>.",
       "no-albums": "No albums found",
       "no-artists": "No artists found",
       "no-audiobooks": "No audiobooks found",
