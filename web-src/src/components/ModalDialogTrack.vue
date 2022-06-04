@@ -92,7 +92,12 @@
                   <span class="heading" v-text="$t('dialog.track.type')" />
                   <span class="title is-6">
                     <span
-                      v-text="[track.media_kind, track.data_kind].join(' - ')"
+                      v-text="
+                        [
+                          $t('media.kind.' + track.media_kind),
+                          $t('data.kind.' + track.data_kind)
+                        ].join(' - ')
+                      "
                     />
                     <span
                       v-if="track.data_kind === 'spotify'"
