@@ -12,7 +12,7 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span v-text="$t('page.settings.tabs.settings.general')" />
+                    <span v-text="$t('page.settings.tabs.general')" />
                   </a>
                 </li>
               </router-link>
@@ -25,7 +25,7 @@
                   <a @click="navigate" @keypress.enter="navigate">
                     <span
                       v-text="
-                        $t('page.settings.tabs.settings.remotes-and-outputs')
+                        $t('page.settings.tabs.remotes-and-outputs')
                       "
                     />
                   </a>
@@ -38,7 +38,7 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span v-text="$t('page.settings.tabs.settings.artwork')" />
+                    <span v-text="$t('page.settings.tabs.artwork')" />
                   </a>
                 </li>
               </router-link>
@@ -50,7 +50,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span
-                      v-text="$t('page.settings.tabs.settings.online-services')"
+                      v-text="$t('page.settings.tabs.online-services')"
                     />
                   </a>
                 </li>

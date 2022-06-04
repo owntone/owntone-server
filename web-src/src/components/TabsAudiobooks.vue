@@ -17,7 +17,7 @@
                       name="account-music"
                       size="16"
                     />
-                    <span v-text="$t('tabs.audiobooks.authors')" />
+                    <span v-text="$t('page.audiobooks.tabs.authors')" />
                   </a>
                 </li>
               </router-link>
@@ -29,7 +29,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <mdicon class="icon is-small" name="album" size="16" />
-                    <span v-text="$t('tabs.audiobooks.audiobooks')" />
+                    <span v-text="$t('page.audiobooks.tabs.audiobooks')" />
                   </a>
                 </li>
               </router-link>
