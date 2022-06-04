@@ -302,6 +302,10 @@
       "artists": {
         "count": "{count} auteurs",
         "title": "Auteurs"
+      },
+      "tabs": {
+        "authors": "Auteurs",
+        "audiobooks": "Livres audio"
       }
     },
     "browse": {
@@ -315,6 +319,14 @@
       "recently-played": {
         "title": "Lectures récentes",
         "pistes": "pistes"
+      },
+      "tabs": {
+        "albums": "Albums",
+        "artists": "Artistes",
+        "browse": "Parcourir",
+        "composers": "Compositeurs",
+        "genres": "Genres",
+        "spotify": "Spotify"
       }
     },
     "composer": {
@@ -409,7 +421,11 @@
       "show-playlists": "Afficher les {count} listes de lecture",
       "show-podcasts": "Afficher les {count} podcasts",
       "show-tracks": "Afficher les {count} pistes",
-      "pistes": "Pistes"
+      "pistes": "Pistes",
+      "tabs": {
+        "library": "Bibliothèque",
+        "spotify": "Spotify"
+      }
     },
     "settings": {
       "artwork": {
@@ -481,24 +497,10 @@
         "logout": "Se déconnecter"
       },
       "tabs": {
-        "music": {
-          "albums": "Albums",
-          "artists": "Artistes",
-          "browse": "Parcourir",
-          "composers": "Compositeurs",
-          "genres": "Genres",
-          "spotify": "Spotify"
-        },
-        "search": {
-          "library": "Library",
-          "spotify": "Spotify"
-        },
-        "settings": {
-          "artwork": "Illustrations",
-          "general": "Général",
-          "online-services": "Services en ligne",
-          "remotes-and-outputs": "Télécommandes et sorties"
-        }
+        "artwork": "Illustrations",
+        "general": "Général",
+        "online-services": "Services en ligne",
+        "remotes-and-outputs": "Télécommandes et sorties"
       }
     },
     "spotify": {
