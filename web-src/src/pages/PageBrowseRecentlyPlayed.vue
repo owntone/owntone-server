@@ -5,9 +5,9 @@
       <template #heading-left>
         <p
           class="title is-4"
-          v-text="$t('page.browse.recently.played.title')"
+          v-text="$t('page.browse.recently-played.title')"
         />
-        <p class="heading" v-text="$t('page.browse.recently.played.tracks')" />
+        <p class="heading" v-text="$t('page.browse.recently-played.tracks')" />
       </template>
       <template #content>
         <list-tracks :tracks="recently_played.items" />
