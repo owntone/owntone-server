@@ -41,28 +41,40 @@
               <table class="table">
                 <tbody>
                   <tr>
-                    <th class="has-text-left" v-text="$t('page.about.artists')" />
+                    <th
+                      class="has-text-left"
+                      v-text="$t('page.about.artists')"
+                    />
                     <td
                       class="has-text-right"
                       v-text="$filters.number(library.artists)"
                     />
                   </tr>
                   <tr>
-                    <th class="has-text-left" v-text="$t('page.about.albums')" />
+                    <th
+                      class="has-text-left"
+                      v-text="$t('page.about.albums')"
+                    />
                     <td
                       class="has-text-right"
                       v-text="$filters.number(library.albums)"
                     />
                   </tr>
                   <tr>
-                    <th class="has-text-left" v-text="$t('page.about.tracks')" />
+                    <th
+                      class="has-text-left"
+                      v-text="$t('page.about.tracks')"
+                    />
                     <td
                       class="has-text-right"
                       v-text="$filters.number(library.songs)"
                     />
                   </tr>
                   <tr>
-                    <th class="has-text-left" v-text="$t('page.about.total-playtime')" />
+                    <th
+                      class="has-text-left"
+                      v-text="$t('page.about.total-playtime')"
+                    />
                     <td
                       class="has-text-right"
                       v-text="
@@ -71,7 +83,10 @@
                     />
                   </tr>
                   <tr>
-                    <th class="has-text-left" v-text="$t('page.about.updated')" />
+                    <th
+                      class="has-text-left"
+                      v-text="$t('page.about.updated')"
+                    />
                     <td class="has-text-right">
                       <span
                         v-text="
@@ -87,7 +102,10 @@
                     </td>
                   </tr>
                   <tr>
-                    <th class="has-text-left" v-text="$t('page.about.uptime')" />
+                    <th
+                      class="has-text-left"
+                      v-text="$t('page.about.uptime')"
+                    />
                     <td class="has-text-right">
                       <span
                         v-text="$filters.timeFromNow(library.started_at, true)"
@@ -110,7 +128,10 @@
         <div class="columns is-centered">
           <div class="column is-four-fifths">
             <div class="content has-text-centered-mobile">
-              <p class="is-size-7" v-text="$t('page.about.version', { version: config.version })" />
+              <p
+                class="is-size-7"
+                v-text="$t('page.about.version', { version: config.version })"
+              />
               <p
                 class="is-size-7"
                 v-text="

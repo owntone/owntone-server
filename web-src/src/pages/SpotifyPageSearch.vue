@@ -79,7 +79,7 @@
               @click="open_search_tracks"
               v-text="
                 $t('page.spotify.search.show-all-tracks', {
-                  count: tracks.total.toLocaleString()
+                  count: tracks.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -133,7 +133,7 @@
               @click="open_search_artists"
               v-text="
                 $t('page.spotify.search.show-all-artists', {
-                  count: artists.total.toLocaleString()
+                  count: artists.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -199,7 +199,7 @@
               @click="open_search_albums"
               v-text="
                 $t('page.spotify.search.show-all-albums', {
-                  count: albums.total.toLocaleString()
+                  count: albums.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -253,7 +253,7 @@
               @click="open_search_playlists"
               v-text="
                 $t('page.spotify.search.show-all-playlists', {
-                  count: playlists.total.toLocaleString()
+                  count: playlists.total.toLocaleString($i18n.locale)
                 })
               "
             />
