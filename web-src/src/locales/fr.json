@@ -37,7 +37,7 @@
       "play": "Lire",
       "release-date": "Date de sortie",
       "remove-podcast": "Supprimer le podcast",
-      "pistes": "Pistes",
+      "tracks": "Pistes",
       "type": "Type",
       "year": "Année"
     },
@@ -47,7 +47,7 @@
       "added-on": "Ajouté le",
       "albums": "Albums",
       "play": "Lire",
-      "pistes": "Pistes",
+      "tracks": "Pistes",
       "type": "Type"
     },
     "composer": {
@@ -56,7 +56,7 @@
       "albums": "Albums",
       "duration": "Durée",
       "play": "Lire",
-      "pistes": "Pistes"
+      "tracks": "Pistes"
     },
     "directory": {
       "add-next": "Ajouter ensuite",
@@ -69,7 +69,7 @@
       "albums": "Albums",
       "duration": "Durée",
       "play": "Lire",
-      "pistes": "Pistes"
+      "tracks": "Pistes"
     },
     "playlist": {
       "add-next": "Ajouter ensuite",
@@ -130,7 +130,7 @@
         "owner": "Propriéataire",
         "path": "Emplacement",
         "play": "Lire",
-        "pistes": "Pistes"
+        "tracks": "Pistes"
       },
       "track": {
         "add-next": "Ajouter ensuite",
@@ -236,7 +236,7 @@
       "compiled-with": "Compilé avec les options {options}.",
       "library": "Bibliothèque",
       "total-playtime": "Durée totale de lecture",
-      "pistes": "Pistes",
+      "tracks": "Pistes",
       "update": "Actualiser",
       "updated-on": "il y a {time}",
       "updated": "Mis à jour",
@@ -412,7 +412,7 @@
       "show-playlists": "Afficher les {count} listes de lecture",
       "show-podcasts": "Afficher les {count} podcasts",
       "show-tracks": "Afficher les {count} pistes",
-      "pistes": "Pistes",
+      "tracks": "Pistes",
       "tabs": {
         "library": "Bibliothèque",
         "spotify": "Spotify"
@@ -524,7 +524,7 @@
         "show-all-artists": "Afficher les {count} artistes",
         "show-all-playlists": "Afficher les {count} listes de lecture",
         "show-all-tracks": "Afficher les {count} pistes",
-        "pistes": "Pistes"
+        "tracks": "Pistes"
       }
     }
   },
