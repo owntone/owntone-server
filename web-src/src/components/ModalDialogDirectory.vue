@@ -6,7 +6,7 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <p class="title is-4" v-text="directory.path" />
+              <p class="title is-4" v-text="directory" />
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
