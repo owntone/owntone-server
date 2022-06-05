@@ -53,7 +53,7 @@
               @click="open_search_tracks"
               v-text="
                 $t('page.search.show-tracks', {
-                  count: tracks.total.toLocaleString()
+                  count: tracks.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -82,7 +82,7 @@
               @click="open_search_artists"
               v-text="
                 $t('page.search.show-artists', {
-                  count: artists.total.toLocaleString()
+                  count: artists.total.toLocaleString(i18n.locale)
                 })
               "
             />
@@ -111,7 +111,7 @@
               @click="open_search_albums"
               v-text="
                 $t('page.search.show-albums', {
-                  count: albums.total.toLocaleString()
+                  count: albums.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -140,7 +140,7 @@
               @click="open_search_composers"
               v-text="
                 $t('page.search.show-composers', {
-                  count: composers.total.toLocaleString()
+                  count: composers.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -169,7 +169,7 @@
               @click="open_search_playlists"
               v-text="
                 $t('page.search.show-playlists', {
-                  count: playlists.total.toLocaleString()
+                  count: playlists.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -198,7 +198,7 @@
               @click="open_search_podcasts"
               v-text="
                 $t('page.search.show-podcasts', {
-                  count: podcasts.total.toLocaleString()
+                  count: podcasts.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -228,7 +228,7 @@
               @click="open_search_audiobooks"
               v-text="
                 $t('page.search.show-audiobooks', {
-                  count: audiobooks.total.toLocaleString()
+                  count: audiobooks.total.toLocaleString($i18n.locale)
                 })
               "
             />

@@ -24,9 +24,7 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <span
-                      v-text="
-                        $t('page.settings.tabs.remotes-and-outputs')
-                      "
+                      v-text="$t('page.settings.tabs.remotes-and-outputs')"
                     />
                   </a>
                 </li>
@@ -49,9 +47,7 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span
-                      v-text="$t('page.settings.tabs.online-services')"
-                    />
+                    <span v-text="$t('page.settings.tabs.online-services')" />
                   </a>
                 </li>
               </router-link>

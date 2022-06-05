@@ -311,14 +311,14 @@
     "browse": {
       "albums": "albums",
       "show-more": "Afficher plus",
-      "pistes": "pistes",
+      "tracks": "pistes",
       "recently-added": {
         "albums": "albums",
         "title": "Ajouts récents"
       },
       "recently-played": {
         "title": "Lectures récentes",
-        "pistes": "pistes"
+        "tracks": "pistes"
       },
       "tabs": {
         "albums": "Albums",

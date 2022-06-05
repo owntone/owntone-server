@@ -194,7 +194,16 @@ export default {
     },
     locale: {
       get() {
-        return this.$i18n.locale
+        let languages = this.$i18n.availableLocales
+        let locale = languages.find(lang => lang === this.$i18n.locale)
+        let partial = this.$i18n.locale.split('-')[0]
+        if (!locale) {
+          locale = languages.find(lang => lang === partial)
+        }
+        if (!locale) {
+          locale = languages.forEach(lang => lang.split('-')[0] === partial)
+        }
+        return locale
       },
       set(locale) {
         this.$i18n.locale = locale

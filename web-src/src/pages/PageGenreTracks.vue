@@ -26,9 +26,7 @@
           <a
             class="has-text-link"
             @click="open_genre"
-            v-text="
-              $t('page.genre.album-count', { count: genre.album_count })
-            "
+            v-text="$t('page.genre.album-count', { count: genre.album_count })"
           />
           <span>&nbsp;|&nbsp;</span>
           <span
