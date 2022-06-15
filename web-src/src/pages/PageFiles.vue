@@ -23,7 +23,7 @@
       </template>
       <template #content>
         <list-directories :directories="files.directories" />
-        <list-playlists :playlists="files.playlists.items" />
+        <list-playlists :playlists="playlists_list" />
         <list-tracks
           :tracks="files.tracks.items"
           :expression="play_expression"
@@ -46,6 +46,7 @@ import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -58,6 +59,7 @@ const dataObject = {
   set: function (vm, response) {
     if (response) {
       vm.files = response.data
+      vm.playlists_list = new GroupByList(response.data.playlists)
     } else {
       vm.files = {
         directories: vm.$store.state.config.directories.map((dir) => {
@@ -100,6 +102,7 @@ export default {
         tracks: { items: [] },
         playlists: { items: [] }
       },
+      playlists_list: new GroupByList(),
       show_details_modal: false
     }
   },

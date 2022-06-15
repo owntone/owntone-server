@@ -148,7 +148,9 @@ export class GroupByList {
             groupIndex
         )
          */
-        if (groupIndex >= this.indexList.length) {
+        if (this.isEmpty()) {
+          return { done: true }
+        } else if (groupIndex >= this.indexList.length) {
           // We reached the end of all groups and items
           //
           // This should never happen, as the we already
