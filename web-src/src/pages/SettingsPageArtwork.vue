@@ -22,7 +22,7 @@
           <template #label>
             <span v-text="$t('page.settings.artwork.spotify')" />
             <a href="https://www.spotify.com/" target="_blank">
-              <mdicon class="icon" name="open-in-new" size="16" />
+              <span class="icon"><mdicon name="open-in-new" size="16" /></span>
             </a>
           </template>
         </settings-checkbox>
@@ -33,7 +33,7 @@
           <template #label>
             <span v-text="$t('page.settings.artwork.discogs')" />
             <a href="https://www.discogs.com/" target="_blank">
-              <mdicon class="icon" name="open-in-new" size="16" />
+              <span class="icon"><mdicon name="open-in-new" size="16" /></span>
             </a>
           </template>
         </settings-checkbox>
@@ -44,7 +44,7 @@
           <template #label>
             <span v-text="$t('page.settings.artwork.coverartarchive')" />
             <a href="https://coverartarchive.org/" target="_blank">
-              <mdicon class="icon" name="open-in-new" size="16" />
+              <span class="icon"><mdicon name="open-in-new" size="16" /></span>
             </a>
           </template>
         </settings-checkbox>

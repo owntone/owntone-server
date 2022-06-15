@@ -18,14 +18,16 @@
                       placeholder="Playlist name"
                       :disabled="loading"
                     />
-                    <mdicon class="icon is-left" name="file-music" size="16" />
+                    <span class="icon is-left"
+                      ><mdicon name="file-music" size="16"
+                    /></span>
                   </p>
                 </div>
               </form>
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item has-text-dark">
-                <mdicon class="icon" name="web" size="16" />
+                <span class="icon"><mdicon name="web" size="16" /></span>
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.playlist.save.saving')"
@@ -37,7 +39,7 @@
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <mdicon class="icon" name="cancel" size="16" />
+                <span class="icon"><mdicon name="cancel" size="16" /></span>
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.playlist.save.cancel')"
@@ -47,7 +49,9 @@
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="save"
               >
-                <mdicon class="icon" name="content-save" size="16" />
+                <span class="icon"
+                  ><mdicon name="content-save" size="16"
+                /></span>
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.playlist.save.save')"

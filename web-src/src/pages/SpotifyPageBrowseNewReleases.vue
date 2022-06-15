@@ -25,11 +25,9 @@
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
+              <span class="icon has-text-dark"
+                ><mdicon name="dots-vertical" size="16"
+              /></span>
             </a>
           </template>
         </spotify-list-item-album>

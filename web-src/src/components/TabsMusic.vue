@@ -12,7 +12,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon class="icon is-small" name="web" size="16" />
+                    <span class="icon is-small"
+                      ><mdicon name="web" size="16"
+                    /></span>
                     <span v-text="$t('page.browse.tabs.browse')" />
                   </a>
                 </li>
@@ -24,11 +26,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon
-                      class="icon is-small"
-                      name="account-music"
-                      size="16"
-                    />
+                    <span class="icon is-small"
+                      ><mdicon name="account-music" size="16"
+                    /></span>
                     <span v-text="$t('page.browse.tabs.artists')" />
                   </a>
                 </li>
@@ -40,7 +40,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon class="icon is-small" name="album" size="16" />
+                    <span class="icon is-small"
+                      ><mdicon name="album" size="16"
+                    /></span>
                     <span v-text="$t('page.browse.tabs.albums')" />
                   </a>
                 </li>
@@ -52,7 +54,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon class="icon is-small" name="speaker" size="16" />
+                    <span class="icon is-small"
+                      ><mdicon name="speaker" size="16"
+                    /></span>
                     <span v-text="$t('page.browse.tabs.genres')" />
                   </a>
                 </li>
@@ -64,11 +68,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon
-                      class="icon is-small"
-                      name="book-open-page-variant"
-                      size="16"
-                    />
+                    <span class="icon is-small"
+                      ><mdicon name="book-open-page-variant" size="16"
+                    /></span>
                     <span v-text="$t('page.browse.tabs.composers')" />
                   </a>
                 </li>
@@ -81,7 +83,9 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon class="icon is-small" name="spotify" size="16" />
+                    <span class="icon is-small"
+                      ><mdicon name="spotify" size="16"
+                    /></span>
                     <span v-text="$t('page.browse.tabs.spotify')" />
                   </a>
                 </li>

@@ -10,10 +10,12 @@
             class="button is-small is-light is-rounded"
             @click="show_composer_details_modal = true"
           >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
+            <span class="icon"
+              ><mdicon name="dots-horizontal" size="16"
+            /></span>
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <mdicon class="icon" name="shuffle" size="16" />
+            <span class="icon"><mdicon name="shuffle" size="16" /></span>
             <span v-text="$t('page.composer.shuffle')" />
           </a>
         </div>

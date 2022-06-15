@@ -137,14 +137,14 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="remove">
-                <mdicon class="icon" name="delete" size="16" />
+                <span class="icon"><mdicon name="delete" size="16" /></span>
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.queue-item.remove')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <mdicon class="icon" name="play" size="16" />
+                <span class="icon"><mdicon name="play" size="16" /></span>
                 <span class="is-size-7" v-text="$t('dialog.queue-item.play')" />
               </a>
             </footer>
