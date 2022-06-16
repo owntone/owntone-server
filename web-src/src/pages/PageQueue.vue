@@ -14,11 +14,13 @@
           :class="{ 'is-info': show_only_next_items }"
           @click="update_show_next_items"
         >
-          <mdicon class="icon" name="arrow-collapse-down" size="16" />
+          <span class="icon"
+            ><mdicon name="arrow-collapse-down" size="16"
+          /></span>
           <span v-text="$t('page.queue.hide-previous')" />
         </a>
         <a class="button is-small" @click="open_add_stream_dialog">
-          <mdicon class="icon" name="web" size="16" />
+          <span class="icon"><mdicon name="web" size="16" /></span>
           <span v-text="$t('page.queue.add-stream')" />
         </a>
         <a
@@ -26,11 +28,11 @@
           :class="{ 'is-info': edit_mode }"
           @click="edit_mode = !edit_mode"
         >
-          <mdicon class="icon" name="pencil" size="16" />
+          <span class="icon"><mdicon name="pencil" size="16" /></span>
           <span v-text="$t('page.queue.edit')" />
         </a>
         <a class="button is-small" @click="queue_clear">
-          <mdicon class="icon" name="delete-empty" size="16" />
+          <span class="icon"><mdicon name="delete-empty" size="16" /></span>
           <span v-text="$t('page.queue.clear')" />
         </a>
         <a
@@ -39,7 +41,7 @@
           :disabled="queue_items.length === 0"
           @click="save_dialog"
         >
-          <mdicon class="icon" name="content-save" size="16" />
+          <span class="icon"><mdicon name="content-save" size="16" /></span>
           <span v-text="$t('page.queue.save')" />
         </a>
       </div>
@@ -61,17 +63,17 @@
           >
             <template #actions>
               <a v-if="!edit_mode" @click.prevent.stop="open_dialog(element)">
-                <mdicon
-                  class="icon has-text-dark"
-                  name="dots-vertical"
-                  size="16"
-                />
+                <span class="icon has-text-dark"
+                  ><mdicon name="dots-vertical" size="16"
+                /></span>
               </a>
               <a
                 v-if="element.id !== state.item_id && edit_mode"
                 @click.prevent.stop="remove(element)"
               >
-                <mdicon class="icon has-text-grey" name="delete" size="18" />
+                <span class="icon has-text-grey"
+                  ><mdicon name="delete" size="18"
+                /></span>
               </a>
             </template>
           </list-item-queue-item>

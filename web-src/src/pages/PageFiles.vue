@@ -9,28 +9,30 @@
         <div class="buttons is-centered">
           <a
             class="button is-small is-light is-rounded"
-            @click="open_directory_dialog({ path: current_directory })"
+            @click="show_details_modal = true"
           >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
+            <span class="icon"
+              ><mdicon name="dots-horizontal" size="16"
+            /></span>
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <mdicon class="icon" name="play" size="16" />
+            <span class="icon"><mdicon name="play" size="16" /></span>
             <span v-text="$t('page.files.play')" />
           </a>
         </div>
       </template>
       <template #content>
         <list-directories :directories="files.directories" />
-        <list-playlists :playlists="files.playlists.items" />
+        <list-playlists :playlists="playlists_list" />
         <list-tracks
           :tracks="files.tracks.items"
           :expression="play_expression"
           :show_icon="true"
         />
         <modal-dialog-directory
-          :show="show_directory_details_modal"
-          :directory="selected_directory"
-          @close="show_directory_details_modal = false"
+          :show="show_details_modal"
+          :directory="current_directory"
+          @close="show_details_modal = false"
         />
       </template>
     </content-with-heading>
@@ -42,7 +44,9 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
+import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -55,6 +59,7 @@ const dataObject = {
   set: function (vm, response) {
     if (response) {
       vm.files = response.data
+      vm.playlists_list = new GroupByList(response.data.playlists)
     } else {
       vm.files = {
         directories: vm.$store.state.config.directories.map((dir) => {
@@ -73,7 +78,8 @@ export default {
     ContentWithHeading,
     ListDirectories,
     ListPlaylists,
-    ListTracks
+    ListTracks,
+    ModalDialogDirectory
   },
 
   beforeRouteEnter(to, from, next) {
@@ -95,7 +101,9 @@ export default {
         directories: [],
         tracks: { items: [] },
         playlists: { items: [] }
-      }
+      },
+      playlists_list: new GroupByList(),
+      show_details_modal: false
     }
   },
 

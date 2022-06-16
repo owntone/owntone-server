@@ -9,7 +9,7 @@
         <p class="title is-4" v-text="$t('page.audiobooks.artists.title')" />
         <p
           class="heading"
-          v-text="$t('page.audiobooks.artists.count', { count: tists.count })"
+          v-text="$t('page.audiobooks.artists.count', { count: artists.count })"
         />
       </template>
       <template #heading-right />

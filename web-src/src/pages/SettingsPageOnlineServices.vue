@@ -14,7 +14,7 @@
         </div>
         <div v-if="spotify.spotify_installed">
           <div class="notification is-size-7">
-            <b v-text="$t('page.settings.services.spotify.requirements')" />
+            <span v-text="$t('page.settings.services.spotify.requirements')" />
             <span
               v-if="use_libspotity"
               v-text="$t('page.settings.services.spotify.help')"
@@ -49,7 +49,7 @@
             </div>
             <p class="help">
               <span v-text="$t('page.settings.services.spotify.scopes')" />
-              <code v-text="spotify_required_scope.join()" />
+              <code v-text="spotify_required_scope.join(', ')" />
             </p>
             <div
               v-if="spotify.webapi_token_valid"

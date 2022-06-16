@@ -92,7 +92,12 @@
                   <span class="heading" v-text="$t('dialog.track.type')" />
                   <span class="title is-6">
                     <span
-                      v-text="[track.media_kind, track.data_kind].join(' - ')"
+                      v-text="
+                        [
+                          $t('media.kind.' + track.media_kind),
+                          $t('data.kind.' + track.data_kind)
+                        ].join(' - ')
+                      "
                     />
                     <span
                       v-if="track.data_kind === 'spotify'"
@@ -163,15 +168,19 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span class="icon"
+                  ><mdicon name="playlist-plus" size="16"
+                /></span>
                 <span class="is-size-7" v-text="$t('dialog.track.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <mdicon class="icon" name="playlist-play" size="16" />
+                <span class="icon"
+                  ><mdicon name="playlist-play" size="16"
+                /></span>
                 <span class="is-size-7" v-text="$t('dialog.track.add-next')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="play_track">
-                <mdicon class="icon" name="play" size="16" />
+                <span class="icon"><mdicon name="play" size="16" /></span>
                 <span class="is-size-7" v-text="$t('dialog.track.play')" />
               </a>
             </footer>

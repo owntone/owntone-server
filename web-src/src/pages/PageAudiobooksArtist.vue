@@ -9,10 +9,10 @@
           class="button is-small is-light is-rounded"
           @click="show_artist_details_modal = true"
         >
-          <mdicon class="icon" name="dots-horizontal" size="16" />
+          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
-          <mdicon class="icon" name="play" size="16" />
+          <span class="icon"><mdicon name="play" size="16" /></span>
           <span v-text="$t('page.audiobooks.artist.shuffle')" />
         </a>
       </div>

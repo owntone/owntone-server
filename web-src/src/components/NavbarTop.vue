@@ -7,25 +7,25 @@
   >
     <div class="navbar-brand">
       <navbar-item-link v-if="is_visible_playlists" to="/playlists">
-        <mdicon class="icon" name="music-box-multiple" size="16" />
+        <span class="icon"><mdicon name="music-box-multiple" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_music" to="/music">
-        <mdicon class="icon" name="music" size="16" />
+        <span class="icon"><mdicon name="music" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_podcasts" to="/podcasts">
-        <mdicon class="icon" name="podcast" size="16" />
+        <span class="icon"><mdicon name="microphone" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_audiobooks" to="/audiobooks">
-        <mdicon class="icon" name="book-open-variant" size="16" />
+        <span class="icon"><mdicon name="book-open-variant" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_radio" to="/radio">
-        <mdicon class="icon" name="radio-tower" size="16" />
+        <span class="icon"><mdicon name="radio" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_files" to="/files">
-        <mdicon class="icon" name="folder-open" size="16" />
+        <span class="icon"><mdicon name="folder-open" size="16" /></span>
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_search" to="/search">
-        <mdicon class="icon" name="magnify" size="16" />
+        <span class="icon"><mdicon name="magnify" size="16" /></span>
       </navbar-item-link>
       <div
         class="navbar-burger"
@@ -47,7 +47,9 @@
           @click="on_click_outside_settings"
         >
           <a class="navbar-link is-arrowless">
-            <mdicon class="icon is-hidden-touch" name="menu" size="24" />
+            <span class="icon is-hidden-touch"
+              ><mdicon name="menu" size="24"
+            /></span>
             <span
               class="is-hidden-desktop has-text-weight-bold"
               v-text="$t('navigation.title')"
@@ -55,11 +57,13 @@
           </a>
           <div class="navbar-dropdown is-right">
             <navbar-item-link to="/playlists">
-              <mdicon class="icon" name="music-box-multiple" size="16" />
+              <span class="icon"
+                ><mdicon name="music-box-multiple" size="16"
+              /></span>
               <b v-text="$t('navigation.playlists')" />
             </navbar-item-link>
             <navbar-item-link to="/music" exact>
-              <mdicon class="icon" name="music" size="16" />
+              <span class="icon"><mdicon name="music" size="16" /></span>
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>
             <navbar-item-link to="/music/artists">
@@ -87,36 +91,39 @@
               />
             </navbar-item-link>
             <navbar-item-link to="/podcasts">
-              <mdicon class="icon" name="podcast" size="16" />
+              <span class="icon"><mdicon name="microphone" size="16" /></span>
               <b v-text="$t('navigation.podcasts')" />
             </navbar-item-link>
             <navbar-item-link to="/audiobooks">
-              <mdicon class="icon" name="book-open-variant" size="16" />
+              <span class="icon"
+                ><mdicon name="book-open-variant" size="16"
+              /></span>
               <b v-text="$t('navigation.audiobooks')" />
             </navbar-item-link>
             <navbar-item-link to="/radio">
-              <mdicon class="icon" name="radio-tower" size="16" />
+              <span class="icon"><mdicon name="radio" size="16" /></span>
               <b v-text="$t('navigation.radio')" />
             </navbar-item-link>
             <navbar-item-link to="/files">
-              <mdicon class="icon" name="folder-open" size="16" />
+              <span class="icon"><mdicon name="folder-open" size="16" /></span>
               <b v-text="$t('navigation.files')" />
             </navbar-item-link>
             <navbar-item-link to="/search">
-              <mdicon class="icon" name="magnify" size="16" />
+              <span class="icon"><mdicon name="magnify" size="16" /></span>
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
             <hr class="fd-navbar-divider" />
-            <navbar-item-link
-              to="/settings/webinterface"
-              v-text="$t('navigation.settings')"
-            />
+            <navbar-item-link to="/settings/webinterface">{{
+              $t('navigation.settings')
+            }}</navbar-item-link>
             <a
               class="navbar-item"
               @click.stop.prevent="open_update_dialog()"
               v-text="$t('navigation.update-library')"
             />
-            <navbar-item-link to="/about" v-text="$t('navigation.about')" />
+            <navbar-item-link to="/about">{{
+              $t('navigation.about')
+            }}</navbar-item-link>
             <div
               class="navbar-item is-hidden-desktop"
               style="margin-bottom: 2.5rem"

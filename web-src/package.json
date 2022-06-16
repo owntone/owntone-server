@@ -23,9 +23,9 @@
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.5.2",
     "string-to-color": "^2.2.2",
-    "vue": "^3.2.36",
+    "vue": "^3.2.37",
     "vue-i18n": "^9.1.10",
-    "vue-router": "^4.0.15",
+    "vue-router": "^4.0.16",
     "vue-scrollto": "^2.20.0",
     "vue3-click-away": "^1.2.4",
     "vue3-lazyload": "^0.3.4",
@@ -35,11 +35,11 @@
   "devDependencies": {
     "@intlify/vite-plugin-vue-i18n": "^3.4.0",
     "@vitejs/plugin-vue": "^2.3.3",
-    "eslint": "^8.16.0",
+    "eslint": "^8.17.0",
     "eslint-config-prettier": "^8.5.0",
-    "eslint-plugin-vue": "^9.1.0",
-    "prettier": "2.6.2",
-    "sass": "^1.52.2",
-    "vite": "^2.9.9"
+    "eslint-plugin-vue": "^9.1.1",
+    "prettier": "2.7.0",
+    "sass": "^1.52.3",
+    "vite": "^2.9.12"
   }
 }

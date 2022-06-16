@@ -11,14 +11,14 @@
       </h2>
       <div class="buttons fd-is-centered-mobile fd-has-margin-top">
         <a class="button is-small is-dark is-rounded" @click="play">
-          <mdicon class="icon" name="shuffle" size="16" />
+          <span class="icon"><mdicon name="shuffle" size="16" /></span>
           <span v-text="$t('page.spotify.album.shuffle')" />
         </a>
         <a
           class="button is-small is-light is-rounded"
           @click="show_album_details_modal = true"
         >
-          <mdicon class="icon" name="dots-horizontal" size="16" />
+          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
         </a>
       </div>
     </template>
@@ -49,7 +49,9 @@
       >
         <template #actions>
           <a @click.prevent.stop="open_track_dialog(track)">
-            <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+            <span class="icon has-text-dark"
+              ><mdicon name="dots-vertical" size="16"
+            /></span>
           </a>
         </template>
       </spotify-list-item-track>

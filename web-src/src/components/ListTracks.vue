@@ -8,7 +8,7 @@
     @click="play_track(index, track)"
   >
     <figure v-if="show_icon" class="media-left fd-has-action">
-      <mdicon class="icon" name="file-outline" size="16" />
+      <span class="icon"><mdicon name="file-outline" size="16" /></span>
     </figure>
     <div class="media-content fd-has-action is-clipped">
       <h1
@@ -29,7 +29,9 @@
     </div>
     <div class="media-right">
       <a @click.prevent.stop="open_dialog(track)">
-        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+        <span class="icon has-text-dark"
+          ><mdicon name="dots-vertical" size="16"
+        /></span>
       </a>
     </div>
   </div>

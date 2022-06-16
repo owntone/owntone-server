@@ -26,11 +26,9 @@
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
+              <span class="icon has-text-dark"
+                ><mdicon name="dots-vertical" size="16"
+              /></span>
             </a>
           </template>
         </spotify-list-item-album>
@@ -46,8 +44,8 @@
             <router-link
               to="/music/spotify/new-releases"
               class="button is-light is-small is-rounded"
-              v-text="$t('page.spotify.browse.show-more')"
-            />
+              >{{ $t('page.spotify.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>
@@ -68,11 +66,9 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
+              <span class="icon has-text-dark"
+                ><mdicon name="dots-vertical" size="16"
+              /></span>
             </a>
           </template>
         </spotify-list-item-playlist>
@@ -88,8 +84,8 @@
             <router-link
               to="/music/spotify/featured-playlists"
               class="button is-light is-small is-rounded"
-              v-text="$t('page.spotify.browse.show-more')"
-            />
+              >{{ $t('page.spotify.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>

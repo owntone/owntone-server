@@ -6,22 +6,26 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <p class="title is-4" v-text="directory.path" />
+              <p class="title is-4" v-text="directory" />
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <mdicon class="icon" name="playlist-plus" size="16" />
+                <span class="icon"
+                  ><mdicon name="playlist-plus" size="16"
+                /></span>
                 <span class="is-size-7" v-text="$t('dialog.directory.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <mdicon class="icon" name="playlist-play" size="16" />
+                <span class="icon"
+                  ><mdicon name="playlist-play" size="16"
+                /></span>
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.directory.add-next')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <mdicon class="icon" name="play" size="16" />
+                <span class="icon"><mdicon name="play" size="16" /></span>
                 <span class="is-size-7" v-text="$t('dialog.directory.play')" />
               </a>
             </footer>

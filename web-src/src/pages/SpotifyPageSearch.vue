@@ -16,7 +16,9 @@
                     placeholder="Search"
                     autocomplete="off"
                   />
-                  <mdicon class="icon is-left" name="magnify" size="16" />
+                  <span class="icon is-left"
+                    ><mdicon name="magnify" size="16"
+                  /></span>
                 </p>
               </div>
             </form>
@@ -50,11 +52,9 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_track_dialog(track)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
+              <span class="icon has-text-dark"
+                ><mdicon name="dots-vertical" size="16"
+              /></span>
             </a>
           </template>
         </spotify-list-item-track>
@@ -79,7 +79,7 @@
               @click="open_search_tracks"
               v-text="
                 $t('page.spotify.search.show-all-tracks', {
-                  count: tracks.total.toLocaleString()
+                  count: tracks.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -105,11 +105,9 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_artist_dialog(artist)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
+              <span class="icon has-text-dark"
+                ><mdicon name="dots-vertical" size="16"
+              /></span>
             </a>
           </template>
         </spotify-list-item-artist>
@@ -133,7 +131,7 @@
               @click="open_search_artists"
               v-text="
                 $t('page.spotify.search.show-all-artists', {
-                  count: artists.total.toLocaleString()
+                  count: artists.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -171,11 +169,9 @@
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
+              <span class="icon has-text-dark"
+                ><mdicon name="dots-vertical" size="16"
+              /></span>
             </a>
           </template>
         </spotify-list-item-album>
@@ -199,7 +195,7 @@
               @click="open_search_albums"
               v-text="
                 $t('page.spotify.search.show-all-albums', {
-                  count: albums.total.toLocaleString()
+                  count: albums.total.toLocaleString($i18n.locale)
                 })
               "
             />
@@ -225,11 +221,9 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
+              <span class="icon has-text-dark"
+                ><mdicon name="dots-vertical" size="16"
+              /></span>
             </a>
           </template>
         </spotify-list-item-playlist>
@@ -253,7 +247,7 @@
               @click="open_search_playlists"
               v-text="
                 $t('page.spotify.search.show-all-playlists', {
-                  count: playlists.total.toLocaleString()
+                  count: playlists.total.toLocaleString($i18n.locale)
                 })
               "
             />

@@ -37,7 +37,7 @@
       "play": "Lire",
       "release-date": "Date de sortie",
       "remove-podcast": "Supprimer le podcast",
-      "pistes": "Pistes",
+      "tracks": "Pistes",
       "type": "Type",
       "year": "Année"
     },
@@ -47,7 +47,7 @@
       "added-on": "Ajouté le",
       "albums": "Albums",
       "play": "Lire",
-      "pistes": "Pistes",
+      "tracks": "Pistes",
       "type": "Type"
     },
     "composer": {
@@ -56,7 +56,7 @@
       "albums": "Albums",
       "duration": "Durée",
       "play": "Lire",
-      "pistes": "Pistes"
+      "tracks": "Pistes"
     },
     "directory": {
       "add-next": "Ajouter ensuite",
@@ -69,7 +69,7 @@
       "albums": "Albums",
       "duration": "Durée",
       "play": "Lire",
-      "pistes": "Pistes"
+      "tracks": "Pistes"
     },
     "playlist": {
       "add-next": "Ajouter ensuite",
@@ -130,7 +130,7 @@
         "owner": "Propriéataire",
         "path": "Emplacement",
         "play": "Lire",
-        "pistes": "Pistes"
+        "tracks": "Pistes"
       },
       "track": {
         "add-next": "Ajouter ensuite",
@@ -236,7 +236,7 @@
       "compiled-with": "Compilé avec les options {options}.",
       "library": "Bibliothèque",
       "total-playtime": "Durée totale de lecture",
-      "pistes": "Pistes",
+      "tracks": "Pistes",
       "update": "Actualiser",
       "updated-on": "il y a {time}",
       "updated": "Mis à jour",
@@ -263,7 +263,7 @@
       }
     },
     "artist": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
       "track-count": "{count} pistes",
       "sort-by": {
@@ -302,30 +302,37 @@
       "artists": {
         "count": "{count} auteurs",
         "title": "Auteurs"
+      },
+      "tabs": {
+        "authors": "Auteurs",
+        "audiobooks": "Livres audio"
       }
     },
     "browse": {
       "albums": "albums",
       "show-more": "Afficher plus",
-      "pistes": "pistes",
+      "tracks": "pistes",
       "recently-added": {
         "albums": "albums",
         "title": "Ajouts récents"
       },
       "recently-played": {
         "title": "Lectures récentes",
-        "pistes": "pistes"
+        "tracks": "pistes"
+      },
+      "tabs": {
+        "albums": "Albums",
+        "artists": "Artistes",
+        "browse": "Parcourir",
+        "composers": "Compositeurs",
+        "genres": "Genres",
+        "spotify": "Spotify"
       }
     },
     "composer": {
-      "album-count": "{count} albums {'|'}",
+      "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes",
-      "pistes": {
-        "album-count": "{count} albums",
-        "track-count": " {'|'} {count} pistes",
-        "shuffle": "Lecture aléatoire"
-      }
+      "track-count": "{count} pistes"
     },
     "composers": {
       "count": "{count} compositeurs",
@@ -336,13 +343,9 @@
       "title": "Fichiers"
     },
     "genre": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
-      "pistes": {
-        "album-count": "{count} albums {'|'} ",
-        "count": " {count} pistes",
-        "shuffle": "Lecture aléatoire"
-      }
+      "track-count": "{count} pistes"
     },
     "genres": {
       "count": "{count} genres",
@@ -392,7 +395,7 @@
       "artists": "Artistes",
       "audiobooks": "Livres audio",
       "composers": "Compositeurs",
-      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://github.com/owntone/owntone-server/blob/master/README_SMARTPL.md\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
+      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
       "no-albums": "Aucun album trouvé",
       "no-artists": "Aucun artiste trouvé",
       "no-audiobooks": "Aucun livre audio trouvé",
@@ -409,7 +412,11 @@
       "show-playlists": "Afficher les {count} listes de lecture",
       "show-podcasts": "Afficher les {count} podcasts",
       "show-tracks": "Afficher les {count} pistes",
-      "pistes": "Pistes"
+      "tracks": "Pistes",
+      "tabs": {
+        "library": "Bibliothèque",
+        "spotify": "Spotify"
+      }
     },
     "settings": {
       "artwork": {
@@ -481,24 +488,10 @@
         "logout": "Se déconnecter"
       },
       "tabs": {
-        "music": {
-          "albums": "Albums",
-          "artists": "Artistes",
-          "browse": "Parcourir",
-          "composers": "Compositeurs",
-          "genres": "Genres",
-          "spotify": "Spotify"
-        },
-        "search": {
-          "library": "Library",
-          "spotify": "Spotify"
-        },
-        "settings": {
-          "artwork": "Illustrations",
-          "general": "Général",
-          "online-services": "Services en ligne",
-          "remotes-and-outputs": "Télécommandes et sorties"
-        }
+        "artwork": "Illustrations",
+        "general": "Général",
+        "online-services": "Services en ligne",
+        "remotes-and-outputs": "Télécommandes et sorties"
       }
     },
     "spotify": {
@@ -531,7 +524,7 @@
         "show-all-artists": "Afficher les {count} artistes",
         "show-all-playlists": "Afficher les {count} listes de lecture",
         "show-all-tracks": "Afficher les {count} pistes",
-        "pistes": "Pistes"
+        "tracks": "Pistes"
       }
     }
   },

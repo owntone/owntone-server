@@ -1,6 +1,6 @@
 <template>
   <a :disabled="disabled" @click="play_previous">
-    <mdicon class="icon" name="skip-backward" :size="icon_size" />
+    <span class="icon"><mdicon name="skip-backward" :size="icon_size" /></span>
   </a>
 </template>
 

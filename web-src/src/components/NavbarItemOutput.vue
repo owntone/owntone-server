@@ -8,9 +8,8 @@
               class="icon fd-has-action"
               :class="{ 'has-text-grey-light': !output.selected }"
               @click="set_enabled"
-            >
-              <mdicon :name="type_class" size="18" :title="output.type" />
-            </span>
+              ><mdicon :name="type_class" size="18" :title="output.type"
+            /></span>
           </a>
         </div>
         <div class="level-item fd-expanded">

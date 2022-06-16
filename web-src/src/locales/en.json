@@ -263,7 +263,7 @@
       }
     },
     "artist": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Shuffle",
       "track-count": "{count} tracks",
       "sort-by": {
@@ -302,6 +302,10 @@
       "artists": {
         "count": "{count} authors",
         "title": "Authors"
+      },
+      "tabs": {
+        "authors": "Authors",
+        "audiobooks": "Audiobooks"
       }
     },
     "browse": {
@@ -315,17 +319,20 @@
       "recently-played": {
         "title": "Recently played",
         "tracks": "tracks"
+      },
+      "tabs": {
+        "albums": "Albums",
+        "artists": "Artists",
+        "browse": "Browse",
+        "composers": "Composers",
+        "genres": "Genres",
+        "spotify": "Spotify"
       }
     },
     "composer": {
-      "album-count": "{count} albums {'|'}",
+      "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks",
-      "tracks": {
-        "album-count": "{count} albums",
-        "track-count": " {'|'} {count} tracks",
-        "shuffle": "Shuffle"
-      }
+      "track-count": "{count} tracks"
     },
     "composers": {
       "count": "{count} composers",
@@ -336,13 +343,9 @@
       "title": "Files"
     },
     "genre": {
-      "album-count": "{count} albums {'|'} ",
+      "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "tracks": {
-        "album-count": "{count} albums {'|'} ",
-        "count": " {count} tracks",
-        "shuffle": "Shuffle"
-      }
+      "track-count": "{count} tracks"
     },
     "genres": {
       "count": "{count} genres",
@@ -392,7 +395,7 @@
       "artists": "Artists",
       "audiobooks": "Audiobooks",
       "composers": "Composers",
-      "help": "Tip: you can search by a smart playlist query language <a href=\"https://github.com/owntone/owntone-server/blob/master/README_SMARTPL.md\" target=\"_blank\">expression</a> if you prefix it with <code>query:</code>.",
+      "help": "Tip: you can search by a smart playlist query language <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> if you prefix it with <code>query:</code>.",
       "no-albums": "No albums found",
       "no-artists": "No artists found",
       "no-audiobooks": "No audiobooks found",
@@ -409,7 +412,11 @@
       "show-playlists": "Show all {count} playlists",
       "show-podcasts": "Show all {count} podcasts",
       "show-tracks": "Show all {count} tracks",
-      "tracks": "Tracks"
+      "tracks": "Tracks",
+      "tabs": {
+        "library": "Library",
+        "spotify": "Spotify"
+      }
     },
     "settings": {
       "artwork": {
@@ -481,24 +488,10 @@
         "logout": "Logout"
       },
       "tabs": {
-        "music": {
-          "albums": "Albums",
-          "artists": "Artists",
-          "browse": "Browse",
-          "composers": "Composers",
-          "genres": "Genres",
-          "spotify": "Spotify"
-        },
-        "search": {
-          "library": "Library",
-          "spotify": "Spotify"
-        },
-        "settings": {
-          "artwork": "Artwork",
-          "general": "General",
-          "online-services": "Online Services",
-          "remotes-and-outputs": "Remotes and Outputs"
-        }
+        "artwork": "Artwork",
+        "general": "General",
+        "online-services": "Online Services",
+        "remotes-and-outputs": "Remotes and Outputs"
       }
     },
     "spotify": {

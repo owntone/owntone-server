@@ -1,6 +1,6 @@
 <template>
   <a :disabled="disabled" @click="toggle_play_pause">
-    <mdicon class="icon" :name="icon_name" :size="icon_size" />
+    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
   </a>
 </template>
 

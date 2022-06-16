@@ -12,7 +12,7 @@
     <div class="navbar-brand fd-expanded">
       <!-- Link to queue -->
       <navbar-item-link to="/" exact>
-        <mdicon class="icon" name="playlist-play" size="24" />
+        <span class="icon"><mdicon name="playlist-play" size="24" /></span>
       </navbar-item-link>
       <!-- Now playing artist/title (not visible on "now playing" page) -->
       <router-link
@@ -71,11 +71,11 @@
         class="navbar-item fd-margin-left-auto is-hidden-desktop"
         @click="show_player_menu = !show_player_menu"
       >
-        <mdicon
-          class="icon"
-          :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-          size="18"
-        />
+        <span class="icon"
+          ><mdicon
+            :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+            size="18"
+        /></span>
       </a>
       <!-- Player menu dropup menu (only visible on desktop) -->
       <div
@@ -86,11 +86,11 @@
           class="navbar-link is-arrowless"
           @click="show_player_menu = !show_player_menu"
         >
-          <mdicon
-            class="icon"
-            :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-            size="18"
-          />
+          <span class="icon"
+            ><mdicon
+              :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+              size="18"
+          /></span>
         </a>
         <div
           class="navbar-dropdown is-right is-boxed"
@@ -105,11 +105,11 @@
                     class="button is-white is-small"
                     @click="toggle_mute_volume"
                   >
-                    <mdicon
-                      class="icon"
-                      :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
-                      size="18"
-                    />
+                    <span class="icon"
+                      ><mdicon
+                        :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                        size="18"
+                    /></span>
                   </a>
                 </div>
                 <div class="level-item fd-expanded">
@@ -145,17 +145,15 @@
                   <a
                     class="button is-white is-small"
                     :class="{ 'is-loading': loading }"
-                  >
-                    <span
+                    ><span
                       class="icon fd-has-action"
                       :class="{
                         'has-text-grey-light': !playing && !loading,
                         'is-loading': loading
                       }"
                       @click="togglePlay"
-                    >
-                      <mdicon name="broadcast" size="18" />
-                    </span>
+                      ><mdicon name="broadcast" size="18"
+                    /></span>
                   </a>
                 </div>
                 <div class="level-item fd-expanded">
@@ -169,13 +167,12 @@
                         href="stream.mp3"
                         style="margin-left: 5px"
                         target="_blank"
-                      >
-                        <mdicon
-                          class="icon"
-                          name="open-in-new"
-                          size="16"
-                          style="vertical-align: middle"
-                        />
+                        ><span class="icon"
+                          ><mdicon
+                            name="open-in-new"
+                            size="16"
+                            style="vertical-align: middle"
+                        /></span>
                       </a>
                     </p>
                     <Slider
@@ -231,11 +228,11 @@
             <div class="level-left fd-expanded">
               <div class="level-item" style="flex-grow: 0">
                 <a class="button is-white is-small" @click="toggle_mute_volume">
-                  <mdicon
-                    class="icon"
-                    :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
-                    size="18"
-                  />
+                  <span class="icon"
+                    ><mdicon
+                      :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                      size="18"
+                  /></span>
                 </a>
               </div>
               <div class="level-item fd-expanded">
@@ -278,8 +275,7 @@
                       'is-loading': loading
                     }"
                     @click="togglePlay"
-                  >
-                    <mdicon name="broadcast" size="16" />
+                    ><mdicon name="radio-tower" size="16" />
                   </span>
                 </a>
               </div>
@@ -294,13 +290,12 @@
                       href="stream.mp3"
                       style="margin-left: 5px"
                       target="_blank"
-                    >
-                      <mdicon
-                        class="icon"
-                        name="open-in-new"
-                        size="16"
-                        style="vertical-align: middle"
-                      />
+                      ><span class="icon"
+                        ><mdicon
+                          name="open-in-new"
+                          size="16"
+                          style="vertical-align: middle"
+                      /></span>
                     </a>
                   </p>
                   <Slider
