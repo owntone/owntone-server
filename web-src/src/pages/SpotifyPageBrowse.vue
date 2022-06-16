@@ -44,8 +44,8 @@
             <router-link
               to="/music/spotify/new-releases"
               class="button is-light is-small is-rounded"
-              v-text="$t('page.spotify.browse.show-more')"
-            />
+              >{{ $t('page.spotify.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>
@@ -84,8 +84,8 @@
             <router-link
               to="/music/spotify/featured-playlists"
               class="button is-light is-small is-rounded"
-              v-text="$t('page.spotify.browse.show-more')"
-            />
+              >{{ $t('page.spotify.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>

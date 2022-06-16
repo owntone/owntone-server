@@ -113,16 +113,17 @@
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
             <hr class="fd-navbar-divider" />
-            <navbar-item-link
-              to="/settings/webinterface"
-              v-text="$t('navigation.settings')"
-            />
+            <navbar-item-link to="/settings/webinterface">{{
+              $t('navigation.settings')
+            }}</navbar-item-link>
             <a
               class="navbar-item"
               @click.stop.prevent="open_update_dialog()"
               v-text="$t('navigation.update-library')"
             />
-            <navbar-item-link to="/about" v-text="$t('navigation.about')" />
+            <navbar-item-link to="/about">{{
+              $t('navigation.about')
+            }}</navbar-item-link>
             <div
               class="navbar-item is-hidden-desktop"
               style="margin-bottom: 2.5rem"
