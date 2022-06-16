@@ -84,7 +84,7 @@
               @click="open_search_artists"
               v-text="
                 $t('page.search.show-artists', {
-                  count: artists.total.toLocaleString(i18n.locale)
+                  count: artists.total.toLocaleString($i18n.locale)
                 })
               "
             />
