@@ -318,11 +318,25 @@ dnl MPD support
 OWNTONE_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
 AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
 
+AC_PATH_PROG([NPM], [[npm]])
+
 dnl Include default webinterface
 OWNTONE_ARG_DISABLE([include default web interface], [webinterface], [WEBINTERFACE],
-	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
-		[AC_MSG_ERROR([[Web interface requires libwebsockets >= 2.0.2 (or use --disable-webinterface)]])])
-	])
+	[AS_IF(
+		[[test "x$with_libwebsockets" = "xno"]],
+			[AC_MSG_ERROR([[Web interface requires libwebsockets >= 2.0.2 (or use --disable-webinterface)]])],
+		[[test -z "$NPM"]],
+			[AS_IF([[test -f "$srcdir/htdocs/index.html"]],
+				[AM_MISSING_PROG([NPM], [[npm]])
+				AC_MSG_NOTICE([[
+
+npm not found, but a prebuilt web interface seems to be present.
+If you modify any web interface files, you will need to install it.
+
+				]])],
+				[AC_MSG_ERROR([[npm required, please install it.]])])
+			]
+	)])
 AM_CONDITIONAL([COND_WEBINTERFACE], [[test "x$enable_webinterface" = "xyes"]])
 
 dnl Creating and defining users and groups
