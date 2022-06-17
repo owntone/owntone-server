@@ -21,7 +21,7 @@ jobs:
       run: |
         autoreconf -vi
         ./configure
-        make web-build
+        make web
         make
         make check
         make distcheck

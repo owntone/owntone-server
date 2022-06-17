@@ -72,7 +72,7 @@ jobs:
         export LD_LIBRARY_PATH=$(brew --prefix openssl)/lib
         export CPATH=$(brew --prefix openssl)/include
         export PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig
-        make web-build
+        make web
         make
 
     - name: Install
