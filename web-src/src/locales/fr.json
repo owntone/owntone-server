@@ -472,7 +472,7 @@
         "spotify": {
           "no-support": "L’option Spotify n’est pas présente.",
           "logged-as": "Connecté en tant que ",
-          "requirements": "Vous devez posséder un compte Spotify Premium. De plus, si vous vous connectez habituellement à Spotify avec votre compte Facebook, Apple, ou Google, vous devez d’abord vous rendre sur le site de Spotify pour obtenir le nom d’utilisateur et le mot de passe correspondant à votre compte. ",
+          "requirements": "Vous devez posséder un compte Spotify Premium.",
           "scopes": "L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
           "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",

@@ -472,7 +472,7 @@
         "spotify": {
           "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
           "logged-as": "Logged in as ",
-          "requirements": "You must have a Spotify premium account. Moreover, if you normally log into Spotify with your Facebook, Apple, or Google account you must first go to Spotify web site where you can get the Spotify username and password that matches your account.",
+          "requirements": "You must have a Spotify premium account.",
           "scopes": "Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
           "user": "Access granted for ",
           "authorize": "Authorize Web API access",
