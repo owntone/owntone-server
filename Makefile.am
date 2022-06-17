@@ -119,5 +119,11 @@ web-serve:
 web-dist: web-build
 	tar -czf owntone-web-$(PACKAGE_VERSION).tar.gz htdocs
 
-.PHONY: web web-clean web-serve web-dist
+web-lint:
+	$(MAKE) web-lint -C web-src
+
+web-format:
+	$(MAKE) web-format -C web-src
+
+.PHONY: web web-clean web-serve web-dist web-lint web-format
 
