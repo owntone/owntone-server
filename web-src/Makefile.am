@@ -31,7 +31,7 @@ HTDOCS_DIR = ../htdocs
 web-serve: node_modules
 	npm run serve
 
-web-build: node_modules
+web: node_modules
 	npm run build
 
 web-update:
@@ -64,4 +64,4 @@ web-clean-all: web-clean
 node_modules: $(PKG_CONF)
 	npm clean-install
 
-.PHONY: web-serve web-build web-update web-lint web-format web-clean web-clean-all
+.PHONY: web-serve web web-update web-lint web-format web-clean web-clean-all

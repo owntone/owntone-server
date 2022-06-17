@@ -107,8 +107,8 @@ $(SYSTEMD_SERVICE_FILE): $(srcdir)/$(SYSTEMD_SERVICE_FILE).in
 
 $(SYSTEMD_TSERVICE_FILE): $(srcdir)/$(SYSTEMD_TSERVICE_FILE).in
 
-web-build:
-	$(MAKE) web-build -C web-src
+web:
+	$(MAKE) web -C web-src
 
 web-clean:
 	$(MAKE) web-clean -C web-src
@@ -119,5 +119,5 @@ web-serve:
 web-dist: web-build
 	tar -czf owntone-web-$(PACKAGE_VERSION).tar.gz htdocs
 
-.PHONY: web-build web-clean web-serve web-dist
+.PHONY: web web-clean web-serve web-dist
 
