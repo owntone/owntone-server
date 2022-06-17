@@ -15,10 +15,6 @@
         <div v-if="spotify.spotify_installed">
           <div class="notification is-size-7">
             <span v-text="$t('page.settings.services.spotify.requirements')" />
-            <span
-              v-if="use_libspotity"
-              v-text="$t('page.settings.services.spotify.help')"
-            />
           </div>
           <div class="fd-has-margin-top">
             <p
