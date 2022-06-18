@@ -22,3 +22,8 @@ htdocsassetsdir = $(datadir)/owntone/htdocs/assets
 dist_htdocsassets_DATA = \
 	assets/index.css \
 	assets/index.js
+
+$(WEBINTERFACE_SRC):
+	if test ! -f "$(srcdir)/$(WEBINTERFACE_SRC)"; \
+		then $(error Web interface files are missing! Did you run "make web"?); \
+	fi;
