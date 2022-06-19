@@ -265,12 +265,13 @@
     "artist": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks",
       "sort-by": {
         "title": "Sort by",
         "name": "Name",
+        "rating": "Rating",
         "release-date": "Release date"
-      }
+      },
+      "track-count": "{count} tracks"
     },
     "artists": {
       "count": "{count} artists",
@@ -296,7 +297,7 @@
         "title": "Audiobooks"
       },
       "artist": {
-        "albums-count": "{count} albums",
+        "album-count": "{count} albums",
         "shuffle": "Shuffle"
       },
       "artists": {
@@ -332,6 +333,11 @@
     "composer": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
+      "sort-by": {
+        "title": "Sort by",
+        "name": "Name",
+        "rating": "Rating"
+      },
       "track-count": "{count} tracks"
     },
     "composers": {
@@ -345,6 +351,11 @@
     "genre": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
+      "sort-by": {
+        "title": "Sort by",
+        "name": "Name",
+        "rating": "Rating"
+      },
       "track-count": "{count} tracks"
     },
     "genres": {
@@ -356,7 +367,7 @@
       "title": "Your play queue is empty"
     },
     "playlist": {
-      "length": "{length} tracks",
+      "count": "{count} tracks",
       "shuffle": "Shuffle"
     },
     "playlists": {

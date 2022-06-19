@@ -2,7 +2,20 @@
   <div>
     <content-with-heading>
       <template #options>
-        <index-button-list :index="index_list" />
+        <index-button-list :index="tracks.indexList" />
+        <div class="columns">
+          <div class="column">
+            <p
+              class="heading"
+              style="margin-bottom: 24px"
+              v-text="$t('page.genre.sort-by.title')"
+            />
+            <dropdown-menu
+              v-model="selected_groupby_option_id"
+              :options="groupby_options"
+            />
+          </div>
+        </div>
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="genre.name" />
@@ -35,7 +48,7 @@
             v-text="$t('page.genre.track-count', { count: genre.track_count })"
           />
         </p>
-        <list-tracks :tracks="tracks.items" :expression="expression" />
+        <list-tracks :tracks="tracks" :expression="expression" />
         <modal-dialog-genre
           :show="show_genre_details_modal"
           :genre="genre"
@@ -48,10 +61,13 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import DropdownMenu from '@/components/DropdownMenu.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
+import * as types from '@/store/mutation_types'
+import { byName, byRating, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -63,7 +79,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.genre = response[0].data
-    vm.tracks = response[1].data.tracks
+    vm.tracks_list = new GroupByList(response[1].data.tracks)
   }
 }
 
@@ -71,8 +87,9 @@ export default {
   name: 'PageGenreTracks',
   components: {
     ContentWithHeading,
-    ListTracks,
+    DropdownMenu,
     IndexButtonList,
+    ListTracks,
     ModalDialogGenre
   },
 
@@ -91,26 +108,44 @@ export default {
 
   data() {
     return {
-      tracks: { items: [] },
-      genre: '',
-
-      show_genre_details_modal: false
+      genre: {},
+      groupby_options: [
+        {
+          id: 1,
+          name: this.$t('page.genre.sort-by.name'),
+          options: byName('title_sort')
+        },
+        {
+          id: 2,
+          name: this.$t('page.genre.sort-by.rating'),
+          options: byRating('rating', {
+            direction: 'desc'
+          })
+        }
+      ],
+      show_genre_details_modal: false,
+      tracks_list: new GroupByList()
     }
   },
 
   computed: {
-    index_list() {
-      return [
-        ...new Set(
-          this.tracks.items.map((track) =>
-            track.title_sort.charAt(0).toUpperCase()
-          )
-        )
-      ]
-    },
-
     expression() {
       return 'genre is "' + this.genre.name + '" and media_kind is music'
+    },
+    selected_groupby_option_id: {
+      get() {
+        return this.$store.state.genre_tracks_sort
+      },
+      set(value) {
+        this.$store.commit(types.GENRE_TRACKS_SORT, value)
+      }
+    },
+    tracks() {
+      const groupBy = this.groupby_options.find(
+        (o) => o.id === this.selected_groupby_option_id
+      )
+      this.tracks_list.group(groupBy.options)
+      return this.tracks_list
     }
   },
 

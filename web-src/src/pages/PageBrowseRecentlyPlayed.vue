@@ -10,7 +10,7 @@
         <p class="heading" v-text="$t('page.browse.recently-played.tracks')" />
       </template>
       <template #content>
-        <list-tracks :tracks="recently_played.items" />
+        <list-tracks :tracks="recently_played" />
       </template>
     </content-with-heading>
   </div>
@@ -21,6 +21,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -33,7 +34,7 @@ const dataObject = {
   },
 
   set: function (vm, response) {
-    vm.recently_played = response.data.tracks
+    vm.recently_played = new GroupByList(response.data.tracks)
   }
 }
 

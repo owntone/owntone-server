@@ -288,7 +288,6 @@ export const router = createRouter({
   ],
   scrollBehavior(to, from, savedPosition) {
     const wait_ms = 0
-    // console.log(to.path + '_' + from.path + '__' + to.hash + ' savedPosition:' + savedPosition)
     if (savedPosition) {
       // We have saved scroll position (browser back/forward navigation), use this position
       return new Promise((resolve, reject) => {

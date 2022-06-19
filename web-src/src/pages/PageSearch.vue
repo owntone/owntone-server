@@ -45,7 +45,7 @@
         <p class="title is-4" v-text="$t('page.search.tracks')" />
       </template>
       <template #content>
-        <list-tracks :tracks="tracks.items" />
+        <list-tracks :tracks="tracks" />
       </template>
       <template #footer>
         <nav v-if="show_all_tracks_button" class="level">
@@ -275,7 +275,7 @@ export default {
   data() {
     return {
       search_query: '',
-      tracks: { items: [], total: 0 },
+      tracks: new GroupByList(),
       artists: new GroupByList(),
       albums: new GroupByList(),
       composers: new GroupByList(),
@@ -407,7 +407,7 @@ export default {
       }
 
       webapi.search(searchParams).then(({ data }) => {
-        this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
+        this.tracks = new GroupByList(data.tracks)
         this.artists = new GroupByList(data.artists)
         this.albums = new GroupByList(data.albums)
         this.composers = new GroupByList(data.composers)

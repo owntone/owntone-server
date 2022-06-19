@@ -265,15 +265,16 @@
     "artist": {
       "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes",
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
+        "rating": "Classement",
         "release-date": "Date de sortie"
-      }
+      },
+      "track-count": "{count} pistes"
     },
     "artists": {
-      "count": "{count} artists",
+      "count": "{count} artistes",
       "filter": "Filtre",
       "sort-by": {
         "title": "Trier par",
@@ -295,8 +296,8 @@
         "count": "{count} livres audio",
         "title": "Livres audio"
       },
-      "artiste": {
-        "albums-count": "{count} albums",
+      "artist": {
+        "album-count": "{count} albums",
         "shuffle": "Lecture aléatoire"
       },
       "artists": {
@@ -332,6 +333,11 @@
     "composer": {
       "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
+      "sort-by": {
+        "title": "Trier par",
+        "name": "Nom",
+        "rating": "Classement"
+      },
       "track-count": "{count} pistes"
     },
     "composers": {
@@ -345,6 +351,11 @@
     "genre": {
       "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
+      "sort-by": {
+        "title": "Trier par",
+        "name": "Nom",
+        "rating": "Classement"
+      },
       "track-count": "{count} pistes"
     },
     "genres": {
@@ -356,7 +367,7 @@
       "title": "La file d’attente est vide"
     },
     "playlist": {
-      "length": "{length} pistes",
+      "count": "{count} pistes",
       "shuffle": "Lecture aléatoire"
     },
     "playlists": {

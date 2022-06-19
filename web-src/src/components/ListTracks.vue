@@ -1,40 +1,47 @@
 <template>
-  <div
-    v-for="(track, index) in tracks"
-    :id="'index_' + track.title_sort.charAt(0).toUpperCase()"
-    :key="track.id"
-    class="media"
-    :class="{ 'with-progress': show_progress }"
-    @click="play_track(index, track)"
-  >
-    <figure v-if="show_icon" class="media-left fd-has-action">
-      <span class="icon"><mdicon name="file-outline" size="16" /></span>
-    </figure>
-    <div class="media-content fd-has-action is-clipped">
-      <h1
-        class="title is-6"
-        :class="{
-          'has-text-grey':
-            track.media_kind === 'podcast' && track.play_count > 0
-        }"
-        v-text="track.title"
-      />
-      <h2 class="subtitle is-7 has-text-grey" v-text="track.artist" />
-      <h2 class="subtitle is-7 has-text-grey" v-text="track.album" />
-      <progress-bar
-        v-if="show_progress"
-        :max="track.length_ms"
-        :value="track.seek_ms"
+  <template v-for="track in tracks" :key="track.itemId">
+    <div v-if="!track.isItem" class="mt-6 mb-5 py-2">
+      <span
+        :id="'index_' + track.groupKey"
+        class="tag is-info is-light is-small has-text-weight-bold"
+        v-text="track.groupKey"
       />
     </div>
-    <div class="media-right">
-      <a @click.prevent.stop="open_dialog(track)">
-        <span class="icon has-text-dark"
-          ><mdicon name="dots-vertical" size="16"
-        /></span>
-      </a>
+    <div
+      v-else-if="track.isItem"
+      class="media"
+      :class="{ 'with-progress': show_progress }"
+      @click="play_track(index, track.item)"
+    >
+      <figure v-if="show_icon" class="media-left fd-has-action">
+        <span class="icon"><mdicon name="file-outline" size="16" /></span>
+      </figure>
+      <div class="media-content fd-has-action is-clipped">
+        <h1
+          class="title is-6"
+          :class="{
+            'has-text-grey':
+              track.item.media_kind === 'podcast' && track.item.play_count > 0
+          }"
+          v-text="track.item.title"
+        />
+        <h2 class="subtitle is-7 has-text-grey" v-text="track.item.artist" />
+        <h2 class="subtitle is-7 has-text-grey" v-text="track.item.album" />
+        <progress-bar
+          v-if="show_progress"
+          :max="track.item.length_ms"
+          :value="track.item.seek_ms"
+        />
+      </div>
+      <div class="media-right">
+        <a @click.prevent.stop="open_dialog(track.item)">
+          <span class="icon has-text-dark"
+            ><mdicon name="dots-vertical" size="16"
+          /></span>
+        </a>
+      </div>
     </div>
-  </div>
+  </template>
   <teleport to="#app">
     <modal-dialog-track
       :show="show_details_modal"
