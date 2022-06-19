@@ -87,8 +87,8 @@
     "queue-item": {
       "album-artist": "Album Artist",
       "album": "Album",
-      "bitrate": "{'|'} {rate} kbit/s",
-      "channels": "{'|'} {channels}",
+      "bitrate": " {'|'} {rate} kbit/s",
+      "channels": " {'|'} {channels}",
       "composer": "Composer",
       "duration": "Duration",
       "genre": "Genre",
@@ -97,7 +97,7 @@
       "position": "Disc / Track",
       "quality": "Quality",
       "remove": "Remove",
-      "samplerate": "{'|'} {rate} Hz",
+      "samplerate": " {'|'} {rate} Hz",
       "spotify-album": "album",
       "spotify-artist": "artist",
       "type": "Type",
@@ -150,7 +150,7 @@
       "added-on": "Added On",
       "album-artist": "Album Artist",
       "album": "Album",
-      "bitrate": " {'|'} {rate} Kb/s",
+      "bitrate": " {'|'} {rate} kbit/s",
       "channels": " {'|'} {channels}",
       "comment": "Comment",
       "composer": "Composer",
@@ -544,5 +544,10 @@
     "today": "Today",
     "last-week": "Last week",
     "last-month": "Last month"
+  },
+  "filter": {
+    "mono": "mono",
+    "stereo": "stereo",
+    "channels": "{count} channels"
   }
 }

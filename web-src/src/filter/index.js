@@ -1,4 +1,7 @@
 import { DateTime, Duration } from 'luxon'
+import i18n from '@/i18n'
+
+const { t, locale } = i18n.global
 
 export const filters = {
   durationInHours: function (value_ms) {
@@ -31,11 +34,11 @@ export const filters = {
   },
 
   date: function (value) {
-    return DateTime.fromISO(value).toLocaleString(DateTime.DATE_FULL)
+    return DateTime.fromISO(value).setLocale(locale.value).toLocaleString(DateTime.DATE_FULL)
   },
 
   datetime: function (value) {
-    return DateTime.fromISO(value).toLocaleString(DateTime.DATETIME_MED)
+    return DateTime.fromISO(value).setLocale(locale.value).toLocaleString(DateTime.DATETIME_MED)
   },
 
   timeFromNow: function (value) {
@@ -45,19 +48,19 @@ export const filters = {
   },
 
   number: function (value) {
-    return value.toLocaleString()
+    return value.toLocaleString(locale.value)
   },
 
   channels: function (value) {
     if (value === 1) {
-      return 'mono'
+      return t('filter.mono')
     }
     if (value === 2) {
-      return 'stereo'
+      return t('filter.stereo')
     }
     if (!value) {
       return ''
     }
-    return value + ' channels'
+    return t('filter.channels', { value })
   }
 }
