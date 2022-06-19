@@ -85,7 +85,12 @@
                   <span class="heading" v-text="$t('dialog.queue-item.type')" />
                   <span class="title is-6">
                     <span
-                      v-text="[item.media_kind, item.data_kind].join(' - ')"
+                      v-text="
+                        [
+                          $t('media.kind.' + item.media_kind),
+                          $t('data.kind.' + item.data_kind)
+                        ].join(' - ')
+                      "
                     />
                     <span
                       v-if="item.data_kind === 'spotify'"

@@ -1,14 +1,18 @@
 import axios from 'axios'
 import store from '@/store'
+import i18n from '@/i18n'
+
+const { t } = i18n.global
 
 axios.interceptors.response.use(
   function (response) {
     return response
   },
   function (error) {
+    console.log(i18n)
     if (error.request.status && error.request.responseURL) {
       store.dispatch('add_notification', {
-        text: this.$t('server.request-failed', {
+        text: t('server.request-failed', {
           status: error.request.status,
           cause: error.request.statusText,
           url: error.request.responseURL
@@ -81,7 +85,7 @@ export default {
   queue_add(uri) {
     return axios.post('./api/queue/items/add?uris=' + uri).then((response) => {
       store.dispatch('add_notification', {
-        text: this.$t('server.appended-tracks', { count: response.data.count }),
+        text: t('server.appended-tracks', { count: response.data.count }),
         type: 'info',
         timeout: 2000
       })
@@ -98,7 +102,7 @@ export default {
       .post('./api/queue/items/add?uris=' + uri + '&position=' + position)
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', {
+          text: t('server.appended-tracks', {
             count: response.data.count
           }),
           type: 'info',
@@ -116,7 +120,7 @@ export default {
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', {
+          text: t('server.appended-tracks', {
             count: response.data.count
           }),
           type: 'info',
@@ -138,7 +142,7 @@ export default {
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', {
+          text: t('server.appended-tracks', {
             count: response.data.count
           }),
           type: 'info',
@@ -153,7 +157,7 @@ export default {
       .post('./api/queue/save', undefined, { params: { name: name } })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.queue-saved', { name: name }),
+          text: t('server.queue-saved', { name: name }),
           type: 'info',
           timeout: 2000
         })

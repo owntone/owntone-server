@@ -1,3 +1,6 @@
+import i18n from '@/i18n'
+
+const { t, locale } = i18n.global
 const GROUP_KEY_NONE = 'GROUP_KEY_NONE'
 
 export function noop() {
@@ -29,7 +32,7 @@ export function byName(field, defaultValue = '_') {
       const fieldA = a[field] || defaultValue
       const fieldB = b[field] || defaultValue
 
-      return fieldA.localeCompare(fieldB)
+      return fieldA.localeCompare(fieldB, locale.value)
     },
 
     groupKeyFn: (item) => {
@@ -45,7 +48,7 @@ export function byYear(field, { direction = 'asc', defaultValue = '0000' }) {
       const fieldA = a[field] || defaultValue
       const fieldB = b[field] || defaultValue
 
-      const result = fieldA.localeCompare(fieldB)
+      const result = fieldA.localeCompare(fieldB, locale.value)
       return direction === 'asc' ? result : result * -1
     },
 
@@ -62,7 +65,7 @@ export function byDateSinceToday(field, defaultValue = '0000') {
       const fieldA = a[field] || defaultValue
       const fieldB = b[field] || defaultValue
 
-      return fieldB.localeCompare(fieldA)
+      return fieldB.localeCompare(fieldA, locale.value)
     },
 
     groupKeyFn: (item) => {
@@ -76,13 +79,13 @@ export function byDateSinceToday(field, defaultValue = '0000') {
 
       if (diff < 86400000) {
         // 24h
-        return 'Today'
+        return t('group-by-list.today')
       } else if (diff < 604800000) {
         // 7 days
-        return 'Last week'
+        return t('group-by-list.last-week')
       } else if (diff < 2592000000) {
         // 30 days
-        return 'Last month'
+        return t('group-by-list.last-month')
       }
       return fieldValue.substring(0, 4)
     }
