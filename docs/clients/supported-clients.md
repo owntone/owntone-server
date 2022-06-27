@@ -6,7 +6,7 @@ OwnTone supports these kinds of clients:
 - Remote clients, like Apple Remote or compatibles for Android/Windows Phone
 - AirPlay devices, like AirPort Express, Shairport and various AirPlay speakers
 - Chromecast devices
-- MPD clients, like mpc (see [mpd-clients](#mpd-clients))
+- MPD clients, like mpc
 - MP3 network stream clients, like VLC and almost any other music player
 - RSP clients, like Roku Soundbridge
 

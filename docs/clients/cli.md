@@ -2,8 +2,8 @@
 
 You can choose between:
 
-- a [MPD command line client](#mpd-clients) (easiest) like `mpc`
-- curl with OwnTone's JSON API (see [README_JSON_API.md](https://github.com/owntone/owntone-server/blob/master/README_JSON_API.md))
+- a [MPD command line client](mpd.md) (easiest) like `mpc`
+- curl with OwnTone's JSON API (see [JSON API docs](json-api.md))
 - curl with DAAP/DACP commands (hardest)
 
 Here is an example of how to use curl with DAAP/DACP. Say you have a playlist
