@@ -336,6 +336,8 @@ static void sql_append_recursive(struct smartpl_result *result, struct result_pa
       break;
     case SQL_APPEND_PARENS:
       assert(a->r == NULL);
+      if (is_not ? op_not : op)
+        sql_append(result, part, "%s ", is_not ? op_not : op);
       sql_append(result, part, "(");
       sql_from_ast(result, part, a->l);
       sql_append(result, part, ")");
@@ -426,7 +428,7 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
     case SMARTPL_T_RANDOM:
       sql_append_recursive(result, part, a, "random()", NULL, 0, SQL_APPEND_ORDER); break;
     case SMARTPL_T_PARENS:
-      sql_append_recursive(result, part, a, NULL, NULL, 0, SQL_APPEND_PARENS); break;
+      sql_append_recursive(result, part, a, NULL, "NOT", is_not, SQL_APPEND_PARENS); break;
     default:
       snprintf(result->errmsg, sizeof(result->errmsg), "Parser produced unrecognized AST type %d", a->type);
       result->err = -1;
@@ -533,7 +535,9 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %token <ival> SMARTPL_T_AFTER
 %token <ival> SMARTPL_T_AGO
 
-%left SMARTPL_T_OR SMARTPL_T_AND
+%left SMARTPL_T_OR
+%left SMARTPL_T_AND
+%left SMARTPL_T_NOT
 
 %type <ast> criteria
 %type <ast> predicate
@@ -565,13 +569,13 @@ playlist:
 criteria: criteria SMARTPL_T_AND criteria                   { $$ = ast_new(SMARTPL_T_AND, $1, $3); }
 | criteria SMARTPL_T_OR criteria                            { $$ = ast_new(SMARTPL_T_OR, $1, $3); }
 | '(' criteria ')'                                          { $$ = ast_new(SMARTPL_T_PARENS, $2, NULL); }
+| SMARTPL_T_NOT criteria                                    { struct ast *a = $2; a->type |= INVERT_MASK; $$ = $2; }
 | predicate
 ;
 
 predicate: SMARTPL_T_STRTAG strbool SMARTPL_T_STRING        { $$ = ast_new($2, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_STRING, $3)); }
 | SMARTPL_T_INTTAG intbool SMARTPL_T_NUM                    { $$ = ast_new($2, ast_data(SMARTPL_T_INTTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
 | SMARTPL_T_DATETAG datebool dateexpr                       { $$ = ast_new($2, ast_data(SMARTPL_T_DATETAG, $1), $3); }
-| SMARTPL_T_NOT predicate                                   { struct ast *a = $2; a->type |= INVERT_MASK; $$ = $2; }
 | enumexpr
 ;
 

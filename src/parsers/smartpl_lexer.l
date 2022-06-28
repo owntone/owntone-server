@@ -56,7 +56,7 @@ yyyymmdd  [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]
 
 %%
 
-[\n\t ]+       /* Ignore whitespace */
+[\n\r\t ]+     /* Ignore whitespace */
 \#.*\n         /* Ignore comments */
 
 artist         { yylval->str = strdup(yytext); return SMARTPL_T_STRTAG; }
