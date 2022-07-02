@@ -336,6 +336,7 @@ audio {
 #}
 
 # Chromecast settings
+# Owntone will scan and detect devices so this section can be left alone unless want to ignore/exclude devices
 # (make sure you get the capitalization of the device name right)
 #chromecast "My Chromecast device" {
 	# OwnTone's volume goes to 11! If that's more than you can handle
