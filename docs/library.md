@@ -98,3 +98,20 @@ you can trigger a full rescan of your library. This will clear all music and
 playlists from OwnTone's database and initiate a fresh bulk scan. Pairing
 and speaker information will be kept. Only use this for troubleshooting, it is
 not necessary during normal operation.
+
+If some music files are missing from the library after scanning, check the filenames.
+OwnTone will ignore non-media files (for example, \*.pdf), but will also ignore any files
+that start with:
+
+  * `.`
+  * `_`
+
+You can look for filenames like this with the following command line:
+
+    cd /full/path/of/music
+    find . -name \.\*
+    find . -name \_\*
+
+If any files are found and they are real music files, they will need to be renamed before scanning again.
+
+If some files are including or being scanned that should not be in the library, edit "/etc/owntone.conf" and look for the `filepath_ignore` and `filetypes_ignore` config options.
