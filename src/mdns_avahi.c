@@ -226,7 +226,6 @@ ev_watch_free(AvahiWatch *w)
   free(w);
 }
 
-
 static int
 _ev_timeout_add(AvahiTimeout *t, const struct timeval *tv)
 {
@@ -446,16 +445,42 @@ avahi_address_make(AvahiAddress *addr, AvahiProtocol proto, const void *rdata, s
   return -1;
 }
 
-// Frees all resolvers for a given service name
+// Creates a resolver and adds to list
+static int
+resolver_add(struct mdns_resolver **head, AvahiIfIndex intf, AvahiProtocol proto,
+             const char *name, const char *type, const char *domain,
+             AvahiServiceResolverCallback cb, void *user_data)
+{
+  struct mdns_resolver *r;
+
+  CHECK_NULL(L_MDNS, r = calloc(1, sizeof(struct mdns_resolver)));
+
+  r->resolver = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, AVAHI_PROTO_UNSPEC, 0, cb, user_data);
+  if (!r->resolver)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n", MDNSERR);
+      free(r);
+      return -1;
+    }
+
+  r->name = strdup(name);
+  r->proto = proto;
+  r->next = *head;
+  *head = r;
+
+  return 0;
+}
+
+// Frees all resolvers for a given service name and removes from list
 static void
-resolvers_cleanup(const char *name, AvahiProtocol proto)
+resolver_remove(struct mdns_resolver **head, const char *name, AvahiProtocol proto)
 {
   struct mdns_resolver *r;
   struct mdns_resolver *prev;
   struct mdns_resolver *next;
 
   prev = NULL;
-  for (r = resolver_list; r; r = next)
+  for (r = *head; r; r = next)
     {
       next = r->next;
 
@@ -466,13 +491,59 @@ resolvers_cleanup(const char *name, AvahiProtocol proto)
 	}
 
       if (!prev)
-	resolver_list = r->next;
+	*head = r->next;
       else
 	prev->next = r->next;
 
       avahi_service_resolver_free(r->resolver);
       free(r->name);
       free(r);
+    }
+}
+
+static void
+resolver_remove_all(struct mdns_resolver **head)
+{
+  struct mdns_resolver *r;
+
+  for (r = *head; *head; r = *head)
+    {
+      *head = r->next;
+
+      avahi_service_resolver_free(r->resolver);
+      free(r->name);
+      free(r);
+    }
+}
+
+static void
+group_entry_remove_all(struct mdns_group_entry **head)
+{
+  struct mdns_group_entry *ge;
+
+  for (ge = *head; *head; ge = *head)
+    {
+      *head = ge->next;
+
+      free(ge->name);
+      free(ge->type);
+      avahi_string_list_free(ge->txt);
+
+      free(ge);
+    }
+}
+
+static void
+browser_remove_all(struct mdns_browser **head)
+{
+  struct mdns_browser *mb;
+
+  for (mb = *head; *head; mb = *head)
+    {
+      *head = mb->next;
+
+      free(mb->type);
+      free(mb);
     }
 }
 
@@ -753,11 +824,8 @@ static void
 browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, AvahiBrowserEvent event,
 		const char *name, const char *type, const char *domain, AvahiLookupResultFlags flags, void *userdata)
 {
-  struct mdns_browser *mb;
-  struct mdns_resolver *r;
+  struct mdns_browser *mb = userdata;
   int family;
-
-  mb = (struct mdns_browser *)userdata;
 
   switch (event)
     {
@@ -778,20 +846,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
       case AVAHI_BROWSER_NEW:
 	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: NEW service '%s' type '%s' proto %d\n", name, type, proto);
 
-	CHECK_NULL(L_MDNS, r = calloc(1, sizeof(struct mdns_resolver)));
-
-	r->resolver = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, AVAHI_PROTO_UNSPEC, 0, browse_resolve_callback, mb);
-	if (!r->resolver)
-	  {
-	    DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n", MDNSERR);
-	    free(r);
-	    return;
-	  }
-
-	r->name = strdup(name);
-	r->proto = proto;
-	r->next = resolver_list;
-	resolver_list = r;
+	resolver_add(&resolver_list, intf, proto, name, type, domain, browse_resolve_callback, mb);
 
 	break;
 
@@ -802,7 +857,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 	if (family != AF_UNSPEC)
 	  mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
 
-	resolvers_cleanup(name, proto);
+	resolver_remove(&resolver_list, name, proto);
 
 	break;
 
@@ -1000,6 +1055,10 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
 	  {
 	    DPRINTF(E_LOG, L_MDNS, "Avahi Server disconnected, reconnecting\n");
 
+	    // All resolvers are lost, free our list. Must be done before freeing
+	    // mdns_client below, otherwise r->resolver will be invalid.
+	    resolver_remove_all(&resolver_list);
+
 	    avahi_client_free(mdns_client);
 	    mdns_group = NULL;
 
@@ -1035,17 +1094,10 @@ mdns_init(void)
 
   DPRINTF(E_DBG, L_MDNS, "Initializing Avahi mDNS\n");
 
-  all_w = NULL;
-  all_t = NULL;
-  group_entries = NULL;
-  browser_list = NULL;
-
-  mdns_client = avahi_client_new(&ev_poll_api, AVAHI_CLIENT_NO_FAIL,
-				 client_callback, NULL, &error);
+  mdns_client = avahi_client_new(&ev_poll_api, AVAHI_CLIENT_NO_FAIL, client_callback, NULL, &error);
   if (!mdns_client)
     {
       DPRINTF(E_WARN, L_MDNS, "mdns_init: Could not create Avahi client: %s\n", avahi_strerror(error));
-
       return -1;
     }
 
@@ -1055,46 +1107,12 @@ mdns_init(void)
 void
 mdns_deinit(void)
 {
-  struct mdns_group_entry *ge;
-  struct mdns_browser *mb;
-  AvahiWatch *w;
-  AvahiTimeout *t;
-
-  for (t = all_t; t; t = t->next)
-    if (t->ev)
-      {
-	event_free(t->ev);
-	t->ev = NULL;
-      }
-
-  for (w = all_w; w; w = w->next)
-    if (w->ev)
-      {
-	event_free(w->ev);
-	w->ev = NULL;
-      }
-
-  for (ge = group_entries; group_entries; ge = group_entries)
-    {
-      group_entries = ge->next;
-
-      free(ge->name);
-      free(ge->type);
-      avahi_string_list_free(ge->txt);
-
-      free(ge);
-    }
-
-  for (mb = browser_list; browser_list; mb = browser_list)
-    {
-      browser_list = mb->next;
-
-      free(mb->type);
-      free(mb);
-    }
+  group_entry_remove_all(&group_entries);
+  browser_remove_all(&browser_list);
+  resolver_remove_all(&resolver_list);
 
   if (mdns_client)
-    avahi_client_free(mdns_client);
+    avahi_client_free(mdns_client); // Also frees all_w and all_t
 }
 
 int
