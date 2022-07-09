@@ -21,6 +21,8 @@ You can do this by using "Update library" from the web interface.
 Symlinks are supported and dereferenced, but it is best to use them for
 directories only.
 
+Files starting with . (dot) and _ (underscore) are ignored.
+
 
 ## Pipes (for e.g. multiroom with Shairport-sync)
 
