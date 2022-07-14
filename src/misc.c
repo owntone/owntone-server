@@ -50,6 +50,7 @@
 
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <ifaddrs.h> // getifaddrs
 
 #include <unistr.h>
 #include <uniconv.h>
@@ -160,13 +161,13 @@ net_peer_address_is_trusted(const char *addr)
 int
 net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr)
 {
-  const char *s;
+  const char *s = NULL;
 
   memset(addr, 0, addr_len); // Just in case caller doesn't check for errors
 
   if (naddr->sa.sa_family == AF_INET6)
      s = inet_ntop(AF_INET6, &naddr->sin6.sin6_addr, addr, addr_len);
-  else
+  else if (naddr->sa.sa_family == AF_INET)
      s = inet_ntop(AF_INET, &naddr->sin.sin_addr, addr, addr_len);
 
   if (!s)
@@ -180,10 +181,43 @@ net_port_get(short unsigned *port, union net_sockaddr *naddr)
 {
   if (naddr->sa.sa_family == AF_INET6)
      *port = ntohs(naddr->sin6.sin6_port);
-  else
+  else if (naddr->sa.sa_family == AF_INET)
      *port = ntohs(naddr->sin.sin_port);
+  else
+    return -1;
 
   return 0;
+}
+
+int
+net_if_get(char *ifname, size_t ifname_len, const char *addr)
+{
+  struct ifaddrs *ifaddrs;
+  struct ifaddrs *iap;
+  char s[64];
+
+  memset(ifname, 0, ifname_len);
+
+  getifaddrs(&ifaddrs);
+
+  for (iap = ifaddrs; iap; iap = iap->ifa_next)
+    {
+      if (!iap->ifa_addr)
+	continue;
+
+      if (net_address_get(s, sizeof(s), (union net_sockaddr *)iap->ifa_addr) < 0)
+	continue;
+
+      if (strcmp(s, addr) != 0)
+	continue;
+
+      snprintf(ifname, ifname_len, "%s", iap->ifa_name);
+      break;
+    }
+
+  freeifaddrs(ifaddrs);
+
+  return (ifname[0] != 0) ? 0 : -1;
 }
 
 int

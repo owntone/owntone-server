@@ -43,6 +43,9 @@ net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr);
 int
 net_port_get(short unsigned *port, union net_sockaddr *naddr);
 
+int
+net_if_get(char *ifname, size_t ifname_len, const char *addr);
+
 // Returns the socket fd from socket(), -1 on error
 int
 net_connect(const char *addr, unsigned short port, int type, const char *log_service_name);
