@@ -65,6 +65,7 @@ extern struct event_base *evbase_main;
 
 static AvahiClient *mdns_client = NULL;
 static AvahiEntryGroup *mdns_group = NULL;
+static AvahiIfIndex mdns_interface = AVAHI_IF_UNSPEC;
 
 
 struct AvahiWatch
@@ -443,6 +444,32 @@ avahi_address_make(AvahiAddress *addr, AvahiProtocol proto, const void *rdata, s
 
   DPRINTF(E_LOG, L_MDNS, "Error: Unknown protocol\n");
   return -1;
+}
+
+static AvahiIfIndex
+interface_index_get(const char *addr)
+{
+  char ifname[64];
+  unsigned int index;
+  int ret;
+
+  ret = net_if_get(ifname, sizeof(ifname), addr);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Could not find network interface matching address %s\n", addr);
+      return AVAHI_IF_UNSPEC;
+    }
+
+  index = if_nametoindex(ifname);
+  if (index == 0)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Could not find index of network interface %s: %s\n", ifname, strerror(errno));
+      return AVAHI_IF_UNSPEC;
+    }
+
+  DPRINTF(E_DBG, L_MDNS, "Using network interface %s (index %u)\n", ifname, index);
+
+  return (AvahiIfIndex)index;
 }
 
 // Creates a resolver and adds to list
@@ -834,7 +861,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 
 	avahi_service_browser_free(b);
 
-	b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
+	b = avahi_service_browser_new(mdns_client, mdns_interface, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
 	if (!b)
 	  {
 	    DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type, MDNSERR);
@@ -923,7 +950,7 @@ create_group_entry(struct mdns_group_entry *ge, int commit)
     {
       DPRINTF(E_DBG, L_MDNS, "Adding service %s/%s\n", ge->name, ge->type);
 
-      ret = avahi_entry_group_add_service_strlst(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0,
+      ret = avahi_entry_group_add_service_strlst(mdns_group, mdns_interface, AVAHI_PROTO_UNSPEC, 0,
 						 ge->name, ge->type,
 						 NULL, NULL, ge->port, ge->txt);
       if (ret < 0)
@@ -966,7 +993,7 @@ create_group_entry(struct mdns_group_entry *ge, int commit)
         }
 
       // ret + 1 should be the string length of rdata incl. 0-terminator
-      ret = avahi_entry_group_add_record(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+      ret = avahi_entry_group_add_record(mdns_group, mdns_interface, AVAHI_PROTO_UNSPEC,
                                          AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_ALLOW_MULTIPLE,
                                          ge->name, AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_CNAME,
                                          AVAHI_DEFAULT_TTL, rdata, ret + 1);
@@ -1035,7 +1062,7 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
 
 	for (mb = browser_list; mb; mb = mb->next)
 	  {
-	    b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
+	    b = avahi_service_browser_new(mdns_client, mdns_interface, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
 	    if (!b)
 	      DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type, MDNSERR);
 	  }
@@ -1090,9 +1117,16 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
 int
 mdns_init(void)
 {
+  const char *cfgaddr;
   int error;
 
   DPRINTF(E_DBG, L_MDNS, "Initializing Avahi mDNS\n");
+
+  cfgaddr = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+  if (cfgaddr)
+    {
+      mdns_interface = interface_index_get(cfgaddr);
+    }
 
   mdns_client = avahi_client_new(&ev_poll_api, AVAHI_CLIENT_NO_FAIL, client_callback, NULL, &error);
   if (!mdns_client)
@@ -1202,7 +1236,7 @@ mdns_browse(char *type, mdns_browse_cb cb, enum mdns_options flags)
   mb->next = browser_list;
   browser_list = mb;
 
-  b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
+  b = avahi_service_browser_new(mdns_client, mdns_interface, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
   if (!b)
     {
       DPRINTF(E_LOG, L_MDNS, "Failed to create service browser: %s\n", MDNSERR);
