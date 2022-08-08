@@ -200,7 +200,7 @@ int smartpl_lex_parse(struct smartpl_result *result, const char *input);
  */
 %code requires {
 struct result_part {
-  char str[4096];
+  char str[8192];
   int offset;
 };
 
