@@ -2,6 +2,16 @@
 # Credit thorsteneckel who made the how-to that is the basis for this
 # script, see https://gist.github.com/thorsteneckel/c0610fb415c8d0486bce
 
+USERNAME=owntone
+USERGROUP=owntone
+SYSCONFDIR=/usr/local/etc
+CONFIG="${SYSCONFDIR}/owntone.conf"
+
+SUDO=sudo
+if [ "$(id -u)" == "0" ]; then
+	SUDO=
+fi
+
 echo "This script will install OwnTone in FreeBSD. The script is not very polished,"
 echo "so you might want to look through it before running it."
 read -p "Continue? [y/N] " yn
@@ -17,11 +27,10 @@ echo "The script can install the following dependency packages for you:"
 echo $DEPS
 read -p "Should the script install these packages? [y/N] " yn
 if [ "$yn" = "y" ]; then
-	sudo pkg install $DEPS;
+	$SUDO pkg install $DEPS;
 fi
 
 WORKDIR=~/owntone_build
-CONFIG=/usr/local/etc/owntone.conf
 read -p "Should the script create $WORKDIR and use it for building? [Y/n] " yn
 if [ "$yn" = "n" ]; then
 	exit
@@ -50,27 +59,39 @@ if [ "$yn" = "y" ]; then
 #export ZLIB_CFLAGS=-I/usr/include
 #export ZLIB_LIBS="-L/usr/lib -lz"
 
-	export CFLAGS="-march=native -g -I/usr/local/include -I/usr/include"
+	# some compilers don't support -march=native, so only try it in likely cases
+	ARCH=
+	UNAME_PROCESSOR=`(uname -p) 2>/dev/null`  || UNAME_PROCESSOR=unknown
+	case "$UNAME_PROCESSOR" in
+		amd64|x86_64|i686|i386)
+			ARCH="-march=native"
+	esac
+
+	export CFLAGS="${ARCH} -g -I/usr/local/include -I/usr/include"
 	export LDFLAGS="-L/usr/local/lib -L/usr/lib"
-	./configure --disable-install-systemd && gmake
+	./configure --disable-install-systemd --with-user=$USERNAME --with-group=$USERGROUP --sysconfdir=$SYSCONFDIR && gmake
 
 	read -p "Should the script install owntone and add service startup scripts? [y/N] " yn
 	if [ "$yn" = "y" ]; then
-		sudo gmake install
+		$SUDO gmake install
 
-		sudo sed -i -- 's/\/var\/cache/\/usr\/local\/var\/cache/g' $CONFIG
+		$SUDO sed -i -- 's/\/var\/cache/\/usr\/local\/var\/cache/g' $CONFIG
 		# Setup user and startup scripts
-		echo "owntone::::::owntone:/nonexistent:/usr/sbin/nologin:" | sudo adduser -w no -D -f -
-		sudo chown -R owntone:owntone /usr/local/var/cache/owntone
+		if $(id $USERNAME >/dev/null 2>&1); then
+		else
+			echo "${USERNAME}::::::${USERGROUP}:/nonexistent:/usr/sbin/nologin:" | $SUDO adduser -w no -D -f -
+		fi
+		
+		$SUDO chown -R ${USERNAME}:${USERGROUP} /usr/local/var/cache/owntone
 		if [ ! -f scripts/freebsd_start.sh ]; then
 			echo "Could not find FreeBSD startup script"
 			exit
 		fi
-		sudo install -m 755 scripts/freebsd_start.sh /usr/local/etc/rc.d/owntone
+		$SUDO install -m 755 scripts/freebsd_start.sh /usr/local/etc/rc.d/owntone
 
 		service owntone enabled
 		if [ $? -ne 0 ]; then
-			sudo sh -c 'echo "owntone_enable=\"YES\"" >> /etc/rc.conf'
+			$SUDO sh -c 'echo "owntone_enable=\"YES\"" >> /etc/rc.conf'
 		fi
 	fi
 
@@ -81,19 +102,19 @@ read -p "Should the script enable and start dbus and avahi-daemon? [y/N] " yn
 if [ "$yn" = "y" ]; then
 	service dbus enabled
 	if [ $? -ne 0 ]; then
-		sudo sh -c 'echo "dbus_enable=\"YES\"" >> /etc/rc.conf'
+		$SUDO sh -c 'echo "dbus_enable=\"YES\"" >> /etc/rc.conf'
 	fi
-	sudo service dbus start
+	$SUDO service dbus start
 
 	service avahi-daemon enabled
 	if [ $? -ne 0 ]; then
-		sudo sh -c 'echo "avahi_daemon_enable=\"YES\"" >> /etc/rc.conf'
+		$SUDO sh -c 'echo "avahi_daemon_enable=\"YES\"" >> /etc/rc.conf'
 	fi
-	sudo service avahi-daemon start
+	$SUDO service avahi-daemon start
 fi
 
 read -p "Should the script (re)start owntone and display the log output? [y/N] " yn
 if [ "$yn" = "y" ]; then
-	sudo service owntone restart
+	$SUDO service owntone restart
 	tail -f /usr/local/var/log/owntone.log
 fi
