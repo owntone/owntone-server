@@ -600,10 +600,12 @@ client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
   if (!is_initialized())
     return -1;
 
-  if (!pin || strlen(pin) < 4)
+  if (!pin)
     return -1;
 
-  memcpy(sctx->pin, pin, sizeof(sctx->pin));
+  sctx->pin = strdup(pin);
+  if (!sctx->pin)
+    return -1;
 
   return 0;
 }
@@ -620,6 +622,7 @@ client_setup_free(struct pair_setup_context *handle)
   free(sctx->salt);
   free(sctx->epk);
   free(sctx->authtag);
+  free(sctx->pin);
 }
 
 static uint8_t *
@@ -632,7 +635,7 @@ client_setup_request1(size_t *len, struct pair_setup_context *handle)
   uint32_t uint32;
   char *data = NULL; // Necessary to initialize because plist_to_bin() uses value
 
-  sctx->user = srp_user_new(HASH_SHA1, SRP_NG_2048, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin), 0, 0);
+  sctx->user = srp_user_new(HASH_SHA1, SRP_NG_2048, USERNAME, (unsigned char *)sctx->pin, strlen(sctx->pin), 0, 0);
 
   dict = plist_new_dict();
 

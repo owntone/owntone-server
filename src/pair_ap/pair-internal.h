@@ -15,7 +15,7 @@ struct pair_client_setup_context
 {
   struct SRPUser *user;
 
-  uint8_t pin[4];
+  char *pin;
   char device_id[PAIR_AP_DEVICE_ID_LEN_MAX];
 
   pair_cb add_cb;
@@ -50,7 +50,7 @@ struct pair_server_setup_context
 {
   struct SRPVerifier *verifier;
 
-  uint8_t pin[4];
+  char *pin;
   char device_id[PAIR_AP_DEVICE_ID_LEN_MAX];
 
   pair_cb add_cb;

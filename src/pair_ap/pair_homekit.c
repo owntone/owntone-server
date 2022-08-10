@@ -1173,20 +1173,17 @@ client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
   if (!is_initialized())
     return -1;
 
-  if (handle->type == &pair_client_homekit_normal)
-    {
-      if (!pin || strlen(pin) < 4)
-	return -1;
-    }
-  else if (handle->type == &pair_client_homekit_transient && !pin)
-    {
-      pin = "3939";
-    }
+  if (!pin && handle->type == &pair_client_homekit_transient)
+    pin = "3939";
+  else if (!pin)
+    return -1;
 
   if (device_id && strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
     return -1;
 
-  memcpy(sctx->pin, pin, sizeof(sctx->pin));
+  sctx->pin = strdup(pin);
+  if (!sctx->pin)
+    return -1;
 
   sctx->add_cb = add_cb;
   sctx->add_cb_arg = cb_arg;
@@ -1216,6 +1213,7 @@ client_setup_free(struct pair_setup_context *handle)
   free(sctx->salt);
   free(sctx->epk);
   free(sctx->authtag);
+  free(sctx->pin);
 }
 
 static uint8_t *
@@ -1241,7 +1239,7 @@ client_setup_request1(size_t *len, struct pair_setup_context *handle)
       goto error;
     }
 
-  sctx->user = srp_user_new(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin), 0, 0);
+  sctx->user = srp_user_new(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, strlen(sctx->pin), 0, 0);
   if (!sctx->user)
     {
       handle->errmsg = "Setup request 1: Create SRP user failed";
@@ -2004,7 +2002,9 @@ server_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
   if (!device_id || strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
     return -1;
 
-  memcpy(sctx->pin, pin, sizeof(sctx->pin));
+  sctx->pin = strdup(pin);
+  if (!sctx->pin)
+    return -1;
 
   sctx->add_cb = add_cb;
   sctx->add_cb_arg = cb_arg;
@@ -2029,6 +2029,7 @@ server_setup_free(struct pair_setup_context *handle)
   free(sctx->M1);
   free(sctx->v);
   free(sctx->salt);
+  free(sctx->pin);
 }
 
 static int
@@ -2057,7 +2058,7 @@ server_setup_request1(struct pair_setup_context *handle, const uint8_t *data, si
   sctx->is_transient = (type && type->size == 1 && type->value[0] == PairingFlagsTransient);
 
   // Note this is modified to return a 16 byte salt
-  ret = srp_create_salted_verification_key(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin),
+  ret = srp_create_salted_verification_key(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, strlen(sctx->pin),
     &sctx->salt, &sctx->salt_len, &sctx->v, &sctx->v_len, NULL, NULL);
   if (ret < 0)
     {

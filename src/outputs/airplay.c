@@ -650,238 +650,11 @@ chacha_encrypt(uint8_t *cipher, uint8_t *plain, size_t plain_len, const void *ad
 
 /* --------------------- Helpers for sending RTSP requests ------------------ */
 
-// TODO Not sure if the below is still valid for AirPlay 2
-static int
-request_header_auth_add(struct evrtsp_request *req, struct airplay_session *rs, const char *method, const char *uri)
-{
-  char ha1[33];
-  char ha2[33];
-  char ebuf[64];
-  char auth[256];
-  const char *hash_fmt;
-  const char *username;
-  uint8_t *hash_bytes;
-  size_t hashlen;
-  gcry_md_hd_t hd;
-  gpg_error_t gc_err;
-  int i;
-  int ret;
-
-  rs->req_has_auth = 0;
-
-  if (!rs->nonce)
-    return 0;
-
-  if (!rs->password)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Authentication required but no password found for device '%s'\n", rs->devname);
-
-      return -2;
-    }
-
-  hash_fmt = "%02x";
-  username = ""; /* No username */
-
-  gc_err = gcry_md_open(&hd, GCRY_MD_MD5, 0);
-  if (gc_err != GPG_ERR_NO_ERROR)
-    {
-      gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not open MD5: %s\n", ebuf);
-
-      return -1;
-    }
-
-  memset(ha1, 0, sizeof(ha1));
-  memset(ha2, 0, sizeof(ha2));
-  hashlen = gcry_md_get_algo_dlen(GCRY_MD_MD5);
-
-  /* HA 1 */
-
-  gcry_md_write(hd, username, strlen(username));
-  gcry_md_write(hd, ":", 1);
-  gcry_md_write(hd, rs->realm, strlen(rs->realm));
-  gcry_md_write(hd, ":", 1);
-  gcry_md_write(hd, rs->password, strlen(rs->password));
-
-  hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
-  if (!hash_bytes)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not read MD5 hash\n");
-
-      return -1;
-    }
-
-  for (i = 0; i < hashlen; i++)
-    sprintf(ha1 + (2 * i), hash_fmt, hash_bytes[i]);
-
-  /* RESET */
-  gcry_md_reset(hd);
-
-  /* HA 2 */
-  gcry_md_write(hd, method, strlen(method));
-  gcry_md_write(hd, ":", 1);
-  gcry_md_write(hd, uri, strlen(uri));
-
-  hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
-  if (!hash_bytes)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not read MD5 hash\n");
-
-      return -1;
-    }
-
-  for (i = 0; i < hashlen; i++)
-    sprintf(ha2 + (2 * i), hash_fmt, hash_bytes[i]);
-
-  /* RESET */
-  gcry_md_reset(hd);
-
-  /* Final value */
-  gcry_md_write(hd, ha1, 32);
-  gcry_md_write(hd, ":", 1);
-  gcry_md_write(hd, rs->nonce, strlen(rs->nonce));
-  gcry_md_write(hd, ":", 1);
-  gcry_md_write(hd, ha2, 32);
-
-  hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
-  if (!hash_bytes)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not read MD5 hash\n");
-
-      return -1;
-    }
-
-  for (i = 0; i < hashlen; i++)
-    sprintf(ha1 + (2 * i), hash_fmt, hash_bytes[i]);
-
-  gcry_md_close(hd);
-
-  /* Build header */
-  ret = snprintf(auth, sizeof(auth), "Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
-		 username, rs->realm, rs->nonce, uri, ha1);
-  if ((ret < 0) || (ret >= sizeof(auth)))
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Authorization value header exceeds buffer size\n");
-
-      return -1;
-    }
-
-  evrtsp_add_header(req->output_headers, "Authorization", auth);
-
-  DPRINTF(E_DBG, L_AIRPLAY, "Authorization header: %s\n", auth);
-
-  rs->req_has_auth = 1;
-
-  return 0;
-}
-/*
-static int
-response_header_auth_parse(struct airplay_session *rs, struct evrtsp_request *req)
-{
-  const char *param;
-  char *auth;
-  char *token;
-  char *ptr;
-
-  if (rs->realm)
-    {
-      free(rs->realm);
-      rs->realm = NULL;
-    }
-
-  if (rs->nonce)
-    {
-      free(rs->nonce);
-      rs->nonce = NULL;
-    }
-
-  param = evrtsp_find_header(req->input_headers, "WWW-Authenticate");
-  if (!param)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "WWW-Authenticate header not found\n");
-
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_AIRPLAY, "WWW-Authenticate: %s\n", param);
-
-  if (strncmp(param, "Digest ", strlen("Digest ")) != 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Unsupported authentication method: %s\n", param);
-
-      return -1;
-    }
-
-  auth = strdup(param);
-  if (!auth)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for WWW-Authenticate header copy\n");
-
-      return -1;
-    }
-
-  token = strchr(auth, ' ');
-  token++;
-
-  token = strtok_r(token, " =", &ptr);
-  while (token)
-    {
-      if (strcmp(token, "realm") == 0)
-	{
-	  token = strtok_r(NULL, "=\"", &ptr);
-	  if (!token)
-	    break;
-
-	  rs->realm = strdup(token);
-	}
-      else if (strcmp(token, "nonce") == 0)
-	{
-	  token = strtok_r(NULL, "=\"", &ptr);
-	  if (!token)
-	    break;
-
-	  rs->nonce = strdup(token);
-	}
-
-      token = strtok_r(NULL, " =", &ptr);
-    }
-
-  free(auth);
-
-  if (!rs->realm || !rs->nonce)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not find realm/nonce in WWW-Authenticate header\n");
-
-      if (rs->realm)
-	{
-	  free(rs->realm);
-	  rs->realm = NULL;
-	}
-
-      if (rs->nonce)
-	{
-	  free(rs->nonce);
-	  rs->nonce = NULL;
-	}
-
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_AIRPLAY, "Found realm: [%s], nonce: [%s]\n", rs->realm, rs->nonce);
-
-  return 0;
-}
-*/
 static int
 request_headers_add(struct evrtsp_request *req, struct airplay_session *rs, enum evrtsp_cmd_type req_method)
 {
   char buf[64];
-  const char *method;
-  const char *url;
   const char *user_agent;
-  int ret;
-
-  method = evrtsp_method(req_method);
 
   snprintf(buf, sizeof(buf), "%d", rs->cseq);
   evrtsp_add_header(req->output_headers, "CSeq", buf);
@@ -890,20 +663,6 @@ request_headers_add(struct evrtsp_request *req, struct airplay_session *rs, enum
 
   user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
   evrtsp_add_header(req->output_headers, "User-Agent", user_agent);
-
-  /* Add Authorization header */
-  url = (req_method == EVRTSP_REQ_OPTIONS) ? "*" : rs->session_url;
-
-  ret = request_header_auth_add(req, rs, method, url);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_AIRPLAY, "Could not add Authorization header\n");
-
-      if (ret == -2)
-	rs->state = AIRPLAY_STATE_AUTH;
-
-      return -1;
-    }
 
   snprintf(buf, sizeof(buf), "%" PRIX64, libhash);
   evrtsp_add_header(req->output_headers, "Client-Instance", buf);
@@ -2635,7 +2394,7 @@ Good to know (source Apple's MFi Accessory Interface Specification):
 - New keys should be generated for each authentication attempt, but we don't
   do that because we don't really use this + it adds a libsodium dependency
 
-Since we don't do auth or encryption, we currently just ignore the reponse.
+Since we don't do auth nor encryption, we currently just ignore the reponse.
 */
 
 #if AIRPLAY_USE_AUTH_SETUP
@@ -2716,8 +2475,11 @@ payload_make_pair_generic(int step, struct evrtsp_request *req, struct airplay_s
 static int
 payload_make_pair_setup1(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
-  char *pin = arg;
+  const char *pin = arg;
   char device_id_hex[16 + 1];
+
+  if (!pin && rs->password)
+    pin = rs->password; // For password based authentication
 
   if (pin)
     rs->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
@@ -3045,7 +2807,7 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
     rs->devname, rs->statusflags, (bool)(rs->statusflags & AIRPLAY_FLAG_AUDIO_CABLE_ATTACHED), (bool)(rs->statusflags & AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED),
     (bool)(rs->statusflags & AIRPLAY_FLAG_PASSWORD_REQUIRED), (bool)(rs->statusflags & AIRPLAY_FLAG_PIN_REQUIRED));
 
-  // Evaluate what next sequence based on response
+  // Identify next sequence based on response
   if (rs->statusflags & AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED)
     {
       rs->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
@@ -3072,9 +2834,21 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
     }
   else if (rs->statusflags & AIRPLAY_FLAG_PASSWORD_REQUIRED)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "'%s' requires password authentication, but that is currently unsupported for AirPlay 2\n", rs->devname);
-      rs->state = AIRPLAY_STATE_AUTH;
-      return AIRPLAY_SEQ_ABORT;
+      rs->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
+
+      if (!rs->password)
+	{
+	  DPRINTF(E_LOG, L_AIRPLAY, "'%s' requires password authentication, but none given in config\n", rs->devname);
+	  return AIRPLAY_SEQ_ABORT;
+	}
+      else if (!device->auth_key)
+	{
+          rs->state = AIRPLAY_STATE_AUTH;
+	  return AIRPLAY_SEQ_PAIR_SETUP;
+	}
+
+      rs->state = AIRPLAY_STATE_INFO;
+      return AIRPLAY_SEQ_PAIR_VERIFY;
     }
 
   rs->pair_type = PAIR_CLIENT_HOMEKIT_TRANSIENT;
@@ -3088,11 +2862,10 @@ response_handler_info_probe(struct evrtsp_request *req, struct airplay_session *
   enum airplay_seq_type seq_type;
 
   seq_type = response_handler_info_generic(req, rs);
-  if (seq_type == AIRPLAY_SEQ_ABORT || seq_type == AIRPLAY_SEQ_PIN_START)
-    return seq_type;
+  if (seq_type == AIRPLAY_SEQ_PAIR_TRANSIENT || seq_type == AIRPLAY_SEQ_PAIR_VERIFY)
+    seq_type = AIRPLAY_SEQ_CONTINUE; // When probing we don't proceed to PAIR_TRANSIENT/VERIFY
 
-  // When probing we don't want to continue with PAIR_VERIFY or PAIR_TRANSIENT
-  return AIRPLAY_SEQ_CONTINUE;
+  return seq_type;
 }
 
 static enum airplay_seq_type
@@ -3101,11 +2874,8 @@ response_handler_info_start(struct evrtsp_request *req, struct airplay_session *
   enum airplay_seq_type seq_type;
 
   seq_type = response_handler_info_generic(req, rs);
-  if (seq_type == AIRPLAY_SEQ_ABORT || seq_type == AIRPLAY_SEQ_PIN_START)
-    return seq_type;
-
-  // Pair and then run SEQ_START_PLAYBACK which sets up the playback
-  rs->next_seq = AIRPLAY_SEQ_START_PLAYBACK;
+  if (seq_type != AIRPLAY_SEQ_ABORT && seq_type != AIRPLAY_SEQ_PIN_START)
+    rs->next_seq = AIRPLAY_SEQ_START_PLAYBACK; // Pair and then run SEQ_START_PLAYBACK which sets up the playback
 
   return seq_type;
 }
@@ -3657,6 +3427,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   cfg_opt_t *cfgopt;
   const char *p;
   const char *nickname = NULL;
+  const char *password = NULL;
   const char *features;
   uint64_t id;
   int ret;
@@ -3704,12 +3475,17 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
     {
       nickname = cfg_getstr(devcfg, "nickname");
     }
+  if (devcfg && cfg_getstr(devcfg, "password"))
+    {
+      password = cfg_getstr(devcfg, "password");
+    }
 
   CHECK_NULL(L_AIRPLAY, rd = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_AIRPLAY, re = calloc(1, sizeof(struct airplay_extra)));
 
   rd->id = id;
   rd->name = nickname ? strdup(nickname) : strdup(name);
+  rd->password = password;
   re->mdns_name = strdup(name); // Used for identifying device when it disappears
   rd->type = OUTPUT_TYPE_AIRPLAY;
   rd->type_name = outputs_name(rd->type);

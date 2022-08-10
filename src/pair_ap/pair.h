@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define PAIR_AP_VERSION_MAJOR 0
-#define PAIR_AP_VERSION_MINOR 12
+#define PAIR_AP_VERSION_MINOR 14
 
 #define PAIR_AP_DEVICE_ID_LEN_MAX 64
 
