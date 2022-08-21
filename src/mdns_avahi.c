@@ -1239,7 +1239,7 @@ mdns_browse(char *type, mdns_browse_cb cb, enum mdns_options flags)
   b = avahi_service_browser_new(mdns_client, mdns_interface, mb->protocol, mb->type, NULL, 0, browse_callback, mb);
   if (!b)
     {
-      DPRINTF(E_LOG, L_MDNS, "Failed to create service browser: %s\n", MDNSERR);
+      DPRINTF(E_LOG, L_MDNS, "Error '%s' when creating service browser for %s, check that Avahi is running\n", MDNSERR, type);
 
       browser_list = mb->next;
       free(mb->type);
