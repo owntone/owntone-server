@@ -1,6 +1,16 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.5
+	- French translation of web UI
+	- improved web UI loading of images
+	- add support for Airplay 2 password based auth
+	- fix some Airplay speakers turning on by themselves
+	- fix parsing of CRLF and NOT in smart playlists and allow larger sizes
+	- fix possible crash after Avahi restart
+	- fix for Remote - play item from 'up next' when stopped
+	- use configured bind_address to set mdns network interface
+
 version 28.4
 	- fix broken Spotify after libspotify sunset
 	- remove antlr3 dependency, use bison/flex instead
