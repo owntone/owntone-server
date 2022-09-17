@@ -1249,7 +1249,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	}
 
 #ifdef HAVE_FFMPEG_CH_LAYOUT
-      if (in_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
+      if (!av_channel_layout_check(&in_stream->codec->ch_layout))
 	av_channel_layout_default(&in_stream->codec->ch_layout, in_stream->codec->ch_layout.nb_channels);
       av_channel_layout_describe(&in_stream->codec->ch_layout, buf, sizeof(buf));
 
@@ -1280,7 +1280,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 
       // For some AIFF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
 #ifdef HAVE_FFMPEG_CH_LAYOUT
-      if (out_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
+      if (!av_channel_layout_check(&out_stream->codec->ch_layout))
 	av_channel_layout_default(&out_stream->codec->ch_layout, out_stream->codec->ch_layout.nb_channels);
       av_channel_layout_describe(&out_stream->codec->ch_layout, buf, sizeof(buf));
 
