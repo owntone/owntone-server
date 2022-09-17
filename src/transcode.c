@@ -345,7 +345,6 @@ stream_settings_set(struct stream_ctx *s, struct settings_ctx *settings, enum AV
       s->codec->sample_rate    = settings->sample_rate;
 #ifdef HAVE_FFMPEG_CH_LAYOUT
       av_channel_layout_copy(&s->codec->ch_layout, &(settings->channel_layout));
-      s->codec->ch_layout.nb_channels = settings->channels;
 #else
       s->codec->channel_layout = settings->channel_layout;
       s->codec->channels       = settings->channels;
@@ -1915,7 +1914,6 @@ transcode_frame_new(void *data, size_t size, int nsamples, struct media_quality 
   f->nb_samples     = nsamples;
 #ifdef HAVE_FFMPEG_CH_LAYOUT
   av_channel_layout_default(&f->ch_layout, quality->channels);
-  f->ch_layout.nb_channels = quality->channels;
 #else
   f->channel_layout = av_get_default_channel_layout(quality->channels);
 #ifdef HAVE_FFMPEG
