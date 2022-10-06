@@ -78,7 +78,11 @@ struct settings_ctx
   // Audio settings
   enum AVCodecID audio_codec;
   int sample_rate;
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+  AVChannelLayout channel_layout;
+#else
   uint64_t channel_layout;
+#endif
   int channels;
   int bit_rate;
   enum AVSampleFormat sample_format;
@@ -312,7 +316,11 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
   if (quality && quality->channels)
     {
       settings->channels       = quality->channels;
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+      av_channel_layout_default(&settings->channel_layout, quality->channels);
+#else
       settings->channel_layout = av_get_default_channel_layout(quality->channels);
+#endif
     }
 
   if (quality && quality->bit_rate)
@@ -335,8 +343,12 @@ stream_settings_set(struct stream_ctx *s, struct settings_ctx *settings, enum AV
   if (type == AVMEDIA_TYPE_AUDIO)
     {
       s->codec->sample_rate    = settings->sample_rate;
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+      av_channel_layout_copy(&s->codec->ch_layout, &(settings->channel_layout));
+#else
       s->codec->channel_layout = settings->channel_layout;
       s->codec->channels       = settings->channels;
+#endif
       s->codec->sample_fmt     = settings->sample_format;
       s->codec->time_base      = (AVRational){1, settings->sample_rate};
       s->codec->bit_rate       = settings->bit_rate;
@@ -927,6 +939,10 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
   // Not const before ffmpeg 5.0
   AVCodec *decoder;
 #endif
+  AVDictionary *options = NULL;
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+  char downmix_layout[64];
+#endif
   int ret;
 
   ret = av_find_best_stream(ctx->ifmt_ctx, type, -1, -1, &decoder, 0);
@@ -955,10 +971,16 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
   if (type == AVMEDIA_TYPE_AUDIO)
     {
       (*dec_ctx)->request_sample_fmt = ctx->settings.sample_format;
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+      // option types is a string - see AV_OPT_TYPE_CHLAYOUT handling in ffmpeg:libavutil/opt.c
+      av_channel_layout_describe(&ctx->settings.channel_layout, downmix_layout, sizeof(downmix_layout));
+      av_dict_set(&options, "downmix", downmix_layout, 0);
+#else
       (*dec_ctx)->request_channel_layout = ctx->settings.channel_layout;
+#endif
     }
 
-  ret = avcodec_open2(*dec_ctx, NULL, NULL);
+  ret = avcodec_open2(*dec_ctx, NULL, options == NULL ? NULL : &options);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d: %s\n", *stream_index, err2str(ret));
@@ -1207,6 +1229,9 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
   AVFilterContext *buffersink_ctx;
   AVFilterGraph *filter_graph;
   char args[512];
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+  char buf[64];
+#endif
   int ret;
 
   CHECK_NULL(L_XCODE, filter_graph = avfilter_graph_alloc());
@@ -1222,6 +1247,17 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	  goto out_fail;
 	}
 
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+      if (!av_channel_layout_check(&in_stream->codec->ch_layout))
+	av_channel_layout_default(&in_stream->codec->ch_layout, in_stream->codec->ch_layout.nb_channels);
+      av_channel_layout_describe(&in_stream->codec->ch_layout, buf, sizeof(buf));
+
+      snprintf(args, sizeof(args),
+               "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=%s",
+               in_stream->stream->time_base.num, in_stream->stream->time_base.den,
+               in_stream->codec->sample_rate, av_get_sample_fmt_name(in_stream->codec->sample_fmt),
+               buf);
+#else
       if (!in_stream->codec->channel_layout)
 	in_stream->codec->channel_layout = av_get_default_channel_layout(in_stream->codec->channels);
 
@@ -1230,6 +1266,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
                in_stream->stream->time_base.num, in_stream->stream->time_base.den,
                in_stream->codec->sample_rate, av_get_sample_fmt_name(in_stream->codec->sample_fmt),
                in_stream->codec->channel_layout);
+#endif
 
       ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
       if (ret < 0)
@@ -1241,6 +1278,16 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
       DPRINTF(E_DBG, L_XCODE, "Created 'in' filter: %s\n", args);
 
       // For some AIFF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+      if (!av_channel_layout_check(&out_stream->codec->ch_layout))
+	av_channel_layout_default(&out_stream->codec->ch_layout, out_stream->codec->ch_layout.nb_channels);
+      av_channel_layout_describe(&out_stream->codec->ch_layout, buf, sizeof(buf));
+
+      snprintf(args, sizeof(args),
+               "sample_fmts=%s:sample_rates=%d:channel_layouts=%s",
+               av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
+               buf);
+#else
       if (!out_stream->codec->channel_layout)
 	out_stream->codec->channel_layout = av_get_default_channel_layout(out_stream->codec->channels);
 
@@ -1248,6 +1295,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
                "sample_fmts=%s:sample_rates=%d:channel_layouts=0x%"PRIx64,
                av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
                out_stream->codec->channel_layout);
+#endif
 
       ret = avfilter_graph_create_filter(&format_ctx, format, "format", args, NULL, filter_graph);
       if (ret < 0)
@@ -1478,8 +1526,13 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
   // Caller did not specify channels -> use same as source
   if (!ctx->settings.channels && ctx->settings.encode_audio)
     {
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+      ctx->settings.channels = src_ctx->audio_stream.codec->ch_layout.nb_channels;
+      av_channel_layout_copy(&ctx->settings.channel_layout, &src_ctx->audio_stream.codec->ch_layout);
+#else
       ctx->settings.channels = src_ctx->audio_stream.codec->channels;
       ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
+#endif
     }
 
   if (ctx->settings.wavheader)
@@ -1767,7 +1820,11 @@ transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, transcode_frame
   start_length = evbuffer_get_length(ctx->obuf);
 
   // Really crappy way of detecting if frame is audio, video or something else
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+  if (f->ch_layout.nb_channels && f->sample_rate)
+#else
   if (f->channel_layout && f->sample_rate)
+#endif
     s = &ctx->audio_stream;
   else if (f->width && f->height)
     s = &ctx->video_stream;
@@ -1855,9 +1912,13 @@ transcode_frame_new(void *data, size_t size, int nsamples, struct media_quality 
 
   f->sample_rate    = quality->sample_rate;
   f->nb_samples     = nsamples;
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+  av_channel_layout_default(&f->ch_layout, quality->channels);
+#else
   f->channel_layout = av_get_default_channel_layout(quality->channels);
 #ifdef HAVE_FFMPEG
   f->channels       = quality->channels;
+#endif
 #endif
   f->pts            = AV_NOPTS_VALUE;
 
@@ -2015,7 +2076,11 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query)
   else if (strcmp(query, "channels") == 0)
     {
       if (ctx->audio_stream.stream)
+#ifdef HAVE_FFMPEG_CH_LAYOUT
+	return ctx->audio_stream.stream->codecpar->ch_layout.nb_channels;
+#else
 	return ctx->audio_stream.stream->codecpar->channels;
+#endif
     }
 
   return -1;
