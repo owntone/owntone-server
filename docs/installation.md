@@ -337,3 +337,49 @@ if it's started as root.
 This user must have read permission to your library and read/write permissions
 to the database location (`$localstatedir/cache/owntone` by default).
 
+## Non-priviliged user version (for development)
+
+OwnTone is meant to be run as system wide daemon, but for development purposes
+you may want to run it isolated to your regular user.
+
+The following description assumes that you want all runtime data stored in
+`$HOME/owntone_data` and the source  in `$HOME/projects/owntone-server`.
+
+Prepare directories for runtime data:
+```bash
+mkdir -p $HOME/owntone_data/etc
+mkdir -p $HOME/owntone_data/media
+```
+
+Copy one or more mp3 file to test with to `owntone_data/media`.
+
+Checkout OwnTone and configure build:
+```bash
+cd $HOME/projects
+git clone https://github.com/owntone/owntone-server.git
+cd owntone-server
+autoreconf -vi
+./configure --prefix=$HOME/owntone_data/usr --sysconfdir=$HOME/owntone_data/etc --localstatedir=$HOME/owntone_data/var
+```
+
+Build and install runtime:
+
+```bash
+make install
+```
+
+Edit `owntone_data/etc/owntone.conf`, find the following configuration settings
+and set them to these values:
+
+```
+	uid = ${USER}
+	loglevel = "debug"
+	directories = { "${HOME}/owntone_data/media" }
+```
+
+Run the server:
+
+```bash
+./src/owntone -f
+```
+(you can also use the copy of the binary in `$HOME/owntone_data/usr/sbin`)
