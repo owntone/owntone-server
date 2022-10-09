@@ -52,6 +52,8 @@
 #define READ_TIMEOUT 30000000
 // Buffer size for reading/writing input and output evbuffers
 #define AVIO_BUFFER_SIZE 4096
+// Size of the wav header that iTunes needs
+#define WAV_HEADER_LEN 44
 
 static const char *default_codecs = "mpeg,wav";
 static const char *roku_codecs = "mpeg,mp4a,wma,alac,wav";
@@ -82,11 +84,11 @@ struct settings_ctx
   AVChannelLayout channel_layout;
 #else
   uint64_t channel_layout;
-#endif
   int channels;
+#endif
   int bit_rate;
   enum AVSampleFormat sample_format;
-  bool wavheader;
+  bool wav_header;
   bool icy;
 
   // Video settings
@@ -180,7 +182,7 @@ struct encode_ctx
   uint32_t icy_hash;
 
   // WAV header
-  uint8_t header[44];
+  uint8_t wav_header[WAV_HEADER_LEN];
 };
 
 enum probe_type
@@ -212,7 +214,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	break;
 
       case XCODE_PCM16_HEADER:
-	settings->wavheader = 1;
+	settings->wav_header = 1;
       case XCODE_PCM16:
 	settings->encode_audio = 1;
 	settings->format = "s16le";
@@ -315,11 +317,11 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 
   if (quality && quality->channels)
     {
-      settings->channels       = quality->channels;
 #ifdef HAVE_FFMPEG_CH_LAYOUT
       av_channel_layout_default(&settings->channel_layout, quality->channels);
 #else
       settings->channel_layout = av_get_default_channel_layout(quality->channels);
+      settings->channels       = quality->channels;
 #endif
     }
 
@@ -401,36 +403,34 @@ add_le32(uint8_t *dst, uint32_t val)
   dst[3] = (val >> 24) & 0xff;
 }
 
+/*
+ * header must have size WAV_HEADER_LEN (44 bytes)
+ */
 static void
-make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_size)
+make_wav_header(uint8_t *header, off_t *est_size, int sample_rate, int bps, int channels, int duration)
 {
   uint32_t wav_len;
-  int duration;
-  int bps;
 
-  if (src_ctx->duration)
-    duration = src_ctx->duration;
-  else
+  if (duration == 0)
     duration = 3 * 60 * 1000; /* 3 minutes, in ms */
 
-  bps = av_get_bytes_per_sample(ctx->settings.sample_format);
-  wav_len = ctx->settings.channels * bps * ctx->settings.sample_rate * (duration / 1000);
+  wav_len = channels * bps * sample_rate * (duration / 1000);
 
   if (est_size)
-    *est_size = wav_len + sizeof(ctx->header);
+    *est_size = wav_len + WAV_HEADER_LEN;
 
-  memcpy(ctx->header, "RIFF", 4);
-  add_le32(ctx->header + 4, 36 + wav_len);
-  memcpy(ctx->header + 8, "WAVEfmt ", 8);
-  add_le32(ctx->header + 16, 16);
-  add_le16(ctx->header + 20, 1);
-  add_le16(ctx->header + 22, ctx->settings.channels);     /* channels */
-  add_le32(ctx->header + 24, ctx->settings.sample_rate);  /* samplerate */
-  add_le32(ctx->header + 28, ctx->settings.sample_rate * ctx->settings.channels * bps); /* byte rate */
-  add_le16(ctx->header + 32, ctx->settings.channels * bps);                             /* block align */
-  add_le16(ctx->header + 34, 8 * bps);                                                  /* bits per sample */
-  memcpy(ctx->header + 36, "data", 4);
-  add_le32(ctx->header + 40, wav_len);
+  memcpy(header, "RIFF", 4);
+  add_le32(header + 4, 36 + wav_len);
+  memcpy(header + 8, "WAVEfmt ", 8);
+  add_le32(header + 16, 16);
+  add_le16(header + 20, 1);
+  add_le16(header + 22, channels);     /* channels */
+  add_le32(header + 24, sample_rate);  /* samplerate */
+  add_le32(header + 28, sample_rate * channels * bps); /* byte rate */
+  add_le16(header + 32, channels * bps);               /* block align */
+  add_le16(header + 34, 8 * bps);                      /* bits per sample */
+  memcpy(header + 36, "data", 4);
+  add_le32(header + 40, wav_len);
 }
 
 /*
@@ -1184,9 +1184,9 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       goto out_free_streams;
     }
 
-  if (ctx->settings.wavheader)
+  if (ctx->settings.wav_header)
     {
-      evbuffer_add(ctx->obuf, ctx->header, sizeof(ctx->header));
+      evbuffer_add(ctx->obuf, ctx->wav_header, sizeof(ctx->wav_header));
     }
 
   return 0;
@@ -1248,8 +1248,10 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	}
 
 #ifdef HAVE_FFMPEG_CH_LAYOUT
-      if (!av_channel_layout_check(&in_stream->codec->ch_layout))
+      // Some AIFF files only have a channel number, not a layout
+      if (in_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
 	av_channel_layout_default(&in_stream->codec->ch_layout, in_stream->codec->ch_layout.nb_channels);
+
       av_channel_layout_describe(&in_stream->codec->ch_layout, buf, sizeof(buf));
 
       snprintf(args, sizeof(args),
@@ -1277,10 +1279,10 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 
       DPRINTF(E_DBG, L_XCODE, "Created 'in' filter: %s\n", args);
 
-      // For some AIFF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
 #ifdef HAVE_FFMPEG_CH_LAYOUT
-      if (!av_channel_layout_check(&out_stream->codec->ch_layout))
+      if (out_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
 	av_channel_layout_default(&out_stream->codec->ch_layout, out_stream->codec->ch_layout.nb_channels);
+
       av_channel_layout_describe(&out_stream->codec->ch_layout, buf, sizeof(buf));
 
       snprintf(args, sizeof(args),
@@ -1288,6 +1290,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
                av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
                buf);
 #else
+      // For some AIFF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
       if (!out_stream->codec->channel_layout)
 	out_stream->codec->channel_layout = av_get_default_channel_layout(out_stream->codec->channels);
 
@@ -1487,7 +1490,9 @@ struct encode_ctx *
 transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, off_t *est_size, int width, int height)
 {
   struct encode_ctx *ctx;
-  int bps;
+  int src_bps;
+  int dst_bps;
+  int channels;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct encode_ctx)));
   CHECK_NULL(L_XCODE, ctx->filt_frame = av_frame_alloc());
@@ -1505,11 +1510,11 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
       ctx->settings.sample_rate = src_ctx->audio_stream.codec->sample_rate;
     }
 
-  // Caller did not specify a sample format -> use same as source
+  // Caller did not specify a sample format -> determine from source
   if (!ctx->settings.sample_format && ctx->settings.encode_audio)
     {
-      bps = av_get_bytes_per_sample(src_ctx->audio_stream.codec->sample_fmt);
-      if (bps == 4)
+      src_bps = av_get_bytes_per_sample(src_ctx->audio_stream.codec->sample_fmt);
+      if (src_bps == 4)
 	{
 	  ctx->settings.sample_format = AV_SAMPLE_FMT_S32;
 	  ctx->settings.audio_codec = AV_CODEC_ID_PCM_S32LE;
@@ -1523,32 +1528,42 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
 	}
     }
 
-  // Caller did not specify channels -> use same as source
-  if (!ctx->settings.channels && ctx->settings.encode_audio)
-    {
 #ifdef HAVE_FFMPEG_CH_LAYOUT
-      ctx->settings.channels = src_ctx->audio_stream.codec->ch_layout.nb_channels;
+  // Caller did not specify channels -> use same as source
+  if (!av_channel_layout_check(&ctx->settings.channel_layout) && ctx->settings.encode_audio)
+    {
       av_channel_layout_copy(&ctx->settings.channel_layout, &src_ctx->audio_stream.codec->ch_layout);
-#else
-      ctx->settings.channels = src_ctx->audio_stream.codec->channels;
-      ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
-#endif
     }
 
-  if (ctx->settings.wavheader)
-    make_wav_header(ctx, src_ctx, est_size);
+  channels = ctx->settings.channel_layout.nb_channels;
+#else
+  // Caller did not specify channels -> use same as source
+  if (ctx->settings.channels == 0 && ctx->settings.encode_audio)
+    {
+      ctx->settings.channels = src_ctx->audio_stream.codec->channels;
+      ctx->settings.channel_layout = src_ctx->audio_stream.codec->channel_layout;
+    }
+
+  channels = ctx->settings.channels;
+#endif
+
+  if (ctx->settings.wav_header)
+    {
+      dst_bps = av_get_bytes_per_sample(ctx->settings.sample_format);
+      make_wav_header(ctx->wav_header, est_size, ctx->settings.sample_rate, dst_bps, channels, src_ctx->duration);
+    }
+
+  if (ctx->settings.icy && src_ctx->data_kind == DATA_KIND_HTTP)
+    {
+      dst_bps = av_get_bytes_per_sample(ctx->settings.sample_format);
+      ctx->icy_interval = METADATA_ICY_INTERVAL * channels * dst_bps * ctx->settings.sample_rate;
+    }
 
   if (open_output(ctx, src_ctx) < 0)
     goto fail_free;
 
   if (open_filters(ctx, src_ctx) < 0)
     goto fail_close;
-
-  if (ctx->settings.icy && src_ctx->data_kind == DATA_KIND_HTTP)
-    {
-      bps = av_get_bytes_per_sample(ctx->settings.sample_format);
-      ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.channels * bps * ctx->settings.sample_rate;
-    }
 
   return ctx;
 
@@ -1916,9 +1931,9 @@ transcode_frame_new(void *data, size_t size, int nsamples, struct media_quality 
   av_channel_layout_default(&f->ch_layout, quality->channels);
 #else
   f->channel_layout = av_get_default_channel_layout(quality->channels);
-#ifdef HAVE_FFMPEG
+# ifdef HAVE_FFMPEG
   f->channels       = quality->channels;
-#endif
+# endif
 #endif
   f->pts            = AV_NOPTS_VALUE;
 
