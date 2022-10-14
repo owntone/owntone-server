@@ -651,10 +651,219 @@ chacha_encrypt(uint8_t *cipher, uint8_t *plain, size_t plain_len, const void *ad
 /* --------------------- Helpers for sending RTSP requests ------------------ */
 
 static int
+auth_header_add(struct evrtsp_request *req, const char *password, const char *realm, const char *nonce, const char *method, const char *uri)
+{
+  const char *hash_fmt = "%02x";
+  const char *username = "";
+  char ha1[33] = { 0 };
+  char ha2[33] = { 0 };
+  char ebuf[64];
+  char auth[256];
+  uint8_t *hash_bytes;
+  size_t hashlen;
+  gcry_md_hd_t hd;
+  gpg_error_t gc_err;
+  int i;
+  int ret;
+
+  if (!password)
+    password = "";
+
+  gc_err = gcry_md_open(&hd, GCRY_MD_MD5, 0);
+  if (gc_err != GPG_ERR_NO_ERROR)
+    {
+      gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not open MD5: %s\n", ebuf);
+      return -1;
+    }
+
+  hashlen = gcry_md_get_algo_dlen(GCRY_MD_MD5);
+
+  /* HA 1 */
+  gcry_md_write(hd, username, strlen(username));
+  gcry_md_write(hd, ":", 1);
+  gcry_md_write(hd, realm, strlen(realm));
+  gcry_md_write(hd, ":", 1);
+  gcry_md_write(hd, password, strlen(password));
+
+  hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
+  if (!hash_bytes)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not read MD5 hash\n");
+      return -1;
+    }
+
+  for (i = 0; i < hashlen; i++)
+    sprintf(ha1 + (2 * i), hash_fmt, hash_bytes[i]);
+
+  /* RESET */
+  gcry_md_reset(hd);
+
+  /* HA 2 */
+  gcry_md_write(hd, method, strlen(method));
+  gcry_md_write(hd, ":", 1);
+  gcry_md_write(hd, uri, strlen(uri));
+
+  hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
+  if (!hash_bytes)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not read MD5 hash\n");
+      return -1;
+    }
+
+  for (i = 0; i < hashlen; i++)
+    sprintf(ha2 + (2 * i), hash_fmt, hash_bytes[i]);
+
+  /* RESET */
+  gcry_md_reset(hd);
+
+  /* Final value */
+  gcry_md_write(hd, ha1, 32);
+  gcry_md_write(hd, ":", 1);
+  gcry_md_write(hd, nonce, strlen(nonce));
+  gcry_md_write(hd, ":", 1);
+  gcry_md_write(hd, ha2, 32);
+
+  hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
+  if (!hash_bytes)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not read MD5 hash\n");
+      return -1;
+    }
+
+  for (i = 0; i < hashlen; i++)
+    sprintf(ha1 + (2 * i), hash_fmt, hash_bytes[i]);
+
+  gcry_md_close(hd);
+
+  /* Build header */
+  ret = snprintf(auth, sizeof(auth), "Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
+		 username, realm, nonce, uri, ha1);
+  if ((ret < 0) || (ret >= sizeof(auth)))
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Authorization value header exceeds buffer size\n");
+      return -1;
+    }
+
+  evrtsp_add_header(req->output_headers, "Authorization", auth);
+
+  DPRINTF(E_SPAM, L_AIRPLAY, "Authorization header: %s\n", auth);
+
+  return 0;
+}
+
+static int
+auth_header_parse(struct airplay_session *rs, struct evrtsp_request *req)
+{
+  const char *param;
+  char *auth = NULL;
+  char *token;
+  char *ptr;
+
+  if (rs->realm)
+    {
+      free(rs->realm);
+      rs->realm = NULL;
+    }
+
+  if (rs->nonce)
+    {
+      free(rs->nonce);
+      rs->nonce = NULL;
+    }
+
+  param = evrtsp_find_header(req->input_headers, "WWW-Authenticate");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "WWW-Authenticate header not found\n");
+      goto error;
+    }
+
+  DPRINTF(E_DBG, L_AIRPLAY, "WWW-Authenticate: %s\n", param);
+
+  if (strncmp(param, "Digest ", strlen("Digest ")) != 0)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Unsupported authentication method: %s\n", param);
+      goto error;
+    }
+
+  auth = strdup(param);
+  if (!auth)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for WWW-Authenticate header copy\n");
+      goto error;
+    }
+
+  token = strchr(auth, ' ');
+  if (!token)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Unexpected WWW-Authenticate auth\n");
+      goto error;
+    }
+
+  token++;
+
+  token = strtok_r(token, " =", &ptr);
+  while (token)
+    {
+      if (strcmp(token, "realm") == 0)
+	{
+	  token = strtok_r(NULL, "=\"", &ptr);
+	  if (!token)
+	    break;
+
+	  rs->realm = strdup(token);
+	}
+      else if (strcmp(token, "nonce") == 0)
+	{
+	  token = strtok_r(NULL, "=\"", &ptr);
+	  if (!token)
+	    break;
+
+	  rs->nonce = strdup(token);
+	}
+
+      token = strtok_r(NULL, " =", &ptr);
+    }
+
+  if (!rs->realm || !rs->nonce)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Could not find realm/nonce in WWW-Authenticate header\n");
+
+      if (rs->realm)
+	{
+	  free(rs->realm);
+	  rs->realm = NULL;
+	}
+
+      if (rs->nonce)
+	{
+	  free(rs->nonce);
+	  rs->nonce = NULL;
+	}
+
+      goto error;
+    }
+
+  DPRINTF(E_SPAM, L_AIRPLAY, "Found realm: [%s], nonce: [%s]\n", rs->realm, rs->nonce);
+
+  free(auth);
+  return 0;
+
+ error:
+  free(auth);
+  return -1;
+}
+
+
+static int
 request_headers_add(struct evrtsp_request *req, struct airplay_session *rs, enum evrtsp_cmd_type req_method)
 {
   char buf[64];
   const char *user_agent;
+  const char *method;
+  const char *url;
+  int ret;
 
   snprintf(buf, sizeof(buf), "%d", rs->cseq);
   evrtsp_add_header(req->output_headers, "CSeq", buf);
@@ -663,6 +872,20 @@ request_headers_add(struct evrtsp_request *req, struct airplay_session *rs, enum
 
   user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
   evrtsp_add_header(req->output_headers, "User-Agent", user_agent);
+
+  // If we have a realm + nonce it means that the device told us in the reply to
+  // SETUP that www authentication with password is required
+  if (rs->realm && rs->nonce)
+    {
+      method = evrtsp_method(req_method);
+      url = (req_method == EVRTSP_REQ_OPTIONS) ? "*" : rs->session_url;
+
+      ret = auth_header_add(req, rs->password, rs->realm, rs->nonce, method, url);
+      if (ret < 0)
+	return -1;
+
+      rs->req_has_auth = 1;
+    }
 
   snprintf(buf, sizeof(buf), "%" PRIX64, libhash);
   evrtsp_add_header(req->output_headers, "Client-Instance", buf);
@@ -2714,6 +2937,28 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
   uint64_t uintval;
   int ret;
 
+  if (req->response_code == RTSP_UNAUTHORIZED)
+    {
+      if (rs->req_has_auth)
+	{
+	  DPRINTF(E_LOG, L_AIRPLAY, "Bad or missing password for device '%s' (%s)\n", rs->devname, rs->address);
+	  return AIRPLAY_SEQ_ABORT;
+	}
+
+      // We haven't tried authenticating yet, so save realm and nonce from the
+      // received WWW-Authenticate header and trigger a re-run with auth header
+      ret = auth_header_parse(rs, req);
+      if (ret < 0)
+	return AIRPLAY_SEQ_ABORT;
+
+      return AIRPLAY_SEQ_START_PLAYBACK;
+    }
+  else if (req->response_code != RTSP_OK)
+    {
+      DPRINTF(E_WARN, L_AIRPLAY, "Unexpected reply to SETUP (session) from '%s'\n", rs->devname);
+      return AIRPLAY_SEQ_ABORT;
+    }
+
   ret = wplist_from_evbuf(&response, req->input_buffer);
   if (ret < 0)
     {
@@ -3147,7 +3392,9 @@ static struct airplay_seq_request airplay_seq_request[][7] =
 #if AIRPLAY_USE_AUTH_SETUP
     { AIRPLAY_SEQ_START_PLAYBACK, "auth-setup", EVRTSP_REQ_POST, payload_make_auth_setup, NULL, "application/octet-stream", "/auth-setup", true },
 #endif
-    { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (session)", EVRTSP_REQ_SETUP, payload_make_setup_session, response_handler_setup_session, "application/x-apple-binary-plist", NULL, false },
+    // proceed_on_rtsp_not_ok is true because a device may reply with 401 Unauthorized
+    // and a WWW-Authenticate header, and then we may need re-run with password auth
+    { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (session)", EVRTSP_REQ_SETUP, payload_make_setup_session, response_handler_setup_session, "application/x-apple-binary-plist", NULL, true },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETPEERS", EVRTSP_REQ_SETPEERS, payload_make_setpeers, NULL, "/peer-list-changed", NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (stream)", EVRTSP_REQ_SETUP, payload_make_setup_stream, response_handler_setup_stream, "application/x-apple-binary-plist", NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "RECORD", EVRTSP_REQ_RECORD, payload_make_record, response_handler_record, NULL, NULL, false },
