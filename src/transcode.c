@@ -42,6 +42,13 @@
 #include "misc.h"
 #include "transcode.h"
 
+// Switches for compability with ffmpeg's ever changing API
+#define USE_IMAGE2PIPE (LIBAVFORMAT_VERSION_MAJOR > 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR > 29))
+#define USE_CONST_AVFORMAT (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#define USE_CONST_AVCODEC (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#define USE_NO_CLEAR_AVFMT_NOFILE (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#define USE_CH_LAYOUT (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 24))
+
 // Interval between ICY metadata checks for streams, in seconds
 #define METADATA_ICY_INTERVAL 5
 // Maximum number of streams in a file that we will accept
@@ -80,7 +87,7 @@ struct settings_ctx
   // Audio settings
   enum AVCodecID audio_codec;
   int sample_rate;
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
   AVChannelLayout channel_layout;
 #else
   uint64_t channel_layout;
@@ -268,7 +275,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 // With ffmpeg 4.3 (> libavformet 58.29) "image2" only works for actual file
 // output. It's possible we should have used "image2pipe" all along, but since
 // "image2" has been working we only replace it going forward.
-#if (LIBAVFORMAT_VERSION_MAJOR > 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR > 29))
+#if USE_IMAGE2PIPE
 	settings->format = "image2pipe";
 #else
 	settings->format = "image2";
@@ -283,7 +290,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->encode_video = 1;
 	settings->silent = 1;
 // See explanation above
-#if (LIBAVFORMAT_VERSION_MAJOR > 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR > 29))
+#if USE_IMAGE2PIPE
 	settings->format = "image2pipe";
 #else
 	settings->format = "image2";
@@ -296,7 +303,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->encode_video = 1;
 	settings->silent = 1;
 // See explanation above
-#if (LIBAVFORMAT_VERSION_MAJOR > 58) || ((LIBAVFORMAT_VERSION_MAJOR == 58) && (LIBAVFORMAT_VERSION_MINOR > 29))
+#if USE_IMAGE2PIPE
 	settings->format = "image2pipe";
 #else
 	settings->format = "image2";
@@ -317,7 +324,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 
   if (quality && quality->channels)
     {
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
       av_channel_layout_default(&settings->channel_layout, quality->channels);
 #else
       settings->channel_layout = av_get_default_channel_layout(quality->channels);
@@ -345,7 +352,7 @@ stream_settings_set(struct stream_ctx *s, struct settings_ctx *settings, enum AV
   if (type == AVMEDIA_TYPE_AUDIO)
     {
       s->codec->sample_rate    = settings->sample_rate;
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
       av_channel_layout_copy(&s->codec->ch_layout, &(settings->channel_layout));
 #else
       s->codec->channel_layout = settings->channel_layout;
@@ -464,7 +471,7 @@ static int
 stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id)
 {
   const AVCodecDescriptor *codec_desc;
-#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#if USE_CONST_AVCODEC
   const AVCodec *encoder;
 #else
   // Not const before ffmpeg 5.0
@@ -933,14 +940,14 @@ avio_evbuffer_close(AVIOContext *s)
 static int
 open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode_ctx *ctx, enum AVMediaType type)
 {
-#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#if USE_CONST_AVCODEC
   const AVCodec *decoder;
 #else
   // Not const before ffmpeg 5.0
   AVCodec *decoder;
 #endif
   AVDictionary *options = NULL;
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
   char downmix_layout[64];
 #endif
   int ret;
@@ -971,7 +978,7 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
   if (type == AVMEDIA_TYPE_AUDIO)
     {
       (*dec_ctx)->request_sample_fmt = ctx->settings.sample_format;
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
       // option types is a string - see AV_OPT_TYPE_CHLAYOUT handling in ffmpeg:libavutil/opt.c
       av_channel_layout_describe(&ctx->settings.channel_layout, downmix_layout, sizeof(downmix_layout));
       av_dict_set(&options, "downmix", downmix_layout, 0);
@@ -996,7 +1003,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *
 {
   AVDictionary *options = NULL;
   AVCodecContext *dec_ctx;
-#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#if USE_CONST_AVFORMAT
   const AVInputFormat *ifmt;
 #else
   // Not const before ffmpeg 5.0
@@ -1121,7 +1128,7 @@ close_input(struct decode_ctx *ctx)
 static int
 open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
 {
-#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#if USE_CONST_AVFORMAT
   const AVOutputFormat *oformat;
 #else
   // Not const before ffmpeg 5.0
@@ -1136,7 +1143,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       return -1;
     }
 
-#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#if USE_NO_CLEAR_AVFMT_NOFILE
   CHECK_ERRNO(L_XCODE, avformat_alloc_output_context2(&ctx->ofmt_ctx, oformat, NULL, NULL));
 #else
   // Clear AVFMT_NOFILE bit, it is not allowed as we will set our own AVIOContext.
@@ -1229,7 +1236,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
   AVFilterContext *buffersink_ctx;
   AVFilterGraph *filter_graph;
   char args[512];
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
   char buf[64];
 #endif
   int ret;
@@ -1247,7 +1254,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 	  goto out_fail;
 	}
 
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
       // Some AIFF files only have a channel number, not a layout
       if (in_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
 	av_channel_layout_default(&in_stream->codec->ch_layout, in_stream->codec->ch_layout.nb_channels);
@@ -1279,7 +1286,7 @@ open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
 
       DPRINTF(E_DBG, L_XCODE, "Created 'in' filter: %s\n", args);
 
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
       if (out_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
 	av_channel_layout_default(&out_stream->codec->ch_layout, out_stream->codec->ch_layout.nb_channels);
 
@@ -1528,7 +1535,7 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
 	}
     }
 
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
   // Caller did not specify channels -> use same as source
   if (!av_channel_layout_check(&ctx->settings.channel_layout) && ctx->settings.encode_audio)
     {
@@ -1606,7 +1613,7 @@ transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality 
 {
   const AVCodecDescriptor *codec_desc;
   struct decode_ctx *ctx;
-#if (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
+#if USE_CONST_AVCODEC
   const AVCodec *decoder;
 #else
   // Not const before ffmpeg 5.0
@@ -1835,7 +1842,7 @@ transcode_encode(struct evbuffer *evbuf, struct encode_ctx *ctx, transcode_frame
   start_length = evbuffer_get_length(ctx->obuf);
 
   // Really crappy way of detecting if frame is audio, video or something else
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
   if (f->ch_layout.nb_channels && f->sample_rate)
 #else
   if (f->channel_layout && f->sample_rate)
@@ -1927,7 +1934,7 @@ transcode_frame_new(void *data, size_t size, int nsamples, struct media_quality 
 
   f->sample_rate    = quality->sample_rate;
   f->nb_samples     = nsamples;
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
   av_channel_layout_default(&f->ch_layout, quality->channels);
 #else
   f->channel_layout = av_get_default_channel_layout(quality->channels);
@@ -2091,7 +2098,7 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query)
   else if (strcmp(query, "channels") == 0)
     {
       if (ctx->audio_stream.stream)
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+#if USE_CH_LAYOUT
 	return ctx->audio_stream.stream->codecpar->ch_layout.nb_channels;
 #else
 	return ctx->audio_stream.stream->codecpar->channels;

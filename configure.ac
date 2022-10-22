@@ -240,12 +240,6 @@ OWNTONE_MODULES_CHECK([OWNTONE], [LIBAV],
 		[libavformat/avformat.h])
 	])
 
-AS_IF([test "$is_ffmpeg" = "yes"],
-	[PKG_CHECK_EXISTS([libavcodec >= 59.24.100],
-	    [AC_DEFINE([HAVE_FFMPEG_CH_LAYOUT], 1,
-		    [Define to 1 if ffmpeg-libavcodec defines new 5.1.x ch_layout])])]
-	)
-
 AC_CHECK_SIZEOF([void *])
 
 dnl --- Begin configuring the options ---
