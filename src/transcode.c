@@ -946,10 +946,6 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
   // Not const before ffmpeg 5.0
   AVCodec *decoder;
 #endif
-  AVDictionary *options = NULL;
-#if USE_CH_LAYOUT
-  char downmix_layout[64];
-#endif
   int ret;
 
   ret = av_find_best_stream(ctx->ifmt_ctx, type, -1, -1, &decoder, 0);
@@ -975,19 +971,7 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
       return ret;
     }
 
-  if (type == AVMEDIA_TYPE_AUDIO)
-    {
-      (*dec_ctx)->request_sample_fmt = ctx->settings.sample_format;
-#if USE_CH_LAYOUT
-      // option types is a string - see AV_OPT_TYPE_CHLAYOUT handling in ffmpeg:libavutil/opt.c
-      av_channel_layout_describe(&ctx->settings.channel_layout, downmix_layout, sizeof(downmix_layout));
-      av_dict_set(&options, "downmix", downmix_layout, 0);
-#else
-      (*dec_ctx)->request_channel_layout = ctx->settings.channel_layout;
-#endif
-    }
-
-  ret = avcodec_open2(*dec_ctx, NULL, options == NULL ? NULL : &options);
+  ret = avcodec_open2(*dec_ctx, NULL, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d: %s\n", *stream_index, err2str(ret));
