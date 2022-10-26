@@ -1,0 +1,548 @@
+{
+    "data": {
+      "kind": {
+        "file": "文件",
+        "url": "网址",
+        "spotify": "Spotify",
+        "pipe": "流"
+      }
+    },
+    "dialog": {
+      "cancel": "取消",
+      "add": {
+        "rss": {
+          "add": "添加",
+          "cancel": "取消",
+          "help": "添加一个播客并创建 RSS 播放列表，这将允许 OwnTone 管理此播客订阅。",
+          "placeholder": "https://url-to-rss",
+          "processing": "Processing…",
+          "title": "添加播客 RSS 源网址"
+        },
+        "stream": {
+          "add": "添加",
+          "cancel": "取消",
+          "loading": "Loading…",
+          "placeholder": "https://url-to-stream",
+          "play": "播放",
+          "title": "添加媒体流网址"
+        }
+      },
+      "album": {
+        "add-next": "接下来播放",
+        "add": "添加到播放列表",
+        "added-on": "收录时间",
+        "artist": "专辑艺术家",
+        "duration": "总时长",
+        "mark-as-played": "标记为已播放",
+        "play": "立即播放",
+        "release-date": "发表日期",
+        "remove-podcast": "删除播客",
+        "tracks": "曲目数",
+        "type": "类型",
+        "year": "年份"
+      },
+      "artist": {
+        "add-next": "接下来播放",
+        "add": "添加到播放列表",
+        "added-on": "首次添加时间",
+        "albums": "专辑数",
+        "play": "立即播放",
+        "tracks": "曲目数",
+        "type": "类型"
+      },
+      "composer": {
+        "add-next": "接下来播放",
+        "add": "添加到播放列表",
+        "albums": "专辑数",
+        "duration": "总时长",
+        "play": "立即播放",
+        "tracks": "曲目数"
+      },
+      "directory": {
+        "add-next": "接下来播放",
+        "add": "添加到播放列表",
+        "play": "立即播放"
+      },
+      "genre": {
+        "add-next": "接下来播放",
+        "add": "添加到播放列表",
+        "albums": "专辑数",
+        "duration": "总时长",
+        "play": "立即播放",
+        "tracks": "曲目数"
+      },
+      "playlist": {
+        "add-next": "接下来播放",
+        "add": "添加到播放列表",
+        "play": "立即播放",
+        "track-count": "曲目数",
+        "type": "类型",
+        "save": {
+          "cancel": "取消",
+          "save": "保存",
+          "saving": "正在保存…",
+          "title": "保存当前播放队列到播放列表"
+        }
+      },
+      "queue-item": {
+        "album-artist": "专辑艺术家",
+        "album": "专辑",
+        "bitrate": "{'|'} {rate} kbit/s",
+        "channels": "{'|'} {channels}",
+        "composer": "作曲家",
+        "duration": "时长",
+        "genre": "流派",
+        "path": "路径",
+        "play": "立即播放",
+        "position": "碟片 / 序号",
+        "quality": "质量",
+        "remove": "移除",
+        "samplerate": "{'|'} {rate} Hz",
+        "spotify-album": "专辑",
+        "spotify-artist": "专辑艺术家",
+        "type": "类型",
+        "year": "年份"
+      },
+      "remote-pairing": {
+        "cancel": "Cancel",
+        "pair": "Pair Remote",
+        "title": "Remote pairing request"
+      },
+      "spotify": {
+        "album": {
+          "add-next": "Add Next",
+          "add": "Add",
+          "album-artist": "Album Artist",
+          "play": "Play",
+          "release-date": "Release Date",
+          "type": "Type"
+        },
+        "artist": {
+          "add-next": "Add Next",
+          "add": "Add",
+          "genres": "Genres",
+          "play": "Play",
+          "popularity": "Popularity / Followers"
+        },
+        "playlist": {
+          "add-next": "Add Next",
+          "add": "Add",
+          "owner": "Owner",
+          "path": "Path",
+          "play": "Play",
+          "tracks": "Tracks"
+        },
+        "track": {
+          "add-next": "Add Next",
+          "add": "Add",
+          "album-artist": "Album Artist",
+          "album": "Album",
+          "duration": "Duration",
+          "path": "Path",
+          "play": "Play",
+          "position": "Disc / Track",
+          "release-date": "Release Date"
+        }
+      },
+      "track": {
+        "add-next": "Add Next",
+        "add": "Add",
+        "added-on": "Added On",
+        "album-artist": "Album Artist",
+        "album": "Album",
+        "bitrate": " {'|'} {rate} Kb/s",
+        "channels": " {'|'} {channels}",
+        "comment": "Comment",
+        "composer": "Composer",
+        "duration": "Duration",
+        "genre": "Genre",
+        "mark-as-new": "Mark as new",
+        "mark-as-played": "Mark as played",
+        "path": "Path",
+        "play": "Play",
+        "position": "Disc / Track",
+        "quality": "Quality",
+        "rating-value": "{rating} / 10",
+        "rating": "Rating",
+        "release-date": "Release Date",
+        "samplerate": " {'|'} {rate} Hz",
+        "spotify-album": "album",
+        "spotify-artist": "artist",
+        "type": "Type",
+        "year": "Year"
+      },
+      "update": {
+        "all": "Update everything",
+        "cancel": "Cancel",
+        "feeds": "Only update RSS feeds",
+        "info": "Scan for new, deleted and modified files",
+        "local": "Only update local library",
+        "progress": "Library update in progress…",
+        "rescan-metadata": "Rescan metadata of unmodified files",
+        "rescan": "Rescan",
+        "spotify": "Only update Spotify",
+        "title": "Library update"
+      }
+    },
+    "language": {
+      "en": "English",
+      "fr": "French (Français)"
+    },
+    "list": {
+      "albums": {
+        "info-1": "Permanently remove this podcast from your library?",
+        "info-2": "This will also remove the RSS playlist ",
+        "notification": "Podcast cannot be removed. Probably it was not added as an RSS playlist."
+      },
+      "spotify": {
+        "not-playable-track": "Track is not playable",
+        "restriction-reason": ", restriction reason: {reason}"
+      }
+    },
+    "media": {
+      "kind": {
+        "album": "Album",
+        "audiobook": "Audiobook",
+        "music": "Music",
+        "podcast": "Podcast"
+      }
+    },
+    "navigation": {
+      "about": "About",
+      "albums": "Albums",
+      "artists": "Artists",
+      "audiobooks": "Audiobooks",
+      "now-playing": " - {album}",
+      "stream-error": "HTTP stream error: failed to load stream or stopped loading due to network problem",
+      "stream": "HTTP stream",
+      "volume": "Volume",
+      "files": "Files",
+      "genres": "Genres",
+      "music": "Music",
+      "playlists": "Playlists",
+      "podcasts": "Podcasts",
+      "radio": "Radio",
+      "search": "Search",
+      "settings": "Settings",
+      "spotify": "Spotify",
+      "title": "OwnTone",
+      "update-library": "Update Library"
+    },
+    "page": {
+      "about": {
+        "albums": "Albums",
+        "artists": "Artists",
+        "built-with": "Web interface built with <a href=\"https://bulma.io\">Bulma</a>, <a href=\"https://materialdesignicons.com/\">Material Design Icons</a>, <a href=\"https://vuejs.org/\">Vue.js</a>, <a href=\"https://github.com/mzabriskie/axios\">axios</a> and <a href=\"https://github.com/owntone/owntone-server/network/dependencies\">more</a>.",
+        "compiled-with": "Compiled with support for {options}.",
+        "library": "Library",
+        "total-playtime": "Total playtime",
+        "tracks": "Tracks",
+        "update": "Update",
+        "updated-on": "{time} ago",
+        "updated": "Updated",
+        "uptime": "Uptime",
+        "version": "Version {version}"
+      },
+      "album": {
+        "shuffle": "Shuffle",
+        "track-count": "{count} tracks"
+      },
+      "albums": {
+        "count": "{count} albums",
+        "filter": "Filter",
+        "hide-singles-help": "If active, hides singles and albums with tracks that only appear in playlists.",
+        "hide-singles": "Hide singles",
+        "hide-spotify-help": "If active, hides albums that only appear in your Spotify library.",
+        "hide-spotify": "Hide albums from Spotify",
+        "title": "Albums",
+        "sort-by": {
+          "title": "Sort by",
+          "name": "Name",
+          "recently-added": "Recently added",
+          "recently-released": "Recently released"
+        }
+      },
+      "artist": {
+        "album-count": "{count} albums",
+        "shuffle": "Shuffle",
+        "track-count": "{count} tracks",
+        "sort-by": {
+          "title": "Sort by",
+          "name": "Name",
+          "release-date": "Release date"
+        }
+      },
+      "artists": {
+        "count": "{count} artists",
+        "filter": "Filter",
+        "sort-by": {
+          "title": "Sort by",
+          "name": "Name",
+          "recently-added": "Rencently added"
+        },
+        "hide-singles-help": "If active, hides artists that only appear on singles or playlists.",
+        "hide-singles": "Hide singles",
+        "hide-spotify-help": "If active, hides artists that only appear in your Spotify library.",
+        "hide-spotify": "Hide artists from Spotify",
+        "title": "Artists"
+      },
+      "audiobooks": {
+        "album": {
+          "play": "Play",
+          "track-count": "{count} tracks"
+        },
+        "albums": {
+          "count": "{count} audiobooks",
+          "title": "Audiobooks"
+        },
+        "artist": {
+          "albums-count": "{count} albums",
+          "shuffle": "Shuffle"
+        },
+        "artists": {
+          "count": "{count} authors",
+          "title": "Authors"
+        },
+        "tabs": {
+          "authors": "Authors",
+          "audiobooks": "Audiobooks"
+        }
+      },
+      "browse": {
+        "albums": "albums",
+        "show-more": "Show more",
+        "tracks": "tracks",
+        "recently-added": {
+          "albums": "albums",
+          "title": "Recently added"
+        },
+        "recently-played": {
+          "title": "Recently played",
+          "tracks": "tracks"
+        },
+        "tabs": {
+          "albums": "Albums",
+          "artists": "Artists",
+          "browse": "Browse",
+          "composers": "Composers",
+          "genres": "Genres",
+          "spotify": "Spotify"
+        }
+      },
+      "composer": {
+        "album-count": "{count} albums",
+        "shuffle": "Shuffle",
+        "track-count": "{count} tracks"
+      },
+      "composers": {
+        "count": "{count} composers",
+        "title": "Composers"
+      },
+      "files": {
+        "play": "Play",
+        "title": "Files"
+      },
+      "genre": {
+        "album-count": "{count} albums",
+        "shuffle": "Shuffle",
+        "track-count": "{count} tracks"
+      },
+      "genres": {
+        "count": "{count} genres",
+        "title": "Genres"
+      },
+      "now-playing": {
+        "info": "Add some tracks by browsing your library",
+        "title": "Your play queue is empty"
+      },
+      "playlist": {
+        "length": "{length} tracks",
+        "shuffle": "Shuffle"
+      },
+      "playlists": {
+        "count": "{count} playlists"
+      },
+      "podcast": {
+        "play": "Play",
+        "remove-error": "Podcast cannot be removed. Probably it was not added as an RSS playlist.",
+        "remove-info-1": "Permanently remove this podcast from your library?",
+        "remove-info-2": "This will also remove the RSS playlist ",
+        "track-count": "{count} tracks"
+      },
+      "podcasts": {
+        "add": "Add",
+        "count": "{count} podcasts",
+        "mark-all-played": "Mark All Played",
+        "new-episodes": "New Episodes",
+        "title": "Podcasts",
+        "update": "Update"
+      },
+      "queue": {
+        "add-stream": "Add stream",
+        "clear": "Clear",
+        "count": "{count} tracks",
+        "edit": "Edit",
+        "hide-previous": "Hide previous",
+        "title": "Queue",
+        "save": "Save"
+      },
+      "radio": {
+        "count": "{count} stations",
+        "title": "Radio"
+      },
+      "search": {
+        "albums": "Albums",
+        "artists": "Artists",
+        "audiobooks": "Audiobooks",
+        "composers": "Composers",
+        "help": "Tip: you can search by a smart playlist query language <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> if you prefix it with <code>query:</code>.",
+        "no-albums": "No albums found",
+        "no-artists": "No artists found",
+        "no-audiobooks": "No audiobooks found",
+        "no-composers": "No composers found",
+        "no-playlists": "No playlists found",
+        "no-podcasts": "No podcasts found",
+        "no-tracks": "No tracks found",
+        "playlists": "Playlists",
+        "podcasts": "Podcasts",
+        "show-albums": "Show all {count} albums",
+        "show-artists": "Show all {count} artists",
+        "show-audiobooks": "Show all {count} audiobooks",
+        "show-composers": "Show all {count} composers",
+        "show-playlists": "Show all {count} playlists",
+        "show-podcasts": "Show all {count} podcasts",
+        "show-tracks": "Show all {count} tracks",
+        "tracks": "Tracks",
+        "tabs": {
+          "library": "Library",
+          "spotify": "Spotify"
+        }
+      },
+      "settings": {
+        "artwork": {
+          "artwork": "Artwork",
+          "coverartarchive": "Cover Art Archive",
+          "discogs": "Discogs",
+          "explanation-1": "OwnTone supports PNG and JPEG artwork which is either placed as separate image files in the library, embedded in the media files or made available online by radio stations.",
+          "explanation-2": "In addition to that, you can enable fetching artwork from the following artwork providers:",
+          "spotify": "Spotify"
+        },
+        "devices": {
+          "no-active-pairing": "No active pairing request.",
+          "pairing-request": "Remote pairing request from ",
+          "pairing": "Remote Pairing",
+          "send": "Send",
+          "speaker-pairing-info": "If your speaker requires pairing then activate it below and enter the PIN that it displays.",
+          "speaker-pairing": "Speaker pairing and device verification",
+          "verification-code": "Enter verification code",
+          "verify": "Verify"
+        },
+        "general": {
+          "album-lists": "Album Lists",
+          "audiobooks": "Audiobooks",
+          "files": "Audio Files",
+          "language": "Language",
+          "music": "Music",
+          "navigation-item-selection-info": "If you select more items than can be shown on your screen then the burger menu will disappear.",
+          "navigation-item-selection": "Select the top navigation bar menu items",
+          "navigation-items": "Navigation Bar",
+          "now-playing-page": "Now playing page",
+          "playlists": "Playlists",
+          "podcasts": "Podcasts",
+          "radio": "Radio",
+          "recently-added-page-info": "Limit the number of albums shown on the \"Recently Added\" page",
+          "recently-added-page": "Recently added page",
+          "search": "Search",
+          "show-composer-genres-info-1": "Comma separated list of genres the composer should be displayed on the \"now playing page\"",
+          "show-composer-genres-info-2": "Leave empty to always show the composer.",
+          "show-composer-genres-info-3": "The genre tag of the current track is matched by checking, if one of the defined genres are included. For example setting to \"classical, soundtrack\" will show the composer for tracks with a genre tag of \"Contemporary Classical\"",
+          "show-composer-genres": "Show composer only for listed genres",
+          "show-composer-info": "If enabled the composer of the current playing track is shown on the \"now playing page\"",
+          "show-composer": "Show composer",
+          "show-coverart": "Show cover artwork in album list"
+        },
+        "services": {
+          "lastfm": {
+            "grant-access": "<b>Last.fm</b> - Login with your Last.fm username and password to enable scrobbling",
+            "info": "OwnTone will not store your Last.fm username/password, only the session key. The session key does not expire.",
+            "title": "Last.fm",
+            "no-support": "OwnTone was built without support for Last.fm.",
+            "stop-scrobbling": "Stop scrobbling"
+          },
+          "spotify": {
+            "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
+            "logged-as": "Logged in as ",
+            "requirements": "You must have a Spotify premium account.",
+            "scopes": "Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
+            "user": "Access granted for ",
+            "authorize": "Authorize Web API access",
+            "credentials": " - Login with your Spotify username and password",
+            "grant-access": "<b>Spotify Web API</b> - Grant access to the Spotify Web API",
+            "help-1": "libspotify enables OwnTone to play Spotify tracks.",
+            "help-2": "OwnTone will not store your password, but will still be able to log you in automatically afterwards, because libspotify saves a login token.",
+            "reauthorize": "Please reauthorize Web API access to grant OwnTone the following additional access rights: ",
+            "title": "Spotify"
+          },
+          "login": "Login",
+          "logout": "Logout"
+        },
+        "tabs": {
+          "artwork": "Artwork",
+          "general": "General",
+          "online-services": "Online Services",
+          "remotes-and-outputs": "Remotes and Outputs"
+        }
+      },
+      "spotify": {
+        "album": {
+          "shuffle": "Shuffle",
+          "track-count": "{count} tracks"
+        },
+        "artist": {
+          "album-count": "{count} albums",
+          "shuffle": "Shuffle"
+        },
+        "browse": {
+          "featured-playlists": "Featured Playlists",
+          "new-releases": "New Releases",
+          "show-more": "Show More"
+        },
+        "playlist": {
+          "count": "{count} tracks",
+          "shuffle": "Shuffle"
+        },
+        "search": {
+          "albums": "Albums",
+          "artists": "Artists",
+          "no-albums": "No albums found",
+          "no-artists": "No artists found",
+          "no-playlists": "No playlists found",
+          "no-tracks": "No tracks found",
+          "playlists": "Playlists",
+          "show-all-albums": "Show all {count} albums",
+          "show-all-artists": "Show all {count} artists",
+          "show-all-playlists": "Show all {count} playlists",
+          "show-all-tracks": "Show all {count} tracks",
+          "tracks": "Tracks"
+        }
+      }
+    },
+    "setting": {
+      "not-saved": " （保存设置出错）",
+      "saved": " （设置已保存）"
+    },
+    "server": {
+      "connection-failed": "无法连接到 OwnTone 服务器",
+      "missing-port": "缺少 websocket 端口",
+      "request-failed": "发送请求失败 (状态码: {status} {cause} {url})",
+      "queue-saved": "当前播放队列已保存到播放列表： {name}",
+      "appended-tracks": "{count} 首曲目已添加到播放队列",
+      "empty-queue": "播放队列为空"
+    },
+    "group-by-list": {
+      "today": "今日",
+      "last-week": "最近一个星期",
+      "last-month": "最近一个月"
+    }
+  }
+  
