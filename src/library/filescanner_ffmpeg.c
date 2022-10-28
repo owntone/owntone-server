@@ -452,7 +452,8 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
       codec_id = ctx->streams[i]->codecpar->codec_id;
       sample_rate = ctx->streams[i]->codecpar->sample_rate;
       sample_fmt = ctx->streams[i]->codecpar->format;
-#ifdef HAVE_FFMPEG_CH_LAYOUT
+// Matches USE_CH_LAYOUT in transcode.c
+#if (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 24))
       channels = ctx->streams[i]->codecpar->ch_layout.nb_channels;
 #else
       channels = ctx->streams[i]->codecpar->channels;
