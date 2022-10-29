@@ -423,7 +423,7 @@
                 "artwork": "封面",
                 "coverartarchive": "Cover Art Archive",
                 "discogs": "Discogs",
-                "explanation-1": "OwnTone支持PNG和JPEG格式的封面，这些图片可以作为单独的图像文件放置在媒体库中，也可以嵌入媒体文件中，同样可以由广播电台在线提供。",
+                "explanation-1": "OwnTone 支持 PNG 和 JPEG 格式的封面，这些图片可以作为单独的图像文件放置在媒体库中，也可以嵌入媒体文件中，同样可以由广播电台在线提供。",
                 "explanation-2": "除此之外，您还可以启用从以下图稿提供商处获取图稿：",
                 "spotify": "Spotify"
             },
