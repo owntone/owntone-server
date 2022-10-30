@@ -381,7 +381,7 @@ request_endpoint(const char *uri)
       goto out;
     }
 
-//  DPRINTF(E_DBG, L_SPOTIFY, "Wep api response for '%s'\n%s\n", uri, response_body);
+//  DPRINTF(E_DBG, L_SPOTIFY, "Web api response for '%s'\n%s\n", uri, response_body);
 
   json_response = json_tokener_parse(response_body);
   if (!json_response)
@@ -672,9 +672,10 @@ get_album_image(json_object *jsonalbum, int max_w)
   json_object *jsonimage;
   int image_count;
   int index;
-  const char *artwork_url;
-
-  artwork_url = NULL;
+  int width;
+  int candidate_width = 0;
+  const char *artwork_url = NULL;
+  bool use_image;
 
   if (!json_object_object_get_ex(jsonalbum, "images", &jsonimages))
     {
@@ -682,24 +683,33 @@ get_album_image(json_object *jsonalbum, int max_w)
       return NULL;
     }
 
-  // Find first image that has a smaller width than the given max_w
-  // (this should avoid the need for resizing and improve performance at the cost of some quality loss)
-  // Note that Spotify returns the images ordered descending by width (widest image first)
-  // Special case is if no max width (max_w = 0) is given, the widest images will be used
+  // Find first image that has a smaller width than the given max_w (this should
+  // avoid the need for resizing and improve performance at the cost of some
+  // quality loss). If no sufficiently small image available, return smallest
+  // best alternative. Special case is if no max width (max_w = 0) is given, the
+  // widest images will be used.
+  //
+  // Note that Spotify should return the images ordered descending by width
+  // (widest image first), but at one point had a bug that meant they didn't, so
+  // we don't rely on that here.
   image_count = json_object_array_length(jsonimages);
   for (index = 0; index < image_count; index++)
     {
       jsonimage = json_object_array_get_idx(jsonimages, index);
-      if (jsonimage)
-	{
-	  artwork_url = jparse_str_from_obj(jsonimage, "url");
+      if (!jsonimage)
+	continue;
 
-	  if (max_w <= 0  || jparse_int_from_obj(jsonimage, "width") <= max_w)
-	    {
-	      // We have the first image that has a smaller width than the given max_w
-	      break;
-	    }
-	}
+      width = jparse_int_from_obj(jsonimage, "width");
+
+      use_image =
+	((width <= max_w || max_w == 0 || candidate_width == 0) && width > candidate_width) ||
+	(width > max_w && candidate_width > width);
+
+      if (!use_image)
+	continue;
+
+      candidate_width = width;
+      artwork_url = jparse_str_from_obj(jsonimage, "url");
     }
 
   return artwork_url;
