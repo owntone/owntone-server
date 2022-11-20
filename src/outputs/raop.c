@@ -4080,7 +4080,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   device_name++;
 
-  DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device '%s' (port %d, id %" PRIx64 ")\n", device_name, port, id);
+  DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device '%s' (port %d, id %" PRIx64 ", Active-Remote %" PRIu32 ")\n", device_name, port, id, (uint32_t)id);
 
   devcfg = cfg_gettsec(cfg, "airplay", device_name);
   if (devcfg && cfg_getbool(devcfg, "exclude"))

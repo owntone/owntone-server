@@ -2750,10 +2750,10 @@ speaker_prevent_playback_set_bh(void *arg, int *retval)
 {
   struct speaker_attr_param *param = arg;
 
-  if (outputs_sessions_count() == 0)
+  if (player_state == PLAY_PLAYING && outputs_sessions_count() == 0)
     {
-      DPRINTF(E_INFO, L_PLAYER, "Ending playback, speaker (id=%" PRIu64 ") set 'busy' or 'prevent-playback' flag\n", param->spk_id);
-      pb_abort(); // TODO Would be better for the user if we paused, but we don't have a handy function for that
+      DPRINTF(E_INFO, L_PLAYER, "Suspending playback, speaker (id=%" PRIu64 ") set 'busy' or 'prevent-playback' flag\n", param->spk_id);
+      pb_suspend(); // Don't want to use pb_abort here, since that may clear the queue
     }
   else
     status_update(player_state, LISTENER_SPEAKER | LISTENER_VOLUME);
