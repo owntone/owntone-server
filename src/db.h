@@ -190,7 +190,7 @@ struct media_file_info {
   uint32_t song_length;
   int64_t file_size;
   uint32_t year;         /* TDRC */
-  uint32_t date_released;
+  int64_t date_released;  // bumped to (signed) int64 since all 32bits are unsigned
 
   uint32_t track;        /* TRCK */
   uint32_t total_tracks;
