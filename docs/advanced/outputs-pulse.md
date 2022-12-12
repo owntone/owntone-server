@@ -1,6 +1,6 @@
 # OwnTone and Pulseaudio
 
-You have the choice of runnning Pulseaudio either in system mode or user mode.
+You have the choice of running Pulseaudio either in system mode or user mode.
 For headless servers, i.e. systems without desktop users, system mode is
 recommended.
 
