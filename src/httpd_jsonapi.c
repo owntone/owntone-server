@@ -147,7 +147,7 @@ safe_json_add_time_from_string(json_object *obj, const char *key, const char *va
 static inline void
 safe_json_add_date_from_string(json_object *obj, const char *key, const char *value)
 {
-  uint32_t tmp;
+  int64_t tmp;
   time_t timestamp;
   struct tm tm;
   char result[32];
@@ -155,9 +155,9 @@ safe_json_add_date_from_string(json_object *obj, const char *key, const char *va
   if (!value)
     return;
 
-  if (safe_atou32(value, &tmp) != 0)
+  if (safe_atoi64(value, &tmp) != 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Error converting timestamp to uint32_t: %s\n", value);
+      DPRINTF(E_LOG, L_WEB, "Error converting timestamp to int64_t: %s\n", value);
       return;
     }
 

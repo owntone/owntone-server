@@ -187,7 +187,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "song_length",        mfi_offsetof(song_length),        DB_TYPE_INT },
     { "file_size",          mfi_offsetof(file_size),          DB_TYPE_INT64 },
     { "year",               mfi_offsetof(year),               DB_TYPE_INT },
-    { "date_released",      mfi_offsetof(date_released),      DB_TYPE_INT },
+    { "date_released",      mfi_offsetof(date_released),      DB_TYPE_INT64 },
     { "track",              mfi_offsetof(track),              DB_TYPE_INT },
     { "total_tracks",       mfi_offsetof(total_tracks),       DB_TYPE_INT },
     { "disc",               mfi_offsetof(disc),               DB_TYPE_INT },
