@@ -905,23 +905,9 @@ rsp_is_request(const char *path)
 int
 rsp_init(void)
 {
-  char buf[64];
-  int i;
-  int ret;
-
   snprintf(rsp_filter_files, sizeof(rsp_filter_files), "f.data_kind = %d", DATA_KIND_FILE);
 
-  for (i = 0; rsp_handlers[i].handler; i++)
-    {
-      ret = regcomp(&rsp_handlers[i].preg, rsp_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-        {
-          regerror(ret, &rsp_handlers[i].preg, buf, sizeof(buf));
-
-          DPRINTF(E_FATAL, L_RSP, "RSP init failed; regexp error: %s\n", buf);
-	  return -1;
-        }
-    }
+  CHECK_ERR(L_RSP, httpd_handlers_set(rsp_handlers));
 
   return 0;
 }
@@ -929,8 +915,5 @@ rsp_init(void)
 void
 rsp_deinit(void)
 {
-  int i;
-
-  for (i = 0; rsp_handlers[i].handler; i++)
-    regfree(&rsp_handlers[i].preg);
+  httpd_handlers_unset(rsp_handlers);
 }

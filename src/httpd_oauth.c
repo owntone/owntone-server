@@ -125,21 +125,7 @@ oauth_is_request(const char *path)
 int
 oauth_init(void)
 {
-  char buf[64];
-  int i;
-  int ret;
-
-  for (i = 0; oauth_handlers[i].handler; i++)
-    {
-      ret = regcomp(&oauth_handlers[i].preg, oauth_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-        {
-          regerror(ret, &oauth_handlers[i].preg, buf, sizeof(buf));
-
-          DPRINTF(E_FATAL, L_WEB, "OAuth init failed; regexp error: %s\n", buf);
-	  return -1;
-        }
-    }
+  CHECK_ERR(L_WEB, httpd_handlers_set(oauth_handlers));
 
   return 0;
 }
@@ -147,8 +133,5 @@ oauth_init(void)
 void
 oauth_deinit(void)
 {
-  int i;
-
-  for (i = 0; oauth_handlers[i].handler; i++)
-    regfree(&oauth_handlers[i].preg);
+  httpd_handlers_unset(oauth_handlers);
 }

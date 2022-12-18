@@ -42,6 +42,8 @@
 #include <event2/event.h>
 #include <event2/http.h>
 #include <event2/http_struct.h>
+
+#include <regex.h>
 #include <zlib.h>
 
 #include "logger.h"
@@ -945,8 +947,8 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
   struct httpd_request *hreq;
   struct evhttp_connection *evcon;
   struct evkeyvalq *headers;
+  struct httpd_uri_map *uri;
   int req_method;
-  int i;
   int ret;
 
   CHECK_NULL(L_HTTPD, hreq = calloc(1, sizeof(struct httpd_request)));
@@ -975,24 +977,67 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
     hreq->user_agent = user_agent;
 
   // Find a handler for the path
-  for (i = 0; uri_map[i].handler; i++)
+  for (uri = uri_map; uri->handler; uri++)
     {
       // Check if handler supports the current http request method
-      if (uri_map[i].method && req_method && !(req_method & uri_map[i].method))
+      if (uri->method && req_method && !(req_method & uri->method))
 	continue;
 
-      ret = regexec(&uri_map[i].preg, uri_parsed->path, 0, NULL, 0);
-      if (ret == 0)
-        {
-          hreq->handler = uri_map[i].handler;
-          return hreq; // Success
-        }
+      ret = regexec(uri->preg, uri_parsed->path, 0, NULL, 0);
+      if (ret != 0)
+	continue;
+
+      hreq->handler = uri->handler;
+      return hreq; // Success
     }
 
   // Handler not found, that's an error
   free(hreq);
-
   return NULL;
+}
+
+int
+httpd_handlers_set(struct httpd_uri_map *uri_map)
+{
+  struct httpd_uri_map *uri;
+  char buf[64];
+  int ret;
+
+  for (uri = uri_map; uri->handler; uri++)
+    {
+      uri->preg = calloc(1, sizeof(regex_t));
+      if (!uri->preg)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Error setting URI handler, out of memory");
+	  goto error;
+	}
+
+      ret = regcomp(uri->preg, uri->regexp, REG_EXTENDED | REG_NOSUB);
+      if (ret != 0)
+	{
+	  regerror(ret, uri->preg, buf, sizeof(buf));
+	  DPRINTF(E_LOG, L_HTTPD, "Error setting URI handler, regexp error: %s\n", buf);
+	  goto error;
+	}
+    }
+
+  return 0;
+
+ error:
+  httpd_handlers_unset(uri_map);
+  return -1;
+}
+
+void
+httpd_handlers_unset(struct httpd_uri_map *uri_map)
+{
+  struct httpd_uri_map *uri;
+
+  for (uri = uri_map; uri->preg; uri++)
+    {
+      regfree(uri->preg); // Frees allocation by regcomp
+      free(uri->preg); // Frees our own calloc
+    }
 }
 
 /* Thread: httpd */

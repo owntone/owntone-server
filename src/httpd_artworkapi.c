@@ -211,21 +211,7 @@ artworkapi_is_request(const char *path)
 int
 artworkapi_init(void)
 {
-  char buf[64];
-  int i;
-  int ret;
-
-  for (i = 0; artworkapi_handlers[i].handler; i++)
-    {
-      ret = regcomp(&artworkapi_handlers[i].preg, artworkapi_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-	{
-	  regerror(ret, &artworkapi_handlers[i].preg, buf, sizeof(buf));
-
-	  DPRINTF(E_FATAL, L_WEB, "artwork api init failed; regexp error: %s\n", buf);
-	  return -1;
-	}
-    }
+  CHECK_ERR(L_WEB, httpd_handlers_set(artworkapi_handlers));
 
   return 0;
 }
@@ -233,8 +219,5 @@ artworkapi_init(void)
 void
 artworkapi_deinit(void)
 {
-  int i;
-
-  for (i = 0; artworkapi_handlers[i].handler; i++)
-    regfree(&artworkapi_handlers[i].preg);
+  httpd_handlers_unset(artworkapi_handlers);
 }
