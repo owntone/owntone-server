@@ -2424,25 +2424,11 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 int
 daap_init(void)
 {
-  char buf[64];
-  int i;
-  int ret;
-
   srand((unsigned)time(NULL));
   current_rev = 2;
   update_requests = NULL;
 
-  for (i = 0; daap_handlers[i].handler; i++)
-    {
-      ret = regcomp(&daap_handlers[i].preg, daap_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-        {
-          regerror(ret, &daap_handlers[i].preg, buf, sizeof(buf));
-
-          DPRINTF(E_FATAL, L_DAAP, "DAAP init failed; regexp error: %s\n", buf);
-	  return -1;
-        }
-    }
+  CHECK_ERR(L_DAAP, httpd_handlers_set(daap_handlers));
 
   return 0;
 }
@@ -2453,10 +2439,6 @@ daap_deinit(void)
   struct daap_session *s;
   struct daap_update_request *ur;
   struct evhttp_connection *evcon;
-  int i;
-
-  for (i = 0; daap_handlers[i].handler; i++)
-    regfree(&daap_handlers[i].preg);
 
   for (s = daap_sessions; daap_sessions; s = daap_sessions)
     {
@@ -2477,4 +2459,6 @@ daap_deinit(void)
 
       update_free(ur);
     }
+
+  httpd_handlers_unset(daap_handlers);
 }

@@ -4794,22 +4794,9 @@ jsonapi_is_request(const char *path)
 int
 jsonapi_init(void)
 {
-  char buf[64];
   char *temp_path;
-  int i;
-  int ret;
 
-  for (i = 0; adm_handlers[i].handler; i++)
-    {
-      ret = regcomp(&adm_handlers[i].preg, adm_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-	{
-	  regerror(ret, &adm_handlers[i].preg, buf, sizeof(buf));
-
-	  DPRINTF(E_FATAL, L_WEB, "JSON api init failed; regexp error: %s\n", buf);
-	  return -1;
-	}
-    }
+  CHECK_ERR(L_WEB, httpd_handlers_set(adm_handlers));
 
   default_playlist_directory = NULL;
   allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "library"), "allow_modifying_stored_playlists");
@@ -4840,10 +4827,7 @@ jsonapi_init(void)
 void
 jsonapi_deinit(void)
 {
-  int i;
-
-  for (i = 0; adm_handlers[i].handler; i++)
-    regfree(&adm_handlers[i].preg);
-
   free(default_playlist_directory);
+
+  httpd_handlers_unset(adm_handlers);
 }

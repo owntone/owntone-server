@@ -2895,12 +2895,7 @@ dacp_is_request(const char *path)
 int
 dacp_init(void)
 {
-  char buf[64];
-  int i;
-  int ret;
-
   current_rev = 2;
-  update_requests = NULL;
 
   dummy_mfi.id = DB_MEDIA_FILE_NON_PERSISTENT_ID;
   dummy_mfi.title = CFG_NAME_UNKNOWN_TITLE;
@@ -2914,72 +2909,42 @@ dacp_init(void)
   dummy_queue_item.album = CFG_NAME_UNKNOWN_ALBUM;
   dummy_queue_item.genre = CFG_NAME_UNKNOWN_GENRE;
 
+  CHECK_ERR(L_DACP, httpd_handlers_set(dacp_handlers));
+
 #ifdef HAVE_EVENTFD
   update_efd = eventfd(0, EFD_CLOEXEC);
   if (update_efd < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not create update eventfd: %s\n", strerror(errno));
-
-      return -1;
+      goto error;
     }
+
+  CHECK_NULL(L_DACP, updateev = event_new(evbase_httpd, update_efd, EV_READ, playstatusupdate_cb, NULL));
 #else
 # ifdef HAVE_PIPE2
-  ret = pipe2(update_pipe, O_CLOEXEC);
+  int ret = pipe2(update_pipe, O_CLOEXEC);
 # else
-  ret = pipe(update_pipe);
+  int ret = pipe(update_pipe);
 # endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not create update pipe: %s\n", strerror(errno));
-
-      return -1;
+      goto error;
     }
+
+  CHECK_NULL(L_DACP, updateev = event_new(evbase_httpd, update_pipe[0], EV_READ, playstatusupdate_cb, NULL));
 #endif /* HAVE_EVENTFD */
 
-  for (i = 0; dacp_handlers[i].handler; i++)
-    {
-      ret = regcomp(&dacp_handlers[i].preg, dacp_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-        {
-          regerror(ret, &dacp_handlers[i].preg, buf, sizeof(buf));
-
-          DPRINTF(E_FATAL, L_DACP, "DACP init failed; regexp error: %s\n", buf);
-	  goto regexp_fail;
-        }
-    }
-
-#ifdef HAVE_EVENTFD
-  updateev = event_new(evbase_httpd, update_efd, EV_READ, playstatusupdate_cb, NULL);
-#else
-  updateev = event_new(evbase_httpd, update_pipe[0], EV_READ, playstatusupdate_cb, NULL);
-#endif
-  if (!updateev)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not create update event\n");
-
-      return -1;
-    }
   event_add(updateev, NULL);
 
-  seek_timer = evtimer_new(evbase_httpd, seek_timer_cb, NULL);
-  if (!seek_timer)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not create seek_timer event\n");
-
-      return -1;
-    }
+  CHECK_NULL(L_DACP, seek_timer = evtimer_new(evbase_httpd, seek_timer_cb, NULL));
 
   listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER | LISTENER_VOLUME | LISTENER_QUEUE);
 
   return 0;
 
- regexp_fail:
-#ifdef HAVE_EVENTFD
-  close(update_efd);
-#else
-  close(update_pipe[0]);
-  close(update_pipe[1]);
-#endif
+ error:
+  dacp_deinit();
   return -1;
 }
 
@@ -2988,14 +2953,6 @@ dacp_deinit(void)
 {
   struct dacp_update_request *ur;
   struct evhttp_connection *evcon;
-  int i;
-
-  listener_remove(dacp_playstatus_update_handler);
-
-  event_free(seek_timer);
-
-  for (i = 0; dacp_handlers[i].handler; i++)
-    regfree(&dacp_handlers[i].preg);
 
   for (ur = update_requests; update_requests; ur = update_requests)
     {
@@ -3011,7 +2968,13 @@ dacp_deinit(void)
       free(ur);
     }
 
-  event_free(updateev);
+  listener_remove(dacp_playstatus_update_handler);
+
+  if (seek_timer)
+   event_free(seek_timer);
+
+  if (updateev)
+    event_free(updateev);
 
 #ifdef HAVE_EVENTFD
   close(update_efd);
@@ -3019,4 +2982,6 @@ dacp_deinit(void)
   close(update_pipe[0]);
   close(update_pipe[1]);
 #endif
+
+  httpd_handlers_unset(dacp_handlers);
 }

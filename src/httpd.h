@@ -3,7 +3,6 @@
 #define __HTTPD_H__
 
 #include <stdbool.h>
-#include <regex.h>
 #include <time.h>
 #include <event2/http.h>
 #include <event2/buffer.h>
@@ -72,7 +71,7 @@ struct httpd_uri_map
   int method;
   char *regexp;
   int (*handler)(struct httpd_request *hreq);
-  regex_t preg;
+  void *preg;
 };
 
 /*
@@ -96,6 +95,12 @@ httpd_uri_parse(const char *uri);
  */
 struct httpd_request *
 httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map);
+
+int
+httpd_handlers_set(struct httpd_uri_map *uri_map);
+
+void
+httpd_handlers_unset(struct httpd_uri_map *uri_map);
 
 void
 httpd_stream_file(struct evhttp_request *req, int id);
