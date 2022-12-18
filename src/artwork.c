@@ -574,20 +574,6 @@ size_calculate(int *dst_w, int *dst_h, int src_w, int src_h, int max_w, int max_
   DPRINTF(E_DBG, L_ART, "Rescale required, destination width %d height %d\n", *dst_w, *dst_h);
 }
 
-#ifdef HAVE_LIBEVENT2_OLD
-// This is not how this function is actually defined in libevent 2.1+, but it
-// works as a less optimal stand-in
-int
-evbuffer_add_buffer_reference(struct evbuffer *outbuf, struct evbuffer *inbuf)
-{
-  uint8_t *buf = evbuffer_pullup(inbuf, -1);
-  if (!buf)
-    return -1;
-
-  return evbuffer_add_reference(outbuf, buf, evbuffer_get_length(inbuf), NULL, NULL);
-}
-#endif
-
 /*
  * Either gets the artwork file given in "path" (rescaled if needed) or rescales
  * the artwork given in "inbuf".

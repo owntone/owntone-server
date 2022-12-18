@@ -42,10 +42,6 @@
 #include <event2/event.h>
 #include <event2/http.h>
 #include <event2/http_struct.h>
-#ifdef HAVE_LIBEVENT2_OLD
-# include <event2/bufferevent.h>
-# include <event2/bufferevent_struct.h>
-#endif
 #include <zlib.h>
 
 #include "logger.h"
@@ -133,10 +129,6 @@ static pthread_t tid_httpd;
 
 static const char *allow_origin;
 static int httpd_port;
-
-#ifdef HAVE_LIBEVENT2_OLD
-struct stream_ctx *g_st;
-#endif
 
 
 /* -------------------------------- HELPERS --------------------------------- */
@@ -550,11 +542,6 @@ stream_end(struct stream_ctx *st, int failed)
       close(st->fd);
     }
 
-#ifdef HAVE_LIBEVENT2_OLD
-  if (g_st == st)
-    g_st = NULL;
-#endif
-
   free(st);
 }
 
@@ -591,15 +578,6 @@ stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
       stream_end(st, 0);
     }
 }
-
-#ifdef HAVE_LIBEVENT2_OLD
-static void
-stream_chunk_resched_cb_wrapper(struct bufferevent *bufev, void *arg)
-{
-  if (g_st)
-    stream_chunk_resched_cb(NULL, g_st);
-}
-#endif
 
 static void
 stream_chunk_xcode_cb(int fd, short event, void *arg)
@@ -648,17 +626,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   else
     ret = xcoded;
 
-#ifdef HAVE_LIBEVENT2_OLD
-  evhttp_send_reply_chunk(st->req, st->evbuf);
-
-  struct evhttp_connection *evcon = evhttp_request_get_connection(st->req);
-  struct bufferevent *bufev = evhttp_connection_get_bufferevent(evcon);
-
-  g_st = st; // Can't pass st to callback so use global - limits libevent 2.0 to a single stream
-  bufev->writecb = stream_chunk_resched_cb_wrapper;
-#else
   evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
-#endif
 
   st->offset += ret;
 
@@ -714,17 +682,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   evbuffer_add(st->evbuf, st->buf, ret);
 
-#ifdef HAVE_LIBEVENT2_OLD
-  evhttp_send_reply_chunk(st->req, st->evbuf);
-
-  struct evhttp_connection *evcon = evhttp_request_get_connection(st->req);
-  struct bufferevent *bufev = evhttp_connection_get_bufferevent(evcon);
-
-  g_st = st; // Can't pass st to callback so use global - limits libevent 2.0 to a single stream
-  bufev->writecb = stream_chunk_resched_cb_wrapper;
-#else
   evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
-#endif
 
   st->offset += ret;
 

@@ -63,17 +63,6 @@
 #include "log.h"
 #include "rtsp-internal.h"
 
-// For compability with libevent 2.0 (HAVE_LIBEVENT2_OLD)
-#if defined(_EVENT_HAVE_GETNAMEINFO)
-# define EVENT__HAVE_GETNAMEINFO 1
-#endif
-#if defined(_EVENT_HAVE_GETADDRINFO)
-# define EVENT__HAVE_GETADDRINFO 1
-#endif
-#if defined(_EVENT_HAVE_STRSEP)
-# define EVENT__HAVE_STRSEP 1
-#endif
-
 #ifndef EVENT__HAVE_GETNAMEINFO
 #define NI_MAXSERV 32
 #define NI_MAXHOST 1025
