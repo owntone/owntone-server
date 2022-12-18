@@ -148,13 +148,7 @@ OWNTONE_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 		[AC_MSG_RESULT([[runtime will tell]])])
 	])
 
-OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT], [libevent >= 2],
-	[event_base_new], [event2/event.h],
-	[dnl check for old version
-	 PKG_CHECK_EXISTS([libevent >= 2.1.4], [],
-		[AC_DEFINE([HAVE_LIBEVENT2_OLD], 1,
-			[Define to 1 if you have libevent 2 (<2.1.4)])])
-	])
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT], [libevent >= 2.1.4], [event_base_new], [event2/event.h])
 
 dnl Check for evhttp_connection_get_peer() signature
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
