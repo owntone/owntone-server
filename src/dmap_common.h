@@ -78,10 +78,6 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
 void
 dmap_error_make(struct evbuffer *evbuf, const char *container, const char *errmsg);
 
-void
-dmap_send_error(struct evhttp_request *req, const char *container, const char *errmsg);
-
-
 int
 dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int sort_tags, int force_wav);
 

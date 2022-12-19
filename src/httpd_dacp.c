@@ -155,6 +155,30 @@ static struct db_queue_item dummy_queue_item;
 /* -------------------------------- HELPERS --------------------------------- */
 
 static void
+dacp_send_error(struct evhttp_request *req, const char *container, const char *errmsg)
+{
+  struct evbuffer *evbuf;
+
+  if (!req)
+    return;
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for DMAP error\n");
+
+      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      return;
+    }
+
+  dmap_error_make(evbuf, container, errmsg);
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
+
+  evbuffer_free(evbuf);
+}
+
+static void
 dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct db_queue_item *queue_item)
 {
   uint32_t id;
@@ -1240,7 +1264,7 @@ dacp_reply_cue_play(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
 
-	  dmap_send_error(hreq->req, "cacr", "Could not build song queue");
+	  dacp_send_error(hreq->req, "cacr", "Could not build song queue");
 	  return -1;
 	}
     }
@@ -1280,7 +1304,7 @@ dacp_reply_cue_play(struct httpd_request *hreq)
 		{
 		  DPRINTF(E_LOG, L_DACP, "Could not start playback from history\n");
 
-		  dmap_send_error(hreq->req, "cacr", "Playback failed to start");
+		  dacp_send_error(hreq->req, "cacr", "Playback failed to start");
 		  return -1;
 		}
 	    }
@@ -1288,7 +1312,7 @@ dacp_reply_cue_play(struct httpd_request *hreq)
 	    {
 	      DPRINTF(E_LOG, L_DACP, "Could not start playback from history\n");
 
-	      dmap_send_error(hreq->req, "cacr", "Playback failed to start");
+	      dacp_send_error(hreq->req, "cacr", "Playback failed to start");
 	      return -1;
 	    }
 	}
@@ -1303,7 +1327,7 @@ dacp_reply_cue_play(struct httpd_request *hreq)
 	    {
 	      DPRINTF(E_LOG, L_DACP, "Could not fetch item from queue: pos=%d, now playing=%d\n", pos, status.item_id);
 
-	      dmap_send_error(hreq->req, "cacr", "Playback failed to start");
+	      dacp_send_error(hreq->req, "cacr", "Playback failed to start");
 	      return -1;
 	    }
 	}
@@ -1315,7 +1339,7 @@ dacp_reply_cue_play(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not fetch item from queue: pos=%d\n", pos);
 
-	  dmap_send_error(hreq->req, "cacr", "Playback failed to start");
+	  dacp_send_error(hreq->req, "cacr", "Playback failed to start");
 	  return -1;
 	}
     }
@@ -1326,7 +1350,7 @@ dacp_reply_cue_play(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
 
-      dmap_send_error(hreq->req, "cacr", "Playback failed to start");
+      dacp_send_error(hreq->req, "cacr", "Playback failed to start");
       return -1;
     }
 
@@ -1378,7 +1402,7 @@ dacp_reply_cue(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "No command in cue request\n");
 
-      dmap_send_error(hreq->req, "cacr", "No command in cue request");
+      dacp_send_error(hreq->req, "cacr", "No command in cue request");
       return -1;
     }
 
@@ -1390,7 +1414,7 @@ dacp_reply_cue(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Unknown cue command %s\n", param);
 
-      dmap_send_error(hreq->req, "cacr", "Unknown command in cue request");
+      dacp_send_error(hreq->req, "cacr", "Unknown command in cue request");
       return -1;
     }
 }
@@ -1892,7 +1916,7 @@ dacp_reply_playqueuecontents(struct httpd_request *hreq)
   DPRINTF(E_LOG, L_DACP, "Database error in dacp_reply_playqueuecontents\n");
 
   evbuffer_free(songlist);
-  dmap_send_error(hreq->req, "ceQR", "Database error");
+  dacp_send_error(hreq->req, "ceQR", "Database error");
 
   return -1;
 }
@@ -1962,7 +1986,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Invalid mode value in playqueue-edit request\n");
 
-	  dmap_send_error(hreq->req, "cacr", "Invalid request");
+	  dacp_send_error(hreq->req, "cacr", "Invalid request");
 	  return -1;
 	}
     }
@@ -1981,7 +2005,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Could not add song queue, DACP query missing\n");
 
-      dmap_send_error(hreq->req, "cacr", "Invalid request");
+      dacp_send_error(hreq->req, "cacr", "Invalid request");
       return -1;
     }
 
@@ -2010,7 +2034,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
         {
 	  DPRINTF(E_LOG, L_DACP, "Invalid playlist id in request: %s\n", editquery);
 
-	  dmap_send_error(hreq->req, "cacr", "Invalid request");
+	  dacp_send_error(hreq->req, "cacr", "Invalid request");
 	  return -1;
 	}
 
@@ -2022,7 +2046,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
 
-      dmap_send_error(hreq->req, "cacr", "Invalid request");
+      dacp_send_error(hreq->req, "cacr", "Invalid request");
       return -1;
     }
 
@@ -2055,7 +2079,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
 
-      dmap_send_error(hreq->req, "cacr", "Playback failed to start");
+      dacp_send_error(hreq->req, "cacr", "Playback failed to start");
       return -1;
     }
 
@@ -2090,7 +2114,7 @@ dacp_reply_playqueueedit_move(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-from value in playqueue-edit request\n");
 
-      dmap_send_error(hreq->req, "cacr", "Invalid request");
+      dacp_send_error(hreq->req, "cacr", "Invalid request");
       return -1;
     }
 
@@ -2099,7 +2123,7 @@ dacp_reply_playqueueedit_move(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-to value in playqueue-edit request\n");
 
-      dmap_send_error(hreq->req, "cacr", "Invalid request");
+      dacp_send_error(hreq->req, "cacr", "Invalid request");
       return -1;
     }
 
@@ -2134,7 +2158,7 @@ dacp_reply_playqueueedit_remove(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid edit-params remove item value in playqueue-edit request\n");
 
-      dmap_send_error(hreq->req, "cacr", "Invalid request");
+      dacp_send_error(hreq->req, "cacr", "Invalid request");
       return -1;
     }
 
@@ -2207,7 +2231,7 @@ dacp_reply_playqueueedit(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "No command in playqueue-edit request\n");
 
-      dmap_send_error(hreq->req, "cmst", "Invalid request");
+      dacp_send_error(hreq->req, "cmst", "Invalid request");
       return -1;
     }
 
@@ -2225,7 +2249,7 @@ dacp_reply_playqueueedit(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Unknown playqueue-edit command %s\n", param);
 
-      dmap_send_error(hreq->req, "cmst", "Invalid request");
+      dacp_send_error(hreq->req, "cmst", "Invalid request");
       return -1;
     }
 }
@@ -2248,7 +2272,7 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Missing revision-number in update request\n");
 
-      dmap_send_error(hreq->req, "cmst", "Invalid request");
+      dacp_send_error(hreq->req, "cmst", "Invalid request");
       return -1;
     }
 
@@ -2257,7 +2281,7 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Parameter revision-number not an integer\n");
 
-      dmap_send_error(hreq->req, "cmst", "Invalid request");
+      dacp_send_error(hreq->req, "cmst", "Invalid request");
       return -1;
     }
 
@@ -2281,7 +2305,7 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Out of memory for update request\n");
 
-      dmap_send_error(hreq->req, "cmst", "Out of memory");
+      dacp_send_error(hreq->req, "cmst", "Out of memory");
       return -1;
     }
 
@@ -2410,7 +2434,7 @@ dacp_reply_getproperty(struct httpd_request *hreq)
     {
       DPRINTF(E_WARN, L_DACP, "Invalid DACP getproperty request, no properties\n");
 
-      dmap_send_error(hreq->req, "cmgt", "Invalid request");
+      dacp_send_error(hreq->req, "cmgt", "Invalid request");
       return -1;
     }
 
@@ -2419,7 +2443,7 @@ dacp_reply_getproperty(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Could not duplicate properties parameter; out of memory\n");
 
-      dmap_send_error(hreq->req, "cmgt", "Out of memory");
+      dacp_send_error(hreq->req, "cmgt", "Out of memory");
       return -1;
     }
 
@@ -2428,7 +2452,7 @@ dacp_reply_getproperty(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for properties list\n");
 
-      dmap_send_error(hreq->req, "cmgt", "Out of memory");
+      dacp_send_error(hreq->req, "cmgt", "Out of memory");
       goto out_free_propstr;
     }
 
@@ -2441,7 +2465,7 @@ dacp_reply_getproperty(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not fetch queue_item for item-id %d\n", status.item_id);
 
-	  dmap_send_error(hreq->req, "cmgt", "Server error");
+	  dacp_send_error(hreq->req, "cmgt", "Server error");
 	  goto out_free_proplist;
 	}
     }
