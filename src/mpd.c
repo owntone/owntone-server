@@ -47,7 +47,6 @@
 #include "commands.h"
 #include "conffile.h"
 #include "db.h"
-#include "httpd.h"
 #include "library.h"
 #include "listener.h"
 #include "logger.h"
@@ -4651,7 +4650,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   if (evhttp_request_get_command(req) != EVHTTP_REQ_GET)
     {
       DPRINTF(E_LOG, L_MPD, "Unsupported request type for artwork\n");
-      httpd_send_error(req, HTTP_BADMETHOD, "Method not allowed");
+      evhttp_send_error(req, HTTP_BADMETHOD, "Method not allowed");
       return;
     }
 
@@ -4662,7 +4661,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   if (!decoded)
     {
       DPRINTF(E_LOG, L_MPD, "Bad artwork request with uri '%s'\n", uri);
-      httpd_send_error(req, HTTP_BADREQUEST, 0);
+      evhttp_send_error(req, HTTP_BADREQUEST, 0);
       return;
     }
 
@@ -4670,7 +4669,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   if (!path)
     {
       DPRINTF(E_LOG, L_MPD, "Invalid path from artwork request with uri '%s'\n", uri);
-      httpd_send_error(req, HTTP_BADREQUEST, 0);
+      evhttp_send_error(req, HTTP_BADREQUEST, 0);
       evhttp_uri_free(decoded);
       return;
     }
@@ -4679,7 +4678,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   if (!decoded_path)
     {
       DPRINTF(E_LOG, L_MPD, "Error decoding path from artwork request with uri '%s'\n", uri);
-      httpd_send_error(req, HTTP_BADREQUEST, 0);
+      evhttp_send_error(req, HTTP_BADREQUEST, 0);
       evhttp_uri_free(decoded);
       return;
     }
@@ -4694,7 +4693,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   if (!itemid)
     {
       DPRINTF(E_WARN, L_MPD, "No item found for path '%s' from request uri '%s'\n", decoded_path, uri);
-      httpd_send_error(req, HTTP_NOTFOUND, "Document was not found");
+      evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
       evhttp_uri_free(decoded);
       free(decoded_path);
       return;
@@ -4704,7 +4703,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   if (!evbuffer)
     {
       DPRINTF(E_LOG, L_MPD, "Could not allocate an evbuffer for artwork request\n");
-      httpd_send_error(req, HTTP_INTERNAL, "Document was not found");
+      evhttp_send_error(req, HTTP_INTERNAL, "Document was not found");
       evhttp_uri_free(decoded);
       free(decoded_path);
       return;
@@ -4713,7 +4712,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   format = artwork_get_item(evbuffer, itemid, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (format < 0)
     {
-      httpd_send_error(req, HTTP_NOTFOUND, "Document was not found");
+      evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
     }
   else
     {
@@ -4728,7 +4727,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
 	    break;
 	}
 
-      httpd_send_reply(req, HTTP_OK, "OK", evbuffer, HTTPD_SEND_NO_GZIP);
+      evhttp_send_reply(req, HTTP_OK, "OK", evbuffer);
     }
 
   evbuffer_free(evbuffer);
