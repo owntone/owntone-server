@@ -43,6 +43,7 @@
 
 #include <event2/event.h>
 
+#include "httpd_internal.h"
 #include "httpd_daap.h"
 #include "logger.h"
 #include "db.h"
@@ -2224,10 +2225,9 @@ static struct httpd_uri_map daap_handlers[] =
  * iTunes 12.1 gives us an absolute request-uri for streaming like
  *  http://10.1.1.20:3689/databases/1/items/1.mp3
  */
-void
-daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+static void
+daap_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
   struct evkeyvalq *headers;
   struct timespec start;
   struct timespec end;
@@ -2237,14 +2237,13 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   int ret;
   int msec;
 
-  DPRINTF(E_DBG, L_DAAP, "DAAP request: '%s'\n", uri_parsed->uri);
+  DPRINTF(E_DBG, L_DAAP, "DAAP request: '%s'\n", hreq->uri);
 
-  hreq = httpd_request_parse(req, uri_parsed, NULL, daap_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_DAAP, "Unrecognized path '%s' in DAAP request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_DAAP, "Unrecognized path in DAAP request: '%s'\n", hreq->uri);
 
-      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2254,7 +2253,7 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
     {
       ret = safe_atoi32(param, &id);
       if (ret < 0)
-	DPRINTF(E_LOG, L_DAAP, "Ignoring non-numeric session id in DAAP request: '%s'\n", uri_parsed->uri);
+	DPRINTF(E_LOG, L_DAAP, "Ignoring non-numeric session id in DAAP request: '%s'\n", hreq->uri);
       else
 	hreq->extra_data = daap_session_get(id);
     }
@@ -2270,12 +2269,11 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   ret = daap_request_authorize(hreq);
   if (ret < 0)
     {
-      free(hreq);
       return;
     }
 
   // Set reply headers
-  headers = evhttp_request_get_output_headers(req);
+  headers = evhttp_request_get_output_headers(hreq->req);
   evhttp_add_header(headers, "Accept-Ranges", "bytes");
   evhttp_add_header(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   // Content-Type for all replies, even the actual audio streaming. Note that
@@ -2287,15 +2285,14 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
 
   // Try the cache
-  ret = cache_daap_get(hreq->reply, uri_parsed->uri);
+  ret = cache_daap_get(hreq->reply, hreq->uri);
   if (ret == 0)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
       evhttp_add_header(headers, "Content-Encoding", "gzip");
-      httpd_send_reply(req, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
+      httpd_send_reply(hreq->req, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
 
       evbuffer_free(hreq->reply);
-      free(hreq);
       return;
     }
 
@@ -2312,38 +2309,9 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   DPRINTF(E_DBG, L_DAAP, "DAAP request handled in %d milliseconds\n", msec);
 
   if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold() && hreq->user_agent)
-    cache_daap_add(uri_parsed->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
+    cache_daap_add(hreq->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
 
   evbuffer_free(hreq->reply);
-  free(hreq);
-}
-
-int
-daap_is_request(const char *path)
-{
-  if (strncmp(path, "/databases/", strlen("/databases/")) == 0)
-    return 1;
-  if (strcmp(path, "/databases") == 0)
-    return 1;
-  if (strcmp(path, "/server-info") == 0)
-    return 1;
-  if (strcmp(path, "/content-codes") == 0)
-    return 1;
-  if (strcmp(path, "/login") == 0)
-    return 1;
-  if (strcmp(path, "/update") == 0)
-    return 1;
-  if (strcmp(path, "/activity") == 0)
-    return 1;
-  if (strcmp(path, "/logout") == 0)
-    return 1;
-
-#ifdef DMAP_TEST
-  if (strcmp(path, "/dmap-test") == 0)
-    return 1;
-#endif
-
-  return 0;
 }
 
 int
@@ -2363,7 +2331,7 @@ daap_session_is_valid(int id)
 struct evbuffer *
 daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 {
-  struct httpd_request *hreq;
+  struct httpd_request hreq;
   struct httpd_uri_parsed *uri_parsed;
   struct evbuffer *reply;
   struct daap_session session;
@@ -2377,50 +2345,46 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
   if (!uri_parsed)
     return NULL;
 
-  hreq = httpd_request_parse(NULL, uri_parsed, user_agent, daap_handlers);
-  if (!hreq)
+  ret = httpd_request_parse(&hreq, NULL, uri_parsed, user_agent, daap_handlers);
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Cannot build reply, unrecognized path '%s' in request: '%s'\n", uri_parsed->path, uri_parsed->uri);
-      goto out_free_uri;
+      goto out;
     }
 
   memset(&session, 0, sizeof(struct daap_session));
   session.is_remote = (bool)is_remote;
 
-  hreq->extra_data = &session;
+  hreq.extra_data = &session;
 
-  CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
+  CHECK_NULL(L_DAAP, hreq.reply = evbuffer_new());
 
-  ret = hreq->handler(hreq);
+  ret = hreq.handler(&hreq);
   if (ret < 0)
     {
-      evbuffer_free(hreq->reply);
-      goto out_free_hreq;
+      evbuffer_free(hreq.reply);
+      goto out;
     }
 
-  reply = hreq->reply;
+  reply = hreq.reply;
 
- out_free_hreq:
-  free(hreq);
- out_free_uri:
+ out:
   httpd_uri_free(uri_parsed);
 
   return reply;
 }
 
-int
+static int
 daap_init(void)
 {
   srand((unsigned)time(NULL));
   current_rev = 2;
   update_requests = NULL;
 
-  CHECK_ERR(L_DAAP, httpd_handlers_set(daap_handlers));
-
   return 0;
 }
 
-void
+static void
 daap_deinit(void)
 {
   struct daap_session *s;
@@ -2446,6 +2410,20 @@ daap_deinit(void)
 
       update_free(ur);
     }
-
-  httpd_handlers_unset(daap_handlers);
 }
+
+struct httpd_module httpd_daap =
+{
+  .name = "DAAP",
+  .type = MODULE_DAAP,
+  .subpaths = { "/databases/", NULL },
+#ifdef DMAP_TEST
+  .fullpaths = { "/databases", "/server-info", "/content-codes", "/login", "/update", "/activity", "/logout", "/dmap-test", NULL },
+#else
+  .fullpaths = { "/databases", "/server-info", "/content-codes", "/login", "/update", "/activity", "/logout", NULL },
+#endif
+  .handlers = daap_handlers,
+  .init = daap_init,
+  .deinit = daap_deinit,
+  .request = daap_request,
+};

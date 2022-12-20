@@ -37,7 +37,7 @@
 
 #include <event2/event.h>
 
-#include "httpd_dacp.h"
+#include "httpd_internal.h"
 #include "httpd_daap.h"
 #include "logger.h"
 #include "misc.h"
@@ -2862,24 +2862,22 @@ static struct httpd_uri_map dacp_handlers[] =
 
 /* ------------------------------- DACP API --------------------------------- */
 
-void
-dacp_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+static void
+dacp_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
   struct evkeyvalq *headers;
 
-  DPRINTF(E_DBG, L_DACP, "DACP request: '%s'\n", uri_parsed->uri);
+  DPRINTF(E_DBG, L_DACP, "DACP request: '%s'\n", hreq->uri);
 
-  hreq = httpd_request_parse(req, uri_parsed, NULL, dacp_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_DACP, "Unrecognized path '%s' in DACP request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_DACP, "Unrecognized path in DACP request: '%s'\n", hreq->uri);
 
-      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
-  headers = evhttp_request_get_output_headers(req);
+  headers = evhttp_request_get_output_headers(hreq->req);
   evhttp_add_header(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   /* Content-Type for all DACP replies; can be overriden as needed */
   evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
@@ -2889,21 +2887,13 @@ dacp_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   hreq->handler(hreq);
 
   evbuffer_free(hreq->reply);
-  free(hreq);
 }
 
-int
-dacp_is_request(const char *path)
-{
-  if (strncmp(path, "/ctrl-int/", strlen("/ctrl-int/")) == 0)
-    return 1;
-  if (strcmp(path, "/ctrl-int") == 0)
-    return 1;
+// Forward
+static void
+dacp_deinit(void);
 
-  return 0;
-}
-
-int
+static int
 dacp_init(void)
 {
   current_rev = 2;
@@ -2919,8 +2909,6 @@ dacp_init(void)
   dummy_queue_item.artist = CFG_NAME_UNKNOWN_ARTIST;
   dummy_queue_item.album = CFG_NAME_UNKNOWN_ALBUM;
   dummy_queue_item.genre = CFG_NAME_UNKNOWN_GENRE;
-
-  CHECK_ERR(L_DACP, httpd_handlers_set(dacp_handlers));
 
 #ifdef HAVE_EVENTFD
   update_efd = eventfd(0, EFD_CLOEXEC);
@@ -2959,7 +2947,7 @@ dacp_init(void)
   return -1;
 }
 
-void
+static void
 dacp_deinit(void)
 {
   struct dacp_update_request *ur;
@@ -2993,6 +2981,16 @@ dacp_deinit(void)
   close(update_pipe[0]);
   close(update_pipe[1]);
 #endif
-
-  httpd_handlers_unset(dacp_handlers);
 }
+
+struct httpd_module httpd_dacp =
+{
+  .name = "DACP",
+  .type = MODULE_DACP,
+  .subpaths = { "/ctrl-int/", NULL },
+  .fullpaths = { "/ctrl-int", NULL },
+  .handlers = dacp_handlers,
+  .init = dacp_init,
+  .deinit = dacp_deinit,
+  .request = dacp_request,
+};

@@ -32,12 +32,11 @@
 
 #include "mxml-compat.h"
 
-#include "httpd_rsp.h"
+#include "httpd_internal.h"
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
 #include "misc.h"
-#include "httpd.h"
 #include "transcode.h"
 #include "parsers/rsp_parser.h"
 
@@ -863,57 +862,46 @@ static struct httpd_uri_map rsp_handlers[] =
 
 /* -------------------------------- RSP API --------------------------------- */
 
-void
-rsp_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+static void
+rsp_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
   int ret;
 
-  DPRINTF(E_DBG, L_RSP, "RSP request: '%s'\n", uri_parsed->uri);
+  DPRINTF(E_DBG, L_RSP, "RSP request: '%s'\n", hreq->uri);
 
-  hreq = httpd_request_parse(req, uri_parsed, NULL, rsp_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_RSP, "Unrecognized path '%s' in RSP request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_RSP, "Unrecognized path in RSP request: '%s'\n", hreq->uri);
 
-      rsp_send_error(req, "Server error");
+      rsp_send_error(hreq->req, "Server error");
       return;
     }
 
   ret = rsp_request_authorize(hreq);
   if (ret < 0)
     {
-      rsp_send_error(req, "Access denied");
+      rsp_send_error(hreq->req, "Access denied");
       free(hreq);
       return;
     }
 
   hreq->handler(hreq);
-
-  free(hreq);
 }
 
-int
-rsp_is_request(const char *path)
-{
-  if (strncmp(path, "/rsp/", strlen("/rsp/")) == 0)
-    return 1;
-
-  return 0;
-}
-
-int
+static int
 rsp_init(void)
 {
   snprintf(rsp_filter_files, sizeof(rsp_filter_files), "f.data_kind = %d", DATA_KIND_FILE);
 
-  CHECK_ERR(L_RSP, httpd_handlers_set(rsp_handlers));
-
   return 0;
 }
 
-void
-rsp_deinit(void)
+struct httpd_module httpd_rsp =
 {
-  httpd_handlers_unset(rsp_handlers);
-}
+  .name = "RSP",
+  .type = MODULE_RSP,
+  .subpaths = { "/rsp/", NULL },
+  .handlers = rsp_handlers,
+  .init = rsp_init,
+  .request = rsp_request,
+};

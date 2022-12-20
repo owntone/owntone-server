@@ -44,6 +44,8 @@ struct httpd_uri_parsed
 struct httpd_request {
   // User-agent (if available)
   const char *user_agent;
+  // TODO
+  const char *uri;
   // The parsed request URI given to us by httpd_uri_parse
   struct httpd_uri_parsed *uri_parsed;
   // Shortcut to &uri_parsed->ev_query
@@ -87,20 +89,13 @@ struct httpd_uri_parsed *
 httpd_uri_parse(const char *uri);
 
 /*
- * Parse a request into the httpd_request struct. It can later be freed with
- * free(), unless the module has allocated something to *extra_data. Note that
- * the pointers in the returned struct are only valid as long as the inputs are
+ * Parse a request into the httpd_request struct. Nothing is copied, so the
+ * pointers in the returned struct are only valid as long as the inputs are
  * still valid. If req is not null, then we will find the user-agent from the 
  * request headers, except if provided as an argument to this function.
  */
-struct httpd_request *
-httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map);
-
 int
-httpd_handlers_set(struct httpd_uri_map *uri_map);
-
-void
-httpd_handlers_unset(struct httpd_uri_map *uri_map);
+httpd_request_parse(struct httpd_request *hreq, struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map);
 
 void
 httpd_stream_file(struct evhttp_request *req, int id);

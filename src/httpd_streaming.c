@@ -32,6 +32,7 @@
 
 #include <event2/event.h>
 
+#include "httpd_internal.h"
 #include "httpd_streaming.h"
 #include "logger.h"
 #include "conffile.h"
@@ -523,8 +524,27 @@ streaming_write(struct output_buffer *obuf)
     }
 }
 
-int
-streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+// Since streaming is a one-trick pony it doesn't need handlers
+static int
+streaming_dummy_handler(struct httpd_request *hreq)
+{
+  return 0;
+}
+
+static struct httpd_uri_map streaming_handlers[] =
+  {
+    {
+      .regexp = "^/stream.mp3$",
+      .handler = streaming_dummy_handler
+    },
+    {
+      .regexp = NULL,
+      .handler = NULL
+    }
+  };
+
+static void
+streaming_request(struct httpd_request *hreq)
 {
   struct streaming_session *session;
   struct evhttp_connection *evcon;
@@ -541,13 +561,13 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
     {
       DPRINTF(E_LOG, L_STREAMING, "Got MP3 streaming request, but cannot encode to MP3\n");
 
-      evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
-      return -1;
+      evhttp_send_error(hreq->req, HTTP_NOTFOUND, "Not Found");
+      return;
     }
 
-  evcon = evhttp_request_get_connection(req);
-  httpd_peer_get(&address, &port, evcon);
-  param = evhttp_find_header( evhttp_request_get_input_headers(req), "Icy-MetaData");
+  evcon = evhttp_request_get_connection(hreq->req);
+  evhttp_connection_get_peer(evcon, &address, &port);
+  param = evhttp_find_header( evhttp_request_get_input_headers(hreq->req), "Icy-MetaData");
   if (param && strcmp(param, "1") == 0)
     require_icy = true;
 
@@ -556,7 +576,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
 
-  output_headers = evhttp_request_get_output_headers(req);
+  output_headers = evhttp_request_get_output_headers(hreq->req);
   evhttp_add_header(output_headers, "Content-Type", "audio/mpeg");
   evhttp_add_header(output_headers, "Server", PACKAGE_NAME "/" VERSION);
   evhttp_add_header(output_headers, "Cache-Control", "no-cache");
@@ -572,15 +592,15 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   evhttp_add_header(output_headers, "Access-Control-Allow-Origin", "*");
   evhttp_add_header(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 
-  evhttp_send_reply_start(req, HTTP_OK, "OK");
+  evhttp_send_reply_start(hreq->req, HTTP_OK, "OK");
 
   session = calloc(1, sizeof(struct streaming_session));
   if (!session)
     {
       DPRINTF(E_LOG, L_STREAMING, "Out of memory for streaming request\n");
 
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-      return -1;
+      evhttp_send_error(hreq->req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      return;
     }
 
   pthread_mutex_lock(&streaming_sessions_lck);
@@ -591,7 +611,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
       event_add(metaev, NULL);
     }
 
-  session->req = req;
+  session->req = hreq->req;
   session->next = streaming_sessions;
   session->require_icy = require_icy;
   session->bytes_sent = 0;
@@ -600,23 +620,9 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   pthread_mutex_unlock(&streaming_sessions_lck);
 
   evhttp_connection_set_closecb(evcon, streaming_close_cb, session);
-
-  return 0;
 }
 
-int
-streaming_is_request(const char *path)
-{
-  char *ptr;
-
-  ptr = strrchr(path, '/');
-  if (ptr && (strcasecmp(ptr, "/stream.mp3") == 0))
-    return 1;
-
-  return 0;
-}
-
-int
+static int
 streaming_init(void)
 {
   int ret;
@@ -723,7 +729,7 @@ streaming_init(void)
   return -1;
 }
 
-void
+static void
 streaming_deinit(void)
 {
   streaming_end();
@@ -744,3 +750,14 @@ streaming_deinit(void)
 
   pthread_mutex_destroy(&streaming_sessions_lck);
 }
+
+struct httpd_module httpd_streaming =
+{
+  .name = "Streaming",
+  .type = MODULE_STREAMING,
+  .fullpaths = { "/stream.mp3", NULL },
+  .handlers = streaming_handlers,
+  .init = streaming_init,
+  .deinit = streaming_deinit,
+  .request = streaming_request,
+};

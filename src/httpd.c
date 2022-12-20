@@ -52,13 +52,7 @@
 #include "misc.h"
 #include "worker.h"
 #include "httpd.h"
-#include "httpd_rsp.h"
-#include "httpd_daap.h"
-#include "httpd_dacp.h"
-#include "httpd_jsonapi.h"
-#include "httpd_streaming.h"
-#include "httpd_oauth.h"
-#include "httpd_artworkapi.h"
+#include "httpd_internal.h"
 #include "transcode.h"
 #ifdef LASTFM
 # include "lastfm.h"
@@ -66,7 +60,6 @@
 #ifdef HAVE_LIBWEBSOCKETS
 # include "websocket.h"
 #endif
-
 
 #define STREAM_CHUNK_SIZE (64 * 1024)
 #define ERR_PAGE "<html>\n<head>\n" \
@@ -78,6 +71,26 @@
 #define HTTPD_STREAM_SAMPLE_RATE 44100
 #define HTTPD_STREAM_BPS         16
 #define HTTPD_STREAM_CHANNELS    2
+
+extern struct httpd_module httpd_dacp;
+extern struct httpd_module httpd_daap;
+extern struct httpd_module httpd_jsonapi;
+extern struct httpd_module httpd_artworkapi;
+extern struct httpd_module httpd_streaming;
+extern struct httpd_module httpd_oauth;
+extern struct httpd_module httpd_rsp;
+
+// Must be in sync with enum httpd_modules
+static struct httpd_module *httpd_modules[] = {
+    &httpd_dacp,
+    &httpd_daap,
+    &httpd_jsonapi,
+    &httpd_artworkapi,
+    &httpd_streaming,
+    &httpd_oauth,
+    &httpd_rsp,
+    NULL
+};
 
 
 struct content_type_map {
@@ -113,8 +126,6 @@ static const struct content_type_map ext2ctype[] =
     { ".png",  "image/png" },
     { NULL, NULL }
   };
-
-static const char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
 
 static char webroot_directory[PATH_MAX];
 struct event_base *evbase_httpd;
@@ -161,97 +172,124 @@ scrobble_cb(void *arg)
 }
 #endif
 
-/*
- * This disabled in the commit after d8cdc89 because my tests work fine without
- * it, and it seems that nowadays iTunes and Remote encodes the query just fine.
- * However, I'm keeping it around for a while in case problems show up. If you
- * are from the future, you can probably safely remove it for good.
- * 
-static char *
-httpd_fixup_uri(struct evhttp_request *req)
+
+/* --------------------------- MODULES INTERFACE ---------------------------- */
+
+static void
+modules_handlers_unset(struct httpd_uri_map *uri_map)
 {
-  struct evkeyvalq *headers;
-  const char *ua;
-  const char *uri;
-  const char *u;
-  const char *q;
-  char *fixed;
-  char *f;
-  int len;
+  struct httpd_uri_map *uri;
 
-  uri = evhttp_request_get_uri(req);
-  if (!uri)
-    return NULL;
-
-  // No query string, nothing to do
-  q = strchr(uri, '?');
-  if (!q)
-    return strdup(uri);
-
-  headers = evhttp_request_get_input_headers(req);
-  ua = evhttp_find_header(headers, "User-Agent");
-  if (!ua)
-    return strdup(uri);
-
-  if ((strncmp(ua, "iTunes", strlen("iTunes")) != 0)
-      && (strncmp(ua, "Remote", strlen("Remote")) != 0)
-      && (strncmp(ua, "Roku", strlen("Roku")) != 0))
-    return strdup(uri);
-
-  // Reencode + as %2B and space as + in the query,
-  // which iTunes and Roku devices don't do
-  len = strlen(uri);
-
-  u = q;
-  while (*u)
+  for (uri = uri_map; uri->preg; uri++)
     {
-      if (*u == '+')
-	len += 2;
-
-      u++;
+      regfree(uri->preg); // Frees allocation by regcomp
+      free(uri->preg); // Frees our own calloc
     }
+}
 
-  fixed = (char *)malloc(len + 1);
-  if (!fixed)
-    return NULL;
+static int
+modules_handlers_set(struct httpd_uri_map *uri_map)
+{
+  struct httpd_uri_map *uri;
+  char buf[64];
+  int ret;
 
-  strncpy(fixed, uri, q - uri);
-
-  f = fixed + (q - uri);
-  while (*q)
+  for (uri = uri_map; uri->handler; uri++)
     {
-      switch (*q)
+      uri->preg = calloc(1, sizeof(regex_t));
+      if (!uri->preg)
 	{
-	  case '+':
-	    *f = '%';
-	    f++;
-	    *f = '2';
-	    f++;
-	    *f = 'B';
-	    break;
-
-	  case ' ':
-	    *f = '+';
-	    break;
-
-	  default:
-	    *f = *q;
-	    break;
+	  DPRINTF(E_LOG, L_HTTPD, "Error setting URI handler, out of memory");
+	  goto error;
 	}
 
-      q++;
-      f++;
+      ret = regcomp(uri->preg, uri->regexp, REG_EXTENDED | REG_NOSUB);
+      if (ret != 0)
+	{
+	  regerror(ret, uri->preg, buf, sizeof(buf));
+	  DPRINTF(E_LOG, L_HTTPD, "Error setting URI handler, regexp error: %s\n", buf);
+	  goto error;
+	}
     }
 
-  *f = '\0';
+  return 0;
 
-  return fixed;
+ error:
+  modules_handlers_unset(uri_map);
+  return -1;
 }
-*/
+
+static int
+modules_init(void)
+{
+  struct httpd_module **ptr;
+  struct httpd_module *m;
+
+  for (ptr = httpd_modules; *ptr; ptr++)
+    {
+      m = *ptr;
+      m->initialized = (!m->init || m->init() == 0);
+      if (!m->initialized)
+	{
+	  DPRINTF(E_FATAL, L_HTTPD, "%s init failed\n", m->name);
+	  return -1;
+	}
+
+      if (modules_handlers_set(m->handlers) != 0)
+	{
+	  DPRINTF(E_FATAL, L_HTTPD, "%s handler configuration failed\n", m->name);
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
+static void
+modules_deinit(void)
+{
+  struct httpd_module **ptr;
+  struct httpd_module *m;
+
+  for (ptr = httpd_modules; *ptr; ptr++)
+    {
+      m = *ptr;
+      if (m->initialized && m->deinit)
+	m->deinit();
+
+      modules_handlers_unset(m->handlers);
+    }
+}
+
+static struct httpd_module *
+modules_search(const char *path)
+{
+  struct httpd_module **ptr;
+  struct httpd_module *m;
+  const char **test;
+  bool is_found = false;
+
+  for (ptr = httpd_modules; *ptr; ptr++)
+    {
+      m = *ptr;
+      if (!m->subpaths || !m->request)
+	continue;
+
+      for (test = m->subpaths; *test && !is_found; test++)
+	is_found = (strncmp(path, *test, strlen(*test)) == 0);
+
+      for (test = m->fullpaths; *test && !is_found; test++)
+	is_found = (strcmp(path, *test) == 0);
+
+      if (is_found)
+	return m;
+    }
+
+  return NULL;
+}
 
 
 /* --------------------------- REQUEST HELPERS ------------------------------ */
-
 
 void
 httpd_redirect_to(struct evhttp_request *req, const char *path)
@@ -745,7 +783,9 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
   struct evkeyvalq *input_headers;
   struct evkeyvalq *output_headers;
+  struct httpd_request hreq;
   struct httpd_uri_parsed *parsed;
+  struct httpd_module *m;
   const char *uri;
 
   // Clear the proxy request flag set by evhttp if the request URI was absolute.
@@ -790,40 +830,11 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
       goto serve_file;
     }
 
-  /* Dispatch protocol-specific handlers */
-  if (dacp_is_request(parsed->path))
+  m = modules_search(parsed->path);
+  if (m)
     {
-      dacp_request(req, parsed);
-      goto out;
-    }
-  else if (daap_is_request(parsed->path))
-    {
-      daap_request(req, parsed);
-      goto out;
-    }
-  else if (jsonapi_is_request(parsed->path))
-    {
-      jsonapi_request(req, parsed);
-      goto out;
-    }
-  else if (artworkapi_is_request(parsed->path))
-    {
-      artworkapi_request(req, parsed);
-      goto out;
-    }
-  else if (streaming_is_request(parsed->path))
-    {
-      streaming_request(req, parsed);
-      goto out;
-    }
-  else if (oauth_is_request(parsed->path))
-    {
-      oauth_request(req, parsed);
-      goto out;
-    }
-  else if (rsp_is_request(parsed->path))
-    {
-      rsp_request(req, parsed);
+      httpd_request_parse(&hreq, req, parsed, NULL, m->handlers);
+      m->request(&hreq);
       goto out;
     }
 
@@ -941,20 +952,21 @@ httpd_uri_parse(const char *uri)
   return NULL;
 }
 
-struct httpd_request *
-httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map)
+int
+httpd_request_parse(struct httpd_request *hreq, struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map)
 {
-  struct httpd_request *hreq;
+  ;
   struct evhttp_connection *evcon;
   struct evkeyvalq *headers;
   struct httpd_uri_map *uri;
   int req_method;
   int ret;
 
-  CHECK_NULL(L_HTTPD, hreq = calloc(1, sizeof(struct httpd_request)));
+  memset(hreq, 0, sizeof(struct httpd_request));
 
   // Note req is allowed to be NULL
   hreq->req = req;
+  hreq->uri = uri_parsed->uri;
   hreq->uri_parsed = uri_parsed;
   hreq->query = &(uri_parsed->ev_query);
   req_method = 0;
@@ -988,56 +1000,11 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
 	continue;
 
       hreq->handler = uri->handler;
-      return hreq; // Success
+      return 0; // Success
     }
 
   // Handler not found, that's an error
-  free(hreq);
-  return NULL;
-}
-
-int
-httpd_handlers_set(struct httpd_uri_map *uri_map)
-{
-  struct httpd_uri_map *uri;
-  char buf[64];
-  int ret;
-
-  for (uri = uri_map; uri->handler; uri++)
-    {
-      uri->preg = calloc(1, sizeof(regex_t));
-      if (!uri->preg)
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Error setting URI handler, out of memory");
-	  goto error;
-	}
-
-      ret = regcomp(uri->preg, uri->regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-	{
-	  regerror(ret, uri->preg, buf, sizeof(buf));
-	  DPRINTF(E_LOG, L_HTTPD, "Error setting URI handler, regexp error: %s\n", buf);
-	  goto error;
-	}
-    }
-
-  return 0;
-
- error:
-  httpd_handlers_unset(uri_map);
   return -1;
-}
-
-void
-httpd_handlers_unset(struct httpd_uri_map *uri_map)
-{
-  struct httpd_uri_map *uri;
-
-  for (uri = uri_map; uri->preg; uri++)
-    {
-      regfree(uri->preg); // Frees allocation by regcomp
-      free(uri->preg); // Frees our own calloc
-    }
 }
 
 /* Thread: httpd */
@@ -1631,7 +1598,7 @@ httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passw
   headers = evhttp_request_get_output_headers(req);
   evhttp_add_header(headers, "WWW-Authenticate", header);
 
-  evbuffer_add(evbuf, http_reply_401, strlen(http_reply_401));
+  evbuffer_add_printf(evbuf, ERR_PAGE, 401, "Unauthorized", "Authorization required");
 
   httpd_send_reply(req, 401, "Unauthorized", evbuf, HTTPD_SEND_NO_GZIP);
 
@@ -1688,54 +1655,6 @@ httpd_init(const char *webroot)
       return -1;
     }
 
-  ret = rsp_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "RSP protocol init failed\n");
-
-      goto rsp_fail;
-    }
-
-  ret = daap_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "DAAP protocol init failed\n");
-
-      goto daap_fail;
-    }
-
-  ret = dacp_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "DACP protocol init failed\n");
-
-      goto dacp_fail;
-    }
-
-  ret = jsonapi_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "JSON api init failed\n");
-
-      goto jsonapi_fail;
-    }
-
-  ret = artworkapi_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "Artwork init failed\n");
-
-      goto artworkapi_fail;
-    }
-
-  ret = oauth_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "OAuth init failed\n");
-
-      goto oauth_fail;
-    }
-
 #ifdef HAVE_LIBWEBSOCKETS
   ret = websocket_init();
   if (ret < 0)
@@ -1746,7 +1665,13 @@ httpd_init(const char *webroot)
     }
 #endif
 
-  streaming_init();
+  ret = modules_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Modules init failed\n");
+
+      goto modules_fail;
+    }
 
 #ifdef HAVE_EVENTFD
   exit_efd = eventfd(0, EFD_CLOEXEC);
@@ -1835,23 +1760,12 @@ httpd_init(const char *webroot)
   close(exit_pipe[1]);
 #endif
  pipe_fail:
-  streaming_deinit();
+ modules_fail:
+  modules_deinit();
 #ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
  websocket_fail:
 #endif
-  oauth_deinit();
- oauth_fail:
-  artworkapi_deinit();
- artworkapi_fail:
-  jsonapi_deinit();
- jsonapi_fail:
-  dacp_deinit();
- dacp_fail:
-  daap_deinit();
- daap_fail:
-  rsp_deinit();
- rsp_fail:
   event_base_free(evbase_httpd);
 
   return -1;
@@ -1891,15 +1805,11 @@ httpd_deinit(void)
       return;
     }
 
-  streaming_deinit();
+  modules_deinit();
+
 #ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
 #endif
-  oauth_deinit();
-  jsonapi_deinit();
-  rsp_deinit();
-  dacp_deinit();
-  daap_deinit();
 
 #ifdef HAVE_EVENTFD
   close(exit_efd);

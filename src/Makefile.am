@@ -92,14 +92,14 @@ owntone_SOURCES = main.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
 	remote_pairing.c remote_pairing.h \
-	httpd.c httpd.h \
-	httpd_rsp.c httpd_rsp.h \
+	httpd.c httpd.h httpd_internal.h \
+	httpd_rsp.c \
 	httpd_daap.c httpd_daap.h \
-	httpd_dacp.c httpd_dacp.h \
-	httpd_jsonapi.c httpd_jsonapi.h \
+	httpd_dacp.c \
+	httpd_jsonapi.c \
 	httpd_streaming.c httpd_streaming.h \
-	httpd_oauth.c httpd_oauth.h \
-	httpd_artworkapi.c httpd_artworkapi.h \
+	httpd_oauth.c \
+	httpd_artworkapi.c \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
