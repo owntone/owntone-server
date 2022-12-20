@@ -25,7 +25,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "httpd_artworkapi.h"
+#include "httpd_internal.h"
 #include "logger.h"
 #include "misc.h"
 #include "player.h"
@@ -149,23 +149,22 @@ static struct httpd_uri_map artworkapi_handlers[] =
 
 
 /* ------------------------------- API --------------------------------- */
-void
-artworkapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+
+static void
+artworkapi_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
   int status_code;
 
-  DPRINTF(E_DBG, L_WEB, "Artwork api request: '%s'\n", uri_parsed->uri);
+  DPRINTF(E_DBG, L_WEB, "Artwork api request: '%s'\n", hreq->uri);
 
-  if (!httpd_admin_check_auth(req))
+  if (!httpd_admin_check_auth(hreq->req))
     return;
 
-  hreq = httpd_request_parse(req, uri_parsed, NULL, artworkapi_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in artwork api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path in artwork api request: '%s'\n", hreq->uri);
 
-      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -176,48 +175,33 @@ artworkapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_pars
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	httpd_send_reply(req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq->req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq->req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOTMODIFIED:         /* 304 Not Modified */
-	httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq->req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_BADREQUEST:          /* 400 Bad Request */
-	httpd_send_error(req, status_code, "Bad Request");
+	httpd_send_error(hreq->req, status_code, "Bad Request");
 	break;
       case HTTP_NOTFOUND:            /* 404 Not Found */
-	httpd_send_error(req, status_code, "Not Found");
+	httpd_send_error(hreq->req, status_code, "Not Found");
 	break;
       case HTTP_INTERNAL:            /* 500 Internal Server Error */
       default:
-	httpd_send_error(req, HTTP_INTERNAL, "Internal Server Error");
+	httpd_send_error(hreq->req, HTTP_INTERNAL, "Internal Server Error");
     }
 
   evbuffer_free(hreq->reply);
-  free(hreq);
 }
 
-int
-artworkapi_is_request(const char *path)
+struct httpd_module httpd_artworkapi =
 {
-  if (strncmp(path, "/artwork/", strlen("/artwork/")) == 0)
-    return 1;
-
-  return 0;
-}
-
-int
-artworkapi_init(void)
-{
-  CHECK_ERR(L_WEB, httpd_handlers_set(artworkapi_handlers));
-
-  return 0;
-}
-
-void
-artworkapi_deinit(void)
-{
-  httpd_handlers_unset(artworkapi_handlers);
-}
+  .name = "Artwork API",
+  .type = MODULE_ARTWORKAPI,
+  .subpaths = { "/artwork/", NULL },
+  .handlers = artworkapi_handlers,
+  .request = artworkapi_request,
+};

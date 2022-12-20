@@ -41,7 +41,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "httpd_jsonapi.h"
+#include "httpd_internal.h"
 #include "conffile.h"
 #include "db.h"
 #ifdef LASTFM
@@ -4716,24 +4716,24 @@ static struct httpd_uri_map adm_handlers[] =
 
 /* ------------------------------- JSON API --------------------------------- */
 
-void
-jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+static void
+jsonapi_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
+  ;
   struct evkeyvalq *headers;
   int status_code;
 
-  DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", uri_parsed->uri);
+  DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", hreq->uri);
 
-  if (!httpd_admin_check_auth(req))
-    return;
-
-  hreq = httpd_request_parse(req, uri_parsed, NULL, adm_handlers);
-  if (!hreq)
+  if (!httpd_admin_check_auth(hreq->req))
     {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in JSON api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      return;
+    }
 
-      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
+  if (!hreq->handler)
+    {
+      DPRINTF(E_LOG, L_WEB, "Unrecognized JSON API request: '%s'\n", hreq->uri);
+      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -4742,61 +4742,46 @@ jsonapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   status_code = hreq->handler(hreq);
 
   if (status_code >= 400)
-    DPRINTF(E_LOG, L_WEB, "JSON api request failed with error code %d (%s)\n", status_code, uri_parsed->uri);
+    DPRINTF(E_LOG, L_WEB, "JSON api request failed with error code %d (%s)\n", status_code, hreq->uri);
 
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	headers = evhttp_request_get_output_headers(req);
+	headers = evhttp_request_get_output_headers(hreq->req);
 	evhttp_add_header(headers, "Content-Type", "application/json");
-	httpd_send_reply(req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq->req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq->req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOTMODIFIED:         /* 304 Not Modified */
-	httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq->req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
 	break;
-
       case HTTP_BADREQUEST:          /* 400 Bad Request */
-	httpd_send_error(req, status_code, "Bad Request");
+	httpd_send_error(hreq->req, status_code, "Bad Request");
 	break;
       case 403:
-	httpd_send_error(req, status_code, "Forbidden");
+	httpd_send_error(hreq->req, status_code, "Forbidden");
 	break;
       case HTTP_NOTFOUND:            /* 404 Not Found */
-	httpd_send_error(req, status_code, "Not Found");
+	httpd_send_error(hreq->req, status_code, "Not Found");
 	break;
       case HTTP_SERVUNAVAIL:            /* 503 */
-        httpd_send_error(req, status_code, "Service Unavailable");
+        httpd_send_error(hreq->req, status_code, "Service Unavailable");
         break;
       case HTTP_INTERNAL:            /* 500 Internal Server Error */
       default:
-	httpd_send_error(req, HTTP_INTERNAL, "Internal Server Error");
+	httpd_send_error(hreq->req, HTTP_INTERNAL, "Internal Server Error");
 	break;
     }
 
   evbuffer_free(hreq->reply);
-  free(hreq);
 }
 
-int
-jsonapi_is_request(const char *path)
-{
-  if (strncmp(path, "/api/", strlen("/api/")) == 0)
-    return 1;
-  if (strcmp(path, "/api") == 0)
-    return 1;
-
-  return 0;
-}
-
-int
+static int
 jsonapi_init(void)
 {
   char *temp_path;
-
-  CHECK_ERR(L_WEB, httpd_handlers_set(adm_handlers));
 
   default_playlist_directory = NULL;
   allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "library"), "allow_modifying_stored_playlists");
@@ -4824,10 +4809,19 @@ jsonapi_init(void)
   return 0;
 }
 
-void
+static void
 jsonapi_deinit(void)
 {
   free(default_playlist_directory);
-
-  httpd_handlers_unset(adm_handlers);
 }
+
+struct httpd_module httpd_jsonapi =
+{
+  .name = "JSON API",
+  .type = MODULE_JSONAPI,
+  .subpaths = { "/api/", NULL },
+  .handlers = adm_handlers,
+  .init = jsonapi_init,
+  .deinit = jsonapi_deinit,
+  .request = jsonapi_request,
+};

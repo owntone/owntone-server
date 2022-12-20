@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "httpd_oauth.h"
+#include "httpd_internal.h"
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
@@ -90,48 +90,28 @@ static struct httpd_uri_map oauth_handlers[] =
 
 /* ------------------------------- OAUTH API -------------------------------- */
 
-void
-oauth_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+static void
+oauth_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
+  DPRINTF(E_LOG, L_WEB, "OAuth request: '%s'\n", hreq->uri);
 
-  DPRINTF(E_LOG, L_WEB, "OAuth request: '%s'\n", uri_parsed->uri);
-
-  hreq = httpd_request_parse(req, uri_parsed, NULL, oauth_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in OAuth request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path in OAuth request: '%s'\n", hreq->uri);
 
-      httpd_send_error(req, HTTP_NOTFOUND, NULL);
+      httpd_send_error(hreq->req, HTTP_NOTFOUND, NULL);
       return;
     }
 
   hreq->handler(hreq);
-
-  free(hreq);
 }
 
-int
-oauth_is_request(const char *path)
+struct httpd_module httpd_oauth =
 {
-  if (strncmp(path, "/oauth/", strlen("/oauth/")) == 0)
-    return 1;
-  if (strcmp(path, "/oauth") == 0)
-    return 1;
-
-  return 0;
-}
-
-int
-oauth_init(void)
-{
-  CHECK_ERR(L_WEB, httpd_handlers_set(oauth_handlers));
-
-  return 0;
-}
-
-void
-oauth_deinit(void)
-{
-  httpd_handlers_unset(oauth_handlers);
-}
+  .name = "OAuth",
+  .type = MODULE_OAUTH,
+  .subpaths = { "/oauth/", NULL },
+  .fullpaths = { "/oauth", NULL },
+  .handlers = oauth_handlers,
+  .request = oauth_request,
+};
