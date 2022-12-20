@@ -129,6 +129,7 @@ nav:
   - Documentation:
     - Getting started: getting-started.md
     - Installation: installation.md
+    - Building: building.md
     - Library: library.md
     - Artwork: artwork.md
     - Playlists & radio: playlists.md
