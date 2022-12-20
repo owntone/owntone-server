@@ -20,7 +20,6 @@ mt-daapd (Firefly Media Server).
 Visit the [OwnTone documentation](https://owntone.github.io/owntone-server/) for
 usage and set up instructions, API documentation, etc.
 
-If you are looking for help on building OwnTone (not using it), then
-please see the [Installation](https://owntone.github.io/owntone-server/installation/)
+If you are looking for information on how to get and install OwnTone, then see
+the [Installation](https://owntone.github.io/owntone-server/installation/)
 instructions.
-
