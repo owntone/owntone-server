@@ -157,7 +157,7 @@ mxml_to_evbuf(mxml_node_t *tree)
 }
 
 static void
-rsp_send_error(struct evhttp_request *req, char *errmsg)
+rsp_send_error(struct httpd_request *hreq, char *errmsg)
 {
   struct evbuffer *evbuf;
   struct evkeyvalq *headers;
@@ -191,16 +191,16 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
 
   if (!evbuf)
     {
-      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       return;
     }
 
-  headers = evhttp_request_get_output_headers(req);
+  headers = evhttp_request_get_output_headers(hreq->req);
   evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(headers, "Connection", "close");
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
   evbuffer_free(evbuf);
 }
@@ -220,7 +220,7 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
       ret = safe_atoi32(param, &qp->offset);
       if (ret < 0)
 	{
-	  rsp_send_error(hreq->req, "Invalid offset");
+	  rsp_send_error(hreq, "Invalid offset");
 	  return -1;
 	}
     }
@@ -232,7 +232,7 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
       ret = safe_atoi32(param, &qp->limit);
       if (ret < 0)
 	{
-	  rsp_send_error(hreq->req, "Invalid limit");
+	  rsp_send_error(hreq, "Invalid limit");
 	  return -1;
 	}
     }
@@ -277,7 +277,7 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
 }
 
 static void
-rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
+rsp_send_reply(struct httpd_request *hreq, mxml_node_t *reply)
 {
   struct evbuffer *evbuf;
   struct evkeyvalq *headers;
@@ -287,16 +287,16 @@ rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
 
   if (!evbuf)
     {
-      rsp_send_error(req, "Could not finalize reply");
+      rsp_send_error(hreq, "Could not finalize reply");
 
       return;
     }
 
-  headers = evhttp_request_get_output_headers(req);
+  headers = evhttp_request_get_output_headers(hreq->req);
   evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(headers, "Connection", "close");
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, 0);
 
   evbuffer_free(evbuf);
 }
@@ -317,7 +317,7 @@ rsp_request_authorize(struct httpd_request *hreq)
   DPRINTF(E_DBG, L_RSP, "Checking authentication for library\n");
 
   // We don't care about the username
-  ret = httpd_basic_auth(hreq->req, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
+  ret = httpd_basic_auth(hreq, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_RSP, "Unsuccessful library authorization attempt from '%s'\n", hreq->peer_address);
@@ -381,7 +381,7 @@ rsp_reply_info(struct httpd_request *hreq)
   node = mxmlNewElement(info, "name");
   mxmlNewText(node, 0, library);
 
-  rsp_send_reply(hreq->req, reply);
+  rsp_send_reply(hreq, reply);
 
   return 0;
 }
@@ -410,7 +410,7 @@ rsp_reply_db(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(hreq->req, "Could not start query");
+      rsp_send_error(hreq, "Could not start query");
       return -1;
     }
 
@@ -464,7 +464,7 @@ rsp_reply_db(struct httpd_request *hreq)
 
       mxmlDelete(reply);
       db_query_end(&qp);
-      rsp_send_error(hreq->req, "Error fetching query results");
+      rsp_send_error(hreq, "Error fetching query results");
       return -1;
     }
 
@@ -478,7 +478,7 @@ rsp_reply_db(struct httpd_request *hreq)
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq->req, reply);
+  rsp_send_reply(hreq, reply);
 
   return 0;
 }
@@ -510,7 +510,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &qp.id);
   if (ret < 0)
     {
-      rsp_send_error(hreq->req, "Invalid playlist ID");
+      rsp_send_error(hreq, "Invalid playlist ID");
       return -1;
     }
 
@@ -546,7 +546,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(hreq->req, "Could not start query");
+      rsp_send_error(hreq, "Could not start query");
 
       if (qp.filter)
 	free(qp.filter);
@@ -657,7 +657,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
       mxmlDelete(reply);
       db_query_end(&qp);
-      rsp_send_error(hreq->req, "Error fetching query results");
+      rsp_send_error(hreq, "Error fetching query results");
       return -1;
     }
 
@@ -671,7 +671,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq->req, reply);
+  rsp_send_reply(hreq, reply);
 
   return 0;
 }
@@ -710,14 +710,14 @@ rsp_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Unsupported browse type '%s'\n", hreq->uri_parsed->path_parts[3]);
 
-      rsp_send_error(hreq->req, "Unsupported browse type");
+      rsp_send_error(hreq, "Unsupported browse type");
       return -1;
     }
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &qp.id);
   if (ret < 0)
     {
-      rsp_send_error(hreq->req, "Invalid playlist ID");
+      rsp_send_error(hreq, "Invalid playlist ID");
       return -1;
     }
 
@@ -730,7 +730,7 @@ rsp_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(hreq->req, "Could not start query");
+      rsp_send_error(hreq, "Could not start query");
 
       if (qp.filter)
 	free(qp.filter);
@@ -783,7 +783,7 @@ rsp_reply_browse(struct httpd_request *hreq)
 
       mxmlDelete(reply);
       db_query_end(&qp);
-      rsp_send_error(hreq->req, "Error fetching query results");
+      rsp_send_error(hreq, "Error fetching query results");
       return -1;
     }
 
@@ -797,7 +797,7 @@ rsp_reply_browse(struct httpd_request *hreq)
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq->req, reply);
+  rsp_send_reply(hreq, reply);
 
   return 0;
 }
@@ -811,11 +811,11 @@ rsp_stream(struct httpd_request *hreq)
   ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &id);
   if (ret < 0)
     {
-      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
       return -1;
     }
 
-  httpd_stream_file(hreq->req, id);
+  httpd_stream_file(hreq, id);
 
   return 0;
 }
@@ -873,14 +873,14 @@ rsp_request(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Unrecognized path in RSP request: '%s'\n", hreq->uri);
 
-      rsp_send_error(hreq->req, "Server error");
+      rsp_send_error(hreq, "Server error");
       return;
     }
 
   ret = rsp_request_authorize(hreq);
   if (ret < 0)
     {
-      rsp_send_error(hreq->req, "Access denied");
+      rsp_send_error(hreq, "Access denied");
       free(hreq);
       return;
     }

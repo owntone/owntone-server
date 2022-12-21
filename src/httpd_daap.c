@@ -99,7 +99,7 @@ struct daap_session {
 };
 
 struct daap_update_request {
-  struct evhttp_request *req;
+  struct httpd_request *hreq;
 
   /* Refresh tiemout */
   struct event *timeout;
@@ -301,10 +301,10 @@ update_refresh_cb(int fd, short event, void *arg)
   dmap_add_int(reply, "mstt", 200);         /* 12 */
   dmap_add_int(reply, "musr", current_rev); /* 12 */
 
-  evcon = evhttp_request_get_connection(ur->req);
+  evcon = evhttp_request_get_connection(ur->hreq->req);
   evhttp_connection_set_closecb(evcon, NULL, NULL);
 
-  httpd_send_reply(ur->req, HTTP_OK, "OK", reply, 0);
+  httpd_send_reply(ur->hreq, HTTP_OK, "OK", reply, 0);
 
   update_remove(ur);
 }
@@ -319,11 +319,11 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
 
   DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
 
-  evc = evhttp_request_get_connection(ur->req);
+  evc = evhttp_request_get_connection(ur->hreq->req);
   if (evc)
     evhttp_connection_set_closecb(evc, NULL, NULL);
 
-  evhttp_request_free(ur->req);
+  evhttp_request_free(ur->hreq->req);
   update_remove(ur);
 }
 
@@ -675,26 +675,26 @@ daap_reply_send(struct httpd_request *hreq, enum daap_reply_result result)
   switch (result)
     {
       case DAAP_REPLY_LOGOUT:
-	httpd_send_reply(hreq->req, 204, "Logout Successful", hreq->reply, 0);
+	httpd_send_reply(hreq, 204, "Logout Successful", hreq->reply, 0);
 	break;
       case DAAP_REPLY_NO_CONTENT:
-	httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_OK:
-	httpd_send_reply(hreq->req, HTTP_OK, "OK", hreq->reply, 0);
+	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
 	break;
       case DAAP_REPLY_OK_NO_GZIP:
       case DAAP_REPLY_ERROR:
-	httpd_send_reply(hreq->req, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_FORBIDDEN:
-	httpd_send_error(hreq->req, 403, "Forbidden");
+	httpd_send_error(hreq, 403, "Forbidden");
 	break;
       case DAAP_REPLY_BAD_REQUEST:
-	httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+	httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
 	break;
       case DAAP_REPLY_SERVUNAVAIL:
-	httpd_send_error(hreq->req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
 	break;
       case DAAP_REPLY_NO_CONNECTION:
       case DAAP_REPLY_NONE:
@@ -728,7 +728,7 @@ daap_request_authorize(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri_parsed->uri);
 
-	  httpd_send_error(hreq->req, 401, "Unauthorized");
+	  httpd_send_error(hreq, 401, "Unauthorized");
 	  return -1;
 	}
 
@@ -750,7 +750,7 @@ daap_request_authorize(struct httpd_request *hreq)
   DPRINTF(E_DBG, L_DAAP, "Checking authentication for library\n");
 
   // We don't care about the username
-  ret = httpd_basic_auth(hreq->req, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
+  ret = httpd_basic_auth(hreq, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Unsuccessful library authorization attempt from '%s'\n", hreq->peer_address);
@@ -1062,7 +1062,7 @@ daap_reply_update(struct httpd_request *hreq)
     }
 
   /* NOTE: we may need to keep reqd_rev in there too */
-  ur->req = hreq->req;
+  ur->hreq = hreq;
 
   ur->next = update_requests;
   update_requests = ur;
@@ -2048,7 +2048,7 @@ daap_stream(struct httpd_request *hreq)
   if (ret < 0)
     return DAAP_REPLY_BAD_REQUEST;
 
-  httpd_stream_file(hreq->req, id);
+  httpd_stream_file(hreq, id);
 
   return DAAP_REPLY_NONE;
 }
@@ -2243,7 +2243,7 @@ daap_request(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Unrecognized path in DAAP request: '%s'\n", hreq->uri);
 
-      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -2290,7 +2290,7 @@ daap_request(struct httpd_request *hreq)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
       evhttp_add_header(headers, "Content-Encoding", "gzip");
-      httpd_send_reply(hreq->req, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
+      httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
 
       evbuffer_free(hreq->reply);
       return;
@@ -2345,7 +2345,7 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
   if (!uri_parsed)
     return NULL;
 
-  ret = httpd_request_parse(&hreq, NULL, uri_parsed, user_agent, daap_handlers);
+  ret = httpd_request_set(&hreq, uri_parsed, user_agent, daap_handlers);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Cannot build reply, unrecognized path '%s' in request: '%s'\n", uri_parsed->path, uri_parsed->uri);
@@ -2401,7 +2401,7 @@ daap_deinit(void)
     {
       update_requests = ur->next;
 
-      evcon = evhttp_request_get_connection(ur->req);
+      evcon = evhttp_request_get_connection(ur->hreq->req);
       if (evcon)
 	{
 	  evhttp_connection_set_closecb(evcon, NULL, NULL);

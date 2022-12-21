@@ -55,7 +55,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback '%s': %s\n", hreq->uri_parsed->uri, errmsg);
-      httpd_send_error(hreq->req, HTTP_INTERNAL, errmsg);
+      httpd_send_error(hreq, HTTP_INTERNAL, errmsg);
       return -1;
     }
 
@@ -69,7 +69,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
 {
   DPRINTF(E_LOG, L_WEB, "This version was built without support for Spotify\n");
 
-  httpd_send_error(hreq->req, HTTP_NOTFOUND, "This version was built without support for Spotify");
+  httpd_send_error(hreq, HTTP_NOTFOUND, "This version was built without support for Spotify");
 
   return -1;
 }
@@ -99,7 +99,7 @@ oauth_request(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_WEB, "Unrecognized path in OAuth request: '%s'\n", hreq->uri);
 
-      httpd_send_error(hreq->req, HTTP_NOTFOUND, NULL);
+      httpd_send_error(hreq, HTTP_NOTFOUND, NULL);
       return;
     }
 

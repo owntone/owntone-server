@@ -68,13 +68,13 @@ static char *default_playlist_directory;
 /* -------------------------------- HELPERS --------------------------------- */
 
 static bool
-is_modified(struct evhttp_request *req, const char *key)
+is_modified(struct httpd_request *hreq, const char *key)
 {
   int64_t db_update = 0;
 
   db_admin_getint64(&db_update, key);
 
-  return (!db_update || !httpd_request_not_modified_since(req, (time_t)db_update));
+  return (!db_update || !httpd_request_not_modified_since(hreq, (time_t)db_update));
 }
 
 static inline void
@@ -2697,7 +2697,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   db_queue_get_count(&count);
 
   snprintf(etag, sizeof(etag), "%d", version);
-  if (httpd_request_etag_matches(hreq->req, etag))
+  if (httpd_request_etag_matches(hreq, etag))
     return HTTP_NOTMODIFIED;
 
   memset(&query_params, 0, sizeof(struct query_params));
@@ -2953,7 +2953,7 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   media_kind = 0;
@@ -3014,7 +3014,7 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
   int ret = 0;
   bool notfound = false;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   artist_id = hreq->uri_parsed->path_parts[3];
@@ -3049,7 +3049,7 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   artist_id = hreq->uri_parsed->path_parts[3];
@@ -3102,7 +3102,7 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   media_kind = 0;
@@ -3163,7 +3163,7 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
   int ret = 0;
   bool notfound = false;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   album_id = hreq->uri_parsed->path_parts[3];
@@ -3198,7 +3198,7 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
+  if (!is_modified(hreq, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
 
   album_id = hreq->uri_parsed->path_parts[3];
@@ -3282,7 +3282,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   int ret = 0;
   bool notfound = false;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
+  if (!is_modified(hreq, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
 
   track_id = hreq->uri_parsed->path_parts[3];
@@ -3481,7 +3481,7 @@ jsonapi_reply_library_track_playlists(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
+  if (!is_modified(hreq, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
 
   track_id = hreq->uri_parsed->path_parts[3];
@@ -3543,7 +3543,7 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   reply = json_object_new_object();
@@ -3591,7 +3591,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
   int ret = 0;
   bool notfound = false;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   ret = safe_atou32(hreq->uri_parsed->path_parts[3], &playlist_id);
@@ -3694,7 +3694,7 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   int ret = 0;
 
   // Due to smart playlists possibly changing their tracks between rescans, disable caching in clients
-  httpd_response_not_cachable(hreq->req);
+  httpd_response_not_cachable(hreq);
 
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
   if (ret < 0)
@@ -3768,7 +3768,7 @@ jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
   int total;
   int ret = 0;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_MODIFIED))
+  if (!is_modified(hreq, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
 
 
@@ -3907,7 +3907,7 @@ jsonapi_reply_library_browse(struct httpd_request *hreq)
   int total;
   int ret;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   browse_type = hreq->uri_parsed->path_parts[2];
@@ -3988,7 +3988,7 @@ jsonapi_reply_library_browseitem(struct httpd_request *hreq)
   json_object *reply;
   int ret;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   browse_type = hreq->uri_parsed->path_parts[2];
@@ -4063,7 +4063,7 @@ jsonapi_reply_library_count(struct httpd_request *hreq)
   json_object *jreply;
   int ret;
 
-  if (!is_modified(hreq->req, DB_ADMIN_DB_UPDATE))
+  if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -4725,7 +4725,7 @@ jsonapi_request(struct httpd_request *hreq)
 
   DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", hreq->uri);
 
-  if (!httpd_admin_check_auth(hreq->req))
+  if (!httpd_admin_check_auth(hreq))
     {
       return;
     }
@@ -4733,7 +4733,7 @@ jsonapi_request(struct httpd_request *hreq)
   if (!hreq->handler)
     {
       DPRINTF(E_LOG, L_WEB, "Unrecognized JSON API request: '%s'\n", hreq->uri);
-      httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
       return;
     }
 
@@ -4749,29 +4749,29 @@ jsonapi_request(struct httpd_request *hreq)
       case HTTP_OK:                  /* 200 OK */
 	headers = evhttp_request_get_output_headers(hreq->req);
 	evhttp_add_header(headers, "Content-Type", "application/json");
-	httpd_send_reply(hreq->req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(hreq->req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOTMODIFIED:         /* 304 Not Modified */
-	httpd_send_reply(hreq->req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_BADREQUEST:          /* 400 Bad Request */
-	httpd_send_error(hreq->req, status_code, "Bad Request");
+	httpd_send_error(hreq, status_code, "Bad Request");
 	break;
       case 403:
-	httpd_send_error(hreq->req, status_code, "Forbidden");
+	httpd_send_error(hreq, status_code, "Forbidden");
 	break;
       case HTTP_NOTFOUND:            /* 404 Not Found */
-	httpd_send_error(hreq->req, status_code, "Not Found");
+	httpd_send_error(hreq, status_code, "Not Found");
 	break;
       case HTTP_SERVUNAVAIL:            /* 503 */
-        httpd_send_error(hreq->req, status_code, "Service Unavailable");
+        httpd_send_error(hreq, status_code, "Service Unavailable");
         break;
       case HTTP_INTERNAL:            /* 500 Internal Server Error */
       default:
-	httpd_send_error(hreq->req, HTTP_INTERNAL, "Internal Server Error");
+	httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
 	break;
     }
 

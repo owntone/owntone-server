@@ -123,25 +123,19 @@ struct httpd_uri_parsed *
 httpd_uri_parse(const char *uri);
 
 void
-httpd_stream_file(struct evhttp_request *req, int id);
+httpd_stream_file(struct httpd_request *hreq, int id);
 
-/*
- * Parse a request into the httpd_request struct. Nothing is copied, so the
- * pointers in the returned struct are only valid as long as the inputs are
- * still valid. If req is not null, then we will find the user-agent from the 
- * request headers, except if provided as an argument to this function.
- */
 int
-httpd_request_parse(struct httpd_request *hreq, struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map);
+httpd_request_set(struct httpd_request *hreq, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map);
 
 bool
-httpd_request_not_modified_since(struct evhttp_request *req, time_t mtime);
+httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime);
 
 bool
-httpd_request_etag_matches(struct evhttp_request *req, const char *etag);
+httpd_request_etag_matches(struct httpd_request *hreq, const char *etag);
 
 void
-httpd_response_not_cachable(struct evhttp_request *req);
+httpd_response_not_cachable(struct httpd_request *hreq);
 
 /*
  * This wrapper around evhttp_send_reply should be used whenever a request may
@@ -149,7 +143,7 @@ httpd_response_not_cachable(struct evhttp_request *req);
  * may direct it not to. It will set CORS headers as appropriate. Should be
  * thread safe.
  *
- * @in  req      The evhttp request struct
+ * @in  req      The http request struct
  * @in  code     HTTP code, e.g. 200
  * @in  reason   A brief explanation of the error - if NULL the standard meaning
                  of the error code will be used
@@ -157,7 +151,7 @@ httpd_response_not_cachable(struct evhttp_request *req);
  * @in  flags    See flags above
  */
 void
-httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags);
+httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags);
 
 /*
  * This is a substitute for evhttp_send_error that should be used whenever an
@@ -165,24 +159,24 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
  * which is not possible with evhttp_send_error, because it clears the headers.
  * Should be thread safe.
  *
- * @in  req      The evhttp request struct
+ * @in  req      The http request struct
  * @in  error    HTTP code, e.g. 200
  * @in  reason   A brief explanation of the error - if NULL the standard meaning
                  of the error code will be used
  */
 void
-httpd_send_error(struct evhttp_request *req, int error, const char *reason);
+httpd_send_error(struct httpd_request *hreq, int error, const char *reason);
 
 /*
  * Redirects to the given path
  */
 void
-httpd_redirect_to(struct evhttp_request *req, const char *path);
+httpd_redirect_to(struct httpd_request *hreq, const char *path);
 
 bool
-httpd_admin_check_auth(struct evhttp_request *req);
+httpd_admin_check_auth(struct httpd_request *hreq);
 
 int
-httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);
+httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passwd, const char *realm);
 
 #endif /* !__HTTPD_INTERNAL_H__ */
