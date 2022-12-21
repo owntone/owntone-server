@@ -703,8 +703,10 @@ get_album_image(json_object *jsonalbum, int max_w)
 
       if (max_w == 0 || candidate_width == 0)
 	use_image = (width > candidate_width);
+      else if (candidate_width > max_w)
+	use_image = (width < candidate_width);
       else
-	use_image = (width <= max_w && width > candidate_width) || (max_w < width && width < candidate_width);
+	use_image = (candidate_width < width && width <= max_w);
 
       if (!use_image)
 	continue;
