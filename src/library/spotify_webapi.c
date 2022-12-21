@@ -673,7 +673,7 @@ get_album_image(json_object *jsonalbum, int max_w)
   int image_count;
   int index;
   int width;
-  int candidate_width = 0;
+  int candidate_width;
   const char *artwork_url = NULL;
   bool use_image;
 
@@ -693,7 +693,7 @@ get_album_image(json_object *jsonalbum, int max_w)
   // (widest image first), but at one point had a bug that meant they didn't, so
   // we don't rely on that here.
   image_count = json_object_array_length(jsonimages);
-  for (index = 0; index < image_count; index++)
+  for (index = 0, candidate_width = 0; index < image_count; index++)
     {
       jsonimage = json_object_array_get_idx(jsonimages, index);
       if (!jsonimage)
@@ -701,9 +701,10 @@ get_album_image(json_object *jsonalbum, int max_w)
 
       width = jparse_int_from_obj(jsonimage, "width");
 
-      use_image =
-	((width <= max_w || max_w == 0 || candidate_width == 0) && width > candidate_width) ||
-	(width > max_w && candidate_width > width);
+      if (max_w == 0 || candidate_width == 0)
+	use_image = (width > candidate_width);
+      else
+	use_image = (width <= max_w && width > candidate_width) || (max_w < width && width < candidate_width);
 
       if (!use_image)
 	continue;
