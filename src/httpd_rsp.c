@@ -160,7 +160,7 @@ static void
 rsp_send_error(struct httpd_request *hreq, char *errmsg)
 {
   struct evbuffer *evbuf;
-  struct evkeyvalq *headers;
+  httpd_headers *headers;
   mxml_node_t *reply;
   mxml_node_t *status;
   mxml_node_t *node;
@@ -196,9 +196,9 @@ rsp_send_error(struct httpd_request *hreq, char *errmsg)
       return;
     }
 
-  headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
-  evhttp_add_header(headers, "Connection", "close");
+  headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(headers, "Content-Type", "text/xml; charset=utf-8");
+  httpd_header_add(headers, "Connection", "close");
 
   httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
@@ -214,7 +214,7 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
   int ret;
 
   qp->offset = 0;
-  param = evhttp_find_header(hreq->query, "offset");
+  param = httpd_query_value_find(hreq->query, "offset");
   if (param)
     {
       ret = safe_atoi32(param, &qp->offset);
@@ -226,7 +226,7 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
     }
 
   qp->limit = 0;
-  param = evhttp_find_header(hreq->query, "limit");
+  param = httpd_query_value_find(hreq->query, "limit");
   if (param)
     {
       ret = safe_atoi32(param, &qp->limit);
@@ -243,7 +243,7 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
     qp->idx_type = I_NONE;
 
   qp->filter = NULL;
-  param = evhttp_find_header(hreq->query, "query");
+  param = httpd_query_value_find(hreq->query, "query");
   if (param)
     {
       ret = snprintf(query, sizeof(query), "%s", param);
@@ -280,7 +280,7 @@ static void
 rsp_send_reply(struct httpd_request *hreq, mxml_node_t *reply)
 {
   struct evbuffer *evbuf;
-  struct evkeyvalq *headers;
+  httpd_headers *headers;
 
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
@@ -292,9 +292,9 @@ rsp_send_reply(struct httpd_request *hreq, mxml_node_t *reply)
       return;
     }
 
-  headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
-  evhttp_add_header(headers, "Connection", "close");
+  headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(headers, "Content-Type", "text/xml; charset=utf-8");
+  httpd_header_add(headers, "Connection", "close");
 
   httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, 0);
 
@@ -488,7 +488,6 @@ rsp_reply_playlist(struct httpd_request *hreq)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
-  struct evkeyvalq *headers;
   const char *param;
   const char *ua;
   const char *client_codecs;
@@ -522,7 +521,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   qp.sort = S_NAME;
 
   mode = F_FULL;
-  param = evhttp_find_header(hreq->query, "type");
+  param = httpd_query_value_find(hreq->query, "type");
   if (param)
     {
       if (strcasecmp(param, "full") == 0)
@@ -586,10 +585,8 @@ rsp_reply_playlist(struct httpd_request *hreq)
   /* Items block (all items) */
   while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
-      headers = evhttp_request_get_input_headers(hreq->req);
-
-      ua = evhttp_find_header(headers, "User-Agent");
-      client_codecs = evhttp_find_header(headers, "Accept-Codecs");
+      ua = httpd_header_find(hreq->in_headers, "User-Agent");
+      client_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
 
       transcode = transcode_needed(ua, client_codecs, dbmfi.codectype);
 

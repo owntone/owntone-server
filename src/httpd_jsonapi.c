@@ -764,7 +764,7 @@ query_params_limit_set(struct query_params *query_params, struct httpd_request *
   query_params->limit = -1;
   query_params->offset = 0;
 
-  param = evhttp_find_header(hreq->query, "limit");
+  param = httpd_query_value_find(hreq->query, "limit");
   if (param)
     {
       query_params->idx_type = I_SUB;
@@ -775,7 +775,7 @@ query_params_limit_set(struct query_params *query_params, struct httpd_request *
 	  return -1;
 	}
 
-      param = evhttp_find_header(hreq->query, "offset");
+      param = httpd_query_value_find(hreq->query, "offset");
       if (param && safe_atoi32(param, &query_params->offset) < 0)
         {
 	  DPRINTF(E_LOG, L_WEB, "Invalid value for query parameter 'offset' (%s)\n", param);
@@ -1062,7 +1062,6 @@ jsonapi_reply_settings_option_put(struct httpd_request *hreq)
   const char *optionname;
   struct settings_category *category;
   struct settings_option *option;
-  struct evbuffer *in_evbuf;
   json_object* request;
   int intval;
   bool boolval;
@@ -1088,8 +1087,7 @@ jsonapi_reply_settings_option_put(struct httpd_request *hreq)
       return HTTP_NOTFOUND;
     }
 
-  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
-  request = jparse_obj_from_evbuffer(in_evbuf);
+  request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Missing request body for setting option '%s' (type %d)\n", optionname, option->type);
@@ -1252,7 +1250,7 @@ jsonapi_reply_update(struct httpd_request *hreq)
 {
   const char *param;
 
-  param = evhttp_find_header(hreq->query, "scan_kind");
+  param = httpd_query_value_find(hreq->query, "scan_kind");
 
   library_rescan(db_scan_kind_enum(param));
   return HTTP_NOCONTENT;
@@ -1263,7 +1261,7 @@ jsonapi_reply_meta_rescan(struct httpd_request *hreq)
 {
   const char *param;
 
-  param = evhttp_find_header(hreq->query, "scan_kind");
+  param = httpd_query_value_find(hreq->query, "scan_kind");
 
   library_metarescan(db_scan_kind_enum(param));
   return HTTP_NOCONTENT;
@@ -1379,7 +1377,6 @@ static int
 jsonapi_reply_lastfm_login(struct httpd_request *hreq)
 {
 #ifdef LASTFM
-  struct evbuffer *in_evbuf;
   json_object *request;
   const char *user;
   const char *password;
@@ -1390,8 +1387,7 @@ jsonapi_reply_lastfm_login(struct httpd_request *hreq)
 
   DPRINTF(E_DBG, L_WEB, "Received LastFM login request\n");
 
-  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
-  request = jparse_obj_from_evbuffer(in_evbuf);
+  request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
@@ -1466,13 +1462,11 @@ jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
 static int
 jsonapi_reply_pairing_pair(struct httpd_request *hreq)
 {
-  struct evbuffer *evbuf;
   json_object* request;
   const char* pin;
   int ret;
 
-  evbuf = evhttp_request_get_input_buffer(hreq->req);
-  request = jparse_obj_from_evbuffer(evbuf);
+  request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
@@ -1623,7 +1617,6 @@ static int
 jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
 {
   uint64_t output_id;
-  struct evbuffer *in_evbuf;
   json_object* request;
   bool selected;
   int volume;
@@ -1638,8 +1631,7 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
-  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
-  request = jparse_obj_from_evbuffer(in_evbuf);
+  request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
@@ -1741,12 +1733,10 @@ jsonapi_reply_outputs(struct httpd_request *hreq)
 static int
 jsonapi_reply_verification(struct httpd_request *hreq)
 {
-  struct evbuffer *in_evbuf;
   json_object* request;
   const char* message;
 
-  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
-  request = jparse_obj_from_evbuffer(in_evbuf);
+  request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
@@ -1769,15 +1759,13 @@ jsonapi_reply_verification(struct httpd_request *hreq)
 static int
 jsonapi_reply_outputs_set(struct httpd_request *hreq)
 {
-  struct evbuffer *in_evbuf;
   json_object *request;
   json_object *outputs;
   json_object *output_id;
   int nspk, i, ret;
   uint64_t *ids;
 
-  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
-  request = jparse_obj_from_evbuffer(in_evbuf);
+  request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
@@ -1902,11 +1890,11 @@ jsonapi_reply_player_play(struct httpd_request *hreq)
   const char *param;
   int ret;
 
-  if ((param = evhttp_find_header(hreq->query, "item_id")))
+  if ((param = httpd_query_value_find(hreq->query, "item_id")))
     {
       return play_item_with_id(param);
     }
-  else if ((param = evhttp_find_header(hreq->query, "position")))
+  else if ((param = httpd_query_value_find(hreq->query, "position")))
     {
       return play_item_at_position(param);
     }
@@ -2033,8 +2021,8 @@ jsonapi_reply_player_seek(struct httpd_request *hreq)
   int seek_ms;
   int ret;
 
-  param_pos = evhttp_find_header(hreq->query, "position_ms");
-  param_seek = evhttp_find_header(hreq->query, "seek_ms");
+  param_pos = httpd_query_value_find(hreq->query, "position_ms");
+  param_seek = httpd_query_value_find(hreq->query, "seek_ms");
   if (!param_pos && !param_seek)
     return HTTP_BADREQUEST;
 
@@ -2472,7 +2460,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   int ret = 0;
 
 
-  param_pos = evhttp_find_header(hreq->query, "position");
+  param_pos = httpd_query_value_find(hreq->query, "position");
   if (param_pos)
     {
       if (safe_atoi32(param_pos, &pos) < 0)
@@ -2487,8 +2475,8 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   else
     pos = -1;
 
-  param_uris = evhttp_find_header(hreq->query, "uris");
-  param_expression = evhttp_find_header(hreq->query, "expression");
+  param_uris = httpd_query_value_find(hreq->query, "uris");
+  param_expression = httpd_query_value_find(hreq->query, "expression");
 
   if (!param_uris && !param_expression)
     {
@@ -2498,7 +2486,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
     }
 
   // if query parameter "clear" is "true", stop playback and clear the queue before adding new queue items
-  param = evhttp_find_header(hreq->query, "clear");
+  param = httpd_query_value_find(hreq->query, "clear");
   if (param && strcmp(param, "true") == 0)
     {
       player_playback_stop();
@@ -2506,7 +2494,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
     }
 
   // if query parameter "shuffle" is present, update the shuffle state before adding new queue items
-  param = evhttp_find_header(hreq->query, "shuffle");
+  param = httpd_query_value_find(hreq->query, "shuffle");
   if (param)
     {
       shuffle = (strcmp(param, "true") == 0);
@@ -2520,7 +2508,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   else
     {
       // This overrides the value specified in query
-      param = evhttp_find_header(hreq->query, "limit");
+      param = httpd_query_value_find(hreq->query, "limit");
       if (param && safe_atoi32(param, &limit) == 0)
 	ret = queue_tracks_add_byexpression(param_expression, pos, limit, &total_count);
       else
@@ -2540,10 +2528,10 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
     return HTTP_INTERNAL;
 
   // If query parameter "playback" is "start", start playback after successfully adding new items
-  param = evhttp_find_header(hreq->query, "playback");
+  param = httpd_query_value_find(hreq->query, "playback");
   if (param && strcmp(param, "start") == 0)
     {
-      if ((param = evhttp_find_header(hreq->query, "playback_from_position")))
+      if ((param = httpd_query_value_find(hreq->query, "playback_from_position")))
 	ret = (play_item_at_position(param) == HTTP_NOCONTENT) ? 0 : -1;
       else
 	ret = player_playback_start();
@@ -2618,21 +2606,21 @@ jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
 
   ret = HTTP_OK;
   is_changed = false;
-  if ((param = evhttp_find_header(hreq->query, "new_position")))
+  if ((param = httpd_query_value_find(hreq->query, "new_position")))
     ret = update_pos(item_id, param, status.shuffle);
-  if ((param = evhttp_find_header(hreq->query, "title")))
+  if ((param = httpd_query_value_find(hreq->query, "title")))
     update_str(&is_changed, &queue_item->title, param);
-  if ((param = evhttp_find_header(hreq->query, "album")))
+  if ((param = httpd_query_value_find(hreq->query, "album")))
     update_str(&is_changed, &queue_item->album, param);
-  if ((param = evhttp_find_header(hreq->query, "artist")))
+  if ((param = httpd_query_value_find(hreq->query, "artist")))
     update_str(&is_changed, &queue_item->artist, param);
-  if ((param = evhttp_find_header(hreq->query, "album_artist")))
+  if ((param = httpd_query_value_find(hreq->query, "album_artist")))
     update_str(&is_changed, &queue_item->album_artist, param);
-  if ((param = evhttp_find_header(hreq->query, "composer")))
+  if ((param = httpd_query_value_find(hreq->query, "composer")))
     update_str(&is_changed, &queue_item->composer, param);
-  if ((param = evhttp_find_header(hreq->query, "genre")))
+  if ((param = httpd_query_value_find(hreq->query, "genre")))
     update_str(&is_changed, &queue_item->genre, param);
-  if ((param = evhttp_find_header(hreq->query, "artwork_url")))
+  if ((param = httpd_query_value_find(hreq->query, "artwork_url")))
     update_str(&is_changed, &queue_item->artwork_url, param);
 
   if (ret != HTTP_OK)
@@ -2713,7 +2701,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
   if (status.shuffle)
     query_params.sort = S_SHUFFLE_POS;
 
-  param = evhttp_find_header(hreq->query, "id");
+  param = httpd_query_value_find(hreq->query, "id");
   if (param && strcmp(param, "now_playing") == 0)
     {
       query_params.filter = db_mprintf("id = %d", status.item_id);
@@ -2724,10 +2712,10 @@ jsonapi_reply_queue(struct httpd_request *hreq)
     }
   else
     {
-      param = evhttp_find_header(hreq->query, "start");
+      param = httpd_query_value_find(hreq->query, "start");
       if (param && safe_atoi32(param, &start_pos) == 0)
 	{
-	  param = evhttp_find_header(hreq->query, "end");
+	  param = httpd_query_value_find(hreq->query, "end");
 	  if (!param || safe_atoi32(param, &end_pos) != 0)
 	    {
 	      end_pos = start_pos + 1;
@@ -2774,7 +2762,7 @@ jsonapi_reply_player_repeat(struct httpd_request *hreq)
 {
   const char *param;
 
-  param = evhttp_find_header(hreq->query, "state");
+  param = httpd_query_value_find(hreq->query, "state");
   if (!param)
     return HTTP_BADREQUEST;
 
@@ -2800,7 +2788,7 @@ jsonapi_reply_player_shuffle(struct httpd_request *hreq)
   const char *param;
   bool shuffle;
 
-  param = evhttp_find_header(hreq->query, "state");
+  param = httpd_query_value_find(hreq->query, "state");
   if (!param)
     return HTTP_BADREQUEST;
 
@@ -2816,7 +2804,7 @@ jsonapi_reply_player_consume(struct httpd_request *hreq)
   const char *param;
   bool consume;
 
-  param = evhttp_find_header(hreq->query, "state");
+  param = httpd_query_value_find(hreq->query, "state");
   if (!param)
     return HTTP_BADREQUEST;
 
@@ -2895,7 +2883,7 @@ jsonapi_reply_player_volume(struct httpd_request *hreq)
   step = 0;
 
   // Parse and validate parameters
-  param_volume = evhttp_find_header(hreq->query, "volume");
+  param_volume = httpd_query_value_find(hreq->query, "volume");
   if (param_volume)
     {
       ret = safe_atoi32(param_volume, &volume);
@@ -2903,7 +2891,7 @@ jsonapi_reply_player_volume(struct httpd_request *hreq)
 	return HTTP_BADREQUEST;
     }
 
-  param_step = evhttp_find_header(hreq->query, "step");
+  param_step = httpd_query_value_find(hreq->query, "step");
   if (param_step)
     {
       ret = safe_atoi32(param_step, &step);
@@ -2918,7 +2906,7 @@ jsonapi_reply_player_volume(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
-  param = evhttp_find_header(hreq->query, "output_id");
+  param = httpd_query_value_find(hreq->query, "output_id");
   if (param)
     {
       // Update volume for individual output
@@ -2957,7 +2945,7 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
     return HTTP_NOTMODIFIED;
 
   media_kind = 0;
-  param = evhttp_find_header(hreq->query, "media_kind");
+  param = httpd_query_value_find(hreq->query, "media_kind");
   if (param)
     {
       media_kind = db_media_kind_enum(param);
@@ -3106,7 +3094,7 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
     return HTTP_NOTMODIFIED;
 
   media_kind = 0;
-  param = evhttp_find_header(hreq->query, "media_kind");
+  param = httpd_query_value_find(hreq->query, "media_kind");
   if (param)
     {
       media_kind = db_media_kind_enum(param);
@@ -3251,7 +3239,7 @@ jsonapi_reply_library_album_tracks_put_byid(struct httpd_request *hreq)
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  param = evhttp_find_header(hreq->query, "play_count");
+  param = httpd_query_value_find(hreq->query, "play_count");
   if (!param)
     return HTTP_BADREQUEST;
 
@@ -3327,7 +3315,6 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 static int
 jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
 {
-  struct evbuffer *in_evbuf;
   json_object *request = NULL;
   json_object *tracks;
   json_object *track = NULL;
@@ -3337,8 +3324,7 @@ jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
   int32_t track_id;
   int i;
 
-  in_evbuf = evhttp_request_get_input_buffer(hreq->req);
-  request = jparse_obj_from_evbuffer(in_evbuf);
+  request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to read json tracks request\n");
@@ -3417,7 +3403,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  param = evhttp_find_header(hreq->query, "play_count");
+  param = httpd_query_value_find(hreq->query, "play_count");
   if (param)
     {
       if (strcmp(param, "increment") == 0)
@@ -3435,7 +3421,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 	}
     }
 
-  param = evhttp_find_header(hreq->query, "rating");
+  param = httpd_query_value_find(hreq->query, "rating");
   if (param)
     {
       ret = safe_atou32(param, &val);
@@ -3451,7 +3437,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
     }
 
   // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+=+1"
-  param = evhttp_find_header(hreq->query, "usermark");
+  param = httpd_query_value_find(hreq->query, "usermark");
   if (param)
     {
       ret = safe_atou32(param, &val);
@@ -3672,7 +3658,7 @@ jsonapi_reply_library_playlist_put(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
     }
 
-  if ((param = evhttp_find_header(hreq->query, "query_limit")))
+  if ((param = httpd_query_value_find(hreq->query, "query_limit")))
     ret = playlist_attrib_query_limit_set(playlist_id, param);
   else
     ret = -1;
@@ -3828,7 +3814,7 @@ jsonapi_reply_library_playlist_tracks_put_byid(struct httpd_request *hreq)
   if (ret < 0)
     return HTTP_INTERNAL;
 
-  param = evhttp_find_header(hreq->query, "play_count");
+  param = httpd_query_value_find(hreq->query, "play_count");
   if (!param)
     return HTTP_BADREQUEST;
 
@@ -3857,7 +3843,7 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
   char *playlist_name = NULL;
   int ret = 0;
 
-  if ((param = evhttp_find_header(hreq->query, "name")) == NULL)
+  if ((param = httpd_query_value_find(hreq->query, "name")) == NULL)
     {
       DPRINTF(E_LOG, L_WEB, "Invalid argument, missing 'name'\n");
       return HTTP_BADREQUEST;
@@ -3914,7 +3900,7 @@ jsonapi_reply_library_browse(struct httpd_request *hreq)
   DPRINTF(E_DBG, L_WEB, "Browse query with type '%s'\n", browse_type);
 
   media_kind = 0;
-  param = evhttp_find_header(hreq->query, "media_kind");
+  param = httpd_query_value_find(hreq->query, "media_kind");
   if (param)
     {
       media_kind = db_media_kind_enum(param);
@@ -4069,7 +4055,7 @@ jsonapi_reply_library_count(struct httpd_request *hreq)
   memset(&qp, 0, sizeof(struct query_params));
   qp.type = Q_COUNT_ITEMS;
 
-  param_expression = evhttp_find_header(hreq->query, "expression");
+  param_expression = httpd_query_value_find(hreq->query, "expression");
   if (param_expression)
     {
       memset(&smartpl_expression, 0, sizeof(struct smartpl));
@@ -4123,7 +4109,7 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
   int total;
   int ret;
 
-  param = evhttp_find_header(hreq->query, "directory");
+  param = httpd_query_value_find(hreq->query, "directory");
 
   directory_id = DIR_FILE;
   if (param)
@@ -4215,7 +4201,7 @@ jsonapi_reply_library_add(struct httpd_request *hreq)
   const char *url;
   int ret;
 
-  url = evhttp_find_header(hreq->query, "url");
+  url = httpd_query_value_find(hreq->query, "url");
   if (!url)
     {
       DPRINTF(E_LOG, L_WEB, "Missing URL parameter for library add\n");
@@ -4528,9 +4514,9 @@ jsonapi_reply_search(struct httpd_request *hreq)
 
   reply = NULL;
 
-  param_type = evhttp_find_header(hreq->query, "type");
-  param_query = evhttp_find_header(hreq->query, "query");
-  param_expression = evhttp_find_header(hreq->query, "expression");
+  param_type = httpd_query_value_find(hreq->query, "type");
+  param_query = httpd_query_value_find(hreq->query, "query");
+  param_expression = httpd_query_value_find(hreq->query, "expression");
 
   if (!param_type || (!param_query && !param_expression))
     {
@@ -4540,7 +4526,7 @@ jsonapi_reply_search(struct httpd_request *hreq)
     }
 
   media_kind = 0;
-  param_media_kind = evhttp_find_header(hreq->query, "media_kind");
+  param_media_kind = httpd_query_value_find(hreq->query, "media_kind");
   if (param_media_kind)
     {
       media_kind = db_media_kind_enum(param_media_kind);
@@ -4635,80 +4621,80 @@ jsonapi_reply_library_backup(struct httpd_request *hreq)
 
 static struct httpd_uri_map adm_handlers[] =
   {
-    { EVHTTP_REQ_GET,    "^/api/config$",                                jsonapi_reply_config },
-    { EVHTTP_REQ_GET,    "^/api/settings$",                              jsonapi_reply_settings_get },
-    { EVHTTP_REQ_GET,    "^/api/settings/[A-Za-z0-9_]+$",                jsonapi_reply_settings_category_get },
-    { EVHTTP_REQ_GET,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_get },
-    { EVHTTP_REQ_PUT,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_put },
-    { EVHTTP_REQ_DELETE, "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_delete },
-    { EVHTTP_REQ_GET,    "^/api/library$",                               jsonapi_reply_library },
-    { EVHTTP_REQ_GET |
-      EVHTTP_REQ_PUT,    "^/api/update$",                                jsonapi_reply_update },
-    { EVHTTP_REQ_PUT,    "^/api/rescan$",                                jsonapi_reply_meta_rescan },
-    { EVHTTP_REQ_GET,    "^/api/spotify-logout$",                        jsonapi_reply_spotify_logout },
-    { EVHTTP_REQ_GET,    "^/api/spotify$",                               jsonapi_reply_spotify },
-    { EVHTTP_REQ_GET,    "^/api/pairing$",                               jsonapi_reply_pairing_get },
-    { EVHTTP_REQ_POST,   "^/api/pairing$",                               jsonapi_reply_pairing_pair },
-    { EVHTTP_REQ_POST,   "^/api/lastfm-login$",                          jsonapi_reply_lastfm_login },
-    { EVHTTP_REQ_GET,    "^/api/lastfm-logout$",                         jsonapi_reply_lastfm_logout },
-    { EVHTTP_REQ_GET,    "^/api/lastfm$",                                jsonapi_reply_lastfm },
-    { EVHTTP_REQ_POST,   "^/api/verification$",                          jsonapi_reply_verification },
+    { HTTPD_METHOD_GET,    "^/api/config$",                                jsonapi_reply_config },
+    { HTTPD_METHOD_GET,    "^/api/settings$",                              jsonapi_reply_settings_get },
+    { HTTPD_METHOD_GET,    "^/api/settings/[A-Za-z0-9_]+$",                jsonapi_reply_settings_category_get },
+    { HTTPD_METHOD_GET,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_get },
+    { HTTPD_METHOD_PUT,    "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_put },
+    { HTTPD_METHOD_DELETE, "^/api/settings/[A-Za-z0-9_]+/[A-Za-z0-9_]+$",  jsonapi_reply_settings_option_delete },
+    { HTTPD_METHOD_GET,    "^/api/library$",                               jsonapi_reply_library },
+    { HTTPD_METHOD_GET |
+      HTTPD_METHOD_PUT,    "^/api/update$",                                jsonapi_reply_update },
+    { HTTPD_METHOD_PUT,    "^/api/rescan$",                                jsonapi_reply_meta_rescan },
+    { HTTPD_METHOD_GET,    "^/api/spotify-logout$",                        jsonapi_reply_spotify_logout },
+    { HTTPD_METHOD_GET,    "^/api/spotify$",                               jsonapi_reply_spotify },
+    { HTTPD_METHOD_GET,    "^/api/pairing$",                               jsonapi_reply_pairing_get },
+    { HTTPD_METHOD_POST,   "^/api/pairing$",                               jsonapi_reply_pairing_pair },
+    { HTTPD_METHOD_POST,   "^/api/lastfm-login$",                          jsonapi_reply_lastfm_login },
+    { HTTPD_METHOD_GET,    "^/api/lastfm-logout$",                         jsonapi_reply_lastfm_logout },
+    { HTTPD_METHOD_GET,    "^/api/lastfm$",                                jsonapi_reply_lastfm },
+    { HTTPD_METHOD_POST,   "^/api/verification$",                          jsonapi_reply_verification },
 
-    { EVHTTP_REQ_GET,    "^/api/outputs$",                               jsonapi_reply_outputs },
-    { EVHTTP_REQ_PUT,    "^/api/outputs/set$",                           jsonapi_reply_outputs_set },
-    { EVHTTP_REQ_POST,   "^/api/select-outputs$",                        jsonapi_reply_outputs_set }, // deprecated: use "/api/outputs/set"
-    { EVHTTP_REQ_GET,    "^/api/outputs/[[:digit:]]+$",                  jsonapi_reply_outputs_get_byid },
-    { EVHTTP_REQ_PUT,    "^/api/outputs/[[:digit:]]+$",                  jsonapi_reply_outputs_put_byid },
-    { EVHTTP_REQ_PUT,    "^/api/outputs/[[:digit:]]+/toggle$",           jsonapi_reply_outputs_toggle_byid },
+    { HTTPD_METHOD_GET,    "^/api/outputs$",                               jsonapi_reply_outputs },
+    { HTTPD_METHOD_PUT,    "^/api/outputs/set$",                           jsonapi_reply_outputs_set },
+    { HTTPD_METHOD_POST,   "^/api/select-outputs$",                        jsonapi_reply_outputs_set }, // deprecated: use "/api/outputs/set"
+    { HTTPD_METHOD_GET,    "^/api/outputs/[[:digit:]]+$",                  jsonapi_reply_outputs_get_byid },
+    { HTTPD_METHOD_PUT,    "^/api/outputs/[[:digit:]]+$",                  jsonapi_reply_outputs_put_byid },
+    { HTTPD_METHOD_PUT,    "^/api/outputs/[[:digit:]]+/toggle$",           jsonapi_reply_outputs_toggle_byid },
 
-    { EVHTTP_REQ_GET,    "^/api/player$",                                jsonapi_reply_player },
-    { EVHTTP_REQ_PUT,    "^/api/player/play$",                           jsonapi_reply_player_play },
-    { EVHTTP_REQ_PUT,    "^/api/player/pause$",                          jsonapi_reply_player_pause },
-    { EVHTTP_REQ_PUT,    "^/api/player/stop$",                           jsonapi_reply_player_stop },
-    { EVHTTP_REQ_PUT,    "^/api/player/toggle$",                         jsonapi_reply_player_toggle },
-    { EVHTTP_REQ_PUT,    "^/api/player/next$",                           jsonapi_reply_player_next },
-    { EVHTTP_REQ_PUT,    "^/api/player/previous$",                       jsonapi_reply_player_previous },
-    { EVHTTP_REQ_PUT,    "^/api/player/shuffle$",                        jsonapi_reply_player_shuffle },
-    { EVHTTP_REQ_PUT,    "^/api/player/repeat$",                         jsonapi_reply_player_repeat },
-    { EVHTTP_REQ_PUT,    "^/api/player/consume$",                        jsonapi_reply_player_consume },
-    { EVHTTP_REQ_PUT,    "^/api/player/volume$",                         jsonapi_reply_player_volume },
-    { EVHTTP_REQ_PUT,    "^/api/player/seek$",                           jsonapi_reply_player_seek },
+    { HTTPD_METHOD_GET,    "^/api/player$",                                jsonapi_reply_player },
+    { HTTPD_METHOD_PUT,    "^/api/player/play$",                           jsonapi_reply_player_play },
+    { HTTPD_METHOD_PUT,    "^/api/player/pause$",                          jsonapi_reply_player_pause },
+    { HTTPD_METHOD_PUT,    "^/api/player/stop$",                           jsonapi_reply_player_stop },
+    { HTTPD_METHOD_PUT,    "^/api/player/toggle$",                         jsonapi_reply_player_toggle },
+    { HTTPD_METHOD_PUT,    "^/api/player/next$",                           jsonapi_reply_player_next },
+    { HTTPD_METHOD_PUT,    "^/api/player/previous$",                       jsonapi_reply_player_previous },
+    { HTTPD_METHOD_PUT,    "^/api/player/shuffle$",                        jsonapi_reply_player_shuffle },
+    { HTTPD_METHOD_PUT,    "^/api/player/repeat$",                         jsonapi_reply_player_repeat },
+    { HTTPD_METHOD_PUT,    "^/api/player/consume$",                        jsonapi_reply_player_consume },
+    { HTTPD_METHOD_PUT,    "^/api/player/volume$",                         jsonapi_reply_player_volume },
+    { HTTPD_METHOD_PUT,    "^/api/player/seek$",                           jsonapi_reply_player_seek },
 
-    { EVHTTP_REQ_GET,    "^/api/queue$",                                 jsonapi_reply_queue },
-    { EVHTTP_REQ_PUT,    "^/api/queue/clear$",                           jsonapi_reply_queue_clear },
-    { EVHTTP_REQ_POST,   "^/api/queue/items/add$",                       jsonapi_reply_queue_tracks_add },
-    { EVHTTP_REQ_PUT,    "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_update },
-    { EVHTTP_REQ_PUT,    "^/api/queue/items/now_playing$",               jsonapi_reply_queue_tracks_update },
-    { EVHTTP_REQ_DELETE, "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_delete },
-    { EVHTTP_REQ_POST,   "^/api/queue/save$",                            jsonapi_reply_queue_save},
+    { HTTPD_METHOD_GET,    "^/api/queue$",                                 jsonapi_reply_queue },
+    { HTTPD_METHOD_PUT,    "^/api/queue/clear$",                           jsonapi_reply_queue_clear },
+    { HTTPD_METHOD_POST,   "^/api/queue/items/add$",                       jsonapi_reply_queue_tracks_add },
+    { HTTPD_METHOD_PUT,    "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_update },
+    { HTTPD_METHOD_PUT,    "^/api/queue/items/now_playing$",               jsonapi_reply_queue_tracks_update },
+    { HTTPD_METHOD_DELETE, "^/api/queue/items/[[:digit:]]+$",              jsonapi_reply_queue_tracks_delete },
+    { HTTPD_METHOD_POST,   "^/api/queue/save$",                            jsonapi_reply_queue_save},
 
-    { EVHTTP_REQ_GET,    "^/api/library/playlists$",                     jsonapi_reply_library_playlists },
-    { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_get },
-    { EVHTTP_REQ_PUT,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_put },
-    { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlist_tracks },
-    { EVHTTP_REQ_PUT,    "^/api/library/playlists/[[:digit:]]+/tracks",  jsonapi_reply_library_playlist_tracks_put_byid},
-//    { EVHTTP_REQ_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },
-    { EVHTTP_REQ_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_delete },
-    { EVHTTP_REQ_GET,    "^/api/library/playlists/[[:digit:]]+/playlists", jsonapi_reply_library_playlist_playlists },
-    { EVHTTP_REQ_GET,    "^/api/library/artists$",                       jsonapi_reply_library_artists },
-    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+$",          jsonapi_reply_library_artist },
-    { EVHTTP_REQ_GET,    "^/api/library/artists/[[:digit:]]+/albums$",   jsonapi_reply_library_artist_albums },
-    { EVHTTP_REQ_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
-    { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
-    { EVHTTP_REQ_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
-    { EVHTTP_REQ_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
-    { EVHTTP_REQ_PUT,    "^/api/library/tracks$",                        jsonapi_reply_library_tracks_put },
-    { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
-    { EVHTTP_REQ_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
-    { EVHTTP_REQ_GET,    "^/api/library/tracks/[[:digit:]]+/playlists$", jsonapi_reply_library_track_playlists },
-    { EVHTTP_REQ_GET,    "^/api/library/(genres|composers)$",            jsonapi_reply_library_browse },
-    { EVHTTP_REQ_GET,    "^/api/library/(genres|composers)/.*$",         jsonapi_reply_library_browseitem },
-    { EVHTTP_REQ_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
-    { EVHTTP_REQ_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
-    { EVHTTP_REQ_POST,   "^/api/library/add$",                           jsonapi_reply_library_add },
-    { EVHTTP_REQ_PUT,    "^/api/library/backup$",                        jsonapi_reply_library_backup },
+    { HTTPD_METHOD_GET,    "^/api/library/playlists$",                     jsonapi_reply_library_playlists },
+    { HTTPD_METHOD_GET,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_get },
+    { HTTPD_METHOD_PUT,    "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_put },
+    { HTTPD_METHOD_GET,    "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlist_tracks },
+    { HTTPD_METHOD_PUT,    "^/api/library/playlists/[[:digit:]]+/tracks",  jsonapi_reply_library_playlist_tracks_put_byid},
+//    { HTTPD_METHOD_POST,   "^/api/library/playlists/[[:digit:]]+/tracks$", jsonapi_reply_library_playlists_tracks },
+    { HTTPD_METHOD_DELETE, "^/api/library/playlists/[[:digit:]]+$",        jsonapi_reply_library_playlist_delete },
+    { HTTPD_METHOD_GET,    "^/api/library/playlists/[[:digit:]]+/playlists", jsonapi_reply_library_playlist_playlists },
+    { HTTPD_METHOD_GET,    "^/api/library/artists$",                       jsonapi_reply_library_artists },
+    { HTTPD_METHOD_GET,    "^/api/library/artists/[[:digit:]]+$",          jsonapi_reply_library_artist },
+    { HTTPD_METHOD_GET,    "^/api/library/artists/[[:digit:]]+/albums$",   jsonapi_reply_library_artist_albums },
+    { HTTPD_METHOD_GET,    "^/api/library/albums$",                        jsonapi_reply_library_albums },
+    { HTTPD_METHOD_GET,    "^/api/library/albums/[[:digit:]]+$",           jsonapi_reply_library_album },
+    { HTTPD_METHOD_GET,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks },
+    { HTTPD_METHOD_PUT,    "^/api/library/albums/[[:digit:]]+/tracks$",    jsonapi_reply_library_album_tracks_put_byid },
+    { HTTPD_METHOD_PUT,    "^/api/library/tracks$",                        jsonapi_reply_library_tracks_put },
+    { HTTPD_METHOD_GET,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_get_byid },
+    { HTTPD_METHOD_PUT,    "^/api/library/tracks/[[:digit:]]+$",           jsonapi_reply_library_tracks_put_byid },
+    { HTTPD_METHOD_GET,    "^/api/library/tracks/[[:digit:]]+/playlists$", jsonapi_reply_library_track_playlists },
+    { HTTPD_METHOD_GET,    "^/api/library/(genres|composers)$",            jsonapi_reply_library_browse },
+    { HTTPD_METHOD_GET,    "^/api/library/(genres|composers)/.*$",         jsonapi_reply_library_browseitem },
+    { HTTPD_METHOD_GET,    "^/api/library/count$",                         jsonapi_reply_library_count },
+    { HTTPD_METHOD_GET,    "^/api/library/files$",                         jsonapi_reply_library_files },
+    { HTTPD_METHOD_POST,   "^/api/library/add$",                           jsonapi_reply_library_add },
+    { HTTPD_METHOD_PUT,    "^/api/library/backup$",                        jsonapi_reply_library_backup },
 
-    { EVHTTP_REQ_GET,    "^/api/search$",                                jsonapi_reply_search },
+    { HTTPD_METHOD_GET,    "^/api/search$",                                jsonapi_reply_search },
 
     { 0, NULL, NULL }
   };
@@ -4720,7 +4706,7 @@ static void
 jsonapi_request(struct httpd_request *hreq)
 {
   ;
-  struct evkeyvalq *headers;
+  httpd_headers *headers;
   int status_code;
 
   DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", hreq->uri);
@@ -4747,8 +4733,8 @@ jsonapi_request(struct httpd_request *hreq)
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	headers = evhttp_request_get_output_headers(hreq->req);
-	evhttp_add_header(headers, "Content-Type", "application/json");
+	headers = httpd_request_output_headers_get(hreq);
+	httpd_header_add(headers, "Content-Type", "application/json");
 	httpd_send_reply(hreq, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */

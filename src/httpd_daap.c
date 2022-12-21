@@ -286,7 +286,6 @@ static void
 update_refresh_cb(int fd, short event, void *arg)
 {
   struct daap_update_request *ur;
-  struct evhttp_connection *evcon;
   struct evbuffer *reply;
 
   ur = (struct daap_update_request *)arg;
@@ -301,8 +300,7 @@ update_refresh_cb(int fd, short event, void *arg)
   dmap_add_int(reply, "mstt", 200);         /* 12 */
   dmap_add_int(reply, "musr", current_rev); /* 12 */
 
-  evcon = evhttp_request_get_connection(ur->hreq->req);
-  evhttp_connection_set_closecb(evcon, NULL, NULL);
+  httpd_request_closecb_set(ur->hreq, NULL, NULL);
 
   httpd_send_reply(ur->hreq, HTTP_OK, "OK", reply, 0);
 
@@ -310,20 +308,17 @@ update_refresh_cb(int fd, short event, void *arg)
 }
 
 static void
-update_fail_cb(struct evhttp_connection *evcon, void *arg)
+update_fail_cb(httpd_connection *conn, void *arg)
 {
-  struct evhttp_connection *evc;
   struct daap_update_request *ur;
 
   ur = (struct daap_update_request *)arg;
 
   DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
 
-  evc = evhttp_request_get_connection(ur->hreq->req);
-  if (evc)
-    evhttp_connection_set_closecb(evc, NULL, NULL);
+  httpd_request_closecb_set(ur->hreq, NULL, NULL);
 
-  evhttp_request_free(ur->hreq->req);
+  httpd_request_backend_free(ur->hreq); // TODO check if still necessary
   update_remove(ur);
 }
 
@@ -513,7 +508,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
 
   memset(qp, 0, sizeof(struct query_params));
 
-  param = evhttp_find_header(hreq->query, "index");
+  param = httpd_query_value_find(hreq->query, "index");
   if (param)
     {
       if (param[0] == '-') /* -n, last n entries */
@@ -559,7 +554,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
     qp->idx_type = I_SUB;
 
   qp->sort = S_NONE;
-  param = evhttp_find_header(hreq->query, "sort");
+  param = httpd_query_value_find(hreq->query, "sort");
   if (param)
     {
       if (strcmp(param, "name") == 0)
@@ -580,7 +575,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
   if (sort_headers)
     {
       *sort_headers = 0;
-      param = evhttp_find_header(hreq->query, "include-sort-headers");
+      param = httpd_query_value_find(hreq->query, "include-sort-headers");
       if (param && (strcmp(param, "1") == 0))
 	{
 	  *sort_headers = 1;
@@ -588,9 +583,9 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
 	}
     }
 
-  param = evhttp_find_header(hreq->query, "query");
+  param = httpd_query_value_find(hreq->query, "query");
   if (!param)
-    param = evhttp_find_header(hreq->query, "filter");
+    param = httpd_query_value_find(hreq->query, "filter");
 
   if (param)
     {
@@ -721,7 +716,7 @@ daap_request_authorize(struct httpd_request *hreq)
   if (session->is_remote && (strcmp(hreq->uri_parsed->path, "/login") == 0))
     return 0;
 
-  param = evhttp_find_header(hreq->query, "session-id");
+  param = httpd_query_value_find(hreq->query, "session-id");
   if (param)
     {
       if (session->id == 0)
@@ -764,13 +759,12 @@ daap_request_authorize(struct httpd_request *hreq)
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 /* Note that some handlers can be called without a connection (needed for     */
 /* cache regeneration), while others cannot. Those that cannot should check   */
-/* that hreq->req is not a null pointer.                                      */
+/* that httpd_request_connection_get(hreq) is not null.                       */
 
 static enum daap_reply_result
 daap_reply_server_info(struct httpd_request *hreq)
 {
   struct evbuffer *content;
-  struct evkeyvalq *headers;
   char *name;
   char *passwd;
   const char *clientver;
@@ -778,7 +772,7 @@ daap_reply_server_info(struct httpd_request *hreq)
   int mpro;
   int apro;
 
-  if (!hreq->req)
+  if (!httpd_request_connection_get(hreq))
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_server_info() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -793,8 +787,7 @@ daap_reply_server_info(struct httpd_request *hreq)
   mpro = 2 << 16 | 10;
   apro = 3 << 16 | 12;
 
-  headers = evhttp_request_get_input_headers(hreq->req);
-  if (headers && (clientver = evhttp_find_header(headers, "Client-DAAP-Version")))
+  if (hreq->in_headers && (clientver = httpd_header_find(hreq->in_headers, "Client-DAAP-Version")))
     {
       if (strcmp(clientver, "1.0") == 0)
 	{
@@ -917,7 +910,7 @@ daap_reply_login(struct httpd_request *hreq)
 
   CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 32));
 
-  param = evhttp_find_header(hreq->query, "pairing-guid");
+  param = httpd_query_value_find(hreq->query, "pairing-guid");
   if (param && !net_peer_address_is_trusted(hreq->peer_address))
     {
       if (strlen(param) < 3)
@@ -948,7 +941,7 @@ daap_reply_login(struct httpd_request *hreq)
         DPRINTF(E_INFO, L_DAAP, "Client (unknown user-agent) logging in from %s\n", hreq->peer_address);
     }
 
-  param = evhttp_find_header(hreq->query, "request-session-id");
+  param = httpd_query_value_find(hreq->query, "request-session-id");
   if (param)
     {
       ret = safe_atoi32(param, &request_session_id);
@@ -992,18 +985,17 @@ static enum daap_reply_result
 daap_reply_update(struct httpd_request *hreq)
 {
   struct daap_update_request *ur;
-  struct evhttp_connection *evcon;
   const char *param;
   int reqd_rev;
   int ret;
 
-  if (!hreq->req)
+  if (!httpd_request_connection_get(hreq))
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_update() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  param = evhttp_find_header(hreq->query, "revision-number");
+  param = httpd_query_value_find(hreq->query, "revision-number");
   if (!param)
     {
       DPRINTF(E_DBG, L_DAAP, "Missing revision-number in client update request\n");
@@ -1070,9 +1062,7 @@ daap_reply_update(struct httpd_request *hreq)
   /* If the connection fails before we have an update to push out
    * to the client, we need to know.
    */
-  evcon = evhttp_request_get_connection(hreq->req);
-  if (evcon)
-    evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
+  httpd_request_closecb_set(hreq, update_fail_cb, ur);
 
   return DAAP_REPLY_NONE;
 }
@@ -1165,7 +1155,6 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   struct db_media_file_info dbmfi;
   struct evbuffer *song;
   struct evbuffer *songlist;
-  struct evkeyvalq *headers;
   struct daap_session *s;
   const struct dmap_field **meta = NULL;
   struct sort_ctx *sctx;
@@ -1210,7 +1199,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   CHECK_ERR(L_DAAP, evbuffer_expand(songlist, 4096));
   CHECK_ERR(L_DAAP, evbuffer_expand(song, 512));
 
-  param = evhttp_find_header(hreq->query, "meta");
+  param = httpd_query_value_find(hreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_DBG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1239,10 +1228,9 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
     }
 
   client_codecs = NULL;
-  if (!s->is_remote && hreq->req)
+  if (!s->is_remote && hreq->in_headers)
     {
-      headers = evhttp_request_get_input_headers(hreq->req);
-      client_codecs = evhttp_find_header(headers, "Accept-Codecs");
+      client_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
     }
 
   nsongs = 0;
@@ -1428,7 +1416,7 @@ daap_reply_playlists(struct httpd_request *hreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(playlistlist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(playlist, 128));
 
-  param = evhttp_find_header(hreq->query, "meta");
+  param = httpd_query_value_find(hreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_LOG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1626,7 +1614,7 @@ daap_reply_groups(struct httpd_request *hreq)
   int i;
   int ret;
 
-  param = evhttp_find_header(hreq->query, "group-type");
+  param = httpd_query_value_find(hreq->query, "group-type");
   if (param && strcmp(param, "artists") == 0)
     {
       // Request from Remote may have the form:
@@ -1654,7 +1642,7 @@ daap_reply_groups(struct httpd_request *hreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(grouplist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(group, 128));
 
-  param = evhttp_find_header(hreq->query, "meta");
+  param = httpd_query_value_find(hreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_LOG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1947,7 +1935,7 @@ daap_reply_browse(struct httpd_request *hreq)
 static enum daap_reply_result
 daap_reply_extra_data(struct httpd_request *hreq)
 {
-  struct evkeyvalq *headers;
+  httpd_headers *headers;
   char clen[32];
   const char *param;
   char *ctype;
@@ -1957,7 +1945,7 @@ daap_reply_extra_data(struct httpd_request *hreq)
   int max_h;
   int ret;
 
-  if (!hreq->req)
+  if (!httpd_request_connection_get(hreq))
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_extra_data() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -1970,9 +1958,9 @@ daap_reply_extra_data(struct httpd_request *hreq)
       return DAAP_REPLY_BAD_REQUEST;
     }
 
-  if (evhttp_find_header(hreq->query, "mw") && evhttp_find_header(hreq->query, "mh"))
+  if (httpd_query_value_find(hreq->query, "mw") && httpd_query_value_find(hreq->query, "mh"))
     {
-      param = evhttp_find_header(hreq->query, "mw");
+      param = httpd_query_value_find(hreq->query, "mw");
       ret = safe_atoi32(param, &max_w);
       if (ret < 0)
 	{
@@ -1980,7 +1968,7 @@ daap_reply_extra_data(struct httpd_request *hreq)
 	  return DAAP_REPLY_BAD_REQUEST;
 	}
 
-      param = evhttp_find_header(hreq->query, "mh");
+      param = httpd_query_value_find(hreq->query, "mh");
       ret = safe_atoi32(param, &max_h);
       if (ret < 0)
 	{
@@ -2020,11 +2008,11 @@ daap_reply_extra_data(struct httpd_request *hreq)
 	goto no_artwork;
     }
 
-  headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_remove_header(headers, "Content-Type");
-  evhttp_add_header(headers, "Content-Type", ctype);
+  headers = httpd_request_output_headers_get(hreq);
+  httpd_header_remove(headers, "Content-Type");
+  httpd_header_add(headers, "Content-Type", ctype);
   snprintf(clen, sizeof(clen), "%ld", (long)len);
-  evhttp_add_header(headers, "Content-Length", clen);
+  httpd_header_add(headers, "Content-Length", clen);
 
   return DAAP_REPLY_OK_NO_GZIP;
 
@@ -2038,7 +2026,7 @@ daap_stream(struct httpd_request *hreq)
   int id;
   int ret;
 
-  if (!hreq->req)
+  if (!httpd_request_connection_get(hreq))
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_stream() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -2228,7 +2216,7 @@ static struct httpd_uri_map daap_handlers[] =
 static void
 daap_request(struct httpd_request *hreq)
 {
-  struct evkeyvalq *headers;
+  httpd_headers *headers;
   struct timespec start;
   struct timespec end;
   struct daap_session session;
@@ -2248,7 +2236,7 @@ daap_request(struct httpd_request *hreq)
     }
 
   // Check if we have a session and point hreq->extra_data to it
-  param = evhttp_find_header(hreq->query, "session-id");
+  param = httpd_query_value_find(hreq->query, "session-id");
   if (param)
     {
       ret = safe_atoi32(param, &id);
@@ -2262,7 +2250,7 @@ daap_request(struct httpd_request *hreq)
   if (!hreq->extra_data)
     {
       memset(&session, 0, sizeof(struct daap_session));
-      session.is_remote = (evhttp_find_header(hreq->query, "pairing-guid") != NULL);
+      session.is_remote = (httpd_query_value_find(hreq->query, "pairing-guid") != NULL);
       hreq->extra_data = &session;
     }
 
@@ -2273,13 +2261,13 @@ daap_request(struct httpd_request *hreq)
     }
 
   // Set reply headers
-  headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(headers, "Accept-Ranges", "bytes");
-  evhttp_add_header(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
+  headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(headers, "Accept-Ranges", "bytes");
+  httpd_header_add(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   // Content-Type for all replies, even the actual audio streaming. Note that
   // video streaming will override this Content-Type with a more appropriate
   // video/<type> Content-Type as expected by clients like Front Row.
-  evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
+  httpd_header_add(headers, "Content-Type", "application/x-dmap-tagged");
 
   // Now we create the actual reply
   CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
@@ -2289,7 +2277,7 @@ daap_request(struct httpd_request *hreq)
   if (ret == 0)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
-      evhttp_add_header(headers, "Content-Encoding", "gzip");
+      httpd_header_add(headers, "Content-Encoding", "gzip");
       httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
 
       evbuffer_free(hreq->reply);
@@ -2389,7 +2377,7 @@ daap_deinit(void)
 {
   struct daap_session *s;
   struct daap_update_request *ur;
-  struct evhttp_connection *evcon;
+  httpd_connection *conn;
 
   for (s = daap_sessions; daap_sessions; s = daap_sessions)
     {
@@ -2401,11 +2389,11 @@ daap_deinit(void)
     {
       update_requests = ur->next;
 
-      evcon = evhttp_request_get_connection(ur->hreq->req);
-      if (evcon)
+      conn = httpd_request_connection_get(ur->hreq);
+      if (conn)
 	{
-	  evhttp_connection_set_closecb(evcon, NULL, NULL);
-	  evhttp_connection_free(evcon);
+	  httpd_connection_closecb_set(conn, NULL, NULL);
+	  httpd_connection_free(conn);
 	}
 
       update_free(ur);

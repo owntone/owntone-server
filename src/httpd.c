@@ -296,7 +296,6 @@ request_set(struct httpd_request *hreq, struct evhttp_request *req, struct httpd
 {
   ;
   struct evhttp_connection *evcon;
-  struct evkeyvalq *headers;
   struct httpd_uri_map *uri;
   int req_method;
   int ret;
@@ -312,8 +311,9 @@ request_set(struct httpd_request *hreq, struct evhttp_request *req, struct httpd
 
   if (req)
     {
-      headers = evhttp_request_get_input_headers(req);
-      hreq->user_agent = evhttp_find_header(headers, "User-Agent");
+      hreq->in_body = evhttp_request_get_input_buffer(req);
+      hreq->in_headers = evhttp_request_get_input_headers(req);
+      hreq->user_agent = evhttp_find_header(hreq->in_headers, "User-Agent");
 
       evcon = evhttp_request_get_connection(req);
       if (evcon)

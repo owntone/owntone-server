@@ -58,7 +58,7 @@ extern struct event_base *evbase_httpd;
 
 // Linked list of mp3 streaming requests
 struct streaming_session {
-  struct evhttp_request *req;
+  struct httpd_request *hreq;
   struct streaming_session *next;
 
   bool     require_icy; // Client requested icy meta
@@ -102,18 +102,15 @@ static char streaming_icy_title[STREAMING_ICY_METATITLELEN_MAX];
 
 
 static void
-streaming_close_cb(struct evhttp_connection *evcon, void *arg)
+streaming_close_cb(httpd_connection *conn, void *arg)
 {
   struct streaming_session *this;
   struct streaming_session *session;
   struct streaming_session *prev;
-  char *address;
-  ev_uint16_t port;
 
   this = (struct streaming_session *)arg;
 
-  evhttp_connection_get_peer(evcon, &address, &port);
-  DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", this->hreq->peer_address, (int)this->hreq->peer_port);
 
   pthread_mutex_lock(&streaming_sessions_lck);
   if (!streaming_sessions)
@@ -127,7 +124,7 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   prev = NULL;
   for (session = streaming_sessions; session; session = session->next)
     {
-      if (session->req == this->req)
+      if (session->hreq == this->hreq)
 	break;
 
       prev = session;
@@ -135,7 +132,7 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
 
   if (!session)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream (%s:%d)\n", address, (int)port);
+      DPRINTF(E_LOG, L_STREAMING, "Bug! Got a failure callback for an unknown stream (%s:%d)\n", this->hreq->peer_address, (int)this->hreq->peer_port);
       free(this);
       pthread_mutex_unlock(&streaming_sessions_lck);
       return;
@@ -151,7 +148,7 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
 
   // Valgrind says libevent doesn't free the request on disconnect (even though it owns it - libevent bug?),
   // so we do it with a reply end
-  evhttp_send_reply_end(session->req);
+  httpd_reply_end_send(session->hreq);
   free(session);
 
   if (!streaming_sessions)
@@ -168,21 +165,14 @@ static void
 streaming_end(void)
 {
   struct streaming_session *session;
-  struct evhttp_connection *evcon;
-  char *address;
-  ev_uint16_t port;
 
   pthread_mutex_lock(&streaming_sessions_lck);
   for (session = streaming_sessions; streaming_sessions; session = streaming_sessions)
     {
-      evcon = evhttp_request_get_connection(session->req);
-      if (evcon)
-	{
-	  evhttp_connection_set_closecb(evcon, NULL, NULL);
-	  evhttp_connection_get_peer(evcon, &address, &port);
-	  DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", address, (int)port);
-	}
-      evhttp_send_reply_end(session->req);
+      DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", session->hreq->peer_address, (int)session->hreq->peer_port);
+
+      httpd_request_closecb_set(session->hreq, NULL, NULL);
+      httpd_reply_end_send(session->hreq);
 
       streaming_sessions = session->next;
       free(session);
@@ -450,7 +440,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	  free(splice_buf);
 	  splice_buf = NULL;
 
-	  evhttp_send_reply_chunk(session->req, evbuf);
+	  httpd_reply_chunk_send(session->hreq, evbuf, NULL, NULL);
 
 	  if (session->next == NULL)
 	    {
@@ -465,11 +455,11 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	    {
 	      buf = evbuffer_pullup(streaming_encoded_data, -1);
 	      evbuffer_add(evbuf, buf, len);
-	      evhttp_send_reply_chunk(session->req, evbuf);
+	      httpd_reply_chunk_send(session->hreq, evbuf, NULL, NULL);
 	    }
 	  else
 	    {
-	      evhttp_send_reply_chunk(session->req, streaming_encoded_data);
+	      httpd_reply_chunk_send(session->hreq, streaming_encoded_data, NULL, NULL);
 	    }
 	  session->bytes_sent += len;
 	}
@@ -547,12 +537,9 @@ static void
 streaming_request(struct httpd_request *hreq)
 {
   struct streaming_session *session;
-  struct evhttp_connection *evcon;
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
   cfg_t *lib;
   const char *name;
-  char *address;
-  ev_uint16_t port;
   const char *param;
   bool require_icy = false;
   char buf[9];
@@ -561,45 +548,43 @@ streaming_request(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_STREAMING, "Got MP3 streaming request, but cannot encode to MP3\n");
 
-      evhttp_send_error(hreq->req, HTTP_NOTFOUND, "Not Found");
+      httpd_send_error(hreq, HTTP_NOTFOUND, "Not Found");
       return;
     }
 
-  evcon = evhttp_request_get_connection(hreq->req);
-  evhttp_connection_get_peer(evcon, &address, &port);
-  param = evhttp_find_header( evhttp_request_get_input_headers(hreq->req), "Icy-MetaData");
+  param = httpd_header_find(hreq->in_headers, "Icy-MetaData");
   if (param && strcmp(param, "1") == 0)
     require_icy = true;
 
-  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d, icy_metaint=%d) to %s:%d\n", require_icy, streaming_icy_metaint, address, (int)port);
+  DPRINTF(E_INFO, L_STREAMING, "Beginning mp3 streaming (with icy=%d, icy_metaint=%d) to %s:%d\n", require_icy, streaming_icy_metaint, hreq->peer_address, (int)hreq->peer_port);
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
 
-  output_headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(output_headers, "Content-Type", "audio/mpeg");
-  evhttp_add_header(output_headers, "Server", PACKAGE_NAME "/" VERSION);
-  evhttp_add_header(output_headers, "Cache-Control", "no-cache");
-  evhttp_add_header(output_headers, "Pragma", "no-cache");
-  evhttp_add_header(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
+  output_headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(output_headers, "Content-Type", "audio/mpeg");
+  httpd_header_add(output_headers, "Server", PACKAGE_NAME "/" VERSION);
+  httpd_header_add(output_headers, "Cache-Control", "no-cache");
+  httpd_header_add(output_headers, "Pragma", "no-cache");
+  httpd_header_add(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
   if (require_icy)
     {
       ++streaming_icy_clients;
-      evhttp_add_header(output_headers, "icy-name", name);
+      httpd_header_add(output_headers, "icy-name", name);
       snprintf(buf, sizeof(buf)-1, "%d", streaming_icy_metaint);
-      evhttp_add_header(output_headers, "icy-metaint", buf);
+      httpd_header_add(output_headers, "icy-metaint", buf);
     }
-  evhttp_add_header(output_headers, "Access-Control-Allow-Origin", "*");
-  evhttp_add_header(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  httpd_header_add(output_headers, "Access-Control-Allow-Origin", "*");
+  httpd_header_add(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 
-  evhttp_send_reply_start(hreq->req, HTTP_OK, "OK");
+  httpd_reply_start_send(hreq, HTTP_OK, "OK");
 
   session = calloc(1, sizeof(struct streaming_session));
   if (!session)
     {
       DPRINTF(E_LOG, L_STREAMING, "Out of memory for streaming request\n");
 
-      evhttp_send_error(hreq->req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
       return;
     }
 
@@ -611,7 +596,7 @@ streaming_request(struct httpd_request *hreq)
       event_add(metaev, NULL);
     }
 
-  session->req = hreq->req;
+  session->hreq = hreq;
   session->next = streaming_sessions;
   session->require_icy = require_icy;
   session->bytes_sent = 0;
@@ -619,7 +604,7 @@ streaming_request(struct httpd_request *hreq)
 
   pthread_mutex_unlock(&streaming_sessions_lck);
 
-  evhttp_connection_set_closecb(evcon, streaming_close_cb, session);
+  httpd_request_closecb_set(hreq, streaming_close_cb, session);
 }
 
 static int

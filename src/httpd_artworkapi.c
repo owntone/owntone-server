@@ -40,20 +40,20 @@ request_process(struct httpd_request *hreq, uint32_t *max_w, uint32_t *max_h)
   *max_w = 0;
   *max_h = 0;
 
-  param = evhttp_find_header(hreq->query, "maxwidth");
+  param = httpd_query_value_find(hreq->query, "maxwidth");
   if (param)
     {
       ret = safe_atou32(param, max_w);
       if (ret < 0)
-	DPRINTF(E_LOG, L_WEB, "Invalid width in request: '%s'\n", hreq->uri_parsed->uri);
+	DPRINTF(E_LOG, L_WEB, "Invalid width in request: '%s'\n", hreq->uri);
     }
 
-  param = evhttp_find_header(hreq->query, "maxheight");
+  param = httpd_query_value_find(hreq->query, "maxheight");
   if (param)
     {
       ret = safe_atou32(param, max_h);
       if (ret < 0)
-	DPRINTF(E_LOG, L_WEB, "Invalid height in request: '%s'\n", hreq->uri_parsed->uri);
+	DPRINTF(E_LOG, L_WEB, "Invalid height in request: '%s'\n", hreq->uri);
     }
 
   return 0;
@@ -62,14 +62,14 @@ request_process(struct httpd_request *hreq, uint32_t *max_w, uint32_t *max_h)
 static int
 response_process(struct httpd_request *hreq, int format)
 {
-  struct evkeyvalq *headers;
+  httpd_headers *headers;
 
-  headers = evhttp_request_get_output_headers(hreq->req);
+  headers = httpd_request_output_headers_get(hreq);
 
   if (format == ART_FMT_PNG)
-    evhttp_add_header(headers, "Content-Type", "image/png");
+    httpd_header_add(headers, "Content-Type", "image/png");
   else if (format == ART_FMT_JPEG)
-    evhttp_add_header(headers, "Content-Type", "image/jpeg");
+    httpd_header_add(headers, "Content-Type", "image/jpeg");
   else
     return HTTP_NOCONTENT;
 
@@ -141,9 +141,9 @@ artworkapi_reply_group(struct httpd_request *hreq)
 
 static struct httpd_uri_map artworkapi_handlers[] =
 {
-  { EVHTTP_REQ_GET, "^/artwork/nowplaying$",         artworkapi_reply_nowplaying },
-  { EVHTTP_REQ_GET, "^/artwork/item/[[:digit:]]+$",  artworkapi_reply_item },
-  { EVHTTP_REQ_GET, "^/artwork/group/[[:digit:]]+$", artworkapi_reply_group },
+  { HTTPD_METHOD_GET, "^/artwork/nowplaying$",         artworkapi_reply_nowplaying },
+  { HTTPD_METHOD_GET, "^/artwork/item/[[:digit:]]+$",  artworkapi_reply_item },
+  { HTTPD_METHOD_GET, "^/artwork/group/[[:digit:]]+$", artworkapi_reply_group },
   { 0, NULL, NULL }
 };
 

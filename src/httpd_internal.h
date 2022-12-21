@@ -7,6 +7,26 @@
 #include <event2/http.h>
 #include <event2/keyvalq_struct.h>
 
+typedef struct evhttp_connection httpd_connection;
+typedef struct evkeyvalq httpd_headers;
+typedef struct evkeyvalq httpd_query;
+
+typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
+typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
+typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
+
+enum httpd_methods
+{
+  HTTPD_METHOD_GET     = 1 << 0,
+  HTTPD_METHOD_POST    = 1 << 1,
+  HTTPD_METHOD_HEAD    = 1 << 2,
+  HTTPD_METHOD_PUT     = 1 << 3,
+  HTTPD_METHOD_DELETE  = 1 << 4,
+  HTTPD_METHOD_OPTIONS = 1 << 5,
+  HTTPD_METHOD_TRACE   = 1 << 6,
+  HTTPD_METHOD_CONNECT = 1 << 7,
+  HTTPD_METHOD_PATCH   = 1 << 8,
+};
 
 enum httpd_send_flags
 {
@@ -49,7 +69,7 @@ struct httpd_request {
   // The parsed request URI given to us by httpd_uri_parse
   struct httpd_uri_parsed *uri_parsed;
   // Shortcut to &uri_parsed->ev_query
-  struct evkeyvalq *query;
+  httpd_query *query;
   // http request struct (if available)
   struct evhttp_request *req;
   // Source IP address (ipv4 or ipv6) and port of the request (if available)
@@ -58,6 +78,10 @@ struct httpd_request {
   // A pointer to extra data that the module handling the request might need
   void *extra_data;
 
+  // Request headers
+  httpd_headers *in_headers;
+  // Request body
+  struct evbuffer *in_body;
   // Reply evbuffer
   struct evbuffer *reply;
 
@@ -103,7 +127,7 @@ struct httpd_module
  */
 struct httpd_uri_map
 {
-  int method;
+  enum httpd_methods method;
   char *regexp;
   int (*handler)(struct httpd_request *hreq);
   void *preg;
@@ -178,5 +202,71 @@ httpd_admin_check_auth(struct httpd_request *hreq);
 
 int
 httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passwd, const char *realm);
+
+
+/*-------------------------- WRAPPERS FOR EVHTTP -----------------------------*/
+
+const char *
+httpd_query_value_find(httpd_query *query, const char *key);
+
+void
+httpd_query_iterate(httpd_query *query, httpd_query_iteratecb cb, void *arg);
+
+const char *
+httpd_header_find(httpd_headers *headers, const char *key);
+
+void
+httpd_header_remove(httpd_headers *headers, const char *key);
+
+void
+httpd_header_add(httpd_headers *headers, const char *key, const char *val);
+
+void
+httpd_headers_clear(httpd_headers *headers);
+
+httpd_headers *
+httpd_request_input_headers_get(struct httpd_request *hreq);
+
+httpd_headers *
+httpd_request_output_headers_get(struct httpd_request *hreq);
+
+int
+httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb, void *arg);
+/*
+int
+httpd_connection_peer_get(char **addr, uint16_t *port, struct httpd_connection *conn);
+*/
+void
+httpd_connection_free(httpd_connection *conn);
+
+httpd_connection *
+httpd_request_connection_get(struct httpd_request *hreq);
+/*
+const char *
+httpd_request_uri_get(struct httpd_request *hreq);
+
+int
+httpd_request_peer_get(char **addr, uint16_t *port, struct httpd_request *hreq);
+*/
+int
+httpd_request_method_get(enum httpd_methods *method, struct httpd_request *hreq);
+
+void
+httpd_request_backend_free(struct httpd_request *hreq);
+
+int
+httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb cb, void *arg);
+/*
+void
+httpd_reply_send(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf)
+*/
+void
+httpd_reply_start_send(struct httpd_request *hreq, int code, const char *reason);
+
+void
+httpd_reply_chunk_send(struct httpd_request *hreq, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg);
+
+void
+httpd_reply_end_send(struct httpd_request *hreq);
 
 #endif /* !__HTTPD_INTERNAL_H__ */
