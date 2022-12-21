@@ -52,6 +52,8 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h> // getifaddrs
 
+#include <event2/http.h> // evhttp_bind
+
 #include <unistr.h>
 #include <uniconv.h>
 
