@@ -193,6 +193,12 @@ httpd_backend_input_buffer_get(httpd_backend *backend)
   return evhttp_request_get_input_buffer(backend);
 }
 
+struct evbuffer *
+httpd_backend_output_buffer_get(httpd_backend *backend)
+{
+  return evhttp_request_get_output_buffer(backend);
+}
+
 int
 httpd_backend_peer_get(char **addr, uint16_t *port, httpd_backend *backend)
 {

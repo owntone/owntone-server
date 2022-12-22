@@ -670,17 +670,17 @@ daap_reply_send(struct httpd_request *hreq, enum daap_reply_result result)
   switch (result)
     {
       case DAAP_REPLY_LOGOUT:
-	httpd_send_reply(hreq, 204, "Logout Successful", hreq->reply, 0);
+	httpd_send_reply(hreq, 204, "Logout Successful", hreq->out_body, 0);
 	break;
       case DAAP_REPLY_NO_CONTENT:
-	httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_OK:
-	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 	break;
       case DAAP_REPLY_OK_NO_GZIP:
       case DAAP_REPLY_ERROR:
-	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_FORBIDDEN:
 	httpd_send_error(hreq, 403, "Forbidden");
@@ -857,9 +857,9 @@ daap_reply_server_info(struct httpd_request *hreq)
 
   // Create container
   len = evbuffer_get_length(content);
-  dmap_add_container(hreq->reply, "msrv", len);
+  dmap_add_container(hreq->out_body, "msrv", len);
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, content));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, content));
 
   evbuffer_free(content);
 
@@ -880,19 +880,19 @@ daap_reply_content_codes(struct httpd_request *hreq)
   for (i = 0; i < nfields; i++)
     len += 8 + 12 + 10 + 8 + strlen(dmap_fields[i].desc);
 
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, len + 8));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, len + 8));
 
-  dmap_add_container(hreq->reply, "mccr", len);
-  dmap_add_int(hreq->reply, "mstt", 200);
+  dmap_add_container(hreq->out_body, "mccr", len);
+  dmap_add_int(hreq->out_body, "mstt", 200);
 
   for (i = 0; i < nfields; i++)
     {
       len = 12 + 10 + 8 + strlen(dmap_fields[i].desc);
 
-      dmap_add_container(hreq->reply, "mdcl", len);
-      dmap_add_string(hreq->reply, "mcnm", dmap_fields[i].tag);  /* 12 */
-      dmap_add_string(hreq->reply, "mcna", dmap_fields[i].desc); /* 8 + strlen(desc) */
-      dmap_add_short(hreq->reply, "mcty", dmap_fields[i].type);  /* 10 */
+      dmap_add_container(hreq->out_body, "mdcl", len);
+      dmap_add_string(hreq->out_body, "mcnm", dmap_fields[i].tag);  /* 12 */
+      dmap_add_string(hreq->out_body, "mcna", dmap_fields[i].desc); /* 8 + strlen(desc) */
+      dmap_add_short(hreq->out_body, "mcty", dmap_fields[i].type);  /* 10 */
     }
 
   return DAAP_REPLY_OK;
@@ -908,7 +908,7 @@ daap_reply_login(struct httpd_request *hreq)
   int request_session_id;
   int ret;
 
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 32));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 32));
 
   param = httpd_query_value_find(hreq->query, "pairing-guid");
   if (param && !net_peer_address_is_trusted(hreq->peer_address))
@@ -957,13 +957,13 @@ daap_reply_login(struct httpd_request *hreq)
   session = daap_session_add(adhoc->is_remote, request_session_id);
   if (!session)
     {
-      dmap_error_make(hreq->reply, "mlog", "Could not start session");
+      dmap_error_make(hreq->out_body, "mlog", "Could not start session");
       return DAAP_REPLY_ERROR;
     }
 
-  dmap_add_container(hreq->reply, "mlog", 24);
-  dmap_add_int(hreq->reply, "mstt", 200);          /* 12 */
-  dmap_add_int(hreq->reply, "mlid", session->id);  /* 12 */
+  dmap_add_container(hreq->out_body, "mlog", 24);
+  dmap_add_int(hreq->out_body, "mstt", 200);          /* 12 */
+  dmap_add_int(hreq->out_body, "mlid", session->id);  /* 12 */
 
   return DAAP_REPLY_OK;
 }
@@ -1009,18 +1009,18 @@ daap_reply_update(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Parameter revision-number not an integer\n");
 
-      dmap_error_make(hreq->reply, "mupd", "Invalid request");
+      dmap_error_make(hreq->out_body, "mupd", "Invalid request");
       return DAAP_REPLY_ERROR;
     }
 
   if (reqd_rev == 1) /* Or revision is not valid */
     {
-      CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 32));
+      CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 32));
 
       /* Send back current revision */
-      dmap_add_container(hreq->reply, "mupd", 24);
-      dmap_add_int(hreq->reply, "mstt", 200);         /* 12 */
-      dmap_add_int(hreq->reply, "musr", current_rev); /* 12 */
+      dmap_add_container(hreq->out_body, "mupd", 24);
+      dmap_add_int(hreq->out_body, "mstt", 200);         /* 12 */
+      dmap_add_int(hreq->out_body, "musr", current_rev); /* 12 */
 
       return DAAP_REPLY_OK;
     }
@@ -1031,7 +1031,7 @@ daap_reply_update(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");
 
-      dmap_error_make(hreq->reply, "mupd", "Out of memory");
+      dmap_error_make(hreq->out_body, "mupd", "Out of memory");
       return DAAP_REPLY_ERROR;
     }
 
@@ -1047,7 +1047,7 @@ daap_reply_update(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Out of memory for update request event\n");
 
-	  dmap_error_make(hreq->reply, "mupd", "Could not register timer");	
+	  dmap_error_make(hreq->out_body, "mupd", "Could not register timer");	
 	  update_free(ur);
 	  return DAAP_REPLY_ERROR;
 	}
@@ -1090,7 +1090,7 @@ daap_reply_dblist(struct httpd_request *hreq)
   CHECK_NULL(L_DAAP, content = evbuffer_new());
   CHECK_NULL(L_DAAP, item = evbuffer_new());
   CHECK_ERR(L_DAAP, evbuffer_expand(item, 512));
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 1024));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 1024));
 
   // Add db entry for library with dbid = 1
   dmap_add_int(item, "miid", 1);
@@ -1133,14 +1133,14 @@ daap_reply_dblist(struct httpd_request *hreq)
 
   // Create container
   len = evbuffer_get_length(content);
-  dmap_add_container(hreq->reply, "avdb", len + 53);
-  dmap_add_int(hreq->reply, "mstt", 200);     /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);      /* 9 */
-  dmap_add_int(hreq->reply, "mtco", 2);       /* 12 */
-  dmap_add_int(hreq->reply, "mrco", 2);       /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len); /* 8 */
+  dmap_add_container(hreq->out_body, "avdb", len + 53);
+  dmap_add_int(hreq->out_body, "mstt", 200);     /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);      /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", 2);       /* 12 */
+  dmap_add_int(hreq->out_body, "mrco", 2);       /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len); /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, content));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, content));
 
   evbuffer_free(item);
   evbuffer_free(content);
@@ -1195,7 +1195,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   CHECK_NULL(L_DAAP, songlist = evbuffer_new());
   CHECK_NULL(L_DAAP, song = evbuffer_new());
   CHECK_NULL(L_DAAP, sctx = daap_sort_context_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 61));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 61));
   CHECK_ERR(L_DAAP, evbuffer_expand(songlist, 4096));
   CHECK_ERR(L_DAAP, evbuffer_expand(song, 512));
 
@@ -1223,7 +1223,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, tag, "Could not start query");
+      dmap_error_make(hreq->out_body, tag, "Could not start query");
       goto error;
     }
 
@@ -1288,13 +1288,13 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
   if (ret == -100)
     {
-      dmap_error_make(hreq->reply, tag, "Out of memory");
+      dmap_error_make(hreq->out_body, tag, "Out of memory");
       goto error;
     }
   else if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
-      dmap_error_make(hreq->reply, tag, "Error fetching query results");
+      dmap_error_make(hreq->out_body, tag, "Error fetching query results");
       goto error;
     }
 
@@ -1303,25 +1303,25 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(hreq->reply, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
+      dmap_add_container(hreq->out_body, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
     }
   else
-    dmap_add_container(hreq->reply, tag, len + 53);
+    dmap_add_container(hreq->out_body, tag, len + 53);
 
-  dmap_add_int(hreq->reply, "mstt", 200);        /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);         /* 9 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply, "mrco", nsongs);     /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len); /* 8 */
+  dmap_add_int(hreq->out_body, "mstt", 200);        /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);         /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body, "mrco", nsongs);     /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len); /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, songlist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, songlist));
 
   if (sort_headers)
     {
       len = evbuffer_get_length(sctx->headerlist);
-      dmap_add_container(hreq->reply, "mshl", len); /* 8 */
+      dmap_add_container(hreq->out_body, "mshl", len); /* 8 */
 
-      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
+      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, sctx->headerlist));
     }
 
   free(meta);
@@ -1357,7 +1357,7 @@ daap_reply_plsonglist(struct httpd_request *hreq)
   ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist);
   if (ret < 0)
     {
-      dmap_error_make(hreq->reply, "apso", "Invalid playlist ID");
+      dmap_error_make(hreq->out_body, "apso", "Invalid playlist ID");
       return DAAP_REPLY_ERROR;
     }
 
@@ -1403,7 +1403,7 @@ daap_reply_playlists(struct httpd_request *hreq)
   ret = safe_atoi32(hreq->uri_parsed->path_parts[1], &database);
   if (ret < 0)
     {
-      dmap_error_make(hreq->reply, "aply", "Invalid database ID");
+      dmap_error_make(hreq->out_body, "aply", "Invalid database ID");
       return DAAP_REPLY_ERROR;
     }
 
@@ -1412,7 +1412,7 @@ daap_reply_playlists(struct httpd_request *hreq)
 
   CHECK_NULL(L_DAAP, playlistlist = evbuffer_new());
   CHECK_NULL(L_DAAP, playlist = evbuffer_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 61));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 61));
   CHECK_ERR(L_DAAP, evbuffer_expand(playlistlist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(playlist, 128));
 
@@ -1429,7 +1429,7 @@ daap_reply_playlists(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Failed to parse meta parameter in DAAP query\n");
 
-      dmap_error_make(hreq->reply, "aply", "Failed to parse query");
+      dmap_error_make(hreq->out_body, "aply", "Failed to parse query");
       goto error;
     }
 
@@ -1438,7 +1438,7 @@ daap_reply_playlists(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, "aply", "Could not start query");
+      dmap_error_make(hreq->out_body, "aply", "Could not start query");
       goto error;
     }
 
@@ -1554,26 +1554,26 @@ daap_reply_playlists(struct httpd_request *hreq)
 
   if (ret == -100)
     {
-      dmap_error_make(hreq->reply, "aply", "Out of memory");
+      dmap_error_make(hreq->out_body, "aply", "Out of memory");
       goto error;
     }
   else if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
-      dmap_error_make(hreq->reply, "aply", "Error fetching query results");
+      dmap_error_make(hreq->out_body, "aply", "Error fetching query results");
       goto error;
     }
 
   /* Add header to evbuf, add playlistlist to evbuf */
   len = evbuffer_get_length(playlistlist);
-  dmap_add_container(hreq->reply, "aply", len + 53);
-  dmap_add_int(hreq->reply, "mstt", 200); /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);  /* 9 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply,"mrco", npls); /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len);
+  dmap_add_container(hreq->out_body, "aply", len + 53);
+  dmap_add_int(hreq->out_body, "mstt", 200); /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);  /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body,"mrco", npls); /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len);
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, playlistlist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, playlistlist));
 
   free(meta);
   evbuffer_free(playlist);
@@ -1638,7 +1638,7 @@ daap_reply_groups(struct httpd_request *hreq)
   CHECK_NULL(L_DAAP, grouplist = evbuffer_new());
   CHECK_NULL(L_DAAP, group = evbuffer_new());
   CHECK_NULL(L_DAAP, sctx = daap_sort_context_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 61));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 61));
   CHECK_ERR(L_DAAP, evbuffer_expand(grouplist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(group, 128));
 
@@ -1655,7 +1655,7 @@ daap_reply_groups(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Failed to parse meta parameter in DAAP query\n");
 
-      dmap_error_make(hreq->reply, tag, "Failed to parse query");
+      dmap_error_make(hreq->out_body, tag, "Failed to parse query");
       goto error;
     }
 
@@ -1664,7 +1664,7 @@ daap_reply_groups(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, tag, "Could not start query");
+      dmap_error_make(hreq->out_body, tag, "Could not start query");
       goto error;
     }
 
@@ -1756,13 +1756,13 @@ daap_reply_groups(struct httpd_request *hreq)
 
   if (ret == -100)
     {
-      dmap_error_make(hreq->reply, tag, "Out of memory");
+      dmap_error_make(hreq->out_body, tag, "Out of memory");
       goto error;
     }
   else if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
-      dmap_error_make(hreq->reply, tag, "Error fetching query results");
+      dmap_error_make(hreq->out_body, tag, "Error fetching query results");
       goto error;
     }
 
@@ -1771,25 +1771,25 @@ daap_reply_groups(struct httpd_request *hreq)
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(hreq->reply, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
+      dmap_add_container(hreq->out_body, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
     }
   else
-    dmap_add_container(hreq->reply, tag, len + 53);
+    dmap_add_container(hreq->out_body, tag, len + 53);
 
-  dmap_add_int(hreq->reply, "mstt", 200);        /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);         /* 9 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply,"mrco", ngrp);        /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len);  /* 8 */
+  dmap_add_int(hreq->out_body, "mstt", 200);        /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);         /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body,"mrco", ngrp);        /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len);  /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, grouplist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, grouplist));
 
   if (sort_headers)
     {
       len = evbuffer_get_length(sctx->headerlist);
-      dmap_add_container(hreq->reply, "mshl", len); /* 8 */
+      dmap_add_container(hreq->out_body, "mshl", len); /* 8 */
 
-      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
+      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, sctx->headerlist));
     }
 
   free(meta);
@@ -1847,13 +1847,13 @@ daap_reply_browse(struct httpd_request *hreq)
   else
     {
       DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", hreq->uri_parsed->path_parts[3]);
-      dmap_error_make(hreq->reply, "abro", "Invalid browse type");
+      dmap_error_make(hreq->out_body, "abro", "Invalid browse type");
       return DAAP_REPLY_ERROR;
     }
 
   CHECK_NULL(L_DAAP, itemlist = evbuffer_new());
   CHECK_NULL(L_DAAP, sctx = daap_sort_context_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 52));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 52));
   CHECK_ERR(L_DAAP, evbuffer_expand(itemlist, 1024)); // Just a starting alloc, it'll expand as needed
 
   ret = db_query_start(&qp);
@@ -1861,7 +1861,7 @@ daap_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, "abro", "Could not start query");
+      dmap_error_make(hreq->out_body, "abro", "Could not start query");
       goto error;
     }
 
@@ -1889,7 +1889,7 @@ daap_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching/building results\n");
 
-      dmap_error_make(hreq->reply, "abro", "Error fetching/building query results");
+      dmap_error_make(hreq->out_body, "abro", "Error fetching/building query results");
       goto error;
     }
 
@@ -1897,24 +1897,24 @@ daap_reply_browse(struct httpd_request *hreq)
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(hreq->reply, "abro", len + evbuffer_get_length(sctx->headerlist) + 52);
+      dmap_add_container(hreq->out_body, "abro", len + evbuffer_get_length(sctx->headerlist) + 52);
     }
   else
-    dmap_add_container(hreq->reply, "abro", len + 44);
+    dmap_add_container(hreq->out_body, "abro", len + 44);
 
-  dmap_add_int(hreq->reply, "mstt", 200);        /* 12 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply, "mrco", nitems);     /* 12 */
-  dmap_add_container(hreq->reply, tag, len);     /* 8 */
+  dmap_add_int(hreq->out_body, "mstt", 200);        /* 12 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body, "mrco", nitems);     /* 12 */
+  dmap_add_container(hreq->out_body, tag, len);     /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, itemlist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, itemlist));
 
   if (sort_headers)
     {
       len = evbuffer_get_length(sctx->headerlist);
-      dmap_add_container(hreq->reply, "mshl", len); /* 8 */
+      dmap_add_container(hreq->out_body, "mshl", len); /* 8 */
 
-      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
+      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, sctx->headerlist));
     }
 
   daap_sort_context_free(sctx);
@@ -1984,11 +1984,11 @@ daap_reply_extra_data(struct httpd_request *hreq)
     }
 
   if (strcmp(hreq->uri_parsed->path_parts[2], "groups") == 0)
-    ret = artwork_get_group(hreq->reply, id, max_w, max_h, 0);
+    ret = artwork_get_group(hreq->out_body, id, max_w, max_h, 0);
   else if (strcmp(hreq->uri_parsed->path_parts[2], "items") == 0)
-    ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
+    ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
 
-  len = evbuffer_get_length(hreq->reply);
+  len = evbuffer_get_length(hreq->out_body);
 
   switch (ret)
     {
@@ -2002,7 +2002,7 @@ daap_reply_extra_data(struct httpd_request *hreq)
 
       default:
 	if (len > 0)
-	  evbuffer_drain(hreq->reply, len);
+	  evbuffer_drain(hreq->out_body, len);
 
 	goto no_artwork;
     }
@@ -2112,16 +2112,16 @@ daap_reply_dmap_test(struct httpd_request *hreq)
   dmap_add_field(test, &dmap_TST8, buf, 0);
   dmap_add_field(test, &dmap_TST9, buf, 0);
 
-  dmap_add_container(hreq->reply, dmap_TEST.tag, evbuffer_get_length(test));
+  dmap_add_container(hreq->out_body, dmap_TEST.tag, evbuffer_get_length(test));
 
-  ret = evbuffer_add_buffer(hreq->reply, test);
+  ret = evbuffer_add_buffer(hreq->out_body, test);
   evbuffer_free(test);
 
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add test results to DMAP test reply\n");
 
-      dmap_error_make(hreq->reply, dmap_TEST.tag, "Out of memory");
+      dmap_error_make(hreq->out_body, dmap_TEST.tag, "Out of memory");
       return DAAP_REPLY_ERROR;
     }
 
@@ -2265,18 +2265,13 @@ daap_request(struct httpd_request *hreq)
   // video/<type> Content-Type as expected by clients like Front Row.
   httpd_header_add(hreq->out_headers, "Content-Type", "application/x-dmap-tagged");
 
-  // Now we create the actual reply
-  CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
-
   // Try the cache
-  ret = cache_daap_get(hreq->reply, hreq->uri);
+  ret = cache_daap_get(hreq->out_body, hreq->uri);
   if (ret == 0)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
       httpd_header_add(hreq->out_headers, "Content-Encoding", "gzip");
-      httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
-
-      evbuffer_free(hreq->reply);
+      httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
       return;
     }
 
@@ -2294,8 +2289,6 @@ daap_request(struct httpd_request *hreq)
 
   if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold() && hreq->user_agent)
     cache_daap_add(hreq->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
-
-  evbuffer_free(hreq->reply);
 }
 
 int
@@ -2316,13 +2309,13 @@ struct evbuffer *
 daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 {
   struct httpd_request hreq;
-  struct evbuffer *reply;
+  struct evbuffer *out_body;
   struct daap_session session;
   int ret;
 
   DPRINTF(E_DBG, L_DAAP, "Building reply for DAAP request: '%s'\n", uri);
 
-  reply = NULL;
+  out_body = NULL;
 
   httpd_request_set(&hreq, uri, user_agent);
   if (!(&hreq)->handler)
@@ -2336,21 +2329,20 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 
   hreq.extra_data = &session;
 
-  CHECK_NULL(L_DAAP, hreq.reply = evbuffer_new());
-
   ret = hreq.handler(&hreq);
   if (ret < 0)
     {
-      evbuffer_free(hreq.reply);
       goto out;
     }
 
-  reply = hreq.reply;
+  // Take ownership of the reply
+  out_body = hreq.out_body;
+  hreq.out_body = NULL;
 
  out:
   httpd_request_unset(&hreq);
 
-  return reply;
+  return out_body;
 }
 
 static int

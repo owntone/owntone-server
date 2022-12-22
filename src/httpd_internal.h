@@ -8,6 +8,8 @@
 #include <event2/http.h>
 #include <event2/keyvalq_struct.h>
 
+struct httpd_request;
+
 typedef struct evhttp httpd_server;
 typedef struct evhttp_connection httpd_connection;
 typedef struct evhttp_request httpd_backend;
@@ -31,6 +33,53 @@ enum httpd_send_flags
 {
   HTTPD_SEND_NO_GZIP =   (1 << 0),
 };
+
+
+/*---------------------------------- MODULES ---------------------------------*/
+
+// Must be in sync with modules[] in httpd.c
+enum httpd_modules
+{
+  MODULE_DACP,
+  MODULE_DAAP,
+  MODULE_JSONAPI,
+  MODULE_ARTWORKAPI,
+  MODULE_STREAMING,
+  MODULE_OAUTH,
+  MODULE_RSP,
+};
+
+struct httpd_module
+{
+  const char *name;
+  enum httpd_modules type;
+  char initialized;
+
+  // Null-terminated list of URL subpath that the module accepts e.g., /subpath/morepath/file.mp3
+  const char *subpaths[16];
+  // Null-terminated list of URL fullparhs that the module accepts e.g., /fullpath
+  const char *fullpaths[16];
+  // Pointer to the module's handler definitions
+  struct httpd_uri_map *handlers;
+
+  int (*init)(void);
+  void (*deinit)(void);
+  void (*request)(struct httpd_request *hreq);
+};
+
+/*
+ * Maps a regex of the request path to a handler of the request
+ */
+struct httpd_uri_map
+{
+  enum httpd_methods method;
+  char *regexp;
+  int (*handler)(struct httpd_request *hreq);
+  void *preg;
+};
+
+
+/*------------------------------- HTTPD STRUCTS ------------------------------*/
 
 /*
  * Contains a parsed version of the URI httpd got. The URI may have been
@@ -85,69 +134,17 @@ struct httpd_request {
   struct evbuffer *in_body;
   // Response headers
   httpd_headers *out_headers;
-  // Reply evbuffer
-  struct evbuffer *reply;
+  // Response body
+  struct evbuffer *out_body;
 
+  // The module that will process this request
+  struct httpd_module *module;
   // A pointer to the handler that will process the request
   int (*handler)(struct httpd_request *hreq);
 };
 
 
-/*---------------------------------- MODULES ---------------------------------*/
-
-// Must be in sync with modules[] in httpd.c
-enum httpd_modules
-{
-  MODULE_DACP,
-  MODULE_DAAP,
-  MODULE_JSONAPI,
-  MODULE_ARTWORKAPI,
-  MODULE_STREAMING,
-  MODULE_OAUTH,
-  MODULE_RSP,
-};
-
-struct httpd_module
-{
-  const char *name;
-  enum httpd_modules type;
-  char initialized;
-
-  // Null-terminated list of URL subpath that the module accepts e.g., /subpath/morepath/file.mp3
-  const char *subpaths[16];
-  // Null-terminated list of URL fullparhs that the module accepts e.g., /fullpath
-  const char *fullpaths[16];
-  // Pointer to the module's handler definitions
-  struct httpd_uri_map *handlers;
-
-  int (*init)(void);
-  void (*deinit)(void);
-  void (*request)(struct httpd_request *hreq);
-};
-
-/*
- * Maps a regex of the request path to a handler of the request
- */
-struct httpd_uri_map
-{
-  enum httpd_methods method;
-  char *regexp;
-  int (*handler)(struct httpd_request *hreq);
-  void *preg;
-};
-
-
-/*
- * Helper to free the parsed uri struct
- */
-void
-httpd_uri_free(struct httpd_uri_parsed *parsed);
-
-/*
- * Parse an URI into the struct
- */
-struct httpd_uri_parsed *
-httpd_uri_parse(const char *uri);
+/*------------------------------ HTTPD FUNCTIONS -----------------------------*/
 
 void
 httpd_stream_file(struct httpd_request *hreq, int id);

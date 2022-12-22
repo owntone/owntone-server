@@ -88,7 +88,7 @@ artworkapi_reply_nowplaying(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_NOTFOUND;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
+  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -109,7 +109,7 @@ artworkapi_reply_item(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
+  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -130,7 +130,7 @@ artworkapi_reply_group(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_group(hreq->reply, id, max_w, max_h, 0);
+  ret = artwork_get_group(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -164,17 +164,15 @@ artworkapi_request(struct httpd_request *hreq)
       return;
     }
 
-  CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
-
   status_code = hreq->handler(hreq);
 
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	httpd_send_reply(hreq, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(hreq, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOTMODIFIED:         /* 304 Not Modified */
 	httpd_send_reply(hreq, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
@@ -189,8 +187,6 @@ artworkapi_request(struct httpd_request *hreq)
       default:
 	httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
     }
-
-  evbuffer_free(hreq->reply);
 }
 
 struct httpd_module httpd_artworkapi =

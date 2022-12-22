@@ -867,7 +867,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object_object_add(jreply, "allow_modifying_stored_playlists", json_object_new_boolean(allow_modifying_stored_playlists));
   safe_json_add_string(jreply, "default_playlist_directory", default_playlist_directory);
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -974,7 +974,7 @@ jsonapi_reply_settings_get(struct httpd_request *hreq)
 
   json_object_object_add(jreply, "categories", json_categories);
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -1006,7 +1006,7 @@ jsonapi_reply_settings_category_get(struct httpd_request *hreq)
       return HTTP_INTERNAL;
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -1048,7 +1048,7 @@ jsonapi_reply_settings_option_get(struct httpd_request *hreq)
       return HTTP_INTERNAL;
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -1236,7 +1236,7 @@ jsonapi_reply_library(struct httpd_request *hreq)
 	}
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
   jparse_free(jreply);
 
   return HTTP_OK;
@@ -1329,7 +1329,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   json_object_object_add(jreply, "enabled", json_object_new_boolean(false));
 #endif
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -1363,7 +1363,7 @@ jsonapi_reply_lastfm(struct httpd_request *hreq)
   json_object_object_add(jreply, "enabled", json_object_new_boolean(enabled));
   json_object_object_add(jreply, "scrobbling_enabled", json_object_new_boolean(scrobbling_enabled));
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -1430,7 +1430,7 @@ jsonapi_reply_lastfm_login(struct httpd_request *hreq)
       json_object_object_add(jreply, "errors", errors);
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -1526,7 +1526,7 @@ jsonapi_reply_pairing_get(struct httpd_request *hreq)
       json_object_object_add(jreply, "active", json_object_new_boolean(false));
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
   free(remote_name);
@@ -1603,7 +1603,7 @@ jsonapi_reply_outputs_get_byid(struct httpd_request *hreq)
     }
 
   jreply = speaker_to_json(&speaker_info);
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -1723,7 +1723,7 @@ jsonapi_reply_outputs(struct httpd_request *hreq)
   jreply = json_object_new_object();
   json_object_object_add(jreply, "outputs", outputs);
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
 
   jparse_free(jreply);
 
@@ -2132,7 +2132,7 @@ jsonapi_reply_player(struct httpd_request *hreq)
 	}
     }
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply)));
 
   jparse_free(reply);
 
@@ -2520,7 +2520,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
       reply = json_object_new_object();
       json_object_object_add(reply, "count", json_object_new_int(total_count));
 
-      ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+      ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
       jparse_free(reply);
     }
 
@@ -2741,7 +2741,7 @@ jsonapi_reply_queue(struct httpd_request *hreq)
       json_object_array_add(items, item);
     }
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "outputs: Couldn't add outputs to response buffer.\n");
 
@@ -2980,7 +2980,7 @@ jsonapi_reply_library_artists(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add artists to response buffer.\n");
 
@@ -3014,7 +3014,7 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
       goto error;
     }
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add artists to response buffer.\n");
 
@@ -3066,7 +3066,7 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add albums to response buffer.\n");
 
@@ -3129,7 +3129,7 @@ jsonapi_reply_library_albums(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add albums to response buffer.\n");
 
@@ -3163,7 +3163,7 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
       goto error;
     }
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add artists to response buffer.\n");
 
@@ -3215,7 +3215,7 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add tracks to response buffer.\n");
 
@@ -3297,7 +3297,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
 
   reply = track_to_json(&dbmfi);
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add track to response buffer.\n");
 
@@ -3505,7 +3505,7 @@ jsonapi_reply_library_track_playlists(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "track playlists: Couldn't add playlists to response buffer.\n");
 
@@ -3556,7 +3556,7 @@ jsonapi_reply_library_playlists(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add playlists to response buffer.\n");
 
@@ -3607,7 +3607,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
       goto error;
     }
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add playlist to response buffer.\n");
 
@@ -3711,7 +3711,7 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "playlist tracks: Couldn't add tracks to response buffer.\n");
 
@@ -3789,7 +3789,7 @@ jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "playlist tracks: Couldn't add tracks to response buffer.\n");
 
@@ -3950,7 +3950,7 @@ jsonapi_reply_library_browse(struct httpd_request *hreq)
   json_object_object_add(reply, "offset", json_object_new_int(query_params.offset));
   json_object_object_add(reply, "limit", json_object_new_int(query_params.limit));
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add browse items to response buffer.\n");
 
@@ -4023,7 +4023,7 @@ jsonapi_reply_library_browseitem(struct httpd_request *hreq)
       goto error;
     }
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add browse item to response buffer.\n");
 
@@ -4088,7 +4088,7 @@ jsonapi_reply_library_count(struct httpd_request *hreq)
 
   free(qp.filter);
 
-  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(jreply)));
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
   jparse_free(jreply);
 
   return HTTP_OK;
@@ -4182,7 +4182,7 @@ jsonapi_reply_library_files(struct httpd_request *hreq)
   json_object_object_add(playlists, "limit", json_object_new_int(query_params.limit));
 
   // Build JSON response
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "browse: Couldn't add directories to response buffer.\n");
 
@@ -4587,7 +4587,7 @@ jsonapi_reply_search(struct httpd_request *hreq)
 	goto error;
     }
 
-  ret = evbuffer_add_printf(hreq->reply, "%s", json_object_to_json_string(reply));
+  ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "playlist tracks: Couldn't add tracks to response buffer.\n");
 
@@ -4721,8 +4721,6 @@ jsonapi_request(struct httpd_request *hreq)
       return;
     }
 
-  CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
-
   status_code = hreq->handler(hreq);
 
   if (status_code >= 400)
@@ -4732,10 +4730,10 @@ jsonapi_request(struct httpd_request *hreq)
     {
       case HTTP_OK:                  /* 200 OK */
 	httpd_header_add(hreq->out_headers, "Content-Type", "application/json");
-	httpd_send_reply(hreq, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(hreq, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOTMODIFIED:         /* 304 Not Modified */
 	httpd_send_reply(hreq, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
@@ -4757,8 +4755,6 @@ jsonapi_request(struct httpd_request *hreq)
 	httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
 	break;
     }
-
-  evbuffer_free(hreq->reply);
 }
 
 static int

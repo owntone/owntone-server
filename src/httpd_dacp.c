@@ -1183,33 +1183,33 @@ static int
 dacp_reply_ctrlint(struct httpd_request *hreq)
 {
   /* /ctrl-int */
-  CHECK_ERR(L_DACP, evbuffer_expand(hreq->reply, 256));
+  CHECK_ERR(L_DACP, evbuffer_expand(hreq->out_body, 256));
 
   /* If tags are added or removed container sizes should be adjusted too */
-  dmap_add_container(hreq->reply, "caci", 194); /*  8, unknown dacp container - size of content */
-  dmap_add_int(hreq->reply, "mstt", 200);       /* 12, dmap.status */
-  dmap_add_char(hreq->reply, "muty", 0);        /*  9, dmap.updatetype */
-  dmap_add_int(hreq->reply, "mtco", 1);         /* 12, dmap.specifiedtotalcount */
-  dmap_add_int(hreq->reply, "mrco", 1);         /* 12, dmap.returnedcount */
-  dmap_add_container(hreq->reply, "mlcl", 141); /*  8, dmap.listing - size of content */
-  dmap_add_container(hreq->reply, "mlit", 133); /*  8, dmap.listingitem - size of content */
-  dmap_add_int(hreq->reply, "miid", 1);         /* 12, dmap.itemid - database ID */
-  dmap_add_char(hreq->reply, "cmik", 1);        /*  9, unknown */
+  dmap_add_container(hreq->out_body, "caci", 194); /*  8, unknown dacp container - size of content */
+  dmap_add_int(hreq->out_body, "mstt", 200);       /* 12, dmap.status */
+  dmap_add_char(hreq->out_body, "muty", 0);        /*  9, dmap.updatetype */
+  dmap_add_int(hreq->out_body, "mtco", 1);         /* 12, dmap.specifiedtotalcount */
+  dmap_add_int(hreq->out_body, "mrco", 1);         /* 12, dmap.returnedcount */
+  dmap_add_container(hreq->out_body, "mlcl", 141); /*  8, dmap.listing - size of content */
+  dmap_add_container(hreq->out_body, "mlit", 133); /*  8, dmap.listingitem - size of content */
+  dmap_add_int(hreq->out_body, "miid", 1);         /* 12, dmap.itemid - database ID */
+  dmap_add_char(hreq->out_body, "cmik", 1);        /*  9, unknown */
 
-  dmap_add_int(hreq->reply, "cmpr", (2 << 16 | 2)); /* 12, dmcp.protocolversion */
-  dmap_add_int(hreq->reply, "capr", (2 << 16 | 5)); /* 12, dacp.protocolversion */
+  dmap_add_int(hreq->out_body, "cmpr", (2 << 16 | 2)); /* 12, dmcp.protocolversion */
+  dmap_add_int(hreq->out_body, "capr", (2 << 16 | 5)); /* 12, dacp.protocolversion */
 
-  dmap_add_char(hreq->reply, "cmsp", 1);        /*  9, unknown */
-  dmap_add_char(hreq->reply, "aeFR", 0x64);     /*  9, unknown */
-  dmap_add_char(hreq->reply, "cmsv", 1);        /*  9, unknown */
-  dmap_add_char(hreq->reply, "cass", 1);        /*  9, unknown */
-  dmap_add_char(hreq->reply, "caov", 1);        /*  9, unknown */
-  dmap_add_char(hreq->reply, "casu", 1);        /*  9, unknown */
-  dmap_add_char(hreq->reply, "ceSG", 1);        /*  9, unknown */
-  dmap_add_char(hreq->reply, "cmrl", 1);        /*  9, unknown */
-  dmap_add_long(hreq->reply, "ceSX", (1 << 1 | 1));  /* 16, unknown dacp - lowest bit announces support for playqueue-contents/-edit */
+  dmap_add_char(hreq->out_body, "cmsp", 1);        /*  9, unknown */
+  dmap_add_char(hreq->out_body, "aeFR", 0x64);     /*  9, unknown */
+  dmap_add_char(hreq->out_body, "cmsv", 1);        /*  9, unknown */
+  dmap_add_char(hreq->out_body, "cass", 1);        /*  9, unknown */
+  dmap_add_char(hreq->out_body, "caov", 1);        /*  9, unknown */
+  dmap_add_char(hreq->out_body, "casu", 1);        /*  9, unknown */
+  dmap_add_char(hreq->out_body, "ceSG", 1);        /*  9, unknown */
+  dmap_add_char(hreq->out_body, "cmrl", 1);        /*  9, unknown */
+  dmap_add_long(hreq->out_body, "ceSX", (1 << 1 | 1));  /* 16, unknown dacp - lowest bit announces support for playqueue-contents/-edit */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
   return 0;
 }
@@ -1347,13 +1347,13 @@ dacp_reply_cue_play(struct httpd_request *hreq)
 
   player_get_status(&status);
 
-  CHECK_ERR(L_DACP, evbuffer_expand(hreq->reply, 64));
+  CHECK_ERR(L_DACP, evbuffer_expand(hreq->out_body, 64));
 
-  dmap_add_container(hreq->reply, "cacr", 24); /* 8 + len */
-  dmap_add_int(hreq->reply, "mstt", 200);      /* 12 */
-  dmap_add_int(hreq->reply, "miid", status.id);/* 12 */
+  dmap_add_container(hreq->out_body, "cacr", 24); /* 8 + len */
+  dmap_add_int(hreq->out_body, "mstt", 200);      /* 12 */
+  dmap_add_int(hreq->out_body, "miid", status.id);/* 12 */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
   return 0;
 }
@@ -1367,13 +1367,13 @@ dacp_reply_cue_clear(struct httpd_request *hreq)
 
   db_queue_clear(0);
 
-  CHECK_ERR(L_DACP, evbuffer_expand(hreq->reply, 64));
+  CHECK_ERR(L_DACP, evbuffer_expand(hreq->out_body, 64));
 
-  dmap_add_container(hreq->reply, "cacr", 24); /* 8 + len */
-  dmap_add_int(hreq->reply, "mstt", 200);      /* 12 */
-  dmap_add_int(hreq->reply, "miid", 0);        /* 12 */
+  dmap_add_container(hreq->out_body, "cacr", 24); /* 8 + len */
+  dmap_add_int(hreq->out_body, "mstt", 200);      /* 12 */
+  dmap_add_int(hreq->out_body, "miid", 0);        /* 12 */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
   return 0;
 }
@@ -1427,7 +1427,7 @@ dacp_reply_play(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1559,7 +1559,7 @@ dacp_reply_playspec(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
   return 0;
 
  out_fail:
@@ -1580,7 +1580,7 @@ dacp_reply_stop(struct httpd_request *hreq)
   player_playback_stop();
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1597,7 +1597,7 @@ dacp_reply_pause(struct httpd_request *hreq)
   player_playback_pause();
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1630,7 +1630,7 @@ dacp_reply_playpause(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1663,7 +1663,7 @@ dacp_reply_nextitem(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1696,7 +1696,7 @@ dacp_reply_previtem(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1713,7 +1713,7 @@ dacp_reply_beginff(struct httpd_request *hreq)
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1730,7 +1730,7 @@ dacp_reply_beginrew(struct httpd_request *hreq)
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1747,7 +1747,7 @@ dacp_reply_playresume(struct httpd_request *hreq)
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1787,7 +1787,7 @@ dacp_reply_playqueuecontents(struct httpd_request *hreq)
     }
 
   CHECK_NULL(L_DACP, songlist = evbuffer_new());
-  CHECK_ERR(L_DACP, evbuffer_expand(hreq->reply, 128));
+  CHECK_ERR(L_DACP, evbuffer_expand(hreq->out_body, 128));
 
   player_get_status(&status);
 
@@ -1882,24 +1882,24 @@ dacp_reply_playqueuecontents(struct httpd_request *hreq)
 
   /* Final construction of reply */
   playlist_length = evbuffer_get_length(playlists);
-  dmap_add_container(hreq->reply, "ceQR", 79 + playlist_length + songlist_length); /* size of entire container */
-  dmap_add_int(hreq->reply, "mstt", 200);                                          /* 12, dmap.status */
-  dmap_add_int(hreq->reply, "mtco", abs(span));                                    /* 12 */
-  dmap_add_int(hreq->reply, "mrco", count);                                        /* 12 */
-  dmap_add_char(hreq->reply, "ceQu", 0);                                           /*  9 */
-  dmap_add_container(hreq->reply, "mlcl", 8 + playlist_length + songlist_length);  /*  8 */
-  dmap_add_container(hreq->reply, "ceQS", playlist_length);                        /*  8 */
+  dmap_add_container(hreq->out_body, "ceQR", 79 + playlist_length + songlist_length); /* size of entire container */
+  dmap_add_int(hreq->out_body, "mstt", 200);                                          /* 12, dmap.status */
+  dmap_add_int(hreq->out_body, "mtco", abs(span));                                    /* 12 */
+  dmap_add_int(hreq->out_body, "mrco", count);                                        /* 12 */
+  dmap_add_char(hreq->out_body, "ceQu", 0);                                           /*  9 */
+  dmap_add_container(hreq->out_body, "mlcl", 8 + playlist_length + songlist_length);  /*  8 */
+  dmap_add_container(hreq->out_body, "ceQS", playlist_length);                        /*  8 */
 
-  CHECK_ERR(L_DACP, evbuffer_add_buffer(hreq->reply, playlists));
-  CHECK_ERR(L_DACP, evbuffer_add_buffer(hreq->reply, songlist));
+  CHECK_ERR(L_DACP, evbuffer_add_buffer(hreq->out_body, playlists));
+  CHECK_ERR(L_DACP, evbuffer_add_buffer(hreq->out_body, songlist));
 
   evbuffer_free(playlists);
   evbuffer_free(songlist);
 
-  dmap_add_char(hreq->reply, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
-  dmap_add_char(hreq->reply, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
+  dmap_add_char(hreq->out_body, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
+  dmap_add_char(hreq->out_body, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
   return 0;
 
@@ -1933,11 +1933,11 @@ dacp_reply_playqueueedit_clear(struct httpd_request *hreq)
       db_queue_clear(status.item_id);
     }
 
-  dmap_add_container(hreq->reply, "cacr", 24); /* 8 + len */
-  dmap_add_int(hreq->reply, "mstt", 200);      /* 12 */
-  dmap_add_int(hreq->reply, "miid", 0);        /* 12 */
+  dmap_add_container(hreq->out_body, "cacr", 24); /* 8 + len */
+  dmap_add_int(hreq->out_body, "mstt", 200);      /* 12 */
+  dmap_add_int(hreq->out_body, "miid", 0);        /* 12 */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
   return 0;
 }
@@ -2075,7 +2075,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2123,7 +2123,7 @@ dacp_reply_playqueueedit_move(struct httpd_request *hreq)
   }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2159,7 +2159,7 @@ dacp_reply_playqueueedit_remove(struct httpd_request *hreq)
   }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2280,11 +2280,11 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
   // to use when he calls again.
   if (reqd_rev != current_rev)
     {
-      ret = make_playstatusupdate(hreq->reply);
+      ret = make_playstatusupdate(hreq->out_body);
       if (ret < 0)
 	httpd_send_error(hreq, 500, "Internal Server Error");
       else
-	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
       return ret;
     }
@@ -2360,8 +2360,8 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
   if (ret < 0)
     goto no_artwork;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
-  len = evbuffer_get_length(hreq->reply);
+  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
+  len = evbuffer_get_length(hreq->out_body);
 
   switch (ret)
     {
@@ -2375,7 +2375,7 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
 
       default:
 	if (len > 0)
-	  evbuffer_drain(hreq->reply, len);
+	  evbuffer_drain(hreq->out_body, len);
 
 	goto no_artwork;
     }
@@ -2385,7 +2385,7 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
   snprintf(clen, sizeof(clen), "%ld", (long)len);
   httpd_header_add(hreq->out_headers, "Content-Length", clen);
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP);
   return 0;
 
  no_artwork:
@@ -2479,14 +2479,14 @@ dacp_reply_getproperty(struct httpd_request *hreq)
     free_queue_item(queue_item, 0);
 
   len = evbuffer_get_length(proplist);
-  dmap_add_container(hreq->reply, "cmgt", 12 + len);
-  dmap_add_int(hreq->reply, "mstt", 200);      /* 12 */
+  dmap_add_container(hreq->out_body, "cmgt", 12 + len);
+  dmap_add_int(hreq->out_body, "mstt", 200);      /* 12 */
 
-  CHECK_ERR(L_DACP, evbuffer_add_buffer(hreq->reply, proplist));
+  CHECK_ERR(L_DACP, evbuffer_add_buffer(hreq->out_body, proplist));
 
   evbuffer_free(proplist);
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
   return 0;
 
@@ -2541,7 +2541,7 @@ dacp_reply_setproperty(struct httpd_request *hreq)
   httpd_query_iterate(hreq->query, setproperty_cb, hreq);
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2562,14 +2562,14 @@ dacp_reply_getspeakers(struct httpd_request *hreq)
   player_speaker_enumerate(speaker_enum_cb, spklist);
 
   len = evbuffer_get_length(spklist);
-  dmap_add_container(hreq->reply, "casp", 12 + len);
-  dmap_add_int(hreq->reply, "mstt", 200); /* 12 */
+  dmap_add_container(hreq->out_body, "casp", 12 + len);
+  dmap_add_int(hreq->out_body, "mstt", 200); /* 12 */
 
-  evbuffer_add_buffer(hreq->reply, spklist);
+  evbuffer_add_buffer(hreq->out_body, spklist);
 
   evbuffer_free(spklist);
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
 
   return 0;
 }
@@ -2659,7 +2659,7 @@ dacp_reply_setspeakers(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2685,7 +2685,7 @@ dacp_reply_volumeup(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2711,7 +2711,7 @@ dacp_reply_volumedown(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2738,7 +2738,7 @@ dacp_reply_mutetoggle(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2867,11 +2867,7 @@ dacp_request(struct httpd_request *hreq)
   /* Content-Type for all DACP replies; can be overriden as needed */
   httpd_header_add(hreq->out_headers, "Content-Type", "application/x-dmap-tagged");
 
-  CHECK_NULL(L_DACP, hreq->reply = evbuffer_new());
-
   hreq->handler(hreq);
-
-  evbuffer_free(hreq->reply);
 }
 
 // Forward
