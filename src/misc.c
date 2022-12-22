@@ -375,7 +375,7 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
 }
 
 int
-net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_service_name)
+net_evhttp_bind(struct evhttp *evhttp, unsigned short port, const char *log_service_name)
 {
   const char *bind_address;
   bool v6_enabled;
