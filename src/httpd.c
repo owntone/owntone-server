@@ -99,7 +99,7 @@ struct content_type_map {
 };
 
 struct stream_ctx {
-  struct evhttp_request *req;
+  struct httpd_request *hreq;
   uint8_t *buf;
   struct evbuffer *evbuf;
   struct event *ev;
@@ -294,8 +294,6 @@ modules_search(const char *path)
 static int
 request_set(struct httpd_request *hreq, struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map)
 {
-  ;
-  struct evhttp_connection *evcon;
   struct httpd_uri_map *uri;
   int req_method;
   int ret;
@@ -303,10 +301,10 @@ request_set(struct httpd_request *hreq, struct evhttp_request *req, struct httpd
   memset(hreq, 0, sizeof(struct httpd_request));
 
   // Note req is allowed to be NULL
-  hreq->req = req;
+  hreq->backend = req;
   hreq->uri = uri_parsed->uri;
   hreq->uri_parsed = uri_parsed;
-  hreq->query = &(uri_parsed->ev_query);
+  hreq->query = &(uri_parsed->query);
   req_method = 0;
 
   if (req)
@@ -314,12 +312,7 @@ request_set(struct httpd_request *hreq, struct evhttp_request *req, struct httpd
       hreq->in_body = evhttp_request_get_input_buffer(req);
       hreq->in_headers = evhttp_request_get_input_headers(req);
       hreq->user_agent = evhttp_find_header(hreq->in_headers, "User-Agent");
-
-      evcon = evhttp_request_get_connection(req);
-      if (evcon)
-	evhttp_connection_get_peer(evcon, &hreq->peer_address, &hreq->peer_port);
-      else
-	DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
+      httpd_request_peer_get(&hreq->peer_address, &hreq->peer_port, hreq);
 
       req_method = evhttp_request_get_command(req);
     }
@@ -349,10 +342,10 @@ request_set(struct httpd_request *hreq, struct evhttp_request *req, struct httpd
 void
 httpd_redirect_to(struct httpd_request *hreq, const char *path)
 {
-  struct evkeyvalq *headers;
+  httpd_headers *headers;
 
-  headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(headers, "Location", path);
+  headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(headers, "Location", path);
 
   httpd_send_reply(hreq, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
@@ -371,21 +364,19 @@ httpd_redirect_to(struct httpd_request *hreq, const char *path)
 bool
 httpd_request_etag_matches(struct httpd_request *hreq, const char *etag)
 {
-  struct evkeyvalq *input_headers;
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
   const char *none_match;
 
-  input_headers = evhttp_request_get_input_headers(hreq->req);
-  none_match = evhttp_find_header(input_headers, "If-None-Match");
+  none_match = httpd_header_find(hreq->in_headers, "If-None-Match");
 
   // Return not modified, if given timestamp matches "If-Modified-Since" request header
   if (none_match && (strcasecmp(etag, none_match) == 0))
     return true;
 
   // Add cache headers to allow client side caching
-  output_headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(output_headers, "Cache-Control", "private,no-cache,max-age=0");
-  evhttp_add_header(output_headers, "ETag", etag);
+  output_headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(output_headers, "Cache-Control", "private,no-cache,max-age=0");
+  httpd_header_add(output_headers, "ETag", etag);
 
   return false;
 }
@@ -404,14 +395,12 @@ httpd_request_etag_matches(struct httpd_request *hreq, const char *etag)
 bool
 httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime)
 {
-  struct evkeyvalq *input_headers;
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
   char last_modified[1000];
   const char *modified_since;
   struct tm timebuf;
 
-  input_headers = evhttp_request_get_input_headers(hreq->req);
-  modified_since = evhttp_find_header(input_headers, "If-Modified-Since");
+  modified_since = evhttp_find_header(hreq->in_headers, "If-Modified-Since");
 
   strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", gmtime_r(&mtime, &timebuf));
 
@@ -420,9 +409,9 @@ httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime)
     return true;
 
   // Add cache headers to allow client side caching
-  output_headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(output_headers, "Cache-Control", "private,no-cache,max-age=0");
-  evhttp_add_header(output_headers, "Last-Modified", last_modified);
+  output_headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(output_headers, "Cache-Control", "private,no-cache,max-age=0");
+  httpd_header_add(output_headers, "Last-Modified", last_modified);
 
   return false;
 }
@@ -430,17 +419,17 @@ httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime)
 void
 httpd_response_not_cachable(struct httpd_request *hreq)
 {
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
 
-  output_headers = evhttp_request_get_output_headers(hreq->req);
+  output_headers = httpd_request_output_headers_get(hreq);
 
   // Remove potentially set cache control headers
-  evhttp_remove_header(output_headers, "Cache-Control");
-  evhttp_remove_header(output_headers, "Last-Modified");
-  evhttp_remove_header(output_headers, "ETag");
+  httpd_header_remove(output_headers, "Cache-Control");
+  httpd_header_remove(output_headers, "Last-Modified");
+  httpd_header_remove(output_headers, "ETag");
 
   // Tell clients that they are not allowed to cache this response
-  evhttp_add_header(output_headers, "Cache-Control", "no-store");
+  httpd_header_add(output_headers, "Cache-Control", "no-store");
 }
 
 static void
@@ -451,7 +440,7 @@ serve_file(struct httpd_request *hreq, const char *uri)
   char deref[PATH_MAX];
   char *ctype;
   struct evbuffer *evbuf;
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
   struct stat sb;
   int fd;
   int i;
@@ -595,8 +584,8 @@ serve_file(struct httpd_request *hreq, const char *uri)
 	}
     }
 
-  output_headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(output_headers, "Content-Type", ctype);
+  output_headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(output_headers, "Content-Type", ctype);
 
   httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
@@ -616,15 +605,10 @@ serve_file(struct httpd_request *hreq, const char *uri)
 static void
 stream_end(struct stream_ctx *st, int failed)
 {
-  struct evhttp_connection *evcon;
-
-  evcon = evhttp_request_get_connection(st->req);
-
-  if (evcon)
-    evhttp_connection_set_closecb(evcon, NULL, NULL);
+  httpd_request_closecb_set(st->hreq, NULL, NULL);
 
   if (!failed)
-    evhttp_send_reply_end(st->req);
+    httpd_reply_end_send(st->hreq);
 
   evbuffer_free(st->evbuf);
   event_free(st->ev);
@@ -656,7 +640,7 @@ stream_end_register(struct stream_ctx *st)
 }
 
 static void
-stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
+stream_chunk_resched_cb(httpd_connection *conn, void *arg)
 {
   struct stream_ctx *st;
   struct timeval tv;
@@ -721,7 +705,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   else
     ret = xcoded;
 
-  evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
+  httpd_reply_chunk_send(st->hreq, st->evbuf, stream_chunk_resched_cb, st);
 
   st->offset += ret;
 
@@ -777,7 +761,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   evbuffer_add(st->evbuf, st->buf, ret);
 
-  evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
+  httpd_reply_chunk_send(st->hreq, st->evbuf, stream_chunk_resched_cb, st);
 
   st->offset += ret;
 
@@ -785,7 +769,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 }
 
 static void
-stream_fail_cb(struct evhttp_connection *evcon, void *arg)
+stream_fail_cb(httpd_connection *conn, void *arg)
 {
   struct stream_ctx *st;
 
@@ -838,7 +822,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
   struct evkeyvalq *input_headers;
   struct evkeyvalq *output_headers;
-  struct httpd_request hreq = { .req = req }; // TODO clean this up
+  struct httpd_request hreq = { .backend = req }; // TODO clean this up
   struct httpd_uri_parsed *parsed;
   struct httpd_module *m;
   const char *uri;
@@ -856,9 +840,9 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     {
       output_headers = evhttp_request_get_output_headers(req);
 
-      evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
-      evhttp_add_header(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      evhttp_add_header(output_headers, "Access-Control-Allow-Headers", "authorization");
+      httpd_header_add(output_headers, "Access-Control-Allow-Origin", allow_origin);
+      httpd_header_add(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      httpd_header_add(output_headers, "Access-Control-Allow-Headers", "authorization");
 
       // In this case there is no reason to go through httpd_send_reply
       evhttp_send_reply(req, HTTP_OK, "OK", NULL);
@@ -921,7 +905,7 @@ httpd_uri_free(struct httpd_uri_parsed *parsed)
       free(parsed->path_parts[i]);
     }
 
-  evhttp_clear_headers(&(parsed->ev_query));
+  httpd_query_clear(&(parsed->query));
 
   if (parsed->ev_uri)
     evhttp_uri_free(parsed->ev_uri);
@@ -961,7 +945,7 @@ httpd_uri_parse(const char *uri)
   query = evhttp_uri_get_query(parsed->ev_uri);
   if (query && strchr(query, '='))
     {
-      ret = evhttp_parse_query_str(query, &(parsed->ev_query));
+      ret = evhttp_parse_query_str(query, &(parsed->query));
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Invalid query '%s' in request: '%s'\n", query, parsed->uri);
@@ -1023,12 +1007,9 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   void (*stream_cb)(int fd, short event, void *arg);
   struct stat sb;
   struct timeval tv;
-  struct evhttp_connection *evcon;
-  struct evkeyvalq *input_headers;
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
   const char *param;
   const char *param_end;
-  const char *ua;
   const char *client_codecs;
   char buf[64];
   int64_t offset;
@@ -1040,9 +1021,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   offset = 0;
   end_offset = 0;
 
-  input_headers = evhttp_request_get_input_headers(hreq->req);
-
-  param = evhttp_find_header(input_headers, "Range");
+  param = httpd_header_find(hreq->in_headers, "Range");
   if (param)
     {
       DPRINTF(E_DBG, L_HTTPD, "Found Range header: %s\n", param);
@@ -1104,12 +1083,11 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   memset(st, 0, sizeof(struct stream_ctx));
   st->fd = -1;
 
-  ua = evhttp_find_header(input_headers, "User-Agent");
-  client_codecs = evhttp_find_header(input_headers, "Accept-Codecs");
+  client_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
 
-  transcode = transcode_needed(ua, client_codecs, mfi->codectype);
+  transcode = transcode_needed(hreq->user_agent, client_codecs, mfi->codectype);
 
-  output_headers = evhttp_request_get_output_headers(hreq->req);
+  output_headers = httpd_request_output_headers_get(hreq);
 
   if (transcode)
     {
@@ -1127,7 +1105,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	}
 
       if (!evhttp_find_header(output_headers, "Content-Type"))
-	evhttp_add_header(output_headers, "Content-Type", "audio/wav");
+	httpd_header_add(output_headers, "Content-Type", "audio/wav");
     }
   else
     {
@@ -1187,8 +1165,8 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Type too large for buffer, dropping\n");
 	  else
 	    {
-	      evhttp_remove_header(output_headers, "Content-Type");
-	      evhttp_add_header(output_headers, "Content-Type", buf);
+	      httpd_header_remove(output_headers, "Content-Type");
+	      httpd_header_add(output_headers, "Content-Type", buf);
 	    }
 	}
       /* If no Content-Type has been set and we're streaming audio, add a proper
@@ -1201,7 +1179,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	  if ((ret < 0) || (ret >= sizeof(buf)))
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Type too large for buffer, dropping\n");
 	  else
-	    evhttp_add_header(output_headers, "Content-Type", buf);
+	    httpd_header_add(output_headers, "Content-Type", buf);
 	}
     }
 
@@ -1236,7 +1214,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   st->id = mfi->id;
   st->start_offset = offset;
   st->stream_size = st->size;
-  st->req = hreq->req;
+  st->hreq = hreq;
 
   if ((offset == 0) && (end_offset == 0))
     {
@@ -1250,10 +1228,10 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	  if ((ret < 0) || (ret >= sizeof(buf)))
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
 	  else
-	    evhttp_add_header(output_headers, "Content-Length", buf);
+	    httpd_header_add(output_headers, "Content-Length", buf);
 	}
 
-      evhttp_send_reply_start(hreq->req, HTTP_OK, "OK");
+      httpd_reply_start_send(hreq, HTTP_OK, "OK");
     }
   else
     {
@@ -1269,15 +1247,15 @@ httpd_stream_file(struct httpd_request *hreq, int id)
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Range too large for buffer, dropping\n");
       else
-	evhttp_add_header(output_headers, "Content-Range", buf);
+	httpd_header_add(output_headers, "Content-Range", buf);
 
       ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)st->size) - offset);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
       else
-	evhttp_add_header(output_headers, "Content-Length", buf);
+	httpd_header_add(output_headers, "Content-Length", buf);
 
-      evhttp_send_reply_start(hreq->req, 206, "Partial Content");
+      httpd_reply_start_send(hreq, 206, "Partial Content");
     }
 
 #ifdef HAVE_POSIX_FADVISE
@@ -1291,9 +1269,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
     }
 #endif
 
-  evcon = evhttp_request_get_connection(hreq->req);
-
-  evhttp_connection_set_closecb(evcon, stream_fail_cb, st);
+  httpd_request_closecb_set(hreq, stream_fail_cb, st);
 
   DPRINTF(E_INFO, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
 
@@ -1387,32 +1363,30 @@ void
 httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags)
 {
   struct evbuffer *gzbuf;
-  struct evkeyvalq *input_headers;
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
   const char *param;
   int do_gzip;
 
-  if (!hreq->req)
+  if (!hreq->backend)
     return;
 
-  input_headers = evhttp_request_get_input_headers(hreq->req);
-  output_headers = evhttp_request_get_output_headers(hreq->req);
+  output_headers = httpd_request_output_headers_get(hreq);
 
   do_gzip = ( (!(flags & HTTPD_SEND_NO_GZIP)) &&
               evbuf && (evbuffer_get_length(evbuf) > 512) &&
-              (param = evhttp_find_header(input_headers, "Accept-Encoding")) &&
+              (param = httpd_header_find(hreq->in_headers, "Accept-Encoding")) &&
               (strstr(param, "gzip") || strstr(param, "*"))
             );
 
   if (allow_origin)
-    evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
+    httpd_header_add(output_headers, "Access-Control-Allow-Origin", allow_origin);
 
   if (do_gzip && (gzbuf = httpd_gzip_deflate(evbuf)))
     {
       DPRINTF(E_DBG, L_HTTPD, "Gzipping response\n");
 
-      evhttp_add_header(output_headers, "Content-Encoding", "gzip");
-      evhttp_send_reply(hreq->req, code, reason, gzbuf);
+      httpd_header_add(output_headers, "Content-Encoding", "gzip");
+      httpd_reply_backend_send(hreq, code, reason, gzbuf);
       evbuffer_free(gzbuf);
 
       // Drain original buffer, as would be after evhttp_send_reply()
@@ -1420,7 +1394,7 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
     }
   else
     {
-      evhttp_send_reply(hreq->req, code, reason, evbuf);
+      httpd_reply_backend_send(hreq, code, reason, evbuf);
     }
 }
 
@@ -1428,22 +1402,17 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
 void
 httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
 {
-  struct evkeyvalq *output_headers;
+  httpd_headers *output_headers;
   struct evbuffer *evbuf;
 
-  if (!allow_origin)
-    {
-      evhttp_send_error(hreq->req, error, reason);
-      return;
-    }
+  output_headers = httpd_request_output_headers_get(hreq);
 
-  output_headers = evhttp_request_get_output_headers(hreq->req);
+  httpd_headers_clear(output_headers);
 
-  evhttp_clear_headers(output_headers);
-
-  evhttp_add_header(output_headers, "Access-Control-Allow-Origin", allow_origin);
-  evhttp_add_header(output_headers, "Content-Type", "text/html");
-  evhttp_add_header(output_headers, "Connection", "close");
+  if (allow_origin)
+    httpd_header_add(output_headers, "Access-Control-Allow-Origin", allow_origin);
+  httpd_header_add(output_headers, "Content-Type", "text/html");
+  httpd_header_add(output_headers, "Connection", "close");
 
   evbuf = evbuffer_new();
   if (!evbuf)
@@ -1451,7 +1420,7 @@ httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
   else
     evbuffer_add_printf(evbuf, ERR_PAGE, error, reason, reason);
 
-  evhttp_send_reply(hreq->req, error, reason, evbuf);
+  httpd_reply_backend_send(hreq, error, reason, evbuf);
 
   if (evbuf)
     evbuffer_free(evbuf);
@@ -1460,28 +1429,16 @@ httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
 bool
 httpd_admin_check_auth(struct httpd_request *hreq)
 {
-  struct evhttp_connection *evcon;
-  char *addr;
-  uint16_t port;
   const char *passwd;
   int ret;
 
-  evcon = evhttp_request_get_connection(hreq->req);
-  if (!evcon)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
-      return false;
-    }
-
-  evhttp_connection_get_peer(evcon, &addr, &port);
-
-  if (net_peer_address_is_trusted(addr))
+  if (net_peer_address_is_trusted(hreq->peer_address))
     return true;
 
   passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");
   if (!passwd)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Web interface request to '%s' denied: No password set in the config\n", evhttp_request_get_uri(hreq->req));
+      DPRINTF(E_LOG, L_HTTPD, "Web interface request to '%s' denied: No password set in the config\n", hreq->uri);
 
       httpd_send_error(hreq, 403, "Forbidden");
       return false;
@@ -1492,7 +1449,7 @@ httpd_admin_check_auth(struct httpd_request *hreq)
   ret = httpd_basic_auth(hreq, "admin", passwd, PACKAGE " web interface");
   if (ret != 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Web interface request to '%s' denied: Incorrect password\n", evhttp_request_get_uri(hreq->req));
+      DPRINTF(E_LOG, L_HTTPD, "Web interface request to '%s' denied: Incorrect password\n", hreq->uri);
 
       // httpd_basic_auth has sent a reply
       return false;
@@ -1507,15 +1464,14 @@ int
 httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passwd, const char *realm)
 {
   struct evbuffer *evbuf;
-  struct evkeyvalq *headers;
+  httpd_headers *output_headers;
   char header[256];
   const char *auth;
   char *authuser;
   char *authpwd;
   int ret;
 
-  headers = evhttp_request_get_input_headers(hreq->req);
-  auth = evhttp_find_header(headers, "Authorization");
+  auth = httpd_header_find(hreq->in_headers, "Authorization");
   if (!auth)
     {
       DPRINTF(E_DBG, L_HTTPD, "No Authorization header\n");
@@ -1590,8 +1546,8 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
       return -1;
     }
 
-  headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_add_header(headers, "WWW-Authenticate", header);
+  output_headers = httpd_request_output_headers_get(hreq);
+  httpd_header_add(output_headers, "WWW-Authenticate", header);
 
   evbuffer_add_printf(evbuf, ERR_PAGE, 401, "Unauthorized", "Authorization required");
 

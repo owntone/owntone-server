@@ -50,7 +50,7 @@ struct httpd_uri_parsed
 {
   const char *uri;
   struct evhttp_uri *ev_uri;
-  struct evkeyvalq ev_query;
+  httpd_query query;
   char *uri_decoded;
   char *path;
   char *path_parts[31];
@@ -64,14 +64,14 @@ struct httpd_uri_parsed
 struct httpd_request {
   // User-agent (if available)
   const char *user_agent;
-  // Shortcut to &uri_parsed->uri
-  const char *uri;
   // The parsed request URI given to us by httpd_uri_parse
   struct httpd_uri_parsed *uri_parsed;
-  // Shortcut to &uri_parsed->ev_query
+  // Shortcut to &uri_parsed->query
   httpd_query *query;
-  // http request struct (if available)
-  struct evhttp_request *req;
+  // Shortcut to &uri_parsed->uri
+  const char *uri;
+  // Backend private request object
+  void *backend;
   // Source IP address (ipv4 or ipv6) and port of the request (if available)
   char *peer_address;
   unsigned short peer_port;
@@ -212,6 +212,9 @@ httpd_query_value_find(httpd_query *query, const char *key);
 void
 httpd_query_iterate(httpd_query *query, httpd_query_iteratecb cb, void *arg);
 
+void
+httpd_query_clear(httpd_query *query);
+
 const char *
 httpd_header_find(httpd_headers *headers, const char *key);
 
@@ -232,10 +235,10 @@ httpd_request_output_headers_get(struct httpd_request *hreq);
 
 int
 httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb, void *arg);
-/*
+
 int
-httpd_connection_peer_get(char **addr, uint16_t *port, struct httpd_connection *conn);
-*/
+httpd_connection_peer_get(char **addr, uint16_t *port, httpd_connection *conn);
+
 void
 httpd_connection_free(httpd_connection *conn);
 
@@ -244,10 +247,10 @@ httpd_request_connection_get(struct httpd_request *hreq);
 /*
 const char *
 httpd_request_uri_get(struct httpd_request *hreq);
-
+*/
 int
 httpd_request_peer_get(char **addr, uint16_t *port, struct httpd_request *hreq);
-*/
+
 int
 httpd_request_method_get(enum httpd_methods *method, struct httpd_request *hreq);
 
@@ -256,10 +259,10 @@ httpd_request_backend_free(struct httpd_request *hreq);
 
 int
 httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb cb, void *arg);
-/*
+
 void
-httpd_reply_send(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf)
-*/
+httpd_reply_backend_send(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf);
+
 void
 httpd_reply_start_send(struct httpd_request *hreq, int code, const char *reason);
 

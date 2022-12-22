@@ -11,13 +11,14 @@ httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb
   evhttp_connection_set_closecb(conn, cb, arg);
   return 0;
 }
-/*
+
 int
 httpd_connection_peer_get(char **addr, uint16_t *port, httpd_connection *conn)
 {
-  return evhttp_connection_get_peer(conn, addr, port);
+  evhttp_connection_get_peer(conn, addr, port);
+  return 0;
 }
-*/
+
 void
 httpd_connection_free(httpd_connection *conn)
 {
@@ -27,7 +28,7 @@ httpd_connection_free(httpd_connection *conn)
 httpd_connection *
 httpd_request_connection_get(struct httpd_request *hreq)
 {
-  return evhttp_request_get_connection(hreq->req);
+  return evhttp_request_get_connection(hreq->backend);
 }
 /*
 const char *
@@ -35,21 +36,21 @@ httpd_request_uri_get(httpd_request *req)
 {
   return evhttp_request_get_uri(req);
 }
-
+*/
 int
-httpd_request_peer_get(char **addr, uint16_t *port, httpd_request *req)
+httpd_request_peer_get(char **addr, uint16_t *port, struct httpd_request *hreq)
 {
-  httpd_connection *conn = httpd_request_connection_get(req);
+  httpd_connection *conn = httpd_request_connection_get(hreq->backend);
   if (!conn)
     return -1;
 
   return httpd_connection_peer_get(addr, port, conn);
 }
-*/
+
 int
 httpd_request_method_get(enum httpd_methods *method, struct httpd_request *hreq)
 {
-  enum evhttp_cmd_type cmd = evhttp_request_get_command(hreq->req);
+  enum evhttp_cmd_type cmd = evhttp_request_get_command(hreq->backend);
 
   switch (cmd)
     {
@@ -71,7 +72,7 @@ httpd_request_method_get(enum httpd_methods *method, struct httpd_request *hreq)
 void
 httpd_request_backend_free(struct httpd_request *hreq)
 {
-  evhttp_request_free(hreq->req);
+  evhttp_request_free(hreq->backend);
 }
 
 int
@@ -101,6 +102,12 @@ httpd_query_iterate(httpd_query *query, httpd_query_iteratecb cb, void *arg)
     }
 }
 
+void
+httpd_query_clear(httpd_query *query)
+{
+  evhttp_clear_headers(query);
+}
+
 const char *
 httpd_header_find(httpd_headers *headers, const char *key)
 {
@@ -128,36 +135,35 @@ httpd_headers_clear(httpd_headers *headers)
 httpd_headers *
 httpd_request_input_headers_get(struct httpd_request *hreq)
 {
-  return evhttp_request_get_input_headers(hreq->req);
+  return evhttp_request_get_input_headers(hreq->backend);
 }
 
 httpd_headers *
 httpd_request_output_headers_get(struct httpd_request *hreq)
 {
-  return evhttp_request_get_output_headers(hreq->req);
+  return evhttp_request_get_output_headers(hreq->backend);
 }
 
-/*
 void
-httpd_reply_send(httpd_request *req, int code, const char *reason, struct evbuffer *evbuf)
+httpd_reply_backend_send(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf)
 {
-  evhttp_send_reply(req, code, reason, evbuf);
+  evhttp_send_reply(hreq->backend, code, reason, evbuf);
 }
-*/
+
 void
 httpd_reply_start_send(struct httpd_request *hreq, int code, const char *reason)
 {
-  evhttp_send_reply_start(hreq->req, code, reason);
+  evhttp_send_reply_start(hreq->backend, code, reason);
 }
 
 void
 httpd_reply_chunk_send(struct httpd_request *hreq, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg)
 {
-  evhttp_send_reply_chunk_with_cb(hreq->req, evbuf, cb, arg);
+  evhttp_send_reply_chunk_with_cb(hreq->backend, evbuf, cb, arg);
 }
 
 void
 httpd_reply_end_send(struct httpd_request *hreq)
 {
-  evhttp_send_reply_end(hreq->req);
+  evhttp_send_reply_end(hreq->backend);
 }
