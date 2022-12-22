@@ -1935,7 +1935,6 @@ daap_reply_browse(struct httpd_request *hreq)
 static enum daap_reply_result
 daap_reply_extra_data(struct httpd_request *hreq)
 {
-  httpd_headers *headers;
   char clen[32];
   const char *param;
   char *ctype;
@@ -2008,11 +2007,10 @@ daap_reply_extra_data(struct httpd_request *hreq)
 	goto no_artwork;
     }
 
-  headers = httpd_request_output_headers_get(hreq);
-  httpd_header_remove(headers, "Content-Type");
-  httpd_header_add(headers, "Content-Type", ctype);
+  httpd_header_remove(hreq->out_headers, "Content-Type");
+  httpd_header_add(hreq->out_headers, "Content-Type", ctype);
   snprintf(clen, sizeof(clen), "%ld", (long)len);
-  httpd_header_add(headers, "Content-Length", clen);
+  httpd_header_add(hreq->out_headers, "Content-Length", clen);
 
   return DAAP_REPLY_OK_NO_GZIP;
 
@@ -2216,7 +2214,6 @@ static struct httpd_uri_map daap_handlers[] =
 static void
 daap_request(struct httpd_request *hreq)
 {
-  httpd_headers *headers;
   struct timespec start;
   struct timespec end;
   struct daap_session session;
@@ -2261,13 +2258,12 @@ daap_request(struct httpd_request *hreq)
     }
 
   // Set reply headers
-  headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(headers, "Accept-Ranges", "bytes");
-  httpd_header_add(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
+  httpd_header_add(hreq->out_headers, "Accept-Ranges", "bytes");
+  httpd_header_add(hreq->out_headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   // Content-Type for all replies, even the actual audio streaming. Note that
   // video streaming will override this Content-Type with a more appropriate
   // video/<type> Content-Type as expected by clients like Front Row.
-  httpd_header_add(headers, "Content-Type", "application/x-dmap-tagged");
+  httpd_header_add(hreq->out_headers, "Content-Type", "application/x-dmap-tagged");
 
   // Now we create the actual reply
   CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
@@ -2277,7 +2273,7 @@ daap_request(struct httpd_request *hreq)
   if (ret == 0)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
-      httpd_header_add(headers, "Content-Encoding", "gzip");
+      httpd_header_add(hreq->out_headers, "Content-Encoding", "gzip");
       httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
 
       evbuffer_free(hreq->reply);
@@ -2320,7 +2316,6 @@ struct evbuffer *
 daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 {
   struct httpd_request hreq;
-  struct httpd_uri_parsed *uri_parsed;
   struct evbuffer *reply;
   struct daap_session session;
   int ret;
@@ -2329,14 +2324,10 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 
   reply = NULL;
 
-  uri_parsed = httpd_uri_parse(uri);
-  if (!uri_parsed)
-    return NULL;
-
-  ret = httpd_request_set(&hreq, uri_parsed, user_agent, daap_handlers);
-  if (ret < 0)
+  httpd_request_set(&hreq, uri, user_agent);
+  if (!(&hreq)->handler)
     {
-      DPRINTF(E_LOG, L_DAAP, "Cannot build reply, unrecognized path '%s' in request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_DAAP, "Cannot build reply, unrecognized path in request: '%s'\n", uri);
       goto out;
     }
 
@@ -2357,7 +2348,7 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
   reply = hreq.reply;
 
  out:
-  httpd_uri_free(uri_parsed);
+  httpd_request_unset(&hreq);
 
   return reply;
 }

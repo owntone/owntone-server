@@ -41,7 +41,6 @@
 #endif
 #include <event2/event.h>
 #include <event2/http.h>
-#include <event2/http_struct.h>
 
 #include <regex.h>
 #include <zlib.h>
@@ -137,10 +136,10 @@ static int exit_pipe[2];
 #endif
 static int httpd_exit;
 static struct event *exitev;
-static struct evhttp *evhttpd;
+static httpd_server *httpd_serv;
 static pthread_t tid_httpd;
 
-static const char *allow_origin;
+static const char *httpd_allow_origin;
 static int httpd_port;
 
 
@@ -291,61 +290,76 @@ modules_search(const char *path)
 
 /* --------------------------- REQUEST HELPERS ------------------------------ */
 
-static int
-request_set(struct httpd_request *hreq, struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map)
+static void
+request_unset(struct httpd_request *hreq)
 {
-  struct httpd_uri_map *uri;
-  int req_method;
+  httpd_uri_free(hreq->uri_parsed);
+}
+
+static void
+request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri, const char *user_agent)
+{
+  struct httpd_uri_map *map;
+  struct httpd_uri_parsed *uri_parsed;
+  struct httpd_module *module;
   int ret;
 
   memset(hreq, 0, sizeof(struct httpd_request));
 
-  // Note req is allowed to be NULL
-  hreq->backend = req;
-  hreq->uri = uri_parsed->uri;
-  hreq->uri_parsed = uri_parsed;
-  hreq->query = &(uri_parsed->query);
-  req_method = 0;
-
-  if (req)
+  // Populate hreq by getting values from the backend (or from the caller)
+  hreq->backend = backend;
+  if (backend)
     {
-      hreq->in_body = evhttp_request_get_input_buffer(req);
-      hreq->in_headers = evhttp_request_get_input_headers(req);
-      hreq->user_agent = evhttp_find_header(hreq->in_headers, "User-Agent");
-      httpd_request_peer_get(&hreq->peer_address, &hreq->peer_port, hreq);
+      hreq->uri = httpd_backend_uri_get(backend);
+      hreq->in_body = httpd_backend_input_buffer_get(backend);
+      hreq->in_headers = httpd_backend_input_headers_get(backend);
+      hreq->out_headers = httpd_backend_output_headers_get(backend);
+      httpd_backend_method_get(&hreq->method, backend);
+      httpd_backend_peer_get(&hreq->peer_address, &hreq->peer_port, backend);
 
-      req_method = evhttp_request_get_command(req);
+      hreq->user_agent = httpd_header_find(hreq->in_headers, "User-Agent");
+    }
+  else
+    {
+      hreq->uri = uri;
+      hreq->user_agent = user_agent;
     }
 
-  if (user_agent)
-    hreq->user_agent = user_agent;
+  uri_parsed = httpd_uri_parse(hreq->uri);
+  if (!uri_parsed)
+    {
+      return;
+    }
 
-  // Find a handler for the path
-  for (uri = uri_map; uri->handler; uri++)
+  hreq->uri_parsed = uri_parsed;
+  hreq->query = &(hreq->uri_parsed->query);
+
+  // Path with e.g. /api -> JSON module
+  module = modules_search(uri_parsed->path);
+  if (!module)
+    {
+      return;
+    }
+
+  for (map = module->handlers; map->handler; map++)
     {
       // Check if handler supports the current http request method
-      if (uri->method && req_method && !(req_method & uri->method))
+      if (map->method && hreq->method && !(map->method & hreq->method))
 	continue;
 
-      ret = regexec(uri->preg, uri_parsed->path, 0, NULL, 0);
+      ret = regexec(map->preg, uri_parsed->path, 0, NULL, 0);
       if (ret != 0)
 	continue;
 
-      hreq->handler = uri->handler;
-      return 0; // Success
+      hreq->handler = map->handler;
+      break;
     }
-
-  // Handler not found, that's an error
-  return -1;
 }
 
 void
 httpd_redirect_to(struct httpd_request *hreq, const char *path)
 {
-  httpd_headers *headers;
-
-  headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(headers, "Location", path);
+  httpd_header_add(hreq->out_headers, "Location", path);
 
   httpd_send_reply(hreq, HTTP_MOVETEMP, "Moved", NULL, HTTPD_SEND_NO_GZIP);
 }
@@ -364,7 +378,6 @@ httpd_redirect_to(struct httpd_request *hreq, const char *path)
 bool
 httpd_request_etag_matches(struct httpd_request *hreq, const char *etag)
 {
-  httpd_headers *output_headers;
   const char *none_match;
 
   none_match = httpd_header_find(hreq->in_headers, "If-None-Match");
@@ -374,9 +387,8 @@ httpd_request_etag_matches(struct httpd_request *hreq, const char *etag)
     return true;
 
   // Add cache headers to allow client side caching
-  output_headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(output_headers, "Cache-Control", "private,no-cache,max-age=0");
-  httpd_header_add(output_headers, "ETag", etag);
+  httpd_header_add(hreq->out_headers, "Cache-Control", "private,no-cache,max-age=0");
+  httpd_header_add(hreq->out_headers, "ETag", etag);
 
   return false;
 }
@@ -395,12 +407,11 @@ httpd_request_etag_matches(struct httpd_request *hreq, const char *etag)
 bool
 httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime)
 {
-  httpd_headers *output_headers;
   char last_modified[1000];
   const char *modified_since;
   struct tm timebuf;
 
-  modified_since = evhttp_find_header(hreq->in_headers, "If-Modified-Since");
+  modified_since = httpd_header_find(hreq->in_headers, "If-Modified-Since");
 
   strftime(last_modified, sizeof(last_modified), "%a, %d %b %Y %H:%M:%S %Z", gmtime_r(&mtime, &timebuf));
 
@@ -409,9 +420,8 @@ httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime)
     return true;
 
   // Add cache headers to allow client side caching
-  output_headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(output_headers, "Cache-Control", "private,no-cache,max-age=0");
-  httpd_header_add(output_headers, "Last-Modified", last_modified);
+  httpd_header_add(hreq->out_headers, "Cache-Control", "private,no-cache,max-age=0");
+  httpd_header_add(hreq->out_headers, "Last-Modified", last_modified);
 
   return false;
 }
@@ -419,28 +429,23 @@ httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime)
 void
 httpd_response_not_cachable(struct httpd_request *hreq)
 {
-  httpd_headers *output_headers;
-
-  output_headers = httpd_request_output_headers_get(hreq);
-
   // Remove potentially set cache control headers
-  httpd_header_remove(output_headers, "Cache-Control");
-  httpd_header_remove(output_headers, "Last-Modified");
-  httpd_header_remove(output_headers, "ETag");
+  httpd_header_remove(hreq->out_headers, "Cache-Control");
+  httpd_header_remove(hreq->out_headers, "Last-Modified");
+  httpd_header_remove(hreq->out_headers, "ETag");
 
   // Tell clients that they are not allowed to cache this response
-  httpd_header_add(output_headers, "Cache-Control", "no-store");
+  httpd_header_add(hreq->out_headers, "Cache-Control", "no-store");
 }
 
 static void
-serve_file(struct httpd_request *hreq, const char *uri)
+serve_file(struct httpd_request *hreq)
 {
   char *ext;
   char path[PATH_MAX];
   char deref[PATH_MAX];
   char *ctype;
   struct evbuffer *evbuf;
-  httpd_headers *output_headers;
   struct stat sb;
   int fd;
   int i;
@@ -452,13 +457,12 @@ serve_file(struct httpd_request *hreq, const char *uri)
   if (!httpd_admin_check_auth(hreq))
     return;
 
-  ret = snprintf(path, sizeof(path), "%s%s", webroot_directory, uri);
+  ret = snprintf(path, sizeof(path), "%s%s", webroot_directory, hreq->uri_parsed->path);
   if ((ret < 0) || (ret >= sizeof(path)))
     {
-      DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", uri);
+      DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", hreq->uri);
 
       httpd_send_error(hreq, HTTP_NOTFOUND, "Not Found");
-
       return;
     }
 
@@ -475,7 +479,6 @@ serve_file(struct httpd_request *hreq, const char *uri)
       DPRINTF(E_LOG, L_HTTPD, "Dereferenced path exceeds PATH_MAX: %s\n", path);
 
       httpd_send_error(hreq, HTTP_NOTFOUND, "Not Found");
-
       return;
     }
 
@@ -485,7 +488,6 @@ serve_file(struct httpd_request *hreq, const char *uri)
       DPRINTF(E_WARN, L_HTTPD, "Could not lstat() %s: %s\n", deref, strerror(errno));
 
       httpd_send_error(hreq, HTTP_NOTFOUND, "Not Found");
-
       return;
     }
 
@@ -584,8 +586,7 @@ serve_file(struct httpd_request *hreq, const char *uri)
 	}
     }
 
-  output_headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(output_headers, "Content-Type", ctype);
+  httpd_header_add(hreq->out_headers, "Content-Type", ctype);
 
   httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
@@ -817,74 +818,69 @@ exit_cb(int fd, short event, void *arg)
   httpd_exit = 1;
 }
 
-static void
-httpd_gen_cb(struct evhttp_request *req, void *arg)
+static int
+handle_cors_preflight(struct httpd_request *hreq, const char *allow_origin)
 {
-  struct evkeyvalq *input_headers;
-  struct evkeyvalq *output_headers;
-  struct httpd_request hreq = { .backend = req }; // TODO clean this up
-  struct httpd_uri_parsed *parsed;
-  struct httpd_module *m;
-  const char *uri;
+  bool is_cors_preflight;
 
-  // Clear the proxy request flag set by evhttp if the request URI was absolute.
-  // It has side-effects on Connection: keep-alive
-  req->flags &= ~EVHTTP_PROXY_REQUEST;
+  is_cors_preflight = ( hreq->method == HTTPD_METHOD_OPTIONS && hreq->in_headers && allow_origin &&
+                        httpd_header_find(hreq->in_headers, "Origin") &&
+                        httpd_header_find(hreq->in_headers, "Access-Control-Request-Method") );
+  if (!is_cors_preflight)
+    return -1;
+
+  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", allow_origin);
+  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Headers", "authorization");
+
+  // In this case there is no reason to go through httpd_send_reply
+  httpd_reply_backend_send(hreq, HTTP_OK, "OK", NULL);
+  return 0;
+}
+
+static void
+httpd_gen_cb(httpd_backend *backend, void *arg)
+{
+  struct httpd_request hreq;
+
+  // This is to make modifications to e.g. evhttps's request object
+  httpd_backend_preprocess(backend);
+
+  // Populates the hreq struct
+  request_set(&hreq, backend, NULL, NULL);
 
   // Did we get a CORS preflight request?
-  input_headers = evhttp_request_get_input_headers(req);
-  if ( input_headers && allow_origin &&
-       (evhttp_request_get_command(req) == EVHTTP_REQ_OPTIONS) &&
-       evhttp_find_header(input_headers, "Origin") &&
-       evhttp_find_header(input_headers, "Access-Control-Request-Method") )
+  if (handle_cors_preflight(&hreq, httpd_allow_origin) == 0)
     {
-      output_headers = evhttp_request_get_output_headers(req);
-
-      httpd_header_add(output_headers, "Access-Control-Allow-Origin", allow_origin);
-      httpd_header_add(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      httpd_header_add(output_headers, "Access-Control-Allow-Headers", "authorization");
-
-      // In this case there is no reason to go through httpd_send_reply
-      evhttp_send_reply(req, HTTP_OK, "OK", NULL);
-      return;
+      goto out;
     }
 
-  uri = evhttp_request_get_uri(req);
-  if (!uri)
+  if (!(&hreq)->uri || !(&hreq)->uri_parsed)
     {
-      DPRINTF(E_WARN, L_HTTPD, "No URI in request\n");
+      DPRINTF(E_WARN, L_HTTPD, "Invalid URI in request: '%s'\n", (&hreq)->uri);
       httpd_redirect_to(&hreq, "/");
-      return;
+      goto out;
     }
-
-  parsed = httpd_uri_parse(uri);
-  if (!parsed || !parsed->path)
+  else if (!(&hreq)->uri_parsed->path)
     {
+      DPRINTF(E_WARN, L_HTTPD, "Invalid path in request: '%s'\n", (&hreq)->uri);
       httpd_redirect_to(&hreq, "/");
       goto out;
     }
 
-  if (strcmp(parsed->path, "/") == 0)
+  if ((&hreq)->handler)
     {
-      goto serve_file;
+      (&hreq)->handler(&hreq);
     }
-
-  m = modules_search(parsed->path);
-  if (m)
+  else
     {
-      request_set(&hreq, req, parsed, NULL, m->handlers);
-      m->request(&hreq);
-      goto out;
+      // Serve web interface files
+      DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", (&hreq)->uri);
+      serve_file(&hreq);
     }
-
-  DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", parsed->uri);
-
-  /* Serve web interface files */
- serve_file:
-  serve_file(&hreq, parsed->path);
 
  out:
-  httpd_uri_free(parsed);
+  request_unset(&hreq);
 }
 
 
@@ -991,10 +987,16 @@ httpd_uri_parse(const char *uri)
   return NULL;
 }
 
-int
-httpd_request_set(struct httpd_request *hreq, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map)
+void
+httpd_request_unset(struct httpd_request *hreq)
 {
-  return request_set(hreq, NULL, uri_parsed, user_agent, uri_map);
+  request_unset(hreq);
+}
+
+void
+httpd_request_set(struct httpd_request *hreq, const char *uri, const char *user_agent)
+{
+  request_set(hreq, NULL, uri, user_agent);
 }
 
 /* Thread: httpd */
@@ -1007,7 +1009,6 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   void (*stream_cb)(int fd, short event, void *arg);
   struct stat sb;
   struct timeval tv;
-  httpd_headers *output_headers;
   const char *param;
   const char *param_end;
   const char *client_codecs;
@@ -1087,8 +1088,6 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 
   transcode = transcode_needed(hreq->user_agent, client_codecs, mfi->codectype);
 
-  output_headers = httpd_request_output_headers_get(hreq);
-
   if (transcode)
     {
       DPRINTF(E_INFO, L_HTTPD, "Preparing to transcode %s\n", mfi->path);
@@ -1104,8 +1103,8 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	  goto out_free_st;
 	}
 
-      if (!evhttp_find_header(output_headers, "Content-Type"))
-	httpd_header_add(output_headers, "Content-Type", "audio/wav");
+      if (!httpd_header_find(hreq->out_headers, "Content-Type"))
+	httpd_header_add(hreq->out_headers, "Content-Type", "audio/wav");
     }
   else
     {
@@ -1165,21 +1164,21 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Type too large for buffer, dropping\n");
 	  else
 	    {
-	      httpd_header_remove(output_headers, "Content-Type");
-	      httpd_header_add(output_headers, "Content-Type", buf);
+	      httpd_header_remove(hreq->out_headers, "Content-Type");
+	      httpd_header_add(hreq->out_headers, "Content-Type", buf);
 	    }
 	}
       /* If no Content-Type has been set and we're streaming audio, add a proper
        * Content-Type for the file we're streaming. Remember DAAP streams audio
        * with application/x-dmap-tagged as the Content-Type (ugh!).
        */
-      else if (!evhttp_find_header(output_headers, "Content-Type") && mfi->type)
+      else if (!httpd_header_find(hreq->out_headers, "Content-Type") && mfi->type)
 	{
 	  ret = snprintf(buf, sizeof(buf), "audio/%s", mfi->type);
 	  if ((ret < 0) || (ret >= sizeof(buf)))
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Type too large for buffer, dropping\n");
 	  else
-	    httpd_header_add(output_headers, "Content-Type", buf);
+	    httpd_header_add(hreq->out_headers, "Content-Type", buf);
 	}
     }
 
@@ -1228,7 +1227,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	  if ((ret < 0) || (ret >= sizeof(buf)))
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
 	  else
-	    httpd_header_add(output_headers, "Content-Length", buf);
+	    httpd_header_add(hreq->out_headers, "Content-Length", buf);
 	}
 
       httpd_reply_start_send(hreq, HTTP_OK, "OK");
@@ -1247,13 +1246,13 @@ httpd_stream_file(struct httpd_request *hreq, int id)
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Range too large for buffer, dropping\n");
       else
-	httpd_header_add(output_headers, "Content-Range", buf);
+	httpd_header_add(hreq->out_headers, "Content-Range", buf);
 
       ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)st->size) - offset);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
       else
-	httpd_header_add(output_headers, "Content-Length", buf);
+	httpd_header_add(hreq->out_headers, "Content-Length", buf);
 
       httpd_reply_start_send(hreq, 206, "Partial Content");
     }
@@ -1363,14 +1362,11 @@ void
 httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags)
 {
   struct evbuffer *gzbuf;
-  httpd_headers *output_headers;
   const char *param;
   int do_gzip;
 
   if (!hreq->backend)
     return;
-
-  output_headers = httpd_request_output_headers_get(hreq);
 
   do_gzip = ( (!(flags & HTTPD_SEND_NO_GZIP)) &&
               evbuf && (evbuffer_get_length(evbuf) > 512) &&
@@ -1378,14 +1374,14 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
               (strstr(param, "gzip") || strstr(param, "*"))
             );
 
-  if (allow_origin)
-    httpd_header_add(output_headers, "Access-Control-Allow-Origin", allow_origin);
+  if (httpd_allow_origin)
+    httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", httpd_allow_origin);
 
   if (do_gzip && (gzbuf = httpd_gzip_deflate(evbuf)))
     {
       DPRINTF(E_DBG, L_HTTPD, "Gzipping response\n");
 
-      httpd_header_add(output_headers, "Content-Encoding", "gzip");
+      httpd_header_add(hreq->out_headers, "Content-Encoding", "gzip");
       httpd_reply_backend_send(hreq, code, reason, gzbuf);
       evbuffer_free(gzbuf);
 
@@ -1402,17 +1398,14 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
 void
 httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
 {
-  httpd_headers *output_headers;
   struct evbuffer *evbuf;
 
-  output_headers = httpd_request_output_headers_get(hreq);
+  httpd_headers_clear(hreq->out_headers);
 
-  httpd_headers_clear(output_headers);
-
-  if (allow_origin)
-    httpd_header_add(output_headers, "Access-Control-Allow-Origin", allow_origin);
-  httpd_header_add(output_headers, "Content-Type", "text/html");
-  httpd_header_add(output_headers, "Connection", "close");
+  if (httpd_allow_origin)
+    httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", httpd_allow_origin);
+  httpd_header_add(hreq->out_headers, "Content-Type", "text/html");
+  httpd_header_add(hreq->out_headers, "Connection", "close");
 
   evbuf = evbuffer_new();
   if (!evbuf)
@@ -1464,7 +1457,6 @@ int
 httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passwd, const char *realm)
 {
   struct evbuffer *evbuf;
-  httpd_headers *output_headers;
   char header[256];
   const char *auth;
   char *authuser;
@@ -1546,8 +1538,7 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
       return -1;
     }
 
-  output_headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(output_headers, "WWW-Authenticate", header);
+  httpd_header_add(hreq->out_headers, "WWW-Authenticate", header);
 
   evbuffer_add_printf(evbuf, ERR_PAGE, 401, "Unauthorized", "Authorization required");
 
@@ -1572,19 +1563,16 @@ httpd_init(const char *webroot)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not stat() web root directory '%s': %s\n", webroot, strerror(errno));
-
       return -1;
     }
   if (!S_ISDIR(sb.st_mode))
     {
       DPRINTF(E_LOG, L_HTTPD, "Web root directory '%s' is not a directory\n", webroot);
-
       return -1;
     }
   if (!realpath(webroot, webroot_directory))
     {
       DPRINTF(E_LOG, L_HTTPD, "Web root directory '%s' could not be dereferenced: %s\n", webroot, strerror(errno));
-
       return -1;
     }
 
@@ -1592,7 +1580,6 @@ httpd_init(const char *webroot)
   if (!evbase_httpd)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create an event base\n");
-
       return -1;
     }
 
@@ -1601,7 +1588,6 @@ httpd_init(const char *webroot)
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Websocket init failed\n");
-
       goto websocket_fail;
     }
 #endif
@@ -1610,7 +1596,6 @@ httpd_init(const char *webroot)
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Modules init failed\n");
-
       goto modules_fail;
     }
 
@@ -1619,7 +1604,6 @@ httpd_init(const char *webroot)
   if (exit_efd < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create eventfd: %s\n", strerror(errno));
-
       goto pipe_fail;
     }
 
@@ -1633,7 +1617,6 @@ httpd_init(const char *webroot)
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create pipe: %s\n", strerror(errno));
-
       goto pipe_fail;
     }
 
@@ -1642,45 +1625,28 @@ httpd_init(const char *webroot)
   if (!exitev)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create exit event\n");
-
       goto exitev_fail;
     }
   event_add(exitev, NULL);
 
-  evhttpd = evhttp_new(evbase_httpd);
-  if (!evhttpd)
+  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+  httpd_serv = httpd_server_new(evbase_httpd, httpd_port, httpd_gen_cb, NULL);
+  if (!httpd_serv)
     {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server\n");
-
-      goto evhttpd_fail;
+      DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server on port %d (server already running?)\n", httpd_port);
+      goto httpd_server_fail;
     }
 
   // For CORS headers
-  allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
-  if (allow_origin)
-    {
-      if (strlen(allow_origin) != 0)
-	evhttp_set_allowed_methods(evhttpd, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
-      else
-	allow_origin = NULL;
-    }
-
-  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-
-  ret = net_evhttp_bind(evhttpd, httpd_port, "httpd");
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (server already running?)\n", httpd_port);
-      goto bind_fail;
-    }
-
-  evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
+  httpd_allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
+  if (strlen(httpd_allow_origin) == 0)
+    httpd_allow_origin = NULL;
+  httpd_server_allow_origin_set(httpd_serv, httpd_allow_origin);
 
   ret = pthread_create(&tid_httpd, NULL, httpd, NULL);
   if (ret != 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not spawn HTTPd thread: %s\n", strerror(errno));
-
       goto thread_fail;
     }
 
@@ -1689,9 +1655,8 @@ httpd_init(const char *webroot)
   return 0;
 
  thread_fail:
- bind_fail:
-  evhttp_free(evhttpd);
- evhttpd_fail:
+  httpd_server_free(httpd_serv);
+ httpd_server_fail:
   event_free(exitev);
  exitev_fail:
 #ifdef HAVE_EVENTFD
@@ -1759,6 +1724,6 @@ httpd_deinit(void)
   close(exit_pipe[1]);
 #endif
   event_free(exitev);
-  evhttp_free(evhttpd);
+  httpd_server_free(httpd_serv);
   event_base_free(evbase_httpd);
 }

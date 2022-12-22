@@ -2316,7 +2316,6 @@ static int
 dacp_reply_nowplayingartwork(struct httpd_request *hreq)
 {
   char clen[32];
-  httpd_headers *headers;
   const char *param;
   char *ctype;
   size_t len;
@@ -2381,11 +2380,10 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
 	goto no_artwork;
     }
 
-  headers = httpd_request_output_headers_get(hreq);
-  httpd_header_remove(headers, "Content-Type");
-  httpd_header_add(headers, "Content-Type", ctype);
+  httpd_header_remove(hreq->out_headers, "Content-Type");
+  httpd_header_add(hreq->out_headers, "Content-Type", ctype);
   snprintf(clen, sizeof(clen), "%ld", (long)len);
-  httpd_header_add(headers, "Content-Length", clen);
+  httpd_header_add(hreq->out_headers, "Content-Length", clen);
 
   httpd_send_reply(hreq, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
   return 0;
@@ -2855,8 +2853,6 @@ static struct httpd_uri_map dacp_handlers[] =
 static void
 dacp_request(struct httpd_request *hreq)
 {
-  httpd_headers *headers;
-
   DPRINTF(E_DBG, L_DACP, "DACP request: '%s'\n", hreq->uri);
 
   if (!hreq->handler)
@@ -2867,10 +2863,9 @@ dacp_request(struct httpd_request *hreq)
       return;
     }
 
-  headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
+  httpd_header_add(hreq->out_headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   /* Content-Type for all DACP replies; can be overriden as needed */
-  httpd_header_add(headers, "Content-Type", "application/x-dmap-tagged");
+  httpd_header_add(hreq->out_headers, "Content-Type", "application/x-dmap-tagged");
 
   CHECK_NULL(L_DACP, hreq->reply = evbuffer_new());
 

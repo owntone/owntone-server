@@ -62,14 +62,10 @@ request_process(struct httpd_request *hreq, uint32_t *max_w, uint32_t *max_h)
 static int
 response_process(struct httpd_request *hreq, int format)
 {
-  httpd_headers *headers;
-
-  headers = httpd_request_output_headers_get(hreq);
-
   if (format == ART_FMT_PNG)
-    httpd_header_add(headers, "Content-Type", "image/png");
+    httpd_header_add(hreq->out_headers, "Content-Type", "image/png");
   else if (format == ART_FMT_JPEG)
-    httpd_header_add(headers, "Content-Type", "image/jpeg");
+    httpd_header_add(hreq->out_headers, "Content-Type", "image/jpeg");
   else
     return HTTP_NOCONTENT;
 

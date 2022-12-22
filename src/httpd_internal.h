@@ -4,16 +4,15 @@
 
 #include <stdbool.h>
 #include <time.h>
+#include <event2/event.h>
 #include <event2/http.h>
 #include <event2/keyvalq_struct.h>
 
+typedef struct evhttp httpd_server;
 typedef struct evhttp_connection httpd_connection;
+typedef struct evhttp_request httpd_backend;
 typedef struct evkeyvalq httpd_headers;
 typedef struct evkeyvalq httpd_query;
-
-typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
-typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
-typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
 
 enum httpd_methods
 {
@@ -62,16 +61,18 @@ struct httpd_uri_parsed
  * evbuffer.
  */
 struct httpd_request {
+  // Request method
+  enum httpd_methods method;
+  // The request URI
+  const char *uri;
   // User-agent (if available)
   const char *user_agent;
   // The parsed request URI given to us by httpd_uri_parse
   struct httpd_uri_parsed *uri_parsed;
   // Shortcut to &uri_parsed->query
   httpd_query *query;
-  // Shortcut to &uri_parsed->uri
-  const char *uri;
   // Backend private request object
-  void *backend;
+  httpd_backend *backend;
   // Source IP address (ipv4 or ipv6) and port of the request (if available)
   char *peer_address;
   unsigned short peer_port;
@@ -82,6 +83,8 @@ struct httpd_request {
   httpd_headers *in_headers;
   // Request body
   struct evbuffer *in_body;
+  // Response headers
+  httpd_headers *out_headers;
   // Reply evbuffer
   struct evbuffer *reply;
 
@@ -149,8 +152,11 @@ httpd_uri_parse(const char *uri);
 void
 httpd_stream_file(struct httpd_request *hreq, int id);
 
-int
-httpd_request_set(struct httpd_request *hreq, struct httpd_uri_parsed *uri_parsed, const char *user_agent, struct httpd_uri_map *uri_map);
+void
+httpd_request_set(struct httpd_request *hreq, const char *uri, const char *user_agent);
+
+void
+httpd_request_unset(struct httpd_request *hreq);
 
 bool
 httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime);
@@ -206,6 +212,11 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
 
 /*-------------------------- WRAPPERS FOR EVHTTP -----------------------------*/
 
+typedef void (*httpd_general_cb)(httpd_backend *backend, void *arg);
+typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
+typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
+typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
+
 const char *
 httpd_query_value_find(httpd_query *query, const char *key);
 
@@ -227,12 +238,6 @@ httpd_header_add(httpd_headers *headers, const char *key, const char *val);
 void
 httpd_headers_clear(httpd_headers *headers);
 
-httpd_headers *
-httpd_request_input_headers_get(struct httpd_request *hreq);
-
-httpd_headers *
-httpd_request_output_headers_get(struct httpd_request *hreq);
-
 int
 httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb, void *arg);
 
@@ -244,15 +249,6 @@ httpd_connection_free(httpd_connection *conn);
 
 httpd_connection *
 httpd_request_connection_get(struct httpd_request *hreq);
-/*
-const char *
-httpd_request_uri_get(struct httpd_request *hreq);
-*/
-int
-httpd_request_peer_get(char **addr, uint16_t *port, struct httpd_request *hreq);
-
-int
-httpd_request_method_get(enum httpd_methods *method, struct httpd_request *hreq);
 
 void
 httpd_request_backend_free(struct httpd_request *hreq);
@@ -271,5 +267,41 @@ httpd_reply_chunk_send(struct httpd_request *hreq, struct evbuffer *evbuf, httpd
 
 void
 httpd_reply_end_send(struct httpd_request *hreq);
+
+void
+httpd_server_free(httpd_server *server);
+
+httpd_server *
+httpd_server_new(struct event_base *evbase, unsigned short port, httpd_general_cb cb, void *arg);
+
+void
+httpd_server_allow_origin_set(httpd_server *server, bool allow);
+
+
+/*---------- Only called by httpd.c to populate struct httpd_request ---------*/
+
+httpd_connection *
+httpd_backend_connection_get(httpd_backend *backend);
+
+const char *
+httpd_backend_uri_get(httpd_backend *backend);
+
+httpd_headers *
+httpd_backend_input_headers_get(httpd_backend *backend);
+
+httpd_headers *
+httpd_backend_output_headers_get(httpd_backend *backend);
+
+struct evbuffer *
+httpd_backend_input_buffer_get(httpd_backend *backend);
+
+int
+httpd_backend_peer_get(char **addr, uint16_t *port, httpd_backend *backend);
+
+int
+httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend);
+
+void
+httpd_backend_preprocess(httpd_backend *backend);
 
 #endif /* !__HTTPD_INTERNAL_H__ */

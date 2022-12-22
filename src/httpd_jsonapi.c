@@ -4705,8 +4705,6 @@ static struct httpd_uri_map adm_handlers[] =
 static void
 jsonapi_request(struct httpd_request *hreq)
 {
-  ;
-  httpd_headers *headers;
   int status_code;
 
   DPRINTF(E_DBG, L_WEB, "JSON api request: '%s'\n", hreq->uri);
@@ -4733,8 +4731,7 @@ jsonapi_request(struct httpd_request *hreq)
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	headers = httpd_request_output_headers_get(hreq);
-	httpd_header_add(headers, "Content-Type", "application/json");
+	httpd_header_add(hreq->out_headers, "Content-Type", "application/json");
 	httpd_send_reply(hreq, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */

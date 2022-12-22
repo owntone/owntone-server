@@ -160,7 +160,6 @@ static void
 rsp_send_error(struct httpd_request *hreq, char *errmsg)
 {
   struct evbuffer *evbuf;
-  httpd_headers *headers;
   mxml_node_t *reply;
   mxml_node_t *status;
   mxml_node_t *node;
@@ -196,9 +195,8 @@ rsp_send_error(struct httpd_request *hreq, char *errmsg)
       return;
     }
 
-  headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(headers, "Content-Type", "text/xml; charset=utf-8");
-  httpd_header_add(headers, "Connection", "close");
+  httpd_header_add(hreq->out_headers, "Content-Type", "text/xml; charset=utf-8");
+  httpd_header_add(hreq->out_headers, "Connection", "close");
 
   httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
 
@@ -280,7 +278,6 @@ static void
 rsp_send_reply(struct httpd_request *hreq, mxml_node_t *reply)
 {
   struct evbuffer *evbuf;
-  httpd_headers *headers;
 
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
@@ -292,9 +289,8 @@ rsp_send_reply(struct httpd_request *hreq, mxml_node_t *reply)
       return;
     }
 
-  headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(headers, "Content-Type", "text/xml; charset=utf-8");
-  httpd_header_add(headers, "Connection", "close");
+  httpd_header_add(hreq->out_headers, "Content-Type", "text/xml; charset=utf-8");
+  httpd_header_add(hreq->out_headers, "Connection", "close");
 
   httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, 0);
 

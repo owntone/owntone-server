@@ -537,7 +537,6 @@ static void
 streaming_request(struct httpd_request *hreq)
 {
   struct streaming_session *session;
-  httpd_headers *output_headers;
   cfg_t *lib;
   const char *name;
   const char *param;
@@ -561,21 +560,20 @@ streaming_request(struct httpd_request *hreq)
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
 
-  output_headers = httpd_request_output_headers_get(hreq);
-  httpd_header_add(output_headers, "Content-Type", "audio/mpeg");
-  httpd_header_add(output_headers, "Server", PACKAGE_NAME "/" VERSION);
-  httpd_header_add(output_headers, "Cache-Control", "no-cache");
-  httpd_header_add(output_headers, "Pragma", "no-cache");
-  httpd_header_add(output_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
+  httpd_header_add(hreq->out_headers, "Content-Type", "audio/mpeg");
+  httpd_header_add(hreq->out_headers, "Server", PACKAGE_NAME "/" VERSION);
+  httpd_header_add(hreq->out_headers, "Cache-Control", "no-cache");
+  httpd_header_add(hreq->out_headers, "Pragma", "no-cache");
+  httpd_header_add(hreq->out_headers, "Expires", "Mon, 31 Aug 2015 06:00:00 GMT");
   if (require_icy)
     {
       ++streaming_icy_clients;
-      httpd_header_add(output_headers, "icy-name", name);
+      httpd_header_add(hreq->out_headers, "icy-name", name);
       snprintf(buf, sizeof(buf)-1, "%d", streaming_icy_metaint);
-      httpd_header_add(output_headers, "icy-metaint", buf);
+      httpd_header_add(hreq->out_headers, "icy-metaint", buf);
     }
-  httpd_header_add(output_headers, "Access-Control-Allow-Origin", "*");
-  httpd_header_add(output_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", "*");
+  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 
   httpd_reply_start_send(hreq, HTTP_OK, "OK");
 
