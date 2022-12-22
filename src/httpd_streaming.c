@@ -148,7 +148,7 @@ streaming_close_cb(httpd_connection *conn, void *arg)
 
   // Valgrind says libevent doesn't free the request on disconnect (even though it owns it - libevent bug?),
   // so we do it with a reply end
-  httpd_reply_end_send(session->hreq);
+  httpd_send_reply_end(session->hreq);
   free(session);
 
   if (!streaming_sessions)
@@ -172,7 +172,7 @@ streaming_end(void)
       DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", session->hreq->peer_address, (int)session->hreq->peer_port);
 
       httpd_request_closecb_set(session->hreq, NULL, NULL);
-      httpd_reply_end_send(session->hreq);
+      httpd_send_reply_end(session->hreq);
 
       streaming_sessions = session->next;
       free(session);
@@ -440,7 +440,7 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	  free(splice_buf);
 	  splice_buf = NULL;
 
-	  httpd_reply_chunk_send(session->hreq, evbuf, NULL, NULL);
+	  httpd_send_reply_chunk(session->hreq, evbuf, NULL, NULL);
 
 	  if (session->next == NULL)
 	    {
@@ -455,11 +455,11 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	    {
 	      buf = evbuffer_pullup(streaming_encoded_data, -1);
 	      evbuffer_add(evbuf, buf, len);
-	      httpd_reply_chunk_send(session->hreq, evbuf, NULL, NULL);
+	      httpd_send_reply_chunk(session->hreq, evbuf, NULL, NULL);
 	    }
 	  else
 	    {
-	      httpd_reply_chunk_send(session->hreq, streaming_encoded_data, NULL, NULL);
+	      httpd_send_reply_chunk(session->hreq, streaming_encoded_data, NULL, NULL);
 	    }
 	  session->bytes_sent += len;
 	}
@@ -575,7 +575,7 @@ streaming_request(struct httpd_request *hreq)
   httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", "*");
   httpd_header_add(hreq->out_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 
-  httpd_reply_start_send(hreq, HTTP_OK, "OK");
+  httpd_send_reply_start(hreq, HTTP_OK, "OK");
 
   session = calloc(1, sizeof(struct streaming_session));
   if (!session)

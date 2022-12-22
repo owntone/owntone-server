@@ -716,7 +716,7 @@ stream_end(struct stream_ctx *st, int failed)
   httpd_request_closecb_set(st->hreq, NULL, NULL);
 
   if (!failed)
-    httpd_reply_end_send(st->hreq);
+    httpd_send_reply_end(st->hreq);
 
   evbuffer_free(st->evbuf);
   event_free(st->ev);
@@ -813,7 +813,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   else
     ret = xcoded;
 
-  httpd_reply_chunk_send(st->hreq, st->evbuf, stream_chunk_resched_cb, st);
+  httpd_send_reply_chunk(st->hreq, st->evbuf, stream_chunk_resched_cb, st);
 
   st->offset += ret;
 
@@ -869,7 +869,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   evbuffer_add(st->evbuf, st->buf, ret);
 
-  httpd_reply_chunk_send(st->hreq, st->evbuf, stream_chunk_resched_cb, st);
+  httpd_send_reply_chunk(st->hreq, st->evbuf, stream_chunk_resched_cb, st);
 
   st->offset += ret;
 
@@ -941,7 +941,7 @@ handle_cors_preflight(struct httpd_request *hreq, const char *allow_origin)
   httpd_header_add(hreq->out_headers, "Access-Control-Allow-Headers", "authorization");
 
   // In this case there is no reason to go through httpd_send_reply
-  httpd_reply_backend_send(hreq, HTTP_OK, "OK", NULL);
+  httpd_backend_reply_send(hreq->backend, HTTP_OK, "OK", NULL);
   return 0;
 }
 
@@ -1236,7 +1236,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	    httpd_header_add(hreq->out_headers, "Content-Length", buf);
 	}
 
-      httpd_reply_start_send(hreq, HTTP_OK, "OK");
+      httpd_send_reply_start(hreq, HTTP_OK, "OK");
     }
   else
     {
@@ -1260,7 +1260,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
       else
 	httpd_header_add(hreq->out_headers, "Content-Length", buf);
 
-      httpd_reply_start_send(hreq, 206, "Partial Content");
+      httpd_send_reply_start(hreq, 206, "Partial Content");
     }
 
 #ifdef HAVE_POSIX_FADVISE
@@ -1388,7 +1388,7 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
       DPRINTF(E_DBG, L_HTTPD, "Gzipping response\n");
 
       httpd_header_add(hreq->out_headers, "Content-Encoding", "gzip");
-      httpd_reply_backend_send(hreq, code, reason, gzbuf);
+      httpd_backend_reply_send(hreq->backend, code, reason, gzbuf);
       evbuffer_free(gzbuf);
 
       // Drain original buffer, as would be after evhttp_send_reply()
@@ -1396,8 +1396,26 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
     }
   else
     {
-      httpd_reply_backend_send(hreq, code, reason, evbuf);
+      httpd_backend_reply_send(hreq->backend, code, reason, evbuf);
     }
+}
+
+void
+httpd_send_reply_start(struct httpd_request *hreq, int code, const char *reason)
+{
+  httpd_backend_reply_start_send(hreq->backend, code, reason);
+}
+
+void
+httpd_send_reply_chunk(struct httpd_request *hreq, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg)
+{
+  httpd_backend_reply_chunk_send(hreq->backend, evbuf, cb, arg);
+}
+
+void
+httpd_send_reply_end(struct httpd_request *hreq)
+{
+  httpd_backend_reply_end_send(hreq->backend);
 }
 
 // This is a modified version of evhttp_send_error (credit libevent)
@@ -1419,7 +1437,7 @@ httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
   else
     evbuffer_add_printf(evbuf, ERR_PAGE, error, reason, reason);
 
-  httpd_reply_backend_send(hreq, error, reason, evbuf);
+  httpd_backend_reply_send(hreq->backend, error, reason, evbuf);
 
   if (evbuf)
     evbuffer_free(evbuf);

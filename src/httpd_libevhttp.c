@@ -7,48 +7,6 @@
 #include "misc.h" // For net_evhttp_bind
 #include "httpd_internal.h"
 
-int
-httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb, void *arg)
-{
-  evhttp_connection_set_closecb(conn, cb, arg);
-  return 0;
-}
-
-int
-httpd_connection_peer_get(char **addr, uint16_t *port, httpd_connection *conn)
-{
-  evhttp_connection_get_peer(conn, addr, port);
-  return 0;
-}
-
-void
-httpd_connection_free(httpd_connection *conn)
-{
-  evhttp_connection_free(conn);
-}
-
-httpd_connection *
-httpd_request_connection_get(struct httpd_request *hreq)
-{
-  return httpd_backend_connection_get(hreq->backend);
-}
-
-void
-httpd_request_backend_free(struct httpd_request *hreq)
-{
-  evhttp_request_free(hreq->backend);
-}
-
-int
-httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb cb, void *arg)
-{
-  httpd_connection *conn = httpd_request_connection_get(hreq);
-  if (!conn)
-    return -1;
-
-  return httpd_connection_closecb_set(conn, cb, arg);
-}
-
 const char *
 httpd_query_value_find(httpd_query *query, const char *key)
 {
@@ -96,34 +54,46 @@ httpd_headers_clear(httpd_headers *headers)
   evhttp_clear_headers(headers);
 }
 
-httpd_headers *
-httpd_request_output_headers_get(struct httpd_request *hreq)
+int
+httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb, void *arg)
 {
-  return evhttp_request_get_output_headers(hreq->backend);
+  evhttp_connection_set_closecb(conn, cb, arg);
+  return 0;
+}
+
+int
+httpd_connection_peer_get(char **addr, uint16_t *port, httpd_connection *conn)
+{
+  evhttp_connection_get_peer(conn, addr, port);
+  return 0;
 }
 
 void
-httpd_reply_backend_send(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf)
+httpd_connection_free(httpd_connection *conn)
 {
-  evhttp_send_reply(hreq->backend, code, reason, evbuf);
+  evhttp_connection_free(conn);
+}
+
+httpd_connection *
+httpd_request_connection_get(struct httpd_request *hreq)
+{
+  return httpd_backend_connection_get(hreq->backend);
 }
 
 void
-httpd_reply_start_send(struct httpd_request *hreq, int code, const char *reason)
+httpd_request_backend_free(struct httpd_request *hreq)
 {
-  evhttp_send_reply_start(hreq->backend, code, reason);
+  evhttp_request_free(hreq->backend);
 }
 
-void
-httpd_reply_chunk_send(struct httpd_request *hreq, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg)
+int
+httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb cb, void *arg)
 {
-  evhttp_send_reply_chunk_with_cb(hreq->backend, evbuf, cb, arg);
-}
+  httpd_connection *conn = httpd_request_connection_get(hreq);
+  if (!conn)
+    return -1;
 
-void
-httpd_reply_end_send(struct httpd_request *hreq)
-{
-  evhttp_send_reply_end(hreq->backend);
+  return httpd_connection_closecb_set(conn, cb, arg);
 }
 
 void
@@ -161,6 +131,30 @@ void
 httpd_server_allow_origin_set(httpd_server *server, bool allow)
 {
   evhttp_set_allowed_methods(server, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
+}
+
+void
+httpd_backend_reply_send(httpd_backend *backend, int code, const char *reason, struct evbuffer *evbuf)
+{
+  evhttp_send_reply(backend, code, reason, evbuf);
+}
+
+void
+httpd_backend_reply_start_send(httpd_backend *backend, int code, const char *reason)
+{
+  evhttp_send_reply_start(backend, code, reason);
+}
+
+void
+httpd_backend_reply_chunk_send(httpd_backend *backend, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg)
+{
+  evhttp_send_reply_chunk_with_cb(backend, evbuf, cb, arg);
+}
+
+void
+httpd_backend_reply_end_send(httpd_backend *backend)
+{
+  evhttp_send_reply_end(backend);
 }
 
 httpd_connection *

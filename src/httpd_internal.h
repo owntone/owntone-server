@@ -16,6 +16,11 @@ typedef struct evhttp_request httpd_backend;
 typedef struct evkeyvalq httpd_headers;
 typedef struct evkeyvalq httpd_query;
 
+typedef void (*httpd_general_cb)(httpd_backend *backend, void *arg);
+typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
+typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
+typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
+
 enum httpd_methods
 {
   HTTPD_METHOD_GET     = 1 << 0,
@@ -180,6 +185,15 @@ httpd_response_not_cachable(struct httpd_request *hreq);
 void
 httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags);
 
+void
+httpd_send_reply_start(struct httpd_request *hreq, int code, const char *reason);
+
+void
+httpd_send_reply_chunk(struct httpd_request *hreq, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg);
+
+void
+httpd_send_reply_end(struct httpd_request *hreq);
+
 /*
  * This is a substitute for evhttp_send_error that should be used whenever an
  * error may be returned to a browser. It will set CORS headers as appropriate,
@@ -208,11 +222,6 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
 
 
 /*-------------------------- WRAPPERS FOR EVHTTP -----------------------------*/
-
-typedef void (*httpd_general_cb)(httpd_backend *backend, void *arg);
-typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
-typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
-typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
 
 const char *
 httpd_query_value_find(httpd_query *query, const char *key);
@@ -254,18 +263,6 @@ int
 httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb cb, void *arg);
 
 void
-httpd_reply_backend_send(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf);
-
-void
-httpd_reply_start_send(struct httpd_request *hreq, int code, const char *reason);
-
-void
-httpd_reply_chunk_send(struct httpd_request *hreq, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg);
-
-void
-httpd_reply_end_send(struct httpd_request *hreq);
-
-void
 httpd_server_free(httpd_server *server);
 
 httpd_server *
@@ -273,6 +270,21 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_general_c
 
 void
 httpd_server_allow_origin_set(httpd_server *server, bool allow);
+
+
+/*----------------- Only called by httpd.c to send raw replies ---------------*/
+
+void
+httpd_backend_reply_send(httpd_backend *backend, int code, const char *reason, struct evbuffer *evbuf);
+
+void
+httpd_backend_reply_start_send(httpd_backend *backend, int code, const char *reason);
+
+void
+httpd_backend_reply_chunk_send(httpd_backend *backend, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg);
+
+void
+httpd_backend_reply_end_send(httpd_backend *backend);
 
 
 /*---------- Only called by httpd.c to populate struct httpd_request ---------*/
