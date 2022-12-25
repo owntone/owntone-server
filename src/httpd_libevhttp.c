@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <string.h>
 #include <sys/queue.h>
 
 #include <event2/http.h>
@@ -6,6 +8,15 @@
 
 #include "misc.h" // For net_evhttp_bind
 #include "httpd_internal.h"
+
+struct httpd_uri_parsed
+{
+  struct evhttp_uri *ev_uri;
+  struct evkeyvalq query;
+  char *path;
+  httpd_uri_path_parts path_parts;
+};
+
 
 const char *
 httpd_query_value_find(httpd_query *query, const char *key)
@@ -62,9 +73,9 @@ httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb
 }
 
 int
-httpd_connection_peer_get(char **addr, uint16_t *port, httpd_connection *conn)
+httpd_connection_peer_get(const char **addr, uint16_t *port, httpd_connection *conn)
 {
-  evhttp_connection_get_peer(conn, addr, port);
+  evhttp_connection_get_peer(conn, (char **)addr, port);
   return 0;
 }
 
@@ -194,7 +205,7 @@ httpd_backend_output_buffer_get(httpd_backend *backend)
 }
 
 int
-httpd_backend_peer_get(char **addr, uint16_t *port, httpd_backend *backend)
+httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend)
 {
   httpd_connection *conn = httpd_backend_connection_get(backend);
   if (!conn)
@@ -231,4 +242,88 @@ httpd_backend_preprocess(httpd_backend *backend)
   // Clear the proxy request flag set by evhttp if the request URI was absolute.
   // It has side-effects on Connection: keep-alive
   backend->flags &= ~EVHTTP_PROXY_REQUEST;
+}
+
+httpd_uri_parsed *
+httpd_uri_parsed_create(const char *uri)
+{
+  struct httpd_uri_parsed *parsed;
+  const char *query;
+  char *path = NULL;
+  char *path_part;
+  char *ptr;
+  int i;
+
+  parsed = calloc(1, sizeof(struct httpd_uri_parsed));
+  if (!parsed)
+    goto error;
+
+  parsed->ev_uri = evhttp_uri_parse_with_flags(uri, EVHTTP_URI_NONCONFORMANT);
+  if (!parsed->ev_uri)
+    goto error;
+
+  query = evhttp_uri_get_query(parsed->ev_uri);
+  if (query && strchr(query, '=') && evhttp_parse_query_str(query, &(parsed->query)) < 0)
+    goto error;
+
+  path = strdup(evhttp_uri_get_path(parsed->ev_uri));
+  if (!path || !(parsed->path = evhttp_uridecode(path, 0, NULL)))
+    goto error;
+
+  path_part = strtok_r(path, "/", &ptr);
+  for (i = 0; (i < ARRAY_SIZE(parsed->path_parts) && path_part); i++)
+    {
+      parsed->path_parts[i] = evhttp_uridecode(path_part, 0, NULL);
+      path_part = strtok_r(NULL, "/", &ptr);
+    }
+
+  // If "path_part" is not NULL, we have path tokens that could not be parsed into the "parsed->path_parts" array
+  if (path_part)
+    goto error;
+
+  free(path);
+  return parsed;
+
+ error:
+  free(path);
+  httpd_uri_parsed_free(parsed);
+  return NULL;
+}
+
+void
+httpd_uri_parsed_free(httpd_uri_parsed *parsed)
+{
+  int i;
+
+  if (!parsed)
+    return;
+
+  free(parsed->path);
+  for (i = 0; i < ARRAY_SIZE(parsed->path_parts); i++)
+    free(parsed->path_parts[i]);
+
+  httpd_query_clear(&(parsed->query));
+
+  if (parsed->ev_uri)
+    evhttp_uri_free(parsed->ev_uri);
+
+  free(parsed);
+}
+
+httpd_query *
+httpd_uri_query_get(httpd_uri_parsed *parsed)
+{
+  return &parsed->query;
+}
+
+const char *
+httpd_uri_path_get(httpd_uri_parsed *parsed)
+{
+  return parsed->path;
+}
+
+void
+httpd_uri_path_parts_get(httpd_uri_path_parts *path_parts, httpd_uri_parsed *parsed)
+{
+  memcpy(path_parts, parsed->path_parts, sizeof(httpd_uri_path_parts));
 }

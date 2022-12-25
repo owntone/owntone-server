@@ -20,7 +20,6 @@
 # include <config.h>
 #endif
 
-#include <regex.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -105,7 +104,7 @@ artworkapi_reply_item(struct httpd_request *hreq)
   if (ret != 0)
     return ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[2], &id);
+  ret = safe_atou32(hreq->path_parts[2], &id);
   if (ret != 0)
     return HTTP_BADREQUEST;
 
@@ -126,7 +125,7 @@ artworkapi_reply_group(struct httpd_request *hreq)
   if (ret != 0)
     return ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[2], &id);
+  ret = safe_atou32(hreq->path_parts[2], &id);
   if (ret != 0)
     return HTTP_BADREQUEST;
 

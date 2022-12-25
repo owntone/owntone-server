@@ -5,17 +5,25 @@
 #include <stdbool.h>
 #include <time.h>
 #include <event2/event.h>
-#include <event2/http.h>
-#include <event2/keyvalq_struct.h>
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
 
 struct httpd_request;
+
+#include <event2/http.h>
+#include <event2/keyvalq_struct.h>
+#include <regex.h> // evhtp conflicts with regex since it brings it own
 
 typedef struct evhttp httpd_server;
 typedef struct evhttp_connection httpd_connection;
 typedef struct evhttp_request httpd_backend;
 typedef struct evkeyvalq httpd_headers;
 typedef struct evkeyvalq httpd_query;
+typedef struct httpd_uri_parsed httpd_uri_parsed;
 
+typedef char *httpd_uri_path_parts[31];
 typedef void (*httpd_general_cb)(httpd_backend *backend, void *arg);
 typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
 typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
@@ -87,29 +95,6 @@ struct httpd_uri_map
 /*------------------------------- HTTPD STRUCTS ------------------------------*/
 
 /*
- * Contains a parsed version of the URI httpd got. The URI may have been
- * complete:
- *   scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
- * or relative:
- *   [/path][?query][#fragment]
- *
- * We are interested in the path and the query, so they are disassembled to
- * path_parts and ev_query. If the request is http://x:3689/foo/bar?key1=val1,
- * then part_parts[0] is "foo", [1] is "bar" and the rest is null.
- *
- * Each path_part is an allocated URI decoded string.
- */
-struct httpd_uri_parsed
-{
-  const char *uri;
-  struct evhttp_uri *ev_uri;
-  httpd_query query;
-  char *uri_decoded;
-  char *path;
-  char *path_parts[31];
-};
-
-/*
  * A collection of pointers to request data that the reply handlers may need.
  * Also has the function pointer to the reply handler and a pointer to a reply
  * evbuffer.
@@ -117,21 +102,31 @@ struct httpd_uri_parsed
 struct httpd_request {
   // Request method
   enum httpd_methods method;
-  // The request URI
-  const char *uri;
-  // User-agent (if available)
-  const char *user_agent;
-  // The parsed request URI given to us by httpd_uri_parse
-  struct httpd_uri_parsed *uri_parsed;
-  // Shortcut to &uri_parsed->query
-  httpd_query *query;
   // Backend private request object
   httpd_backend *backend;
+  // User-agent (if available)
+  const char *user_agent;
   // Source IP address (ipv4 or ipv6) and port of the request (if available)
-  char *peer_address;
+  const char *peer_address;
   unsigned short peer_port;
   // A pointer to extra data that the module handling the request might need
   void *extra_data;
+
+  // The original, request URI. The URI may have been complete:
+  //   scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+  // or relative:
+  //   [/path][?query][#fragment]
+  const char *uri;
+  // URI decoded path from the request URI
+  const char *path;
+  // If the request is http://x:3689/foo/bar?key1=val1, then part_parts[0] is
+  // "foo", [1] is "bar" and the rest is null. Each path_part is an allocated
+  // URI decoded string.
+  httpd_uri_path_parts path_parts;
+  // Struct with the query, used with httpd_query_ functions
+  httpd_query *query;
+  // Backend private parser URI object
+  httpd_uri_parsed *uri_parsed;
 
   // Request headers
   httpd_headers *in_headers;
@@ -142,7 +137,7 @@ struct httpd_request {
   // Response body
   struct evbuffer *out_body;
 
-  // The module that will process this request
+  // Our httpd module that will process this request
   struct httpd_module *module;
   // A pointer to the handler that will process the request
   int (*handler)(struct httpd_request *hreq);
@@ -248,7 +243,7 @@ int
 httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb, void *arg);
 
 int
-httpd_connection_peer_get(char **addr, uint16_t *port, httpd_connection *conn);
+httpd_connection_peer_get(const char **addr, uint16_t *port, httpd_connection *conn);
 
 void
 httpd_connection_free(httpd_connection *conn);
@@ -305,12 +300,27 @@ struct evbuffer *
 httpd_backend_input_buffer_get(httpd_backend *backend);
 
 int
-httpd_backend_peer_get(char **addr, uint16_t *port, httpd_backend *backend);
+httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend);
 
 int
 httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend);
 
 void
 httpd_backend_preprocess(httpd_backend *backend);
+
+httpd_uri_parsed *
+httpd_uri_parsed_create(const char *uri);
+
+void
+httpd_uri_parsed_free(httpd_uri_parsed *uri_parsed);
+
+httpd_query *
+httpd_uri_query_get(httpd_uri_parsed *parsed);
+
+const char *
+httpd_uri_path_get(httpd_uri_parsed *parsed);
+
+void
+httpd_uri_path_parts_get(httpd_uri_path_parts *part_parts, httpd_uri_parsed *parsed);
 
 #endif /* !__HTTPD_INTERNAL_H__ */

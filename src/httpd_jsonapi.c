@@ -34,7 +34,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <limits.h>
-#include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -989,7 +988,7 @@ jsonapi_reply_settings_category_get(struct httpd_request *hreq)
   json_object *jreply;
 
 
-  categoryname = hreq->uri_parsed->path_parts[2];
+  categoryname = hreq->path_parts[2];
 
   category = settings_category_get(categoryname);
   if (!category)
@@ -1023,8 +1022,8 @@ jsonapi_reply_settings_option_get(struct httpd_request *hreq)
   json_object *jreply;
 
 
-  categoryname = hreq->uri_parsed->path_parts[2];
-  optionname = hreq->uri_parsed->path_parts[3];
+  categoryname = hreq->path_parts[2];
+  optionname = hreq->path_parts[3];
 
   category = settings_category_get(categoryname);
   if (!category)
@@ -1069,8 +1068,8 @@ jsonapi_reply_settings_option_put(struct httpd_request *hreq)
   int ret;
 
 
-  categoryname = hreq->uri_parsed->path_parts[2];
-  optionname = hreq->uri_parsed->path_parts[3];
+  categoryname = hreq->path_parts[2];
+  optionname = hreq->path_parts[3];
 
   category = settings_category_get(categoryname);
   if (!category)
@@ -1135,8 +1134,8 @@ jsonapi_reply_settings_option_delete(struct httpd_request *hreq)
   int ret;
 
 
-  categoryname = hreq->uri_parsed->path_parts[2];
-  optionname = hreq->uri_parsed->path_parts[3];
+  categoryname = hreq->path_parts[2];
+  optionname = hreq->path_parts[3];
 
   category = settings_category_get(categoryname);
   if (!category)
@@ -1585,10 +1584,10 @@ jsonapi_reply_outputs_get_byid(struct httpd_request *hreq)
   json_object *jreply;
   int ret;
 
-  ret = safe_atou64(hreq->uri_parsed->path_parts[2], &output_id);
+  ret = safe_atou64(hreq->path_parts[2], &output_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -1597,7 +1596,7 @@ jsonapi_reply_outputs_get_byid(struct httpd_request *hreq)
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No output found for '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No output found for '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -1623,10 +1622,10 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   const char *pin;
   int ret;
 
-  ret = safe_atou64(hreq->uri_parsed->path_parts[2], &output_id);
+  ret = safe_atou64(hreq->path_parts[2], &output_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -1681,10 +1680,10 @@ jsonapi_reply_outputs_toggle_byid(struct httpd_request *hreq)
   struct player_speaker_info spk;
   int ret;
 
-  ret = safe_atou64(hreq->uri_parsed->path_parts[2], &output_id);
+  ret = safe_atou64(hreq->path_parts[2], &output_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -1692,7 +1691,7 @@ jsonapi_reply_outputs_toggle_byid(struct httpd_request *hreq)
   ret = player_speaker_get_byid(&spk, output_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No output found for the given output id, toggle failed for '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No output found for the given output id, toggle failed for '%s'\n", hreq->path);
       return HTTP_BADREQUEST;
     }
 
@@ -2585,12 +2584,12 @@ jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
 
   player_get_status(&status);
 
-  if (strcmp(hreq->uri_parsed->path_parts[3], "now_playing") != 0)
+  if (strcmp(hreq->path_parts[3], "now_playing") != 0)
     {
-      ret = safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
+      ret = safe_atou32(hreq->path_parts[3], &item_id);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_WEB, "No valid item id given: '%s'\n", hreq->uri_parsed->path);
+	  DPRINTF(E_LOG, L_WEB, "No valid item id given: '%s'\n", hreq->path);
 	  return HTTP_BADREQUEST;
 	}
     }
@@ -2600,7 +2599,7 @@ jsonapi_reply_queue_tracks_update(struct httpd_request *hreq)
   queue_item = db_queue_fetch_byitemid(item_id);
   if (!queue_item)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid item id given, or now_playing given but not playing: '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid item id given, or now_playing given but not playing: '%s'\n", hreq->path);
       return HTTP_BADREQUEST;
     }
 
@@ -2638,10 +2637,10 @@ jsonapi_reply_queue_tracks_delete(struct httpd_request *hreq)
   uint32_t item_id;
   int ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &item_id);
+  ret = safe_atou32(hreq->path_parts[3], &item_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid item id given '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid item id given '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -3005,7 +3004,7 @@ jsonapi_reply_library_artist(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  artist_id = hreq->uri_parsed->path_parts[3];
+  artist_id = hreq->path_parts[3];
 
   reply = fetch_artist(&notfound, artist_id);
   if (!reply)
@@ -3040,7 +3039,7 @@ jsonapi_reply_library_artist_albums(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  artist_id = hreq->uri_parsed->path_parts[3];
+  artist_id = hreq->path_parts[3];
 
   reply = json_object_new_object();
   items = json_object_new_array();
@@ -3154,7 +3153,7 @@ jsonapi_reply_library_album(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  album_id = hreq->uri_parsed->path_parts[3];
+  album_id = hreq->path_parts[3];
 
   reply = fetch_album(&notfound, album_id);
   if (!reply)
@@ -3189,7 +3188,7 @@ jsonapi_reply_library_album_tracks(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
 
-  album_id = hreq->uri_parsed->path_parts[3];
+  album_id = hreq->path_parts[3];
 
   reply = json_object_new_object();
   items = json_object_new_array();
@@ -3235,7 +3234,7 @@ jsonapi_reply_library_album_tracks_put_byid(struct httpd_request *hreq)
   int64_t album_id;;
   int ret;
 
-  ret = safe_atoi64(hreq->uri_parsed->path_parts[3], &album_id);
+  ret = safe_atoi64(hreq->path_parts[3], &album_id);
   if (ret < 0)
     return HTTP_INTERNAL;
 
@@ -3273,7 +3272,7 @@ jsonapi_reply_library_tracks_get_byid(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
 
-  track_id = hreq->uri_parsed->path_parts[3];
+  track_id = hreq->path_parts[3];
 
   memset(&query_params, 0, sizeof(struct query_params));
 
@@ -3399,7 +3398,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   uint32_t val;
   int ret;
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &track_id);
+  ret = safe_atoi32(hreq->path_parts[3], &track_id);
   if (ret < 0)
     return HTTP_INTERNAL;
 
@@ -3470,7 +3469,7 @@ jsonapi_reply_library_track_playlists(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_MODIFIED))
     return HTTP_NOTMODIFIED;
 
-  track_id = hreq->uri_parsed->path_parts[3];
+  track_id = hreq->path_parts[3];
   if (safe_atoi32(track_id, &id) < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Error converting track id '%s' to int.\n", track_id);
@@ -3580,7 +3579,7 @@ jsonapi_reply_library_playlist_get(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  ret = safe_atou32(hreq->path_parts[3], &playlist_id);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Could not parse playlist id to integer\n");
@@ -3651,7 +3650,7 @@ jsonapi_reply_library_playlist_put(struct httpd_request *hreq)
   const char *param;
   int ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  ret = safe_atou32(hreq->path_parts[3], &playlist_id);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Could not parse playlist id to integer\n");
@@ -3682,10 +3681,10 @@ jsonapi_reply_library_playlist_tracks(struct httpd_request *hreq)
   // Due to smart playlists possibly changing their tracks between rescans, disable caching in clients
   httpd_response_not_cachable(hreq);
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  ret = safe_atoi32(hreq->path_parts[3], &playlist_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -3731,10 +3730,10 @@ jsonapi_reply_library_playlist_delete(struct httpd_request *hreq)
   uint32_t pl_id;
   int ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[3], &pl_id);
+  ret = safe_atou32(hreq->path_parts[3], &pl_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -3758,10 +3757,10 @@ jsonapi_reply_library_playlist_playlists(struct httpd_request *hreq)
     return HTTP_NOTMODIFIED;
 
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  ret = safe_atoi32(hreq->path_parts[3], &playlist_id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->uri_parsed->path);
+      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", hreq->path);
 
       return HTTP_BADREQUEST;
     }
@@ -3810,7 +3809,7 @@ jsonapi_reply_library_playlist_tracks_put_byid(struct httpd_request *hreq)
   int playlist_id;
   int ret;
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist_id);
+  ret = safe_atoi32(hreq->path_parts[3], &playlist_id);
   if (ret < 0)
     return HTTP_INTERNAL;
 
@@ -3896,7 +3895,7 @@ jsonapi_reply_library_browse(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  browse_type = hreq->uri_parsed->path_parts[2];
+  browse_type = hreq->path_parts[2];
   DPRINTF(E_DBG, L_WEB, "Browse query with type '%s'\n", browse_type);
 
   media_kind = 0;
@@ -3977,8 +3976,8 @@ jsonapi_reply_library_browseitem(struct httpd_request *hreq)
   if (!is_modified(hreq, DB_ADMIN_DB_UPDATE))
     return HTTP_NOTMODIFIED;
 
-  browse_type = hreq->uri_parsed->path_parts[2];
-  item_name = hreq->uri_parsed->path_parts[3];
+  browse_type = hreq->path_parts[2];
+  item_name = hreq->path_parts[3];
   DPRINTF(E_DBG, L_WEB, "Browse item query with type '%s'\n", browse_type);
 
   reply = json_object_new_object();

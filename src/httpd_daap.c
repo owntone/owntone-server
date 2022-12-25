@@ -713,7 +713,7 @@ daap_request_authorize(struct httpd_request *hreq)
   // with httpd_basic_auth() if a library password is set. Remote clients will
   // also call /login, but they should not get a httpd_basic_auth(), instead
   // daap_reply_login() will take care of auth.
-  if (session->is_remote && (strcmp(hreq->uri_parsed->path, "/login") == 0))
+  if (session->is_remote && (strcmp(hreq->path, "/login") == 0))
     return 0;
 
   param = httpd_query_value_find(hreq->query, "session-id");
@@ -721,7 +721,7 @@ daap_request_authorize(struct httpd_request *hreq)
     {
       if (session->id == 0)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri_parsed->uri);
+	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri);
 
 	  httpd_send_error(hreq, 401, "Unauthorized");
 	  return -1;
@@ -736,10 +736,10 @@ daap_request_authorize(struct httpd_request *hreq)
     return 0;
 
   // If no valid session then we may need to authenticate
-  if ((strcmp(hreq->uri_parsed->path, "/server-info") == 0)
-      || (strcmp(hreq->uri_parsed->path, "/logout") == 0)
-      || (strcmp(hreq->uri_parsed->path, "/content-codes") == 0)
-      || (strncmp(hreq->uri_parsed->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
+  if ((strcmp(hreq->path, "/server-info") == 0)
+      || (strcmp(hreq->path, "/logout") == 0)
+      || (strcmp(hreq->path, "/content-codes") == 0)
+      || (strncmp(hreq->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
     return 0; // No authentication
 
   DPRINTF(E_DBG, L_DAAP, "Checking authentication for library\n");
@@ -1354,7 +1354,7 @@ daap_reply_plsonglist(struct httpd_request *hreq)
   int playlist;
   int ret;
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist);
+  ret = safe_atoi32(hreq->path_parts[3], &playlist);
   if (ret < 0)
     {
       dmap_error_make(hreq->out_body, "apso", "Invalid playlist ID");
@@ -1400,7 +1400,7 @@ daap_reply_playlists(struct httpd_request *hreq)
 
   cfg_radiopl = cfg_getbool(cfg_getsec(cfg, "library"), "radio_playlists");
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[1], &database);
+  ret = safe_atoi32(hreq->path_parts[1], &database);
   if (ret < 0)
     {
       dmap_error_make(hreq->out_body, "aply", "Invalid database ID");
@@ -1824,29 +1824,29 @@ daap_reply_browse(struct httpd_request *hreq)
   int nitems;
   int ret;
 
-  if (strcmp(hreq->uri_parsed->path_parts[3], "artists") == 0)
+  if (strcmp(hreq->path_parts[3], "artists") == 0)
     {
       tag = "abar";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_ARTISTS);
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "albums") == 0)
+  else if (strcmp(hreq->path_parts[3], "albums") == 0)
     {
       tag = "abal";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_ALBUMS);
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "genres") == 0)
+  else if (strcmp(hreq->path_parts[3], "genres") == 0)
     {
       tag = "abgn";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_GENRES);
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "composers") == 0)
+  else if (strcmp(hreq->path_parts[3], "composers") == 0)
     {
       tag = "abcp";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_COMPOSERS);
     }
   else
     {
-      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", hreq->uri_parsed->path_parts[3]);
+      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", hreq->path_parts[3]);
       dmap_error_make(hreq->out_body, "abro", "Invalid browse type");
       return DAAP_REPLY_ERROR;
     }
@@ -1950,10 +1950,10 @@ daap_reply_extra_data(struct httpd_request *hreq)
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &id);
+  ret = safe_atoi32(hreq->path_parts[3], &id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not convert id parameter to integer: '%s'\n", hreq->uri_parsed->path_parts[3]);
+      DPRINTF(E_LOG, L_DAAP, "Could not convert id parameter to integer: '%s'\n", hreq->path_parts[3]);
       return DAAP_REPLY_BAD_REQUEST;
     }
 
@@ -1983,9 +1983,9 @@ daap_reply_extra_data(struct httpd_request *hreq)
       max_h = 0;
     }
 
-  if (strcmp(hreq->uri_parsed->path_parts[2], "groups") == 0)
+  if (strcmp(hreq->path_parts[2], "groups") == 0)
     ret = artwork_get_group(hreq->out_body, id, max_w, max_h, 0);
-  else if (strcmp(hreq->uri_parsed->path_parts[2], "items") == 0)
+  else if (strcmp(hreq->path_parts[2], "items") == 0)
     ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
 
   len = evbuffer_get_length(hreq->out_body);
@@ -2030,7 +2030,7 @@ daap_stream(struct httpd_request *hreq)
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &id);
+  ret = safe_atoi32(hreq->path_parts[3], &id);
   if (ret < 0)
     return DAAP_REPLY_BAD_REQUEST;
 

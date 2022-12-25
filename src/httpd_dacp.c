@@ -653,7 +653,7 @@ dacp_request_authorize(struct httpd_request *hreq)
   return 0;
 
  invalid:
-  DPRINTF(E_LOG, L_DACP, "Unauthorized request '%s' from '%s' (is peer trusted in your config?)\n", hreq->uri_parsed->uri, hreq->peer_address);
+  DPRINTF(E_LOG, L_DACP, "Unauthorized request '%s' from '%s' (is peer trusted in your config?)\n", hreq->uri, hreq->peer_address);
 
   httpd_send_error(hreq, 403, "Forbidden");
   return -1;

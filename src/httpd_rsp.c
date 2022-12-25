@@ -502,7 +502,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &qp.id);
+  ret = safe_atoi32(hreq->path_parts[2], &qp.id);
   if (ret < 0)
     {
       rsp_send_error(hreq, "Invalid playlist ID");
@@ -683,31 +683,31 @@ rsp_reply_browse(struct httpd_request *hreq)
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  if (strcmp(hreq->uri_parsed->path_parts[3], "artist") == 0)
+  if (strcmp(hreq->path_parts[3], "artist") == 0)
     {
       qp.type = Q_BROWSE_ARTISTS;
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "genre") == 0)
+  else if (strcmp(hreq->path_parts[3], "genre") == 0)
     {
       qp.type = Q_BROWSE_GENRES;
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "album") == 0)
+  else if (strcmp(hreq->path_parts[3], "album") == 0)
     {
       qp.type = Q_BROWSE_ALBUMS;
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "composer") == 0)
+  else if (strcmp(hreq->path_parts[3], "composer") == 0)
     {
       qp.type = Q_BROWSE_COMPOSERS;
     }
   else
     {
-      DPRINTF(E_LOG, L_RSP, "Unsupported browse type '%s'\n", hreq->uri_parsed->path_parts[3]);
+      DPRINTF(E_LOG, L_RSP, "Unsupported browse type '%s'\n", hreq->path_parts[3]);
 
       rsp_send_error(hreq, "Unsupported browse type");
       return -1;
     }
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &qp.id);
+  ret = safe_atoi32(hreq->path_parts[2], &qp.id);
   if (ret < 0)
     {
       rsp_send_error(hreq, "Invalid playlist ID");
@@ -801,7 +801,7 @@ rsp_stream(struct httpd_request *hreq)
   int id;
   int ret;
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[2], &id);
+  ret = safe_atoi32(hreq->path_parts[2], &id);
   if (ret < 0)
     {
       httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");

@@ -40,9 +40,7 @@
 # include <sys/eventfd.h>
 #endif
 #include <event2/event.h>
-#include <event2/http.h>
 
-#include <regex.h>
 #include <zlib.h>
 
 #include "logger.h"
@@ -291,119 +289,17 @@ modules_search(const char *path)
 /* --------------------------- REQUEST HELPERS ------------------------------ */
 
 static void
-uri_parsed_free(struct httpd_uri_parsed *parsed)
-{
-  int i;
-
-  if (!parsed)
-    return;
-
-  free(parsed->uri_decoded);
-  free(parsed->path);
-  for (i = 0; i < ARRAY_SIZE(parsed->path_parts); i++)
-    {
-      free(parsed->path_parts[i]);
-    }
-
-  httpd_query_clear(&(parsed->query));
-
-  if (parsed->ev_uri)
-    evhttp_uri_free(parsed->ev_uri);
-
-  free(parsed);
-}
-
-static struct httpd_uri_parsed *
-uri_parsed_create(const char *uri)
-{
-  struct httpd_uri_parsed *parsed;
-  char *path = NULL;
-  const char *query;
-  char *path_part;
-  char *ptr;
-  int i;
-  int ret;
-
-  CHECK_NULL(L_HTTPD, parsed = calloc(1, sizeof(struct httpd_uri_parsed)));
-
-  parsed->uri = uri;
-
-  parsed->ev_uri = evhttp_uri_parse_with_flags(parsed->uri, EVHTTP_URI_NONCONFORMANT);
-  if (!parsed->ev_uri)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not parse request: '%s'\n", parsed->uri);
-      goto error;
-    }
-
-  parsed->uri_decoded = evhttp_uridecode(parsed->uri, 0, NULL);
-  if (!parsed->uri_decoded)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not URI decode request: '%s'\n", parsed->uri);
-      goto error;
-    }
-
-  query = evhttp_uri_get_query(parsed->ev_uri);
-  if (query && strchr(query, '='))
-    {
-      ret = evhttp_parse_query_str(query, &(parsed->query));
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Invalid query '%s' in request: '%s'\n", query, parsed->uri);
-	  goto error;
-	}
-    }
-
-  path = strdup(evhttp_uri_get_path(parsed->ev_uri));
-  if (!path)
-    {
-      DPRINTF(E_WARN, L_HTTPD, "No path in request: '%s'\n", parsed->uri);
-      return parsed;
-    }
-
-  parsed->path = evhttp_uridecode(path, 0, NULL);
-  if (!parsed->path)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not URI decode path: '%s'\n", path);
-      goto error;
-    }
-
-  path_part = strtok_r(path, "/", &ptr);
-  for (i = 0; (i < ARRAY_SIZE(parsed->path_parts) && path_part); i++)
-    {
-      parsed->path_parts[i] = evhttp_uridecode(path_part, 0, NULL);
-      path_part = strtok_r(NULL, "/", &ptr);
-    }
-
-  if (path_part)
-    {
-      // If "path_part" is not NULL, we have path tokens that could not be parsed into the "parsed->path_parts" array
-      DPRINTF(E_LOG, L_HTTPD, "URI path has too many components (%d): '%s'\n", i, parsed->path);
-      goto error;
-    }
-
-  free(path);
-
-  return parsed;
-
- error:
-  free(path);
-  uri_parsed_free(parsed);
-  return NULL;
-}
-
-static void
 request_unset(struct httpd_request *hreq)
 {
   if (hreq->out_body)
     evbuffer_free(hreq->out_body);
 
-  uri_parsed_free(hreq->uri_parsed);
+  httpd_uri_parsed_free(hreq->uri_parsed);
 }
 
 static void
 request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri, const char *user_agent)
 {
-  struct httpd_uri_parsed *uri_parsed;
   struct httpd_uri_map *map;
   int ret;
 
@@ -432,17 +328,19 @@ request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri,
   // buffer even if there is no backend.
   CHECK_NULL(L_HTTPD, hreq->out_body = evbuffer_new());
 
-  uri_parsed = uri_parsed_create(hreq->uri);
-  if (!uri_parsed)
+  hreq->uri_parsed = httpd_uri_parsed_create(hreq->uri);
+  if (!hreq->uri_parsed)
     {
+      DPRINTF(E_LOG, L_HTTPD, "Unable to parse URI '%s' in request from '%s'\n", hreq->uri, hreq->peer_address);
       return;
     }
 
-  hreq->uri_parsed = uri_parsed;
-  hreq->query = &(hreq->uri_parsed->query);
+  hreq->path = httpd_uri_path_get(hreq->uri_parsed);
+  hreq->query = httpd_uri_query_get(hreq->uri_parsed);
+  httpd_uri_path_parts_get(&hreq->path_parts, hreq->uri_parsed);
 
   // Path with e.g. /api -> JSON module
-  hreq->module = modules_search(uri_parsed->path);
+  hreq->module = modules_search(hreq->path);
   if (!hreq->module)
     {
       return;
@@ -454,7 +352,7 @@ request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri,
       if (map->method && hreq->method && !(map->method & hreq->method))
 	continue;
 
-      ret = regexec(map->preg, uri_parsed->path, 0, NULL, 0);
+      ret = regexec(map->preg, hreq->path, 0, NULL, 0);
       if (ret != 0)
 	continue;
 
@@ -564,7 +462,7 @@ serve_file(struct httpd_request *hreq)
   if (!httpd_admin_check_auth(hreq))
     return;
 
-  ret = snprintf(path, sizeof(path), "%s%s", webroot_directory, hreq->uri_parsed->path);
+  ret = snprintf(path, sizeof(path), "%s%s", webroot_directory, hreq->path);
   if ((ret < 0) || (ret >= sizeof(path)))
     {
       DPRINTF(E_LOG, L_HTTPD, "Request exceeds PATH_MAX: %s\n", hreq->uri);
@@ -968,7 +866,7 @@ httpd_gen_cb(httpd_backend *backend, void *arg)
       httpd_redirect_to(&hreq, "/");
       goto out;
     }
-  else if (!(&hreq)->uri_parsed->path)
+  else if (!(&hreq)->path)
     {
       DPRINTF(E_WARN, L_HTTPD, "Invalid path in request: '%s'\n", (&hreq)->uri);
       httpd_redirect_to(&hreq, "/");
