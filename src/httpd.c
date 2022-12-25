@@ -1006,7 +1006,11 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
 
       evcon = evhttp_request_get_connection(req);
       if (evcon)
+#ifdef HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR
 	evhttp_connection_get_peer(evcon, &hreq->peer_address, &hreq->peer_port);
+#else
+	evhttp_connection_get_peer(evcon, (char **)&hreq->peer_address, &hreq->peer_port);
+#endif
       else
 	DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
 

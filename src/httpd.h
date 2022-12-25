@@ -52,7 +52,7 @@ struct httpd_request {
   // http request struct (if available)
   struct evhttp_request *req;
   // Source IP address (ipv4 or ipv6) and port of the request (if available)
-  char *peer_address;
+  const char *peer_address;
   unsigned short peer_port;
   // A pointer to extra data that the module handling the request might need
   void *extra_data;

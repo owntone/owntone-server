@@ -156,6 +156,16 @@ OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT], [libevent >= 2],
 			[Define to 1 if you have libevent 2 (<2.1.4)])])
 	])
 
+dnl Check for evhttp_connection_get_peer() signature
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+	#include <event2/http.h>
+	void evhttp_connection_get_peer(struct evhttp_connection *, const char **, ev_uint16_t *);
+	]], [[ ]]
+	)],
+	[AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR], 1,
+		[Define to 1 if evhttp_connection_get_peer expects const char**])]
+	)
+
 OWNTONE_MODULES_CHECK([OWNTONE], [JSON_C], [json-c],
 	[json_tokener_parse], [json.h],
 	[dnl check for old version
