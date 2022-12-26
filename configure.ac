@@ -8,7 +8,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign subdir-objects 1.11])
-AM_SILENT_RULES([no])
+AM_SILENT_RULES([yes])
 
 dnl Requires autoconf 2.60
 AC_USE_SYSTEM_EXTENSIONS
