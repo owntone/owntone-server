@@ -161,6 +161,9 @@ httpd_admin_check_auth(struct evhttp_request *req);
 int
 httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passwd, const char *realm);
 
+void
+httpd_peer_get(const char **address, ev_uint16_t *port, struct evhttp_connection *evcon);
+
 int
 httpd_init(const char *webroot);
 

@@ -1006,11 +1006,7 @@ httpd_request_parse(struct evhttp_request *req, struct httpd_uri_parsed *uri_par
 
       evcon = evhttp_request_get_connection(req);
       if (evcon)
-#ifdef HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR
-	evhttp_connection_get_peer(evcon, &hreq->peer_address, &hreq->peer_port);
-#else
-	evhttp_connection_get_peer(evcon, (char **)&hreq->peer_address, &hreq->peer_port);
-#endif
+	httpd_peer_get(&hreq->peer_address, &hreq->peer_port, evcon);
       else
 	DPRINTF(E_LOG, L_HTTPD, "Connection to client lost or missing\n");
 
@@ -1500,7 +1496,7 @@ bool
 httpd_admin_check_auth(struct evhttp_request *req)
 {
   struct evhttp_connection *evcon;
-  char *addr;
+  const char *addr;
   uint16_t port;
   const char *passwd;
   int ret;
@@ -1512,7 +1508,7 @@ httpd_admin_check_auth(struct evhttp_request *req)
       return false;
     }
 
-  evhttp_connection_get_peer(evcon, &addr, &port);
+  httpd_peer_get(&addr, &port, evcon);
 
   if (net_peer_address_is_trusted(addr))
     return true;
@@ -1639,6 +1635,16 @@ httpd_basic_auth(struct evhttp_request *req, const char *user, const char *passw
   evbuffer_free(evbuf);
 
   return -1;
+}
+
+void
+httpd_peer_get(const char **address, ev_uint16_t *port, struct evhttp_connection *evcon)
+{
+#ifdef HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR
+  evhttp_connection_get_peer(evcon, address, port);
+#else
+  evhttp_connection_get_peer(evcon, (char **)address, port);
+#endif
 }
 
 /* Thread: main */

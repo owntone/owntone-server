@@ -106,12 +106,12 @@ streaming_close_cb(struct evhttp_connection *evcon, void *arg)
   struct streaming_session *this;
   struct streaming_session *session;
   struct streaming_session *prev;
-  char *address;
+  const char *address;
   ev_uint16_t port;
 
   this = (struct streaming_session *)arg;
 
-  evhttp_connection_get_peer(evcon, &address, &port);
+  httpd_peer_get(&address, &port, evcon);
   DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", address, (int)port);
 
   pthread_mutex_lock(&streaming_sessions_lck);
@@ -168,7 +168,7 @@ streaming_end(void)
 {
   struct streaming_session *session;
   struct evhttp_connection *evcon;
-  char *address;
+  const char *address;
   ev_uint16_t port;
 
   pthread_mutex_lock(&streaming_sessions_lck);
@@ -178,7 +178,7 @@ streaming_end(void)
       if (evcon)
 	{
 	  evhttp_connection_set_closecb(evcon, NULL, NULL);
-	  evhttp_connection_get_peer(evcon, &address, &port);
+	  httpd_peer_get(&address, &port, evcon);
 	  DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", address, (int)port);
 	}
       evhttp_send_reply_end(session->req);
@@ -531,7 +531,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
   struct evkeyvalq *output_headers;
   cfg_t *lib;
   const char *name;
-  char *address;
+  const char *address;
   ev_uint16_t port;
   const char *param;
   bool require_icy = false;
@@ -546,7 +546,7 @@ streaming_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parse
     }
 
   evcon = evhttp_request_get_connection(req);
-  evhttp_connection_get_peer(evcon, &address, &port);
+  httpd_peer_get(&address, &port, evcon);
   param = evhttp_find_header( evhttp_request_get_input_headers(req), "Icy-MetaData");
   if (param && strcmp(param, "1") == 0)
     require_icy = true;
