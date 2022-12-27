@@ -41,6 +41,7 @@
 #endif
 #include <event2/event.h>
 
+#include <regex.h>
 #include <zlib.h>
 
 #include "logger.h"
@@ -295,11 +296,13 @@ request_unset(struct httpd_request *hreq)
     evbuffer_free(hreq->out_body);
 
   httpd_uri_parsed_free(hreq->uri_parsed);
+  httpd_backend_data_free(hreq->backend_data);
 }
 
 static void
 request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri, const char *user_agent)
 {
+  httpd_backend_data *backend_data;
   struct httpd_uri_map *map;
   int ret;
 
@@ -309,12 +312,14 @@ request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri,
   hreq->backend = backend;
   if (backend)
     {
-      hreq->uri = httpd_backend_uri_get(backend);
+      backend_data = httpd_backend_data_create(backend);
+      hreq->backend_data = backend_data;
+      hreq->uri = httpd_backend_uri_get(backend, backend_data);
       hreq->in_headers = httpd_backend_input_headers_get(backend);
       hreq->out_headers = httpd_backend_output_headers_get(backend);
       hreq->in_body = httpd_backend_input_buffer_get(backend);
       httpd_backend_method_get(&hreq->method, backend);
-      httpd_backend_peer_get(&hreq->peer_address, &hreq->peer_port, backend);
+      httpd_backend_peer_get(&hreq->peer_address, &hreq->peer_port, backend, backend_data);
 
       hreq->user_agent = httpd_header_find(hreq->in_headers, "User-Agent");
     }

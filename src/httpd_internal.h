@@ -12,9 +12,27 @@
 
 struct httpd_request;
 
-#include <event2/http.h>
-#include <event2/keyvalq_struct.h>
-#include <regex.h> // evhtp conflicts with regex since it brings it own
+#ifdef HAVE_LIBEVHTP
+struct evhtp_s;
+struct evhtp_connection_s;
+struct evhtp_request_s;
+struct evhtp_kvs_s;
+struct httpd_uri_parsed;
+struct httpd_backend_data;
+
+typedef struct evhtp_s httpd_server;
+typedef struct evhtp_connection_s httpd_connection;
+typedef struct evhtp_request_s httpd_backend;
+typedef struct evhtp_kvs_s httpd_headers;
+typedef struct evhtp_kvs_s httpd_query;
+typedef struct httpd_uri_parsed httpd_uri_parsed;
+typedef struct httpd_backend_data httpd_backend_data;
+#else
+struct evhttp;
+struct evhttp_connection;
+struct evhttp_request;
+struct evkeyvalq;
+struct httpd_uri_parsed;
 
 typedef struct evhttp httpd_server;
 typedef struct evhttp_connection httpd_connection;
@@ -22,6 +40,8 @@ typedef struct evhttp_request httpd_backend;
 typedef struct evkeyvalq httpd_headers;
 typedef struct evkeyvalq httpd_query;
 typedef struct httpd_uri_parsed httpd_uri_parsed;
+typedef void httpd_backend_data; // Not used for evhttp
+#endif
 
 typedef char *httpd_uri_path_parts[31];
 typedef void (*httpd_general_cb)(httpd_backend *backend, void *arg);
@@ -104,13 +124,14 @@ struct httpd_request {
   enum httpd_methods method;
   // Backend private request object
   httpd_backend *backend;
+  // For storing data that the actual backend doesn't have readily available
+  // e.g. peer address string for libevhtp
+  httpd_backend_data *backend_data;
   // User-agent (if available)
   const char *user_agent;
   // Source IP address (ipv4 or ipv6) and port of the request (if available)
   const char *peer_address;
   unsigned short peer_port;
-  // A pointer to extra data that the module handling the request might need
-  void *extra_data;
 
   // The original, request URI. The URI may have been complete:
   //   scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
@@ -141,6 +162,8 @@ struct httpd_request {
   struct httpd_module *module;
   // A pointer to the handler that will process the request
   int (*handler)(struct httpd_request *hreq);
+  // A pointer to extra data that the module handling the request might need
+  void *extra_data;
 };
 
 
@@ -239,12 +262,6 @@ httpd_header_add(httpd_headers *headers, const char *key, const char *val);
 void
 httpd_headers_clear(httpd_headers *headers);
 
-int
-httpd_connection_closecb_set(httpd_connection *conn, httpd_connection_closecb cb, void *arg);
-
-int
-httpd_connection_peer_get(const char **addr, uint16_t *port, httpd_connection *conn);
-
 void
 httpd_connection_free(httpd_connection *conn);
 
@@ -284,11 +301,17 @@ httpd_backend_reply_end_send(httpd_backend *backend);
 
 /*---------- Only called by httpd.c to populate struct httpd_request ---------*/
 
+httpd_backend_data *
+httpd_backend_data_create(httpd_backend *backend);
+
+void
+httpd_backend_data_free(httpd_backend_data *backend_data);
+
 httpd_connection *
 httpd_backend_connection_get(httpd_backend *backend);
 
 const char *
-httpd_backend_uri_get(httpd_backend *backend);
+httpd_backend_uri_get(httpd_backend *backend, httpd_backend_data *backend_data);
 
 httpd_headers *
 httpd_backend_input_headers_get(httpd_backend *backend);
@@ -300,7 +323,7 @@ struct evbuffer *
 httpd_backend_input_buffer_get(httpd_backend *backend);
 
 int
-httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend);
+httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend, httpd_backend_data *backend_data);
 
 int
 httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend);

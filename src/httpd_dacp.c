@@ -2938,12 +2938,9 @@ dacp_deinit(void)
     {
       update_requests = ur->next;
 
+      httpd_request_closecb_set(ur->hreq, NULL, NULL);
       conn = httpd_request_connection_get(ur->hreq);
-      if (conn)
-	{
-	  httpd_connection_closecb_set(conn, NULL, NULL);
-	  httpd_connection_free(conn);
-	}
+      httpd_connection_free(conn); // TODO necessary?
 
       free(ur);
     }
