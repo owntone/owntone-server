@@ -35,6 +35,7 @@
 #include "logger.h"
 #include "misc.h"
 #include "http.h"
+#include "conffile.h"
 
 /* Mapping between the metadata name(s) and the offset
  * of the equivalent metadata field in struct media_file_info */
@@ -53,6 +54,24 @@ err2str(int errnum)
 {
   av_strerror(errnum, errbuf, sizeof(errbuf));
   return errbuf;
+}
+
+static int
+parse_genre(struct media_file_info *mfi, char *genre_string)
+{
+  char **genre = (char**)((char *) mfi + mfi_offsetof(genre));
+  char *ptr;
+
+  *genre = strdup(genre_string);
+
+  if (cfg_getbool(cfg_getsec(cfg, "library"), "split_genre"))
+    {
+      ptr = strchr(*genre, ';');
+      if (ptr)
+        *ptr = '\0';
+    }
+
+  return 1;
 }
 
 static int
@@ -149,7 +168,7 @@ static const struct metadata_map md_map_generic[] =
     { "author",       0, mfi_offsetof(artist),             NULL },
     { "album_artist", 0, mfi_offsetof(album_artist),       NULL },
     { "album",        0, mfi_offsetof(album),              NULL },
-    { "genre",        0, mfi_offsetof(genre),              NULL },
+    { "genre",        0, mfi_offsetof(genre),              parse_genre },
     { "composer",     0, mfi_offsetof(composer),           NULL },
     { "grouping",     0, mfi_offsetof(grouping),           NULL },
     { "orchestra",    0, mfi_offsetof(orchestra),          NULL },

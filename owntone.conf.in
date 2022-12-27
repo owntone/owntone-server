@@ -171,6 +171,12 @@ library {
 	# to trigger a rescan.
 #	filescan_disable = false
 
+	# Should server use first genre found in metadata
+	# Tracks may be tagged with multiple genres, such as 'Pop' and 'Rock'.
+	# This option instructs the server to use only the first genre found
+	# (ie 'Pop' in this case) when parsing genre
+#	split_genre = false
+
 	# Should metadata from m3u playlists, e.g. artist and title in EXTINF,
 	# override the metadata we get from radio streams?
 #	m3u_overrides = false
