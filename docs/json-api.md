@@ -1939,6 +1939,31 @@ curl -X GET "http://localhost:3689/api/library/files?directory=/music/srv"
 }
 ```
 
+### Add an item to the library
+
+This endpoint currently only supports addind RSS feeds.
+
+**Endpoint**
+
+```http
+POST /api/library/add
+```
+
+**Query parameters**
+
+| Parameter       | Value                                                       |
+| --------------- | ----------------------------------------------------------- |
+| url             | URL of the RSS to add                                       |
+
+**Response**
+
+On success returns the HTTP `200 OK` success status response code.
+
+**Example**
+
+```shell
+curl -X POST "http://localhost:3689/api/library/add?url=http%3A%2F%2Fmyurl.com%2Flink.rss"
+```
 
 ### Trigger rescan
 
