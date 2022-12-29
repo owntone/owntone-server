@@ -62,9 +62,12 @@ parse_genre(struct media_file_info *mfi, char *genre_string)
   char **genre = (char**)((char *) mfi + mfi_offsetof(genre));
   char *ptr;
 
+  if (*genre) // Previous genre tag exists
+    return 0;
+
   *genre = strdup(genre_string);
 
-  if (cfg_getbool(cfg_getsec(cfg, "library"), "split_genre"))
+  if (cfg_getbool(cfg_getsec(cfg, "library"), "only_first_genre"))
     {
       ptr = strchr(*genre, ';');
       if (ptr)
