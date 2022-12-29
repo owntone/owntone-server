@@ -332,7 +332,10 @@ void
 httpd_backend_preprocess(httpd_backend *backend);
 
 httpd_uri_parsed *
-httpd_uri_parsed_create(const char *uri);
+httpd_uri_parsed_create(httpd_backend *backend);
+
+httpd_uri_parsed *
+httpd_uri_parsed_create_fromuri(const char *uri);
 
 void
 httpd_uri_parsed_free(httpd_uri_parsed *uri_parsed);

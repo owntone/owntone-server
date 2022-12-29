@@ -16,6 +16,7 @@ struct httpd_backend_data
 struct httpd_uri_parsed
 {
   evhtp_uri_t *ev_uri;
+  bool ev_uri_is_standalone; // true if ev_uri was allocated without a request, but via _fromuri
   httpd_uri_path_parts path_parts;
 };
 
@@ -137,7 +138,7 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_general_c
   if (fd < 0)
     goto error;
 
-  if (evhtp_accept_socket(server, fd, 0) != 0)
+  if (evhtp_accept_socket(server, fd, -1) != 0)
     goto error;
 
   evhtp_set_gencb(server, cb, arg);
@@ -285,35 +286,30 @@ httpd_backend_preprocess(httpd_backend *backend)
 }
 
 httpd_uri_parsed *
-httpd_uri_parsed_create(const char *uri)
+httpd_uri_parsed_create(httpd_backend *backend)
 {
-  struct httpd_uri_parsed *parsed;
-  const char *query;
+  httpd_uri_parsed *parsed;
   char *path = NULL;
   char *path_part;
   char *ptr;
+  unsigned char *unescaped_part;
   int i;
 
   parsed = calloc(1, sizeof(struct httpd_uri_parsed));
   if (!parsed)
     goto error;
 
-  parsed->ev_uri = evhttp_uri_parse_with_flags(uri, EVHTTP_URI_NONCONFORMANT);
-  if (!parsed->ev_uri)
-    goto error;
+  parsed->ev_uri = backend->uri;
 
-  query = evhttp_uri_get_query(parsed->ev_uri);
-  if (query && strchr(query, '=') && evhttp_parse_query_str(query, &(parsed->query)) < 0)
-    goto error;
-
-  path = strdup(evhttp_uri_get_path(parsed->ev_uri));
-  if (!path || !(parsed->path = evhttp_uridecode(path, 0, NULL)))
+  path = strdup(parsed->ev_uri->path->path);
+  if (!path)
     goto error;
 
   path_part = strtok_r(path, "/", &ptr);
   for (i = 0; (i < ARRAY_SIZE(parsed->path_parts) && path_part); i++)
     {
-      parsed->path_parts[i] = evhttp_uridecode(path_part, 0, NULL);
+      evhtp_unescape_string(&unescaped_part, (unsigned char *)path_part, strlen(path_part));
+      parsed->path_parts[i] = (char *)unescaped_part;
       path_part = strtok_r(NULL, "/", &ptr);
     }
 
@@ -326,28 +322,20 @@ httpd_uri_parsed_create(const char *uri)
 
  error:
   free(path);
-  httpd_uri_parsed_free(parsed);
+  return NULL;
+}
+
+httpd_uri_parsed *
+httpd_uri_parsed_create_fromuri(const char *uri)
+{
   return NULL;
 }
 
 void
 httpd_uri_parsed_free(httpd_uri_parsed *parsed)
 {
-  int i;
-
-  if (!parsed)
-    return;
-
-  free(parsed->path);
-  for (i = 0; i < ARRAY_SIZE(parsed->path_parts); i++)
-    free(parsed->path_parts[i]);
-
-  httpd_query_clear(&(parsed->query));
-
-  if (parsed->ev_uri)
-    evhttp_uri_free(parsed->ev_uri);
-
-  free(parsed);
+//  if (parsed->ev_uri_is_standalone)
+//    free ev_uri;
 }
 
 httpd_query *

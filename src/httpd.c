@@ -314,7 +314,10 @@ request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri,
     {
       backend_data = httpd_backend_data_create(backend);
       hreq->backend_data = backend_data;
+
       hreq->uri = httpd_backend_uri_get(backend, backend_data);
+      hreq->uri_parsed = httpd_uri_parsed_create(backend);
+
       hreq->in_headers = httpd_backend_input_headers_get(backend);
       hreq->out_headers = httpd_backend_output_headers_get(backend);
       hreq->in_body = httpd_backend_input_buffer_get(backend);
@@ -326,19 +329,20 @@ request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri,
   else
     {
       hreq->uri = uri;
+      hreq->uri_parsed = httpd_uri_parsed_create_fromuri(uri);
+
       hreq->user_agent = user_agent;
     }
 
-  // Don't write directly to backend's buffer. This way we are sure we own the
-  // buffer even if there is no backend.
-  CHECK_NULL(L_HTTPD, hreq->out_body = evbuffer_new());
-
-  hreq->uri_parsed = httpd_uri_parsed_create(hreq->uri);
   if (!hreq->uri_parsed)
     {
       DPRINTF(E_LOG, L_HTTPD, "Unable to parse URI '%s' in request from '%s'\n", hreq->uri, hreq->peer_address);
       return;
     }
+
+  // Don't write directly to backend's buffer. This way we are sure we own the
+  // buffer even if there is no backend.
+  CHECK_NULL(L_HTTPD, hreq->out_body = evbuffer_new());
 
   hreq->path = httpd_uri_path_get(hreq->uri_parsed);
   hreq->query = httpd_uri_query_get(hreq->uri_parsed);
