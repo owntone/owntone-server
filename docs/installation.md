@@ -10,7 +10,7 @@ Platform              | How to get
 ----------------------|---------------------------------------------------------
 RPi w/Raspberry Pi OS | Add OwnTone repository to apt sources, see:<br>[OwnTone server (iTunes server) - Raspberry Pi Forums](http://www.raspberrypi.org/phpBB3/viewtopic.php?t=49928)
 Debian/Ubuntu amd64   | Download .deb as [artifact from Github workflow](https://github.com/owntone/owntone-apt/actions)<br>(requires that you are logged in)
-OpenWrt               | Run `opkg install owntone`
+OpenWrt               | Run `opkg install owntone` (broken in 22.03.2)
 Docker                | See [linuxserver/docker-daapd](https://github.com/linuxserver/docker-daapd)
 
 OwnTone is not in the official Debian repositories due to lack of Debian
