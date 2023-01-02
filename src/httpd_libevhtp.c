@@ -134,7 +134,7 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_general_c
   if (!server)
     goto error;
 
-  fd = net_bind(&port, SOCK_STREAM, "httpd");
+  fd = net_bind(&port, SOCK_STREAM | SOCK_NONBLOCK, "httpd");
   if (fd < 0)
     goto error;
 
@@ -291,6 +291,7 @@ httpd_uri_parsed_create(httpd_backend *backend)
   httpd_uri_parsed *parsed;
   char *path = NULL;
   char *path_part;
+  size_t path_part_len;
   char *ptr;
   unsigned char *unescaped_part;
   int i;
@@ -308,8 +309,18 @@ httpd_uri_parsed_create(httpd_backend *backend)
   path_part = strtok_r(path, "/", &ptr);
   for (i = 0; (i < ARRAY_SIZE(parsed->path_parts) && path_part); i++)
     {
-      evhtp_unescape_string(&unescaped_part, (unsigned char *)path_part, strlen(path_part));
+      path_part_len = strlen(path_part);
+      unescaped_part = calloc(1, path_part_len + 1);
+      if (!unescaped_part)
+	goto error;
+
+      // libevhtp's evhtp_unescape_string() is wonky (and feels unsafe...), for
+      // some reason it wants a double pointer to a user allocated buffer. We
+      // don't want to lose the buffer if libevhtp modifies the pointer, so we
+      // do this first.
       parsed->path_parts[i] = (char *)unescaped_part;
+
+      evhtp_unescape_string(&unescaped_part, (unsigned char *)path_part, path_part_len);
       path_part = strtok_r(NULL, "/", &ptr);
     }
 
@@ -334,8 +345,12 @@ httpd_uri_parsed_create_fromuri(const char *uri)
 void
 httpd_uri_parsed_free(httpd_uri_parsed *parsed)
 {
+  int i;
 //  if (parsed->ev_uri_is_standalone)
 //    free ev_uri;
+
+  for (i = 0; i < ARRAY_SIZE(parsed->path_parts); i++)
+    free(parsed->path_parts[i]);
 }
 
 httpd_query *
