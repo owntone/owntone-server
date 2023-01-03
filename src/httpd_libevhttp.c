@@ -93,7 +93,8 @@ httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb c
   if (!conn)
     return -1;
 
-  return httpd_connection_closecb_set(conn, cb, arg);
+  evhttp_connection_set_closecb(conn, cb, arg);
+  return 0;
 }
 
 void
@@ -157,6 +158,18 @@ httpd_backend_reply_end_send(httpd_backend *backend)
   evhttp_send_reply_end(backend);
 }
 
+httpd_backend_data *
+httpd_backend_data_create(httpd_backend *backend)
+{
+  return "dummy";
+}
+
+void
+httpd_backend_data_free(httpd_backend_data *backend_data)
+{
+  // Nothing to do
+}
+
 httpd_connection *
 httpd_backend_connection_get(httpd_backend *backend)
 {
@@ -164,7 +177,7 @@ httpd_backend_connection_get(httpd_backend *backend)
 }
 
 const char *
-httpd_backend_uri_get(httpd_backend *backend)
+httpd_backend_uri_get(httpd_backend *backend, httpd_backend_data *backend_data)
 {
   return evhttp_request_get_uri(backend);
 }
@@ -194,13 +207,14 @@ httpd_backend_output_buffer_get(httpd_backend *backend)
 }
 
 int
-httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend)
+httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend, httpd_backend_data *backend_data)
 {
   httpd_connection *conn = httpd_backend_connection_get(backend);
   if (!conn)
     return -1;
 
-  return httpd_connection_peer_get(addr, port, conn);
+  evhttp_connection_get_peer(conn, (char **)addr, port);
+  return 0;
 }
 
 int
@@ -234,7 +248,15 @@ httpd_backend_preprocess(httpd_backend *backend)
 }
 
 httpd_uri_parsed *
-httpd_uri_parsed_create(const char *uri)
+httpd_uri_parsed_create(httpd_backend *backend)
+{
+  const char *uri = evhttp_request_get_uri(backend);
+
+  return httpd_uri_parsed_create_fromuri(uri);
+}
+
+httpd_uri_parsed *
+httpd_uri_parsed_create_fromuri(const char *uri)
 {
   struct httpd_uri_parsed *parsed;
   const char *query;
