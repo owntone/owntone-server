@@ -1,4 +1,5 @@
 #include <string.h>
+
 #include <evhtp.h>
 
 #include "misc.h"
@@ -17,6 +18,7 @@ struct httpd_uri_parsed
 {
   evhtp_uri_t *ev_uri;
   bool ev_uri_is_standalone; // true if ev_uri was allocated without a request, but via _fromuri
+  unsigned char *path_parts_buffer; // Allocated to hold the path parts in one buffer
   httpd_uri_path_parts path_parts;
 };
 
@@ -41,7 +43,12 @@ httpd_query_iterate(httpd_query *query, httpd_query_iteratecb cb, void *arg)
 void
 httpd_query_clear(httpd_query *query)
 {
-  evhtp_kvs_free(query);
+  evhtp_kv_t *param;
+
+  TAILQ_FOREACH(param, query, next)
+    {
+      evhtp_kv_rm_and_free(query, param);
+    }
 }
 
 const char *
@@ -59,13 +66,19 @@ httpd_header_remove(httpd_headers *headers, const char *key)
 void
 httpd_header_add(httpd_headers *headers, const char *key, const char *val)
 {
-  evhtp_headers_add_header(headers, evhtp_header_new(key, val, 1, 1)); // Copy key/val
+  evhtp_header_t *header = evhtp_header_new(key, val, 1, 1); // 1, 1 = Copy key/val
+  evhtp_headers_add_header(headers, header);
 }
 
 void
 httpd_headers_clear(httpd_headers *headers)
 {
-  evhtp_headers_free(headers);
+  evhtp_kv_t *param;
+
+  TAILQ_FOREACH(param, headers, next)
+    {
+      evhtp_kv_rm_and_free(headers, param);
+    }
 }
 
 void
@@ -213,7 +226,10 @@ httpd_backend_uri_get(httpd_backend *backend, httpd_backend_data *backend_data)
     return NULL;
 
   free(backend_data->uri);
-  backend_data->uri = safe_asprintf("%s?%s", uri->path->full, (char *)uri->query_raw);
+  if (backend->uri->query_raw)
+    backend_data->uri = safe_asprintf("%s?%s", uri->path->full, backend->uri->query_raw);
+  else
+    backend_data->uri = safe_asprintf("%s", uri->path->full);
 
   return (const char *)backend_data->uri;
 }
@@ -250,6 +266,7 @@ httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend
     return -1;
 
   naddr.sa = *conn->saddr;
+
   net_address_get(backend_data->peer_address, sizeof(backend_data->peer_address), &naddr);
   net_port_get(&backend_data->peer_port, &naddr);
 
@@ -283,44 +300,54 @@ httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend)
 void
 httpd_backend_preprocess(httpd_backend *backend)
 {
+  // nothing to do here
 }
 
 httpd_uri_parsed *
 httpd_uri_parsed_create(httpd_backend *backend)
 {
-  httpd_uri_parsed *parsed;
+  httpd_uri_parsed *parsed = NULL;
   char *path = NULL;
+  size_t path_len;
   char *path_part;
-  size_t path_part_len;
+  off_t path_part_offset;
   char *ptr;
   unsigned char *unescaped_part;
   int i;
+
+  if (!backend->uri->path->path) // Not sure if this can happen
+    goto error;
+
+  path_len = strlen(backend->uri->path->path);
+  if (path_len == 0)
+    goto error;
+
+  path = strdup(backend->uri->path->path);
+  if (!path)
+    goto error;
 
   parsed = calloc(1, sizeof(struct httpd_uri_parsed));
   if (!parsed)
     goto error;
 
-  parsed->ev_uri = backend->uri;
-
-  path = strdup(parsed->ev_uri->path->path);
-  if (!path)
+  // Pointers of parsed->path_parts will point into this buffer, so it will hold
+  // the uri decoded path parts separated by zeroes
+  parsed->path_parts_buffer = calloc(1, path_len + 1);
+  if (!parsed->path_parts_buffer)
     goto error;
 
+  parsed->ev_uri = backend->uri;
+
   path_part = strtok_r(path, "/", &ptr);
+  path_part_offset = path_part - path;
   for (i = 0; (i < ARRAY_SIZE(parsed->path_parts) && path_part); i++)
     {
-      path_part_len = strlen(path_part);
-      unescaped_part = calloc(1, path_part_len + 1);
-      if (!unescaped_part)
-	goto error;
-
       // libevhtp's evhtp_unescape_string() is wonky (and feels unsafe...), for
-      // some reason it wants a double pointer to a user allocated buffer. We
-      // don't want to lose the buffer if libevhtp modifies the pointer, so we
-      // do this first.
+      // some reason it wants a double pointer to a user allocated buffer.
+      unescaped_part = parsed->path_parts_buffer + (path_part - path) - path_part_offset;
       parsed->path_parts[i] = (char *)unescaped_part;
 
-      evhtp_unescape_string(&unescaped_part, (unsigned char *)path_part, path_part_len);
+      evhtp_unescape_string(&unescaped_part, (unsigned char *)path_part, strlen(path_part));
       path_part = strtok_r(NULL, "/", &ptr);
     }
 
@@ -332,6 +359,7 @@ httpd_uri_parsed_create(httpd_backend *backend)
   return parsed;
 
  error:
+  httpd_uri_parsed_free(parsed);
   free(path);
   return NULL;
 }
@@ -345,12 +373,13 @@ httpd_uri_parsed_create_fromuri(const char *uri)
 void
 httpd_uri_parsed_free(httpd_uri_parsed *parsed)
 {
-  int i;
+  if (!parsed)
+    return;
 //  if (parsed->ev_uri_is_standalone)
 //    free ev_uri;
 
-  for (i = 0; i < ARRAY_SIZE(parsed->path_parts); i++)
-    free(parsed->path_parts[i]);
+  free(parsed->path_parts_buffer);
+  free(parsed);
 }
 
 httpd_query *
