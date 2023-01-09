@@ -162,35 +162,14 @@ static void
 streaming_end(void)
 {
   struct streaming_session *session;
-<<<<<<< HEAD
-  struct evhttp_connection *evcon;
-  const char *address;
-  ev_uint16_t port;
-=======
->>>>>>> [httpd] Remove all traces of evhttp from httpd modules
 
   pthread_mutex_lock(&streaming_sessions_lck);
   for (session = streaming_sessions; streaming_sessions; session = streaming_sessions)
     {
-<<<<<<< HEAD
-      evcon = evhttp_request_get_connection(session->req);
-      if (evcon)
-	{
-	  evhttp_connection_set_closecb(evcon, NULL, NULL);
-	  httpd_peer_get(&address, &port, evcon);
-	  DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", address, (int)port);
-	}
-      evhttp_send_reply_end(session->req);
-=======
       DPRINTF(E_INFO, L_STREAMING, "Force close stream to %s:%d\n", session->hreq->peer_address, (int)session->hreq->peer_port);
 
       httpd_request_closecb_set(session->hreq, NULL, NULL);
-<<<<<<< HEAD
-      httpd_reply_end_send(session->hreq);
->>>>>>> [httpd] Remove all traces of evhttp from httpd modules
-=======
       httpd_send_reply_end(session->hreq);
->>>>>>> [httpd] Changes to httpd_send_reply_chunk et al
 
       streaming_sessions = session->next;
       free(session);

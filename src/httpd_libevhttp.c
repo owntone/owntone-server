@@ -1,13 +1,40 @@
+/*
+ * Copyright (C) 2023 Espen Jürgensen <espenjurgensen@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/queue.h>
 
 #include <event2/http.h>
 #include <event2/http_struct.h>
+#include <event2/http_compat.h>
 #include <event2/keyvalq_struct.h>
+#include <event2/buffer.h>
 
 #include "misc.h" // For net_evhttp_bind
+#include "worker.h"
+#include "logger.h"
 #include "httpd_internal.h"
+
 
 struct httpd_uri_parsed
 {
@@ -15,6 +42,19 @@ struct httpd_uri_parsed
   struct evkeyvalq query;
   char *path;
   httpd_uri_path_parts path_parts;
+};
+
+struct httpd_server
+{
+  struct evhttp *evhttp;
+  httpd_request_cb request_cb;
+  void *request_cb_arg;
+};
+
+struct cmdargs
+{
+  httpd_server *server;
+  httpd_backend *backend;
 };
 
 
@@ -108,28 +148,147 @@ httpd_request_evbase_get(struct httpd_request *hreq)
 }
 
 void
+httpd_request_free(struct httpd_request *hreq)
+{
+  if (!hreq)
+    return;
+
+  if (hreq->out_body)
+    evbuffer_free(hreq->out_body);
+
+  httpd_uri_parsed_free(hreq->uri_parsed);
+  httpd_backend_data_free(hreq->backend_data);
+  free(hreq);
+}
+
+struct httpd_request *
+httpd_request_new(httpd_backend *backend, const char *uri, const char *user_agent)
+{
+  struct httpd_request *hreq;
+  httpd_backend_data *backend_data;
+
+  CHECK_NULL(L_HTTPD, hreq = calloc(1, sizeof(struct httpd_request)));
+
+  // Populate hreq by getting values from the backend (or from the caller)
+  hreq->backend = backend;
+  if (backend)
+    {
+      backend_data = httpd_backend_data_create(backend);
+      hreq->backend_data = backend_data;
+
+      hreq->uri = httpd_backend_uri_get(backend, backend_data);
+      hreq->uri_parsed = httpd_uri_parsed_create(backend);
+
+      hreq->in_headers = httpd_backend_input_headers_get(backend);
+      hreq->out_headers = httpd_backend_output_headers_get(backend);
+      hreq->in_body = httpd_backend_input_buffer_get(backend);
+      httpd_backend_method_get(&hreq->method, backend);
+      httpd_backend_peer_get(&hreq->peer_address, &hreq->peer_port, backend, backend_data);
+
+      hreq->user_agent = httpd_header_find(hreq->in_headers, "User-Agent");
+    }
+  else
+    {
+      hreq->uri = uri;
+      hreq->uri_parsed = httpd_uri_parsed_create_fromuri(uri);
+
+      hreq->user_agent = user_agent;
+    }
+
+  if (!hreq->uri_parsed)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Unable to parse URI '%s' in request from '%s'\n", hreq->uri, hreq->peer_address);
+      goto error;
+    }
+
+  // Don't write directly to backend's buffer. This way we are sure we own the
+  // buffer even if there is no backend.
+  CHECK_NULL(L_HTTPD, hreq->out_body = evbuffer_new());
+
+  hreq->path = httpd_uri_path_get(hreq->uri_parsed);
+  hreq->query = httpd_uri_query_get(hreq->uri_parsed);
+  httpd_uri_path_parts_get(&hreq->path_parts, hreq->uri_parsed);
+
+  return hreq;
+
+ error:
+  httpd_request_free(hreq);
+  return NULL;
+}
+
+static void
+request_free_cb(httpd_backend *backend, void *arg)
+{
+  struct httpd_request *hreq = arg;
+
+  httpd_request_free(hreq);
+}
+
+// Executed in a worker thread
+static void
+gencb_worker_cb(void *arg)
+{
+  struct cmdargs *cmd = arg;
+  httpd_server *server = cmd->server;
+  httpd_backend *backend = cmd->backend;
+  struct httpd_request *hreq;
+
+  hreq = httpd_request_new(backend, NULL, NULL);
+  if (!hreq)
+    {
+      evhttp_send_error(backend, HTTP_INTERNAL, "Internal error");
+      return;
+    }
+
+  evhttp_request_set_on_complete_cb(backend, request_free_cb, hreq);
+
+  server->request_cb(hreq, server->request_cb_arg);
+}
+
+// Callback from evhttp in httpd thread
+static void
+gencb_httpd(httpd_backend *backend, void *server)
+{
+  struct cmdargs cmd;
+
+  cmd.server = server;
+  cmd.backend = backend;
+
+  // Clear the proxy request flag set by evhttp if the request URI was absolute.
+  // It has side-effects on Connection: keep-alive
+  backend->flags &= ~EVHTTP_PROXY_REQUEST;
+
+  // Defer the execution to a worker thread
+  worker_execute(gencb_worker_cb, &cmd, sizeof(cmd), 0);
+}
+
+void
 httpd_server_free(httpd_server *server)
 {
   if (!server)
     return;
 
-  evhttp_free(server);
+  evhttp_free(server->evhttp);
+  free(server);
 }
 
 httpd_server *
-httpd_server_new(struct event_base *evbase, unsigned short port, httpd_general_cb cb, void *arg)
+httpd_server_new(struct event_base *evbase, unsigned short port, httpd_request_cb cb, void *arg)
 {
+  httpd_server *server;
   int ret;
-  struct evhttp *server = evhttp_new(evbase);
 
-  if (!server)
-    goto error;
+  CHECK_NULL(L_HTTPD, server = calloc(1, sizeof(httpd_server)));
+  CHECK_NULL(L_HTTPD, server->evhttp = evhttp_new(evbase));
 
-  ret = net_evhttp_bind(server, port, "httpd");
+  server->request_cb = cb;
+  server->request_cb_arg = arg;
+
+  ret = net_evhttp_bind(server->evhttp, port, "httpd");
   if (ret < 0)
     goto error;
 
-  evhttp_set_gencb(server, cb, arg);
+  evhttp_set_gencb(server->evhttp, gencb_httpd, server);
 
   return server;
 
@@ -141,7 +300,7 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_general_c
 void
 httpd_server_allow_origin_set(httpd_server *server, bool allow)
 {
-  evhttp_set_allowed_methods(server, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
+  evhttp_set_allowed_methods(server->evhttp, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
 }
 
 void
@@ -223,7 +382,11 @@ httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend
   if (!conn)
     return -1;
 
+#ifdef HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR
+  evhttp_connection_get_peer(conn, addr, port);
+#else
   evhttp_connection_get_peer(conn, (char **)addr, port);
+#endif
   return 0;
 }
 
@@ -247,14 +410,6 @@ httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend)
     }
 
   return 0;
-}
-
-void
-httpd_backend_preprocess(httpd_backend *backend)
-{
-  // Clear the proxy request flag set by evhttp if the request URI was absolute.
-  // It has side-effects on Connection: keep-alive
-  backend->flags &= ~EVHTTP_PROXY_REQUEST;
 }
 
 httpd_uri_parsed *

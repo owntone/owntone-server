@@ -2306,17 +2306,22 @@ daap_session_is_valid(int id)
 struct evbuffer *
 daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 {
-  struct httpd_request hreq;
-  struct evbuffer *out_body;
+  struct httpd_request *hreq;
+  struct evbuffer *out_body = NULL;
   struct daap_session session;
   int ret;
 
   DPRINTF(E_DBG, L_DAAP, "Building reply for DAAP request: '%s'\n", uri);
 
-  out_body = NULL;
+  hreq = httpd_request_new(NULL, uri, user_agent);
+  if (!hreq)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Error building request: '%s'\n", uri);
+      goto out;
+    }
 
-  httpd_request_set(&hreq, uri, user_agent);
-  if (!(&hreq)->handler)
+  httpd_request_handler_set(hreq);
+  if (!hreq->handler)
     {
       DPRINTF(E_LOG, L_DAAP, "Cannot build reply, unrecognized path in request: '%s'\n", uri);
       goto out;
@@ -2325,20 +2330,20 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
   memset(&session, 0, sizeof(struct daap_session));
   session.is_remote = (bool)is_remote;
 
-  hreq.extra_data = &session;
+  hreq->extra_data = &session;
 
-  ret = hreq.handler(&hreq);
+  ret = hreq->handler(hreq);
   if (ret < 0)
     {
       goto out;
     }
 
   // Take ownership of the reply
-  out_body = hreq.out_body;
-  hreq.out_body = NULL;
+  out_body = hreq->out_body;
+  hreq->out_body = NULL;
 
  out:
-  httpd_request_unset(&hreq);
+  httpd_request_free(hreq);
 
   return out_body;
 }

@@ -291,64 +291,11 @@ modules_search(const char *path)
 
 /* --------------------------- REQUEST HELPERS ------------------------------ */
 
-static void
-request_unset(struct httpd_request *hreq)
+void
+httpd_request_handler_set(struct httpd_request *hreq)
 {
-  if (hreq->out_body)
-    evbuffer_free(hreq->out_body);
-
-  httpd_uri_parsed_free(hreq->uri_parsed);
-  httpd_backend_data_free(hreq->backend_data);
-}
-
-static void
-request_set(struct httpd_request *hreq, httpd_backend *backend, const char *uri, const char *user_agent)
-{
-  httpd_backend_data *backend_data;
   struct httpd_uri_map *map;
   int ret;
-
-  memset(hreq, 0, sizeof(struct httpd_request));
-
-  // Populate hreq by getting values from the backend (or from the caller)
-  hreq->backend = backend;
-  if (backend)
-    {
-      backend_data = httpd_backend_data_create(backend);
-      hreq->backend_data = backend_data;
-
-      hreq->uri = httpd_backend_uri_get(backend, backend_data);
-      hreq->uri_parsed = httpd_uri_parsed_create(backend);
-
-      hreq->in_headers = httpd_backend_input_headers_get(backend);
-      hreq->out_headers = httpd_backend_output_headers_get(backend);
-      hreq->in_body = httpd_backend_input_buffer_get(backend);
-      httpd_backend_method_get(&hreq->method, backend);
-      httpd_backend_peer_get(&hreq->peer_address, &hreq->peer_port, backend, backend_data);
-
-      hreq->user_agent = httpd_header_find(hreq->in_headers, "User-Agent");
-    }
-  else
-    {
-      hreq->uri = uri;
-      hreq->uri_parsed = httpd_uri_parsed_create_fromuri(uri);
-
-      hreq->user_agent = user_agent;
-    }
-
-  if (!hreq->uri_parsed)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Unable to parse URI '%s' in request from '%s'\n", hreq->uri, hreq->peer_address);
-      return;
-    }
-
-  // Don't write directly to backend's buffer. This way we are sure we own the
-  // buffer even if there is no backend.
-  CHECK_NULL(L_HTTPD, hreq->out_body = evbuffer_new());
-
-  hreq->path = httpd_uri_path_get(hreq->uri_parsed);
-  hreq->query = httpd_uri_query_get(hreq->uri_parsed);
-  httpd_uri_path_parts_get(&hreq->path_parts, hreq->uri_parsed);
 
   // Path with e.g. /api -> JSON module
   hreq->module = modules_search(hreq->path);
@@ -855,36 +802,28 @@ handle_cors_preflight(struct httpd_request *hreq, const char *allow_origin)
 }
 
 static void
-httpd_gen_cb(httpd_backend *backend, void *arg)
+request_cb(struct httpd_request *hreq, void *arg)
 {
-  struct httpd_request hreq_stack;
-  struct httpd_request *hreq = &hreq_stack; // Shorthand
-
-  // This is to make modifications to e.g. evhttps's request object
-  httpd_backend_preprocess(backend);
-
-  // Populates the hreq struct
-  request_set(hreq, backend, NULL, NULL);
-
   // Did we get a CORS preflight request?
   if (handle_cors_preflight(hreq, httpd_allow_origin) == 0)
     {
-      goto out;
+      return;
     }
 
   if (!hreq->uri || !hreq->uri_parsed)
     {
       DPRINTF(E_WARN, L_HTTPD, "Invalid URI in request: '%s'\n", hreq->uri);
       httpd_redirect_to(hreq, "/");
-      goto out;
+      return;
     }
   else if (!hreq->path)
     {
       DPRINTF(E_WARN, L_HTTPD, "Invalid path in request: '%s'\n", hreq->uri);
       httpd_redirect_to(hreq, "/");
-      goto out;
+      return;
     }
 
+  httpd_request_handler_set(hreq);
   if (hreq->module)
     {
       DPRINTF(E_DBG, hreq->module->logdomain, "%s request: '%s' (thread %ld)\n", hreq->module->name, hreq->uri, syscall(SYS_gettid));
@@ -896,25 +835,10 @@ httpd_gen_cb(httpd_backend *backend, void *arg)
       DPRINTF(E_DBG, L_HTTPD, "HTTP request: '%s'\n", hreq->uri);
       serve_file(hreq);
     }
-
- out:
-  request_unset(hreq);
 }
 
 
 /* ------------------------------- HTTPD API -------------------------------- */
-
-void
-httpd_request_unset(struct httpd_request *hreq)
-{
-  request_unset(hreq);
-}
-
-void
-httpd_request_set(struct httpd_request *hreq, const char *uri, const char *user_agent)
-{
-  request_set(hreq, NULL, uri, user_agent);
-}
 
 /* Thread: httpd */
 void
@@ -1484,16 +1408,6 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
   return -1;
 }
 
-void
-httpd_peer_get(const char **address, ev_uint16_t *port, struct evhttp_connection *evcon)
-{
-#ifdef HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR
-  evhttp_connection_get_peer(evcon, address, port);
-#else
-  evhttp_connection_get_peer(evcon, (char **)address, port);
-#endif
-}
-
 /* Thread: main */
 int
 httpd_init(const char *webroot)
@@ -1537,7 +1451,7 @@ httpd_init(const char *webroot)
   event_add(exitev, NULL);
 
   httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-  httpd_serv = httpd_server_new(evbase_httpd, httpd_port, httpd_gen_cb, NULL);
+  httpd_serv = httpd_server_new(evbase_httpd, httpd_port, request_cb, NULL);
   if (!httpd_serv)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server on port %d (server already running?)\n", httpd_port);

@@ -41,13 +41,13 @@ struct httpd_request;
 
 // Declaring here instead of including event2/http.h makes it easier to support
 // other backends than evhttp in the future, e.g. libevhtp
-struct evhttp;
+struct httpd_server;
 struct evhttp_connection;
 struct evhttp_request;
 struct evkeyvalq;
 struct httpd_uri_parsed;
 
-typedef struct evhttp httpd_server;
+typedef struct httpd_server httpd_server;
 typedef struct evhttp_connection httpd_connection;
 typedef struct evhttp_request httpd_backend;
 typedef struct evkeyvalq httpd_headers;
@@ -56,7 +56,7 @@ typedef struct httpd_uri_parsed httpd_uri_parsed;
 typedef void httpd_backend_data; // Not used for evhttp
 
 typedef char *httpd_uri_path_parts[31];
-typedef void (*httpd_general_cb)(httpd_backend *backend, void *arg);
+typedef void (*httpd_request_cb)(struct httpd_request *hreq, void *arg);
 typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
 typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
 typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
@@ -186,10 +186,7 @@ void
 httpd_stream_file(struct httpd_request *hreq, int id);
 
 void
-httpd_request_set(struct httpd_request *hreq, const char *uri, const char *user_agent);
-
-void
-httpd_request_unset(struct httpd_request *hreq);
+httpd_request_handler_set(struct httpd_request *hreq);
 
 bool
 httpd_request_not_modified_since(struct httpd_request *hreq, time_t mtime);
@@ -291,10 +288,16 @@ struct event_base *
 httpd_request_evbase_get(struct httpd_request *hreq);
 
 void
+httpd_request_free(struct httpd_request *hreq);
+
+struct httpd_request *
+httpd_request_new(httpd_backend *backend, const char *uri, const char *user_agent);
+
+void
 httpd_server_free(httpd_server *server);
 
 httpd_server *
-httpd_server_new(struct event_base *evbase, unsigned short port, httpd_general_cb cb, void *arg);
+httpd_server_new(struct event_base *evbase, unsigned short port, httpd_request_cb cb, void *arg);
 
 void
 httpd_server_allow_origin_set(httpd_server *server, bool allow);
@@ -343,9 +346,6 @@ httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend
 
 int
 httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend);
-
-void
-httpd_backend_preprocess(httpd_backend *backend);
 
 httpd_uri_parsed *
 httpd_uri_parsed_create(httpd_backend *backend);
