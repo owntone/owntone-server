@@ -46,12 +46,6 @@ if COND_LIBWEBSOCKETS
 LIBWEBSOCKETS_SRC=websocket.c websocket.h
 endif
 
-if COND_LIBEVHTP
-HTTPDBACKEND_SRC=httpd_libevhtp.c
-else
-HTTPDBACKEND_SRC=httpd_libevhttp.c
-endif
-
 GPERF_FILES = \
 	daap_query.gperf \
 	dacp_prop.gperf \
@@ -98,7 +92,7 @@ owntone_SOURCES = main.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
 	remote_pairing.c remote_pairing.h \
-	$(HTTPDBACKEND_SRC) \
+	httpd_libevhttp.c \
 	httpd.c httpd.h httpd_internal.h \
 	httpd_rsp.c \
 	httpd_daap.c httpd_daap.h \

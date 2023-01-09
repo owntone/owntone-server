@@ -39,23 +39,8 @@
 
 struct httpd_request;
 
-#ifdef HAVE_LIBEVHTP
-struct evhtp_s;
-struct evhtp_connection_s;
-struct evhtp_request_s;
-struct evhtp_kvs_s;
-struct httpd_uri_parsed;
-struct httpd_backend_data;
-
-typedef struct evhtp_s httpd_server;
-typedef struct evhtp_connection_s httpd_connection;
-typedef struct evhtp_request_s httpd_backend;
-typedef struct evhtp_kvs_s httpd_headers;
-typedef struct evhtp_kvs_s httpd_query;
-typedef struct httpd_uri_parsed httpd_uri_parsed;
-typedef struct httpd_backend_data httpd_backend_data;
-
-#else
+// Declaring here instead of including event2/http.h makes it easier to support
+// other backends than evhttp in the future, e.g. libevhtp
 struct evhttp;
 struct evhttp_connection;
 struct evhttp_request;
@@ -69,7 +54,6 @@ typedef struct evkeyvalq httpd_headers;
 typedef struct evkeyvalq httpd_query;
 typedef struct httpd_uri_parsed httpd_uri_parsed;
 typedef void httpd_backend_data; // Not used for evhttp
-#endif
 
 typedef char *httpd_uri_path_parts[31];
 typedef void (*httpd_general_cb)(httpd_backend *backend, void *arg);

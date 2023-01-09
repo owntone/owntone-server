@@ -268,11 +268,6 @@ OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libevent_pthreads support],
 	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
 	[evthread_use_pthreads], [event2/thread.h])
 
-dnl Build with libevhtp
-OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libevhtp support], [libevhtp], [LIBEVHTP],
-	[evhtp])
-AM_CONDITIONAL([COND_LIBEVHTP], [[test "x$with_libevhtp" = "xyes"]])
-
 dnl Build with Avahi (or Bonjour if not)
 OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [Avahi mDNS], [avahi], [AVAHI],
 	[avahi-client >= 0.6.24], [avahi_client_new], [avahi-client/client.h])
