@@ -1511,7 +1511,7 @@ On success returns the HTTP `200 OK` success status response code. With the resp
 **Example**
 
 ```shell
-curl -X GET "http://localhost:3689/api/library/track/1"
+curl -X GET "http://localhost:3689/api/library/tracks/1"
 ```
 
 ```json
