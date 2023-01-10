@@ -29,7 +29,6 @@
 #include <time.h>
 #include <string.h>
 #include <errno.h>
-#include <limits.h>
 #include <sys/queue.h>
 
 #include <sys/ioctl.h>
@@ -38,7 +37,6 @@
 #include <pthread.h>
 
 #include <event2/event.h>
-#include <event2/thread.h>
 
 #include "db.h"
 #include "logger.h"
