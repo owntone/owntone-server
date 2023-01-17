@@ -30,10 +30,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#ifdef HAVE_EVENTFD
-# include <sys/eventfd.h>
-#endif
-
+#include <pthread.h>
 #include <event2/event.h>
 
 #include "httpd_internal.h"
@@ -51,6 +48,7 @@
 
 struct dacp_update_request {
   struct httpd_request *hreq;
+  struct event *updateev;
 
   struct dacp_update_request *next;
 };
@@ -125,25 +123,13 @@ dacp_propset_userrating(const char *value, struct httpd_request *hreq);
 /* gperf static hash, dacp_prop.gperf */
 #include "dacp_prop_hash.h"
 
-
-/* Play status update */
-#ifdef HAVE_EVENTFD
-static int update_efd;
-#else
-static int update_pipe[2];
-#endif
-static struct event *updateev;
-/* Next revision number the client should call with */
-static int current_rev;
-
-/* Play status update requests */
+// Play status update requests
 static struct dacp_update_request *update_requests;
+static pthread_mutex_t update_request_lck;
+// Next revision number the client should call with
+static int update_current_rev;
 
-/* Seek timer */
-static struct event *seek_timer;
-static int seek_target;
-
-/* If an item is removed from the library while in the queue, we replace it with this */
+// If an item is removed from the library while in the queue, we replace it with this
 static struct media_file_info dummy_mfi;
 static struct db_queue_item dummy_queue_item;
 
@@ -600,6 +586,8 @@ speaker_volume_step(struct player_speaker_info *speaker_info, int step)
 static void
 seek_timer_cb(int fd, short what, void *arg)
 {
+  intptr_t seek_target_packed = (intptr_t)arg;
+  int seek_target = seek_target_packed;
   int ret;
 
   DPRINTF(E_DBG, L_DACP, "Seek timer expired, target %d ms\n", seek_target);
@@ -660,7 +648,7 @@ dacp_request_authorize(struct httpd_request *hreq)
 /* ---------------------- UPDATE REQUESTS HANDLERS -------------------------- */
 
 static int
-make_playstatusupdate(struct evbuffer *evbuf)
+make_playstatusupdate(struct evbuffer *evbuf, int current_rev)
 {
   struct player_status status;
   struct db_queue_item *queue_item = NULL;
@@ -726,109 +714,45 @@ make_playstatusupdate(struct evbuffer *evbuf)
 }
 
 static void
-playstatusupdate_cb(int fd, short what, void *arg)
+playstatusupdate_cb(int fd, short what, void *arg);
+
+static struct dacp_update_request *
+update_request_new(struct httpd_request *hreq)
 {
+  struct event_base *evbase;
   struct dacp_update_request *ur;
-  struct evbuffer *evbuf;
-  struct evbuffer *update;
-  uint8_t *buf;
-  size_t len;
-  int ret;
 
-#ifdef HAVE_EVENTFD
-  eventfd_t count;
+  evbase = httpd_request_evbase_get(hreq);
 
-  ret = eventfd_read(update_efd, &count);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not read playstatusupdate event counter: %s\n", strerror(errno));
+  CHECK_NULL(L_DACP, ur = calloc(1, sizeof(struct dacp_update_request)));
+  CHECK_NULL(L_DACP, ur->updateev = event_new(evbase, -1, 0, playstatusupdate_cb, ur));
+  ur->hreq = hreq;
 
-      goto readd;
-    }
-#else
-  int dummy;
-
-  read(update_pipe[0], &dummy, sizeof(dummy));
-#endif
-
-  current_rev++;
-
-  if (!update_requests)
-    goto readd;
-
-  CHECK_NULL(L_DACP, evbuf = evbuffer_new());
-  CHECK_NULL(L_DACP, update = evbuffer_new());
-
-  ret = make_playstatusupdate(update);
-  if (ret < 0)
-    goto out_free_update;
-
-  len = evbuffer_get_length(update);
-
-  for (ur = update_requests; update_requests; ur = update_requests)
-    {
-      update_requests = ur->next;
-
-      httpd_request_closecb_set(ur->hreq, NULL, NULL);
-
-      // Only copy buffer if we actually need to reuse it
-      if (ur->next)
-	{
-	  buf = evbuffer_pullup(update, -1);
-	  evbuffer_add(evbuf, buf, len);
-	  httpd_send_reply(ur->hreq, HTTP_OK, "OK", evbuf, 0);
-	}
-      else
-	httpd_send_reply(ur->hreq, HTTP_OK, "OK", update, 0);
-
-      free(ur);
-    }
-
- out_free_update:
-  evbuffer_free(update);
-  evbuffer_free(evbuf);
- readd:
-  ret = event_add(updateev, NULL);
-  if (ret < 0)
-    DPRINTF(E_LOG, L_DACP, "Couldn't re-add event for playstatusupdate\n");
-}
-
-/* Thread: player */
-static void
-dacp_playstatus_update_handler(short event_mask)
-{
-  int ret;
-
-#ifdef HAVE_EVENTFD
-  ret = eventfd_write(update_efd, 1);
-  if (ret < 0)
-    DPRINTF(E_LOG, L_DACP, "Could not send status update event: %s\n", strerror(errno));
-#else
-  int dummy = 42;
-
-  ret = write(update_pipe[1], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_DACP, "Could not write to status update fd: %s\n", strerror(errno));
-#endif
+  return ur;
 }
 
 static void
-update_fail_cb(httpd_connection *conn, void *arg)
+update_request_free(struct dacp_update_request *ur)
 {
-  struct dacp_update_request *ur;
+  if (!ur)
+    return;
+
+  if (ur->updateev)
+    event_free(ur->updateev);
+
+  free(ur);
+}
+
+static void
+update_request_remove(struct dacp_update_request **head, struct dacp_update_request *ur)
+{
   struct dacp_update_request *p;
 
-  ur = (struct dacp_update_request *)arg;
-
-  DPRINTF(E_DBG, L_DACP, "Update request: client closed connection\n");
-
-  httpd_request_closecb_set(ur->hreq, NULL, NULL);
-
-  if (ur == update_requests)
-    update_requests = ur->next;
+  if (ur == *head)
+    *head = ur->next;
   else
     {
-      for (p = update_requests; p && (p->next != ur); p = p->next)
+      for (p = *head; p && (p->next != ur); p = p->next)
 	;
 
       if (!p)
@@ -840,8 +764,65 @@ update_fail_cb(httpd_connection *conn, void *arg)
       p->next = ur->next;
     }
 
-  httpd_request_backend_free(ur->hreq); // TODO check if still necessary
-  free(ur);
+  update_request_free(ur);
+}
+
+static void
+playstatusupdate_cb(int fd, short what, void *arg)
+{
+  struct dacp_update_request *ur = arg;
+  struct evbuffer *update;
+  int ret;
+
+  CHECK_NULL(L_DACP, update = evbuffer_new());
+
+  ret = make_playstatusupdate(update, update_current_rev);
+  if (ret < 0)
+    goto error;
+
+  httpd_request_closecb_set(ur->hreq, NULL, NULL);
+
+  httpd_send_reply(ur->hreq, HTTP_OK, "OK", update, 0);
+
+  pthread_mutex_lock(&update_request_lck);
+  update_request_remove(&update_requests, ur);
+  pthread_mutex_unlock(&update_request_lck);
+
+ error:
+  evbuffer_free(update);
+}
+
+static void
+update_fail_cb(httpd_connection *conn, void *arg)
+{
+  struct dacp_update_request *ur = arg;
+
+  DPRINTF(E_DBG, L_DACP, "Update request: client closed connection\n");
+
+  httpd_request_closecb_set(ur->hreq, NULL, NULL);
+
+  // Peer won't get this, it is just to make sure hreq and evhttp's request get
+  // freed
+  httpd_send_error(ur->hreq, HTTP_BADREQUEST, "Bad Request");
+
+  pthread_mutex_lock(&update_request_lck);
+  update_request_remove(&update_requests, ur);
+  pthread_mutex_unlock(&update_request_lck);
+}
+
+/* Thread: player */
+static void
+dacp_playstatus_update_handler(short event_mask)
+{
+  struct dacp_update_request *ur;
+
+  pthread_mutex_lock(&update_request_lck);
+  update_current_rev++;
+  for (ur = update_requests; ur; ur = ur->next)
+    {
+      event_active(ur->updateev, 0, 0);
+    }
+  pthread_mutex_unlock(&update_request_lck);
 }
 
 
@@ -1047,7 +1028,10 @@ dacp_propset_devicebusy(const char *value, struct httpd_request *hreq)
 static void
 dacp_propset_playingtime(const char *value, struct httpd_request *hreq)
 {
+  struct event_base *evbase;
   struct timeval tv;
+  int seek_target;
+  intptr_t seek_target_packed;
   int ret;
 
   ret = safe_atoi32(value, &seek_target);
@@ -1058,9 +1042,13 @@ dacp_propset_playingtime(const char *value, struct httpd_request *hreq)
       return;
     }
 
+  seek_target_packed = seek_target;
+
   evutil_timerclear(&tv);
   tv.tv_usec = 200 * 1000;
-  evtimer_add(seek_timer, &tv);
+
+  evbase = httpd_request_evbase_get(hreq);
+  event_base_once(evbase, -1, EV_TIMEOUT, seek_timer_cb, (void *)seek_target_packed, &tv);
 }
 
 static void
@@ -2275,9 +2263,9 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
   // Caller didn't use current revision number. It was probably his first
   // request so we will give him status immediately, incl. which revision number
   // to use when he calls again.
-  if (reqd_rev != current_rev)
+  if (reqd_rev != update_current_rev)
     {
-      ret = make_playstatusupdate(hreq->out_body);
+      ret = make_playstatusupdate(hreq->out_body, update_current_rev);
       if (ret < 0)
 	httpd_send_error(hreq, 500, "Internal Server Error");
       else
@@ -2287,7 +2275,7 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
     }
 
   // Else, just let the request hang until we have changes to push back
-  ur = calloc(1, sizeof(struct dacp_update_request));
+  ur = update_request_new(hreq);
   if (!ur)
     {
       DPRINTF(E_LOG, L_DACP, "Out of memory for update request\n");
@@ -2296,10 +2284,10 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
       return -1;
     }
 
-  ur->hreq = hreq;
-
+  pthread_mutex_lock(&update_request_lck);
   ur->next = update_requests;
   update_requests = ur;
+  pthread_mutex_unlock(&update_request_lck);
 
   /* If the connection fails before we have an update to push out
    * to the client, we need to know.
@@ -2865,15 +2853,9 @@ dacp_request(struct httpd_request *hreq)
   hreq->handler(hreq);
 }
 
-// Forward
-static void
-dacp_deinit(void);
-
 static int
-dacp_init(struct event_base *evbase)
+dacp_init(void)
 {
-  current_rev = 2;
-
   dummy_mfi.id = DB_MEDIA_FILE_NON_PERSISTENT_ID;
   dummy_mfi.title = CFG_NAME_UNKNOWN_TITLE;
   dummy_mfi.artist = CFG_NAME_UNKNOWN_ARTIST;
@@ -2886,41 +2868,11 @@ dacp_init(struct event_base *evbase)
   dummy_queue_item.album = CFG_NAME_UNKNOWN_ALBUM;
   dummy_queue_item.genre = CFG_NAME_UNKNOWN_GENRE;
 
-#ifdef HAVE_EVENTFD
-  update_efd = eventfd(0, EFD_CLOEXEC);
-  if (update_efd < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not create update eventfd: %s\n", strerror(errno));
-      goto error;
-    }
-
-  CHECK_NULL(L_DACP, updateev = event_new(evbase, update_efd, EV_READ, playstatusupdate_cb, NULL));
-#else
-# ifdef HAVE_PIPE2
-  int ret = pipe2(update_pipe, O_CLOEXEC);
-# else
-  int ret = pipe(update_pipe);
-# endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not create update pipe: %s\n", strerror(errno));
-      goto error;
-    }
-
-  CHECK_NULL(L_DACP, updateev = event_new(evbase, update_pipe[0], EV_READ, playstatusupdate_cb, NULL));
-#endif /* HAVE_EVENTFD */
-
-  event_add(updateev, NULL);
-
-  CHECK_NULL(L_DACP, seek_timer = evtimer_new(evbase, seek_timer_cb, NULL));
-
+  CHECK_ERR(L_DACP, mutex_init(&update_request_lck));
+  update_current_rev = 2;
   listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER | LISTENER_VOLUME | LISTENER_QUEUE);
 
   return 0;
-
- error:
-  dacp_deinit();
-  return -1;
 }
 
 static void
@@ -2928,6 +2880,8 @@ dacp_deinit(void)
 {
   struct dacp_update_request *ur;
   httpd_connection *conn;
+
+  listener_remove(dacp_playstatus_update_handler);
 
   for (ur = update_requests; update_requests; ur = update_requests)
     {
@@ -2937,23 +2891,8 @@ dacp_deinit(void)
       conn = httpd_request_connection_get(ur->hreq);
       httpd_connection_free(conn); // TODO necessary?
 
-      free(ur);
+      update_request_free(ur);
     }
-
-  listener_remove(dacp_playstatus_update_handler);
-
-  if (seek_timer)
-   event_free(seek_timer);
-
-  if (updateev)
-    event_free(updateev);
-
-#ifdef HAVE_EVENTFD
-  close(update_efd);
-#else
-  close(update_pipe[0]);
-  close(update_pipe[1]);
-#endif
 }
 
 struct httpd_module httpd_dacp =

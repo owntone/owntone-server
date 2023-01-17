@@ -98,7 +98,7 @@ owntone_SOURCES = main.c \
 	httpd_daap.c httpd_daap.h \
 	httpd_dacp.c \
 	httpd_jsonapi.c \
-	httpd_streaming.c httpd_streaming.h \
+	httpd_streaming.c \
 	httpd_oauth.c \
 	httpd_artworkapi.c \
 	http.c http.h \
@@ -118,7 +118,8 @@ owntone_SOURCES = main.c \
 	outputs/rtp_common.h outputs/rtp_common.c \
 	outputs/raop.c outputs/airplay.c $(PAIR_AP_SRC) \
 	outputs/airplay_events.c outputs/airplay_events.h \
-	outputs/streaming.c outputs/dummy.c outputs/fifo.c outputs/rcp.c \
+	outputs/streaming.c outputs/streaming.h \
+	outputs/dummy.c outputs/fifo.c outputs/rcp.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \

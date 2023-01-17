@@ -317,6 +317,11 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
       if (fd < 0)
 	continue;
 
+      // Makes us able to attach multiple threads to the same port
+      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
+      if (ret < 0)
+	continue;
+
       // TODO libevent sets this, we do the same?
       ret = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
       if (ret < 0)

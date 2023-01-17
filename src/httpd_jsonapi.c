@@ -4755,7 +4755,7 @@ jsonapi_request(struct httpd_request *hreq)
 }
 
 static int
-jsonapi_init(struct event_base *evbase)
+jsonapi_init(void)
 {
   char *temp_path;
 

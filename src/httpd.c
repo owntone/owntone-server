@@ -36,11 +36,9 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include <sys/ioctl.h>
 #include <syscall.h> // get thread ID
 
-#ifdef HAVE_EVENTFD
-# include <sys/eventfd.h>
-#endif
 #include <event2/event.h>
 
 #include <regex.h>
@@ -128,20 +126,374 @@ static const struct content_type_map ext2ctype[] =
   };
 
 static char webroot_directory[PATH_MAX];
-static struct event_base *evbase_httpd;
-
-#ifdef HAVE_EVENTFD
-static int exit_efd;
-#else
-static int exit_pipe[2];
-#endif
-static int httpd_exit;
-static struct event *exitev;
-static httpd_server *httpd_serv;
-static pthread_t tid_httpd;
 
 static const char *httpd_allow_origin;
 static int httpd_port;
+
+
+#define THREADPOOL_NTHREADS 4
+
+struct evthr_pool;
+
+static struct evthr_pool *httpd_threadpool;
+
+
+/* ----------------- Thread handling borrowed from libevhtp ----------------- */
+
+#ifndef TAILQ_FOREACH_SAFE
+#define TAILQ_FOREACH_SAFE(var, head, field, tvar)        \
+    for ((var) = TAILQ_FIRST((head));                     \
+         (var) && ((tvar) = TAILQ_NEXT((var), field), 1); \
+         (var) = (tvar))
+#endif
+
+#define _evthr_read(thr, cmd, sock) \
+    (recv(sock, cmd, sizeof(struct evthr_cmd), 0) == sizeof(struct evthr_cmd)) ? 1 : 0
+
+#define EVTHR_SHARED_PIPE 1
+
+enum evthr_res {
+    EVTHR_RES_OK = 0,
+    EVTHR_RES_BACKLOG,
+    EVTHR_RES_RETRY,
+    EVTHR_RES_NOCB,
+    EVTHR_RES_FATAL
+};
+
+struct evthr;
+
+typedef void (*evthr_cb)(struct evthr *thr, void *cmd_arg, void *shared);
+typedef void (*evthr_init_cb)(struct evthr *thr, void *shared);
+typedef void (*evthr_exit_cb)(struct evthr *thr, void *shared);
+
+struct evthr_cmd {
+    uint8_t  stop;
+    void *args;
+    evthr_cb cb;
+} __attribute__((packed));
+
+struct evthr_pool {
+#ifdef EVTHR_SHARED_PIPE
+    int rdr;
+    int wdr;
+#endif
+    int nthreads;
+    TAILQ_HEAD(evthr_pool_slist, evthr) threads;
+};
+
+struct evthr {
+    int             rdr;
+    int             wdr;
+    char            err;
+    struct event *event;
+    struct event_base *evbase;
+    httpd_server *server;
+    pthread_mutex_t lock;
+    pthread_t     *thr;
+    evthr_init_cb   init_cb;
+    evthr_exit_cb   exit_cb;
+    void          *arg;
+    void          *aux;
+#ifdef EVTHR_SHARED_PIPE
+    int            pool_rdr;
+    struct event *shared_pool_ev;
+#endif
+    TAILQ_ENTRY(evthr) next;
+};
+
+
+static void
+_evthr_read_cmd(evutil_socket_t sock, short which, void *args)
+{
+    struct evthr *thread;
+    struct evthr_cmd cmd;
+    int stopped;
+
+    if (!(thread = (struct evthr *)args)) {
+        return;
+    }
+
+    stopped = 0;
+
+    if (_evthr_read(thread, &cmd, sock) == 1) {
+        stopped = cmd.stop;
+
+        if (cmd.cb != NULL) {
+            (cmd.cb)(thread, cmd.args, thread->arg);
+        }
+    }
+
+    if (stopped == 1) {
+        event_base_loopbreak(thread->evbase);
+    }
+
+    return;
+}
+
+static void *
+_evthr_loop(void *args)
+{
+    struct evthr *thread;
+
+    if (!(thread = (struct evthr *)args)) {
+        return NULL;
+    }
+
+    if (thread == NULL || thread->thr == NULL) {
+        pthread_exit(NULL);
+    }
+
+    thread->evbase = event_base_new();
+    thread->event  = event_new(thread->evbase, thread->rdr,
+                               EV_READ | EV_PERSIST, _evthr_read_cmd, args);
+
+    event_add(thread->event, NULL);
+
+#ifdef EVTHR_SHARED_PIPE
+    if (thread->pool_rdr > 0) {
+        thread->shared_pool_ev = event_new(thread->evbase, thread->pool_rdr,
+                                           EV_READ | EV_PERSIST, _evthr_read_cmd, args);
+        event_add(thread->shared_pool_ev, NULL);
+    }
+#endif
+
+    pthread_mutex_lock(&thread->lock);
+    if (thread->init_cb != NULL) {
+        (thread->init_cb)(thread, thread->arg);
+    }
+
+    pthread_mutex_unlock(&thread->lock);
+
+    CHECK_ERR(L_MAIN, thread->err);
+
+    event_base_loop(thread->evbase, 0);
+
+    pthread_mutex_lock(&thread->lock);
+    if (thread->exit_cb != NULL) {
+        (thread->exit_cb)(thread, thread->arg);
+    }
+
+    pthread_mutex_unlock(&thread->lock);
+
+    pthread_exit(NULL);
+}
+
+static enum evthr_res
+evthr_stop(struct evthr *thread)
+{
+    struct evthr_cmd cmd = {
+        .cb   = NULL,
+        .args = NULL,
+        .stop = 1
+    };
+
+    if (send(thread->wdr, &cmd, sizeof(struct evthr_cmd), 0) < 0) {
+        return EVTHR_RES_RETRY;
+    }
+
+    pthread_join(*thread->thr, NULL);
+    return EVTHR_RES_OK;
+}
+
+static void
+evthr_free(struct evthr *thread)
+{
+    if (thread == NULL) {
+        return;
+    }
+
+    if (thread->rdr > 0) {
+        close(thread->rdr);
+    }
+
+    if (thread->wdr > 0) {
+        close(thread->wdr);
+    }
+
+    if (thread->thr) {
+        free(thread->thr);
+    }
+
+    if (thread->event) {
+        event_free(thread->event);
+    }
+
+#ifdef EVTHR_SHARED_PIPE
+    if (thread->shared_pool_ev) {
+        event_free(thread->shared_pool_ev);
+    }
+#endif
+
+    if (thread->evbase) {
+        event_base_free(thread->evbase);
+    }
+
+    free(thread);
+}
+
+static struct evthr *
+evthr_wexit_new(evthr_init_cb init_cb, evthr_exit_cb exit_cb, void *args)
+{
+    struct evthr *thread;
+    int fds[2];
+
+    if (evutil_socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == -1) {
+        return NULL;
+    }
+
+    evutil_make_socket_nonblocking(fds[0]);
+    evutil_make_socket_nonblocking(fds[1]);
+
+    if (!(thread = calloc(1, sizeof(struct evthr)))) {
+        return NULL;
+    }
+
+    thread->thr     = malloc(sizeof(pthread_t));
+    thread->arg     = args;
+    thread->rdr     = fds[0];
+    thread->wdr     = fds[1];
+
+    thread->init_cb = init_cb;
+    thread->exit_cb = exit_cb;
+
+    if (pthread_mutex_init(&thread->lock, NULL)) {
+        evthr_free(thread);
+        return NULL;
+    }
+
+    return thread;
+}
+
+static int
+evthr_start(struct evthr *thread)
+{
+    if (thread == NULL || thread->thr == NULL) {
+        return -1;
+    }
+
+    if (pthread_create(thread->thr, NULL, _evthr_loop, (void *)thread)) {
+        return -1;
+    }
+
+    return 0;
+}
+
+static void
+evthr_pool_free(struct evthr_pool *pool)
+{
+    struct evthr *thread;
+    struct evthr *save;
+
+    if (pool == NULL) {
+        return;
+    }
+
+    TAILQ_FOREACH_SAFE(thread, &pool->threads, next, save) {
+        TAILQ_REMOVE(&pool->threads, thread, next);
+
+        evthr_free(thread);
+    }
+
+    free(pool);
+}
+
+static enum evthr_res
+evthr_pool_stop(struct evthr_pool *pool)
+{
+    struct evthr *thr;
+    struct evthr *save;
+
+    if (pool == NULL) {
+        return EVTHR_RES_FATAL;
+    }
+
+    TAILQ_FOREACH_SAFE(thr, &pool->threads, next, save) {
+        evthr_stop(thr);
+    }
+
+    return EVTHR_RES_OK;
+}
+
+static inline int
+get_backlog_(struct evthr *thread)
+{
+    int backlog = 0;
+
+    ioctl(thread->rdr, FIONREAD, &backlog);
+
+    return (int)(backlog / sizeof(struct evthr_cmd));
+}
+
+static struct evthr_pool *
+evthr_pool_wexit_new(int nthreads, evthr_init_cb init_cb, evthr_exit_cb exit_cb, void *shared)
+{
+    struct evthr_pool *pool;
+    int            i;
+
+#ifdef EVTHR_SHARED_PIPE
+    int            fds[2];
+#endif
+
+    if (nthreads == 0) {
+        return NULL;
+    }
+
+    if (!(pool = calloc(1, sizeof(struct evthr_pool)))) {
+        return NULL;
+    }
+
+    pool->nthreads = nthreads;
+    TAILQ_INIT(&pool->threads);
+
+#ifdef EVTHR_SHARED_PIPE
+    if (evutil_socketpair(AF_UNIX, SOCK_DGRAM, 0, fds) == -1) {
+        return NULL;
+    }
+
+    evutil_make_socket_nonblocking(fds[0]);
+    evutil_make_socket_nonblocking(fds[1]);
+
+    pool->rdr = fds[0];
+    pool->wdr = fds[1];
+#endif
+
+    for (i = 0; i < nthreads; i++) {
+        struct evthr * thread;
+
+        if (!(thread = evthr_wexit_new(init_cb, exit_cb, shared))) {
+            evthr_pool_free(pool);
+            return NULL;
+        }
+
+#ifdef EVTHR_SHARED_PIPE
+        thread->pool_rdr = fds[0];
+#endif
+
+        TAILQ_INSERT_TAIL(&pool->threads, thread, next);
+    }
+
+    return pool;
+}
+
+static int
+evthr_pool_start(struct evthr_pool *pool)
+{
+    struct evthr *evthr = NULL;
+
+    if (pool == NULL) {
+        return -1;
+    }
+
+    TAILQ_FOREACH(evthr, &pool->threads, next) {
+        if (evthr_start(evthr) < 0) {
+            return -1;
+        }
+
+        usleep(5000);
+    }
+
+    return 0;
+}
 
 
 /* -------------------------------- HELPERS --------------------------------- */
@@ -220,7 +572,7 @@ modules_handlers_set(struct httpd_uri_map *uri_map)
 }
 
 static int
-modules_init(struct event_base *evbase)
+modules_init(void)
 {
   struct httpd_module **ptr;
   struct httpd_module *m;
@@ -228,7 +580,7 @@ modules_init(struct event_base *evbase)
   for (ptr = httpd_modules; *ptr; ptr++)
     {
       m = *ptr;
-      m->initialized = (!m->init || m->init(evbase) == 0);
+      m->initialized = (!m->init || m->init() == 0);
       if (!m->initialized)
 	{
 	  DPRINTF(E_FATAL, L_HTTPD, "%s init failed\n", m->name);
@@ -290,6 +642,35 @@ modules_search(const char *path)
 
 
 /* --------------------------- REQUEST HELPERS ------------------------------ */
+
+static void
+cors_headers_add(struct httpd_request *hreq, const char *allow_origin)
+{
+  if (allow_origin)
+    httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", httpd_allow_origin);
+
+  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Headers", "authorization");
+}
+
+static int
+handle_cors_preflight(struct httpd_request *hreq, const char *allow_origin)
+{
+  bool is_cors_preflight;
+
+  is_cors_preflight = ( hreq->method == HTTPD_METHOD_OPTIONS && hreq->in_headers && allow_origin &&
+                        httpd_header_find(hreq->in_headers, "Origin") &&
+                        httpd_header_find(hreq->in_headers, "Access-Control-Request-Method") );
+  if (!is_cors_preflight)
+    return -1;
+
+  cors_headers_add(hreq, allow_origin);
+
+  // In this case there is no reason to go through httpd_send_reply
+  httpd_backend_reply_send(hreq->backend, HTTP_OK, "OK", NULL);
+  httpd_request_free(hreq);
+  return 0;
+}
 
 void
 httpd_request_handler_set(struct httpd_request *hreq)
@@ -750,57 +1131,6 @@ stream_fail_cb(httpd_connection *conn, void *arg)
 
 /* ---------------------------- MAIN HTTPD THREAD --------------------------- */
 
-static void *
-httpd(void *arg)
-{
-  int ret;
-
-  ret = db_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Error: DB init failed\n");
-
-      pthread_exit(NULL);
-    }
-
-  event_base_dispatch(evbase_httpd);
-
-  if (!httpd_exit)
-    DPRINTF(E_FATAL, L_HTTPD, "HTTPd event loop terminated ahead of time!\n");
-
-  db_perthread_deinit();
-
-  pthread_exit(NULL);
-}
-
-static void
-exit_cb(int fd, short event, void *arg)
-{
-  event_base_loopbreak(evbase_httpd);
-
-  httpd_exit = 1;
-}
-
-static int
-handle_cors_preflight(struct httpd_request *hreq, const char *allow_origin)
-{
-  bool is_cors_preflight;
-
-  is_cors_preflight = ( hreq->method == HTTPD_METHOD_OPTIONS && hreq->in_headers && allow_origin &&
-                        httpd_header_find(hreq->in_headers, "Origin") &&
-                        httpd_header_find(hreq->in_headers, "Access-Control-Request-Method") );
-  if (!is_cors_preflight)
-    return -1;
-
-  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", allow_origin);
-  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  httpd_header_add(hreq->out_headers, "Access-Control-Allow-Headers", "authorization");
-
-  // In this case there is no reason to go through httpd_send_reply
-  httpd_backend_reply_send(hreq->backend, HTTP_OK, "OK", NULL);
-  return 0;
-}
-
 static void
 request_cb(struct httpd_request *hreq, void *arg)
 {
@@ -850,6 +1180,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   void (*stream_cb)(int fd, short event, void *arg);
   struct stat sb;
   struct timeval tv;
+  struct event_base *evbase;
   const char *param;
   const char *param_end;
   const char *client_codecs;
@@ -1041,7 +1372,9 @@ httpd_stream_file(struct httpd_request *hreq, int id)
       goto out_cleanup;
     }
 
-  st->ev = event_new(evbase_httpd, -1, EV_TIMEOUT, stream_cb, st);
+  evbase = httpd_request_evbase_get(hreq);
+
+  st->ev = event_new(evbase, -1, EV_TIMEOUT, stream_cb, st);
   evutil_timerclear(&tv);
   if (!st->ev || (event_add(st->ev, &tv) < 0))
     {
@@ -1215,8 +1548,7 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
               (strstr(param, "gzip") || strstr(param, "*"))
             );
 
-  if (httpd_allow_origin)
-    httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", httpd_allow_origin);
+  cors_headers_add(hreq, httpd_allow_origin);
 
   if (do_gzip && (gzbuf = httpd_gzip_deflate(evbuf)))
     {
@@ -1233,11 +1565,15 @@ httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struc
     {
       httpd_backend_reply_send(hreq->backend, code, reason, evbuf);
     }
+
+  httpd_request_free(hreq);
 }
 
 void
 httpd_send_reply_start(struct httpd_request *hreq, int code, const char *reason)
 {
+  cors_headers_add(hreq, httpd_allow_origin);
+
   httpd_backend_reply_start_send(hreq->backend, code, reason);
 }
 
@@ -1251,6 +1587,7 @@ void
 httpd_send_reply_end(struct httpd_request *hreq)
 {
   httpd_backend_reply_end_send(hreq->backend);
+  httpd_request_free(hreq);
 }
 
 // This is a modified version of evhttp_send_error (credit libevent)
@@ -1261,8 +1598,8 @@ httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
 
   httpd_headers_clear(hreq->out_headers);
 
-  if (httpd_allow_origin)
-    httpd_header_add(hreq->out_headers, "Access-Control-Allow-Origin", httpd_allow_origin);
+  cors_headers_add(hreq, httpd_allow_origin);
+
   httpd_header_add(hreq->out_headers, "Content-Type", "text/html");
   httpd_header_add(hreq->out_headers, "Connection", "close");
 
@@ -1276,6 +1613,8 @@ httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
 
   if (evbuf)
     evbuffer_free(evbuf);
+
+  httpd_request_free(hreq);
 }
 
 bool
@@ -1408,12 +1747,46 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
   return -1;
 }
 
+static void
+thread_init_cb(struct evthr *thr, void *shared)
+{
+  int ret;
+
+  thread_setname(pthread_self(), "httpd");
+
+  ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Error: DB init failed\n");
+      thr->err = EIO;
+      return;
+    }
+
+  thr->server = httpd_server_new(thr->evbase, httpd_port, request_cb, NULL);
+  if (!thr->server)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server on port %d (server already running?)\n", httpd_port);
+      thr->err = EIO;
+      return;
+    }
+
+  // For CORS headers
+  httpd_server_allow_origin_set(thr->server, httpd_allow_origin);
+}
+
+static void
+thread_exit_cb(struct evthr *thr, void *shared)
+{
+  httpd_server_free(thr->server);
+
+  db_perthread_deinit();
+}
+
 /* Thread: main */
 int
 httpd_init(const char *webroot)
 {
   struct stat sb;
-  int exit_fd;
   int ret;
 
   DPRINTF(E_DBG, L_HTTPD, "Starting web server with root directory '%s'\n", webroot);
@@ -1434,42 +1807,18 @@ httpd_init(const char *webroot)
       return -1;
     }
 
-  CHECK_NULL(L_HTTPD, evbase_httpd = event_base_new());
-
-#ifdef HAVE_EVENTFD
-  CHECK_ERRNO(L_HTTPD, exit_efd = eventfd(0, EFD_CLOEXEC));
-  exit_fd = exit_efd;
-#else
-# ifdef HAVE_PIPE2
-  CHECK_ERRNO(L_HTTPD, pipe2(exit_pipe, O_CLOEXEC));
-# else
-  CHECK_ERRNO(L_HTTPD, pipe(exit_pipe));
-# endif
-  exit_fd = exit_pipe[0];
-#endif /* HAVE_EVENTFD */
-  CHECK_NULL(L_HTTPD, exitev = event_new(evbase_httpd, exit_fd, EV_READ, exit_cb, NULL));
-  event_add(exitev, NULL);
-
+  // Read config
   httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-  httpd_serv = httpd_server_new(evbase_httpd, httpd_port, request_cb, NULL);
-  if (!httpd_serv)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server on port %d (server already running?)\n", httpd_port);
-      goto server_fail;
-    }
-
-  // For CORS headers
   httpd_allow_origin = cfg_getstr(cfg_getsec(cfg, "general"), "allow_origin");
   if (strlen(httpd_allow_origin) == 0)
     httpd_allow_origin = NULL;
-  httpd_server_allow_origin_set(httpd_serv, httpd_allow_origin);
 
   // Prepare modules, e.g. httpd_daap
-  ret = modules_init(evbase_httpd);
+  ret = modules_init();
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Modules init failed\n");
-      goto modules_fail;
+      goto error;
     }
 
 #ifdef HAVE_LIBWEBSOCKETS
@@ -1477,39 +1826,28 @@ httpd_init(const char *webroot)
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Websocket init failed\n");
-      goto websocket_fail;
+      goto error;
     }
 #endif
 
-  ret = pthread_create(&tid_httpd, NULL, httpd, NULL);
-  if (ret != 0)
+  httpd_threadpool = evthr_pool_wexit_new(THREADPOOL_NTHREADS, thread_init_cb, thread_exit_cb, NULL);
+  if (!httpd_threadpool)
     {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not spawn HTTPd thread: %s\n", strerror(errno));
-      goto thread_fail;
+      DPRINTF(E_LOG, L_HTTPD, "Could not create httpd thread pool\n");
+      goto error;
     }
 
-  thread_setname(tid_httpd, "httpd");
+  ret = evthr_pool_start(httpd_threadpool);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not spawn worker threads\n");
+      goto error;
+    }
 
   return 0;
 
- thread_fail:
-#ifdef HAVE_LIBWEBSOCKETS
-  websocket_deinit();
- websocket_fail:
-#endif
-  modules_deinit();
- modules_fail:
-  httpd_server_free(httpd_serv);
- server_fail:
-  event_free(exitev);
-#ifdef HAVE_EVENTFD
-  close(exit_efd);
-#else
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
-#endif
-  event_base_free(evbase_httpd);
-
+ error:
+  httpd_deinit();
   return -1;
 }
 
@@ -1517,49 +1855,13 @@ httpd_init(const char *webroot)
 void
 httpd_deinit(void)
 {
-  int ret;
-
-#ifdef HAVE_EVENTFD
-  ret = eventfd_write(exit_efd, 1);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not send exit event: %s\n", strerror(errno));
-
-      return;
-    }
-#else
-  int dummy = 42;
-
-  ret = write(exit_pipe[1], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not write to exit fd: %s\n", strerror(errno));
-
-      return;
-    }
-#endif
-
-  ret = pthread_join(tid_httpd, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not join HTTPd thread: %s\n", strerror(errno));
-
-      return;
-    }
-
+  // Give modules a chance to hang up connections nicely
   modules_deinit();
 
 #ifdef HAVE_LIBWEBSOCKETS
   websocket_deinit();
 #endif
 
-#ifdef HAVE_EVENTFD
-  close(exit_efd);
-#else
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
-#endif
-  event_free(exitev);
-  httpd_server_free(httpd_serv);
-  event_base_free(evbase_httpd);
+  evthr_pool_stop(httpd_threadpool);
+  evthr_pool_free(httpd_threadpool);
 }

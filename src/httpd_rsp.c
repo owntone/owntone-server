@@ -880,7 +880,7 @@ rsp_request(struct httpd_request *hreq)
 }
 
 static int
-rsp_init(struct event_base *evbase)
+rsp_init(void)
 {
   snprintf(rsp_filter_files, sizeof(rsp_filter_files), "f.data_kind = %d", DATA_KIND_FILE);
 

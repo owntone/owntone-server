@@ -43,7 +43,7 @@
 #include "worker.h"
 #include "misc.h"
 
-#define THREADPOOL_NTHREADS 4
+#define THREADPOOL_NTHREADS 2
 
 struct evthr_pool;
 
