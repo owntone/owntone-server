@@ -47,9 +47,7 @@
 
 #include <getopt.h>
 #include <event2/event.h>
-#ifdef HAVE_LIBEVENT_PTHREADS
-# include <event2/thread.h>
-#endif
+#include <event2/thread.h>
 #include <libavutil/avutil.h>
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
@@ -730,9 +728,7 @@ main(int argc, char **argv)
   /* Initialize event base (after forking) */
   CHECK_NULL(L_MAIN, evbase_main = event_base_new());
 
-#ifdef HAVE_LIBEVENT_PTHREADS
   CHECK_ERR(L_MAIN, evthread_use_pthreads());
-#endif
 
   DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
   ret = mdns_init();
