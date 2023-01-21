@@ -8,7 +8,7 @@
     }
   },
   "dialog": {
-    "cancel": "Cancel",
+    "cancel": "Abbrechen",
     "add": {
       "rss": {
         "add": "Hinzufügen",
@@ -20,7 +20,7 @@
       },
       "stream": {
         "add": "Hinzufügen",
-        "cancel": "Cancel",
+        "cancel": "Abbrechen",
         "loading": "Lade…",
         "placeholder": "https://url-to-stream",
         "play": "Spielen",
@@ -45,7 +45,7 @@
       "add-next": "Als nächstes hinzufügen",
       "add": "Hinzufügen",
       "added-on": "Hinzugefügt am",
-      "albums": "Albums",
+      "albums": "Alben",
       "play": "Spielen",
       "tracks": "Tracks",
       "type": "Art"
@@ -53,7 +53,7 @@
     "composer": {
       "add-next": "Als nächstes hinzufügen",
       "add": "Hinzufügen",
-      "albums": "Albums",
+      "albums": "Alben",
       "duration": "Dauer",
       "play": "Spielen",
       "tracks": "Tracks"
@@ -66,7 +66,7 @@
     "genre": {
       "add-next": "Als nächstes hinzufügen",
       "add": "Hinzufügen",
-      "albums": "Albums",
+      "albums": "Alben",
       "duration": "Dauer",
       "play": "Spielen",
       "tracks": "Tracks"
@@ -384,7 +384,7 @@
       "count": "{count} Tracks",
       "edit": "Bearbeiten",
       "hide-previous": "Vorherige verbergen",
-      "title": "Abspielliste",
+      "title": "Warteschlange",
       "save": "Speichern"
     },
     "radio": {
@@ -537,9 +537,9 @@
     "connection-failed": "Fehler bei Verbindung zum OwnTone-Server",
     "missing-port": "Fehlender Websocket-Port",
     "request-failed": "Anfrage gescheitert (Status: {status} {cause} {url})",
-    "queue-saved": "Abspielliste zu Playlist {name} gesichert",
+    "queue-saved": "Warteschlange zu Playlist {name} gesichert",
     "appended-tracks": "{count} Tracks an die Abspielliste angehängt",
-    "empty-queue": "Abspielliste ist leer"
+    "empty-queue": "Warteschlange ist leer"
   },
   "group-by-list": {
     "today": "Heute",
