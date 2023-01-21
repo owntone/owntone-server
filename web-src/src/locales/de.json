@@ -1,0 +1,549 @@
+{
+  "data": {
+    "kind": {
+      "file": "Datei",
+      "url": "URL",
+      "spotify": "Spotify",
+      "pipe": "Stream"
+    }
+  },
+  "dialog": {
+    "cancel": "Abbrechen",
+    "add": {
+      "rss": {
+        "add": "Hinzufügen",
+        "cancel": "Abbrechen",
+        "help": "Hinzufügen eines Podcasts führt zur Anlage einer RSS-Playlist, so kann Owntone das Podcast-Abo verwalten.",
+        "placeholder": "https://url-to-rss",
+        "processing": "Verarbeite…",
+        "title": "Füge Podcast RSS-Feed-Url hinzu"
+      },
+      "stream": {
+        "add": "Hinzufügen",
+        "cancel": "Abbrechen",
+        "loading": "Lade…",
+        "placeholder": "https://url-to-stream",
+        "play": "Spielen",
+        "title": "Stream-URL hinzufügen"
+      }
+    },
+    "album": {
+      "add-next": "Als nächstes hinzufügen",
+      "add": "Hinzufügen",
+      "added-on": "Hinzugefügt am",
+      "artist": "Album Künstler",
+      "duration": "Dauer",
+      "mark-as-played": "Markiere als gespielt",
+      "play": "Spielen",
+      "release-date": "Veröffentlichungsdatum",
+      "remove-podcast": "Entferne podcast",
+      "tracks": "Track Nummer",
+      "type": "Art",
+      "year": "Jahr"
+    },
+    "artist": {
+      "add-next": "Als nächstes hinzufügen",
+      "add": "Hinzufügen",
+      "added-on": "Hinzugefügt am",
+      "albums": "Alben",
+      "play": "Spielen",
+      "tracks": "Tracks",
+      "type": "Art"
+    },
+    "composer": {
+      "add-next": "Als nächstes hinzufügen",
+      "add": "Hinzufügen",
+      "albums": "Alben",
+      "duration": "Dauer",
+      "play": "Spielen",
+      "tracks": "Tracks"
+    },
+    "directory": {
+      "add-next": "Als nächstes hinzufügen",
+      "add": "Hinzufügen",
+      "play": "Spielen"
+    },
+    "genre": {
+      "add-next": "Als nächstes hinzufügen",
+      "add": "Hinzufügen",
+      "albums": "Alben",
+      "duration": "Dauer",
+      "play": "Spielen",
+      "tracks": "Tracks"
+    },
+    "playlist": {
+      "add-next": "Als nächstes hinzufügen",
+      "add": "Hinzufügen",
+      "play": "Spielen",
+      "track-count": "Tracknummer",
+      "type": "Art",
+      "save": {
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "saving": "Speichere…",
+        "title": "Warteschlange als Playlist speichern"
+      }
+    },
+    "queue-item": {
+      "album-artist": "Album-Künstler",
+      "album": "Album",
+      "bitrate": "{'|'} {rate} kbit/s",
+      "channels": "{'|'} {channels}",
+      "composer": "Komponist",
+      "duration": "Dauer",
+      "genre": "Genre",
+      "path": "Pfad",
+      "play": "Spielen",
+      "position": "Disc / Track",
+      "quality": "Qualität",
+      "remove": "Entfernen",
+      "samplerate": "{'|'} {rate} Hz",
+      "spotify-album": "Album",
+      "spotify-artist": "Künstler",
+      "type": "Art",
+      "year": "Jahr"
+    },
+    "remote-pairing": {
+      "cancel": "Abbrechen",
+      "pair": "Remote paaren",
+      "title": "Remote-Paarungs-Anfrage"
+    },
+    "spotify": {
+      "album": {
+        "add-next": "Als nächstes hinzufügen",
+        "add": "Hinzufügen",
+        "album-artist": "Album-Künstler",
+        "play": "Spielen",
+        "release-date": "Veröffentlichungsdatum",
+        "type": "Art"
+      },
+      "artist": {
+        "add-next": "Als nächstes hinzufügen",
+        "add": "Hinzufügen",
+        "genres": "Genres",
+        "play": "Spielen",
+        "popularity": "Popularität / Followers"
+      },
+      "playlist": {
+        "add-next": "Als nächstes hinzufügen",
+        "add": "Hinzufügen",
+        "owner": "Besitzer",
+        "path": "Pfad",
+        "play": "Spielen",
+        "tracks": "Tracks"
+      },
+      "track": {
+        "add-next": "Als nächstes hinzufügen",
+        "add": "Hinzufügen",
+        "album-artist": "Album-Künstler",
+        "album": "Album",
+        "duration": "Dauer",
+        "path": "Pfad",
+        "play": "Spielen",
+        "position": "Disc / Track",
+        "release-date": "Veröffentlichungsdatum"
+      }
+    },
+    "track": {
+      "add-next": "Als nächstes hinzufügen",
+      "add": "Hinzufügen",
+      "added-on": "Hinzugefügt am",
+      "album-artist": "Album-Künstler",
+      "album": "Album",
+      "bitrate": " {'|'} {rate} Kb/s",
+      "channels": " {'|'} {channels}",
+      "comment": "Kommentar",
+      "composer": "Komponist",
+      "duration": "Dauer",
+      "genre": "Genre",
+      "mark-as-new": "Markiere als neu",
+      "mark-as-played": "Markiere als gespielt",
+      "path": "Pfad",
+      "play": "Spielen",
+      "position": "Disc / Track",
+      "quality": "Qualität",
+      "rating-value": "{rating} / 10",
+      "rating": "Bewertung",
+      "release-date": "Veröffentlichungsdatum",
+      "samplerate": " {'|'} {rate} Hz",
+      "spotify-album": "Album",
+      "spotify-artist": "Künstler",
+      "type": "Art",
+      "year": "Jahr"
+    },
+    "update": {
+      "all": "Alles neu einlesen",
+      "cancel": "Abbrechen",
+      "feeds": "Nur RSS-Feeds neu einlesen",
+      "info": "Suche nach neuen, gelöschten und veränderten Dateien",
+      "local": "Nur lokale Bibliothek neu einlesen",
+      "progress": "Bibliothek wird neu eingelesen…",
+      "rescan-metadata": "Metadata von unveränderten Dateien neu einlesen",
+      "rescan": "Neu einlesen",
+      "spotify": "Nur Spotify neu einlesen",
+      "title": "Bibliothek neu einlesen"
+    }
+  },
+  "language": {
+    "en": "English",
+    "fr": "French (Français)",
+    "de": "German (Deutsch)"
+  },
+  "list": {
+    "albums": {
+      "info-1": "Diesen Podcast dauerhaft aus der Bibliothek löschen?",
+      "info-2": "Dies wir auch RSS-Playlisten löschen ",
+      "notification": "Podcast kann nicht gelöscht werden - evtl. wurde er nicht als RSS-Playlist hinzugefügt."
+    },
+    "spotify": {
+      "not-playable-track": "Track kann nicht gespielt werden",
+      "restriction-reason": ", restriction reason: {reason}"
+    }
+  },
+  "media": {
+    "kind": {
+      "album": "Album",
+      "audiobook": "Hörbuch",
+      "music": "Musik",
+      "podcast": "Podcast"
+    }
+  },
+  "navigation": {
+    "about": "Über",
+    "albums": "Alben",
+    "artists": "Künstler",
+    "audiobooks": "Hörbücher",
+    "now-playing": " - {album}",
+    "stream-error": "HTTP-stream-Fehler: Stream kann nicht geladen werden oder wurde wg. Netzwerkfehler gestopt",
+    "stream": "HTTP-stream",
+    "volume": "Lautstärke",
+    "files": "Dateien",
+    "genres": "Genres",
+    "music": "Musik",
+    "playlists": "Playlisten",
+    "podcasts": "Podcasts",
+    "radio": "Radio",
+    "search": "Suche",
+    "settings": "Einstellungen",
+    "spotify": "Spotify",
+    "title": "OwnTone",
+    "update-library": "Bibliothek neu einlesen"
+  },
+  "page": {
+    "about": {
+      "albums": "Albums",
+      "artists": "Künstler",
+      "built-with": "Oberfläche erstellt mit <a href=\"https://bulma.io\">Bulma</a>, <a href=\"https://materialdesignicons.com/\">Material Design Icons</a>, <a href=\"https://vuejs.org/\">Vue.js</a>, <a href=\"https://github.com/mzabriskie/axios\">axios</a> und <a href=\"https://github.com/owntone/owntone-server/network/dependencies\">anderem</a>.",
+      "compiled-with": "Compiliert mit Unterstützung von {options}.",
+      "library": "Bibliothek",
+      "total-playtime": "Gesamte Spielzeit",
+      "tracks": "Tracks",
+      "update": "Neu einlesen",
+      "updated-on": "vor {time}",
+      "updated": "Neu eingelesen",
+      "uptime": "Laufzeit",
+      "version": "Version {version}"
+    },
+    "album": {
+      "shuffle": "Zufallswiedergabe",
+      "track-count": "{count} Tracks"
+    },
+    "albums": {
+      "count": "{count} Slbums",
+      "filter": "Filter",
+      "hide-singles-help": "Nach Aktivierung werden keine Singles und Alben angezeigt, die nur in Playlists enthalten sind.",
+      "hide-singles": "Nach Aktivierung werden keine  Singles angezeigt",
+      "hide-spotify-help": "Nach Aktivierung werden keine Alben angezeigt, die nur in der Spotify-Bibliothek enthalten sind.",
+      "hide-spotify": "Verbirgt Spotify-Alben",
+      "title": "Alben",
+      "sort-by": {
+        "title": "Sortieren nach",
+        "name": "Name",
+        "recently-added": "Kürzlich hinzugefügt",
+        "recently-released": "Kürzlich erschienen"
+      }
+    },
+    "artist": {
+      "album-count": "{count} Alben",
+      "shuffle": "Zufallswiedergabe",
+      "track-count": "{count} Tracks",
+      "sort-by": {
+        "title": "Sortieren nach",
+        "name": "Name",
+        "release-date": "Erscheinungsdatum"
+      }
+    },
+    "artists": {
+      "count": "{count} Künstler",
+      "filter": "Filter",
+      "sort-by": {
+        "title": "Sortieren nach",
+        "name": "Namen",
+        "recently-added": "Kürzlich hinzugefügt"
+      },
+      "hide-singles-help": "Nach Aktivierung werden keine Singles und Alben angezeigt, die nur in Playlists enthalten sind.",
+      "hide-singles": "Nach Aktivierung werden keine  Singles angezeigt",
+      "hide-spotify-help": "Nach Aktivierung werden keine Alben angezeigt, die nur in der Spotify-Bibliothek enthalten sind.",
+      "hide-spotify": "Verbirgt Künstler auf Spotify",
+      "title": "Künstler"
+    },
+    "audiobooks": {
+      "album": {
+        "play": "Spielen",
+        "track-count": "{count} Tracks"
+      },
+      "albums": {
+        "count": "{count} Hörbücher",
+        "title": "Hörbücher"
+      },
+      "artist": {
+        "albums-count": "{count} Alben",
+        "shuffle": "Zufallswiedergabe"
+      },
+      "artists": {
+        "count": "{count} Autoren",
+        "title": "Autoren"
+      },
+      "tabs": {
+        "authors": "Autoren",
+        "audiobooks": "Hörbücher"
+      }
+    },
+    "browse": {
+      "albums": "Alben",
+      "show-more": "Zeige mehr",
+      "tracks": "Tracks",
+      "recently-added": {
+        "albums": "Alben",
+        "title": "Kürzlich hinzugefügt"
+      },
+      "recently-played": {
+        "title": "Kürzlich gespielt",
+        "tracks": "Tracks"
+      },
+      "tabs": {
+        "albums": "Alben",
+        "artists": "Künstler",
+        "browse": "Auswählen",
+        "composers": "Komponisten",
+        "genres": "Genres",
+        "spotify": "Spotify"
+      }
+    },
+    "composer": {
+      "album-count": "{count} Alben",
+      "shuffle": "Zufallswiedergabe",
+      "track-count": "{count} Tracks"
+    },
+    "composers": {
+      "count": "{count} Komponisten",
+      "title": "Komponisten"
+    },
+    "files": {
+      "play": "Spielen",
+      "title": "Dateien"
+    },
+    "genre": {
+      "album-count": "{count} Alben",
+      "shuffle": "Zufallswiedergabe",
+      "track-count": "{count} Tracks"
+    },
+    "genres": {
+      "count": "{count} Genres",
+      "title": "Genres"
+    },
+    "now-playing": {
+      "info": "Tracks durch Auswählen aus der Bibliothek anfügen",
+      "title": "Deine Playliste ist leer."
+    },
+    "playlist": {
+      "length": "{length} Tracks",
+      "shuffle": "Zufallswiedergabe"
+    },
+    "playlists": {
+      "count": "{count} Playlists"
+    },
+    "podcast": {
+      "play": "Spielen",
+      "remove-error": "Podcast kann nicht entfernt werden, evtl. wurde er nicht als RSS-Playlist hinzugefügt.",
+      "remove-info-1": "Diesen Podcast wirklich dauerhaft aus der Bibliothek löschen?",
+      "remove-info-2": "Damit wird auch die RSS-Playliste  gelöscht. ",
+      "track-count": "{count} Tracks"
+    },
+    "podcasts": {
+      "add": "Hinzufügen",
+      "count": "{count} Podcasts",
+      "mark-all-played": "Alle abgespielten markieren",
+      "new-episodes": "Neue Episoden",
+      "title": "Podcasts",
+      "update": "Neu einlesen"
+    },
+    "queue": {
+      "add-stream": "Stream hinzufügen",
+      "clear": "Alle entfernen",
+      "count": "{count} Tracks",
+      "edit": "Bearbeiten",
+      "hide-previous": "Vorherige verbergen",
+      "title": "Warteschlange",
+      "save": "Speichern"
+    },
+    "radio": {
+      "count": "{count} Stationen",
+      "title": "Radio"
+    },
+    "search": {
+      "albums": "Alben",
+      "artists": "Künstler",
+      "audiobooks": "Hörbücher",
+      "composers": "Komponisten",
+       
+      "help": "Tip: Du kannst mit einer Smart-Playlist-Abfrage-Sprache nach <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">Ausdrücken</a> suchen wenn Du dem Ausdruck ein <code>query:</code> voranstellst.",
+      "no-albums": "Keine Alben gefunden",
+      "no-artists": "Keine Künstler gefunden",
+      "no-audiobooks": "Keine Hörbücher gefunden",
+      "no-composers": "Keine Komponisten gefunden",
+      "no-playlists": "Keine Playlisten gefunden",
+      "no-podcasts": "Keine Podcasts gefunden",
+      "no-tracks": "Keine Tracks gefunden",
+      "playlists": "Playlists",
+      "podcasts": "Podcasts",
+      "show-albums": "Zeige alle {count} Alben",
+      "show-artists": "Zeige alle {count} Künstler",
+      "show-audiobooks": "Zeige alle {count} Hörbücher",
+      "show-composers": "Zeige alle {count} Komponisten",
+      "show-playlists": "Zeige alle {count} Playlisten",
+      "show-podcasts": "Zeige alle {count} Podcasts",
+      "show-tracks": "Zeige alle {count} Tracks",
+      "tracks": "Tracks",
+      "tabs": {
+        "library": "Bibliothek",
+        "spotify": "Spotify"
+      }
+    },
+    "settings": {
+      "artwork": {
+        "artwork": "Artwork",
+        "coverartarchive": "Cover Art Archive",
+        "discogs": "Discogs",
+        "explanation-1": "OwnTone verarbeitet PNG- und JPEG-Artwork, welches in einer eigenen Datei in der Bibliothek, in die Dateien eingebttet oder online von Radiostationen bereitgestellt werden kann.",
+        "explanation-2": "Zusätzlich kann auf folgende Artwork-Anbietern zugegriffen werden:",
+        "spotify": "Spotify"
+      },
+      "devices": {
+        "no-active-pairing": "Keine aktive Pairing-Anfrage",
+        "pairing-request": "Remote-Pairing-Anfrage von ",
+        "pairing": "Pairing Remote",
+        "send": "Senden",
+        "speaker-pairing-info": "Wenn der Laufsprecher PIN-basiertes Pairing verlangt, aktiviere ihn hier und gib dann den hier PIN an, der am Laufsprecher angezeigt wird.",
+        "speaker-pairing": "Lautsprecher-Pairing und Geräteverifikation",
+        "verification-code": "Verifikationscode eingeben",
+        "verify": "Verifizieren"
+      },
+      "general": {
+        "album-lists": "Album-Listen",
+        "audiobooks": "Hörbücher",
+        "files": "Audiodateien",
+        "language": "Sprache",
+        "music": "Musik",
+        "navigation-item-selection-info": "Wenn mehr dateien ausgewählt werden, als der Bildschirm anzeigen kann, verschwindet das Burger-Menü.",
+        "navigation-item-selection": "Wähle hier die Einträge des oberen Navigationsmenüs ",
+        "navigation-items": "Navigationsmenüs",
+        "now-playing-page": "Aktuell läuft-Seite",
+        "playlists": "Playlists",
+        "podcasts": "Podcasts",
+        "radio": "Radio",
+        "recently-added-page-info": "Beschränkte die Zahl der Alben auf der  \"kürzlich hinzugefügt\"-Seite",
+        "recently-added-page": "Kürzlich hinzugefügt-Seite",
+        "search": "Suche",
+        "show-composer-genres-info-1": "Komma-separierte Liste der Genres, wo der Komponist auf der \"Aktuell läuft\"-Seite angezeigt werden soll",
+        "show-composer-genres-info-2": "Leer lassen, um ihn immer anzuzeigen.",
+        "show-composer-genres-info-3": "Der Genre-Tag des aktuellen Tracks wird abgeglichen als Teil-String des Genre-Tags. Z.B. \"classical, soundtrack\" wird den Komponisten beim Genre-Tag \"Contemporary Classical\" anzeigen",
+        "show-composer-genres": "Zeige den Komponisten für die aufgelisteten Genres an",
+        "show-composer-info": "Wenn aktiviert, wird der Komponist auf der \"Aktuell läuft\"-Seite angezeigt.",
+        "show-composer": "Komponisten anzeigen",
+        "show-coverart": "Zeige Cover-Artwork in der Albumliste"
+      },
+      "services": {
+        "lastfm": {
+          "grant-access": "<b>Last.fm</b> - melde Dich mit Deinem Last.fm-Usernamen und Password an, um  Scrobbeln zu aktivieren",
+          "info": "OwnTone wird Usernamen und Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
+          "title": "Last.fm",
+          "no-support": "OwnTone wurde ohne Unterstützung für Last.fm kompiliert.",
+          "stop-scrobbling": "Stop Scrobbling"
+        },
+        "spotify": {
+          "no-support": "OwnTone wurde entweder ohne Unterstützung für Spotify kompiliert oder libspotify ist nicht installiert.",
+          "logged-as": "Angemeldet als ",
+          "requirements": "Spotify Premium Abo erforderlich.",
+          "scopes": "Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
+          "user": "Zugriff gestattet für ",
+          "authorize": "Authorisiere  Web-API-Zugriff",
+          "credentials": " - Anmelden mit dem Spotify Username und Passwort",
+          "grant-access": "<b>Spotify Web-API</b> - Zugriff auf die Spotify Web-API gestatten",
+          "help-1": "libspotify ermöglicht OwnTone, Spotify-Tracks abzuspielen.",
+          "help-2": "OwnTone speichert das Passwort nicht, aber wird über libspotify dennoch einen automatischen Login über ein Login-Token ermöglichen.",
+          "reauthorize": "Bitte den Zugriff der Web-API durch setzen folgender Zugriffsrechte für Owntone: ",
+          "title": "Spotify"
+        },
+        "login": "Einloggen",
+        "logout": "Ausloggen"
+      },
+      "tabs": {
+        "artwork": "Artwork",
+        "general": "Allgemein",
+        "online-services": "Online-Services",
+        "remotes-and-outputs": "Fernbedienungen und Ausgänge"
+      }
+    },
+    "spotify": {
+      "album": {
+        "shuffle": "Zufallswiedergabe",
+        "track-count": "{count} Tracks"
+      },
+      "artist": {
+        "album-count": "{count} Alben",
+        "shuffle": "Zufallswiedergabe"
+      },
+      "browse": {
+        "featured-playlists": "Ausgezeichnete Playlists",
+        "new-releases": "Neuvorstellung",
+        "show-more": "Zeige mehr"
+      },
+      "playlist": {
+        "count": "{count} Tracks",
+        "shuffle": "Zufallswiedergabe"
+      },
+      "search": {
+        "albums": "Alben",
+        "artists": "Künstler",
+        "no-albums": "Keine Alben gefunden",
+        "no-artists": "Keine Künstler gefunden",
+        "no-playlists": "Keine Playlisten gefunden",
+        "no-tracks": "Keine Tracks gefunden",
+        "playlists": "Playlists",
+        "show-all-albums": "Zeige alle {count} Alben",
+        "show-all-artists": "Zeige alle {count} Künstler",
+        "show-all-playlists": "Zeige alle {count} Playlisten",
+        "show-all-tracks": "Zeige alle {count} Tracks",
+        "tracks": "Tracks"
+      }
+    }
+  },
+  "setting": {
+    "not-saved": " (Fehler beim Speichern der Einstellungen)",
+    "saved": " (Einstellungen gesichert)"
+  },
+  "server": {
+    "connection-failed": "Fehler bei Verbindung zum OwnTone-Server",
+    "missing-port": "Fehlender Websocket-Port",
+    "request-failed": "Anfrage gescheitert (Status: {status} {cause} {url})",
+    "queue-saved": "Warteschlange zu Playlist {name} gesichert",
+    "appended-tracks": "{count} Tracks an die Abspielliste angehängt",
+    "empty-queue": "Warteschlange ist leer"
+  },
+  "group-by-list": {
+    "today": "Heute",
+    "last-week": "Letzte Woche",
+    "last-month": "Letzer Monat"
+  }
+}
