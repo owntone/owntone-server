@@ -235,9 +235,7 @@ httpd_send_reply_end(struct httpd_request *hreq);
 void
 httpd_send_error(struct httpd_request *hreq, int error, const char *reason);
 
-/*
- * Redirects to the given path
- */
+
 void
 httpd_redirect_to(struct httpd_request *hreq, const char *path);
 

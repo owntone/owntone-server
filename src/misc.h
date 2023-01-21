@@ -53,6 +53,9 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 int
 net_bind(short unsigned *port, int type, const char *log_service_name);
 
+int
+net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name);
+
 // To avoid polluting namespace too much we don't include event2/http.h here
 struct evhttp;
 

@@ -278,8 +278,8 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 
 // If *port is 0 then a random port will be assigned, and *port will be updated
 // with the port number
-int
-net_bind(short unsigned *port, int type, const char *log_service_name)
+static int
+net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool reuseport)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
@@ -318,7 +318,10 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
 	continue;
 
       // Makes us able to attach multiple threads to the same port
-      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
+      if (reuseport)
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
+      else
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &no, sizeof(no));
       if (ret < 0)
 	continue;
 
@@ -379,6 +382,18 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
   if (fd >= 0)
     close(fd);
   return -1;
+}
+
+int
+net_bind(short unsigned *port, int type, const char *log_service_name)
+{
+  return net_bind_impl(port, type, log_service_name, false);
+}
+
+int
+net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name)
+{
+  return net_bind_impl(port, type, log_service_name, true);
 }
 
 int
