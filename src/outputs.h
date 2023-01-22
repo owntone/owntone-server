@@ -252,7 +252,7 @@ struct output_definition
 
   // Called from worker thread for async preparation of metadata (e.g. getting
   // artwork, which might involce downloading image data). The prepared data is
-  // saved to metadata->data, which metadata_send() can use.
+  // saved to metadata->priv, which metadata_send() can use.
   void *(*metadata_prepare)(struct output_metadata *metadata);
 
   // Send metadata to outputs. Ownership of *metadata is transferred.
@@ -283,6 +283,9 @@ outputs_quality_unsubscribe(struct media_quality *quality);
 
 void
 outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
+
+void
+outputs_metadata_free(struct output_metadata *metadata);
 
 /* ---------------------------- Called by player ---------------------------- */
 

@@ -468,6 +468,16 @@ metadata_cb_prepare(void *arg)
 }
 
 static void
+metadata_free(struct output_metadata *metadata)
+{
+  if (!metadata)
+    return;
+  if (metadata->ev)
+    event_free(metadata->ev);
+  free(metadata);
+}
+
+static void
 metadata_send(enum output_types type, uint32_t item_id, bool startup, output_metadata_finalize_cb cb)
 {
   struct output_metadata *metadata;
@@ -689,6 +699,11 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state state)
   event_active(outputs_deferredev, 0, 0);
 }
 
+void
+outputs_metadata_free(struct output_metadata *metadata)
+{
+  metadata_free(metadata);
+}
 
 /* ---------------------------- Called by player ---------------------------- */
 

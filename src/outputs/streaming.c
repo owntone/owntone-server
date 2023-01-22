@@ -34,6 +34,7 @@
 #include "worker.h"
 #include "transcode.h"
 #include "logger.h"
+#include "db.h"
 
 /* About
  *
@@ -43,9 +44,14 @@
  * player, but there are clients, it instead writes silence to the fd.
  */
 
-// How many times per second we send silence when player is idle (to prevent
-// client from hanging up). This value matches the player tick interval.
-#define SILENCE_TICKS_PER_SEC 100
+// Seconds between sending silence when player is idle
+// (to prevent client from hanging up)
+#define STREAMING_SILENCE_INTERVAL 1
+
+// How many bytes of silence we encode with the above interval. There is no
+// particular reason for using this size, just that it seems to have worked for
+// a while.
+#define SILENCE_BUF_SIZE STOB(352, 16, 2)
 
 // The wanted structure represents a particular format and quality that should
 // be produced for one or more sessions. A pipe pair is created for each session
@@ -79,6 +85,13 @@ struct streaming_ctx
   struct event *silenceev;
   struct timeval silencetv;
   struct media_quality last_quality;
+
+  // seqnum may wrap around so must be unsigned
+  unsigned int seqnum;
+  unsigned int seqnum_encode_next;
+
+  // callback with new metadata, e.g. for ICY tags
+  void (*metadatacb)(char *metadata);
 };
 
 struct encode_cmdarg
@@ -86,13 +99,16 @@ struct encode_cmdarg
   uint8_t *buf;
   size_t bufsize;
   int samples;
+  unsigned int seqnum;
   struct media_quality quality;
 };
 
 static pthread_mutex_t streaming_wanted_lck;
+static pthread_cond_t streaming_sequence_cond;
+
 static struct streaming_ctx streaming =
 {
-  .silencetv = { 0, (1000000 / SILENCE_TICKS_PER_SEC) },
+  .silencetv = { STREAMING_SILENCE_INTERVAL, 0 },
 };
 
 extern struct event_base *evbase_player;
@@ -394,9 +410,15 @@ encode_data_cb(void *arg)
     }
 
   pthread_mutex_lock(&streaming_wanted_lck);
+
+  // To make sure we process the frames in order
+  while (ctx->seqnum != streaming.seqnum_encode_next)
+    pthread_cond_wait(&streaming_sequence_cond, &streaming_wanted_lck);
+
   for (w = streaming.wanted; w; w = next)
     {
       next = w->next;
+
       ret = encode_frame(w, ctx->quality, frame);
       if (ret < 0)
 	wanted_remove(&streaming.wanted, w); // This will close all the fds, so readers get an error
@@ -415,6 +437,9 @@ encode_data_cb(void *arg)
       if (w->refcount == 0)
 	wanted_remove(&streaming.wanted, w);
     }
+
+  streaming.seqnum_encode_next++;
+  pthread_cond_broadcast(&streaming_sequence_cond);
   pthread_mutex_unlock(&streaming_wanted_lck);
 
  out:
@@ -422,67 +447,25 @@ encode_data_cb(void *arg)
   free(ctx->buf);
 }
 
-
-/* ----------------------------- Thread: Player ----------------------------- */
-
-static void
-encode_worker_invoke(uint8_t *buf, size_t bufsize, int samples, struct media_quality quality)
+static void *
+streaming_metadata_prepare(struct output_metadata *metadata)
 {
-  struct encode_cmdarg ctx;
+  struct db_queue_item *queue_item;
+  char *title;
 
-  if (quality.channels == 0)
+  queue_item = db_queue_fetch_byitemid(metadata->item_id);
+  if (!queue_item)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Streaming quality is zero (%d/%d/%d)\n",
-	quality.sample_rate, quality.bits_per_sample, quality.channels);
-      return;
+      DPRINTF(E_LOG, L_STREAMING, "Could not fetch queue item id %d for new metadata\n", metadata->item_id);
+      return NULL;
     }
 
-  ctx.buf = buf;
-  ctx.bufsize = bufsize;
-  ctx.samples = samples;
-  ctx.quality = quality;
+  title = safe_asprintf("%s - %s", queue_item->title, queue_item->artist);
+  free_queue_item(queue_item, 0);
 
-  worker_execute(encode_data_cb, &ctx, sizeof(struct encode_cmdarg), 0);
+  return title;
 }
 
-static void
-streaming_write(struct output_buffer *obuf)
-{
-  uint8_t *rawbuf;
-
-  if (!streaming.wanted)
-    return;
-
-  // Need to make a copy since it will be passed of to the async worker
-  CHECK_NULL(L_STREAMING, rawbuf = malloc(obuf->data[0].bufsize));
-  memcpy(rawbuf, obuf->data[0].buffer, obuf->data[0].bufsize);
-
-  encode_worker_invoke(rawbuf, obuf->data[0].bufsize, obuf->data[0].samples, obuf->data[0].quality);
-
-  streaming.last_quality = obuf->data[0].quality;
-
-  // In case this is the last player write() we want to start streaming silence
-  evtimer_add(streaming.silenceev, &streaming.silencetv);
-}
-
-static void
-silenceev_cb(evutil_socket_t fd, short event, void *arg)
-{
-  uint8_t *rawbuf;
-  size_t bufsize;
-  int samples;
-
-  // TODO what if everyone has disconnected? Check for streaming.wanted?
-
-  samples = streaming.last_quality.sample_rate / SILENCE_TICKS_PER_SEC;
-  bufsize = STOB(samples, streaming.last_quality.bits_per_sample, streaming.last_quality.channels);
-
-  CHECK_NULL(L_STREAMING, rawbuf = calloc(1, bufsize));
-
-  encode_worker_invoke(rawbuf, bufsize, samples, streaming.last_quality);
-
-  evtimer_add(streaming.silenceev, &streaming.silencetv);
-}
 
 /* ----------------------------- Thread: httpd ------------------------------ */
 
@@ -526,11 +509,90 @@ streaming_session_deregister(int readfd)
   pthread_mutex_unlock(&streaming_wanted_lck);
 }
 
+// Not thread safe, but only called once during httpd init
+void
+streaming_metadatacb_register(streaming_metadatacb cb)
+{
+  streaming.metadatacb = cb;
+}
+
+/* ----------------------------- Thread: Player ----------------------------- */
+
+static void
+encode_worker_invoke(uint8_t *buf, size_t bufsize, int samples, struct media_quality quality)
+{
+  struct encode_cmdarg ctx;
+
+  if (quality.channels == 0)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Streaming quality is zero (%d/%d/%d)\n",
+	quality.sample_rate, quality.bits_per_sample, quality.channels);
+      return;
+    }
+
+  CHECK_NULL(L_STREAMING, ctx.buf = malloc(bufsize));
+  memcpy(ctx.buf, buf, bufsize);
+  ctx.bufsize = bufsize;
+  ctx.samples = samples;
+  ctx.quality = quality;
+  ctx.seqnum = streaming.seqnum;
+
+  streaming.seqnum++;
+
+  worker_execute(encode_data_cb, &ctx, sizeof(struct encode_cmdarg), 0);
+}
+
+static void
+silenceev_cb(evutil_socket_t fd, short event, void *arg)
+{
+  uint8_t silence[SILENCE_BUF_SIZE] = { 0 };
+  int samples;
+
+  // No lock since this is just an early exit, it doesn't need to be accurate
+  if (!streaming.wanted)
+    return;
+
+  samples = BTOS(SILENCE_BUF_SIZE, streaming.last_quality.bits_per_sample, streaming.last_quality.channels);
+
+  encode_worker_invoke(silence, SILENCE_BUF_SIZE, samples, streaming.last_quality);
+
+  evtimer_add(streaming.silenceev, &streaming.silencetv);
+}
+
+static void
+streaming_write(struct output_buffer *obuf)
+{
+  // No lock since this is just an early exit, it doesn't need to be accurate
+  if (!streaming.wanted)
+    return;
+
+  encode_worker_invoke(obuf->data[0].buffer, obuf->data[0].bufsize, obuf->data[0].samples, obuf->data[0].quality);
+
+  streaming.last_quality = obuf->data[0].quality;
+
+  // In case this is the last player write() we want to start streaming silence
+  evtimer_add(streaming.silenceev, &streaming.silencetv);
+}
+
+static void
+streaming_metadata_send(struct output_metadata *metadata)
+{
+  char *title = metadata->priv;
+
+  // Calls back to httpd_streaming to update the title
+  if (streaming.metadatacb)
+    streaming.metadatacb(title);
+
+  free(title);
+  outputs_metadata_free(metadata);
+}
+
 static int
 streaming_init(void)
 {
   CHECK_NULL(L_STREAMING, streaming.silenceev = event_new(evbase_player, -1, 0, silenceev_cb, NULL));
-  CHECK_ERR(L_STREAMING,  mutex_init(&streaming_wanted_lck));
+  CHECK_ERR(L_STREAMING, mutex_init(&streaming_wanted_lck));
+  CHECK_ERR(L_STREAMING, pthread_cond_init(&streaming_sequence_cond, NULL));
 
   return 0;
 }
@@ -541,6 +603,7 @@ streaming_deinit(void)
   event_free(streaming.silenceev);
 }
 
+
 struct output_definition output_streaming =
 {
   .name = "mp3 streaming",
@@ -550,4 +613,6 @@ struct output_definition output_streaming =
   .init = streaming_init,
   .deinit = streaming_deinit,
   .write = streaming_write,
+  .metadata_prepare = streaming_metadata_prepare,
+  .metadata_send = streaming_metadata_send,
 };
