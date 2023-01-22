@@ -58,15 +58,6 @@ export default {
       )
     },
 
-    getpathname (objectorstring) {
-      if (typeof (objectorstring)==="string") {
-        return objectorstring
-      }
-      else {
-        return objectorstring.path
-      }
-    },
-
     queue_add: function () {
       this.$emit('close')
       webapi.queue_expression_add(
