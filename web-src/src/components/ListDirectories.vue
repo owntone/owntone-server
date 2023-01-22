@@ -40,7 +40,7 @@
   <teleport to="#app">
     <modal-dialog-directory
       :show="show_details_modal"
-      :directory="selected_directory.path"
+      :directory="selected_directory"
       @close="show_details_modal = false"
     />
   </teleport>
@@ -105,6 +105,7 @@ export default {
     open_dialog: function (directory) {
       this.selected_directory = directory
       this.show_details_modal = true
+
     }
   }
 }

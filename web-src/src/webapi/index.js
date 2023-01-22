@@ -89,6 +89,7 @@ export default {
     })
   },
 
+
   queue_add_next(uri) {
     let position = 0
     if (store.getters.now_playing && store.getters.now_playing.id) {
@@ -108,7 +109,7 @@ export default {
       })
   },
 
-  queue_expression_add(expression) {
+  queue_expression_add(expression, context) {
     const options = {}
     options.expression = expression
 
@@ -116,7 +117,7 @@ export default {
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', {
+          text: context.$t('server.appended-tracks', {
             count: response.data.count
           }),
           type: 'info',
@@ -126,7 +127,7 @@ export default {
       })
   },
 
-  queue_expression_add_next(expression) {
+  queue_expression_add_next(expression, context) {
     const options = {}
     options.expression = expression
     options.position = 0
@@ -137,8 +138,9 @@ export default {
     return axios
       .post('./api/queue/items/add', undefined, { params: options })
       .then((response) => {
+        
         store.dispatch('add_notification', {
-          text: this.$t('server.appended-tracks', {
+          text: context.$t('server.appended-tracks', {
             count: response.data.count
           }),
           type: 'info',

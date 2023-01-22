@@ -6,7 +6,7 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <p class="title is-4" v-text="directory" />
+              <p class="title is-4" v-text="directory.path" />
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
@@ -58,17 +58,28 @@ export default {
       )
     },
 
+    getpathname (objectorstring) {
+      if (typeof (objectorstring)==="string") {
+        return objectorstring
+      }
+      else {
+        return objectorstring.path
+      }
+    },
+
     queue_add: function () {
       this.$emit('close')
       webapi.queue_expression_add(
-        'path starts with "' + this.directory.path + '" order by path asc'
-      )
+        'path starts with "' + this.directory.path + '" order by path asc',
+        this
+        )
     },
 
     queue_add_next: function () {
       this.$emit('close')
       webapi.queue_expression_add_next(
-        'path starts with "' + this.directory.path + '" order by path asc'
+        'path starts with "' + this.directory.path + '" order by path asc',
+        this
       )
     }
   }
