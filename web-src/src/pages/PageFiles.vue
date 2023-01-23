@@ -31,7 +31,7 @@
         />
         <modal-dialog-directory
           :show="show_details_modal"
-          :directory="current_directory"
+          :directory="{ path: current_directory }"
           @close="show_details_modal = false"
         />
       </template>
