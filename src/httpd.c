@@ -35,7 +35,9 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include <syscall.h> // get thread ID
+#ifdef HAVE_SYSCALL
+#include <sys/syscall.h> // get thread ID
+#endif
 
 #include <event2/event.h>
 
@@ -587,12 +589,13 @@ serve_file(struct httpd_request *hreq)
 /* ---------------------------- STREAM HANDLING ----------------------------- */
 
 static void
-stream_end(struct stream_ctx *st, int failed)
+stream_end(struct stream_ctx *st)
 {
   httpd_request_closecb_set(st->hreq, NULL, NULL);
 
-  if (!failed)
-    httpd_send_reply_end(st->hreq);
+  // Alwayss send reply, even if connection failed, otherwise we memleak hreq
+  // and possibly the evhttp req as well.
+  httpd_send_reply_end(st->hreq);
 
   evbuffer_free(st->evbuf);
   event_free(st->ev);
@@ -638,7 +641,7 @@ stream_chunk_resched_cb(httpd_connection *conn, void *arg)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
 
-      stream_end(st, 0);
+      stream_end(st);
     }
 }
 
@@ -660,7 +663,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
       else
 	DPRINTF(E_LOG, L_HTTPD, "Transcoding error, file id %d\n", st->id);
 
-      stream_end(st, 0);
+      stream_end(st);
       return;
     }
 
@@ -704,7 +707,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming (xcode)\n");
 
-      stream_end(st, 0);
+      stream_end(st);
       return;
     }
 }
@@ -720,7 +723,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   if (st->end_offset && (st->offset > st->end_offset))
     {
-      stream_end(st, 0);
+      stream_end(st);
       return;
     }
 
@@ -737,7 +740,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
       else
 	DPRINTF(E_LOG, L_HTTPD, "Streaming error, file id %d\n", st->id);
 
-      stream_end(st, 0);
+      stream_end(st);
       return;
     }
 
@@ -764,7 +767,7 @@ stream_fail_cb(httpd_connection *conn, void *arg)
   /* Stop streaming */
   event_del(st->ev);
 
-  stream_end(st, 1);
+  stream_end(st);
 }
 
 
@@ -795,7 +798,11 @@ request_cb(struct httpd_request *hreq, void *arg)
   httpd_request_handler_set(hreq);
   if (hreq->module)
     {
+#ifdef HAVE_SYSCALL
       DPRINTF(E_DBG, hreq->module->logdomain, "%s request: '%s' (thread %ld)\n", hreq->module->name, hreq->uri, syscall(SYS_gettid));
+#else
+      DPRINTF(E_DBG, hreq->module->logdomain, "%s request: '%s'\n", hreq->module->name, hreq->uri);
+#endif
       hreq->module->request(hreq);
     }
   else

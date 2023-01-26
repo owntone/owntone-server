@@ -50,7 +50,7 @@ AC_CHECK_HEADERS([sys/wait.h sys/param.h dirent.h getopt.h stdint.h], [],
 	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
 AC_CHECK_HEADERS([time.h], [],
 	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
-AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2])
+AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2 syscall])
 AC_CHECK_FUNCS([strptime strtok_r], [],
 	[AC_MSG_ERROR([[Missing function required to build OwnTone]])])
 
