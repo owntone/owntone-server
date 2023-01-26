@@ -117,7 +117,7 @@ extern struct event_base *evbase_player;
 /* ------------------------------- Helpers ---------------------------------- */
 
 static int
-pipe_open(struct pipepair *pipe)
+pipe_open(struct pipepair *p)
 {
   int fd[2];
   int ret;
@@ -138,21 +138,21 @@ pipe_open(struct pipepair *pipe)
       return -1;
     }
 
-  pipe->writefd = fd[1];
-  pipe->readfd = fd[0];
+  p->writefd = fd[1];
+  p->readfd = fd[0];
   return 0;
 }
 
 static void
-pipe_close(struct pipepair *pipe)
+pipe_close(struct pipepair *p)
 {
-  if (pipe->readfd >= 0)
-    close(pipe->readfd);
-  if (pipe->writefd >= 0)
-    close(pipe->writefd);
+  if (p->readfd >= 0)
+    close(p->readfd);
+  if (p->writefd >= 0)
+    close(p->writefd);
 
-  pipe->writefd = -1;
-  pipe->readfd = -1;
+  p->writefd = -1;
+  p->readfd = -1;
 }
 
 static void
@@ -257,7 +257,7 @@ wanted_find_byreadfd(struct streaming_wanted *wanted, int readfd)
 }
 
 static int
-wanted_session_add(struct pipepair *pipe, struct streaming_wanted *w)
+wanted_session_add(struct pipepair *p, struct streaming_wanted *w)
 {
   int ret;
   int i;
@@ -271,7 +271,7 @@ wanted_session_add(struct pipepair *pipe, struct streaming_wanted *w)
       if (ret < 0)
 	return -1;
 
-      memcpy(pipe, &w->pipes[i], sizeof(struct pipepair));
+      memcpy(p, &w->pipes[i], sizeof(struct pipepair));
       break;
     }
 
@@ -282,7 +282,7 @@ wanted_session_add(struct pipepair *pipe, struct streaming_wanted *w)
     }
 
   w->refcount++;
-  DPRINTF(E_DBG, L_STREAMING, "Session register readfd %d, wanted->refcount=%d\n", pipe->readfd, w->refcount);
+  DPRINTF(E_DBG, L_STREAMING, "Session register readfd %d, wanted->refcount=%d\n", p->readfd, w->refcount);
   return 0;
 }
 
@@ -375,18 +375,18 @@ encode_frame(struct streaming_wanted *w, struct media_quality quality_in, transc
 }
 
 static void
-encode_write(uint8_t *buf, size_t buflen, struct streaming_wanted *w, struct pipepair *pipe)
+encode_write(uint8_t *buf, size_t buflen, struct streaming_wanted *w, struct pipepair *p)
 {
   int ret;
 
-  if (pipe->writefd < 0)
+  if (p->writefd < 0)
     return;
 
-  ret = write(pipe->writefd, buf, buflen);
+  ret = write(p->writefd, buf, buflen);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Error writing to stream pipe %d (format %d): %s\n", pipe->writefd, w->format, strerror(errno));
-      wanted_session_remove(w, pipe->readfd);
+      DPRINTF(E_LOG, L_STREAMING, "Error writing to stream pipe %d (format %d): %s\n", p->writefd, w->format, strerror(errno));
+      wanted_session_remove(w, p->readfd);
     }
 }
 
