@@ -53,11 +53,11 @@ typedef struct evhttp_request httpd_backend;
 typedef struct evkeyvalq httpd_headers;
 typedef struct evkeyvalq httpd_query;
 typedef struct httpd_uri_parsed httpd_uri_parsed;
-typedef void httpd_backend_data; // Not used for evhttp
+typedef struct httpd_backend_data httpd_backend_data;
 
 typedef char *httpd_uri_path_parts[31];
 typedef void (*httpd_request_cb)(struct httpd_request *hreq, void *arg);
-typedef void (*httpd_connection_closecb)(httpd_connection *conn, void *arg);
+typedef void (*httpd_close_cb)(struct httpd_request *hreq, void *arg);
 typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
 typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
 
@@ -72,6 +72,15 @@ enum httpd_methods
   HTTPD_METHOD_TRACE   = 1 << 6,
   HTTPD_METHOD_CONNECT = 1 << 7,
   HTTPD_METHOD_PATCH   = 1 << 8,
+};
+
+#define HTTPD_F_REPLY_LAST (1 << 15)
+enum httpd_reply_type
+{
+  HTTPD_REPLY_START    = 1,
+  HTTPD_REPLY_CHUNK    = 2,
+  HTTPD_REPLY_END      = HTTPD_F_REPLY_LAST | 1,
+  HTTPD_REPLY_COMPLETE = HTTPD_F_REPLY_LAST | 2,
 };
 
 enum httpd_send_flags
@@ -92,6 +101,14 @@ enum httpd_modules
   MODULE_STREAMING,
   MODULE_OAUTH,
   MODULE_RSP,
+};
+
+enum httpd_handler_flags
+{
+  // Most requests are pushed to a worker thread, but some handlers deal with
+  // requests that must be answered quickly. Can only be used for nonblocking
+  // handlers.
+  HTTPD_HANDLER_REALTIME = (1 << 0),
 };
 
 struct httpd_module
@@ -122,6 +139,7 @@ struct httpd_uri_map
   char *regexp;
   int (*handler)(struct httpd_request *hreq);
   void *preg;
+  int flags; // See enum httpd_handler_flags
 };
 
 
@@ -174,6 +192,10 @@ struct httpd_request {
   struct httpd_module *module;
   // A pointer to the handler that will process the request
   int (*handler)(struct httpd_request *hreq);
+  // Is the processing defered to a worker thread
+  bool is_async;
+  // Handler thread's evbase in case the handler needs to scehdule an event
+  struct event_base *evbase;
   // A pointer to extra data that the module handling the request might need
   void *extra_data;
 };
@@ -206,17 +228,16 @@ httpd_response_not_cachable(struct httpd_request *hreq);
  * @in  code     HTTP code, e.g. 200
  * @in  reason   A brief explanation of the error - if NULL the standard meaning
                  of the error code will be used
- * @in  evbuf    Data for the response body
  * @in  flags    See flags above
  */
 void
-httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, struct evbuffer *evbuf, enum httpd_send_flags flags);
+httpd_send_reply(struct httpd_request *hreq, int code, const char *reason, enum httpd_send_flags flags);
 
 void
 httpd_send_reply_start(struct httpd_request *hreq, int code, const char *reason);
 
 void
-httpd_send_reply_chunk(struct httpd_request *hreq, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg);
+httpd_send_reply_chunk(struct httpd_request *hreq, httpd_connection_chunkcb cb, void *arg);
 
 void
 httpd_send_reply_end(struct httpd_request *hreq);
@@ -270,25 +291,13 @@ void
 httpd_headers_clear(httpd_headers *headers);
 
 void
-httpd_connection_free(httpd_connection *conn);
-
-httpd_connection *
-httpd_request_connection_get(struct httpd_request *hreq);
-
-void
-httpd_request_backend_free(struct httpd_request *hreq);
-
-int
-httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb cb, void *arg);
-
-struct event_base *
-httpd_request_evbase_get(struct httpd_request *hreq);
+httpd_request_close_cb_set(struct httpd_request *hreq, httpd_close_cb cb, void *arg);
 
 void
 httpd_request_free(struct httpd_request *hreq);
 
 struct httpd_request *
-httpd_request_new(httpd_backend *backend, const char *uri, const char *user_agent);
+httpd_request_new(httpd_backend *backend, httpd_server *server, const char *uri, const char *user_agent);
 
 void
 httpd_server_free(httpd_server *server);
@@ -303,28 +312,20 @@ httpd_server_allow_origin_set(httpd_server *server, bool allow);
 /*----------------- Only called by httpd.c to send raw replies ---------------*/
 
 void
-httpd_backend_reply_send(httpd_backend *backend, int code, const char *reason, struct evbuffer *evbuf);
-
-void
-httpd_backend_reply_start_send(httpd_backend *backend, int code, const char *reason);
-
-void
-httpd_backend_reply_chunk_send(httpd_backend *backend, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg);
-
-void
-httpd_backend_reply_end_send(httpd_backend *backend);
+httpd_send(struct httpd_request *hreq, enum httpd_reply_type type, int code, const char *reason,
+           httpd_connection_chunkcb cb, void *cbarg);
 
 
 /*---------- Only called by httpd.c to populate struct httpd_request ---------*/
 
 httpd_backend_data *
-httpd_backend_data_create(httpd_backend *backend);
+httpd_backend_data_create(httpd_backend *backend, httpd_server *server);
 
 void
 httpd_backend_data_free(httpd_backend_data *backend_data);
 
-httpd_connection *
-httpd_backend_connection_get(httpd_backend *backend);
+struct event_base *
+httpd_backend_evbase_get(httpd_backend *backend);
 
 const char *
 httpd_backend_uri_get(httpd_backend *backend, httpd_backend_data *backend_data);

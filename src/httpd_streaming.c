@@ -192,27 +192,15 @@ session_new(struct httpd_request *hreq, bool icy_is_requested)
   return session;
 }
 
-static void
-session_end(struct streaming_session *session)
-{
-  DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", session->hreq->peer_address, (int)session->hreq->peer_port);
-
-  // Valgrind says libevent doesn't free the request on disconnect (even though
-  // it owns it - libevent bug?), so we do it with a reply end. This also makes
-  // sure the hreq gets freed.
-  httpd_send_reply_end(session->hreq);
-  session_free(session);
-}
-
 
 /* ----------------------------- Event callbacks ---------------------------- */
 
 static void
-conn_close_cb(httpd_connection *conn, void *arg)
+conn_close_cb(struct httpd_request *hreq, void *arg)
 {
   struct streaming_session *session = arg;
 
-  session_end(session);
+  session_free(session);
 }
 
 static void
@@ -227,8 +215,10 @@ read_cb(evutil_socket_t fd, short event, void *arg)
   len = evbuffer_read(session->readbuf, fd, -1);
   if (len < 0 && errno != EAGAIN)
     {
-      httpd_request_closecb_set(hreq, NULL, NULL);
-      session_end(session);
+      DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", session->hreq->peer_address, (int)session->hreq->peer_port);
+
+      httpd_send_reply_end(session->hreq);
+      session_free(session);
       return;
     }
 
@@ -237,7 +227,7 @@ read_cb(evutil_socket_t fd, short event, void *arg)
   else
     evbuffer_add_buffer(hreq->out_body, session->readbuf);
 
-  httpd_send_reply_chunk(hreq, hreq->out_body, NULL, NULL);
+  httpd_send_reply_chunk(hreq, NULL, NULL);
 
   session->bytes_sent += len;
 }
@@ -249,7 +239,6 @@ static int
 streaming_mp3_handler(struct httpd_request *hreq)
 {
   struct streaming_session *session;
-  struct event_base *evbase;
   const char *name = cfg_getstr(cfg_getsec(cfg, "library"), "name");
   const char *param;
   bool icy_is_requested;
@@ -271,11 +260,10 @@ streaming_mp3_handler(struct httpd_request *hreq)
   // Ask streaming output module for a fd to read mp3 from
   session->fd = streaming_session_register(STREAMING_FORMAT_MP3, streaming_default_quality);
 
-  CHECK_NULL(L_STREAMING, evbase = httpd_request_evbase_get(hreq));
-  CHECK_NULL(L_STREAMING, session->readev = event_new(evbase, session->fd, EV_READ | EV_PERSIST, read_cb, session));
+  CHECK_NULL(L_STREAMING, session->readev = event_new(hreq->evbase, session->fd, EV_READ | EV_PERSIST, read_cb, session));
   event_add(session->readev, NULL);
 
-  httpd_request_closecb_set(hreq, conn_close_cb, session);
+  httpd_request_close_cb_set(hreq, conn_close_cb, session);
 
   httpd_header_add(hreq->out_headers, "Content-Type", "audio/mpeg");
   httpd_header_add(hreq->out_headers, "Server", PACKAGE_NAME "/" VERSION);
@@ -292,7 +280,8 @@ static struct httpd_uri_map streaming_handlers[] =
   {
     {
       .regexp = "^/stream.mp3$",
-      .handler = streaming_mp3_handler
+      .handler = streaming_mp3_handler,
+      .flags = HTTPD_HANDLER_REALTIME,
     },
     {
       .regexp = NULL,

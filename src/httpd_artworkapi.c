@@ -166,13 +166,13 @@ artworkapi_request(struct httpd_request *hreq)
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	httpd_send_reply(hreq, status_code, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "OK", HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(hreq, status_code, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "No Content", HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOTMODIFIED:         /* 304 Not Modified */
-	httpd_send_reply(hreq, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_NOTMODIFIED, NULL, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_BADREQUEST:          /* 400 Bad Request */
 	httpd_send_error(hreq, status_code, "Bad Request");

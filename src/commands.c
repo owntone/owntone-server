@@ -63,8 +63,8 @@ command_cb_async(struct commands_base *cmdbase, struct command *cmd)
   // Command is executed asynchronously
   cmdstate = cmd->func(cmd->arg, &cmd->ret);
 
-  // Only free arg if there are no pending events (used in worker.c)
-  if (cmdstate != COMMAND_PENDING && cmd->arg)
+  // Only free arg if there are no pending events (used in httpd.c)
+  if (cmdstate != COMMAND_PENDING)
     free(cmd->arg);
 
   free(cmd);

@@ -43,10 +43,10 @@
 #include "evthr.h"
 #include "misc.h"
 
-#define THREADPOOL_NTHREADS 2
+#define THREADPOOL_NTHREADS 4
 
 static struct evthr_pool *worker_threadpool;
-
+static __thread struct evthr *worker_thr;
 
 
 /* ----------------------------- CALLBACK EXECUTION ------------------------- */
@@ -98,12 +98,16 @@ init_cb(struct evthr *thr, void *shared)
 {
   CHECK_ERR(L_MAIN, db_perthread_init());
 
+  worker_thr = thr;
+
   thread_setname(pthread_self(), "worker");
 }
 
 static void
 exit_cb(struct evthr *thr, void *shared)
 {
+  worker_thr = NULL;
+
   db_perthread_deinit();
 }
 
@@ -143,6 +147,12 @@ worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
   cmdarg->delay = delay;
 
   evthr_pool_defer(worker_threadpool, execute, cmdarg);
+}
+
+struct event_base *
+worker_evbase_get(void)
+{
+  return evthr_get_base(worker_thr);
 }
 
 int

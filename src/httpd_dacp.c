@@ -139,25 +139,12 @@ static struct db_queue_item dummy_queue_item;
 static void
 dacp_send_error(struct httpd_request *hreq, const char *container, const char *errmsg)
 {
-  struct evbuffer *evbuf;
-
   if (!hreq)
     return;
 
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for DMAP error\n");
+  dmap_error_make(hreq->out_body, container, errmsg);
 
-      httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
-      return;
-    }
-
-  dmap_error_make(evbuf, container, errmsg);
-
-  httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
-
-  evbuffer_free(evbuf);
+  httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP);
 }
 
 static void
@@ -640,7 +627,7 @@ dacp_request_authorize(struct httpd_request *hreq)
  invalid:
   DPRINTF(E_LOG, L_DACP, "Unauthorized request '%s' from '%s' (is peer trusted in your config?)\n", hreq->uri, hreq->peer_address);
 
-  httpd_send_error(hreq, 403, "Forbidden");
+  httpd_send_error(hreq, HTTP_FORBIDDEN, "Forbidden");
   return -1;
 }
 
@@ -719,13 +706,10 @@ playstatusupdate_cb(int fd, short what, void *arg);
 static struct dacp_update_request *
 update_request_new(struct httpd_request *hreq)
 {
-  struct event_base *evbase;
   struct dacp_update_request *ur;
 
-  evbase = httpd_request_evbase_get(hreq);
-
   CHECK_NULL(L_DACP, ur = calloc(1, sizeof(struct dacp_update_request)));
-  CHECK_NULL(L_DACP, ur->updateev = event_new(evbase, -1, 0, playstatusupdate_cb, ur));
+  CHECK_NULL(L_DACP, ur->updateev = event_new(hreq->evbase, -1, 0, playstatusupdate_cb, ur));
   ur->hreq = hreq;
 
   return ur;
@@ -771,39 +755,29 @@ static void
 playstatusupdate_cb(int fd, short what, void *arg)
 {
   struct dacp_update_request *ur = arg;
-  struct evbuffer *update;
+  struct httpd_request *hreq = ur->hreq;
   int ret;
 
-  CHECK_NULL(L_DACP, update = evbuffer_new());
-
-  ret = make_playstatusupdate(update, update_current_rev);
+  ret = make_playstatusupdate(hreq->out_body, update_current_rev);
   if (ret < 0)
     goto error;
 
-  httpd_request_closecb_set(ur->hreq, NULL, NULL);
-
-  httpd_send_reply(ur->hreq, HTTP_OK, "OK", update, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   pthread_mutex_lock(&update_request_lck);
   update_request_remove(&update_requests, ur);
   pthread_mutex_unlock(&update_request_lck);
 
  error:
-  evbuffer_free(update);
+  return;
 }
 
 static void
-update_fail_cb(httpd_connection *conn, void *arg)
+update_fail_cb(struct httpd_request *hreq, void *arg)
 {
   struct dacp_update_request *ur = arg;
 
   DPRINTF(E_DBG, L_DACP, "Update request: client closed connection\n");
-
-  httpd_request_closecb_set(ur->hreq, NULL, NULL);
-
-  // Peer won't get this, it is just to make sure hreq and evhttp's request get
-  // freed
-  httpd_send_error(ur->hreq, HTTP_BADREQUEST, "Bad Request");
 
   pthread_mutex_lock(&update_request_lck);
   update_request_remove(&update_requests, ur);
@@ -1028,7 +1002,6 @@ dacp_propset_devicebusy(const char *value, struct httpd_request *hreq)
 static void
 dacp_propset_playingtime(const char *value, struct httpd_request *hreq)
 {
-  struct event_base *evbase;
   struct timeval tv;
   int seek_target;
   intptr_t seek_target_packed;
@@ -1047,8 +1020,7 @@ dacp_propset_playingtime(const char *value, struct httpd_request *hreq)
   evutil_timerclear(&tv);
   tv.tv_usec = 200 * 1000;
 
-  evbase = httpd_request_evbase_get(hreq);
-  event_base_once(evbase, -1, EV_TIMEOUT, seek_timer_cb, (void *)seek_target_packed, &tv);
+  event_base_once(hreq->evbase, -1, EV_TIMEOUT, seek_timer_cb, (void *)seek_target_packed, &tv);
 }
 
 static void
@@ -1194,7 +1166,7 @@ dacp_reply_ctrlint(struct httpd_request *hreq)
   dmap_add_char(hreq->out_body, "cmrl", 1);        /*  9, unknown */
   dmap_add_long(hreq->out_body, "ceSX", (1 << 1 | 1));  /* 16, unknown dacp - lowest bit announces support for playqueue-contents/-edit */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   return 0;
 }
@@ -1338,7 +1310,7 @@ dacp_reply_cue_play(struct httpd_request *hreq)
   dmap_add_int(hreq->out_body, "mstt", 200);      /* 12 */
   dmap_add_int(hreq->out_body, "miid", status.id);/* 12 */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   return 0;
 }
@@ -1358,7 +1330,7 @@ dacp_reply_cue_clear(struct httpd_request *hreq)
   dmap_add_int(hreq->out_body, "mstt", 200);      /* 12 */
   dmap_add_int(hreq->out_body, "miid", 0);        /* 12 */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   return 0;
 }
@@ -1407,12 +1379,12 @@ dacp_reply_play(struct httpd_request *hreq)
   ret = player_playback_start();
   if (ret < 0)
     {
-      httpd_send_error(hreq, 500, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
       return -1;
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1544,11 +1516,11 @@ dacp_reply_playspec(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
   return 0;
 
  out_fail:
-  httpd_send_error(hreq, 500, "Internal Server Error");
+  httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
 
   return -1;
 }
@@ -1565,7 +1537,7 @@ dacp_reply_stop(struct httpd_request *hreq)
   player_playback_stop();
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1582,7 +1554,7 @@ dacp_reply_pause(struct httpd_request *hreq)
   player_playback_pause();
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1609,13 +1581,13 @@ dacp_reply_playpause(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Player returned an error for start after pause\n");
 
-	  httpd_send_error(hreq, 500, "Internal Server Error");
+	  httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
 	  return -1;
         }
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1634,7 +1606,7 @@ dacp_reply_nextitem(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for nextitem\n");
 
-      httpd_send_error(hreq, 500, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
       return -1;
     }
 
@@ -1643,12 +1615,12 @@ dacp_reply_nextitem(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after nextitem\n");
 
-      httpd_send_error(hreq, 500, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
       return -1;
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1667,7 +1639,7 @@ dacp_reply_previtem(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for previtem\n");
 
-      httpd_send_error(hreq, 500, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
       return -1;
     }
 
@@ -1676,12 +1648,12 @@ dacp_reply_previtem(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DACP, "Player returned an error for start after previtem\n");
 
-      httpd_send_error(hreq, 500, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
       return -1;
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1698,7 +1670,7 @@ dacp_reply_beginff(struct httpd_request *hreq)
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1715,7 +1687,7 @@ dacp_reply_beginrew(struct httpd_request *hreq)
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1732,7 +1704,7 @@ dacp_reply_playresume(struct httpd_request *hreq)
   /* TODO */
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -1884,7 +1856,7 @@ dacp_reply_playqueuecontents(struct httpd_request *hreq)
   dmap_add_char(hreq->out_body, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
   dmap_add_char(hreq->out_body, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   return 0;
 
@@ -1922,7 +1894,7 @@ dacp_reply_playqueueedit_clear(struct httpd_request *hreq)
   dmap_add_int(hreq->out_body, "mstt", 200);      /* 12 */
   dmap_add_int(hreq->out_body, "miid", 0);        /* 12 */
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   return 0;
 }
@@ -2060,7 +2032,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2108,7 +2080,7 @@ dacp_reply_playqueueedit_move(struct httpd_request *hreq)
   }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2144,7 +2116,7 @@ dacp_reply_playqueueedit_remove(struct httpd_request *hreq)
   }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2267,9 +2239,9 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
     {
       ret = make_playstatusupdate(hreq->out_body, update_current_rev);
       if (ret < 0)
-	httpd_send_error(hreq, 500, "Internal Server Error");
+	httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
       else
-	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+	httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
       return ret;
     }
@@ -2289,10 +2261,9 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
   update_requests = ur;
   pthread_mutex_unlock(&update_request_lck);
 
-  /* If the connection fails before we have an update to push out
-   * to the client, we need to know.
-   */
-  httpd_request_closecb_set(hreq, update_fail_cb, ur);
+  // If the connection fails before we have an update to push out to the client,
+  // we need to know.
+  httpd_request_close_cb_set(hreq, update_fail_cb, ur);
 
   return 0;
 }
@@ -2370,7 +2341,7 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
   snprintf(clen, sizeof(clen), "%ld", (long)len);
   httpd_header_add(hreq->out_headers, "Content-Length", clen);
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP);
   return 0;
 
  no_artwork:
@@ -2471,7 +2442,7 @@ dacp_reply_getproperty(struct httpd_request *hreq)
 
   evbuffer_free(proplist);
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   return 0;
 
@@ -2526,7 +2497,7 @@ dacp_reply_setproperty(struct httpd_request *hreq)
   httpd_query_iterate(hreq->query, setproperty_cb, hreq);
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2554,7 +2525,7 @@ dacp_reply_getspeakers(struct httpd_request *hreq)
 
   evbuffer_free(spklist);
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   return 0;
 }
@@ -2638,13 +2609,13 @@ dacp_reply_setspeakers(struct httpd_request *hreq)
       if (ret == -2)
 	httpd_send_error(hreq, 902, "");
       else
-	httpd_send_error(hreq, 500, "Internal Server Error");
+	httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
 
       return -1;
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2670,7 +2641,7 @@ dacp_reply_volumeup(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2696,7 +2667,7 @@ dacp_reply_volumedown(struct httpd_request *hreq)
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2718,12 +2689,12 @@ dacp_reply_mutetoggle(struct httpd_request *hreq)
   ret = speaker_info.selected ? player_speaker_disable(speaker_info.id) : player_speaker_enable(speaker_info.id);
   if (ret < 0)
     {
-      httpd_send_error(hreq, 500, "Internal Server Error");
+      httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
       return -1;
     }
 
   /* 204 No Content is the canonical reply */
-  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+  httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
 }
@@ -2784,7 +2755,7 @@ static struct httpd_uri_map dacp_handlers[] =
     },
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/playstatusupdate$",
-      .handler = dacp_reply_playstatusupdate
+      .handler = dacp_reply_playstatusupdate,
     },
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/playqueue-contents$",
@@ -2879,7 +2850,6 @@ static void
 dacp_deinit(void)
 {
   struct dacp_update_request *ur;
-  httpd_connection *conn;
 
   listener_remove(dacp_playstatus_update_handler);
 
@@ -2887,10 +2857,7 @@ dacp_deinit(void)
     {
       update_requests = ur->next;
 
-      httpd_request_closecb_set(ur->hreq, NULL, NULL);
-      conn = httpd_request_connection_get(ur->hreq);
-      httpd_connection_free(conn); // TODO necessary?
-
+      httpd_send_error(ur->hreq, HTTP_SERVUNAVAIL, "Service Unavailable");
       update_request_free(ur);
     }
 }

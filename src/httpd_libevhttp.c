@@ -32,14 +32,16 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
+#include <pthread.h>
+
 #include "misc.h"
 #include "logger.h"
+#include "commands.h"
 #include "httpd_internal.h"
 
-#define DEBUG_ALLOC 1
+// #define DEBUG_ALLOC 1
 
 #ifdef DEBUG_ALLOC
-#include <pthread.h>
 static pthread_mutex_t debug_alloc_lck = PTHREAD_MUTEX_INITIALIZER;
 static int debug_alloc_count;
 #endif
@@ -56,9 +58,40 @@ struct httpd_server
 {
   int fd;
   struct evhttp *evhttp;
+  struct commands_base *cmdbase;
   httpd_request_cb request_cb;
   void *request_cb_arg;
 };
+
+struct httpd_reply
+{
+  struct httpd_request *hreq;
+  enum httpd_reply_type type;
+  int code;
+  const char *reason;
+  httpd_connection_chunkcb chunkcb;
+  void *cbarg;
+};
+
+struct httpd_disconnect
+{
+  pthread_mutex_t lock;
+  struct event *ev;
+  httpd_close_cb cb;
+  void *cbarg;
+};
+
+struct httpd_backend_data
+{
+  // Pointer to server instance processing the request
+  struct httpd_server *server;
+  // If caller wants a callback on disconnect
+  struct httpd_disconnect disconnect;
+};
+
+// Forward
+static void
+closecb_worker(evutil_socket_t fd, short event, void *arg);
 
 
 const char *
@@ -109,45 +142,27 @@ httpd_headers_clear(httpd_headers *headers)
 }
 
 void
-httpd_connection_free(httpd_connection *conn)
+httpd_request_close_cb_set(struct httpd_request *hreq, httpd_close_cb cb, void *arg)
 {
-  if (!conn)
-    return;
+  struct httpd_disconnect *disconnect = &hreq->backend_data->disconnect;
 
-  evhttp_connection_free(conn);
-}
+  pthread_mutex_lock(&disconnect->lock);
 
-httpd_connection *
-httpd_request_connection_get(struct httpd_request *hreq)
-{
-  return httpd_backend_connection_get(hreq->backend);
-}
+  disconnect->cb = cb;
+  disconnect->cbarg = arg;
 
-void
-httpd_request_backend_free(struct httpd_request *hreq)
-{
-  evhttp_request_free(hreq->backend);
-}
+  if (hreq->is_async)
+    {
+      if (disconnect->ev)
+	event_free(disconnect->ev);
 
-int
-httpd_request_closecb_set(struct httpd_request *hreq, httpd_connection_closecb cb, void *arg)
-{
-  httpd_connection *conn = httpd_request_connection_get(hreq);
-  if (!conn)
-    return -1;
+      if (disconnect->cb)
+	disconnect->ev = event_new(hreq->evbase, -1, 0, closecb_worker, hreq);
+      else
+	disconnect->ev = NULL;
+    }
 
-  evhttp_connection_set_closecb(conn, cb, arg);
-  return 0;
-}
-
-struct event_base *
-httpd_request_evbase_get(struct httpd_request *hreq)
-{
-  httpd_connection *conn = httpd_request_connection_get(hreq);
-  if (!conn)
-    return NULL;
-
-  return evhttp_connection_get_base(conn);
+  pthread_mutex_unlock(&disconnect->lock);
 }
 
 void
@@ -172,7 +187,7 @@ httpd_request_free(struct httpd_request *hreq)
 }
 
 struct httpd_request *
-httpd_request_new(httpd_backend *backend, const char *uri, const char *user_agent)
+httpd_request_new(httpd_backend *backend, httpd_server *server, const char *uri, const char *user_agent)
 {
   struct httpd_request *hreq;
   httpd_backend_data *backend_data;
@@ -190,7 +205,7 @@ httpd_request_new(httpd_backend *backend, const char *uri, const char *user_agen
   hreq->backend = backend;
   if (backend)
     {
-      backend_data = httpd_backend_data_create(backend);
+      backend_data = httpd_backend_data_create(backend, server);
       hreq->backend_data = backend_data;
 
       hreq->uri = httpd_backend_uri_get(backend, backend_data);
@@ -234,6 +249,51 @@ httpd_request_new(httpd_backend *backend, const char *uri, const char *user_agen
 }
 
 static void
+closecb_worker(evutil_socket_t fd, short event, void *arg)
+{
+  struct httpd_request *hreq = arg;
+  struct httpd_disconnect *disconnect = &hreq->backend_data->disconnect;
+
+  pthread_mutex_lock(&disconnect->lock);
+
+  if (disconnect->cb)
+    disconnect->cb(hreq, disconnect->cbarg);
+
+  pthread_mutex_unlock(&disconnect->lock);
+
+  httpd_send_reply_end(hreq); // hreq is now deallocated
+}
+
+static void
+closecb_httpd(httpd_connection *conn, void *arg)
+{
+  struct httpd_request *hreq = arg;
+  struct httpd_disconnect *disconnect = &hreq->backend_data->disconnect;
+
+  DPRINTF(E_WARN, hreq->module->logdomain, "Connection to '%s' was closed\n", hreq->peer_address);
+
+  // The disconnect event may occur while a worker thread is accessing hreq, or
+  // has an event scheduled that will do so, so we have to be careful to let it
+  // finish and cancel events.
+  pthread_mutex_lock(&disconnect->lock);
+  if (hreq->is_async)
+    {
+      if (disconnect->cb)
+	event_active(disconnect->ev, 0, 0);
+
+      pthread_mutex_unlock(&disconnect->lock);
+      return;
+    }
+  pthread_mutex_unlock(&disconnect->lock);
+
+  if (!disconnect->cb)
+    return;
+
+  disconnect->cb(hreq, disconnect->cbarg);
+  httpd_send_reply_end(hreq); // hreq is now deallocated
+}
+
+static void
 gencb_httpd(httpd_backend *backend, void *arg)
 {
   httpd_server *server = arg;
@@ -253,12 +313,16 @@ gencb_httpd(httpd_backend *backend, void *arg)
   if (bufev)
     bufferevent_enable(bufev, EV_READ);
 
-  hreq = httpd_request_new(backend, NULL, NULL);
+  hreq = httpd_request_new(backend, server, NULL, NULL);
   if (!hreq)
     {
       evhttp_send_error(backend, HTTP_INTERNAL, "Internal error");
       return;
     }
+
+  // We must hook connection close, so we can assure that conn close callbacks
+  // to handlers running in a worker are made in the same thread.
+  evhttp_connection_set_closecb(evhttp_request_get_connection(backend), closecb_httpd, hreq);
 
   server->request_cb(hreq, server->request_cb_arg);
 }
@@ -275,6 +339,7 @@ httpd_server_free(httpd_server *server)
   if (server->evhttp)
     evhttp_free(server->evhttp);
 
+  commands_base_free(server->cmdbase);
   free(server);
 }
 
@@ -286,6 +351,7 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_request_c
 
   CHECK_NULL(L_HTTPD, server = calloc(1, sizeof(httpd_server)));
   CHECK_NULL(L_HTTPD, server->evhttp = evhttp_new(evbase));
+  CHECK_NULL(L_HTTPD, server->cmdbase = commands_base_new(evbase, NULL));
 
   server->request_cb = cb;
   server->request_cb_arg = arg;
@@ -294,7 +360,7 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_request_c
   if (server->fd <= 0)
     goto error;
 
-  // Backlog of 128 is the same libevent uses
+  // Backlog of 128 is the same that libevent uses
   ret = listen(server->fd, 128);
   if (ret < 0)
     goto error;
@@ -318,46 +384,109 @@ httpd_server_allow_origin_set(httpd_server *server, bool allow)
   evhttp_set_allowed_methods(server->evhttp, EVHTTP_REQ_GET | EVHTTP_REQ_POST | EVHTTP_REQ_PUT | EVHTTP_REQ_DELETE | EVHTTP_REQ_HEAD | EVHTTP_REQ_OPTIONS);
 }
 
-void
-httpd_backend_reply_send(httpd_backend *backend, int code, const char *reason, struct evbuffer *evbuf)
+// No locking of hreq required here, we're in the httpd thread, and the worker
+// thread is waiting at commands_exec_sync()
+static void
+send_reply_and_free(struct httpd_reply *reply)
 {
-  evhttp_send_reply(backend, code, reason, evbuf);
+  struct httpd_request *hreq = reply->hreq;
+  httpd_connection *conn;
+
+//  DPRINTF(E_DBG, L_HTTPD, "Send from httpd thread, type %d, backend %p\n", reply->type, hreq->backend);
+
+  if (reply->type & HTTPD_F_REPLY_LAST)
+    {
+      conn = evhttp_request_get_connection(hreq->backend);
+      if (conn)
+	evhttp_connection_set_closecb(conn, NULL, NULL);
+    }
+
+  switch (reply->type)
+    {
+      case HTTPD_REPLY_COMPLETE:
+	evhttp_send_reply(hreq->backend, reply->code, reply->reason, hreq->out_body);
+	break;
+      case HTTPD_REPLY_START:
+	evhttp_send_reply_start(hreq->backend, reply->code, reply->reason);
+	break;
+      case HTTPD_REPLY_CHUNK:
+        evhttp_send_reply_chunk_with_cb(hreq->backend, hreq->out_body, reply->chunkcb, reply->cbarg);
+	break;
+      case HTTPD_REPLY_END:
+	evhttp_send_reply_end(hreq->backend);
+	break;
+    }
+}
+
+static enum command_state
+send_reply_and_free_cb(void *arg, int *retval)
+{
+  struct httpd_reply *reply = arg;
+
+  send_reply_and_free(reply);
+
+  return COMMAND_END;
 }
 
 void
-httpd_backend_reply_start_send(httpd_backend *backend, int code, const char *reason)
+httpd_send(struct httpd_request *hreq, enum httpd_reply_type type, int code, const char *reason, httpd_connection_chunkcb cb, void *cbarg)
 {
-  evhttp_send_reply_start(backend, code, reason);
-}
+  struct httpd_server *server = hreq->backend_data->server;
+  struct httpd_reply reply = {
+    .hreq = hreq,
+    .type = type,
+    .code = code,
+    .chunkcb = cb,
+    .cbarg = cbarg,
+    .reason = reason,
+  };
 
-void
-httpd_backend_reply_chunk_send(httpd_backend *backend, struct evbuffer *evbuf, httpd_connection_chunkcb cb, void *arg)
-{
-  evhttp_send_reply_chunk_with_cb(backend, evbuf, cb, arg);
-}
+  if (type & HTTPD_F_REPLY_LAST)
+    httpd_request_close_cb_set(hreq, NULL, NULL);
 
-void
-httpd_backend_reply_end_send(httpd_backend *backend)
-{
-  evhttp_send_reply_end(backend);
+  // Sending async is not a option, because then the worker thread might touch
+  // hreq before we have completed sending the current chunk
+  if (hreq->is_async)
+    commands_exec_sync(server->cmdbase, send_reply_and_free_cb, NULL, &reply);
+  else
+    send_reply_and_free(&reply);
+
+  if (type & HTTPD_F_REPLY_LAST)
+    httpd_request_free(hreq);
 }
 
 httpd_backend_data *
-httpd_backend_data_create(httpd_backend *backend)
+httpd_backend_data_create(httpd_backend *backend, httpd_server *server)
 {
-  return "dummy";
+  httpd_backend_data *backend_data;
+
+  CHECK_NULL(L_HTTPD, backend_data = calloc(1, sizeof(httpd_backend_data)));
+  CHECK_ERR(L_HTTPD, mutex_init(&backend_data->disconnect.lock));
+  backend_data->server = server;
+
+  return backend_data;
 }
 
 void
 httpd_backend_data_free(httpd_backend_data *backend_data)
 {
-  // Nothing to do
+  if (!backend_data)
+    return;
+
+  if (backend_data->disconnect.ev)
+    event_free(backend_data->disconnect.ev);
+
+  free(backend_data);
 }
 
-httpd_connection *
-httpd_backend_connection_get(httpd_backend *backend)
+struct event_base *
+httpd_backend_evbase_get(httpd_backend *backend)
 {
-  return evhttp_request_get_connection(backend);
+  httpd_connection *conn = evhttp_request_get_connection(backend);
+  if (!conn)
+    return NULL;
+
+  return evhttp_connection_get_base(conn);
 }
 
 const char *
@@ -393,7 +522,7 @@ httpd_backend_output_buffer_get(httpd_backend *backend)
 int
 httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend, httpd_backend_data *backend_data)
 {
-  httpd_connection *conn = httpd_backend_connection_get(backend);
+  httpd_connection *conn = evhttp_request_get_connection(backend);
   if (!conn)
     return -1;
 

@@ -119,28 +119,17 @@ static const struct field_map rsp_fields[] =
 
 /* -------------------------------- HELPERS --------------------------------- */
 
-static struct evbuffer *
-mxml_to_evbuf(mxml_node_t *tree)
+static int
+mxml_to_evbuf(struct evbuffer *evbuf, mxml_node_t *tree)
 {
-  struct evbuffer *evbuf;
   char *xml;
   int ret;
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_RSP, "Could not create evbuffer for RSP reply\n");
-
-      return NULL;
-    }
 
   xml = mxmlSaveAllocString(tree, MXML_NO_CALLBACK);
   if (!xml)
     {
       DPRINTF(E_LOG, L_RSP, "Could not finalize RSP reply\n");
-
-      evbuffer_free(evbuf);
-      return NULL;
+      return -1;
     }
 
   ret = evbuffer_add(evbuf, xml, strlen(xml));
@@ -148,21 +137,19 @@ mxml_to_evbuf(mxml_node_t *tree)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RSP, "Could not load evbuffer for RSP reply\n");
-
-      evbuffer_free(evbuf);
-      return NULL;
+      return -1;
     }
 
-  return evbuf;
+  return 0;
 }
 
 static void
 rsp_send_error(struct httpd_request *hreq, char *errmsg)
 {
-  struct evbuffer *evbuf;
   mxml_node_t *reply;
   mxml_node_t *status;
   mxml_node_t *node;
+  int ret;
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
    * on the root node and we need some.
@@ -185,22 +172,19 @@ rsp_send_error(struct httpd_request *hreq, char *errmsg)
   node = mxmlNewElement(status, "totalrecords");
   mxmlNewText(node, 0, "0");
 
-  evbuf = mxml_to_evbuf(reply);
+  ret = mxml_to_evbuf(hreq->out_body, reply);
   mxmlDelete(reply);
 
-  if (!evbuf)
+  if (ret < 0)
     {
       httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
-
       return;
     }
 
   httpd_header_add(hreq->out_headers, "Content-Type", "text/xml; charset=utf-8");
   httpd_header_add(hreq->out_headers, "Connection", "close");
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
-
-  evbuffer_free(evbuf);
+  httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP);
 }
 
 static int
@@ -277,24 +261,21 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
 static void
 rsp_send_reply(struct httpd_request *hreq, mxml_node_t *reply)
 {
-  struct evbuffer *evbuf;
+  int ret;
 
-  evbuf = mxml_to_evbuf(reply);
+  ret = mxml_to_evbuf(hreq->out_body, reply);
   mxmlDelete(reply);
 
-  if (!evbuf)
+  if (ret < 0)
     {
       rsp_send_error(hreq, "Could not finalize reply");
-
       return;
     }
 
   httpd_header_add(hreq->out_headers, "Content-Type", "text/xml; charset=utf-8");
   httpd_header_add(hreq->out_headers, "Connection", "close");
 
-  httpd_send_reply(hreq, HTTP_OK, "OK", evbuf, 0);
-
-  evbuffer_free(evbuf);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 }
 
 static int
@@ -844,7 +825,7 @@ static struct httpd_uri_map rsp_handlers[] =
     },
     {
       .regexp = "^/rsp/stream/[[:digit:]]+$",
-      .handler = rsp_stream
+      .handler = rsp_stream,
     },
     { 
       .regexp = NULL,

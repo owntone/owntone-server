@@ -284,42 +284,28 @@ update_remove(struct daap_update_request *ur)
 static void
 update_refresh_cb(int fd, short event, void *arg)
 {
-  struct daap_update_request *ur;
-  struct evbuffer *reply;
-
-  ur = (struct daap_update_request *)arg;
-
-  CHECK_NULL(L_DAAP, reply = evbuffer_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(reply, 32));
+  struct daap_update_request *ur = arg;
+  struct httpd_request *hreq = ur->hreq;
 
   current_rev++;
 
   /* Send back current revision */
-  dmap_add_container(reply, "mupd", 24);
-  dmap_add_int(reply, "mstt", 200);         /* 12 */
-  dmap_add_int(reply, "musr", current_rev); /* 12 */
+  dmap_add_container(hreq->out_body, "mupd", 24);
+  dmap_add_int(hreq->out_body, "mstt", 200);         /* 12 */
+  dmap_add_int(hreq->out_body, "musr", current_rev); /* 12 */
 
-  httpd_request_closecb_set(ur->hreq, NULL, NULL);
-
-  httpd_send_reply(ur->hreq, HTTP_OK, "OK", reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   update_remove(ur);
 }
 
 static void
-update_fail_cb(httpd_connection *conn, void *arg)
+update_fail_cb(struct httpd_request *hreq, void *arg)
 {
-  struct daap_update_request *ur;
-
-  ur = (struct daap_update_request *)arg;
+  struct daap_update_request *ur = arg;
 
   DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
 
-  httpd_request_closecb_set(ur->hreq, NULL, NULL);
-
-  // Peer won't get this, it is just to make sure hreq and evhttp's request get
-  // freed
-  httpd_send_error(ur->hreq, HTTP_BADREQUEST, "Bad Request");
   update_remove(ur);
 }
 
@@ -671,17 +657,17 @@ daap_reply_send(struct httpd_request *hreq, enum daap_reply_result result)
   switch (result)
     {
       case DAAP_REPLY_LOGOUT:
-	httpd_send_reply(hreq, HTTP_NOCONTENT, "Logout Successful", hreq->out_body, 0);
+	httpd_send_reply(hreq, HTTP_NOCONTENT, "Logout Successful", 0);
 	break;
       case DAAP_REPLY_NO_CONTENT:
-	httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", hreq->out_body, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_OK:
-	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, 0);
+	httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 	break;
       case DAAP_REPLY_OK_NO_GZIP:
       case DAAP_REPLY_ERROR:
-	httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_FORBIDDEN:
 	httpd_send_error(hreq, HTTP_FORBIDDEN, "Forbidden");
@@ -724,7 +710,7 @@ daap_request_authorize(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri);
 
-	  httpd_send_error(hreq, 401, "Unauthorized");
+	  httpd_send_error(hreq, HTTP_UNAUTHORIZED, "Unauthorized");;
 	  return -1;
 	}
 
@@ -760,7 +746,7 @@ daap_request_authorize(struct httpd_request *hreq)
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 /* Note that some handlers can be called without a connection (needed for     */
 /* cache regeneration), while others cannot. Those that cannot should check   */
-/* that httpd_request_connection_get(hreq) is not null.                       */
+/* that hreq->backend is not null.                                            */
 
 static enum daap_reply_result
 daap_reply_server_info(struct httpd_request *hreq)
@@ -773,7 +759,7 @@ daap_reply_server_info(struct httpd_request *hreq)
   int mpro;
   int apro;
 
-  if (!httpd_request_connection_get(hreq))
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_server_info() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -986,12 +972,11 @@ static enum daap_reply_result
 daap_reply_update(struct httpd_request *hreq)
 {
   struct daap_update_request *ur;
-  struct event_base *evbase;
   const char *param;
   int reqd_rev;
   int ret;
 
-  if (!httpd_request_connection_get(hreq))
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_update() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -1039,9 +1024,7 @@ daap_reply_update(struct httpd_request *hreq)
 
   if (DAAP_UPDATE_REFRESH > 0)
     {
-      evbase = httpd_request_evbase_get(hreq);
-
-      ur->timeout = evtimer_new(evbase, update_refresh_cb, ur);
+      ur->timeout = evtimer_new(hreq->evbase, update_refresh_cb, ur);
       if (ur->timeout)
 	ret = evtimer_add(ur->timeout, &daap_update_refresh_tv);
       else
@@ -1066,7 +1049,7 @@ daap_reply_update(struct httpd_request *hreq)
   /* If the connection fails before we have an update to push out
    * to the client, we need to know.
    */
-  httpd_request_closecb_set(hreq, update_fail_cb, ur);
+  httpd_request_close_cb_set(hreq, update_fail_cb, ur);
 
   return DAAP_REPLY_NONE;
 }
@@ -1948,7 +1931,7 @@ daap_reply_extra_data(struct httpd_request *hreq)
   int max_h;
   int ret;
 
-  if (!httpd_request_connection_get(hreq))
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_extra_data() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -2028,7 +2011,7 @@ daap_stream(struct httpd_request *hreq)
   int id;
   int ret;
 
-  if (!httpd_request_connection_get(hreq))
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_stream() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -2153,7 +2136,7 @@ static struct httpd_uri_map daap_handlers[] =
     },
     {
       .regexp = "^/update$",
-      .handler = daap_reply_update
+      .handler = daap_reply_update,
     },
     {
       .regexp = "^/activity$",
@@ -2229,8 +2212,7 @@ daap_request(struct httpd_request *hreq)
   if (!hreq->handler)
     {
       DPRINTF(E_LOG, L_DAAP, "Unrecognized path in DAAP request: '%s'\n", hreq->uri);
-
-      httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
+      daap_reply_send(hreq, DAAP_REPLY_BAD_REQUEST);
       return;
     }
 
@@ -2273,7 +2255,7 @@ daap_request(struct httpd_request *hreq)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
       httpd_header_add(hreq->out_headers, "Content-Encoding", "gzip");
-      httpd_send_reply(hreq, HTTP_OK, "OK", hreq->out_body, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
+      httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP); // TODO not all want this reply
       return;
     }
 
@@ -2317,7 +2299,7 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 
   DPRINTF(E_DBG, L_DAAP, "Building reply for DAAP request: '%s'\n", uri);
 
-  hreq = httpd_request_new(NULL, uri, user_agent);
+  hreq = httpd_request_new(NULL, NULL, uri, user_agent);
   if (!hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Error building request: '%s'\n", uri);
@@ -2366,7 +2348,6 @@ daap_deinit(void)
 {
   struct daap_session *s;
   struct daap_update_request *ur;
-  httpd_connection *conn;
 
   for (s = daap_sessions; daap_sessions; s = daap_sessions)
     {
@@ -2378,10 +2359,7 @@ daap_deinit(void)
     {
       update_requests = ur->next;
 
-      httpd_request_closecb_set(ur->hreq, NULL, NULL);
-      conn = httpd_request_connection_get(ur->hreq);
-      httpd_connection_free(conn); // TODO necessary?
-
+      daap_reply_send(ur->hreq, DAAP_REPLY_SERVUNAVAIL);
       update_free(ur);
     }
 }
