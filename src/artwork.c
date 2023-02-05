@@ -149,6 +149,19 @@ enum parse_result {
   ONLINE_SOURCE_PARSE_NO_PARSER,
 };
 
+// Remember previous artwork searches, used to avoid futile requests
+struct online_search_history {
+  pthread_mutex_t mutex;
+  int last_id;
+  uint32_t last_hash;
+  int last_max_w;
+  int last_max_h;
+  int last_response_code;
+  char *last_artwork_url;
+  time_t last_timestamp;
+  int count_failures;
+};
+
 struct online_source {
   // Name of online source
   const char *name;
@@ -156,8 +169,7 @@ struct online_source {
 
   // How to authorize (using the Authorize http header)
   const char *auth_header;
-  const char *auth_key;
-  const char *auth_secret;
+  int (*credentials_get)(char **auth_key, char **auth_secret);
 
   // How to search for artwork
   const char *search_endpoint;
@@ -167,18 +179,7 @@ struct online_source {
     const char *template;
   } query_parts[8];
 
-  // Remember previous artwork searches, used to avoid futile requests
-  struct {
-    pthread_mutex_t mutex;
-    int last_id;
-    uint32_t last_hash;
-    int last_max_w;
-    int last_max_h;
-    int last_response_code;
-    char *last_artwork_url;
-    time_t last_timestamp;
-    int count_failures;
-  } search_history;
+  struct online_search_history *search_history;
 
   // Function that can extract the artwork url from the parsed json response
   enum parse_result (*response_jparse)(char **artwork_url, json_object *response, int max_w, int max_h);
@@ -348,12 +349,20 @@ static enum parse_result response_jparse_spotify(char **artwork_url, json_object
 static enum parse_result response_jparse_discogs(char **artwork_url, json_object *response, int max_w, int max_h);
 static enum parse_result response_jparse_musicbrainz(char **artwork_url, json_object *response, int max_w, int max_h);
 
+static int credentials_get_spotify(char **auth_key, char **auth_secret);
+static int credentials_get_discogs(char **auth_key, char **auth_secret);
+
+static struct online_search_history search_history_spotify = { .mutex = PTHREAD_MUTEX_INITIALIZER };
+static struct online_search_history search_history_discogs = { .mutex = PTHREAD_MUTEX_INITIALIZER };
+static struct online_search_history search_history_musicbrainz = { .mutex = PTHREAD_MUTEX_INITIALIZER };
+
 /* Definitions of online sources */
-static struct online_source spotify_source =
+static const struct online_source spotify_source =
   {
     .name = "Spotify",
     .setting_name = "use_artwork_source_spotify",
     .auth_header = "Bearer $SECRET$",
+    .credentials_get = credentials_get_spotify,
     .search_endpoint = "https://api.spotify.com/v1/search",
     .search_param = "type=track&limit=1&$QUERY$",
     .query_parts =
@@ -363,16 +372,15 @@ static struct online_source spotify_source =
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_spotify,
-    .search_history = { .mutex = PTHREAD_MUTEX_INITIALIZER },
+    .search_history = &search_history_spotify,
   };
 
-static struct online_source discogs_source =
+static const struct online_source discogs_source =
   {
     .name = "Discogs",
     .setting_name = "use_artwork_source_discogs",
     .auth_header = "Discogs key=$KEY$, secret=$SECRET$",
-    .auth_key = "ivzUxlkUiwpptDKpSCHF",
-    .auth_secret = "CYLZyExtlznKCupoIIhTpHVDReLunhUo",
+    .credentials_get = credentials_get_discogs,
     .search_endpoint = "https://api.discogs.com/database/search",
     .search_param = "type=release&per_page=1&$QUERY$",
     .query_parts =
@@ -383,10 +391,10 @@ static struct online_source discogs_source =
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_discogs,
-    .search_history = { .mutex = PTHREAD_MUTEX_INITIALIZER },
+    .search_history = &search_history_discogs,
   };
 
-static struct online_source musicbrainz_source =
+static const struct online_source musicbrainz_source =
   {
     .name = "Musicbrainz",
     .setting_name = "use_artwork_source_coverartarchive",
@@ -399,7 +407,7 @@ static struct online_source musicbrainz_source =
 	{ NULL, NULL },
       },
     .response_jparse = response_jparse_musicbrainz,
-    .search_history = { .mutex = PTHREAD_MUTEX_INITIALIZER },
+    .search_history = &search_history_musicbrainz,
   };
 
 
@@ -954,6 +962,33 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, struct artwork_req_
 
 /* ------------------------- ONLINE SOURCE HANDLING  ----------------------- */
 
+static int
+credentials_get_spotify(char **auth_key, char **auth_secret)
+{
+  struct spotifywebapi_status_info webapi_info;
+  struct spotifywebapi_access_token webapi_token;
+
+  spotifywebapi_status_info_get(&webapi_info);
+  if (!webapi_info.token_valid)
+    return -1; // Not logged in
+
+  spotifywebapi_access_token_get(&webapi_token);
+  if (!webapi_token.token)
+    return -1;
+
+  *auth_key = NULL;
+  *auth_secret = webapi_token.token;
+  return 0;
+}
+
+static int
+credentials_get_discogs(char **auth_key, char **auth_secret)
+{
+  *auth_key = strdup("ivzUxlkUiwpptDKpSCHF");
+  *auth_secret = strdup("CYLZyExtlznKCupoIIhTpHVDReLunhUo");
+  return 0;
+}
+
 static enum parse_result
 response_jparse_discogs(char **artwork_url, json_object *response, int max_w, int max_h)
 {
@@ -1048,7 +1083,7 @@ response_jparse_spotify(char **artwork_url, json_object *response, int max_w, in
 }
 
 static enum parse_result
-online_source_response_parse(char **artwork_url, struct online_source *src, struct evbuffer *response, int max_w, int max_h)
+online_source_response_parse(char **artwork_url, const struct online_source *src, struct evbuffer *response, int max_w, int max_h)
 {
   json_object *jresponse;
   char *body;
@@ -1076,7 +1111,7 @@ online_source_response_parse(char **artwork_url, struct online_source *src, stru
 }
 
 static int
-online_source_request_url_make(char *url, size_t url_size, struct online_source *src, struct artwork_ctx *ctx)
+online_source_request_url_make(char *url, size_t url_size, const struct online_source *src, struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
   struct keyval query = { 0 };
@@ -1168,83 +1203,118 @@ online_source_request_url_make(char *url, size_t url_size, struct online_source 
 }
 
 static int
-online_source_search_check_last(char **last_artwork_url, struct online_source *src, uint32_t hash, int max_w, int max_h)
+online_source_search_check_last(char **last_artwork_url, const struct online_source *src, uint32_t hash, int max_w, int max_h)
 {
+  struct online_search_history *history = src->search_history;
   bool is_same;
 
-  pthread_mutex_lock(&src->search_history.mutex);
+  pthread_mutex_lock(&history->mutex);
 
-  is_same = (hash == src->search_history.last_hash) &&
-            (max_w == src->search_history.last_max_w) &&
-            (max_h == src->search_history.last_max_h);
+  is_same = (hash == history->last_hash) &&
+            (max_w == history->last_max_w) &&
+            (max_h == history->last_max_h);
 
   // Copy this to the caller while we have the lock anyway
   if (is_same)
-    *last_artwork_url = safe_strdup(src->search_history.last_artwork_url);
+    *last_artwork_url = safe_strdup(history->last_artwork_url);
 
-  pthread_mutex_unlock(&src->search_history.mutex);
+  pthread_mutex_unlock(&history->mutex);
 
   return is_same ? 0 : -1;
 }
 
 static bool
-online_source_is_failing(struct online_source *src, int id)
+online_source_is_failing(const struct online_source *src, int id)
 {
+  struct online_search_history *history = src->search_history;
   bool is_failing;
 
-  pthread_mutex_lock(&src->search_history.mutex);
+  pthread_mutex_lock(&history->mutex);
 
   // If the last request was more than ONLINE_SEARCH_COOLDOWN_TIME ago we will always try again
-  if (time(NULL) > src->search_history.last_timestamp + ONLINE_SEARCH_COOLDOWN_TIME)
+  if (time(NULL) > history->last_timestamp + ONLINE_SEARCH_COOLDOWN_TIME)
     is_failing = false;
   // We won't try again if the source was not replying as expected
-  else if (src->search_history.last_response_code != HTTP_OK)
+  else if (history->last_response_code != HTTP_OK)
     is_failing = true;
   // The playback source has changed since the last search, let's give it a chance
   // (internet streams can feed us with garbage search metadata, but will not change id)
-  else if (id != src->search_history.last_id)
+  else if (id != history->last_id)
     is_failing = false;
   // We allow up to ONLINE_SEARCH_FAILURES_MAX for the same track id before declaring failure
-  else if (src->search_history.count_failures < ONLINE_SEARCH_FAILURES_MAX)
+  else if (history->count_failures < ONLINE_SEARCH_FAILURES_MAX)
     is_failing = false;
   else
     is_failing = true;
 
-  pthread_mutex_unlock(&src->search_history.mutex);
+  pthread_mutex_unlock(&history->mutex);
 
   return is_failing;
 }
 
 static void
-online_source_history_update(struct online_source *src, int id, uint32_t request_hash, int response_code, const char *artwork_url)
+online_source_history_update(const struct online_source *src, int id, uint32_t request_hash, int response_code, const char *artwork_url)
 {
-  pthread_mutex_lock(&src->search_history.mutex);
+  struct online_search_history *history = src->search_history;
 
-  src->search_history.last_id = id;
-  src->search_history.last_hash = request_hash;
-  src->search_history.last_response_code = response_code;
-  src->search_history.last_timestamp = time(NULL);
+  pthread_mutex_lock(&history->mutex);
 
-  free(src->search_history.last_artwork_url);
-  src->search_history.last_artwork_url = safe_strdup(artwork_url); // FIXME should free this on exit
+  history->last_id = id;
+  history->last_hash = request_hash;
+  history->last_response_code = response_code;
+  history->last_timestamp = time(NULL);
+
+  free(history->last_artwork_url);
+  history->last_artwork_url = safe_strdup(artwork_url); // FIXME should free this on exit
 
   if (artwork_url)
-    src->search_history.count_failures = 0;
+    history->count_failures = 0;
   else
-    src->search_history.count_failures++;
+    history->count_failures++;
 
-  pthread_mutex_unlock(&src->search_history.mutex);
+  pthread_mutex_unlock(&history->mutex);
+}
+
+static int
+auth_header_add(struct keyval *headers, const struct online_source *src)
+{
+  char auth_header[256];
+  char *auth_key;
+  char *auth_secret;
+  int ret;
+
+  if (!src->auth_header)
+    return 0; // Nothing to do
+
+  ret = src->credentials_get(&auth_key, &auth_secret);
+  if (ret < 0)
+    return -1;
+
+  snprintf(auth_header, sizeof(auth_header), "%s", src->auth_header);
+  ret = ((safe_snreplace(auth_header, sizeof(auth_header), "$KEY$", auth_key) < 0) ||
+         (safe_snreplace(auth_header, sizeof(auth_header), "$SECRET$", auth_secret) < 0));
+
+  free(auth_key);
+  free(auth_secret);
+
+  if (ret)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot make request for online artwork, auth header is too long\n");
+      return -1;
+    }
+
+  keyval_add(headers, "Authorization", auth_header);
+  return 0;
 }
 
 static char *
-online_source_search(struct online_source *src, struct artwork_ctx *ctx)
+online_source_search(const struct online_source *src, struct artwork_ctx *ctx)
 {
   char *artwork_url;
   struct http_client_ctx client = { 0 };
   struct keyval output_headers = { 0 };
   uint32_t hash;
   char url[2048];
-  char auth_header[256];
   int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying %s for %s\n", src->name, ctx->dbmfi->path);
@@ -1271,17 +1341,10 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
       return NULL;
     }
 
-  if (src->auth_header)
+  ret = auth_header_add(&output_headers, src);
+  if (ret < 0)
     {
-      snprintf(auth_header, sizeof(auth_header), "%s", src->auth_header);
-      if ((safe_snreplace(auth_header, sizeof(auth_header), "$KEY$", src->auth_key) < 0) ||
-	  (safe_snreplace(auth_header, sizeof(auth_header), "$SECRET$", src->auth_secret) < 0))
-	{
-	  DPRINTF(E_WARN, L_ART, "Cannot make request for online artwork, auth header is too long\n");
-	  return NULL;
-	}
-
-      keyval_add(&output_headers, "Authorization", auth_header);
+      return NULL;
     }
 
   CHECK_NULL(L_ART, client.input_body = evbuffer_new());
@@ -1320,7 +1383,7 @@ online_source_search(struct online_source *src, struct artwork_ctx *ctx)
 }
 
 static bool
-online_source_is_enabled(struct online_source *src)
+online_source_is_enabled(const struct online_source *src)
 {
   struct settings_category *category;
   bool enabled;
@@ -1642,26 +1705,13 @@ source_item_spotifywebapi_track_get(struct artwork_ctx *ctx)
 static int
 source_item_spotifywebapi_search_get(struct artwork_ctx *ctx)
 {
-  struct spotifywebapi_status_info webapi_info;
-  struct spotifywebapi_access_token webapi_token;
   char *url;
   int ret;
 
   if (!online_source_is_enabled(&spotify_source))
     return ART_E_NONE;
 
-  spotifywebapi_status_info_get(&webapi_info);
-  if (!webapi_info.token_valid)
-    return ART_E_NONE; // Not logged in
-
-  spotifywebapi_access_token_get(&webapi_token);
-  if (!webapi_token.token)
-    return ART_E_ERROR;
-
-  spotify_source.auth_secret = webapi_token.token;
-
   url = online_source_search(&spotify_source, ctx);
-  free(webapi_token.token);
   if (!url)
     return ART_E_NONE;
 
