@@ -144,6 +144,14 @@
             />
           </template>
         </settings-textfield>
+        <settings-checkbox
+          category_name="webinterface"
+          option_name="show_filepath_now_playing"
+        >
+          <template #label>
+            <span v-text="$t('page.settings.general.show-path')" />
+          </template>
+        </settings-checkbox>
       </template>
     </content-with-heading>
     <content-with-heading>
@@ -192,6 +200,11 @@ export default {
     settings_option_show_composer_now_playing() {
       return this.$store.getters.settings_option_show_composer_now_playing
     },
+
+    settings_option_show_filepath_now_playing() {
+      return this.$store.getters.settings_option_show_filepath_now_playing
+    },
+
     locale: {
       get() {
         let languages = this.$i18n.availableLocales

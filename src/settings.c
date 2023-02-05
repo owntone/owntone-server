@@ -28,6 +28,7 @@
 static struct settings_option webinterface_options[] =
   {
       { "show_composer_now_playing", SETTINGS_TYPE_BOOL },
+      { "show_filepath_now_playing", SETTINGS_TYPE_BOOL },
       { "show_composer_for_genre", SETTINGS_TYPE_STR },
       { "show_cover_artwork_in_album_lists", SETTINGS_TYPE_BOOL, { true } },
       { "show_menu_item_playlists", SETTINGS_TYPE_BOOL, { true } },

@@ -453,13 +453,14 @@
         "recently-added-page-info": "Limit the number of albums shown on the \"Recently Added\" page",
         "recently-added-page": "Recently added page",
         "search": "Search",
-        "show-composer-genres-info-1": "Comma separated list of genres the composer should be displayed on the \"now playing page\"",
+        "show-composer-genres-info-1": "Comma separated list of genres the composer should be displayed on the \"Now playing page\"",
         "show-composer-genres-info-2": "Leave empty to always show the composer.",
         "show-composer-genres-info-3": "The genre tag of the current track is matched by checking, if one of the defined genres are included. For example setting to \"classical, soundtrack\" will show the composer for tracks with a genre tag of \"Contemporary Classical\"",
         "show-composer-genres": "Show composer only for listed genres",
-        "show-composer-info": "If enabled the composer of the current playing track is shown on the \"now playing page\"",
+        "show-composer-info": "If enabled the composer of the current playing track is shown on the \"Now playing page\"",
         "show-composer": "Show composer",
-        "show-coverart": "Show cover artwork in album list"
+        "show-coverart": "Show cover artwork in album list",
+        "show-path": "Show filepath on the \"Now playing\" page"
       },
       "services": {
         "lastfm": {

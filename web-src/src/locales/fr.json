@@ -457,9 +457,10 @@
         "show-composer-genres-info-2": "Laissez vide pour toujours afficher le compositeur.",
         "show-composer-genres-info-3": "L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
         "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
-        "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page \"lecture en cours\"",
+        "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page \"Lecture en cours\"",
         "show-composer": "Afficher le compositeur",
-        "show-coverart": "Afficher les illustration dans la liste d’albums"
+        "show-coverart": "Afficher les illustration dans la liste d’albums",
+        "show-path": "Afficher le chemin du fichier sur la page \"Lecture en cours\""
       },
       "services": {
         "lastfm": {
