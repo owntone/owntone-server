@@ -522,8 +522,7 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Cannot open encoder (%s): %s\n", codec_desc->name, err2str(ret));
-      avcodec_free_context(&s->codec);
-      return -1;
+      goto error;
     }
 
   // Copy the codec parameters we just set to the stream, so the muxer knows them
@@ -531,11 +530,24 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_XCODE, "Cannot copy stream parameters (%s): %s\n", codec_desc->name, err2str(ret));
-      avcodec_free_context(&s->codec);
-      return -1;
+      goto error;
+    }
+
+  if (options)
+    {
+      DPRINTF(E_WARN, L_XCODE, "Encoder %s didn't recognize all options given to avcodec_open2\n", codec_desc->name);
+      av_dict_free(&options);
     }
 
   return 0;
+
+ error:
+  if (s->codec)
+    avcodec_free_context(&s->codec);
+  if (options)
+    av_dict_free(&options);
+
+  return -1;
 }
 
 /*
