@@ -119,6 +119,18 @@ export default createStore({
       return null
     },
 
+    settings_option_show_filepath_now_playing: (state, getters) => {
+      if (getters.settings_webinterface) {
+        const option = getters.settings_webinterface.options.find(
+          (elem) => elem.name === 'show_filepath_now_playing'
+        )
+        if (option) {
+          return option.value
+        }
+      }
+      return false
+    },
+    
     settings_category: (state) => (categoryName) => {
       return state.settings.categories.find(
         (elem) => elem.name === categoryName

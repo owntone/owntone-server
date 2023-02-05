@@ -49,6 +49,11 @@
             v-text="composer"
           />
           <h3 class="subtitle is-6" v-text="now_playing.album" />
+          <h3 
+            v-if="filepath"
+            class="subtitle is-6 has-text-grey "             
+            v-text="filepath"
+          />
         </div>
       </div>
     </div>
@@ -131,8 +136,21 @@ export default {
         }
       }
       return null
-    }
+    },
+
+    settings_option_show_filepath_now_playing() {
+      return this.$store.getters.settings_option_show_filepath_now_playing
+    },
+
+    filepath(){
+      if (this.settings_option_show_filepath_now_playing) {
+        return this.now_playing.path
+      }
+      return null
+    }  
+
   },
+
 
   watch: {
     state() {

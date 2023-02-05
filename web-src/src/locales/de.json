@@ -461,7 +461,9 @@
         "show-composer-genres": "Zeige den Komponisten für die aufgelisteten Genres an",
         "show-composer-info": "Wenn aktiviert, wird der Komponist auf der \"Aktuell läuft\"-Seite angezeigt.",
         "show-composer": "Komponisten anzeigen",
-        "show-coverart": "Zeige Cover-Artwork in der Albumliste"
+        "show-coverart": "Zeige Cover-Artwork in der Albumliste",
+        "show-path": "Dateipfad auf der \"Aktuell läuft\"-Seite anzeigen"
+
       },
       "services": {
         "lastfm": {
