@@ -962,6 +962,7 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, struct artwork_req_
 
 /* ------------------------- ONLINE SOURCE HANDLING  ----------------------- */
 
+#ifdef SPOTIFY
 static int
 credentials_get_spotify(char **auth_key, char **auth_secret)
 {
@@ -980,6 +981,15 @@ credentials_get_spotify(char **auth_key, char **auth_secret)
   *auth_secret = webapi_token.token;
   return 0;
 }
+#else
+static int
+credentials_get_spotify(char **auth_key, char **auth_secret)
+{
+  *auth_key = NULL;
+  *auth_secret = NULL;
+  return 0;
+}
+#endif
 
 static int
 credentials_get_discogs(char **auth_key, char **auth_secret)
