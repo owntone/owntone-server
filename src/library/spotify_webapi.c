@@ -576,6 +576,7 @@ typedef int (*paging_item_cb)(json_object *item, int index, int total, enum spot
  * @param pre_request_cb Callback function invoked before each request (optional)
  * @param post_request_cb Callback function invoked after each request (optional)
  * @param with_market If TRUE appends the user country as market to the request (applies track relinking)
+ * @param Spotify credentials
  * @param arg User data passed to each callback
  * @return 0 on success, -1 on failure
  */
@@ -1050,88 +1051,6 @@ request_episode(const char *path, struct spotify_credentials *credentials)
   return response;
 }
 
-/* Thread: httpd */
-char *
-spotifywebapi_oauth_uri_get(const char *redirect_uri)
-{
-  struct keyval kv = { 0 };
-  char *param;
-  char *uri;
-  int uri_len;
-  int ret;
-
-  uri = NULL;
-  ret = ( (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
-	  (keyval_add(&kv, "response_type", "code") == 0) &&
-	  (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) &&
-	  (keyval_add(&kv, "scope", spotify_scope) == 0) &&
-	  (keyval_add(&kv, "show_dialog", "false") == 0) );
-  if (!ret)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Cannot display Spotify oath interface (error adding parameters to keyval)\n");
-      goto out_clear_kv;
-    }
-
-  param = http_form_urlencode(&kv);
-  if (param)
-    {
-      uri_len = strlen(spotify_auth_uri) + strlen(param) + 3;
-
-      CHECK_NULL(L_SPOTIFY, uri = calloc(uri_len, sizeof(char)));
-
-      snprintf(uri, uri_len, "%s/?%s", spotify_auth_uri, param);
-
-      free(param);
-    }
-
- out_clear_kv:
-  keyval_clear(&kv);
-
-  return uri;
-}
-
-/* Thread: httpd */
-int
-spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, const char **errmsg)
-{
-  const char *code;
-  int ret;
-
-  *errmsg = NULL;
-
-  code = evhttp_find_header(param, "code");
-  if (!code)
-    {
-      *errmsg = "Error: Didn't receive a code from Spotify";
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Received OAuth code: %s\n", code);
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
-
-  ret = token_get(&spotify_credentials, code, redirect_uri, errmsg);
-  if (ret < 0)
-    goto error;
-
-  ret = spotify_login_token(spotify_credentials.user, spotify_credentials.access_token, errmsg);
-  if (ret < 0)
-    goto error;
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
-
-  // Trigger scan after successful access to spotifywebapi
-  spotifywebapi_fullrescan();
-
-  listener_notify(LISTENER_SPOTIFY);
-
-  return 0;
-
- error:
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
-  return -1;
-}
-
 static int
 transaction_start(void *arg)
 {
@@ -1404,43 +1323,6 @@ queue_add_playlist(int *count, int *new_item_id, const char *uri, int position, 
  out:
   free(endpoint_uri);
   return ret;
-}
-
-static int
-spotifywebapi_library_queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
-{
-  enum spotify_item_type type;
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
-
-  type = parse_type_from_uri(uri);
-  if (type == SPOTIFY_ITEM_TYPE_TRACK)
-    {
-      queue_add_track(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
-      goto out;
-    }
-  else if (type == SPOTIFY_ITEM_TYPE_ARTIST)
-    {
-      queue_add_artist(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
-      goto out;
-    }
-  else if (type == SPOTIFY_ITEM_TYPE_ALBUM)
-    {
-      queue_add_album(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
-      goto out;
-    }
-  else if (type == SPOTIFY_ITEM_TYPE_PLAYLIST)
-    {
-      queue_add_playlist(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
-      goto out;
-    }
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
-  return LIBRARY_PATH_INVALID;
-
- out:
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
-  return LIBRARY_OK;
 }
 
 
@@ -1759,9 +1641,8 @@ scan_saved_shows(enum spotify_request_type request_type, struct spotify_credenti
   return ret;
 }
 
-
 /*
- * Add a saved playlist tracks to the library
+ * Add a saved playlist's tracks to the library
  */
 static int
 saved_playlist_tracks_add(json_object *item, int index, int total, enum spotify_request_type request_type, void *arg, struct spotify_credentials *credentials)
@@ -1927,18 +1808,15 @@ create_base_playlist(void)
 }
 
 static void
-scan(enum spotify_request_type request_type)
+scan(enum spotify_request_type request_type, struct spotify_credentials *credentials)
 {
   struct spotify_status sp_status;
   time_t start;
   time_t end;
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
-
   if (!token_valid(&spotify_credentials) || scanning)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "No valid web api token or scan already in progress, rescan ignored\n");
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
       return;
     }
 
@@ -1948,21 +1826,59 @@ scan(enum spotify_request_type request_type)
   db_directory_enable_bypath("/spotify:");
   create_base_playlist();
 
-  scan_saved_albums(request_type, &spotify_credentials);
-  scan_playlists(request_type, &spotify_credentials);
+  scan_saved_albums(request_type, credentials);
+  scan_playlists(request_type, credentials);
   spotify_status_get(&sp_status);
   if (sp_status.has_podcast_support)
-    scan_saved_shows(request_type, &spotify_credentials);
+    scan_saved_shows(request_type, credentials);
 
   scanning = false;
   end = time(NULL);
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
-
   DPRINTF(E_LOG, L_SPOTIFY, "Spotify scan completed in %.f sec\n", difftime(end, start));
 }
 
-/* Thread: library */
+
+/* --------------------------- Library interface ---------------------------- */
+/*                              Thread: library                               */
+
+static int
+spotifywebapi_library_queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+{
+  enum spotify_item_type type;
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+
+  type = parse_type_from_uri(uri);
+  if (type == SPOTIFY_ITEM_TYPE_TRACK)
+    {
+      queue_add_track(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
+      goto out;
+    }
+  else if (type == SPOTIFY_ITEM_TYPE_ARTIST)
+    {
+      queue_add_artist(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
+      goto out;
+    }
+  else if (type == SPOTIFY_ITEM_TYPE_ALBUM)
+    {
+      queue_add_album(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
+      goto out;
+    }
+  else if (type == SPOTIFY_ITEM_TYPE_PLAYLIST)
+    {
+      queue_add_playlist(count, new_item_id, uri, position, reshuffle, item_id, &spotify_credentials);
+      goto out;
+    }
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  return LIBRARY_PATH_INVALID;
+
+ out:
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  return LIBRARY_OK;
+}
+
 static int
 spotifywebapi_library_initscan(void)
 {
@@ -2001,37 +1917,87 @@ spotifywebapi_library_initscan(void)
   /*
    * Scan saved tracks from the web api
    */
-  scan(SPOTIFY_REQUEST_TYPE_RESCAN);
-
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  scan(SPOTIFY_REQUEST_TYPE_RESCAN, &spotify_credentials);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
   return 0;
 }
 
-/* Thread: library */
 static int
 spotifywebapi_library_rescan(void)
 {
-  scan(SPOTIFY_REQUEST_TYPE_RESCAN);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  scan(SPOTIFY_REQUEST_TYPE_RESCAN, &spotify_credentials);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
   return 0;
 }
 
-/* Thread: library */
 static int
 spotifywebapi_library_metarescan(void)
 {
-  scan(SPOTIFY_REQUEST_TYPE_METARESCAN);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  scan(SPOTIFY_REQUEST_TYPE_METARESCAN, &spotify_credentials);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
   return 0;
 }
 
-/* Thread: library */
 static int
 spotifywebapi_library_fullrescan(void)
 {
   db_spotify_purge();
-  scan(SPOTIFY_REQUEST_TYPE_RESCAN);
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  scan(SPOTIFY_REQUEST_TYPE_RESCAN, &spotify_credentials);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
   return 0;
 }
 
-/* Thread: library */
+static int
+spotifywebapi_library_init()
+{
+  int ret;
+
+  ret = spotify_init();
+  if (ret < 0)
+    return -1;
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_http_session.lock));
+  http_client_session_init(&spotify_http_session.session);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_http_session.lock));
+  return 0;
+}
+
+static void
+spotifywebapi_library_deinit()
+{
+  spotify_deinit();
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_http_session.lock));
+  http_client_session_deinit(&spotify_http_session.session);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_http_session.lock));
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  credentials_clear(&spotify_credentials);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+}
+
+struct library_source spotifyscanner =
+{
+  .scan_kind = SCAN_KIND_SPOTIFY,
+  .disabled = 0,
+  .queue_item_add = spotifywebapi_library_queue_item_add,
+  .initscan = spotifywebapi_library_initscan,
+  .rescan = spotifywebapi_library_rescan,
+  .metarescan = spotifywebapi_library_metarescan,
+  .fullrescan = spotifywebapi_library_fullrescan,
+  .init = spotifywebapi_library_init,
+  .deinit = spotifywebapi_library_deinit,
+};
+
+
+/* ------------------------ Public API command callbacks -------------------- */
+/*                              Thread: library                               */
+
 static enum command_state
 webapi_fullrescan(void *arg, int *ret)
 {
@@ -2039,7 +2005,6 @@ webapi_fullrescan(void *arg, int *ret)
   return COMMAND_END;
 }
 
-/* Thread: library */
 static enum command_state
 webapi_rescan(void *arg, int *ret)
 {
@@ -2047,7 +2012,6 @@ webapi_rescan(void *arg, int *ret)
   return COMMAND_END;
 }
 
-/* Thread: library */
 static enum command_state
 webapi_purge(void *arg, int *ret)
 {
@@ -2060,6 +2024,89 @@ webapi_purge(void *arg, int *ret)
 
   *ret = 0;
   return COMMAND_END;
+}
+
+
+/* ------------------------------ Public API -------------------------------- */
+
+char *
+spotifywebapi_oauth_uri_get(const char *redirect_uri)
+{
+  struct keyval kv = { 0 };
+  char *param;
+  char *uri;
+  int uri_len;
+  int ret;
+
+  uri = NULL;
+  ret = ( (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
+	  (keyval_add(&kv, "response_type", "code") == 0) &&
+	  (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) &&
+	  (keyval_add(&kv, "scope", spotify_scope) == 0) &&
+	  (keyval_add(&kv, "show_dialog", "false") == 0) );
+  if (!ret)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Cannot display Spotify oath interface (error adding parameters to keyval)\n");
+      goto out_clear_kv;
+    }
+
+  param = http_form_urlencode(&kv);
+  if (param)
+    {
+      uri_len = strlen(spotify_auth_uri) + strlen(param) + 3;
+
+      CHECK_NULL(L_SPOTIFY, uri = calloc(uri_len, sizeof(char)));
+
+      snprintf(uri, uri_len, "%s/?%s", spotify_auth_uri, param);
+
+      free(param);
+    }
+
+ out_clear_kv:
+  keyval_clear(&kv);
+
+  return uri;
+}
+
+int
+spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, const char **errmsg)
+{
+  const char *code;
+  int ret;
+
+  *errmsg = NULL;
+
+  code = evhttp_find_header(param, "code");
+  if (!code)
+    {
+      *errmsg = "Error: Didn't receive a code from Spotify";
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Received OAuth code: %s\n", code);
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+
+  ret = token_get(&spotify_credentials, code, redirect_uri, errmsg);
+  if (ret < 0)
+    goto error;
+
+  ret = spotify_login_token(spotify_credentials.user, spotify_credentials.access_token, errmsg);
+  if (ret < 0)
+    goto error;
+
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+
+  // Trigger scan after successful access to spotifywebapi
+  spotifywebapi_fullrescan();
+
+  listener_notify(LISTENER_SPOTIFY);
+
+  return 0;
+
+ error:
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  return -1;
 }
 
 void
@@ -2169,40 +2216,3 @@ spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
 }
-
-static int
-spotifywebapi_library_init()
-{
-  int ret;
-
-  ret = spotify_init();
-  if (ret < 0)
-    return -1;
-
-  http_client_session_init(&spotify_http_session.session);
-  return 0;
-}
-
-static void
-spotifywebapi_library_deinit()
-{
-  spotify_deinit();
-
-  http_client_session_deinit(&spotify_http_session.session);
-
-  credentials_clear(&spotify_credentials);
-}
-
-struct library_source spotifyscanner =
-{
-  .scan_kind = SCAN_KIND_SPOTIFY,
-  .disabled = 0,
-  .init = spotifywebapi_library_init,
-  .deinit = spotifywebapi_library_deinit,
-  .rescan = spotifywebapi_library_rescan,
-  .metarescan = spotifywebapi_library_metarescan,
-  .initscan = spotifywebapi_library_initscan,
-  .fullrescan = spotifywebapi_library_fullrescan,
-  .queue_item_add = spotifywebapi_library_queue_item_add,
-};
-
