@@ -57,7 +57,7 @@ typedef struct httpd_backend_data httpd_backend_data;
 
 typedef char *httpd_uri_path_parts[31];
 typedef void (*httpd_request_cb)(struct httpd_request *hreq, void *arg);
-typedef void (*httpd_close_cb)(struct httpd_request *hreq, void *arg);
+typedef void (*httpd_close_cb)(void *arg);
 typedef void (*httpd_connection_chunkcb)(httpd_connection *conn, void *arg);
 typedef void (*httpd_query_iteratecb)(const char *key, const char *val, void *arg);
 

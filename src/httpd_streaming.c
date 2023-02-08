@@ -196,7 +196,7 @@ session_new(struct httpd_request *hreq, bool icy_is_requested)
 /* ----------------------------- Event callbacks ---------------------------- */
 
 static void
-conn_close_cb(struct httpd_request *hreq, void *arg)
+conn_close_cb(void *arg)
 {
   struct streaming_session *session = arg;
 

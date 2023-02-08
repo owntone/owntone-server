@@ -300,7 +300,7 @@ update_refresh_cb(int fd, short event, void *arg)
 }
 
 static void
-update_fail_cb(struct httpd_request *hreq, void *arg)
+update_fail_cb(void *arg)
 {
   struct daap_update_request *ur = arg;
 

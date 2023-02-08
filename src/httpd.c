@@ -837,7 +837,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 }
 
 static void
-stream_fail_cb(struct httpd_request *hreq, void *arg)
+stream_fail_cb(void *arg)
 {
   struct stream_ctx *st = arg;
 

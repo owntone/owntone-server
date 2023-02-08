@@ -248,6 +248,9 @@ httpd_request_new(httpd_backend *backend, httpd_server *server, const char *uri,
   return NULL;
 }
 
+// Since this is async, libevent will already have closed the connection, so
+// the parts of hreq that are from httpd_connection will now be invalid e.g.
+// peer_address.
 static void
 closecb_worker(evutil_socket_t fd, short event, void *arg)
 {
@@ -257,7 +260,7 @@ closecb_worker(evutil_socket_t fd, short event, void *arg)
   pthread_mutex_lock(&disconnect->lock);
 
   if (disconnect->cb)
-    disconnect->cb(hreq, disconnect->cbarg);
+    disconnect->cb(disconnect->cbarg);
 
   pthread_mutex_unlock(&disconnect->lock);
 
@@ -289,7 +292,7 @@ closecb_httpd(httpd_connection *conn, void *arg)
   if (!disconnect->cb)
     return;
 
-  disconnect->cb(hreq, disconnect->cbarg);
+  disconnect->cb(disconnect->cbarg);
   httpd_send_reply_end(hreq); // hreq is now deallocated
 }
 

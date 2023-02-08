@@ -773,7 +773,7 @@ playstatusupdate_cb(int fd, short what, void *arg)
 }
 
 static void
-update_fail_cb(struct httpd_request *hreq, void *arg)
+update_fail_cb(void *arg)
 {
   struct dacp_update_request *ur = arg;
 
