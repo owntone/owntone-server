@@ -61,6 +61,8 @@
 #define AVIO_BUFFER_SIZE 4096
 // Size of the wav header that iTunes needs
 #define WAV_HEADER_LEN 44
+// Max filters in a filtergraph
+#define MAX_FILTERS 9
 
 static const char *default_codecs = "mpeg,wav";
 static const char *roku_codecs = "mpeg,mp4a,wma,alac,wav";
@@ -95,8 +97,9 @@ struct settings_ctx
 #endif
   int bit_rate;
   enum AVSampleFormat sample_format;
-  bool wav_header;
-  bool icy;
+  bool with_wav_header;
+  bool with_icy;
+  bool with_user_filters;
 
   // Video settings
   enum AVCodecID video_codec;
@@ -205,6 +208,21 @@ struct avio_evbuffer {
   void *seekfn_arg;
 };
 
+struct filter_def
+{
+  char name[64];
+  char args[512];
+};
+
+struct filters
+{
+  AVFilterContext *av_ctx;
+
+  // Function that will create the filter arguments for ffmpeg
+  int (*deffn)(struct filter_def *, struct stream_ctx *, struct stream_ctx *, const char *);
+  const char *deffn_arg;
+};
+
 
 /* -------------------------- PROFILE CONFIGURATION ------------------------ */
 
@@ -216,61 +234,63 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
   switch (profile)
     {
       case XCODE_PCM_NATIVE: // Sample rate and bit depth determined by source
-	settings->encode_audio = 1;
-	settings->icy = 1;
+	settings->encode_audio = true;
+	settings->with_icy = true;
+	settings->with_user_filters = true;
 	break;
 
       case XCODE_PCM16_HEADER:
-	settings->wav_header = 1;
+	settings->with_wav_header = true;
+	settings->with_user_filters = true;
       case XCODE_PCM16:
-	settings->encode_audio = 1;
+	settings->encode_audio = true;
 	settings->format = "s16le";
 	settings->audio_codec = AV_CODEC_ID_PCM_S16LE;
 	settings->sample_format = AV_SAMPLE_FMT_S16;
 	break;
 
       case XCODE_PCM24:
-	settings->encode_audio = 1;
+	settings->encode_audio = true;
 	settings->format = "s24le";
 	settings->audio_codec = AV_CODEC_ID_PCM_S24LE;
 	settings->sample_format = AV_SAMPLE_FMT_S32;
 	break;
 
       case XCODE_PCM32:
-	settings->encode_audio = 1;
+	settings->encode_audio = true;
 	settings->format = "s32le";
 	settings->audio_codec = AV_CODEC_ID_PCM_S32LE;
 	settings->sample_format = AV_SAMPLE_FMT_S32;
 	break;
 
       case XCODE_MP3:
-	settings->encode_audio = 1;
+	settings->encode_audio = true;
 	settings->format = "mp3";
 	settings->audio_codec = AV_CODEC_ID_MP3;
 	settings->sample_format = AV_SAMPLE_FMT_S16P;
 	break;
 
       case XCODE_OPUS:
-	settings->encode_audio = 1;
+	settings->encode_audio = true;
 	settings->format = "data"; // Means we get the raw packet from the encoder, no muxing
 	settings->audio_codec = AV_CODEC_ID_OPUS;
 	settings->sample_format = AV_SAMPLE_FMT_S16; // Only libopus support
 	break;
 
       case XCODE_ALAC:
-	settings->encode_audio = 1;
+	settings->encode_audio = true;
 	settings->format = "data"; // Means we get the raw packet from the encoder, no muxing
 	settings->audio_codec = AV_CODEC_ID_ALAC;
 	settings->sample_format = AV_SAMPLE_FMT_S16P;
 	break;
 
       case XCODE_OGG:
-	settings->encode_audio = 1;
+	settings->encode_audio = true;
 	settings->in_format = "ogg";
 	break;
 
       case XCODE_JPEG:
-	settings->encode_video = 1;
+	settings->encode_video = true;
 	settings->silent = 1;
 // With ffmpeg 4.3 (> libavformet 58.29) "image2" only works for actual file
 // output. It's possible we should have used "image2pipe" all along, but since
@@ -287,8 +307,8 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	break;
 
       case XCODE_PNG:
-	settings->encode_video = 1;
-	settings->silent = 1;
+	settings->encode_video = true;
+	settings->silent = true;
 // See explanation above
 #if USE_IMAGE2PIPE
 	settings->format = "image2pipe";
@@ -300,8 +320,8 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	break;
 
       case XCODE_VP8:
-	settings->encode_video = 1;
-	settings->silent = 1;
+	settings->encode_video = true;
+	settings->silent = true;
 // See explanation above
 #if USE_IMAGE2PIPE
 	settings->format = "image2pipe";
@@ -972,8 +992,8 @@ open_decoder(AVCodecContext **dec_ctx, unsigned int *stream_index, struct decode
 
   CHECK_NULL(L_XCODE, *dec_ctx = avcodec_alloc_context3(decoder));
 
-  // In open_filter() we need to tell the sample rate and format that the decoder
-  // is giving us - however sample rate of dec_ctx will be 0 if we don't prime it
+  // Filter creation will need the sample rate and format that the decoder is
+  // giving us - however sample rate of dec_ctx will be 0 if we don't prime it
   // with the streams codecpar data.
   ret = avcodec_parameters_to_context(*dec_ctx, ctx->ifmt_ctx->streams[*stream_index]->codecpar);
   if (ret < 0)
@@ -1067,6 +1087,12 @@ open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *
       DPRINTF(E_LOG, L_XCODE, "Cannot open '%s': %s\n", path, err2str(ret));
       goto out_fail;
     }
+
+  // If the source has REPLAYGAIN_TRACK_GAIN metadata, this will inject the
+  // values into the the next packet's side data (as AV_FRAME_DATA_REPLAYGAIN),
+  // which has the effect that a volume replaygain filter works. Note that
+  // ffmpeg itself uses another method in process_input() in ffmpeg.c.
+  av_format_inject_global_side_data(ctx->ifmt_ctx);
 
   ret = avformat_find_stream_info(ctx->ifmt_ctx, NULL);
   if (ret < 0)
@@ -1187,7 +1213,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       goto out_free_streams;
     }
 
-  if (ctx->settings.wav_header)
+  if (ctx->settings.with_wav_header)
     {
       evbuffer_add(ctx->obuf, ctx->wav_header, sizeof(ctx->wav_header));
     }
@@ -1220,210 +1246,287 @@ close_output(struct encode_ctx *ctx)
 }
 
 static int
-open_filter(struct stream_ctx *out_stream, struct stream_ctx *in_stream)
+filter_def_abuffer(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
 {
-  const AVFilter *buffersrc;
-  const AVFilter *format;
-  const AVFilter *scale;
-  const AVFilter *buffersink;
-  AVFilterContext *buffersrc_ctx;
-  AVFilterContext *format_ctx;
-  AVFilterContext *scale_ctx;
-  AVFilterContext *buffersink_ctx;
-  AVFilterGraph *filter_graph;
-  char args[512];
 #if USE_CH_LAYOUT
   char buf[64];
+
+  // Some AIFF files only have a channel number, not a layout
+  if (in_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
+    av_channel_layout_default(&in_stream->codec->ch_layout, in_stream->codec->ch_layout.nb_channels);
+
+  av_channel_layout_describe(&in_stream->codec->ch_layout, buf, sizeof(buf));
+
+  snprintf(def->args, sizeof(def->args),
+           "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=%s",
+           in_stream->stream->time_base.num, in_stream->stream->time_base.den,
+           in_stream->codec->sample_rate, av_get_sample_fmt_name(in_stream->codec->sample_fmt),
+           buf);
+#else
+  if (!in_stream->codec->channel_layout)
+    in_stream->codec->channel_layout = av_get_default_channel_layout(in_stream->codec->channels);
+
+  snprintf(def->args, sizeof(def->args),
+           "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+           in_stream->stream->time_base.num, in_stream->stream->time_base.den,
+           in_stream->codec->sample_rate, av_get_sample_fmt_name(in_stream->codec->sample_fmt),
+           in_stream->codec->channel_layout);
 #endif
+  snprintf(def->name, sizeof(def->name), "abuffer");
+  return 0;
+}
+
+static int
+filter_def_aformat(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
+{
+#if USE_CH_LAYOUT
+  char buf[64];
+
+  if (out_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
+    av_channel_layout_default(&out_stream->codec->ch_layout, out_stream->codec->ch_layout.nb_channels);
+
+  av_channel_layout_describe(&out_stream->codec->ch_layout, buf, sizeof(buf));
+
+  snprintf(def->args, sizeof(def->args),
+           "sample_fmts=%s:sample_rates=%d:channel_layouts=%s",
+           av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
+           buf);
+#else
+  // For some AIFF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
+  if (!out_stream->codec->channel_layout)
+    out_stream->codec->channel_layout = av_get_default_channel_layout(out_stream->codec->channels);
+
+  snprintf(def->args, sizeof(def->args),
+           "sample_fmts=%s:sample_rates=%d:channel_layouts=0x%"PRIx64,
+           av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
+           out_stream->codec->channel_layout);
+#endif
+  snprintf(def->name, sizeof(def->name), "aformat");
+  return 0;
+}
+
+static int
+filter_def_abuffersink(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
+{
+  snprintf(def->name, sizeof(def->name), "abuffersink");
+  *def->args = '\0';
+  return 0;
+}
+
+static int
+filter_def_buffer(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
+{
+  snprintf(def->name, sizeof(def->name), "buffer");
+  snprintf(def->args, sizeof(def->args),
+           "width=%d:height=%d:pix_fmt=%s:time_base=%d/%d:sar=%d/%d",
+           in_stream->codec->width, in_stream->codec->height, av_get_pix_fmt_name(in_stream->codec->pix_fmt),
+           in_stream->stream->time_base.num, in_stream->stream->time_base.den,
+           in_stream->codec->sample_aspect_ratio.num, in_stream->codec->sample_aspect_ratio.den);
+  return 0;
+}
+
+static int
+filter_def_format(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
+{
+  snprintf(def->name, sizeof(def->name), "format");
+  snprintf(def->args, sizeof(def->args),
+           "pix_fmts=%s", av_get_pix_fmt_name(out_stream->codec->pix_fmt));
+  return 0;
+}
+
+static int
+filter_def_scale(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
+{
+  snprintf(def->name, sizeof(def->name), "scale");
+  snprintf(def->args, sizeof(def->args),
+           "w=%d:h=%d", out_stream->codec->width, out_stream->codec->height);
+  return 0;
+}
+
+static int
+filter_def_buffersink(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
+{
+  snprintf(def->name, sizeof(def->name), "buffersink");
+  *def->args = '\0';
+  return 0;
+}
+
+static int
+filter_def_user(struct filter_def *def, struct stream_ctx *out_stream, struct stream_ctx *in_stream, const char *deffn_arg)
+{
+  char *ptr;
+
+  snprintf(def->name, sizeof(def->name), "%s", deffn_arg);
+
+  ptr = strchr(def->name, '=');
+  if (ptr)
+    {
+      *ptr = '\0';
+      snprintf(def->args, sizeof(def->args), "%s", ptr + 1);
+    }
+  else
+    *def->args = '\0';
+
+  return 0;
+}
+
+static int
+define_audio_filters(struct filters *filters, size_t filters_len, bool with_user_filters)
+{
+  int num_user_filters;
+  int i;
+
+  num_user_filters = cfg_size(cfg_getsec(cfg, "library"), "decode_audio_filters");
+  if (filters_len < num_user_filters + 3)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Too many audio filters configured (%d, max is %zu)\n", num_user_filters, filters_len - 3);
+      return -1;
+    }
+
+  filters[0].deffn = filter_def_abuffer;
+  for (i = 0; with_user_filters && i < num_user_filters; i++)
+    {
+      filters[1 + i].deffn = filter_def_user;
+      filters[1 + i].deffn_arg = cfg_getnstr(cfg_getsec(cfg, "library"), "decode_audio_filters", i);
+    }
+  filters[1 + i].deffn = filter_def_aformat;
+  filters[2 + i].deffn = filter_def_abuffersink;
+
+  return 0;
+}
+
+static int
+define_video_filters(struct filters *filters, size_t filters_len, bool with_user_filters)
+{
+  int num_user_filters;
+  int i;
+
+  num_user_filters = cfg_size(cfg_getsec(cfg, "library"), "decode_video_filters");
+  if (filters_len < num_user_filters + 3)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Too many video filters configured (%d, max is %zu)\n", num_user_filters, filters_len - 3);
+      return -1;
+    }
+
+  filters[0].deffn = filter_def_buffer;
+  for (i = 0; with_user_filters && i < num_user_filters; i++)
+    {
+      filters[1 + i].deffn = filter_def_user;
+      filters[1 + i].deffn_arg = cfg_getnstr(cfg_getsec(cfg, "library"), "decode_video_filters", i);
+    }
+  filters[1 + i].deffn = filter_def_format;
+  filters[2 + i].deffn = filter_def_scale;
+  filters[3 + i].deffn = filter_def_buffersink;
+
+  return 0;
+}
+
+static int
+add_filters(int *num_added, AVFilterGraph *filter_graph, struct filters *filters, size_t filters_len,
+            struct stream_ctx *out_stream, struct stream_ctx *in_stream)
+{
+  const AVFilter *av_filter;
+  struct filter_def def;
+  int i;
   int ret;
+
+  for (i = 0; i < filters_len && filters[i].deffn; i++)
+    {
+      ret = filters[i].deffn(&def, out_stream, in_stream, filters[i].deffn_arg);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Error creating filter definition\n");
+	  return -1;
+	}
+
+      av_filter = avfilter_get_by_name(def.name);
+      if (!av_filter)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Could not find filter '%s'\n", def.name);
+	  return -1;
+	}
+
+      ret = avfilter_graph_create_filter(&filters[i].av_ctx, av_filter, def.name, def.args, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Error creating filter '%s': %s\n", def.name, err2str(ret));
+	  return -1;
+	}
+
+      DPRINTF(E_DBG, L_XCODE, "Created '%s' filter: '%s'\n", def.name, def.args);
+
+      if (i == 0)
+	continue;
+
+      ret = avfilter_link(filters[i - 1].av_ctx, 0, filters[i].av_ctx, 0);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Error connecting filters: %s\n", err2str(ret));
+	  return -1;
+	}
+    }
+
+  *num_added = i;
+  return 0;
+}
+
+static int
+create_filtergraph(struct stream_ctx *out_stream, struct filters *filters, size_t filters_len, struct stream_ctx *in_stream)
+{
+  AVFilterGraph *filter_graph;
+  int ret;
+  int added;
 
   CHECK_NULL(L_XCODE, filter_graph = avfilter_graph_alloc());
 
-  if (in_stream->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+  ret = add_filters(&added, filter_graph, filters, filters_len, out_stream, in_stream);
+  if (ret < 0)
     {
-      buffersrc = avfilter_get_by_name("abuffer");
-      format = avfilter_get_by_name("aformat");
-      buffersink = avfilter_get_by_name("abuffersink");
-      if (!buffersrc || !format || !buffersink)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Filtering source, format or sink element not found\n");
-	  goto out_fail;
-	}
-
-#if USE_CH_LAYOUT
-      // Some AIFF files only have a channel number, not a layout
-      if (in_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
-	av_channel_layout_default(&in_stream->codec->ch_layout, in_stream->codec->ch_layout.nb_channels);
-
-      av_channel_layout_describe(&in_stream->codec->ch_layout, buf, sizeof(buf));
-
-      snprintf(args, sizeof(args),
-               "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=%s",
-               in_stream->stream->time_base.num, in_stream->stream->time_base.den,
-               in_stream->codec->sample_rate, av_get_sample_fmt_name(in_stream->codec->sample_fmt),
-               buf);
-#else
-      if (!in_stream->codec->channel_layout)
-	in_stream->codec->channel_layout = av_get_default_channel_layout(in_stream->codec->channels);
-
-      snprintf(args, sizeof(args),
-               "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
-               in_stream->stream->time_base.num, in_stream->stream->time_base.den,
-               in_stream->codec->sample_rate, av_get_sample_fmt_name(in_stream->codec->sample_fmt),
-               in_stream->codec->channel_layout);
-#endif
-
-      ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer source (%s): %s\n", args, err2str(ret));
-	  goto out_fail;
-	}
-
-      DPRINTF(E_DBG, L_XCODE, "Created 'in' filter: %s\n", args);
-
-#if USE_CH_LAYOUT
-      if (out_stream->codec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
-	av_channel_layout_default(&out_stream->codec->ch_layout, out_stream->codec->ch_layout.nb_channels);
-
-      av_channel_layout_describe(&out_stream->codec->ch_layout, buf, sizeof(buf));
-
-      snprintf(args, sizeof(args),
-               "sample_fmts=%s:sample_rates=%d:channel_layouts=%s",
-               av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
-               buf);
-#else
-      // For some AIFF files, ffmpeg (3.4.6) will not give us a channel_layout (bug in ffmpeg?)
-      if (!out_stream->codec->channel_layout)
-	out_stream->codec->channel_layout = av_get_default_channel_layout(out_stream->codec->channels);
-
-      snprintf(args, sizeof(args),
-               "sample_fmts=%s:sample_rates=%d:channel_layouts=0x%"PRIx64,
-               av_get_sample_fmt_name(out_stream->codec->sample_fmt), out_stream->codec->sample_rate,
-               out_stream->codec->channel_layout);
-#endif
-
-      ret = avfilter_graph_create_filter(&format_ctx, format, "format", args, NULL, filter_graph);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio format filter (%s): %s\n", args, err2str(ret));
-	  goto out_fail;
-	}
-
-      DPRINTF(E_DBG, L_XCODE, "Created 'format' filter: %s\n", args);
-
-      ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer sink: %s\n", err2str(ret));
-	  goto out_fail;
-	}
-
-      if ( (ret = avfilter_link(buffersrc_ctx, 0, format_ctx, 0)) < 0 ||
-           (ret = avfilter_link(format_ctx, 0, buffersink_ctx, 0)) < 0 )
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Error connecting audio filters: %s\n", err2str(ret));
-	  goto out_fail;
-	}
-    }
-  else if (in_stream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
-    {
-      buffersrc = avfilter_get_by_name("buffer");
-      format = avfilter_get_by_name("format");
-      scale = avfilter_get_by_name("scale");
-      buffersink = avfilter_get_by_name("buffersink");
-      if (!buffersrc || !format || !buffersink)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Filtering source, format, scale or sink element not found\n");
-	  goto out_fail;
-	}
-
-      snprintf(args, sizeof(args),
-               "width=%d:height=%d:pix_fmt=%s:time_base=%d/%d:sar=%d/%d",
-               in_stream->codec->width, in_stream->codec->height, av_get_pix_fmt_name(in_stream->codec->pix_fmt),
-               in_stream->stream->time_base.num, in_stream->stream->time_base.den,
-               in_stream->codec->sample_aspect_ratio.num, in_stream->codec->sample_aspect_ratio.den);
-
-      ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer source (%s): %s\n", args, err2str(ret));
-	  goto out_fail;
-	}
-
-      snprintf(args, sizeof(args),
-               "pix_fmts=%s", av_get_pix_fmt_name(out_stream->codec->pix_fmt));
-
-      ret = avfilter_graph_create_filter(&format_ctx, format, "format", args, NULL, filter_graph);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create format filter (%s): %s\n", args, err2str(ret));
-	  goto out_fail;
-	}
-
-      snprintf(args, sizeof(args),
-               "w=%d:h=%d", out_stream->codec->width, out_stream->codec->height);
-
-      ret = avfilter_graph_create_filter(&scale_ctx, scale, "scale", args, NULL, filter_graph);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create scale filter (%s): %s\n", args, err2str(ret));
-	  goto out_fail;
-	}
-
-      ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer sink: %s\n", err2str(ret));
-	  goto out_fail;
-	}
-
-      if ( (ret = avfilter_link(buffersrc_ctx, 0, format_ctx, 0)) < 0 ||
-           (ret = avfilter_link(format_ctx, 0, scale_ctx, 0)) < 0 ||
-           (ret = avfilter_link(scale_ctx, 0, buffersink_ctx, 0)) < 0 )
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Error connecting video filters: %s\n", err2str(ret));
-	  goto out_fail;
-	}
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_XCODE, "Bug! Unknown type passed to filter graph init\n");
       goto out_fail;
     }
 
   ret = avfilter_graph_config(filter_graph, NULL);
   if (ret < 0)
-    goto out_fail;
+    {
+      DPRINTF(E_LOG, L_XCODE, "Filter graph config failed: %s\n", err2str(ret));
+      goto out_fail;
+    }
 
-  /* Fill filtering context */
-  out_stream->buffersrc_ctx = buffersrc_ctx;
-  out_stream->buffersink_ctx = buffersink_ctx;
+  out_stream->buffersrc_ctx = filters[0].av_ctx;
+  out_stream->buffersink_ctx = filters[added - 1].av_ctx;
   out_stream->filter_graph = filter_graph;
 
   return 0;
 
  out_fail:
   avfilter_graph_free(&filter_graph);
-
   return -1;
 }
 
 static int
 open_filters(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
 {
+  struct filters filters[MAX_FILTERS] = { 0 };
   int ret;
 
   if (ctx->settings.encode_audio)
     {
-      ret = open_filter(&ctx->audio_stream, &src_ctx->audio_stream);
+      ret = define_audio_filters(filters, ARRAY_SIZE(filters), ctx->settings.with_user_filters);
+      if (ret < 0)
+	goto out_fail;
+
+      ret = create_filtergraph(&ctx->audio_stream, filters, ARRAY_SIZE(filters), &src_ctx->audio_stream);
       if (ret < 0)
 	goto out_fail;
     }
 
   if (ctx->settings.encode_video)
     {
-      ret = open_filter(&ctx->video_stream, &src_ctx->video_stream);
+      ret = define_video_filters(filters, ARRAY_SIZE(filters), ctx->settings.with_user_filters);
+      if (ret < 0)
+	goto out_fail;
+
+      ret = create_filtergraph(&ctx->video_stream, filters, ARRAY_SIZE(filters), &src_ctx->video_stream);
       if (ret < 0)
 	goto out_fail;
     }
@@ -1433,7 +1536,6 @@ open_filters(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
  out_fail:
   avfilter_graph_free(&ctx->audio_stream.filter_graph);
   avfilter_graph_free(&ctx->video_stream.filter_graph);
-
   return -1;
 }
 
@@ -1550,13 +1652,13 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
   channels = ctx->settings.channels;
 #endif
 
-  if (ctx->settings.wav_header)
+  if (ctx->settings.with_wav_header)
     {
       dst_bps = av_get_bytes_per_sample(ctx->settings.sample_format);
       make_wav_header(ctx->wav_header, est_size, ctx->settings.sample_rate, dst_bps, channels, src_ctx->duration);
     }
 
-  if (ctx->settings.icy && src_ctx->data_kind == DATA_KIND_HTTP)
+  if (ctx->settings.with_icy && src_ctx->data_kind == DATA_KIND_HTTP)
     {
       dst_bps = av_get_bytes_per_sample(ctx->settings.sample_format);
       ctx->icy_interval = METADATA_ICY_INTERVAL * channels * dst_bps * ctx->settings.sample_rate;

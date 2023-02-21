@@ -119,6 +119,8 @@ static cfg_opt_t sec_library[] =
     CFG_STR("default_playlist_directory", NULL, CFGF_NONE),
     CFG_BOOL("clear_queue_on_stop_disable", cfg_false, CFGF_NONE),
     CFG_BOOL("only_first_genre", cfg_false, CFGF_NONE),
+    CFG_STR_LIST("decode_audio_filters", NULL, CFGF_NONE),
+    CFG_STR_LIST("decode_video_filters", NULL, CFGF_NONE),
     CFG_END()
   };
 
