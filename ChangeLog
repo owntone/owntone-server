@@ -1,6 +1,15 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.6
+	- German translation of web UI
+	- web UI: fix error messages not displaying
+	- fix low resolution Spotify artwork
+	- fix incorrect display of date released pre 1970
+	- fix for Denon speakers when pausing
+	- support password authentication for Airplay 2
+	- support for user config ffmpeg audio filters
+
 version 28.5
 	- French translation of web UI
 	- improved web UI loading of images
