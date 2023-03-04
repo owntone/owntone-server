@@ -35,9 +35,6 @@ owntone.conf
 owntone.service
 owntone@.service
 
-# ignore debian packaging for convenience
-debian/
-
 /.settings
 /.cproject
 /.project
