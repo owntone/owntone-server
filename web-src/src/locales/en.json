@@ -460,8 +460,7 @@
         "show-composer-info": "If enabled the composer of the current playing track is shown on the \"Now playing page\"",
         "show-composer": "Show composer",
         "show-coverart": "Show cover artwork in album list",
-        "show-path": "Show Filepath on the \"Now playing\" page"
-
+        "show-path": "Show filepath on the \"Now playing\" page"
       },
       "services": {
         "lastfm": {

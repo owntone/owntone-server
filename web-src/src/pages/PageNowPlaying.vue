@@ -142,13 +142,12 @@ export default {
       return this.$store.getters.settings_option_show_filepath_now_playing
     },
 
-    filepath(){
+    filepath() {
       if (this.settings_option_show_filepath_now_playing) {
         return this.now_playing.path
       }
       return null
     }  
-
   },
 
 

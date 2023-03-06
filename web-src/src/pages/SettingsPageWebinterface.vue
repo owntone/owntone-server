@@ -144,7 +144,6 @@
             />
           </template>
         </settings-textfield>
-        <br>
         <settings-checkbox
           category_name="webinterface"
           option_name="show_filepath_now_playing"
