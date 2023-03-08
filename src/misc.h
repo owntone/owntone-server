@@ -14,7 +14,6 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <event2/http.h>
 
 #ifndef SOCK_NONBLOCK
 #include <fcntl.h>
@@ -55,7 +54,13 @@ int
 net_bind(short unsigned *port, int type, const char *log_service_name);
 
 int
-net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_service_name);
+net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name);
+
+// To avoid polluting namespace too much we don't include event2/http.h here
+struct evhttp;
+
+int
+net_evhttp_bind(struct evhttp *evhttp, unsigned short port, const char *log_service_name);
 
 // Just checks if the protocol is http or https
 bool

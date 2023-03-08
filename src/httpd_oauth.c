@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "httpd_oauth.h"
+#include "httpd_internal.h"
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
@@ -54,12 +54,12 @@ oauth_reply_spotify(struct httpd_request *hreq)
   ret = spotifywebapi_oauth_callback(hreq->query, redirect_uri, &errmsg);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback '%s': %s\n", hreq->uri_parsed->uri, errmsg);
-      httpd_send_error(hreq->req, HTTP_INTERNAL, errmsg);
+      DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback '%s': %s\n", hreq->uri, errmsg);
+      httpd_send_error(hreq, HTTP_INTERNAL, errmsg);
       return -1;
     }
 
-  httpd_redirect_to(hreq->req, "/#/settings/online-services");
+  httpd_redirect_to(hreq, "/#/settings/online-services");
 
   return 0;
 }
@@ -69,7 +69,7 @@ oauth_reply_spotify(struct httpd_request *hreq)
 {
   DPRINTF(E_LOG, L_WEB, "This version was built without support for Spotify\n");
 
-  httpd_send_error(hreq->req, HTTP_NOTFOUND, "This version was built without support for Spotify");
+  httpd_send_error(hreq, HTTP_NOTFOUND, "This version was built without support for Spotify");
 
   return -1;
 }
@@ -90,65 +90,27 @@ static struct httpd_uri_map oauth_handlers[] =
 
 /* ------------------------------- OAUTH API -------------------------------- */
 
-void
-oauth_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+static void
+oauth_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
-
-  DPRINTF(E_LOG, L_WEB, "OAuth request: '%s'\n", uri_parsed->uri);
-
-  hreq = httpd_request_parse(req, uri_parsed, NULL, oauth_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in OAuth request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path in OAuth request: '%s'\n", hreq->uri);
 
-      httpd_send_error(req, HTTP_NOTFOUND, NULL);
+      httpd_send_error(hreq, HTTP_NOTFOUND, NULL);
       return;
     }
 
   hreq->handler(hreq);
-
-  free(hreq);
 }
 
-int
-oauth_is_request(const char *path)
+struct httpd_module httpd_oauth =
 {
-  if (strncmp(path, "/oauth/", strlen("/oauth/")) == 0)
-    return 1;
-  if (strcmp(path, "/oauth") == 0)
-    return 1;
-
-  return 0;
-}
-
-int
-oauth_init(void)
-{
-  char buf[64];
-  int i;
-  int ret;
-
-  for (i = 0; oauth_handlers[i].handler; i++)
-    {
-      ret = regcomp(&oauth_handlers[i].preg, oauth_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-        {
-          regerror(ret, &oauth_handlers[i].preg, buf, sizeof(buf));
-
-          DPRINTF(E_FATAL, L_WEB, "OAuth init failed; regexp error: %s\n", buf);
-	  return -1;
-        }
-    }
-
-  return 0;
-}
-
-void
-oauth_deinit(void)
-{
-  int i;
-
-  for (i = 0; oauth_handlers[i].handler; i++)
-    regfree(&oauth_handlers[i].preg);
-}
+  .name = "OAuth",
+  .type = MODULE_OAUTH,
+  .logdomain = L_WEB,
+  .subpaths = { "/oauth/", NULL },
+  .fullpaths = { "/oauth", NULL },
+  .handlers = oauth_handlers,
+  .request = oauth_request,
+};

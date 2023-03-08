@@ -52,6 +52,8 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h> // getifaddrs
 
+#include <event2/http.h> // evhttp_bind
+
 #include <unistr.h>
 #include <uniconv.h>
 
@@ -276,8 +278,8 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 
 // If *port is 0 then a random port will be assigned, and *port will be updated
 // with the port number
-int
-net_bind(short unsigned *port, int type, const char *log_service_name)
+static int
+net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool reuseport)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
@@ -313,6 +315,14 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
 
       fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
       if (fd < 0)
+	continue;
+
+      // Makes us able to attach multiple threads to the same port
+      if (reuseport)
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
+      else
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &no, sizeof(no));
+      if (ret < 0)
 	continue;
 
       // TODO libevent sets this, we do the same?
@@ -375,7 +385,19 @@ net_bind(short unsigned *port, int type, const char *log_service_name)
 }
 
 int
-net_evhttp_bind(struct evhttp *evhttp, short unsigned port, const char *log_service_name)
+net_bind(short unsigned *port, int type, const char *log_service_name)
+{
+  return net_bind_impl(port, type, log_service_name, false);
+}
+
+int
+net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name)
+{
+  return net_bind_impl(port, type, log_service_name, true);
+}
+
+int
+net_evhttp_bind(struct evhttp *evhttp, unsigned short port, const char *log_service_name)
 {
   const char *bind_address;
   bool v6_enabled;

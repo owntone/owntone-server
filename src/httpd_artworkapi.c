@@ -20,12 +20,11 @@
 # include <config.h>
 #endif
 
-#include <regex.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
-#include "httpd_artworkapi.h"
+#include "httpd_internal.h"
 #include "logger.h"
 #include "misc.h"
 #include "player.h"
@@ -40,20 +39,20 @@ request_process(struct httpd_request *hreq, uint32_t *max_w, uint32_t *max_h)
   *max_w = 0;
   *max_h = 0;
 
-  param = evhttp_find_header(hreq->query, "maxwidth");
+  param = httpd_query_value_find(hreq->query, "maxwidth");
   if (param)
     {
       ret = safe_atou32(param, max_w);
       if (ret < 0)
-	DPRINTF(E_LOG, L_WEB, "Invalid width in request: '%s'\n", hreq->uri_parsed->uri);
+	DPRINTF(E_LOG, L_WEB, "Invalid width in request: '%s'\n", hreq->uri);
     }
 
-  param = evhttp_find_header(hreq->query, "maxheight");
+  param = httpd_query_value_find(hreq->query, "maxheight");
   if (param)
     {
       ret = safe_atou32(param, max_h);
       if (ret < 0)
-	DPRINTF(E_LOG, L_WEB, "Invalid height in request: '%s'\n", hreq->uri_parsed->uri);
+	DPRINTF(E_LOG, L_WEB, "Invalid height in request: '%s'\n", hreq->uri);
     }
 
   return 0;
@@ -62,14 +61,10 @@ request_process(struct httpd_request *hreq, uint32_t *max_w, uint32_t *max_h)
 static int
 response_process(struct httpd_request *hreq, int format)
 {
-  struct evkeyvalq *headers;
-
-  headers = evhttp_request_get_output_headers(hreq->req);
-
   if (format == ART_FMT_PNG)
-    evhttp_add_header(headers, "Content-Type", "image/png");
+    httpd_header_add(hreq->out_headers, "Content-Type", "image/png");
   else if (format == ART_FMT_JPEG)
-    evhttp_add_header(headers, "Content-Type", "image/jpeg");
+    httpd_header_add(hreq->out_headers, "Content-Type", "image/jpeg");
   else
     return HTTP_NOCONTENT;
 
@@ -92,7 +87,7 @@ artworkapi_reply_nowplaying(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_NOTFOUND;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
+  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -109,11 +104,11 @@ artworkapi_reply_item(struct httpd_request *hreq)
   if (ret != 0)
     return ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[2], &id);
+  ret = safe_atou32(hreq->path_parts[2], &id);
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
+  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -130,111 +125,73 @@ artworkapi_reply_group(struct httpd_request *hreq)
   if (ret != 0)
     return ret;
 
-  ret = safe_atou32(hreq->uri_parsed->path_parts[2], &id);
+  ret = safe_atou32(hreq->path_parts[2], &id);
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_group(hreq->reply, id, max_w, max_h, 0);
+  ret = artwork_get_group(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
 
 static struct httpd_uri_map artworkapi_handlers[] =
 {
-  { EVHTTP_REQ_GET, "^/artwork/nowplaying$",         artworkapi_reply_nowplaying },
-  { EVHTTP_REQ_GET, "^/artwork/item/[[:digit:]]+$",  artworkapi_reply_item },
-  { EVHTTP_REQ_GET, "^/artwork/group/[[:digit:]]+$", artworkapi_reply_group },
+  { HTTPD_METHOD_GET, "^/artwork/nowplaying$",         artworkapi_reply_nowplaying },
+  { HTTPD_METHOD_GET, "^/artwork/item/[[:digit:]]+$",  artworkapi_reply_item },
+  { HTTPD_METHOD_GET, "^/artwork/group/[[:digit:]]+$", artworkapi_reply_group },
   { 0, NULL, NULL }
 };
 
 
 /* ------------------------------- API --------------------------------- */
-void
-artworkapi_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+
+static void
+artworkapi_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
   int status_code;
 
-  DPRINTF(E_DBG, L_WEB, "Artwork api request: '%s'\n", uri_parsed->uri);
-
-  if (!httpd_admin_check_auth(req))
+  if (!httpd_admin_check_auth(hreq))
     return;
 
-  hreq = httpd_request_parse(req, uri_parsed, NULL, artworkapi_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_WEB, "Unrecognized path '%s' in artwork api request: '%s'\n", uri_parsed->path, uri_parsed->uri);
+      DPRINTF(E_LOG, L_WEB, "Unrecognized path in artwork api request: '%s'\n", hreq->uri);
 
-      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
       return;
     }
-
-  CHECK_NULL(L_WEB, hreq->reply = evbuffer_new());
 
   status_code = hreq->handler(hreq);
 
   switch (status_code)
     {
       case HTTP_OK:                  /* 200 OK */
-	httpd_send_reply(req, status_code, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "OK", HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOCONTENT:           /* 204 No Content */
-	httpd_send_reply(req, status_code, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, status_code, "No Content", HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_NOTMODIFIED:         /* 304 Not Modified */
-	httpd_send_reply(req, HTTP_NOTMODIFIED, NULL, NULL, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_NOTMODIFIED, NULL, HTTPD_SEND_NO_GZIP);
 	break;
       case HTTP_BADREQUEST:          /* 400 Bad Request */
-	httpd_send_error(req, status_code, "Bad Request");
+	httpd_send_error(hreq, status_code, "Bad Request");
 	break;
       case HTTP_NOTFOUND:            /* 404 Not Found */
-	httpd_send_error(req, status_code, "Not Found");
+	httpd_send_error(hreq, status_code, "Not Found");
 	break;
       case HTTP_INTERNAL:            /* 500 Internal Server Error */
       default:
-	httpd_send_error(req, HTTP_INTERNAL, "Internal Server Error");
+	httpd_send_error(hreq, HTTP_INTERNAL, "Internal Server Error");
     }
-
-  evbuffer_free(hreq->reply);
-  free(hreq);
 }
 
-int
-artworkapi_is_request(const char *path)
+struct httpd_module httpd_artworkapi =
 {
-  if (strncmp(path, "/artwork/", strlen("/artwork/")) == 0)
-    return 1;
-
-  return 0;
-}
-
-int
-artworkapi_init(void)
-{
-  char buf[64];
-  int i;
-  int ret;
-
-  for (i = 0; artworkapi_handlers[i].handler; i++)
-    {
-      ret = regcomp(&artworkapi_handlers[i].preg, artworkapi_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-	{
-	  regerror(ret, &artworkapi_handlers[i].preg, buf, sizeof(buf));
-
-	  DPRINTF(E_FATAL, L_WEB, "artwork api init failed; regexp error: %s\n", buf);
-	  return -1;
-	}
-    }
-
-  return 0;
-}
-
-void
-artworkapi_deinit(void)
-{
-  int i;
-
-  for (i = 0; artworkapi_handlers[i].handler; i++)
-    regfree(&artworkapi_handlers[i].preg);
-}
+  .name = "Artwork API",
+  .type = MODULE_ARTWORKAPI,
+  .logdomain = L_WEB,
+  .subpaths = { "/artwork/", NULL },
+  .handlers = artworkapi_handlers,
+  .request = artworkapi_request,
+};

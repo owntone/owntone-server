@@ -42,8 +42,8 @@
 #include <unistd.h>
 
 #include <event2/event.h>
-#include <event2/bufferevent.h>
 
+#include "httpd_internal.h"
 #include "httpd_daap.h"
 #include "logger.h"
 #include "db.h"
@@ -54,9 +54,6 @@
 #include "dmap_common.h"
 #include "cache.h"
 
-
-/* httpd event base, from httpd.c */
-extern struct event_base *evbase_httpd;
 
 /* Max number of sessions and session timeout
  * Many clients (including iTunes) don't seem to respect the timeout capability
@@ -99,7 +96,7 @@ struct daap_session {
 };
 
 struct daap_update_request {
-  struct evhttp_request *req;
+  struct httpd_request *hreq;
 
   /* Refresh tiemout */
   struct event *timeout;
@@ -246,12 +243,14 @@ daap_session_add(bool is_remote, int request_session_id)
   return s;
 }
 
-
 /* ---------------------- UPDATE REQUESTS HANDLERS -------------------------- */
 
 static void
 update_free(struct daap_update_request *ur)
 {
+  if (!ur)
+    return;
+
   if (ur->timeout)
     event_free(ur->timeout);
 
@@ -285,45 +284,28 @@ update_remove(struct daap_update_request *ur)
 static void
 update_refresh_cb(int fd, short event, void *arg)
 {
-  struct daap_update_request *ur;
-  struct evhttp_connection *evcon;
-  struct evbuffer *reply;
-
-  ur = (struct daap_update_request *)arg;
-
-  CHECK_NULL(L_DAAP, reply = evbuffer_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(reply, 32));
+  struct daap_update_request *ur = arg;
+  struct httpd_request *hreq = ur->hreq;
 
   current_rev++;
 
   /* Send back current revision */
-  dmap_add_container(reply, "mupd", 24);
-  dmap_add_int(reply, "mstt", 200);         /* 12 */
-  dmap_add_int(reply, "musr", current_rev); /* 12 */
+  dmap_add_container(hreq->out_body, "mupd", 24);
+  dmap_add_int(hreq->out_body, "mstt", 200);         /* 12 */
+  dmap_add_int(hreq->out_body, "musr", current_rev); /* 12 */
 
-  evcon = evhttp_request_get_connection(ur->req);
-  evhttp_connection_set_closecb(evcon, NULL, NULL);
-
-  httpd_send_reply(ur->req, HTTP_OK, "OK", reply, 0);
+  httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 
   update_remove(ur);
 }
 
 static void
-update_fail_cb(struct evhttp_connection *evcon, void *arg)
+update_fail_cb(void *arg)
 {
-  struct evhttp_connection *evc;
-  struct daap_update_request *ur;
-
-  ur = (struct daap_update_request *)arg;
+  struct daap_update_request *ur = arg;
 
   DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
 
-  evc = evhttp_request_get_connection(ur->req);
-  if (evc)
-    evhttp_connection_set_closecb(evc, NULL, NULL);
-
-  evhttp_request_free(ur->req);
   update_remove(ur);
 }
 
@@ -513,7 +495,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
 
   memset(qp, 0, sizeof(struct query_params));
 
-  param = evhttp_find_header(hreq->query, "index");
+  param = httpd_query_value_find(hreq->query, "index");
   if (param)
     {
       if (param[0] == '-') /* -n, last n entries */
@@ -559,7 +541,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
     qp->idx_type = I_SUB;
 
   qp->sort = S_NONE;
-  param = evhttp_find_header(hreq->query, "sort");
+  param = httpd_query_value_find(hreq->query, "sort");
   if (param)
     {
       if (strcmp(param, "name") == 0)
@@ -580,7 +562,7 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
   if (sort_headers)
     {
       *sort_headers = 0;
-      param = evhttp_find_header(hreq->query, "include-sort-headers");
+      param = httpd_query_value_find(hreq->query, "include-sort-headers");
       if (param && (strcmp(param, "1") == 0))
 	{
 	  *sort_headers = 1;
@@ -588,9 +570,9 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
 	}
     }
 
-  param = evhttp_find_header(hreq->query, "query");
+  param = httpd_query_value_find(hreq->query, "query");
   if (!param)
-    param = evhttp_find_header(hreq->query, "filter");
+    param = httpd_query_value_find(hreq->query, "filter");
 
   if (param)
     {
@@ -675,26 +657,26 @@ daap_reply_send(struct httpd_request *hreq, enum daap_reply_result result)
   switch (result)
     {
       case DAAP_REPLY_LOGOUT:
-	httpd_send_reply(hreq->req, 204, "Logout Successful", hreq->reply, 0);
+	httpd_send_reply(hreq, HTTP_NOCONTENT, "Logout Successful", 0);
 	break;
       case DAAP_REPLY_NO_CONTENT:
-	httpd_send_reply(hreq->req, HTTP_NOCONTENT, "No Content", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_OK:
-	httpd_send_reply(hreq->req, HTTP_OK, "OK", hreq->reply, 0);
+	httpd_send_reply(hreq, HTTP_OK, "OK", 0);
 	break;
       case DAAP_REPLY_OK_NO_GZIP:
       case DAAP_REPLY_ERROR:
-	httpd_send_reply(hreq->req, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP);
+	httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP);
 	break;
       case DAAP_REPLY_FORBIDDEN:
-	httpd_send_error(hreq->req, 403, "Forbidden");
+	httpd_send_error(hreq, HTTP_FORBIDDEN, "Forbidden");
 	break;
       case DAAP_REPLY_BAD_REQUEST:
-	httpd_send_error(hreq->req, HTTP_BADREQUEST, "Bad Request");
+	httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
 	break;
       case DAAP_REPLY_SERVUNAVAIL:
-	httpd_send_error(hreq->req, HTTP_SERVUNAVAIL, "Internal Server Error");
+	httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
 	break;
       case DAAP_REPLY_NO_CONNECTION:
       case DAAP_REPLY_NONE:
@@ -718,17 +700,17 @@ daap_request_authorize(struct httpd_request *hreq)
   // with httpd_basic_auth() if a library password is set. Remote clients will
   // also call /login, but they should not get a httpd_basic_auth(), instead
   // daap_reply_login() will take care of auth.
-  if (session->is_remote && (strcmp(hreq->uri_parsed->path, "/login") == 0))
+  if (session->is_remote && (strcmp(hreq->path, "/login") == 0))
     return 0;
 
-  param = evhttp_find_header(hreq->query, "session-id");
+  param = httpd_query_value_find(hreq->query, "session-id");
   if (param)
     {
       if (session->id == 0)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri_parsed->uri);
+	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri);
 
-	  httpd_send_error(hreq->req, 401, "Unauthorized");
+	  httpd_send_error(hreq, HTTP_UNAUTHORIZED, "Unauthorized");;
 	  return -1;
 	}
 
@@ -741,16 +723,16 @@ daap_request_authorize(struct httpd_request *hreq)
     return 0;
 
   // If no valid session then we may need to authenticate
-  if ((strcmp(hreq->uri_parsed->path, "/server-info") == 0)
-      || (strcmp(hreq->uri_parsed->path, "/logout") == 0)
-      || (strcmp(hreq->uri_parsed->path, "/content-codes") == 0)
-      || (strncmp(hreq->uri_parsed->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
+  if ((strcmp(hreq->path, "/server-info") == 0)
+      || (strcmp(hreq->path, "/logout") == 0)
+      || (strcmp(hreq->path, "/content-codes") == 0)
+      || (strncmp(hreq->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
     return 0; // No authentication
 
   DPRINTF(E_DBG, L_DAAP, "Checking authentication for library\n");
 
   // We don't care about the username
-  ret = httpd_basic_auth(hreq->req, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
+  ret = httpd_basic_auth(hreq, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Unsuccessful library authorization attempt from '%s'\n", hreq->peer_address);
@@ -764,13 +746,12 @@ daap_request_authorize(struct httpd_request *hreq)
 /* --------------------------- REPLY HANDLERS ------------------------------- */
 /* Note that some handlers can be called without a connection (needed for     */
 /* cache regeneration), while others cannot. Those that cannot should check   */
-/* that hreq->req is not a null pointer.                                      */
+/* that hreq->backend is not null.                                            */
 
 static enum daap_reply_result
 daap_reply_server_info(struct httpd_request *hreq)
 {
   struct evbuffer *content;
-  struct evkeyvalq *headers;
   char *name;
   char *passwd;
   const char *clientver;
@@ -778,7 +759,7 @@ daap_reply_server_info(struct httpd_request *hreq)
   int mpro;
   int apro;
 
-  if (!hreq->req)
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_server_info() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
@@ -793,8 +774,7 @@ daap_reply_server_info(struct httpd_request *hreq)
   mpro = 2 << 16 | 10;
   apro = 3 << 16 | 12;
 
-  headers = evhttp_request_get_input_headers(hreq->req);
-  if (headers && (clientver = evhttp_find_header(headers, "Client-DAAP-Version")))
+  if (hreq->in_headers && (clientver = httpd_header_find(hreq->in_headers, "Client-DAAP-Version")))
     {
       if (strcmp(clientver, "1.0") == 0)
 	{
@@ -864,9 +844,9 @@ daap_reply_server_info(struct httpd_request *hreq)
 
   // Create container
   len = evbuffer_get_length(content);
-  dmap_add_container(hreq->reply, "msrv", len);
+  dmap_add_container(hreq->out_body, "msrv", len);
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, content));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, content));
 
   evbuffer_free(content);
 
@@ -887,19 +867,19 @@ daap_reply_content_codes(struct httpd_request *hreq)
   for (i = 0; i < nfields; i++)
     len += 8 + 12 + 10 + 8 + strlen(dmap_fields[i].desc);
 
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, len + 8));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, len + 8));
 
-  dmap_add_container(hreq->reply, "mccr", len);
-  dmap_add_int(hreq->reply, "mstt", 200);
+  dmap_add_container(hreq->out_body, "mccr", len);
+  dmap_add_int(hreq->out_body, "mstt", 200);
 
   for (i = 0; i < nfields; i++)
     {
       len = 12 + 10 + 8 + strlen(dmap_fields[i].desc);
 
-      dmap_add_container(hreq->reply, "mdcl", len);
-      dmap_add_string(hreq->reply, "mcnm", dmap_fields[i].tag);  /* 12 */
-      dmap_add_string(hreq->reply, "mcna", dmap_fields[i].desc); /* 8 + strlen(desc) */
-      dmap_add_short(hreq->reply, "mcty", dmap_fields[i].type);  /* 10 */
+      dmap_add_container(hreq->out_body, "mdcl", len);
+      dmap_add_string(hreq->out_body, "mcnm", dmap_fields[i].tag);  /* 12 */
+      dmap_add_string(hreq->out_body, "mcna", dmap_fields[i].desc); /* 8 + strlen(desc) */
+      dmap_add_short(hreq->out_body, "mcty", dmap_fields[i].type);  /* 10 */
     }
 
   return DAAP_REPLY_OK;
@@ -915,9 +895,9 @@ daap_reply_login(struct httpd_request *hreq)
   int request_session_id;
   int ret;
 
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 32));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 32));
 
-  param = evhttp_find_header(hreq->query, "pairing-guid");
+  param = httpd_query_value_find(hreq->query, "pairing-guid");
   if (param && !net_peer_address_is_trusted(hreq->peer_address))
     {
       if (strlen(param) < 3)
@@ -948,7 +928,7 @@ daap_reply_login(struct httpd_request *hreq)
         DPRINTF(E_INFO, L_DAAP, "Client (unknown user-agent) logging in from %s\n", hreq->peer_address);
     }
 
-  param = evhttp_find_header(hreq->query, "request-session-id");
+  param = httpd_query_value_find(hreq->query, "request-session-id");
   if (param)
     {
       ret = safe_atoi32(param, &request_session_id);
@@ -964,13 +944,13 @@ daap_reply_login(struct httpd_request *hreq)
   session = daap_session_add(adhoc->is_remote, request_session_id);
   if (!session)
     {
-      dmap_error_make(hreq->reply, "mlog", "Could not start session");
+      dmap_error_make(hreq->out_body, "mlog", "Could not start session");
       return DAAP_REPLY_ERROR;
     }
 
-  dmap_add_container(hreq->reply, "mlog", 24);
-  dmap_add_int(hreq->reply, "mstt", 200);          /* 12 */
-  dmap_add_int(hreq->reply, "mlid", session->id);  /* 12 */
+  dmap_add_container(hreq->out_body, "mlog", 24);
+  dmap_add_int(hreq->out_body, "mstt", 200);          /* 12 */
+  dmap_add_int(hreq->out_body, "mlid", session->id);  /* 12 */
 
   return DAAP_REPLY_OK;
 }
@@ -992,19 +972,17 @@ static enum daap_reply_result
 daap_reply_update(struct httpd_request *hreq)
 {
   struct daap_update_request *ur;
-  struct evhttp_connection *evcon;
-  struct bufferevent *bufev;
   const char *param;
   int reqd_rev;
   int ret;
 
-  if (!hreq->req)
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_update() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  param = evhttp_find_header(hreq->query, "revision-number");
+  param = httpd_query_value_find(hreq->query, "revision-number");
   if (!param)
     {
       DPRINTF(E_DBG, L_DAAP, "Missing revision-number in client update request\n");
@@ -1018,18 +996,18 @@ daap_reply_update(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Parameter revision-number not an integer\n");
 
-      dmap_error_make(hreq->reply, "mupd", "Invalid request");
+      dmap_error_make(hreq->out_body, "mupd", "Invalid request");
       return DAAP_REPLY_ERROR;
     }
 
   if (reqd_rev == 1) /* Or revision is not valid */
     {
-      CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 32));
+      CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 32));
 
       /* Send back current revision */
-      dmap_add_container(hreq->reply, "mupd", 24);
-      dmap_add_int(hreq->reply, "mstt", 200);         /* 12 */
-      dmap_add_int(hreq->reply, "musr", current_rev); /* 12 */
+      dmap_add_container(hreq->out_body, "mupd", 24);
+      dmap_add_int(hreq->out_body, "mstt", 200);         /* 12 */
+      dmap_add_int(hreq->out_body, "musr", current_rev); /* 12 */
 
       return DAAP_REPLY_OK;
     }
@@ -1040,13 +1018,13 @@ daap_reply_update(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");
 
-      dmap_error_make(hreq->reply, "mupd", "Out of memory");
+      dmap_error_make(hreq->out_body, "mupd", "Out of memory");
       return DAAP_REPLY_ERROR;
     }
 
   if (DAAP_UPDATE_REFRESH > 0)
     {
-      ur->timeout = evtimer_new(evbase_httpd, update_refresh_cb, ur);
+      ur->timeout = evtimer_new(hreq->evbase, update_refresh_cb, ur);
       if (ur->timeout)
 	ret = evtimer_add(ur->timeout, &daap_update_refresh_tv);
       else
@@ -1056,14 +1034,14 @@ daap_reply_update(struct httpd_request *hreq)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Out of memory for update request event\n");
 
-	  dmap_error_make(hreq->reply, "mupd", "Could not register timer");	
+	  dmap_error_make(hreq->out_body, "mupd", "Could not register timer");	
 	  update_free(ur);
 	  return DAAP_REPLY_ERROR;
 	}
     }
 
   /* NOTE: we may need to keep reqd_rev in there too */
-  ur->req = hreq->req;
+  ur->hreq = hreq;
 
   ur->next = update_requests;
   update_requests = ur;
@@ -1071,20 +1049,7 @@ daap_reply_update(struct httpd_request *hreq)
   /* If the connection fails before we have an update to push out
    * to the client, we need to know.
    */
-  evcon = evhttp_request_get_connection(hreq->req);
-  if (evcon)
-    {
-      evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
-
-      // This is a workaround for some versions of libevent (2.0, but possibly
-      // also 2.1) that don't detect if the client hangs up, and thus don't
-      // clean up and never call update_fail_cb(). See github issue #870 and
-      // https://github.com/libevent/libevent/issues/666. It should probably be
-      // removed again in the future. The workaround is also present in dacp.c
-      bufev = evhttp_connection_get_bufferevent(evcon);
-      if (bufev)
-	bufferevent_enable(bufev, EV_READ);
-    }
+  httpd_request_close_cb_set(hreq, update_fail_cb, ur);
 
   return DAAP_REPLY_NONE;
 }
@@ -1112,7 +1077,7 @@ daap_reply_dblist(struct httpd_request *hreq)
   CHECK_NULL(L_DAAP, content = evbuffer_new());
   CHECK_NULL(L_DAAP, item = evbuffer_new());
   CHECK_ERR(L_DAAP, evbuffer_expand(item, 512));
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 1024));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 1024));
 
   // Add db entry for library with dbid = 1
   dmap_add_int(item, "miid", 1);
@@ -1155,14 +1120,14 @@ daap_reply_dblist(struct httpd_request *hreq)
 
   // Create container
   len = evbuffer_get_length(content);
-  dmap_add_container(hreq->reply, "avdb", len + 53);
-  dmap_add_int(hreq->reply, "mstt", 200);     /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);      /* 9 */
-  dmap_add_int(hreq->reply, "mtco", 2);       /* 12 */
-  dmap_add_int(hreq->reply, "mrco", 2);       /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len); /* 8 */
+  dmap_add_container(hreq->out_body, "avdb", len + 53);
+  dmap_add_int(hreq->out_body, "mstt", 200);     /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);      /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", 2);       /* 12 */
+  dmap_add_int(hreq->out_body, "mrco", 2);       /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len); /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, content));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, content));
 
   evbuffer_free(item);
   evbuffer_free(content);
@@ -1177,7 +1142,6 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   struct db_media_file_info dbmfi;
   struct evbuffer *song;
   struct evbuffer *songlist;
-  struct evkeyvalq *headers;
   struct daap_session *s;
   const struct dmap_field **meta = NULL;
   struct sort_ctx *sctx;
@@ -1218,11 +1182,11 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   CHECK_NULL(L_DAAP, songlist = evbuffer_new());
   CHECK_NULL(L_DAAP, song = evbuffer_new());
   CHECK_NULL(L_DAAP, sctx = daap_sort_context_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 61));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 61));
   CHECK_ERR(L_DAAP, evbuffer_expand(songlist, 4096));
   CHECK_ERR(L_DAAP, evbuffer_expand(song, 512));
 
-  param = evhttp_find_header(hreq->query, "meta");
+  param = httpd_query_value_find(hreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_DBG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1246,15 +1210,14 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, tag, "Could not start query");
+      dmap_error_make(hreq->out_body, tag, "Could not start query");
       goto error;
     }
 
   client_codecs = NULL;
-  if (!s->is_remote && hreq->req)
+  if (!s->is_remote && hreq->in_headers)
     {
-      headers = evhttp_request_get_input_headers(hreq->req);
-      client_codecs = evhttp_find_header(headers, "Accept-Codecs");
+      client_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
     }
 
   nsongs = 0;
@@ -1312,13 +1275,13 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
   if (ret == -100)
     {
-      dmap_error_make(hreq->reply, tag, "Out of memory");
+      dmap_error_make(hreq->out_body, tag, "Out of memory");
       goto error;
     }
   else if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
-      dmap_error_make(hreq->reply, tag, "Error fetching query results");
+      dmap_error_make(hreq->out_body, tag, "Error fetching query results");
       goto error;
     }
 
@@ -1327,25 +1290,25 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(hreq->reply, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
+      dmap_add_container(hreq->out_body, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
     }
   else
-    dmap_add_container(hreq->reply, tag, len + 53);
+    dmap_add_container(hreq->out_body, tag, len + 53);
 
-  dmap_add_int(hreq->reply, "mstt", 200);        /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);         /* 9 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply, "mrco", nsongs);     /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len); /* 8 */
+  dmap_add_int(hreq->out_body, "mstt", 200);        /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);         /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body, "mrco", nsongs);     /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len); /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, songlist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, songlist));
 
   if (sort_headers)
     {
       len = evbuffer_get_length(sctx->headerlist);
-      dmap_add_container(hreq->reply, "mshl", len); /* 8 */
+      dmap_add_container(hreq->out_body, "mshl", len); /* 8 */
 
-      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
+      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, sctx->headerlist));
     }
 
   free(meta);
@@ -1378,10 +1341,10 @@ daap_reply_plsonglist(struct httpd_request *hreq)
   int playlist;
   int ret;
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &playlist);
+  ret = safe_atoi32(hreq->path_parts[3], &playlist);
   if (ret < 0)
     {
-      dmap_error_make(hreq->reply, "apso", "Invalid playlist ID");
+      dmap_error_make(hreq->out_body, "apso", "Invalid playlist ID");
       return DAAP_REPLY_ERROR;
     }
 
@@ -1424,10 +1387,10 @@ daap_reply_playlists(struct httpd_request *hreq)
 
   cfg_radiopl = cfg_getbool(cfg_getsec(cfg, "library"), "radio_playlists");
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[1], &database);
+  ret = safe_atoi32(hreq->path_parts[1], &database);
   if (ret < 0)
     {
-      dmap_error_make(hreq->reply, "aply", "Invalid database ID");
+      dmap_error_make(hreq->out_body, "aply", "Invalid database ID");
       return DAAP_REPLY_ERROR;
     }
 
@@ -1436,11 +1399,11 @@ daap_reply_playlists(struct httpd_request *hreq)
 
   CHECK_NULL(L_DAAP, playlistlist = evbuffer_new());
   CHECK_NULL(L_DAAP, playlist = evbuffer_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 61));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 61));
   CHECK_ERR(L_DAAP, evbuffer_expand(playlistlist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(playlist, 128));
 
-  param = evhttp_find_header(hreq->query, "meta");
+  param = httpd_query_value_find(hreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_LOG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1453,7 +1416,7 @@ daap_reply_playlists(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Failed to parse meta parameter in DAAP query\n");
 
-      dmap_error_make(hreq->reply, "aply", "Failed to parse query");
+      dmap_error_make(hreq->out_body, "aply", "Failed to parse query");
       goto error;
     }
 
@@ -1462,7 +1425,7 @@ daap_reply_playlists(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, "aply", "Could not start query");
+      dmap_error_make(hreq->out_body, "aply", "Could not start query");
       goto error;
     }
 
@@ -1578,26 +1541,26 @@ daap_reply_playlists(struct httpd_request *hreq)
 
   if (ret == -100)
     {
-      dmap_error_make(hreq->reply, "aply", "Out of memory");
+      dmap_error_make(hreq->out_body, "aply", "Out of memory");
       goto error;
     }
   else if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
-      dmap_error_make(hreq->reply, "aply", "Error fetching query results");
+      dmap_error_make(hreq->out_body, "aply", "Error fetching query results");
       goto error;
     }
 
   /* Add header to evbuf, add playlistlist to evbuf */
   len = evbuffer_get_length(playlistlist);
-  dmap_add_container(hreq->reply, "aply", len + 53);
-  dmap_add_int(hreq->reply, "mstt", 200); /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);  /* 9 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply,"mrco", npls); /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len);
+  dmap_add_container(hreq->out_body, "aply", len + 53);
+  dmap_add_int(hreq->out_body, "mstt", 200); /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);  /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body,"mrco", npls); /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len);
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, playlistlist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, playlistlist));
 
   free(meta);
   evbuffer_free(playlist);
@@ -1638,7 +1601,7 @@ daap_reply_groups(struct httpd_request *hreq)
   int i;
   int ret;
 
-  param = evhttp_find_header(hreq->query, "group-type");
+  param = httpd_query_value_find(hreq->query, "group-type");
   if (param && strcmp(param, "artists") == 0)
     {
       // Request from Remote may have the form:
@@ -1662,11 +1625,11 @@ daap_reply_groups(struct httpd_request *hreq)
   CHECK_NULL(L_DAAP, grouplist = evbuffer_new());
   CHECK_NULL(L_DAAP, group = evbuffer_new());
   CHECK_NULL(L_DAAP, sctx = daap_sort_context_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 61));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 61));
   CHECK_ERR(L_DAAP, evbuffer_expand(grouplist, 1024));
   CHECK_ERR(L_DAAP, evbuffer_expand(group, 128));
 
-  param = evhttp_find_header(hreq->query, "meta");
+  param = httpd_query_value_find(hreq->query, "meta");
   if (!param)
     {
       DPRINTF(E_LOG, L_DAAP, "No meta parameter in query, using default\n");
@@ -1679,7 +1642,7 @@ daap_reply_groups(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Failed to parse meta parameter in DAAP query\n");
 
-      dmap_error_make(hreq->reply, tag, "Failed to parse query");
+      dmap_error_make(hreq->out_body, tag, "Failed to parse query");
       goto error;
     }
 
@@ -1688,7 +1651,7 @@ daap_reply_groups(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, tag, "Could not start query");
+      dmap_error_make(hreq->out_body, tag, "Could not start query");
       goto error;
     }
 
@@ -1780,13 +1743,13 @@ daap_reply_groups(struct httpd_request *hreq)
 
   if (ret == -100)
     {
-      dmap_error_make(hreq->reply, tag, "Out of memory");
+      dmap_error_make(hreq->out_body, tag, "Out of memory");
       goto error;
     }
   else if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
-      dmap_error_make(hreq->reply, tag, "Error fetching query results");
+      dmap_error_make(hreq->out_body, tag, "Error fetching query results");
       goto error;
     }
 
@@ -1795,25 +1758,25 @@ daap_reply_groups(struct httpd_request *hreq)
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(hreq->reply, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
+      dmap_add_container(hreq->out_body, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
     }
   else
-    dmap_add_container(hreq->reply, tag, len + 53);
+    dmap_add_container(hreq->out_body, tag, len + 53);
 
-  dmap_add_int(hreq->reply, "mstt", 200);        /* 12 */
-  dmap_add_char(hreq->reply, "muty", 0);         /* 9 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply,"mrco", ngrp);        /* 12 */
-  dmap_add_container(hreq->reply, "mlcl", len);  /* 8 */
+  dmap_add_int(hreq->out_body, "mstt", 200);        /* 12 */
+  dmap_add_char(hreq->out_body, "muty", 0);         /* 9 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body,"mrco", ngrp);        /* 12 */
+  dmap_add_container(hreq->out_body, "mlcl", len);  /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, grouplist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, grouplist));
 
   if (sort_headers)
     {
       len = evbuffer_get_length(sctx->headerlist);
-      dmap_add_container(hreq->reply, "mshl", len); /* 8 */
+      dmap_add_container(hreq->out_body, "mshl", len); /* 8 */
 
-      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
+      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, sctx->headerlist));
     }
 
   free(meta);
@@ -1848,36 +1811,36 @@ daap_reply_browse(struct httpd_request *hreq)
   int nitems;
   int ret;
 
-  if (strcmp(hreq->uri_parsed->path_parts[3], "artists") == 0)
+  if (strcmp(hreq->path_parts[3], "artists") == 0)
     {
       tag = "abar";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_ARTISTS);
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "albums") == 0)
+  else if (strcmp(hreq->path_parts[3], "albums") == 0)
     {
       tag = "abal";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_ALBUMS);
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "genres") == 0)
+  else if (strcmp(hreq->path_parts[3], "genres") == 0)
     {
       tag = "abgn";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_GENRES);
     }
-  else if (strcmp(hreq->uri_parsed->path_parts[3], "composers") == 0)
+  else if (strcmp(hreq->path_parts[3], "composers") == 0)
     {
       tag = "abcp";
       query_params_set(&qp, &sort_headers, hreq, Q_BROWSE_COMPOSERS);
     }
   else
     {
-      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", hreq->uri_parsed->path_parts[3]);
-      dmap_error_make(hreq->reply, "abro", "Invalid browse type");
+      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", hreq->path_parts[3]);
+      dmap_error_make(hreq->out_body, "abro", "Invalid browse type");
       return DAAP_REPLY_ERROR;
     }
 
   CHECK_NULL(L_DAAP, itemlist = evbuffer_new());
   CHECK_NULL(L_DAAP, sctx = daap_sort_context_new());
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->reply, 52));
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 52));
   CHECK_ERR(L_DAAP, evbuffer_expand(itemlist, 1024)); // Just a starting alloc, it'll expand as needed
 
   ret = db_query_start(&qp);
@@ -1885,7 +1848,7 @@ daap_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      dmap_error_make(hreq->reply, "abro", "Could not start query");
+      dmap_error_make(hreq->out_body, "abro", "Could not start query");
       goto error;
     }
 
@@ -1913,7 +1876,7 @@ daap_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching/building results\n");
 
-      dmap_error_make(hreq->reply, "abro", "Error fetching/building query results");
+      dmap_error_make(hreq->out_body, "abro", "Error fetching/building query results");
       goto error;
     }
 
@@ -1921,24 +1884,24 @@ daap_reply_browse(struct httpd_request *hreq)
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(hreq->reply, "abro", len + evbuffer_get_length(sctx->headerlist) + 52);
+      dmap_add_container(hreq->out_body, "abro", len + evbuffer_get_length(sctx->headerlist) + 52);
     }
   else
-    dmap_add_container(hreq->reply, "abro", len + 44);
+    dmap_add_container(hreq->out_body, "abro", len + 44);
 
-  dmap_add_int(hreq->reply, "mstt", 200);        /* 12 */
-  dmap_add_int(hreq->reply, "mtco", qp.results); /* 12 */
-  dmap_add_int(hreq->reply, "mrco", nitems);     /* 12 */
-  dmap_add_container(hreq->reply, tag, len);     /* 8 */
+  dmap_add_int(hreq->out_body, "mstt", 200);        /* 12 */
+  dmap_add_int(hreq->out_body, "mtco", qp.results); /* 12 */
+  dmap_add_int(hreq->out_body, "mrco", nitems);     /* 12 */
+  dmap_add_container(hreq->out_body, tag, len);     /* 8 */
 
-  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, itemlist));
+  CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, itemlist));
 
   if (sort_headers)
     {
       len = evbuffer_get_length(sctx->headerlist);
-      dmap_add_container(hreq->reply, "mshl", len); /* 8 */
+      dmap_add_container(hreq->out_body, "mshl", len); /* 8 */
 
-      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->reply, sctx->headerlist));
+      CHECK_ERR(L_DAAP, evbuffer_add_buffer(hreq->out_body, sctx->headerlist));
     }
 
   daap_sort_context_free(sctx);
@@ -1959,7 +1922,6 @@ daap_reply_browse(struct httpd_request *hreq)
 static enum daap_reply_result
 daap_reply_extra_data(struct httpd_request *hreq)
 {
-  struct evkeyvalq *headers;
   char clen[32];
   const char *param;
   char *ctype;
@@ -1969,22 +1931,22 @@ daap_reply_extra_data(struct httpd_request *hreq)
   int max_h;
   int ret;
 
-  if (!hreq->req)
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_reply_extra_data() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &id);
+  ret = safe_atoi32(hreq->path_parts[3], &id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not convert id parameter to integer: '%s'\n", hreq->uri_parsed->path_parts[3]);
+      DPRINTF(E_LOG, L_DAAP, "Could not convert id parameter to integer: '%s'\n", hreq->path_parts[3]);
       return DAAP_REPLY_BAD_REQUEST;
     }
 
-  if (evhttp_find_header(hreq->query, "mw") && evhttp_find_header(hreq->query, "mh"))
+  if (httpd_query_value_find(hreq->query, "mw") && httpd_query_value_find(hreq->query, "mh"))
     {
-      param = evhttp_find_header(hreq->query, "mw");
+      param = httpd_query_value_find(hreq->query, "mw");
       ret = safe_atoi32(param, &max_w);
       if (ret < 0)
 	{
@@ -1992,7 +1954,7 @@ daap_reply_extra_data(struct httpd_request *hreq)
 	  return DAAP_REPLY_BAD_REQUEST;
 	}
 
-      param = evhttp_find_header(hreq->query, "mh");
+      param = httpd_query_value_find(hreq->query, "mh");
       ret = safe_atoi32(param, &max_h);
       if (ret < 0)
 	{
@@ -2008,12 +1970,12 @@ daap_reply_extra_data(struct httpd_request *hreq)
       max_h = 0;
     }
 
-  if (strcmp(hreq->uri_parsed->path_parts[2], "groups") == 0)
-    ret = artwork_get_group(hreq->reply, id, max_w, max_h, 0);
-  else if (strcmp(hreq->uri_parsed->path_parts[2], "items") == 0)
-    ret = artwork_get_item(hreq->reply, id, max_w, max_h, 0);
+  if (strcmp(hreq->path_parts[2], "groups") == 0)
+    ret = artwork_get_group(hreq->out_body, id, max_w, max_h, 0);
+  else if (strcmp(hreq->path_parts[2], "items") == 0)
+    ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
 
-  len = evbuffer_get_length(hreq->reply);
+  len = evbuffer_get_length(hreq->out_body);
 
   switch (ret)
     {
@@ -2027,16 +1989,15 @@ daap_reply_extra_data(struct httpd_request *hreq)
 
       default:
 	if (len > 0)
-	  evbuffer_drain(hreq->reply, len);
+	  evbuffer_drain(hreq->out_body, len);
 
 	goto no_artwork;
     }
 
-  headers = evhttp_request_get_output_headers(hreq->req);
-  evhttp_remove_header(headers, "Content-Type");
-  evhttp_add_header(headers, "Content-Type", ctype);
+  httpd_header_remove(hreq->out_headers, "Content-Type");
+  httpd_header_add(hreq->out_headers, "Content-Type", ctype);
   snprintf(clen, sizeof(clen), "%ld", (long)len);
-  evhttp_add_header(headers, "Content-Length", clen);
+  httpd_header_add(hreq->out_headers, "Content-Length", clen);
 
   return DAAP_REPLY_OK_NO_GZIP;
 
@@ -2050,17 +2011,17 @@ daap_stream(struct httpd_request *hreq)
   int id;
   int ret;
 
-  if (!hreq->req)
+  if (!hreq->backend)
     {
       DPRINTF(E_LOG, L_DAAP, "Bug! daap_stream() cannot be called without an actual connection\n");
       return DAAP_REPLY_NO_CONNECTION;
     }
 
-  ret = safe_atoi32(hreq->uri_parsed->path_parts[3], &id);
+  ret = safe_atoi32(hreq->path_parts[3], &id);
   if (ret < 0)
     return DAAP_REPLY_BAD_REQUEST;
 
-  httpd_stream_file(hreq->req, id);
+  httpd_stream_file(hreq, id);
 
   return DAAP_REPLY_NONE;
 }
@@ -2138,16 +2099,16 @@ daap_reply_dmap_test(struct httpd_request *hreq)
   dmap_add_field(test, &dmap_TST8, buf, 0);
   dmap_add_field(test, &dmap_TST9, buf, 0);
 
-  dmap_add_container(hreq->reply, dmap_TEST.tag, evbuffer_get_length(test));
+  dmap_add_container(hreq->out_body, dmap_TEST.tag, evbuffer_get_length(test));
 
-  ret = evbuffer_add_buffer(hreq->reply, test);
+  ret = evbuffer_add_buffer(hreq->out_body, test);
   evbuffer_free(test);
 
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add test results to DMAP test reply\n");
 
-      dmap_error_make(hreq->reply, dmap_TEST.tag, "Out of memory");
+      dmap_error_make(hreq->out_body, dmap_TEST.tag, "Out of memory");
       return DAAP_REPLY_ERROR;
     }
 
@@ -2175,7 +2136,7 @@ static struct httpd_uri_map daap_handlers[] =
     },
     {
       .regexp = "^/update$",
-      .handler = daap_reply_update
+      .handler = daap_reply_update,
     },
     {
       .regexp = "^/activity$",
@@ -2237,11 +2198,9 @@ static struct httpd_uri_map daap_handlers[] =
  * iTunes 12.1 gives us an absolute request-uri for streaming like
  *  http://10.1.1.20:3689/databases/1/items/1.mp3
  */
-void
-daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
+static void
+daap_request(struct httpd_request *hreq)
 {
-  struct httpd_request *hreq;
-  struct evkeyvalq *headers;
   struct timespec start;
   struct timespec end;
   struct daap_session session;
@@ -2250,24 +2209,20 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   int ret;
   int msec;
 
-  DPRINTF(E_DBG, L_DAAP, "DAAP request: '%s'\n", uri_parsed->uri);
-
-  hreq = httpd_request_parse(req, uri_parsed, NULL, daap_handlers);
-  if (!hreq)
+  if (!hreq->handler)
     {
-      DPRINTF(E_LOG, L_DAAP, "Unrecognized path '%s' in DAAP request: '%s'\n", uri_parsed->path, uri_parsed->uri);
-
-      httpd_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      DPRINTF(E_LOG, L_DAAP, "Unrecognized path in DAAP request: '%s'\n", hreq->uri);
+      daap_reply_send(hreq, DAAP_REPLY_BAD_REQUEST);
       return;
     }
 
   // Check if we have a session and point hreq->extra_data to it
-  param = evhttp_find_header(hreq->query, "session-id");
+  param = httpd_query_value_find(hreq->query, "session-id");
   if (param)
     {
       ret = safe_atoi32(param, &id);
       if (ret < 0)
-	DPRINTF(E_LOG, L_DAAP, "Ignoring non-numeric session id in DAAP request: '%s'\n", uri_parsed->uri);
+	DPRINTF(E_LOG, L_DAAP, "Ignoring non-numeric session id in DAAP request: '%s'\n", hreq->uri);
       else
 	hreq->extra_data = daap_session_get(id);
     }
@@ -2276,39 +2231,31 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   if (!hreq->extra_data)
     {
       memset(&session, 0, sizeof(struct daap_session));
-      session.is_remote = (evhttp_find_header(hreq->query, "pairing-guid") != NULL);
+      session.is_remote = (httpd_query_value_find(hreq->query, "pairing-guid") != NULL);
       hreq->extra_data = &session;
     }
 
   ret = daap_request_authorize(hreq);
   if (ret < 0)
     {
-      free(hreq);
       return;
     }
 
   // Set reply headers
-  headers = evhttp_request_get_output_headers(req);
-  evhttp_add_header(headers, "Accept-Ranges", "bytes");
-  evhttp_add_header(headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
+  httpd_header_add(hreq->out_headers, "Accept-Ranges", "bytes");
+  httpd_header_add(hreq->out_headers, "DAAP-Server", PACKAGE_NAME "/" VERSION);
   // Content-Type for all replies, even the actual audio streaming. Note that
   // video streaming will override this Content-Type with a more appropriate
   // video/<type> Content-Type as expected by clients like Front Row.
-  evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
-
-  // Now we create the actual reply
-  CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
+  httpd_header_add(hreq->out_headers, "Content-Type", "application/x-dmap-tagged");
 
   // Try the cache
-  ret = cache_daap_get(hreq->reply, uri_parsed->uri);
+  ret = cache_daap_get(hreq->out_body, hreq->uri);
   if (ret == 0)
     {
       // The cache will return the data gzipped, so httpd_send_reply won't need to do it
-      evhttp_add_header(headers, "Content-Encoding", "gzip");
-      httpd_send_reply(req, HTTP_OK, "OK", hreq->reply, HTTPD_SEND_NO_GZIP); // TODO not all want this reply
-
-      evbuffer_free(hreq->reply);
-      free(hreq);
+      httpd_header_add(hreq->out_headers, "Content-Encoding", "gzip");
+      httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP); // TODO not all want this reply
       return;
     }
 
@@ -2325,38 +2272,7 @@ daap_request(struct evhttp_request *req, struct httpd_uri_parsed *uri_parsed)
   DPRINTF(E_DBG, L_DAAP, "DAAP request handled in %d milliseconds\n", msec);
 
   if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold() && hreq->user_agent)
-    cache_daap_add(uri_parsed->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
-
-  evbuffer_free(hreq->reply);
-  free(hreq);
-}
-
-int
-daap_is_request(const char *path)
-{
-  if (strncmp(path, "/databases/", strlen("/databases/")) == 0)
-    return 1;
-  if (strcmp(path, "/databases") == 0)
-    return 1;
-  if (strcmp(path, "/server-info") == 0)
-    return 1;
-  if (strcmp(path, "/content-codes") == 0)
-    return 1;
-  if (strcmp(path, "/login") == 0)
-    return 1;
-  if (strcmp(path, "/update") == 0)
-    return 1;
-  if (strcmp(path, "/activity") == 0)
-    return 1;
-  if (strcmp(path, "/logout") == 0)
-    return 1;
-
-#ifdef DMAP_TEST
-  if (strcmp(path, "/dmap-test") == 0)
-    return 1;
-#endif
-
-  return 0;
+    cache_daap_add(hreq->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
 }
 
 int
@@ -2377,24 +2293,24 @@ struct evbuffer *
 daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 {
   struct httpd_request *hreq;
-  struct httpd_uri_parsed *uri_parsed;
-  struct evbuffer *reply;
+  struct evbuffer *out_body = NULL;
   struct daap_session session;
   int ret;
 
   DPRINTF(E_DBG, L_DAAP, "Building reply for DAAP request: '%s'\n", uri);
 
-  reply = NULL;
-
-  uri_parsed = httpd_uri_parse(uri);
-  if (!uri_parsed)
-    return NULL;
-
-  hreq = httpd_request_parse(NULL, uri_parsed, user_agent, daap_handlers);
+  hreq = httpd_request_new(NULL, NULL, uri, user_agent);
   if (!hreq)
     {
-      DPRINTF(E_LOG, L_DAAP, "Cannot build reply, unrecognized path '%s' in request: '%s'\n", uri_parsed->path, uri_parsed->uri);
-      goto out_free_uri;
+      DPRINTF(E_LOG, L_DAAP, "Error building request: '%s'\n", uri);
+      goto out;
+    }
+
+  httpd_request_handler_set(hreq);
+  if (!hreq->handler)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Cannot build reply, unrecognized path in request: '%s'\n", uri);
+      goto out;
     }
 
   memset(&session, 0, sizeof(struct daap_session));
@@ -2402,61 +2318,36 @@ daap_reply_build(const char *uri, const char *user_agent, int is_remote)
 
   hreq->extra_data = &session;
 
-  CHECK_NULL(L_DAAP, hreq->reply = evbuffer_new());
-
   ret = hreq->handler(hreq);
   if (ret < 0)
     {
-      evbuffer_free(hreq->reply);
-      goto out_free_hreq;
+      goto out;
     }
 
-  reply = hreq->reply;
+  // Take ownership of the reply
+  out_body = hreq->out_body;
+  hreq->out_body = NULL;
 
- out_free_hreq:
-  free(hreq);
- out_free_uri:
-  httpd_uri_free(uri_parsed);
+ out:
+  httpd_request_free(hreq);
 
-  return reply;
+  return out_body;
 }
 
-int
+static int
 daap_init(void)
 {
-  char buf[64];
-  int i;
-  int ret;
-
   srand((unsigned)time(NULL));
   current_rev = 2;
-  update_requests = NULL;
-
-  for (i = 0; daap_handlers[i].handler; i++)
-    {
-      ret = regcomp(&daap_handlers[i].preg, daap_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
-      if (ret != 0)
-        {
-          regerror(ret, &daap_handlers[i].preg, buf, sizeof(buf));
-
-          DPRINTF(E_FATAL, L_DAAP, "DAAP init failed; regexp error: %s\n", buf);
-	  return -1;
-        }
-    }
 
   return 0;
 }
 
-void
+static void
 daap_deinit(void)
 {
   struct daap_session *s;
   struct daap_update_request *ur;
-  struct evhttp_connection *evcon;
-  int i;
-
-  for (i = 0; daap_handlers[i].handler; i++)
-    regfree(&daap_handlers[i].preg);
 
   for (s = daap_sessions; daap_sessions; s = daap_sessions)
     {
@@ -2468,13 +2359,24 @@ daap_deinit(void)
     {
       update_requests = ur->next;
 
-      evcon = evhttp_request_get_connection(ur->req);
-      if (evcon)
-	{
-	  evhttp_connection_set_closecb(evcon, NULL, NULL);
-	  evhttp_connection_free(evcon);
-	}
-
+      daap_reply_send(ur->hreq, DAAP_REPLY_SERVUNAVAIL);
       update_free(ur);
     }
 }
+
+struct httpd_module httpd_daap =
+{
+  .name = "DAAP",
+  .type = MODULE_DAAP,
+  .logdomain = L_DAAP,
+  .subpaths = { "/databases/", NULL },
+#ifdef DMAP_TEST
+  .fullpaths = { "/databases", "/server-info", "/content-codes", "/login", "/update", "/activity", "/logout", "/dmap-test", NULL },
+#else
+  .fullpaths = { "/databases", "/server-info", "/content-codes", "/login", "/update", "/activity", "/logout", NULL },
+#endif
+  .handlers = daap_handlers,
+  .init = daap_init,
+  .deinit = daap_deinit,
+  .request = daap_request,
+};

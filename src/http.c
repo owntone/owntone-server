@@ -40,7 +40,6 @@
 #include <curl/curl.h>
 
 #include "http.h"
-#include "httpd.h"
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
@@ -240,9 +239,11 @@ http_form_urlencode(struct keyval *kv)
 int
 http_stream_setup(char **stream, const char *url)
 {
+  CURLU *url_handle;
+  CURLUcode rc;
   struct http_client_ctx ctx;
-  struct httpd_uri_parsed *parsed;
   struct evbuffer *evbuf;
+  char *path;
   const char *ext;
   char *line;
   char *pos;
@@ -253,17 +254,28 @@ http_stream_setup(char **stream, const char *url)
 
   *stream = NULL;
 
-  parsed = httpd_uri_parse(url);
-  if (!parsed)
+  CHECK_NULL(L_HTTP, url_handle = curl_url());
+
+  rc = curl_url_set(url_handle, CURLUPART_URL, url, 0);
+  if (rc != 0)
     {
       DPRINTF(E_LOG, L_HTTP, "Couldn't parse internet playlist: '%s'\n", url);
+      curl_url_cleanup(url_handle);
       return -1;
     }
 
-  // parsed->path does not include query or fragment, so should work with any url's
+  rc = curl_url_get(url_handle, CURLUPART_PATH, &path, 0);
+  if (rc != 0)
+    {
+      DPRINTF(E_LOG, L_HTTP, "Couldn't find internet playlist path: '%s'\n", url);
+      curl_url_cleanup(url_handle);
+      return -1;
+    }
+
+  // path does not include query or fragment, so should work with any url's
   // e.g. http://yp.shoutcast.com/sbin/tunein-station.pls?id=99179772#Air Jazz
   pl_format = PLAYLIST_UNK;
-  if (parsed->path && (ext = strrchr(parsed->path, '.')))
+  if (path && (ext = strrchr(path, '.')))
     {
       if (strcasecmp(ext, ".m3u") == 0)
 	pl_format = PLAYLIST_M3U;
@@ -271,7 +283,9 @@ http_stream_setup(char **stream, const char *url)
 	pl_format = PLAYLIST_PLS;
     }
 
-  httpd_uri_free(parsed);
+  curl_free(path);
+  curl_url_cleanup(url_handle);
+
 
   if (pl_format==PLAYLIST_UNK)
     {

@@ -2,8 +2,10 @@
 #ifndef __WORKER_H__
 #define __WORKER_H__
 
+#include <event2/event.h>
+
 /* The worker thread is made for running asyncronous tasks from a real time
- * thread, mainly the player thread.
+ * thread.
 
  * The worker_execute() function will trigger a callback from the worker thread.
  * Before returning the function will copy the argument given, so the caller
@@ -18,6 +20,11 @@
  */
 void
 worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay);
+
+/* Can be called within a callback to get the worker thread's event base
+ */
+struct event_base *
+worker_evbase_get(void);
 
 int
 worker_init(void);

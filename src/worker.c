@@ -29,6 +29,10 @@
 #include <time.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/queue.h>
+
+#include <unistd.h>
+
 #include <pthread.h>
 
 #include <event2/event.h>
@@ -36,9 +40,17 @@
 #include "db.h"
 #include "logger.h"
 #include "worker.h"
-#include "commands.h"
+#include "evthr.h"
 #include "misc.h"
 
+#define THREADPOOL_NTHREADS 4
+
+static struct evthr_pool *worker_threadpool;
+static __thread struct evthr *worker_thr;
+
+
+/* ----------------------------- CALLBACK EXECUTION ------------------------- */
+/*                                 Worker threads                             */
 
 struct worker_arg
 {
@@ -48,19 +60,6 @@ struct worker_arg
   struct event *timer;
 };
 
-
-/* --- Globals --- */
-// worker thread
-static pthread_t tid_worker;
-
-// Event base, pipes and events
-struct event_base *evbase_worker;
-static int g_initialized;
-static struct commands_base *cmdbase;
-
-
-/* ---------------------------- CALLBACK EXECUTION ------------------------- */
-/*                                Thread: worker                             */
 
 static void
 execute_cb(int fd, short what, void *arg)
@@ -74,64 +73,47 @@ execute_cb(int fd, short what, void *arg)
   free(cmdarg);
 }
 
-
-static enum command_state
-execute(void *arg, int *retval)
+static void
+execute(struct evthr *thr, void *arg, void *shared)
 {
   struct worker_arg *cmdarg = arg;
   struct timeval tv = { cmdarg->delay, 0 };
+  struct event_base *evbase;
 
   if (cmdarg->delay)
     {
-      cmdarg->timer = evtimer_new(evbase_worker, execute_cb, cmdarg);
+      evbase = evthr_get_base(thr);
+      cmdarg->timer = evtimer_new(evbase, execute_cb, cmdarg);
       evtimer_add(cmdarg->timer, &tv);
-
-      *retval = 0;
-      return COMMAND_PENDING; // Not done yet, ask caller not to free cmd
+      return;
     }
 
   cmdarg->cb(cmdarg->cb_arg);
   free(cmdarg->cb_arg);
-
-  *retval = 0;
-  return COMMAND_END;
+  free(cmdarg);
 }
 
-
-/* --------------------------------- MAIN --------------------------------- */
-/*                              Thread: worker                              */
-
-static void *
-worker(void *arg)
+static void
+init_cb(struct evthr *thr, void *shared)
 {
-  int ret;
+  CHECK_ERR(L_MAIN, db_perthread_init());
 
-  ret = db_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Error: DB init failed (worker thread)\n");
-      pthread_exit(NULL);
-    }
+  worker_thr = thr;
 
-  g_initialized = 1;
+  thread_setname(pthread_self(), "worker");
+}
 
-  event_base_dispatch(evbase_worker);
-
-  if (g_initialized)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Worker event loop terminated ahead of time!\n");
-      g_initialized = 0;
-    }
+static void
+exit_cb(struct evthr *thr, void *shared)
+{
+  worker_thr = NULL;
 
   db_perthread_deinit();
-
-  pthread_exit(NULL);
 }
 
 
 /* ---------------------------- Our worker API  --------------------------- */
 
-/* Thread: player */
 void
 worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
 {
@@ -164,7 +146,13 @@ worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
   cmdarg->cb_arg = argcpy;
   cmdarg->delay = delay;
 
-  commands_exec_async(cmdbase, execute, cmdarg);
+  evthr_pool_defer(worker_threadpool, execute, cmdarg);
+}
+
+struct event_base *
+worker_evbase_get(void)
+{
+  return evthr_get_base(worker_thr);
 }
 
 int
@@ -172,51 +160,30 @@ worker_init(void)
 {
   int ret;
 
-  evbase_worker = event_base_new();
-  if (!evbase_worker)
+  worker_threadpool = evthr_pool_wexit_new(THREADPOOL_NTHREADS, init_cb, exit_cb, NULL);
+  if (!worker_threadpool)
     {
-      DPRINTF(E_LOG, L_MAIN, "Could not create an event base\n");
-      goto evbase_fail;
+      DPRINTF(E_LOG, L_MAIN, "Could not create worker thread pool\n");
+      goto error;
     }
 
-  cmdbase = commands_base_new(evbase_worker, NULL);
-
-  ret = pthread_create(&tid_worker, NULL, worker, NULL);
+  ret = evthr_pool_start(worker_threadpool);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_MAIN, "Could not spawn worker thread: %s\n", strerror(errno));
-
-      goto thread_fail;
+      DPRINTF(E_LOG, L_MAIN, "Could not spawn worker threads\n");
+      goto error;
     }
-
-  thread_setname(tid_worker, "worker");
 
   return 0;
   
- thread_fail:
-  commands_base_free(cmdbase);
-  event_base_free(evbase_worker);
-  evbase_worker = NULL;
-
- evbase_fail:
+ error:
+  worker_deinit();
   return -1;
 }
 
 void
 worker_deinit(void)
 {
-  int ret;
-
-  g_initialized = 0;
-  commands_base_destroy(cmdbase);
-
-  ret = pthread_join(tid_worker, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_MAIN, "Could not join worker thread: %s\n", strerror(errno));
-      return;
-    }
-
-  // Free event base (should free events too)
-  event_base_free(evbase_worker);
+  evthr_pool_stop(worker_threadpool);
+  evthr_pool_free(worker_threadpool);
 }

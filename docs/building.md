@@ -224,7 +224,7 @@ Libraries:
   from <http://ffmpeg.org/>
 - libconfuse  
   from <http://www.nongnu.org/confuse/>
-- libevent 2.0+ (best with 2.1.4+)  
+- libevent 2.1.4+
   from <http://libevent.org/>
 - MiniXML (aka mxml or libmxml)  
   from <http://minixml.org/software.php>

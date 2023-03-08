@@ -25,7 +25,6 @@
 
 #include "db.h"
 #include "misc.h"
-#include "httpd.h"
 #include "logger.h"
 #include "dmap_common.h"
 #include "parsers/daap_parser.h"
@@ -359,31 +358,6 @@ dmap_error_make(struct evbuffer *evbuf, const char *container, const char *errms
   dmap_add_int(evbuf, "mstt", 500);
   dmap_add_string(evbuf, "msts", errmsg);
 }
-
-void
-dmap_send_error(struct evhttp_request *req, const char *container, const char *errmsg)
-{
-  struct evbuffer *evbuf;
-
-  if (!req)
-    return;
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_DMAP, "Could not allocate evbuffer for DMAP error\n");
-
-      httpd_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-      return;
-    }
-
-  dmap_error_make(evbuf, container, errmsg);
-
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf, HTTPD_SEND_NO_GZIP);
-
-  evbuffer_free(evbuf);
-}
-
 
 int
 dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int sort_tags, int force_wav)

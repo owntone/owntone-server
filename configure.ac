@@ -50,7 +50,7 @@ AC_CHECK_HEADERS([sys/wait.h sys/param.h dirent.h getopt.h stdint.h], [],
 	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
 AC_CHECK_HEADERS([time.h], [],
 	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
-AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2])
+AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2 syscall])
 AC_CHECK_FUNCS([strptime strtok_r], [],
 	[AC_MSG_ERROR([[Missing function required to build OwnTone]])])
 
@@ -148,13 +148,10 @@ OWNTONE_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 		[AC_MSG_RESULT([[runtime will tell]])])
 	])
 
-OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT], [libevent >= 2],
-	[event_base_new], [event2/event.h],
-	[dnl check for old version
-	 PKG_CHECK_EXISTS([libevent >= 2.1.4], [],
-		[AC_DEFINE([HAVE_LIBEVENT2_OLD], 1,
-			[Define to 1 if you have libevent 2 (<2.1.4)])])
-	])
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT], [libevent >= 2.1.4],
+	[event_base_new], [event2/event.h])
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT_PTHREADS], [libevent_pthreads],
+	[evthread_use_pthreads], [event2/thread.h])
 
 dnl Check for evhttp_connection_get_peer() signature
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -268,11 +265,6 @@ dnl Build with libwebsockets
 OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
 	[libwebsockets >= 2.0.2])
 AM_CONDITIONAL([COND_LIBWEBSOCKETS], [[test "x$with_libwebsockets" = "xyes"]])
-
-dnl Build with libevent_pthreads
-OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libevent_pthreads support],
-	[libevent_pthreads], [LIBEVENT_PTHREADS], [libevent_pthreads],
-	[evthread_use_pthreads], [event2/thread.h])
 
 dnl Build with Avahi (or Bonjour if not)
 OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [Avahi mDNS], [avahi], [AVAHI],

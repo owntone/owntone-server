@@ -92,14 +92,15 @@ owntone_SOURCES = main.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
 	remote_pairing.c remote_pairing.h \
-	httpd.c httpd.h \
-	httpd_rsp.c httpd_rsp.h \
+	httpd_libevhttp.c \
+	httpd.c httpd.h httpd_internal.h \
+	httpd_rsp.c \
 	httpd_daap.c httpd_daap.h \
-	httpd_dacp.c httpd_dacp.h \
-	httpd_jsonapi.c httpd_jsonapi.h \
-	httpd_streaming.c httpd_streaming.h \
-	httpd_oauth.c httpd_oauth.h \
-	httpd_artworkapi.c httpd_artworkapi.h \
+	httpd_dacp.c \
+	httpd_jsonapi.c \
+	httpd_streaming.c \
+	httpd_oauth.c \
+	httpd_artworkapi.c \
 	http.c http.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
@@ -117,9 +118,11 @@ owntone_SOURCES = main.c \
 	outputs/rtp_common.h outputs/rtp_common.c \
 	outputs/raop.c outputs/airplay.c $(PAIR_AP_SRC) \
 	outputs/airplay_events.c outputs/airplay_events.h \
-	outputs/streaming.c outputs/dummy.c outputs/fifo.c outputs/rcp.c \
+	outputs/streaming.c outputs/streaming.h \
+	outputs/dummy.c outputs/fifo.c outputs/rcp.c \
 	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
+	evthr.c evthr.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
 	$(MPD_SRC) \
