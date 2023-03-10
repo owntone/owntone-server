@@ -18,7 +18,7 @@
     "axios": "^0.27.2",
     "bulma": "^0.9.4",
     "bulma-switch": "^2.0.4",
-    "luxon": "^2.4.0",
+    "luxon": "^2.5.2",
     "mdi-vue": "^3.0.13",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.5.2",
