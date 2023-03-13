@@ -42,6 +42,22 @@ export function byName(field, defaultValue = '_') {
   }
 }
 
+export function byRating(field, { direction = 'asc', defaultValue = 0 }) {
+  return {
+    compareFn: (a, b) => {
+      const fieldA = a[field] || defaultValue
+      const fieldB = b[field] || defaultValue
+      const result = fieldA > fieldB
+      return direction === 'asc' ? result : result * -1
+    },
+
+    groupKeyFn: (item) => {
+      const fieldValue = item[field] || defaultValue
+      return Math.floor(fieldValue / 10)
+    }
+  }
+}
+
 export function byYear(field, { direction = 'asc', defaultValue = '0000' }) {
   return {
     compareFn: (a, b) => {
@@ -143,14 +159,6 @@ export class GroupByList {
 
     return {
       next: () => {
-        /*
-        console.log(
-          '[group-by-list] itemIndex=' +
-            itemIndex +
-            ', groupIndex=' +
-            groupIndex
-        )
-         */
         if (this.isEmpty()) {
           return { done: true }
         } else if (groupIndex >= this.indexList.length) {
@@ -159,11 +167,6 @@ export class GroupByList {
           // This should never happen, as the we already
           // return "done" after we reached the last item
           // of the last group
-          /*
-            console.log(
-            '[group-by-list] done! (groupIndex >= this.indexList.length)'
-          )
-           */
           return { done: true }
         } else if (groupIndex < 0) {
           // We start iterating
@@ -224,11 +227,6 @@ export class GroupByList {
             }
           } else {
             // No group left, we are done iterating
-            /*
-            console.log(
-              '[group-by-list] done! (groupIndex >= this.indexList.length)'
-            )
-             */
             return { done: true }
           }
         }

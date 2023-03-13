@@ -31,7 +31,6 @@
         :show="show_album_details_modal"
         :album="album"
         :media_kind="'podcast'"
-        :new_tracks="new_tracks"
         @close="show_album_details_modal = false"
         @play-count-changed="reload_tracks"
         @remove-podcast="open_remove_podcast_dialog"
@@ -61,6 +60,7 @@ import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -72,7 +72,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.album = response[0].data
-    vm.tracks = response[1].data.tracks.items
+    vm.tracks = new GroupByList(response[1].data.tracks)
   }
 }
 
@@ -101,18 +101,10 @@ export default {
   data() {
     return {
       album: {},
-      tracks: [],
-
+      tracks: new GroupByList(),
       show_album_details_modal: false,
-
       show_remove_podcast_modal: false,
       rss_playlist_to_remove: {}
-    }
-  },
-
-  computed: {
-    new_tracks() {
-      return this.tracks.filter((track) => track.play_count === 0).length
     }
   },
 
@@ -149,7 +141,7 @@ export default {
 
     reload_tracks: function () {
       webapi.library_podcast_episodes(this.album.id).then(({ data }) => {
-        this.tracks = data.tracks.items
+        this.tracks = new GroupByList(data.tracks)
       })
     }
   }

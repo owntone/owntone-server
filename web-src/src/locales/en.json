@@ -265,12 +265,13 @@
     "artist": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks",
       "sort-by": {
         "title": "Sort by",
         "name": "Name",
+        "rating": "Rating",
         "release-date": "Release date"
-      }
+      },
+      "track-count": "{count} tracks"
     },
     "artists": {
       "count": "{count} artists",
@@ -296,7 +297,7 @@
         "title": "Audiobooks"
       },
       "artist": {
-        "albums-count": "{count} albums",
+        "album-count": "{count} albums",
         "shuffle": "Shuffle"
       },
       "artists": {
@@ -332,6 +333,11 @@
     "composer": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
+      "sort-by": {
+        "title": "Sort by",
+        "name": "Name",
+        "rating": "Rating"
+      },
       "track-count": "{count} tracks"
     },
     "composers": {
@@ -345,6 +351,11 @@
     "genre": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
+      "sort-by": {
+        "title": "Sort by",
+        "name": "Name",
+        "rating": "Rating"
+      },
       "track-count": "{count} tracks"
     },
     "genres": {
@@ -356,7 +367,7 @@
       "title": "Your play queue is empty"
     },
     "playlist": {
-      "length": "{length} tracks",
+      "count": "{count} tracks",
       "shuffle": "Shuffle"
     },
     "playlists": {
@@ -472,7 +483,7 @@
         "spotify": {
           "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
           "logged-as": "Logged in as ",
-          "requirements": "You must have a Spotify premium account.",
+          "requirements": "You must have a Spotify premium account. Moreover, if you normally log into Spotify with your Facebook, Apple, or Google account you must first go to Spotify web site where you can get the Spotify username and password that matches your account.",
           "scopes": "Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
           "user": "Access granted for ",
           "authorize": "Authorize Web API access",

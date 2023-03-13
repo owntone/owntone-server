@@ -32,7 +32,7 @@
         <p class="heading" v-text="$t('page.browse.tracks')" />
       </template>
       <template #content>
-        <list-tracks :tracks="recently_played.items" />
+        <list-tracks :tracks="recently_played" />
       </template>
       <template #footer>
         <nav class="level">
@@ -77,7 +77,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.recently_added = new GroupByList(response[0].data.albums)
-    vm.recently_played = response[1].data.tracks
+    vm.recently_played = new GroupByList(response[1].data.tracks)
   }
 }
 
