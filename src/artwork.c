@@ -256,7 +256,7 @@ static struct artwork_source artwork_item_source[] =
     {
       .name = "own",
       .handler = source_item_own_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
+      .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_PIPE),
       .media_kinds = MEDIA_KIND_ALL,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
