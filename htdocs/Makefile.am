@@ -1,8 +1,6 @@
-if COND_WEBINTERFACE
+
 WEBINTERFACE_SRC = \
 	index.html
-endif
-
 
 htdocsdir = $(datadir)/owntone/htdocs
 
@@ -19,10 +17,13 @@ dist_htdocs_DATA = \
 	safari-pinned-tab.svg \
 	site.webmanifest
 
-if COND_WEBINTERFACE
 htdocsassetsdir = $(datadir)/owntone/htdocs/assets
 
 dist_htdocsassets_DATA = \
 	assets/index.css \
 	assets/index.js
-endif
+
+$(WEBINTERFACE_SRC):
+	if test ! -f "$(srcdir)/$(WEBINTERFACE_SRC)"; \
+		then $(error Web interface files are missing! Did you run "make web"?); \
+	fi;
