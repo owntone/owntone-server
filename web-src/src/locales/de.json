@@ -185,9 +185,9 @@
     }
   },
   "language": {
-    "en": "English",
-    "fr": "French (Français)",
-    "de": "German (Deutsch)"
+    "de": "Deutsch",
+    "en": "Englisch (English)",
+    "fr": "Französisch (Français)"
   },
   "list": {
     "albums": {
