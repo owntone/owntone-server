@@ -81,7 +81,7 @@
         "cancel": "Annuler",
         "save": "Enregistrer",
         "saving": "Enregistrement en cours…",
-        "title": "Enregister la file d’attente dans une liste de lecture"
+        "title": "Enregistrer la file d’attente dans une liste de lecture"
       }
     },
     "queue-item": {
@@ -127,7 +127,7 @@
       "playlist": {
         "add-next": "Ajouter ensuite",
         "add": "Ajouter",
-        "owner": "Propriéataire",
+        "owner": "Propriétaire",
         "path": "Emplacement",
         "play": "Lire",
         "tracks": "Pistes"
@@ -185,18 +185,19 @@
     }
   },
   "language": {
+    "de": "Allemand (Deutsch)",
     "en": "Anglais (English)",
     "fr": "Français"
   },
   "list": {
     "albums": {
-      "info-1": "Supprimer définitivement ce podcast de votre bibliothèque ?",
+      "info-1": "Supprimer définitivement ce podcast de votre bibliothèque ?",
       "info-2": "Cela supprimera également la liste de lecture RSS ",
       "notification": "Le podcast ne peut être supprimé. Il n’avait probablement pas été ajouté comme une liste de lecture RSS."
     },
     "spotify": {
       "not-playable-track": "La piste ne peut pas être lue",
-      "restriction-reason": ", raison de la restriction : {reason}"
+      "restriction-reason": ", raison de la restriction : {reason}"
     }
   },
   "media": {
@@ -213,7 +214,7 @@
     "artists": "Artistes",
     "audiobooks": "Livres audio",
     "now-playing": " - {album}",
-    "stream-error": "Erreur du flux HTTP : échec du chargement du flux ou arrêt du chargement en raison d’un problème réseau",
+    "stream-error": "Erreur du flux HTTP : échec du chargement du flux ou arrêt du chargement en raison d’un problème réseau",
     "stream": "Flux HTTP",
     "volume": "Volume",
     "files": "Fichiers",
@@ -365,7 +366,7 @@
     "podcast": {
       "play": "Lire",
       "remove-error": "Le podcast ne peut pas être supprimé. Il n’a probablement pas été ajouté en tant que liste de lecture RSS.",
-      "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
+      "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
       "remove-info-2": "Cela supprimera également la liste de lecture RSS ",
       "track-count": "{count} pistes"
     },
@@ -395,7 +396,7 @@
       "artists": "Artistes",
       "audiobooks": "Livres audio",
       "composers": "Compositeurs",
-      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
+      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
       "no-albums": "Aucun album trouvé",
       "no-artists": "Aucun artiste trouvé",
       "no-audiobooks": "Aucun livre audio trouvé",
@@ -424,7 +425,7 @@
         "coverartarchive": "Cover Art Archive",
         "discogs": "Discogs",
         "explanation-1": "Prend en charge les illustrations au format PNG et JPEG qui sont soit placées dans la bibliothèque en tant que fichiers image séparés, soit intégrées dans les fichiers média, soit mises à disposition en ligne par les stations de radio.",
-        "explanation-2": "En outre, vous pouvez activer la récupération des illustrations à partir des fournisseurs d’illustrations suivants :",
+        "explanation-2": "En outre, vous pouvez activer la récupération des illustrations à partir des fournisseurs d’illustrations suivants :",
         "spotify": "Spotify"
       },
       "devices": {
@@ -446,12 +447,12 @@
         "navigation-item-selection-info": "Si vous sélectionnez plus d’éléments que ce qui peut être affiché sur votre écran, le menu disparaîtra.",
         "navigation-item-selection": "Sélectionnez les éléments de la barre de navigation supérieure",
         "navigation-items": "Barre de navigation",
-        "now-playing-page": "Now playing page",
+        "now-playing-page": "Page « En cours de lecture »",
         "playlists": "Listes de lecture",
         "podcasts": "Podcasts",
         "radio": "Radio",
-        "recently-added-page-info": "Limiter le nombre d’album affichés dans la section \"Ajouts récents\"",
-        "recently-added-page": "Recently added page",
+        "recently-added-page-info": "Limiter le nombre d’album affichés dans la section « Ajouts récents »",
+        "recently-added-page": "Page « Ajouts récents »",
         "search": "Search",
         "show-composer-genres-info-1": "Liste des genres, séparés par des virgules, que le compositeur doit afficher sur la page \"Lecture en cours\".",
         "show-composer-genres-info-2": "Laissez vide pour toujours afficher le compositeur.",
@@ -474,14 +475,14 @@
           "no-support": "L’option Spotify n’est pas présente.",
           "logged-as": "Connecté en tant que ",
           "requirements": "Vous devez posséder un compte Spotify Premium.",
-          "scopes": "L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
+          "scopes": "L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
           "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",
           "credentials": " - Connectez-vous avec votre nom d’utilisateur et mot de passe Spotify",
           "grant-access": "<b>Spotify</b> - Accordez l’accès à l’API de Spotify",
           "help-1": "La bibliothèque libspotify permet de lire les pistes de Spotify.",
           "help-2": "Votre nom d’utilisateur et votre mot de passe Spotify ne sont pas enregistrés, uniquement le jeton de connexion.",
-          "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants :",
+          "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants :",
           "title": "Spotify"
         },
         "login": "Se connecter",
