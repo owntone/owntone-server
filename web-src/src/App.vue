@@ -128,7 +128,7 @@ export default {
         })
         .catch(() => {
           this.$store.dispatch('add_notification', {
-            text: this.$t('server.connection.failed'),
+            text: this.$t('server.connection-failed'),
             type: 'danger',
             topic: 'connection'
           })
