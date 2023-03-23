@@ -270,6 +270,7 @@
       "sort-by": {
         "title": "Sort by",
         "name": "Name",
+        "rating": "Rating",
         "release-date": "Release date"
       }
     },
@@ -333,7 +334,12 @@
     "composer": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks"
+      "track-count": "{count} tracks",
+      "sort-by": {
+        "title": "Sort by",
+        "name": "Name",
+        "rating": "Rating"
+      }
     },
     "composers": {
       "count": "{count} composers",
@@ -346,7 +352,12 @@
     "genre": {
       "album-count": "{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks"
+      "track-count": "{count} tracks",
+      "sort-by": {
+        "title": "Sort by",
+        "name": "Name",
+        "rating": "Rating"
+      }
     },
     "genres": {
       "count": "{count} genres",

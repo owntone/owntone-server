@@ -41,7 +41,7 @@
       "type": "Type",
       "year": "Année"
     },
-    "artiste": {
+    "artist": {
       "add-next": "Ajouter ensuite",
       "add": "Ajouter",
       "added-on": "Ajouté le",
@@ -270,6 +270,7 @@
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
+        "rating": "Classement",
         "release-date": "Date de sortie"
       }
     },
@@ -333,7 +334,12 @@
     "composer": {
       "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes"
+      "track-count": "{count} pistes",
+      "sort-by": {
+        "title": "Trier par",
+        "name": "Nom",
+        "rating": "Classement"
+      }
     },
     "composers": {
       "count": "{count} compositeurs",
@@ -346,7 +352,12 @@
     "genre": {
       "album-count": "{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes"
+      "track-count": "{count} pistes",
+      "sort-by": {
+        "title": "Trier par",
+        "name": "Nom",
+        "rating": "Classement"
+      }
     },
     "genres": {
       "count": "{count} genres",
