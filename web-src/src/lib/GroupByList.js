@@ -42,6 +42,22 @@ export function byName(field, defaultValue = '_') {
   }
 }
 
+export function byRating(field, { direction = 'asc', defaultValue = 0 }) {
+  return {
+    compareFn: (a, b) => {
+      const fieldA = a[field] || defaultValue
+      const fieldB = b[field] || defaultValue
+      const result = fieldA > fieldB
+      return direction === 'asc' ? result : result * -1
+    },
+
+    groupKeyFn: (item) => {
+      const fieldValue = item[field] || defaultValue
+      return Math.floor(fieldValue / 10)
+    }
+  }
+}
+
 export function byYear(field, { direction = 'asc', defaultValue = '0000' }) {
   return {
     compareFn: (a, b) => {

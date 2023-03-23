@@ -1,6 +1,22 @@
 <template>
   <div>
     <content-with-heading>
+      <template #options>
+        <index-button-list :index="tracks.indexList" />
+        <div class="columns">
+          <div class="column">
+            <p
+              class="heading"
+              style="margin-bottom: 24px"
+              v-text="$t('page.artist.sort-by.title')"
+            />
+            <dropdown-menu
+              v-model="selected_groupby_option_id"
+              :options="groupby_options"
+            />
+          </div>
+        </div>
+      </template>
       <template #heading-left>
         <p class="title is-4" v-text="composer.name" />
       </template>
@@ -38,7 +54,7 @@
             "
           />
         </p>
-        <list-tracks :tracks="tracks.items" :expression="play_expression" />
+        <list-tracks :tracks="tracks" :expression="expression" />
         <modal-dialog-composer
           :show="show_composer_details_modal"
           :composer="composer"
@@ -51,9 +67,13 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import DropdownMenu from '@/components/DropdownMenu.vue'
+import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
+import * as types from '@/store/mutation_types'
+import { byName, byRating, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -65,7 +85,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.composer = response[0].data
-    vm.tracks = response[1].data.tracks
+    vm.tracks_list = new GroupByList(response[1].data.tracks)
   }
 }
 
@@ -73,6 +93,8 @@ export default {
   name: 'PageComposerTracks',
   components: {
     ContentWithHeading,
+    DropdownMenu,
+    IndexButtonList,
     ListTracks,
     ModalDialogComposer
   },
@@ -92,16 +114,44 @@ export default {
 
   data() {
     return {
-      tracks: { items: [] },
+      groupby_options: [
+        {
+          id: 1,
+          name: this.$t('page.composer.sort-by.name'),
+          options: byName('title_sort')
+        },
+        {
+          id: 2,
+          name: this.$t('page.composer.sort-by.rating'),
+          options: byRating('rating', {
+            direction: 'desc'
+          })
+        }
+      ],
       composer: {},
-
-      show_composer_details_modal: false
+      show_composer_details_modal: false,
+      tracks_list: new GroupByList()
     }
   },
 
   computed: {
-    play_expression() {
+    expression() {
       return 'composer is "' + this.composer.name + '" and media_kind is music'
+    },
+    selected_groupby_option_id: {
+      get() {
+        return this.$store.state.composer_tracks_sort
+      },
+      set(value) {
+        this.$store.commit(types.COMPOSER_TRACKS_SORT, value)
+      }
+    },
+    tracks() {
+      const groupBy = this.groupby_options.find(
+        (o) => o.id === this.selected_groupby_option_id
+      )
+      this.tracks_list.group(groupBy.options)
+      return this.tracks_list
     }
   },
 
@@ -115,7 +165,7 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_expression(this.play_expression, true)
+      webapi.player_play_expression(this.expression, true)
     }
   }
 }

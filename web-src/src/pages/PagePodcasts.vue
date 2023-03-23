@@ -14,7 +14,7 @@
       </template>
       <template #content>
         <list-tracks
-          :tracks="new_episodes.items"
+          :tracks="new_episodes"
           :show_progress="true"
           @play-count-changed="reload_new_episodes"
         />
@@ -75,7 +75,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.albums = new GroupByList(response[0].data)
-    vm.new_episodes = response[1].data.tracks
+    vm.new_episodes = new GroupByList(response[1].data.tracks)
   }
 }
 
@@ -131,7 +131,7 @@ export default {
 
     reload_new_episodes: function () {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
-        this.new_episodes = data.tracks
+        this.new_episodes = new GroupByList(data.tracks)
       })
     },
 
