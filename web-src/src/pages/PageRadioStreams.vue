@@ -19,7 +19,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '../lib/GroupByList'
+import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
