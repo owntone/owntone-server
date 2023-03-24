@@ -22,16 +22,16 @@
         </div>
       </template>
       <template #content>
-        <list-directories :directories="files.directories" />
-        <list-playlists :playlists="playlists_list" />
+        <list-directories :directories="dirs" />
+        <list-playlists :playlists="playlists" />
         <list-tracks
-          :tracks="files.tracks.items"
+          :tracks="tracks"
           :expression="play_expression"
           :show_icon="true"
         />
         <modal-dialog-directory
           :show="show_details_modal"
-          :directory="{ path: current_directory }"
+          :directory="current_directory"
           @close="show_details_modal = false"
         />
       </template>
@@ -58,16 +58,15 @@ const dataObject = {
 
   set: function (vm, response) {
     if (response) {
-      vm.files = response.data
-      vm.playlists_list = new GroupByList(response.data.playlists)
+      vm.dirs = response.data.directories
+      vm.playlists = new GroupByList(response.data.playlists)
+      vm.tracks = new GroupByList(response.data.tracks)
     } else {
-      vm.files = {
-        directories: vm.$store.state.config.directories.map((dir) => {
-          return { path: dir }
-        }),
-        tracks: { items: [] },
-        playlists: { items: [] }
-      }
+      vm.dirs = vm.$store.state.config.directories.map((dir) => {
+        return { path: dir }
+      })
+      vm.playlists = new GroupByList()
+      vm.tracks = new GroupByList()
     }
   }
 }
@@ -97,12 +96,9 @@ export default {
 
   data() {
     return {
-      files: {
-        directories: [],
-        tracks: { items: [] },
-        playlists: { items: [] }
-      },
-      playlists_list: new GroupByList(),
+      dirs: [],
+      playlists: new GroupByList(),
+      tracks: new GroupByList(),
       show_details_modal: false
     }
   },
