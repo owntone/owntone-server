@@ -279,7 +279,7 @@
       "sort-by": {
         "title": "Sort by",
         "name": "Name",
-        "recently-added": "Rencently added"
+        "recently-added": "Recently added"
       },
       "hide-singles-help": "If active, hides artists that only appear on singles or playlists.",
       "hide-singles": "Hide singles",
@@ -297,7 +297,7 @@
         "title": "Audiobooks"
       },
       "artist": {
-        "albums-count": "{count} albums",
+        "album-count": "{count} albums",
         "shuffle": "Shuffle"
       },
       "artists": {

@@ -31,7 +31,7 @@
       "add-next": "Ajouter ensuite",
       "add": "Ajouter",
       "added-on": "Ajouté le",
-      "artiste": "Album artist",
+      "artist": "Artiste de l’album",
       "duration": "Durée",
       "mark-as-played": "Marquer comme lu",
       "play": "Lire",
@@ -41,7 +41,7 @@
       "type": "Type",
       "year": "Année"
     },
-    "artiste": {
+    "artist": {
       "add-next": "Ajouter ensuite",
       "add": "Ajouter",
       "added-on": "Ajouté le",
@@ -117,12 +117,12 @@
         "release-date": "Date de sortie",
         "type": "Type"
       },
-      "artiste": {
+      "artist": {
         "add-next": "Ajouter ensuite",
         "add": "Ajouter",
         "genres": "Genres",
         "play": "Lire",
-        "popularity": "Popularités / Followers"
+        "popularity": "Popularité / Abonnements"
       },
       "playlist": {
         "add-next": "Ajouter ensuite",
@@ -296,8 +296,8 @@
         "count": "{count} livres audio",
         "title": "Livres audio"
       },
-      "artiste": {
-        "albums-count": "{count} albums",
+      "artist": {
+        "album-count": "{count} albums",
         "shuffle": "Lecture aléatoire"
       },
       "artists": {
@@ -454,14 +454,14 @@
         "recently-added-page-info": "Limiter le nombre d’album affichés dans la section « Ajouts récents »",
         "recently-added-page": "Page « Ajouts récents »",
         "search": "Search",
-        "show-composer-genres-info-1": "Liste des genres, séparés par des virgules, que le compositeur doit afficher sur la page \"Lecture en cours\".",
+        "show-composer-genres-info-1": "Liste des genres, séparés par des virgules, que le compositeur doit afficher sur la page « En cours de lecture ».",
         "show-composer-genres-info-2": "Laissez vide pour toujours afficher le compositeur.",
         "show-composer-genres-info-3": "L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
         "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
-        "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page \"Lecture en cours\"",
+        "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page « En cours de lecture »",
         "show-composer": "Afficher le compositeur",
         "show-coverart": "Afficher les illustration dans la liste d’albums",
-        "show-path": "Afficher le chemin du fichier sur la page \"Lecture en cours\""
+        "show-path": "Afficher le chemin du fichier sur la page « En cours de lecture »"
       },
       "services": {
         "lastfm": {
@@ -500,7 +500,7 @@
         "shuffle": "Lecture aléatoire",
         "track-count": "{count} pistes"
       },
-      "artiste": {
+      "artist": {
         "album-count": "{count} albums",
         "shuffle": "Lecture aléatoire"
       },
