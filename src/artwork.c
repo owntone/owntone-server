@@ -256,7 +256,7 @@ static struct artwork_source artwork_item_source[] =
     {
       .name = "own",
       .handler = source_item_own_get,
-      .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_PIPE),
+      .data_kinds = (1 << DATA_KIND_FILE),
       .media_kinds = MEDIA_KIND_ALL,
       .cache = ON_SUCCESS | ON_FAILURE,
     },
@@ -335,6 +335,13 @@ static struct artwork_source artwork_item_source[] =
       .data_kinds = (1 << DATA_KIND_HTTP) | (1 << DATA_KIND_PIPE),
       .media_kinds = MEDIA_KIND_MUSIC,
       .cache = NEVER,
+    },
+    {
+      .name = "own (pipe)",
+      .handler = source_item_own_get,
+      .data_kinds = (1 << DATA_KIND_PIPE),
+      .media_kinds = MEDIA_KIND_ALL,
+      .cache = ON_SUCCESS | ON_FAILURE,
     },
     {
       .name = NULL,
