@@ -44,6 +44,7 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <time.h>
+#include <strings.h> // strcasecmp
 
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -4174,7 +4175,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   else
     {
-      rd->has_password = (strcmp(p, "false") != 0);
+      rd->has_password = (strcasecmp(p, "false") != 0);
     }
 
   if (rd->has_password)
