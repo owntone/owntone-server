@@ -297,7 +297,7 @@
         "title": "Hörbücher"
       },
       "artist": {
-        "albums-count": "{count} Alben",
+        "album-count": "{count} Alben",
         "shuffle": "Zufallswiedergabe"
       },
       "artists": {
@@ -395,8 +395,7 @@
       "albums": "Alben",
       "artists": "Künstler",
       "audiobooks": "Hörbücher",
-      "composers": "Komponisten",
-       
+      "composers": "Komponisten",       
       "help": "Tip: Du kannst mit einer Smart-Playlist-Abfrage-Sprache nach <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">Ausdrücken</a> suchen wenn Du dem Ausdruck ein <code>query:</code> voranstellst.",
       "no-albums": "Keine Alben gefunden",
       "no-artists": "Keine Künstler gefunden",
@@ -546,5 +545,10 @@
     "today": "Heute",
     "last-week": "Letzte Woche",
     "last-month": "Letzer Monat"
+  },
+  "filter": {
+    "mono": "Mono",
+    "stereo": "Stereo",
+    "channels": "{count} Kanäle"
   }
 }
