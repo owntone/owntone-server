@@ -298,7 +298,7 @@
       },
       "artist": {
         "album-count": "{count} albums",
-        "shuffle": "Shuffle"
+        "play": "Play"
       },
       "artists": {
         "count": "{count} authors",

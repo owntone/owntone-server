@@ -298,7 +298,7 @@
       },
       "artist": {
         "album-count": "{count} albums",
-        "shuffle": "Lecture aléatoire"
+        "play": "Lire"
       },
       "artists": {
         "count": "{count} auteurs",

@@ -13,7 +13,7 @@
         </a>
         <a class="button is-small is-dark is-rounded" @click="play">
           <span class="icon"><mdicon name="play" size="16" /></span>
-          <span v-text="$t('page.audiobooks.artist.shuffle')" />
+          <span v-text="$t('page.audiobooks.artist.play')" />
         </a>
       </div>
     </template>
