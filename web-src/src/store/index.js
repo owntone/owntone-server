@@ -53,10 +53,13 @@ export default createStore({
       search_path: '/search/library',
       recent_searches: [],
 
+      composer_tracks_sort: 1,
+      genre_tracks_sort: 1,
       hide_singles: false,
       hide_spotify: false,
       artists_sort: 1,
       artist_albums_sort: 1,
+      artist_tracks_sort: 1,
       albums_sort: 1,
       show_only_next_items: false,
       show_burger_menu: false,
@@ -234,6 +237,12 @@ export default createStore({
         state.recent_searches.pop()
       }
     },
+    [types.COMPOSER_TRACKS_SORT](state, sort) {
+      state.composer_tracks_sort = sort
+    },
+    [types.GENRE_TRACKS_SORT](state, sort) {
+      state.genre_tracks_sort = sort
+    },
     [types.HIDE_SINGLES](state, hideSingles) {
       state.hide_singles = hideSingles
     },
@@ -245,6 +254,9 @@ export default createStore({
     },
     [types.ARTIST_ALBUMS_SORT](state, sort) {
       state.artist_albums_sort = sort
+    },
+    [types.ARTIST_TRACKS_SORT](state, sort) {
+      state.artist_tracks_sort = sort
     },
     [types.ALBUMS_SORT](state, sort) {
       state.albums_sort = sort

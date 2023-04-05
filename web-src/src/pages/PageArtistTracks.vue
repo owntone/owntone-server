@@ -2,7 +2,20 @@
   <div>
     <content-with-heading>
       <template #options>
-        <index-button-list :index="index_list" />
+        <index-button-list :index="tracks.indexList" />
+        <div class="columns">
+          <div class="column">
+            <p
+              class="heading"
+              style="margin-bottom: 24px"
+              v-text="$t('page.artist.sort-by.title')"
+            />
+            <dropdown-menu
+              v-model="selected_groupby_option_id"
+              :options="groupby_options"
+            />
+          </div>
+        </div>
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="artist.name" />
@@ -39,7 +52,7 @@
             "
           />
         </p>
-        <list-tracks :tracks="tracks.items" :uris="track_uris" />
+        <list-tracks :tracks="tracks" :uris="track_uris" />
         <modal-dialog-artist
           :show="show_artist_details_modal"
           :artist="artist"
@@ -52,10 +65,13 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import DropdownMenu from '@/components/DropdownMenu.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
+import * as types from '@/store/mutation_types'
+import { byName, byRating, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -67,7 +83,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.artist = response[0].data
-    vm.tracks = response[1].data.tracks
+    vm.tracks_list = new GroupByList(response[1].data.tracks)
   }
 }
 
@@ -75,8 +91,9 @@ export default {
   name: 'PageArtistTracks',
   components: {
     ContentWithHeading,
-    ListTracks,
+    DropdownMenu,
     IndexButtonList,
+    ListTracks,
     ModalDialogArtist
   },
 
@@ -96,25 +113,43 @@ export default {
   data() {
     return {
       artist: {},
-      tracks: { items: [] },
-
-      show_artist_details_modal: false
+      groupby_options: [
+        {
+          id: 1,
+          name: this.$t('page.artist.sort-by.name'),
+          options: byName('title_sort')
+        },
+        {
+          id: 2,
+          name: this.$t('page.artist.sort-by.rating'),
+          options: byRating('rating', {
+            direction: 'desc'
+          })
+        }
+      ],
+      show_artist_details_modal: false,
+      tracks_list: new GroupByList()
     }
   },
 
   computed: {
-    index_list() {
-      return [
-        ...new Set(
-          this.tracks.items.map((track) =>
-            track.title_sort.charAt(0).toUpperCase()
-          )
-        )
-      ]
+    selected_groupby_option_id: {
+      get() {
+        return this.$store.state.artist_tracks_sort
+      },
+      set(value) {
+        this.$store.commit(types.ARTIST_TRACKS_SORT, value)
+      }
     },
-
+    tracks() {
+      const groupBy = this.groupby_options.find(
+        (o) => o.id === this.selected_groupby_option_id
+      )
+      this.tracks_list.group(groupBy.options)
+      return this.tracks_list
+    },
     track_uris() {
-      return this.tracks.items.map((a) => a.uri).join(',')
+      return this.tracks_list.items.map((a) => a.uri).join(',')
     }
   },
 
@@ -125,10 +160,7 @@ export default {
     },
 
     play: function () {
-      webapi.player_play_uri(
-        this.tracks.items.map((a) => a.uri).join(','),
-        true
-      )
+      webapi.player_play_uri(this.tracks_list.map((a) => a.uri).join(','), true)
     }
   }
 }
