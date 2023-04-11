@@ -667,7 +667,7 @@ connection_test(int family, const char *address, const char *address_log, int po
 // a connection to the address
 // - see also https://lists.freedesktop.org/archives/avahi/2012-September/002183.html
 static int
-address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *addr, int port, enum mdns_options flags)
+address_check(const char *hostname, const AvahiAddress *addr, int port, enum mdns_options flags)
 {
   char address[AVAHI_ADDRESS_STR_MAX];
   char address_log[AVAHI_ADDRESS_STR_MAX + 2];
@@ -676,13 +676,13 @@ address_check(AvahiProtocol proto, const char *hostname, const AvahiAddress *add
 
   CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), addr));
 
-  family = avahi_proto_to_af(proto);
+  family = avahi_proto_to_af(addr->proto);
   if (family == AF_INET)
     snprintf(address_log, sizeof(address_log), "%s", address);
   else
     snprintf(address_log, sizeof(address_log), "[%s]", address);
 
-  if ((proto == AVAHI_PROTO_INET && is_v4ll(&(addr->data.ipv4))) || (proto == AVAHI_PROTO_INET6 && is_v6ll(&(addr->data.ipv6))))
+  if ((addr->proto == AVAHI_PROTO_INET && is_v4ll(&(addr->data.ipv4))) || (addr->proto == AVAHI_PROTO_INET6 && is_v6ll(&(addr->data.ipv6)))) 
     {
       DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address_log);
       return -1;
@@ -736,7 +736,7 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
 
   DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s, proto %d): NEW record %s for service type '%s'\n", hostname, proto, address, rb_data->mb->type);
 
-  ret = address_check(proto, hostname, &addr, rb_data->port, rb_data->mb->flags);
+  ret = address_check(hostname, &addr, rb_data->port, rb_data->mb->flags);
   if (ret < 0)
     return;
 
@@ -772,7 +772,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
   mb = (struct mdns_browser *)userdata;
 
-  family = avahi_proto_to_af(proto);
+  family = avahi_proto_to_af(addr->proto);
 
   if (event != AVAHI_RESOLVER_FOUND)
     {
@@ -817,7 +817,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
   // devices (e.g. ApEx 1 gen) will include multiple records, and we need to
   // filter out those records that won't work (notably link-local). The value of
   // *addr given by browse_resolve_callback is just the first record.
-  ret = address_check(proto, hostname, addr, port, mb->flags);
+  ret = address_check(hostname, addr, port, mb->flags);
   if (ret < 0)
     {
       CHECK_NULL(L_MDNS, rb_data = calloc(1, sizeof(struct mdns_record_browser)));
@@ -828,7 +828,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       rb_data->port = port;
       rb_data->txt_kv = txt_kv;
 
-      if (proto == AVAHI_PROTO_INET6)
+      if (addr->proto == AVAHI_PROTO_INET6)
 	dns_type = AVAHI_DNS_TYPE_AAAA;
       else
 	dns_type = AVAHI_DNS_TYPE_A;
