@@ -682,11 +682,15 @@ address_check(const char *hostname, const AvahiAddress *addr, int port, enum mdn
   else
     snprintf(address_log, sizeof(address_log), "[%s]", address);
 
-  if ((addr->proto == AVAHI_PROTO_INET && is_v4ll(&(addr->data.ipv4))) || (addr->proto == AVAHI_PROTO_INET6 && is_v6ll(&(addr->data.ipv6)))) 
-    {
-      DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address_log);
-      return -1;
-    }
+  if (addr->proto == AVAHI_PROTO_INET6 && (flags & MDNS_IPV4ONLY || !cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))) {
+    DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is ipv6, but ipv6 is disabled\n", hostname, address_log);
+    return -1;
+  }
+
+  if ((addr->proto == AVAHI_PROTO_INET && is_v4ll(&(addr->data.ipv4))) || (addr->proto == AVAHI_PROTO_INET6 && is_v6ll(&(addr->data.ipv6)))) {
+    DPRINTF(E_WARN, L_MDNS, "Ignoring announcement from %s, address %s is link-local\n", hostname, address_log);
+    return -1;
+  }
 
   if (!(flags & MDNS_CONNECTION_TEST))
     return 0; // All done
