@@ -273,7 +273,7 @@ modules_search(const char *path)
   for (ptr = httpd_modules; *ptr; ptr++)
     {
       m = *ptr;
-      if (!m->subpaths || !m->request)
+      if (!m->request)
 	continue;
 
       for (test = m->subpaths; *test && !is_found; test++)

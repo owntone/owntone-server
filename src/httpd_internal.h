@@ -120,7 +120,7 @@ struct httpd_module
 
   // Null-terminated list of URL subpath that the module accepts e.g., /subpath/morepath/file.mp3
   const char *subpaths[16];
-  // Null-terminated list of URL fullparhs that the module accepts e.g., /fullpath
+  // Null-terminated list of URL fullpaths that the module accepts e.g., /fullpath
   const char *fullpaths[16];
   // Pointer to the module's handler definitions
   struct httpd_uri_map *handlers;
