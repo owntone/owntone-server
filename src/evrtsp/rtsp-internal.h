@@ -106,8 +106,8 @@ void evrtsp_connection_fail(struct evrtsp_connection *,
 
 int evrtsp_hostportfile(char *, char **, u_short *, char **);
 
-int evrtsp_parse_firstline(struct evrtsp_request *, struct evbuffer*);
-int evrtsp_parse_headers(struct evrtsp_request *, struct evbuffer*);
+enum message_read_status evrtsp_parse_firstline(struct evrtsp_request *, struct evbuffer*);
+enum message_read_status evrtsp_parse_headers(struct evrtsp_request *, struct evbuffer*);
 
 void evrtsp_start_read(struct evrtsp_connection *);
 void evrtsp_make_header(struct evrtsp_connection *, struct evrtsp_request *);
