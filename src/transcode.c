@@ -2202,6 +2202,11 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query)
 	return ctx->audio_stream.stream->codecpar->channels;
 #endif
     }
+  else if (strcmp(query, "samples_per_frame") == 0)
+    {
+      if (ctx->audio_stream.stream)
+	return ctx->audio_stream.stream->codecpar->frame_size;
+    }
 
   return -1;
 }
