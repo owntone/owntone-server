@@ -264,12 +264,6 @@ struct output_definition
 
 /* ------------------------------- General use ------------------------------ */
 
-struct output_buffer *
-outputs_buffer_copy(struct output_buffer *buffer);
-
-void
-outputs_buffer_free(struct output_buffer *buffer);
-
 struct output_device *
 outputs_device_get(uint64_t device_id);
 
@@ -292,6 +286,12 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
 
 void
 outputs_metadata_free(struct output_metadata *metadata);
+
+struct output_buffer *
+outputs_buffer_copy(struct output_buffer *buffer);
+
+void
+outputs_buffer_free(struct output_buffer *buffer);
 
 /* ---------------------------- Called by player ---------------------------- */
 

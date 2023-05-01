@@ -598,18 +598,6 @@ vol_adjust(void)
 
 /* ----------------------------------- API ---------------------------------- */
 
-struct output_buffer *
-outputs_buffer_copy(struct output_buffer *buffer)
-{
-  return buffer_copy(buffer);
-}
-
-void
-outputs_buffer_free(struct output_buffer *buffer)
-{
-  buffer_free(buffer);
-}
-
 struct output_device *
 outputs_device_get(uint64_t device_id)
 {
@@ -752,6 +740,18 @@ void
 outputs_metadata_free(struct output_metadata *metadata)
 {
   metadata_free(metadata);
+}
+
+struct output_buffer *
+outputs_buffer_copy(struct output_buffer *buffer)
+{
+  return buffer_copy(buffer);
+}
+
+void
+outputs_buffer_free(struct output_buffer *buffer)
+{
+  buffer_free(buffer);
 }
 
 /* ---------------------------- Called by player ---------------------------- */
