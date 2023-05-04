@@ -758,6 +758,12 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
   avahi_record_browser_free(b);
 }
 
+// Note on protocols in the below, ref issue #1599:
+// The callback proto is the proto corresponding to the network interface where
+// the announcement was received, not the proto corresponding the address at
+// which the service is actually available. The proto in the address record is
+// the proto corresponding to the address where the service is available. The
+// address record may be NULL if the resolver is returning a failure.
 static void
 browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtocol proto, AvahiResolverEvent event,
 			const char *name, const char *type, const char *domain, const char *hostname, const AvahiAddress *addr,
@@ -776,8 +782,6 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
   mb = (struct mdns_browser *)userdata;
 
-  family = avahi_proto_to_af(addr->proto);
-
   if (event != AVAHI_RESOLVER_FOUND)
     {
       if (event == AVAHI_RESOLVER_FAILURE)
@@ -785,6 +789,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       else
 	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver empty callback\n");
 
+      family = avahi_proto_to_af(proto);
       if (family != AF_UNSPEC)
 	mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
 
@@ -796,7 +801,8 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
   CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), addr));
 
-  DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d, host %s, address %s\n", name, type, proto, hostname, address);
+  DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d/%d, host %s, address %s\n",
+    name, type, proto, addr->proto, hostname, address);
 
   CHECK_NULL(L_MDNS, txt_kv = keyval_alloc());
 
@@ -843,6 +849,8 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 
       return;
     }
+
+  family = avahi_proto_to_af(addr->proto);
 
   // Execute callback (mb->cb) with all the data
   mb->cb(name, mb->type, domain, hostname, family, address, port, txt_kv);
