@@ -31,6 +31,7 @@
 #include <event2/buffer.h>
 
 #include "httpd_internal.h"
+#include "player.h"
 #include "outputs/streaming.h"
 #include "logger.h"
 #include "conffile.h"
@@ -169,7 +170,7 @@ session_free(struct streaming_session *session)
 
   if (session->readev)
     {
-      streaming_session_deregister(session->fd);
+      player_streaming_deregister(session->fd);
       event_free(session->readev);
     }
 
@@ -238,7 +239,7 @@ read_cb(evutil_socket_t fd, short event, void *arg)
 static int
 streaming_mp3_handler(struct httpd_request *hreq)
 {
-  struct streaming_session *session;
+  struct streaming_session *session = NULL;
   const char *name = cfg_getstr(cfg_getsec(cfg, "library"), "name");
   const char *param;
   bool icy_is_requested;
@@ -255,10 +256,16 @@ streaming_mp3_handler(struct httpd_request *hreq)
 
   session = session_new(hreq, icy_is_requested);
   if (!session)
-    return -1;
+    {
+      goto error;
+    }
 
   // Ask streaming output module for a fd to read mp3 from
-  session->fd = streaming_session_register(STREAMING_FORMAT_MP3, streaming_default_quality);
+  session->fd = player_streaming_register(STREAMING_FORMAT_MP3, streaming_default_quality);
+  if (session->fd < 0)
+    {
+      goto error;
+    }
 
   CHECK_NULL(L_STREAMING, session->readev = event_new(hreq->evbase, session->fd, EV_READ | EV_PERSIST, read_cb, session));
   event_add(session->readev, NULL);
@@ -274,6 +281,11 @@ streaming_mp3_handler(struct httpd_request *hreq)
   httpd_send_reply_start(hreq, HTTP_OK, "OK");
 
   return 0;
+
+ error:
+  session_free(session);
+  // Error message is sent by streaming_request()
+  return -1;
 }
 
 static struct httpd_uri_map streaming_handlers[] =
