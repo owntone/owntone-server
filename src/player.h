@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "db.h"
+#include "misc.h" // for struct media_quality
 
 // Maximum number of previously played songs that are remembered
 #define MAX_HISTORY_COUNT 20
@@ -116,6 +117,12 @@ player_speaker_resurrect(void *arg);
 
 int
 player_speaker_authorize(uint64_t id, const char *pin);
+
+int
+player_streaming_register(int format, struct media_quality quality);
+
+int
+player_streaming_deregister(int id);
 
 int
 player_playback_start(void);

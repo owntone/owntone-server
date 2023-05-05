@@ -134,6 +134,7 @@ struct output_device
 
   // Quality of audio output
   struct media_quality quality;
+  int format;
 
   // Address
   char *v4_address;

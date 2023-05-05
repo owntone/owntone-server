@@ -151,6 +151,9 @@ struct speaker_attr_param
   bool prevent_playback;
   bool busy;
 
+  struct media_quality quality;
+  int format;
+
   const char *pin;
 };
 
@@ -2883,6 +2886,48 @@ speaker_start_all(void *arg, int *retval)
   return COMMAND_END;
 }
 
+// This is borderline misuse of the outputs_device interface, but the purpose is
+// to register streaming session info with outputs/streaming.c via the player
+// thread. It must be the player thread because session setup requires that
+// outputs_quality_subscribe() is called, and by design it isn't thread safe.
+static enum command_state
+streaming_register(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device device =
+  {
+    .type = OUTPUT_TYPE_STREAMING,
+    .type_name = "streaming",
+    .name = "streaming",
+    .quality = param->quality,
+    .format = param->format,
+  };
+
+  *retval = outputs_device_start(&device, NULL, false);
+  if (*retval < 0)
+    return COMMAND_END;
+
+  *retval = device.id; // Actually the fd that the called needs
+  return COMMAND_END;
+}
+
+static enum command_state
+streaming_deregister(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device device =
+  {
+    .type = OUTPUT_TYPE_STREAMING,
+    .type_name = "streaming",
+    .name = "streaming",
+    .id = param->spk_id,
+    .session = "dummy", // to pass check in outputs_device_stop()
+  };
+
+  *retval = outputs_device_stop(&device, NULL);
+  return COMMAND_END;
+}
+
 static enum command_state
 volume_set(void *arg, int *retval)
 {
@@ -3138,7 +3183,7 @@ player_get_status(struct player_status *status)
 }
 
 
-/* --------------------------- Thread: httpd (DACP) ------------------------- */
+/* ------------------------------ Thread: httpd ----------------------------- */
 
 /*
  * Stores the now playing media item dbmfi-id in the given id pointer.
@@ -3420,6 +3465,33 @@ player_speaker_authorize(uint64_t id, const char *pin)
   param.pin = pin;
 
   ret = commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
+
+  return ret;
+}
+
+int
+player_streaming_register(int format, struct media_quality quality)
+{
+  struct speaker_attr_param param;
+  int ret;
+
+  param.format = format;
+  param.quality = quality;
+
+  ret = commands_exec_sync(cmdbase, streaming_register, NULL, &param);
+
+  return ret;
+}
+
+int
+player_streaming_deregister(int id)
+{
+  struct speaker_attr_param param;
+  int ret;
+
+  param.spk_id = id;
+
+  ret = commands_exec_sync(cmdbase, streaming_deregister, NULL, &param);
 
   return ret;
 }
