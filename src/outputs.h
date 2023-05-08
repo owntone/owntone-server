@@ -142,6 +142,10 @@ struct output_device
   short v4_port;
   short v6_port;
 
+  // Only used for streaming
+  int audio_fd;
+  int metadata_fd;
+
   struct event *stop_timer;
 
   // Opaque pointers to device and session data

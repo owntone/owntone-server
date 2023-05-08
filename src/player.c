@@ -152,7 +152,10 @@ struct speaker_attr_param
   bool busy;
 
   struct media_quality quality;
-  int format;
+  enum player_format format;
+
+  int audio_fd;
+  int metadata_fd;
 
   const char *pin;
 };
@@ -2904,10 +2907,10 @@ streaming_register(void *arg, int *retval)
   };
 
   *retval = outputs_device_start(&device, NULL, false);
-  if (*retval < 0)
-    return COMMAND_END;
 
-  *retval = device.id; // Actually the fd that the called needs
+  param->spk_id = device.id;
+  param->audio_fd = device.audio_fd;
+  param->metadata_fd = device.metadata_fd;
   return COMMAND_END;
 }
 
@@ -3470,7 +3473,7 @@ player_speaker_authorize(uint64_t id, const char *pin)
 }
 
 int
-player_streaming_register(int format, struct media_quality quality)
+player_streaming_register(int *audio_fd, int *metadata_fd, enum player_format format, struct media_quality quality)
 {
   struct speaker_attr_param param;
   int ret;
@@ -3479,8 +3482,12 @@ player_streaming_register(int format, struct media_quality quality)
   param.quality = quality;
 
   ret = commands_exec_sync(cmdbase, streaming_register, NULL, &param);
+  if (ret < 0)
+    return ret;
 
-  return ret;
+  *audio_fd = param.audio_fd;
+  *metadata_fd = param.metadata_fd;
+  return param.spk_id;
 }
 
 int
