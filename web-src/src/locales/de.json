@@ -369,7 +369,8 @@
     },
     "playlist": {
       "length": "{length} Tracks",
-      "shuffle": "Zufallswiedergabe"
+      "shuffle": "Zufallswiedergabe",
+      "track-count": "{count} Tracks"
     },
     "playlists": {
       "count": "{count} Playlisten"

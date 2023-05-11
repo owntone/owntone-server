@@ -369,7 +369,8 @@
     },
     "playlist": {
       "length": "{length} pistes",
-      "shuffle": "Lecture aléatoire"
+      "shuffle": "Lecture aléatoire",
+      "track-count": "{count} pistes"
     },
     "playlists": {
       "count": "{count} listes de lecture"

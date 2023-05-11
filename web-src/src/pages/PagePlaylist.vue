@@ -20,7 +20,7 @@
     <template #content>
       <p
         class="heading has-text-centered-mobile"
-        v-text="$t('page.playlist.count', { count: tracks.count })"
+        v-text="$t('page.playlist.track-count', { count: tracks.count })"
       />
       <list-tracks :tracks="tracks" :uris="uris" />
       <modal-dialog-playlist
