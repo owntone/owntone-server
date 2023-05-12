@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "db.h"
+#include "misc.h" // for struct media_quality
 
 // Maximum number of previously played songs that are remembered
 #define MAX_HISTORY_COUNT 20
@@ -25,6 +26,10 @@ enum repeat_mode {
 enum player_seek_mode {
   PLAYER_SEEK_POSITION = 1,
   PLAYER_SEEK_RELATIVE = 2,
+};
+
+enum player_format {
+  PLAYER_FORMAT_MP3,
 };
 
 struct player_speaker_info {
@@ -116,6 +121,12 @@ player_speaker_resurrect(void *arg);
 
 int
 player_speaker_authorize(uint64_t id, const char *pin);
+
+int
+player_streaming_register(int *audio_fd, int *metadata_fd, enum player_format format, struct media_quality quality);
+
+int
+player_streaming_deregister(int id);
 
 int
 player_playback_start(void);

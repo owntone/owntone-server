@@ -134,12 +134,17 @@ struct output_device
 
   // Quality of audio output
   struct media_quality quality;
+  int format;
 
   // Address
   char *v4_address;
   char *v6_address;
   short v4_port;
   short v6_port;
+
+  // Only used for streaming
+  int audio_fd;
+  int metadata_fd;
 
   struct event *stop_timer;
 
@@ -286,6 +291,12 @@ outputs_cb(int callback_id, uint64_t device_id, enum output_device_state);
 
 void
 outputs_metadata_free(struct output_metadata *metadata);
+
+struct output_buffer *
+outputs_buffer_copy(struct output_buffer *buffer);
+
+void
+outputs_buffer_free(struct output_buffer *buffer);
 
 /* ---------------------------- Called by player ---------------------------- */
 

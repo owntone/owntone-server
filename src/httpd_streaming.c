@@ -31,20 +31,25 @@
 #include <event2/buffer.h>
 
 #include "httpd_internal.h"
-#include "outputs/streaming.h"
+#include "player.h"
 #include "logger.h"
 #include "conffile.h"
+
+#define STREAMING_ICY_METALEN_MAX      4080  // 255*16 incl header/footer (16bytes)
+#define STREAMING_ICY_METATITLELEN_MAX 4064  // STREAMING_ICY_METALEN_MAX -16 (not incl header/footer)
 
 struct streaming_session {
   struct httpd_request *hreq;
 
-  int fd;
-  struct event *readev;
-  struct evbuffer *readbuf;
+  int id;
+  struct event *audioev;
+  struct event *metadataev;
+  struct evbuffer *audiobuf;
   size_t bytes_sent;
 
   bool icy_is_requested;
   size_t icy_remaining;
+  char icy_title[STREAMING_ICY_METATITLELEN_MAX];
 };
 
 static struct media_quality streaming_default_quality = {
@@ -54,24 +59,19 @@ static struct media_quality streaming_default_quality = {
   .bit_rate = 128000,
 };
 
+static void
+session_free(struct streaming_session *session);
 
 /* ------------------------------ ICY metadata -------------------------------*/
 
 // To test mp3 and ICY tagm it is good to use:
 //   mpv --display-tags=* http://localhost:3689/stream.mp3
 
-#define STREAMING_ICY_METALEN_MAX      4080  // 255*16 incl header/footer (16bytes)
-#define STREAMING_ICY_METATITLELEN_MAX 4064  // STREAMING_ICY_METALEN_MAX -16 (not incl header/footer)
-
 // As streaming quality goes up, we send more data to the remote client.  With a
 // smaller ICY_METAINT value we have to splice metadata more frequently - on
 // some devices with small input buffers, a higher quality stream and low
 // ICY_METAINT can lead to stuttering as observed on a Roku Soundbridge
 static unsigned short streaming_icy_metaint = 16384;
-
-static pthread_mutex_t streaming_metadata_lck;
-static char streaming_icy_title[STREAMING_ICY_METATITLELEN_MAX];
-
 
 // We know that the icymeta is limited to 1+255*16 (ie 4081) bytes so caller must
 // provide a buf of this size to avoid needless mallocs
@@ -124,7 +124,7 @@ icy_meta_create(uint8_t buf[STREAMING_ICY_METALEN_MAX+1], unsigned *buflen, cons
 }
 
 static void
-icy_meta_splice(struct evbuffer *out, struct evbuffer *in, size_t *icy_remaining)
+icy_meta_splice(struct evbuffer *out, struct evbuffer *in, size_t *icy_remaining, char *title)
 {
   uint8_t meta[STREAMING_ICY_METALEN_MAX + 1];
   unsigned metalen;
@@ -138,58 +138,12 @@ icy_meta_splice(struct evbuffer *out, struct evbuffer *in, size_t *icy_remaining
       *icy_remaining -= consume;
       if (*icy_remaining == 0)
 	{
-	  pthread_mutex_lock(&streaming_metadata_lck);
-	  icy_meta_create(meta, &metalen, streaming_icy_title);
-	  pthread_mutex_unlock(&streaming_metadata_lck);
+	  icy_meta_create(meta, &metalen, title);
 
 	  evbuffer_add(out, meta, metalen);
 	  *icy_remaining = streaming_icy_metaint;
 	}
     }
-}
-
-// Thread: player. TODO Would be nice to avoid the lock. Consider moving all the
-// ICY tag stuff to streaming.c and make a STREAMING_FORMAT_MP3_ICY?
-static void
-icy_metadata_cb(char *metadata)
-{
-  pthread_mutex_lock(&streaming_metadata_lck);
-  snprintf(streaming_icy_title, sizeof(streaming_icy_title), "%s", metadata);
-  pthread_mutex_unlock(&streaming_metadata_lck);
-}
-
-
-/* ----------------------------- Session helpers ---------------------------- */
-
-static void
-session_free(struct streaming_session *session)
-{
-  if (!session)
-    return;
-
-  if (session->readev)
-    {
-      streaming_session_deregister(session->fd);
-      event_free(session->readev);
-    }
-
-  evbuffer_free(session->readbuf);
-  free(session);
-}
-
-static struct streaming_session *
-session_new(struct httpd_request *hreq, bool icy_is_requested)
-{
-  struct streaming_session *session;
-
-  CHECK_NULL(L_STREAMING, session = calloc(1, sizeof(struct streaming_session)));
-  CHECK_NULL(L_STREAMING, session->readbuf = evbuffer_new());
-
-  session->hreq = hreq;
-  session->icy_is_requested = icy_is_requested;
-  session->icy_remaining = streaming_icy_metaint;
-
-  return session;
 }
 
 
@@ -204,7 +158,7 @@ conn_close_cb(void *arg)
 }
 
 static void
-read_cb(evutil_socket_t fd, short event, void *arg)
+audio_cb(evutil_socket_t fd, short event, void *arg)
 {
   struct streaming_session *session = arg;
   struct httpd_request *hreq;
@@ -212,7 +166,7 @@ read_cb(evutil_socket_t fd, short event, void *arg)
 
   CHECK_NULL(L_STREAMING, hreq = session->hreq);
 
-  len = evbuffer_read(session->readbuf, fd, -1);
+  len = evbuffer_read(session->audiobuf, fd, -1);
   if (len < 0 && errno != EAGAIN)
     {
       DPRINTF(E_INFO, L_STREAMING, "Stopping mp3 streaming to %s:%d\n", session->hreq->peer_address, (int)session->hreq->peer_port);
@@ -223,13 +177,85 @@ read_cb(evutil_socket_t fd, short event, void *arg)
     }
 
   if (session->icy_is_requested)
-    icy_meta_splice(hreq->out_body, session->readbuf, &session->icy_remaining);
+    icy_meta_splice(hreq->out_body, session->audiobuf, &session->icy_remaining, session->icy_title);
   else
-    evbuffer_add_buffer(hreq->out_body, session->readbuf);
+    evbuffer_add_buffer(hreq->out_body, session->audiobuf);
 
   httpd_send_reply_chunk(hreq, NULL, NULL);
 
   session->bytes_sent += len;
+}
+
+static void
+metadata_cb(evutil_socket_t fd, short event, void *arg)
+{
+  struct streaming_session *session = arg;
+  struct evbuffer *evbuf;
+  int len;
+
+  CHECK_NULL(L_STREAMING, evbuf = evbuffer_new());
+
+  len = evbuffer_read(evbuf, fd, -1);
+  if (len < 0)
+    goto out;
+
+  len = sizeof(session->icy_title);
+  evbuffer_remove(evbuf, session->icy_title, len);
+  session->icy_title[len - 1] = '\0';
+
+ out:
+  evbuffer_free(evbuf);
+}
+
+
+/* ----------------------------- Session helpers ---------------------------- */
+
+static void
+session_free(struct streaming_session *session)
+{
+  if (!session)
+    return;
+
+  player_streaming_deregister(session->id);
+
+  if (session->audioev)
+    event_free(session->audioev);
+  if (session->metadataev)
+    event_free(session->metadataev);
+
+  evbuffer_free(session->audiobuf);
+  free(session);
+}
+
+static struct streaming_session *
+session_new(struct httpd_request *hreq, bool icy_is_requested, enum player_format format, struct media_quality quality)
+{
+  struct streaming_session *session;
+  int audio_fd;
+  int metadata_fd;
+
+  CHECK_NULL(L_STREAMING, session = calloc(1, sizeof(struct streaming_session)));
+  CHECK_NULL(L_STREAMING, session->audiobuf = evbuffer_new());
+
+  session->hreq = hreq;
+  session->icy_is_requested = icy_is_requested;
+  session->icy_remaining = streaming_icy_metaint;
+
+  // Ask streaming output module for a fd to read mp3 from
+  session->id = player_streaming_register(&audio_fd, &metadata_fd, format, quality);
+  if (session->id < 0)
+    goto error;
+
+  CHECK_NULL(L_STREAMING, session->audioev = event_new(hreq->evbase, audio_fd, EV_READ | EV_PERSIST, audio_cb, session));
+  event_add(session->audioev, NULL);
+  CHECK_NULL(L_STREAMING, session->metadataev = event_new(hreq->evbase, metadata_fd, EV_READ | EV_PERSIST, metadata_cb, session));
+  event_add(session->metadataev, NULL);
+
+  return session;
+
+ error:
+  session_free(session);
+  return NULL;
 }
 
 
@@ -238,7 +264,7 @@ read_cb(evutil_socket_t fd, short event, void *arg)
 static int
 streaming_mp3_handler(struct httpd_request *hreq)
 {
-  struct streaming_session *session;
+  struct streaming_session *session = NULL;
   const char *name = cfg_getstr(cfg_getsec(cfg, "library"), "name");
   const char *param;
   bool icy_is_requested;
@@ -253,15 +279,9 @@ streaming_mp3_handler(struct httpd_request *hreq)
       httpd_header_add(hreq->out_headers, "icy-metaint", buf);
     }
 
-  session = session_new(hreq, icy_is_requested);
+  session = session_new(hreq, icy_is_requested, PLAYER_FORMAT_MP3, streaming_default_quality);
   if (!session)
-    return -1;
-
-  // Ask streaming output module for a fd to read mp3 from
-  session->fd = streaming_session_register(STREAMING_FORMAT_MP3, streaming_default_quality);
-
-  CHECK_NULL(L_STREAMING, session->readev = event_new(hreq->evbase, session->fd, EV_READ | EV_PERSIST, read_cb, session));
-  event_add(session->readev, NULL);
+    return -1; // Error sent by caller
 
   httpd_request_close_cb_set(hreq, conn_close_cb, session);
 
@@ -344,9 +364,6 @@ streaming_init(void)
     streaming_icy_metaint = val;
   else
     DPRINTF(E_INFO, L_STREAMING, "Unsupported icy_metaint=%d, supported range: 4096..131072, defaulting to %d\n", val, streaming_icy_metaint);
-
-  CHECK_ERR(L_STREAMING, mutex_init(&streaming_metadata_lck));
-  streaming_metadatacb_register(icy_metadata_cb);
 
   return 0;
 }

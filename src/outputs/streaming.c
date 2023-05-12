@@ -28,10 +28,10 @@
 #include <uninorm.h>
 #include <fcntl.h>
 
-#include "streaming.h"
 #include "outputs.h"
 #include "misc.h"
 #include "worker.h"
+#include "player.h"
 #include "transcode.h"
 #include "logger.h"
 #include "db.h"
@@ -44,14 +44,9 @@
  * player, but there are clients, it instead writes silence to the fd.
  */
 
-// Seconds between sending silence when player is idle
+// Seconds between sending a frame of silence when player is idle
 // (to prevent client from hanging up)
 #define STREAMING_SILENCE_INTERVAL 1
-
-// How many bytes of silence we encode with the above interval. There is no
-// particular reason for using this size, just that it seems to have worked for
-// a while.
-#define SILENCE_BUF_SIZE STOB(352, 16, 2)
 
 // The wanted structure represents a particular format and quality that should
 // be produced for one or more sessions. A pipe pair is created for each session
@@ -66,15 +61,20 @@ struct pipepair
 
 struct streaming_wanted
 {
-  int refcount;
-  struct pipepair pipes[WANTED_PIPES_MAX];
+  int num_sessions; // for refcounting
+  struct pipepair audio[WANTED_PIPES_MAX];
+  struct pipepair metadata[WANTED_PIPES_MAX];
 
-  enum streaming_format format;
-  struct media_quality quality_in;
-  struct media_quality quality_out;
+  enum player_format format;
+  struct media_quality quality;
 
+  struct evbuffer *audio_in;
+  struct evbuffer *audio_out;
   struct encode_ctx *xcode_ctx;
-  struct evbuffer *encoded_data;
+
+  int nb_samples;
+  uint8_t *frame_data;
+  size_t frame_size;
 
   struct streaming_wanted *next;
 };
@@ -86,21 +86,17 @@ struct streaming_ctx
   struct timeval silencetv;
   struct media_quality last_quality;
 
+  char title[4064]; // See STREAMING_ICY_METALEN_MAX in http_streaming.c
+
   // seqnum may wrap around so must be unsigned
   unsigned int seqnum;
   unsigned int seqnum_encode_next;
-
-  // callback with new metadata, e.g. for ICY tags
-  void (*metadatacb)(char *metadata);
 };
 
 struct encode_cmdarg
 {
-  uint8_t *buf;
-  size_t bufsize;
-  int samples;
+  struct output_buffer *obuf;
   unsigned int seqnum;
-  struct media_quality quality;
 };
 
 static pthread_mutex_t streaming_wanted_lck;
@@ -115,6 +111,41 @@ extern struct event_base *evbase_player;
 
 
 /* ------------------------------- Helpers ---------------------------------- */
+
+static struct encode_ctx *
+encoder_setup(enum player_format format, struct media_quality *quality)
+{
+  struct decode_ctx *decode_ctx = NULL;
+  struct encode_ctx *encode_ctx = NULL;
+
+  if (quality->bits_per_sample == 16)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
+  else if (quality->bits_per_sample == 24)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24, quality);
+  else if (quality->bits_per_sample == 32)
+    decode_ctx = transcode_decode_setup_raw(XCODE_PCM32, quality);
+
+  if (!decode_ctx)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Error setting up decoder for quality sr %d, bps %d, ch %d, cannot encode\n",
+	quality->sample_rate, quality->bits_per_sample, quality->channels);
+      goto out;
+    }
+
+  if (format == PLAYER_FORMAT_MP3)
+    encode_ctx = transcode_encode_setup(XCODE_MP3, quality, decode_ctx, NULL, 0, 0);
+
+  if (!encode_ctx)
+    {
+      DPRINTF(E_LOG, L_STREAMING, "Error setting up encoder for quality sr %d, bps %d, ch %d, cannot encode\n",
+	quality->sample_rate, quality->bits_per_sample, quality->channels);
+      goto out;
+    }
+
+ out:
+  transcode_decode_cleanup(&decode_ctx);
+  return encode_ctx;
+}
 
 static int
 pipe_open(struct pipepair *p)
@@ -162,31 +193,62 @@ wanted_free(struct streaming_wanted *w)
     return;
 
   for (int i = 0; i < WANTED_PIPES_MAX; i++)
-    pipe_close(&w->pipes[i]);
+    pipe_close(&w->audio[i]);
+  for (int i = 0; i < WANTED_PIPES_MAX; i++)
+    pipe_close(&w->metadata[i]);
 
   transcode_encode_cleanup(&w->xcode_ctx);
-  evbuffer_free(w->encoded_data);
+  evbuffer_free(w->audio_in);
+  evbuffer_free(w->audio_out);
+  free(w->frame_data);
   free(w);
 }
 
+static int
+pipe_index_find_byreadfd(struct pipepair *p, int readfd)
+{
+  for (int i = 0; i < WANTED_PIPES_MAX; i++, p++)
+    {
+      if (p->readfd == readfd)
+	return i;
+    }
+
+  return -1;
+}
+
 static struct streaming_wanted *
-wanted_new(enum streaming_format format, struct media_quality quality)
+wanted_new(enum player_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
   CHECK_NULL(L_STREAMING, w = calloc(1, sizeof(struct streaming_wanted)));
-  CHECK_NULL(L_STREAMING, w->encoded_data = evbuffer_new());
+  CHECK_NULL(L_STREAMING, w->audio_in = evbuffer_new());
+  CHECK_NULL(L_STREAMING, w->audio_out = evbuffer_new());
 
-  w->quality_out = quality;
+  w->xcode_ctx = encoder_setup(format, &quality);
+  if (!w->xcode_ctx)
+    goto error;
+
   w->format = format;
+  w->quality = quality;
+  w->nb_samples = transcode_encode_query(w->xcode_ctx, "samples_per_frame"); // 1152 for mp3
+  w->frame_size = STOB(w->nb_samples, quality.bits_per_sample, quality.channels);
+
+  CHECK_NULL(L_STREAMING, w->frame_data = malloc(w->frame_size));
 
   for (int i = 0; i < WANTED_PIPES_MAX; i++)
     {
-      w->pipes[i].writefd = -1;
-      w->pipes[i].readfd = -1;
+      w->audio[i].writefd = -1;
+      w->audio[i].readfd = -1;
+      w->metadata[i].writefd = -1;
+      w->metadata[i].readfd = -1;
     }
 
   return w;
+
+ error:
+  wanted_free(w);
+  return NULL;
 }
 
 static void
@@ -215,7 +277,7 @@ wanted_remove(struct streaming_wanted **wanted, struct streaming_wanted *remove)
 }
 
 static struct streaming_wanted *
-wanted_add(struct streaming_wanted **wanted, enum streaming_format format, struct media_quality quality)
+wanted_add(struct streaming_wanted **wanted, enum player_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
@@ -227,13 +289,13 @@ wanted_add(struct streaming_wanted **wanted, enum streaming_format format, struc
 }
 
 static struct streaming_wanted *
-wanted_find_byformat(struct streaming_wanted *wanted, enum streaming_format format, struct media_quality quality)
+wanted_find_byformat(struct streaming_wanted *wanted, enum player_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
   for (w = wanted; w; w = w->next)
     {
-      if (w->format == format && quality_is_equal(&w->quality_out, &quality))
+      if (w->format == format && quality_is_equal(&w->quality, &quality))
 	return w;
     }
 
@@ -247,31 +309,36 @@ wanted_find_byreadfd(struct streaming_wanted *wanted, int readfd)
   int i;
 
   for (w = wanted; w; w = w->next)
-    for (i = 0; i < WANTED_PIPES_MAX; i++)
-      {
-	if (w->pipes[i].readfd == readfd)
-	  return w;
-      }
+    {
+      i = pipe_index_find_byreadfd(w->audio, readfd);
+      if (i != -1)
+	return w;
+    }
 
   return NULL;
 }
 
 static int
-wanted_session_add(struct pipepair *p, struct streaming_wanted *w)
+wanted_session_add(int *audiofd, int *metadatafd, struct streaming_wanted *w)
 {
   int ret;
   int i;
 
   for (i = 0; i < WANTED_PIPES_MAX; i++)
     {
-      if (w->pipes[i].writefd != -1) // In use
+      if (w->audio[i].writefd != -1) // In use
 	continue;
 
-      ret = pipe_open(&w->pipes[i]);
+      ret = pipe_open(&w->audio[i]);
       if (ret < 0)
 	return -1;
 
-      memcpy(p, &w->pipes[i], sizeof(struct pipepair));
+      ret = pipe_open(&w->metadata[i]);
+      if (ret < 0)
+	return -1;
+
+      *audiofd = w->audio[i].readfd;
+      *metadatafd = w->metadata[i].readfd;
       break;
     }
 
@@ -281,133 +348,152 @@ wanted_session_add(struct pipepair *p, struct streaming_wanted *w)
       return -1;
     }
 
-  w->refcount++;
-  DPRINTF(E_DBG, L_STREAMING, "Session register readfd %d, wanted->refcount=%d\n", p->readfd, w->refcount);
+  w->num_sessions++;
+  DPRINTF(E_DBG, L_STREAMING, "Session register audiofd %d, metadatafd %d, wanted->num_sessions=%d\n", *audiofd, *metadatafd, w->num_sessions);
   return 0;
 }
-
 
 static void
 wanted_session_remove(struct streaming_wanted *w, int readfd)
 {
   int i;
 
-  for (i = 0; i < WANTED_PIPES_MAX; i++)
-    {
-      if (w->pipes[i].readfd != readfd)
-	continue;
-
-      pipe_close(&w->pipes[i]);
-      break;
-    }
-
-  if (i == WANTED_PIPES_MAX)
+  i = pipe_index_find_byreadfd(w->audio, readfd);
+  if (i < 0)
     {
       DPRINTF(E_LOG, L_STREAMING, "Cannot remove streaming session, readfd %d not found\n", readfd);
       return;
     }
 
-  w->refcount--;
-  DPRINTF(E_DBG, L_STREAMING, "Session deregister readfd %d, wanted->refcount=%d\n", readfd, w->refcount);
+  pipe_close(&w->audio[i]);
+  pipe_close(&w->metadata[i]);
+
+  w->num_sessions--;
+  DPRINTF(E_DBG, L_STREAMING, "Session deregister readfd %d, wanted->num_sessions=%d\n", readfd, w->num_sessions);
 }
 
 
 /* ----------------------------- Thread: Worker ----------------------------- */
 
 static int
-encode_reset(struct streaming_wanted *w, struct media_quality quality_in)
+encode_buffer(struct streaming_wanted *w, uint8_t *buf, size_t bufsize)
 {
-  struct media_quality quality_out = w->quality_out;
-  struct decode_ctx *decode_ctx = NULL;
+  ssize_t remaining_bytes;
+  transcode_frame *frame = NULL;
+  int ret;
 
-  transcode_encode_cleanup(&w->xcode_ctx);
-
-  if (quality_in.bits_per_sample == 16)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, &quality_in);
-  else if (quality_in.bits_per_sample == 24)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24, &quality_in);
-  else if (quality_in.bits_per_sample == 32)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM32, &quality_in);
-
-  if (!decode_ctx)
+  if (buf)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Error setting up decoder for input quality sr %d, bps %d, ch %d, cannot MP3 encode\n",
-	quality_in.sample_rate, quality_in.bits_per_sample, quality_in.channels);
-      goto error;
+      evbuffer_add(w->audio_in, buf, bufsize);
+    }
+  else
+    {
+      // buf being null is either a silence timeout or that we could't find the
+      // subscripted quality. In both cases we encode silence.
+      memset(w->frame_data, 0, w->frame_size);
+      evbuffer_add(w->audio_in, w->frame_data, w->frame_size);
     }
 
-  w->quality_in = quality_in;
-  w->xcode_ctx = transcode_encode_setup(XCODE_MP3, &quality_out, decode_ctx, NULL, 0, 0);
-  if (!w->xcode_ctx)
+  remaining_bytes = evbuffer_get_length(w->audio_in);
+
+  // Read and encode from 'audio_in' in chunks of 'frame_size' bytes
+  while (remaining_bytes > w->frame_size)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Error setting up encoder for output quality sr %d, bps %d, ch %d, cannot MP3 encode\n",
-	quality_out.sample_rate, quality_out.bits_per_sample, quality_out.channels);
-      goto error;
+      ret = evbuffer_remove(w->audio_in, w->frame_data, w->frame_size);
+      if (ret != w->frame_size)
+	{
+	  DPRINTF(E_LOG, L_STREAMING, "Bug! Couldn't read a frame of %zu bytes (format %d)\n", w->frame_size, w->format);
+	  goto error;
+	}
+
+      remaining_bytes -= w->frame_size;
+
+      frame = transcode_frame_new(w->frame_data, w->frame_size, w->nb_samples, &w->quality);
+      if (!frame)
+	{
+	  DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame (format %d)\n", w->format);
+	  goto error;
+	}
+
+      ret = transcode_encode(w->audio_out, w->xcode_ctx, frame, 0);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_STREAMING, "Encoding error (format %d)\n", w->format);
+	  goto error;
+	}
+
+      transcode_frame_free(frame);
     }
 
-  transcode_decode_cleanup(&decode_ctx);
   return 0;
 
  error:
-  transcode_decode_cleanup(&decode_ctx);
+  transcode_frame_free(frame);
   return -1;
 }
 
-static int
-encode_frame(struct streaming_wanted *w, struct media_quality quality_in, transcode_frame *frame)
-{
-  int ret;
-
-  if (!w->xcode_ctx || !quality_is_equal(&quality_in, &w->quality_in))
-    {
-      DPRINTF(E_DBG, L_STREAMING, "Resetting transcode context\n");
-      if (encode_reset(w, quality_in) < 0)
-	return -1;
-    }
-
-  ret = transcode_encode(w->encoded_data, w->xcode_ctx, frame, 0);
-  if (ret < 0)
-    {
-      return -1;
-    }
-
-  return 0;
-}
-
 static void
-encode_write(uint8_t *buf, size_t buflen, struct streaming_wanted *w, struct pipepair *p)
+encode_and_write(int *failed_pipe_readfd, struct streaming_wanted *w, struct output_buffer *obuf)
 {
+  uint8_t *buf;
+  size_t bufsize;
+  size_t len;
   int ret;
+  int i;
 
-  if (p->writefd < 0)
-    return;
+  for (i = 0, buf = NULL, bufsize = 0; obuf && obuf->data[i].buffer; i++)
+    {
+      if (!quality_is_equal(&obuf->data[i].quality, &w->quality))
+	continue;
 
-  ret = write(p->writefd, buf, buflen);
+      buf = obuf->data[i].buffer;
+      bufsize = obuf->data[i].bufsize;
+    }
+
+  // If encoding fails we should kill the sessions, which for thread safety
+  // and to avoid deadlocks has to be done later with player_streaming_deregister()
+  ret = encode_buffer(w, buf, bufsize);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_STREAMING, "Error writing to stream pipe %d (format %d): %s\n", p->writefd, w->format, strerror(errno));
-      wanted_session_remove(w, p->readfd);
+      for (i = 0; i < WANTED_PIPES_MAX; i++)
+	{
+	  if (w->audio[i].writefd != -1)
+	    *failed_pipe_readfd = w->audio[i].readfd;
+	}
+
+      return;
     }
+
+  len = evbuffer_get_length(w->audio_out);
+  if (len == 0)
+    {
+      return;
+    }
+
+  buf = evbuffer_pullup(w->audio_out, -1);
+  for (i = 0; i < WANTED_PIPES_MAX; i++)
+    {
+      if (w->audio[i].writefd == -1)
+	continue;
+
+      ret = write(w->audio[i].writefd, buf, len);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_STREAMING, "Error writing to stream pipe %d (format %d): %s\n", w->audio[i].writefd, w->format, strerror(errno));
+	  *failed_pipe_readfd = w->audio[i].readfd;
+	}
+    }
+
+  evbuffer_drain(w->audio_out, -1);
 }
 
 static void
 encode_data_cb(void *arg)
 {
   struct encode_cmdarg *ctx = arg;
-  transcode_frame *frame;
+  struct output_buffer *obuf = ctx->obuf;
   struct streaming_wanted *w;
-  struct streaming_wanted *next;
-  uint8_t *buf;
-  size_t len;
-  int ret;
-  int i;
-
-  frame = transcode_frame_new(ctx->buf, ctx->bufsize, ctx->samples, &ctx->quality);
-  if (!frame)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Could not convert raw PCM to frame\n");
-      goto out;
-    }
+  int failed_pipe_readfd = -1;
 
   pthread_mutex_lock(&streaming_wanted_lck);
 
@@ -415,43 +501,59 @@ encode_data_cb(void *arg)
   while (ctx->seqnum != streaming.seqnum_encode_next)
     pthread_cond_wait(&streaming_sequence_cond, &streaming_wanted_lck);
 
-  for (w = streaming.wanted; w; w = next)
-    {
-      next = w->next;
-
-      ret = encode_frame(w, ctx->quality, frame);
-      if (ret < 0)
-	wanted_remove(&streaming.wanted, w); // This will close all the fds, so readers get an error
-
-      len = evbuffer_get_length(w->encoded_data);
-      if (len == 0)
-	continue;
-
-      buf = evbuffer_pullup(w->encoded_data, -1);
-
-      for (i = 0; i < WANTED_PIPES_MAX; i++)
-	encode_write(buf, len, w, &w->pipes[i]);
-
-      evbuffer_drain(w->encoded_data, -1);
-
-      if (w->refcount == 0)
-	wanted_remove(&streaming.wanted, w);
-    }
+  for (w = streaming.wanted; w; w = w->next)
+    encode_and_write(&failed_pipe_readfd, w, obuf);
 
   streaming.seqnum_encode_next++;
   pthread_cond_broadcast(&streaming_sequence_cond);
   pthread_mutex_unlock(&streaming_wanted_lck);
 
- out:
-  transcode_frame_free(frame);
-  free(ctx->buf);
+  outputs_buffer_free(ctx->obuf);
+
+  // We have to do this after letting go of the lock or we will deadlock. This
+  // unfortunate method means we can only fail one session (pipe) each pass.
+  if (failed_pipe_readfd >= 0)
+    player_streaming_deregister(failed_pipe_readfd);
+}
+
+static void
+metadata_write(struct streaming_wanted *w, int readfd, const char *metadata)
+{
+  size_t metadata_size;
+  int i;
+  int ret;
+
+  for (i = 0; i < WANTED_PIPES_MAX; i++)
+    {
+      if (w->metadata[i].writefd == -1)
+	continue;
+      if (readfd >= 0 && w->metadata[i].readfd != readfd)
+	continue;
+
+      metadata_size = strlen(metadata) + 1;
+      ret = write(w->metadata[i].writefd, metadata, metadata_size);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_STREAMING, "Error writing metadata '%s' to fd %d\n", metadata, w->metadata[i].writefd);
+    }
+}
+
+static void
+metadata_startup_cb(void *arg)
+{
+  int *metadata_fd = arg;
+  struct streaming_wanted *w;
+
+  pthread_mutex_lock(&streaming_wanted_lck);
+  for (w = streaming.wanted; w; w = w->next)
+    metadata_write(w, *metadata_fd, streaming.title);
+  pthread_mutex_unlock(&streaming_wanted_lck);
 }
 
 static void *
 streaming_metadata_prepare(struct output_metadata *metadata)
 {
   struct db_queue_item *queue_item;
-  char *title;
+  struct streaming_wanted *w;
 
   queue_item = db_queue_fetch_byitemid(metadata->item_id);
   if (!queue_item)
@@ -460,131 +562,113 @@ streaming_metadata_prepare(struct output_metadata *metadata)
       return NULL;
     }
 
-  title = safe_asprintf("%s - %s", queue_item->title, queue_item->artist);
+  pthread_mutex_lock(&streaming_wanted_lck);
+  // Save it here, we might need it later if a new session starts up
+  snprintf(streaming.title, sizeof(streaming.title), "%s - %s", queue_item->title, queue_item->artist);
+
+  for (w = streaming.wanted; w; w = w->next)
+    metadata_write(w, -1, streaming.title);
+  pthread_mutex_unlock(&streaming_wanted_lck);
+
   free_queue_item(queue_item, 0);
-
-  return title;
+  return NULL;
 }
 
-
-/* ----------------------------- Thread: httpd ------------------------------ */
-
-int
-streaming_session_register(enum streaming_format format, struct media_quality quality)
-{
-  struct streaming_wanted *w;
-  struct pipepair pipe;
-  int ret;
-
-  pthread_mutex_lock(&streaming_wanted_lck);
-  w = wanted_find_byformat(streaming.wanted, format, quality);
-  if (!w)
-    w = wanted_add(&streaming.wanted, format, quality);
-
-  ret = wanted_session_add(&pipe, w);
-  if (ret < 0)
-    pipe.readfd = -1;
-
-  pthread_mutex_unlock(&streaming_wanted_lck);
-
-  return pipe.readfd;
-}
-
-void
-streaming_session_deregister(int readfd)
-{
-  struct streaming_wanted *w;
-
-  pthread_mutex_lock(&streaming_wanted_lck);
-  w = wanted_find_byreadfd(streaming.wanted, readfd);
-  if (!w)
-    goto out;
-
-  wanted_session_remove(w, readfd);
-
-  if (w->refcount == 0)
-    wanted_remove(&streaming.wanted, w);
-
- out:
-  pthread_mutex_unlock(&streaming_wanted_lck);
-}
-
-// Not thread safe, but only called once during httpd init
-void
-streaming_metadatacb_register(streaming_metadatacb cb)
-{
-  streaming.metadatacb = cb;
-}
 
 /* ----------------------------- Thread: Player ----------------------------- */
 
 static void
-encode_worker_invoke(uint8_t *buf, size_t bufsize, int samples, struct media_quality quality)
+streaming_write(struct output_buffer *obuf)
 {
   struct encode_cmdarg ctx;
 
-  if (quality.channels == 0)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Streaming quality is zero (%d/%d/%d)\n",
-	quality.sample_rate, quality.bits_per_sample, quality.channels);
-      return;
-    }
+  // No lock since this is just an early exit, it doesn't need to be accurate
+  if (!streaming.wanted)
+    return;
 
-  CHECK_NULL(L_STREAMING, ctx.buf = malloc(bufsize));
-  memcpy(ctx.buf, buf, bufsize);
-  ctx.bufsize = bufsize;
-  ctx.samples = samples;
-  ctx.quality = quality;
+  // We don't want to block the player, so we can't lock to access
+  // streaming.wanted and find which qualities we need. So we just copy it all
+  // and pass it to a worker thread that can lock and check what is wanted, and
+  // also can encode without holding the player.
+  ctx.obuf = outputs_buffer_copy(obuf);
   ctx.seqnum = streaming.seqnum;
 
   streaming.seqnum++;
 
   worker_execute(encode_data_cb, &ctx, sizeof(struct encode_cmdarg), 0);
-}
-
-static void
-silenceev_cb(evutil_socket_t fd, short event, void *arg)
-{
-  uint8_t silence[SILENCE_BUF_SIZE] = { 0 };
-  int samples;
-
-  // No lock since this is just an early exit, it doesn't need to be accurate
-  if (!streaming.wanted)
-    return;
-
-  samples = BTOS(SILENCE_BUF_SIZE, streaming.last_quality.bits_per_sample, streaming.last_quality.channels);
-
-  encode_worker_invoke(silence, SILENCE_BUF_SIZE, samples, streaming.last_quality);
-
-  evtimer_add(streaming.silenceev, &streaming.silencetv);
-}
-
-static void
-streaming_write(struct output_buffer *obuf)
-{
-  // No lock since this is just an early exit, it doesn't need to be accurate
-  if (!streaming.wanted)
-    return;
-
-  encode_worker_invoke(obuf->data[0].buffer, obuf->data[0].bufsize, obuf->data[0].samples, obuf->data[0].quality);
-
-  streaming.last_quality = obuf->data[0].quality;
 
   // In case this is the last player write() we want to start streaming silence
   evtimer_add(streaming.silenceev, &streaming.silencetv);
 }
 
 static void
+silenceev_cb(evutil_socket_t fd, short event, void *arg)
+{
+  streaming_write(NULL);
+}
+
+static void
 streaming_metadata_send(struct output_metadata *metadata)
 {
-  char *title = metadata->priv;
+  // Nothing to do, metadata_prepare() did all we needed in a worker thread
+}
 
-  // Calls back to httpd_streaming to update the title
-  if (streaming.metadatacb)
-    streaming.metadatacb(title);
+// Since this is streaming and there is no actual device, we will be called with
+// a dummy/ad hoc device that's not part in the speaker list. We don't need to
+// make any callback so can ignore callback_id.
+static int
+streaming_start(struct output_device *device, int callback_id)
+{
+  struct streaming_wanted *w;
+  int ret;
 
-  free(title);
-  outputs_metadata_free(metadata);
+  pthread_mutex_lock(&streaming_wanted_lck);
+  w = wanted_find_byformat(streaming.wanted, device->format, device->quality);
+  if (!w)
+    w = wanted_add(&streaming.wanted, device->format, device->quality);
+  ret = wanted_session_add(&device->audio_fd, &device->metadata_fd, w);
+  if (ret < 0)
+    goto error;
+  pthread_mutex_unlock(&streaming_wanted_lck);
+
+  worker_execute(metadata_startup_cb, &(device->metadata_fd), sizeof(device->metadata_fd), 0);
+
+  outputs_quality_subscribe(&device->quality);
+
+  device->id = device->audio_fd;
+  return 0;
+
+ error:
+  if (w->num_sessions == 0)
+    wanted_remove(&streaming.wanted, w);
+  pthread_mutex_unlock(&streaming_wanted_lck);
+  return -1;
+}
+
+// Since this is streaming and there is no actual device, we will be called with
+// a dummy/ad hoc device that's not part in the speaker list. We don't need to
+// make any callback so can ignore callback_id.
+static int
+streaming_stop(struct output_device *device, int callback_id)
+{
+  struct streaming_wanted *w;
+
+  pthread_mutex_lock(&streaming_wanted_lck);
+  w = wanted_find_byreadfd(streaming.wanted, device->id);
+  if (!w)
+    goto error;
+  device->quality = w->quality;
+  wanted_session_remove(w, device->id);
+  if (w->num_sessions == 0)
+    wanted_remove(&streaming.wanted, w);
+  pthread_mutex_unlock(&streaming_wanted_lck);
+
+  outputs_quality_unsubscribe(&device->quality);
+  return 0;
+
+ error:
+  pthread_mutex_unlock(&streaming_wanted_lck);
+  return -1;
 }
 
 static int
@@ -606,13 +690,16 @@ streaming_deinit(void)
 
 struct output_definition output_streaming =
 {
-  .name = "mp3 streaming",
+  .name = "streaming",
   .type = OUTPUT_TYPE_STREAMING,
   .priority = 0,
   .disabled = 0,
   .init = streaming_init,
   .deinit = streaming_deinit,
   .write = streaming_write,
+  .device_start = streaming_start,
+  .device_probe = streaming_start,
+  .device_stop = streaming_stop,
   .metadata_prepare = streaming_metadata_prepare,
   .metadata_send = streaming_metadata_send,
 };

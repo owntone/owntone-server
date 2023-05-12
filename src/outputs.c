@@ -389,6 +389,43 @@ buffer_drain(struct output_buffer *obuf)
     }
 }
 
+static struct output_buffer *
+buffer_copy(struct output_buffer *obuf)
+{
+  struct output_buffer *copy;
+  int i;
+
+  if (!obuf)
+    return NULL;
+
+  CHECK_NULL(L_PLAYER, copy = malloc(sizeof(struct output_buffer)));
+
+  memcpy(copy, obuf, sizeof(struct output_buffer));
+
+  for (i = 0; obuf->data[i].buffer; i++)
+    {
+      CHECK_NULL(L_PLAYER, copy->data[i].evbuf = evbuffer_new());
+      evbuffer_add(copy->data[i].evbuf, obuf->data[i].buffer, obuf->data[i].bufsize);
+      copy->data[i].buffer = evbuffer_pullup(copy->data[i].evbuf, -1);
+    }
+
+  return copy;
+}
+
+static void
+buffer_free(struct output_buffer *obuf)
+{
+  int i;
+
+  if (!obuf)
+    return;
+
+  for (i = 0; obuf->data[i].buffer; i++)
+    evbuffer_free(obuf->data[i].evbuf);
+
+  free(obuf);
+}
+
 static void
 device_list_sort(void)
 {
@@ -703,6 +740,18 @@ void
 outputs_metadata_free(struct output_metadata *metadata)
 {
   metadata_free(metadata);
+}
+
+struct output_buffer *
+outputs_buffer_copy(struct output_buffer *buffer)
+{
+  return buffer_copy(buffer);
+}
+
+void
+outputs_buffer_free(struct output_buffer *buffer)
+{
+  buffer_free(buffer);
 }
 
 /* ---------------------------- Called by player ---------------------------- */
