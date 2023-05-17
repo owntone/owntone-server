@@ -30,10 +30,6 @@
 #include <limits.h>
 #include <errno.h>
 #include <pthread.h>
-#include <sys/param.h>
-#include <sys/queue.h>
-#include <sys/types.h>
-#include <stdint.h>
 #include <inttypes.h>
 #include <netinet/in.h>
 
@@ -42,7 +38,6 @@
 #include <event2/bufferevent.h>
 #include <event2/http.h>
 #include <event2/listener.h>
-
 
 #include "artwork.h"
 #include "commands.h"
@@ -85,7 +80,40 @@ static bool mpd_plugin_httpd;
 static char *default_pl_dir;
 static bool allow_modifying_stored_playlists;
 
-#define COMMAND_ARGV_MAX 37
+
+/**
+ * from MPD source:
+ * *
+ * * The most we ever use is for search/find, and that limits it to the
+ * * number of tags we can have.  Add one for the command, and one extra
+ * * to catch errors clients may send us
+ * *
+ *  static constexpr std::size_t COMMAND_ARGV_MAX = 2 + TAG_NUM_OF_ITEM_TYPES * 2;
+ *
+ * https://github.com/MusicPlayerDaemon/MPD/blob/master/src/command/AllCommands.cxx
+ */
+#define COMMAND_ARGV_MAX 70
+
+/**
+ * config:
+ * max_command_list_size KBYTES
+ * The maximum size a command list. Default is 2048 (2 MiB).
+ *
+ * https://github.com/MusicPlayerDaemon/MPD/blob/master/src/client/Config.cxx
+ */
+#define CLIENT_MAX_COMMAND_LIST_DEFAULT		(2048*1024)
+
+static struct {
+  /**
+   * Max size in bytes allowed in command list.
+   * "max_command_list_size"
+   */
+  uint32_t MaxCommandListSize;  
+}
+Config = {
+  .MaxCommandListSize = CLIENT_MAX_COMMAND_LIST_DEFAULT
+};
+
 
 /* MPD error codes (taken from ack.h) */
 enum ack
@@ -105,6 +133,9 @@ enum ack
   ACK_ERROR_EXIST = 56,
 };
 
+/**
+ * Flag for command list state
+ */
 enum command_list_type
 {
   COMMAND_LIST = 1,
@@ -237,6 +268,36 @@ struct mpd_client_ctx
   // The output buffer for the client (used to send data to the client)
   struct evbuffer *evbuffer;
 
+  /**
+   * command list type flag:
+   * is set to:
+   * COMMAND_LIST_NONE by default and when receiving command_list_end
+   * COMMAND_LIST when receiving command_list_begin
+   * COMMAND_OK_LIST when receiving command_list_ok_begin
+   */
+  enum command_list_type cmd_list_type;
+
+  /**
+   * current command list:
+   * <p>
+   * When cmd_list_type is either COMMAND_LIST or COMMAND_OK_LIST
+   * received commands are added to this buffer.
+   * <p>
+   * When command_list_end is received, the commands save
+   * in this buffer are processed, and then the buffer is freed.
+   *
+   * @see mpd_command_list_add
+   */
+  struct evbuffer *cmd_list_buffer;
+
+  /**
+   * closing flag
+   *
+   * set to true in mpd_read_cb() when we want to close
+   * the client connection by freeing the evbuffer.
+   */
+  bool is_closing;
+
   struct mpd_client_ctx *next;
 };
 
@@ -252,6 +313,11 @@ free_mpd_client_ctx(void *ctx)
 
   if (!client_ctx)
     return;
+
+  if (client_ctx->cmd_list_buffer != NULL)
+    {
+      evbuffer_free(client_ctx->cmd_list_buffer);
+    }
 
   client = mpd_clients;
   prev = NULL;
@@ -368,31 +434,50 @@ mpd_time(char *buffer, size_t bufferlen, time_t t)
  *
  * @param range the range argument
  * @param start_pos set by this method to the start position
- * @param end_pos set by this method to the end postion
+ * @param end_pos set by this method to the end position
  * @return 0 on success, -1 on failure
+ *
+ * @see https://github.com/MusicPlayerDaemon/MPD/blob/master/src/protocol/RangeArg.hxx
+ *
+ * For "window START:END" The end index can be omitted, which means the range is open-ended.
  */
 static int
-mpd_pars_range_arg(char *range, int *start_pos, int *end_pos)
+mpd_pars_range_arg(const char *range, int *start_pos, int *end_pos)
 {
   int ret;
 
-  if (strchr(range, ':'))
+  static char separator = ':';
+  char* sep_pos = strchr(range, separator);
+
+  if (sep_pos)
     {
-      ret = sscanf(range, "%d:%d", start_pos, end_pos);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Error parsing range argument '%s' (return code = %d)\n", range, ret);
-	  return -1;
-	}
+      *sep_pos++ = '\0';
+      // range start
+      if (safe_atoi32(range, start_pos) != 0)
+        {
+          DPRINTF(E_LOG, L_MPD, "Error parsing range argument '%s'\n", range);
+          return -1;
+        }
+      // range end
+      if (*sep_pos == 0)
+        {
+          DPRINTF(E_LOG, L_MPD, "Open ended range not supported: '%s'\n", range);
+          return -1;
+        }
+      else if (safe_atoi32(sep_pos, end_pos) != 0)
+        {
+          DPRINTF(E_LOG, L_MPD, "Error parsing range argument '%s'\n", range);
+          return -1;
+        }
     }
   else
     {
       ret = safe_atoi32(range, start_pos);
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Error parsing integer argument '%s' (return code = %d)\n", range, ret);
-	  return -1;
-	}
+        {
+          DPRINTF(E_LOG, L_MPD, "Error parsing integer argument '%s' (return code = %d)\n", range, ret);
+          return -1;
+        }
 
       *end_pos = (*start_pos) + 1;
     }
@@ -468,53 +553,8 @@ mpd_pars_quoted(char **input)
 }
 
 /*
- * Parses the argument string into an array of strings.
- * Arguments are seperated by a whitespace character and may be wrapped in double quotes.
- *
- * @param args the arguments
- * @param argc the number of arguments in the argument string
- * @param argv the array containing the found arguments
- */
-static int
-mpd_parse_args(char *args, int *argc, char **argv, int argvsz)
-{
-  char *input;
-
-  input = args;
-  *argc = 0;
-
-  while (*input != 0 && *argc < argvsz)
-    {
-      // Ignore whitespace characters
-      if (*input == ' ')
-	{
-	  input++;
-	  continue;
-	}
-
-      // Check if the parameter is wrapped in double quotes
-      if (*input == '"')
-	{
-	  argv[*argc] = mpd_pars_quoted(&input);
-	  if (argv[*argc] == NULL)
-	    {
-	      return -1;
-	    }
-	  *argc = *argc + 1;
-	}
-      else
-	{
-	  argv[*argc] = mpd_pars_unquoted(&input);
-	  *argc = *argc + 1;
-	}
-    }
-
-  return 0;
-}
-
-/*
- * Adds the informations (path, id, tags, etc.) for the given song to the given buffer
- * with additional information for the position of this song in the playqueue.
+ * Adds the information (path, id, tags, etc.) for the given song to the given buffer
+ * with additional information for the position of this song in the player queue.
  *
  * Example output:
  *   file: foo/bar/song.mp3
@@ -585,7 +625,7 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
 }
 
 /*
- * Adds the informations (path, id, tags, etc.) for the given song to the given buffer.
+ * Adds the information (path, id, tags, etc.) for the given song to the given buffer.
  *
  * Example output:
  *   file: foo/bar/song.mp3
@@ -685,7 +725,7 @@ append_string(char **a, const char *b, const char *separator)
  *
  * @param argc Number of arguments in argv
  * @param argv Pointer to the first filter parameter
- * @param exact_match If true, creates filter for exact matches (e. g. find command) otherwise matches substrings (e. g. search command)
+ * @param exact_match If true, creates filter for exact matches (e.g. find command) otherwise matches substrings (e.g. search command)
  * @param qp Query parameters
  */
 static int
@@ -930,26 +970,10 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   // If events the client listens to occurred since the last idle call (or since the client connected,
   // if it is the first idle call), notify immediately.
   if (ctx->events & ctx->idle_events)
-    mpd_notify_idle_client(ctx, ctx->events);
+    {
+      mpd_notify_idle_client(ctx, ctx->events);
+    }
 
-  return 0;
-}
-
-static int
-mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
-{
-  /*
-   * The protocol specifies: "The idle command can be canceled by
-   * sending the command noidle (no other commands are allowed). MPD
-   * will then leave idle mode and print results immediately; might be
-   * empty at this time."
-   */
-  if (ctx->events)
-    mpd_notify_idle_client(ctx, ctx->events);
-  else
-    evbuffer_add(ctx->evbuffer, "OK\n", 3);
-
-  ctx->is_idle = false;
   return 0;
 }
 
@@ -1344,27 +1368,23 @@ mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   struct player_status status;
   int ret;
 
-  pause = 1;
+  player_get_status(&status);
+
+  pause = status.status == PLAY_PLAYING ? 1 : 0;
   if (argc > 1)
     {
       ret = safe_atoi32(argv[1], &pause);
       if (ret < 0)
-	{
-	  *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[1]);
-	  return ACK_ERROR_ARG;
-	}
-    }
-  else
-    {
-      player_get_status(&status);
-
-      if (status.status != PLAY_PLAYING)
-	pause = 0;
+        {
+          *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[1]);
+          return ACK_ERROR_ARG;
+        }
     }
 
-  if (pause == 1)
+  // MPD ignores pause in stopped state
+  if (pause == 1 && status.status == PLAY_PLAYING)
     ret = player_playback_pause();
-  else
+  else if (pause == 0 && status.status == PLAY_PAUSED)
     ret = player_playback_start();
 
   if (ret < 0)
@@ -1833,7 +1853,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   int count;
   int ret;
 
-  // If argv[1] is ommited clear the whole queue
+  // If argv[1] is omitted clear the whole queue
   if (argc < 2)
     {
       db_queue_clear(0);
@@ -1893,7 +1913,6 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 {
   int start_pos;
   int end_pos;
-  int count;
   uint32_t to_pos;
   int ret;
 
@@ -1904,9 +1923,8 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       return ACK_ERROR_ARG;
     }
 
-  count = end_pos - start_pos;
-  if (count > 1)
-    DPRINTF(E_WARN, L_MPD, "Moving ranges is not supported, only the first item will be moved\n");
+//  if (count > 1)
+//    DPRINTF(E_WARN, L_MPD, "Moving ranges is not supported, only the first item will be moved\n");
 
   ret = safe_atou32(argv[2], &to_pos);
   if (ret < 0)
@@ -1915,7 +1933,24 @@ mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       return ACK_ERROR_ARG;
     }
 
-  ret = db_queue_move_bypos(start_pos, to_pos);
+  uint32_t queue_length;
+  db_queue_get_count(&queue_length);
+
+  int count = end_pos - start_pos;
+  // valid move pos and range is:
+  //     0  <=  start  <  queue_len
+  // start  <   end    <= queue_len
+  //     0  <=  to     <= queue_len - count
+  if (!(start_pos >= 0 && start_pos < queue_length
+      && end_pos > start_pos && end_pos <= queue_length
+      && to_pos >= 0 && to_pos <= queue_length - count))
+    {
+      *errmsg = safe_asprintf((to_pos > queue_length - count)
+        ? "Range too large for target position" : "Bad song index");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = db_queue_move_bypos_range(start_pos, end_pos, to_pos);
   if (ret < 0)
     {
       *errmsg = safe_asprintf("Failed to move song at position %d to %d", start_pos, to_pos);
@@ -3583,6 +3618,7 @@ mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errms
 	      "Authentication succeeded with supplied password: %s%s\n",
 	      supplied_password,
 	      unrequired ? " although no password is required" : "");
+      ctx->authenticated = true;
       return 0;
     }
 
@@ -4161,7 +4197,6 @@ static struct mpd_command mpd_handlers[] =
     { "clearerror",                 mpd_command_ignore,                     -1 },
     { "currentsong",                mpd_command_currentsong,                -1 },
     { "idle",                       mpd_command_idle,                       -1 },
-    { "noidle",                     mpd_command_noidle,                     -1 },
     { "status",                     mpd_command_status,                     -1 },
     { "stats",                      mpd_command_stats,                      -1 },
 
@@ -4324,6 +4359,358 @@ mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+static inline int
+mpd_ack_response(struct evbuffer *output, int err_code, int cmd_num, char *cmd_name, char *errmsg)
+{
+  return evbuffer_add_printf(output, "ACK [%d@%d] {%s} %s\n", err_code, cmd_num, cmd_name, errmsg);
+}
+
+static inline int
+mpd_ok_response(struct evbuffer *output)
+{
+  return evbuffer_add_printf(output, "OK\n");
+}
+
+/**
+ * Add a command line, including null terminator, into the command list buffer.
+ * These command lines will be processed when command_list_end is received.
+ */
+static int
+mpd_command_list_add(struct mpd_client_ctx *client_ctx, char* line)
+{
+  if (client_ctx->cmd_list_buffer == NULL)
+    {
+      client_ctx->cmd_list_buffer = evbuffer_new();
+    }
+
+  return evbuffer_add(client_ctx->cmd_list_buffer, line, strlen(line) + 1);
+}
+
+/**
+ * The result returned by mpd_process_command() and mpd_process_line()
+ */
+typedef enum mpd_command_result {
+  /**
+   * command handled with success.
+   * the connection should stay open.
+   * no response was sent.
+   * the caller of mpd_process_command sends OK or list_OK.
+   */
+  CMD_RESULT_OK = 0,
+
+  /**
+   * command handled with error.
+   * ack response was send by the command handler.
+   * the connection should stay open.
+   */
+  CMD_RESULT_ERROR = 1,
+
+  /**
+   * the client entered idle state.
+   * no response should be sent to the client.
+   */
+  CMD_RESULT_IDLE = 2,
+
+  /**
+   * the client connection should be closed
+   */
+  CMD_RESULT_CLOSE = 3,
+}
+MpdCommandResult;
+
+typedef enum mpd_parse_args_result {
+  ARGS_OK,
+  ARGS_EMPTY,
+  ARGS_TOO_MANY,
+  ARGS_ERROR
+}
+MpdParseArgsResult;
+
+/*
+ * Parses the argument string into an array of strings.
+ * Arguments are seperated by a whitespace character and may be wrapped in double quotes.
+ *
+ * @param args the arguments
+ * @param argc the number of arguments in the argument string
+ * @param argv the array containing the found arguments
+ */
+static MpdParseArgsResult
+mpd_parse_args(char *args, int *argc, char **argv, int argv_size)
+{
+  char *input = args;
+  int arg_count = 0;
+
+  DPRINTF(E_SPAM, L_MPD, "Parse args: args = \"%s\"\n", input);
+
+  while (*input != 0 && arg_count < argv_size)
+    {
+      // Ignore whitespace characters
+      if (*input == ' ')
+        {
+          input++;
+          continue;
+        }
+
+      // Check if the parameter is wrapped in double quotes
+      if (*input == '"')
+        {
+          argv[arg_count] = mpd_pars_quoted(&input);
+          if (argv[arg_count] == NULL)
+            {
+              return ARGS_ERROR;
+            }
+          arg_count += 1;
+        }
+      else
+        {
+          argv[arg_count++] = mpd_pars_unquoted(&input);
+        }
+    }
+
+  DPRINTF(E_SPAM, L_MPD, "Parse args: args count = \"%d\"\n", arg_count);
+  *argc = arg_count;
+
+  if (arg_count == 0)
+    return ARGS_EMPTY;
+
+  if (*input != 0 && arg_count == argv_size)
+    return ARGS_TOO_MANY;
+
+  return ARGS_OK;
+}
+
+/**
+ * Process one command line.
+ * @param line
+ * @param output
+ * @param cmd_num
+ * @param client_ctx
+ * @return
+ */
+static MpdCommandResult
+mpd_process_command(char *line, struct evbuffer *output, int cmd_num, struct mpd_client_ctx *client_ctx)
+{
+  char *argv[COMMAND_ARGV_MAX];
+  int argc = 0;
+  char *errmsg = NULL;
+  int mpd_err_code = 0;
+  char *cmd_name = "unknown";
+  MpdCommandResult cmd_result = CMD_RESULT_OK;
+
+  // Split the read line into command name and arguments
+  MpdParseArgsResult args_result = mpd_parse_args(line, &argc, argv, COMMAND_ARGV_MAX);
+
+  switch (args_result)
+    {
+      case ARGS_EMPTY:
+          DPRINTF(E_LOG, L_MPD, "No command given\n");
+          errmsg = safe_asprintf("No command given");
+          mpd_err_code = ACK_ERROR_ARG;
+          // in this case MPD disconnects the client
+          cmd_result = CMD_RESULT_CLOSE;
+      break;
+
+      case ARGS_TOO_MANY:
+          DPRINTF(E_LOG, L_MPD, "Number of arguments exceeds max of %d: %s\n", COMMAND_ARGV_MAX, line);
+          errmsg = safe_asprintf("Too many arguments: %d allowed", COMMAND_ARGV_MAX);
+          mpd_err_code = ACK_ERROR_ARG;
+          // in this case MPD doesn't disconnect the client
+          cmd_result = CMD_RESULT_ERROR;
+      break;
+
+      case ARGS_ERROR:
+          // Error handling for argument parsing error
+          DPRINTF(E_LOG, L_MPD, "Error parsing arguments for MPD message: %s\n", line);
+          errmsg = safe_asprintf("Error parsing arguments");
+          mpd_err_code = ACK_ERROR_UNKNOWN;
+          // in this case MPD disconnects the client
+          cmd_result = CMD_RESULT_CLOSE;
+      break;
+
+      case ARGS_OK:
+        cmd_name = argv[0];
+        /*
+         * Find the command handler and execute the command function
+         */
+        struct mpd_command *command = mpd_find_command(cmd_name);
+
+        if (command == NULL)
+          {
+            errmsg = safe_asprintf("unknown command \"%s\"", cmd_name);
+            mpd_err_code = ACK_ERROR_UNKNOWN;
+          }
+        else if (command->min_argc > argc)
+          {
+            errmsg = safe_asprintf("Missing argument(s) for command '%s', expected %d, given %d", argv[0],
+                                   command->min_argc, argc);
+            mpd_err_code = ACK_ERROR_ARG;
+          }
+        else if (!client_ctx->authenticated)
+          {
+            errmsg = safe_asprintf("Not authenticated");
+            mpd_err_code = ACK_ERROR_PERMISSION;
+          }
+        else
+          {
+            mpd_err_code = command->handler(output, argc, argv, &errmsg, client_ctx);
+          }
+      break;
+    }
+
+  /*
+   * If an error occurred, add the ACK line to the response buffer
+   */
+  if (mpd_err_code != 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Error executing command '%s': %s\n", line, errmsg);
+      mpd_ack_response(output, mpd_err_code, cmd_num, cmd_name, errmsg);
+      if (cmd_result == CMD_RESULT_OK)
+        {
+          cmd_result = CMD_RESULT_ERROR;
+        }
+    }
+  else if (0 == strcmp(cmd_name, "idle"))
+    {
+      cmd_result = CMD_RESULT_IDLE;
+    }
+  else if (0 == strcmp(cmd_name, "close"))
+    {
+      cmd_result = CMD_RESULT_CLOSE;
+    }
+
+  if (errmsg != NULL)
+    free(errmsg);
+
+  return cmd_result;
+}
+
+static MpdCommandResult
+mpd_process_line(char *line, struct evbuffer *output, struct mpd_client_ctx *client_ctx)
+{
+  /*
+   * "noidle" is ignored unless the client is in idle state
+   */
+  if (0 == strcmp(line, "noidle"))
+    {
+      if (client_ctx->is_idle)
+      {
+        // leave idle state and send OK
+        client_ctx->is_idle = false;
+        mpd_ok_response(output);
+      }
+
+      return CMD_RESULT_OK;
+    }
+
+  /*
+   * in idle state the only allowed command is "noidle"
+   */
+  if (client_ctx->is_idle)
+    {
+      // during idle state client must not send anything except "noidle"
+      DPRINTF(E_FATAL, L_MPD, "Only \"noidle\" is allowed during idle. received: %s\n", line);
+      return CMD_RESULT_CLOSE;
+    }
+
+  MpdCommandResult res = CMD_RESULT_OK;
+
+  if (client_ctx->cmd_list_type == COMMAND_LIST_NONE)
+    {
+      // not in command list
+
+      if (0 == strcmp(line, "command_list_begin"))
+        {
+          client_ctx->cmd_list_type = COMMAND_LIST;
+          return CMD_RESULT_OK;
+        }
+
+      if (0 == strcmp(line, "command_list_ok_begin"))
+        {
+          client_ctx->cmd_list_type = COMMAND_LIST_OK;
+          return CMD_RESULT_OK;
+        }
+
+      res = mpd_process_command(line, output, 0, client_ctx);
+
+      DPRINTF(E_DBG, L_MPD, "Command \"%s\" returned: %d\n", line, res);
+
+      if (res == CMD_RESULT_OK)
+        {
+          mpd_ok_response(output);
+        }
+    }
+  else
+    {
+      // in command list
+      if (0 == strcmp(line, "command_list_end"))
+        {
+          // end of command list:
+          // process the commands that were added to client_ctx->cmd_list_buffer
+          // From MPD documentation (https://mpd.readthedocs.io/en/latest/protocol.html#command-lists):
+          // It does not execute any commands until the list has ended. The response is
+          // a concatenation of all individual responses.
+          // On success for all commands, OK is returned.
+          // If a command fails, no more commands are executed and the appropriate ACK error is returned.
+          // If command_list_ok_begin is used, list_OK is returned
+          // for each successful command executed in the command list.
+
+          DPRINTF(E_DBG, L_MPD, "process command list\n");
+  
+          bool ok_mode = (client_ctx->cmd_list_type == COMMAND_LIST_OK);
+          struct evbuffer *commands_buffer = client_ctx->cmd_list_buffer;
+  
+          client_ctx->cmd_list_type = COMMAND_LIST_NONE;
+          client_ctx->cmd_list_buffer = NULL;
+  
+          int cmd_num = 0;
+          char *cmd_line;
+
+          if (commands_buffer != NULL)
+            {
+              while ((cmd_line = evbuffer_readln(commands_buffer, NULL, EVBUFFER_EOL_NUL)))
+                {
+                  res = mpd_process_command(cmd_line, output, cmd_num++, client_ctx);
+
+                  free(cmd_line);
+
+                  if (res != CMD_RESULT_OK) break;
+
+                  if (ok_mode)
+                    evbuffer_add_printf(output, "list_OK\n");
+                }
+
+              evbuffer_free(commands_buffer);
+            }
+
+          DPRINTF(E_DBG, L_MPD, "Command list returned: %d\n", res);
+          
+          if (res == CMD_RESULT_OK)
+            {
+              mpd_ok_response(output);
+            }
+        }
+      else
+        {
+          // in command list:
+          // save commands in the client context
+          if (-1 == mpd_command_list_add(client_ctx, line))
+            {
+              DPRINTF(E_FATAL, L_MPD, "Failed to add to command list\n");
+              res = CMD_RESULT_CLOSE;
+            }
+          else if (evbuffer_get_length(client_ctx->cmd_list_buffer) > Config.MaxCommandListSize)
+            {
+              DPRINTF(E_FATAL, L_MPD, "Max command list size (%uKB) exceeded\n", (Config.MaxCommandListSize / 1024));
+              res = CMD_RESULT_CLOSE;
+            }
+          else
+            {
+              res = CMD_RESULT_OK;
+            }
+        }
+    }
+  return res;
+}
 
 /*
  * The read callback function is invoked if a complete command sequence was received from the client
@@ -4337,158 +4724,52 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 {
   struct evbuffer *input;
   struct evbuffer *output;
-  int ret;
-  int ncmd;
   char *line;
-  char *errmsg;
-  struct mpd_command *command;
-  enum command_list_type listtype;
-  int idle_cmd;
-  int close_cmd;
-  char *argv[COMMAND_ARGV_MAX];
-  int argc;
   struct mpd_client_ctx *client_ctx = (struct mpd_client_ctx *)ctx;
+
+  if (client_ctx->is_closing)
+    {
+      // after freeing the bev ignore any reads
+      return;
+    }
 
   /* Get the input evbuffer, contains the command sequence received from the client */
   input = bufferevent_get_input(bev);
   /* Get the output evbuffer, used to send the server response to the client */
   output = bufferevent_get_output(bev);
 
-  DPRINTF(E_SPAM, L_MPD, "Received MPD command sequence\n");
-
-  idle_cmd = 0;
-  close_cmd = 0;
-
-  listtype = COMMAND_LIST_NONE;
-  ncmd = 0;
-  ret = -1;
-
   while ((line = evbuffer_readln(input, NULL, EVBUFFER_EOL_ANY)))
     {
-      DPRINTF(E_DBG, L_MPD, "MPD message: %s\n", line);
+      DPRINTF(E_DBG, L_MPD, "MPD message: \"%s\"\n", line);
 
-      // Split the read line into command name and arguments
-      ret = mpd_parse_args(line, &argc, argv, COMMAND_ARGV_MAX);
-      if (ret != 0 || argc <= 0)
-	{
-	  // Error handling for argument parsing error
-	  DPRINTF(E_LOG, L_MPD, "Error parsing arguments for MPD message: %s\n", line);
-	  errmsg = safe_asprintf("Error parsing arguments");
-	  ret = ACK_ERROR_ARG;
-	  evbuffer_add_printf(output, "ACK [%d@%d] {%s} %s\n", ret, ncmd, "unkown", errmsg);
-	  free(errmsg);
-	  free(line);
-	  break;
-	}
+      enum mpd_command_result res = mpd_process_line(line, output, client_ctx);
 
-      /*
-       * Check if it is a list command
-       */
-      if (0 == strcmp(argv[0], "command_list_ok_begin"))
-	{
-	  listtype = COMMAND_LIST_OK;
-	  free(line);
-	  continue;
-	}
-      else if (0 == strcmp(argv[0], "command_list_begin"))
-	{
-	  listtype = COMMAND_LIST;
-	  free(line);
-	  continue;
-	}
-      else if (0 == strcmp(argv[0], "command_list_end"))
-	{
-	  listtype = COMMAND_LIST_END;
-	  free(line);
-	  break;
-	}
-      else if (0 == strcmp(argv[0], "idle"))
-	idle_cmd = 1;
-      else if (0 == strcmp(argv[0], "noidle"))
-	idle_cmd = 1;
-      else if (0 == strcmp(argv[0], "close"))
-	close_cmd = 1;
-
-      /*
-       * Find the command handler and execute the command function
-       */
-      command = mpd_find_command(argv[0]);
-
-      if (command == NULL)
-	{
-	  errmsg = safe_asprintf("Unsupported command '%s'", argv[0]);
-	  ret = ACK_ERROR_UNKNOWN;
-	}
-      else if (command->min_argc > argc)
-	{
-	  errmsg = safe_asprintf("Missing argument(s) for command '%s', expected %d, given %d", argv[0], command->min_argc, argc);
-	  ret = ACK_ERROR_ARG;
-	}
-      else if (strcmp(command->mpdcommand, "password") == 0)
-	{
-	  ret = command->handler(output, argc, argv, &errmsg, client_ctx);
-	  client_ctx->authenticated = ret == 0;
-	}
-      else if (!client_ctx->authenticated)
-	{
-	  errmsg = safe_asprintf("Not authenticated");
-	  ret = ACK_ERROR_PERMISSION;
-	}
-      else
-	ret = command->handler(output, argc, argv, &errmsg, client_ctx);
-
-      /*
-       * If an error occurred, add the ACK line to the response buffer and exit the loop
-       */
-      if (ret != 0)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Error executing command '%s': %s\n", argv[0], errmsg);
-	  evbuffer_add_printf(output, "ACK [%d@%d] {%s} %s\n", ret, ncmd, argv[0], errmsg);
-	  free(errmsg);
-	  free(line);
-	  break;
-	}
-
-      /*
-       * If the command sequence started with command_list_ok_begin, add a list_ok line to the
-       * response buffer after each command output.
-       */
-      if (listtype == COMMAND_LIST_OK)
-	{
-	  evbuffer_add(output, "list_OK\n", 8);
-	}
-      /*
-       * If everything was successful add OK line to signal clients end of command message.
-       */
-      else if (listtype == COMMAND_LIST_NONE && idle_cmd == 0 && close_cmd == 0)
-	{
-	  evbuffer_add(output, "OK\n", 3);
-	}
       free(line);
-      ncmd++;
-    }
 
-  DPRINTF(E_SPAM, L_MPD, "Finished MPD command sequence: %d\n", ret);
+      switch (res) {
+        case CMD_RESULT_ERROR:
+        case CMD_RESULT_IDLE:
+        case CMD_RESULT_OK:
+          break;
 
-  /*
-   * If everything was successful and we are processing a command list, add OK line to signal
-   * clients end of message.
-   * If an error occurred the necessary ACK line should already be added to the response buffer.
-   */
-  if (ret == 0 && close_cmd == 0 && listtype == COMMAND_LIST_END)
-    {
-      evbuffer_add(output, "OK\n", 3);
-    }
+        case CMD_RESULT_CLOSE:
+          client_ctx->is_closing = true;
 
-  if (close_cmd)
-    {
-      /*
-       * Freeing the bufferevent closes the connection, if it was
-       * opened with BEV_OPT_CLOSE_ON_FREE.
-       * Since bufferevent is reference-counted, it will happen as
-       * soon as possible, not necessarily immediately.
-       */
-      bufferevent_free(bev);
+          if (client_ctx->cmd_list_buffer != NULL)
+            {
+              evbuffer_free(client_ctx->cmd_list_buffer);
+              client_ctx->cmd_list_buffer = NULL;
+            }
+
+          /*
+           * Freeing the bufferevent closes the connection, if it was
+           * opened with BEV_OPT_CLOSE_ON_FREE.
+           * Since bufferevent is reference-counted, it will happen as
+           * soon as possible, not necessarily immediately.
+           */
+          bufferevent_free(bev);
+          break;
+      }
     }
 }
 
@@ -4511,9 +4792,9 @@ mpd_event_cb(struct bufferevent *bev, short events, void *ctx)
 }
 
 /*
- * The input filter buffer callback checks if the data received from the client is a complete command sequence.
- * A command sequence has end with '\n' and if it starts with "command_list_begin\n" or "command_list_ok_begin\n"
- * the last line has to be "command_list_end\n".
+ * The input filter buffer callback.
+ *
+ * Pass complete lines.
  *
  * @param src evbuffer to read data from (contains the data received from the client)
  * @param dst evbuffer to write data to (this is the evbuffer for the read callback)
@@ -4525,42 +4806,29 @@ mpd_event_cb(struct bufferevent *bev, short events, void *ctx)
 static enum bufferevent_filter_result
 mpd_input_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, enum bufferevent_flush_mode state, void *ctx)
 {
-  struct evbuffer_ptr p;
   char *line;
   int ret;
+  // Filter functions must return BEV_OK
+  // if any data was successfully written to the destination buffer
+  int output_count = 0;
 
   while ((line = evbuffer_readln(src, NULL, EVBUFFER_EOL_ANY)))
     {
       ret = evbuffer_add_printf(dst, "%s\n", line);
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Error adding line to buffer: '%s'\n", line);
-	  free(line);
-	  return BEV_ERROR;
-	}
+        {
+          DPRINTF(E_LOG, L_MPD, "Error adding line to buffer: '%s'\n", line);
+          free(line);
+          return BEV_ERROR;
+        }
       free(line);
+      output_count += ret;
     }
 
-  if (evbuffer_get_length(src) > 0)
+  if (output_count == 0)
     {
       DPRINTF(E_DBG, L_MPD, "Message incomplete, waiting for more data\n");
       return BEV_NEED_MORE;
-    }
-
-  p = evbuffer_search(dst, "command_list_begin", 18, NULL);
-  if (p.pos < 0)
-    {
-      p = evbuffer_search(dst, "command_list_ok_begin", 21, NULL);
-    }
-
-  if (p.pos >= 0)
-    {
-      p = evbuffer_search(dst, "command_list_end", 16, NULL);
-      if (p.pos < 0)
-	{
-	  DPRINTF(E_DBG, L_MPD, "Message incomplete (missing command_list_end), waiting for more data\n");
-	  return BEV_NEED_MORE;
-	}
     }
 
   return BEV_OK;
@@ -4617,6 +4885,9 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
    */
   evbuffer_add(bufferevent_get_output(bev), "OK MPD 0.20.0\n", 14);
   client_ctx->evbuffer = bufferevent_get_output(bev);
+  client_ctx->cmd_list_type = COMMAND_LIST_NONE;
+  client_ctx->is_idle = false;
+  client_ctx->is_closing = false;
 
   DPRINTF(E_INFO, L_MPD, "New mpd client connection accepted\n");
 }
@@ -4874,11 +5145,25 @@ mpd_init(void)
   const char *pl_dir;
   int ret;
 
-  port = cfg_getint(cfg_getsec(cfg, "mpd"), "port");
+  cfg_t *mpd_section = cfg_getsec(cfg, "mpd");
+  
+  port = cfg_getint(mpd_section, "port");
   if (port <= 0)
     {
       DPRINTF(E_INFO, L_MPD, "MPD not enabled\n");
       return 0;
+    }
+    
+  long max_command_list_size = cfg_getint(mpd_section, "max_command_list_size");
+  if (max_command_list_size <= 0 || max_command_list_size > INT_MAX)
+    {
+      DPRINTF(E_INFO, L_MPD, "Ignoring invalid config \"max_command_list_size\" (%ld). Will use the default %uKB instead.\n",
+              max_command_list_size,
+              (Config.MaxCommandListSize / 1024));
+    }
+  else
+    {
+      Config.MaxCommandListSize = max_command_list_size * 1024; // from KB to bytes
     }
 
   CHECK_NULL(L_MPD, evbase_mpd = event_base_new());
