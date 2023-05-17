@@ -417,6 +417,11 @@ mpd {
 	# clients and will need additional configuration in the MPD client to
 	# work). Set to 0 to disable serving artwork over http.
 #	http_port = 0
+
+	# The maximum size of a command list in KB.
+	# It is the sum of lengths of all the command lines between command list begin and end.
+	# Default is 2048 (2 MiB).
+#	max_command_list_size = KBYTES
 }
 
 # SQLite configuration (allows to modify the operation of the SQLite databases)

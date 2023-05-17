@@ -963,6 +963,9 @@ int
 db_queue_move_bypos(int pos_from, int pos_to);
 
 int
+db_queue_move_bypos_range(int range_begin, int range_end, int pos_to);
+
+int
 db_queue_move_byposrelativetoitem(uint32_t from_pos, uint32_t to_offset, uint32_t item_id, char shuffle);
 
 int
