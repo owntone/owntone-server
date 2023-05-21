@@ -4545,7 +4545,7 @@ mpd_process_command(char *line, struct evbuffer *output, int cmd_num, struct mpd
                                    command->min_argc, argc);
             mpd_err_code = ACK_ERROR_ARG;
           }
-        else if (!client_ctx->authenticated)
+        else if (!client_ctx->authenticated && strcmp(cmd_name, "password") != 0)
           {
             errmsg = safe_asprintf("Not authenticated");
             mpd_err_code = ACK_ERROR_PERMISSION;
