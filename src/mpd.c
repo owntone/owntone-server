@@ -2721,6 +2721,19 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   return 0;
 }
 
+void
+sanitize_value(char **strval)
+{
+  char *ptr = *strval;
+
+  while(*ptr != '\0') {
+    if(*ptr == '\n') {
+      *ptr = ' ';
+    }
+    ptr++;
+  }
+}
+
 static int
 mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
@@ -2784,6 +2797,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       if (!(*strval) || (**strval == '\0'))
 	continue;
 
+      sanitize_value(strval);
       evbuffer_add_printf(evbuf,
 			  "%s: %s\n",
 			  tagtype->tag,
