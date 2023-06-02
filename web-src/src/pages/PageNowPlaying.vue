@@ -63,8 +63,8 @@
         style="flex-direction: column"
       >
         <div class="content has-text-centered">
-          <h1 class="title is-5" v-text="$('page.now-playing.title')" />
-          <p v-text="$('page.now-playing.info')" />
+          <h1 class="title is-5" v-text="$t('page.now-playing.title')" />
+          <p v-text="$t('page.now-playing.info')" />
         </div>
       </div>
     </div>
