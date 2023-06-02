@@ -14,7 +14,7 @@
                 <span class="icon"><mdicon name="cancel" size="16" /></span>
                 <span
                   class="is-size-7"
-                  v-text="close_action ? close_action : t('dialog.cancel')"
+                  v-text="close_action ? close_action : $t('dialog.cancel')"
                 />
               </a>
               <a

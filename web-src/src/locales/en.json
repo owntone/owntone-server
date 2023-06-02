@@ -193,7 +193,6 @@
     "albums": {
       "info-1": "Permanently remove this podcast from your library?",
       "info-2": "This will also remove the RSS playlist ",
-      "notification": "Podcast cannot be removed. Probably it was not added as an RSS playlist.",
       "remove": "Remove",
       "remove-podcast": "Remove podcast"
     },
@@ -380,7 +379,6 @@
     "podcast": {
       "play": "Play",
       "remove": "Remove",
-      "remove-error": "Podcast cannot be removed. Probably it was not added as an RSS playlist.",
       "remove-info-1": "Permanently remove this podcast from your library?",
       "remove-info-2": "This will also remove the RSS playlist ",
       "remove-podcast": "Remove podcast",

@@ -7,7 +7,7 @@
       <div class="buttons is-centered">
         <a
           class="button is-small is-light is-rounded"
-          @click="show_album_details_modal = true"
+          @click="show_details_modal = true"
         >
           <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
         </a>
@@ -28,11 +28,11 @@
         @play-count-changed="reload_tracks"
       />
       <modal-dialog-album
-        :show="show_album_details_modal"
+        :show="show_details_modal"
         :album="album"
         :media_kind="'podcast'"
         :new_tracks="new_tracks"
-        @close="show_album_details_modal = false"
+        @close="show_details_modal = false"
         @play-count-changed="reload_tracks"
         @remove-podcast="open_remove_podcast_dialog"
       />
@@ -103,7 +103,7 @@ export default {
     return {
       album: {},
       tracks: new GroupByList(),
-      show_album_details_modal: false,
+      show_details_modal: false,
       show_remove_podcast_modal: false,
       rss_playlist_to_remove: {}
     }
@@ -121,19 +121,10 @@ export default {
     },
 
     open_remove_podcast_dialog: function () {
-      this.show_album_details_modal = false
-      webapi.library_track_playlists(this.tracks[0].id).then(({ data }) => {
-        const rssPlaylists = data.items.filter((pl) => pl.type === 'rss')
-        if (rssPlaylists.length !== 1) {
-          this.$store.dispatch('add_notification', {
-            text: this.$t('page.podcast.remove-error'),
-            type: 'danger'
-          })
-          return
-        }
-
-        this.rss_playlist_to_remove = rssPlaylists[0]
+      webapi.library_track_playlists(this.tracks.items[0].id).then(({ data }) => {
+        this.rss_playlist_to_remove = data.items.filter((pl) => pl.type === 'rss')[0]
         this.show_remove_podcast_modal = true
+        this.show_details_modal = false
       })
     },
 

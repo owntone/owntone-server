@@ -26,6 +26,7 @@
                   v-text="$t('dialog.album.mark-as-played')"
                 />
                 <a
+                  v-if="album.data_kind === 'url'"
                   class="button is-small"
                   @click="$emit('remove-podcast')"
                   v-text="$t('dialog.album.remove-podcast')"

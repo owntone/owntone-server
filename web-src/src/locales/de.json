@@ -193,7 +193,6 @@
     "albums": {
       "info-1": "Diesen Podcast dauerhaft aus der Bibliothek löschen?",
       "info-2": "Dies wir auch RSS-Playlisten löschen ",
-      "notification": "Podcast kann nicht gelöscht werden - evtl. wurde er nicht als RSS-Playlist hinzugefügt.",
       "remove": "Entfernen",
       "remove-podcast":"Entferne podcast"
     },
@@ -380,7 +379,6 @@
     "podcast": {
       "play": "Spielen",
       "remove": "Entfernen",
-      "remove-error": "Podcast kann nicht entfernt werden, evtl. wurde er nicht als RSS-Playlist hinzugefügt.",
       "remove-info-1": "Diesen Podcast wirklich dauerhaft aus der Bibliothek löschen?",
       "remove-info-2": "Damit wird auch die RSS-Playliste gelöscht. ",
       "remove-podcast":"Entferne podcast",
