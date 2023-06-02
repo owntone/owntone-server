@@ -126,9 +126,9 @@ body.dark-mode {
 .slider {
   min-width: 250px;
   width: 100%;
-  margin-top: 32px;
-  margin-bottom: 32px;
-  --slider-height: 8px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  --slider-height: 4px;
   --slider-connect-bg: $dark;
   --slider-tooltip-bg: $dark;
   --slider-handle-ring-color: #3b82f630;
@@ -142,18 +142,18 @@ body.dark-mode {
   max-width: 500px;
   width: 100% !important;
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-  margin: 0 auto 32px auto;
-  --slider-height: 8px;
+  margin: 0 auto 16px auto;
+  --slider-height: 4px;
   --slider-connect-bg: hsl(171, 100%, 41%);
   --slider-tooltip-bg: hsl(171, 100%, 41%);
   --slider-handle-bg: hsl(171, 100%, 41%);
   --slider-handle-border: 0;
-  --slider-handle-width: 20px;
-  --slider-handle-height: 20px;
+  --slider-handle-width: 10px;
+  --slider-handle-height: 10px;
   --slider-handle-radius: 9999px;
   --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.32);
   --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.42);
-  --slider-handle-ring-width: 6px;
+  --slider-handle-ring-width: 3px;
 }
 
 .progress-bar {
@@ -226,12 +226,11 @@ a.navbar-item {
 .fd-tabs-section {
   padding-bottom: 3px;
   padding-top: 3px;
-  background: black;
+  background: white;
   top: 3.25rem;
   z-index: 20;
   position: fixed;
   width: 100%;
-  color: white;
 }
 
 section.fd-tabs-section + section.fd-content {

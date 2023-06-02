@@ -161,7 +161,7 @@ export default {
   data() {
     return {
       show_settings_menu: false,
-      dark_mode: false
+      dark_mode: this.init_dark_mode(),
     }
   },
 
@@ -288,6 +288,7 @@ export default {
       document.querySelector('html').classList.add('dark-mode')
       document.querySelector('body').classList.add('dark-mode')
       this.dark_mode = true
+      localStorage.setItem("dark-mode", this.dark_mode);
       this.$emit('dark')
     },
 
@@ -295,15 +296,28 @@ export default {
       document.querySelector('html').classList.remove('dark-mode')
       document.querySelector('body').classList.remove('dark-mode')
       this.dark_mode = false
+      localStorage.setItem("dark-mode", this.dark_mode);
       this.$emit('light')
     },
 
     mode_toggle() {
-      if(this.dark_mode || document.querySelector('html').classList.contains('dark-mode') ||document.querySelector('body').classList.contains('dark-mode') ) {
+      if(this.dark_mode || document.querySelector('html').classList.contains('dark-mode') || document.querySelector('body').classList.contains('dark-mode') ) {
         this.light()
       } else {
         this.dark()
       }
+    },
+
+    init_dark_mode() {
+      const dark_mode = localStorage.getItem('dark-mode') || window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+      if(dark_mode === 'true') {
+        this.dark()
+      } else {
+        this.light()
+      }
+      return dark_mode;
     },
   },
 }
