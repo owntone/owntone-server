@@ -193,7 +193,9 @@
     "albums": {
       "info-1": "Supprimer définitivement ce podcast de votre bibliothèque ?",
       "info-2": "Cela supprimera également la liste de lecture RSS ",
-      "notification": "Le podcast ne peut être supprimé. Il n’avait probablement pas été ajouté comme une liste de lecture RSS."
+      "notification": "Le podcast ne peut être supprimé. Il n’avait probablement pas été ajouté comme une liste de lecture RSS.",
+      "remove": "Supprimer",
+      "remove-podcast": "Supprimer le podcast"
     },
     "spotify": {
       "not-playable-track": "La piste ne peut pas être lue",
@@ -377,9 +379,11 @@
     },
     "podcast": {
       "play": "Lire",
+      "remove": "Supprimer",
       "remove-error": "Le podcast ne peut pas être supprimé. Il n’a probablement pas été ajouté en tant que liste de lecture RSS.",
       "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
       "remove-info-2": "Cela supprimera également la liste de lecture RSS ",
+      "remove-podcast":"Supprimer le podcast",
       "track-count": "{count} pistes"
     },
     "podcasts": {
