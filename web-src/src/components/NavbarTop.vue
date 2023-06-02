@@ -1,6 +1,6 @@
 <template>
   <nav
-    class="fd-top-navbar navbar is-light is-fixed-top"
+    class="fd-top-navbar navbar is-dark is-fixed-top"
     :style="zindex"
     role="navigation"
     aria-label="main navigation"
@@ -124,6 +124,13 @@
             <navbar-item-link to="/about">{{
               $t('navigation.about')
             }}</navbar-item-link>
+            <div class="navbar-item is-hidden-destop">
+              <div class="mode-toggle" :class="dark_dark" @click="mode_toggle" >
+                <div class="toggle">
+                  <div id="dark-mode" type="checkbox"></div>
+                </div>
+              </div>
+            </div>
             <div
               class="navbar-item is-hidden-desktop"
               style="margin-bottom: 2.5rem"
@@ -138,6 +145,7 @@
       style="z-index: 10; width: 100vw; height: 100vh"
       @click="show_settings_menu = false"
     />
+    
   </nav>
 </template>
 
@@ -148,10 +156,12 @@ import * as types from '@/store/mutation_types'
 export default {
   name: 'NavbarTop',
   components: { NavbarItemLink },
+  emits: ['light', 'dark'],
 
   data() {
     return {
-      show_settings_menu: false
+      show_settings_menu: false,
+      dark_mode: false
     }
   },
 
@@ -250,6 +260,10 @@ export default {
         return 'z-index: 20'
       }
       return ''
+    },
+
+    dark_dark() {
+      return this.dark_mode && 'dark-mode-toggled'
     }
   },
 
@@ -268,8 +282,30 @@ export default {
       this.show_update_dialog = true
       this.show_settings_menu = false
       this.show_burger_menu = false
-    }
-  }
+    },
+
+    dark() {
+      document.querySelector('html').classList.add('dark-mode')
+      document.querySelector('body').classList.add('dark-mode')
+      this.dark_mode = true
+      this.$emit('dark')
+    },
+
+    light() {
+      document.querySelector('html').classList.remove('dark-mode')
+      document.querySelector('body').classList.remove('dark-mode')
+      this.dark_mode = false
+      this.$emit('light')
+    },
+
+    mode_toggle() {
+      if(this.dark_mode || document.querySelector('html').classList.contains('dark-mode') ||document.querySelector('body').classList.contains('dark-mode') ) {
+        this.light()
+      } else {
+        this.dark()
+      }
+    },
+  },
 }
 </script>
 

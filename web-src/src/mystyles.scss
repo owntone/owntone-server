@@ -3,15 +3,134 @@
 @import 'bulma/bulma.sass';
 @import 'bulma-switch';
 
+$dark: hsl(0deg, 0%, 21%);
+$mode-toggle-bg: $dark;
+$light: hsl(0deg, 0%, 100%);
+$dark-hover: hsl(0deg, 0%, 33%);
+
+html, body {
+  background-color: $light;
+  color: $dark;
+  transition: background-color .2s ease, color .2s ease;
+}
+
+/* dark mode */
+html, body {
+  &.dark-mode {
+    background-color: lighten($dark, 5%);
+    
+    .card {
+      background-color: $dark;
+      color: $light;
+    }
+
+    .title, .heading, .checkbox.label:hover .button, h1, h2, h3, h4, h5, h6, header, footer, title {
+      color: $light;
+    }
+    
+    .dropdown-item:hover, .navbar-link:hover, .navbar-item:hover, a.has-text-dark:hover, label:hover {
+      background-color: $dark-hover;
+      color: $light
+    }
+  
+    .navbar-dropdown, .navbar-link, .navbar-item, .navbar-menu,  .is-white, .button {
+      background-color: $dark;
+      color: $light;
+    }
+
+    a.has-text-dark {
+      background-color: $dark;
+      color: $light !important;
+    }
+
+  }
+}
+
+/* dark mode toggle dark */
+body.dark-mode {
+  .mode-toggle {
+      background-color: lighten($mode-toggle-bg, 5%);
+
+      .toggle {
+          transform: translateX(19px);
+
+          #dark-mode {
+              &:before {
+                  border-radius: 50%;
+                  width: 150%;
+                  height: 85%;
+                  left: 40%;
+                  transform: translate(-10%, -40%), rotate(-35deg);
+              }
+          }
+      }
+  }
+}
+
+/* dark mode toggle */
+.mode-toggle {
+  position: relative;
+  padding: 0;
+  width: 44px;
+  height: 24px;
+  min-width: 36px;
+  min-height: 20px;
+  background-color: $mode-toggle-bg;
+  border: 0;
+  border-radius: 24px;
+  outline: 0;
+  overflow: hidden;
+  cursor: pointer;
+  z-index: 2;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+  -webkit-touch-callout: none;
+  appearance: none;
+  transition: background-color .5s ease;
+
+  .toggle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      margin: auto;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      box-shadow: inset 0 0 0 2px $light;
+      overflow: hidden;
+      transition: transform .5s ease;
+
+      #dark-mode {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          border-radius: 50%;
+
+          &:before {
+              content: '';
+              position: relative;
+              width: 100%;
+              height: 100%;
+              left: 50%;
+              float: left;
+              background-color: $light;
+              transition: border-radius .5s ease, width .5s ease, height .5s ease, left .5s ease, transform .5s ease;
+          }
+      }
+  }
+}
+
 /* Volume slider */
 .slider {
   min-width: 250px;
   width: 100%;
-  margin-top: 16px;
-  margin-bottom: 16px;
-  --slider-height: 4px;
-  --slider-connect-bg: hsl(0, 0%, 21%);
-  --slider-tooltip-bg: hsl(0, 0%, 21%);
+  margin-top: 32px;
+  margin-bottom: 32px;
+  --slider-height: 8px;
+  --slider-connect-bg: $dark;
+  --slider-tooltip-bg: $dark;
   --slider-handle-ring-color: #3b82f630;
   --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.32);
   --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.42);
@@ -23,18 +142,18 @@
   max-width: 500px;
   width: 100% !important;
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-  margin: 0 auto 16px auto;
-  --slider-height: 4px;
+  margin: 0 auto 32px auto;
+  --slider-height: 8px;
   --slider-connect-bg: hsl(171, 100%, 41%);
   --slider-tooltip-bg: hsl(171, 100%, 41%);
   --slider-handle-bg: hsl(171, 100%, 41%);
   --slider-handle-border: 0;
-  --slider-handle-width: 10px;
-  --slider-handle-height: 10px;
+  --slider-handle-width: 20px;
+  --slider-handle-height: 20px;
   --slider-handle-radius: 9999px;
   --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.32);
   --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.42);
-  --slider-handle-ring-width: 3px;
+  --slider-handle-ring-width: 6px;
 }
 
 .progress-bar {
@@ -107,11 +226,12 @@ a.navbar-item {
 .fd-tabs-section {
   padding-bottom: 3px;
   padding-top: 3px;
-  background: white;
+  background: black;
   top: 3.25rem;
   z-index: 20;
   position: fixed;
   width: 100%;
+  color: white;
 }
 
 section.fd-tabs-section + section.fd-content {
@@ -256,7 +376,7 @@ section.hero + section.fd-content {
 }
 
 .dropdown-item:hover {
-  background-color: hsl(0, 0%, 96%);
+  background-color: hsl(0, 0%, 40%);
 }
 
 .navbar-item .fd-navbar-item-level2 {
