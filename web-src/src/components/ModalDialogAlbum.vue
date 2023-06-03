@@ -160,6 +160,7 @@ export default {
     },
 
     open_album: function () {
+      this.$emit('close')
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ path: '/podcasts/' + this.album.id })
       } else if (this.media_kind_resolved === 'audiobook') {
@@ -170,9 +171,8 @@ export default {
     },
 
     open_artist: function () {
-      if (this.media_kind_resolved === 'podcast') {
-        // No artist page for podcasts
-      } else if (this.media_kind_resolved === 'audiobook') {
+      this.$emit('close')
+      if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({
           path: '/audiobooks/artists/' + this.album.artist_id
         })
