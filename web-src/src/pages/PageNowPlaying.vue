@@ -163,9 +163,7 @@ export default {
     }
   },
 
-  mounted: function () {
-    console.log(this.$refs.slider)
-  },
+  mounted: function () {},
 
   created() {
     this.item_progress_ms = this.state.item_progress_ms
@@ -192,12 +190,10 @@ export default {
     },
 
     start_dragging: function () {
-      console.log('@start')
       this.is_dragged = true
     },
 
     end_dragging: function () {
-      console.log('@end')
       this.is_dragged = false
     },
 

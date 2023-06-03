@@ -93,7 +93,6 @@ export default {
       this.timerId = -1
 
       const newValue = this.$refs.setting.checked
-      console.log(this.$refs.setting)
       if (newValue === this.value) {
         this.statusUpdate = ''
         return

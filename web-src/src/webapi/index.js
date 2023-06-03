@@ -9,7 +9,6 @@ axios.interceptors.response.use(
     return response
   },
   function (error) {
-    console.log(i18n)
     if (error.request.status && error.request.responseURL) {
       store.dispatch('add_notification', {
         text: t('server.request-failed', {
