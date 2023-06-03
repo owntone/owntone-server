@@ -1,5 +1,5 @@
 <template>
-  <template v-for="track in tracks" :key="track.itemId">
+  <template v-for="(track, index) in tracks" :key="track.itemId">
     <div v-if="!track.isItem" class="mt-6 mb-5 py-2">
       <span
         :id="'index_' + track.groupKey"
