@@ -2721,15 +2721,23 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   return 0;
 }
 
-void
+/*
+ * Some MPD clients crash if the tag value includes the newline character.
+ * While they should normally not be included in most ID3 tags, they sometimes
+ * are, so we just change them to space. See #1613 for more details.
+ */
+
+static void
 sanitize_value(char **strval)
 {
   char *ptr = *strval;
 
-  while(*ptr != '\0') {
-    if(*ptr == '\n') {
-      *ptr = ' ';
-    }
+  while(*ptr != '\0')
+    {
+      if(*ptr == '\n')
+  {
+    *ptr = ' ';
+  }
     ptr++;
   }
 }
