@@ -49,9 +49,9 @@
             v-text="composer"
           />
           <h3 class="subtitle is-6" v-text="now_playing.album" />
-          <h3 
+          <h3
             v-if="filepath"
-            class="subtitle is-6 has-text-grey "             
+            class="subtitle is-6 has-text-grey"
             v-text="filepath"
           />
         </div>
@@ -147,9 +147,8 @@ export default {
         return this.now_playing.path
       }
       return null
-    }  
+    }
   },
-
 
   watch: {
     state() {

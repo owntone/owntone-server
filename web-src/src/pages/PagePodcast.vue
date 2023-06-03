@@ -121,11 +121,15 @@ export default {
     },
 
     open_remove_podcast_dialog: function () {
-      webapi.library_track_playlists(this.tracks.items[0].id).then(({ data }) => {
-        this.rss_playlist_to_remove = data.items.filter((pl) => pl.type === 'rss')[0]
-        this.show_remove_podcast_modal = true
-        this.show_details_modal = false
-      })
+      webapi
+        .library_track_playlists(this.tracks.items[0].id)
+        .then(({ data }) => {
+          this.rss_playlist_to_remove = data.items.filter(
+            (pl) => pl.type === 'rss'
+          )[0]
+          this.show_remove_podcast_modal = true
+          this.show_details_modal = false
+        })
     },
 
     remove_podcast: function () {

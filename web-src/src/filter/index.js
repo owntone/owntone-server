@@ -34,11 +34,15 @@ export const filters = {
   },
 
   date: function (value) {
-    return DateTime.fromISO(value).setLocale(locale.value).toLocaleString(DateTime.DATE_FULL)
+    return DateTime.fromISO(value)
+      .setLocale(locale.value)
+      .toLocaleString(DateTime.DATE_FULL)
   },
 
   datetime: function (value) {
-    return DateTime.fromISO(value).setLocale(locale.value).toLocaleString(DateTime.DATETIME_MED)
+    return DateTime.fromISO(value)
+      .setLocale(locale.value)
+      .toLocaleString(DateTime.DATETIME_MED)
   },
 
   timeFromNow: function (value) {

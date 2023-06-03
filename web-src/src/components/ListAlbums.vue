@@ -146,7 +146,9 @@ export default {
         .library_album_tracks(this.selected_album.id, { limit: 1 })
         .then(({ data }) => {
           webapi.library_track_playlists(data.items[0].id).then(({ data }) => {
-            this.rss_playlist_to_remove = data.items.filter((pl) => pl.type === 'rss')[0]
+            this.rss_playlist_to_remove = data.items.filter(
+              (pl) => pl.type === 'rss'
+            )[0]
             this.show_remove_podcast_modal = true
             this.show_details_modal = false
           })

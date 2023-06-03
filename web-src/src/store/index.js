@@ -133,7 +133,7 @@ export default createStore({
       }
       return false
     },
-    
+
     settings_category: (state) => (categoryName) => {
       return state.settings.categories.find(
         (elem) => elem.name === categoryName

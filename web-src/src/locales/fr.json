@@ -381,7 +381,7 @@
       "remove": "Supprimer",
       "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
       "remove-info-2": "Cela supprimera également la liste de lecture RSS ",
-      "remove-podcast":"Supprimer le podcast",
+      "remove-podcast": "Supprimer le podcast",
       "track-count": "{count} pistes"
     },
     "podcasts": {

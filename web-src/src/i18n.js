@@ -9,7 +9,7 @@ import messages from '@intlify/vite-plugin-vue-i18n/messages'
 export default createI18n({
   legacy: false,
   globalInjection: true,
-  availableLocales: ('de','en','fr'),
+  availableLocales: ('de', 'en', 'fr'),
   locale: navigator.language,
   fallbackLocale: 'en',
   fallbackWarn: false,

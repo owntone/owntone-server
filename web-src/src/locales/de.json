@@ -194,7 +194,7 @@
       "info-1": "Diesen Podcast dauerhaft aus der Bibliothek löschen?",
       "info-2": "Dies wir auch RSS-Playlisten löschen ",
       "remove": "Entfernen",
-      "remove-podcast":"Entferne podcast"
+      "remove-podcast": "Entferne podcast"
     },
     "spotify": {
       "not-playable-track": "Track kann nicht gespielt werden",
@@ -381,7 +381,7 @@
       "remove": "Entfernen",
       "remove-info-1": "Diesen Podcast wirklich dauerhaft aus der Bibliothek löschen?",
       "remove-info-2": "Damit wird auch die RSS-Playliste gelöscht. ",
-      "remove-podcast":"Entferne podcast",
+      "remove-podcast": "Entferne podcast",
       "track-count": "{count} Tracks"
     },
     "podcasts": {
