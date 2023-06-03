@@ -61,9 +61,7 @@ export default {
   methods: {
     open_artist: function (artist) {
       this.selected_artist = artist
-      if (this.media_kind_resolved === 'podcast') {
-        // No artist page for podcasts
-      } else if (this.media_kind_resolved === 'audiobook') {
+      if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({ path: '/audiobooks/artists/' + artist.id })
       } else {
         this.$router.push({ path: '/music/artists/' + artist.id })
