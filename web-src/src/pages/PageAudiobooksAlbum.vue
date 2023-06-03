@@ -103,10 +103,6 @@ export default {
       webapi.player_play_uri(this.album.uri, false)
     },
 
-    play_track: function (position) {
-      webapi.player_play_uri(this.album.uri, false, position)
-    },
-
     open_dialog: function (track) {
       this.selected_track = track
       this.show_details_modal = true
