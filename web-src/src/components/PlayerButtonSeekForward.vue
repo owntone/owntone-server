@@ -1,6 +1,11 @@
 <template>
   <a v-if="visible" :disabled="disabled" @click="seek">
-    <span class="icon"><mdicon name="fast-forward" :size="icon_size" /></span>
+    <span class="icon"
+      ><mdicon
+        name="fast-forward-30"
+        :size="icon_size"
+        :title="$t('player.button.seek-forward')"
+    /></span>
   </a>
 </template>
 

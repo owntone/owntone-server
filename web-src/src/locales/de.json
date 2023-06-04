@@ -543,6 +543,23 @@
       }
     }
   },
+  "player": {
+    "button": {
+      "consume": "Verlauf löschen",
+      "pause": "Wiedergabe anhalten",
+      "play": "Wiedergeben",
+      "repeat": "Alle Tracks wiederholen",
+      "repeat-off": "Tracks einmal lesen",
+      "repeat-once": "Aktuellen Track wiederholen",
+      "seek-backward": "Rückwärts im Track suchen",
+      "seek-forward": "Vorwärts im Track suchen",
+      "shuffle": "Tracks zufällig wiedergeben",
+      "shuffle-disabled": "Tracks in Reihenfolge wiedergeben",
+      "skip-backward": "Zum vorherigen Track springen",
+      "skip-forward": "Zum nächsten Track springen",
+      "stop": "Wiedergabe stoppen"
+    }
+  },
   "setting": {
     "not-saved": " (Fehler beim Speichern der Einstellungen)",
     "saved": " (Einstellungen gesichert)"

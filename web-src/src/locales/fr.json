@@ -543,6 +543,23 @@
       }
     }
   },
+  "player": {
+    "button": {
+      "consume": "Effacer l’historique",
+      "pause": "Mettre la lecture en pause",
+      "play": "Lire",
+      "repeat": "Répéter toutes les pistes",
+      "repeat-off": "Lire les pistes une fois",
+      "repeat-once": "Répéter la piste en cours",
+      "seek-backward": "Reculer dans la piste",
+      "seek-forward": "Avancer dans la piste",
+      "shuffle": "Lire les pistes aléatoirement",
+      "shuffle-disabled": "Lire les pistes dans l’ordre",
+      "skip-backward": "Reculer à la piste précédente",
+      "skip-forward": "Avancer à la piste suivante",
+      "stop": "Arrêter la lecture"
+    }
+  },
   "setting": {
     "not-saved": " (erreur à l’enregistrement du réglage)",
     "saved": " (réglage enregistré)"

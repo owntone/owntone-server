@@ -543,6 +543,23 @@
       }
     }
   },
+  "player": {
+    "button": {
+      "consume": "Clear history",
+      "pause": "Pause",
+      "play": "Play",
+      "repeat": "Repeat all tracks",
+      "repeat-off": "Read tracks once",
+      "repeat-once": "Repeat current track",
+      "seek-backward": "Seek backward in the track",
+      "seek-forward": "Seek forward in the track",
+      "shuffle": "Play tracks randomly",
+      "shuffle-disabled": "Play tracks in order",
+      "skip-backward": "Skip to previous track",
+      "skip-forward": "Skip to next track",
+      "stop": "Stop"
+    }
+  },
   "setting": {
     "not-saved": " (error saving setting)",
     "saved": " (setting saved)"

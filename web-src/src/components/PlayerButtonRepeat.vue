@@ -1,6 +1,11 @@
 <template>
-  <a :class="{ 'is-warning': !is_repeat_off }" @click="toggle_repeat_mode">
-    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
+  <a :class="{ 'is-info': !is_repeat_off }" @click="toggle_repeat_mode">
+    <span class="icon"
+      ><mdicon
+        :name="icon_name"
+        :size="icon_size"
+        :title="$t('player.button.' + icon_name)"
+    /></span>
   </a>
 </template>
 

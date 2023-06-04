@@ -1,6 +1,11 @@
 <template>
   <a :disabled="disabled" @click="play_previous">
-    <span class="icon"><mdicon name="skip-backward" :size="icon_size" /></span>
+    <span class="icon"
+      ><mdicon
+        name="skip-backward"
+        :size="icon_size"
+        :title="$t('player.button.skip-backward')"
+    /></span>
   </a>
 </template>
 

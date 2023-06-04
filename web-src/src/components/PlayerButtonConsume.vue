@@ -1,6 +1,11 @@
 <template>
-  <a :class="{ 'is-warning': is_consume }" @click="toggle_consume_mode">
-    <span class="icon"><mdicon name="fire" :size="icon_size" /></span>
+  <a :class="{ 'is-info': is_consume }" @click="toggle_consume_mode">
+    <span class="icon"
+      ><mdicon
+        name="fire"
+        :size="icon_size"
+        :title="$t('player.button.consume')"
+    /></span>
   </a>
 </template>
 
