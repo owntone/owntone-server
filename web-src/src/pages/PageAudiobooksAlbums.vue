@@ -25,7 +25,7 @@ import IndexButtonList from '@/components/IndexButtonList.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import webapi from '@/webapi'
-import { bySortName, GroupByList } from '@/lib/GroupByList'
+import { byName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -34,7 +34,7 @@ const dataObject = {
 
   set: function (vm, response) {
     vm.albums = new GroupByList(response.data)
-    vm.albums.group(bySortName('name_sort'))
+    vm.albums.group(byName('name_sort', true))
   }
 }
 

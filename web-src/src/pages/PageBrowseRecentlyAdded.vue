@@ -36,8 +36,7 @@ const dataObject = {
     vm.recently_added = new GroupByList(response.data.albums)
     vm.recently_added.group(
       byDateSinceToday('time_added', {
-        direction: 'desc',
-        defaultValue: '0000'
+        direction: 'desc'
       })
     )
   }

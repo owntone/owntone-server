@@ -10,33 +10,25 @@ export function noop() {
   }
 }
 
-/*
- * Keep default sorting of item list and build index and group by given field
- */
-export function bySortName(field, defaultValue = '_') {
+export function byName(field, keepSortOrder = false, defaultValue = '_') {
   return {
-    // Keep the sort order of the original item list
-    // Assumes that the list is already ordered by name
-    compareFn: null,
+    compareFn: keepSortOrder
+      ? null
+      : (a, b) => {
+          const fieldA = a[field] || defaultValue
+          const fieldB = b[field] || defaultValue
+          return fieldA.localeCompare(fieldB, locale.value)
+        },
 
     groupKeyFn: (item) => {
-      const fieldValue = item[field] || defaultValue
-      return fieldValue.charAt(0).toUpperCase()
-    }
-  }
-}
-
-export function byName(field, defaultValue = '_') {
-  return {
-    compareFn: (a, b) => {
-      const fieldA = a[field] || defaultValue
-      const fieldB = b[field] || defaultValue
-      return fieldA.localeCompare(fieldB, locale.value)
-    },
-
-    groupKeyFn: (item) => {
-      const fieldValue = item[field] || defaultValue
-      return fieldValue.charAt(0).toUpperCase()
+      const value = (item[field] || defaultValue).charAt(0)
+      if (value.match(/\p{Letter}/gu)) {
+        return value.toUpperCase()
+      } else if (value.match(/\p{Number}/gu)) {
+        return '#'
+      } else {
+        return '⌘'
+      }
     }
   }
 }

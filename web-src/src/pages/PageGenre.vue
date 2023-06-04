@@ -52,7 +52,7 @@ import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
-import { bySortName, GroupByList } from '@/lib/GroupByList'
+import { byName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -65,7 +65,7 @@ const dataObject = {
   set: function (vm, response) {
     vm.genre = response[0].data
     vm.albums_list = new GroupByList(response[1].data.albums)
-    vm.albums_list.group(bySortName('name_sort'))
+    vm.albums_list.group(byName('name_sort', true))
   }
 }
 

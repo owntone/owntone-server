@@ -26,7 +26,7 @@ import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import webapi from '@/webapi'
-import { bySortName, GroupByList } from '@/lib/GroupByList'
+import { byName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -76,7 +76,7 @@ export default {
       if (!this.artists_list) {
         return []
       }
-      this.artists_list.group(bySortName('name_sort'))
+      this.artists_list.group(byName('name_sort', true))
       return this.artists_list
     }
   },

@@ -80,7 +80,7 @@ import ListAlbums from '@/components/ListAlbums.vue'
 import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import { bySortName, byYear, GroupByList } from '@/lib/GroupByList'
+import { byName, byYear, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load: function (to) {
@@ -123,28 +123,24 @@ export default {
   data() {
     return {
       albums_list: new GroupByList(),
-
-      // List of group by/sort options for itemsGroupByList
       groupby_options: [
         {
           id: 1,
           name: this.$t('page.albums.sort-by.name'),
-          options: bySortName('name_sort')
+          options: byName('name_sort', true)
         },
         {
           id: 2,
           name: this.$t('page.albums.sort-by.recently-added'),
           options: byYear('time_added', {
-            direction: 'desc',
-            defaultValue: '0000'
+            direction: 'desc'
           })
         },
         {
           id: 3,
           name: this.$t('page.albums.sort-by.recently-released'),
           options: byYear('date_released', {
-            direction: 'desc',
-            defaultValue: '0000'
+            direction: 'desc'
           })
         }
       ]
