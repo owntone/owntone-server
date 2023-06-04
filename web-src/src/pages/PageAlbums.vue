@@ -190,12 +190,6 @@ export default {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
     }
-  },
-
-  methods: {
-    scrollToTop: function () {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
   }
 }
 </script>
