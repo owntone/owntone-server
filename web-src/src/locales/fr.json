@@ -276,7 +276,7 @@
       }
     },
     "artists": {
-      "count": "{count} artists",
+      "count": "{count} artistes",
       "filter": "Filtre",
       "sort-by": {
         "title": "Trier par",
