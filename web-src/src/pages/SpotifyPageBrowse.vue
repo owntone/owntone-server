@@ -105,7 +105,7 @@ import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     if (
       store.state.spotify_new_releases.length > 0 &&
       store.state.spotify_featured_playlists.length > 0
@@ -127,7 +127,7 @@ const dataObject = {
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     if (response) {
       store.commit(types.SPOTIFY_NEW_RELEASES, response[0].albums.items)
       store.commit(
@@ -191,21 +191,21 @@ export default {
   },
 
   methods: {
-    open_album: function (album) {
+    open_album(album) {
       this.$router.push({ path: '/music/spotify/albums/' + album.id })
     },
 
-    open_album_dialog: function (album) {
+    open_album_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
 
-    open_playlist_dialog: function (playlist) {
+    open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     },
 
-    artwork_url: function (album) {
+    artwork_url(album) {
       if (album.images && album.images.length > 0) {
         return album.images[0].url
       }

@@ -20,14 +20,14 @@ import webapi from '@/webapi'
 import { GroupByList, noop } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_playlist(to.params.playlist_id),
       webapi.library_playlist_folder(to.params.playlist_id)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.playlist = response[0].data
     vm.playlists_list = new GroupByList(response[1].data)
   }

@@ -108,7 +108,7 @@ export default {
   },
 
   computed: {
-    artwork_url: function () {
+    artwork_url() {
       if (this.album.images && this.album.images.length > 0) {
         return this.album.images[0].url
       }
@@ -117,36 +117,36 @@ export default {
   },
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.album.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.album.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.album.uri)
     },
 
-    open_album: function () {
+    open_album() {
       this.$router.push({ path: '/music/spotify/albums/' + this.album.id })
     },
 
-    open_artist: function () {
+    open_artist() {
       this.$router.push({
         path: '/music/spotify/artists/' + this.album.artists[0].id
       })
     },
 
-    artwork_loaded: function () {
+    artwork_loaded() {
       this.artwork_visible = true
     },
 
-    artwork_error: function () {
+    artwork_error() {
       this.artwork_visible = false
     }
   }

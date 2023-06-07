@@ -37,7 +37,7 @@ export default {
   },
 
   methods: {
-    remove: function (notification) {
+    remove(notification) {
       this.$store.commit(types.DELETE_NOTIFICATION, notification)
     }
   }

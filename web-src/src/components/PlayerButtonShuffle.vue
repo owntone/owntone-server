@@ -35,7 +35,7 @@ export default {
   },
 
   methods: {
-    toggle_shuffle_mode: function () {
+    toggle_shuffle_mode() {
       webapi.player_shuffle(!this.is_shuffle)
     }
   }

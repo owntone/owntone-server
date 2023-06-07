@@ -48,17 +48,17 @@ export default {
   },
 
   computed: {
-    media_kind_resolved: function () {
+    media_kind_resolved() {
       return this.media_kind ? this.media_kind : this.selected_genre.media_kind
     }
   },
 
   methods: {
-    open_genre: function (genre) {
+    open_genre(genre) {
       this.$router.push({ name: 'Genre', params: { genre: genre.name } })
     },
 
-    open_dialog: function (genre) {
+    open_dialog(genre) {
       this.selected_genre = genre
       this.show_details_modal = true
     }

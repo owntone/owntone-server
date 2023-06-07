@@ -55,14 +55,14 @@ import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_composer(to.params.composer),
       webapi.library_composer_albums(to.params.composer)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.composer = response[0].data
     vm.albums_list = new GroupByList(response[1].data.albums)
   }
@@ -98,14 +98,14 @@ export default {
   },
 
   methods: {
-    open_tracks: function () {
+    open_tracks() {
       this.$router.push({
         name: 'ComposerTracks',
         params: { composer: this.composer.name }
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(
         'composer is "' + this.composer.name + '" and media_kind is music',
         true

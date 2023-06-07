@@ -67,17 +67,17 @@ import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import { byName, byRating, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_genre(to.params.genre),
       webapi.library_genre_tracks(to.params.genre)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.genre = response[0].data
     vm.tracks_list = new GroupByList(response[1].data.tracks)
   }
@@ -150,12 +150,12 @@ export default {
   },
 
   methods: {
-    open_genre: function () {
+    open_genre() {
       this.show_details_modal = false
       this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(this.expression, true)
     }
   }

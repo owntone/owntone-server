@@ -25,14 +25,14 @@ import IndexButtonList from '@/components/IndexButtonList.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import webapi from '@/webapi'
-import { byName, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_albums('audiobook')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.albums = new GroupByList(response.data)
     vm.albums.group(byName('name_sort', true))
   }

@@ -47,7 +47,7 @@ export default {
   },
 
   methods: {
-    open_link: function () {
+    open_link() {
       if (this.show_burger_menu) {
         this.$store.commit(types.SHOW_BURGER_MENU, false)
       }
@@ -57,7 +57,7 @@ export default {
       this.$router.push({ path: this.to })
     },
 
-    full_path: function () {
+    full_path() {
       const resolved = this.$router.resolve(this.to)
       return resolved.href
     }

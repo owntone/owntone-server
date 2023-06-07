@@ -44,14 +44,14 @@ import webapi from '@/webapi'
 import { GroupByList } from '../lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_artist(to.params.artist_id),
       webapi.library_artist_albums(to.params.artist_id)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.artist = response[0].data
     vm.albums = new GroupByList(response[1].data)
   }
@@ -89,7 +89,7 @@ export default {
   },
 
   methods: {
-    play: function () {
+    play() {
       webapi.player_play_uri(
         this.albums.items.map((a) => a.uri).join(','),
         false

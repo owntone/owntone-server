@@ -39,7 +39,7 @@ import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     if (store.state.spotify_featured_playlists.length > 0) {
       return Promise.resolve()
     }
@@ -52,7 +52,7 @@ const dataObject = {
     })
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     if (response) {
       store.commit(types.SPOTIFY_FEATURED_PLAYLISTS, response.playlists.items)
     }
@@ -95,7 +95,7 @@ export default {
   },
 
   methods: {
-    open_playlist_dialog: function (playlist) {
+    open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     }

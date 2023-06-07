@@ -43,7 +43,7 @@ export default {
   },
 
   methods: {
-    seek: function () {
+    seek() {
       if (!this.disabled) {
         webapi.player_seek(this.seek_ms)
       }

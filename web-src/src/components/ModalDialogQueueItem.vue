@@ -197,17 +197,17 @@ export default {
   },
 
   methods: {
-    remove: function () {
+    remove() {
       this.$emit('close')
       webapi.queue_remove(this.item.id)
     },
 
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play({ item_id: this.item.id })
     },
 
-    open_album: function () {
+    open_album() {
       if (this.media_kind === 'podcast') {
         this.$router.push({ path: '/podcasts/' + this.item.album_id })
       } else if (this.media_kind === 'audiobook') {
@@ -217,22 +217,22 @@ export default {
       }
     },
 
-    open_album_artist: function () {
+    open_album_artist() {
       this.$router.push({ path: '/music/artists/' + this.item.album_artist_id })
     },
 
-    open_genre: function () {
+    open_genre() {
       this.$router.push({ name: 'Genre', params: { genre: this.item.genre } })
     },
 
-    open_spotify_artist: function () {
+    open_spotify_artist() {
       this.$emit('close')
       this.$router.push({
         path: '/music/spotify/artists/' + this.spotify_track.artists[0].id
       })
     },
 
-    open_spotify_album: function () {
+    open_spotify_album() {
       this.$emit('close')
       this.$router.push({
         path: '/music/spotify/albums/' + this.spotify_track.album.id

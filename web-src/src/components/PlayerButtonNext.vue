@@ -29,7 +29,7 @@ export default {
   },
 
   methods: {
-    play_next: function () {
+    play_next() {
       if (this.disabled) {
         return
       }

@@ -73,17 +73,17 @@ import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import { byName, byRating, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_composer(to.params.composer),
       webapi.library_composer_tracks(to.params.composer)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.composer = response[0].data
     vm.tracks_list = new GroupByList(response[1].data.tracks)
   }
@@ -156,7 +156,7 @@ export default {
   },
 
   methods: {
-    open_albums: function () {
+    open_albums() {
       this.show_details_modal = false
       this.$router.push({
         name: 'ComposerAlbums',
@@ -164,7 +164,7 @@ export default {
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(this.expression, true)
     }
   }

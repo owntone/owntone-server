@@ -50,7 +50,7 @@ export default {
   },
 
   methods: {
-    toggle_play_pause: function () {
+    toggle_play_pause() {
       if (this.disabled) {
         if (this.show_disabled_message) {
           this.$store.dispatch('add_notification', {

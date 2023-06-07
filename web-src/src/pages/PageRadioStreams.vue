@@ -22,11 +22,11 @@ import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_radio_streams()
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.tracks = new GroupByList(response.data.tracks)
   }
 }

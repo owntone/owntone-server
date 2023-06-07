@@ -79,7 +79,7 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_expression(
         'composer is "' + this.composer.name + '" and media_kind is music',
@@ -87,21 +87,21 @@ export default {
       )
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(
         'composer is "' + this.composer.name + '" and media_kind is music'
       )
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(
         'composer is "' + this.composer.name + '" and media_kind is music'
       )
     },
 
-    open_albums: function () {
+    open_albums() {
       this.$emit('close')
       this.$router.push({
         name: 'ComposerAlbums',
@@ -109,7 +109,7 @@ export default {
       })
     },
 
-    open_tracks: function () {
+    open_tracks() {
       this.show_details_modal = false
       this.$router.push({
         name: 'ComposerTracks',

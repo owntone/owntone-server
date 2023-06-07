@@ -67,15 +67,15 @@ export default {
   },
 
   methods: {
-    play_next: function () {
+    play_next() {
       webapi.player_next()
     },
 
-    set_volume: function (newVolume) {
+    set_volume(newVolume) {
       webapi.player_output_volume(this.output.id, newVolume)
     },
 
-    set_enabled: function () {
+    set_enabled() {
       const values = {
         selected: !this.output.selected
       }

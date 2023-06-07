@@ -64,14 +64,14 @@ import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_album(to.params.album_id),
       webapi.library_podcast_episodes(to.params.album_id)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.album = response[0].data
     vm.tracks = new GroupByList(response[1].data.tracks)
   }
@@ -116,11 +116,11 @@ export default {
   },
 
   methods: {
-    play: function () {
+    play() {
       webapi.player_play_uri(this.album.uri, false)
     },
 
-    open_remove_podcast_dialog: function () {
+    open_remove_podcast_dialog() {
       webapi
         .library_track_playlists(this.tracks.items[0].id)
         .then(({ data }) => {
@@ -132,7 +132,7 @@ export default {
         })
     },
 
-    remove_podcast: function () {
+    remove_podcast() {
       this.show_remove_podcast_modal = false
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)
@@ -141,7 +141,7 @@ export default {
         })
     },
 
-    reload_tracks: function () {
+    reload_tracks() {
       webapi.library_podcast_episodes(this.album.id).then(({ data }) => {
         this.tracks = new GroupByList(data.tracks)
       })

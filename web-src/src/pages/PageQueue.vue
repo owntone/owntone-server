@@ -162,19 +162,19 @@ export default {
   },
 
   methods: {
-    queue_clear: function () {
+    queue_clear() {
       webapi.queue_clear()
     },
 
-    update_show_next_items: function (e) {
+    update_show_next_items(e) {
       this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
     },
 
-    remove: function (item) {
+    remove(item) {
       webapi.queue_remove(item.id)
     },
 
-    move_item: function (e) {
+    move_item(e) {
       const oldPosition = !this.show_only_next_items
         ? e.oldIndex
         : e.oldIndex + this.current_position
@@ -185,16 +185,16 @@ export default {
       }
     },
 
-    open_dialog: function (item) {
+    open_dialog(item) {
       this.selected_item = item
       this.show_details_modal = true
     },
 
-    open_add_stream_dialog: function (item) {
+    open_add_stream_dialog(item) {
       this.show_url_modal = true
     },
 
-    save_dialog: function (item) {
+    save_dialog(item) {
       if (this.queue_items.length > 0) {
         this.show_pls_save_modal = true
       }

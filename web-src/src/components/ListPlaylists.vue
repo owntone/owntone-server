@@ -48,7 +48,7 @@ export default {
   },
 
   methods: {
-    open_playlist: function (playlist) {
+    open_playlist(playlist) {
       if (playlist.type !== 'folder') {
         this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
       } else {
@@ -56,12 +56,12 @@ export default {
       }
     },
 
-    open_dialog: function (playlist) {
+    open_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_details_modal = true
     },
 
-    icon_name: function (playlist) {
+    icon_name(playlist) {
       if (playlist.type === 'folder') {
         return 'folder'
       } else if (playlist.type === 'rss') {

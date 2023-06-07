@@ -161,7 +161,7 @@ export default {
     }
   },
 
-  mounted: function () {},
+  mounted() {},
 
   created() {
     this.item_progress_ms = this.state.item_progress_ms
@@ -181,27 +181,27 @@ export default {
   },
 
   methods: {
-    tick: function () {
+    tick() {
       if (!this.is_dragged) {
         this.item_progress_ms += 1000
       }
     },
 
-    start_dragging: function () {
+    start_dragging() {
       this.is_dragged = true
     },
 
-    end_dragging: function () {
+    end_dragging() {
       this.is_dragged = false
     },
 
-    seek: function (newPosition) {
+    seek(newPosition) {
       webapi.player_seek_to_pos(newPosition).catch(() => {
         this.item_progress_ms = this.state.item_progress_ms
       })
     },
 
-    open_dialog: function (item) {
+    open_dialog(item) {
       this.selected_item = item
       this.show_details_modal = true
     }

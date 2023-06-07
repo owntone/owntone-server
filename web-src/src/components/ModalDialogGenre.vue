@@ -70,7 +70,7 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_expression(
         'genre is "' + this.genre.name + '" and media_kind is music',
@@ -78,21 +78,21 @@ export default {
       )
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(
         'genre is "' + this.genre.name + '" and media_kind is music'
       )
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(
         'genre is "' + this.genre.name + '" and media_kind is music'
       )
     },
 
-    open_genre: function () {
+    open_genre() {
       this.$emit('close')
       this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
     }

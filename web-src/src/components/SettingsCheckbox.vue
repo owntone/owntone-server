@@ -118,7 +118,7 @@ export default {
         })
     },
 
-    clear_status: function () {
+    clear_status() {
       this.statusUpdate = ''
     }
   }

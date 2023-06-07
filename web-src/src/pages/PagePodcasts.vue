@@ -66,14 +66,14 @@ import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_albums('podcast'),
       webapi.library_podcasts_new_episodes()
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.albums = new GroupByList(response[0].data)
     vm.new_episodes = new GroupByList(response[1].data.tracks)
   }
@@ -118,31 +118,31 @@ export default {
   },
 
   methods: {
-    mark_all_played: function () {
+    mark_all_played() {
       this.new_episodes.items.forEach((ep) => {
         webapi.library_track_update(ep.id, { play_count: 'increment' })
       })
       this.new_episodes.items = {}
     },
 
-    open_add_podcast_dialog: function (item) {
+    open_add_podcast_dialog(item) {
       this.show_url_modal = true
     },
 
-    reload_new_episodes: function () {
+    reload_new_episodes() {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
         this.new_episodes = new GroupByList(data.tracks)
       })
     },
 
-    reload_podcasts: function () {
+    reload_podcasts() {
       webapi.library_albums('podcast').then(({ data }) => {
         this.albums = new GroupByList(data)
         this.reload_new_episodes()
       })
     },
 
-    update_rss: function () {
+    update_rss() {
       this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, 'rss')
       this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
     }

@@ -54,14 +54,14 @@ import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_album(to.params.album_id),
       webapi.library_album_tracks(to.params.album_id)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.album = response[0].data
     vm.tracks = new GroupByList(response[1].data)
   }
@@ -93,12 +93,12 @@ export default {
   },
 
   methods: {
-    open_artist: function () {
+    open_artist() {
       this.show_details_modal = false
       this.$router.push({ path: '/audiobooks/artists/' + this.album.artist_id })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_uri(this.album.uri, false)
     }
   }

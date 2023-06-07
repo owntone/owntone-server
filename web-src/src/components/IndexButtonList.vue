@@ -17,7 +17,7 @@ export default {
   name: 'IndexButtonList',
   props: ['index'],
   methods: {
-    nav: function (id) {
+    nav(id) {
       this.$router.push({ hash: '#index_' + id })
     }
   }

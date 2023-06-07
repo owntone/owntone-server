@@ -50,7 +50,7 @@ export default {
       return this.$store.state.spotify.webapi_token_valid
     },
 
-    route_query: function () {
+    route_query() {
       if (!this.query) {
         return null
       }
@@ -65,7 +65,7 @@ export default {
   },
 
   methods: {
-    search_library: function () {
+    search_library() {
       this.$store.commit(types.SEARCH_PATH, '/search/library')
       this.$router.push({
         path: this.$store.state.search_path,
@@ -73,7 +73,7 @@ export default {
       })
     },
 
-    search_spotify: function () {
+    search_spotify() {
       this.$store.commit(types.SEARCH_PATH, '/search/spotify')
       this.$router.push({
         path: this.$store.state.search_path,

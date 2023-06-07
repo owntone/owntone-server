@@ -94,7 +94,7 @@ export default {
   },
 
   methods: {
-    add_stream: function () {
+    add_stream() {
       this.loading = true
       webapi
         .library_add(this.url)

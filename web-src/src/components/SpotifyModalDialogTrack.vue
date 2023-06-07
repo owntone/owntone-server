@@ -118,26 +118,26 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.track.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.track.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.track.uri)
     },
 
-    open_album: function () {
+    open_album() {
       this.$router.push({ path: '/music/spotify/albums/' + this.album.id })
     },
 
-    open_artist: function () {
+    open_artist() {
       this.$router.push({
         path: '/music/spotify/artists/' + this.album.artists[0].id
       })

@@ -80,14 +80,14 @@ import ListArtists from '@/components/ListArtists.vue'
 import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import { byName, byYear, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName, byYear } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_artists('music')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.artists_list = new GroupByList(response.data)
   }
 }

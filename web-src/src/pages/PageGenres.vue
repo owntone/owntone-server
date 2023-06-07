@@ -25,14 +25,14 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListGenres from '@/components/ListGenres.vue'
 import webapi from '@/webapi'
-import { byName, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_genres('music')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.genres = response.data
     vm.genres = new GroupByList(response.data)
     vm.genres.group(byName('name_sort'))

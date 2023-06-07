@@ -73,22 +73,22 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.uris ? this.uris : this.playlist.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.uris ? this.uris : this.playlist.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.uris ? this.uris : this.playlist.uri)
     },
 
-    open_playlist: function () {
+    open_playlist() {
       this.$emit('close')
       this.$router.push({ path: '/playlists/' + this.playlist.id + '/tracks' })
     }

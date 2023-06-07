@@ -100,7 +100,7 @@ export default {
   },
 
   methods: {
-    add_stream: function () {
+    add_stream() {
       this.loading = true
       webapi
         .queue_add(this.url)
@@ -113,7 +113,7 @@ export default {
         })
     },
 
-    play: function () {
+    play() {
       this.loading = true
       webapi
         .player_play_uri(this.url, false)

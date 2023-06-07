@@ -61,17 +61,17 @@ import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
-import { byName, byYear, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName, byYear } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_artist(to.params.artist_id),
       webapi.library_artist_albums(to.params.artist_id)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.artist = response[0].data
     vm.albums_list = new GroupByList(response[1].data)
   }
@@ -142,13 +142,13 @@ export default {
   },
 
   methods: {
-    open_tracks: function () {
+    open_tracks() {
       this.$router.push({
         path: '/music/artists/' + this.artist.id + '/tracks'
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_uri(
         this.albums.items.map((a) => a.uri).join(','),
         true

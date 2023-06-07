@@ -229,22 +229,22 @@ export default {
   },
 
   methods: {
-    play_track: function () {
+    play_track() {
       this.$emit('close')
       webapi.player_play_uri(this.track.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.track.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.track.uri)
     },
 
-    open_album: function () {
+    open_album() {
       this.$emit('close')
       if (this.track.media_kind === 'podcast') {
         this.$router.push({ path: '/podcasts/' + this.track.album_id })
@@ -255,32 +255,32 @@ export default {
       }
     },
 
-    open_artist: function () {
+    open_artist() {
       this.$emit('close')
       this.$router.push({
         path: '/music/artists/' + this.track.album_artist_id
       })
     },
 
-    open_genre: function () {
+    open_genre() {
       this.$router.push({ name: 'Genre', params: { genre: this.track.genre } })
     },
 
-    open_spotify_artist: function () {
+    open_spotify_artist() {
       this.$emit('close')
       this.$router.push({
         path: '/music/spotify/artists/' + this.spotify_track.artists[0].id
       })
     },
 
-    open_spotify_album: function () {
+    open_spotify_album() {
       this.$emit('close')
       this.$router.push({
         path: '/music/spotify/albums/' + this.spotify_track.album.id
       })
     },
 
-    mark_new: function () {
+    mark_new() {
       webapi
         .library_track_update(this.track.id, { play_count: 'reset' })
         .then(() => {
@@ -289,7 +289,7 @@ export default {
         })
     },
 
-    mark_played: function () {
+    mark_played() {
       webapi
         .library_track_update(this.track.id, { play_count: 'increment' })
         .then(() => {

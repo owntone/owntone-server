@@ -379,20 +379,20 @@ export default {
     }
   },
 
-  mounted: function () {
+  mounted() {
     this.query = this.$route.query
     this.search()
   },
 
   methods: {
-    reset: function () {
+    reset() {
       this.tracks = { items: [], total: 0 }
       this.artists = { items: [], total: 0 }
       this.albums = { items: [], total: 0 }
       this.playlists = { items: [], total: 0 }
     },
 
-    search: function () {
+    search() {
       this.reset()
 
       // If no search query present reset and focus search field
@@ -415,7 +415,7 @@ export default {
       this.search_all()
     },
 
-    spotify_search: function () {
+    spotify_search() {
       return webapi.spotify().then(({ data }) => {
         this.search_param.market = data.webapi_country
 
@@ -429,7 +429,7 @@ export default {
       })
     },
 
-    search_all: function () {
+    search_all() {
       this.spotify_search().then((data) => {
         this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
         this.artists = data.artists ? data.artists : { items: [], total: 0 }
@@ -440,7 +440,7 @@ export default {
       })
     },
 
-    search_tracks_next: function ({ loaded }) {
+    search_tracks_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.tracks.items = this.tracks.items.concat(data.tracks.items)
         this.tracks.total = data.tracks.total
@@ -450,7 +450,7 @@ export default {
       })
     },
 
-    search_artists_next: function ({ loaded }) {
+    search_artists_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.artists.items = this.artists.items.concat(data.artists.items)
         this.artists.total = data.artists.total
@@ -460,7 +460,7 @@ export default {
       })
     },
 
-    search_albums_next: function ({ loaded }) {
+    search_albums_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.albums.items = this.albums.items.concat(data.albums.items)
         this.albums.total = data.albums.total
@@ -470,7 +470,7 @@ export default {
       })
     },
 
-    search_playlists_next: function ({ loaded }) {
+    search_playlists_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.playlists.items = this.playlists.items.concat(data.playlists.items)
         this.playlists.total = data.playlists.total
@@ -480,7 +480,7 @@ export default {
       })
     },
 
-    new_search: function () {
+    new_search() {
       if (!this.search_query) {
         return
       }
@@ -497,7 +497,7 @@ export default {
       this.$refs.search_field.blur()
     },
 
-    open_search_tracks: function () {
+    open_search_tracks() {
       this.$router.push({
         path: '/search/spotify',
         query: {
@@ -507,7 +507,7 @@ export default {
       })
     },
 
-    open_search_artists: function () {
+    open_search_artists() {
       this.$router.push({
         path: '/search/spotify',
         query: {
@@ -517,7 +517,7 @@ export default {
       })
     },
 
-    open_search_albums: function () {
+    open_search_albums() {
       this.$router.push({
         path: '/search/spotify',
         query: {
@@ -527,7 +527,7 @@ export default {
       })
     },
 
-    open_search_playlists: function () {
+    open_search_playlists() {
       this.$router.push({
         path: '/search/spotify',
         query: {
@@ -537,36 +537,36 @@ export default {
       })
     },
 
-    open_recent_search: function (query) {
+    open_recent_search(query) {
       this.search_query = query
       this.new_search()
     },
 
-    open_track_dialog: function (track) {
+    open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
     },
 
-    open_album_dialog: function (album) {
+    open_album_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
 
-    open_artist_dialog: function (artist) {
+    open_artist_dialog(artist) {
       this.selected_artist = artist
       this.show_artist_details_modal = true
     },
 
-    open_playlist_dialog: function (playlist) {
+    open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     },
 
-    open_album: function (album) {
+    open_album(album) {
       this.$router.push({ path: '/music/spotify/albums/' + album.id })
     },
 
-    artwork_url: function (album) {
+    artwork_url(album) {
       if (album.images && album.images.length > 0) {
         return album.images[0].url
       }

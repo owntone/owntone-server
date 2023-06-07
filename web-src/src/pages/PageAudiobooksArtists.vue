@@ -26,14 +26,14 @@ import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import webapi from '@/webapi'
-import { byName, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_artists('audiobook')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.artists_list = new GroupByList(response.data)
   }
 }

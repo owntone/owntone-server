@@ -72,7 +72,7 @@ export default {
   },
 
   methods: {
-    open_parent_directory: function () {
+    open_parent_directory() {
       const parent = this.current_directory.slice(
         0,
         this.current_directory.lastIndexOf('/')
@@ -95,14 +95,14 @@ export default {
       }
     },
 
-    open_directory: function (directory) {
+    open_directory(directory) {
       this.$router.push({
         path: '/files',
         query: { directory: directory.path }
       })
     },
 
-    open_dialog: function (directory) {
+    open_dialog(directory) {
       this.selected_directory = directory
       this.show_details_modal = true
     }

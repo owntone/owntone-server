@@ -52,17 +52,17 @@ import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
-import { byName, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_genre(to.params.genre),
       webapi.library_genre_albums(to.params.genre)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.genre = response[0].data
     vm.albums_list = new GroupByList(response[1].data.albums)
     vm.albums_list.group(byName('name_sort', true))
@@ -105,7 +105,7 @@ export default {
   },
 
   methods: {
-    open_tracks: function () {
+    open_tracks() {
       this.show_details_modal = false
       this.$router.push({
         name: 'GenreTracks',
@@ -113,7 +113,7 @@ export default {
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(
         'genre is "' + this.genre.name + '" and media_kind is music',
         true

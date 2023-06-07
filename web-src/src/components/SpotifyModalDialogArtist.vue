@@ -83,22 +83,22 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.artist.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.artist.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.artist.uri)
     },
 
-    open_artist: function () {
+    open_artist() {
       this.$router.push({ path: '/music/spotify/artists/' + this.artist.id })
     }
   }

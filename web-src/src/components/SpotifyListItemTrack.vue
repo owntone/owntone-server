@@ -39,7 +39,7 @@ export default {
   name: 'SpotifyListItemTrack',
   props: ['track', 'position', 'album', 'context_uri'],
   methods: {
-    play: function () {
+    play() {
       webapi.player_play_uri(this.context_uri, false, this.position)
     }
   }

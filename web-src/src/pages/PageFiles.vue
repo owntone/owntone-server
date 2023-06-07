@@ -49,14 +49,14 @@ import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     if (to.query.directory) {
       return webapi.library_files(to.query.directory)
     }
     return Promise.resolve()
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     if (response) {
       vm.dirs = response.data.directories
       vm.playlists = new GroupByList(response.data.playlists)
@@ -119,7 +119,7 @@ export default {
   },
 
   methods: {
-    play: function () {
+    play() {
       webapi.player_play_expression(this.play_expression, false)
     }
   }

@@ -29,7 +29,7 @@ export default {
   },
 
   methods: {
-    toggle_consume_mode: function () {
+    toggle_consume_mode() {
       webapi.player_consume(!this.is_consume)
     }
   }

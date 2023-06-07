@@ -80,7 +80,7 @@ import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return spotifyApi.getAlbum(to.params.album_id, {
@@ -88,7 +88,7 @@ const dataObject = {
     })
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.album = response
   }
 }
@@ -128,7 +128,7 @@ export default {
   },
 
   computed: {
-    artwork_url: function () {
+    artwork_url() {
       if (this.album.images && this.album.images.length > 0) {
         return this.album.images[0].url
       }
@@ -137,18 +137,18 @@ export default {
   },
 
   methods: {
-    open_artist: function () {
+    open_artist() {
       this.$router.push({
         path: '/music/spotify/artists/' + this.album.artists[0].id
       })
     },
 
-    play: function () {
+    play() {
       this.show_details_modal = false
       webapi.player_play_uri(this.album.uri, true)
     },
 
-    open_track_dialog: function (track) {
+    open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
     }

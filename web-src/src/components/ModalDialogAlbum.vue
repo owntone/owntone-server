@@ -134,32 +134,32 @@ export default {
   },
 
   computed: {
-    artwork_url: function () {
+    artwork_url() {
       return webapi.artwork_url_append_size_params(this.album.artwork_url)
     },
 
-    media_kind_resolved: function () {
+    media_kind_resolved() {
       return this.media_kind ? this.media_kind : this.album.media_kind
     }
   },
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.album.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.album.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.album.uri)
     },
 
-    open_album: function () {
+    open_album() {
       this.$emit('close')
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ path: '/podcasts/' + this.album.id })
@@ -170,7 +170,7 @@ export default {
       }
     },
 
-    open_artist: function () {
+    open_artist() {
       this.$emit('close')
       if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({
@@ -181,7 +181,7 @@ export default {
       }
     },
 
-    mark_played: function () {
+    mark_played() {
       webapi
         .library_album_track_update(this.album.id, { play_count: 'played' })
         .then(({ data }) => {
@@ -190,11 +190,11 @@ export default {
         })
     },
 
-    artwork_loaded: function () {
+    artwork_loaded() {
       this.artwork_visible = true
     },
 
-    artwork_error: function () {
+    artwork_error() {
       this.artwork_visible = false
     }
   }

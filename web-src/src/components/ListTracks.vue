@@ -72,7 +72,7 @@ export default {
   },
 
   methods: {
-    play_track: function (position, track) {
+    play_track(position, track) {
       if (this.uris) {
         webapi.player_play_uri(this.uris, false, position)
       } else if (this.expression) {
@@ -82,7 +82,7 @@ export default {
       }
     },
 
-    open_dialog: function (track) {
+    open_dialog(track) {
       this.selected_track = track
       this.show_details_modal = true
     }

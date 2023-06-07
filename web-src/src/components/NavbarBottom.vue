@@ -412,12 +412,12 @@ export default {
     }
   },
 
-  // on app mounted
+  // On app mounted
   mounted() {
     this.setupAudio()
   },
 
-  // on app destroyed
+  // On app destroyed
   unmounted() {
     this.closeAudio()
   },
@@ -427,11 +427,11 @@ export default {
       this.show_outputs_menu = false
     },
 
-    set_volume: function (newVolume) {
+    set_volume(newVolume) {
       webapi.player_volume(newVolume)
     },
 
-    toggle_mute_volume: function () {
+    toggle_mute_volume() {
       if (this.player.volume > 0) {
         this.set_volume(0)
       } else {
@@ -439,7 +439,7 @@ export default {
       }
     },
 
-    setupAudio: function () {
+    setupAudio() {
       const a = _audio.setupAudio()
 
       a.addEventListener('waiting', (e) => {
@@ -465,13 +465,13 @@ export default {
       })
     },
 
-    // close active audio
-    closeAudio: function () {
+    // Close active audio
+    closeAudio() {
       _audio.stopAudio()
       this.playing = false
     },
 
-    playChannel: function () {
+    playChannel() {
       if (this.playing) {
         return
       }
@@ -482,7 +482,7 @@ export default {
       _audio.setVolume(this.stream_volume / 100)
     },
 
-    togglePlay: function () {
+    togglePlay() {
       if (this.loading) {
         return
       }
@@ -492,7 +492,7 @@ export default {
       return this.playChannel()
     },
 
-    set_stream_volume: function (newVolume) {
+    set_stream_volume(newVolume) {
       this.stream_volume = newVolume
       _audio.setVolume(this.stream_volume / 100)
     }

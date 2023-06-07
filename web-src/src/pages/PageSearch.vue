@@ -345,13 +345,6 @@ export default {
     },
     show_all_podcasts_button() {
       return this.podcasts.total > this.podcasts.items.length
-    },
-
-    is_visible_artwork() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
     }
   },
 
@@ -361,12 +354,12 @@ export default {
     }
   },
 
-  mounted: function () {
+  mounted() {
     this.search(this.$route)
   },
 
   methods: {
-    search: function (route) {
+    search(route) {
       if (!route.query.query || route.query.query === '') {
         this.search_query = ''
         this.$refs.search_field.focus()
@@ -380,7 +373,7 @@ export default {
       this.$store.commit(types.ADD_RECENT_SEARCH, route.query.query)
     },
 
-    searchMusic: function (query) {
+    searchMusic(query) {
       if (
         query.type.indexOf('track') < 0 &&
         query.type.indexOf('artist') < 0 &&
@@ -415,7 +408,7 @@ export default {
       })
     },
 
-    searchAudiobooks: function (query) {
+    searchAudiobooks(query) {
       if (query.type.indexOf('audiobook') < 0) {
         return
       }
@@ -446,7 +439,7 @@ export default {
       })
     },
 
-    searchPodcasts: function (query) {
+    searchPodcasts(query) {
       if (query.type.indexOf('podcast') < 0) {
         return
       }
@@ -477,7 +470,7 @@ export default {
       })
     },
 
-    new_search: function () {
+    new_search() {
       if (!this.search_query) {
         return
       }
@@ -494,7 +487,7 @@ export default {
       this.$refs.search_field.blur()
     },
 
-    open_search_tracks: function () {
+    open_search_tracks() {
       this.$router.push({
         path: '/search/library',
         query: {
@@ -504,7 +497,7 @@ export default {
       })
     },
 
-    open_search_artists: function () {
+    open_search_artists() {
       this.$router.push({
         path: '/search/library',
         query: {
@@ -514,7 +507,7 @@ export default {
       })
     },
 
-    open_search_albums: function () {
+    open_search_albums() {
       this.$router.push({
         path: '/search/library',
         query: {
@@ -524,7 +517,7 @@ export default {
       })
     },
 
-    open_search_composers: function () {
+    open_search_composers() {
       this.$router.push({
         path: '/search/library',
         query: {
@@ -534,7 +527,7 @@ export default {
       })
     },
 
-    open_search_playlists: function () {
+    open_search_playlists() {
       this.$router.push({
         path: '/search/library',
         query: {
@@ -544,7 +537,7 @@ export default {
       })
     },
 
-    open_search_audiobooks: function () {
+    open_search_audiobooks() {
       this.$router.push({
         path: '/search/library',
         query: {
@@ -554,7 +547,7 @@ export default {
       })
     },
 
-    open_search_podcasts: function () {
+    open_search_podcasts() {
       this.$router.push({
         path: '/search/library',
         query: {
@@ -564,43 +557,43 @@ export default {
       })
     },
 
-    open_composer: function (composer) {
+    open_composer(composer) {
       this.$router.push({
         name: 'ComposerAlbums',
         params: { composer: composer.name }
       })
     },
 
-    open_playlist: function (playlist) {
+    open_playlist(playlist) {
       this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
     },
 
-    open_recent_search: function (query) {
+    open_recent_search(query) {
       this.search_query = query
       this.new_search()
     },
 
-    open_track_dialog: function (track) {
+    open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
     },
 
-    open_album_dialog: function (album) {
+    open_album_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
 
-    open_artist_dialog: function (artist) {
+    open_artist_dialog(artist) {
       this.selected_artist = artist
       this.show_artist_details_modal = true
     },
 
-    open_composer_dialog: function (composer) {
+    open_composer_dialog(composer) {
       this.selected_composer = composer
       this.show_composer_details_modal = true
     },
 
-    open_playlist_dialog: function (playlist) {
+    open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     }

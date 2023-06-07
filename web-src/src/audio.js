@@ -8,7 +8,7 @@ export default {
   _source: null,
   _gain: null,
 
-  // setup audio routing
+  // Setup audio routing
   setupAudio() {
     const AudioContext = window.AudioContext || window.webkitAudioContext
     this._context = new AudioContext()
@@ -27,7 +27,7 @@ export default {
     return this._audio
   },
 
-  // set audio volume
+  // Set audio volume
   setVolume(volume) {
     if (!this._gain) return
     volume = parseFloat(volume) || 0.0
@@ -36,7 +36,7 @@ export default {
     this._gain.gain.value = volume
   },
 
-  // play audio source url
+  // Play audio source url
   playSource(source) {
     this.stopAudio()
     this._context.resume().then(() => {
@@ -46,22 +46,22 @@ export default {
     })
   },
 
-  // stop playing audio
+  // Stop playing audio
   stopAudio() {
     try {
       this._audio.pause()
     } catch (e) {
-      // continue regardless of error
+      // Continue regardless of error
     }
     try {
       this._audio.stop()
     } catch (e) {
-      // continue regardless of error
+      // Continue regardless of error
     }
     try {
       this._audio.close()
     } catch (e) {
-      // continue regardless of error
+      // Continue regardless of error
     }
   }
 }

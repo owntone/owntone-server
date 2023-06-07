@@ -95,13 +95,13 @@ export default {
       ).value
     },
 
-    media_kind_resolved: function () {
+    media_kind_resolved() {
       return this.media_kind ? this.media_kind : this.selected_album.media_kind
     }
   },
 
   methods: {
-    open_album: function (album) {
+    open_album(album) {
       this.selected_album = album
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ path: '/podcasts/' + album.id })
@@ -112,12 +112,12 @@ export default {
       }
     },
 
-    open_dialog: function (album) {
+    open_dialog(album) {
       this.selected_album = album
       this.show_details_modal = true
     },
 
-    open_remove_podcast_dialog: function () {
+    open_remove_podcast_dialog() {
       webapi
         .library_album_tracks(this.selected_album.id, { limit: 1 })
         .then(({ data }) => {
@@ -131,11 +131,11 @@ export default {
         })
     },
 
-    play_count_changed: function () {
+    play_count_changed() {
       this.$emit('play-count-changed')
     },
 
-    remove_podcast: function () {
+    remove_podcast() {
       this.show_remove_podcast_modal = false
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)

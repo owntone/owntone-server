@@ -43,7 +43,7 @@ export default {
   },
 
   methods: {
-    toggle_repeat_mode: function () {
+    toggle_repeat_mode() {
       if (this.is_repeat_all) {
         webapi.player_repeat('single')
       } else if (this.is_repeat_single) {

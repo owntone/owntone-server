@@ -91,7 +91,7 @@ const dataObject = {
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.artist = response[0]
 
     vm.albums = []
@@ -149,7 +149,7 @@ export default {
   },
 
   methods: {
-    load_next: function ({ loaded }) {
+    load_next({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
       spotifyApi
@@ -164,27 +164,27 @@ export default {
         })
     },
 
-    append_albums: function (data) {
+    append_albums(data) {
       this.albums = this.albums.concat(data.items)
       this.total = data.total
       this.offset += data.limit
     },
 
-    play: function () {
+    play() {
       this.show_details_modal = false
       webapi.player_play_uri(this.artist.uri, true)
     },
 
-    open_album: function (album) {
+    open_album(album) {
       this.$router.push({ path: '/music/spotify/albums/' + album.id })
     },
 
-    open_dialog: function (album) {
+    open_dialog(album) {
       this.selected_album = album
       this.show_details_modal = true
     },
 
-    artwork_url: function (album) {
+    artwork_url(album) {
       if (album.images && album.images.length > 0) {
         return album.images[0].url
       }

@@ -25,14 +25,14 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import webapi from '@/webapi'
-import { byName, GroupByList } from '@/lib/GroupByList'
+import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_composers('music')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.composers = new GroupByList(response.data)
     vm.composers.group(byName('name_sort'))
   }

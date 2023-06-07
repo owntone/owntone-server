@@ -99,7 +99,7 @@ export default {
   },
 
   methods: {
-    save: function () {
+    save() {
       if (this.playlist_name.length < 1) {
         return
       }

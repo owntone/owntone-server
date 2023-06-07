@@ -83,7 +83,7 @@ const dataObject = {
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.playlist = response[0]
     vm.tracks = []
     vm.total = 0
@@ -130,7 +130,7 @@ export default {
   },
 
   methods: {
-    load_next: function ({ loaded }) {
+    load_next({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
       spotifyApi
@@ -144,18 +144,18 @@ export default {
         })
     },
 
-    append_tracks: function (data) {
+    append_tracks(data) {
       this.tracks = this.tracks.concat(data.items)
       this.total = data.total
       this.offset += data.limit
     },
 
-    play: function () {
+    play() {
       this.show_details_modal = false
       webapi.player_play_uri(this.playlist.uri, true)
     },
 
-    open_track_dialog: function (track) {
+    open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
     }

@@ -52,7 +52,7 @@ export default {
   },
 
   computed: {
-    media_kind_resolved: function () {
+    media_kind_resolved() {
       return this.media_kind
         ? this.media_kind
         : this.selected_composer.media_kind
@@ -60,7 +60,7 @@ export default {
   },
 
   methods: {
-    open_composer: function (composer) {
+    open_composer(composer) {
       this.selected_composer = composer
       this.$router.push({
         name: 'ComposerAlbums',
@@ -68,7 +68,7 @@ export default {
       })
     },
 
-    open_dialog: function (composer) {
+    open_dialog(composer) {
       this.selected_composer = composer
       this.show_details_modal = true
     }

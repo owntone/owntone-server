@@ -16,7 +16,7 @@ export default {
   props: ['playlist'],
 
   methods: {
-    open_playlist: function () {
+    open_playlist() {
       this.$router.push({
         path: '/music/spotify/playlists/' + this.playlist.id
       })

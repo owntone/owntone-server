@@ -58,7 +58,7 @@ import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.search({
         type: 'album',
@@ -75,7 +75,7 @@ const dataObject = {
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.recently_added = new GroupByList(response[0].data.albums)
     vm.recently_played = new GroupByList(response[1].data.tracks)
   }
@@ -110,7 +110,7 @@ export default {
   },
 
   methods: {
-    open_browse: function (type) {
+    open_browse(type) {
       this.$router.push({ path: '/music/browse/' + type })
     }
   }

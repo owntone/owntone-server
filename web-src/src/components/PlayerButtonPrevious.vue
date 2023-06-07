@@ -29,7 +29,7 @@ export default {
   },
 
   methods: {
-    play_previous: function () {
+    play_previous() {
       if (this.disabled) {
         return
       }

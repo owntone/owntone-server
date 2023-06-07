@@ -53,13 +53,13 @@ export default {
   },
 
   computed: {
-    media_kind_resolved: function () {
+    media_kind_resolved() {
       return this.media_kind ? this.media_kind : this.selected_artist.media_kind
     }
   },
 
   methods: {
-    open_artist: function (artist) {
+    open_artist(artist) {
       this.selected_artist = artist
       if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({ path: '/audiobooks/artists/' + artist.id })
@@ -68,7 +68,7 @@ export default {
       }
     },
 
-    open_dialog: function (artist) {
+    open_dialog(artist) {
       this.selected_artist = artist
       this.show_details_modal = true
     }

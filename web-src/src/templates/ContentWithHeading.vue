@@ -83,11 +83,11 @@ export default {
       })
     },
 
-    scroll_to_top: function () {
+    scroll_to_top() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     },
 
-    scroll_to_content: function () {
+    scroll_to_content() {
       if (this.$route.meta.has_tabs) {
         this.$scrollTo('#top', { offset: -140 })
       } else {
@@ -95,7 +95,7 @@ export default {
       }
     },
 
-    visibilityChanged: function (isVisible) {
+    visibilityChanged(isVisible) {
       this.options_visible = isVisible
     }
   }
