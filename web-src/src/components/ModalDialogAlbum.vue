@@ -10,7 +10,7 @@
                 :artwork_url="album.artwork_url"
                 :artist="album.artist"
                 :album="album.name"
-                class="image is-square fd-has-margin-bottom fd-has-shadow"
+                class="fd-has-shadow fd-has-margin-bottom fd-cover fd-cover-normal-image"
               />
               <p class="title is-4">
                 <a

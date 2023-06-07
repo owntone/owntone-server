@@ -1,19 +1,17 @@
 <template>
   <section>
     <div v-if="now_playing.id > 0" class="fd-is-fullheight">
-      <div class="fd-is-expanded">
-        <cover-artwork
-          :artwork_url="now_playing.artwork_url"
-          :artist="now_playing.artist"
-          :album="now_playing.album"
-          class="fd-cover-image fd-has-action"
-          @click="open_dialog(now_playing)"
-        />
-      </div>
+      <cover-artwork
+        :artwork_url="now_playing.artwork_url"
+        :artist="now_playing.artist"
+        :album="now_playing.album"
+        class="fd-has-action fd-has-shadow fd-is-expanded fd-cover fd-cover-big-image"
+        @click="open_dialog(now_playing)"
+      />
       <div class="fd-has-padding-left-right">
         <div class="container has-text-centered">
           <p class="control has-text-centered fd-progress-now-playing">
-            <Slider
+            <slider
               ref="slider"
               v-model="item_progress_ms"
               :min="0"

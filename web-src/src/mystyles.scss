@@ -126,7 +126,7 @@ section.hero + section.fd-content {
   top: 52px !important;
 }
 
-.fd-has-shadow {
+.fd-has-shadow img {
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
@@ -154,51 +154,50 @@ section.hero + section.fd-content {
 }
 
 .fd-is-fullheight .fd-is-expanded {
-  max-height: calc(100vh - 25rem);
   padding: 1.5rem;
   overflow: hidden;
-  flex-grow: 1;
-  flex-shrink: 1;
-
-  /* Use flex box to properly size children */
-  display: flex;
 }
 
-.fd-cover-image {
+.fd-cover {
   display: flex;
-  flex-grow: 1;
-  flex-shrink: 1;
-
-  /* Allow flex item to shrink smaller than its content size: https://stackoverflow.com/questions/36247140/why-dont-flex-items-shrink-past-content-size */
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-
-  /* Padding matches the drop-shadow size of the image */
-  padding: 10px;
-}
-
-.fd-cover-image img {
-  /* Use object-fit to properly size the cover artwork: https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit */
-  object-fit: contain;
-  object-position: center bottom;
-  filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.3))
-    drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
-
-  /* Allow flex item to grow/shrink to fill the whole container size */
-  flex-grow: 1;
-  flex-shrink: 1;
-
-  /* Unset height/width to allow flex sizing */
-  height: unset;
-  width: unset;
-  max-width: unset;
-  max-height: unset;
-
-  /* Allow flex item to shrink smaller than its content size: https://stackoverflow.com/questions/36247140/why-dont-flex-items-shrink-past-content-size */
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  justify-content: center;
+  &-small-image {
+    width: 64px;
+    height: 64px;
+    img {
+      border-radius: $radius-small;
+      max-width: 64px;
+      max-height: 64px;
+    }
+  }
+  &-medium-image {
+    @include from($tablet) {
+      justify-content: right;
+    }
+    img {
+      border-radius: $radius;
+      max-height: calc(150px - 1.5rem);
+    }
+  }
+  &-normal-image {
+    img {
+      border-radius: $radius-large;
+      width: 100%;
+    }
+  }
+  &-big-image {
+    @include mobile {
+      @media screen and (orientation: landscape) {
+        img {
+          display: none;
+        }
+      }
+    }
+    img {
+      border-radius: $radius-large;
+      max-height: calc(100vh - 26rem);
+    }
+  }
 }
 
 .sortable-chosen .media-right {
@@ -296,13 +295,11 @@ hr.fd-navbar-divider {
 
 .column {
   &.fd-has-cover {
-    max-height: 150px;
-    max-width: 150px;
     @include mobile {
       margin: auto;
     }
     @include from($tablet) {
-      margin: auto 0 auto auto;
+      margin-right: 0;
     }
   }
 }

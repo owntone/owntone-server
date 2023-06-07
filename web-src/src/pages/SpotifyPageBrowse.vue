@@ -14,15 +14,14 @@
           @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork
-                :artwork_url="artwork_url(album)"
-                :artist="album.artist"
-                :album="album.name"
-                :maxwidth="64"
-                :maxheight="64"
-              />
-            </p>
+            <cover-artwork
+              :artwork_url="artwork_url(album)"
+              :artist="album.artist"
+              :album="album.name"
+              class="fd-has-action fd-has-shadow fd-cover fd-cover-small-image"
+              :maxwidth="64"
+              :maxheight="64"
+            />
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">

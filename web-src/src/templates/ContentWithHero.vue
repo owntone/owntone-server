@@ -11,8 +11,7 @@
                   <slot name="heading-right" />
                 </div>
                 <div
-                  class="column is-three-fifths has-text-centered-mobile"
-                  style="margin: auto 0"
+                  class="column m-auto is-three-fifths has-text-centered-mobile"
                 >
                   <!-- Slot heading left -->
                   <slot name="heading-left" />

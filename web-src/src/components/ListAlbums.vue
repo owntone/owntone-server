@@ -8,20 +8,14 @@
       />
     </div>
     <div v-else-if="album.isItem" class="media" @click="open_album(album.item)">
-      <div v-if="is_visible_artwork" class="media-left fd-has-action">
-        <div class="image is-64x64 fd-has-shadow fd-has-action">
-          <figure>
-            <img
-              v-lazy="{
-                src: artwork_url_with_size(album.item.artwork_url),
-                lifecycle: artwork_options.lazy_lifecycle,
-                delay: 500
-              }"
-              :album="album.item.name"
-              :artist="album.item.artist"
-            />
-          </figure>
-        </div>
+      <div v-if="is_visible_artwork" class="media-left">
+        <cover-artwork
+          :artwork_url="album.item.artwork_url"
+          :artist="album.item.artist"
+          :album="album.item.name"
+          class="fd-has-action fd-has-shadow fd-cover fd-cover-small-image"
+          @click="show_album_details_modal = true"
+        />
       </div>
       <div class="media-content fd-has-action is-clipped">
         <div style="margin-top: 0.7rem">
@@ -73,15 +67,14 @@
 </template>
 
 <script>
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
-import { renderSVG } from '@/lib/SVGRenderer'
 
 export default {
   name: 'ListAlbums',
-  components: { ModalDialogAlbum, ModalDialog },
-
+  components: { CoverArtwork, ModalDialogAlbum, ModalDialog },
   props: ['albums', 'media_kind', 'hide_group_title'],
   emits: ['play-count-changed', 'podcast-deleted'],
 
@@ -89,25 +82,8 @@ export default {
     return {
       show_details_modal: false,
       selected_album: {},
-
       show_remove_podcast_modal: false,
-      rss_playlist_to_remove: {},
-
-      artwork_options: {
-        width: 600,
-        height: 600,
-        font_family: 'sans-serif',
-        font_size: 200,
-        font_weight: 600,
-        lazy_lifecycle: {
-          error: (el) => {
-            el.src = this.dataURI(
-              el.attributes.album.value,
-              el.attributes.artist.value
-            )
-          }
-        }
-      }
+      rss_playlist_to_remove: {}
     }
   },
 
@@ -166,43 +142,6 @@ export default {
         .then(() => {
           this.$emit('podcast-deleted')
         })
-    },
-
-    artwork_url_with_size: function (artwork_url) {
-      if (this.artwork_options.width > 0 && this.artwork_options.height > 0) {
-        return webapi.artwork_url_append_size_params(
-          artwork_url,
-          this.artwork_options.width,
-          this.artwork_options.height
-        )
-      }
-      return webapi.artwork_url_append_size_params(artwork_url)
-    },
-
-    alt_text(album, artist) {
-      return artist + ' - ' + album
-    },
-
-    caption(album, artist) {
-      if (album) {
-        return album.substring(0, 2)
-      }
-      if (artist) {
-        return artist.substring(0, 2)
-      }
-      return ''
-    },
-
-    dataURI: function (album, artist) {
-      const caption = this.caption(album, artist)
-      const alt_text = this.alt_text(album, artist)
-      return renderSVG(caption, alt_text, {
-        width: this.artwork_options.width,
-        height: this.artwork_options.height,
-        font_family: this.artwork_options.font_family,
-        font_size: this.artwork_options.font_size,
-        font_weight: this.artwork_options.font_weight
-      })
     }
   }
 }

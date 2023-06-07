@@ -6,17 +6,14 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <figure
-                v-show="artwork_visible"
-                class="image is-square fd-has-margin-bottom"
-              >
-                <img
-                  :src="artwork_url"
-                  class="fd-has-shadow"
-                  @load="artwork_loaded"
-                  @error="artwork_error"
-                />
-              </figure>
+              <cover-artwork
+                :artwork_url="artwork_url"
+                :artist="album.artist"
+                :album="album.name"
+                class="fd-has-shadow fd-has-margin-bottom fd-cover fd-cover-normal-image"
+                @load="artwork_loaded"
+                @error="artwork_error"
+              />
               <p class="title is-4">
                 <a
                   class="has-text-link"
@@ -96,9 +93,11 @@
 
 <script>
 import webapi from '@/webapi'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 
 export default {
   name: 'SpotifyModalDialogAlbum',
+  components: { CoverArtwork },
   props: ['show', 'album'],
   emits: ['close'],
 

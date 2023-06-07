@@ -19,14 +19,13 @@
       </div>
     </template>
     <template #heading-right>
-      <p class="image is-square fd-has-shadow fd-has-action">
-        <cover-artwork
-          :artwork_url="album.artwork_url"
-          :artist="album.artist"
-          :album="album.name"
-          @click="show_album_details_modal = true"
-        />
-      </p>
+      <cover-artwork
+        :artwork_url="album.artwork_url"
+        :artist="album.artist"
+        :album="album.name"
+        class="fd-has-action fd-has-shadow fd-cover fd-cover-medium-image"
+        @click="show_album_details_modal = true"
+      />
     </template>
     <template #content>
       <p
@@ -101,11 +100,6 @@ export default {
 
     play: function () {
       webapi.player_play_uri(this.album.uri, false)
-    },
-
-    open_dialog: function (track) {
-      this.selected_track = track
-      this.show_details_modal = true
     }
   }
 }
