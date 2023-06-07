@@ -3,19 +3,18 @@
     <div class="media-content fd-has-action is-clipped" @click="play">
       <h1
         class="title is-6"
-        :class="{ 'has-text-grey-light': track.is_playable === false }"
+        :class="{ 'has-text-grey-light': !track.is_playable }"
         v-text="track.name"
       />
       <h2
         class="subtitle is-7"
         :class="{
           'has-text-grey': track.is_playable,
-          'has-text-grey-light': track.is_playable === false
+          'has-text-grey-light': !track.is_playable
         }"
-      >
-        <b v-text="track.artists[0].name" />
-      </h2>
-      <h2 v-if="track.is_playable === false" class="subtitle is-7">
+        v-text="track.artists[0].name"
+      />
+      <h2 v-if="!track.is_playable" class="subtitle is-7">
         (<span v-text="$t('list.spotify.not-playable-track')" />
         <span
           v-if="track.restrictions && track.restrictions.reason"
