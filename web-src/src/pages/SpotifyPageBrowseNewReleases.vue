@@ -3,7 +3,7 @@
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">New Releases</p>
+        <p class="title is-4" v-text="$t('page.spotify.browse.new-releases')" />
       </template>
       <template #content>
         <spotify-list-item-album

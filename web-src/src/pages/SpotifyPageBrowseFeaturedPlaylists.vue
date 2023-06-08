@@ -3,7 +3,10 @@
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Featured Playlists</p>
+        <p
+          class="title is-4"
+          v-text="$t('page.spotify.browse.featured-playlists')"
+        />
       </template>
       <template #content>
         <spotify-list-item-playlist
