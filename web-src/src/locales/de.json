@@ -74,6 +74,7 @@
     "playlist": {
       "add-next": "Als nächstes hinzufügen",
       "add": "Hinzufügen",
+      "path": "Pfad",
       "play": "Spielen",
       "track-count": "Tracknummer",
       "type": "Art",
@@ -541,6 +542,12 @@
         "show-all-tracks": "Zeige alle {count} Tracks",
         "tracks": "Tracks"
       }
+    }
+  },
+  "playlist": {
+    "type": {
+      "plain": "Einfache",
+      "smart": "Intelligente"
     }
   },
   "player": {

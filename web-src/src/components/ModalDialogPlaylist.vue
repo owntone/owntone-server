@@ -15,12 +15,15 @@
               </p>
               <div class="content is-small">
                 <p>
-                  <span class="heading">Path</span>
+                  <span class="heading" v-text="$t('dialog.playlist.path')" />
                   <span class="title is-6" v-text="playlist.path" />
                 </p>
                 <p>
                   <span class="heading" v-text="$t('dialog.playlist.type')" />
-                  <span class="title is-6" v-text="playlist.type" />
+                  <span
+                    class="title is-6"
+                    v-text="$t('playlist.type.' + playlist.type)"
+                  />
                 </p>
                 <p v-if="!playlist.folder">
                   <span

@@ -75,6 +75,7 @@
       "add-next": "Add Next",
       "add": "Add",
       "play": "Play",
+      "path": "Path",
       "track-count": "Track Count",
       "type": "Type",
       "save": {
@@ -541,6 +542,12 @@
         "show-all-tracks": "Show all {count} tracks",
         "tracks": "Tracks"
       }
+    }
+  },
+  "playlist": {
+    "type": {
+      "plain": "Plain",
+      "smart": "Smart"
     }
   },
   "player": {

@@ -75,6 +75,7 @@
       "add-next": "Ajouter ensuite",
       "add": "Ajouter",
       "play": "Lire",
+      "path": "Emplacement",
       "track-count": "Pistes",
       "type": "Type",
       "save": {
@@ -541,6 +542,12 @@
         "show-all-tracks": "Afficher les {count} pistes",
         "tracks": "Pistes"
       }
+    }
+  },
+  "playlist": {
+    "type": {
+      "plain": "Simple",
+      "smart": "Intelligente"
     }
   },
   "player": {
