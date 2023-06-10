@@ -43,7 +43,6 @@
         :key="track.id"
         :track="track"
         :position="index"
-        :album="album"
         :context_uri="album.uri"
       >
         <template #actions>

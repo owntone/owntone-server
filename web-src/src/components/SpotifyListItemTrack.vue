@@ -1,6 +1,12 @@
 <template>
   <div class="media">
-    <div class="media-content fd-has-action is-clipped" @click="play">
+    <div
+      class="media-content is-clipped"
+      :class="{
+        'is-clickable': track.is_playable
+      }"
+      @click="play"
+    >
       <h1
         class="title is-6"
         :class="{ 'has-text-grey-light': !track.is_playable }"
@@ -37,10 +43,12 @@ import webapi from '@/webapi'
 
 export default {
   name: 'SpotifyListItemTrack',
-  props: ['track', 'position', 'album', 'context_uri'],
+  props: ['track', 'position', 'context_uri'],
   methods: {
     play() {
-      webapi.player_play_uri(this.context_uri, false, this.position)
+      if (this.track.is_playable) {
+        webapi.player_play_uri(this.context_uri, false, this.position)
+      }
     }
   }
 }

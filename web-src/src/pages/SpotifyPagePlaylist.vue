@@ -25,11 +25,10 @@
         "
       />
       <spotify-list-item-track
-        v-for="(track, index) in tracks"
+        v-for="track in tracks"
         :key="track.id"
         :track="track"
-        :album="track.album"
-        :position="index"
+        :position="track.position"
         :context_uri="playlist.uri"
       >
         <template #actions>
@@ -67,6 +66,7 @@ import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+import { mdiAxe } from '@mdi/js'
 
 const PAGE_SIZE = 50
 
@@ -147,12 +147,20 @@ export default {
     },
 
     append_tracks(data) {
-      this.tracks = data.items.reduce((tracks, item) => {
-        if (item.track) {
-          tracks.push(item.track)
+      let position = Math.max(
+        -1,
+        ...this.tracks.map((item) => item.position).filter((item) => item)
+      )
+      // Filters out null tracks and adds a position to the playable tracks
+      data.items.forEach((item) => {
+        const track = item.track
+        if (track) {
+          if (track.is_playable) {
+            track.position = ++position
+          }
+          this.tracks.push(track)
         }
-        return tracks
-      }, this.tracks)
+      })
       this.total = data.total
       this.offset += data.limit
     },

@@ -46,7 +46,6 @@
           v-for="track in tracks.items"
           :key="track.id"
           :track="track"
-          :album="track.album"
           :position="0"
           :context_uri="track.uri"
         >
