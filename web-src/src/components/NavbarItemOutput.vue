@@ -5,7 +5,7 @@
         <div class="level-item" style="flex-grow: 0">
           <a class="button is-white is-small">
             <span
-              class="icon fd-has-action"
+              class="icon is-clickable"
               :class="{ 'has-text-grey-light': !output.selected }"
               @click="set_enabled"
               ><mdicon :name="type_class" size="18" :title="output.type"

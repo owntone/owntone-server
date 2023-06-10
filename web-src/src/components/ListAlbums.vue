@@ -13,11 +13,11 @@
           :artwork_url="album.item.artwork_url"
           :artist="album.item.artist"
           :album="album.item.name"
-          class="fd-has-action fd-has-shadow fd-cover fd-cover-small-image"
+          class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
           @click="show_album_details_modal = true"
         />
       </div>
-      <div class="media-content fd-has-action is-clipped">
+      <div class="media-content is-clickable is-clipped">
         <div style="margin-top: 0.7rem">
           <h1 class="title is-6" v-text="album.item.name" />
           <h2 class="subtitle is-7 has-text-grey">

@@ -3,7 +3,8 @@
     <div
       class="media-content is-clipped"
       :class="{
-        'is-clickable': track.is_playable
+        'is-clickable': track.is_playable,
+        'fd-is-not-allowed': !track.is_playable
       }"
       @click="play"
     >

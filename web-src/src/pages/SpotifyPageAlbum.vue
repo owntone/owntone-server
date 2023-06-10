@@ -27,7 +27,7 @@
         :artwork_url="artwork_url"
         :artist="album.artist"
         :album="album.name"
-        class="fd-has-action fd-has-shadow fd-cover fd-cover-medium-image"
+        class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"
         @click="show_album_details_modal = true"
       />
     </template>

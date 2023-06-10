@@ -5,7 +5,7 @@
         :artwork_url="now_playing.artwork_url"
         :artist="now_playing.artist"
         :album="now_playing.album"
-        class="fd-has-action fd-has-shadow fd-is-expanded fd-cover fd-cover-big-image"
+        class="is-clickable fd-has-shadow fd-is-expanded fd-cover fd-cover-big-image"
         @click="open_dialog(now_playing)"
       />
       <div class="fd-has-padding-left-right">

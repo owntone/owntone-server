@@ -6,12 +6,12 @@
     :playlist="playlist"
     @click="open_playlist(playlist.item)"
   >
-    <figure class="media-left fd-has-action">
+    <figure class="media-left is-clickable">
       <span class="icon"
         ><mdicon :name="icon_name(playlist.item)" size="16"
       /></span>
     </figure>
-    <div class="media-content fd-has-action is-clipped">
+    <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6" v-text="playlist.item.name" />
     </div>
     <div class="media-right">

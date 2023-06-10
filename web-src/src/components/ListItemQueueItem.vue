@@ -5,7 +5,7 @@
         ><mdicon name="drag-horizontal" size="16"
       /></span>
     </div>
-    <div class="media-content fd-has-action is-clipped" @click="play">
+    <div class="media-content is-clickable is-clipped" @click="play">
       <h1
         class="title is-6"
         :class="{

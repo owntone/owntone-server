@@ -33,7 +33,7 @@
             :artwork_url="artwork_url(album)"
             :artist="album.artist"
             :album="album.name"
-            class="fd-has-action fd-has-shadow fd-cover fd-cover-small-image"
+            class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
             :maxwidth="64"
             :maxheight="64"
           />

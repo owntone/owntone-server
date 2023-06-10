@@ -14,7 +14,7 @@
       class="media"
       @click="open_composer(composer.item)"
     >
-      <div class="media-content fd-has-action is-clipped">
+      <div class="media-content is-clickable is-clipped">
         <h1 class="title is-6" v-text="composer.item.name" />
       </div>
       <div class="media-right">

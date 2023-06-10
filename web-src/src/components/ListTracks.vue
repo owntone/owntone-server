@@ -13,10 +13,10 @@
       :class="{ 'with-progress': show_progress }"
       @click="play_track(index, track.item)"
     >
-      <figure v-if="show_icon" class="media-left fd-has-action">
+      <figure v-if="show_icon" class="media-left is-clickable">
         <span class="icon"><mdicon name="file-outline" size="16" /></span>
       </figure>
-      <div class="media-content fd-has-action is-clipped">
+      <div class="media-content is-clickable is-clipped">
         <h1
           class="title is-6"
           :class="{

@@ -66,7 +66,6 @@ import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
-import { mdiAxe } from '@mdi/js'
 
 const PAGE_SIZE = 50
 

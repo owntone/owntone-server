@@ -146,7 +146,7 @@
                     class="button is-white is-small"
                     :class="{ 'is-loading': loading }"
                     ><span
-                      class="icon fd-has-action"
+                      class="icon is-clickable"
                       :class="{
                         'has-text-grey-light': !playing && !loading,
                         'is-loading': loading
@@ -269,7 +269,7 @@
                   :class="{ 'is-loading': loading }"
                 >
                   <span
-                    class="icon fd-has-action"
+                    class="icon is-clickable"
                     :class="{
                       'has-text-grey-light': !playing && !loading,
                       'is-loading': loading

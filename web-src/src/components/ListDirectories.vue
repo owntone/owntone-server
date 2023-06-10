@@ -4,12 +4,12 @@
     class="media"
     @click="open_parent_directory()"
   >
-    <figure class="media-left fd-has-action">
+    <figure class="media-left is-clickable">
       <span class="icon"
         ><mdicon name="subdirectory-arrow-left" size="16"
       /></span>
     </figure>
-    <div class="media-content fd-has-action is-clipped">
+    <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6">..</h1>
     </div>
     <div class="media-right">
@@ -18,10 +18,10 @@
   </div>
   <template v-for="directory in directories" :key="directory.path">
     <div class="media" @click="open_directory(directory)">
-      <figure class="media-left fd-has-action">
+      <figure class="media-left is-clickable">
         <span class="icon"><mdicon name="folder" size="16" /></span>
       </figure>
-      <div class="media-content fd-has-action is-clipped">
+      <div class="media-content is-clickable is-clipped">
         <h1
           class="title is-6"
           v-text="directory.path.substring(directory.path.lastIndexOf('/') + 1)"
