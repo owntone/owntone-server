@@ -25,15 +25,15 @@
         "
       />
       <spotify-list-item-track
-        v-for="(item, index) in tracks"
-        :key="item.track.id"
-        :track="item.track"
-        :album="item.track.album"
+        v-for="(track, index) in tracks"
+        :key="track.id"
+        :track="track"
+        :album="track.album"
         :position="index"
         :context_uri="playlist.uri"
       >
         <template #actions>
-          <a @click.prevent.stop="open_track_dialog(item.track)">
+          <a @click.prevent.stop="open_track_dialog(track)">
             <span class="icon has-text-dark"
               ><mdicon name="dots-vertical" size="16"
             /></span>
@@ -78,7 +78,8 @@ const dataObject = {
       spotifyApi.getPlaylist(to.params.playlist_id),
       spotifyApi.getPlaylistTracks(to.params.playlist_id, {
         limit: PAGE_SIZE,
-        offset: 0
+        offset: 0,
+        market: store.state.spotify.webapi_country
       })
     ])
   },
@@ -136,7 +137,8 @@ export default {
       spotifyApi
         .getPlaylistTracks(this.playlist.id, {
           limit: PAGE_SIZE,
-          offset: this.offset
+          offset: this.offset,
+          market: store.state.spotify.webapi_country
         })
         .then((data) => {
           this.append_tracks(data)
@@ -145,7 +147,12 @@ export default {
     },
 
     append_tracks(data) {
-      this.tracks = this.tracks.concat(data.items)
+      this.tracks = data.items.reduce((tracks, item) => {
+        if (item.track) {
+          tracks.push(item.track)
+        }
+        return tracks
+      }, this.tracks)
       this.total = data.total
       this.offset += data.limit
     },
