@@ -159,6 +159,7 @@ section.hero + section.fd-content {
 }
 
 .fd-cover {
+  align-items: center;
   display: flex;
   justify-content: center;
   &-small-image {
