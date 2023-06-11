@@ -39,7 +39,7 @@
       <!-- Skip previous (not visible on "now playing" page) -->
       <player-button-previous
         v-if="is_now_playing_page"
-        class="navbar-item fd-margin-left-auto"
+        class="navbar-item ml-auto"
         :icon_size="24"
       />
       <player-button-seek-back
@@ -68,7 +68,7 @@
       />
       <!-- Player menu button (only visible on mobile and tablet) -->
       <a
-        class="navbar-item fd-margin-left-auto is-hidden-desktop"
+        class="navbar-item ml-auto is-hidden-desktop"
         @click="show_player_menu = !show_player_menu"
       >
         <span class="icon"
@@ -79,7 +79,7 @@
       </a>
       <!-- Player menu dropup menu (only visible on desktop) -->
       <div
-        class="navbar-item has-dropdown has-dropdown-up fd-margin-left-auto is-hidden-touch"
+        class="navbar-item has-dropdown has-dropdown-up ml-auto is-hidden-touch"
         :class="{ 'is-active': show_player_menu }"
       >
         <a

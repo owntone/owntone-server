@@ -62,10 +62,6 @@ a.navbar-item {
   flex-shrink: 1;
 }
 
-.fd-margin-left-auto {
-  margin-left: auto;
-}
-
 .fd-is-not-allowed {
   cursor: not-allowed;
 }
@@ -80,10 +76,6 @@ a.navbar-item {
 
 .fd-has-margin-bottom {
   margin-bottom: 24px;
-}
-
-.fd-remove-padding-bottom {
-  padding-bottom: 0;
 }
 
 .fd-has-padding-left-right {
@@ -249,14 +241,6 @@ section.hero + section.fd-content {
 .fd-modal-card .card {
   margin-left: 16px;
   margin-right: 16px;
-}
-
-.dropdown-item a {
-  display: block;
-}
-
-.dropdown-item:hover {
-  background-color: hsl(0, 0%, 96%);
 }
 
 .navbar-item .fd-navbar-item-level2 {
