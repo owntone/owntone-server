@@ -10,8 +10,8 @@
   margin-top: 16px;
   margin-bottom: 16px;
   --slider-height: 4px;
-  --slider-connect-bg: hsl(0, 0%, 21%);
-  --slider-tooltip-bg: hsl(0, 0%, 21%);
+  --slider-connect-bg: #{$dark};
+  --slider-tooltip-bg: #{$dark};
   --slider-handle-ring-color: #3b82f630;
   --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.32);
   --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.42);
@@ -25,9 +25,9 @@
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
   margin: 0 auto 16px auto;
   --slider-height: 4px;
-  --slider-connect-bg: hsl(171, 100%, 41%);
-  --slider-tooltip-bg: hsl(171, 100%, 41%);
-  --slider-handle-bg: hsl(171, 100%, 41%);
+  --slider-connect-bg: #{$primary};
+  --slider-tooltip-bg: #{$primary};
+  --slider-handle-bg: #{$primary};
   --slider-handle-border: 0;
   --slider-handle-width: 10px;
   --slider-handle-height: 10px;
@@ -107,7 +107,7 @@ a.navbar-item {
 .fd-tabs-section {
   padding-bottom: 3px;
   padding-top: 3px;
-  background: white;
+  background: #{white};
   top: 3.25rem;
   z-index: 20;
   position: fixed;
@@ -206,7 +206,7 @@ section.hero + section.fd-content {
 }
 .sortable-ghost h1,
 .sortable-ghost h2 {
-  color: hsl(348, 100%, 61%) !important;
+  color: #{$danger};
 }
 
 .media:first-of-type {
