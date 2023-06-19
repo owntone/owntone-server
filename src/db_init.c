@@ -98,7 +98,8 @@
   "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   channels           INTEGER DEFAULT 0,"		\
   "   usermark           INTEGER DEFAULT 0,"		\
-  "   scan_kind          INTEGER DEFAULT 0"		\
+  "   scan_kind          INTEGER DEFAULT 0,"		\
+  "   audio_hash         VARCHAR(128) DEFAULT NULL"	\
   ");"
 
 #define T_PL					\

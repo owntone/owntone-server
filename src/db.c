@@ -230,6 +230,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "channels",           mfi_offsetof(channels),           DB_TYPE_INT },
     { "usermark",           mfi_offsetof(usermark),           DB_TYPE_INT },
     { "scan_kind",          mfi_offsetof(scan_kind),          DB_TYPE_INT },
+    { "audio_hash",         mfi_offsetof(audio_hash),         DB_TYPE_STRING },
   };
 
 /* This list must be kept in sync with
@@ -371,6 +372,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(channels),
     dbmfi_offsetof(usermark),
     dbmfi_offsetof(scan_kind),
+    dbmfi_offsetof(audio_hash),
   };
 
 /* This list must be kept in sync with
@@ -777,6 +779,7 @@ free_mfi(struct media_file_info *mfi, int content_only)
   free(mfi->composer_sort);
   free(mfi->album_artist_sort);
   free(mfi->virtual_path);
+  free(mfi->audio_hash);
 
   if (!content_only)
     free(mfi);

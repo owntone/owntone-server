@@ -248,6 +248,8 @@ struct media_file_info {
   char *composer_sort;
 
   uint32_t scan_kind; /* Identifies the library_source that created/updates this item */
+
+  char *audio_hash;  /* sha256 - ffmpeg -i foo.mp3 -c:a copy -bsf:a null -f hash - */
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -422,6 +424,7 @@ struct db_media_file_info {
   char *channels;
   char *usermark;
   char *scan_kind;
+  char *audio_hash;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
