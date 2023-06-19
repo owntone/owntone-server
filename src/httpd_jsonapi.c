@@ -312,6 +312,8 @@ track_to_json(struct db_media_file_info *dbmfi)
   safe_json_add_int_from_string(item, "channels", dbmfi->channels);
   safe_json_add_int_from_string(item, "usermark", dbmfi->usermark);
 
+  safe_json_add_string(item, "audio_hash", dbmfi->audio_hash);
+
   ret = safe_atoi32(dbmfi->media_kind, &intval);
   if (ret == 0)
     safe_json_add_string(item, "media_kind", db_media_kind_label(intval));
