@@ -29,6 +29,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/hash.h>
 #include <libavutil/opt.h>
 
 #include "db.h"
@@ -373,6 +374,53 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
   return mdcount;
 }
 
+static int
+calc_audio_hash(struct media_file_info *mfi, AVFormatContext *ctx, const int audio_stream_idx)
+{
+    struct AVPacket *pkt = NULL;
+    struct AVHashContext *hash = NULL;
+    char res[2 * AV_HASH_MAX_SIZE + 4] = { 0 };
+    int ret = -1;
+
+    if (!cfg_getbool(cfg_getsec(cfg, "library"), "audio_hash"))
+      return 0;
+
+
+    pkt = av_packet_alloc();
+
+    ret = av_hash_alloc(&hash, "sha256");
+    if (ret < 0)
+      {
+	DPRINTF(E_WARN, L_SCAN, "Failed to find sha256 hash - %s\n", ret == EINVAL ? "unknown hash" : strerror(ret));
+        goto cleanup;
+      }
+
+    av_hash_init(hash);
+
+    while ((ret = av_read_frame(ctx, pkt)) >= 0)
+      {
+	if (pkt->stream_index != audio_stream_idx) {
+	    av_packet_unref(pkt);
+	    continue;
+	}
+
+	av_hash_update(hash, pkt->data, pkt->size);
+	av_packet_unref(pkt);
+      }
+
+    av_hash_final_hex(hash, (uint8_t*)res, sizeof(res));
+
+    mfi->audio_hash = strdup(res);
+
+    ret = 0;
+
+cleanup:
+    if (pkt)   av_packet_free(&pkt);
+    if (hash)  av_hash_freep(&hash);
+
+    return ret;
+}
+
 /*
  * Fills metadata read with ffmpeg/libav from the given path into the given mfi
  *
@@ -512,6 +560,10 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 	      {
 		audio_stream = ctx->streams[i];
 		audio_codec_id = codec_id;
+
+		/* only scan for files because we need to read the entire audio */
+	        if (mfi->data_kind == DATA_KIND_FILE)
+		  calc_audio_hash(mfi, ctx, i);
 
 		mfi->samplerate = sample_rate;
 		mfi->bits_per_sample = 8 * av_get_bytes_per_sample(sample_fmt);
