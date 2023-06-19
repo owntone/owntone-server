@@ -238,6 +238,12 @@ library {
 	# the playlist like MPD does. Note that some dacp clients do not show
 	# the playqueue if playback is stopped.
 #	clear_queue_on_stop_disable = false
+
+	# Enable audio hash persistance for local files
+	# Audio streams of files can be hashed to give identifiers to audio files
+	# that are independant of any metadata, but generation is a more expensive
+	# operation
+#	audio_hash = false
 }
 
 # Local audio output

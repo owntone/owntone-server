@@ -121,6 +121,7 @@ static cfg_opt_t sec_library[] =
     CFG_BOOL("only_first_genre", cfg_false, CFGF_NONE),
     CFG_STR_LIST("decode_audio_filters", NULL, CFGF_NONE),
     CFG_STR_LIST("decode_video_filters", NULL, CFGF_NONE),
+    CFG_BOOL("audio_hash", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
