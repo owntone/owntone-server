@@ -13,7 +13,7 @@
                     v-model="search_query"
                     class="input is-rounded is-shadowless"
                     type="text"
-                    placeholder="Search"
+                    :placeholder="$t('page.search.placeholder')"
                     autocomplete="off"
                   />
                   <span class="icon is-left"
