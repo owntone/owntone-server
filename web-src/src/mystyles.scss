@@ -3,40 +3,6 @@
 @import 'bulma/bulma.sass';
 @import 'bulma-switch';
 
-/* Volume slider */
-.slider {
-  min-width: 250px;
-  width: 100%;
-  margin-top: 16px;
-  margin-bottom: 16px;
-  --slider-height: 4px;
-  --slider-connect-bg: #{$dark};
-  --slider-tooltip-bg: #{$dark};
-  --slider-handle-ring-color: #3b82f630;
-  --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.32);
-  --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.42);
-}
-
-/* Now playing progress bar */
-.seek-slider {
-  min-width: 250px;
-  max-width: 500px;
-  width: 100% !important;
-  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-  margin: 0 auto 16px auto;
-  --slider-height: 4px;
-  --slider-connect-bg: #{$primary};
-  --slider-tooltip-bg: #{$primary};
-  --slider-handle-bg: #{$primary};
-  --slider-handle-border: 0;
-  --slider-handle-width: 10px;
-  --slider-handle-height: 10px;
-  --slider-handle-radius: 9999px;
-  --slider-handle-shadow: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.32);
-  --slider-handle-shadow-active: 0.5px 0.5px 0.5px 0.5px rgba(0, 0, 0, 0.42);
-  --slider-handle-ring-width: 3px;
-}
-
 .progress-bar {
   background-color: $info;
   border-radius: 9999px;
@@ -298,4 +264,68 @@ hr.fd-navbar-divider {
 
 .hero-body {
   padding: 1.5rem !important;
+}
+
+/* Slider */
+@mixin thumb {
+  -webkit-appearance: none;
+  width: var(--th);
+  height: var(--th);
+  border-radius: 50%;
+  background: $dark;
+  border: none;
+}
+
+@mixin track {
+  height: calc(var(--sh));
+  border-radius: calc(var(--sh) / 2);
+  background: linear-gradient(90deg, $dark var(--sx), $grey-light var(--sx));
+}
+
+input[type='range'].slider {
+  --sh: 0.5rem;
+  --th: calc(var(--sh) * 1.5);
+  --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
+  -webkit-appearance: none;
+  min-width: 250px;
+  width: 100% !important;
+  cursor: grab;
+  &:active {
+    cursor: grabbing;
+  }
+  &::-webkit-slider-thumb {
+    @include thumb;
+    margin-top: calc((var(--th) - var(--sh)) / -2);
+  }
+  &::-moz-range-thumb {
+    @include thumb;
+  }
+  &::-webkit-slider-runnable-track {
+    @include track;
+  }
+  &::-moz-range-track {
+    @include track;
+  }
+  &.is-inactive {
+    &::-webkit-slider-thumb {
+      background-color: $grey-light;
+    }
+    &::-webkit-slider-runnable-track {
+      background: linear-gradient(
+        90deg,
+        $grey-light var(--sx),
+        $light var(--sx)
+      );
+    }
+    &::-moz-range-thumb {
+      background-color: $grey-light;
+    }
+    &::-moz-range-track {
+      background: linear-gradient(
+        90deg,
+        $grey-light var(--sx),
+        $light var(--sx)
+      );
+    }
+  }
 }

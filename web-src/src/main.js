@@ -12,7 +12,6 @@ import { icons } from './icons'
 import App from './App.vue'
 
 import './mystyles.scss'
-import '@vueform/slider/themes/default.css'
 
 const app = createApp(App)
   .use(store)

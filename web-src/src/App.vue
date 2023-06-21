@@ -3,7 +3,7 @@
     <navbar-top />
     <vue-progress-bar class="fd-progress-bar" />
     <router-view v-slot="{ Component }">
-      <component :is="Component" class="fd-page" />
+      <component :is="Component" />
     </router-view>
 
     <modal-dialog-remote-pairing

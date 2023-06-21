@@ -115,14 +115,13 @@
                 <div class="level-item fd-expanded">
                   <div class="fd-expanded">
                     <p class="heading" v-text="$t('navigation.volume')" />
-                    <Slider
+                    <input
                       v-model="player.volume"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      :tooltips="false"
-                      :classes="{ target: 'slider' }"
-                      @change="set_volume"
+                      class="slider"
+                      max="100"
+                      type="range"
+                      :style="{ '--ratio': player.volume / 100 }"
+                      @change="change_volume"
                     />
                   </div>
                 </div>
@@ -175,15 +174,15 @@
                         /></span>
                       </a>
                     </p>
-                    <Slider
+                    <input
                       v-model="stream_volume"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      :tooltips="false"
                       :disabled="!playing"
-                      :classes="{ target: 'slider' }"
-                      @change="set_stream_volume"
+                      class="slider"
+                      :class="{ 'is-inactive': !playing }"
+                      max="100"
+                      type="range"
+                      :style="{ '--ratio': stream_volume / 100 }"
+                      @change="change_stream_volume"
                     />
                   </div>
                 </div>
@@ -238,14 +237,13 @@
               <div class="level-item fd-expanded">
                 <div class="fd-expanded">
                   <p class="heading" v-text="$t('navigation.volume')" />
-                  <Slider
+                  <input
                     v-model="player.volume"
-                    :min="0"
-                    :max="100"
-                    :step="1"
-                    :tooltips="false"
-                    :classes="{ target: 'slider' }"
-                    @change="set_volume"
+                    class="slider"
+                    max="100"
+                    type="range"
+                    :style="{ '--ratio': player.volume / 100 }"
+                    @change="change_volume"
                   />
                 </div>
               </div>
@@ -260,7 +258,7 @@
         />
         <!-- Outputs: stream volume -->
         <hr class="fd-navbar-divider" />
-        <div class="navbar-item fd-has-margin-bottom">
+        <div class="navbar-item mb-5">
           <div class="level is-mobile">
             <div class="level-left fd-expanded">
               <div class="level-item" style="flex-grow: 0">
@@ -298,15 +296,15 @@
                       /></span>
                     </a>
                   </p>
-                  <Slider
+                  <input
                     v-model="stream_volume"
-                    :min="0"
-                    :max="100"
-                    :step="1"
-                    :tooltips="false"
                     :disabled="!playing"
-                    :classes="{ target: 'slider' }"
-                    @change="set_stream_volume"
+                    class="slider"
+                    :class="{ 'is-inactive': !playing }"
+                    max="100"
+                    type="range"
+                    :style="{ '--ratio': stream_volume / 100 }"
+                    @change="change_stream_volume"
                   />
                 </div>
               </div>
@@ -331,7 +329,6 @@ import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
 import PlayerButtonRepeat from '@/components/PlayerButtonRepeat.vue'
 import PlayerButtonSeekBack from '@/components/PlayerButtonSeekBack.vue'
 import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward.vue'
-import Slider from '@vueform/slider'
 import * as types from '@/store/mutation_types'
 
 export default {
@@ -339,7 +336,6 @@ export default {
   components: {
     NavbarItemLink,
     NavbarItemOutput,
-    Slider,
     PlayerButtonPlayPause,
     PlayerButtonNext,
     PlayerButtonPrevious,
@@ -382,9 +378,6 @@ export default {
       return ''
     },
 
-    state() {
-      return this.$store.state.player
-    },
     now_playing() {
       return this.$store.getters.now_playing
     },
@@ -427,16 +420,13 @@ export default {
       this.show_outputs_menu = false
     },
 
-    set_volume(newVolume) {
-      webapi.player_volume(newVolume)
+    change_volume() {
+      webapi.player_volume(this.player.volume)
     },
 
     toggle_mute_volume() {
-      if (this.player.volume > 0) {
-        this.set_volume(0)
-      } else {
-        this.set_volume(this.old_volume)
-      }
+      this.player.volume = this.player.volume > 0 ? 0 : this.old_volume
+      this.change_volume()
     },
 
     setupAudio() {
@@ -492,8 +482,8 @@ export default {
       return this.playChannel()
     },
 
-    set_stream_volume(newVolume) {
-      this.stream_volume = newVolume
+    change_stream_volume() {
+      console.log(this.stream_volume)
       _audio.setVolume(this.stream_volume / 100)
     }
   }

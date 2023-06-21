@@ -19,15 +19,15 @@
               :class="{ 'has-text-grey-light': !output.selected }"
               v-text="output.name"
             />
-            <Slider
+            <input
               v-model="volume"
-              :min="0"
-              :max="100"
-              :step="1"
-              :tooltips="false"
               :disabled="!output.selected"
-              :classes="{ target: 'slider' }"
-              @change="set_volume"
+              class="slider"
+              :class="{ 'is-inactive': !output.selected }"
+              max="100"
+              type="range"
+              :style="{ '--ratio': volume / 100 }"
+              @change="change_volume"
             />
           </div>
         </div>
@@ -37,16 +37,18 @@
 </template>
 
 <script>
-import Slider from '@vueform/slider'
 import webapi from '@/webapi'
 
 export default {
   name: 'NavbarItemOutput',
-  components: {
-    Slider
-  },
 
   props: ['output'],
+
+  data() {
+    return {
+      volume: this.output.selected ? this.output.volume : 0
+    }
+  },
 
   computed: {
     type_class() {
@@ -59,20 +61,18 @@ export default {
       } else {
         return 'server'
       }
-    },
+    }
+  },
 
-    volume() {
-      return this.output.selected ? this.output.volume : 0
+  watch: {
+    output() {
+      this.volume = this.output.volume
     }
   },
 
   methods: {
-    play_next() {
-      webapi.player_next()
-    },
-
-    set_volume(newVolume) {
-      webapi.player_output_volume(this.output.id, newVolume)
+    change_volume() {
+      webapi.player_output_volume(this.output.id, this.volume)
     },
 
     set_enabled() {

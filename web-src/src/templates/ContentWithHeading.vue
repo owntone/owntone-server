@@ -1,5 +1,5 @@
 <template>
-  <section class="section fd-content">
+  <section class="section fd-page fd-content">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">

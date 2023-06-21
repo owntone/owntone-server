@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Search field + recent searches -->
-    <section class="section pb-0">
+    <section class="section pb-0 fd-page">
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths">
