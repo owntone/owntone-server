@@ -4,7 +4,7 @@ Mobile friendly player web interface for [OwnTone](http://owntone.github.io/ownt
 with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
 
 You can find the web interface at [http://owntone.local:3689](http://owntone.local:3689)
-or alternatively at [http://[your_server_address_here]:3689](http://[your_server_address_here]:3689).
+or alternatively at http://SERVER_ADDRESS:3689.
 
 Use the web interface to control playback, trigger manual library rescans, pair
 with remotes, select speakers, authenticate with Spotify, etc.
@@ -33,7 +33,7 @@ with remotes, select speakers, authenticate with Spotify, etc.
 ## Usage
 
 You can find OwnTone's web interface at [http://owntone.local:3689](http://owntone.local:3689)
-or alternatively at [http://[your_server_address_here]:3689](http://[your_server_address_here]:3689).
+or alternatively at http://SERVER_ADDRESS:3689.
 
 
 ## Build Setup

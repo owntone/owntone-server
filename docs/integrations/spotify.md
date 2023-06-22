@@ -23,7 +23,7 @@ have to trigger updates manually. You can for instance set up a cron job that
 runs `/usr/bin/curl http://localhost:3689/api/update`
 
 To logout and remove Spotify tracks + credentials make a request to
-[http://[your_server_address_here]:3689/api/spotify-logout](http://[your_server_address_here]:3689/api/spotify-logout).
+[http://owntone.local:3689/api/spotify-logout](http://owntone.local:3689/api/spotify-logout).
 
 Limitations:
 You will not be able to do any playlist management through OwnTone - use
