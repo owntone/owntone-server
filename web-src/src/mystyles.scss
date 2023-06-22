@@ -284,10 +284,11 @@ hr.fd-navbar-divider {
 
 input[type='range'].slider {
   --sh: 0.5rem;
-  --th: calc(var(--sh) * 1.5);
+  --th: calc(var(--sh) * 1.75);
   --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
   -webkit-appearance: none;
   min-width: 250px;
+  height: calc(var(--sh) * 3);
   width: 100% !important;
   cursor: grab;
   &:active {

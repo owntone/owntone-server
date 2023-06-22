@@ -38,7 +38,7 @@
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-vue": "^9.14.1",
     "prettier": "^2.8.8",
-    "sass": "^1.63.5",
+    "sass": "^1.63.6",
     "vite": "^2.9.16"
   }
 }
